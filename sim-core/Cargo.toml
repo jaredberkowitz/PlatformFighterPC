@@ -1,0 +1,19 @@
+[package]
+name = "sim-core"
+description = "Pure deterministic fighting-game simulation. No engine, no I/O, no floats."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "step"
+harness = false
+
+[lints]
+workspace = true

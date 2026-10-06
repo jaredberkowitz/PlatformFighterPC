@@ -1,0 +1,13 @@
+[package]
+name = "netplay"
+description = "Rollback layer. Currently the local rollback harness; transport arrives in Phase 4."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+sim-core = { path = "../sim-core" }
+
+[lints]
+workspace = true

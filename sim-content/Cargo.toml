@@ -1,0 +1,13 @@
+[package]
+name = "sim-content"
+description = "Content loading, validation and balance guardrails for the simulation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+sim-core = { path = "../sim-core" }
+
+[lints]
+workspace = true
