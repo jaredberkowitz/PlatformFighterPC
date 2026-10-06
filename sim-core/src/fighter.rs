@@ -18,8 +18,9 @@ const TAP_BUFFER: u8 = 3;
 const AIR_ACTION_BUFFER: u8 = 2;
 /// Frames in which a stick flick still counts as a dash input.
 const FLICK_BUFFER: u8 = 2;
-/// Frames in which a hard down press still triggers a fast fall.
-const FAST_FALL_BUFFER: u8 = 3;
+/// Frames in which a hard down press still triggers a fast fall. Long enough that a press made
+/// just before the apex of a jump still works once the fighter starts falling.
+const FAST_FALL_BUFFER: u8 = 10;
 
 impl Fighter {
     pub fn held(&self, mask: u16) -> bool {
@@ -373,12 +374,16 @@ fn air_integrate(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<us
 fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     let input = f.history[0];
     if x_active(input) {
+        // Air acceleration (reference model): a base value plus an additional value scaled by stick
+        // tilt, the same whether speeding up, slowing down or reversing. Tilt also scales the speed
+        // the stick is asking for. Air friction is only for no input, and for momentum above the
+        // maximum air speed (a run or dash jump), which it bleeds off slowly.
         let tilt = input.stick_x_fx();
         let target = tilt * p.air_speed;
-        let overspeed = f.vel.x.signum_int() == target.signum_int() && f.vel.x.abs() > target.abs();
-        if overspeed {
-            // Already faster than air speed (a run or dash jump): keep it; only drag bleeds it off.
-            f.vel.x = approach(f.vel.x, target, p.air_friction);
+        let over_max = f.vel.x.signum_int() == tilt.signum_int() && f.vel.x.abs() > p.air_speed;
+        if over_max {
+            let cap = p.air_speed.mul_int(tilt.signum_int());
+            f.vel.x = approach(f.vel.x, cap, p.air_friction);
         } else {
             let accel = p.air_accel + p.air_accel_stick * tilt.abs();
             f.vel.x = approach(f.vel.x, target, accel);

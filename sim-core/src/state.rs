@@ -12,7 +12,7 @@ use crate::vec2::Vec2;
 use crate::{MAX_FIGHTERS, MAX_SCRIPT_VARS};
 
 /// Frames of input kept per fighter. Must cover the longest buffer window in `FighterParams`.
-pub const HISTORY_LEN: usize = 8;
+pub const HISTORY_LEN: usize = 12;
 pub const NONE: i8 = -1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

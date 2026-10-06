@@ -100,3 +100,26 @@ edge). Walking off now means falling for a moment first.
   which fast falls. Holding down ramps to full after 4 frames, which is a slow roll and so does not fast fall either.
 - Reference clip analysis (the `/watch` skill, 0:30 to 0:50): the Wolf player dash-dances in small bursts near one spot with
   a puff of dust at each stop, firing the blaster between dashes, and covers only a few body widths over about two seconds.
+
+## Air drift model (reference: ssbwiki Air acceleration and Air friction)
+
+Per frame while airborne with horizontal stick tilt `t` (signed, -1 to 1):
+
+- **Acceleration** = `air_accel + air_accel_stick * |t|`, applied toward a target speed of `t * air_speed`. It is the same
+  whether you speed up, slow down or reverse. Marth-style: 0.01 + 0.07; Wolf-style: 0.01 + 0.08 (reference units per frame squared).
+- **Air friction** applies only with no horizontal input (it decelerates toward zero), and to momentum above the maximum air
+  speed when the stick is held the same way (a run or dash jump). Holding the other way brakes that momentum with full
+  air acceleration. Values: duelist 0.00375, brawler 0.01. (The brawler's number comes from the dedicated air-friction table;
+  its character page lists 0.004, so treat it as less certain.)
+- Easing the stick back from full tilt slows you with acceleration, not friction.
+
+Tests pin each of these to exact per-frame values.
+
+## Fast fall fix
+
+A double tap was ignored if the two presses were more than 14 frames apart, which is faster than many people double-tap.
+The keyboard window is now 26 frames (about 0.43 s), and the sim remembers a hard down press for 10 frames, so a press just
+before the apex still fast falls once you start falling. The input history is 12 frames.
+
+`godot/tests/input_e2e.gd` sends real key events through Godot's Input, the Rust sim and back, and asserts which taps fast fall:
+`Godot --headless --path godot --script res://tests/input_e2e.gd`

@@ -194,6 +194,13 @@ impl FighterParams {
 
     /// Like `su`, but for ground movement (speeds, accelerations, friction), scaled by
     /// [`GROUND_SPEED_PERCENT`] so the ground game can be tuned without touching air movement or jumps.
+    /// Like `su`, but in hundred-thousandths, for the very small values (air friction 0.00375).
+    pub const fn su_fine(hundred_thousandths: i32) -> Fx {
+        Fx::from_ratio(hundred_thousandths, 800_000)
+    }
+
+    /// Like `su`, but for ground movement (speeds, accelerations, friction), scaled by
+    /// [`GROUND_SPEED_PERCENT`] so the ground game can be tuned without touching air movement or jumps.
     pub const fn gu(thousandths: i32) -> Fx {
         Fx::from_ratio(thousandths * GROUND_SPEED_PERCENT, 800_000)
     }
@@ -228,7 +235,7 @@ impl FighterParams {
             air_speed: su(1100),
             air_accel: su(10),
             air_accel_stick: su(70),
-            air_friction: su(8),
+            air_friction: FighterParams::su_fine(375),
             gravity: su(100),
             max_fall_speed: su(1700),
             fast_fall_speed: su(2700),
@@ -290,7 +297,7 @@ impl FighterParams {
             run_speed: gu(1964),
             dash_speed: gu(2255),
             air_speed: su(1071),
-            air_friction: su(8),
+            air_friction: FighterParams::su_fine(375),
             gravity,
             max_fall_speed: su(1580),
             fast_fall_speed: su(2528),
@@ -316,7 +323,7 @@ impl FighterParams {
             dash_initial_speed: gu(840),
             air_speed: su(1281),
             air_accel_stick: su(80),
-            air_friction: su(4),
+            air_friction: su(10),
             gravity,
             max_fall_speed: su(1800),
             fast_fall_speed: su(2880),

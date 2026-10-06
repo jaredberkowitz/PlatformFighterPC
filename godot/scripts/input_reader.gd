@@ -26,7 +26,7 @@ static var _down_state := {}
 ## Holding down ramps to full tilt after SOFT_HOLD_FRAMES. That is a slow roll, not a hard press.
 const SOFT_DOWN := 0.55
 const SOFT_HOLD_FRAMES := 4
-const DOUBLE_TAP_FRAMES := 14
+const DOUBLE_TAP_FRAMES := 26  # about 0.43 s between the two presses
 
 
 ## Keyboard axis where the most recently pressed direction wins when both are held. Without this,

@@ -882,3 +882,161 @@ fn stopping_from_a_full_run_takes_under_ten_frames() {
     }
     assert!(frames <= 10, "took {frames} frames to stop");
 }
+
+#[test]
+fn a_hard_press_just_before_the_apex_fast_falls_once_falling_starts() {
+    // Press hard while still rising; the fighter reaches the apex a few frames later.
+    let mut sim = Sim::new();
+    sim.put_airborne(
+        0,
+        Fx::ZERO,
+        Fx::from_int(40),
+        Fx::ZERO,
+        Fx::from_ratio(1, 20),
+    );
+    sim.ticks(1, inp(0, 0, 0));
+    sim.tick(inp(0, -127, 0));
+    assert!(
+        sim.f().vel.y > Fx::ZERO,
+        "test needs the fighter still rising"
+    );
+    assert!(!sim.f().fast_fall);
+    sim.ticks(1, inp(0, 0, 0));
+    for _ in 0..8 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert!(
+        sim.f().fast_fall,
+        "a recent hard press should apply once the fighter starts falling"
+    );
+}
+
+#[test]
+fn a_hard_press_long_before_the_apex_is_forgotten() {
+    let mut sim = Sim::new();
+    sim.put_airborne(
+        0,
+        Fx::ZERO,
+        Fx::from_int(40),
+        Fx::ZERO,
+        Fx::from_ratio(1, 4),
+    );
+    sim.tick(inp(0, -127, 0));
+    sim.ticks(60, inp(0, 0, 0));
+    assert!(!sim.f().fast_fall);
+}
+
+// ---- Air acceleration and air friction (reference model) --------------------------------------
+
+fn high_air(vx: Fx) -> Sim {
+    let mut sim = Sim::new();
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(500), vx, Fx::ZERO);
+    sim
+}
+
+#[test]
+fn air_acceleration_is_base_plus_additional_scaled_by_stick_tilt() {
+    let p = Sim::new().content.fighters[0];
+    // Full tilt: base + additional.
+    let mut sim = high_air(Fx::ZERO);
+    sim.tick(inp(127, 0, 0));
+    assert_eq!(sim.f().vel.x, p.air_accel + p.air_accel_stick);
+
+    // Half tilt: base + additional * tilt, and the speed asked for is tilt * max.
+    let tilt = Input::axis(64);
+    let mut sim = high_air(Fx::ZERO);
+    sim.tick(inp(64, 0, 0));
+    assert_eq!(sim.f().vel.x, p.air_accel + p.air_accel_stick * tilt);
+    sim.ticks(60, inp(64, 0, 0));
+    assert_eq!(
+        sim.f().vel.x,
+        tilt * p.air_speed,
+        "half tilt should settle at half the max air speed"
+    );
+}
+
+use sim_core::Input;
+
+#[test]
+fn full_tilt_reaches_the_maximum_air_speed_and_stops_there() {
+    let p = Sim::new().content.fighters[0];
+    let mut sim = high_air(Fx::ZERO);
+    sim.ticks(60, inp(127, 0, 0));
+    assert_eq!(sim.f().vel.x, p.air_speed);
+    sim.ticks(10, inp(127, 0, 0));
+    assert_eq!(
+        sim.f().vel.x,
+        p.air_speed,
+        "must not exceed max air speed by drifting"
+    );
+}
+
+#[test]
+fn reversing_in_the_air_uses_the_same_acceleration_as_speeding_up() {
+    let p = Sim::new().content.fighters[0];
+    let accel = p.air_accel + p.air_accel_stick;
+    let mut sim = high_air(p.air_speed);
+    let mut last = sim.f().vel.x;
+    for _ in 0..6 {
+        sim.tick(inp(-127, 0, 0));
+        assert_eq!(
+            last - sim.f().vel.x,
+            accel,
+            "each frame of reversing changes speed by the full acceleration"
+        );
+        last = sim.f().vel.x;
+    }
+}
+
+#[test]
+fn with_no_stick_air_friction_slows_you_down_at_the_characters_own_rate() {
+    for (chars, name) in [([0, 1, 0, 1], "duelist"), ([1, 0, 1, 0], "brawler")] {
+        let mut sim = Sim::with_chars(chars);
+        let p = sim.content.fighters[usize::from(chars[0])];
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(500), p.air_speed, Fx::ZERO);
+        let mut last = sim.f().vel.x;
+        for _ in 0..5 {
+            sim.tick(inp(0, 0, 0));
+            assert_eq!(last - sim.f().vel.x, p.air_friction, "{name}");
+            last = sim.f().vel.x;
+        }
+    }
+    let (duelist, brawler) = (
+        Sim::new().content.fighters[0],
+        Sim::new().content.fighters[1],
+    );
+    assert!(
+        brawler.air_friction > duelist.air_friction,
+        "the brawler sheds air speed faster"
+    );
+}
+
+#[test]
+fn momentum_above_max_air_speed_is_worn_down_by_friction_not_by_the_stick() {
+    let p = Sim::new().content.fighters[0];
+    let start = p.air_speed.mul_int(2);
+    let mut sim = high_air(start);
+    let mut last = start;
+    for _ in 0..6 {
+        sim.tick(inp(127, 0, 0)); // holding forward does not brake it
+        assert_eq!(last - sim.f().vel.x, p.air_friction);
+        last = sim.f().vel.x;
+    }
+    // Holding backward does brake it, at full air acceleration.
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!(last - sim.f().vel.x, p.air_accel + p.air_accel_stick);
+}
+
+#[test]
+fn easing_the_stick_back_slows_you_with_acceleration_not_friction() {
+    let p = Sim::new().content.fighters[0];
+    let tilt = Input::axis(64);
+    let mut sim = high_air(p.air_speed);
+    sim.tick(inp(64, 0, 0));
+    assert_eq!(
+        p.air_speed - sim.f().vel.x,
+        p.air_accel + p.air_accel_stick * tilt
+    );
+    sim.ticks(40, inp(64, 0, 0));
+    assert_eq!(sim.f().vel.x, tilt * p.air_speed);
+}
