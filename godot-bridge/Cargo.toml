@@ -1,0 +1,20 @@
+[package]
+name = "godot-bridge"
+description = "gdext wrapper: exposes the deterministic sim to Godot as a thin node. No gameplay logic lives here."
+version.workspace = true
+edition.workspace = true
+rust-version = "1.85"
+license.workspace = true
+publish = false
+
+[lib]
+name = "pf_bridge"
+crate-type = ["cdylib"]
+
+[dependencies]
+sim-core = { path = "../sim-core" }
+sim-content = { path = "../sim-content" }
+godot = "0.5"
+
+# Deliberately not opted into the workspace sim lints: this crate converts to Godot's float types
+# for display only. It never feeds floats back into the simulation.

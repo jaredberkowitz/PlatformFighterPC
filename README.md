@@ -4,7 +4,7 @@ An original, legally distinct platform fighter with rollback netcode, a characte
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
 Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
 
-## Status: Phase 1, Movement (sim side)
+## Status: Phase 1 complete (movement), playable in Godot
 
 | Crate | Purpose | State |
 | --- | --- | --- |
@@ -13,7 +13,26 @@ Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
 | `sim-script` | Integer-only scripting VM | Stub (Phase 5) |
 | `netplay` | Rollback layer | Local rollback harness (Phase 2 proof); transport is Phase 4 |
 | `tools` | `pftool`: replay generator/runner, CI checksum dump, rollback fuzzer | Working |
-| `godot-bridge` | gdext nodes that render sim state | Not started (Week 4) |
+| `godot-bridge` | gdext `SimRunner` node: ticks the sim, exposes read-only state | Working |
+| `godot/` | Godot 4.7 project: blob fighters, stage, training overlay | Playable test bed |
+
+## Play it
+
+```bash
+cargo build -p godot-bridge
+tools/godot/Godot_v4.7.1-stable_win64.exe --path godot
+```
+
+`tools/godot/` is git-ignored. Download Godot 4.7.x and put it there, or open `godot/` in your own Godot.
+
+- **P1** WASD stick, Ctrl = gentle tilt (walk), Space jump, J attack, K special, L or Shift shield.
+- **P2** Arrows, Backslash = tilt, Enter jump, comma attack, period special, slash shield.
+- **Gamepads** left stick, A/Y jump, X attack, B special, bumpers or triggers shield.
+- **Training keys** F1 overlay, F2 ECB diamonds, P pause, `.` step forward, `,` step back, R restart.
+
+Try a wavedash (tap jump, then shield with the stick held down-diagonal), shield + down on a platform, or
+falling near a ledge. Scripted screenshot demos: `Godot --path godot -- --demo=wavedash --shots=<folder>`
+(names: wavedash, ledge, shielddrop, tour, portrait).
 
 ## Commands
 
