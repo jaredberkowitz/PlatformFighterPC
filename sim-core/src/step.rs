@@ -25,6 +25,9 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
 
     // Phase 1b: hits. Everything has moved, so hitboxes and hurtboxes are where they will be seen.
     combat::resolve_hits(state, content);
+    // Existing projectiles move first, so a new one stays at the muzzle on the frame it appears.
+    combat::update_projectiles(state, content);
+    combat::spawn_projectiles(state, content);
 
     // Phase 2: ledge ownership.
     // Free ledges whose occupant left them (dropped, got up, jumped, or was hit).

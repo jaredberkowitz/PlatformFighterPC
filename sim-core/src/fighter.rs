@@ -170,9 +170,9 @@ pub fn update(
     match f.state {
         S::Attack => attack(f, p, weapon, stage),
         S::Hitstun => hitstun(f, p, stage, rules),
-        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, stage),
+        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
         S::JumpSquat => jump_squat(f, p, stage),
-        S::Airborne => return airborne(f, p, stage),
+        S::Airborne => return airborne(f, p, weapon, stage),
         S::Helpless => return helpless(f, p, stage),
         S::AirDodge => air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
@@ -230,7 +230,7 @@ fn start_platform_drop(f: &mut Fighter, p: &FighterParams) {
     enter(f, S::Airborne);
 }
 
-fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     let input = f.history[0];
     if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
         enter(f, S::JumpSquat);
@@ -242,6 +242,9 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     }
     if on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
         start_platform_drop(f, p);
+        return;
+    }
+    if f.pressed_within(buttons::SPECIAL, ATTACK_BUFFER) && start_special(f, weapon) {
         return;
     }
     if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
@@ -470,7 +473,7 @@ fn ledge_request(f: &Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
     }
 }
 
-fn airborne(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
+fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) -> Option<u8> {
     if f.pressed_within(buttons::JUMP, AIR_ACTION_BUFFER) && f.air_jumps_left > 0 {
         f.vel.y = p.air_jump_velocity;
         f.air_jumps_left -= 1;
@@ -478,6 +481,9 @@ fn airborne(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
     }
     if f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER) && !f.air_dodge_used {
         start_air_dodge(f, p, stage);
+        return None;
+    }
+    if f.pressed_within(buttons::SPECIAL, ATTACK_BUFFER) && start_special(f, weapon) {
         return None;
     }
     if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
@@ -796,13 +802,44 @@ fn start_air_attack(f: &mut Fighter) {
 
 fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     let mv = weapon.get(f.move_id);
-    let aerial = MoveId::from_index(f.move_id).is_aerial();
-    if aerial {
+    let id = MoveId::from_index(f.move_id);
+
+    // A move can fire a projectile on one frame (the step applies the request).
+    if let Some(spec) = mv.projectile {
+        if f.state_frame == u16::from(spec.frame) {
+            f.spawn_request = true;
+        }
+    }
+
+    // Scripted motion (a rising special) overrides normal physics while it is active.
+    let frame = f.state_frame;
+    let motion = mv
+        .motion
+        .iter()
+        .find(|m| frame >= u16::from(m.start) && frame <= u16::from(m.end))
+        .copied();
+    if let Some(m) = motion {
+        f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), m.vy);
+        if m.vy > Fx::ZERO {
+            f.platform = NONE;
+        }
+        let moved = move_by(f, p, stage, f.vel);
+        if moved.wall {
+            f.vel.x = Fx::ZERO;
+        }
+        if moved.ceiling {
+            f.vel.y = Fx::ZERO;
+        }
+        if let Some(platform) = moved.landing {
+            land(f, p, stage, platform);
+            enter_landing(f, mv.landing_lag);
+            return;
+        }
+    } else if id.is_aerial() || (id.is_special() && !f.grounded()) {
         if air_move(f, p, stage) {
             // Landing early or late in the move autocancels: only the normal landing lag.
-            let frame = f.state_frame;
             let clean =
-                frame <= u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
+                frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
             enter_landing(f, if clean { p.landing_lag } else { mv.landing_lag });
             return;
         }
@@ -812,9 +849,43 @@ fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
             return;
         }
     }
+
     if f.state_frame >= u16::from(mv.total_frames) {
-        enter(f, if aerial { S::Airborne } else { S::Idle });
+        if mv.turns_around {
+            f.facing = -f.facing;
+        }
+        if f.grounded() {
+            enter(f, S::Idle);
+        } else if mv.helpless_after {
+            enter_helpless(f);
+        } else {
+            enter(f, S::Airborne);
+        }
     }
+}
+
+/// Starts a special move chosen by the stick, if the weapon has one there. Returns whether it started.
+fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
+    let input = f.history[0];
+    let id = if input.stick_y >= STICK_DOWN {
+        MoveId::UpSpecial
+    } else if input.stick_y <= -STICK_DOWN {
+        MoveId::DownSpecial
+    } else if x_active(input) {
+        MoveId::SideSpecial
+    } else {
+        MoveId::NSpecial
+    };
+    let mv = weapon.get(id as u8);
+    if mv.is_empty() {
+        return false;
+    }
+    if id == MoveId::SideSpecial {
+        f.facing = if input.stick_x > 0 { 1 } else { -1 };
+    }
+    begin_attack(f, id);
+    f.invuln = f.invuln.max(mv.intangible);
+    true
 }
 
 /// Launch physics while stunned. Gravity acts normally; the launch speed decays on top of it.

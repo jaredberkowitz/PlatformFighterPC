@@ -15,6 +15,8 @@ use crate::{MAX_FIGHTERS, MAX_SCRIPT_VARS};
 /// Frames of input kept per fighter. Must cover the longest buffer window in `FighterParams`.
 pub const HISTORY_LEN: usize = 12;
 pub const NONE: i8 = -1;
+/// Fixed capacity of the projectile pool.
+pub const MAX_PROJECTILES: usize = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -100,8 +102,35 @@ pub struct Fighter {
     pub hit_mask: u8,
     /// Invulnerable frames remaining (respawn).
     pub invuln: u8,
+    /// The current move wants to spawn its projectile this frame (consumed by `step`).
+    pub spawn_request: bool,
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
     pub history: [Input; HISTORY_LEN],
+}
+
+/// A projectile in flight. Slots are reused; `active` marks a live one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Projectile {
+    pub active: bool,
+    pub owner: u8,
+    /// The owner's move that fired it (for its hit data).
+    pub move_id: u8,
+    pub pos: Vec2,
+    pub vel: Vec2,
+    pub age: u8,
+    pub life: u8,
+}
+
+impl StateHash for Projectile {
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_bool(self.active);
+        h.write_u8(self.owner);
+        h.write_u8(self.move_id);
+        self.pos.hash_into(h);
+        self.vel.hash_into(h);
+        h.write_u8(self.age);
+        h.write_u8(self.life);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,6 +140,7 @@ pub struct GameState {
     pub fighters: [Fighter; MAX_FIGHTERS],
     /// Which fighter holds each ledge, or [`NONE`].
     pub ledge_owner: [i8; MAX_LEDGES],
+    pub projectiles: [Projectile; MAX_PROJECTILES],
     pub script_vars: [i32; MAX_SCRIPT_VARS],
 }
 
@@ -150,6 +180,7 @@ impl Fighter {
             move_id: 0,
             hit_mask: 0,
             invuln: 0,
+            spawn_request: false,
             history: [Input::default(); HISTORY_LEN],
         }
     }
@@ -178,6 +209,7 @@ impl GameState {
             rng: Rng::new(seed),
             fighters,
             ledge_owner: [NONE; MAX_LEDGES],
+            projectiles: [Projectile::default(); MAX_PROJECTILES],
             script_vars: [0; MAX_SCRIPT_VARS],
         }
     }
@@ -221,6 +253,7 @@ impl StateHash for Fighter {
         h.write_u8(self.move_id);
         h.write_u8(self.hit_mask);
         h.write_u8(self.invuln);
+        h.write_bool(self.spawn_request);
         for input in &self.history {
             input.hash_into(h);
         }
@@ -236,6 +269,9 @@ impl StateHash for GameState {
         }
         for o in &self.ledge_owner {
             h.write_i8(*o);
+        }
+        for p in &self.projectiles {
+            p.hash_into(h);
         }
         for v in &self.script_vars {
             h.write_i32(*v);
@@ -440,6 +476,21 @@ mod tests {
             ("invuln", {
                 let mut s = state;
                 s.fighters[0].invuln = 1;
+                s
+            }),
+            ("spawn_request", {
+                let mut s = state;
+                s.fighters[0].spawn_request = true;
+                s
+            }),
+            ("projectile", {
+                let mut s = state;
+                s.projectiles[MAX_PROJECTILES - 1].active = true;
+                s
+            }),
+            ("projectile_pos", {
+                let mut s = state;
+                s.projectiles[0].pos.x = Fx::from_raw(1);
                 s
             }),
             ("history", {

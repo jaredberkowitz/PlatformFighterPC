@@ -1,0 +1,558 @@
+//! The moves built from reference frame data. Frame numbering matches the reference game: the tick on which
+//! the button is pressed is frame 1, so a hitbox "active on frame 6" lands on tick 6, and a move whose first
+//! actionable frame is 38 returns control on tick 38.
+//!
+//! Sources: community frame-data tables for a swordfighter archetype (forward tilt, neutral/forward/back
+//! air, up special) and a blaster-brawler archetype (forward tilt, neutral/forward air, blaster).
+//! Hitbox positions and sizes, the up special's travel, and the blaster's speed are estimates.
+
+mod common;
+
+use common::{fx, inp, Sim};
+use sim_core::combat::is_intangible;
+use sim_core::input::buttons::{ATTACK, SHIELD, SPECIAL};
+use sim_core::moves::MoveId;
+use sim_core::state::FighterState as S;
+use sim_core::{Fx, Input};
+
+/// Everyone is the sword character, or everyone is the claws/blaster character.
+const MARTH: [u8; 4] = [0, 0, 0, 0];
+const WOLF: [u8; 4] = [1, 1, 1, 1];
+
+/// Percent a hit of `tenths` tenths of a percent deals, including the ruleset damage multiplier.
+fn pct(sim: &Sim, tenths: i32) -> Fx {
+    Fx::from_ratio(tenths, 10) * sim.content.rules.damage_mult
+}
+
+/// Players 3 and 4 only exist because the sim has four slots; make them untouchable so shots and swings
+/// aimed at player 2 are not intercepted by them.
+fn park_the_others(sim: &mut Sim) {
+    sim.state.fighters[2].invuln = 255;
+    sim.state.fighters[3].invuln = 255;
+}
+
+/// Two fighters high in the air so nobody lands; player 1 is `gap` in front of (or, if negative, behind) player 0.
+fn air_duel(chars: [u8; 4], gap: Fx) -> Sim {
+    let mut sim = Sim::with_chars(chars);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    sim.put_airborne(1, gap, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.state.fighters[1].facing = if gap >= Fx::ZERO { -1 } else { 1 };
+    park_the_others(&mut sim);
+    sim
+}
+
+/// Two fighters on the ground, player 0 at x = -7 facing right and player 1 `gap` ahead.
+fn ground_duel(chars: [u8; 4], gap: Fx) -> Sim {
+    let mut sim = Sim::with_chars(chars);
+    sim.stand(0, Fx::from_int(-7), 1);
+    sim.stand(1, Fx::from_int(-7) + gap, -1);
+    park_the_others(&mut sim);
+    sim
+}
+
+/// Runs `first` on tick 1 and idle after, returning the tick on which fighter 1's percent first rises.
+fn hit_tick(sim: &mut Sim, first: Input) -> Option<usize> {
+    let before = sim.fighter(1).percent;
+    sim.tick(first);
+    if sim.fighter(1).percent > before {
+        return Some(1);
+    }
+    for t in 2..=90 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > before {
+            return Some(t);
+        }
+    }
+    None
+}
+
+/// Fighter 1's launch velocity on the frame its hit launches.
+fn launch_velocity(sim: &mut Sim) -> sim_core::Vec2 {
+    for _ in 0..60 {
+        let pending_before = sim.fighter(1).launch_pending;
+        sim.tick(inp(0, 0, 0));
+        if pending_before && !sim.fighter(1).launch_pending {
+            return sim.fighter(1).kb_vel;
+        }
+    }
+    panic!("the hit never launched");
+}
+
+// ---- Marth-style forward air ---------------------------------------------------------------------------
+
+#[test]
+fn forward_air_hits_on_frame_6_for_8_percent_close_and_11_5_at_the_tip() {
+    let mut tip = air_duel(MARTH, fx(43, 10));
+    assert_eq!(hit_tick(&mut tip, inp(127, 0, ATTACK)), Some(6));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 115));
+
+    let mut close = air_duel(MARTH, fx(10, 10));
+    assert_eq!(hit_tick(&mut close, inp(127, 0, ATTACK)), Some(6));
+    assert_eq!(close.fighter(1).percent, pct(&close, 80));
+}
+
+#[test]
+fn forward_air_launches_at_the_sakurai_angle_with_base_knockback_40_and_growth_80() {
+    let mut sim = air_duel(MARTH, fx(43, 10));
+    hit_tick(&mut sim, inp(127, 0, ATTACK)).unwrap();
+    let kb = sim.fighter(1).launch_kb;
+    let expected = sim_core::combat::knockback(
+        pct(&sim, 115),
+        Fx::from_ratio(115, 10),
+        sim.content.fighters[0].weight,
+        40,
+        80,
+    );
+    assert_eq!(kb, expected);
+    let v = launch_velocity(&mut sim);
+    // Angle 361 against an airborne target is 44 degrees: up and forward at a slope of about 0.97.
+    let slope = v.y / v.x;
+    assert!(slope > fx(9, 10) && slope < fx(104, 100), "{slope:?}");
+}
+
+// ---- Marth-style back air -------------------------------------------------------------------------------
+
+#[test]
+fn back_air_hits_on_frame_7_for_9_percent_close_and_12_5_at_the_tip() {
+    let mut tip = air_duel(MARTH, fx(-43, 10));
+    assert_eq!(hit_tick(&mut tip, inp(-127, 0, ATTACK)), Some(7));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 125));
+
+    let mut close = air_duel(MARTH, fx(-10, 10));
+    assert_eq!(hit_tick(&mut close, inp(-127, 0, ATTACK)), Some(7));
+    assert_eq!(close.fighter(1).percent, pct(&close, 90));
+}
+
+#[test]
+fn back_air_sends_the_victim_backward_and_turns_the_attacker_around() {
+    let mut sim = air_duel(MARTH, fx(-43, 10));
+    hit_tick(&mut sim, inp(-127, 0, ATTACK)).unwrap();
+    let v = launch_velocity(&mut sim);
+    assert!(
+        v.x < Fx::ZERO && v.y > Fx::ZERO,
+        "away from the sword's back: {v:?}"
+    );
+    // The move finishes with the attacker facing the other way.
+    let mut sim = air_duel(MARTH, fx(100, 10));
+    sim.tick(inp(-127, 0, ATTACK));
+    assert_eq!(sim.f().facing, 1);
+    sim.ticks(45, inp(0, 0, 0));
+    assert_eq!(sim.f().facing, -1);
+}
+
+// ---- Marth-style neutral air ----------------------------------------------------------------------------
+
+#[test]
+fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frame_15() {
+    // First hit: 5% at the tip, 3.5% close.
+    let mut tip = air_duel(MARTH, fx(38, 10));
+    assert_eq!(hit_tick(&mut tip, inp(0, 0, ATTACK)), Some(6));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 50));
+    let mut close = air_duel(MARTH, fx(10, 10));
+    assert_eq!(hit_tick(&mut close, inp(0, 0, ATTACK)), Some(6));
+    assert_eq!(close.fighter(1).percent, pct(&close, 35));
+
+    // Second hit: with the first already used up, frame 15 deals 9.5% at the tip, 7% close.
+    for (gap, tenths) in [(38, 95), (10, 70)] {
+        let mut sim = air_duel(MARTH, fx(gap, 10));
+        sim.tick(inp(0, 0, ATTACK));
+        sim.state.fighters[0].hit_mask = 0b0010; // group 0 already hit fighter 1
+        for _ in 2..=14 {
+            sim.tick(inp(0, 0, 0));
+            assert_eq!(sim.fighter(1).percent, Fx::ZERO, "nothing before frame 15");
+        }
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(sim.fighter(1).percent, pct(&sim, tenths), "gap {gap}");
+    }
+}
+
+#[test]
+fn neutral_air_marks_both_hit_groups_once_each() {
+    let mut sim = air_duel(MARTH, fx(38, 10));
+    sim.tick(inp(0, 0, ATTACK));
+    sim.ticks(20, inp(0, 0, 0));
+    let mask = sim.f().hit_mask;
+    assert_ne!(mask & 0b0010, 0, "first hit recorded");
+}
+
+// ---- Marth-style up special -----------------------------------------------------------------------------
+
+#[test]
+fn up_special_is_intangible_for_its_first_five_frames() {
+    let mut sim = Sim::new();
+    sim.stand(0, Fx::from_int(-7), 1);
+    sim.stand(1, Fx::from_int(8), -1);
+    park_the_others(&mut sim);
+    sim.tick(inp(0, 127, SPECIAL));
+    assert_eq!(sim.f().state, S::Attack);
+    assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
+    for tick in 1..=5 {
+        if tick > 1 {
+            sim.tick(inp(0, 0, 0));
+        }
+        assert!(is_intangible(sim.f()), "intangible on frame {tick}");
+    }
+    sim.tick(inp(0, 0, 0));
+    assert!(!is_intangible(sim.f()), "vulnerable from frame 6");
+}
+
+#[test]
+fn up_special_rises_about_44_reference_units_and_leaves_the_ground() {
+    let mut sim = Sim::new();
+    sim.stand(0, Fx::from_int(-2), 1); // clear of the pass-through platforms, even after drifting forward
+    sim.stand(1, Fx::from_int(8), -1);
+    park_the_others(&mut sim);
+    sim.tick(inp(0, 127, SPECIAL));
+    let mut peak = Fx::ZERO;
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        peak = peak.max(sim.f().pos.y);
+    }
+    // 44 reference units is 5.5 world units.
+    assert!(peak > fx(51, 10) && peak < fx(58, 10), "peak {peak:?}");
+    assert!(!sim.f().grounded());
+}
+
+#[test]
+fn up_special_hits_on_frame_5_for_11_percent_then_ends_helpless() {
+    let mut sim = ground_duel(MARTH, fx(18, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, 127, SPECIAL)), Some(5));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 110));
+
+    let mut sim = Sim::new();
+    sim.stand(0, Fx::from_int(-2), 1); // clear of the pass-through platforms, even after drifting forward
+    sim.stand(1, Fx::from_int(8), -1);
+    park_the_others(&mut sim);
+    sim.tick(inp(0, 127, SPECIAL));
+    sim.ticks(47, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "still going on tick 48");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.f().state,
+        S::Helpless,
+        "helpless once the move ends in the air"
+    );
+}
+
+#[test]
+fn special_slots_a_weapon_does_not_have_do_nothing() {
+    // The sword character has an up special but no neutral, side or down special yet.
+    for stick in [(0, 0), (127, 0), (0, -127)] {
+        let mut sim = Sim::new();
+        sim.stand(0, Fx::ZERO, 1);
+        sim.tick(inp(stick.0, stick.1, SPECIAL));
+        assert_ne!(sim.f().state, S::Attack, "stick {stick:?}");
+    }
+    // The blaster character has no up special.
+    let mut sim = Sim::with_chars(WOLF);
+    sim.stand(0, Fx::ZERO, 1);
+    sim.tick(inp(0, 127, SPECIAL));
+    assert_ne!(sim.f().state, S::Attack);
+}
+
+// ---- Wolf-style forward air -----------------------------------------------------------------------------
+
+#[test]
+fn wolf_forward_air_hits_on_frame_7_for_9_percent_at_60_degrees() {
+    let mut sim = air_duel(WOLF, fx(23, 10));
+    assert_eq!(hit_tick(&mut sim, inp(127, 0, ATTACK)), Some(7));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 90));
+    let v = launch_velocity(&mut sim);
+    let slope = v.y / v.x; // tan(60 degrees) is 1.73
+    assert!(slope > fx(16, 10) && slope < fx(185, 100), "{slope:?}");
+}
+
+// ---- Wolf-style neutral air -----------------------------------------------------------------------------
+
+#[test]
+fn wolf_neutral_air_hits_on_frame_7_for_12_percent() {
+    let mut sim = air_duel(WOLF, fx(15, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, 0, ATTACK)), Some(7));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 120));
+}
+
+#[test]
+fn wolf_neutral_air_lingers_as_an_8_percent_hit_until_frame_26() {
+    // The target is out of range for the early hit and steps in later.
+    let mut sim = air_duel(WOLF, fx(60, 10));
+    sim.tick(inp(0, 0, ATTACK));
+    for _ in 2..=9 {
+        sim.tick(inp(0, 0, 0));
+    }
+    let (y, vy) = (sim.f().pos.y, sim.f().vel.y);
+    sim.put_airborne(1, fx(15, 10), y, Fx::ZERO, vy);
+    sim.tick(inp(0, 0, 0)); // tick 10: the lingering hitbox begins
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 80));
+}
+
+// ---- Wolf-style forward tilt ----------------------------------------------------------------------------
+
+#[test]
+fn wolf_forward_tilt_hits_twice_5_percent_on_frame_8_then_6_percent() {
+    let mut sim = ground_duel(WOLF, fx(20, 10));
+    assert_eq!(hit_tick(&mut sim, inp(30, 0, ATTACK)), Some(8));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 50));
+    sim.ticks(30, inp(0, 0, 0));
+    assert_eq!(
+        sim.fighter(1).percent,
+        pct(&sim, 50) + pct(&sim, 60),
+        "both hits connect"
+    );
+    assert_eq!(sim.f().hit_mask & 0b0010, 0b0010);
+    assert_eq!(sim.f().hit_mask & 0b0010_0000, 0b0010_0000);
+}
+
+#[test]
+fn marth_style_forward_tilt_hits_on_frame_8_for_9_percent_close_and_12_at_the_tip() {
+    let mut tip = ground_duel(MARTH, fx(40, 10));
+    assert_eq!(hit_tick(&mut tip, inp(30, 0, ATTACK)), Some(8));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 120));
+    let mut close = ground_duel(MARTH, fx(10, 10));
+    assert_eq!(hit_tick(&mut close, inp(30, 0, ATTACK)), Some(8));
+    assert_eq!(close.fighter(1).percent, pct(&close, 90));
+}
+
+// ---- Wolf-style blaster ---------------------------------------------------------------------------------
+
+fn blaster_duel(gap: Fx) -> Sim {
+    ground_duel(WOLF, gap)
+}
+
+#[test]
+fn the_blaster_fires_a_shot_on_frame_16_from_the_muzzle() {
+    let mut sim = blaster_duel(fx(185, 10));
+    sim.tick(inp(0, 0, SPECIAL));
+    for t in 2..=15 {
+        sim.tick(inp(0, 0, 0));
+        assert!(
+            !sim.state.projectiles[0].active,
+            "nothing fires before frame 16 (tick {t})"
+        );
+    }
+    sim.tick(inp(0, 0, 0));
+    let shot = sim.state.projectiles[0];
+    assert!(shot.active);
+    assert_eq!(shot.pos.x, sim.f().pos.x + fx(20, 10));
+    assert_eq!(shot.pos.y, fx(12, 10));
+    assert!(shot.vel.x > Fx::ZERO, "fired forward");
+}
+
+#[test]
+fn the_shot_travels_at_a_constant_speed_and_vanishes_after_its_range() {
+    let mut sim = blaster_duel(fx(185, 10));
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.ticks(15, inp(0, 0, 0));
+    let spawn_x = sim.state.projectiles[0].pos.x;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.state.projectiles[0].pos.x - spawn_x,
+        Fx::from_ratio(3000, 8000)
+    );
+    // Lifetime 35 frames, so gone on tick 51; that is about two thirds of the way across the stage.
+    sim.ticks(33, inp(0, 0, 0));
+    assert!(sim.state.projectiles[0].active, "still flying on tick 50");
+    sim.tick(inp(0, 0, 0));
+    assert!(!sim.state.projectiles[0].active, "gone on tick 51");
+    let range = sim.state.projectiles[0].pos.x - sim.f().pos.x;
+    assert!(range > fx(12, 1) && range < fx(16, 1), "range {range:?}");
+}
+
+#[test]
+fn a_shot_does_less_damage_the_further_it_has_travelled() {
+    let near = {
+        let mut sim = blaster_duel(fx(40, 10));
+        sim.tick(inp(0, 0, SPECIAL));
+        sim.ticks(60, inp(0, 0, 0));
+        sim.fighter(1).percent
+    };
+    let far = {
+        let mut sim = blaster_duel(fx(120, 10));
+        sim.tick(inp(0, 0, SPECIAL));
+        sim.ticks(60, inp(0, 0, 0));
+        sim.fighter(1).percent
+    };
+    let sim = Sim::new();
+    assert!(near > far, "{near:?} vs {far:?}");
+    // The reference says 8% falling to 6% over the range, times the damage multiplier.
+    assert!(
+        near <= pct(&sim, 80) && far >= pct(&sim, 60),
+        "{near:?} {far:?}"
+    );
+}
+
+#[test]
+fn a_shot_out_of_range_never_hits() {
+    let mut sim = blaster_duel(fx(185, 10));
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.ticks(80, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+}
+
+#[test]
+fn the_shot_flinches_instead_of_launching_and_is_used_up_on_hit() {
+    let mut sim = blaster_duel(fx(60, 10));
+    sim.tick(inp(0, 0, SPECIAL));
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > Fx::ZERO {
+            break;
+        }
+    }
+    assert!(sim.fighter(1).percent > Fx::ZERO);
+    assert!(
+        sim.fighter(1).hitstun <= 10,
+        "a flinch, not a launch: {}",
+        sim.fighter(1).hitstun
+    );
+    assert!(
+        sim.state.projectiles.iter().all(|p| !p.active),
+        "the shot is consumed"
+    );
+}
+
+#[test]
+fn point_blank_the_blaster_uses_its_bayonet_for_7_percent_and_fires_no_shot() {
+    let mut sim = blaster_duel(fx(20, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, 0, SPECIAL)), Some(15));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 70));
+    sim.ticks(30, inp(0, 0, 0));
+    assert!(
+        sim.state.projectiles.iter().all(|p| !p.active),
+        "no shot after a bayonet hit"
+    );
+    // The bayonet launches at 60 degrees with real knockback, unlike the flinching shot.
+    assert!(
+        sim.fighter(1).hitstun > 10
+            || sim.fighter(1).state == S::Hitstun
+            || sim.fighter(1).percent > Fx::ZERO
+    );
+}
+
+#[test]
+fn a_shielding_target_blocks_the_shot() {
+    let mut sim = blaster_duel(fx(60, 10));
+    sim.tick2(inp(0, 0, SPECIAL), inp(0, 0, SHIELD));
+    for _ in 0..40 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, SHIELD));
+    }
+    assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+    assert!(sim.state.projectiles.iter().all(|p| !p.active));
+}
+
+#[test]
+fn the_owner_is_never_hit_by_their_own_shot() {
+    let mut sim = Sim::with_chars(WOLF);
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(100, 10), -1);
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.ticks(60, inp(0, 0, 0));
+    assert_eq!(sim.f().percent, Fx::ZERO);
+}
+
+// ---- Frame advantage: when control returns --------------------------------------------------------------
+
+/// The tick on which the fighter regains control (the first tick it is no longer attacking), with no target around.
+fn first_actionable_tick(chars: [u8; 4], input: Input, aerial: bool) -> usize {
+    let mut sim = Sim::with_chars(chars);
+    sim.stand(1, Fx::from_int(10), -1);
+    if aerial {
+        sim.put_airborne(0, Fx::from_int(-9), Fx::from_int(60), Fx::ZERO, Fx::ZERO);
+    } else {
+        sim.stand(0, Fx::from_int(-9), 1);
+    }
+    sim.tick(input);
+    assert_eq!(sim.f().state, S::Attack);
+    for tick in 2..=120 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state != S::Attack {
+            return tick + 1;
+        }
+    }
+    panic!("never finished");
+}
+
+#[test]
+fn moves_return_control_on_their_first_actionable_frame() {
+    // (character, input, aerial, first actionable frame from the reference tables)
+    let cases: [([u8; 4], Input, bool, usize, &str); 8] = [
+        (
+            MARTH,
+            inp(30, 0, ATTACK),
+            false,
+            34,
+            "swordfighter forward tilt",
+        ),
+        (
+            MARTH,
+            inp(0, 0, ATTACK),
+            true,
+            50,
+            "swordfighter neutral air",
+        ),
+        (
+            MARTH,
+            inp(127, 0, ATTACK),
+            true,
+            38,
+            "swordfighter forward air",
+        ),
+        (
+            MARTH,
+            inp(-127, 0, ATTACK),
+            true,
+            40,
+            "swordfighter back air",
+        ),
+        (WOLF, inp(0, 0, ATTACK), true, 43, "brawler neutral air"),
+        (WOLF, inp(127, 0, ATTACK), true, 41, "brawler forward air"),
+        (WOLF, inp(30, 0, ATTACK), false, 35, "brawler forward tilt"),
+        (WOLF, inp(0, 0, SPECIAL), false, 53, "brawler blaster"),
+    ];
+    for (chars, input, aerial, faf, name) in cases {
+        assert_eq!(first_actionable_tick(chars, input, aerial), faf, "{name}");
+    }
+}
+
+// ---- Landing lag and autocancel windows -----------------------------------------------------------------
+
+/// Landing lag when touching down on the tick that takes the move to move-frame `frame` (0-based).
+fn landing_lag(chars: [u8; 4], mv: MoveId, frame_before_tick: u16) -> u8 {
+    let mut sim = Sim::with_chars(chars);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.put_airborne(0, Fx::from_int(-9), fx(2, 100), Fx::ZERO, fx(-1, 10));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = mv as u8;
+    f.state_frame = frame_before_tick;
+    f.hit_mask = 0;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Landing, "{mv:?} at {frame_before_tick}");
+    sim.f().lag
+}
+
+#[test]
+fn aerials_autocancel_in_their_reference_windows_and_otherwise_cost_their_landing_lag() {
+    let normal_marth = Sim::with_chars(MARTH).content.fighters[0].landing_lag;
+    let normal_wolf = Sim::with_chars(WOLF).content.fighters[1].landing_lag;
+
+    // Forward air: landing lag 10, autocancels from frame 36.
+    assert_eq!(landing_lag(MARTH, MoveId::FAir, 33), 10);
+    assert_eq!(landing_lag(MARTH, MoveId::FAir, 34), normal_marth);
+    // Back air: landing lag 10, autocancels on frames 1-2 and from frame 32.
+    assert_eq!(landing_lag(MARTH, MoveId::BAir, 0), normal_marth);
+    assert_eq!(landing_lag(MARTH, MoveId::BAir, 1), 10);
+    assert_eq!(landing_lag(MARTH, MoveId::BAir, 29), 10);
+    assert_eq!(landing_lag(MARTH, MoveId::BAir, 30), normal_marth);
+    // Neutral air: landing lag 7, autocancels from frame 47.
+    assert_eq!(landing_lag(MARTH, MoveId::NAir, 30), 7);
+    assert_eq!(landing_lag(MARTH, MoveId::NAir, 45), normal_marth);
+    // Brawler neutral air: lag 9, autocancels frames 1-6 and from 38.
+    assert_eq!(landing_lag(WOLF, MoveId::NAir, 4), normal_wolf);
+    assert_eq!(landing_lag(WOLF, MoveId::NAir, 5), 9);
+    assert_eq!(landing_lag(WOLF, MoveId::NAir, 36), normal_wolf);
+    assert_eq!(landing_lag(WOLF, MoveId::NAir, 35), 9);
+    // Brawler forward air: lag 10, autocancels from frame 29.
+    assert_eq!(landing_lag(WOLF, MoveId::FAir, 26), 10);
+    assert_eq!(landing_lag(WOLF, MoveId::FAir, 27), normal_wolf);
+}

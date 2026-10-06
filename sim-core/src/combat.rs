@@ -13,7 +13,7 @@ use crate::collision;
 use crate::content::{Content, FighterParams};
 use crate::fixed::Fx;
 use crate::moves::{Hitbox, Move, Weapon};
-use crate::state::{Fighter, FighterState as S, GameState, NONE};
+use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
@@ -105,13 +105,19 @@ pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, 
     Angle::from_degrees(d)
 }
 
+/// The bit that records "this attacker already hit fighter `d` with hitbox group `g`".
+fn hit_bit(d: usize, group: u8) -> u8 {
+    1 << (d + MAX_FIGHTERS * usize::from(group.min(1)))
+}
+
 /// Finds and applies this frame's hits. Everything is collected before anything changes, so a trade
 /// (both fighters hitting each other on the same frame) works, and ties go to the lower player index.
 ///
+/// A move hits each target at most once per hitbox *group*; groups are how a move has separate hits.
 /// The loops need the attacker and defender indices themselves (hit masks, tie-breaking), not just items.
 #[allow(clippy::needless_range_loop)]
 pub fn resolve_hits(state: &mut GameState, content: &Content) {
-    let mut chosen: [[Option<usize>; MAX_FIGHTERS]; MAX_FIGHTERS] =
+    let mut chosen: [[Option<Hitbox>; MAX_FIGHTERS]; MAX_FIGHTERS] =
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
@@ -120,7 +126,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         }
         let mv = weapon_of(content, params_of(content, fa)).get(fa.move_id);
         for d in 0..MAX_FIGHTERS {
-            if a == d || fa.hit_mask & (1 << d) != 0 {
+            if a == d {
                 continue;
             }
             let fd = &state.fighters[d];
@@ -128,51 +134,71 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 continue;
             }
             let hurt = hurtboxes(fd, params_of(content, fd));
-            let mut best: Option<(u8, usize)> = None;
-            for (index, hb, center) in active_hitboxes(fa, mv) {
+            let mut best: Option<Hitbox> = None;
+            for (_, hb, center) in active_hitboxes(fa, mv) {
+                if fa.hit_mask & hit_bit(d, hb.group) != 0 {
+                    continue;
+                }
                 let touching = hurt
                     .iter()
                     .any(|(hc, hr)| overlaps(center, hb.radius, *hc, *hr));
-                if touching && best.is_none_or(|(priority, _)| hb.priority < priority) {
-                    best = Some((hb.priority, index));
+                if touching && best.is_none_or(|b| hb.priority < b.priority) {
+                    best = Some(*hb);
                 }
             }
-            chosen[a][d] = best.map(|(_, index)| index);
+            chosen[a][d] = best;
         }
     }
 
     let mut struck = [false; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         for d in 0..MAX_FIGHTERS {
-            if let Some(index) = chosen[a][d] {
+            if let Some(hb) = chosen[a][d] {
                 if !struck[d] {
                     struck[d] = true;
-                    apply_hit(state, content, a, d, index);
+                    let attacker = state.fighters[a];
+                    state.fighters[a].hit_mask |= hit_bit(d, hb.group);
+                    // A hitbox behind the attacker (back air) sends the victim backward, away from it.
+                    let facing = if hb.x < Fx::ZERO {
+                        -attacker.facing
+                    } else {
+                        attacker.facing
+                    };
+                    apply_hit(state, content, a, d, &hb, facing, attacker.pos, true);
                 }
             }
         }
     }
 }
 
-fn apply_hit(state: &mut GameState, content: &Content, a: usize, d: usize, index: usize) {
-    let attacker = state.fighters[a];
-    let hb = weapon_of(content, params_of(content, &attacker))
-        .get(attacker.move_id)
-        .hitboxes[index];
+/// Applies one hit: damage, knockback, hitlag and the victim's state change. `source` is the fighter
+/// responsible (the attacker, or a projectile's owner). Only a melee attacker is frozen by hitlag.
+#[allow(clippy::too_many_arguments)]
+fn apply_hit(
+    state: &mut GameState,
+    content: &Content,
+    source: usize,
+    d: usize,
+    hb: &Hitbox,
+    facing: i8,
+    source_pos: Vec2,
+    freeze_source: bool,
+) {
     let hitlag = hitlag_frames(hb.damage);
-    state.fighters[a].hit_mask |= 1 << d;
-    state.fighters[a].hitlag = hitlag;
+    if freeze_source {
+        state.fighters[source].hitlag = hitlag;
+    }
 
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
         // Blocked: no damage, no launch, a little pushback.
         def.hitlag = hitlag;
-        def.vel.x += (hb.damage * Fx::from_ratio(1, 200)).mul_int(i32::from(attacker.facing));
+        def.vel.x += (hb.damage * Fx::from_ratio(1, 200)).mul_int(i32::from(facing));
         return;
     }
 
-    def.percent = (def.percent + hb.damage).min(Fx::from_int(999));
+    def.percent = (def.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
     let kb = knockback(
         def.percent,
         hb.damage,
@@ -180,15 +206,15 @@ fn apply_hit(state: &mut GameState, content: &Content, a: usize, d: usize, index
         hb.base_knockback,
         hb.knockback_growth,
     );
-    let angle = launch_angle(hb.angle, attacker.facing, def.grounded(), kb);
+    let angle = launch_angle(hb.angle, facing, def.grounded(), kb);
     let stun = hitstun_frames(kb, content.rules.hitstun_mult);
 
     def.hitlag = hitlag;
     if stun == 0 {
         return; // a flinch: hitlag only
     }
-    if attacker.pos.x != def.pos.x {
-        def.facing = if attacker.pos.x > def.pos.x { 1 } else { -1 };
+    if source_pos.x != def.pos.x {
+        def.facing = if source_pos.x > def.pos.x { 1 } else { -1 };
     }
     if def.ledge != NONE {
         def.ledge = NONE;
@@ -204,6 +230,94 @@ fn apply_hit(state: &mut GameState, content: &Content, a: usize, d: usize, index
     def.fast_fall = false;
     def.tumble = false;
     def.hit_mask = 0;
+}
+
+/// Creates the projectile a move asked for this frame. A move that already connected in melee (a bayonet
+/// hit, for instance) does not also fire.
+pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
+    for i in 0..MAX_FIGHTERS {
+        if !state.fighters[i].spawn_request {
+            continue;
+        }
+        state.fighters[i].spawn_request = false;
+        let f = state.fighters[i];
+        if f.hit_mask != 0 {
+            continue;
+        }
+        let Some(spec) = weapon_of(content, params_of(content, &f))
+            .get(f.move_id)
+            .projectile
+        else {
+            continue;
+        };
+        let dir = i32::from(f.facing);
+        if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
+            *slot = Projectile {
+                active: true,
+                owner: i as u8,
+                move_id: f.move_id,
+                pos: Vec2::new(f.pos.x + spec.x.mul_int(dir), f.pos.y + spec.y),
+                vel: Vec2::new(spec.speed.mul_int(dir), Fx::ZERO),
+                age: 0,
+                life: spec.life,
+            };
+        }
+    }
+}
+
+/// Moves projectiles, despawns them (lifetime, walls, blast zone) and applies their hits.
+pub fn update_projectiles(state: &mut GameState, content: &Content) {
+    let stage = &content.stage;
+    for n in 0..state.projectiles.len() {
+        let pr = state.projectiles[n];
+        if !pr.active {
+            continue;
+        }
+        let owner = usize::from(pr.owner).min(MAX_FIGHTERS - 1);
+        let owner_params = params_of(content, &state.fighters[owner]);
+        let Some(spec) = weapon_of(content, owner_params).get(pr.move_id).projectile else {
+            state.projectiles[n].active = false;
+            continue;
+        };
+
+        let age = pr.age.saturating_add(1);
+        let pos = pr.pos + pr.vel;
+        let in_wall = stage.platforms.iter().any(|b| {
+            !b.pass_through && pos.x > b.left && pos.x < b.right && pos.y > b.bottom && pos.y < b.y
+        });
+        let outside = pos.x < stage.blast_left
+            || pos.x > stage.blast_right
+            || pos.y < stage.blast_bottom
+            || pos.y > stage.blast_top;
+        if age >= pr.life || in_wall || outside {
+            state.projectiles[n].active = false;
+            continue;
+        }
+        state.projectiles[n].pos = pos;
+        state.projectiles[n].age = age;
+
+        // Damage falls off with distance travelled.
+        let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
+        let mut hb = spec.hitbox;
+        hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+
+        for d in 0..MAX_FIGHTERS {
+            if d == owner || is_intangible(&state.fighters[d]) {
+                continue;
+            }
+            let fd = &state.fighters[d];
+            let hurt = hurtboxes(fd, params_of(content, fd));
+            if hurt
+                .iter()
+                .any(|(hc, hr)| overlaps(pos, hb.radius, *hc, *hr))
+            {
+                let facing = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
+                apply_hit(state, content, owner, d, &hb, facing, pos, false);
+                state.projectiles[n].active = false;
+                break;
+            }
+        }
+    }
 }
 
 /// Sends fighters that have left the blast zone back to their spawn point, minus a stock.

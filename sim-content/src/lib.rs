@@ -124,12 +124,27 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         ));
     }
     for (m, mv) in w.moves.iter().enumerate() {
-        let name = MoveId::from_index(m as u8).name();
-        if mv.total_frames == 0 {
-            errors.push(format!("weapon {i} {name}: has no frames"));
+        let id = MoveId::from_index(m as u8);
+        let name = id.name();
+        if mv.is_empty() {
+            // Only special moves may be left unimplemented.
+            if !id.is_special() {
+                errors.push(format!("weapon {i} {name}: has no frames"));
+            }
+            continue;
         }
-        if mv.hitboxes.is_empty() {
+        if mv.hitboxes.is_empty() && mv.projectile.is_none() {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
+        }
+        if let Some(p) = &mv.projectile {
+            if p.life == 0 {
+                errors.push(format!("weapon {i} {name}: projectile has no lifetime"));
+            }
+        }
+        for hb in &mv.hitboxes {
+            if hb.group > 1 {
+                errors.push(format!("weapon {i} {name}: hitbox group must be 0 or 1"));
+            }
         }
         for hb in &mv.hitboxes {
             if hb.start == 0 || hb.start > hb.end || hb.end > mv.total_frames {

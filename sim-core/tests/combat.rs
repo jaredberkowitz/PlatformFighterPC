@@ -86,15 +86,15 @@ fn hitlag_freezes_both_fighters_for_the_same_number_of_frames() {
 
 #[test]
 fn a_move_only_hits_a_target_once() {
-    // Neutral air has a hitbox active for 14 frames; one use must deal its damage once.
+    // The jab's hitboxes stay active for three frames; one use must deal its damage once.
     let mut sim = Sim::duel(fx(14, 10));
-    sim.put_airborne(0, Fx::ZERO, fx(8, 10), Fx::ZERO, Fx::ZERO);
     sim.tick(inp(0, 0, ATTACK));
-    assert_eq!(sim.f().move_id, NAIR);
+    assert_eq!(sim.f().move_id, JAB);
     sim.ticks(20, inp(0, 0, 0));
+    let once = Fx::from_int(4) * sim.content.rules.damage_mult;
     assert_eq!(
         sim.fighter(1).percent,
-        Fx::from_int(6),
+        once,
         "damage should be applied exactly once"
     );
 }
@@ -110,14 +110,15 @@ fn ftilt_damage_at(gap: Fx) -> Fx {
 
 #[test]
 fn the_tip_of_the_sword_hits_harder_than_the_hilt() {
+    let mult = Sim::new().content.rules.damage_mult;
     let hilt_only = ftilt_damage_at(fx(10, 10));
-    let tip_only = ftilt_damage_at(fx(35, 10));
+    let tip_only = ftilt_damage_at(fx(40, 10));
     let both = ftilt_damage_at(fx(22, 10));
-    assert_eq!(hilt_only, Fx::from_int(6));
-    assert_eq!(tip_only, Fx::from_int(8));
+    assert_eq!(hilt_only, Fx::from_int(9) * mult);
+    assert_eq!(tip_only, Fx::from_int(12) * mult);
     assert_eq!(
         both,
-        Fx::from_int(8),
+        Fx::from_int(12) * mult,
         "when both overlap, the tip (priority 0) wins"
     );
 }
@@ -132,12 +133,12 @@ fn the_claws_have_much_shorter_reach_than_the_sword() {
     let reach = |chars: [u8; 4]| {
         let mut sim = Sim::with_chars(chars);
         sim.stand(0, Fx::ZERO, 1);
-        sim.stand(1, fx(35, 10), -1);
+        sim.stand(1, fx(40, 10), -1);
         ftilt(&mut sim);
         sim.ticks(14, inp(0, 0, 0));
         sim.fighter(1).percent > Fx::ZERO
     };
-    assert!(reach([0, 0, 0, 0]), "the sword reaches 3.5 units");
+    assert!(reach([0, 0, 0, 0]), "the sword reaches 4 units");
     assert!(!reach([1, 0, 0, 0]), "the claws do not");
 }
 
@@ -161,7 +162,9 @@ fn launched_victim(setup: impl Fn(&mut Sim)) -> (Sim, Fx) {
 fn the_launch_follows_the_knockback_formula() {
     let (sim, kb) = launched_victim(|_| {});
     let weight = sim.content.fighters[1].weight;
-    let expected = knockback(Fx::from_int(8), Fx::from_int(8), weight, 12, 90);
+    // Forward tilt tip: 12% damage, base knockback 55, growth 85; percent includes the damage multiplier.
+    let dealt = Fx::from_int(12) * sim.content.rules.damage_mult;
+    let expected = knockback(dealt, Fx::from_int(12), weight, 55, 85);
     assert_eq!(kb, expected);
     let victim = sim.fighter(1);
     assert!(!victim.launch_pending, "the hit launches when hitlag ends");
@@ -435,8 +438,10 @@ fn a_shield_press_just_before_landing_in_hitstun_is_a_tech() {
 
 // ---- Aerial landing lag ----------------------------------------------------------------------------------
 
-fn nair_landing_lag(start_height: Fx) -> u8 {
-    let mut sim = Sim::duel(fx(100, 10));
+fn nair_landing_lag(chars: [u8; 4], start_height: Fx) -> u8 {
+    let mut sim = Sim::with_chars(chars);
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(100, 10), -1);
     sim.put_airborne(0, Fx::ZERO, start_height, Fx::ZERO, Fx::ZERO);
     sim.tick(inp(0, 0, ATTACK));
     for _ in 0..40 {
@@ -450,14 +455,16 @@ fn nair_landing_lag(start_height: Fx) -> u8 {
 
 #[test]
 fn landing_in_the_middle_of_an_aerial_costs_its_landing_lag_but_early_landings_autocancel() {
-    let sim = Sim::new();
-    let nair = &sim.content.weapons[0].moves[NAIR as usize];
-    let normal = sim.content.fighters[0].landing_lag;
-    assert_eq!(nair_landing_lag(fx(2, 1)), nair.landing_lag);
+    // The brawler's neutral air autocancels in its first 6 frames, so a very early landing is clean.
+    let chars = [1, 0, 1, 0];
+    let sim = Sim::with_chars(chars);
+    let nair = &sim.content.weapons[1].moves[NAIR as usize];
+    let normal = sim.content.fighters[1].landing_lag;
+    assert_eq!(nair_landing_lag(chars, fx(2, 1)), nair.landing_lag);
     assert_eq!(
-        nair_landing_lag(fx(5, 100)),
+        nair_landing_lag(chars, fx(5, 100)),
         normal,
-        "landing on frame 4 or earlier autocancels"
+        "landing in the first frames autocancels"
     );
     assert!(nair.landing_lag > normal);
 }

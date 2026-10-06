@@ -469,6 +469,8 @@ impl StateHash for Stage {
 /// Global combat rules, hashed with the content so both peers must agree on them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ruleset {
+    /// Multiplies all damage dealt. 1.2 matches the reference game's default one-on-one rules.
+    pub damage_mult: Fx,
     /// Scales every hitstun duration. Slightly above 1.0 gives combos a little more room (plan 4.3).
     pub hitstun_mult: Fx,
     /// Launch speed lost per frame (world units per frame squared).
@@ -490,6 +492,7 @@ pub struct Ruleset {
 impl Ruleset {
     pub fn standard() -> Ruleset {
         Ruleset {
+            damage_mult: Fx::from_ratio(12, 10),
             hitstun_mult: Fx::from_ratio(105, 100),
             knockback_decay: Fx::from_ratio(51, 8000),
             tumble_knockback: Fx::from_int(80),
@@ -505,6 +508,7 @@ impl Ruleset {
 
 impl StateHash for Ruleset {
     fn hash_into(&self, h: &mut StateHasher) {
+        self.damage_mult.hash_into(h);
         self.hitstun_mult.hash_into(h);
         self.knockback_decay.hash_into(h);
         self.tumble_knockback.hash_into(h);
