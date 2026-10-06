@@ -15,6 +15,24 @@ static func _axis(neg: bool, pos: bool) -> float:
 	return (1.0 if pos else 0.0) - (1.0 if neg else 0.0)
 
 
+static var _last_dir := {}
+static var _prev_down := {}
+
+
+## Keyboard axis where the most recently pressed direction wins when both are held. Without this,
+## holding one key while tapping the other cancels to neutral, which breaks dash dancing.
+static func _axis_last_wins(id: String, neg: bool, pos: bool) -> float:
+	if neg and not _prev_down.get(id + "n", false):
+		_last_dir[id] = -1.0
+	if pos and not _prev_down.get(id + "p", false):
+		_last_dir[id] = 1.0
+	_prev_down[id + "n"] = neg
+	_prev_down[id + "p"] = pos
+	if neg and pos:
+		return _last_dir.get(id, 0.0)
+	return _axis(neg, pos)
+
+
 static func _key(k: Key) -> bool:
 	return Input.is_physical_key_pressed(k)
 
@@ -25,8 +43,8 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 	var sy := 0.0
 	var b := 0
 	if player == 0:
-		sx = _axis(_key(KEY_A), _key(KEY_D))
-		sy = _axis(_key(KEY_S), _key(KEY_W))
+		sx = _axis_last_wins("p0x", _key(KEY_A), _key(KEY_D))
+		sy = _axis_last_wins("p0y", _key(KEY_S), _key(KEY_W))
 		if _key(KEY_CTRL):
 			sx *= TILT
 			sy *= TILT
@@ -36,8 +54,8 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 		if _key(KEY_L) or _key(KEY_SHIFT): b |= masks.shield
 		if _key(KEY_U): b |= masks.grab
 	elif player == 1:
-		sx = _axis(_key(KEY_LEFT), _key(KEY_RIGHT))
-		sy = _axis(_key(KEY_DOWN), _key(KEY_UP))
+		sx = _axis_last_wins("p1x", _key(KEY_LEFT), _key(KEY_RIGHT))
+		sy = _axis_last_wins("p1y", _key(KEY_DOWN), _key(KEY_UP))
 		if _key(KEY_BACKSLASH):
 			sx *= TILT
 			sy *= TILT

@@ -591,7 +591,11 @@ fn releasing_the_stick_cancels_the_dash_straight_away() {
     // The speed carries into a slide on ground friction instead of stopping dead.
     let after = sim.f().vel.x;
     assert!(after > Fx::ZERO && after < before);
-    assert!(before - after <= p.ground_friction);
+    assert!(before - after <= p.dash_brake);
+    assert!(
+        p.dash_brake > p.ground_friction,
+        "cancelled dashes should brake harder than plain friction"
+    );
     sim.ticks(40, inp(0, 0, 0));
     assert_eq!(sim.f().vel.x, Fx::ZERO);
 }
@@ -646,4 +650,101 @@ fn a_pivot_still_works_out_of_a_dash() {
     sim.ticks(3, inp(127, 0, 0));
     sim.tick(inp(-127, 0, 0));
     assert_eq!((sim.f().state, sim.f().facing), (S::Dash, -1));
+}
+
+// ---- Dash dancing and jumping in ----------------------------------------------------------------
+
+#[test]
+fn a_dash_dance_stays_in_a_tight_space_and_every_reversal_turns_instantly() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::ZERO;
+    let (mut lo, mut hi) = (Fx::ZERO, Fx::ZERO);
+    for cycle in 0..8 {
+        let dir: i8 = if cycle % 2 == 0 { 1 } else { -1 };
+        // Three frames each way is a typical dash-dance rhythm.
+        for frame in 0..3 {
+            sim.tick(inp(127 * dir, 0, 0));
+            if frame == 0 {
+                assert_eq!(
+                    sim.f().state,
+                    S::Dash,
+                    "cycle {cycle}: reversal should start a dash at once"
+                );
+                assert_eq!(
+                    sim.f().facing,
+                    dir,
+                    "cycle {cycle}: should face the new direction"
+                );
+                assert_eq!(
+                    sim.f().vel.x.signum_int(),
+                    i32::from(dir),
+                    "cycle {cycle}: velocity should flip"
+                );
+            }
+            lo = lo.min(sim.f().pos.x);
+            hi = hi.max(sim.f().pos.x);
+        }
+    }
+    assert!(
+        hi - lo < Fx::from_int(3),
+        "dash dance wandered {:?}",
+        hi - lo
+    );
+}
+
+#[test]
+fn a_dash_dance_with_a_brief_neutral_between_dashes_also_works() {
+    let mut sim = Sim::new();
+    for cycle in 0..6 {
+        let dir: i8 = if cycle % 2 == 0 { 1 } else { -1 };
+        sim.ticks(3, inp(127 * dir, 0, 0));
+        assert_eq!(sim.f().state, S::Dash);
+        sim.tick(inp(0, 0, 0)); // the stick passes through neutral on the way across
+    }
+}
+
+#[test]
+fn dashing_in_then_jumping_gives_a_controllable_jump_in() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-10);
+    let p = sim.content.fighters[0];
+    // Dance a little, then dash toward the opponent and jump.
+    for cycle in 0..4 {
+        let dir: i8 = if cycle % 2 == 0 { -1 } else { 1 };
+        sim.ticks(3, inp(127 * dir, 0, 0));
+    }
+    sim.ticks(5, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Dash);
+    let takeoff_x = sim.f().pos.x;
+    sim.tick(inp(127, 0, JUMP));
+    sim.ticks(usize::from(p.jump_squat_frames), inp(127, 0, JUMP));
+    assert!(!sim.f().grounded());
+    assert!(
+        sim.f().vel.x > p.air_speed,
+        "should carry dash speed into the jump"
+    );
+
+    // Holding forward keeps the speed; letting go slows it a little; pulling back reduces the distance.
+    let landing_x = |stick: i8| {
+        let mut s = sim.state;
+        let mut sim2 = Sim::new();
+        sim2.state = s;
+        for _ in 0..90 {
+            sim2.tick(inp(stick, 0, 0));
+            if sim2.f().grounded() {
+                break;
+            }
+        }
+        s = sim2.state;
+        s.fighters[0].pos.x
+    };
+    let (forward, neutral, back) = (landing_x(127), landing_x(0), landing_x(-127));
+    // Holding forward or neutral both keep the dash speed (only light air friction acts on it),
+    // while pulling back brakes the drift, so landing spot is steerable in the air.
+    assert!(forward >= neutral, "{forward:?} {neutral:?}");
+    assert!(neutral > back + Fx::from_int(2), "{neutral:?} {back:?}");
+    assert!(
+        forward > takeoff_x + Fx::from_int(2),
+        "a dash jump should travel well forward"
+    );
 }

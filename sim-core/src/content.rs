@@ -28,6 +28,9 @@ pub struct FighterParams {
     /// Speed on the first frame of a dash; it ramps to `dash_speed` at `dash_accel` per frame.
     pub dash_initial_speed: Fx,
     pub dash_accel: Fx,
+    /// Friction while a dash is cancelled by releasing the stick. Stronger than `ground_friction`,
+    /// so spacing and dash dancing stay tight.
+    pub dash_brake: Fx,
     pub dash_frames: u8,
     pub turn_frames: u8,
     pub ground_accel: Fx,
@@ -105,13 +108,14 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 41] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 42] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
             ("dash_speed", self.dash_speed),
             ("dash_initial_speed", self.dash_initial_speed),
             ("dash_accel", self.dash_accel),
+            ("dash_brake", self.dash_brake),
             ("ground_accel", self.ground_accel),
             ("ground_friction", self.ground_friction),
             ("run_decel", self.run_decel),
@@ -214,6 +218,7 @@ impl FighterParams {
             dash_speed: gu(2200),
             dash_initial_speed: gu(900),
             dash_accel: gu(300),
+            dash_brake: gu(260),
             dash_frames: 12,
             turn_frames: 6,
             ground_accel: gu(200),

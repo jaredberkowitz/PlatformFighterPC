@@ -39,6 +39,19 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = [[33, "a_before"], [36, "b_impact"], [39, "c_squashed"], [45, "d_rebound"], [70, "e_settled"]]
 			d.end_frame = 75
+		"dashdance":
+			# Dash back and forth in 3-frame bursts, then dash in and jump.
+			d.timeline = [[0, 0, 0, 0]]
+			var t := 20
+			for i in 8:
+				d.timeline.append([t, 127 if i % 2 == 0 else -127, 0, 0])
+				t += 3
+			d.timeline.append([t, 127, 0, 0])
+			d.timeline.append([t + 8, 127, 0, jump])
+			d.timeline.append([t + 12, 127, 0, 0])
+			d.timeline.append([t + 60, 0, 0, 0])
+			d.shots = [[26, "a_dance"], [38, "b_dance"], [50, "c_dash_in"], [58, "d_jump"], [68, "e_air"], [95, "f_land"]]
+			d.end_frame = 110
 		"walkoff":
 			d.timeline = [[0, -127, 0, 0]]
 			d.shots = [[30, "a_dashing"], [36, "b_off_edge"], [42, "c_falling"], [55, "d_hanging"], [80, "e_later"]]

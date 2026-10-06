@@ -77,3 +77,13 @@ edge). Walking off now means falling for a moment first.
 - **`GROUND_SPEED_PERCENT`** (in `sim-core/src/content.rs`, currently 90) scales every ground speed, acceleration and
   friction at once, so starts and stops keep their timing and only the distances shrink. Air speed and jump heights use
   the unscaled reference values. Lower the number to slow the ground game further, or set it to 100 for the raw reference.
+
+## Dash dance and jump-ins
+
+- A cancelled dash brakes on `dash_brake` (stronger than plain ground friction) so stops and spacing are crisp.
+- Reversing with a flick starts a new dash in that direction immediately (velocity flips on the same frame). This works
+  both flick-to-flick and with a brief neutral between dashes.
+- Jumping out of a dash keeps the dash speed in the air; holding back brakes the drift so the landing spot is steerable.
+- Keyboard: the most recently pressed direction wins when both are held (`input_reader.gd`), so dash dancing does not
+  stall at neutral.
+- Demo: `Godot --path godot -- --demo=dashdance --shots=<folder>`.
