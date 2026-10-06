@@ -8,7 +8,7 @@
 use crate::collision;
 use crate::content::{FighterParams, Ledge, Stage};
 use crate::fixed::Fx;
-use crate::input::{buttons, Input, STICK_DEADZONE, STICK_FLICK_FROM, STICK_THRESHOLD};
+use crate::input::{buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FROM, STICK_THRESHOLD};
 use crate::state::{Fighter, FighterState as S, NONE};
 use crate::vec2::Vec2;
 
@@ -18,6 +18,8 @@ const TAP_BUFFER: u8 = 3;
 const AIR_ACTION_BUFFER: u8 = 2;
 /// Frames in which a stick flick still counts as a dash input.
 const FLICK_BUFFER: u8 = 2;
+/// Frames in which a hard down press still triggers a fast fall.
+const FAST_FALL_BUFFER: u8 = 3;
 
 impl Fighter {
     pub fn held(&self, mask: u16) -> bool {
@@ -39,9 +41,7 @@ impl Fighter {
     /// True if the stick was pushed down past the tap threshold within the last `frames` frames.
     pub fn down_within(&self, frames: u8) -> bool {
         let n = usize::from(frames).min(self.history.len());
-        self.history[..n]
-            .iter()
-            .any(|i| i.stick_y <= -STICK_THRESHOLD)
+        self.history[..n].iter().any(|i| i.stick_y <= -STICK_DOWN)
     }
 
     /// True if the stick crossed down through the threshold within the last `frames` frames
@@ -49,9 +49,24 @@ impl Fighter {
     pub fn flicked_down(&self, frames: u8) -> bool {
         let n = usize::from(frames).min(self.history.len());
         (0..n).any(|i| {
+            self.history[i].stick_y <= -STICK_DOWN
+                && match self.history.get(i + 1) {
+                    Some(older) => older.stick_y > -STICK_DOWN,
+                    None => true,
+                }
+        })
+    }
+
+    /// True if the stick was pressed down *hard and fast* within the last `frames` frames: it reached
+    /// the full threshold coming from near neutral. Merely holding down, or rolling slowly down to it,
+    /// does not count. This is the fast-fall input: a flick or hard press on a stick, a double tap
+    /// on a keyboard.
+    pub fn hard_down(&self, frames: u8) -> bool {
+        let n = usize::from(frames).min(self.history.len());
+        (0..n).any(|i| {
             self.history[i].stick_y <= -STICK_THRESHOLD
                 && match self.history.get(i + 1) {
-                    Some(older) => older.stick_y > -STICK_THRESHOLD,
+                    Some(older) => older.stick_y > -STICK_FLICK_FROM,
                     None => true,
                 }
         })
@@ -232,7 +247,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
                 f.state = S::Idle;
             }
         }
-        _ if input.stick_y <= -STICK_THRESHOLD => {
+        _ if input.stick_y <= -STICK_DOWN => {
             f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
             f.state = S::Crouch;
         }
@@ -371,7 +386,7 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
     }
-    if !f.fast_fall && f.vel.y <= Fx::ZERO && input.stick_y <= -STICK_THRESHOLD {
+    if !f.fast_fall && f.vel.y <= Fx::ZERO && f.hard_down(FAST_FALL_BUFFER) {
         f.fast_fall = true;
     }
     let terminal = if f.fast_fall {

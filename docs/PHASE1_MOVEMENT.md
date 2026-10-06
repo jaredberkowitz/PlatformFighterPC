@@ -87,3 +87,16 @@ edge). Walking off now means falling for a moment first.
 - Keyboard: the most recently pressed direction wins when both are held (`input_reader.gd`), so dash dancing does not
   stall at neutral.
 - Demo: `Godot --path godot -- --demo=dashdance --shots=<folder>`.
+
+## Less slippery, and fast fall
+
+- Ground friction and `dash_brake` are doubled. A full run now stops in about 9 frames over roughly half a body width, and a
+  cancelled full-speed dash in about 4 frames (tests assert under 10 frames, and under 0.6 of a body width).
+- **Fast fall is a hard down press, not holding down.** `Fighter::hard_down`: the stick reaches the full threshold coming
+  from near neutral, while falling. Holding down, or rolling slowly down, does not fast fall. On a controller this is a
+  hard flick down.
+- **Keyboard:** the first down tap is a *soft* press (about 0.55): enough to crouch, drop through a platform or shield drop
+  (`STICK_DOWN`), but not enough to fast fall. A **double tap** (second press within 14 frames) is a full-strength press,
+  which fast falls. Holding down ramps to full after 4 frames, which is a slow roll and so does not fast fall either.
+- Reference clip analysis (the `/watch` skill, 0:30 to 0:50): the Wolf player dash-dances in small bursts near one spot with
+  a puff of dust at each stop, firing the blaster between dashes, and covers only a few body widths over about two seconds.

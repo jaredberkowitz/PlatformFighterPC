@@ -6,7 +6,8 @@ extends RefCounted
 ##   L or Left Shift shield, U grab.
 ## Player 2 keyboard: Arrows stick, Backslash = gentle tilt, Enter jump, comma attack,
 ##   period special, slash shield, M grab.
-## Gamepads: left stick; A/Y jump, X attack, B special, bumpers/triggers shield, right stick click grab.
+## Down on a keyboard: tap = soft (crouch, drop through), double tap = hard (fast fall).
+## Gamepads: left stick; a hard flick down fast falls; A/Y jump, X attack, B special, bumpers/triggers shield, right stick click grab.
 
 const TILT := 0.45  # stick magnitude while the tilt key is held
 
@@ -17,10 +18,38 @@ static func _axis(neg: bool, pos: bool) -> float:
 
 static var _last_dir := {}
 static var _prev_down := {}
+static var _down_state := {}
+
+## Keyboard "down" is a soft press (about half tilt) so it can crouch, drop through platforms and
+## shield-drop, but it does NOT fast fall. A second tap within DOUBLE_TAP_FRAMES is a hard press
+## (full tilt at once), which is what fast fall listens for, like flicking or hard-pressing a stick.
+## Holding down ramps to full tilt after SOFT_HOLD_FRAMES. That is a slow roll, not a hard press.
+const SOFT_DOWN := 0.55
+const SOFT_HOLD_FRAMES := 4
+const DOUBLE_TAP_FRAMES := 14
 
 
 ## Keyboard axis where the most recently pressed direction wins when both are held. Without this,
 ## holding one key while tapping the other cancels to neutral, which breaks dash dancing.
+## Returns the down amount (0..1) for a held/released key. See the notes above.
+static func _down_key(id: String, down: bool) -> float:
+	var now := Engine.get_physics_frames()
+	var s: Dictionary = _down_state.get(id, {"was": false, "held": 0, "last_press": -1000, "double": false})
+	if down and not s.was:
+		s.double = (now - s.last_press) <= DOUBLE_TAP_FRAMES
+		s.last_press = now
+		s.held = 0
+	if down:
+		s.held += 1
+	s.was = down
+	_down_state[id] = s
+	if not down:
+		return 0.0
+	if s.double or s.held > SOFT_HOLD_FRAMES:
+		return 1.0
+	return SOFT_DOWN
+
+
 static func _axis_last_wins(id: String, neg: bool, pos: bool) -> float:
 	if neg and not _prev_down.get(id + "n", false):
 		_last_dir[id] = -1.0
@@ -44,7 +73,7 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 	var b := 0
 	if player == 0:
 		sx = _axis_last_wins("p0x", _key(KEY_A), _key(KEY_D))
-		sy = _axis_last_wins("p0y", _key(KEY_S), _key(KEY_W))
+		sy = 1.0 if _key(KEY_W) else -_down_key("p0", _key(KEY_S))
 		if _key(KEY_CTRL):
 			sx *= TILT
 			sy *= TILT
@@ -55,7 +84,7 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 		if _key(KEY_U): b |= masks.grab
 	elif player == 1:
 		sx = _axis_last_wins("p1x", _key(KEY_LEFT), _key(KEY_RIGHT))
-		sy = _axis_last_wins("p1y", _key(KEY_DOWN), _key(KEY_UP))
+		sy = 1.0 if _key(KEY_UP) else -_down_key("p1", _key(KEY_DOWN))
 		if _key(KEY_BACKSLASH):
 			sx *= TILT
 			sy *= TILT

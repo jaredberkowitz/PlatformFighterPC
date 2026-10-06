@@ -748,3 +748,137 @@ fn dashing_in_then_jumping_gives_a_controllable_jump_in() {
         "a dash jump should travel well forward"
     );
 }
+
+// ---- Fast fall needs a hard press -----------------------------------------------------------------
+
+fn falling_sim() -> Sim {
+    let mut sim = Sim::new();
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    // Let it start falling, with the stick at neutral.
+    sim.ticks(10, inp(0, 0, 0));
+    assert!(sim.f().vel.y < Fx::ZERO);
+    sim
+}
+
+#[test]
+fn a_hard_down_press_while_falling_fast_falls() {
+    let mut sim = falling_sim();
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall);
+    sim.ticks(40, inp(0, -127, 0));
+    assert_eq!(sim.f().vel.y, -sim.content.fighters[0].fast_fall_speed);
+}
+
+#[test]
+fn simply_holding_down_does_not_fast_fall() {
+    let mut sim = Sim::new();
+    // Jump with down already held the whole time (never a fresh press while falling).
+    sim.put_airborne(
+        0,
+        Fx::ZERO,
+        Fx::from_int(40),
+        Fx::ZERO,
+        Fx::from_ratio(1, 5),
+    );
+    sim.ticks(80, inp(0, -127, 0));
+    // The very first frame counts as a fresh press only if it was while falling; here it was rising.
+    assert!(
+        !sim.f().fast_fall,
+        "held down since before the apex must not fast fall"
+    );
+}
+
+#[test]
+fn a_soft_down_press_does_not_fast_fall_but_still_counts_as_down() {
+    // The keyboard's first, softer down press (about 0.55) is below the hard-press threshold.
+    let mut sim = falling_sim();
+    sim.ticks(20, inp(0, -70, 0));
+    assert!(!sim.f().fast_fall);
+    // ... while still working as "down" on the ground: crouch and platform drop.
+    let mut ground = Sim::new();
+    ground.tick(inp(0, -70, 0));
+    assert_eq!(ground.f().state, S::Crouch);
+}
+
+#[test]
+fn rolling_the_stick_slowly_down_does_not_fast_fall() {
+    let mut sim = falling_sim();
+    for y in (0..=127).step_by(8) {
+        sim.tick(inp(0, -(y as i8), 0));
+    }
+    sim.ticks(10, inp(0, -127, 0));
+    assert!(!sim.f().fast_fall, "a slow roll is not a hard press");
+}
+
+#[test]
+fn a_double_tap_style_input_fast_falls_on_the_second_press() {
+    // Tap down softly, release, then press hard: what the keyboard's double tap produces.
+    let mut sim = falling_sim();
+    sim.ticks(3, inp(0, -70, 0));
+    sim.ticks(2, inp(0, 0, 0));
+    assert!(!sim.f().fast_fall);
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall);
+}
+
+#[test]
+fn a_soft_down_tap_still_drops_through_a_platform() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
+    sim.state.fighters[0].platform = 1;
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, -70, 0));
+    assert_eq!(sim.f().state, S::Airborne);
+    assert!(!sim.f().grounded());
+}
+
+// ---- Not slippery ---------------------------------------------------------------------------------
+
+/// Distance covered from letting go of the stick until the fighter stops.
+fn stopping_distance(held_frames: usize) -> Fx {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-10);
+    sim.ticks(held_frames, inp(127, 0, 0));
+    let release_x = sim.f().pos.x;
+    for _ in 0..60 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().vel.x == Fx::ZERO {
+            break;
+        }
+    }
+    assert_eq!(sim.f().vel.x, Fx::ZERO, "never stopped");
+    sim.f().pos.x - release_x
+}
+
+#[test]
+fn stopping_from_a_full_dash_or_run_is_short_and_quick() {
+    let body_width = Fx::from_ratio(8, 5); // 2 * ecb_half_width
+    let from_dash = stopping_distance(10);
+    let from_run = stopping_distance(40);
+    assert!(
+        from_dash < body_width.mul_int(1) * Fx::HALF + Fx::HALF,
+        "dash cancel slid {from_dash:?}"
+    );
+    assert!(
+        from_run < body_width * Fx::from_ratio(3, 5),
+        "run stop slid {from_run:?}"
+    );
+    assert!(
+        from_dash > Fx::ZERO && from_run > Fx::ZERO,
+        "some slide is fine, none is not"
+    );
+}
+
+#[test]
+fn stopping_from_a_full_run_takes_under_ten_frames() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-10);
+    sim.ticks(40, inp(127, 0, 0));
+    let mut frames = 0;
+    while sim.f().vel.x != Fx::ZERO {
+        sim.tick(inp(0, 0, 0));
+        frames += 1;
+        assert!(frames < 60);
+    }
+    assert!(frames <= 10, "took {frames} frames to stop");
+}
