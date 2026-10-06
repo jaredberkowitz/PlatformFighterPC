@@ -9,6 +9,9 @@ use crate::hash::{StateHash, StateHasher};
 use crate::vec2::Vec2;
 use crate::{MAX_FIGHTERS, SIM_VERSION};
 
+/// Ground speeds as a percentage of the reference values. Lower this to slow the ground game down.
+pub const GROUND_SPEED_PERCENT: i32 = 90;
+
 pub const MAX_PLATFORMS: usize = 8;
 pub const MAX_LEDGES: usize = 8;
 
@@ -185,6 +188,12 @@ impl FighterParams {
         Fx::from_ratio(thousandths, 8000)
     }
 
+    /// Like `su`, but for ground movement (speeds, accelerations, friction), scaled by
+    /// [`GROUND_SPEED_PERCENT`] so the ground game can be tuned without touching air movement or jumps.
+    pub const fn gu(thousandths: i32) -> Fx {
+        Fx::from_ratio(thousandths * GROUND_SPEED_PERCENT, 800_000)
+    }
+
     /// Initial upward velocity that makes a jump peak `height` above where it started.
     ///
     /// Gravity is applied before moving each frame, so the peak is `v^2/(2g) - v/2`,
@@ -198,18 +207,19 @@ impl FighterParams {
     fn base() -> FighterParams {
         let r = Fx::from_ratio;
         let su = FighterParams::su;
+        let gu = FighterParams::gu;
         FighterParams {
-            walk_speed: su(1400),
-            run_speed: su(1800),
-            dash_speed: su(2200),
-            dash_initial_speed: su(900),
-            dash_accel: su(300),
+            walk_speed: gu(1400),
+            run_speed: gu(1800),
+            dash_speed: gu(2200),
+            dash_initial_speed: gu(900),
+            dash_accel: gu(300),
             dash_frames: 12,
             turn_frames: 6,
-            ground_accel: su(200),
-            ground_friction: su(110),
-            run_decel: su(60),
-            landing_friction: su(40),
+            ground_accel: gu(200),
+            ground_friction: gu(110),
+            run_decel: gu(60),
+            landing_friction: gu(40),
             air_speed: su(1100),
             air_accel: su(10),
             air_accel_stick: su(70),
@@ -268,17 +278,18 @@ impl FighterParams {
     /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66.
     pub fn duelist() -> FighterParams {
         let su = FighterParams::su;
+        let gu = FighterParams::gu;
         let gravity = su(75);
         FighterParams {
-            walk_speed: su(1575),
-            run_speed: su(1964),
-            dash_speed: su(2255),
+            walk_speed: gu(1575),
+            run_speed: gu(1964),
+            dash_speed: gu(2255),
             air_speed: su(1071),
             air_friction: su(8),
             gravity,
             max_fall_speed: su(1580),
             fast_fall_speed: su(2528),
-            ground_friction: su(114),
+            ground_friction: gu(114),
             full_hop_velocity: Self::hop_velocity(gravity, su(33660)),
             short_hop_velocity: Self::hop_velocity(gravity, su(16260)),
             air_jump_velocity: Self::hop_velocity(gravity, su(33660)),
@@ -291,19 +302,20 @@ impl FighterParams {
     /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71.
     pub fn brawler() -> FighterParams {
         let su = FighterParams::su;
+        let gu = FighterParams::gu;
         let gravity = su(130);
         FighterParams {
-            walk_speed: su(1208),
-            run_speed: su(1540),
-            dash_speed: su(2090),
-            dash_initial_speed: su(840),
+            walk_speed: gu(1208),
+            run_speed: gu(1540),
+            dash_speed: gu(2090),
+            dash_initial_speed: gu(840),
             air_speed: su(1281),
             air_accel_stick: su(80),
             air_friction: su(4),
             gravity,
             max_fall_speed: su(1800),
             fast_fall_speed: su(2880),
-            ground_friction: su(110),
+            ground_friction: gu(110),
             full_hop_velocity: Self::hop_velocity(gravity, su(32020)),
             short_hop_velocity: Self::hop_velocity(gravity, su(15380)),
             air_jump_velocity: Self::hop_velocity(gravity, su(30710)),

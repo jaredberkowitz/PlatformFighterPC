@@ -68,3 +68,12 @@ The placeholder stage is now Final Destination-sized (main block 22 wide, side p
 A fighter can grab a ledge only when it is on the **outside** of the edge and at least `ledge_min_drop` **below** it.
 Previously a fighter level with the ledge, or slightly over the stage, could snap onto it (for example walking off the
 edge). Walking off now means falling for a moment first.
+
+## Dash cancel and ground speed tuning
+
+- **Releasing the stick cancels a dash** the same frame. The speed carries into a slide on ground friction, so a quick tap
+  is a short dash and a held stick is a long one. Jumping out of a dash (or a cancelled dash) keeps its speed as air
+  momentum. A flick the other way during a dash is still a pivot (dash dance).
+- **`GROUND_SPEED_PERCENT`** (in `sim-core/src/content.rs`, currently 90) scales every ground speed, acceleration and
+  friction at once, so starts and stops keep their timing and only the distances shrink. Air speed and jump heights use
+  the unscaled reference values. Lower the number to slow the ground game further, or set it to 100 for the raw reference.

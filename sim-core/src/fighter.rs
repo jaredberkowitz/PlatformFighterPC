@@ -212,11 +212,18 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     let dir = if input.stick_x > 0 { 1 } else { -1 };
     match f.state {
         S::Dash => {
-            let target = p.dash_speed.mul_int(i32::from(f.facing));
-            f.vel.x = approach(f.vel.x, target, p.dash_accel);
-            if f.state_frame >= u16::from(p.dash_frames) {
-                let holding = x_active(input) && dir == f.facing;
-                f.state = if holding { S::Run } else { S::Idle };
+            if !x_active(input) {
+                // Releasing the stick cancels the dash: the speed carries into a slide on ground
+                // friction, and a jump from here keeps it as air momentum.
+                f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+                f.state = S::Idle;
+            } else {
+                let target = p.dash_speed.mul_int(i32::from(f.facing));
+                f.vel.x = approach(f.vel.x, target, p.dash_accel);
+                if f.state_frame >= u16::from(p.dash_frames) {
+                    let holding = dir == f.facing;
+                    f.state = if holding { S::Run } else { S::Idle };
+                }
             }
         }
         S::Turn => {

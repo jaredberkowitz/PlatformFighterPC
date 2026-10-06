@@ -568,3 +568,82 @@ fn a_fighter_over_the_stage_cannot_grab_the_ledge_from_the_stage_side() {
     sim.ticks(3, inp(-127, 0, 0));
     assert_ne!(sim.f().state, S::LedgeHang);
 }
+
+// ---- Dash cancel -------------------------------------------------------------------------------
+
+#[test]
+fn releasing_the_stick_cancels_the_dash_straight_away() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    sim.ticks(4, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Dash);
+    assert!(
+        4 < usize::from(p.dash_frames),
+        "test assumes the dash is still in progress"
+    );
+    let before = sim.f().vel.x;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.f().state,
+        S::Idle,
+        "dash should end the frame the stick is released"
+    );
+    // The speed carries into a slide on ground friction instead of stopping dead.
+    let after = sim.f().vel.x;
+    assert!(after > Fx::ZERO && after < before);
+    assert!(before - after <= p.ground_friction);
+    sim.ticks(40, inp(0, 0, 0));
+    assert_eq!(sim.f().vel.x, Fx::ZERO);
+}
+
+#[test]
+fn a_quick_tap_makes_a_short_dash_and_a_held_stick_makes_a_long_one() {
+    let travel = |held_frames: usize| {
+        let mut sim = Sim::new();
+        sim.state.fighters[0].pos.x = Fx::from_int(-10);
+        let start = sim.f().pos.x;
+        sim.ticks(held_frames, inp(127, 0, 0));
+        sim.ticks(40, inp(0, 0, 0));
+        sim.f().pos.x - start
+    };
+    let (tap, short, long) = (travel(1), travel(4), travel(12));
+    assert!(tap > Fx::ZERO);
+    assert!(tap < short && short < long, "{tap:?} {short:?} {long:?}");
+}
+
+#[test]
+fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-10);
+    let p = sim.content.fighters[0];
+    sim.ticks(6, inp(127, 0, 0));
+    sim.tick(inp(0, 0, 0)); // release: dash cancels into a slide
+    sim.tick(inp(0, 0, JUMP));
+    assert_eq!(sim.f().state, S::JumpSquat);
+    let squat_start = sim.f().vel.x;
+    assert!(
+        squat_start > p.air_speed,
+        "test needs speed above air speed"
+    );
+    for _ in 0..usize::from(p.jump_squat_frames) {
+        sim.tick(inp(0, 0, JUMP));
+    }
+    assert!(!sim.f().grounded());
+    assert_eq!(
+        sim.f().vel.x,
+        squat_start,
+        "jump squat must not eat the speed"
+    );
+    // With no stick held the air drift continues, slowed only by light air friction.
+    sim.ticks(10, inp(0, 0, 0));
+    assert!(sim.f().vel.x >= squat_start - p.air_friction.mul_int(11));
+    assert!(sim.f().vel.x > p.air_speed);
+}
+
+#[test]
+fn a_pivot_still_works_out_of_a_dash() {
+    let mut sim = Sim::new();
+    sim.ticks(3, inp(127, 0, 0));
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!((sim.f().state, sim.f().facing), (S::Dash, -1));
+}
