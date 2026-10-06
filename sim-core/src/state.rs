@@ -19,7 +19,11 @@ pub const NONE: i8 = -1;
 #[repr(u8)]
 pub enum FighterState {
     Idle = 0,
+    Walk,
     Run,
+    Dash,
+    Turn,
+    Crouch,
     JumpSquat,
     Airborne,
     AirDodge,
@@ -29,6 +33,9 @@ pub enum FighterState {
     ShieldDrop,
     LedgeHang,
     LedgeGetUp,
+    LedgeAttack,
+    /// Special fall: no air jumps or air dodge, can still drift and grab ledges.
+    Helpless,
 }
 
 impl StateHash for FighterState {
@@ -55,6 +62,8 @@ pub struct Fighter {
     pub platform: i8,
     pub air_jumps_left: u8,
     pub air_dodge_used: bool,
+    /// Frames of lag for the current `Landing` state (normal vs helpless landing).
+    pub lag: u8,
     pub fast_fall: bool,
     /// While non-zero, pass-through platforms are ignored (set by shield drop).
     pub platform_ignore: u8,
@@ -95,6 +104,7 @@ impl Fighter {
             platform,
             air_jumps_left: air_jumps,
             air_dodge_used: false,
+            lag: 0,
             fast_fall: false,
             platform_ignore: 0,
             ledge: NONE,
@@ -153,6 +163,7 @@ impl StateHash for Fighter {
         h.write_i8(self.platform);
         h.write_u8(self.air_jumps_left);
         h.write_bool(self.air_dodge_used);
+        h.write_u8(self.lag);
         h.write_bool(self.fast_fall);
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
@@ -283,6 +294,11 @@ mod tests {
             ("air_dodge_used", {
                 let mut s = state;
                 s.fighters[0].air_dodge_used = true;
+                s
+            }),
+            ("lag", {
+                let mut s = state;
+                s.fighters[0].lag = 1;
                 s
             }),
             ("fast_fall", {

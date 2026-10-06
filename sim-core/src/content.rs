@@ -19,7 +19,11 @@ pub const MAX_LEDGES: usize = 8;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FighterParams {
     // Ground movement
+    pub walk_speed: Fx,
     pub run_speed: Fx,
+    pub dash_speed: Fx,
+    pub dash_frames: u8,
+    pub turn_frames: u8,
     pub ground_accel: Fx,
     pub ground_friction: Fx,
     // Air movement
@@ -78,13 +82,21 @@ pub struct FighterParams {
     // Body (feet-origin ECB; used for hurtbox defaults later)
     pub ecb_half_width: Fx,
     pub ecb_height: Fx,
+    /// Height above the feet of the ECB's widest points, used for wall contact.
+    pub ecb_side_height: Fx,
+    // Special states
+    pub helpless_landing_lag: u8,
+    pub ledge_attack_frames: u8,
+    pub ledge_attack_dx: Fx,
 }
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 32] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 36] {
         [
+            ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
+            ("dash_speed", self.dash_speed),
             ("ground_accel", self.ground_accel),
             ("ground_friction", self.ground_friction),
             ("air_speed", self.air_speed),
@@ -116,11 +128,13 @@ impl FighterParams {
             ("ledge_trump_vy", self.ledge_trump_vy),
             ("ecb_half_width", self.ecb_half_width),
             ("ecb_height", self.ecb_height),
+            ("ecb_side_height", self.ecb_side_height),
+            ("ledge_attack_dx", self.ledge_attack_dx),
         ]
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 15] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 19] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("air_jumps", u32::from(self.air_jumps)),
@@ -143,6 +157,10 @@ impl FighterParams {
             ("ledge_invuln_decay", u32::from(self.ledge_invuln_decay)),
             ("ledge_invuln_floor", u32::from(self.ledge_invuln_floor)),
             ("ledge_getup_frames", u32::from(self.ledge_getup_frames)),
+            ("dash_frames", u32::from(self.dash_frames)),
+            ("turn_frames", u32::from(self.turn_frames)),
+            ("helpless_landing_lag", u32::from(self.helpless_landing_lag)),
+            ("ledge_attack_frames", u32::from(self.ledge_attack_frames)),
         ]
     }
 
@@ -150,7 +168,11 @@ impl FighterParams {
     pub fn balanced() -> FighterParams {
         let r = Fx::from_ratio;
         FighterParams {
+            walk_speed: r(7, 100),
             run_speed: r(2, 15),
+            dash_speed: r(1, 6),
+            dash_frames: 12,
+            turn_frames: 6,
             ground_accel: r(1, 40),
             ground_friction: r(1, 30),
             air_speed: r(3, 40),
@@ -181,7 +203,7 @@ impl FighterParams {
             ledge_reach_x: r(3, 2),
             ledge_reach_up: r(1, 2),
             ledge_reach_down: Fx::from_int(2),
-            ledge_hang_dx: r(3, 5),
+            ledge_hang_dx: r(4, 5),
             ledge_hang_dy: r(9, 5),
             ledge_hang_max: 300,
             ledge_regrab_cooldown: 30,
@@ -197,6 +219,10 @@ impl FighterParams {
             ledge_trump_vy: r(1, 15),
             ecb_half_width: r(4, 5),
             ecb_height: r(11, 5),
+            ecb_side_height: r(11, 10),
+            helpless_landing_lag: 20,
+            ledge_attack_frames: 40,
+            ledge_attack_dx: r(3, 2),
         }
     }
 
@@ -204,7 +230,9 @@ impl FighterParams {
     pub fn floaty() -> FighterParams {
         let r = Fx::from_ratio;
         FighterParams {
+            walk_speed: r(3, 50),
             run_speed: r(1, 10),
+            dash_speed: r(3, 20),
             air_speed: r(11, 100),
             gravity: r(1, 250),
             max_fall_speed: r(1, 8),
@@ -230,12 +258,14 @@ impl StateHash for FighterParams {
     }
 }
 
-/// A horizontal surface you can stand on.
+/// A surface you can stand on. Solid ones are blocks spanning `bottom..y` with walls and a ceiling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Platform {
     pub left: Fx,
     pub right: Fx,
     pub y: Fx,
+    /// Underside of a solid block (ceiling). Unused for pass-through platforms.
+    pub bottom: Fx,
     /// Can be landed on from above and dropped through (platforms), versus solid ground.
     pub pass_through: bool,
 }
@@ -271,18 +301,21 @@ impl Stage {
                     left: int(-20),
                     right: int(20),
                     y: Fx::ZERO,
+                    bottom: int(-8),
                     pass_through: false,
                 },
                 Platform {
                     left: int(-12),
                     right: int(-4),
                     y: int(6),
+                    bottom: int(6),
                     pass_through: true,
                 },
                 Platform {
                     left: int(4),
                     right: int(12),
                     y: int(6),
+                    bottom: int(6),
                     pass_through: true,
                 },
             ],
@@ -314,6 +347,7 @@ impl StateHash for Stage {
             p.left.hash_into(h);
             p.right.hash_into(h);
             p.y.hash_into(h);
+            p.bottom.hash_into(h);
             h.write_bool(p.pass_through);
         }
         h.write_u32(self.ledges.len() as u32);

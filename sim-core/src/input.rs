@@ -15,6 +15,9 @@ pub mod buttons {
 pub const STICK_THRESHOLD: i8 = 76;
 /// Stick magnitude below which an axis is treated as neutral, about 0.17.
 pub const STICK_DEADZONE: i8 = 22;
+/// A dash flick must start from below this magnitude (or the opposite side), so slowly rolling the
+/// stick up to full tilt walks instead of dashing.
+pub const STICK_FLICK_FROM: i8 = 38;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Input {

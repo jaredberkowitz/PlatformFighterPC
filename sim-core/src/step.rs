@@ -115,6 +115,17 @@ mod tests {
             for i in &inputs {
                 step(&mut s, &content, i);
                 for (n, f) in s.fighters.iter().enumerate() {
+                    for b in content.stage.platforms.iter().filter(|b| !b.pass_through) {
+                        let inside = f.pos.x > b.left
+                            && f.pos.x < b.right
+                            && f.pos.y > b.bottom
+                            && f.pos.y < b.y;
+                        assert!(
+                            !inside,
+                            "seed {seed} fighter {n}: feet inside a solid block at {:?} in {:?}",
+                            f.pos, f.state
+                        );
+                    }
                     let on_ledge = f.state == FighterState::LedgeHang;
                     assert_eq!(
                         on_ledge,
@@ -128,12 +139,17 @@ mod tests {
                     let grounded_state = matches!(
                         f.state,
                         FighterState::Idle
+                            | FighterState::Walk
                             | FighterState::Run
+                            | FighterState::Dash
+                            | FighterState::Turn
+                            | FighterState::Crouch
                             | FighterState::JumpSquat
                             | FighterState::Landing
                             | FighterState::WaveLand
                             | FighterState::Shield
                             | FighterState::LedgeGetUp
+                            | FighterState::LedgeAttack
                     );
                     assert_eq!(
                         grounded_state,

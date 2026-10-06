@@ -1,5 +1,5 @@
-//! Per-fighter state machine: ground and air movement, jump squat, air dodge, wavedash,
-//! shield drop, and ledge hang options.
+//! Per-fighter state machine: ground movement (walk, dash, run, turn, crouch), jump squat, air
+//! movement, air dodge, wavedash, shield drop, platform drop, helpless fall, and ledge options.
 //!
 //! Conventions: [`update`] runs once per frame per fighter in player-index order. A state entered
 //! during a frame starts at `state_frame == 0` and is incremented at the start of the next update,
@@ -8,14 +8,16 @@
 use crate::collision;
 use crate::content::{FighterParams, Ledge, Stage};
 use crate::fixed::Fx;
-use crate::input::{buttons, Input, STICK_DEADZONE, STICK_THRESHOLD};
+use crate::input::{buttons, Input, STICK_DEADZONE, STICK_FLICK_FROM, STICK_THRESHOLD};
 use crate::state::{Fighter, FighterState as S, NONE};
 use crate::vec2::Vec2;
 
-/// Frames of leniency for ground jump and shield-drop presses.
+/// Frames of leniency for ground jump, shield-drop and tap-down presses.
 const TAP_BUFFER: u8 = 3;
 /// Frames of leniency for air jump and air dodge presses.
 const AIR_ACTION_BUFFER: u8 = 2;
+/// Frames in which a stick flick still counts as a dash input.
+const FLICK_BUFFER: u8 = 2;
 
 impl Fighter {
     pub fn held(&self, mask: u16) -> bool {
@@ -41,6 +43,46 @@ impl Fighter {
             .iter()
             .any(|i| i.stick_y <= -STICK_THRESHOLD)
     }
+
+    /// True if the stick crossed down through the threshold within the last `frames` frames
+    /// (a tap, as opposed to merely being held down).
+    pub fn flicked_down(&self, frames: u8) -> bool {
+        let n = usize::from(frames).min(self.history.len());
+        (0..n).any(|i| {
+            self.history[i].stick_y <= -STICK_THRESHOLD
+                && match self.history.get(i + 1) {
+                    Some(older) => older.stick_y > -STICK_THRESHOLD,
+                    None => true,
+                }
+        })
+    }
+
+    /// Direction (-1 or 1) of a horizontal flick within the last `frames` frames, or 0. A flick is
+    /// the stick crossing the threshold from below, and it must still be held past it now.
+    pub fn flick_x(&self, frames: u8) -> i8 {
+        let threshold = STICK_THRESHOLD.unsigned_abs();
+        let current = self.history[0].stick_x;
+        if current.unsigned_abs() < threshold {
+            return 0;
+        }
+        let dir = current.signum();
+        let past = |x: i8| x.signum() == dir && x.unsigned_abs() >= threshold;
+        let from = STICK_FLICK_FROM.unsigned_abs();
+        let started_low = |x: i8| x.signum() != dir || x.unsigned_abs() < from;
+        let n = usize::from(frames).min(self.history.len());
+        let crossed = (0..n).any(|i| {
+            past(self.history[i].stick_x)
+                && match self.history.get(i + 1) {
+                    Some(older) => started_low(older.stick_x),
+                    None => true,
+                }
+        });
+        if crossed {
+            dir
+        } else {
+            0
+        }
+    }
 }
 
 fn enter(f: &mut Fighter, state: S) {
@@ -60,12 +102,6 @@ fn x_active(input: Input) -> bool {
     input.stick_x.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
 }
 
-fn face_stick(f: &mut Fighter, input: Input) {
-    if x_active(input) {
-        f.facing = if input.stick_x > 0 { 1 } else { -1 };
-    }
-}
-
 fn on_pass_through(f: &Fighter, stage: &Stage) -> bool {
     collision::platform(stage, f.platform).is_some_and(|p| p.pass_through)
 }
@@ -81,23 +117,35 @@ pub fn update(f: &mut Fighter, p: &FighterParams, stage: &Stage, input: Input) -
     f.state_frame = f.state_frame.saturating_add(1);
 
     match f.state {
-        S::Idle | S::Run => ground(f, p, stage),
+        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, stage),
         S::JumpSquat => jump_squat(f, p, stage),
         S::Airborne => return airborne(f, p, stage),
+        S::Helpless => return helpless(f, p, stage),
         S::AirDodge => air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
         S::Shield => shield(f, p, stage),
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, stage),
-        S::LedgeGetUp => ledge_get_up(f, p),
+        S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p),
     }
     None
 }
 
-/// Moves along the ground, stepping off into the air if the platform ends. Returns false if it fell off.
-fn slide_on_platform(f: &mut Fighter, stage: &Stage) -> bool {
-    f.pos.x += f.vel.x;
+/// Puts a fighter into the special fall (what an up-special will do when it ends).
+pub fn enter_helpless(f: &mut Fighter) {
+    f.fast_fall = false;
+    enter(f, S::Helpless);
+}
+
+// ---- Ground ----------------------------------------------------------------------------------
+
+/// Moves along the ground, stopping at walls and stepping off into the air if the platform ends.
+/// Returns false if the fighter left the ground.
+fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
+    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+        f.vel.x = Fx::ZERO;
+    }
     let Some(plat) = collision::platform(stage, f.platform) else {
         f.platform = NONE;
         enter(f, S::Airborne);
@@ -112,6 +160,19 @@ fn slide_on_platform(f: &mut Fighter, stage: &Stage) -> bool {
     true
 }
 
+fn start_dash(f: &mut Fighter, p: &FighterParams, dir: i8) {
+    f.facing = dir;
+    f.vel.x = p.dash_speed.mul_int(i32::from(dir));
+    enter(f, S::Dash);
+}
+
+fn start_platform_drop(f: &mut Fighter, p: &FighterParams) {
+    f.platform = NONE;
+    f.platform_ignore = p.platform_ignore_frames;
+    f.vel.y = -p.shield_drop_speed;
+    enter(f, S::Airborne);
+}
+
 fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     let input = f.history[0];
     if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
@@ -122,20 +183,67 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         enter(f, S::Shield);
         return;
     }
-    if x_active(input) {
-        f.vel.x = approach(f.vel.x, input.stick_x_fx() * p.run_speed, p.ground_accel);
-        face_stick(f, input);
-    } else {
-        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    if on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
+        start_platform_drop(f, p);
+        return;
     }
-    if slide_on_platform(f, stage) {
-        f.state = if f.vel.x == Fx::ZERO { S::Idle } else { S::Run };
+
+    // A flick starts a dash (and turns around instantly if it is against the facing).
+    let flick = f.flick_x(FLICK_BUFFER);
+    if flick != 0 && !(f.state == S::Dash && flick == f.facing) {
+        start_dash(f, p, flick);
     }
+
+    let dir = if input.stick_x > 0 { 1 } else { -1 };
+    match f.state {
+        S::Dash => {
+            f.vel.x = p.dash_speed.mul_int(i32::from(f.facing));
+            if f.state_frame >= u16::from(p.dash_frames) {
+                let holding = x_active(input) && dir == f.facing;
+                f.state = if holding { S::Run } else { S::Idle };
+            }
+        }
+        S::Turn => {
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+            if f.state_frame >= u16::from(p.turn_frames) {
+                f.state = S::Idle;
+            }
+        }
+        _ if input.stick_y <= -STICK_THRESHOLD => {
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+            f.state = S::Crouch;
+        }
+        _ if x_active(input) => {
+            if dir != f.facing {
+                f.facing = dir;
+                f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+                enter(f, S::Turn);
+            } else if f.state == S::Run {
+                f.vel.x = approach(f.vel.x, input.stick_x_fx() * p.run_speed, p.ground_accel);
+            } else {
+                // Walking: speed scales with how far the stick is pushed, up to the dash threshold.
+                let tilt = i32::from(
+                    input
+                        .stick_x
+                        .unsigned_abs()
+                        .min(STICK_THRESHOLD.unsigned_abs()),
+                );
+                let target = Fx::from_ratio(tilt, i32::from(STICK_THRESHOLD)) * p.walk_speed;
+                f.vel.x = approach(f.vel.x, target.mul_int(i32::from(dir)), p.ground_accel);
+                f.state = S::Walk;
+            }
+        }
+        _ => {
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+            f.state = S::Idle;
+        }
+    }
+    slide_on_platform(f, p, stage);
 }
 
 fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if !slide_on_platform(f, stage) {
+    if !slide_on_platform(f, p, stage) {
         return;
     }
     if f.state_frame >= u16::from(p.jump_squat_frames) {
@@ -166,18 +274,30 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.ledge_grab_count = 0;
 }
 
-fn enter_landing(f: &mut Fighter, p: &FighterParams) {
-    enter(
-        f,
-        if p.landing_lag == 0 {
-            S::Idle
-        } else {
-            S::Landing
-        },
-    );
+fn enter_landing(f: &mut Fighter, lag: u8) {
+    f.lag = lag;
+    enter(f, if lag == 0 { S::Idle } else { S::Landing });
 }
 
-/// Air drift, gravity, movement and platform landing. Returns true if the fighter landed.
+// ---- Air -------------------------------------------------------------------------------------
+
+/// Moves by `vel` with wall and ceiling collision. Returns the platform landed on, if any.
+fn air_integrate(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<usize> {
+    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+        f.vel.x = Fx::ZERO;
+    }
+    let prev = f.pos;
+    if f.vel.y > Fx::ZERO {
+        if collision::move_up(stage, p, &mut f.pos, f.vel.y) {
+            f.vel.y = Fx::ZERO;
+        }
+    } else {
+        f.pos.y += f.vel.y;
+    }
+    collision::find_landing(stage, prev, f.pos, f.platform_ignore > 0)
+}
+
+/// Air drift, gravity, movement and landing. Returns true if the fighter landed.
 fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     let input = f.history[0];
     if x_active(input) {
@@ -195,14 +315,20 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     };
     f.vel.y = (f.vel.y - p.gravity).max(-terminal);
 
-    let prev = f.pos;
-    f.pos += f.vel;
-    match collision::find_landing(stage, prev, f.pos, f.platform_ignore > 0) {
+    match air_integrate(f, p, stage) {
         Some(i) => {
             land(f, p, stage, i);
             true
         }
         None => false,
+    }
+}
+
+fn ledge_request(f: &Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
+    if f.vel.y <= Fx::ZERO && f.ledge_cooldown == 0 {
+        collision::find_ledge(stage, f.pos, p).map(|i| i as u8)
+    } else {
+        None
     }
 }
 
@@ -217,13 +343,19 @@ fn airborne(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
         return None;
     }
     if air_move(f, p, stage) {
-        enter_landing(f, p);
+        enter_landing(f, p.landing_lag);
         return None;
     }
-    if f.vel.y <= Fx::ZERO && f.ledge_cooldown == 0 {
-        return collision::find_ledge(stage, f.pos, p).map(|i| i as u8);
+    ledge_request(f, p, stage)
+}
+
+/// Special fall: drift and ledge grabs only. Landing costs extra lag.
+fn helpless(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
+    if air_move(f, p, stage) {
+        enter_landing(f, p.helpless_landing_lag);
+        return None;
     }
-    None
+    ledge_request(f, p, stage)
 }
 
 fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
@@ -264,15 +396,13 @@ fn start_waveland(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: u
 
 fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel = f.vel * p.air_dodge_decay;
-    let prev = f.pos;
-    f.pos += f.vel;
-    if let Some(i) = collision::find_landing(stage, prev, f.pos, f.platform_ignore > 0) {
+    if let Some(i) = air_integrate(f, p, stage) {
         if f.dodge_dir.y <= -p.wavedash_min_down {
             start_waveland(f, p, stage, i);
         } else {
             // Too horizontal to be a wavedash: a plain air dodge that happens to land.
             land(f, p, stage, i);
-            enter_landing(f, p);
+            enter_landing(f, p.landing_lag);
         }
         return;
     }
@@ -283,21 +413,23 @@ fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if slide_on_platform(f, stage) && f.state_frame >= u16::from(p.landing_lag) {
+    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(f.lag) {
         enter(f, S::Idle);
     }
 }
 
 fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = f.vel.x * p.waveland_friction;
-    if slide_on_platform(f, stage) && f.state_frame >= u16::from(p.waveland_lag) {
+    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(p.waveland_lag) {
         enter(f, S::Idle);
     }
 }
 
+// ---- Shield ----------------------------------------------------------------------------------
+
 fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if !slide_on_platform(f, stage) {
+    if !slide_on_platform(f, p, stage) {
         return;
     }
     if !f.held(buttons::SHIELD) {
@@ -317,7 +449,7 @@ fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 fn shield_drop(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     if air_move(f, p, stage) {
-        enter_landing(f, p);
+        enter_landing(f, p.landing_lag);
     } else if f.state_frame >= u16::from(p.shield_drop_recovery) {
         enter(f, S::Airborne);
     }
@@ -388,29 +520,40 @@ fn ledge_hang(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         );
         enter(f, S::Airborne);
     } else if f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER) {
-        get_up(f, stage, &l, p.ledge_roll_dx);
+        get_up(f, stage, &l, p.ledge_roll_dx, S::LedgeGetUp);
+    } else if f.pressed_within(buttons::ATTACK, AIR_ACTION_BUFFER) {
+        // The attack's hitboxes arrive with combat in Phase 3; for now it is the movement and timing.
+        get_up(f, stage, &l, p.ledge_attack_dx, S::LedgeAttack);
     } else if up >= threshold || toward >= threshold {
-        get_up(f, stage, &l, p.ledge_getup_dx);
+        get_up(f, stage, &l, p.ledge_getup_dx, S::LedgeGetUp);
     } else if up <= -threshold || toward <= -threshold || f.state_frame >= p.ledge_hang_max {
         release_ledge(f, p);
         enter(f, S::Airborne);
     }
 }
 
-fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx) {
+fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S) {
     f.pos = Vec2::new(l.x - dx.mul_int(i32::from(l.side)), l.y);
     f.vel = Vec2::ZERO;
     f.ledge = NONE;
     f.platform = collision::standing_on(stage, f.pos);
-    if f.platform == NONE {
-        enter(f, S::Airborne);
-    } else {
-        enter(f, S::LedgeGetUp);
-    }
+    enter(
+        f,
+        if f.platform == NONE {
+            S::Airborne
+        } else {
+            state
+        },
+    );
 }
 
-fn ledge_get_up(f: &mut Fighter, p: &FighterParams) {
-    if f.state_frame >= u16::from(p.ledge_getup_frames) {
+fn ledge_recover(f: &mut Fighter, p: &FighterParams) {
+    let frames = if f.state == S::LedgeAttack {
+        p.ledge_attack_frames
+    } else {
+        p.ledge_getup_frames
+    };
+    if f.state_frame >= u16::from(frames) {
         // Stable ground again: the next ledge grab gets full invincibility.
         f.ledge_grab_count = 0;
         enter(f, S::Idle);

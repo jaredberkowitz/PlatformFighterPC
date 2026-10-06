@@ -8,7 +8,7 @@ Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
 
 | Crate | Purpose | State |
 | --- | --- | --- |
-| `sim-core` | Deterministic sim: fixed point, trig, `GameState`, `step`, checksum, movement state machine | Phase 1 movement done, see `docs/PHASE1_MOVEMENT.md` |
+| `sim-core` | Deterministic sim: fixed point, trig, `GameState`, `step`, checksum, movement state machine | Phase 1 movement complete, see `docs/PHASE1_MOVEMENT.md` |
 | `sim-content` | Content validation and balance guardrails | Basic validator |
 | `sim-script` | Integer-only scripting VM | Stub (Phase 5) |
 | `netplay` | Rollback layer | Local rollback harness (Phase 2 proof); transport is Phase 4 |

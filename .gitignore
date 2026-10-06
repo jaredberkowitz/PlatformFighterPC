@@ -3,3 +3,4 @@
 *.pfr
 .godot/
 .import/
+tools/godot/

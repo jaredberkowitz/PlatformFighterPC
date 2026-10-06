@@ -10,7 +10,11 @@ use sim_core::{Content, FighterParams, Fx, Stage};
 const MAX_VALUE: Fx = Fx::from_int(64);
 
 /// Fields that must be strictly positive (zero would freeze or break the movement).
-const MUST_BE_POSITIVE: [&str; 8] = [
+const MUST_BE_POSITIVE: [&str; 12] = [
+    "walk_speed",
+    "dash_speed",
+    "ecb_half_width",
+    "ecb_height",
     "run_speed",
     "gravity",
     "max_fall_speed",
@@ -58,7 +62,12 @@ fn validate_fighter(i: usize, f: &FighterParams, errors: &mut Vec<String>) {
         }
     }
     for (name, value) in f.int_fields() {
-        let at_least_one = ["jump_squat_frames", "air_dodge_frames", "ledge_hang_max"];
+        let at_least_one = [
+            "jump_squat_frames",
+            "air_dodge_frames",
+            "ledge_hang_max",
+            "dash_frames",
+        ];
         if value == 0 && at_least_one.contains(&name) {
             errors.push(format!("fighter {i}: {name} must be at least 1"));
         }
@@ -73,6 +82,16 @@ fn validate_fighter(i: usize, f: &FighterParams, errors: &mut Vec<String>) {
     if f.ledge_invuln_floor > f.ledge_invuln_base {
         errors.push(format!(
             "fighter {i}: ledge_invuln_floor exceeds ledge_invuln_base"
+        ));
+    }
+    if f.ledge_hang_dx < f.ecb_half_width {
+        errors.push(format!(
+            "fighter {i}: ledge_hang_dx is smaller than ecb_half_width, so hanging would embed in the wall"
+        ));
+    }
+    if f.ecb_side_height >= f.ecb_height {
+        errors.push(format!(
+            "fighter {i}: ecb_side_height must be below ecb_height"
         ));
     }
     if f.short_hop_velocity > f.full_hop_velocity {
@@ -93,6 +112,11 @@ fn validate_stage(s: &Stage, errors: &mut Vec<String>) {
     for (i, p) in s.platforms.iter().enumerate() {
         if p.left >= p.right {
             errors.push(format!("stage: platform {i} has left >= right"));
+        }
+    }
+    for (i, p) in s.platforms.iter().enumerate() {
+        if !p.pass_through && p.bottom >= p.y {
+            errors.push(format!("stage: solid block {i} has bottom >= top"));
         }
     }
     for (i, l) in s.ledges.iter().enumerate() {
@@ -157,6 +181,15 @@ mod tests {
         c.stage.ledges[0].side = 0;
         c.stage.platforms[1].left = c.stage.platforms[1].right;
         assert_eq!(validate(&c).unwrap_err().len(), 2);
+    }
+
+    #[test]
+    fn rejects_inconsistent_body_and_blocks() {
+        let mut c = Content::placeholder();
+        c.fighters[0].ledge_hang_dx = c.fighters[0].ecb_half_width - Fx::from_raw(1);
+        c.fighters[0].ecb_side_height = c.fighters[0].ecb_height;
+        c.stage.platforms[0].bottom = c.stage.platforms[0].y;
+        assert_eq!(validate(&c).unwrap_err().len(), 3);
     }
 
     #[test]

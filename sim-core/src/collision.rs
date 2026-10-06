@@ -60,6 +60,58 @@ pub fn surface_below(stage: &Stage, pos: Vec2, ignore_one_way: bool) -> Option<(
     best
 }
 
+/// Moves the fighter horizontally by `dx`, stopping at the face of any solid block it would cross.
+/// The ECB is a diamond: widest at `ecb_side_height` above the feet and narrowing to a point at the
+/// feet and at the head, so its width is measured at the height where the block overlaps it.
+/// Returns true if a wall was hit.
+pub fn move_x(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dx: Fx) -> bool {
+    let side_y = pos.y + params.ecb_side_height;
+    let head_y = pos.y + params.ecb_height;
+    let mut x = pos.x + dx;
+    let mut hit = false;
+    for b in stage.platforms.iter().filter(|b| !b.pass_through) {
+        if pos.y >= b.y || head_y <= b.bottom {
+            continue;
+        }
+        // The point of the block's face nearest the ECB's widest point.
+        let near_y = side_y.clamp(b.bottom, b.y);
+        let (dist, span) = if near_y > side_y {
+            (near_y - side_y, params.ecb_height - params.ecb_side_height)
+        } else {
+            (side_y - near_y, params.ecb_side_height)
+        };
+        if dist >= span {
+            continue;
+        }
+        let hw = params.ecb_half_width * ((span - dist) / span);
+        if dx > Fx::ZERO && pos.x + hw <= b.left && x + hw > b.left {
+            x = b.left - hw;
+            hit = true;
+        } else if dx < Fx::ZERO && pos.x - hw >= b.right && x - hw < b.right {
+            x = b.right + hw;
+            hit = true;
+        }
+    }
+    pos.x = x;
+    hit
+}
+
+/// Moves the fighter upward by `dy`, stopping when the top of its ECB meets the underside of a
+/// solid block. Returns true if a ceiling was hit.
+pub fn move_up(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dy: Fx) -> bool {
+    let top = pos.y + params.ecb_height;
+    let mut y = pos.y + dy;
+    let mut hit = false;
+    for b in stage.platforms.iter().filter(|b| !b.pass_through) {
+        if spans(b, pos.x) && top <= b.bottom && y + params.ecb_height > b.bottom {
+            y = b.bottom - params.ecb_height;
+            hit = true;
+        }
+    }
+    pos.y = y;
+    hit
+}
+
 /// A ledge within this fighter's grab box, if any. The fighter must be on the outside of the edge
 /// (with a little tolerance so a fighter drifting past the corner can still grab).
 pub fn find_ledge(stage: &Stage, pos: Vec2, params: &FighterParams) -> Option<usize> {
