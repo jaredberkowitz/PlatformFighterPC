@@ -98,6 +98,17 @@ fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
     }
 }
 
+/// Acceleration toward a ground speed target: gentle `run_decel` when slowing from extra speed
+/// (left over from a dash or a landing), normal `ground_accel` otherwise.
+fn ease_rate(vel: Fx, target: Fx, p: &FighterParams) -> Fx {
+    let overspeed = vel.signum_int() == target.signum_int() && vel.abs() > target.abs();
+    if overspeed {
+        p.run_decel
+    } else {
+        p.ground_accel
+    }
+}
+
 fn x_active(input: Input) -> bool {
     input.stick_x.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
 }
@@ -162,7 +173,11 @@ fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool 
 
 fn start_dash(f: &mut Fighter, p: &FighterParams, dir: i8) {
     f.facing = dir;
-    f.vel.x = p.dash_speed.mul_int(i32::from(dir));
+    // Start slow and ramp up (see `dash_accel`), unless already carrying more speed that way.
+    let carrying = f.vel.x.signum_int() == i32::from(dir) && f.vel.x.abs() > p.dash_initial_speed;
+    if !carrying {
+        f.vel.x = p.dash_initial_speed.mul_int(i32::from(dir));
+    }
     enter(f, S::Dash);
 }
 
@@ -197,7 +212,8 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     let dir = if input.stick_x > 0 { 1 } else { -1 };
     match f.state {
         S::Dash => {
-            f.vel.x = p.dash_speed.mul_int(i32::from(f.facing));
+            let target = p.dash_speed.mul_int(i32::from(f.facing));
+            f.vel.x = approach(f.vel.x, target, p.dash_accel);
             if f.state_frame >= u16::from(p.dash_frames) {
                 let holding = x_active(input) && dir == f.facing;
                 f.state = if holding { S::Run } else { S::Idle };
@@ -219,7 +235,16 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
                 f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
                 enter(f, S::Turn);
             } else if f.state == S::Run {
-                f.vel.x = approach(f.vel.x, input.stick_x_fx() * p.run_speed, p.ground_accel);
+                // Speed left over from a dash eases down gradually instead of snapping to run speed.
+                let target = input.stick_x_fx() * p.run_speed;
+                let overspeed =
+                    f.vel.x.signum_int() == target.signum_int() && f.vel.x.abs() > target.abs();
+                let rate = if overspeed {
+                    p.run_decel
+                } else {
+                    p.ground_accel
+                };
+                f.vel.x = approach(f.vel.x, target, rate);
             } else {
                 // Walking: speed scales with how far the stick is pushed, up to the dash threshold.
                 let tilt = i32::from(
@@ -229,7 +254,8 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
                         .min(STICK_THRESHOLD.unsigned_abs()),
                 );
                 let target = Fx::from_ratio(tilt, i32::from(STICK_THRESHOLD)) * p.walk_speed;
-                f.vel.x = approach(f.vel.x, target.mul_int(i32::from(dir)), p.ground_accel);
+                let target = target.mul_int(i32::from(dir));
+                f.vel.x = approach(f.vel.x, target, ease_rate(f.vel.x, target, p));
                 f.state = S::Walk;
             }
         }
@@ -412,7 +438,13 @@ fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 }
 
 fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
-    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    // Landing keeps momentum: holding the stick the way you are moving carries it through the
+    // landing, and otherwise it bleeds off at the gentler `landing_friction`.
+    let input = f.history[0];
+    let carrying = x_active(input) && (input.stick_x > 0) == (f.vel.x > Fx::ZERO);
+    if !carrying {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.landing_friction);
+    }
     if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(f.lag) {
         enter(f, S::Idle);
     }

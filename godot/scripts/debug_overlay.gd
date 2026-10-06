@@ -10,6 +10,7 @@ var sticks: Array = []
 var header: Label
 var help: Label
 var hint_visible := true
+var warm_labels: Array = []
 
 
 func _font() -> SystemFont:
@@ -96,3 +97,21 @@ func set_overlay_visible(v: bool) -> void:
 	help.visible = v
 	for p in panels:
 		p.visible = v
+
+
+## Draws every printable character at both overlay font sizes so the glyph cache is filled
+## before play. Without this, the first time a new digit appears causes a hitch.
+func prewarm_text(on: bool) -> void:
+	if warm_labels.is_empty():
+		var chars := ""
+		for c in range(32, 127):
+			chars += char(c)
+		var font := _font()
+		for size in [12, 14]:
+			var l := _label(font, size)
+			l.text = chars + "\n" + chars
+			l.position = Vector2(0, 100 + (size - 12) * 60)
+			add_child(l)
+			warm_labels.append(l)
+	for l in warm_labels:
+		l.visible = on

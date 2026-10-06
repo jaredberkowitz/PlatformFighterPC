@@ -8,6 +8,7 @@ use godot::classes::{INode, Node};
 use godot::prelude::*;
 use sim_core::input::buttons;
 use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS, SIM_VERSION};
+use std::collections::VecDeque;
 
 /// Frames of history kept for stepping backwards in training mode (20 seconds).
 const MAX_HISTORY: usize = 1200;
@@ -32,7 +33,7 @@ pub struct SimRunner {
     content: Content,
     state: GameState,
     inputs: [Input; MAX_FIGHTERS],
-    history: Vec<GameState>,
+    history: VecDeque<GameState>,
 }
 
 #[godot_api]
@@ -45,7 +46,7 @@ impl INode for SimRunner {
             content,
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
-            history: Vec::new(),
+            history: VecDeque::new(),
         }
     }
 }
@@ -84,16 +85,16 @@ impl SimRunner {
     #[func]
     fn tick(&mut self) {
         if self.history.len() >= MAX_HISTORY {
-            self.history.remove(0);
+            self.history.pop_front();
         }
-        self.history.push(self.state);
+        self.history.push_back(self.state);
         step(&mut self.state, &self.content, &self.inputs);
     }
 
     /// Steps one frame backwards (training mode). Returns false if there is no history left.
     #[func]
     fn step_back(&mut self) -> bool {
-        match self.history.pop() {
+        match self.history.pop_back() {
             Some(s) => {
                 self.state = s;
                 true

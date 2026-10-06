@@ -33,6 +33,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = [[20, "a_idle"]]
 			d.end_frame = 25
+		"landing":
+			d.cam_dist = 17.0
+			d.events = [[1, "place", 0, -6.0, 4.0]]
+			d.timeline = [[0, 0, 0, 0]]
+			d.shots = [[33, "a_before"], [36, "b_impact"], [39, "c_squashed"], [45, "d_rebound"], [70, "e_settled"]]
+			d.end_frame = 75
 		"shielddrop":
 			d.events = [[1, "place", 0, -8.0, 6.4]]
 			d.timeline = [[0, 0, 0, 0], [40, 0, 0, shield], [44, 0, -100, shield], [50, 0, 0, 0]]

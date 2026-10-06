@@ -22,10 +22,17 @@ pub struct FighterParams {
     pub walk_speed: Fx,
     pub run_speed: Fx,
     pub dash_speed: Fx,
+    /// Speed on the first frame of a dash; it ramps to `dash_speed` at `dash_accel` per frame.
+    pub dash_initial_speed: Fx,
+    pub dash_accel: Fx,
     pub dash_frames: u8,
     pub turn_frames: u8,
     pub ground_accel: Fx,
     pub ground_friction: Fx,
+    /// How fast speed above `run_speed` (left over from a dash) bleeds off while running.
+    pub run_decel: Fx,
+    /// Friction while landing; lower than `ground_friction` so landing keeps momentum.
+    pub landing_friction: Fx,
     // Air movement
     pub air_speed: Fx,
     pub air_accel: Fx,
@@ -92,13 +99,17 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 36] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 40] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
             ("dash_speed", self.dash_speed),
+            ("dash_initial_speed", self.dash_initial_speed),
+            ("dash_accel", self.dash_accel),
             ("ground_accel", self.ground_accel),
             ("ground_friction", self.ground_friction),
+            ("run_decel", self.run_decel),
+            ("landing_friction", self.landing_friction),
             ("air_speed", self.air_speed),
             ("air_accel", self.air_accel),
             ("air_friction", self.air_friction),
@@ -171,10 +182,14 @@ impl FighterParams {
             walk_speed: r(7, 100),
             run_speed: r(2, 15),
             dash_speed: r(1, 6),
+            dash_initial_speed: r(1, 15),
+            dash_accel: r(1, 40),
             dash_frames: 12,
             turn_frames: 6,
             ground_accel: r(1, 40),
             ground_friction: r(1, 30),
+            run_decel: r(1, 150),
+            landing_friction: r(1, 100),
             air_speed: r(3, 40),
             air_accel: r(1, 160),
             air_friction: r(1, 400),

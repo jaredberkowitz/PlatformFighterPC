@@ -45,7 +45,7 @@ fn a_quick_flick_dashes_then_runs_while_held() {
     let p = sim.content.fighters[0];
     sim.tick(inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Dash);
-    assert_eq!(sim.f().vel.x, p.dash_speed);
+    assert!(sim.f().vel.x >= p.dash_initial_speed && sim.f().vel.x < p.dash_speed);
     sim.ticks(usize::from(p.dash_frames) + 2, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Run);
     sim.ticks(20, inp(127, 0, 0));
@@ -303,4 +303,98 @@ fn ledge_attack_gets_up_onto_the_stage_and_takes_longer_than_a_normal_get_up() {
     assert_eq!(attack_state, S::LedgeAttack);
     assert_eq!(getup_state, S::LedgeGetUp);
     assert!(attack_frames > getup_frames);
+}
+
+// ---- Smooth dash and landing ------------------------------------------------------------------
+
+#[test]
+fn a_dash_ramps_up_instead_of_jumping_to_full_speed() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    let mut last = Fx::ZERO;
+    let mut reached_top = false;
+    for frame in 0..usize::from(p.dash_frames) {
+        sim.tick(inp(127, 0, 0));
+        let v = sim.f().vel.x;
+        // The first frame is the initial speed plus one step; after that, one step at a time.
+        let allowed = if frame == 0 {
+            p.dash_initial_speed + p.dash_accel
+        } else {
+            p.dash_accel
+        };
+        assert!(v - last <= allowed, "jumped from {last:?} to {v:?}");
+        assert!(v >= last, "dash slowed down mid-ramp");
+        last = v;
+        reached_top |= v == p.dash_speed;
+    }
+    assert!(reached_top, "never reached dash speed");
+}
+
+#[test]
+fn dash_speed_eases_down_into_run_speed() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    sim.ticks(usize::from(p.dash_frames) + 1, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Run);
+    let mut last = sim.f().vel.x;
+    assert!(last > p.run_speed, "should still carry dash speed");
+    for _ in 0..60 {
+        sim.tick(inp(127, 0, 0));
+        let v = sim.f().vel.x;
+        assert!(last - v <= p.run_decel, "snapped from {last:?} to {v:?}");
+        last = v;
+    }
+    assert_eq!(last, p.run_speed);
+}
+
+#[test]
+fn landing_while_holding_the_stick_carries_momentum_and_eases_it_down() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(2), fx(1, 10), Fx::ZERO);
+    let mut landed_speed = None;
+    let mut last = None;
+    for _ in 0..60 {
+        sim.tick(inp(127, 0, 0));
+        let grounded = sim.f().grounded();
+        let v = sim.f().vel.x;
+        if grounded {
+            landed_speed.get_or_insert(v);
+            if let Some(prev) = last {
+                // No snapping: whatever the state, speed only falls by the gentle easing rate.
+                assert!(
+                    prev - v <= p.run_decel,
+                    "snapped from {prev:?} to {v:?} in {:?}",
+                    sim.f().state
+                );
+            }
+            last = Some(v);
+        }
+    }
+    let landed = landed_speed.expect("never landed");
+    assert!(landed > fx(1, 20), "landing killed the speed: {landed:?}");
+    // It settles on walk speed once the extra momentum has eased away.
+    assert_eq!(sim.f().vel.x, p.walk_speed);
+}
+
+#[test]
+fn landing_without_input_slides_gently_rather_than_stopping_dead() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(2), fx(1, 10), Fx::ZERO);
+    let mut speeds = Vec::new();
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Landing {
+            speeds.push(sim.f().vel.x);
+        }
+    }
+    assert!(speeds.len() >= 2, "landing lag too short to observe");
+    for pair in speeds.windows(2) {
+        assert!(
+            pair[0] - pair[1] <= p.landing_friction,
+            "bled off faster than landing_friction"
+        );
+    }
+    assert!(p.landing_friction < p.ground_friction);
 }

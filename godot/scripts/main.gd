@@ -17,7 +17,12 @@ var views: Array = []
 var stage_view: Node3D
 var overlay: CanvasLayer
 var cam: Camera3D
-var ecb_mesh: MeshInstance3D
+var ecb_nodes: Array = []
+var ecb_mat: StandardMaterial3D
+var min_down: Array = [0.2, 0.2]
+var ui_stamp := -1
+var overlay_dirty := true
+var warmed := false
 var snaps: Array = []
 var inputs: Array = []
 var prev_pos: Array = []
@@ -27,6 +32,15 @@ var show_ecb := true
 var overlay_on := true
 var demo = null
 var shot_wait := ""
+var perf := false
+var perf_frames := 0
+var perf_time := 0.0
+var perf_draw := 0
+var perf_prims := 0
+var perf_worst := 0.0
+var perf_hitches := 0
+var flag_noui := false
+var flag_noecb := false
 
 
 func _ready() -> void:
@@ -46,6 +60,8 @@ func _ready() -> void:
 	_build_world()
 	_parse_demo_args()
 	_restart()
+	_build_ecb()
+	await _prewarm()
 
 
 func _build_world() -> void:
@@ -83,10 +99,6 @@ func _build_world() -> void:
 		prev_pos.append(Vector2.ZERO)
 		cur_pos.append(Vector2.ZERO)
 
-	ecb_mesh = MeshInstance3D.new()
-	ecb_mesh.mesh = ImmediateMesh.new()
-	add_child(ecb_mesh)
-
 	overlay = DebugOverlay.new()
 	add_child(overlay)
 	overlay.build(PLAYERS, masks)
@@ -100,10 +112,24 @@ func _parse_demo_args() -> void:
 			name = a.substr(7)
 		elif a.begins_with("--shots="):
 			dir = a.substr(8)
+	var user_args := OS.get_cmdline_user_args()
+	flag_noui = user_args.has("--noui")
+	flag_noecb = user_args.has("--noecb")
+	if user_args.has("--nomsaa"):
+		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
+	if OS.get_cmdline_user_args().has("--perf"):
+		perf = true
+		name = "tour"
+		if not user_args.has("--vsync"):
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+			Engine.max_fps = 0
 	if name != "":
 		if dir != "":
 			DirAccess.make_dir_recursive_absolute(dir)
 		demo = Demo.make(name, masks, dir)
+		if perf:
+			demo.shots = []
+			demo.end_frame = 600
 		print("demo '%s' starting" % name)
 
 
@@ -147,7 +173,7 @@ func _gather() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if shot_wait != "":
+	if not warmed or shot_wait != "":
 		return
 	if demo != null:
 		for e in demo.events_at(sim.frame()):
@@ -167,6 +193,8 @@ func _physics_process(_delta: float) -> void:
 			shot_wait = shot
 			_capture(shot)
 		if sim.frame() >= demo.end_frame and shot_wait == "":
+			if perf:
+				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames])
 			print("demo '%s' finished at frame %d checksum %s" % [demo.name, sim.frame(), sim.checksum()])
 			get_tree().quit()
 
@@ -188,16 +216,30 @@ func _alpha() -> float:
 
 
 func _process(delta: float) -> void:
+	if perf and warmed:
+		perf_frames += 1
+		perf_time += delta
+		perf_worst = maxf(perf_worst, delta)
+		if delta > 0.025:
+			perf_hitches += 1
+		perf_draw += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
+		perf_prims += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
 	var a := _alpha()
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		views[i].apply(Vector3(p.x, p.y, 0), snaps[i], delta)
-	stage_view.update_ledges(sim)
 	_update_camera(a, delta)
-	_draw_ecb()
-	var min_down: Array = []
-	for i in PLAYERS:
-		min_down.append(sim.fighter_body(i)[3])
+	if not flag_noecb:
+		_update_ecb(a)
+	if flag_noui or not overlay_on:
+		return
+	# Text layout is the expensive part of the overlay, and nothing in it changes between sim ticks.
+	var stamp: int = int(sim.frame()) * 4 + int(paused) * 2 + int(overlay_dirty)
+	if stamp == ui_stamp:
+		return
+	ui_stamp = stamp
+	overlay_dirty = false
+	stage_view.update_ledges(sim)
 	overlay.update(snaps, inputs, {
 		"frame": sim.frame(), "checksum": sim.checksum(), "version": sim.sim_version(),
 		"content_hash": sim.content_hash(), "paused": paused, "history": sim.history_len(),
@@ -222,31 +264,64 @@ func _update_camera(a: float, delta: float) -> void:
 	cam.position = cam.position.lerp(target, clampf(delta * 3.5, 0.0, 1.0))
 
 
-func _draw_ecb() -> void:
-	var im: ImmediateMesh = ecb_mesh.mesh
-	im.clear_surfaces()
-	ecb_mesh.visible = show_ecb
-	if not show_ecb:
-		return
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.vertex_color_use_as_albedo = true
-	mat.no_depth_test = true
-	im.surface_begin(Mesh.PRIMITIVE_LINES, mat)
+## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),
+## so showing it costs one node transform per frame instead of rebuilding geometry.
+func _build_ecb() -> void:
+	for n in ecb_nodes:
+		n.queue_free()
+	ecb_nodes.clear()
+	ecb_mat = StandardMaterial3D.new()
+	ecb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ecb_mat.vertex_color_use_as_albedo = true
+	ecb_mat.no_depth_test = true
 	for i in PLAYERS:
-		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], _alpha())
 		var body: PackedFloat32Array = sim.fighter_body(i)
-		var pts := [
-			p, p + Vector2(body[0], body[2]), p + Vector2(0, body[1]), p + Vector2(-body[0], body[2])]
-		var col: Color = FighterView.COLORS[i]
+		var pts := [Vector2(0, 0), Vector2(body[0], body[2]), Vector2(0, body[1]), Vector2(-body[0], body[2])]
+		var im := ImmediateMesh.new()
+		im.surface_begin(Mesh.PRIMITIVE_LINES, ecb_mat)
 		for k in 4:
 			var a: Vector2 = pts[k]
 			var b: Vector2 = pts[(k + 1) % 4]
-			im.surface_set_color(col)
+			im.surface_set_color(FighterView.COLORS[i])
 			im.surface_add_vertex(Vector3(a.x, a.y, 1.2))
-			im.surface_set_color(col)
+			im.surface_set_color(FighterView.COLORS[i])
 			im.surface_add_vertex(Vector3(b.x, b.y, 1.2))
-	im.surface_end()
+		im.surface_end()
+		var mi := MeshInstance3D.new()
+		mi.mesh = im
+		add_child(mi)
+		ecb_nodes.append(mi)
+		min_down[i] = body[3]
+
+
+func _update_ecb(a: float) -> void:
+	for i in PLAYERS:
+		ecb_nodes[i].visible = show_ecb
+		if show_ecb:
+			var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
+			ecb_nodes[i].position = Vector3(p.x, p.y, 0)
+
+
+## Renders every transient effect for a few frames behind a cover, so their shaders compile
+## now instead of causing a hitch the first time they show up mid-match.
+func _prewarm() -> void:
+	var cover := ColorRect.new()
+	cover.color = Color(0.56, 0.78, 0.95)
+	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()
+	layer.layer = 1
+	layer.add_child(cover)
+	add_child(layer)
+	for v in views:
+		v.prewarm(true)
+	overlay.prewarm_text(true)
+	for _i in 6:
+		await get_tree().process_frame
+	for v in views:
+		v.prewarm(false)
+	overlay.prewarm_text(false)
+	layer.queue_free()
+	warmed = true
 
 
 func _unhandled_key_input(event: InputEvent) -> void:

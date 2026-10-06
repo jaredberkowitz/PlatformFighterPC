@@ -2,7 +2,7 @@
 
 An original, legally distinct platform fighter with rollback netcode, a character creator and a stage creator.
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
-Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
+Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md).
 
 ## Status: Phase 1 complete (movement), playable in Godot
 
@@ -18,9 +18,13 @@ Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
 
 ## Play it
 
-```bash
-cargo build -p godot-bridge
-tools/godot/Godot_v4.7.1-stable_win64.exe --path godot
+**Double-click `play.bat`** in the project folder. It builds the simulation and opens the game.
+
+From a terminal you must be in the project folder, and in PowerShell a program in the current folder needs `.` in front:
+
+```powershell
+cd "C:\Users\jared\OneDrive\Desktop\Platform Fighter PC"
+.\play.bat
 ```
 
 `tools/godot/` is git-ignored. Download Godot 4.7.x and put it there, or open `godot/` in your own Godot.

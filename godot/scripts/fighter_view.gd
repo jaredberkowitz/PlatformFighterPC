@@ -12,41 +12,39 @@ const SASH := Color(0.36, 0.24, 0.3)
 const INK := Color(0.1, 0.07, 0.12)
 
 # Per-state pose: scale (squash and stretch), forward lean in degrees, yaw toward facing in degrees.
-const POSES := {
-	"JumpSquat": [Vector3(1.18, 0.7, 1.18), 0.0],
-	"Landing": [Vector3(1.15, 0.8, 1.15), 0.0],
-	"Crouch": [Vector3(1.12, 0.7, 1.12), 0.0],
-	"Dash": [Vector3(1.0, 0.95, 1.0), 16.0],
-	"Run": [Vector3(1.0, 0.97, 1.0), 12.0],
-	"WaveLand": [Vector3(1.1, 0.78, 1.1), 28.0],
-	"Walk": [Vector3(1.0, 1.0, 1.0), 4.0],
-	"Turn": [Vector3(0.9, 1.0, 0.9), 0.0],
-	"LedgeAttack": [Vector3(1.0, 1.0, 1.0), 20.0],
-}
 
 var player := 0
 var model: Node3D
 var shield: MeshInstance3D
 var meshes: Array[MeshInstance3D] = []
 var yaw := 0.0
-var scale_now := Vector3.ONE
 var lean := 0.0
 
 
+static var _mat_cache := {}
+static var _mesh_cache := {}
+static var _outline_mat: StandardMaterial3D
+
+
 static func toon(c: Color, outline := true) -> StandardMaterial3D:
+	var key := "%s%s" % [c.to_html(), outline]
+	if _mat_cache.has(key):
+		return _mat_cache[key]
 	var m := StandardMaterial3D.new()
+	_mat_cache[key] = m
 	m.albedo_color = c
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
 	m.roughness = 1.0
 	if outline:
-		var o := StandardMaterial3D.new()
-		o.albedo_color = INK
-		o.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		o.cull_mode = BaseMaterial3D.CULL_FRONT
-		o.grow = true
-		o.grow_amount = 0.035
-		m.next_pass = o
+		if _outline_mat == null:
+			_outline_mat = StandardMaterial3D.new()
+			_outline_mat.albedo_color = INK
+			_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
+			_outline_mat.grow = true
+			_outline_mat.grow_amount = 0.035
+		m.next_pass = _outline_mat
 	return m
 
 
@@ -63,11 +61,15 @@ func _part(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vecto
 
 
 func _sphere(r: float) -> SphereMesh:
+	var key := "s%.3f" % r
+	if _mesh_cache.has(key):
+		return _mesh_cache[key]
 	var s := SphereMesh.new()
 	s.radius = r
 	s.height = r * 2.0
-	s.radial_segments = 32
-	s.rings = 16
+	s.radial_segments = 20
+	s.rings = 10
+	_mesh_cache[key] = s
 	return s
 
 
@@ -76,7 +78,7 @@ func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
 	c.top_radius = top
 	c.bottom_radius = bottom
 	c.height = h
-	c.radial_segments = 32
+	c.radial_segments = 20
 	return c
 
 
@@ -156,22 +158,58 @@ func _accessories(p: int, _skin: StandardMaterial3D) -> void:
 		_part(model, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
 
 
-## `s` is a dictionary of sim state (see main.gd `_snapshot`). `alpha` is the render interpolation.
+## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
+const SQUASH := {
+	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
+	"Dash": 0.04, "ShieldDrop": 0.0,
+}
+## Forward lean in degrees per state.
+const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0}
+
+# Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
+const SPRING_K := 420.0
+const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
+
+var squash := 0.0
+var squash_vel := 0.0
+var lean_vel := 0.0
+var was_grounded := false
+var last_vy := 0.0
+
+
+## `s` is a dictionary of sim state (see main.gd `_refresh`).
 func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	position = pos
 	var state: String = s.state
 	var facing: int = s.facing
-	var pose: Array = POSES.get(state, [Vector3.ONE, 0.0])
-	var target_scale: Vector3 = pose[0]
-	var target_lean: float = pose[1]
+	var vy: float = s.vel.y
+	var grounded: bool = s.platform >= 0
+
+	# Touching down: kick the squash spring in proportion to how fast we were falling.
+	if grounded and not was_grounded:
+		squash_vel += clampf(absf(last_vy), 0.0, 0.35) * 55.0
+	was_grounded = grounded
+	if not grounded:
+		last_vy = vy
+
+	var target_squash: float = SQUASH.get(state, 0.0)
 	if state == "Airborne" or state == "Helpless":
-		var vy: float = s.vel.y
-		target_scale = Vector3(0.94, 1.08, 0.94) if vy > 0.06 else (Vector3(0.97, 1.04, 0.97) if vy < -0.12 else Vector3.ONE)
-	var k := clampf(delta * 22.0, 0.0, 1.0)
-	scale_now = scale_now.lerp(target_scale, k)
-	lean = lerpf(lean, target_lean, k)
-	model.scale = scale_now
-	yaw = lerp_angle(yaw, float(facing) * deg_to_rad(36.0), clampf(delta * 18.0, 0.0, 1.0))
+		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
+	var target_lean: float = LEAN.get(state, 0.0)
+
+	# Fixed sub-steps keep the spring stable at any frame rate.
+	var steps := ceili(delta / 0.008)
+	var h := delta / maxi(steps, 1)
+	for _i in steps:
+		squash_vel += (SPRING_K * (target_squash - squash) - SPRING_DAMP * squash_vel) * h
+		squash += squash_vel * h
+		lean_vel += (SPRING_K * (target_lean - lean) - SPRING_DAMP * lean_vel) * h
+		lean += lean_vel * h
+	squash = clampf(squash, -0.35, 0.55)
+
+	# Volume-preserving: squashing down widens the body.
+	model.scale = Vector3(1.0 + 0.5 * squash, 1.0 - squash, 1.0 + 0.5 * squash)
+	yaw = lerp_angle(yaw, float(facing) * deg_to_rad(36.0), clampf(delta * 14.0, 0.0, 1.0))
 	model.rotation = Vector3(0, yaw, -float(facing) * deg_to_rad(lean))
 
 	# Air dodge and ledge invincibility read as ghostly.
@@ -180,6 +218,17 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		ghost = 0.55
 	elif s.ledge_invuln > 0:
 		ghost = 0.45 if (s.frame / 3) % 2 == 0 else 0.1
-	for m in meshes:
-		m.transparency = ghost
+	if ghost != last_ghost:
+		last_ghost = ghost
+		for m in meshes:
+			m.transparency = ghost
 	shield.visible = state == "Shield" or state == "ShieldDrop"
+
+
+var last_ghost := 0.0
+## Shows every transient effect (ghost fade, shield bubble) so their shaders compile before play,
+## avoiding a hitch the first time they appear in a match.
+func prewarm(on: bool) -> void:
+	for m in meshes:
+		m.transparency = 0.5 if on else 0.0
+	shield.visible = on
