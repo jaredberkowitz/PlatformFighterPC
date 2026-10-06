@@ -3,6 +3,7 @@
 //! that would break the simulation (or, later, ranked balance).
 
 use sim_core::content::{MAX_LEDGES, MAX_PLATFORMS};
+use sim_core::moves::{MoveId, Weapon};
 use sim_core::state::HISTORY_LEN;
 use sim_core::{Content, FighterParams, Fx, Stage};
 
@@ -36,7 +37,13 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
         errors.push("content defines no fighters".to_string());
     }
     for (i, f) in content.fighters.iter().enumerate() {
-        validate_fighter(i, f, &mut errors);
+        validate_fighter(i, f, content.weapons.len(), &mut errors);
+    }
+    if content.weapons.is_empty() {
+        errors.push("content defines no weapons".to_string());
+    }
+    for (i, w) in content.weapons.iter().enumerate() {
+        validate_weapon(i, w, &mut errors);
     }
     validate_stage(&content.stage, &mut errors);
 
@@ -47,8 +54,17 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
     }
 }
 
-fn validate_fighter(i: usize, f: &FighterParams, errors: &mut Vec<String>) {
+fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Vec<String>) {
+    if usize::from(f.weapon) >= weapons {
+        errors.push(format!("fighter {i}: weapon {} does not exist", f.weapon));
+    }
+    if f.weight < Fx::from_int(20) || f.weight > Fx::from_int(400) {
+        errors.push(format!("fighter {i}: weight must be between 20 and 400"));
+    }
     for (name, value) in f.fx_fields() {
+        if name == "weight" {
+            continue;
+        }
         if value < Fx::ZERO {
             errors.push(format!("fighter {i}: {name} must not be negative"));
         } else if value > MAX_VALUE {
@@ -96,6 +112,41 @@ fn validate_fighter(i: usize, f: &FighterParams, errors: &mut Vec<String>) {
     }
     if f.short_hop_velocity > f.full_hop_velocity {
         errors.push(format!("fighter {i}: short hop is higher than full hop"));
+    }
+}
+
+fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
+    if w.moves.len() != MoveId::COUNT {
+        errors.push(format!(
+            "weapon {i}: needs exactly {} moves, has {}",
+            MoveId::COUNT,
+            w.moves.len()
+        ));
+    }
+    for (m, mv) in w.moves.iter().enumerate() {
+        let name = MoveId::from_index(m as u8).name();
+        if mv.total_frames == 0 {
+            errors.push(format!("weapon {i} {name}: has no frames"));
+        }
+        if mv.hitboxes.is_empty() {
+            errors.push(format!("weapon {i} {name}: has no hitboxes"));
+        }
+        for hb in &mv.hitboxes {
+            if hb.start == 0 || hb.start > hb.end || hb.end > mv.total_frames {
+                errors.push(format!(
+                    "weapon {i} {name}: hitbox frames {}..{} are outside the move",
+                    hb.start, hb.end
+                ));
+            }
+            if hb.radius <= Fx::ZERO || hb.damage < Fx::ZERO {
+                errors.push(format!(
+                    "weapon {i} {name}: hitbox needs a positive radius and non-negative damage"
+                ));
+            }
+            if hb.base_knockback < 0 || hb.knockback_growth < 0 {
+                errors.push(format!("weapon {i} {name}: knockback cannot be negative"));
+            }
+        }
     }
 }
 
@@ -196,6 +247,36 @@ mod tests {
     fn empty_content_is_rejected() {
         let mut c = Content::placeholder();
         c.fighters.clear();
+        assert!(validate(&c).is_err());
+    }
+}
+
+#[cfg(test)]
+mod combat_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_a_missing_weapon_and_bad_hitboxes() {
+        let mut c = Content::placeholder();
+        c.fighters[0].weapon = 9;
+        c.weapons[0].moves[0].hitboxes[0].end = 200;
+        c.weapons[1].moves.pop();
+        let errors = validate(&c).unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("weapon 9")), "{errors:?}");
+        assert!(
+            errors.iter().any(|e| e.contains("outside the move")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("needs exactly")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_an_absurd_weight() {
+        let mut c = Content::placeholder();
+        c.fighters[0].weight = Fx::from_int(5);
         assert!(validate(&c).is_err());
     }
 }

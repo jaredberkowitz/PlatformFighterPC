@@ -5,7 +5,7 @@ members = ["sim-core", "sim-content", "sim-script", "netplay", "tools", "godot-b
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 
 # Determinism guardrails. Opt in per crate with `[lints] workspace = true`.

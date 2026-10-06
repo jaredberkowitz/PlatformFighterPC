@@ -6,10 +6,12 @@
 //! so "lasts N frames" means `state_frame >= N` ends it. All numbers come from [`FighterParams`].
 
 use crate::collision;
-use crate::content::{FighterParams, Ledge, Stage};
+use crate::content::{FighterParams, Ledge, Ruleset, Stage};
 use crate::fixed::Fx;
 use crate::input::{buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FROM, STICK_THRESHOLD};
+use crate::moves::{MoveId, Weapon};
 use crate::state::{Fighter, FighterState as S, NONE};
+use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
 
 /// Frames of leniency for ground jump, shield-drop and tap-down presses.
@@ -135,15 +137,39 @@ fn on_pass_through(f: &Fighter, stage: &Stage) -> bool {
 
 /// Advances one fighter by a frame. Returns the ledge it wants to grab, if any; the caller
 /// resolves competing grabs in a fixed order (see `step`).
-pub fn update(f: &mut Fighter, p: &FighterParams, stage: &Stage, input: Input) -> Option<u8> {
+pub fn update(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+    input: Input,
+) -> Option<u8> {
     f.history.rotate_right(1);
     f.history[0] = input;
+
+    // Hitlag freezes everything about the fighter except its input history. A struck fighter can still
+    // survival-DI, and its launch happens on the frame hitlag ends.
+    if f.hitlag > 0 {
+        if f.launch_pending {
+            sdi(f, p, stage, rules);
+        }
+        f.hitlag -= 1;
+        if f.hitlag == 0 && f.launch_pending {
+            apply_launch(f, rules);
+        }
+        return None;
+    }
+
     f.platform_ignore = f.platform_ignore.saturating_sub(1);
     f.ledge_cooldown = f.ledge_cooldown.saturating_sub(1);
     f.ledge_invuln = f.ledge_invuln.saturating_sub(1);
+    f.invuln = f.invuln.saturating_sub(1);
     f.state_frame = f.state_frame.saturating_add(1);
 
     match f.state {
+        S::Attack => attack(f, p, weapon, stage),
+        S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, stage),
         S::JumpSquat => jump_squat(f, p, stage),
         S::Airborne => return airborne(f, p, stage),
@@ -216,6 +242,10 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     }
     if on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
         start_platform_drop(f, p);
+        return;
+    }
+    if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+        start_ground_attack(f);
         return;
     }
 
@@ -352,22 +382,41 @@ fn exit_landing(f: &mut Fighter) {
 
 /// Moves by `vel` with wall and ceiling collision. Returns the platform landed on, if any.
 fn air_integrate(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<usize> {
-    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+    let moved = move_by(f, p, stage, f.vel);
+    if moved.wall {
         f.vel.x = Fx::ZERO;
     }
+    if moved.ceiling {
+        f.vel.y = Fx::ZERO;
+    }
+    moved.landing
+}
+
+struct Moved {
+    landing: Option<usize>,
+    wall: bool,
+    ceiling: bool,
+}
+
+/// Moves the fighter by `v` with wall, ceiling and landing collision, reporting what it touched.
+fn move_by(f: &mut Fighter, p: &FighterParams, stage: &Stage, v: Vec2) -> Moved {
+    let mut wall = collision::move_x(stage, p, &mut f.pos, v.x);
     let prev = f.pos;
-    if f.vel.y > Fx::ZERO {
-        if collision::move_up(stage, p, &mut f.pos, f.vel.y) {
-            f.vel.y = Fx::ZERO;
-        }
+    let mut ceiling = false;
+    if v.y > Fx::ZERO {
+        ceiling = collision::move_up(stage, p, &mut f.pos, v.y);
     } else {
-        f.pos.y += f.vel.y;
+        f.pos.y += v.y;
     }
     let landing = collision::find_landing(stage, prev, f.pos, f.platform_ignore > 0);
     if landing.is_none() && collision::push_out(stage, p, &mut f.pos) {
-        f.vel.x = Fx::ZERO;
+        wall = true;
     }
-    landing
+    Moved {
+        landing,
+        wall,
+        ceiling,
+    }
 }
 
 /// Air drift, gravity, movement and landing. Returns true if the fighter landed.
@@ -429,6 +478,10 @@ fn airborne(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
     }
     if f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER) && !f.air_dodge_used {
         start_air_dodge(f, p, stage);
+        return None;
+    }
+    if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+        start_air_attack(f);
         return None;
     }
     if air_move(f, p, stage) {
@@ -652,5 +705,223 @@ fn ledge_recover(f: &mut Fighter, p: &FighterParams) {
         // Stable ground again: the next ledge grab gets full invincibility.
         f.ledge_grab_count = 0;
         enter(f, S::Idle);
+    }
+}
+
+// ---- Combat ------------------------------------------------------------------------------------
+
+/// Frames of leniency for an attack press.
+const ATTACK_BUFFER: u8 = 2;
+/// A direction flick this recent when attack is pressed makes it a smash attack; a stick that was
+/// already held makes it a tilt.
+const SMASH_FLICK_BUFFER: u8 = 4;
+
+impl Fighter {
+    /// Like [`Fighter::hard_down`], but upward.
+    pub fn hard_up(&self, frames: u8) -> bool {
+        let n = usize::from(frames).min(self.history.len());
+        (0..n).any(|i| {
+            self.history[i].stick_y >= STICK_THRESHOLD
+                && match self.history.get(i + 1) {
+                    Some(older) => older.stick_y < STICK_FLICK_FROM,
+                    None => true,
+                }
+        })
+    }
+
+    /// +1 for a hard up press, -1 for a hard down press within `frames`, else 0.
+    pub fn flick_y(&self, frames: u8) -> i8 {
+        if self.hard_up(frames) {
+            1
+        } else if self.hard_down(frames) {
+            -1
+        } else {
+            0
+        }
+    }
+}
+
+fn begin_attack(f: &mut Fighter, id: MoveId) {
+    f.move_id = id as u8;
+    f.hit_mask = 0;
+    enter(f, S::Attack);
+}
+
+fn start_ground_attack(f: &mut Fighter) {
+    let input = f.history[0];
+    let id = if matches!(f.state, S::Dash | S::Run) {
+        MoveId::DashAttack
+    } else if input.stick_y >= STICK_DOWN {
+        if f.hard_up(SMASH_FLICK_BUFFER) {
+            MoveId::USmash
+        } else {
+            MoveId::UTilt
+        }
+    } else if input.stick_y <= -STICK_DOWN {
+        if f.hard_down(SMASH_FLICK_BUFFER) {
+            MoveId::DSmash
+        } else {
+            MoveId::DTilt
+        }
+    } else if x_active(input) {
+        f.facing = if input.stick_x > 0 { 1 } else { -1 };
+        if f.flick_x(SMASH_FLICK_BUFFER) != 0 {
+            MoveId::FSmash
+        } else {
+            MoveId::FTilt
+        }
+    } else {
+        MoveId::Jab
+    };
+    begin_attack(f, id);
+}
+
+fn start_air_attack(f: &mut Fighter) {
+    let input = f.history[0];
+    let id = if input.stick_y >= STICK_DOWN {
+        MoveId::UAir
+    } else if input.stick_y <= -STICK_DOWN {
+        MoveId::DAir
+    } else if x_active(input) {
+        if (input.stick_x > 0) == (f.facing > 0) {
+            MoveId::FAir
+        } else {
+            MoveId::BAir
+        }
+    } else {
+        MoveId::NAir
+    };
+    begin_attack(f, id);
+}
+
+fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
+    let mv = weapon.get(f.move_id);
+    let aerial = MoveId::from_index(f.move_id).is_aerial();
+    if aerial {
+        if air_move(f, p, stage) {
+            // Landing early or late in the move autocancels: only the normal landing lag.
+            let frame = f.state_frame;
+            let clean =
+                frame <= u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
+            enter_landing(f, if clean { p.landing_lag } else { mv.landing_lag });
+            return;
+        }
+    } else {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+        if !slide_on_platform(f, p, stage) {
+            return;
+        }
+    }
+    if f.state_frame >= u16::from(mv.total_frames) {
+        enter(f, if aerial { S::Airborne } else { S::Idle });
+    }
+}
+
+/// Launch physics while stunned. Gravity acts normally; the launch speed decays on top of it.
+fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    f.hitstun = f.hitstun.saturating_sub(1);
+    let speed = f.kb_vel.length();
+    f.kb_vel = if speed > rules.knockback_decay {
+        f.kb_vel * ((speed - rules.knockback_decay) / speed)
+    } else {
+        Vec2::ZERO
+    };
+
+    if f.grounded() {
+        // A grounded hit slides the fighter along the floor.
+        f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
+        if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+            f.kb_vel.x = Fx::ZERO;
+        }
+        let still_on = collision::platform(stage, f.platform)
+            .is_some_and(|plat| f.pos.x >= plat.left && f.pos.x <= plat.right);
+        if !still_on {
+            f.platform = NONE;
+        }
+    } else {
+        f.vel.y = (f.vel.y - p.gravity).max(-p.max_fall_speed);
+        let moved = move_by(f, p, stage, f.vel + f.kb_vel);
+        if moved.wall {
+            f.vel.x = Fx::ZERO;
+            f.kb_vel.x = Fx::ZERO;
+        }
+        if moved.ceiling {
+            f.vel.y = Fx::ZERO;
+            f.kb_vel.y = Fx::ZERO;
+        }
+        if let Some(platform) = moved.landing {
+            land(f, p, stage, platform);
+            // A shield press just before touching down is a tech. Without one it is a placeholder
+            // knockdown: extra landing lag (real knockdown and get-up options come later).
+            let teched = f.pressed_within(buttons::SHIELD, rules.tech_window);
+            f.kb_vel = Vec2::ZERO;
+            f.hitstun = 0;
+            f.tumble = false;
+            enter_landing(
+                f,
+                if teched {
+                    rules.tech_lag
+                } else {
+                    rules.knockdown_lag
+                },
+            );
+            return;
+        }
+    }
+
+    if f.hitstun == 0 {
+        f.tumble = false;
+        if f.grounded() {
+            f.kb_vel = Vec2::ZERO;
+            enter(f, S::Idle);
+        } else {
+            // Leftover launch speed carries on as ordinary air momentum.
+            f.vel += f.kb_vel;
+            f.kb_vel = Vec2::ZERO;
+            enter(f, S::Airborne);
+        }
+    }
+}
+
+/// Turns a pending hit into motion at the end of hitlag. Directional influence: the part of the held stick
+/// that is perpendicular to the launch direction bends the angle, by up to `di_degrees`.
+fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
+    let angle = Angle::from_raw(f.launch_angle);
+    let (ux, uy) = (trig::cos(angle), trig::sin(angle));
+    let input = f.history[0];
+    let cross = (ux * input.stick_y_fx() - uy * input.stick_x_fx()).clamp(-Fx::ONE, Fx::ONE);
+    let bend =
+        (cross.mul_int(i32::from(rules.di_degrees)) * Fx::from_ratio(4096, 360)).raw() / 65536;
+    let bent = Angle::from_raw((i32::from(f.launch_angle) + bend).rem_euclid(4096) as u16);
+
+    // 0.03 reference units per knockback unit, 8 reference units per world unit.
+    let speed = f.launch_kb * Fx::from_ratio(3, 800);
+    f.kb_vel = Vec2::new(trig::cos(bent) * speed, trig::sin(bent) * speed);
+    f.vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.tumble = f.launch_kb >= rules.tumble_knockback;
+    if f.grounded() {
+        if f.kb_vel.y > Fx::ZERO {
+            f.platform = NONE;
+        } else {
+            f.kb_vel.y = Fx::ZERO;
+        }
+    }
+}
+
+/// Survival DI: a stick flick during hitlag nudges the fighter.
+fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    let (dx, dy) = (f.flick_x(1), f.flick_y(1));
+    let d = rules.sdi_distance;
+    if dx != 0 {
+        collision::move_x(stage, p, &mut f.pos, d.mul_int(i32::from(dx)));
+    }
+    if dy > 0 && !f.grounded() {
+        collision::move_up(stage, p, &mut f.pos, d);
+    } else if dy < 0 && !f.grounded() {
+        match collision::surface_below(stage, f.pos, false) {
+            Some((_, dist)) if dist < d => f.pos.y -= dist,
+            _ => f.pos.y -= d,
+        }
     }
 }

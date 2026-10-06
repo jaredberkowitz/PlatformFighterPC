@@ -5,6 +5,7 @@
 
 use crate::collision;
 use crate::content::{Content, MAX_LEDGES};
+use crate::fixed::Fx;
 use crate::hash::{StateHash, StateHasher};
 use crate::input::Input;
 use crate::rng::Rng;
@@ -36,6 +37,10 @@ pub enum FighterState {
     LedgeAttack,
     /// Special fall: no air jumps or air dodge, can still drift and grab ledges.
     Helpless,
+    /// Performing a move; `Fighter::move_id` says which and `state_frame` is the move frame.
+    Attack,
+    /// Launched or flinching from a hit.
+    Hitstun,
 }
 
 impl StateHash for FighterState {
@@ -73,6 +78,28 @@ pub struct Fighter {
     /// Grabs since last touching stable ground; drives the diminishing invincibility.
     pub ledge_grab_count: u8,
     pub ledge_cooldown: u8,
+    // ---- Combat ----
+    /// Damage taken, in percent.
+    pub percent: Fx,
+    pub stocks: u8,
+    /// Frames of freeze after hitting or being hit. Nothing about the fighter advances during hitlag.
+    pub hitlag: u8,
+    /// Frames of hitstun remaining once hitlag ends.
+    pub hitstun: u16,
+    /// A hit is waiting to launch at the end of hitlag (so DI can bend it).
+    pub launch_pending: bool,
+    pub launch_kb: Fx,
+    /// World angle of the pending launch, in `trig::Angle` units.
+    pub launch_angle: u16,
+    /// Current launch velocity, decaying each frame.
+    pub kb_vel: Vec2,
+    pub tumble: bool,
+    /// Index of the move being performed, see `moves::MoveId`.
+    pub move_id: u8,
+    /// Bit `n` set means this move has already hit fighter `n`.
+    pub hit_mask: u8,
+    /// Invulnerable frames remaining (respawn).
+    pub invuln: u8,
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
     pub history: [Input; HISTORY_LEN],
 }
@@ -111,6 +138,18 @@ impl Fighter {
             ledge_invuln: 0,
             ledge_grab_count: 0,
             ledge_cooldown: 0,
+            percent: Fx::ZERO,
+            stocks: 3,
+            hitlag: 0,
+            hitstun: 0,
+            launch_pending: false,
+            launch_kb: Fx::ZERO,
+            launch_angle: 0,
+            kb_vel: Vec2::ZERO,
+            tumble: false,
+            move_id: 0,
+            hit_mask: 0,
+            invuln: 0,
             history: [Input::default(); HISTORY_LEN],
         }
     }
@@ -170,6 +209,18 @@ impl StateHash for Fighter {
         h.write_u8(self.ledge_invuln);
         h.write_u8(self.ledge_grab_count);
         h.write_u8(self.ledge_cooldown);
+        self.percent.hash_into(h);
+        h.write_u8(self.stocks);
+        h.write_u8(self.hitlag);
+        h.write_u16(self.hitstun);
+        h.write_bool(self.launch_pending);
+        self.launch_kb.hash_into(h);
+        h.write_u16(self.launch_angle);
+        self.kb_vel.hash_into(h);
+        h.write_bool(self.tumble);
+        h.write_u8(self.move_id);
+        h.write_u8(self.hit_mask);
+        h.write_u8(self.invuln);
         for input in &self.history {
             input.hash_into(h);
         }
@@ -329,6 +380,66 @@ mod tests {
             ("ledge_cooldown", {
                 let mut s = state;
                 s.fighters[0].ledge_cooldown = 1;
+                s
+            }),
+            ("percent", {
+                let mut s = state;
+                s.fighters[0].percent = Fx::from_int(1);
+                s
+            }),
+            ("stocks", {
+                let mut s = state;
+                s.fighters[0].stocks = 1;
+                s
+            }),
+            ("hitlag", {
+                let mut s = state;
+                s.fighters[0].hitlag = 1;
+                s
+            }),
+            ("hitstun", {
+                let mut s = state;
+                s.fighters[0].hitstun = 1;
+                s
+            }),
+            ("launch_pending", {
+                let mut s = state;
+                s.fighters[0].launch_pending = true;
+                s
+            }),
+            ("launch_kb", {
+                let mut s = state;
+                s.fighters[0].launch_kb = Fx::from_int(1);
+                s
+            }),
+            ("launch_angle", {
+                let mut s = state;
+                s.fighters[0].launch_angle = 1;
+                s
+            }),
+            ("kb_vel", {
+                let mut s = state;
+                s.fighters[0].kb_vel.y = Fx::from_raw(1);
+                s
+            }),
+            ("tumble", {
+                let mut s = state;
+                s.fighters[0].tumble = true;
+                s
+            }),
+            ("move_id", {
+                let mut s = state;
+                s.fighters[0].move_id = 1;
+                s
+            }),
+            ("hit_mask", {
+                let mut s = state;
+                s.fighters[0].hit_mask = 1;
+                s
+            }),
+            ("invuln", {
+                let mut s = state;
+                s.fighters[0].invuln = 1;
                 s
             }),
             ("history", {

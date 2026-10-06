@@ -1,5 +1,6 @@
 //! The one entry point that advances the simulation by exactly one 60 Hz frame.
 
+use crate::combat;
 use crate::content::{Content, FighterParams};
 use crate::fighter;
 use crate::input::Input;
@@ -17,8 +18,13 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     // Phase 1: every fighter updates in player-index order and may request a ledge.
     let mut wants: [Option<u8>; MAX_FIGHTERS] = [None; MAX_FIGHTERS];
     for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
-        wants[i] = fighter::update(f, params_of(content, f), stage, *input);
+        let params = params_of(content, f);
+        let weapon = combat::weapon_of(content, params);
+        wants[i] = fighter::update(f, params, weapon, stage, &content.rules, *input);
     }
+
+    // Phase 1b: hits. Everything has moved, so hitboxes and hurtboxes are where they will be seen.
+    combat::resolve_hits(state, content);
 
     // Phase 2: ledge ownership.
     // Free ledges whose occupant left them (dropped, got up, jumped, or was hit).
@@ -44,6 +50,9 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         fighter::grab_ledge(&mut state.fighters[winner], &params, stage, l);
         state.ledge_owner[l] = winner as i8;
     }
+
+    // Phase 3: fighters who left the blast zone lose a stock and respawn.
+    combat::check_ko(state, content);
 
     state.frame = state.frame.wrapping_add(1);
 }
@@ -151,12 +160,15 @@ mod tests {
                             | FighterState::LedgeGetUp
                             | FighterState::LedgeAttack
                     );
-                    assert_eq!(
-                        grounded_state,
-                        f.grounded(),
-                        "seed {seed} fighter {n}: {:?}",
-                        f.state
-                    );
+                    // Attacks and hitstun can happen on the ground or in the air.
+                    if !matches!(f.state, FighterState::Attack | FighterState::Hitstun) {
+                        assert_eq!(
+                            grounded_state,
+                            f.grounded(),
+                            "seed {seed} fighter {n}: {:?}",
+                            f.state
+                        );
+                    }
                 }
             }
         }

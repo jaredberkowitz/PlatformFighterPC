@@ -6,6 +6,7 @@
 
 use crate::fixed::Fx;
 use crate::hash::{StateHash, StateHasher};
+use crate::moves::Weapon;
 use crate::vec2::Vec2;
 use crate::{MAX_FIGHTERS, SIM_VERSION};
 
@@ -104,11 +105,15 @@ pub struct FighterParams {
     pub helpless_landing_lag: u8,
     pub ledge_attack_frames: u8,
     pub ledge_attack_dx: Fx,
+    /// Weight in reference units; heavier fighters are launched less.
+    pub weight: Fx,
+    /// Index into `Content::weapons`.
+    pub weapon: u8,
 }
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 42] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 43] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -152,11 +157,12 @@ impl FighterParams {
             ("ecb_height", self.ecb_height),
             ("ecb_side_height", self.ecb_side_height),
             ("ledge_attack_dx", self.ledge_attack_dx),
+            ("weight", self.weight),
         ]
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 19] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 20] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("air_jumps", u32::from(self.air_jumps)),
@@ -183,6 +189,7 @@ impl FighterParams {
             ("turn_frames", u32::from(self.turn_frames)),
             ("helpless_landing_lag", u32::from(self.helpless_landing_lag)),
             ("ledge_attack_frames", u32::from(self.ledge_attack_frames)),
+            ("weapon", u32::from(self.weapon)),
         ]
     }
 
@@ -281,6 +288,8 @@ impl FighterParams {
             helpless_landing_lag: 20,
             ledge_attack_frames: 40,
             ledge_attack_dx: r(3, 2),
+            weight: Fx::from_int(90),
+            weapon: 0,
         }
     }
 
@@ -331,6 +340,8 @@ impl FighterParams {
             full_hop_velocity: Self::hop_velocity(gravity, su(32020)),
             short_hop_velocity: Self::hop_velocity(gravity, su(15380)),
             air_jump_velocity: Self::hop_velocity(gravity, su(30710)),
+            weight: Fx::from_int(92),
+            weapon: 1,
             ..FighterParams::base()
         }
     }
@@ -455,10 +466,63 @@ impl StateHash for Stage {
     }
 }
 
+/// Global combat rules, hashed with the content so both peers must agree on them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Ruleset {
+    /// Scales every hitstun duration. Slightly above 1.0 gives combos a little more room (plan 4.3).
+    pub hitstun_mult: Fx,
+    /// Launch speed lost per frame (world units per frame squared).
+    pub knockback_decay: Fx,
+    /// Launch knockback at or above which a hit is a tumble (reference knockback units).
+    pub tumble_knockback: Fx,
+    /// Distance moved by one stick flick of survival DI during hitlag.
+    pub sdi_distance: Fx,
+    /// How far the launch angle can be bent by DI, in degrees.
+    pub di_degrees: u8,
+    pub respawn_invuln: u8,
+    /// A shield press this many frames before landing in hitstun is a tech.
+    pub tech_window: u8,
+    pub tech_lag: u8,
+    /// Placeholder knockdown: landing in hitstun without a tech costs this many frames of lag.
+    pub knockdown_lag: u8,
+}
+
+impl Ruleset {
+    pub fn standard() -> Ruleset {
+        Ruleset {
+            hitstun_mult: Fx::from_ratio(105, 100),
+            knockback_decay: Fx::from_ratio(51, 8000),
+            tumble_knockback: Fx::from_int(80),
+            sdi_distance: Fx::from_ratio(3, 4),
+            di_degrees: 18,
+            respawn_invuln: 120,
+            tech_window: 5,
+            tech_lag: 4,
+            knockdown_lag: 24,
+        }
+    }
+}
+
+impl StateHash for Ruleset {
+    fn hash_into(&self, h: &mut StateHasher) {
+        self.hitstun_mult.hash_into(h);
+        self.knockback_decay.hash_into(h);
+        self.tumble_knockback.hash_into(h);
+        self.sdi_distance.hash_into(h);
+        h.write_u8(self.di_degrees);
+        h.write_u8(self.respawn_invuln);
+        h.write_u8(self.tech_window);
+        h.write_u8(self.tech_lag);
+        h.write_u8(self.knockdown_lag);
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Content {
     pub fighters: Vec<FighterParams>,
+    pub weapons: Vec<Weapon>,
     pub stage: Stage,
+    pub rules: Ruleset,
 }
 
 impl Content {
@@ -470,15 +534,22 @@ impl Content {
         for f in &self.fighters {
             f.hash_into(&mut h);
         }
+        h.write_u32(self.weapons.len() as u32);
+        for w in &self.weapons {
+            w.hash_into(&mut h);
+        }
         self.stage.hash_into(&mut h);
+        self.rules.hash_into(&mut h);
         h.finish()
     }
 
-    /// Two placeholder fighters with different physics profiles on a main stage with platforms.
+    /// Two placeholder fighters (a swordfighter and a close-range brawler) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![FighterParams::duelist(), FighterParams::brawler()],
+            weapons: vec![crate::moves::longsword(), crate::moves::claws()],
             stage: Stage::placeholder(),
+            rules: Ruleset::standard(),
         }
     }
 }

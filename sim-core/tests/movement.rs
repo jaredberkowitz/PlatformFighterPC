@@ -24,7 +24,9 @@ impl Sim {
     }
 
     fn with_chars(chars: [u8; MAX_FIGHTERS]) -> Sim {
-        let content = Content::placeholder();
+        let mut content = Content::placeholder();
+        // Tall blast zone so tests can hold fighters high in the air without being KO.d.
+        content.stage.blast_top = Fx::from_int(5000);
         let state = GameState::new(&content, 1, chars);
         Sim { content, state }
     }
@@ -430,7 +432,7 @@ fn ledge_invincibility_diminishes_with_repeated_grabs_and_resets_on_ground() {
     // Drop, wait out the regrab cooldown, grab again.
     sim.tick(inp(0, -127, 0));
     assert_eq!(sim.f().state, S::Airborne);
-    sim.put_airborne(0, -100, 0, Fx::ZERO, Fx::ZERO);
+    sim.put_airborne(0, -25, 0, Fx::ZERO, Fx::ZERO);
     sim.ticks(usize::from(p.ledge_regrab_cooldown) + 2, Input::default());
     sim.hang_left_ledge();
     assert_eq!(
@@ -442,7 +444,7 @@ fn ledge_invincibility_diminishes_with_repeated_grabs_and_resets_on_ground() {
     // Never below the floor.
     for _ in 0..20 {
         sim.tick(inp(0, -127, 0));
-        sim.put_airborne(0, -100, 0, Fx::ZERO, Fx::ZERO);
+        sim.put_airborne(0, -25, 0, Fx::ZERO, Fx::ZERO);
         sim.ticks(usize::from(p.ledge_regrab_cooldown) + 2, Input::default());
         sim.hang_left_ledge();
     }
