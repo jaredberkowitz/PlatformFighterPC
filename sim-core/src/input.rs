@@ -11,6 +11,11 @@ pub mod buttons {
     pub const GRAB: u16 = 1 << 4;
 }
 
+/// Stick magnitude (of 127) that counts as a deliberate flick or tap, about 0.6.
+pub const STICK_THRESHOLD: i8 = 76;
+/// Stick magnitude below which an axis is treated as neutral, about 0.17.
+pub const STICK_DEADZONE: i8 = 22;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Input {
     pub stick_x: i8,

@@ -6,7 +6,9 @@
 //! * No clocks, threads, I/O or global state. All randomness comes from [`rng::Rng`] stored in state.
 //! * Everything that changes lives in [`state::GameState`]; content is immutable and hashed.
 
+pub mod collision;
 pub mod content;
+pub mod fighter;
 pub mod fixed;
 pub mod fuzz;
 pub mod hash;
@@ -26,6 +28,6 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 1;
+pub const SIM_VERSION: u16 = 2;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;

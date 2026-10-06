@@ -1,54 +1,51 @@
 //! The one entry point that advances the simulation by exactly one 60 Hz frame.
-//!
-//! Phase 0 placeholder behaviour: run, jump and fall on a flat floor, all driven by
-//! `FighterParams`. Real movement (jump squat, air dodge, wavedash, ledges) arrives in Phase 1.
 
 use crate::content::{Content, FighterParams};
-use crate::fixed::Fx;
-use crate::input::{buttons, Input};
-use crate::state::{Fighter, GameState};
+use crate::fighter;
+use crate::input::Input;
+use crate::state::{Fighter, FighterState, GameState, NONE};
 use crate::MAX_FIGHTERS;
 
-pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHTERS]) {
-    // Fixed iteration order (player index) keeps simultaneous interactions deterministic.
-    for (fighter, input) in state.fighters.iter_mut().zip(inputs.iter()) {
-        let idx = usize::from(fighter.char_id).min(content.fighters.len().saturating_sub(1));
-        step_fighter(
-            fighter,
-            &content.fighters[idx],
-            content.stage.floor_y,
-            *input,
-        );
-    }
-    state.frame = state.frame.wrapping_add(1);
+fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
+    let idx = usize::from(f.char_id).min(content.fighters.len().saturating_sub(1));
+    &content.fighters[idx]
 }
 
-fn step_fighter(f: &mut Fighter, params: &FighterParams, floor_y: Fx, input: Input) {
-    let stick_x = input.stick_x_fx();
-    f.vel.x = stick_x * params.run_speed;
-    match stick_x.signum_int() {
-        1 => f.facing = 1,
-        -1 => f.facing = -1,
-        _ => {}
+pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHTERS]) {
+    let stage = &content.stage;
+
+    // Phase 1: every fighter updates in player-index order and may request a ledge.
+    let mut wants: [Option<u8>; MAX_FIGHTERS] = [None; MAX_FIGHTERS];
+    for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
+        wants[i] = fighter::update(f, params_of(content, f), stage, *input);
     }
 
-    if f.grounded && input.pressed(buttons::JUMP) {
-        f.vel.y = params.jump_velocity;
-        f.grounded = false;
+    // Phase 2: ledge ownership.
+    // Free ledges whose occupant left them (dropped, got up, jumped, or was hit).
+    for (l, owner) in state.ledge_owner.iter_mut().enumerate() {
+        if let Ok(o) = usize::try_from(*owner) {
+            let f = &state.fighters[o];
+            if f.state != FighterState::LedgeHang || usize::try_from(f.ledge) != Ok(l) {
+                *owner = NONE;
+            }
+        }
     }
-    if !f.grounded {
-        f.vel.y = (f.vel.y - params.gravity).max(-params.max_fall_speed);
+    // Contested grabs are decided by a fixed rule: the lowest player index wins, and a winner
+    // trumps (knocks off) any current occupant. Losers simply keep falling.
+    for l in 0..stage.ledges.len().min(state.ledge_owner.len()) {
+        let Some(winner) = wants.iter().position(|w| *w == Some(l as u8)) else {
+            continue;
+        };
+        if let Ok(o) = usize::try_from(state.ledge_owner[l]) {
+            let params = *params_of(content, &state.fighters[o]);
+            fighter::trump(&mut state.fighters[o], &params, stage);
+        }
+        let params = *params_of(content, &state.fighters[winner]);
+        fighter::grab_ledge(&mut state.fighters[winner], &params, stage, l);
+        state.ledge_owner[l] = winner as i8;
     }
 
-    f.pos += f.vel;
-
-    if f.pos.y <= floor_y && f.vel.y <= Fx::ZERO {
-        f.pos.y = floor_y;
-        f.vel.y = Fx::ZERO;
-        f.grounded = true;
-    } else {
-        f.grounded = false;
-    }
+    state.frame = state.frame.wrapping_add(1);
 }
 
 #[cfg(test)]
@@ -108,44 +105,44 @@ mod tests {
         assert_eq!(r.checksum(), straight);
     }
 
+    /// Random play must never panic or leave a fighter in an inconsistent state.
     #[test]
-    fn fighter_lands_and_stays_on_floor() {
+    fn random_play_keeps_invariants() {
         let content = Content::placeholder();
-        let mut s = GameState::new(&content, 1, [0, 1, 0, 1]);
-        let jump = Input {
-            buttons: buttons::JUMP,
-            ..Input::default()
-        };
-        step(&mut s, &content, &[jump; MAX_FIGHTERS]);
-        assert!(!s.fighters[0].grounded);
-        assert!(s.fighters[0].pos.y > Fx::ZERO);
-
-        for _ in 0..200 {
-            step(&mut s, &content, &[Input::default(); MAX_FIGHTERS]);
-        }
-        for f in &s.fighters {
-            assert!(f.grounded);
-            assert_eq!(f.pos.y, content.stage.floor_y);
-            assert_eq!(f.vel.y, Fx::ZERO);
-        }
-    }
-
-    #[test]
-    fn different_physics_profiles_behave_differently() {
-        let content = Content::placeholder();
-        let mut s = GameState::new(&content, 1, [0, 1, 0, 1]);
-        let jump = Input {
-            buttons: buttons::JUMP,
-            ..Input::default()
-        };
-        let mut peak = [Fx::ZERO; 2];
-        step(&mut s, &content, &[jump; MAX_FIGHTERS]);
-        for _ in 0..120 {
-            for (p, fighter) in peak.iter_mut().zip(s.fighters.iter()) {
-                *p = (*p).max(fighter.pos.y);
+        for seed in 0..40u64 {
+            let inputs = random_inputs(&mut Rng::new(seed), 1500);
+            let mut s = GameState::new(&content, seed, [0, 1, 0, 1]);
+            for i in &inputs {
+                step(&mut s, &content, i);
+                for (n, f) in s.fighters.iter().enumerate() {
+                    let on_ledge = f.state == FighterState::LedgeHang;
+                    assert_eq!(
+                        on_ledge,
+                        f.ledge != NONE,
+                        "seed {seed} fighter {n}: {:?}",
+                        f.state
+                    );
+                    if on_ledge {
+                        assert_eq!(s.ledge_owner[f.ledge as usize], n as i8);
+                    }
+                    let grounded_state = matches!(
+                        f.state,
+                        FighterState::Idle
+                            | FighterState::Run
+                            | FighterState::JumpSquat
+                            | FighterState::Landing
+                            | FighterState::WaveLand
+                            | FighterState::Shield
+                            | FighterState::LedgeGetUp
+                    );
+                    assert_eq!(
+                        grounded_state,
+                        f.grounded(),
+                        "seed {seed} fighter {n}: {:?}",
+                        f.state
+                    );
+                }
             }
-            step(&mut s, &content, &[Input::default(); MAX_FIGHTERS]);
         }
-        assert_ne!(peak[0], peak[1]);
     }
 }

@@ -4,11 +4,11 @@ An original, legally distinct platform fighter with rollback netcode, a characte
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
 Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
 
-## Status: Phase 0, Foundation
+## Status: Phase 1, Movement (sim side)
 
 | Crate | Purpose | State |
 | --- | --- | --- |
-| `sim-core` | Deterministic sim: 16.16 fixed point, trig tables, `GameState`, `step`, checksum, snapshots | Working skeleton with placeholder run/jump/fall |
+| `sim-core` | Deterministic sim: fixed point, trig, `GameState`, `step`, checksum, movement state machine | Phase 1 movement done, see `docs/PHASE1_MOVEMENT.md` |
 | `sim-content` | Content validation and balance guardrails | Basic validator |
 | `sim-script` | Integer-only scripting VM | Stub (Phase 5) |
 | `netplay` | Rollback layer | Local rollback harness (Phase 2 proof); transport is Phase 4 |
