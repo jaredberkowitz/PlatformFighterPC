@@ -122,7 +122,7 @@ fn jumping_works_out_of_every_ground_state() {
 #[test]
 fn tapping_down_on_a_pass_through_platform_drops_through() {
     let mut sim = Sim::new();
-    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-8), Fx::from_int(6));
+    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
     sim.state.fighters[0].platform = 1;
     sim.tick(inp(0, 0, 0));
     sim.tick(inp(0, -127, 0));
@@ -155,17 +155,17 @@ fn a_wall_stops_a_running_fighter() {
 
 #[test]
 fn a_wall_stops_an_airborne_fighter_and_its_top_can_be_landed_on() {
-    // A pillar clear of the pass-through platforms (which end at x = 12).
-    let mut sim = with_block(14, 16, 0, 4);
+    // A pillar just past the pass-through platforms (which end at x = 8), on the main stage.
+    let mut sim = with_block(9, 10, 0, 4);
     let hw = sim.content.fighters[0].ecb_half_width;
     // Drifting into the wall from the left while below its top: blocked.
-    sim.put_airborne(0, fx(23, 2), Fx::from_int(1), fx(1, 10), fx(1, 100));
+    sim.put_airborne(0, fx(15, 2), Fx::from_int(1), fx(1, 10), fx(1, 100));
     sim.ticks(40, inp(127, 0, 0));
-    assert!(sim.f().pos.x <= Fx::from_int(14) - hw);
+    assert!(sim.f().pos.x <= Fx::from_int(9) - hw);
     // Starting above the top lets it land on the pillar.
-    sim.put_airborne(0, Fx::from_int(13), Fx::from_int(8), fx(1, 10), Fx::ZERO);
+    sim.put_airborne(0, fx(19, 2), Fx::from_int(8), Fx::ZERO, Fx::ZERO);
     for _ in 0..60 {
-        sim.tick(inp(127, 0, 0));
+        sim.tick(inp(0, 0, 0));
         if sim.f().grounded() {
             break;
         }
@@ -214,7 +214,7 @@ fn diagonal_air_dodge_into_a_corner_never_embeds_the_fighter() {
     for start_y in [-1, 0, 1, 2, 5] {
         sim.put_airborne(
             0,
-            Fx::from_int(-23),
+            Fx::from_int(-13),
             Fx::from_int(start_y),
             Fx::ZERO,
             Fx::ZERO,
@@ -223,8 +223,8 @@ fn diagonal_air_dodge_into_a_corner_never_embeds_the_fighter() {
         for _ in 0..40 {
             sim.tick(inp(100, -90, 0));
             let f = sim.f();
-            let inside = f.pos.x > Fx::from_int(-20)
-                && f.pos.x < Fx::from_int(20)
+            let inside = f.pos.x > Fx::from_int(-11)
+                && f.pos.x < Fx::from_int(11)
                 && f.pos.y > Fx::from_int(-8)
                 && f.pos.y < Fx::ZERO;
             assert!(!inside, "start_y {start_y}: embedded at {:?}", f.pos);
@@ -270,7 +270,7 @@ fn helpless_landing_costs_extra_lag() {
 #[test]
 fn helpless_fighters_can_still_grab_ledges() {
     let mut sim = Sim::new();
-    sim.put_airborne(0, Fx::from_int(-21), Fx::from_int(-1), Fx::ZERO, fx(-1, 20));
+    sim.put_airborne(0, Fx::from_int(-12), Fx::from_int(-1), Fx::ZERO, fx(-1, 20));
     enter_helpless(&mut sim.state.fighters[0]);
     sim.tick(inp(0, 0, 0));
     assert_eq!(sim.f().state, S::LedgeHang);
@@ -283,7 +283,7 @@ fn helpless_fighters_can_still_grab_ledges() {
 fn ledge_attack_gets_up_onto_the_stage_and_takes_longer_than_a_normal_get_up() {
     let recover = |button: u16, y: i8| {
         let mut sim = Sim::new();
-        sim.put_airborne(0, Fx::from_int(-21), Fx::from_int(-1), Fx::ZERO, fx(-1, 20));
+        sim.put_airborne(0, Fx::from_int(-12), Fx::from_int(-1), Fx::ZERO, fx(-1, 20));
         sim.tick(inp(0, 0, 0));
         assert_eq!(sim.f().state, S::LedgeHang);
         sim.tick(inp(0, y, button));
@@ -333,6 +333,7 @@ fn a_dash_ramps_up_instead_of_jumping_to_full_speed() {
 #[test]
 fn dash_speed_eases_down_into_run_speed() {
     let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-10);
     let p = sim.content.fighters[0];
     sim.ticks(usize::from(p.dash_frames) + 1, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Run);
@@ -348,10 +349,10 @@ fn dash_speed_eases_down_into_run_speed() {
 }
 
 #[test]
-fn landing_while_holding_the_stick_carries_momentum_and_eases_it_down() {
+fn landing_while_holding_the_stick_carries_momentum_into_a_run() {
     let mut sim = Sim::new();
     let p = sim.content.fighters[0];
-    sim.put_airborne(0, Fx::ZERO, Fx::from_int(2), fx(1, 10), Fx::ZERO);
+    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), fx(1, 10), Fx::ZERO);
     let mut landed_speed = None;
     let mut last = None;
     for _ in 0..60 {
@@ -373,8 +374,9 @@ fn landing_while_holding_the_stick_carries_momentum_and_eases_it_down() {
     }
     let landed = landed_speed.expect("never landed");
     assert!(landed > fx(1, 20), "landing killed the speed: {landed:?}");
-    // It settles on walk speed once the extra momentum has eased away.
-    assert_eq!(sim.f().vel.x, p.walk_speed);
+    // Holding the stick the way you were moving continues straight into a run: no walk phase.
+    assert_eq!(sim.f().state, S::Run);
+    assert_eq!(sim.f().vel.x, p.run_speed);
 }
 
 #[test]
@@ -397,4 +399,172 @@ fn landing_without_input_slides_gently_rather_than_stopping_dead() {
         );
     }
     assert!(p.landing_friction < p.ground_friction);
+}
+
+// ---- Reference jump heights and momentum ------------------------------------------------------
+
+/// World units per reference unit (see `FighterParams::su`).
+fn reference(thousandths: i32) -> Fx {
+    Fx::from_ratio(thousandths, 8000)
+}
+
+fn assert_close(actual: Fx, expected: Fx, what: &str) {
+    let diff = (actual - expected).abs();
+    assert!(
+        diff < fx(1, 25),
+        "{what}: got {actual:?}, expected {expected:?}"
+    );
+}
+
+fn full_hop_apex(chars: [u8; 4]) -> Fx {
+    let mut sim = Sim::with_chars(chars);
+    let mut peak = Fx::ZERO;
+    for _ in 0..90 {
+        sim.tick(inp(0, 0, JUMP));
+        peak = peak.max(sim.f().pos.y);
+    }
+    peak
+}
+
+fn short_hop_apex(chars: [u8; 4]) -> Fx {
+    let mut sim = Sim::with_chars(chars);
+    let mut peak = Fx::ZERO;
+    for t in 0..90 {
+        sim.tick(inp(0, 0, if t == 0 { JUMP } else { 0 }));
+        peak = peak.max(sim.f().pos.y);
+    }
+    peak
+}
+
+fn air_jump_gain(chars: [u8; 4]) -> Fx {
+    let mut sim = Sim::with_chars(chars);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    let mut peak = Fx::ZERO;
+    sim.tick(inp(0, 0, JUMP));
+    for _ in 0..90 {
+        sim.tick(inp(0, 0, 0));
+        peak = peak.max(sim.f().pos.y);
+    }
+    peak - Fx::from_int(30)
+}
+
+#[test]
+fn duelist_jump_heights_match_the_reference_values() {
+    let chars = [0, 1, 0, 1];
+    assert_close(full_hop_apex(chars), reference(33_660), "full hop");
+    assert_close(short_hop_apex(chars), reference(16_260), "short hop");
+    assert_close(air_jump_gain(chars), reference(33_660), "double jump");
+}
+
+#[test]
+fn brawler_jump_heights_match_the_reference_values() {
+    let chars = [1, 0, 1, 0];
+    assert_close(full_hop_apex(chars), reference(32_020), "full hop");
+    assert_close(short_hop_apex(chars), reference(15_380), "short hop");
+    assert_close(air_jump_gain(chars), reference(30_710), "double jump");
+}
+
+#[test]
+fn the_double_jump_is_about_as_high_as_the_first_jump() {
+    for chars in [[0, 1, 0, 1], [1, 0, 1, 0]] {
+        let (first, second) = (full_hop_apex(chars), air_jump_gain(chars));
+        assert!(
+            second <= first,
+            "double jump should not beat the first jump"
+        );
+        assert!(
+            second >= first * fx(9, 10),
+            "double jump is too weak: {second:?} vs {first:?}"
+        );
+    }
+}
+
+#[test]
+fn a_running_jump_keeps_its_ground_speed_into_the_air() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-10);
+    let p = sim.content.fighters[0];
+    sim.ticks(30, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Run);
+    let run = sim.f().vel.x;
+    sim.tick(inp(127, 0, JUMP));
+    // Jump squat, then takeoff: no friction at all, so no speed is lost on the way off the ground.
+    for _ in 0..usize::from(p.jump_squat_frames) {
+        sim.tick(inp(127, 0, JUMP));
+    }
+    assert!(!sim.f().grounded());
+    assert_eq!(sim.f().vel.x, run, "lost speed leaving the ground");
+    // In the air it keeps almost all of it, since only light air friction acts on the extra speed.
+    sim.ticks(15, inp(127, 0, 0));
+    assert!(sim.f().vel.x >= run - p.air_friction.mul_int(16));
+    assert!(
+        sim.f().vel.x > p.air_speed,
+        "momentum should exceed plain air speed"
+    );
+}
+
+#[test]
+fn walking_off_the_edge_while_running_keeps_the_speed() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(6);
+    sim.ticks(40, inp(127, 0, 0));
+    assert!(!sim.f().grounded() || sim.f().state == S::LedgeHang);
+    let run = sim.content.fighters[0].run_speed;
+    assert!(sim.f().vel.x >= run - sim.content.fighters[0].air_friction.mul_int(30));
+}
+
+#[test]
+fn air_speed_still_limits_drift_for_a_standing_jump() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    sim.ticks(60, inp(127, 0, 0));
+    assert_eq!(sim.f().vel.x, p.air_speed);
+}
+
+// ---- The ledge snap bug -----------------------------------------------------------------------
+
+#[test]
+fn walking_off_the_stage_does_not_snap_straight_onto_the_ledge() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(-9);
+    let mut positions = Vec::new();
+    let mut hung_at = None;
+    for t in 0..80 {
+        sim.tick(inp(-127, 0, 0));
+        positions.push(sim.f().pos);
+        if sim.f().state == S::LedgeHang && hung_at.is_none() {
+            hung_at = Some(t);
+        }
+    }
+    // No frame may teleport the fighter: it falls first, and only then grabs.
+    for pair in positions.windows(2) {
+        let jump = (pair[1] - pair[0]).length();
+        assert!(jump < Fx::ONE.mul_int(2), "teleported by {jump:?}");
+    }
+    let drop = sim.content.fighters[0].ledge_min_drop;
+    if let Some(t) = hung_at {
+        assert!(t > 2, "grabbed the instant it walked off");
+        // The fighter is hanging below the ledge, never above it.
+        assert!(positions[t].y <= -drop, "hung too high: {:?}", positions[t]);
+    }
+}
+
+#[test]
+fn a_fighter_dropping_in_from_above_the_stage_lands_instead_of_grabbing() {
+    let mut sim = Sim::new();
+    // Level with and just above the left ledge, over the stage, falling.
+    sim.put_airborne(0, fx(-109, 10), fx(3, 10), Fx::ZERO, fx(-1, 20));
+    sim.ticks(10, inp(0, 0, 0));
+    assert_ne!(sim.f().state, S::LedgeHang);
+    assert_eq!(sim.f().platform, 0);
+}
+
+#[test]
+fn a_fighter_over_the_stage_cannot_grab_the_ledge_from_the_stage_side() {
+    let mut sim = Sim::new();
+    // Drifting left across the edge region at ledge height, facing the ledge from inside.
+    sim.put_airborne(0, fx(-105, 10), fx(-1, 10), fx(-1, 20), fx(-1, 50));
+    sim.ticks(3, inp(-127, 0, 0));
+    assert_ne!(sim.f().state, S::LedgeHang);
 }

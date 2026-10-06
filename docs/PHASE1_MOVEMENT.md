@@ -33,3 +33,38 @@ Contested ledge grabs on the same frame go to the **lowest player index**, which
 `sim-core/tests/movement.rs` and `ground_and_collision.rs` script inputs for every item above, including wavedash cone/smoothness/failure, shield drop,
 platform landing, and ledge trump/simultaneous/invuln/hang-cap/mirroring. `step.rs` has a random-play invariant test, and
 the netplay rollback fuzzer re-verifies determinism of all of it.
+
+## Reference numbers and world scale
+
+Movement now follows the reference game's published attributes. **One world unit = 8 reference units**, so a ~17 unit
+tall fighter is 2.2 tall (`FighterParams::su(thousandths)` does the conversion). Jump velocities are *derived* from the
+reference jump heights and gravity (`FighterParams::hop_velocity`), and tests assert the measured apex matches.
+
+| | Duelist (sword archetype) | Brawler (blaster archetype) |
+| --- | --- | --- |
+| Walk / run / dash | 1.575 / 1.964 / 2.255 | 1.208 / 1.54 / 2.09 |
+| Air speed | 1.071 | 1.281 |
+| Gravity | 0.075 | 0.13 |
+| Fall / fast fall | 1.58 / 2.528 | 1.8 / 2.88 |
+| Full hop / short hop / double jump | 33.66 / 16.26 / 33.66 | 32.02 / 15.38 / 30.71 |
+| Jump squat | 3 frames | 3 frames |
+
+Source: the public attribute tables for the two reference characters (ssbwiki.com). Air friction values were not
+available for the duelist and are estimates. Air dodge, wavedash, shield drop and ledge numbers are unchanged.
+
+The placeholder stage is now Final Destination-sized (main block 22 wide, side platforms 3.6 up) so run speeds feel right.
+
+## Momentum rules
+
+- Jump squat applies no friction, so a run or dash jump keeps its speed off the ground.
+- In the air, speed above `air_speed` is never cut by the stick; only light `air_friction` drags it down. Air acceleration
+  is `air_accel + air_accel_stick * stick_tilt`.
+- Walking off a ledge keeps momentum the same way.
+- Landing while holding the stick the way you are moving goes straight into a **run** (no walk phase), and speed above
+  the target eases off at `run_decel` instead of snapping.
+
+## Ledge grab rule (bug fix)
+
+A fighter can grab a ledge only when it is on the **outside** of the edge and at least `ledge_min_drop` **below** it.
+Previously a fighter level with the ledge, or slightly over the stage, could snap onto it (for example walking off the
+edge). Walking off now means falling for a moment first.

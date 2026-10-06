@@ -260,7 +260,7 @@ func _update_camera(a: float, delta: float) -> void:
 	var dist := clampf(spread / 0.95, 24.0, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
-	var target := Vector3(clampf(center.x, -22, 22), clampf(center.y, -4, 18) + 1.6, dist)
+	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
 	cam.position = cam.position.lerp(target, clampf(delta * 3.5, 0.0, 1.0))
 
 

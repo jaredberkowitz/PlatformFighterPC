@@ -96,6 +96,40 @@ pub fn move_x(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dx: Fx) -> 
     hit
 }
 
+/// Resolves any overlap between the ECB diamond and solid blocks by pushing the fighter sideways
+/// to the nearest face. Needed because the diamond widens as a fighter slides down a wall, which
+/// can put a fighter that started outside the wall inside it. Returns true if it moved.
+pub fn push_out(stage: &Stage, params: &FighterParams, pos: &mut Vec2) -> bool {
+    let side_y = pos.y + params.ecb_side_height;
+    let head_y = pos.y + params.ecb_height;
+    let mut moved = false;
+    for b in stage.platforms.iter().filter(|b| !b.pass_through) {
+        if pos.y >= b.y || head_y <= b.bottom {
+            continue;
+        }
+        let near_y = side_y.clamp(b.bottom, b.y);
+        let (dist, span) = if near_y > side_y {
+            (near_y - side_y, params.ecb_height - params.ecb_side_height)
+        } else {
+            (side_y - near_y, params.ecb_side_height)
+        };
+        if dist >= span {
+            continue;
+        }
+        let hw = params.ecb_half_width * ((span - dist) / span);
+        if pos.x + hw > b.left && pos.x - hw < b.right {
+            let middle = (b.left + b.right) * Fx::HALF;
+            pos.x = if pos.x < middle {
+                b.left - hw
+            } else {
+                b.right + hw
+            };
+            moved = true;
+        }
+    }
+    moved
+}
+
 /// Moves the fighter upward by `dy`, stopping when the top of its ECB meets the underside of a
 /// solid block. Returns true if a ceiling was hit.
 pub fn move_up(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dy: Fx) -> bool {
@@ -113,15 +147,15 @@ pub fn move_up(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dy: Fx) ->
 }
 
 /// A ledge within this fighter's grab box, if any. The fighter must be on the outside of the edge
-/// (with a little tolerance so a fighter drifting past the corner can still grab).
+/// and at least `ledge_min_drop` below it, so walking or hopping off the stage does not snap onto
+/// the ledge, and a fighter over the stage never grabs it.
 pub fn find_ledge(stage: &Stage, pos: Vec2, params: &FighterParams) -> Option<usize> {
-    let tolerance = Fx::HALF;
     stage.ledges.iter().position(|l| {
         let outside = if l.side < 0 { l.x - pos.x } else { pos.x - l.x };
         let dy = pos.y - l.y;
-        outside >= -tolerance
+        outside >= Fx::ZERO
             && outside <= params.ledge_reach_x
-            && dy <= params.ledge_reach_up
+            && dy <= -params.ledge_min_drop
             && dy >= -params.ledge_reach_down
     })
 }
@@ -187,13 +221,62 @@ mod tests {
     fn ledge_grab_box() {
         let content = Content::placeholder();
         let p = content.fighters[0];
-        let near = Vec2::new(Fx::from_int(-21), Fx::from_int(-1));
-        assert_eq!(find_ledge(&content.stage, near, &p), Some(0));
-        let far = Vec2::new(Fx::from_int(-30), Fx::from_int(-1));
-        assert_eq!(find_ledge(&content.stage, far, &p), None);
-        let too_low = Vec2::new(Fx::from_int(-21), Fx::from_int(-5));
-        assert_eq!(find_ledge(&content.stage, too_low, &p), None);
-        let right = Vec2::new(Fx::from_int(21), Fx::from_int(-1));
-        assert_eq!(find_ledge(&content.stage, right, &p), Some(1));
+        let at = |x: i32, y: i32| Vec2::new(Fx::from_int(x), Fx::from_int(y));
+        assert_eq!(find_ledge(&content.stage, at(-12, -1), &p), Some(0));
+        assert_eq!(
+            find_ledge(&content.stage, at(-21, -1), &p),
+            None,
+            "too far out"
+        );
+        assert_eq!(
+            find_ledge(&content.stage, at(-12, -5), &p),
+            None,
+            "too far below"
+        );
+        assert_eq!(find_ledge(&content.stage, at(12, -1), &p), Some(1));
+    }
+
+    #[test]
+    fn a_fighter_over_the_stage_or_level_with_the_ledge_cannot_grab() {
+        let content = Content::placeholder();
+        let p = content.fighters[0];
+        let at = |x: Fx, y: Fx| Vec2::new(x, y);
+        let ledge_y = Fx::ZERO;
+        // Inside the stage edge (the "grabbing from the stage side" case).
+        assert_eq!(
+            find_ledge(
+                &content.stage,
+                at(
+                    Fx::from_ratio(-109, 10),
+                    -p.ledge_min_drop * Fx::from_int(2)
+                ),
+                &p
+            ),
+            None
+        );
+        // Walking or hopping off: level with the ledge, outside of it.
+        assert_eq!(
+            find_ledge(&content.stage, at(Fx::from_ratio(-111, 10), ledge_y), &p),
+            None
+        );
+        // A little way down it can be grabbed.
+        let low = -p.ledge_min_drop * Fx::from_int(2);
+        assert_eq!(
+            find_ledge(&content.stage, at(Fx::from_ratio(-111, 10), low), &p),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn push_out_moves_an_overlapping_fighter_to_the_nearest_face() {
+        let content = Content::placeholder();
+        let p = content.fighters[0];
+        // Just inside the right face of the main block, below its top.
+        let mut pos = Vec2::new(Fx::from_ratio(105, 10), Fx::from_int(-2));
+        assert!(push_out(&content.stage, &p, &mut pos));
+        assert!(pos.x >= Fx::from_int(11) + p.ecb_half_width - Fx::from_raw(2));
+        // Standing on top is not an overlap.
+        let mut top = Vec2::new(Fx::from_int(10), Fx::ZERO);
+        assert!(!push_out(&content.stage, &p, &mut top));
     }
 }

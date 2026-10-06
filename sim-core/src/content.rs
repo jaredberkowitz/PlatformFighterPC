@@ -35,7 +35,9 @@ pub struct FighterParams {
     pub landing_friction: Fx,
     // Air movement
     pub air_speed: Fx,
+    /// Base air acceleration; the stick adds `air_accel_stick` scaled by how far it is pushed.
     pub air_accel: Fx,
+    pub air_accel_stick: Fx,
     pub air_friction: Fx,
     pub gravity: Fx,
     pub max_fall_speed: Fx,
@@ -70,7 +72,8 @@ pub struct FighterParams {
     pub platform_ignore_frames: u8,
     // Ledges
     pub ledge_reach_x: Fx,
-    pub ledge_reach_up: Fx,
+    /// The fighter must be at least this far below the ledge to grab it (no instant grab on walk-off).
+    pub ledge_min_drop: Fx,
     pub ledge_reach_down: Fx,
     pub ledge_hang_dx: Fx,
     pub ledge_hang_dy: Fx,
@@ -99,7 +102,7 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 40] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 41] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -112,6 +115,7 @@ impl FighterParams {
             ("landing_friction", self.landing_friction),
             ("air_speed", self.air_speed),
             ("air_accel", self.air_accel),
+            ("air_accel_stick", self.air_accel_stick),
             ("air_friction", self.air_friction),
             ("gravity", self.gravity),
             ("max_fall_speed", self.max_fall_speed),
@@ -127,7 +131,7 @@ impl FighterParams {
             ("waveland_friction", self.waveland_friction),
             ("shield_drop_speed", self.shield_drop_speed),
             ("ledge_reach_x", self.ledge_reach_x),
-            ("ledge_reach_up", self.ledge_reach_up),
+            ("ledge_min_drop", self.ledge_min_drop),
             ("ledge_reach_down", self.ledge_reach_down),
             ("ledge_hang_dx", self.ledge_hang_dx),
             ("ledge_hang_dy", self.ledge_hang_dy),
@@ -175,33 +179,50 @@ impl FighterParams {
         ]
     }
 
-    /// A fighter with moderate, forgiving defaults.
-    pub fn balanced() -> FighterParams {
+    /// Converts a Smash-Ultimate-style number (given in thousandths of a unit) into world units.
+    /// One world unit is 8 of those units, so a ~17 unit tall fighter is about 2.2 world units tall.
+    pub const fn su(thousandths: i32) -> Fx {
+        Fx::from_ratio(thousandths, 8000)
+    }
+
+    /// Initial upward velocity that makes a jump peak `height` above where it started.
+    ///
+    /// Gravity is applied before moving each frame, so the peak is `v^2/(2g) - v/2`,
+    /// which solves to `v = (g + sqrt(g^2 + 8gH)) / 2`.
+    pub fn hop_velocity(gravity: Fx, height: Fx) -> Fx {
+        (gravity + (gravity * gravity + (gravity * height).mul_int(8)).sqrt()) * Fx::HALF
+    }
+
+    /// Values shared by every fighter: tech that is not character specific (air dodge, wavedash,
+    /// shield drop, ledges). Character profiles below override the movement numbers.
+    fn base() -> FighterParams {
         let r = Fx::from_ratio;
+        let su = FighterParams::su;
         FighterParams {
-            walk_speed: r(7, 100),
-            run_speed: r(2, 15),
-            dash_speed: r(1, 6),
-            dash_initial_speed: r(1, 15),
-            dash_accel: r(1, 40),
+            walk_speed: su(1400),
+            run_speed: su(1800),
+            dash_speed: su(2200),
+            dash_initial_speed: su(900),
+            dash_accel: su(300),
             dash_frames: 12,
             turn_frames: 6,
-            ground_accel: r(1, 40),
-            ground_friction: r(1, 30),
-            run_decel: r(1, 150),
-            landing_friction: r(1, 100),
-            air_speed: r(3, 40),
-            air_accel: r(1, 160),
-            air_friction: r(1, 400),
-            gravity: r(1, 150),
-            max_fall_speed: r(1, 5),
-            fast_fall_speed: r(3, 10),
-            jump_squat_frames: 4,
-            full_hop_velocity: r(11, 50),
-            short_hop_velocity: r(7, 50),
+            ground_accel: su(200),
+            ground_friction: su(110),
+            run_decel: su(60),
+            landing_friction: su(40),
+            air_speed: su(1100),
+            air_accel: su(10),
+            air_accel_stick: su(70),
+            air_friction: su(8),
+            gravity: su(100),
+            max_fall_speed: su(1700),
+            fast_fall_speed: su(2700),
+            jump_squat_frames: 3,
+            full_hop_velocity: r(1, 4),
+            short_hop_velocity: r(3, 20),
             air_jumps: 1,
-            air_jump_velocity: r(1, 5),
-            landing_lag: 4,
+            air_jump_velocity: r(1, 4),
+            landing_lag: 3,
             air_dodge_frames: 30,
             air_dodge_speed: r(2, 5),
             air_dodge_decay: r(9, 10),
@@ -216,7 +237,7 @@ impl FighterParams {
             shield_drop_speed: r(3, 50),
             platform_ignore_frames: 8,
             ledge_reach_x: r(3, 2),
-            ledge_reach_up: r(1, 2),
+            ledge_min_drop: r(1, 4),
             ledge_reach_down: Fx::from_int(2),
             ledge_hang_dx: r(4, 5),
             ledge_hang_dy: r(9, 5),
@@ -241,23 +262,52 @@ impl FighterParams {
         }
     }
 
-    /// A slower, floatier profile with two air jumps.
-    pub fn floaty() -> FighterParams {
-        let r = Fx::from_ratio;
+    /// Fast on the ground, light and floaty in the air: the "longsword duelist" body type.
+    /// Movement numbers follow a swordfighter-style profile from the reference game, in world units.
+    /// Marth-style reference: walk 1.575, run 1.964, dash 2.255, air speed 1.071, gravity 0.075,
+    /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66.
+    pub fn duelist() -> FighterParams {
+        let su = FighterParams::su;
+        let gravity = su(75);
         FighterParams {
-            walk_speed: r(3, 50),
-            run_speed: r(1, 10),
-            dash_speed: r(3, 20),
-            air_speed: r(11, 100),
-            gravity: r(1, 250),
-            max_fall_speed: r(1, 8),
-            fast_fall_speed: r(1, 6),
-            full_hop_velocity: r(9, 50),
-            short_hop_velocity: r(6, 50),
-            air_jumps: 2,
-            air_jump_velocity: r(4, 25),
-            landing_lag: 6,
-            ..FighterParams::balanced()
+            walk_speed: su(1575),
+            run_speed: su(1964),
+            dash_speed: su(2255),
+            air_speed: su(1071),
+            air_friction: su(8),
+            gravity,
+            max_fall_speed: su(1580),
+            fast_fall_speed: su(2528),
+            ground_friction: su(114),
+            full_hop_velocity: Self::hop_velocity(gravity, su(33660)),
+            short_hop_velocity: Self::hop_velocity(gravity, su(16260)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(33660)),
+            ..FighterParams::base()
+        }
+    }
+
+    /// Heavier, faster in the air, with a high gravity and fast fall: the "blaster brawler" body type.
+    /// Wolf-style reference: walk 1.208, run 1.54, dash 2.09, air speed 1.281, gravity 0.13,
+    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71.
+    pub fn brawler() -> FighterParams {
+        let su = FighterParams::su;
+        let gravity = su(130);
+        FighterParams {
+            walk_speed: su(1208),
+            run_speed: su(1540),
+            dash_speed: su(2090),
+            dash_initial_speed: su(840),
+            air_speed: su(1281),
+            air_accel_stick: su(80),
+            air_friction: su(4),
+            gravity,
+            max_fall_speed: su(1800),
+            fast_fall_speed: su(2880),
+            ground_friction: su(110),
+            full_hop_velocity: Self::hop_velocity(gravity, su(32020)),
+            short_hop_velocity: Self::hop_velocity(gravity, su(15380)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(30710)),
+            ..FighterParams::base()
         }
     }
 }
@@ -313,44 +363,44 @@ impl Stage {
         Stage {
             platforms: vec![
                 Platform {
-                    left: int(-20),
-                    right: int(20),
+                    left: int(-11),
+                    right: int(11),
                     y: Fx::ZERO,
                     bottom: int(-8),
                     pass_through: false,
                 },
                 Platform {
-                    left: int(-12),
-                    right: int(-4),
-                    y: int(6),
-                    bottom: int(6),
+                    left: int(-8),
+                    right: int(-3),
+                    y: Fx::from_ratio(18, 5),
+                    bottom: Fx::from_ratio(18, 5),
                     pass_through: true,
                 },
                 Platform {
-                    left: int(4),
-                    right: int(12),
-                    y: int(6),
-                    bottom: int(6),
+                    left: int(3),
+                    right: int(8),
+                    y: Fx::from_ratio(18, 5),
+                    bottom: Fx::from_ratio(18, 5),
                     pass_through: true,
                 },
             ],
             ledges: vec![
                 Ledge {
-                    x: int(-20),
+                    x: int(-11),
                     y: Fx::ZERO,
                     side: -1,
                 },
                 Ledge {
-                    x: int(20),
+                    x: int(11),
                     y: Fx::ZERO,
                     side: 1,
                 },
             ],
-            spawns: [spawn(-6), spawn(-2), spawn(2), spawn(6)],
-            blast_left: int(-60),
-            blast_right: int(60),
-            blast_bottom: int(-40),
-            blast_top: int(45),
+            spawns: [spawn(-4), spawn(-1), spawn(1), spawn(4)],
+            blast_left: int(-28),
+            blast_right: int(28),
+            blast_bottom: int(-17),
+            blast_top: int(24),
         }
     }
 }
@@ -403,7 +453,7 @@ impl Content {
     /// Two placeholder fighters with different physics profiles on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
-            fighters: vec![FighterParams::balanced(), FighterParams::floaty()],
+            fighters: vec![FighterParams::duelist(), FighterParams::brawler()],
             stage: Stage::placeholder(),
         }
     }
@@ -442,6 +492,6 @@ mod tests {
 
     #[test]
     fn placeholder_profiles_differ() {
-        assert_ne!(FighterParams::balanced(), FighterParams::floaty());
+        assert_ne!(FighterParams::duelist(), FighterParams::brawler());
     }
 }

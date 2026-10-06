@@ -19,8 +19,12 @@ pub struct Sim {
 
 impl Sim {
     pub fn new() -> Sim {
+        Sim::with_chars([0, 1, 0, 1])
+    }
+
+    pub fn with_chars(chars: [u8; MAX_FIGHTERS]) -> Sim {
         let content = Content::placeholder();
-        let state = GameState::new(&content, 1, [0, 1, 0, 1]);
+        let state = GameState::new(&content, 1, chars);
         Sim { content, state }
     }
 

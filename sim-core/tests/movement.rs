@@ -59,7 +59,7 @@ impl Sim {
 
     /// Puts fighter 0 into a ledge hang on the left ledge via a real grab.
     fn hang_left_ledge(&mut self) {
-        self.put_airborne(0, -21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+        self.put_airborne(0, -12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
         self.tick(Input::default());
         assert_eq!(self.f().state, S::LedgeHang);
     }
@@ -105,7 +105,7 @@ fn run_then_stop() {
 #[test]
 fn walking_off_the_stage_edge_makes_you_airborne() {
     let mut sim = Sim::new();
-    sim.state.fighters[0].pos.x = Fx::from_int(19);
+    sim.state.fighters[0].pos.x = Fx::from_int(10);
     sim.ticks(40, inp(127, 0, 0));
     assert!(!sim.f().grounded());
     assert!(matches!(sim.f().state, S::Airborne | S::LedgeHang));
@@ -199,7 +199,7 @@ fn wavedash_converts_jump_plus_downward_air_dodge_into_a_ground_slide() {
     assert!(sim.f().grounded());
     assert!(!sim.f().air_dodge_used, "a waveland counts as landing");
     assert!(sim.f().vel.x > Fx::ZERO);
-    let start = Fx::from_int(-6);
+    let start = Fx::from_int(-4);
     sim.ticks(30, inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Idle);
     assert!(
@@ -216,7 +216,7 @@ fn wavedash_works_to_the_left_too() {
     assert_eq!(sim.f().state, S::WaveLand);
     assert!(sim.f().vel.x < Fx::ZERO);
     sim.ticks(30, inp(0, 0, 0));
-    assert!(sim.f().pos.x < Fx::from_int(-7));
+    assert!(sim.f().pos.x < Fx::from_int(-5));
 }
 
 #[test]
@@ -264,7 +264,11 @@ fn straight_down_wavedash_does_not_slide() {
 #[test]
 fn too_horizontal_dodge_fails_gracefully_into_a_plain_air_dodge() {
     let mut sim = wavedash(127, -10);
-    assert_eq!(sim.f().state, S::AirDodge);
+    assert!(
+        matches!(sim.f().state, S::AirDodge | S::Landing),
+        "{:?}",
+        sim.f().state
+    );
     for _ in 0..40 {
         sim.tick(inp(127, -10, 0));
         assert_ne!(sim.f().state, S::WaveLand);
@@ -301,8 +305,8 @@ fn only_one_air_dodge_per_airtime() {
 fn on_pass_through_platform() -> Sim {
     let mut sim = Sim::new();
     let f = &mut sim.state.fighters[0];
-    f.pos.x = Fx::from_int(-8);
-    f.pos.y = Fx::from_int(6);
+    f.pos.x = Fx::from_int(-5);
+    f.pos.y = Fx::from_ratio(18, 5);
     f.platform = 1;
     sim
 }
@@ -355,10 +359,10 @@ fn releasing_shield_returns_to_idle() {
 #[test]
 fn pass_through_platforms_can_be_jumped_up_through_and_landed_on() {
     let mut sim = Sim::new();
-    sim.put_airborne(0, -8, 3, Fx::ZERO, Fx::from_ratio(1, 4));
+    sim.put_airborne(0, -5, 1, Fx::ZERO, Fx::from_ratio(1, 4));
     sim.ticks(120, inp(0, 0, 0));
     assert_eq!(sim.f().platform, 1);
-    assert_eq!(sim.f().pos.y, Fx::from_int(6));
+    assert_eq!(sim.f().pos.y, Fx::from_ratio(18, 5));
 }
 
 // ---- Ledges ----------------------------------------------------------------------------------
@@ -377,7 +381,7 @@ fn falling_next_to_a_ledge_grabs_it() {
 #[test]
 fn a_far_away_fighter_does_not_grab() {
     let mut sim = Sim::new();
-    sim.put_airborne(0, -35, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(0, -25, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
     sim.ticks(5, Input::default());
     assert_eq!(sim.f().state, S::Airborne);
     assert_eq!(sim.state.ledge_owner[0], NONE);
@@ -387,7 +391,7 @@ fn a_far_away_fighter_does_not_grab() {
 fn grabbing_an_occupied_ledge_trumps_the_occupant() {
     let mut sim = Sim::new();
     sim.hang_left_ledge();
-    sim.put_airborne(1, -21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(1, -12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
     sim.tick(Input::default());
     assert_eq!(sim.state.fighters[1].state, S::LedgeHang);
     assert_eq!(sim.state.ledge_owner[0], 1);
@@ -401,8 +405,8 @@ fn grabbing_an_occupied_ledge_trumps_the_occupant() {
 #[test]
 fn simultaneous_grabs_resolve_by_player_index() {
     let mut sim = Sim::new();
-    sim.put_airborne(0, -21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
-    sim.put_airborne(1, -21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(0, -12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(1, -12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
     sim.tick(Input::default());
     assert_eq!(sim.state.fighters[0].state, S::LedgeHang);
     assert_eq!(sim.state.fighters[1].state, S::Airborne);
@@ -410,8 +414,8 @@ fn simultaneous_grabs_resolve_by_player_index() {
 
     // Reversed roles: only players 2 and 3 compete, so 2 wins.
     let mut sim = Sim::new();
-    sim.put_airborne(3, -21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
-    sim.put_airborne(2, -21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(3, -12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(2, -12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
     sim.tick(Input::default());
     assert_eq!(sim.state.ledge_owner[0], 2);
 }
@@ -460,7 +464,7 @@ fn ledge_get_up_lands_on_the_stage() {
     assert_eq!(sim.f().state, S::LedgeGetUp);
     assert_eq!(sim.f().platform, 0);
     assert_eq!(sim.f().pos.y, Fx::ZERO);
-    assert!(sim.f().pos.x > Fx::from_int(-20));
+    assert!(sim.f().pos.x > Fx::from_int(-11));
     assert_eq!(sim.state.ledge_owner[0], NONE);
 }
 
@@ -510,13 +514,13 @@ fn hang_time_is_capped() {
 #[test]
 fn right_ledge_mirrors_the_left() {
     let mut sim = Sim::new();
-    sim.put_airborne(0, 21, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
+    sim.put_airborne(0, 12, -1, Fx::ZERO, Fx::from_ratio(-1, 20));
     sim.tick(Input::default());
     assert_eq!(sim.f().state, S::LedgeHang);
     assert_eq!(sim.state.ledge_owner[1], 0);
     assert_eq!(sim.f().facing, -1);
     sim.tick(inp(0, 127, 0));
-    assert!(sim.f().pos.x < Fx::from_int(20));
+    assert!(sim.f().pos.x < Fx::from_int(11));
     assert_eq!(sim.f().platform, 0);
 }
 

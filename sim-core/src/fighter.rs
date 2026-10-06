@@ -268,7 +268,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 }
 
 fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
-    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    // No friction here: a run or dash jump keeps its momentum into the air.
     if !slide_on_platform(f, p, stage) {
         return;
     }
@@ -302,7 +302,27 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
 
 fn enter_landing(f: &mut Fighter, lag: u8) {
     f.lag = lag;
-    enter(f, if lag == 0 { S::Idle } else { S::Landing });
+    if lag == 0 {
+        exit_landing(f);
+    } else {
+        enter(f, S::Landing);
+    }
+}
+
+/// Leaves a landing. Holding the stick the way you are moving continues straight into a run,
+/// so a jump keeps its momentum all the way through the landing.
+fn exit_landing(f: &mut Fighter) {
+    let input = f.history[0];
+    let moving_right = f.vel.x > Fx::ZERO;
+    let holding = input.stick_x.unsigned_abs() >= STICK_THRESHOLD.unsigned_abs()
+        && (input.stick_x > 0) == moving_right
+        && f.vel.x != Fx::ZERO;
+    if holding {
+        f.facing = if moving_right { 1 } else { -1 };
+        enter(f, S::Run);
+    } else {
+        enter(f, S::Idle);
+    }
 }
 
 // ---- Air -------------------------------------------------------------------------------------
@@ -320,14 +340,27 @@ fn air_integrate(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<us
     } else {
         f.pos.y += f.vel.y;
     }
-    collision::find_landing(stage, prev, f.pos, f.platform_ignore > 0)
+    let landing = collision::find_landing(stage, prev, f.pos, f.platform_ignore > 0);
+    if landing.is_none() && collision::push_out(stage, p, &mut f.pos) {
+        f.vel.x = Fx::ZERO;
+    }
+    landing
 }
 
 /// Air drift, gravity, movement and landing. Returns true if the fighter landed.
 fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     let input = f.history[0];
     if x_active(input) {
-        f.vel.x = approach(f.vel.x, input.stick_x_fx() * p.air_speed, p.air_accel);
+        let tilt = input.stick_x_fx();
+        let target = tilt * p.air_speed;
+        let overspeed = f.vel.x.signum_int() == target.signum_int() && f.vel.x.abs() > target.abs();
+        if overspeed {
+            // Already faster than air speed (a run or dash jump): keep it; only drag bleeds it off.
+            f.vel.x = approach(f.vel.x, target, p.air_friction);
+        } else {
+            let accel = p.air_accel + p.air_accel_stick * tilt.abs();
+            f.vel.x = approach(f.vel.x, target, accel);
+        }
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
     }
@@ -446,7 +479,7 @@ fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.landing_friction);
     }
     if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(f.lag) {
-        enter(f, S::Idle);
+        exit_landing(f);
     }
 }
 

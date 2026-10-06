@@ -24,7 +24,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.shots = [[30, "a_jump_pressed"], [33, "b_squat"], [36, "c_waveland"], [41, "d_slide"], [60, "e_after"]]
 			d.end_frame = 70
 		"ledge":
-			d.events = [[2, "place", 0, -21.0, -0.5]]
+			d.events = [[2, "place", 0, -12.0, -0.5]]
 			d.timeline = [[0, 0, 0, 0], [60, 0, 127, 0], [61, 0, 0, 0]]
 			d.shots = [[25, "a_hang"], [62, "b_getup"], [110, "c_idle"]]
 			d.end_frame = 120
@@ -35,12 +35,16 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.end_frame = 25
 		"landing":
 			d.cam_dist = 17.0
-			d.events = [[1, "place", 0, -6.0, 4.0]]
+			d.events = [[1, "place", 0, -4.0, 4.0]]
 			d.timeline = [[0, 0, 0, 0]]
 			d.shots = [[33, "a_before"], [36, "b_impact"], [39, "c_squashed"], [45, "d_rebound"], [70, "e_settled"]]
 			d.end_frame = 75
+		"walkoff":
+			d.timeline = [[0, -127, 0, 0]]
+			d.shots = [[30, "a_dashing"], [36, "b_off_edge"], [42, "c_falling"], [55, "d_hanging"], [80, "e_later"]]
+			d.end_frame = 90
 		"shielddrop":
-			d.events = [[1, "place", 0, -8.0, 6.4]]
+			d.events = [[1, "place", 0, -5.0, 4.0]]
 			d.timeline = [[0, 0, 0, 0], [40, 0, 0, shield], [44, 0, -100, shield], [50, 0, 0, 0]]
 			d.shots = [[30, "a_on_platform"], [42, "b_shield"], [48, "c_dropping"], [90, "d_below"]]
 			d.end_frame = 100
