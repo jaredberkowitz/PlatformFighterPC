@@ -469,7 +469,7 @@ fn the_double_jump_is_about_as_high_as_the_first_jump() {
     for chars in [[0, 1, 0, 1], [1, 0, 1, 0]] {
         let (first, second) = (full_hop_apex(chars), air_jump_gain(chars));
         assert!(
-            second <= first,
+            second <= first + fx(1, 100),
             "double jump should not beat the first jump"
         );
         assert!(

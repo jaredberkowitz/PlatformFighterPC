@@ -12,6 +12,10 @@ use crate::{MAX_FIGHTERS, SIM_VERSION};
 
 /// Ground speeds as a percentage of the reference values. Lower this to slow the ground game down.
 pub const GROUND_SPEED_PERCENT: i32 = 90;
+/// How much of a full hop's height is covered by its fast opening frames (the reference game's
+/// "initial height" is about 0.55 of the full hop). The frame count is an estimate.
+pub const HOP_BURST_SHARE_PERCENT: i32 = 55;
+pub const HOP_BURST_FRAMES: u8 = 4;
 
 pub const MAX_PLATFORMS: usize = 8;
 pub const MAX_LEDGES: usize = 8;
@@ -51,7 +55,14 @@ pub struct FighterParams {
     pub fast_fall_speed: Fx,
     // Jumping
     pub jump_squat_frames: u8,
+    /// Upward speed after the fast opening of a full hop (see `hop_burst_frames`).
     pub full_hop_velocity: Fx,
+    /// A full hop opens with `hop_burst_frames` frames at this constant speed and no gravity, which
+    /// covers about half the hop's height at once (the reference game speeds up a full hop's first
+    /// frames this way). Then it continues as a normal arc from `full_hop_velocity`. Zero frames
+    /// disables it.
+    pub hop_burst_velocity: Fx,
+    pub hop_burst_frames: u8,
     pub short_hop_velocity: Fx,
     pub air_jumps: u8,
     pub air_jump_velocity: Fx,
@@ -113,7 +124,7 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 43] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 44] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -133,6 +144,7 @@ impl FighterParams {
             ("max_fall_speed", self.max_fall_speed),
             ("fast_fall_speed", self.fast_fall_speed),
             ("full_hop_velocity", self.full_hop_velocity),
+            ("hop_burst_velocity", self.hop_burst_velocity),
             ("short_hop_velocity", self.short_hop_velocity),
             ("air_jump_velocity", self.air_jump_velocity),
             ("air_dodge_speed", self.air_dodge_speed),
@@ -162,9 +174,10 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 20] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 21] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
+            ("hop_burst_frames", u32::from(self.hop_burst_frames)),
             ("air_jumps", u32::from(self.air_jumps)),
             ("landing_lag", u32::from(self.landing_lag)),
             ("air_dodge_frames", u32::from(self.air_dodge_frames)),
@@ -220,6 +233,16 @@ impl FighterParams {
         (gravity + (gravity * gravity + (gravity * height).mul_int(8)).sqrt()) * Fx::HALF
     }
 
+    /// Full hop split into its fast opening and the arc after it: returns
+    /// `(burst_velocity, arc_velocity)` so the whole hop peaks `height` above where it started.
+    /// The opening covers [`HOP_BURST_SHARE_PERCENT`] of the height in [`HOP_BURST_FRAMES`] frames.
+    pub fn full_hop(gravity: Fx, height: Fx) -> (Fx, Fx) {
+        let burst_height = height * Fx::from_ratio(HOP_BURST_SHARE_PERCENT, 100);
+        let burst = burst_height / Fx::from_int(i32::from(HOP_BURST_FRAMES));
+        let arc = Self::hop_velocity(gravity, height - burst_height);
+        (burst, arc)
+    }
+
     /// Values shared by every fighter: tech that is not character specific (air dodge, wavedash,
     /// shield drop, ledges). Character profiles below override the movement numbers.
     fn base() -> FighterParams {
@@ -248,6 +271,8 @@ impl FighterParams {
             fast_fall_speed: su(2700),
             jump_squat_frames: 3,
             full_hop_velocity: r(1, 4),
+            hop_burst_velocity: Fx::ZERO,
+            hop_burst_frames: 0,
             short_hop_velocity: r(3, 20),
             air_jumps: 1,
             air_jump_velocity: r(1, 4),
@@ -301,6 +326,7 @@ impl FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
         let gravity = su(75);
+        let (burst, arc) = Self::full_hop(gravity, su(33660));
         FighterParams {
             walk_speed: gu(1575),
             run_speed: gu(1964),
@@ -311,7 +337,9 @@ impl FighterParams {
             max_fall_speed: su(1580),
             fast_fall_speed: su(2528),
             ground_friction: gu(228),
-            full_hop_velocity: Self::hop_velocity(gravity, su(33660)),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
             short_hop_velocity: Self::hop_velocity(gravity, su(16260)),
             air_jump_velocity: Self::hop_velocity(gravity, su(33660)),
             ..FighterParams::base()
@@ -325,6 +353,7 @@ impl FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
         let gravity = su(130);
+        let (burst, arc) = Self::full_hop(gravity, su(32020));
         FighterParams {
             walk_speed: gu(1208),
             run_speed: gu(1540),
@@ -337,7 +366,9 @@ impl FighterParams {
             max_fall_speed: su(1800),
             fast_fall_speed: su(2880),
             ground_friction: gu(220),
-            full_hop_velocity: Self::hop_velocity(gravity, su(32020)),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
             short_hop_velocity: Self::hop_velocity(gravity, su(15380)),
             air_jump_velocity: Self::hop_velocity(gravity, su(30710)),
             weight: Fx::from_int(92),

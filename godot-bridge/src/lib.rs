@@ -171,6 +171,7 @@ impl SimRunner {
             "special" => buttons::SPECIAL,
             "shield" => buttons::SHIELD,
             "grab" => buttons::GRAB,
+            "strong" => buttons::STRONG,
             _ => 0,
         };
         i32::from(mask)

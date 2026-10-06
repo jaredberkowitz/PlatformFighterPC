@@ -133,3 +133,42 @@ speed lines above its head while it lasts. The overlay shows `fastfall` and the 
 Verified in the real game window by injecting genuine key presses: `Godot --path godot -- --demo=fastfall --shots=<folder>`
 (full hop, then a double tap on S just after the apex: vertical speed goes from -0.005 to -0.316 and the flag turns on).
 A controller now only overrides the keyboard once its stick passes 0.25, so stick drift cannot cancel keyboard input.
+
+## Walking first, dashing on purpose (movement refinement, sim v13)
+
+Why: on a keyboard every direction press is a full-strength stick push, so every press was a dash and every air
+press a full-speed drift. The sim already supported analog walking; the keyboard never reached it.
+
+**Keyboard shaping** (`godot/scripts/input_reader.gd`; the sim still only sees a stick):
+
+- A first press **walks**: it starts at 0.34 tilt and ramps to full over 14 frames. The start sits above the sim's flick
+  start (0.3) so the ramp can never be read as a dash. Holding keeps walking; walk speed stops growing at the dash
+  threshold, so you never run by holding alone (as with a stick).
+- A press within 18 frames of the previous direction press is full strength at once, which is a flick: it **dashes**.
+  That covers double tap and tapping the other way while dash dancing. Press the other way later than that and it is a
+  walking turn.
+- In the air the same ramp gives graded drift: a brief tap is a small nudge, holding builds to full air speed.
+- Ctrl (P1) / backslash (P2) hold a constant 0.45 tilt: a slow walk, and a half-speed drift.
+- **Short hop key** (N / apostrophe): holds jump for 2 frames (the jump squat is 3), so short hops no longer depend on
+  how briefly you can tap Space. Space is still a full hop when held.
+- **Smash key** (I / semicolon): attack plus `buttons::STRONG`. Because a ramped press is a tilt, this is how a
+  keyboard makes a smash attack toward the held direction (up, down or forward; neutral is a jab). A double tap
+  followed by attack within 4 frames is still a smash too. `STRONG` is ignored in the air.
+
+**Sim changes:**
+
+- **A run is committed.** Flicking the other way during a run starts a skid-turn (`Turn`) instead of an instant dash
+  reversal. Dash dancing still works inside the initial dash (12 frames), where it matters for spacing.
+- **Full hops open fast.** The reference game speeds up the first frames of a full hop so it reaches its peak sooner
+  (its "initial height" is about 0.55 of the hop). A full hop now rises 55% of its height in the first 4 frames at
+  constant speed, then follows a normal arc (`hop_burst_*`, `full_hop_velocity`; `Fighter::hop_boost` counts the
+  opening). Total height is unchanged (the apex tests still pass); the apex arrives about a fifth sooner. The 55% is
+  from the wiki; the 4-frame length is an estimate. Short hops and double jumps have no opening.
+
+**Not changed, on purpose:** air acceleration, air friction, air speed and ground-to-air carry already follow the reference
+tables; with analog input they give the graded control. Tap jump (stick up to jump) is not added: up is the up-tilt,
+up-smash and up-special input.
+
+Tests: `sim-core/tests/feel.rs` (walk, committed run, hop shape, graded drift, strong button) and the real-key
+`godot/tests/input_e2e.gd` (walk, dash, run, taps, short hop). Demo: `--demo=walk`.
+Sources: ssbwiki Jump (jump squat, full hop "initial height" 0.55), Initial dash, Walk and the attribute tables.

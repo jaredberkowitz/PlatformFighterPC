@@ -9,6 +9,9 @@ pub mod buttons {
     pub const SPECIAL: u16 = 1 << 2;
     pub const SHIELD: u16 = 1 << 3;
     pub const GRAB: u16 = 1 << 4;
+    /// Strong attack: with ATTACK, a smash attack in the stick's direction (the keyboard's stand-in
+    /// for flicking the stick or the C-stick). Ignored in the air.
+    pub const STRONG: u16 = 1 << 5;
 }
 
 /// Stick magnitude (of 127) that counts as a deliberate flick or tap, about 0.6.

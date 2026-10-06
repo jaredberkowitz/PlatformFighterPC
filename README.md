@@ -29,10 +29,11 @@ cd "C:\Users\jared\OneDrive\Desktop\Platform Fighter PC"
 
 `tools/godot/` is git-ignored. Download Godot 4.7.x and put it there, or open `godot/` in your own Godot.
 
-- **P1** WASD stick, Ctrl = gentle tilt (walk), Space jump, J attack, K special, L or Shift shield.
-- **P2** Arrows, Backslash = tilt, Enter jump, comma attack, period special, slash shield.
-- **Gamepads** left stick, A/Y jump, X attack, B special, bumpers or triggers shield.
-- **Combat** J attack: tap with the stick neutral for a jab, flick a direction with it for a smash, hold a direction first for a tilt. In the air the stick picks the aerial. K special: up for the sword fighter's rising slash, neutral for the brawler's blaster.
+- **P1** WASD stick, Space jump, N short hop, J attack, I smash attack, K special, L or Shift shield, Ctrl = slow walk.
+- **P2** Arrows, Enter jump, apostrophe short hop, comma attack, semicolon smash, period special, slash shield, backslash = slow walk.
+- **Walk or dash** A first tap of a direction walks (it starts gently and builds up); a double tap dashes, and holding after a dash runs. Tapping the other way soon after a dash is a dash dance, but a run skids to a stop before turning.
+- **Gamepads** left stick (analog, so a light push walks), A/Y jump, X attack, B special, bumpers or triggers shield.
+- **Combat** J attack: tap with the stick neutral for a jab, hold a direction first for a tilt, or press the smash key (I) with a direction for a smash. In the air the stick picks the aerial. K special: up for the sword fighter's rising slash, neutral for the brawler's blaster.
 - **Training keys** F1 overlay, F2 ECB diamonds, F3 hitboxes and hurtboxes, F6 +25% damage to P2, F7 reset damage, F8 face-to-face, P pause, `.` step forward, `,` step back, R restart.
 
 Try a wavedash (tap jump, then shield with the stick held down-diagonal), shield + down on a platform, or

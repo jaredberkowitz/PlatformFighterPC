@@ -55,7 +55,7 @@ func _ready() -> void:
 
 	sim = ClassDB.instantiate("SimRunner")
 	add_child(sim)
-	for n in ["jump", "attack", "special", "shield", "grab"]:
+	for n in ["jump", "attack", "special", "shield", "grab", "strong"]:
 		masks[n] = sim.button_mask(n)
 	_build_world()
 	_parse_demo_args()

@@ -72,6 +72,20 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				[64, "key", KEY_S, true], [75, "key", KEY_S, false]]
 			d.shots = [[56, "a_before"], [62, "b_after_first_tap"], [66, "c_second_tap"], [72, "d_falling_fast"], [80, "e_later"]]
 			d.end_frame = 100
+		"walk":
+			# Real key presses: a walk, a double-tap dash into a run, then a short hop with a tap of drift.
+			d.real_keys = true
+			d.cam_dist = 24.0
+			d.timeline = [[0, 0, 0, 0]]
+			d.events = [
+				[1, "place", 0, -9.0, 0.0],
+				[4, "key", KEY_D, true], [34, "key", KEY_D, false],
+				[50, "key", KEY_D, true], [53, "key", KEY_D, false],
+				[56, "key", KEY_D, true], [86, "key", KEY_D, false],
+				[96, "key", KEY_N, true], [106, "key", KEY_N, false],
+				[100, "key", KEY_D, true], [104, "key", KEY_D, false]]
+			d.shots = [[16, "a_walking"], [30, "b_walk_full_tilt"], [60, "c_dash"], [78, "d_run"], [100, "e_hop_nudge"], [118, "f_drifted"]]
+			d.end_frame = 130
 		"combat":
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]

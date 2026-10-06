@@ -37,7 +37,7 @@ func _draw() -> void:
 	draw_circle(dot, 5.0, color)
 
 	var font := ThemeDB.fallback_font
-	var names := [["jump", "JMP"], ["attack", "ATK"], ["special", "SPC"], ["shield", "SHD"], ["grab", "GRB"]]
+	var names := [["jump", "JMP"], ["attack", "ATK"], ["special", "SPC"], ["shield", "SHD"], ["grab", "GRB"], ["strong", "STR"]]
 	for i in names.size():
 		var on: bool = (buttons & int(masks.get(names[i][0], 0))) != 0
 		var r := Rect2(112 + (i % 2) * 40, 8 + (i / 2) * 30, 36, 24)

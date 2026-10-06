@@ -72,6 +72,8 @@ pub struct Fighter {
     /// Frames of lag for the current `Landing` state (normal vs helpless landing).
     pub lag: u8,
     pub fast_fall: bool,
+    /// Frames left of the fast opening of a full hop (see `FighterParams::hop_burst_frames`).
+    pub hop_boost: u8,
     /// While non-zero, pass-through platforms are ignored (set by shield drop).
     pub platform_ignore: u8,
     /// Ledge currently held, or [`NONE`].
@@ -163,6 +165,7 @@ impl Fighter {
             air_dodge_used: false,
             lag: 0,
             fast_fall: false,
+            hop_boost: 0,
             platform_ignore: 0,
             ledge: NONE,
             ledge_invuln: 0,
@@ -236,6 +239,7 @@ impl StateHash for Fighter {
         h.write_bool(self.air_dodge_used);
         h.write_u8(self.lag);
         h.write_bool(self.fast_fall);
+        h.write_u8(self.hop_boost);
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
@@ -391,6 +395,11 @@ mod tests {
             ("fast_fall", {
                 let mut s = state;
                 s.fighters[0].fast_fall = true;
+                s
+            }),
+            ("hop_boost", {
+                let mut s = state;
+                s.fighters[0].hop_boost = 1;
                 s
             }),
             ("platform_ignore", {

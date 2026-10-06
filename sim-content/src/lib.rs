@@ -110,9 +110,23 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             "fighter {i}: ecb_side_height must be below ecb_height"
         ));
     }
-    if f.short_hop_velocity > f.full_hop_velocity {
+    if hop_height(f.short_hop_velocity, f.gravity) > full_hop_height(f) {
         errors.push(format!("fighter {i}: short hop is higher than full hop"));
     }
+}
+
+/// Peak height of a hop that leaves the ground at `v` (gravity acts before each move).
+fn hop_height(v: Fx, gravity: Fx) -> Fx {
+    if gravity <= Fx::ZERO {
+        return Fx::ZERO;
+    }
+    v * v / (gravity * Fx::from_int(2)) - v * Fx::HALF
+}
+
+/// Peak height of a full hop, including its fast opening if it has one.
+fn full_hop_height(f: &FighterParams) -> Fx {
+    hop_height(f.full_hop_velocity, f.gravity)
+        + f.hop_burst_velocity.mul_int(i32::from(f.hop_burst_frames))
 }
 
 fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {

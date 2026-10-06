@@ -106,6 +106,10 @@ impl Fighter {
 fn enter(f: &mut Fighter, state: S) {
     f.state = state;
     f.state_frame = 0;
+    // The fast opening of a full hop only survives while airborne or attacking in the air.
+    if !matches!(state, S::Airborne | S::Attack) {
+        f.hop_boost = 0;
+    }
 }
 
 fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
@@ -252,10 +256,19 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         return;
     }
 
-    // A flick starts a dash (and turns around instantly if it is against the facing).
+    // A flick starts a dash (and turns around instantly if it is against the facing). A run is
+    // committed: flicking the other way skids to a stop and turns instead of dash dancing, and a
+    // flick the same way changes nothing.
     let flick = f.flick_x(FLICK_BUFFER);
-    if flick != 0 && !(f.state == S::Dash && flick == f.facing) {
-        start_dash(f, p, flick);
+    if flick != 0 {
+        if f.state == S::Run {
+            if flick != f.facing {
+                f.facing = flick;
+                enter(f, S::Turn);
+            }
+        } else if !(f.state == S::Dash && flick == f.facing) {
+            start_dash(f, p, flick);
+        }
     }
 
     let dir = if input.stick_x > 0 { 1 } else { -1 };
@@ -329,14 +342,20 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         return;
     }
     if f.state_frame >= u16::from(p.jump_squat_frames) {
-        f.vel.y = if f.held(buttons::JUMP) {
-            p.full_hop_velocity
-        } else {
-            p.short_hop_velocity
-        };
         f.platform = NONE;
         f.fast_fall = false;
         enter(f, S::Airborne);
+        if f.held(buttons::JUMP) && p.hop_burst_frames > 0 {
+            // Full hop: a fast opening, then the arc (see `air_move`).
+            f.vel.y = p.hop_burst_velocity;
+            f.hop_boost = p.hop_burst_frames;
+        } else {
+            f.vel.y = if f.held(buttons::JUMP) {
+                p.full_hop_velocity
+            } else {
+                p.short_hop_velocity
+            };
+        }
         // Wavedash input: a shield press during jump squat fires on the first airborne frame.
         if f.pressed_within(buttons::SHIELD, p.air_dodge_buffer) && !f.air_dodge_used {
             start_air_dodge(f, p, stage);
@@ -349,6 +368,7 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
         f.pos.y = plat.y;
     }
     f.vel.y = Fx::ZERO;
+    f.hop_boost = 0;
     f.platform = platform as i8;
     f.air_jumps_left = p.air_jumps;
     f.air_dodge_used = false;
@@ -454,14 +474,27 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     } else {
         p.max_fall_speed
     };
-    f.vel.y = (f.vel.y - p.gravity).max(-terminal);
+    // Fast opening of a full hop: constant speed, no gravity. After its last frame the hop
+    // continues as a normal arc.
+    let mut opening_ends = false;
+    if f.hop_boost > 0 {
+        f.hop_boost -= 1;
+        opening_ends = f.hop_boost == 0;
+    } else {
+        f.vel.y = (f.vel.y - p.gravity).max(-terminal);
+    }
 
     match air_integrate(f, p, stage) {
         Some(i) => {
             land(f, p, stage, i);
             true
         }
-        None => false,
+        None => {
+            if opening_ends && f.vel.y > Fx::ZERO {
+                f.vel.y = p.full_hop_velocity;
+            }
+            false
+        }
     }
 }
 
@@ -476,6 +509,7 @@ fn ledge_request(f: &Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
 fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) -> Option<u8> {
     if f.pressed_within(buttons::JUMP, AIR_ACTION_BUFFER) && f.air_jumps_left > 0 {
         f.vel.y = p.air_jump_velocity;
+        f.hop_boost = 0;
         f.air_jumps_left -= 1;
         f.fast_fall = false;
     }
@@ -755,23 +789,25 @@ fn begin_attack(f: &mut Fighter, id: MoveId) {
 
 fn start_ground_attack(f: &mut Fighter) {
     let input = f.history[0];
+    // The strong-attack button is a flick made in advance: it turns a direction into a smash attack.
+    let strong = f.held(buttons::STRONG);
     let id = if matches!(f.state, S::Dash | S::Run) {
         MoveId::DashAttack
     } else if input.stick_y >= STICK_DOWN {
-        if f.hard_up(SMASH_FLICK_BUFFER) {
+        if strong || f.hard_up(SMASH_FLICK_BUFFER) {
             MoveId::USmash
         } else {
             MoveId::UTilt
         }
     } else if input.stick_y <= -STICK_DOWN {
-        if f.hard_down(SMASH_FLICK_BUFFER) {
+        if strong || f.hard_down(SMASH_FLICK_BUFFER) {
             MoveId::DSmash
         } else {
             MoveId::DTilt
         }
     } else if x_active(input) {
         f.facing = if input.stick_x > 0 { 1 } else { -1 };
-        if f.flick_x(SMASH_FLICK_BUFFER) != 0 {
+        if strong || f.flick_x(SMASH_FLICK_BUFFER) != 0 {
             MoveId::FSmash
         } else {
             MoveId::FTilt
@@ -820,6 +856,7 @@ fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         .copied();
     if let Some(m) = motion {
         f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), m.vy);
+        f.hop_boost = 0;
         if m.vy > Fx::ZERO {
             f.platform = NONE;
         }
