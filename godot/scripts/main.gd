@@ -61,6 +61,7 @@ func _ready() -> void:
 	_parse_demo_args()
 	_restart()
 	_build_ecb()
+	_build_boxes()
 	await _prewarm()
 
 
@@ -138,11 +139,13 @@ func _restart() -> void:
 	for i in PLAYERS:
 		_refresh(i)
 		prev_pos[i] = cur_pos[i]
+	_rebuild_boxes()
 	paused = false
 
 
 func _refresh(i: int) -> void:
 	var info: PackedInt32Array = sim.fighter_info(i)
+	var cb: PackedInt32Array = sim.fighter_combat(i)
 	cur_pos[i] = sim.fighter_pos(i)
 	snaps[i] = {
 		"state": sim.fighter_state(i), "state_frame": sim.fighter_state_frame(i),
@@ -150,6 +153,9 @@ func _refresh(i: int) -> void:
 		"char": info[0], "platform": info[1], "jumps": info[2], "dodged": info[3] != 0,
 		"fast_fall": info[4] != 0, "ledge": info[5], "ledge_invuln": info[6], "grabs": info[7],
 		"lag": info[8], "cooldown": info[9], "ignore": info[10], "frame": sim.frame(),
+		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
+		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
+		"move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
 	}
 
 
@@ -170,6 +176,7 @@ func _tick_once() -> void:
 		_refresh(i)
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
+	_rebuild_boxes()
 
 
 func _gather() -> void:
@@ -196,6 +203,13 @@ func _physics_process(_delta: float) -> void:
 				sim.debug_helpless(e[2])
 			elif e[1] == "key":
 				_send_key(e[2], e[3])
+			elif e[1] == "stand":
+				sim.debug_stand(e[2], e[3], e[4])
+				_refresh(e[2])
+				prev_pos[e[2]] = cur_pos[e[2]]
+			elif e[1] == "percent":
+				sim.debug_set_percent(e[2], e[3])
+				_refresh(e[2])
 	_gather()
 	if paused:
 		return
@@ -244,6 +258,7 @@ func _process(delta: float) -> void:
 	_update_camera(a, delta)
 	if not flag_noecb:
 		_update_ecb(a)
+	_position_boxes(a)
 	if flag_noui or not overlay_on:
 		return
 	# Text layout is the expensive part of the overlay, and nothing in it changes between sim ticks.
@@ -346,6 +361,24 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			overlay.set_overlay_visible(overlay_on)
 		KEY_F2:
 			show_ecb = not show_ecb
+		KEY_F3:
+			show_boxes = not show_boxes
+			_rebuild_boxes()
+		KEY_F6:
+			sim.debug_set_percent(1, sim.fighter_percent(1) + 25.0)
+			_refresh(1)
+		KEY_F7:
+			sim.debug_set_percent(0, 0.0)
+			sim.debug_set_percent(1, 0.0)
+			_refresh(0)
+			_refresh(1)
+		KEY_F8:
+			sim.debug_stand(0, -1.2, 1)
+			sim.debug_stand(1, 1.2, -1)
+			for i in PLAYERS:
+				_refresh(i)
+				prev_pos[i] = cur_pos[i]
+			_rebuild_boxes()
 		KEY_P:
 			paused = not paused
 		KEY_PERIOD:
@@ -357,7 +390,65 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				for i in PLAYERS:
 					_refresh(i)
 					prev_pos[i] = cur_pos[i]
+				_rebuild_boxes()
 		KEY_R:
 			_restart()
 		KEY_ESCAPE:
 			get_tree().quit()
+
+
+# ---- Hitbox and hurtbox display (training) ----------------------------------------------------------
+# Rebuilt only when the sim ticks (60 Hz), positioned each frame by interpolation.
+
+var show_boxes := true
+var box_nodes: Array = []
+var box_mat: StandardMaterial3D
+
+
+func _build_boxes() -> void:
+	box_mat = StandardMaterial3D.new()
+	box_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	box_mat.vertex_color_use_as_albedo = true
+	box_mat.no_depth_test = true
+	for i in PLAYERS:
+		var mi := MeshInstance3D.new()
+		mi.mesh = ImmediateMesh.new()
+		add_child(mi)
+		box_nodes.append(mi)
+
+
+func _circle(im: ImmediateMesh, c: Vector2, r: float, color: Color) -> void:
+	var segments := 20
+	for k in segments:
+		var a0 := TAU * k / segments
+		var a1 := TAU * (k + 1) / segments
+		im.surface_set_color(color)
+		im.surface_add_vertex(Vector3(c.x + cos(a0) * r, c.y + sin(a0) * r, 1.5))
+		im.surface_set_color(color)
+		im.surface_add_vertex(Vector3(c.x + cos(a1) * r, c.y + sin(a1) * r, 1.5))
+
+
+func _rebuild_boxes() -> void:
+	if box_nodes.is_empty():
+		return
+	for i in PLAYERS:
+		var im: ImmediateMesh = box_nodes[i].mesh
+		im.clear_surfaces()
+		if not show_boxes:
+			continue
+		var origin: Vector2 = cur_pos[i]
+		im.surface_begin(Mesh.PRIMITIVE_LINES, box_mat)
+		var hurt: PackedFloat32Array = sim.fighter_hurtboxes(i)
+		for k in range(0, hurt.size(), 3):
+			_circle(im, Vector2(hurt[k], hurt[k + 1]) - origin, hurt[k + 2], Color(0.3, 1.0, 0.4, 0.9))
+		var hits: PackedFloat32Array = sim.fighter_hitboxes(i)
+		for k in range(0, hits.size(), 4):
+			var sweet: bool = hits[k + 3] < 0.5
+			_circle(im, Vector2(hits[k], hits[k + 1]) - origin, hits[k + 2], Color(1.0, 0.2, 0.2) if sweet else Color(1.0, 0.6, 0.15))
+		im.surface_end()
+
+
+func _position_boxes(a: float) -> void:
+	for i in PLAYERS:
+		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
+		box_nodes[i].position = Vector3(p.x, p.y, 0)

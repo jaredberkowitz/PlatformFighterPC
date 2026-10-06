@@ -2,7 +2,7 @@
 
 An original, legally distinct platform fighter with rollback netcode, a character creator and a stage creator.
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
-Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md).
+Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md).
 
 ## Status: Phase 1 complete (movement), playable in Godot
 
@@ -32,7 +32,8 @@ cd "C:\Users\jared\OneDrive\Desktop\Platform Fighter PC"
 - **P1** WASD stick, Ctrl = gentle tilt (walk), Space jump, J attack, K special, L or Shift shield.
 - **P2** Arrows, Backslash = tilt, Enter jump, comma attack, period special, slash shield.
 - **Gamepads** left stick, A/Y jump, X attack, B special, bumpers or triggers shield.
-- **Training keys** F1 overlay, F2 ECB diamonds, P pause, `.` step forward, `,` step back, R restart.
+- **Combat** J attack: tap with the stick neutral for a jab, flick a direction with it for a smash, hold a direction first for a tilt. In the air the stick picks the aerial.
+- **Training keys** F1 overlay, F2 ECB diamonds, F3 hitboxes and hurtboxes, F6 +25% damage to P2, F7 reset damage, F8 face-to-face, P pause, `.` step forward, `,` step back, R restart.
 
 Try a wavedash (tap jump, then shield with the stick held down-diagonal), shield + down on a platform, or
 falling near a ledge. Scripted screenshot demos: `Godot --path godot -- --demo=wavedash --shots=<folder>`

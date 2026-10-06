@@ -253,6 +253,132 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
+    // ---- Combat (read-only, for drawing) ----
+
+    #[func]
+    fn fighter_percent(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| f(fi.percent))
+    }
+
+    /// [stocks, hitlag, hitstun, move_id, tumble, invuln, launch_pending, state_frame]
+    #[func]
+    fn fighter_combat(&self, i: i32) -> PackedInt32Array {
+        let v: Vec<i32> = self.fighter(i).map_or(vec![0; 8], |fi| {
+            vec![
+                i32::from(fi.stocks),
+                i32::from(fi.hitlag),
+                i32::from(fi.hitstun),
+                i32::from(fi.move_id),
+                i32::from(fi.tumble),
+                i32::from(fi.invuln),
+                i32::from(fi.launch_pending),
+                i32::from(fi.state_frame),
+            ]
+        });
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    #[func]
+    fn fighter_kb_vel(&self, i: i32) -> Vector2 {
+        self.fighter(i).map_or(Vector2::ZERO, |fi| {
+            Vector2::new(f(fi.kb_vel.x), f(fi.kb_vel.y))
+        })
+    }
+
+    /// Name of the move the fighter is performing, or an empty string.
+    #[func]
+    fn fighter_move_name(&self, i: i32) -> GString {
+        let name = self.fighter(i).map_or("", |fi| {
+            if fi.state == sim_core::state::FighterState::Attack {
+                sim_core::moves::MoveId::from_index(fi.move_id).name()
+            } else {
+                ""
+            }
+        });
+        GString::from(name)
+    }
+
+    /// [total_frames, active_start, active_end] of the current move, or zeros.
+    #[func]
+    fn fighter_move_timing(&self, i: i32) -> PackedInt32Array {
+        let v: Vec<i32> = self.fighter(i).map_or(vec![0; 3], |fi| {
+            if fi.state != sim_core::state::FighterState::Attack {
+                return vec![0; 3];
+            }
+            let params = sim_core::combat::params_of(&self.content, fi);
+            let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
+            let start = mv.hitboxes.iter().map(|h| h.start).min().unwrap_or(0);
+            let end = mv.hitboxes.iter().map(|h| h.end).max().unwrap_or(0);
+            vec![i32::from(mv.total_frames), i32::from(start), i32::from(end)]
+        });
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// Active hitboxes this frame as flat [x, y, radius, priority] groups.
+    #[func]
+    fn fighter_hitboxes(&self, i: i32) -> PackedFloat32Array {
+        let mut v: Vec<f32> = Vec::new();
+        if let Some(fi) = self.fighter(i) {
+            if fi.state == sim_core::state::FighterState::Attack {
+                let params = sim_core::combat::params_of(&self.content, fi);
+                let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
+                for (_, hb, center) in sim_core::combat::active_hitboxes(fi, mv) {
+                    v.extend([
+                        f(center.x),
+                        f(center.y),
+                        f(hb.radius),
+                        f32::from(hb.priority),
+                    ]);
+                }
+            }
+        }
+        PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// Hurtbox circles as flat [x, y, radius] groups.
+    #[func]
+    fn fighter_hurtboxes(&self, i: i32) -> PackedFloat32Array {
+        let mut v: Vec<f32> = Vec::new();
+        if let Some(fi) = self.fighter(i) {
+            let params = sim_core::combat::params_of(&self.content, fi);
+            for (c, r) in sim_core::combat::hurtboxes(fi, params) {
+                v.extend([f(c.x), f(c.y), f(r)]);
+            }
+        }
+        PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// Debug: set a fighter's damage percent.
+    #[func]
+    fn debug_set_percent(&mut self, player: i32, percent: f32) {
+        if let Some(fi) = usize::try_from(player)
+            .ok()
+            .and_then(|p| self.state.fighters.get_mut(p))
+        {
+            fi.percent = Fx::from_raw((percent.clamp(0.0, 999.0) * 65536.0) as i32);
+        }
+    }
+
+    /// Debug: stand a fighter on the main stage at x, facing left (-1) or right (1), idle.
+    #[func]
+    fn debug_stand(&mut self, player: i32, x: f32, facing: i32) {
+        if let Some(fi) = usize::try_from(player)
+            .ok()
+            .and_then(|p| self.state.fighters.get_mut(p))
+        {
+            fi.pos = sim_core::Vec2::new(Fx::from_raw((x * 65536.0) as i32), Fx::ZERO);
+            fi.vel = sim_core::Vec2::ZERO;
+            fi.kb_vel = sim_core::Vec2::ZERO;
+            fi.platform = 0;
+            fi.state = sim_core::state::FighterState::Idle;
+            fi.state_frame = 0;
+            fi.hitlag = 0;
+            fi.hitstun = 0;
+            fi.launch_pending = false;
+            fi.facing = if facing < 0 { -1 } else { 1 };
+        }
+    }
+
     // ---- Stage (read-only) ----
 
     #[func]

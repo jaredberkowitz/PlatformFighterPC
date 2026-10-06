@@ -19,6 +19,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	d.out_dir = dir
 	var jump: int = m.jump
 	var shield: int = m.shield
+	var attack: int = m.attack
 	match demo_name:
 		"wavedash":
 			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 100, -80, shield], [36, 0, 0, 0]]
@@ -69,6 +70,18 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				[64, "key", KEY_S, true], [75, "key", KEY_S, false]]
 			d.shots = [[56, "a_before"], [62, "b_after_first_tap"], [66, "c_second_tap"], [72, "d_falling_fast"], [80, "e_later"]]
 			d.end_frame = 100
+		"combat":
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 30, 0, attack], [22, 30, 0, 0], [30, 0, 0, 0]]
+			d.shots = [[24, "a_windup"], [28, "b_hit"], [31, "c_hitlag"], [38, "d_launched"], [60, "e_after"]]
+			d.end_frame = 80
+		"smash":
+			d.cam_dist = 24.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.2, -1], [1, "percent", 1, 90.0]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
+			d.shots = [[30, "a_windup"], [40, "b_hit"], [48, "c_launch"], [62, "d_flying"], [90, "e_far"]]
+			d.end_frame = 120
 		"shielddrop":
 			d.events = [[1, "place", 0, -5.0, 4.0]]
 			d.timeline = [[0, 0, 0, 0], [40, 0, 0, shield], [44, 0, -100, shield], [50, 0, 0, 0]]
