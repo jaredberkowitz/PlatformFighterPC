@@ -32,12 +32,12 @@ cd "C:\Users\jared\OneDrive\Desktop\Platform Fighter PC"
 - **P1** WASD stick, Ctrl = gentle tilt (walk), Space jump, J attack, K special, L or Shift shield.
 - **P2** Arrows, Backslash = tilt, Enter jump, comma attack, period special, slash shield.
 - **Gamepads** left stick, A/Y jump, X attack, B special, bumpers or triggers shield.
-- **Combat** J attack: tap with the stick neutral for a jab, flick a direction with it for a smash, hold a direction first for a tilt. In the air the stick picks the aerial.
+- **Combat** J attack: tap with the stick neutral for a jab, flick a direction with it for a smash, hold a direction first for a tilt. In the air the stick picks the aerial. K special: up for the sword fighter's rising slash, neutral for the brawler's blaster.
 - **Training keys** F1 overlay, F2 ECB diamonds, F3 hitboxes and hurtboxes, F6 +25% damage to P2, F7 reset damage, F8 face-to-face, P pause, `.` step forward, `,` step back, R restart.
 
 Try a wavedash (tap jump, then shield with the stick held down-diagonal), shield + down on a platform, or
 falling near a ledge. Scripted screenshot demos: `Godot --path godot -- --demo=wavedash --shots=<folder>`
-(names: wavedash, ledge, shielddrop, tour, portrait).
+(names: wavedash, ledge, shielddrop, tour, portrait, combat, smash, and the move demos in `docs/COMBAT.md`).
 
 ## Commands
 

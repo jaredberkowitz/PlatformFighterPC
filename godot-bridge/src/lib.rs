@@ -348,6 +348,57 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
+    /// The current move's aim point, relative to the feet with +x forward: (x, y, radius) of its
+    /// sweet-spot hitbox (lowest priority number), or the projectile muzzle. Zeros when not attacking.
+    #[func]
+    fn fighter_move_tip(&self, i: i32) -> Vector3 {
+        let Some(fi) = self.fighter(i) else {
+            return Vector3::ZERO;
+        };
+        if fi.state != sim_core::state::FighterState::Attack {
+            return Vector3::ZERO;
+        }
+        let params = sim_core::combat::params_of(&self.content, fi);
+        let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
+        if let Some(hb) = mv.hitboxes.iter().min_by_key(|h| (h.priority, h.start)) {
+            return Vector3::new(f(hb.x), f(hb.y), f(hb.radius));
+        }
+        if let Some(p) = &mv.projectile {
+            return Vector3::new(f(p.x), f(p.y), f(p.hitbox.radius));
+        }
+        Vector3::ZERO
+    }
+
+    /// How far out the weapon reaches at rest (the forward tilt's furthest hitbox edge).
+    #[func]
+    fn fighter_weapon_reach(&self, i: i32) -> f32 {
+        let Some(fi) = self.fighter(i) else {
+            return 0.0;
+        };
+        let params = sim_core::combat::params_of(&self.content, fi);
+        let mv = sim_core::combat::weapon_of(&self.content, params)
+            .get(sim_core::moves::MoveId::FTilt as u8);
+        mv.hitboxes
+            .iter()
+            .map(|h| f(h.x.abs()) + f(h.radius))
+            .fold(0.0, f32::max)
+    }
+
+    /// Projectile slots as flat [active, x, y, direction] groups, one per slot, in fixed order.
+    #[func]
+    fn projectile_slots(&self) -> PackedFloat32Array {
+        let mut v: Vec<f32> = Vec::new();
+        for p in &self.state.projectiles {
+            v.extend([
+                if p.active { 1.0 } else { 0.0 },
+                f(p.pos.x),
+                f(p.pos.y),
+                if p.vel.x < Fx::ZERO { -1.0 } else { 1.0 },
+            ]);
+        }
+        PackedFloat32Array::from(v.as_slice())
+    }
+
     /// Debug: set a fighter's damage percent.
     #[func]
     fn debug_set_percent(&mut self, player: i32, percent: f32) {

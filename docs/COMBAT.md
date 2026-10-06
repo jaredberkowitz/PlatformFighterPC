@@ -43,3 +43,44 @@ Demos: `Godot --path godot -- --demo=combat --shots=<folder>` and `--demo=smash`
 `sim-core/tests/combat.rs` (28 tests) pins hit timing, hitlag, tip vs body, reach, the knockback formula, launch direction,
 percent and weight scaling, hitstun length, DI, SDI, shielding, invulnerability, trades, KO, tech, aerial landing lag and
 move selection. The rollback fuzzer now includes random attacks and hits.
+
+## Reference-based moves
+
+These moves follow published Smash Ultimate frame data for two archetypes. Names and visuals stay original; only the
+numbers (a game's mechanics) are matched. Frame numbering matches the reference: the tick the button is pressed is
+frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable frame 38 returns control on tick 38
+(`move frame = frame - 1` internally). Damage is shown with the 1.2 multiplier the reference applies in one-on-one rules
+(`Ruleset::damage_mult`).
+
+| Move | Source data (reference numbering) |
+| --- | --- |
+| Swordfighter forward air | hits frame 6-8, 8% close / 11.5% tip, angle 361, base KB 40, growth 80, landing lag 10, autocancel from 36, FAF 38 |
+| Swordfighter back air | hits 7-11, 9% / 12.5%, angle 361, KB 40, growth 85 / 94, lag 10, autocancel 1-2 and from 32, FAF 40, turns around, sends victims backward |
+| Swordfighter neutral air | two hits: 6-7 (3.5% / 5%, angles 75-90, KB 45 / 35, growth 50) and 15-21 (7% / 9.5%, angle 361, KB 50 / 60, growth 90 / 100), lag 7, autocancel from 47, FAF 50 |
+| Swordfighter forward tilt | hits 8-11, 9% / 12%, angle 361, KB 30 / 55, growth 70 / 85, FAF 34 |
+| Swordfighter up special | intangible frames 1-5 in the air, hits from frame 5 (11% early tip, then 7%), angle 74, helpless after |
+| Brawler forward air | hits 7-9, 9%, angle 60, KB 45, growth 85, lag 10, autocancel from 29, FAF 41 |
+| Brawler neutral air | 12% on 7-9 (KB 30, growth 75), then 8% on 10-26 (KB 0, growth 100), lag 9, autocancel 1-6 and from 38, FAF 43 |
+| Brawler forward tilt | two hits: frame 8 (5%, angle 60, KB 10, growth 70) and 9-10 (6%, angle 361, KB 55, growth 106), FAF 35 |
+| Brawler blaster | bayonet on frames 15-19 (7%, angle 60, KB 80, growth 37); otherwise a shot on frame 16 that does 8% falling to 6% over its range (about two thirds of the stage), FAF 53 |
+
+**Sources:** two community frame-data tables (ultimateframedata.com and kuroganehammer.com) cross-checked against each other,
+plus SmashWiki for the blaster. Where they disagreed on a total frame count I used the kuroganehammer values.
+
+**Estimates (not published in those sources):** hitbox positions and sizes; the up special's travel (about 44 reference
+units straight up with a little forward drift, then its leftover speed) and landing lag; the blaster shot's speed (3 reference
+units a frame), exact range (35 frames), knockback (a flinch) and muzzle position; the 8-to-6 percent damage falloff direction.
+Everything else in the movesets (jab, other tilts, smashes, up and down air, specials not listed) is still placeholder.
+
+## Weapon visuals
+
+The blade is posed from the move data: it runs from the hand to the move's sweet-spot hitbox, its length is that distance,
+it winds up from the opposite side, reaches the hitbox by the first active frame, holds through the active frames and recovers.
+At rest it is held up and ready. While standing it is clamped above the floor. Facing left mirrors the pose.
+
+## Tests
+
+`sim-core/tests/reference_moves.rs` (25 tests) pins each hit frame, damage, launch angle, knockback, control-return frame,
+autocancel window and landing lag above, plus the blaster's spawn frame, speed, range, falloff, flinch, bayonet and blocking,
+and the up special's intangibility, rise, hit and helplessness. Demos: `--demo=marth_fair`, `marth_bair`, `marth_nair`,
+`marth_dolphin`, `wolf_fair`, `wolf_nair`, `wolf_ftilt`, `wolf_blaster`, `low`.

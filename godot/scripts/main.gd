@@ -62,6 +62,7 @@ func _ready() -> void:
 	_restart()
 	_build_ecb()
 	_build_boxes()
+	_build_projectiles()
 	await _prewarm()
 
 
@@ -135,7 +136,12 @@ func _parse_demo_args() -> void:
 
 
 func _restart() -> void:
-	sim.start(SEED, PackedInt32Array(CHARS))
+	var chars: Array = CHARS
+	if demo != null and demo.chars.size() > 0:
+		chars = demo.chars
+	sim.start(SEED, PackedInt32Array(chars))
+	proj_cur = sim.projectile_slots()
+	proj_prev = proj_cur
 	for i in PLAYERS:
 		_refresh(i)
 		prev_pos[i] = cur_pos[i]
@@ -156,6 +162,7 @@ func _refresh(i: int) -> void:
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
 		"move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
+		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i),
 	}
 
 
@@ -172,6 +179,8 @@ func _tick_once() -> void:
 	for i in PLAYERS:
 		prev_pos[i] = cur_pos[i]
 	sim.tick()
+	proj_prev = proj_cur
+	proj_cur = sim.projectile_slots()
 	for i in PLAYERS:
 		_refresh(i)
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
@@ -259,6 +268,7 @@ func _process(delta: float) -> void:
 	if not flag_noecb:
 		_update_ecb(a)
 	_position_boxes(a)
+	_update_projectiles(a)
 	if flag_noui or not overlay_on:
 		return
 	# Text layout is the expensive part of the overlay, and nothing in it changes between sim ticks.
@@ -452,3 +462,39 @@ func _position_boxes(a: float) -> void:
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		box_nodes[i].position = Vector3(p.x, p.y, 0)
+
+
+# ---- Projectiles ------------------------------------------------------------------------------------
+
+var proj_nodes: Array = []
+var proj_prev := PackedFloat32Array()
+var proj_cur := PackedFloat32Array()
+
+
+func _build_projectiles() -> void:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.78, 0.4, 1.0)
+	for k in 8:
+		var mi := MeshInstance3D.new()
+		var bolt := SphereMesh.new()
+		bolt.radius = 0.35
+		bolt.height = 0.7
+		mi.mesh = bolt
+		mi.scale = Vector3(2.2, 0.75, 0.75)
+		mi.material_override = mat
+		mi.visible = false
+		add_child(mi)
+		proj_nodes.append(mi)
+
+
+func _update_projectiles(a: float) -> void:
+	for k in proj_nodes.size():
+		var i := k * 4
+		var active: bool = proj_cur.size() > i and proj_cur[i] > 0.5
+		proj_nodes[k].visible = active
+		if active:
+			var pos := Vector2(proj_cur[i + 1], proj_cur[i + 2])
+			if proj_prev.size() > i and proj_prev[i] > 0.5:
+				pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
+			proj_nodes[k].position = Vector3(pos.x, pos.y, 0.3)

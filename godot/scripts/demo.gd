@@ -10,6 +10,7 @@ var shots: Array = []     # [frame, label]
 var end_frame := 0
 var out_dir := ""
 var cam_dist := 0.0  # when above zero, overrides the automatic camera distance
+var chars: Array = []  # overrides which character each player is (0 sword, 1 claws and blaster)
 var real_keys := false  # drive player 1 through real key events instead of scripted stick values
 
 
@@ -20,6 +21,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var jump: int = m.jump
 	var shield: int = m.shield
 	var attack: int = m.attack
+	var special: int = m.special
 	match demo_name:
 		"wavedash":
 			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 100, -80, shield], [36, 0, 0, 0]]
@@ -82,6 +84,69 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
 			d.shots = [[30, "a_windup"], [40, "b_hit"], [48, "c_launch"], [62, "d_flying"], [90, "e_far"]]
 			d.end_frame = 120
+		"marth_fair":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, 1.7, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [10, 127, 0, attack], [11, 0, 0, 0]]
+			d.shots = [[13, "a_windup"], [16, "b_hit"], [19, "c_hitlag"], [30, "d_launched"]]
+			d.end_frame = 45
+		"marth_bair":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -5.7, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [10, -127, 0, attack], [11, 0, 0, 0]]
+			d.shots = [[14, "a_windup"], [17, "b_hit"], [20, "c_hitlag"], [32, "d_launched"], [52, "e_turned"]]
+			d.end_frame = 60
+		"marth_nair":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 7.0], [1, "place", 1, 1.0, 7.0]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, attack], [11, 0, 0, 0]]
+			d.shots = [[13, "a_windup"], [16, "b_hit1"], [25, "c_hit2_window"], [40, "d_late"]]
+			d.end_frame = 55
+		"marth_dolphin":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 24.0
+			d.events = [[1, "stand", 0, -2.0, 1], [1, "stand", 1, -0.2, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 127, special], [11, 0, 0, 0]]
+			d.shots = [[12, "a_start"], [15, "b_hit"], [20, "c_rising"], [30, "d_apex"], [55, "e_helpless"]]
+			d.end_frame = 75
+		"wolf_fair":
+			d.chars = [1, 1, 1, 1]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, 0.3, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [10, 127, 0, attack], [11, 0, 0, 0]]
+			d.shots = [[13, "a_windup"], [17, "b_hit"], [22, "c_hitlag"], [32, "d_launched"]]
+			d.end_frame = 45
+		"wolf_nair":
+			d.chars = [1, 1, 1, 1]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -0.5, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, attack], [11, 0, 0, 0]]
+			d.shots = [[13, "a_windup"], [17, "b_hit"], [25, "c_late"], [38, "d_end"]]
+			d.end_frame = 55
+		"wolf_ftilt":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.8, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 30, 0, attack], [12, 30, 0, 0]]
+			d.shots = [[14, "a_swipe"], [18, "b_hit1"], [25, "c_hit2"], [38, "d_after"]]
+			d.end_frame = 55
+		"wolf_blaster":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 26.0
+			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, 2.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [11, 0, 0, 0]]
+			d.shots = [[20, "a_draw"], [27, "b_shot"], [36, "c_flying"], [46, "d_hit"], [62, "e_after"]]
+			d.end_frame = 80
+		"low":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 18.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.6, -1]]
+			d.timeline = [[0, 0, 0, 0], [8, 0, -127, 0], [20, 0, -127, attack], [22, 0, -127, 0]]
+			d.shots = [[15, "a_idle_crouch"], [24, "b_swing"], [27, "c_hit"], [33, "d_after"]]
+			d.end_frame = 45
 		"shielddrop":
 			d.events = [[1, "place", 0, -5.0, 4.0]]
 			d.timeline = [[0, 0, 0, 0], [40, 0, 0, shield], [44, 0, -100, shield], [50, 0, 0, 0]]

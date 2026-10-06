@@ -282,7 +282,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 			m.transparency = ghost
 	shield.visible = state == "Shield" or state == "ShieldDrop"
 	speed_lines.visible = fast_falling
-	_apply_combat(s)
+	_apply_combat(s, delta)
 
 
 var last_ghost := 0.0
@@ -297,53 +297,90 @@ func prewarm(on: bool) -> void:
 
 # ---- Combat visuals --------------------------------------------------------------------------------
 
-# Sword angle in degrees (0 = forward, 90 = up, -90 = down): [windup, end of swing, flipped to the back].
-const SWING := {
-	"jab": [40.0, -10.0, false], "ftilt": [70.0, -15.0, false], "dash attack": [60.0, -15.0, false],
-	"fsmash": [115.0, -20.0, false], "fair": [105.0, -20.0, false], "nair": [150.0, -150.0, false],
-	"utilt": [10.0, 130.0, false], "usmash": [-10.0, 150.0, false], "uair": [10.0, 150.0, false],
-	"dtilt": [-20.0, -85.0, false], "dsmash": [-30.0, -95.0, false], "dair": [60.0, -100.0, false],
-	"bair": [105.0, -20.0, true],
-}
-const BLADE_REST := -75.0
+# The weapon is posed from the move data, so it always points at the hitbox that actually hits:
+# the blade runs from the hand to the move's sweet spot, and its length is that distance. Claws are
+# short and the sword long because their hitboxes are. At rest it is held up and ready (never
+# pointing at the floor), it winds up behind the swing, snaps through by the first active frame, holds
+# while the hitbox is live, and recovers.
+const HAND := Vector2(0.55, 0.95)         # hand position in the fighter's forward space (x forward, y up)
+const REST_ANGLE := 68.0                  # degrees: blade held up and slightly forward
+const GROUND_CLEARANCE := 0.06            # the blade tip stays at least this far above the floor
+const MESH_LENGTH := 2.7                  # length of the blade mesh before scaling
 
 var percent_label: Label3D
 var blade_pivot: Node3D
 var spark: MeshInstance3D
 var last_percent := -1
-var last_char := -1
+var blade_angle := REST_ANGLE
+var blade_length := 2.0
 
 
-func _pose_blade(s: Dictionary) -> void:
+func _rest_length(s: Dictionary) -> float:
+	# Swords are long; claws are short.
+	return clampf(float(s.reach) - HAND.x - 0.2, 0.7, 3.4) if s.char == 0 else 1.0
+
+
+## Where the blade should point, in degrees in forward space, and how long it should be, for this frame.
+func _blade_target(s: Dictionary) -> Array:
+	var rest_len := _rest_length(s)
 	var name: String = s.move_name
-	var angle := BLADE_REST
-	var flip := false
-	if name != "":
-		var cfg: Array = SWING.get(name, [60.0, -10.0, false])
-		flip = cfg[2]
-		var t: PackedInt32Array = s.move_timing  # total, first active, last active
-		var f: float = s.state_frame
-		# Wind up, then swing so the blade is out through the hitbox by the first active frame, hold it
-		# there while the hitbox is live, then recover.
-		var start := maxf(1.0, float(t[1]))
-		var swing_from := start * 0.55
-		if f < swing_from:
-			angle = lerpf(BLADE_REST, cfg[0], clampf(f / maxf(1.0, swing_from), 0.0, 1.0))
-		elif f < start:
-			angle = lerpf(cfg[0], cfg[1], clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0))
-		elif f <= t[2]:
-			angle = cfg[1]
-		else:
-			angle = lerpf(cfg[1], BLADE_REST, clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0))
-	blade_pivot.rotation = Vector3(0, PI if flip else 0.0, deg_to_rad(angle))
-	blade_pivot.position = Vector3(-0.55 if flip else 0.55, 0.9, 0.35)
-	if s.char != last_char:
-		last_char = s.char
-		# Character 1 fights with claws: short and chunky.
-		blade_pivot.scale = Vector3(0.35, 1.7, 1.7) if s.char == 1 else Vector3.ONE
+	if name == "":
+		return [REST_ANGLE, rest_len, HAND.x]
+	var tip: Vector3 = s.move_tip
+	var hand_x := HAND.x if tip.x >= 0.0 else -0.35
+	var to_tip := Vector2(tip.x - hand_x, tip.y - HAND.y)
+	var swing := rad_to_deg(atan2(to_tip.y, to_tip.x))
+	var length := clampf(to_tip.length() + tip.z * 0.7, 0.7, 3.6)
+	if s.char == 1:
+		length = clampf(length, 0.7, 1.4)
+	# Never point into the floor while standing on it.
+	if s.platform >= 0:
+		var lowest := asin(clampf((GROUND_CLEARANCE - HAND.y) / length, -1.0, 1.0))
+		var behind := to_tip.x < 0.0
+		if sin(deg_to_rad(swing)) < sin(lowest) and not behind:
+			swing = rad_to_deg(lowest)
+	# Wind-up comes from the opposite side of the swing.
+	var wind := swing + 100.0
+	if sin(deg_to_rad(swing)) > 0.55 or cos(deg_to_rad(swing)) < 0.0:
+		wind = swing - 100.0
+	var t: PackedInt32Array = s.move_timing  # total, first active, last active
+	var f: float = s.state_frame
+	var start := maxf(1.0, float(t[1]))
+	var swing_from := start * 0.5
+	var angle := swing
+	var len := length
+	if f < swing_from:
+		var k := clampf(f / maxf(1.0, swing_from), 0.0, 1.0)
+		angle = lerpf(REST_ANGLE, wind, k)
+		len = lerpf(rest_len, length, k)
+	elif f < start:
+		var k := clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0)
+		angle = lerpf(wind, swing, k)
+	elif f > t[2]:
+		var k := clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0)
+		angle = lerpf(swing, REST_ANGLE, k)
+		len = lerpf(length, rest_len, k)
+	return [angle, len, hand_x]
 
 
-func _apply_combat(s: Dictionary) -> void:
+func _pose_blade(s: Dictionary, delta: float) -> void:
+	var target: Array = _blade_target(s)
+	# A little smoothing so the rest pose and quick direction changes do not pop.
+	var follow := clampf(delta * 30.0, 0.0, 1.0)
+	if s.move_name != "" and s.state_frame > 0:
+		follow = 1.0  # while attacking, follow the animation exactly so it matches the hitbox
+	blade_angle = lerp_angle(deg_to_rad(blade_angle), deg_to_rad(float(target[0])), follow)
+	blade_angle = rad_to_deg(blade_angle)
+	blade_length = lerpf(blade_length, float(target[1]), follow)
+	var facing: int = s.facing
+	# Forward space to model space: facing left mirrors the pose about the vertical axis.
+	var angle := blade_angle if facing > 0 else 180.0 - blade_angle
+	blade_pivot.position = Vector3(float(target[2]) * facing, HAND.y, 0.35)
+	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
+	blade_pivot.scale = Vector3(blade_length / MESH_LENGTH, 1.0 if s.char == 0 else 1.7, 1.0 if s.char == 0 else 1.7)
+
+
+func _apply_combat(s: Dictionary, delta: float) -> void:
 	var state: String = s.state
 	var pct := int(s.percent)
 	if pct != last_percent:
@@ -351,7 +388,7 @@ func _apply_combat(s: Dictionary) -> void:
 		percent_label.text = "%d%%" % pct
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
-	_pose_blade(s)
+	_pose_blade(s, delta)
 
 	var hitlag: int = s.hitlag
 	spark.visible = hitlag > 0 and state == "Hitstun" and s.launch_pending
