@@ -153,6 +153,15 @@ func _refresh(i: int) -> void:
 	}
 
 
+## Sends a real key event through Godot's Input, so scripted demos exercise the same path as a player.
+func _send_key(code: int, down: bool) -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.keycode = code
+	e.pressed = down
+	Input.parse_input_event(e)
+
+
 func _tick_once() -> void:
 	for i in PLAYERS:
 		prev_pos[i] = cur_pos[i]
@@ -165,7 +174,9 @@ func _tick_once() -> void:
 
 func _gather() -> void:
 	for i in PLAYERS:
-		if demo != null:
+		if demo != null and demo.real_keys and i == 0:
+			inputs[i] = InputReader.read(0, masks)
+		elif demo != null:
 			inputs[i] = demo.input_at(sim.frame()) if i == 0 else {"x": 0, "y": 0, "buttons": 0}
 		else:
 			inputs[i] = InputReader.read(i, masks)
@@ -183,6 +194,8 @@ func _physics_process(_delta: float) -> void:
 				prev_pos[e[2]] = cur_pos[e[2]]
 			elif e[1] == "helpless":
 				sim.debug_helpless(e[2])
+			elif e[1] == "key":
+				_send_key(e[2], e[3])
 	_gather()
 	if paused:
 		return

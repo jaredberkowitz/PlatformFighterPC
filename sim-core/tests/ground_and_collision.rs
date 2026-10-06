@@ -1040,3 +1040,30 @@ fn easing_the_stick_back_slows_you_with_acceleration_not_friction() {
     sim.ticks(40, inp(64, 0, 0));
     assert_eq!(sim.f().vel.x, tilt * p.air_speed);
 }
+
+#[test]
+fn fast_fall_snaps_to_fast_fall_speed_on_the_frame_it_starts() {
+    let mut sim = falling_sim();
+    let p = sim.content.fighters[0];
+    assert!(
+        sim.f().vel.y > -p.fast_fall_speed,
+        "should start slower than fast-fall speed"
+    );
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall);
+    assert_eq!(
+        sim.f().vel.y,
+        -p.fast_fall_speed,
+        "speed must jump straight to fast-fall speed"
+    );
+}
+
+#[test]
+fn fast_fall_from_a_standstill_at_the_apex_is_immediate_too() {
+    // Hard press exactly at the apex (vertical speed zero).
+    let mut sim = Sim::new();
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, -127, 0));
+    assert_eq!(sim.f().vel.y, -sim.content.fighters[0].fast_fall_speed);
+}

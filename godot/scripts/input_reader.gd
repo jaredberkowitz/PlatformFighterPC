@@ -10,6 +10,9 @@ extends RefCounted
 ## Gamepads: left stick; a hard flick down fast falls; A/Y jump, X attack, B special, bumpers/triggers shield, right stick click grab.
 
 const TILT := 0.45  # stick magnitude while the tilt key is held
+## A connected controller only overrides the keyboard once its stick is pushed past this, so a
+## drifting stick cannot hijack the keyboard axes.
+const PAD_OVERRIDE := 0.25
 
 
 static func _axis(neg: bool, pos: bool) -> float:
@@ -98,7 +101,7 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 	if pad in Input.get_connected_joypads():
 		var px := Input.get_joy_axis(pad, JOY_AXIS_LEFT_X)
 		var py := -Input.get_joy_axis(pad, JOY_AXIS_LEFT_Y)
-		if absf(px) > 0.08 or absf(py) > 0.08:
+		if absf(px) > PAD_OVERRIDE or absf(py) > PAD_OVERRIDE:
 			sx = px
 			sy = py
 		if Input.is_joy_button_pressed(pad, JOY_BUTTON_A) or Input.is_joy_button_pressed(pad, JOY_BUTTON_Y):

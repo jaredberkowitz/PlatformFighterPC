@@ -393,6 +393,9 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     }
     if !f.fast_fall && f.vel.y <= Fx::ZERO && f.hard_down(FAST_FALL_BUFFER) {
         f.fast_fall = true;
+        // Fast fall snaps straight to fast-fall speed (it is not a gradual speed-up), so it is
+        // unmistakable when it happens.
+        f.vel.y = f.vel.y.min(-p.fast_fall_speed);
     }
     let terminal = if f.fast_fall {
         p.fast_fall_speed

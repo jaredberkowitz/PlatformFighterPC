@@ -10,6 +10,7 @@ var shots: Array = []     # [frame, label]
 var end_frame := 0
 var out_dir := ""
 var cam_dist := 0.0  # when above zero, overrides the automatic camera distance
+var real_keys := false  # drive player 1 through real key events instead of scripted stick values
 
 
 static func make(demo_name: String, m: Dictionary, dir: String):
@@ -56,6 +57,18 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, -127, 0, 0]]
 			d.shots = [[30, "a_dashing"], [36, "b_off_edge"], [42, "c_falling"], [55, "d_hanging"], [80, "e_later"]]
 			d.end_frame = 90
+		"fastfall":
+			# Real key presses: full hop with Space, then double tap S just after the apex.
+			d.real_keys = true
+			d.cam_dist = 22.0
+			d.timeline = [[0, 0, 0, 0]]
+			d.events = [
+				[1, "place", 0, 0.0, 0.0],
+				[20, "key", KEY_SPACE, true], [43, "key", KEY_SPACE, false],
+				[58, "key", KEY_S, true], [61, "key", KEY_S, false],
+				[64, "key", KEY_S, true], [75, "key", KEY_S, false]]
+			d.shots = [[56, "a_before"], [62, "b_after_first_tap"], [66, "c_second_tap"], [72, "d_falling_fast"], [80, "e_later"]]
+			d.end_frame = 100
 		"shielddrop":
 			d.events = [[1, "place", 0, -5.0, 4.0]]
 			d.timeline = [[0, 0, 0, 0], [40, 0, 0, shield], [44, 0, -100, shield], [50, 0, 0, 0]]

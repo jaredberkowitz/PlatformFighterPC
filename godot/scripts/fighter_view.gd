@@ -125,6 +125,23 @@ func build(p: int) -> void:
 	shield.visible = false
 	add_child(shield)
 
+	# Speed lines above the fighter, shown while fast falling.
+	speed_lines = Node3D.new()
+	var line_mat := StandardMaterial3D.new()
+	line_mat.albedo_color = Color(1, 1, 1, 0.8)
+	line_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for x in [-0.55, 0.0, 0.55]:
+		var bar := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.07, 1.5, 0.07)
+		bar.mesh = bm
+		bar.material_override = line_mat
+		bar.position = Vector3(x, 3.5 + (0.4 if x == 0.0 else 0.0), 0.2)
+		speed_lines.add_child(bar)
+	speed_lines.visible = false
+	add_child(speed_lines)
+
 
 func _accessories(p: int, _skin: StandardMaterial3D) -> void:
 	var white := toon(Color(0.97, 0.97, 1.0))
@@ -196,6 +213,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
+	if fast_falling:
+		target_squash = -0.28
 
 	# Fixed sub-steps keep the spring stable at any frame rate.
 	var steps := ceili(delta / 0.008)
@@ -223,9 +243,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		for m in meshes:
 			m.transparency = ghost
 	shield.visible = state == "Shield" or state == "ShieldDrop"
+	speed_lines.visible = fast_falling
 
 
 var last_ghost := 0.0
+var speed_lines: Node3D
 ## Shows every transient effect (ghost fade, shield bubble) so their shaders compile before play,
 ## avoiding a hitch the first time they appear in a match.
 func prewarm(on: bool) -> void:

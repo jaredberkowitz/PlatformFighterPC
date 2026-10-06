@@ -123,3 +123,13 @@ before the apex still fast falls once you start falling. The input history is 12
 
 `godot/tests/input_e2e.gd` sends real key events through Godot's Input, the Rust sim and back, and asserts which taps fast fall:
 `Godot --headless --path godot --script res://tests/input_e2e.gd`
+
+## Fast fall, second fix
+
+Fast fall used to only raise the fall-speed limit, so the fighter took about 12 frames to speed up and it was easy to miss.
+It now **snaps to fast-fall speed on the frame it starts** (as in the reference game), and the character stretches with
+speed lines above its head while it lasts. The overlay shows `fastfall` and the vertical speed.
+
+Verified in the real game window by injecting genuine key presses: `Godot --path godot -- --demo=fastfall --shots=<folder>`
+(full hop, then a double tap on S just after the apex: vertical speed goes from -0.005 to -0.316 and the flag turns on).
+A controller now only overrides the keyboard once its stick passes 0.25, so stick drift cannot cancel keyboard input.
