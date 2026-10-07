@@ -1,0 +1,5 @@
+// Side special: hold still during the wind-up, thrust forward for seven frames (the stick steers it a little
+// up or down), then stop dead.
+if frame < 9 { set_vel(0, 0); }
+if frame >= 9 && frame <= 15 { set_vel(0.8, stick_y * 0.3); }
+if frame == 16 { set_vel(0, 0); }

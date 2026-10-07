@@ -59,6 +59,8 @@ func _ready() -> void:
 		masks[n] = sim.button_mask(n)
 	_build_world()
 	_parse_demo_args()
+	_load_content()
+	sim.set_players(PLAYERS)
 	_restart()
 	_start_net()
 	_build_ecb()
@@ -174,6 +176,32 @@ func _send_key(code: int, down: bool) -> void:
 	e.keycode = code
 	e.pressed = down
 	Input.parse_input_event(e)
+
+
+# ---- Content -----------------------------------------------------------------------------------------
+# The roster is read from a content bundle (see docs/CONTENT.md). By default that is content/base.pfc next to the
+# godot folder; `--content=PATH` (after `--`) picks another. If neither loads, the built-in roster is used.
+
+var content_note := ""
+
+
+func _load_content() -> void:
+	var path := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--content="):
+			path = a.substr(10)
+	var asked := path != ""
+	if not asked:
+		path = ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
+		if not FileAccess.file_exists(path):
+			return
+	var err: String = sim.load_content(path)
+	if err != "":
+		push_error("content: " + err)
+		content_note = "CONTENT NOT LOADED (using the built-in roster): " + err
+		return
+	content_note = "content: %s" % sim.content_name()
+	print("content loaded from ", path, " (", sim.content_name(), ", ", sim.content_hash(), ")")
 
 
 # ---- Network play -----------------------------------------------------------------------------------
@@ -418,6 +446,7 @@ func _process(delta: float) -> void:
 		"content_hash": sim.content_hash(), "paused": paused, "history": sim.history_len(),
 		"min_down": min_down,
 		"net": _net_text(),
+		"note": content_note,
 	})
 
 

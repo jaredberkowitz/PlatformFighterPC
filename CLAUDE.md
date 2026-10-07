@@ -15,6 +15,15 @@ Roadmap phases and exit criteria are in section 8 of that plan; check which phas
 - `netplay` stays pure (no sockets/clocks/threads). Sockets live only in `transport`; the game and tools plug them in through `netplay::peer::Link`.
 - Anything that changes the wire format or session rules must keep `pftool net-fuzz` at zero mismatches.
 
+## Content and scripts
+- The roster is data (`content/*.pfc`, format in `docs/CONTENT.md`). While the Rust builders in `sim-core/src/moves.rs` and
+  `content.rs` still exist, `content/base.pfc` must equal them (a test enforces it): change one, re-export the other
+  (`cargo run -p tools -- content-export content/base.pfc "Base Roster"`).
+- Scripts (`sim-script`) are integer-only, bounded, and reach the game only through the whitelist in `sim-script/src/api.rs`,
+  implemented in `sim-core/src/scripting.rs`. Script variables live in `Fighter::vars` / `Projectile::vars` and are hashed.
+  A new script ability = a new whitelist entry + a test in `sim-core/tests/scripted_moves.rs` + the doc line (a test checks the doc).
+- Bump `SCHEMA_VERSION` (and add a migration) when the file format changes meaning; bump `SIM_VERSION` when behaviour changes.
+
 ## Workflow
 - `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` must pass; run `cargo fmt --all`.
 - Art: round blob bodies + 2D faces + cosmetic accessories, see `docs/ART_DIRECTION.md`. Cosmetics never touch the sim.

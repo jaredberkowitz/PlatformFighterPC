@@ -76,6 +76,8 @@ func update(snaps: Array, inputs: Array, info: Dictionary) -> void:
 	header.text = "frame %d   checksum %s   sim v%d   content %s%s" % [
 		info.frame, info.checksum, info.version, info.content_hash,
 		"   [PAUSED  history %d]" % info.history if info.paused else ""]
+	if info.get("note", "") != "":
+		header.text += "\n" + info.note
 	if info.get("net", "") != "":
 		header.text += "\n" + info.net
 	for i in labels.size():

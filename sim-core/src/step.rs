@@ -19,6 +19,9 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     // Phase 1: every fighter updates in player-index order and may request a ledge.
     let mut wants: [Option<u8>; MAX_FIGHTERS] = [None; MAX_FIGHTERS];
     for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
+        if !f.active {
+            continue;
+        }
         let params = params_of(content, f);
         let weapon = combat::weapon_of(content, params);
         wants[i] = fighter::update(f, params, weapon, stage, &content.rules, *input);

@@ -572,6 +572,7 @@ name = "sim-content"
 version = "0.1.0"
 dependencies = [
  "sim-core",
+ "sim-script",
 ]
 
 [[package]]
@@ -579,14 +580,12 @@ name = "sim-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "sim-script",
 ]
 
 [[package]]
 name = "sim-script"
 version = "0.1.0"
-dependencies = [
- "sim-core",
-]
 
 [[package]]
 name = "slab"
@@ -633,6 +632,7 @@ dependencies = [
  "netplay",
  "sim-content",
  "sim-core",
+ "sim-script",
  "transport",
 ]
 

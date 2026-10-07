@@ -2,15 +2,15 @@
 
 An original, legally distinct platform fighter with rollback netcode, a character creator and a stage creator.
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
-Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md).
+Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md). Content format and scripting: [`docs/CONTENT.md`](docs/CONTENT.md).
 
-## Status: Phases 0-3 built, Phase 4 (netplay) built and tested locally, playable in Godot
+## Status: Phases 0-3 built, Phase 4 (netplay) built and tested locally, Phase 5 (content format and scripting) built, playable in Godot
 
 | Crate | Purpose | State |
 | --- | --- | --- |
 | `sim-core` | Deterministic sim: fixed point, trig, `GameState`, `step`, checksum, movement state machine | Phase 1 movement complete, see `docs/PHASE1_MOVEMENT.md` |
-| `sim-content` | Content validation and balance guardrails | Basic validator |
-| `sim-script` | Integer-only scripting VM | Stub (Phase 5) |
+| `sim-content` | Text format, bundles with manifest/schema/hash, migrations, validation | Phase 5, see `docs/CONTENT.md` |
+| `sim-script` | Integer-only scripting VM: compiler, bounded interpreter, whitelisted API | Phase 5, see `docs/CONTENT.md` |
 | `netplay` | Rollback layer: wire format, handshake, session, `Peer` | Phase 4, see `docs/NETPLAY.md` |
 | `transport` | UDP link and relay server (the only crate with sockets) | Phase 4 |
 | `tools` | `pftool`: replay generator/runner, CI checksum dump, rollback and network fuzzers, host/join/relay | Working |
@@ -67,7 +67,11 @@ cargo bench -p sim-core
 cargo run --release -p tools --bin pftool -- selftest
 cargo run --release -p tools --bin pftool -- fuzz-rollback 1000
 cargo run --release -p tools --bin pftool -- net-fuzz 1000    # randomised lossy network sessions
+cargo run -p tools -- content-check content/base.pfc           # load + validate a content bundle
 ```
+
+The game reads its roster from `content/base.pfc` (`--content=PATH` after `--` picks another bundle). To change a
+fighter, edit the file and run `content-check`; see `docs/CONTENT.md`.
 
 ## Determinism rules (enforced)
 

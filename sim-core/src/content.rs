@@ -691,12 +691,22 @@ impl StateHash for Ruleset {
     }
 }
 
+/// Human-readable names for the things in a [`Content`]. Content files refer to fighters and weapons by name;
+/// the simulation only ever uses indices, so names are not part of the content hash.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Names {
+    pub fighters: Vec<String>,
+    pub weapons: Vec<String>,
+    pub stage: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Content {
     pub fighters: Vec<FighterParams>,
     pub weapons: Vec<Weapon>,
     pub stage: Stage,
     pub rules: Ruleset,
+    pub names: Names,
 }
 
 impl Content {
@@ -724,6 +734,11 @@ impl Content {
             weapons: vec![crate::moves::longsword(), crate::moves::claws()],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
+            names: Names {
+                fighters: vec!["duelist".to_string(), "brawler".to_string()],
+                weapons: vec!["longsword".to_string(), "claws".to_string()],
+                stage: "proving_grounds".to_string(),
+            },
         }
     }
 }

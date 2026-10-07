@@ -91,7 +91,7 @@ impl Match {
 fn reference(frames: u32) -> Vec<u64> {
     let content = Content::placeholder();
     let s = setup();
-    let initial = GameState::new(&content, s.seed, s.chars);
+    let initial = GameState::new_with_active(&content, s.seed, s.chars, s.active);
     let delay = u32::from(s.input_delay);
     let inputs: Vec<[Input; MAX_FIGHTERS]> = (0..frames)
         .map(|f| {
@@ -340,7 +340,7 @@ fn a_corrupted_state_is_reported_as_a_desync_with_its_frame() {
         ..SessionConfig::two_player(local)
     };
     let s = setup();
-    let good = GameState::new(&content, s.seed, s.chars);
+    let good = GameState::new_with_active(&content, s.seed, s.chars, s.active);
     let mut bad = good;
     bad.fighters[0].percent = sim_core::Fx::from_int(1);
     let (mut a, mut b) = (Session::new(cfg(0), good), Session::new(cfg(1), bad));
@@ -375,7 +375,7 @@ fn a_corrupted_state_is_reported_as_a_desync_with_its_frame() {
 fn a_peer_that_goes_silent_is_dropped_and_the_match_goes_on_for_the_other() {
     let content = Content::placeholder();
     let s = setup();
-    let initial = GameState::new(&content, s.seed, s.chars);
+    let initial = GameState::new_with_active(&content, s.seed, s.chars, s.active);
     let mut a = Session::new(SessionConfig::two_player(0), initial);
     let mut stalled = 0;
     let mut dropped = false;
@@ -400,7 +400,7 @@ fn a_peer_that_goes_silent_is_dropped_and_the_match_goes_on_for_the_other() {
 fn a_goodbye_ends_the_connection_at_once() {
     let content = Content::placeholder();
     let s = setup();
-    let initial = GameState::new(&content, s.seed, s.chars);
+    let initial = GameState::new_with_active(&content, s.seed, s.chars, s.active);
     let mut a = Session::new(SessionConfig::two_player(0), initial);
     a.handle_packet(&Packet::Disconnect.encode());
     assert!(a
@@ -412,7 +412,7 @@ fn a_goodbye_ends_the_connection_at_once() {
 fn garbage_and_stale_packets_are_ignored() {
     let content = Content::placeholder();
     let s = setup();
-    let initial = GameState::new(&content, s.seed, s.chars);
+    let initial = GameState::new_with_active(&content, s.seed, s.chars, s.active);
     let mut a = Session::new(SessionConfig::two_player(0), initial);
     let mut rng = Rng::new(3);
     for f in 0..100u32 {

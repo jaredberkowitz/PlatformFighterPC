@@ -1,13 +1,12 @@
 [package]
 name = "sim-script"
-description = "Deterministic integer-only scripting VM for special moves and projectiles (Phase 5)."
+description = "Deterministic integer-only scripting VM for special moves and projectiles."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-sim-core = { path = "../sim-core" }
 
 [lints]
 workspace = true

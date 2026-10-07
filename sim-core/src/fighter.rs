@@ -9,7 +9,8 @@ use crate::collision;
 use crate::content::{FighterParams, Ledge, Ruleset, Stage};
 use crate::fixed::Fx;
 use crate::input::{buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FROM, STICK_THRESHOLD};
-use crate::moves::{MoveId, Weapon};
+use crate::moves::{Motion, MoveId, Weapon};
+use crate::scripting;
 use crate::state::{Fighter, FighterState as S, NONE};
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
@@ -104,6 +105,10 @@ impl Fighter {
 }
 
 fn enter(f: &mut Fighter, state: S) {
+    // Script variables belong to one attack (and the moves it switches to), so a new attack starts clean.
+    if state == S::Attack && f.state != S::Attack {
+        f.vars = [0; crate::FIGHTER_VARS];
+    }
     f.state = state;
     f.state_frame = 0;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
@@ -1141,19 +1146,52 @@ fn attack(
         }
     }
 
+    // The move's script steers the move: motion, branching into another move, projectiles, ending early.
+    let mut script_motion = None;
+    if let Some(program) = &mv.script {
+        let effects = scripting::run_fighter(program, f);
+        if let Some(next) = effects.goto {
+            begin_attack(f, MoveId::from_index(next));
+            return None;
+        }
+        // Holding a frame is capped by the same limit as charging, so a script cannot hold a fighter forever.
+        if effects.stall && f.charge < rules.charge_frames && f.state_frame > 0 {
+            f.charge += 1;
+            f.state_frame -= 1;
+        }
+        if effects.end {
+            f.state_frame = u16::from(mv.total_frames);
+        }
+        script_motion = effects.motion;
+    }
+
     // Scripted motion (a rising special) overrides normal physics while it is active.
     let frame = f.state_frame;
-    let motion = mv
-        .motion
-        .iter()
-        .find(|m| frame >= u16::from(m.start) && frame <= u16::from(m.end))
-        .copied();
+    let motion = script_motion
+        .map(|(vx, vy)| Motion {
+            start: 0,
+            end: u8::MAX,
+            vx,
+            vy,
+        })
+        .or_else(|| {
+            mv.motion
+                .iter()
+                .find(|m| frame >= u16::from(m.start) && frame <= u16::from(m.end))
+                .copied()
+        });
     if let Some(m) = motion {
-        f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), m.vy);
+        // A motion along the ground follows the ground: it can leave it by going up, but never sinks into it.
+        let vy = if f.grounded() {
+            m.vy.max(Fx::ZERO)
+        } else {
+            m.vy
+        };
+        f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), vy);
         f.hop_boost = 0;
         // A dash along the ground is not a landing, however flat it is.
-        let on_ground = f.grounded() && m.vy <= Fx::ZERO;
-        if m.vy > Fx::ZERO {
+        let on_ground = f.grounded() && vy <= Fx::ZERO;
+        if vy > Fx::ZERO {
             f.platform = NONE;
         }
         let moved = move_by(f, p, stage, f.vel);

@@ -49,6 +49,13 @@ The fuzzer found one real bug in the session: the input ring (128 frames) was na
 the network, so a delayed duplicate packet from long ago could reuse a slot that already held newer inputs. Frames are now only
 accepted within half a ring either side of the present.
 
+## Unused fighter slots
+
+The sim has four fighter slots, a two-player match uses two. The other two are marked inactive
+(`GameState::new_with_active`, the handshake's `active` mask): they are not updated, cannot be hit, grabbed or
+targeted, and so cannot absorb projectiles or take damage unseen. Before this was added they stood invisibly on the stage at
+their spawn points and could be hit; the mask is part of the checksum.
+
 ## What is not done (honest list)
 
 * **Never tested over the real internet.** Everything above is localhost or simulated. Latency spikes, NAT behaviour and ISP quirks

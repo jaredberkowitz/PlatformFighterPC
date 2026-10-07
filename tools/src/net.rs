@@ -152,7 +152,7 @@ pub fn cmd_host(args: &[String]) -> Result<(), String> {
         .and_then(|p| p.parse().ok())
         .ok_or("usage: pftool net-host <port> [frames]")?;
     let frames: u32 = args.get(1).and_then(|f| f.parse().ok()).unwrap_or(600);
-    let content = Content::placeholder();
+    let content = crate::content()?;
     let setup = match_setup(1);
     let inputs = script(1, frames as usize + 100);
     let report = if let Some(relay) = flag_value(args, "--relay") {
@@ -195,7 +195,7 @@ pub fn cmd_join(args: &[String]) -> Result<(), String> {
         .first()
         .ok_or("usage: pftool net-join <host:port> [frames]")?;
     let frames: u32 = args.get(1).and_then(|f| f.parse().ok()).unwrap_or(600);
-    let content = Content::placeholder();
+    let content = crate::content()?;
     let inputs = script(2, frames as usize + 100);
     let report = if let Some(relay) = flag_value(args, "--relay") {
         let room: u64 = flag_value(args, "--room")
@@ -258,7 +258,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
     let runs: u64 = args.first().and_then(|r| r.parse().ok()).unwrap_or(200);
     // `--only <seed>` replays a single run (to investigate a failure).
     let only: Option<u64> = flag_value(args, "--only").and_then(|v| v.parse().ok());
-    let content = Content::placeholder();
+    let content = crate::content()?;
     let frames: u32 = flag_value(args, "--frames")
         .and_then(|v| v.parse().ok())
         .unwrap_or(360);
@@ -320,7 +320,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             ticks += 1;
         }
         // The single-machine truth for the same inputs and delay.
-        let initial = GameState::new(&content, setup.seed, setup.chars);
+        let initial = GameState::new_with_active(&content, setup.seed, setup.chars, setup.active);
         let truth_inputs: Vec<[Input; MAX_FIGHTERS]> = (0..na.max(nb) + 5)
             .map(|f| {
                 let mut i = [Input::default(); MAX_FIGHTERS];

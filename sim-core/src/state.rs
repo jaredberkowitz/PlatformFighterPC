@@ -10,7 +10,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::input::Input;
 use crate::rng::Rng;
 use crate::vec2::Vec2;
-use crate::{MAX_FIGHTERS, MAX_SCRIPT_VARS};
+use crate::{FIGHTER_VARS, MAX_FIGHTERS, MAX_SCRIPT_VARS, PROJECTILE_VARS};
 
 /// Frames of input kept per fighter. Must cover the longest buffer window in `FighterParams`.
 pub const HISTORY_LEN: usize = 12;
@@ -100,6 +100,9 @@ pub struct Fighter {
     /// Damage taken, in percent.
     pub percent: Fx,
     pub stocks: u8,
+    /// Whether this fighter is in the match. A fighter that is not (the unused slots of a two-player match) is
+    /// not updated, cannot be hit, grabbed or targeted, and never acts.
+    pub active: bool,
     /// Frames of freeze after hitting or being hit. Nothing about the fighter advances during hitlag.
     pub hitlag: u8,
     /// Frames of hitstun remaining once hitlag ends.
@@ -132,6 +135,12 @@ pub struct Fighter {
     pub invuln: u8,
     /// The current move wants to spawn its projectile this frame (consumed by `step`).
     pub spawn_request: bool,
+    /// ...and a script chose where the projectile appears and how fast it goes, instead of the move's defaults.
+    pub spawn_custom: bool,
+    pub spawn_pos: Vec2,
+    pub spawn_vel: Vec2,
+    /// Persistent script variables of the move being performed.
+    pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
     pub history: [Input; HISTORY_LEN],
 }
@@ -152,6 +161,8 @@ pub struct Projectile {
     pub vel: Vec2,
     pub age: u8,
     pub life: u8,
+    /// Persistent variables of the projectile's script.
+    pub vars: [i32; PROJECTILE_VARS],
 }
 
 impl StateHash for Projectile {
@@ -165,6 +176,9 @@ impl StateHash for Projectile {
         self.vel.hash_into(h);
         h.write_u8(self.age);
         h.write_u8(self.life);
+        for v in &self.vars {
+            h.write_i32(*v);
+        }
     }
 }
 
@@ -211,6 +225,7 @@ impl Fighter {
             ledge_invuln: 0,
             ledge_grab_count: 0,
             ledge_cooldown: 0,
+            active: true,
             percent: Fx::ZERO,
             stocks: 3,
             hitlag: 0,
@@ -230,6 +245,10 @@ impl Fighter {
             grab_immune: 0,
             invuln: 0,
             spawn_request: false,
+            spawn_custom: false,
+            spawn_pos: Vec2::ZERO,
+            spawn_vel: Vec2::ZERO,
+            vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
     }
@@ -242,17 +261,30 @@ impl Fighter {
 impl GameState {
     /// Fresh match: every fighter on its stage spawn point. `char_ids` indexes `content.fighters`.
     pub fn new(content: &Content, seed: u64, char_ids: [u8; MAX_FIGHTERS]) -> GameState {
+        GameState::new_with_active(content, seed, char_ids, 0b1111)
+    }
+
+    /// Like [`GameState::new`], but only the fighters whose bit is set in `active` take part (bit `n` is
+    /// fighter `n`). The others stay where they spawned, untouched and untouchable.
+    pub fn new_with_active(
+        content: &Content,
+        seed: u64,
+        char_ids: [u8; MAX_FIGHTERS],
+        active: u8,
+    ) -> GameState {
         let fighters = core::array::from_fn(|i| {
             let pos = content.stage.spawns[i];
             let idx = usize::from(char_ids[i]).min(content.fighters.len().saturating_sub(1));
-            Fighter::spawn(
+            let mut f = Fighter::spawn(
                 pos,
                 char_ids[i],
                 if i % 2 == 0 { 1 } else { -1 },
                 collision::standing_on(&content.stage, pos),
                 content.fighters[idx].air_jumps,
                 content.rules.shield_max,
-            )
+            );
+            f.active = active >> i & 1 == 1;
+            f
         });
         GameState {
             frame: 0,
@@ -292,6 +324,7 @@ impl StateHash for Fighter {
         h.write_u8(self.ledge_invuln);
         h.write_u8(self.ledge_grab_count);
         h.write_u8(self.ledge_cooldown);
+        h.write_bool(self.active);
         self.percent.hash_into(h);
         h.write_u8(self.stocks);
         h.write_u8(self.hitlag);
@@ -311,6 +344,12 @@ impl StateHash for Fighter {
         h.write_u8(self.grab_immune);
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
+        h.write_bool(self.spawn_custom);
+        self.spawn_pos.hash_into(h);
+        self.spawn_vel.hash_into(h);
+        for v in &self.vars {
+            h.write_i32(*v);
+        }
         for input in &self.history {
             input.hash_into(h);
         }
@@ -573,6 +612,36 @@ mod tests {
             ("spawn_request", {
                 let mut s = state;
                 s.fighters[0].spawn_request = true;
+                s
+            }),
+            ("active", {
+                let mut s = state;
+                s.fighters[2].active = false;
+                s
+            }),
+            ("spawn_custom", {
+                let mut s = state;
+                s.fighters[0].spawn_custom = true;
+                s
+            }),
+            ("spawn_pos", {
+                let mut s = state;
+                s.fighters[1].spawn_pos.y = Fx::from_raw(1);
+                s
+            }),
+            ("spawn_vel", {
+                let mut s = state;
+                s.fighters[1].spawn_vel.x = Fx::from_raw(1);
+                s
+            }),
+            ("fighter_vars", {
+                let mut s = state;
+                s.fighters[3].vars[FIGHTER_VARS - 1] = 1;
+                s
+            }),
+            ("projectile_vars", {
+                let mut s = state;
+                s.projectiles[MAX_PROJECTILES - 1].vars[PROJECTILE_VARS - 1] = 1;
                 s
             }),
             ("projectile", {

@@ -5,7 +5,11 @@
 //! pftool selftest                        print checksum lines for the cross-platform CI gate
 //! pftool fuzz-rollback [runs]            randomised local-rollback runs; non-zero exit on any desync
 //! pftool net-fuzz | net-host | net-join | net-relay   networked play, see `net.rs`
+//! pftool content-export <out.pfc> | content-check <file.pfc> | content-pack <in.pfc> <out.pfc>   content bundles
+//!
+//! Every command uses the built-in roster unless the environment variable PF_CONTENT names a bundle file.
 
+mod content;
 mod net;
 mod replay;
 
@@ -29,8 +33,11 @@ fn main() -> ExitCode {
         Some("net-host") => net::cmd_host(&args[1..]),
         Some("net-join") => net::cmd_join(&args[1..]),
         Some("net-relay") => net::cmd_relay(&args[1..]),
+        Some("content-export") => content::cmd_export(&args[1..]),
+        Some("content-check") => content::cmd_check(&args[1..]),
+        Some("content-pack") => content::cmd_pack(&args[1..]),
         _ => Err(
-            "usage: pftool <gen|run|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay> ..."
+            "usage: pftool <gen|run|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack> ..."
                 .to_string(),
         ),
     };
@@ -43,7 +50,11 @@ fn main() -> ExitCode {
     }
 }
 
+/// The roster commands run against: the built-in one, or the bundle named by `PF_CONTENT`.
 fn content() -> Result<Content, String> {
+    if let Ok(path) = std::env::var("PF_CONTENT") {
+        return Ok(content::load_file(&path)?.content);
+    }
     let c = Content::placeholder();
     sim_content::validate(&c).map_err(|e| e.join("; "))?;
     Ok(c)

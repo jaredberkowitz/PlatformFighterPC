@@ -237,12 +237,17 @@ fn up_special_hits_on_frame_5_for_11_percent_then_ends_helpless() {
 
 #[test]
 fn special_slots_a_weapon_does_not_have_do_nothing() {
-    // The sword character has an up special but no neutral, side or down special yet.
-    for stick in [(0, 0), (127, 0), (0, -127)] {
+    // The sword character has neutral, side and up specials (the first two are scripted placeholders) but no
+    // down special yet.
+    let mut sim = Sim::new();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.tick(inp(0, -127, SPECIAL));
+    assert_ne!(sim.f().state, S::Attack, "down special");
+    for stick in [(0, 0), (127, 0), (0, 127)] {
         let mut sim = Sim::new();
         sim.stand(0, Fx::ZERO, 1);
         sim.tick(inp(stick.0, stick.1, SPECIAL));
-        assert_ne!(sim.f().state, S::Attack, "stick {stick:?}");
+        assert_eq!(sim.f().state, S::Attack, "stick {stick:?}");
     }
     // The blaster character has all four specials now.
     let mut sim = Sim::with_chars(WOLF);

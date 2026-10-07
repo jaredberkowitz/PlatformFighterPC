@@ -1,11 +1,23 @@
-//! Content validation. The data *formats* and file loaders arrive in Phase 5, once the hand-coded
-//! fighters have shown what the format needs. For now this is the guardrail layer: refuse content
-//! that would break the simulation (or, later, ranked balance).
+//! Content: the text format ([`tree`], [`format`]), bundles with a manifest and versioning ([`bundle`]), and
+//! validation. Loading is pure text in, [`Content`] out; reading files is the caller's job, so this crate stays
+//! free of I/O like the rest of the simulation.
+//!
+//! Validation is the guardrail layer: refuse content that would break the simulation (or, later, ranked balance).
+
+pub mod bundle;
+pub mod format;
+pub mod tree;
+
+pub use bundle::{load, to_text, Bundle, Manifest, SCHEMA_VERSION};
 
 use sim_core::content::{MAX_LEDGES, MAX_PLATFORMS};
 use sim_core::moves::{MoveId, Weapon};
 use sim_core::state::HISTORY_LEN;
 use sim_core::{Content, FighterParams, Fx, Stage};
+
+/// Most fighters and weapons one bundle may define (fighter ids are bytes, and bundles should stay small).
+const MAX_FIGHTER_TYPES: usize = 64;
+const MAX_WEAPONS: usize = 64;
 
 /// Largest value any distance, speed or acceleration may take, in world units.
 const MAX_VALUE: Fx = Fx::from_int(64);
@@ -42,6 +54,15 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
     if content.weapons.is_empty() {
         errors.push("content defines no weapons".to_string());
     }
+    if content.fighters.len() > MAX_FIGHTER_TYPES {
+        errors.push(format!(
+            "content defines more than {MAX_FIGHTER_TYPES} fighters"
+        ));
+    }
+    if content.weapons.len() > MAX_WEAPONS {
+        errors.push(format!("content defines more than {MAX_WEAPONS} weapons"));
+    }
+    validate_names(content, &mut errors);
     for (i, w) in content.weapons.iter().enumerate() {
         validate_weapon(i, w, &mut errors);
     }
@@ -51,6 +72,37 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// Names are how content files refer to things, so they must be present, tidy and unique.
+fn validate_names(content: &Content, errors: &mut Vec<String>) {
+    let groups: [(&str, &[String], usize); 2] = [
+        ("fighter", &content.names.fighters, content.fighters.len()),
+        ("weapon", &content.names.weapons, content.weapons.len()),
+    ];
+    for (what, names, count) in groups {
+        if names.len() != count {
+            errors.push(format!(
+                "{what} names do not match the {what}s ({} names for {count})",
+                names.len()
+            ));
+        }
+        for (i, name) in names.iter().enumerate() {
+            let tidy = !name.is_empty()
+                && name.len() <= 32
+                && name
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+            if !tidy {
+                errors.push(format!(
+                    "{what} {i}: name `{name}` must be 1 to 32 letters, digits, `_` or `-`"
+                ));
+            }
+            if names[..i].contains(name) {
+                errors.push(format!("{what} name `{name}` is used twice"));
+            }
+        }
     }
 }
 
@@ -147,12 +199,27 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             }
             continue;
         }
-        if mv.hitboxes.is_empty() && mv.projectile.is_none() {
+        if mv.hitboxes.is_empty() && mv.projectile.is_none() && mv.script.is_none() {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
         if let Some(p) = &mv.projectile {
             if p.life == 0 {
                 errors.push(format!("weapon {i} {name}: projectile has no lifetime"));
+            }
+        }
+        if mv.projectile_script.is_some() && mv.projectile.is_none() {
+            errors.push(format!(
+                "weapon {i} {name}: projectile_script needs a projectile"
+            ));
+        }
+        for (label, script) in [
+            ("script", &mv.script),
+            ("projectile_script", &mv.projectile_script),
+        ] {
+            if let Some(program) = script {
+                if let Some(problem) = sim_script::check::dry_run(program) {
+                    errors.push(format!("weapon {i} {name}: {label} {problem}"));
+                }
             }
         }
         if let Some(n) = mv.next {
@@ -308,6 +375,57 @@ mod tests {
 #[cfg(test)]
 mod combat_tests {
     use super::*;
+    use sim_core::moves::Move;
+    use sim_script::{Kind, Program};
+
+    #[test]
+    fn rejects_endless_scripts_and_orphan_projectile_scripts() {
+        let mut c = Content::placeholder();
+        c.weapons[0].moves[MoveId::NSpecial as usize].script =
+            Some(Program::compile(Kind::Fighter, "while true { add_vel(0, 0); }").unwrap());
+        c.weapons[0].moves[MoveId::SideSpecial as usize].projectile_script =
+            Some(Program::compile(Kind::Projectile, "kill();").unwrap());
+        c.weapons[0].moves[MoveId::SideSpecial as usize].projectile = None;
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("never finishes")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("needs a projectile")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_bad_and_repeated_names() {
+        let mut c = Content::placeholder();
+        c.names.fighters[1] = c.names.fighters[0].clone();
+        c.names.weapons[0] = "has space".to_string();
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("used twice")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("letters, digits")),
+            "{errors:?}"
+        );
+        c = Content::placeholder();
+        c.names.fighters.pop();
+        assert!(validate(&c).is_err());
+    }
+
+    #[test]
+    fn a_scripted_move_needs_no_hitboxes() {
+        let mut c = Content::placeholder();
+        c.weapons[0].moves[MoveId::DownSpecial as usize] = Move {
+            total_frames: 20,
+            script: Some(Program::compile(Kind::Fighter, "set_vel(0.3, 0);").unwrap()),
+            ..Move::empty()
+        };
+        assert_eq!(validate(&c), Ok(()));
+    }
 
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {

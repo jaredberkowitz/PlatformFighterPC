@@ -26,6 +26,10 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - Light and fast on the ground, good aerial mobility, strong edge-guarding, weaker when cornered up close.
 - Specials sketch: a dash slash (side), a rising slash (up, then helpless), a counter that reflects an incoming hit
   (down), a charged lunge (neutral).
+- **Scripted placeholders (Phase 5):** the sword character's neutral special (a slow bolt that bends toward the
+  enemy's height) and side special (a wind-up and a seven-frame thrust that stops dead) are written as scripts, in
+  `sim-core/src/scripts/`. They fill slots that were empty and show what the scripting layer is for; their numbers
+  are guesses, not reference data. The down special is still empty.
 - Wants from the sim: hitboxes with a **sweet spot / sour spot** by region of the blade, per-hitbox damage and knockback,
   hitbox priority (disjointed vs hurtbox), a counter state that reacts to hits.
 

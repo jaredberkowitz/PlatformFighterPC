@@ -200,6 +200,22 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack], [11, 0, 0, 0]]
 			d.shots = [[12, "a_windup"], [15, "b_hit"], [18, "c_hitlag"], [30, "d_launched"]]
 			d.end_frame = 45
+		"marth_seeker":
+			# Neutral special (a scripted placeholder): a bolt that bends toward the enemy's height.
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 26.0
+			d.events = [[1, "stand", 0, -9.0, 1], [2, "place", 1, 4.0, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [11, 0, 0, 0]]
+			d.shots = [[16, "a_windup"], [26, "b_fired"], [38, "c_bending"], [50, "d_rising"], [62, "e_hit"]]
+			d.end_frame = 90
+		"marth_lunge":
+			# Side special (a scripted placeholder): hold still, then thrust forward.
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -7.0, 1], [1, "stand", 1, -2.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 127, 0, special], [11, 0, 0, 0]]
+			d.shots = [[16, "a_windup"], [21, "b_thrust"], [25, "c_hit"], [34, "d_recover"], [52, "e_after"]]
+			d.end_frame = 70
 		"marth_upb_ledge":
 			# Up special from below the ledge: it grabs in mid-move.
 			d.chars = [0, 0, 0, 0]

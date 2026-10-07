@@ -69,6 +69,9 @@ fn clamp_i8(v: i32) -> i8 {
 pub struct SimRunner {
     base: Base<Node>,
     content: Content,
+    content_name: String,
+    /// Which fighter slots are in the match (bit `n` is fighter `n`). The game has two players.
+    players: u8,
     state: GameState,
     inputs: [Input; MAX_FIGHTERS],
     history: VecDeque<GameState>,
@@ -81,10 +84,12 @@ pub struct SimRunner {
 impl INode for SimRunner {
     fn init(base: Base<Node>) -> Self {
         let content = Content::placeholder();
-        let state = GameState::new(&content, 1, [0, 1, 0, 1]);
+        let state = GameState::new_with_active(&content, 1, [0, 1, 0, 1], 0b0011);
         SimRunner {
             base,
             content,
+            content_name: String::new(),
+            players: 0b0011,
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
             history: VecDeque::new(),
@@ -98,6 +103,59 @@ impl INode for SimRunner {
 impl SimRunner {
     // ---- Control ----
 
+    /// Replaces the built-in roster with the content bundle in the file at `path`, and starts a fresh match with it.
+    /// Returns an empty string on success, otherwise every problem found (nothing is changed then).
+    #[func]
+    fn load_content(&mut self, path: GString) -> GString {
+        let path = path.to_string();
+        let text = match std::fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) => return GString::from(format!("cannot read {path}: {e}").as_str()),
+        };
+        let bundle = match sim_content::load(&text) {
+            Ok(b) => b,
+            Err(errors) => return GString::from(format!("{path}: {}", errors.join("; ")).as_str()),
+        };
+        if let Err(errors) = sim_content::validate(&bundle.content) {
+            return GString::from(
+                format!("{path} is not valid content: {}", errors.join("; ")).as_str(),
+            );
+        }
+        self.content = bundle.content;
+        self.content_name = bundle.manifest.name;
+        self.net = None;
+        self.state = GameState::new_with_active(&self.content, 1, [0, 1, 0, 1], self.players);
+        self.inputs = [Input::default(); MAX_FIGHTERS];
+        self.history.clear();
+        GString::new()
+    }
+
+    /// How many fighters take part (2 by default). The others are inert: they cannot be hit or targeted.
+    /// Takes effect at the next `start`.
+    #[func]
+    fn set_players(&mut self, count: i32) {
+        self.players = ((1u16 << count.clamp(1, MAX_FIGHTERS as i32)) - 1) as u8;
+    }
+
+    /// The loaded bundle's name, or an empty string for the built-in roster.
+    #[func]
+    fn content_name(&self) -> GString {
+        GString::from(self.content_name.as_str())
+    }
+
+    /// Names of the fighters in the loaded roster, in index order.
+    #[func]
+    fn fighter_names(&self) -> PackedStringArray {
+        let names: Vec<GString> = self
+            .content
+            .names
+            .fighters
+            .iter()
+            .map(|n| GString::from(n.as_str()))
+            .collect();
+        PackedStringArray::from(names.as_slice())
+    }
+
     /// Starts a fresh match. `chars` picks each player's physics profile (0 balanced, 1 floaty).
     #[func]
     fn start(&mut self, seed: i64, chars: PackedInt32Array) {
@@ -105,7 +163,7 @@ impl SimRunner {
         for (slot, c) in ids.iter_mut().zip(chars.as_slice()) {
             *slot = (*c).clamp(0, self.content.fighters.len() as i32 - 1) as u8;
         }
-        self.state = GameState::new(&self.content, seed as u64, ids);
+        self.state = GameState::new_with_active(&self.content, seed as u64, ids, self.players);
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
     }

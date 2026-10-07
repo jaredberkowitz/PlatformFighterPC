@@ -15,6 +15,7 @@ use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{Hitbox, Move, MoveId, Reflector, Weapon, HIT_GRAB, HIT_PUMMEL, HIT_THROW};
+use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
@@ -46,7 +47,8 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams) -> [(Vec2, Fx); HURT_CIRCLES] {
 
 /// True while a fighter cannot be hit.
 pub fn is_intangible(f: &Fighter) -> bool {
-    f.invuln > 0
+    !f.active
+        || f.invuln > 0
         || f.ledge_invuln > 0
         || (f.state == S::AirDodge && (4..=28).contains(&f.state_frame))
 }
@@ -364,7 +366,9 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         }
         state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
-        if f.hit_mask != 0 {
+        state.fighters[i].spawn_custom = false;
+        // A move that already connected in melee does not also fire, unless its script asked for the shot.
+        if f.hit_mask != 0 && !f.spawn_custom {
             continue;
         }
         let Some(spec) = weapon_of(content, params_of(content, &f))
@@ -381,10 +385,19 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 origin: i as u8,
                 power: 100,
                 move_id: f.move_id,
-                pos: Vec2::new(f.pos.x + spec.x.mul_int(dir), f.pos.y + spec.y),
-                vel: Vec2::new(spec.speed.mul_int(dir), Fx::ZERO),
+                pos: if f.spawn_custom {
+                    f.pos + f.spawn_pos
+                } else {
+                    Vec2::new(f.pos.x + spec.x.mul_int(dir), f.pos.y + spec.y)
+                },
+                vel: if f.spawn_custom {
+                    f.spawn_vel
+                } else {
+                    Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
+                },
                 age: 0,
                 life: spec.life,
+                vars: [0; crate::PROJECTILE_VARS],
             };
         }
     }
@@ -401,10 +414,20 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         let owner = usize::from(pr.owner).min(MAX_FIGHTERS - 1);
         let origin = usize::from(pr.origin).min(MAX_FIGHTERS - 1);
         let origin_params = params_of(content, &state.fighters[origin]);
-        let Some(spec) = weapon_of(content, origin_params).get(pr.move_id).projectile else {
+        let fired_by = weapon_of(content, origin_params).get(pr.move_id);
+        let Some(spec) = fired_by.projectile else {
             state.projectiles[n].active = false;
             continue;
         };
+        // The projectile's own script steers it before it moves.
+        if let Some(program) = &fired_by.projectile_script {
+            let around = surroundings(state, owner, pr.pos);
+            if scripting::run_projectile(program, &mut state.projectiles[n], around) {
+                state.projectiles[n].active = false;
+                continue;
+            }
+        }
+        let pr = state.projectiles[n];
 
         let age = pr.age.saturating_add(1);
         let pos = pr.pos + pr.vel;
@@ -462,6 +485,24 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
     }
 }
 
+/// What a projectile script can see: its owner and the nearest other fighter that is still in the match.
+fn surroundings(state: &GameState, owner: usize, at: Vec2) -> scripting::Surroundings {
+    let mut target: Option<(Fx, Vec2)> = None;
+    for (i, f) in state.fighters.iter().enumerate() {
+        if i == owner || f.stocks == 0 || !f.active {
+            continue;
+        }
+        let d = (f.pos - at).length_sq();
+        if target.is_none_or(|(best, _)| d < best) {
+            target = Some((d, f.pos));
+        }
+    }
+    scripting::Surroundings {
+        owner: state.fighters[owner].pos,
+        target: target.map(|(_, p)| p),
+    }
+}
+
 /// A fighter other than `owner` whose reflector is up and touches a projectile at `pos`.
 fn reflector_touching(
     state: &GameState,
@@ -496,6 +537,9 @@ fn reflector_touching(
 pub fn check_ko(state: &mut GameState, content: &Content) {
     let s = &content.stage;
     for i in 0..MAX_FIGHTERS {
+        if !state.fighters[i].active {
+            continue;
+        }
         let p = state.fighters[i].pos;
         if p.x < s.blast_left || p.x > s.blast_right || p.y < s.blast_bottom || p.y > s.blast_top {
             grab::drop_grab(state, content, i);

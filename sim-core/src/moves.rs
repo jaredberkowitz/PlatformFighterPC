@@ -13,6 +13,7 @@
 
 use crate::fixed::Fx;
 use crate::hash::{StateHash, StateHasher};
+use sim_script::{Kind, Program};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -106,6 +107,49 @@ impl MoveId {
             27 => MoveId::GetUpAttack,
             _ => MoveId::DownSpecial,
         }
+    }
+
+    /// Every move slot, in index order.
+    pub fn all() -> impl Iterator<Item = MoveId> {
+        (0..Self::COUNT as u8).map(MoveId::from_index)
+    }
+
+    /// The identifier content files use for this slot (`dash_attack`, `up_special`, ...).
+    pub const fn key(self) -> &'static str {
+        match self {
+            MoveId::Jab => "jab",
+            MoveId::FTilt => "ftilt",
+            MoveId::UTilt => "utilt",
+            MoveId::DTilt => "dtilt",
+            MoveId::DashAttack => "dash_attack",
+            MoveId::FSmash => "fsmash",
+            MoveId::USmash => "usmash",
+            MoveId::DSmash => "dsmash",
+            MoveId::NAir => "nair",
+            MoveId::FAir => "fair",
+            MoveId::BAir => "bair",
+            MoveId::UAir => "uair",
+            MoveId::DAir => "dair",
+            MoveId::NSpecial => "neutral_special",
+            MoveId::SideSpecial => "side_special",
+            MoveId::UpSpecial => "up_special",
+            MoveId::DownSpecial => "down_special",
+            MoveId::Jab2 => "jab2",
+            MoveId::Jab3 => "jab3",
+            MoveId::Grab => "grab",
+            MoveId::DashGrab => "dash_grab",
+            MoveId::Pummel => "pummel",
+            MoveId::FThrow => "fthrow",
+            MoveId::BThrow => "bthrow",
+            MoveId::UThrow => "uthrow",
+            MoveId::DThrow => "dthrow",
+            MoveId::LedgeAttack => "ledge_attack",
+            MoveId::GetUpAttack => "get_up_attack",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<MoveId> {
+        MoveId::all().find(|m| m.key() == key)
     }
 
     pub const fn name(self) -> &'static str {
@@ -246,6 +290,10 @@ pub struct Move {
     /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
     pub rehit: Option<(u8, u8)>,
     pub reflector: Option<Reflector>,
+    /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
+    pub script: Option<Program>,
+    /// Runs every frame of the projectile this move fires.
+    pub projectile_script: Option<Program>,
 }
 
 impl Move {
@@ -268,6 +316,8 @@ impl Move {
             next_window: 0,
             rehit: None,
             reflector: None,
+            script: None,
+            projectile_script: None,
         }
     }
 
@@ -378,11 +428,26 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            for script in [&m.script, &m.projectile_script] {
+                match script {
+                    Some(p) => {
+                        h.write_bool(true);
+                        h.write_bytes(&p.hash_bytes());
+                    }
+                    None => h.write_bool(false),
+                }
+            }
         }
     }
 }
 
 // ---- Builders -------------------------------------------------------------------------------------------
+
+/// Compiles a built-in script. A mistake in one is a bug in this file, caught by the first test run.
+fn script(kind: Kind, source: &str) -> Program {
+    Program::compile(kind, source)
+        .unwrap_or_else(|e| panic!("built-in script does not compile: {e}"))
+}
 
 /// Placeholder hitbox row: frames, position (tenths of a unit), radius (tenths), damage in half percents,
 /// angle, base knockback, growth, priority.
@@ -874,6 +939,59 @@ pub fn longsword() -> Weapon {
     up_special.helpless_after = true;
     up_special.grabs_ledge = true;
     moves[MoveId::UpSpecial as usize] = up_special;
+
+    // The two specials below are placeholders written as scripts (plan phase 5): they show what the scripting
+    // layer is for, and fill slots that were empty. Their numbers are guesses, not reference data.
+    //
+    // Neutral special: a slow bolt that bends toward the nearest enemy's height.
+    let mut seeker = ref_move(
+        46,
+        0,
+        0,
+        255,
+        &[r(14, 15, 20, 12, 7, 60, 361, 25, 50, 0, 0)],
+    );
+    seeker.projectile = Some(ProjectileSpawn {
+        frame: 13,
+        x: Fx::from_ratio(25, 10),
+        y: Fx::from_ratio(12, 10),
+        speed: Fx::from_ratio(35, 100),
+        life: 90,
+        hitbox: Hitbox {
+            start: 0,
+            end: 0,
+            x: Fx::ZERO,
+            y: Fx::ZERO,
+            radius: Fx::from_ratio(7, 10),
+            damage: Fx::from_int(6),
+            angle: 361,
+            base_knockback: 30,
+            knockback_growth: 40,
+            priority: 0,
+            group: 0,
+            kind: HIT_NORMAL,
+        },
+        end_damage: Fx::from_int(4),
+    });
+    seeker.projectile_script = Some(script(
+        Kind::Projectile,
+        include_str!("scripts/seeker_bolt.script"),
+    ));
+    moves[MoveId::NSpecial as usize] = seeker;
+
+    // Side special: a lunge. Wind up, dash forward (the stick steers it a little up or down), recover.
+    let mut lunge = ref_move(
+        40,
+        0,
+        0,
+        255,
+        &[
+            r(10, 17, 38, 13, 9, 80, 361, 30, 85, 0, 0),
+            r(10, 17, 26, 13, 8, 60, 361, 25, 75, 1, 0),
+        ],
+    );
+    lunge.script = Some(script(Kind::Fighter, include_str!("scripts/lunge.script")));
+    moves[MoveId::SideSpecial as usize] = lunge;
 
     Weapon { moves }
 }

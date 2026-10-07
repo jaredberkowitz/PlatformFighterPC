@@ -64,7 +64,7 @@ fn play<L: Link>(mut peer: Peer<L>, inputs: Vec<[Input; MAX_FIGHTERS]>) -> Outco
 fn truth(inputs: &[[Input; MAX_FIGHTERS]]) -> Vec<u64> {
     let content = Content::placeholder();
     let s = setup();
-    let initial = GameState::new(&content, s.seed, s.chars);
+    let initial = GameState::new_with_active(&content, s.seed, s.chars, s.active);
     let delay = u32::from(s.input_delay) as usize;
     let seq: Vec<[Input; MAX_FIGHTERS]> = (0..TOTAL as usize + 20)
         .map(|f| {
