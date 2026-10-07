@@ -60,6 +60,7 @@ func _ready() -> void:
 	_build_world()
 	_parse_demo_args()
 	_restart()
+	_start_net()
 	_build_ecb()
 	_build_boxes()
 	_build_projectiles()
@@ -175,10 +176,81 @@ func _send_key(code: int, down: bool) -> void:
 	Input.parse_input_event(e)
 
 
-func _tick_once() -> void:
+# ---- Network play -----------------------------------------------------------------------------------
+# Launch arguments (after `--`):
+#   --host=PORT                 host a match over UDP         (add --chars=0,1 to pick characters, --delay=2 for input delay)
+#   --join=IP:PORT              join one
+#   --relay=IP:PORT --room=N    host or join through a relay server (with --host=0 or --join=-)
+# Both players use player 1's keys on their own keyboard.
+
+var net_mode := false
+var net_status := 0
+var net_lines: Array[String] = []
+
+
+func _start_net() -> void:
+	var host_port := -1
+	var join_addr := ""
+	var relay := ""
+	var room := 0
+	var delay := 2
+	var chars: Array = CHARS
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--host="):
+			host_port = int(a.substr(7))
+		elif a.begins_with("--join="):
+			join_addr = a.substr(7)
+		elif a.begins_with("--relay="):
+			relay = a.substr(8)
+		elif a.begins_with("--room="):
+			room = int(a.substr(7))
+		elif a.begins_with("--delay="):
+			delay = int(a.substr(8))
+		elif a.begins_with("--chars="):
+			chars = []
+			for c in a.substr(8).split(","):
+				chars.append(int(c))
+	var err := ""
+	if host_port >= 0 and relay != "":
+		err = sim.net_host_relay(relay, room, PackedInt32Array(chars), delay)
+	elif host_port >= 0:
+		err = sim.net_host(host_port, PackedInt32Array(chars), delay)
+	elif join_addr != "" and relay != "":
+		err = sim.net_join_relay(relay, room)
+	elif join_addr != "":
+		err = sim.net_join(join_addr)
+	else:
+		return
+	if err != "":
+		push_error(err)
+		net_lines.append(err)
+		return
+	net_mode = true
+	print("network mode: ", "host" if host_port >= 0 else "joiner")
+
+
+## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
+func _net_step() -> void:
+	var local: int = maxi(sim.net_local_player(), 0)
+	var r: Dictionary = InputReader.read(0, masks)
+	inputs[local] = r
+	net_status = sim.net_update(r.x, r.y, r.buttons)
+	for line in sim.net_take_log():
+		net_lines.append(line)
+		print(line)
+	if net_lines.size() > 4:
+		net_lines = net_lines.slice(net_lines.size() - 4)
+	if net_status == 1:
+		_tick_once(false)
+	else:
+		overlay_dirty = true
+
+
+func _tick_once(advance := true) -> void:
 	for i in PLAYERS:
 		prev_pos[i] = cur_pos[i]
-	sim.tick()
+	if advance:
+		sim.tick()
 	proj_prev = proj_cur
 	proj_cur = sim.projectile_slots()
 	for i in PLAYERS:
@@ -258,6 +330,9 @@ func _gather() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if not warmed or shot_wait != "":
+		return
+	if net_mode:
+		_net_step()
 		return
 	if demo != null:
 		for e in demo.events_at(sim.frame()):
@@ -342,7 +417,19 @@ func _process(delta: float) -> void:
 		"frame": sim.frame(), "checksum": sim.checksum(), "version": sim.sim_version(),
 		"content_hash": sim.content_hash(), "paused": paused, "history": sim.history_len(),
 		"min_down": min_down,
+		"net": _net_text(),
 	})
+
+
+func _net_text() -> String:
+	if not net_mode:
+		return ""
+	var text: String = sim.net_info()
+	if net_status == 2:
+		text += "   (waiting for the other player)"
+	for l in net_lines:
+		text += "\n" + l
+	return text
 
 
 func _update_camera(a: float, delta: float) -> void:
@@ -424,6 +511,9 @@ func _prewarm() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	# Training keys change the sim directly, which a networked match must never do.
+	if net_mode and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
 		return
 	match event.keycode:
 		KEY_F1:

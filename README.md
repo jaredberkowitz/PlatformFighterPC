@@ -2,17 +2,18 @@
 
 An original, legally distinct platform fighter with rollback netcode, a character creator and a stage creator.
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
-Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md).
+Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md).
 
-## Status: Phase 1 complete (movement), playable in Godot
+## Status: Phases 0-3 built, Phase 4 (netplay) built and tested locally, playable in Godot
 
 | Crate | Purpose | State |
 | --- | --- | --- |
 | `sim-core` | Deterministic sim: fixed point, trig, `GameState`, `step`, checksum, movement state machine | Phase 1 movement complete, see `docs/PHASE1_MOVEMENT.md` |
 | `sim-content` | Content validation and balance guardrails | Basic validator |
 | `sim-script` | Integer-only scripting VM | Stub (Phase 5) |
-| `netplay` | Rollback layer | Local rollback harness (Phase 2 proof); transport is Phase 4 |
-| `tools` | `pftool`: replay generator/runner, CI checksum dump, rollback fuzzer | Working |
+| `netplay` | Rollback layer: wire format, handshake, session, `Peer` | Phase 4, see `docs/NETPLAY.md` |
+| `transport` | UDP link and relay server (the only crate with sockets) | Phase 4 |
+| `tools` | `pftool`: replay generator/runner, CI checksum dump, rollback and network fuzzers, host/join/relay | Working |
 | `godot-bridge` | gdext `SimRunner` node: ticks the sim, exposes read-only state | Working |
 | `godot/` | Godot 4.7 project: blob fighters, stage, training overlay | Playable test bed |
 
@@ -41,6 +42,20 @@ Try a wavedash (tap jump, then shield with the stick held down-diagonal), shield
 falling near a ledge. Scripted screenshot demos: `Godot --path godot -- --demo=wavedash --shots=<folder>`
 (names: wavedash, ledge, shielddrop, tour, portrait, combat, smash, and the move demos in `docs/COMBAT.md`).
 
+## Play online (Phase 4)
+
+Two players, each on their own PC: one double-clicks **`play_host.bat`** and tells the other their IP address (the window lists
+it) and port 47000; the other double-clicks **`play_join.bat`** and types `ip:port`. Both play with player 1's keys on their own
+keyboard. The host is player 1 (the sword fighter) and the joiner player 2 (the claw fighter). The top of the screen shows the
+connection: frame, confirmed frame, rollbacks and stalls ("waiting for the other player" if the link is slow).
+
+- **Same network or a VPN:** works as is.
+- **Over the internet:** the host must forward UDP port 47000 to their PC (NAT hole punching is not built yet), **or** both use a
+  relay server someone runs with `pftool net-relay 47000` on a machine with a public address:
+  `Godot --path godot -- --host=0 --relay=RELAY_IP:47000 --room=1234` and `--join=- --relay=RELAY_IP:47000 --room=1234`.
+- Both PCs must run the same build. A different sim version or content is refused before the match starts, with both numbers shown.
+- Testing without a second PC: run `play_host.bat`, then open a second window with `Godot --path godot -- --join=127.0.0.1:47000`.
+
 ## Commands
 
 Requires Rust (stable) plus the MSVC build tools on Windows.
@@ -51,6 +66,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo bench -p sim-core
 cargo run --release -p tools --bin pftool -- selftest
 cargo run --release -p tools --bin pftool -- fuzz-rollback 1000
+cargo run --release -p tools --bin pftool -- net-fuzz 1000    # randomised lossy network sessions
 ```
 
 ## Determinism rules (enforced)

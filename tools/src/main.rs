@@ -4,7 +4,9 @@
 //! pftool run <replay.pfr>                replay it and print checksums every 60 frames
 //! pftool selftest                        print checksum lines for the cross-platform CI gate
 //! pftool fuzz-rollback [runs]            randomised local-rollback runs; non-zero exit on any desync
+//! pftool net-fuzz | net-host | net-join | net-relay   networked play, see `net.rs`
 
+mod net;
 mod replay;
 
 use netplay::local_rollback::{random_delays, verify};
@@ -23,7 +25,14 @@ fn main() -> ExitCode {
         Some("run") => cmd_run(&args[1..]),
         Some("selftest") => cmd_selftest(),
         Some("fuzz-rollback") => cmd_fuzz(&args[1..]),
-        _ => Err("usage: pftool <gen|run|selftest|fuzz-rollback> ...".to_string()),
+        Some("net-fuzz") => net::cmd_fuzz(&args[1..]),
+        Some("net-host") => net::cmd_host(&args[1..]),
+        Some("net-join") => net::cmd_join(&args[1..]),
+        Some("net-relay") => net::cmd_relay(&args[1..]),
+        _ => Err(
+            "usage: pftool <gen|run|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay> ..."
+                .to_string(),
+        ),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

@@ -14,6 +14,8 @@ crate-type = ["cdylib"]
 [dependencies]
 sim-core = { path = "../sim-core" }
 sim-content = { path = "../sim-content" }
+netplay = { path = "../netplay" }
+transport = { path = "../transport" }
 godot = "0.5"
 
 # Deliberately not opted into the workspace sim lints: this crate converts to Godot's float types

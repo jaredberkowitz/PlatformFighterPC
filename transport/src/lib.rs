@@ -1,0 +1,310 @@
+//! UDP transport for netplay: the part that touches sockets, so the `netplay` crate can stay pure.
+//!
+//! * [`UdpLink`]: a direct peer-to-peer link. The host binds a port; the joiner is given the host's address. The
+//!   host learns the joiner's address from its first packet and ignores everyone else after that.
+//! * [`RelayLink`] and [`Relay`]: a fallback for players who cannot connect directly (no port forwarding). Both
+//!   clients send to a relay server with a shared room number and the relay forwards between them. It adds one hop of
+//!   latency but needs no NAT traversal.
+//!
+//! Neither hole-punches NAT; direct play over the internet needs a forwarded port (or a LAN / VPN), and anything else
+//! uses the relay.
+
+use netplay::peer::Link;
+use std::collections::BTreeMap;
+use std::io::{self, ErrorKind};
+use std::net::{SocketAddr, UdpSocket};
+
+/// Largest datagram handled; protocol packets are far smaller.
+const MAX_DATAGRAM: usize = 1500;
+
+fn bind_nonblocking(addr: SocketAddr) -> io::Result<UdpSocket> {
+    let socket = UdpSocket::bind(addr)?;
+    socket.set_nonblocking(true)?;
+    Ok(socket)
+}
+
+/// A direct link to one peer.
+pub struct UdpLink {
+    socket: UdpSocket,
+    peer: Option<SocketAddr>,
+    buf: Vec<u8>,
+}
+
+impl UdpLink {
+    /// Binds `local`. The joiner passes the host's address as `peer`; the host passes `None` and learns the joiner's
+    /// address from the first packet that arrives.
+    pub fn bind(local: SocketAddr, peer: Option<SocketAddr>) -> io::Result<UdpLink> {
+        Ok(UdpLink {
+            socket: bind_nonblocking(local)?,
+            peer,
+            buf: vec![0; MAX_DATAGRAM],
+        })
+    }
+
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    pub fn peer(&self) -> Option<SocketAddr> {
+        self.peer
+    }
+}
+
+impl Link for UdpLink {
+    fn send(&mut self, bytes: &[u8]) {
+        if let Some(peer) = self.peer {
+            // A full buffer or an unreachable peer just loses the datagram, like the network would.
+            let _ = self.socket.send_to(bytes, peer);
+        }
+    }
+
+    fn recv(&mut self) -> Option<Vec<u8>> {
+        loop {
+            match self.socket.recv_from(&mut self.buf) {
+                Ok((n, from)) => {
+                    match self.peer {
+                        None => self.peer = Some(from),
+                        Some(p) if p != from => continue, // not our peer
+                        Some(_) => {}
+                    }
+                    return Some(self.buf[..n].to_vec());
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => return None,
+                // On Windows a datagram that bounced (peer not listening yet) surfaces as a reset; skip it.
+                Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
+                Err(_) => return None,
+            }
+        }
+    }
+}
+
+// ---- Relay -------------------------------------------------------------------------------------------------------
+
+const RELAY_MAGIC: [u8; 2] = [0x52, 0x4c]; // "RL"
+const RELAY_HEADER: usize = 2 + 8;
+
+/// A client of a relay server: wraps every datagram with the room number.
+pub struct RelayLink {
+    socket: UdpSocket,
+    relay: SocketAddr,
+    room: u64,
+    buf: Vec<u8>,
+}
+
+impl RelayLink {
+    pub fn connect(local: SocketAddr, relay: SocketAddr, room: u64) -> io::Result<RelayLink> {
+        Ok(RelayLink {
+            socket: bind_nonblocking(local)?,
+            relay,
+            room,
+            buf: vec![0; MAX_DATAGRAM],
+        })
+    }
+
+    /// Registers with the relay without sending any payload (so the other side's packets can find us).
+    pub fn announce(&mut self) {
+        self.send(&[]);
+    }
+}
+
+impl Link for RelayLink {
+    fn send(&mut self, bytes: &[u8]) {
+        let mut out = Vec::with_capacity(RELAY_HEADER + bytes.len());
+        out.extend_from_slice(&RELAY_MAGIC);
+        out.extend_from_slice(&self.room.to_le_bytes());
+        out.extend_from_slice(bytes);
+        let _ = self.socket.send_to(&out, self.relay);
+    }
+
+    fn recv(&mut self) -> Option<Vec<u8>> {
+        loop {
+            match self.socket.recv_from(&mut self.buf) {
+                Ok((n, from)) => {
+                    if from != self.relay || n == 0 {
+                        continue;
+                    }
+                    return Some(self.buf[..n].to_vec());
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => return None,
+                Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
+                Err(_) => return None,
+            }
+        }
+    }
+}
+
+/// The relay server: forwards each client's datagrams to the other client in the same room. Two clients per room.
+pub struct Relay {
+    socket: UdpSocket,
+    rooms: BTreeMap<u64, [Option<SocketAddr>; 2]>,
+    buf: Vec<u8>,
+    forwarded: u64,
+}
+
+impl Relay {
+    pub fn bind(addr: SocketAddr) -> io::Result<Relay> {
+        Ok(Relay {
+            socket: bind_nonblocking(addr)?,
+            rooms: BTreeMap::new(),
+            buf: vec![0; MAX_DATAGRAM],
+            forwarded: 0,
+        })
+    }
+
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    pub fn forwarded(&self) -> u64 {
+        self.forwarded
+    }
+
+    pub fn room_count(&self) -> usize {
+        self.rooms.len()
+    }
+
+    /// Handles every datagram waiting right now.
+    pub fn pump(&mut self) {
+        loop {
+            let (n, from) = match self.socket.recv_from(&mut self.buf) {
+                Ok(x) => x,
+                Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
+                Err(_) => return,
+            };
+            if n < RELAY_HEADER || self.buf[..2] != RELAY_MAGIC {
+                continue;
+            }
+            let mut room_bytes = [0u8; 8];
+            room_bytes.copy_from_slice(&self.buf[2..RELAY_HEADER]);
+            let room = u64::from_le_bytes(room_bytes);
+
+            // Cap the number of rooms so a flood of made-up room numbers cannot use unbounded memory.
+            if !self.rooms.contains_key(&room) && self.rooms.len() >= 4096 {
+                continue;
+            }
+            let slots = self.rooms.entry(room).or_insert([None, None]);
+            let me = match slots.iter().position(|s| *s == Some(from)) {
+                Some(i) => i,
+                None => match slots.iter().position(Option::is_none) {
+                    Some(i) => {
+                        slots[i] = Some(from);
+                        i
+                    }
+                    None => continue, // a third client: ignored
+                },
+            };
+            if n == RELAY_HEADER {
+                continue; // an announcement carries no payload
+            }
+            if let Some(other) = slots[1 - me] {
+                let _ = self.socket.send_to(&self.buf[RELAY_HEADER..n], other);
+                self.forwarded += 1;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    fn any() -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
+    }
+
+    fn wait_for<L: Link>(link: &mut L, relay: Option<&mut Relay>) -> Option<Vec<u8>> {
+        let mut relay = relay;
+        for _ in 0..200 {
+            if let Some(r) = relay.as_deref_mut() {
+                r.pump();
+            }
+            if let Some(b) = link.recv() {
+                return Some(b);
+            }
+            sleep(Duration::from_millis(5));
+        }
+        None
+    }
+
+    #[test]
+    fn two_udp_links_exchange_datagrams_and_the_host_learns_the_joiner() {
+        let mut host = UdpLink::bind(any(), None).unwrap();
+        let mut join = UdpLink::bind(any(), Some(host.local_addr().unwrap())).unwrap();
+        assert_eq!(host.peer(), None);
+        join.send(b"hello");
+        assert_eq!(wait_for(&mut host, None).as_deref(), Some(&b"hello"[..]));
+        assert_eq!(host.peer(), Some(join.local_addr().unwrap()));
+        host.send(b"welcome");
+        assert_eq!(wait_for(&mut join, None).as_deref(), Some(&b"welcome"[..]));
+    }
+
+    #[test]
+    fn a_stranger_is_ignored_once_the_peer_is_known() {
+        let mut host = UdpLink::bind(any(), None).unwrap();
+        let mut join = UdpLink::bind(any(), Some(host.local_addr().unwrap())).unwrap();
+        let stranger = UdpSocket::bind(any()).unwrap();
+        join.send(b"first");
+        assert!(wait_for(&mut host, None).is_some());
+        stranger
+            .send_to(b"spoof", host.local_addr().unwrap())
+            .unwrap();
+        sleep(Duration::from_millis(30));
+        assert_eq!(host.recv(), None);
+    }
+
+    #[test]
+    fn the_relay_forwards_between_two_clients_in_a_room_and_keeps_rooms_apart() {
+        let mut relay = Relay::bind(any()).unwrap();
+        let relay_addr = relay.local_addr().unwrap();
+        let mut a = RelayLink::connect(any(), relay_addr, 77).unwrap();
+        let mut b = RelayLink::connect(any(), relay_addr, 77).unwrap();
+        let mut other_room = RelayLink::connect(any(), relay_addr, 78).unwrap();
+        let mut other_peer = RelayLink::connect(any(), relay_addr, 78).unwrap();
+        a.announce();
+        b.announce();
+        other_room.announce();
+        other_peer.announce();
+        a.send(b"to b");
+        assert_eq!(
+            wait_for(&mut b, Some(&mut relay)).as_deref(),
+            Some(&b"to b"[..])
+        );
+        b.send(b"to a");
+        assert_eq!(
+            wait_for(&mut a, Some(&mut relay)).as_deref(),
+            Some(&b"to a"[..])
+        );
+        // Nothing leaked into the other room.
+        relay.pump();
+        assert_eq!(other_room.recv(), None);
+        assert_eq!(other_peer.recv(), None);
+        assert_eq!(relay.room_count(), 2);
+        assert_eq!(relay.forwarded(), 2);
+    }
+
+    #[test]
+    fn the_relay_ignores_garbage_and_a_third_client() {
+        let mut relay = Relay::bind(any()).unwrap();
+        let relay_addr = relay.local_addr().unwrap();
+        let junk = UdpSocket::bind(any()).unwrap();
+        junk.send_to(b"not a relay packet", relay_addr).unwrap();
+        junk.send_to(&[], relay_addr).unwrap();
+        let mut a = RelayLink::connect(any(), relay_addr, 1).unwrap();
+        let mut b = RelayLink::connect(any(), relay_addr, 1).unwrap();
+        let mut c = RelayLink::connect(any(), relay_addr, 1).unwrap();
+        a.announce();
+        b.announce();
+        c.send(b"intruder");
+        a.send(b"hi");
+        assert_eq!(
+            wait_for(&mut b, Some(&mut relay)).as_deref(),
+            Some(&b"hi"[..])
+        );
+        sleep(Duration::from_millis(20));
+        relay.pump();
+        assert_eq!(a.recv(), None, "the intruder's packet was not forwarded");
+    }
+}

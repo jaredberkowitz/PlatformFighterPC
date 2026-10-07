@@ -6,9 +6,47 @@
 
 use godot::classes::{INode, Node};
 use godot::prelude::*;
+use netplay::packet::Setup;
+use netplay::peer::{Link, Peer, Status};
+use netplay::session::{Advance, Event};
 use sim_core::input::buttons;
 use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use transport::{RelayLink, UdpLink};
+
+/// The two ways a networked match can reach the other player.
+enum NetLink {
+    Udp(UdpLink),
+    Relay(RelayLink),
+}
+
+impl Link for NetLink {
+    fn send(&mut self, bytes: &[u8]) {
+        match self {
+            NetLink::Udp(l) => l.send(bytes),
+            NetLink::Relay(l) => l.send(bytes),
+        }
+    }
+
+    fn recv(&mut self) -> Option<Vec<u8>> {
+        match self {
+            NetLink::Udp(l) => l.recv(),
+            NetLink::Relay(l) => l.recv(),
+        }
+    }
+}
+
+fn any_local() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)
+}
+
+fn resolve(text: &str) -> Result<SocketAddr, String> {
+    text.to_socket_addrs()
+        .map_err(|e| format!("cannot resolve {text}: {e}"))?
+        .next()
+        .ok_or_else(|| format!("no address for {text}"))
+}
 
 /// Frames of history kept for stepping backwards in training mode (20 seconds).
 const MAX_HISTORY: usize = 1200;
@@ -34,6 +72,9 @@ pub struct SimRunner {
     state: GameState,
     inputs: [Input; MAX_FIGHTERS],
     history: VecDeque<GameState>,
+    /// Set while playing over the network; then `state` is a copy of the session's state.
+    net: Option<Peer<NetLink>>,
+    net_log: Vec<String>,
 }
 
 #[godot_api]
@@ -47,6 +88,8 @@ impl INode for SimRunner {
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
             history: VecDeque::new(),
+            net: None,
+            net_log: Vec::new(),
         }
     }
 }
@@ -404,6 +447,193 @@ impl SimRunner {
             ]);
         }
         PackedFloat32Array::from(v.as_slice())
+    }
+
+    // ---- Network play ----
+    //
+    // Call one of the `net_host*` / `net_join*` functions, then `net_update` once per frame with the local
+    // player's input. Everything else (`fighter_*`, `frame`, ...) then reads the session's state.
+
+    /// Hosts a match over UDP on `port`. Returns an error message, or an empty string on success.
+    #[func]
+    fn net_host(&mut self, port: i32, chars: PackedInt32Array, input_delay: i32) -> GString {
+        let addr = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            port.clamp(0, 65535) as u16,
+        );
+        match UdpLink::bind(addr, None) {
+            Ok(link) => self.net_start_host(NetLink::Udp(link), &chars, input_delay),
+            Err(e) => GString::from(format!("cannot listen on port {port}: {e}").as_str()),
+        }
+    }
+
+    /// Joins a match hosted at `addr` ("ip:port").
+    #[func]
+    fn net_join(&mut self, addr: GString) -> GString {
+        let target = match resolve(&addr.to_string()) {
+            Ok(a) => a,
+            Err(e) => return GString::from(e.as_str()),
+        };
+        match UdpLink::bind(any_local(), Some(target)) {
+            Ok(link) => self.net_start_join(NetLink::Udp(link)),
+            Err(e) => GString::from(format!("cannot open a socket: {e}").as_str()),
+        }
+    }
+
+    /// Hosts through a relay server (for players who cannot connect directly).
+    #[func]
+    fn net_host_relay(
+        &mut self,
+        relay: GString,
+        room: i64,
+        chars: PackedInt32Array,
+        input_delay: i32,
+    ) -> GString {
+        match self.relay_link(&relay.to_string(), room) {
+            Ok(link) => self.net_start_host(NetLink::Relay(link), &chars, input_delay),
+            Err(e) => GString::from(e.as_str()),
+        }
+    }
+
+    #[func]
+    fn net_join_relay(&mut self, relay: GString, room: i64) -> GString {
+        match self.relay_link(&relay.to_string(), room) {
+            Ok(link) => self.net_start_join(NetLink::Relay(link)),
+            Err(e) => GString::from(e.as_str()),
+        }
+    }
+
+    fn relay_link(&self, relay: &str, room: i64) -> Result<RelayLink, String> {
+        let mut link = RelayLink::connect(any_local(), resolve(relay)?, room as u64)
+            .map_err(|e| format!("cannot open a socket: {e}"))?;
+        link.announce();
+        Ok(link)
+    }
+
+    fn net_start_host(
+        &mut self,
+        link: NetLink,
+        chars: &PackedInt32Array,
+        input_delay: i32,
+    ) -> GString {
+        let mut ids = [0u8, 1, 0, 1];
+        for (slot, c) in ids.iter_mut().zip(chars.as_slice()) {
+            *slot = (*c).clamp(0, self.content.fighters.len() as i32 - 1) as u8;
+        }
+        // The seed only needs to differ between matches; both peers then use the same one.
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(1, |d| d.as_nanos() as u64);
+        let setup = Setup {
+            seed,
+            chars: ids,
+            active: 0b0011,
+            input_delay: input_delay.clamp(0, 8) as u8,
+            cosmetics: Vec::new(),
+        };
+        self.net = Some(Peer::host(link, &self.content, setup));
+        self.net_log.clear();
+        GString::new()
+    }
+
+    fn net_start_join(&mut self, link: NetLink) -> GString {
+        self.net = Some(Peer::join(link, &self.content, Vec::new()));
+        self.net_log.clear();
+        GString::new()
+    }
+
+    /// One frame of network play: -1 not networked, 0 still connecting, 1 simulated a frame, 2 waiting for the other
+    /// player (nothing simulated), 3 refused (different version or content).
+    #[func]
+    fn net_update(&mut self, stick_x: i32, stick_y: i32, button_mask: i32) -> i32 {
+        let Some(peer) = self.net.as_mut() else {
+            return -1;
+        };
+        let input = Input {
+            stick_x: clamp_i8(stick_x),
+            stick_y: clamp_i8(stick_y),
+            buttons: button_mask as u16,
+        };
+        let status = peer.update(&self.content, input);
+        if let Some(s) = peer.state() {
+            self.state = *s;
+        }
+        for e in peer.drain_events() {
+            self.net_log.push(match e {
+                Event::Desync {
+                    frame,
+                    local,
+                    remote,
+                } => {
+                    format!("DESYNC at frame {frame}: local {local:016x}, remote {remote:016x}")
+                }
+                Event::Disconnected { player } => format!("player {} disconnected", player + 1),
+            });
+        }
+        match status {
+            Status::Connecting => 0,
+            Status::Running(Advance::Ran) => 1,
+            Status::Running(Advance::Stalled) => 2,
+            Status::Rejected {
+                reason,
+                their_version,
+                their_hash,
+            } => {
+                self.net_log.push(format!(
+                    "refused ({reason:?}): the other side has sim version {their_version}, content {their_hash:016x}; ours is {SIM_VERSION}, {:016x}",
+                    self.content.hash()
+                ));
+                3
+            }
+        }
+    }
+
+    /// Which player this peer controls (0 for the host, 1 for the joiner), or -1.
+    #[func]
+    fn net_local_player(&self) -> i32 {
+        self.net.as_ref().map_or(-1, |p| p.local_player() as i32)
+    }
+
+    /// A line of status text for the overlay.
+    #[func]
+    fn net_info(&self) -> GString {
+        let Some(p) = self.net.as_ref() else {
+            return GString::new();
+        };
+        let text = match p.session() {
+            None => "NET: connecting...".to_string(),
+            Some(s) => {
+                let st = s.stats();
+                format!(
+                    "NET P{}  frame {}  confirmed {}  rollbacks {} (longest {})  stalls {}",
+                    p.local_player() + 1,
+                    s.frame(),
+                    s.confirmed_frame().min(s.frame()),
+                    st.rollbacks,
+                    st.longest_rollback,
+                    st.stalls
+                )
+            }
+        };
+        GString::from(text.as_str())
+    }
+
+    /// Messages about desyncs, disconnects and refusals since the last call.
+    #[func]
+    fn net_take_log(&mut self) -> PackedStringArray {
+        let lines: Vec<GString> = self
+            .net_log
+            .drain(..)
+            .map(|l| GString::from(l.as_str()))
+            .collect();
+        PackedStringArray::from(lines.as_slice())
+    }
+
+    #[func]
+    fn net_leave(&mut self) {
+        if let Some(mut p) = self.net.take() {
+            p.leave();
+        }
     }
 
     /// Training mode: where fighter `player` will be over its next `frames` frames if it holds the stick at

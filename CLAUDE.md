@@ -11,6 +11,10 @@ Roadmap phases and exit criteria are in section 8 of that plan; check which phas
 - Changing sim behaviour: bump `SIM_VERSION`.
 - Everything original: no Nintendo assets or names, don't use "Smash" anywhere.
 
+## Networking
+- `netplay` stays pure (no sockets/clocks/threads). Sockets live only in `transport`; the game and tools plug them in through `netplay::peer::Link`.
+- Anything that changes the wire format or session rules must keep `pftool net-fuzz` at zero mismatches.
+
 ## Workflow
 - `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` must pass; run `cargo fmt --all`.
 - Art: round blob bodies + 2D faces + cosmetic accessories, see `docs/ART_DIRECTION.md`. Cosmetics never touch the sim.

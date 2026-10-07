@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["sim-core", "sim-content", "sim-script", "netplay", "tools", "godot-bridge"]
+members = ["sim-core", "sim-content", "sim-script", "netplay", "transport", "tools", "godot-bridge"]
 
 [workspace.package]
 version = "0.1.0"
