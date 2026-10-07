@@ -172,3 +172,15 @@ up-smash and up-special input.
 Tests: `sim-core/tests/feel.rs` (walk, committed run, hop shape, graded drift, strong button) and the real-key
 `godot/tests/input_e2e.gd` (walk, dash, run, taps, short hop). Demo: `--demo=walk`.
 Sources: ssbwiki Jump (jump squat, full hop "initial height" 0.55), Initial dash, Walk and the attribute tables.
+
+## Ledge visibility fix
+
+Stage blocks used to be drawn 8 units deep, centred on the fighters' plane. With the perspective camera, the front
+face looked wider than the plane the fighters stand in, so a fighter hanging off the side was partly hidden whenever the
+camera sat toward the middle of the stage. Blocks and platforms are now pushed back so their front face sits just in
+front of that plane (`FRONT_Z` in `stage_view.gd`). Display only; no sim change. A sweep of about 8,000 approach
+trajectories around the ledge (every side, height, speed, stick direction and jump timing) found no sim-side grab fault.
+
+Known differences from the reference game, not changed yet: the reference lets a fighter grab slightly behind it with
+40% less reach, does not grab while down is held, and lets up-special moves grab the ledge mid-move; here the grab box is
+the same in front and behind, ignores the stick, and only applies while airborne and not rising.

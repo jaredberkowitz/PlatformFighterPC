@@ -3,6 +3,12 @@ extends Node3D
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 
+## Fighters live in the z = 0 plane. Stage geometry is pushed BACK so its front face sits just in front of
+## that plane. If a block were centred on z = 0, perspective would make its front face look wider than the
+## fighters standing in front of it, and it would cover a fighter hanging from a ledge whenever the camera
+## sat toward the middle of the stage.
+const FRONT_Z := 0.3
+
 var ledge_markers: Array[MeshInstance3D] = []
 var ledge_mats: Array[StandardMaterial3D] = []
 
@@ -20,11 +26,11 @@ func build(sim) -> void:
 		if pass_through:
 			var h := 0.4
 			box.size = Vector3(right - left, h, 5.0)
-			mi.position = Vector3((left + right) / 2.0, top - h / 2.0, 0)
+			mi.position = Vector3((left + right) / 2.0, top - h / 2.0, FRONT_Z - 2.5)
 			mi.material_override = FighterView.toon(Color(0.84, 0.6, 0.34))
 		else:
 			box.size = Vector3(right - left, top - bottom, 8.0)
-			mi.position = Vector3((left + right) / 2.0, (top + bottom) / 2.0, 0)
+			mi.position = Vector3((left + right) / 2.0, (top + bottom) / 2.0, FRONT_Z - 4.0)
 			mi.material_override = FighterView.toon(Color(0.5, 0.42, 0.55))
 			# Grassy top strip.
 			var cap := MeshInstance3D.new()
