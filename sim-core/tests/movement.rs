@@ -329,7 +329,8 @@ fn shield_plus_down_drops_through_a_pass_through_platform() {
 #[test]
 fn shield_drop_does_nothing_on_solid_ground() {
     let mut sim = Sim::new();
-    sim.ticks(20, inp(0, -127, SHIELD));
+    // A held, soft down: a hard down would be a spot dodge.
+    sim.ticks(20, inp(0, -70, SHIELD));
     assert_eq!(sim.f().state, S::Shield);
     assert_eq!(sim.f().pos.y, Fx::ZERO);
 }

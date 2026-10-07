@@ -86,6 +86,17 @@ pub struct FighterParams {
     // Shield drop
     pub shield_drop_buffer: u8,
     pub shield_drop_recovery: u8,
+    // Defensive rolls and spot dodge (out of a shield)
+    pub roll_frames: u8,
+    /// Horizontal speed during `roll_move_start..=roll_move_end` (move frames).
+    pub roll_speed: Fx,
+    pub roll_move_start: u8,
+    pub roll_move_end: u8,
+    pub roll_intangible_start: u8,
+    pub roll_intangible_end: u8,
+    pub spot_dodge_frames: u8,
+    pub spot_intangible_start: u8,
+    pub spot_intangible_end: u8,
     pub shield_drop_speed: Fx,
     pub platform_ignore_frames: u8,
     // Ledges
@@ -124,7 +135,7 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 44] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 45] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -153,6 +164,7 @@ impl FighterParams {
             ("wavedash_min_down", self.wavedash_min_down),
             ("waveland_speed", self.waveland_speed),
             ("waveland_friction", self.waveland_friction),
+            ("roll_speed", self.roll_speed),
             ("shield_drop_speed", self.shield_drop_speed),
             ("ledge_reach_x", self.ledge_reach_x),
             ("ledge_min_drop", self.ledge_min_drop),
@@ -174,7 +186,7 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 21] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 29] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("hop_burst_frames", u32::from(self.hop_burst_frames)),
@@ -185,6 +197,20 @@ impl FighterParams {
             ("waveland_lag", u32::from(self.waveland_lag)),
             ("shield_drop_buffer", u32::from(self.shield_drop_buffer)),
             ("shield_drop_recovery", u32::from(self.shield_drop_recovery)),
+            ("roll_frames", u32::from(self.roll_frames)),
+            ("roll_move_start", u32::from(self.roll_move_start)),
+            ("roll_move_end", u32::from(self.roll_move_end)),
+            (
+                "roll_intangible_start",
+                u32::from(self.roll_intangible_start),
+            ),
+            ("roll_intangible_end", u32::from(self.roll_intangible_end)),
+            ("spot_dodge_frames", u32::from(self.spot_dodge_frames)),
+            (
+                "spot_intangible_start",
+                u32::from(self.spot_intangible_start),
+            ),
+            ("spot_intangible_end", u32::from(self.spot_intangible_end)),
             (
                 "platform_ignore_frames",
                 u32::from(self.platform_ignore_frames),
@@ -288,6 +314,17 @@ impl FighterParams {
             waveland_lag: 10,
             shield_drop_buffer: 4,
             shield_drop_recovery: 6,
+            // Estimates: a roll is about 31 frames covering roughly 2.8 world units, intangible on 4-19; a spot
+            // dodge is about 25 frames, intangible on 3-20.
+            roll_frames: 31,
+            roll_speed: r(7, 50),
+            roll_move_start: 5,
+            roll_move_end: 24,
+            roll_intangible_start: 4,
+            roll_intangible_end: 19,
+            spot_dodge_frames: 25,
+            spot_intangible_start: 3,
+            spot_intangible_end: 20,
             shield_drop_speed: r(3, 50),
             platform_ignore_frames: 8,
             ledge_reach_x: r(11, 5),
@@ -522,6 +559,30 @@ pub struct Ruleset {
     pub charge_frames: u8,
     /// Extra damage at full charge, in percent (40 means 1.4 times the damage).
     pub charge_bonus_percent: u8,
+    // ---- Shields ----
+    /// Full shield health.
+    pub shield_max: Fx,
+    /// Health lost per frame while the shield is up.
+    pub shield_deplete: Fx,
+    /// Health regained per frame while it is not.
+    pub shield_regen: Fx,
+    /// Share of shield health a broken shield comes back with, in percent.
+    pub shield_restore_percent: u8,
+    /// Stun after a shield break: `shield_break_frames - shield_break_per_percent * percent`, at least
+    /// `shield_break_min`.
+    pub shield_break_frames: u16,
+    pub shield_break_per_percent: u8,
+    pub shield_break_min: u16,
+    /// Upward speed of the hop a shield break launches the fighter into.
+    pub shield_break_hop: Fx,
+    /// Frames a button press takes off a shield break stun (mashing out).
+    pub shield_mash_frames: u8,
+    /// No block can stun for longer than this.
+    pub shield_stun_cap: u8,
+    /// A hit landing within this many frames of the shield going up is a perfect shield.
+    pub perfect_shield_window: u8,
+    /// Frames a perfect shield takes off the shield stun.
+    pub perfect_shield_stun_cut: u8,
 }
 
 impl Ruleset {
@@ -539,6 +600,18 @@ impl Ruleset {
             knockdown_lag: 24,
             charge_frames: 60,
             charge_bonus_percent: 40,
+            shield_max: Fx::from_int(50),
+            shield_deplete: Fx::from_ratio(15, 100),
+            shield_regen: Fx::from_ratio(8, 100),
+            shield_restore_percent: 75,
+            shield_break_frames: 400,
+            shield_break_per_percent: 1,
+            shield_break_min: 120,
+            shield_break_hop: Fx::from_ratio(28, 100),
+            shield_mash_frames: 4,
+            shield_stun_cap: 60,
+            perfect_shield_window: 5,
+            perfect_shield_stun_cut: 3,
         }
     }
 }
@@ -557,6 +630,18 @@ impl StateHash for Ruleset {
         h.write_u8(self.knockdown_lag);
         h.write_u8(self.charge_frames);
         h.write_u8(self.charge_bonus_percent);
+        self.shield_max.hash_into(h);
+        self.shield_deplete.hash_into(h);
+        self.shield_regen.hash_into(h);
+        h.write_u8(self.shield_restore_percent);
+        h.write_u16(self.shield_break_frames);
+        h.write_u8(self.shield_break_per_percent);
+        h.write_u16(self.shield_break_min);
+        self.shield_break_hop.hash_into(h);
+        h.write_u8(self.shield_mash_frames);
+        h.write_u8(self.shield_stun_cap);
+        h.write_u8(self.perfect_shield_window);
+        h.write_u8(self.perfect_shield_stun_cut);
     }
 }
 

@@ -161,7 +161,7 @@ func _refresh(i: int) -> void:
 		"lag": info[8], "cooldown": info[9], "ignore": info[10], "frame": sim.frame(),
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
-		"charge": sim.fighter_charge(i), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
+		"charge": sim.fighter_charge(i), "shield": sim.fighter_shield(i) / sim.shield_max(), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i),
 	}
 
@@ -193,7 +193,12 @@ func _gather() -> void:
 		if demo != null and demo.real_keys and i == 0:
 			inputs[i] = InputReader.read(0, masks)
 		elif demo != null:
-			inputs[i] = demo.input_at(sim.frame()) if i == 0 else {"x": 0, "y": 0, "buttons": 0}
+			if i == 0:
+				inputs[i] = demo.input_at(sim.frame())
+			elif i == 1 and demo.timeline2.size() > 0:
+				inputs[i] = demo.input_at2(sim.frame())
+			else:
+				inputs[i] = {"x": 0, "y": 0, "buttons": 0}
 		else:
 			inputs[i] = InputReader.read(i, masks)
 		sim.set_input(i, inputs[i].x, inputs[i].y, inputs[i].buttons)
@@ -216,6 +221,9 @@ func _physics_process(_delta: float) -> void:
 				sim.debug_stand(e[2], e[3], e[4])
 				_refresh(e[2])
 				prev_pos[e[2]] = cur_pos[e[2]]
+			elif e[1] == "shield":
+				sim.debug_set_shield(e[2], e[3])
+				_refresh(e[2])
 			elif e[1] == "percent":
 				sim.debug_set_percent(e[2], e[3])
 				_refresh(e[2])

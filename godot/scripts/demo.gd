@@ -5,6 +5,7 @@ extends RefCounted
 
 var name := ""
 var timeline: Array = []  # [frame, stick_x, stick_y, buttons]; holds until the next entry
+var timeline2: Array = []  # the same for player 2 (empty: player 2 does nothing)
 var events: Array = []    # [frame, "place", player, x, y] or [frame, "helpless", player]
 var shots: Array = []     # [frame, label]
 var end_frame := 0
@@ -290,6 +291,30 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [8, 0, 127, special], [9, 0, 0, 0]]
 			d.shots = [[22, "a_windup"], [30, "b_rising"], [42, "c_hits"], [56, "d_final"], [75, "e_helpless"]]
 			d.end_frame = 110
+		"shield_block":
+			# Player 2 shields; player 1 forward-tilts into it. The bubble shrinks and the blocker slides back.
+			d.chars = [0, 1, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 30, 0, attack], [22, 0, 0, 0]]
+			d.timeline2 = [[0, 0, 0, 0], [10, 0, 0, shield]]
+			d.shots = [[12, "a_shield_up"], [28, "b_block"], [36, "c_stun"], [70, "d_after"]]
+			d.end_frame = 90
+		"shield_break":
+			d.chars = [0, 1, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1], [2, "shield", 1, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [20, 30, 0, attack], [22, 0, 0, 0]]
+			d.timeline2 = [[0, 0, 0, 0], [10, 0, 0, shield]]
+			d.shots = [[26, "a_hit"], [34, "b_broken_hop"], [60, "c_stunned"], [110, "d_still_stunned"]]
+			d.end_frame = 130
+		"roll":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 6.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, shield], [20, 127, 0, shield], [21, 0, 0, 0], [60, 0, 0, shield], [66, 0, -127, shield], [67, 0, 0, 0]]
+			d.shots = [[18, "a_shield"], [30, "b_rolling"], [40, "c_rolled"], [72, "d_spot_dodge"], [90, "e_after"]]
+			d.end_frame = 100
 		"low":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 18.0
@@ -314,6 +339,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 func input_at(frame: int) -> Dictionary:
 	var cur: Array = timeline[0]
 	for e in timeline:
+		if e[0] <= frame:
+			cur = e
+	return {"x": cur[1], "y": cur[2], "buttons": cur[3]}
+
+
+func input_at2(frame: int) -> Dictionary:
+	var cur: Array = timeline2[0]
+	for e in timeline2:
 		if e[0] <= frame:
 			cur = e
 	return {"x": cur[1], "y": cur[2], "buttons": cur[3]}

@@ -137,3 +137,26 @@ and the up special's intangibility, rise, hit and helplessness. Demos: `--demo=m
   ground when it passes the edge.
 - Tests: `sim-core/tests/reference_moves.rs`. Demos: `wolf_jab`, `wolf_dashattack`, `wolf_uair`, `wolf_bair`, `wolf_dair`,
   `wolf_fsmash`, `wolf_usmash`, `wolf_dsmash`, `wolf_flash`, `wolf_firewolf`.
+
+## Shields, rolls and spot dodge (sim v15)
+
+Numbers follow the reference game's published shield data (SmashWiki: Shield, Shield stun, Shield break); all of them are
+`Ruleset` values (`shield_*`, `perfect_shield_*`) so they can be tuned.
+
+| Rule | Value |
+| --- | --- |
+| Shield health | 50. Drains 0.15 a frame while the shield is up, refills 0.08 a frame while it is not |
+| Damage to the shield | the hit's damage times the 1.2 damage multiplier |
+| Shield stun | `floor(0.8 * damage * type + 2)` frames, type = smash 0.725, aerial 0.33, projectile 0.29, everything else 1; capped at 60. The shield stays up and the fighter cannot act, release or roll until it runs out |
+| Pushback | `(stun + 1) * 0.09` reference units a frame, at most 1.3 |
+| Perfect shield | a hit within 5 frames of the shield going up: no shield damage, 3 frames less stun, 40% of the pushback |
+| Shield break | when health reaches 0 the fighter hops up and is stunned for `400 - percent` frames (at least 120); every button press takes 4 more frames off. It comes back with 75% shield health. Being hit during the stun also ends it |
+
+**Rolls and spot dodge** (out of a shield): flick sideways to roll that way (about 31 frames, roughly 2.8 world units, intangible on
+frames 4-19), hard down to spot dodge on solid ground (25 frames, intangible on 3-20); down on a pass-through platform still
+drops through. These frame counts and the distance are estimates (`roll_*`, `spot_*` in `FighterParams`).
+
+**Keyboard:** while the shield key is held every direction press is full strength, so a single tap rolls and a single S spot dodges.
+Tests: `sim-core/tests/shields.rs`. Demos: `shield_block`, `shield_break`, `roll`. The bubble shrinks and turns red as health drops.
+Not implemented: shield drop lag (11 frames in the reference), shield tilt, and the shield only blocking hits that touch the
+bubble (any hit on a shielding fighter is blocked).

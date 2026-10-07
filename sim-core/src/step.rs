@@ -160,11 +160,16 @@ mod tests {
                             | FighterState::Landing
                             | FighterState::WaveLand
                             | FighterState::Shield
+                            | FighterState::Roll
+                            | FighterState::SpotDodge
                             | FighterState::LedgeGetUp
                             | FighterState::LedgeAttack
                     );
                     // Attacks and hitstun can happen on the ground or in the air.
-                    if !matches!(f.state, FighterState::Attack | FighterState::Hitstun) {
+                    if !matches!(
+                        f.state,
+                        FighterState::Attack | FighterState::Hitstun | FighterState::ShieldBreak
+                    ) {
                         assert_eq!(
                             grounded_state,
                             f.grounded(),

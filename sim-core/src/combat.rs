@@ -10,9 +10,10 @@
 //! `floor(d/3 + 4)` frames for both fighters.
 
 use crate::collision;
-use crate::content::{Content, FighterParams};
+use crate::content::{Content, FighterParams, Ruleset};
+use crate::fighter;
 use crate::fixed::Fx;
-use crate::moves::{Hitbox, Move, Reflector, Weapon};
+use crate::moves::{Hitbox, Move, MoveId, Reflector, Weapon};
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
@@ -174,7 +175,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                         );
                         hb.damage = hb.damage * (Fx::ONE + bonus);
                     }
-                    apply_hit(state, content, a, d, &hb, facing, attacker.pos, true);
+                    let mult = stun_multiplier(&attacker);
+                    apply_hit(state, content, a, d, &hb, facing, attacker.pos, true, mult);
                 }
             }
         }
@@ -193,6 +195,7 @@ fn apply_hit(
     facing: i8,
     source_pos: Vec2,
     freeze_source: bool,
+    stun_mult: Fx,
 ) {
     let hitlag = hitlag_frames(hb.damage);
     if freeze_source {
@@ -202,10 +205,12 @@ fn apply_hit(
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
-        // Blocked: no damage, no launch, a little pushback.
-        def.hitlag = hitlag;
-        def.vel.x += (hb.damage * Fx::from_ratio(1, 200)).mul_int(i32::from(facing));
+        block(def, &content.rules, hb, facing, hitlag, stun_mult);
         return;
+    }
+    if def.state == S::ShieldBreak {
+        // Hit while stunned: the stun ends and the shield comes back.
+        fighter::restore_shield(def, &content.rules);
     }
 
     def.percent = (def.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
@@ -240,6 +245,44 @@ fn apply_hit(
     def.fast_fall = false;
     def.tumble = false;
     def.hit_mask = 0;
+}
+
+/// A hit on a raised shield: no damage or launch. The shield loses health (unless it was a perfect shield),
+/// the blocker is stunned for `0.8 * damage * type + 2` frames and slides back. If the shield runs out it breaks.
+fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8, stun_mult: Fx) {
+    let perfect = def.state_frame <= u16::from(rules.perfect_shield_window);
+    let raw = (hb.damage * Fx::from_ratio(8, 10) * stun_mult + Fx::from_int(2)).floor_int();
+    let mut stun = raw.clamp(0, i32::from(rules.shield_stun_cap));
+    def.hitlag = hitlag;
+    if perfect {
+        stun = (stun - i32::from(rules.perfect_shield_stun_cut)).max(0);
+    } else {
+        def.shield_hp -= hb.damage * rules.damage_mult;
+        if def.shield_hp <= Fx::ZERO {
+            fighter::break_shield(def, rules);
+            return;
+        }
+    }
+    def.shield_stun = stun as u8;
+    // Pushback: (stun + 1) * 0.09 reference units a frame, at most 1.3 (less for a perfect shield).
+    let mut push = (Fx::from_int(stun + 1) * Fx::from_ratio(9, 100)).min(Fx::from_ratio(13, 10))
+        / Fx::from_int(8);
+    if perfect {
+        push = push * Fx::from_ratio(2, 5);
+    }
+    def.vel.x += push.mul_int(i32::from(facing));
+}
+
+/// How much a hit of this attacker's current move counts toward the shield stun it causes.
+fn stun_multiplier(f: &Fighter) -> Fx {
+    let id = MoveId::from_index(f.move_id);
+    if id.is_aerial() {
+        Fx::from_ratio(33, 100)
+    } else if matches!(id, MoveId::FSmash | MoveId::USmash | MoveId::DSmash) {
+        Fx::from_ratio(725, 1000)
+    } else {
+        Fx::ONE
+    }
 }
 
 /// Creates the projectile a move asked for this frame. A move that already connected in melee (a bayonet
@@ -339,7 +382,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 .any(|(hc, hr)| overlaps(pos, hb.radius, *hc, *hr))
             {
                 let facing = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
-                apply_hit(state, content, owner, d, &hb, facing, pos, false);
+                // Projectiles stun a shield much less.
+                let mult = Fx::from_ratio(29, 100);
+                apply_hit(state, content, owner, d, &hb, facing, pos, false, mult);
                 state.projectiles[n].active = false;
                 break;
             }
@@ -393,7 +438,14 @@ pub fn respawn(f: &mut Fighter, content: &Content, index: usize) {
     let pos = content.stage.spawns[index];
     let platform = collision::standing_on(&content.stage, pos);
     let (char_id, facing, stocks) = (f.char_id, f.facing, f.stocks.saturating_sub(1));
-    *f = Fighter::spawn(pos, char_id, facing, platform, params.air_jumps);
+    *f = Fighter::spawn(
+        pos,
+        char_id,
+        facing,
+        platform,
+        params.air_jumps,
+        content.rules.shield_max,
+    );
     f.stocks = stocks;
     f.invuln = content.rules.respawn_invuln;
 }

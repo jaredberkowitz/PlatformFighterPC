@@ -406,6 +406,29 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
+    /// Shield health, 0 to the ruleset's maximum.
+    #[func]
+    fn fighter_shield(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| f(fi.shield_hp))
+    }
+
+    /// Full shield health (for drawing the bubble at the right size).
+    #[func]
+    fn shield_max(&self) -> f32 {
+        f(self.content.rules.shield_max)
+    }
+
+    /// Debug: set a fighter's shield health.
+    #[func]
+    fn debug_set_shield(&mut self, player: i32, hp: f32) {
+        if let Some(fi) = usize::try_from(player)
+            .ok()
+            .and_then(|p| self.state.fighters.get_mut(p))
+        {
+            fi.shield_hp = Fx::from_raw((hp.clamp(0.0, 999.0) * 65536.0) as i32);
+        }
+    }
+
     /// Debug: set a fighter's damage percent.
     #[func]
     fn debug_set_percent(&mut self, player: i32, percent: f32) {

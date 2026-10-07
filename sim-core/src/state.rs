@@ -43,6 +43,12 @@ pub enum FighterState {
     Attack,
     /// Launched or flinching from a hit.
     Hitstun,
+    /// Rolling away from a shield, intangible for part of it.
+    Roll,
+    /// Dodging in place from a shield, intangible for part of it.
+    SpotDodge,
+    /// Stunned after a shield broke (launched up, then helpless on the ground).
+    ShieldBreak,
 }
 
 impl StateHash for FighterState {
@@ -104,6 +110,10 @@ pub struct Fighter {
     pub hit_mask: u8,
     /// Frames the current smash attack has been charged.
     pub charge: u8,
+    /// Shield health; it drains while the shield is up and refills when it is not.
+    pub shield_hp: Fx,
+    /// Frames of shield stun left after blocking a hit: the shield stays up and the fighter cannot act.
+    pub shield_stun: u8,
     /// Invulnerable frames remaining (respawn).
     pub invuln: u8,
     /// The current move wants to spawn its projectile this frame (consumed by `step`).
@@ -156,7 +166,14 @@ pub struct GameState {
 }
 
 impl Fighter {
-    pub fn spawn(pos: Vec2, char_id: u8, facing: i8, platform: i8, air_jumps: u8) -> Fighter {
+    pub fn spawn(
+        pos: Vec2,
+        char_id: u8,
+        facing: i8,
+        platform: i8,
+        air_jumps: u8,
+        shield_hp: Fx,
+    ) -> Fighter {
         Fighter {
             pos,
             vel: Vec2::ZERO,
@@ -192,6 +209,8 @@ impl Fighter {
             move_id: 0,
             hit_mask: 0,
             charge: 0,
+            shield_hp,
+            shield_stun: 0,
             invuln: 0,
             spawn_request: false,
             history: [Input::default(); HISTORY_LEN],
@@ -215,6 +234,7 @@ impl GameState {
                 if i % 2 == 0 { 1 } else { -1 },
                 collision::standing_on(&content.stage, pos),
                 content.fighters[idx].air_jumps,
+                content.rules.shield_max,
             )
         });
         GameState {
@@ -267,6 +287,8 @@ impl StateHash for Fighter {
         h.write_u8(self.move_id);
         h.write_u8(self.hit_mask);
         h.write_u8(self.charge);
+        self.shield_hp.hash_into(h);
+        h.write_u8(self.shield_stun);
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
         for input in &self.history {
@@ -496,6 +518,16 @@ mod tests {
             ("charge", {
                 let mut s = state;
                 s.fighters[0].charge = 1;
+                s
+            }),
+            ("shield_hp", {
+                let mut s = state;
+                s.fighters[0].shield_hp = Fx::from_int(7);
+                s
+            }),
+            ("shield_stun", {
+                let mut s = state;
+                s.fighters[0].shield_stun = 1;
                 s
             }),
             ("invuln", {

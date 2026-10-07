@@ -214,10 +214,10 @@ func _accessories(p: int, _skin: StandardMaterial3D) -> void:
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
 	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
-	"Dash": 0.04, "ShieldDrop": 0.0,
+	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22,
 }
 ## Forward lean in degrees per state.
-const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0}
+const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0}
 
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
@@ -281,6 +281,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		for m in meshes:
 			m.transparency = ghost
 	shield.visible = state == "Shield" or state == "ShieldDrop"
+	if shield.visible:
+		# The bubble shrinks and turns from blue through yellow to red as its health runs out.
+		var hp: float = clampf(s.shield, 0.0, 1.0)
+		shield.scale = Vector3.ONE * (0.45 + 0.55 * hp)
+		var col := Color(0.4, 0.7, 1.0, 0.35).lerp(Color(1.0, 0.35, 0.25, 0.45), 1.0 - hp)
+		(shield.material_override as StandardMaterial3D).albedo_color = col
 	speed_lines.visible = fast_falling
 	_apply_combat(s, delta)
 

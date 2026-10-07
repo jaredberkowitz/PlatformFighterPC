@@ -49,11 +49,11 @@ static func _axis(neg: bool, pos: bool) -> float:
 
 
 ## Returns the down amount (0..1) for a held/released key. See the notes above.
-static func _down_key(id: String, down: bool) -> float:
+static func _down_key(id: String, down: bool, force_hard := false) -> float:
 	var s: Dictionary = _down_state.get(id, {"was": false, "held": 0, "since": 1000, "double": false})
 	s.since = mini(s.since + 1, 1000)
 	if down and not s.was:
-		s.double = s.since <= DOUBLE_TAP_FRAMES
+		s.double = force_hard or s.since <= DOUBLE_TAP_FRAMES
 		s.since = 0
 		s.held = 0
 	if down:
@@ -69,7 +69,7 @@ static func _down_key(id: String, down: bool) -> float:
 
 ## Horizontal keyboard axis, shaped as described at the top. Call once per frame per player. The most
 ## recently pressed direction wins when both are held (so dash dancing never stalls at neutral).
-static func _x_key(id: String, neg: bool, pos: bool) -> float:
+static func _x_key(id: String, neg: bool, pos: bool, force_hard := false) -> float:
 	var s: Dictionary = _x_state.get(id, {"dir": 0, "held": 0, "since": 1000, "hard": false, "pn": false, "pp": false, "last": 0})
 	s.since = mini(s.since + 1, 1000)
 	var pressed := 0
@@ -94,7 +94,7 @@ static func _x_key(id: String, neg: bool, pos: bool) -> float:
 		s.hard = false
 	elif pressed != 0 and pressed == dir:
 		# A new press: full strength if it follows another press closely (double tap / reversal).
-		s.hard = s.since <= DASH_TAP_FRAMES
+		s.hard = force_hard or s.since <= DASH_TAP_FRAMES
 		s.since = 0
 		s.held = 1
 		s.dir = dir
@@ -137,8 +137,10 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 	var sy := 0.0
 	var b := 0
 	if player == 0:
-		sx = _x_key("p0x", _key(KEY_A), _key(KEY_D))
-		sy = 1.0 if _key(KEY_W) else -_down_key("p0", _key(KEY_S))
+		# With the shield up, a direction press is a flick (roll) and a down press is hard (spot dodge).
+		var shielding := _key(KEY_L) or _key(KEY_SHIFT)
+		sx = _x_key("p0x", _key(KEY_A), _key(KEY_D), shielding)
+		sy = 1.0 if _key(KEY_W) else -_down_key("p0", _key(KEY_S), shielding)
 		if _key(KEY_CTRL):
 			sx = signf(sx) * TILT
 			sy *= TILT
@@ -149,8 +151,9 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 		if _key(KEY_L) or _key(KEY_SHIFT): b |= masks.shield
 		if _key(KEY_U): b |= masks.grab
 	elif player == 1:
-		sx = _x_key("p1x", _key(KEY_LEFT), _key(KEY_RIGHT))
-		sy = 1.0 if _key(KEY_UP) else -_down_key("p1", _key(KEY_DOWN))
+		var shielding1 := _key(KEY_SLASH)
+		sx = _x_key("p1x", _key(KEY_LEFT), _key(KEY_RIGHT), shielding1)
+		sy = 1.0 if _key(KEY_UP) else -_down_key("p1", _key(KEY_DOWN), shielding1)
 		if _key(KEY_BACKSLASH):
 			sx = signf(sx) * TILT
 			sy *= TILT

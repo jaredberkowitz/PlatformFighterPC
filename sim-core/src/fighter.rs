@@ -173,6 +173,10 @@ pub fn update(
     f.ledge_invuln = f.ledge_invuln.saturating_sub(1);
     f.invuln = f.invuln.saturating_sub(1);
     f.state_frame = f.state_frame.saturating_add(1);
+    // The shield refills whenever it is not up (a broken shield is restored when the stun ends).
+    if !matches!(f.state, S::Shield | S::ShieldBreak) {
+        f.shield_hp = (f.shield_hp + rules.shield_regen).min(rules.shield_max);
+    }
 
     match f.state {
         S::Attack => return attack(f, p, weapon, stage, rules),
@@ -184,7 +188,10 @@ pub fn update(
         S::AirDodge => air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
-        S::Shield => shield(f, p, stage),
+        S::Shield => shield(f, p, stage, rules),
+        S::Roll => roll(f, p, stage),
+        S::SpotDodge => spot_dodge(f, p, stage),
+        S::ShieldBreak => shield_break(f, p, stage, rules),
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, stage),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p),
@@ -623,9 +630,19 @@ fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 // ---- Shield ----------------------------------------------------------------------------------
 
-fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    f.shield_hp -= rules.shield_deplete;
+    if f.shield_hp <= Fx::ZERO {
+        break_shield(f, rules);
+        return;
+    }
+    // After blocking a hit the shield stays up and the fighter cannot act until the stun runs out.
+    if f.shield_stun > 0 {
+        f.shield_stun -= 1;
         return;
     }
     if !f.held(buttons::SHIELD) {
@@ -640,7 +657,118 @@ fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         enter(f, S::ShieldDrop);
     } else if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
         enter(f, S::JumpSquat);
+    } else if f.flick_x(TAP_BUFFER) != 0 {
+        // A flick sideways rolls that way.
+        f.dodge_dir = Vec2::new(Fx::from_int(i32::from(f.flick_x(TAP_BUFFER))), Fx::ZERO);
+        enter(f, S::Roll);
+    } else if !on_pass_through(f, stage) && f.hard_down(TAP_BUFFER) {
+        enter(f, S::SpotDodge);
     }
+}
+
+/// True if `frame` is within `start..=end`.
+fn within(frame: u16, start: u8, end: u8) -> bool {
+    frame >= u16::from(start) && frame <= u16::from(end)
+}
+
+/// A roll out of a shield: intangible for part of it, moving along the ground for part of it.
+fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    if within(
+        f.state_frame,
+        p.roll_intangible_start,
+        p.roll_intangible_end,
+    ) {
+        f.invuln = f.invuln.max(1);
+    }
+    let dir = f.dodge_dir.x.signum_int();
+    if within(f.state_frame, p.roll_move_start, p.roll_move_end) {
+        f.vel.x = p.roll_speed.mul_int(dir);
+    } else {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    }
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if f.state_frame >= u16::from(p.roll_frames) {
+        enter(f, S::Idle);
+    }
+}
+
+/// A dodge in place out of a shield.
+fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    if within(
+        f.state_frame,
+        p.spot_intangible_start,
+        p.spot_intangible_end,
+    ) {
+        f.invuln = f.invuln.max(1);
+    }
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if f.state_frame >= u16::from(p.spot_dodge_frames) {
+        enter(f, S::Idle);
+    }
+}
+
+/// The shield ran out: the fighter is launched into a hop and then stunned for a long time, less long the
+/// more damage it has. Mashing buttons shortens the stun.
+pub fn break_shield(f: &mut Fighter, rules: &Ruleset) {
+    let percent = f.percent.floor_int().clamp(0, 999);
+    let frames =
+        i32::from(rules.shield_break_frames) - i32::from(rules.shield_break_per_percent) * percent;
+    f.hitstun = frames.max(i32::from(rules.shield_break_min)) as u16;
+    f.shield_stun = 0;
+    f.vel = Vec2::new(Fx::ZERO, rules.shield_break_hop);
+    f.platform = NONE;
+    f.fast_fall = false;
+    enter(f, S::ShieldBreak);
+}
+
+fn shield_break(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    let pressed = [
+        buttons::ATTACK,
+        buttons::JUMP,
+        buttons::SHIELD,
+        buttons::SPECIAL,
+    ]
+    .iter()
+    .any(|b| f.pressed_within(*b, 1));
+    let mash = if pressed {
+        u16::from(rules.shield_mash_frames)
+    } else {
+        0
+    };
+    f.hitstun = f.hitstun.saturating_sub(1 + mash);
+
+    if f.grounded() {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+        if !slide_on_platform(f, p, stage) {
+            return;
+        }
+    } else {
+        // Falling with no control until it lands.
+        f.vel.y = (f.vel.y - p.gravity).max(-p.max_fall_speed);
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
+        if let Some(i) = air_integrate(f, p, stage) {
+            land(f, p, stage, i);
+            f.vel.x = Fx::ZERO;
+        }
+    }
+    if f.hitstun == 0 {
+        restore_shield(f, rules);
+        if f.grounded() {
+            enter(f, S::Idle);
+        } else {
+            enter(f, S::Airborne);
+        }
+    }
+}
+
+/// A shield that broke comes back with part of its health.
+pub fn restore_shield(f: &mut Fighter, rules: &Ruleset) {
+    f.shield_hp = rules.shield_max * Fx::from_ratio(i32::from(rules.shield_restore_percent), 100);
 }
 
 fn shield_drop(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
