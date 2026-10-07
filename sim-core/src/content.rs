@@ -583,6 +583,21 @@ pub struct Ruleset {
     pub perfect_shield_window: u8,
     /// Frames a perfect shield takes off the shield stun.
     pub perfect_shield_stun_cut: u8,
+    // ---- Grabs ----
+    /// A held fighter breaks free after `grab_base_frames + grab_percent_tenths / 10 * percent` frames (at least
+    /// `grab_min_frames`).
+    pub grab_base_frames: u16,
+    pub grab_percent_tenths: u16,
+    pub grab_min_frames: u16,
+    /// Frames a button press or a stick flick takes off the time held.
+    pub grab_mash_button: u8,
+    pub grab_mash_stick: u8,
+    /// Lag for the holder when the held fighter breaks free.
+    pub grab_release_lag: u8,
+    /// Frames the released fighter cannot be grabbed again.
+    pub grab_immunity: u8,
+    /// How far in front of the holder the held fighter stands.
+    pub grab_distance: Fx,
 }
 
 impl Ruleset {
@@ -612,6 +627,14 @@ impl Ruleset {
             shield_stun_cap: 60,
             perfect_shield_window: 5,
             perfect_shield_stun_cut: 3,
+            grab_base_frames: 90,
+            grab_percent_tenths: 17,
+            grab_min_frames: 19,
+            grab_mash_button: 14,
+            grab_mash_stick: 8,
+            grab_release_lag: 25,
+            grab_immunity: 60,
+            grab_distance: Fx::from_ratio(13, 10),
         }
     }
 }
@@ -642,6 +665,14 @@ impl StateHash for Ruleset {
         h.write_u8(self.shield_stun_cap);
         h.write_u8(self.perfect_shield_window);
         h.write_u8(self.perfect_shield_stun_cut);
+        h.write_u16(self.grab_base_frames);
+        h.write_u16(self.grab_percent_tenths);
+        h.write_u16(self.grab_min_frames);
+        h.write_u8(self.grab_mash_button);
+        h.write_u8(self.grab_mash_stick);
+        h.write_u8(self.grab_release_lag);
+        h.write_u8(self.grab_immunity);
+        self.grab_distance.hash_into(h);
     }
 }
 

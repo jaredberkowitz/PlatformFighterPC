@@ -169,6 +169,7 @@ pub fn update(
     }
 
     f.platform_ignore = f.platform_ignore.saturating_sub(1);
+    f.grab_immune = f.grab_immune.saturating_sub(1);
     f.ledge_cooldown = f.ledge_cooldown.saturating_sub(1);
     f.ledge_invuln = f.ledge_invuln.saturating_sub(1);
     f.invuln = f.invuln.saturating_sub(1);
@@ -192,6 +193,9 @@ pub fn update(
         S::Roll => roll(f, p, stage),
         S::SpotDodge => spot_dodge(f, p, stage),
         S::ShieldBreak => shield_break(f, p, stage, rules),
+        S::Grabbing => grabbing(f),
+        // Being held: the holder pins this fighter in place (see `grab::update`).
+        S::Grabbed => {}
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, stage),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p),
@@ -256,6 +260,15 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     }
     if on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
         start_platform_drop(f, p);
+        return;
+    }
+    if f.pressed_within(buttons::GRAB, ATTACK_BUFFER) {
+        let id = if matches!(f.state, S::Dash | S::Run) {
+            MoveId::DashGrab
+        } else {
+            MoveId::Grab
+        };
+        begin_attack(f, id);
         return;
     }
     if f.pressed_within(buttons::SPECIAL, ATTACK_BUFFER) && start_special(f, weapon) {
@@ -657,6 +670,9 @@ fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         enter(f, S::ShieldDrop);
     } else if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
         enter(f, S::JumpSquat);
+    } else if f.pressed_within(buttons::ATTACK | buttons::GRAB, ATTACK_BUFFER) {
+        // Attack or grab out of the shield is a shield grab.
+        begin_attack(f, MoveId::Grab);
     } else if f.flick_x(TAP_BUFFER) != 0 {
         // A flick sideways rolls that way.
         f.dodge_dir = Vec2::new(Fx::from_int(i32::from(f.flick_x(TAP_BUFFER))), Fx::ZERO);
@@ -917,6 +933,70 @@ impl Fighter {
     }
 }
 
+/// Holding a fighter: a stick direction throws it that way, attack pummels it.
+fn grabbing(f: &mut Fighter) {
+    let input = f.history[0];
+    let t = STICK_THRESHOLD;
+    let throw = if input.stick_y >= t {
+        Some(MoveId::UThrow)
+    } else if input.stick_y <= -t {
+        Some(MoveId::DThrow)
+    } else if input.stick_x.unsigned_abs() >= t.unsigned_abs() {
+        if i32::from(input.stick_x.signum()) == i32::from(f.facing) {
+            Some(MoveId::FThrow)
+        } else {
+            Some(MoveId::BThrow)
+        }
+    } else {
+        None
+    };
+    if let Some(id) = throw {
+        begin_attack(f, id);
+    } else if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+        begin_attack(f, MoveId::Pummel);
+    }
+}
+
+/// The fighter has caught `victim`.
+pub fn become_holder(f: &mut Fighter, victim: usize) {
+    f.grab_with = victim as i8;
+    f.vel.x = Fx::ZERO;
+    enter(f, S::Grabbing);
+}
+
+/// The fighter is caught by `holder` and faces it for `timer` frames unless it mashes free.
+pub fn become_held(f: &mut Fighter, holder: usize, facing: i8, timer: u16) {
+    f.grab_with = holder as i8;
+    f.grab_timer = timer;
+    f.facing = facing;
+    f.vel = Vec2::ZERO;
+    f.shield_stun = 0;
+    f.fast_fall = false;
+    enter(f, S::Grabbed);
+}
+
+/// A holder whose catch got away: it is stuck in the release for `lag` frames.
+pub fn free_holder(f: &mut Fighter, lag: u8) {
+    f.grab_with = NONE;
+    if f.grounded() {
+        enter_landing(f, lag);
+    } else {
+        enter(f, S::Airborne);
+    }
+}
+
+/// A fighter that was held goes back to standing, and cannot be grabbed again for a moment.
+pub fn free_held(f: &mut Fighter, immunity: u8) {
+    f.grab_with = NONE;
+    f.grab_timer = 0;
+    f.grab_immune = immunity;
+    if f.grounded() {
+        enter(f, S::Idle);
+    } else {
+        enter(f, S::Airborne);
+    }
+}
+
 fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.hit_mask = 0;
@@ -1059,6 +1139,11 @@ fn attack(
     if f.state_frame >= u16::from(mv.total_frames) {
         if mv.turns_around {
             f.facing = -f.facing;
+        }
+        // A pummel hands back to holding the fighter, if it is still held.
+        if MoveId::from_index(f.move_id) == MoveId::Pummel && f.grab_with != NONE {
+            enter(f, S::Grabbing);
+            return None;
         }
         // A jab continues into its next hit if attack was pressed shortly before the end.
         if let Some(next) = mv.next {

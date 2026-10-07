@@ -15,7 +15,7 @@ pub fn random_inputs(rng: &mut Rng, frames: usize) -> Vec<[Input; MAX_FIGHTERS]>
                 *input = Input {
                     stick_x: (rng.range(255) as i32 - 127) as i8,
                     stick_y: (rng.range(255) as i32 - 127) as i8,
-                    buttons: (rng.next_u32() & 0x1f) as u16,
+                    buttons: (rng.next_u32() & 0x3f) as u16,
                 };
             }
         }

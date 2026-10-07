@@ -12,6 +12,7 @@ pub mod content;
 pub mod fighter;
 pub mod fixed;
 pub mod fuzz;
+pub mod grab;
 pub mod hash;
 pub mod input;
 pub mod moves;
@@ -30,6 +31,6 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 15;
+pub const SIM_VERSION: u16 = 16;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;

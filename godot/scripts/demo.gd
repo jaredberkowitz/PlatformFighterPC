@@ -24,6 +24,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var attack: int = m.attack
 	var special: int = m.special
 	var strong: int = m.strong
+	var grab: int = m.grab
 	match demo_name:
 		"wavedash":
 			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 100, -80, shield], [36, 0, 0, 0]]
@@ -315,6 +316,22 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, shield], [20, 127, 0, shield], [21, 0, 0, 0], [60, 0, 0, shield], [66, 0, -127, shield], [67, 0, 0, 0]]
 			d.shots = [[18, "a_shield"], [30, "b_rolling"], [40, "c_rolled"], [72, "d_spot_dodge"], [90, "e_after"]]
 			d.end_frame = 100
+		"grab":
+			# Grab, two pummels, then a forward throw.
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, grab], [11, 0, 0, 0], [30, 0, 0, attack], [32, 0, 0, 0], [58, 0, 0, attack], [60, 0, 0, 0], [86, 127, 0, 0], [90, 0, 0, 0]]
+			d.shots = [[14, "a_reaching"], [20, "b_held"], [34, "c_pummel"], [90, "d_throw_windup"], [102, "e_thrown"], [125, "f_after"]]
+			d.end_frame = 140
+		"shield_grab":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.6, -1]]
+			d.timeline = [[0, 0, 0, 0], [8, 0, 0, shield], [20, 0, 0, shield | attack], [21, 0, 0, shield]]
+			d.timeline2 = [[0, 0, 0, 0], [10, 0, 0, shield]]
+			d.shots = [[16, "a_both_shielding"], [28, "b_shield_grab"], [40, "c_held"]]
+			d.end_frame = 60
 		"low":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 18.0

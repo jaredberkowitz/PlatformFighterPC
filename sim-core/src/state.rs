@@ -49,6 +49,10 @@ pub enum FighterState {
     SpotDodge,
     /// Stunned after a shield broke (launched up, then helpless on the ground).
     ShieldBreak,
+    /// Holding another fighter (can pummel or throw).
+    Grabbing,
+    /// Being held.
+    Grabbed,
 }
 
 impl StateHash for FighterState {
@@ -114,6 +118,12 @@ pub struct Fighter {
     pub shield_hp: Fx,
     /// Frames of shield stun left after blocking a hit: the shield stays up and the fighter cannot act.
     pub shield_stun: u8,
+    /// The fighter being held (when grabbing) or holding this one (when grabbed), or [`NONE`].
+    pub grab_with: i8,
+    /// Frames left before a held fighter breaks free by itself (mashing shortens it).
+    pub grab_timer: u16,
+    /// Frames left in which this fighter cannot be grabbed (after breaking out of a grab).
+    pub grab_immune: u8,
     /// Invulnerable frames remaining (respawn).
     pub invuln: u8,
     /// The current move wants to spawn its projectile this frame (consumed by `step`).
@@ -211,6 +221,9 @@ impl Fighter {
             charge: 0,
             shield_hp,
             shield_stun: 0,
+            grab_with: NONE,
+            grab_timer: 0,
+            grab_immune: 0,
             invuln: 0,
             spawn_request: false,
             history: [Input::default(); HISTORY_LEN],
@@ -289,6 +302,9 @@ impl StateHash for Fighter {
         h.write_u8(self.charge);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
+        h.write_i8(self.grab_with);
+        h.write_u16(self.grab_timer);
+        h.write_u8(self.grab_immune);
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
         for input in &self.history {
@@ -528,6 +544,21 @@ mod tests {
             ("shield_stun", {
                 let mut s = state;
                 s.fighters[0].shield_stun = 1;
+                s
+            }),
+            ("grab_with", {
+                let mut s = state;
+                s.fighters[0].grab_with = 1;
+                s
+            }),
+            ("grab_timer", {
+                let mut s = state;
+                s.fighters[0].grab_timer = 1;
+                s
+            }),
+            ("grab_immune", {
+                let mut s = state;
+                s.fighters[0].grab_immune = 1;
                 s
             }),
             ("invuln", {

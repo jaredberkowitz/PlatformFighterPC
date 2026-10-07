@@ -37,10 +37,19 @@ pub enum MoveId {
     /// Second and third hits of a jab combo (started by the previous jab, never by a button).
     Jab2,
     Jab3,
+    /// Standing grab (also what a shield grab does) and the grab from a dash.
+    Grab,
+    DashGrab,
+    /// A hit on the fighter being held, and the four throws.
+    Pummel,
+    FThrow,
+    BThrow,
+    UThrow,
+    DThrow,
 }
 
 impl MoveId {
-    pub const COUNT: usize = 19;
+    pub const COUNT: usize = 26;
     /// Index of the first special move.
     pub const FIRST_SPECIAL: u8 = 13;
 
@@ -83,6 +92,13 @@ impl MoveId {
             15 => MoveId::UpSpecial,
             17 => MoveId::Jab2,
             18 => MoveId::Jab3,
+            19 => MoveId::Grab,
+            20 => MoveId::DashGrab,
+            21 => MoveId::Pummel,
+            22 => MoveId::FThrow,
+            23 => MoveId::BThrow,
+            24 => MoveId::UThrow,
+            25 => MoveId::DThrow,
             _ => MoveId::DownSpecial,
         }
     }
@@ -108,6 +124,13 @@ impl MoveId {
             MoveId::DownSpecial => "down special",
             MoveId::Jab2 => "jab 2",
             MoveId::Jab3 => "jab 3",
+            MoveId::Grab => "grab",
+            MoveId::DashGrab => "dash grab",
+            MoveId::Pummel => "pummel",
+            MoveId::FThrow => "forward throw",
+            MoveId::BThrow => "back throw",
+            MoveId::UThrow => "up throw",
+            MoveId::DThrow => "down throw",
         }
     }
 }
@@ -133,7 +156,18 @@ pub struct Hitbox {
     /// A move can hit the same target once per group, which is how a move gets separate hits
     /// (group 0 and group 1). Hitboxes in one group never hit a target twice.
     pub group: u8,
+    /// What the hitbox does: a normal hit, a grab, or (while holding someone) a throw or pummel.
+    pub kind: u8,
 }
+
+/// `Hitbox::kind` values.
+pub const HIT_NORMAL: u8 = 0;
+/// Catches a grounded fighter instead of damaging it. Shields do not stop it.
+pub const HIT_GRAB: u8 = 1;
+/// Releases the fighter being held with this hit's damage and launch. It needs no overlap.
+pub const HIT_THROW: u8 = 2;
+/// Damages the fighter being held without releasing it.
+pub const HIT_PUMMEL: u8 = 3;
 
 /// Scripted movement during a move (for example a rising special). While active it overrides
 /// the fighter's velocity; `vx` is relative to facing.
@@ -261,6 +295,7 @@ impl StateHash for Hitbox {
         h.write_u16(self.knockback_growth as u16);
         h.write_u8(self.priority);
         h.write_u8(self.group);
+        h.write_u8(self.kind);
     }
 }
 
@@ -367,6 +402,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 knockback_growth: b.8,
                 priority: b.9,
                 group: 0,
+                kind: HIT_NORMAL,
             })
             .collect(),
         ..Move::empty()
@@ -403,7 +439,16 @@ fn row(r: &R) -> Hitbox {
         knockback_growth: r.kbg,
         priority: r.priority,
         group: r.group,
+        kind: HIT_NORMAL,
     }
+}
+
+/// Marks every hitbox of a move as `kind` (a grab, throw or pummel).
+fn with_kind(mut m: Move, kind: u8) -> Move {
+    for hb in &mut m.hitboxes {
+        hb.kind = kind;
+    }
+    m
 }
 
 /// A move from reference frame data: `faf` is the first actionable frame, `ac_before` the last frame
@@ -562,6 +607,59 @@ pub fn longsword() -> Weapon {
         // Jab 2 and 3 (this weapon's jab does not chain)
         Move::empty(),
         Move::empty(),
+        // Grab, dash grab, pummel and throws: placeholders (the published data used here is for the brawler)
+        with_kind(
+            ref_move(30, 0, 0, 255, &[r(6, 7, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
+            HIT_GRAB,
+        ),
+        with_kind(
+            ref_move(38, 0, 0, 255, &[r(8, 9, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+            HIT_GRAB,
+        ),
+        with_kind(
+            ref_move(22, 0, 0, 255, &[r(4, 4, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
+            HIT_PUMMEL,
+        ),
+        with_kind(
+            ref_move(
+                36,
+                0,
+                0,
+                255,
+                &[r(13, 13, 13, 11, 10, 80, 40, 60, 55, 0, 0)],
+            ),
+            HIT_THROW,
+        ),
+        with_kind(
+            ref_move(
+                40,
+                0,
+                0,
+                255,
+                &[r(20, 20, -13, 11, 10, 90, 45, 55, 65, 0, 0)],
+            ),
+            HIT_THROW,
+        ),
+        with_kind(
+            ref_move(
+                40,
+                0,
+                0,
+                255,
+                &[r(22, 22, 13, 11, 10, 70, 85, 60, 85, 0, 0)],
+            ),
+            HIT_THROW,
+        ),
+        with_kind(
+            ref_move(
+                34,
+                0,
+                0,
+                255,
+                &[r(14, 14, 13, 11, 10, 50, 80, 40, 80, 0, 0)],
+            ),
+            HIT_THROW,
+        ),
     ];
 
     // Forward tilt: first active 8, 9/12 damage (sour/tip), angle 361, FAF 34.
@@ -852,6 +950,7 @@ pub fn claws() -> Weapon {
             knockback_growth: 0,
             priority: 0,
             group: 0,
+            kind: HIT_NORMAL,
         },
         end_damage: Fx::from_int(6),
     });
@@ -1081,6 +1180,63 @@ pub fn claws() -> Weapon {
         speed_percent: 130,
     });
     w.moves[MoveId::DownSpecial as usize] = reflector;
+
+    // Grabs and throws. Standing grab: hits on frame 7 (dash grab frame 8); pummel 1.3%; throws release on frame 11
+    // (forward, 9%), 24 (back, 11%), 27 (up, 7%) and 26 (down, 8.5%) with first actionable frames 33, 48, 46
+    // and 41. Throw angles and the grab reach, pummel speed and the grab and dash grab lengths are estimates;
+    // the sources disagree on the back throw's damage (8% or 11%).
+    w.moves[MoveId::Grab as usize] = with_kind(
+        ref_move(30, 0, 0, 255, &[r(7, 8, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    w.moves[MoveId::DashGrab as usize] = with_kind(
+        ref_move(38, 0, 0, 255, &[r(8, 9, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    w.moves[MoveId::Pummel as usize] = with_kind(
+        ref_move(22, 0, 0, 255, &[r(4, 4, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
+        HIT_PUMMEL,
+    );
+    w.moves[MoveId::FThrow as usize] = with_kind(
+        ref_move(
+            33,
+            0,
+            0,
+            255,
+            &[r(11, 11, 13, 11, 10, 90, 45, 55, 57, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    w.moves[MoveId::BThrow as usize] = with_kind(
+        ref_move(
+            48,
+            0,
+            0,
+            255,
+            &[r(24, 24, -13, 11, 10, 110, 50, 40, 150, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    w.moves[MoveId::UThrow as usize] = with_kind(
+        ref_move(
+            46,
+            0,
+            0,
+            255,
+            &[r(27, 27, 13, 11, 10, 70, 80, 75, 110, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    w.moves[MoveId::DThrow as usize] = with_kind(
+        ref_move(
+            41,
+            0,
+            0,
+            255,
+            &[r(26, 26, 13, 11, 10, 85, 361, 50, 65, 0, 0)],
+        ),
+        HIT_THROW,
+    );
     w
 }
 
@@ -1107,7 +1263,7 @@ mod tests {
                         "{}",
                         MoveId::from_index(i as u8).name()
                     );
-                    assert!(hb.damage > Fx::ZERO && hb.radius > Fx::ZERO);
+                    assert!((hb.damage > Fx::ZERO || hb.kind == HIT_GRAB) && hb.radius > Fx::ZERO);
                 }
             }
         }

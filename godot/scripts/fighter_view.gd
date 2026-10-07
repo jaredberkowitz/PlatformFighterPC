@@ -214,10 +214,10 @@ func _accessories(p: int, _skin: StandardMaterial3D) -> void:
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
 	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
-	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22,
+	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22, "Grabbed": 0.14,
 }
 ## Forward lean in degrees per state.
-const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0}
+const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0}
 
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0

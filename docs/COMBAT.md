@@ -160,3 +160,28 @@ drops through. These frame counts and the distance are estimates (`roll_*`, `spo
 Tests: `sim-core/tests/shields.rs`. Demos: `shield_block`, `shield_break`, `roll`. The bubble shrinks and turns red as health drops.
 Not implemented: shield drop lag (11 frames in the reference), shield tilt, and the shield only blocking hits that touch the
 bubble (any hit on a shielding fighter is blocked).
+
+## Grabs, pummels and throws (sim v16)
+
+A grab is a move (`MoveId::Grab`, `DashGrab`) whose hitbox has `kind = HIT_GRAB`: instead of damage it catches a fighter that is
+standing on something (not airborne, not in hitstun, not hanging, not recently released). **Grabs ignore shields.** Inputs: the grab
+button (`U` / `M`), attack or grab out of a shield (shield grab), and grab while dashing or running (dash grab). Grabbed fighters
+are pinned 1.3 units in front of the holder, facing it (`grab.rs`).
+
+| Rule | Value |
+| --- | --- |
+| Standing grab | hits on frame 7 (dash grab frame 8), first actionable frame 30 on a miss (dash grab 38). Reach is an estimate |
+| Time held | `90 + 1.7 * percent` frames (at least 19). Each button press takes 14 frames off, each stick flick 8 |
+| Breaking free | the holder is stuck in a 25 frame release; the released fighter cannot be grabbed for 60 frames |
+| Pummel | attack while holding: 1.3% on frame 4, 22 frames, repeatable until the hold runs out |
+| Throws | a stick direction while holding: forward 9% (release frame 11, FAF 33), back 11% (24, 48), up 7% (27, 46), down 8.5% (26, 41) |
+| Interruptions | hitting the holder, hitting the held fighter or knocking either out frees both |
+
+Throw angles and knockback are partly estimates (forward 45 degrees, base 55, growth 57; back 50 / 40 / 150; up 80 / 75 / 110; down
+361 / 50 / 65); the reference sources disagree on the back throw's damage (8% or 11%) and do not give the throws' angles. The
+swordfighter's grab and throws are placeholders. Not implemented: pivot grab, cargo carries, grab release lag differences
+between characters, and the throws' two-part damage (a hit while being held, then the throw).
+
+The keyboard: throw with a direction held for a few frames (W for up, S for down, A / D forward or back), pummel with attack.
+Tests: `sim-core/tests/grabs.rs` (21 tests) plus a mutual-grab invariant in the random play test; the fuzzer now sends grab and
+strong-attack buttons too. Demos: `grab`, `shield_grab`.

@@ -13,7 +13,8 @@ use crate::collision;
 use crate::content::{Content, FighterParams, Ruleset};
 use crate::fighter;
 use crate::fixed::Fx;
-use crate::moves::{Hitbox, Move, MoveId, Reflector, Weapon};
+use crate::grab;
+use crate::moves::{Hitbox, Move, MoveId, Reflector, Weapon, HIT_GRAB, HIT_PUMMEL, HIT_THROW};
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
@@ -140,9 +141,22 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 if fa.hit_mask & hit_bit(d, hb.group) != 0 {
                     continue;
                 }
-                let touching = hurt
-                    .iter()
-                    .any(|(hc, hr)| overlaps(center, hb.radius, *hc, *hr));
+                let touching = match hb.kind {
+                    // Throws and pummels act on the fighter being held, wherever the hitbox is.
+                    HIT_THROW | HIT_PUMMEL => fa.grab_with == d as i8,
+                    HIT_GRAB => {
+                        grab::grabbable(fd)
+                            && hurt
+                                .iter()
+                                .any(|(hc, hr)| overlaps(center, hb.radius, *hc, *hr))
+                    }
+                    _ => {
+                        fa.grab_with != d as i8
+                            && hurt
+                                .iter()
+                                .any(|(hc, hr)| overlaps(center, hb.radius, *hc, *hr))
+                    }
+                };
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
                     best = Some(*hb);
                 }
@@ -155,6 +169,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     for a in 0..MAX_FIGHTERS {
         for d in 0..MAX_FIGHTERS {
             if let Some(hb) = chosen[a][d] {
+                if hb.kind == HIT_GRAB {
+                    continue; // grabs are settled after every damaging hit this frame
+                }
                 if !struck[d] {
                     struck[d] = true;
                     let attacker = state.fighters[a];
@@ -175,12 +192,63 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                         );
                         hb.damage = hb.damage * (Fx::ONE + bonus);
                     }
-                    let mult = stun_multiplier(&attacker);
-                    apply_hit(state, content, a, d, &hb, facing, attacker.pos, true, mult);
+                    match hb.kind {
+                        HIT_PUMMEL => pummel(state, content, a, d, &hb),
+                        HIT_THROW => {
+                            // The throw lets go: the held fighter is launched like any hit victim.
+                            state.fighters[a].grab_with = NONE;
+                            fighter::free_held(&mut state.fighters[d], 0);
+                            apply_hit(
+                                state,
+                                content,
+                                a,
+                                d,
+                                &hb,
+                                facing,
+                                attacker.pos,
+                                true,
+                                Fx::ONE,
+                            );
+                        }
+                        _ => {
+                            let mult = stun_multiplier(&attacker);
+                            apply_hit(state, content, a, d, &hb, facing, attacker.pos, true, mult);
+                        }
+                    }
                 }
             }
         }
     }
+
+    // Grabs last: a fighter that was hit this frame, or whose grabber was, is not caught. Ties go to the
+    // lower player index.
+    for a in 0..MAX_FIGHTERS {
+        for d in 0..MAX_FIGHTERS {
+            let Some(hb) = chosen[a][d] else {
+                continue;
+            };
+            if hb.kind != HIT_GRAB
+                || struck[a]
+                || struck[d]
+                || state.fighters[a].state != S::Attack
+                || !grab::grabbable(&state.fighters[d])
+            {
+                continue;
+            }
+            state.fighters[a].hit_mask |= hit_bit(d, hb.group);
+            struck[d] = true;
+            grab::connect(state, content, a, d);
+        }
+    }
+}
+
+/// A pummel: damage to the held fighter, a little hitlag for both, and it stays held.
+fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hitbox) {
+    let hitlag = hitlag_frames(hb.damage);
+    state.fighters[a].hitlag = hitlag;
+    let held = &mut state.fighters[d];
+    held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
+    held.hitlag = hitlag;
 }
 
 /// Applies one hit: damage, knockback, hitlag and the victim's state change. `source` is the fighter
@@ -198,6 +266,8 @@ fn apply_hit(
     stun_mult: Fx,
 ) {
     let hitlag = hitlag_frames(hb.damage);
+    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by.
+    grab::drop_grab(state, content, d);
     if freeze_source {
         state.fighters[source].hitlag = hitlag;
     }
@@ -428,6 +498,7 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
     for i in 0..MAX_FIGHTERS {
         let p = state.fighters[i].pos;
         if p.x < s.blast_left || p.x > s.blast_right || p.y < s.blast_bottom || p.y > s.blast_top {
+            grab::drop_grab(state, content, i);
             respawn(&mut state.fighters[i], content, i);
         }
     }

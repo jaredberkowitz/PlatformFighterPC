@@ -3,6 +3,7 @@
 use crate::combat;
 use crate::content::{Content, FighterParams};
 use crate::fighter;
+use crate::grab;
 use crate::input::Input;
 use crate::state::{Fighter, FighterState, GameState, NONE};
 use crate::MAX_FIGHTERS;
@@ -25,6 +26,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
 
     // Phase 1b: hits. Everything has moved, so hitboxes and hurtboxes are where they will be seen.
     combat::resolve_hits(state, content);
+    // Grabs: keep each held fighter in its holder's hands and let it break free.
+    grab::update(state, content);
     // Existing projectiles move first, so a new one stays at the muzzle on the frame it appears.
     combat::update_projectiles(state, content);
     combat::spawn_projectiles(state, content);
@@ -138,6 +141,21 @@ mod tests {
                             f.pos, f.state
                         );
                     }
+                    // A grab is always mutual, and only grabbing or grabbed fighters are in one.
+                    if f.grab_with != NONE {
+                        let other = &s.fighters[f.grab_with as usize];
+                        assert_eq!(
+                            other.grab_with, n as i8,
+                            "seed {seed} fighter {n}: one-sided grab"
+                        );
+                    }
+                    if matches!(f.state, FighterState::Grabbing | FighterState::Grabbed) {
+                        assert_ne!(
+                            f.grab_with, NONE,
+                            "seed {seed} fighter {n}: {:?} without a partner",
+                            f.state
+                        );
+                    }
                     let on_ledge = f.state == FighterState::LedgeHang;
                     assert_eq!(
                         on_ledge,
@@ -162,6 +180,8 @@ mod tests {
                             | FighterState::Shield
                             | FighterState::Roll
                             | FighterState::SpotDodge
+                            | FighterState::Grabbing
+                            | FighterState::Grabbed
                             | FighterState::LedgeGetUp
                             | FighterState::LedgeAttack
                     );
