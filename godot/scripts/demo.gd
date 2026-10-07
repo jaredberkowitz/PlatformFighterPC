@@ -220,6 +220,76 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [4, 0, -66, 0], [12, 0, -66, attack], [14, 0, -66, 0], [22, 0, 0, 0]]
 			d.shots = [[15, "a_windup"], [17, "b_hit"], [22, "c_after"]]
 			d.end_frame = 40
+		"wolf_jab":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.2, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, attack], [12, 0, 0, 0], [24, 0, 0, attack], [26, 0, 0, 0], [46, 0, 0, attack], [48, 0, 0, 0]]
+			d.shots = [[15, "a_jab1"], [36, "b_jab2"], [58, "c_jab3"], [90, "d_after"]]
+			d.end_frame = 100
+		"wolf_dashattack":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -9.0, 1], [1, "stand", 1, -1.5, -1]]
+			d.timeline = [[0, 0, 0, 0], [2, 127, 0, 0], [22, 127, 0, attack], [24, 127, 0, 0], [28, 0, 0, 0]]
+			d.shots = [[20, "a_run"], [27, "b_windup"], [34, "c_hit"], [46, "d_after"]]
+			d.end_frame = 70
+		"wolf_uair":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -1.7, 7.6]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack], [11, 0, 0, 0]]
+			d.shots = [[13, "a_windup"], [17, "b_hit"], [20, "c_hitlag"], [32, "d_launched"]]
+			d.end_frame = 50
+		"wolf_bair":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -4.0, 6.0]]
+			d.timeline = [[0, 0, 0, 0], [10, -127, 0, attack], [11, 0, 0, 0]]
+			d.shots = [[18, "a_windup"], [23, "b_hit"], [26, "c_hitlag"], [38, "d_launched"]]
+			d.end_frame = 60
+		"wolf_dair":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 7.0], [1, "place", 1, -1.6, 5.4]]
+			d.timeline = [[0, 0, 0, 0], [6, 0, -70, 0], [12, 0, -70, attack], [14, 0, 0, 0]]
+			d.shots = [[22, "a_windup"], [28, "b_hit"], [31, "c_hitlag"], [40, "d_spiked"]]
+			d.end_frame = 60
+		"wolf_fsmash":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 90, 0, attack | strong], [11, 0, 0, attack], [40, 0, 0, 0]]
+			d.shots = [[8, "a_idle"], [30, "b_charging"], [58, "c_swing"], [64, "d_hit"], [75, "e_launch"]]
+			d.end_frame = 100
+		"wolf_usmash":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack | strong], [11, 0, 0, 0]]
+			d.shots = [[22, "a_hit1"], [32, "b_hit2"], [38, "c_launch"], [55, "d_after"]]
+			d.end_frame = 70
+		"wolf_dsmash":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.8, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, -100, attack | strong], [11, 0, 0, 0]]
+			d.shots = [[22, "a_front"], [26, "b_hit"], [34, "c_back"], [50, "d_after"]]
+			d.end_frame = 65
+		"wolf_flash":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 24.0
+			d.events = [[1, "stand", 0, -9.0, 1], [1, "stand", 1, -1.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [8, 127, 0, special], [9, 0, 0, 0]]
+			d.shots = [[20, "a_windup"], [30, "b_dash"], [40, "c_hit"], [52, "d_end"], [70, "e_after"]]
+			d.end_frame = 90
+		"wolf_firewolf":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 24.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, -0.2, -1]]
+			d.timeline = [[0, 0, 0, 0], [8, 0, 127, special], [9, 0, 0, 0]]
+			d.shots = [[22, "a_windup"], [30, "b_rising"], [42, "c_hits"], [56, "d_final"], [75, "e_helpless"]]
+			d.end_frame = 110
 		"low":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 18.0

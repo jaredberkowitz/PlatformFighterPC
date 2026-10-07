@@ -501,8 +501,13 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     }
 }
 
+/// Holding the stick down declines a ledge grab (walk off the stage, or fast fall past it, without catching it).
+fn declines_ledge(f: &Fighter) -> bool {
+    f.history[0].stick_y <= -STICK_DOWN
+}
+
 fn ledge_request(f: &Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
-    if f.vel.y <= Fx::ZERO && f.ledge_cooldown == 0 {
+    if f.vel.y <= Fx::ZERO && f.ledge_cooldown == 0 && !declines_ledge(f) {
         collision::find_ledge(stage, f.pos, p).map(|i| i as u8)
     } else {
         None
@@ -860,6 +865,14 @@ fn attack(
         f.state_frame -= 1;
     }
 
+    // A multi-hit move lets its hits land again at a steady rhythm.
+    if let Some((start, every)) = mv.rehit {
+        let start = u16::from(start);
+        if f.state_frame >= start && (f.state_frame - start) % u16::from(every.max(1)) == 0 {
+            f.hit_mask = 0;
+        }
+    }
+
     // A move can fire a projectile on one frame (the step applies the request).
     if let Some(spec) = mv.projectile {
         if f.state_frame == u16::from(spec.frame) {
@@ -877,6 +890,8 @@ fn attack(
     if let Some(m) = motion {
         f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), m.vy);
         f.hop_boost = 0;
+        // A dash along the ground is not a landing, however flat it is.
+        let on_ground = f.grounded() && m.vy <= Fx::ZERO;
         if m.vy > Fx::ZERO {
             f.platform = NONE;
         }
@@ -887,10 +902,16 @@ fn attack(
         if moved.ceiling {
             f.vel.y = Fx::ZERO;
         }
-        if let Some(platform) = moved.landing {
+        if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
             enter_landing(f, mv.landing_lag);
             return None;
+        }
+        // A dash along the ground that carries the fighter past the edge leaves the ground.
+        if let Some(plat) = collision::platform(stage, f.platform) {
+            if f.pos.x < plat.left || f.pos.x > plat.right {
+                f.platform = NONE;
+            }
         }
     } else if id.is_aerial() || (id.is_special() && !f.grounded()) {
         if air_move(f, p, stage) {
@@ -911,6 +932,13 @@ fn attack(
         if mv.turns_around {
             f.facing = -f.facing;
         }
+        // A jab continues into its next hit if attack was pressed shortly before the end.
+        if let Some(next) = mv.next {
+            if f.grounded() && f.pressed_within(buttons::ATTACK, mv.next_window) {
+                begin_attack(f, MoveId::from_index(next));
+                return None;
+            }
+        }
         if f.grounded() {
             enter(f, S::Idle);
         } else if mv.helpless_after {
@@ -921,7 +949,7 @@ fn attack(
     }
 
     // Up specials can grab a ledge in mid-move, rising or not, so a recovery that reaches it is forgiving.
-    if mv.grabs_ledge && f.ledge_cooldown == 0 {
+    if mv.grabs_ledge && f.ledge_cooldown == 0 && !declines_ledge(f) {
         return collision::find_ledge(stage, f.pos, p).map(|i| i as u8);
     }
     None

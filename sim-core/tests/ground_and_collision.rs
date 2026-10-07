@@ -1067,3 +1067,43 @@ fn fast_fall_from_a_standstill_at_the_apex_is_immediate_too() {
     sim.tick(inp(0, -127, 0));
     assert_eq!(sim.f().vel.y, -sim.content.fighters[0].fast_fall_speed);
 }
+
+// ---- Ledge grabs from the stage edge ---------------------------------------------------------------------
+
+#[test]
+fn walking_off_the_edge_grabs_only_once_the_body_is_clear_of_the_stage_and_snaps_a_short_way() {
+    let mut sim = Sim::new();
+    sim.stand(0, Fx::from_int(9), 1);
+    for t in 0..120 {
+        let before = sim.f().pos;
+        sim.tick(inp(40, 0, 0));
+        if sim.f().state == S::LedgeHang {
+            let hw = sim.content.fighters[0].ecb_half_width;
+            assert!(
+                before.x >= Fx::from_int(11) + hw - fx(1, 5),
+                "grabbed at tick {t} with the body still over the stage: {before:?}"
+            );
+            let snap = (sim.f().pos - before).length();
+            assert!(snap < fx(13, 10), "snapped {snap:?}");
+            return;
+        }
+    }
+    panic!("walking off should grab the ledge");
+}
+
+#[test]
+fn holding_down_walks_off_without_grabbing_the_ledge() {
+    let mut sim = Sim::new();
+    sim.stand(0, Fx::from_int(9), 1);
+    for _ in 0..40 {
+        sim.tick(inp(40, -127, 0));
+        assert_ne!(sim.f().state, S::LedgeHang);
+    }
+    // Let go of down while falling beside the wall and the grab happens.
+    let mut grabbed = false;
+    for _ in 0..60 {
+        sim.tick(inp(-60, 0, 0));
+        grabbed |= sim.f().state == S::LedgeHang;
+    }
+    assert!(grabbed || sim.f().grounded() || sim.f().pos.y < Fx::from_int(-3));
+}

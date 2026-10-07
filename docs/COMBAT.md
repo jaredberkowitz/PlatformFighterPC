@@ -70,6 +70,17 @@ frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable 
 | Brawler forward tilt | two hits: frame 8 (5%, angle 60, KB 10, growth 70) and 9-10 (6%, angle 361, KB 55, growth 106), FAF 35 |
 | Brawler up tilt | an overhead kick, frames 7-11 (10% foot only on 7-8, 8% / 9% / 10% along the leg), angle 80, KB 30, growth 115-120, FAF 36 |
 | Brawler down tilt | a low kick, frames 5-6, 6%, angle 361, KB 25, growth 100, FAF 28 |
+| Brawler jab | three claw hits; 1 and 2: frame 4, 2%, angle 361, FAF 22; 3: frame 4, 4%, angle 55, growth 176, FAF 35. Pressing attack in the last 12 frames of a hit continues the combo |
+| Brawler dash attack | flying kick, frames 11-14 (11%, angles 80 / 50 / 361) then 15-18 (8%, growth 60), FAF 38 |
+| Brawler up air | frames 7-9, 12%, angle 80, KB 30, growth 85, lag 10, autocancel 1-3 and from 31, FAF 39 |
+| Brawler back air | frames 13-15, 15% / 13% / 11% from the foot in, angle 361, KB 37, growth 96, lag 15, autocancel 1-7 and from 19, FAF 45, does not turn around |
+| Brawler down air | frames 16-17, 15% (spike, angle 270) and 13%, KB 6, growth 90, lag 19, autocancel 1-4 and from 36, FAF 54 |
+| Brawler forward smash | frames 20-23, 15%, angle 361, KB 30, growth 106, FAF 42, charges |
+| Brawler up smash | two hits: 13-15 (6%, angles 110 / 125, KB 70-80, growth 15) and 20-23 (12%, angle 95, KB 85, growth 65), FAF 48, charges |
+| Brawler down smash | front hit 14-15 (16% / 14%, angles 30-35), back hit 21-22 (14% / 12%), FAF 44, charges |
+| Brawler side special (flash) | 19 frame wind-up, a dash of about 7 world units (3% on the way), ending in a 20% spike and a 15% hit around it; helpless in the air |
+| Brawler up special (fire) | 18 frame wind-up, a rising flame kick: five hits (4%, 2.5% x 3, 6% launching), helpless after, grabs the ledge mid-move |
+| Brawler down special (reflector) | reflecting field frames 9-21, turns projectiles around for 1.5x damage, 4% hit on contact, FAF 31 |
 | Brawler blaster | bayonet on frames 15-19 (7%, angle 60, KB 80, growth 37); otherwise a shot on frame 16 that does 8% falling to 6% over its range (about two thirds of the stage), FAF 53 |
 
 **Sources:** two community frame-data tables (ultimateframedata.com and kuroganehammer.com) cross-checked against each other,
@@ -79,8 +90,11 @@ plus SmashWiki for the blaster. Where they disagreed on a total frame count I us
 units straight up with a little forward drift, then its leftover speed) and landing lag; the blaster shot's speed (3 reference
 units a frame), exact range (35 frames), knockback (a flinch) and muzzle position; the 8-to-6 percent damage falloff direction.
 The up tilt's three phases are placed as an arc in front of, above and behind the fighter. Everything else in the movesets
-(jabs, dash attacks, down air, specials not listed, and the brawler's smash attacks and up air, which are the swordfighter's
-scaled down) is still placeholder.
+(the swordfighter's jab, dash attack, down air and its other specials) is still placeholder.
+For the brawler, Fire Wolf, Wolf Flash and the jab pages were not in the sources: the Fire Wolf travel (5.6 up, 2.6 forward) and its
+drag hits' knockback, the Wolf Flash distance (7 world units), its ending hit's knockback and the total lengths, the reflector's
+frames, size and reflected speed, and every hitbox position are estimates. Not implemented: angling Wolf Flash and Fire Wolf with the
+stick, the reflector's intangibility on frames 5-8, and the jab's reference input window details.
 
 Two sources disagreed on some values, so: damage numbers come from ultimateframedata and kuroganehammer, which agree; the
 down smash tipper's first-hit base knockback is 50 (kuroganehammer) rather than 57 (SmashWiki); the up air's first actionable
@@ -111,3 +125,15 @@ autocancel window and landing lag above, plus the blaster's spawn frame, speed, 
 and the up special's intangibility, rise, hit and helplessness. Demos: `--demo=marth_fair`, `marth_bair`, `marth_nair`,
 `marth_dolphin`, `marth_utilt`, `marth_dtilt`, `marth_fsmash` (charged), `marth_usmash`, `marth_dsmash`, `marth_uair`,
 `marth_upb_ledge`, `wolf_fair`, `wolf_nair`, `wolf_ftilt`, `wolf_utilt`, `wolf_dtilt`, `wolf_blaster`, `low`.
+
+## Engine pieces added for the brawler kit
+
+- **Jab chains:** `Move::next` / `next_window` (the jab hits are `MoveId::Jab2` and `Jab3`, started only by the previous hit).
+- **Multi-hit moves:** `Move::rehit = (start, every)` lets a move's hits land again every N frames (Fire Wolf).
+- **Reflector:** `Move::reflector`; a projectile that touches an active reflector turns around, is owned by the reflecting
+  fighter and deals `damage_percent` of its damage. Projectiles now carry `owner` (who is credited), `origin` (whose weapon holds
+  the hit data) and `power`.
+- **Ground motion:** a scripted dash along the ground (`Motion` with no vertical speed) no longer counts as landing and leaves the
+  ground when it passes the edge.
+- Tests: `sim-core/tests/reference_moves.rs`. Demos: `wolf_jab`, `wolf_dashattack`, `wolf_uair`, `wolf_bair`, `wolf_dair`,
+  `wolf_fsmash`, `wolf_usmash`, `wolf_dsmash`, `wolf_flash`, `wolf_firewolf`.

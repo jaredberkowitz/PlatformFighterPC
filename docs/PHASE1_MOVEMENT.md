@@ -184,3 +184,13 @@ trajectories around the ledge (every side, height, speed, stick direction and ju
 Known differences from the reference game, not changed yet: the reference lets a fighter grab slightly behind it with
 40% less reach, does not grab while down is held, and lets up-special moves grab the ledge mid-move; here the grab box is
 the same in front and behind, ignores the stick, and only applies while airborne and not rising.
+
+## Ledge grabs from the stage edge (sim v14)
+
+Reported: walking off the edge grabbed the ledge while the fighter still looked like it was standing on the stage. At the grab
+the body was 0.57 beyond the edge and 0.2 below it, overlapping the corner, and it then snapped 1.6 units. Now:
+
+- The body must be fully clear of the wall (`ecb_half_width` outside the edge) and at least 0.9 below the ledge
+  (`ledge_min_drop`), so the snap into the hang is under 1.3 units. The box is 2.2 wide and 2.6 deep (`ledge_reach_x`,
+  `ledge_reach_down`) so recoveries stay forgiving.
+- **Holding down declines the grab** (also during an up special), so a fighter can walk off or fast fall past the ledge.

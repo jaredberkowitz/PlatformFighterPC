@@ -12,7 +12,7 @@
 use crate::collision;
 use crate::content::{Content, FighterParams};
 use crate::fixed::Fx;
-use crate::moves::{Hitbox, Move, Weapon};
+use crate::moves::{Hitbox, Move, Reflector, Weapon};
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
@@ -265,6 +265,8 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
             *slot = Projectile {
                 active: true,
                 owner: i as u8,
+                origin: i as u8,
+                power: 100,
                 move_id: f.move_id,
                 pos: Vec2::new(f.pos.x + spec.x.mul_int(dir), f.pos.y + spec.y),
                 vel: Vec2::new(spec.speed.mul_int(dir), Fx::ZERO),
@@ -284,8 +286,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             continue;
         }
         let owner = usize::from(pr.owner).min(MAX_FIGHTERS - 1);
-        let owner_params = params_of(content, &state.fighters[owner]);
-        let Some(spec) = weapon_of(content, owner_params).get(pr.move_id).projectile else {
+        let origin = usize::from(pr.origin).min(MAX_FIGHTERS - 1);
+        let origin_params = params_of(content, &state.fighters[origin]);
+        let Some(spec) = weapon_of(content, origin_params).get(pr.move_id).projectile else {
             state.projectiles[n].active = false;
             continue;
         };
@@ -303,6 +306,19 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             state.projectiles[n].active = false;
             continue;
         }
+        // A reflector in the way turns it around: it now belongs to the reflector and hits harder.
+        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, spec.hitbox.radius) {
+            let p = &mut state.projectiles[n];
+            p.owner = r as u8;
+            p.power = rf.damage_percent;
+            p.vel = Vec2::new(
+                -(pr.vel.x * Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100)),
+                pr.vel.y,
+            );
+            p.pos = pos;
+            p.age = 0;
+            continue;
+        }
         state.projectiles[n].pos = pos;
         state.projectiles[n].age = age;
 
@@ -310,6 +326,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
         let mut hb = spec.hitbox;
         hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+        hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
 
         for d in 0..MAX_FIGHTERS {
             if d == owner || is_intangible(&state.fighters[d]) {
@@ -328,6 +345,36 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
         }
     }
+}
+
+/// A fighter other than `owner` whose reflector is up and touches a projectile at `pos`.
+fn reflector_touching(
+    state: &GameState,
+    content: &Content,
+    owner: usize,
+    pos: Vec2,
+    radius: Fx,
+) -> Option<(usize, Reflector)> {
+    for (i, f) in state.fighters.iter().enumerate() {
+        if i == owner || f.state != S::Attack {
+            continue;
+        }
+        let Some(rf) = weapon_of(content, params_of(content, f))
+            .get(f.move_id)
+            .reflector
+        else {
+            continue;
+        };
+        let frame = u8::try_from(f.state_frame).unwrap_or(u8::MAX);
+        if frame < rf.start || frame > rf.end {
+            continue;
+        }
+        let centre = Vec2::new(f.pos.x + rf.x.mul_int(i32::from(f.facing)), f.pos.y + rf.y);
+        if overlaps(pos, radius, centre, rf.radius) {
+            return Some((i, rf));
+        }
+    }
+    None
 }
 
 /// Sends fighters that have left the blast zone back to their spawn point, minus a stock.

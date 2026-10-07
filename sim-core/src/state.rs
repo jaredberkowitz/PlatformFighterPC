@@ -116,7 +116,12 @@ pub struct Fighter {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Projectile {
     pub active: bool,
+    /// Who the hits are credited to (changes when the projectile is reflected).
     pub owner: u8,
+    /// The fighter whose weapon holds its hit data (the one that fired it).
+    pub origin: u8,
+    /// Percent of its normal damage it deals (a reflected projectile hits harder).
+    pub power: u8,
     /// The owner's move that fired it (for its hit data).
     pub move_id: u8,
     pub pos: Vec2,
@@ -129,6 +134,8 @@ impl StateHash for Projectile {
     fn hash_into(&self, h: &mut StateHasher) {
         h.write_bool(self.active);
         h.write_u8(self.owner);
+        h.write_u8(self.origin);
+        h.write_u8(self.power);
         h.write_u8(self.move_id);
         self.pos.hash_into(h);
         self.vel.hash_into(h);
@@ -504,6 +511,21 @@ mod tests {
             ("projectile", {
                 let mut s = state;
                 s.projectiles[MAX_PROJECTILES - 1].active = true;
+                s
+            }),
+            ("projectile_owner", {
+                let mut s = state;
+                s.projectiles[0].owner = 1;
+                s
+            }),
+            ("projectile_origin", {
+                let mut s = state;
+                s.projectiles[0].origin = 1;
+                s
+            }),
+            ("projectile_power", {
+                let mut s = state;
+                s.projectiles[0].power = 150;
                 s
             }),
             ("projectile_pos", {

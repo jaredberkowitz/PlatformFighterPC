@@ -142,7 +142,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         let name = id.name();
         if mv.is_empty() {
             // Only special moves may be left unimplemented.
-            if !id.is_special() {
+            if !id.may_be_empty() {
                 errors.push(format!("weapon {i} {name}: has no frames"));
             }
             continue;
@@ -153,6 +153,18 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         if let Some(p) = &mv.projectile {
             if p.life == 0 {
                 errors.push(format!("weapon {i} {name}: projectile has no lifetime"));
+            }
+        }
+        if let Some(n) = mv.next {
+            if usize::from(n) >= MoveId::COUNT || mv.next_window == 0 {
+                errors.push(format!(
+                    "weapon {i} {name}: chain needs a real move and a window"
+                ));
+            }
+        }
+        if let Some((_, every)) = mv.rehit {
+            if every == 0 {
+                errors.push(format!("weapon {i} {name}: rehit interval cannot be zero"));
             }
         }
         if let Some(at) = mv.charge_at {

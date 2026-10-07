@@ -34,10 +34,13 @@ pub enum MoveId {
     SideSpecial,
     UpSpecial,
     DownSpecial,
+    /// Second and third hits of a jab combo (started by the previous jab, never by a button).
+    Jab2,
+    Jab3,
 }
 
 impl MoveId {
-    pub const COUNT: usize = 17;
+    pub const COUNT: usize = 19;
     /// Index of the first special move.
     pub const FIRST_SPECIAL: u8 = 13;
 
@@ -49,7 +52,15 @@ impl MoveId {
     }
 
     pub const fn is_special(self) -> bool {
-        self as u8 >= Self::FIRST_SPECIAL
+        matches!(
+            self,
+            MoveId::NSpecial | MoveId::SideSpecial | MoveId::UpSpecial | MoveId::DownSpecial
+        )
+    }
+
+    /// Slots a weapon may leave empty: specials it does not have, and jab hits it does not chain into.
+    pub const fn may_be_empty(self) -> bool {
+        self.is_special() || matches!(self, MoveId::Jab2 | MoveId::Jab3)
     }
 
     pub const fn from_index(i: u8) -> MoveId {
@@ -70,6 +81,8 @@ impl MoveId {
             13 => MoveId::NSpecial,
             14 => MoveId::SideSpecial,
             15 => MoveId::UpSpecial,
+            17 => MoveId::Jab2,
+            18 => MoveId::Jab3,
             _ => MoveId::DownSpecial,
         }
     }
@@ -93,6 +106,8 @@ impl MoveId {
             MoveId::SideSpecial => "side special",
             MoveId::UpSpecial => "up special",
             MoveId::DownSpecial => "down special",
+            MoveId::Jab2 => "jab 2",
+            MoveId::Jab3 => "jab 3",
         }
     }
 }
@@ -147,6 +162,19 @@ pub struct ProjectileSpawn {
     pub end_damage: Fx,
 }
 
+/// A reflecting field in front of the fighter: projectiles that touch it while it is up turn around and
+/// belong to the fighter. Percentages are of the projectile's own damage and speed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Reflector {
+    pub start: u8,
+    pub end: u8,
+    pub x: Fx,
+    pub y: Fx,
+    pub radius: Fx,
+    pub damage_percent: u8,
+    pub speed_percent: u8,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Move {
     /// The move ends when the move frame reaches this.
@@ -171,6 +199,12 @@ pub struct Move {
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
+    /// A jab: pressing attack within `next_window` frames of the move's end continues into this move.
+    pub next: Option<u8>,
+    pub next_window: u8,
+    /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
+    pub rehit: Option<(u8, u8)>,
+    pub reflector: Option<Reflector>,
 }
 
 impl Move {
@@ -189,6 +223,10 @@ impl Move {
             turns_around: false,
             grabs_ledge: false,
             charge_at: None,
+            next: None,
+            next_window: 0,
+            rehit: None,
+            reflector: None,
         }
     }
 
@@ -266,6 +304,35 @@ impl StateHash for Weapon {
                 Some(f) => {
                     h.write_bool(true);
                     h.write_u8(f);
+                }
+                None => h.write_bool(false),
+            }
+            match m.next {
+                Some(n) => {
+                    h.write_bool(true);
+                    h.write_u8(n);
+                    h.write_u8(m.next_window);
+                }
+                None => h.write_bool(false),
+            }
+            match m.rehit {
+                Some((start, every)) => {
+                    h.write_bool(true);
+                    h.write_u8(start);
+                    h.write_u8(every);
+                }
+                None => h.write_bool(false),
+            }
+            match &m.reflector {
+                Some(r) => {
+                    h.write_bool(true);
+                    h.write_u8(r.start);
+                    h.write_u8(r.end);
+                    r.x.hash_into(h);
+                    r.y.hash_into(h);
+                    r.radius.hash_into(h);
+                    h.write_u8(r.damage_percent);
+                    h.write_u8(r.speed_percent);
                 }
                 None => h.write_bool(false),
             }
@@ -490,6 +557,9 @@ pub fn longsword() -> Weapon {
         // Specials (the up special is replaced below)
         Move::empty(),
         Move::empty(),
+        Move::empty(),
+        Move::empty(),
+        // Jab 2 and 3 (this weapon's jab does not chain)
         Move::empty(),
         Move::empty(),
     ];
@@ -786,6 +856,231 @@ pub fn claws() -> Weapon {
         end_damage: Fx::from_int(6),
     });
     w.moves[MoveId::NSpecial as usize] = blaster;
+
+    // ---- The rest of the brawler kit (frame data from the reference tables; positions are estimates) ----
+
+    // Jab combo: three quick claw hits. Hit 1 and 2: frame 4, 2%, angle 361, FAF 22; hit 3: frame 4, 4%, angle 55,
+    // growth 176, FAF 35. Pressing attack in the last 12 frames of a hit continues the combo.
+    let mut jab1 = ref_move(
+        22,
+        0,
+        0,
+        255,
+        &[
+            r(4, 5, 11, 11, 9, 20, 361, 20, 15, 1, 0),
+            r(4, 5, 19, 11, 9, 20, 361, 25, 25, 0, 0),
+        ],
+    );
+    jab1.next = Some(MoveId::Jab2 as u8);
+    jab1.next_window = 12;
+    w.moves[MoveId::Jab as usize] = jab1;
+    let mut jab2 = ref_move(
+        22,
+        0,
+        0,
+        255,
+        &[
+            r(4, 5, 11, 11, 9, 20, 361, 20, 20, 1, 0),
+            r(4, 5, 19, 11, 9, 20, 361, 25, 25, 0, 0),
+        ],
+    );
+    jab2.next = Some(MoveId::Jab3 as u8);
+    jab2.next_window = 12;
+    w.moves[MoveId::Jab2 as usize] = jab2;
+    w.moves[MoveId::Jab3 as usize] = ref_move(
+        35,
+        0,
+        0,
+        255,
+        &[
+            r(4, 5, 12, 11, 10, 40, 55, 40, 176, 1, 0),
+            r(4, 5, 21, 11, 10, 40, 55, 40, 176, 0, 0),
+        ],
+    );
+
+    // Dash attack: a flying kick. Frames 11-14: 11% (hip angle 80, knee angles 50 and 361); frames 15-18: 8% with
+    // lower growth. FAF 38.
+    w.moves[MoveId::DashAttack as usize] = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            r(11, 14, 8, 10, 8, 110, 80, 40, 92, 1, 0),
+            r(11, 14, 14, 6, 10, 110, 50, 40, 91, 1, 0),
+            r(11, 14, 20, 5, 11, 110, 361, 45, 85, 0, 0),
+            r(15, 18, 8, 10, 8, 80, 80, 40, 60, 1, 0),
+            r(15, 18, 14, 6, 10, 80, 50, 40, 60, 1, 0),
+            r(15, 18, 20, 5, 11, 80, 361, 40, 60, 0, 0),
+        ],
+    );
+
+    // Up air: frames 7-9, 12%, angle 80, base knockback 30, growth 85. Landing lag 10, autocancels on 1-3 and from 31,
+    // FAF 39.
+    w.moves[MoveId::UAir as usize] = ref_move(
+        39,
+        10,
+        3,
+        31,
+        &[
+            r(7, 9, 4, 26, 10, 120, 80, 30, 85, 0, 0),
+            r(7, 9, 3, 21, 9, 120, 80, 30, 85, 1, 0),
+            r(7, 9, 1, 16, 9, 120, 80, 30, 85, 1, 0),
+        ],
+    );
+    // Back air: a back kick, frames 13-15, 15% / 13% / 11% from the foot in, Sakurai angle, base knockback 37,
+    // growth 96. Landing lag 15, autocancels on 1-7 and from 19, FAF 45. Wolf keeps facing forward.
+    w.moves[MoveId::BAir as usize] = ref_move(
+        45,
+        15,
+        7,
+        19,
+        &[
+            r(13, 15, -20, 9, 11, 150, 361, 37, 96, 0, 0),
+            r(13, 15, -13, 10, 10, 130, 361, 37, 96, 1, 0),
+            r(13, 15, -6, 10, 9, 110, 361, 37, 96, 2, 0),
+        ],
+    );
+    // Down air: a stomp, frames 16-17, 15% at the foot (a spike, angle 270) and 13% around it, base knockback 6,
+    // growth 90. Landing lag 19, autocancels on 1-4 and from 36, FAF 54.
+    w.moves[MoveId::DAir as usize] = ref_move(
+        54,
+        19,
+        4,
+        36,
+        &[
+            r(16, 17, 4, 2, 11, 150, 270, 6, 90, 0, 0),
+            r(16, 17, 5, 7, 13, 130, 270, 6, 90, 1, 0),
+        ],
+    );
+
+    // Forward smash: frames 20-23, 15%, Sakurai angle, base knockback 30, growth 106, FAF 42. Charges on frame 6.
+    let mut fsmash = ref_move(
+        42,
+        0,
+        0,
+        255,
+        &[
+            r(20, 23, 22, 11, 11, 150, 361, 30, 106, 0, 0),
+            r(20, 23, 15, 11, 10, 150, 361, 30, 106, 1, 0),
+        ],
+    );
+    fsmash.charge_at = Some(5);
+    w.moves[MoveId::FSmash as usize] = fsmash;
+    // Up smash: two hits. Frames 13-15: 6% pulling hits (angles 110 and 125, base knockback 70-80, growth 15);
+    // frames 20-23: 12% (angle 95, base knockback 85, growth 65). FAF 48. Charges on frame 3.
+    let mut usmash = ref_move(
+        48,
+        0,
+        0,
+        255,
+        &[
+            r(13, 15, 8, 18, 10, 60, 110, 70, 15, 1, 0),
+            r(13, 15, 4, 22, 9, 60, 125, 80, 15, 1, 0),
+            r(13, 15, 0, 12, 9, 60, 125, 80, 15, 1, 0),
+            r(20, 23, 5, 27, 11, 120, 95, 85, 65, 0, 1),
+            r(20, 23, 1, 24, 10, 120, 95, 85, 65, 1, 1),
+        ],
+    );
+    usmash.charge_at = Some(2);
+    w.moves[MoveId::USmash as usize] = usmash;
+    // Down smash: a front hit on frames 14-15 (16% at the claw, 14% closer in, angle 30-35) and a back hit on frames
+    // 21-22 (14% / 12%), FAF 44. Charges on frame 2.
+    let mut dsmash = ref_move(
+        44,
+        0,
+        0,
+        255,
+        &[
+            r(14, 15, 12, 8, 9, 140, 35, 50, 80, 1, 0),
+            r(14, 15, 20, 6, 11, 160, 30, 37, 93, 0, 0),
+            r(21, 22, -12, 8, 9, 120, 35, 50, 80, 1, 1),
+            r(21, 22, -20, 6, 11, 140, 30, 50, 90, 0, 1),
+        ],
+    );
+    dsmash.charge_at = Some(1);
+    w.moves[MoveId::DSmash as usize] = dsmash;
+
+    // Wolf Flash (side special): after a 19 frame wind-up a dash of about 7 world units (3% on the way), ending in a
+    // 20% spike with a 15% hit around it. Helpless in the air. The distance, the ending hit knockback and the
+    // total length are estimates; it cannot be angled yet.
+    let mut flash = ref_move(
+        55,
+        0,
+        0,
+        255,
+        &[
+            r(19, 28, 12, 11, 11, 30, 361, 20, 0, 0, 0),
+            r(29, 32, 14, 3, 11, 200, 270, 70, 90, 0, 1),
+            r(29, 32, 15, 9, 13, 150, 290, 60, 90, 1, 1),
+        ],
+    );
+    flash.motion = vec![
+        Motion {
+            start: 18,
+            end: 27,
+            vx: su(5500),
+            vy: Fx::ZERO,
+        },
+        // The dash stops dead where it ends.
+        Motion {
+            start: 28,
+            end: 28,
+            vx: Fx::ZERO,
+            vy: Fx::ZERO,
+        },
+    ];
+    flash.helpless_after = true;
+    w.moves[MoveId::SideSpecial as usize] = flash;
+
+    // Fire Wolf (up special): after an 18 frame wind-up a rising flame kick that hits five times (4%, 2.5% x 3, then
+    // 6%; the last hit launches) and then leaves Wolf helpless. It can grab the ledge mid-move. The travel
+    // (about 5.6 up and 2.6 forward world units) and the knockback values are estimates.
+    let mut fire = ref_move(
+        55,
+        0,
+        0,
+        255,
+        &[
+            r(18, 18, 9, 13, 13, 40, 65, 100, 0, 0, 0),
+            r(19, 28, 9, 13, 13, 25, 65, 100, 0, 0, 0),
+            r(29, 31, 9, 13, 14, 60, 45, 60, 136, 0, 0),
+        ],
+    );
+    fire.motion = vec![
+        Motion {
+            start: 17,
+            end: 30,
+            vx: su(1500),
+            vy: su(3200),
+        },
+        // The kick ends and Wolf tumbles into the helpless fall with only a little speed left.
+        Motion {
+            start: 31,
+            end: 31,
+            vx: su(300),
+            vy: su(400),
+        },
+    ];
+    fire.rehit = Some((17, 3));
+    fire.helpless_after = true;
+    fire.grabs_ledge = true;
+    w.moves[MoveId::UpSpecial as usize] = fire;
+
+    // Reflector (down special): a reflecting field in front of Wolf from frame 9 to 21 that turns projectiles
+    // around (1.5 times the damage), plus a 4% hit on anyone touching it. The reflector frames, size and
+    // reflected speed are estimates; the reference frames 5-8 of intangibility are not implemented.
+    let mut reflector = ref_move(31, 0, 0, 255, &[r(9, 12, 14, 11, 15, 40, 65, 60, 85, 0, 0)]);
+    reflector.reflector = Some(Reflector {
+        start: 8,
+        end: 20,
+        x: Fx::from_ratio(14, 10),
+        y: Fx::from_ratio(11, 10),
+        radius: Fx::from_ratio(17, 10),
+        damage_percent: 150,
+        speed_percent: 130,
+    });
+    w.moves[MoveId::DownSpecial as usize] = reflector;
     w
 }
 
@@ -800,8 +1095,8 @@ mod tests {
             for (i, m) in w.moves.iter().enumerate() {
                 if m.is_empty() {
                     assert!(
-                        MoveId::from_index(i as u8).is_special(),
-                        "only specials may be empty"
+                        MoveId::from_index(i as u8).may_be_empty(),
+                        "only specials and jab chain slots may be empty"
                     );
                     continue;
                 }
@@ -845,7 +1140,7 @@ mod tests {
         for i in 0..MoveId::COUNT as u8 {
             let id = MoveId::from_index(i);
             assert_eq!(id.is_aerial(), (8..13).contains(&i));
-            assert_eq!(id.is_special(), i >= 13);
+            assert_eq!(id.is_special(), (13..=16).contains(&i));
         }
     }
 
