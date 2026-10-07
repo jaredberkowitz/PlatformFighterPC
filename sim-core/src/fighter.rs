@@ -193,6 +193,8 @@ pub fn update(
         S::Roll => roll(f, p, stage),
         S::SpotDodge => spot_dodge(f, p, stage),
         S::ShieldBreak => shield_break(f, p, stage, rules),
+        S::Knockdown => knockdown(f, p, weapon, stage, rules),
+        S::GetUp => get_up_stand(f, p, stage, rules),
         S::Grabbing => grabbing(f),
         // Being held: the holder pins this fighter in place (see `grab::update`).
         S::Grabbed => {}
@@ -864,6 +866,10 @@ fn ledge_hang(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     } else if f.pressed_within(buttons::ATTACK, AIR_ACTION_BUFFER) {
         // The attack's hitboxes arrive with combat in Phase 3; for now it is the movement and timing.
         get_up(f, stage, &l, p.ledge_attack_dx, S::LedgeAttack);
+        if f.state == S::LedgeAttack {
+            f.move_id = MoveId::LedgeAttack as u8;
+            f.hit_mask = 0;
+        }
     } else if up >= threshold || toward >= threshold {
         get_up(f, stage, &l, p.ledge_getup_dx, S::LedgeGetUp);
     } else if up <= -threshold || toward <= -threshold || f.state_frame >= p.ledge_hang_max {
@@ -885,6 +891,47 @@ fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S) {
             state
         },
     );
+}
+
+/// Lying on the ground after a hard landing. After a short while the fighter chooses a get-up: attack, roll
+/// sideways, or stand (stick up, jump, or just waiting).
+fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if f.state_frame < u16::from(rules.knockdown_lag) {
+        return;
+    }
+    let flick = f.flick_x(TAP_BUFFER);
+    if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+        begin_attack(f, MoveId::GetUpAttack);
+        f.invuln = f
+            .invuln
+            .max(weapon.get(MoveId::GetUpAttack as u8).intangible);
+    } else if flick != 0 {
+        f.dodge_dir = Vec2::new(Fx::from_int(i32::from(flick)), Fx::ZERO);
+        enter(f, S::Roll);
+    } else if f.history[0].stick_y >= STICK_DOWN
+        || f.pressed_within(buttons::JUMP, TAP_BUFFER)
+        || f.state_frame >= u16::from(rules.knockdown_max)
+    {
+        enter(f, S::GetUp);
+    }
+}
+
+/// Standing up: intangible at first, then free.
+fn get_up_stand(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    if f.state_frame <= u16::from(rules.getup_intangible) {
+        f.invuln = f.invuln.max(1);
+    }
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if f.state_frame >= u16::from(rules.getup_frames) {
+        enter(f, S::Idle);
+    }
 }
 
 fn ledge_recover(f: &mut Fighter, p: &FighterParams) {
@@ -1238,20 +1285,23 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         }
         if let Some(platform) = moved.landing {
             land(f, p, stage, platform);
-            // A shield press just before touching down is a tech. Without one it is a placeholder
-            // knockdown: extra landing lag (real knockdown and get-up options come later).
+            // A shield press just before touching down is a tech: in place, or a roll if the stick is flicked
+            // sideways. Without one the fighter lies in a knockdown and picks a get-up.
             let teched = f.pressed_within(buttons::SHIELD, rules.tech_window);
+            let roll_dir = f.flick_x(rules.tech_window);
             f.kb_vel = Vec2::ZERO;
+            f.vel.x = Fx::ZERO;
             f.hitstun = 0;
             f.tumble = false;
-            enter_landing(
-                f,
-                if teched {
-                    rules.tech_lag
-                } else {
-                    rules.knockdown_lag
-                },
-            );
+            if teched && roll_dir != 0 {
+                f.dodge_dir = Vec2::new(Fx::from_int(i32::from(roll_dir)), Fx::ZERO);
+                enter(f, S::Roll);
+            } else if teched {
+                f.invuln = f.invuln.max(rules.tech_invuln);
+                enter_landing(f, rules.tech_lag);
+            } else {
+                enter(f, S::Knockdown);
+            }
             return;
         }
     }

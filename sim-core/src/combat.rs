@@ -123,7 +123,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
-        if fa.state != S::Attack || fa.hitlag > 0 {
+        if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
             continue;
         }
         let mv = weapon_of(content, params_of(content, fa)).get(fa.move_id);

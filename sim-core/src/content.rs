@@ -553,8 +553,15 @@ pub struct Ruleset {
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
     pub tech_lag: u8,
-    /// Placeholder knockdown: landing in hitstun without a tech costs this many frames of lag.
+    /// A fighter that lands in hitstun without teching lies down for at least this many frames.
     pub knockdown_lag: u8,
+    /// ...and gets up by itself after this many.
+    pub knockdown_max: u8,
+    /// Frames of a neutral get-up, and how many of them are intangible.
+    pub getup_frames: u8,
+    pub getup_intangible: u8,
+    /// Intangible frames of a tech in place.
+    pub tech_invuln: u8,
     /// Frames a smash attack can be held charging.
     pub charge_frames: u8,
     /// Extra damage at full charge, in percent (40 means 1.4 times the damage).
@@ -613,6 +620,10 @@ impl Ruleset {
             tech_window: 5,
             tech_lag: 4,
             knockdown_lag: 24,
+            knockdown_max: 90,
+            getup_frames: 26,
+            getup_intangible: 15,
+            tech_invuln: 18,
             charge_frames: 60,
             charge_bonus_percent: 40,
             shield_max: Fx::from_int(50),
@@ -651,6 +662,10 @@ impl StateHash for Ruleset {
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
         h.write_u8(self.knockdown_lag);
+        h.write_u8(self.knockdown_max);
+        h.write_u8(self.getup_frames);
+        h.write_u8(self.getup_intangible);
+        h.write_u8(self.tech_invuln);
         h.write_u8(self.charge_frames);
         h.write_u8(self.charge_bonus_percent);
         self.shield_max.hash_into(h);

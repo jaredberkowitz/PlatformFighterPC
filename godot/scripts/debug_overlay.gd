@@ -68,7 +68,7 @@ func build(player_count: int, masks: Dictionary) -> void:
 	help.offset_bottom = -8.0
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help.text = "P1: WASD  Space jump  N short hop  J atk  I smash  K spc  L/Shift shield  Ctrl = slow walk    P2: Arrows  Enter jump
-" 		+ "Tap a direction to WALK, double tap to DASH   S/Down: tap = crouch, double tap = fast fall   F1 overlay  F2 ECB  P pause  R restart"
+" 		+ "Tap a direction to WALK, double tap to DASH   S/Down: tap = crouch, double tap = fast fall   F1 overlay  F2 ECB  F3 boxes  F9 DI path  P pause  R restart"
 	add_child(help)
 
 
@@ -84,6 +84,10 @@ func update(snaps: Array, inputs: Array, info: Dictionary) -> void:
 		if s.fast_fall: flags.append("fastfall")
 		if s.ledge >= 0: flags.append("ledge%d" % s.ledge)
 		var combat_line := "dmg %5.1f%%  stocks %d  hitlag %d  stun %d  %s%s" % [s.percent, s.stocks, s.hitlag, s.hitstun, s.move_name, ("  charge %d" % s.charge) if s.charge > 0 else ""]
+		if s.get("combo_hits", 0) > 1:
+			combat_line += "\ncombo %d hits  %.1f%%" % [s.combo_hits, s.combo_damage]
+		if s.state == "Hitstun" or s.hitlag > 0 and s.launch_pending:
+			combat_line += "\nlaunch kb %.0f  angle %.0f  %s" % [s.get("launch_kb", 0.0), s.get("launch_angle", 0.0), "TUMBLE" if s.tumble else "flinch"]
 		labels[i].text = "P%d  %s  f%d\nface %s  plat %d  jumps %d  lag %d\npos %6.2f %6.2f   vel %6.3f %6.3f\nledge inv %d  grabs %d  cd %d\n%s\n%s" % [
 			i + 1, s.state, s.state_frame, "R" if s.facing > 0 else "L", s.platform, s.jumps, s.lag,
 			s.pos.x, s.pos.y, s.vel.x, s.vel.y, s.ledge_invuln, s.grabs, s.cooldown, " ".join(flags), combat_line]

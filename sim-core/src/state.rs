@@ -53,6 +53,10 @@ pub enum FighterState {
     Grabbing,
     /// Being held.
     Grabbed,
+    /// Lying on the ground after landing in hitstun without a tech. Vulnerable until it chooses a get-up.
+    Knockdown,
+    /// Standing up from a knockdown, intangible for the first part.
+    GetUp,
 }
 
 impl StateHash for FighterState {

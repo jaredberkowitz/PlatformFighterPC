@@ -186,6 +186,58 @@ func _tick_once() -> void:
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
 	_rebuild_boxes()
+	_update_combos()
+	_rebuild_paths()
+
+
+## Training mode: counts hits on a fighter that is being kept in hitstun or a grab, and the damage of the string.
+func _update_combos() -> void:
+	for i in PLAYERS:
+		var s: Dictionary = snaps[i]
+		var helpless: bool = s.state in ["Hitstun", "Grabbed", "ShieldBreak", "Knockdown"] or s.hitlag > 0 and s.launch_pending
+		if s.percent > last_pct[i] + 0.001:
+			if combo_idle[i] > 40 or combo_hits[i] == 0:
+				combo_hits[i] = 0
+				combo_start[i] = last_pct[i]
+			combo_hits[i] += 1
+			combo_idle[i] = 0
+		elif s.percent < last_pct[i]:
+			combo_hits[i] = 0
+		last_pct[i] = s.percent
+		combo_idle[i] = 0 if helpless else combo_idle[i] + 1
+		s["combo_hits"] = combo_hits[i] if combo_idle[i] < 120 else 0
+		s["combo_damage"] = s.percent - combo_start[i]
+		var launch: PackedFloat32Array = sim.fighter_launch(i)
+		s["launch_kb"] = launch[0]
+		s["launch_angle"] = launch[1]
+
+
+## Training mode: for a fighter in hitstun, the path it will fly (white: no DI, yellow: holding the stick as it is now).
+func _rebuild_paths() -> void:
+	if path_nodes.is_empty():
+		for _i in PLAYERS:
+			var mi := MeshInstance3D.new()
+			mi.mesh = ImmediateMesh.new()
+			add_child(mi)
+			path_nodes.append(mi)
+	for i in PLAYERS:
+		var im: ImmediateMesh = path_nodes[i].mesh
+		im.clear_surfaces()
+		var s: Dictionary = snaps[i]
+		if not show_di or not (s.state == "Hitstun" or (s.hitlag > 0 and s.launch_pending)):
+			continue
+		var stick: Dictionary = inputs[i]
+		for pass_i in 2:
+			var path: PackedVector2Array = sim.predict_path(i, 70, 0 if pass_i == 0 else stick.x, 0 if pass_i == 0 else stick.y)
+			var color := Color(1, 1, 1, 0.8) if pass_i == 0 else Color(1.0, 0.9, 0.2, 0.95)
+			im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, box_mat)
+			var origin: Vector2 = cur_pos[i]
+			im.surface_set_color(color)
+			im.surface_add_vertex(Vector3(origin.x, origin.y + 1.1, 1.6))
+			for p in path:
+				im.surface_set_color(color)
+				im.surface_add_vertex(Vector3(p.x, p.y + 1.1, 1.6))
+			im.surface_end()
 
 
 func _gather() -> void:
@@ -382,6 +434,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F3:
 			show_boxes = not show_boxes
 			_rebuild_boxes()
+		KEY_F9:
+			show_di = not show_di
+			_rebuild_paths()
 		KEY_F6:
 			sim.debug_set_percent(1, sim.fighter_percent(1) + 25.0)
 			_refresh(1)
@@ -419,6 +474,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 # Rebuilt only when the sim ticks (60 Hz), positioned each frame by interpolation.
 
 var show_boxes := true
+var show_di := true
+var path_nodes: Array[MeshInstance3D] = []
+var combo_hits := [0, 0, 0, 0]
+var combo_start := [0.0, 0.0, 0.0, 0.0]
+var combo_idle := [999, 999, 999, 999]
+var last_pct := [0.0, 0.0, 0.0, 0.0]
 var box_nodes: Array = []
 var box_mat: StandardMaterial3D
 

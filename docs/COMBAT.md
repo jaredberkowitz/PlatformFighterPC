@@ -193,3 +193,20 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
   so Wolf's slides about 4 units instead of stopping in 12 frames.
 - The brawler no longer draws a sword on its kicks, specials, grabs and throws. Wolf Flash and Fire Wolf show a flame around the body
   and Fire Wolf spins. These are stand-in visuals; real effects come with the art pass.
+
+## Phase 3 completion: techs, knockdown, ledge attack, training mode (sim v18)
+
+- **Tech:** a shield press up to 5 frames before landing in hitstun. In place: 4 frames of lag and 18 intangible frames. With the stick
+  flicked sideways: a tech roll (the shield roll, intangible). No tech: the fighter lies in a **knockdown** (vulnerable).
+- **Knockdown get-ups** after lying for at least 24 frames (it stands by itself at 90): **stick up or jump** stands (26 frames, the first
+  15 intangible), **attack** is a get-up attack (hits both sides, intangible for 10 frames), a **sideways flick** is a get-up roll.
+  `Ruleset`: `knockdown_lag`, `knockdown_max`, `getup_frames`, `getup_intangible`, `tech_invuln`.
+- **Ledge attack** now has hitboxes (`MoveId::LedgeAttack`) and the get-up attack is `MoveId::GetUpAttack`; both have placeholder numbers
+  that need the reference data.
+- **Training mode** (F9 toggles the path): while a fighter is in hitlag or hitstun the view draws where it will fly, as a white line
+  with no DI and a yellow line with the stick held as it is now. It is computed by running a copy of the sim (`SimRunner::predict_path`),
+  so it includes gravity, DI, walls and landing. The overlay also shows a **combo counter** (hits and damage while the fighter stays in
+  hitstun or a grab) and the **launch readout** (knockback, angle and whether it is a tumble). Ledge invulnerability counters, frame
+  stepping, the stick display and the wavedash cone were already there.
+- Tests: `sim-core/tests/knockdown.rs`. These cover the Phase 3 exit criteria's pieces (combos, DI, edge guarding with ledge options)
+  in training mode; whether they are *fun* needs playtesting.

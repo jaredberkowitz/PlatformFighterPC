@@ -230,7 +230,7 @@ fn hitstun_counts_down_one_frame_at_a_time_and_then_the_fighter_can_act() {
 }
 
 #[test]
-fn a_weak_launch_that_lands_before_hitstun_ends_goes_to_knockdown_lag_not_a_free_action() {
+fn a_weak_launch_that_lands_before_hitstun_ends_ends_in_a_knockdown_not_a_free_action() {
     let (mut sim, _) = launched_victim(|_| {});
     let mut ended_in = None;
     for _ in 0..60 {
@@ -240,7 +240,7 @@ fn a_weak_launch_that_lands_before_hitstun_ends_goes_to_knockdown_lag_not_a_free
             break;
         }
     }
-    assert_eq!(ended_in, Some(S::Landing));
+    assert_eq!(ended_in, Some(S::Knockdown));
 }
 
 #[test]
@@ -408,7 +408,7 @@ fn leaving_the_blast_zone_costs_a_stock_and_respawns_with_invulnerability() {
 
 // ---- Tech ------------------------------------------------------------------------------------------------
 
-fn land_in_hitstun(press_shield: bool) -> u8 {
+fn land_in_hitstun(press_shield: bool) -> (S, u8) {
     let mut sim = Sim::new();
     sim.stand(0, fx(-80, 10), 1);
     let f = &mut sim.state.fighters[1];
@@ -421,8 +421,8 @@ fn land_in_hitstun(press_shield: bool) -> u8 {
     sim.tick2(inp(0, 0, 0), inp(0, 0, shield));
     for _ in 0..6 {
         sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
-        if sim.fighter(1).state == S::Landing {
-            return sim.fighter(1).lag;
+        if matches!(sim.fighter(1).state, S::Landing | S::Knockdown) {
+            return (sim.fighter(1).state, sim.fighter(1).lag);
         }
     }
     panic!("never landed");
@@ -431,8 +431,8 @@ fn land_in_hitstun(press_shield: bool) -> u8 {
 #[test]
 fn a_shield_press_just_before_landing_in_hitstun_is_a_tech() {
     let rules = Sim::new().content.rules;
-    assert_eq!(land_in_hitstun(true), rules.tech_lag);
-    assert_eq!(land_in_hitstun(false), rules.knockdown_lag);
+    assert_eq!(land_in_hitstun(true), (S::Landing, rules.tech_lag));
+    assert_eq!(land_in_hitstun(false).0, S::Knockdown);
     assert!(rules.tech_lag < rules.knockdown_lag);
 }
 

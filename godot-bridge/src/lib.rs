@@ -406,6 +406,49 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
+    /// Training mode: where fighter `player` will be over its next `frames` frames if it holds the stick at
+    /// (`stick_x`, `stick_y`) and everyone else lets go of their controls. Runs on a copy of the state, so it
+    /// is exactly what the sim would do (launch, DI, gravity, landing).
+    #[func]
+    fn predict_path(
+        &self,
+        player: i32,
+        frames: i32,
+        stick_x: i32,
+        stick_y: i32,
+    ) -> PackedVector2Array {
+        let Some(i) = usize::try_from(player).ok().filter(|i| *i < MAX_FIGHTERS) else {
+            return PackedVector2Array::new();
+        };
+        let mut s = self.state;
+        let mut out: Vec<Vector2> = Vec::new();
+        let mut inputs = [Input::default(); MAX_FIGHTERS];
+        inputs[i] = Input {
+            stick_x: clamp_i8(stick_x),
+            stick_y: clamp_i8(stick_y),
+            buttons: 0,
+        };
+        for _ in 0..frames.clamp(0, 240) {
+            step(&mut s, &self.content, &inputs);
+            let p = s.fighters[i].pos;
+            out.push(Vector2::new(f(p.x), f(p.y)));
+        }
+        PackedVector2Array::from(out.as_slice())
+    }
+
+    /// [knockback of the last launch, its angle in degrees, hitstun frames left]
+    #[func]
+    fn fighter_launch(&self, i: i32) -> PackedFloat32Array {
+        let v: Vec<f32> = self.fighter(i).map_or(vec![0.0; 3], |fi| {
+            vec![
+                f(fi.launch_kb),
+                f32::from(fi.launch_angle) * 360.0 / 4096.0,
+                f32::from(fi.hitstun),
+            ]
+        });
+        PackedFloat32Array::from(v.as_slice())
+    }
+
     /// Shield health, 0 to the ruleset's maximum.
     #[func]
     fn fighter_shield(&self, i: i32) -> f32 {

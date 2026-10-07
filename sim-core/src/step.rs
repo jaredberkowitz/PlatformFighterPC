@@ -182,6 +182,8 @@ mod tests {
                             | FighterState::SpotDodge
                             | FighterState::Grabbing
                             | FighterState::Grabbed
+                            | FighterState::Knockdown
+                            | FighterState::GetUp
                             | FighterState::LedgeGetUp
                             | FighterState::LedgeAttack
                     );

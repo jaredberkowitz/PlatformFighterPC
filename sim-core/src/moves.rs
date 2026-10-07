@@ -46,10 +46,13 @@ pub enum MoveId {
     BThrow,
     UThrow,
     DThrow,
+    /// Attack out of a ledge hang, and attack out of a knockdown.
+    LedgeAttack,
+    GetUpAttack,
 }
 
 impl MoveId {
-    pub const COUNT: usize = 26;
+    pub const COUNT: usize = 28;
     /// Index of the first special move.
     pub const FIRST_SPECIAL: u8 = 13;
 
@@ -99,6 +102,8 @@ impl MoveId {
             23 => MoveId::BThrow,
             24 => MoveId::UThrow,
             25 => MoveId::DThrow,
+            26 => MoveId::LedgeAttack,
+            27 => MoveId::GetUpAttack,
             _ => MoveId::DownSpecial,
         }
     }
@@ -131,6 +136,8 @@ impl MoveId {
             MoveId::BThrow => "back throw",
             MoveId::UThrow => "up throw",
             MoveId::DThrow => "down throw",
+            MoveId::LedgeAttack => "ledge attack",
+            MoveId::GetUpAttack => "get-up attack",
         }
     }
 }
@@ -661,6 +668,31 @@ pub fn longsword() -> Weapon {
             HIT_THROW,
         ),
     ];
+    // Ledge attack: a sweep as the fighter climbs onto the stage (placeholder numbers, 42 frames like
+    // `ledge_attack_frames`).
+    moves.push(ref_move(
+        42,
+        0,
+        0,
+        255,
+        &[
+            r(20, 25, 20, 8, 9, 80, 361, 40, 80, 1, 0),
+            r(20, 25, 30, 8, 8, 100, 361, 45, 85, 0, 0),
+        ],
+    ));
+    // Get-up attack: hits on both sides while rising, intangible for the first 10 frames (placeholder numbers).
+    let mut getup_attack = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            r(12, 15, 18, 5, 9, 70, 361, 40, 80, 0, 0),
+            r(18, 21, -18, 5, 9, 70, 361, 40, 80, 0, 1),
+        ],
+    );
+    getup_attack.intangible = 10;
+    moves.push(getup_attack);
 
     // Forward tilt: first active 8, 9/12 damage (sour/tip), angle 361, FAF 34.
     moves[MoveId::FTilt as usize] = ref_move(
