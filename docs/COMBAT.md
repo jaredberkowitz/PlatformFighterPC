@@ -185,3 +185,11 @@ between characters, and the throws' two-part damage (a hit while being held, the
 The keyboard: throw with a direction held for a few frames (W for up, S for down, A / D forward or back), pummel with attack.
 Tests: `sim-core/tests/grabs.rs` (21 tests) plus a mutual-grab invariant in the random play test; the fuzzer now sends grab and
 strong-attack buttons too. Demos: `grab`, `shield_grab`.
+
+## Dash attack and Wolf visuals (follow-up)
+
+- A dash attack now also comes out in the few frames after letting go of the stick while still sliding at dash speed, instead of
+  turning into a jab (a held direction still gives a tilt or smash). Dash attacks keep their speed on the gentler run deceleration,
+  so Wolf's slides about 4 units instead of stopping in 12 frames.
+- The brawler no longer draws a sword on its kicks, specials, grabs and throws. Wolf Flash and Fire Wolf show a flame around the body
+  and Fire Wolf spins. These are stand-in visuals; real effects come with the art pass.

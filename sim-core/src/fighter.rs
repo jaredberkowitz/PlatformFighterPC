@@ -275,7 +275,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         return;
     }
     if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
-        start_ground_attack(f);
+        start_ground_attack(f, p);
         return;
     }
 
@@ -1004,11 +1004,17 @@ fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.charge = 0;
 }
 
-fn start_ground_attack(f: &mut Fighter) {
+fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
     let input = f.history[0];
     // The strong-attack button is a flick made in advance: it turns a direction into a smash attack.
     let strong = f.held(buttons::STRONG);
-    let id = if matches!(f.state, S::Dash | S::Run) {
+    // A dash attack comes out of a dash or run, and also just after letting go of the stick, while the fighter is
+    // still sliding at dash speed (releasing the stick cancels a dash, which must not turn the attack into a jab).
+    let sliding_fast = f.vel.x.abs() > p.walk_speed * Fx::from_ratio(12, 10)
+        && !x_active(input)
+        && input.stick_y.unsigned_abs() < STICK_DOWN.unsigned_abs()
+        && f.vel.x.signum_int() == i32::from(f.facing);
+    let id = if matches!(f.state, S::Dash | S::Run) || sliding_fast {
         MoveId::DashAttack
     } else if input.stick_y >= STICK_DOWN {
         if strong || f.hard_up(SMASH_FLICK_BUFFER) {
@@ -1130,7 +1136,13 @@ fn attack(
             return None;
         }
     } else {
-        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+        // A dash attack carries its speed a long way; other ground moves stop on normal friction.
+        let friction = if id == MoveId::DashAttack {
+            p.run_decel
+        } else {
+            p.ground_friction
+        };
+        f.vel.x = approach(f.vel.x, Fx::ZERO, friction);
         if !slide_on_platform(f, p, stage) {
             return None;
         }

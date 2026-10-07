@@ -217,3 +217,53 @@ fn the_strong_button_does_nothing_special_in_the_air() {
     sim.tick(inp(60, 0, ATTACK | STRONG));
     assert_eq!(sim.f().move_id, MoveId::FAir as u8);
 }
+
+// ---- Dash attacks -------------------------------------------------------------------------------------------
+
+fn wolf() -> Sim {
+    let mut sim = Sim::with_chars([1, 0, 0, 0]);
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim
+}
+
+#[test]
+fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_for_a_long_way() {
+    let mut sim = wolf();
+    sim.ticks(8, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Dash);
+    let x0 = sim.f().pos.x;
+    sim.tick(inp(127, 0, ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
+    sim.ticks(40, inp(127, 0, 0));
+    let slid = sim.f().pos.x - x0;
+    assert!(slid > fx(35, 10), "slid only {slid:?}");
+}
+
+#[test]
+fn attack_just_after_letting_go_of_a_dash_is_still_a_dash_attack_not_a_jab() {
+    let mut sim = wolf();
+    sim.ticks(8, inp(127, 0, 0));
+    sim.tick(inp(0, 0, 0)); // released: the dash is cancelled and the fighter is still sliding fast
+    assert_eq!(sim.f().state, S::Idle);
+    sim.tick(inp(0, 0, ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
+}
+
+#[test]
+fn attack_once_the_slide_has_stopped_is_a_jab() {
+    let mut sim = wolf();
+    sim.ticks(8, inp(127, 0, 0));
+    sim.ticks(30, inp(0, 0, 0));
+    assert_eq!(sim.f().vel.x, Fx::ZERO);
+    sim.tick(inp(0, 0, ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::Jab as u8);
+}
+
+#[test]
+fn attack_while_sliding_with_a_direction_held_is_still_a_tilt_or_smash() {
+    let mut sim = wolf();
+    sim.ticks(8, inp(127, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 70, ATTACK)); // up tilt, not a dash attack
+    assert_eq!(sim.f().move_id, MoveId::UTilt as u8);
+}

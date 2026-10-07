@@ -178,6 +178,18 @@ func build(p: int) -> void:
 	spark.visible = false
 	add_child(spark)
 
+	# Flame around the body for the brawler's rushing specials (a stand-in for a proper effect).
+	flame = MeshInstance3D.new()
+	flame.mesh = _sphere(1.0)
+	var flame_mat := StandardMaterial3D.new()
+	flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flame_mat.albedo_color = Color(1.0, 0.45, 0.1, 0.55)
+	flame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flame.material_override = flame_mat
+	flame.position = Vector3(0, 1.1, 0)
+	flame.visible = false
+	add_child(flame)
+
 
 func _accessories(p: int, _skin: StandardMaterial3D) -> void:
 	var white := toon(Color(0.97, 0.97, 1.0))
@@ -316,6 +328,11 @@ const MESH_LENGTH := 2.7                  # length of the blade mesh before scal
 var percent_label: Label3D
 var blade_pivot: Node3D
 var spark: MeshInstance3D
+var flame: MeshInstance3D
+## The brawler fights with feet and body, not a blade: these moves draw no weapon.
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+## Moves that rush the whole body forward in a flame.
+const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1
 var blade_angle := REST_ANGLE
 var blade_length := 2.0
@@ -395,6 +412,15 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
 	_pose_blade(s, delta)
+	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
+	var brawler: bool = s.char == 1
+	blade_pivot.visible = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
+	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
+	flame.visible = rushing
+	if rushing:
+		flame.scale = Vector3(1.3, 1.5, 1.3) * (1.0 + 0.12 * sin(float(s.frame) * 1.7))
+	if brawler and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
+		model.rotation.z = float(s.frame) * 0.6 * -float(s.facing)
 
 	var hitlag: int = s.hitlag
 	spark.visible = hitlag > 0 and state == "Hitstun" and s.launch_pending
