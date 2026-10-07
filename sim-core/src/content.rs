@@ -518,6 +518,10 @@ pub struct Ruleset {
     pub tech_lag: u8,
     /// Placeholder knockdown: landing in hitstun without a tech costs this many frames of lag.
     pub knockdown_lag: u8,
+    /// Frames a smash attack can be held charging.
+    pub charge_frames: u8,
+    /// Extra damage at full charge, in percent (40 means 1.4 times the damage).
+    pub charge_bonus_percent: u8,
 }
 
 impl Ruleset {
@@ -533,6 +537,8 @@ impl Ruleset {
             tech_window: 5,
             tech_lag: 4,
             knockdown_lag: 24,
+            charge_frames: 60,
+            charge_bonus_percent: 40,
         }
     }
 }
@@ -549,6 +555,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
         h.write_u8(self.knockdown_lag);
+        h.write_u8(self.charge_frames);
+        h.write_u8(self.charge_bonus_percent);
     }
 }
 

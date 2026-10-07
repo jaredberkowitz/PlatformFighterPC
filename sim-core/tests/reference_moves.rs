@@ -10,7 +10,7 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::combat::is_intangible;
-use sim_core::input::buttons::{ATTACK, SHIELD, SPECIAL};
+use sim_core::input::buttons::{ATTACK, SHIELD, SPECIAL, STRONG};
 use sim_core::moves::MoveId;
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, Input};
@@ -555,4 +555,385 @@ fn aerials_autocancel_in_their_reference_windows_and_otherwise_cost_their_landin
     // Brawler forward air: lag 10, autocancels from frame 29.
     assert_eq!(landing_lag(WOLF, MoveId::FAir, 26), 10);
     assert_eq!(landing_lag(WOLF, MoveId::FAir, 27), normal_wolf);
+}
+
+// ---- Move data tables ------------------------------------------------------------------------------------
+//
+// These pin the published numbers (frames numbered as in the reference: first actionable frame FAF means the
+// move is `FAF - 2` internal frames long, a hitbox listed on frame N is internal frame N - 1).
+
+fn weapon(sim: &Sim, chars: [u8; 4]) -> &sim_core::moves::Weapon {
+    let w = sim.content.fighters[usize::from(chars[0])].weapon;
+    &sim.content.weapons[usize::from(w)]
+}
+
+/// (first frame, last frame, damage in tenths) for every hitbox of a move, in reference numbering.
+fn rows(sim: &Sim, chars: [u8; 4], id: MoveId) -> Vec<(u8, u8, i32)> {
+    weapon(sim, chars).moves[id as usize]
+        .hitboxes
+        .iter()
+        .map(|h| {
+            (
+                h.start + 1,
+                h.end + 1,
+                (h.damage * Fx::from_int(10) + Fx::HALF).floor_int(),
+            )
+        })
+        .collect()
+}
+
+fn faf(sim: &Sim, chars: [u8; 4], id: MoveId) -> u8 {
+    weapon(sim, chars).moves[id as usize].total_frames + 2
+}
+
+#[test]
+fn the_new_marth_style_moves_carry_the_published_timing_and_damage() {
+    let sim = Sim::with_chars(MARTH);
+    let timing = |id| (faf(&sim, MARTH, id), rows(&sim, MARTH, id));
+
+    // Up tilt: FAF 34; 6/5/5 on frame 6, then 10/6/5/5 on 7-8, then 10/6/5/5 on 9-12.
+    let (f, r) = timing(MoveId::UTilt);
+    assert_eq!(f, 34);
+    assert_eq!(r.iter().filter(|x| x.0 == 6).map(|x| x.2).max(), Some(60));
+    assert_eq!(r.iter().filter(|x| x.0 == 7).map(|x| x.2).max(), Some(100));
+    assert_eq!(r.iter().filter(|x| x.0 == 9).map(|x| x.2).max(), Some(100));
+    assert_eq!(r.iter().map(|x| x.1).max(), Some(12));
+
+    // Down tilt: frames 7-8, 7% and 10%, FAF 24.
+    let (f, r) = timing(MoveId::DTilt);
+    assert_eq!((f, r), (24, vec![(7, 8, 70), (7, 8, 100)]));
+
+    // Forward smash: frames 10-13, 13% and 18% at the tip, FAF 52.
+    let (f, r) = timing(MoveId::FSmash);
+    assert_eq!(f, 52);
+    assert!(r.iter().all(|x| x.0 == 10 && x.1 == 13));
+    assert_eq!(r.iter().map(|x| x.2).max(), Some(180));
+    assert_eq!(r.iter().map(|x| x.2).min(), Some(130));
+
+    // Up smash: frames 13-17, 13% and 17% at the tip, FAF 59.
+    let (f, r) = timing(MoveId::USmash);
+    assert_eq!(f, 59);
+    assert!(r.iter().all(|x| x.0 == 13 && x.1 == 17));
+    assert_eq!(r.iter().map(|x| x.2).max(), Some(170));
+
+    // Down smash: front hit on 6-7 (8 / 12), back hit on 21-23 (12 / 17), FAF 56.
+    let (f, r) = timing(MoveId::DSmash);
+    assert_eq!(f, 56);
+    assert_eq!(r.iter().filter(|x| x.0 == 6).map(|x| x.2).max(), Some(120));
+    assert_eq!(r.iter().filter(|x| x.0 == 6).map(|x| x.2).min(), Some(80));
+    assert_eq!(r.iter().filter(|x| x.0 == 21).map(|x| x.2).max(), Some(170));
+    assert_eq!(r.iter().filter(|x| x.0 == 21).map(|x| x.2).min(), Some(120));
+
+    // Up air: frames 5-9, 9.5% and 13% at the tip, FAF 46, landing lag 8, autocancels on 1-2 and from 38.
+    let (f, r) = timing(MoveId::UAir);
+    assert_eq!(f, 46);
+    assert!(r.iter().all(|x| x.0 == 5 && x.1 == 9));
+    assert_eq!(r.iter().map(|x| x.2).max(), Some(130));
+    assert_eq!(r.iter().map(|x| x.2).min(), Some(95));
+    let uair = &weapon(&sim, MARTH).moves[MoveId::UAir as usize];
+    assert_eq!(
+        (
+            uair.landing_lag,
+            uair.autocancel_before,
+            uair.autocancel_after
+        ),
+        (8, 2, 37)
+    );
+}
+
+#[test]
+fn the_new_wolf_style_moves_carry_the_published_timing_and_damage() {
+    let sim = Sim::with_chars(WOLF);
+    // Up tilt: frames 7-11 (the 10% foot only on 7-8), 8/9/10% along the leg, FAF 36.
+    let r = rows(&sim, WOLF, MoveId::UTilt);
+    assert_eq!(faf(&sim, WOLF, MoveId::UTilt), 36);
+    assert_eq!(r.iter().map(|x| (x.0, x.1)).min(), Some((7, 8)));
+    assert_eq!(r.iter().map(|x| x.1).max(), Some(11));
+    let mut damages: Vec<i32> = r.iter().map(|x| x.2).collect();
+    damages.sort_unstable();
+    assert_eq!(damages, vec![80, 90, 100, 100]);
+    // Down tilt: frames 5-6, 6%, FAF 28.
+    let r = rows(&sim, WOLF, MoveId::DTilt);
+    assert_eq!(faf(&sim, WOLF, MoveId::DTilt), 28);
+    assert!(r.iter().all(|x| *x == (5, 6, 60)));
+}
+
+// ---- Marth-style tilts, smashes and up air in play ---------------------------------------------------------
+
+#[test]
+fn marth_style_up_tilt_hits_in_front_on_frame_6_for_6_percent_with_the_tip() {
+    let mut sim = ground_duel(MARTH, fx(14, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, 70, ATTACK)), Some(6));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 60));
+    assert_eq!(sim.f().move_id, MoveId::UTilt as u8);
+}
+
+#[test]
+fn marth_style_down_tilt_stabs_low_on_frame_7_for_7_percent_close_and_10_at_the_tip() {
+    let mut tip = ground_duel(MARTH, fx(31, 10));
+    assert_eq!(hit_tick(&mut tip, inp(0, -70, ATTACK)), Some(7));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 100));
+    let mut close = ground_duel(MARTH, fx(10, 10));
+    assert_eq!(hit_tick(&mut close, inp(0, -70, ATTACK)), Some(7));
+    assert_eq!(close.fighter(1).percent, pct(&close, 70));
+    let v = launch_velocity(&mut close);
+    assert!(v.x > Fx::ZERO, "launched forward: {v:?}");
+}
+
+#[test]
+fn marth_style_forward_smash_hits_on_frame_10_for_13_percent_and_18_at_the_tip() {
+    let mut tip = ground_duel(MARTH, fx(34, 10));
+    assert_eq!(hit_tick(&mut tip, inp(60, 0, ATTACK | STRONG)), Some(10));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 180));
+    let mut close = ground_duel(MARTH, fx(10, 10));
+    assert_eq!(hit_tick(&mut close, inp(60, 0, ATTACK | STRONG)), Some(10));
+    assert_eq!(close.fighter(1).percent, pct(&close, 130));
+}
+
+#[test]
+fn marth_style_up_smash_hits_overhead_on_frame_13() {
+    let mut sim = ground_duel(MARTH, fx(5, 10));
+    let hit = hit_tick(&mut sim, inp(0, 100, ATTACK | STRONG));
+    assert_eq!(hit, Some(13));
+    assert_eq!(sim.f().move_id, MoveId::USmash as u8);
+    assert!(sim.fighter(1).percent >= pct(&sim, 130));
+    let v = launch_velocity(&mut sim);
+    assert!(
+        v.y > v.x.abs() * Fx::from_int(5),
+        "nearly straight up: {v:?}"
+    );
+}
+
+#[test]
+fn marth_style_down_smash_hits_in_front_on_frame_6_and_behind_on_frame_21() {
+    // Front hit: 12% at the tip.
+    let mut front = ground_duel(MARTH, fx(31, 10));
+    assert_eq!(hit_tick(&mut front, inp(0, -100, ATTACK | STRONG)), Some(6));
+    assert_eq!(front.fighter(1).percent, pct(&front, 120));
+    // Back hit: 17% at the tip, from a victim standing behind.
+    let mut back = ground_duel(MARTH, fx(-31, 10));
+    assert_eq!(hit_tick(&mut back, inp(0, -100, ATTACK | STRONG)), Some(21));
+    assert_eq!(back.fighter(1).percent, pct(&back, 170));
+    let v = launch_velocity(&mut back);
+    assert!(
+        v.x < Fx::ZERO,
+        "the back hit sends the victim backward: {v:?}"
+    );
+}
+
+#[test]
+fn marth_style_down_smash_can_hit_the_same_victim_with_both_swings() {
+    let mut sim = ground_duel(MARTH, fx(2, 10));
+    sim.tick(inp(0, -100, ATTACK | STRONG));
+    sim.ticks(40, inp(0, 0, 0));
+    // A close victim is struck by the front swing; the back swing is a separate hit group.
+    let mask = sim.f().hit_mask;
+    assert_ne!(mask & 0b0010, 0, "front swing");
+}
+
+#[test]
+fn marth_style_up_air_hits_on_frame_5_for_9_5_percent_close_and_13_at_the_tip() {
+    let mut sour = air_duel(MARTH, fx(0, 1));
+    assert_eq!(hit_tick(&mut sour, inp(0, 100, ATTACK)), Some(5));
+    assert_eq!(sour.fighter(1).percent, pct(&sour, 95));
+
+    let mut tip = air_duel(MARTH, fx(0, 1));
+    tip.put_airborne(1, Fx::ZERO, Fx::from_int(33), Fx::ZERO, Fx::ZERO);
+    assert_eq!(hit_tick(&mut tip, inp(0, 100, ATTACK)), Some(5));
+    assert_eq!(tip.fighter(1).percent, pct(&tip, 130));
+}
+
+// ---- Charging smash attacks ------------------------------------------------------------------------------
+
+/// Holds the attack button for `held` ticks after pressing it, then lets go; returns fighter 1's percent.
+fn charged_fsmash(held: usize) -> Fx {
+    let mut sim = ground_duel(MARTH, fx(34, 10));
+    sim.tick(inp(60, 0, ATTACK | STRONG));
+    sim.ticks(held, inp(0, 0, ATTACK));
+    sim.ticks(40, inp(0, 0, 0));
+    sim.fighter(1).percent
+}
+
+#[test]
+fn holding_attack_charges_a_smash_attack_for_up_to_40_percent_more_damage() {
+    let base = charged_fsmash(0);
+    assert_eq!(base, Fx::from_ratio(180, 10) * Fx::from_ratio(12, 10));
+    let half = charged_fsmash(30);
+    let full = charged_fsmash(60);
+    let tol = fx(1, 20);
+    assert!(
+        (half - base * fx(12, 10)).abs() < tol,
+        "half charge {half:?}"
+    );
+    assert!(
+        (full - base * fx(14, 10)).abs() < tol,
+        "full charge {full:?}"
+    );
+    // Holding longer than the limit adds nothing.
+    assert_eq!(charged_fsmash(100), full);
+}
+
+#[test]
+fn charging_holds_the_move_still_and_the_hit_comes_when_it_is_released() {
+    let mut sim = ground_duel(MARTH, fx(34, 10));
+    sim.tick(inp(60, 0, ATTACK | STRONG));
+    sim.ticks(20, inp(0, 0, ATTACK));
+    assert_eq!(sim.fighter(1).percent, Fx::ZERO, "still charging");
+    assert_eq!(sim.f().charge, 20);
+    // After letting go the move resumes where it paused: the hit is 9 ticks later, as it was after the press.
+    let mut when = None;
+    for t in 1..=30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > Fx::ZERO {
+            when = Some(t);
+            break;
+        }
+    }
+    assert_eq!(when, Some(9));
+}
+
+#[test]
+fn moves_without_a_charge_frame_ignore_a_held_button() {
+    let mut sim = ground_duel(MARTH, fx(30, 10));
+    sim.tick(inp(30, 0, ATTACK));
+    sim.ticks(60, inp(0, 0, ATTACK));
+    assert_eq!(sim.f().charge, 0);
+    assert_eq!(
+        sim.f().state,
+        S::Idle,
+        "a held button does not stall a forward tilt"
+    );
+}
+
+#[test]
+fn charging_needs_the_attack_button_itself() {
+    let mut sim = ground_duel(MARTH, fx(34, 10));
+    sim.tick(inp(60, 0, ATTACK | STRONG));
+    sim.ticks(30, inp(0, 0, SHIELD));
+    assert_eq!(sim.f().charge, 0);
+}
+
+// ---- Up special grabs the ledge mid-move -------------------------------------------------------------------
+
+fn recovery_from(x: Fx, y: Fx) -> Sim {
+    let mut sim = Sim::new();
+    sim.put_airborne(0, x, y, Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    park_the_others(&mut sim);
+    sim.state.fighters[1].invuln = 255;
+    sim
+}
+
+#[test]
+fn an_up_special_grabs_the_ledge_in_the_middle_of_the_move() {
+    let mut sim = recovery_from(fx(-125, 10), fx(-50, 10));
+    sim.tick(inp(0, 127, SPECIAL));
+    let mut grabbed_at = None;
+    for t in 2..=30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::LedgeHang {
+            grabbed_at = Some(t);
+            break;
+        }
+        assert_eq!(sim.f().state, S::Attack, "tick {t}");
+    }
+    let t = grabbed_at.expect("the slash passes the ledge and should grab it");
+    assert!(t < 20, "grabbed while still rising, on tick {t}");
+    assert_eq!(sim.f().ledge, 0);
+}
+
+#[test]
+fn an_up_special_far_from_any_ledge_does_not_grab() {
+    let mut sim = recovery_from(fx(-250, 10), fx(-50, 10));
+    sim.tick(inp(0, 127, SPECIAL));
+    for _ in 0..60 {
+        sim.tick(inp(0, 0, 0));
+        assert_ne!(sim.f().state, S::LedgeHang);
+    }
+}
+
+#[test]
+fn an_up_special_respects_the_ledge_regrab_cooldown() {
+    let mut sim = recovery_from(fx(-125, 10), fx(-50, 10));
+    sim.state.fighters[0].ledge_cooldown = 200;
+    sim.tick(inp(0, 127, SPECIAL));
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        assert_ne!(sim.f().state, S::LedgeHang);
+    }
+}
+
+#[test]
+fn only_moves_marked_as_ledge_grabbers_grab_mid_move() {
+    // An up air next to the ledge does not grab until it ends.
+    let mut sim = recovery_from(fx(-125, 10), fx(-10, 10));
+    sim.tick(inp(0, 100, ATTACK));
+    for t in 2..=20 {
+        sim.tick(inp(0, 0, 0));
+        assert_ne!(sim.f().state, S::LedgeHang, "tick {t}");
+    }
+}
+
+// ---- Wolf-style tilts in play ------------------------------------------------------------------------------
+
+#[test]
+fn wolf_style_up_tilt_hits_on_frame_7_for_10_percent_with_the_foot() {
+    let mut sim = ground_duel(WOLF, fx(9, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, 70, ATTACK)), Some(7));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 100));
+    let v = launch_velocity(&mut sim);
+    // Angle 80: mostly upward, a little forward.
+    assert!(v.y > v.x && v.x > Fx::ZERO, "{v:?}");
+}
+
+#[test]
+fn wolf_style_down_tilt_kicks_low_on_frame_5_for_6_percent() {
+    let mut sim = ground_duel(WOLF, fx(17, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, -70, ATTACK)), Some(5));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 60));
+}
+
+#[test]
+fn the_new_moves_return_control_on_their_first_actionable_frames() {
+    let cases: [([u8; 4], Input, bool, usize, &str); 8] = [
+        ([0; 4], inp(0, 70, ATTACK), false, 34, "marth up tilt"),
+        ([0; 4], inp(0, -70, ATTACK), false, 24, "marth down tilt"),
+        (
+            [0; 4],
+            inp(60, 0, ATTACK | STRONG),
+            false,
+            52,
+            "marth forward smash",
+        ),
+        (
+            [0; 4],
+            inp(0, 100, ATTACK | STRONG),
+            false,
+            59,
+            "marth up smash",
+        ),
+        (
+            [0; 4],
+            inp(0, -100, ATTACK | STRONG),
+            false,
+            56,
+            "marth down smash",
+        ),
+        ([0; 4], inp(0, 100, ATTACK), true, 46, "marth up air"),
+        ([1; 4], inp(0, 70, ATTACK), false, 36, "wolf up tilt"),
+        ([1; 4], inp(0, -70, ATTACK), false, 28, "wolf down tilt"),
+    ];
+    for (chars, input, aerial, faf, name) in cases {
+        assert_eq!(first_actionable_tick(chars, input, aerial), faf, "{name}");
+    }
+}
+
+#[test]
+fn up_air_autocancels_on_frames_1_2_and_from_38_and_otherwise_lands_with_8_frames_of_lag() {
+    let normal = Sim::with_chars(MARTH).content.fighters[0].landing_lag;
+    // `landing_lag` takes the move frame before the tick; the tick that lands is then reference frame N + 2.
+    assert_eq!(landing_lag(MARTH, MoveId::UAir, 0), normal, "frame 2");
+    assert_eq!(landing_lag(MARTH, MoveId::UAir, 1), 8, "frame 3");
+    assert_eq!(landing_lag(MARTH, MoveId::UAir, 35), 8, "frame 37");
+    assert_eq!(landing_lag(MARTH, MoveId::UAir, 36), normal, "frame 38");
 }

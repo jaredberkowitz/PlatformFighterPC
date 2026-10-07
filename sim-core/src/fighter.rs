@@ -110,6 +110,9 @@ fn enter(f: &mut Fighter, state: S) {
     if !matches!(state, S::Airborne | S::Attack) {
         f.hop_boost = 0;
     }
+    if state != S::Attack {
+        f.charge = 0;
+    }
 }
 
 fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
@@ -172,7 +175,7 @@ pub fn update(
     f.state_frame = f.state_frame.saturating_add(1);
 
     match f.state {
-        S::Attack => attack(f, p, weapon, stage),
+        S::Attack => return attack(f, p, weapon, stage, rules),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
         S::JumpSquat => jump_squat(f, p, stage),
@@ -785,6 +788,7 @@ fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.hit_mask = 0;
     enter(f, S::Attack);
+    f.charge = 0;
 }
 
 fn start_ground_attack(f: &mut Fighter) {
@@ -836,9 +840,25 @@ fn start_air_attack(f: &mut Fighter) {
     begin_attack(f, id);
 }
 
-fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
+/// Advances a move one frame. Returns the ledge it wants to grab, if the move can grab ledges.
+fn attack(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+) -> Option<u8> {
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
+
+    // A smash attack holds on its charge frame while the button stays held.
+    let charging = mv.charge_at.is_some_and(|c| u16::from(c) == f.state_frame)
+        && f.charge < rules.charge_frames
+        && f.held(buttons::ATTACK);
+    if charging {
+        f.charge += 1;
+        f.state_frame -= 1;
+    }
 
     // A move can fire a projectile on one frame (the step applies the request).
     if let Some(spec) = mv.projectile {
@@ -870,7 +890,7 @@ fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         if let Some(platform) = moved.landing {
             land(f, p, stage, platform);
             enter_landing(f, mv.landing_lag);
-            return;
+            return None;
         }
     } else if id.is_aerial() || (id.is_special() && !f.grounded()) {
         if air_move(f, p, stage) {
@@ -878,12 +898,12 @@ fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
             let clean =
                 frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
             enter_landing(f, if clean { p.landing_lag } else { mv.landing_lag });
-            return;
+            return None;
         }
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
         if !slide_on_platform(f, p, stage) {
-            return;
+            return None;
         }
     }
 
@@ -899,6 +919,12 @@ fn attack(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
             enter(f, S::Airborne);
         }
     }
+
+    // Up specials can grab a ledge in mid-move, rising or not, so a recovery that reaches it is forgiving.
+    if mv.grabs_ledge && f.ledge_cooldown == 0 {
+        return collision::find_ledge(stage, f.pos, p).map(|i| i as u8);
+    }
+    None
 }
 
 /// Starts a special move chosen by the stick, if the weapon has one there. Returns whether it started.

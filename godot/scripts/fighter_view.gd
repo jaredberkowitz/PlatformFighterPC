@@ -396,6 +396,13 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		spark.scale = Vector3.ONE * (0.5 + 0.1 * hitlag)
 	# Shake while frozen in hitlag.
 	model.position = Vector3(sin(float(s.frame) * 9.0) * 0.14, 0, 0) if hitlag > 0 else Vector3.ZERO
+	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
+	var charge: int = s.charge
+	if charge > 0 and state == "Attack":
+		var amount := clampf(charge / 60.0, 0.0, 1.0)
+		spark.visible = (s.frame / 3) % 2 == 0
+		spark.scale = Vector3.ONE * (0.4 + 0.9 * amount)
+		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
 			model.rotation.z = float(s.frame) * 0.4 * -float(s.facing)

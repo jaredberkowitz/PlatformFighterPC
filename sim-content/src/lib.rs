@@ -155,6 +155,19 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 errors.push(format!("weapon {i} {name}: projectile has no lifetime"));
             }
         }
+        if let Some(at) = mv.charge_at {
+            let first_hit = mv
+                .hitboxes
+                .iter()
+                .map(|hb| hb.start)
+                .min()
+                .unwrap_or(u8::MAX);
+            if at >= first_hit {
+                errors.push(format!(
+                    "weapon {i} {name}: charge frame {at} must come before the first hitbox ({first_hit})"
+                ));
+            }
+        }
         for hb in &mv.hitboxes {
             if hb.group > 1 {
                 errors.push(format!("weapon {i} {name}: hitbox group must be 0 or 1"));

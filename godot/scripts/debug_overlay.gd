@@ -83,7 +83,7 @@ func update(snaps: Array, inputs: Array, info: Dictionary) -> void:
 		if s.dodged: flags.append("dodged")
 		if s.fast_fall: flags.append("fastfall")
 		if s.ledge >= 0: flags.append("ledge%d" % s.ledge)
-		var combat_line := "dmg %5.1f%%  stocks %d  hitlag %d  stun %d  %s" % [s.percent, s.stocks, s.hitlag, s.hitstun, s.move_name]
+		var combat_line := "dmg %5.1f%%  stocks %d  hitlag %d  stun %d  %s%s" % [s.percent, s.stocks, s.hitlag, s.hitstun, s.move_name, ("  charge %d" % s.charge) if s.charge > 0 else ""]
 		labels[i].text = "P%d  %s  f%d\nface %s  plat %d  jumps %d  lag %d\npos %6.2f %6.2f   vel %6.3f %6.3f\nledge inv %d  grabs %d  cd %d\n%s\n%s" % [
 			i + 1, s.state, s.state_frame, "R" if s.facing > 0 else "L", s.platform, s.jumps, s.lag,
 			s.pos.x, s.pos.y, s.vel.x, s.vel.y, s.ledge_invuln, s.grabs, s.cooldown, " ".join(flags), combat_line]

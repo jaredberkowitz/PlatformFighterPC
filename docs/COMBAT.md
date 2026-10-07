@@ -59,9 +59,17 @@ frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable 
 | Swordfighter neutral air | two hits: 6-7 (3.5% / 5%, angles 75-90, KB 45 / 35, growth 50) and 15-21 (7% / 9.5%, angle 361, KB 50 / 60, growth 90 / 100), lag 7, autocancel from 47, FAF 50 |
 | Swordfighter forward tilt | hits 8-11, 9% / 12%, angle 361, KB 30 / 55, growth 70 / 85, FAF 34 |
 | Swordfighter up special | intangible frames 1-5 in the air, hits from frame 5 (11% early tip, then 7%), angle 74, helpless after |
+| Swordfighter up tilt | one hit in three phases: frame 6 (6% tip, 5% arm and body, angle 100, KB 65, growth 100), 7-8 (10% tipper, 6% sour, 5%), 9-12 (same damage, angle 85, KB 52), FAF 34 |
+| Swordfighter down tilt | frames 7-8, 7% close / 10% tip, angle 30, KB 40 / 50, growth 40, FAF 24 (the reference game's 35% trip chance is not implemented) |
+| Swordfighter forward smash | frames 10-13, 13% / 18% tip, angle 361, KB 48 / 80, growth 75 / 80, FAF 52, charges |
+| Swordfighter up smash | frames 13-17 overhead, 13% / 17% tip, angle 89, KB 45 / 40, growth 90 / 95, FAF 59, charges. The reference 3% launcher (pulls grounded targets in) is not implemented |
+| Swordfighter down smash | front hit frames 6-7 (8% / 12% tip, KB 60 / 50, growth 88), back hit frames 21-23 (12% / 17% tip, KB 40 / 50, growth 88 / 92), angle 361, FAF 56, charges |
+| Swordfighter up air | frames 5-9, 9.5% / 13% tip, angle 80 / 90, KB 40, growth 80 / 84, landing lag 8, autocancel 1-2 and from 38, FAF 46 |
 | Brawler forward air | hits 7-9, 9%, angle 60, KB 45, growth 85, lag 10, autocancel from 29, FAF 41 |
 | Brawler neutral air | 12% on 7-9 (KB 30, growth 75), then 8% on 10-26 (KB 0, growth 100), lag 9, autocancel 1-6 and from 38, FAF 43 |
 | Brawler forward tilt | two hits: frame 8 (5%, angle 60, KB 10, growth 70) and 9-10 (6%, angle 361, KB 55, growth 106), FAF 35 |
+| Brawler up tilt | an overhead kick, frames 7-11 (10% foot only on 7-8, 8% / 9% / 10% along the leg), angle 80, KB 30, growth 115-120, FAF 36 |
+| Brawler down tilt | a low kick, frames 5-6, 6%, angle 361, KB 25, growth 100, FAF 28 |
 | Brawler blaster | bayonet on frames 15-19 (7%, angle 60, KB 80, growth 37); otherwise a shot on frame 16 that does 8% falling to 6% over its range (about two thirds of the stage), FAF 53 |
 
 **Sources:** two community frame-data tables (ultimateframedata.com and kuroganehammer.com) cross-checked against each other,
@@ -70,7 +78,25 @@ plus SmashWiki for the blaster. Where they disagreed on a total frame count I us
 **Estimates (not published in those sources):** hitbox positions and sizes; the up special's travel (about 44 reference
 units straight up with a little forward drift, then its leftover speed) and landing lag; the blaster shot's speed (3 reference
 units a frame), exact range (35 frames), knockback (a flinch) and muzzle position; the 8-to-6 percent damage falloff direction.
-Everything else in the movesets (jab, other tilts, smashes, up and down air, specials not listed) is still placeholder.
+The up tilt's three phases are placed as an arc in front of, above and behind the fighter. Everything else in the movesets
+(jabs, dash attacks, down air, specials not listed, and the brawler's smash attacks and up air, which are the swordfighter's
+scaled down) is still placeholder.
+
+Two sources disagreed on some values, so: damage numbers come from ultimateframedata and kuroganehammer, which agree; the
+down smash tipper's first-hit base knockback is 50 (kuroganehammer) rather than 57 (SmashWiki); the up air's first actionable
+frame is 46 and landing lag 8 (the 24-frame landing animation is not the lag).
+
+### Charging smash attacks
+
+A smash attack holds on its charge frame while the attack button stays held, up to 60 frames (`Ruleset::charge_frames`),
+then deals up to 40% more damage (`charge_bonus_percent`), which also raises knockback. Marth-style charge frames: forward
+smash frame 2, up and down smash frame 4. The fighter trembles and a glow grows while charging. A smash is a flick of the
+stick plus attack, or the strong key (`I`) plus a direction.
+
+### Up specials grab the ledge mid-move
+
+`Move::grabs_ledge`: while the up special is in progress (rising or not) the fighter grabs a ledge that is inside its grab
+box, so a recovery that reaches the ledge is forgiving. The regrab cooldown still applies.
 
 ## Weapon visuals
 
@@ -80,7 +106,8 @@ At rest it is held up and ready. While standing it is clamped above the floor. F
 
 ## Tests
 
-`sim-core/tests/reference_moves.rs` (25 tests) pins each hit frame, damage, launch angle, knockback, control-return frame,
+`sim-core/tests/reference_moves.rs` (about 50 tests) pins each hit frame, damage, launch angle, knockback, control-return frame,
 autocancel window and landing lag above, plus the blaster's spawn frame, speed, range, falloff, flinch, bayonet and blocking,
 and the up special's intangibility, rise, hit and helplessness. Demos: `--demo=marth_fair`, `marth_bair`, `marth_nair`,
-`marth_dolphin`, `wolf_fair`, `wolf_nair`, `wolf_ftilt`, `wolf_blaster`, `low`.
+`marth_dolphin`, `marth_utilt`, `marth_dtilt`, `marth_fsmash` (charged), `marth_usmash`, `marth_dsmash`, `marth_uair`,
+`marth_upb_ledge`, `wolf_fair`, `wolf_nair`, `wolf_ftilt`, `wolf_utilt`, `wolf_dtilt`, `wolf_blaster`, `low`.

@@ -161,7 +161,7 @@ func _refresh(i: int) -> void:
 		"lag": info[8], "cooldown": info[9], "ignore": info[10], "frame": sim.frame(),
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
-		"move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
+		"charge": sim.fighter_charge(i), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i),
 	}
 

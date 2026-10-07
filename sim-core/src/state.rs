@@ -102,6 +102,8 @@ pub struct Fighter {
     pub move_id: u8,
     /// Bit `n` set means this move has already hit fighter `n`.
     pub hit_mask: u8,
+    /// Frames the current smash attack has been charged.
+    pub charge: u8,
     /// Invulnerable frames remaining (respawn).
     pub invuln: u8,
     /// The current move wants to spawn its projectile this frame (consumed by `step`).
@@ -182,6 +184,7 @@ impl Fighter {
             tumble: false,
             move_id: 0,
             hit_mask: 0,
+            charge: 0,
             invuln: 0,
             spawn_request: false,
             history: [Input::default(); HISTORY_LEN],
@@ -256,6 +259,7 @@ impl StateHash for Fighter {
         h.write_bool(self.tumble);
         h.write_u8(self.move_id);
         h.write_u8(self.hit_mask);
+        h.write_u8(self.charge);
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
         for input in &self.history {
@@ -480,6 +484,11 @@ mod tests {
             ("hit_mask", {
                 let mut s = state;
                 s.fighters[0].hit_mask = 1;
+                s
+            }),
+            ("charge", {
+                let mut s = state;
+                s.fighters[0].charge = 1;
                 s
             }),
             ("invuln", {

@@ -279,6 +279,12 @@ impl SimRunner {
         PackedInt32Array::from(v.as_slice())
     }
 
+    /// Frames the fighter's current smash attack has been charged.
+    #[func]
+    fn fighter_charge(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(0, |fi| i32::from(fi.charge))
+    }
+
     #[func]
     fn fighter_kb_vel(&self, i: i32) -> Vector2 {
         self.fighter(i).map_or(Vector2::ZERO, |fi| {

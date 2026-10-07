@@ -22,6 +22,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var shield: int = m.shield
 	var attack: int = m.attack
 	var special: int = m.special
+	var strong: int = m.strong
 	match demo_name:
 		"wavedash":
 			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 100, -80, shield], [36, 0, 0, 0]]
@@ -154,6 +155,71 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [11, 0, 0, 0]]
 			d.shots = [[20, "a_draw"], [27, "b_shot"], [36, "c_flying"], [46, "d_hit"], [62, "e_after"]]
 			d.end_frame = 80
+		"marth_utilt":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.2, -1]]
+			d.timeline = [[0, 0, 0, 0], [4, 0, 66, 0], [12, 0, 66, attack], [14, 0, 66, 0], [22, 0, 0, 0]]
+			d.shots = [[15, "a_windup"], [18, "b_hit"], [22, "c_swing"], [32, "d_after"]]
+			d.end_frame = 50
+		"marth_dtilt":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.9, -1]]
+			d.timeline = [[0, 0, 0, 0], [4, 0, -66, 0], [12, 0, -66, attack], [14, 0, -66, 0], [22, 0, 0, 0]]
+			d.shots = [[16, "a_windup"], [19, "b_hit"], [24, "c_after"]]
+			d.end_frame = 40
+		"marth_fsmash":
+			# Holds the attack for 36 frames of charge, then releases.
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 2.3, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 90, 0, attack | strong], [11, 0, 0, attack], [46, 0, 0, 0]]
+			d.shots = [[8, "a_idle"], [30, "b_charging"], [50, "c_swing"], [54, "d_hit"], [62, "e_launch"], [90, "f_after"]]
+			d.end_frame = 110
+		"marth_usmash":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.2, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack | strong], [11, 0, 0, 0]]
+			d.shots = [[16, "a_windup"], [23, "b_hit"], [28, "c_launch"], [45, "d_after"]]
+			d.end_frame = 75
+		"marth_dsmash":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, -100, attack | strong], [11, 0, 0, 0]]
+			d.shots = [[14, "a_front_swing"], [18, "b_front_hit"], [28, "c_pause"], [32, "d_back_swing"], [40, "e_after"]]
+			d.end_frame = 75
+		"marth_uair":
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -1.4, 8.4]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack], [11, 0, 0, 0]]
+			d.shots = [[12, "a_windup"], [15, "b_hit"], [18, "c_hitlag"], [30, "d_launched"]]
+			d.end_frame = 45
+		"marth_upb_ledge":
+			# Up special from below the ledge: it grabs in mid-move.
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 24.0
+			d.events = [[2, "place", 0, -12.5, -5.0]]
+			d.timeline = [[0, 0, 0, 0], [6, 0, 127, special], [7, 0, 0, 0]]
+			d.shots = [[8, "a_start"], [12, "b_rising"], [16, "c_grabbed"], [40, "d_hanging"]]
+			d.end_frame = 50
+		"wolf_utilt":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [4, 0, 66, 0], [12, 0, 66, attack], [14, 0, 66, 0], [22, 0, 0, 0]]
+			d.shots = [[15, "a_windup"], [19, "b_hit"], [24, "c_late"], [36, "d_after"]]
+			d.end_frame = 55
+		"wolf_dtilt":
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 20.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [4, 0, -66, 0], [12, 0, -66, attack], [14, 0, -66, 0], [22, 0, 0, 0]]
+			d.shots = [[15, "a_windup"], [17, "b_hit"], [22, "c_after"]]
+			d.end_frame = 40
 		"low":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 18.0

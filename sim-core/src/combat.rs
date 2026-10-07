@@ -164,6 +164,16 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     } else {
                         attacker.facing
                     };
+                    // A charged smash attack hits harder; the damage also feeds the knockback.
+                    let mut hb = hb;
+                    if attacker.charge > 0 {
+                        let rules = &content.rules;
+                        let bonus = Fx::from_ratio(
+                            i32::from(attacker.charge) * i32::from(rules.charge_bonus_percent),
+                            100 * i32::from(rules.charge_frames.max(1)),
+                        );
+                        hb.damage = hb.damage * (Fx::ONE + bonus);
+                    }
                     apply_hit(state, content, a, d, &hb, facing, attacker.pos, true);
                 }
             }

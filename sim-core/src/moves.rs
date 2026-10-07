@@ -166,6 +166,11 @@ pub struct Move {
     pub helpless_after: bool,
     /// The fighter ends the move facing the other way.
     pub turns_around: bool,
+    /// The fighter can grab a ledge while the move is in progress, even while rising (an up special).
+    pub grabs_ledge: bool,
+    /// A smash attack holds on this move frame while the attack button stays held, up to the
+    /// ruleset's charge limit, and then deals more damage the longer it was held.
+    pub charge_at: Option<u8>,
 }
 
 impl Move {
@@ -182,6 +187,8 @@ impl Move {
             intangible: 0,
             helpless_after: false,
             turns_around: false,
+            grabs_ledge: false,
+            charge_at: None,
         }
     }
 
@@ -254,6 +261,14 @@ impl StateHash for Weapon {
             h.write_u8(m.intangible);
             h.write_bool(m.helpless_after);
             h.write_bool(m.turns_around);
+            h.write_bool(m.grabs_ledge);
+            match m.charge_at {
+                Some(f) => {
+                    h.write_bool(true);
+                    h.write_u8(f);
+                }
+                None => h.write_bool(false),
+            }
         }
     }
 }
@@ -490,6 +505,104 @@ pub fn longsword() -> Weapon {
             r(8, 11, 34, 11, 7, 120, 361, 55, 85, 0, 0),
         ],
     );
+    // Up tilt: one hit in three phases, an overhead arc. Early (frame 6) 6% tip, 5% arm and body; frames 7-8
+    // 10% tipper / 6% sourspot; frames 9-12 the same with a lower angle (85) and knockback (52). FAF 34.
+    // Angle 100 pulls a victim in front of the sword back toward the fighter.
+    moves[MoveId::UTilt as usize] = ref_move(
+        34,
+        0,
+        0,
+        255,
+        &[
+            r(6, 6, 14, 26, 8, 60, 100, 65, 100, 0, 0),
+            r(6, 6, 9, 20, 7, 50, 100, 65, 100, 1, 0),
+            r(6, 6, 3, 18, 8, 50, 100, 65, 100, 1, 0),
+            r(7, 8, 9, 31, 7, 100, 100, 65, 100, 0, 0),
+            r(7, 8, 6, 27, 8, 60, 100, 65, 100, 1, 0),
+            r(7, 8, 3, 22, 7, 50, 100, 65, 100, 1, 0),
+            r(7, 8, 0, 19, 8, 50, 100, 65, 100, 1, 0),
+            r(9, 12, -8, 30, 7, 100, 85, 52, 100, 0, 0),
+            r(9, 12, -5, 26, 8, 60, 85, 52, 100, 1, 0),
+            r(9, 12, -3, 21, 7, 50, 100, 52, 100, 1, 0),
+            r(9, 12, 0, 18, 8, 50, 100, 52, 100, 1, 0),
+        ],
+    );
+    // Down tilt: a low stab on frames 7-8, 7% close / 10% at the tip, angle 30, FAF 24. (It can trip in the
+    // reference game; tripping is not implemented.)
+    moves[MoveId::DTilt as usize] = ref_move(
+        24,
+        0,
+        0,
+        255,
+        &[
+            r(7, 8, 16, 5, 8, 70, 30, 40, 40, 1, 0),
+            r(7, 8, 31, 4, 7, 100, 30, 50, 40, 0, 0),
+        ],
+    );
+    // Forward smash: frames 10-13, 13% (18% at the tip), Sakurai angle, FAF 52. Charges on frame 2.
+    let mut fsmash = ref_move(
+        52,
+        0,
+        0,
+        255,
+        &[
+            r(10, 13, 20, 12, 8, 130, 361, 48, 75, 1, 0),
+            r(10, 13, 12, 11, 8, 130, 361, 48, 75, 1, 0),
+            r(10, 13, 5, 12, 8, 130, 361, 48, 75, 1, 0),
+            r(10, 13, 34, 12, 7, 180, 361, 80, 80, 0, 0),
+        ],
+    );
+    fsmash.charge_at = Some(1);
+    moves[MoveId::FSmash as usize] = fsmash;
+    // Up smash: frames 13-17 overhead, 13% (17% at the tip), angle 89, FAF 59. Charges on frame 4. The
+    // reference game also has a 3% launcher that pulls grounded targets in; that is not implemented.
+    let mut usmash = ref_move(
+        59,
+        0,
+        0,
+        255,
+        &[
+            r(13, 17, 6, 26, 9, 130, 89, 45, 90, 1, 0),
+            r(13, 17, 5, 36, 7, 170, 89, 40, 95, 0, 0),
+            r(13, 17, -4, 30, 8, 130, 90, 45, 90, 1, 0),
+        ],
+    );
+    usmash.charge_at = Some(3);
+    moves[MoveId::USmash as usize] = usmash;
+    // Down smash: a front hit on frames 6-7 (8%, 12% at the tip), then a back hit on frames 21-23 (12%, 17%
+    // at the tip), Sakurai angle, FAF 56. Charges on frame 4.
+    let mut dsmash = ref_move(
+        56,
+        0,
+        0,
+        255,
+        &[
+            r(6, 7, 18, 5, 8, 80, 361, 60, 88, 1, 0),
+            r(6, 7, 10, 6, 7, 80, 361, 60, 88, 1, 0),
+            r(6, 7, 4, 10, 6, 80, 361, 60, 88, 1, 0),
+            r(6, 7, 31, 4, 7, 120, 361, 50, 88, 0, 0),
+            r(21, 23, -18, 5, 8, 120, 361, 40, 88, 1, 1),
+            r(21, 23, -10, 6, 7, 120, 361, 40, 88, 1, 1),
+            r(21, 23, -4, 10, 6, 120, 361, 40, 88, 1, 1),
+            r(21, 23, -31, 4, 7, 170, 361, 50, 92, 0, 1),
+        ],
+    );
+    dsmash.charge_at = Some(3);
+    moves[MoveId::DSmash as usize] = dsmash;
+    // Up air: frames 5-9, 9.5% (13% at the tip), angle 80 (90 at the tip), landing lag 8, autocancels on
+    // frames 1-2 and from 38, FAF 46.
+    moves[MoveId::UAir as usize] = ref_move(
+        46,
+        8,
+        2,
+        38,
+        &[
+            r(5, 9, 5, 26, 8, 95, 80, 40, 80, 1, 0),
+            r(5, 9, 3, 20, 7, 95, 80, 40, 80, 1, 0),
+            r(5, 9, 0, 14, 6, 95, 80, 40, 80, 1, 0),
+            r(5, 9, 4, 34, 7, 130, 90, 40, 84, 0, 0),
+        ],
+    );
     // Neutral air: two separate hits (frames 6-7, then 15-21). Landing lag 7, autocancels from frame 47, FAF 50.
     moves[MoveId::NAir as usize] = ref_move(
         50,
@@ -559,6 +672,7 @@ pub fn longsword() -> Weapon {
     ];
     up_special.intangible = 5;
     up_special.helpless_after = true;
+    up_special.grabs_ledge = true;
     moves[MoveId::UpSpecial as usize] = up_special;
 
     Weapon { moves }
@@ -601,6 +715,32 @@ pub fn claws() -> Weapon {
         &[
             r(8, 8, 19, 10, 8, 50, 60, 10, 70, 0, 0),
             r(9, 10, 21, 10, 9, 60, 361, 55, 106, 0, 1),
+        ],
+    );
+    // Up tilt: an overhead kick on frames 7-11, angle 80, base knockback 30, growth 115-120, FAF 36. The foot
+    // (10%) is only active on frames 7-8; the 8%, 9% and 10% hitboxes along the leg last through frame 11.
+    w.moves[MoveId::UTilt as usize] = ref_move(
+        36,
+        0,
+        0,
+        255,
+        &[
+            r(7, 8, 9, 28, 9, 100, 80, 30, 115, 0, 0),
+            r(7, 11, 8, 24, 9, 80, 80, 30, 115, 1, 0),
+            r(7, 11, 5, 16, 9, 90, 80, 30, 115, 1, 0),
+            r(7, 11, 6, 20, 11, 100, 80, 30, 120, 0, 0),
+        ],
+    );
+    // Down tilt: a low kick on frames 5-6, 6%, Sakurai angle, base knockback 25, growth 100, FAF 28.
+    w.moves[MoveId::DTilt as usize] = ref_move(
+        28,
+        0,
+        0,
+        255,
+        &[
+            r(5, 6, 17, 4, 9, 60, 361, 25, 100, 0, 0),
+            r(5, 6, 11, 5, 9, 60, 361, 25, 100, 0, 0),
+            r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
     // Neutral air: 12% early (frames 7-9), then a long 8% hit (frames 10-26). Landing lag 9, autocancels
