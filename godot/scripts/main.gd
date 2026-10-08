@@ -63,6 +63,9 @@ var slowmo_until := 0
 const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 ## Effects in the world that fade by themselves: [node, age, life].
 var effects: Array = []
+## How each fighter's match is going, for the results screen: knock-outs, falls, damage dealt and taken, and who hit them last.
+var stats: Array = []
+var last_match_frame := -1
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
 var min_down: Array = [0.2, 0.2, 0.2, 0.2]
@@ -763,9 +766,13 @@ func _tick_once(advance := true) -> void:
 		sim.tick()
 	proj_prev = proj_cur
 	proj_cur = sim.projectile_slots()
+	var befores: Array = []
 	for i in PLAYERS:
-		var before: Dictionary = snaps[i]
+		befores.append(snaps[i])
 		_refresh(i)
+	_track_stats(befores)
+	for i in PLAYERS:
+		var before: Dictionary = befores[i]
 		sfx.watch(i, before, snaps[i])
 		if int(before.get("hitlag", 0)) == 0 and int(snaps[i].hitlag) > 0 and snaps[i].launch_pending:
 			_on_hit(i)
@@ -1022,7 +1029,10 @@ func _show_results(winner: int) -> void:
 	var saved := _save_replay() if not spectate_mode else ""
 	var cards := []
 	for i in PLAYERS:
-		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
+		var st: Dictionary = stats[i] if i < stats.size() else {}
+		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner,
+			"kos": st.get("kos", 0), "falls": st.get("falls", 0), "dealt": st.get("dealt", 0.0), "taken": st.get("taken", 0.0),
+			"look": views[i].loadout})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
 	if group_mode:
@@ -1150,6 +1160,43 @@ func _on_hit(i: int) -> void:
 		ko_focus = i
 		ko_time = 0.75
 		cam_shake = maxf(cam_shake, 0.9)
+
+
+## Keeps the match statistics up to date from two snapshots of every fighter. Who hit whom is read from hitlag starting together: the
+## victim's launch and an attacker frozen in its attack on the same frame (with two fighters, it can only be the other one).
+func _track_stats(befores: Array) -> void:
+	var frame: int = sim.match_frame()
+	if stats.size() != PLAYERS or frame < last_match_frame:
+		stats = []
+		for i in PLAYERS:
+			stats.append({"kos": 0, "falls": 0, "dealt": 0.0, "taken": 0.0, "last_hitter": -1})
+	last_match_frame = frame
+	for i in PLAYERS:
+		var before: Dictionary = befores[i]
+		var now: Dictionary = snaps[i]
+		if before.is_empty():
+			continue
+		if int(before.get("hitlag", 0)) == 0 and int(now.hitlag) > 0 and now.launch_pending:
+			var hitter := -1
+			for j in PLAYERS:
+				if j != i and snaps[j].get("state", "") == "Attack" and int(snaps[j].get("hitlag", 0)) > 0 and int(befores[j].get("hitlag", 0)) == 0:
+					hitter = j
+			if hitter < 0 and PLAYERS == 2:
+				hitter = 1 - i
+			stats[i].last_hitter = hitter
+		var gained: float = float(now.get("percent", 0.0)) - float(before.get("percent", 0.0))
+		if gained > 0.0:
+			stats[i].taken += gained
+			var by: int = stats[i].last_hitter
+			if by >= 0:
+				stats[by].dealt += gained
+		var ko: bool = int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30
+		if ko:
+			stats[i].falls += 1
+			var by: int = stats[i].last_hitter
+			if by >= 0 and by != i:
+				stats[by].kos += 1
+			stats[i].last_hitter = -1
 
 
 ## Cues for things the sim reports between two snapshots of a fighter: a clank, a wall tech, a knock-out.

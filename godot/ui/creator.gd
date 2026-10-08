@@ -166,6 +166,7 @@ func _ready() -> void:
 	_load_selected()
 	_set_focus(0)
 	PadNav.attach(self)
+	UI.reveal(self)
 	Music.of(self).play("menu")
 	Shot.attach(self)
 
