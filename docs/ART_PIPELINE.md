@@ -22,7 +22,7 @@ missing or damaged the fighter falls back to plain spheres. The face, hat, glass
 legs with shoes) and 11 animation clips, and exports `godot/models/blob_rig.glb`:
 
 ```
-"C:\Program Files\Blender Foundation\Blender 5.2blender.exe" --background --python art/blender/make_rigged_blob.py
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python art/blender/make_rigged_blob.py
 ```
 
 * Parts are rigid (each weighted to one bone), like a vinyl toy. Colours come from the game by part name (skin, white gloves and socks, dark shoes).
