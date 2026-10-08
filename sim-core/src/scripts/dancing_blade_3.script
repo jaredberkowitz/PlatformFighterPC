@@ -1,7 +1,9 @@
-// Dancing Blade, hit 3 (ext3, ext4 or ext5). Press special again for the finisher: stick up for the rising
-// one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
+// Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+// for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
 var queued;
 var dir;
+if grounded && frame <= 3 { set_vel(0.14, 0); }
+if grounded && frame == 4 { set_vel(0, 0); }
 if special_tap && frame >= 3 {
     queued = 1;
     dir = 0;

@@ -270,7 +270,18 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         return;
     }
     if f.pressed_within(buttons::GRAB, ATTACK_BUFFER) {
-        let id = if matches!(f.state, S::Dash | S::Run) {
+        // Grabbing while turning around out of a dash or run is a pivot grab: it comes out toward the way the
+        // fighter is turning, while it keeps sliding. A weapon without one just uses its normal grab.
+        // (A turn from standing still, with no speed to slide on, is not one.)
+        let reversing = (f.state == S::Turn && f.vel.x.abs() > p.walk_speed)
+            || (matches!(f.state, S::Dash | S::Run) && f.flick_x(FLICK_BUFFER) == -f.facing);
+        let pivot = reversing && !weapon.get(MoveId::PivotGrab as u8).is_empty();
+        let id = if pivot {
+            if f.state != S::Turn {
+                f.facing = -f.facing;
+            }
+            MoveId::PivotGrab
+        } else if matches!(f.state, S::Dash | S::Run) {
             MoveId::DashGrab
         } else {
             MoveId::Grab

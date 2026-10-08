@@ -435,6 +435,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         priority: f.or("priority", 0, errors),
         group: f.or("group", 0, errors),
         kind,
+        shield_damage: f.or("shield_damage", 100, errors),
     };
     f.finish(errors);
     hb
@@ -459,6 +460,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.kind != HIT_NORMAL {
         b.field("kind", kind_name(hb.kind));
+    }
+    if hb.shield_damage != 100 {
+        b.field("shield_damage", hb.shield_damage.to_string());
     }
     b
 }
@@ -580,6 +584,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     priority: 0,
                     group: 0,
                     kind: HIT_NORMAL,
+                    shield_damage: 100,
                 }
             }
         };

@@ -718,3 +718,193 @@ fn the_reflector_is_intangible_on_frames_5_to_8_only() {
     }
     assert_eq!(seen, vec![5, 6, 7, 8], "intangible ticks {seen:?}");
 }
+
+// ---- Pivot grabs -----------------------------------------------------------------------------------------
+
+/// Dashes right for 14 ticks, then flicks `stick` with grab. Returns (the move, facing, tick the grab connected) with
+/// a target kept 1.9 units ahead of the fighter's facing on every tick.
+fn pivot_grab(chars: [u8; 4], stick: i8) -> (u8, i8, Option<usize>) {
+    let mut sim = duel(chars, fx(300, 10));
+    sim.ticks(14, inp(127, 0, 0));
+    sim.tick(inp(stick, 0, GRAB));
+    let (move_id, facing) = (sim.f().move_id, sim.f().facing);
+    let mut caught = None;
+    for t in 2..=30 {
+        let at = sim.f().pos.x + fx(19, 10) * Fx::from_int(i32::from(sim.f().facing));
+        sim.stand(1, at, -sim.f().facing);
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Grabbing {
+            caught = Some(t);
+            break;
+        }
+    }
+    (move_id, facing, caught)
+}
+
+#[test]
+fn a_pivot_grab_turns_around_out_of_a_dash_and_catches_behind() {
+    let (m, facing, caught) = pivot_grab(SWORD, -127);
+    assert_eq!(m, MoveId::PivotGrab as u8);
+    assert_eq!(facing, -1, "turned around");
+    assert_eq!(
+        caught,
+        Some(10),
+        "the sword's pivot grab catches on frame 10"
+    );
+    let (m, facing, caught) = pivot_grab(CLAWS, -127);
+    assert_eq!(m, MoveId::PivotGrab as u8);
+    assert_eq!(facing, -1);
+    assert_eq!(
+        caught,
+        Some(11),
+        "the claws' (estimated) pivot grab catches on frame 11"
+    );
+}
+
+#[test]
+fn grabbing_without_reversing_is_still_a_dash_grab_or_a_standing_grab() {
+    let (m, facing, _) = pivot_grab(SWORD, 127);
+    assert_eq!(m, MoveId::DashGrab as u8);
+    assert_eq!(facing, 1);
+    // From standing still, with the stick pulled back, it is the ordinary grab.
+    let mut sim = duel(SWORD, fx(300, 10));
+    sim.tick(inp(-127, 0, GRAB));
+    assert_eq!(sim.f().move_id, MoveId::Grab as u8);
+}
+
+#[test]
+fn a_weapon_without_a_pivot_grab_falls_back_to_its_dash_grab() {
+    let mut sim = duel(SWORD, fx(300, 10));
+    sim.content.weapons[0].moves[MoveId::PivotGrab as usize] = sim_core::moves::Move::empty();
+    sim.ticks(14, inp(127, 0, 0));
+    sim.tick(inp(-127, 0, GRAB));
+    assert_eq!(sim.f().move_id, MoveId::DashGrab as u8);
+}
+
+// ---- Shield Breaker vs shields ----------------------------------------------------------------------------
+
+/// How much shield health Shield Breaker takes off a held shield (charged for `hold` ticks), with the move's shield
+/// damage set to `percent`, and the shield's state at the end.
+fn shield_loss(hold: usize, percent: u16) -> (Fx, S) {
+    use sim_core::input::buttons::SHIELD;
+    let mut sim = duel(SWORD, fx(40, 10));
+    for hb in &mut sim.content.weapons[0].moves[MoveId::NSpecial as usize].hitboxes {
+        hb.shield_damage = percent;
+    }
+    let start = sim.fighter(1).shield_hp;
+    sim.tick2(inp(0, 0, SPECIAL), inp(0, 0, SHIELD));
+    let mut lowest = start;
+    for t in 2..=300 {
+        let p0 = inp(0, 0, if t <= hold { SPECIAL } else { 0 });
+        sim.tick2(p0, inp(0, 0, SHIELD));
+        lowest = lowest.min(sim.fighter(1).shield_hp);
+        if sim.fighter(1).state == S::ShieldBreak {
+            return (start - lowest, S::ShieldBreak);
+        }
+        if sim.f().state != S::Attack && t > 60 {
+            break;
+        }
+    }
+    (start - lowest, sim.fighter(1).state)
+}
+
+#[test]
+fn shield_breaker_does_double_damage_to_a_shield_and_a_full_charge_breaks_it() {
+    let (normal, _) = shield_loss(1, 100);
+    let (doubled, state) = shield_loss(1, 200);
+    // The shield also drains a little each frame; the extra from doubling is one more hit's worth of damage.
+    let extra = doubled - normal;
+    let reference = duel(SWORD, fx(40, 10));
+    let tip = pct(&reference, 90);
+    let body = pct(&reference, 80);
+    let close = |a: Fx, b: Fx| (a - b).abs() <= Fx::from_raw(8);
+    assert!(
+        close(extra, tip) || close(extra, body),
+        "extra shield damage {extra:?}"
+    );
+    assert_ne!(
+        state,
+        S::ShieldBreak,
+        "an uncharged one does not break a full shield"
+    );
+    let (_, state) = shield_loss(100, 200);
+    assert_eq!(state, S::ShieldBreak, "a fully charged one breaks it");
+}
+
+#[test]
+fn only_shield_breaker_has_extra_shield_damage() {
+    let sim = duel(SWORD, fx(40, 10));
+    let w = &sim.content.weapons[0];
+    assert!(w.moves[MoveId::NSpecial as usize]
+        .hitboxes
+        .iter()
+        .all(|h| h.shield_damage == 200));
+    for id in [
+        MoveId::Jab,
+        MoveId::FSmash,
+        MoveId::NAir,
+        MoveId::SideSpecial,
+    ] {
+        assert!(
+            w.moves[id as usize]
+                .hitboxes
+                .iter()
+                .all(|h| h.shield_damage == 100),
+            "{}",
+            id.key()
+        );
+    }
+}
+
+// ---- Dancing Blade steps ------------------------------------------------------------------------------------
+
+#[test]
+fn dancing_blade_steps_forward_on_the_ground_hit_by_hit() {
+    let mut sim = duel(SWORD, fx(300, 10));
+    let start = sim.f().pos.x;
+    sim.tick(inp(100, 0, SPECIAL));
+    let mut after_first = None;
+    let mut total = None;
+    let in_blade = |m: u8| m == MoveId::SideSpecial as u8 || (29..=36).contains(&m);
+    for t in 1..220 {
+        sim.tick(inp(0, 0, if t % 2 == 0 { SPECIAL } else { 0 }));
+        if after_first.is_none() && sim.f().move_id != MoveId::SideSpecial as u8 {
+            after_first = Some(sim.f().pos.x - start);
+        }
+        // The chain is over when the finisher has been reached and the fighter has left the blade moves.
+        if total.is_none() && sim.f().move_id == 34 {
+            total = Some(Fx::ZERO);
+        }
+        if total == Some(Fx::ZERO) && !in_blade(sim.f().move_id) {
+            total = Some(sim.f().pos.x - start);
+        }
+    }
+    let after_first = after_first.expect("the chain continued");
+    assert!(
+        after_first > fx(8, 10),
+        "hit 1 steps about a unit: {after_first:?}"
+    );
+    let total = total.expect("the chain reached its finisher");
+    assert!(
+        total > Fx::from_int(2) && total < Fx::from_int(8),
+        "the whole chain: {total:?}"
+    );
+}
+
+#[test]
+fn dancing_blade_steps_leave_the_air_alone() {
+    // In the air a step would freeze the fall; the script leaves air physics alone.
+    let mut sim = Sim::with_chars(SWORD);
+    sim.state = GameState::new_with_active(&sim.content, 1, SWORD, 0b0011);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    sim.put_airborne(1, Fx::from_int(30), Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(100, 0, SPECIAL));
+    for _ in 0..12 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert!(
+        sim.f().pos.y < Fx::from_int(40) - fx(5, 10),
+        "still falling: {:?}",
+        sim.f().pos
+    );
+}

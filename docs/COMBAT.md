@@ -251,5 +251,14 @@ each further hit (hold W before a tap for the rising hits, S for the low ones); 
 you; Fire Wolf is W + K and the direction you hold when the wind-up ends is the direction he flies; Wolf Flash is D + K, with W or S
 held at the start of the dash to angle it.
 
-**Not done:** the other jab and tilt variants of the real kits (rapid jab, angled tilts), Dancing Blade's forward steps, Shield
-Breaker's extra shield damage, the pivot grab, and real animations (these moves reuse the generic poses driven by their hitboxes).
+**Follow-up (sim v21): steps, shield damage, pivot grabs**
+- **Dancing Blade steps forward** on the ground: about a unit on hit 1 (frames 3-8) and a short step into each later hit, then it stops. In
+  the air the script leaves physics alone so the fall is not frozen. The distances are estimates.
+- **Shield Breaker does double damage to shields** (`Hitbox::shield_damage`, a percent, default 100; Shield Breaker's hits use 200). An
+  uncharged one takes about 19-22 off a 50 point shield and a full charge breaks it. The multiplier is an estimate: the sources used give none.
+- **Pivot grab** (`MoveId::PivotGrab`): grab while turning around out of a dash or run, either by flicking the other way together with grab
+  or by pressing grab during the skid while still sliding. The fighter ends up facing the new way and keeps sliding. Sword: hits on frames
+  10-11, FAF 37 (reference). Claws: frames 11-12, FAF 33 (an estimate, four frames after the standing grab as the sword's is). A weapon
+  without one falls back to its dash grab, and turning from a standstill is an ordinary grab. Keyboard: dash with D, then A and the grab key.
+
+**Not done:** real animations (they wait for real models), and Shield Breaker's armour-free but otherwise unmodelled shield properties.

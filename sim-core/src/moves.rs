@@ -62,10 +62,12 @@ pub enum MoveId {
     Ext7,
     Ext8,
     Ext9,
+    /// A grab out of a dash or run turned around: the grab comes out behind the direction of travel.
+    PivotGrab,
 }
 
 impl MoveId {
-    pub const COUNT: usize = 38;
+    pub const COUNT: usize = 39;
     /// Index of the first special move.
     pub const FIRST_SPECIAL: u8 = 13;
 
@@ -84,13 +86,15 @@ impl MoveId {
     }
 
     pub const fn is_ext(self) -> bool {
-        (self as u8) >= 28
+        (self as u8) >= 28 && (self as u8) <= 37
     }
 
     /// Slots a weapon may leave empty: specials it does not have, jab hits it does not chain into, and the
     /// script follow-up slots.
     pub const fn may_be_empty(self) -> bool {
-        self.is_special() || self.is_ext() || matches!(self, MoveId::Jab2 | MoveId::Jab3)
+        self.is_special()
+            || self.is_ext()
+            || matches!(self, MoveId::Jab2 | MoveId::Jab3 | MoveId::PivotGrab)
     }
 
     pub const fn from_index(i: u8) -> MoveId {
@@ -132,6 +136,7 @@ impl MoveId {
             35 => MoveId::Ext7,
             36 => MoveId::Ext8,
             37 => MoveId::Ext9,
+            38 => MoveId::PivotGrab,
             _ => MoveId::DownSpecial,
         }
     }
@@ -182,6 +187,7 @@ impl MoveId {
             MoveId::Ext7 => "ext7",
             MoveId::Ext8 => "ext8",
             MoveId::Ext9 => "ext9",
+            MoveId::PivotGrab => "pivot_grab",
         }
     }
 
@@ -229,6 +235,7 @@ impl MoveId {
             MoveId::Ext7 => "extra move 7",
             MoveId::Ext8 => "extra move 8",
             MoveId::Ext9 => "extra move 9",
+            MoveId::PivotGrab => "pivot grab",
         }
     }
 }
@@ -256,6 +263,8 @@ pub struct Hitbox {
     pub group: u8,
     /// What the hitbox does: a normal hit, a grab, or (while holding someone) a throw or pummel.
     pub kind: u8,
+    /// Percent of its damage this hit does to a shield (100 is normal; a shield-breaking move uses more).
+    pub shield_damage: u16,
 }
 
 /// `Hitbox::kind` values.
@@ -422,6 +431,7 @@ impl StateHash for Hitbox {
         h.write_u8(self.priority);
         h.write_u8(self.group);
         h.write_u8(self.kind);
+        h.write_u16(self.shield_damage);
     }
 }
 
@@ -557,6 +567,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 priority: b.9,
                 group: 0,
                 kind: HIT_NORMAL,
+                shield_damage: 100,
             })
             .collect(),
         ..Move::empty()
@@ -594,6 +605,7 @@ fn row(r: &R) -> Hitbox {
         priority: r.priority,
         group: r.group,
         kind: HIT_NORMAL,
+        shield_damage: 100,
     }
 }
 
@@ -1001,6 +1013,11 @@ pub fn longsword() -> Weapon {
         ref_move(42, 0, 0, 255, &[r(9, 10, 21, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
+    // Pivot grab: a grab out of a dash turned around; frames 10-11, FAF 37.
+    moves[MoveId::PivotGrab as usize] = with_kind(
+        ref_move(37, 0, 0, 255, &[r(10, 11, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
     moves[MoveId::Pummel as usize] = with_kind(
         ref_move(16, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
         HIT_PUMMEL,
@@ -1088,6 +1105,10 @@ pub fn longsword() -> Weapon {
         ],
     );
     breaker.charge_bonus = 170;
+    // It is the shield-breaking move: its hits do double damage to a shield (an estimate; charged, it breaks a full one).
+    for hb in &mut breaker.hitboxes {
+        hb.shield_damage = 200;
+    }
     breaker.motion = vec![Motion {
         start: 25,
         end: 30,
@@ -1163,7 +1184,7 @@ pub fn longsword() -> Weapon {
         moves[ext(slot)] = m;
     }
     // Finishers: straight, rising, and the low multi-hit one.
-    moves[ext(6)] = ref_move(
+    let mut finisher_straight = ref_move(
         55,
         0,
         0,
@@ -1173,7 +1194,9 @@ pub fn longsword() -> Weapon {
             r(7, 8, 20, 11, 9, 40, 361, 74, 103, 1, 0),
         ],
     );
-    moves[ext(7)] = ref_move(
+    finisher_straight.script = db_script(include_str!("scripts/dancing_blade_4.script"));
+    moves[ext(6)] = finisher_straight;
+    let mut finisher_rising = ref_move(
         44,
         0,
         0,
@@ -1183,6 +1206,8 @@ pub fn longsword() -> Weapon {
             r(6, 7, 12, 20, 9, 50, 80, 80, 40, 1, 0),
         ],
     );
+    finisher_rising.script = db_script(include_str!("scripts/dancing_blade_4.script"));
+    moves[ext(7)] = finisher_rising;
     let mut low = ref_move(
         74,
         0,
@@ -1195,6 +1220,7 @@ pub fn longsword() -> Weapon {
         ],
     );
     low.rehit = Some((6, 4));
+    low.script = db_script(include_str!("scripts/dancing_blade_4.script"));
     moves[ext(8)] = low;
 
     // Down special, Counter: for 22 frames starting on frame 6 a hit is caught instead of taken, and Marth
@@ -1339,6 +1365,7 @@ pub fn claws() -> Weapon {
             priority: 0,
             group: 0,
             kind: HIT_NORMAL,
+            shield_damage: 100,
         },
         end_damage: Fx::from_int(6),
     });
@@ -1558,6 +1585,11 @@ pub fn claws() -> Weapon {
     // the sources disagree on the back throw's damage (8% or 11%).
     w.moves[MoveId::Grab as usize] = with_kind(
         ref_move(30, 0, 0, 255, &[r(7, 8, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    // Pivot grab: four frames slower to hit than the standing grab, as the swordfighter's is (an estimate).
+    w.moves[MoveId::PivotGrab as usize] = with_kind(
+        ref_move(33, 0, 0, 255, &[r(11, 12, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
     w.moves[MoveId::DashGrab as usize] = with_kind(

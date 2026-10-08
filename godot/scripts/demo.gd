@@ -254,6 +254,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 100, 127, special], [11, 100, 127, 0]]
 			d.shots = [[20, "a_windup"], [32, "b_flying"], [38, "c_flying"], [52, "d_end"]]
 			d.end_frame = 70
+		"marth_pivot":
+			# Dash right, then turn around with grab: the grab comes out behind.
+			d.chars = [0, 1, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, -10.4, 1]]
+			d.timeline = [[0, 0, 0, 0], [10, 127, 0, 0], [26, -127, 0, grab], [27, -127, 0, 0], [28, 0, 0, 0]]
+			d.shots = [[25, "a_running"], [30, "b_turning"], [36, "c_grab"], [44, "d_caught"]]
+			d.end_frame = 60
 		"marth_upb_ledge":
 			# Up special from below the ledge: it grabs in mid-move.
 			d.chars = [0, 0, 0, 0]

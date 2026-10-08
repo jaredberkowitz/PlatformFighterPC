@@ -1,8 +1,11 @@
-// Side special (Dancing Blade), hit 1. Press special again before the end to carry on into hit 2;
-// holding the stick up makes the second hit the rising slash. Slot numbers: 29 = ext1, 30 = ext2.
+// Side special (Dancing Blade), hit 1. Steps forward as it winds up (on the ground). Press special again before the
+// end to carry on into hit 2; holding the stick up makes the second hit the rising slash. Slot numbers: 29 = ext1,
+// 30 = ext2.
 var queued;
 var rising;
 if grounded == 0 && frame >= 27 { end(); }
+if grounded && frame >= 3 && frame <= 8 { set_vel(0.18, 0); }
+if grounded && frame == 9 { set_vel(0, 0); }
 if special_tap && frame >= 4 {
     queued = 1;
     rising = 0;

@@ -1,0 +1,3 @@
+// Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
+if grounded && frame == 7 { set_vel(0, 0); }

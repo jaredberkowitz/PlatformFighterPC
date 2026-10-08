@@ -384,7 +384,10 @@ fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8
     if perfect {
         stun = (stun - i32::from(rules.perfect_shield_stun_cut)).max(0);
     } else {
-        def.shield_hp -= hb.damage * rules.damage_mult;
+        let shield_damage =
+            hb.damage * rules.damage_mult * Fx::from_int(i32::from(hb.shield_damage))
+                / Fx::from_int(100);
+        def.shield_hp -= shield_damage;
         if def.shield_hp <= Fx::ZERO {
             fighter::break_shield(def, rules);
             return;
