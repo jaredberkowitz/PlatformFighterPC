@@ -3,6 +3,7 @@ extends Control
 ## player 1 and player 2, Enter then a key rebinds, Delete resets the player's keys, Esc goes back. Controllers need no setup: the
 ## left stick or D-pad moves, A jumps, X attacks, B special, bumpers shield, right stick click grabs, the right stick smashes.
 
+const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Bindings := preload("res://scripts/bindings.gd")
 const Shot := preload("res://ui/shot.gd")
@@ -76,6 +77,7 @@ func _ready() -> void:
 	add_child(hint)
 	_show()
 	PadNav.attach(self)
+	Music.of(self).play("menu")
 	Shot.attach(self)
 
 

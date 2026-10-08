@@ -2,7 +2,7 @@
 
 Read this first when picking the project up again. The design source of truth is `docs/Platform_Fighter_Project_Plan.docx`;
 this file records where the build is against its roadmap (section 8) and what to do next. Last updated after the
-Phase 7 work (complete): match rules, HUD, results, rematches, the online screen, replays, spectating, groups of 3 to 4 and Quick match (sim version 24).
+Phase 7 work (complete): match rules, HUD, results, rematches, the online screen, replays, spectating, groups of 3 to 4 and Quick match; then the third class and music (sim version 25).
 
 ## Roadmap progress
 
@@ -27,7 +27,7 @@ Phase 7 work (complete): match rules, HUD, results, rematches, the online screen
 | 7 Game loop: online 3 to 4 players (hub host and lobby) | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
 | 7 Game loop: matchmaking | **Quick match** done (relay queue pairs two waiting players); a list of games, ratings and regions are not built | `docs/MATCHES.md` |
 | 8 Public alpha checklist | see `docs/ALPHA.md` (what is ready, unverified and not built) | `docs/ALPHA.md` |
-| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation (`docs/ART_PIPELINE.md`), sound effects (`docs/AUDIO.md`), balance tooling (`docs/BALANCE.md`), content policy and name moderation (`docs/CONTENT_POLICY.md`) | `docs/ART_PIPELINE.md` |
+| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation (`docs/ART_PIPELINE.md`), sound effects and synthesised music (`docs/AUDIO.md`), a third class, the maul bruiser (`docs/COMBAT.md`), balance tooling (`docs/BALANCE.md`), content policy and name moderation (`docs/CONTENT_POLICY.md`) | `docs/ART_PIPELINE.md` |
 
 ## What "done" is verified by
 

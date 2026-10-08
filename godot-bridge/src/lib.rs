@@ -909,6 +909,14 @@ impl SimRunner {
         PackedInt32Array::from(v.as_slice())
     }
 
+    /// The fighter's class: the index of the moveset it uses (0 longsword, 1 claws, 2 maul, or a custom weapon).
+    #[func]
+    fn fighter_class(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(0, |fi| {
+            i32::from(sim_core::combat::params_of(&self.content, fi).weapon)
+        })
+    }
+
     /// [ecb_half_width, ecb_height, ecb_side_height, wavedash_min_down, ground_assist_dist]
     #[func]
     fn fighter_body(&self, i: i32) -> PackedFloat32Array {

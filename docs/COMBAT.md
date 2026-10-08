@@ -4,7 +4,10 @@
 
 - **Weapons choose movesets** (`sim-core/src/moves.rs`): a fighter has a `weapon` index; each weapon holds 13 moves.
   The **longsword** (duelist) has a tip (priority 0, hits harder) and a body (priority 1). The **claws** (brawler) are the
-  same moves pulled in close, quicker and a little heavier, with no tip/body split. Frame data and numbers are placeholders.
+  same moves pulled in close, quicker and a little heavier, with no tip/body split. The **maul** (bruiser, the third class, SIM_VERSION 25) is the
+  longsword's normals stretched out (130% of the frames, bigger and 25% harder hitboxes) with the rising slash kept as its recovery and three plain
+  specials: a crushing overhead (neutral), a shoulder charge (side) and a ground quake (down). Its body is the heaviest and slowest
+  (`FighterParams::bruiser`). Frame data and numbers are placeholders; `sim-core/tests/maul.rs` pins the shape of it.
 - **Hitboxes and hurtboxes are circles.** Hitboxes come from move data (active on frames `start..=end`, offset from the feet,
   mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB. One hit per move per target;
   when several hitboxes overlap a target, the lowest priority number wins (that is what makes spacing matter).

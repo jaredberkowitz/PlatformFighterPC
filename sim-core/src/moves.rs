@@ -1659,13 +1659,95 @@ pub fn claws() -> Weapon {
     w
 }
 
+/// Slow, huge and heavy: the longsword's normals stretched out (longer start-up and recovery, bigger and harder hitboxes),
+/// its rising slash kept as the recovery, and three plain specials (a crushing overhead, a shoulder charge and a ground quake)
+/// in place of the sword's scripted ones. A hammer-wielding bruiser archetype.
+pub fn maul() -> Weapon {
+    let mut w = longsword();
+    for (i, m) in w.moves.iter_mut().enumerate() {
+        let id = MoveId::from_index(i as u8);
+        // The sword's follow-up slots and scripted specials do not belong to the maul (its own specials are set below).
+        if id.is_ext()
+            || matches!(
+                id,
+                MoveId::NSpecial | MoveId::SideSpecial | MoveId::DownSpecial
+            )
+        {
+            *m = Move::empty();
+            continue;
+        }
+        m.script = None;
+        m.projectile_script = None;
+        if id == MoveId::UpSpecial {
+            continue; // the recovery stays as it is
+        }
+        let slow = |f: u8| ((u16::from(f) * 130 + 50) / 100).min(250) as u8;
+        m.total_frames = slow(m.total_frames);
+        m.landing_lag = slow(m.landing_lag);
+        m.autocancel_before = slow(m.autocancel_before);
+        if m.autocancel_after != 255 {
+            m.autocancel_after = slow(m.autocancel_after);
+        }
+        m.charge_at = m.charge_at.map(slow);
+        m.next_window = slow(m.next_window);
+        for hb in &mut m.hitboxes {
+            hb.start = slow(hb.start);
+            hb.end = slow(hb.end).max(hb.start);
+            hb.x = hb.x * Fx::from_ratio(11, 10);
+            hb.radius = hb.radius * Fx::from_ratio(6, 5);
+            hb.damage = hb.damage * Fx::from_ratio(5, 4);
+            hb.knockback_growth += 6;
+        }
+    }
+
+    // Neutral special: a crushing overhead blow. Frames 22-26, 18% at the head (angle 70) and 16% closer in, FAF 66.
+    w.moves[MoveId::NSpecial as usize] = ref_move(
+        66,
+        0,
+        0,
+        255,
+        &[
+            r(22, 26, 20, 8, 14, 180, 70, 40, 100, 0, 0),
+            r(22, 26, 10, 4, 12, 160, 70, 40, 100, 1, 0),
+        ],
+    );
+    // Side special: a shoulder charge. Moves forward on frames 8-18 and hits on frames 10-18 (10%, angle 45), FAF 52.
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let mut charge = ref_move(
+        52,
+        0,
+        0,
+        255,
+        &[r(10, 18, 14, 8, 12, 100, 45, 50, 90, 0, 0)],
+    );
+    charge.motion = vec![Motion {
+        start: 8,
+        end: 18,
+        vx: su(2200),
+        vy: Fx::ZERO,
+    }];
+    w.moves[MoveId::SideSpecial as usize] = charge;
+    // Down special: a ground quake that hits on both sides. Frames 14-18, 11%, angle 80, FAF 50.
+    w.moves[MoveId::DownSpecial as usize] = ref_move(
+        50,
+        0,
+        0,
+        255,
+        &[
+            r(14, 18, 12, 3, 14, 110, 80, 30, 100, 0, 0),
+            r(14, 18, -12, 3, 14, 110, 80, 30, 100, 1, 0),
+        ],
+    );
+    w
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn every_weapon_has_every_move_slot() {
-        for w in [longsword(), claws()] {
+        for w in [longsword(), claws(), maul()] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
                 if m.is_empty() {

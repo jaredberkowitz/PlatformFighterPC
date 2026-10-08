@@ -290,20 +290,20 @@ fn a_custom_fighter_can_inherit_and_override() {
     let c = load(&format!("{base}{extra}"))
         .unwrap_or_else(|e| panic!("{}", e.join("\n")))
         .content;
-    assert_eq!(c.fighters.len(), 3);
-    assert_eq!(c.names.fighters[2], "sprinter");
+    assert_eq!(c.fighters.len(), 4);
+    assert_eq!(c.names.fighters[3], "sprinter");
     let brawler = c.fighters[1];
-    let sprinter = c.fighters[2];
+    let sprinter = c.fighters[3];
     assert_eq!(sprinter.walk_speed, Fx::from_int(3));
     assert_eq!(
         sprinter.gravity, brawler.gravity,
         "unlisted values come from the inherited fighter"
     );
     assert_eq!(sprinter.weapon, brawler.weapon);
-    assert_eq!(c.weapons.len(), 3);
-    assert_eq!(c.weapons[2].moves[MoveId::Jab as usize].total_frames, 10);
+    assert_eq!(c.weapons.len(), 4);
+    assert_eq!(c.weapons[3].moves[MoveId::Jab as usize].total_frames, 10);
     assert_eq!(
-        c.weapons[2].moves[MoveId::FTilt as usize],
+        c.weapons[3].moves[MoveId::FTilt as usize],
         c.weapons[1].moves[MoveId::FTilt as usize],
         "moves not mentioned are inherited"
     );

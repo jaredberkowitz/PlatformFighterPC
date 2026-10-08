@@ -3,6 +3,7 @@ extends Control
 ## fighter moves (see sim-content recipe.rs): bigger means heavier, slower, and a lower jump. Saved fighters show up in
 ## character select. Up/Down choose a row, Left/Right change it, Enter on the name (or Finish) saves, Esc goes back.
 
+const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -165,6 +166,7 @@ func _ready() -> void:
 	_load_selected()
 	_set_focus(0)
 	PadNav.attach(self)
+	Music.of(self).play("menu")
 	Shot.attach(self)
 
 

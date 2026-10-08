@@ -1,16 +1,19 @@
 //! Character recipes: every combination of stats is valid content, and the stats change how a fighter plays in the real
 //! simulation, in the directions the creator promises (bigger is heavier, slower, and jumps lower).
 
-use sim_content::recipe::{readout, Recipe, MAX_STAT, MIN_STAT};
+use sim_content::recipe::{readout, Recipe, CLASSES, MAX_STAT, MIN_STAT};
 use sim_content::validate;
 use sim_core::input::buttons::JUMP;
 use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS};
+
+/// The fighter index a made fighter gets after the three built-in ones.
+const MADE: u8 = 3;
 
 /// Every recipe there is, as content (in batches: a roster holds at most 64 fighters).
 #[test]
 fn every_recipe_is_valid_content() {
     let mut all = Vec::new();
-    for class in 0..2u8 {
+    for class in 0..CLASSES {
         for size in MIN_STAT..=MAX_STAT {
             for speed in MIN_STAT..=MAX_STAT {
                 for jump in MIN_STAT..=MAX_STAT {
@@ -27,7 +30,7 @@ fn every_recipe_is_valid_content() {
             }
         }
     }
-    assert_eq!(all.len(), 2 * 9 * 9 * 9 * 9);
+    assert_eq!(all.len(), usize::from(CLASSES) * 9 * 9 * 9 * 9);
     for chunk in all.chunks(60) {
         let mut c = Content::placeholder();
         c.fighters.clear();
@@ -68,7 +71,7 @@ fn inputs(p0: Input) -> [Input; MAX_FIGHTERS] {
 /// Distance run in 50 frames of holding right, from a standstill on the main stage.
 fn run_distance(r: Recipe) -> Fx {
     let c = content_with(&[r]);
-    let mut s = GameState::new_with_active(&c, 1, [2, 1, 0, 1], 0b0011);
+    let mut s = GameState::new_with_active(&c, 1, [MADE, 1, 0, 1], 0b0011);
     s.fighters[0].pos.x = Fx::from_int(-9);
     let start = s.fighters[0].pos.x;
     for _ in 0..50 {
@@ -88,7 +91,7 @@ fn run_distance(r: Recipe) -> Fx {
 /// Peak height of a full hop (jump held).
 fn jump_peak(r: Recipe) -> Fx {
     let c = content_with(&[r]);
-    let mut s = GameState::new_with_active(&c, 1, [2, 1, 0, 1], 0b0011);
+    let mut s = GameState::new_with_active(&c, 1, [MADE, 1, 0, 1], 0b0011);
     let ground = s.fighters[0].pos.y;
     let mut peak = Fx::ZERO;
     for t in 0..80 {
@@ -201,7 +204,7 @@ fn the_weight_stat_makes_a_fighter_harder_to_launch() {
 fn the_neutral_recipe_plays_exactly_like_the_archetype() {
     let c = content_with(&[with(Recipe::default())]);
     let reference = Content::placeholder();
-    let mut a = GameState::new_with_active(&c, 1, [2, 1, 0, 1], 0b0011);
+    let mut a = GameState::new_with_active(&c, 1, [MADE, 1, 0, 1], 0b0011);
     let mut b = GameState::new_with_active(&reference, 1, [0, 1, 0, 1], 0b0011);
     for t in 0..300 {
         let i = Input {
@@ -227,8 +230,8 @@ fn a_recipe_section_round_trips_through_the_content_format() {
     let mut doc = sim_content::doc::Doc::from_content(&Content::placeholder(), "t", "", "");
     doc.put(r.section("maker", "claws"));
     let built = doc.build().unwrap_or_else(|e| panic!("{e:?}"));
-    assert_eq!(built.content.fighters[2], r.params());
-    assert_eq!(built.content.names.fighters[2], "maker");
+    assert_eq!(built.content.fighters[usize::from(MADE)], r.params());
+    assert_eq!(built.content.names.fighters[usize::from(MADE)], "maker");
 }
 
 #[test]
@@ -237,7 +240,7 @@ fn creating_a_character_never_changes_the_other_fighters() {
     let before = doc.build().unwrap().content;
     doc.put(Recipe::default().section("maker", "longsword"));
     let after = doc.build().unwrap().content;
-    assert_eq!(&after.fighters[..2], &before.fighters[..]);
+    assert_eq!(&after.fighters[..usize::from(MADE)], &before.fighters[..]);
     assert_eq!(after.weapons, before.weapons);
 }
 
@@ -249,7 +252,7 @@ fn jab_reach(r: Recipe) -> i32 {
     let c = content_with(&[r]);
     let mut best = 0;
     for gap in (10..90).step_by(2) {
-        let mut s = GameState::new_with_active(&c, 1, [2, 0, 0, 0], 0b0011);
+        let mut s = GameState::new_with_active(&c, 1, [MADE, 0, 0, 0], 0b0011);
         s.fighters[0].pos.x = Fx::from_int(-9);
         s.fighters[1].pos.x = Fx::from_int(-9) + Fx::from_ratio(gap, 10);
         s.fighters[1].facing = -1;
@@ -318,7 +321,7 @@ fn a_big_fighters_projectile_leaves_from_further_out() {
             ..Recipe::default()
         };
         let c = content_with(&[r]);
-        let mut s = GameState::new_with_active(&c, 1, [2, 0, 0, 0], 0b0011);
+        let mut s = GameState::new_with_active(&c, 1, [MADE, 0, 0, 0], 0b0011);
         s.fighters[0].pos.x = Fx::from_int(-9);
         for t in 0..40 {
             let held = if t == 0 { SPECIAL } else { 0 };

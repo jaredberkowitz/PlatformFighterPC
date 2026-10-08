@@ -6,6 +6,7 @@ extends Control
 ## Mouse: left click picks for player 1, right click for player 2.   E edits the saved fighter player 1 is on.
 ## When both are locked in, Space (or Enter, or the Start button) starts the match. Esc goes back to the menu.
 
+const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -238,6 +239,7 @@ func _ready() -> void:
 	_layout_panels()
 	_refresh()
 	PadNav.attach(self)
+	Music.of(self).play("menu")
 	Shot.attach(self)
 
 

@@ -12,7 +12,7 @@ select), bold condensed type, and a slight bounce on hovered buttons. The pieces
 
 ## Character creator
 
-Choose a **class** (the moveset: Longsword or Claws), a **look** (face, hat, glasses, neckwear, body colour, accent colour: cosmetic
+Choose a **class** (the moveset: Longsword, Claws or Maul), a **look** (face, hat, glasses, neckwear, body colour, accent colour: cosmetic
 only) and four **stats**, give it a **name**, and press **Finish**. Up/Down pick a row, Left/Right change it, Enter on the name
 or Finish saves. The "Fighter" row at the top opens a saved fighter to edit (or "New fighter"); Delete removes it.
 

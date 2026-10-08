@@ -2,6 +2,7 @@ extends Control
 ## The replay list: every finished match is saved automatically; pick one to watch it. Up/Down choose, Enter watches,
 ## Delete removes, Esc goes back. While watching: Space pauses, Left/Right jump 5 seconds, Up/Down change the speed, Esc returns here.
 
+const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Replays := preload("res://scripts/replays.gd")
@@ -55,6 +56,7 @@ func _ready() -> void:
 	add_child(hint)
 	_fill()
 	PadNav.attach(self)
+	Music.of(self).play("menu")
 	Shot.attach(self)
 
 

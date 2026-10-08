@@ -2,6 +2,7 @@ extends Control
 ## The main menu: where the game starts. Play goes to character select, Character Creator makes and saves fighters,
 ## Editors opens the content editors, Quit leaves. Up and down (or W and S) choose, Enter (or J, Space) picks, Esc quits.
 
+const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -85,6 +86,7 @@ func _ready() -> void:
 	hint.position = Vector2(60, 676)
 	add_child(hint)
 	PadNav.attach(self)
+	Music.of(self).play("menu")
 	Shot.attach(self)
 
 
