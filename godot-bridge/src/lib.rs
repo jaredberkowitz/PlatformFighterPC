@@ -1787,7 +1787,10 @@ impl SimRunner {
         let inputs = [Input::default(); MAX_FIGHTERS];
         for _ in 0..frames.clamp(0, 300) {
             step(&mut s, &self.content, &inputs);
-            if s.fighters[i].stocks < stocks || !s.fighters[i].active {
+            if s.fighters[i].stocks < stocks
+                || !s.fighters[i].active
+                || s.fighters[i].state == sim_core::state::FighterState::Respawn
+            {
                 return true;
             }
             if s.fighters[i].state != sim_core::state::FighterState::Hitstun

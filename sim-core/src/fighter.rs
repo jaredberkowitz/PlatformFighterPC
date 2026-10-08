@@ -221,6 +221,7 @@ pub fn update(
         S::LedgeHang => ledge_hang(f, p, stage),
         S::Rebound => rebound(f, p, stage),
         S::WallTech => wall_tech(f, p, rules),
+        S::Respawn => revival(f, p, rules),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p, weapon),
     }
     None
@@ -1455,6 +1456,24 @@ fn wall_tech(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     if away != 0 && f.held(buttons::JUMP) {
         f.vel = Vec2::new(p.air_speed.mul_int(away), p.air_jump_velocity);
         f.facing = away as i8;
+    }
+}
+
+/// On the revival platform: held in place and invincible until the player does something new (a stick held from before the
+/// knock-out does not count) or the platform runs out; then an ordinary fall with full jumps and the respawn invincibility.
+fn revival(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    f.vel = Vec2::ZERO;
+    f.invuln = f.invuln.max(rules.respawn_invuln);
+    let (now, before) = (f.history[0], f.history[1]);
+    let active = now.stick_x.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
+        || now.stick_y.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
+        || now.buttons != 0;
+    let fresh = now != before;
+    if (active && fresh) || f.state_frame >= u16::from(rules.respawn_platform_frames) {
+        f.invuln = rules.respawn_invuln;
+        f.air_jumps_left = p.air_jumps;
+        f.air_dodge_used = false;
+        enter(f, S::Airborne);
     }
 }
 

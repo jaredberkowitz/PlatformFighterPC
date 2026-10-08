@@ -261,7 +261,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["grab", 1.0, -1.0]
 		"Attack":
 			return _attack_clip(s)
-		"Idle", "Turn", "LedgeGetUp", "LedgeAttack":
+		"Idle", "Turn", "LedgeGetUp", "LedgeAttack", "Respawn":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
@@ -1010,6 +1010,37 @@ func _make_trail() -> void:
 	add_child(trail)
 
 
+# ---- Revival platform ------------------------------------------------------------------------------------------------------------
+# After a knock-out the fighter waits on a glowing platform above the stage (see `Respawn` in the sim).
+
+var revival: MeshInstance3D
+
+
+func _revival_platform(s: Dictionary) -> void:
+	var on: bool = s.state == "Respawn"
+	if revival == null:
+		if not on:
+			return
+		revival = MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		disc.top_radius = 1.0
+		disc.bottom_radius = 0.75
+		disc.height = 0.16
+		revival.mesh = disc
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1.0, 0.93, 0.55, 0.85)
+		revival.material_override = mat
+		revival.position = Vector3(0, -0.08, 0)
+		add_child(revival)
+	revival.visible = on
+	if on:
+		# A gentle pulse, so it reads as temporary.
+		var pulse := 0.85 + 0.15 * sin(float(s.frame) * 0.25)
+		revival.scale = Vector3(pulse, 1.0, pulse)
+
+
 # ---- Dust ------------------------------------------------------------------------------------------------------------------------
 # Little puffs at the feet when a fighter starts a dash, turns, jumps or lands, as the reference game does: they make movement read.
 
@@ -1270,6 +1301,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.position = Vector3.ZERO
 	_launch_smoke(s)
 	_dust(s)
+	_revival_platform(s)
 	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
 	var charge: int = s.charge
 	if charge > 0 and state == "Attack":

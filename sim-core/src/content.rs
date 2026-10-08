@@ -720,6 +720,9 @@ pub struct Ruleset {
     /// A tumbling fighter that hits a wall, ceiling or (fast enough) the floor without teching bounces off with this share of its speed.
     pub bounce_keep: Fx,
     pub ground_bounce_speed: Fx,
+    /// A knocked-out fighter comes back this far above its spawn point, standing on a revival platform for up to `respawn_platform_frames` frames (or until it moves), invincible.
+    pub respawn_height: Fx,
+    pub respawn_platform_frames: u8,
 }
 
 impl Ruleset {
@@ -797,6 +800,8 @@ impl Ruleset {
             wall_tech_invuln: 14,
             bounce_keep: Fx::from_ratio(95, 100),
             ground_bounce_speed: Fx::from_ratio(1, 4),
+            respawn_height: Fx::from_int(7),
+            respawn_platform_frames: 150,
         }
     }
 }
@@ -875,6 +880,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.wall_tech_invuln);
         self.bounce_keep.hash_into(h);
         self.ground_bounce_speed.hash_into(h);
+        self.respawn_height.hash_into(h);
+        h.write_u8(self.respawn_platform_frames);
     }
 }
 

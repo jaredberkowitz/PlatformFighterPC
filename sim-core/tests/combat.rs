@@ -409,8 +409,42 @@ fn leaving_the_blast_zone_costs_a_stock_and_respawns_with_invulnerability() {
     let f = sim.fighter(1);
     assert_eq!(f.stocks, 2);
     assert_eq!(f.percent, Fx::ZERO);
-    assert_eq!(f.pos, sim.content.stage.spawns[1]);
+    // Back on the revival platform above the spawn point.
+    let spawn = sim.content.stage.spawns[1];
+    assert_eq!(f.pos.x, spawn.x);
+    assert_eq!(f.pos.y, spawn.y + sim.content.rules.respawn_height);
+    assert_eq!(f.state, S::Respawn);
     assert_eq!(f.invuln, sim.content.rules.respawn_invuln);
+}
+
+#[test]
+fn the_revival_platform_holds_until_the_player_moves_or_it_runs_out() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(40);
+    sim.state.fighters[0].platform = sim_core::state::NONE;
+    // The stick held from before the knock-out does not drop the fighter.
+    sim.ticks(30, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Respawn);
+    let y = sim.f().pos.y;
+    assert!(
+        sim.f().invuln >= sim.content.rules.respawn_invuln - 1,
+        "invincible on the platform"
+    );
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!(sim.f().state, S::Airborne, "a new input drops off");
+    assert_eq!(sim.f().invuln, sim.content.rules.respawn_invuln);
+    assert_eq!(sim.f().pos.y, y);
+    // Left alone, the platform goes after its time.
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(40);
+    sim.state.fighters[0].platform = sim_core::state::NONE;
+    sim.tick(inp(0, 0, 0));
+    let frames = usize::from(sim.content.rules.respawn_platform_frames);
+    sim.ticks(frames - 2, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Respawn);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Airborne);
 }
 
 // ---- Tech ------------------------------------------------------------------------------------------------

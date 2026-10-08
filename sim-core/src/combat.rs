@@ -917,6 +917,8 @@ pub fn respawn(f: &mut Fighter, content: &Content, index: usize, lose_stock: boo
     let pos = content.stage.spawns[index];
     let platform = collision::standing_on(&content.stage, pos);
     let (char_id, facing) = (f.char_id, f.facing);
+    // The controller does not forget what it was doing (a stick held through the knock-out stays "held").
+    let history = f.history;
     let stocks = if lose_stock {
         f.stocks.saturating_sub(1)
     } else {
@@ -932,7 +934,13 @@ pub fn respawn(f: &mut Fighter, content: &Content, index: usize, lose_stock: boo
     );
     f.stocks = stocks;
     f.active = true;
+    f.history = history;
     f.invuln = content.rules.respawn_invuln;
+    // Back on a revival platform above the spawn point.
+    f.pos.y += content.rules.respawn_height;
+    f.platform = NONE;
+    f.state = S::Respawn;
+    f.state_frame = 0;
 }
 
 #[cfg(test)]

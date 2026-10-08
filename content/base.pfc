@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 28
-    hash 868476816138a3b4
+    sim_version 29
+    hash 7c68ea140c434251
 }
 
 ruleset {
@@ -82,6 +82,8 @@ ruleset {
     wall_tech_invuln 14
     bounce_keep 0.95
     ground_bounce_speed 0.25
+    respawn_height 7
+    respawn_platform_frames 150
 }
 
 weapon longsword {

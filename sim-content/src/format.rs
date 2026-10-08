@@ -434,6 +434,8 @@ rules_io! {
     wall_tech_invuln: u8,
     bounce_keep: Fx,
     ground_bounce_speed: Fx,
+    respawn_height: Fx,
+    respawn_platform_frames: u8,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------

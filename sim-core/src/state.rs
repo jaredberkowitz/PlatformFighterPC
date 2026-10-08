@@ -65,6 +65,8 @@ pub enum FighterState {
     Rebound,
     /// A wall or ceiling tech: held against the surface for a moment, intangible, then free (a jump makes it a wall-tech jump).
     WallTech,
+    /// Back after a knock-out, standing on the revival platform above the stage: invincible until it moves or the platform goes.
+    Respawn,
 }
 
 impl StateHash for FighterState {
