@@ -1,13 +1,18 @@
 //! Networked sessions over a simulated lossy link: the two peers must agree on every confirmed frame, and agree with a
 //! straight single-machine run of the same inputs.
 
-use netplay::handshake::{Handshake, Outcome};
+use netplay::handshake::{BaseCounts, Handshake, Outcome};
 use netplay::local_rollback::reference_checksums;
 use netplay::packet::{Packet, RejectReason, Setup};
 use netplay::peer::{Peer, Status};
 use netplay::session::{Advance, Event, Session, SessionConfig, DISCONNECT_TIMEOUT};
 use netplay::testlink::{pair, LinkParams, TestLink};
 use sim_core::{Content, GameState, Input, Rng, MAX_FIGHTERS, SIM_VERSION};
+
+const BASE: BaseCounts = BaseCounts {
+    fighters: 2,
+    weapons: 2,
+};
 
 fn setup() -> Setup {
     Setup {
@@ -16,6 +21,7 @@ fn setup() -> Setup {
         active: 0b0011,
         input_delay: 2,
         cosmetics: vec![9, 9],
+        ..Setup::default()
     }
 }
 
@@ -156,8 +162,8 @@ fn matching_peers_connect_and_start_together() {
 #[test]
 fn a_different_sim_version_is_refused_by_both_sides() {
     let (mut h, mut j) = (
-        Handshake::host(SIM_VERSION, 5, setup()),
-        Handshake::join(SIM_VERSION + 1, 5, vec![]),
+        Handshake::host(SIM_VERSION, 5, BASE, setup()),
+        Handshake::join(SIM_VERSION + 1, 5, BASE, vec![], vec![]),
     );
     for _ in 0..40 {
         for p in j.tick() {
@@ -187,8 +193,8 @@ fn a_different_sim_version_is_refused_by_both_sides() {
 #[test]
 fn different_content_is_refused() {
     let (mut h, mut j) = (
-        Handshake::host(SIM_VERSION, 111, setup()),
-        Handshake::join(SIM_VERSION, 222, vec![]),
+        Handshake::host(SIM_VERSION, 111, BASE, setup()),
+        Handshake::join(SIM_VERSION, 222, BASE, vec![], vec![]),
     );
     for _ in 0..40 {
         for p in j.tick() {

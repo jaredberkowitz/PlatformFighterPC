@@ -76,6 +76,12 @@ pub struct SimRunner {
     players: u8,
     /// This player's cosmetic loadout bytes, sent to the other player in the handshake (opaque; never used by the sim).
     my_cosmetics: Vec<u8>,
+    /// The fighter this player brings to an online match (`FighterSpec` bytes; empty uses the characters as given).
+    my_fighter: Vec<u8>,
+    /// Ranked rules for the match this player hosts: fighters over the point budget are refused.
+    ranked: bool,
+    /// The base roster, kept while an online match runs on the base roster plus made fighters.
+    base_content: Option<Content>,
     state: GameState,
     inputs: [Input; MAX_FIGHTERS],
     history: VecDeque<GameState>,
@@ -95,6 +101,9 @@ impl INode for SimRunner {
             content_name: String::new(),
             players: 0b0011,
             my_cosmetics: Vec::new(),
+            my_fighter: Vec::new(),
+            ranked: false,
+            base_content: None,
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
             history: VecDeque::new(),
@@ -147,6 +156,31 @@ impl SimRunner {
     #[func]
     fn set_cosmetics(&mut self, bytes: PackedByteArray) {
         self.my_cosmetics = bytes.as_slice().iter().take(64).copied().collect();
+    }
+
+    /// The fighter this player brings to an online match (`FighterSpec` bytes: `[0, n]` for built-in fighter n,
+    /// `[1, class, size, speed, jump, weight]` for a made one). Call before `net_host` / `net_join`. Empty means "use the
+    /// characters given to `net_host`".
+    #[func]
+    fn set_fighter(&mut self, bytes: PackedByteArray) {
+        self.my_fighter = bytes.as_slice().iter().take(16).copied().collect();
+    }
+
+    /// Ranked rules for a match this player hosts: fighters over the point budget are refused.
+    #[func]
+    fn set_ranked(&mut self, ranked: bool) {
+        self.ranked = ranked;
+    }
+
+    /// Both players' fighter specs as `[host's, joiner's]` once the handshake has them (empty array until then).
+    #[func]
+    fn net_fighter_specs(&self) -> VarArray {
+        let mut out = VarArray::new();
+        if let Some((h, j)) = self.net.as_ref().and_then(|p| p.fighter_specs()) {
+            out.push(&PackedByteArray::from(h.as_slice()).to_variant());
+            out.push(&PackedByteArray::from(j.as_slice()).to_variant());
+        }
+        out
     }
 
     /// The other player's cosmetic bytes once the handshake has delivered them (empty until then).
@@ -638,6 +672,8 @@ impl SimRunner {
             active: 0b0011,
             input_delay: input_delay.clamp(0, 8) as u8,
             cosmetics: self.my_cosmetics.clone(),
+            fighter: self.my_fighter.clone(),
+            ranked: self.ranked,
         };
         self.net = Some(Peer::host(link, &self.content, setup));
         self.net_log.clear();
@@ -645,7 +681,12 @@ impl SimRunner {
     }
 
     fn net_start_join(&mut self, link: NetLink) -> GString {
-        self.net = Some(Peer::join(link, &self.content, self.my_cosmetics.clone()));
+        self.net = Some(Peer::join_with_fighter(
+            link,
+            &self.content,
+            self.my_cosmetics.clone(),
+            self.my_fighter.clone(),
+        ));
         self.net_log.clear();
         GString::new()
     }
@@ -666,6 +707,15 @@ impl SimRunner {
         if let Some(s) = peer.state() {
             self.state = *s;
         }
+        // A match with made fighters runs on the base roster plus theirs: show and read that.
+        if self.base_content.is_none() {
+            if let Some(c) = peer.match_content() {
+                self.base_content = Some(std::mem::replace(&mut self.content, c.clone()));
+            }
+        }
+        let Some(peer) = self.net.as_mut() else {
+            return -1;
+        };
         for e in peer.drain_events() {
             self.net_log.push(match e {
                 Event::Desync {
@@ -687,10 +737,17 @@ impl SimRunner {
                 their_version,
                 their_hash,
             } => {
-                self.net_log.push(format!(
-                    "refused ({reason:?}): the other side has sim version {their_version}, content {their_hash:016x}; ours is {SIM_VERSION}, {:016x}",
-                    self.content.hash()
-                ));
+                if reason == netplay::packet::RejectReason::BadFighter {
+                    self.net_log.push(
+                        "refused: a fighter in this match is not allowed (over the point budget under ranked rules, or not one this game has)"
+                            .to_string(),
+                    );
+                } else {
+                    self.net_log.push(format!(
+                        "refused ({reason:?}): the other side has sim version {their_version}, content {their_hash:016x}; ours is {SIM_VERSION}, {:016x}",
+                        self.content.hash()
+                    ));
+                }
                 3
             }
         }
@@ -741,6 +798,9 @@ impl SimRunner {
     fn net_leave(&mut self) {
         if let Some(mut p) = self.net.take() {
             p.leave();
+        }
+        if let Some(base) = self.base_content.take() {
+            self.content = base;
         }
     }
 

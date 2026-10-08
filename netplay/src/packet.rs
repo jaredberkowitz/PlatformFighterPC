@@ -18,6 +18,8 @@ pub enum RejectReason {
     SimVersion = 1,
     ContentHash = 2,
     Full = 3,
+    /// A fighter that is missing, cannot be decoded, does not exist, or is over the point budget under ranked rules.
+    BadFighter = 4,
 }
 
 impl RejectReason {
@@ -26,13 +28,14 @@ impl RejectReason {
             1 => Some(RejectReason::SimVersion),
             2 => Some(RejectReason::ContentHash),
             3 => Some(RejectReason::Full),
+            4 => Some(RejectReason::BadFighter),
             _ => None,
         }
     }
 }
 
 /// Everything the host decides for a match.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Setup {
     pub seed: u64,
     pub chars: [u8; MAX_FIGHTERS],
@@ -41,6 +44,11 @@ pub struct Setup {
     pub input_delay: u8,
     /// The host's cosmetics (opaque).
     pub cosmetics: Vec<u8>,
+    /// The fighter the host brings (`sim_content::recipe::FighterSpec` bytes), or empty to use `chars` as they are.
+    /// Unlike cosmetics this reaches the simulation, so both sides must agree on it.
+    pub fighter: Vec<u8>,
+    /// Ranked rules: a fighter over the point budget is refused.
+    pub ranked: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,6 +58,8 @@ pub enum Packet {
         sim_version: u16,
         content_hash: u64,
         cosmetics: Vec<u8>,
+        /// The fighter the joiner brings (spec bytes, or empty).
+        fighter: Vec<u8>,
     },
     /// Host to joiner: the match settings. Repeats the host's version and hash so the joiner can check them too.
     Setup {
@@ -162,11 +172,13 @@ impl Packet {
                 sim_version,
                 content_hash,
                 cosmetics,
+                fighter,
             } => {
                 let mut w = Writer::new(T_HELLO);
                 w.u16(*sim_version);
                 w.u64(*content_hash);
                 w.bytes(cosmetics);
+                w.bytes(fighter);
                 w.0
             }
             Packet::Setup {
@@ -184,6 +196,8 @@ impl Packet {
                 w.u8(setup.active);
                 w.u8(setup.input_delay);
                 w.bytes(&setup.cosmetics);
+                w.bytes(&setup.fighter);
+                w.u8(u8::from(setup.ranked));
                 w.0
             }
             Packet::Ready => Writer::new(T_READY).0,
@@ -236,6 +250,7 @@ impl Packet {
                 sim_version: r.u16()?,
                 content_hash: r.u64()?,
                 cosmetics: r.bytes()?,
+                fighter: r.bytes()?,
             },
             T_SETUP => {
                 let sim_version = r.u16()?;
@@ -248,6 +263,12 @@ impl Packet {
                 let active = r.u8()?;
                 let input_delay = r.u8()?;
                 let cosmetics = r.bytes()?;
+                let fighter = r.bytes()?;
+                let ranked = match r.u8()? {
+                    0 => false,
+                    1 => true,
+                    _ => return None,
+                };
                 Packet::Setup {
                     sim_version,
                     content_hash,
@@ -257,6 +278,8 @@ impl Packet {
                         active,
                         input_delay,
                         cosmetics,
+                        fighter,
+                        ranked,
                     },
                 }
             }
@@ -308,6 +331,7 @@ mod tests {
                 sim_version: 17,
                 content_hash: 0xdead_beef_1234,
                 cosmetics: vec![1, 2, 3],
+                fighter: vec![1, 0, 9, 5, 5, 1],
             },
             Packet::Setup {
                 sim_version: 17,
@@ -318,6 +342,8 @@ mod tests {
                     active: 0b0011,
                     input_delay: 2,
                     cosmetics: vec![],
+                    fighter: vec![0, 1],
+                    ranked: true,
                 },
             },
             Packet::Ready,

@@ -120,6 +120,7 @@ fn match_setup(seed: u64) -> Setup {
         active: 0b0011,
         input_delay: 2,
         cosmetics: Vec::new(),
+        ..Setup::default()
     }
 }
 
@@ -252,6 +253,22 @@ pub fn cmd_relay(args: &[String]) -> Result<(), String> {
     }
 }
 
+/// A random fighter for the fuzzer: a built-in one a quarter of the time, otherwise a recipe with random stats.
+fn random_spec(rng: &mut Rng) -> sim_content::recipe::FighterSpec {
+    use sim_content::recipe::{FighterSpec, Recipe};
+    if rng.range(4) == 0 {
+        FighterSpec::Builtin(rng.range(2) as u8)
+    } else {
+        FighterSpec::Made(Recipe {
+            class: rng.range(2) as u8,
+            size: 1 + rng.range(9) as u8,
+            speed: 1 + rng.range(9) as u8,
+            jump: 1 + rng.range(9) as u8,
+            weight: 1 + rng.range(9) as u8,
+        })
+    }
+}
+
 /// Randomised sessions over a simulated lossy network. Every confirmed frame of both peers must equal a
 /// single-machine run of the same inputs, and neither side may report a desync.
 pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
@@ -280,12 +297,26 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         let mut setup = match_setup(seed);
         setup.input_delay = delay;
         let inputs = script(seed, frames as usize + 80);
+        // Every other run, each player brings a random fighter: a built-in one or one made from random stats (casual
+        // rules, so any stats are fine). Then the truth is a single-machine run on the content they build together.
+        let specs = (seed % 2 == 1).then(|| (random_spec(&mut rng), random_spec(&mut rng)));
+        let mut truth_content = content.clone();
+        let mut truth_chars = setup.chars;
+        if let Some((h, j)) = specs {
+            setup.fighter = h.encode();
+            let (c, chars) = sim_content::recipe::match_content(&content, &[h, j], false)
+                .map_err(|e| format!("specs rejected: {e:?}"))?;
+            truth_content = c;
+            truth_chars[0] = chars[0];
+            truth_chars[1] = chars[1];
+        }
 
         let (la, lb, clock) = pair(params, seed);
         let mut a =
             Peer::host(la, &content, setup.clone()).with_max_prediction(4 + rng.range(7) as u8);
-        let mut b =
-            Peer::join(lb, &content, Vec::new()).with_max_prediction(4 + rng.range(7) as u8);
+        let join_fighter = specs.map_or_else(Vec::new, |(_, j)| j.encode());
+        let mut b = Peer::join_with_fighter(lb, &content, Vec::new(), join_fighter)
+            .with_max_prediction(4 + rng.range(7) as u8);
         let (mut na, mut nb) = (0u32, 0u32);
         let mut ticks = 0;
         let spike_at = if std::env::var("PF_NOSPIKE").is_ok() {
@@ -320,7 +351,8 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             ticks += 1;
         }
         // The single-machine truth for the same inputs and delay.
-        let initial = GameState::new_with_active(&content, setup.seed, setup.chars, setup.active);
+        let initial =
+            GameState::new_with_active(&truth_content, setup.seed, truth_chars, setup.active);
         let truth_inputs: Vec<[Input; MAX_FIGHTERS]> = (0..na.max(nb) + 5)
             .map(|f| {
                 let mut i = [Input::default(); MAX_FIGHTERS];
@@ -334,7 +366,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
                 i
             })
             .collect();
-        let truth = reference_checksums(&content, &initial, &truth_inputs);
+        let truth = reference_checksums(&truth_content, &initial, &truth_inputs);
         let mut problem = None;
         for (name, peer) in [("host", &mut a), ("joiner", &mut b)] {
             if peer.session().is_none() {
