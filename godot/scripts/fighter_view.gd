@@ -161,6 +161,17 @@ func build(p: int, l: RefCounted = null) -> void:
 	percent_label.position = Vector3(0, 4.1, 0)
 	percent_label.text = "0%"
 	add_child(percent_label)
+	# The fighter's name, small, under the damage readout.
+	name_label = Label3D.new()
+	name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	name_label.font_size = 48
+	name_label.pixel_size = 0.0075
+	name_label.outline_size = 14
+	name_label.no_depth_test = true
+	name_label.position = Vector3(0, 3.55, 0)
+	name_label.text = name_text
+	name_label.visible = name_text != ""
+	add_child(name_label)
 
 	# Weapon: pivots at the hand and extends along +x. Claws just shrink it (see _pose_blade).
 	blade_pivot = Node3D.new()
@@ -439,6 +450,16 @@ const GROUND_CLEARANCE := 0.06            # the blade tip stays at least this fa
 const MESH_LENGTH := 2.7                  # length of the blade mesh before scaling
 
 var percent_label: Label3D
+var name_label: Label3D
+var name_text := ""
+
+
+## Shows a name above the fighter (empty hides it). Rebuilding the view keeps it.
+func set_name_tag(text: String) -> void:
+	name_text = text
+	if name_label != null:
+		name_label.text = text
+		name_label.visible = text != ""
 var blade_pivot: Node3D
 var spark: MeshInstance3D
 var flame: MeshInstance3D

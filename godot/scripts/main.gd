@@ -3,6 +3,7 @@ extends Node3D
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
+const Roster := preload("res://scripts/roster.gd")
 const StageView := preload("res://scripts/stage_view.gd")
 const InputReader := preload("res://scripts/input_reader.gd")
 const DebugOverlay := preload("res://scripts/debug_overlay.gd")
@@ -201,6 +202,22 @@ func _load_content() -> void:
 			while picked.size() < 4:
 				picked.append(0)
 			chosen_chars = picked
+	# Coming from the menus: the match's content (the base roster plus any fighters made in the creator) is ready.
+	if Roster.session.has("content_text"):
+		var err_text: String = sim.load_content_text(Roster.session.content_text)
+		if err_text == "":
+			chosen_chars = Roster.session.chars.duplicate()
+			while chosen_chars.size() < 4:
+				chosen_chars.append(0)
+			content_note = ""
+			for i in mini(PLAYERS, Roster.session.entries.size()):
+				var e: Dictionary = Roster.session.entries[i]
+				views[i].rebuild(e.look)
+				views[i].set_name_tag(e.name)
+				views[i].scale = Vector3.ONE * (float(Roster.session.sizes[i]) / 100.0)
+			return
+		push_error("content: " + err_text)
+		content_note = "CONTENT NOT LOADED: " + err_text
 	var asked := path != ""
 	if not asked:
 		path = ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
@@ -609,7 +626,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_R:
 			_restart()
 		KEY_ESCAPE:
-			get_tree().quit()
+			# From the menus, Esc goes back to character select; launched directly, it quits.
+			if Roster.session.get("from_menu", false) and not net_mode:
+				get_tree().change_scene_to_file("res://select.tscn")
+			else:
+				get_tree().quit()
 
 
 # ---- Hitbox and hurtbox display (training) ----------------------------------------------------------
