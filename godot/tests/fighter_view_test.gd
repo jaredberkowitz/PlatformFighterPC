@@ -47,6 +47,16 @@ func _initialize() -> void:
 		check(hammer.blade_pivot.visible, "the bruiser always has its maul in %s" % m)
 		check(hammer.hammer_parts[0].visible and not hammer.blade_parts[0].visible, "and it is a hammer, not a blade, in %s" % m)
 		check(sword.blade_parts[0].visible and not sword.hammer_parts[0].visible, "the sword fighter's weapon is a blade in %s" % m)
+	# Every move plays a clip the rig has, and the common ones have their own.
+	var expect := {"jab": "attack_jab", "jab 2": "attack_jab", "dash attack": "attack_lunge", "side special": "attack_lunge", "utilt": "attack_uair",
+		"up special": "attack_uair", "dtilt": "attack_low", "down special": "attack_low", "neutral special": "attack_smash", "fair": "attack_fair",
+		"nair": "attack_nair", "usmash": "attack_smash", "forward throw": "throw", "pummel": "grab", "ftilt": "attack_swing"}
+	for m in moves + ["jab 2", "jab 3"]:
+		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
+		check(sword.anim != null and sword.anim.has_animation(clip), "the rig has the clip %s for %s" % [clip, m])
+	for m in expect:
+		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
+		check(clip == expect[m], "%s plays %s (got %s)" % [m, expect[m], clip])
 	for state in ["Idle", "Walk", "Run", "Shield", "Hitstun", "Airborne", "Roll", "LedgeHang"]:
 		sword.apply(Vector3.ZERO, snap(0, state, "", frame), 1.0 / 60.0)
 		check(sword.blade_pivot.visible, "the blade is there while %s" % state)

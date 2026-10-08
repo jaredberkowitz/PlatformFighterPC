@@ -278,8 +278,16 @@ func _attack_clip(s: Dictionary) -> Array:
 		clip = "attack_dair"
 	elif name.ends_with("smash"):
 		clip = "attack_smash"
-	elif name == "dtilt":
+	elif name == "dtilt" or name == "down special":
 		clip = "attack_low"
+	elif name.begins_with("jab"):
+		clip = "attack_jab"
+	elif name == "dash attack" or name == "side special":
+		clip = "attack_lunge"
+	elif name == "utilt" or name == "up special":
+		clip = "attack_uair"
+	elif name == "neutral special":
+		clip = "attack_smash"
 	return [clip, 1.0, clampf(progress, 0.0, 1.0)]
 
 
@@ -446,11 +454,12 @@ func build(p: int, l: RefCounted = null) -> void:
 	shaft_mesh.size = Vector3(2.5, 0.2, 0.2)
 	hammer_parts.append(_part(blade_pivot, shaft_mesh, toon(Color(0.55, 0.36, 0.2)), Vector3(1.3, 0, 0)))
 	var head_mesh := BoxMesh.new()
-	head_mesh.size = Vector3(0.8, 0.95, 0.7)
-	hammer_parts.append(_part(blade_pivot, head_mesh, toon(Color(0.62, 0.64, 0.7)), Vector3(2.45, 0, 0)))
-	var band_mesh := BoxMesh.new()
-	band_mesh.size = Vector3(0.14, 1.05, 0.8)
-	hammer_parts.append(_part(blade_pivot, band_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(2.05, 0, 0)))
+	head_mesh.size = Vector3(0.7, 0.7, 0.6)
+	hammer_parts.append(_part(blade_pivot, head_mesh, toon(Color(0.36, 0.4, 0.5)), Vector3(2.45, 0, 0)))
+	# A small gold stud on the head's top, so it reads as a made thing rather than a grey box.
+	var stud_mesh := BoxMesh.new()
+	stud_mesh.size = Vector3(0.22, 0.2, 0.22)
+	hammer_parts.append(_part(blade_pivot, stud_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(2.45, 0.42, 0)))
 	for part in hammer_parts:
 		part.visible = false
 
@@ -889,9 +898,17 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
-	var thick := 1.0 if _cls(s) == 0 else (1.7 if _cls(s) == 1 else 1.4)
-	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
 	var hammer: bool = _cls(s) == 2
+	var thick := 1.0 if _cls(s) == 0 else 1.7
+	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
+	if hammer:
+		# The head keeps its size: only the shaft stretches, and the head sits at the move's sweet spot.
+		blade_pivot.scale = Vector3.ONE
+		var reach := maxf(length, 1.3)
+		hammer_parts[0].scale.x = (reach - 0.35) / 2.5
+		hammer_parts[0].position.x = (reach - 0.35) / 2.0
+		hammer_parts[1].position.x = reach
+		hammer_parts[2].position.x = reach
 	for part in blade_parts:
 		part.visible = not hammer
 	for part in hammer_parts:

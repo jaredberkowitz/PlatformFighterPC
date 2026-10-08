@@ -610,6 +610,56 @@ def main() -> None:
 
     move("attack_smash", smash_wind, smash_strike, smash_hold)
 
+    # Jab: a quick straight strike. A small step, the shoulders turn back and snap forward; the move is short so the pose is held at the end.
+    def jab_wind(rig):
+        rest_arms(rig, -10.0, 16.0)
+        pose(rig, "spine", fwd=-4.0, twist=-26.0)
+        pose(rig, "head", twist=14.0)
+        stance(rig, lead=14.0, back=-14.0)
+
+    def jab_strike(rig):
+        rest_arms(rig, 26.0, 10.0)
+        pose(rig, "hips", lift=-0.03)
+        pose(rig, "spine", fwd=10.0, twist=30.0)
+        pose(rig, "head", fwd=-4.0, twist=-14.0)
+        stance(rig, lead=30.0, back=-26.0)
+
+    def jab_hold(k):
+        def f(rig):
+            rest_arms(rig, 8.0 * k)
+            pose(rig, "spine", fwd=4.0 * k, twist=10.0 * k)
+            stance(rig, lead=10.0 * k, back=-8.0 * k)
+        return f
+
+    move("attack_jab", jab_wind, jab_strike, jab_hold)
+
+    # Lunge (dash attack, side special): crouch back, then the whole body stretches forward.
+    def lunge_wind(rig):
+        rest_arms(rig, -24.0, 22.0)
+        pose(rig, "hips", lift=-0.14)
+        pose(rig, "spine", fwd=-14.0)
+        pose(rig, "head", fwd=8.0)
+        stance(rig, lead=20.0, back=-36.0)
+        pose(rig, "shin.R", fwd=-60.0)
+
+    def lunge_strike(rig):
+        rest_arms(rig, 50.0, 8.0)
+        pose(rig, "hips", lift=-0.1)
+        pose(rig, "spine", fwd=40.0)
+        pose(rig, "head", fwd=-24.0)
+        stance(rig, lead=62.0, back=-52.0)
+        pose(rig, "shin.L", fwd=-16.0)
+
+    def lunge_hold(k):
+        def f(rig):
+            rest_arms(rig, 16.0 * k)
+            pose(rig, "hips", lift=-0.05 * k)
+            pose(rig, "spine", fwd=16.0 * k)
+            stance(rig, lead=30.0 * k, back=-24.0 * k)
+        return f
+
+    move("attack_lunge", lunge_wind, lunge_strike, lunge_hold)
+
     # Grabs and throws.
     def grab_pose(rig):
         pose(rig, "hips", lift=-0.06)
