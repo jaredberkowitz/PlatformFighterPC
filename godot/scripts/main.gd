@@ -11,6 +11,7 @@ const Demo := preload("res://scripts/demo.gd")
 const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
 const Replays := preload("res://scripts/replays.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
 const PLAYERS := 2
 const SEED := 1
@@ -86,6 +87,7 @@ func _ready() -> void:
 	_restart()
 	_apply_scales()
 	_start_net()
+	PadNav.attach(self)
 	_build_ecb()
 	_build_boxes()
 	_build_projectiles()
@@ -410,6 +412,15 @@ func _apply_scales() -> void:
 
 
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
+## A controller plays during a match, so it only navigates on the results screen and when watching a replay.
+func pad_scheme(_pad: int) -> Dictionary:
+	if replay_mode:
+		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
+	if results != null:
+		return PadNav.DEFAULT
+	return {}
+
+
 func _replay_step() -> void:
 	if paused:
 		return

@@ -1,10 +1,13 @@
 extends RefCounted
+
+const Bindings := preload("res://scripts/bindings.gd")
 ## Turns keyboard and gamepad state into the sim's input: stick (-127..127 each axis) plus a
 ## button mask. Bindings live here, not in the sim.
 ##
-## Player 1 keyboard: WASD stick, Left Ctrl = gentle tilt (slow walk), Space jump, N short hop,
-##   J attack, I strong (smash) attack, K special, L or Left Shift shield, U grab.
-## Player 2 keyboard: Arrows stick, Backslash = gentle tilt, Enter jump, apostrophe short hop,
+## Keyboard keys come from `bindings.gd` (the Controls screen changes them). Defaults:
+## Player 1: WASD stick, Left Ctrl = gentle tilt (slow walk), Space jump, N short hop,
+##   J attack, I strong (smash) attack, K special, L (or Left Shift) shield, U grab.
+## Player 2: Arrows stick, Backslash = gentle tilt, Enter jump, apostrophe short hop,
 ##   comma attack, semicolon strong attack, period special, slash shield, M grab.
 ##
 ## A keyboard direction is digital, so it is shaped to behave like a thumb on a stick:
@@ -15,7 +18,7 @@ extends RefCounted
 ##     direction while dash dancing) is full strength at once, which is a flick: it dashes.
 ##   - Down: tap = soft (crouch, drop through), double tap = hard (fast fall).
 ## Gamepads: left stick as is (analog); a hard flick down fast falls; A/Y jump, X attack, B special,
-## bumpers/triggers shield, right stick click grab.
+## bumpers/triggers shield, right stick click grab, right stick = strong (smash) attack in that direction.
 
 const TILT := 0.45  # stick magnitude while the tilt key is held
 ## A connected controller only overrides the keyboard once its stick is pushed past this, so a
@@ -131,38 +134,31 @@ static func _key(k: Key) -> bool:
 	return Input.is_physical_key_pressed(k)
 
 
+## Is the key bound to `action` for this player held?
+static func _held(player: int, action: String) -> bool:
+	return Input.is_physical_key_pressed(Bindings.key(player, action) as Key)
+
+
 ## Returns {x, y, buttons}. `masks` maps button names to the sim's bit values.
 static func read(player: int, masks: Dictionary) -> Dictionary:
 	var sx := 0.0
 	var sy := 0.0
 	var b := 0
-	if player == 0:
+	if player == 0 or player == 1:
+		var id := "p%d" % player
 		# With the shield up, a direction press is a flick (roll) and a down press is hard (spot dodge).
-		var shielding := _key(KEY_L) or _key(KEY_SHIFT)
-		sx = _x_key("p0x", _key(KEY_A), _key(KEY_D), shielding)
-		sy = 1.0 if _key(KEY_W) else -_down_key("p0", _key(KEY_S), shielding)
-		if _key(KEY_CTRL):
+		var shielding := _held(player, "shield") or (player == 0 and Input.is_physical_key_pressed(KEY_SHIFT))
+		sx = _x_key(id + "x", _held(player, "left"), _held(player, "right"), shielding)
+		sy = 1.0 if _held(player, "up") else -_down_key(id, _held(player, "down"), shielding)
+		if _held(player, "tilt"):
 			sx = signf(sx) * TILT
 			sy *= TILT
-		if _key(KEY_SPACE) or _short_hop("p0h", _key(KEY_N)): b |= masks.jump
-		if _key(KEY_J): b |= masks.attack
-		if _key(KEY_I): b |= masks.attack | masks.strong
-		if _key(KEY_K): b |= masks.special
-		if _key(KEY_L) or _key(KEY_SHIFT): b |= masks.shield
-		if _key(KEY_U): b |= masks.grab
-	elif player == 1:
-		var shielding1 := _key(KEY_SLASH)
-		sx = _x_key("p1x", _key(KEY_LEFT), _key(KEY_RIGHT), shielding1)
-		sy = 1.0 if _key(KEY_UP) else -_down_key("p1", _key(KEY_DOWN), shielding1)
-		if _key(KEY_BACKSLASH):
-			sx = signf(sx) * TILT
-			sy *= TILT
-		if _key(KEY_ENTER) or _short_hop("p1h", _key(KEY_APOSTROPHE)): b |= masks.jump
-		if _key(KEY_COMMA): b |= masks.attack
-		if _key(KEY_SEMICOLON): b |= masks.attack | masks.strong
-		if _key(KEY_PERIOD): b |= masks.special
-		if _key(KEY_SLASH): b |= masks.shield
-		if _key(KEY_M): b |= masks.grab
+		if _held(player, "jump") or _short_hop(id + "h", _held(player, "hop")): b |= masks.jump
+		if _held(player, "attack"): b |= masks.attack
+		if _held(player, "strong"): b |= masks.attack | masks.strong
+		if _held(player, "special"): b |= masks.special
+		if shielding: b |= masks.shield
+		if _held(player, "grab"): b |= masks.grab
 
 	var pad := player
 	if pad in Input.get_connected_joypads():
@@ -180,6 +176,13 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 		if Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.5 or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.5:
 			b |= masks.shield
 		if Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_STICK): b |= masks.grab
+		# The right stick is the smash stick: pushed, it attacks hard in that direction.
+		var rx := Input.get_joy_axis(pad, JOY_AXIS_RIGHT_X)
+		var ry := -Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y)
+		if Vector2(rx, ry).length() > 0.65:
+			b |= masks.attack | masks.strong
+			sx = rx
+			sy = ry
 
 	# Digital diagonals would be a longer vector than a physical stick can make; clamp to the unit circle.
 	var len := Vector2(sx, sy).length()

@@ -6,6 +6,7 @@ const UI := preload("res://ui/ui_kit.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Replays := preload("res://scripts/replays.gd")
 const Shot := preload("res://ui/shot.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
 var paths: Array = []
 var infos: Array = []
@@ -53,6 +54,7 @@ func _ready() -> void:
 	hint.position = Vector2(60, 676)
 	add_child(hint)
 	_fill()
+	PadNav.attach(self)
 	Shot.attach(self)
 
 

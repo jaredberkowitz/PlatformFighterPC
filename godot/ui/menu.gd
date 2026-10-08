@@ -7,6 +7,7 @@ const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
 var buttons: Array = []
 var index := 0
@@ -20,6 +21,7 @@ const ITEMS := [
 	["Online", "res://online.tscn"],
 	["Replays", "res://replays.tscn"],
 	["Character Creator", "res://creator.tscn"],
+	["Controls", "res://controls.tscn"],
 	["Editors", "res://editor.tscn"],
 	["Quit", ""],
 ]
@@ -41,28 +43,28 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.position = Vector2(70, 40)
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", 8)
 	add_child(column)
-	title_a = UI.Tag.new("PLATFORM", Vector2(470, 92))
+	title_a = UI.Tag.new("PLATFORM", Vector2(470, 80))
 	title_a.fill = UI.SKY
-	title_a.font_size = 70
+	title_a.font_size = 60
 	title_a.edge = UI.INK
 	column.add_child(title_a)
-	title_b = UI.Tag.new("FIGHTER", Vector2(400, 92))
+	title_b = UI.Tag.new("FIGHTER", Vector2(400, 80))
 	title_b.fill = UI.GOLD
-	title_b.font_size = 70
+	title_b.font_size = 60
 	title_b.edge = UI.INK
 	title_b.position.x = 40
 	var wrap := Control.new()
-	wrap.custom_minimum_size = Vector2(0, 100)
+	wrap.custom_minimum_size = Vector2(0, 88)
 	wrap.add_child(title_b)
 	column.add_child(wrap)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 28)
+	spacer.custom_minimum_size = Vector2(0, 12)
 	column.add_child(spacer)
 
 	for item in ITEMS:
-		var b := UI.Btn.new(item[0], Vector2(400, 56))
+		var b := UI.Btn.new(item[0], Vector2(400, 50))
 		b.activated.connect(_choose.bind(item[1]))
 		b.mouse_entered.connect(func(): _select(buttons.find(b)))
 		column.add_child(b)
@@ -81,6 +83,7 @@ func _ready() -> void:
 	hint.shadow = false
 	hint.position = Vector2(60, 676)
 	add_child(hint)
+	PadNav.attach(self)
 	Shot.attach(self)
 
 

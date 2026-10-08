@@ -8,6 +8,7 @@ const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
 const LOOK_TEXT := "How your fighter looks. Looks are only for show: they never change how you play."
 const DESCRIPTIONS := {
@@ -163,6 +164,7 @@ func _ready() -> void:
 		Roster.edit_slug = ""
 	_load_selected()
 	_set_focus(0)
+	PadNav.attach(self)
 	Shot.attach(self)
 
 

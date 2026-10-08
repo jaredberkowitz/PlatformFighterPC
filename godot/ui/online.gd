@@ -9,6 +9,7 @@ const UI := preload("res://ui/ui_kit.gd")
 const Preview := preload("res://ui/preview.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
 const SETTINGS_PATH := "user://online.json"
 const DEFAULT_PORT := 47000
@@ -101,6 +102,7 @@ func _ready() -> void:
 	_apply_settings()
 	_update_rows()
 	_set_focus(0)
+	PadNav.attach(self)
 	Shot.attach(self)
 
 
@@ -279,7 +281,8 @@ func _back() -> void:
 func _load_settings() -> Dictionary:
 	var out := {"role": 0, "link": 0, "address": "", "port": str(DEFAULT_PORT), "room": "1", "delay": 2, "fighter": ""}
 	if FileAccess.file_exists(SETTINGS_PATH):
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS_PATH))
+		var json := JSON.new()
+		var parsed = json.data if json.parse(FileAccess.get_file_as_string(SETTINGS_PATH)) == OK else null
 		if parsed is Dictionary:
 			for k in out:
 				if parsed.has(k):

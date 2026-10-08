@@ -87,7 +87,10 @@ static func load_match_rules() -> void:
 	_match_loaded = true
 	if not FileAccess.file_exists(MATCH_PATH):
 		return
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(MATCH_PATH))
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(MATCH_PATH)) != OK:
+		return
+	var parsed = json.data
 	if parsed is Dictionary:
 		if STOCK_CHOICES.has(int(parsed.get("stocks", 3))):
 			match_stocks = int(parsed.get("stocks", 3))

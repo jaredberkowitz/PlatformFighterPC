@@ -11,6 +11,7 @@ const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
 const COLUMNS := 5
 const TOKEN := 92
@@ -222,7 +223,15 @@ func _ready() -> void:
 				cursor[0] = i
 				_lock(0)
 	_refresh()
+	PadNav.attach(self)
 	Shot.attach(self)
+
+
+## Controller 1 plays the player 1 keys on this screen, controller 2 the player 2 keys.
+func pad_scheme(pad: int) -> Dictionary:
+	if pad == 0:
+		return {"up": KEY_W, "down": KEY_S, "left": KEY_A, "right": KEY_D, "confirm": KEY_J, "back": KEY_K, "start": KEY_SPACE, "menu": KEY_ESCAPE}
+	return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_ENTER, "back": KEY_BACKSPACE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
 
 
 # ---- Input -----------------------------------------------------------------------------------------------------------------
