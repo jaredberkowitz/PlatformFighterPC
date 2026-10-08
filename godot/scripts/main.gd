@@ -129,7 +129,17 @@ func _ready() -> void:
 
 func _build_world() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
+	# A sky that fades from deep blue overhead to a pale horizon, with soft hills and clouds far behind the stage.
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.32, 0.55, 0.9)
+	sky_mat.sky_horizon_color = Color(0.78, 0.9, 0.98)
+	sky_mat.ground_horizon_color = Color(0.78, 0.9, 0.98)
+	sky_mat.ground_bottom_color = Color(0.55, 0.72, 0.85)
+	sky_mat.sun_angle_max = 0.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
 	env.background_color = Color(0.56, 0.78, 0.95)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(1.0, 0.95, 0.9)
@@ -151,6 +161,7 @@ func _build_world() -> void:
 	stage_view = StageView.new()
 	add_child(stage_view)
 	stage_view.build(sim)
+	_build_backdrop()
 
 	for i in PLAYERS:
 		var v := FighterView.new()
@@ -168,6 +179,47 @@ func _build_world() -> void:
 	hud = MatchHud.new()
 	add_child(hud)
 	hud.build()
+
+
+## Far scenery: rolling hills and a few clouds well behind the stage (presentation only; they never move with the fighters).
+func _build_backdrop() -> void:
+	var hill_mat := StandardMaterial3D.new()
+	hill_mat.albedo_color = Color(0.55, 0.78, 0.6)
+	hill_mat.roughness = 1.0
+	var far_mat := StandardMaterial3D.new()
+	far_mat.albedo_color = Color(0.62, 0.78, 0.82)
+	far_mat.roughness = 1.0
+	var cloud_mat := StandardMaterial3D.new()
+	cloud_mat.albedo_color = Color(1, 1, 1)
+	cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	for k in 7:
+		var hill := MeshInstance3D.new()
+		var m := SphereMesh.new()
+		m.radius = 1.0
+		m.height = 2.0
+		hill.mesh = m
+		var far := k % 2 == 1
+		hill.material_override = far_mat if far else hill_mat
+		var w := rng.randf_range(28.0, 46.0)
+		hill.scale = Vector3(w, rng.randf_range(10.0, 18.0), 6.0)
+		hill.position = Vector3(-90.0 + k * 30.0 + rng.randf_range(-8, 8), -20.0, -95.0 if far else -70.0)
+		add_child(hill)
+	for k in 9:
+		var cloud := Node3D.new()
+		cloud.position = Vector3(rng.randf_range(-80, 80), rng.randf_range(14, 34), rng.randf_range(-110, -80))
+		for b in 4:
+			var puff := MeshInstance3D.new()
+			var pm := SphereMesh.new()
+			pm.radius = 1.0
+			pm.height = 2.0
+			puff.mesh = pm
+			puff.material_override = cloud_mat
+			puff.scale = Vector3.ONE * rng.randf_range(2.5, 4.5)
+			puff.position = Vector3(b * 3.2 - 4.8, rng.randf_range(-0.8, 1.2), 0)
+			cloud.add_child(puff)
+		add_child(cloud)
 
 
 ## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.

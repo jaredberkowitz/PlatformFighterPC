@@ -69,7 +69,7 @@ A move block (omitted fields take the default shown):
 | `charge_at` | smash attack hold frame | none |
 | `next`, `next_window` | jab chain: move to continue into, and the press window | none |
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |
-| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100) | |
+| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric` | |
 | `motion { start end vx vy }` | scripted-motion segments (`vx` forward-relative) | |
 | `projectile { frame x y speed life end_damage  hitbox { ... } }` | at most one | |
 | `reflector { start end x y radius damage_percent speed_percent }` | at most one | |

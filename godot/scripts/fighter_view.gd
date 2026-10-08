@@ -491,11 +491,13 @@ func build(p: int, l: RefCounted = null) -> void:
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
-	spark.mesh = _sphere(0.7)
+	spark.mesh = _star_mesh()
 	var spark_mat := StandardMaterial3D.new()
 	spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	spark_mat.albedo_color = Color(1.0, 0.97, 0.7, 0.85)
+	spark_mat.vertex_color_use_as_albedo = true
+	spark_mat.albedo_color = Color(1.0, 0.97, 0.7, 0.95)
 	spark_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	spark_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	spark.material_override = spark_mat
 	spark.position = Vector3(0, 1.3, 0.6)
 	spark.visible = false
@@ -825,6 +827,34 @@ var hammer_parts: Array[MeshInstance3D] = []
 func _cls(s: Dictionary) -> int:
 	return int(s.get("class", s.char))
 var spark: MeshInstance3D
+var spark_was_visible := false
+var spark_spin := 0.0
+var spark_strength := 0
+
+
+## An eight-pointed star (white in the middle) for hit sparks, flat and facing the camera.
+static func _star_mesh() -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	var points := 8
+	for k in points * 2:
+		var a0 := TAU * float(k) / float(points * 2)
+		var a1 := TAU * float(k + 1) / float(points * 2)
+		var r0 := 1.0 if k % 2 == 0 else 0.38
+		var r1 := 1.0 if (k + 1) % 2 == 0 else 0.38
+		verts.append(Vector3.ZERO)
+		cols.append(Color(1, 1, 1, 1))
+		verts.append(Vector3(cos(a0) * r0, sin(a0) * r0, 0))
+		cols.append(Color(1, 1, 1, 0.0) if r0 > 0.5 else Color(1, 1, 1, 0.8))
+		verts.append(Vector3(cos(a1) * r1, sin(a1) * r1, 0))
+		cols.append(Color(1, 1, 1, 0.0) if r1 > 0.5 else Color(1, 1, 1, 0.8))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = cols
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return m
 var flame: MeshInstance3D
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
@@ -1098,6 +1128,17 @@ func _dust(s: Dictionary) -> void:
 	if grounded and not dust_grounded and state != "Knockdown":
 		_puff(-1.0, 1)
 		_puff(1.0, 1)
+	# Rage: from 100% a hurt fighter lets off steam, more of it the higher the damage.
+	var pct: float = s.get("percent", 0.0)
+	if pct >= 100.0 and state != "Respawn":
+		var every := maxi(4, 16 - int((pct - 100.0) / 8.0))
+		if frame % every == 0:
+			var i := next_dust
+			next_dust = (next_dust + 1) % DUSTS
+			dusts[i].global_position = global_position + Vector3(randf_range(-0.3, 0.3), 2.1, 0.3)
+			dust_vel[i] = Vector3(randf_range(-0.3, 0.3), 1.6, 0.0)
+			dust_age[i] = 0.0
+			dusts[i].visible = true
 	dust_state = state
 	dust_grounded = grounded
 
@@ -1290,7 +1331,18 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	set_expression(Loadout.HURT if state == "Hitstun" else Loadout.FACES[loadout.face])
 	spark.visible = hitlag > 0 and ((state == "Hitstun" and s.launch_pending) or state == "Rebound")
 	if spark.visible:
-		spark.scale = Vector3.ONE * (0.5 + 0.1 * hitlag)
+		# A star burst on the side the hit came from, bigger and hotter for a stronger hit, turned a new way for each hit.
+		if not spark_was_visible:
+			spark_spin = randf() * TAU
+			spark_strength = hitlag
+		var heat := clampf((spark_strength - 8) / 16.0, 0.0, 1.0)
+		var col := Color(1.0, 0.97, 0.75).lerp(Color(1.0, 0.45, 0.15), heat)
+		(spark.material_override as StandardMaterial3D).albedo_color = Color(col.r, col.g, col.b, 0.95)
+		var grow := 0.55 + 0.07 * spark_strength + 0.12 * sin(float(s.frame) * 1.9)
+		spark.scale = Vector3(grow, grow, 1.0)
+		spark.rotation.z = spark_spin + float(s.frame) * 0.05
+		spark.position = Vector3(0.45 * float(s.facing), 1.25, 0.7)
+	spark_was_visible = spark.visible
 	# The one who was hit shakes while frozen in hitlag (harder for a stronger hit, settling as it ends); the attacker holds still.
 	var shaking: bool = hitlag > 0 and (s.launch_pending or state == "Shield")
 	if shaking:
