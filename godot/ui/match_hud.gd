@@ -80,11 +80,14 @@ class Board extends Control:
 		var text: String = data.get("status", "")
 		if text == "":
 			return
-		var lines := text.split("\n")
+		var lines := text.split("
+")
+		var f := D.font()
 		for i in lines.size():
-			var rect := Rect2(Vector2(14, 10 + i * 40), Vector2(640, 36))
+			var w := f.get_string_size(lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 60.0
+			var rect := Rect2(Vector2(14, 70 + i * 40), Vector2(minf(w, size.x - 28.0), 36))
 			D.draw_slant(self, rect, Color(0.11, 0.12, 0.17, 0.85), Color(1, 1, 1, 0.7), 2.0, false)
-			draw_string(D.font(), rect.position + Vector2(28, 26), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1))
+			draw_string(f, rect.position + Vector2(28, 26), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1))
 
 	func _banner() -> void:
 		var text: String = data.banner

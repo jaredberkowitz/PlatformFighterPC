@@ -19,7 +19,8 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | (extra) Main menu, character creator, character select | done | `docs/MENUS.md` |
 | (extra) Online play with made fighters, hitbox size scaling, point budget | done | `docs/MENUS.md`, `docs/NETPLAY.md` |
 | 7 Game loop: stocks, winner, HUD, results, rematch (local and online), online screen | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
-| 7 Game loop: stage select, 3 to 4 players, replays, spectating, controllers | **next** | see below |
+| 7 Game loop: replays (record, verify, watch) | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
+| 7 Game loop: stage select, 3 to 4 players, spectating, controllers | **next** | see below |
 | 8 Content and polish (real art/animation, audio, balance tooling, moderation) | later | Blender models were offered by the user |
 
 ## What "done" is verified by
@@ -27,7 +28,7 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 `cargo test --workspace` (about 480 tests), `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all`,
 `pftool fuzz-rollback 1000` and `pftool net-fuzz 2000` (both 0 mismatches), and the headless Godot tests
 (`godot/tests/*.gd`, run with `Godot --headless --path godot --script res://tests/<name>.gd`):
-`input_e2e`, `net_e2e`, `content_e2e`, `loadout_test`, `editor_api_test`, `editor_ui_test`, `creator_flow_test`,
+`input_e2e`, `net_e2e`, `content_e2e`, `loadout_test`, `editor_api_test`, `editor_ui_test`, `creator_flow_test`, `replay_test`,
 `online_fighters_test`, `match_flow_test`, `online_flow_test`. All of them pass at the last commit. Godot is expected at `tools/godot/Godot_v4.7.1-stable_win64_console.exe`
 (not in git); Rust stable with the MSVC build tools builds the rest. `play.bat` opens the game, `play_editor.bat` the editors,
 `play_host.bat` / `play_join.bat` an online match.
@@ -46,15 +47,14 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 
 ## Phase 7: what is left, suggested order
 
-Done: stocks, elimination, winner, time limit, HUD, results, local and online rematch, online screen (`docs/MATCHES.md`).
+Done: stocks, elimination, winner, time limit, HUD, results, local and online rematch, online screen, replays (`docs/MATCHES.md`).
 
-1. **Replays**: record the input stream plus the match setup (seed, characters or fighter specs, rules: the same data the handshake
-   exchanges) and play them back; `pftool` can verify a replay by checksum. Spectating can reuse the confirmed-input stream later.
-2. **Controller input and key rebinding** in the menus and the input shim (`godot/scripts/input_reader.gd`).
-3. **Stage select** (a bundle can hold several stages; today it holds one) and a stage picker next to the fighter select.
-4. **3 to 4 players**: `Session` already has an `active` mask and the sim handles 4; the handshake, menus and HUD are 1v1.
+1. **Controller input and key rebinding** in the menus and the input shim (`godot/scripts/input_reader.gd`).
+2. **Stage select** (a bundle can hold several stages; today it holds one) and a stage picker next to the fighter select.
+3. **3 to 4 players**: `Session` already has an `active` mask and the sim handles 4; the handshake, menus and HUD are 1v1.
    Needs controllers first for local play; validate 1v1 over the internet before online 3 to 4.
-5. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics.
+4. **Spectating**: a spectator consumes the confirmed-input stream (the same data a replay records) from a host or relay.
+5. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics, replay sharing.
 
 ## Where things live
 

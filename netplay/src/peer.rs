@@ -55,6 +55,8 @@ pub struct Peer<L: Link> {
     match_content: Option<Content>,
     /// How many matches this link has played; tags every datagram.
     epoch: u8,
+    /// The settings the running match started with (host and joiner agree on them).
+    started: Option<Setup>,
     wants_rematch: bool,
     remote_wants_rematch: bool,
     rematch_ticks: u32,
@@ -118,6 +120,7 @@ impl<L: Link> Peer<L> {
             events: Vec::new(),
             match_content: None,
             epoch: 0,
+            started: None,
             wants_rematch: false,
             remote_wants_rematch: false,
             rematch_ticks: 0,
@@ -125,6 +128,32 @@ impl<L: Link> Peer<L> {
             join_info: None,
             base_hash: content.hash(),
             base_counts: counts(content),
+        }
+    }
+
+    /// The settings of the match in progress (seed, characters as agreed, rules...), once it has started.
+    pub fn match_setup(&self) -> Option<&Setup> {
+        self.started.as_ref()
+    }
+
+    /// Both players' cosmetic bytes in player order `[host, joiner]` (opaque), once the handshake has them.
+    pub fn player_cosmetics(&self) -> [Vec<u8>; 2] {
+        let theirs = self.handshake.their_cosmetics().to_vec();
+        let mine = if self.host {
+            self.host_setup
+                .as_ref()
+                .map(|s| s.cosmetics.clone())
+                .unwrap_or_default()
+        } else {
+            self.join_info
+                .as_ref()
+                .map(|(c, _)| c.clone())
+                .unwrap_or_default()
+        };
+        if self.host {
+            [mine, theirs]
+        } else {
+            [theirs, mine]
         }
     }
 
@@ -171,6 +200,7 @@ impl<L: Link> Peer<L> {
         self.wants_rematch = false;
         self.remote_wants_rematch = false;
         self.session = None;
+        self.started = None;
         self.match_content = None;
         self.heard_from_remote = false;
         self.events.clear();
@@ -328,6 +358,7 @@ impl<L: Link> Peer<L> {
                     setup.active,
                     setup.rules,
                 );
+                self.started = Some(setup.clone());
                 self.session = Some(Session::new(cfg, initial));
             }
         }

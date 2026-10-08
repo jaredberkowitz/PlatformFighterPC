@@ -59,6 +59,41 @@ Tests: `netplay/tests/rematch.rs` (both asking, one asking, a rough link with lo
 `godot/tests/online_flow_test.gd` (the whole thing through the bridge over UDP: the clock ends the first match, the joiner's rules are
 the host's, a rematch starts, no desync).
 
+## Replays
+
+Every finished match is saved automatically (the newest 50 are kept) in `user://replays/` as a `.pfr` match record, and the main menu's
+**Replays** screen lists and plays them (name versus name, who won, length, rules). While watching: **Space** pause, **Left/Right**
+jump 5 seconds, **Up/Down** speed (0.25x to 4x), **R** restart, **,** and **.** step a frame while paused, **Esc** back to the list.
+Watching works for local and online matches, with made fighters, on any machine with the same sim version.
+
+A record (`netplay/src/replay.rs`, `MatchRecord`) is the seed, the setup (characters, rules), the two fighters' spec bytes, the
+players' name-and-look bytes (opaque), every frame's inputs for the players who took part, and the winner and final checksum. The
+simulation is deterministic, so that is the whole match. Rules of the format:
+
+* **Verified**: `MatchRecord::verify` plays the record and demands the recorded winner and final checksum; `pftool replay-verify
+  <file.pfr>` does it from the command line; the bridge's `replay_verify()` does it in the game. A changed input, version, base
+  roster or fighter is caught.
+* **Sealed**: when a match is saved, frames after the match was decided are dropped and the ending is computed from the replay itself,
+  so a saved record always verifies.
+* **Not recorded** when the match cannot be reproduced: it ran on custom content (not the base roster plus made fighters) or the
+  match was edited with the training keys (F6 to F8, step back).
+* Online, each side records the *confirmed* inputs of the session; the two files come out byte for byte identical
+  (`godot/tests/online_flow_test.gd`).
+* A replay from another sim version is listed but cannot be played ("older version").
+
+Tests: `netplay/src/replay.rs` (round trip, made fighters, sealing, tampering, garbage), `godot/tests/replay_test.gd` (recording,
+playback to the same result, seeking, tampered files, training edits, the replay mode of the match scene, the list screen),
+`godot/tests/online_flow_test.gd`.
+
+Not done: spectating a live match (the confirmed-input stream is what a spectator would consume), sharing replays between players
+by file picker (copy the `.pfr` into the replay folder for now), slow-motion kill cams.
+
+## Matches started from the menus
+
+* They build their content with `SimRunner.load_match_fighters` (the same function an online match uses), so a local match and an
+  online match with the same fighters are the same match.
+* The training readout, hitbox drawings and collision outlines are off (F1, F3, F2 bring them back).
+
 ## Known gaps
 
 * Nobody has used the HUD, results screen or online screen by hand over a real network.

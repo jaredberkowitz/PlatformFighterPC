@@ -94,6 +94,7 @@ func _match() -> void:
 	var ran := [0, 0]
 	var ticks := 0
 	var asked := false
+	var ended_at := -1
 	var rematch_frames := [0, 0]
 	var second_match := false
 	while ticks < 40000:
@@ -106,10 +107,13 @@ func _match() -> void:
 		if sb == 1:
 			ran[1] += 1
 		ticks += 1
-		if not asked and host.winner() != -1 and join.winner() != -1:
+		if ended_at < 0 and host.winner() != -1 and join.winner() != -1:
+			ended_at = ticks
+		if not asked and ended_at >= 0 and ticks > ended_at + 200:
 			# Both sides saw the end of the first match, with the same result.
 			check(host.winner() == join.winner(), "same result on both sides: %d vs %d" % [host.winner(), join.winner()])
 			check(join.match_rules() == PackedInt32Array([3, 3]), "the joiner plays under the host's rules: " + str(join.match_rules()))
+			_records(host, join)
 			host.net_request_rematch()
 			check(host.net_rematch_state() == PackedInt32Array([1, 0]), "asking is visible")
 			asked = true
@@ -131,3 +135,19 @@ func _match() -> void:
 	check(not str(log_a).contains("DESYNC") and not str(log_b).contains("DESYNC"), "no desync: %s %s" % [str(log_a), str(log_b)])
 	host.net_leave()
 	join.net_leave()
+
+
+## Both sides recorded the match, and the two files are the same match: the same frames and result, and each one verifies.
+func _records(host, join) -> void:
+	var a: PackedByteArray = host.replay_bytes(PackedByteArray(), PackedByteArray())
+	var b: PackedByteArray = join.replay_bytes(PackedByteArray(), PackedByteArray())
+	check(not a.is_empty() and not b.is_empty(), "both sides recorded the online match")
+	var pa: Dictionary = host.replay_peek(a)
+	var pb: Dictionary = join.replay_peek(b)
+	check(pa.ok and pb.ok and pa.frames == pb.frames and pa.winner == pb.winner and pa.seed == pb.seed, "and they agree: %s vs %s" % [str(pa.frames), str(pb.frames)])
+	check(pa.frames == 180, "the record ends when the clock did: %d" % pa.frames)
+	check(a == b, "the two files are identical")
+	var watcher = ClassDB.instantiate("SimRunner")
+	root.add_child(watcher)
+	check(watcher.replay_load(a) == "" and watcher.replay_verify(), "the recording verifies")
+	watcher.queue_free()

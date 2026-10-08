@@ -18,6 +18,7 @@ var preview: Control
 const ITEMS := [
 	["Play", "res://select.tscn"],
 	["Online", "res://online.tscn"],
+	["Replays", "res://replays.tscn"],
 	["Character Creator", "res://creator.tscn"],
 	["Editors", "res://editor.tscn"],
 	["Quit", ""],
@@ -26,7 +27,7 @@ const ITEMS := [
 
 ## Launch arguments that mean "play right now": demos, network matches, a chosen content bundle or fighters. Launchers and
 ## test scripts use these, so they go straight to the game instead of the menu.
-const DIRECT_ARGS := ["--demo", "--host", "--join", "--relay", "--content", "--chars", "--shots"]
+const DIRECT_ARGS := ["--demo", "--host", "--join", "--relay", "--content", "--chars", "--shots", "--replay"]
 
 
 func _ready() -> void:
@@ -40,7 +41,7 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.position = Vector2(70, 40)
-	column.add_theme_constant_override("separation", 12)
+	column.add_theme_constant_override("separation", 10)
 	add_child(column)
 	title_a = UI.Tag.new("PLATFORM", Vector2(470, 92))
 	title_a.fill = UI.SKY
@@ -61,7 +62,7 @@ func _ready() -> void:
 	column.add_child(spacer)
 
 	for item in ITEMS:
-		var b := UI.Btn.new(item[0], Vector2(400, 60))
+		var b := UI.Btn.new(item[0], Vector2(400, 56))
 		b.activated.connect(_choose.bind(item[1]))
 		b.mouse_entered.connect(func(): _select(buttons.find(b)))
 		column.add_child(b)

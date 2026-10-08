@@ -10,8 +10,11 @@ use godot::classes::{INode, Node};
 use godot::prelude::*;
 use netplay::packet::Setup;
 use netplay::peer::{Link, Peer, Status};
+use netplay::replay::{MatchRecord, Recorder};
 use netplay::session::{Advance, Event};
+use sim_content::recipe::{match_content, FighterSpec};
 use sim_core::input::buttons;
+use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
@@ -66,6 +69,12 @@ fn clamp_i8(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
+/// A replay being watched: the record and the state it starts from.
+struct Playback {
+    record: MatchRecord,
+    initial: GameState,
+}
+
 /// Free play: no stocks to lose, no clock.
 const UNLIMITED: MatchRules = MatchRules {
     stocks: 0,
@@ -89,6 +98,12 @@ pub struct SimRunner {
     /// Stocks and time limit of the next match (also sent to the other side when this player hosts). Unlimited by default,
     /// which is free play: nobody is eliminated.
     match_rules: MatchRules,
+    /// The fighters of a local match (specs of players 0 and 1), kept so the match can be recorded.
+    match_specs: Vec<Vec<u8>>,
+    /// Records the match in progress for a replay; `None` when it cannot be reproduced (custom content, training edits).
+    recorder: Option<Recorder>,
+    /// Set while a replay is being watched.
+    playback: Option<Playback>,
     /// The base roster, kept while an online match runs on the base roster plus made fighters.
     base_content: Option<Content>,
     state: GameState,
@@ -97,6 +112,88 @@ pub struct SimRunner {
     /// Set while playing over the network; then `state` is a copy of the session's state.
     net: Option<Peer<NetLink>>,
     net_log: Vec<String>,
+}
+
+impl SimRunner {
+    /// A recorder for the local match just started, if it can be reproduced from the base roster and the fighters' specs.
+    fn new_local_recorder(&self, seed: u64, ids: [u8; MAX_FIGHTERS]) -> Option<Recorder> {
+        let base = Content::placeholder();
+        if self.match_specs.is_empty() {
+            if self.content.hash() != base.hash() {
+                return None;
+            }
+        } else {
+            let parsed: Option<Vec<FighterSpec>> = self
+                .match_specs
+                .iter()
+                .map(|b| FighterSpec::decode(b))
+                .collect();
+            let (built, chars) = match_content(&base, &parsed?, false).ok()?;
+            if built.hash() != self.content.hash()
+                || chars.iter().zip(ids.iter()).any(|(c, i)| c != i)
+            {
+                return None;
+            }
+        }
+        Some(Recorder::new(MatchRecord::begin(
+            &base,
+            &self.content,
+            seed,
+            ids,
+            self.players,
+            self.state.rules,
+            self.match_specs.clone(),
+        )))
+    }
+
+    /// Online: starts a record when a match starts (and again for a rematch), then adds every confirmed frame.
+    fn record_online(&mut self) {
+        let Some(peer) = self.net.as_ref() else {
+            return;
+        };
+        let (Some(setup), Some(session)) = (peer.match_setup(), peer.session()) else {
+            return;
+        };
+        let fresh = self
+            .recorder
+            .as_ref()
+            .is_none_or(|r| r.record.seed != setup.seed);
+        if fresh {
+            let base = self.base_content.as_ref().unwrap_or(&self.content);
+            let specs = peer
+                .fighter_specs()
+                .map(|(h, j)| vec![h, j])
+                .unwrap_or_default();
+            let mut record = MatchRecord::begin(
+                base,
+                &self.content,
+                setup.seed,
+                setup.chars,
+                setup.active,
+                setup.rules,
+                specs,
+            );
+            record.cosmetics = peer.player_cosmetics().to_vec();
+            self.recorder = Some(Recorder::new(record));
+        }
+        let Some(rec) = self.recorder.as_mut() else {
+            return;
+        };
+        let confirmed = session.confirmed_frame().min(session.frame());
+        while rec.len() < confirmed {
+            let f = rec.len();
+            let known = session.known_inputs(f);
+            let mut inputs = [Input::default(); MAX_FIGHTERS];
+            for (slot, k) in inputs.iter_mut().zip(known.iter()) {
+                if let Some(i) = k {
+                    *slot = *i;
+                }
+            }
+            if !rec.push(f, inputs) {
+                break;
+            }
+        }
+    }
 }
 
 #[godot_api]
@@ -113,6 +210,9 @@ impl INode for SimRunner {
             my_fighter: Vec::new(),
             ranked: false,
             match_rules: UNLIMITED,
+            match_specs: Vec::new(),
+            recorder: None,
+            playback: None,
             base_content: None,
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
@@ -148,6 +248,9 @@ impl SimRunner {
         self.content = bundle.content;
         self.content_name = bundle.manifest.name;
         self.net = None;
+        self.match_specs.clear();
+        self.recorder = None;
+        self.playback = None;
         self.state = GameState::new_with_rules(
             &self.content,
             1,
@@ -180,6 +283,182 @@ impl SimRunner {
     #[func]
     fn set_fighter(&mut self, bytes: PackedByteArray) {
         self.my_fighter = bytes.as_slice().iter().take(16).copied().collect();
+    }
+
+    /// Builds the content for a local match from two fighters' specs (`FighterSpec` bytes), the same way an online match does,
+    /// and loads it. Returns `{error, chars}`: the fighter numbers to pass to `start`, or an error text.
+    #[func]
+    fn load_match_fighters(
+        &mut self,
+        spec0: PackedByteArray,
+        spec1: PackedByteArray,
+    ) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        out.set("error", "");
+        out.set("chars", &PackedInt32Array::new());
+        let base = Content::placeholder();
+        let raw = vec![spec0.to_vec(), spec1.to_vec()];
+        let parsed: Option<Vec<FighterSpec>> = raw.iter().map(|b| FighterSpec::decode(b)).collect();
+        let Some(parsed) = parsed else {
+            out.set("error", "a fighter could not be read");
+            return out;
+        };
+        match match_content(&base, &parsed, false) {
+            Ok((content, chars)) => {
+                self.content = content;
+                self.content_name = String::new();
+                self.net = None;
+                self.base_content = None;
+                self.match_specs = raw;
+                self.recorder = None;
+                self.playback = None;
+                self.state = GameState::new_with_rules(
+                    &self.content,
+                    1,
+                    [0, 1, 0, 1],
+                    self.players,
+                    self.match_rules,
+                );
+                self.inputs = [Input::default(); MAX_FIGHTERS];
+                self.history.clear();
+                let ids: Vec<i32> = chars.iter().map(|c| i32::from(*c)).collect();
+                out.set("chars", &PackedInt32Array::from(ids.as_slice()));
+            }
+            Err(e) => out.set("error", format!("a fighter is not valid: {e:?}")),
+        }
+        out
+    }
+
+    /// The finished (or abandoned) match as replay-file bytes, or empty if it cannot be replayed (training edits, custom
+    /// content, nothing recorded). `cosmetics0/1` are the players' profile bytes for local matches; online records already
+    /// have both.
+    #[func]
+    fn replay_bytes(
+        &self,
+        cosmetics0: PackedByteArray,
+        cosmetics1: PackedByteArray,
+    ) -> PackedByteArray {
+        let Some(rec) = self.recorder.as_ref() else {
+            return PackedByteArray::new();
+        };
+        let mut record = rec.record.clone();
+        if record.cosmetics.is_empty() {
+            record.cosmetics = vec![cosmetics0.to_vec(), cosmetics1.to_vec()];
+        }
+        match record.seal(&Content::placeholder()) {
+            Ok(()) => PackedByteArray::from(record.encode().as_slice()),
+            Err(e) => {
+                godot_warn!("replay not saved: {e}");
+                PackedByteArray::new()
+            }
+        }
+    }
+
+    /// What a replay file says about itself, without loading it: `{ok, error, frames, seed, winner, stocks, time_limit,
+    /// cosmetics0, cosmetics1, sim_version, playable}`.
+    #[func]
+    fn replay_peek(&self, bytes: PackedByteArray) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        match MatchRecord::decode(bytes.as_slice()) {
+            Ok(r) => {
+                out.set("ok", true);
+                out.set("error", "");
+                out.set("frames", r.inputs.len() as i32);
+                out.set("seed", r.seed as i64);
+                out.set("winner", i32::from(r.winner));
+                out.set("stocks", i32::from(r.rules.stocks));
+                out.set("time_limit", i32::from(r.rules.time_limit));
+                out.set("active", i32::from(r.active));
+                let cos = |i: usize| {
+                    r.cosmetics.get(i).map_or(PackedByteArray::new(), |c| {
+                        PackedByteArray::from(c.as_slice())
+                    })
+                };
+                out.set("cosmetics0", &cos(0));
+                out.set("cosmetics1", &cos(1));
+                out.set("sim_version", i32::from(r.sim_version));
+                out.set("playable", r.sim_version == SIM_VERSION);
+            }
+            Err(e) => {
+                out.set("ok", false);
+                out.set("error", e);
+            }
+        }
+        out
+    }
+
+    /// Loads a replay to watch: the match content and first state are rebuilt, and `replay_tick` plays it. Returns an error
+    /// text, or an empty string.
+    #[func]
+    fn replay_load(&mut self, bytes: PackedByteArray) -> GString {
+        let record = match MatchRecord::decode(bytes.as_slice()) {
+            Ok(r) => r,
+            Err(e) => return GString::from(e.as_str()),
+        };
+        let (content, initial) = match record.rebuild(&Content::placeholder()) {
+            Ok(x) => x,
+            Err(e) => return GString::from(e.as_str()),
+        };
+        self.content = content;
+        self.content_name = String::new();
+        self.net = None;
+        self.base_content = None;
+        self.match_specs.clear();
+        self.recorder = None;
+        self.players = record.active;
+        self.match_rules = record.rules;
+        self.state = initial;
+        self.inputs = [Input::default(); MAX_FIGHTERS];
+        self.history.clear();
+        self.playback = Some(Playback { record, initial });
+        GString::new()
+    }
+
+    /// Frames in the loaded replay (0 if none).
+    #[func]
+    fn replay_length(&self) -> i32 {
+        self.playback
+            .as_ref()
+            .map_or(0, |p| p.record.inputs.len() as i32)
+    }
+
+    /// Plays the replay's next frame. Returns false once it has ended (or none is loaded).
+    #[func]
+    fn replay_tick(&mut self) -> bool {
+        let Some(pb) = self.playback.as_ref() else {
+            return false;
+        };
+        let Some(frame) = pb.record.inputs.get(self.state.frame as usize) else {
+            return false;
+        };
+        self.inputs = *frame;
+        self.tick();
+        true
+    }
+
+    /// Jumps the replay to `frame` (clamped), by playing it again from the start.
+    #[func]
+    fn replay_seek(&mut self, frame: i32) {
+        let Some(pb) = self.playback.as_ref() else {
+            return;
+        };
+        let target = usize::try_from(frame)
+            .unwrap_or(0)
+            .min(pb.record.inputs.len());
+        let mut state = pb.initial;
+        for inputs in &pb.record.inputs[..target] {
+            step(&mut state, &self.content, inputs);
+        }
+        self.state = state;
+        self.history.clear();
+    }
+
+    /// Whether the replay's own end state is what it was recorded as (plays the whole thing; for tests and tools).
+    #[func]
+    fn replay_verify(&self) -> bool {
+        self.playback
+            .as_ref()
+            .is_some_and(|p| p.record.verify(&Content::placeholder()).is_ok())
     }
 
     /// How the next match is won: `stocks` each (0 = unlimited, nobody is eliminated) and a time limit in seconds (0 =
@@ -270,6 +549,9 @@ impl SimRunner {
         self.content = bundle.content;
         self.content_name = bundle.manifest.name;
         self.net = None;
+        self.match_specs.clear();
+        self.recorder = None;
+        self.playback = None;
         self.state = GameState::new_with_rules(
             &self.content,
             1,
@@ -317,6 +599,8 @@ impl SimRunner {
         );
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
+        self.playback = None;
+        self.recorder = self.new_local_recorder(seed as u64, ids);
     }
 
     #[func]
@@ -340,12 +624,18 @@ impl SimRunner {
             self.history.pop_front();
         }
         self.history.push_back(self.state);
+        if self.state.winner == PLAYING {
+            if let Some(rec) = self.recorder.as_mut() {
+                rec.push(self.state.frame, self.inputs);
+            }
+        }
         step(&mut self.state, &self.content, &self.inputs);
     }
 
     /// Steps one frame backwards (training mode). Returns false if there is no history left.
     #[func]
     fn step_back(&mut self) -> bool {
+        self.recorder = None;
         match self.history.pop_back() {
             Some(s) => {
                 self.state = s;
@@ -358,6 +648,7 @@ impl SimRunner {
     /// Debug: teleport a fighter into the air at (x, y) with zero velocity.
     #[func]
     fn debug_place_airborne(&mut self, player: i32, x: f32, y: f32) {
+        self.recorder = None;
         if let Some(fighter) = usize::try_from(player)
             .ok()
             .and_then(|p| self.state.fighters.get_mut(p))
@@ -375,6 +666,7 @@ impl SimRunner {
     /// Debug: put a fighter into the special fall.
     #[func]
     fn debug_helpless(&mut self, player: i32) {
+        self.recorder = None;
         if let Some(fighter) = usize::try_from(player)
             .ok()
             .and_then(|p| self.state.fighters.get_mut(p))
@@ -800,6 +1092,7 @@ impl SimRunner {
                 self.base_content = Some(std::mem::replace(&mut self.content, c.clone()));
             }
         }
+        self.record_online();
         let Some(peer) = self.net.as_mut() else {
             return -1;
         };
@@ -968,6 +1261,7 @@ impl SimRunner {
     /// Debug: set a fighter's shield health.
     #[func]
     fn debug_set_shield(&mut self, player: i32, hp: f32) {
+        self.recorder = None;
         if let Some(fi) = usize::try_from(player)
             .ok()
             .and_then(|p| self.state.fighters.get_mut(p))
@@ -979,6 +1273,7 @@ impl SimRunner {
     /// Debug: set a fighter's damage percent.
     #[func]
     fn debug_set_percent(&mut self, player: i32, percent: f32) {
+        self.recorder = None;
         if let Some(fi) = usize::try_from(player)
             .ok()
             .and_then(|p| self.state.fighters.get_mut(p))
@@ -990,6 +1285,7 @@ impl SimRunner {
     /// Debug: stand a fighter on the main stage at x, facing left (-1) or right (1), idle.
     #[func]
     fn debug_stand(&mut self, player: i32, x: f32, facing: i32) {
+        self.recorder = None;
         if let Some(fi) = usize::try_from(player)
             .ok()
             .and_then(|p| self.state.fighters.get_mut(p))

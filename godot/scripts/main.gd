@@ -10,6 +10,7 @@ const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
 const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
+const Replays := preload("res://scripts/replays.gd")
 
 const PLAYERS := 2
 const SEED := 1
@@ -26,6 +27,9 @@ var hud: CanvasLayer
 var results: CanvasLayer
 var names: Array = ["Player 1", "Player 2"]
 var end_timer := 0.0
+var replay_mode := false
+var replay_speed := 1.0
+var replay_accum := 0.0
 var cam: Camera3D
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
@@ -75,6 +79,9 @@ func _ready() -> void:
 	if Roster.session.get("from_menu", false):
 		overlay_on = false
 		overlay.set_overlay_visible(false)
+		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
+		show_boxes = false
+		show_ecb = false
 	sim.set_players(PLAYERS)
 	_restart()
 	_apply_scales()
@@ -158,6 +165,9 @@ func _parse_demo_args() -> void:
 
 
 func _restart() -> void:
+	if replay_mode:
+		_replay_seek(0)
+		return
 	if results != null:
 		results.queue_free()
 		results = null
@@ -211,6 +221,8 @@ var content_note := ""
 ## How the match is won: the menus' choice (stocks and time limit), or `--stocks=N --time=SECONDS` after `--`. With neither it is
 ## free play (nobody is eliminated), which keeps demos, training and the test launchers as they were.
 func _apply_rules() -> void:
+	if replay_mode:
+		return
 	var stocks := 0
 	var seconds := 0
 	if Roster.session.has("stocks"):
@@ -237,7 +249,47 @@ func _load_content() -> void:
 			while picked.size() < 4:
 				picked.append(0)
 			chosen_chars = picked
-	# Coming from the menus: the match's content (the base roster plus any fighters made in the creator) is ready.
+	# Watching a replay: the file rebuilds the match's content and its first state.
+	var replay_bytes := PackedByteArray()
+	if Roster.session.has("replay"):
+		replay_bytes = Roster.session.replay
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--replay="):
+			replay_bytes = Replays.read(a.substr(9))
+	if not replay_bytes.is_empty():
+		var replay_error: String = sim.replay_load(replay_bytes)
+		if replay_error == "":
+			replay_mode = true
+			var info: Dictionary = sim.replay_peek(replay_bytes)
+			for i in PLAYERS:
+				var profile := Roster.parse_profile(info["cosmetics%d" % i], i)
+				views[i].rebuild(profile.look)
+				views[i].set_name_tag(profile.name)
+				if profile.name != "":
+					names[i] = profile.name
+			return
+		push_error("replay: " + replay_error)
+		content_note = "REPLAY NOT LOADED: " + replay_error
+	# Coming from the menus: the match's fighters build the match content (the base roster plus any made fighters), the
+	# same way an online match does, so it can be recorded and replayed.
+	if Roster.session.has("entries") and Roster.session.entries.size() >= 2:
+		var loaded: Dictionary = sim.load_match_fighters(Roster.spec_bytes(Roster.session.entries[0]), Roster.spec_bytes(Roster.session.entries[1]))
+		var load_error: String = loaded.error
+		if load_error == "":
+			chosen_chars = []
+			for c in loaded.chars:
+				chosen_chars.append(c)
+			while chosen_chars.size() < 4:
+				chosen_chars.append(0)
+			content_note = ""
+			for i in PLAYERS:
+				var e: Dictionary = Roster.session.entries[i]
+				views[i].rebuild(e.look)
+				views[i].set_name_tag(e.name)
+				names[i] = e.name
+			return
+		push_error("content: " + load_error)
+		content_note = "CONTENT NOT LOADED: " + load_error
 	if Roster.session.has("content_text"):
 		var err_text: String = sim.load_content_text(Roster.session.content_text)
 		if err_text == "":
@@ -358,6 +410,59 @@ func _apply_scales() -> void:
 
 
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
+func _replay_step() -> void:
+	if paused:
+		return
+	replay_accum += replay_speed
+	while replay_accum >= 1.0:
+		replay_accum -= 1.0
+		if not sim.replay_tick():
+			break
+		_tick_once(false)
+
+
+func _replay_seek(frame: int) -> void:
+	sim.replay_seek(clampi(frame, 0, sim.replay_length()))
+	_tick_once(false)
+	for i in PLAYERS:
+		prev_pos[i] = cur_pos[i]
+
+
+func _replay_key(event: InputEventKey) -> void:
+	match event.keycode:
+		KEY_SPACE, KEY_P:
+			paused = not paused
+		KEY_LEFT:
+			_replay_seek(sim.match_frame() - 300)
+		KEY_RIGHT:
+			_replay_seek(sim.match_frame() + 300)
+		KEY_UP:
+			replay_speed = minf(replay_speed * 2.0, 4.0)
+		KEY_DOWN:
+			replay_speed = maxf(replay_speed / 2.0, 0.25)
+		KEY_R:
+			_replay_seek(0)
+		KEY_PERIOD:
+			if paused and sim.replay_tick():
+				_tick_once(false)
+		KEY_COMMA:
+			if paused:
+				_replay_seek(sim.match_frame() - 1)
+		KEY_F2:
+			show_ecb = not show_ecb
+		KEY_F3:
+			show_boxes = not show_boxes
+			_rebuild_boxes()
+		KEY_ESCAPE:
+			get_tree().change_scene_to_file("res://replays.tscn")
+
+
+func _replay_text() -> String:
+	var at: int = sim.match_frame() / 60
+	var total: int = sim.replay_length() / 60
+	return "REPLAY  %d:%02d / %d:%02d   x%s%s\nSpace pause   Left / Right jump 5 s   Up / Down speed   R restart   Esc back" % [at / 60, at % 60, total / 60, total % 60, str(replay_speed), "   PAUSED" if paused else ""]
+
+
 func _net_step() -> void:
 	var local: int = maxi(sim.net_local_player(), 0)
 	var r: Dictionary = InputReader.read(0, masks)
@@ -474,6 +579,9 @@ func _gather() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if not warmed or shot_wait != "":
+		return
+	if replay_mode:
+		_replay_step()
 		return
 	if net_mode:
 		_net_step()
@@ -603,13 +711,24 @@ func _update_hud(delta: float) -> void:
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
 		"status": _net_status_text(),
 	})
-	if winner != -1 and results == null:
+	if winner != -1 and results == null and not replay_mode:
 		end_timer += delta
 		if end_timer > 2.0:
 			_show_results(winner)
 
 
+## Writes the finished match to the replay folder (it is simply not saved if the match cannot be reproduced).
+func _save_replay() -> String:
+	var profiles := []
+	var entries: Array = Roster.session.get("entries", [])
+	for i in PLAYERS:
+		var e: Dictionary = entries[i] if i < entries.size() else {"look": Loadout.default_for(i), "name": names[i]}
+		profiles.append(Roster.profile_bytes(e))
+	return Replays.save(sim.replay_bytes(profiles[0], profiles[1]))
+
+
 func _show_results(winner: int) -> void:
+	var saved := _save_replay()
 	var cards := []
 	for i in PLAYERS:
 		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
@@ -627,6 +746,8 @@ func _show_results(winner: int) -> void:
 	add_child(results)
 	results.build(heading, cards, choices)
 	results.chosen.connect(_on_result)
+	if saved != "":
+		results.set_note("Replay saved. Watch it from the main menu.")
 
 
 func _on_result(action: String) -> void:
@@ -655,6 +776,8 @@ func _leave_to(screen: String) -> void:
 
 ## What the player needs to know about the connection: waiting, refused, desyncs, the other player leaving. Empty when all is well.
 func _net_status_text() -> String:
+	if replay_mode:
+		return _replay_text()
 	if not net_mode:
 		return net_failed
 	var lines: Array = []
@@ -770,6 +893,9 @@ func _prewarm() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if replay_mode:
+		_replay_key(event)
 		return
 	if results != null and event.keycode != KEY_ESCAPE:
 		results.handle_key(event)
