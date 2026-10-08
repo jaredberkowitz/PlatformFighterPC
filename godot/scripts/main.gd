@@ -34,6 +34,8 @@ var sfx: Node
 var replay_mode := false
 var spectate_mode := false
 var group_mode := false
+var quick_mode := false
+var quick_cfg := {}
 var group_status := 0
 var group_looks_applied := false
 var group_seed := -1
@@ -393,6 +395,7 @@ func _net_config() -> Dictionary:
 		return {
 			"host": o.host, "relay": o.addr if o.relay else "", "addr": o.addr, "port": o.port, "room": o.room,
 			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked, "group": o.get("group", false),
+			"quick": o.get("quick", false),
 		}
 	var host_port := -1
 	var join_addr := ""
@@ -419,7 +422,7 @@ func _net_config() -> Dictionary:
 		return {}
 	return {
 		"host": host_port >= 0, "relay": relay, "addr": join_addr, "port": host_port, "room": room, "delay": delay,
-		"chars": chars, "ranked": OS.get_cmdline_user_args().has("--ranked"), "group": false,
+		"chars": chars, "ranked": OS.get_cmdline_user_args().has("--ranked"), "group": false, "quick": false,
 	}
 
 
@@ -435,6 +438,22 @@ func _start_net() -> void:
 	sim.set_fighter(Roster.spec_bytes(me))
 	sim.set_ranked(cfg.ranked)
 	local_slot = 0 if cfg.host else 1
+	var err := ""
+	if cfg.quick:
+		err = sim.quickmatch_start(cfg.addr)
+		if err != "":
+			push_error(err)
+			net_failed = err
+			return
+		quick_mode = true
+		quick_cfg = cfg
+		print("quick match: looking")
+		return
+	_connect_pair(cfg, me)
+
+
+## Connects to the opponent once the host/join question is settled (typed rooms, or what the quick-match queue decided).
+func _connect_pair(cfg: Dictionary, me: Dictionary) -> void:
 	var err := ""
 	if cfg.group:
 		if cfg.host:
@@ -509,6 +528,23 @@ func _spectate_step() -> void:
 		_tick_once(false)
 	else:
 		overlay_dirty = true
+
+
+## Looking for an opponent: when the relay pairs us, the one who waited hosts and the other joins, in the room it names.
+func _quick_step() -> void:
+	var found: Dictionary = sim.quickmatch_poll()
+	if found.is_empty():
+		overlay_dirty = true
+		return
+	quick_mode = false
+	var cfg := quick_cfg.duplicate()
+	cfg.quick = false
+	cfg.host = found.host
+	cfg.room = found.room
+	cfg.relay = cfg.addr
+	local_slot = 0 if cfg.host else 1
+	print("quick match: found room ", found.room, " as ", "host" if cfg.host else "joiner")
+	_connect_pair(cfg, Roster.net_entry())
 
 
 ## A group match (three or four players): the lobby, then the match.
@@ -753,6 +789,9 @@ func _physics_process(_delta: float) -> void:
 	if group_mode:
 		_group_step()
 		return
+	if quick_mode:
+		_quick_step()
+		return
 	if net_mode:
 		_net_step()
 		return
@@ -948,6 +987,11 @@ func _on_result(action: String) -> void:
 
 ## Back to a menu screen, hanging up first if this was an online match.
 func _leave_to(screen: String) -> void:
+	if quick_mode:
+		sim.quickmatch_stop()
+		quick_mode = false
+		if screen == "menu":
+			screen = "online"
 	if group_mode:
 		sim.net_leave()
 		group_mode = false
@@ -983,6 +1027,8 @@ func _net_status_text() -> String:
 			3:
 				return "This match cannot be watched: it runs another version of the game."
 		return "WATCHING   (Esc to leave)"
+	if quick_mode:
+		return "Looking for an opponent...   (Esc to cancel)"
 	if not net_mode:
 		return net_failed
 	var lines: Array = []
@@ -1157,7 +1203,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			# From the menus, Esc goes back to character select; launched directly, it quits.
 			if Roster.session.get("from_menu", false):
-				_leave_to("online" if (net_mode or spectate_mode or group_mode) else "select")
+				_leave_to("online" if (net_mode or spectate_mode or group_mode or quick_mode) else "select")
 			else:
 				get_tree().quit()
 

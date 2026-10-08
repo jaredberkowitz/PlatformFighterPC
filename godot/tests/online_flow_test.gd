@@ -41,6 +41,7 @@ func _initialize() -> void:
 	await _match()
 	await _spectate()
 	await _group()
+	await _quick()
 	print("online flow test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
 
@@ -79,6 +80,16 @@ func _screen() -> void:
 	screen.selectors["link"].set_index(0)
 	screen.selectors["rules"].set_index(1)
 	check(not screen.connection().has("error"), "the built-in fighters are legal under ranked rules")
+	# Quick match asks only for the relay's address; the host's rules apply to whoever hosts.
+	screen.edits["address"].text = ""
+	screen.selectors["role"].set_index(3)
+	check(screen.connection().has("error"), "quick match needs the relay's address")
+	check(not screen.rows.filter(func(r): return r.id == "room")[0].node.visible, "and no room number")
+	check(screen.rows.filter(func(r): return r.id == "stocks")[0].node.visible, "it may be the host, so it shows the rules")
+	screen.edits["address"].text = "10.0.0.5:47001"
+	var quick: Dictionary = screen.connection()
+	check(not quick.has("error") and quick.quick and quick.relay and quick.addr == "10.0.0.5:47001", "a quick match connection: " + str(quick))
+	check(screen.connect_button.text == "Find!", "the button says Find!")
 	screen.queue_free()
 	await process_frame
 
@@ -259,3 +270,83 @@ func _group() -> void:
 	check(not logs.contains("DESYNC"), "no desync in the group: " + logs)
 	for n in nodes:
 		n.net_leave()
+
+
+## Two players ask the relay's queue for a match, are paired into one room (the one who waited hosts), and play through it.
+func _quick() -> void:
+	var tool := ProjectSettings.globalize_path("res://../target/debug/pftool.exe")
+	if OS.has_environment("PFTOOL"):
+		tool = OS.get_environment("PFTOOL")
+	if not FileAccess.file_exists(tool):
+		print("SKIP quick match (no pftool at ", tool, ")")
+		return
+	var pid := OS.create_process(tool, ["net-relay", "47150"])
+	await create_timer(0.5).timeout
+	var a = ClassDB.instantiate("SimRunner")
+	var b = ClassDB.instantiate("SimRunner")
+	root.add_child(a)
+	root.add_child(b)
+	check(a.quickmatch_start("127.0.0.1:47150") == "", "a starts looking")
+	for i in 30:
+		check(a.quickmatch_poll().is_empty(), "alone, a is not matched")
+		await create_timer(0.005).timeout
+	check(b.quickmatch_start("127.0.0.1:47150") == "", "b starts looking")
+	var fa := {}
+	var fb := {}
+	for i in 600:
+		if fa.is_empty():
+			fa = a.quickmatch_poll()
+		if fb.is_empty():
+			fb = b.quickmatch_poll()
+		if not fa.is_empty() and not fb.is_empty():
+			break
+		await create_timer(0.005).timeout
+	check(not fa.is_empty() and not fb.is_empty(), "both are matched")
+	if not fa.is_empty() and not fb.is_empty():
+		check(fa.room == fb.room and fa.room > 0, "into one room")
+		check(fa.host and not fb.host, "the one who waited hosts")
+		var err: String = a.net_host_relay("127.0.0.1:47150", fa.room, PackedInt32Array([0, 1, 0, 1]), 2)
+		check(err == "", err)
+		err = b.net_join_relay("127.0.0.1:47150", fb.room)
+		check(err == "", err)
+		var ran := [0, 0]
+		for t in 6000:
+			var ia: Array = _input_for(ran[0], 0)
+			var ib: Array = _input_for(ran[1], 1)
+			if a.net_update(ia[0], ia[1], ia[2]) == 1:
+				ran[0] += 1
+			if b.net_update(ib[0], ib[1], ib[2]) == 1:
+				ran[1] += 1
+			if ran[0] > 200 and ran[1] > 200:
+				break
+			await create_timer(0.0005).timeout
+		check(ran[0] > 200 and ran[1] > 200, "the matched pair plays: %s" % str(ran))
+		check(not str(a.net_take_log()).contains("DESYNC") and not str(b.net_take_log()).contains("DESYNC"), "no desync")
+	a.net_leave()
+	b.net_leave()
+	# The match scene itself: it waits in the queue, is paired with another searcher, and connects as the joiner.
+	var entry: Dictionary = Roster.net_entry()
+	Roster.session = {"from_menu": true, "stocks": 3, "time": 0, "stage": 0, "online": {
+		"host": false, "quick": true, "watch": false, "group": false, "relay": true, "addr": "127.0.0.1:47150", "port": 47000, "room": 0,
+		"delay": 2, "entry": entry, "stage": 0, "stocks": 3, "time": 0, "ranked": false}}
+	var scene: Node = load("res://main.tscn").instantiate()
+	root.add_child(scene)
+	for i in 120:
+		await process_frame
+	check(scene.quick_mode and not scene.net_mode, "the match scene is looking for an opponent")
+	check(scene._net_status_text().begins_with("Looking"), "and says so: " + scene._net_status_text())
+	var other = ClassDB.instantiate("SimRunner")
+	root.add_child(other)
+	other.quickmatch_start("127.0.0.1:47150")
+	var found := {}
+	for i in 600:
+		if found.is_empty():
+			found = other.quickmatch_poll()
+		if scene.net_mode:
+			break
+		await create_timer(0.01).timeout
+	check(scene.net_mode and not scene.quick_mode, "paired, the scene connects")
+	check(scene.local_slot == 0 or scene.local_slot == 1, "in a slot")
+	scene.queue_free()
+	await process_frame
+	OS.kill(pid)

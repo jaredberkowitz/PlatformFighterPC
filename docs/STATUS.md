@@ -25,7 +25,7 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | 7 Game loop: stage select (4 stages, online and replays) | done | `docs/MATCHES.md` |
 | 7 Game loop: spectating (direct hosts) | done | `docs/MATCHES.md` |
 | 7 Game loop: online 3 to 4 players (hub host and lobby) | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
-| 7 Game loop: matchmaking (a list of games) | not built: needs a server | `docs/ALPHA.md` |
+| 7 Game loop: matchmaking | **Quick match** done (relay queue pairs two waiting players); a list of games, ratings and regions are not built | `docs/MATCHES.md` |
 | 8 Public alpha checklist | see `docs/ALPHA.md` (what is ready, unverified and not built) | `docs/ALPHA.md` |
 | 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation (`docs/ART_PIPELINE.md`), sound effects (`docs/AUDIO.md`), balance tooling (`docs/BALANCE.md`), content policy and name moderation (`docs/CONTENT_POLICY.md`) | `docs/ART_PIPELINE.md` |
 
@@ -47,7 +47,7 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 * **Frame data**: many hitbox positions, throw knockbacks and landing lags are estimates (listed in `docs/COMBAT.md`). Pivot grabs
   were left for the user to test later.
 * **Online has a form, not a game list.** The online screen (menu, Online) picks role, mode, connection, fighter, delay and (host) rules, and group matches have a
-  lobby, but there is no list of games or matchmaking. Nobody has used it over a real network.
+  lobby, plus Quick match through a relay, but there is no list of games. Nobody has used it over a real network.
 * Controllers (play and menus) are implemented but untested on real hardware. The art is a scripted placeholder style (rigged blob, `docs/ART_PIPELINE.md`).
 * Four stages, one mode (versus; local and online up to 4 players). No sudden death after a tied clock.
 
@@ -57,7 +57,7 @@ Done: online 3 to 4 players, stage select, stocks, elimination, winner, time lim
 rebinding and controller input/menus (`docs/MENUS.md`; the controller part is untested on hardware).
 
 1. ~~Spectating~~ done for direct hosts (`docs/MATCHES.md`); through the relay it is still to do.
-2. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics, replay sharing.
+2. Optional polish: sudden death, a list-of-games lobby, results statistics, replay sharing.
 
 ## Where things live
 

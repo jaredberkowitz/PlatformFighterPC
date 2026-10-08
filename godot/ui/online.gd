@@ -62,7 +62,7 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 5)
 	add_child(column)
 
-	_add_selector("role", "Role", ["Host", "Join", "Watch"])
+	_add_selector("role", "Role", ["Host", "Join", "Watch", "Quick match"])
 	_add_selector("mode", "Mode", ["Duel (2)", "Group (3-4)"])
 	_add_selector("link", "Connect", ["Direct", "Relay"])
 	_add_edit("address", "Address", "ip:port")
@@ -161,23 +161,31 @@ func _watching() -> bool:
 	return selectors["role"].index == 2
 
 
+func _quick() -> bool:
+	return selectors["role"].index == 3
+
+
 func _relay() -> bool:
-	return selectors["link"].index == 1 and not _watching()
+	return (selectors["link"].index == 1 and not _watching()) or _quick()
 
 
 ## Which rows make sense for the chosen role and connection.
 func _row_shown(id: String) -> bool:
 	match id:
-		"link", "fighter", "delay", "mode":
+		"mode":
+			return not _watching() and not _quick()
+		"link":
+			return not _watching() and not _quick()
+		"fighter", "delay":
 			return not _watching()
 		"address":
 			return not _hosting() or _relay()
 		"port":
 			return _hosting() and not _relay()
 		"room":
-			return _relay()
+			return _relay() and not _quick()
 		"stage", "stocks", "time", "rules":
-			return _hosting()
+			return _hosting() or _quick()
 	return true
 
 
@@ -187,7 +195,7 @@ func _update_rows() -> void:
 	if edits.has("address"):
 		var tag: Control = rows.filter(func(r): return r.id == "address")[0].tag
 		tag.set_text("Relay" if _relay() else "Host")
-	connect_button.text = "Host!" if _hosting() else ("Watch!" if _watching() else "Join!")
+	connect_button.text = "Host!" if _hosting() else ("Watch!" if _watching() else ("Find!" if _quick() else "Join!"))
 	connect_button.queue_redraw()
 	if not _row_shown(rows[focus].id):
 		_set_focus(focus + 1)
@@ -339,7 +347,7 @@ func _save_settings() -> void:
 ## The connection the screen describes: {"host", "relay", "addr", "port", "room", "delay", "entry", ...} or {"error": text}.
 func connection() -> Dictionary:
 	var c := {
-		"host": _hosting(), "watch": false, "group": selectors["mode"].index == 1 and not _watching(), "relay": _relay(), "addr": edits["address"].text.strip_edges(),
+		"host": _hosting(), "quick": _quick(), "watch": false, "group": selectors["mode"].index == 1 and not _watching(), "relay": _relay(), "addr": edits["address"].text.strip_edges(),
 		"port": DEFAULT_PORT, "room": 0, "delay": DELAYS[selectors["delay"].index],
 		"entry": entries[selectors["fighter"].index],
 		"stage": selectors["stage"].index, "stocks": Roster.STOCK_CHOICES[selectors["stocks"].index], "time": Roster.TIME_CHOICES[selectors["time"].index],
@@ -347,6 +355,14 @@ func connection() -> Dictionary:
 	}
 	if c.group and _relay():
 		return {"error": "Group matches need a direct connection for now (choose Direct)."}
+	if _quick():
+		if c.addr == "":
+			return {"error": "Type the relay server's address (like 203.0.113.5:47001): it pairs players who are looking."}
+		if not c.addr.contains(":"):
+			return {"error": "The relay address needs a port, like 203.0.113.5:47001."}
+		if c.ranked and not Roster.ranked_legal(c.entry):
+			return {"error": "%s is over the %d point budget: not allowed under ranked rules." % [c.entry.name, Roster.budget()]}
+		return c
 	if _relay():
 		if c.addr == "":
 			return {"error": "Type the relay server's address (like 203.0.113.5:47001)."}

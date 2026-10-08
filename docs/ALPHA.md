@@ -29,7 +29,8 @@ from what only a person on real hardware and a real network (or a publisher) can
 
 ## Not built yet
 
-* **Matchmaking and a list of games**: needs a server. Today friends share an address, or a relay and a room number.
+* **A list of games, skill-based matchmaking, regions**: Quick match exists (the relay pairs whoever is waiting, `docs/MATCHES.md`), but it is first-come only and
+  needs someone to run and publish a relay; nobody has hosted one on the internet yet.
 * **A third moveset ("remaining archetypes")**, per-move animation clips beyond the three attack types, and real music.
 * **Reporting and moderation for shared content** (see the policy document), a privacy policy, terms of service, age rating and licences for the
   tools used (Godot is MIT; check godot-rust, Blender output and every dependency in `Cargo.lock` before shipping).

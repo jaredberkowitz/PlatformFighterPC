@@ -21,7 +21,7 @@ use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use transport::{RelayLink, SpectatorSocket, UdpLink};
+use transport::{QuickMatch, RelayLink, SpectatorSocket, UdpLink};
 
 /// The two ways a networked match can reach the other player.
 enum NetLink {
@@ -144,6 +144,8 @@ pub struct SimRunner {
     group_host: Option<GroupHost<SpectatorSocket>>,
     group_guest: Option<GroupGuest<UdpLink>>,
     group_log: Vec<String>,
+    /// Looking for an opponent through a relay's queue.
+    quick: Option<QuickMatch>,
 }
 
 impl SimRunner {
@@ -371,6 +373,7 @@ impl INode for SimRunner {
             group_host: None,
             group_guest: None,
             group_log: Vec::new(),
+            quick: None,
         }
     }
 }
@@ -1678,8 +1681,43 @@ impl SimRunner {
         PackedStringArray::from(lines.as_slice())
     }
 
+    /// Starts looking for an opponent through the relay at `relay` ("ip:port"). Returns an error text or an empty string.
+    #[func]
+    fn quickmatch_start(&mut self, relay: GString) -> GString {
+        let target = match resolve(&relay.to_string()) {
+            Ok(a) => a,
+            Err(e) => return GString::from(e.as_str()),
+        };
+        match QuickMatch::connect(any_local(), target) {
+            Ok(q) => {
+                self.quick = Some(q);
+                GString::new()
+            }
+            Err(e) => GString::from(format!("cannot open a socket: {e}").as_str()),
+        }
+    }
+
+    /// Call once a frame while looking: an empty dictionary until an opponent is found, then `{room, host}`.
+    #[func]
+    fn quickmatch_poll(&mut self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        if let Some((room, host)) = self.quick.as_mut().and_then(|q| q.poll()) {
+            self.quick = None;
+            out.set("room", room as i64);
+            out.set("host", host);
+        }
+        out
+    }
+
+    /// Stops looking.
+    #[func]
+    fn quickmatch_stop(&mut self) {
+        self.quick = None;
+    }
+
     #[func]
     fn net_leave(&mut self) {
+        self.quick = None;
         if let Some(mut p) = self.net.take() {
             p.leave();
         }

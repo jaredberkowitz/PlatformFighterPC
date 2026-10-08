@@ -174,8 +174,18 @@ by file picker (copy the `.pfr` into the replay folder for now), slow-motion kil
   online match with the same fighters are the same match.
 * The training readout, hitbox drawings and collision outlines are off (F1, F3, F2 bring them back).
 
+## Quick match
+
+The Online screen's fourth role, **Quick match**, needs only a relay's address (`pftool net-relay <port>`, run by whoever is the "server"). Each player
+asks the relay's queue (room 0, which typed rooms cannot use); when two are waiting the relay picks a fresh room (numbers from 2^40 up) and tells both:
+the one who waited **hosts** (so its stage, stocks, time and ranked rules apply) and the other **joins**, and each then connects through that room
+exactly like a typed relay match. Asking is repeated about twice a second; a client that stops asking leaves the queue after six seconds, and the queue holds at
+most 256 waiting clients. Esc cancels. This is the whole of the matchmaking: no skill rating, no regions, no list of games, and the relay does no
+authentication. Checks: `transport` unit tests (pairing, expiry, distinct rooms, typed rooms unharmed) and the quick-match part of
+`godot/tests/online_flow_test.gd` (needs `target/debug/pftool.exe`, or `PFTOOL=<path>`; it skips otherwise).
+
 ## Known gaps
 
 * Nobody has used the HUD, results screen or online screen by hand over a real network.
-* No lobby with a list of games, no matchmaking, no names for rooms: friends type an address (or a relay and a room number).
+* No lobby with a list of games and no names for rooms: friends type an address (or a relay and a room number), or use **Quick match** (below).
 * Only one stage; no sudden death; the results screen shows no per-fighter stats beyond stocks and damage.
