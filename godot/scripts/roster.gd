@@ -1,0 +1,191 @@
+extends RefCounted
+## Characters a player can pick: the two built-in fighters and the ones made in the character creator and saved. Also
+## the state the menus hand to the match (`session`), and the assembly of a match's content: the base roster plus any
+## created fighters in the match, each built from its recipe (stats) by Rust, so the same recipe is the same fighter.
+
+const Loadout := preload("res://scripts/loadout.gd")
+const DIR := "user://characters"
+const VERSION := 1
+
+## What the menus pass to the match: {"content_text", "chars": [i, j], "entries": [e1, e2], "from_menu": true}.
+static var session := {}
+## A character the creator should open when it starts (a slug), or "".
+static var edit_slug := ""
+
+const CLASS_NAMES := ["Longsword", "Claws"]
+const CLASS_BLURBS := [
+	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
+	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
+]
+
+
+static func neutral_entry(name: String, class_id: int, look: RefCounted) -> Dictionary:
+	return {"name": name, "slug": slug_of(name), "builtin": false, "class": class_id, "size": 5, "speed": 5, "jump": 5, "weight": 5, "look": look}
+
+
+static func builtins() -> Array:
+	var duelist := neutral_entry("Duelist", 0, Loadout.default_for(0))
+	duelist.builtin = true
+	duelist.base_index = 0
+	var brawler := neutral_entry("Brawler", 1, Loadout.default_for(1))
+	brawler.builtin = true
+	brawler.base_index = 1
+	return [duelist, brawler]
+
+
+static func slug_of(name: String) -> String:
+	var out := ""
+	for ch in name.strip_edges().to_lower():
+		if (ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9") or ch == "-" or ch == "_":
+			out += ch
+		elif ch == " ":
+			out += "_"
+	return out.substr(0, 24)
+
+
+## A name a creator can save under: 1 to 24 letters, digits, spaces, `_` or `-`, and not one of the built-in fighters.
+static func name_problem(name: String, editing_slug := "") -> String:
+	var n := name.strip_edges()
+	if n == "":
+		return "Give your fighter a name."
+	if n.length() > 24:
+		return "Names can be at most 24 characters."
+	for ch in n:
+		var ok: bool = (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9") or ch == " " or ch == "_" or ch == "-"
+		if not ok:
+			return "Names can use letters, numbers, spaces, - and _."
+	var slug := slug_of(n)
+	if slug == "":
+		return "Give your fighter a name."
+	for b in builtins():
+		if b.slug == slug:
+			return "That name belongs to a built-in fighter."
+	if slug != editing_slug:
+		for s in saved():
+			if s.slug == slug:
+				return "You already have a fighter with that name."
+	return ""
+
+
+static func path_of(slug: String) -> String:
+	return "%s/%s.json" % [DIR, slug]
+
+
+static func to_json(e: Dictionary) -> String:
+	return JSON.stringify({
+		"version": VERSION, "name": e.name, "class": e["class"], "size": e.size, "speed": e.speed, "jump": e.jump,
+		"weight": e.weight, "look": e.look.to_code(),
+	}, "  ")
+
+
+## Reads a character file's text. Anything wrong with it gives an empty dictionary rather than an error.
+static func from_json(text: String) -> Dictionary:
+	var json := JSON.new()
+	if json.parse(text) != OK or not (json.data is Dictionary):
+		return {}
+	var parsed: Dictionary = json.data
+	var name := str(parsed.get("name", ""))
+	if name_problem(name, slug_of(name)) != "" and slug_of(name) == "":
+		return {}
+	var stat := func(key: String) -> int:
+		return clampi(int(parsed.get(key, 5)), 1, 9)
+	var e := neutral_entry(name, clampi(int(parsed.get("class", 0)), 0, CLASS_NAMES.size() - 1), Loadout.from_code(str(parsed.get("look", ""))))
+	e.size = stat.call("size")
+	e.speed = stat.call("speed")
+	e.jump = stat.call("jump")
+	e.weight = stat.call("weight")
+	return e
+
+
+static func save(e: Dictionary) -> String:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+	var f := FileAccess.open(path_of(e.slug), FileAccess.WRITE)
+	if f == null:
+		return "Could not save the fighter."
+	f.store_string(to_json(e))
+	return ""
+
+
+static func delete(slug: String) -> void:
+	var p := ProjectSettings.globalize_path(path_of(slug))
+	if FileAccess.file_exists(path_of(slug)):
+		DirAccess.remove_absolute(p)
+
+
+static func saved() -> Array:
+	var out := []
+	var dir := DirAccess.open(DIR)
+	if dir == null:
+		return out
+	var names := []
+	for f in dir.get_files():
+		if f.ends_with(".json"):
+			names.append(f)
+	names.sort()
+	for f in names:
+		var file := FileAccess.open("%s/%s" % [DIR, f], FileAccess.READ)
+		if file == null:
+			continue
+		var e := from_json(file.get_as_text())
+		if not e.is_empty():
+			out.append(e)
+	return out
+
+
+static func all() -> Array:
+	return builtins() + saved()
+
+
+static func base_content_path() -> String:
+	return ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
+
+
+## Builds the content for a match between `entries` (one per player). Returns {"text", "chars", "error"}: the bundle text to
+## load, which fighter index each entry is in it, and an error message (empty if all is well).
+static func build_content(entries: Array) -> Dictionary:
+	var ed = ClassDB.instantiate("ContentEditor")
+	var path := base_content_path()
+	if FileAccess.file_exists(path):
+		var err: String = ed.open_file(path)
+		if err != "":
+			return {"error": err, "text": "", "chars": []}
+	else:
+		ed.new_from_builtin("Match")
+	var added := {}
+	for e in entries:
+		if e.get("builtin", false):
+			continue
+		if not added.has(e.slug):
+			var section: Dictionary = ed.derive_fighter(e.slug, e["class"], e.size, e.speed, e.jump, e.weight)
+			var problems: PackedStringArray = ed.put_section(section)
+			if not problems.is_empty():
+				return {"error": problems[0], "text": "", "chars": []}
+			added[e.slug] = true
+	var index_of := {}
+	var n := 0
+	for s in ed.sections():
+		if s.kind == "fighter":
+			index_of[s.name] = n
+			n += 1
+	# One fighter index per entry, in the order the entries were given.
+	var ordered := []
+	for e in entries:
+		ordered.append(int(e.base_index) if e.get("builtin", false) else int(index_of[e.slug]))
+	return {"text": ed.text(false), "chars": ordered, "error": ""}
+
+
+## What the creator's stat bars show, normalised against the extremes a recipe can reach: 0 is the least, 1 the most.
+static func readout_bars(ed: RefCounted, e: Dictionary) -> Dictionary:
+	var r: Dictionary = ed.recipe_readout(e["class"], e.size, e.speed, e.jump, e.weight)
+	var lo: Dictionary = ed.recipe_readout(e["class"], 1, 1, 1, 1)
+	var hi: Dictionary = ed.recipe_readout(e["class"], 9, 9, 9, 9)
+	var bars := {}
+	# Run speed and jump are best at small size and high stats: take the extremes from the full range.
+	var fast: Dictionary = ed.recipe_readout(e["class"], 1, 9, 9, 1)
+	var slow: Dictionary = ed.recipe_readout(e["class"], 9, 1, 1, 9)
+	bars["Run speed"] = clampf((r.run_speed - slow.run_speed) / maxf(fast.run_speed - slow.run_speed, 0.0001), 0.0, 1.0)
+	bars["Jump height"] = clampf((r.jump_height - slow.jump_height) / maxf(fast.jump_height - slow.jump_height, 0.0001), 0.0, 1.0)
+	bars["Weight"] = clampf((r.weight - lo.weight) / maxf(hi.weight - lo.weight, 0.0001), 0.0, 1.0)
+	bars["Fall speed"] = clampf((r.fall_speed - lo.fall_speed) / maxf(hi.fall_speed - lo.fall_speed, 0.0001), 0.0, 1.0)
+	bars["Size"] = clampf((r.size_percent - 68.0) / 64.0, 0.0, 1.0)
+	return bars

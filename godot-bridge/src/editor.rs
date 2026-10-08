@@ -89,6 +89,23 @@ fn dict_to_block(d: &VarDictionary) -> Block {
     b
 }
 
+fn recipe_of(
+    class: i32,
+    size: i32,
+    speed: i32,
+    jump: i32,
+    weight: i32,
+) -> sim_content::recipe::Recipe {
+    let b = |v: i32| v.clamp(0, 255) as u8;
+    sim_content::recipe::Recipe {
+        class: b(class),
+        size: b(size),
+        speed: b(speed),
+        jump: b(jump),
+        weight: b(weight),
+    }
+}
+
 fn packed(lines: &[String]) -> PackedStringArray {
     let v: Vec<GString> = lines.iter().map(|l| GString::from(l.as_str())).collect();
     PackedStringArray::from(v.as_slice())
@@ -313,6 +330,57 @@ impl ContentEditor {
             .map(|n| GString::from(*n))
             .collect();
         PackedStringArray::from(v.as_slice())
+    }
+
+    /// The fighter section a character recipe produces (class 0 longsword, 1 claws; stats 1 to 9, 5 neutral), ready for
+    /// `put_section`. Every parameter is written out, so the fighter stands on its own.
+    #[func]
+    fn derive_fighter(
+        &self,
+        name: GString,
+        class: i32,
+        size: i32,
+        speed: i32,
+        jump: i32,
+        weight: i32,
+    ) -> VarDictionary {
+        let recipe = recipe_of(class, size, speed, jump, weight);
+        let weapons: Vec<String> = self
+            .doc
+            .sections()
+            .into_iter()
+            .filter(|(kind, _)| kind == "weapon")
+            .map(|(_, n)| n)
+            .collect();
+        let weapon = weapons
+            .get(usize::from(recipe.clamped().class))
+            .cloned()
+            .unwrap_or_default();
+        block_to_dict(&recipe.section(&name.to_string(), &weapon))
+    }
+
+    /// How a recipe plays, for the creator's stat bars: run speed, jump height, weight, fall speed and body size.
+    #[func]
+    fn recipe_readout(
+        &self,
+        class: i32,
+        size: i32,
+        speed: i32,
+        jump: i32,
+        weight: i32,
+    ) -> VarDictionary {
+        let recipe = recipe_of(class, size, speed, jump, weight);
+        let params = recipe.params();
+        let r = sim_content::recipe::readout(&params);
+        let mut d = VarDictionary::new();
+        d.set("run_speed", r.run_speed.raw() as f32 / 65536.0);
+        d.set("jump_height", r.jump_height.raw() as f32 / 65536.0);
+        d.set("weight", r.weight.raw() as f32 / 65536.0);
+        d.set("fall_speed", r.fall_speed.raw() as f32 / 65536.0);
+        d.set("height", r.height.raw() as f32 / 65536.0);
+        d.set("half_width", params.ecb_half_width.raw() as f32 / 65536.0);
+        d.set("size_percent", recipe.size_percent());
+        d
     }
 
     /// Every move slot's file name, in slot order.

@@ -7,6 +7,7 @@
 pub mod bundle;
 pub mod doc;
 pub mod format;
+pub mod recipe;
 pub mod tree;
 
 pub use bundle::{load, to_text, Bundle, Manifest, SCHEMA_VERSION};
@@ -177,7 +178,7 @@ fn hop_height(v: Fx, gravity: Fx) -> Fx {
 }
 
 /// Peak height of a full hop, including its fast opening if it has one.
-fn full_hop_height(f: &FighterParams) -> Fx {
+pub(crate) fn full_hop_height(f: &FighterParams) -> Fx {
     hop_height(f.full_hop_velocity, f.gravity)
         + f.hop_burst_velocity.mul_int(i32::from(f.hop_burst_frames))
 }

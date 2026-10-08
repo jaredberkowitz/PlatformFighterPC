@@ -2,7 +2,7 @@
 
 An original, legally distinct platform fighter with rollback netcode, a character creator and a stage creator.
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
-Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md). Content format and scripting: [`docs/CONTENT.md`](docs/CONTENT.md). Editors: [`docs/EDITORS.md`](docs/EDITORS.md).
+Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md). Content format and scripting: [`docs/CONTENT.md`](docs/CONTENT.md). Editors: [`docs/EDITORS.md`](docs/EDITORS.md). Menus and the character creator: [`docs/MENUS.md`](docs/MENUS.md).
 
 ## Status: Phases 0-3 built, Phase 4 (netplay) built and tested locally, Phase 5 (content format and scripting) built, Phase 6 (editors) built, playable in Godot
 
@@ -18,6 +18,10 @@ Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and 
 | `godot/` | Godot 4.7 project: blob fighters, stage, training overlay, and the editors (`play_editor.bat`) | Playable test bed |
 
 ## Play it
+
+The game opens on a main menu: **Play** (character select), **Character Creator** (make and save your own fighter, with stats
+like size that change how it moves) and **Editors**. Details in `docs/MENUS.md`.
+
 
 **Double-click `play.bat`** in the project folder. It builds the simulation and opens the game.
 

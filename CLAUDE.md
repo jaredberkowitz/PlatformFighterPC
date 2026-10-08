@@ -24,6 +24,11 @@ Roadmap phases and exit criteria are in section 8 of that plan; check which phas
   A new script ability = a new whitelist entry + a test in `sim-core/tests/scripted_moves.rs` + the doc line (a test checks the doc).
 - Bump `SCHEMA_VERSION` (and add a migration) when the file format changes meaning; bump `SIM_VERSION` when behaviour changes.
 
+## Menus and characters
+- The game starts at `godot/menu.tscn`. Menu pieces are in `godot/ui/` (drawn, original, cartoony; keep them that way).
+- A created character is a recipe (class plus four stats, `sim-content/src/recipe.rs`) turned into fighter parameters by Rust only;
+  never compute physics from stats in GDScript. Every recipe must stay valid content (a test checks all of them).
+
 ## Editors
 - The editors (`godot/editor/`, docs in `docs/EDITORS.md`) have no rules of their own: they edit a content tree through
   `ContentEditor` (bridge) and Rust re-reads and validates the whole document. Put new rules in `sim-content`, not in GDScript.

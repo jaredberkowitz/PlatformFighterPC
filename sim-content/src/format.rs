@@ -1021,6 +1021,14 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
     }
 }
 
+/// A fighter section with every parameter written out.
+pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block {
+    let mut b = Block::new("fighter", Some(name));
+    b.field("weapon", weapon_name);
+    write_params(p, &mut b);
+    b
+}
+
 /// The sections of a content file for `content`, in a fixed order.
 pub fn write_content(content: &Content) -> Vec<Block> {
     let mut out = Vec::new();
@@ -1045,16 +1053,13 @@ pub fn write_content(content: &Content) -> Vec<Block> {
             .get(i)
             .cloned()
             .unwrap_or_else(|| format!("fighter{i}"));
-        let mut b = Block::new("fighter", Some(&name));
         let weapon = content
             .names
             .weapons
             .get(usize::from(p.weapon))
             .cloned()
             .unwrap_or_else(|| format!("weapon{}", p.weapon));
-        b.field("weapon", weapon);
-        write_params(p, &mut b);
-        out.push(b);
+        out.push(fighter_block(&name, p, &weapon));
     }
     let stage_name = if content.names.stage.is_empty() {
         "stage"
