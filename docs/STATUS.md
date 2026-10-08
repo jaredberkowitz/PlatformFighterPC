@@ -22,7 +22,8 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | 7 Game loop: replays (record, verify, watch) | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
 | 7 Game loop: key rebinding, controller input and menus | done (controllers untested on hardware) | `docs/MENUS.md` |
 | 7 Game loop: local 3 to 4 player free-for-alls | done (needs controllers 3 and 4; untested on hardware) | `docs/MATCHES.md` |
-| 7 Game loop: stage select, online 3 to 4 players, spectating | **next** | see below |
+| 7 Game loop: stage select (4 stages, online and replays) | done | `docs/MATCHES.md` |
+| 7 Game loop: online 3 to 4 players, spectating | **next** | see below |
 | 8 Content and polish (real art/animation, audio, balance tooling, moderation) | later | Blender models were offered by the user |
 
 ## What "done" is verified by
@@ -49,17 +50,13 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 
 ## Phase 7: what is left, suggested order
 
-Done: stocks, elimination, winner, time limit, HUD, results, local and online rematch, online screen, replays (`docs/MATCHES.md`), key
+Done: stage select, stocks, elimination, winner, time limit, HUD, results, local and online rematch, online screen, replays (`docs/MATCHES.md`), key
 rebinding and controller input/menus (`docs/MENUS.md`; the controller part is untested on hardware).
 
-1. **Stage select** (a bundle can hold several stages; today it holds one) and a stage picker next to the fighter select.
-   *Started:* `sim-content/src/stages.rs` holds four stage presets (not yet wired into `lib.rs`, untested). Plan: swap the chosen stage into the
-   match content (like made fighters), add `stage` to the netplay `Setup`, the replay record (bump its FORMAT), the bridge, a picker in
-   character select and the online screen, and rebuild `stage_view` after the content loads.
-2. **Online 3 to 4 players**: local free-for-alls work (`docs/MATCHES.md`); `Session` has an `active` mask and the sim handles 4, but the
+1. **Online 3 to 4 players**: local free-for-alls work (`docs/MATCHES.md`); `Session` has an `active` mask and the sim handles 4, but the
    handshake and `Peer` are 1v1. Validate 1v1 over the internet first.
-3. **Spectating**: a spectator consumes the confirmed-input stream (the same data a replay records) from a host or relay.
-4. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics, replay sharing.
+2. **Spectating**: a spectator consumes the confirmed-input stream (the same data a replay records) from a host or relay.
+3. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics, replay sharing.
 
 ## Where things live
 

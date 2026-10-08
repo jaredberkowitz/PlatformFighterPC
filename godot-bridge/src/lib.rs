@@ -12,7 +12,8 @@ use netplay::packet::Setup;
 use netplay::peer::{Link, Peer, Status};
 use netplay::replay::{MatchRecord, Recorder};
 use netplay::session::{Advance, Event};
-use sim_content::recipe::{match_content, FighterSpec};
+use sim_content::recipe::{match_content_on, FighterSpec};
+use sim_content::stages;
 use sim_core::input::buttons;
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
@@ -98,6 +99,8 @@ pub struct SimRunner {
     /// Stocks and time limit of the next match (also sent to the other side when this player hosts). Unlimited by default,
     /// which is free play: nobody is eliminated.
     match_rules: MatchRules,
+    /// Stage (index into `sim_content::stages`) for the next match; the host's choice goes to the joiner.
+    match_stage: u8,
     /// The fighters of a local match (specs of players 0 and 1), kept so the match can be recorded.
     match_specs: Vec<Vec<u8>>,
     /// Records the match in progress for a replay; `None` when it cannot be reproduced (custom content, training edits).
@@ -146,7 +149,7 @@ impl SimRunner {
             out.set("error", "a fighter could not be read");
             return out;
         };
-        match match_content(&base, &parsed, false) {
+        match match_content_on(&base, &parsed, false, self.match_stage) {
             Ok((content, chars)) => {
                 self.content = content;
                 self.content_name = String::new();
@@ -181,7 +184,7 @@ impl SimRunner {
     fn new_local_recorder(&self, seed: u64, ids: [u8; MAX_FIGHTERS]) -> Option<Recorder> {
         let base = Content::placeholder();
         if self.match_specs.is_empty() {
-            if self.content.hash() != base.hash() {
+            if self.content.hash() != stages::with_stage(&base, self.match_stage)?.hash() {
                 return None;
             }
         } else {
@@ -190,7 +193,7 @@ impl SimRunner {
                 .iter()
                 .map(|b| FighterSpec::decode(b))
                 .collect();
-            let (built, chars) = match_content(&base, &parsed?, false).ok()?;
+            let (built, chars) = match_content_on(&base, &parsed?, false, self.match_stage).ok()?;
             if built.hash() != self.content.hash()
                 || chars.iter().zip(ids.iter()).any(|(c, i)| c != i)
             {
@@ -204,6 +207,7 @@ impl SimRunner {
             ids,
             self.players,
             self.state.rules,
+            self.match_stage,
             self.match_specs.clone(),
         )))
     }
@@ -233,6 +237,7 @@ impl SimRunner {
                 setup.chars,
                 setup.active,
                 setup.rules,
+                setup.stage,
                 specs,
             );
             record.cosmetics = peer.player_cosmetics().to_vec();
@@ -272,6 +277,7 @@ impl INode for SimRunner {
             my_fighter: Vec::new(),
             ranked: false,
             match_rules: UNLIMITED,
+            match_stage: 0,
             match_specs: Vec::new(),
             recorder: None,
             playback: None,
@@ -409,6 +415,7 @@ impl SimRunner {
                 out.set("cosmetics2", &cos(2));
                 out.set("cosmetics3", &cos(3));
                 out.set("players", r.active.count_ones() as i32);
+                out.set("stage", i32::from(r.stage));
                 out.set("sim_version", i32::from(r.sim_version));
                 out.set("playable", r.sim_version == SIM_VERSION);
             }
@@ -1078,6 +1085,7 @@ impl SimRunner {
             fighter: self.my_fighter.clone(),
             ranked: self.ranked,
             rules: self.match_rules,
+            stage: self.match_stage,
         };
         self.net = Some(Peer::host(link, &self.content, setup));
         self.net_log.clear();
@@ -1341,6 +1349,58 @@ impl SimRunner {
     #[func]
     fn platform_count(&self) -> i32 {
         self.content.stage.platforms.len() as i32
+    }
+
+    /// Chooses the stage for the next match (0 is the base roster's own); out-of-range values are ignored.
+    #[func]
+    fn set_match_stage(&mut self, index: i32) {
+        if (0..i32::from(stages::COUNT)).contains(&index) {
+            self.match_stage = index as u8;
+        }
+    }
+
+    #[func]
+    fn stage_count(&self) -> i32 {
+        i32::from(stages::COUNT)
+    }
+
+    #[func]
+    fn stage_name(&self, index: i32) -> GString {
+        GString::from(stages::name(index.clamp(0, 255) as u8))
+    }
+
+    #[func]
+    fn stage_blurb(&self, index: i32) -> GString {
+        let blurb = stages::BLURBS.get(usize::try_from(index).unwrap_or(usize::MAX));
+        GString::from(blurb.copied().unwrap_or(""))
+    }
+
+    /// Stage `index` as a list of `[left, right, top, bottom, pass_through]` rectangles, the blast zone `[l, r, bottom, top]`
+    /// last, for drawing a preview without loading the stage.
+    #[func]
+    fn stage_preview(&self, index: i32) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        let Some(stage) = stages::preset(index.clamp(0, 255) as u8) else {
+            return out;
+        };
+        for p in &stage.platforms {
+            let v = [
+                f(p.left),
+                f(p.right),
+                f(p.y),
+                f(p.bottom),
+                if p.pass_through { 1.0 } else { 0.0 },
+            ];
+            out.push(&PackedFloat32Array::from(v.as_slice()));
+        }
+        let blast = [
+            f(stage.blast_left),
+            f(stage.blast_right),
+            f(stage.blast_bottom),
+            f(stage.blast_top),
+        ];
+        out.push(&PackedFloat32Array::from(blast.as_slice()));
+        out
     }
 
     /// [left, right, top_y, bottom_y, pass_through (1 or 0)]

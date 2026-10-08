@@ -51,6 +51,8 @@ pub struct Setup {
     pub ranked: bool,
     /// Stocks and time limit of the match.
     pub rules: MatchRules,
+    /// Index into `sim_content::stages` (0 is the base roster's stage).
+    pub stage: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -202,6 +204,7 @@ impl Packet {
                 w.u8(u8::from(setup.ranked));
                 w.u8(setup.rules.stocks);
                 w.u16(setup.rules.time_limit);
+                w.u8(setup.stage);
                 w.0
             }
             Packet::Ready => Writer::new(T_READY).0,
@@ -280,6 +283,7 @@ impl Packet {
                 if rules != rules.clamped() {
                     return None;
                 }
+                let stage = r.u8()?;
                 Packet::Setup {
                     sim_version,
                     content_hash,
@@ -292,6 +296,7 @@ impl Packet {
                         fighter,
                         ranked,
                         rules,
+                        stage,
                     },
                 }
             }
@@ -360,6 +365,7 @@ mod tests {
                         stocks: 4,
                         time_limit: 480,
                     },
+                    stage: 2,
                 },
             },
             Packet::Ready,

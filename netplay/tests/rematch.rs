@@ -212,3 +212,33 @@ fn asking_before_a_match_does_nothing() {
     let (sa, _) = p.tick();
     assert_eq!(sa, Status::Running(Advance::Ran));
 }
+
+#[test]
+fn the_hosts_stage_is_the_matchs_stage_on_both_sides() {
+    let base = Content::placeholder();
+    let (la, lb, clock) = pair(clean(), 9);
+    let setup = Setup {
+        seed: 1,
+        chars: [0, 1, 0, 1],
+        active: 0b0011,
+        input_delay: 2,
+        stage: 2,
+        ..Setup::default()
+    };
+    let mut p = Pair {
+        a: Peer::host(la, &base, setup),
+        b: Peer::join(lb, &base, vec![]),
+        clock,
+        base,
+        ticks: 0,
+    };
+    assert!(p.run_until_frame(120, 2000));
+    for peer in [&p.a, &p.b] {
+        let c = peer
+            .match_content()
+            .expect("a stage other than the first builds match content");
+        assert_eq!(c.names.stage, "Flat Island");
+        assert_eq!(c.stage.platforms.len(), 1);
+    }
+    assert_eq!(p.desyncs(), 0);
+}

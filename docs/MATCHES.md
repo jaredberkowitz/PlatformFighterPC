@@ -76,6 +76,21 @@ fighters and `GameState::roster`/`winner` count however many started; a match en
 Not done: online matches are still two players (the handshake and session are 1v1); no teams; the select screen has no per-player
 handicap or colour choice.
 
+## Stages
+
+Four stages (`sim-content/src/stages.rs`: Meadow, Triple Tier, Flat Island, Skyline; all original geometry). A stage is chosen by index when
+a match is set up: character select's **Stage** button (or **G**), or the host on the Online screen. The match content is the base roster with
+that stage swapped in (`recipe::match_content_on`), so the simulation still sees one stage and everything agrees through the content hash:
+
+* **Online**: the host's stage is in the netplay `Setup` (wire change); both sides build the same content, the joiner takes the host's.
+* **Replays** record the stage (format 2) and play on it; an unknown stage is refused.
+* Stage 0 is the base roster's own stage and leaves the content untouched. A bundle's own stage is stage 0 (the text format holds one stage).
+
+Tests: `sim-content/src/stages.rs` (every stage valid and distinct, everyone spawns standing, random play is safe on every stage),
+`netplay/src/replay.rs` and `netplay/tests/rematch.rs` (the stage is recorded; the host's stage reaches both sides),
+`godot/tests/replay_test.gd` (a match on another stage records and replays). Not done: a stage preview picture in the picker, stage
+hazards, per-stage music or backdrops, stages in the text format.
+
 ## Replays
 
 Every finished match is saved automatically (the newest 50 are kept) in `user://replays/` as a `.pfr` match record, and the main menu's

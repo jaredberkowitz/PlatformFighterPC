@@ -37,6 +37,7 @@ var ranked := false
 var rules_button: Control
 var stocks_button: Control
 var time_button: Control
+var stage_button: Control
 
 
 class PlayerPanel extends Control:
@@ -174,7 +175,7 @@ func _ready() -> void:
 		grid.add_child(token)
 		tokens.append({"node": token, "portrait": portrait, "flags": tags})
 
-	var hint := UI.Tag.new("P1: WASD, J lock, K back        P2: arrows, Enter lock, Backspace back        E edit        T stocks   Y time        Esc menu", Vector2(1000, 36))
+	var hint := UI.Tag.new("P1: WASD, J lock, K back        P2: arrows, Enter lock, Backspace back        E edit        T stocks   Y time   G stage        Esc menu", Vector2(1000, 36))
 	hint.fill = Color(1, 1, 1, 0.5)
 	hint.ink = UI.INK
 	hint.font_size = 18
@@ -202,20 +203,25 @@ func _ready() -> void:
 	players_button.activated.connect(_cycle_players)
 	add_child(players_button)
 	Roster.load_match_rules()
-	stocks_button = UI.Btn.new("", Vector2(260, 46))
+	stocks_button = UI.Btn.new("", Vector2(220, 46))
 	stocks_button.font_size = 22
 	stocks_button.position = Vector2(500, 622)
 	stocks_button.activated.connect(func(): _cycle_rules(true))
 	add_child(stocks_button)
-	time_button = UI.Btn.new("", Vector2(260, 46))
+	time_button = UI.Btn.new("", Vector2(220, 46))
 	time_button.font_size = 22
-	time_button.position = Vector2(780, 622)
+	time_button.position = Vector2(730, 622)
 	time_button.activated.connect(func(): _cycle_rules(false))
 	add_child(time_button)
+	stage_button = UI.Btn.new("", Vector2(300, 46))
+	stage_button.font_size = 22
+	stage_button.position = Vector2(960, 622)
+	stage_button.activated.connect(_cycle_stage)
+	add_child(stage_button)
 	_show_match_rules()
 
 	start_button = UI.Btn.new("Start Battle!", Vector2(330, 74))
-	start_button.position = Vector2(930, 590)
+	start_button.position = Vector2(930, 530)
 	start_button.font_size = 38
 	start_button.activated.connect(_start)
 	start_button.visible = false
@@ -281,6 +287,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_cycle_rules(true)
 		KEY_Y:
 			_cycle_rules(false)
+		KEY_G:
+			_cycle_stage()
 		KEY_ESCAPE:
 			get_tree().change_scene_to_file("res://menu.tscn")
 
@@ -316,11 +324,20 @@ func _cycle_rules(stocks: bool) -> void:
 	_show_match_rules()
 
 
+func _cycle_stage() -> void:
+	Roster.match_stage = (Roster.match_stage + 1) % Roster.stage_names().size()
+	Roster.save_match_rules()
+	_show_match_rules()
+	status.set_text(Roster.stage_blurb(Roster.match_stage))
+
+
 func _show_match_rules() -> void:
 	stocks_button.text = "Stocks: " + Roster.stocks_text(Roster.match_stocks)
 	time_button.text = "Time: " + Roster.time_text(Roster.match_time)
 	stocks_button.queue_redraw()
 	time_button.queue_redraw()
+	stage_button.text = "Stage: " + Roster.stage_names()[Roster.match_stage]
+	stage_button.queue_redraw()
 
 
 func _toggle_ranked() -> void:
@@ -475,6 +492,6 @@ func _start() -> void:
 	Roster.save_last(picked[0].slug)
 	Roster.session = {
 		"content_text": built.text, "chars": built.chars, "entries": chosen, "ranked": ranked, "from_menu": true,
-		"stocks": Roster.match_stocks, "time": Roster.match_time,
+		"stocks": Roster.match_stocks, "time": Roster.match_time, "stage": Roster.match_stage,
 	}
 	get_tree().change_scene_to_file("res://main.tscn")

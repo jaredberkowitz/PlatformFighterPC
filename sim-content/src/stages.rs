@@ -121,12 +121,13 @@ pub fn name(index: u8) -> &'static str {
 /// The content with stage `index` swapped in. Stage 0 leaves the content as it is (so a base-roster match keeps its own hash).
 /// `None` for a stage that does not exist.
 pub fn with_stage(content: &Content, index: u8) -> Option<Content> {
+    if index >= COUNT {
+        return None;
+    }
     let mut out = content.clone();
     if index != 0 {
         out.stage = preset(index)?;
         out.names.stage = name(index).to_string();
-    } else if index >= COUNT {
-        return None;
     }
     Some(out)
 }
@@ -150,9 +151,17 @@ mod tests {
         }
         hashes.sort_unstable();
         hashes.dedup();
-        assert_eq!(hashes.len(), usize::from(COUNT), "every stage is a different content");
+        assert_eq!(
+            hashes.len(),
+            usize::from(COUNT),
+            "every stage is a different content"
+        );
         assert!(preset(COUNT).is_none() && with_stage(&base, COUNT).is_none());
-        assert_eq!(with_stage(&base, 0).unwrap().hash(), base.hash(), "stage 0 is the base roster's own");
+        assert_eq!(
+            with_stage(&base, 0).unwrap().hash(),
+            base.hash(),
+            "stage 0 is the base roster's own"
+        );
     }
 
     #[test]
@@ -160,9 +169,16 @@ mod tests {
         for i in 0..COUNT {
             let s = preset(i).unwrap();
             for sp in &s.spawns {
-                assert!(collision::standing_on(&s, *sp) >= 0, "stage {i}: a spawn is in the air");
+                assert!(
+                    collision::standing_on(&s, *sp) >= 0,
+                    "stage {i}: a spawn is in the air"
+                );
             }
-            assert_eq!(s.ledges.len(), 2, "stage {i}: both ends of the floor are ledges");
+            assert_eq!(
+                s.ledges.len(),
+                2,
+                "stage {i}: both ends of the floor are ledges"
+            );
         }
     }
 
@@ -179,8 +195,14 @@ mod tests {
                     step(&mut s, &content, frame);
                     for (n, f) in s.fighters.iter().enumerate() {
                         for b in content.stage.platforms.iter().filter(|b| !b.pass_through) {
-                            let inside = f.pos.x > b.left && f.pos.x < b.right && f.pos.y > b.bottom && f.pos.y < b.y;
-                            assert!(!inside, "stage {i} seed {seed} fighter {n}: feet inside a solid block");
+                            let inside = f.pos.x > b.left
+                                && f.pos.x < b.right
+                                && f.pos.y > b.bottom
+                                && f.pos.y < b.y;
+                            assert!(
+                                !inside,
+                                "stage {i} seed {seed} fighter {n}: feet inside a solid block"
+                            );
                         }
                     }
                 }

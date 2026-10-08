@@ -78,6 +78,7 @@ func _ready() -> void:
 	_parse_demo_args()
 	_load_content()
 	_apply_rules()
+	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
 	if Roster.session.get("from_menu", false):
 		overlay_on = false
@@ -240,6 +241,12 @@ var content_note := ""
 
 ## How the match is won: the menus' choice (stocks and time limit), or `--stocks=N --time=SECONDS` after `--`. With neither it is
 ## free play (nobody is eliminated), which keeps demos, training and the test launchers as they were.
+## Draws the stage the simulation now has (the match content may have swapped it).
+func _rebuild_stage() -> void:
+	stage_view.clear()
+	stage_view.build(sim)
+
+
 func _apply_rules() -> void:
 	if replay_mode:
 		return
@@ -292,6 +299,7 @@ func _load_content() -> void:
 		content_note = "REPLAY NOT LOADED: " + replay_error
 	# Coming from the menus: the match's fighters build the match content (the base roster plus any made fighters), the
 	# same way an online match does, so it can be recorded and replayed.
+	sim.set_match_stage(int(Roster.session.get("stage", 0)))
 	if Roster.session.has("entries") and Roster.session.entries.size() >= 2:
 		var specs: Array[PackedByteArray] = []
 		for i in PLAYERS:
@@ -401,6 +409,7 @@ func _start_net() -> void:
 	# Everyone brings their own fighter (the online screen's choice, `--fighter=<slug>`, or the one last played in the menus)
 	# and its look and name; a few bytes of each travel to the other side in the handshake. The ranked rule is the host's.
 	var me := Roster.net_entry()
+	sim.set_match_stage(int(Roster.session.get("stage", 0)))
 	sim.set_cosmetics(Roster.profile_bytes(me))
 	sim.set_fighter(Roster.spec_bytes(me))
 	sim.set_ranked(cfg.ranked)
@@ -503,6 +512,7 @@ func _net_step() -> void:
 	# Once the handshake is done the other player's look arrives (or is missing, and they keep the default look).
 	if (net_status == 1 or net_status == 2) and not their_look_applied:
 		their_look_applied = true
+		_rebuild_stage()
 		var theirs := Roster.parse_profile(sim.net_their_cosmetics(), 1 - local_slot)
 		views[1 - local_slot].rebuild(theirs.look)
 		views[1 - local_slot].set_name_tag(theirs.name)
@@ -519,6 +529,7 @@ func _net_step() -> void:
 		results = null
 		end_timer = 0.0
 		_apply_scales()
+		_rebuild_stage()
 	elif results != null and sim.net_rematch_state()[1] == 1:
 		results.set_note("The other player wants a rematch!" if sim.net_rematch_state()[0] == 0 else "Rematch: starting...")
 	if net_status == 1:

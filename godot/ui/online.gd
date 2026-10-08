@@ -23,6 +23,7 @@ const DESCRIPTIONS := {
 	"room": "Both players type the same room number to meet on the relay.",
 	"fighter": "Your fighter for this match. Made fighters work online: only a few bytes travel, and both sides build the same fighter.",
 	"delay": "Input delay in frames. More delay hides lag better but feels heavier. 2 is good for most connections.",
+	"stage": "The stage to play on (the host decides).",
 	"stocks": "How many lives each fighter has (the host decides).",
 	"time": "Time limit; when it runs out the fighter with more stocks, then less damage, wins (the host decides).",
 	"rules": "Ranked refuses fighters over the point budget, on either side (the host decides).",
@@ -70,6 +71,7 @@ func _ready() -> void:
 		names.append(e.name)
 	_add_selector("fighter", "Fighter", names)
 	_add_selector("delay", "Delay", DELAYS.map(func(d): return "%d frames" % d))
+	_add_selector("stage", "Stage", Roster.stage_names())
 	_add_selector("stocks", "Stocks", Roster.STOCK_CHOICES.map(Roster.stocks_text))
 	_add_selector("time", "Time", Roster.TIME_CHOICES.map(Roster.time_text))
 	_add_selector("rules", "Rules", ["Casual", "Ranked"])
@@ -166,7 +168,7 @@ func _row_shown(id: String) -> bool:
 			return _hosting() and not _relay()
 		"room":
 			return _relay()
-		"stocks", "time", "rules":
+		"stage", "stocks", "time", "rules":
 			return _hosting()
 	return true
 
@@ -303,6 +305,7 @@ func _apply_settings() -> void:
 		if entries[i].slug == wanted:
 			fighter_index = i
 	selectors["fighter"].set_index(fighter_index, false)
+	selectors["stage"].set_index(Roster.match_stage, false)
 	selectors["stocks"].set_index(maxi(0, Roster.STOCK_CHOICES.find(Roster.match_stocks)), false)
 	selectors["time"].set_index(maxi(0, Roster.TIME_CHOICES.find(Roster.match_time)), false)
 	selectors["rules"].set_index(0, false)
@@ -317,6 +320,7 @@ func _save_settings() -> void:
 			"port": edits["port"].text.strip_edges(), "room": edits["room"].text.strip_edges(),
 			"delay": DELAYS[selectors["delay"].index], "fighter": entries[selectors["fighter"].index].slug,
 		}))
+	Roster.match_stage = selectors["stage"].index
 	Roster.match_stocks = Roster.STOCK_CHOICES[selectors["stocks"].index]
 	Roster.match_time = Roster.TIME_CHOICES[selectors["time"].index]
 	Roster.save_match_rules()
@@ -330,7 +334,7 @@ func connection() -> Dictionary:
 		"host": _hosting(), "relay": _relay(), "addr": edits["address"].text.strip_edges(),
 		"port": DEFAULT_PORT, "room": 0, "delay": DELAYS[selectors["delay"].index],
 		"entry": entries[selectors["fighter"].index],
-		"stocks": Roster.STOCK_CHOICES[selectors["stocks"].index], "time": Roster.TIME_CHOICES[selectors["time"].index],
+		"stage": selectors["stage"].index, "stocks": Roster.STOCK_CHOICES[selectors["stocks"].index], "time": Roster.TIME_CHOICES[selectors["time"].index],
 		"ranked": selectors["rules"].index == 1,
 	}
 	if _relay():
@@ -364,5 +368,5 @@ func _connect() -> void:
 		return
 	_save_settings()
 	Roster.save_last(c.entry.slug)
-	Roster.session = {"from_menu": true, "online": c, "stocks": c.stocks, "time": c.time}
+	Roster.session = {"from_menu": true, "online": c, "stocks": c.stocks, "time": c.time, "stage": c.stage}
 	get_tree().change_scene_to_file("res://main.tscn")

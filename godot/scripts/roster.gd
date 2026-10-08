@@ -78,6 +78,10 @@ const STOCK_CHOICES := [1, 2, 3, 4, 5, 6, 9, 0]
 const TIME_CHOICES := [0, 180, 300, 480, 600]
 static var match_stocks := 3
 static var match_time := 0
+## Index of the stage (see `sim_content::stages`; the names come from the bridge).
+static var match_stage := 0
+static var _stage_names: Array = []
+static var _stage_blurbs: Array = []
 static var _match_loaded := false
 
 
@@ -96,12 +100,29 @@ static func load_match_rules() -> void:
 			match_stocks = int(parsed.get("stocks", 3))
 		if TIME_CHOICES.has(int(parsed.get("time", 0))):
 			match_time = int(parsed.get("time", 0))
+		match_stage = clampi(int(parsed.get("stage", 0)), 0, maxi(0, stage_names().size() - 1))
 
 
 static func save_match_rules() -> void:
 	var f := FileAccess.open(MATCH_PATH, FileAccess.WRITE)
 	if f != null:
-		f.store_string(JSON.stringify({"stocks": match_stocks, "time": match_time}))
+		f.store_string(JSON.stringify({"stocks": match_stocks, "time": match_time, "stage": match_stage}))
+
+
+## The stages a match can be played on, from Rust (asked once).
+static func stage_names() -> Array:
+	if _stage_names.is_empty():
+		var sim = ClassDB.instantiate("SimRunner")
+		for i in sim.stage_count():
+			_stage_names.append(sim.stage_name(i))
+			_stage_blurbs.append(sim.stage_blurb(i))
+		sim.free()
+	return _stage_names
+
+
+static func stage_blurb(i: int) -> String:
+	stage_names()
+	return _stage_blurbs[clampi(i, 0, _stage_blurbs.size() - 1)]
 
 
 static func stocks_text(stocks: int) -> String:

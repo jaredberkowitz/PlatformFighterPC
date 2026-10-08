@@ -12,7 +12,7 @@ use crate::handshake::{BaseCounts, Handshake, Outcome};
 use crate::packet::MAGIC;
 use crate::packet::{RejectReason, Setup};
 use crate::session::{Advance, Event, Session, SessionConfig, Stats};
-use sim_content::recipe::{match_content, FighterSpec};
+use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_core::{Content, GameState, Input, SIM_VERSION};
 
 /// Datagram type of the rematch request. Handled here; the session and handshake never see it.
@@ -325,13 +325,18 @@ impl<L: Link> Peer<L> {
         // Start the match when the handshake succeeds.
         if self.session.is_none() {
             if let Outcome::Ready(setup) = self.handshake.outcome().clone() {
-                // Both sides build the same content from the two fighters' specs.
-                if let Some((host, joiner)) = self.handshake.fighter_specs() {
-                    let specs: Option<Vec<FighterSpec>> = [host, joiner]
+                // Both sides build the same content from the two fighters' specs and the chosen stage.
+                let specs: Option<Vec<FighterSpec>> = match self.handshake.fighter_specs() {
+                    Some((host, joiner)) => [host, joiner]
                         .iter()
                         .map(|b| FighterSpec::decode(b))
-                        .collect();
-                    let built = specs.and_then(|s| match_content(content, &s, setup.ranked).ok());
+                        .collect(),
+                    None => Some(Vec::new()),
+                };
+                if self.handshake.fighter_specs().is_some() || setup.stage != 0 {
+                    let built = specs.and_then(|s| {
+                        match_content_on(content, &s, setup.ranked, setup.stage).ok()
+                    });
                     match built {
                         Some((c, _)) => self.match_content = Some(c),
                         None => {

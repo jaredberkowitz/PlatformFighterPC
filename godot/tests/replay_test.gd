@@ -68,6 +68,7 @@ func _initialize() -> void:
 	var bytes := _bridge()
 	await _scene(bytes)
 	_four(bytes)
+	_stage()
 	_list(bytes)
 	for p in saved_paths:
 		Replays.delete(p)
@@ -197,6 +198,31 @@ func _four(_bytes: PackedByteArray) -> void:
 	root.add_child(watcher)
 	check(watcher.replay_load(bytes) == "" and watcher.replay_verify(), "it verifies")
 	check(watcher.fighter_in_roster(3), "and plays back with four")
+	sim.queue_free()
+	watcher.queue_free()
+
+
+## A match on another stage: the stage is the simulation's, it is recorded, and the replay plays on it.
+func _stage() -> void:
+	var sim = ClassDB.instantiate("SimRunner")
+	root.add_child(sim)
+	check(sim.stage_count() >= 4 and sim.stage_name(0) == "Meadow" and sim.stage_name(2) == "Flat Island", "the stages are listed")
+	check(sim.stage_preview(1).size() == 5, "a stage preview lists its platforms and the blast zone")
+	sim.set_match_stage(2)
+	var specs: Array[PackedByteArray] = [Roster.spec_bytes(Roster.builtins()[0]), Roster.spec_bytes(Roster.builtins()[1])]
+	var loaded: Dictionary = sim.load_match_roster(specs)
+	check(loaded.error == "" and sim.platform_count() == 1, "stage 3 has no platforms: %d" % sim.platform_count())
+	sim.set_match_rules(3, 3)
+	sim.start(4, PackedInt32Array(loaded.chars))
+	for f in 200:
+		sim.set_input(0, 127 if (f / 30) % 2 == 0 else -127, 0, 0)
+		sim.tick()
+	var bytes: PackedByteArray = sim.replay_bytes(PackedByteArray(), PackedByteArray())
+	check(sim.replay_peek(bytes).stage == 2, "the record names its stage")
+	var watcher = ClassDB.instantiate("SimRunner")
+	root.add_child(watcher)
+	check(watcher.replay_load(bytes) == "" and watcher.platform_count() == 1 and watcher.replay_verify(), "and replays on it")
+	sim.set_match_stage(99)
 	sim.queue_free()
 	watcher.queue_free()
 

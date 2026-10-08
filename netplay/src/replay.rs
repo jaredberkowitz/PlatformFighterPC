@@ -7,16 +7,16 @@
 //! opaque bytes for the viewer and never reach the simulation.
 //!
 //! Layout (little-endian): `"PFMR"` | u16 format | u16 sim_version | u64 base_hash | u64 match_hash | u64 seed | chars[4] |
-//! u8 active | u8 stocks | u16 time_limit | u8 spec count, each u8 length + bytes | u8 cosmetic count, each u16 length + bytes |
+//! u8 active | u8 stocks | u16 time_limit | u8 stage | u8 spec count, each u8 length + bytes | u8 cosmetic count, each u16 length + bytes |
 //! i8 winner | u64 final_checksum | u32 frames | per frame, per active player, 4 input bytes.
 //!
 //! Pure like the rest of this crate.
 
-use sim_content::recipe::{match_content, FighterSpec};
+use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_core::{step, Content, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 
 const MAGIC: &[u8; 4] = b"PFMR";
-const FORMAT: u16 = 1;
+const FORMAT: u16 = 2;
 /// Longest match a record may hold (an hour of frames).
 pub const MAX_FRAMES: usize = 60 * 3600;
 const MAX_SPEC_BYTES: usize = 16;
@@ -33,6 +33,8 @@ pub struct MatchRecord {
     pub chars: [u8; MAX_FIGHTERS],
     pub active: u8,
     pub rules: MatchRules,
+    /// Index into `sim_content::stages`.
+    pub stage: u8,
     /// Fighter specs of players 0 and 1, or empty when the match used the base roster's characters as they are.
     pub specs: Vec<Vec<u8>>,
     /// Per player, opaque to the simulation (name and look).
@@ -46,6 +48,7 @@ pub struct MatchRecord {
 
 impl MatchRecord {
     /// A record of a match that has just been set up, with no frames yet.
+    #[allow(clippy::too_many_arguments)]
     pub fn begin(
         base: &Content,
         match_content: &Content,
@@ -53,6 +56,7 @@ impl MatchRecord {
         chars: [u8; MAX_FIGHTERS],
         active: u8,
         rules: MatchRules,
+        stage: u8,
         specs: Vec<Vec<u8>>,
     ) -> MatchRecord {
         MatchRecord {
@@ -63,6 +67,7 @@ impl MatchRecord {
             chars,
             active,
             rules: rules.clamped(),
+            stage,
             specs,
             cosmetics: Vec::new(),
             inputs: Vec::new(),
@@ -83,6 +88,7 @@ impl MatchRecord {
         out.push(self.active);
         out.push(self.rules.stocks);
         out.extend_from_slice(&self.rules.time_limit.to_le_bytes());
+        out.push(self.stage);
         out.push(self.specs.len() as u8);
         for s in &self.specs {
             out.push(s.len() as u8);
@@ -131,6 +137,10 @@ impl MatchRecord {
         };
         if rules != rules.clamped() {
             return Err("replay has match rules out of range".to_string());
+        }
+        let stage = r.u8()?;
+        if stage >= sim_content::stages::COUNT {
+            return Err("replay names a stage that does not exist".to_string());
         }
         let n_specs = usize::from(r.u8()?);
         if n_specs > MAX_FIGHTERS {
@@ -185,6 +195,7 @@ impl MatchRecord {
             chars,
             active,
             rules,
+            stage,
             specs,
             cosmetics,
             inputs,
@@ -206,19 +217,14 @@ impl MatchRecord {
             return Err("this replay was recorded on a different base roster".to_string());
         }
         let mut chars = self.chars;
-        let content = if self.specs.is_empty() {
-            base.clone()
-        } else {
-            let specs: Option<Vec<FighterSpec>> =
-                self.specs.iter().map(|b| FighterSpec::decode(b)).collect();
-            let specs = specs.ok_or("a fighter in this replay cannot be read")?;
-            let (content, built) = match_content(base, &specs, false)
-                .map_err(|e| format!("a fighter in this replay is not valid: {e:?}"))?;
-            for (slot, c) in chars.iter_mut().zip(built.iter()) {
-                *slot = *c;
-            }
-            content
-        };
+        let parsed: Option<Vec<FighterSpec>> =
+            self.specs.iter().map(|b| FighterSpec::decode(b)).collect();
+        let parsed = parsed.ok_or("a fighter in this replay cannot be read")?;
+        let (content, built) = match_content_on(base, &parsed, false, self.stage)
+            .map_err(|e| format!("this replay is not valid: {e:?}"))?;
+        for (slot, c) in chars.iter_mut().zip(built.iter()) {
+            *slot = *c;
+        }
         if content.hash() != self.match_hash {
             return Err(
                 "this replay's fighters build different content than when it was recorded"
@@ -334,12 +340,12 @@ impl Reader<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim_content::recipe::Recipe;
+    use sim_content::recipe::{match_content, Recipe};
     use sim_core::fuzz::random_inputs;
     use sim_core::Rng;
 
     fn recorded(base: &Content, specs: Vec<Vec<u8>>, rules: MatchRules, seed: u64) -> MatchRecord {
-        let mut r = MatchRecord::begin(base, base, seed, [0, 1, 0, 1], 0b0011, rules, specs);
+        let mut r = MatchRecord::begin(base, base, seed, [0, 1, 0, 1], 0b0011, rules, 0, specs);
         // Built-in specs leave the content unchanged, so the match hash is the base's.
         let (content, state0) = r.rebuild(base).expect("rebuilds");
         let mut state = state0;
@@ -400,7 +406,7 @@ mod tests {
         ids[1] = chars[1];
         let rules = MatchRules::default();
         let mut rec = Recorder::new(MatchRecord::begin(
-            &base, &content, 11, ids, 0b0011, rules, specs,
+            &base, &content, 11, ids, 0b0011, rules, 0, specs,
         ));
         let mut state = GameState::new_with_rules(&content, 11, ids, 0b0011, rules);
         for (f, i) in random_inputs(&mut Rng::new(11), 900).iter().enumerate() {
@@ -434,7 +440,7 @@ mod tests {
             stocks: 3,
             time_limit: 3,
         };
-        let mut r = MatchRecord::begin(&base, &base, 5, [0, 1, 0, 1], 0b0011, rules, vec![]);
+        let mut r = MatchRecord::begin(&base, &base, 5, [0, 1, 0, 1], 0b0011, rules, 0, vec![]);
         r.inputs = random_inputs(&mut Rng::new(5), 1500);
         r.seal(&base).unwrap();
         // The clock ends the match on frame 180 (it is decided after that frame's step).
@@ -449,6 +455,7 @@ mod tests {
             [0, 1, 0, 1],
             0b0011,
             MatchRules::default(),
+            0,
             vec![],
         );
         open.inputs = random_inputs(&mut Rng::new(6), 100);
@@ -486,7 +493,7 @@ mod tests {
             stocks: 1,
             time_limit: 0,
         };
-        let mut record = MatchRecord::begin(&base, &content, 21, ids, 0b1111, rules, specs);
+        let mut record = MatchRecord::begin(&base, &content, 21, ids, 0b1111, rules, 0, specs);
         record.inputs = random_inputs(&mut Rng::new(21), 6000);
         record.seal(&base).unwrap();
         // With one stock each and random play somebody falls long before 6000 frames: the match is decided and cut short.
@@ -511,6 +518,47 @@ mod tests {
     }
 
     #[test]
+    fn a_match_on_another_stage_replays_on_that_stage() {
+        let base = Content::placeholder();
+        let on = |stage| {
+            let content = sim_content::stages::with_stage(&base, stage).unwrap();
+            let mut r = MatchRecord::begin(
+                &base,
+                &content,
+                8,
+                [0, 1, 0, 1],
+                0b0011,
+                MatchRules::default(),
+                stage,
+                vec![],
+            );
+            r.inputs = random_inputs(&mut Rng::new(8), 1200);
+            r.seal(&base).unwrap();
+            r
+        };
+        let (a, b) = (on(0), on(2));
+        assert_ne!(
+            a.final_checksum, b.final_checksum,
+            "the stage changes the match"
+        );
+        assert!(MatchRecord::decode(&b.encode())
+            .unwrap()
+            .verify(&base)
+            .is_ok());
+        let mut wrong = b.clone();
+        wrong.stage = 1;
+        assert!(
+            wrong.verify(&base).is_err(),
+            "the wrong stage does not verify"
+        );
+        let mut bad = b.encode();
+        // The stage byte sits after the rules; an out-of-range one is refused.
+        let at = 4 + 2 + 2 + 8 + 8 + 8 + 4 + 1 + 1 + 2;
+        bad[at] = 200;
+        assert!(MatchRecord::decode(&bad).is_err());
+    }
+
+    #[test]
     fn the_recorder_takes_frames_in_order_only() {
         let base = Content::placeholder();
         let mut rec = Recorder::new(MatchRecord::begin(
@@ -520,6 +568,7 @@ mod tests {
             [0, 1, 0, 1],
             0b0011,
             MatchRules::default(),
+            0,
             vec![],
         ));
         let i = [Input::default(); MAX_FIGHTERS];

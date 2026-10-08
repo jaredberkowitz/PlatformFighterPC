@@ -233,6 +233,8 @@ pub enum SpecError {
     /// Ranked rules and a fighter over the point budget.
     OverBudget,
     TooMany,
+    /// A stage index that does not exist (see `stages`).
+    UnknownStage,
 }
 
 /// The fighter index each spec gets in the match content built by [`match_content`]: built-in fighters keep theirs, made
@@ -286,6 +288,18 @@ pub fn match_content(
             content.names.fighters.push(format!("made{n}"));
         }
     }
+    Ok((content, chars))
+}
+
+/// Like [`match_content`], on stage `stage` (0 keeps the base roster's own stage).
+pub fn match_content_on(
+    base: &sim_core::Content,
+    specs: &[FighterSpec],
+    ranked: bool,
+    stage: u8,
+) -> Result<(sim_core::Content, Vec<u8>), SpecError> {
+    let (content, chars) = match_content(base, specs, ranked)?;
+    let content = crate::stages::with_stage(&content, stage).ok_or(SpecError::UnknownStage)?;
     Ok((content, chars))
 }
 

@@ -13,6 +13,14 @@ var ledge_markers: Array[MeshInstance3D] = []
 var ledge_mats: Array[StandardMaterial3D] = []
 
 
+## Throws the old stage away (a different stage was chosen, or the match content changed).
+func clear() -> void:
+	for c in get_children():
+		c.queue_free()
+	ledge_markers.clear()
+	ledge_mats.clear()
+
+
 func build(sim) -> void:
 	for i in sim.platform_count():
 		var r: PackedFloat32Array = sim.platform_rect(i)
