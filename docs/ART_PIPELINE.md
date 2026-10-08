@@ -43,9 +43,20 @@ In an attack the hand leaves its resting place and sweeps round the shoulder, an
 air spins, and so on. Clips are timed to the move (wind-up until the first hitbox, strike through the active frames, then recovery).
 `roll`, `knockdown` and `ledge` clips cover rolls and dodges, lying down and hanging.
 
+**The brawler fights with fists** (no weapon is drawn). Its punches and sweeps use the same arm IK: the fist is the hand at the end of the
+reach, aimed through the move's arc. Its kicks (neutral air, back air, up air, down air, tilts, specials) use the `attack_kick` leg clip.
+
+**Neckwear** (sash, neckerchief, scarf) is built for the rigged torso (`_neck_on_rig`): rings sized to hug the body's ellipsoid, so nothing
+pokes through in any pose. (The old flat boxes are only used when there is no rig.)
+
+**Walk, run and dash** follow a sprint-style cycle (`walk_pose` in the Blender script): the leg swinging forward lifts its knee while the
+planted leg is nearly straight; arms pump opposite the legs with the elbow bent more as it comes forward; the body leans into the run,
+bounces once per step and the shoulders counter-twist against the hips; the head stays level-ish. `walk` (40 frames, light), `run`
+(20 frames, 20 degree lean, big knee lift) and `dash` (16 frames, 28 degree lean) play at a speed set by the fighter's real speed.
+
 Known gaps: one clip per move type, not per move (every jab and tilt shares `attack_swing`); the arc is only as sweeping as the move's
-hitbox data (a move with one static hitbox gets the wind-up sweep but a still strike); the sash and neckwear were designed for the old
-sphere body and are only roughly fitted; the brawler's kicks use one generic kick clip; none of it has been judged by someone playing.
+hitbox data (a move with one static hitbox gets the wind-up sweep but a still strike); the brawler's kicks use one generic kick clip;
+feet still slide a little at game speed (the cycle is paced by speed, not locked to the ground); none of it has been judged by someone playing.
 
 ## Rules
 

@@ -104,8 +104,8 @@ var loadout: RefCounted
 const RIG_PATH := "res://models/blob_rig.glb"
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
-const TORSO_FIT := Transform3D(Basis(Vector3(0.8, 0, 0), Vector3(0, 0.8, 0), Vector3(0, 0, 0.72)), Vector3(0, 0.98 - 0.82 * 0.8, 0))
-const LOOPING := ["idle", "walk", "run", "fall"]
+const TORSO_FIT := Transform3D()
+const LOOPING := ["idle", "walk", "run", "dash", "fall"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_template: Node3D
 static var _rig_tried := false
@@ -188,9 +188,11 @@ func _choose_clip(s: Dictionary) -> Array:
 	var speed := absf(float(s.vel.x))
 	match state:
 		"Walk":
-			return ["walk", clampf(speed / 0.12, 0.5, 2.2), -1.0]
-		"Run", "Dash":
-			return ["run", clampf(speed / 0.3, 0.7, 1.8), -1.0]
+			return ["walk", clampf(speed / 0.09, 0.5, 2.0), -1.0]
+		"Run":
+			return ["run", clampf(speed / 0.22, 0.6, 1.5), -1.0]
+		"Dash":
+			return ["dash", clampf(speed / 0.3, 0.7, 1.6), -1.0]
 		"Crouch", "JumpSquat", "Landing", "WaveLand":
 			return ["crouch", 1.0, -1.0]
 		"Roll", "SpotDodge", "AirDodge":
@@ -483,6 +485,9 @@ var last_expression := {}
 
 func _neck(_skin: StandardMaterial3D) -> void:
 	var accent: Color = loadout.accent_color()
+	if rig != null:
+		_neck_on_rig(accent)
+		return
 	match loadout.neck:
 		1:
 			# Sash across the torso.
@@ -504,6 +509,42 @@ func _neck(_skin: StandardMaterial3D) -> void:
 			var tail := BoxMesh.new()
 			tail.size = Vector3(0.28, 0.7, 0.08)
 			_part(torso_rig, tail, toon(accent), Vector3(0.28, 0.72, 0.58), Vector3.ONE, Vector3(0, 0, 8))
+
+
+## Neckwear for the rigged torso (a squat ellipsoid centred at height 0.98: half-width 0.56, half-depth 0.5, half-height 0.42). Rings are
+## tori sized to hug it, so nothing pokes through the body whatever the pose.
+func _neck_on_rig(accent: Color) -> void:
+	var centre := Vector3(0, 0.98, 0)
+	match loadout.neck:
+		1:
+			# Sash: a ring worn diagonally from shoulder to hip.
+			var ring := TorusMesh.new()
+			ring.inner_radius = 0.5
+			ring.outer_radius = 0.64
+			ring.rings = 36
+			ring.ring_segments = 10
+			_part(torso_rig, ring, toon(SASH), centre, Vector3(0.88, 1.0, 1.0), Vector3(0, 0, -42))
+		2:
+			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
+			_collar(accent)
+			var bib := BoxMesh.new()
+			bib.size = Vector3(0.34, 0.34, 0.06)
+			_part(torso_rig, bib, toon(accent), Vector3(0, 0.94, 0.5), Vector3.ONE, Vector3(0, 0, 45))
+		3:
+			# Scarf: the collar ring and a tail hanging down the front on one side.
+			_collar(accent)
+			var tail := BoxMesh.new()
+			tail.size = Vector3(0.2, 0.5, 0.06)
+			_part(torso_rig, tail, toon(accent), Vector3(0.26, 0.82, 0.46), Vector3.ONE, Vector3(0, 0, 6))
+
+
+func _collar(accent: Color) -> void:
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.44
+	ring.outer_radius = 0.58
+	ring.rings = 36
+	ring.ring_segments = 10
+	_part(torso_rig, ring, toon(accent), Vector3(0, 1.1, 0), Vector3(1.04, 1.0, 0.94))
 
 
 func _hat() -> void:
@@ -691,7 +732,7 @@ var blade_pivot: Node3D
 var spark: MeshInstance3D
 var flame: MeshInstance3D
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
-const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1
@@ -775,7 +816,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - SHOULDER
 		var dist := maxf(to_tip.length(), 0.001)
-		var reach := minf(ARM_REACH, maxf(dist - 0.3, 0.1))
+		var reach := minf(ARM_REACH, maxf(dist - 0.3, 0.1)) if s.char == 0 else ARM_REACH
 		hand = old_hand.lerp(SHOULDER + to_tip / dist * reach, arm_k)
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
@@ -840,9 +881,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_pose_blade(s, delta)
 	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
 	var brawler: bool = s.char == 1
-	blade_pivot.visible = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
+	var swinging_arm: bool = not BRAWLER_NO_BLADE.has(s.move_name)
+	blade_pivot.visible = not brawler and swinging_arm
 	if rig != null:
-		_aim_arm(int(s.facing), blade_pivot.visible)
+		_aim_arm(int(s.facing), swinging_arm if not brawler else (swinging_arm and state == "Attack"))
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.visible = rushing
 	if rushing:

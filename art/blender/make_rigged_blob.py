@@ -199,23 +199,29 @@ def clip(rig, name, frames, poses):
     action.frame_range = (0, max(poses))
 
 
-def walk_pose(phase, stride, bend, arm, lean, bob):
-    """One frame of a walk or run cycle at `phase` (0..1)."""
+def walk_pose(phase, stride, bend, arm, lean, bob, elbow, twist):
+    """One frame of a walk, run or dash cycle at `phase` (0..1).
+
+    Legs: the leg swinging forward lifts its knee (the recovery), the planted leg is nearly straight. Arms: opposite the legs, with the
+    elbow bent more as the arm comes forward (a pumping run). Body: leans into the run, bounces twice a cycle (once per step) and the
+    shoulders counter-twist against the hips; the head stays level-ish.
+    """
     s = math.sin(phase * 2 * math.pi)
     c = math.cos(phase * 2 * math.pi)
 
     def f(rig):
         for side, sign in (("L", 1.0), ("R", -1.0)):
             swing = s * sign
-            lift = max(0.0, c * sign)  # the leg that is coming forward bends at the knee
+            lift = max(0.0, c * sign)  # this leg is coming forward: the knee lifts
             pose(rig, "thigh." + side, fwd=stride * swing)
-            pose(rig, "shin." + side, fwd=-bend * lift - 4.0)
-            pose(rig, "foot." + side, fwd=-0.3 * stride * swing)
-            pose(rig, "armU." + side, fwd=-arm * swing, out=8.0)
-            pose(rig, "armL." + side, fwd=arm * 0.7 * (1.0 if swing < 0 else 0.35))
-        pose(rig, "hips", lift=bob * abs(c) - bob * 0.5)
-        pose(rig, "spine", fwd=lean, twist=6.0 * s)
-        pose(rig, "head", fwd=-lean * 0.5, twist=-4.0 * s)
+            pose(rig, "shin." + side, fwd=-bend * lift - 5.0 - 0.1 * bend * max(0.0, -swing))
+            pose(rig, "foot." + side, fwd=22.0 * lift - 0.25 * stride * swing)
+            forward = max(0.0, -swing)  # the arm that is forward
+            pose(rig, "armU." + side, fwd=-arm * swing, out=6.0)
+            pose(rig, "armL." + side, fwd=elbow * (0.55 + 0.45 * forward))
+        pose(rig, "hips", lift=bob * abs(c) - bob * 0.5, twist=-twist * s)
+        pose(rig, "spine", fwd=lean, twist=twist * 1.4 * s)
+        pose(rig, "head", fwd=-lean * 0.8, twist=-twist * 1.2 * s)
 
     return f
 
@@ -244,9 +250,11 @@ def main() -> None:
     clip(rig, "idle", 90, {0: idle(0.0), 22: idle(0.25), 45: idle(0.5), 67: idle(0.75), 90: idle(1.0)})
 
     n = 8
-    clip(rig, "walk", 36, {int(36 * i / n): walk_pose(i / n, 32.0, 38.0, 26.0, 4.0, 0.05) for i in range(n + 1)})
+    clip(rig, "walk", 40, {int(40 * i / n): walk_pose(i / n, 34.0, 46.0, 28.0, 5.0, 0.05, 26.0, 5.0) for i in range(n + 1)})
     n = 8
-    clip(rig, "run", 24, {int(24 * i / n): walk_pose(i / n, 52.0, 70.0, 58.0, 14.0, 0.09) for i in range(n + 1)})
+    clip(rig, "run", 20, {int(20 * i / n): walk_pose(i / n, 62.0, 108.0, 64.0, 20.0, 0.12, 88.0, 9.0) for i in range(n + 1)})
+    n = 8
+    clip(rig, "dash", 16, {int(16 * i / n): walk_pose(i / n, 66.0, 90.0, 42.0, 28.0, 0.07, 72.0, 6.0) for i in range(n + 1)})
 
     def jump(rig):
         for side in "LR":
