@@ -8,6 +8,7 @@
 //! This crate is pure like the sim crates: no sockets, clocks or threads. The real UDP transport lives in the
 //! `transport` crate and implements [`peer::Link`].
 
+pub mod group;
 pub mod handshake;
 pub mod local_rollback;
 pub mod packet;

@@ -9,6 +9,7 @@
 //! Neither hole-punches NAT; direct play over the internet needs a forwarded port (or a LAN / VPN), and anything else
 //! uses the relay.
 
+use netplay::group::HubLink;
 use netplay::peer::Link;
 use std::collections::BTreeMap;
 use std::io::{self, ErrorKind};
@@ -130,6 +131,17 @@ impl SpectatorSocket {
         if let Some(addr) = self.addrs.get(id) {
             let _ = self.socket.send_to(bytes, addr);
         }
+    }
+}
+
+/// The same socket is the host's side of a group match: guest `i` is the `i`-th address that wrote to it.
+impl HubLink for SpectatorSocket {
+    fn send(&mut self, guest: usize, bytes: &[u8]) {
+        SpectatorSocket::send(self, guest, bytes);
+    }
+
+    fn recv(&mut self) -> Option<(usize, Vec<u8>)> {
+        SpectatorSocket::recv(self)
     }
 }
 

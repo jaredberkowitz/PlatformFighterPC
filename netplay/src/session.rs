@@ -14,6 +14,9 @@ use crate::packet::{Packet, MAX_INPUTS_PER_PACKET};
 use sim_core::{step, Content, GameState, Input, MAX_FIGHTERS};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// The destination of a packet meant for every other player.
+pub const BROADCAST: u8 = 255;
+
 /// Frames of input history and snapshots kept. Must comfortably exceed `max_prediction + input_delay`.
 pub const RING: usize = 128;
 /// `advance` calls without any packet from a remote player before it counts as disconnected (10 s at 60 Hz).
@@ -114,7 +117,8 @@ pub struct Session {
     remote_checksums: BTreeMap<u32, u64>,
     reported: BTreeSet<u32>,
     events: Vec<Event>,
-    outbox: Vec<Vec<u8>>,
+    /// Packets to send, each with the player it is for ([`BROADCAST`] for everyone).
+    outbox: Vec<(u8, Vec<u8>)>,
     stats: Stats,
 }
 
@@ -216,13 +220,32 @@ impl Session {
         std::mem::take(&mut self.events)
     }
 
+    /// Like [`Session::drain_outgoing`], with the player each packet is for. With more than two players every remote gets its own packet
+    /// (it carries that player's acknowledgement), so the caller must route them.
+    pub fn drain_outgoing_to(&mut self) -> Vec<(u8, Vec<u8>)> {
+        std::mem::take(&mut self.outbox)
+    }
+
     pub fn drain_outgoing(&mut self) -> Vec<Vec<u8>> {
         std::mem::take(&mut self.outbox)
+            .into_iter()
+            .map(|(_, bytes)| bytes)
+            .collect()
     }
 
     // ---- Packets in --------------------------------------------------------------------------------------------
 
     pub fn handle_packet(&mut self, bytes: &[u8]) {
+        self.handle_packet_inner(None, bytes);
+    }
+
+    /// Like [`Session::handle_packet`] for a packet that arrived through a hub, where `from` is the player who sent it: a goodbye then
+    /// only drops that player, not everyone.
+    pub fn handle_packet_from(&mut self, from: u8, bytes: &[u8]) {
+        self.handle_packet_inner(Some(usize::from(from)), bytes);
+    }
+
+    fn handle_packet_inner(&mut self, from: Option<usize>, bytes: &[u8]) {
         let Some(packet) = Packet::decode(bytes) else {
             return;
         };
@@ -234,13 +257,16 @@ impl Session {
                 inputs,
             } => self.on_inputs(usize::from(player), ack, start, &inputs),
             Packet::Checksum { frame, value } => self.on_checksum(frame, value),
-            Packet::Disconnect => {
-                for p in 0..MAX_FIGHTERS {
-                    if p != usize::from(self.cfg.local) {
-                        self.drop_player(p);
+            Packet::Disconnect => match from {
+                Some(p) => self.drop_player(p),
+                None => {
+                    for p in 0..MAX_FIGHTERS {
+                        if p != usize::from(self.cfg.local) {
+                            self.drop_player(p);
+                        }
                     }
                 }
-            }
+            },
             // Handshake packets belong to the handshake, not to a running session.
             _ => {}
         }
@@ -439,7 +465,8 @@ impl Session {
             let inputs: Vec<Input> = (first..self.local_next)
                 .map(|f| self.known(f, lp).unwrap_or_default())
                 .collect();
-            self.outbox.push(
+            self.outbox.push((
+                r as u8,
                 Packet::Inputs {
                     player: self.cfg.local,
                     ack: self.received_upto[r],
@@ -447,10 +474,11 @@ impl Session {
                     inputs,
                 }
                 .encode(),
-            );
+            ));
             if self.advances % CHECKSUM_RESEND == 0 {
                 if let Some((&frame, &value)) = self.local_checksums.iter().next_back() {
-                    self.outbox.push(Packet::Checksum { frame, value }.encode());
+                    self.outbox
+                        .push((r as u8, Packet::Checksum { frame, value }.encode()));
                 }
             }
         }
@@ -458,7 +486,7 @@ impl Session {
 
     /// Tells the other peers this session is leaving.
     pub fn disconnect(&mut self) {
-        self.outbox.push(Packet::Disconnect.encode());
+        self.outbox.push((BROADCAST, Packet::Disconnect.encode()));
     }
 
     // ---- Slots -------------------------------------------------------------------------------------------------
