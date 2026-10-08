@@ -3,12 +3,22 @@
 //! socket behaves identically in tests and in play.
 //!
 //! Call [`Peer::update`] once per frame with the local input; it receives, handshakes or simulates, and sends.
+//!
+//! **Rematches.** When a match is over, either player calls [`Peer::request_rematch`]; once both have, each side starts a
+//! fresh handshake over the same link (the host picks a new seed) and a new match begins. Every datagram carries a one-byte
+//! *epoch* (the number of matches this link has played), so late packets of the finished match can never reach the next one.
 
 use crate::handshake::{BaseCounts, Handshake, Outcome};
+use crate::packet::MAGIC;
 use crate::packet::{RejectReason, Setup};
 use crate::session::{Advance, Event, Session, SessionConfig, Stats};
 use sim_content::recipe::{match_content, FighterSpec};
 use sim_core::{Content, GameState, Input, SIM_VERSION};
+
+/// Datagram type of the rematch request. Handled here; the session and handshake never see it.
+const T_REMATCH: u8 = 8;
+/// Ticks between resends of a rematch request.
+const REMATCH_EVERY: u32 = 6;
 
 /// Anything that can move datagrams: a UDP socket, a relay connection, or a simulated lossy link in tests.
 pub trait Link {
@@ -43,16 +53,29 @@ pub struct Peer<L: Link> {
     /// The content of this match when players brought made fighters: the base roster plus theirs. `None` means the
     /// base content passed to `update` is the match's content.
     match_content: Option<Content>,
+    /// How many matches this link has played; tags every datagram.
+    epoch: u8,
+    wants_rematch: bool,
+    remote_wants_rematch: bool,
+    rematch_ticks: u32,
+    /// What a fresh handshake needs: the host's settings, or the joiner's cosmetics and fighter, and the base content.
+    host_setup: Option<Setup>,
+    join_info: Option<(Vec<u8>, Vec<u8>)>,
+    base_hash: u64,
+    base_counts: BaseCounts,
 }
 
 impl<L: Link> Peer<L> {
     /// The host decides the match settings and is player 0.
     pub fn host(link: L, content: &Content, setup: Setup) -> Peer<L> {
-        Peer::new(
+        let mut peer = Peer::new(
             link,
-            Handshake::host(SIM_VERSION, content.hash(), counts(content), setup),
+            Handshake::host(SIM_VERSION, content.hash(), counts(content), setup.clone()),
             true,
-        )
+            content,
+        );
+        peer.host_setup = Some(setup);
+        peer
     }
 
     /// The joiner is player 1 and takes whatever the host decided, if the versions match.
@@ -67,20 +90,23 @@ impl<L: Link> Peer<L> {
         cosmetics: Vec<u8>,
         fighter: Vec<u8>,
     ) -> Peer<L> {
-        Peer::new(
+        let mut peer = Peer::new(
             link,
             Handshake::join(
                 SIM_VERSION,
                 content.hash(),
                 counts(content),
-                cosmetics,
-                fighter,
+                cosmetics.clone(),
+                fighter.clone(),
             ),
             false,
-        )
+            content,
+        );
+        peer.join_info = Some((cosmetics, fighter));
+        peer
     }
 
-    fn new(link: L, handshake: Handshake, host: bool) -> Peer<L> {
+    fn new(link: L, handshake: Handshake, host: bool, content: &Content) -> Peer<L> {
         Peer {
             link,
             handshake,
@@ -91,7 +117,82 @@ impl<L: Link> Peer<L> {
             heard_from_remote: false,
             events: Vec::new(),
             match_content: None,
+            epoch: 0,
+            wants_rematch: false,
+            remote_wants_rematch: false,
+            rematch_ticks: 0,
+            host_setup: None,
+            join_info: None,
+            base_hash: content.hash(),
+            base_counts: counts(content),
         }
+    }
+
+    /// Asks for another match with the same opponent. It starts when both sides have asked.
+    pub fn request_rematch(&mut self) {
+        if self.session.is_some() {
+            self.wants_rematch = true;
+        }
+    }
+
+    /// `(this side has asked, the other side has asked)`.
+    pub fn rematch_state(&self) -> (bool, bool) {
+        (self.wants_rematch, self.remote_wants_rematch)
+    }
+
+    /// Sends one datagram, tagged with the epoch.
+    fn send(&mut self, bytes: &[u8]) {
+        let mut tagged = Vec::with_capacity(bytes.len() + 1);
+        tagged.extend_from_slice(bytes);
+        tagged.push(self.epoch);
+        self.link.send(&tagged);
+    }
+
+    /// The next datagram of the current epoch. A request for the next epoch's handshake from someone we are also waiting
+    /// to rematch with counts as their request; anything else from another epoch is dropped.
+    fn recv(&mut self) -> Option<Vec<u8>> {
+        while let Some(mut bytes) = self.link.recv() {
+            let Some(tag) = bytes.pop() else {
+                continue;
+            };
+            if tag == self.epoch {
+                return Some(bytes);
+            }
+            if tag == self.epoch.wrapping_add(1) && self.wants_rematch {
+                self.remote_wants_rematch = true;
+            }
+        }
+        None
+    }
+
+    /// Both sides want another match: forget the finished one and handshake again, over the same link.
+    fn begin_rematch(&mut self) {
+        self.epoch = self.epoch.wrapping_add(1);
+        self.wants_rematch = false;
+        self.remote_wants_rematch = false;
+        self.session = None;
+        self.match_content = None;
+        self.heard_from_remote = false;
+        self.events.clear();
+        self.handshake = if self.host {
+            let mut setup = self.host_setup.clone().unwrap_or_default();
+            // A new seed for the new match, the same on every run of the same host.
+            setup.seed = setup
+                .seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            self.host_setup = Some(setup.clone());
+            Handshake::host(SIM_VERSION, self.base_hash, self.base_counts, setup)
+        } else {
+            let (cosmetics, fighter) = self.join_info.clone().unwrap_or_default();
+            Handshake::join(
+                SIM_VERSION,
+                self.base_hash,
+                self.base_counts,
+                cosmetics,
+                fighter,
+            )
+        };
     }
 
     /// The two players' fighter specs as `(host's, joiner's)`, once the handshake has them.
@@ -152,15 +253,22 @@ impl<L: Link> Peer<L> {
     pub fn leave(&mut self) {
         if let Some(s) = &mut self.session {
             s.disconnect();
-            for p in s.drain_outgoing() {
-                self.link.send(&p);
+            let outgoing = s.drain_outgoing();
+            for p in outgoing {
+                self.send(&p);
             }
         }
     }
 
     pub fn update(&mut self, content: &Content, local: Input) -> Status {
         // Receive everything that has arrived.
-        while let Some(bytes) = self.link.recv() {
+        while let Some(bytes) = self.recv() {
+            if bytes.len() == 3 && bytes[..2] == MAGIC.to_le_bytes() && bytes[2] == T_REMATCH {
+                if self.session.is_some() {
+                    self.remote_wants_rematch = true;
+                }
+                continue;
+            }
             self.handshake.handle_packet(&bytes);
             if let Some(s) = &mut self.session {
                 if !self.heard_from_remote
@@ -170,6 +278,17 @@ impl<L: Link> Peer<L> {
                     self.heard_from_remote = true;
                 }
                 s.handle_packet(&bytes);
+            }
+        }
+
+        if self.wants_rematch && self.remote_wants_rematch {
+            self.begin_rematch();
+        } else if self.wants_rematch {
+            self.rematch_ticks += 1;
+            if self.rematch_ticks % REMATCH_EVERY == 1 {
+                let mut request = MAGIC.to_le_bytes().to_vec();
+                request.push(T_REMATCH);
+                self.send(&request);
             }
         }
 
@@ -217,7 +336,7 @@ impl<L: Link> Peer<L> {
         // strand either side).
         if !self.heard_from_remote {
             for p in self.handshake.tick() {
-                self.link.send(&p);
+                self.send(&p);
             }
         }
 
@@ -237,8 +356,9 @@ impl<L: Link> Peer<L> {
             return Status::Connecting;
         };
         let advance = session.advance(self.match_content.as_ref().unwrap_or(content), local);
-        for p in session.drain_outgoing() {
-            self.link.send(&p);
+        let outgoing = session.drain_outgoing();
+        for p in outgoing {
+            self.send(&p);
         }
         Status::Running(advance)
     }

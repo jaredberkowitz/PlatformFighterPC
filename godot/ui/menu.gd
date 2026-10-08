@@ -17,6 +17,7 @@ var preview: Control
 
 const ITEMS := [
 	["Play", "res://select.tscn"],
+	["Online", "res://online.tscn"],
 	["Character Creator", "res://creator.tscn"],
 	["Editors", "res://editor.tscn"],
 	["Quit", ""],
@@ -38,7 +39,7 @@ func _ready() -> void:
 	add_child(UI.Backdrop.new(false))
 
 	var column := VBoxContainer.new()
-	column.position = Vector2(70, 70)
+	column.position = Vector2(70, 40)
 	column.add_theme_constant_override("separation", 12)
 	add_child(column)
 	title_a = UI.Tag.new("PLATFORM", Vector2(470, 92))
@@ -60,7 +61,7 @@ func _ready() -> void:
 	column.add_child(spacer)
 
 	for item in ITEMS:
-		var b := UI.Btn.new(item[0], Vector2(400, 66))
+		var b := UI.Btn.new(item[0], Vector2(400, 60))
 		b.activated.connect(_choose.bind(item[1]))
 		b.mouse_entered.connect(func(): _select(buttons.find(b)))
 		column.add_child(b)
@@ -77,7 +78,7 @@ func _ready() -> void:
 	hint.ink = Color(1, 1, 1, 0.8)
 	hint.font_size = 20
 	hint.shadow = false
-	hint.position = Vector2(60, 650)
+	hint.position = Vector2(60, 676)
 	add_child(hint)
 	Shot.attach(self)
 

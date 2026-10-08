@@ -2,7 +2,7 @@
 
 Read this first when picking the project up again. The design source of truth is `docs/Platform_Fighter_Project_Plan.docx`;
 this file records where the build is against its roadmap (section 8) and what to do next. Last updated after the
-"online made fighters, hitbox scaling and point budget" work (sim version 22).
+Phase 7 work so far: match rules, HUD, results, rematches and the online screen (sim version 23).
 
 ## Roadmap progress
 
@@ -18,7 +18,8 @@ this file records where the build is against its roadmap (section 8) and what to
 | (extra) Both characters' kits completed | done (estimates flagged in `docs/COMBAT.md`) | `docs/COMBAT.md` |
 | (extra) Main menu, character creator, character select | done | `docs/MENUS.md` |
 | (extra) Online play with made fighters, hitbox size scaling, point budget | done | `docs/MENUS.md`, `docs/NETPLAY.md` |
-| 7 Game loop (stocks, menus, matchmaking, 3 to 4 players, replays, spectating) | **next** | see below |
+| 7 Game loop: stocks, winner, HUD, results, rematch (local and online), online screen | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
+| 7 Game loop: stage select, 3 to 4 players, replays, spectating, controllers | **next** | see below |
 | 8 Content and polish (real art/animation, audio, balance tooling, moderation) | later | Blender models were offered by the user |
 
 ## What "done" is verified by
@@ -27,7 +28,7 @@ this file records where the build is against its roadmap (section 8) and what to
 `pftool fuzz-rollback 1000` and `pftool net-fuzz 2000` (both 0 mismatches), and the headless Godot tests
 (`godot/tests/*.gd`, run with `Godot --headless --path godot --script res://tests/<name>.gd`):
 `input_e2e`, `net_e2e`, `content_e2e`, `loadout_test`, `editor_api_test`, `editor_ui_test`, `creator_flow_test`,
-`online_fighters_test`. All of them pass at the last commit. Godot is expected at `tools/godot/Godot_v4.7.1-stable_win64_console.exe`
+`online_fighters_test`, `match_flow_test`, `online_flow_test`. All of them pass at the last commit. Godot is expected at `tools/godot/Godot_v4.7.1-stable_win64_console.exe`
 (not in git); Rust stable with the MSVC build tools builds the rest. `play.bat` opens the game, `play_editor.bat` the editors,
 `play_host.bat` / `play_join.bat` an online match.
 
@@ -38,22 +39,22 @@ this file records where the build is against its roadmap (section 8) and what to
 * **Nobody has used the menus or editors by hand.** Tests drive them, screenshots look right, but feel is unproven.
 * **Frame data**: many hitbox positions, throw knockbacks and landing lags are estimates (listed in `docs/COMBAT.md`). Pivot grabs
   were left for the user to test later.
-* **Online fighter choice has no menu.** The online launchers take `--fighter=<slug>` (or use the fighter last played in the menus)
-  and `--ranked` on the host; a proper online lobby and fighter select belong to Phase 7.
+* **Online has a form, not a lobby.** The online screen (menu, Online) picks role, connection, fighter, delay and (host) rules, but there
+  is no list of games or matchmaking. Nobody has used it over a real network.
 * Menus are keyboard and mouse only (no controller, no key rebinding). The art is the procedural blob; real models come later.
-* One stage and one mode. No stocks/results/rematch flow yet.
+* One stage, one mode (versus, 2 players). No sudden death after a tied clock.
 
-## Phase 7: suggested order
+## Phase 7: what is left, suggested order
 
-1. **Match rules**: stocks (the sim already has `stocks` and respawn; add elimination, a winner, a results screen, rematch). The
-   state needs an "eliminated" notion; `Fighter::active` is the model to follow. Put rules in `Ruleset` (hashed content).
-2. **Online lobby in the menus**: host/join screens (address entry or room number for the relay), fighter select over the network
-   using the existing handshake (fighter specs and cosmetics already travel), ranked toggle, input-delay setting (plan section 6).
+Done: stocks, elimination, winner, time limit, HUD, results, local and online rematch, online screen (`docs/MATCHES.md`).
+
+1. **Replays**: record the input stream plus the match setup (seed, characters or fighter specs, rules: the same data the handshake
+   exchanges) and play them back; `pftool` can verify a replay by checksum. Spectating can reuse the confirmed-input stream later.
+2. **Controller input and key rebinding** in the menus and the input shim (`godot/scripts/input_reader.gd`).
 3. **Stage select** (a bundle can hold several stages; today it holds one) and a stage picker next to the fighter select.
-4. **3 to 4 players**: `Session` already has an `active` mask; the handshake and menus are 1v1. Validate 1v1 over the internet first.
-5. **Replays and spectating**: record the input stream plus the match specs (the same data the handshake exchanges) and play them back
-   with `pftool run`-style tooling; spectators reuse the confirmed-input stream.
-6. Controller input and key rebinding in the menus and the input shim (`godot/scripts/input_reader.gd`).
+4. **3 to 4 players**: `Session` already has an `active` mask and the sim handles 4; the handshake, menus and HUD are 1v1.
+   Needs controllers first for local play; validate 1v1 over the internet before online 3 to 4.
+5. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics.
 
 ## Where things live
 

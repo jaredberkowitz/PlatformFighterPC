@@ -278,10 +278,18 @@ var net_mode := false
 var local_slot := 0
 var their_look_applied := false
 var net_status := 0
+var net_failed := ""
 var net_lines: Array[String] = []
 
 
-func _start_net() -> void:
+## The connection to make, from the online screen (`Roster.session.online`) or from launch arguments. Empty means no network.
+func _net_config() -> Dictionary:
+	if Roster.session.has("online"):
+		var o: Dictionary = Roster.session.online
+		return {
+			"host": o.host, "relay": o.addr if o.relay else "", "addr": o.addr, "port": o.port, "room": o.room,
+			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked,
+		}
 	var host_port := -1
 	var join_addr := ""
 	var relay := ""
@@ -303,33 +311,44 @@ func _start_net() -> void:
 			chars = []
 			for c in a.substr(8).split(","):
 				chars.append(int(c))
-	# Everyone brings their own fighter (`--fighter=<slug>`, or the one last played in the menus) and its look and name; a
-	# few bytes of each travel to the other side in the handshake. `--ranked` (host) refuses fighters over the point budget.
+	if host_port < 0 and join_addr == "":
+		return {}
+	return {
+		"host": host_port >= 0, "relay": relay, "addr": join_addr, "port": host_port, "room": room, "delay": delay,
+		"chars": chars, "ranked": OS.get_cmdline_user_args().has("--ranked"),
+	}
+
+
+func _start_net() -> void:
+	var cfg := _net_config()
+	if cfg.is_empty():
+		return
+	# Everyone brings their own fighter (the online screen's choice, `--fighter=<slug>`, or the one last played in the menus)
+	# and its look and name; a few bytes of each travel to the other side in the handshake. The ranked rule is the host's.
 	var me := Roster.net_entry()
 	sim.set_cosmetics(Roster.profile_bytes(me))
 	sim.set_fighter(Roster.spec_bytes(me))
-	sim.set_ranked(OS.get_cmdline_user_args().has("--ranked"))
-	local_slot = 0 if (host_port >= 0) else 1
+	sim.set_ranked(cfg.ranked)
+	local_slot = 0 if cfg.host else 1
 	var err := ""
-	if host_port >= 0 and relay != "":
-		err = sim.net_host_relay(relay, room, PackedInt32Array(chars), delay)
-	elif host_port >= 0:
-		err = sim.net_host(host_port, PackedInt32Array(chars), delay)
-	elif join_addr != "" and relay != "":
-		err = sim.net_join_relay(relay, room)
-	elif join_addr != "":
-		err = sim.net_join(join_addr)
+	if cfg.host and cfg.relay != "":
+		err = sim.net_host_relay(cfg.relay, cfg.room, PackedInt32Array(cfg.chars), cfg.delay)
+	elif cfg.host:
+		err = sim.net_host(cfg.port, PackedInt32Array(cfg.chars), cfg.delay)
+	elif cfg.relay != "":
+		err = sim.net_join_relay(cfg.relay, cfg.room)
 	else:
-		return
+		err = sim.net_join(cfg.addr)
 	if err != "":
 		push_error(err)
 		net_lines.append(err)
+		net_failed = err
 		return
 	net_mode = true
 	views[local_slot].rebuild(me.look)
 	views[local_slot].set_name_tag(me.name)
 	names[local_slot] = me.name
-	print("network mode: ", "host" if host_port >= 0 else "joiner")
+	print("network mode: ", "host" if cfg.host else "joiner")
 
 
 ## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat).
@@ -357,6 +376,14 @@ func _net_step() -> void:
 		print(line)
 	if net_lines.size() > 4:
 		net_lines = net_lines.slice(net_lines.size() - 4)
+	if results != null and net_status == 1 and sim.winner() == -1:
+		# The rematch is on: a fresh match has replaced the finished one.
+		results.queue_free()
+		results = null
+		end_timer = 0.0
+		_apply_scales()
+	elif results != null and sim.net_rematch_state()[1] == 1:
+		results.set_note("The other player wants a rematch!" if sim.net_rematch_state()[0] == 0 else "Rematch: starting...")
 	if net_status == 1:
 		_tick_once(false)
 	else:
@@ -574,6 +601,7 @@ func _update_hud(delta: float) -> void:
 	hud.show_state({
 		"names": names, "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
+		"status": _net_status_text(),
 	})
 	if winner != -1 and results == null:
 		end_timer += delta
@@ -587,8 +615,10 @@ func _show_results(winner: int) -> void:
 		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
-	if net_mode:
-		choices = [["Quit", "quit"]]
+	if net_mode and Roster.session.get("from_menu", false):
+		choices = [["Rematch", "rematch"], ["Main Menu", "menu"]]
+	elif net_mode:
+		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
 	elif Roster.session.get("from_menu", false):
 		choices = [["Rematch", "rematch"], ["Character Select", "select"], ["Main Menu", "menu"]]
 	else:
@@ -602,13 +632,43 @@ func _show_results(winner: int) -> void:
 func _on_result(action: String) -> void:
 	match action:
 		"rematch":
-			_restart()
+			if net_mode:
+				sim.net_request_rematch()
+				results.set_note("Rematch requested. Waiting for the other player...")
+			else:
+				_restart()
 		"select":
-			get_tree().change_scene_to_file("res://select.tscn")
+			_leave_to("select")
 		"menu":
-			get_tree().change_scene_to_file("res://menu.tscn")
+			_leave_to("menu")
 		_:
 			get_tree().quit()
+
+
+## Back to a menu screen, hanging up first if this was an online match.
+func _leave_to(screen: String) -> void:
+	if net_mode:
+		sim.net_leave()
+		net_mode = false
+	get_tree().change_scene_to_file("res://%s.tscn" % screen)
+
+
+## What the player needs to know about the connection: waiting, refused, desyncs, the other player leaving. Empty when all is well.
+func _net_status_text() -> String:
+	if not net_mode:
+		return net_failed
+	var lines: Array = []
+	match net_status:
+		0:
+			lines.append("Connecting... waiting for the other player.")
+		2:
+			lines.append("Waiting for the other player's moves...")
+		3:
+			lines.append("The match was refused.")
+	for l in net_lines:
+		if net_status != 1 or l.contains("DESYNC") or l.contains("disconnected"):
+			lines.append(l.left(90))
+	return "\n".join(lines.slice(maxi(0, lines.size() - 3)))
 
 
 func _net_text() -> String:
@@ -760,8 +820,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_restart()
 		KEY_ESCAPE:
 			# From the menus, Esc goes back to character select; launched directly, it quits.
-			if Roster.session.get("from_menu", false) and not net_mode:
-				get_tree().change_scene_to_file("res://select.tscn")
+			if Roster.session.get("from_menu", false):
+				_leave_to("online" if net_mode else "select")
 			else:
 				get_tree().quit()
 

@@ -782,9 +782,17 @@ impl SimRunner {
             stick_y: clamp_i8(stick_y),
             buttons: button_mask as u16,
         };
-        let status = peer.update(&self.content, input);
+        // The handshake always builds a match from the base roster, even for a rematch.
+        let base = self.base_content.as_ref().unwrap_or(&self.content);
+        let status = peer.update(base, input);
         if let Some(s) = peer.state() {
             self.state = *s;
+        }
+        // Between two matches the roster goes back to the base one until the next match builds its own.
+        if peer.match_content().is_none() {
+            if let Some(base) = self.base_content.take() {
+                self.content = base;
+            }
         }
         // A match with made fighters runs on the base roster plus theirs: show and read that.
         if self.base_content.is_none() {
@@ -830,6 +838,25 @@ impl SimRunner {
                 3
             }
         }
+    }
+
+    /// After a match: asks the other player for another one. It starts when both have asked (`net_update` then reports
+    /// 0 while the new handshake runs, and 1 again once the new match is on).
+    #[func]
+    fn net_request_rematch(&mut self) {
+        if let Some(p) = self.net.as_mut() {
+            p.request_rematch();
+        }
+    }
+
+    /// `[this player has asked, the other player has asked]` as 0 or 1.
+    #[func]
+    fn net_rematch_state(&self) -> PackedInt32Array {
+        let (me, them) = self
+            .net
+            .as_ref()
+            .map_or((false, false), |p| p.rematch_state());
+        PackedInt32Array::from([i32::from(me), i32::from(them)].as_slice())
     }
 
     /// Which player this peer controls (0 for the host, 1 for the joiner), or -1.

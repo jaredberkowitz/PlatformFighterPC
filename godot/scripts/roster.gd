@@ -120,7 +120,10 @@ static func save_last(slug: String) -> void:
 
 ## The fighter to bring to an online match: `--fighter=<slug>` after `--`, else the one player 1 last played with.
 static func net_entry() -> Dictionary:
+	# The online screen's choice wins; then `--fighter=<slug>`; then the one played last.
 	var wanted := ""
+	if session.has("online"):
+		return session.online.entry
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--fighter="):
 			wanted = slug_of(a.substr(10))

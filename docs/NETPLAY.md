@@ -47,6 +47,13 @@ unchanged: the characters in the settings are used on the base content. The wire
 and `Setup`, a `ranked` byte in `Setup`, reject reason 4), so builds from before this change cannot play against newer ones; the
 sim version (22) refuses that anyway.
 
+## Match rules and rematches
+
+The host's setup also carries the match rules (`sim_core::MatchRules`: stocks and time limit); the joiner plays under them. After a
+match both players can ask for a **rematch**: each side then runs a new handshake over the same link with a new seed. Every datagram
+ends with a one-byte epoch (matches played on this link), so nothing from a finished match reaches the next one. Details and tests:
+`docs/MATCHES.md`, `netplay/tests/rematch.rs`.
+
 ## What is tested
 
 * `netplay/tests/session.rs`: handshake accept, refusal on a different version or content, survival at 50% packet loss; sessions over a

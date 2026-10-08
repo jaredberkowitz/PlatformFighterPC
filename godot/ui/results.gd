@@ -16,6 +16,7 @@ var index := 0
 var card_data: Array = []
 var title := ""
 var board: Control
+var note := ""
 
 
 class Board extends Control:
@@ -48,6 +49,8 @@ class Board extends Control:
 			draw_string(D.font(), rect.position + Vector2(190, 185), "%d%%" % int(c.percent), HORIZONTAL_ALIGNMENT_LEFT, -1, 30, D.INK)
 			if winner:
 				draw_string(D.font(), rect.position + Vector2(30, 232), "WINNER", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(0.85, 0.55, 0.0))
+		if r.note != "":
+			D.draw_text_centered(self, r.note, Rect2(Vector2(0, 630), Vector2(size.x, 50)), 30, Color(1, 1, 1))
 
 
 func _init() -> void:
@@ -74,6 +77,11 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		buttons.append(b)
 		actions.append(action)
 	_select(0)
+
+
+func set_note(text: String) -> void:
+	note = text
+	board.queue_redraw()
 
 
 func _select(i: int) -> void:
