@@ -34,6 +34,7 @@ from what only a person on real hardware and a real network (or a publisher) can
   needs someone to run and publish a relay; nobody has hosted one on the internet yet.
 * **More archetypes** beyond the three classes (longsword, claws, maul), per-move animation clips beyond the three attack types, and *composed* music (the
   game has synthesised placeholder tracks that nobody has listened to).
-* **Reporting and moderation for shared content** (see the policy document), a privacy policy, terms of service, age rating and licences for the
-  tools used (Godot is MIT; check godot-rust, Blender output and every dependency in `Cargo.lock` before shipping).
+* **Reporting and moderation for shared content** (needs an account or a server to act on; the name filter in the policy document is all there is),
+  a privacy policy, terms of service and an age rating. The groundwork is written: what the game stores and sends is in `docs/DATA_FLOW.md`, and every
+  dependency's licence is inventoried in `docs/THIRD_PARTY.md` (godot-rust is MPL-2.0; no font file is bundled yet).
 * **An installer, auto-update and crash reporting.**
