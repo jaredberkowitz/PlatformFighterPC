@@ -6,8 +6,8 @@
 use crate::tree::{Block, Item};
 use sim_core::content::{Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage};
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, HIT_GRAB,
-    HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
+    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, EFFECT_ELECTRIC,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -412,6 +412,28 @@ rules_io! {
     stale_moves: u8,
     hitstun_dodge_cancel: u8,
     hitstun_attack_cancel: u8,
+    electric_hitlag_mult: Fx,
+    asdi_distance: Fx,
+    sdi_combo_hits: u8,
+    sdi_combo_mult: Fx,
+    balloon_min_faf: u8,
+    balloon_max_faf: u8,
+    balloon_per_frame: Fx,
+    balloon_max: Fx,
+    launch_fall_accel: Fx,
+    launch_fall: Fx,
+    launch_fall_frames: u8,
+    vertical_launch_fall: Fx,
+    vertical_launch_from: u8,
+    vertical_launch_to: u8,
+    clank_range: Fx,
+    rebound_cap: u8,
+    grab_parry_lag: u8,
+    tech_lockout: u8,
+    wall_tech_frames: u8,
+    wall_tech_invuln: u8,
+    bounce_keep: Fx,
+    ground_bounce_speed: Fx,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -442,6 +464,18 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             HIT_NORMAL
         }
     };
+    let effect = match f.raw("effect") {
+        None | Some(("normal", _)) => EFFECT_NORMAL,
+        Some(("electric", _)) => EFFECT_ELECTRIC,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox effect must be normal or electric, not `{other}`"),
+            );
+            EFFECT_NORMAL
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -456,6 +490,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         group: f.or("group", 0, errors),
         kind,
         shield_damage: f.or("shield_damage", 100, errors),
+        hitlag: f.or("hitlag", 100, errors),
+        effect,
     };
     f.finish(errors);
     hb
@@ -483,6 +519,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.shield_damage != 100 {
         b.field("shield_damage", hb.shield_damage.to_string());
+    }
+    if hb.hitlag != 100 {
+        b.field("hitlag", hb.hitlag.to_string());
+    }
+    if hb.effect == EFFECT_ELECTRIC {
+        b.field("effect", "electric");
     }
     b
 }
@@ -605,6 +647,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     group: 0,
                     kind: HIT_NORMAL,
                     shield_damage: 100,
+                    hitlag: 100,
+                    effect: EFFECT_NORMAL,
                 }
             }
         };

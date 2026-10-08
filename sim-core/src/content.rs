@@ -686,6 +686,40 @@ pub struct Ruleset {
     /// A fighter in a long hitstun can air dodge out of it from this frame of the hitstun, and attack from the second.
     pub hitstun_dodge_cancel: u8,
     pub hitstun_attack_cancel: u8,
+    /// Hitlag factor of an electric hit (for both fighters).
+    pub electric_hitlag_mult: Fx,
+    /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
+    pub asdi_distance: Fx,
+    /// Every this many hits in one combo, survival DI goes `sdi_combo_mult` times further.
+    pub sdi_combo_hits: u8,
+    pub sdi_combo_mult: Fx,
+    /// Launch speed-up of a strong hit: a hitstun ending on frame F (at most `balloon_max_faf`) plays `1 + (F - balloon_min_faf) * balloon_per_frame` knockback frames per frame at first (at most `balloon_max`), easing back to one.
+    pub balloon_min_faf: u8,
+    pub balloon_max_faf: u8,
+    pub balloon_per_frame: Fx,
+    pub balloon_max: Fx,
+    /// For the first `launch_fall_frames` frames of a launch every fighter falls the same way: this gravity and fall speed.
+    pub launch_fall_accel: Fx,
+    pub launch_fall: Fx,
+    pub launch_fall_frames: u8,
+    /// Fall speed through the whole hitstun of a launch between `vertical_launch_from` and `vertical_launch_to` degrees.
+    pub vertical_launch_fall: Fx,
+    pub vertical_launch_from: u8,
+    pub vertical_launch_to: u8,
+    /// Two grounded attacks whose hitboxes meet clank: within this much damage both rebound, otherwise only the weaker one does.
+    pub clank_range: Fx,
+    /// A rebound lasts `floor((d + 4) * 15 / 8)` frames for the stronger hit's damage `d`, at most this.
+    pub rebound_cap: u8,
+    /// Two fighters grabbing each other on the same frame both let go, take 1%, and rebound this long.
+    pub grab_parry_lag: u8,
+    /// After a tech press, another press does not count for this many frames (no mashing).
+    pub tech_lockout: u8,
+    /// A wall or ceiling tech holds the fighter against the surface this long, intangible for `wall_tech_invuln` frames.
+    pub wall_tech_frames: u8,
+    pub wall_tech_invuln: u8,
+    /// A tumbling fighter that hits a wall, ceiling or (fast enough) the floor without teching bounces off with this share of its speed.
+    pub bounce_keep: Fx,
+    pub ground_bounce_speed: Fx,
 }
 
 impl Ruleset {
@@ -698,7 +732,7 @@ impl Ruleset {
             sdi_distance: Fx::from_ratio(1, 4),
             di_degrees: 18,
             respawn_invuln: 120,
-            tech_window: 5,
+            tech_window: 11,
             tech_lag: 4,
             knockdown_lag: 24,
             knockdown_max: 90,
@@ -741,6 +775,28 @@ impl Ruleset {
             stale_moves: 1,
             hitstun_dodge_cancel: 40,
             hitstun_attack_cancel: 45,
+            electric_hitlag_mult: Fx::from_ratio(3, 2),
+            asdi_distance: Fx::from_ratio(133, 800),
+            sdi_combo_hits: 5,
+            sdi_combo_mult: Fx::from_ratio(115, 100),
+            balloon_min_faf: 30,
+            balloon_max_faf: 80,
+            balloon_per_frame: Fx::from_ratio(1, 10),
+            balloon_max: Fx::from_int(6),
+            launch_fall_accel: Fx::from_ratio(87, 8000),
+            launch_fall: Fx::from_ratio(15, 80),
+            launch_fall_frames: 10,
+            vertical_launch_fall: Fx::from_ratio(18, 80),
+            vertical_launch_from: 70,
+            vertical_launch_to: 110,
+            clank_range: Fx::from_int(9),
+            rebound_cap: 58,
+            grab_parry_lag: 30,
+            tech_lockout: 40,
+            wall_tech_frames: 18,
+            wall_tech_invuln: 14,
+            bounce_keep: Fx::from_ratio(95, 100),
+            ground_bounce_speed: Fx::from_ratio(1, 4),
         }
     }
 }
@@ -797,6 +853,28 @@ impl StateHash for Ruleset {
         h.write_u8(self.stale_moves);
         h.write_u8(self.hitstun_dodge_cancel);
         h.write_u8(self.hitstun_attack_cancel);
+        self.electric_hitlag_mult.hash_into(h);
+        self.asdi_distance.hash_into(h);
+        h.write_u8(self.sdi_combo_hits);
+        self.sdi_combo_mult.hash_into(h);
+        h.write_u8(self.balloon_min_faf);
+        h.write_u8(self.balloon_max_faf);
+        self.balloon_per_frame.hash_into(h);
+        self.balloon_max.hash_into(h);
+        self.launch_fall_accel.hash_into(h);
+        self.launch_fall.hash_into(h);
+        h.write_u8(self.launch_fall_frames);
+        self.vertical_launch_fall.hash_into(h);
+        h.write_u8(self.vertical_launch_from);
+        h.write_u8(self.vertical_launch_to);
+        self.clank_range.hash_into(h);
+        h.write_u8(self.rebound_cap);
+        h.write_u8(self.grab_parry_lag);
+        h.write_u8(self.tech_lockout);
+        h.write_u8(self.wall_tech_frames);
+        h.write_u8(self.wall_tech_invuln);
+        self.bounce_keep.hash_into(h);
+        self.ground_bounce_speed.hash_into(h);
     }
 }
 

@@ -15,7 +15,10 @@ use crate::content::{Content, FighterParams, Ruleset};
 use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
-use crate::moves::{Hitbox, Move, MoveId, Reflector, Weapon, HIT_GRAB, HIT_PUMMEL, HIT_THROW};
+use crate::moves::{
+    Hitbox, Move, MoveId, Reflector, Weapon, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_THROW,
+};
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
 use crate::trig::Angle;
@@ -91,13 +94,14 @@ pub fn knockback(percent: Fx, damage: Fx, weight: Fx, base: i16, growth: i16) ->
     kb * Fx::from_ratio(i32::from(growth), 100) + Fx::from_int(i32::from(base))
 }
 
-/// Hitlag in frames for a hit of `damage`: `floor(d * 0.65 + 6)` in the standard rules, times 0.67 on a shield, times 0.67 again
-/// against a crouch, at most `hitlag_cap`. A hit that deals no damage has none.
-pub fn hitlag_frames(damage: Fx, rules: &Ruleset, shield: bool, crouch: bool) -> u8 {
+/// Hitlag in frames for a hit of `damage`: `floor(d * 0.65 + 6)` in the standard rules, times the hitbox's own factor `scale`
+/// (its hitlag multiplier, and 1.5 for an electric hit), times 0.67 on a shield, times 0.67 again against a crouch, at most
+/// `hitlag_cap`. A hit that deals no damage has none.
+pub fn hitlag_frames(damage: Fx, rules: &Ruleset, shield: bool, crouch: bool, scale: Fx) -> u8 {
     if damage <= Fx::ZERO {
         return 0;
     }
-    let mut lag = damage * rules.hitlag_per_damage + rules.hitlag_base;
+    let mut lag = (damage * rules.hitlag_per_damage + rules.hitlag_base) * scale;
     if shield {
         lag = lag * rules.shield_hitlag_mult;
     }
@@ -227,6 +231,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         }
     }
 
+    clank_attacks(state, content, &mut chosen);
+
     let mut struck = [false; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         for d in 0..MAX_FIGHTERS {
@@ -305,6 +311,23 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         }
     }
 
+    // Two fighters grabbing each other on the same frame both let go: a grab parry (1% each, and a rebound).
+    for a in 0..MAX_FIGHTERS {
+        for d in a + 1..MAX_FIGHTERS {
+            let both = matches!(chosen[a][d], Some(h) if h.kind == HIT_GRAB)
+                && matches!(chosen[d][a], Some(h) if h.kind == HIT_GRAB);
+            if both && !struck[a] && !struck[d] {
+                chosen[a][d] = None;
+                chosen[d][a] = None;
+                for i in [a, d] {
+                    let f = &mut state.fighters[i];
+                    f.percent = (f.percent + content.rules.damage_mult).min(Fx::from_int(999));
+                    start_rebound(f, content.rules.grab_parry_lag, 0);
+                }
+            }
+        }
+    }
+
     // Grabs last: a fighter that was hit this frame, or whose grabber was, is not caught. Ties go to the
     // lower player index.
     for a in 0..MAX_FIGHTERS {
@@ -327,9 +350,141 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     }
 }
 
+/// Whether a fighter's current attack can clank: a grounded attack (aerials and ledge attacks never do), not frozen.
+fn clanks(f: &Fighter) -> bool {
+    f.state == S::Attack && f.grounded() && f.hitlag == 0
+}
+
+/// The strongest damaging hitbox of `a` that touches one of `b`'s, and `b`'s strongest that touches one of `a`'s, if any do.
+fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx)> {
+    let (pa, pb) = (params_of(content, a), params_of(content, b));
+    let (ma, mb) = (
+        weapon_of(content, pa).get(a.move_id),
+        weapon_of(content, pb).get(b.move_id),
+    );
+    let mut best: Option<(Fx, Fx)> = None;
+    for (_, ha, ca) in active_hitboxes(a, ma, pa.hitbox_scale) {
+        if ha.kind != HIT_NORMAL {
+            continue;
+        }
+        for (_, hb, cb) in active_hitboxes(b, mb, pb.hitbox_scale) {
+            if hb.kind != HIT_NORMAL || !overlaps(ca, ha.radius, cb, hb.radius) {
+                continue;
+            }
+            let (da, db) = best.unwrap_or((Fx::ZERO, Fx::ZERO));
+            best = Some((da.max(ha.damage), db.max(hb.damage)));
+        }
+    }
+    best
+}
+
+/// Rebound length for a clank whose stronger hit dealt `damage`: `floor((d + 4) * 15 / 8)`, at most `rebound_cap`.
+pub fn rebound_frames(damage: Fx, rules: &Ruleset) -> u8 {
+    ((damage + Fx::from_int(4)) * Fx::from_ratio(15, 8))
+        .floor_int()
+        .clamp(1, i32::from(rules.rebound_cap)) as u8
+}
+
+/// Knocks a fighter out of its attack into a rebound: frozen for `freeze` frames, then `lag` frames of nothing.
+fn start_rebound(f: &mut Fighter, lag: u8, freeze: u8) {
+    f.state = S::Rebound;
+    f.state_frame = 0;
+    f.lag = lag;
+    f.hitlag = freeze;
+    f.charge = 0;
+    f.grab_with = NONE;
+}
+
+/// Clanks: when two grounded attacks' hitboxes meet, neither hits the other this frame. Within `clank_range` percent both attacks
+/// are cancelled into a rebound; otherwise only the weaker one is, and the stronger carries on (it can still hit on a later frame).
+/// The rebound lasts according to the stronger hit, after being frozen for its hitlag.
+#[allow(clippy::needless_range_loop)]
+fn clank_attacks(
+    state: &mut GameState,
+    content: &Content,
+    chosen: &mut [[Option<Hitbox>; MAX_FIGHTERS]; MAX_FIGHTERS],
+) {
+    let rules = &content.rules;
+    for a in 0..MAX_FIGHTERS {
+        for b in a + 1..MAX_FIGHTERS {
+            let (fa, fb) = (state.fighters[a], state.fighters[b]);
+            if !fa.active || !fb.active || !clanks(&fa) || !clanks(&fb) {
+                continue;
+            }
+            let Some((da, db)) = clash(content, &fa, &fb) else {
+                continue;
+            };
+            chosen[a][b] = None;
+            chosen[b][a] = None;
+            let stronger = da.max(db);
+            let lag = rebound_frames(stronger, rules);
+            let freeze = hitlag_frames(stronger, rules, false, false, Fx::ONE);
+            let both = (da - db).abs() <= rules.clank_range;
+            if both || da < db {
+                start_rebound(&mut state.fighters[a], lag, freeze);
+            }
+            if both || db < da {
+                start_rebound(&mut state.fighters[b], lag, freeze);
+            }
+        }
+    }
+}
+
+/// A projectile meeting an attack: a grounded attack more than `clank_range` stronger destroys it and carries on; within the range
+/// both stop (the attacker rebounds); a projectile that much stronger knocks the attacker into a rebound and flies on. An aerial is
+/// only frozen for a moment and destroys the projectile unless the projectile is that much stronger. Returns true if the
+/// projectile is destroyed.
+fn clank_projectile(
+    state: &mut GameState,
+    content: &Content,
+    owner: usize,
+    pos: Vec2,
+    radius: Fx,
+    damage: Fx,
+) -> bool {
+    let rules = &content.rules;
+    for i in 0..MAX_FIGHTERS {
+        if i == owner {
+            continue;
+        }
+        let f = state.fighters[i];
+        if !f.active || f.state != S::Attack || f.hitlag > 0 {
+            continue;
+        }
+        let p = params_of(content, &f);
+        let mv = weapon_of(content, p).get(f.move_id);
+        let mut touching: Option<Fx> = None;
+        for (_, hb, c) in active_hitboxes(&f, mv, p.hitbox_scale) {
+            if hb.kind == HIT_NORMAL && overlaps(c, hb.radius, pos, radius) {
+                touching = Some(touching.map_or(hb.damage, |d: Fx| d.max(hb.damage)));
+            }
+        }
+        let Some(attack) = touching else {
+            continue;
+        };
+        let stronger = attack.max(damage);
+        let freeze = hitlag_frames(stronger, rules, false, false, Fx::ONE);
+        let projectile_wins = damage - attack > rules.clank_range;
+        if !f.grounded() {
+            state.fighters[i].hitlag = freeze;
+            return !projectile_wins;
+        }
+        if attack - damage > rules.clank_range {
+            return true;
+        }
+        start_rebound(
+            &mut state.fighters[i],
+            rebound_frames(stronger, rules),
+            freeze,
+        );
+        return !projectile_wins;
+    }
+    false
+}
+
 /// A pummel: damage to the held fighter, a little hitlag for both, and it stays held.
 fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hitbox) {
-    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false);
+    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, Fx::ONE);
     state.fighters[a].hitlag = hitlag;
     let held = &mut state.fighters[d];
     held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
@@ -407,7 +562,16 @@ fn apply_hit(
 
     let shielding = state.fighters[d].state == S::Shield;
     let crouching = state.fighters[d].state == S::Crouch && state.fighters[d].grounded();
-    let hitlag = hitlag_frames(hb.damage, rules, shielding, crouching);
+    // The hitbox's own hitlag factor (ignored on a shield when it would shorten it) and the electric effect.
+    let mut scale = Fx::from_ratio(i32::from(hb.hitlag), 100);
+    if shielding && scale < Fx::ONE {
+        scale = Fx::ONE;
+    }
+    let electric = hb.effect == EFFECT_ELECTRIC;
+    if electric {
+        scale = scale * rules.electric_hitlag_mult;
+    }
+    let hitlag = hitlag_frames(hb.damage, rules, shielding, crouching, scale);
     // A fighter in a counter stance catches the hit instead of taking it.
     if catch_with_counter(state, content, source, d, hb.damage, hitlag) {
         if freeze_source {
@@ -458,6 +622,14 @@ fn apply_hit(
         hitlag
     };
     def.sdi_wait = 0;
+    // Electric hits let the victim drift with the held stick as hitlag ends (automatic SDI), twice.
+    def.asdi = if electric { 2 } else { 0 };
+    // Hits taken while still in hitstun are one combo (survival DI grows over a long one).
+    def.hits_taken = if def.state == S::Hitstun {
+        def.hits_taken.saturating_add(1)
+    } else {
+        1
+    };
     if stun == 0 {
         return; // a flinch: hitlag only
     }
@@ -626,6 +798,14 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             p.age = 0;
             continue;
         }
+        // An attack in the way may clank with it.
+        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale;
+        let shot_damage =
+            spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        if clank_projectile(state, content, owner, pos, shot_radius, shot_damage) {
+            state.projectiles[n].active = false;
+            continue;
+        }
         state.projectiles[n].pos = pos;
         state.projectiles[n].age = age;
 
@@ -791,15 +971,15 @@ mod tests {
     fn hitlag_follows_the_reference_formula() {
         let r = Ruleset::standard();
         // floor(d * 0.65 + 6), at most 30.
-        assert_eq!(hitlag_frames(fx(3), &r, false, false), 7);
-        assert_eq!(hitlag_frames(fx(9), &r, false, false), 11);
-        assert_eq!(hitlag_frames(fx(30), &r, false, false), 25);
-        assert_eq!(hitlag_frames(fx(1000), &r, false, false), 30);
-        assert_eq!(hitlag_frames(Fx::ZERO, &r, false, false), 0);
+        assert_eq!(hitlag_frames(fx(3), &r, false, false, Fx::ONE), 7);
+        assert_eq!(hitlag_frames(fx(9), &r, false, false, Fx::ONE), 11);
+        assert_eq!(hitlag_frames(fx(30), &r, false, false, Fx::ONE), 25);
+        assert_eq!(hitlag_frames(fx(1000), &r, false, false, Fx::ONE), 30);
+        assert_eq!(hitlag_frames(Fx::ZERO, &r, false, false, Fx::ONE), 0);
         // A shield takes a third off before rounding; a crouch a third off after.
-        assert_eq!(hitlag_frames(fx(10), &r, true, false), 8);
-        assert_eq!(hitlag_frames(fx(10), &r, false, true), 8);
-        assert_eq!(hitlag_frames(fx(10), &r, false, false), 12);
+        assert_eq!(hitlag_frames(fx(10), &r, true, false, Fx::ONE), 8);
+        assert_eq!(hitlag_frames(fx(10), &r, false, true, Fx::ONE), 8);
+        assert_eq!(hitlag_frames(fx(10), &r, false, false, Fx::ONE), 12);
     }
 
     #[test]

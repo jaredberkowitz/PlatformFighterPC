@@ -63,7 +63,7 @@ fn hitlag_freezes_both_fighters_for_the_same_number_of_frames() {
     ticks_until_hit(&mut sim, 12).expect("jab should hit");
     // The damage the hit really did (before the one-on-one multiplier) decides the hitlag.
     let dealt = sim.fighter(1).percent / sim.content.rules.damage_mult;
-    let lag = hitlag_frames(dealt, &sim.content.rules, false, false);
+    let lag = hitlag_frames(dealt, &sim.content.rules, false, false, Fx::ONE);
     assert_eq!(sim.f().hitlag, lag);
     assert_eq!(sim.fighter(1).hitlag, lag);
     let frozen_frame = sim.f().state_frame;

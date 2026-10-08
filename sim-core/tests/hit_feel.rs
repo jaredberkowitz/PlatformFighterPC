@@ -36,7 +36,7 @@ fn hitlag_is_the_reference_formula_for_both_fighters() {
     let mut sim = duel();
     jab_hit(&mut sim, inp(0, 0, 0));
     let dealt = sim.fighter(1).percent / sim.content.rules.damage_mult;
-    let lag = hitlag_frames(dealt, &sim.content.rules, false, false);
+    let lag = hitlag_frames(dealt, &sim.content.rules, false, false, Fx::ONE);
     assert_eq!(
         lag,
         (dealt * fx(65, 100) + Fx::from_int(6)).floor_int() as u8

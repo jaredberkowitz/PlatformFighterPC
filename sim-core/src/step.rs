@@ -242,7 +242,10 @@ mod tests {
                     // Attacks and hitstun can happen on the ground or in the air.
                     if !matches!(
                         f.state,
-                        FighterState::Attack | FighterState::Hitstun | FighterState::ShieldBreak
+                        FighterState::Attack
+                            | FighterState::Hitstun
+                            | FighterState::ShieldBreak
+                            | FighterState::Rebound
                     ) {
                         assert_eq!(
                             grounded_state,
