@@ -55,6 +55,9 @@ func rebuild(l: RefCounted) -> void:
 		remove_child(c)
 		c.free()
 	meshes.clear()
+	trail = null
+	trail_points.clear()
+	last_trail_frame = -1
 	rig = null
 	anim = null
 	skeleton = null
@@ -649,6 +652,15 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		last_vy = vy
 
 	var target_squash: float = SQUASH.get(state, 0.0)
+	if state == "Attack" and s.move_timing[1] > 0:
+		# Coil down while winding up, stretch tall through the strike: the move reads from far away.
+		var first: float = s.move_timing[1]
+		var last: float = s.move_timing[2]
+		var f: float = s.state_frame
+		if f < first:
+			target_squash = 0.14 * clampf(f / maxf(1.0, first * 0.6), 0.0, 1.0)
+		elif f <= last + 2.0:
+			target_squash = -0.2
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
@@ -824,6 +836,11 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
+	# Trail: from the inner part of the swing to the far edge of the hitbox (its centre plus its radius along the swing).
+	var swing_dir := (tip - SHOULDER).normalized() if (tip - SHOULDER).length() > 0.01 else Vector2.RIGHT
+	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
+	var inner_edge := hand.lerp(tip, 0.18) if s.char == 0 else SHOULDER + swing_dir * 0.4
+	_update_trail(s, inner_edge, tip + swing_dir * radius)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 	blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0 if s.char == 0 else 1.7, 1.0 if s.char == 0 else 1.7)
@@ -868,6 +885,75 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis, shoulder), 1.0, true)
 		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis, elbow), 1.0, true)
 		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
+
+
+## A glowing swoosh behind the move's hitbox, like the crescent a smash attack leaves. Every simulation frame while the move is dangerous a
+## strip from the inner edge of the swing to the outer edge of the hitbox is added; the strip fades and thins over about a fifth of a
+## second. The points are kept in world space, so the trail stays where the swing was while the fighter moves on.
+const TRAIL_FRAMES := 20
+var trail: MeshInstance3D
+var trail_points: Array = []     # [{inner, outer, frame}]
+var last_trail_frame := -1
+
+
+func _make_trail() -> void:
+	trail = MeshInstance3D.new()
+	trail.mesh = ImmediateMesh.new()
+	trail.top_level = true
+	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.no_depth_test = false
+	trail.material_override = m
+	add_child(trail)
+
+
+func _trail_colour(s: Dictionary) -> Color:
+	# Violet for the brawler's fists and feet, ice blue for the sword.
+	return Color(0.78, 0.35, 1.0) if s.char == 1 else Color(0.55, 0.85, 1.0)
+
+
+func _update_trail(s: Dictionary, inner: Vector2, outer: Vector2) -> void:
+	if trail == null:
+		_make_trail()
+	var t: PackedInt32Array = s.move_timing
+	var f: float = s.state_frame
+	var live: bool = s.state == "Attack" and t[1] > 0 and f >= 1.0 and f <= t[2] + 6.0 and s.move_tip != Vector3.ZERO
+	var frame: int = s.frame
+	if live and int(s.hitlag) == 0 and frame != last_trail_frame:
+		last_trail_frame = frame
+		var facing: float = float(s.facing)
+		var base := Vector3(position.x, position.y, 0.0)
+		trail_points.append({
+			"inner": base + Vector3(inner.x * facing, inner.y, 0.55),
+			"outer": base + Vector3(outer.x * facing, outer.y, 0.55),
+			"frame": frame,
+		})
+	while trail_points.size() > 0 and frame - int(trail_points[0].frame) > TRAIL_FRAMES:
+		trail_points.pop_front()
+	if int(s.frame) < last_trail_frame:
+		trail_points.clear()
+		last_trail_frame = -1
+	var im: ImmediateMesh = trail.mesh
+	im.clear_surfaces()
+	if trail_points.size() < 2:
+		return
+	var colour := _trail_colour(s)
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for p in trail_points:
+		var age := float(frame - int(p.frame)) / float(TRAIL_FRAMES)
+		var fade := pow(clampf(1.0 - age, 0.0, 1.0), 1.1)
+		# The tail thins: its inner edge creeps out toward the outer edge.
+		var inner_p: Vector3 = p.inner.lerp(p.outer, age * 0.55)
+		im.surface_set_color(Color(colour.r, colour.g, colour.b, 0.35 * fade))
+		im.surface_add_vertex(inner_p)
+		im.surface_set_color(Color(1.0, 1.0, 1.0, fade).lerp(Color(colour.r, colour.g, colour.b, fade), age))
+		im.surface_add_vertex(p.outer)
+	im.surface_end()
 
 
 func _apply_combat(s: Dictionary, delta: float) -> void:

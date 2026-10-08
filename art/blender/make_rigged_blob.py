@@ -158,8 +158,13 @@ def build_meshes(rig):
 
 
 # ---- Animation ---------------------------------------------------------------------------------------------------------------------
+# How much the clip being built is exaggerated. Moves are played big so a player can read what is happening from far away.
+AMP = 1.0
+
+
 def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     """Sets a bone's pose from forward / outward / twist degrees (and a vertical offset for the hips)."""
+    fwd, out, twist, lift = fwd * AMP, out * AMP, twist * AMP, lift * AMP
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
     limb = bone.split(".")[0] in LIMBS
@@ -187,6 +192,15 @@ def reset(rig):
 
 def clip(rig, name, frames, poses):
     """`poses` maps a frame to a function that sets the pose; the clip is keyed at each of those frames."""
+    global AMP
+    if name.startswith("attack") or name in ("grab", "throw"):
+        AMP = 1.55
+    elif name in ("walk", "run", "dash"):
+        AMP = 1.2
+    elif name in ("jump", "fall", "hurt", "crouch", "shield", "roll", "knockdown"):
+        AMP = 1.25
+    else:
+        AMP = 1.0
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:

@@ -54,6 +54,13 @@ planted leg is nearly straight; arms pump opposite the legs with the elbow bent 
 bounces once per step and the shoulders counter-twist against the hips; the head stays level-ish. `walk` (40 frames, light), `run`
 (20 frames, 20 degree lean, big knee lift) and `dash` (16 frames, 28 degree lean) play at a speed set by the fighter's real speed.
 
+**Readability.** Move clips are keyed about 55 percent bigger than natural (`AMP` in the Blender script; locomotion about 20 percent, hurt and
+air poses 25 percent), and the body coils down while a move winds up and stretches tall through the strike (`apply`). Each attack leaves a
+**swoosh** behind the swing (`_update_trail`): every simulation frame from the start of the move until a few frames after its last hitbox,
+a strip from the inner edge of the swing to the outer edge of the live hitbox is added, then fades over about a third of a second. It is
+violet for the brawler and ice blue for the sword, and sits in world space so it stays where the swing was. It is cosmetic and only reads
+the move's timing and hitbox.
+
 Known gaps: one clip per move type, not per move (every jab and tilt shares `attack_swing`); the arc is only as sweeping as the move's
 hitbox data (a move with one static hitbox gets the wind-up sweep but a still strike); the brawler's kicks use one generic kick clip;
 feet still slide a little at game speed (the cycle is paced by speed, not locked to the ground); none of it has been judged by someone playing.
