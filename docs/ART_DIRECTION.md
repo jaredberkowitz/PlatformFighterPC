@@ -32,3 +32,19 @@ every character, accessory and name we ship must be original (plan section 2).
   a close visual match, so placeholder fighters can already be blob-shaped.
 - Keep budgets (plan 7.3) tight: the style needs few polygons, and tiny textures for faces.
 - Don't copy the reference's specific characters, outfits or badge designs. Build original ones in the same spirit.
+
+## Stages
+
+Stage art is built in code from the stage's geometry and its **look** (`StageLook`: a backdrop name and optional sky colours, presentation only,
+not in the content hash), in `godot/scripts/stage_art.gd`:
+
+- **Blocks**: patterned soil (rows of diamonds in two shades) with a thick grass cap that rolls over the front edge and hangs in tufts, on any
+  block whose top is not covered by another. Stacked blocks make an island that narrows underneath (Treetop Isle), so the underside you can
+  bump into is the shape you see.
+- **Platforms**: rounded wooden planks, a light board on a darker beam, with seams.
+- **Backdrops**: *meadow* (hills and clouds), *grove* (a giant cartoon tree behind a floating island, bushes and flowers on the island, two
+  smaller trees far behind, pastel hills, a pink-to-blue sky and twinkling glints in the canopy), *sunset* (a low sun and mesas in silhouette),
+  *night* (a big moon and stars). Each theme also sets the soil, grass and wood colours.
+- Treetop Isle is our take on the classic "floating island under a big tree" stage: original shapes, no face on the tree, no borrowed
+  characters or names.
+- Check a stage's art with `Godot --path godot -- --demo=stage --stage=N --noui --noecb --shots=<folder>`.

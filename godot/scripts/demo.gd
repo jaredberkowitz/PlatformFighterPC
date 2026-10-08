@@ -109,6 +109,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
 			d.shots = [[38, "a_hit"], [44, "b_hitlag_zoom"], [56, "c_launch_smoke"], [60, "d_flying"], [64, "e_offscreen"], [68, "f_blast"], [76, "g_blast_later"]]
 			d.end_frame = 130
+		"stage":
+			# A still of the stage with both fighters standing (for checking stage art; add --stage=N).
+			d.timeline = [[0, 0, 0, 0]]
+			d.shots = [[40, "a_stage"]]
+			d.end_frame = 45
 		"marth_fair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0

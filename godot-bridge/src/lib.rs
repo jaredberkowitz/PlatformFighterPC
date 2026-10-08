@@ -1887,6 +1887,22 @@ impl SimRunner {
         }
     }
 
+    /// Swaps stage `index` into the loaded content right away (training and demos: a match from the menus builds its own content).
+    /// Returns false for a stage that does not exist.
+    #[func]
+    fn use_stage(&mut self, index: i32) -> bool {
+        let Ok(i) = u8::try_from(index) else {
+            return false;
+        };
+        match stages::with_stage(&self.content, i) {
+            Some(c) => {
+                self.content = c;
+                true
+            }
+            None => false,
+        }
+    }
+
     #[func]
     fn stage_count(&self) -> i32 {
         i32::from(stages::COUNT)
@@ -1895,6 +1911,26 @@ impl SimRunner {
     #[func]
     fn stage_name(&self, index: i32) -> GString {
         GString::from(stages::name(index.clamp(0, 255) as u8))
+    }
+
+    /// How the current stage looks: {backdrop, sky_top, sky_bottom} (the colours as `rrggbb`, empty for the backdrop's own).
+    #[func]
+    fn stage_look(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        out.set("backdrop", self.content.look.backdrop.as_str());
+        out.set("sky_top", self.content.look.sky_top.as_str());
+        out.set("sky_bottom", self.content.look.sky_bottom.as_str());
+        out
+    }
+
+    /// The backdrops a stage can use.
+    #[func]
+    fn stage_backdrops(&self) -> PackedStringArray {
+        let names: Vec<GString> = sim_content::BACKDROPS
+            .iter()
+            .map(|n| GString::from(*n))
+            .collect();
+        PackedStringArray::from(names.as_slice())
     }
 
     #[func]

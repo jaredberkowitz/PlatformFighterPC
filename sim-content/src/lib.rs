@@ -72,6 +72,7 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
         validate_weapon(i, w, &mut errors);
     }
     validate_stage(&content.stage, &mut errors);
+    validate_look(&content.look, &mut errors);
 
     if errors.is_empty() {
         Ok(())
@@ -302,6 +303,27 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             if hb.base_knockback < 0 || hb.knockback_growth < 0 {
                 errors.push(format!("weapon {i} {name}: knockback cannot be negative"));
             }
+        }
+    }
+}
+
+/// The backdrops the game knows how to draw (see `godot/scripts/stage_art.gd`).
+pub const BACKDROPS: [&str; 4] = ["meadow", "grove", "sunset", "night"];
+
+fn validate_look(look: &sim_core::content::StageLook, errors: &mut Vec<String>) {
+    if !BACKDROPS.contains(&look.backdrop.as_str()) {
+        errors.push(format!(
+            "stage: backdrop must be one of {}, not `{}`",
+            BACKDROPS.join(", "),
+            look.backdrop
+        ));
+    }
+    for (name, value) in [("sky_top", &look.sky_top), ("sky_bottom", &look.sky_bottom)] {
+        let hex = value.len() == 6 && value.chars().all(|c| c.is_ascii_hexdigit());
+        if !value.is_empty() && !hex {
+            errors.push(format!(
+                "stage: {name} must be a colour as six hex digits (like 5d8ce6), not `{value}`"
+            ));
         }
     }
 }

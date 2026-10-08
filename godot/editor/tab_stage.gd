@@ -4,6 +4,7 @@ extends RefCounted
 ## where the four fighters start; the blast zone is the box a fighter must leave to lose a stock.
 
 const Canvas := preload("res://editor/stage_canvas.gd")
+const StageArt := preload("res://scripts/stage_art.gd")
 
 var ctx
 var page: VBoxContainer
@@ -12,6 +13,9 @@ var list: ItemList
 var props: GridContainer
 var name_edit: LineEdit
 var blast_inputs := {}
+## How the stage looks (presentation only): its backdrop and the sky's colours.
+var backdrop_pick: OptionButton
+var sky_pickers := {}
 var sel_kind := ""
 var sel_index := -1
 var building := false
@@ -40,6 +44,35 @@ func build(tabs: TabContainer, context) -> void:
 	name_edit.focus_exited.connect(func(): _rename(name_edit.text))
 	top.add_child(name_edit)
 	page.add_child(top)
+
+	# The look: which backdrop is drawn behind the stage, and the sky's colours (the backdrop's own unless changed).
+	var look := HBoxContainer.new()
+	var bl := Label.new()
+	bl.text = "Backdrop"
+	look.add_child(bl)
+	backdrop_pick = OptionButton.new()
+	for n in ctx.editor.stage_backdrops():
+		backdrop_pick.add_item(n)
+	backdrop_pick.item_selected.connect(func(i): _set_look("backdrop", backdrop_pick.get_item_text(i)))
+	look.add_child(backdrop_pick)
+	for spec in [["sky_top", "Sky top"], ["sky_bottom", "Horizon"]]:
+		var key: String = spec[0]
+		var sl := Label.new()
+		sl.text = "  " + spec[1]
+		look.add_child(sl)
+		var cp := ColorPickerButton.new()
+		cp.custom_minimum_size = Vector2(48, 0)
+		cp.edit_alpha = false
+		cp.popup_closed.connect(func(): _set_look(key, cp.color.to_html(false)))
+		look.add_child(cp)
+		sky_pickers[key] = cp
+	var reset := Button.new()
+	reset.text = "Backdrop's own sky"
+	reset.pressed.connect(func():
+		_set_look("sky_top", "")
+		_set_look("sky_bottom", ""))
+	look.add_child(reset)
+	page.add_child(look)
 
 	canvas = Canvas.new()
 	canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -145,6 +178,13 @@ func on_changed() -> void:
 		name_edit.text = tree.name
 		for n in BLAST:
 			blast_inputs[n].text = _field(tree, n)
+		var backdrop := _field(tree, "backdrop")
+		for i in backdrop_pick.item_count:
+			if backdrop_pick.get_item_text(i) == (backdrop if backdrop != "" else "meadow"):
+				backdrop_pick.select(i)
+		var t := StageArt.theme({"backdrop": backdrop, "sky_top": _field(tree, "sky_top"), "sky_bottom": _field(tree, "sky_bottom")})
+		sky_pickers["sky_top"].color = t.sky_top
+		sky_pickers["sky_bottom"].color = t.sky_horizon
 	list.clear()
 	if tree.size() > 0:
 		for kind in ["platform", "ledge", "spawn"]:
@@ -218,6 +258,24 @@ func _set_blast(name: String, text: String) -> void:
 		return
 	_set_value(tree, tree, name, text.strip_edges())
 	ctx.edit(tree)
+
+
+## Sets (or, with an empty value, removes) one of the stage's look fields.
+func _set_look(name: String, value: String) -> void:
+	if building:
+		return
+	var tree := _tree()
+	if tree.size() == 0 or _field(tree, name) == value:
+		return
+	if value == "":
+		for i in tree.items.size():
+			if tree.items[i].t == "field" and tree.items[i].name == name:
+				tree.items.remove_at(i)
+				break
+	else:
+		_set_value(tree, tree, name, value)
+	ctx.edit(tree)
+	ctx.set_status("The stage's look changed (it never affects play).")
 
 
 func _rename(text: String) -> void:

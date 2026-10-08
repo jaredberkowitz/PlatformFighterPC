@@ -4,7 +4,9 @@
 //! that parses is not necessarily *valid*; see [`crate::validate`] for the range and sanity checks.
 
 use crate::tree::{Block, Item};
-use sim_core::content::{Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage};
+use sim_core::content::{
+    Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
+};
 use sim_core::moves::{
     Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, EFFECT_ELECTRIC,
     EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
@@ -876,10 +878,21 @@ fn write_weapon(name: &str, w: &Weapon) -> Block {
 
 // ---- Stage --------------------------------------------------------------------------------------------------
 
-fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage) {
+fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage, StageLook) {
     let name = block.name.clone().unwrap_or_default();
     let context = format!("stage `{name}`");
     let mut f = Fields::new(block, &context, errors);
+    // How it looks (presentation only; checked by validation).
+    let mut look = StageLook::default();
+    if let Some((v, _)) = f.raw("backdrop") {
+        look.backdrop = v.to_string();
+    }
+    if let Some((v, _)) = f.raw("sky_top") {
+        look.sky_top = v.to_string();
+    }
+    if let Some((v, _)) = f.raw("sky_bottom") {
+        look.sky_bottom = v.to_string();
+    }
     let blast_left = f.need("blast_left", None, errors);
     let blast_right = f.need("blast_right", None, errors);
     let blast_bottom = f.need("blast_bottom", None, errors);
@@ -944,11 +957,19 @@ fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage) {
             blast_bottom,
             blast_top,
         },
+        look,
     )
 }
 
-fn write_stage(name: &str, s: &Stage) -> Block {
+fn write_stage(name: &str, s: &Stage, look: &StageLook) -> Block {
     let mut b = Block::new("stage", Some(name));
+    b.field("backdrop", look.backdrop.as_str());
+    if !look.sky_top.is_empty() {
+        b.field("sky_top", look.sky_top.as_str());
+    }
+    if !look.sky_bottom.is_empty() {
+        b.field("sky_bottom", look.sky_bottom.as_str());
+    }
     b.field("blast_left", s.blast_left.show());
     b.field("blast_right", s.blast_right.show());
     b.field("blast_bottom", s.blast_bottom.show());
@@ -1070,7 +1091,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         Some(b) => read_stage(b, errors),
         None => {
             err(errors, 0, "the file has no `stage`");
-            (String::new(), Stage::placeholder())
+            (String::new(), Stage::placeholder(), StageLook::default())
         }
     };
 
@@ -1084,6 +1105,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         weapons: weapons.into_iter().map(|(_, w)| w).collect(),
         stage: stage.1,
         rules,
+        look: stage.2,
     }
 }
 
@@ -1132,6 +1154,6 @@ pub fn write_content(content: &Content) -> Vec<Block> {
     } else {
         &content.names.stage
     };
-    out.push(write_stage(stage_name, &content.stage));
+    out.push(write_stage(stage_name, &content.stage, &content.look));
     out
 }

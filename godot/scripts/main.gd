@@ -2,6 +2,7 @@ extends Node3D
 ## Playable test bed: the Rust sim runs at 60 Hz in _physics_process; everything else only draws it.
 
 const Music := preload("res://scripts/music.gd")
+const StageArt := preload("res://scripts/stage_art.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -45,6 +46,7 @@ var spectate_looks_applied := false
 var replay_speed := 1.0
 var replay_accum := 0.0
 var cam: Camera3D
+var world_env: Environment
 ## Where the camera would be without shake or the knock-out zoom.
 var cam_base := Vector3.INF
 ## How hard the camera is shaking (world units), set by strong hits and settling quickly.
@@ -106,6 +108,10 @@ func _ready() -> void:
 	_build_world()
 	_parse_demo_args()
 	_load_content()
+	# `--stage=N` (training and demos) plays on a stage from the library.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--stage="):
+			sim.use_stage(int(arg.substr(8)))
 	_apply_rules()
 	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
@@ -115,6 +121,7 @@ func _ready() -> void:
 		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
 		show_boxes = false
 		show_ecb = false
+		stage_view.set_guides(false)
 	sim.set_players(PLAYERS)
 	_restart()
 	_apply_scales()
@@ -147,6 +154,7 @@ func _build_world() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	world_env = env
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-42, -28, 0)
@@ -161,7 +169,6 @@ func _build_world() -> void:
 	stage_view = StageView.new()
 	add_child(stage_view)
 	stage_view.build(sim)
-	_build_backdrop()
 
 	for i in PLAYERS:
 		var v := FighterView.new()
@@ -179,47 +186,6 @@ func _build_world() -> void:
 	hud = MatchHud.new()
 	add_child(hud)
 	hud.build()
-
-
-## Far scenery: rolling hills and a few clouds well behind the stage (presentation only; they never move with the fighters).
-func _build_backdrop() -> void:
-	var hill_mat := StandardMaterial3D.new()
-	hill_mat.albedo_color = Color(0.55, 0.78, 0.6)
-	hill_mat.roughness = 1.0
-	var far_mat := StandardMaterial3D.new()
-	far_mat.albedo_color = Color(0.62, 0.78, 0.82)
-	far_mat.roughness = 1.0
-	var cloud_mat := StandardMaterial3D.new()
-	cloud_mat.albedo_color = Color(1, 1, 1)
-	cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 42
-	for k in 7:
-		var hill := MeshInstance3D.new()
-		var m := SphereMesh.new()
-		m.radius = 1.0
-		m.height = 2.0
-		hill.mesh = m
-		var far := k % 2 == 1
-		hill.material_override = far_mat if far else hill_mat
-		var w := rng.randf_range(28.0, 46.0)
-		hill.scale = Vector3(w, rng.randf_range(10.0, 18.0), 6.0)
-		hill.position = Vector3(-90.0 + k * 30.0 + rng.randf_range(-8, 8), -20.0, -95.0 if far else -70.0)
-		add_child(hill)
-	for k in 9:
-		var cloud := Node3D.new()
-		cloud.position = Vector3(rng.randf_range(-80, 80), rng.randf_range(14, 34), rng.randf_range(-110, -80))
-		for b in 4:
-			var puff := MeshInstance3D.new()
-			var pm := SphereMesh.new()
-			pm.radius = 1.0
-			pm.height = 2.0
-			puff.mesh = pm
-			puff.material_override = cloud_mat
-			puff.scale = Vector3.ONE * rng.randf_range(2.5, 4.5)
-			puff.position = Vector3(b * 3.2 - 4.8, rng.randf_range(-0.8, 1.2), 0)
-			cloud.add_child(puff)
-		add_child(cloud)
 
 
 ## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.
@@ -348,6 +314,14 @@ var content_note := ""
 func _rebuild_stage() -> void:
 	stage_view.clear()
 	stage_view.build(sim)
+	_apply_sky()
+
+
+## The sky comes from the stage's theme (and the colours the stage editor set).
+func _apply_sky() -> void:
+	if world_env != null and not stage_view.theme.is_empty():
+		world_env.sky = StageArt.sky(stage_view.theme)
+		world_env.background_mode = Environment.BG_SKY
 
 
 func _apply_rules() -> void:

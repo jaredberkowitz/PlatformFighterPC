@@ -1115,6 +1115,7 @@ fighter bruiser {
 }
 
 stage proving_grounds {
+    backdrop meadow
     blast_left -28
     blast_right 28
     blast_bottom -17

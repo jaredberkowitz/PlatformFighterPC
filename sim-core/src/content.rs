@@ -894,6 +894,26 @@ pub struct Names {
     pub stage: String,
 }
 
+/// How the stage looks: which backdrop the game draws behind it and the sky's colours (`rrggbb` hex, empty for the backdrop's own).
+/// Presentation only: the simulation never reads it, so it is not part of the content hash and two players may see different
+/// skies without the match noticing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StageLook {
+    pub backdrop: String,
+    pub sky_top: String,
+    pub sky_bottom: String,
+}
+
+impl Default for StageLook {
+    fn default() -> StageLook {
+        StageLook {
+            backdrop: "meadow".to_string(),
+            sky_top: String::new(),
+            sky_bottom: String::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Content {
     pub fighters: Vec<FighterParams>,
@@ -901,6 +921,8 @@ pub struct Content {
     pub stage: Stage,
     pub rules: Ruleset,
     pub names: Names,
+    /// Not hashed (see [`StageLook`]).
+    pub look: StageLook,
 }
 
 impl Content {
@@ -936,6 +958,7 @@ impl Content {
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
+            look: StageLook::default(),
             names: Names {
                 fighters: vec![
                     "duelist".to_string(),
