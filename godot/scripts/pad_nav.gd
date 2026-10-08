@@ -1,11 +1,12 @@
 extends Node
-## Lets a controller drive the menus. It watches the first two controllers and turns D-pad and left stick presses (with
+## Lets a controller drive the menus. It watches the first four controllers and turns D-pad and left stick presses (with
 ## key-repeat when held), A, B, Start and Back into the key presses the menu screens already understand, so every screen works
 ## with a controller without knowing about it.
 ##
-## A screen can define `pad_scheme(pad: int) -> Dictionary` to choose the keys for a controller (character select gives controller
-## 1 the player 1 keys and controller 2 the player 2 keys), or return an empty dictionary to switch controller menu navigation off
-## (during a match the controller plays). Without it the arrows, Enter and Escape are used.
+## A screen can define `pad_scheme(pad: int) -> Dictionary` to choose the keys for a controller, or return an empty dictionary to
+## switch controller menu navigation off (during a match the controller plays), or define `pad_action(pad, action)` to take the actions
+## itself (character select does, so four controllers can each move their own cursor). Without any of them the arrows, Enter and
+## Escape are used.
 
 const DEFAULT := {
 	"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT,
@@ -31,9 +32,10 @@ static func attach(owner: Node) -> void:
 func _process(delta: float) -> void:
 	var scene := get_tree().current_scene
 	var pads: Array = Input.get_connected_joypads()
-	for pad in pads.slice(0, 2):
+	for pad in pads.slice(0, 4):
+		var direct: bool = scene != null and scene.has_method("pad_action")
 		var scheme: Dictionary = DEFAULT
-		if scene != null and scene.has_method("pad_scheme"):
+		if not direct and scene != null and scene.has_method("pad_scheme"):
 			scheme = scene.pad_scheme(pad)
 		if scheme.is_empty():
 			continue
@@ -58,13 +60,21 @@ func _process(delta: float) -> void:
 			var repeats: bool = action in ["up", "down", "left", "right"]
 			if t < 0.0:
 				held[id] = 0.0
-				_press(scheme.get(action, 0))
+				_send(scene, pad, action, scheme, direct)
 			else:
 				t += delta
 				if repeats and t >= FIRST_REPEAT:
 					t -= REPEAT
-					_press(scheme.get(action, 0))
+					_send(scene, pad, action, scheme, direct)
 				held[id] = t
+
+
+## A screen that defines `pad_action(pad, action)` takes the controller's actions directly; the others get key presses.
+func _send(scene: Node, pad: int, action: String, scheme: Dictionary, direct: bool) -> void:
+	if direct:
+		scene.pad_action(pad, action)
+	else:
+		_press(scheme.get(action, 0))
 
 
 func _press(code: int) -> void:

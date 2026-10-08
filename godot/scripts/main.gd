@@ -13,7 +13,8 @@ const Results := preload("res://ui/results.gd")
 const Replays := preload("res://scripts/replays.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
-const PLAYERS := 2
+## How many fighters are in this match (2 to 4): set once, before the world is built.
+var PLAYERS := 2
 const SEED := 1
 const CHARS := [0, 1, 0, 1]
 ## Which fighters play, by index into the loaded roster. `--chars=2,0` after `--` picks them (editors' playtest does).
@@ -26,7 +27,7 @@ var stage_view: Node3D
 var overlay: CanvasLayer
 var hud: CanvasLayer
 var results: CanvasLayer
-var names: Array = ["Player 1", "Player 2"]
+var names: Array = ["Player 1", "Player 2", "Player 3", "Player 4"]
 var end_timer := 0.0
 var replay_mode := false
 var replay_speed := 1.0
@@ -34,7 +35,7 @@ var replay_accum := 0.0
 var cam: Camera3D
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
-var min_down: Array = [0.2, 0.2]
+var min_down: Array = [0.2, 0.2, 0.2, 0.2]
 var ui_stamp := -1
 var overlay_dirty := true
 var warmed := false
@@ -72,6 +73,7 @@ func _ready() -> void:
 	add_child(sim)
 	for n in ["jump", "attack", "special", "shield", "grab", "strong"]:
 		masks[n] = sim.button_mask(n)
+	PLAYERS = _player_count()
 	_build_world()
 	_parse_demo_args()
 	_load_content()
@@ -135,6 +137,22 @@ func _build_world() -> void:
 	hud = MatchHud.new()
 	add_child(hud)
 	hud.build()
+
+
+## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.
+func _player_count() -> int:
+	var replay := PackedByteArray()
+	if Roster.session.has("replay"):
+		replay = Roster.session.replay
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--replay="):
+			replay = Replays.read(a.substr(9))
+	if not replay.is_empty():
+		var info: Dictionary = sim.replay_peek(replay)
+		return clampi(int(info.get("players", 2)), 2, 4)
+	if Roster.session.has("entries"):
+		return clampi(Roster.session.entries.size(), 2, 4)
+	return 2
 
 
 func _parse_demo_args() -> void:
@@ -275,7 +293,10 @@ func _load_content() -> void:
 	# Coming from the menus: the match's fighters build the match content (the base roster plus any made fighters), the
 	# same way an online match does, so it can be recorded and replayed.
 	if Roster.session.has("entries") and Roster.session.entries.size() >= 2:
-		var loaded: Dictionary = sim.load_match_fighters(Roster.spec_bytes(Roster.session.entries[0]), Roster.spec_bytes(Roster.session.entries[1]))
+		var specs: Array[PackedByteArray] = []
+		for i in PLAYERS:
+			specs.append(Roster.spec_bytes(Roster.session.entries[i]))
+		var loaded: Dictionary = sim.load_match_roster(specs)
 		var load_error: String = loaded.error
 		if load_error == "":
 			chosen_chars = []
@@ -718,7 +739,7 @@ func _update_hud(delta: float) -> void:
 		alive.append(sim.fighter_active(i))
 		in_match.append(sim.fighter_in_roster(i))
 	hud.show_state({
-		"names": names, "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
+		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
 		"status": _net_status_text(),
 	})
@@ -735,7 +756,10 @@ func _save_replay() -> String:
 	for i in PLAYERS:
 		var e: Dictionary = entries[i] if i < entries.size() else {"look": Loadout.default_for(i), "name": names[i]}
 		profiles.append(Roster.profile_bytes(e))
-	return Replays.save(sim.replay_bytes(profiles[0], profiles[1]))
+	var list: Array[PackedByteArray] = []
+	for p in profiles:
+		list.append(p)
+	return Replays.save(sim.replay_bytes_roster(list))
 
 
 func _show_results(winner: int) -> void:

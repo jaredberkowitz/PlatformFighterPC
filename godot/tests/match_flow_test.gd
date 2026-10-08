@@ -3,6 +3,7 @@ extends SceneTree
 ## Run: Godot --headless --path godot --script res://tests/match_flow_test.gd
 
 const Roster := preload("res://scripts/roster.gd")
+const Loadout := preload("res://scripts/loadout.gd")
 
 var failed := false
 
@@ -28,6 +29,7 @@ func _initialize() -> void:
 		return
 	_bridge()
 	await _scene()
+	await _free_for_all()
 	_menu_choices()
 	print("match flow test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
@@ -88,6 +90,35 @@ func _scene() -> void:
 		await process_frame
 		await process_frame
 		check(main.results == null and main.sim.winner() == -1 and main.sim.fighter_active(1), "Rematch starts a fresh match")
+	main.queue_free()
+	await process_frame
+
+
+func _free_for_all() -> void:
+	var entries := []
+	for i in 4:
+		var e := Roster.neutral_entry("Fighter %d" % (i + 1), i % 2, Loadout.default_for(i))
+		e.size = 4 + i
+		entries.append(e)
+	Roster.session = {"from_menu": true, "stocks": 1, "time": 0, "entries": entries}
+	var main: Node = load("res://main.tscn").instantiate()
+	root.add_child(main)
+	for i in 8:
+		await process_frame
+	await create_timer(1.0).timeout
+	check(main.PLAYERS == 4, "the match scene builds four fighters: %d" % main.PLAYERS)
+	check(main.views.size() == 4 and main.sim.fighter_in_roster(3) and main.sim.fighter_active(3), "all four are in the match")
+	check(main.names[2] == "Fighter 3", "with their names: " + str(main.names))
+	check(main.sim.fighter_scale(3) > main.sim.fighter_scale(0), "and their own sizes")
+	main.sim.debug_place_airborne(1, 500.0, 0.0)
+	await create_timer(0.4).timeout
+	check(main.sim.winner() == -1 and not main.sim.fighter_active(1), "one out of four: the match goes on")
+	main.sim.debug_place_airborne(3, 500.0, 0.0)
+	main.sim.debug_place_airborne(2, 500.0, 0.0)
+	await create_timer(0.5).timeout
+	check(main.sim.winner() == 0, "the last one standing wins: %d" % main.sim.winner())
+	await create_timer(2.6).timeout
+	check(main.results != null and main.results.card_data.size() == 4, "and the results screen shows four fighters")
 	main.queue_free()
 	await process_frame
 

@@ -67,6 +67,7 @@ func _initialize() -> void:
 		return
 	var bytes := _bridge()
 	await _scene(bytes)
+	_four(bytes)
 	_list(bytes)
 	for p in saved_paths:
 		Replays.delete(p)
@@ -165,6 +166,39 @@ func _scene(bytes: PackedByteArray) -> void:
 	check(main.replay_speed == 2.0, "Up doubles the speed")
 	main.queue_free()
 	await process_frame
+
+
+## A four-player match records, replays and verifies.
+func _four(_bytes: PackedByteArray) -> void:
+	var sim = ClassDB.instantiate("SimRunner")
+	root.add_child(sim)
+	var specs: Array[PackedByteArray] = []
+	var profiles: Array[PackedByteArray] = []
+	for i in 4:
+		var e := entry("Four %d" % (i + 1), i % 2, 3 + i)
+		specs.append(Roster.spec_bytes(e))
+		profiles.append(Roster.profile_bytes(e))
+	var loaded: Dictionary = sim.load_match_roster(specs)
+	check(loaded.error == "" and loaded.chars.size() == 4, "four fighters load: " + str(loaded))
+	sim.set_match_rules(2, 5)
+	sim.start(31, PackedInt32Array(loaded.chars))
+	check(sim.fighter_in_roster(3) and sim.fighter_in_roster(0), "four players take part")
+	for f in 400:
+		for p in 4:
+			var a := scripted(f, p)
+			sim.set_input(p, a[0], a[1], a[2])
+		sim.tick()
+	check(sim.winner() != -1, "the clock ended it: %d" % sim.winner())
+	var bytes: PackedByteArray = sim.replay_bytes_roster(profiles)
+	var info: Dictionary = sim.replay_peek(bytes)
+	check(info.ok and info.players == 4 and info.frames == 300, "the record knows four players: " + str(info))
+	check(Roster.parse_profile(info.cosmetics3).name == "Four 4", "and their names")
+	var watcher = ClassDB.instantiate("SimRunner")
+	root.add_child(watcher)
+	check(watcher.replay_load(bytes) == "" and watcher.replay_verify(), "it verifies")
+	check(watcher.fighter_in_roster(3), "and plays back with four")
+	sim.queue_free()
+	watcher.queue_free()
 
 
 func _list(bytes: PackedByteArray) -> void:

@@ -86,22 +86,20 @@ func _label(path: String, info: Dictionary) -> String:
 	var stamp: String = path.get_file().get_basename().replace("_", "  ").substr(0, 21)
 	if not info.ok:
 		return "%s    (damaged file)" % stamp
-	var a: String = Roster.parse_profile(info.cosmetics0, 0).name
-	var b: String = Roster.parse_profile(info.cosmetics1, 1).name
-	a = a if a != "" else "Player 1"
-	b = b if b != "" else "Player 2"
+	var player_names := []
+	for i in int(info.players):
+		var n: String = Roster.parse_profile(info["cosmetics%d" % i], i).name
+		player_names.append(n if n != "" else "Player %d" % (i + 1))
+	var versus := " vs ".join(player_names.map(func(n): return n.left(10 if player_names.size() > 2 else 12)))
 	var result := "unfinished"
-	match int(info.winner):
-		0:
-			result = "%s won" % a
-		1:
-			result = "%s won" % b
-		-2:
-			result = "draw"
+	if int(info.winner) >= 0 and int(info.winner) < player_names.size():
+		result = "%s won" % player_names[int(info.winner)].left(12)
+	elif int(info.winner) == -2:
+		result = "draw"
 	var secs: int = int(info.frames) / 60
 	var rules := "free play" if int(info.stocks) == 0 else "%d stock%s" % [info.stocks, "" if int(info.stocks) == 1 else "s"]
 	var old := "" if info.playable else "   (older version)"
-	return "%s    %s vs %s    %s    %d:%02d    %s%s" % [stamp, a.left(12), b.left(12), result, secs / 60, secs % 60, rules, old]
+	return "%s    %s    %s    %d:%02d    %s%s" % [stamp, versus, result, secs / 60, secs % 60, rules, old]
 
 
 func _select(i: int) -> void:

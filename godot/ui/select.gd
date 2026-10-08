@@ -15,15 +15,18 @@ const PadNav := preload("res://scripts/pad_nav.gd")
 
 const COLUMNS := 5
 const TOKEN := 92
-const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95)]
-const P_DISC := [Color(0.98, 0.72, 0.72), Color(0.74, 0.8, 0.98)]
+const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
+const P_DISC := [Color(0.98, 0.72, 0.72), Color(0.74, 0.8, 0.98), Color(0.99, 0.9, 0.62), Color(0.76, 0.94, 0.8)]
 
 var entries: Array = []     # every roster entry, then two specials
 var specials := ["random", "new"]
 var tokens: Array = []
-var cursor := [0, 1]
-var locked := [false, false]
-var picked: Array = [{}, {}]   # the entry each player ends up with (random is resolved when locking)
+var cursor := [0, 1, 0, 1]
+var locked := [false, false, false, false]
+var picked: Array = [{}, {}, {}, {}]   # the entry each player ends up with (random is resolved when locking)
+## How many players are in this match (2 to 4). Players 3 and 4 play on controllers 3 and 4.
+var count := 2
+var players_button: Control
 var panels: Array = []
 var status: Control
 var start_button: Control
@@ -113,16 +116,15 @@ func _ready() -> void:
 	mode.font_size = 28
 	mode.position = Vector2(16, 12)
 	add_child(mode)
-	var ribbon := UI.Tag.new("Select your fighter", Vector2(560, 64))
+	var ribbon := UI.Tag.new("Select your fighter", Vector2(400, 64))
 	ribbon.fill = UI.INK
 	ribbon.ink = Color(1, 1, 1)
-	ribbon.font_size = 40
-	ribbon.position = Vector2(420, 4)
+	ribbon.font_size = 38
+	ribbon.position = Vector2(330, 4)
 	add_child(ribbon)
 
-	for p in 2:
+	for p in 4:
 		var panel := PlayerPanel.new(p, P_DISC[p], P_COLORS[p])
-		panel.position = Vector2(20, 76 + p * 296)
 		add_child(panel)
 		panels.append(panel)
 
@@ -152,13 +154,13 @@ func _ready() -> void:
 		portrait.clicked.connect(func(button): _clicked(index, button))
 		token.add_child(portrait)
 		var tags := []
-		for p in 2:
+		for p in 4:
 			var flag := UI.Tag.new("P%d" % (p + 1), Vector2(46, 28))
 			flag.fill = P_COLORS[p]
 			flag.ink = Color(1, 1, 1)
 			flag.edge = UI.INK
 			flag.font_size = 16
-			flag.position = Vector2(-4 + p * 54, -6)
+			flag.position = [Vector2(-4, -6), Vector2(54, -6), Vector2(-8, 36), Vector2(58, 36)][p]
 			flag.visible = false
 			token.add_child(flag)
 			tags.append(flag)
@@ -194,6 +196,11 @@ func _ready() -> void:
 	rules_button.activated.connect(_toggle_ranked)
 	add_child(rules_button)
 
+	players_button = UI.Btn.new("Players: 2", Vector2(230, 52))
+	players_button.font_size = 24
+	players_button.position = Vector2(750, 8)
+	players_button.activated.connect(_cycle_players)
+	add_child(players_button)
 	Roster.load_match_rules()
 	stocks_button = UI.Btn.new("", Vector2(260, 46))
 	stocks_button.font_size = 22
@@ -216,22 +223,16 @@ func _ready() -> void:
 
 	# Where the cursors begin: on the fighter just made in the creator if there is one.
 	var pre: String = Roster.session.get("preselect", "")
-	cursor = [0, mini(1, entries.size() - 1)]
+	cursor = [0, mini(1, entries.size() - 1), 0, mini(1, entries.size() - 1)]
 	if pre != "":
 		for i in entries.size():
 			if entries[i].slug == pre:
 				cursor[0] = i
 				_lock(0)
+	_layout_panels()
 	_refresh()
 	PadNav.attach(self)
 	Shot.attach(self)
-
-
-## Controller 1 plays the player 1 keys on this screen, controller 2 the player 2 keys.
-func pad_scheme(pad: int) -> Dictionary:
-	if pad == 0:
-		return {"up": KEY_W, "down": KEY_S, "left": KEY_A, "right": KEY_D, "confirm": KEY_J, "back": KEY_K, "start": KEY_SPACE, "menu": KEY_ESCAPE}
-	return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_ENTER, "back": KEY_BACKSPACE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
 
 
 # ---- Input -----------------------------------------------------------------------------------------------------------------
@@ -261,15 +262,17 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_DOWN:
 			_move(1, 0, 1)
 		KEY_ENTER, KEY_KP_ENTER:
-			if locked[0] and locked[1]:
+			if _all_locked():
 				_start()
 			else:
 				_lock(1)
 		KEY_BACKSPACE, KEY_DELETE:
 			_unlock(1)
 		KEY_SPACE:
-			if locked[0] and locked[1]:
+			if _all_locked():
 				_start()
+		KEY_N:
+			_cycle_players()
 		KEY_E:
 			_edit()
 		KEY_R:
@@ -292,7 +295,7 @@ func _clicked(index: int, button: int) -> void:
 
 
 func _move(p: int, dx: int, dy: int) -> void:
-	if locked[p]:
+	if p >= count or locked[p]:
 		return
 	var n := tokens.size()
 	var i: int = cursor[p]
@@ -325,7 +328,7 @@ func _toggle_ranked() -> void:
 	rules_button.text = "Rules: Ranked" if ranked else "Rules: Casual"
 	rules_button.queue_redraw()
 	# Anyone already locked in with a fighter the new rules forbid is sent back to choose again.
-	for p in 2:
+	for p in count:
 		if locked[p] and ranked and not Roster.ranked_legal(picked[p]):
 			_unlock(p)
 	status.set_text("Ranked rules: fighters over %d points are not allowed." % Roster.budget() if ranked else "Casual rules: anything goes.")
@@ -335,6 +338,8 @@ func _toggle_ranked() -> void:
 
 
 func _lock(p: int) -> void:
+	if p >= count:
+		return
 	var i: int = cursor[p]
 	if i >= entries.size():
 		if specials[i - entries.size()] == "new":
@@ -371,16 +376,19 @@ func _edit() -> void:
 
 func _refresh() -> void:
 	for t in tokens.size():
-		for p in 2:
-			tokens[t].flags[p].visible = cursor[p] == t
+		for p in 4:
+			tokens[t].flags[p].visible = p < count and cursor[p] == t
 		tokens[t].portrait.ring = UI.INK
 		tokens[t].portrait.ring_width = 4.0
-		for p in [1, 0]:
+		for p in range(count - 1, -1, -1):
 			if cursor[p] == t:
 				tokens[t].portrait.ring = P_COLORS[p]
 				tokens[t].portrait.ring_width = 9.0 if locked[p] else 6.0
 		tokens[t].portrait.queue_redraw()
-	for p in 2:
+	for p in 4:
+		panels[p].visible = p < count
+		if p >= count:
+			continue
 		var e: Dictionary = picked[p]
 		var shown: Dictionary = e
 		if not locked[p]:
@@ -392,21 +400,81 @@ func _refresh() -> void:
 			var r: Dictionary = editor.recipe_readout(shown["class"], shown.size, shown.speed, shown.jump, shown.weight)
 			size_percent = float(r.size_percent)
 		panels[p].show_entry(shown, size_percent, locked[p])
-	var both: bool = locked[0] and locked[1]
+	var both := _all_locked()
 	start_button.visible = both
 	status.set_text("Press Space to start!" if both else "")
 
 
+func _all_locked() -> bool:
+	for p in count:
+		if not locked[p]:
+			return false
+	return true
+
+
+## Two big panels for a duel, four small ones in a square for a free-for-all.
+func _layout_panels() -> void:
+	for p in 4:
+		var panel: Control = panels[p]
+		if count == 2:
+			panel.scale = Vector2.ONE
+			panel.position = Vector2(20, 76 + p * 296)
+		else:
+			panel.scale = Vector2.ONE * 0.54
+			panel.position = Vector2(14 + (p % 2) * 240, 84 + (p / 2) * 180)
+	players_button.text = "Players: %d" % count
+	players_button.queue_redraw()
+
+
+func _cycle_players() -> void:
+	count = 2 if count >= 4 else count + 1
+	for p in range(count, 4):
+		locked[p] = false
+		picked[p] = {}
+	_layout_panels()
+	_refresh()
+	if count > 2:
+		status.set_text("Players 3 and 4 use controllers 3 and 4.")
+
+
+## A controller button, from `pad_nav.gd`: controller `pad` plays player `pad` + 1.
+func pad_action(pad: int, action: String) -> void:
+	match action:
+		"up":
+			_move(pad, 0, -1)
+		"down":
+			_move(pad, 0, 1)
+		"left":
+			_move(pad, -1, 0)
+		"right":
+			_move(pad, 1, 0)
+		"confirm":
+			if _all_locked():
+				_start()
+			else:
+				_lock(pad)
+		"back":
+			_unlock(pad)
+		"start":
+			if _all_locked():
+				_start()
+		"menu":
+			get_tree().change_scene_to_file("res://menu.tscn")
+
+
 func _start() -> void:
-	if not (locked[0] and locked[1]):
+	if not _all_locked():
 		return
-	var built: Dictionary = Roster.build_content([picked[0], picked[1]])
+	var chosen := []
+	for p in count:
+		chosen.append(picked[p])
+	var built: Dictionary = Roster.build_content(chosen)
 	if built.error != "":
 		status.set_text(built.error)
 		return
 	Roster.save_last(picked[0].slug)
 	Roster.session = {
-		"content_text": built.text, "chars": built.chars, "entries": [picked[0], picked[1]], "ranked": ranked, "from_menu": true,
+		"content_text": built.text, "chars": built.chars, "entries": chosen, "ranked": ranked, "from_menu": true,
 		"stocks": Roster.match_stocks, "time": Roster.match_time,
 	}
 	get_tree().change_scene_to_file("res://main.tscn")

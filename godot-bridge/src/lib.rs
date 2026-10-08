@@ -115,6 +115,68 @@ pub struct SimRunner {
 }
 
 impl SimRunner {
+    fn replay_bytes_with(&self, cosmetics: Vec<Vec<u8>>) -> PackedByteArray {
+        let Some(rec) = self.recorder.as_ref() else {
+            return PackedByteArray::new();
+        };
+        let mut record = rec.record.clone();
+        if record.cosmetics.is_empty() {
+            record.cosmetics = cosmetics;
+        }
+        match record.seal(&Content::placeholder()) {
+            Ok(()) => PackedByteArray::from(record.encode().as_slice()),
+            Err(e) => {
+                godot_warn!("replay not saved: {e}");
+                PackedByteArray::new()
+            }
+        }
+    }
+
+    fn load_specs(&mut self, raw: Vec<Vec<u8>>) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        out.set("error", "");
+        out.set("chars", &PackedInt32Array::new());
+        if !(2..=MAX_FIGHTERS).contains(&raw.len()) {
+            out.set("error", "a match needs two to four fighters");
+            return out;
+        }
+        let base = Content::placeholder();
+        let parsed: Option<Vec<FighterSpec>> = raw.iter().map(|b| FighterSpec::decode(b)).collect();
+        let Some(parsed) = parsed else {
+            out.set("error", "a fighter could not be read");
+            return out;
+        };
+        match match_content(&base, &parsed, false) {
+            Ok((content, chars)) => {
+                self.content = content;
+                self.content_name = String::new();
+                self.net = None;
+                self.base_content = None;
+                self.players = ((1u16 << raw.len()) - 1) as u8;
+                self.match_specs = raw;
+                self.recorder = None;
+                self.playback = None;
+                let mut ids = [0u8, 1, 0, 1];
+                for (slot, c) in ids.iter_mut().zip(chars.iter()) {
+                    *slot = *c;
+                }
+                self.state = GameState::new_with_rules(
+                    &self.content,
+                    1,
+                    ids,
+                    self.players,
+                    self.match_rules,
+                );
+                self.inputs = [Input::default(); MAX_FIGHTERS];
+                self.history.clear();
+                let list: Vec<i32> = chars.iter().map(|c| i32::from(*c)).collect();
+                out.set("chars", &PackedInt32Array::from(list.as_slice()));
+            }
+            Err(e) => out.set("error", format!("a fighter is not valid: {e:?}")),
+        }
+        out
+    }
+
     /// A recorder for the local match just started, if it can be reproduced from the base roster and the fighters' specs.
     fn new_local_recorder(&self, seed: u64, ids: [u8; MAX_FIGHTERS]) -> Option<Recorder> {
         let base = Content::placeholder();
@@ -293,40 +355,15 @@ impl SimRunner {
         spec0: PackedByteArray,
         spec1: PackedByteArray,
     ) -> VarDictionary {
-        let mut out = VarDictionary::new();
-        out.set("error", "");
-        out.set("chars", &PackedInt32Array::new());
-        let base = Content::placeholder();
-        let raw = vec![spec0.to_vec(), spec1.to_vec()];
-        let parsed: Option<Vec<FighterSpec>> = raw.iter().map(|b| FighterSpec::decode(b)).collect();
-        let Some(parsed) = parsed else {
-            out.set("error", "a fighter could not be read");
-            return out;
-        };
-        match match_content(&base, &parsed, false) {
-            Ok((content, chars)) => {
-                self.content = content;
-                self.content_name = String::new();
-                self.net = None;
-                self.base_content = None;
-                self.match_specs = raw;
-                self.recorder = None;
-                self.playback = None;
-                self.state = GameState::new_with_rules(
-                    &self.content,
-                    1,
-                    [0, 1, 0, 1],
-                    self.players,
-                    self.match_rules,
-                );
-                self.inputs = [Input::default(); MAX_FIGHTERS];
-                self.history.clear();
-                let ids: Vec<i32> = chars.iter().map(|c| i32::from(*c)).collect();
-                out.set("chars", &PackedInt32Array::from(ids.as_slice()));
-            }
-            Err(e) => out.set("error", format!("a fighter is not valid: {e:?}")),
-        }
-        out
+        self.load_specs(vec![spec0.to_vec(), spec1.to_vec()])
+    }
+
+    /// Like `load_match_fighters` for two to four fighters: `specs` is an array of `FighterSpec` byte arrays, one per player.
+    /// Also sets how many players take part.
+    #[func]
+    fn load_match_roster(&mut self, specs: Array<PackedByteArray>) -> VarDictionary {
+        let raw: Vec<Vec<u8>> = specs.iter_shared().map(|s| s.to_vec()).collect();
+        self.load_specs(raw)
     }
 
     /// The finished (or abandoned) match as replay-file bytes, or empty if it cannot be replayed (training edits, custom
@@ -338,20 +375,13 @@ impl SimRunner {
         cosmetics0: PackedByteArray,
         cosmetics1: PackedByteArray,
     ) -> PackedByteArray {
-        let Some(rec) = self.recorder.as_ref() else {
-            return PackedByteArray::new();
-        };
-        let mut record = rec.record.clone();
-        if record.cosmetics.is_empty() {
-            record.cosmetics = vec![cosmetics0.to_vec(), cosmetics1.to_vec()];
-        }
-        match record.seal(&Content::placeholder()) {
-            Ok(()) => PackedByteArray::from(record.encode().as_slice()),
-            Err(e) => {
-                godot_warn!("replay not saved: {e}");
-                PackedByteArray::new()
-            }
-        }
+        self.replay_bytes_with(vec![cosmetics0.to_vec(), cosmetics1.to_vec()])
+    }
+
+    /// `replay_bytes` for matches of up to four players: `cosmetics` is an array of profile byte arrays, one per player.
+    #[func]
+    fn replay_bytes_roster(&self, cosmetics: Array<PackedByteArray>) -> PackedByteArray {
+        self.replay_bytes_with(cosmetics.iter_shared().map(|c| c.to_vec()).collect())
     }
 
     /// What a replay file says about itself, without loading it: `{ok, error, frames, seed, winner, stocks, time_limit,
@@ -376,6 +406,9 @@ impl SimRunner {
                 };
                 out.set("cosmetics0", &cos(0));
                 out.set("cosmetics1", &cos(1));
+                out.set("cosmetics2", &cos(2));
+                out.set("cosmetics3", &cos(3));
+                out.set("players", r.active.count_ones() as i32);
                 out.set("sim_version", i32::from(r.sim_version));
                 out.set("playable", r.sim_version == SIM_VERSION);
             }

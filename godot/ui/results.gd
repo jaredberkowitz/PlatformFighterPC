@@ -33,11 +33,11 @@ class Board extends Control:
 		D.draw_slant(self, banner, D.GOLD, D.INK, 5.0, true)
 		D.draw_text_centered(self, r.title, banner, 66, D.INK)
 		var count: int = r.card_data.size()
-		var card := Vector2(300, 250)
-		var total := count * card.x + (count - 1) * 30.0
+		var card := Vector2(minf(300.0, (size.x - 80.0 - (count - 1) * 20.0) / count), 250)
+		var total := count * card.x + (count - 1) * 20.0
 		for i in count:
 			var c: Dictionary = r.card_data[i]
-			var rect := Rect2(Vector2(size.x * 0.5 - total * 0.5 + i * (card.x + 30.0), 220), card)
+			var rect := Rect2(Vector2(size.x * 0.5 - total * 0.5 + i * (card.x + 20.0), 220), card)
 			var winner: bool = c.winner
 			D.draw_slant(self, rect, D.CREAM if winner else Color(0.78, 0.78, 0.8), D.GOLD if winner else D.INK, 6.0 if winner else 4.0, true)
 			D.draw_slant(self, Rect2(rect.position + Vector2(14, 14), Vector2(70, 30)), PLAYER_COLORS[i], D.INK, 3.0, false)

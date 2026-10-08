@@ -36,7 +36,7 @@ Names are 1 to 24 letters, digits, spaces, `-` and `_`, cannot be a built-in fig
 
 ## Character select
 
-A grid of round portraits: the two built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
+A grid of round portraits (**Players: 2/3/4**, see `docs/MATCHES.md`): the two built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
 player has a big panel with the fighter at its real size. **Player 1:** W A S D move, J locks in, K takes it back. **Player 2:** arrow
 keys, Enter locks in, Backspace takes it back. **Mouse:** left click picks for player 1, right click for player 2. **E** edits the
 saved fighter player 1 is on. When both are locked in, Space (or Enter, or the Start Battle button) starts the match; Esc in a match

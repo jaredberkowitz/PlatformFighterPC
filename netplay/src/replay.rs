@@ -459,6 +459,58 @@ mod tests {
     }
 
     #[test]
+    fn a_four_player_match_with_made_fighters_replays() {
+        let base = Content::placeholder();
+        let made = |class, size| {
+            FighterSpec::Made(Recipe {
+                class,
+                size,
+                speed: 5,
+                jump: 5,
+                weight: 5,
+            })
+        };
+        let specs = vec![
+            made(0, 3).encode(),
+            FighterSpec::Builtin(1).encode(),
+            made(1, 7).encode(),
+            FighterSpec::Builtin(0).encode(),
+        ];
+        let parsed: Vec<FighterSpec> = specs
+            .iter()
+            .map(|b| FighterSpec::decode(b).unwrap())
+            .collect();
+        let (content, chars) = match_content(&base, &parsed, false).unwrap();
+        let ids = [chars[0], chars[1], chars[2], chars[3]];
+        let rules = MatchRules {
+            stocks: 1,
+            time_limit: 0,
+        };
+        let mut record = MatchRecord::begin(&base, &content, 21, ids, 0b1111, rules, specs);
+        record.inputs = random_inputs(&mut Rng::new(21), 6000);
+        record.seal(&base).unwrap();
+        // With one stock each and random play somebody falls long before 6000 frames: the match is decided and cut short.
+        assert!(record.inputs.len() < 6000 || record.winner == sim_core::state::PLAYING);
+        let back = MatchRecord::decode(&record.encode()).unwrap();
+        assert_eq!(back.active, 0b1111);
+        let end = back.verify(&base).unwrap();
+        assert_eq!(end.roster, 0b1111);
+        // Three players: only their inputs are stored.
+        let mut three = back.clone();
+        three.active = 0b0111;
+        three.specs.truncate(3);
+        three.chars[3] = 0;
+        three.match_hash = {
+            let (c, _) = match_content(&base, &parsed[..3], false).unwrap();
+            c.hash()
+        };
+        three.seal(&base).unwrap();
+        let three_back = MatchRecord::decode(&three.encode()).unwrap();
+        assert!(three_back.verify(&base).is_ok());
+        assert!(three.encode().len() < back.encode().len());
+    }
+
+    #[test]
     fn the_recorder_takes_frames_in_order_only() {
         let base = Content::placeholder();
         let mut rec = Recorder::new(MatchRecord::begin(

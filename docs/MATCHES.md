@@ -59,6 +59,23 @@ Tests: `netplay/tests/rematch.rs` (both asking, one asking, a rough link with lo
 `godot/tests/online_flow_test.gd` (the whole thing through the bridge over UDP: the clock ends the first match, the joiner's rules are
 the host's, a rematch starts, no desync).
 
+## Free-for-alls (3 to 4 players, local)
+
+Character select has a **Players** button (or **N**): 2, 3 or 4. Two players get the big panels; three or four get four small ones in a
+square. Players 1 and 2 use the keyboard or controllers 1 and 2 as before; **players 3 and 4 need controllers 3 and 4** (the keyboard has
+only two key sets). Every controller moves its own cursor in character select (`pad_action` in `godot/ui/select.gd`, fed by `pad_nav.gd`),
+and the match starts once every player has locked in a fighter.
+
+In the match the HUD shows a card per player, the camera follows whoever is still in, the results screen has a card each, and the match
+is recorded and replayed like any other (the record stores only the inputs of the players who took part). The sim already handled four
+fighters and `GameState::roster`/`winner` count however many started; a match ends when one is left.
+`SimRunner.load_match_roster(specs)` builds the match content for two to four fighters. Tests: `godot/tests/match_flow_test.gd`
+(a four-player match scene: one out, the match goes on; the last standing wins; four result cards), `godot/tests/replay_test.gd`
+(a four-player replay verifies), `netplay/src/replay.rs` (four and three players).
+
+Not done: online matches are still two players (the handshake and session are 1v1); no teams; the select screen has no per-player
+handicap or colour choice.
+
 ## Replays
 
 Every finished match is saved automatically (the newest 50 are kept) in `user://replays/` as a `.pfr` match record, and the main menu's
