@@ -47,7 +47,7 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   hand-coded roster made as `1.05` may print as `1.04999`: the file is exact, not rounded.
 * **Names**: fighters, weapons and the stage have names (1 to 32 letters, digits, `_`, `-`; unique). Names are
   labels only: they are not part of the content hash.
-* **Fighters** need every value in `FighterParams` (`sim-core/src/content.rs`), or `inherit other_fighter` to copy
+* **Fighters** need every value in `FighterParams` (including `hitbox_scale`, the size of the fighter's attacks: 1 is the moveset as written) (`sim-core/src/content.rs`), or `inherit other_fighter` to copy
   an earlier fighter and override a few. `weapon <name>` picks the moveset.
 * **Weapons** list the moves they have; a move not mentioned is empty (and `validate` says which empty slots are
   allowed). `inherit other_weapon` starts from an earlier moveset and replaces the moves you write.

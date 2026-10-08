@@ -3,6 +3,8 @@
 Rollback-netcode 3D-on-2D platform fighter. The source of truth for design is `docs/Platform_Fighter_Project_Plan.docx`.
 Roadmap phases and exit criteria are in section 8 of that plan; check which phase we're in before adding features.
 
+**Resuming? Read `docs/STATUS.md` first**: roadmap progress, what is verified, known gaps and the suggested Phase 7 order.
+
 ## Hard rules for sim crates (`sim-core`, `sim-content`, `sim-script`, `netplay`)
 - No floats, no `HashMap`/`HashSet`, no `unsafe`, no clocks/I/O/threads. Lints enforce this; don't `allow` them.
 - All mutable game data lives in `GameState` and is hashed in `checksum()`. Adding a field means adding it to its `hash_into`

@@ -359,6 +359,40 @@ impl ContentEditor {
         block_to_dict(&recipe.section(&name.to_string(), &weapon))
     }
 
+    /// The point budget for a ranked-legal fighter (the four stats sum to at most this).
+    #[func]
+    fn recipe_budget(&self) -> i32 {
+        i32::from(sim_content::recipe::BUDGET)
+    }
+
+    /// Points a recipe spends (the sum of its stats).
+    #[func]
+    fn recipe_points(&self, class: i32, size: i32, speed: i32, jump: i32, weight: i32) -> i32 {
+        i32::from(recipe_of(class, size, speed, jump, weight).points())
+    }
+
+    /// The bytes that stand for a recipe's fighter in an online handshake.
+    #[func]
+    fn fighter_spec(
+        &self,
+        class: i32,
+        size: i32,
+        speed: i32,
+        jump: i32,
+        weight: i32,
+    ) -> PackedByteArray {
+        let spec =
+            sim_content::recipe::FighterSpec::Made(recipe_of(class, size, speed, jump, weight));
+        PackedByteArray::from(spec.encode().as_slice())
+    }
+
+    /// The bytes that stand for one of the base roster's fighters.
+    #[func]
+    fn builtin_spec(&self, index: i32) -> PackedByteArray {
+        let spec = sim_content::recipe::FighterSpec::Builtin(index.clamp(0, 255) as u8);
+        PackedByteArray::from(spec.encode().as_slice())
+    }
+
     /// How a recipe plays, for the creator's stat bars: run speed, jump height, weight, fall speed and body size.
     #[func]
     fn recipe_readout(

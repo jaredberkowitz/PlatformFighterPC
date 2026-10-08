@@ -155,7 +155,7 @@ class Arrow extends Control:
 
 	func _init(dir := 1) -> void:
 		direction = dir
-		custom_minimum_size = Vector2(44, 44)
+		custom_minimum_size = Vector2(38, 38)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_entered.connect(func():
 			hover = true
@@ -197,14 +197,14 @@ class Selector extends HBoxContainer:
 	func _init(label: String, choices: Array) -> void:
 		options = choices
 		add_theme_constant_override("separation", 6)
-		tag = Tag.new(label, Vector2(150, 44))
+		tag = Tag.new(label, Vector2(150, 38))
 		tag.fill = D.CREAM_DARK
 		tag.font_size = 22
 		add_child(tag)
 		var left := Arrow.new(-1)
 		left.pressed.connect(func(): step(-1))
 		add_child(left)
-		value_tag = Tag.new("", Vector2(210, 44))
+		value_tag = Tag.new("", Vector2(210, 38))
 		value_tag.font_size = 24
 		add_child(value_tag)
 		var right := Arrow.new(1)
@@ -239,6 +239,9 @@ class Selector extends HBoxContainer:
 class StatRow extends HBoxContainer:
 	signal changed(value: int)
 	signal focused
+	## Emitted when a rise was refused because `can_raise` said there is nothing to spend.
+	signal blocked
+	var can_raise: Callable
 	var value := 5
 	var tag: Control
 	var pips: Control
@@ -247,18 +250,18 @@ class StatRow extends HBoxContainer:
 	class Pips extends Control:
 		var value := 5
 		func _init() -> void:
-			custom_minimum_size = Vector2(250, 44)
+			custom_minimum_size = Vector2(250, 38)
 			mouse_filter = Control.MOUSE_FILTER_IGNORE
 		func _draw() -> void:
 			for i in 9:
 				var x := 6.0 + i * 27.0
 				var on := i < value
-				var rect := Rect2(x, 8.0, 22.0, 28.0)
+				var rect := Rect2(x, 5.0, 22.0, 28.0)
 				D.draw_slant(self, rect, D.GOLD if on else Color(0.2, 0.24, 0.3), Color(0.11, 0.12, 0.17), 2.0, false)
 
 	func _init(label: String, start := 5) -> void:
 		add_theme_constant_override("separation", 6)
-		tag = Tag.new(label, Vector2(150, 44))
+		tag = Tag.new(label, Vector2(150, 38))
 		tag.fill = D.CREAM_DARK
 		tag.font_size = 22
 		add_child(tag)
@@ -273,6 +276,9 @@ class StatRow extends HBoxContainer:
 		set_value(start, false)
 
 	func step(delta: int) -> void:
+		if delta > 0 and value < 9 and can_raise.is_valid() and not can_raise.call():
+			blocked.emit()
+			return
 		set_value(clampi(value + delta, 1, 9))
 
 	func set_value(v: int, emit := true) -> void:

@@ -136,6 +136,8 @@ func _screens() -> void:
 	await process_frame
 	await process_frame
 	check(creator.selectors["class"].index == 0 and creator.stat_rows["size"].value == 5, "a new fighter starts neutral")
+	# Casual rules: this test raises stats freely (the budget has its own test).
+	creator.selectors["rules"].set_index(1)
 	creator._set_focus(creator.rows.find(creator.rows.filter(func(r): return r.id == "size")[0]))
 	creator._unhandled_key_input(key(KEY_RIGHT))
 	creator._unhandled_key_input(key(KEY_RIGHT))
