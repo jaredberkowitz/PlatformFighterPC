@@ -36,7 +36,12 @@ pub struct FighterParams {
     /// Friction while a dash is cancelled by releasing the stick. Stronger than `ground_friction`,
     /// so spacing and dash dancing stay tight.
     pub dash_brake: Fx,
+    /// The initial dash: this many frames at dash speed, then a run (if the stick is still held).
     pub dash_frames: u8,
+    /// A flick the other way this many frames after a dash started reverses it (a dash dance), even once the run has begun.
+    pub dash_reverse_frames: u8,
+    /// A reversed dash stands still this many frames before it starts accelerating (the turnaround).
+    pub dash_turn_delay: u8,
     pub turn_frames: u8,
     pub ground_accel: Fx,
     pub ground_friction: Fx,
@@ -72,6 +77,12 @@ pub struct FighterParams {
     pub air_dodge_speed: Fx,
     /// Per-frame velocity multiplier during an air dodge (0..=1).
     pub air_dodge_decay: Fx,
+    /// A directional air dodge first drifts the opposite way (the slingshot) for this many frames, then goes full speed.
+    pub air_dodge_windup: u8,
+    /// The slingshot's speed as a fraction of `air_dodge_speed`.
+    pub air_dodge_sling: Fx,
+    /// Lag when an air dodge that is not a wavedash lands.
+    pub air_dodge_landing_lag: u8,
     /// A shield press this many frames ago still starts the air dodge on the first airborne frame.
     pub air_dodge_buffer: u8,
     /// A downward air dodge starting this close to a surface counts as ground contact.
@@ -138,7 +149,7 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 46] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 47] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -163,6 +174,7 @@ impl FighterParams {
             ("air_jump_velocity", self.air_jump_velocity),
             ("air_dodge_speed", self.air_dodge_speed),
             ("air_dodge_decay", self.air_dodge_decay),
+            ("air_dodge_sling", self.air_dodge_sling),
             ("ground_assist_dist", self.ground_assist_dist),
             ("wavedash_min_down", self.wavedash_min_down),
             ("waveland_speed", self.waveland_speed),
@@ -190,9 +202,16 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 29] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 33] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
+            ("dash_reverse_frames", u32::from(self.dash_reverse_frames)),
+            ("dash_turn_delay", u32::from(self.dash_turn_delay)),
+            ("air_dodge_windup", u32::from(self.air_dodge_windup)),
+            (
+                "air_dodge_landing_lag",
+                u32::from(self.air_dodge_landing_lag),
+            ),
             ("hop_burst_frames", u32::from(self.hop_burst_frames)),
             ("air_jumps", u32::from(self.air_jumps)),
             ("landing_lag", u32::from(self.landing_lag)),
@@ -286,7 +305,9 @@ impl FighterParams {
             dash_initial_speed: gu(900),
             dash_accel: gu(300),
             dash_brake: gu(520),
-            dash_frames: 12,
+            dash_frames: 10,
+            dash_reverse_frames: 15,
+            dash_turn_delay: 2,
             turn_frames: 6,
             ground_accel: gu(200),
             ground_friction: gu(220),
@@ -307,15 +328,18 @@ impl FighterParams {
             air_jumps: 1,
             air_jump_velocity: r(1, 4),
             landing_lag: 3,
-            air_dodge_frames: 30,
+            air_dodge_frames: 48,
             air_dodge_speed: r(2, 5),
             air_dodge_decay: r(9, 10),
+            air_dodge_windup: 5,
+            air_dodge_sling: r(1, 4),
+            air_dodge_landing_lag: 10,
             air_dodge_buffer: 6,
             ground_assist_dist: r(2, 5),
             wavedash_min_down: r(1, 5),
             waveland_speed: r(7, 20),
             waveland_friction: r(9, 10),
-            waveland_lag: 10,
+            waveland_lag: 14,
             shield_drop_buffer: 4,
             shield_drop_recovery: 6,
             // Estimates: a roll is about 31 frames covering roughly 2.8 world units, intangible on 4-19; a spot

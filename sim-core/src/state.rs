@@ -92,6 +92,10 @@ pub struct Fighter {
     pub fast_fall: bool,
     /// Frames left of the fast opening of a full hop (see `FighterParams::hop_burst_frames`).
     pub hop_boost: u8,
+    /// Frames since the current dash began (255 when not dashing or running); a reversal is only a dash dance while it is small.
+    pub dash_age: u8,
+    /// Frames a reversed dash still has to stand before it accelerates.
+    pub dash_wait: u8,
     /// While non-zero, pass-through platforms are ignored (set by shield drop).
     pub platform_ignore: u8,
     /// Ledge currently held, or [`NONE`].
@@ -265,6 +269,8 @@ impl Fighter {
             lag: 0,
             fast_fall: false,
             hop_boost: 0,
+            dash_age: 255,
+            dash_wait: 0,
             platform_ignore: 0,
             ledge: NONE,
             ledge_invuln: 0,
@@ -385,6 +391,8 @@ impl StateHash for Fighter {
         h.write_u8(self.lag);
         h.write_bool(self.fast_fall);
         h.write_u8(self.hop_boost);
+        h.write_u8(self.dash_age);
+        h.write_u8(self.dash_wait);
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
@@ -563,6 +571,16 @@ mod tests {
             ("hop_boost", {
                 let mut s = state;
                 s.fighters[0].hop_boost = 1;
+                s
+            }),
+            ("dash_age", {
+                let mut s = state;
+                s.fighters[0].dash_age = 1;
+                s
+            }),
+            ("dash_wait", {
+                let mut s = state;
+                s.fighters[0].dash_wait = 1;
                 s
             }),
             ("platform_ignore", {

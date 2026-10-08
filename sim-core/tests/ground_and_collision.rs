@@ -81,6 +81,7 @@ fn reversing_a_dash_with_a_flick_is_a_dash_dance() {
     assert_eq!((sim.f().state, sim.f().facing), (S::Dash, 1));
     sim.tick(inp(-127, 0, 0));
     assert_eq!((sim.f().state, sim.f().facing), (S::Dash, -1));
+    sim.ticks(3, inp(-127, 0, 0));
     assert!(sim.f().vel.x < Fx::ZERO);
 }
 
@@ -675,10 +676,12 @@ fn a_dash_dance_stays_in_a_tight_space_and_every_reversal_turns_instantly() {
                     dir,
                     "cycle {cycle}: should face the new direction"
                 );
+            }
+            if frame == 2 {
                 assert_eq!(
                     sim.f().vel.x.signum_int(),
                     i32::from(dir),
-                    "cycle {cycle}: velocity should flip"
+                    "cycle {cycle}: velocity should have flipped after the turnaround"
                 );
             }
             lo = lo.min(sim.f().pos.x);

@@ -4,3 +4,6 @@
 .godot/
 .import/
 tools/godot/
+
+# Packaged builds (build_release.bat)
+/build/

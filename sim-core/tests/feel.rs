@@ -85,7 +85,53 @@ fn a_dash_dance_still_works_inside_the_initial_dash() {
     sim.ticks(3, inp(127, 0, 0));
     sim.tick(inp(-127, 0, 0));
     assert_eq!((sim.f().state, sim.f().facing), (S::Dash, -1));
+    // The turnaround stands for a moment (`dash_turn_delay`), then the dash goes the new way.
+    sim.ticks(3, inp(-127, 0, 0));
     assert!(sim.f().vel.x < Fx::ZERO);
+}
+
+#[test]
+fn a_reversed_dash_stands_for_the_turnaround_before_it_moves() {
+    let mut sim = Sim::new();
+    let delay = usize::from(sim.content.fighters[0].dash_turn_delay);
+    assert!(delay >= 1);
+    sim.ticks(4, inp(127, 0, 0));
+    assert!(sim.f().vel.x > Fx::ZERO);
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!(sim.f().facing, -1, "the fighter turns at once");
+    assert_eq!(sim.f().vel.x, Fx::ZERO, "but does not move yet");
+    sim.ticks(delay - 1, inp(-127, 0, 0));
+    assert_eq!(sim.f().vel.x, Fx::ZERO);
+    sim.tick(inp(-127, 0, 0));
+    assert!(
+        sim.f().vel.x < Fx::ZERO,
+        "the first step after {delay} frames"
+    );
+}
+
+#[test]
+fn the_dash_dance_window_is_fifteen_frames_from_the_start_of_the_dash_even_after_the_run_begins() {
+    let p = Sim::new().content.fighters[0];
+    assert_eq!(p.dash_reverse_frames, 15);
+    assert!(p.dash_frames < p.dash_reverse_frames);
+    // A flick the other way on any of the first fifteen frames is a new dash, in the run too.
+    for frame in [3usize, 9, 12, 14] {
+        let mut sim = Sim::new();
+        sim.ticks(frame, inp(127, 0, 0));
+        sim.tick(inp(-127, 0, 0));
+        assert_eq!(
+            (sim.f().state, sim.f().facing),
+            (S::Dash, -1),
+            "flick on frame {frame}"
+        );
+    }
+    // Later it is a committed run: a skid-turn instead.
+    for frame in [20usize, 30] {
+        let mut sim = Sim::new();
+        sim.ticks(frame, inp(127, 0, 0));
+        sim.tick(inp(-127, 0, 0));
+        assert_eq!(sim.f().state, S::Turn, "flick on frame {frame}");
+    }
 }
 
 // ---- Full hop shape ------------------------------------------------------------------------------

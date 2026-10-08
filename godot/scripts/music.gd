@@ -194,3 +194,6 @@ func _exit_tree() -> void:
 	for n in threads:
 		threads[n].wait_to_finish()
 	threads.clear()
+	# This node lives on the root, so it leaves the tree as the game shuts down: let go of what the static caches hold first.
+	load("res://scripts/fighter_view.gd").release_caches()
+	load("res://scripts/roster.gd").release()

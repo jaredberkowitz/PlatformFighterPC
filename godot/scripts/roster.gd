@@ -28,6 +28,11 @@ static func neutral_entry(name: String, class_id: int, look: RefCounted) -> Dict
 static var _rules: RefCounted
 
 
+## Lets go of the Rust-backed helper (the game does this as it shuts down, before the extension unloads).
+static func release() -> void:
+	_rules = null
+
+
 static func rules() -> RefCounted:
 	if _rules == null:
 		_rules = ClassDB.instantiate("ContentEditor")

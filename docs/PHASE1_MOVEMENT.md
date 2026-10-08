@@ -194,3 +194,35 @@ the body was 0.57 beyond the edge and 0.2 below it, overlapping the corner, and 
   (`ledge_min_drop`), so the snap into the hang is under 1.3 units. The box is 2.2 wide and 2.6 deep (`ledge_reach_x`,
   `ledge_reach_down`) so recoveries stay forgiving.
 - **Holding down declines the grab** (also during an up special), so a fighter can walk off or fast fall past the ledge.
+
+## Tuned toward the reference game (sim v26)
+
+The reference numbers below come from SmashWiki's pages for Ultimate (Short hop, Fast fall, Initial dash, Dash-dancing, Air dodge, Wavedash), read in
+October 2026. That wiki marks its air dodge numbers as possibly inaccurate, and none of this has been felt by a person yet, so treat every number as
+a first pass for playtesting.
+
+**Already matching, left alone:** jump squat is 3 frames; a short hop is about 48% of a full hop (the wiki's table gives 45 to 48% for most fighters; ours
+is 48%); fast fall is 1.6 times the fall speed and snaps to that speed the moment it starts (a tap down while falling).
+
+**Dash dance** (`dash_frames`, `dash_reverse_frames`, `dash_turn_delay`, `Fighter::dash_age` and `dash_wait`):
+* The initial dash is 10 frames (was 12; the reference has 10 for the sword and blaster characters).
+* A flick the other way **up to 15 frames after the dash began** is a new dash, even once the run has started (the reference's "interrupt frame 15
+  for all characters"). After that a flick is a skid-turn, as before.
+* A reversed dash **stands for 2 frames** before the first step (the reference's turnaround takes 3 frames to start accelerating, against 1 for a plain
+  dash), so a dash dance has the reference game's short stutter instead of an instant flip. The fighter still faces the new way on the flick frame.
+
+**Air dodge and wavedash** (`air_dodge_windup`, `air_dodge_sling`, `air_dodge_landing_lag`, `air_dodge_frames`, `waveland_lag`):
+* A directional air dodge begins with a **5-frame slingshot**: a slow drift opposite the chosen direction (and upward for a downward dodge), then the full
+  dodge. This is why a wavedash cannot touch down on the first frame after a jump and why it takes a few frames longer than before. A neutral dodge has
+  none.
+* A dodge that lands without sliding (too horizontal, or a neutral one) has **10 frames** of landing lag (was 3); a waveland has **14** (was 10; the wiki
+  gives 11 to 19 depending on when the dodge lands).
+* The dodge lasts **48 frames** (was 30; the wiki gives about 49 for a neutral dodge). Intangibility is unchanged (frames 4 to 28).
+* **A wavedash cannot slide off the edge of a platform**: it stops at the edge.
+
+**Not done:** the dodge getting weaker when repeated (stale dodges: a third less distance), distances in the reference's units (the slide's total
+is about 3 world units, close to the wiki's "about 20" training-room squares only by eye), different values per character, and a pivot dash with its own 2
+extra frames.
+
+Tests: `sim-core/tests/feel.rs` (dash-dance window and turnaround), `ground_and_collision.rs` (every reversal), `movement.rs` (slingshot, no instant
+waveland, edge stop, landing lag).
