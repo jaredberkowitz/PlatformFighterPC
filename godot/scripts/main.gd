@@ -32,6 +32,9 @@ var names: Array = ["Player 1", "Player 2", "Player 3", "Player 4"]
 var end_timer := 0.0
 var sfx: Node
 var replay_mode := false
+var spectate_mode := false
+var spectate_status := 0
+var spectate_looks_applied := false
 var replay_speed := 1.0
 var replay_accum := 0.0
 var cam: Camera3D
@@ -279,6 +282,13 @@ func _load_content() -> void:
 			while picked.size() < 4:
 				picked.append(0)
 			chosen_chars = picked
+	if Roster.session.has("online") and Roster.session.online.get("watch", false):
+		var watch_error: String = sim.spectate_start(Roster.session.online.addr)
+		if watch_error == "":
+			spectate_mode = true
+			return
+		push_error("watch: " + watch_error)
+		content_note = "CANNOT WATCH: " + watch_error
 	# Watching a replay: the file rebuilds the match's content and its first state.
 	var replay_bytes := PackedByteArray()
 	if Roster.session.has("replay"):
@@ -372,6 +382,8 @@ var net_lines: Array[String] = []
 func _net_config() -> Dictionary:
 	if Roster.session.has("online"):
 		var o: Dictionary = Roster.session.online
+		if o.get("watch", false):
+			return {}
 		return {
 			"host": o.host, "relay": o.addr if o.relay else "", "addr": o.addr, "port": o.port, "room": o.room,
 			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked,
@@ -452,6 +464,32 @@ func pad_scheme(_pad: int) -> Dictionary:
 	if results != null:
 		return PadNav.DEFAULT
 	return {}
+
+
+## Watching a host's match: the bridge plays the stream a little behind the live game.
+func _spectate_step() -> void:
+	spectate_status = sim.spectate_update()
+	if spectate_status >= 1 and not spectate_looks_applied and sim.spectate_cosmetics(0).size() > 0:
+		spectate_looks_applied = true
+		for i in 2:
+			var profile := Roster.parse_profile(sim.spectate_cosmetics(i), i)
+			views[i].rebuild(profile.look)
+			views[i].set_name_tag(profile.name)
+			if profile.name != "":
+				names[i] = profile.name
+		_rebuild_stage()
+		_apply_scales()
+	if results != null and sim.winner() == -1:
+		# The host started a rematch and the stream moved on to it.
+		results.queue_free()
+		results = null
+		end_timer = 0.0
+		_rebuild_stage()
+		_apply_scales()
+	if spectate_status == 1:
+		_tick_once(false)
+	else:
+		overlay_dirty = true
 
 
 func _replay_step() -> void:
@@ -632,6 +670,9 @@ func _physics_process(_delta: float) -> void:
 	if replay_mode:
 		_replay_step()
 		return
+	if spectate_mode:
+		_spectate_step()
+		return
 	if net_mode:
 		_net_step()
 		return
@@ -760,7 +801,7 @@ func _update_hud(delta: float) -> void:
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
 		"status": _net_status_text(),
 	})
-	if winner != -1 and results == null and not replay_mode:
+	if winner != -1 and results == null and not replay_mode and not (spectate_mode and spectate_status != 1 and sim.spectate_behind() > 0):
 		end_timer += delta
 		if end_timer > 2.0:
 			_show_results(winner)
@@ -780,13 +821,15 @@ func _save_replay() -> String:
 
 
 func _show_results(winner: int) -> void:
-	var saved := _save_replay()
+	var saved := _save_replay() if not spectate_mode else ""
 	var cards := []
 	for i in PLAYERS:
 		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
-	if net_mode and Roster.session.get("from_menu", false):
+	if spectate_mode:
+		choices = [["Back", "menu"]]
+	elif net_mode and Roster.session.get("from_menu", false):
 		choices = [["Rematch", "rematch"], ["Main Menu", "menu"]]
 	elif net_mode:
 		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
@@ -820,6 +863,11 @@ func _on_result(action: String) -> void:
 
 ## Back to a menu screen, hanging up first if this was an online match.
 func _leave_to(screen: String) -> void:
+	if spectate_mode:
+		sim.spectate_stop()
+		spectate_mode = false
+		if screen == "menu":
+			screen = "online"
 	if net_mode:
 		sim.net_leave()
 		net_mode = false
@@ -830,6 +878,15 @@ func _leave_to(screen: String) -> void:
 func _net_status_text() -> String:
 	if replay_mode:
 		return _replay_text()
+	if spectate_mode:
+		match spectate_status:
+			0:
+				return "Watching: connecting to the match..."
+			2:
+				return "Watching: waiting for the host's frames (%d buffered)" % sim.spectate_behind()
+			3:
+				return "This match cannot be watched: it runs another version of the game."
+		return "WATCHING   (Esc to leave)"
 	if not net_mode:
 		return net_failed
 	var lines: Array = []
@@ -1001,7 +1058,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			# From the menus, Esc goes back to character select; launched directly, it quits.
 			if Roster.session.get("from_menu", false):
-				_leave_to("online" if net_mode else "select")
+				_leave_to("online" if (net_mode or spectate_mode) else "select")
 			else:
 				get_tree().quit()
 

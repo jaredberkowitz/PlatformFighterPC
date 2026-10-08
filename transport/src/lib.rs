@@ -78,6 +78,61 @@ impl Link for UdpLink {
     }
 }
 
+// ---- Spectators ----------------------------------------------------------------------------------------------------
+
+/// The host's socket for spectators: it talks to any number of addresses (a [`UdpLink`] talks to one). Addresses are mapped to small
+/// numbers (the ids a `netplay::spectate::SpectatorServer` uses); at most `max` are remembered, and a datagram from a ninth stranger is
+/// dropped.
+pub struct SpectatorSocket {
+    socket: UdpSocket,
+    addrs: Vec<SocketAddr>,
+    max: usize,
+    buf: Vec<u8>,
+}
+
+impl SpectatorSocket {
+    pub fn bind(local: SocketAddr, max: usize) -> io::Result<SpectatorSocket> {
+        Ok(SpectatorSocket {
+            socket: bind_nonblocking(local)?,
+            addrs: Vec::new(),
+            max,
+            buf: vec![0; MAX_DATAGRAM],
+        })
+    }
+
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// The next datagram: the sender's id and the bytes.
+    pub fn recv(&mut self) -> Option<(usize, Vec<u8>)> {
+        loop {
+            match self.socket.recv_from(&mut self.buf) {
+                Ok((n, from)) => {
+                    let id = match self.addrs.iter().position(|a| *a == from) {
+                        Some(i) => i,
+                        None if self.addrs.len() < self.max => {
+                            self.addrs.push(from);
+                            self.addrs.len() - 1
+                        }
+                        None => continue,
+                    };
+                    return Some((id, self.buf[..n].to_vec()));
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => return None,
+                Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
+                Err(_) => return None,
+            }
+        }
+    }
+
+    pub fn send(&mut self, id: usize, bytes: &[u8]) {
+        if let Some(addr) = self.addrs.get(id) {
+            let _ = self.socket.send_to(bytes, addr);
+        }
+    }
+}
+
 // ---- Relay -------------------------------------------------------------------------------------------------------
 
 const RELAY_MAGIC: [u8; 2] = [0x52, 0x4c]; // "RL"

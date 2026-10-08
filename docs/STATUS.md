@@ -23,7 +23,8 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | 7 Game loop: key rebinding, controller input and menus | done (controllers untested on hardware) | `docs/MENUS.md` |
 | 7 Game loop: local 3 to 4 player free-for-alls | done (needs controllers 3 and 4; untested on hardware) | `docs/MATCHES.md` |
 | 7 Game loop: stage select (4 stages, online and replays) | done | `docs/MATCHES.md` |
-| 7 Game loop: online 3 to 4 players, spectating | **next** | see below |
+| 7 Game loop: spectating (direct hosts) | done | `docs/MATCHES.md` |
+| 7 Game loop: online 3 to 4 players, matchmaking | **next** | see below |
 | 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: Blender installed, scripted blob parts in the game (`docs/ART_PIPELINE.md`) | `docs/ART_PIPELINE.md` |
 
 ## What "done" is verified by
@@ -55,7 +56,7 @@ rebinding and controller input/menus (`docs/MENUS.md`; the controller part is un
 
 1. **Online 3 to 4 players**: local free-for-alls work (`docs/MATCHES.md`); `Session` has an `active` mask and the sim handles 4, but the
    handshake and `Peer` are 1v1. Validate 1v1 over the internet first.
-2. **Spectating**: a spectator consumes the confirmed-input stream (the same data a replay records) from a host or relay.
+2. ~~Spectating~~ done for direct hosts (`docs/MATCHES.md`); through the relay it is still to do.
 3. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics, replay sharing.
 
 ## Where things live

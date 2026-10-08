@@ -12,6 +12,7 @@ use netplay::packet::Setup;
 use netplay::peer::{Link, Peer, Status};
 use netplay::replay::{MatchRecord, Recorder};
 use netplay::session::{Advance, Event};
+use netplay::spectate::{SpectatorClient, SpectatorServer};
 use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
@@ -19,7 +20,7 @@ use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use transport::{RelayLink, UdpLink};
+use transport::{RelayLink, SpectatorSocket, UdpLink};
 
 /// The two ways a networked match can reach the other player.
 enum NetLink {
@@ -115,6 +116,12 @@ pub struct SimRunner {
     /// Set while playing over the network; then `state` is a copy of the session's state.
     net: Option<Peer<NetLink>>,
     net_log: Vec<String>,
+    /// Hosting over UDP: the server that streams the match to spectators on the next port.
+    spectators: Option<(SpectatorServer, SpectatorSocket)>,
+    /// Watching someone else's match.
+    watching: Option<(SpectatorClient, UdpLink)>,
+    /// The seed of the match being watched, to notice a rematch.
+    watching_seed: u64,
 }
 
 impl SimRunner {
@@ -212,6 +219,24 @@ impl SimRunner {
         )))
     }
 
+    /// Hosting: streams the confirmed frames of the match to whoever is watching.
+    fn serve_spectators(&mut self) {
+        let (Some((server, socket)), Some(rec)) =
+            (self.spectators.as_mut(), self.recorder.as_ref())
+        else {
+            return;
+        };
+        server.sync(&rec.record);
+        while let Some((id, bytes)) = socket.recv() {
+            for reply in server.handle(id, &bytes) {
+                socket.send(id, &reply);
+            }
+        }
+        for (id, bytes) in server.tick() {
+            socket.send(id, &bytes);
+        }
+    }
+
     /// Online: starts a record when a match starts (and again for a rematch), then adds every confirmed frame.
     fn record_online(&mut self) {
         let Some(peer) = self.net.as_ref() else {
@@ -287,6 +312,9 @@ impl INode for SimRunner {
             history: VecDeque::new(),
             net: None,
             net_log: Vec::new(),
+            spectators: None,
+            watching: None,
+            watching_seed: 0,
         }
     }
 }
@@ -1025,6 +1053,15 @@ impl SimRunner {
             IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             port.clamp(0, 65535) as u16,
         );
+        // Spectators connect to the next port (best effort: the match is played with or without them).
+        let watch_addr = SocketAddr::new(addr.ip(), addr.port().wrapping_add(1));
+        self.spectators = if port > 0 {
+            SpectatorSocket::bind(watch_addr, 8)
+                .ok()
+                .map(|sock| (SpectatorServer::new(&Content::placeholder()), sock))
+        } else {
+            None
+        };
         match UdpLink::bind(addr, None) {
             Ok(link) => self.net_start_host(NetLink::Udp(link), &chars, input_delay),
             Err(e) => GString::from(format!("cannot listen on port {port}: {e}").as_str()),
@@ -1146,6 +1183,7 @@ impl SimRunner {
             }
         }
         self.record_online();
+        self.serve_spectators();
         let Some(peer) = self.net.as_mut() else {
             return -1;
         };
@@ -1184,6 +1222,107 @@ impl SimRunner {
                 3
             }
         }
+    }
+
+    /// Starts watching a match hosted at `addr` ("ip:port", the port the players use; spectators connect to the next one).
+    /// Returns an error text or an empty string.
+    #[func]
+    fn spectate_start(&mut self, addr: GString) -> GString {
+        let target = match resolve(&addr.to_string()) {
+            Ok(a) => SocketAddr::new(a.ip(), a.port().wrapping_add(1)),
+            Err(e) => return GString::from(e.as_str()),
+        };
+        match UdpLink::bind(any_local(), Some(target)) {
+            Ok(link) => {
+                self.net = None;
+                self.watching = Some((SpectatorClient::new(&Content::placeholder()), link));
+                self.watching_seed = 0;
+                GString::new()
+            }
+            Err(e) => GString::from(format!("cannot open a socket: {e}").as_str()),
+        }
+    }
+
+    /// One frame of watching: -1 not watching, 0 connecting, 1 played a frame, 2 waiting for the host's frames, 3 refused.
+    #[func]
+    fn spectate_update(&mut self) -> i32 {
+        let Some((client, link)) = self.watching.as_mut() else {
+            return -1;
+        };
+        while let Some(bytes) = link.recv() {
+            client.handle(&bytes);
+        }
+        for m in client.tick() {
+            link.send(&m);
+        }
+        if client.refused().is_some() {
+            return 3;
+        }
+        if !client.ready() {
+            return 0;
+        }
+        // A new match (another seed) replaces the one on screen.
+        let seed = client.record().map_or(0, |r| r.seed);
+        if seed != self.watching_seed {
+            self.watching_seed = seed;
+            if let Some(c) = client.content() {
+                self.content = c.clone();
+            }
+            if let Some(r) = client.record() {
+                self.players = r.active;
+                self.match_rules = r.rules;
+            }
+        }
+        // Stay a little behind the host so the stream never runs dry; catch up quickly if far behind.
+        let behind = client.behind();
+        let over = client.state().is_some_and(|s| s.winner != PLAYING);
+        let budget = match behind {
+            0..=9 if !over => 0,
+            10..=39 => 1,
+            40..=179 => 3,
+            _ => 8,
+        };
+        let played = client.advance(budget.max(u32::from(over)));
+        if let Some(s) = client.state() {
+            self.state = *s;
+        }
+        if played > 0 {
+            1
+        } else {
+            2
+        }
+    }
+
+    /// The watched match's player profile bytes (name and look) for player `i`, once known.
+    #[func]
+    fn spectate_cosmetics(&self, i: i32) -> PackedByteArray {
+        let bytes = self
+            .watching
+            .as_ref()
+            .and_then(|(c, _)| c.record())
+            .and_then(|r| usize::try_from(i).ok().and_then(|i| r.cosmetics.get(i)))
+            .cloned()
+            .unwrap_or_default();
+        PackedByteArray::from(bytes.as_slice())
+    }
+
+    /// Frames the watcher has received but not shown yet.
+    #[func]
+    fn spectate_behind(&self) -> i32 {
+        self.watching.as_ref().map_or(0, |(c, _)| c.behind() as i32)
+    }
+
+    #[func]
+    fn spectate_stop(&mut self) {
+        self.watching = None;
+    }
+
+    /// How many people are watching the match this player hosts.
+    #[func]
+    fn spectator_count(&self) -> i32 {
+        self.spectators
+            .as_ref()
+            .map_or(0, |(s, _)| s.spectator_count() as i32)
     }
 
     /// After a match: asks the other player for another one. It starts when both have asked (`net_update` then reports
@@ -1251,6 +1390,8 @@ impl SimRunner {
         if let Some(mut p) = self.net.take() {
             p.leave();
         }
+        self.spectators = None;
+        self.watching = None;
         if let Some(base) = self.base_content.take() {
             self.content = base;
         }

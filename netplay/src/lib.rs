@@ -14,4 +14,5 @@ pub mod packet;
 pub mod peer;
 pub mod replay;
 pub mod session;
+pub mod spectate;
 pub mod testlink;

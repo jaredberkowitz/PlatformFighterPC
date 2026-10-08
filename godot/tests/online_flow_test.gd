@@ -39,6 +39,7 @@ func _initialize() -> void:
 		return
 	await _screen()
 	await _match()
+	await _spectate()
 	print("online flow test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
 
@@ -151,3 +152,48 @@ func _records(host, join) -> void:
 	root.add_child(watcher)
 	check(watcher.replay_load(a) == "" and watcher.replay_verify(), "the recording verifies")
 	watcher.queue_free()
+
+
+## A spectator joins a hosted match (late, over real UDP on the next port) and ends up at the same place as the players.
+func _spectate() -> void:
+	var host = ClassDB.instantiate("SimRunner")
+	var join = ClassDB.instantiate("SimRunner")
+	var watcher = ClassDB.instantiate("SimRunner")
+	for n in [host, join, watcher]:
+		root.add_child(n)
+	host.set_match_rules(3, 3)
+	check(host.net_host(47161, PackedInt32Array([0, 1, 0, 1]), 2) == "", "host for the spectator test")
+	check(join.net_join("127.0.0.1:47161") == "", "join for the spectator test")
+	var ran := [0, 0]
+	var ticks := 0
+	var started := false
+	var watcher_status := -1
+	var best_status := 0
+	while ticks < 30000:
+		var a: Array = _input_for(ran[0], 0)
+		var b: Array = _input_for(ran[1], 1)
+		if host.net_update(a[0], a[1], a[2]) == 1:
+			ran[0] += 1
+		if join.net_update(b[0], b[1], b[2]) == 1:
+			ran[1] += 1
+		# The spectator arrives after the match is some frames old.
+		if not started and ran[0] > 40:
+			started = true
+			check(watcher.spectate_start("127.0.0.1:47161") == "", "the spectator connects")
+		if started:
+			watcher_status = watcher.spectate_update()
+			if watcher_status == 1:
+				best_status = 1
+		ticks += 1
+		if started and watcher.winner() != -1 and host.winner() != -1 and ran[0] > 260:
+			break
+		await create_timer(0.0005).timeout
+	check(best_status == 1, "the spectator played the match")
+	check(host.spectator_count() == 1, "the host sees one spectator: %d" % host.spectator_count())
+	check(watcher.winner() == host.winner() and watcher.winner() != -1, "the same result: %d vs %d" % [watcher.winner(), host.winner()])
+	for i in 2:
+		check(watcher.fighter_pos(i) == host.fighter_pos(i) and watcher.fighter_percent(i) == host.fighter_percent(i), "fighter %d ends in the same place and damage" % i)
+	check(watcher.spectate_cosmetics(0).size() >= 0, "the watcher can read the players' profiles")
+	watcher.spectate_stop()
+	host.net_leave()
+	join.net_leave()

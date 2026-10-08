@@ -76,6 +76,29 @@ fighters and `GameState::roster`/`winner` count however many started; a match en
 Not done: online matches are still two players (the handshake and session are 1v1); no teams; the select screen has no per-player
 handicap or colour choice.
 
+## Spectating
+
+On the Online screen choose **Role: Watch** and type the host's address (the port the players use). The host's game also listens on the **next
+port** (hosting on 47000 means spectators connect to 47001, so that UDP port must be reachable too); up to 8 people can watch one match.
+
+How it works (`netplay/src/spectate.rs`): the host already keeps a `MatchRecord` of the match (seed, setup, fighters, every *confirmed* frame's
+inputs). A `SpectatorServer` streams that record to each spectator in chunks of 30 frames with a window of 180 unacknowledged frames and
+resends anything not acknowledged; a `SpectatorClient` rebuilds the match from the record's header (same checks as a replay: sim version and
+base roster) and steps the simulation as frames arrive. Because the simulation is deterministic the spectator needs nothing else: no rollback,
+no state transfer, and a **late joiner** simply receives every frame from the start and catches up (it plays 1, 3 or 8 frames per tick when it
+is 10, 40 or 180 frames behind, and stays about 10 frames behind the live game so the stream never runs dry). A rematch (a new seed) replaces the
+match on the spectator's screen. The spectator's HUD, stage, fighters and names are the host's.
+
+* Sockets: `transport::SpectatorSocket` (many addresses on one socket); the bridge's `spectate_start`, `spectate_update`, `spectate_stop`,
+  `spectator_count`; the match scene's spectate mode (`_spectate_step`).
+* Safety: a spectator on another sim version or roster gets nothing; garbage is ignored; only 8 spectators are remembered.
+* Tests: `netplay/src/spectate.rs` (same ending as the host, 25% loss, a late joiner, a rematch, made fighters on another stage, garbage),
+  `tools/tests/spectate_udp.rs` (real UDP), `godot/tests/online_flow_test.gd` (a spectator joins a hosted match late and ends in the same place
+  as the players).
+
+Not done: spectating through the relay (relay rooms hold two players), a spectator list or "watch a friend" lobby, spectators chatting,
+choosing which player to follow, and a delay setting for tournaments.
+
 ## Stages
 
 Four stages (`sim-content/src/stages.rs`: Meadow, Triple Tier, Flat Island, Skyline; all original geometry). A stage is chosen by index when
