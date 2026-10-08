@@ -357,6 +357,228 @@ def main() -> None:
 
     clip(rig, "attack_kick", 60, {0: kick(2), 21: kick(0), 33: kick(1), 45: kick(1), 60: kick(2)})
 
+    # ---- Aerials, smashes and the rest. The weapon arm is aimed by the game (it follows the blade), so these set the body: torso, head,
+    # legs and the other arm. Move clips share one timeline: wind-up to frame 21, strike at 33, hold to 45, recover by 60.
+    def rest_arms(rig, fwd=8.0, out=14.0):
+        for side in "LR":
+            pose(rig, "armU." + side, fwd=fwd, out=out)
+            pose(rig, "armL." + side, fwd=30.0)
+
+    def stance(rig, lead=0.0, back=0.0):
+        pose(rig, "thigh.L", fwd=lead, out=5.0)
+        pose(rig, "shin.L", fwd=-8.0 - max(0.0, -lead) * 0.5)
+        pose(rig, "thigh.R", fwd=back, out=5.0)
+        pose(rig, "shin.R", fwd=-8.0 - max(0.0, -back) * 0.5)
+
+    def move(name, wind, strike, hold):
+        clip(rig, name, 60, {0: hold(0), 21: wind, 33: strike, 45: hold(1), 60: hold(0)})
+
+    # Forward air: tuck and lean back to wind up, then the whole body folds forward through the sweep.
+    def fair_wind(rig):
+        rest_arms(rig, -20.0)
+        pose(rig, "hips", lift=0.02)
+        pose(rig, "spine", fwd=-16.0, twist=-20.0)
+        pose(rig, "head", fwd=6.0)
+        stance(rig, lead=24.0, back=34.0)
+
+    def fair_strike(rig):
+        rest_arms(rig, 30.0)
+        pose(rig, "hips", lift=-0.06)
+        pose(rig, "spine", fwd=30.0, twist=24.0)
+        pose(rig, "head", fwd=-12.0)
+        stance(rig, lead=44.0, back=-8.0)
+
+    def fair_hold(k):
+        def f(rig):
+            rest_arms(rig, 14.0 * k)
+            pose(rig, "spine", fwd=14.0 * k, twist=8.0 * k)
+            stance(rig, lead=30.0 * k, back=12.0 * k)
+        return f
+
+    move("attack_fair", fair_wind, fair_strike, fair_hold)
+
+    # Back air: the body turns away and the sweep goes behind.
+    def bair_wind(rig):
+        rest_arms(rig, 20.0)
+        pose(rig, "spine", fwd=12.0, twist=24.0)
+        pose(rig, "head", fwd=-4.0, twist=-14.0)
+        stance(rig, lead=20.0, back=-10.0)
+
+    def bair_strike(rig):
+        rest_arms(rig, -30.0)
+        pose(rig, "hips", lift=-0.04)
+        pose(rig, "spine", fwd=-18.0, twist=-34.0)
+        pose(rig, "head", fwd=8.0, twist=22.0)
+        stance(rig, lead=-14.0, back=40.0)
+
+    def bair_hold(k):
+        def f(rig):
+            rest_arms(rig, -12.0 * k)
+            pose(rig, "spine", fwd=-8.0 * k, twist=-14.0 * k)
+            stance(rig, lead=-6.0 * k, back=20.0 * k)
+        return f
+
+    move("attack_bair", bair_wind, bair_strike, bair_hold)
+
+    # Neutral air: a spin, legs flung out.
+    def nair_wind(rig):
+        rest_arms(rig, 10.0, 40.0)
+        pose(rig, "spine", twist=34.0)
+        for side in "LR":
+            pose(rig, "thigh." + side, fwd=14.0, out=12.0)
+            pose(rig, "shin." + side, fwd=-30.0)
+
+    def nair_strike(rig):
+        rest_arms(rig, 10.0, 60.0)
+        pose(rig, "spine", twist=-40.0, fwd=6.0)
+        for side in "LR":
+            pose(rig, "thigh." + side, fwd=18.0, out=34.0)
+            pose(rig, "shin." + side, fwd=-12.0)
+
+    def nair_hold(k):
+        def f(rig):
+            rest_arms(rig, 10.0, 24.0 * k)
+            pose(rig, "spine", twist=-12.0 * k)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=10.0 * k, out=12.0 * k)
+                pose(rig, "shin." + side, fwd=-20.0 * k)
+        return f
+
+    move("attack_nair", nair_wind, nair_strike, nair_hold)
+
+    # Up air: lean back, look up, legs up.
+    def uair_wind(rig):
+        rest_arms(rig, 0.0)
+        pose(rig, "spine", fwd=8.0)
+        stance(rig, lead=14.0, back=14.0)
+
+    def uair_strike(rig):
+        rest_arms(rig, -40.0, 24.0)
+        pose(rig, "spine", fwd=-26.0, twist=14.0)
+        pose(rig, "head", fwd=-20.0)
+        stance(rig, lead=36.0, back=48.0)
+
+    def uair_hold(k):
+        def f(rig):
+            rest_arms(rig, -14.0 * k)
+            pose(rig, "spine", fwd=-10.0 * k)
+            pose(rig, "head", fwd=-8.0 * k)
+            stance(rig, lead=20.0 * k, back=20.0 * k)
+        return f
+
+    move("attack_uair", uair_wind, uair_strike, uair_hold)
+
+    # Down air: curl up, then stab downward.
+    def dair_wind(rig):
+        rest_arms(rig, 20.0, 20.0)
+        pose(rig, "hips", lift=0.04)
+        pose(rig, "spine", fwd=-8.0)
+        stance(rig, lead=60.0, back=60.0)
+        for side in "LR":
+            pose(rig, "shin." + side, fwd=-80.0)
+
+    def dair_strike(rig):
+        rest_arms(rig, 50.0, 10.0)
+        pose(rig, "spine", fwd=22.0)
+        pose(rig, "head", fwd=-14.0)
+        stance(rig, lead=-6.0, back=4.0)
+
+    def dair_hold(k):
+        def f(rig):
+            rest_arms(rig, 20.0 * k)
+            pose(rig, "spine", fwd=10.0 * k)
+            stance(rig, lead=-2.0 * k, back=2.0 * k)
+        return f
+
+    move("attack_dair", dair_wind, dair_strike, dair_hold)
+
+    # Smashes: plant the legs, wind the torso back, and throw it through.
+    def smash_wind(rig):
+        rest_arms(rig, -30.0, 20.0)
+        pose(rig, "hips", lift=-0.12)
+        pose(rig, "spine", fwd=-12.0, twist=-34.0)
+        pose(rig, "head", twist=18.0)
+        stance(rig, lead=36.0, back=-30.0)
+        pose(rig, "shin.L", fwd=-50.0)
+
+    def smash_strike(rig):
+        rest_arms(rig, 40.0, 12.0)
+        pose(rig, "hips", lift=-0.08)
+        pose(rig, "spine", fwd=28.0, twist=36.0)
+        pose(rig, "head", fwd=-10.0, twist=-18.0)
+        stance(rig, lead=48.0, back=-40.0)
+        pose(rig, "shin.L", fwd=-30.0)
+
+    def smash_hold(k):
+        def f(rig):
+            rest_arms(rig, 14.0 * k)
+            pose(rig, "hips", lift=-0.04 * k)
+            pose(rig, "spine", fwd=12.0 * k, twist=14.0 * k)
+            stance(rig, lead=26.0 * k, back=-20.0 * k)
+        return f
+
+    move("attack_smash", smash_wind, smash_strike, smash_hold)
+
+    # Grabs and throws.
+    def grab_pose(rig):
+        pose(rig, "hips", lift=-0.06)
+        pose(rig, "spine", fwd=12.0)
+        pose(rig, "head", fwd=-6.0)
+        for side in "LR":
+            pose(rig, "armU." + side, fwd=82.0, out=10.0)
+            pose(rig, "armL." + side, fwd=14.0)
+            pose(rig, "thigh." + side, fwd=22.0)
+            pose(rig, "shin." + side, fwd=-30.0)
+
+    clip(rig, "grab", 8, {0: grab_pose, 8: grab_pose})
+
+    def throw_wind(rig):
+        grab_pose(rig)
+        pose(rig, "spine", fwd=-4.0, twist=-26.0)
+
+    def throw_strike(rig):
+        grab_pose(rig)
+        pose(rig, "spine", fwd=22.0, twist=30.0)
+        pose(rig, "head", fwd=-12.0)
+
+    clip(rig, "throw", 60, {0: grab_pose, 21: throw_wind, 33: throw_strike, 45: throw_strike, 60: grab_pose})
+
+    # Rolls and dodges: curled up. A knockdown: flat and limp. A ledge hang: arms up, legs dangling.
+    def roll_pose(rig):
+        pose(rig, "hips", lift=-0.22)
+        pose(rig, "spine", fwd=46.0)
+        pose(rig, "head", fwd=-18.0)
+        for side in "LR":
+            pose(rig, "thigh." + side, fwd=74.0, out=6.0)
+            pose(rig, "shin." + side, fwd=-112.0)
+            pose(rig, "armU." + side, fwd=42.0, out=8.0)
+            pose(rig, "armL." + side, fwd=88.0)
+
+    clip(rig, "roll", 8, {0: roll_pose, 8: roll_pose})
+
+    def down_pose(rig):
+        for side in "LR":
+            pose(rig, "armU." + side, fwd=-12.0, out=48.0)
+            pose(rig, "armL." + side, fwd=6.0)
+            pose(rig, "thigh." + side, fwd=-6.0, out=16.0)
+            pose(rig, "shin." + side, fwd=-8.0)
+        pose(rig, "head", fwd=-8.0)
+
+    clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
+
+    def ledge_pose(k):
+        def f(rig):
+            pose(rig, "hips", lift=-0.1)
+            pose(rig, "spine", fwd=-4.0 + 2.0 * k)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=-168.0, out=8.0)
+                pose(rig, "armL." + side, fwd=-6.0)
+                pose(rig, "thigh." + side, fwd=-10.0 + 6.0 * k * (1 if side == "L" else -1), out=6.0)
+                pose(rig, "shin." + side, fwd=-20.0)
+        return f
+
+    clip(rig, "ledge", 60, {0: ledge_pose(0.0), 30: ledge_pose(1.0), 60: ledge_pose(0.0)})
+
     bpy.ops.object.mode_set(mode="OBJECT")
     reset(rig)
     bpy.ops.object.select_all(action="SELECT")

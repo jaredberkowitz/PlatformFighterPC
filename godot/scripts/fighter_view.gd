@@ -191,27 +191,72 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["walk", clampf(speed / 0.12, 0.5, 2.2), -1.0]
 		"Run", "Dash":
 			return ["run", clampf(speed / 0.3, 0.7, 1.8), -1.0]
-		"Crouch", "JumpSquat", "Landing", "WaveLand", "SpotDodge", "Roll":
+		"Crouch", "JumpSquat", "Landing", "WaveLand":
 			return ["crouch", 1.0, -1.0]
+		"Roll", "SpotDodge", "AirDodge":
+			return ["roll", 1.0, -1.0]
 		"Shield", "ShieldDrop":
 			return ["shield", 1.0, -1.0]
 		"Hitstun", "ShieldBreak", "Grabbed":
 			return ["hurt", 1.0, -1.0]
+		"Knockdown", "GetUp":
+			return ["knockdown", 1.0, -1.0]
+		"LedgeHang":
+			return ["ledge", 1.0, -1.0]
+		"Grabbing":
+			return ["grab", 1.0, -1.0]
 		"Attack":
-			var t: PackedInt32Array = s.move_timing
-			var name: String = s.move_name
-			var progress := clampf(float(s.state_frame) / maxf(1.0, float(t[0])), 0.0, 1.0)
-			var clip := "attack_swing"
-			if s.char == 1 and BRAWLER_NO_BLADE.has(name):
-				clip = "attack_kick"
-			elif name.begins_with("dtilt") or name.begins_with("dair") or name.begins_with("down"):
-				clip = "attack_low"
-			return [clip, 1.0, progress]
-		"Idle", "Turn", "Knockdown", "GetUp", "LedgeHang", "LedgeGetUp", "LedgeAttack", "Grabbing":
+			return _attack_clip(s)
+		"Idle", "Turn", "LedgeGetUp", "LedgeAttack":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
 	return ["jump", 1.0, -1.0] if float(s.vel.y) > 0.02 else ["fall", 1.0, -1.0]
+
+
+## The clip for the move being performed and how far through it we are, mapped onto the clip's timeline: wind-up to 0.35, the strike
+## through 0.55 to 0.75, then recovery. The move's own frames set the pace, so the swing lands when the hitbox does.
+func _attack_clip(s: Dictionary) -> Array:
+	var t: PackedInt32Array = s.move_timing
+	var name: String = s.move_name
+	var total := maxf(1.0, float(t[0]))
+	var start := clampf(float(t[1]), 1.0, total)
+	var last := clampf(float(t[2]), start, total)
+	var f: float = s.state_frame
+	var progress: float
+	if f < start:
+		progress = f / start * 0.55
+	elif f <= last:
+		progress = 0.55 + (f - start) / maxf(1.0, last - start) * 0.2
+	else:
+		progress = 0.75 + (f - last) / maxf(1.0, total - last) * 0.25
+	var brawler_body: bool = s.char == 1 and BRAWLER_NO_BLADE.has(name)
+	var clip := "attack_swing"
+	if name.ends_with("throw"):
+		clip = "throw"
+	elif name.begins_with("grab") or name.begins_with("dash grab") or name.begins_with("pivot") or name == "pummel":
+		clip = "grab"
+	elif brawler_body:
+		clip = "attack_kick"
+	elif name == "fair":
+		clip = "attack_fair"
+	elif name == "bair":
+		clip = "attack_bair"
+	elif name == "nair":
+		clip = "attack_nair"
+	elif name == "uair":
+		clip = "attack_uair"
+	elif name == "dair":
+		clip = "attack_dair"
+	elif name.ends_with("smash"):
+		clip = "attack_smash"
+	elif name == "dtilt":
+		clip = "attack_low"
+	return [clip, 1.0, clampf(progress, 0.0, 1.0)]
+
+
+func _skeleton_to_model() -> Transform3D:
+	return model.global_transform.affine_inverse() * skeleton.global_transform
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -230,7 +275,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# (Hitlag freezes the pose along with everything else.)
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
-	var to_model: Transform3D = skeleton.get_parent().transform if skeleton.get_parent() != null else Transform3D()
+	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
 	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * HEAD_FIT
@@ -702,6 +747,13 @@ func _blade_target(s: Dictionary) -> Array:
 	return [angle, len, hand_x]
 
 
+## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
+const SHOULDER := Vector2(0.5, 1.15)
+const ARM_REACH := 0.5
+var arm_k := 0.0
+var hand_target := Vector3.ZERO
+
+
 func _pose_blade(s: Dictionary, delta: float) -> void:
 	var target: Array = _blade_target(s)
 	# A little smoothing so the rest pose and quick direction changes do not pop.
@@ -712,11 +764,69 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	blade_angle = rad_to_deg(blade_angle)
 	blade_length = lerpf(blade_length, float(target[1]), follow)
 	var facing: int = s.facing
+	# Where the blade's tip is (forward space). It is fixed by the move's hitboxes and never moves because of the arm.
+	var old_hand := Vector2(float(target[2]), HAND.y)
+	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
+	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
+	# then runs from the hand to the same tip.
+	var attacking: bool = s.move_name != "" and s.state_frame > 0
+	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
+	var hand := old_hand
+	if rig != null and arm_k > 0.0:
+		var to_tip := tip - SHOULDER
+		var dist := maxf(to_tip.length(), 0.001)
+		var reach := minf(ARM_REACH, maxf(dist - 0.3, 0.1))
+		hand = old_hand.lerp(SHOULDER + to_tip / dist * reach, arm_k)
+	var along := tip - hand
+	var length := maxf(along.length(), 0.3)
+	var swing := rad_to_deg(along.angle())
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
-	var angle := blade_angle if facing > 0 else 180.0 - blade_angle
-	blade_pivot.position = Vector3(float(target[2]) * facing, HAND.y, 0.35)
+	var angle := swing if facing > 0 else 180.0 - swing
+	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
+	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
-	blade_pivot.scale = Vector3(blade_length / MESH_LENGTH, 1.0 if s.char == 0 else 1.7, 1.0 if s.char == 0 else 1.7)
+	blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0 if s.char == 0 else 1.7, 1.0 if s.char == 0 else 1.7)
+
+
+## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
+func _aim_arm(facing: int, holding: bool) -> void:
+	if skeleton == null:
+		return
+	for side in ["L", "R"]:
+		var mine: bool = (side == "R") == (facing > 0)
+		var iu := skeleton.find_bone("armU." + side)
+		var il := skeleton.find_bone("armL." + side)
+		var ih := skeleton.find_bone("hand." + side)
+		if not (mine and holding):
+			skeleton.set_bone_global_pose_override(iu, Transform3D(), 0.0, false)
+			skeleton.set_bone_global_pose_override(il, Transform3D(), 0.0, false)
+			skeleton.set_bone_global_pose_override(ih, Transform3D(), 0.0, false)
+			continue
+		var rest_u := skeleton.get_bone_global_rest(iu)
+		var rest_l := skeleton.get_bone_global_rest(il)
+		var rest_h := skeleton.get_bone_global_rest(ih)
+		var shoulder := rest_u.origin
+		var elbow0 := rest_l.origin
+		var wrist0 := rest_h.origin
+		var upper := (elbow0 - shoulder).length()
+		var lower := (wrist0 - elbow0).length() + 0.07
+		var to_skel := _skeleton_to_model().affine_inverse()
+		var goal: Vector3 = to_skel * hand_target
+		var d := goal - shoulder
+		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
+		var dir := d.normalized()
+		var cos_a := clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0)
+		var ang := acos(cos_a)
+		# The elbow bends down and out and a little back.
+		var pole := Vector3(0.7 if side == "R" else -0.7, -1.0, -0.5)
+		var bend := (pole - dir * pole.dot(dir)).normalized()
+		var elbow := shoulder + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
+		var fore := (goal - elbow).normalized()
+		var q_upper := Quaternion((elbow0 - shoulder).normalized(), (elbow - shoulder).normalized())
+		var q_lower := Quaternion((wrist0 - elbow0).normalized(), fore)
+		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis, shoulder), 1.0, true)
+		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis, elbow), 1.0, true)
+		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
 
 
 func _apply_combat(s: Dictionary, delta: float) -> void:
@@ -731,6 +841,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
 	var brawler: bool = s.char == 1
 	blade_pivot.visible = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
+	if rig != null:
+		_aim_arm(int(s.facing), blade_pivot.visible)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.visible = rushing
 	if rushing:

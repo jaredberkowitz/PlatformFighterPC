@@ -954,6 +954,18 @@ impl SimRunner {
         let params = sim_core::combat::params_of(&self.content, fi);
         let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
         let k = params.hitbox_scale;
+        // While a hitbox is live the tip is where it is now, so a move that sweeps across several hitboxes draws its arc; before and
+        // after, it is the move's first hitbox.
+        let live =
+            sim_core::combat::active_hitboxes(fi, mv, k).min_by_key(|(_, hb, _)| hb.priority);
+        if let Some((_, hb, center)) = live {
+            let facing = Fx::from_int(i32::from(fi.facing));
+            return Vector3::new(
+                f((center.x - fi.pos.x) * facing),
+                f(center.y - fi.pos.y),
+                f(hb.radius),
+            );
+        }
         if let Some(hb) = mv.hitboxes.iter().min_by_key(|h| (h.priority, h.start)) {
             return Vector3::new(f(hb.x * k), f(hb.y * k), f(hb.radius * k));
         }

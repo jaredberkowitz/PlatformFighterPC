@@ -35,9 +35,17 @@ legs with shoes) and 11 animation clips, and exports `godot/models/blob_rig.glb`
 * If `blob_rig.glb` is missing the fighter falls back to `blob_parts.glb`, then to plain spheres.
 * Animation never affects the simulation: it only reads the state.
 
-Known gaps: the sword is still posed by its own code at a fixed hand position, so the sword hand and the blade can disagree during swings
-(the fix is to aim the arm at the blade); there are no per-move clips beyond the three attack types; grabs, throws, rolls, knockdown and the
-ledge have no clips yet (they borrow idle or crouch); the sash and neckwear were designed for the old sphere body and are only roughly fitted.
+**Swings.** The blade's tip is fixed by the move's hitboxes (while one is live, the tip is where that hitbox is now: `fighter_move_tip`).
+In an attack the hand leaves its resting place and sweeps round the shoulder, and the arm reaches it with two-bone IK
+(`_pose_blade`, `_aim_arm`), so the arm throws the blade through its arc and the blade always ends at the move's tip. Move clips
+(`attack_fair`, `attack_bair`, `attack_nair`, `attack_uair`, `attack_dair`, `attack_smash`, `attack_swing`, `attack_low`, `attack_kick`,
+`grab`, `throw`) set the body around it: a forward air folds the torso forward through the sweep, a back air turns the body away, a neutral
+air spins, and so on. Clips are timed to the move (wind-up until the first hitbox, strike through the active frames, then recovery).
+`roll`, `knockdown` and `ledge` clips cover rolls and dodges, lying down and hanging.
+
+Known gaps: one clip per move type, not per move (every jab and tilt shares `attack_swing`); the arc is only as sweeping as the move's
+hitbox data (a move with one static hitbox gets the wind-up sweep but a still strike); the sash and neckwear were designed for the old
+sphere body and are only roughly fitted; the brawler's kicks use one generic kick clip; none of it has been judged by someone playing.
 
 ## Rules
 
