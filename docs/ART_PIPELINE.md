@@ -43,6 +43,11 @@ In an attack the hand leaves its resting place and sweeps round the shoulder, an
 air spins, and so on. Clips are timed to the move (wind-up until the first hitbox, strike through the active frames, then recovery).
 `roll`, `knockdown` and `ledge` clips cover rolls and dodges, lying down and hanging.
 
+**The brawler is long-limbed.** `make_rigged_blob.py -- --long` stretches the legs (x1.5) and arms (x1.4) in the rest pose and lifts the body to match,
+exporting `godot/models/blob_rig_long.glb`; the game scales it by 0.92 to keep the same height. `FighterView` swaps to it when it first sees
+a brawler (`long_limbs`), and the head, neckwear and arm reach follow. (The class check is `char == 1`, so a made fighter that is not index 1
+uses the normal rig for now.)
+
 **The brawler fights with fists** (no weapon is drawn). Its punches and sweeps use the same arm IK: the fist is the hand at the end of the
 reach, aimed through the move's arc. Its kicks (neutral air, back air, up air, down air, tilts, specials) use the `attack_kick` leg clip.
 

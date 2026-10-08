@@ -1,6 +1,7 @@
 """Builds the rigged blob fighter (arms, legs, a skeleton and a set of animation clips) and exports godot/models/blob_rig.glb.
 
-Run:  blender --background --python art/blender/make_rigged_blob.py
+Run:  blender --background --python art/blender/make_rigged_blob.py            (blob_rig.glb)
+      blender --background --python art/blender/make_rigged_blob.py -- --long   (blob_rig_long.glb: the brawler's longer limbs)
 
 The character is original: a big round head, a squat dumpling torso, stubby capsule limbs, mitten hands and chunky shoes, in the spirit of
 docs/ART_DIRECTION.md. The game paints the flat colours (by part name), draws the face and accessories itself, and plays the clips below.
@@ -15,6 +16,7 @@ read well on it.
 
 import math
 import os
+import sys
 
 import bmesh
 import bpy
@@ -240,10 +242,77 @@ def walk_pose(phase, stride, bend, arm, lean, bob, elbow, twist):
     return f
 
 
+# ---- The long-limbed variant (the brawler): legs and arms stretched, the rest of the body lifted to match -------------------------------
+LONG = "--long" in sys.argv
+KL = 1.5      # legs, between the ankle and the hip
+KA = 1.4      # arms, from the shoulder out
+ANKLE_Z = 0.22
+HIP_Z = 0.6
+SHIFT = (HIP_Z - ANKLE_Z) * (KL - 1.0) if LONG else 0.0   # how far everything above the hip moves up
+if LONG:
+    OUT = OUT.replace("blob_rig.glb", "blob_rig_long.glb")
+
+
+def leg_z(z):
+    return ANKLE_Z + (z - ANKLE_Z) * KL if z > ANKLE_Z else z
+
+
+def lengthen_limbs(rig, parts):
+    """Stretches the legs and arms in place (rest pose) and raises the body, head and arms with the longer legs."""
+    for side, x in (("L", -1.0), ("R", 1.0)):
+        shoulder = Vector((x * 0.5, 0.0, 1.15 + SHIFT))
+        wrist = Vector((x * 0.74, -0.04, 0.78 + SHIFT))
+        along = (wrist - shoulder).normalized()
+        for name, obj in parts.items():
+            if not name.endswith("." + side):
+                continue
+            for v in obj.data.vertices:
+                co = v.co.copy()
+                if name.startswith(("Thigh", "Shin")):
+                    co.z = leg_z(co.z)
+                elif name.startswith("Foot"):
+                    pass
+                elif name.startswith(("ArmU", "ArmL")):
+                    co.z += SHIFT
+                    co += along * ((co - shoulder).dot(along) * (KA - 1.0))
+                elif name.startswith("Hand"):
+                    co.z += SHIFT
+                    co += (Vector((x * 0.74, -0.04, 0.72 + SHIFT)) - shoulder) * (KA - 1.0)
+                else:
+                    co.z += SHIFT
+                v.co = co
+    for name in ("Body", "Head"):
+        for v in parts[name].data.vertices:
+            v.co.z += SHIFT
+    # bones
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    for eb in rig.data.edit_bones:
+        head = eb.head.copy()
+        base = eb.name.split(".")[0]
+        if base in ("thigh", "shin"):
+            head.z = leg_z(head.z)
+        elif base == "foot" or base == "root":
+            pass
+        elif base in ("armL", "hand"):
+            x = -1.0 if eb.name.endswith(".L") else 1.0
+            shoulder = Vector((x * 0.5, 0.0, 1.15 + SHIFT))
+            head.z += SHIFT
+            head = shoulder + (head - shoulder) * KA
+        else:
+            head.z += SHIFT
+        eb.head = head
+        eb.tail = head + Vector((0.0, 0.0, 0.12))
+    bpy.ops.object.mode_set(mode="OBJECT")
+    # the armature keeps its rest pose; meshes were edited directly
+
+
 def main() -> None:
     clear()
     rig = make_armature()
-    build_meshes(rig)
+    parts = build_meshes(rig)
+    if LONG:
+        lengthen_limbs(rig, parts)
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="POSE")
     bpy.context.scene.render.fps = FPS

@@ -144,7 +144,7 @@ fn back_air_sends_the_victim_backward_and_turns_the_attacker_around() {
 // ---- Marth-style neutral air ----------------------------------------------------------------------------
 
 #[test]
-fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frame_15() {
+fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frame_14() {
     // First hit: 5% at the tip, 3.5% close.
     let mut tip = air_duel(MARTH, fx(38, 10));
     assert_eq!(hit_tick(&mut tip, inp(0, 0, ATTACK)), Some(6));
@@ -153,14 +153,15 @@ fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frame_15() {
     assert_eq!(hit_tick(&mut close, inp(0, 0, ATTACK)), Some(6));
     assert_eq!(close.fighter(1).percent, pct(&close, 35));
 
-    // Second hit: with the first already used up, frame 15 deals 9.5% at the tip, 7% close.
+    // Second hit (held open from frame 14, longer than the reference's 15-21 on purpose): with the first already used up, frame 14 deals
+    // 9.5% at the tip, 7% close.
     for (gap, tenths) in [(38, 95), (10, 70)] {
         let mut sim = air_duel(MARTH, fx(gap, 10));
         sim.tick(inp(0, 0, ATTACK));
         sim.state.fighters[0].hit_mask = 0b0010; // group 0 already hit fighter 1
-        for _ in 2..=14 {
+        for _ in 2..=13 {
             sim.tick(inp(0, 0, 0));
-            assert_eq!(sim.fighter(1).percent, Fx::ZERO, "nothing before frame 15");
+            assert_eq!(sim.fighter(1).percent, Fx::ZERO, "nothing before frame 14");
         }
         sim.tick(inp(0, 0, 0));
         assert_eq!(sim.fighter(1).percent, pct(&sim, tenths), "gap {gap}");
@@ -279,16 +280,16 @@ fn wolf_neutral_air_hits_on_frame_7_for_12_percent() {
 }
 
 #[test]
-fn wolf_neutral_air_lingers_as_an_8_percent_hit_until_frame_26() {
+fn wolf_neutral_air_lingers_as_an_8_percent_hit_until_frame_34() {
     // The target is out of range for the early hit and steps in later.
     let mut sim = air_duel(WOLF, fx(60, 10));
     sim.tick(inp(0, 0, ATTACK));
-    for _ in 2..=9 {
+    for _ in 2..=11 {
         sim.tick(inp(0, 0, 0));
     }
     let (y, vy) = (sim.f().pos.y, sim.f().vel.y);
     sim.put_airborne(1, fx(15, 10), y, Fx::ZERO, vy);
-    sim.tick(inp(0, 0, 0)); // tick 10: the lingering hitbox begins
+    sim.tick(inp(0, 0, 0)); // tick 12: the lingering hitbox begins
     assert_eq!(sim.fighter(1).percent, pct(&sim, 80));
 }
 

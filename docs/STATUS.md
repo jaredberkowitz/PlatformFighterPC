@@ -2,7 +2,7 @@
 
 Read this first when picking the project up again. The design source of truth is `docs/Platform_Fighter_Project_Plan.docx`;
 this file records where the build is against its roadmap (section 8) and what to do next. Last updated after the
-Phase 7 work so far: match rules, HUD, results, rematches and the online screen (sim version 23).
+Phase 7 work so far: match rules, HUD, results, rematches and the online screen (sim version 24).
 
 ## Roadmap progress
 

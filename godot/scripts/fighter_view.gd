@@ -105,13 +105,24 @@ func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
 const Loadout := preload("res://scripts/loadout.gd")
 var loadout: RefCounted
 const RIG_PATH := "res://models/blob_rig.glb"
+## The brawler's rig has longer arms and legs. It is built about 0.19 taller at the hips, so it is scaled down to keep the same height.
+const RIG_LONG_PATH := "res://models/blob_rig_long.glb"
+const LONG_SCALE := 0.92
+const LONG_LIFT := 0.19
+const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Vector3(0, 0, 0.92)), Vector3(0, 0.19 * 0.92, 0))
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
 const LOOPING := ["idle", "walk", "run", "dash", "fall"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
-static var _rig_template: Node3D
-static var _rig_tried := false
+static var _rig_templates: Dictionary = {}
+
+## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
+var long_limbs := false
+var head_fit := Transform3D()
+var torso_fit := Transform3D()
+var shoulder := Vector2(0.5, 1.15)
+var arm_reach := 0.5
 
 var rig: Node3D
 var skeleton: Skeleton3D
@@ -134,17 +145,18 @@ static var _parts_tried := false
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
 func _build_rig(skin: StandardMaterial3D) -> bool:
-	if not _rig_tried:
-		_rig_tried = true
-		var path := ProjectSettings.globalize_path(RIG_PATH)
+	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
+	if not _rig_templates.has(rig_path):
+		_rig_templates[rig_path] = null
+		var path := ProjectSettings.globalize_path(rig_path)
 		if FileAccess.file_exists(path):
 			var doc := GLTFDocument.new()
 			var state := GLTFState.new()
 			if doc.append_from_file(path, state) == OK:
-				_rig_template = doc.generate_scene(state)
-	if _rig_template == null:
+				_rig_templates[rig_path] = doc.generate_scene(state)
+	if _rig_templates[rig_path] == null:
 		return false
-	var scene: Node3D = _rig_template.duplicate()
+	var scene: Node3D = _rig_templates[rig_path].duplicate()
 	var found: Array = scene.find_children("*", "Skeleton3D", true, false)
 	var players: Array = scene.find_children("*", "AnimationPlayer", true, false)
 	if found.is_empty() or players.is_empty():
@@ -176,8 +188,19 @@ func _build_rig(skin: StandardMaterial3D) -> bool:
 	torso_rig = Node3D.new()
 	model.add_child(head_rig)
 	model.add_child(torso_rig)
-	head_rig.transform = HEAD_FIT
-	torso_rig.transform = TORSO_FIT
+	if long_limbs:
+		rig.scale = Vector3.ONE * LONG_SCALE
+		head_fit = LONG_FIT * HEAD_FIT
+		torso_fit = LONG_FIT
+		shoulder = Vector2(0.5 * LONG_SCALE, (1.15 + LONG_LIFT) * LONG_SCALE)
+		arm_reach = ARM_REACH * 1.4 * LONG_SCALE
+	else:
+		head_fit = HEAD_FIT
+		torso_fit = TORSO_FIT
+		shoulder = SHOULDER
+		arm_reach = ARM_REACH
+	head_rig.transform = head_fit
+	torso_rig.transform = torso_fit
 	anim.play("idle")
 	anim.advance(0.0)
 	return true
@@ -283,8 +306,8 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
-	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * HEAD_FIT
-	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * TORSO_FIT
+	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
+	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is
@@ -638,6 +661,10 @@ var last_vy := 0.0
 
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
 func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
+	# The brawler has longer limbs: swap to its rig the first time we see its class.
+	if rig != null and (s.char == 1) != long_limbs:
+		long_limbs = s.char == 1
+		rebuild(loadout)
 	position = pos
 	var state: String = s.state
 	var facing: int = s.facing
@@ -826,10 +853,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
-		var to_tip := tip - SHOULDER
+		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
-		var reach := minf(ARM_REACH, maxf(dist - 0.3, 0.1)) if s.char == 0 else ARM_REACH
-		hand = old_hand.lerp(SHOULDER + to_tip / dist * reach, arm_k)
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if s.char == 0 else arm_reach
+		hand = old_hand.lerp(shoulder + to_tip / dist * reach, arm_k)
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())
