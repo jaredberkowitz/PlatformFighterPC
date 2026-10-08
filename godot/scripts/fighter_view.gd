@@ -1050,7 +1050,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_pose_blade(s, delta)
 	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
 	var brawler: bool = s.char == 1
-	var swinging_arm: bool = not BRAWLER_NO_BLADE.has(s.move_name)
+	# Only the brawler's body moves leave the arms alone; the sword fighter always has its blade.
+	var swinging_arm: bool = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
 	blade_pivot.visible = not brawler and swinging_arm
 	if rig != null:
 		_aim_arm(int(s.facing), swinging_arm if not brawler else (swinging_arm and state == "Attack"))
