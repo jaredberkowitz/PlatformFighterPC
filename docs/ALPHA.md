@@ -17,9 +17,12 @@ from what only a person on real hardware and a real network (or a publisher) can
 
 ## Not verified (needs a person, a machine or a decision)
 
-* **A packaged build has never been made here**: Godot's export templates are not installed on this machine, so the export, the bridge DLL path
-  inside the exported folder and the runtime-loaded `.glb` models in a packed build are untested. Install the templates and run
-  `build_release.bat`; expect to fix small path issues.
+* **The packaged build**: Godot 4.7.1's Windows export templates are installed (`%APPDATA%\Godot\export_templates.7.1.stable`, from Godot's official
+  release) and `build_release.bat` makes `build\PlatformFighter.exe` (plus `PlatformFighter.pck`, `pf_bridge.dll` and `content\`, which must stay
+  together). It was run on the author's machine: the exported game opens the menu with the rigged characters, goes through character select into a
+  match and shows the HUD, with the bridge and content found next to the executable. Not tried: another computer without the development tools,
+  a long session, online play from the build, or anything other than Windows x86-64. Packaging found and fixed two bugs: models must be read from
+  Godot's imported copy in a packed game (`_model_scene`), and the no-model fallback body crashed.
 * **Real-internet netplay** (direct with a forwarded port, and through `pftool net-relay` on a public server) has only run on localhost and
   simulated lossy links. There is no NAT traversal and no public relay: a publisher must run one.
 * **Controllers** (play and menus) and **the new screens** have not been used by a person. Sound effects have not been heard by one.

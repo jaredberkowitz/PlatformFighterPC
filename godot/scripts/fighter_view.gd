@@ -142,18 +142,30 @@ static var _parts: Dictionary = {}
 static var _parts_tried := false
 
 
+## A model from `res://models/`. The `.glb` file is read directly when it is there (a development checkout, so a model that was just re-exported
+## from Blender is used without waiting for Godot to import it); a packed game only has the imported copy, which is loaded as a scene.
+static func _model_scene(path: String) -> Node:
+	if FileAccess.file_exists(path):
+		var doc := GLTFDocument.new()
+		var state := GLTFState.new()
+		if doc.append_from_file(path, state) == OK:
+			return doc.generate_scene(state)
+	if ResourceLoader.exists(path):
+		var packed = load(path)
+		if packed is PackedScene:
+			return packed.instantiate()
+	return null
+
+
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
 func _build_rig(skin: StandardMaterial3D) -> bool:
 	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
-		var path := rig_path
-		if FileAccess.file_exists(path):
-			var doc := GLTFDocument.new()
-			var state := GLTFState.new()
-			if doc.append_from_file(path, state) == OK:
-				_rig_templates[rig_path] = doc.generate_scene(state)
+		_rig_templates[rig_path] = _model_scene(rig_path)
+		if _rig_templates[rig_path] == null:
+			push_warning("The character model %s did not load; using the simple body." % rig_path)
 	if _rig_templates[rig_path] == null:
 		return false
 	var scene: Node3D = _rig_templates[rig_path].duplicate()
@@ -324,14 +336,7 @@ static func blob_parts() -> Dictionary:
 	if _parts_tried:
 		return _parts
 	_parts_tried = true
-	var path := PARTS_PATH
-	if not FileAccess.file_exists(path):
-		return _parts
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	if doc.append_from_file(path, state) != OK:
-		return _parts
-	var scene := doc.generate_scene(state)
+	var scene := _model_scene(PARTS_PATH)
 	if scene == null:
 		return _parts
 	var found := {}
@@ -379,6 +384,13 @@ func build(p: int, l: RefCounted = null) -> void:
 			var side := "L" if sx < 0.0 else "R"
 			_part(model, shaped["Foot" + side], skin, Vector3(sx * 0.32, 0.2, 0.05))
 			_part(model, shaped["Hand" + side], toon(Color(1, 1, 1)), Vector3(sx * 0.78, 0.85, 0.05))
+
+	if torso_rig == null or not is_instance_valid(torso_rig) or torso_rig.get_parent() != model:
+		# Without the rig, the accessories hang off plain nodes at the origin.
+		head_rig = Node3D.new()
+		torso_rig = Node3D.new()
+		model.add_child(head_rig)
+		model.add_child(torso_rig)
 
 	_neck(skin)
 	_face(skin, ink)
