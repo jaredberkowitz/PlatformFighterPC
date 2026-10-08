@@ -45,6 +45,14 @@ var spectate_looks_applied := false
 var replay_speed := 1.0
 var replay_accum := 0.0
 var cam: Camera3D
+## Where the camera would be without shake or the knock-out zoom.
+var cam_base := Vector3.INF
+## How hard the camera is shaking (world units), set by strong hits and settling quickly.
+var cam_shake := 0.0
+## A hit that will knock a fighter out: the camera closes in on them for a moment.
+var ko_focus := -1
+var ko_time := 0.0
+var shake_rng := RandomNumberGenerator.new()
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
 var min_down: Array = [0.2, 0.2, 0.2, 0.2]
@@ -706,6 +714,8 @@ func _tick_once(advance := true) -> void:
 		var before: Dictionary = snaps[i]
 		_refresh(i)
 		sfx.watch(i, before, snaps[i])
+		if int(before.get("hitlag", 0)) == 0 and int(snaps[i].hitlag) > 0 and snaps[i].launch_pending:
+			_on_hit(i)
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
 	_rebuild_boxes()
@@ -1063,6 +1073,17 @@ func _in_play(i: int) -> bool:
 	return sim.fighter_active(i) or not sim.fighter_in_roster(i)
 
 
+## A fighter was just hit (its hitlag started): the camera shakes with the hit's strength, and if the launch will knock the fighter
+## out, it closes in on them for a moment (presentation only).
+func _on_hit(i: int) -> void:
+	var lag: int = snaps[i].hitlag
+	cam_shake = maxf(cam_shake, minf(0.8, float(lag) * 0.028))
+	if not replay_mode and sim.fighter_will_ko(i, 200):
+		ko_focus = i
+		ko_time = 0.75
+		cam_shake = maxf(cam_shake, 0.9)
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
@@ -1081,7 +1102,20 @@ func _update_camera(a: float, delta: float) -> void:
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
-	cam.position = cam.position.lerp(target, clampf(delta * 3.5, 0.0, 1.0))
+	if cam_base == Vector3.INF:
+		cam_base = cam.position
+	var rate := 3.5
+	if ko_time > 0.0 and ko_focus >= 0:
+		ko_time -= delta
+		var v: Vector2 = prev_pos[ko_focus].lerp(cur_pos[ko_focus], a)
+		target = Vector3(v.x, v.y + 1.2, 17.0)
+		rate = 9.0
+	cam_base = cam_base.lerp(target, clampf(delta * rate, 0.0, 1.0))
+	var offset := Vector3.ZERO
+	if cam_shake > 0.001:
+		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
+		cam_shake = move_toward(cam_shake, 0.0, delta * 2.6)
+	cam.position = cam_base + offset
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),

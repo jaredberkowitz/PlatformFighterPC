@@ -2,7 +2,7 @@
 
 Read this first when picking the project up again. The design source of truth is `docs/Platform_Fighter_Project_Plan.docx`;
 this file records where the build is against its roadmap (section 8) and what to do next. Last updated after the
-Phase 7 work (complete): match rules, HUD, results, rematches, the online screen, replays, spectating, groups of 3 to 4 and Quick match; then the third class, music and a first movement-tuning pass toward the reference game, `docs/PHASE1_MOVEMENT.md` (sim version 26).
+Phase 7 work (complete): match rules, HUD, results, rematches, the online screen, replays, spectating, groups of 3 to 4 and Quick match; then the third class, music and a first movement-tuning pass toward the reference game, `docs/PHASE1_MOVEMENT.md` (sim version 27: hit feel too, `docs/COMBAT.md`).
 
 ## Roadmap progress
 

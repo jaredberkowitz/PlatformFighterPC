@@ -56,10 +56,14 @@ fn a_jab_hits_on_its_first_active_frame_and_not_before() {
 #[test]
 fn hitlag_freezes_both_fighters_for_the_same_number_of_frames() {
     let mut sim = Sim::duel(fx(14, 10));
+    // Only the two of them: a jab that also reached a bystander would freeze the attacker for the longer of the two hitlags.
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
     sim.tick(inp(0, 0, ATTACK));
     ticks_until_hit(&mut sim, 12).expect("jab should hit");
-    let tip_damage = Fx::from_int(3);
-    let lag = hitlag_frames(tip_damage);
+    // The damage the hit really did (before the one-on-one multiplier) decides the hitlag.
+    let dealt = sim.fighter(1).percent / sim.content.rules.damage_mult;
+    let lag = hitlag_frames(dealt, &sim.content.rules, false, false);
     assert_eq!(sim.f().hitlag, lag);
     assert_eq!(sim.fighter(1).hitlag, lag);
     let frozen_frame = sim.f().state_frame;

@@ -163,8 +163,11 @@ pub fn update(
     // Hitlag freezes everything about the fighter except its input history. A struck fighter can still
     // survival-DI, and its launch happens on the frame hitlag ends.
     if f.hitlag > 0 {
+        f.sdi_wait = f.sdi_wait.saturating_sub(1);
         if f.launch_pending {
-            sdi(f, p, stage, rules);
+            sdi(f, p, stage, rules, false);
+        } else if f.state == S::Shield {
+            sdi(f, p, stage, rules, true);
         }
         f.hitlag -= 1;
         if f.hitlag == 0 && f.launch_pending {
@@ -1381,6 +1384,27 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
 /// Launch physics while stunned. Gravity acts normally; the launch speed decays on top of it.
 fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     f.hitstun = f.hitstun.saturating_sub(1);
+    // Hitstun cancel: deep into a long hitstun in the air, an air dodge (and a little later an aerial) ends it early. What is left of
+    // the launch carries on as ordinary momentum.
+    if !f.grounded() && !f.launch_pending && f.hitstun > 0 {
+        let dodge = f.state_frame >= u16::from(rules.hitstun_dodge_cancel)
+            && f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER)
+            && !f.air_dodge_used;
+        let attack = f.state_frame >= u16::from(rules.hitstun_attack_cancel)
+            && f.pressed_within(buttons::ATTACK, ATTACK_BUFFER);
+        if dodge || attack {
+            f.vel += f.kb_vel;
+            f.kb_vel = Vec2::ZERO;
+            f.hitstun = 0;
+            f.tumble = false;
+            if dodge {
+                start_air_dodge(f, p, stage);
+            } else {
+                start_air_attack(f);
+            }
+            return;
+        }
+    }
     let speed = f.kb_vel.length();
     f.kb_vel = if speed > rules.knockback_decay {
         f.kb_vel * ((speed - rules.knockback_decay) / speed)
@@ -1473,12 +1497,27 @@ fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
     }
 }
 
-/// Survival DI: a stick flick during hitlag nudges the fighter.
-fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+/// Survival DI: a stick flick during hitlag nudges the fighter, at most once every `sdi_interval` frames. On a shield the nudge
+/// is sideways only and two thirds as far.
+fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset, shield: bool) {
+    if f.sdi_wait > 0 {
+        return;
+    }
     let (dx, dy) = (f.flick_x(1), f.flick_y(1));
-    let d = rules.sdi_distance;
+    if dx == 0 && dy == 0 {
+        return;
+    }
+    f.sdi_wait = rules.sdi_interval;
+    let d = if shield {
+        rules.sdi_distance * Fx::from_ratio(2, 3)
+    } else {
+        rules.sdi_distance
+    };
     if dx != 0 {
         collision::move_x(stage, p, &mut f.pos, d.mul_int(i32::from(dx)));
+    }
+    if shield {
+        return;
     }
     if dy > 0 && !f.grounded() {
         collision::move_up(stage, p, &mut f.pos, d);

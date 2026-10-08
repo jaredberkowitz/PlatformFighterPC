@@ -398,6 +398,20 @@ rules_io! {
     grab_release_lag: u8,
     grab_immunity: u8,
     grab_distance: Fx,
+    hitlag_per_damage: Fx,
+    hitlag_base: Fx,
+    hitlag_cap: u8,
+    shield_hitlag_mult: Fx,
+    crouch_cancel_kb: Fx,
+    crouch_cancel_hitlag: Fx,
+    crouch_cancel_hitlag_cap: u8,
+    sdi_interval: u8,
+    rage_start: Fx,
+    rage_full: Fx,
+    rage_max: Fx,
+    stale_moves: u8,
+    hitstun_dodge_cancel: u8,
+    hitstun_attack_cancel: u8,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------

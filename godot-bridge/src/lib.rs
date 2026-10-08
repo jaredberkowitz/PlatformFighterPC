@@ -1772,6 +1772,33 @@ impl SimRunner {
         PackedVector2Array::from(out.as_slice())
     }
 
+    /// Whether the launch fighter `player` is in will knock them out if nobody touches a button: plays a copy of the match forward
+    /// up to `frames` frames. Presentation only (the camera's knock-out zoom); the match itself is untouched.
+    #[func]
+    fn fighter_will_ko(&self, player: i32, frames: i32) -> bool {
+        let Some(i) = usize::try_from(player).ok().filter(|i| *i < MAX_FIGHTERS) else {
+            return false;
+        };
+        let mut s = self.state;
+        let stocks = s.fighters[i].stocks;
+        if !s.fighters[i].active {
+            return false;
+        }
+        let inputs = [Input::default(); MAX_FIGHTERS];
+        for _ in 0..frames.clamp(0, 300) {
+            step(&mut s, &self.content, &inputs);
+            if s.fighters[i].stocks < stocks || !s.fighters[i].active {
+                return true;
+            }
+            if s.fighters[i].state != sim_core::state::FighterState::Hitstun
+                && s.fighters[i].hitlag == 0
+            {
+                return false;
+            }
+        }
+        false
+    }
+
     /// [knockback of the last launch, its angle in degrees, hitstun frames left]
     #[func]
     fn fighter_launch(&self, i: i32) -> PackedFloat32Array {

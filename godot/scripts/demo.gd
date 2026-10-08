@@ -101,6 +101,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
 			d.shots = [[30, "a_windup"], [40, "b_hit"], [48, "c_launch"], [62, "d_flying"], [90, "e_far"]]
 			d.end_frame = 120
+		"ko":
+			# A forward smash on a fighter at 170%: the hit shakes the camera, which closes in because the launch will KO, and the
+			# launch leaves a smoke trail.
+			d.cam_dist = 24.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.2, -1], [1, "percent", 1, 170.0]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
+			d.shots = [[38, "a_hit"], [44, "b_hitlag_zoom"], [56, "c_launch_smoke"], [70, "d_flying"]]
+			d.end_frame = 110
 		"marth_fair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0

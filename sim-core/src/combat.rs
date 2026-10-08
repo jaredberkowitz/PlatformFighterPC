@@ -6,8 +6,9 @@
 //! Formulas follow the reference game's published knockback model:
 //! `KB = ((((p/10 + p*d/20) * 200/(w+100) * 1.4) + 18) * g/100) + b`, where `p` is the percent after the
 //! hit, `d` the damage, `w` the weight, `g` the knockback growth and `b` the base knockback.
-//! Launch speed is `KB * 0.03` reference units per frame; hitstun is `KB * 0.4` frames; hitlag is
-//! `floor(d/3 + 4)` frames for both fighters.
+//! The knockback is then scaled by rage (the attacker's percent) and crouch cancelling, and the damage by stale-move negation.
+//! Launch speed is `KB * 0.03` reference units per frame; hitstun is `floor(KB * 0.4) - 1` frames; hitlag is
+//! `floor(d * 0.65 + 6)` frames for both fighters (less on a shield or against a crouch), at most 30.
 
 use crate::collision;
 use crate::content::{Content, FighterParams, Ruleset};
@@ -16,7 +17,7 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{Hitbox, Move, MoveId, Reflector, Weapon, HIT_GRAB, HIT_PUMMEL, HIT_THROW};
 use crate::scripting;
-use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE};
+use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
@@ -90,14 +91,66 @@ pub fn knockback(percent: Fx, damage: Fx, weight: Fx, base: i16, growth: i16) ->
     kb * Fx::from_ratio(i32::from(growth), 100) + Fx::from_int(i32::from(base))
 }
 
-pub fn hitlag_frames(damage: Fx) -> u8 {
-    ((damage / Fx::from_int(3)) + Fx::from_int(4))
-        .floor_int()
-        .clamp(1, 30) as u8
+/// Hitlag in frames for a hit of `damage`: `floor(d * 0.65 + 6)` in the standard rules, times 0.67 on a shield, times 0.67 again
+/// against a crouch, at most `hitlag_cap`. A hit that deals no damage has none.
+pub fn hitlag_frames(damage: Fx, rules: &Ruleset, shield: bool, crouch: bool) -> u8 {
+    if damage <= Fx::ZERO {
+        return 0;
+    }
+    let mut lag = damage * rules.hitlag_per_damage + rules.hitlag_base;
+    if shield {
+        lag = lag * rules.shield_hitlag_mult;
+    }
+    let mut frames = lag.floor_int();
+    if crouch {
+        frames = (Fx::from_int(frames) * rules.crouch_cancel_hitlag).floor_int();
+    }
+    frames.clamp(0, i32::from(rules.hitlag_cap)) as u8
 }
 
+/// Hitstun in frames: `floor(KB * 0.4 * mult) - 1` (the reference game takes one frame off every hitstun).
 pub fn hitstun_frames(kb: Fx, mult: Fx) -> u16 {
-    (kb * mult * Fx::from_ratio(2, 5)).floor_int().clamp(0, 600) as u16
+    (((kb * mult).mul_int(2) / Fx::from_int(5)).floor_int() - 1).clamp(0, 600) as u16
+}
+
+/// How much of the reference game's staleness each queue slot takes off (newest first). A move not in the queue is "fresh" and
+/// deals 1.05 times its damage instead.
+const STALE_REDUCTORS: [i32; STALE_QUEUE] = [9000, 8545, 7635, 6790, 5945, 5035, 4255, 3345, 2500];
+const FRESH_BONUS: i32 = 105_000;
+
+/// The damage multiplier for `move_key` (a move id + 1) given a fighter's queue: 1 minus the reductors of every slot holding that
+/// move (a shielded hit counts 0.85 of its slot), or the fresh bonus if it is not there. In hundred-thousandths.
+fn stale_factor(queue: &[u8; STALE_QUEUE], move_key: u8) -> i32 {
+    let mut cut = 0;
+    let mut found = false;
+    for (slot, entry) in queue.iter().enumerate() {
+        if *entry != 0 && entry & 0x7f == move_key {
+            found = true;
+            let r = STALE_REDUCTORS[slot];
+            cut += if entry & 0x80 != 0 { r * 85 / 100 } else { r };
+        }
+    }
+    if found {
+        100_000 - cut
+    } else {
+        FRESH_BONUS
+    }
+}
+
+/// Puts a move at the front of the stale queue (the oldest drops off).
+fn push_stale(queue: &mut [u8; STALE_QUEUE], move_key: u8, shielded: bool) {
+    queue.rotate_right(1);
+    queue[0] = move_key | if shielded { 0x80 } else { 0 };
+}
+
+/// Rage: the attacker's percent raises knockback linearly from `rage_start` to `rage_full`, by up to `rage_max`.
+pub fn rage_multiplier(attacker_percent: Fx, rules: &Ruleset) -> Fx {
+    let span = rules.rage_full - rules.rage_start;
+    if span <= Fx::ZERO {
+        return Fx::ONE;
+    }
+    let t = ((attacker_percent - rules.rage_start) / span).clamp(Fx::ZERO, Fx::ONE);
+    Fx::ONE + t * rules.rage_max
 }
 
 /// World launch angle: mirrored when the attacker faces left, with the 361 "Sakurai" angle resolved.
@@ -228,11 +281,23 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 attacker.pos,
                                 true,
                                 Fx::ONE,
+                                attacker.move_id,
                             );
                         }
                         _ => {
                             let mult = stun_multiplier(&attacker);
-                            apply_hit(state, content, a, d, &hb, facing, attacker.pos, true, mult);
+                            apply_hit(
+                                state,
+                                content,
+                                a,
+                                d,
+                                &hb,
+                                facing,
+                                attacker.pos,
+                                true,
+                                mult,
+                                attacker.move_id,
+                            );
                         }
                     }
                 }
@@ -264,7 +329,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
 
 /// A pummel: damage to the held fighter, a little hitlag for both, and it stays held.
 fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hitbox) {
-    let hitlag = hitlag_frames(hb.damage);
+    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false);
     state.fighters[a].hitlag = hitlag;
     let held = &mut state.fighters[d];
     held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
@@ -309,7 +374,8 @@ fn catch_with_counter(
 }
 
 /// Applies one hit: damage, knockback, hitlag and the victim's state change. `source` is the fighter
-/// responsible (the attacker, or a projectile's owner). Only a melee attacker is frozen by hitlag.
+/// responsible (the attacker, or a projectile's owner). Only a melee attacker is frozen by hitlag. `move_id` is the source's move
+/// that hit, for stale-move negation.
 #[allow(clippy::too_many_arguments)]
 fn apply_hit(
     state: &mut GameState,
@@ -321,8 +387,27 @@ fn apply_hit(
     source_pos: Vec2,
     freeze_source: bool,
     stun_mult: Fx,
+    move_id: u8,
 ) {
-    let hitlag = hitlag_frames(hb.damage);
+    let rules = &content.rules;
+    // Stale-move negation: a move used again and again deals less damage (and a little less knockback); a fresh one a little more.
+    let move_key = (move_id & 0x7f).saturating_add(1).min(0x7f);
+    let stale = if rules.stale_moves != 0 {
+        Fx::from_ratio(
+            stale_factor(&state.fighters[source].stale, move_key),
+            100_000,
+        )
+    } else {
+        Fx::ONE
+    };
+    let mut hb = *hb;
+    let base_damage = hb.damage;
+    hb.damage = base_damage * stale;
+    let kb_damage = base_damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
+
+    let shielding = state.fighters[d].state == S::Shield;
+    let crouching = state.fighters[d].state == S::Crouch && state.fighters[d].grounded();
+    let hitlag = hitlag_frames(hb.damage, rules, shielding, crouching);
     // A fighter in a counter stance catches the hit instead of taking it.
     if catch_with_counter(state, content, source, d, hb.damage, hitlag) {
         if freeze_source {
@@ -333,32 +418,46 @@ fn apply_hit(
     // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by.
     grab::drop_grab(state, content, d);
     if freeze_source {
-        state.fighters[source].hitlag = hitlag;
+        // Hitting several fighters on one frame freezes the attacker for the longest of their hitlags.
+        state.fighters[source].hitlag = state.fighters[source].hitlag.max(hitlag);
+    }
+    if rules.stale_moves != 0 && hb.damage > Fx::ZERO {
+        push_stale(&mut state.fighters[source].stale, move_key, shielding);
     }
 
+    let rage = rage_multiplier(state.fighters[source].percent, rules);
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
-        block(def, &content.rules, hb, facing, hitlag, stun_mult);
+        block(def, rules, &hb, facing, hitlag, stun_mult);
         return;
     }
     if def.state == S::ShieldBreak {
         // Hit while stunned: the stun ends and the shield comes back.
-        fighter::restore_shield(def, &content.rules);
+        fighter::restore_shield(def, rules);
     }
 
-    def.percent = (def.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
-    let kb = knockback(
+    def.percent = (def.percent + hb.damage * rules.damage_mult).min(Fx::from_int(999));
+    let mut kb = knockback(
         def.percent,
-        hb.damage,
+        kb_damage,
         defender_params.weight,
         hb.base_knockback,
         hb.knockback_growth,
-    );
+    ) * rage;
+    if crouching {
+        // Crouch cancelling: holding down on the ground takes some of the knockback off.
+        kb = kb * rules.crouch_cancel_kb;
+    }
     let angle = launch_angle(hb.angle, facing, def.grounded(), kb);
-    let stun = hitstun_frames(kb, content.rules.hitstun_mult);
+    let stun = hitstun_frames(kb, rules.hitstun_mult);
 
-    def.hitlag = hitlag;
+    def.hitlag = if crouching {
+        hitlag.min(rules.crouch_cancel_hitlag_cap)
+    } else {
+        hitlag
+    };
+    def.sdi_wait = 0;
     if stun == 0 {
         return; // a flinch: hitlag only
     }
@@ -387,7 +486,9 @@ fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8
     let perfect = def.state_frame <= u16::from(rules.perfect_shield_window);
     let raw = (hb.damage * Fx::from_ratio(8, 10) * stun_mult + Fx::from_int(2)).floor_int();
     let mut stun = raw.clamp(0, i32::from(rules.shield_stun_cap));
-    def.hitlag = hitlag;
+    // A perfect shield freezes only the attacker.
+    def.hitlag = if perfect { 0 } else { hitlag };
+    def.sdi_wait = 0;
     if perfect {
         stun = (stun - i32::from(rules.perfect_shield_stun_cut)).max(0);
     } else {
@@ -548,7 +649,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 let facing = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
                 // Projectiles stun a shield much less.
                 let mult = Fx::from_ratio(29, 100);
-                apply_hit(state, content, owner, d, &hb, facing, pos, false, mult);
+                apply_hit(
+                    state, content, owner, d, &hb, facing, pos, false, mult, pr.move_id,
+                );
                 state.projectiles[n].active = false;
                 break;
             }
@@ -685,18 +788,77 @@ mod tests {
     }
 
     #[test]
-    fn hitlag_follows_damage() {
-        assert_eq!(hitlag_frames(fx(3)), 5);
-        assert_eq!(hitlag_frames(fx(9)), 7);
-        assert_eq!(hitlag_frames(fx(30)), 14);
-        assert_eq!(hitlag_frames(fx(1000)), 30);
+    fn hitlag_follows_the_reference_formula() {
+        let r = Ruleset::standard();
+        // floor(d * 0.65 + 6), at most 30.
+        assert_eq!(hitlag_frames(fx(3), &r, false, false), 7);
+        assert_eq!(hitlag_frames(fx(9), &r, false, false), 11);
+        assert_eq!(hitlag_frames(fx(30), &r, false, false), 25);
+        assert_eq!(hitlag_frames(fx(1000), &r, false, false), 30);
+        assert_eq!(hitlag_frames(Fx::ZERO, &r, false, false), 0);
+        // A shield takes a third off before rounding; a crouch a third off after.
+        assert_eq!(hitlag_frames(fx(10), &r, true, false), 8);
+        assert_eq!(hitlag_frames(fx(10), &r, false, true), 8);
+        assert_eq!(hitlag_frames(fx(10), &r, false, false), 12);
+    }
+
+    #[test]
+    fn stale_moves_follow_the_reference_table() {
+        let mut q = [0u8; STALE_QUEUE];
+        assert_eq!(
+            stale_factor(&q, 5),
+            105_000,
+            "a fresh move deals a little more"
+        );
+        push_stale(&mut q, 5, false);
+        assert_eq!(stale_factor(&q, 5), 91_000);
+        push_stale(&mut q, 5, false);
+        assert_eq!(stale_factor(&q, 5), 100_000 - 9000 - 8545);
+        // The wiki's worked example: slots 1, 2 and 6 give 77.42 percent.
+        let mut q = [0u8; STALE_QUEUE];
+        for key in [5u8, 9, 9, 9, 5, 5] {
+            push_stale(&mut q, key, false);
+        }
+        assert_eq!(stale_factor(&q, 5), 77_420);
+        // A full queue of one move is the most it can stale; a shielded hit counts 0.85 of its slot.
+        let mut q = [0u8; STALE_QUEUE];
+        for _ in 0..12 {
+            push_stale(&mut q, 7, false);
+        }
+        assert_eq!(stale_factor(&q, 7), 46_950);
+        let mut q = [0u8; STALE_QUEUE];
+        push_stale(&mut q, 7, true);
+        assert_eq!(stale_factor(&q, 7), 100_000 - 7650);
+    }
+
+    #[test]
+    fn rage_adds_up_to_a_tenth_from_35_to_150_percent() {
+        let r = Ruleset::standard();
+        assert_eq!(rage_multiplier(fx(0), &r), Fx::ONE);
+        assert_eq!(rage_multiplier(fx(35), &r), Fx::ONE);
+        assert_eq!(
+            rage_multiplier(fx(150), &r),
+            Fx::ONE + Fx::from_ratio(1, 10)
+        );
+        assert_eq!(
+            rage_multiplier(fx(400), &r),
+            Fx::ONE + Fx::from_ratio(1, 10)
+        );
+        let mid = rage_multiplier(fx(92), &r);
+        assert!(mid > Fx::ONE && mid < Fx::ONE + Fx::from_ratio(1, 10));
     }
 
     #[test]
     fn hitstun_scales_with_knockback_and_the_ruleset_multiplier() {
         let kb = Fx::from_ratio(664, 10);
-        assert_eq!(hitstun_frames(kb, Fx::ONE), 26);
-        assert_eq!(hitstun_frames(kb, Fx::from_ratio(105, 100)), 27);
+        // floor(KB * 0.4) - 1.
+        assert_eq!(hitstun_frames(kb, Fx::ONE), 25);
+        assert_eq!(hitstun_frames(kb, Fx::from_ratio(105, 100)), 26);
+        assert_eq!(
+            hitstun_frames(fx(100), Fx::ONE),
+            39,
+            "the wiki's example: 100 knockback is 39 frames"
+        );
         assert!(hitstun_frames(kb.mul_int(2), Fx::ONE) > hitstun_frames(kb, Fx::ONE));
     }
 

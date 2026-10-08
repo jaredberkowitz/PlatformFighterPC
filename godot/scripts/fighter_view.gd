@@ -1008,6 +1008,55 @@ func _make_trail() -> void:
 	add_child(trail)
 
 
+# ---- Launch smoke ------------------------------------------------------------------------------------------------------------
+# A strong launch leaves a trail of puffs behind the tumbling fighter (as the reference game does), so the eye can follow a big hit.
+
+const PUFFS := 14
+var puffs: Array[MeshInstance3D] = []
+var puff_age: Array[float] = []
+var next_puff := 0
+var last_puff_at := Vector3.INF
+var last_puff_frame := -1
+
+
+func _launch_smoke(s: Dictionary) -> void:
+	if puffs.is_empty():
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(0.92, 0.92, 0.95, 0.55)
+		for i in PUFFS:
+			var p := MeshInstance3D.new()
+			p.mesh = _sphere(0.35)
+			p.material_override = mat.duplicate()
+			p.top_level = true
+			p.visible = false
+			add_child(p)
+			puffs.append(p)
+			puff_age.append(99.0)
+	var frame: int = s.frame
+	if frame != last_puff_frame:
+		var dt := 1.0 / 60.0 * float(maxi(1, frame - last_puff_frame)) if last_puff_frame >= 0 else 1.0 / 60.0
+		last_puff_frame = frame
+		for i in PUFFS:
+			puff_age[i] += dt
+			var life := puff_age[i] / 0.55
+			puffs[i].visible = life < 1.0
+			if puffs[i].visible:
+				puffs[i].scale = Vector3.ONE * (0.6 + life * 0.9)
+				(puffs[i].material_override as StandardMaterial3D).albedo_color.a = 0.55 * (1.0 - life)
+		var here := global_position + Vector3(0, 1.0, 0)
+		if s.state == "Hitstun" and int(s.hitlag) == 0 and s.tumble and (last_puff_at == Vector3.INF or here.distance_to(last_puff_at) > 0.45):
+			var p := puffs[next_puff]
+			next_puff = (next_puff + 1) % PUFFS
+			p.global_position = here
+			puff_age[puffs.find(p)] = 0.0
+			p.visible = true
+			last_puff_at = here
+		elif s.state != "Hitstun":
+			last_puff_at = Vector3.INF
+
+
 ## Edge and core colours: violet and white-pink for the brawler, gold and white for the sword.
 func _trail_colours(s: Dictionary) -> Array:
 	if _cls(s) == 1:
@@ -1138,8 +1187,15 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	spark.visible = hitlag > 0 and state == "Hitstun" and s.launch_pending
 	if spark.visible:
 		spark.scale = Vector3.ONE * (0.5 + 0.1 * hitlag)
-	# Shake while frozen in hitlag.
-	model.position = Vector3(sin(float(s.frame) * 9.0) * 0.14, 0, 0) if hitlag > 0 else Vector3.ZERO
+	# The one who was hit shakes while frozen in hitlag (harder for a stronger hit, settling as it ends); the attacker holds still.
+	var shaking: bool = hitlag > 0 and (s.launch_pending or state == "Shield")
+	if shaking:
+		var amp := (0.05 + 0.012 * hitlag) * (0.4 if state == "Shield" else 1.0)
+		var t := float(s.frame)
+		model.position = Vector3(sin(t * 9.0) * amp, cos(t * 7.3) * amp * 0.5, 0)
+	else:
+		model.position = Vector3.ZERO
+	_launch_smoke(s)
 	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
 	var charge: int = s.charge
 	if charge > 0 and state == "Attack":

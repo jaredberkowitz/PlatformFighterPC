@@ -5,16 +5,16 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 26
-    hash c2094846571d72c9
+    sim_version 27
+    hash 7a71ba6f47f63edc
 }
 
 ruleset {
     damage_mult 1.2
-    hitstun_mult 1.04999
+    hitstun_mult 1
     knockback_decay 0.00636
     tumble_knockback 80
-    sdi_distance 0.75
+    sdi_distance 0.25
     di_degrees 18
     respawn_invuln 120
     tech_window 5
@@ -46,6 +46,20 @@ ruleset {
     grab_release_lag 25
     grab_immunity 60
     grab_distance 1.29999
+    hitlag_per_damage 0.65
+    hitlag_base 6
+    hitlag_cap 30
+    shield_hitlag_mult 0.67
+    crouch_cancel_kb 0.84999
+    crouch_cancel_hitlag 0.67
+    crouch_cancel_hitlag_cap 20
+    sdi_interval 4
+    rage_start 35
+    rage_full 150
+    rage_max 0.09999
+    stale_moves 1
+    hitstun_dodge_cancel 40
+    hitstun_attack_cancel 45
 }
 
 weapon longsword {

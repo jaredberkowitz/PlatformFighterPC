@@ -596,7 +596,7 @@ impl StateHash for Stage {
 pub struct Ruleset {
     /// Multiplies all damage dealt. 1.2 matches the reference game's default one-on-one rules.
     pub damage_mult: Fx,
-    /// Scales every hitstun duration. Slightly above 1.0 gives combos a little more room (plan 4.3).
+    /// Scales every hitstun duration (1.0 is the reference game: hitstun is `floor(knockback * 0.4 * this) - 1`).
     pub hitstun_mult: Fx,
     /// Launch speed lost per frame (world units per frame squared).
     pub knockback_decay: Fx,
@@ -662,16 +662,40 @@ pub struct Ruleset {
     pub grab_immunity: u8,
     /// How far in front of the holder the held fighter stands.
     pub grab_distance: Fx,
+    // ---- Hit feel (the reference game's formulas) ----
+    /// Hitlag is `floor(damage * hitlag_per_damage + hitlag_base)` frames (times the shield and crouch-cancel factors), at most
+    /// `hitlag_cap`. The damage is the hit's own damage, before the one-on-one multiplier.
+    pub hitlag_per_damage: Fx,
+    pub hitlag_base: Fx,
+    pub hitlag_cap: u8,
+    /// Hitlag factor when the hit lands on a shield.
+    pub shield_hitlag_mult: Fx,
+    /// A fighter crouching on the ground when hit takes this share of the knockback, and both fighters this share of the hitlag
+    /// (the victim's capped at `crouch_cancel_hitlag_cap`).
+    pub crouch_cancel_kb: Fx,
+    pub crouch_cancel_hitlag: Fx,
+    pub crouch_cancel_hitlag_cap: u8,
+    /// Frames between two survival-DI nudges.
+    pub sdi_interval: u8,
+    /// Rage: the attacker's percent adds knockback, from nothing at `rage_start` to `rage_max` (a fraction) at `rage_full`.
+    pub rage_start: Fx,
+    pub rage_full: Fx,
+    pub rage_max: Fx,
+    /// 1 to weaken moves used over and over (stale-move negation), 0 to turn it off.
+    pub stale_moves: u8,
+    /// A fighter in a long hitstun can air dodge out of it from this frame of the hitstun, and attack from the second.
+    pub hitstun_dodge_cancel: u8,
+    pub hitstun_attack_cancel: u8,
 }
 
 impl Ruleset {
     pub fn standard() -> Ruleset {
         Ruleset {
             damage_mult: Fx::from_ratio(12, 10),
-            hitstun_mult: Fx::from_ratio(105, 100),
+            hitstun_mult: Fx::ONE,
             knockback_decay: Fx::from_ratio(51, 8000),
             tumble_knockback: Fx::from_int(80),
-            sdi_distance: Fx::from_ratio(3, 4),
+            sdi_distance: Fx::from_ratio(1, 4),
             di_degrees: 18,
             respawn_invuln: 120,
             tech_window: 5,
@@ -703,6 +727,20 @@ impl Ruleset {
             grab_release_lag: 25,
             grab_immunity: 60,
             grab_distance: Fx::from_ratio(13, 10),
+            hitlag_per_damage: Fx::from_ratio(65, 100),
+            hitlag_base: Fx::from_int(6),
+            hitlag_cap: 30,
+            shield_hitlag_mult: Fx::from_ratio(67, 100),
+            crouch_cancel_kb: Fx::from_ratio(85, 100),
+            crouch_cancel_hitlag: Fx::from_ratio(67, 100),
+            crouch_cancel_hitlag_cap: 20,
+            sdi_interval: 4,
+            rage_start: Fx::from_int(35),
+            rage_full: Fx::from_int(150),
+            rage_max: Fx::from_ratio(1, 10),
+            stale_moves: 1,
+            hitstun_dodge_cancel: 40,
+            hitstun_attack_cancel: 45,
         }
     }
 }
@@ -745,6 +783,20 @@ impl StateHash for Ruleset {
         h.write_u8(self.grab_release_lag);
         h.write_u8(self.grab_immunity);
         self.grab_distance.hash_into(h);
+        self.hitlag_per_damage.hash_into(h);
+        self.hitlag_base.hash_into(h);
+        h.write_u8(self.hitlag_cap);
+        self.shield_hitlag_mult.hash_into(h);
+        self.crouch_cancel_kb.hash_into(h);
+        self.crouch_cancel_hitlag.hash_into(h);
+        h.write_u8(self.crouch_cancel_hitlag_cap);
+        h.write_u8(self.sdi_interval);
+        self.rage_start.hash_into(h);
+        self.rage_full.hash_into(h);
+        self.rage_max.hash_into(h);
+        h.write_u8(self.stale_moves);
+        h.write_u8(self.hitstun_dodge_cancel);
+        h.write_u8(self.hitstun_attack_cancel);
     }
 }
 

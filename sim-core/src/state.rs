@@ -69,6 +69,9 @@ impl StateHash for FighterState {
     }
 }
 
+/// How many recent moves the stale-move queue remembers.
+pub const STALE_QUEUE: usize = 9;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Fighter {
     /// Feet position (bottom centre of the ECB).
@@ -133,6 +136,11 @@ pub struct Fighter {
     pub shield_hp: Fx,
     /// Frames of shield stun left after blocking a hit: the shield stays up and the fighter cannot act.
     pub shield_stun: u8,
+    /// Frames until the next survival-DI nudge can happen.
+    pub sdi_wait: u8,
+    /// The last moves this fighter connected with, newest first: `move id + 1`, with the top bit set if the hit was shielded; 0 is
+    /// empty. Drives stale-move negation; a respawn clears it.
+    pub stale: [u8; STALE_QUEUE],
     /// The fighter being held (when grabbing) or holding this one (when grabbed), or [`NONE`].
     pub grab_with: i8,
     /// Frames left before a held fighter breaks free by itself (mashing shortens it).
@@ -291,6 +299,8 @@ impl Fighter {
             charge: 0,
             shield_hp,
             shield_stun: 0,
+            sdi_wait: 0,
+            stale: [0; STALE_QUEUE],
             grab_with: NONE,
             grab_timer: 0,
             grab_immune: 0,
@@ -413,6 +423,10 @@ impl StateHash for Fighter {
         h.write_u8(self.charge);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
+        h.write_u8(self.sdi_wait);
+        for s in self.stale {
+            h.write_u8(s);
+        }
         h.write_i8(self.grab_with);
         h.write_u16(self.grab_timer);
         h.write_u8(self.grab_immune);
@@ -691,6 +705,16 @@ mod tests {
             ("shield_hp", {
                 let mut s = state;
                 s.fighters[0].shield_hp = Fx::from_int(7);
+                s
+            }),
+            ("sdi_wait", {
+                let mut s = state;
+                s.fighters[0].sdi_wait = 1;
+                s
+            }),
+            ("stale", {
+                let mut s = state;
+                s.fighters[0].stale[8] = 3;
                 s
             }),
             ("shield_stun", {

@@ -26,6 +26,8 @@ impl Sim {
         let mut content = Content::placeholder();
         // Tall blast zone so tests can hold fighters high in the air without being KO.d.
         content.stage.blast_top = Fx::from_int(5000);
+        // Moves deal their listed damage in tests: stale-move negation (and its fresh bonus) is tested on its own, with it on.
+        content.rules.stale_moves = 0;
         let state = GameState::new(&content, 1, chars);
         Sim { content, state }
     }
