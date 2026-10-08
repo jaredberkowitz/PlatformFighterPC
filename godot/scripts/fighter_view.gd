@@ -48,6 +48,19 @@ static func toon(c: Color, outline := true) -> StandardMaterial3D:
 	return m
 
 
+## Throws the fighter's model away and builds it again with another loadout (for example when the other player's
+## arrives over the network, or while editing one).
+func rebuild(l: RefCounted) -> void:
+	for c in get_children():
+		remove_child(c)
+		c.free()
+	meshes.clear()
+	face_parts = {}
+	last_expression = {}
+	last_ghost = 0.0
+	build(player, l)
+
+
 func _part(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE, rot_deg := Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
@@ -82,9 +95,17 @@ func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
 	return c
 
 
-func build(p: int) -> void:
+const Loadout := preload("res://scripts/loadout.gd")
+var loadout: RefCounted
+## The face's moving parts, so the expression can change (see set_expression).
+var face_parts := {}
+
+
+## Builds the fighter. `l` is its cosmetic loadout (see loadout.gd); without one the player's default look is used.
+func build(p: int, l: RefCounted = null) -> void:
 	player = p
-	var col: Color = COLORS[p % COLORS.size()]
+	loadout = l if l != null else Loadout.default_for(p)
+	var col: Color = loadout.body_color()
 	var skin := toon(col)
 	var ink := toon(INK, false)
 	model = Node3D.new()
@@ -97,22 +118,10 @@ func build(p: int) -> void:
 		_part(model, _sphere(0.24), skin, Vector3(sx * 0.32, 0.2, 0.05), Vector3(1, 0.8, 1.35))
 		_part(model, _sphere(0.22), toon(Color(1, 1, 1)), Vector3(sx * 0.78, 0.85, 0.05))
 
-	# Sash across the torso.
-	var sash := BoxMesh.new()
-	sash.size = Vector3(1.5, 0.2, 0.12)
-	_part(model, sash, toon(SASH), Vector3(0, 0.85, 0.5), Vector3.ONE, Vector3(0, 0, -42))
-
-	# Heavy-lidded face on the front (+z) of the head.
-	for sx in [-1.0, 1.0]:
-		var eye_pos := Vector3(sx * 0.31, 1.5, 0.745)
-		_part(model, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos, Vector3(0.17, 0.19, 0.05))
-		_part(model, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
-		# Heavy lid: head-coloured cap over the upper half of the eye.
-		_part(model, _sphere(1.0), skin, eye_pos + Vector3(0, 0.085, 0.045), Vector3(0.2, 0.11, 0.06))
-		_part(model, _sphere(1.0), ink, eye_pos + Vector3(0, 0.0, 0.05), Vector3(0.18, 0.012, 0.03))
-	_part(model, _sphere(1.0), ink, Vector3(0, 1.17, 0.775), Vector3(0.14, 0.05, 0.05))
-
-	_accessories(p, skin)
+	_neck(skin)
+	_face(skin, ink)
+	_hat()
+	_glasses()
 
 	shield = MeshInstance3D.new()
 	shield.mesh = _sphere(1.5)
@@ -191,16 +200,85 @@ func build(p: int) -> void:
 	add_child(flame)
 
 
-func _accessories(p: int, _skin: StandardMaterial3D) -> void:
+const EYE_Y := 1.5
+const EYE_DX := 0.31
+
+
+## The face is drawn on the front of the head: eyes with heavy lids, brows and a mouth. `set_expression` poses them.
+func _face(skin: StandardMaterial3D, ink: StandardMaterial3D) -> void:
+	face_parts = {"lids": [], "lines": [], "brows": [], "mouth": null, "skin": skin}
+	for sx in [-1.0, 1.0]:
+		var eye_pos := Vector3(sx * EYE_DX, EYE_Y, 0.745)
+		_part(model, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos, Vector3(0.17, 0.19, 0.05))
+		_part(model, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
+		face_parts.lids.append(_part(model, _sphere(1.0), skin, eye_pos, Vector3(0.2, 0.1, 0.06)))
+		face_parts.lines.append(_part(model, _sphere(1.0), ink, eye_pos, Vector3(0.18, 0.012, 0.03)))
+		var brow := BoxMesh.new()
+		brow.size = Vector3(0.3, 0.05, 0.05)
+		face_parts.brows.append(_part(model, brow, ink, eye_pos + Vector3(0, 0.3, 0.03)))
+	face_parts.mouth = _part(model, _sphere(1.0), ink, Vector3(0, 1.17, 0.775), Vector3(0.14, 0.05, 0.05))
+	set_expression(Loadout.FACES[loadout.face])
+
+
+## Poses the face from a dictionary like the entries of Loadout.FACES (lid, mouth_w, mouth_h, mouth_tilt, brow).
+func set_expression(e: Dictionary) -> void:
+	if face_parts.is_empty() or e == last_expression:
+		return
+	last_expression = e
+	var lid: float = e.lid
+	for i in 2:
+		var sx := -1.0 if i == 0 else 1.0
+		var cap: MeshInstance3D = face_parts.lids[i]
+		cap.scale = Vector3(0.2, maxf(0.1 * lid * 2.0, 0.001), 0.06)
+		cap.position = Vector3(sx * EYE_DX, EYE_Y + 0.19 - 0.19 * lid, 0.79)
+		var line: MeshInstance3D = face_parts.lines[i]
+		line.position = Vector3(sx * EYE_DX, EYE_Y + 0.19 - 0.38 * lid, 0.795)
+		var brow: MeshInstance3D = face_parts.brows[i]
+		brow.visible = absf(float(e.brow)) >= 1.0
+		brow.rotation_degrees = Vector3(0, 0, float(e.brow) * sx)
+	var mouth: MeshInstance3D = face_parts.mouth
+	mouth.scale = Vector3(e.mouth_w, e.mouth_h, 0.05)
+	mouth.rotation_degrees = Vector3(0, 0, e.mouth_tilt)
+
+
+var last_expression := {}
+
+
+func _neck(_skin: StandardMaterial3D) -> void:
+	var accent: Color = loadout.accent_color()
+	match loadout.neck:
+		1:
+			# Sash across the torso.
+			var sash := BoxMesh.new()
+			sash.size = Vector3(1.5, 0.2, 0.12)
+			_part(model, sash, toon(SASH), Vector3(0, 0.85, 0.5), Vector3.ONE, Vector3(0, 0, -42))
+		2:
+			# Neckerchief: a knotted square at the throat.
+			var sq := BoxMesh.new()
+			sq.size = Vector3(0.7, 0.7, 0.1)
+			_part(model, sq, toon(accent), Vector3(0, 1.0, 0.6), Vector3.ONE, Vector3(0, 0, 45))
+			_part(model, _sphere(0.16), toon(accent), Vector3(0, 1.28, 0.62))
+		3:
+			# Scarf: a ring round the neck with a tail hanging in front.
+			var ring := TorusMesh.new()
+			ring.inner_radius = 0.5
+			ring.outer_radius = 0.72
+			_part(model, ring, toon(accent), Vector3(0, 1.07, 0), Vector3(1, 0.55, 1))
+			var tail := BoxMesh.new()
+			tail.size = Vector3(0.28, 0.7, 0.08)
+			_part(model, tail, toon(accent), Vector3(0.28, 0.72, 0.58), Vector3.ONE, Vector3(0, 0, 8))
+
+
+func _hat() -> void:
+	var accent: Color = loadout.accent_color()
 	var white := toon(Color(0.97, 0.97, 1.0))
-	var navy := toon(Color(0.2, 0.3, 0.7))
-	match p % 4:
-		0, 2:
-			# Sailor cap.
+	match loadout.hat:
+		1:
+			# Sailor cap: white crown and brim with a band in the accent colour.
 			_part(model, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0))
 			_part(model, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0))
-			_part(model, _cyl(0.5, 0.5, 0.05), navy, Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
-		1:
+			_part(model, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
+		2:
 			# Aviator cap with goggles on top.
 			_part(model, _sphere(0.86), toon(Color(0.78, 0.6, 0.38)), Vector3(0, 1.84, -0.14), Vector3(1.0, 0.6, 1.0))
 			var ring := TorusMesh.new()
@@ -209,18 +287,53 @@ func _accessories(p: int, _skin: StandardMaterial3D) -> void:
 			for sx in [-1.0, 1.0]:
 				_part(model, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.3, 2.12, 0.28), Vector3.ONE, Vector3(70, 0, 0))
 		3:
-			# Straw hat.
+			# Straw hat with a band in the accent colour.
 			var straw := toon(Color(0.9, 0.78, 0.45))
 			_part(model, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0))
 			_part(model, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0))
-			_part(model, _cyl(0.63, 0.63, 0.08), toon(Color(0.4, 0.25, 0.2)), Vector3(0, 2.14, 0))
-	# Shades on players 1 and 2, like the reference.
-	if p % 4 == 1 or p % 4 == 2:
-		var lens := toon(Color(1.0, 0.62, 0.3), false)
-		var frame := toon(INK, false)
-		for sx in [-1.0, 1.0]:
-			_part(model, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.8), Vector3(0.25, 0.18, 0.04))
-		_part(model, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
+			_part(model, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0))
+		4:
+			# Beanie with a pompom.
+			_part(model, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0), Vector3(1.0, 0.7, 1.0))
+			_part(model, _sphere(0.18), white, Vector3(0, 2.38, 0))
+		5:
+			# Crown: a gold band with five points.
+			var gold := toon(Color(0.96, 0.8, 0.25))
+			_part(model, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0))
+			for i in 5:
+				var a := TAU * i / 5.0
+				_part(model, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5))
+
+
+func _glasses() -> void:
+	var lens := toon(Color(1.0, 0.62, 0.3), false)
+	var frame := toon(INK, false)
+	match loadout.glasses:
+		1:
+			# Shades, like the reference.
+			for sx in [-1.0, 1.0]:
+				_part(model, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.8), Vector3(0.25, 0.18, 0.04))
+			_part(model, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
+		2:
+			# Goggles: chunky rings with a strap round the head.
+			var ring := TorusMesh.new()
+			ring.inner_radius = 0.14
+			ring.outer_radius = 0.28
+			for sx in [-1.0, 1.0]:
+				_part(model, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+				_part(model, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
+			var strap := TorusMesh.new()
+			strap.inner_radius = 0.78
+			strap.outer_radius = 0.84
+			_part(model, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
+		3:
+			# Round specs: thin rings and a bridge.
+			var thin := TorusMesh.new()
+			thin.inner_radius = 0.17
+			thin.outer_radius = 0.21
+			for sx in [-1.0, 1.0]:
+				_part(model, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+			_part(model, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
 
 
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
@@ -423,6 +536,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.rotation.z = float(s.frame) * 0.6 * -float(s.facing)
 
 	var hitlag: int = s.hitlag
+	# The hurt face is a cosmetic event: it shows while the fighter is being hit and goes back afterwards.
+	set_expression(Loadout.HURT if state == "Hitstun" else Loadout.FACES[loadout.face])
 	spark.visible = hitlag > 0 and state == "Hitstun" and s.launch_pending
 	if spark.visible:
 		spark.scale = Vector3.ONE * (0.5 + 0.1 * hitlag)

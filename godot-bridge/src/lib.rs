@@ -72,6 +72,8 @@ pub struct SimRunner {
     content_name: String,
     /// Which fighter slots are in the match (bit `n` is fighter `n`). The game has two players.
     players: u8,
+    /// This player's cosmetic loadout bytes, sent to the other player in the handshake (opaque; never used by the sim).
+    my_cosmetics: Vec<u8>,
     state: GameState,
     inputs: [Input; MAX_FIGHTERS],
     history: VecDeque<GameState>,
@@ -90,6 +92,7 @@ impl INode for SimRunner {
             content,
             content_name: String::new(),
             players: 0b0011,
+            my_cosmetics: Vec::new(),
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
             history: VecDeque::new(),
@@ -135,6 +138,21 @@ impl SimRunner {
     #[func]
     fn set_players(&mut self, count: i32) {
         self.players = ((1u16 << count.clamp(1, MAX_FIGHTERS as i32)) - 1) as u8;
+    }
+
+    /// Sets this player's cosmetic loadout (a few opaque bytes). Call it before `net_host` / `net_join`; it travels
+    /// in the handshake and never touches the simulation or its checksum. Longer than 64 bytes is cut.
+    #[func]
+    fn set_cosmetics(&mut self, bytes: PackedByteArray) {
+        self.my_cosmetics = bytes.as_slice().iter().take(64).copied().collect();
+    }
+
+    /// The other player's cosmetic bytes once the handshake has delivered them (empty until then).
+    #[func]
+    fn net_their_cosmetics(&self) -> PackedByteArray {
+        self.net.as_ref().map_or_else(PackedByteArray::new, |p| {
+            PackedByteArray::from(p.their_cosmetics())
+        })
     }
 
     /// The loaded bundle's name, or an empty string for the built-in roster.
@@ -587,7 +605,7 @@ impl SimRunner {
             chars: ids,
             active: 0b0011,
             input_delay: input_delay.clamp(0, 8) as u8,
-            cosmetics: Vec::new(),
+            cosmetics: self.my_cosmetics.clone(),
         };
         self.net = Some(Peer::host(link, &self.content, setup));
         self.net_log.clear();
@@ -595,7 +613,7 @@ impl SimRunner {
     }
 
     fn net_start_join(&mut self, link: NetLink) -> GString {
-        self.net = Some(Peer::join(link, &self.content, Vec::new()));
+        self.net = Some(Peer::join(link, &self.content, self.my_cosmetics.clone()));
         self.net_log.clear();
         GString::new()
     }
