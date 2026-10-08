@@ -36,7 +36,7 @@ Names are 1 to 24 letters, digits, spaces, `-` and `_`, cannot be a built-in fig
 
 ## Character select
 
-A grid of round portraits: the two built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
+A grid of round portraits (**Players: 2/3/4**, see `docs/MATCHES.md`): the two built-in fighters, every fighter you saved, a **?** (random) and a **+** (make a new one). Each
 player has a big panel with the fighter at its real size. **Player 1:** W A S D move, J locks in, K takes it back. **Player 2:** arrow
 keys, Enter locks in, Backspace takes it back. **Mouse:** left click picks for player 1, right click for player 2. **E** edits the
 saved fighter player 1 is on. When both are locked in, Space (or Enter, or the Start Battle button) starts the match; Esc in a match
@@ -82,15 +82,29 @@ To play online with a made fighter, make it in the creator, then either play one
 "last played") or pass `--fighter=<name>` to the launcher: for example
 `Godot --path godot -- --host=47000 --fighter=big_bertha` and `Godot --path godot -- --join=IP:47000 --fighter=tiny_tim`.
 
+## Controls and controllers
+
+* **Main menu, Controls** (`godot/ui/controls.gd`) lists both players' keyboard keys and rebinds them: Up/Down choose an action,
+  Left/Right switch player, **Enter** then the new key rebinds, **Delete** resets that player's keys, Esc goes back. A key already used
+  by the same player's other action swaps with it, so no key is ever on two actions; Esc and the F-keys the game uses stay reserved.
+  Saved in `user://controls.json` (`godot/scripts/bindings.gd`); a damaged or hand-edited file is repaired. The sim never sees keys.
+* **Controllers** play with: left stick or D-pad to move, A or Y jump, X attack, B special, bumpers and triggers shield, right-stick
+  click grab, and the **right stick smashes** (a strong attack in the direction pushed). Controller 1 is player 1, controller 2 player 2,
+  alongside the keyboards. (Not tested with real hardware: no controller was available.)
+* **Controllers in the menus** (`godot/scripts/pad_nav.gd`): D-pad or left stick moves (with key repeat), A confirms, B goes back,
+  Start starts, Back/Select leaves; it works by pressing the keys the screens already understand. In character select controller 1 plays
+  the player 1 keys and controller 2 the player 2 keys. During a match the controller plays, so it only navigates the results screen and
+  replays. Text fields (names, addresses) still need a keyboard.
+
 ## Not done (honest list)
 
-* **No online lobby in the menus.** Hosting and joining are launch arguments (see above); the fighter is chosen by name or by what was
-  last played. A proper lobby with online character select, a ranked toggle and an input-delay setting is Phase 7.
-* Menus are keyboard and mouse. There is no controller navigation yet, and no key rebinding.
+* **The online screen is a form, not a lobby.** Online play has its own screen now (main menu, Online: see `docs/MATCHES.md`), but there
+  is no list of games or matchmaking: friends type an address (or a relay and a room number).
+* Controller menu navigation and the new bindings have not been tried with a real controller. Text entry needs a keyboard.
 * The point budget is a plain sum of the four stats; it does not weigh them differently, and nothing yet checks whether a legal
   build is balanced (a tiny, fast, high-jumping, featherweight fighter is legal and strong in some ways). Real balance tooling is Phase 8.
 * The character art is the placeholder blob. Real models come later; the menus show whatever the fighter view draws.
-* One stage and one mode (versus). Stage select, stocks and match rules, results and rematch are Phase 7.
+* One stage and one mode (versus). Stage select is still to do (stocks, results and rematch are done: `docs/MATCHES.md`).
 * Not tried by a person yet: whether the screens feel good to use is unproven until someone plays with them.
 
 ## Tests

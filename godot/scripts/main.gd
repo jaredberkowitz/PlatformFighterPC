@@ -8,8 +8,13 @@ const StageView := preload("res://scripts/stage_view.gd")
 const InputReader := preload("res://scripts/input_reader.gd")
 const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
+const MatchHud := preload("res://ui/match_hud.gd")
+const Results := preload("res://ui/results.gd")
+const Replays := preload("res://scripts/replays.gd")
+const PadNav := preload("res://scripts/pad_nav.gd")
 
-const PLAYERS := 2
+## How many fighters are in this match (2 to 4): set once, before the world is built.
+var PLAYERS := 2
 const SEED := 1
 const CHARS := [0, 1, 0, 1]
 ## Which fighters play, by index into the loaded roster. `--chars=2,0` after `--` picks them (editors' playtest does).
@@ -20,10 +25,17 @@ var masks := {}
 var views: Array = []
 var stage_view: Node3D
 var overlay: CanvasLayer
+var hud: CanvasLayer
+var results: CanvasLayer
+var names: Array = ["Player 1", "Player 2", "Player 3", "Player 4"]
+var end_timer := 0.0
+var replay_mode := false
+var replay_speed := 1.0
+var replay_accum := 0.0
 var cam: Camera3D
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
-var min_down: Array = [0.2, 0.2]
+var min_down: Array = [0.2, 0.2, 0.2, 0.2]
 var ui_stamp := -1
 var overlay_dirty := true
 var warmed := false
@@ -61,13 +73,24 @@ func _ready() -> void:
 	add_child(sim)
 	for n in ["jump", "attack", "special", "shield", "grab", "strong"]:
 		masks[n] = sim.button_mask(n)
+	PLAYERS = _player_count()
 	_build_world()
 	_parse_demo_args()
 	_load_content()
+	_apply_rules()
+	_rebuild_stage()
+	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
+	if Roster.session.get("from_menu", false):
+		overlay_on = false
+		overlay.set_overlay_visible(false)
+		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
+		show_boxes = false
+		show_ecb = false
 	sim.set_players(PLAYERS)
 	_restart()
 	_apply_scales()
 	_start_net()
+	PadNav.attach(self)
 	_build_ecb()
 	_build_boxes()
 	_build_projectiles()
@@ -112,6 +135,25 @@ func _build_world() -> void:
 	overlay = DebugOverlay.new()
 	add_child(overlay)
 	overlay.build(PLAYERS, masks)
+	hud = MatchHud.new()
+	add_child(hud)
+	hud.build()
+
+
+## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.
+func _player_count() -> int:
+	var replay := PackedByteArray()
+	if Roster.session.has("replay"):
+		replay = Roster.session.replay
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--replay="):
+			replay = Replays.read(a.substr(9))
+	if not replay.is_empty():
+		var info: Dictionary = sim.replay_peek(replay)
+		return clampi(int(info.get("players", 2)), 2, 4)
+	if Roster.session.has("entries"):
+		return clampi(Roster.session.entries.size(), 2, 4)
+	return 2
 
 
 func _parse_demo_args() -> void:
@@ -144,6 +186,13 @@ func _parse_demo_args() -> void:
 
 
 func _restart() -> void:
+	if replay_mode:
+		_replay_seek(0)
+		return
+	if results != null:
+		results.queue_free()
+		results = null
+	end_timer = 0.0
 	var chars: Array = chosen_chars
 	if demo != null and demo.chars.size() > 0:
 		chars = demo.chars
@@ -190,6 +239,30 @@ func _send_key(code: int, down: bool) -> void:
 var content_note := ""
 
 
+## How the match is won: the menus' choice (stocks and time limit), or `--stocks=N --time=SECONDS` after `--`. With neither it is
+## free play (nobody is eliminated), which keeps demos, training and the test launchers as they were.
+## Draws the stage the simulation now has (the match content may have swapped it).
+func _rebuild_stage() -> void:
+	stage_view.clear()
+	stage_view.build(sim)
+
+
+func _apply_rules() -> void:
+	if replay_mode:
+		return
+	var stocks := 0
+	var seconds := 0
+	if Roster.session.has("stocks"):
+		stocks = int(Roster.session.stocks)
+		seconds = int(Roster.session.get("time", 0))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--stocks="):
+			stocks = int(a.substr(9))
+		elif a.begins_with("--time="):
+			seconds = int(a.substr(7))
+	sim.set_match_rules(stocks, seconds)
+
+
 func _load_content() -> void:
 	var path := ""
 	for a in OS.get_cmdline_user_args():
@@ -203,7 +276,51 @@ func _load_content() -> void:
 			while picked.size() < 4:
 				picked.append(0)
 			chosen_chars = picked
-	# Coming from the menus: the match's content (the base roster plus any fighters made in the creator) is ready.
+	# Watching a replay: the file rebuilds the match's content and its first state.
+	var replay_bytes := PackedByteArray()
+	if Roster.session.has("replay"):
+		replay_bytes = Roster.session.replay
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--replay="):
+			replay_bytes = Replays.read(a.substr(9))
+	if not replay_bytes.is_empty():
+		var replay_error: String = sim.replay_load(replay_bytes)
+		if replay_error == "":
+			replay_mode = true
+			var info: Dictionary = sim.replay_peek(replay_bytes)
+			for i in PLAYERS:
+				var profile := Roster.parse_profile(info["cosmetics%d" % i], i)
+				views[i].rebuild(profile.look)
+				views[i].set_name_tag(profile.name)
+				if profile.name != "":
+					names[i] = profile.name
+			return
+		push_error("replay: " + replay_error)
+		content_note = "REPLAY NOT LOADED: " + replay_error
+	# Coming from the menus: the match's fighters build the match content (the base roster plus any made fighters), the
+	# same way an online match does, so it can be recorded and replayed.
+	sim.set_match_stage(int(Roster.session.get("stage", 0)))
+	if Roster.session.has("entries") and Roster.session.entries.size() >= 2:
+		var specs: Array[PackedByteArray] = []
+		for i in PLAYERS:
+			specs.append(Roster.spec_bytes(Roster.session.entries[i]))
+		var loaded: Dictionary = sim.load_match_roster(specs)
+		var load_error: String = loaded.error
+		if load_error == "":
+			chosen_chars = []
+			for c in loaded.chars:
+				chosen_chars.append(c)
+			while chosen_chars.size() < 4:
+				chosen_chars.append(0)
+			content_note = ""
+			for i in PLAYERS:
+				var e: Dictionary = Roster.session.entries[i]
+				views[i].rebuild(e.look)
+				views[i].set_name_tag(e.name)
+				names[i] = e.name
+			return
+		push_error("content: " + load_error)
+		content_note = "CONTENT NOT LOADED: " + load_error
 	if Roster.session.has("content_text"):
 		var err_text: String = sim.load_content_text(Roster.session.content_text)
 		if err_text == "":
@@ -215,6 +332,7 @@ func _load_content() -> void:
 				var e: Dictionary = Roster.session.entries[i]
 				views[i].rebuild(e.look)
 				views[i].set_name_tag(e.name)
+				names[i] = e.name
 			return
 		push_error("content: " + err_text)
 		content_note = "CONTENT NOT LOADED: " + err_text
@@ -243,10 +361,18 @@ var net_mode := false
 var local_slot := 0
 var their_look_applied := false
 var net_status := 0
+var net_failed := ""
 var net_lines: Array[String] = []
 
 
-func _start_net() -> void:
+## The connection to make, from the online screen (`Roster.session.online`) or from launch arguments. Empty means no network.
+func _net_config() -> Dictionary:
+	if Roster.session.has("online"):
+		var o: Dictionary = Roster.session.online
+		return {
+			"host": o.host, "relay": o.addr if o.relay else "", "addr": o.addr, "port": o.port, "room": o.room,
+			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked,
+		}
 	var host_port := -1
 	var join_addr := ""
 	var relay := ""
@@ -268,32 +394,45 @@ func _start_net() -> void:
 			chars = []
 			for c in a.substr(8).split(","):
 				chars.append(int(c))
-	# Everyone brings their own fighter (`--fighter=<slug>`, or the one last played in the menus) and its look and name; a
-	# few bytes of each travel to the other side in the handshake. `--ranked` (host) refuses fighters over the point budget.
+	if host_port < 0 and join_addr == "":
+		return {}
+	return {
+		"host": host_port >= 0, "relay": relay, "addr": join_addr, "port": host_port, "room": room, "delay": delay,
+		"chars": chars, "ranked": OS.get_cmdline_user_args().has("--ranked"),
+	}
+
+
+func _start_net() -> void:
+	var cfg := _net_config()
+	if cfg.is_empty():
+		return
+	# Everyone brings their own fighter (the online screen's choice, `--fighter=<slug>`, or the one last played in the menus)
+	# and its look and name; a few bytes of each travel to the other side in the handshake. The ranked rule is the host's.
 	var me := Roster.net_entry()
+	sim.set_match_stage(int(Roster.session.get("stage", 0)))
 	sim.set_cosmetics(Roster.profile_bytes(me))
 	sim.set_fighter(Roster.spec_bytes(me))
-	sim.set_ranked(OS.get_cmdline_user_args().has("--ranked"))
-	local_slot = 0 if (host_port >= 0) else 1
+	sim.set_ranked(cfg.ranked)
+	local_slot = 0 if cfg.host else 1
 	var err := ""
-	if host_port >= 0 and relay != "":
-		err = sim.net_host_relay(relay, room, PackedInt32Array(chars), delay)
-	elif host_port >= 0:
-		err = sim.net_host(host_port, PackedInt32Array(chars), delay)
-	elif join_addr != "" and relay != "":
-		err = sim.net_join_relay(relay, room)
-	elif join_addr != "":
-		err = sim.net_join(join_addr)
+	if cfg.host and cfg.relay != "":
+		err = sim.net_host_relay(cfg.relay, cfg.room, PackedInt32Array(cfg.chars), cfg.delay)
+	elif cfg.host:
+		err = sim.net_host(cfg.port, PackedInt32Array(cfg.chars), cfg.delay)
+	elif cfg.relay != "":
+		err = sim.net_join_relay(cfg.relay, cfg.room)
 	else:
-		return
+		err = sim.net_join(cfg.addr)
 	if err != "":
 		push_error(err)
 		net_lines.append(err)
+		net_failed = err
 		return
 	net_mode = true
 	views[local_slot].rebuild(me.look)
 	views[local_slot].set_name_tag(me.name)
-	print("network mode: ", "host" if host_port >= 0 else "joiner")
+	names[local_slot] = me.name
+	print("network mode: ", "host" if cfg.host else "joiner")
 
 
 ## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat).
@@ -303,6 +442,68 @@ func _apply_scales() -> void:
 
 
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
+## A controller plays during a match, so it only navigates on the results screen and when watching a replay.
+func pad_scheme(_pad: int) -> Dictionary:
+	if replay_mode:
+		return {"up": KEY_UP, "down": KEY_DOWN, "left": KEY_LEFT, "right": KEY_RIGHT, "confirm": KEY_SPACE, "back": KEY_ESCAPE, "start": KEY_SPACE, "menu": KEY_ESCAPE}
+	if results != null:
+		return PadNav.DEFAULT
+	return {}
+
+
+func _replay_step() -> void:
+	if paused:
+		return
+	replay_accum += replay_speed
+	while replay_accum >= 1.0:
+		replay_accum -= 1.0
+		if not sim.replay_tick():
+			break
+		_tick_once(false)
+
+
+func _replay_seek(frame: int) -> void:
+	sim.replay_seek(clampi(frame, 0, sim.replay_length()))
+	_tick_once(false)
+	for i in PLAYERS:
+		prev_pos[i] = cur_pos[i]
+
+
+func _replay_key(event: InputEventKey) -> void:
+	match event.keycode:
+		KEY_SPACE, KEY_P:
+			paused = not paused
+		KEY_LEFT:
+			_replay_seek(sim.match_frame() - 300)
+		KEY_RIGHT:
+			_replay_seek(sim.match_frame() + 300)
+		KEY_UP:
+			replay_speed = minf(replay_speed * 2.0, 4.0)
+		KEY_DOWN:
+			replay_speed = maxf(replay_speed / 2.0, 0.25)
+		KEY_R:
+			_replay_seek(0)
+		KEY_PERIOD:
+			if paused and sim.replay_tick():
+				_tick_once(false)
+		KEY_COMMA:
+			if paused:
+				_replay_seek(sim.match_frame() - 1)
+		KEY_F2:
+			show_ecb = not show_ecb
+		KEY_F3:
+			show_boxes = not show_boxes
+			_rebuild_boxes()
+		KEY_ESCAPE:
+			get_tree().change_scene_to_file("res://replays.tscn")
+
+
+func _replay_text() -> String:
+	var at: int = sim.match_frame() / 60
+	var total: int = sim.replay_length() / 60
+	return "REPLAY  %d:%02d / %d:%02d   x%s%s\nSpace pause   Left / Right jump 5 s   Up / Down speed   R restart   Esc back" % [at / 60, at % 60, total / 60, total % 60, str(replay_speed), "   PAUSED" if paused else ""]
+
+
 func _net_step() -> void:
 	var local: int = maxi(sim.net_local_player(), 0)
 	var r: Dictionary = InputReader.read(0, masks)
@@ -311,15 +512,26 @@ func _net_step() -> void:
 	# Once the handshake is done the other player's look arrives (or is missing, and they keep the default look).
 	if (net_status == 1 or net_status == 2) and not their_look_applied:
 		their_look_applied = true
+		_rebuild_stage()
 		var theirs := Roster.parse_profile(sim.net_their_cosmetics(), 1 - local_slot)
 		views[1 - local_slot].rebuild(theirs.look)
 		views[1 - local_slot].set_name_tag(theirs.name)
+		names[1 - local_slot] = theirs.name
 		_apply_scales()
 	for line in sim.net_take_log():
 		net_lines.append(line)
 		print(line)
 	if net_lines.size() > 4:
 		net_lines = net_lines.slice(net_lines.size() - 4)
+	if results != null and net_status == 1 and sim.winner() == -1:
+		# The rematch is on: a fresh match has replaced the finished one.
+		results.queue_free()
+		results = null
+		end_timer = 0.0
+		_apply_scales()
+		_rebuild_stage()
+	elif results != null and sim.net_rematch_state()[1] == 1:
+		results.set_note("The other player wants a rematch!" if sim.net_rematch_state()[0] == 0 else "Rematch: starting...")
 	if net_status == 1:
 		_tick_once(false)
 	else:
@@ -411,6 +623,9 @@ func _gather() -> void:
 func _physics_process(_delta: float) -> void:
 	if not warmed or shot_wait != "":
 		return
+	if replay_mode:
+		_replay_step()
+		return
 	if net_mode:
 		_net_step()
 		return
@@ -479,6 +694,9 @@ func _process(delta: float) -> void:
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		views[i].apply(Vector3(p.x, p.y, 0), snaps[i], delta)
+		# A fighter who has lost its last stock leaves the stage.
+		views[i].visible = _in_play(i)
+	_update_hud(delta)
 	_update_camera(a, delta)
 	if not flag_noecb:
 		_update_ecb(a)
@@ -502,6 +720,126 @@ func _process(delta: float) -> void:
 	})
 
 
+func _update_hud(delta: float) -> void:
+	var rules: PackedInt32Array = sim.match_rules()
+	var frame: int = sim.match_frame()
+	var winner: int = sim.winner()
+	var playing: bool = not net_mode or net_status == 1
+	var clock := ""
+	var urgent := false
+	if rules[1] > 0:
+		var left: int = ceili(maxi(0, rules[1] * 60 - frame) / 60.0)
+		clock = "%d:%02d" % [left / 60, left % 60]
+		urgent = left <= 10 and winner == -1
+	elif rules[0] > 0:
+		clock = "%d:%02d" % [frame / 3600, (frame / 60) % 60]
+	var banner := ""
+	var alpha := 1.0
+	if winner != -1:
+		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
+	elif playing and frame < 75 and rules[0] > 0:
+		banner = "GO!"
+		alpha = clampf(float(75 - frame) / 30.0, 0.0, 1.0)
+	var percent := []
+	var stocks := []
+	var alive := []
+	var in_match := []
+	for i in PLAYERS:
+		percent.append(snaps[i].get("percent", 0.0))
+		stocks.append(snaps[i].get("stocks", 0))
+		alive.append(sim.fighter_active(i))
+		in_match.append(sim.fighter_in_roster(i))
+	hud.show_state({
+		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
+		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
+		"status": _net_status_text(),
+	})
+	if winner != -1 and results == null and not replay_mode:
+		end_timer += delta
+		if end_timer > 2.0:
+			_show_results(winner)
+
+
+## Writes the finished match to the replay folder (it is simply not saved if the match cannot be reproduced).
+func _save_replay() -> String:
+	var profiles := []
+	var entries: Array = Roster.session.get("entries", [])
+	for i in PLAYERS:
+		var e: Dictionary = entries[i] if i < entries.size() else {"look": Loadout.default_for(i), "name": names[i]}
+		profiles.append(Roster.profile_bytes(e))
+	var list: Array[PackedByteArray] = []
+	for p in profiles:
+		list.append(p)
+	return Replays.save(sim.replay_bytes_roster(list))
+
+
+func _show_results(winner: int) -> void:
+	var saved := _save_replay()
+	var cards := []
+	for i in PLAYERS:
+		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
+	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
+	var choices := []
+	if net_mode and Roster.session.get("from_menu", false):
+		choices = [["Rematch", "rematch"], ["Main Menu", "menu"]]
+	elif net_mode:
+		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
+	elif Roster.session.get("from_menu", false):
+		choices = [["Rematch", "rematch"], ["Character Select", "select"], ["Main Menu", "menu"]]
+	else:
+		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
+	results = Results.new()
+	add_child(results)
+	results.build(heading, cards, choices)
+	results.chosen.connect(_on_result)
+	if saved != "":
+		results.set_note("Replay saved. Watch it from the main menu.")
+
+
+func _on_result(action: String) -> void:
+	match action:
+		"rematch":
+			if net_mode:
+				sim.net_request_rematch()
+				results.set_note("Rematch requested. Waiting for the other player...")
+			else:
+				_restart()
+		"select":
+			_leave_to("select")
+		"menu":
+			_leave_to("menu")
+		_:
+			get_tree().quit()
+
+
+## Back to a menu screen, hanging up first if this was an online match.
+func _leave_to(screen: String) -> void:
+	if net_mode:
+		sim.net_leave()
+		net_mode = false
+	get_tree().change_scene_to_file("res://%s.tscn" % screen)
+
+
+## What the player needs to know about the connection: waiting, refused, desyncs, the other player leaving. Empty when all is well.
+func _net_status_text() -> String:
+	if replay_mode:
+		return _replay_text()
+	if not net_mode:
+		return net_failed
+	var lines: Array = []
+	match net_status:
+		0:
+			lines.append("Connecting... waiting for the other player.")
+		2:
+			lines.append("Waiting for the other player's moves...")
+		3:
+			lines.append("The match was refused.")
+	for l in net_lines:
+		if net_status != 1 or l.contains("DESYNC") or l.contains("disconnected"):
+			lines.append(l.left(90))
+	return "\n".join(lines.slice(maxi(0, lines.size() - 3)))
+
+
 func _net_text() -> String:
 	if not net_mode:
 		return ""
@@ -513,13 +851,22 @@ func _net_text() -> String:
 	return text
 
 
+## False for a fighter that lost its last stock.
+func _in_play(i: int) -> bool:
+	return sim.fighter_active(i) or not sim.fighter_in_roster(i)
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
 	for i in PLAYERS:
+		if not _in_play(i):
+			continue
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		lo = lo.min(p)
 		hi = hi.max(p + Vector2(0, 2.2))
+	if lo.x > hi.x:
+		return
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
 	var spread := maxf(hi.x - lo.x + 18.0, (hi.y - lo.y + 10.0) * 1.78)
@@ -562,7 +909,7 @@ func _build_ecb() -> void:
 
 func _update_ecb(a: float) -> void:
 	for i in PLAYERS:
-		ecb_nodes[i].visible = show_ecb
+		ecb_nodes[i].visible = show_ecb and _in_play(i)
 		if show_ecb:
 			var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 			ecb_nodes[i].position = Vector3(p.x, p.y, 0)
@@ -592,6 +939,12 @@ func _prewarm() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if replay_mode:
+		_replay_key(event)
+		return
+	if results != null and event.keycode != KEY_ESCAPE:
+		results.handle_key(event)
 		return
 	# Training keys change the sim directly, which a networked match must never do.
 	if net_mode and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
@@ -639,8 +992,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_restart()
 		KEY_ESCAPE:
 			# From the menus, Esc goes back to character select; launched directly, it quits.
-			if Roster.session.get("from_menu", false) and not net_mode:
-				get_tree().change_scene_to_file("res://select.tscn")
+			if Roster.session.get("from_menu", false):
+				_leave_to("online" if net_mode else "select")
 			else:
 				get_tree().quit()
 

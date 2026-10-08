@@ -8,6 +8,7 @@ pub mod bundle;
 pub mod doc;
 pub mod format;
 pub mod recipe;
+pub mod stages;
 pub mod tree;
 
 pub use bundle::{load, to_text, Bundle, Manifest, SCHEMA_VERSION};

@@ -2,6 +2,7 @@
 //!
 //! pftool gen <out.pfr> <frames> <seed>   write a random replay
 //! pftool run <replay.pfr>                replay it and print checksums every 60 frames
+//! pftool replay-verify <match.pfr>      play a replay saved by the game and check it ends where it was recorded
 //! pftool selftest                        print checksum lines for the cross-platform CI gate
 //! pftool fuzz-rollback [runs]            randomised local-rollback runs; non-zero exit on any desync
 //! pftool net-fuzz | net-host | net-join | net-relay   networked play, see `net.rs`
@@ -27,6 +28,7 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("gen") => cmd_gen(&args[1..]),
         Some("run") => cmd_run(&args[1..]),
+        Some("replay-verify") => cmd_replay_verify(&args[1..]),
         Some("selftest") => cmd_selftest(),
         Some("fuzz-rollback") => cmd_fuzz(&args[1..]),
         Some("net-fuzz") => net::cmd_fuzz(&args[1..]),
@@ -37,7 +39,7 @@ fn main() -> ExitCode {
         Some("content-check") => content::cmd_check(&args[1..]),
         Some("content-pack") => content::cmd_pack(&args[1..]),
         _ => Err(
-            "usage: pftool <gen|run|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack> ..."
+            "usage: pftool <gen|run|replay-verify|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack> ..."
                 .to_string(),
         ),
     };
@@ -48,6 +50,23 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Plays a match record (a replay saved by the game, `user://replays/*.pfr`) and checks its winner and final checksum.
+fn cmd_replay_verify(args: &[String]) -> Result<(), String> {
+    let path = args
+        .first()
+        .ok_or("usage: pftool replay-verify <match.pfr>")?;
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    let record = netplay::replay::MatchRecord::decode(&bytes)?;
+    let state = record.verify(&Content::placeholder())?;
+    println!(
+        "{path}: {} frames, winner {}, final checksum {:016x}: verified",
+        record.inputs.len(),
+        state.winner,
+        state.checksum()
+    );
+    Ok(())
 }
 
 /// The roster commands run against: the built-in one, or the bundle named by `PF_CONTENT`.

@@ -120,6 +120,11 @@ fn match_setup(seed: u64) -> Setup {
         active: 0b0011,
         input_delay: 2,
         cosmetics: Vec::new(),
+        // Vary the rules too: one stock and a short clock make matches end, so the winner is compared as well.
+        rules: sim_core::MatchRules {
+            stocks: (seed % 4) as u8,
+            time_limit: if seed % 3 == 0 { 5 } else { 0 },
+        },
         ..Setup::default()
     }
 }
@@ -351,8 +356,13 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             ticks += 1;
         }
         // The single-machine truth for the same inputs and delay.
-        let initial =
-            GameState::new_with_active(&truth_content, setup.seed, truth_chars, setup.active);
+        let initial = GameState::new_with_rules(
+            &truth_content,
+            setup.seed,
+            truth_chars,
+            setup.active,
+            setup.rules,
+        );
         let truth_inputs: Vec<[Input; MAX_FIGHTERS]> = (0..na.max(nb) + 5)
             .map(|f| {
                 let mut i = [Input::default(); MAX_FIGHTERS];

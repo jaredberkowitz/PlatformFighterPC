@@ -608,7 +608,8 @@ fn reflector_touching(
     None
 }
 
-/// Sends fighters that have left the blast zone back to their spawn point, minus a stock.
+/// Sends fighters that have left the blast zone back to their spawn point, minus a stock. A fighter that loses its
+/// last stock is out of the match (no longer `active`); with unlimited stocks nobody loses any.
 pub fn check_ko(state: &mut GameState, content: &Content) {
     let s = &content.stage;
     for i in 0..MAX_FIGHTERS {
@@ -618,16 +619,26 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
         let p = state.fighters[i].pos;
         if p.x < s.blast_left || p.x > s.blast_right || p.y < s.blast_bottom || p.y > s.blast_top {
             grab::drop_grab(state, content, i);
-            respawn(&mut state.fighters[i], content, i);
+            let counted = state.rules.stocks > 0;
+            let f = &mut state.fighters[i];
+            respawn(f, content, i, counted);
+            if counted && f.stocks == 0 {
+                f.active = false;
+            }
         }
     }
 }
 
-pub fn respawn(f: &mut Fighter, content: &Content, index: usize) {
+pub fn respawn(f: &mut Fighter, content: &Content, index: usize, lose_stock: bool) {
     let params = params_of(content, f);
     let pos = content.stage.spawns[index];
     let platform = collision::standing_on(&content.stage, pos);
-    let (char_id, facing, stocks) = (f.char_id, f.facing, f.stocks.saturating_sub(1));
+    let (char_id, facing) = (f.char_id, f.facing);
+    let stocks = if lose_stock {
+        f.stocks.saturating_sub(1)
+    } else {
+        f.stocks
+    };
     *f = Fighter::spawn(
         pos,
         char_id,
@@ -637,6 +648,7 @@ pub fn respawn(f: &mut Fighter, content: &Content, index: usize) {
         content.rules.shield_max,
     );
     f.stocks = stocks;
+    f.active = true;
     f.invuln = content.rules.respawn_invuln;
 }
 

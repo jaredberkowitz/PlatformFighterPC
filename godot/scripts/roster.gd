@@ -72,6 +72,67 @@ static func parse_profile(bytes: PackedByteArray, player := 0) -> Dictionary:
 	return {"look": look, "name": name}
 
 
+## How the next match is won, kept between runs: stocks each (0 = unlimited, free play) and a time limit in seconds (0 = none).
+const MATCH_PATH := "user://match_rules.json"
+const STOCK_CHOICES := [1, 2, 3, 4, 5, 6, 9, 0]
+const TIME_CHOICES := [0, 180, 300, 480, 600]
+static var match_stocks := 3
+static var match_time := 0
+## Index of the stage (see `sim_content::stages`; the names come from the bridge).
+static var match_stage := 0
+static var _stage_names: Array = []
+static var _stage_blurbs: Array = []
+static var _match_loaded := false
+
+
+static func load_match_rules() -> void:
+	if _match_loaded:
+		return
+	_match_loaded = true
+	if not FileAccess.file_exists(MATCH_PATH):
+		return
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(MATCH_PATH)) != OK:
+		return
+	var parsed = json.data
+	if parsed is Dictionary:
+		if STOCK_CHOICES.has(int(parsed.get("stocks", 3))):
+			match_stocks = int(parsed.get("stocks", 3))
+		if TIME_CHOICES.has(int(parsed.get("time", 0))):
+			match_time = int(parsed.get("time", 0))
+		match_stage = clampi(int(parsed.get("stage", 0)), 0, maxi(0, stage_names().size() - 1))
+
+
+static func save_match_rules() -> void:
+	var f := FileAccess.open(MATCH_PATH, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify({"stocks": match_stocks, "time": match_time, "stage": match_stage}))
+
+
+## The stages a match can be played on, from Rust (asked once).
+static func stage_names() -> Array:
+	if _stage_names.is_empty():
+		var sim = ClassDB.instantiate("SimRunner")
+		for i in sim.stage_count():
+			_stage_names.append(sim.stage_name(i))
+			_stage_blurbs.append(sim.stage_blurb(i))
+		sim.free()
+	return _stage_names
+
+
+static func stage_blurb(i: int) -> String:
+	stage_names()
+	return _stage_blurbs[clampi(i, 0, _stage_blurbs.size() - 1)]
+
+
+static func stocks_text(stocks: int) -> String:
+	return "Free play" if stocks == 0 else ("%d stock%s" % [stocks, "" if stocks == 1 else "s"])
+
+
+static func time_text(seconds: int) -> String:
+	return "No limit" if seconds == 0 else "%d:%02d" % [seconds / 60, seconds % 60]
+
+
 const LAST_PATH := "user://last_fighter.txt"
 
 
@@ -83,7 +144,10 @@ static func save_last(slug: String) -> void:
 
 ## The fighter to bring to an online match: `--fighter=<slug>` after `--`, else the one player 1 last played with.
 static func net_entry() -> Dictionary:
+	# The online screen's choice wins; then `--fighter=<slug>`; then the one played last.
 	var wanted := ""
+	if session.has("online"):
+		return session.online.entry
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--fighter="):
 			wanted = slug_of(a.substr(10))

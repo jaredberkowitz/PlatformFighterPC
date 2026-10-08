@@ -12,5 +12,6 @@ pub mod handshake;
 pub mod local_rollback;
 pub mod packet;
 pub mod peer;
+pub mod replay;
 pub mod session;
 pub mod testlink;

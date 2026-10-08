@@ -27,12 +27,12 @@ pub use content::{Content, FighterParams, Stage};
 pub use fixed::Fx;
 pub use input::Input;
 pub use rng::Rng;
-pub use state::{Fighter, GameState, Projectile};
+pub use state::{Fighter, GameState, MatchRules, Projectile};
 pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 22;
+pub const SIM_VERSION: u16 = 23;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;
 /// Persistent script variables each fighter and each projectile carries (see `sim-script`).

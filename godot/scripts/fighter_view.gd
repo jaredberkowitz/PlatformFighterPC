@@ -97,6 +97,38 @@ func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
 
 const Loadout := preload("res://scripts/loadout.gd")
 var loadout: RefCounted
+const PARTS_PATH := "res://models/blob_parts.glb"
+static var _parts: Dictionary = {}
+static var _parts_tried := false
+
+
+## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is
+## needed; empty if the file is missing or damaged (the fighter then falls back to spheres).
+static func blob_parts() -> Dictionary:
+	if _parts_tried:
+		return _parts
+	_parts_tried = true
+	var path := ProjectSettings.globalize_path(PARTS_PATH)
+	if not FileAccess.file_exists(path):
+		return _parts
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if doc.append_from_file(path, state) != OK:
+		return _parts
+	var scene := doc.generate_scene(state)
+	if scene == null:
+		return _parts
+	var found := {}
+	for node in scene.find_children("*", "MeshInstance3D", true, false):
+		found[str(node.name)] = (node as MeshInstance3D).mesh
+	scene.free()
+	for needed in ["Body", "Head", "FootL", "FootR", "HandL", "HandR"]:
+		if not found.has(needed):
+			return _parts
+	_parts = found
+	return _parts
+
+
 ## The face's moving parts, so the expression can change (see set_expression).
 var face_parts := {}
 
@@ -112,11 +144,22 @@ func build(p: int, l: RefCounted = null) -> void:
 	add_child(model)
 
 	# Body, head, feet, hands. Height matches the 2.2 unit ECB.
-	_part(model, _sphere(0.62), skin, Vector3(0, 0.82, 0), Vector3(1.0, 0.95, 0.9))
-	_part(model, _sphere(0.8), skin, Vector3(0, 1.42, 0))
-	for sx in [-1.0, 1.0]:
-		_part(model, _sphere(0.24), skin, Vector3(sx * 0.32, 0.2, 0.05), Vector3(1, 0.8, 1.35))
-		_part(model, _sphere(0.22), toon(Color(1, 1, 1)), Vector3(sx * 0.78, 0.85, 0.05))
+	var shaped := blob_parts()
+	if shaped.is_empty():
+		# No modelled parts available: plain spheres.
+		_part(model, _sphere(0.62), skin, Vector3(0, 0.82, 0), Vector3(1.0, 0.95, 0.9))
+		_part(model, _sphere(0.8), skin, Vector3(0, 1.42, 0))
+		for sx in [-1.0, 1.0]:
+			_part(model, _sphere(0.24), skin, Vector3(sx * 0.32, 0.2, 0.05), Vector3(1, 0.8, 1.35))
+			_part(model, _sphere(0.22), toon(Color(1, 1, 1)), Vector3(sx * 0.78, 0.85, 0.05))
+	else:
+		# Parts modelled in Blender (art/blender/make_blob_parts.py), at the size the spheres had.
+		_part(model, shaped.Body, skin, Vector3(0, 0.82, 0))
+		_part(model, shaped.Head, skin, Vector3(0, 1.42, 0))
+		for sx in [-1.0, 1.0]:
+			var side := "L" if sx < 0.0 else "R"
+			_part(model, shaped["Foot" + side], skin, Vector3(sx * 0.32, 0.2, 0.05))
+			_part(model, shaped["Hand" + side], toon(Color(1, 1, 1)), Vector3(sx * 0.78, 0.85, 0.05))
 
 	_neck(skin)
 	_face(skin, ink)
