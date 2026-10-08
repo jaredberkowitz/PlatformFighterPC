@@ -25,7 +25,7 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | 7 Game loop: stage select (4 stages, online and replays) | done | `docs/MATCHES.md` |
 | 7 Game loop: spectating (direct hosts) | done | `docs/MATCHES.md` |
 | 7 Game loop: online 3 to 4 players, matchmaking | **next** | see below |
-| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: Blender installed, scripted blob parts in the game (`docs/ART_PIPELINE.md`) | `docs/ART_PIPELINE.md` |
+| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation (`docs/ART_PIPELINE.md`), sound effects (`docs/AUDIO.md`), balance tooling (`docs/BALANCE.md`) | `docs/ART_PIPELINE.md` |
 
 ## What "done" is verified by
 

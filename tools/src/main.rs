@@ -3,6 +3,7 @@
 //! pftool gen <out.pfr> <frames> <seed>   write a random replay
 //! pftool run <replay.pfr>                replay it and print checksums every 60 frames
 //! pftool replay-verify <match.pfr>      play a replay saved by the game and check it ends where it was recorded
+//! pftool balance [--legal] [--quick] ...   play bot matches between fighter builds and report how each does
 //! pftool selftest                        print checksum lines for the cross-platform CI gate
 //! pftool fuzz-rollback [runs]            randomised local-rollback runs; non-zero exit on any desync
 //! pftool net-fuzz | net-host | net-join | net-relay   networked play, see `net.rs`
@@ -10,6 +11,7 @@
 //!
 //! Every command uses the built-in roster unless the environment variable PF_CONTENT names a bundle file.
 
+mod balance;
 mod content;
 mod net;
 mod replay;
@@ -29,6 +31,7 @@ fn main() -> ExitCode {
         Some("gen") => cmd_gen(&args[1..]),
         Some("run") => cmd_run(&args[1..]),
         Some("replay-verify") => cmd_replay_verify(&args[1..]),
+        Some("balance") => balance::cmd_balance(&args[1..]),
         Some("selftest") => cmd_selftest(),
         Some("fuzz-rollback") => cmd_fuzz(&args[1..]),
         Some("net-fuzz") => net::cmd_fuzz(&args[1..]),
@@ -39,7 +42,7 @@ fn main() -> ExitCode {
         Some("content-check") => content::cmd_check(&args[1..]),
         Some("content-pack") => content::cmd_pack(&args[1..]),
         _ => Err(
-            "usage: pftool <gen|run|replay-verify|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack> ..."
+            "usage: pftool <gen|run|replay-verify|balance|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack> ..."
                 .to_string(),
         ),
     };
