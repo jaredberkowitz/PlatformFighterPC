@@ -26,10 +26,11 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - Light and fast on the ground, good aerial mobility, strong edge-guarding, weaker when cornered up close.
 - Specials sketch: a dash slash (side), a rising slash (up, then helpless), a counter that reflects an incoming hit
   (down), a charged lunge (neutral).
-- **Scripted placeholders (Phase 5):** the sword character's neutral special (a slow bolt that bends toward the
-  enemy's height) and side special (a wind-up and a seven-frame thrust that stops dead) are written as scripts, in
-  `sim-core/src/scripts/`. They fill slots that were empty and show what the scripting layer is for; their numbers
-  are guesses, not reference data. The down special is still empty.
+- **Specials as built (kit completion, sim v20):** neutral is **Shield Breaker** (hold special to charge, let go to thrust: 8-9%
+  uncharged, about 24% fully charged), side is **Dancing Blade** (up to four hits, each started by pressing special again; the stick
+  picks the rising or low variants), up is the rising slash, and down is **Counter** (a 22-frame window that catches a hit and answers
+  with 1.2 times its damage, at least 8%). Shield Breaker and Dancing Blade are scripts (`sim-core/src/scripts/`), Counter is a data
+  feature. See `docs/COMBAT.md`, "Kit completion".
 - Wants from the sim: hitboxes with a **sweet spot / sour spot** by region of the blade, per-hitbox damage and knockback,
   hitbox priority (disjointed vs hurtbox), a counter state that reacts to hits.
 

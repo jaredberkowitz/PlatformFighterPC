@@ -1,0 +1,2 @@
+// Down special: intangible on frames 5 to 8, before the reflector comes up.
+if frame == 4 { intangible(4); }

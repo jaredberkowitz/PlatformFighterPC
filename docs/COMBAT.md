@@ -90,11 +90,11 @@ plus SmashWiki for the blaster. Where they disagreed on a total frame count I us
 units straight up with a little forward drift, then its leftover speed) and landing lag; the blaster shot's speed (3 reference
 units a frame), exact range (35 frames), knockback (a flinch) and muzzle position; the 8-to-6 percent damage falloff direction.
 The up tilt's three phases are placed as an arc in front of, above and behind the fighter. Everything else in the movesets
-(the swordfighter's jab, dash attack, down air and its other specials) is still placeholder.
+(the swordfighter's jab, dash attack, down air, grabs and specials) was placeholder until the kit completion below.
 For the brawler, Fire Wolf, Wolf Flash and the jab pages were not in the sources: the Fire Wolf travel (5.6 up, 2.6 forward) and its
 drag hits' knockback, the Wolf Flash distance (7 world units), its ending hit's knockback and the total lengths, the reflector's
-frames, size and reflected speed, and every hitbox position are estimates. Not implemented: angling Wolf Flash and Fire Wolf with the
-stick, the reflector's intangibility on frames 5-8, and the jab's reference input window details.
+frames, size and reflected speed, and every hitbox position are estimates. (Angling both specials and the reflector's
+intangibility are done, see "Kit completion".)
 
 Two sources disagreed on some values, so: damage numbers come from ultimateframedata and kuroganehammer, which agree; the
 down smash tipper's first-hit base knockback is 50 (kuroganehammer) rather than 57 (SmashWiki); the up air's first actionable
@@ -179,7 +179,7 @@ are pinned 1.3 units in front of the holder, facing it (`grab.rs`).
 
 Throw angles and knockback are partly estimates (forward 45 degrees, base 55, growth 57; back 50 / 40 / 150; up 80 / 75 / 110; down
 361 / 50 / 65); the reference sources disagree on the back throw's damage (8% or 11%) and do not give the throws' angles. The
-swordfighter's grab and throws are placeholders. Not implemented: pivot grab, cargo carries, grab release lag differences
+swordfighter's grab and throws now have reference frames and damage (see "Kit completion"). Not implemented: pivot grab, cargo carries, grab release lag differences
 between characters, and the throws' two-part damage (a hit while being held, then the throw).
 
 The keyboard: throw with a direction held for a few frames (W for up, S for down, A / D forward or back), pummel with attack.
@@ -210,3 +210,46 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
   stepping, the stick display and the wavedash cone were already there.
 - Tests: `sim-core/tests/knockdown.rs`. These cover the Phase 3 exit criteria's pieces (combos, DI, edge guarding with ledge options)
   in training mode; whether they are *fun* needs playtesting.
+
+## Kit completion: the rest of both characters (sim v20)
+
+Frame data and damage come from the community tables (ultimateframedata and SmashWiki, fetched 2026-10-08); the fetch tool read their
+tables with unlabeled columns, so I only used numbers that were stated as text and left alone the Wolf numbers the earlier session
+had already cross-checked. Hitbox positions, sizes, most throw and early-hit knockback, and landing lags are estimates.
+
+**New engine features**
+- **Ten script follow-up slots** `ext0` to `ext9` (`MoveId::Ext0..Ext9`, indices 28 to 37). A button never starts one; a script's
+  `goto` or a counter does. Used for Dancing Blade's later hits and Counter's answer.
+- **Counter stance** (`Move::counter`, `counter_strike`): while the stance's window is open a hit that lands (melee or projectile) is
+  cancelled, both fighters freeze for its hitlag, the countering fighter turns toward the attacker and switches to the `then` move,
+  whose hitboxes deal `max(min_damage, percent / 100 x caught damage)`. Tests: `sim-core/tests/kits.rs`.
+- **Per-move charge bonus** (`Move::charge_bonus`): a move can scale more than the ruleset's smash-attack 40% at full charge.
+- **Ledge attack intangibility**: the ledge attack is intangible for the move's `intangible` frames; `ledge_attack_frames` is now 54.
+- Ext slots use air physics when airborne like specials; ground motion that points down no longer sinks into the floor.
+
+**Sword character**
+| Move | Numbers |
+| --- | --- |
+| Jab | hit 1 frames 5-6, 3% (5% tip), FAF 25; hit 2 frames 4-5, 4% (6%), FAF 28; ends there |
+| Dash attack | frames 13-16, 9 / 10 / 13% (tip knockback 93 base, 58 growth), FAF 49 |
+| Down air | frames 9-13, 12-14%; frame 11 only, the tip is a 15% meteor; FAF 59 |
+| Grab / dash grab / pummel | frames 6-7 (FAF 34), 9-10 (FAF 42), 1.3% |
+| Throws | forward 4% (release 18, FAF 34), back 4% (19, 44), up 5% (13, 44), down 4% (20, 46) |
+| Ledge attack | 9%, angle 45, base 90 / growth 20, frames 24-26, intangible to 26, FAF 56 (the brawler's published numbers; the sword's are not in the sources) |
+| Shield Breaker | neutral special: hold special from frame 19 (at most 60 frames), thrust 8 frames after release, 8% (9% tip) to about 24% charged, 39 frames from release |
+| Dancing Blade | side special: hit 1 on frame 9 (FAF 39, ends at 29 in the air); each press of special before the end continues; stick up gives the rising hits; hits 2.5-3%, 3-4%; finishers 4-6% (straight), 5-7% (rising), 2% x4 then 4-5% (low) |
+| Counter | down special: window frames 6-27, answer 1.2x (at least 8%), counter-attack on frame 4, FAF 64 unused |
+
+**Claws character**
+- Wolf Flash and Fire Wolf are aimed with the stick (scripts): Flash up or down a little at the start of the dash; Fire Wolf in any
+  direction at the end of its wind-up (neutral aims up and a little forward; backward turns him around first).
+- The reflector is intangible on frames 5-8 (a script).
+- Ledge attack as above. Everything else was already built from the earlier cross-checked data.
+
+**On the keyboard (K is special):** Shield Breaker is K alone (hold it, release to thrust); Dancing Blade is D + K, then tap K again for
+each further hit (hold W before a tap for the rising hits, S for the low ones); Counter is S + K and then the other fighter has to hit
+you; Fire Wolf is W + K and the direction you hold when the wind-up ends is the direction he flies; Wolf Flash is D + K, with W or S
+held at the start of the dash to angle it.
+
+**Not done:** the other jab and tilt variants of the real kits (rapid jab, angled tilts), Dancing Blade's forward steps, Shield
+Breaker's extra shield damage, the pivot grab, and real animations (these moves reuse the generic poses driven by their hitboxes).

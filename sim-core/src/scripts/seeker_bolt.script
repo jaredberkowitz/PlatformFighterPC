@@ -1,5 +1,0 @@
-// Neutral special (projectile): fly straight at first, then drift toward the height of the nearest enemy.
-if has_target && age > 8 {
-    let aim = target_y + 1.2 - py;
-    set_vel(pvx, clamp(aim * 0.06, -0.14, 0.14));
-}

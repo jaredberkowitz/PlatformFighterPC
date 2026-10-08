@@ -139,6 +139,8 @@ pub struct Fighter {
     pub spawn_custom: bool,
     pub spawn_pos: Vec2,
     pub spawn_vel: Vec2,
+    /// Damage the fighter's counter stance caught; its counter-strike move deals this.
+    pub counter_damage: Fx,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
@@ -248,6 +250,7 @@ impl Fighter {
             spawn_custom: false,
             spawn_pos: Vec2::ZERO,
             spawn_vel: Vec2::ZERO,
+            counter_damage: Fx::ZERO,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -344,6 +347,7 @@ impl StateHash for Fighter {
         h.write_u8(self.grab_immune);
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
+        self.counter_damage.hash_into(h);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
@@ -632,6 +636,11 @@ mod tests {
             ("spawn_vel", {
                 let mut s = state;
                 s.fighters[1].spawn_vel.x = Fx::from_raw(1);
+                s
+            }),
+            ("counter_damage", {
+                let mut s = state;
+                s.fighters[1].counter_damage = Fx::from_raw(1);
                 s
             }),
             ("fighter_vars", {

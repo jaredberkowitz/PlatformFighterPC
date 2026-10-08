@@ -1,0 +1,14 @@
+// Dancing Blade, hit 3 (ext3, ext4 or ext5). Press special again for the finisher: stick up for the rising
+// one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
+var queued;
+var dir;
+if special_tap && frame >= 3 {
+    queued = 1;
+    dir = 0;
+    if stick_y > 0.5 { dir = 1; }
+    if stick_y < -0.5 { dir = -1; }
+}
+if queued && frame >= 19 {
+    queued = 0;
+    if dir == 1 { goto(35); } else if dir == -1 { goto(36); } else { goto(34); }
+}

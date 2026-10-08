@@ -6,8 +6,8 @@
 use crate::tree::{Block, Item};
 use sim_core::content::{Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage};
 use sim_core::moves::{
-    Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, HIT_GRAB, HIT_NORMAL,
-    HIT_PUMMEL, HIT_THROW,
+    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, HIT_GRAB,
+    HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -499,6 +499,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.helpless_after = f.or("helpless_after", false, errors);
     m.turns_around = f.or("turns_around", false, errors);
     m.grabs_ledge = f.or("grabs_ledge", false, errors);
+    m.counter_strike = f.or("counter_strike", false, errors);
+    m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
     m.next_window = f.or("next_window", 0, errors);
     if let Some((key, line)) = f.raw("next") {
@@ -531,6 +533,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "motion",
             "projectile",
             "reflector",
+            "counter",
             "script",
             "projectile_script",
         ],
@@ -607,6 +610,36 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         f.finish(errors);
         m.reflector = Some(r);
     }
+    if let Some(b) = at_most_one(children(block, "counter"), "counter", context, errors) {
+        let ctx = format!("the counter of {context}");
+        let mut f = Fields::new(b, &ctx, errors);
+        let then = match f.raw("then") {
+            Some((key, line)) => match MoveId::from_key(key) {
+                Some(id) => id as u8,
+                None => {
+                    err(
+                        errors,
+                        line,
+                        format!("`then` must be a move name, not `{key}`"),
+                    );
+                    0
+                }
+            },
+            None => {
+                err(errors, b.line, format!("{ctx} is missing `then`"));
+                0
+            }
+        };
+        let c = Counter {
+            start: f.need("start", None, errors),
+            end: f.need("end", None, errors),
+            then,
+            percent: f.need("percent", None, errors),
+            min_damage: f.need("min_damage", None, errors),
+        };
+        f.finish(errors);
+        m.counter = Some(c);
+    }
     if let Some((text, line)) = raw_script(block, "script", context, errors) {
         m.script = compile_script(Kind::Fighter, text, line, context, errors);
     }
@@ -652,8 +685,23 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         b.field("rehit_start", start.to_string());
         b.field("rehit_every", every.to_string());
     }
+    if m.counter_strike {
+        b.field("counter_strike", "true");
+    }
+    if m.charge_bonus != 0 {
+        b.field("charge_bonus", m.charge_bonus.to_string());
+    }
     for hb in &m.hitboxes {
         b.push(write_hitbox(hb));
+    }
+    if let Some(c) = &m.counter {
+        let mut cb = Block::new("counter", None);
+        cb.field("start", c.start.to_string());
+        cb.field("end", c.end.to_string());
+        cb.field("then", MoveId::from_index(c.then).key());
+        cb.field("percent", c.percent.to_string());
+        cb.field("min_damage", c.min_damage.show());
+        b.push(cb);
     }
     for mo in &m.motion {
         let mut c = Block::new("motion", None);

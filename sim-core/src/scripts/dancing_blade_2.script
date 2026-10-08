@@ -1,0 +1,14 @@
+// Dancing Blade, hit 2 (ext1 or ext2). Press special again to continue into hit 3: stick up for the rising
+// slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
+var queued;
+var dir;
+if special_tap && frame >= 3 {
+    queued = 1;
+    dir = 0;
+    if stick_y > 0.5 { dir = 1; }
+    if stick_y < -0.5 { dir = -1; }
+}
+if queued && frame >= 17 {
+    queued = 0;
+    if dir == 1 { goto(32); } else if dir == -1 { goto(33); } else { goto(31); }
+}

@@ -186,13 +186,24 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     };
                     // A charged smash attack hits harder; the damage also feeds the knockback.
                     let mut hb = hb;
+                    let attack =
+                        weapon_of(content, params_of(content, &attacker)).get(attacker.move_id);
                     if attacker.charge > 0 {
                         let rules = &content.rules;
+                        let full = if attack.charge_bonus > 0 {
+                            attack.charge_bonus
+                        } else {
+                            rules.charge_bonus_percent
+                        };
                         let bonus = Fx::from_ratio(
-                            i32::from(attacker.charge) * i32::from(rules.charge_bonus_percent),
+                            i32::from(attacker.charge) * i32::from(full),
                             100 * i32::from(rules.charge_frames.max(1)),
                         );
                         hb.damage = hb.damage * (Fx::ONE + bonus);
+                    }
+                    // The answer to a caught hit deals what was caught.
+                    if attack.counter_strike {
+                        hb.damage = attacker.counter_damage;
                     }
                     match hb.kind {
                         HIT_PUMMEL => pummel(state, content, a, d, &hb),
@@ -253,6 +264,43 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     held.hitlag = hitlag;
 }
 
+/// If fighter `d` is in a counter stance whose window is open, cancels the hit and switches `d` to its answer.
+fn catch_with_counter(
+    state: &mut GameState,
+    content: &Content,
+    source: usize,
+    d: usize,
+    damage: Fx,
+    hitlag: u8,
+) -> bool {
+    let def = &state.fighters[d];
+    if def.state != S::Attack {
+        return false;
+    }
+    let weapon = weapon_of(content, params_of(content, def));
+    let Some(c) = weapon.get(def.move_id).counter else {
+        return false;
+    };
+    if def.state_frame < u16::from(c.start) || def.state_frame > u16::from(c.end) {
+        return false;
+    }
+    let answer_id = MoveId::from_index(c.then);
+    let intangible = weapon.get(c.then).intangible;
+    let caught =
+        (damage * Fx::from_int(i32::from(c.percent)) / Fx::from_int(100)).max(c.min_damage);
+    let attacker_x = state.fighters[source].pos.x;
+    let def = &mut state.fighters[d];
+    // The answer is swung at whoever struck.
+    if attacker_x != def.pos.x {
+        def.facing = if attacker_x > def.pos.x { 1 } else { -1 };
+    }
+    def.counter_damage = caught;
+    fighter::begin_attack(def, answer_id);
+    def.invuln = def.invuln.max(intangible);
+    def.hitlag = hitlag;
+    true
+}
+
 /// Applies one hit: damage, knockback, hitlag and the victim's state change. `source` is the fighter
 /// responsible (the attacker, or a projectile's owner). Only a melee attacker is frozen by hitlag.
 #[allow(clippy::too_many_arguments)]
@@ -268,6 +316,13 @@ fn apply_hit(
     stun_mult: Fx,
 ) {
     let hitlag = hitlag_frames(hb.damage);
+    // A fighter in a counter stance catches the hit instead of taking it.
+    if catch_with_counter(state, content, source, d, hb.damage, hitlag) {
+        if freeze_source {
+            state.fighters[source].hitlag = hitlag;
+        }
+        return;
+    }
     // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by.
     grab::drop_grab(state, content, d);
     if freeze_source {

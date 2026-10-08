@@ -1,0 +1,19 @@
+// Up special: the stick at the end of the wind-up aims the flight in any direction (up and a little forward
+// if it is neutral). Pushing backward turns Wolf around first. The flight ends with a last small push.
+var dx;
+var dy;
+if frame == 16 {
+    let sx = stick_x;
+    let sy = stick_y;
+    let len = sqrt(sx * sx + sy * sy);
+    if len < 0.4 {
+        dx = 0.42;
+        dy = 0.91;
+    } else {
+        if sx < 0 { turn(); sx = -sx; }
+        dx = sx / len;
+        dy = sy / len;
+    }
+}
+if frame >= 17 && frame <= 30 { set_vel(dx * 0.44, dy * 0.44); }
+if frame == 31 { set_vel(dx * 0.08, dy * 0.08); }

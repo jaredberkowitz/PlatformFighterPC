@@ -1,0 +1,9 @@
+// Side special (dash): the stick at the start of the dash aims it a little up or down.
+var rise;
+if frame == 17 {
+    rise = 0;
+    if stick_y > 0.4 { rise = 0.3; }
+    if stick_y < -0.4 { rise = -0.3; }
+}
+if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
+if frame == 28 { set_vel(0, 0); }

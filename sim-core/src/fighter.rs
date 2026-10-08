@@ -205,7 +205,7 @@ pub fn update(
         S::Grabbed => {}
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, stage),
-        S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p),
+        S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p, weapon),
     }
     None
 }
@@ -939,7 +939,13 @@ fn get_up_stand(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Rules
     }
 }
 
-fn ledge_recover(f: &mut Fighter, p: &FighterParams) {
+fn ledge_recover(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) {
+    // A ledge attack is intangible while it starts up (the move's `intangible` frames).
+    if f.state == S::LedgeAttack
+        && f.state_frame <= u16::from(weapon.get(MoveId::LedgeAttack as u8).intangible)
+    {
+        f.invuln = f.invuln.max(1);
+    }
     let frames = if f.state == S::LedgeAttack {
         p.ledge_attack_frames
     } else {
@@ -1049,7 +1055,7 @@ pub fn free_held(f: &mut Fighter, immunity: u8) {
     }
 }
 
-fn begin_attack(f: &mut Fighter, id: MoveId) {
+pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.hit_mask = 0;
     enter(f, S::Attack);
@@ -1212,7 +1218,7 @@ fn attack(
                 f.platform = NONE;
             }
         }
-    } else if id.is_aerial() || (id.is_special() && !f.grounded()) {
+    } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
         if air_move(f, p, stage) {
             // Landing early or late in the move autocancels: only the normal landing lag.
             let clean =

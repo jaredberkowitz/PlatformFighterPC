@@ -53,7 +53,9 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   allowed). `inherit other_weapon` starts from an earlier moveset and replaces the moves you write.
 * **Moves** are named by slot: `jab ftilt utilt dtilt dash_attack fsmash usmash dsmash nair fair bair uair dair
   neutral_special side_special up_special down_special jab2 jab3 grab dash_grab pummel fthrow bthrow uthrow dthrow
-  ledge_attack get_up_attack`. Frames count from the move's first frame (see `docs/COMBAT.md`).
+  ledge_attack get_up_attack ext0 ext1 ext2 ext3 ext4 ext5 ext6 ext7 ext8 ext9`. Frames count from the move's first frame
+  (see `docs/COMBAT.md`). The ten `ext` slots are never started by a button: a script reaches them with `goto`, or a
+  counter stance answers with one. They are for the later hits of a multi-hit special, a counter-attack, and so on.
 
 A move block (omitted fields take the default shown):
 
@@ -70,6 +72,9 @@ A move block (omitted fields take the default shown):
 | `motion { start end vx vy }` | scripted-motion segments (`vx` forward-relative) | |
 | `projectile { frame x y speed life end_damage  hitbox { ... } }` | at most one | |
 | `reflector { start end x y radius damage_percent speed_percent }` | at most one | |
+| `counter { start end then percent min_damage }` | a counter stance: a hit landing in move frames `start..=end` is cancelled and the fighter switches to the move `then` (an `ext` slot), turned toward the attacker | |
+| `counter_strike` | this move's hitboxes deal what the stance caught: `percent` of the caught hit's damage, at least `min_damage` | false |
+| `charge_bonus` | extra damage at full charge for this move, in percent (0 uses the ruleset's `charge_bonus_percent`) | 0 |
 | `script { ... }`, `projectile_script { ... }` | see below | none |
 
 Errors are collected, not stopped at the first: a file with a mistyped field, a missing value and an unknown move
@@ -79,15 +84,27 @@ hitboxes outside the move, an endless script, ...). `content-check` runs both.
 ## Scripts
 
 A script is attached to a move (`script`, runs every frame the move is active, not during hitlag) or to the
-projectile the move fires (`projectile_script`, runs every frame the projectile exists). Example, the shipped
-lunge (`sim-core/src/scripts/lunge.script`):
+projectile the move fires (`projectile_script`, runs every frame the projectile exists). Example, the shipped first hit
+of the sword character's Dancing Blade (`sim-core/src/scripts/dancing_blade_1.script`); it remembers a press of the special
+button and carries on into the next hit:
 
 ```text
-// Side special: hold still during the wind-up, thrust forward for seven frames, then stop dead.
-if frame < 9 { set_vel(0, 0); }
-if frame >= 9 && frame <= 15 { set_vel(0.8, stick_y * 0.3); }
-if frame == 16 { set_vel(0, 0); }
+var queued;
+var rising;
+if grounded == 0 && frame >= 27 { end(); }
+if special_tap && frame >= 4 {
+    queued = 1;
+    rising = 0;
+    if stick_y > 0.5 { rising = 1; }
+}
+if queued && frame >= 18 {
+    queued = 0;
+    if rising { goto(30); } else { goto(29); }
+}
 ```
+
+No shipped move uses a projectile script now (the first placeholder, a homing bolt, was replaced by Shield Breaker); they are
+covered by `sim-core/tests/scripted_moves.rs`.
 
 ### Language
 
@@ -126,7 +143,7 @@ Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, s
 * `goto(n)` switches to move slot `n` (0 `jab`, 1 `ftilt`, 2 `utilt`, 3 `dtilt`, 4 `dash_attack`, 5 `fsmash`, 6 `usmash`,
   7 `dsmash`, 8 `nair`, 9 `fair`, 10 `bair`, 11 `uair`, 12 `dair`, 13 `neutral_special`, 14 `side_special`, 15 `up_special`,
   16 `down_special`, 17 `jab2`, 18 `jab3`, 19 `grab`, 20 `dash_grab`, 21 `pummel`, 22 `fthrow`, 23 `bthrow`, 24 `uthrow`,
-  25 `dthrow`, 26 `ledge_attack`, 27 `get_up_attack`). This is how a script makes a combo or a follow-up variant:
+  25 `dthrow`, 26 `ledge_attack`, 27 `get_up_attack`, 28 to 37 `ext0` to `ext9`). This is how a script makes a combo or a follow-up variant:
   hitboxes belong to moves, so a script chooses *which* move, it does not edit hitboxes. A move that sends itself
   to itself every frame stays in place until it is hit; that is the author's loop to avoid.
 * `stall()` holds the move on its current frame this frame (a charge). The total is capped by the ruleset's

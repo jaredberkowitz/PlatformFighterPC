@@ -163,7 +163,7 @@ fn a_ledge_attack_hits_someone_standing_on_the_stage_next_to_the_ledge() {
     sim.tick(inp(0, 0, ATTACK));
     assert_eq!(sim.f().state, S::LedgeAttack);
     assert_eq!(sim.f().move_id, MoveId::LedgeAttack as u8);
-    sim.ticks(50, inp(0, 0, 0));
+    sim.ticks(70, inp(0, 0, 0));
     assert!(sim.fighter(1).percent > Fx::ZERO, "the ledge attack hit");
     assert_eq!(sim.f().state, S::Idle);
 }

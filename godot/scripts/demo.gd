@@ -216,6 +216,44 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, special], [11, 0, 0, 0]]
 			d.shots = [[16, "a_windup"], [21, "b_thrust"], [25, "c_hit"], [34, "d_recover"], [52, "e_after"]]
 			d.end_frame = 70
+		"marth_breaker":
+			# Neutral special, Shield Breaker: hold special to charge, let go to thrust.
+			d.chars = [0, 1, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, -3.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [70, 0, 0, 0]]
+			d.shots = [[20, "a_raised"], [50, "b_charging"], [72, "c_release"], [80, "d_thrust"], [90, "e_hit"]]
+			d.end_frame = 110
+		"marth_dancing":
+			# Side special, Dancing Blade: tap special repeatedly; the later hits follow.
+			d.chars = [0, 1, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, -4.5, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 127, 0, special], [11, 0, 0, 0]]
+			var tt := 14
+			for i in 30:
+				d.timeline.append([tt, 0, 0, special])
+				d.timeline.append([tt + 1, 0, 0, 0])
+				tt += 3
+			d.shots = [[21, "a_hit1"], [38, "b_hit2"], [60, "c_hit3"], [85, "d_finisher"], [110, "e_after"]]
+			d.end_frame = 130
+		"marth_counter":
+			# Down special, Counter: the brawler swings into the stance and gets hit back harder.
+			d.chars = [0, 1, 0, 0]
+			d.cam_dist = 22.0
+			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, -5.6, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, -127, special], [11, 0, -127, 0], [14, 0, 0, 0]]
+			d.timeline2 = [[0, 0, 0, 0], [12, 0, 0, attack], [13, 0, 0, 0]]
+			d.shots = [[16, "a_stance"], [20, "b_caught"], [28, "c_answer"], [40, "d_after"]]
+			d.end_frame = 70
+		"wolf_fire_aim":
+			# Up special aimed forward and up with the stick.
+			d.chars = [1, 0, 0, 0]
+			d.cam_dist = 26.0
+			d.events = [[1, "stand", 0, -6.0, 1], [1, "stand", 1, 9.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 100, 127, special], [11, 100, 127, 0]]
+			d.shots = [[20, "a_windup"], [32, "b_flying"], [38, "c_flying"], [52, "d_end"]]
+			d.end_frame = 70
 		"marth_upb_ledge":
 			# Up special from below the ledge: it grabs in mid-move.
 			d.chars = [0, 0, 0, 0]

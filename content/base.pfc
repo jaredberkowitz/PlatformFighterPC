@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 19
-    hash 78ae674b5c7acc8e
+    sim_version 20
+    hash 1a2f0bdbc0dd8575
 }
 
 ruleset {
@@ -50,9 +50,11 @@ ruleset {
 
 weapon longsword {
     move jab {
-        total_frames 18
-        hitbox { start 3 end 5 x 2.59999 y 1.09999 radius 0.59999 damage 4 angle 361 bkb 10 kbg 20 }
-        hitbox { start 3 end 5 x 1.5 y 1.09999 radius 0.7 damage 3 angle 361 bkb 8 kbg 18 priority 1 }
+        total_frames 23
+        next jab2
+        next_window 10
+        hitbox { start 4 end 5 x 3.09999 y 1.09999 radius 0.7 damage 5 angle 361 bkb 25 kbg 15 }
+        hitbox { start 4 end 5 x 1.79999 y 1.09999 radius 0.79999 damage 3 angle 361 bkb 25 kbg 15 priority 1 }
     }
     move ftilt {
         total_frames 32
@@ -79,9 +81,10 @@ weapon longsword {
         hitbox { start 6 end 7 x 3.09999 y 0.4 radius 0.7 damage 10 angle 30 bkb 50 kbg 40 }
     }
     move dash_attack {
-        total_frames 36
-        hitbox { start 8 end 13 x 2.59999 y 1 radius 0.59999 damage 8 angle 361 bkb 20 kbg 80 }
-        hitbox { start 8 end 13 x 1.5 y 1 radius 0.79999 damage 6 angle 361 bkb 16 kbg 75 priority 1 }
+        total_frames 47
+        hitbox { start 12 end 15 x 3.5 y 1 radius 0.79999 damage 13 angle 361 bkb 93 kbg 58 }
+        hitbox { start 12 end 15 x 2.4 y 1 radius 0.79999 damage 10 angle 361 bkb 75 kbg 58 priority 1 }
+        hitbox { start 12 end 15 x 1.29999 y 1 radius 0.9 damage 9 angle 361 bkb 60 kbg 58 priority 2 }
     }
     move fsmash {
         total_frames 50
@@ -146,43 +149,45 @@ weapon longsword {
         hitbox { start 4 end 8 x 0.4 y 3.4 radius 0.7 damage 13 angle 90 bkb 40 kbg 84 }
     }
     move dair {
-        total_frames 48
+        total_frames 57
         landing_lag 18
-        autocancel_before 10
-        autocancel_after 40
-        hitbox { start 11 end 14 x 0.59999 y 0.09999 radius 0.59999 damage 9 angle 270 bkb 20 kbg 80 }
-        hitbox { start 11 end 14 x 0.59999 y 0.59999 radius 0.7 damage 6 angle 270 bkb 16 kbg 75 priority 1 }
+        autocancel_after 47
+        hitbox { start 10 end 10 x 3.4 y -1 radius 0.79999 damage 15 angle 270 bkb 25 kbg 90 }
+        hitbox { start 8 end 9 x 2.4 y 1.2 radius 0.79999 damage 14 angle 361 bkb 35 kbg 85 priority 1 }
+        hitbox { start 11 end 12 x 3.2 y -1 radius 0.79999 damage 14 angle 361 bkb 35 kbg 85 priority 1 }
+        hitbox { start 8 end 12 x 1.59999 y 0.29999 radius 0.9 damage 12 angle 361 bkb 30 kbg 80 priority 2 }
     }
     move neutral_special {
-        total_frames 44
-        hitbox { start 13 end 14 x 2 y 1.2 radius 0.7 damage 6 angle 361 bkb 25 kbg 50 }
-        projectile {
-            frame 13
-            x 2.5
-            y 1.2
-            speed 0.34999
-            life 90
-            end_damage 4
-            hitbox { start 0 end 0 x 0 y 0 radius 0.7 damage 6 angle 361 bkb 30 kbg 40 }
-        }
-        projectile_script {
-            // Neutral special (projectile): fly straight at first, then drift toward the height of the nearest enemy.
-            if has_target && age > 8 {
-                let aim = target_y + 1.2 - py;
-                set_vel(pvx, clamp(aim * 0.06, -0.14, 0.14));
-            }
+        total_frames 56
+        charge_bonus 170
+        hitbox { start 26 end 28 x 4.5 y 1.2 radius 0.79999 damage 9 angle 361 bkb 60 kbg 60 }
+        hitbox { start 26 end 28 x 3.09999 y 1.2 radius 0.9 damage 8 angle 361 bkb 55 kbg 60 priority 1 }
+        motion { start 25 end 30 vx 0.45 vy 0 }
+        script {
+            // Neutral special (Shield Breaker): keep the special button down on frame 19 to charge, for as long as the
+            // charge limit allows. The thrust comes out when the button is let go.
+            if frame == 19 && special { stall(); }
         }
     }
     move side_special {
-        total_frames 38
-        hitbox { start 9 end 16 x 3.79999 y 1.29999 radius 0.9 damage 8 angle 361 bkb 30 kbg 85 }
-        hitbox { start 9 end 16 x 2.59999 y 1.29999 radius 0.79999 damage 6 angle 361 bkb 25 kbg 75 priority 1 }
+        total_frames 37
+        hitbox { start 8 end 9 x 3.09999 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 }
+        hitbox { start 8 end 9 x 1.79999 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 priority 1 }
         script {
-            // Side special: hold still during the wind-up, thrust forward for seven frames (the stick steers it a little
-            // up or down), then stop dead.
-            if frame < 9 { set_vel(0, 0); }
-            if frame >= 9 && frame <= 15 { set_vel(0.8, stick_y * 0.3); }
-            if frame == 16 { set_vel(0, 0); }
+            // Side special (Dancing Blade), hit 1. Press special again before the end to carry on into hit 2;
+            // holding the stick up makes the second hit the rising slash. Slot numbers: 29 = ext1, 30 = ext2.
+            var queued;
+            var rising;
+            if grounded == 0 && frame >= 27 { end(); }
+            if special_tap && frame >= 4 {
+                queued = 1;
+                rising = 0;
+                if stick_y > 0.5 { rising = 1; }
+            }
+            if queued && frame >= 18 {
+                queued = 0;
+                if rising { goto(30); } else { goto(29); }
+            }
         }
     }
     move up_special {
@@ -196,44 +201,184 @@ weapon longsword {
         motion { start 4 end 12 vx 0.125 vy 0.54999 }
         motion { start 13 end 18 vx 0.0625 vy 0.0625 }
     }
+    move down_special {
+        total_frames 62
+        counter { start 5 end 26 then ext0 percent 120 min_damage 8 }
+    }
+    move jab2 {
+        total_frames 26
+        hitbox { start 3 end 4 x 3.09999 y 1.09999 radius 0.7 damage 6 angle 361 bkb 40 kbg 30 }
+        hitbox { start 3 end 4 x 1.79999 y 1.09999 radius 0.79999 damage 4 angle 361 bkb 40 kbg 30 priority 1 }
+    }
     move grab {
-        total_frames 28
-        hitbox { start 5 end 6 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        total_frames 32
+        hitbox { start 5 end 6 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move dash_grab {
-        total_frames 36
-        hitbox { start 7 end 8 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        total_frames 40
+        hitbox { start 8 end 9 x 2.09999 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 20
-        hitbox { start 3 end 3 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
+        total_frames 14
+        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
     }
     move fthrow {
-        total_frames 34
-        hitbox { start 12 end 12 x 1.29999 y 1.09999 radius 1 damage 8 angle 40 bkb 60 kbg 55 kind throw }
+        total_frames 32
+        hitbox { start 17 end 17 x 1.29999 y 1.09999 radius 1 damage 4 angle 40 bkb 60 kbg 50 kind throw }
     }
     move bthrow {
-        total_frames 38
-        hitbox { start 19 end 19 x -1.29999 y 1.09999 radius 1 damage 9 angle 45 bkb 55 kbg 65 kind throw }
+        total_frames 42
+        hitbox { start 18 end 18 x -1.29999 y 1.09999 radius 1 damage 4 angle 45 bkb 65 kbg 55 kind throw }
     }
     move uthrow {
-        total_frames 38
-        hitbox { start 21 end 21 x 1.29999 y 1.09999 radius 1 damage 7 angle 85 bkb 60 kbg 85 kind throw }
+        total_frames 42
+        hitbox { start 12 end 12 x 1.29999 y 1.09999 radius 1 damage 5 angle 88 bkb 60 kbg 102 kind throw }
     }
     move dthrow {
-        total_frames 32
-        hitbox { start 13 end 13 x 1.29999 y 1.09999 radius 1 damage 5 angle 80 bkb 40 kbg 80 kind throw }
+        total_frames 44
+        hitbox { start 19 end 19 x 1.29999 y 1.09999 radius 1 damage 4 angle 84 bkb 85 kbg 57 kind throw }
     }
     move ledge_attack {
-        total_frames 40
-        hitbox { start 19 end 24 x 2 y 0.79999 radius 0.9 damage 8 angle 361 bkb 40 kbg 80 priority 1 }
-        hitbox { start 19 end 24 x 3 y 0.79999 radius 0.79999 damage 10 angle 361 bkb 45 kbg 85 }
+        total_frames 54
+        intangible 26
+        hitbox { start 23 end 25 x 3.09999 y 0.59999 radius 0.9 damage 9 angle 45 bkb 90 kbg 20 }
+        hitbox { start 23 end 25 x 1.9 y 0.59999 radius 1 damage 9 angle 45 bkb 90 kbg 20 priority 1 }
     }
     move get_up_attack {
         total_frames 36
         intangible 10
         hitbox { start 11 end 14 x 1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 40 kbg 80 }
         hitbox { start 17 end 20 x -1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 40 kbg 80 group 1 }
+    }
+    move ext0 {
+        total_frames 38
+        intangible 8
+        counter_strike true
+        hitbox { start 3 end 5 x 3.59999 y 1.09999 radius 0.9 damage 8 angle 361 bkb 60 kbg 85 }
+        hitbox { start 3 end 5 x 2 y 1.09999 radius 1 damage 8 angle 361 bkb 60 kbg 85 priority 1 }
+    }
+    move ext1 {
+        total_frames 36
+        hitbox { start 4 end 5 x 3.09999 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 }
+        hitbox { start 4 end 5 x 1.79999 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 priority 1 }
+        script {
+            // Dancing Blade, hit 2 (ext1 or ext2). Press special again to continue into hit 3: stick up for the rising
+            // slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
+            var queued;
+            var dir;
+            if special_tap && frame >= 3 {
+                queued = 1;
+                dir = 0;
+                if stick_y > 0.5 { dir = 1; }
+                if stick_y < -0.5 { dir = -1; }
+            }
+            if queued && frame >= 17 {
+                queued = 0;
+                if dir == 1 { goto(32); } else if dir == -1 { goto(33); } else { goto(31); }
+            }
+        }
+    }
+    move ext2 {
+        total_frames 36
+        hitbox { start 3 end 4 x 2.4 y 2.2 radius 0.7 damage 3 angle 80 bkb 25 kbg 0 }
+        hitbox { start 3 end 4 x 1.4 y 1.7 radius 0.79999 damage 2.5 angle 80 bkb 25 kbg 0 priority 1 }
+        script {
+            // Dancing Blade, hit 2 (ext1 or ext2). Press special again to continue into hit 3: stick up for the rising
+            // slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
+            var queued;
+            var dir;
+            if special_tap && frame >= 3 {
+                queued = 1;
+                dir = 0;
+                if stick_y > 0.5 { dir = 1; }
+                if stick_y < -0.5 { dir = -1; }
+            }
+            if queued && frame >= 17 {
+                queued = 0;
+                if dir == 1 { goto(32); } else if dir == -1 { goto(33); } else { goto(31); }
+            }
+        }
+    }
+    move ext3 {
+        total_frames 41
+        hitbox { start 3 end 4 x 3.09999 y 1.09999 radius 0.7 damage 4 angle 361 bkb 25 kbg 0 }
+        hitbox { start 3 end 4 x 1.79999 y 1.09999 radius 0.79999 damage 3 angle 361 bkb 25 kbg 0 priority 1 }
+        script {
+            // Dancing Blade, hit 3 (ext3, ext4 or ext5). Press special again for the finisher: stick up for the rising
+            // one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
+            var queued;
+            var dir;
+            if special_tap && frame >= 3 {
+                queued = 1;
+                dir = 0;
+                if stick_y > 0.5 { dir = 1; }
+                if stick_y < -0.5 { dir = -1; }
+            }
+            if queued && frame >= 19 {
+                queued = 0;
+                if dir == 1 { goto(35); } else if dir == -1 { goto(36); } else { goto(34); }
+            }
+        }
+    }
+    move ext4 {
+        total_frames 41
+        hitbox { start 4 end 5 x 3.09999 y 2.2 radius 0.7 damage 4 angle 80 bkb 25 kbg 0 }
+        hitbox { start 4 end 5 x 1.79999 y 2.2 radius 0.79999 damage 3 angle 80 bkb 25 kbg 0 priority 1 }
+        script {
+            // Dancing Blade, hit 3 (ext3, ext4 or ext5). Press special again for the finisher: stick up for the rising
+            // one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
+            var queued;
+            var dir;
+            if special_tap && frame >= 3 {
+                queued = 1;
+                dir = 0;
+                if stick_y > 0.5 { dir = 1; }
+                if stick_y < -0.5 { dir = -1; }
+            }
+            if queued && frame >= 19 {
+                queued = 0;
+                if dir == 1 { goto(35); } else if dir == -1 { goto(36); } else { goto(34); }
+            }
+        }
+    }
+    move ext5 {
+        total_frames 41
+        hitbox { start 4 end 5 x 3.09999 y 0.4 radius 0.7 damage 4 angle 361 bkb 25 kbg 0 }
+        hitbox { start 4 end 5 x 1.79999 y 0.4 radius 0.79999 damage 3 angle 361 bkb 25 kbg 0 priority 1 }
+        script {
+            // Dancing Blade, hit 3 (ext3, ext4 or ext5). Press special again for the finisher: stick up for the rising
+            // one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
+            var queued;
+            var dir;
+            if special_tap && frame >= 3 {
+                queued = 1;
+                dir = 0;
+                if stick_y > 0.5 { dir = 1; }
+                if stick_y < -0.5 { dir = -1; }
+            }
+            if queued && frame >= 19 {
+                queued = 0;
+                if dir == 1 { goto(35); } else if dir == -1 { goto(36); } else { goto(34); }
+            }
+        }
+    }
+    move ext6 {
+        total_frames 53
+        hitbox { start 6 end 7 x 3.5 y 1.09999 radius 0.79999 damage 6 angle 361 bkb 85 kbg 125 }
+        hitbox { start 6 end 7 x 2 y 1.09999 radius 0.9 damage 4 angle 361 bkb 74 kbg 103 priority 1 }
+    }
+    move ext7 {
+        total_frames 42
+        hitbox { start 5 end 6 x 2.2 y 2.59999 radius 0.79999 damage 7 angle 80 bkb 85 kbg 40 }
+        hitbox { start 5 end 6 x 1.2 y 2 radius 0.9 damage 5 angle 80 bkb 80 kbg 40 priority 1 }
+    }
+    move ext8 {
+        total_frames 72
+        rehit_start 6
+        rehit_every 4
+        hitbox { start 6 end 21 x 3 y 0.4 radius 0.79999 damage 2 angle 361 bkb 10 kbg 0 }
+        hitbox { start 25 end 26 x 3.29999 y 0.5 radius 0.79999 damage 5 angle 361 bkb 40 kbg 20 group 1 }
+        hitbox { start 25 end 26 x 2 y 0.5 radius 0.9 damage 4 angle 361 bkb 40 kbg 20 priority 1 group 1 }
     }
 }
 
@@ -354,8 +499,17 @@ weapon claws {
         hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
         hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
         hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
-        motion { start 18 end 27 vx 0.6875 vy 0 }
-        motion { start 28 end 28 vx 0 vy 0 }
+        script {
+            // Side special (dash): the stick at the start of the dash aims it a little up or down.
+            var rise;
+            if frame == 17 {
+                rise = 0;
+                if stick_y > 0.4 { rise = 0.3; }
+                if stick_y < -0.4 { rise = -0.3; }
+            }
+            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
+            if frame == 28 { set_vel(0, 0); }
+        }
     }
     move up_special {
         total_frames 53
@@ -366,13 +520,36 @@ weapon claws {
         hitbox { start 17 end 17 x 0.9 y 1.29999 radius 1.29999 damage 4 angle 65 bkb 100 kbg 0 }
         hitbox { start 18 end 27 x 0.9 y 1.29999 radius 1.29999 damage 2.5 angle 65 bkb 100 kbg 0 }
         hitbox { start 28 end 30 x 0.9 y 1.29999 radius 1.4 damage 6 angle 45 bkb 60 kbg 136 }
-        motion { start 17 end 30 vx 0.1875 vy 0.4 }
-        motion { start 31 end 31 vx 0.03749 vy 0.04999 }
+        script {
+            // Up special: the stick at the end of the wind-up aims the flight in any direction (up and a little forward
+            // if it is neutral). Pushing backward turns Wolf around first. The flight ends with a last small push.
+            var dx;
+            var dy;
+            if frame == 16 {
+                let sx = stick_x;
+                let sy = stick_y;
+                let len = sqrt(sx * sx + sy * sy);
+                if len < 0.4 {
+                    dx = 0.42;
+                    dy = 0.91;
+                } else {
+                    if sx < 0 { turn(); sx = -sx; }
+                    dx = sx / len;
+                    dy = sy / len;
+                }
+            }
+            if frame >= 17 && frame <= 30 { set_vel(dx * 0.44, dy * 0.44); }
+            if frame == 31 { set_vel(dx * 0.08, dy * 0.08); }
+        }
     }
     move down_special {
         total_frames 29
         hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 }
         reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        script {
+            // Down special: intangible on frames 5 to 8, before the reflector comes up.
+            if frame == 4 { intangible(4); }
+        }
     }
     move jab2 {
         total_frames 20
@@ -415,9 +592,10 @@ weapon claws {
         hitbox { start 25 end 25 x 1.29999 y 1.09999 radius 1 damage 8.5 angle 361 bkb 50 kbg 65 kind throw }
     }
     move ledge_attack {
-        total_frames 34
-        hitbox { start 16 end 20 x 1.19998 y 0.79999 radius 0.98997 damage 8.79993 angle 361 bkb 40 kbg 85 }
-        hitbox { start 16 end 20 x 1.79997 y 0.79999 radius 0.87997 damage 10.99991 angle 361 bkb 45 kbg 90 }
+        total_frames 54
+        intangible 26
+        hitbox { start 23 end 25 x 2.09999 y 0.59999 radius 1 damage 9 angle 45 bkb 90 kbg 20 }
+        hitbox { start 23 end 25 x 1.2 y 0.59999 radius 1 damage 9 angle 45 bkb 90 kbg 20 }
     }
     move get_up_attack {
         total_frames 31
@@ -499,7 +677,7 @@ fighter duelist {
     ecb_height 2.2
     ecb_side_height 1.09999
     helpless_landing_lag 20
-    ledge_attack_frames 40
+    ledge_attack_frames 54
     ledge_attack_dx 1.5
     weight 90
 }
@@ -576,7 +754,7 @@ fighter brawler {
     ecb_height 2.2
     ecb_side_height 1.09999
     helpless_landing_lag 20
-    ledge_attack_frames 40
+    ledge_attack_frames 54
     ledge_attack_dx 1.5
     weight 92
 }

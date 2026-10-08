@@ -50,10 +50,22 @@ pub enum MoveId {
     /// Attack out of a ledge hang, and attack out of a knockdown.
     LedgeAttack,
     GetUpAttack,
+    /// Ten free slots for follow-up moves that only a script (`goto`) or a counter reaches: the later hits of a
+    /// multi-hit special, the counter-attack, and so on. They are never started by a button.
+    Ext0,
+    Ext1,
+    Ext2,
+    Ext3,
+    Ext4,
+    Ext5,
+    Ext6,
+    Ext7,
+    Ext8,
+    Ext9,
 }
 
 impl MoveId {
-    pub const COUNT: usize = 28;
+    pub const COUNT: usize = 38;
     /// Index of the first special move.
     pub const FIRST_SPECIAL: u8 = 13;
 
@@ -71,9 +83,14 @@ impl MoveId {
         )
     }
 
-    /// Slots a weapon may leave empty: specials it does not have, and jab hits it does not chain into.
+    pub const fn is_ext(self) -> bool {
+        (self as u8) >= 28
+    }
+
+    /// Slots a weapon may leave empty: specials it does not have, jab hits it does not chain into, and the
+    /// script follow-up slots.
     pub const fn may_be_empty(self) -> bool {
-        self.is_special() || matches!(self, MoveId::Jab2 | MoveId::Jab3)
+        self.is_special() || self.is_ext() || matches!(self, MoveId::Jab2 | MoveId::Jab3)
     }
 
     pub const fn from_index(i: u8) -> MoveId {
@@ -105,6 +122,16 @@ impl MoveId {
             25 => MoveId::DThrow,
             26 => MoveId::LedgeAttack,
             27 => MoveId::GetUpAttack,
+            28 => MoveId::Ext0,
+            29 => MoveId::Ext1,
+            30 => MoveId::Ext2,
+            31 => MoveId::Ext3,
+            32 => MoveId::Ext4,
+            33 => MoveId::Ext5,
+            34 => MoveId::Ext6,
+            35 => MoveId::Ext7,
+            36 => MoveId::Ext8,
+            37 => MoveId::Ext9,
             _ => MoveId::DownSpecial,
         }
     }
@@ -145,6 +172,16 @@ impl MoveId {
             MoveId::DThrow => "dthrow",
             MoveId::LedgeAttack => "ledge_attack",
             MoveId::GetUpAttack => "get_up_attack",
+            MoveId::Ext0 => "ext0",
+            MoveId::Ext1 => "ext1",
+            MoveId::Ext2 => "ext2",
+            MoveId::Ext3 => "ext3",
+            MoveId::Ext4 => "ext4",
+            MoveId::Ext5 => "ext5",
+            MoveId::Ext6 => "ext6",
+            MoveId::Ext7 => "ext7",
+            MoveId::Ext8 => "ext8",
+            MoveId::Ext9 => "ext9",
         }
     }
 
@@ -182,6 +219,16 @@ impl MoveId {
             MoveId::DThrow => "down throw",
             MoveId::LedgeAttack => "ledge attack",
             MoveId::GetUpAttack => "get-up attack",
+            MoveId::Ext0 => "extra move 0",
+            MoveId::Ext1 => "extra move 1",
+            MoveId::Ext2 => "extra move 2",
+            MoveId::Ext3 => "extra move 3",
+            MoveId::Ext4 => "extra move 4",
+            MoveId::Ext5 => "extra move 5",
+            MoveId::Ext6 => "extra move 6",
+            MoveId::Ext7 => "extra move 7",
+            MoveId::Ext8 => "extra move 8",
+            MoveId::Ext9 => "extra move 9",
         }
     }
 }
@@ -260,6 +307,20 @@ pub struct Reflector {
     pub speed_percent: u8,
 }
 
+/// A counter stance: a hit that lands while it is active is cancelled, and the fighter answers with another move
+/// that deals the hit's damage back with interest.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Counter {
+    /// Move frames in which the stance catches hits.
+    pub start: u8,
+    pub end: u8,
+    /// The move the fighter switches to (usually an `ext` slot).
+    pub then: u8,
+    /// The answer deals this percent of the caught hit's damage, at least `min_damage`.
+    pub percent: u8,
+    pub min_damage: Fx,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Move {
     /// The move ends when the move frame reaches this.
@@ -290,6 +351,11 @@ pub struct Move {
     /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
     pub rehit: Option<(u8, u8)>,
     pub reflector: Option<Reflector>,
+    pub counter: Option<Counter>,
+    /// This move's hitboxes deal the damage the fighter's counter stance caught (see [`Counter`]).
+    pub counter_strike: bool,
+    /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
+    pub charge_bonus: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -316,6 +382,9 @@ impl Move {
             next_window: 0,
             rehit: None,
             reflector: None,
+            counter: None,
+            counter_strike: false,
+            charge_bonus: 0,
             script: None,
             projectile_script: None,
         }
@@ -428,6 +497,19 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            match &m.counter {
+                Some(c) => {
+                    h.write_bool(true);
+                    h.write_u8(c.start);
+                    h.write_u8(c.end);
+                    h.write_u8(c.then);
+                    h.write_u8(c.percent);
+                    c.min_damage.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_bool(m.counter_strike);
+            h.write_u8(m.charge_bonus);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -575,16 +657,8 @@ fn r(
 pub fn longsword() -> Weapon {
     let none = (0, 255);
     let mut moves = vec![
-        // Jab
-        mk(
-            18,
-            0,
-            none,
-            &[
-                B(3, 5, 26, 11, 6, 8, 361, 10, 20, 0),
-                B(3, 5, 15, 11, 7, 6, 361, 8, 18, 1),
-            ],
-        ),
+        // Jab (below)
+        Move::empty(),
         // Forward tilt (replaced below with reference data)
         Move::empty(),
         // Up tilt
@@ -607,16 +681,8 @@ pub fn longsword() -> Weapon {
                 B(6, 8, 14, 4, 6, 8, 80, 8, 75, 1),
             ],
         ),
-        // Dash attack
-        mk(
-            36,
-            0,
-            none,
-            &[
-                B(8, 13, 26, 10, 6, 16, 361, 20, 80, 0),
-                B(8, 13, 15, 10, 8, 12, 361, 16, 75, 1),
-            ],
-        ),
+        // Dash attack (below)
+        Move::empty(),
         // Forward smash
         mk(
             46,
@@ -661,103 +727,28 @@ pub fn longsword() -> Weapon {
                 B(6, 10, 4, 21, 8, 12, 85, 16, 85, 1),
             ],
         ),
-        // Down air
-        mk(
-            48,
-            18,
-            (10, 40),
-            &[
-                B(11, 14, 6, 1, 6, 18, 270, 20, 80, 0),
-                B(11, 14, 6, 6, 7, 12, 270, 16, 75, 1),
-            ],
-        ),
+        // Down air (below)
+        Move::empty(),
         // Specials (the up special is replaced below)
         Move::empty(),
         Move::empty(),
         Move::empty(),
         Move::empty(),
-        // Jab 2 and 3 (this weapon's jab does not chain)
+        // Jab 2, jab 3 and the grabs and throws (below)
         Move::empty(),
         Move::empty(),
-        // Grab, dash grab, pummel and throws: placeholders (the published data used here is for the brawler)
-        with_kind(
-            ref_move(30, 0, 0, 255, &[r(6, 7, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
-            HIT_GRAB,
-        ),
-        with_kind(
-            ref_move(38, 0, 0, 255, &[r(8, 9, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
-            HIT_GRAB,
-        ),
-        with_kind(
-            ref_move(22, 0, 0, 255, &[r(4, 4, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
-            HIT_PUMMEL,
-        ),
-        with_kind(
-            ref_move(
-                36,
-                0,
-                0,
-                255,
-                &[r(13, 13, 13, 11, 10, 80, 40, 60, 55, 0, 0)],
-            ),
-            HIT_THROW,
-        ),
-        with_kind(
-            ref_move(
-                40,
-                0,
-                0,
-                255,
-                &[r(20, 20, -13, 11, 10, 90, 45, 55, 65, 0, 0)],
-            ),
-            HIT_THROW,
-        ),
-        with_kind(
-            ref_move(
-                40,
-                0,
-                0,
-                255,
-                &[r(22, 22, 13, 11, 10, 70, 85, 60, 85, 0, 0)],
-            ),
-            HIT_THROW,
-        ),
-        with_kind(
-            ref_move(
-                34,
-                0,
-                0,
-                255,
-                &[r(14, 14, 13, 11, 10, 50, 80, 40, 80, 0, 0)],
-            ),
-            HIT_THROW,
-        ),
+        Move::empty(),
+        Move::empty(),
+        Move::empty(),
+        Move::empty(),
+        Move::empty(),
+        Move::empty(),
+        Move::empty(),
     ];
-    // Ledge attack: a sweep as the fighter climbs onto the stage (placeholder numbers, 42 frames like
-    // `ledge_attack_frames`).
-    moves.push(ref_move(
-        42,
-        0,
-        0,
-        255,
-        &[
-            r(20, 25, 20, 8, 9, 80, 361, 40, 80, 1, 0),
-            r(20, 25, 30, 8, 8, 100, 361, 45, 85, 0, 0),
-        ],
-    ));
-    // Get-up attack: hits on both sides while rising, intangible for the first 10 frames (placeholder numbers).
-    let mut getup_attack = ref_move(
-        38,
-        0,
-        0,
-        255,
-        &[
-            r(12, 15, 18, 5, 9, 70, 361, 40, 80, 0, 0),
-            r(18, 21, -18, 5, 9, 70, 361, 40, 80, 0, 1),
-        ],
-    );
-    getup_attack.intangible = 10;
-    moves.push(getup_attack);
+    // Ledge attack and get-up attack (below), then the script follow-up slots.
+    moves.push(Move::empty());
+    moves.push(Move::empty());
+    moves.resize_with(MoveId::COUNT, Move::empty);
 
     // Forward tilt: first active 8, 9/12 damage (sour/tip), angle 361, FAF 34.
     moves[MoveId::FTilt as usize] = ref_move(
@@ -940,58 +931,298 @@ pub fn longsword() -> Weapon {
     up_special.grabs_ledge = true;
     moves[MoveId::UpSpecial as usize] = up_special;
 
-    // The two specials below are placeholders written as scripts (plan phase 5): they show what the scripting
-    // layer is for, and fill slots that were empty. Their numbers are guesses, not reference data.
-    //
-    // Neutral special: a slow bolt that bends toward the nearest enemy's height.
-    let mut seeker = ref_move(
-        46,
+    // ---- The rest of the sword kit ----
+    // Positions and sizes are estimates throughout; the frames, damage and (where known) knockback follow the
+    // reference tables. `ext` slots are only reached by a script or a counter.
+
+    // Jab: two hits. Hit 1 on frames 5-6 (3% close, 5% tip), FAF 25; hit 2 on frames 4-5 (4% / 6%), FAF 28.
+    let mut jab1 = ref_move(
+        25,
         0,
         0,
         255,
-        &[r(14, 15, 20, 12, 7, 60, 361, 25, 50, 0, 0)],
+        &[
+            r(5, 6, 31, 11, 7, 50, 361, 25, 15, 0, 0),
+            r(5, 6, 18, 11, 8, 30, 361, 25, 15, 1, 0),
+        ],
     );
-    seeker.projectile = Some(ProjectileSpawn {
-        frame: 13,
-        x: Fx::from_ratio(25, 10),
-        y: Fx::from_ratio(12, 10),
-        speed: Fx::from_ratio(35, 100),
-        life: 90,
-        hitbox: Hitbox {
-            start: 0,
-            end: 0,
-            x: Fx::ZERO,
-            y: Fx::ZERO,
-            radius: Fx::from_ratio(7, 10),
-            damage: Fx::from_int(6),
-            angle: 361,
-            base_knockback: 30,
-            knockback_growth: 40,
-            priority: 0,
-            group: 0,
-            kind: HIT_NORMAL,
-        },
-        end_damage: Fx::from_int(4),
-    });
-    seeker.projectile_script = Some(script(
-        Kind::Projectile,
-        include_str!("scripts/seeker_bolt.script"),
-    ));
-    moves[MoveId::NSpecial as usize] = seeker;
+    jab1.next = Some(MoveId::Jab2 as u8);
+    jab1.next_window = 10;
+    moves[MoveId::Jab as usize] = jab1;
+    moves[MoveId::Jab2 as usize] = ref_move(
+        28,
+        0,
+        0,
+        255,
+        &[
+            r(4, 5, 31, 11, 7, 60, 361, 40, 30, 0, 0),
+            r(4, 5, 18, 11, 8, 40, 361, 40, 30, 1, 0),
+        ],
+    );
 
-    // Side special: a lunge. Wind up, dash forward (the stick steers it a little up or down), recover.
-    let mut lunge = ref_move(
+    // Dash attack: frames 13-16, 9% / 10% / 13% (closest, close, tip), tip knockback 93 base 58 growth, FAF 49.
+    moves[MoveId::DashAttack as usize] = ref_move(
+        49,
+        0,
+        0,
+        255,
+        &[
+            r(13, 16, 35, 10, 8, 130, 361, 93, 58, 0, 0),
+            r(13, 16, 24, 10, 8, 100, 361, 75, 58, 1, 0),
+            r(13, 16, 13, 10, 9, 90, 361, 60, 58, 2, 0),
+        ],
+    );
+
+    // Down air: a stab straight down. Frames 9-13 hit for 12% (blade) and 14% (tip); on frame 11 only, the tip is a
+    // 15% meteor smash. FAF 59. The landing lag and the autocancel frame are estimates.
+    moves[MoveId::DAir as usize] = ref_move(
+        59,
+        18,
+        0,
+        48,
+        &[
+            // The sword swings down: the tip is high on frames 9-10, at its lowest (the meteor) on frame 11, and
+            // trails behind it on frames 12-13. The blade near the hilt hits throughout.
+            r(11, 11, 34, -10, 8, 150, 270, 25, 90, 0, 0),
+            r(9, 10, 24, 12, 8, 140, 361, 35, 85, 1, 0),
+            r(12, 13, 32, -10, 8, 140, 361, 35, 85, 1, 0),
+            r(9, 13, 16, 3, 9, 120, 361, 30, 80, 2, 0),
+        ],
+    );
+
+    // Grab (hits frames 6-7, FAF 34), dash grab (frames 9-10, FAF 42), pummel 1.3% and the four throws: forward 4%
+    // (releases on frame 18, FAF 34), back 4% (19, FAF 44), up 5% (13, FAF 44, growth 102), down 4% (20, FAF 46,
+    // growth 57). Throw angles, base knockback and the grab's reach are estimates.
+    moves[MoveId::Grab as usize] = with_kind(
+        ref_move(34, 0, 0, 255, &[r(6, 7, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    moves[MoveId::DashGrab as usize] = with_kind(
+        ref_move(42, 0, 0, 255, &[r(9, 10, 21, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    moves[MoveId::Pummel as usize] = with_kind(
+        ref_move(16, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
+        HIT_PUMMEL,
+    );
+    moves[MoveId::FThrow as usize] = with_kind(
+        ref_move(
+            34,
+            0,
+            0,
+            255,
+            &[r(18, 18, 13, 11, 10, 40, 40, 60, 50, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    moves[MoveId::BThrow as usize] = with_kind(
+        ref_move(
+            44,
+            0,
+            0,
+            255,
+            &[r(19, 19, -13, 11, 10, 40, 45, 65, 55, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    moves[MoveId::UThrow as usize] = with_kind(
+        ref_move(
+            44,
+            0,
+            0,
+            255,
+            &[r(13, 13, 13, 11, 10, 50, 88, 60, 102, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    moves[MoveId::DThrow as usize] = with_kind(
+        ref_move(
+            46,
+            0,
+            0,
+            255,
+            &[r(20, 20, 13, 11, 10, 40, 84, 85, 57, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+
+    // Ledge attack: 9%, angle 45, base knockback 90, growth 20, hits on frames 24-26, intangible through frame 26,
+    // FAF 56 (the same numbers the reference gives the brawler; the sword's own are not published in the sources
+    // used). The get-up attack (7% each side) keeps its placeholder frames.
+    let mut ledge = ref_move(
+        56,
+        0,
+        0,
+        255,
+        &[
+            r(24, 26, 31, 6, 9, 90, 45, 90, 20, 0, 0),
+            r(24, 26, 19, 6, 10, 90, 45, 90, 20, 1, 0),
+        ],
+    );
+    ledge.intangible = 26;
+    moves[MoveId::LedgeAttack as usize] = ledge;
+    let mut getup_attack = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            r(12, 15, 18, 5, 9, 70, 361, 40, 80, 0, 0),
+            r(18, 21, -18, 5, 9, 70, 361, 40, 80, 0, 1),
+        ],
+    );
+    getup_attack.intangible = 10;
+    moves[MoveId::GetUpAttack as usize] = getup_attack;
+
+    // Neutral special, Shield Breaker: hold special to charge (from frame 19, at most the charge limit), let go to
+    // thrust. The thrust hits on frame 27: 8% (9% at the tip) uncharged, up to about 24% fully charged. Release to
+    // end is 39 frames. Knockback is an estimate.
+    let mut breaker = ref_move(
+        58,
+        0,
+        0,
+        255,
+        &[
+            r(27, 29, 45, 12, 8, 90, 361, 60, 60, 0, 0),
+            r(27, 29, 31, 12, 9, 80, 361, 55, 60, 1, 0),
+        ],
+    );
+    breaker.charge_bonus = 170;
+    breaker.motion = vec![Motion {
+        start: 25,
+        end: 30,
+        vx: Fx::from_ratio(45, 100),
+        vy: Fx::ZERO,
+    }];
+    breaker.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/shield_breaker.script"),
+    ));
+    moves[MoveId::NSpecial as usize] = breaker;
+
+    // Side special, Dancing Blade: up to four hits, each started by pressing special again (the stick chooses the
+    // rising or low variants). Hit 1 starts on frame 9 (FAF 39 on the ground, ends after 29 in the air). Hits 2-4
+    // are `ext` slots: startup / FAF 5/38 (straight) and 4/38 (rising); 4/43, 5/43 and 5/43 for hit 3; 7/55,
+    // 6/44 and 7/74 for hit 4. Damage is 2.5% (3% at the tip) for hits 1-2, 3% (4%) for hit 3, and 4% (6%),
+    // 5% (7%) and 2% x4 then 4% (5%) for the three finishers. Angles and the early hits' knockback are estimates;
+    // the straight finisher's knockback (74/103, tip 85/125) and the rising one's (80/85 base, 40 growth) are not.
+    let ext = |n: u8| MoveId::from_index(28 + n) as usize;
+    let db_script = |src: &str| Some(script(Kind::Fighter, src));
+    let mut db1 = ref_move(
+        39,
+        0,
+        0,
+        255,
+        &[
+            r(9, 10, 31, 11, 7, 30, 361, 25, 0, 0, 0),
+            r(9, 10, 18, 11, 8, 25, 361, 25, 0, 1, 0),
+        ],
+    );
+    db1.script = db_script(include_str!("scripts/dancing_blade_1.script"));
+    moves[MoveId::SideSpecial as usize] = db1;
+    let mut db2n = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            r(5, 6, 31, 11, 7, 30, 361, 25, 0, 0, 0),
+            r(5, 6, 18, 11, 8, 25, 361, 25, 0, 1, 0),
+        ],
+    );
+    db2n.script = db_script(include_str!("scripts/dancing_blade_2.script"));
+    moves[ext(1)] = db2n;
+    let mut db2u = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            r(4, 5, 24, 22, 7, 30, 80, 25, 0, 0, 0),
+            r(4, 5, 14, 17, 8, 25, 80, 25, 0, 1, 0),
+        ],
+    );
+    db2u.script = db_script(include_str!("scripts/dancing_blade_2.script"));
+    moves[ext(2)] = db2u;
+    for (slot, startup, y, angle, tip_dmg, body_dmg) in [
+        (3u8, 4u8, 11, 361, 40, 30),
+        (4, 5, 22, 80, 40, 30),
+        (5, 5, 4, 361, 40, 30),
+    ] {
+        let mut m = ref_move(
+            43,
+            0,
+            0,
+            255,
+            &[
+                r(startup, startup + 1, 31, y, 7, tip_dmg, angle, 25, 0, 0, 0),
+                r(startup, startup + 1, 18, y, 8, body_dmg, angle, 25, 0, 1, 0),
+            ],
+        );
+        m.script = db_script(include_str!("scripts/dancing_blade_3.script"));
+        moves[ext(slot)] = m;
+    }
+    // Finishers: straight, rising, and the low multi-hit one.
+    moves[ext(6)] = ref_move(
+        55,
+        0,
+        0,
+        255,
+        &[
+            r(7, 8, 35, 11, 8, 60, 361, 85, 125, 0, 0),
+            r(7, 8, 20, 11, 9, 40, 361, 74, 103, 1, 0),
+        ],
+    );
+    moves[ext(7)] = ref_move(
+        44,
+        0,
+        0,
+        255,
+        &[
+            r(6, 7, 22, 26, 8, 70, 80, 85, 40, 0, 0),
+            r(6, 7, 12, 20, 9, 50, 80, 80, 40, 1, 0),
+        ],
+    );
+    let mut low = ref_move(
+        74,
+        0,
+        0,
+        255,
+        &[
+            r(7, 22, 30, 4, 8, 20, 361, 10, 0, 0, 0),
+            r(26, 27, 33, 5, 8, 50, 361, 40, 20, 0, 1),
+            r(26, 27, 20, 5, 9, 40, 361, 40, 20, 1, 1),
+        ],
+    );
+    low.rehit = Some((6, 4));
+    moves[ext(8)] = low;
+
+    // Down special, Counter: for 22 frames starting on frame 6 a hit is caught instead of taken, and Marth
+    // answers with the counter-attack (`ext0`), which deals 1.2 times the caught damage (at least 8%). Without a
+    // hit the stance lasts 64 frames. The counter-attack comes out on frame 4 and lasts to FAF 40; its
+    // position, size and knockback are estimates.
+    let mut counter = ref_move(64, 0, 0, 255, &[]);
+    counter.counter = Some(Counter {
+        start: 5,
+        end: 26,
+        then: MoveId::Ext0 as u8,
+        percent: 120,
+        min_damage: Fx::from_int(8),
+    });
+    moves[MoveId::DownSpecial as usize] = counter;
+    let mut answer = ref_move(
         40,
         0,
         0,
         255,
         &[
-            r(10, 17, 38, 13, 9, 80, 361, 30, 85, 0, 0),
-            r(10, 17, 26, 13, 8, 60, 361, 25, 75, 1, 0),
+            r(4, 6, 36, 11, 9, 80, 361, 60, 85, 0, 0),
+            r(4, 6, 20, 11, 10, 80, 361, 60, 85, 1, 0),
         ],
     );
-    lunge.script = Some(script(Kind::Fighter, include_str!("scripts/lunge.script")));
-    moves[MoveId::SideSpecial as usize] = lunge;
+    answer.counter_strike = true;
+    answer.intangible = 8;
+    moves[MoveId::Ext0 as usize] = answer;
 
     Weapon { moves }
 }
@@ -1006,6 +1237,13 @@ pub fn claws() -> Weapon {
             *m = Move::empty();
             continue;
         }
+        // Nothing of the sword's follow-up slots belongs to the claws.
+        if MoveId::from_index(i as u8).is_ext() {
+            *m = Move::empty();
+            continue;
+        }
+        m.script = None;
+        m.projectile_script = None;
         let quick = |f: u8| ((u16::from(f) * 85 + 50) / 100) as u8;
         m.total_frames = quick(m.total_frames).max(if m.total_frames == 0 { 0 } else { 6 });
         m.landing_lag = quick(m.landing_lag);
@@ -1251,8 +1489,8 @@ pub fn claws() -> Weapon {
     w.moves[MoveId::DSmash as usize] = dsmash;
 
     // Wolf Flash (side special): after a 19 frame wind-up a dash of about 7 world units (3% on the way), ending in a
-    // 20% spike with a 15% hit around it. Helpless in the air. The distance, the ending hit knockback and the
-    // total length are estimates; it cannot be angled yet.
+    // 20% spike with a 15% hit around it. Helpless in the air. The stick at the start of the dash angles it up or
+    // down (a script). The distance, the ending hit knockback and the total length are estimates.
     let mut flash = ref_move(
         55,
         0,
@@ -1264,27 +1502,17 @@ pub fn claws() -> Weapon {
             r(29, 32, 15, 9, 13, 150, 290, 60, 90, 1, 1),
         ],
     );
-    flash.motion = vec![
-        Motion {
-            start: 18,
-            end: 27,
-            vx: su(5500),
-            vy: Fx::ZERO,
-        },
-        // The dash stops dead where it ends.
-        Motion {
-            start: 28,
-            end: 28,
-            vx: Fx::ZERO,
-            vy: Fx::ZERO,
-        },
-    ];
+    flash.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/flash_aim.script"),
+    ));
     flash.helpless_after = true;
     w.moves[MoveId::SideSpecial as usize] = flash;
 
     // Fire Wolf (up special): after an 18 frame wind-up a rising flame kick that hits five times (4%, 2.5% x 3, then
     // 6%; the last hit launches) and then leaves Wolf helpless. It can grab the ledge mid-move. The travel
-    // (about 5.6 up and 2.6 forward world units) and the knockback values are estimates.
+    // (about 6 world units) and the knockback values are estimates. The stick at the end of the wind-up aims the
+    // flight in any direction (a script); neutral aims up and a little forward.
     let mut fire = ref_move(
         55,
         0,
@@ -1296,21 +1524,10 @@ pub fn claws() -> Weapon {
             r(29, 31, 9, 13, 14, 60, 45, 60, 136, 0, 0),
         ],
     );
-    fire.motion = vec![
-        Motion {
-            start: 17,
-            end: 30,
-            vx: su(1500),
-            vy: su(3200),
-        },
-        // The kick ends and Wolf tumbles into the helpless fall with only a little speed left.
-        Motion {
-            start: 31,
-            end: 31,
-            vx: su(300),
-            vy: su(400),
-        },
-    ];
+    fire.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/fire_aim.script"),
+    ));
     fire.rehit = Some((17, 3));
     fire.helpless_after = true;
     fire.grabs_ledge = true;
@@ -1318,7 +1535,7 @@ pub fn claws() -> Weapon {
 
     // Reflector (down special): a reflecting field in front of Wolf from frame 9 to 21 that turns projectiles
     // around (1.5 times the damage), plus a 4% hit on anyone touching it. The reflector frames, size and
-    // reflected speed are estimates; the reference frames 5-8 of intangibility are not implemented.
+    // reflected speed are estimates. Wolf is intangible on frames 5-8 (a script).
     let mut reflector = ref_move(31, 0, 0, 255, &[r(9, 12, 14, 11, 15, 40, 65, 60, 85, 0, 0)]);
     reflector.reflector = Some(Reflector {
         start: 8,
@@ -1329,6 +1546,10 @@ pub fn claws() -> Weapon {
         damage_percent: 150,
         speed_percent: 130,
     });
+    reflector.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/reflector_guard.script"),
+    ));
     w.moves[MoveId::DownSpecial as usize] = reflector;
 
     // Grabs and throws. Standing grab: hits on frame 7 (dash grab frame 8); pummel 1.3%; throws release on frame 11
@@ -1377,6 +1598,20 @@ pub fn claws() -> Weapon {
         ),
         HIT_THROW,
     );
+    // Ledge attack: 9%, angle 45, base knockback 90, growth 20, hits on frames 24-26, intangible through frame 26,
+    // FAF 56 (reference numbers). Positions are estimates.
+    let mut ledge = ref_move(
+        56,
+        0,
+        0,
+        255,
+        &[
+            r(24, 26, 21, 6, 10, 90, 45, 90, 20, 0, 0),
+            r(24, 26, 12, 6, 10, 90, 45, 90, 20, 0, 0),
+        ],
+    );
+    ledge.intangible = 26;
+    w.moves[MoveId::LedgeAttack as usize] = ledge;
     w.moves[MoveId::DThrow as usize] = with_kind(
         ref_move(
             41,
@@ -1406,7 +1641,7 @@ mod tests {
                     );
                     continue;
                 }
-                assert!(!m.hitboxes.is_empty() || m.projectile.is_some());
+                assert!(!m.hitboxes.is_empty() || m.projectile.is_some() || m.counter.is_some());
                 for hb in &m.hitboxes {
                     assert!(
                         hb.start <= hb.end && hb.end <= m.total_frames,

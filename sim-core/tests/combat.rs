@@ -49,8 +49,8 @@ fn a_jab_hits_on_its_first_active_frame_and_not_before() {
     assert_eq!(sim.f().state, S::Attack);
     assert_eq!(sim.f().move_id, JAB);
     assert_eq!(sim.fighter(1).percent, Fx::ZERO);
-    // The jab's hitboxes start on frame 3, which is the 4th tick counting the button press as the first.
-    assert_eq!(ticks_until_hit(&mut sim, 12), Some(4));
+    // The jab's hitboxes start on frame 5, which is the 5th tick counting the button press as the first.
+    assert_eq!(ticks_until_hit(&mut sim, 12), Some(5));
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn hitlag_freezes_both_fighters_for_the_same_number_of_frames() {
     let mut sim = Sim::duel(fx(14, 10));
     sim.tick(inp(0, 0, ATTACK));
     ticks_until_hit(&mut sim, 12).expect("jab should hit");
-    let tip_damage = Fx::from_int(4);
+    let tip_damage = Fx::from_int(3);
     let lag = hitlag_frames(tip_damage);
     assert_eq!(sim.f().hitlag, lag);
     assert_eq!(sim.fighter(1).hitlag, lag);
@@ -86,12 +86,12 @@ fn hitlag_freezes_both_fighters_for_the_same_number_of_frames() {
 
 #[test]
 fn a_move_only_hits_a_target_once() {
-    // The jab's hitboxes stay active for three frames; one use must deal its damage once.
+    // The jab's hitboxes stay active for two frames; one use must deal its damage once.
     let mut sim = Sim::duel(fx(14, 10));
     sim.tick(inp(0, 0, ATTACK));
     assert_eq!(sim.f().move_id, JAB);
     sim.ticks(20, inp(0, 0, 0));
-    let once = Fx::from_int(4) * sim.content.rules.damage_mult;
+    let once = Fx::from_int(3) * sim.content.rules.damage_mult;
     assert_eq!(
         sim.fighter(1).percent,
         once,
@@ -381,7 +381,10 @@ fn the_middle_of_an_air_dodge_is_intangible() {
 
 #[test]
 fn two_fighters_hitting_each_other_on_the_same_frame_both_take_damage() {
-    let mut sim = Sim::duel(fx(14, 10));
+    // Two of the same character, so both jabs come out on the same frame.
+    let mut sim = Sim::with_chars([0, 0, 0, 0]);
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(14, 10), -1);
     sim.tick2(inp(0, 0, ATTACK), inp(0, 0, ATTACK));
     sim.ticks(8, inp(0, 0, 0));
     assert!(

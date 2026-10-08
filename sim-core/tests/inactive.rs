@@ -4,7 +4,9 @@ mod common;
 
 use common::{inp, Sim};
 use sim_core::input::buttons::{ATTACK, SPECIAL};
+use sim_core::moves::{Move, MoveId};
 use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS};
+use sim_script::{Kind, Program};
 
 fn two_player_sim(chars: [u8; 4]) -> Sim {
     let mut sim = Sim::with_chars(chars);
@@ -50,8 +52,22 @@ fn inactive_fighters_do_not_absorb_projectiles() {
 
 #[test]
 fn inactive_fighters_are_never_projectile_targets() {
-    // The seeking bolt aims at the nearest *active* enemy: player 1, high above, not the ghost at ground level.
+    // A bolt that bends toward the nearest enemy's height must aim at the active player 1 (high above), not at
+    // the inactive fighter standing at ground level.
     let mut sim = two_player_sim([0, 0, 0, 0]);
+    let blaster = Content::placeholder().weapons[1].moves[MoveId::NSpecial as usize].clone();
+    sim.content.weapons[0].moves[MoveId::NSpecial as usize] = Move {
+        total_frames: 40,
+        projectile: blaster.projectile,
+        projectile_script: Some(
+            Program::compile(
+                Kind::Projectile,
+                "if has_target { set_vel(pvx, sign(target_y + 1 - py) * 0.1); }",
+            )
+            .unwrap(),
+        ),
+        ..Move::empty()
+    };
     sim.stand(0, Fx::from_int(-9), 1);
     sim.put_airborne(1, Fx::from_int(4), Fx::from_int(6), Fx::ZERO, Fx::ZERO);
     sim.state.fighters[1].invuln = 255;

@@ -1,0 +1,3 @@
+// Neutral special (Shield Breaker): keep the special button down on frame 19 to charge, for as long as the
+// charge limit allows. The thrust comes out when the button is let go.
+if frame == 19 && special { stall(); }

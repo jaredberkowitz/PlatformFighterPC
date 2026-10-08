@@ -11,7 +11,7 @@ pub mod tree;
 pub use bundle::{load, to_text, Bundle, Manifest, SCHEMA_VERSION};
 
 use sim_core::content::{MAX_LEDGES, MAX_PLATFORMS};
-use sim_core::moves::{MoveId, Weapon};
+use sim_core::moves::{Move, MoveId, Weapon};
 use sim_core::state::HISTORY_LEN;
 use sim_core::{Content, FighterParams, Fx, Stage};
 
@@ -199,7 +199,11 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             }
             continue;
         }
-        if mv.hitboxes.is_empty() && mv.projectile.is_none() && mv.script.is_none() {
+        if mv.hitboxes.is_empty()
+            && mv.projectile.is_none()
+            && mv.script.is_none()
+            && mv.counter.is_none()
+        {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
         if let Some(p) = &mv.projectile {
@@ -220,6 +224,21 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 if let Some(problem) = sim_script::check::dry_run(program) {
                     errors.push(format!("weapon {i} {name}: {label} {problem}"));
                 }
+            }
+        }
+        if let Some(c) = &mv.counter {
+            if usize::from(c.then) >= MoveId::COUNT
+                || w.moves.get(usize::from(c.then)).is_none_or(Move::is_empty)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: the counter's answer is not a move this weapon has"
+                ));
+            }
+            if c.start == 0 || c.start > c.end || c.end > mv.total_frames {
+                errors.push(format!(
+                    "weapon {i} {name}: counter window {}..{} is outside the move",
+                    c.start, c.end
+                ));
             }
         }
         if let Some(n) = mv.next {
@@ -375,7 +394,6 @@ mod tests {
 #[cfg(test)]
 mod combat_tests {
     use super::*;
-    use sim_core::moves::Move;
     use sim_script::{Kind, Program};
 
     #[test]
@@ -393,6 +411,24 @@ mod combat_tests {
         );
         assert!(
             errors.iter().any(|e| e.contains("needs a projectile")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_a_counter_that_answers_with_nothing_or_has_a_bad_window() {
+        let mut c = Content::placeholder();
+        let down = &mut c.weapons[0].moves[MoveId::DownSpecial as usize];
+        let counter = down.counter.as_mut().unwrap();
+        counter.then = MoveId::Ext9 as u8; // an empty slot
+        counter.start = 30; // after the end of the window
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("counter's answer")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("counter window")),
             "{errors:?}"
         );
     }

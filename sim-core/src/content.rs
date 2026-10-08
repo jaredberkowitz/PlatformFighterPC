@@ -348,7 +348,7 @@ impl FighterParams {
             ecb_height: r(11, 5),
             ecb_side_height: r(11, 10),
             helpless_landing_lag: 20,
-            ledge_attack_frames: 40,
+            ledge_attack_frames: 54,
             ledge_attack_dx: r(3, 2),
             weight: Fx::from_int(90),
             weapon: 0,
