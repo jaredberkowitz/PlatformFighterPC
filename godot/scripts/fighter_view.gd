@@ -836,11 +836,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
-	# Trail: from the inner part of the swing to the far edge of the hitbox (its centre plus its radius along the swing).
-	var swing_dir := (tip - SHOULDER).normalized() if (tip - SHOULDER).length() > 0.01 else Vector2.RIGHT
+	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
 	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
-	var inner_edge := hand.lerp(tip, 0.18) if s.char == 0 else SHOULDER + swing_dir * 0.4
-	_update_trail(s, inner_edge, tip + swing_dir * radius)
+	_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 	blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0 if s.char == 0 else 1.7, 1.0 if s.char == 0 else 1.7)
@@ -887,12 +885,15 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
 
 
-## A glowing swoosh behind the move's hitbox, like the crescent a smash attack leaves. Every simulation frame while the move is dangerous a
-## strip from the inner edge of the swing to the outer edge of the hitbox is added; the strip fades and thins over about a fifth of a
-## second. The points are kept in world space, so the trail stays where the swing was while the fighter moves on.
-const TRAIL_FRAMES := 20
+## A crescent trail behind the hitbox, like the one a fast punch or slash leaves. Each simulation frame the centre of the hitbox (the fist,
+## or the part of the blade that hits) is added to a path; the path is drawn as a smooth ribbon that is thickest at the hitbox and tapers
+## to nothing behind it, with a bright core inside a coloured edge. While the hitbox is live a thin ring marks where it is. The points are
+## kept in world space, so the trail stays where the swing was while the fighter moves on. It is cosmetic: it only reads the move.
+const TRAIL_FRAMES := 16
+const TRAIL_WIDTH := 0.42
+const TRAIL_SMOOTH := 4
 var trail: MeshInstance3D
-var trail_points: Array = []     # [{inner, outer, frame}]
+var trail_points: Array = []     # [{pos: Vector3, frame: int}]
 var last_trail_frame := -1
 
 
@@ -905,54 +906,109 @@ func _make_trail() -> void:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = false
+	m.no_depth_test = true
+	m.render_priority = 5
 	trail.material_override = m
 	add_child(trail)
 
 
-func _trail_colour(s: Dictionary) -> Color:
-	# Violet for the brawler's fists and feet, ice blue for the sword.
-	return Color(0.78, 0.35, 1.0) if s.char == 1 else Color(0.55, 0.85, 1.0)
+## Edge and core colours: violet and white-pink for the brawler, gold and white for the sword.
+func _trail_colours(s: Dictionary) -> Array:
+	if s.char == 1:
+		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
+	return [Color(1.0, 0.62, 0.12), Color(1.0, 1.0, 0.85)]
 
 
-func _update_trail(s: Dictionary, inner: Vector2, outer: Vector2) -> void:
+## Catmull-Rom smoothing so a path of a few points reads as a curve.
+func _smooth(points: Array) -> Array:
+	if points.size() < 3:
+		return points
+	var out: Array = []
+	for i in points.size() - 1:
+		var p0: Vector3 = points[maxi(i - 1, 0)]
+		var p1: Vector3 = points[i]
+		var p2: Vector3 = points[i + 1]
+		var p3: Vector3 = points[mini(i + 2, points.size() - 1)]
+		for k in TRAIL_SMOOTH:
+			var t := float(k) / TRAIL_SMOOTH
+			out.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t * t * t))
+	out.append(points[points.size() - 1])
+	return out
+
+
+## `centre` is where the hitbox is now (forward space, relative to the fighter) and `radius` its size.
+func _update_trail(s: Dictionary, centre: Vector2, radius: float) -> void:
 	if trail == null:
 		_make_trail()
 	var t: PackedInt32Array = s.move_timing
 	var f: float = s.state_frame
-	var live: bool = s.state == "Attack" and t[1] > 0 and f >= 1.0 and f <= t[2] + 6.0 and s.move_tip != Vector3.ZERO
+	var swinging: bool = s.state == "Attack" and t[1] > 0 and f >= 1.0 and f <= t[2] + 5.0 and s.move_tip != Vector3.ZERO
+	var dangerous: bool = swinging and f >= t[1] and f <= t[2]
 	var frame: int = s.frame
-	if live and int(s.hitlag) == 0 and frame != last_trail_frame:
+	var facing: float = float(s.facing)
+	var base := Vector3(position.x, position.y, 0.0)
+	var here := base + Vector3(centre.x * facing, centre.y, 0.7)
+	if swinging and int(s.hitlag) == 0 and frame != last_trail_frame:
 		last_trail_frame = frame
-		var facing: float = float(s.facing)
-		var base := Vector3(position.x, position.y, 0.0)
-		trail_points.append({
-			"inner": base + Vector3(inner.x * facing, inner.y, 0.55),
-			"outer": base + Vector3(outer.x * facing, outer.y, 0.55),
-			"frame": frame,
-		})
+		trail_points.append({"pos": here, "frame": frame})
 	while trail_points.size() > 0 and frame - int(trail_points[0].frame) > TRAIL_FRAMES:
 		trail_points.pop_front()
-	if int(s.frame) < last_trail_frame:
+	if frame < last_trail_frame:
 		trail_points.clear()
 		last_trail_frame = -1
 	var im: ImmediateMesh = trail.mesh
 	im.clear_surfaces()
-	if trail_points.size() < 2:
-		return
-	var colour := _trail_colour(s)
+	var colours := _trail_colours(s)
+	if trail_points.size() >= 2:
+		var path: Array = []
+		var ages: Array = []
+		for p in trail_points:
+			path.append(p.pos)
+			ages.append(float(frame - int(p.frame)) / float(TRAIL_FRAMES))
+		path = _smooth(path)
+		# Ages for the smoothed points: interpolate along the path.
+		var smooth_ages: Array = []
+		for i in path.size():
+			var u := float(i) / maxf(1.0, path.size() - 1.0) * (ages.size() - 1.0)
+			var lo := int(floor(u))
+			var hi := mini(lo + 1, ages.size() - 1)
+			smooth_ages.append(lerpf(ages[lo], ages[hi], u - lo))
+		_ribbon(im, path, smooth_ages, TRAIL_WIDTH, colours[0], 0.8)
+		_ribbon(im, path, smooth_ages, TRAIL_WIDTH * 0.38, colours[1], 1.0)
+	if dangerous:
+		_ring(im, here, maxf(radius * 0.8, 0.25), colours[0])
+
+
+## A strip along `path`, `width` across at full strength, thinning toward the old end (high age) and fading out.
+func _ribbon(im: ImmediateMesh, path: Array, ages: Array, width: float, colour: Color, alpha: float) -> void:
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	for p in trail_points:
-		var age := float(frame - int(p.frame)) / float(TRAIL_FRAMES)
-		var fade := pow(clampf(1.0 - age, 0.0, 1.0), 1.1)
-		# The tail thins: its inner edge creeps out toward the outer edge.
-		var inner_p: Vector3 = p.inner.lerp(p.outer, age * 0.55)
-		im.surface_set_color(Color(colour.r, colour.g, colour.b, 0.35 * fade))
-		im.surface_add_vertex(inner_p)
-		im.surface_set_color(Color(1.0, 1.0, 1.0, fade).lerp(Color(colour.r, colour.g, colour.b, fade), age))
-		im.surface_add_vertex(p.outer)
+	for i in path.size():
+		var along: Vector3 = (path[mini(i + 1, path.size() - 1)] - path[maxi(i - 1, 0)])
+		along.z = 0.0
+		var side := Vector3(-along.y, along.x, 0.0).normalized() if along.length() > 0.0001 else Vector3.UP
+		var age: float = ages[i]
+		var strength := pow(clampf(1.0 - age, 0.0, 1.0), 0.8)
+		var half := width * 0.5 * strength
+		var c := Color(colour.r, colour.g, colour.b, alpha * clampf(strength * 1.4, 0.0, 1.0))
+		im.surface_set_color(c)
+		im.surface_add_vertex(path[i] + side * half)
+		im.surface_set_color(c)
+		im.surface_add_vertex(path[i] - side * half)
+	im.surface_end()
+
+
+## A thin ring marking the live hitbox.
+func _ring(im: ImmediateMesh, centre: Vector3, radius: float, colour: Color) -> void:
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	var c := Color(colour.r, colour.g, colour.b, 0.9)
+	for i in 33:
+		var a := TAU * float(i) / 32.0
+		var dir := Vector3(cos(a), sin(a), 0.0)
+		im.surface_set_color(c)
+		im.surface_add_vertex(centre + dir * (radius + 0.04))
+		im.surface_set_color(c)
+		im.surface_add_vertex(centre + dir * (radius - 0.04))
 	im.surface_end()
 
 

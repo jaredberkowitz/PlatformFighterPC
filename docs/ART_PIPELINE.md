@@ -56,10 +56,11 @@ bounces once per step and the shoulders counter-twist against the hips; the head
 
 **Readability.** Move clips are keyed about 55 percent bigger than natural (`AMP` in the Blender script; locomotion about 20 percent, hurt and
 air poses 25 percent), and the body coils down while a move winds up and stretches tall through the strike (`apply`). Each attack leaves a
-**swoosh** behind the swing (`_update_trail`): every simulation frame from the start of the move until a few frames after its last hitbox,
-a strip from the inner edge of the swing to the outer edge of the live hitbox is added, then fades over about a third of a second. It is
-violet for the brawler and ice blue for the sword, and sits in world space so it stays where the swing was. It is cosmetic and only reads
-the move's timing and hitbox.
+**crescent trail** behind the hitbox (`_update_trail`): every simulation frame the hitbox's centre (the fist, or the part of the blade that
+hits) is added to a path, and the path is drawn as a smooth curve (Catmull-Rom) thickest at the hitbox and tapering to nothing behind it,
+with a bright core inside a coloured edge (violet for the brawler, gold for the sword). While the hitbox is live a thin ring marks exactly
+where it is. The points are in world space, so the trail stays where the swing was. It is cosmetic and only reads the move's timing and
+hitbox.
 
 Known gaps: one clip per move type, not per move (every jab and tilt shares `attack_swing`); the arc is only as sweeping as the move's
 hitbox data (a move with one static hitbox gets the wind-up sweep but a still strike); the brawler's kicks use one generic kick clip;
