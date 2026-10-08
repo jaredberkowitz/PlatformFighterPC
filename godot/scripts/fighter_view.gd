@@ -249,8 +249,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["roll", 1.0, -1.0]
 		"Shield", "ShieldDrop":
 			return ["shield", 1.0, -1.0]
-		"Hitstun", "ShieldBreak", "Grabbed":
+		"Hitstun", "ShieldBreak", "Grabbed", "Rebound":
 			return ["hurt", 1.0, -1.0]
+		"WallTech":
+			return ["shield", 1.0, -1.0]
 		"Knockdown", "GetUp":
 			return ["knockdown", 1.0, -1.0]
 		"LedgeHang":
@@ -1008,6 +1010,77 @@ func _make_trail() -> void:
 	add_child(trail)
 
 
+# ---- Dust ------------------------------------------------------------------------------------------------------------------------
+# Little puffs at the feet when a fighter starts a dash, turns, jumps or lands, as the reference game does: they make movement read.
+
+const DUSTS := 10
+var dusts: Array[MeshInstance3D] = []
+var dust_age: Array[float] = []
+var dust_vel: Array[Vector3] = []
+var next_dust := 0
+var dust_state := ""
+var dust_grounded := true
+var dust_frame := -1
+
+
+func _dust(s: Dictionary) -> void:
+	if dusts.is_empty():
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(0.96, 0.93, 0.85, 0.7)
+		for i in DUSTS:
+			var p := MeshInstance3D.new()
+			p.mesh = _sphere(0.22)
+			p.material_override = mat.duplicate()
+			p.top_level = true
+			p.visible = false
+			add_child(p)
+			dusts.append(p)
+			dust_age.append(99.0)
+			dust_vel.append(Vector3.ZERO)
+	var frame: int = s.frame
+	if frame == dust_frame:
+		return
+	var dt := 1.0 / 60.0 * float(clampi(frame - dust_frame, 1, 4)) if dust_frame >= 0 else 1.0 / 60.0
+	dust_frame = frame
+	for i in DUSTS:
+		dust_age[i] += dt
+		var life := dust_age[i] / 0.4
+		dusts[i].visible = life < 1.0
+		if dusts[i].visible:
+			dusts[i].global_position += dust_vel[i] * dt
+			dusts[i].scale = Vector3.ONE * (0.7 + life * 1.1)
+			(dusts[i].material_override as StandardMaterial3D).albedo_color.a = 0.7 * (1.0 - life)
+	var state: String = s.state
+	var grounded: bool = s.platform >= 0
+	var facing := float(s.facing)
+	if state != dust_state:
+		match state:
+			"Dash":
+				_puff(-facing, 1)
+			"Turn":
+				_puff(facing, 1)
+			"JumpSquat", "WaveLand":
+				_puff(-1.0, 1)
+				_puff(1.0, 1)
+	if grounded and not dust_grounded and state != "Knockdown":
+		_puff(-1.0, 1)
+		_puff(1.0, 1)
+	dust_state = state
+	dust_grounded = grounded
+
+
+func _puff(side: float, count: int) -> void:
+	for n in count:
+		var i := next_dust
+		next_dust = (next_dust + 1) % DUSTS
+		dusts[i].global_position = global_position + Vector3(side * 0.35, 0.12, 0.3)
+		dust_vel[i] = Vector3(side * 2.2, 0.6, 0.0)
+		dust_age[i] = 0.0
+		dusts[i].visible = true
+
+
 # ---- Launch smoke ------------------------------------------------------------------------------------------------------------
 # A strong launch leaves a trail of puffs behind the tumbling fighter (as the reference game does), so the eye can follow a big hit.
 
@@ -1184,7 +1257,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var hitlag: int = s.hitlag
 	# The hurt face is a cosmetic event: it shows while the fighter is being hit and goes back afterwards.
 	set_expression(Loadout.HURT if state == "Hitstun" else Loadout.FACES[loadout.face])
-	spark.visible = hitlag > 0 and state == "Hitstun" and s.launch_pending
+	spark.visible = hitlag > 0 and ((state == "Hitstun" and s.launch_pending) or state == "Rebound")
 	if spark.visible:
 		spark.scale = Vector3.ONE * (0.5 + 0.1 * hitlag)
 	# The one who was hit shakes while frozen in hitlag (harder for a stronger hit, settling as it ends); the attacker holds still.
@@ -1196,6 +1269,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	else:
 		model.position = Vector3.ZERO
 	_launch_smoke(s)
+	_dust(s)
 	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
 	var charge: int = s.charge
 	if charge > 0 and state == "Attack":

@@ -53,6 +53,14 @@ var cam_shake := 0.0
 var ko_focus := -1
 var ko_time := 0.0
 var shake_rng := RandomNumberGenerator.new()
+## Seconds of "3, 2, 1" before a local match starts (the sim waits).
+var countdown := 0.0
+var countdown_shown := -1
+## A knock-out slows a local match down for a moment (real seconds left, since the engine's time is slowed).
+var slowmo_until := 0
+const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
+## Effects in the world that fade by themselves: [node, age, life].
+var effects: Array = []
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
 var min_down: Array = [0.2, 0.2, 0.2, 0.2]
@@ -221,6 +229,7 @@ func _restart() -> void:
 	if demo != null and demo.chars.size() > 0:
 		chars = demo.chars
 	sim.start(SEED, PackedInt32Array(chars))
+	_start_countdown()
 	proj_cur = sim.projectile_slots()
 	proj_prev = proj_cur
 	for i in PLAYERS:
@@ -228,6 +237,24 @@ func _restart() -> void:
 		prev_pos[i] = cur_pos[i]
 	_rebuild_boxes()
 	paused = false
+
+
+## A local match from the menus opens with "3, 2, 1, GO!" (training, demos and tests skip it).
+func _start_countdown() -> void:
+	countdown = 0.0
+	countdown_shown = -1
+	var rules: PackedInt32Array = sim.match_rules()
+	if not Roster.session.get("from_menu", false) or Roster.session.get("skip_countdown", false) or demo != null:
+		return
+	if Roster.session.has("online") or Roster.session.has("replay") or Roster.session.has("watch"):
+		return
+	if rules[0] > 0 or rules[1] > 0:
+		countdown = 3.0
+
+
+## True when this machine alone decides when the match runs (not online, a replay or watching), so it may pause or slow it.
+func _local_match() -> bool:
+	return not (net_mode or group_mode or spectate_mode or replay_mode or quick_mode)
 
 
 func _refresh(i: int) -> void:
@@ -716,6 +743,7 @@ func _tick_once(advance := true) -> void:
 		sfx.watch(i, before, snaps[i])
 		if int(before.get("hitlag", 0)) == 0 and int(snaps[i].hitlag) > 0 and snaps[i].launch_pending:
 			_on_hit(i)
+		_on_events(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
 	_rebuild_boxes()
@@ -830,6 +858,14 @@ func _physics_process(_delta: float) -> void:
 	_gather()
 	if paused:
 		return
+	if countdown > 0.0:
+		countdown -= 1.0 / 60.0
+		var shown := ceili(countdown)
+		if shown != countdown_shown:
+			countdown_shown = shown
+			sfx.play("go" if shown == 0 else "blip", 1.0 if shown == 0 else 1.2)
+		overlay_dirty = true
+		return
 	_tick_once()
 	if demo != null:
 		var shot: String = demo.shot_at(sim.frame())
@@ -876,6 +912,7 @@ func _process(delta: float) -> void:
 		views[i].visible = _in_play(i)
 	_update_hud(delta)
 	_update_camera(a, delta)
+	_update_effects(delta)
 	if not flag_noecb:
 		_update_ecb(a)
 	_position_boxes(a)
@@ -913,9 +950,12 @@ func _update_hud(delta: float) -> void:
 		clock = "%d:%02d" % [frame / 3600, (frame / 60) % 60]
 	var banner := ""
 	var alpha := 1.0
-	if winner != -1:
+	if countdown > 0.0:
+		banner = "%d" % ceili(countdown)
+		alpha = clampf(1.0 - (float(ceili(countdown)) - countdown) * 0.6, 0.3, 1.0)
+	elif winner != -1:
 		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
-	elif playing and frame < 75 and rules[0] > 0:
+	elif playing and frame < 75 and (rules[0] > 0 or rules[1] > 0):
 		banner = "GO!"
 		alpha = clampf(float(75 - frame) / 30.0, 0.0, 1.0)
 	var percent := []
@@ -931,6 +971,7 @@ func _update_hud(delta: float) -> void:
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
 		"status": _net_status_text(),
+		"offscreen": _offscreen_markers(),
 	})
 	if winner != -1 and results == null and not replay_mode and not (spectate_mode and spectate_status != 1 and sim.spectate_behind() > 0):
 		end_timer += delta
@@ -999,6 +1040,7 @@ func _on_result(action: String) -> void:
 
 ## Back to a menu screen, hanging up first if this was an online match.
 func _leave_to(screen: String) -> void:
+	Engine.time_scale = 1.0
 	if quick_mode:
 		sim.quickmatch_stop()
 		quick_mode = false
@@ -1082,6 +1124,131 @@ func _on_hit(i: int) -> void:
 		ko_focus = i
 		ko_time = 0.75
 		cam_shake = maxf(cam_shake, 0.9)
+
+
+## Cues for things the sim reports between two snapshots of a fighter: a clank, a wall tech, a knock-out.
+func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
+	if before.is_empty():
+		return
+	if now.state == "Rebound" and before.state != "Rebound":
+		sfx.play("clank")
+		cam_shake = maxf(cam_shake, 0.25)
+		_burst(Vector3(cur_pos[i].x + 0.9 * float(now.facing), cur_pos[i].y + 1.1, 0.6), Color(1.0, 0.95, 0.6), 0.9, 0.3)
+	if now.state == "WallTech" and before.state != "WallTech":
+		sfx.play("land", 1.3)
+		_burst(Vector3(cur_pos[i].x, cur_pos[i].y + 1.0, 0.6), Color(0.85, 0.95, 1.0), 1.1, 0.35)
+	# A knock-out respawns the fighter with a long invulnerability (in free play no stock is lost, so this is the sign to watch).
+	if int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30:
+		_ko_blast(i, before.get("pos", cur_pos[i]))
+
+
+## A flash of light that grows and fades (clanks, techs).
+func _burst(at: Vector3, color: Color, size: float, life: float) -> void:
+	var m := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.5
+	mesh.height = 1.0
+	m.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = color
+	m.material_override = mat
+	m.position = at
+	m.scale = Vector3.ONE * size * 0.3
+	add_child(m)
+	effects.append([m, 0.0, life, size])
+
+
+## A knock-out: a beam of the player's colour bursts from where the fighter left the stage, the camera shakes, and (offline) the
+## match slows for a moment.
+func _ko_blast(i: int, at: Vector2) -> void:
+	var color: Color = PLAYER_COLORS[i % PLAYER_COLORS.size()]
+	var root3 := Node3D.new()
+	root3.position = Vector3(at.x, at.y + 1.0, 0.0)
+	add_child(root3)
+	# Point the beam back toward the middle of the stage.
+	var inward := (Vector2(0, 4) - at).normalized()
+	root3.rotation.z = atan2(inward.y, inward.x) - PI / 2.0
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 2.6
+	cyl.bottom_radius = 0.4
+	cyl.height = 26.0
+	beam.mesh = cyl
+	beam.position = Vector3(0, 13.0, 0)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(color.r, color.g, color.b, 0.9)
+	beam.material_override = mat
+	root3.add_child(beam)
+	var core := MeshInstance3D.new()
+	var c2 := CylinderMesh.new()
+	c2.top_radius = 1.0
+	c2.bottom_radius = 0.15
+	c2.height = 26.0
+	core.mesh = c2
+	core.position = Vector3(0, 13.0, 0.1)
+	var mat2 := mat.duplicate()
+	mat2.albedo_color = Color(1, 1, 1, 0.9)
+	core.material_override = mat2
+	root3.add_child(core)
+	effects.append([root3, 0.0, 0.9, 1.0])
+	cam_shake = maxf(cam_shake, 1.4)
+	if _local_match() and demo == null:
+		Engine.time_scale = 0.35
+		slowmo_until = Time.get_ticks_msec() + 450
+
+
+## Grows and fades the effects, and ends the knock-out slow motion.
+func _update_effects(delta: float) -> void:
+	if slowmo_until > 0 and Time.get_ticks_msec() >= slowmo_until:
+		slowmo_until = 0
+		Engine.time_scale = 1.0
+	var keep: Array = []
+	for e in effects:
+		var node: Node3D = e[0]
+		e[1] += delta
+		var t: float = e[1] / e[2]
+		if t >= 1.0 or not is_instance_valid(node):
+			if is_instance_valid(node):
+				node.queue_free()
+			continue
+		if node is MeshInstance3D:
+			node.scale = Vector3.ONE * float(e[3]) * (0.3 + 1.2 * t)
+			(node.material_override as StandardMaterial3D).albedo_color.a = 1.0 - t
+		else:
+			node.scale = Vector3(1.0 + t * 0.6, 1.0, 1.0 + t * 0.6)
+			for c in node.get_children():
+				var m: StandardMaterial3D = (c as MeshInstance3D).material_override
+				m.albedo_color.a = 0.9 * (1.0 - t)
+		keep.append(e)
+	effects = keep
+
+
+## Fighters outside the camera's view: where to draw their marker on the screen edge, in their colour, with their percent.
+func _offscreen_markers() -> Array:
+	var out: Array = []
+	if cam == null:
+		return out
+	var view := get_viewport().get_visible_rect().size
+	var margin := 70.0
+	for i in PLAYERS:
+		if not _in_play(i) or not sim.fighter_active(i):
+			continue
+		var p: Vector2 = cur_pos[i]
+		var world := Vector3(p.x, p.y + 1.1, 0)
+		if cam.is_position_behind(world):
+			continue
+		var s := cam.unproject_position(world)
+		if s.x >= 0 and s.y >= 0 and s.x <= view.x and s.y <= view.y:
+			continue
+		var at := Vector2(clampf(s.x, margin, view.x - margin), clampf(s.y, margin, view.y - margin))
+		var dir := (s - at).normalized()
+		out.append({"at": at, "dir": dir, "color": PLAYER_COLORS[i % PLAYER_COLORS.size()], "label": "P%d" % (i + 1), "percent": int(snaps[i].get("percent", 0.0))})
+	return out
 
 
 func _update_camera(a: float, delta: float) -> void:

@@ -11,6 +11,23 @@ var board: Control
 
 class Board extends Control:
 	var data := {}
+	## The damage shown a moment ago, and how hard each number is shaking from the last hit (it settles over a third of a second).
+	var last_percent := [0.0, 0.0, 0.0, 0.0]
+	var shake := [0.0, 0.0, 0.0, 0.0]
+	var last_ms := 0
+
+	## Notices new damage: the number shakes, harder for a bigger hit.
+	func take(d: Dictionary) -> void:
+		var now := Time.get_ticks_msec()
+		var dt := clampf((now - last_ms) / 1000.0, 0.0, 0.1) if last_ms > 0 else 0.0
+		last_ms = now
+		var percent: Array = d.get("percent", [])
+		for i in mini(percent.size(), 4):
+			var p: float = percent[i]
+			if p > last_percent[i] + 0.01:
+				shake[i] = clampf(shake[i] + (p - last_percent[i]) / 12.0, 0.0, 1.5)
+			last_percent[i] = p
+			shake[i] = move_toward(shake[i], 0.0, dt * 3.5)
 
 	func _init() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -26,6 +43,22 @@ class Board extends Control:
 		_clock()
 		_banner()
 		_status()
+		_offscreen()
+
+	## A bubble on the screen edge for each fighter the camera cannot see, pointing at them, with their damage.
+	func _offscreen() -> void:
+		for m in data.get("offscreen", []):
+			var at: Vector2 = m.at
+			var dir: Vector2 = m.dir
+			var color: Color = m.color
+			var tip := at + dir * 52.0
+			var side := dir.orthogonal() * 16.0
+			draw_colored_polygon(PackedVector2Array([at + dir * 30.0 + side, tip, at + dir * 30.0 - side]), D.INK)
+			draw_circle(at, 40.0, D.INK)
+			draw_circle(at, 35.0, color)
+			draw_circle(at, 27.0, Color(0.97, 0.96, 0.9))
+			D.draw_text_centered(self, m.label, Rect2(at + Vector2(-30, -26), Vector2(60, 24)), 18, D.INK)
+			D.draw_text_centered(self, "%d%%" % m.percent, Rect2(at + Vector2(-30, -4), Vector2(60, 26)), 20, color.darkened(0.35))
 
 	func _card(i: int, count: int) -> void:
 		var card := Vector2(310, 104)
@@ -51,8 +84,13 @@ class Board extends Control:
 		var f := D.font()
 		var w := f.get_string_size(number, HORIZONTAL_ALIGNMENT_LEFT, -1, 56).x
 		var tx := rect.end.x - 62.0 - w
-		draw_string(f, Vector2(tx + 2, rect.position.y + 80), number, HORIZONTAL_ALIGNMENT_LEFT, -1, 56, Color(1, 1, 1, 0.8))
-		draw_string(f, Vector2(tx, rect.position.y + 78), number, HORIZONTAL_ALIGNMENT_LEFT, -1, 56, number_color)
+		# A hit makes the number jump and shake (and grow a little) for a moment.
+		var k: float = shake[i] if i < shake.size() else 0.0
+		var t := Time.get_ticks_msec() / 1000.0
+		var jolt := Vector2(sin(t * 61.0), cos(t * 47.0)) * 7.0 * k
+		var big := 56 + int(10.0 * minf(k, 1.0))
+		draw_string(f, Vector2(tx + 2, rect.position.y + 80) + jolt, number, HORIZONTAL_ALIGNMENT_LEFT, -1, big, Color(1, 1, 1, 0.8))
+		draw_string(f, Vector2(tx, rect.position.y + 78) + jolt, number, HORIZONTAL_ALIGNMENT_LEFT, -1, big, number_color)
 		draw_string(f, Vector2(rect.end.x - 56, rect.position.y + 78), "%", HORIZONTAL_ALIGNMENT_LEFT, -1, 28, number_color)
 		# Stocks as little discs in the player's colour; "x N" if there are too many to draw.
 		var stocks: int = data.stocks[i]
@@ -112,6 +150,7 @@ func build() -> void:
 
 ## `d`: names, percent, stocks, alive, in_match (arrays per player), unlimited, clock, urgent, banner, banner_alpha.
 func show_state(d: Dictionary) -> void:
+	board.take(d)
 	board.data = d
 	board.queue_redraw()
 
