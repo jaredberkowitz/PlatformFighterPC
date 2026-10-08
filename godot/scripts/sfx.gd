@@ -83,13 +83,18 @@ func _ready() -> void:
 
 
 ## Adds the effects to the tree's root once, so every screen can use them (`Sfx.of(self).play("blip")`).
+static var _instance: Node
+
+
 static func of(owner: Node) -> Node:
-	var root := owner.get_tree().root
-	if not root.has_node("Sfx"):
-		var n: Node = load("res://scripts/sfx.gd").new()
-		n.name = "Sfx"
-		root.add_child(n)
-	return root.get_node("Sfx")
+	if is_instance_valid(_instance):
+		return _instance
+	var n: Node = load("res://scripts/sfx.gd").new()
+	n.name = "Sfx"
+	_instance = n
+	# Deferred: the tree may be busy setting up its children when a screen asks.
+	owner.get_tree().root.add_child.call_deferred(n)
+	return n
 
 
 func play(name: String, pitch := 1.0, volume_db := 0.0) -> void:
