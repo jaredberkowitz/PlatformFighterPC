@@ -117,6 +117,18 @@ const LOOPING := ["idle", "walk", "run", "dash", "fall"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
+## Frees the models kept for copying (the game does this as it shuts down).
+static func release_caches() -> void:
+	for template in _rig_templates.values():
+		if template != null and is_instance_valid(template):
+			template.free()
+	_rig_templates.clear()
+	_parts.clear()
+	_mat_cache.clear()
+	_mesh_cache.clear()
+	_outline_mat = null
+
+
 ## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
 var long_limbs := false
 var head_fit := Transform3D()
