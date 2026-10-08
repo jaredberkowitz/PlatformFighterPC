@@ -3,7 +3,7 @@
 //!
 //! Cosmetic data ("loadouts") is carried as opaque bytes in the handshake and never looked at by the sim.
 
-use sim_core::{Input, MAX_FIGHTERS};
+use sim_core::{Input, MatchRules, MAX_FIGHTERS};
 
 pub const MAGIC: u16 = 0x5046; // "PF"
 /// Most inputs one packet carries.
@@ -49,6 +49,8 @@ pub struct Setup {
     pub fighter: Vec<u8>,
     /// Ranked rules: a fighter over the point budget is refused.
     pub ranked: bool,
+    /// Stocks and time limit of the match.
+    pub rules: MatchRules,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -198,6 +200,8 @@ impl Packet {
                 w.bytes(&setup.cosmetics);
                 w.bytes(&setup.fighter);
                 w.u8(u8::from(setup.ranked));
+                w.u8(setup.rules.stocks);
+                w.u16(setup.rules.time_limit);
                 w.0
             }
             Packet::Ready => Writer::new(T_READY).0,
@@ -269,6 +273,13 @@ impl Packet {
                     1 => true,
                     _ => return None,
                 };
+                let rules = MatchRules {
+                    stocks: r.u8()?,
+                    time_limit: r.u16()?,
+                };
+                if rules != rules.clamped() {
+                    return None;
+                }
                 Packet::Setup {
                     sim_version,
                     content_hash,
@@ -280,6 +291,7 @@ impl Packet {
                         cosmetics,
                         fighter,
                         ranked,
+                        rules,
                     },
                 }
             }
@@ -344,6 +356,10 @@ mod tests {
                     cosmetics: vec![],
                     fighter: vec![0, 1],
                     ranked: true,
+                    rules: MatchRules {
+                        stocks: 4,
+                        time_limit: 480,
+                    },
                 },
             },
             Packet::Ready,

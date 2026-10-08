@@ -5,7 +5,7 @@ use crate::content::{Content, FighterParams};
 use crate::fighter;
 use crate::grab;
 use crate::input::Input;
-use crate::state::{Fighter, FighterState, GameState, NONE};
+use crate::state::{Fighter, FighterState, GameState, DRAW, NONE, PLAYING};
 use crate::MAX_FIGHTERS;
 
 fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
@@ -13,7 +13,55 @@ fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
     &content.fighters[idx]
 }
 
+/// Frames per second of the simulation, for the match time limit.
+const FPS: u32 = 60;
+
+/// Decides whether the match is over: one fighter (or none) left standing, or the time ran out.
+fn settle(state: &mut GameState) {
+    if state.winner != PLAYING || state.roster.count_ones() < 2 {
+        return;
+    }
+    let mut alive = (0..MAX_FIGHTERS).filter(|&i| state.fighters[i].active);
+    let first = alive.next();
+    let second = alive.next();
+    state.winner = match (first, second) {
+        (None, _) => DRAW,
+        (Some(only), None) => only as i8,
+        (Some(_), Some(_))
+            if state.rules.time_limit > 0
+                && state.frame >= u32::from(state.rules.time_limit) * FPS =>
+        {
+            // Most stocks, then least damage; level on both is a draw.
+            let key = |i: usize| (state.fighters[i].stocks, state.fighters[i].percent);
+            let beats = |a: usize, b: usize| {
+                let (sa, pa) = key(a);
+                let (sb, pb) = key(b);
+                sa > sb || (sa == sb && pa < pb)
+            };
+            let mut best = 0;
+            for i in (0..MAX_FIGHTERS).filter(|&i| state.fighters[i].active) {
+                if beats(i, best) || !state.fighters[best].active {
+                    best = i;
+                }
+            }
+            let tied = (0..MAX_FIGHTERS)
+                .any(|i| i != best && state.fighters[i].active && key(i) == key(best));
+            if tied {
+                DRAW
+            } else {
+                best as i8
+            }
+        }
+        _ => PLAYING,
+    };
+}
+
 pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHTERS]) {
+    // A finished match stands still.
+    if state.winner != PLAYING {
+        state.frame = state.frame.wrapping_add(1);
+        return;
+    }
     let stage = &content.stage;
 
     // Phase 1: every fighter updates in player-index order and may request a ledge.
@@ -64,6 +112,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     combat::check_ko(state, content);
 
     state.frame = state.frame.wrapping_add(1);
+    settle(state);
 }
 
 #[cfg(test)]

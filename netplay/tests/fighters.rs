@@ -44,6 +44,7 @@ fn setup(host: &FighterSpec, ranked: bool) -> Setup {
         cosmetics: vec![1],
         fighter: host.encode(),
         ranked,
+        rules: sim_core::MatchRules::default(),
     }
 }
 
@@ -294,6 +295,7 @@ fn a_joiner_will_not_accept_settings_that_name_the_wrong_fighters() {
         cosmetics: vec![],
         fighter: made(1, 5, 5, 5, 5).encode(),
         ranked: false,
+        rules: sim_core::MatchRules::default(),
     };
     j.tick();
     j.handle_packet(

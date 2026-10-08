@@ -202,8 +202,13 @@ impl<L: Link> Peer<L> {
                     max_prediction: self.max_prediction,
                     checksum_interval: self.checksum_interval,
                 };
-                let initial =
-                    GameState::new_with_active(content, setup.seed, setup.chars, setup.active);
+                let initial = GameState::new_with_rules(
+                    content,
+                    setup.seed,
+                    setup.chars,
+                    setup.active,
+                    setup.rules,
+                );
                 self.session = Some(Session::new(cfg, initial));
             }
         }

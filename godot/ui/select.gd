@@ -31,6 +31,8 @@ var scroll: ScrollContainer
 var rng := RandomNumberGenerator.new()
 var ranked := false
 var rules_button: Control
+var stocks_button: Control
+var time_button: Control
 
 
 class PlayerPanel extends Control:
@@ -169,7 +171,7 @@ func _ready() -> void:
 		grid.add_child(token)
 		tokens.append({"node": token, "portrait": portrait, "flags": tags})
 
-	var hint := UI.Tag.new("P1: WASD, J lock, K back        P2: arrows, Enter lock, Backspace back        E edit        Esc menu", Vector2(1000, 36))
+	var hint := UI.Tag.new("P1: WASD, J lock, K back        P2: arrows, Enter lock, Backspace back        E edit        T stocks   Y time        Esc menu", Vector2(1000, 36))
 	hint.fill = Color(1, 1, 1, 0.5)
 	hint.ink = UI.INK
 	hint.font_size = 18
@@ -190,6 +192,19 @@ func _ready() -> void:
 	rules_button.position = Vector2(990, 8)
 	rules_button.activated.connect(_toggle_ranked)
 	add_child(rules_button)
+
+	Roster.load_match_rules()
+	stocks_button = UI.Btn.new("", Vector2(260, 46))
+	stocks_button.font_size = 22
+	stocks_button.position = Vector2(500, 622)
+	stocks_button.activated.connect(func(): _cycle_rules(true))
+	add_child(stocks_button)
+	time_button = UI.Btn.new("", Vector2(260, 46))
+	time_button.font_size = 22
+	time_button.position = Vector2(780, 622)
+	time_button.activated.connect(func(): _cycle_rules(false))
+	add_child(time_button)
+	_show_match_rules()
 
 	start_button = UI.Btn.new("Start Battle!", Vector2(330, 74))
 	start_button.position = Vector2(930, 590)
@@ -250,6 +265,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_edit()
 		KEY_R:
 			_toggle_ranked()
+		KEY_T:
+			_cycle_rules(true)
+		KEY_Y:
+			_cycle_rules(false)
 		KEY_ESCAPE:
 			get_tree().change_scene_to_file("res://menu.tscn")
 
@@ -272,6 +291,24 @@ func _move(p: int, dx: int, dy: int) -> void:
 	cursor[p] = i
 	_refresh()
 	scroll.ensure_control_visible(tokens[i].node)
+
+
+func _cycle_rules(stocks: bool) -> void:
+	if stocks:
+		var i: int = Roster.STOCK_CHOICES.find(Roster.match_stocks)
+		Roster.match_stocks = Roster.STOCK_CHOICES[(i + 1) % Roster.STOCK_CHOICES.size()]
+	else:
+		var j: int = Roster.TIME_CHOICES.find(Roster.match_time)
+		Roster.match_time = Roster.TIME_CHOICES[(j + 1) % Roster.TIME_CHOICES.size()]
+	Roster.save_match_rules()
+	_show_match_rules()
+
+
+func _show_match_rules() -> void:
+	stocks_button.text = "Stocks: " + Roster.stocks_text(Roster.match_stocks)
+	time_button.text = "Time: " + Roster.time_text(Roster.match_time)
+	stocks_button.queue_redraw()
+	time_button.queue_redraw()
 
 
 func _toggle_ranked() -> void:
@@ -361,5 +398,6 @@ func _start() -> void:
 	Roster.save_last(picked[0].slug)
 	Roster.session = {
 		"content_text": built.text, "chars": built.chars, "entries": [picked[0], picked[1]], "ranked": ranked, "from_menu": true,
+		"stocks": Roster.match_stocks, "time": Roster.match_time,
 	}
 	get_tree().change_scene_to_file("res://main.tscn")

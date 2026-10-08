@@ -8,6 +8,8 @@ const StageView := preload("res://scripts/stage_view.gd")
 const InputReader := preload("res://scripts/input_reader.gd")
 const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
+const MatchHud := preload("res://ui/match_hud.gd")
+const Results := preload("res://ui/results.gd")
 
 const PLAYERS := 2
 const SEED := 1
@@ -20,6 +22,10 @@ var masks := {}
 var views: Array = []
 var stage_view: Node3D
 var overlay: CanvasLayer
+var hud: CanvasLayer
+var results: CanvasLayer
+var names: Array = ["Player 1", "Player 2"]
+var end_timer := 0.0
 var cam: Camera3D
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
@@ -64,6 +70,11 @@ func _ready() -> void:
 	_build_world()
 	_parse_demo_args()
 	_load_content()
+	_apply_rules()
+	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
+	if Roster.session.get("from_menu", false):
+		overlay_on = false
+		overlay.set_overlay_visible(false)
 	sim.set_players(PLAYERS)
 	_restart()
 	_apply_scales()
@@ -112,6 +123,9 @@ func _build_world() -> void:
 	overlay = DebugOverlay.new()
 	add_child(overlay)
 	overlay.build(PLAYERS, masks)
+	hud = MatchHud.new()
+	add_child(hud)
+	hud.build()
 
 
 func _parse_demo_args() -> void:
@@ -144,6 +158,10 @@ func _parse_demo_args() -> void:
 
 
 func _restart() -> void:
+	if results != null:
+		results.queue_free()
+		results = null
+	end_timer = 0.0
 	var chars: Array = chosen_chars
 	if demo != null and demo.chars.size() > 0:
 		chars = demo.chars
@@ -190,6 +208,22 @@ func _send_key(code: int, down: bool) -> void:
 var content_note := ""
 
 
+## How the match is won: the menus' choice (stocks and time limit), or `--stocks=N --time=SECONDS` after `--`. With neither it is
+## free play (nobody is eliminated), which keeps demos, training and the test launchers as they were.
+func _apply_rules() -> void:
+	var stocks := 0
+	var seconds := 0
+	if Roster.session.has("stocks"):
+		stocks = int(Roster.session.stocks)
+		seconds = int(Roster.session.get("time", 0))
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--stocks="):
+			stocks = int(a.substr(9))
+		elif a.begins_with("--time="):
+			seconds = int(a.substr(7))
+	sim.set_match_rules(stocks, seconds)
+
+
 func _load_content() -> void:
 	var path := ""
 	for a in OS.get_cmdline_user_args():
@@ -215,6 +249,7 @@ func _load_content() -> void:
 				var e: Dictionary = Roster.session.entries[i]
 				views[i].rebuild(e.look)
 				views[i].set_name_tag(e.name)
+				names[i] = e.name
 			return
 		push_error("content: " + err_text)
 		content_note = "CONTENT NOT LOADED: " + err_text
@@ -293,6 +328,7 @@ func _start_net() -> void:
 	net_mode = true
 	views[local_slot].rebuild(me.look)
 	views[local_slot].set_name_tag(me.name)
+	names[local_slot] = me.name
 	print("network mode: ", "host" if host_port >= 0 else "joiner")
 
 
@@ -314,6 +350,7 @@ func _net_step() -> void:
 		var theirs := Roster.parse_profile(sim.net_their_cosmetics(), 1 - local_slot)
 		views[1 - local_slot].rebuild(theirs.look)
 		views[1 - local_slot].set_name_tag(theirs.name)
+		names[1 - local_slot] = theirs.name
 		_apply_scales()
 	for line in sim.net_take_log():
 		net_lines.append(line)
@@ -479,6 +516,9 @@ func _process(delta: float) -> void:
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		views[i].apply(Vector3(p.x, p.y, 0), snaps[i], delta)
+		# A fighter who has lost its last stock leaves the stage.
+		views[i].visible = _in_play(i)
+	_update_hud(delta)
 	_update_camera(a, delta)
 	if not flag_noecb:
 		_update_ecb(a)
@@ -502,6 +542,75 @@ func _process(delta: float) -> void:
 	})
 
 
+func _update_hud(delta: float) -> void:
+	var rules: PackedInt32Array = sim.match_rules()
+	var frame: int = sim.match_frame()
+	var winner: int = sim.winner()
+	var playing: bool = not net_mode or net_status == 1
+	var clock := ""
+	var urgent := false
+	if rules[1] > 0:
+		var left: int = ceili(maxi(0, rules[1] * 60 - frame) / 60.0)
+		clock = "%d:%02d" % [left / 60, left % 60]
+		urgent = left <= 10 and winner == -1
+	elif rules[0] > 0:
+		clock = "%d:%02d" % [frame / 3600, (frame / 60) % 60]
+	var banner := ""
+	var alpha := 1.0
+	if winner != -1:
+		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
+	elif playing and frame < 75 and rules[0] > 0:
+		banner = "GO!"
+		alpha = clampf(float(75 - frame) / 30.0, 0.0, 1.0)
+	var percent := []
+	var stocks := []
+	var alive := []
+	var in_match := []
+	for i in PLAYERS:
+		percent.append(snaps[i].get("percent", 0.0))
+		stocks.append(snaps[i].get("stocks", 0))
+		alive.append(sim.fighter_active(i))
+		in_match.append(sim.fighter_in_roster(i))
+	hud.show_state({
+		"names": names, "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
+		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
+	})
+	if winner != -1 and results == null:
+		end_timer += delta
+		if end_timer > 2.0:
+			_show_results(winner)
+
+
+func _show_results(winner: int) -> void:
+	var cards := []
+	for i in PLAYERS:
+		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
+	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
+	var choices := []
+	if net_mode:
+		choices = [["Quit", "quit"]]
+	elif Roster.session.get("from_menu", false):
+		choices = [["Rematch", "rematch"], ["Character Select", "select"], ["Main Menu", "menu"]]
+	else:
+		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
+	results = Results.new()
+	add_child(results)
+	results.build(heading, cards, choices)
+	results.chosen.connect(_on_result)
+
+
+func _on_result(action: String) -> void:
+	match action:
+		"rematch":
+			_restart()
+		"select":
+			get_tree().change_scene_to_file("res://select.tscn")
+		"menu":
+			get_tree().change_scene_to_file("res://menu.tscn")
+		_:
+			get_tree().quit()
+
+
 func _net_text() -> String:
 	if not net_mode:
 		return ""
@@ -513,13 +622,22 @@ func _net_text() -> String:
 	return text
 
 
+## False for a fighter that lost its last stock.
+func _in_play(i: int) -> bool:
+	return sim.fighter_active(i) or not sim.fighter_in_roster(i)
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
 	for i in PLAYERS:
+		if not _in_play(i):
+			continue
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		lo = lo.min(p)
 		hi = hi.max(p + Vector2(0, 2.2))
+	if lo.x > hi.x:
+		return
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
 	var spread := maxf(hi.x - lo.x + 18.0, (hi.y - lo.y + 10.0) * 1.78)
@@ -562,7 +680,7 @@ func _build_ecb() -> void:
 
 func _update_ecb(a: float) -> void:
 	for i in PLAYERS:
-		ecb_nodes[i].visible = show_ecb
+		ecb_nodes[i].visible = show_ecb and _in_play(i)
 		if show_ecb:
 			var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 			ecb_nodes[i].position = Vector3(p.x, p.y, 0)
@@ -592,6 +710,9 @@ func _prewarm() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if results != null and event.keycode != KEY_ESCAPE:
+		results.handle_key(event)
 		return
 	# Training keys change the sim directly, which a networked match must never do.
 	if net_mode and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:

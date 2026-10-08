@@ -12,7 +12,7 @@ use netplay::packet::Setup;
 use netplay::peer::{Link, Peer, Status};
 use netplay::session::{Advance, Event};
 use sim_core::input::buttons;
-use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS, SIM_VERSION};
+use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use transport::{RelayLink, UdpLink};
@@ -66,6 +66,12 @@ fn clamp_i8(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
+/// Free play: no stocks to lose, no clock.
+const UNLIMITED: MatchRules = MatchRules {
+    stocks: 0,
+    time_limit: 0,
+};
+
 #[derive(GodotClass)]
 #[class(base=Node)]
 pub struct SimRunner {
@@ -80,6 +86,9 @@ pub struct SimRunner {
     my_fighter: Vec<u8>,
     /// Ranked rules for the match this player hosts: fighters over the point budget are refused.
     ranked: bool,
+    /// Stocks and time limit of the next match (also sent to the other side when this player hosts). Unlimited by default,
+    /// which is free play: nobody is eliminated.
+    match_rules: MatchRules,
     /// The base roster, kept while an online match runs on the base roster plus made fighters.
     base_content: Option<Content>,
     state: GameState,
@@ -94,7 +103,7 @@ pub struct SimRunner {
 impl INode for SimRunner {
     fn init(base: Base<Node>) -> Self {
         let content = Content::placeholder();
-        let state = GameState::new_with_active(&content, 1, [0, 1, 0, 1], 0b0011);
+        let state = GameState::new_with_rules(&content, 1, [0, 1, 0, 1], 0b0011, UNLIMITED);
         SimRunner {
             base,
             content,
@@ -103,6 +112,7 @@ impl INode for SimRunner {
             my_cosmetics: Vec::new(),
             my_fighter: Vec::new(),
             ranked: false,
+            match_rules: UNLIMITED,
             base_content: None,
             state,
             inputs: [Input::default(); MAX_FIGHTERS],
@@ -138,7 +148,13 @@ impl SimRunner {
         self.content = bundle.content;
         self.content_name = bundle.manifest.name;
         self.net = None;
-        self.state = GameState::new_with_active(&self.content, 1, [0, 1, 0, 1], self.players);
+        self.state = GameState::new_with_rules(
+            &self.content,
+            1,
+            [0, 1, 0, 1],
+            self.players,
+            self.match_rules,
+        );
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
         GString::new()
@@ -164,6 +180,56 @@ impl SimRunner {
     #[func]
     fn set_fighter(&mut self, bytes: PackedByteArray) {
         self.my_fighter = bytes.as_slice().iter().take(16).copied().collect();
+    }
+
+    /// How the next match is won: `stocks` each (0 = unlimited, nobody is eliminated) and a time limit in seconds (0 =
+    /// none). Takes effect at the next `start` or `net_host`; the joiner uses the host's.
+    #[func]
+    fn set_match_rules(&mut self, stocks: i32, time_limit: i32) {
+        self.match_rules = MatchRules {
+            stocks: stocks.clamp(0, i32::from(MatchRules::MAX_STOCKS)) as u8,
+            time_limit: time_limit.clamp(0, 3600) as u16,
+        }
+        .clamped();
+    }
+
+    /// The rules of the running match as `[stocks, time_limit_seconds]`.
+    #[func]
+    fn match_rules(&self) -> PackedInt32Array {
+        PackedInt32Array::from(
+            [
+                i32::from(self.state.rules.stocks),
+                i32::from(self.state.rules.time_limit),
+            ]
+            .as_slice(),
+        )
+    }
+
+    /// -1 while the match is on, a fighter's index when that fighter has won, -2 for a draw.
+    #[func]
+    fn winner(&self) -> i32 {
+        i32::from(self.state.winner)
+    }
+
+    /// Whether fighter `i` is still in the match (not eliminated, and not an unused slot).
+    #[func]
+    fn fighter_active(&self, i: i32) -> bool {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| self.state.fighters.get(i))
+            .is_some_and(|f| f.active)
+    }
+
+    /// Whether fighter `i` started this match (it may have been eliminated since).
+    #[func]
+    fn fighter_in_roster(&self, i: i32) -> bool {
+        (0..MAX_FIGHTERS as i32).contains(&i) && self.state.roster >> i & 1 == 1
+    }
+
+    /// Frames played so far in this match.
+    #[func]
+    fn match_frame(&self) -> i32 {
+        self.state.frame as i32
     }
 
     /// Ranked rules for a match this player hosts: fighters over the point budget are refused.
@@ -204,7 +270,13 @@ impl SimRunner {
         self.content = bundle.content;
         self.content_name = bundle.manifest.name;
         self.net = None;
-        self.state = GameState::new_with_active(&self.content, 1, [0, 1, 0, 1], self.players);
+        self.state = GameState::new_with_rules(
+            &self.content,
+            1,
+            [0, 1, 0, 1],
+            self.players,
+            self.match_rules,
+        );
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
         GString::new()
@@ -236,7 +308,13 @@ impl SimRunner {
         for (slot, c) in ids.iter_mut().zip(chars.as_slice()) {
             *slot = (*c).clamp(0, self.content.fighters.len() as i32 - 1) as u8;
         }
-        self.state = GameState::new_with_active(&self.content, seed as u64, ids, self.players);
+        self.state = GameState::new_with_rules(
+            &self.content,
+            seed as u64,
+            ids,
+            self.players,
+            self.match_rules,
+        );
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
     }
@@ -674,6 +752,7 @@ impl SimRunner {
             cosmetics: self.my_cosmetics.clone(),
             fighter: self.my_fighter.clone(),
             ranked: self.ranked,
+            rules: self.match_rules,
         };
         self.net = Some(Peer::host(link, &self.content, setup));
         self.net_log.clear();

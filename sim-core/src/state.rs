@@ -15,6 +15,10 @@ use crate::{FIGHTER_VARS, MAX_FIGHTERS, MAX_SCRIPT_VARS, PROJECTILE_VARS};
 /// Frames of input kept per fighter. Must cover the longest buffer window in `FighterParams`.
 pub const HISTORY_LEN: usize = 12;
 pub const NONE: i8 = -1;
+/// [`GameState::winner`] while the match is still being played.
+pub const PLAYING: i8 = -1;
+/// [`GameState::winner`] when nobody won (the last fighters were knocked out together, or the time ran out level).
+pub const DRAW: i8 = -2;
 /// Fixed capacity of the projectile pool.
 pub const MAX_PROJECTILES: usize = 8;
 
@@ -184,9 +188,48 @@ impl StateHash for Projectile {
     }
 }
 
+/// How a match is won. Chosen per match (the host decides online), unlike [`crate::content::Ruleset`], which is part of the
+/// roster's content.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MatchRules {
+    /// Stocks each fighter starts with. 0 means unlimited: nobody is ever eliminated (training, free play).
+    pub stocks: u8,
+    /// Match length in seconds. 0 means no time limit. When it runs out the fighter with the most stocks wins, then the
+    /// one with the least damage; if that is level too, the match is a draw.
+    pub time_limit: u16,
+}
+
+impl Default for MatchRules {
+    fn default() -> MatchRules {
+        MatchRules {
+            stocks: 3,
+            time_limit: 0,
+        }
+    }
+}
+
+impl MatchRules {
+    pub const MAX_STOCKS: u8 = 9;
+    /// Stocks shown (and kept) when the rules say unlimited.
+    pub const UNLIMITED_DISPLAY: u8 = 99;
+
+    /// The same rules with every value in range.
+    pub fn clamped(self) -> MatchRules {
+        MatchRules {
+            stocks: self.stocks.min(MatchRules::MAX_STOCKS),
+            time_limit: self.time_limit.min(60 * 60),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GameState {
     pub frame: u32,
+    pub rules: MatchRules,
+    /// Bit `n` set means fighter `n` started the match (an eliminated fighter is no longer `active`, but stays here).
+    pub roster: u8,
+    /// [`PLAYING`] until the match ends, then the winner's index or [`DRAW`]. The simulation stops when it is set.
+    pub winner: i8,
     pub rng: Rng,
     pub fighters: [Fighter; MAX_FIGHTERS],
     /// Which fighter holds each ledge, or [`NONE`].
@@ -275,6 +318,18 @@ impl GameState {
         char_ids: [u8; MAX_FIGHTERS],
         active: u8,
     ) -> GameState {
+        GameState::new_with_rules(content, seed, char_ids, active, MatchRules::default())
+    }
+
+    /// Like [`GameState::new_with_active`], with the stocks and time limit of the match chosen.
+    pub fn new_with_rules(
+        content: &Content,
+        seed: u64,
+        char_ids: [u8; MAX_FIGHTERS],
+        active: u8,
+        rules: MatchRules,
+    ) -> GameState {
+        let rules = rules.clamped();
         let fighters = core::array::from_fn(|i| {
             let pos = content.stage.spawns[i];
             let idx = usize::from(char_ids[i]).min(content.fighters.len().saturating_sub(1));
@@ -287,10 +342,18 @@ impl GameState {
                 content.rules.shield_max,
             );
             f.active = active >> i & 1 == 1;
+            f.stocks = if rules.stocks == 0 {
+                MatchRules::UNLIMITED_DISPLAY
+            } else {
+                rules.stocks
+            };
             f
         });
         GameState {
             frame: 0,
+            rules,
+            roster: active & 0b1111,
+            winner: PLAYING,
             rng: Rng::new(seed),
             fighters,
             ledge_owner: [NONE; MAX_LEDGES],
@@ -363,6 +426,10 @@ impl StateHash for Fighter {
 impl StateHash for GameState {
     fn hash_into(&self, h: &mut StateHasher) {
         h.write_u32(self.frame);
+        h.write_u8(self.rules.stocks);
+        h.write_u16(self.rules.time_limit);
+        h.write_u8(self.roster);
+        h.write_i8(self.winner);
         self.rng.hash_into(h);
         for f in &self.fighters {
             f.hash_into(h);
@@ -526,6 +593,26 @@ mod tests {
             ("percent", {
                 let mut s = state;
                 s.fighters[0].percent = Fx::from_int(1);
+                s
+            }),
+            ("rules_stocks", {
+                let mut s = state;
+                s.rules.stocks = 1;
+                s
+            }),
+            ("rules_time_limit", {
+                let mut s = state;
+                s.rules.time_limit = 1;
+                s
+            }),
+            ("roster", {
+                let mut s = state;
+                s.roster = 0b0001;
+                s
+            }),
+            ("winner", {
+                let mut s = state;
+                s.winner = 0;
                 s
             }),
             ("stocks", {
