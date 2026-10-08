@@ -349,6 +349,7 @@ params_io! {
     ecb_half_width: Fx,
     ecb_height: Fx,
     ecb_side_height: Fx,
+    hitbox_scale: Fx,
     helpless_landing_lag: u8,
     ledge_attack_frames: u8,
     ledge_attack_dx: Fx,

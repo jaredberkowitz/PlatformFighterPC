@@ -54,10 +54,13 @@ pub fn is_intangible(f: &Fighter) -> bool {
 }
 
 /// The move's hitboxes that are active this frame, with their world-space centres.
+///
+/// `scale` is the fighter's `hitbox_scale`: the returned hitboxes already have their position and radius scaled by it.
 pub fn active_hitboxes<'a>(
     f: &'a Fighter,
     mv: &'a Move,
-) -> impl Iterator<Item = (usize, &'a Hitbox, Vec2)> + 'a {
+    scale: Fx,
+) -> impl Iterator<Item = (usize, Hitbox, Vec2)> + 'a {
     let frame = u8::try_from(f.state_frame).unwrap_or(u8::MAX);
     let facing = i32::from(f.facing);
     mv.hitboxes
@@ -65,6 +68,10 @@ pub fn active_hitboxes<'a>(
         .enumerate()
         .filter(move |(_, hb)| hb.start <= frame && frame <= hb.end)
         .map(move |(i, hb)| {
+            let mut hb = *hb;
+            hb.x = hb.x * scale;
+            hb.y = hb.y * scale;
+            hb.radius = hb.radius * scale;
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
             (i, hb, center)
         })
@@ -139,7 +146,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             }
             let hurt = hurtboxes(fd, params_of(content, fd));
             let mut best: Option<Hitbox> = None;
-            for (_, hb, center) in active_hitboxes(fa, mv) {
+            for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
                 if fa.hit_mask & hit_bit(d, hb.group) != 0 {
                     continue;
                 }
@@ -160,7 +167,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     }
                 };
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
-                    best = Some(*hb);
+                    best = Some(hb);
                 }
             }
             chosen[a][d] = best;
@@ -436,6 +443,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
             continue;
         };
         let dir = i32::from(f.facing);
+        let scale = params_of(content, &f).hitbox_scale;
         if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
             *slot = Projectile {
                 active: true,
@@ -446,7 +454,10 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 pos: if f.spawn_custom {
                     f.pos + f.spawn_pos
                 } else {
-                    Vec2::new(f.pos.x + spec.x.mul_int(dir), f.pos.y + spec.y)
+                    Vec2::new(
+                        f.pos.x + (spec.x * scale).mul_int(dir),
+                        f.pos.y + spec.y * scale,
+                    )
                 },
                 vel: if f.spawn_custom {
                     f.spawn_vel
@@ -501,7 +512,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             continue;
         }
         // A reflector in the way turns it around: it now belongs to the reflector and hits harder.
-        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, spec.hitbox.radius) {
+        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale;
+        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, shot_radius) {
             let p = &mut state.projectiles[n];
             p.owner = r as u8;
             p.power = rf.damage_percent;
@@ -519,6 +531,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         // Damage falls off with distance travelled.
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
         let mut hb = spec.hitbox;
+        hb.radius = hb.radius * origin_params.hitbox_scale;
         hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
 
@@ -583,8 +596,12 @@ fn reflector_touching(
         if frame < rf.start || frame > rf.end {
             continue;
         }
-        let centre = Vec2::new(f.pos.x + rf.x.mul_int(i32::from(f.facing)), f.pos.y + rf.y);
-        if overlaps(pos, radius, centre, rf.radius) {
+        let scale = params_of(content, f).hitbox_scale;
+        let centre = Vec2::new(
+            f.pos.x + (rf.x * scale).mul_int(i32::from(f.facing)),
+            f.pos.y + rf.y * scale,
+        );
+        if overlaps(pos, radius, centre, rf.radius * scale) {
             return Some((i, rf));
         }
     }

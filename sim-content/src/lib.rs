@@ -25,7 +25,8 @@ const MAX_WEAPONS: usize = 64;
 const MAX_VALUE: Fx = Fx::from_int(64);
 
 /// Fields that must be strictly positive (zero would freeze or break the movement).
-const MUST_BE_POSITIVE: [&str; 12] = [
+const MUST_BE_POSITIVE: [&str; 13] = [
+    "hitbox_scale",
     "walk_speed",
     "dash_speed",
     "ecb_half_width",
@@ -157,6 +158,11 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
     if f.ledge_hang_dx < f.ecb_half_width {
         errors.push(format!(
             "fighter {i}: ledge_hang_dx is smaller than ecb_half_width, so hanging would embed in the wall"
+        ));
+    }
+    if f.hitbox_scale < Fx::from_ratio(1, 4) || f.hitbox_scale > Fx::from_int(4) {
+        errors.push(format!(
+            "fighter {i}: hitbox_scale must be between 0.25 and 4"
         ));
     }
     if f.ecb_side_height >= f.ecb_height {

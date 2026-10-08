@@ -469,7 +469,9 @@ impl SimRunner {
             if fi.state == sim_core::state::FighterState::Attack {
                 let params = sim_core::combat::params_of(&self.content, fi);
                 let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
-                for (_, hb, center) in sim_core::combat::active_hitboxes(fi, mv) {
+                for (_, hb, center) in
+                    sim_core::combat::active_hitboxes(fi, mv, params.hitbox_scale)
+                {
                     v.extend([
                         f(center.x),
                         f(center.y),
@@ -507,13 +509,22 @@ impl SimRunner {
         }
         let params = sim_core::combat::params_of(&self.content, fi);
         let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
+        let k = params.hitbox_scale;
         if let Some(hb) = mv.hitboxes.iter().min_by_key(|h| (h.priority, h.start)) {
-            return Vector3::new(f(hb.x), f(hb.y), f(hb.radius));
+            return Vector3::new(f(hb.x * k), f(hb.y * k), f(hb.radius * k));
         }
         if let Some(p) = &mv.projectile {
-            return Vector3::new(f(p.x), f(p.y), f(p.hitbox.radius));
+            return Vector3::new(f(p.x * k), f(p.y * k), f(p.hitbox.radius * k));
         }
         Vector3::ZERO
+    }
+
+    /// The fighter's body and attack scale (1.0 is the moveset as written).
+    #[func]
+    fn fighter_scale(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(1.0, |fi| {
+            f(sim_core::combat::params_of(&self.content, fi).hitbox_scale)
+        })
     }
 
     /// How far out the weapon reaches at rest (the forward tilt's furthest hitbox edge).
@@ -527,7 +538,7 @@ impl SimRunner {
             .get(sim_core::moves::MoveId::FTilt as u8);
         mv.hitboxes
             .iter()
-            .map(|h| f(h.x.abs()) + f(h.radius))
+            .map(|h| f((h.x.abs() + h.radius) * params.hitbox_scale))
             .fold(0.0, f32::max)
     }
 
