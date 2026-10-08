@@ -30,6 +30,10 @@ static var _rules: RefCounted
 static func rules() -> RefCounted:
 	if _rules == null:
 		_rules = ClassDB.instantiate("ContentEditor")
+		# The project's own blocked words, on top of the built-in trademark list.
+		var list_path := ProjectSettings.globalize_path("res://").path_join("../content/blocklist.txt").simplify_path()
+		if FileAccess.file_exists(list_path):
+			_rules.policy_load(FileAccess.get_file_as_string(list_path))
 	return _rules
 
 
@@ -69,7 +73,8 @@ static func parse_profile(bytes: PackedByteArray, player := 0) -> Dictionary:
 	if bytes.size() >= 1 and bytes[0] <= Loadout.MAX_BYTES and bytes.size() >= 1 + bytes[0]:
 		look = Loadout.from_bytes(bytes.slice(1, 1 + bytes[0]), player)
 		name = bytes.slice(1 + bytes[0]).get_string_from_utf8().left(24)
-	return {"look": look, "name": name}
+	# A name from another player is made safe to show: odd characters dropped, cut to length, blocked names replaced.
+	return {"look": look, "name": rules().policy_clean_name(name, "")}
 
 
 ## How the next match is won, kept between runs: stocks each (0 = unlimited, free play) and a time limit in seconds (0 = none).
@@ -191,6 +196,9 @@ static func name_problem(name: String, editing_slug := "") -> String:
 		var ok: bool = (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9") or ch == " " or ch == "_" or ch == "-"
 		if not ok:
 			return "Names can use letters, numbers, spaces, - and _."
+	var blocked: String = rules().policy_check_name(n)
+	if blocked != "":
+		return blocked
 	var slug := slug_of(n)
 	if slug == "":
 		return "Give your fighter a name."

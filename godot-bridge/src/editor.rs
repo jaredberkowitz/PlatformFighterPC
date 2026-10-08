@@ -22,6 +22,8 @@ pub struct ContentEditor {
     redo: Vec<Doc>,
     errors: Vec<String>,
     path: String,
+    /// The name policy: the built-in trademark list plus the project's `content/blocklist.txt`.
+    policy: sim_content::policy::Policy,
 }
 
 fn block_to_dict(b: &Block) -> VarDictionary {
@@ -121,6 +123,7 @@ impl IRefCounted for ContentEditor {
             redo: Vec::new(),
             errors: Vec::new(),
             path: String::new(),
+            policy: sim_content::policy::Policy::default(),
         }
     }
 }
@@ -357,6 +360,31 @@ impl ContentEditor {
             .cloned()
             .unwrap_or_default();
         block_to_dict(&recipe.section(&name.to_string(), &weapon))
+    }
+
+    /// Adds the project's own blocked terms (`content/blocklist.txt`, one per line) to the built-in list.
+    #[func]
+    fn policy_load(&mut self, text: GString) {
+        self.policy = sim_content::policy::Policy::new(&text.to_string());
+    }
+
+    /// Why a player-chosen name is refused, or an empty string if it is fine.
+    #[func]
+    fn policy_check_name(&self, name: GString) -> GString {
+        match self.policy.check_name(&name.to_string()) {
+            Ok(()) => GString::new(),
+            Err(p) => GString::from(p.message().as_str()),
+        }
+    }
+
+    /// A name that came from another player, made safe to show (odd characters dropped, cut to length, `fallback` if it is empty or blocked).
+    #[func]
+    fn policy_clean_name(&self, name: GString, fallback: GString) -> GString {
+        GString::from(
+            self.policy
+                .clean_remote_name(&name.to_string(), &fallback.to_string())
+                .as_str(),
+        )
     }
 
     /// The point budget for a ranked-legal fighter (the four stats sum to at most this).

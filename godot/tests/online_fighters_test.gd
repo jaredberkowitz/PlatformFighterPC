@@ -40,7 +40,7 @@ func play(host_entry: Dictionary, join_entry: Dictionary, ranked: bool) -> Array
 	var b = ClassDB.instantiate("SimRunner")
 	root.add_child(a)
 	root.add_child(b)
-	port += 1
+	port += 2  # a host also listens for spectators on the next port
 	a.set_cosmetics(Roster.profile_bytes(host_entry))
 	a.set_fighter(Roster.spec_bytes(host_entry))
 	a.set_ranked(ranked)

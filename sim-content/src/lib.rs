@@ -7,6 +7,7 @@
 pub mod bundle;
 pub mod doc;
 pub mod format;
+pub mod policy;
 pub mod recipe;
 pub mod stages;
 pub mod tree;
@@ -81,6 +82,7 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
 
 /// Names are how content files refer to things, so they must be present, tidy and unique.
 fn validate_names(content: &Content, errors: &mut Vec<String>) {
+    let policy = policy::Policy::default();
     let groups: [(&str, &[String], usize); 2] = [
         ("fighter", &content.names.fighters, content.fighters.len()),
         ("weapon", &content.names.weapons, content.weapons.len()),
@@ -101,6 +103,11 @@ fn validate_names(content: &Content, errors: &mut Vec<String>) {
             if !tidy {
                 errors.push(format!(
                     "{what} {i}: name `{name}` must be 1 to 32 letters, digits, `_` or `-`"
+                ));
+            }
+            if policy.is_blocked(name) {
+                errors.push(format!(
+                    "{what} {i}: name `{name}` uses a blocked term (someone else's trademark, or a word the project blocks)"
                 ));
             }
             if names[..i].contains(name) {
@@ -349,6 +356,20 @@ fn validate_stage(s: &Stage, errors: &mut Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn content_names_that_borrow_a_trademark_are_refused() {
+        let mut c = Content::placeholder();
+        c.names.fighters[0] = "Mario".to_string();
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("blocked term")),
+            "{errors:?}"
+        );
+        let mut c = Content::placeholder();
+        c.names.stage = "ok_stage".to_string();
+        assert_eq!(validate(&c), Ok(()));
+    }
 
     #[test]
     fn placeholder_content_is_valid() {
