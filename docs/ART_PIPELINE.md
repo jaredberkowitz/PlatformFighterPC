@@ -16,6 +16,29 @@ Each part is modelled at the size and centre the game used for its old sphere, s
 `blob_parts()`) swaps the mesh in place and only chooses the colour. The glTF is read at run time (no editor import needed); if the file is
 missing or damaged the fighter falls back to plain spheres. The face, hat, glasses, neckwear, sash and weapon are still built in code.
 
+## The rigged blob (arms, legs, animation)
+
+`art/blender/make_rigged_blob.py` builds the character with a 16-bone skeleton (hips, spine, head, two-segment arms with mitten hands, two-segment
+legs with shoes) and 11 animation clips, and exports `godot/models/blob_rig.glb`:
+
+```
+"C:\Program Files\Blender Foundation\Blender 5.2lender.exe" --background --python art/blender/make_rigged_blob.py
+```
+
+* Parts are rigid (each weighted to one bone), like a vinyl toy. Colours come from the game by part name (skin, white gloves and socks, dark shoes).
+* Clips: `idle`, `walk`, `run`, `jump`, `fall`, `crouch`, `shield`, `hurt` and three attacks driven by the move's progress, `attack_swing`,
+  `attack_low`, `attack_kick`. They are keyed in code from "forward / outward / twist" angles, so they are easy to tune and re-export.
+* `FighterView` (`_build_rig`, `_choose_clip`, `_animate`) reads the file once and copies it per fighter, picks the clip from the simulation's
+  state (walk and run speed follow the fighter's real speed; an attack's clip is seeked to `state_frame / total_frames`, so the swing lands
+  on the move's own frames), and freezes the pose during hitlag. The face, hat, glasses and neckwear are attached to the head and spine bones
+  through follower nodes (`head_rig`, `torso_rig`). The squash, lean and spin effects still apply on top.
+* If `blob_rig.glb` is missing the fighter falls back to `blob_parts.glb`, then to plain spheres.
+* Animation never affects the simulation: it only reads the state.
+
+Known gaps: the sword is still posed by its own code at a fixed hand position, so the sword hand and the blade can disagree during swings
+(the fix is to aim the arm at the blade); there are no per-move clips beyond the three attack types; grabs, throws, rolls, knockdown and the
+ledge have no clips yet (they borrow idle or crouch); the sash and neckwear were designed for the old sphere body and are only roughly fitted.
+
 ## Rules
 
 * Cosmetic only: gameplay hurtboxes come from content, never from a mesh (`CLAUDE.md`).
@@ -24,8 +47,7 @@ missing or damaged the fighter falls back to plain spheres. The face, hat, glass
 
 ## Next steps for art
 
-1. Move the hat, glasses, neckwear and sash into the Blender script as meshes with sockets, then drop the code-built versions.
-2. A rigged blob (hips, spine, head, arms, legs) with the same part names so poses come from animation clips instead of the squash,
-   lean and blade code in `fighter_view.gd`.
+1. Aim the sword arm at the blade; clips for grabs, throws, rolls, knockdown, ledge and each smash/aerial.
+2. Move the hat, glasses, neckwear and sash into the Blender script as meshes on the rig, then drop the code-built versions.
 3. A face atlas texture and expression set for the head.
 4. Stage backdrops, hit effects and a shield bubble.

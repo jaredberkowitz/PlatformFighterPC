@@ -55,6 +55,10 @@ func rebuild(l: RefCounted) -> void:
 		remove_child(c)
 		c.free()
 	meshes.clear()
+	rig = null
+	anim = null
+	skeleton = null
+	current_clip = ""
 	face_parts = {}
 	last_expression = {}
 	last_ghost = 0.0
@@ -97,9 +101,140 @@ func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
 
 const Loadout := preload("res://scripts/loadout.gd")
 var loadout: RefCounted
+const RIG_PATH := "res://models/blob_rig.glb"
+## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
+const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
+const TORSO_FIT := Transform3D(Basis(Vector3(0.8, 0, 0), Vector3(0, 0.8, 0), Vector3(0, 0, 0.72)), Vector3(0, 0.98 - 0.82 * 0.8, 0))
+const LOOPING := ["idle", "walk", "run", "fall"]
+## The rig is read once and copied for every fighter (reading it again renames its bones).
+static var _rig_template: Node3D
+static var _rig_tried := false
+
+var rig: Node3D
+var skeleton: Skeleton3D
+var anim: AnimationPlayer
+var current_clip := ""
+## Parents of the face / hat / glasses (they follow the head bone) and of the neckwear (it follows the torso). Without a rig both are
+## simply the model.
+var head_rig: Node3D
+var torso_rig: Node3D
+var head_bone := -1
+var spine_bone := -1
+var head_rest_inv := Transform3D()
+var spine_rest_inv := Transform3D()
+
 const PARTS_PATH := "res://models/blob_parts.glb"
 static var _parts: Dictionary = {}
 static var _parts_tried := false
+
+
+## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
+## the fighter is then built from parts or spheres.
+func _build_rig(skin: StandardMaterial3D) -> bool:
+	if not _rig_tried:
+		_rig_tried = true
+		var path := ProjectSettings.globalize_path(RIG_PATH)
+		if FileAccess.file_exists(path):
+			var doc := GLTFDocument.new()
+			var state := GLTFState.new()
+			if doc.append_from_file(path, state) == OK:
+				_rig_template = doc.generate_scene(state)
+	if _rig_template == null:
+		return false
+	var scene: Node3D = _rig_template.duplicate()
+	var found: Array = scene.find_children("*", "Skeleton3D", true, false)
+	var players: Array = scene.find_children("*", "AnimationPlayer", true, false)
+	if found.is_empty() or players.is_empty():
+		scene.free()
+		return false
+	skeleton = found[0]
+	anim = players[0]
+	rig = scene
+	model.add_child(rig)
+	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	for clip_name in anim.get_animation_list():
+		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
+	var white := toon(Color(1, 1, 1))
+	var shoe := toon(Color(0.27, 0.2, 0.3))
+	for mi in rig.find_children("*", "MeshInstance3D", true, false):
+		var part := str(mi.name)
+		if part.begins_with("Hand") or part.begins_with("Shin"):
+			mi.material_override = white
+		elif part.begins_with("Foot"):
+			mi.material_override = shoe
+		else:
+			mi.material_override = skin
+		meshes.append(mi)
+	head_bone = skeleton.find_bone("head")
+	spine_bone = skeleton.find_bone("spine")
+	head_rest_inv = skeleton.get_bone_global_rest(head_bone).affine_inverse()
+	spine_rest_inv = skeleton.get_bone_global_rest(spine_bone).affine_inverse()
+	head_rig = Node3D.new()
+	torso_rig = Node3D.new()
+	model.add_child(head_rig)
+	model.add_child(torso_rig)
+	head_rig.transform = HEAD_FIT
+	torso_rig.transform = TORSO_FIT
+	anim.play("idle")
+	anim.advance(0.0)
+	return true
+
+
+## Which clip suits this state of the simulation: [clip name, speed, progress]. Progress is -1 for a clip that simply plays, or 0..1 for
+## one that follows the move (an attack's swing lands on the move's own frames).
+func _choose_clip(s: Dictionary) -> Array:
+	var state: String = s.state
+	var grounded: bool = s.platform >= 0
+	var speed := absf(float(s.vel.x))
+	match state:
+		"Walk":
+			return ["walk", clampf(speed / 0.12, 0.5, 2.2), -1.0]
+		"Run", "Dash":
+			return ["run", clampf(speed / 0.3, 0.7, 1.8), -1.0]
+		"Crouch", "JumpSquat", "Landing", "WaveLand", "SpotDodge", "Roll":
+			return ["crouch", 1.0, -1.0]
+		"Shield", "ShieldDrop":
+			return ["shield", 1.0, -1.0]
+		"Hitstun", "ShieldBreak", "Grabbed":
+			return ["hurt", 1.0, -1.0]
+		"Attack":
+			var t: PackedInt32Array = s.move_timing
+			var name: String = s.move_name
+			var progress := clampf(float(s.state_frame) / maxf(1.0, float(t[0])), 0.0, 1.0)
+			var clip := "attack_swing"
+			if s.char == 1 and BRAWLER_NO_BLADE.has(name):
+				clip = "attack_kick"
+			elif name.begins_with("dtilt") or name.begins_with("dair") or name.begins_with("down"):
+				clip = "attack_low"
+			return [clip, 1.0, progress]
+		"Idle", "Turn", "Knockdown", "GetUp", "LedgeHang", "LedgeGetUp", "LedgeAttack", "Grabbing":
+			return ["idle", 1.0, -1.0]
+	if grounded:
+		return ["idle", 1.0, -1.0]
+	return ["jump", 1.0, -1.0] if float(s.vel.y) > 0.02 else ["fall", 1.0, -1.0]
+
+
+## Plays the right clip for this frame and moves the head and torso followers with their bones.
+func _animate(s: Dictionary, delta: float) -> void:
+	if anim == null:
+		return
+	var pick: Array = _choose_clip(s)
+	var clip: String = pick[0]
+	if clip != current_clip:
+		anim.play(clip, 0.1 if current_clip != "" and not clip.begins_with("attack") else 0.0)
+		current_clip = clip
+	if float(pick[2]) >= 0.0:
+		anim.pause()
+		anim.seek(float(pick[2]) * anim.get_animation(clip).length, true)
+	elif int(s.hitlag) == 0:
+		# (Hitlag freezes the pose along with everything else.)
+		anim.speed_scale = float(pick[1])
+		anim.advance(delta)
+	var to_model: Transform3D = skeleton.get_parent().transform if skeleton.get_parent() != null else Transform3D()
+	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
+	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * HEAD_FIT
+	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * TORSO_FIT
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is
@@ -144,8 +279,11 @@ func build(p: int, l: RefCounted = null) -> void:
 	add_child(model)
 
 	# Body, head, feet, hands. Height matches the 2.2 unit ECB.
-	var shaped := blob_parts()
-	if shaped.is_empty():
+	var used_rig := _build_rig(skin)
+	var shaped := {} if used_rig else blob_parts()
+	if used_rig:
+		pass
+	elif shaped.is_empty():
 		# No modelled parts available: plain spheres.
 		_part(model, _sphere(0.62), skin, Vector3(0, 0.82, 0), Vector3(1.0, 0.95, 0.9))
 		_part(model, _sphere(0.8), skin, Vector3(0, 1.42, 0))
@@ -263,14 +401,14 @@ func _face(skin: StandardMaterial3D, ink: StandardMaterial3D) -> void:
 	face_parts = {"lids": [], "lines": [], "brows": [], "mouth": null, "skin": skin}
 	for sx in [-1.0, 1.0]:
 		var eye_pos := Vector3(sx * EYE_DX, EYE_Y, 0.745)
-		_part(model, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos, Vector3(0.17, 0.19, 0.05))
-		_part(model, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
-		face_parts.lids.append(_part(model, _sphere(1.0), skin, eye_pos, Vector3(0.2, 0.1, 0.06)))
-		face_parts.lines.append(_part(model, _sphere(1.0), ink, eye_pos, Vector3(0.18, 0.012, 0.03)))
+		_part(head_rig, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos, Vector3(0.17, 0.19, 0.05))
+		_part(head_rig, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
+		face_parts.lids.append(_part(head_rig, _sphere(1.0), skin, eye_pos, Vector3(0.2, 0.1, 0.06)))
+		face_parts.lines.append(_part(head_rig, _sphere(1.0), ink, eye_pos, Vector3(0.18, 0.012, 0.03)))
 		var brow := BoxMesh.new()
 		brow.size = Vector3(0.3, 0.05, 0.05)
-		face_parts.brows.append(_part(model, brow, ink, eye_pos + Vector3(0, 0.3, 0.03)))
-	face_parts.mouth = _part(model, _sphere(1.0), ink, Vector3(0, 1.17, 0.775), Vector3(0.14, 0.05, 0.05))
+		face_parts.brows.append(_part(head_rig, brow, ink, eye_pos + Vector3(0, 0.3, 0.03)))
+	face_parts.mouth = _part(head_rig, _sphere(1.0), ink, Vector3(0, 1.17, 0.775), Vector3(0.14, 0.05, 0.05))
 	set_expression(Loadout.FACES[loadout.face])
 
 
@@ -305,22 +443,22 @@ func _neck(_skin: StandardMaterial3D) -> void:
 			# Sash across the torso.
 			var sash := BoxMesh.new()
 			sash.size = Vector3(1.5, 0.2, 0.12)
-			_part(model, sash, toon(SASH), Vector3(0, 0.85, 0.5), Vector3.ONE, Vector3(0, 0, -42))
+			_part(torso_rig, sash, toon(SASH), Vector3(0, 0.85, 0.5), Vector3.ONE, Vector3(0, 0, -42))
 		2:
 			# Neckerchief: a knotted square at the throat.
 			var sq := BoxMesh.new()
 			sq.size = Vector3(0.7, 0.7, 0.1)
-			_part(model, sq, toon(accent), Vector3(0, 1.0, 0.6), Vector3.ONE, Vector3(0, 0, 45))
-			_part(model, _sphere(0.16), toon(accent), Vector3(0, 1.28, 0.62))
+			_part(torso_rig, sq, toon(accent), Vector3(0, 1.0, 0.6), Vector3.ONE, Vector3(0, 0, 45))
+			_part(torso_rig, _sphere(0.16), toon(accent), Vector3(0, 1.28, 0.62))
 		3:
 			# Scarf: a ring round the neck with a tail hanging in front.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.5
 			ring.outer_radius = 0.72
-			_part(model, ring, toon(accent), Vector3(0, 1.07, 0), Vector3(1, 0.55, 1))
+			_part(torso_rig, ring, toon(accent), Vector3(0, 1.07, 0), Vector3(1, 0.55, 1))
 			var tail := BoxMesh.new()
 			tail.size = Vector3(0.28, 0.7, 0.08)
-			_part(model, tail, toon(accent), Vector3(0.28, 0.72, 0.58), Vector3.ONE, Vector3(0, 0, 8))
+			_part(torso_rig, tail, toon(accent), Vector3(0.28, 0.72, 0.58), Vector3.ONE, Vector3(0, 0, 8))
 
 
 func _hat() -> void:
@@ -329,34 +467,34 @@ func _hat() -> void:
 	match loadout.hat:
 		1:
 			# Sailor cap: white crown and brim with a band in the accent colour.
-			_part(model, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0))
-			_part(model, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0))
-			_part(model, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
+			_part(head_rig, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0))
+			_part(head_rig, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0))
+			_part(head_rig, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
 		2:
 			# Aviator cap with goggles on top.
-			_part(model, _sphere(0.86), toon(Color(0.78, 0.6, 0.38)), Vector3(0, 1.84, -0.14), Vector3(1.0, 0.6, 1.0))
+			_part(head_rig, _sphere(0.86), toon(Color(0.78, 0.6, 0.38)), Vector3(0, 1.84, -0.14), Vector3(1.0, 0.6, 1.0))
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
 			ring.outer_radius = 0.2
 			for sx in [-1.0, 1.0]:
-				_part(model, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.3, 2.12, 0.28), Vector3.ONE, Vector3(70, 0, 0))
+				_part(head_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.3, 2.12, 0.28), Vector3.ONE, Vector3(70, 0, 0))
 		3:
 			# Straw hat with a band in the accent colour.
 			var straw := toon(Color(0.9, 0.78, 0.45))
-			_part(model, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0))
-			_part(model, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0))
-			_part(model, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0))
+			_part(head_rig, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0))
+			_part(head_rig, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0))
+			_part(head_rig, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0))
 		4:
 			# Beanie with a pompom.
-			_part(model, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0), Vector3(1.0, 0.7, 1.0))
-			_part(model, _sphere(0.18), white, Vector3(0, 2.38, 0))
+			_part(head_rig, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0), Vector3(1.0, 0.7, 1.0))
+			_part(head_rig, _sphere(0.18), white, Vector3(0, 2.38, 0))
 		5:
 			# Crown: a gold band with five points.
 			var gold := toon(Color(0.96, 0.8, 0.25))
-			_part(model, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0))
+			_part(head_rig, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0))
 			for i in 5:
 				var a := TAU * i / 5.0
-				_part(model, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5))
+				_part(head_rig, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5))
 
 
 func _glasses() -> void:
@@ -366,28 +504,28 @@ func _glasses() -> void:
 		1:
 			# Shades, like the reference.
 			for sx in [-1.0, 1.0]:
-				_part(model, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.8), Vector3(0.25, 0.18, 0.04))
-			_part(model, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
+				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.8), Vector3(0.25, 0.18, 0.04))
+			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.14
 			ring.outer_radius = 0.28
 			for sx in [-1.0, 1.0]:
-				_part(model, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-				_part(model, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
+				_part(head_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+				_part(head_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.78
 			strap.outer_radius = 0.84
-			_part(model, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
+			_part(head_rig, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
 		3:
 			# Round specs: thin rings and a bridge.
 			var thin := TorusMesh.new()
 			thin.inner_radius = 0.17
 			thin.outer_radius = 0.21
 			for sx in [-1.0, 1.0]:
-				_part(model, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-			_part(model, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
+				_part(head_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
 
 
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
@@ -467,6 +605,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var col := Color(0.4, 0.7, 1.0, 0.35).lerp(Color(1.0, 0.35, 0.25, 0.45), 1.0 - hp)
 		(shield.material_override as StandardMaterial3D).albedo_color = col
 	speed_lines.visible = fast_falling
+	_animate(s, delta)
 	_apply_combat(s, delta)
 
 
