@@ -1004,7 +1004,7 @@ func _update_hud(delta: float) -> void:
 	var alpha := 1.0
 	if countdown > 0.0:
 		banner = "%d" % ceili(countdown)
-		alpha = clampf(1.0 - (float(ceili(countdown)) - countdown) * 0.6, 0.3, 1.0)
+		alpha = clampf(1.0 - (float(ceili(countdown)) - countdown) * 0.35, 0.65, 1.0)
 	elif winner != -1:
 		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
 	elif playing and frame < 75 and (rules[0] > 0 or rules[1] > 0):
