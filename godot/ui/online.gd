@@ -5,6 +5,7 @@ extends Control
 ## Connecting works two ways: direct (the host opens a UDP port, the joiner types the host's address) or through a relay
 ## server (`pftool net-relay`), where both type the relay's address and a room number.
 
+const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const Preview := preload("res://ui/preview.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -107,6 +108,7 @@ func _ready() -> void:
 	_update_rows()
 	_set_focus(0)
 	PadNav.attach(self)
+	Music.of(self).play("menu")
 	Shot.attach(self)
 
 

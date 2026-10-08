@@ -258,7 +258,7 @@ func _attack_clip(s: Dictionary) -> Array:
 		progress = 0.55 + (f - start) / maxf(1.0, last - start) * 0.2
 	else:
 		progress = 0.75 + (f - last) / maxf(1.0, total - last) * 0.25
-	var brawler_body: bool = s.char == 1 and BRAWLER_NO_BLADE.has(name)
+	var brawler_body: bool = _cls(s) == 1 and BRAWLER_NO_BLADE.has(name)
 	var clip := "attack_swing"
 	if name.ends_with("throw"):
 		clip = "throw"
@@ -278,8 +278,16 @@ func _attack_clip(s: Dictionary) -> Array:
 		clip = "attack_dair"
 	elif name.ends_with("smash"):
 		clip = "attack_smash"
-	elif name == "dtilt":
+	elif name == "dtilt" or name == "down special":
 		clip = "attack_low"
+	elif name.begins_with("jab"):
+		clip = "attack_jab"
+	elif name == "dash attack" or name == "side special":
+		clip = "attack_lunge"
+	elif name == "utilt" or name == "up special":
+		clip = "attack_uair"
+	elif name == "neutral special":
+		clip = "attack_smash"
 	return [clip, 1.0, clampf(progress, 0.0, 1.0)]
 
 
@@ -428,17 +436,32 @@ func build(p: int, l: RefCounted = null) -> void:
 	add_child(name_label)
 
 	# Weapon: pivots at the hand and extends along +x. Claws just shrink it (see _pose_blade).
+	blade_parts.clear()
+	hammer_parts.clear()
 	blade_pivot = Node3D.new()
 	model.add_child(blade_pivot)
 	var blade_mesh := BoxMesh.new()
 	blade_mesh.size = Vector3(2.7, 0.16, 0.09)
-	_part(blade_pivot, blade_mesh, toon(Color(0.86, 0.91, 0.99)), Vector3(1.55, 0, 0))
+	blade_parts.append(_part(blade_pivot, blade_mesh, toon(Color(0.86, 0.91, 0.99)), Vector3(1.55, 0, 0)))
 	var guard_mesh := BoxMesh.new()
 	guard_mesh.size = Vector3(0.12, 0.6, 0.12)
-	_part(blade_pivot, guard_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(0.18, 0, 0))
+	blade_parts.append(_part(blade_pivot, guard_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(0.18, 0, 0)))
 	var grip_mesh := BoxMesh.new()
 	grip_mesh.size = Vector3(0.4, 0.12, 0.12)
 	_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.02, 0, 0))
+	# The maul: a thick shaft and a big two-sided head at the far end (shown instead of the blade for the third class).
+	var shaft_mesh := BoxMesh.new()
+	shaft_mesh.size = Vector3(2.5, 0.2, 0.2)
+	hammer_parts.append(_part(blade_pivot, shaft_mesh, toon(Color(0.55, 0.36, 0.2)), Vector3(1.3, 0, 0)))
+	var head_mesh := BoxMesh.new()
+	head_mesh.size = Vector3(0.7, 0.7, 0.6)
+	hammer_parts.append(_part(blade_pivot, head_mesh, toon(Color(0.36, 0.4, 0.5)), Vector3(2.45, 0, 0)))
+	# A small gold stud on the head's top, so it reads as a made thing rather than a grey box.
+	var stud_mesh := BoxMesh.new()
+	stud_mesh.size = Vector3(0.22, 0.2, 0.22)
+	hammer_parts.append(_part(blade_pivot, stud_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(2.45, 0.42, 0)))
+	for part in hammer_parts:
+		part.visible = false
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
@@ -662,8 +685,8 @@ var last_vy := 0.0
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
 func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# The brawler has longer limbs: swap to its rig the first time we see its class.
-	if rig != null and (s.char == 1) != long_limbs:
-		long_limbs = s.char == 1
+	if rig != null and (_cls(s) == 1) != long_limbs:
+		long_limbs = _cls(s) == 1
 		rebuild(loadout)
 	position = pos
 	var state: String = s.state
@@ -768,6 +791,13 @@ func set_name_tag(text: String) -> void:
 		name_label.text = text
 		name_label.visible = text != ""
 var blade_pivot: Node3D
+var blade_parts: Array[MeshInstance3D] = []
+var hammer_parts: Array[MeshInstance3D] = []
+
+
+## The fighter's class (which moveset it has): 0 longsword, 1 claws, 2 maul. Snapshots made before classes existed only have `char`.
+func _cls(s: Dictionary) -> int:
+	return int(s.get("class", s.char))
 var spark: MeshInstance3D
 var flame: MeshInstance3D
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
@@ -781,7 +811,7 @@ var blade_length := 2.0
 
 func _rest_length(s: Dictionary) -> float:
 	# Swords are long; claws are short.
-	return clampf(float(s.reach) - HAND.x - 0.2, 0.7, 3.4) if s.char == 0 else 1.0
+	return clampf(float(s.reach) - HAND.x - 0.2, 0.7, 3.4) if _cls(s) != 1 else 1.0
 
 
 ## Where the blade should point, in degrees in forward space, and how long it should be, for this frame.
@@ -795,7 +825,7 @@ func _blade_target(s: Dictionary) -> Array:
 	var to_tip := Vector2(tip.x - hand_x, tip.y - HAND.y)
 	var swing := rad_to_deg(atan2(to_tip.y, to_tip.x))
 	var length := clampf(to_tip.length() + tip.z * 0.7, 0.7, 3.6)
-	if s.char == 1:
+	if _cls(s) == 1:
 		length = clampf(length, 0.7, 1.4)
 	# Never point into the floor while standing on it.
 	if s.platform >= 0:
@@ -855,7 +885,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
-		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if s.char == 0 else arm_reach
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) != 1 else arm_reach
 		hand = old_hand.lerp(shoulder + to_tip / dist * reach, arm_k)
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
@@ -868,7 +898,21 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
-	blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0 if s.char == 0 else 1.7, 1.0 if s.char == 0 else 1.7)
+	var hammer: bool = _cls(s) == 2
+	var thick := 1.0 if _cls(s) == 0 else 1.7
+	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
+	if hammer:
+		# The head keeps its size: only the shaft stretches, and the head sits at the move's sweet spot.
+		blade_pivot.scale = Vector3.ONE
+		var reach := maxf(length, 1.3)
+		hammer_parts[0].scale.x = (reach - 0.35) / 2.5
+		hammer_parts[0].position.x = (reach - 0.35) / 2.0
+		hammer_parts[1].position.x = reach
+		hammer_parts[2].position.x = reach
+	for part in blade_parts:
+		part.visible = not hammer
+	for part in hammer_parts:
+		part.visible = hammer
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
@@ -942,8 +986,10 @@ func _make_trail() -> void:
 
 ## Edge and core colours: violet and white-pink for the brawler, gold and white for the sword.
 func _trail_colours(s: Dictionary) -> Array:
-	if s.char == 1:
+	if _cls(s) == 1:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
+	if _cls(s) == 2:
+		return [Color(0.95, 0.28, 0.12), Color(1.0, 0.92, 0.8)]
 	return [Color(1.0, 0.62, 0.12), Color(1.0, 1.0, 0.85)]
 
 
@@ -1049,7 +1095,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
 	_pose_blade(s, delta)
 	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
-	var brawler: bool = s.char == 1
+	var brawler: bool = _cls(s) == 1
 	# Only the brawler's body moves leave the arms alone; the sword fighter always has its blade.
 	var swinging_arm: bool = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
 	blade_pivot.visible = not brawler and swinging_arm

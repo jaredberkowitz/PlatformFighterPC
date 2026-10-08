@@ -32,7 +32,7 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 24;
+pub const SIM_VERSION: u16 = 25;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;
 /// Persistent script variables each fighter and each projectile carries (see `sim-script`).

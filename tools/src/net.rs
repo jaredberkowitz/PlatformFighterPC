@@ -262,10 +262,10 @@ pub fn cmd_relay(args: &[String]) -> Result<(), String> {
 fn random_spec(rng: &mut Rng) -> sim_content::recipe::FighterSpec {
     use sim_content::recipe::{FighterSpec, Recipe};
     if rng.range(4) == 0 {
-        FighterSpec::Builtin(rng.range(2) as u8)
+        FighterSpec::Builtin(rng.range(3) as u8)
     } else {
         FighterSpec::Made(Recipe {
-            class: rng.range(2) as u8,
+            class: rng.range(3) as u8,
             size: 1 + rng.range(9) as u8,
             speed: 1 + rng.range(9) as u8,
             jump: 1 + rng.range(9) as u8,

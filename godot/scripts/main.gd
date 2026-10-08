@@ -1,6 +1,7 @@
 extends Node3D
 ## Playable test bed: the Rust sim runs at 60 Hz in _physics_process; everything else only draws it.
 
+const Music := preload("res://scripts/music.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -103,6 +104,7 @@ func _ready() -> void:
 	_apply_scales()
 	_start_net()
 	PadNav.attach(self)
+	Music.of(self).play("battle")
 	_build_ecb()
 	_build_boxes()
 	_build_projectiles()
@@ -227,7 +229,7 @@ func _refresh(i: int) -> void:
 	snaps[i] = {
 		"state": sim.fighter_state(i), "state_frame": sim.fighter_state_frame(i),
 		"facing": sim.fighter_facing(i), "pos": cur_pos[i], "vel": sim.fighter_vel(i),
-		"char": info[0], "platform": info[1], "jumps": info[2], "dodged": info[3] != 0,
+		"char": info[0], "class": sim.fighter_class(i), "platform": info[1], "jumps": info[2], "dodged": info[3] != 0,
 		"fast_fall": info[4] != 0, "ledge": info[5], "ledge_invuln": info[6], "grabs": info[7],
 		"lag": info[8], "cooldown": info[9], "ignore": info[10], "frame": sim.frame(),
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
@@ -1159,7 +1161,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	match event.keycode:
 		KEY_F4:
-			sfx.toggle_mute()
+			Music.of(self).set_muted(sfx.toggle_mute())
 		KEY_F1:
 			overlay_on = not overlay_on
 			overlay.set_overlay_visible(overlay_on)

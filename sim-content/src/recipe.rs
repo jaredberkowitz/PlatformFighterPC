@@ -21,8 +21,8 @@ pub const MIN_STAT: u8 = 1;
 pub const MAX_STAT: u8 = 9;
 /// The stat value that leaves the archetype unchanged.
 pub const NEUTRAL: u8 = 5;
-/// How many classes there are (index into the roster's movesets: 0 longsword, 1 claws).
-pub const CLASSES: u8 = 2;
+/// How many classes there are (index into the roster's movesets: 0 longsword, 1 claws, 2 maul).
+pub const CLASSES: u8 = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Recipe {
@@ -71,10 +71,10 @@ impl Recipe {
     /// The archetype's parameters changed by the stats.
     pub fn params(self) -> FighterParams {
         let r = self.clamped();
-        let mut p = if r.class == 0 {
-            FighterParams::duelist()
-        } else {
-            FighterParams::brawler()
+        let mut p = match r.class {
+            0 => FighterParams::duelist(),
+            1 => FighterParams::brawler(),
+            _ => FighterParams::bruiser(),
         };
         let size = r.size_percent();
         let speed = i32::from(r.speed);
@@ -367,6 +367,10 @@ mod tests {
                 jump: 3,
                 weight: 9,
             }),
+            FighterSpec::Made(Recipe {
+                class: 2,
+                ..Recipe::default()
+            }),
         ] {
             assert_eq!(FighterSpec::decode(&spec.encode()), Some(spec));
         }
@@ -378,7 +382,7 @@ mod tests {
             vec![1, 0, 5, 5, 5, 5, 5],
             vec![1, 0, 0, 5, 5, 5],
             vec![1, 0, 10, 5, 5, 5],
-            vec![1, 2, 5, 5, 5, 5],
+            vec![1, 3, 5, 5, 5, 5],
             vec![2, 0, 0],
         ] {
             assert_eq!(FighterSpec::decode(&bad), None, "{bad:?}");
@@ -415,11 +419,12 @@ mod tests {
             FighterSpec::Made(b),
         ];
         let (content, chars) = match_content(&base, &specs, false).unwrap();
-        assert_eq!(chars, vec![2, 1, 3]);
-        assert_eq!(content.fighters.len(), 4);
-        assert_eq!(content.fighters[2], a.params());
-        assert_eq!(content.fighters[3], b.params());
-        assert_eq!(&content.fighters[..2], &base.fighters[..]);
+        let n = base.fighters.len() as u8;
+        assert_eq!(chars, vec![n, 1, n + 1]);
+        assert_eq!(content.fighters.len(), base.fighters.len() + 2);
+        assert_eq!(content.fighters[usize::from(n)], a.params());
+        assert_eq!(content.fighters[usize::from(n) + 1], b.params());
+        assert_eq!(&content.fighters[..usize::from(n)], &base.fighters[..]);
         assert_eq!(crate::validate(&content), Ok(()));
         // The same specs always make the same content (and the same hash).
         assert_eq!(
@@ -461,7 +466,7 @@ mod tests {
         let c = wild.clamped();
         assert_eq!(
             (c.class, c.size, c.speed, c.jump, c.weight),
-            (1, 1, 9, 1, 9)
+            (CLASSES - 1, 1, 9, 1, 9)
         );
         assert_eq!(wild.params(), c.params());
     }

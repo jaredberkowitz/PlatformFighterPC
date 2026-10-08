@@ -218,9 +218,13 @@ pub fn cmd_balance(args: &[String]) -> Result<(), String> {
         .map(|v| v.split(',').filter_map(|x| x.parse().ok()).collect())
         .unwrap_or_else(|| if quick { vec![3, 7] } else { vec![2, 5, 8] });
 
-    // Every combination of the stat levels, for both classes.
+    // Every combination of the stat levels, for every class.
     let mut builds: Vec<Recipe> = Vec::new();
-    for class in 0..base.weapons.len().min(2) as u8 {
+    for class in 0..base
+        .weapons
+        .len()
+        .min(usize::from(sim_content::recipe::CLASSES)) as u8
+    {
         for &size in &levels {
             for &speed in &levels {
                 for &jump in &levels {
@@ -308,7 +312,7 @@ pub fn cmd_balance(args: &[String]) -> Result<(), String> {
         }
         println!("{line}");
     }
-    for class in 0..2u8 {
+    for class in 0..sim_content::recipe::CLASSES {
         let rows: Vec<f64> = scores
             .iter()
             .filter(|(r, _)| r.class == class)

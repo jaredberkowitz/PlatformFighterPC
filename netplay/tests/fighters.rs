@@ -177,10 +177,14 @@ fn two_made_fighters_play_a_match_that_matches_a_single_machine_run_frame_for_fr
         // Both sides run on the same content, with both made fighters in it, and they really are different fighters.
         let (ca, cb) = (m.a.match_content().unwrap(), m.b.match_content().unwrap());
         assert_eq!(ca.hash(), cb.hash());
-        assert_eq!(ca.fighters.len(), 4);
-        assert_ne!(ca.fighters[2], ca.fighters[3]);
-        assert_eq!(m.a.state().unwrap().fighters[0].char_id, 2);
-        assert_eq!(m.a.state().unwrap().fighters[1].char_id, 3);
+        let first = m.base.fighters.len();
+        assert_eq!(ca.fighters.len(), first + 2);
+        assert_ne!(ca.fighters[first], ca.fighters[first + 1]);
+        assert_eq!(usize::from(m.a.state().unwrap().fighters[0].char_id), first);
+        assert_eq!(
+            usize::from(m.a.state().unwrap().fighters[1].char_id),
+            first + 1
+        );
     }
 }
 

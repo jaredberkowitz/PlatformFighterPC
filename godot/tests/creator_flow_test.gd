@@ -111,7 +111,7 @@ func _saving_and_matches() -> void:
 
 	# Built-in fighters play exactly as before: the match content for them is the base roster.
 	var plain: Dictionary = Roster.build_content(Roster.builtins())
-	check(plain.chars == [0, 1], "built-in fighters keep their own slots: " + str(plain.chars))
+	check(plain.chars == [0, 1, 2], "built-in fighters keep their own slots: " + str(plain.chars))
 	var base_sim = ClassDB.instantiate("SimRunner")
 	root.add_child(base_sim)
 	var built_in_hash: String = base_sim.content_hash()

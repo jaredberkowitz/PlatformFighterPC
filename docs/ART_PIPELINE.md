@@ -19,7 +19,7 @@ missing or damaged the fighter falls back to plain spheres. The face, hat, glass
 ## The rigged blob (arms, legs, animation)
 
 `art/blender/make_rigged_blob.py` builds the character with a 16-bone skeleton (hips, spine, head, two-segment arms with mitten hands, two-segment
-legs with shoes) and 11 animation clips, and exports `godot/models/blob_rig.glb`:
+legs with shoes) and its animation clips, and exports `godot/models/blob_rig.glb`:
 
 ```
 "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python art/blender/make_rigged_blob.py
@@ -39,7 +39,7 @@ legs with shoes) and 11 animation clips, and exports `godot/models/blob_rig.glb`
 In an attack the hand leaves its resting place and sweeps round the shoulder, and the arm reaches it with two-bone IK
 (`_pose_blade`, `_aim_arm`), so the arm throws the blade through its arc and the blade always ends at the move's tip. Move clips
 (`attack_fair`, `attack_bair`, `attack_nair`, `attack_uair`, `attack_dair`, `attack_smash`, `attack_swing`, `attack_low`, `attack_kick`,
-`grab`, `throw`) set the body around it: a forward air folds the torso forward through the sweep, a back air turns the body away, a neutral
+`attack_jab`, `attack_lunge`, `grab`, `throw`) set the body around it: a forward air folds the torso forward through the sweep, a back air turns the body away, a neutral
 air spins, and so on. Clips are timed to the move (wind-up until the first hitbox, strike through the active frames, then recovery).
 `roll`, `knockdown` and `ledge` clips cover rolls and dodges, lying down and hanging.
 
@@ -67,7 +67,13 @@ with a bright core inside a coloured edge (violet for the brawler, gold for the 
 where it is. The points are in world space, so the trail stays where the swing was. It is cosmetic and only reads the move's timing and
 hitbox.
 
-Known gaps: one clip per move type, not per move (every jab and tilt shares `attack_swing`); the arc is only as sweeping as the move's
+**Which clip a move plays** (`_choose_clip` in `fighter_view.gd`; `fighter_view_test.gd` pins it): jabs `attack_jab`; dash attack and side special `attack_lunge`;
+up tilt and up special `attack_uair`; down tilt and down special `attack_low`; neutral special and smashes `attack_smash`; the aerials their own; the claws
+fighter's kicks and rushes `attack_kick`; everything else (forward tilt, ledge attacks) `attack_swing`.
+
+**The maul** (third class) draws a hammer instead of the blade: a shaft that stretches to the move's reach with a fixed-size steel head at the sweet spot, and a red trail.
+
+Known gaps: clips are per move *type*, not per move (forward tilt and the ledge attacks still share `attack_swing`, and every special of a class shares one of the above); the arc is only as sweeping as the move's
 hitbox data (a move with one static hitbox gets the wind-up sweep but a still strike); the brawler's kicks use one generic kick clip;
 feet still slide a little at game speed (the cycle is paced by speed, not locked to the ground); none of it has been judged by someone playing.
 

@@ -27,7 +27,7 @@ func _initialize() -> void:
 	check(err == "", "base.pfc loads: " + err)
 	check(sim.content_name() == "Base Roster", "bundle name is " + sim.content_name())
 	check(sim.content_hash() == built_in, "the file and the built-in roster are the same content")
-	check(Array(sim.fighter_names()) == ["duelist", "brawler"], "fighter names: " + str(sim.fighter_names()))
+	check(Array(sim.fighter_names()) == ["duelist", "brawler", "bruiser"], "fighter names: " + str(sim.fighter_names()))
 
 	# A broken file is refused with a message, and the loaded roster stays.
 	var bad := "user://bad.pfc"
