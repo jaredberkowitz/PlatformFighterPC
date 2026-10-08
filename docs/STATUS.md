@@ -25,6 +25,7 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | 7 Game loop: stage select (4 stages, online and replays) | done | `docs/MATCHES.md` |
 | 7 Game loop: spectating (direct hosts) | done | `docs/MATCHES.md` |
 | 7 Game loop: online 3 to 4 players, matchmaking | **next** | see below |
+| 8 Public alpha checklist | see `docs/ALPHA.md` (what is ready, unverified and not built) | `docs/ALPHA.md` |
 | 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation (`docs/ART_PIPELINE.md`), sound effects (`docs/AUDIO.md`), balance tooling (`docs/BALANCE.md`), content policy and name moderation (`docs/CONTENT_POLICY.md`) | `docs/ART_PIPELINE.md` |
 
 ## What "done" is verified by
@@ -55,7 +56,7 @@ Done: stage select, stocks, elimination, winner, time limit, HUD, results, local
 rebinding and controller input/menus (`docs/MENUS.md`; the controller part is untested on hardware).
 
 1. **Online 3 to 4 players**: local free-for-alls work (`docs/MATCHES.md`); `Session` has an `active` mask and the sim handles 4, but the
-   handshake and `Peer` are 1v1. Validate 1v1 over the internet first.
+   handshake and `Peer` are 1v1. A design sketch (hub host, routed packets, a lobby) is in `docs/ALPHA.md`. Validate 1v1 over the internet first.
 2. ~~Spectating~~ done for direct hosts (`docs/MATCHES.md`); through the relay it is still to do.
 3. Optional polish: sudden death, a list-of-games lobby or matchmaking, results statistics, replay sharing.
 

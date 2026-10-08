@@ -351,7 +351,7 @@ func _load_content() -> void:
 		content_note = "CONTENT NOT LOADED: " + err_text
 	var asked := path != ""
 	if not asked:
-		path = ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
+		path = Roster.base_content_path()
 		if not FileAccess.file_exists(path):
 			return
 	var err: String = sim.load_content(path)

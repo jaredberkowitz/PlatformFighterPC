@@ -31,7 +31,7 @@ static func rules() -> RefCounted:
 	if _rules == null:
 		_rules = ClassDB.instantiate("ContentEditor")
 		# The project's own blocked words, on top of the built-in trademark list.
-		var list_path := ProjectSettings.globalize_path("res://").path_join("../content/blocklist.txt").simplify_path()
+		var list_path := content_path("blocklist.txt")
 		if FileAccess.file_exists(list_path):
 			_rules.policy_load(FileAccess.get_file_as_string(list_path))
 	return _rules
@@ -283,7 +283,22 @@ static func all() -> Array:
 
 
 static func base_content_path() -> String:
-	return ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
+	return content_path("base.pfc")
+
+
+## Where a file of the shipped content lives: the `content` folder next to the project (a checkout), next to the game's executable (a packaged
+## build), or inside the project. The first that exists wins; the checkout path is returned when none does.
+static func content_path(file: String) -> String:
+	var checkout := ProjectSettings.globalize_path("res://").path_join("../content").path_join(file).simplify_path()
+	var candidates := [
+		checkout,
+		OS.get_executable_path().get_base_dir().path_join("content").path_join(file),
+		ProjectSettings.globalize_path("res://content").path_join(file),
+	]
+	for c in candidates:
+		if FileAccess.file_exists(c):
+			return c
+	return checkout
 
 
 ## Builds the content for a match between `entries` (one per player). Returns {"text", "chars", "error"}: the bundle text to

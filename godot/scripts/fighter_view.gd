@@ -148,7 +148,7 @@ func _build_rig(skin: StandardMaterial3D) -> bool:
 	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
-		var path := ProjectSettings.globalize_path(rig_path)
+		var path := rig_path
 		if FileAccess.file_exists(path):
 			var doc := GLTFDocument.new()
 			var state := GLTFState.new()
@@ -316,7 +316,7 @@ static func blob_parts() -> Dictionary:
 	if _parts_tried:
 		return _parts
 	_parts_tried = true
-	var path := ProjectSettings.globalize_path(PARTS_PATH)
+	var path := PARTS_PATH
 	if not FileAccess.file_exists(path):
 		return _parts
 	var doc := GLTFDocument.new()
