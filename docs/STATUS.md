@@ -53,6 +53,9 @@ Done: stocks, elimination, winner, time limit, HUD, results, local and online re
 rebinding and controller input/menus (`docs/MENUS.md`; the controller part is untested on hardware).
 
 1. **Stage select** (a bundle can hold several stages; today it holds one) and a stage picker next to the fighter select.
+   *Started:* `sim-content/src/stages.rs` holds four stage presets (not yet wired into `lib.rs`, untested). Plan: swap the chosen stage into the
+   match content (like made fighters), add `stage` to the netplay `Setup`, the replay record (bump its FORMAT), the bridge, a picker in
+   character select and the online screen, and rebuild `stage_view` after the content loads.
 2. **Online 3 to 4 players**: local free-for-alls work (`docs/MATCHES.md`); `Session` has an `active` mask and the sim handles 4, but the
    handshake and `Peer` are 1v1. Validate 1v1 over the internet first.
 3. **Spectating**: a spectator consumes the confirmed-input stream (the same data a replay records) from a host or relay.
