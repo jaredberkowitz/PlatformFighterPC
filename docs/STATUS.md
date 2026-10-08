@@ -24,7 +24,7 @@ Phase 7 work so far: match rules, HUD, results, rematches and the online screen 
 | 7 Game loop: local 3 to 4 player free-for-alls | done (needs controllers 3 and 4; untested on hardware) | `docs/MATCHES.md` |
 | 7 Game loop: stage select (4 stages, online and replays) | done | `docs/MATCHES.md` |
 | 7 Game loop: online 3 to 4 players, spectating | **next** | see below |
-| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | later | Blender models were offered by the user |
+| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: Blender installed, scripted blob parts in the game (`docs/ART_PIPELINE.md`) | `docs/ART_PIPELINE.md` |
 
 ## What "done" is verified by
 
