@@ -44,7 +44,7 @@ const MUST_BE_POSITIVE: [&str; 13] = [
 ];
 
 /// Per-frame multipliers: anything above 1.0 would make the velocity grow.
-const MULTIPLIERS: [&str; 2] = ["air_dodge_decay", "waveland_friction"];
+const MULTIPLIERS: [&str; 3] = ["air_dodge_decay", "air_dodge_sling", "waveland_friction"];
 
 /// Returns every problem found, so creators see them all at once instead of one per attempt.
 pub fn validate(content: &Content) -> Result<(), Vec<String>> {

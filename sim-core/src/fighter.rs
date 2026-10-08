@@ -239,7 +239,18 @@ fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool 
 }
 
 fn start_dash(f: &mut Fighter, p: &FighterParams, dir: i8) {
+    // Turning around out of a dash or run is a dash dance: the fighter stands for `dash_turn_delay` frames, then dashes the new way.
+    let reversing = f.facing != dir && matches!(f.state, S::Dash | S::Run);
     f.facing = dir;
+    f.dash_age = 0;
+    if reversing && p.dash_turn_delay > 0 {
+        f.vel.x = Fx::ZERO;
+        // The countdown ends on the frame the first step is taken, so the fighter stands for `dash_turn_delay` frames after the reversal.
+        f.dash_wait = p.dash_turn_delay + 1;
+        enter(f, S::Dash);
+        return;
+    }
+    f.dash_wait = 0;
     // Start slow and ramp up (see `dash_accel`), unless already carrying more speed that way.
     let carrying = f.vel.x.signum_int() == i32::from(dir) && f.vel.x.abs() > p.dash_initial_speed;
     if !carrying {
@@ -257,6 +268,11 @@ fn start_platform_drop(f: &mut Fighter, p: &FighterParams) {
 
 fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     let input = f.history[0];
+    if matches!(f.state, S::Dash | S::Run) {
+        f.dash_age = f.dash_age.saturating_add(1);
+    } else {
+        f.dash_age = 255;
+    }
     if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
         enter(f, S::JumpSquat);
         return;
@@ -304,8 +320,13 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     if flick != 0 {
         if f.state == S::Run {
             if flick != f.facing {
-                f.facing = flick;
-                enter(f, S::Turn);
+                if f.dash_age < p.dash_reverse_frames {
+                    // Still inside the dash-dance window: a new dash the other way.
+                    start_dash(f, p, flick);
+                } else {
+                    f.facing = flick;
+                    enter(f, S::Turn);
+                }
             }
         } else if !(f.state == S::Dash && flick == f.facing) {
             start_dash(f, p, flick);
@@ -320,6 +341,13 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                 // braking (`dash_brake`), and a jump from here keeps it as air momentum.
                 f.vel.x = approach(f.vel.x, Fx::ZERO, p.dash_brake);
                 f.state = S::Idle;
+            } else if f.dash_wait > 0 {
+                // The turnaround of a reversed dash: standing, then the first step.
+                f.dash_wait -= 1;
+                f.vel.x = Fx::ZERO;
+                if f.dash_wait == 0 {
+                    f.vel.x = p.dash_initial_speed.mul_int(i32::from(f.facing));
+                }
             } else {
                 let target = p.dash_speed.mul_int(i32::from(f.facing));
                 f.vel.x = approach(f.vel.x, target, p.dash_accel);
@@ -600,11 +628,28 @@ fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.dodge_dir = dir;
     f.air_dodge_used = true;
     f.fast_fall = false;
-    f.vel = dir * p.air_dodge_speed;
+    if p.air_dodge_windup > 0 && dir != Vec2::ZERO {
+        f.vel = sling_velocity(p, dir);
+    } else {
+        f.vel = dir * p.air_dodge_speed;
+    }
     enter(f, S::AirDodge);
+    if p.air_dodge_windup == 0 || dir == Vec2::ZERO {
+        ground_assist(f, p, stage);
+    }
+}
 
-    // Ground assist: a downward dodge begun just above a surface counts as touching it.
-    if dir.y <= -p.wavedash_min_down {
+/// The slingshot at the start of a directional air dodge: a short drift away from the chosen direction sideways, and up for a downward
+/// dodge (so a dodge cannot touch down at once), before the dodge itself.
+fn sling_velocity(p: &FighterParams, dir: Vec2) -> Vec2 {
+    let speed = p.air_dodge_speed * p.air_dodge_sling;
+    let up = if dir.y < Fx::ZERO { -dir.y } else { Fx::ZERO };
+    Vec2::new(-dir.x * speed, up * speed)
+}
+
+/// Ground assist: a downward dodge that begins just above a surface counts as touching it.
+fn ground_assist(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    if f.dodge_dir.y <= -p.wavedash_min_down {
         if let Some((platform, dist)) =
             collision::surface_below(stage, f.pos, f.platform_ignore > 0)
         {
@@ -623,14 +668,29 @@ fn start_waveland(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: u
 }
 
 fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
-    f.vel = f.vel * p.air_dodge_decay;
+    let windup = if f.dodge_dir == Vec2::ZERO {
+        0
+    } else {
+        u16::from(p.air_dodge_windup)
+    };
+    if f.state_frame < windup {
+        // Still in the slingshot: the velocity set when the dodge began holds.
+    } else if f.state_frame == windup && windup > 0 {
+        f.vel = f.dodge_dir * p.air_dodge_speed;
+        ground_assist(f, p, stage);
+        if f.state != S::AirDodge {
+            return;
+        }
+    } else {
+        f.vel = f.vel * p.air_dodge_decay;
+    }
     if let Some(i) = air_integrate(f, p, stage) {
         if f.dodge_dir.y <= -p.wavedash_min_down {
             start_waveland(f, p, stage, i);
         } else {
             // Too horizontal to be a wavedash: a plain air dodge that happens to land.
             land(f, p, stage, i);
-            enter_landing(f, p.landing_lag);
+            enter_landing(f, p.air_dodge_landing_lag);
         }
         return;
     }
@@ -654,6 +714,18 @@ fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     f.vel.x = f.vel.x * p.waveland_friction;
+    // A wavedash stops at the edge of the platform instead of sliding off it.
+    if let Some(plat) = collision::platform(stage, f.platform) {
+        let next = f.pos.x + f.vel.x;
+        if next < plat.left || next > plat.right {
+            f.pos.x = if next < plat.left {
+                plat.left
+            } else {
+                plat.right
+            };
+            f.vel.x = Fx::ZERO;
+        }
+    }
     if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(p.waveland_lag) {
         enter(f, S::Idle);
     }

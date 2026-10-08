@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 25
-    hash 24e5ccea885e1b11
+    sim_version 26
+    hash c2094846571d72c9
 }
 
 ruleset {
@@ -835,7 +835,9 @@ fighter duelist {
     dash_initial_speed 0.10124
     dash_accel 0.03374
     dash_brake 0.05849
-    dash_frames 12
+    dash_frames 10
+    dash_reverse_frames 15
+    dash_turn_delay 2
     turn_frames 6
     ground_accel 0.02249
     ground_friction 0.02563
@@ -856,15 +858,18 @@ fighter duelist {
     air_jumps 1
     air_jump_velocity 0.28548
     landing_lag 3
-    air_dodge_frames 30
+    air_dodge_frames 48
     air_dodge_speed 0.4
     air_dodge_decay 0.9
+    air_dodge_windup 5
+    air_dodge_sling 0.25
+    air_dodge_landing_lag 10
     air_dodge_buffer 6
     ground_assist_dist 0.4
     wavedash_min_down 0.2
     waveland_speed 0.34999
     waveland_friction 0.9
-    waveland_lag 10
+    waveland_lag 14
     shield_drop_buffer 4
     shield_drop_recovery 6
     roll_frames 31
@@ -913,7 +918,9 @@ fighter brawler {
     dash_initial_speed 0.0945
     dash_accel 0.03374
     dash_brake 0.05849
-    dash_frames 12
+    dash_frames 10
+    dash_reverse_frames 15
+    dash_turn_delay 2
     turn_frames 6
     ground_accel 0.02249
     ground_friction 0.02475
@@ -934,15 +941,18 @@ fighter brawler {
     air_jumps 1
     air_jump_velocity 0.36124
     landing_lag 3
-    air_dodge_frames 30
+    air_dodge_frames 48
     air_dodge_speed 0.4
     air_dodge_decay 0.9
+    air_dodge_windup 5
+    air_dodge_sling 0.25
+    air_dodge_landing_lag 10
     air_dodge_buffer 6
     ground_assist_dist 0.4
     wavedash_min_down 0.2
     waveland_speed 0.34999
     waveland_friction 0.9
-    waveland_lag 10
+    waveland_lag 14
     shield_drop_buffer 4
     shield_drop_recovery 6
     roll_frames 31
@@ -991,7 +1001,9 @@ fighter bruiser {
     dash_initial_speed 0.07874
     dash_accel 0.03374
     dash_brake 0.05849
-    dash_frames 12
+    dash_frames 10
+    dash_reverse_frames 15
+    dash_turn_delay 2
     turn_frames 6
     ground_accel 0.02249
     ground_friction 0.027
@@ -1012,15 +1024,18 @@ fighter bruiser {
     air_jumps 1
     air_jump_velocity 0.31978
     landing_lag 3
-    air_dodge_frames 30
+    air_dodge_frames 48
     air_dodge_speed 0.4
     air_dodge_decay 0.9
+    air_dodge_windup 5
+    air_dodge_sling 0.25
+    air_dodge_landing_lag 10
     air_dodge_buffer 6
     ground_assist_dist 0.4
     wavedash_min_down 0.2
     waveland_speed 0.34999
     waveland_friction 0.9
-    waveland_lag 10
+    waveland_lag 14
     shield_drop_buffer 4
     shield_drop_recovery 6
     roll_frames 31

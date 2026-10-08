@@ -67,12 +67,18 @@ impl Sim {
     }
 }
 
-/// Jump, then press shield during jump squat with the stick held at (x, y). Returns the sim 5 frames in.
+/// Jump, then press shield during jump squat with the stick held at (x, y). Returns the sim on the frame it lands in a waveland
+/// (or after 60 frames if it never does; the slingshot at the start of the dodge makes this a few frames longer than a jump and a dodge).
 fn wavedash(x: i8, y: i8) -> Sim {
     let mut sim = Sim::new();
     sim.tick(inp(0, 0, JUMP));
     sim.tick(inp(x, y, SHIELD));
-    sim.ticks(3, inp(x, y, SHIELD));
+    for _ in 0..60 {
+        if sim.f().state == S::WaveLand {
+            break;
+        }
+        sim.tick(inp(x, y, 0));
+    }
     sim
 }
 
@@ -226,7 +232,12 @@ fn wavedash_buffer_accepts_shield_pressed_early_in_jump_squat() {
     // Shield pressed on the very first squat frame, still inside the buffer at takeoff.
     let mut sim = Sim::new();
     sim.tick(inp(0, 0, JUMP | SHIELD));
-    sim.ticks(4, inp(100, -80, SHIELD));
+    for _ in 0..40 {
+        if sim.f().state == S::WaveLand {
+            break;
+        }
+        sim.tick(inp(100, -80, SHIELD));
+    }
     assert_eq!(sim.f().state, S::WaveLand);
 }
 
@@ -266,11 +277,7 @@ fn straight_down_wavedash_does_not_slide() {
 #[test]
 fn too_horizontal_dodge_fails_gracefully_into_a_plain_air_dodge() {
     let mut sim = wavedash(127, -10);
-    assert!(
-        matches!(sim.f().state, S::AirDodge | S::Landing),
-        "{:?}",
-        sim.f().state
-    );
+    assert_ne!(sim.f().state, S::WaveLand);
     for _ in 0..40 {
         sim.tick(inp(127, -10, 0));
         assert_ne!(sim.f().state, S::WaveLand);
@@ -292,7 +299,8 @@ fn only_one_air_dodge_per_airtime() {
     sim.put_airborne(0, 0, 30, Fx::ZERO, Fx::ZERO);
     sim.tick(inp(0, 0, SHIELD));
     assert_eq!(sim.f().state, S::AirDodge);
-    sim.ticks(40, inp(0, 0, 0));
+    let dodge = usize::from(sim.content.fighters[0].air_dodge_frames);
+    sim.ticks(dodge + 2, inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Airborne);
     sim.tick(inp(0, 0, SHIELD));
     assert_ne!(
@@ -534,4 +542,88 @@ fn scripted_wavedash_is_bit_identical_across_runs() {
     let a = wavedash(100, -80);
     let b = wavedash(100, -80);
     assert_eq!(a.state.checksum(), b.state.checksum());
+}
+
+// ---- Wavedash in the style of the reference game (sim v26): a slingshot first, no sliding off edges, longer lag ------
+
+#[test]
+fn a_directional_air_dodge_drifts_the_other_way_for_its_windup_before_it_goes() {
+    let mut sim = Sim::new();
+    let p = sim.content.fighters[0];
+    sim.put_airborne(0, 0, 30, Fx::ZERO, Fx::ZERO);
+    let start = sim.f().pos;
+    sim.tick(inp(127, 50, SHIELD));
+    assert_eq!(sim.f().state, S::AirDodge);
+    for _ in 1..p.air_dodge_windup {
+        sim.tick(inp(127, 50, 0));
+        assert!(
+            sim.f().vel.x < Fx::ZERO,
+            "slingshot goes back: {:?}",
+            sim.f().vel
+        );
+    }
+    assert!(sim.f().pos.x < start.x, "it moved the opposite way first");
+    sim.ticks(3, inp(127, 50, 0));
+    assert!(
+        sim.f().vel.x > Fx::ZERO,
+        "then the dodge goes the chosen way"
+    );
+}
+
+#[test]
+fn a_neutral_air_dodge_has_no_slingshot() {
+    let mut sim = Sim::new();
+    sim.put_airborne(0, 0, 30, Fx::from_ratio(1, 4), Fx::ZERO);
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().vel, sim_core::Vec2::ZERO);
+}
+
+#[test]
+fn a_wavedash_cannot_land_on_the_first_frame_after_a_jump() {
+    // The slingshot lifts a downward dodge, so the slide starts a few frames after the dodge does (unlike a ground-assisted instant landing).
+    let mut sim = Sim::new();
+    sim.tick(inp(0, 0, JUMP));
+    sim.tick(inp(100, -80, SHIELD));
+    let mut frames = 0;
+    while sim.f().state != S::WaveLand && frames < 60 {
+        sim.tick(inp(100, -80, 0));
+        frames += 1;
+    }
+    assert_eq!(sim.f().state, S::WaveLand);
+    assert!(frames >= 4, "landed after only {frames} frames");
+}
+
+#[test]
+fn a_wavedash_stops_at_the_edge_instead_of_sliding_off() {
+    let mut sim = Sim::new();
+    let right = sim.content.stage.platforms[0].right;
+    sim.state.fighters[0].pos.x = right - Fx::from_ratio(3, 2);
+    sim.tick(inp(0, 0, JUMP));
+    sim.tick(inp(127, -100, SHIELD));
+    for _ in 0..80 {
+        sim.tick(inp(127, -100, 0));
+        assert!(sim.f().pos.x <= right, "slid off to {:?}", sim.f().pos.x);
+    }
+    assert!(sim.f().grounded(), "still on the stage");
+}
+
+#[test]
+fn an_air_dodge_that_lands_without_a_slide_has_the_reference_landing_lag() {
+    let mut sim = Sim::new();
+    let lag = usize::from(sim.content.fighters[0].air_dodge_landing_lag);
+    assert_eq!(lag, 10);
+    // A flat sideways dodge close to the floor lands as a plain dodge.
+    sim.put_airborne(0, 0, 0, Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].pos.y = Fx::from_ratio(1, 20);
+    sim.tick(inp(127, -10, SHIELD));
+    let mut landed = None;
+    for t in 0..40 {
+        sim.tick(inp(127, -10, 0));
+        if sim.f().state == S::Landing {
+            landed = Some(t);
+            break;
+        }
+    }
+    assert!(landed.is_some(), "never landed: {:?}", sim.f().state);
+    assert_eq!(usize::from(sim.f().lag), lag);
 }
