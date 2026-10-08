@@ -24,8 +24,9 @@ from what only a person on real hardware and a real network (or a publisher) can
   simulated lossy links. There is no NAT traversal and no public relay: a publisher must run one.
 * **Controllers** (play and menus) and **the new screens** have not been used by a person. Sound effects have not been heard by one.
 * **Balance**: the bot reports are a smoke detector only; the brawler is not yet judged against the sword by anyone who plays well.
-* **Cross-platform determinism** is designed for (integer math, no floats in the sim) and gated by CI in the plan, but only Windows has ever
-  run it. Linux, macOS and ARM builds, and the CI that compares checksums across them, are not set up.
+* **Cross-platform determinism** is designed for (integer math, no floats in the sim). `.github/workflows/ci.yml` builds and tests on Windows, Linux, macOS (ARM)
+  and Linux ARM and diffs the `pftool selftest` checksums across them, but that workflow has not been seen to run (no CI result has been checked), so only
+  Windows has actually run the game's code.
 
 ## Not built yet
 
