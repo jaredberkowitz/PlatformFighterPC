@@ -99,7 +99,7 @@ To play online with a made fighter, make it in the creator, then either play one
 ## Not done (honest list)
 
 * **The online screen is a form, not a lobby.** Online play has its own screen now (main menu, Online: see `docs/MATCHES.md`), but there
-  is no list of games or matchmaking: friends type an address (or a relay and a room number).
+  is no list of games: friends type an address (or a relay and a room number), or choose Quick match with a relay's address.
 * Controller menu navigation and the new bindings have not been tried with a real controller. Text entry needs a keyboard.
 * The point budget is a plain sum of the four stats; it does not weigh them differently, and nothing yet checks whether a legal
   build is balanced (a tiny, fast, high-jumping, featherweight fighter is legal and strong in some ways). Real balance tooling is Phase 8.

@@ -1,0 +1,3 @@
+# Words and names the game refuses in fighter names, profile names and content names, one per line (case, spaces, punctuation and
+# look-alike characters are ignored; terms under four letters only match a whole name). The built-in list already covers other
+# people's trademarks (see docs/CONTENT_POLICY.md); add anything else you want blocked here. A line starting with # is a comment.

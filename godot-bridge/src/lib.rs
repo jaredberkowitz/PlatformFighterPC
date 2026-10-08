@@ -8,10 +8,12 @@ mod editor;
 
 use godot::classes::{INode, Node};
 use godot::prelude::*;
+use netplay::group::{GroupGuest, GroupHost, GroupParams, GroupSetup, GroupStatus};
 use netplay::packet::Setup;
 use netplay::peer::{Link, Peer, Status};
 use netplay::replay::{MatchRecord, Recorder};
 use netplay::session::{Advance, Event};
+use netplay::spectate::{SpectatorClient, SpectatorServer};
 use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
@@ -19,7 +21,7 @@ use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use transport::{RelayLink, UdpLink};
+use transport::{QuickMatch, RelayLink, SpectatorSocket, UdpLink};
 
 /// The two ways a networked match can reach the other player.
 enum NetLink {
@@ -64,6 +66,23 @@ unsafe impl ExtensionLibrary for PfExtension {}
 
 fn f(v: Fx) -> f32 {
     v.raw() as f32 / 65536.0
+}
+
+/// The confirmed frames of a session from `from` on (frames every player's input is known for).
+fn confirmed_since(session: &netplay::session::Session, from: u32) -> Vec<[Input; MAX_FIGHTERS]> {
+    let confirmed = session.confirmed_frame().min(session.frame());
+    (from..confirmed)
+        .map(|f| {
+            let known = session.known_inputs(f);
+            let mut inputs = [Input::default(); MAX_FIGHTERS];
+            for (slot, k) in inputs.iter_mut().zip(known.iter()) {
+                if let Some(i) = k {
+                    *slot = *i;
+                }
+            }
+            inputs
+        })
+        .collect()
 }
 
 fn clamp_i8(v: i32) -> i8 {
@@ -115,6 +134,18 @@ pub struct SimRunner {
     /// Set while playing over the network; then `state` is a copy of the session's state.
     net: Option<Peer<NetLink>>,
     net_log: Vec<String>,
+    /// Hosting over UDP: the server that streams the match to spectators on the next port.
+    spectators: Option<(SpectatorServer, SpectatorSocket)>,
+    /// Watching someone else's match.
+    watching: Option<(SpectatorClient, UdpLink)>,
+    /// The seed of the match being watched, to notice a rematch.
+    watching_seed: u64,
+    /// A group match (three or four players): hosting it, or joined to one.
+    group_host: Option<GroupHost<SpectatorSocket>>,
+    group_guest: Option<GroupGuest<UdpLink>>,
+    group_log: Vec<String>,
+    /// Looking for an opponent through a relay's queue.
+    quick: Option<QuickMatch>,
 }
 
 impl SimRunner {
@@ -212,6 +243,55 @@ impl SimRunner {
         )))
     }
 
+    /// A group match: starts a record when a match starts (and for a rematch), then adds every confirmed frame.
+    fn record_group(&mut self, setup: &GroupSetup, from: u32, frames: Vec<[Input; MAX_FIGHTERS]>) {
+        let fresh = self
+            .recorder
+            .as_ref()
+            .is_none_or(|r| r.record.seed != setup.seed);
+        if fresh {
+            let base = self.base_content.as_ref().unwrap_or(&self.content);
+            let mut record = MatchRecord::begin(
+                base,
+                &self.content,
+                setup.seed,
+                setup.chars,
+                setup.active,
+                setup.rules,
+                setup.stage,
+                setup.specs.clone(),
+            );
+            record.cosmetics = setup.cosmetics.clone();
+            self.recorder = Some(Recorder::new(record));
+        }
+        let Some(rec) = self.recorder.as_mut() else {
+            return;
+        };
+        for (k, inputs) in frames.into_iter().enumerate() {
+            if !rec.push(from + k as u32, inputs) {
+                break;
+            }
+        }
+    }
+
+    /// Hosting: streams the confirmed frames of the match to whoever is watching.
+    fn serve_spectators(&mut self) {
+        let (Some((server, socket)), Some(rec)) =
+            (self.spectators.as_mut(), self.recorder.as_ref())
+        else {
+            return;
+        };
+        server.sync(&rec.record);
+        while let Some((id, bytes)) = socket.recv() {
+            for reply in server.handle(id, &bytes) {
+                socket.send(id, &reply);
+            }
+        }
+        for (id, bytes) in server.tick() {
+            socket.send(id, &bytes);
+        }
+    }
+
     /// Online: starts a record when a match starts (and again for a rematch), then adds every confirmed frame.
     fn record_online(&mut self) {
         let Some(peer) = self.net.as_ref() else {
@@ -287,6 +367,13 @@ impl INode for SimRunner {
             history: VecDeque::new(),
             net: None,
             net_log: Vec::new(),
+            spectators: None,
+            watching: None,
+            watching_seed: 0,
+            group_host: None,
+            group_guest: None,
+            group_log: Vec::new(),
+            quick: None,
         }
     }
 }
@@ -954,6 +1041,18 @@ impl SimRunner {
         let params = sim_core::combat::params_of(&self.content, fi);
         let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
         let k = params.hitbox_scale;
+        // While a hitbox is live the tip is where it is now, so a move that sweeps across several hitboxes draws its arc; before and
+        // after, it is the move's first hitbox.
+        let live =
+            sim_core::combat::active_hitboxes(fi, mv, k).min_by_key(|(_, hb, _)| hb.priority);
+        if let Some((_, hb, center)) = live {
+            let facing = Fx::from_int(i32::from(fi.facing));
+            return Vector3::new(
+                f((center.x - fi.pos.x) * facing),
+                f(center.y - fi.pos.y),
+                f(hb.radius),
+            );
+        }
         if let Some(hb) = mv.hitboxes.iter().min_by_key(|h| (h.priority, h.start)) {
             return Vector3::new(f(hb.x * k), f(hb.y * k), f(hb.radius * k));
         }
@@ -1013,6 +1112,15 @@ impl SimRunner {
             IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             port.clamp(0, 65535) as u16,
         );
+        // Spectators connect to the next port (best effort: the match is played with or without them).
+        let watch_addr = SocketAddr::new(addr.ip(), addr.port().wrapping_add(1));
+        self.spectators = if port > 0 {
+            SpectatorSocket::bind(watch_addr, 8)
+                .ok()
+                .map(|sock| (SpectatorServer::new(&Content::placeholder()), sock))
+        } else {
+            None
+        };
         match UdpLink::bind(addr, None) {
             Ok(link) => self.net_start_host(NetLink::Udp(link), &chars, input_delay),
             Err(e) => GString::from(format!("cannot listen on port {port}: {e}").as_str()),
@@ -1134,6 +1242,7 @@ impl SimRunner {
             }
         }
         self.record_online();
+        self.serve_spectators();
         let Some(peer) = self.net.as_mut() else {
             return -1;
         };
@@ -1172,6 +1281,344 @@ impl SimRunner {
                 3
             }
         }
+    }
+
+    /// Hosts a group match (up to four players) on UDP `port`; guests join, and `group_start_match` begins it. Uses this player's
+    /// fighter (`set_fighter`), cosmetics, rules, stage and ranked setting. Returns an error text or an empty string.
+    #[func]
+    fn group_host_start(&mut self, port: i32, input_delay: i32) -> GString {
+        let addr = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            port.clamp(0, 65535) as u16,
+        );
+        let socket = match SpectatorSocket::bind(addr, 3) {
+            Ok(s) => s,
+            Err(e) => return GString::from(format!("cannot listen on port {port}: {e}").as_str()),
+        };
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(1, |d| d.as_nanos() as u64);
+        let params = GroupParams {
+            seed,
+            input_delay: input_delay.clamp(0, 8) as u8,
+            rules: self.match_rules,
+            stage: self.match_stage,
+            ranked: self.ranked,
+        };
+        let base = Content::placeholder();
+        self.net = None;
+        self.group_guest = None;
+        self.group_host = Some(GroupHost::new(
+            socket,
+            &base,
+            params,
+            self.my_fighter.clone(),
+            self.my_cosmetics.clone(),
+        ));
+        // Spectators connect to the next port.
+        let watch_addr = SocketAddr::new(addr.ip(), addr.port().wrapping_add(1));
+        self.spectators = if port > 0 {
+            SpectatorSocket::bind(watch_addr, 8)
+                .ok()
+                .map(|sock| (SpectatorServer::new(&base), sock))
+        } else {
+            None
+        };
+        self.group_log.clear();
+        GString::new()
+    }
+
+    /// Joins a group match hosted at `addr` ("ip:port"). Returns an error text or an empty string.
+    #[func]
+    fn group_join(&mut self, addr: GString) -> GString {
+        let target = match resolve(&addr.to_string()) {
+            Ok(a) => a,
+            Err(e) => return GString::from(e.as_str()),
+        };
+        match UdpLink::bind(any_local(), Some(target)) {
+            Ok(link) => {
+                let base = Content::placeholder();
+                self.net = None;
+                self.group_host = None;
+                self.group_guest = Some(GroupGuest::new(
+                    link,
+                    &base,
+                    self.my_fighter.clone(),
+                    self.my_cosmetics.clone(),
+                ));
+                self.group_log.clear();
+                GString::new()
+            }
+            Err(e) => GString::from(format!("cannot open a socket: {e}").as_str()),
+        }
+    }
+
+    /// The host starts the match with whoever has joined.
+    #[func]
+    fn group_start_match(&mut self) {
+        if let Some(h) = self.group_host.as_mut() {
+            h.start();
+        }
+    }
+
+    /// The host starts another match with the same players.
+    #[func]
+    fn group_restart(&mut self) {
+        if let Some(h) = self.group_host.as_mut() {
+            h.restart();
+        }
+    }
+
+    /// One frame of a group match: -1 not in a group, 0 in the lobby, 1 simulated a frame, 2 waiting for the others, 3 refused,
+    /// 4 the host is starting the match.
+    #[func]
+    fn group_update(&mut self, stick_x: i32, stick_y: i32, button_mask: i32) -> i32 {
+        let input = Input {
+            stick_x: clamp_i8(stick_x),
+            stick_y: clamp_i8(stick_y),
+            buttons: button_mask as u16,
+        };
+        let base = self
+            .base_content
+            .clone()
+            .unwrap_or_else(|| self.content.clone());
+        let (rec_seed, rec_len) = self
+            .recorder
+            .as_ref()
+            .map_or((None, 0), |r| (Some(r.record.seed), r.len()));
+        let (status, session_state, match_content, setup, events, frames) = if let Some(h) =
+            self.group_host.as_mut()
+        {
+            let st = h.update(&base, input);
+            let setup = h.match_setup().cloned();
+            let from = setup
+                .as_ref()
+                .map_or(0, |s| if Some(s.seed) == rec_seed { rec_len } else { 0 });
+            let frames = h
+                .session()
+                .map(|s| confirmed_since(s, from))
+                .unwrap_or_default();
+            (
+                st,
+                h.state().copied(),
+                h.match_content().cloned(),
+                setup,
+                h.drain_events(),
+                frames,
+            )
+        } else if let Some(g) = self.group_guest.as_mut() {
+            let st = g.update(&base, input);
+            let setup = g.match_setup().cloned();
+            let from = setup
+                .as_ref()
+                .map_or(0, |s| if Some(s.seed) == rec_seed { rec_len } else { 0 });
+            let frames = g
+                .session()
+                .map(|s| confirmed_since(s, from))
+                .unwrap_or_default();
+            (
+                st,
+                g.state().copied(),
+                g.match_content().cloned(),
+                setup,
+                g.drain_events(),
+                frames,
+            )
+        } else {
+            return -1;
+        };
+        if let Some(s) = session_state {
+            self.state = s;
+        }
+        // The match runs on the content the host built (the base roster, everyone's fighters and the stage).
+        if let Some(c) = match_content.as_ref() {
+            if self.base_content.is_none() {
+                self.base_content = Some(std::mem::replace(&mut self.content, c.clone()));
+            } else if self.content.hash() != c.hash() {
+                self.content = c.clone();
+            }
+            if let Some(setup) = setup {
+                self.players = setup.active;
+                self.match_rules = setup.rules;
+                let from = if Some(setup.seed) == rec_seed {
+                    rec_len
+                } else {
+                    0
+                };
+                self.record_group(&setup, from, frames);
+                self.serve_spectators();
+            }
+        }
+        for e in events {
+            self.group_log.push(match e {
+                Event::Desync { frame, .. } => format!("DESYNC at frame {frame}"),
+                Event::Disconnected { player } => format!("player {} disconnected", player + 1),
+            });
+        }
+        match status {
+            GroupStatus::Lobby => 0,
+            GroupStatus::Starting => 4,
+            GroupStatus::Running(Advance::Ran) => 1,
+            GroupStatus::Running(Advance::Stalled) => 2,
+            GroupStatus::Rejected(reason) => {
+                self.group_log.push(format!("refused: {reason:?}"));
+                3
+            }
+        }
+    }
+
+    /// The players' name-and-look bytes by slot (empty where nobody is), as the lobby or the running match has them.
+    #[func]
+    fn group_lobby(&self) -> Array<PackedByteArray> {
+        let list: Vec<Vec<u8>> = if let Some(h) = self.group_host.as_ref() {
+            h.match_setup()
+                .map_or_else(|| h.lobby(), |s| s.cosmetics.clone())
+        } else if let Some(g) = self.group_guest.as_ref() {
+            g.lobby().to_vec()
+        } else {
+            Vec::new()
+        };
+        let mut out = Array::new();
+        for c in list {
+            out.push(&PackedByteArray::from(c.as_slice()));
+        }
+        out
+    }
+
+    /// This player's slot in the group (0 for the host), or -1.
+    #[func]
+    fn group_slot(&self) -> i32 {
+        if self.group_host.is_some() {
+            0
+        } else {
+            self.group_guest
+                .as_ref()
+                .and_then(|g| g.slot())
+                .map_or(-1, i32::from)
+        }
+    }
+
+    /// How many players are in the lobby (host) or were told to be (guest).
+    #[func]
+    fn group_players(&self) -> i32 {
+        if let Some(h) = self.group_host.as_ref() {
+            h.players_joined() as i32
+        } else {
+            self.group_guest.as_ref().map_or(0, |g| {
+                g.lobby().iter().filter(|c| !c.is_empty()).count() as i32
+            })
+        }
+    }
+
+    #[func]
+    fn group_take_log(&mut self) -> PackedStringArray {
+        let lines: Vec<GString> = self
+            .group_log
+            .drain(..)
+            .map(|l| GString::from(l.as_str()))
+            .collect();
+        PackedStringArray::from(lines.as_slice())
+    }
+
+    /// Starts watching a match hosted at `addr` ("ip:port", the port the players use; spectators connect to the next one).
+    /// Returns an error text or an empty string.
+    #[func]
+    fn spectate_start(&mut self, addr: GString) -> GString {
+        let target = match resolve(&addr.to_string()) {
+            Ok(a) => SocketAddr::new(a.ip(), a.port().wrapping_add(1)),
+            Err(e) => return GString::from(e.as_str()),
+        };
+        match UdpLink::bind(any_local(), Some(target)) {
+            Ok(link) => {
+                self.net = None;
+                self.watching = Some((SpectatorClient::new(&Content::placeholder()), link));
+                self.watching_seed = 0;
+                GString::new()
+            }
+            Err(e) => GString::from(format!("cannot open a socket: {e}").as_str()),
+        }
+    }
+
+    /// One frame of watching: -1 not watching, 0 connecting, 1 played a frame, 2 waiting for the host's frames, 3 refused.
+    #[func]
+    fn spectate_update(&mut self) -> i32 {
+        let Some((client, link)) = self.watching.as_mut() else {
+            return -1;
+        };
+        while let Some(bytes) = link.recv() {
+            client.handle(&bytes);
+        }
+        for m in client.tick() {
+            link.send(&m);
+        }
+        if client.refused().is_some() {
+            return 3;
+        }
+        if !client.ready() {
+            return 0;
+        }
+        // A new match (another seed) replaces the one on screen.
+        let seed = client.record().map_or(0, |r| r.seed);
+        if seed != self.watching_seed {
+            self.watching_seed = seed;
+            if let Some(c) = client.content() {
+                self.content = c.clone();
+            }
+            if let Some(r) = client.record() {
+                self.players = r.active;
+                self.match_rules = r.rules;
+            }
+        }
+        // Stay a little behind the host so the stream never runs dry; catch up quickly if far behind.
+        let behind = client.behind();
+        let over = client.state().is_some_and(|s| s.winner != PLAYING);
+        let budget = match behind {
+            0..=9 if !over => 0,
+            10..=39 => 1,
+            40..=179 => 3,
+            _ => 8,
+        };
+        let played = client.advance(budget.max(u32::from(over)));
+        if let Some(s) = client.state() {
+            self.state = *s;
+        }
+        if played > 0 {
+            1
+        } else {
+            2
+        }
+    }
+
+    /// The watched match's player profile bytes (name and look) for player `i`, once known.
+    #[func]
+    fn spectate_cosmetics(&self, i: i32) -> PackedByteArray {
+        let bytes = self
+            .watching
+            .as_ref()
+            .and_then(|(c, _)| c.record())
+            .and_then(|r| usize::try_from(i).ok().and_then(|i| r.cosmetics.get(i)))
+            .cloned()
+            .unwrap_or_default();
+        PackedByteArray::from(bytes.as_slice())
+    }
+
+    /// Frames the watcher has received but not shown yet.
+    #[func]
+    fn spectate_behind(&self) -> i32 {
+        self.watching.as_ref().map_or(0, |(c, _)| c.behind() as i32)
+    }
+
+    #[func]
+    fn spectate_stop(&mut self) {
+        self.watching = None;
+    }
+
+    /// How many people are watching the match this player hosts.
+    #[func]
+    fn spectator_count(&self) -> i32 {
+        self.spectators
+            .as_ref()
+            .map_or(0, |(s, _)| s.spectator_count() as i32)
     }
 
     /// After a match: asks the other player for another one. It starts when both have asked (`net_update` then reports
@@ -1234,10 +1681,53 @@ impl SimRunner {
         PackedStringArray::from(lines.as_slice())
     }
 
+    /// Starts looking for an opponent through the relay at `relay` ("ip:port"). Returns an error text or an empty string.
+    #[func]
+    fn quickmatch_start(&mut self, relay: GString) -> GString {
+        let target = match resolve(&relay.to_string()) {
+            Ok(a) => a,
+            Err(e) => return GString::from(e.as_str()),
+        };
+        match QuickMatch::connect(any_local(), target) {
+            Ok(q) => {
+                self.quick = Some(q);
+                GString::new()
+            }
+            Err(e) => GString::from(format!("cannot open a socket: {e}").as_str()),
+        }
+    }
+
+    /// Call once a frame while looking: an empty dictionary until an opponent is found, then `{room, host}`.
+    #[func]
+    fn quickmatch_poll(&mut self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        if let Some((room, host)) = self.quick.as_mut().and_then(|q| q.poll()) {
+            self.quick = None;
+            out.set("room", room as i64);
+            out.set("host", host);
+        }
+        out
+    }
+
+    /// Stops looking.
+    #[func]
+    fn quickmatch_stop(&mut self) {
+        self.quick = None;
+    }
+
     #[func]
     fn net_leave(&mut self) {
+        self.quick = None;
         if let Some(mut p) = self.net.take() {
             p.leave();
+        }
+        self.spectators = None;
+        self.watching = None;
+        if let Some(mut g) = self.group_host.take() {
+            g.leave();
+        }
+        if let Some(mut g) = self.group_guest.take() {
+            g.leave();
         }
         if let Some(base) = self.base_content.take() {
             self.content = base;

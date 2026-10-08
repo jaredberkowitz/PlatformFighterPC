@@ -39,6 +39,9 @@ func _initialize() -> void:
 		return
 	await _screen()
 	await _match()
+	await _spectate()
+	await _group()
+	await _quick()
 	print("online flow test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
 
@@ -77,6 +80,16 @@ func _screen() -> void:
 	screen.selectors["link"].set_index(0)
 	screen.selectors["rules"].set_index(1)
 	check(not screen.connection().has("error"), "the built-in fighters are legal under ranked rules")
+	# Quick match asks only for the relay's address; the host's rules apply to whoever hosts.
+	screen.edits["address"].text = ""
+	screen.selectors["role"].set_index(3)
+	check(screen.connection().has("error"), "quick match needs the relay's address")
+	check(not screen.rows.filter(func(r): return r.id == "room")[0].node.visible, "and no room number")
+	check(screen.rows.filter(func(r): return r.id == "stocks")[0].node.visible, "it may be the host, so it shows the rules")
+	screen.edits["address"].text = "10.0.0.5:47001"
+	var quick: Dictionary = screen.connection()
+	check(not quick.has("error") and quick.quick and quick.relay and quick.addr == "10.0.0.5:47001", "a quick match connection: " + str(quick))
+	check(screen.connect_button.text == "Find!", "the button says Find!")
 	screen.queue_free()
 	await process_frame
 
@@ -151,3 +164,189 @@ func _records(host, join) -> void:
 	root.add_child(watcher)
 	check(watcher.replay_load(a) == "" and watcher.replay_verify(), "the recording verifies")
 	watcher.queue_free()
+
+
+## A spectator joins a hosted match (late, over real UDP on the next port) and ends up at the same place as the players.
+func _spectate() -> void:
+	var host = ClassDB.instantiate("SimRunner")
+	var join = ClassDB.instantiate("SimRunner")
+	var watcher = ClassDB.instantiate("SimRunner")
+	for n in [host, join, watcher]:
+		root.add_child(n)
+	host.set_match_rules(3, 3)
+	check(host.net_host(47161, PackedInt32Array([0, 1, 0, 1]), 2) == "", "host for the spectator test")
+	check(join.net_join("127.0.0.1:47161") == "", "join for the spectator test")
+	var ran := [0, 0]
+	var ticks := 0
+	var started := false
+	var watcher_status := -1
+	var best_status := 0
+	while ticks < 30000:
+		var a: Array = _input_for(ran[0], 0)
+		var b: Array = _input_for(ran[1], 1)
+		if host.net_update(a[0], a[1], a[2]) == 1:
+			ran[0] += 1
+		if join.net_update(b[0], b[1], b[2]) == 1:
+			ran[1] += 1
+		# The spectator arrives after the match is some frames old.
+		if not started and ran[0] > 40:
+			started = true
+			check(watcher.spectate_start("127.0.0.1:47161") == "", "the spectator connects")
+		if started:
+			watcher_status = watcher.spectate_update()
+			if watcher_status == 1:
+				best_status = 1
+		ticks += 1
+		if started and watcher.winner() != -1 and host.winner() != -1 and ran[0] > 260:
+			break
+		await create_timer(0.0005).timeout
+	check(best_status == 1, "the spectator played the match")
+	check(host.spectator_count() == 1, "the host sees one spectator: %d" % host.spectator_count())
+	check(watcher.winner() == host.winner() and watcher.winner() != -1, "the same result: %d vs %d" % [watcher.winner(), host.winner()])
+	for i in 2:
+		check(watcher.fighter_pos(i) == host.fighter_pos(i) and watcher.fighter_percent(i) == host.fighter_percent(i), "fighter %d ends in the same place and damage" % i)
+	check(watcher.spectate_cosmetics(0).size() >= 0, "the watcher can read the players' profiles")
+	watcher.spectate_stop()
+	host.net_leave()
+	join.net_leave()
+
+
+## Three players in a group match through the bridge over real UDP: lobby, start, a match to the clock, the same result everywhere, a replay that
+## verifies, and a rematch.
+func _group() -> void:
+	var Roster = load("res://scripts/roster.gd")
+	var nodes := []
+	for i in 3:
+		var n = ClassDB.instantiate("SimRunner")
+		root.add_child(n)
+		nodes.append(n)
+	var host = nodes[0]
+	var specs := [Roster.spec_bytes(Roster.builtins()[0]), Roster.spec_bytes(Roster.builtins()[1]), Roster.spec_bytes(Roster.builtins()[0])]
+	for i in 3:
+		nodes[i].set_fighter(specs[i])
+		nodes[i].set_cosmetics(PackedByteArray([0, 65 + i]))
+	host.set_match_rules(3, 3)
+	check(host.group_host_start(47181, 2) == "", "the group host listens")
+	check(nodes[1].group_join("127.0.0.1:47181") == "" and nodes[2].group_join("127.0.0.1:47181") == "", "two guests join")
+	var started := false
+	var statuses := [0, 0, 0]
+	var ran := [0, 0, 0]
+	var ticks := 0
+	var restarted := false
+	var first_end := -1
+	while ticks < 40000:
+		for i in 3:
+			var a: Array = _input_for(ran[i], i)
+			statuses[i] = nodes[i].group_update(a[0], a[1], a[2])
+			if statuses[i] == 1:
+				ran[i] += 1
+		ticks += 1
+		if not started and nodes[1].group_slot() >= 1 and nodes[2].group_slot() >= 1 and host.group_players() == 3:
+			check(nodes[1].group_slot() != nodes[2].group_slot(), "each guest has its own slot")
+			started = true
+			host.group_start_match()
+		if started and first_end < 0 and nodes[0].winner() != -1 and nodes[1].winner() != -1 and nodes[2].winner() != -1 and ran[0] > 260:
+			first_end = ticks
+			check(nodes[0].winner() == nodes[1].winner() and nodes[1].winner() == nodes[2].winner(), "the same result everywhere")
+			for p in 3:
+				check(nodes[0].fighter_pos(p) == nodes[1].fighter_pos(p) and nodes[1].fighter_pos(p) == nodes[2].fighter_pos(p), "fighter %d ends in the same place on every machine" % p)
+			var lobby: Array = nodes[1].group_lobby()
+			check(lobby.size() >= 3 and lobby[0].size() == 2, "a guest knows the players' names")
+			var bytes: PackedByteArray = host.replay_bytes(PackedByteArray(), PackedByteArray())
+			var info: Dictionary = host.replay_peek(bytes)
+			check(info.ok and info.players == 3, "the host recorded a three-player match: " + str(info.get("players", 0)))
+			var watcher = ClassDB.instantiate("SimRunner")
+			root.add_child(watcher)
+			check(watcher.replay_load(bytes) == "" and watcher.replay_verify(), "and the recording verifies")
+			watcher.queue_free()
+			host.group_restart()
+		if first_end >= 0 and not restarted and nodes[1].winner() == -1 and nodes[2].winner() == -1 and host.winner() == -1 and statuses[1] == 1:
+			restarted = true
+			break
+		await create_timer(0.0005).timeout
+	check(started and first_end >= 0, "the group match ran to its end")
+	check(restarted, "a rematch started for everyone")
+	var logs := str(host.group_take_log()) + str(nodes[1].group_take_log()) + str(nodes[2].group_take_log())
+	check(not logs.contains("DESYNC"), "no desync in the group: " + logs)
+	for n in nodes:
+		n.net_leave()
+
+
+## Two players ask the relay's queue for a match, are paired into one room (the one who waited hosts), and play through it.
+func _quick() -> void:
+	var tool := ProjectSettings.globalize_path("res://../target/debug/pftool.exe")
+	if OS.has_environment("PFTOOL"):
+		tool = OS.get_environment("PFTOOL")
+	if not FileAccess.file_exists(tool):
+		print("SKIP quick match (no pftool at ", tool, ")")
+		return
+	var pid := OS.create_process(tool, ["net-relay", "47150"])
+	await create_timer(0.5).timeout
+	var a = ClassDB.instantiate("SimRunner")
+	var b = ClassDB.instantiate("SimRunner")
+	root.add_child(a)
+	root.add_child(b)
+	check(a.quickmatch_start("127.0.0.1:47150") == "", "a starts looking")
+	for i in 30:
+		check(a.quickmatch_poll().is_empty(), "alone, a is not matched")
+		await create_timer(0.005).timeout
+	check(b.quickmatch_start("127.0.0.1:47150") == "", "b starts looking")
+	var fa := {}
+	var fb := {}
+	for i in 600:
+		if fa.is_empty():
+			fa = a.quickmatch_poll()
+		if fb.is_empty():
+			fb = b.quickmatch_poll()
+		if not fa.is_empty() and not fb.is_empty():
+			break
+		await create_timer(0.005).timeout
+	check(not fa.is_empty() and not fb.is_empty(), "both are matched")
+	if not fa.is_empty() and not fb.is_empty():
+		check(fa.room == fb.room and fa.room > 0, "into one room")
+		check(fa.host and not fb.host, "the one who waited hosts")
+		var err: String = a.net_host_relay("127.0.0.1:47150", fa.room, PackedInt32Array([0, 1, 0, 1]), 2)
+		check(err == "", err)
+		err = b.net_join_relay("127.0.0.1:47150", fb.room)
+		check(err == "", err)
+		var ran := [0, 0]
+		for t in 6000:
+			var ia: Array = _input_for(ran[0], 0)
+			var ib: Array = _input_for(ran[1], 1)
+			if a.net_update(ia[0], ia[1], ia[2]) == 1:
+				ran[0] += 1
+			if b.net_update(ib[0], ib[1], ib[2]) == 1:
+				ran[1] += 1
+			if ran[0] > 200 and ran[1] > 200:
+				break
+			await create_timer(0.0005).timeout
+		check(ran[0] > 200 and ran[1] > 200, "the matched pair plays: %s" % str(ran))
+		check(not str(a.net_take_log()).contains("DESYNC") and not str(b.net_take_log()).contains("DESYNC"), "no desync")
+	a.net_leave()
+	b.net_leave()
+	# The match scene itself: it waits in the queue, is paired with another searcher, and connects as the joiner.
+	var entry: Dictionary = Roster.net_entry()
+	Roster.session = {"from_menu": true, "stocks": 3, "time": 0, "stage": 0, "online": {
+		"host": false, "quick": true, "watch": false, "group": false, "relay": true, "addr": "127.0.0.1:47150", "port": 47000, "room": 0,
+		"delay": 2, "entry": entry, "stage": 0, "stocks": 3, "time": 0, "ranked": false}}
+	var scene: Node = load("res://main.tscn").instantiate()
+	root.add_child(scene)
+	for i in 120:
+		await process_frame
+	check(scene.quick_mode and not scene.net_mode, "the match scene is looking for an opponent")
+	check(scene._net_status_text().begins_with("Looking"), "and says so: " + scene._net_status_text())
+	var other = ClassDB.instantiate("SimRunner")
+	root.add_child(other)
+	other.quickmatch_start("127.0.0.1:47150")
+	var found := {}
+	for i in 600:
+		if found.is_empty():
+			found = other.quickmatch_poll()
+		if scene.net_mode:
+			break
+		await create_timer(0.01).timeout
+	check(scene.net_mode and not scene.quick_mode, "paired, the scene connects")
+	check(scene.local_slot == 0 or scene.local_slot == 1, "in a slot")
+	scene.queue_free()
+	await process_frame
+	OS.kill(pid)

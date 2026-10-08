@@ -56,7 +56,7 @@ frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable 
 | --- | --- |
 | Swordfighter forward air | hits frame 6-8, 8% close / 11.5% tip, angle 361, base KB 40, growth 80, landing lag 10, autocancel from 36, FAF 38 |
 | Swordfighter back air | hits 7-11, 9% / 12.5%, angle 361, KB 40, growth 85 / 94, lag 10, autocancel 1-2 and from 32, FAF 40, turns around, sends victims backward |
-| Swordfighter neutral air | two hits: 6-7 (3.5% / 5%, angles 75-90, KB 45 / 35, growth 50) and 15-21 (7% / 9.5%, angle 361, KB 50 / 60, growth 90 / 100), lag 7, autocancel from 47, FAF 50 |
+| Swordfighter neutral air | two hits: 6-11 (3.5% / 5%, angles 75-90, KB 45 / 35, growth 50) and 14-28 (7% / 9.5%, angle 361, KB 50 / 60, growth 90 / 100), lag 7, autocancel from 47, FAF 50. **Deliberately longer than the reference** (which is 6-7 and 15-21) so the spin stays active (sim v24) |
 | Swordfighter forward tilt | hits 8-11, 9% / 12%, angle 361, KB 30 / 55, growth 70 / 85, FAF 34 |
 | Swordfighter up special | intangible frames 1-5 in the air, hits from frame 5 (11% early tip, then 7%), angle 74, helpless after |
 | Swordfighter up tilt | one hit in three phases: frame 6 (6% tip, 5% arm and body, angle 100, KB 65, growth 100), 7-8 (10% tipper, 6% sour, 5%), 9-12 (same damage, angle 85, KB 52), FAF 34 |
@@ -66,7 +66,7 @@ frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable 
 | Swordfighter down smash | front hit frames 6-7 (8% / 12% tip, KB 60 / 50, growth 88), back hit frames 21-23 (12% / 17% tip, KB 40 / 50, growth 88 / 92), angle 361, FAF 56, charges |
 | Swordfighter up air | frames 5-9, 9.5% / 13% tip, angle 80 / 90, KB 40, growth 80 / 84, landing lag 8, autocancel 1-2 and from 38, FAF 46 |
 | Brawler forward air | hits 7-9, 9%, angle 60, KB 45, growth 85, lag 10, autocancel from 29, FAF 41 |
-| Brawler neutral air | 12% on 7-9 (KB 30, growth 75), then 8% on 10-26 (KB 0, growth 100), lag 9, autocancel 1-6 and from 38, FAF 43 |
+| Brawler neutral air | 12% on 7-11 (KB 30, growth 75), then 8% on 12-34 (KB 0, growth 100), lag 9, autocancel 1-6 and from 38, FAF 43. **Deliberately longer than the reference** (7-9 and 10-26) (sim v24) |
 | Brawler forward tilt | two hits: frame 8 (5%, angle 60, KB 10, growth 70) and 9-10 (6%, angle 361, KB 55, growth 106), FAF 35 |
 | Brawler up tilt | an overhead kick, frames 7-11 (10% foot only on 7-8, 8% / 9% / 10% along the leg), angle 80, KB 30, growth 115-120, FAF 36 |
 | Brawler down tilt | a low kick, frames 5-6, 6%, angle 361, KB 25, growth 100, FAF 28 |

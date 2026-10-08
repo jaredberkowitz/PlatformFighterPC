@@ -222,8 +222,15 @@ impl MatchRecord {
         let parsed = parsed.ok_or("a fighter in this replay cannot be read")?;
         let (content, built) = match_content_on(base, &parsed, false, self.stage)
             .map_err(|e| format!("this replay is not valid: {e:?}"))?;
-        for (slot, c) in chars.iter_mut().zip(built.iter()) {
-            *slot = *c;
+        // Fighter numbers go to the slots that took part, in slot order (a free-for-all can have a gap).
+        let mut next = 0;
+        for (slot, c) in chars.iter_mut().enumerate() {
+            if self.active >> slot & 1 == 1 {
+                if let Some(b) = built.get(next) {
+                    *c = *b;
+                }
+                next += 1;
+            }
         }
         if content.hash() != self.match_hash {
             return Err(

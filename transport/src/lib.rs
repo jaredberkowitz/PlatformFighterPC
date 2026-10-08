@@ -9,10 +9,12 @@
 //! Neither hole-punches NAT; direct play over the internet needs a forwarded port (or a LAN / VPN), and anything else
 //! uses the relay.
 
+use netplay::group::HubLink;
 use netplay::peer::Link;
 use std::collections::BTreeMap;
 use std::io::{self, ErrorKind};
 use std::net::{SocketAddr, UdpSocket};
+use std::time::{Duration, Instant};
 
 /// Largest datagram handled; protocol packets are far smaller.
 const MAX_DATAGRAM: usize = 1500;
@@ -78,6 +80,72 @@ impl Link for UdpLink {
     }
 }
 
+// ---- Spectators ----------------------------------------------------------------------------------------------------
+
+/// The host's socket for spectators: it talks to any number of addresses (a [`UdpLink`] talks to one). Addresses are mapped to small
+/// numbers (the ids a `netplay::spectate::SpectatorServer` uses); at most `max` are remembered, and a datagram from a ninth stranger is
+/// dropped.
+pub struct SpectatorSocket {
+    socket: UdpSocket,
+    addrs: Vec<SocketAddr>,
+    max: usize,
+    buf: Vec<u8>,
+}
+
+impl SpectatorSocket {
+    pub fn bind(local: SocketAddr, max: usize) -> io::Result<SpectatorSocket> {
+        Ok(SpectatorSocket {
+            socket: bind_nonblocking(local)?,
+            addrs: Vec::new(),
+            max,
+            buf: vec![0; MAX_DATAGRAM],
+        })
+    }
+
+    pub fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.socket.local_addr()
+    }
+
+    /// The next datagram: the sender's id and the bytes.
+    pub fn recv(&mut self) -> Option<(usize, Vec<u8>)> {
+        loop {
+            match self.socket.recv_from(&mut self.buf) {
+                Ok((n, from)) => {
+                    let id = match self.addrs.iter().position(|a| *a == from) {
+                        Some(i) => i,
+                        None if self.addrs.len() < self.max => {
+                            self.addrs.push(from);
+                            self.addrs.len() - 1
+                        }
+                        None => continue,
+                    };
+                    return Some((id, self.buf[..n].to_vec()));
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => return None,
+                Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
+                Err(_) => return None,
+            }
+        }
+    }
+
+    pub fn send(&mut self, id: usize, bytes: &[u8]) {
+        if let Some(addr) = self.addrs.get(id) {
+            let _ = self.socket.send_to(bytes, addr);
+        }
+    }
+}
+
+/// The same socket is the host's side of a group match: guest `i` is the `i`-th address that wrote to it.
+impl HubLink for SpectatorSocket {
+    fn send(&mut self, guest: usize, bytes: &[u8]) {
+        SpectatorSocket::send(self, guest, bytes);
+    }
+
+    fn recv(&mut self) -> Option<(usize, Vec<u8>)> {
+        SpectatorSocket::recv(self)
+    }
+}
+
 // ---- Relay -------------------------------------------------------------------------------------------------------
 
 const RELAY_MAGIC: [u8; 2] = [0x52, 0x4c]; // "RL"
@@ -133,12 +201,70 @@ impl Link for RelayLink {
     }
 }
 
+// ---- Quick match -------------------------------------------------------------------------------------------------
+
+/// A datagram from the relay telling a waiting client its match: "RM", the room number, then 0 if it should host or 1 if it should join.
+const MATCH_MAGIC: [u8; 2] = [0x52, 0x4d];
+/// The room number clients send to join the quick-match queue (typed room numbers must be above zero).
+pub const QUEUE_ROOM: u64 = 0;
+/// Quick-match rooms are numbered from here up, well clear of the numbers people type.
+const FIRST_MATCH_ROOM: u64 = 1 << 40;
+/// How long a waiting client stays in the queue without asking again.
+const QUEUE_PATIENCE: Duration = Duration::from_secs(6);
+
+/// A client looking for an opponent through the relay: it asks the queue, and the relay answers when someone else has asked too.
+pub struct QuickMatch {
+    socket: UdpSocket,
+    relay: SocketAddr,
+    buf: Vec<u8>,
+    polls: u32,
+}
+
+impl QuickMatch {
+    pub fn connect(local: SocketAddr, relay: SocketAddr) -> io::Result<QuickMatch> {
+        Ok(QuickMatch {
+            socket: bind_nonblocking(local)?,
+            relay,
+            buf: vec![0; MAX_DATAGRAM],
+            polls: 0,
+        })
+    }
+
+    /// Call once a frame: keeps asking the queue, and returns `(room, host)` once an opponent has been found. Then connect a
+    /// [`RelayLink`] to that room, hosting if told to.
+    pub fn poll(&mut self) -> Option<(u64, bool)> {
+        self.polls += 1;
+        if self.polls % 30 == 1 {
+            let mut out = RELAY_MAGIC.to_vec();
+            out.extend_from_slice(&QUEUE_ROOM.to_le_bytes());
+            let _ = self.socket.send_to(&out, self.relay);
+        }
+        loop {
+            match self.socket.recv_from(&mut self.buf) {
+                Ok((n, from)) => {
+                    if from == self.relay && n == 2 + 8 + 1 && self.buf[..2] == MATCH_MAGIC {
+                        let mut room = [0u8; 8];
+                        room.copy_from_slice(&self.buf[2..10]);
+                        return Some((u64::from_le_bytes(room), self.buf[10] == 0));
+                    }
+                }
+                Err(e) if e.kind() == ErrorKind::ConnectionReset => continue,
+                Err(_) => return None,
+            }
+        }
+    }
+}
+
 /// The relay server: forwards each client's datagrams to the other client in the same room. Two clients per room.
 pub struct Relay {
     socket: UdpSocket,
     rooms: BTreeMap<u64, [Option<SocketAddr>; 2]>,
     buf: Vec<u8>,
     forwarded: u64,
+    /// Clients waiting for an opponent, oldest first.
+    queue: Vec<(SocketAddr, Instant)>,
+    next_match_room: u64,
+    patience: Duration,
 }
 
 impl Relay {
@@ -148,11 +274,52 @@ impl Relay {
             rooms: BTreeMap::new(),
             buf: vec![0; MAX_DATAGRAM],
             forwarded: 0,
+            queue: Vec::new(),
+            next_match_room: FIRST_MATCH_ROOM,
+            patience: QUEUE_PATIENCE,
         })
     }
 
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         self.socket.local_addr()
+    }
+
+    /// How long a waiting client stays queued without asking again (tests shorten it).
+    pub fn set_queue_patience(&mut self, patience: Duration) {
+        self.patience = patience;
+    }
+
+    /// Clients waiting for an opponent right now.
+    pub fn waiting(&self) -> usize {
+        self.queue.len()
+    }
+
+    /// A client asked for a match: it joins the queue, and if someone is already waiting the two are paired.
+    fn queue_up(&mut self, from: SocketAddr) {
+        let now = Instant::now();
+        let patience = self.patience;
+        self.queue
+            .retain(|(_, t)| now.duration_since(*t) < patience);
+        if let Some(entry) = self.queue.iter_mut().find(|(a, _)| *a == from) {
+            entry.1 = now; // still waiting
+            return;
+        }
+        if self.queue.len() >= 256 {
+            return; // a flood of made-up clients cannot grow the queue without bound
+        }
+        if self.queue.is_empty() {
+            self.queue.push((from, now));
+            return;
+        }
+        let (waiting, _) = self.queue.remove(0);
+        let room = self.next_match_room;
+        self.next_match_room += 1;
+        for (addr, role) in [(waiting, 0u8), (from, 1u8)] {
+            let mut out = MATCH_MAGIC.to_vec();
+            out.extend_from_slice(&room.to_le_bytes());
+            out.push(role);
+            let _ = self.socket.send_to(&out, addr);
+        }
     }
 
     pub fn forwarded(&self) -> u64 {
@@ -177,6 +344,10 @@ impl Relay {
             let mut room_bytes = [0u8; 8];
             room_bytes.copy_from_slice(&self.buf[2..RELAY_HEADER]);
             let room = u64::from_le_bytes(room_bytes);
+            if room == QUEUE_ROOM {
+                self.queue_up(from);
+                continue;
+            }
 
             // Cap the number of rooms so a flood of made-up room numbers cannot use unbounded memory.
             if !self.rooms.contains_key(&room) && self.rooms.len() >= 4096 {
@@ -306,5 +477,120 @@ mod tests {
         sleep(Duration::from_millis(20));
         relay.pump();
         assert_eq!(a.recv(), None, "the intruder's packet was not forwarded");
+    }
+}
+
+#[cfg(test)]
+mod quick_match_tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::thread::sleep;
+
+    fn any() -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
+    }
+
+    type Found = Option<(u64, bool)>;
+
+    fn poll_both(relay: &mut Relay, a: &mut QuickMatch, b: &mut QuickMatch) -> (Found, Found) {
+        let (mut ra, mut rb) = (None, None);
+        for _ in 0..200 {
+            relay.pump();
+            ra = ra.or(a.poll());
+            rb = rb.or(b.poll());
+            if ra.is_some() && rb.is_some() {
+                break;
+            }
+            sleep(Duration::from_millis(5));
+        }
+        (ra, rb)
+    }
+
+    #[test]
+    fn two_clients_looking_for_a_match_are_paired_into_one_room() {
+        let mut relay = Relay::bind(any()).unwrap();
+        let addr = relay.local_addr().unwrap();
+        let mut a = QuickMatch::connect(any(), addr).unwrap();
+        let mut b = QuickMatch::connect(any(), addr).unwrap();
+        // The first waits alone.
+        for _ in 0..40 {
+            relay.pump();
+            assert_eq!(a.poll(), None);
+            sleep(Duration::from_millis(2));
+        }
+        assert_eq!(relay.waiting(), 1);
+        let (ra, rb) = poll_both(&mut relay, &mut a, &mut b);
+        let (room_a, host_a) = ra.expect("a is told");
+        let (room_b, host_b) = rb.expect("b is told");
+        assert_eq!(room_a, room_b, "the same room");
+        assert!(room_a >= FIRST_MATCH_ROOM);
+        assert!(host_a && !host_b, "the one who waited hosts");
+        assert_eq!(relay.waiting(), 0);
+        // And they can play through that room.
+        let mut host = RelayLink::connect(any(), addr, room_a).unwrap();
+        let mut join = RelayLink::connect(any(), addr, room_a).unwrap();
+        host.announce();
+        join.announce();
+        host.send(b"hi");
+        let mut got = None;
+        for _ in 0..100 {
+            relay.pump();
+            got = got.or(join.recv());
+            if got.is_some() {
+                break;
+            }
+            sleep(Duration::from_millis(5));
+        }
+        assert_eq!(got.as_deref(), Some(&b"hi"[..]));
+    }
+
+    #[test]
+    fn a_client_that_stops_asking_leaves_the_queue_and_rooms_do_not_repeat() {
+        let mut relay = Relay::bind(any()).unwrap();
+        relay.set_queue_patience(Duration::from_millis(60));
+        let addr = relay.local_addr().unwrap();
+        let mut gone = QuickMatch::connect(any(), addr).unwrap();
+        gone.poll();
+        sleep(Duration::from_millis(20));
+        relay.pump();
+        assert_eq!(relay.waiting(), 1);
+        sleep(Duration::from_millis(120));
+        // A newcomer finds the queue empty (the first has timed out), so it waits rather than being paired with a ghost.
+        let mut b = QuickMatch::connect(any(), addr).unwrap();
+        b.poll();
+        sleep(Duration::from_millis(20));
+        relay.pump();
+        assert_eq!(relay.waiting(), 1);
+        assert_eq!(b.poll(), None);
+        // Two matches in a row get different rooms.
+        relay.set_queue_patience(Duration::from_secs(6));
+        let mut c = QuickMatch::connect(any(), addr).unwrap();
+        let mut d = QuickMatch::connect(any(), addr).unwrap();
+        let first = poll_both(&mut relay, &mut b, &mut c).0.unwrap().0;
+        let mut e = QuickMatch::connect(any(), addr).unwrap();
+        let second = poll_both(&mut relay, &mut d, &mut e).0.unwrap().0;
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn typed_rooms_still_work() {
+        let mut relay = Relay::bind(any()).unwrap();
+        let addr = relay.local_addr().unwrap();
+        let mut a = RelayLink::connect(any(), addr, 5).unwrap();
+        let mut b = RelayLink::connect(any(), addr, 5).unwrap();
+        a.announce();
+        b.announce();
+        a.send(b"x");
+        let mut got = None;
+        for _ in 0..100 {
+            relay.pump();
+            got = got.or(b.recv());
+            if got.is_some() {
+                break;
+            }
+            sleep(Duration::from_millis(5));
+        }
+        assert_eq!(got.as_deref(), Some(&b"x"[..]));
+        assert_eq!(relay.waiting(), 0);
     }
 }

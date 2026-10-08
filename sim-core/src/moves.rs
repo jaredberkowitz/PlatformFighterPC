@@ -871,17 +871,19 @@ pub fn longsword() -> Weapon {
             r(5, 9, 4, 34, 7, 130, 90, 40, 84, 0, 0),
         ],
     );
-    // Neutral air: two separate hits (frames 6-7, then 15-21). Landing lag 7, autocancels from frame 47, FAF 50.
+    // Neutral air: two separate hits. The reference frames are 6-7 and 15-21; here they are held open longer (6-11 and 14-28) so the
+    // spin stays dangerous and reads like a sweeping move (a deliberate change from the reference). Landing lag 7, autocancels from
+    // frame 47, FAF 50.
     moves[MoveId::NAir as usize] = ref_move(
         50,
         7,
         0,
         47,
         &[
-            r(6, 7, 17, 12, 8, 35, 75, 45, 50, 1, 0),
-            r(6, 7, 30, 12, 7, 50, 90, 35, 50, 0, 0),
-            r(15, 21, 17, 12, 8, 70, 361, 50, 90, 1, 1),
-            r(15, 21, 30, 12, 7, 95, 361, 60, 100, 0, 1),
+            r(6, 11, 17, 12, 8, 35, 75, 45, 50, 1, 0),
+            r(6, 11, 30, 12, 7, 50, 90, 35, 50, 0, 0),
+            r(14, 28, 17, 12, 8, 70, 361, 50, 90, 1, 1),
+            r(14, 28, 30, 12, 7, 95, 361, 60, 100, 0, 1),
         ],
     );
     // Forward air: frames 6-8, 8/11.5 damage (sour/tip), angle 361, landing lag 10, autocancels from 36, FAF 38.
@@ -1325,16 +1327,16 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
-    // Neutral air: 12% early (frames 7-9), then a long 8% hit (frames 10-26). Landing lag 9, autocancels
-    // frames 1-6 and from 38, FAF 43.
+    // Neutral air: 12% early, then a long 8% hit. The reference frames are 7-9 and 10-26; here 7-11 and 12-34 (a deliberate change so the
+    // kick keeps spinning and reads like a sweeping move). Landing lag 9, autocancels frames 1-6 and from 38, FAF 43.
     w.moves[MoveId::NAir as usize] = ref_move(
         43,
         9,
         6,
         38,
         &[
-            r(7, 9, 13, 11, 11, 120, 361, 30, 75, 0, 0),
-            r(10, 26, 13, 11, 12, 80, 361, 0, 100, 1, 0),
+            r(7, 11, 13, 11, 11, 120, 361, 30, 75, 0, 0),
+            r(12, 34, 13, 11, 12, 80, 361, 0, 100, 1, 0),
         ],
     );
     // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 29, FAF 41.

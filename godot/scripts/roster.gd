@@ -30,6 +30,10 @@ static var _rules: RefCounted
 static func rules() -> RefCounted:
 	if _rules == null:
 		_rules = ClassDB.instantiate("ContentEditor")
+		# The project's own blocked words, on top of the built-in trademark list.
+		var list_path := content_path("blocklist.txt")
+		if FileAccess.file_exists(list_path):
+			_rules.policy_load(FileAccess.get_file_as_string(list_path))
 	return _rules
 
 
@@ -69,7 +73,8 @@ static func parse_profile(bytes: PackedByteArray, player := 0) -> Dictionary:
 	if bytes.size() >= 1 and bytes[0] <= Loadout.MAX_BYTES and bytes.size() >= 1 + bytes[0]:
 		look = Loadout.from_bytes(bytes.slice(1, 1 + bytes[0]), player)
 		name = bytes.slice(1 + bytes[0]).get_string_from_utf8().left(24)
-	return {"look": look, "name": name}
+	# A name from another player is made safe to show: odd characters dropped, cut to length, blocked names replaced.
+	return {"look": look, "name": rules().policy_clean_name(name, "")}
 
 
 ## How the next match is won, kept between runs: stocks each (0 = unlimited, free play) and a time limit in seconds (0 = none).
@@ -191,6 +196,9 @@ static func name_problem(name: String, editing_slug := "") -> String:
 		var ok: bool = (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9") or ch == " " or ch == "_" or ch == "-"
 		if not ok:
 			return "Names can use letters, numbers, spaces, - and _."
+	var blocked: String = rules().policy_check_name(n)
+	if blocked != "":
+		return blocked
 	var slug := slug_of(n)
 	if slug == "":
 		return "Give your fighter a name."
@@ -275,7 +283,22 @@ static func all() -> Array:
 
 
 static func base_content_path() -> String:
-	return ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
+	return content_path("base.pfc")
+
+
+## Where a file of the shipped content lives: the `content` folder next to the project (a checkout), next to the game's executable (a packaged
+## build), or inside the project. The first that exists wins; the checkout path is returned when none does.
+static func content_path(file: String) -> String:
+	var checkout := ProjectSettings.globalize_path("res://").path_join("../content").path_join(file).simplify_path()
+	var candidates := [
+		checkout,
+		OS.get_executable_path().get_base_dir().path_join("content").path_join(file),
+		ProjectSettings.globalize_path("res://content").path_join(file),
+	]
+	for c in candidates:
+		if FileAccess.file_exists(c):
+			return c
+	return checkout
 
 
 ## Builds the content for a match between `entries` (one per player). Returns {"text", "chars", "error"}: the bundle text to

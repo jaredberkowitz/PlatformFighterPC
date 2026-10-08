@@ -85,8 +85,8 @@ their spawn points and could be hit; the mask is part of the checksum.
 
 * **Never tested over the real internet.** Everything above is localhost or simulated. Latency spikes, NAT behaviour and ISP quirks
   are exactly what Phase 4's exit criterion ("stable matches across real internet connections") needs a real test for.
-* **No NAT traversal.** Direct play needs a forwarded UDP port (or LAN / VPN); the relay is the fallback. There is no matchmaking or
-  room list; the room number is agreed out of band.
+* **No NAT traversal.** Direct play needs a forwarded UDP port (or LAN / VPN); the relay is the fallback. Quick match (the relay pairs two
+  waiting clients, `docs/MATCHES.md`) replaces agreeing a room number out of band, but there is no room list.
 * **Two players only.** The session supports more (`active` mask), but only the 1v1 handshake and UI exist, as the plan says to validate 1v1 first.
 * **No frame-rate sync.** Each peer runs at its own 60 Hz; the stall rule keeps them within a few frames, but a peer whose clock runs
   slower will make the other stall repeatedly rather than slowing both gently. Plan section 6's input-delay setting is a launch argument

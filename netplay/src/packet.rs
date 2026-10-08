@@ -23,7 +23,7 @@ pub enum RejectReason {
 }
 
 impl RejectReason {
-    fn from_u8(v: u8) -> Option<RejectReason> {
+    pub fn from_u8(v: u8) -> Option<RejectReason> {
         match v {
             1 => Some(RejectReason::SimVersion),
             2 => Some(RejectReason::ContentHash),

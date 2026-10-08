@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 23
-    hash 7910574f9b559d17
+    sim_version 24
+    hash 59cd4b81c573a03d
 }
 
 ruleset {
@@ -117,10 +117,10 @@ weapon longsword {
         total_frames 48
         landing_lag 7
         autocancel_after 46
-        hitbox { start 5 end 6 x 1.7 y 1.2 radius 0.79999 damage 3.5 angle 75 bkb 45 kbg 50 priority 1 }
-        hitbox { start 5 end 6 x 3 y 1.2 radius 0.7 damage 5 angle 90 bkb 35 kbg 50 }
-        hitbox { start 14 end 20 x 1.7 y 1.2 radius 0.79999 damage 7 angle 361 bkb 50 kbg 90 priority 1 group 1 }
-        hitbox { start 14 end 20 x 3 y 1.2 radius 0.7 damage 9.5 angle 361 bkb 60 kbg 100 group 1 }
+        hitbox { start 5 end 10 x 1.7 y 1.2 radius 0.79999 damage 3.5 angle 75 bkb 45 kbg 50 priority 1 }
+        hitbox { start 5 end 10 x 3 y 1.2 radius 0.7 damage 5 angle 90 bkb 35 kbg 50 }
+        hitbox { start 13 end 27 x 1.7 y 1.2 radius 0.79999 damage 7 angle 361 bkb 50 kbg 90 priority 1 group 1 }
+        hitbox { start 13 end 27 x 3 y 1.2 radius 0.7 damage 9.5 angle 361 bkb 60 kbg 100 group 1 }
     }
     move fair {
         total_frames 36
@@ -477,8 +477,8 @@ weapon claws {
         landing_lag 9
         autocancel_before 6
         autocancel_after 37
-        hitbox { start 6 end 8 x 1.29999 y 1.09999 radius 1.09999 damage 12 angle 361 bkb 30 kbg 75 }
-        hitbox { start 9 end 25 x 1.29999 y 1.09999 radius 1.2 damage 8 angle 361 bkb 0 kbg 100 priority 1 }
+        hitbox { start 6 end 10 x 1.29999 y 1.09999 radius 1.09999 damage 12 angle 361 bkb 30 kbg 75 }
+        hitbox { start 11 end 33 x 1.29999 y 1.09999 radius 1.2 damage 8 angle 361 bkb 0 kbg 100 priority 1 }
     }
     move fair {
         total_frames 39
