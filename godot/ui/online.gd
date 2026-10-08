@@ -16,7 +16,8 @@ const DEFAULT_PORT := 47000
 const DELAYS := [0, 1, 2, 3, 4, 5, 6]
 
 const DESCRIPTIONS := {
-	"role": "Host starts the match and decides the rules. Join connects to a host. Watch lets you spectate a match a host is playing (type the host's address; the host needs the next port open too).",
+	"mode": "A duel is two players. A group match has a lobby for up to four: the host starts it when everyone is in. Everyone must choose the same mode, and a group match needs a direct connection (no relay).",
+	"role": "Host starts the match and decides the rules. Join connects to a host. Watch spectates a hosted match (the host needs the next port open).",
 	"link": "Direct: the host opens a UDP port (forward it on the router if you are not on the same network) and the joiner types the host's address. Relay: both connect to a relay server with the same room number.",
 	"address": "Direct join: the host's address, like 203.0.113.5:47000. Relay: the relay server's address.",
 	"port": "The UDP port to host on. Friends outside your network need this port forwarded on the router.",
@@ -62,6 +63,7 @@ func _ready() -> void:
 	add_child(column)
 
 	_add_selector("role", "Role", ["Host", "Join", "Watch"])
+	_add_selector("mode", "Mode", ["Duel (2)", "Group (3-4)"])
 	_add_selector("link", "Connect", ["Direct", "Relay"])
 	_add_edit("address", "Address", "ip:port")
 	_add_edit("port", "Port", "47000")
@@ -166,7 +168,7 @@ func _relay() -> bool:
 ## Which rows make sense for the chosen role and connection.
 func _row_shown(id: String) -> bool:
 	match id:
-		"link", "fighter", "delay":
+		"link", "fighter", "delay", "mode":
 			return not _watching()
 		"address":
 			return not _hosting() or _relay()
@@ -337,12 +339,14 @@ func _save_settings() -> void:
 ## The connection the screen describes: {"host", "relay", "addr", "port", "room", "delay", "entry", ...} or {"error": text}.
 func connection() -> Dictionary:
 	var c := {
-		"host": _hosting(), "watch": false, "relay": _relay(), "addr": edits["address"].text.strip_edges(),
+		"host": _hosting(), "watch": false, "group": selectors["mode"].index == 1 and not _watching(), "relay": _relay(), "addr": edits["address"].text.strip_edges(),
 		"port": DEFAULT_PORT, "room": 0, "delay": DELAYS[selectors["delay"].index],
 		"entry": entries[selectors["fighter"].index],
 		"stage": selectors["stage"].index, "stocks": Roster.STOCK_CHOICES[selectors["stocks"].index], "time": Roster.TIME_CHOICES[selectors["time"].index],
 		"ranked": selectors["rules"].index == 1,
 	}
+	if c.group and _relay():
+		return {"error": "Group matches need a direct connection for now (choose Direct)."}
 	if _relay():
 		if c.addr == "":
 			return {"error": "Type the relay server's address (like 203.0.113.5:47001)."}

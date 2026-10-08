@@ -33,6 +33,10 @@ var end_timer := 0.0
 var sfx: Node
 var replay_mode := false
 var spectate_mode := false
+var group_mode := false
+var group_status := 0
+var group_looks_applied := false
+var group_seed := -1
 var spectate_status := 0
 var spectate_looks_applied := false
 var replay_speed := 1.0
@@ -148,6 +152,8 @@ func _build_world() -> void:
 
 ## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.
 func _player_count() -> int:
+	if Roster.session.has("online") and Roster.session.online.get("group", false):
+		return 4
 	var replay := PackedByteArray()
 	if Roster.session.has("replay"):
 		replay = Roster.session.replay
@@ -386,7 +392,7 @@ func _net_config() -> Dictionary:
 			return {}
 		return {
 			"host": o.host, "relay": o.addr if o.relay else "", "addr": o.addr, "port": o.port, "room": o.room,
-			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked,
+			"delay": o.delay, "chars": chosen_chars, "ranked": o.ranked, "group": o.get("group", false),
 		}
 	var host_port := -1
 	var join_addr := ""
@@ -413,7 +419,7 @@ func _net_config() -> Dictionary:
 		return {}
 	return {
 		"host": host_port >= 0, "relay": relay, "addr": join_addr, "port": host_port, "room": room, "delay": delay,
-		"chars": chars, "ranked": OS.get_cmdline_user_args().has("--ranked"),
+		"chars": chars, "ranked": OS.get_cmdline_user_args().has("--ranked"), "group": false,
 	}
 
 
@@ -430,6 +436,19 @@ func _start_net() -> void:
 	sim.set_ranked(cfg.ranked)
 	local_slot = 0 if cfg.host else 1
 	var err := ""
+	if cfg.group:
+		if cfg.host:
+			err = sim.group_host_start(cfg.port, cfg.delay)
+		else:
+			err = sim.group_join(cfg.addr)
+		if err != "":
+			push_error(err)
+			net_failed = err
+			return
+		group_mode = true
+		names[0] = me.name
+		print("group mode: ", "host" if cfg.host else "guest")
+		return
 	if cfg.host and cfg.relay != "":
 		err = sim.net_host_relay(cfg.relay, cfg.room, PackedInt32Array(cfg.chars), cfg.delay)
 	elif cfg.host:
@@ -490,6 +509,65 @@ func _spectate_step() -> void:
 		_tick_once(false)
 	else:
 		overlay_dirty = true
+
+
+## A group match (three or four players): the lobby, then the match.
+func _group_step() -> void:
+	var r: Dictionary = InputReader.read(0, masks)
+	inputs[0] = r
+	group_status = sim.group_update(r.x, r.y, r.buttons)
+	for line in sim.group_take_log():
+		net_lines.append(line)
+		print(line)
+	if net_lines.size() > 4:
+		net_lines = net_lines.slice(net_lines.size() - 4)
+	if group_status == 1 or group_status == 2:
+		# Names and looks by slot, once the match has started (and again for a rematch).
+		if not group_looks_applied:
+			group_looks_applied = true
+			var lobby: Array = sim.group_lobby()
+			for i in mini(lobby.size(), PLAYERS):
+				var profile := Roster.parse_profile(lobby[i], i)
+				views[i].rebuild(profile.look)
+				views[i].set_name_tag(profile.name)
+				names[i] = profile.name if profile.name != "" else "Player %d" % (i + 1)
+			_rebuild_stage()
+			_apply_scales()
+		if results != null and sim.winner() == -1:
+			results.queue_free()
+			results = null
+			end_timer = 0.0
+			_rebuild_stage()
+			_apply_scales()
+		if group_status == 1:
+			_tick_once(false)
+	else:
+		overlay_dirty = true
+
+
+## What the lobby looks like in words.
+func _group_text() -> String:
+	var lobby: Array = sim.group_lobby()
+	var who := []
+	for i in lobby.size():
+		if lobby[i].size() > 0:
+			var n: String = Roster.parse_profile(lobby[i], i).name
+			who.append(n if n != "" else "Player %d" % (i + 1))
+	match group_status:
+		0:
+			var line := "LOBBY (%d joined): %s" % [sim.group_players(), ", ".join(who)]
+			if sim.group_slot() == 0:
+				line += "\nPress Enter to start the match"
+			else:
+				line += "\nWaiting for the host to start..."
+			return line
+		3:
+			return "The host refused this match: another version, a full lobby, or a fighter that is not allowed."
+		4:
+			return "Starting the match..."
+		2:
+			return "Waiting for the other players..."
+	return ""
 
 
 func _replay_step() -> void:
@@ -589,8 +667,7 @@ func _tick_once(advance := true) -> void:
 	for i in PLAYERS:
 		var before: Dictionary = snaps[i]
 		_refresh(i)
-		if advance or net_mode:
-			sfx.watch(i, before, snaps[i])
+		sfx.watch(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
 	_rebuild_boxes()
@@ -672,6 +749,9 @@ func _physics_process(_delta: float) -> void:
 		return
 	if spectate_mode:
 		_spectate_step()
+		return
+	if group_mode:
+		_group_step()
 		return
 	if net_mode:
 		_net_step()
@@ -795,7 +875,7 @@ func _update_hud(delta: float) -> void:
 		percent.append(snaps[i].get("percent", 0.0))
 		stocks.append(snaps[i].get("stocks", 0))
 		alive.append(sim.fighter_active(i))
-		in_match.append(sim.fighter_in_roster(i))
+		in_match.append(sim.fighter_in_roster(i) and not (group_mode and group_status in [0, 3, 4]))
 	hud.show_state({
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
@@ -827,7 +907,9 @@ func _show_results(winner: int) -> void:
 		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
-	if spectate_mode:
+	if group_mode:
+		choices = [["Rematch", "rematch"], ["Main Menu", "menu"]] if sim.group_slot() == 0 else [["Main Menu", "menu"]]
+	elif spectate_mode:
 		choices = [["Back", "menu"]]
 	elif net_mode and Roster.session.get("from_menu", false):
 		choices = [["Rematch", "rematch"], ["Main Menu", "menu"]]
@@ -848,7 +930,10 @@ func _show_results(winner: int) -> void:
 func _on_result(action: String) -> void:
 	match action:
 		"rematch":
-			if net_mode:
+			if group_mode:
+				sim.group_restart()
+				results.set_note("Starting another match with the same players...")
+			elif net_mode:
 				sim.net_request_rematch()
 				results.set_note("Rematch requested. Waiting for the other player...")
 			else:
@@ -863,6 +948,11 @@ func _on_result(action: String) -> void:
 
 ## Back to a menu screen, hanging up first if this was an online match.
 func _leave_to(screen: String) -> void:
+	if group_mode:
+		sim.net_leave()
+		group_mode = false
+		if screen == "menu":
+			screen = "online"
 	if spectate_mode:
 		sim.spectate_stop()
 		spectate_mode = false
@@ -878,6 +968,12 @@ func _leave_to(screen: String) -> void:
 func _net_status_text() -> String:
 	if replay_mode:
 		return _replay_text()
+	if group_mode:
+		var text := _group_text()
+		for l in net_lines:
+			if l.contains("DESYNC") or l.contains("disconnected"):
+				text += "\n" + l.left(90)
+		return text.strip_edges()
 	if spectate_mode:
 		match spectate_status:
 			0:
@@ -1006,11 +1102,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if replay_mode:
 		_replay_key(event)
 		return
+	if group_mode and group_status == 0 and sim.group_slot() == 0 and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER) and results == null:
+		sim.group_start_match()
+		return
 	if results != null and event.keycode != KEY_ESCAPE:
 		results.handle_key(event)
 		return
 	# Training keys change the sim directly, which a networked match must never do.
-	if net_mode and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
+	if (net_mode or group_mode or spectate_mode) and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
 		return
 	match event.keycode:
 		KEY_F4:
@@ -1058,7 +1157,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			# From the menus, Esc goes back to character select; launched directly, it quits.
 			if Roster.session.get("from_menu", false):
-				_leave_to("online" if (net_mode or spectate_mode) else "select")
+				_leave_to("online" if (net_mode or spectate_mode or group_mode) else "select")
 			else:
 				get_tree().quit()
 

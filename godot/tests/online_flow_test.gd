@@ -40,6 +40,7 @@ func _initialize() -> void:
 	await _screen()
 	await _match()
 	await _spectate()
+	await _group()
 	print("online flow test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
 
@@ -197,3 +198,64 @@ func _spectate() -> void:
 	watcher.spectate_stop()
 	host.net_leave()
 	join.net_leave()
+
+
+## Three players in a group match through the bridge over real UDP: lobby, start, a match to the clock, the same result everywhere, a replay that
+## verifies, and a rematch.
+func _group() -> void:
+	var Roster = load("res://scripts/roster.gd")
+	var nodes := []
+	for i in 3:
+		var n = ClassDB.instantiate("SimRunner")
+		root.add_child(n)
+		nodes.append(n)
+	var host = nodes[0]
+	var specs := [Roster.spec_bytes(Roster.builtins()[0]), Roster.spec_bytes(Roster.builtins()[1]), Roster.spec_bytes(Roster.builtins()[0])]
+	for i in 3:
+		nodes[i].set_fighter(specs[i])
+		nodes[i].set_cosmetics(PackedByteArray([0, 65 + i]))
+	host.set_match_rules(3, 3)
+	check(host.group_host_start(47181, 2) == "", "the group host listens")
+	check(nodes[1].group_join("127.0.0.1:47181") == "" and nodes[2].group_join("127.0.0.1:47181") == "", "two guests join")
+	var started := false
+	var statuses := [0, 0, 0]
+	var ran := [0, 0, 0]
+	var ticks := 0
+	var restarted := false
+	var first_end := -1
+	while ticks < 40000:
+		for i in 3:
+			var a: Array = _input_for(ran[i], i)
+			statuses[i] = nodes[i].group_update(a[0], a[1], a[2])
+			if statuses[i] == 1:
+				ran[i] += 1
+		ticks += 1
+		if not started and nodes[1].group_slot() >= 1 and nodes[2].group_slot() >= 1 and host.group_players() == 3:
+			check(nodes[1].group_slot() != nodes[2].group_slot(), "each guest has its own slot")
+			started = true
+			host.group_start_match()
+		if started and first_end < 0 and nodes[0].winner() != -1 and nodes[1].winner() != -1 and nodes[2].winner() != -1 and ran[0] > 260:
+			first_end = ticks
+			check(nodes[0].winner() == nodes[1].winner() and nodes[1].winner() == nodes[2].winner(), "the same result everywhere")
+			for p in 3:
+				check(nodes[0].fighter_pos(p) == nodes[1].fighter_pos(p) and nodes[1].fighter_pos(p) == nodes[2].fighter_pos(p), "fighter %d ends in the same place on every machine" % p)
+			var lobby: Array = nodes[1].group_lobby()
+			check(lobby.size() >= 3 and lobby[0].size() == 2, "a guest knows the players' names")
+			var bytes: PackedByteArray = host.replay_bytes(PackedByteArray(), PackedByteArray())
+			var info: Dictionary = host.replay_peek(bytes)
+			check(info.ok and info.players == 3, "the host recorded a three-player match: " + str(info.get("players", 0)))
+			var watcher = ClassDB.instantiate("SimRunner")
+			root.add_child(watcher)
+			check(watcher.replay_load(bytes) == "" and watcher.replay_verify(), "and the recording verifies")
+			watcher.queue_free()
+			host.group_restart()
+		if first_end >= 0 and not restarted and nodes[1].winner() == -1 and nodes[2].winner() == -1 and host.winner() == -1 and statuses[1] == 1:
+			restarted = true
+			break
+		await create_timer(0.0005).timeout
+	check(started and first_end >= 0, "the group match ran to its end")
+	check(restarted, "a rematch started for everyone")
+	var logs := str(host.group_take_log()) + str(nodes[1].group_take_log()) + str(nodes[2].group_take_log())
+	check(not logs.contains("DESYNC"), "no desync in the group: " + logs)
+	for n in nodes:
+		n.net_leave()

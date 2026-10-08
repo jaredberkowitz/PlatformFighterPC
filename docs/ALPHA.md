@@ -6,7 +6,7 @@ from what only a person on real hardware and a real network (or a publisher) can
 ## Ready (built and tested in this repository)
 
 * **The game**: movement, combat, two movesets and a character creator with a point budget, four stages, stocks and results, local 2 to 4 players,
-  online 1v1 with rollback (direct or relay), rematches, spectating, replays, controls and controller input, sound effects, rigged animated
+  online 1v1 with rollback (direct or relay), online groups of 3 to 4 through a hub host, rematches, spectating, replays, controls and controller input, sound effects, rigged animated
   fighters. The simulation is deterministic and fuzzed: `cargo test --workspace` (about 520 tests), `pftool net-fuzz`, `pftool fuzz-rollback`,
   and 14 headless Godot tests (`docs/STATUS.md`).
 * **Tooling**: `pftool` (replays, balance bot matches, content check and pack), the in-game editors, a content policy with name moderation
@@ -29,11 +29,6 @@ from what only a person on real hardware and a real network (or a publisher) can
 
 ## Not built yet
 
-* **Online 3 to 4 players.** Local free-for-alls work; online is 1v1. Design sketch: the host is a hub with one link per guest; every session
-  packet is routed with a destination (the session already produces one packet per remote player with that player's acknowledgement), guests'
-  packets are forwarded by the host, and the handshake becomes a lobby that collects each guest's fighter and name, assigns slots and starts
-  on the host's say. It needs a per-destination outbox in `Session`, a group handshake, a hub socket in `transport`, a lobby screen and a
-  group mode in the bridge, plus `net-fuzz` extended to three and four players.
 * **Matchmaking and a list of games**: needs a server. Today friends share an address, or a relay and a room number.
 * **A third moveset ("remaining archetypes")**, per-move animation clips beyond the three attack types, and real music.
 * **Reporting and moderation for shared content** (see the policy document), a privacy policy, terms of service, age rating and licences for the

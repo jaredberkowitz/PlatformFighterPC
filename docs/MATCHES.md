@@ -76,6 +76,31 @@ fighters and `GameState::roster`/`winner` count however many started; a match en
 Not done: online matches are still two players (the handshake and session are 1v1); no teams; the select screen has no per-player
 handicap or colour choice.
 
+## Group matches (3 or 4 players online)
+
+On the Online screen set **Mode: Group (3-4)** (everyone must pick the same mode; direct connections only for now). The host opens a lobby, guests join
+(each sends its fighter, name and look), and the host presses **Enter** to start with whoever has joined. A rematch (the host's Rematch button) starts
+another match with the same players. Up to three guests; spectators can watch a group match like any other.
+
+How it works (`netplay/src/group.rs`): the host is a **hub**. Every guest has one link to the host and nothing else; every rollback packet (inputs, a
+checksum, a goodbye) travels in a small envelope that names its destination, and the host handles what is for it and forwards the rest. The sessions are
+the ordinary rollback `Session` with one packet per remote player (each carries that player's own acknowledgement; `Session::drain_outgoing_to` says who each is
+for), so a match of four is exactly as exact as a duel. The handshake: `Hello` (version, roster hash, fighter spec, name) until `Welcome` (slot 1 to 3 and who is in the
+lobby); at the start the host builds the match content from everyone's fighters and the stage and sends each guest a `Setup` (seed, rules, who is playing, every
+fighter and name, the guest's slot) which the guest checks (it works out the fighter numbers itself and insists on the host's) and answers `Ready`; every envelope carries an
+epoch so a finished match never leaks into the next. A guest who leaves is noticed by the others (a goodbye, or ten seconds of silence) and the match goes on without them.
+
+* Sockets: `transport::SpectatorSocket` is also the host's hub socket (`HubLink`). Bridge: `group_host_start`, `group_join`, `group_start_match`, `group_update`,
+  `group_restart`, `group_lobby`, `group_slot`, `group_players`. The match scene has a lobby mode (`_group_step`).
+* Tests: `netplay/tests/group.rs` (lobby; refusals for another version, an unreadable fighter and a ranked cheat; a four-player match whose confirmed frames equal a
+  single machine's over 12% loss, reordering and duplicates, for six seeds; a guest leaving; a rematch; 40 randomised conditions), `tools/tests/group_udp.rs` (four players over
+  loopback UDP), `godot/tests/online_flow_test.gd` (three players through the bridge: lobby, match to the clock, the same result and positions everywhere, a replay that verifies,
+  a rematch).
+* Costs: the guests' packets to each other take two hops through the host, so a guest-to-guest path is as slow as the two links added. Duels stay peer to peer.
+
+Not done: group matches through the relay (a room holds two), choosing teams or colours in the lobby, kicking a player from the lobby, a lobby chat, and dropping a
+player in the middle of a match and letting a new one in. Real-internet group play is untested like the rest of the netcode.
+
 ## Spectating
 
 On the Online screen choose **Role: Watch** and type the host's address (the port the players use). The host's game also listens on the **next
