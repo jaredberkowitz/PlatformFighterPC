@@ -7,6 +7,7 @@ const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
+const Sfx := preload("res://scripts/sfx.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
 var buttons: Array = []
@@ -90,12 +91,15 @@ func _ready() -> void:
 func _select(i: int) -> void:
 	if i < 0:
 		return
+	if i != index:
+		Sfx.of(self).play("blip")
 	index = i
 	for k in buttons.size():
 		buttons[k].selected = k == index
 
 
 func _choose(target: String) -> void:
+	Sfx.of(self).play("confirm")
 	if target == "":
 		get_tree().quit()
 	else:

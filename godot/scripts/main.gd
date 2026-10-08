@@ -12,6 +12,7 @@ const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
 const Replays := preload("res://scripts/replays.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
+const Sfx := preload("res://scripts/sfx.gd")
 
 ## How many fighters are in this match (2 to 4): set once, before the world is built.
 var PLAYERS := 2
@@ -29,6 +30,7 @@ var hud: CanvasLayer
 var results: CanvasLayer
 var names: Array = ["Player 1", "Player 2", "Player 3", "Player 4"]
 var end_timer := 0.0
+var sfx: Node
 var replay_mode := false
 var replay_speed := 1.0
 var replay_accum := 0.0
@@ -71,6 +73,7 @@ func _ready() -> void:
 
 	sim = ClassDB.instantiate("SimRunner")
 	add_child(sim)
+	sfx = Sfx.of(self)
 	for n in ["jump", "attack", "special", "shield", "grab", "strong"]:
 		masks[n] = sim.button_mask(n)
 	PLAYERS = _player_count()
@@ -546,7 +549,10 @@ func _tick_once(advance := true) -> void:
 	proj_prev = proj_cur
 	proj_cur = sim.projectile_slots()
 	for i in PLAYERS:
+		var before: Dictionary = snaps[i]
 		_refresh(i)
+		if advance or net_mode:
+			sfx.watch(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
 	_rebuild_boxes()
@@ -950,6 +956,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if net_mode and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
 		return
 	match event.keycode:
+		KEY_F4:
+			sfx.toggle_mute()
 		KEY_F1:
 			overlay_on = not overlay_on
 			overlay.set_overlay_visible(overlay_on)
