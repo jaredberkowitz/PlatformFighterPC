@@ -4,6 +4,8 @@
 //! draw it. Nothing here decides gameplay, and animation never drives the sim. Floats appear only
 //! in the read-back getters, for display.
 
+mod editor;
+
 use godot::classes::{INode, Node};
 use godot::prelude::*;
 use netplay::packet::Setup;
@@ -153,6 +155,25 @@ impl SimRunner {
         self.net.as_ref().map_or_else(PackedByteArray::new, |p| {
             PackedByteArray::from(p.their_cosmetics())
         })
+    }
+
+    /// Like `load_content` but from bundle text (what the editors produce). Returns every problem, or an empty string.
+    #[func]
+    fn load_content_text(&mut self, text: GString) -> GString {
+        let bundle = match sim_content::load(&text.to_string()) {
+            Ok(b) => b,
+            Err(errors) => return GString::from(errors.join("; ").as_str()),
+        };
+        if let Err(errors) = sim_content::validate(&bundle.content) {
+            return GString::from(format!("not valid content: {}", errors.join("; ")).as_str());
+        }
+        self.content = bundle.content;
+        self.content_name = bundle.manifest.name;
+        self.net = None;
+        self.state = GameState::new_with_active(&self.content, 1, [0, 1, 0, 1], self.players);
+        self.inputs = [Input::default(); MAX_FIGHTERS];
+        self.history.clear();
+        GString::new()
     }
 
     /// The loaded bundle's name, or an empty string for the built-in roster.

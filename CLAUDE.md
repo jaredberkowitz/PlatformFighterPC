@@ -24,6 +24,11 @@ Roadmap phases and exit criteria are in section 8 of that plan; check which phas
   A new script ability = a new whitelist entry + a test in `sim-core/tests/scripted_moves.rs` + the doc line (a test checks the doc).
 - Bump `SCHEMA_VERSION` (and add a migration) when the file format changes meaning; bump `SIM_VERSION` when behaviour changes.
 
+## Editors
+- The editors (`godot/editor/`, docs in `docs/EDITORS.md`) have no rules of their own: they edit a content tree through
+  `ContentEditor` (bridge) and Rust re-reads and validates the whole document. Put new rules in `sim-content`, not in GDScript.
+- Cosmetic loadouts (`godot/scripts/loadout.gd`) are presentation only and never reach the sim; keep each catalog item within the mesh budget.
+
 ## Workflow
 - `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` must pass; run `cargo fmt --all`.
 - Art: round blob bodies + 2D faces + cosmetic accessories, see `docs/ART_DIRECTION.md`. Cosmetics never touch the sim.

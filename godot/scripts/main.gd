@@ -11,6 +11,8 @@ const Demo := preload("res://scripts/demo.gd")
 const PLAYERS := 2
 const SEED := 1
 const CHARS := [0, 1, 0, 1]
+## Which fighters play, by index into the loaded roster. `--chars=2,0` after `--` picks them (editors' playtest does).
+var chosen_chars: Array = CHARS
 
 var sim
 var masks := {}
@@ -140,7 +142,7 @@ func _parse_demo_args() -> void:
 
 
 func _restart() -> void:
-	var chars: Array = CHARS
+	var chars: Array = chosen_chars
 	if demo != null and demo.chars.size() > 0:
 		chars = demo.chars
 	sim.start(SEED, PackedInt32Array(chars))
@@ -191,6 +193,14 @@ func _load_content() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--content="):
 			path = a.substr(10)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--chars=") and not a.contains("--host"):
+			var picked := []
+			for c in a.substr(8).split(","):
+				picked.append(int(c))
+			while picked.size() < 4:
+				picked.append(0)
+			chosen_chars = picked
 	var asked := path != ""
 	if not asked:
 		path = ProjectSettings.globalize_path("res://").path_join("../content/base.pfc").simplify_path()
@@ -225,7 +235,7 @@ func _start_net() -> void:
 	var relay := ""
 	var room := 0
 	var delay := 2
-	var chars: Array = CHARS
+	var chars: Array = chosen_chars
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--host="):
 			host_port = int(a.substr(7))

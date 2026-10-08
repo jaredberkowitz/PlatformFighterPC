@@ -5,6 +5,7 @@
 //! Validation is the guardrail layer: refuse content that would break the simulation (or, later, ranked balance).
 
 pub mod bundle;
+pub mod doc;
 pub mod format;
 pub mod tree;
 

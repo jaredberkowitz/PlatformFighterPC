@@ -141,6 +141,20 @@ pub fn load_with(
     })
 }
 
+/// The `bundle { ... }` section for a new document (no hash: a document is loose until packed).
+pub(crate) fn manifest_block(name: &str, author: &str, description: &str) -> Block {
+    let mut manifest = Block::new("bundle", None);
+    manifest.field("schema", SCHEMA_VERSION.to_string());
+    manifest.field("name", name);
+    if !author.is_empty() {
+        manifest.field("author", author);
+    }
+    if !description.is_empty() {
+        manifest.field("description", description);
+    }
+    manifest
+}
+
 /// Text for `content` with a manifest. `pack` is `true` for a distributable bundle (hash included).
 pub fn to_text(
     content: &Content,
@@ -226,7 +240,7 @@ fn set_field(root: &mut Block, name: &str, value: &str) {
     }
 }
 
-fn read_manifest(root: &Block, errors: &mut Vec<String>) -> Manifest {
+pub(crate) fn read_manifest(root: &Block, errors: &mut Vec<String>) -> Manifest {
     let Some(b) = bundle_blocks(root).into_iter().next() else {
         errors.push("the file has no `bundle` section".to_string());
         return Manifest {
