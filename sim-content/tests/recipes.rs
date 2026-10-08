@@ -240,3 +240,102 @@ fn creating_a_character_never_changes_the_other_fighters() {
     assert_eq!(&after.fighters[..2], &before.fighters[..]);
     assert_eq!(after.weapons, before.weapons);
 }
+
+// ---- Hitbox size scaling -------------------------------------------------------------------------------------
+
+/// The furthest gap (in tenths of a unit) at which player 0's jab, from fighter `index`, still hits a standing target.
+fn jab_reach(r: Recipe) -> i32 {
+    use sim_core::input::buttons::ATTACK;
+    let c = content_with(&[r]);
+    let mut best = 0;
+    for gap in (10..90).step_by(2) {
+        let mut s = GameState::new_with_active(&c, 1, [2, 0, 0, 0], 0b0011);
+        s.fighters[0].pos.x = Fx::from_int(-9);
+        s.fighters[1].pos.x = Fx::from_int(-9) + Fx::from_ratio(gap, 10);
+        s.fighters[1].facing = -1;
+        s.fighters[1].invuln = 0;
+        for t in 0..14 {
+            let held = if t == 0 { ATTACK } else { 0 };
+            step(
+                &mut s,
+                &c,
+                &inputs(Input {
+                    stick_x: 0,
+                    stick_y: 0,
+                    buttons: held,
+                }),
+            );
+        }
+        if s.fighters[1].percent > Fx::ZERO {
+            best = gap;
+        }
+    }
+    best
+}
+
+#[test]
+fn bigger_fighters_attacks_reach_further_and_smaller_ones_less() {
+    let small = jab_reach(sized(1));
+    let normal = jab_reach(sized(5));
+    let big = jab_reach(sized(9));
+    assert!(
+        small < normal && normal < big,
+        "reach {small} < {normal} < {big}"
+    );
+}
+
+#[test]
+fn hitbox_scale_follows_size_and_is_exactly_one_at_the_neutral_size() {
+    assert_eq!(sized(5).params().hitbox_scale, Fx::ONE);
+    assert!(sized(9).params().hitbox_scale > Fx::from_ratio(125, 100));
+    assert!(sized(1).params().hitbox_scale < Fx::from_ratio(75, 100));
+}
+
+#[test]
+fn active_hitboxes_are_scaled_in_size_and_position() {
+    use sim_core::combat::active_hitboxes;
+    let c = Content::placeholder();
+    let mv = &c.weapons[0].moves[sim_core::moves::MoveId::FTilt as usize];
+    let mut f = GameState::new(&c, 1, [0, 0, 0, 0]).fighters[0];
+    f.state_frame = u16::from(mv.hitboxes[0].start);
+    let one: Vec<_> = active_hitboxes(&f, mv, Fx::ONE).collect();
+    let two: Vec<_> = active_hitboxes(&f, mv, Fx::from_int(2)).collect();
+    assert_eq!(one.len(), two.len());
+    for (a, b) in one.iter().zip(&two) {
+        assert_eq!(b.1.radius, a.1.radius * Fx::from_int(2));
+        assert_eq!(b.2.x - f.pos.x, (a.2.x - f.pos.x) * Fx::from_int(2));
+        assert_eq!(b.2.y - f.pos.y, (a.2.y - f.pos.y) * Fx::from_int(2));
+    }
+}
+
+#[test]
+fn a_big_fighters_projectile_leaves_from_further_out() {
+    use sim_core::input::buttons::SPECIAL;
+    let muzzle = |size: u8| {
+        let r = Recipe {
+            class: 1,
+            size,
+            ..Recipe::default()
+        };
+        let c = content_with(&[r]);
+        let mut s = GameState::new_with_active(&c, 1, [2, 0, 0, 0], 0b0011);
+        s.fighters[0].pos.x = Fx::from_int(-9);
+        for t in 0..40 {
+            let held = if t == 0 { SPECIAL } else { 0 };
+            step(
+                &mut s,
+                &c,
+                &inputs(Input {
+                    stick_x: 0,
+                    stick_y: 0,
+                    buttons: held,
+                }),
+            );
+            if let Some(p) = s.projectiles.iter().find(|p| p.active) {
+                return p.pos.x - s.fighters[0].pos.x;
+            }
+        }
+        panic!("no shot");
+    };
+    assert!(muzzle(9) > muzzle(5) && muzzle(5) > muzzle(1));
+}

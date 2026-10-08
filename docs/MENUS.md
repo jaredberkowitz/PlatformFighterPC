@@ -21,7 +21,7 @@ The stats are 1 to 9, where 5 is the class exactly as it ships. They change how 
 
 | Stat | What it does |
 | --- | --- |
-| **Size** | Body size from 68% to 132%: the hurtbox and ledge reach scale; bigger is **heavier, slower, jumps lower and falls faster**; smaller is quick and light |
+| **Size** | Body size from 68% to 132%: the hurtbox, ledge reach and **attack size** scale; bigger is **heavier, slower, jumps lower and falls faster** but hits bigger and reaches further; smaller is quick and light with tighter attacks |
 | **Speed** | Walk, run, dash and air speed and how snappy the accelerations are (a little lighter at the top end) |
 | **Jump** | How high jumps go |
 | **Weight** | How hard the fighter is to launch (and a little faster to fall) |
@@ -48,21 +48,56 @@ returns to select, Esc in select returns to the menu.
 `fighter` section made from its recipe by the bridge (`ContentEditor.derive_fighter`), then the game loads that bundle. Fighter
 names appear above the fighters in the match, and each fighter is drawn at its size.
 
+## Point budget and ranked rules
+
+Each stat is worth its value, so the four stats of a fighter spend at most **20 points** (the neutral fighter, 5 + 5 + 5 + 5,
+spends exactly 20). To raise one stat you lower another. The limit is defined once, in Rust (`sim-content/src/recipe.rs`, `BUDGET`,
+`Recipe::is_legal`), and the menus ask the bridge for it.
+
+* **Creator:** the **Rules** row chooses **Ranked** (the budget applies: arrows refuse to raise a stat when the points are spent, and
+  Finish refuses an over-budget fighter) or **Casual** (no limit; the fighter is saved as casual). A gold "Points 20 / 20" tag
+  shows the spend.
+* **Select:** the **Rules** button (or **R**) switches ranked rules on. Fighters over the budget carry a CASUAL tag and cannot be
+  locked in while ranked rules are on.
+* **Online:** `--ranked` on the host makes the handshake refuse any fighter over the budget, whichever side brings it.
+
+## Hitbox size scaling
+
+A fighter's attacks scale with its body: `FighterParams::hitbox_scale` (set from the size stat, from 0.68 to 1.32; exactly 1.0 for
+the neutral fighter) multiplies the size and position of every hitbox, the muzzle position and size of projectiles, and the
+reflector. A big fighter's attacks are bigger and reach further; a small one's are tighter. Damage and knockback do not change.
+The weapon drawn in the match follows the scaled hitboxes. Tests: `sim-content/tests/recipes.rs` (a jab's reach rises with size at
+sizes 1, 5 and 9; hitboxes and projectile muzzles scale exactly; scale 1.0 at the neutral size).
+
+## Online play with made fighters
+
+Each player brings a **fighter spec**, a few bytes: `[0, n]` for built-in fighter n, or `[1, class, size, speed, jump, weight]` for
+a made one. The specs travel in the network handshake; both sides build the same match from them (the base roster plus both made
+fighters, `recipe::match_content`) and play on it, so created fighters work online with nothing to install or share. The joiner
+checks the host's fighter numbers against its own working-out and refuses a mismatch; a malformed or unknown spec, or an over-budget one
+under ranked rules, is refused by both sides with a message. The fighter's **name and look** travel separately as cosmetics (they never
+reach the simulation). Details: `docs/NETPLAY.md`.
+
+To play online with a made fighter, make it in the creator, then either play one local match with it first (the menus remember it as
+"last played") or pass `--fighter=<name>` to the launcher: for example
+`Godot --path godot -- --host=47000 --fighter=big_bertha` and `Godot --path godot -- --join=IP:47000 --fighter=tiny_tim`.
+
 ## Not done (honest list)
 
-* **Online play uses the built-in fighters only.** Two players' created fighters would make two different contents, and the
-  handshake refuses a mismatch. The recipe is a handful of bytes and deterministic, so it can travel in the handshake and both sides
-  can build the same content; that is real netplay work and belongs with the Phase 7 online flow.
+* **No online lobby in the menus.** Hosting and joining are launch arguments (see above); the fighter is chosen by name or by what was
+  last played. A proper lobby with online character select, a ranked toggle and an input-delay setting is Phase 7.
 * Menus are keyboard and mouse. There is no controller navigation yet, and no key rebinding.
-* Moves do not scale with size (hitbox sizes belong to the moveset); only the body, the physics and the ledge reach do.
-* There is no balance guardrail yet: any mix of stats is allowed (plan 7.4 suggests a point budget for ranked play and free
-  editing in casual lobbies; the stat ranges are bounded so nothing breaks, but a 9-speed, 9-jump, 1-size fighter is a strong one).
-* The character art is the placeholder blob. Real models come later; the menus only show whatever the fighter view draws.
+* The point budget is a plain sum of the four stats; it does not weigh them differently, and nothing yet checks whether a legal
+  build is balanced (a tiny, fast, high-jumping, featherweight fighter is legal and strong in some ways). Real balance tooling is Phase 8.
+* The character art is the placeholder blob. Real models come later; the menus show whatever the fighter view draws.
 * One stage and one mode (versus). Stage select, stocks and match rules, results and rematch are Phase 7.
 * Not tried by a person yet: whether the screens feel good to use is unproven until someone plays with them.
 
 ## Tests
 
 * `sim-content/tests/recipes.rs`: validity of every recipe and the movement promises in the real sim.
+* `godot/tests/online_fighters_test.gd`: two game instances over real UDP bring made fighters (and built-in ones), build the same
+  match, see the same sizes, names and hashes; ranked rules refuse over-budget fighters from either side; the budget in the creator and select screens.
+* `netplay/tests/fighters.rs` and the `net-fuzz` command: the handshake and match are frame-for-frame exact with made fighters.
 * `godot/tests/creator_flow_test.gd`: name rules, saving and reloading, damaged files, assembling a match and checking the
   fighters' speed and jump height, then driving the creator, select and menu screens with key presses.

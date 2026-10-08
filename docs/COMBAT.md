@@ -262,3 +262,11 @@ held at the start of the dash to angle it.
   without one falls back to its dash grab, and turning from a standstill is an ordinary grab. Keyboard: dash with D, then A and the grab key.
 
 **Not done:** real animations (they wait for real models), and Shield Breaker's armour-free but otherwise unmodelled shield properties.
+
+## Hitbox scale (sim v22)
+
+`FighterParams::hitbox_scale` multiplies the size and position (from the feet, forward-relative) of every hitbox the fighter's moves
+use, the position and size of projectiles the fighter fires, and the reflector's field. `combat::active_hitboxes` takes the scale and
+returns already-scaled hitboxes. Damage, knockback, timing and scripted motion are unchanged, and a script's `spawn(x, y, ...)` offsets
+are used as written. The created-fighter recipes set it to the body size (0.68 to 1.32); every built-in fighter uses 1.0, so nothing
+changes for them.

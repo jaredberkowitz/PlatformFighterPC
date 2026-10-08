@@ -29,6 +29,8 @@ var start_button: Control
 var editor: RefCounted
 var scroll: ScrollContainer
 var rng := RandomNumberGenerator.new()
+var ranked := false
+var rules_button: Control
 
 
 class PlayerPanel extends Control:
@@ -157,6 +159,13 @@ func _ready() -> void:
 			flag.visible = false
 			token.add_child(flag)
 			tags.append(flag)
+		if i < entries.size() and not Roster.ranked_legal(entries[i]):
+			var mark := UI.Tag.new("CASUAL", Vector2(76, 24))
+			mark.fill = UI.SKY
+			mark.edge = UI.INK
+			mark.font_size = 14
+			mark.position = Vector2(10, TOKEN - 14)
+			token.add_child(mark)
 		grid.add_child(token)
 		tokens.append({"node": token, "portrait": portrait, "flags": tags})
 
@@ -175,6 +184,12 @@ func _ready() -> void:
 	status.font_size = 24
 	status.position = Vector2(500, 580)
 	add_child(status)
+
+	rules_button = UI.Btn.new("Rules: Casual", Vector2(280, 52))
+	rules_button.font_size = 24
+	rules_button.position = Vector2(990, 8)
+	rules_button.activated.connect(_toggle_ranked)
+	add_child(rules_button)
 
 	start_button = UI.Btn.new("Start Battle!", Vector2(330, 74))
 	start_button.position = Vector2(930, 590)
@@ -233,6 +248,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				_start()
 		KEY_E:
 			_edit()
+		KEY_R:
+			_toggle_ranked()
 		KEY_ESCAPE:
 			get_tree().change_scene_to_file("res://menu.tscn")
 
@@ -257,6 +274,20 @@ func _move(p: int, dx: int, dy: int) -> void:
 	scroll.ensure_control_visible(tokens[i].node)
 
 
+func _toggle_ranked() -> void:
+	ranked = not ranked
+	rules_button.text = "Rules: Ranked" if ranked else "Rules: Casual"
+	rules_button.queue_redraw()
+	# Anyone already locked in with a fighter the new rules forbid is sent back to choose again.
+	for p in 2:
+		if locked[p] and ranked and not Roster.ranked_legal(picked[p]):
+			_unlock(p)
+	status.set_text("Ranked rules: fighters over %d points are not allowed." % Roster.budget() if ranked else "Casual rules: anything goes.")
+	_refresh()
+	if ranked:
+		status.set_text("Ranked rules: fighters over %d points are not allowed." % Roster.budget())
+
+
 func _lock(p: int) -> void:
 	var i: int = cursor[p]
 	if i >= entries.size():
@@ -264,8 +295,12 @@ func _lock(p: int) -> void:
 			Roster.edit_slug = ""
 			get_tree().change_scene_to_file("res://creator.tscn")
 			return
-		picked[p] = entries[rng.randi_range(0, entries.size() - 1)]
+		var pool := entries.filter(func(e): return not ranked or Roster.ranked_legal(e))
+		picked[p] = pool[rng.randi_range(0, pool.size() - 1)]
 	else:
+		if ranked and not Roster.ranked_legal(entries[i]):
+			status.set_text("%s is over the %d point budget: not allowed under ranked rules." % [entries[i].name, Roster.budget()])
+			return
 		picked[p] = entries[i]
 	locked[p] = true
 	_refresh()
@@ -323,10 +358,8 @@ func _start() -> void:
 	if built.error != "":
 		status.set_text(built.error)
 		return
-	var sizes := []
-	for e in [picked[0], picked[1]]:
-		sizes.append(float(editor.recipe_readout(e["class"], e.size, e.speed, e.jump, e.weight).size_percent))
+	Roster.save_last(picked[0].slug)
 	Roster.session = {
-		"content_text": built.text, "chars": built.chars, "entries": [picked[0], picked[1]], "sizes": sizes, "from_menu": true,
+		"content_text": built.text, "chars": built.chars, "entries": [picked[0], picked[1]], "ranked": ranked, "from_menu": true,
 	}
 	get_tree().change_scene_to_file("res://main.tscn")

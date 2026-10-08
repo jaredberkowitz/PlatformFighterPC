@@ -96,6 +96,9 @@ impl Recipe {
             *v = scale(*v, size);
         }
 
+        // Attacks are the size of the body: a big fighter's hitboxes are bigger and reach further.
+        p.hitbox_scale = scale(p.hitbox_scale, size);
+
         // Ground and air speed: the speed stat, and bigger bodies are slower.
         let bulk_slow = 100 - (size - 100) * 35 / 100;
         let pace = (80 + 4 * speed) * bulk_slow / 100;
@@ -157,6 +160,135 @@ impl Recipe {
     }
 }
 
+// ---- The point budget ------------------------------------------------------------------------------------------------
+
+/// The most points a ranked-legal fighter may spend. Each stat is worth its value, so the neutral recipe (5 + 5 + 5 + 5)
+/// spends exactly the budget: to raise one stat, lower another. Casual play has no limit.
+pub const BUDGET: u8 = 20;
+
+impl Recipe {
+    /// Points spent: the sum of the four stats.
+    pub fn points(self) -> u8 {
+        let r = self.clamped();
+        r.size + r.speed + r.jump + r.weight
+    }
+
+    /// Within the budget, so legal under ranked rules.
+    pub fn is_legal(self) -> bool {
+        self.points() <= BUDGET
+    }
+}
+
+// ---- Fighters on the wire -------------------------------------------------------------------------------------------------
+
+/// Which fighter a player brings to a match: one of the base roster's, or one made from a recipe. It is a few bytes, so
+/// it travels in the network handshake and both sides build the same match from it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FighterSpec {
+    /// An index into the base roster's fighters.
+    Builtin(u8),
+    Made(Recipe),
+}
+
+impl FighterSpec {
+    pub fn encode(self) -> Vec<u8> {
+        match self {
+            FighterSpec::Builtin(i) => vec![0, i],
+            FighterSpec::Made(r) => {
+                let r = r.clamped();
+                vec![1, r.class, r.size, r.speed, r.jump, r.weight]
+            }
+        }
+    }
+
+    /// Reads a spec strictly: the exact length, a known kind, and every value in range. Anything else is `None`.
+    pub fn decode(bytes: &[u8]) -> Option<FighterSpec> {
+        match bytes {
+            [0, i] => Some(FighterSpec::Builtin(*i)),
+            [1, class, size, speed, jump, weight] => {
+                let stats = [*size, *speed, *jump, *weight];
+                if *class >= CLASSES || stats.iter().any(|s| !(MIN_STAT..=MAX_STAT).contains(s)) {
+                    return None;
+                }
+                Some(FighterSpec::Made(Recipe {
+                    class: *class,
+                    size: *size,
+                    speed: *speed,
+                    jump: *jump,
+                    weight: *weight,
+                }))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Why a set of fighters cannot make a match.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpecError {
+    /// Bytes that are not a fighter spec (or missing).
+    Undecodable,
+    /// A built-in fighter or a class that the base content does not have.
+    UnknownFighter,
+    /// Ranked rules and a fighter over the point budget.
+    OverBudget,
+    TooMany,
+}
+
+/// The fighter index each spec gets in the match content built by [`match_content`]: built-in fighters keep theirs, made
+/// ones are appended after the base roster in the order given.
+pub fn resolve(
+    base_fighters: usize,
+    base_weapons: usize,
+    specs: &[FighterSpec],
+    ranked: bool,
+) -> Result<Vec<u8>, SpecError> {
+    let mut next = base_fighters;
+    let mut out = Vec::with_capacity(specs.len());
+    for spec in specs {
+        match spec {
+            FighterSpec::Builtin(i) => {
+                if usize::from(*i) >= base_fighters {
+                    return Err(SpecError::UnknownFighter);
+                }
+                out.push(*i);
+            }
+            FighterSpec::Made(r) => {
+                if usize::from(r.class) >= base_weapons {
+                    return Err(SpecError::UnknownFighter);
+                }
+                if ranked && !r.is_legal() {
+                    return Err(SpecError::OverBudget);
+                }
+                if next > 255 {
+                    return Err(SpecError::TooMany);
+                }
+                out.push(next as u8);
+                next += 1;
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// The content for a match: `base` plus every made fighter in `specs`, and each spec's fighter index.
+pub fn match_content(
+    base: &sim_core::Content,
+    specs: &[FighterSpec],
+    ranked: bool,
+) -> Result<(sim_core::Content, Vec<u8>), SpecError> {
+    let chars = resolve(base.fighters.len(), base.weapons.len(), specs, ranked)?;
+    let mut content = base.clone();
+    for spec in specs {
+        if let FighterSpec::Made(r) = spec {
+            content.fighters.push(r.params());
+            let n = content.names.fighters.len();
+            content.names.fighters.push(format!("made{n}"));
+        }
+    }
+    Ok((content, chars))
+}
+
 /// What a fighter feels like, for the creator's stat bars. Units are world units and frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Readout {
@@ -189,6 +321,118 @@ mod tests {
             ..Recipe::default()
         };
         assert_eq!(claws.params(), FighterParams::brawler());
+    }
+
+    #[test]
+    fn the_neutral_recipe_spends_exactly_the_budget() {
+        assert_eq!(Recipe::default().points(), BUDGET);
+        assert!(Recipe::default().is_legal());
+        let more = Recipe {
+            size: 6,
+            ..Recipe::default()
+        };
+        assert!(!more.is_legal());
+        let traded = Recipe {
+            size: 4,
+            speed: 6,
+            ..Recipe::default()
+        };
+        assert!(traded.is_legal());
+    }
+
+    #[test]
+    fn specs_round_trip_and_reject_garbage() {
+        for spec in [
+            FighterSpec::Builtin(0),
+            FighterSpec::Builtin(7),
+            FighterSpec::Made(Recipe::default()),
+            FighterSpec::Made(Recipe {
+                class: 1,
+                size: 9,
+                speed: 1,
+                jump: 3,
+                weight: 9,
+            }),
+        ] {
+            assert_eq!(FighterSpec::decode(&spec.encode()), Some(spec));
+        }
+        for bad in [
+            vec![],
+            vec![0],
+            vec![0, 1, 2],
+            vec![1, 0, 5, 5, 5],
+            vec![1, 0, 5, 5, 5, 5, 5],
+            vec![1, 0, 0, 5, 5, 5],
+            vec![1, 0, 10, 5, 5, 5],
+            vec![1, 2, 5, 5, 5, 5],
+            vec![2, 0, 0],
+        ] {
+            assert_eq!(FighterSpec::decode(&bad), None, "{bad:?}");
+        }
+        let mut seed = 3u32;
+        for _ in 0..5000 {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            let len = (seed >> 28) as usize;
+            let bytes: Vec<u8> = (0..len)
+                .map(|_| {
+                    seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                    (seed >> 24) as u8 % 12
+                })
+                .collect();
+            let _ = FighterSpec::decode(&bytes);
+        }
+    }
+
+    #[test]
+    fn match_content_appends_made_fighters_in_order() {
+        let base = sim_core::Content::placeholder();
+        let a = Recipe {
+            size: 9,
+            ..Recipe::default()
+        };
+        let b = Recipe {
+            class: 1,
+            size: 1,
+            ..Recipe::default()
+        };
+        let specs = [
+            FighterSpec::Made(a),
+            FighterSpec::Builtin(1),
+            FighterSpec::Made(b),
+        ];
+        let (content, chars) = match_content(&base, &specs, false).unwrap();
+        assert_eq!(chars, vec![2, 1, 3]);
+        assert_eq!(content.fighters.len(), 4);
+        assert_eq!(content.fighters[2], a.params());
+        assert_eq!(content.fighters[3], b.params());
+        assert_eq!(&content.fighters[..2], &base.fighters[..]);
+        assert_eq!(crate::validate(&content), Ok(()));
+        // The same specs always make the same content (and the same hash).
+        assert_eq!(
+            match_content(&base, &specs, false).unwrap().0.hash(),
+            content.hash()
+        );
+    }
+
+    #[test]
+    fn match_content_refuses_what_it_cannot_make() {
+        let base = sim_core::Content::placeholder();
+        assert_eq!(
+            match_content(&base, &[FighterSpec::Builtin(9)], false).unwrap_err(),
+            SpecError::UnknownFighter
+        );
+        let big = Recipe {
+            size: 9,
+            speed: 9,
+            jump: 9,
+            weight: 9,
+            ..Recipe::default()
+        };
+        assert!(match_content(&base, &[FighterSpec::Made(big)], false).is_ok());
+        assert_eq!(
+            match_content(&base, &[FighterSpec::Made(big)], true).unwrap_err(),
+            SpecError::OverBudget
+        );
     }
 
     #[test]

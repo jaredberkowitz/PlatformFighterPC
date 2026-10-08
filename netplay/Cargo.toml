@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 sim-core = { path = "../sim-core" }
+sim-content = { path = "../sim-content" }
 
 [lints]
 workspace = true

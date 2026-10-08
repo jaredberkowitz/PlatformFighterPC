@@ -2,7 +2,7 @@
 
 An original, legally distinct platform fighter with rollback netcode, a character creator and a stage creator.
 Full plan: [`docs/Platform_Fighter_Project_Plan.docx`](docs/Platform_Fighter_Project_Plan.docx).
-Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md). Content format and scripting: [`docs/CONTENT.md`](docs/CONTENT.md). Editors: [`docs/EDITORS.md`](docs/EDITORS.md). Menus and the character creator: [`docs/MENUS.md`](docs/MENUS.md).
+Art style target: [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md). Weapons and movesets: [`docs/MOVESETS.md`](docs/MOVESETS.md). Combat: [`docs/COMBAT.md`](docs/COMBAT.md). Netplay: [`docs/NETPLAY.md`](docs/NETPLAY.md). Content format and scripting: [`docs/CONTENT.md`](docs/CONTENT.md). Editors: [`docs/EDITORS.md`](docs/EDITORS.md). Menus and the character creator: [`docs/MENUS.md`](docs/MENUS.md). **Where the project stands and what to do next: [`docs/STATUS.md`](docs/STATUS.md).**
 
 ## Status: Phases 0-3 built, Phase 4 (netplay) built and tested locally, Phase 5 (content format and scripting) built, Phase 6 (editors) built, playable in Godot
 

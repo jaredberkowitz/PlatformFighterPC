@@ -123,6 +123,9 @@ pub struct FighterParams {
     pub ecb_height: Fx,
     /// Height above the feet of the ECB's widest points, used for wall contact.
     pub ecb_side_height: Fx,
+    /// Scales the size and position of everything this fighter's attacks do (hitboxes, projectile muzzles and sizes,
+    /// reflectors). 1.0 is the moveset as written; a big fighter's attacks are bigger and reach further.
+    pub hitbox_scale: Fx,
     // Special states
     pub helpless_landing_lag: u8,
     pub ledge_attack_frames: u8,
@@ -135,7 +138,7 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 45] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 46] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -180,6 +183,7 @@ impl FighterParams {
             ("ecb_half_width", self.ecb_half_width),
             ("ecb_height", self.ecb_height),
             ("ecb_side_height", self.ecb_side_height),
+            ("hitbox_scale", self.hitbox_scale),
             ("ledge_attack_dx", self.ledge_attack_dx),
             ("weight", self.weight),
         ]
@@ -347,6 +351,7 @@ impl FighterParams {
             ecb_half_width: r(4, 5),
             ecb_height: r(11, 5),
             ecb_side_height: r(11, 10),
+            hitbox_scale: Fx::ONE,
             helpless_landing_lag: 20,
             ledge_attack_frames: 54,
             ledge_attack_dx: r(3, 2),

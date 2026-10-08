@@ -4,9 +4,10 @@
 //!
 //! Call [`Peer::update`] once per frame with the local input; it receives, handshakes or simulates, and sends.
 
-use crate::handshake::{Handshake, Outcome};
+use crate::handshake::{BaseCounts, Handshake, Outcome};
 use crate::packet::{RejectReason, Setup};
 use crate::session::{Advance, Event, Session, SessionConfig, Stats};
+use sim_content::recipe::{match_content, FighterSpec};
 use sim_core::{Content, GameState, Input, SIM_VERSION};
 
 /// Anything that can move datagrams: a UDP socket, a relay connection, or a simulated lossy link in tests.
@@ -39,6 +40,9 @@ pub struct Peer<L: Link> {
     checksum_interval: u32,
     heard_from_remote: bool,
     events: Vec<Event>,
+    /// The content of this match when players brought made fighters: the base roster plus theirs. `None` means the
+    /// base content passed to `update` is the match's content.
+    match_content: Option<Content>,
 }
 
 impl<L: Link> Peer<L> {
@@ -46,16 +50,32 @@ impl<L: Link> Peer<L> {
     pub fn host(link: L, content: &Content, setup: Setup) -> Peer<L> {
         Peer::new(
             link,
-            Handshake::host(SIM_VERSION, content.hash(), setup),
+            Handshake::host(SIM_VERSION, content.hash(), counts(content), setup),
             true,
         )
     }
 
     /// The joiner is player 1 and takes whatever the host decided, if the versions match.
     pub fn join(link: L, content: &Content, cosmetics: Vec<u8>) -> Peer<L> {
+        Peer::join_with_fighter(link, content, cosmetics, Vec::new())
+    }
+
+    /// Like [`Peer::join`], bringing a fighter (`FighterSpec` bytes) to the match.
+    pub fn join_with_fighter(
+        link: L,
+        content: &Content,
+        cosmetics: Vec<u8>,
+        fighter: Vec<u8>,
+    ) -> Peer<L> {
         Peer::new(
             link,
-            Handshake::join(SIM_VERSION, content.hash(), cosmetics),
+            Handshake::join(
+                SIM_VERSION,
+                content.hash(),
+                counts(content),
+                cosmetics,
+                fighter,
+            ),
             false,
         )
     }
@@ -70,7 +90,19 @@ impl<L: Link> Peer<L> {
             checksum_interval: 30,
             heard_from_remote: false,
             events: Vec::new(),
+            match_content: None,
         }
+    }
+
+    /// The two players' fighter specs as `(host's, joiner's)`, once the handshake has them.
+    pub fn fighter_specs(&self) -> Option<(Vec<u8>, Vec<u8>)> {
+        self.handshake.fighter_specs()
+    }
+
+    /// The content the match runs on once it has started with made fighters in it (otherwise `None`: the base content).
+    /// The game needs it to draw the fighters and read their numbers.
+    pub fn match_content(&self) -> Option<&Content> {
+        self.match_content.as_ref()
     }
 
     /// How far the sim may run ahead of confirmed remote input (default 8 frames).
@@ -144,6 +176,25 @@ impl<L: Link> Peer<L> {
         // Start the match when the handshake succeeds.
         if self.session.is_none() {
             if let Outcome::Ready(setup) = self.handshake.outcome().clone() {
+                // Both sides build the same content from the two fighters' specs.
+                if let Some((host, joiner)) = self.handshake.fighter_specs() {
+                    let specs: Option<Vec<FighterSpec>> = [host, joiner]
+                        .iter()
+                        .map(|b| FighterSpec::decode(b))
+                        .collect();
+                    let built = specs.and_then(|s| match_content(content, &s, setup.ranked).ok());
+                    match built {
+                        Some((c, _)) => self.match_content = Some(c),
+                        None => {
+                            return Status::Rejected {
+                                reason: RejectReason::BadFighter,
+                                their_version: SIM_VERSION,
+                                their_hash: 0,
+                            }
+                        }
+                    }
+                }
+                let content = self.match_content.as_ref().unwrap_or(content);
                 let cfg = SessionConfig {
                     local: u8::from(!self.host),
                     active: setup.active,
@@ -180,10 +231,17 @@ impl<L: Link> Peer<L> {
         let Some(session) = &mut self.session else {
             return Status::Connecting;
         };
-        let advance = session.advance(content, local);
+        let advance = session.advance(self.match_content.as_ref().unwrap_or(content), local);
         for p in session.drain_outgoing() {
             self.link.send(&p);
         }
         Status::Running(advance)
+    }
+}
+
+fn counts(content: &Content) -> BaseCounts {
+    BaseCounts {
+        fighters: content.fighters.len(),
+        weapons: content.weapons.len(),
     }
 }

@@ -66,6 +66,7 @@ func _ready() -> void:
 	_load_content()
 	sim.set_players(PLAYERS)
 	_restart()
+	_apply_scales()
 	_start_net()
 	_build_ecb()
 	_build_boxes()
@@ -214,7 +215,6 @@ func _load_content() -> void:
 				var e: Dictionary = Roster.session.entries[i]
 				views[i].rebuild(e.look)
 				views[i].set_name_tag(e.name)
-				views[i].scale = Vector3.ONE * (float(Roster.session.sizes[i]) / 100.0)
 			return
 		push_error("content: " + err_text)
 		content_note = "CONTENT NOT LOADED: " + err_text
@@ -268,9 +268,12 @@ func _start_net() -> void:
 			chars = []
 			for c in a.substr(8).split(","):
 				chars.append(int(c))
-	# Everyone plays with their own saved look (player 1's slot); it travels to the other side in the handshake.
-	var mine := Loadout.load_saved(0)
-	sim.set_cosmetics(mine.to_bytes())
+	# Everyone brings their own fighter (`--fighter=<slug>`, or the one last played in the menus) and its look and name; a
+	# few bytes of each travel to the other side in the handshake. `--ranked` (host) refuses fighters over the point budget.
+	var me := Roster.net_entry()
+	sim.set_cosmetics(Roster.profile_bytes(me))
+	sim.set_fighter(Roster.spec_bytes(me))
+	sim.set_ranked(OS.get_cmdline_user_args().has("--ranked"))
 	local_slot = 0 if (host_port >= 0) else 1
 	var err := ""
 	if host_port >= 0 and relay != "":
@@ -288,8 +291,15 @@ func _start_net() -> void:
 		net_lines.append(err)
 		return
 	net_mode = true
-	views[local_slot].rebuild(mine)
+	views[local_slot].rebuild(me.look)
+	views[local_slot].set_name_tag(me.name)
 	print("network mode: ", "host" if host_port >= 0 else "joiner")
+
+
+## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat).
+func _apply_scales() -> void:
+	for i in PLAYERS:
+		views[i].scale = Vector3.ONE * sim.fighter_scale(i)
 
 
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
@@ -299,10 +309,12 @@ func _net_step() -> void:
 	inputs[local] = r
 	net_status = sim.net_update(r.x, r.y, r.buttons)
 	# Once the handshake is done the other player's look arrives (or is missing, and they keep the default look).
-	if net_status >= 1 and not their_look_applied:
+	if (net_status == 1 or net_status == 2) and not their_look_applied:
 		their_look_applied = true
-		var theirs := Loadout.from_bytes(sim.net_their_cosmetics(), 1 - local_slot)
-		views[1 - local_slot].rebuild(theirs)
+		var theirs := Roster.parse_profile(sim.net_their_cosmetics(), 1 - local_slot)
+		views[1 - local_slot].rebuild(theirs.look)
+		views[1 - local_slot].set_name_tag(theirs.name)
+		_apply_scales()
 	for line in sim.net_take_log():
 		net_lines.append(line)
 		print(line)

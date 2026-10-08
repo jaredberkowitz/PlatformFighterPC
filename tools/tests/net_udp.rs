@@ -28,6 +28,7 @@ fn setup() -> Setup {
         active: 0b0011,
         input_delay: 2,
         cosmetics: vec![1, 2, 3],
+        ..Setup::default()
     }
 }
 
@@ -62,9 +63,16 @@ fn play<L: Link>(mut peer: Peer<L>, inputs: Vec<[Input; MAX_FIGHTERS]>) -> Outco
 }
 
 fn truth(inputs: &[[Input; MAX_FIGHTERS]]) -> Vec<u64> {
-    let content = Content::placeholder();
+    truth_on(&Content::placeholder(), setup().chars, inputs)
+}
+
+fn truth_on(
+    content: &Content,
+    chars: [u8; MAX_FIGHTERS],
+    inputs: &[[Input; MAX_FIGHTERS]],
+) -> Vec<u64> {
     let s = setup();
-    let initial = GameState::new_with_active(&content, s.seed, s.chars, s.active);
+    let initial = GameState::new_with_active(content, s.seed, chars, s.active);
     let delay = u32::from(s.input_delay) as usize;
     let seq: Vec<[Input; MAX_FIGHTERS]> = (0..TOTAL as usize + 20)
         .map(|f| {
@@ -78,7 +86,7 @@ fn truth(inputs: &[[Input; MAX_FIGHTERS]]) -> Vec<u64> {
             i
         })
         .collect();
-    reference_checksums(&content, &initial, &seq)
+    reference_checksums(content, &initial, &seq)
 }
 
 fn check(host: &Outcome, join: &Outcome, inputs: &[[Input; MAX_FIGHTERS]]) {
@@ -165,4 +173,50 @@ fn two_peers_through_the_relay_stay_in_sync() {
         "the relay carried the match ({forwarded} datagrams)"
     );
     check(&host_outcome, &join_outcome, &inputs);
+}
+
+#[test]
+fn two_made_fighters_over_real_udp_stay_in_sync() {
+    use sim_content::recipe::{match_content, FighterSpec, Recipe};
+    let big = FighterSpec::Made(Recipe {
+        class: 0,
+        size: 9,
+        speed: 2,
+        jump: 3,
+        weight: 8,
+    });
+    let small = FighterSpec::Made(Recipe {
+        class: 1,
+        size: 1,
+        speed: 9,
+        jump: 8,
+        weight: 2,
+    });
+    let inputs = random_inputs(&mut Rng::new(21), TOTAL as usize + 100);
+    let content = Content::placeholder();
+    let host_link = UdpLink::bind(local(), None).unwrap();
+    let host_addr = host_link.local_addr().unwrap();
+    let join_link = UdpLink::bind(local(), Some(host_addr)).unwrap();
+    let mut host_setup = setup();
+    host_setup.fighter = big.encode();
+    let host = Peer::host(host_link, &content, host_setup);
+    let join = Peer::join_with_fighter(join_link, &content, Vec::new(), small.encode());
+
+    let (i1, i2) = (inputs.clone(), inputs.clone());
+    let t1 = thread::spawn(move || play(host, i1));
+    let t2 = thread::spawn(move || play(join, i2));
+    let (a, b) = (t1.join().unwrap(), t2.join().unwrap());
+
+    let (match_c, chars) = match_content(&content, &[big, small], false).unwrap();
+    let mut ids = setup().chars;
+    ids[0] = chars[0];
+    ids[1] = chars[1];
+    let truth = truth_on(&match_c, ids, &inputs);
+    for (name, o) in [("host", &a), ("joiner", &b)] {
+        assert!(o.events.is_empty(), "{name}: {:?}", o.events);
+        assert!(o.history.len() >= 5);
+        for (frame, sum) in &o.history {
+            assert_eq!(*sum, truth[*frame as usize], "{name} at frame {frame}");
+        }
+    }
 }

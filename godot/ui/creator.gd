@@ -19,6 +19,7 @@ const DESCRIPTIONS := {
 	"speed": "How fast and responsive you are on the ground and in the air. Quick fighters are a little lighter.",
 	"jump": "How high your jumps go.",
 	"weight": "Heavier fighters are harder to launch and fall a bit faster.",
+	"rules": "Ranked: the four stats share 20 points, so raising one means lowering another. Casual: no limit, for friendly matches (a casual fighter cannot be used under ranked rules if it is over the budget).",
 	"name": "Name your fighter. It is saved on this computer and shows up in character select.",
 }
 const BAR_KEYS := ["Size", "Run speed", "Jump height", "Weight", "Fall speed"]
@@ -37,6 +38,7 @@ var editing_slug := ""
 var saved_list: Array = []
 var loading := false
 var delete_button: Control
+var points_tag: Control
 
 
 func _ready() -> void:
@@ -54,7 +56,7 @@ func _ready() -> void:
 
 	var column := VBoxContainer.new()
 	column.position = Vector2(40, 84)
-	column.add_theme_constant_override("separation", 4)
+	column.add_theme_constant_override("separation", 3)
 	add_child(column)
 
 	saved_list = Roster.saved()
@@ -69,19 +71,23 @@ func _ready() -> void:
 		var r := UI.StatRow.new(stat.capitalize())
 		r.changed.connect(func(_v): _changed())
 		var id: String = stat
+		r.can_raise = _can_raise
+		r.blocked.connect(func(): status.set_text("No points left: lower another stat or choose Casual."))
 		r.focused.connect(func(): _focus_id(id))
 		column.add_child(r)
 		stat_rows[stat] = r
 		rows.append({"id": stat, "node": r})
 
+	_add_selector(column, "rules", "Rules", ["Ranked", "Casual"])
+
 	var name_row := HBoxContainer.new()
 	name_row.add_theme_constant_override("separation", 6)
-	var name_tag := UI.Tag.new("Name", Vector2(150, 44))
+	var name_tag := UI.Tag.new("Name", Vector2(150, 38))
 	name_tag.fill = UI.CREAM_DARK
 	name_tag.font_size = 22
 	name_row.add_child(name_tag)
 	name_edit = LineEdit.new()
-	name_edit.custom_minimum_size = Vector2(300, 44)
+	name_edit.custom_minimum_size = Vector2(300, 38)
 	name_edit.max_length = 24
 	name_edit.placeholder_text = "type a name"
 	name_edit.add_theme_font_override("font", UI.font())
@@ -120,12 +126,19 @@ func _ready() -> void:
 	bars.position = Vector2(990, 212)
 	add_child(bars)
 
-	status = UI.Tag.new("", Vector2(440, 40))
+	points_tag = UI.Tag.new("", Vector2(270, 44))
+	points_tag.fill = UI.GOLD
+	points_tag.edge = UI.INK
+	points_tag.font_size = 26
+	points_tag.position = Vector2(992, 452)
+	add_child(points_tag)
+
+	status = UI.Tag.new("", Vector2(700, 40))
 	status.fill = Color(1, 1, 1, 0.0)
 	status.ink = UI.GOLD
 	status.shadow = false
 	status.font_size = 22
-	status.position = Vector2(780, 574)
+	status.position = Vector2(560, 596)
 	add_child(status)
 
 	var finish := UI.Btn.new("Finish", Vector2(230, 64))
@@ -191,6 +204,7 @@ func _load_selected() -> void:
 		name_edit.text = e.name
 	for slot in Loadout.SLOTS:
 		selectors[slot].set_index(look.get_slot(slot), false)
+	selectors["rules"].set_index(1 if (i > 0 and saved_list[i - 1].get("casual", false)) else 0, false)
 	delete_button.visible = editing_slug != ""
 	loading = false
 	_changed()
@@ -203,7 +217,17 @@ func current_entry() -> Dictionary:
 	var e := Roster.neutral_entry(name_edit.text.strip_edges(), selectors["class"].index, look)
 	for stat in stat_rows:
 		e[stat] = stat_rows[stat].value
+	e.casual = selectors["rules"].index == 1
 	return e
+
+
+func _points() -> int:
+	return Roster.points(current_entry())
+
+
+## May a stat go up? Only while there are points left, unless the rules are casual.
+func _can_raise() -> bool:
+	return selectors["rules"].index == 1 or _points() < Roster.budget()
 
 
 func _changed() -> void:
@@ -214,6 +238,10 @@ func _changed() -> void:
 	var r: Dictionary = editor.recipe_readout(e["class"], e.size, e.speed, e.jump, e.weight)
 	preview.set_size_percent(float(r.size_percent))
 	bars.set_values(Roster.readout_bars(editor, e), BAR_KEYS)
+	var spent := Roster.points(e)
+	var over: bool = spent > Roster.budget()
+	points_tag.set_text("Points %d / %d%s" % [spent, Roster.budget(), "  CASUAL" if e.casual else ""])
+	points_tag.fill = UI.RED.lerp(UI.CREAM, 0.35) if (over and not e.casual) else (UI.SKY if e.casual else UI.GOLD)
 	_describe()
 	status.set_text("")
 
@@ -302,6 +330,8 @@ func _delete() -> void:
 func _finish() -> void:
 	var e := current_entry()
 	var problem := Roster.name_problem(e.name, editing_slug)
+	if problem == "" and not e.casual and not Roster.ranked_legal(e):
+		problem = "Over the budget (%d of %d): lower a stat or choose Casual." % [Roster.points(e), Roster.budget()]
 	if problem != "":
 		status.set_text(problem)
 		_set_focus(rows.size() - 1)

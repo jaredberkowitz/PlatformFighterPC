@@ -20,7 +20,80 @@ const CLASS_BLURBS := [
 
 
 static func neutral_entry(name: String, class_id: int, look: RefCounted) -> Dictionary:
-	return {"name": name, "slug": slug_of(name), "builtin": false, "class": class_id, "size": 5, "speed": 5, "jump": 5, "weight": 5, "look": look}
+	return {"name": name, "slug": slug_of(name), "builtin": false, "class": class_id, "size": 5, "speed": 5, "jump": 5, "weight": 5, "look": look, "casual": false}
+
+
+## The rules the stats are held to, from Rust (so the limit is defined in one place).
+static var _rules: RefCounted
+
+
+static func rules() -> RefCounted:
+	if _rules == null:
+		_rules = ClassDB.instantiate("ContentEditor")
+	return _rules
+
+
+static func budget() -> int:
+	return rules().recipe_budget()
+
+
+static func points(e: Dictionary) -> int:
+	return rules().recipe_points(e["class"], e.size, e.speed, e.jump, e.weight)
+
+
+## Within the point budget, so allowed under ranked rules. A fighter saved as casual can still be within it.
+static func ranked_legal(e: Dictionary) -> bool:
+	return points(e) <= budget()
+
+
+## The bytes that stand for this fighter in an online handshake (see `FighterSpec` in Rust).
+static func spec_bytes(e: Dictionary) -> PackedByteArray:
+	if e.get("builtin", false):
+		return rules().builtin_spec(int(e.base_index))
+	return rules().fighter_spec(e["class"], e.size, e.speed, e.jump, e.weight)
+
+
+## What is sent as cosmetics: the look and the name. Never reaches the simulation.
+static func profile_bytes(e: Dictionary) -> PackedByteArray:
+	var look: PackedByteArray = e.look.to_bytes()
+	var out := PackedByteArray([look.size()])
+	out.append_array(look)
+	out.append_array(str(e.name).left(24).to_utf8_buffer())
+	return out
+
+
+## Reads what `profile_bytes` made (or anything else: a bad profile gives the default look and no name).
+static func parse_profile(bytes: PackedByteArray, player := 0) -> Dictionary:
+	var look: RefCounted = Loadout.default_for(player)
+	var name := ""
+	if bytes.size() >= 1 and bytes[0] <= Loadout.MAX_BYTES and bytes.size() >= 1 + bytes[0]:
+		look = Loadout.from_bytes(bytes.slice(1, 1 + bytes[0]), player)
+		name = bytes.slice(1 + bytes[0]).get_string_from_utf8().left(24)
+	return {"look": look, "name": name}
+
+
+const LAST_PATH := "user://last_fighter.txt"
+
+
+static func save_last(slug: String) -> void:
+	var f := FileAccess.open(LAST_PATH, FileAccess.WRITE)
+	if f != null:
+		f.store_string(slug)
+
+
+## The fighter to bring to an online match: `--fighter=<slug>` after `--`, else the one player 1 last played with.
+static func net_entry() -> Dictionary:
+	var wanted := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--fighter="):
+			wanted = slug_of(a.substr(10))
+	if wanted == "" and FileAccess.file_exists(LAST_PATH):
+		wanted = FileAccess.get_file_as_string(LAST_PATH).strip_edges()
+	var everyone := all()
+	for e in everyone:
+		if e.slug == wanted:
+			return e
+	return everyone[0]
 
 
 static func builtins() -> Array:
@@ -74,7 +147,7 @@ static func path_of(slug: String) -> String:
 static func to_json(e: Dictionary) -> String:
 	return JSON.stringify({
 		"version": VERSION, "name": e.name, "class": e["class"], "size": e.size, "speed": e.speed, "jump": e.jump,
-		"weight": e.weight, "look": e.look.to_code(),
+		"weight": e.weight, "look": e.look.to_code(), "casual": e.get("casual", false),
 	}, "  ")
 
 
@@ -94,6 +167,7 @@ static func from_json(text: String) -> Dictionary:
 	e.speed = stat.call("speed")
 	e.jump = stat.call("jump")
 	e.weight = stat.call("weight")
+	e.casual = bool(parsed.get("casual", false))
 	return e
 
 

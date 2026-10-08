@@ -33,6 +33,20 @@ behaves identically in tests and in play.
    raises `Event::Desync { frame, local, remote }` immediately, with the frame number.
 6. **Disconnect.** 600 `advance` calls (10 s) without any packet from the other peer, or a goodbye packet, ends the connection.
 
+## Fighters in the handshake
+
+The content hash both sides compare is the **base** roster. A player may bring a *fighter spec* (a few bytes from
+`sim_content::recipe::FighterSpec`: a built-in fighter's index, or a recipe's class and four stats) in the hello (joiner) or the
+setup (host). The host works out each player's fighter number from the two specs and sends it in the setup; the joiner works it
+out itself and refuses the match if it differs from the host's. Both sides then build the same **match content** (the base roster
+plus every made fighter, appended in player order) and run on it. `Peer::match_content()` exposes it so the game can draw the
+fighters. The setup also carries a `ranked` flag: under ranked rules a recipe over the point budget (`recipe::BUDGET`, 20) is refused.
+Every failure (undecodable bytes, an unknown built-in fighter or class, over budget, only one side bringing a spec, a host whose
+numbers do not follow from the specs) rejects with `RejectReason::BadFighter` on both sides. With no specs the old behaviour is
+unchanged: the characters in the settings are used on the base content. The wire format changed (a `fighter` field in `Hello`
+and `Setup`, a `ranked` byte in `Setup`, reject reason 4), so builds from before this change cannot play against newer ones; the
+sim version (22) refuses that anyway.
+
 ## What is tested
 
 * `netplay/tests/session.rs`: handshake accept, refusal on a different version or content, survival at 50% packet loss; sessions over a
@@ -44,6 +58,10 @@ behaves identically in tests and in play.
 * `pftool net-fuzz 2000`: randomised input delay, latency, loss, duplication and a mid-match total outage; every confirmed frame of
   both peers must equal a single-machine run of the same inputs. Current result: 2000 runs, 0 mismatches, about 105,000 rollbacks.
 * `godot/tests/net_e2e.gd`: two `SimRunner` nodes play each other over UDP through the bridge.
+* `netplay/tests/fighters.rs`: made vs made, built-in vs made, over lossy links, **frame for frame equal to a single-machine run on the
+  match content**; ranked refusals from either side; seven kinds of bad spec; a host that lies about fighter numbers.
+  `tools/tests/net_udp.rs` repeats it over real UDP; `pftool net-fuzz` gives every other run random made fighters;
+  `godot/tests/online_fighters_test.gd` does it through the bridge.
 
 The fuzzer found one real bug in the session: the input ring (128 frames) was narrower than the window of frames accepted from
 the network, so a delayed duplicate packet from long ago could reuse a slot that already held newer inputs. Frames are now only
