@@ -926,12 +926,12 @@ var flame: MeshInstance3D
 const SWORD_CLIPS := {"ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
 	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
 const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
-	"dtilt": "kick_low", "dash attack": "kick_dash"}
+	"dtilt": "kick_low", "dash attack": "kick_dash", "usmash": "kick_uair"}
 ## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
 var leg_k := 0.0
 
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
-const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1

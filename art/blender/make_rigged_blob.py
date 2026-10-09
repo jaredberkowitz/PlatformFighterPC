@@ -491,26 +491,33 @@ def main() -> None:
     def move(name, wind, strike, hold):
         clip(rig, name, 60, {0: hold(0), 21: wind, 33: strike, 45: hold(1), 60: hold(0)})
 
-    # Forward air: tuck and lean back to wind up, then the whole body folds forward through the sweep.
+    # Forward air: the reference pose is a mid-air crouch, knees pulled up high, the attacking arm reaching up and forward and then brought
+    # down through the sweep in front while the torso curls over it. Lean back with the arm cocked, then curl forward with the knees tucked.
     def fair_wind(rig):
         rest_arms(rig, -20.0)
         pose(rig, "hips", lift=0.02)
-        pose(rig, "spine", fwd=-16.0, twist=-20.0)
+        pose(rig, "spine", fwd=-18.0, twist=-20.0)
         pose(rig, "head", fwd=6.0)
-        stance(rig, lead=24.0, back=34.0)
+        stance(rig, lead=40.0, back=46.0)
+        pose(rig, "shin.L", fwd=-70.0)
+        pose(rig, "shin.R", fwd=-80.0)
 
     def fair_strike(rig):
         rest_arms(rig, 30.0)
-        pose(rig, "hips", lift=-0.06)
-        pose(rig, "spine", fwd=30.0, twist=24.0)
-        pose(rig, "head", fwd=-12.0)
-        stance(rig, lead=44.0, back=-8.0)
+        pose(rig, "hips", lift=-0.04)
+        pose(rig, "spine", fwd=34.0, twist=24.0)
+        pose(rig, "head", fwd=-14.0)
+        stance(rig, lead=66.0, back=58.0)
+        pose(rig, "shin.L", fwd=-96.0)
+        pose(rig, "shin.R", fwd=-104.0)
 
     def fair_hold(k):
         def f(rig):
             rest_arms(rig, 14.0 * k)
-            pose(rig, "spine", fwd=14.0 * k, twist=8.0 * k)
-            stance(rig, lead=30.0 * k, back=12.0 * k)
+            pose(rig, "spine", fwd=16.0 * k, twist=8.0 * k)
+            stance(rig, lead=44.0 * k, back=40.0 * k)
+            pose(rig, "shin.L", fwd=-8.0 - 70.0 * k)
+            pose(rig, "shin.R", fwd=-8.0 - 76.0 * k)
         return f
 
     move("attack_fair", fair_wind, fair_strike, fair_hold)
@@ -522,12 +529,15 @@ def main() -> None:
         pose(rig, "head", fwd=-4.0, twist=-14.0)
         stance(rig, lead=20.0, back=-10.0)
 
+    # Back air: the body turns away; the front knee comes up tucked and the back leg trails down and behind, as the swing goes behind.
     def bair_strike(rig):
         rest_arms(rig, -30.0)
         pose(rig, "hips", lift=-0.04)
-        pose(rig, "spine", fwd=-18.0, twist=-34.0)
-        pose(rig, "head", fwd=8.0, twist=22.0)
-        stance(rig, lead=-14.0, back=40.0)
+        pose(rig, "spine", fwd=-18.0, twist=-40.0)
+        pose(rig, "head", fwd=8.0, twist=26.0)
+        stance(rig, lead=62.0, back=-30.0)
+        pose(rig, "shin.L", fwd=-96.0)
+        pose(rig, "shin.R", fwd=-24.0)
 
     def bair_hold(k):
         def f(rig):

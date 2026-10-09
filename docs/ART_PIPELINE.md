@@ -102,3 +102,16 @@ and now **the kicking leg is too** (two-bone IK from hip to ankle, `_aim_leg` in
 These are original animations made on our own rig, timed to the moves' published frame data and shaped after how the archetypal moves read
 (a rising cut, an overhead arc, a spinning kick); nothing is taken from another game's files. Demos: `--demo=moves` (sword tilts and
 smashes) and `--demo=kicks` (claws kicks), with `--stage=N --noui --noecb --shots=<folder>`.
+
+
+## Victory poses, clothes, and checking against the reference (fourth pass)
+
+- **Clothes**: the rig now has shorts (the outfit colour, the loadout's accent a shade darker) over the bottom of the body and the tops of
+  the thighs, white soles under the shoes and a collar; the sash carries two badges; the eyes have catch-lights and the cheeks a touch of
+  blush; every cel material has a soft rim light.
+- **Victory poses** (`victory_a` weapon raised with a hand on the hip, `victory_b` a fist pump, `victory_c` a cheering hop), played by
+  `FighterView.play_victory` on the results screen: a cheer first, then the class's own pose, with the sword or maul held up in the raised hand.
+- **Reference check**: the public hitbox visualisations on ultimateframedata.com (the moves' frame data was already taken from there) were
+  looked at for the poses of the forward and back airs: the forward air is now a mid-air crouch with the knees pulled up and the torso curling
+  over the swing, and the back air tucks the front knee and trails the back leg. The claws fighter's up smash is a flip kick (`kick_uair`
+  clip, leg aimed at its hitbox). These remain our own animations on our own rig; nothing was copied from the reference's files.
