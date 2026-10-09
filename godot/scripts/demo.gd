@@ -101,6 +101,37 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
 			d.shots = [[30, "a_windup"], [40, "b_hit"], [48, "c_launch"], [62, "d_flying"], [90, "e_far"]]
 			d.end_frame = 120
+		"ko":
+			# A forward smash on a fighter at 170%: the hit shakes the camera, which closes in because the launch will KO, and the
+			# launch leaves a smoke trail.
+			d.cam_dist = 24.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.2, -1], [1, "percent", 1, 170.0]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
+			d.shots = [[38, "a_hit"], [44, "b_hitlag_zoom"], [56, "c_launch_smoke"], [60, "d_flying"], [64, "e_offscreen"], [68, "f_blast"], [76, "g_blast_later"]]
+			d.end_frame = 130
+		"stage":
+			# A still of the stage with both fighters standing (for checking stage art; add --stage=N).
+			d.timeline = [[0, 0, 0, 0]]
+			d.shots = [[40, "a_stage"]]
+			d.end_frame = 45
+		"moves":
+			# A tour of ground moves for checking animation: forward tilt, up tilt, down tilt, then the smashes (sword fighter, player 1).
+			d.chars = [0, 1, 0, 1]
+			d.cam_dist = 16.0
+			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 6.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 40, 0, attack], [11, 40, 0, 0], [12, 0, 0, 0], [60, 0, 40, attack], [61, 0, 40, 0], [62, 0, 0, 0],
+				[110, 0, -40, attack], [111, 0, -40, 0], [112, 0, 0, 0], [160, 0, 0, attack | strong], [161, 0, 0, 0], [230, 0, 40, attack | strong], [231, 0, 0, 0]]
+			d.shots = [[18, "a_ftilt"], [68, "b_utilt"], [117, "c_dtilt"], [176, "d_fsmash"], [246, "e_usmash"]]
+			d.end_frame = 260
+		"kicks":
+			# The claws fighter's kicks: up tilt, down tilt, then neutral air and back air in a jump.
+			d.chars = [1, 0, 1, 0]
+			d.cam_dist = 16.0
+			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 6.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [10, 0, 40, attack], [11, 0, 40, 0], [12, 0, 0, 0], [60, 0, -40, attack], [61, 0, -40, 0], [62, 0, 0, 0],
+				[110, 0, 0, jump], [118, 0, 0, attack], [119, 0, 0, 0], [170, 0, 0, jump], [178, -127, 0, attack], [179, 0, 0, 0]]
+			d.shots = [[17, "a_utilt"], [66, "b_dtilt"], [128, "c_nair"], [190, "d_bair"]]
+			d.end_frame = 210
 		"marth_fair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0

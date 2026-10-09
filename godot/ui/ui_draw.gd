@@ -42,14 +42,34 @@ static func skew_points(rect: Rect2, skew := SKEW) -> PackedVector2Array:
 	])
 
 
-static func draw_slant(c: CanvasItem, rect: Rect2, fill: Color, edge := Color(0, 0, 0, 0), edge_width := 3.0, shadow := true) -> void:
+## A slanted panel: a soft two-step shadow, a fill that is lighter at the top (a little gloss), a thin highlight under the top edge,
+## and an optional ink edge.
+static func draw_slant(c: CanvasItem, rect: Rect2, fill: Color, edge := Color(0, 0, 0, 0), edge_width := 3.0, shadow := true, skew := SKEW) -> void:
 	if shadow:
-		c.draw_colored_polygon(skew_points(Rect2(rect.position + Vector2(3, 5), rect.size)), Color(0, 0, 0, 0.28))
-	c.draw_colored_polygon(skew_points(rect), fill)
+		c.draw_colored_polygon(skew_points(Rect2(rect.position + Vector2(6, 10), rect.size), skew), Color(0, 0, 0, 0.12 * fill.a))
+		c.draw_colored_polygon(skew_points(Rect2(rect.position + Vector2(3, 5), rect.size), skew), Color(0, 0, 0, 0.22 * fill.a))
+	var pts := skew_points(rect, skew)
+	var top := fill.lightened(0.16)
+	var bottom := fill.darkened(0.1)
+	top.a = fill.a
+	bottom.a = fill.a
+	c.draw_polygon(pts, PackedColorArray([top, top, bottom, bottom]))
+	if fill.a > 0.5 and rect.size.y > 18.0:
+		var s := rect.size.y * skew
+		var y := rect.position.y + 3.0
+		c.draw_line(Vector2(rect.position.x + s + 4.0, y), Vector2(rect.end.x - 6.0, y), Color(1, 1, 1, 0.35), 2.0, true)
 	if edge.a > 0.0:
-		var pts := skew_points(rect)
 		pts.append(pts[0])
 		c.draw_polyline(pts, edge, edge_width, true)
+
+
+## A soft glow around a slanted panel (selected buttons and tiles).
+static func draw_glow(c: CanvasItem, rect: Rect2, color: Color, strength := 1.0, skew := SKEW) -> void:
+	for k in 4:
+		var g := rect.grow(4.0 + k * 4.0)
+		var pts := skew_points(g, skew)
+		pts.append(pts[0])
+		c.draw_polyline(pts, Color(color.r, color.g, color.b, 0.22 * strength * (1.0 - k / 4.0)), 4.0, true)
 
 
 static func draw_text_centered(c: CanvasItem, text: String, rect: Rect2, size: int, color: Color) -> void:

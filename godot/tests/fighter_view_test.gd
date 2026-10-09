@@ -48,12 +48,18 @@ func _initialize() -> void:
 		check(hammer.hammer_parts[0].visible and not hammer.blade_parts[0].visible, "and it is a hammer, not a blade, in %s" % m)
 		check(sword.blade_parts[0].visible and not sword.hammer_parts[0].visible, "the sword fighter's weapon is a blade in %s" % m)
 	# Every move plays a clip the rig has, and the common ones have their own.
-	var expect := {"jab": "attack_jab", "jab 2": "attack_jab", "dash attack": "attack_lunge", "side special": "attack_lunge", "utilt": "attack_uair",
-		"up special": "attack_uair", "dtilt": "attack_low", "down special": "attack_low", "neutral special": "attack_smash", "fair": "attack_fair",
-		"nair": "attack_nair", "usmash": "attack_smash", "forward throw": "throw", "pummel": "grab", "ftilt": "attack_swing"}
+	var expect := {"jab": "attack_jab", "jab 2": "attack_jab", "dash attack": "attack_lunge", "side special": "attack_lunge", "utilt": "sword_utilt",
+		"up special": "attack_uair", "dtilt": "sword_dtilt", "down special": "attack_low", "neutral special": "attack_smash", "fair": "attack_fair",
+		"nair": "attack_nair", "usmash": "sword_usmash", "forward throw": "throw", "pummel": "grab", "ftilt": "sword_ftilt", "fsmash": "sword_fsmash", "dsmash": "sword_dsmash"}
 	for m in moves + ["jab 2", "jab 3"]:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
 		check(sword.anim != null and sword.anim.has_animation(clip), "the rig has the clip %s for %s" % [clip, m])
+	# The claws fighter: its kicks and its blaster have their own clips.
+	var kicks := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up", "dtilt": "kick_low",
+		"dash attack": "kick_dash", "neutral special": "blaster"}
+	for m in kicks:
+		var clip: String = fists._choose_clip(snap(1, "Attack", m, 10))[0]
+		check(clip == kicks[m] and fists.anim.has_animation(clip), "claws %s plays %s (got %s)" % [m, kicks[m], clip])
 	for m in expect:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
 		check(clip == expect[m], "%s plays %s (got %s)" % [m, expect[m], clip])

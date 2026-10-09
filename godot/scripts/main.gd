@@ -2,6 +2,7 @@ extends Node3D
 ## Playable test bed: the Rust sim runs at 60 Hz in _physics_process; everything else only draws it.
 
 const Music := preload("res://scripts/music.gd")
+const StageArt := preload("res://scripts/stage_art.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -45,6 +46,26 @@ var spectate_looks_applied := false
 var replay_speed := 1.0
 var replay_accum := 0.0
 var cam: Camera3D
+var world_env: Environment
+## Where the camera would be without shake or the knock-out zoom.
+var cam_base := Vector3.INF
+## How hard the camera is shaking (world units), set by strong hits and settling quickly.
+var cam_shake := 0.0
+## A hit that will knock a fighter out: the camera closes in on them for a moment.
+var ko_focus := -1
+var ko_time := 0.0
+var shake_rng := RandomNumberGenerator.new()
+## Seconds of "3, 2, 1" before a local match starts (the sim waits).
+var countdown := 0.0
+var countdown_shown := -1
+## A knock-out slows a local match down for a moment (real seconds left, since the engine's time is slowed).
+var slowmo_until := 0
+const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
+## Effects in the world that fade by themselves: [node, age, life].
+var effects: Array = []
+## How each fighter's match is going, for the results screen: knock-outs, falls, damage dealt and taken, and who hit them last.
+var stats: Array = []
+var last_match_frame := -1
 var ecb_nodes: Array = []
 var ecb_mat: StandardMaterial3D
 var min_down: Array = [0.2, 0.2, 0.2, 0.2]
@@ -90,6 +111,10 @@ func _ready() -> void:
 	_build_world()
 	_parse_demo_args()
 	_load_content()
+	# `--stage=N` (training and demos) plays on a stage from the library.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--stage="):
+			sim.use_stage(int(arg.substr(8)))
 	_apply_rules()
 	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
@@ -99,6 +124,7 @@ func _ready() -> void:
 		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
 		show_boxes = false
 		show_ecb = false
+		stage_view.set_guides(false)
 	sim.set_players(PLAYERS)
 	_restart()
 	_apply_scales()
@@ -113,7 +139,17 @@ func _ready() -> void:
 
 func _build_world() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
+	# A sky that fades from deep blue overhead to a pale horizon, with soft hills and clouds far behind the stage.
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.32, 0.55, 0.9)
+	sky_mat.sky_horizon_color = Color(0.78, 0.9, 0.98)
+	sky_mat.ground_horizon_color = Color(0.78, 0.9, 0.98)
+	sky_mat.ground_bottom_color = Color(0.55, 0.72, 0.85)
+	sky_mat.sun_angle_max = 0.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
 	env.background_color = Color(0.56, 0.78, 0.95)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(1.0, 0.95, 0.9)
@@ -121,6 +157,7 @@ func _build_world() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	world_env = env
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-42, -28, 0)
@@ -213,6 +250,7 @@ func _restart() -> void:
 	if demo != null and demo.chars.size() > 0:
 		chars = demo.chars
 	sim.start(SEED, PackedInt32Array(chars))
+	_start_countdown()
 	proj_cur = sim.projectile_slots()
 	proj_prev = proj_cur
 	for i in PLAYERS:
@@ -220,6 +258,24 @@ func _restart() -> void:
 		prev_pos[i] = cur_pos[i]
 	_rebuild_boxes()
 	paused = false
+
+
+## A local match from the menus opens with "3, 2, 1, GO!" (training, demos and tests skip it).
+func _start_countdown() -> void:
+	countdown = 0.0
+	countdown_shown = -1
+	var rules: PackedInt32Array = sim.match_rules()
+	if not Roster.session.get("from_menu", false) or Roster.session.get("skip_countdown", false) or demo != null:
+		return
+	if Roster.session.has("online") or Roster.session.has("replay") or Roster.session.has("watch"):
+		return
+	if rules[0] > 0 or rules[1] > 0:
+		countdown = 3.0
+
+
+## True when this machine alone decides when the match runs (not online, a replay or watching), so it may pause or slow it.
+func _local_match() -> bool:
+	return not (net_mode or group_mode or spectate_mode or replay_mode or quick_mode)
 
 
 func _refresh(i: int) -> void:
@@ -261,6 +317,14 @@ var content_note := ""
 func _rebuild_stage() -> void:
 	stage_view.clear()
 	stage_view.build(sim)
+	_apply_sky()
+
+
+## The sky comes from the stage's theme (and the colours the stage editor set).
+func _apply_sky() -> void:
+	if world_env != null and not stage_view.theme.is_empty():
+		world_env.sky = StageArt.sky(stage_view.theme)
+		world_env.background_mode = Environment.BG_SKY
 
 
 func _apply_rules() -> void:
@@ -702,10 +766,17 @@ func _tick_once(advance := true) -> void:
 		sim.tick()
 	proj_prev = proj_cur
 	proj_cur = sim.projectile_slots()
+	var befores: Array = []
 	for i in PLAYERS:
-		var before: Dictionary = snaps[i]
+		befores.append(snaps[i])
 		_refresh(i)
+	_track_stats(befores)
+	for i in PLAYERS:
+		var before: Dictionary = befores[i]
 		sfx.watch(i, before, snaps[i])
+		if int(before.get("hitlag", 0)) == 0 and int(snaps[i].hitlag) > 0 and snaps[i].launch_pending:
+			_on_hit(i)
+		_on_events(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
 	_rebuild_boxes()
@@ -820,6 +891,14 @@ func _physics_process(_delta: float) -> void:
 	_gather()
 	if paused:
 		return
+	if countdown > 0.0:
+		countdown -= 1.0 / 60.0
+		var shown := ceili(countdown)
+		if shown != countdown_shown:
+			countdown_shown = shown
+			sfx.play("go" if shown == 0 else "blip", 1.0 if shown == 0 else 1.2)
+		overlay_dirty = true
+		return
 	_tick_once()
 	if demo != null:
 		var shot: String = demo.shot_at(sim.frame())
@@ -866,6 +945,7 @@ func _process(delta: float) -> void:
 		views[i].visible = _in_play(i)
 	_update_hud(delta)
 	_update_camera(a, delta)
+	_update_effects(delta)
 	if not flag_noecb:
 		_update_ecb(a)
 	_position_boxes(a)
@@ -903,9 +983,12 @@ func _update_hud(delta: float) -> void:
 		clock = "%d:%02d" % [frame / 3600, (frame / 60) % 60]
 	var banner := ""
 	var alpha := 1.0
-	if winner != -1:
+	if countdown > 0.0:
+		banner = "%d" % ceili(countdown)
+		alpha = clampf(1.0 - (float(ceili(countdown)) - countdown) * 0.35, 0.65, 1.0)
+	elif winner != -1:
 		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
-	elif playing and frame < 75 and rules[0] > 0:
+	elif playing and frame < 75 and (rules[0] > 0 or rules[1] > 0):
 		banner = "GO!"
 		alpha = clampf(float(75 - frame) / 30.0, 0.0, 1.0)
 	var percent := []
@@ -921,6 +1004,7 @@ func _update_hud(delta: float) -> void:
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
 		"status": _net_status_text(),
+		"offscreen": _offscreen_markers(),
 	})
 	if winner != -1 and results == null and not replay_mode and not (spectate_mode and spectate_status != 1 and sim.spectate_behind() > 0):
 		end_timer += delta
@@ -945,7 +1029,10 @@ func _show_results(winner: int) -> void:
 	var saved := _save_replay() if not spectate_mode else ""
 	var cards := []
 	for i in PLAYERS:
-		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner})
+		var st: Dictionary = stats[i] if i < stats.size() else {}
+		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner,
+			"kos": st.get("kos", 0), "falls": st.get("falls", 0), "dealt": st.get("dealt", 0.0), "taken": st.get("taken", 0.0),
+			"look": views[i].loadout})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
 	if group_mode:
@@ -989,6 +1076,7 @@ func _on_result(action: String) -> void:
 
 ## Back to a menu screen, hanging up first if this was an online match.
 func _leave_to(screen: String) -> void:
+	Engine.time_scale = 1.0
 	if quick_mode:
 		sim.quickmatch_stop()
 		quick_mode = false
@@ -1063,6 +1151,179 @@ func _in_play(i: int) -> bool:
 	return sim.fighter_active(i) or not sim.fighter_in_roster(i)
 
 
+## A fighter was just hit (its hitlag started): the camera shakes with the hit's strength, and if the launch will knock the fighter
+## out, it closes in on them for a moment (presentation only).
+func _on_hit(i: int) -> void:
+	var lag: int = snaps[i].hitlag
+	cam_shake = maxf(cam_shake, minf(0.8, float(lag) * 0.028))
+	if not replay_mode and sim.fighter_will_ko(i, 200):
+		ko_focus = i
+		ko_time = 0.75
+		cam_shake = maxf(cam_shake, 0.9)
+
+
+## Keeps the match statistics up to date from two snapshots of every fighter. Who hit whom is read from hitlag starting together: the
+## victim's launch and an attacker frozen in its attack on the same frame (with two fighters, it can only be the other one).
+func _track_stats(befores: Array) -> void:
+	var frame: int = sim.match_frame()
+	if stats.size() != PLAYERS or frame < last_match_frame:
+		stats = []
+		for i in PLAYERS:
+			stats.append({"kos": 0, "falls": 0, "dealt": 0.0, "taken": 0.0, "last_hitter": -1})
+	last_match_frame = frame
+	for i in PLAYERS:
+		var before: Dictionary = befores[i]
+		var now: Dictionary = snaps[i]
+		if before.is_empty():
+			continue
+		if int(before.get("hitlag", 0)) == 0 and int(now.hitlag) > 0 and now.launch_pending:
+			var hitter := -1
+			for j in PLAYERS:
+				if j != i and snaps[j].get("state", "") == "Attack" and int(snaps[j].get("hitlag", 0)) > 0 and int(befores[j].get("hitlag", 0)) == 0:
+					hitter = j
+			if hitter < 0 and PLAYERS == 2:
+				hitter = 1 - i
+			stats[i].last_hitter = hitter
+		var gained: float = float(now.get("percent", 0.0)) - float(before.get("percent", 0.0))
+		if gained > 0.0:
+			stats[i].taken += gained
+			var by: int = stats[i].last_hitter
+			if by >= 0:
+				stats[by].dealt += gained
+		var ko: bool = int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30
+		if ko:
+			stats[i].falls += 1
+			var by: int = stats[i].last_hitter
+			if by >= 0 and by != i:
+				stats[by].kos += 1
+			stats[i].last_hitter = -1
+
+
+## Cues for things the sim reports between two snapshots of a fighter: a clank, a wall tech, a knock-out.
+func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
+	if before.is_empty():
+		return
+	if now.state == "Rebound" and before.state != "Rebound":
+		sfx.play("clank")
+		cam_shake = maxf(cam_shake, 0.25)
+		_burst(Vector3(cur_pos[i].x + 0.9 * float(now.facing), cur_pos[i].y + 1.1, 0.6), Color(1.0, 0.95, 0.6), 0.9, 0.3)
+	if now.state == "WallTech" and before.state != "WallTech":
+		sfx.play("land", 1.3)
+		_burst(Vector3(cur_pos[i].x, cur_pos[i].y + 1.0, 0.6), Color(0.85, 0.95, 1.0), 1.1, 0.35)
+	# A knock-out respawns the fighter with a long invulnerability (in free play no stock is lost, so this is the sign to watch).
+	if int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30:
+		_ko_blast(i, before.get("pos", cur_pos[i]))
+
+
+## A flash of light that grows and fades (clanks, techs).
+func _burst(at: Vector3, color: Color, size: float, life: float) -> void:
+	var m := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.5
+	mesh.height = 1.0
+	m.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = color
+	m.material_override = mat
+	m.position = at
+	m.scale = Vector3.ONE * size * 0.3
+	add_child(m)
+	effects.append([m, 0.0, life, size])
+
+
+## A knock-out: a beam of the player's colour bursts from where the fighter left the stage, the camera shakes, and (offline) the
+## match slows for a moment.
+func _ko_blast(i: int, at: Vector2) -> void:
+	var color: Color = PLAYER_COLORS[i % PLAYER_COLORS.size()]
+	var root3 := Node3D.new()
+	root3.position = Vector3(at.x, at.y + 1.0, 0.0)
+	add_child(root3)
+	# Point the beam back toward the middle of the stage.
+	var inward := (Vector2(0, 4) - at).normalized()
+	root3.rotation.z = atan2(inward.y, inward.x) - PI / 2.0
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 2.6
+	cyl.bottom_radius = 0.4
+	cyl.height = 26.0
+	beam.mesh = cyl
+	beam.position = Vector3(0, 13.0, 0)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(color.r, color.g, color.b, 0.9)
+	beam.material_override = mat
+	root3.add_child(beam)
+	var core := MeshInstance3D.new()
+	var c2 := CylinderMesh.new()
+	c2.top_radius = 1.0
+	c2.bottom_radius = 0.15
+	c2.height = 26.0
+	core.mesh = c2
+	core.position = Vector3(0, 13.0, 0.1)
+	var mat2 := mat.duplicate()
+	mat2.albedo_color = Color(1, 1, 1, 0.9)
+	core.material_override = mat2
+	root3.add_child(core)
+	effects.append([root3, 0.0, 0.9, 1.0])
+	cam_shake = maxf(cam_shake, 1.4)
+	if _local_match() and demo == null:
+		Engine.time_scale = 0.35
+		slowmo_until = Time.get_ticks_msec() + 450
+
+
+## Grows and fades the effects, and ends the knock-out slow motion.
+func _update_effects(delta: float) -> void:
+	if slowmo_until > 0 and Time.get_ticks_msec() >= slowmo_until:
+		slowmo_until = 0
+		Engine.time_scale = 1.0
+	var keep: Array = []
+	for e in effects:
+		var node: Node3D = e[0]
+		e[1] += delta
+		var t: float = e[1] / e[2]
+		if t >= 1.0 or not is_instance_valid(node):
+			if is_instance_valid(node):
+				node.queue_free()
+			continue
+		if node is MeshInstance3D:
+			node.scale = Vector3.ONE * float(e[3]) * (0.3 + 1.2 * t)
+			(node.material_override as StandardMaterial3D).albedo_color.a = 1.0 - t
+		else:
+			node.scale = Vector3(1.0 + t * 0.6, 1.0, 1.0 + t * 0.6)
+			for c in node.get_children():
+				var m: StandardMaterial3D = (c as MeshInstance3D).material_override
+				m.albedo_color.a = 0.9 * (1.0 - t)
+		keep.append(e)
+	effects = keep
+
+
+## Fighters outside the camera's view: where to draw their marker on the screen edge, in their colour, with their percent.
+func _offscreen_markers() -> Array:
+	var out: Array = []
+	if cam == null:
+		return out
+	var view := get_viewport().get_visible_rect().size
+	var margin := 70.0
+	for i in PLAYERS:
+		if not _in_play(i) or not sim.fighter_active(i):
+			continue
+		var p: Vector2 = cur_pos[i]
+		var world := Vector3(p.x, p.y + 1.1, 0)
+		if cam.is_position_behind(world):
+			continue
+		var s := cam.unproject_position(world)
+		if s.x >= 0 and s.y >= 0 and s.x <= view.x and s.y <= view.y:
+			continue
+		var at := Vector2(clampf(s.x, margin, view.x - margin), clampf(s.y, margin, view.y - margin))
+		var dir := (s - at).normalized()
+		out.append({"at": at, "dir": dir, "color": PLAYER_COLORS[i % PLAYER_COLORS.size()], "label": "P%d" % (i + 1), "percent": int(snaps[i].get("percent", 0.0))})
+	return out
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
@@ -1081,7 +1342,20 @@ func _update_camera(a: float, delta: float) -> void:
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
-	cam.position = cam.position.lerp(target, clampf(delta * 3.5, 0.0, 1.0))
+	if cam_base == Vector3.INF:
+		cam_base = cam.position
+	var rate := 3.5
+	if ko_time > 0.0 and ko_focus >= 0:
+		ko_time -= delta
+		var v: Vector2 = prev_pos[ko_focus].lerp(cur_pos[ko_focus], a)
+		target = Vector3(v.x, v.y + 1.2, 17.0)
+		rate = 9.0
+	cam_base = cam_base.lerp(target, clampf(delta * rate, 0.0, 1.0))
+	var offset := Vector3.ZERO
+	if cam_shake > 0.001:
+		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
+		cam_shake = move_toward(cam_shake, 0.0, delta * 2.6)
+	cam.position = cam_base + offset
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),

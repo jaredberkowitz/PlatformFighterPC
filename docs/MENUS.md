@@ -115,3 +115,21 @@ To play online with a made fighter, make it in the creator, then either play one
 * `netplay/tests/fighters.rs` and the `net-fuzz` command: the handshake and match are frame-for-frame exact with made fighters.
 * `godot/tests/creator_flow_test.gd`: name rules, saving and reloading, damaged files, assembling a match and checking the
   fighters' speed and jump height, then driving the creator, select and menu screens with key presses.
+
+
+## Look (second pass)
+
+The menus share one visual language (`godot/ui/ui_draw.gd`, `ui_kit.gd`): slanted panels with a soft two-step shadow, a fill lighter at the
+top, a thin highlight and an ink edge; selected buttons glow and a shine sweeps across them; long labels shrink to fit; every screen opens
+with a slanted wipe (`UI.reveal`). The backdrop is a deep indigo-to-navy gradient with slow light rays, faint scrolling stripes and drifting
+motes (a warmer magenta variant behind character select).
+
+- **Main menu**: a mosaic of tiles (Play, Online, Replays, Character Creator, Controls, Editors, Quit), each with its own colour and a
+  line-drawn icon; Play is the biggest, with the last fighter played standing in it. Up and down step through the tiles in order, left and
+  right move across.
+- **Character select**: roster cards with each fighter's own 3D portrait (rendered once, then kept as a still), name strips and rings in
+  the colours of the players on them; the players' cards along the bottom with the fighter standing large; a "READY TO FIGHT!" band across
+  the screen once everyone is locked in.
+- **Results**: the winner standing large on their colour, a card for each fighter in finishing order with knock-outs, falls, damage dealt
+  and taken and stocks left (tracked by the match scene from hits and knock-outs; with more than two fighters the attacker is the one frozen
+  in an attack on the same frame), and the choices.

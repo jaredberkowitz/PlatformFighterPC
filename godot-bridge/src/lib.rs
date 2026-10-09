@@ -1772,6 +1772,36 @@ impl SimRunner {
         PackedVector2Array::from(out.as_slice())
     }
 
+    /// Whether the launch fighter `player` is in will knock them out if nobody touches a button: plays a copy of the match forward
+    /// up to `frames` frames. Presentation only (the camera's knock-out zoom); the match itself is untouched.
+    #[func]
+    fn fighter_will_ko(&self, player: i32, frames: i32) -> bool {
+        let Some(i) = usize::try_from(player).ok().filter(|i| *i < MAX_FIGHTERS) else {
+            return false;
+        };
+        let mut s = self.state;
+        let stocks = s.fighters[i].stocks;
+        if !s.fighters[i].active {
+            return false;
+        }
+        let inputs = [Input::default(); MAX_FIGHTERS];
+        for _ in 0..frames.clamp(0, 300) {
+            step(&mut s, &self.content, &inputs);
+            if s.fighters[i].stocks < stocks
+                || !s.fighters[i].active
+                || s.fighters[i].state == sim_core::state::FighterState::Respawn
+            {
+                return true;
+            }
+            if s.fighters[i].state != sim_core::state::FighterState::Hitstun
+                && s.fighters[i].hitlag == 0
+            {
+                return false;
+            }
+        }
+        false
+    }
+
     /// [knockback of the last launch, its angle in degrees, hitstun frames left]
     #[func]
     fn fighter_launch(&self, i: i32) -> PackedFloat32Array {
@@ -1857,6 +1887,22 @@ impl SimRunner {
         }
     }
 
+    /// Swaps stage `index` into the loaded content right away (training and demos: a match from the menus builds its own content).
+    /// Returns false for a stage that does not exist.
+    #[func]
+    fn use_stage(&mut self, index: i32) -> bool {
+        let Ok(i) = u8::try_from(index) else {
+            return false;
+        };
+        match stages::with_stage(&self.content, i) {
+            Some(c) => {
+                self.content = c;
+                true
+            }
+            None => false,
+        }
+    }
+
     #[func]
     fn stage_count(&self) -> i32 {
         i32::from(stages::COUNT)
@@ -1865,6 +1911,26 @@ impl SimRunner {
     #[func]
     fn stage_name(&self, index: i32) -> GString {
         GString::from(stages::name(index.clamp(0, 255) as u8))
+    }
+
+    /// How the current stage looks: {backdrop, sky_top, sky_bottom} (the colours as `rrggbb`, empty for the backdrop's own).
+    #[func]
+    fn stage_look(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        out.set("backdrop", self.content.look.backdrop.as_str());
+        out.set("sky_top", self.content.look.sky_top.as_str());
+        out.set("sky_bottom", self.content.look.sky_bottom.as_str());
+        out
+    }
+
+    /// The backdrops a stage can use.
+    #[func]
+    fn stage_backdrops(&self) -> PackedStringArray {
+        let names: Vec<GString> = sim_content::BACKDROPS
+            .iter()
+            .map(|n| GString::from(*n))
+            .collect();
+        PackedStringArray::from(names.as_slice())
     }
 
     #[func]

@@ -9,9 +9,15 @@ use sim_core::content::{Ledge, Platform};
 use sim_core::{Content, Fx, Stage, Vec2, MAX_FIGHTERS};
 
 /// How many stages there are, counting the base roster's.
-pub const COUNT: u8 = 4;
+pub const COUNT: u8 = 5;
 
-pub const NAMES: [&str; COUNT as usize] = ["Meadow", "Triple Tier", "Flat Island", "Skyline"];
+pub const NAMES: [&str; COUNT as usize] = [
+    "Meadow",
+    "Triple Tier",
+    "Flat Island",
+    "Skyline",
+    "Treetop Isle",
+];
 
 /// One line about each stage, for the picker.
 pub const BLURBS: [&str; COUNT as usize] = [
@@ -19,7 +25,23 @@ pub const BLURBS: [&str; COUNT as usize] = [
     "A wide stage with three platforms stacked like steps: more room to juggle in the air.",
     "No platforms at all, and a long floor. Pure ground game.",
     "A narrow stage with a high roof of platforms hanging out past the edges.",
+    "A floating island under a giant old tree: two low platforms and a high one in the middle.",
 ];
+
+/// The backdrop each stage is drawn with (presentation only; the stage editor can change it).
+pub const BACKDROPS: [&str; COUNT as usize] = ["meadow", "sunset", "meadow", "night", "grove"];
+
+/// How stage `index` looks.
+pub fn look(index: u8) -> sim_core::content::StageLook {
+    sim_core::content::StageLook {
+        backdrop: BACKDROPS
+            .get(usize::from(index))
+            .copied()
+            .unwrap_or("meadow")
+            .to_string(),
+        ..Default::default()
+    }
+}
 
 fn int(n: i32) -> Fx {
     Fx::from_int(n)
@@ -110,6 +132,38 @@ pub fn preset(index: u8) -> Option<Stage> {
             blast_bottom: int(-18),
             blast_top: int(25),
         }),
+        4 => {
+            // An island that narrows as it goes down, built from stacked solid blocks so the underside you can hit is the shape
+            // you see; two low platforms and a high one in the middle.
+            let mut platforms = vec![Platform {
+                left: int(-11),
+                right: int(11),
+                y: Fx::ZERO,
+                bottom: int(-2),
+                pass_through: false,
+            }];
+            for (half, top, bottom) in [(9, -2, -4), (7, -4, -6), (4, -6, -8)] {
+                platforms.push(Platform {
+                    left: int(-half),
+                    right: int(half),
+                    y: int(top),
+                    bottom: int(bottom),
+                    pass_through: false,
+                });
+            }
+            platforms.push(shelf(frac(-17, 2), frac(-7, 2), frac(17, 5)));
+            platforms.push(shelf(frac(7, 2), frac(17, 2), frac(17, 5)));
+            platforms.push(shelf(frac(-5, 2), frac(5, 2), frac(34, 5)));
+            Some(Stage {
+                platforms,
+                ledges: edges(-11, 11),
+                spawns: spawns(),
+                blast_left: int(-28),
+                blast_right: int(28),
+                blast_bottom: int(-17),
+                blast_top: int(26),
+            })
+        }
         _ => None,
     }
 }
@@ -128,6 +182,7 @@ pub fn with_stage(content: &Content, index: u8) -> Option<Content> {
     if index != 0 {
         out.stage = preset(index)?;
         out.names.stage = name(index).to_string();
+        out.look = look(index);
     }
     Some(out)
 }
@@ -162,6 +217,43 @@ mod tests {
             base.hash(),
             "stage 0 is the base roster's own"
         );
+    }
+
+    #[test]
+    fn a_stage_look_is_presentation_only_and_round_trips() {
+        let base = Content::placeholder();
+        let isle = with_stage(&base, 4).unwrap();
+        assert_eq!(isle.look.backdrop, "grove");
+        // The look never changes the content hash (two players may see different skies).
+        let mut recoloured = isle.clone();
+        recoloured.look.sky_top = "ff8800".to_string();
+        recoloured.look.backdrop = "night".to_string();
+        assert_eq!(recoloured.hash(), isle.hash());
+        // It survives the text format.
+        let text = crate::to_text(&recoloured, "t", "", "", false);
+        let back = crate::load(&text)
+            .unwrap_or_else(|e| panic!("{e:?}"))
+            .content;
+        assert_eq!(back.look, recoloured.look);
+        // Validation knows the backdrops and the colour format.
+        let mut bad = isle.clone();
+        bad.look.backdrop = "castle".to_string();
+        assert!(validate(&bad).is_err());
+        let mut bad = isle;
+        bad.look.sky_bottom = "#12345".to_string();
+        assert!(validate(&bad).is_err());
+    }
+
+    #[test]
+    fn the_treetop_isle_narrows_underneath_with_nothing_to_stand_on_below() {
+        let s = preset(4).unwrap();
+        // Every solid block under the top one is narrower than the one above it, so its top is covered.
+        let solids: Vec<_> = s.platforms.iter().filter(|p| !p.pass_through).collect();
+        for pair in solids.windows(2) {
+            assert!(pair[1].left > pair[0].left && pair[1].right < pair[0].right);
+            assert_eq!(pair[1].y, pair[0].bottom);
+        }
+        assert_eq!(s.platforms.iter().filter(|p| p.pass_through).count(), 3);
     }
 
     #[test]

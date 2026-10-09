@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_bridge()
 	await _scene()
 	await _free_for_all()
+	await _countdown()
 	_menu_choices()
 	print("match flow test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
@@ -69,7 +70,7 @@ func _bridge() -> void:
 
 func _scene() -> void:
 	# No content_text: the scene loads the base roster itself, with the menus' rules.
-	Roster.session = {"from_menu": true, "stocks": 1, "time": 0}
+	Roster.session = {"from_menu": true, "stocks": 1, "time": 0, "skip_countdown": true}
 	var main: Node = load("res://main.tscn").instantiate()
 	root.add_child(main)
 	for i in 8:
@@ -100,7 +101,7 @@ func _free_for_all() -> void:
 		var e := Roster.neutral_entry("Fighter %d" % (i + 1), i % 2, Loadout.default_for(i))
 		e.size = 4 + i
 		entries.append(e)
-	Roster.session = {"from_menu": true, "stocks": 1, "time": 0, "entries": entries}
+	Roster.session = {"from_menu": true, "stocks": 1, "time": 0, "entries": entries, "skip_countdown": true}
 	var main: Node = load("res://main.tscn").instantiate()
 	root.add_child(main)
 	for i in 8:
@@ -119,6 +120,22 @@ func _free_for_all() -> void:
 	check(main.sim.winner() == 0, "the last one standing wins: %d" % main.sim.winner())
 	await create_timer(2.6).timeout
 	check(main.results != null and main.results.card_data.size() == 4, "and the results screen shows four fighters")
+	main.queue_free()
+	await process_frame
+
+
+## A match from the menus opens with "3, 2, 1": the sim waits, then GO!.
+func _countdown() -> void:
+	Roster.session = {"from_menu": true, "stocks": 2, "time": 0}
+	var main: Node = load("res://main.tscn").instantiate()
+	root.add_child(main)
+	for i in 8:
+		await process_frame
+	await create_timer(1.0).timeout
+	check(main.countdown > 0.0 and main.sim.frame() == 0, "the match waits during the countdown: %.2f, frame %d" % [main.countdown, main.sim.frame()])
+	check(main.hud.board.data.get("banner", "") in ["1", "2", "3"], "and shows the count: " + str(main.hud.board.data.get("banner", "")))
+	await create_timer(3.0).timeout
+	check(main.countdown <= 0.0 and main.sim.frame() > 0, "then it starts: frame %d" % main.sim.frame())
 	main.queue_free()
 	await process_frame
 

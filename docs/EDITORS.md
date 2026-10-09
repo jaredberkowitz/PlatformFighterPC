@@ -8,7 +8,7 @@ simulation the game runs, so what you see is what plays. The tabs:
 | **Look** | Each player's cosmetic loadout: body colour, face, hat, glasses, neckwear, accent colour. Save, random, reset, share codes. Cosmetic only. |
 | **Fighter** | Every physics number of a fighter, grouped (body, ground, jumps, air, dodges, ledges). "New fighter (copy)" makes a fighter that `inherit`s the one on screen and stores only what you change. Choose its moveset. |
 | **Moves** | A moveset's move slots: timing and flags, hitboxes (a table), motion, projectile, reflector, counter, and scripts. A timeline shows when each hitbox is active; the side view draws the active hitboxes at their real size and position over the fighter's body. "New moveset (copy)" makes one that inherits every move; "Edit a copy here" overrides one. |
-| **Stage** | A side view you can drag: platforms (move, resize), ledges, spawn points; add or delete platforms, solid blocks and ledges; the blast zone; the stage name. |
+| **Stage** | A side view you can drag: platforms (move, resize), ledges, spawn points; add or delete platforms, solid blocks and ledges; the blast zone; the stage name; and its look: the **backdrop** (meadow, grove, sunset, night) and the **sky colours** (top and horizon; "Backdrop's own sky" puts the backdrop's back). The look is presentation only and never affects play or the content hash. |
 | **Package** | The bundle's name, author and description; open, save, save packed (hash and sim version), start from the built-in roster, and **Playtest in game**. |
 
 Undo and Redo (top right) cover every edit in every tab.

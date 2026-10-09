@@ -16,11 +16,12 @@
   Attack out of a dash or run is the dash attack. Aerials follow the stick relative to facing.
 - **Aerial landing lag** with autocancel windows (landing early or late in the move costs only the normal landing lag).
 - **Damage and launch** follow the reference formulas: `KB = ((((p/10 + p*d/20) * 200/(w+100) * 1.4) + 18) * g/100) + b`,
-  launch speed `KB * 0.03` reference units/frame (8 per world unit), hitstun `KB * 0.4 * ruleset multiplier` frames
-  (multiplier 1.05), hitlag `floor(d/3 + 4)` frames for both fighters. Angle 361 is horizontal for weak grounded hits and
-  44 degrees otherwise.
+  launch speed `KB * 0.03` reference units/frame (8 per world unit), hitstun `floor(KB * 0.4) - 1` frames, hitlag
+  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 is horizontal for weak grounded hits and
+  44 degrees otherwise. See "Hit feel" below for rage, staling, crouch cancelling and the rest (sim v27).
 - **Hitlag freezes both fighters.** During it the victim can **DI** (the part of the stick perpendicular to the launch bends
-  it up to 18 degrees, speed unchanged, applied on the frame hitlag ends) and **SDI** (a stick flick nudges 0.75 units).
+  it up to 18 degrees, speed unchanged, applied on the frame hitlag ends) and **SDI** (a stick flick nudges 0.25 units, once
+  every 4 frames).
 - **Hitstun** with gravity and decaying launch speed. Landing in hitstun is a **tech** with a shield press just before
   (4 frames of lag), otherwise a placeholder knockdown (24 frames).
 - **Shield** blocks: no damage, no launch, a little pushback. Intangible: respawn invulnerability, ledge invulnerability and
@@ -273,3 +274,62 @@ use, the position and size of projectiles the fighter fires, and the reflector's
 returns already-scaled hitboxes. Damage, knockback, timing and scripted motion are unchanged, and a script's `spawn(x, y, ...)` offsets
 are used as written. The created-fighter recipes set it to the body size (0.68 to 1.32); every built-in fighter uses 1.0, so nothing
 changes for them.
+
+
+## Hit feel (sim v27)
+
+Following the reference game's published formulas (SmashWiki's Hitlag, Hitstun, Smash directional influence, Knockback, Rage,
+Stale-move negation, Crouch cancelling and Shield stun pages, read October 2026). Every number is a `Ruleset` field, so a content file
+can change it.
+
+| Mechanic | Now | Was |
+| --- | --- | --- |
+| Hitlag | `floor(d * 0.65 + 6)` for attacker and victim, cap 30; 0 for a hit with no damage. Hitting several fighters at once freezes the attacker for the longest | `floor(d/3 + 4)` |
+| Shield hitlag | x0.67 (before rounding); a **perfect shield** freezes only the attacker | same as a hit |
+| Hitstun | `floor(KB * 0.4) - 1` (100 knockback is 39 frames) | `KB * 0.4 * 1.05` |
+| Survival DI | 0.25 units (2 reference units) per flick, at most one every 4 frames | 0.75 units, every frame |
+| Shield SDI | sideways only, two thirds as far, same pacing | none |
+| Crouch cancel | a fighter crouching on the ground takes 0.85 of the knockback; both fighters get 0.67 of the hitlag (the victim's at most 20) | none |
+| Rage | the attacker's percent adds knockback, linearly from nothing at 35% to +10% at 150% | none |
+| Stale moves | the last 9 moves a fighter connected with (`Fighter::stale`): a move takes off 0.09, 0.08545, 0.07635, 0.0679, 0.05945, 0.05035, 0.04255, 0.03345 or 0.025 for each slot it holds (0.85 of that if the hit was shielded); a move not in the queue deals 1.05x. Knockback feels 0.3 of the damage change. A KO clears the queue. `stale_moves 0` turns it off | none |
+| Hitstun cancel | in the air, an air dodge ends a hitstun from its 40th frame and an aerial from its 45th; the rest of the launch carries on as momentum | none |
+
+Shield stun (`floor(0.8 * d * type + 2)`, smash 0.725, aerial 0.33, projectile 0.29) already matched the reference.
+
+**Presentation** (Godot, never the sim): the fighter that was hit shakes during hitlag, harder for stronger hits (the attacker holds
+still, as in the reference game); strong hits shake the camera; a launch that will knock the fighter out (checked by playing a copy of the
+match forward with nobody pressing anything, `SimRunner::fighter_will_ko`) makes the camera close in on them for three quarters of a second;
+a tumbling launch leaves a trail of smoke puffs. Demo: `--demo=ko`.
+
+Tests: `sim-core/tests/hit_feel.rs`, plus the formula tests in `sim-core/src/combat.rs`. The shared test harness turns stale moves off so the
+reference-move tests check listed damage; the staling test turns it on.
+
+## Hit feel, second pass (sim v28 and v29)
+
+| Mechanic | Behaviour | Fields |
+| --- | --- | --- |
+| Launch speed-up ("balloon") | A tumbling launch whose hitstun ends on frame F plays `1 + (F - 30) / 10` knockback frames per frame at first (F at most 80, at most 6x), easing back to one: `m = m0 * (0.3F - left) / (0.3F - F)`. Strong hits cross the screen fast and their real hitstun is shorter (145 knockback: about 42 frames against 57 on paper; the wiki says 41). The speed-up's exact curve is inferred from the wiki's one worked example | `balloon_*` |
+| Launch gravity | For the first 10 frames of a launch everyone falls with gravity 0.087 and fall speed 1.5 (reference units); a launch between 70 and 110 degrees falls at 1.8 for its whole hitstun | `launch_fall_accel`, `launch_fall`, `launch_fall_frames`, `vertical_launch_*` |
+| Hitbox hitlag factor | `hitlag 50` in a hitbox gives half the hitlag, `0` none (a factor under 1 is ignored on a shield) | `Hitbox::hitlag` |
+| Electric hits | `effect electric`: 1.5x hitlag for both fighters, and the victim drifts toward the held stick twice as hitlag ends (automatic SDI, 1.33 reference units each; not for near-vertical launches). No move in the base roster is electric yet | `Hitbox::effect`, `electric_hitlag_mult`, `asdi_distance` |
+| SDI over a combo | Every 5 hits of one combo, survival DI goes 1.15x further | `sdi_combo_*`, `Fighter::hits_taken` |
+| Clanks | Two grounded attacks whose hitboxes meet: neither hits the other that frame; within 9% both are cancelled into a rebound, otherwise only the weaker. A rebound freezes for the stronger hit's hitlag, then lasts `floor((d + 4) * 15 / 8)` frames (at most 58). Aerials never clank with attacks | `clank_range`, `rebound_cap`, state `Rebound` |
+| Projectile clanks | A grounded attack more than 9% stronger destroys a projectile; within 9% both stop (the attacker rebounds); a projectile 9% stronger knocks the attacker into a rebound and flies on. An aerial is only frozen for a moment and destroys the projectile unless it is outclassed | |
+| Grab parry | Two fighters grabbing each other on the same frame both let go, take 1%, and rebound | `grab_parry_lag` (an estimate) |
+| Tech timing | A shield press counts for 11 frames; after one, another press does not count for 40 frames (no mashing) | `tech_window`, `tech_lockout`, `Fighter::tech_timer` |
+| Wall and ceiling techs | Teching a wall or ceiling holds the fighter there, intangible; holding jump as it ends kicks off the wall | `wall_tech_frames`, `wall_tech_invuln` (estimates), state `WallTech` |
+| Bounces | A tumbling fighter that hits a wall or ceiling without teching bounces off with 95% of its speed; spiked into the floor faster than 0.25 units a frame it bounces back up instead of lying down | `bounce_keep`, `ground_bounce_speed` (an estimate) |
+| Revival platform | A knocked-out fighter comes back 7 units above its spawn point on a platform, invincible, until it does something new (a stick held through the knock-out does not count) or 150 frames pass; then it falls with full jumps and the respawn invincibility | `respawn_height`, `respawn_platform_frames` (an estimate), state `Respawn` |
+
+**Presentation** (Godot only): a "3, 2, 1, GO!" countdown before a local match from the menus; on a knock-out a beam in the player's colour,
+a strong camera shake and (offline only, since it slows the engine) a moment of slow motion; star-shaped hit sparks that get bigger and hotter
+with the hit; flashes and the clank sound on clanks and wall techs; dust at the feet on dashes, turns, jumps, wavedashes and landings; steam
+from a fighter above 100% (rage); the HUD damage number jolts on each hit; fighters off camera get an edge bubble with their damage; the
+revival platform; a gradient sky with hills and clouds. Demo: `--demo=ko`.
+
+**Still not done:** per-character values (every fighter shares one table where the reference varies), the fresh-move SDI rule on frame 2 of
+hitlag, ceiling SDI, the ledge-cancel rules for air dodges, electric moves in the roster, a real announcer, and anything a person has judged by
+playing. Several numbers are marked as estimates above.
+
+Tests: `sim-core/tests/hit_feel_2.rs` (launch speed-up, launch gravity, electric hits, hitlag factors, SDI growth, clanks, grab parry, tech
+timing and lockout, wall tech and bounce, floor bounce) and the revival platform tests in `sim-core/tests/combat.rs`.

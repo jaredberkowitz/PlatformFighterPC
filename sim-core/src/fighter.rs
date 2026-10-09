@@ -109,6 +109,11 @@ fn enter(f: &mut Fighter, state: S) {
     if state == S::Attack && f.state != S::Attack {
         f.vars = [0; crate::FIGHTER_VARS];
     }
+    if state != S::Hitstun {
+        f.balloon_faf = 0;
+        f.balloon_left = Fx::ZERO;
+        f.hits_taken = 0;
+    }
     f.state = state;
     f.state_frame = 0;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
@@ -159,15 +164,24 @@ pub fn update(
 ) -> Option<u8> {
     f.history.rotate_right(1);
     f.history[0] = input;
+    // A tech press opens a short window; another press only counts once `tech_lockout` frames have passed (no mashing).
+    f.tech_timer = f.tech_timer.saturating_add(1);
+    if f.pressed_within(buttons::SHIELD, 1) && f.tech_timer > rules.tech_lockout {
+        f.tech_timer = 0;
+    }
 
     // Hitlag freezes everything about the fighter except its input history. A struck fighter can still
     // survival-DI, and its launch happens on the frame hitlag ends.
     if f.hitlag > 0 {
+        f.sdi_wait = f.sdi_wait.saturating_sub(1);
         if f.launch_pending {
-            sdi(f, p, stage, rules);
+            sdi(f, p, stage, rules, false);
+        } else if f.state == S::Shield {
+            sdi(f, p, stage, rules, true);
         }
         f.hitlag -= 1;
         if f.hitlag == 0 && f.launch_pending {
+            asdi(f, p, stage, rules);
             apply_launch(f, rules);
         }
         return None;
@@ -205,6 +219,9 @@ pub fn update(
         S::Grabbed => {}
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, stage),
+        S::Rebound => rebound(f, p, stage),
+        S::WallTech => wall_tech(f, p, rules),
+        S::Respawn => revival(f, p, rules),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p, weapon),
     }
     None
@@ -1378,12 +1395,144 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     true
 }
 
-/// Launch physics while stunned. Gravity acts normally; the launch speed decays on top of it.
+/// How many knockback frames this frame of a launch plays (the reference game's speed-up of strong launches, often called "balloon"
+/// knockback): `1 + (F - 30) / 10` at first for a hitstun ending on frame F (at most 80), easing back to one as the launch goes on.
+fn launch_speedup(f: &Fighter, rules: &Ruleset) -> Fx {
+    if f.balloon_faf == 0 {
+        return Fx::ONE;
+    }
+    let faf = Fx::from_int(i32::from(f.balloon_faf));
+    let first = (Fx::ONE
+        + (faf - Fx::from_int(i32::from(rules.balloon_min_faf))) * rules.balloon_per_frame)
+        .clamp(Fx::ONE, rules.balloon_max);
+    let low = faf * Fx::from_ratio(3, 10);
+    if low == faf {
+        return first;
+    }
+    let ease = (low - f.balloon_left) / (low - faf);
+    (first * ease).clamp(Fx::ONE, rules.balloon_max)
+}
+
+/// The gravity and fall speed of a launched fighter: for the first frames of a launch every fighter falls alike, and a launch close
+/// to straight up falls at its own fixed speed for the whole hitstun.
+fn launch_fall(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> (Fx, Fx) {
+    let degrees = i32::from(f.launch_angle) * 360 / 4096;
+    if (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
+        .contains(&degrees)
+    {
+        return (p.gravity, rules.vertical_launch_fall);
+    }
+    if f.state_frame <= u16::from(rules.launch_fall_frames) {
+        return (rules.launch_fall_accel, rules.launch_fall);
+    }
+    (p.gravity, p.max_fall_speed)
+}
+
+/// Whether a tech press is fresh enough to tech a surface touched now.
+fn tech_ready(f: &Fighter, rules: &Ruleset) -> bool {
+    f.tech_timer < rules.tech_window
+}
+
+/// A wall or ceiling tech: the launch stops, the fighter clings to the surface for a moment and is intangible. `away` is the
+/// direction away from a wall (0 for a ceiling).
+fn start_wall_tech(f: &mut Fighter, rules: &Ruleset, away: i8) {
+    f.kb_vel = Vec2::ZERO;
+    f.vel = Vec2::ZERO;
+    f.hitstun = 0;
+    f.tumble = false;
+    f.invuln = f.invuln.max(rules.wall_tech_invuln);
+    f.dodge_dir = Vec2::new(Fx::from_int(i32::from(away)), Fx::ZERO);
+    enter(f, S::WallTech);
+}
+
+fn wall_tech(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    f.vel = Vec2::ZERO;
+    if f.state_frame < u16::from(rules.wall_tech_frames) {
+        return;
+    }
+    let away = f.dodge_dir.x.signum_int();
+    enter(f, S::Airborne);
+    // Holding jump as it ends kicks off the wall (a wall-tech jump).
+    if away != 0 && f.held(buttons::JUMP) {
+        f.vel = Vec2::new(p.air_speed.mul_int(away), p.air_jump_velocity);
+        f.facing = away as i8;
+    }
+}
+
+/// On the revival platform: held in place and invincible until the player does something new (a stick held from before the
+/// knock-out does not count) or the platform runs out; then an ordinary fall with full jumps and the respawn invincibility.
+fn revival(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    f.vel = Vec2::ZERO;
+    f.invuln = f.invuln.max(rules.respawn_invuln);
+    let (now, before) = (f.history[0], f.history[1]);
+    let active = now.stick_x.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
+        || now.stick_y.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
+        || now.buttons != 0;
+    let fresh = now != before;
+    if (active && fresh) || f.state_frame >= u16::from(rules.respawn_platform_frames) {
+        f.invuln = rules.respawn_invuln;
+        f.air_jumps_left = p.air_jumps;
+        f.air_dodge_used = false;
+        enter(f, S::Airborne);
+    }
+}
+
+/// Knocked back by a clank: a short slide, then free.
+fn rebound(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    if f.grounded() {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+        if !slide_on_platform(f, p, stage) {
+            return;
+        }
+    } else if air_move(f, p, stage) {
+        enter_landing(f, p.landing_lag);
+        return;
+    }
+    if f.state_frame >= u16::from(f.lag) {
+        enter(f, if f.grounded() { S::Idle } else { S::Airborne });
+    }
+}
+
 fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
-    f.hitstun = f.hitstun.saturating_sub(1);
+    let speedup = launch_speedup(f, rules);
+    if f.balloon_faf > 0 {
+        f.balloon_left -= speedup;
+        f.hitstun = if f.balloon_left > Fx::ZERO {
+            (f.balloon_left + Fx::from_raw(65535))
+                .floor_int()
+                .clamp(0, 600) as u16
+        } else {
+            0
+        };
+    } else {
+        f.hitstun = f.hitstun.saturating_sub(1);
+    }
+    // Hitstun cancel: deep into a long hitstun in the air, an air dodge (and a little later an aerial) ends it early. What is left of
+    // the launch carries on as ordinary momentum.
+    if !f.grounded() && !f.launch_pending && f.hitstun > 0 {
+        let dodge = f.state_frame >= u16::from(rules.hitstun_dodge_cancel)
+            && f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER)
+            && !f.air_dodge_used;
+        let attack = f.state_frame >= u16::from(rules.hitstun_attack_cancel)
+            && f.pressed_within(buttons::ATTACK, ATTACK_BUFFER);
+        if dodge || attack {
+            f.vel += f.kb_vel;
+            f.kb_vel = Vec2::ZERO;
+            f.hitstun = 0;
+            f.tumble = false;
+            if dodge {
+                start_air_dodge(f, p, stage);
+            } else {
+                start_air_attack(f);
+            }
+            return;
+        }
+    }
+    // The launch decays (faster while sped up, since several knockback frames play at once).
+    let decay = rules.knockback_decay * speedup;
     let speed = f.kb_vel.length();
-    f.kb_vel = if speed > rules.knockback_decay {
-        f.kb_vel * ((speed - rules.knockback_decay) / speed)
+    f.kb_vel = if speed > decay {
+        f.kb_vel * ((speed - decay) / speed)
     } else {
         Vec2::ZERO
     };
@@ -1391,7 +1540,7 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     if f.grounded() {
         // A grounded hit slides the fighter along the floor.
         f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
-        if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+        if collision::move_x(stage, p, &mut f.pos, f.vel.x * speedup) {
             f.kb_vel.x = Fx::ZERO;
         }
         let still_on = collision::platform(stage, f.platform)
@@ -1400,21 +1549,51 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
             f.platform = NONE;
         }
     } else {
-        f.vel.y = (f.vel.y - p.gravity).max(-p.max_fall_speed);
-        let moved = move_by(f, p, stage, f.vel + f.kb_vel);
+        let (gravity, max_fall) = launch_fall(f, p, rules);
+        f.vel.y = (f.vel.y - gravity).max(-max_fall);
+        let falling = f.vel.y + f.kb_vel.y;
+        let heading_x = (f.vel.x + f.kb_vel.x).signum_int();
+        let moved = move_by(f, p, stage, f.vel + f.kb_vel * speedup);
         if moved.wall {
+            if tech_ready(f, rules) {
+                start_wall_tech(f, rules, (-heading_x) as i8);
+                return;
+            }
+            // A tumbling fighter bounces off the wall; a lighter launch just stops against it.
+            f.kb_vel.x = if f.tumble {
+                -(f.kb_vel.x * rules.bounce_keep)
+            } else {
+                Fx::ZERO
+            };
             f.vel.x = Fx::ZERO;
-            f.kb_vel.x = Fx::ZERO;
         }
         if moved.ceiling {
+            if tech_ready(f, rules) {
+                start_wall_tech(f, rules, 0);
+                return;
+            }
+            f.kb_vel.y = if f.tumble {
+                -(f.kb_vel.y * rules.bounce_keep)
+            } else {
+                Fx::ZERO
+            };
             f.vel.y = Fx::ZERO;
-            f.kb_vel.y = Fx::ZERO;
         }
         if let Some(platform) = moved.landing {
+            let teched = tech_ready(f, rules);
+            // Spiked into the floor hard enough, a tumbling fighter bounces back up instead of lying down (unless it techs).
+            if !teched && f.tumble && f.kb_vel.y < Fx::ZERO && -falling > rules.ground_bounce_speed
+            {
+                if let Some(plat) = stage.platforms.get(platform) {
+                    f.pos.y = plat.y;
+                }
+                f.kb_vel.y = -(f.kb_vel.y * rules.bounce_keep);
+                f.vel.y = Fx::ZERO;
+                return;
+            }
             land(f, p, stage, platform);
             // A shield press just before touching down is a tech: in place, or a roll if the stick is flicked
             // sideways. Without one the fighter lies in a knockdown and picks a get-up.
-            let teched = f.pressed_within(buttons::SHIELD, rules.tech_window);
             let roll_dir = f.flick_x(rules.tech_window);
             f.kb_vel = Vec2::ZERO;
             f.vel.x = Fx::ZERO;
@@ -1464,6 +1643,15 @@ fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
     f.vel = Vec2::ZERO;
     f.launch_pending = false;
     f.tumble = f.launch_kb >= rules.tumble_knockback;
+    // A tumbling launch is sped up at first (see `launch_speedup`).
+    let faf = f.hitstun + 1;
+    if f.tumble && faf > u16::from(rules.balloon_min_faf) && rules.balloon_max > Fx::ONE {
+        f.balloon_faf = faf.min(u16::from(rules.balloon_max_faf)) as u8;
+        f.balloon_left = Fx::from_int(i32::from(faf));
+    } else {
+        f.balloon_faf = 0;
+        f.balloon_left = Fx::ZERO;
+    }
     if f.grounded() {
         if f.kb_vel.y > Fx::ZERO {
             f.platform = NONE;
@@ -1473,12 +1661,67 @@ fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
     }
 }
 
-/// Survival DI: a stick flick during hitlag nudges the fighter.
-fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
-    let (dx, dy) = (f.flick_x(1), f.flick_y(1));
-    let d = rules.sdi_distance;
+/// Automatic SDI: as an electric hit's hitlag ends, the victim drifts toward the held stick (twice), unless the launch is close to
+/// straight up.
+fn asdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    let times = f.asdi;
+    f.asdi = 0;
+    if times == 0 {
+        return;
+    }
+    let degrees = i32::from(f.launch_angle) * 360 / 4096;
+    if (i32::from(rules.vertical_launch_from)..i32::from(rules.vertical_launch_to))
+        .contains(&degrees)
+    {
+        return;
+    }
+    let input = f.history[0];
+    let d = rules.asdi_distance.mul_int(i32::from(times));
+    let dx = if input.stick_x.unsigned_abs() >= STICK_DEADZONE.unsigned_abs() {
+        input.stick_x.signum()
+    } else {
+        0
+    };
+    let dy = if input.stick_y.unsigned_abs() >= STICK_DEADZONE.unsigned_abs() {
+        input.stick_y.signum()
+    } else {
+        0
+    };
     if dx != 0 {
         collision::move_x(stage, p, &mut f.pos, d.mul_int(i32::from(dx)));
+    }
+    if dy > 0 && !f.grounded() {
+        collision::move_up(stage, p, &mut f.pos, d);
+    }
+}
+
+/// Survival DI: a stick flick during hitlag nudges the fighter, at most once every `sdi_interval` frames. On a shield the nudge
+/// is sideways only and two thirds as far.
+fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset, shield: bool) {
+    if f.sdi_wait > 0 {
+        return;
+    }
+    let (dx, dy) = (f.flick_x(1), f.flick_y(1));
+    if dx == 0 && dy == 0 {
+        return;
+    }
+    f.sdi_wait = rules.sdi_interval;
+    let mut d = if shield {
+        rules.sdi_distance * Fx::from_ratio(2, 3)
+    } else {
+        rules.sdi_distance
+    };
+    // Every `sdi_combo_hits` hits of one combo, survival DI goes further (so long multi-hits can be escaped).
+    if let Some(steps) = f.hits_taken.checked_div(rules.sdi_combo_hits) {
+        for _ in 0..steps.min(8) {
+            d = d * rules.sdi_combo_mult;
+        }
+    }
+    if dx != 0 {
+        collision::move_x(stage, p, &mut f.pos, d.mul_int(i32::from(dx)));
+    }
+    if shield {
+        return;
     }
     if dy > 0 && !f.grounded() {
         collision::move_up(stage, p, &mut f.pos, d);

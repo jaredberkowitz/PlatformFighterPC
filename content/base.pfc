@@ -5,19 +5,19 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 26
-    hash c2094846571d72c9
+    sim_version 29
+    hash 7c68ea140c434251
 }
 
 ruleset {
     damage_mult 1.2
-    hitstun_mult 1.04999
+    hitstun_mult 1
     knockback_decay 0.00636
     tumble_knockback 80
-    sdi_distance 0.75
+    sdi_distance 0.25
     di_degrees 18
     respawn_invuln 120
-    tech_window 5
+    tech_window 11
     tech_lag 4
     knockdown_lag 24
     knockdown_max 90
@@ -46,6 +46,44 @@ ruleset {
     grab_release_lag 25
     grab_immunity 60
     grab_distance 1.29999
+    hitlag_per_damage 0.65
+    hitlag_base 6
+    hitlag_cap 30
+    shield_hitlag_mult 0.67
+    crouch_cancel_kb 0.84999
+    crouch_cancel_hitlag 0.67
+    crouch_cancel_hitlag_cap 20
+    sdi_interval 4
+    rage_start 35
+    rage_full 150
+    rage_max 0.09999
+    stale_moves 1
+    hitstun_dodge_cancel 40
+    hitstun_attack_cancel 45
+    electric_hitlag_mult 1.5
+    asdi_distance 0.16624
+    sdi_combo_hits 5
+    sdi_combo_mult 1.15
+    balloon_min_faf 30
+    balloon_max_faf 80
+    balloon_per_frame 0.09999
+    balloon_max 6
+    launch_fall_accel 0.01086
+    launch_fall 0.1875
+    launch_fall_frames 10
+    vertical_launch_fall 0.22499
+    vertical_launch_from 70
+    vertical_launch_to 110
+    clank_range 9
+    rebound_cap 58
+    grab_parry_lag 30
+    tech_lockout 40
+    wall_tech_frames 18
+    wall_tech_invuln 14
+    bounce_keep 0.95
+    ground_bounce_speed 0.25
+    respawn_height 7
+    respawn_platform_frames 150
 }
 
 weapon longsword {
@@ -1077,6 +1115,7 @@ fighter bruiser {
 }
 
 stage proving_grounds {
+    backdrop meadow
     blast_left -28
     blast_right 28
     blast_bottom -17

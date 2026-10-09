@@ -61,6 +61,12 @@ pub enum FighterState {
     Knockdown,
     /// Standing up from a knockdown, intangible for the first part.
     GetUp,
+    /// Knocked back by a clank (or a grab parry): no action until `Fighter::lag` frames have passed.
+    Rebound,
+    /// A wall or ceiling tech: held against the surface for a moment, intangible, then free (a jump makes it a wall-tech jump).
+    WallTech,
+    /// Back after a knock-out, standing on the revival platform above the stage: invincible until it moves or the platform goes.
+    Respawn,
 }
 
 impl StateHash for FighterState {
@@ -68,6 +74,9 @@ impl StateHash for FighterState {
         h.write_u8(*self as u8);
     }
 }
+
+/// How many recent moves the stale-move queue remembers.
+pub const STALE_QUEUE: usize = 9;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Fighter {
@@ -133,6 +142,21 @@ pub struct Fighter {
     pub shield_hp: Fx,
     /// Frames of shield stun left after blocking a hit: the shield stays up and the fighter cannot act.
     pub shield_stun: u8,
+    /// Frames until the next survival-DI nudge can happen.
+    pub sdi_wait: u8,
+    /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
+    pub balloon_faf: u8,
+    /// Knockback frames of a sped-up launch still to play.
+    pub balloon_left: Fx,
+    /// Hits taken in the current combo (it ends when the fighter is free again); survival DI grows with it.
+    pub hits_taken: u8,
+    /// Frames since the last tech press that counted (255: long ago).
+    pub tech_timer: u8,
+    /// How many automatic-SDI drifts the pending launch gets (an electric hit gives two).
+    pub asdi: u8,
+    /// The last moves this fighter connected with, newest first: `move id + 1`, with the top bit set if the hit was shielded; 0 is
+    /// empty. Drives stale-move negation; a respawn clears it.
+    pub stale: [u8; STALE_QUEUE],
     /// The fighter being held (when grabbing) or holding this one (when grabbed), or [`NONE`].
     pub grab_with: i8,
     /// Frames left before a held fighter breaks free by itself (mashing shortens it).
@@ -291,6 +315,13 @@ impl Fighter {
             charge: 0,
             shield_hp,
             shield_stun: 0,
+            sdi_wait: 0,
+            balloon_faf: 0,
+            balloon_left: Fx::ZERO,
+            hits_taken: 0,
+            tech_timer: 255,
+            asdi: 0,
+            stale: [0; STALE_QUEUE],
             grab_with: NONE,
             grab_timer: 0,
             grab_immune: 0,
@@ -413,6 +444,15 @@ impl StateHash for Fighter {
         h.write_u8(self.charge);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
+        h.write_u8(self.sdi_wait);
+        h.write_u8(self.balloon_faf);
+        self.balloon_left.hash_into(h);
+        h.write_u8(self.hits_taken);
+        h.write_u8(self.tech_timer);
+        h.write_u8(self.asdi);
+        for s in self.stale {
+            h.write_u8(s);
+        }
         h.write_i8(self.grab_with);
         h.write_u16(self.grab_timer);
         h.write_u8(self.grab_immune);
@@ -691,6 +731,41 @@ mod tests {
             ("shield_hp", {
                 let mut s = state;
                 s.fighters[0].shield_hp = Fx::from_int(7);
+                s
+            }),
+            ("balloon_faf", {
+                let mut s = state;
+                s.fighters[0].balloon_faf = 40;
+                s
+            }),
+            ("balloon_left", {
+                let mut s = state;
+                s.fighters[0].balloon_left = Fx::ONE;
+                s
+            }),
+            ("hits_taken", {
+                let mut s = state;
+                s.fighters[0].hits_taken = 3;
+                s
+            }),
+            ("tech_timer", {
+                let mut s = state;
+                s.fighters[0].tech_timer = 2;
+                s
+            }),
+            ("asdi", {
+                let mut s = state;
+                s.fighters[0].asdi = 2;
+                s
+            }),
+            ("sdi_wait", {
+                let mut s = state;
+                s.fighters[0].sdi_wait = 1;
+                s
+            }),
+            ("stale", {
+                let mut s = state;
+                s.fighters[0].stale[8] = 3;
                 s
             }),
             ("shield_stun", {

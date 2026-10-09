@@ -126,7 +126,7 @@ choosing which player to follow, and a delay setting for tournaments.
 
 ## Stages
 
-Four stages (`sim-content/src/stages.rs`: Meadow, Triple Tier, Flat Island, Skyline; all original geometry). A stage is chosen by index when
+Five stages (`sim-content/src/stages.rs`: Meadow, Triple Tier, Flat Island, Skyline, Treetop Isle; all original geometry and art). A stage is chosen by index when
 a match is set up: character select's **Stage** button (or **G**), or the host on the Online screen. The match content is the base roster with
 that stage swapped in (`recipe::match_content_on`), so the simulation still sees one stage and everything agrees through the content hash:
 

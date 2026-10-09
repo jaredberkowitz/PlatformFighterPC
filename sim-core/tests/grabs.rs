@@ -349,8 +349,8 @@ fn the_forward_throw_returns_control_on_frame_33_plus_the_hitlag_of_its_hit() {
             break;
         }
     }
-    // The reference's first actionable frame leaves out hitlag: 7 frames for a 9% hit.
-    assert_eq!(free_at, Some(33 + 7));
+    // The reference's first actionable frame leaves out hitlag: floor(9 * 0.65 + 6) = 11 frames for a 9% hit.
+    assert_eq!(free_at, Some(33 + 11));
 }
 
 // ---- Interruptions ----------------------------------------------------------------------------------------------

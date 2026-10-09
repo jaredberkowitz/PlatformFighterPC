@@ -91,6 +91,20 @@ func _initialize() -> void:
 		{"t": "field", "name": "bottom", "value": "7"},
 		{"t": "field", "name": "pass_through", "value": "true"}]})
 	check(ed.put_section(stage).size() == 0, "a stage with an extra platform is valid")
+	# Its look: a backdrop and a sky colour (presentation only).
+	check(Array(ed.stage_backdrops()).has("grove"), "the backdrops are listed: " + str(ed.stage_backdrops()))
+	var looked: Dictionary = ed.get_section("stage", "")
+	for it in looked.items:
+		if it.t == "field" and it.name == "backdrop":
+			it.value = "grove"
+	looked.items.append({"t": "field", "name": "sky_top", "value": "ff8800"})
+	check(ed.put_section(looked).size() == 0, "a stage with a grove backdrop and an orange sky is valid")
+	var wrong: Dictionary = ed.get_section("stage", "")
+	for it in wrong.items:
+		if it.t == "field" and it.name == "backdrop":
+			it.value = "castle"
+	check(ed.put_section(wrong).size() > 0, "an unknown backdrop is refused")
+	check(ed.put_section(looked).size() == 0, "and the good look goes back")
 	var names := []
 	for s in ed.sections():
 		if s.kind == "stage":
@@ -103,6 +117,8 @@ func _initialize() -> void:
 	check(sim.content_name() == "My Pack", "with its name")
 	check(Array(sim.fighter_names()) == ["duelist", "brawler", "bruiser", "sprinter"], "including the new fighter: " + str(sim.fighter_names()))
 	check(sim.platform_count() == 4, "and the new platform: %d" % sim.platform_count())
+	var look: Dictionary = sim.stage_look()
+	check(look.backdrop == "grove" and look.sky_top == "ff8800", "and its look: " + str(look))
 
 	# Play a short match with the new fighter: it really is faster than the brawler it came from.
 	var run := func(who: int) -> float:

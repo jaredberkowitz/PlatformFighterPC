@@ -4,10 +4,12 @@
 //! that parses is not necessarily *valid*; see [`crate::validate`] for the range and sanity checks.
 
 use crate::tree::{Block, Item};
-use sim_core::content::{Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage};
+use sim_core::content::{
+    Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
+};
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, HIT_GRAB,
-    HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
+    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, EFFECT_ELECTRIC,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -398,6 +400,44 @@ rules_io! {
     grab_release_lag: u8,
     grab_immunity: u8,
     grab_distance: Fx,
+    hitlag_per_damage: Fx,
+    hitlag_base: Fx,
+    hitlag_cap: u8,
+    shield_hitlag_mult: Fx,
+    crouch_cancel_kb: Fx,
+    crouch_cancel_hitlag: Fx,
+    crouch_cancel_hitlag_cap: u8,
+    sdi_interval: u8,
+    rage_start: Fx,
+    rage_full: Fx,
+    rage_max: Fx,
+    stale_moves: u8,
+    hitstun_dodge_cancel: u8,
+    hitstun_attack_cancel: u8,
+    electric_hitlag_mult: Fx,
+    asdi_distance: Fx,
+    sdi_combo_hits: u8,
+    sdi_combo_mult: Fx,
+    balloon_min_faf: u8,
+    balloon_max_faf: u8,
+    balloon_per_frame: Fx,
+    balloon_max: Fx,
+    launch_fall_accel: Fx,
+    launch_fall: Fx,
+    launch_fall_frames: u8,
+    vertical_launch_fall: Fx,
+    vertical_launch_from: u8,
+    vertical_launch_to: u8,
+    clank_range: Fx,
+    rebound_cap: u8,
+    grab_parry_lag: u8,
+    tech_lockout: u8,
+    wall_tech_frames: u8,
+    wall_tech_invuln: u8,
+    bounce_keep: Fx,
+    ground_bounce_speed: Fx,
+    respawn_height: Fx,
+    respawn_platform_frames: u8,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -428,6 +468,18 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             HIT_NORMAL
         }
     };
+    let effect = match f.raw("effect") {
+        None | Some(("normal", _)) => EFFECT_NORMAL,
+        Some(("electric", _)) => EFFECT_ELECTRIC,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox effect must be normal or electric, not `{other}`"),
+            );
+            EFFECT_NORMAL
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -442,6 +494,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         group: f.or("group", 0, errors),
         kind,
         shield_damage: f.or("shield_damage", 100, errors),
+        hitlag: f.or("hitlag", 100, errors),
+        effect,
     };
     f.finish(errors);
     hb
@@ -469,6 +523,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.shield_damage != 100 {
         b.field("shield_damage", hb.shield_damage.to_string());
+    }
+    if hb.hitlag != 100 {
+        b.field("hitlag", hb.hitlag.to_string());
+    }
+    if hb.effect == EFFECT_ELECTRIC {
+        b.field("effect", "electric");
     }
     b
 }
@@ -591,6 +651,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     group: 0,
                     kind: HIT_NORMAL,
                     shield_damage: 100,
+                    hitlag: 100,
+                    effect: EFFECT_NORMAL,
                 }
             }
         };
@@ -816,10 +878,21 @@ fn write_weapon(name: &str, w: &Weapon) -> Block {
 
 // ---- Stage --------------------------------------------------------------------------------------------------
 
-fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage) {
+fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage, StageLook) {
     let name = block.name.clone().unwrap_or_default();
     let context = format!("stage `{name}`");
     let mut f = Fields::new(block, &context, errors);
+    // How it looks (presentation only; checked by validation).
+    let mut look = StageLook::default();
+    if let Some((v, _)) = f.raw("backdrop") {
+        look.backdrop = v.to_string();
+    }
+    if let Some((v, _)) = f.raw("sky_top") {
+        look.sky_top = v.to_string();
+    }
+    if let Some((v, _)) = f.raw("sky_bottom") {
+        look.sky_bottom = v.to_string();
+    }
     let blast_left = f.need("blast_left", None, errors);
     let blast_right = f.need("blast_right", None, errors);
     let blast_bottom = f.need("blast_bottom", None, errors);
@@ -884,11 +957,19 @@ fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage) {
             blast_bottom,
             blast_top,
         },
+        look,
     )
 }
 
-fn write_stage(name: &str, s: &Stage) -> Block {
+fn write_stage(name: &str, s: &Stage, look: &StageLook) -> Block {
     let mut b = Block::new("stage", Some(name));
+    b.field("backdrop", look.backdrop.as_str());
+    if !look.sky_top.is_empty() {
+        b.field("sky_top", look.sky_top.as_str());
+    }
+    if !look.sky_bottom.is_empty() {
+        b.field("sky_bottom", look.sky_bottom.as_str());
+    }
     b.field("blast_left", s.blast_left.show());
     b.field("blast_right", s.blast_right.show());
     b.field("blast_bottom", s.blast_bottom.show());
@@ -1010,7 +1091,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         Some(b) => read_stage(b, errors),
         None => {
             err(errors, 0, "the file has no `stage`");
-            (String::new(), Stage::placeholder())
+            (String::new(), Stage::placeholder(), StageLook::default())
         }
     };
 
@@ -1024,6 +1105,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         weapons: weapons.into_iter().map(|(_, w)| w).collect(),
         stage: stage.1,
         rules,
+        look: stage.2,
     }
 }
 
@@ -1072,6 +1154,6 @@ pub fn write_content(content: &Content) -> Vec<Block> {
     } else {
         &content.names.stage
     };
-    out.push(write_stage(stage_name, &content.stage));
+    out.push(write_stage(stage_name, &content.stage, &content.look));
     out
 }

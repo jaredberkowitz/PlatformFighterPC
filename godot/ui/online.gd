@@ -108,6 +108,7 @@ func _ready() -> void:
 	_update_rows()
 	_set_focus(0)
 	PadNav.attach(self)
+	UI.reveal(self)
 	Music.of(self).play("menu")
 	Shot.attach(self)
 

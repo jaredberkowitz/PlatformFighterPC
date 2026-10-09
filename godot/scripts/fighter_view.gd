@@ -249,8 +249,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["roll", 1.0, -1.0]
 		"Shield", "ShieldDrop":
 			return ["shield", 1.0, -1.0]
-		"Hitstun", "ShieldBreak", "Grabbed":
+		"Hitstun", "ShieldBreak", "Grabbed", "Rebound":
 			return ["hurt", 1.0, -1.0]
+		"WallTech":
+			return ["shield", 1.0, -1.0]
 		"Knockdown", "GetUp":
 			return ["knockdown", 1.0, -1.0]
 		"LedgeHang":
@@ -259,7 +261,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["grab", 1.0, -1.0]
 		"Attack":
 			return _attack_clip(s)
-		"Idle", "Turn", "LedgeGetUp", "LedgeAttack":
+		"Idle", "Turn", "LedgeGetUp", "LedgeAttack", "Respawn":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
@@ -289,7 +291,11 @@ func _attack_clip(s: Dictionary) -> Array:
 	elif name.begins_with("grab") or name.begins_with("dash grab") or name.begins_with("pivot") or name == "pummel":
 		clip = "grab"
 	elif brawler_body:
-		clip = "attack_kick"
+		clip = KICK_CLIPS.get(name, "attack_kick")
+	elif _cls(s) == 1 and name == "neutral special":
+		clip = "blaster"
+	elif _cls(s) != 1 and SWORD_CLIPS.has(name):
+		clip = SWORD_CLIPS[name]
 	elif name == "fair":
 		clip = "attack_fair"
 	elif name == "bair":
@@ -489,11 +495,13 @@ func build(p: int, l: RefCounted = null) -> void:
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
-	spark.mesh = _sphere(0.7)
+	spark.mesh = _star_mesh()
 	var spark_mat := StandardMaterial3D.new()
 	spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	spark_mat.albedo_color = Color(1.0, 0.97, 0.7, 0.85)
+	spark_mat.vertex_color_use_as_albedo = true
+	spark_mat.albedo_color = Color(1.0, 0.97, 0.7, 0.95)
 	spark_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	spark_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	spark.material_override = spark_mat
 	spark.position = Vector3(0, 1.3, 0.6)
 	spark.visible = false
@@ -823,7 +831,43 @@ var hammer_parts: Array[MeshInstance3D] = []
 func _cls(s: Dictionary) -> int:
 	return int(s.get("class", s.char))
 var spark: MeshInstance3D
+var spark_was_visible := false
+var spark_spin := 0.0
+var spark_strength := 0
+
+
+## An eight-pointed star (white in the middle) for hit sparks, flat and facing the camera.
+static func _star_mesh() -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	var points := 8
+	for k in points * 2:
+		var a0 := TAU * float(k) / float(points * 2)
+		var a1 := TAU * float(k + 1) / float(points * 2)
+		var r0 := 1.0 if k % 2 == 0 else 0.38
+		var r1 := 1.0 if (k + 1) % 2 == 0 else 0.38
+		verts.append(Vector3.ZERO)
+		cols.append(Color(1, 1, 1, 1))
+		verts.append(Vector3(cos(a0) * r0, sin(a0) * r0, 0))
+		cols.append(Color(1, 1, 1, 0.0) if r0 > 0.5 else Color(1, 1, 1, 0.8))
+		verts.append(Vector3(cos(a1) * r1, sin(a1) * r1, 0))
+		cols.append(Color(1, 1, 1, 0.0) if r1 > 0.5 else Color(1, 1, 1, 0.8))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = cols
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return m
 var flame: MeshInstance3D
+## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
+const SWORD_CLIPS := {"ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
+	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
+const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
+	"dtilt": "kick_low", "dash attack": "kick_dash"}
+## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
+var leg_k := 0.0
+
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
@@ -980,6 +1024,56 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
 
 
+## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
+## is; the other leg and the body come from the move's clip.
+func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
+	if skeleton == null:
+		return
+	var tip: Vector3 = s.move_tip
+	var live := kicking and tip != Vector3.ZERO
+	leg_k = move_toward(leg_k, 1.0 if live else 0.0, delta * 12.0)
+	var facing := int(s.facing)
+	# The front leg kicks forward and up, the back leg backward.
+	var front := "R" if facing > 0 else "L"
+	var back := "L" if facing > 0 else "R"
+	var kicker := front if tip.x >= 0.0 else back
+	for side in ["L", "R"]:
+		var it := skeleton.find_bone("thigh." + side)
+		var ish := skeleton.find_bone("shin." + side)
+		var ift := skeleton.find_bone("foot." + side)
+		if side != kicker or leg_k <= 0.01:
+			skeleton.set_bone_global_pose_override(it, Transform3D(), 0.0, false)
+			skeleton.set_bone_global_pose_override(ish, Transform3D(), 0.0, false)
+			skeleton.set_bone_global_pose_override(ift, Transform3D(), 0.0, false)
+			continue
+		var rest_t := skeleton.get_bone_global_rest(it)
+		var rest_s := skeleton.get_bone_global_rest(ish)
+		var rest_f := skeleton.get_bone_global_rest(ift)
+		var hip := rest_t.origin
+		var knee0 := rest_s.origin
+		var ankle0 := rest_f.origin
+		var upper := (knee0 - hip).length()
+		var lower := (ankle0 - knee0).length() + 0.08
+		var to_skel := _skeleton_to_model().affine_inverse()
+		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
+		var goal: Vector3 = to_skel * Vector3(tip.x * float(facing), tip.y, 0.2)
+		var d := goal - hip
+		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
+		var dir := d.normalized()
+		var cos_a := clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0)
+		var ang := acos(cos_a)
+		# The knee bends forward and a little up.
+		var pole := Vector3(0.0, 0.4, 1.0)
+		var bend := (pole - dir * pole.dot(dir)).normalized()
+		var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
+		var shin_dir := (goal - knee).normalized()
+		var q_upper := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
+		var q_lower := Quaternion((ankle0 - knee0).normalized(), shin_dir)
+		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis, hip), leg_k, true)
+		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis, knee), leg_k, true)
+		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * (ankle0 - knee0).length()), leg_k, true)
+
+
 ## A crescent trail behind the hitbox, like the one a fast punch or slash leaves. Each simulation frame the centre of the hitbox (the fist,
 ## or the part of the blade that hits) is added to a path; the path is drawn as a smooth ribbon that is thickest at the hitbox and tapers
 ## to nothing behind it, with a bright core inside a coloured edge. While the hitbox is live a thin ring marks where it is. The points are
@@ -1006,6 +1100,168 @@ func _make_trail() -> void:
 	m.render_priority = 5
 	trail.material_override = m
 	add_child(trail)
+
+
+# ---- Revival platform ------------------------------------------------------------------------------------------------------------
+# After a knock-out the fighter waits on a glowing platform above the stage (see `Respawn` in the sim).
+
+var revival: MeshInstance3D
+
+
+func _revival_platform(s: Dictionary) -> void:
+	var on: bool = s.state == "Respawn"
+	if revival == null:
+		if not on:
+			return
+		revival = MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		disc.top_radius = 1.0
+		disc.bottom_radius = 0.75
+		disc.height = 0.16
+		revival.mesh = disc
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1.0, 0.93, 0.55, 0.85)
+		revival.material_override = mat
+		revival.position = Vector3(0, -0.08, 0)
+		add_child(revival)
+	revival.visible = on
+	if on:
+		# A gentle pulse, so it reads as temporary.
+		var pulse := 0.85 + 0.15 * sin(float(s.frame) * 0.25)
+		revival.scale = Vector3(pulse, 1.0, pulse)
+
+
+# ---- Dust ------------------------------------------------------------------------------------------------------------------------
+# Little puffs at the feet when a fighter starts a dash, turns, jumps or lands, as the reference game does: they make movement read.
+
+const DUSTS := 10
+var dusts: Array[MeshInstance3D] = []
+var dust_age: Array[float] = []
+var dust_vel: Array[Vector3] = []
+var next_dust := 0
+var dust_state := ""
+var dust_grounded := true
+var dust_frame := -1
+
+
+func _dust(s: Dictionary) -> void:
+	if dusts.is_empty():
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(0.96, 0.93, 0.85, 0.7)
+		for i in DUSTS:
+			var p := MeshInstance3D.new()
+			p.mesh = _sphere(0.22)
+			p.material_override = mat.duplicate()
+			p.top_level = true
+			p.visible = false
+			add_child(p)
+			dusts.append(p)
+			dust_age.append(99.0)
+			dust_vel.append(Vector3.ZERO)
+	var frame: int = s.frame
+	if frame == dust_frame:
+		return
+	var dt := 1.0 / 60.0 * float(clampi(frame - dust_frame, 1, 4)) if dust_frame >= 0 else 1.0 / 60.0
+	dust_frame = frame
+	for i in DUSTS:
+		dust_age[i] += dt
+		var life := dust_age[i] / 0.4
+		dusts[i].visible = life < 1.0
+		if dusts[i].visible:
+			dusts[i].global_position += dust_vel[i] * dt
+			dusts[i].scale = Vector3.ONE * (0.7 + life * 1.1)
+			(dusts[i].material_override as StandardMaterial3D).albedo_color.a = 0.7 * (1.0 - life)
+	var state: String = s.state
+	var grounded: bool = s.platform >= 0
+	var facing := float(s.facing)
+	if state != dust_state:
+		match state:
+			"Dash":
+				_puff(-facing, 1)
+			"Turn":
+				_puff(facing, 1)
+			"JumpSquat", "WaveLand":
+				_puff(-1.0, 1)
+				_puff(1.0, 1)
+	if grounded and not dust_grounded and state != "Knockdown":
+		_puff(-1.0, 1)
+		_puff(1.0, 1)
+	# Rage: from 100% a hurt fighter lets off steam, more of it the higher the damage.
+	var pct: float = s.get("percent", 0.0)
+	if pct >= 100.0 and state != "Respawn":
+		var every := maxi(4, 16 - int((pct - 100.0) / 8.0))
+		if frame % every == 0:
+			var i := next_dust
+			next_dust = (next_dust + 1) % DUSTS
+			dusts[i].global_position = global_position + Vector3(randf_range(-0.3, 0.3), 2.1, 0.3)
+			dust_vel[i] = Vector3(randf_range(-0.3, 0.3), 1.6, 0.0)
+			dust_age[i] = 0.0
+			dusts[i].visible = true
+	dust_state = state
+	dust_grounded = grounded
+
+
+func _puff(side: float, count: int) -> void:
+	for n in count:
+		var i := next_dust
+		next_dust = (next_dust + 1) % DUSTS
+		dusts[i].global_position = global_position + Vector3(side * 0.35, 0.12, 0.3)
+		dust_vel[i] = Vector3(side * 2.2, 0.6, 0.0)
+		dust_age[i] = 0.0
+		dusts[i].visible = true
+
+
+# ---- Launch smoke ------------------------------------------------------------------------------------------------------------
+# A strong launch leaves a trail of puffs behind the tumbling fighter (as the reference game does), so the eye can follow a big hit.
+
+const PUFFS := 14
+var puffs: Array[MeshInstance3D] = []
+var puff_age: Array[float] = []
+var next_puff := 0
+var last_puff_at := Vector3.INF
+var last_puff_frame := -1
+
+
+func _launch_smoke(s: Dictionary) -> void:
+	if puffs.is_empty():
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(0.92, 0.92, 0.95, 0.55)
+		for i in PUFFS:
+			var p := MeshInstance3D.new()
+			p.mesh = _sphere(0.35)
+			p.material_override = mat.duplicate()
+			p.top_level = true
+			p.visible = false
+			add_child(p)
+			puffs.append(p)
+			puff_age.append(99.0)
+	var frame: int = s.frame
+	if frame != last_puff_frame:
+		var dt := 1.0 / 60.0 * float(maxi(1, frame - last_puff_frame)) if last_puff_frame >= 0 else 1.0 / 60.0
+		last_puff_frame = frame
+		for i in PUFFS:
+			puff_age[i] += dt
+			var life := puff_age[i] / 0.55
+			puffs[i].visible = life < 1.0
+			if puffs[i].visible:
+				puffs[i].scale = Vector3.ONE * (0.6 + life * 0.9)
+				(puffs[i].material_override as StandardMaterial3D).albedo_color.a = 0.55 * (1.0 - life)
+		var here := global_position + Vector3(0, 1.0, 0)
+		if s.state == "Hitstun" and int(s.hitlag) == 0 and s.tumble and (last_puff_at == Vector3.INF or here.distance_to(last_puff_at) > 0.45):
+			var p := puffs[next_puff]
+			next_puff = (next_puff + 1) % PUFFS
+			p.global_position = here
+			puff_age[puffs.find(p)] = 0.0
+			p.visible = true
+			last_puff_at = here
+		elif s.state != "Hitstun":
+			last_puff_at = Vector3.INF
 
 
 ## Edge and core colours: violet and white-pink for the brawler, gold and white for the sword.
@@ -1125,6 +1381,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	blade_pivot.visible = not brawler and swinging_arm
 	if rig != null:
 		_aim_arm(int(s.facing), swinging_arm if not brawler else (swinging_arm and state == "Attack"))
+		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.visible = rushing
 	if rushing:
@@ -1135,11 +1392,31 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var hitlag: int = s.hitlag
 	# The hurt face is a cosmetic event: it shows while the fighter is being hit and goes back afterwards.
 	set_expression(Loadout.HURT if state == "Hitstun" else Loadout.FACES[loadout.face])
-	spark.visible = hitlag > 0 and state == "Hitstun" and s.launch_pending
+	spark.visible = hitlag > 0 and ((state == "Hitstun" and s.launch_pending) or state == "Rebound")
 	if spark.visible:
-		spark.scale = Vector3.ONE * (0.5 + 0.1 * hitlag)
-	# Shake while frozen in hitlag.
-	model.position = Vector3(sin(float(s.frame) * 9.0) * 0.14, 0, 0) if hitlag > 0 else Vector3.ZERO
+		# A star burst on the side the hit came from, bigger and hotter for a stronger hit, turned a new way for each hit.
+		if not spark_was_visible:
+			spark_spin = randf() * TAU
+			spark_strength = hitlag
+		var heat := clampf((spark_strength - 8) / 16.0, 0.0, 1.0)
+		var col := Color(1.0, 0.97, 0.75).lerp(Color(1.0, 0.45, 0.15), heat)
+		(spark.material_override as StandardMaterial3D).albedo_color = Color(col.r, col.g, col.b, 0.95)
+		var grow := 0.55 + 0.07 * spark_strength + 0.12 * sin(float(s.frame) * 1.9)
+		spark.scale = Vector3(grow, grow, 1.0)
+		spark.rotation.z = spark_spin + float(s.frame) * 0.05
+		spark.position = Vector3(0.45 * float(s.facing), 1.25, 0.7)
+	spark_was_visible = spark.visible
+	# The one who was hit shakes while frozen in hitlag (harder for a stronger hit, settling as it ends); the attacker holds still.
+	var shaking: bool = hitlag > 0 and (s.launch_pending or state == "Shield")
+	if shaking:
+		var amp := (0.05 + 0.012 * hitlag) * (0.4 if state == "Shield" else 1.0)
+		var t := float(s.frame)
+		model.position = Vector3(sin(t * 9.0) * amp, cos(t * 7.3) * amp * 0.5, 0)
+	else:
+		model.position = Vector3.ZERO
+	_launch_smoke(s)
+	_dust(s)
+	_revival_platform(s)
 	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
 	var charge: int = s.charge
 	if charge > 0 and state == "Attack":

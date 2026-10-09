@@ -1205,7 +1205,8 @@ fn fire_wolf_hits_several_times_and_leaves_wolf_helpless() {
     assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
     let mut last = Fx::ZERO;
     let mut hits = 0;
-    for _ in 2..=55 {
+    // Each hit freezes both fighters for its hitlag, so the five hits take longer than the move's own frames.
+    for _ in 2..=100 {
         sim.tick(inp(0, 0, 0));
         if sim.fighter(1).percent > last {
             hits += 1;

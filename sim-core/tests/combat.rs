@@ -56,10 +56,14 @@ fn a_jab_hits_on_its_first_active_frame_and_not_before() {
 #[test]
 fn hitlag_freezes_both_fighters_for_the_same_number_of_frames() {
     let mut sim = Sim::duel(fx(14, 10));
+    // Only the two of them: a jab that also reached a bystander would freeze the attacker for the longer of the two hitlags.
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
     sim.tick(inp(0, 0, ATTACK));
     ticks_until_hit(&mut sim, 12).expect("jab should hit");
-    let tip_damage = Fx::from_int(3);
-    let lag = hitlag_frames(tip_damage);
+    // The damage the hit really did (before the one-on-one multiplier) decides the hitlag.
+    let dealt = sim.fighter(1).percent / sim.content.rules.damage_mult;
+    let lag = hitlag_frames(dealt, &sim.content.rules, false, false, Fx::ONE);
     assert_eq!(sim.f().hitlag, lag);
     assert_eq!(sim.fighter(1).hitlag, lag);
     let frozen_frame = sim.f().state_frame;
@@ -405,8 +409,42 @@ fn leaving_the_blast_zone_costs_a_stock_and_respawns_with_invulnerability() {
     let f = sim.fighter(1);
     assert_eq!(f.stocks, 2);
     assert_eq!(f.percent, Fx::ZERO);
-    assert_eq!(f.pos, sim.content.stage.spawns[1]);
+    // Back on the revival platform above the spawn point.
+    let spawn = sim.content.stage.spawns[1];
+    assert_eq!(f.pos.x, spawn.x);
+    assert_eq!(f.pos.y, spawn.y + sim.content.rules.respawn_height);
+    assert_eq!(f.state, S::Respawn);
     assert_eq!(f.invuln, sim.content.rules.respawn_invuln);
+}
+
+#[test]
+fn the_revival_platform_holds_until_the_player_moves_or_it_runs_out() {
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(40);
+    sim.state.fighters[0].platform = sim_core::state::NONE;
+    // The stick held from before the knock-out does not drop the fighter.
+    sim.ticks(30, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Respawn);
+    let y = sim.f().pos.y;
+    assert!(
+        sim.f().invuln >= sim.content.rules.respawn_invuln - 1,
+        "invincible on the platform"
+    );
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!(sim.f().state, S::Airborne, "a new input drops off");
+    assert_eq!(sim.f().invuln, sim.content.rules.respawn_invuln);
+    assert_eq!(sim.f().pos.y, y);
+    // Left alone, the platform goes after its time.
+    let mut sim = Sim::new();
+    sim.state.fighters[0].pos.x = Fx::from_int(40);
+    sim.state.fighters[0].platform = sim_core::state::NONE;
+    sim.tick(inp(0, 0, 0));
+    let frames = usize::from(sim.content.rules.respawn_platform_frames);
+    sim.ticks(frames - 2, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Respawn);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Airborne);
 }
 
 // ---- Tech ------------------------------------------------------------------------------------------------

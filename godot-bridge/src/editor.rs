@@ -368,6 +368,16 @@ impl ContentEditor {
         self.policy = sim_content::policy::Policy::new(&text.to_string());
     }
 
+    /// The backdrops a stage can be drawn with (the stage editor's choices).
+    #[func]
+    fn stage_backdrops(&self) -> PackedStringArray {
+        let names: Vec<GString> = sim_content::BACKDROPS
+            .iter()
+            .map(|n| GString::from(*n))
+            .collect();
+        PackedStringArray::from(names.as_slice())
+    }
+
     /// Why a player-chosen name is refused, or an empty string if it is fine.
     #[func]
     fn policy_check_name(&self, name: GString) -> GString {

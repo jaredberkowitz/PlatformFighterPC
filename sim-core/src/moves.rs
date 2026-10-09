@@ -265,7 +265,15 @@ pub struct Hitbox {
     pub kind: u8,
     /// Percent of its damage this hit does to a shield (100 is normal; a shield-breaking move uses more).
     pub shield_damage: u16,
+    /// Percent of the normal hitlag this hit causes (100 is normal; 0 gives none).
+    pub hitlag: u16,
+    /// What the hit is made of: [`EFFECT_NORMAL`] or [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick).
+    pub effect: u8,
 }
+
+/// `Hitbox::effect` values.
+pub const EFFECT_NORMAL: u8 = 0;
+pub const EFFECT_ELECTRIC: u8 = 1;
 
 /// `Hitbox::kind` values.
 pub const HIT_NORMAL: u8 = 0;
@@ -432,6 +440,8 @@ impl StateHash for Hitbox {
         h.write_u8(self.group);
         h.write_u8(self.kind);
         h.write_u16(self.shield_damage);
+        h.write_u16(self.hitlag);
+        h.write_u8(self.effect);
     }
 }
 
@@ -568,6 +578,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 group: 0,
                 kind: HIT_NORMAL,
                 shield_damage: 100,
+                hitlag: 100,
+                effect: EFFECT_NORMAL,
             })
             .collect(),
         ..Move::empty()
@@ -606,6 +618,8 @@ fn row(r: &R) -> Hitbox {
         group: r.group,
         kind: HIT_NORMAL,
         shield_damage: 100,
+        hitlag: 100,
+        effect: EFFECT_NORMAL,
     }
 }
 
@@ -1368,6 +1382,8 @@ pub fn claws() -> Weapon {
             group: 0,
             kind: HIT_NORMAL,
             shield_damage: 100,
+            hitlag: 100,
+            effect: EFFECT_NORMAL,
         },
         end_damage: Fx::from_int(6),
     });

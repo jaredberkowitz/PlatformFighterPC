@@ -77,6 +77,7 @@ func _ready() -> void:
 	add_child(hint)
 	_show()
 	PadNav.attach(self)
+	UI.reveal(self)
 	Music.of(self).play("menu")
 	Shot.attach(self)
 
