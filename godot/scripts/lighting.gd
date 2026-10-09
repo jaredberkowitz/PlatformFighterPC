@@ -22,6 +22,16 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	env.adjustment_saturation = 1.12
 	env.adjustment_contrast = 1.03
 	if not preview:
+		# Haze that thickens with distance behind the stage, so the backdrop sits back and the fighters stand out.
+		env.fog_enabled = true
+		env.fog_mode = Environment.FOG_MODE_DEPTH
+		env.fog_light_color = Color(0.78, 0.86, 0.95)
+		env.fog_light_energy = 1.0
+		env.fog_density = 0.55
+		env.fog_sky_affect = 0.0
+		env.fog_depth_curve = 1.4
+		env.fog_depth_begin = 45.0
+		env.fog_depth_end = 160.0
 		env.ssao_enabled = true
 		env.ssao_radius = 1.4
 		env.ssao_intensity = 1.2

@@ -4,6 +4,7 @@ extends Node3D
 const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
+const Effects := preload("res://scripts/effects.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -319,6 +320,8 @@ func _apply_sky() -> void:
 	if world_env != null and not stage_view.theme.is_empty():
 		world_env.sky = StageArt.sky(stage_view.theme)
 		world_env.background_mode = Environment.BG_SKY
+		# The haze behind the stage takes the colour of the stage's horizon.
+		world_env.fog_light_color = stage_view.theme.sky_horizon
 
 
 func _apply_rules() -> void:
@@ -1150,6 +1153,11 @@ func _in_play(i: int) -> bool:
 func _on_hit(i: int) -> void:
 	var lag: int = snaps[i].hitlag
 	cam_shake = maxf(cam_shake, minf(0.8, float(lag) * 0.028))
+	# A shockwave and streaks where the hit landed, in the colour of whoever landed it, bigger for a harder hit.
+	if snaps[i].get("launch_pending", false) and _in_play(i):
+		var by: int = stats[i].last_hitter if i < stats.size() else -1
+		var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
+		Effects.hit(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.8), colour, clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0))
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
 		ko_time = 0.75
@@ -1207,6 +1215,11 @@ func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
 		sfx.play("clank")
 		cam_shake = maxf(cam_shake, 0.25)
 		_burst(Vector3(cur_pos[i].x + 0.9 * float(now.facing), cur_pos[i].y + 1.1, 0.6), Color(1.0, 0.95, 0.6), 0.9, 0.3)
+	# A ring at the feet on every jump, brighter for a midair one.
+	if now.state == "Airborne" and before.state == "JumpSquat":
+		Effects.jump_ring(self, Vector3(cur_pos[i].x, cur_pos[i].y, 0.0), false)
+	elif now.state == "Airborne" and before.state == "Airborne" and int(now.get("jumps", 0)) < int(before.get("jumps", 0)):
+		Effects.jump_ring(self, Vector3(cur_pos[i].x, cur_pos[i].y, 0.0), true)
 	if now.state == "WallTech" and before.state != "WallTech":
 		sfx.play("land", 1.3)
 		_burst(Vector3(cur_pos[i].x, cur_pos[i].y + 1.0, 0.6), Color(0.85, 0.95, 1.0), 1.1, 0.35)
@@ -1323,6 +1336,10 @@ func _offscreen_markers() -> Array:
 	return out
 
 
+## Degrees the match camera looks down at the stage.
+const CAMERA_PITCH := 10.0
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
@@ -1336,8 +1353,9 @@ func _update_camera(a: float, delta: float) -> void:
 		return
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
-	var spread := maxf(hi.x - lo.x + 18.0, (hi.y - lo.y + 10.0) * 1.78)
-	var dist := clampf(spread / 0.95, 24.0, 85.0)
+	# (Close together, the camera comes in near so the fighters read big, as the reference game frames a close exchange.)
+	var spread := maxf(hi.x - lo.x + 14.0, (hi.y - lo.y + 8.0) * 1.78)
+	var dist := clampf(spread / 0.95, 19.0, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
@@ -1354,7 +1372,11 @@ func _update_camera(a: float, delta: float) -> void:
 	if cam_shake > 0.001:
 		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
 		cam_shake = move_toward(cam_shake, 0.0, delta * 2.6)
-	cam.position = cam_base + offset
+	# The camera looks slightly down at the stage (raised by as much as it tilts, so the point it frames stays put): the tops of the
+	# platforms and the fighters' shadows on them show, and the stage has depth.
+	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
+	cam.position = cam_base + offset + Vector3(0, lift, 0)
+	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, 0)
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),

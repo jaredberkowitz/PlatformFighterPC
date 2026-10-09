@@ -114,6 +114,10 @@ FACE_SIZE = 1.155
 FACE_CENTRE = 1.585
 
 
+## How much thicker the limbs are than the first model's.
+LIMB = 1.32
+
+
 def build_meshes(rig):
     parts = {}
 
@@ -152,50 +156,60 @@ def build_meshes(rig):
             loop[uv].uv = (0.5 + co.x / FACE_SIZE, 0.5 + (co.z - FACE_CENTRE) / FACE_SIZE)
     parts["Face"] = to_object("Face", bm, "head", rig)
 
+    # Limbs are chunky (LIMB times the first model's thickness) so arms and legs read at play distance, with big cartoon gloves and shoes,
+    # and a ball at each elbow and knee so a bent joint stays round instead of pinching.
+    T = LIMB
     for side, x in (("L", -1.0), ("R", 1.0)):
         bm = bmesh.new()
-        capsule(bm, (x * 0.5, 0.0, 1.15), 0.13, (x * 0.66, -0.02, 0.95), 0.115)
+        capsule(bm, (x * 0.5, 0.0, 1.15), 0.13 * T, (x * 0.66, -0.02, 0.95), 0.115 * T)
         parts["ArmU." + side] = to_object("ArmU." + side, bm, "armU." + side, rig)
 
         # A short shirt sleeve: a wider capsule over the top of the upper arm, open at the bottom, so the arm comes out of it.
         bm = bmesh.new()
-        capsule(bm, (x * 0.48, 0.0, 1.18), 0.17, (x * 0.62, -0.015, 1.02), 0.16)
+        capsule(bm, (x * 0.48, 0.0, 1.18), 0.17 * T, (x * 0.62, -0.015, 1.02), 0.16 * T)
         cut = [v for v in bm.verts if (v.co - Vector((x * 0.62, -0.015, 1.02))).dot(Vector((x * 0.14, -0.015, -0.16)).normalized()) > 0.02]
         bmesh.ops.delete(bm, geom=cut, context="VERTS")
         parts["Sleeve." + side] = to_object("Sleeve." + side, bm, "armU." + side, rig)
 
         bm = bmesh.new()
-        capsule(bm, (x * 0.66, -0.02, 0.95), 0.115, (x * 0.74, -0.04, 0.8), 0.105)
+        capsule(bm, (x * 0.66, -0.02, 0.95), 0.115 * T, (x * 0.74, -0.04, 0.8), 0.105 * T)
         parts["ArmL." + side] = to_object("ArmL." + side, bm, "armL." + side, rig)
-
-        # A mitten: a round palm with a small thumb on the inner side.
         bm = bmesh.new()
-        ball(bm, 0.2, (x * 0.74, -0.04, 0.72), segments=28, rings=18)
-        ball(bm, 0.08, (x * 0.74 - x * 0.15, -0.09, 0.76), (0.9, 1.3, 1.0), segments=14, rings=10)
+        ball(bm, 0.118 * T, (x * 0.66, -0.02, 0.95), segments=20, rings=12)
+        parts["Elbow." + side] = to_object("Elbow." + side, bm, "armL." + side, rig)
+
+        # A big glove: a round palm a little flattened, puffy, with a thumb on the inner side and a knuckle ridge across the back.
+        bm = bmesh.new()
+        ball(bm, 0.25, (x * 0.76, -0.04, 0.7), (1.0, 0.85, 1.0), segments=32, rings=20)
+        ball(bm, 0.1, (x * 0.76 - x * 0.19, -0.1, 0.75), (0.9, 1.3, 1.0), segments=16, rings=10)
+        ball(bm, 0.07, (x * 0.76 + x * 0.04, -0.2, 0.66), (2.4, 0.8, 1.0), segments=16, rings=8)
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
 
         # A rolled glove cuff just above the mitten: a flat disc square to the forearm, wider than the arm.
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=0.15, radius2=0.165, depth=0.08)
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=0.17 * T, radius2=0.19 * T, depth=0.1)
         elbow = Vector((x * 0.66, -0.02, 0.95))
         wrist = Vector((x * 0.74, -0.04, 0.8))
         axis = (wrist - elbow).normalized()
         rot = Vector((0.0, 0.0, 1.0)).rotation_difference(axis).to_matrix().to_4x4()
         bmesh.ops.transform(bm, matrix=rot, verts=bm.verts)
-        bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.3, verts=bm.verts)
+        bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.55, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
         bm = bmesh.new()
-        capsule(bm, (x * 0.26, 0.0, 0.64), 0.14, (x * 0.26, 0.0, 0.42), 0.125)
+        capsule(bm, (x * 0.26, 0.0, 0.64), 0.14 * T, (x * 0.26, 0.0, 0.42), 0.125 * T)
         parts["Thigh." + side] = to_object("Thigh." + side, bm, "thigh." + side, rig)
 
         bm = bmesh.new()
-        capsule(bm, (x * 0.26, 0.0, 0.42), 0.125, (x * 0.26, 0.0, 0.26), 0.12)
+        capsule(bm, (x * 0.26, 0.0, 0.42), 0.125 * T, (x * 0.26, 0.0, 0.26), 0.12 * T)
         parts["Shin." + side] = to_object("Shin." + side, bm, "shin." + side, rig)
+        bm = bmesh.new()
+        ball(bm, 0.128 * T, (x * 0.26, 0.0, 0.42), segments=20, rings=12)
+        parts["Knee." + side] = to_object("Knee." + side, bm, "shin." + side, rig)
 
         # A chunky shoe: a flat sole and a rounded toe cap.
         bm = bmesh.new()
-        ball(bm, 0.22, (x * 0.26, -0.05, 0.17), (1.0, 1.35, 0.8), segments=28, rings=18)
+        ball(bm, 0.26, (x * 0.26, -0.07, 0.17), (1.0, 1.35, 0.8), segments=28, rings=18)
         for v in bm.verts:
             if v.co.z < 0.08:
                 v.co.z = 0.08 + (v.co.z - 0.08) * 0.15
@@ -204,24 +218,24 @@ def build_meshes(rig):
         # A strap across the top of the shoe (in the outfit colour): a band of the shoe's own shape, a hair bigger. The ball is built with
         # its rings running across the shoe (poles front and back), so the band's edges are clean.
         bm = bmesh.new()
-        res = bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=28, radius=0.22 * 1.05)
+        res = bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=28, radius=0.26 * 1.05)
         bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=Matrix.Rotation(math.pi / 2.0, 3, "X"), verts=res["verts"])
         for v in res["verts"]:
             v.co.y *= 1.35
             v.co.z *= 0.8
-            v.co += Vector((x * 0.26, -0.05, 0.17))
+            v.co += Vector((x * 0.26, -0.07, 0.17))
             if v.co.z < 0.08:
                 v.co.z = 0.08 + (v.co.z - 0.08) * 0.15
-        off = [v for v in bm.verts if not (-0.21 < v.co.y < -0.1) or v.co.z < 0.13]
+        off = [v for v in bm.verts if not (-0.27 < v.co.y < -0.13) or v.co.z < 0.14]
         bmesh.ops.delete(bm, geom=off, context="VERTS")
         parts["Strap." + side] = to_object("Strap." + side, bm, "foot." + side, rig)
 
         # Clothes: a sole under each shoe, and the shorts' legs over the top of each thigh.
         bm = bmesh.new()
-        ball(bm, 0.215, (x * 0.26, -0.05, 0.085), (1.02, 1.37, 0.18), segments=28, rings=10)
+        ball(bm, 0.255, (x * 0.26, -0.07, 0.085), (1.02, 1.37, 0.18), segments=28, rings=10)
         parts["Sole." + side] = to_object("Sole." + side, bm, "foot." + side, rig)
         bm = bmesh.new()
-        capsule(bm, (x * 0.26, 0.0, 0.66), 0.165, (x * 0.26, 0.0, 0.52), 0.155)
+        capsule(bm, (x * 0.26, 0.0, 0.66), 0.165 * T, (x * 0.26, 0.0, 0.52), 0.155 * T)
         parts["ShortsLeg." + side] = to_object("ShortsLeg." + side, bm, "thigh." + side, rig)
 
     # The shorts: the bottom of the body, a little bigger than it, cut off at the waist.
@@ -412,13 +426,13 @@ def lengthen_limbs(rig, parts):
                 continue
             for v in obj.data.vertices:
                 co = v.co.copy()
-                if name.startswith(("Thigh", "Shin")):
+                if name.startswith(("Thigh", "Shin", "Knee")):
                     co.z = leg_z(co.z)
                 elif name.startswith(("Foot", "Sole", "Strap")):
                     pass
                 elif name.startswith("ShortsLeg"):
                     co.z = leg_z(co.z)
-                elif name.startswith(("ArmU", "ArmL", "Sleeve")):
+                elif name.startswith(("ArmU", "ArmL", "Sleeve", "Elbow")):
                     co.z += SHIFT
                     co += along * ((co - shoulder).dot(along) * (KA - 1.0))
                 elif name.startswith(("Hand", "Cuff")):

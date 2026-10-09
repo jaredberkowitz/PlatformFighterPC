@@ -226,3 +226,25 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   down wind up from above, rising cuts from below); the resting blade is shorter to match the shorter reach; the move tip the game aims at is
   the hit farthest from the body (the end of the blade). `--demo=sword_gallery` photographs every sword move at wind-up, first hit, middle
   and recovery.
+
+
+## Readability and finish (eleventh pass)
+
+- **Chunkier fighters** (`LIMB` in the Blender script, 1.32): thicker arms and legs, big puffy gloves with a thumb and a knuckle ridge, bigger
+  boots (soles and straps to match), rolled cuffs at the wrist, and a ball at each elbow and knee so a bent joint stays round. The skeleton
+  and the animations are unchanged.
+- **An outline that holds its weight** (`shaders/outline.gdshader`, the toon material's next pass): the ink line grows with distance from
+  the camera, so it stays about the same thickness on screen when the camera pulls back (it used to thin out to nothing at long range).
+- **Contact shadows**: a soft dark oval under each fighter, projected on whatever is below it (a `Decal`; the fighter's own meshes are on
+  render layer 2 so it skips them; it only lands on upward-facing surfaces and fades with height).
+- **Camera**: it now looks down at the stage a little (`CAMERA_PITCH`, 10 degrees, raised to match) so platform tops and the shadows show,
+  and it comes in closer when the fighters are near each other (minimum distance 19, was 24).
+- **Depth haze** (`lighting.gd`): fog that only thickens far behind the stage (depth 45 to 160), tinted to the stage's horizon colour, so the
+  backdrop sits back and the fighters stand out. (A depth-of-field blur was tried and dropped: it bled the sky over thin things like the
+  blade and the damage numbers.)
+- **Hit effects** (`effects.gd`): a white shockwave ring, a ring in the attacker's colour and a burst of streaks where a hit lands, bigger for
+  a harder hit; a ring at the feet on every jump (brighter for a midair jump).
+- **Flashes** (an `instance uniform` in the toon and face shaders, so each fighter flashes on its own): white for a moment when hit, a soft
+  yellow pulse while charging a smash.
+- **Shield** (`shaders/shield.gdshader`): a bubble that is clear in the middle with a bright fresnel rim and a slight pulse, tinted by its
+  health as before.

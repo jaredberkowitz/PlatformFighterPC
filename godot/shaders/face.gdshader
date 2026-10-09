@@ -9,6 +9,9 @@ uniform sampler2D face_tex : source_color, filter_linear_mipmap, repeat_disable,
 // fighter still looks the way it faces.
 uniform bool mirror = false;
 
+// A flash over the whole fighter, per mesh (set by the game with `set_instance_shader_parameter`): white when hit, yellow while charging.
+instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
+
 #include "res://shaders/toon_light.gdshaderinc"
 
 void fragment() {
@@ -18,6 +21,7 @@ void fragment() {
 		f = vec4(0.0);
 	}
 	ALBEDO = mix(skin.rgb, f.rgb, f.a);
+	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }

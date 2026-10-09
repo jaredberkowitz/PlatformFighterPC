@@ -23,11 +23,13 @@ var lean := 0.0
 
 static var _mat_cache := {}
 static var _mesh_cache := {}
-static var _outline_mat: StandardMaterial3D
+static var _outline_mat: ShaderMaterial
 
 
 const TOON_SHADER := preload("res://shaders/toon.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
+const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
+const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 
 
@@ -47,12 +49,10 @@ static func toon(c: Color, outline := true, texture: Texture2D = null, tile := V
 		m.set_shader_parameter("tex_scale", tile)
 	if outline:
 		if _outline_mat == null:
-			_outline_mat = StandardMaterial3D.new()
-			_outline_mat.albedo_color = INK
-			_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
-			_outline_mat.grow = true
-			_outline_mat.grow_amount = 0.035
+			# An ink line that keeps about the same thickness on screen at any zoom (shaders/outline.gdshader).
+			_outline_mat = ShaderMaterial.new()
+			_outline_mat.shader = OUTLINE_SHADER
+			_outline_mat.set_shader_parameter("color", INK)
 		m.next_pass = _outline_mat
 	return m
 
@@ -139,6 +139,7 @@ static func release_caches() -> void:
 	_mesh_cache.clear()
 	_outline_mat = null
 	SvgArt.release()
+	_shadow_tex = null
 
 
 ## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
@@ -591,12 +592,13 @@ func build(p: int, l: RefCounted = null) -> void:
 	_hat()
 	_glasses()
 
+	_contact_shadow()
+	_on_fighter_layer(model)
+
 	shield = MeshInstance3D.new()
 	shield.mesh = _sphere(1.5)
-	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color(0.4, 0.7, 1.0, 0.35)
-	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var sm := ShaderMaterial.new()
+	sm.shader = SHIELD_SHADER
 	shield.material_override = sm
 	shield.position = Vector3(0, 1.1, 0)
 	shield.visible = false
@@ -696,6 +698,75 @@ func build(p: int, l: RefCounted = null) -> void:
 	flame.position = Vector3(0, 1.1, 0)
 	flame.visible = false
 	add_child(flame)
+
+
+## The whole-body flash: white for a moment when the fighter is hit (strongest at the start of hitlag), a yellow pulse while a smash
+## attack is charging. Cosmetic.
+var flash_amount := 0.0
+var flash_colour := Color.WHITE
+var last_flash := -1.0
+
+
+func _flash(s: Dictionary, delta: float) -> void:
+	var target := 0.0
+	var colour := Color.WHITE
+	if int(s.hitlag) > 0 and s.launch_pending:
+		target = 0.55
+	elif int(s.charge) > 0 and s.state == "Attack":
+		colour = Color(1.0, 0.85, 0.25)
+		target = 0.12 + 0.1 * sin(float(s.frame) * 0.6)
+	flash_amount = target if target > flash_amount else move_toward(flash_amount, target, delta * 6.0)
+	flash_colour = colour
+	var value := Color(flash_colour.r, flash_colour.g, flash_colour.b, flash_amount)
+	if absf(flash_amount - last_flash) < 0.001:
+		return
+	last_flash = flash_amount
+	for m in meshes:
+		if m.material_override is ShaderMaterial:
+			m.set_instance_shader_parameter("flash", value)
+	if face_mesh != null:
+		face_mesh.set_instance_shader_parameter("flash", value)
+
+
+## A soft dark oval projected down onto whatever the fighter stands over (as the reference game draws one), so its place on the stage reads
+## at a glance, in the air too. A decal reaching down from the feet; it fades with height.
+var contact_shadow: Decal
+static var _shadow_tex: GradientTexture2D
+const SHADOW_DEPTH := 10.0
+
+
+## Puts every mesh under `node` on render layer 2 (seen and lit as usual), so the contact shadow, which only projects on layer 1, skips them.
+func _on_fighter_layer(node: Node) -> void:
+	for g in node.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).layers = 2
+
+
+func _contact_shadow() -> void:
+	if _shadow_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(0.04, 0.02, 0.1, 0.85))
+		g.set_color(1, Color(0.04, 0.02, 0.1, 0.0))
+		g.add_point(0.45, Color(0.04, 0.02, 0.1, 0.75))
+		g.add_point(0.75, Color(0.04, 0.02, 0.1, 0.35))
+		_shadow_tex = GradientTexture2D.new()
+		_shadow_tex.gradient = g
+		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
+		_shadow_tex.fill_from = Vector2(0.5, 0.5)
+		_shadow_tex.fill_to = Vector2(1.0, 0.5)
+		_shadow_tex.width = 64
+		_shadow_tex.height = 64
+	contact_shadow = Decal.new()
+	contact_shadow.texture_albedo = _shadow_tex
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
+	# Only on surfaces facing up (not down the front of the stage).
+	contact_shadow.normal_fade = 0.6
+	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)
+	contact_shadow.position = Vector3(0, 0.8 - SHADOW_DEPTH / 2.0, 0.45)
+	# Only the stage takes it: the fighter's own meshes are on layer 2 (see `build`).
+	contact_shadow.cull_mask = 1
+	contact_shadow.upper_fade = 0.0  # (no fade toward the feet; the floor is at the top of the box)
+	contact_shadow.lower_fade = 0.5
+	add_child(contact_shadow)
 
 
 ## The face is a drawing (godot/art/faces/<expression>.svg) on the shell in front of the head, lit like the skin around it. The lids in
@@ -1124,7 +1195,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var hp: float = clampf(s.shield, 0.0, 1.0)
 		shield.scale = Vector3.ONE * (0.45 + 0.55 * hp)
 		var col := Color(0.4, 0.7, 1.0, 0.35).lerp(Color(1.0, 0.35, 0.25, 0.45), 1.0 - hp)
-		(shield.material_override as StandardMaterial3D).albedo_color = col
+		(shield.material_override as ShaderMaterial).set_shader_parameter("tint", Color(col.r, col.g, col.b, 1.0))
 	speed_lines.visible = fast_falling
 	_animate(s, delta)
 	_apply_combat(s, delta)
@@ -1946,6 +2017,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.position = Vector3(sin(t * 9.0) * amp, cos(t * 7.3) * amp * 0.5, 0)
 	else:
 		model.position = Vector3(lunge * float(s.facing), 0, 0)
+	_flash(s, delta)
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
