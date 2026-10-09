@@ -197,6 +197,8 @@ def clip(rig, name, frames, poses):
     global AMP
     if name.startswith("attack") or name in ("grab", "throw"):
         AMP = 1.55
+    elif name.startswith(("sword_", "kick_")) or name == "blaster":
+        AMP = 1.4
     elif name in ("walk", "run", "dash"):
         AMP = 1.2
     elif name in ("jump", "fall", "hurt", "crouch", "shield", "roll", "knockdown"):
@@ -659,6 +661,118 @@ def main() -> None:
         return f
 
     move("attack_lunge", lunge_wind, lunge_strike, lunge_hold)
+
+    # ---- One clip per move (third pass) ----------------------------------------------------------------------------------------------
+    # Each move gets its own body: where the weight goes, how the torso turns and what the free arm and legs do. The weapon arm is still
+    # aimed by the game at the move's live hitbox, and for the claws fighter's kicks the kicking leg is too, so the swing and the kick
+    # always land where the hit is; these clips carry the rest of the body through the move. Poses are keyed on the shared move timeline
+    # (wind-up by frame 21, strike at 33, hold to 45, recover by 60), which the game stretches to each move's own frame data.
+    def body(spec):
+        """A pose from a short spec: {"arms": (fwd, out), "hips": lift, "spine": (fwd, twist), "head": (fwd, twist),
+        "stance": (lead, back), bone: (fwd, out)...}."""
+        def f(rig):
+            arms = spec.get("arms", (8.0, 14.0))
+            rest_arms(rig, arms[0], arms[1])
+            if "hips" in spec:
+                pose(rig, "hips", lift=spec["hips"])
+            if "spine" in spec:
+                pose(rig, "spine", fwd=spec["spine"][0], twist=spec["spine"][1])
+            if "head" in spec:
+                pose(rig, "head", fwd=spec["head"][0], twist=spec["head"][1])
+            if "stance" in spec:
+                stance(rig, spec["stance"][0], spec["stance"][1])
+            for bone, v in spec.items():
+                if "." in bone:
+                    pose(rig, bone, fwd=v[0], out=v[1] if len(v) > 1 else 0.0)
+        return f
+
+    def held(spec):
+        def make(k):
+            scaled = {}
+            for key, v in spec.items():
+                if isinstance(v, tuple):
+                    scaled[key] = tuple(x * k for x in v)
+                else:
+                    scaled[key] = v * k
+            return body(scaled)
+        return make
+
+    def move_of(name, wind, strike, rest):
+        move(name, body(wind), body(strike), held(rest))
+
+    # Sword fighter.
+    # Forward tilt: a rising diagonal cut. Crouch into it turned away, then rise and turn into the blade as it climbs.
+    move_of("sword_ftilt",
+            {"hips": -0.08, "spine": (14.0, -24.0), "head": (6.0, 10.0), "stance": (22.0, -22.0), "arms": (-10.0, 20.0)},
+            {"hips": -0.02, "spine": (-10.0, 26.0), "head": (-8.0, -12.0), "stance": (34.0, -26.0), "arms": (24.0, 12.0)},
+            {"spine": (4.0, 10.0), "stance": (16.0, -12.0)})
+    # Up tilt: the blade sweeps overhead from front to back; the body arches back under it.
+    move_of("sword_utilt",
+            {"hips": -0.06, "spine": (16.0, 8.0), "head": (8.0, 0.0), "stance": (14.0, -10.0)},
+            {"hips": 0.02, "spine": (-26.0, -6.0), "head": (-18.0, 0.0), "stance": (16.0, -18.0), "arms": (-20.0, 24.0)},
+            {"spine": (-8.0, 0.0), "stance": (8.0, -8.0)})
+    # Down tilt: a low crouching thrust.
+    move_of("sword_dtilt",
+            {"hips": -0.2, "spine": (30.0, -10.0), "head": (-10.0, 0.0), "stance": (64.0, 30.0), "shin.L": (-96.0,), "shin.R": (-100.0,)},
+            {"hips": -0.22, "spine": (40.0, 12.0), "head": (-18.0, 0.0), "stance": (78.0, 18.0), "shin.L": (-60.0,), "shin.R": (-104.0,)},
+            {"hips": -0.12, "spine": (20.0, 0.0), "stance": (40.0, 16.0)})
+    # Forward smash: the blade raised high behind, then brought down in front in one big committed swing.
+    move_of("sword_fsmash",
+            {"hips": -0.06, "spine": (-18.0, -42.0), "head": (10.0, 20.0), "stance": (28.0, -34.0), "arms": (-30.0, 22.0)},
+            {"hips": -0.14, "spine": (38.0, 30.0), "head": (-14.0, -16.0), "stance": (58.0, -46.0), "shin.L": (-34.0,), "arms": (40.0, 10.0)},
+            {"hips": -0.06, "spine": (16.0, 14.0), "stance": (30.0, -24.0)})
+    # Up smash: crouch, then spring up stretched tall as the blade goes straight up.
+    move_of("sword_usmash",
+            {"hips": -0.16, "spine": (18.0, 0.0), "head": (8.0, 0.0), "stance": (34.0, 26.0), "shin.L": (-60.0,), "shin.R": (-60.0,)},
+            {"hips": 0.1, "spine": (-12.0, 0.0), "head": (-22.0, 0.0), "stance": (-4.0, -8.0), "arms": (-24.0, 30.0)},
+            {"spine": (-4.0, 0.0), "stance": (6.0, 4.0)})
+    # Down smash: a low sweep in front, then behind, in a wide crouch.
+    move_of("sword_dsmash",
+            {"hips": -0.12, "spine": (22.0, -20.0), "stance": (40.0, -36.0)},
+            {"hips": -0.2, "spine": (34.0, 34.0), "head": (-12.0, -10.0), "stance": (56.0, -56.0), "thigh.L": (56.0, 22.0), "thigh.R": (-56.0, 22.0)},
+            {"hips": -0.1, "spine": (16.0, 10.0), "stance": (30.0, -30.0)})
+
+    # Claws fighter. The kicking leg is aimed by the game; these set the torso, arms and the other leg.
+    # Neutral air: a spinning kick, tucked, then opened out and turning.
+    move_of("kick_nair",
+            {"spine": (22.0, -20.0), "stance": (60.0, 64.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (30.0, 30.0)},
+            {"spine": (-10.0, 60.0), "head": (-6.0, -20.0), "stance": (20.0, -30.0), "arms": (-10.0, 60.0)},
+            {"spine": (0.0, 20.0), "stance": (20.0, 10.0)})
+    # Back air: lean forward and drive the heel back.
+    move_of("kick_bair",
+            {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
+            {"spine": (42.0, -24.0), "head": (-24.0, 34.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
+            {"spine": (18.0, 0.0), "stance": (30.0, 0.0)})
+    # Up air: a flip kick, arching back as the leg goes up.
+    move_of("kick_uair",
+            {"spine": (24.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (20.0, 20.0)},
+            {"spine": (-38.0, 0.0), "head": (-30.0, 0.0), "stance": (10.0, 30.0), "arms": (-30.0, 50.0)},
+            {"spine": (-10.0, 0.0), "stance": (20.0, 20.0)})
+    # Down air: knees up, then a stomp straight down.
+    move_of("kick_dair",
+            {"spine": (10.0, 0.0), "stance": (72.0, 72.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (-10.0, 40.0)},
+            {"spine": (14.0, 0.0), "head": (-16.0, 0.0), "stance": (-4.0, 30.0), "shin.R": (-70.0,), "arms": (-30.0, 55.0)},
+            {"spine": (6.0, 0.0), "stance": (20.0, 30.0)})
+    # Up tilt: an overhead kick from behind (the body leans forward as the leg arcs over).
+    move_of("kick_up",
+            {"hips": -0.06, "spine": (12.0, 0.0), "stance": (10.0, -16.0), "arms": (10.0, 24.0)},
+            {"hips": -0.02, "spine": (34.0, 0.0), "head": (14.0, 0.0), "stance": (-6.0, 0.0), "arms": (40.0, 30.0)},
+            {"spine": (12.0, 0.0), "stance": (4.0, -6.0)})
+    # Down tilt: a low sweep from a crouch.
+    move_of("kick_low",
+            {"hips": -0.2, "spine": (26.0, -14.0), "stance": (60.0, 40.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (30.0, 30.0)},
+            {"hips": -0.24, "spine": (34.0, 20.0), "head": (-12.0, 0.0), "stance": (70.0, 50.0), "shin.R": (-110.0,), "arms": (50.0, 40.0)},
+            {"hips": -0.12, "spine": (16.0, 0.0), "stance": (40.0, 30.0)})
+    # Dash attack: a flying kick.
+    move_of("kick_dash",
+            {"hips": -0.04, "spine": (20.0, 0.0), "stance": (30.0, -30.0), "arms": (30.0, 20.0)},
+            {"hips": 0.08, "spine": (-14.0, 0.0), "head": (-10.0, 0.0), "stance": (10.0, -50.0), "shin.R": (-70.0,), "arms": (-20.0, 40.0)},
+            {"spine": (4.0, 0.0), "stance": (20.0, -20.0)})
+    # Blaster: draw and fire, arm out level, braced.
+    move_of("blaster",
+            {"spine": (6.0, -20.0), "head": (0.0, 14.0), "stance": (20.0, -20.0)},
+            {"hips": -0.04, "spine": (-4.0, 30.0), "head": (0.0, -20.0), "stance": (30.0, -26.0), "armU.R": (88.0, 6.0), "armL.R": (4.0,)},
+            {"spine": (0.0, 14.0), "stance": (16.0, -12.0)})
 
     # Grabs and throws.
     def grab_pose(rig):

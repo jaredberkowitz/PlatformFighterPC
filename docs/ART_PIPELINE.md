@@ -89,3 +89,16 @@ feet still slide a little at game speed (the cycle is paced by speed, not locked
 2. Move the hat, glasses, neckwear and sash into the Blender script as meshes on the rig, then drop the code-built versions.
 3. A face atlas texture and expression set for the head.
 4. Stage backdrops, hit effects and a shield bubble.
+
+
+## One clip per move (third pass)
+
+Clips added for the moves that shared a generic one: the sword fighter's **forward, up and down tilts** and **forward, up and down smashes**
+(`sword_*`), and the claws fighter's **neutral, back, up and down airs**, **up and down tilts**, **dash attack** (`kick_*`) and the
+**blaster** (`blaster`). Each sets the body (weight, torso turn, free arm, other leg) on the shared move timeline, which the game stretches
+to the move's own frame data, so wind-up, strike and recovery line up with the hitboxes. The weapon arm is still aimed at the live hitbox,
+and now **the kicking leg is too** (two-bone IK from hip to ankle, `_aim_leg` in `fighter_view.gd`), so a kick's foot is where its hit is.
+
+These are original animations made on our own rig, timed to the moves' published frame data and shaped after how the archetypal moves read
+(a rising cut, an overhead arc, a spinning kick); nothing is taken from another game's files. Demos: `--demo=moves` (sword tilts and
+smashes) and `--demo=kicks` (claws kicks), with `--stage=N --noui --noecb --shots=<folder>`.

@@ -291,7 +291,11 @@ func _attack_clip(s: Dictionary) -> Array:
 	elif name.begins_with("grab") or name.begins_with("dash grab") or name.begins_with("pivot") or name == "pummel":
 		clip = "grab"
 	elif brawler_body:
-		clip = "attack_kick"
+		clip = KICK_CLIPS.get(name, "attack_kick")
+	elif _cls(s) == 1 and name == "neutral special":
+		clip = "blaster"
+	elif _cls(s) != 1 and SWORD_CLIPS.has(name):
+		clip = SWORD_CLIPS[name]
 	elif name == "fair":
 		clip = "attack_fair"
 	elif name == "bair":
@@ -856,6 +860,14 @@ static func _star_mesh() -> ArrayMesh:
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return m
 var flame: MeshInstance3D
+## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
+const SWORD_CLIPS := {"ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
+	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
+const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
+	"dtilt": "kick_low", "dash attack": "kick_dash"}
+## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
+var leg_k := 0.0
+
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
@@ -1010,6 +1022,56 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis, shoulder), 1.0, true)
 		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis, elbow), 1.0, true)
 		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
+
+
+## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
+## is; the other leg and the body come from the move's clip.
+func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
+	if skeleton == null:
+		return
+	var tip: Vector3 = s.move_tip
+	var live := kicking and tip != Vector3.ZERO
+	leg_k = move_toward(leg_k, 1.0 if live else 0.0, delta * 12.0)
+	var facing := int(s.facing)
+	# The front leg kicks forward and up, the back leg backward.
+	var front := "R" if facing > 0 else "L"
+	var back := "L" if facing > 0 else "R"
+	var kicker := front if tip.x >= 0.0 else back
+	for side in ["L", "R"]:
+		var it := skeleton.find_bone("thigh." + side)
+		var ish := skeleton.find_bone("shin." + side)
+		var ift := skeleton.find_bone("foot." + side)
+		if side != kicker or leg_k <= 0.01:
+			skeleton.set_bone_global_pose_override(it, Transform3D(), 0.0, false)
+			skeleton.set_bone_global_pose_override(ish, Transform3D(), 0.0, false)
+			skeleton.set_bone_global_pose_override(ift, Transform3D(), 0.0, false)
+			continue
+		var rest_t := skeleton.get_bone_global_rest(it)
+		var rest_s := skeleton.get_bone_global_rest(ish)
+		var rest_f := skeleton.get_bone_global_rest(ift)
+		var hip := rest_t.origin
+		var knee0 := rest_s.origin
+		var ankle0 := rest_f.origin
+		var upper := (knee0 - hip).length()
+		var lower := (ankle0 - knee0).length() + 0.08
+		var to_skel := _skeleton_to_model().affine_inverse()
+		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
+		var goal: Vector3 = to_skel * Vector3(tip.x * float(facing), tip.y, 0.2)
+		var d := goal - hip
+		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
+		var dir := d.normalized()
+		var cos_a := clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0)
+		var ang := acos(cos_a)
+		# The knee bends forward and a little up.
+		var pole := Vector3(0.0, 0.4, 1.0)
+		var bend := (pole - dir * pole.dot(dir)).normalized()
+		var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
+		var shin_dir := (goal - knee).normalized()
+		var q_upper := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
+		var q_lower := Quaternion((ankle0 - knee0).normalized(), shin_dir)
+		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis, hip), leg_k, true)
+		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis, knee), leg_k, true)
+		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * (ankle0 - knee0).length()), leg_k, true)
 
 
 ## A crescent trail behind the hitbox, like the one a fast punch or slash leaves. Each simulation frame the centre of the hitbox (the fist,
@@ -1319,6 +1381,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	blade_pivot.visible = not brawler and swinging_arm
 	if rig != null:
 		_aim_arm(int(s.facing), swinging_arm if not brawler else (swinging_arm and state == "Attack"))
+		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.visible = rushing
 	if rushing:
