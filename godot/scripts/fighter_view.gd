@@ -32,6 +32,7 @@ const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
+const Particles := preload("res://scripts/particles.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -142,6 +143,7 @@ static func release_caches() -> void:
 	_mesh_cache.clear()
 	_outline_mat = null
 	SvgArt.release()
+	Particles.release()
 	_shadow_tex = null
 
 
@@ -695,15 +697,7 @@ func build(p: int, l: RefCounted = null) -> void:
 	add_child(spark)
 
 	# Flame around the body for the brawler's rushing specials (a stand-in for a proper effect).
-	flame = MeshInstance3D.new()
-	flame.mesh = _sphere(1.0)
-	var flame_mat := StandardMaterial3D.new()
-	flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	flame_mat.albedo_color = Color(1.0, 0.45, 0.1, 0.55)
-	flame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	flame.material_override = flame_mat
-	flame.position = Vector3(0, 1.1, 0)
-	flame.visible = false
+	flame = Particles.flame(self)
 	add_child(flame)
 
 
@@ -1306,7 +1300,7 @@ static func _star_mesh() -> ArrayMesh:
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return m
-var flame: MeshInstance3D
+var flame: Node3D  # Particles.Burst
 ## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
 const SWORD_CLIPS := {"dair": "sword_dair", "ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
 	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
@@ -1837,14 +1831,9 @@ func _dust(s: Dictionary) -> void:
 	dust_grounded = grounded
 
 
+## A puff of dust at the feet, blowing toward `side` (particles.gd).
 func _puff(side: float, count: int) -> void:
-	for n in count:
-		var i := next_dust
-		next_dust = (next_dust + 1) % DUSTS
-		dusts[i].global_position = global_position + Vector3(side * 0.35, 0.12, 0.3)
-		dust_vel[i] = Vector3(side * 2.2, 0.6, 0.0)
-		dust_age[i] = 0.0
-		dusts[i].visible = true
+	Particles.dust(self, global_position + Vector3(side * 0.3, 0, 0), side, 2 + 2 * count)
 
 
 # ---- Launch smoke ------------------------------------------------------------------------------------------------------------
@@ -2024,9 +2013,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
-	flame.visible = rushing
-	if rushing:
-		flame.scale = Vector3(1.3, 1.5, 1.3) * (1.0 + 0.12 * sin(float(s.frame) * 1.7))
+	flame.emitting = rushing
 	if brawler and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
 		model.rotation.x = float(s.frame) * 0.6
 

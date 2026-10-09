@@ -5,6 +5,7 @@ const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
 const Effects := preload("res://scripts/effects.gd")
+const Particles := preload("res://scripts/particles.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -1281,6 +1282,10 @@ func _ko_blast(i: int, at: Vector2) -> void:
 	core.material_override = mat2
 	root3.add_child(core)
 	effects.append([root3, 0.0, 0.9, 1.0])
+	# Sparks, confetti stars and smoke burst back toward the stage with the beam.
+	# (A little way in from the blast line, so the burst is on screen.)
+	var burst_at := at + inward * 13.0
+	Particles.knock_out(self, Vector3(burst_at.x, burst_at.y + 1.0, 0.5), color, inward)
 	cam_shake = maxf(cam_shake, 1.4)
 	if _local_match() and demo == null:
 		Engine.time_scale = 0.35

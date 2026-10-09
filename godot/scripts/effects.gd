@@ -1,4 +1,6 @@
 extends RefCounted
+
+const Particles := preload("res://scripts/particles.gd")
 ## Short-lived hit and movement effects (presentation only): a shockwave ring and a burst of streaks when a hit lands, and a ring under the
 ## feet on a jump and a midair jump. Each effect is a node that animates itself for its short life and then frees itself.
 
@@ -119,6 +121,7 @@ static func hit(parent: Node, at: Vector3, color: Color, strength: float) -> voi
 	streaks.life = 0.18 + 0.1 * s
 	streaks.position = at
 	parent.add_child(streaks)
+	Particles.sparks(parent, at, color, s)
 
 
 ## A jump: a soft ring spreading over the ground at the feet; `air` makes it the midair jump's ring, a little bigger and brighter.

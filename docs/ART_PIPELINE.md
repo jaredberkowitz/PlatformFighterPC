@@ -271,3 +271,17 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   photographic): painted grass clumps, wind-rippled sand, plank grain, concrete with seams, brushed steel. `#ff00ff` in a tile becomes the
   surface colour. The toon shader can lay a texture in world space (`world_tile`: world units per repeat, on top faces and fronts), so a
   surface tiles evenly whatever the block's size (`StageArt._surface`).
+
+
+## Particles (thirteenth pass)
+
+`godot/scripts/particles.gd`: a small particle system of its own (presentation only). Each particle is a camera-facing soft disc or a
+spinning star, all drawn each frame into one mesh per effect; one-shot bursts free themselves when done. (Godot's `CPUParticles3D` was tried
+first and did not render reliably here.)
+
+- **Dust**: soft cream puffs that spread low and swell as they fade: landings, dash starts, every running footfall, skids, jumps.
+- **Hit sparks**: discs flying out of a hit, white to gold to the attacker's colour, more and faster for a harder hit, drawn over the
+  fighters, alongside the shockwave rings.
+- **Knock-out burst**: sparks and confetti stars (the player's colour, a lighter shade, gold, white) thrown back toward the stage along the
+  beam, and a cloud of smoke; placed a little in from the blast line so it is on screen.
+- **Fire**: the brawler's rushing specials leave real flames, licks rising off the body from yellow to red (it replaces the old sphere).
