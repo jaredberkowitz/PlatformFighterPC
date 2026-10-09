@@ -287,6 +287,9 @@ fn ledge_attack_gets_up_onto_the_stage_and_takes_longer_than_a_normal_get_up() {
         sim.put_airborne(0, Fx::from_int(-12), Fx::from_int(-1), Fx::ZERO, fx(-1, 20));
         sim.tick(inp(0, 0, 0));
         assert_eq!(sim.f().state, S::LedgeHang);
+        // The grab itself comes first.
+        let grab = usize::from(sim.content.fighters[0].ledge_grab_frames);
+        sim.ticks(grab, inp(0, 0, 0));
         sim.tick(inp(0, y, button));
         let state = sim.f().state;
         assert_eq!(sim.f().platform, 0);

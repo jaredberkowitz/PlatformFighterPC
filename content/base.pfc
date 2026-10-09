@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 29
-    hash 7c68ea140c434251
+    sim_version 30
+    hash 538daa9a072857e9
 }
 
 ruleset {
@@ -15,6 +15,7 @@ ruleset {
     knockback_decay 0.00636
     tumble_knockback 80
     sdi_distance 0.25
+    short_hop_damage 0.84999
     di_degrees 18
     respawn_invuln 120
     tech_window 11
@@ -895,30 +896,44 @@ fighter duelist {
     short_hop_velocity 0.1998
     air_jumps 1
     air_jump_velocity 0.28548
-    landing_lag 3
-    air_dodge_frames 48
+    landing_lag 2
+    heavy_landing_lag 4
+    input_buffer 9
+    air_dodge_frames 52
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
+    air_dodge_dir_down_frames 69
+    air_dodge_dir_side_frames 85
+    air_dodge_dir_up_frames 116
+    air_dodge_intangible_start 3
+    air_dodge_intangible_end 29
+    air_dodge_dir_intangible_end 21
+    air_dodge_fall_frame 20
+    air_dodge_ledge_frame 24
+    air_dodge_dir_landing_min 11
+    air_dodge_landing_step 4
     ground_assist_dist 0.4
     wavedash_min_down 0.2
     waveland_speed 0.34999
     waveland_friction 0.9
-    waveland_lag 14
+    waveland_lag 19
     shield_drop_buffer 4
     shield_drop_recovery 6
-    roll_frames 31
+    shield_release_frames 11
+    roll_frames 29
+    roll_back_frames 34
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
     roll_intangible_start 4
-    roll_intangible_end 19
+    roll_intangible_end 15
     spot_dodge_frames 25
     spot_intangible_start 3
-    spot_intangible_end 20
+    spot_intangible_end 17
     shield_drop_speed 0.06
     platform_ignore_frames 8
     ledge_reach_x 2.2
@@ -926,12 +941,22 @@ fighter duelist {
     ledge_reach_down 2.59999
     ledge_hang_dx 0.79999
     ledge_hang_dy 1.79999
-    ledge_hang_max 300
+    ledge_hang_max 390
     ledge_regrab_cooldown 30
-    ledge_invuln_base 60
-    ledge_invuln_decay 10
-    ledge_invuln_floor 10
-    ledge_getup_frames 30
+    ledge_invuln_airtime 60
+    ledge_invuln_damage 44
+    ledge_invuln_min 4
+    ledge_grab_frames 19
+    ledge_grab_limit 6
+    ledge_reach_back_x 1.31999
+    ledge_getup_frames 34
+    ledge_getup_intangible 33
+    ledge_roll_frames 45
+    ledge_roll_intangible 26
+    ledge_jump_frames 14
+    ledge_jump_intangible 12
+    ledge_option_decay_2 80
+    ledge_option_decay_3 50
     ledge_getup_dx 1
     ledge_roll_dx 3
     ledge_jump_velocity 0.21999
@@ -943,7 +968,7 @@ fighter duelist {
     ecb_side_height 1.09999
     hitbox_scale 1
     helpless_landing_lag 20
-    ledge_attack_frames 54
+    ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 90
 }
@@ -978,30 +1003,44 @@ fighter brawler {
     short_hop_velocity 0.25806
     air_jumps 1
     air_jump_velocity 0.36124
-    landing_lag 3
-    air_dodge_frames 48
+    landing_lag 2
+    heavy_landing_lag 4
+    input_buffer 9
+    air_dodge_frames 44
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
+    air_dodge_dir_down_frames 61
+    air_dodge_dir_side_frames 73
+    air_dodge_dir_up_frames 93
+    air_dodge_intangible_start 2
+    air_dodge_intangible_end 26
+    air_dodge_dir_intangible_end 20
+    air_dodge_fall_frame 20
+    air_dodge_ledge_frame 24
+    air_dodge_dir_landing_min 11
+    air_dodge_landing_step 4
     ground_assist_dist 0.4
     wavedash_min_down 0.2
     waveland_speed 0.34999
     waveland_friction 0.9
-    waveland_lag 14
+    waveland_lag 19
     shield_drop_buffer 4
     shield_drop_recovery 6
-    roll_frames 31
+    shield_release_frames 11
+    roll_frames 29
+    roll_back_frames 34
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
     roll_intangible_start 4
-    roll_intangible_end 19
+    roll_intangible_end 15
     spot_dodge_frames 25
     spot_intangible_start 3
-    spot_intangible_end 20
+    spot_intangible_end 17
     shield_drop_speed 0.06
     platform_ignore_frames 8
     ledge_reach_x 2.2
@@ -1009,12 +1048,22 @@ fighter brawler {
     ledge_reach_down 2.59999
     ledge_hang_dx 0.79999
     ledge_hang_dy 1.79999
-    ledge_hang_max 300
+    ledge_hang_max 390
     ledge_regrab_cooldown 30
-    ledge_invuln_base 60
-    ledge_invuln_decay 10
-    ledge_invuln_floor 10
-    ledge_getup_frames 30
+    ledge_invuln_airtime 60
+    ledge_invuln_damage 44
+    ledge_invuln_min 4
+    ledge_grab_frames 19
+    ledge_grab_limit 6
+    ledge_reach_back_x 1.31999
+    ledge_getup_frames 34
+    ledge_getup_intangible 33
+    ledge_roll_frames 45
+    ledge_roll_intangible 26
+    ledge_jump_frames 14
+    ledge_jump_intangible 12
+    ledge_option_decay_2 80
+    ledge_option_decay_3 50
     ledge_getup_dx 1
     ledge_roll_dx 3
     ledge_jump_velocity 0.21999
@@ -1026,7 +1075,7 @@ fighter brawler {
     ecb_side_height 1.09999
     hitbox_scale 1
     helpless_landing_lag 20
-    ledge_attack_frames 54
+    ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 92
 }
@@ -1061,30 +1110,44 @@ fighter bruiser {
     short_hop_velocity 0.23671
     air_jumps 1
     air_jump_velocity 0.31978
-    landing_lag 3
-    air_dodge_frames 48
+    landing_lag 2
+    heavy_landing_lag 4
+    input_buffer 9
+    air_dodge_frames 52
     air_dodge_speed 0.4
     air_dodge_decay 0.9
     air_dodge_windup 5
     air_dodge_sling 0.25
     air_dodge_landing_lag 10
     air_dodge_buffer 6
+    air_dodge_dir_down_frames 69
+    air_dodge_dir_side_frames 85
+    air_dodge_dir_up_frames 116
+    air_dodge_intangible_start 3
+    air_dodge_intangible_end 29
+    air_dodge_dir_intangible_end 21
+    air_dodge_fall_frame 20
+    air_dodge_ledge_frame 24
+    air_dodge_dir_landing_min 11
+    air_dodge_landing_step 4
     ground_assist_dist 0.4
     wavedash_min_down 0.2
     waveland_speed 0.34999
     waveland_friction 0.9
-    waveland_lag 14
+    waveland_lag 19
     shield_drop_buffer 4
     shield_drop_recovery 6
-    roll_frames 31
+    shield_release_frames 11
+    roll_frames 29
+    roll_back_frames 34
     roll_speed 0.14
     roll_move_start 5
     roll_move_end 24
     roll_intangible_start 4
-    roll_intangible_end 19
+    roll_intangible_end 15
     spot_dodge_frames 25
     spot_intangible_start 3
-    spot_intangible_end 20
+    spot_intangible_end 17
     shield_drop_speed 0.06
     platform_ignore_frames 8
     ledge_reach_x 2.2
@@ -1092,12 +1155,22 @@ fighter bruiser {
     ledge_reach_down 2.59999
     ledge_hang_dx 0.79999
     ledge_hang_dy 1.79999
-    ledge_hang_max 300
+    ledge_hang_max 390
     ledge_regrab_cooldown 30
-    ledge_invuln_base 60
-    ledge_invuln_decay 10
-    ledge_invuln_floor 10
-    ledge_getup_frames 30
+    ledge_invuln_airtime 60
+    ledge_invuln_damage 44
+    ledge_invuln_min 4
+    ledge_grab_frames 19
+    ledge_grab_limit 6
+    ledge_reach_back_x 1.31999
+    ledge_getup_frames 34
+    ledge_getup_intangible 33
+    ledge_roll_frames 45
+    ledge_roll_intangible 26
+    ledge_jump_frames 14
+    ledge_jump_intangible 12
+    ledge_option_decay_2 80
+    ledge_option_decay_3 50
     ledge_getup_dx 1
     ledge_roll_dx 3
     ledge_jump_velocity 0.21999
@@ -1109,7 +1182,7 @@ fighter bruiser {
     ecb_side_height 1.09999
     hitbox_scale 1
     helpless_landing_lag 20
-    ledge_attack_frames 54
+    ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 118
 }

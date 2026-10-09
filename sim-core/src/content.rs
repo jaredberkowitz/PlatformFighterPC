@@ -71,7 +71,13 @@ pub struct FighterParams {
     pub short_hop_velocity: Fx,
     pub air_jumps: u8,
     pub air_jump_velocity: Fx,
+    /// Lag of a light landing (from a jump, without an attack).
     pub landing_lag: u8,
+    /// Lag of a heavy landing: touching down while falling at full speed (fast falling, or at `max_fall_speed`).
+    pub heavy_landing_lag: u8,
+    /// Frames before an action becomes possible that a button press for it still counts (the reference game's 9). A press still held when the
+    /// action becomes possible also counts (the hold buffer), for every button but shield. Each press starts one action only.
+    pub input_buffer: u8,
     // Air dodge and wavedash
     pub air_dodge_frames: u8,
     pub air_dodge_speed: Fx,
@@ -85,6 +91,23 @@ pub struct FighterParams {
     pub air_dodge_landing_lag: u8,
     /// A shield press this many frames ago still starts the air dodge on the first airborne frame.
     pub air_dodge_buffer: u8,
+    /// How long a directional air dodge lasts when aimed straight down, sideways and straight up (in between, by the angle). A
+    /// neutral one lasts `air_dodge_frames`. The fighter cannot act until it is over.
+    pub air_dodge_dir_down_frames: u8,
+    pub air_dodge_dir_side_frames: u8,
+    pub air_dodge_dir_up_frames: u8,
+    /// Intangible frames of a neutral air dodge (`start..=end`); a directional one ends at `air_dodge_dir_intangible_end`.
+    pub air_dodge_intangible_start: u8,
+    pub air_dodge_intangible_end: u8,
+    pub air_dodge_dir_intangible_end: u8,
+    /// From this frame a directional air dodge stops carrying the fighter and it falls (gravity, no drift) until the dodge ends.
+    pub air_dodge_fall_frame: u8,
+    /// An air dodge can grab a ledge from this frame on.
+    pub air_dodge_ledge_frame: u8,
+    /// Landing lag of a directional air dodge (and a wavedash): `waveland_lag` when it lands as the slingshot ends, one frame less
+    /// for every `air_dodge_landing_step` frames later, down to `air_dodge_dir_landing_min`.
+    pub air_dodge_dir_landing_min: u8,
+    pub air_dodge_landing_step: u8,
     /// A downward air dodge starting this close to a surface counts as ground contact.
     pub ground_assist_dist: Fx,
     /// A dodge direction counts as a wavedash if its normalised y is at or below minus this value.
@@ -97,8 +120,12 @@ pub struct FighterParams {
     // Shield drop
     pub shield_drop_buffer: u8,
     pub shield_drop_recovery: u8,
+    /// Letting go of the shield takes this many frames before the fighter can act (actions straight out of the shield skip it).
+    pub shield_release_frames: u8,
     // Defensive rolls and spot dodge (out of a shield)
+    /// A forward roll's length; a backward roll (away from the way the fighter faces) takes `roll_back_frames`.
     pub roll_frames: u8,
+    pub roll_back_frames: u8,
     /// Horizontal speed during `roll_move_start..=roll_move_end` (move frames).
     pub roll_speed: Fx,
     pub roll_move_start: u8,
@@ -119,10 +146,29 @@ pub struct FighterParams {
     pub ledge_hang_dy: Fx,
     pub ledge_hang_max: u16,
     pub ledge_regrab_cooldown: u8,
-    pub ledge_invuln_base: u8,
-    pub ledge_invuln_decay: u8,
-    pub ledge_invuln_floor: u8,
+    /// Intangibility on the first ledge grab since landing or being hit: `ledge_grab_frames` plus the larger of `ledge_invuln_min`
+    /// and `ledge_invuln_airtime * airtime / 300 + ledge_invuln_damage * (1 - percent / 120)` (airtime in frames, capped at 300;
+    /// percent capped at 120). A regrab without landing or being hit gets none.
+    pub ledge_invuln_airtime: u8,
+    pub ledge_invuln_damage: u8,
+    pub ledge_invuln_min: u8,
+    /// The grab itself: no ledge option is possible for this many frames.
+    pub ledge_grab_frames: u8,
+    /// Ledge grabs allowed between landings (or hits). After that a ledge cannot be caught.
+    pub ledge_grab_limit: u8,
+    /// Reach for a ledge behind the fighter (its back to the stage); shorter than `ledge_reach_x` in front.
+    pub ledge_reach_back_x: Fx,
+    /// Getting up: total frames, and intangible frames from its start.
     pub ledge_getup_frames: u8,
+    pub ledge_getup_intangible: u8,
+    pub ledge_roll_frames: u8,
+    pub ledge_roll_intangible: u8,
+    /// A ledge jump cannot act for this many frames, and is intangible for its first `ledge_jump_intangible`.
+    pub ledge_jump_frames: u8,
+    pub ledge_jump_intangible: u8,
+    /// Percent of the ledge options' intangibility on the second and the third grab without landing; from the fourth there is none.
+    pub ledge_option_decay_2: u8,
+    pub ledge_option_decay_3: u8,
     pub ledge_getup_dx: Fx,
     pub ledge_roll_dx: Fx,
     pub ledge_jump_velocity: Fx,
@@ -149,7 +195,7 @@ pub struct FighterParams {
 
 impl FighterParams {
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 47] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 48] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -184,6 +230,7 @@ impl FighterParams {
             ("ledge_reach_x", self.ledge_reach_x),
             ("ledge_min_drop", self.ledge_min_drop),
             ("ledge_reach_down", self.ledge_reach_down),
+            ("ledge_reach_back_x", self.ledge_reach_back_x),
             ("ledge_hang_dx", self.ledge_hang_dx),
             ("ledge_hang_dy", self.ledge_hang_dy),
             ("ledge_getup_dx", self.ledge_getup_dx),
@@ -202,7 +249,7 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 33] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 56] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("dash_reverse_frames", u32::from(self.dash_reverse_frames)),
@@ -243,10 +290,72 @@ impl FighterParams {
                 "ledge_regrab_cooldown",
                 u32::from(self.ledge_regrab_cooldown),
             ),
-            ("ledge_invuln_base", u32::from(self.ledge_invuln_base)),
-            ("ledge_invuln_decay", u32::from(self.ledge_invuln_decay)),
-            ("ledge_invuln_floor", u32::from(self.ledge_invuln_floor)),
+            ("ledge_invuln_airtime", u32::from(self.ledge_invuln_airtime)),
+            ("ledge_invuln_damage", u32::from(self.ledge_invuln_damage)),
+            ("ledge_invuln_min", u32::from(self.ledge_invuln_min)),
+            ("ledge_grab_frames", u32::from(self.ledge_grab_frames)),
+            ("ledge_grab_limit", u32::from(self.ledge_grab_limit)),
             ("ledge_getup_frames", u32::from(self.ledge_getup_frames)),
+            (
+                "ledge_getup_intangible",
+                u32::from(self.ledge_getup_intangible),
+            ),
+            ("ledge_roll_frames", u32::from(self.ledge_roll_frames)),
+            (
+                "ledge_roll_intangible",
+                u32::from(self.ledge_roll_intangible),
+            ),
+            ("ledge_jump_frames", u32::from(self.ledge_jump_frames)),
+            (
+                "ledge_jump_intangible",
+                u32::from(self.ledge_jump_intangible),
+            ),
+            ("ledge_option_decay_2", u32::from(self.ledge_option_decay_2)),
+            ("ledge_option_decay_3", u32::from(self.ledge_option_decay_3)),
+            ("heavy_landing_lag", u32::from(self.heavy_landing_lag)),
+            ("input_buffer", u32::from(self.input_buffer)),
+            (
+                "air_dodge_dir_down_frames",
+                u32::from(self.air_dodge_dir_down_frames),
+            ),
+            (
+                "air_dodge_dir_side_frames",
+                u32::from(self.air_dodge_dir_side_frames),
+            ),
+            (
+                "air_dodge_dir_up_frames",
+                u32::from(self.air_dodge_dir_up_frames),
+            ),
+            (
+                "air_dodge_intangible_start",
+                u32::from(self.air_dodge_intangible_start),
+            ),
+            (
+                "air_dodge_intangible_end",
+                u32::from(self.air_dodge_intangible_end),
+            ),
+            (
+                "air_dodge_dir_intangible_end",
+                u32::from(self.air_dodge_dir_intangible_end),
+            ),
+            ("air_dodge_fall_frame", u32::from(self.air_dodge_fall_frame)),
+            (
+                "air_dodge_ledge_frame",
+                u32::from(self.air_dodge_ledge_frame),
+            ),
+            (
+                "air_dodge_dir_landing_min",
+                u32::from(self.air_dodge_dir_landing_min),
+            ),
+            (
+                "air_dodge_landing_step",
+                u32::from(self.air_dodge_landing_step),
+            ),
+            (
+                "shield_release_frames",
+                u32::from(self.shield_release_frames),
+            ),
+            ("roll_back_frames", u32::from(self.roll_back_frames)),
             ("dash_frames", u32::from(self.dash_frames)),
             ("turn_frames", u32::from(self.turn_frames)),
             ("helpless_landing_lag", u32::from(self.helpless_landing_lag)),
@@ -327,8 +436,24 @@ impl FighterParams {
             short_hop_velocity: r(3, 20),
             air_jumps: 1,
             air_jump_velocity: r(1, 4),
-            landing_lag: 3,
-            air_dodge_frames: 48,
+            // Light and heavy landings (the reference game: 2 frames light, heavy ones 2 to 6 by character).
+            landing_lag: 2,
+            heavy_landing_lag: 4,
+            input_buffer: 9,
+            // Air dodge numbers for a sword-fighter-style body from the reference game's frame data: a neutral dodge lasts 52
+            // frames, intangible on 3-29; a directional one 69 (down) to 85 (sideways) to 116 (up), intangible on 3-21, landing
+            // lag 11 to 19 (more the sooner it lands), ledges catchable after frame 24.
+            air_dodge_frames: 52,
+            air_dodge_dir_down_frames: 69,
+            air_dodge_dir_side_frames: 85,
+            air_dodge_dir_up_frames: 116,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 29,
+            air_dodge_dir_intangible_end: 21,
+            air_dodge_fall_frame: 20,
+            air_dodge_ledge_frame: 24,
+            air_dodge_dir_landing_min: 11,
+            air_dodge_landing_step: 4,
             air_dodge_speed: r(2, 5),
             air_dodge_decay: r(9, 10),
             air_dodge_windup: 5,
@@ -339,20 +464,22 @@ impl FighterParams {
             wavedash_min_down: r(1, 5),
             waveland_speed: r(7, 20),
             waveland_friction: r(9, 10),
-            waveland_lag: 14,
+            waveland_lag: 19,
             shield_drop_buffer: 4,
             shield_drop_recovery: 6,
-            // Estimates: a roll is about 31 frames covering roughly 2.8 world units, intangible on 4-19; a spot
-            // dodge is about 25 frames, intangible on 3-20.
-            roll_frames: 31,
+            shield_release_frames: 11,
+            // The reference game: a forward roll is 29 frames (intangible 4-15), a backward one 34; a spot dodge 25 (intangible
+            // 3-17). The distance (about 2.8 world units) is an estimate.
+            roll_frames: 29,
+            roll_back_frames: 34,
             roll_speed: r(7, 50),
             roll_move_start: 5,
             roll_move_end: 24,
             roll_intangible_start: 4,
-            roll_intangible_end: 19,
+            roll_intangible_end: 15,
             spot_dodge_frames: 25,
             spot_intangible_start: 3,
-            spot_intangible_end: 20,
+            spot_intangible_end: 17,
             shield_drop_speed: r(3, 50),
             platform_ignore_frames: 8,
             ledge_reach_x: r(11, 5),
@@ -360,12 +487,26 @@ impl FighterParams {
             ledge_reach_down: r(13, 5),
             ledge_hang_dx: r(4, 5),
             ledge_hang_dy: r(9, 5),
-            ledge_hang_max: 300,
+            // Ledges follow the reference game: 6.5 seconds of hanging, a 19-frame grab, intangibility from airtime and damage on the
+            // first grab only, six grabs between landings, a 40% shorter reach behind, and getup options of 34 frames (intangible
+            // 1-33), a 45-frame roll (1-26) and a jump that can act on frame 15 (1-12), their intangibility cut to 80% and 50% on the
+            // second and third grab and gone after.
+            ledge_hang_max: 390,
             ledge_regrab_cooldown: 30,
-            ledge_invuln_base: 60,
-            ledge_invuln_decay: 10,
-            ledge_invuln_floor: 10,
-            ledge_getup_frames: 30,
+            ledge_invuln_airtime: 60,
+            ledge_invuln_damage: 44,
+            ledge_invuln_min: 4,
+            ledge_grab_frames: 19,
+            ledge_grab_limit: 6,
+            ledge_reach_back_x: r(33, 25),
+            ledge_getup_frames: 34,
+            ledge_getup_intangible: 33,
+            ledge_roll_frames: 45,
+            ledge_roll_intangible: 26,
+            ledge_jump_frames: 14,
+            ledge_jump_intangible: 12,
+            ledge_option_decay_2: 80,
+            ledge_option_decay_3: 50,
             ledge_getup_dx: Fx::ONE,
             ledge_roll_dx: Fx::from_int(3),
             ledge_jump_velocity: r(11, 50),
@@ -377,7 +518,7 @@ impl FighterParams {
             ecb_side_height: r(11, 10),
             hitbox_scale: Fx::ONE,
             helpless_landing_lag: 20,
-            ledge_attack_frames: 54,
+            ledge_attack_frames: 55,
             ledge_attack_dx: r(3, 2),
             weight: Fx::from_int(90),
             weapon: 0,
@@ -431,6 +572,14 @@ impl FighterParams {
             gravity,
             max_fall_speed: su(1800),
             fast_fall_speed: su(2880),
+            // Wolf-style air dodges: neutral 44 frames (intangible 2-26), directional 61 / 73 / 93 (2-20).
+            air_dodge_frames: 44,
+            air_dodge_dir_down_frames: 61,
+            air_dodge_dir_side_frames: 73,
+            air_dodge_dir_up_frames: 93,
+            air_dodge_intangible_start: 2,
+            air_dodge_intangible_end: 26,
+            air_dodge_dir_intangible_end: 20,
             ground_friction: gu(220),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
@@ -604,6 +753,8 @@ pub struct Ruleset {
     pub tumble_knockback: Fx,
     /// Distance moved by one stick flick of survival DI during hitlag.
     pub sdi_distance: Fx,
+    /// Damage of an aerial made during a short hop, as a fraction of its listed damage (the reference game's 0.85).
+    pub short_hop_damage: Fx,
     /// How far the launch angle can be bent by DI, in degrees.
     pub di_degrees: u8,
     pub respawn_invuln: u8,
@@ -733,6 +884,7 @@ impl Ruleset {
             knockback_decay: Fx::from_ratio(51, 8000),
             tumble_knockback: Fx::from_int(80),
             sdi_distance: Fx::from_ratio(1, 4),
+            short_hop_damage: Fx::from_ratio(17, 20),
             di_degrees: 18,
             respawn_invuln: 120,
             tech_window: 11,
@@ -813,6 +965,7 @@ impl StateHash for Ruleset {
         self.knockback_decay.hash_into(h);
         self.tumble_knockback.hash_into(h);
         self.sdi_distance.hash_into(h);
+        self.short_hop_damage.hash_into(h);
         h.write_u8(self.di_degrees);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);

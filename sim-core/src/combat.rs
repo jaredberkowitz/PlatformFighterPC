@@ -51,10 +51,7 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams) -> [(Vec2, Fx); HURT_CIRCLES] {
 
 /// True while a fighter cannot be hit.
 pub fn is_intangible(f: &Fighter) -> bool {
-    !f.active
-        || f.invuln > 0
-        || f.ledge_invuln > 0
-        || (f.state == S::AirDodge && (4..=28).contains(&f.state_frame))
+    !f.active || f.invuln > 0 || f.ledge_invuln > 0
 }
 
 /// The move's hitboxes that are active this frame, with their world-space centres.
@@ -556,7 +553,17 @@ fn apply_hit(
         Fx::ONE
     };
     let mut hb = *hb;
-    let base_damage = hb.damage;
+    // An aerial made during a short hop hits a little softer.
+    let attacker = &state.fighters[source];
+    let short_hop_aerial = freeze_source
+        && attacker.short_hop
+        && attacker.state == S::Attack
+        && MoveId::from_index(attacker.move_id).is_aerial();
+    let base_damage = if short_hop_aerial {
+        hb.damage * rules.short_hop_damage
+    } else {
+        hb.damage
+    };
     hb.damage = base_damage * stale;
     let kb_damage = base_damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
 
@@ -642,6 +649,10 @@ fn apply_hit(
     }
     def.state = S::Hitstun;
     def.state_frame = 0;
+    // Being hit gives back the air dodge and a fresh set of ledge grabs, and ends a short hop.
+    def.air_dodge_used = false;
+    def.ledge_grab_count = 0;
+    def.short_hop = false;
     def.hitstun = stun;
     def.launch_pending = true;
     def.launch_kb = kb;

@@ -67,6 +67,10 @@ pub enum FighterState {
     WallTech,
     /// Back after a knock-out, standing on the revival platform above the stage: invincible until it moves or the platform goes.
     Respawn,
+    /// Jumping from a ledge: rising, intangible at first, unable to act until `ledge_jump_frames` have passed.
+    LedgeJump,
+    /// Letting go of the shield: no action for `shield_release_frames`.
+    ShieldRelease,
 }
 
 impl StateHash for FighterState {
@@ -110,8 +114,16 @@ pub struct Fighter {
     /// Ledge currently held, or [`NONE`].
     pub ledge: i8,
     pub ledge_invuln: u8,
-    /// Grabs since last touching stable ground; drives the diminishing invincibility.
+    /// Ledge grabs since last landing or being hit: only the first gives ledge intangibility, the options' intangibility shrinks
+    /// on later ones, and there is a limit (`FighterParams::ledge_grab_limit`).
     pub ledge_grab_count: u8,
+    /// Frames since last standing on the ground (saturating); the first ledge grab's intangibility grows with it.
+    pub airtime: u16,
+    /// Buttons whose latest press has already started an action (bit per button), so one press is one action however long the
+    /// input buffer is. A new press of the button clears its bit.
+    pub buffer_used: u16,
+    /// In the air from a short hop (cleared by landing, a midair jump, a ledge or a hit): aerials hit for `Ruleset::short_hop_damage`.
+    pub short_hop: bool,
     pub ledge_cooldown: u8,
     // ---- Combat ----
     /// Damage taken, in percent.
@@ -299,6 +311,9 @@ impl Fighter {
             ledge: NONE,
             ledge_invuln: 0,
             ledge_grab_count: 0,
+            airtime: 0,
+            buffer_used: 0,
+            short_hop: false,
             ledge_cooldown: 0,
             active: true,
             percent: Fx::ZERO,
@@ -428,6 +443,9 @@ impl StateHash for Fighter {
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
         h.write_u8(self.ledge_grab_count);
+        h.write_u16(self.airtime);
+        h.write_u16(self.buffer_used);
+        h.write_bool(self.short_hop);
         h.write_u8(self.ledge_cooldown);
         h.write_bool(self.active);
         self.percent.hash_into(h);
@@ -611,6 +629,21 @@ mod tests {
             ("hop_boost", {
                 let mut s = state;
                 s.fighters[0].hop_boost = 1;
+                s
+            }),
+            ("airtime", {
+                let mut s = state;
+                s.fighters[0].airtime = 7;
+                s
+            }),
+            ("buffer_used", {
+                let mut s = state;
+                s.fighters[0].buffer_used = 1;
+                s
+            }),
+            ("short_hop", {
+                let mut s = state;
+                s.fighters[0].short_hop = true;
                 s
             }),
             ("dash_age", {

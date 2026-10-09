@@ -287,7 +287,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["grab", 1.0, -1.0]
 		"Attack":
 			return _attack_clip(s)
-		"Idle", "Turn", "LedgeGetUp", "LedgeAttack", "Respawn":
+		"Idle", "Turn", "LedgeGetUp", "LedgeAttack", "Respawn", "ShieldRelease":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
@@ -909,9 +909,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	yaw = lerp_angle(yaw, float(facing) * deg_to_rad(36.0), clampf(delta * 14.0, 0.0, 1.0))
 	model.rotation = Vector3(0, yaw, -float(facing) * deg_to_rad(lean))
 
-	# Air dodge and ledge invincibility read as ghostly.
+	# Air dodge and ledge invincibility read as ghostly (a long directional dodge only while it is still intangible).
 	var ghost := 0.0
-	if state == "AirDodge":
+	if state == "AirDodge" and s.invuln > 0:
 		ghost = 0.55
 	elif s.invuln > 0:
 		ghost = 0.5 if (s.frame / 4) % 2 == 0 else 0.15

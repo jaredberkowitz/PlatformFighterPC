@@ -226,3 +226,63 @@ extra frames.
 
 Tests: `sim-core/tests/feel.rs` (dash-dance window and turnaround), `ground_and_collision.rs` (every reversal), `movement.rs` (slingshot, no instant
 waveland, edge stop, landing lag).
+
+## Second pass toward the reference game (sim v30)
+
+Sources, read October 2026: SmashWiki (Buffer, Jump, Short hop, Fast fall, Landing lag, Air dodge, Edge, Run, Dash, the Lucario and Marth edge
+pages) and ultimateframedata.com (the Marth and Wolf pages: airtimes, dodges, shield drop). Measured first: our short hop / full hop / short hop
+fast fall / full hop fast fall airtimes were already within one frame of the published ones (duelist 42/56/29/39 against 41/55/28/38; brawler
+31/44/22/32 against 30/43/21/31; the one frame is how the frames are counted), so the jump arcs were left alone.
+
+**Input buffer** (`input_buffer`, `Fighter::buffer_used`): a button press made on the frame an action becomes possible or up to **9 frames**
+before it still starts it (it was 2 or 3). Holding a button counts too, however early it was pressed (the **hold buffer**), for attack,
+special, jump and grab, not shield. Each press starts **one** action: an action uses the press up, and only a new press of that button can
+start another. So a held jump that made a full hop does not also double jump, a buffered attack gives one jab, and holding shield into a jump
+out of shield does not air dodge (shielding uses the press). Stick inputs (dashes, rolls, smash flicks) keep their short windows.
+
+**Short hops**
+- An attack pressed with the jump or during the jump squat makes the jump a **short hop**, even with jump held, and the aerial comes out on
+  the first airborne frame (the reference game's short-hop aerial; on a keyboard, Space and J together).
+- An aerial made during a short hop deals **0.85x** damage (`Ruleset::short_hop_damage`, `Fighter::short_hop`; cleared by landing, a midair
+  jump, a ledge or a hit).
+
+**Midair jumps steer**: a double jump takes its sideways speed from the stick (full tilt = air speed), so it can reverse the drift at once,
+and with the stick neutral it goes straight up.
+
+**Landings**: a **light** landing is 2 frames (`landing_lag`); landing while fast falling or at the maximum fall speed is a **heavy** one,
+4 frames (`heavy_landing_lag`; the reference game's heavy landings are 2 to 6 by character). Aerials that autocancel use the same rule.
+
+**Shield release**: letting go of the shield takes **11 frames** (`shield_release_frames`, new state `ShieldRelease`) before anything else;
+jumping, grabbing, rolling and dodging straight out of the shield skip it. The perfect shield is unchanged (a hit in the first frames of
+the shield, Smash 4 style), on purpose.
+
+**Rolls and spot dodge**: forward roll 29 frames, backward roll 34 (`roll_back_frames`), intangible 4-15; spot dodge 25, intangible 3-17.
+
+**Air dodges** (per body type; duelist figures, brawler in brackets):
+- A **neutral** dodge keeps the fighter's momentum (it falls and drifts as usual) and lasts 52 [44] frames, intangible 3-29 [2-26].
+  Landing: 10 frames.
+- A **directional** dodge keeps the slingshot, carries the fighter, then from frame 20 lets it fall without control until it ends: 69 [61]
+  frames aimed down, 85 [73] sideways, 116 [93] up, in between by angle. Intangible 3-21 [2-20]. Ledges can be grabbed from frame 24.
+- A directional dodge (a wavedash included) lands with **19 frames** of lag just after the slingshot, one less every 4 frames later, down to
+  11. The reference game says only "11 to 19, more the earlier it lands"; the 4-frame step is our estimate.
+- Being hit gives the air dodge back (as does grabbing a ledge).
+
+**Ledges**
+- **The grab takes 19 frames** (`ledge_grab_frames`): no option before frame 20 (a press during it is buffered).
+- **Intangibility on the first grab** since landing or being hit: 19 + max(4, 60 x airtime/300 + 44 x (1 - percent/120)) frames, airtime in
+  frames (capped at 300), percent capped at 120: 63 at 0% after a short fall, up to 123 after a long time in the air, 23 at 120%. A
+  **regrab** without landing or being hit gets **none**.
+- **Options**: get up 34 frames (intangible 1-33), roll 45 (1-26), ledge attack 55 (its move's intangibility), ledge jump (new state
+  `LedgeJump`, can act on frame 15, intangible 1-12). On the second grab without landing their intangibility is **80%**, on the third
+  **50%**, from the fourth **none**. Jump wins over attack when both are pressed.
+- **Six grabs** between landings (or hits); a seventh does not catch the ledge (`ledge_grab_limit`).
+- Letting go by pressing down or away **ends the ledge intangibility** at once; trumping takes it away too.
+- A ledge **behind** the fighter (back to the stage) has a 40% shorter reach (`ledge_reach_back_x`).
+- Hanging lets go after **6.5 seconds** (390 frames).
+
+**Not changed**: jump arcs, fall speeds, dash-dance window and air drift (already matched); ground speeds stay at `GROUND_SPEED_PERCENT` 90.
+Not done: dodge staling, the softhop, initial-dash shielding rules, and per-character ledge and dodge numbers beyond the two archetypes.
+
+Tests: `sim-core/tests/reference_movement.rs` (buffer, hold buffer, one press per action, short-hop aerial and its damage, midair jump steering,
+light and heavy landings, rolls) and `movement.rs` (ledge intangibility by grab, option decay, grab limit, back reach, letting go, hang time,
+air dodge lengths and landing lag, shield release).

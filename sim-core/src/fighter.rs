@@ -15,10 +15,11 @@ use crate::state::{Fighter, FighterState as S, NONE};
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
 
-/// Frames of leniency for ground jump, shield-drop and tap-down presses.
+/// Frames of leniency for stick taps (platform drop, roll and spot dodge out of a shield, get-up rolls).
 const TAP_BUFFER: u8 = 3;
-/// Frames of leniency for air jump and air dodge presses.
-const AIR_ACTION_BUFFER: u8 = 2;
+/// Buttons the hold buffer applies to: one still held (and not yet used) when its action becomes possible starts it. Not the
+/// shield, which is held for its own sake.
+const HOLD_BUFFERED: u16 = buttons::ATTACK | buttons::SPECIAL | buttons::JUMP | buttons::GRAB;
 /// Frames in which a stick flick still counts as a dash input.
 const FLICK_BUFFER: u8 = 2;
 /// Frames in which a hard down press still triggers a fast fall. Long enough that a press made
@@ -40,6 +41,23 @@ impl Fighter {
                     .get(i + 1)
                     .is_some_and(|older| older.pressed(mask))
         })
+    }
+
+    /// The input buffer: true if `button` was pressed this frame or up to `frames` frames earlier, or is still held (the hold
+    /// buffer, see [`HOLD_BUFFERED`]), and that press has not already started an action.
+    pub fn buffered(&self, button: u16, frames: u8) -> bool {
+        self.buffer_used & button == 0
+            && (self.pressed_within(button, frames.saturating_add(1))
+                || (button & HOLD_BUFFERED != 0 && self.held(button)))
+    }
+
+    /// [`Fighter::buffered`], and if so the press is used up: it cannot start another action.
+    pub fn take(&mut self, button: u16, frames: u8) -> bool {
+        let ok = self.buffered(button, frames);
+        if ok {
+            self.buffer_used |= button;
+        }
+        ok
     }
 
     /// True if the stick was pushed down past the tap threshold within the last `frames` frames.
@@ -164,6 +182,8 @@ pub fn update(
 ) -> Option<u8> {
     f.history.rotate_right(1);
     f.history[0] = input;
+    // A new press of a button can start a new action.
+    f.buffer_used &= !(input.buttons & !f.history[1].buttons);
     // A tech press opens a short window; another press only counts once `tech_lockout` frames have passed (no mashing).
     f.tech_timer = f.tech_timer.saturating_add(1);
     if f.pressed_within(buttons::SHIELD, 1) && f.tech_timer > rules.tech_lockout {
@@ -187,6 +207,11 @@ pub fn update(
         return None;
     }
 
+    f.airtime = if f.platform == NONE {
+        f.airtime.saturating_add(1)
+    } else {
+        0
+    };
     f.platform_ignore = f.platform_ignore.saturating_sub(1);
     f.grab_immune = f.grab_immune.saturating_sub(1);
     f.ledge_cooldown = f.ledge_cooldown.saturating_sub(1);
@@ -205,7 +230,7 @@ pub fn update(
         S::JumpSquat => jump_squat(f, p, stage),
         S::Airborne => return airborne(f, p, weapon, stage),
         S::Helpless => return helpless(f, p, stage),
-        S::AirDodge => air_dodge(f, p, stage),
+        S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
         S::Shield => shield(f, p, stage, rules),
@@ -218,11 +243,13 @@ pub fn update(
         // Being held: the holder pins this fighter in place (see `grab::update`).
         S::Grabbed => {}
         S::ShieldDrop => shield_drop(f, p, stage),
-        S::LedgeHang => ledge_hang(f, p, stage),
+        S::LedgeHang => ledge_hang(f, p, weapon, stage),
+        S::LedgeJump => ledge_jump(f, p, stage),
+        S::ShieldRelease => shield_release(f, p, stage),
         S::Rebound => rebound(f, p, stage),
         S::WallTech => wall_tech(f, p, rules),
         S::Respawn => revival(f, p, rules),
-        S::LedgeGetUp | S::LedgeAttack => ledge_recover(f, p, weapon),
+        S::LedgeGetUp | S::LedgeAttack => ledge_recover(f),
     }
     None
 }
@@ -290,11 +317,14 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     } else {
         f.dash_age = 255;
     }
-    if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
+    let buffer = p.input_buffer;
+    if f.take(buttons::JUMP, buffer) {
         enter(f, S::JumpSquat);
         return;
     }
     if f.held(buttons::SHIELD) {
+        // The press is the shield's: an air dodge later needs a new one.
+        f.buffer_used |= buttons::SHIELD;
         enter(f, S::Shield);
         return;
     }
@@ -302,7 +332,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         start_platform_drop(f, p);
         return;
     }
-    if f.pressed_within(buttons::GRAB, ATTACK_BUFFER) {
+    if f.take(buttons::GRAB, buffer) {
         // Grabbing while turning around out of a dash or run is a pivot grab: it comes out toward the way the
         // fighter is turning, while it keeps sliding. A weapon without one just uses its normal grab.
         // (A turn from standing still, with no speed to slide on, is not one.)
@@ -322,10 +352,11 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         begin_attack(f, id);
         return;
     }
-    if f.pressed_within(buttons::SPECIAL, ATTACK_BUFFER) && start_special(f, weapon) {
+    if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+        f.buffer_used |= buttons::SPECIAL;
         return;
     }
-    if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+    if f.take(buttons::ATTACK, buffer) {
         start_ground_attack(f, p);
         return;
     }
@@ -431,19 +462,25 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         f.platform = NONE;
         f.fast_fall = false;
         enter(f, S::Airborne);
-        if f.held(buttons::JUMP) && p.hop_burst_frames > 0 {
+        // An attack pressed during the jump squat (or with the jump) makes it a short hop, held jump or not: the short-hop aerial.
+        // The aerial itself comes out of the buffer on the first airborne frame.
+        let aerial = f.buffer_used & buttons::ATTACK == 0
+            && f.pressed_within(buttons::ATTACK, p.jump_squat_frames.saturating_add(1));
+        let full = f.held(buttons::JUMP) && !aerial;
+        f.short_hop = !full;
+        if full && p.hop_burst_frames > 0 {
             // Full hop: a fast opening, then the arc (see `air_move`).
             f.vel.y = p.hop_burst_velocity;
             f.hop_boost = p.hop_burst_frames;
         } else {
-            f.vel.y = if f.held(buttons::JUMP) {
+            f.vel.y = if full {
                 p.full_hop_velocity
             } else {
                 p.short_hop_velocity
             };
         }
         // Wavedash input: a shield press during jump squat fires on the first airborne frame.
-        if f.pressed_within(buttons::SHIELD, p.air_dodge_buffer) && !f.air_dodge_used {
+        if !f.air_dodge_used && f.take(buttons::SHIELD, p.air_dodge_buffer) {
             start_air_dodge(f, p, stage);
         }
     }
@@ -459,6 +496,7 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.air_jumps_left = p.air_jumps;
     f.air_dodge_used = false;
     f.fast_fall = false;
+    f.short_hop = false;
     f.ledge_grab_count = 0;
 }
 
@@ -590,33 +628,64 @@ fn declines_ledge(f: &Fighter) -> bool {
 }
 
 fn ledge_request(f: &Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
-    if f.vel.y <= Fx::ZERO && f.ledge_cooldown == 0 && !declines_ledge(f) {
-        collision::find_ledge(stage, f.pos, p).map(|i| i as u8)
+    if f.vel.y <= Fx::ZERO {
+        ledge_in_reach(f, p, stage)
     } else {
         None
     }
 }
 
+/// A ledge this fighter could catch now (rising or not): not just let go of, not declined by holding down, within the grab limit.
+fn ledge_in_reach(f: &Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
+    if f.ledge_cooldown == 0 && !declines_ledge(f) && f.ledge_grab_count < p.ledge_grab_limit {
+        collision::find_ledge(stage, f.pos, f.facing, p).map(|i| i as u8)
+    } else {
+        None
+    }
+}
+
+/// Lag for touching down from the air: heavy when falling at full speed (fast falling or at the maximum fall speed), light
+/// otherwise. Call before moving, while the falling speed is still known.
+fn plain_landing_lag(f: &Fighter, p: &FighterParams) -> u8 {
+    if f.fast_fall || f.vel.y <= -p.max_fall_speed {
+        p.heavy_landing_lag
+    } else {
+        p.landing_lag
+    }
+}
+
 fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) -> Option<u8> {
-    if f.pressed_within(buttons::JUMP, AIR_ACTION_BUFFER) && f.air_jumps_left > 0 {
+    let buffer = p.input_buffer;
+    if f.air_jumps_left > 0 && f.take(buttons::JUMP, buffer) {
         f.vel.y = p.air_jump_velocity;
+        // A midair jump sets the drift from the stick: it can change direction at once, and with the stick neutral it goes
+        // straight up.
+        let input = f.history[0];
+        f.vel.x = if x_active(input) {
+            input.stick_x_fx() * p.air_speed
+        } else {
+            Fx::ZERO
+        };
         f.hop_boost = 0;
         f.air_jumps_left -= 1;
         f.fast_fall = false;
+        f.short_hop = false;
     }
-    if f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER) && !f.air_dodge_used {
+    if !f.air_dodge_used && f.take(buttons::SHIELD, buffer) {
         start_air_dodge(f, p, stage);
         return None;
     }
-    if f.pressed_within(buttons::SPECIAL, ATTACK_BUFFER) && start_special(f, weapon) {
+    if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+        f.buffer_used |= buttons::SPECIAL;
         return None;
     }
-    if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+    if f.take(buttons::ATTACK, buffer) {
         start_air_attack(f);
         return None;
     }
+    let lag = plain_landing_lag(f, p);
     if air_move(f, p, stage) {
-        enter_landing(f, p.landing_lag);
+        enter_landing(f, lag);
         return None;
     }
     ledge_request(f, p, stage)
@@ -644,16 +713,48 @@ fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     };
     f.dodge_dir = dir;
     f.air_dodge_used = true;
+    if dir == Vec2::ZERO {
+        // A neutral dodge keeps the fighter's momentum: it falls and drifts as usual while intangible.
+        enter(f, S::AirDodge);
+        return;
+    }
     f.fast_fall = false;
-    if p.air_dodge_windup > 0 && dir != Vec2::ZERO {
+    if p.air_dodge_windup > 0 {
         f.vel = sling_velocity(p, dir);
     } else {
         f.vel = dir * p.air_dodge_speed;
     }
     enter(f, S::AirDodge);
-    if p.air_dodge_windup == 0 || dir == Vec2::ZERO {
+    if p.air_dodge_windup == 0 {
         ground_assist(f, p, stage);
     }
+}
+
+/// How long an air dodge lasts: `air_dodge_frames` for a neutral one; for a directional one, between the sideways length and the
+/// straight down (or up) one by how steep it is.
+fn air_dodge_length(p: &FighterParams, dir: Vec2) -> u16 {
+    if dir == Vec2::ZERO {
+        return u16::from(p.air_dodge_frames);
+    }
+    let side = Fx::from_int(i32::from(p.air_dodge_dir_side_frames));
+    let end = Fx::from_int(i32::from(if dir.y < Fx::ZERO {
+        p.air_dodge_dir_down_frames
+    } else {
+        p.air_dodge_dir_up_frames
+    }));
+    // y squared runs 0 (sideways) .. 0.5 (diagonal) .. 1 (straight), which tracks the angle closely.
+    let steep = dir.y * dir.y;
+    (side + (end - side) * steep + Fx::HALF)
+        .floor_int()
+        .clamp(1, 255) as u16
+}
+
+/// Landing lag of a directional dodge: the most just after the slingshot, less the later it lands.
+fn dodge_landing_lag(f: &Fighter, p: &FighterParams) -> u8 {
+    let since = f.state_frame.saturating_sub(u16::from(p.air_dodge_windup));
+    let less = since / u16::from(p.air_dodge_landing_step.max(1));
+    let lag = u16::from(p.waveland_lag).saturating_sub(less);
+    lag.max(u16::from(p.air_dodge_dir_landing_min)).min(255) as u8
 }
 
 /// The slingshot at the start of a directional air dodge: a short drift away from the chosen direction sideways, and up for a downward
@@ -678,42 +779,65 @@ fn ground_assist(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 }
 
 fn start_waveland(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
+    f.lag = dodge_landing_lag(f, p);
     land(f, p, stage, platform);
     // Slide speed scales smoothly with how horizontal the dodge was.
     f.vel.x = f.dodge_dir.x * p.waveland_speed;
     enter(f, S::WaveLand);
 }
 
-fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
-    let windup = if f.dodge_dir == Vec2::ZERO {
-        0
+fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
+    let neutral = f.dodge_dir == Vec2::ZERO;
+    let intangible_end = if neutral {
+        p.air_dodge_intangible_end
     } else {
-        u16::from(p.air_dodge_windup)
+        p.air_dodge_dir_intangible_end
     };
-    if f.state_frame < windup {
-        // Still in the slingshot: the velocity set when the dodge began holds.
-    } else if f.state_frame == windup && windup > 0 {
-        f.vel = f.dodge_dir * p.air_dodge_speed;
-        ground_assist(f, p, stage);
-        if f.state != S::AirDodge {
-            return;
+    if within(f.state_frame, p.air_dodge_intangible_start, intangible_end) {
+        f.invuln = f.invuln.max(1);
+    }
+    if neutral {
+        if air_move(f, p, stage) {
+            enter_landing(f, p.air_dodge_landing_lag);
+            return None;
         }
     } else {
-        f.vel = f.vel * p.air_dodge_decay;
-    }
-    if let Some(i) = air_integrate(f, p, stage) {
-        if f.dodge_dir.y <= -p.wavedash_min_down {
-            start_waveland(f, p, stage, i);
+        let windup = u16::from(p.air_dodge_windup);
+        if f.state_frame < windup {
+            // Still in the slingshot: the velocity set when the dodge began holds.
+        } else if f.state_frame == windup && windup > 0 {
+            f.vel = f.dodge_dir * p.air_dodge_speed;
+            ground_assist(f, p, stage);
+            if f.state != S::AirDodge {
+                return None;
+            }
+        } else if f.state_frame >= u16::from(p.air_dodge_fall_frame) {
+            // The dodge is spent: the fighter falls without control until it ends.
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
+            f.vel.y = (f.vel.y - p.gravity).max(-p.max_fall_speed);
         } else {
-            // Too horizontal to be a wavedash: a plain air dodge that happens to land.
-            land(f, p, stage, i);
-            enter_landing(f, p.air_dodge_landing_lag);
+            f.vel = f.vel * p.air_dodge_decay;
         }
-        return;
+        if let Some(i) = air_integrate(f, p, stage) {
+            if f.dodge_dir.y <= -p.wavedash_min_down {
+                start_waveland(f, p, stage, i);
+            } else {
+                // Too horizontal to be a wavedash: a plain air dodge that happens to land.
+                let lag = dodge_landing_lag(f, p);
+                land(f, p, stage, i);
+                enter_landing(f, lag);
+            }
+            return None;
+        }
     }
-    if f.state_frame >= u16::from(p.air_dodge_frames) {
+    if f.state_frame >= air_dodge_length(p, f.dodge_dir) {
         enter(f, S::Airborne);
+        return None;
     }
+    if f.state_frame >= u16::from(p.air_dodge_ledge_frame) {
+        return ledge_request(f, p, stage);
+    }
+    None
 }
 
 fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
@@ -743,7 +867,7 @@ fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
             f.vel.x = Fx::ZERO;
         }
     }
-    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(p.waveland_lag) {
+    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(f.lag) {
         enter(f, S::Idle);
     }
 }
@@ -766,18 +890,19 @@ fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         return;
     }
     if !f.held(buttons::SHIELD) {
-        enter(f, S::Idle);
+        enter(f, S::ShieldRelease);
         return;
     }
+    let buffer = p.input_buffer;
     // Pressing down wins over jumping when standing on a pass-through platform.
     if on_pass_through(f, stage) && f.down_within(p.shield_drop_buffer) {
         f.platform = NONE;
         f.platform_ignore = p.platform_ignore_frames;
         f.vel = Vec2::new(Fx::ZERO, -p.shield_drop_speed);
         enter(f, S::ShieldDrop);
-    } else if f.pressed_within(buttons::JUMP, TAP_BUFFER) {
+    } else if f.take(buttons::JUMP, buffer) {
         enter(f, S::JumpSquat);
-    } else if f.pressed_within(buttons::ATTACK | buttons::GRAB, ATTACK_BUFFER) {
+    } else if f.take(buttons::ATTACK, buffer) || f.take(buttons::GRAB, buffer) {
         // Attack or grab out of the shield is a shield grab.
         begin_attack(f, MoveId::Grab);
     } else if f.flick_x(TAP_BUFFER) != 0 {
@@ -786,6 +911,14 @@ fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         enter(f, S::Roll);
     } else if !on_pass_through(f, stage) && f.hard_down(TAP_BUFFER) {
         enter(f, S::SpotDodge);
+    }
+}
+
+/// Letting go of the shield: a few frames before anything else can be done.
+fn shield_release(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(p.shield_release_frames) {
+        enter(f, S::Idle);
     }
 }
 
@@ -812,7 +945,13 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     if !slide_on_platform(f, p, stage) {
         return;
     }
-    if f.state_frame >= u16::from(p.roll_frames) {
+    // Rolling backward (away from the way the fighter faces) takes longer.
+    let frames = if dir == i32::from(f.facing) {
+        p.roll_frames
+    } else {
+        p.roll_back_frames
+    };
+    if f.state_frame >= u16::from(frames) {
         enter(f, S::Idle);
     }
 }
@@ -895,8 +1034,9 @@ pub fn restore_shield(f: &mut Fighter, rules: &Ruleset) {
 }
 
 fn shield_drop(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    let lag = plain_landing_lag(f, p);
     if air_move(f, p, stage) {
-        enter_landing(f, p.landing_lag);
+        enter_landing(f, lag);
     } else if f.state_frame >= u16::from(p.shield_drop_recovery) {
         enter(f, S::Airborne);
     }
@@ -911,11 +1051,12 @@ pub fn grab_ledge(f: &mut Fighter, p: &FighterParams, stage: &Stage, ledge: usiz
     };
     f.ledge = ledge as i8;
     f.ledge_grab_count = f.ledge_grab_count.saturating_add(1);
-    let decay = u32::from(p.ledge_invuln_decay) * u32::from(f.ledge_grab_count.saturating_sub(1));
-    let invuln = u32::from(p.ledge_invuln_base).saturating_sub(decay);
-    f.ledge_invuln = invuln
-        .max(u32::from(p.ledge_invuln_floor))
-        .min(u32::from(u8::MAX)) as u8;
+    f.ledge_invuln = if f.ledge_grab_count == 1 {
+        first_grab_invuln(f, p)
+    } else {
+        0
+    };
+    f.short_hop = false;
     f.pos = collision::ledge_hang_pos(l, p);
     f.vel = Vec2::ZERO;
     f.facing = -l.side;
@@ -926,10 +1067,34 @@ pub fn grab_ledge(f: &mut Fighter, p: &FighterParams, stage: &Stage, ledge: usiz
     enter(f, S::LedgeHang);
 }
 
+/// Ledge intangibility on the first grab since landing or being hit: more after a long time in the air, less at high damage, on
+/// top of the grab itself (see `FighterParams::ledge_invuln_airtime`).
+fn first_grab_invuln(f: &Fighter, p: &FighterParams) -> u8 {
+    let air = u32::from(f.airtime.min(300));
+    let percent = f.percent.floor_int().clamp(0, 120) as u32;
+    let from_air = u32::from(p.ledge_invuln_airtime) * air / 300;
+    let from_damage = u32::from(p.ledge_invuln_damage) * (120 - percent) / 120;
+    let total = (from_air + from_damage).max(u32::from(p.ledge_invuln_min))
+        + u32::from(p.ledge_grab_frames);
+    total.min(u32::from(u8::MAX)) as u8
+}
+
+/// A ledge option's intangibility on this grab: full on the first since landing or being hit, then cut, then none.
+fn ledge_option_invuln(f: &Fighter, p: &FighterParams, frames: u8) -> u8 {
+    let percent = match f.ledge_grab_count {
+        0 | 1 => 100,
+        2 => u32::from(p.ledge_option_decay_2),
+        3 => u32::from(p.ledge_option_decay_3),
+        _ => 0,
+    };
+    (u32::from(frames) * percent / 100) as u8
+}
+
 /// Knocks the current occupant off a ledge that someone else just grabbed.
 pub fn trump(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     let side = collision::ledge_side(stage, f.ledge);
     f.ledge = NONE;
+    f.ledge_invuln = 0;
     f.ledge_cooldown = p.ledge_regrab_cooldown;
     f.platform = NONE;
     f.vel = Vec2::new(p.ledge_trump_vx.mul_int(i32::from(side)), p.ledge_trump_vy);
@@ -941,7 +1106,7 @@ fn release_ledge(f: &mut Fighter, p: &FighterParams) {
     f.ledge_cooldown = p.ledge_regrab_cooldown;
 }
 
-fn ledge_hang(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+fn ledge_hang(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     let Some(&l) = usize::try_from(f.ledge)
         .ok()
         .and_then(|i| stage.ledges.get(i))
@@ -959,43 +1124,98 @@ fn ledge_hang(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     let toward = i32::from(input.stick_x) * -i32::from(l.side);
     let up = i32::from(input.stick_y);
 
-    if f.pressed_within(buttons::JUMP, AIR_ACTION_BUFFER) {
+    if f.state_frame >= p.ledge_hang_max {
+        // Hung on too long: the fighter lets go.
         release_ledge(f, p);
+        enter(f, S::Airborne);
+        return;
+    }
+    // The grab itself: nothing can be done until it is over (a press made now is buffered).
+    if f.state_frame < u16::from(p.ledge_grab_frames) {
+        return;
+    }
+    let buffer = p.input_buffer;
+    // Options in priority order (jump wins over attack). Each has its own intangibility, which replaces the hang's.
+    if f.take(buttons::JUMP, buffer) {
+        let invuln = ledge_option_invuln(f, p, p.ledge_jump_intangible);
+        release_ledge(f, p);
+        f.ledge_invuln = 0;
+        f.invuln = f.invuln.max(invuln);
         f.vel = Vec2::new(
             p.ledge_jump_dx.mul_int(-i32::from(l.side)),
             p.ledge_jump_velocity,
         );
-        enter(f, S::Airborne);
-    } else if f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER) {
-        get_up(f, stage, &l, p.ledge_roll_dx, S::LedgeGetUp);
-    } else if f.pressed_within(buttons::ATTACK, AIR_ACTION_BUFFER) {
-        // The attack's hitboxes arrive with combat in Phase 3; for now it is the movement and timing.
-        get_up(f, stage, &l, p.ledge_attack_dx, S::LedgeAttack);
+        enter(f, S::LedgeJump);
+    } else if f.take(buttons::SHIELD, buffer) {
+        let invuln = ledge_option_invuln(f, p, p.ledge_roll_intangible);
+        get_up(
+            f,
+            stage,
+            &l,
+            p.ledge_roll_dx,
+            S::LedgeGetUp,
+            p.ledge_roll_frames,
+            invuln,
+        );
+    } else if f.take(buttons::ATTACK, buffer) {
+        let intangible = weapon.get(MoveId::LedgeAttack as u8).intangible;
+        let invuln = ledge_option_invuln(f, p, intangible);
+        get_up(
+            f,
+            stage,
+            &l,
+            p.ledge_attack_dx,
+            S::LedgeAttack,
+            p.ledge_attack_frames,
+            invuln,
+        );
         if f.state == S::LedgeAttack {
             f.move_id = MoveId::LedgeAttack as u8;
             f.hit_mask = 0;
         }
     } else if up >= threshold || toward >= threshold {
-        get_up(f, stage, &l, p.ledge_getup_dx, S::LedgeGetUp);
-    } else if up <= -threshold || toward <= -threshold || f.state_frame >= p.ledge_hang_max {
+        let invuln = ledge_option_invuln(f, p, p.ledge_getup_intangible);
+        get_up(
+            f,
+            stage,
+            &l,
+            p.ledge_getup_dx,
+            S::LedgeGetUp,
+            p.ledge_getup_frames,
+            invuln,
+        );
+    } else if up <= -threshold || toward <= -threshold {
+        // Letting go by pressing down or away ends the ledge intangibility at once.
         release_ledge(f, p);
+        f.ledge_invuln = 0;
         enter(f, S::Airborne);
     }
 }
 
-fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S) {
+/// Rising from a ledge jump: drifting, intangible at first, unable to act until `ledge_jump_frames` have passed.
+fn ledge_jump(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    let lag = plain_landing_lag(f, p);
+    if air_move(f, p, stage) {
+        enter_landing(f, lag);
+    } else if f.state_frame >= u16::from(p.ledge_jump_frames) {
+        enter(f, S::Airborne);
+    }
+}
+
+/// Climbs onto the stage into `state` (a get-up, roll or attack) lasting `frames`, intangible for `invuln` frames.
+fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S, frames: u8, invuln: u8) {
     f.pos = Vec2::new(l.x - dx.mul_int(i32::from(l.side)), l.y);
     f.vel = Vec2::ZERO;
     f.ledge = NONE;
+    f.ledge_invuln = 0;
     f.platform = collision::standing_on(stage, f.pos);
-    enter(
-        f,
-        if f.platform == NONE {
-            S::Airborne
-        } else {
-            state
-        },
-    );
+    if f.platform == NONE {
+        enter(f, S::Airborne);
+        return;
+    }
+    f.lag = frames;
+    f.invuln = f.invuln.max(invuln);
+    enter(f, state);
 }
 
 /// Lying on the ground after a hard landing. After a short while the fighter chooses a get-up: attack, roll
@@ -1009,7 +1229,7 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
         return;
     }
     let flick = f.flick_x(TAP_BUFFER);
-    if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+    if f.take(buttons::ATTACK, p.input_buffer) {
         begin_attack(f, MoveId::GetUpAttack);
         f.invuln = f
             .invuln
@@ -1018,7 +1238,7 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
         f.dodge_dir = Vec2::new(Fx::from_int(i32::from(flick)), Fx::ZERO);
         enter(f, S::Roll);
     } else if f.history[0].stick_y >= STICK_DOWN
-        || f.pressed_within(buttons::JUMP, TAP_BUFFER)
+        || f.take(buttons::JUMP, p.input_buffer)
         || f.state_frame >= u16::from(rules.knockdown_max)
     {
         enter(f, S::GetUp);
@@ -1039,19 +1259,9 @@ fn get_up_stand(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Rules
     }
 }
 
-fn ledge_recover(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) {
-    // A ledge attack is intangible while it starts up (the move's `intangible` frames).
-    if f.state == S::LedgeAttack
-        && f.state_frame <= u16::from(weapon.get(MoveId::LedgeAttack as u8).intangible)
-    {
-        f.invuln = f.invuln.max(1);
-    }
-    let frames = if f.state == S::LedgeAttack {
-        p.ledge_attack_frames
-    } else {
-        p.ledge_getup_frames
-    };
-    if f.state_frame >= u16::from(frames) {
+fn ledge_recover(f: &mut Fighter) {
+    // The option's length was set when it began (`get_up`); its intangibility runs on `invuln`.
+    if f.state_frame >= u16::from(f.lag) {
         // Stable ground again: the next ledge grab gets full invincibility.
         f.ledge_grab_count = 0;
         enter(f, S::Idle);
@@ -1110,7 +1320,7 @@ fn grabbing(f: &mut Fighter) {
     };
     if let Some(id) = throw {
         begin_attack(f, id);
-    } else if f.pressed_within(buttons::ATTACK, ATTACK_BUFFER) {
+    } else if f.take(buttons::ATTACK, ATTACK_BUFFER) {
         begin_attack(f, MoveId::Pummel);
     }
 }
@@ -1319,11 +1529,12 @@ fn attack(
             }
         }
     } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
+        let plain = plain_landing_lag(f, p);
         if air_move(f, p, stage) {
             // Landing early or late in the move autocancels: only the normal landing lag.
             let clean =
                 frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
-            enter_landing(f, if clean { p.landing_lag } else { mv.landing_lag });
+            enter_landing(f, if clean { plain } else { mv.landing_lag });
             return None;
         }
     } else {
@@ -1350,7 +1561,7 @@ fn attack(
         }
         // A jab continues into its next hit if attack was pressed shortly before the end.
         if let Some(next) = mv.next {
-            if f.grounded() && f.pressed_within(buttons::ATTACK, mv.next_window) {
+            if f.grounded() && f.take(buttons::ATTACK, mv.next_window) {
                 begin_attack(f, MoveId::from_index(next));
                 return None;
             }
@@ -1365,8 +1576,8 @@ fn attack(
     }
 
     // Up specials can grab a ledge in mid-move, rising or not, so a recovery that reaches it is forgiving.
-    if mv.grabs_ledge && f.ledge_cooldown == 0 && !declines_ledge(f) {
-        return collision::find_ledge(stage, f.pos, p).map(|i| i as u8);
+    if mv.grabs_ledge {
+        return ledge_in_reach(f, p, stage);
     }
     None
 }
@@ -1454,6 +1665,8 @@ fn wall_tech(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     enter(f, S::Airborne);
     // Holding jump as it ends kicks off the wall (a wall-tech jump).
     if away != 0 && f.held(buttons::JUMP) {
+        // The press is used: it does not also become a midair jump.
+        f.buffer_used |= buttons::JUMP;
         f.vel = Vec2::new(p.air_speed.mul_int(away), p.air_jump_velocity);
         f.facing = away as i8;
     }
@@ -1511,10 +1724,11 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     // the launch carries on as ordinary momentum.
     if !f.grounded() && !f.launch_pending && f.hitstun > 0 {
         let dodge = f.state_frame >= u16::from(rules.hitstun_dodge_cancel)
-            && f.pressed_within(buttons::SHIELD, AIR_ACTION_BUFFER)
-            && !f.air_dodge_used;
-        let attack = f.state_frame >= u16::from(rules.hitstun_attack_cancel)
-            && f.pressed_within(buttons::ATTACK, ATTACK_BUFFER);
+            && !f.air_dodge_used
+            && f.take(buttons::SHIELD, p.input_buffer);
+        let attack = !dodge
+            && f.state_frame >= u16::from(rules.hitstun_attack_cancel)
+            && f.take(buttons::ATTACK, p.input_buffer);
         if dodge || attack {
             f.vel += f.kb_vel;
             f.kb_vel = Vec2::ZERO;

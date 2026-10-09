@@ -318,8 +318,10 @@ fn a_tech_press_counts_for_eleven_frames_and_mashing_locks_it_out() {
             Vec2::new(Fx::ZERO, Fx::from_int(8)),
             Vec2::new(Fx::ZERO, fx(-1, 10)),
         );
-        // Not a tumble, so it lands rather than bouncing off the floor.
+        // Not a tumble, so it lands rather than bouncing off the floor. No air dodge either, so an early press (buffered for
+        // nine frames) cannot become a dodge out of the hitstun instead.
         sim.state.fighters[1].tumble = false;
+        sim.state.fighters[1].air_dodge_used = true;
         let mut t = 0;
         while sim.fighter(1).platform == NONE && t < 200 {
             let b = if presses.contains(&t) { SHIELD } else { 0 };

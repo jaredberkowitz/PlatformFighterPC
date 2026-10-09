@@ -127,7 +127,7 @@ func watch(player: int, before: Dictionary, now: Dictionary) -> Array:
 	if now.percent > before.percent + 0.01:
 		var heavy: bool = now.percent - before.percent >= 11.0 or now.tumble
 		played.append("hit_heavy" if heavy else "hit_light")
-	if now.state == "JumpSquat" and before.state != "JumpSquat":
+	if (now.state == "JumpSquat" and before.state != "JumpSquat") or (now.state == "LedgeJump" and before.state != "LedgeJump"):
 		played.append("jump")
 	elif now.state == "Airborne" and before.state == "Airborne" and int(now.jumps) < int(before.jumps):
 		played.append("jump")
