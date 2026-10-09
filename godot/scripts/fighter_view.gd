@@ -31,7 +31,6 @@ const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
-const HALO_SHADER := preload("res://shaders/halo.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 const Particles := preload("res://scripts/particles.gd")
 
@@ -141,7 +140,6 @@ static func release_caches() -> void:
 	_parts.clear()
 	_mat_cache.clear()
 	_limb_cache.clear()
-	_halo_mat = null
 	_mesh_cache.clear()
 	_outline_mat = null
 	SvgArt.release()
@@ -335,12 +333,15 @@ func _attack_clip(s: Dictionary) -> Array:
 	var last := clampf(float(t[2]), start, total)
 	var f: float = s.state_frame
 	var progress: float
+	# The swing lands on the move's first active frame and follows through while it is active; through the end lag the body holds the
+	# follow-through and only settles back near the end (as the reference game's moves do), so a move looks as long as it really is.
 	if f < start:
 		progress = f / start * 0.55
 	elif f <= last:
-		progress = 0.55 + (f - start) / maxf(1.0, last - start) * 0.2
+		progress = 0.55 + (f - start) / maxf(1.0, last - start) * 0.08
 	else:
-		progress = 0.75 + (f - last) / maxf(1.0, total - last) * 0.25
+		var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
+		progress = 0.63 + 0.37 * pow(k, 1.8)
 	var brawler_body: bool = _cls(s) == 1 and BRAWLER_NO_BLADE.has(name)
 	var clip := "attack_swing"
 	if name.ends_with("throw"):
@@ -618,7 +619,6 @@ func build(p: int, l: RefCounted = null) -> void:
 
 	_contact_shadow()
 	_on_fighter_layer(model)
-	_add_halo()
 
 	shield = MeshInstance3D.new()
 	shield.mesh = _sphere(1.5)
@@ -743,20 +743,6 @@ func _flash(s: Dictionary, delta: float) -> void:
 			m.set_instance_shader_parameter("flash", value)
 	if face_mesh != null:
 		face_mesh.set_instance_shader_parameter("flash", value)
-
-
-## The pale halo round the fighter's silhouette (shaders/halo.gdshader), as an overlay on every cel-shaded part (it sits behind the body,
-## so only the outer edge shows).
-static var _halo_mat: ShaderMaterial
-
-
-func _add_halo() -> void:
-	if _halo_mat == null:
-		_halo_mat = ShaderMaterial.new()
-		_halo_mat.shader = HALO_SHADER
-	for m in meshes:
-		if m != face_mesh and m.material_override is ShaderMaterial:
-			m.material_overlay = _halo_mat
 
 
 ## A soft dark oval projected down onto whatever the fighter stands over (as the reference game draws one), so its place on the stage reads
@@ -1487,7 +1473,8 @@ func _blade_target(s: Dictionary) -> Array:
 		var k := clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0)
 		angle = lerpf(wind, swing, k)
 	elif f > t[2]:
-		var k := clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0)
+		# The blade holds its follow-through and comes back late in the end lag.
+		var k := pow(clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0), 1.8)
 		angle = lerpf(swing, REST_ANGLE, k)
 		len = lerpf(length, rest_len, k)
 	return [angle, len, hand_x]
@@ -1569,7 +1556,8 @@ func _reach_weight(s: Dictionary) -> float:
 	if f < first:
 		k = clampf((f - first * 0.35) / maxf(1.0, first * 0.65), 0.0, 1.0)
 	elif f > last:
-		k = 1.0 - clampf((f - last) / maxf(1.0, (total - last) * 0.5), 0.0, 1.0)
+		# (It stays out through most of the end lag, coming home late.)
+		k = 1.0 - pow(clampf((f - last) / maxf(1.0, (total - last) * 0.85), 0.0, 1.0), 1.6)
 	return k * k * (3.0 - 2.0 * k)
 
 

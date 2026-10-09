@@ -331,3 +331,12 @@ lands on the clip's strike); a ledge jump flips.
 - Hits on a shield ring the bubble and throw blue sparks; starting a fast fall flashes a small star with a whoosh.
 - Kicks use the leg nearest the camera when the hit is in front (the model's left leg facing right): the claws neutral air's front kick
   is now the visible leg.
+
+**Revised after play** (sixteenth pass):
+- The cream halo is gone (only the black ink outline remains), the light-to-shadow step is soft again (`ramp_softness` 0.16), cast shadows
+  are half strength (`shadow_amount`; a hat's shadow on the face was reading as a hard dark patch), the brush grain is off
+  (`brush_strength` 0, the include stays for later), and the post-process's crease lines are lighter, so rounded bodies are not streaked.
+- **Moves fill their end lag**: aerial and ground frame data already follow the reference game (a short hop fits one aerial; a full hop two
+  only for a fast one, as there), but the body used to snap back to a relaxed pose right after the hit, so a move looked over early. Now it
+  holds the follow-through and settles only near the end (`_attack_clip` progress after the last active frame is `0.63 + 0.37 k^1.8`), and
+  the reaching limb, the body's pitch and the blade come home late the same way.

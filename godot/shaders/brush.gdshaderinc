@@ -1,6 +1,6 @@
 // A hand-painted texture for cel surfaces: fine strokes running along the surface (like the grain of a textured brush), wavering with a
 // soft noise, with a few lighter flecks. `brush(uv)` returns a multiplier near 1 for the colour.
-uniform float brush_strength = 0.09;
+uniform float brush_strength = 0.0;
 uniform float brush_scale = 1.0;
 
 float brush_hash(vec2 p) {

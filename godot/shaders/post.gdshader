@@ -12,7 +12,7 @@ uniform sampler2D normal_tex : hint_normal_roughness_texture, filter_nearest;
 uniform vec4 ink : source_color = vec4(0.14, 0.08, 0.12, 1.0);
 uniform float line_width = 1.25;          // pixels at 1080 lines tall
 uniform float depth_edge = 0.07;          // relative jump in distance that draws a line
-uniform float normal_edge = 0.45;         // 1 - cosine between neighbouring surface directions that draws a line
+uniform float normal_edge = 0.6;         // 1 - cosine between neighbouring surface directions that draws a line
 uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
@@ -68,7 +68,7 @@ void fragment() {
 		vec3 n = texture(normal_tex, q).xyz * 2.0 - 1.0;
 		float crease = 1.0 - dot(normalize(n0), normalize(n));
 		if (d0 < 400.0) {
-			edge = max(edge, smoothstep(normal_edge, normal_edge * 1.6, crease) * 0.75);
+			edge = max(edge, smoothstep(normal_edge, normal_edge * 1.5, crease) * 0.55);
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
