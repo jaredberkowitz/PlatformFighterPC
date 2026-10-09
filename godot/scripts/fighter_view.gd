@@ -36,6 +36,10 @@ static func toon(c: Color, outline := true) -> StandardMaterial3D:
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
 	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
 	m.roughness = 1.0
+	# A soft rim of light on the edges, for the warm cel look.
+	m.rim_enabled = true
+	m.rim = 0.2
+	m.rim_tint = 0.5
 	if outline:
 		if _outline_mat == null:
 			_outline_mat = StandardMaterial3D.new()
@@ -195,10 +199,14 @@ func _build_rig(skin: StandardMaterial3D) -> bool:
 		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
 	var white := toon(Color(1, 1, 1))
 	var shoe := toon(Color(0.27, 0.2, 0.3))
+	# The shorts take the outfit colour (the accent, a shade darker), so the body reads as a shirt over shorts.
+	var shorts := toon(loadout.accent_color().darkened(0.2))
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
-		if part.begins_with("Hand") or part.begins_with("Shin"):
+		if part.begins_with("Hand") or part.begins_with("Shin") or part.begins_with("Sole") or part.begins_with("Collar"):
 			mi.material_override = white
+		elif part.begins_with("Shorts"):
+			mi.material_override = shorts
 		elif part.begins_with("Foot"):
 			mi.material_override = shoe
 		else:
@@ -533,6 +541,13 @@ func _face(skin: StandardMaterial3D, ink: StandardMaterial3D) -> void:
 		_part(head_rig, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
 		face_parts.lids.append(_part(head_rig, _sphere(1.0), skin, eye_pos, Vector3(0.2, 0.1, 0.06)))
 		face_parts.lines.append(_part(head_rig, _sphere(1.0), ink, eye_pos, Vector3(0.18, 0.012, 0.03)))
+		# A catch-light in each eye and a touch of blush on the cheeks.
+		_part(head_rig, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos + Vector3(sx * -0.02 + 0.03, 0.035, 0.075), Vector3(0.04, 0.045, 0.02))
+		var blush := StandardMaterial3D.new()
+		blush.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		blush.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		blush.albedo_color = Color(1.0, 0.45, 0.5, 0.35)
+		_part(head_rig, _sphere(1.0), blush, Vector3(sx * (EYE_DX + 0.12), EYE_Y - 0.2, 0.7), Vector3(0.12, 0.06, 0.03))
 		var brow := BoxMesh.new()
 		brow.size = Vector3(0.3, 0.05, 0.05)
 		face_parts.brows.append(_part(head_rig, brow, ink, eye_pos + Vector3(0, 0.3, 0.03)))
@@ -605,6 +620,14 @@ func _neck_on_rig(accent: Color) -> void:
 			ring.rings = 36
 			ring.ring_segments = 10
 			_part(torso_rig, ring, toon(SASH), centre, Vector3(0.88, 1.0, 1.0), Vector3(0, 0, -42))
+			# Two round badges pinned on the front of the sash.
+			var badge := CylinderMesh.new()
+			badge.top_radius = 0.075
+			badge.bottom_radius = 0.075
+			badge.height = 0.03
+			badge.radial_segments = 16
+			_part(torso_rig, badge, toon(Color(1.0, 0.82, 0.3)), centre + Vector3(-0.17, 0.2, 0.55), Vector3.ONE, Vector3(90, 0, 0))
+			_part(torso_rig, badge, toon(accent), centre + Vector3(0.05, 0.0, 0.58), Vector3.ONE, Vector3(90, 0, 0))
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			_collar(accent)

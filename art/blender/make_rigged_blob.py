@@ -156,6 +156,31 @@ def build_meshes(rig):
             if v.co.z < 0.08:
                 v.co.z = 0.08 + (v.co.z - 0.08) * 0.15
         parts["Foot." + side] = to_object("Foot." + side, bm, "foot." + side, rig)
+
+        # Clothes: a sole under each shoe, and the shorts' legs over the top of each thigh.
+        bm = bmesh.new()
+        ball(bm, 0.215, (x * 0.26, -0.05, 0.085), (1.02, 1.37, 0.18), segments=28, rings=10)
+        parts["Sole." + side] = to_object("Sole." + side, bm, "foot." + side, rig)
+        bm = bmesh.new()
+        capsule(bm, (x * 0.26, 0.0, 0.66), 0.165, (x * 0.26, 0.0, 0.52), 0.155)
+        parts["ShortsLeg." + side] = to_object("ShortsLeg." + side, bm, "thigh." + side, rig)
+
+    # The shorts: the bottom of the body, a little bigger than it, cut off at the waist.
+    bm = bmesh.new()
+    ball(bm, 0.585, (0, 0, 0.98), (1.0, 0.9, 0.75))
+    for v in bm.verts:
+        t = -(v.co.z - 0.98) / 0.42
+        v.co.x *= 1.0 + 0.08 * t
+        v.co.y *= 1.0 + 0.08 * t
+    waist = [v for v in bm.verts if v.co.z > 0.8]
+    bmesh.ops.delete(bm, geom=waist, context="VERTS")
+    parts["Shorts"] = to_object("Shorts", bm, "hips", rig)
+
+    # A shirt collar: a soft ring where the head meets the body.
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=False, cap_tris=False, segments=28, radius1=0.4, radius2=0.33, depth=0.12)
+    bmesh.ops.translate(bm, vec=(0, 0, 1.26), verts=bm.verts)
+    parts["Collar"] = to_object("Collar", bm, "spine", rig)
     return parts
 
 
