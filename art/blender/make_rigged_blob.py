@@ -86,8 +86,8 @@ def to_object(name, bm, bone, rig):
     return obj
 
 
-def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=False):
-    """A ball. With `uvs` it is unwrapped like a globe (u around, v from the bottom up), for cloth patterns."""
+def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=True):
+    """A ball, unwrapped like a globe (u around, v from the bottom up) for cloth patterns and the painted brush grain."""
     if uvs:
         bm.loops.layers.uv.verify()
     res = bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius, calc_uvs=uvs)
@@ -1252,6 +1252,41 @@ def main() -> None:
         return f
 
     clip(rig, "ledge", 60, {0: ledge_pose(0.0), 30: ledge_pose(1.0), 60: ledge_pose(0.0)})
+
+    # Climbing up from a ledge (played by progress over the get-up): hanging, then the arms push down on the edge as one knee comes up onto
+    # it, a crouch on the edge, and standing.
+    def climb(k):
+        def f(rig):
+            if k == 0:
+                ledge_pose(0.0)(rig)
+                return
+            if k == 1:
+                for side in "LR":
+                    pose(rig, "armU." + side, fwd=-40.0, out=30.0)
+                    pose(rig, "armL." + side, fwd=60.0)
+                pose(rig, "spine", fwd=34.0)
+                pose(rig, "head", fwd=-16.0)
+                pose(rig, "thigh.L", fwd=96.0, out=10.0)
+                pose(rig, "shin.L", fwd=-110.0)
+                pose(rig, "thigh.R", fwd=-20.0, out=8.0)
+                pose(rig, "shin.R", fwd=-30.0)
+                return
+            if k == 2:
+                pose(rig, "hips", lift=-0.18)
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=66.0, out=8.0)
+                    pose(rig, "shin." + side, fwd=-100.0)
+                    pose(rig, "armU." + side, fwd=24.0, out=20.0)
+                    pose(rig, "armL." + side, fwd=40.0)
+                pose(rig, "spine", fwd=24.0)
+                pose(rig, "head", fwd=-12.0)
+                return
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=8.0, out=14.0)
+                pose(rig, "armL." + side, fwd=30.0)
+        return f
+
+    clip(rig, "ledge_climb", 30, {0: climb(0), 10: climb(1), 20: climb(2), 30: climb(3)})
 
     bpy.ops.object.mode_set(mode="OBJECT")
     reset(rig)

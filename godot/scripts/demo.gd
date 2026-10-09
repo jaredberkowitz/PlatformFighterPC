@@ -33,7 +33,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		"ledge":
 			d.events = [[2, "place", 0, -12.0, -0.5]]
 			d.timeline = [[0, 0, 0, 0], [60, 0, 127, 0], [61, 0, 0, 0]]
-			d.shots = [[25, "a_hang"], [62, "b_getup"], [110, "c_idle"]]
+			d.shots = [[6, "a_grab_swing"], [25, "b_hang"], [63, "c_climb1"], [67, "d_climb2"], [71, "e_climb3"], [76, "f_climb4"], [110, "g_idle"]]
 			d.end_frame = 120
 		"portrait":
 			d.cam_dist = 9.0

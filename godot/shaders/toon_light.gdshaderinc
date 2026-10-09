@@ -1,8 +1,9 @@
 // The soft cel lighting every character surface shares: light wraps round the form and steps softly from lit to a cool shadow tint
 // (rather than to black), a warm rim lifts the silhouette on the lit side, and a small soft highlight gives a slight sheen.
-uniform vec4 shadow_tint : source_color = vec4(0.58, 0.52, 0.74, 1.0);
-uniform float ramp_center : hint_range(0.0, 1.0) = 0.42;
-uniform float ramp_softness : hint_range(0.0, 0.5) = 0.16;
+uniform vec4 shadow_tint : source_color = vec4(0.6, 0.5, 0.68, 1.0);
+uniform float ramp_center : hint_range(0.0, 1.0) = 0.45;
+// A crisp step between light and shadow: two clean tones, as in a cel drawing.
+uniform float ramp_softness : hint_range(0.0, 0.5) = 0.045;
 uniform vec4 rim_color : source_color = vec4(1.0, 0.93, 0.82, 1.0);
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 1.0) = 0.55;

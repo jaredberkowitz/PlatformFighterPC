@@ -14,6 +14,7 @@ uniform float hem_width = 0.025;
 instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 
 #include "res://shaders/toon_light.gdshaderinc"
+#include "res://shaders/brush.gdshaderinc"
 
 void fragment() {
 	float v = UV.y;
@@ -26,7 +27,7 @@ void fragment() {
 	}
 	float line = min(abs(v - top_end), abs(v - bottom_start));
 	c = mix(hem.rgb, c, smoothstep(hem_width * 0.5, hem_width, line));
-	ALBEDO = c;
+	ALBEDO = c * brush(UV);
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;

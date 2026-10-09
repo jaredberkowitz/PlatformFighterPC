@@ -124,6 +124,94 @@ static func hit(parent: Node, at: Vector3, color: Color, strength: float) -> voi
 	Particles.sparks(parent, at, color, s)
 
 
+## The directional impact of a hit: a sharp white spike with a coloured edge thrust along `dir` (where the hit sends the fighter) and a
+## shorter one behind, snapping out and shrinking; longer for a harder hit.
+class Spike extends MeshInstance3D:
+	var age := 0.0
+	var life := 0.14
+	var length := 2.4
+	var width := 0.5
+	var dir := Vector2(1, 0)
+	var core := Color.WHITE
+	var edge := Color.WHITE
+
+	func _ready() -> void:
+		mesh = ImmediateMesh.new()
+		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	func _process(delta: float) -> void:
+		age += delta
+		var t := age / life
+		if t >= 1.0:
+			queue_free()
+			return
+		var grow := 1.0 - pow(1.0 - minf(1.0, t * 2.5), 2.0)
+		var shrink := 1.0 - t
+		var d := Vector3(dir.x, dir.y, 0).normalized()
+		var side := Vector3(-d.y, d.x, 0)
+		var im: ImmediateMesh = mesh
+		im.clear_surfaces()
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		for spec in [[1.0, edge, 1.0], [1.0, core, 0.45], [-0.45, edge, 0.8], [-0.45, core, 0.35]]:
+			var reach: float = length * float(spec[0]) * grow
+			var w: float = width * float(spec[2]) * shrink
+			var c: Color = spec[1]
+			c.a *= shrink
+			for v in [side * w, d * reach, -side * w]:
+				im.surface_set_color(c)
+				im.surface_add_vertex(v)
+		im.surface_end()
+
+
+static func impact(parent: Node, at: Vector3, dir: Vector2, color: Color, strength: float) -> void:
+	var s := clampf(strength, 0.0, 1.0)
+	var spike := Spike.new()
+	spike.material_override = _material(true)
+	spike.dir = dir
+	spike.length = 1.6 + 2.6 * s
+	spike.width = 0.35 + 0.35 * s
+	spike.life = 0.1 + 0.08 * s
+	spike.edge = Color(color.r, color.g, color.b, 0.95)
+	spike.core = Color(1, 1, 0.95, 1)
+	spike.position = at + Vector3(0, 0, 0.05)
+	parent.add_child(spike)
+
+
+## A hit on a shield: a bright ring on the bubble and a few sparks.
+static func shield_hit(parent: Node, at: Vector3, strength: float) -> void:
+	var ring := Ring.new()
+	ring.material_override = _material(true)
+	ring.colour = Color(0.75, 0.92, 1.0, 0.9)
+	ring.from = 0.6
+	ring.to = 1.5 + 0.6 * strength
+	ring.thickness = 0.22
+	ring.life = 0.2
+	ring.position = at
+	parent.add_child(ring)
+	Particles.sparks(parent, at, Color(0.6, 0.85, 1.0), strength * 0.5)
+
+
+## The star that flashes when a fast fall starts.
+static func sparkle(parent: Node, at: Vector3) -> void:
+	var streaks := Streaks.new()
+	streaks.material_override = _material(true)
+	streaks.colour = Color(0.8, 0.9, 1.0, 1.0)
+	streaks.count = 4
+	streaks.reach = 0.7
+	streaks.life = 0.16
+	streaks.position = at
+	parent.add_child(streaks)
+	var ring := Ring.new()
+	ring.material_override = _material(true)
+	ring.colour = Color(0.85, 0.75, 1.0, 0.9)
+	ring.from = 0.05
+	ring.to = 0.45
+	ring.thickness = 0.12
+	ring.life = 0.18
+	ring.position = at
+	parent.add_child(ring)
+
+
 ## A jump: a soft ring spreading over the ground at the feet; `air` makes it the midair jump's ring, a little bigger and brighter.
 static func jump_ring(parent: Node, feet: Vector3, air: bool) -> void:
 	var ring := Ring.new()

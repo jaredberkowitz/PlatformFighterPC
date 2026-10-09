@@ -31,6 +31,7 @@ const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
+const HALO_SHADER := preload("res://shaders/halo.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 const Particles := preload("res://scripts/particles.gd")
 
@@ -140,6 +141,7 @@ static func release_caches() -> void:
 	_parts.clear()
 	_mat_cache.clear()
 	_limb_cache.clear()
+	_halo_mat = null
 	_mesh_cache.clear()
 	_outline_mat = null
 	SvgArt.release()
@@ -303,7 +305,18 @@ func _choose_clip(s: Dictionary) -> Array:
 		"Turn":
 			# Turning out of a run skids; a turn from standing just turns.
 			return ["skid", 1.0, -1.0] if speed > 0.08 else ["idle", 1.0, -1.0]
-		"Idle", "LedgeGetUp", "LedgeAttack", "Respawn", "ShieldRelease":
+		"LedgeGetUp":
+			if ledge_rolling:
+				return ["roll", 1.0, -1.0]
+			return ["ledge_climb", 1.0, ledge_k]
+		"LedgeAttack":
+			# Up onto the edge, then the sweep (its hit on frames 24-26 of 55 lands on the clip's strike).
+			var f: float = s.state_frame
+			if f < 14.0:
+				return ["ledge_climb", 1.0, clampf(f / 14.0, 0.0, 1.0) * 0.66]
+			var p := 0.55 * (f - 14.0) / 11.0 if f < 25.0 else 0.55 + (f - 25.0) / 30.0 * 0.45
+			return ["attack_low", 1.0, clampf(p, 0.0, 1.0)]
+		"Idle", "Respawn", "ShieldRelease":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
@@ -605,6 +618,7 @@ func build(p: int, l: RefCounted = null) -> void:
 
 	_contact_shadow()
 	_on_fighter_layer(model)
+	_add_halo()
 
 	shield = MeshInstance3D.new()
 	shield.mesh = _sphere(1.5)
@@ -729,6 +743,20 @@ func _flash(s: Dictionary, delta: float) -> void:
 			m.set_instance_shader_parameter("flash", value)
 	if face_mesh != null:
 		face_mesh.set_instance_shader_parameter("flash", value)
+
+
+## The pale halo round the fighter's silhouette (shaders/halo.gdshader), as an overlay on every cel-shaded part (it sits behind the body,
+## so only the outer edge shows).
+static var _halo_mat: ShaderMaterial
+
+
+func _add_halo() -> void:
+	if _halo_mat == null:
+		_halo_mat = ShaderMaterial.new()
+		_halo_mat.shader = HALO_SHADER
+	for m in meshes:
+		if m != face_mesh and m.material_override is ShaderMaterial:
+			m.material_overlay = _halo_mat
 
 
 ## A soft dark oval projected down onto whatever the fighter stands over (as the reference game draws one), so its place on the stage reads
@@ -1100,6 +1128,56 @@ var squash_vel := 0.0
 var lean_vel := 0.0
 var was_grounded := false
 var last_vy := 0.0
+## The ledge options, shown as moves rather than the simulation's jump from the hanging place to the stage: the body is drawn from where
+## it hung toward where the option puts it (up first, then over the edge), while the climb clip pulls it up; a roll travels the whole
+## way rolling. `ledge_k` is how far through the travel it is. The ledge grab starts a swing (`ledge_swing_t`).
+var hang_from := Vector3.ZERO
+var was_hanging := false
+var climb_from := Vector3.ZERO
+var climbing := false
+var ledge_rolling := false
+var ledge_k := 1.0
+var ledge_offset := Vector3.ZERO
+var ledge_swing_t := -1.0
+var last_state := ""
+
+
+func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
+	var state: String = s.state
+	ledge_offset = Vector3.ZERO
+	if state == "LedgeHang":
+		if not was_hanging:
+			ledge_swing_t = 0.0
+		hang_from = pos
+		was_hanging = true
+		climbing = false
+		return
+	ledge_swing_t = -1.0
+	var getting_up := state == "LedgeGetUp" or state == "LedgeAttack"
+	if was_hanging and getting_up:
+		climb_from = hang_from - pos
+		climbing = true
+	was_hanging = false
+	if not getting_up:
+		climbing = false
+		ledge_rolling = false
+		ledge_k = 1.0
+		return
+	if not climbing:
+		return
+	var total := float(s.get("lag", 34)) if state == "LedgeGetUp" else 55.0
+	var f: float = s.state_frame
+	ledge_rolling = state == "LedgeGetUp" and absf(climb_from.x) > 2.8
+	var travel := total * (0.7 if ledge_rolling else 0.5)
+	if state == "LedgeAttack":
+		travel = 14.0
+	ledge_k = clampf(f / maxf(1.0, travel), 0.0, 1.0)
+	var ease := ledge_k * ledge_k * (3.0 - 2.0 * ledge_k)
+	var rise := minf(1.0, ledge_k * (3.0 if ledge_rolling else 1.6))
+	rise = rise * rise * (3.0 - 2.0 * rise)
+	ledge_offset = Vector3(climb_from.x * (1.0 - ease), climb_from.y * (1.0 - rise), 0.0)
+
+
 ## The midair jump's front flip: seconds left of it, and the offset that keeps it turning about the body's middle.
 const FLIP_TIME := 0.38
 var flip_left := 0.0
@@ -1127,6 +1205,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		rebuild(loadout)
 	position = pos
 	var state: String = s.state
+	_ledge_motion(s, pos)
 	var facing: int = s.facing
 	var vy: float = s.vel.y
 	var grounded: bool = s.platform >= 0
@@ -1213,20 +1292,33 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var jumps := int(s.get("jumps", 0))
 	if state == "Airborne" and not grounded and prev_jumps >= 0 and jumps < prev_jumps:
 		flip_left = FLIP_TIME
+	# A ledge jump flips too.
+	if state == "LedgeJump" and last_state != "LedgeJump":
+		flip_left = FLIP_TIME
 	prev_jumps = jumps
-	if grounded or state != "Airborne":
+	if grounded or not (state == "Airborne" or state == "LedgeJump"):
 		flip_left = 0.0
 	flip_left = maxf(0.0, flip_left - delta)
 	var flip := 0.0
 	if flip_left > 0.0:
 		var k := 1.0 - flip_left / FLIP_TIME
 		flip = TAU * k * k * (3.0 - 2.0 * k)
+	# The ledge: a swing on the arms when it is caught, a forward roll for a ledge roll (the clip curls the body up).
+	var pivot := Vector3(0, 1.1, 0)
+	if ledge_swing_t >= 0.0 and state == "LedgeHang":
+		ledge_swing_t += delta
+		flip += deg_to_rad(22.0) * exp(-ledge_swing_t * 3.2) * sin(ledge_swing_t * 10.0)
+		pivot = Vector3(0, 2.0, 0)
+	if ledge_rolling and state == "LedgeGetUp":
+		flip += TAU * ledge_k
+		pivot = Vector3(0, 0.6, 0)
 	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
-	# Spin about the middle of the body rather than the feet.
+	# Spin about the middle of the body (or the hands, or the curled-up roll) rather than the feet.
 	flip_offset = Vector3.ZERO
 	if flip != 0.0:
-		var middle := Vector3(0, 1.1, 0)
-		flip_offset = middle - Basis.from_euler(model.rotation) * middle
+		flip_offset = pivot - Basis.from_euler(model.rotation) * pivot
+	flip_offset += ledge_offset
+	last_state = state
 	stage_frame.rotation = Vector3(0, -yaw, 0)
 
 	# Air dodge and ledge invincibility read as ghostly (a long directional dodge only while it is still intangible).
@@ -1576,8 +1668,10 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 	leg_k = _reach_weight(s) if live else move_toward(leg_k, 0.0, delta * 12.0)
 	var facing := int(s.facing)
 	# The front leg kicks forward and up, the back leg backward.
-	var front := "R" if facing > 0 else "L"
-	var back := "L" if facing > 0 else "R"
+	# On the turned body the model's left leg is the one nearest the camera when facing right (and the right one facing left): it is the
+	# front leg, so a kick in front is in plain view and a kick behind uses the far leg.
+	var front := "L" if facing > 0 else "R"
+	var back := "R" if facing > 0 else "L"
 	var kicker := front if tip.x >= 0.0 else back
 	# Where each kicking leg's foot goes (forward space). A split kick (the neutral air) kicks both legs out, one ahead and one behind.
 	var goals := {kicker: tip}
@@ -2060,9 +2154,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		spark.position = Vector3(0.45 * float(s.facing), 1.25, 0.7)
 	spark_was_visible = spark.visible
 	# The one who was hit shakes while frozen in hitlag (harder for a stronger hit, settling as it ends); the attacker holds still.
-	var shaking: bool = hitlag > 0 and (s.launch_pending or state == "Shield")
+	var shaking: bool = hitlag > 0 and (s.launch_pending or state == "Shield" or state == "Attack")
 	if shaking:
-		var amp := (0.05 + 0.012 * hitlag) * (0.4 if state == "Shield" else 1.0)
+		var amp := (0.05 + 0.012 * hitlag) * (0.4 if state == "Shield" else (0.3 if state == "Attack" else 1.0))
 		var t := float(s.frame)
 		model.position = Vector3(sin(t * 9.0) * amp, cos(t * 7.3) * amp * 0.5, 0)
 	else:

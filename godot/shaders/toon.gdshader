@@ -17,6 +17,7 @@ varying vec3 world_normal;
 instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 
 #include "res://shaders/toon_light.gdshaderinc"
+#include "res://shaders/brush.gdshaderinc"
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -31,6 +32,9 @@ void fragment() {
 			uv = (abs(world_normal.y) > 0.5 ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
 		}
 		c *= texture(albedo_tex, uv).rgb;
+	}
+	if (world_tile <= 0.0) {
+		c *= brush(UV);
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;

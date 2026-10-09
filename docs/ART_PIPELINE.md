@@ -300,3 +300,34 @@ first and did not render reliably here.)
 - **Stages move** (cosmetic, own clock): clouds drift and wrap round (`Drift`), tree crowns and palm heads sway (`Sway`), the big tree's
   crown rocks slowly, the sailboat bobs and rolls (`Bob`), and flocks of birds flap across the day skies (`Flock`).
 - `tests/anim_sheet.gd` now takes `--what=walk | jump | fall | airjump` too.
+
+
+## Illustrated finish and hit weight (fifteenth pass)
+
+**Style** (after an illustrated reference: thick ink, crisp two-tone shading, painted texture, a pale glow round the characters, a warm
+printed-paper feel):
+- **Post-process** (`shaders/post.gdshader`, on a quad in front of the match camera): ink lines wherever the depth or the surface direction
+  jumps, so every silhouette and crease is inked, the stage and scenery included (fading with distance); a warm paper tone, soft paper
+  blotches, a fine print grain and a vignette. It renders first among the see-through things, so effects, shields and damage numbers stay
+  clean on top. `--nopost` turns it off.
+- **Cel shading**: the light-to-shadow step is now crisp (`ramp_softness` 0.045), two clean tones.
+- **Brush grain** (`shaders/brush.gdshaderinc`): fine wavering strokes and flecks painted along every cel surface's UVs (all Blender balls
+  now carry UVs), characters and props alike; the world-tiled stage textures keep their own.
+- **Halo** (`shaders/halo.gdshader`, a material overlay on each fighter part): a cream band outside the ink line, pushed back along the view
+  ray so only the outer silhouette shows it.
+
+**Ledge options as moves** (`_ledge_motion` in `fighter_view.gd`; the simulation still moves the fighter at once): catching the ledge swings
+the body on the arms; getting up draws the body from where it hung, up first and then over the edge, through a new `ledge_climb` clip
+(knee onto the edge, crouch, stand); a ledge roll travels the whole way in a forward roll; a ledge attack climbs and then sweeps (its hit
+lands on the clip's strike); a ledge jump flips.
+
+**Hit weight** (`main.gd`, `effects.gd`):
+- Every hit now gets its feedback, flinches and each hit of a multi-hit move included (a hit is hitlag starting with damage taken; before,
+  only launches counted).
+- A directional impact: a white spike with an edge in the attacker's colour thrust the way the hit sends the fighter, with the shockwave,
+  streaks and sparks.
+- Heavy hits punch the camera in for a moment and flash the screen.
+- The attacker shakes a little in hitlag too (the victim more).
+- Hits on a shield ring the bubble and throw blue sparks; starting a fast fall flashes a small star with a whoosh.
+- Kicks use the leg nearest the camera when the hit is in front (the model's left leg facing right): the claws neutral air's front kick
+  is now the visible leg.
