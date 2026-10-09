@@ -2,7 +2,7 @@ extends SceneTree
 ## Renders a contact sheet of one animation, frame by frame, for judging motion (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
 ##   --what=run | dash | skid | <move name> (an attack such as fsmash, nair, jab)
-##   --zoom=k       closer in (2 = twice as close)
+##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
 const FighterView := preload("res://scripts/fighter_view.gd")
@@ -19,6 +19,7 @@ func _initialize() -> void:
 	var out := "user://sheet.png"
 	var tip := Vector3(1.6, 1.0, 0.6)
 	var zoom := 1.0
+	var facing := 1
 	var timing := PackedInt32Array([40, 12, 16])
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
@@ -27,6 +28,8 @@ func _initialize() -> void:
 			cls = int(a.substr(8))
 		elif a.begins_with("--out="):
 			out = a.substr(6)
+		elif a.begins_with("--facing="):
+			facing = int(a.substr(9))
 		elif a.begins_with("--zoom="):
 			zoom = float(a.substr(7))
 		elif a.begins_with("--tip="):
@@ -112,7 +115,7 @@ func _initialize() -> void:
 		var steps := 2
 		for i in steps:
 			sim_frame += 1
-			var s := {"state": state, "facing": 1, "vel": vel, "platform": 0 if grounded else -1, "fast_fall": false, "invuln": 0,
+			var s := {"state": state, "facing": facing, "vel": vel, "platform": 0 if grounded else -1, "fast_fall": false, "invuln": 0,
 				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": 0.0, "move_name": move,
 				"move_tip": tip if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
 				"tumble": false, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": 1, "stocks": 3}

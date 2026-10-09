@@ -372,7 +372,9 @@ func _skeleton_to_frame() -> Transform3D:
 ## camera, so the body and the face stay open to the player.
 const BODY_TURN := 60.0
 const CHEST_TO_CAMERA := 30.0
-const HEAD_TO_CAMERA := 20.0
+## Negative: the head turns back toward the opponent from the chest (to about 40 degrees off straight-on), and the eyes in the face look
+## that way too (see `set_gaze`), so the two fighters look at each other while their bodies stay open to the camera.
+const HEAD_TO_CAMERA := -10.0
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -710,6 +712,12 @@ func _face() -> void:
 	face_mat.set_shader_parameter("skin", loadout.body_color())
 	face_mesh.material_override = face_mat
 	set_expression(Loadout.FACES[loadout.face])
+
+
+## Which way the eyes look: 1 toward screen right, -1 toward screen left (the face drawings look right; facing left mirrors them).
+func set_gaze(side: int) -> void:
+	if face_mat != null:
+		face_mat.set_shader_parameter("mirror", side < 0)
 
 
 ## Shows an expression: one of Loadout.FACES or Loadout.HURT (its `name` picks the drawing).
@@ -1092,6 +1100,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and signf(float(s.vel.x)) == -float(facing):
 		look = -facing
 	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN), clampf(delta * 14.0, 0.0, 1.0))
+	# The eyes switch sides as the body swings past facing the camera.
+	set_gaze(1 if yaw >= 0.0 else -1)
 	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
 	model.rotation = Vector3(deg_to_rad(lean), yaw, 0)
 	stage_frame.rotation = Vector3(0, -yaw, 0)

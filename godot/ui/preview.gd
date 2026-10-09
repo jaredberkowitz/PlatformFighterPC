@@ -87,5 +87,7 @@ func _process(delta: float) -> void:
 	t += delta
 	if view.model != null:
 		view.model.rotation.y = (sin(t * 0.9) * 0.8 if spin else 0.0) + facing_bias * (0.0 if spin else 1.0)
+		# The eyes look the way the fighter is turned.
+		view.set_gaze(1 if view.model.rotation.y >= 0.0 else -1)
 		# A gentle idle breath so the preview is never dead still.
 		view.model.scale = Vector3(1.0 + 0.012 * sin(t * 2.4), 1.0 - 0.02 * sin(t * 2.4), 1.0 + 0.012 * sin(t * 2.4))

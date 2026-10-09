@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <clipPath id="e150"><ellipse cx="150" cy="228" rx="66" ry="78"/></clipPath>
   <ellipse cx="150" cy="228" rx="66" ry="78" fill="#fffaf1"/>
-  <ellipse cx="146" cy="242" rx="24.0" ry="31.0" fill="#22162b"/>
-  <circle cx="139" cy="231" r="6.5" fill="#ffffff"/>
+  <ellipse cx="168" cy="242" rx="24.0" ry="31.0" fill="#22162b"/>
+  <circle cx="161" cy="231" r="6.5" fill="#ffffff"/>
   <g clip-path="url(#e150)"><path d="M76 142 H224 V259.2 Q150 279.2 76 259.2 Z" fill="#22162b" opacity="0.18" transform="translate(0 9)"/><path d="M76 142 H224 V259.2 Q150 279.2 76 259.2 Z" fill="#fe00ff"/></g>
   <ellipse cx="150" cy="228" rx="66" ry="78" fill="none" stroke="#22162b" stroke-width="10"/>
   <path d="M89.5 259.2 Q150 279.2 210.5 259.2" fill="none" stroke="#22162b" stroke-width="14" stroke-linecap="round"/>
@@ -10,8 +10,8 @@
   <path d="M120 320 Q150 332 180 320" fill="none" stroke="#22162b" stroke-width="6" stroke-linecap="round" opacity="0.45"/>
   <clipPath id="e362"><ellipse cx="362" cy="228" rx="66" ry="78"/></clipPath>
   <ellipse cx="362" cy="228" rx="66" ry="78" fill="#fffaf1"/>
-  <ellipse cx="358" cy="242" rx="24.0" ry="31.0" fill="#22162b"/>
-  <circle cx="351" cy="231" r="6.5" fill="#ffffff"/>
+  <ellipse cx="380" cy="242" rx="24.0" ry="31.0" fill="#22162b"/>
+  <circle cx="373" cy="231" r="6.5" fill="#ffffff"/>
   <g clip-path="url(#e362)"><path d="M288 142 H436 V259.2 Q362 279.2 288 259.2 Z" fill="#22162b" opacity="0.18" transform="translate(0 9)"/><path d="M288 142 H436 V259.2 Q362 279.2 288 259.2 Z" fill="#fe00ff"/></g>
   <ellipse cx="362" cy="228" rx="66" ry="78" fill="none" stroke="#22162b" stroke-width="10"/>
   <path d="M301.5 259.2 Q362 279.2 422.5 259.2" fill="none" stroke="#22162b" stroke-width="14" stroke-linecap="round"/>

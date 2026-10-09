@@ -199,3 +199,8 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
 - **Walk**: a bouncy, swaggering step: knees lifting, a springy bob on each step, arms swinging wide with loose bent elbows, the shoulders
   twisting against the hips, a little lean.
 - Menu previews keep their own turn (they set it themselves).
+- **Looking at each other** (after the reference of how fighters stand in the reference game): the body stays open to the camera, but the head
+  turns back toward the opponent (`HEAD_TO_CAMERA` is negative: the face about 40 degrees off straight-on) and every face drawing has its
+  pupils toward the fighter's front (`GAZE` in the drawings, texture right). Facing left, the face shader mirrors the drawing (`mirror`,
+  `FighterView.set_gaze`), so both fighters look at each other; the switch happens as the body swings past facing the camera. Menu
+  previews look the way they are turned.
