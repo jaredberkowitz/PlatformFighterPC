@@ -36,8 +36,8 @@ const SvgArt := preload("res://scripts/svg_art.gd")
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
 ## `texture` (fabric, straw...) multiplies the colour, tiled `tile` times.
-static func toon(c: Color, outline := true, texture: Texture2D = null, tile := Vector2.ONE) -> ShaderMaterial:
-	var key := "%s%s%s%s" % [c.to_html(), outline, texture.get_instance_id() if texture != null else 0, tile]
+static func toon(c: Color, outline := true, texture: Texture2D = null, tile := Vector2.ONE, world_tile := 0.0) -> ShaderMaterial:
+	var key := "%s%s%s%s%s" % [c.to_html(), outline, texture.get_instance_id() if texture != null else 0, tile, world_tile]
 	if _mat_cache.has(key):
 		return _mat_cache[key]
 	var m := ShaderMaterial.new()
@@ -48,6 +48,7 @@ static func toon(c: Color, outline := true, texture: Texture2D = null, tile := V
 		m.set_shader_parameter("use_tex", true)
 		m.set_shader_parameter("albedo_tex", texture)
 		m.set_shader_parameter("tex_scale", tile)
+		m.set_shader_parameter("world_tile", world_tile)
 	if outline:
 		if _outline_mat == null:
 			# An ink line that keeps about the same thickness on screen at any zoom (shaders/outline.gdshader).

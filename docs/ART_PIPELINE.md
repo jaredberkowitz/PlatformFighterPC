@@ -267,3 +267,7 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
 - **Bigger swings**: attack clips play larger (x1.85 for punches and kicks, x1.75 for sword moves), the whole body pitches with each hit
   (into a hit in front or below, arching back under one overhead, curling forward away from one behind), the lunge is stronger, the torso
   bends twice as much toward an arm's hit, and a punch reaches out with the wind-up and comes home in the recovery like a kick.
+- **Stage textures** (`godot/art/stage/*.svg`, drawn for this game in the same SVG pipeline as the faces, so they stay cel-shaded rather than
+  photographic): painted grass clumps, wind-rippled sand, plank grain, concrete with seams, brushed steel. `#ff00ff` in a tile becomes the
+  surface colour. The toon shader can lay a texture in world space (`world_tile`: world units per repeat, on top faces and fronts), so a
+  surface tiles evenly whatever the block's size (`StageArt._surface`).

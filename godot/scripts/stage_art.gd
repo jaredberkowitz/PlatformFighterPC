@@ -8,6 +8,7 @@ extends RefCounted
 ## sea with palms, distant islands and a lighthouse) and city (rooftops at night in front of a lit skyline). All original art in the
 ## project's soft cel style.
 
+const SvgArt := preload("res://scripts/svg_art.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
@@ -87,6 +88,12 @@ static func _unshaded(c: Color) -> StandardMaterial3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.albedo_color = c
 	return m
+
+
+## A stage surface in colour `c` with one of the painted tiles in godot/art/stage/ laid over it in world space (`size` world units a repeat).
+static func _surface(c: Color, tile: String, size: float, outline := true) -> ShaderMaterial:
+	var tex := SvgArt.texture("res://art/stage/%s.svg" % tile, {"#ff00ff": c})
+	return FighterView.toon(Color.WHITE, outline, tex, Vector2.ONE, size)
 
 
 static func _soft(c: Color) -> StandardMaterial3D:
@@ -221,11 +228,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
 			# (The ledge sits a hair above the block's top so their top faces never fight over the same depth and flicker.)
-			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), FighterView.toon(t.grass), Vector3(cx, top - 0.15, front_z - depth / 2.0))
+			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(t.grass, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			_mesh(parent, _box(Vector3(w + 0.34, 0.1, 0.12)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.18))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.12)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.42, front_z + 0.16))
 		"sand":
-			var sand := FighterView.toon(t.grass)
+			var sand := _surface(t.grass, "sand", 5.0)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
@@ -239,7 +246,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				x += rng.randf_range(1.2, 2.6)
 		_:
 			# A thick grass cap that rolls over the front edge, with tufts hanging over.
-			var grass := FighterView.toon(t.grass)
+			var grass := _surface(t.grass, "grass", 3.5)
 			var cap_h := 0.55
 			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
@@ -258,7 +265,7 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	var depth := 4.0
 	var cx := (left + right) / 2.0
 	if t.get("platform", "wood") == "girder":
-		var steel := FighterView.toon(t.wood)
+		var steel := _surface(t.wood, "steel", 3.0)
 		_mesh(parent, _box(Vector3(w, 0.18, depth)), steel, Vector3(cx, top - 0.09, front_z - depth / 2.0))
 		_mesh(parent, _box(Vector3(w, 0.5, 0.16)), FighterView.toon(t.wood_dark), Vector3(cx, top - 0.4, front_z - 0.3))
 		_mesh(parent, _box(Vector3(w, 0.14, depth * 0.7)), steel, Vector3(cx, top - 0.68, front_z - depth / 2.0))
@@ -268,7 +275,7 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 			_mesh(parent, _sphere(0.06, 6), rivet, Vector3(x, top - 0.4, front_z - 0.2))
 			x += 0.7
 		return
-	var board := FighterView.toon(t.wood)
+	var board := _surface(t.wood, "wood", 2.4)
 	_mesh(parent, _box(Vector3(w, 0.26, depth)), board, Vector3(cx, top - 0.13, front_z - depth / 2.0))
 	_mesh(parent, _box(Vector3(w - 0.3, 0.22, depth - 0.4)), FighterView.toon(t.wood_dark), Vector3(cx, top - 0.37, front_z - depth / 2.0))
 	for side in [-1.0, 1.0]:
