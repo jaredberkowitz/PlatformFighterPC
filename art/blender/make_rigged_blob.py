@@ -889,8 +889,8 @@ def main() -> None:
             {"spine": (-8.0, 0.0), "stance": (8.0, -8.0)})
     # Down tilt: a low crouching thrust.
     move_of("sword_dtilt",
-            {"hips": -0.2, "spine": (30.0, -10.0), "head": (-10.0, 0.0), "stance": (64.0, 30.0), "shin.L": (-96.0,), "shin.R": (-100.0,)},
-            {"hips": -0.22, "spine": (40.0, 12.0), "head": (-18.0, 0.0), "stance": (78.0, 18.0), "shin.L": (-60.0,), "shin.R": (-104.0,)},
+            {"hips": -0.2, "spine": (20.0, -10.0), "head": (-12.0, 0.0), "stance": (64.0, 30.0), "shin.L": (-96.0,), "shin.R": (-100.0,)},
+            {"hips": -0.22, "spine": (26.0, 12.0), "head": (-20.0, 0.0), "stance": (78.0, 18.0), "shin.L": (-60.0,), "shin.R": (-104.0,)},
             {"hips": -0.12, "spine": (20.0, 0.0), "stance": (40.0, 16.0)})
     # Forward smash: the blade raised high behind, then brought down in front in one big committed swing.
     move_of("sword_fsmash",
@@ -917,7 +917,7 @@ def main() -> None:
     # Back air: lean forward and drive the heel back.
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
-            {"spine": (42.0, -24.0), "head": (-24.0, 34.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
+            {"spine": (32.0, -24.0), "head": (-20.0, 34.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
             {"spine": (18.0, 0.0), "stance": (30.0, 0.0)})
     # Up air: a flip kick, arching back as the leg goes up.
     move_of("kick_uair",
@@ -930,10 +930,13 @@ def main() -> None:
             {"spine": (14.0, 0.0), "head": (-16.0, 0.0), "stance": (-4.0, 30.0), "shin.R": (-70.0,), "arms": (-30.0, 55.0)},
             {"spine": (6.0, 0.0), "stance": (20.0, 30.0)})
     # Up tilt: an overhead kick from behind (the body leans forward as the leg arcs over).
+    # Up tilt: a high kick straight up. Dip and gather, then lean back on the standing leg as the kick goes overhead, arms thrown out
+    # behind for balance and the head tipped back to watch the foot (the game bends the body further back the higher the kick reaches).
     move_of("kick_up",
-            {"hips": -0.06, "spine": (12.0, 0.0), "stance": (10.0, -16.0), "arms": (10.0, 24.0)},
-            {"hips": -0.02, "spine": (34.0, 0.0), "head": (14.0, 0.0), "stance": (-6.0, 0.0), "arms": (40.0, 30.0)},
-            {"spine": (12.0, 0.0), "stance": (4.0, -6.0)})
+            {"hips": -0.08, "spine": (14.0, 0.0), "head": (4.0, 0.0), "stance": (8.0, 22.0), "shin.R": (-40.0,), "arms": (20.0, 20.0)},
+            {"hips": -0.04, "spine": (-14.0, 0.0), "head": (-16.0, 0.0), "stance": (0.0, 14.0), "shin.R": (-22.0,),
+             "arms": (-34.0, 58.0)},
+            {"spine": (-4.0, 0.0), "stance": (4.0, 8.0)})
     # Down tilt: a low sweep from a crouch.
     move_of("kick_low",
             {"hips": -0.2, "spine": (26.0, -14.0), "stance": (60.0, 40.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (30.0, 30.0)},

@@ -373,11 +373,78 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# (Hitlag freezes the pose along with everything else.)
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
+	_body_follow(s, delta)
 	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
 	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
 	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+
+
+## The rest of the body answers the limb that is reaching for a hit (the kicking leg, or the weapon arm): the torso bends at the waist
+## so the limb can get there (back for a kick high overhead, forward over a kick behind or a low swing), and the head looks at the hit.
+## It grows with the move's wind-up and fades in its recovery, and it is added on top of the move's clip, so every move gets it.
+var body_bend := 0.0
+var head_look := 0.0
+
+
+func _body_follow(s: Dictionary, delta: float) -> void:
+	var target_bend := 0.0
+	var target_look := 0.0
+	var tip: Vector3 = s.move_tip
+	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0:
+		var kicking: bool = _cls(s) == 1 and KICK_CLIPS.has(s.move_name)
+		var to_model := _skeleton_to_model()
+		var hips := skeleton.find_bone("hips")
+		var hip_y: float = (to_model * skeleton.get_bone_global_pose(hips).origin).y if hips >= 0 else 0.6
+		var from := Vector2(0.0, hip_y) if kicking else shoulder
+		var to := Vector2(tip.x, tip.y) - from
+		# The limb's direction: 0 straight down, 90 straight ahead, 180 straight up, negative behind.
+		var phi := rad_to_deg(atan2(to.x, -to.y))
+		if kicking:
+			# A leg swings comfortably from about 40 degrees behind to 100 in front; past that the body has to make room.
+			if phi > 100.0:
+				target_bend = -minf((phi - 100.0) * 0.85, 50.0)
+			elif phi < -40.0:
+				# (Less: kicks behind already lean the body forward in their clips.)
+				target_bend = minf((-40.0 - phi) * 0.4, 24.0)
+		else:
+			# An arm reaches almost anywhere: lean into low swings in front, a little back from ones overhead or behind.
+			if phi > 0.0 and phi < 80.0:
+				target_bend = (80.0 - phi) * 0.18
+			elif phi > 140.0:
+				target_bend = -(phi - 140.0) * 0.2
+			elif phi < -60.0:
+				target_bend = (-60.0 - phi) * 0.15
+		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
+		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
+		target_look = clampf(rise * 0.5, -20.0, 30.0)
+		# In proportion to how far into the move the limb is (its blend toward the hitbox).
+		var k := leg_k if kicking else arm_k
+		target_bend *= k
+		target_look *= k
+	var follow := clampf(delta * 16.0, 0.0, 1.0)
+	body_bend = lerpf(body_bend, target_bend, follow)
+	head_look = lerpf(head_look, target_look, follow)
+	if absf(body_bend) > 0.05:
+		_bend_bone(spine_bone, body_bend, int(s.facing))
+	if absf(head_look) > 0.05:
+		_bend_bone(head_bone, -head_look, int(s.facing))
+
+
+## Bends a bone toward the fighter's front (the way it faces in the world) by `degrees` (negative bends back), about its own joint,
+## on top of the pose the clip gave it.
+func _bend_bone(bone: int, degrees: float, facing: int) -> void:
+	var parent := skeleton.get_bone_parent(bone)
+	if parent < 0:
+		return
+	# The model leans toward its facing by turning about its own front axis (as `apply` does), so the bend uses the same axis.
+	var axis: Vector3 = (_skeleton_to_model().affine_inverse().basis * Vector3(0, 0, 1)).normalized()
+	var turn := Basis(axis, deg_to_rad(-degrees * float(facing)))
+	var g := skeleton.get_bone_global_pose(bone)
+	var pg := skeleton.get_bone_global_pose(parent)
+	var local := pg.basis.inverse() * (turn * g.basis)
+	skeleton.set_bone_pose_rotation(bone, local.get_rotation_quaternion())
 
 
 ## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword and the maul are raised high, the
@@ -1210,6 +1277,22 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		part.visible = hammer
 
 
+## How far into reaching for its hit a limb should be at this point of the move: easing in over the second half of the wind-up, fully
+## there while the hit is live, and easing back out over the first half of the recovery.
+func _reach_weight(s: Dictionary) -> float:
+	var t: PackedInt32Array = s.move_timing
+	var f: float = s.state_frame
+	var first := maxf(1.0, float(t[1]))
+	var last := maxf(first, float(t[2]))
+	var total := maxf(last + 1.0, float(t[0]))
+	var k := 1.0
+	if f < first:
+		k = clampf((f - first * 0.35) / maxf(1.0, first * 0.65), 0.0, 1.0)
+	elif f > last:
+		k = 1.0 - clampf((f - last) / maxf(1.0, (total - last) * 0.5), 0.0, 1.0)
+	return k * k * (3.0 - 2.0 * k)
+
+
 ## Puts the weapon in the weapon hand as the clip moves it, swept back and up behind the runner (carried in a run).
 const CARRY_ANGLE := 158.0
 
@@ -1297,7 +1380,8 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		return
 	var tip: Vector3 = s.move_tip
 	var live := kicking and tip != Vector3.ZERO
-	leg_k = move_toward(leg_k, 1.0 if live else 0.0, delta * 12.0)
+	# The leg reaches for the hit as the wind-up builds, is on it while it is live, and comes home through the recovery.
+	leg_k = _reach_weight(s) if live else move_toward(leg_k, 0.0, delta * 12.0)
 	var facing := int(s.facing)
 	# The front leg kicks forward and up, the back leg backward.
 	var front := "R" if facing > 0 else "L"
@@ -1315,11 +1399,15 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var rest_t := skeleton.get_bone_global_rest(it)
 		var rest_s := skeleton.get_bone_global_rest(ish)
 		var rest_f := skeleton.get_bone_global_rest(ift)
-		var hip := rest_t.origin
 		var knee0 := rest_s.origin
 		var ankle0 := rest_f.origin
-		var upper := (knee0 - hip).length()
+		var upper := (knee0 - rest_t.origin).length()
 		var lower := (ankle0 - knee0).length() + 0.08
+		# The hip joint where the animated pelvis has it now (not where it rests), so the leg stays on the body as it moves.
+		var hips := skeleton.find_bone("hips")
+		var hip := rest_t.origin
+		if hips >= 0:
+			hip = skeleton.get_bone_global_pose(hips) * skeleton.get_bone_rest(it).origin
 		var to_skel := _skeleton_to_model().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
 		var goal: Vector3 = to_skel * Vector3(tip.x * float(facing), tip.y, 0.2)
@@ -1328,8 +1416,13 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var dir := d.normalized()
 		var cos_a := clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0)
 		var ang := acos(cos_a)
-		# The knee bends forward and a little up.
-		var pole := Vector3(0.0, 0.4, 1.0)
+		# The knee bends the way a knee does: it points ahead of the leg in the plane of the kick (up for a kick in front, down and back
+		# for one behind), a little out toward the camera, so it never folds backwards.
+		var dir_m: Vector3 = (_skeleton_to_model().basis * dir).normalized()
+		var sin_phi := dir_m.x * float(facing)
+		var cos_phi := -dir_m.y
+		var pole_m := Vector3(float(facing) * cos_phi, sin_phi, 0.3)
+		var pole: Vector3 = (to_skel.basis * pole_m).normalized()
 		var bend := (pole - dir * pole.dot(dir)).normalized()
 		var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
 		var shin_dir := (goal - knee).normalized()

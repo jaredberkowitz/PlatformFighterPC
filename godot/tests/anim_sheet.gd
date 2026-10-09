@@ -2,6 +2,8 @@ extends SceneTree
 ## Renders a contact sheet of one animation, frame by frame, for judging motion (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
 ##   --what=run | dash | skid | <move name> (an attack such as fsmash, nair, jab)
+##   --zoom=k       closer in (2 = twice as close)
+##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -15,6 +17,9 @@ func _initialize() -> void:
 	var what := "run"
 	var cls := 0
 	var out := "user://sheet.png"
+	var tip := Vector3(1.6, 1.0, 0.6)
+	var zoom := 1.0
+	var timing := PackedInt32Array([40, 12, 16])
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
 			what = a.substr(7)
@@ -22,6 +27,14 @@ func _initialize() -> void:
 			cls = int(a.substr(8))
 		elif a.begins_with("--out="):
 			out = a.substr(6)
+		elif a.begins_with("--zoom="):
+			zoom = float(a.substr(7))
+		elif a.begins_with("--tip="):
+			var xy := a.substr(6).split(",")
+			tip = Vector3(float(xy[0]), float(xy[1]), 0.6)
+		elif a.begins_with("--timing="):
+			var t := a.substr(9).split(",")
+			timing = PackedInt32Array([int(t[0]), int(t[1]), int(t[2])])
 	var vp := SubViewport.new()
 	vp.size = CELL
 	vp.own_world_3d = true
@@ -40,7 +53,7 @@ func _initialize() -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	world.add_child(cam)
-	cam.look_at_from_position(Vector3(1.2, 1.6, 8.5), Vector3(0.6, 1.25, 0))
+	cam.look_at_from_position(Vector3(1.2, 1.6, 8.5 / zoom), Vector3(0.6, 1.4, 0))
 	var floor_mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = Vector3(8, 0.1, 3)
@@ -53,7 +66,6 @@ func _initialize() -> void:
 	view.build(cls, Loadout.default_for(cls))
 
 	var frames: Array = []
-	var timing := PackedInt32Array([40, 12, 16])
 	match what:
 		"run", "dash":
 			for f in range(0, 20, 2):
@@ -62,7 +74,7 @@ func _initialize() -> void:
 			for f in 12:
 				frames.append(f)
 		_:
-			for f in range(0, 40, 2):
+			for f in range(0, timing[0], 2):
 				frames.append(f)
 	var sheet := Image.create(CELL.x * COLUMNS, CELL.y * int(ceil(frames.size() / float(COLUMNS))), false, Image.FORMAT_RGBA8)
 	var n := 0
@@ -91,7 +103,7 @@ func _initialize() -> void:
 			sim_frame += 1
 			var s := {"state": state, "facing": 1, "vel": vel, "platform": 0 if grounded else -1, "fast_fall": false, "invuln": 0,
 				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": 0.0, "move_name": move,
-				"move_tip": Vector3(1.6, 1.0, 0.6) if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
+				"move_tip": tip if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
 				"tumble": false, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": 1, "stocks": 3}
 			view.apply(Vector3(0, 0 if grounded else 0.6, 0), s, 1.0 / 60.0)
 		await process_frame

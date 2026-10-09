@@ -161,3 +161,24 @@ The look now comes from lighting, shaders and authored artwork rather than from 
 - **Fixed on the long-limbed rig**: the soles and the shorts' legs now stay on the feet and thighs (they were lifted with the body).
 - **Checking motion**: `godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>` renders a contact
   sheet, frame by frame, of the run, dash, skid or any move (`--what=fsmash`, `nair`, ...).
+
+
+## The body follows the limb (seventh pass)
+
+The rule from here on: **when a limb reaches for a hit, the rest of the body moves with it.** The kicking leg (claws fighter) and the
+weapon arm are aimed by the game at the move's live hitbox; the rest of the body now answers that, for every move, on top of its clip
+(`_body_follow` in `fighter_view.gd`):
+
+- The **torso bends at the waist** so the limb can get there: back for a kick high overhead (the up tilt leans back on the standing leg), forward
+  over a kick behind, into a low swing in front. A leg is taken to swing comfortably from about 40 degrees behind to 100 in front; beyond
+  that the body makes up the difference (capped). Arms reach almost anywhere, so they only add a small lean.
+- The **head looks** up at a hit overhead and down at a low one.
+- It **grows and fades with the move**: the limb eases toward its hit through the second half of the wind-up, is on it while the hit is live,
+  and comes home through the first half of the recovery (`_reach_weight`); the body follows the same weight. (Before, a kicking leg stayed
+  stretched toward the hit until the move ended.)
+- The **leg IK** is rooted at the animated hip (not its rest position), and the **knee bends the way a knee does**: ahead of the leg in the
+  plane of the kick (up for a kick in front, down and back for one behind), so it never folds backwards.
+
+Clips touched to agree with it: the claws fighter's up tilt is now a high kick leaning back with the arms thrown out for balance; the sword
+down tilt and the back air lean less (the body follow adds the rest). Check a move with its real hitbox:
+`--script res://tests/anim_sheet.gd -- --what=utilt --class=1 --tip=1.1,3.5 --timing=34,7,11 --zoom=1.4 --out=<file.png>`.
