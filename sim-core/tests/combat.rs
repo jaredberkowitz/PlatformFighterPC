@@ -116,14 +116,14 @@ fn ftilt_damage_at(gap: Fx) -> Fx {
 fn the_tip_of_the_sword_hits_harder_than_the_hilt() {
     let mult = Sim::new().content.rules.damage_mult;
     let hilt_only = ftilt_damage_at(fx(10, 10));
-    let tip_only = ftilt_damage_at(fx(40, 10));
+    let tip_only = ftilt_damage_at(fx(32, 10));
     let both = ftilt_damage_at(fx(22, 10));
     assert_eq!(hilt_only, Fx::from_int(9) * mult);
     assert_eq!(tip_only, Fx::from_int(12) * mult);
     assert_eq!(
         both,
-        Fx::from_int(12) * mult,
-        "when both overlap, the tip (priority 0) wins"
+        Fx::from_int(9) * mult,
+        "when both overlap, the blade's sourspot wins (as in the reference): the tipper has to be spaced"
     );
 }
 
@@ -137,12 +137,12 @@ fn the_claws_have_much_shorter_reach_than_the_sword() {
     let reach = |chars: [u8; 4]| {
         let mut sim = Sim::with_chars(chars);
         sim.stand(0, Fx::ZERO, 1);
-        sim.stand(1, fx(40, 10), -1);
+        sim.stand(1, fx(35, 10), -1);
         ftilt(&mut sim);
         sim.ticks(14, inp(0, 0, 0));
         sim.fighter(1).percent > Fx::ZERO
     };
-    assert!(reach([0, 0, 0, 0]), "the sword reaches 4 units");
+    assert!(reach([0, 0, 0, 0]), "the sword reaches 3.5 units");
     assert!(!reach([1, 0, 0, 0]), "the claws do not");
 }
 
@@ -150,7 +150,8 @@ fn the_claws_have_much_shorter_reach_than_the_sword() {
 
 /// Runs a forward tilt and returns (victim after hitlag ends, expected knockback).
 fn launched_victim(setup: impl Fn(&mut Sim)) -> (Sim, Fx) {
-    let mut sim = Sim::duel(fx(22, 10));
+    // At tipper range.
+    let mut sim = Sim::duel(fx(32, 10));
     setup(&mut sim);
     ftilt(&mut sim);
     ticks_until_hit(&mut sim, 20).expect("forward tilt should hit");
@@ -280,8 +281,10 @@ fn a_weak_hit_on_a_grounded_fighter_slides_them_instead_of_launching_them() {
 
 /// The launch velocity after the victim holds `stick` through hitlag.
 fn launch_with_di(stick: (i8, i8)) -> Vec2 {
-    let mut sim = Sim::duel(fx(22, 10));
-    ftilt(&mut sim);
+    // A jab close in on a damaged victim: quick enough to land before the victim's held stick carries it away, strong enough to launch.
+    let mut sim = Sim::duel(fx(10, 10));
+    sim.state.fighters[1].percent = Fx::from_int(80);
+    sim.tick(inp(0, 0, ATTACK));
     for _ in 0..20 {
         sim.tick2(inp(0, 0, 0), inp(stick.0, stick.1, 0));
         if sim.fighter(1).launch_pending {
@@ -388,7 +391,8 @@ fn two_fighters_hitting_each_other_on_the_same_frame_both_take_damage() {
     // Two of the same character, so both jabs come out on the same frame.
     let mut sim = Sim::with_chars([0, 0, 0, 0]);
     sim.stand(0, Fx::ZERO, 1);
-    sim.stand(1, fx(14, 10), -1);
+    // Close enough that each jab reaches the other's body before the two blades meet (further out, they clank).
+    sim.stand(1, fx(8, 10), -1);
     sim.tick2(inp(0, 0, ATTACK), inp(0, 0, ATTACK));
     sim.ticks(8, inp(0, 0, 0));
     assert!(

@@ -351,3 +351,16 @@ Three aerials people build combos around now follow the reference game's data (S
 - Hitlag multipliers (`Hitbox::hitlag`) are set per hitbox, so a tipper freezes longer than a sourspot, as in the reference.
 - The claws neutral air is the reference's version (it had been stretched to 7-11 and 12-34 to look like a spin): a held split kick.
 - Positions and sizes are in our world (hurtboxes are rounder than the reference's), so reach is matched by eye, not to the unit.
+
+## The sword kit, swing by swing (sim v32)
+
+- **A shorter blade**: the duelist's whole kit is pulled in toward the shoulder (`shorten_blade`, 72%), so the sword is about a quarter
+  shorter on screen and in reach (the forward tilt tipper is now at about 3.2 units, it was 4). Frames, damage and knockback are unchanged.
+  The claws and the maul are built from the unshortened kit (`sword_kit`), so they did not change.
+- **Swings follow their arcs**, one hit per frame along the blade's path (each still hits a target once), as the forward and down airs
+  already did: jab (a downward slash, then the backhand rising), forward tilt and dash attack (rising cuts), forward smash (coming down
+  from overhead), neutral air (a quick sweep in front, then the blade carried right round the fighter on frames 15-21, the reference's
+  frames again instead of the longer window), up air (a crescent overhead from front to back), back air (rising behind). Up tilt, down tilt,
+  the smashes' other hits and the down air already had their shape.
+- **The tipper must be spaced**: as in the reference game, where the blade's sourspot and the tipper both reach, the sourspot wins (`tipper_last`
+  reorders the priorities: blade, then arm, then tip).

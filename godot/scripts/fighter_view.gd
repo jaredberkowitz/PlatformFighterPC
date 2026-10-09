@@ -1212,9 +1212,11 @@ var leg_k := 0.0
 
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
 ## Weapon swings that turn one way through several hitboxes: the wind-up starts this many degrees back round from the first one (positive
-## is counter-clockwise when facing right), so the blade comes from the right side. Forward air and down air both swing clockwise, top to
-## bottom, from behind the head and from high in front.
-const SWING_FROM := {"fair": 75.0, "dair": 75.0}
+## is counter-clockwise when facing right), so the blade comes from the right side. Cuts that come down (jab, forward smash, forward air,
+## down air, the back air's rise behind) wind up from above; rising cuts (the backhand, forward tilt, dash attack, neutral air, up air)
+## from below.
+const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 80.0, "fair": 75.0, "dair": 75.0,
+	"nair": -60.0, "uair": -60.0, "bair": 60.0}
 ## Kicks that send both legs out (front and back), each aimed by the game.
 const SPLIT_KICKS := ["nair"]
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
@@ -1227,7 +1229,7 @@ var blade_length := 2.0
 
 func _rest_length(s: Dictionary) -> float:
 	# Swords are long; claws are short.
-	return clampf(float(s.reach) - HAND.x - 0.2, 0.7, 3.4) if _cls(s) != 1 else 1.0
+	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if _cls(s) != 1 else 1.0
 
 
 ## Where the blade should point, in degrees in forward space, and how long it should be, for this frame.

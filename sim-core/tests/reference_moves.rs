@@ -85,7 +85,7 @@ fn launch_velocity(sim: &mut Sim) -> sim_core::Vec2 {
 fn forward_air_hits_from_frame_6_for_8_percent_close_and_11_5_at_the_tip() {
     // The blade sweeps from overhead (frame 6) down through straight ahead (frame 7): a target level and at tip range takes the tipper
     // on frame 7.
-    let mut tip = air_duel(MARTH, fx(43, 10));
+    let mut tip = air_duel(MARTH, fx(34, 10));
     assert_eq!(hit_tick(&mut tip, inp(127, 0, ATTACK)), Some(7));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 115));
 
@@ -96,7 +96,7 @@ fn forward_air_hits_from_frame_6_for_8_percent_close_and_11_5_at_the_tip() {
 
 #[test]
 fn forward_air_launches_at_the_sakurai_angle_with_base_knockback_40_and_growth_80() {
-    let mut sim = air_duel(MARTH, fx(43, 10));
+    let mut sim = air_duel(MARTH, fx(34, 10));
     hit_tick(&mut sim, inp(127, 0, ATTACK)).unwrap();
     let kb = sim.fighter(1).launch_kb;
     let expected = sim_core::combat::knockback(
@@ -117,7 +117,7 @@ fn forward_air_launches_at_the_sakurai_angle_with_base_knockback_40_and_growth_8
 
 #[test]
 fn back_air_hits_on_frame_7_for_9_percent_close_and_12_5_at_the_tip() {
-    let mut tip = air_duel(MARTH, fx(-43, 10));
+    let mut tip = air_duel(MARTH, fx(-26, 10));
     assert_eq!(hit_tick(&mut tip, inp(-127, 0, ATTACK)), Some(7));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 125));
 
@@ -128,7 +128,7 @@ fn back_air_hits_on_frame_7_for_9_percent_close_and_12_5_at_the_tip() {
 
 #[test]
 fn back_air_sends_the_victim_backward_and_turns_the_attacker_around() {
-    let mut sim = air_duel(MARTH, fx(-43, 10));
+    let mut sim = air_duel(MARTH, fx(-26, 10));
     hit_tick(&mut sim, inp(-127, 0, ATTACK)).unwrap();
     let v = launch_velocity(&mut sim);
     assert!(
@@ -146,24 +146,28 @@ fn back_air_sends_the_victim_backward_and_turns_the_attacker_around() {
 // ---- Marth-style neutral air ----------------------------------------------------------------------------
 
 #[test]
-fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frame_14() {
+fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frames_15_to_21() {
     // First hit: 5% at the tip, 3.5% close.
-    let mut tip = air_duel(MARTH, fx(38, 10));
+    let mut tip = air_duel(MARTH, fx(28, 10));
     assert_eq!(hit_tick(&mut tip, inp(0, 0, ATTACK)), Some(6));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 50));
     let mut close = air_duel(MARTH, fx(10, 10));
     assert_eq!(hit_tick(&mut close, inp(0, 0, ATTACK)), Some(6));
     assert_eq!(close.fighter(1).percent, pct(&close, 35));
 
-    // Second hit (held open from frame 14, longer than the reference's 15-21 on purpose): with the first already used up, frame 14 deals
-    // 9.5% at the tip, 7% close.
-    for (gap, tenths) in [(38, 95), (10, 70)] {
+    // Second hit (frames 15-21, the blade carried right round): with the first already used up, a target close in front is caught as
+    // the swing starts (frame 15, 7%), one at tip range only as it comes back round in front (frame 21, 9.5%).
+    for (gap, frame, tenths) in [(10, 15, 70), (33, 21, 95)] {
         let mut sim = air_duel(MARTH, fx(gap, 10));
         sim.tick(inp(0, 0, ATTACK));
         sim.state.fighters[0].hit_mask = 0b0010; // group 0 already hit fighter 1
-        for _ in 2..=13 {
+        for _ in 2..frame {
             sim.tick(inp(0, 0, 0));
-            assert_eq!(sim.fighter(1).percent, Fx::ZERO, "nothing before frame 14");
+            assert_eq!(
+                sim.fighter(1).percent,
+                Fx::ZERO,
+                "nothing before frame {frame}"
+            );
         }
         sim.tick(inp(0, 0, 0));
         assert_eq!(sim.fighter(1).percent, pct(&sim, tenths), "gap {gap}");
@@ -172,7 +176,7 @@ fn neutral_air_has_two_hits_the_first_on_frame_6_and_the_second_on_frame_14() {
 
 #[test]
 fn neutral_air_marks_both_hit_groups_once_each() {
-    let mut sim = air_duel(MARTH, fx(38, 10));
+    let mut sim = air_duel(MARTH, fx(28, 10));
     sim.tick(inp(0, 0, ATTACK));
     sim.ticks(20, inp(0, 0, 0));
     let mask = sim.f().hit_mask;
@@ -314,7 +318,7 @@ fn wolf_forward_tilt_hits_twice_5_percent_on_frame_8_then_6_percent() {
 
 #[test]
 fn marth_style_forward_tilt_hits_on_frame_8_for_9_percent_close_and_12_at_the_tip() {
-    let mut tip = ground_duel(MARTH, fx(40, 10));
+    let mut tip = ground_duel(MARTH, fx(32, 10));
     assert_eq!(hit_tick(&mut tip, inp(30, 0, ATTACK)), Some(8));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 120));
     let mut close = ground_duel(MARTH, fx(10, 10));
@@ -615,7 +619,7 @@ fn the_new_marth_style_moves_carry_the_published_timing_and_damage() {
     // Forward smash: frames 10-13, 13% and 18% at the tip, FAF 52.
     let (f, r) = timing(MoveId::FSmash);
     assert_eq!(f, 52);
-    assert!(r.iter().all(|x| x.0 == 10 && x.1 == 13));
+    assert!(r.iter().all(|x| x.0 >= 10 && x.1 <= 13));
     assert_eq!(r.iter().map(|x| x.2).max(), Some(180));
     assert_eq!(r.iter().map(|x| x.2).min(), Some(130));
 
@@ -636,7 +640,7 @@ fn the_new_marth_style_moves_carry_the_published_timing_and_damage() {
     // Up air: frames 5-9, 9.5% and 13% at the tip, FAF 46, landing lag 8, autocancels on 1-2 and from 38.
     let (f, r) = timing(MoveId::UAir);
     assert_eq!(f, 46);
-    assert!(r.iter().all(|x| x.0 == 5 && x.1 == 9));
+    assert!(r.iter().all(|x| x.0 >= 5 && x.1 <= 9));
     assert_eq!(r.iter().map(|x| x.2).max(), Some(130));
     assert_eq!(r.iter().map(|x| x.2).min(), Some(95));
     let uair = &weapon(&sim, MARTH).moves[MoveId::UAir as usize];
@@ -670,10 +674,11 @@ fn the_new_wolf_style_moves_carry_the_published_timing_and_damage() {
 // ---- Marth-style tilts, smashes and up air in play ---------------------------------------------------------
 
 #[test]
-fn marth_style_up_tilt_hits_in_front_on_frame_6_for_6_percent_with_the_tip() {
+fn marth_style_up_tilt_hits_in_front_on_frame_6_for_5_percent_close_in() {
+    // Close in, the blade's sourspot (5%) wins over the tip (6%).
     let mut sim = ground_duel(MARTH, fx(14, 10));
     assert_eq!(hit_tick(&mut sim, inp(0, 70, ATTACK)), Some(6));
-    assert_eq!(sim.fighter(1).percent, pct(&sim, 60));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 50));
     assert_eq!(sim.f().move_id, MoveId::UTilt as u8);
 }
 
@@ -691,8 +696,9 @@ fn marth_style_down_tilt_stabs_low_on_frame_7_for_7_percent_close_and_10_at_the_
 
 #[test]
 fn marth_style_forward_smash_hits_on_frame_10_for_13_percent_and_18_at_the_tip() {
-    let mut tip = ground_duel(MARTH, fx(34, 10));
-    assert_eq!(hit_tick(&mut tip, inp(60, 0, ATTACK | STRONG)), Some(10));
+    // The blade comes down from overhead: close in it hits on frame 10, out at the tip as it comes level on frame 11.
+    let mut tip = ground_duel(MARTH, fx(32, 10));
+    assert_eq!(hit_tick(&mut tip, inp(60, 0, ATTACK | STRONG)), Some(11));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 180));
     let mut close = ground_duel(MARTH, fx(10, 10));
     assert_eq!(hit_tick(&mut close, inp(60, 0, ATTACK | STRONG)), Some(10));
@@ -747,8 +753,15 @@ fn marth_style_up_air_hits_on_frame_5_for_9_5_percent_close_and_13_at_the_tip() 
     assert_eq!(sour.fighter(1).percent, pct(&sour, 95));
 
     let mut tip = air_duel(MARTH, fx(0, 1));
-    tip.put_airborne(1, Fx::ZERO, Fx::from_int(33), Fx::ZERO, Fx::ZERO);
-    assert_eq!(hit_tick(&mut tip, inp(0, 100, ATTACK)), Some(5));
+    tip.put_airborne(
+        1,
+        Fx::ZERO,
+        Fx::from_int(30) + fx(34, 10),
+        Fx::ZERO,
+        Fx::ZERO,
+    );
+    // The tip comes over the top on frame 7.
+    assert_eq!(hit_tick(&mut tip, inp(0, 100, ATTACK)), Some(7));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 130));
 }
 
@@ -784,7 +797,7 @@ fn holding_attack_charges_a_smash_attack_for_up_to_40_percent_more_damage() {
 
 #[test]
 fn charging_holds_the_move_still_and_the_hit_comes_when_it_is_released() {
-    let mut sim = ground_duel(MARTH, fx(34, 10));
+    let mut sim = ground_duel(MARTH, fx(10, 10));
     sim.tick(inp(60, 0, ATTACK | STRONG));
     sim.ticks(20, inp(0, 0, ATTACK));
     assert_eq!(sim.fighter(1).percent, Fx::ZERO, "still charging");

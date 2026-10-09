@@ -155,6 +155,31 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			for f in range(first, last + 1):
 				d.shots.append([f, "f%02d" % (f - 10)])
 			d.end_frame = last + 2
+		"sword_gallery":
+			# Every sword move in turn, photographed at its wind-up, first hit, middle and recovery (for checking the animation).
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 12.0
+			d.events = [[1, "stand", 1, 7.0, -1]]  # out of reach in front, so the camera centres the attacker
+			# [name, stick x, stick y, buttons, airborne, first active, last active]
+			var gallery := [["jab", 0, 0, attack, false, 5, 6], ["ftilt", 40, 0, attack, false, 8, 11], ["utilt", 0, 70, attack, false, 6, 12],
+				["dtilt", 0, -70, attack, false, 7, 8], ["fsmash", 60, 0, attack | strong, false, 10, 13],
+				["usmash", 0, 70, attack | strong, false, 13, 17], ["dsmash", 0, -70, attack | strong, false, 6, 23],
+				["nair", 0, 0, attack, true, 6, 21], ["uair", 0, 100, attack, true, 5, 9], ["bair", -127, 0, attack, true, 7, 11],
+				["fair", 127, 0, attack, true, 6, 8], ["dair", 0, -70, attack, true, 9, 13]]
+			var t := 20
+			var n := 0
+			for g in gallery:
+				d.events.append([t - 4, "place", 0, 0.0, 6.0] if g[4] else [t - 4, "stand", 0, 0.0, 1])
+				d.timeline.append([t, g[1], g[2], g[3]])
+				d.timeline.append([t + 1, 0, 0, 0])
+				var first: int = g[5]
+				var last: int = g[6]
+				var mid := (first + last) / 2
+				for k in [[first - 3, "a"], [first, "b"], [mid, "c"], [last + 5, "d"]]:
+					d.shots.append([t + k[0] - 1, "m%02d_%s_%s" % [n, g[0], k[1]]])
+				t += 80
+				n += 1
+			d.end_frame = t
 		"marth_bair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
