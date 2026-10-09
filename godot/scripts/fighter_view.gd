@@ -26,20 +26,25 @@ static var _mesh_cache := {}
 static var _outline_mat: StandardMaterial3D
 
 
-static func toon(c: Color, outline := true) -> StandardMaterial3D:
-	var key := "%s%s" % [c.to_html(), outline]
+const TOON_SHADER := preload("res://shaders/toon.gdshader")
+const FACE_SHADER := preload("res://shaders/face.gdshader")
+const SvgArt := preload("res://scripts/svg_art.gd")
+
+
+## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
+## `texture` (fabric, straw...) multiplies the colour, tiled `tile` times.
+static func toon(c: Color, outline := true, texture: Texture2D = null, tile := Vector2.ONE) -> ShaderMaterial:
+	var key := "%s%s%s%s" % [c.to_html(), outline, texture.get_instance_id() if texture != null else 0, tile]
 	if _mat_cache.has(key):
 		return _mat_cache[key]
-	var m := StandardMaterial3D.new()
+	var m := ShaderMaterial.new()
+	m.shader = TOON_SHADER
 	_mat_cache[key] = m
-	m.albedo_color = c
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	m.roughness = 1.0
-	# A soft rim of light on the edges, for the warm cel look.
-	m.rim_enabled = true
-	m.rim = 0.2
-	m.rim_tint = 0.5
+	m.set_shader_parameter("albedo", c)
+	if texture != null:
+		m.set_shader_parameter("use_tex", true)
+		m.set_shader_parameter("albedo_tex", texture)
+		m.set_shader_parameter("tex_scale", tile)
 	if outline:
 		if _outline_mat == null:
 			_outline_mat = StandardMaterial3D.new()
@@ -66,8 +71,10 @@ func rebuild(l: RefCounted) -> void:
 	anim = null
 	skeleton = null
 	current_clip = ""
-	face_parts = {}
+	face_mesh = null
+	face_mat = null
 	last_expression = {}
+	shown_face = ""
 	last_ghost = 0.0
 	build(player, l)
 
@@ -131,6 +138,7 @@ static func release_caches() -> void:
 	_mat_cache.clear()
 	_mesh_cache.clear()
 	_outline_mat = null
+	SvgArt.release()
 
 
 ## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
@@ -175,7 +183,7 @@ static func _model_scene(path: String) -> Node:
 
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
-func _build_rig(skin: StandardMaterial3D) -> bool:
+func _build_rig(skin: Material) -> bool:
 	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
@@ -199,8 +207,10 @@ func _build_rig(skin: StandardMaterial3D) -> bool:
 		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
 	var white := toon(Color(1, 1, 1))
 	var shoe := toon(Color(0.27, 0.2, 0.3))
-	# The shorts take the outfit colour (the accent, a shade darker), so the body reads as a shirt over shorts.
-	var shorts := toon(loadout.accent_color().darkened(0.2))
+	var shirt := _shirt_material()
+	var sleeve := _sleeve_material()
+	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
+	var shorts := toon(loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42))
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
 		if part.begins_with("Hand") or part.begins_with("Shin") or part.begins_with("Sole") or part.begins_with("Collar"):
@@ -209,6 +219,14 @@ func _build_rig(skin: StandardMaterial3D) -> bool:
 			mi.material_override = shorts
 		elif part.begins_with("Foot"):
 			mi.material_override = shoe
+		elif part.begins_with("Face"):
+			face_mesh = mi
+		elif part.begins_with("Body") and shirt != null:
+			mi.material_override = shirt
+		elif part.begins_with("Sleeve"):
+			# Sleeves show only with a shirt; open-ended, so both sides of the cloth are drawn.
+			mi.visible = sleeve != null
+			mi.material_override = sleeve
 		else:
 			mi.material_override = skin
 		meshes.append(mi)
@@ -415,8 +433,9 @@ static func blob_parts() -> Dictionary:
 	return _parts
 
 
-## The face's moving parts, so the expression can change (see set_expression).
-var face_parts := {}
+## The shell in front of the head that shows the drawn face, and its material (the expression swaps its texture).
+var face_mesh: MeshInstance3D
+var face_mat: ShaderMaterial
 
 
 ## Builds the fighter. `l` is its cosmetic loadout (see loadout.gd); without one the player's default look is used.
@@ -425,7 +444,6 @@ func build(p: int, l: RefCounted = null) -> void:
 	loadout = l if l != null else Loadout.default_for(p)
 	var col: Color = loadout.body_color()
 	var skin := toon(col)
-	var ink := toon(INK, false)
 	model = Node3D.new()
 	add_child(model)
 
@@ -458,7 +476,7 @@ func build(p: int, l: RefCounted = null) -> void:
 		model.add_child(torso_rig)
 
 	_neck(skin)
-	_face(skin, ink)
+	_face()
 	_hat()
 	_glasses()
 
@@ -567,58 +585,95 @@ func build(p: int, l: RefCounted = null) -> void:
 	add_child(flame)
 
 
-const EYE_Y := 1.5
-const EYE_DX := 0.31
+## The face is a drawing (godot/art/faces/<expression>.svg) on the shell in front of the head, lit like the skin around it. The lids in
+## the drawings are a placeholder colour that becomes the fighter's own colour, a shade darker.
+const FACE_DIR := "res://art/faces/"
+const LID_PLACEHOLDER := "#fe00ff"
 
 
-## The face is drawn on the front of the head: eyes with heavy lids, brows and a mouth. `set_expression` poses them.
-func _face(skin: StandardMaterial3D, ink: StandardMaterial3D) -> void:
-	face_parts = {"lids": [], "lines": [], "brows": [], "mouth": null, "skin": skin}
-	for sx in [-1.0, 1.0]:
-		var eye_pos := Vector3(sx * EYE_DX, EYE_Y, 0.745)
-		_part(head_rig, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos, Vector3(0.17, 0.19, 0.05))
-		_part(head_rig, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
-		face_parts.lids.append(_part(head_rig, _sphere(1.0), skin, eye_pos, Vector3(0.2, 0.1, 0.06)))
-		face_parts.lines.append(_part(head_rig, _sphere(1.0), ink, eye_pos, Vector3(0.18, 0.012, 0.03)))
-		# A catch-light in each eye and a touch of blush on the cheeks.
-		_part(head_rig, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos + Vector3(sx * -0.02 + 0.03, 0.035, 0.075), Vector3(0.04, 0.045, 0.02))
-		var blush := StandardMaterial3D.new()
-		blush.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		blush.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		blush.albedo_color = Color(1.0, 0.45, 0.5, 0.35)
-		_part(head_rig, _sphere(1.0), blush, Vector3(sx * (EYE_DX + 0.12), EYE_Y - 0.2, 0.7), Vector3(0.12, 0.06, 0.03))
-		var brow := BoxMesh.new()
-		brow.size = Vector3(0.3, 0.05, 0.05)
-		face_parts.brows.append(_part(head_rig, brow, ink, eye_pos + Vector3(0, 0.3, 0.03)))
-	face_parts.mouth = _part(head_rig, _sphere(1.0), ink, Vector3(0, 1.17, 0.775), Vector3(0.14, 0.05, 0.05))
+func _face() -> void:
+	if face_mesh == null:
+		return
+	face_mat = ShaderMaterial.new()
+	face_mat.shader = FACE_SHADER
+	face_mat.set_shader_parameter("skin", loadout.body_color())
+	face_mesh.material_override = face_mat
 	set_expression(Loadout.FACES[loadout.face])
 
 
-## Poses the face from a dictionary like the entries of Loadout.FACES (lid, mouth_w, mouth_h, mouth_tilt, brow).
+## Shows an expression: one of Loadout.FACES or Loadout.HURT (its `name` picks the drawing).
 func set_expression(e: Dictionary) -> void:
-	if face_parts.is_empty() or e == last_expression:
+	if e == last_expression:
 		return
 	last_expression = e
-	var lid: float = e.lid
-	for i in 2:
-		var sx := -1.0 if i == 0 else 1.0
-		var cap: MeshInstance3D = face_parts.lids[i]
-		cap.scale = Vector3(0.2, maxf(0.1 * lid * 2.0, 0.001), 0.06)
-		cap.position = Vector3(sx * EYE_DX, EYE_Y + 0.19 - 0.19 * lid, 0.79)
-		var line: MeshInstance3D = face_parts.lines[i]
-		line.position = Vector3(sx * EYE_DX, EYE_Y + 0.19 - 0.38 * lid, 0.795)
-		var brow: MeshInstance3D = face_parts.brows[i]
-		brow.visible = absf(float(e.brow)) >= 1.0
-		brow.rotation_degrees = Vector3(0, 0, float(e.brow) * sx)
-	var mouth: MeshInstance3D = face_parts.mouth
-	mouth.scale = Vector3(e.mouth_w, e.mouth_h, 0.05)
-	mouth.rotation_degrees = Vector3(0, 0, e.mouth_tilt)
+	_show_face()
+
+
+## The drawing to show now: the expression, or closed eyes for a moment while blinking.
+func _show_face() -> void:
+	if face_mat == null or last_expression.is_empty():
+		return
+	var name_now: String = last_expression.name
+	if blink_left > 0.0 and name_now != Loadout.HURT.name:
+		name_now = "blink"
+	if name_now == shown_face:
+		return
+	shown_face = name_now
+	var lid: Color = loadout.body_color().darkened(0.1)
+	face_mat.set_shader_parameter("face_tex", SvgArt.texture(FACE_DIR + name_now + ".svg", {LID_PLACEHOLDER: lid}))
+
+
+## Blinks every few seconds (cosmetic, so it uses the frame time rather than the simulation).
+func _blink(delta: float) -> void:
+	if blink_left > 0.0:
+		blink_left -= delta
+		if blink_left <= 0.0:
+			blink_wait = randf_range(2.2, 5.0)
+	else:
+		blink_wait -= delta
+		if blink_wait <= 0.0:
+			blink_left = 0.11
+	_show_face()
+
+
+var shown_face := ""
+var blink_wait := 3.0
+var blink_left := 0.0
+
+
+## Shirts (Loadout.SHIRTS): the body in the shirt, plain or with a print from godot/art/cloth/. Null for none (the bare body).
+const SHIRT_WHITE := Color(0.97, 0.95, 0.9)
+
+
+func _shirt_material() -> Material:
+	var accent: Color = loadout.accent_color()
+	match loadout.shirt:
+		1:
+			return toon(SHIRT_WHITE)
+		2:
+			return toon(accent)
+		3:
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1, 7))
+		4:
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}), Vector2(4, 2))
+	return null
+
+
+## The short sleeves over the upper arms, in the shirt's main colour (no ink outline: they are open tubes, and the outline of the
+## inside would show at the cuff).
+func _sleeve_material() -> Material:
+	match loadout.shirt:
+		1:
+			return toon(SHIRT_WHITE, false)
+		2, 3, 4:
+			return toon(loadout.accent_color(), false)
+	return null
 
 
 var last_expression := {}
 
 
-func _neck(_skin: StandardMaterial3D) -> void:
+func _neck(_skin: Material) -> void:
 	var accent: Color = loadout.accent_color()
 	if rig != null:
 		_neck_on_rig(accent)
@@ -658,15 +713,24 @@ func _neck_on_rig(accent: Color) -> void:
 			ring.outer_radius = 0.64
 			ring.rings = 36
 			ring.ring_segments = 10
-			_part(torso_rig, ring, toon(SASH), centre, Vector3(0.88, 1.0, 1.0), Vector3(0, 0, -42))
-			# Two round badges pinned on the front of the sash.
+			# A flat band (the ring's tube stretched across the ring's plane), worn diagonally.
+			var sash := Node3D.new()
+			sash.position = centre
+			sash.rotation_degrees = Vector3(0, 0, -42)
+			torso_rig.add_child(sash)
+			_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
+			# Round badges pinned on the front of the band, facing out from it.
 			var badge := CylinderMesh.new()
-			badge.top_radius = 0.075
-			badge.bottom_radius = 0.075
+			badge.top_radius = 0.068
+			badge.bottom_radius = 0.068
 			badge.height = 0.03
 			badge.radial_segments = 16
-			_part(torso_rig, badge, toon(Color(1.0, 0.82, 0.3)), centre + Vector3(-0.17, 0.2, 0.55), Vector3.ONE, Vector3(90, 0, 0))
-			_part(torso_rig, badge, toon(accent), centre + Vector3(0.05, 0.0, 0.58), Vector3.ONE, Vector3(90, 0, 0))
+			var colours := [Color(1.0, 0.82, 0.3), accent, Color(0.95, 0.95, 0.92)]
+			for k in 3:
+				var t := deg_to_rad(78.0 + 15.0 * k)
+				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
+				var b := _part(sash, badge, toon(colours[k]), Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t)))
+				b.basis = Basis(Quaternion(Vector3.UP, out))
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			_collar(accent)
@@ -700,16 +764,26 @@ func _hat() -> void:
 			_part(head_rig, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0))
 			_part(head_rig, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
 		2:
-			# Aviator cap with goggles on top.
-			_part(head_rig, _sphere(0.86), toon(Color(0.78, 0.6, 0.38)), Vector3(0, 1.84, -0.14), Vector3(1.0, 0.6, 1.0))
+			# Aviator cap: a leather skullcap with ear flaps, a band round it and goggles pushed up on the forehead.
+			var leather := toon(Color(0.55, 0.34, 0.2))
+			_part(head_rig, _sphere(0.86), leather, Vector3(0, 1.74, -0.06), Vector3(1.0, 0.66, 1.0))
+			for sx in [-1.0, 1.0]:
+				_part(head_rig, _sphere(1.0), leather, Vector3(sx * 0.74, 1.5, -0.02), Vector3(0.16, 0.34, 0.3))
+			var band := TorusMesh.new()
+			band.inner_radius = 0.8
+			band.outer_radius = 0.88
+			band.rings = 40
+			_part(head_rig, band, toon(Color(0.3, 0.2, 0.14), false), Vector3(0, 1.86, -0.04), Vector3(1.0, 0.8, 1.0), Vector3(-14, 0, 0))
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
-			ring.outer_radius = 0.2
+			ring.outer_radius = 0.19
+			var glass := toon(Color(0.66, 0.88, 1.0), false)
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.3, 2.12, 0.28), Vector3.ONE, Vector3(70, 0, 0))
+				_part(head_rig, ring, toon(Color(0.78, 0.66, 0.42)), Vector3(sx * 0.25, 1.92, 0.74), Vector3(1.15, 1.0, 1.15), Vector3(68, 0, 0))
+				_part(head_rig, _sphere(1.0), glass, Vector3(sx * 0.25, 1.92, 0.74), Vector3(0.14, 0.03, 0.14), Vector3(68, 0, 0))
 		3:
-			# Straw hat with a band in the accent colour.
-			var straw := toon(Color(0.9, 0.78, 0.45))
+			# Straw hat (woven, godot/art/cloth/straw.svg) with a band in the accent colour.
+			var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(8, 2))
 			_part(head_rig, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0))
 			_part(head_rig, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0))
 			_part(head_rig, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0))
@@ -727,14 +801,22 @@ func _hat() -> void:
 
 
 func _glasses() -> void:
-	var lens := toon(Color(1.0, 0.62, 0.3), false)
 	var frame := toon(INK, false)
 	match loadout.glasses:
 		1:
-			# Shades, like the reference.
+			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
+			var lens := StandardMaterial3D.new()
+			lens.albedo_color = Color(1.0, 0.55, 0.2, 0.5)
+			lens.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			lens.roughness = 0.45
+			lens.metallic_specular = 0.3
+			var rim := TorusMesh.new()
+			rim.inner_radius = 0.95
+			rim.outer_radius = 1.05
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.8), Vector3(0.25, 0.18, 0.04))
-			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
+				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
+				_part(head_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
+			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
@@ -849,6 +931,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	speed_lines.visible = fast_falling
 	_animate(s, delta)
 	_apply_combat(s, delta)
+	_blink(delta)
 
 
 var last_ghost := 0.0

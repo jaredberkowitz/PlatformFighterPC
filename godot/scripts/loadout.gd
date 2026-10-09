@@ -24,8 +24,8 @@ const PALETTE := [
 ]
 const PALETTE_NAMES := ["sunny", "tangerine", "cobalt", "bubblegum", "meadow", "plum", "cherry", "lagoon", "cloud", "slate", "biscuit", "midnight"]
 
-## Faces: how closed the lids are, the mouth's width, height and tilt (positive smiles), and the brow's tilt
-## (positive angers). The face is a texture-like layer on the head; these numbers pose it.
+## Faces. Each `name` is a drawing, godot/art/faces/<name>.svg, shown on the head (see FighterView.set_expression). The numbers
+## (lids, mouth, brow) describe the drawing and are kept for older tools.
 const FACES := [
 	{"name": "deadpan", "lid": 0.5, "mouth_w": 0.14, "mouth_h": 0.05, "mouth_tilt": 0.0, "brow": 0.0},
 	{"name": "sleepy", "lid": 0.82, "mouth_w": 0.1, "mouth_h": 0.04, "mouth_tilt": -4.0, "brow": -8.0},
@@ -38,9 +38,11 @@ const HURT := {"name": "hurt", "lid": 0.0, "mouth_w": 0.12, "mouth_h": 0.16, "mo
 const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]
 const NECKS := ["none", "sash", "neckerchief", "scarf"]
+## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
+const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower shirt"]
 
 ## The slots in the order they are written, each with its catalog size.
-const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent"]
+const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt"]
 
 var color := 0
 var face := 0
@@ -48,6 +50,7 @@ var hat := 1
 var glasses := 0
 var neck := 1
 var accent := 2
+var shirt := 1
 
 
 static func slot_size(slot: String) -> int:
@@ -62,6 +65,8 @@ static func slot_size(slot: String) -> int:
 			return GLASSES.size()
 		"neck":
 			return NECKS.size()
+		"shirt":
+			return SHIRTS.size()
 	return 1
 
 
@@ -77,6 +82,8 @@ static func slot_names(slot: String) -> Array:
 			return GLASSES
 		"neck":
 			return NECKS
+		"shirt":
+			return SHIRTS
 	return []
 
 
@@ -95,6 +102,7 @@ static func default_for(player: int) -> RefCounted:
 	l.neck = 1
 	l.face = 0
 	l.accent = 2
+	l.shirt = [1, 4, 1, 3][player % 4]
 	return l
 
 

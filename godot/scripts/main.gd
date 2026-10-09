@@ -3,6 +3,7 @@ extends Node3D
 
 const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -151,18 +152,11 @@ func _build_world() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.background_color = Color(0.56, 0.78, 0.95)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(1.0, 0.95, 0.9)
-	env.ambient_light_energy = 0.75
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	world_env = env
-
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-42, -28, 0)
-	sun.light_energy = 1.0
-	add_child(sun)
+	Lighting.apply(env, self)
 
 	cam = Camera3D.new()
 	cam.fov = 30.0

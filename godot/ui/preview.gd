@@ -4,6 +4,7 @@ extends SubViewportContainer
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
+const Lighting := preload("res://scripts/lighting.gd")
 
 var view: Node3D
 var viewport: SubViewport
@@ -30,15 +31,10 @@ func _init(vp_size := Vector2i(400, 460), floor := true, distance := 8.2) -> voi
 	viewport.add_child(root)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.8, 0.82, 0.95)
-	env.ambient_light_energy = 0.85
 	var we := WorldEnvironment.new()
 	we.environment = env
 	root.add_child(we)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-38, 28, 0)
-	root.add_child(sun)
+	Lighting.apply(env, root, true)
 	camera = Camera3D.new()
 	camera.fov = 30.0
 	camera.position = Vector3(0, 1.45, distance)

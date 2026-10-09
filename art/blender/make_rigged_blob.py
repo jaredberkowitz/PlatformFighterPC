@@ -86,8 +86,11 @@ def to_object(name, bm, bone, rig):
     return obj
 
 
-def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20):
-    res = bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius)
+def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=False):
+    """A ball. With `uvs` it is unwrapped like a globe (u around, v from the bottom up), for cloth patterns."""
+    if uvs:
+        bm.loops.layers.uv.verify()
+    res = bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius, calc_uvs=uvs)
     for v in res["verts"]:
         v.co.x *= scale[0]
         v.co.y *= scale[1]
@@ -106,11 +109,16 @@ def capsule(bm, p0, r0, p1, r1):
     bmesh.ops.delete(bm, geom=hull["geom_interior"] + hull["geom_unused"], context="VERTS")
 
 
+## The square of the head front the face texture covers (Blender units, centred on the head's middle line).
+FACE_SIZE = 1.155
+FACE_CENTRE = 1.585
+
+
 def build_meshes(rig):
     parts = {}
 
     bm = bmesh.new()
-    ball(bm, 0.56, (0, 0, 0.98), (1.0, 0.9, 0.75))
+    ball(bm, 0.56, (0, 0, 0.98), (1.0, 0.9, 0.75), uvs=True)
     for v in bm.verts:
         t = -(v.co.z - 0.98) / 0.42
         v.co.x *= 1.0 + 0.08 * t
@@ -126,10 +134,35 @@ def build_meshes(rig):
             v.co.y *= 1.0 + 0.04 * t
     parts["Head"] = to_object("Head", bm, "head", rig)
 
+    # The face: a shell just outside the front of the head that carries the drawn face texture (godot/art/faces/*.svg). Its UVs are a
+    # straight-on projection of a FACE_SIZE square centred at FACE_CENTRE, so the artwork lands on the head the way it is drawn.
+    bm = bmesh.new()
+    ball(bm, 0.66 * 1.025, (0, 0, 1.56), (1.0, 0.97, 0.94), segments=48, rings=32)
+    for v in bm.verts:
+        t = -(v.co.z - 1.56) / 0.66
+        if t > 0:
+            v.co.x *= 1.0 + 0.04 * t
+            v.co.y *= 1.0 + 0.04 * t
+    back = [v for v in bm.verts if v.co.y > -0.2]
+    bmesh.ops.delete(bm, geom=back, context="VERTS")
+    uv = bm.loops.layers.uv.verify()
+    for face in bm.faces:
+        for loop in face.loops:
+            co = loop.vert.co
+            loop[uv].uv = (0.5 + co.x / FACE_SIZE, 0.5 + (co.z - FACE_CENTRE) / FACE_SIZE)
+    parts["Face"] = to_object("Face", bm, "head", rig)
+
     for side, x in (("L", -1.0), ("R", 1.0)):
         bm = bmesh.new()
         capsule(bm, (x * 0.5, 0.0, 1.15), 0.13, (x * 0.66, -0.02, 0.95), 0.115)
         parts["ArmU." + side] = to_object("ArmU." + side, bm, "armU." + side, rig)
+
+        # A short shirt sleeve: a wider capsule over the top of the upper arm, open at the bottom, so the arm comes out of it.
+        bm = bmesh.new()
+        capsule(bm, (x * 0.48, 0.0, 1.18), 0.17, (x * 0.62, -0.015, 1.02), 0.16)
+        cut = [v for v in bm.verts if (v.co - Vector((x * 0.62, -0.015, 1.02))).dot(Vector((x * 0.14, -0.015, -0.16)).normalized()) > 0.02]
+        bmesh.ops.delete(bm, geom=cut, context="VERTS")
+        parts["Sleeve." + side] = to_object("Sleeve." + side, bm, "armU." + side, rig)
 
         bm = bmesh.new()
         capsule(bm, (x * 0.66, -0.02, 0.95), 0.115, (x * 0.74, -0.04, 0.8), 0.105)
@@ -299,7 +332,7 @@ def lengthen_limbs(rig, parts):
                     co.z = leg_z(co.z)
                 elif name.startswith("Foot"):
                     pass
-                elif name.startswith(("ArmU", "ArmL")):
+                elif name.startswith(("ArmU", "ArmL", "Sleeve")):
                     co.z += SHIFT
                     co += along * ((co - shoulder).dot(along) * (KA - 1.0))
                 elif name.startswith("Hand"):
@@ -308,7 +341,7 @@ def lengthen_limbs(rig, parts):
                 else:
                     co.z += SHIFT
                 v.co = co
-    for name in ("Body", "Head"):
+    for name in ("Body", "Head", "Face", "Shorts", "Collar"):
         for v in parts[name].data.vertices:
             v.co.z += SHIFT
     # bones

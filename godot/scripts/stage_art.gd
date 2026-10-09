@@ -220,12 +220,13 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	match t.get("cap", "grass"):
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
-			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), FighterView.toon(t.grass), Vector3(cx, top - 0.175, front_z - depth / 2.0))
+			# (The ledge sits a hair above the block's top so their top faces never fight over the same depth and flicker.)
+			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), FighterView.toon(t.grass), Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			_mesh(parent, _box(Vector3(w + 0.34, 0.1, 0.12)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.18))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.12)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.42, front_z + 0.16))
 		"sand":
 			var sand := FighterView.toon(t.grass)
-			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.22, front_z - depth / 2.0))
+			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
 			# A few pebbles and shells on the back of the sand.

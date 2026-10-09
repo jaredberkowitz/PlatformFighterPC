@@ -87,7 +87,7 @@ feet still slide a little at game speed (the cycle is paced by speed, not locked
 
 1. Aim the sword arm at the blade; clips for grabs, throws, rolls, knockdown, ledge and each smash/aerial.
 2. Move the hat, glasses, neckwear and sash into the Blender script as meshes on the rig, then drop the code-built versions.
-3. A face atlas texture and expression set for the head.
+3. ~~A face atlas texture and expression set for the head.~~ Done: drawn SVG faces on a face shell (fifth pass).
 4. Stage backdrops, hit effects and a shield bubble.
 
 
@@ -115,3 +115,26 @@ smashes) and `--demo=kicks` (claws kicks), with `--stage=N --noui --noecb --shot
   looked at for the poses of the forward and back airs: the forward air is now a mid-air crouch with the knees pulled up and the torso curling
   over the swing, and the back air tucks the front knee and trails the back leg. The claws fighter's up smash is a flip kick (`kick_uair`
   clip, leg aimed at its hitbox). These remain our own animations on our own rig; nothing was copied from the reference's files.
+
+
+## Lighting, shaders and drawn artwork (fifth pass)
+
+The look now comes from lighting, shaders and authored artwork rather than from shapes built in code:
+
+- **Lighting** (`godot/scripts/lighting.gd`, shared by the match and every menu preview): a warm key light with soft shadows, a cool fill
+  from the other side, warm ambient light, a filmic tone curve, a gentle bloom, ambient occlusion in the match and a little extra saturation.
+- **Shaders** (`godot/shaders/`): `toon.gdshader` is the soft cel material for every character surface (a colour, optionally times a tiled
+  texture); `face.gdshader` lays the face drawing over the skin colour; both light through `toon_light.gdshaderinc` (light wraps round the
+  form and steps softly into a cool shadow tint, a warm rim on the lit side, a small soft sheen).
+- **Faces** (`godot/art/faces/<expression>.svg`): one drawing per expression (`deadpan`, `sleepy`, `grumpy`, `smug`, `hurt`, and `blink`,
+  shown for a moment every few seconds). They are shown on a **face shell** in the rig (`Face`, a thin layer just in front of the head,
+  following the head bone), whose UVs are a straight-on projection of a 1.155-unit square centred at height 1.585, so a drawing lands on the
+  head as drawn (eyes at about y = 228 of 512). The upper lids are filled with the placeholder colour `#fe00ff`, which becomes the fighter's
+  colour a shade darker when the face loads; anything else is drawn as is. Edit them in any vector editor.
+- **Clothes**: shirts are a loadout slot (`white`, `outfit` colour, `striped`, `flower` print), worn on the body (which now has globe-style
+  UVs) with short **sleeves** (`Sleeve.L/R` in the rig, open tubes over the upper arm, hidden without a shirt). Prints and the straw weave are
+  tiles in `godot/art/cloth/` with `#ff00ff` as the placeholder for the shirt (or straw) colour. The sash is a flat band with three badges.
+- The SVGs are kept as files (their `.import` says `keep`) and drawn into textures when first used (`godot/scripts/svg_art.gd`), so the
+  colours can be swapped; a texture is made once per drawing and colour.
+- **Checking**: `godot --path godot --script res://tests/lineup_shot.gd -- --out=<folder>` photographs the four default fighters close up
+  (`lineup.png`) and every face and shirt (`lineup_faces.png`).

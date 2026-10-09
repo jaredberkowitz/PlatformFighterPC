@@ -67,7 +67,7 @@ func _ready() -> void:
 		names.append(s.name)
 	_add_selector(column, "fighter", "Fighter", names)
 	_add_selector(column, "class", "Class", Roster.CLASS_NAMES)
-	for slot in ["face", "hat", "glasses", "neck", "color", "accent"]:
+	for slot in ["face", "hat", "glasses", "neck", "shirt", "color", "accent"]:
 		_add_selector(column, slot, slot.capitalize(), Loadout.slot_names(slot))
 	for stat in ["size", "speed", "jump", "weight"]:
 		var r := UI.StatRow.new(stat.capitalize())
