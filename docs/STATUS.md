@@ -27,7 +27,7 @@ Phase 7 work (complete): match rules, HUD, results, rematches, the online screen
 | 7 Game loop: online 3 to 4 players (hub host and lobby) | done, see `docs/MATCHES.md` | `docs/MATCHES.md` |
 | 7 Game loop: matchmaking | **Quick match** done (relay queue pairs two waiting players); a list of games, ratings and regions are not built | `docs/MATCHES.md` |
 | 8 Public alpha checklist | see `docs/ALPHA.md` (what is ready, unverified and not built) | `docs/ALPHA.md` |
-| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation (`docs/ART_PIPELINE.md`), sound effects and synthesised music (`docs/AUDIO.md`), a third class, the maul bruiser (`docs/COMBAT.md`), balance tooling (`docs/BALANCE.md`), content policy and name moderation (`docs/CONTENT_POLICY.md`) | `docs/ART_PIPELINE.md` |
+| 8 Content and polish (real art/animation, audio, balance tooling, moderation) | **started**: rigged art and animation, soft cel shading and shared lighting, drawn SVG faces and cloth prints (`docs/ART_PIPELINE.md`), sound effects and synthesised music (`docs/AUDIO.md`), a third class, the maul bruiser (`docs/COMBAT.md`), balance tooling (`docs/BALANCE.md`), content policy and name moderation (`docs/CONTENT_POLICY.md`) | `docs/ART_PIPELINE.md` |
 
 ## What "done" is verified by
 
@@ -48,7 +48,7 @@ Phase 7 work (complete): match rules, HUD, results, rematches, the online screen
   were left for the user to test later.
 * **Online has a form, not a game list.** The online screen (menu, Online) picks role, mode, connection, fighter, delay and (host) rules, and group matches have a
   lobby, plus Quick match through a relay, but there is no list of games. Nobody has used it over a real network.
-* Controllers (play and menus) are implemented but untested on real hardware. The art is a scripted placeholder style (rigged blob, `docs/ART_PIPELINE.md`).
+* Controllers (play and menus) are implemented but untested on real hardware. The art is a rigged blob with a cel shader, shared lighting and drawn SVG faces and prints (`docs/ART_PIPELINE.md`); hats and glasses are still built in code.
 * Four stages, one mode (versus; local and online up to 4 players). No sudden death after a tied clock.
 
 ## Phase 7: what is left, suggested order
