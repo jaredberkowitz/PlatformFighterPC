@@ -307,6 +307,8 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
+	if flip_left > 0.0:
+		return ["air_jump", 1.0, -1.0]
 	return ["jump", 1.0, -1.0] if float(s.vel.y) > 0.02 else ["fall", 1.0, -1.0]
 
 
@@ -1098,6 +1100,11 @@ var squash_vel := 0.0
 var lean_vel := 0.0
 var was_grounded := false
 var last_vy := 0.0
+## The midair jump's front flip: seconds left of it, and the offset that keeps it turning about the body's middle.
+const FLIP_TIME := 0.38
+var flip_left := 0.0
+var flip_offset := Vector3.ZERO
+var prev_jumps := -1
 ## The attack lunge: the body is thrown forward through the strike and drawn back in the wind-up (model space, along the facing).
 var lunge := 0.0
 var lunge_vel := 0.0
@@ -1202,7 +1209,24 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
 	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
-	model.rotation = Vector3(deg_to_rad(lean), yaw, 0)
+	# A midair jump is a front flip (the body spins once about its middle, curled up; see the `air_jump` clip).
+	var jumps := int(s.get("jumps", 0))
+	if state == "Airborne" and not grounded and prev_jumps >= 0 and jumps < prev_jumps:
+		flip_left = FLIP_TIME
+	prev_jumps = jumps
+	if grounded or state != "Airborne":
+		flip_left = 0.0
+	flip_left = maxf(0.0, flip_left - delta)
+	var flip := 0.0
+	if flip_left > 0.0:
+		var k := 1.0 - flip_left / FLIP_TIME
+		flip = TAU * k * k * (3.0 - 2.0 * k)
+	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
+	# Spin about the middle of the body rather than the feet.
+	flip_offset = Vector3.ZERO
+	if flip != 0.0:
+		var middle := Vector3(0, 1.1, 0)
+		flip_offset = middle - Basis.from_euler(model.rotation) * middle
 	stage_frame.rotation = Vector3(0, -yaw, 0)
 
 	# Air dodge and ledge invincibility read as ghostly (a long directional dodge only while it is still intangible).
@@ -1227,6 +1251,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	speed_lines.visible = fast_falling
 	_animate(s, delta)
 	_apply_combat(s, delta)
+	model.position += flip_offset
 	_blink(delta)
 
 

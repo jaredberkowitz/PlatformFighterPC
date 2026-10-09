@@ -285,3 +285,18 @@ first and did not render reliably here.)
 - **Knock-out burst**: sparks and confetti stars (the player's colour, a lighter shade, gold, white) thrown back toward the stage along the
   beam, and a cloud of smoke; placed a little in from the blast line so it is on screen.
 - **Fire**: the brawler's rushing specials leave real flames, licks rising off the body from yellow to red (it replaces the old sphere).
+
+
+## Walk, jumps and a living stage (fourteenth pass)
+
+- **Walk**: a bigger, bouncier swagger: longer steps with the knee lifted high, a springy bob on every step, fists swinging wide and high,
+  more shoulder twist and head nod.
+- **Jump** (rising): the legs no longer stay together. The near leg (the right, nearest the game's camera on the turned body) drives its
+  knee up in front while the far leg hangs long below with the toes pointed, the lead fist thrown up and the other arm swung back.
+  (Front-and-back splits were tried first: with short legs and big shoes the back foot hid behind the round body.)
+- **Fall**: the same open legs, arms raised out to the sides and paddling a little.
+- **Midair jump**: a front flip: the fighter curls into a ball (`air_jump` clip) and the game spins it once about its middle
+  (`FLIP_TIME`, 0.38 s), opening out into the rising pose.
+- **Stages move** (cosmetic, own clock): clouds drift and wrap round (`Drift`), tree crowns and palm heads sway (`Sway`), the big tree's
+  crown rocks slowly, the sailboat bobs and rolls (`Bob`), and flocks of birds flap across the day skies (`Flock`).
+- `tests/anim_sheet.gd` now takes `--what=walk | jump | fall | airjump` too.

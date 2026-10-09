@@ -309,13 +309,23 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2) -> void:
 	var mat := _unshaded(color)
 	for k in count:
-		var cloud := Node3D.new()
+		var cloud := Drift.new()
+		cloud.speed = rng.randf_range(0.6, 1.6)
 		cloud.position = Vector3(rng.randf_range(-90, 90), rng.randf_range(y_range.x, y_range.y), rng.randf_range(-120, -85))
 		root.add_child(cloud)
 		var puffs := rng.randi_range(3, 5)
 		for b in puffs:
 			var s := rng.randf_range(2.4, 4.4)
 			_mesh(cloud, _sphere(1.0, 16), mat, Vector3(b * 3.0 - puffs * 1.5, rng.randf_range(-0.6, 1.4), 0), Vector3(s, s * 0.8, s))
+
+
+static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
+	for k in 2:
+		var flock := Flock.new()
+		flock.position = Vector3(rng.randf_range(-100, 60), rng.randf_range(16, 30), rng.randf_range(-75, -60))
+		flock.speed = rng.randf_range(3.0, 5.5)
+		root.add_child(flock)
+		flock.build(rng.randi_range(3, 5), colour, rng)
 
 
 static func _hills(root: Node3D, rng: RandomNumberGenerator, near: Color, far: Color) -> void:
@@ -338,6 +348,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var e := _ext(stage)
 	_hills(root, rng, Color(0.5, 0.78, 0.5), Color(0.62, 0.8, 0.86))
 	_clouds(root, rng, 9, Color(1, 1, 1), Vector2(14, 34))
+	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on a far hill, its sails turning slowly.
 	_windmill(root, Vector3(-34, -6, -70))
 	# Round trees dotted over the nearer hills.
@@ -375,8 +386,13 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	_mesh(root, _cylinder(0.35 * size, 0.5 * size, 3.0 * size, 8), FighterView.toon(Color(0.55, 0.38, 0.24)), at + Vector3(0, 1.5 * size, 0))
 	var leaf := FighterView.toon(Color(0.3, 0.62, 0.34).lerp(Color(0.45, 0.72, 0.3), rng.randf()))
-	_mesh(root, _sphere(1.0, 16), leaf, at + Vector3(0, 4.2 * size, 0), Vector3.ONE * 2.4 * size)
-	_mesh(root, _sphere(1.0, 12), leaf, at + Vector3(1.4, 3.5, 0.5) * size, Vector3.ONE * 1.4 * size)
+	var crown := Sway.new()
+	crown.position = at + Vector3(0, 2.8 * size, 0)
+	crown.amount = 2.5
+	crown.phase = rng.randf() * TAU
+	root.add_child(crown)
+	_mesh(crown, _sphere(1.0, 16), leaf, Vector3(0, 1.4 * size, 0), Vector3.ONE * 2.4 * size)
+	_mesh(crown, _sphere(1.0, 12), leaf, Vector3(1.4, 0.7, 0.5) * size, Vector3.ONE * 1.4 * size)
 
 
 static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors: Array) -> void:
@@ -454,6 +470,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 3
 	_hills(root, rng, Color(0.62, 0.84, 0.66), Color(0.76, 0.84, 0.95))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
+	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
 	var right: float = stage[1] if stage.size() == 4 else 11.0
@@ -497,6 +514,7 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	root.add_child(sea)
 	sea.build()
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34))
+	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:
 		var isle := Vector3(-70.0 + k * 65.0 + rng.randf_range(-10, 10), float(e[3]) - 3.0, -110.0 + rng.randf_range(-10, 10))
@@ -511,9 +529,11 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_mesh(root, _sphere(1.6, 16), _unshaded(Color(1.0, 0.95, 0.7)), lh + Vector3(0, 21.5, 0))
 	_mesh(root, _cylinder(0.0, 2.2, 2.0, 16), FighterView.toon(Color(0.3, 0.32, 0.4)), lh + Vector3(0, 23.5, 0))
 	# A sailboat.
-	var boat := Vector3(-30, float(e[3]) - 0.6, -60)
-	_mesh(root, _box(Vector3(6.0, 1.2, 2.0)), FighterView.toon(Color(0.86, 0.36, 0.3)), boat)
-	_mesh(root, _cylinder(0.0, 2.6, 6.0, 3), FighterView.toon(Color(1, 1, 1)), boat + Vector3(0.6, 3.6, 0), Vector3(1, 1, 0.15))
+	var boat := Bob.new()
+	boat.position = Vector3(-30, float(e[3]) - 0.6, -60)
+	root.add_child(boat)
+	_mesh(boat, _box(Vector3(6.0, 1.2, 2.0)), FighterView.toon(Color(0.86, 0.36, 0.3)), Vector3.ZERO)
+	_mesh(boat, _cylinder(0.0, 2.6, 6.0, 3), FighterView.toon(Color(1, 1, 1)), Vector3(0.6, 3.6, 0), Vector3(1, 1, 0.15))
 	# Palms at the ends of the island, behind the fighters.
 	_palm(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), 1.0, rng)
 	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)
@@ -529,15 +549,20 @@ static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		_mesh(root, _cylinder(0.24 * size, 0.3 * size, 0.8 * size, 10), bark, seg + Vector3(0, 0.4 * size, 0))
 		top = seg + Vector3(0, 0.8 * size, 0)
 	var leaf := FighterView.toon(Color(0.24, 0.6, 0.3))
+	var head := Sway.new()
+	head.position = top
+	head.amount = 5.0
+	head.speed = 1.3
+	head.phase = rng.randf() * TAU
+	root.add_child(head)
 	for k in 7:
 		var a := TAU * k / 7.0
 		var frond := Node3D.new()
-		frond.position = top
 		frond.rotation = Vector3(0, a, 0)
-		root.add_child(frond)
+		head.add_child(frond)
 		_mesh(frond, _sphere(1.0, 10), leaf, Vector3(1.6 * size, -0.3 * size, 0), Vector3(1.9 * size, 0.18 * size, 0.55 * size), Vector3(0, 0, -18))
 	for k in 3:
-		_mesh(root, _sphere(0.22 * size, 8), FighterView.toon(Color(0.45, 0.32, 0.2)), top + Vector3(cos(k * 2.1) * 0.35, -0.3, sin(k * 2.1) * 0.35) * size)
+		_mesh(head, _sphere(0.22 * size, 8), FighterView.toon(Color(0.45, 0.32, 0.2)), Vector3(cos(k * 2.1) * 0.35, -0.3, sin(k * 2.1) * 0.35) * size)
 
 
 ## The city at night: rooftops in the foreground, a lit skyline in layers behind, a big moon, stars, a water tower and an antenna with a
@@ -611,16 +636,21 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var leaf := FighterView.toon(Color(0.2, 0.55, 0.3))
 	var leaf_mid := _soft(Color(0.28, 0.66, 0.34))
 	var leaf_light := _soft(Color(0.45, 0.8, 0.42))
-	var crown := base + Vector3(0, trunk_h + 3.0 * size, 0)
+	var sway := Sway.new()
+	sway.position = base + Vector3(0, trunk_h, 0)
+	sway.amount = 0.8
+	sway.speed = 0.5
+	root.add_child(sway)
+	var crown := Vector3(0, 3.0 * size, 0)
 	for k in 15:
 		var a := TAU * k / 15.0
 		var r := rng.randf_range(4.0, 9.0) * size
 		var off := Vector3(cos(a) * r * 1.3, sin(a) * r * 0.55 + rng.randf_range(-1.0, 2.0) * size, rng.randf_range(-2.0, 1.5) * size)
 		var s := rng.randf_range(4.0, 6.5) * size
-		_mesh(root, _sphere(1.0, 20), leaf if k % 3 == 0 else leaf_mid, crown + off, Vector3.ONE * s)
+		_mesh(sway, _sphere(1.0, 20), leaf if k % 3 == 0 else leaf_mid, crown + off, Vector3.ONE * s)
 	for k in 8:
 		var off := Vector3(rng.randf_range(-8.0, 8.0), rng.randf_range(1.5, 6.0), rng.randf_range(1.0, 3.0)) * size
-		_mesh(root, _sphere(1.0, 16), leaf_light, crown + off, Vector3.ONE * rng.randf_range(2.2, 3.6) * size)
+		_mesh(sway, _sphere(1.0, 16), leaf_light, crown + off, Vector3.ONE * rng.randf_range(2.2, 3.6) * size)
 
 
 ## Four-pointed glints that slowly turn and pulse. Cosmetic; they run on their own clock.
@@ -668,6 +698,84 @@ class Twinkle extends Node3D:
 
 
 ## Turns slowly around its z axis (a windmill's sails). Cosmetic.
+## Scenery that moves (cosmetic, on its own clock).
+## Drifts slowly sideways and wraps round (clouds).
+class Drift extends Node3D:
+	var speed := 1.0
+	var span := 100.0
+
+	func _process(delta: float) -> void:
+		position.x += speed * delta
+		if position.x > span:
+			position.x -= span * 2.0
+
+
+## Rocks gently to and fro about its own place (tree crowns, palm heads). `amount` in degrees.
+class Sway extends Node3D:
+	var amount := 2.0
+	var speed := 0.9
+	var phase := 0.0
+	var t := 0.0
+
+	func _process(delta: float) -> void:
+		t += delta
+		rotation.z = deg_to_rad(amount) * sin(t * speed + phase)
+		rotation.x = deg_to_rad(amount * 0.4) * sin(t * speed * 0.7 + phase * 1.3)
+
+
+## Bobs on the water and rolls a little (a boat).
+class Bob extends Node3D:
+	var t := 0.0
+	var base_y := INF
+
+	func _process(delta: float) -> void:
+		if base_y == INF:
+			base_y = position.y
+		t += delta
+		position.y = base_y + 0.35 * sin(t * 1.1)
+		rotation.z = deg_to_rad(4.0) * sin(t * 0.9 + 0.6)
+
+
+## A small flock of birds crossing the sky, wings flapping, coming round again after a while.
+class Flock extends Node3D:
+	var birds: Array = []   # [node, wing L, wing R, phase]
+	var speed := 4.0
+	var t := 0.0
+
+	func build(count: int, colour: Color, rng: RandomNumberGenerator) -> void:
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = colour
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var wing := BoxMesh.new()
+		wing.size = Vector3(1.0, 0.16, 0.3)
+		for k in count:
+			var bird := Node3D.new()
+			bird.position = Vector3(-k * 2.2 + rng.randf_range(-0.5, 0.5), absf(k - count / 2.0) * -1.0 + rng.randf_range(-0.4, 0.4), 0)
+			add_child(bird)
+			var parts := []
+			for side in [-1.0, 1.0]:
+				var hinge := Node3D.new()
+				bird.add_child(hinge)
+				var w := MeshInstance3D.new()
+				w.mesh = wing
+				w.material_override = mat
+				w.position = Vector3(side * 0.5, 0, 0)
+				hinge.add_child(w)
+				parts.append(hinge)
+			birds.append([bird, parts[0], parts[1], rng.randf() * TAU])
+
+	func _process(delta: float) -> void:
+		t += delta
+		position.x += speed * delta
+		if position.x > 110.0:
+			position.x = -110.0
+		for b in birds:
+			var flap := sin(t * 9.0 + float(b[3])) * 0.6
+			(b[1] as Node3D).rotation.z = -flap
+			(b[2] as Node3D).rotation.z = flap
+
+
 class Spinner extends Node3D:
 	var speed := 0.5
 
