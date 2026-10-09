@@ -213,8 +213,11 @@ func _build_rig(skin: Material) -> bool:
 	var shorts := toon(loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42))
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
-		if part.begins_with("Hand") or part.begins_with("Shin") or part.begins_with("Sole") or part.begins_with("Collar"):
+		if part.begins_with("Hand") or part.begins_with("Shin") or part.begins_with("Sole") or part.begins_with("Collar") \
+				or part.begins_with("Cuff"):
 			mi.material_override = white
+		elif part.begins_with("Strap"):
+			mi.material_override = toon(loadout.accent_color())
 		elif part.begins_with("Shorts"):
 			mi.material_override = shorts
 		elif part.begins_with("Foot"):
@@ -287,7 +290,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["grab", 1.0, -1.0]
 		"Attack":
 			return _attack_clip(s)
-		"Idle", "Turn", "LedgeGetUp", "LedgeAttack", "Respawn", "ShieldRelease":
+		"Turn":
+			# Turning out of a run skids; a turn from standing just turns.
+			return ["skid", 1.0, -1.0] if speed > 0.08 else ["idle", 1.0, -1.0]
+		"Idle", "LedgeGetUp", "LedgeAttack", "Respawn", "ShieldRelease":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
@@ -381,6 +387,8 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if anim == null:
 		return
 	var clip := "victory_c" if cheer else ("victory_b" if cls == 1 else "victory_a")
+	set_expression(Loadout.HAPPY_FACE)
+	_blink(delta)
 	if current_clip != clip and anim.has_animation(clip):
 		anim.play(clip, 0.15)
 		current_clip = clip
@@ -614,7 +622,9 @@ func _show_face() -> void:
 	if face_mat == null or last_expression.is_empty():
 		return
 	var name_now: String = last_expression.name
-	if blink_left > 0.0 and name_now != Loadout.HURT.name:
+	# Blinks show on the calm faces only (not mid-yell, mid-strain or with the eyes already shut).
+	var calm: bool = name_now == Loadout.FOCUS_FACE.name or Loadout.FACES.any(func(f): return f.name == name_now)
+	if blink_left > 0.0 and calm:
 		name_now = "blink"
 	if name_now == shown_face:
 		return
@@ -754,50 +764,58 @@ func _collar(accent: Color) -> void:
 	_part(torso_rig, ring, toon(accent), Vector3(0, 1.1, 0), Vector3(1.04, 1.0, 0.94))
 
 
+## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (see `_hat_spring`).
+const HAT_PIVOT := Vector3(0, 1.95, 0)
+var hat_pivot: Node3D
+
+
 func _hat() -> void:
+	hat_pivot = Node3D.new()
+	hat_pivot.position = HAT_PIVOT
+	head_rig.add_child(hat_pivot)
 	var accent: Color = loadout.accent_color()
 	var white := toon(Color(0.97, 0.97, 1.0))
 	match loadout.hat:
 		1:
 			# Sailor cap: white crown and brim with a band in the accent colour.
-			_part(head_rig, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0))
-			_part(head_rig, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0))
-			_part(head_rig, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
+			_part(hat_pivot, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0) - HAT_PIVOT, Vector3(1.04, 1.0, 1.04))
 		2:
 			# Aviator cap: a leather skullcap with ear flaps, a band round it and goggles pushed up on the forehead.
 			var leather := toon(Color(0.55, 0.34, 0.2))
-			_part(head_rig, _sphere(0.86), leather, Vector3(0, 1.74, -0.06), Vector3(1.0, 0.66, 1.0))
+			_part(hat_pivot, _sphere(0.86), leather, Vector3(0, 1.74, -0.06) - HAT_PIVOT, Vector3(1.0, 0.66, 1.0))
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, _sphere(1.0), leather, Vector3(sx * 0.74, 1.5, -0.02), Vector3(0.16, 0.34, 0.3))
+				_part(hat_pivot, _sphere(1.0), leather, Vector3(sx * 0.74, 1.5, -0.02) - HAT_PIVOT, Vector3(0.16, 0.34, 0.3))
 			var band := TorusMesh.new()
 			band.inner_radius = 0.8
 			band.outer_radius = 0.88
 			band.rings = 40
-			_part(head_rig, band, toon(Color(0.3, 0.2, 0.14), false), Vector3(0, 1.86, -0.04), Vector3(1.0, 0.8, 1.0), Vector3(-14, 0, 0))
+			_part(hat_pivot, band, toon(Color(0.3, 0.2, 0.14), false), Vector3(0, 1.86, -0.04) - HAT_PIVOT, Vector3(1.0, 0.8, 1.0), Vector3(-14, 0, 0))
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
 			ring.outer_radius = 0.19
 			var glass := toon(Color(0.66, 0.88, 1.0), false)
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, ring, toon(Color(0.78, 0.66, 0.42)), Vector3(sx * 0.25, 1.92, 0.74), Vector3(1.15, 1.0, 1.15), Vector3(68, 0, 0))
-				_part(head_rig, _sphere(1.0), glass, Vector3(sx * 0.25, 1.92, 0.74), Vector3(0.14, 0.03, 0.14), Vector3(68, 0, 0))
+				_part(hat_pivot, ring, toon(Color(0.78, 0.66, 0.42)), Vector3(sx * 0.25, 1.92, 0.74) - HAT_PIVOT, Vector3(1.15, 1.0, 1.15), Vector3(68, 0, 0))
+				_part(hat_pivot, _sphere(1.0), glass, Vector3(sx * 0.25, 1.92, 0.74) - HAT_PIVOT, Vector3(0.14, 0.03, 0.14), Vector3(68, 0, 0))
 		3:
 			# Straw hat (woven, godot/art/cloth/straw.svg) with a band in the accent colour.
 			var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(8, 2))
-			_part(head_rig, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0))
-			_part(head_rig, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0))
-			_part(head_rig, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0))
+			_part(hat_pivot, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0) - HAT_PIVOT)
 		4:
 			# Beanie with a pompom.
-			_part(head_rig, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0), Vector3(1.0, 0.7, 1.0))
-			_part(head_rig, _sphere(0.18), white, Vector3(0, 2.38, 0))
+			_part(hat_pivot, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
+			_part(hat_pivot, _sphere(0.18), white, Vector3(0, 2.38, 0) - HAT_PIVOT)
 		5:
 			# Crown: a gold band with five points.
 			var gold := toon(Color(0.96, 0.8, 0.25))
-			_part(head_rig, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0))
+			_part(hat_pivot, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0) - HAT_PIVOT)
 			for i in 5:
 				var a := TAU * i / 5.0
-				_part(head_rig, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5))
+				_part(hat_pivot, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5) - HAT_PIVOT)
 
 
 func _glasses() -> void:
@@ -839,13 +857,34 @@ func _glasses() -> void:
 			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
 
 
+## The expression for this moment (see Loadout's action faces).
+func _face_for(s: Dictionary) -> Dictionary:
+	match String(s.state):
+		"Hitstun", "ShieldBreak", "Knockdown", "Grabbed", "Rebound":
+			return Loadout.HURT
+		"Attack":
+			if int(s.charge) > 0:
+				return Loadout.EFFORT_FACE
+			var t: PackedInt32Array = s.move_timing
+			var f: float = s.state_frame
+			# The yell starts as the swing comes round and lasts a little past the hit.
+			if t[1] > 0 and f >= float(t[1]) * 0.4 and f <= float(t[2]) + 10.0:
+				return Loadout.ATTACK_FACE
+			return Loadout.FOCUS_FACE
+		"Shield", "ShieldDrop", "LedgeHang", "LedgeGetUp", "Grabbing", "WallTech":
+			return Loadout.EFFORT_FACE
+		"Run", "Dash", "JumpSquat", "LedgeJump", "AirDodge", "Roll", "SpotDodge", "WaveLand", "Turn":
+			return Loadout.FOCUS_FACE
+	return Loadout.FACES[loadout.face]
+
+
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
 	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
 	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22, "Grabbed": 0.14, "Knockdown": 0.42, "GetUp": 0.2,
 }
 ## Forward lean in degrees per state.
-const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
+const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
 
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
@@ -856,6 +895,18 @@ var squash_vel := 0.0
 var lean_vel := 0.0
 var was_grounded := false
 var last_vy := 0.0
+## The attack lunge: the body is thrown forward through the strike and drawn back in the wind-up (model space, along the facing).
+var lunge := 0.0
+var lunge_vel := 0.0
+## The hat's lag (a roll, radians) and bounce (a drop below its place, units), and the velocity they react to.
+var hat_roll := 0.0
+var hat_roll_vel := 0.0
+var hat_drop := 0.0
+var hat_drop_vel := 0.0
+var prev_vel := Vector2.ZERO
+var prev_frame := -1
+## Where the run cycle was last frame, for the footfalls.
+var last_step_phase := 0.0
 
 
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
@@ -890,6 +941,16 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	# The attack lunge: drawn back while winding up, thrown forward through the strike.
+	var target_lunge := 0.0
+	if state == "Attack" and s.move_timing[1] > 0:
+		var first: float = s.move_timing[1]
+		var last: float = s.move_timing[2]
+		var f: float = s.state_frame
+		if f < first and f >= first * 0.5:
+			target_lunge = -0.08
+		elif f >= first and f <= last + 2.0:
+			target_lunge = 0.2
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -902,12 +963,33 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		squash += squash_vel * h
 		lean_vel += (SPRING_K * (target_lean - lean) - SPRING_DAMP * lean_vel) * h
 		lean += lean_vel * h
+		lunge_vel += (SPRING_K * 1.6 * (target_lunge - lunge) - SPRING_DAMP * 1.2 * lunge_vel) * h
+		lunge += lunge_vel * h
 	squash = clampf(squash, -0.35, 0.55)
 
+	# Running, every footfall squashes the body a little and every stride between them stretches it, in step with the clip.
+	var step_squash := 0.0
+	if (state == "Run" or state == "Dash") and anim != null and (current_clip == "run" or current_clip == "dash"):
+		var length := anim.get_animation(current_clip).length
+		var phase := fmod(anim.current_animation_position / maxf(length, 0.001), 1.0)
+		step_squash = 0.07 * cos((phase - 0.12) * 4.0 * PI)
+		# A puff of dust behind each foot as it lands (at 0.12 and 0.62 of the cycle).
+		for land_at in [0.12, 0.62]:
+			var crossed: bool = (last_step_phase < land_at and phase >= land_at) or (last_step_phase > phase and (phase >= land_at or last_step_phase < land_at))
+			if crossed and grounded and not dusts.is_empty():
+				_puff(-float(facing), 1)
+		last_step_phase = phase
 	# Volume-preserving: squashing down widens the body.
-	model.scale = Vector3(1.0 + 0.5 * squash, 1.0 - squash, 1.0 + 0.5 * squash)
-	yaw = lerp_angle(yaw, float(facing) * deg_to_rad(36.0), clampf(delta * 14.0, 0.0, 1.0))
-	model.rotation = Vector3(0, yaw, -float(facing) * deg_to_rad(lean))
+	var total := squash + step_squash
+	model.scale = Vector3(1.0 + 0.5 * total, 1.0 - total, 1.0 + 0.5 * total)
+	_hat_spring(s, delta)
+	# Skidding out of a run, the fighter still faces the way it was running (the simulation has already turned it), leaning back
+	# against the slide; it swings round as the skid ends.
+	var look := facing
+	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and signf(float(s.vel.x)) == -float(facing):
+		look = -facing
+	yaw = lerp_angle(yaw, float(look) * deg_to_rad(36.0), clampf(delta * 14.0, 0.0, 1.0))
+	model.rotation = Vector3(0, yaw, -float(look) * deg_to_rad(lean))
 
 	# Air dodge and ledge invincibility read as ghostly (a long directional dodge only while it is still intangible).
 	var ghost := 0.0
@@ -1128,6 +1210,45 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		part.visible = hammer
 
 
+## Puts the weapon in the weapon hand as the clip moves it, swept back and up behind the runner (carried in a run).
+const CARRY_ANGLE := 158.0
+
+
+func _carry_weapon(facing: int) -> void:
+	var hand := skeleton.find_bone("hand.R" if facing > 0 else "hand.L")
+	if hand < 0:
+		return
+	blade_pivot.position = _skeleton_to_model() * skeleton.get_bone_global_pose(hand).origin
+	var angle := CARRY_ANGLE if facing > 0 else 180.0 - CARRY_ANGLE
+	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
+
+
+## The hat's secondary motion: it lags behind a sudden change of speed sideways and dips and springs back on a landing or a jump.
+func _hat_spring(s: Dictionary, delta: float) -> void:
+	if hat_pivot == null:
+		return
+	var vel := Vector2(float(s.vel.x), float(s.vel.y))
+	var frame: int = s.frame
+	if frame != prev_frame:
+		if prev_frame >= 0 and frame - prev_frame <= 2:
+			var dv := vel - prev_vel
+			hat_roll_vel += clampf(dv.x, -0.5, 0.5) * 60.0
+			hat_drop_vel += clampf(dv.y, -1.0, 1.0) * 6.0
+		prev_frame = frame
+		prev_vel = vel
+	var steps := ceili(delta / 0.008)
+	var h := delta / maxi(steps, 1)
+	for _i in steps:
+		hat_roll_vel += (-300.0 * hat_roll - 14.0 * hat_roll_vel) * h
+		hat_roll += hat_roll_vel * h
+		hat_drop_vel += (-500.0 * hat_drop - 18.0 * hat_drop_vel) * h
+		hat_drop += hat_drop_vel * h
+	hat_roll = clampf(hat_roll, -0.5, 0.5)
+	hat_drop = clampf(hat_drop, -0.12, 0.15)
+	hat_pivot.rotation = Vector3(0, 0, hat_roll)
+	hat_pivot.position = HAT_PIVOT + Vector3(0, -hat_drop, 0)
+
+
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
 func _aim_arm(facing: int, holding: bool) -> void:
 	if skeleton == null:
@@ -1332,6 +1453,9 @@ func _dust(s: Dictionary) -> void:
 			"JumpSquat", "WaveLand":
 				_puff(-1.0, 1)
 				_puff(1.0, 1)
+	# A skid kicks up a stream of dust from the planted heel, ahead of the slide.
+	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and frame % 3 == 0:
+		_puff(signf(float(s.vel.x)), 1)
 	if grounded and not dust_grounded and state != "Knockdown":
 		_puff(-1.0, 1)
 		_puff(1.0, 1)
@@ -1524,8 +1648,13 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# Only the brawler's body moves leave the arms alone; the sword fighter always has its blade.
 	var swinging_arm: bool = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
 	blade_pivot.visible = not brawler and swinging_arm
+	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
+	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
-		_aim_arm(int(s.facing), swinging_arm if not brawler else (swinging_arm and state == "Attack"))
+		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
+		_aim_arm(int(s.facing), holding and not carrying)
+		if carrying:
+			_carry_weapon(int(s.facing))
 		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.visible = rushing
@@ -1535,8 +1664,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.rotation.z = float(s.frame) * 0.6 * -float(s.facing)
 
 	var hitlag: int = s.hitlag
-	# The hurt face is a cosmetic event: it shows while the fighter is being hit and goes back afterwards.
-	set_expression(Loadout.HURT if state == "Hitstun" else Loadout.FACES[loadout.face])
+	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.
+	set_expression(_face_for(s))
 	spark.visible = hitlag > 0 and ((state == "Hitstun" and s.launch_pending) or state == "Rebound")
 	if spark.visible:
 		# A star burst on the side the hit came from, bigger and hotter for a stronger hit, turned a new way for each hit.
@@ -1558,7 +1687,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var t := float(s.frame)
 		model.position = Vector3(sin(t * 9.0) * amp, cos(t * 7.3) * amp * 0.5, 0)
 	else:
-		model.position = Vector3.ZERO
+		model.position = Vector3(lunge * float(s.facing), 0, 0)
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
@@ -1568,7 +1697,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var amount := clampf(charge / 60.0, 0.0, 1.0)
 		spark.visible = (s.frame / 3) % 2 == 0
 		spark.scale = Vector3.ONE * (0.4 + 0.9 * amount)
-		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount), 0, 0)
+		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
 			model.rotation.z = float(s.frame) * 0.4 * -float(s.facing)

@@ -34,6 +34,12 @@ const FACES := [
 ]
 ## What every face turns into while the fighter is being hit (a cosmetic event, never a sim input).
 const HURT := {"name": "hurt", "lid": 0.0, "mouth_w": 0.12, "mouth_h": 0.16, "mouth_tilt": 0.0, "brow": -16.0}
+## Faces every fighter pulls in action, whatever its own face (cosmetic, like the hurt face): a yell while attacking, gritted teeth while
+## straining (shielding, hanging on, charging a smash), a focused look while running and jumping, a grin when it wins.
+const ATTACK_FACE := {"name": "attack"}
+const EFFORT_FACE := {"name": "effort"}
+const FOCUS_FACE := {"name": "focus"}
+const HAPPY_FACE := {"name": "happy"}
 
 const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]

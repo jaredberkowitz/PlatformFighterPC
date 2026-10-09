@@ -20,7 +20,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "godot", "models", "blob_rig.glb"))
 FPS = 60
@@ -174,6 +174,17 @@ def build_meshes(rig):
         ball(bm, 0.08, (x * 0.74 - x * 0.15, -0.09, 0.76), (0.9, 1.3, 1.0), segments=14, rings=10)
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
 
+        # A rolled glove cuff just above the mitten: a flat disc square to the forearm, wider than the arm.
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=0.15, radius2=0.165, depth=0.08)
+        elbow = Vector((x * 0.66, -0.02, 0.95))
+        wrist = Vector((x * 0.74, -0.04, 0.8))
+        axis = (wrist - elbow).normalized()
+        rot = Vector((0.0, 0.0, 1.0)).rotation_difference(axis).to_matrix().to_4x4()
+        bmesh.ops.transform(bm, matrix=rot, verts=bm.verts)
+        bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.3, verts=bm.verts)
+        parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
+
         bm = bmesh.new()
         capsule(bm, (x * 0.26, 0.0, 0.64), 0.14, (x * 0.26, 0.0, 0.42), 0.125)
         parts["Thigh." + side] = to_object("Thigh." + side, bm, "thigh." + side, rig)
@@ -189,6 +200,21 @@ def build_meshes(rig):
             if v.co.z < 0.08:
                 v.co.z = 0.08 + (v.co.z - 0.08) * 0.15
         parts["Foot." + side] = to_object("Foot." + side, bm, "foot." + side, rig)
+
+        # A strap across the top of the shoe (in the outfit colour): a band of the shoe's own shape, a hair bigger. The ball is built with
+        # its rings running across the shoe (poles front and back), so the band's edges are clean.
+        bm = bmesh.new()
+        res = bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=28, radius=0.22 * 1.05)
+        bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=Matrix.Rotation(math.pi / 2.0, 3, "X"), verts=res["verts"])
+        for v in res["verts"]:
+            v.co.y *= 1.35
+            v.co.z *= 0.8
+            v.co += Vector((x * 0.26, -0.05, 0.17))
+            if v.co.z < 0.08:
+                v.co.z = 0.08 + (v.co.z - 0.08) * 0.15
+        off = [v for v in bm.verts if not (-0.21 < v.co.y < -0.1) or v.co.z < 0.13]
+        bmesh.ops.delete(bm, geom=off, context="VERTS")
+        parts["Strap." + side] = to_object("Strap." + side, bm, "foot." + side, rig)
 
         # Clothes: a sole under each shoe, and the shorts' legs over the top of each thigh.
         bm = bmesh.new()
@@ -254,11 +280,11 @@ def clip(rig, name, frames, poses):
     """`poses` maps a frame to a function that sets the pose; the clip is keyed at each of those frames."""
     global AMP
     if name.startswith("attack") or name in ("grab", "throw"):
-        AMP = 1.55
+        AMP = 1.65
     elif name.startswith(("sword_", "kick_")) or name == "blaster":
-        AMP = 1.4
-    elif name in ("walk", "run", "dash"):
-        AMP = 1.2
+        AMP = 1.5
+    elif name in ("walk", "run", "dash", "skid"):
+        AMP = 1.0
     elif name in ("jump", "fall", "hurt", "crouch", "shield", "roll", "knockdown"):
         AMP = 1.25
     else:
@@ -302,6 +328,64 @@ def walk_pose(phase, stride, bend, arm, lean, bob, elbow, twist):
     return f
 
 
+def periodic(table, t):
+    """Linear interpolation through `table` ([(phase, value), ...], phases in 0..1, sorted) around a loop, at phase `t`."""
+    t %= 1.0
+    for i, (p0, v0) in enumerate(table):
+        p1, v1 = table[(i + 1) % len(table)]
+        if p1 <= p0:
+            p1 += 1.0
+        tt = t if t >= p0 else t + 1.0
+        if p0 <= tt <= p1:
+            k = (tt - p0) / (p1 - p0)
+            k = k * k * (3.0 - 2.0 * k)  # ease in and out between the key poses
+            return v0 + (v1 - v0) * k
+    return table[0][1]
+
+
+# One leg through a running stride, by its own phase: contact (heel down in front), down (the weight lands, knee bends), push off (leg
+# straight behind), the heel kicks right up behind, then the knee drives high in front and the leg reaches out for the next contact.
+RUN_THIGH = [(0.0, 42.0), (0.12, 22.0), (0.32, -38.0), (0.46, -52.0), (0.6, -18.0), (0.78, 82.0), (0.9, 70.0)]
+RUN_SHIN = [(0.0, -12.0), (0.12, -40.0), (0.32, -14.0), (0.46, -70.0), (0.6, -128.0), (0.78, -112.0), (0.9, -34.0)]
+RUN_FOOT = [(0.0, 12.0), (0.12, -4.0), (0.32, -26.0), (0.46, -44.0), (0.6, -30.0), (0.78, 24.0), (0.9, 20.0)]
+
+
+def run_pose(phase, lean=24.0, stride=1.0, arms=1.0, bounce=0.085):
+    """A big, bouncy cartoon run (think of a plumber's sprint): a strong lean, high knees and heels kicked up behind, arms pumping wide
+    with bent elbows opposite the legs, the body dropping as each foot lands and springing up between steps, shoulders twisting against
+    the hips and the head nodding with every step."""
+    def f(rig):
+        for side, offset in (("L", 0.0), ("R", 0.5)):
+            leg = phase + offset
+            pose(rig, "thigh." + side, fwd=stride * periodic(RUN_THIGH, leg), out=4.0)
+            pose(rig, "shin." + side, fwd=periodic(RUN_SHIN, leg))
+            pose(rig, "foot." + side, fwd=periodic(RUN_FOOT, leg))
+            # The arm swings with the other leg: forward as that leg drives forward.
+            other = leg + 0.5
+            swing = math.cos(other * 2.0 * math.pi)  # +1 when the other leg lands in front
+            forward = max(0.0, swing)
+            pose(rig, "armU." + side, fwd=arms * (-58.0 * swing + 8.0), out=16.0 + 10.0 * forward)
+            pose(rig, "armL." + side, fwd=arms * (62.0 + 46.0 * forward))
+            pose(rig, "hand." + side, fwd=10.0 * swing)
+        # Two steps a cycle: lowest just after each landing (0.12, 0.62), highest in the flight between them.
+        step = math.cos((phase - 0.37) * 4.0 * math.pi)
+        pose(rig, "hips", lift=bounce * step - bounce * 0.3, twist=-11.0 * math.sin(phase * 2.0 * math.pi))
+        pose(rig, "spine", fwd=lean - 5.0 * step, twist=15.0 * math.sin(phase * 2.0 * math.pi))
+        pose(rig, "head", fwd=-lean * 0.45 + 7.0 * step, twist=-9.0 * math.sin(phase * 2.0 * math.pi))
+    return f
+
+
+def amped(fn, k):
+    """`fn`'s pose pushed `k` times further (for anticipation and overshoot keys)."""
+    def f(rig):
+        global AMP
+        keep = AMP
+        AMP = keep * k
+        fn(rig)
+        AMP = keep
+    return f
+
+
 # ---- The long-limbed variant (the brawler): legs and arms stretched, the rest of the body lifted to match -------------------------------
 LONG = "--long" in sys.argv
 KL = 1.5      # legs, between the ankle and the hip
@@ -330,12 +414,14 @@ def lengthen_limbs(rig, parts):
                 co = v.co.copy()
                 if name.startswith(("Thigh", "Shin")):
                     co.z = leg_z(co.z)
-                elif name.startswith("Foot"):
+                elif name.startswith(("Foot", "Sole", "Strap")):
                     pass
+                elif name.startswith("ShortsLeg"):
+                    co.z = leg_z(co.z)
                 elif name.startswith(("ArmU", "ArmL", "Sleeve")):
                     co.z += SHIFT
                     co += along * ((co - shoulder).dot(along) * (KA - 1.0))
-                elif name.startswith("Hand"):
+                elif name.startswith(("Hand", "Cuff")):
                     co.z += SHIFT
                     co += (Vector((x * 0.74, -0.04, 0.72 + SHIFT)) - shoulder) * (KA - 1.0)
                 else:
@@ -394,10 +480,30 @@ def main() -> None:
 
     n = 8
     clip(rig, "walk", 40, {int(40 * i / n): walk_pose(i / n, 34.0, 46.0, 28.0, 5.0, 0.05, 26.0, 5.0) for i in range(n + 1)})
-    n = 8
-    clip(rig, "run", 20, {int(20 * i / n): walk_pose(i / n, 62.0, 108.0, 64.0, 20.0, 0.12, 88.0, 9.0) for i in range(n + 1)})
-    n = 8
-    clip(rig, "dash", 16, {int(16 * i / n): walk_pose(i / n, 66.0, 90.0, 42.0, 28.0, 0.07, 72.0, 6.0) for i in range(n + 1)})
+    # The run: a key every other frame so the snappy gait survives interpolation.
+    clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21, 2)})
+    # The initial dash: the same stride, launched lower and further forward, arms flung harder.
+    clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17, 2)})
+
+    # A skid: braking out of a run to turn around. Leaning back hard on a planted front heel, the back knee bent low, arms flung back and
+    # up for balance; a little wobble so it is alive.
+    def skid(k):
+        def f(rig):
+            w = math.sin(k * 2.0 * math.pi)
+            pose(rig, "hips", lift=-0.12)
+            pose(rig, "spine", fwd=-22.0 + 3.0 * w, twist=6.0 * w)
+            pose(rig, "head", fwd=10.0)
+            pose(rig, "thigh.L", fwd=52.0, out=6.0)
+            pose(rig, "shin.L", fwd=-6.0)
+            pose(rig, "foot.L", fwd=34.0)
+            pose(rig, "thigh.R", fwd=-8.0, out=6.0)
+            pose(rig, "shin.R", fwd=-78.0)
+            for side, sign in (("L", 1.0), ("R", -1.0)):
+                pose(rig, "armU." + side, fwd=-70.0 + 14.0 * w * sign, out=60.0)
+                pose(rig, "armL." + side, fwd=20.0)
+        return f
+
+    clip(rig, "skid", 12, {0: skid(0.0), 3: skid(0.25), 6: skid(0.5), 9: skid(0.75), 12: skid(1.0)})
 
     def jump(rig):
         for side in "LR":
@@ -476,8 +582,9 @@ def main() -> None:
             return f
         return {
             0: f_factory(10.0, 40.0, 2.0, 0.0, 0.0),
-            21: f_factory(wind, 70.0, -8.0, -22.0, -14.0),
+            21: amped(f_factory(wind, 70.0, -8.0, -22.0, -14.0), 1.12),
             33: f_factory(strike, 8.0, 14.0, 26.0, 22.0),
+            38: amped(f_factory(strike, 8.0, 14.0, 26.0, 22.0), 1.12),
             45: f_factory(strike - 10.0, 12.0, 12.0, 20.0, 20.0),
             60: f_factory(10.0, 40.0, 2.0, 0.0, 0.0),
         }
@@ -506,7 +613,7 @@ def main() -> None:
                 pose(rig, "armL." + side, fwd=30.0)
         return f
 
-    clip(rig, "attack_kick", 60, {0: kick(2), 21: kick(0), 33: kick(1), 45: kick(1), 60: kick(2)})
+    clip(rig, "attack_kick", 60, {0: kick(2), 21: amped(kick(0), 1.12), 33: kick(1), 38: amped(kick(1), 1.1), 45: kick(1), 60: kick(2)})
 
     # ---- Aerials, smashes and the rest. The weapon arm is aimed by the game (it follows the blade), so these set the body: torso, head,
     # legs and the other arm. Move clips share one timeline: wind-up to frame 21, strike at 33, hold to 45, recover by 60.
@@ -522,7 +629,8 @@ def main() -> None:
         pose(rig, "shin.R", fwd=-8.0 - max(0.0, -back) * 0.5)
 
     def move(name, wind, strike, hold):
-        clip(rig, name, 60, {0: hold(0), 21: wind, 33: strike, 45: hold(1), 60: hold(0)})
+        # Wind-up pushed a little past its pose (anticipation), the strike, an overshoot past it (follow-through), then the settle.
+        clip(rig, name, 60, {0: hold(0), 21: amped(wind, 1.12), 33: strike, 38: amped(strike, 1.12), 45: hold(1), 60: hold(0)})
 
     # Forward air: the reference pose is a mid-air crouch, knees pulled up high, the attacking arm reaching up and forward and then brought
     # down through the sweep in front while the torso curls over it. Lean back with the arm cocked, then curl forward with the knees tucked.
@@ -787,7 +895,7 @@ def main() -> None:
     # Forward smash: the blade raised high behind, then brought down in front in one big committed swing.
     move_of("sword_fsmash",
             {"hips": -0.06, "spine": (-18.0, -42.0), "head": (10.0, 20.0), "stance": (28.0, -34.0), "arms": (-30.0, 22.0)},
-            {"hips": -0.14, "spine": (38.0, 30.0), "head": (-14.0, -16.0), "stance": (58.0, -46.0), "shin.L": (-34.0,), "arms": (40.0, 10.0)},
+            {"hips": -0.14, "spine": (28.0, 30.0), "head": (-8.0, -16.0), "stance": (58.0, -46.0), "shin.L": (-34.0,), "arms": (40.0, 10.0)},
             {"hips": -0.06, "spine": (16.0, 14.0), "stance": (30.0, -24.0)})
     # Up smash: crouch, then spring up stretched tall as the blade goes straight up.
     move_of("sword_usmash",
@@ -885,7 +993,8 @@ def main() -> None:
         pose(rig, "spine", fwd=22.0, twist=30.0)
         pose(rig, "head", fwd=-12.0)
 
-    clip(rig, "throw", 60, {0: grab_pose, 21: throw_wind, 33: throw_strike, 45: throw_strike, 60: grab_pose})
+    clip(rig, "throw", 60, {0: grab_pose, 21: amped(throw_wind, 1.12), 33: throw_strike, 38: amped(throw_strike, 1.1), 45: throw_strike,
+                             60: grab_pose})
 
     # Rolls and dodges: curled up. A knockdown: flat and limp. A ledge hang: arms up, legs dangling.
     def roll_pose(rig):

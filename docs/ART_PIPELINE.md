@@ -138,3 +138,26 @@ The look now comes from lighting, shaders and authored artwork rather than from 
   colours can be swapped; a texture is made once per drawing and colour.
 - **Checking**: `godot --path godot --script res://tests/lineup_shot.gd -- --out=<folder>` photographs the four default fighters close up
   (`lineup.png`) and every face and shirt (`lineup_faces.png`).
+
+
+## Animated run, bigger attacks and expressions (sixth pass)
+
+- **The run** (`run_pose` in the Blender script) is a key-pose cartoon sprint instead of a sine wave: a strong forward lean, the knee driven
+  high in front, the heel kicked up behind, arms pumping wide with bent elbows, the body dropping as each foot lands and springing up between
+  steps, shoulders twisting against the hips and the head nodding with each step. The dash uses the same stride launched lower and harder.
+  In the game each footfall squashes the body a little (and each stride stretches it) in step with the clip, and kicks up a puff of dust.
+  The sword and the maul are carried swept back behind the runner while the arm pumps.
+- **The skid** (`skid` clip, for a turn out of a run): leaning back on a planted heel, arms flung back, with a stream of dust. The fighter keeps
+  facing the way it was running until the skid ends (the simulation turns it at once; this is display only).
+- **Attacks**: every move clip winds up past its pose (anticipation, x1.12), strikes, overshoots the strike (follow-through, x1.12) and
+  settles; attack clips play larger overall. In the game the body is drawn back in the late wind-up and thrown forward through the active
+  frames (a lunge), on top of the squash and stretch it already had.
+- **Expressions in action** (`godot/art/faces/`): `attack` (a fierce yell, from the start of the swing to just after the hit), `effort`
+  (gritted teeth and a sweat drop: shielding, hanging from a ledge, charging a smash, holding a grab), `focus` (running, dashing, jumping,
+  dodging) and `happy` (a closed-eyed grin, on the results screen). The fighter's own face comes back when it is idle; blinks only show on
+  the calm faces.
+- **Details**: rolled glove cuffs at the wrists, a strap across each shoe in the outfit colour, and the hat on a spring: it lags behind a
+  sudden start or stop and bounces on landings and jumps.
+- **Fixed on the long-limbed rig**: the soles and the shorts' legs now stay on the feet and thighs (they were lifted with the body).
+- **Checking motion**: `godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>` renders a contact
+  sheet, frame by frame, of the run, dash, skid or any move (`--what=fsmash`, `nair`, ...).
