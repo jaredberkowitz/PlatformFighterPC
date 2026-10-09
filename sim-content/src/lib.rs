@@ -308,7 +308,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
 }
 
 /// The backdrops the game knows how to draw (see `godot/scripts/stage_art.gd`).
-pub const BACKDROPS: [&str; 4] = ["meadow", "grove", "sunset", "night"];
+pub const BACKDROPS: [&str; 6] = ["meadow", "grove", "sunset", "night", "ocean", "city"];
 
 fn validate_look(look: &sim_core::content::StageLook, errors: &mut Vec<String>) {
     if !BACKDROPS.contains(&look.backdrop.as_str()) {

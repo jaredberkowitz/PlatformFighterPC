@@ -29,7 +29,7 @@ pub const BLURBS: [&str; COUNT as usize] = [
 ];
 
 /// The backdrop each stage is drawn with (presentation only; the stage editor can change it).
-pub const BACKDROPS: [&str; COUNT as usize] = ["meadow", "sunset", "meadow", "night", "grove"];
+pub const BACKDROPS: [&str; COUNT as usize] = ["meadow", "sunset", "ocean", "city", "grove"];
 
 /// How stage `index` looks.
 pub fn look(index: u8) -> sim_core::content::StageLook {
