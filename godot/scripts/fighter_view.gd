@@ -30,6 +30,7 @@ const TOON_SHADER := preload("res://shaders/toon.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
+const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 
 
@@ -136,6 +137,7 @@ static func release_caches() -> void:
 	_rig_templates.clear()
 	_parts.clear()
 	_mat_cache.clear()
+	_limb_cache.clear()
 	_mesh_cache.clear()
 	_outline_mat = null
 	SvgArt.release()
@@ -209,13 +211,21 @@ func _build_rig(skin: Material) -> bool:
 	var white := toon(Color(1, 1, 1))
 	var shoe := toon(Color(0.27, 0.2, 0.3))
 	var shirt := _shirt_material()
-	var sleeve := _sleeve_material()
 	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
-	var shorts := toon(loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42))
+	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42)
+	var shorts := toon(shorts_colour)
+	var skin_colour: Color = loadout.body_color()
+	# Arms and legs carry their clothes as painted bands (shaders/limb.gdshader): a sleeve from the shoulder when there is a shirt; the
+	# shorts' leg and a white sock on each leg.
+	var arm := _limb_material(skin_colour, _sleeve_colour(), 0.36, Color.WHITE, 2.0)
+	var leg := _limb_material(skin_colour, shorts_colour, 0.3, Color.WHITE, 0.62)
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
-		if part.begins_with("Hand") or part.begins_with("Shin") or part.begins_with("Sole") or part.begins_with("Collar") \
-				or part.begins_with("Cuff"):
+		if part.begins_with("Arm"):
+			mi.material_override = arm
+		elif part.begins_with("Leg"):
+			mi.material_override = leg
+		elif part.begins_with("Hand") or part.begins_with("Sole") or part.begins_with("Collar") or part.begins_with("Cuff"):
 			mi.material_override = white
 		elif part.begins_with("Strap"):
 			mi.material_override = toon(loadout.accent_color())
@@ -227,10 +237,6 @@ func _build_rig(skin: Material) -> bool:
 			face_mesh = mi
 		elif part.begins_with("Body") and shirt != null:
 			mi.material_override = shirt
-		elif part.begins_with("Sleeve"):
-			# Sleeves show only with a shirt; open-ended, so both sides of the cloth are drawn.
-			mi.visible = sleeve != null
-			mi.material_override = sleeve
 		else:
 			mi.material_override = skin
 		meshes.append(mi)
@@ -432,11 +438,11 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		else:
 			# An arm reaches almost anywhere: lean into low swings in front, a little back from ones overhead or behind.
 			if phi > 0.0 and phi < 80.0:
-				target_bend = (80.0 - phi) * 0.18
+				target_bend = (80.0 - phi) * 0.35
 			elif phi > 140.0:
-				target_bend = -(phi - 140.0) * 0.2
+				target_bend = -(phi - 140.0) * 0.4
 			elif phi < -60.0:
-				target_bend = (-60.0 - phi) * 0.15
+				target_bend = (-60.0 - phi) * 0.3
 		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
 		target_look = clampf(rise * 0.5, -20.0, 30.0)
@@ -851,15 +857,35 @@ func _shirt_material() -> Material:
 	return null
 
 
-## The short sleeves over the upper arms, in the shirt's main colour (no ink outline: they are open tubes, and the outline of the
-## inside would show at the cuff).
-func _sleeve_material() -> Material:
+## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.
+func _sleeve_colour() -> Color:
 	match loadout.shirt:
 		1:
-			return toon(SHIRT_WHITE, false)
+			return SHIRT_WHITE
 		2, 3, 4:
-			return toon(loadout.accent_color(), false)
-	return null
+			return loadout.accent_color()
+	return Color(0, 0, 0, -1)
+
+
+static var _limb_cache := {}
+
+
+## The banded limb material (see shaders/limb.gdshader), with the ink outline. A `top` with negative alpha means no top band.
+static func _limb_material(skin_c: Color, top_c: Color, top_end: float, bottom_c: Color, bottom_start: float) -> ShaderMaterial:
+	var key := "%s%s%s%s%s" % [skin_c.to_html(), top_c, top_end, bottom_c.to_html(), bottom_start]
+	if _limb_cache.has(key):
+		return _limb_cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = LIMB_SHADER
+	m.set_shader_parameter("skin", skin_c)
+	if top_c.a >= 0.0:
+		m.set_shader_parameter("top", Color(top_c.r, top_c.g, top_c.b, 1.0))
+		m.set_shader_parameter("top_end", top_end)
+	m.set_shader_parameter("bottom", bottom_c)
+	m.set_shader_parameter("bottom_start", bottom_start)
+	m.next_pass = toon(Color.WHITE).next_pass
+	_limb_cache[key] = m
+	return m
 
 
 var last_expression := {}
@@ -1123,6 +1149,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
+	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
+	if state == "Attack" and s.move_tip != Vector3.ZERO:
+		var tip: Vector3 = s.move_tip
+		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
+		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
+		target_lean += swing * _reach_weight(s)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
@@ -1130,9 +1163,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var last: float = s.move_timing[2]
 		var f: float = s.state_frame
 		if f < first and f >= first * 0.5:
-			target_lunge = -0.08
+			target_lunge = -0.12
 		elif f >= first and f <= last + 2.0:
-			target_lunge = 0.2
+			target_lunge = 0.32
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -1372,6 +1405,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# then runs from the hand to the same tip.
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
+	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
+	if attacking and _cls(s) == 1:
+		arm_k = _reach_weight(s)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder

@@ -112,13 +112,17 @@ func _budget() -> void:
 	v.set_expression(Loadout.FACES[0])
 	v._show_face()
 	check(v.shown_face == "blink" and v.face_mat.get_shader_parameter("face_tex") is Texture2D, "the blink drawing loads")
-	# Every shirt dresses the body (prints load) and shows its sleeves; no shirt hides them.
+	# Every shirt dresses the body (prints load) and has sleeves; no shirt has none.
 	for s in Loadout.SHIRTS.size():
 		var l := Loadout.default_for(0)
 		l.shirt = s
 		v.rebuild(l)
-		var sleeves := v.meshes.filter(func(m): return str(m.name).begins_with("Sleeve"))
-		check(sleeves.size() == 2 and sleeves.all(func(m): return m.visible == (s != 0)), "shirt %s sleeves" % Loadout.SHIRTS[s])
+		# Sleeves are a band painted on the arms (shaders/limb.gdshader): there with a shirt, not without.
+		var arms := v.meshes.filter(func(m): return str(m.name).begins_with("Arm"))
+		var banded := arms.all(func(m):
+			var end = m.material_override.get_shader_parameter("top_end")
+			return end != null and float(end) > 0.0)
+		check(arms.size() == 2 and banded == (s != 0), "shirt %s sleeves" % Loadout.SHIRTS[s])
 		var mat = v._shirt_material()
 		check((mat == null) == (s == 0), "shirt %s material" % Loadout.SHIRTS[s])
 		if s >= 3:

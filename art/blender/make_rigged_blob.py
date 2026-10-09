@@ -122,6 +122,24 @@ def tube(bm, points, radii, segments=22, per_span=8, bulge=None):
     end = [(samples[-1][0] + samples[-1][1] * samples[-1][2] * math.sin(math.pi / 2 * j / cap), samples[-1][1],
             samples[-1][2] * math.cos(math.pi / 2 * j / cap)) for j in range(1, cap + 1)]
     chain = start + samples + end
+    # How far along the joint chain each ring is (0 at the first joint, 1 at the last; the caps run a little past), for the UVs.
+    lengths = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]
+    total = sum(lengths)
+
+    def along(c):
+        best, best_s, acc = None, 0.0, 0.0
+        for i in range(len(pts) - 1):
+            d = pts[i + 1] - pts[i]
+            t = (c - pts[i]).dot(d) / d.length_squared
+            tc = max(0.0, min(1.0, t))
+            dist = (pts[i] + d * tc - c).length
+            open_end = (i == 0 and t < 0) or (i == len(pts) - 2 and t > 1)
+            sv = acc + (t if open_end else tc) * lengths[i]
+            if best is None or dist < best - 1e-6:
+                best, best_s = dist, sv
+            acc += lengths[i]
+        return best_s / total
+    ring_v = [along(c) for c, _, _ in chain]
     up = Vector((0.0, 1.0, 0.0))
     for c, t, r in chain:
         side = t.cross(up)
@@ -134,10 +152,14 @@ def tube(bm, points, radii, segments=22, per_span=8, bulge=None):
             a = 2 * math.pi * k / segments
             ring.append(bm.verts.new(c + (side * math.cos(a) + other * math.sin(a)) * max(r, 0.002)))
         rings.append(ring)
+    uv = bm.loops.layers.uv.verify()
     for i in range(len(rings) - 1):
         for k in range(segments):
             k1 = (k + 1) % segments
-            bm.faces.new((rings[i][k], rings[i][k1], rings[i + 1][k1], rings[i + 1][k]))
+            face = bm.faces.new((rings[i][k], rings[i][k1], rings[i + 1][k1], rings[i + 1][k]))
+            # u round the limb, v along it (1 - v, so the game reads 0 at the shoulder or hip and 1 at the wrist or ankle).
+            for loop, (ri, kk) in zip(face.loops, ((i, k), (i, k + 1), (i + 1, k + 1), (i + 1, k))):
+                loop[uv].uv = (kk / segments, 1.0 - ring_v[ri])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 
 
@@ -228,24 +250,6 @@ def waist_weights(co):
     return {"hips": 1.0 - k, "spine": k}
 
 
-def shorts_leg_weights(side):
-    def f(co):
-        k = _smooth(0.56, 0.72, co.z) * 0.7
-        return {"thigh." + side: 1.0 - k, "hips": k}
-    return f
-
-
-def sleeve_weights(x, side):
-    shoulder = Vector((x * 0.47, 0.0, 1.18))
-    elbow = Vector((x * 0.66, -0.02, 0.95))
-    axis = (elbow - shoulder).normalized()
-
-    def f(co):
-        k = (1.0 - _smooth(-0.04, 0.12, (co - shoulder).dot(axis))) * 0.45
-        return {"armU." + side: 1.0 - k, "spine": k}
-    return f
-
-
 ## How much thicker the limbs are than the first model's.
 LIMB = 1.32
 
@@ -293,30 +297,20 @@ def build_meshes(rig):
     T = LIMB
     for side, x in (("L", -1.0), ("R", 1.0)):
         # The arm: one smoothly skinned tube from the shoulder through the elbow to the wrist (a little fuller at the upper arm and the
-        # forearm), so it bends like an arm instead of two capsules hinging.
+        # forearm), so it bends like an arm instead of two capsules hinging. The shirt sleeve is a band the game paints on it from the
+        # shoulder (godot/shaders/limb.gdshader), so nothing can clip through it.
         arm_pts = [(x * 0.47, 0.0, 1.18), (x * 0.66, -0.02, 0.95), (x * 0.75, -0.04, 0.76)]
         bm = bmesh.new()
         tube(bm, arm_pts, [0.168, 0.15, 0.135], bulge=lambda t, i: 0.012 * math.sin(math.pi * t))
         parts["Arm." + side] = to_object_weighted("Arm." + side, bm, chain_weights(arm_pts, ["armU." + side, "armL." + side], 0.06), rig)
 
-        # A short shirt sleeve: a wider capsule over the top of the upper arm, open at the bottom, so the arm comes out of it.
+        # A fist: a round glove clenched, the four curled fingers a row of knuckle bumps underneath, the thumb wrapped across the front.
         bm = bmesh.new()
-        capsule(bm, (x * 0.48, 0.0, 1.18), 0.17 * T, (x * 0.62, -0.015, 1.02), 0.16 * T)
-        cut = [v for v in bm.verts if (v.co - Vector((x * 0.62, -0.015, 1.02))).dot(Vector((x * 0.14, -0.015, -0.16)).normalized()) > 0.02]
-        bmesh.ops.delete(bm, geom=cut, context="VERTS")
-        parts["Sleeve." + side] = to_object_weighted("Sleeve." + side, bm, sleeve_weights(x, side), rig)
-
-        # A cartoon glove: a puffy palm, four stubby fingers hanging from it (curled a little toward the body) and a thumb on the front,
-        # each a smooth tube; the fingers fan slightly so they read as separate.
-        bm = bmesh.new()
-        palm = Vector((x * 0.775, -0.04, 0.65))
-        ball(bm, 0.2, palm, (0.78, 1.0, 1.0), segments=32, rings=20)
-        for k, fy in enumerate((-0.13, -0.045, 0.04, 0.12)):
-            base = Vector((x * 0.79, -0.04 + fy, 0.52))
-            mid = base + Vector((-x * 0.015, fy * 0.15, -0.09))
-            tip = mid + Vector((-x * 0.05, fy * 0.1, -0.07 + 0.01 * abs(k - 1.5)))
-            tube(bm, [base, mid, tip], [0.058, 0.055, 0.05], segments=14, per_span=4)
-        tube(bm, [(x * 0.7, -0.17, 0.66), (x * 0.66, -0.24, 0.6), (x * 0.66, -0.27, 0.52)], [0.066, 0.062, 0.056], segments=14,
+        palm = Vector((x * 0.775, -0.04, 0.66))
+        ball(bm, 0.205, palm, (0.9, 1.0, 0.92), segments=32, rings=20)
+        for fy in (-0.135, -0.045, 0.045, 0.135):
+            ball(bm, 0.082, (x * 0.8, -0.04 + fy, 0.53), (1.0, 0.95, 0.9), segments=16, rings=10)
+        tube(bm, [(x * 0.69, -0.17, 0.68), (x * 0.72, -0.24, 0.6), (x * 0.8, -0.22, 0.55)], [0.07, 0.066, 0.06], segments=14,
              per_span=4)
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
 
@@ -331,19 +325,14 @@ def build_meshes(rig):
         bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.62, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
-        # The leg: one smoothly skinned tube from the hip through the knee into the shoe, with a little calf, and a sock over the lower
-        # leg skinned the same way (so the knee bends round, and the sock moves with the leg).
+        # The leg: one smoothly skinned tube from the hip through the knee into the shoe, with a little calf; the shorts' leg and the sock
+        # are bands the game paints on it, so they bend with it and never clip.
         leg_pts = [(x * 0.26, 0.0, 0.66), (x * 0.26, 0.0, 0.42), (x * 0.26, -0.01, 0.22)]
         leg_w = chain_weights(leg_pts, ["thigh." + side, "shin." + side], 0.06)
         calf = lambda t, i: 0.014 * math.sin(math.pi * min(1.0, t * 1.6)) if i == 1 else 0.0
         bm = bmesh.new()
         tube(bm, leg_pts, [0.185, 0.165, 0.155], bulge=calf)
         parts["Leg." + side] = to_object_weighted("Leg." + side, bm, leg_w, rig)
-        bm = bmesh.new()
-        sock_pts = [(x * 0.26, 0.0, 0.38), (x * 0.26, -0.01, 0.22)]
-        tube(bm, sock_pts, [0.168 + 0.012, 0.155 + 0.012], segments=22, per_span=6,
-             bulge=lambda t, i: 0.014 * math.sin(math.pi * min(1.0, (t * 0.4 + 0.1) * 1.6)))
-        parts["ShinSock." + side] = to_object_weighted("ShinSock." + side, bm, leg_w, rig)
 
         # A chunky shoe: a flat sole and a rounded toe cap.
         bm = bmesh.new()
@@ -368,13 +357,10 @@ def build_meshes(rig):
         bmesh.ops.delete(bm, geom=off, context="VERTS")
         parts["Strap." + side] = to_object("Strap." + side, bm, "foot." + side, rig)
 
-        # Clothes: a sole under each shoe, and the shorts' legs over the top of each thigh.
+        # A sole under each shoe.
         bm = bmesh.new()
         ball(bm, 0.255, (x * 0.26, -0.07, 0.085), (1.02, 1.37, 0.18), segments=28, rings=10)
         parts["Sole." + side] = to_object("Sole." + side, bm, "foot." + side, rig)
-        bm = bmesh.new()
-        capsule(bm, (x * 0.26, 0.0, 0.66), 0.165 * T, (x * 0.26, 0.0, 0.52), 0.155 * T)
-        parts["ShortsLeg." + side] = to_object_weighted("ShortsLeg." + side, bm, shorts_leg_weights(side), rig)
 
     # The shorts: the bottom of the body, a little bigger than it, cut off at the waist.
     bm = bmesh.new()
@@ -432,9 +418,9 @@ def clip(rig, name, frames, poses):
     """`poses` maps a frame to a function that sets the pose; the clip is keyed at each of those frames."""
     global AMP
     if name.startswith("attack") or name in ("grab", "throw"):
-        AMP = 1.65
+        AMP = 1.85
     elif name.startswith(("sword_", "kick_")) or name == "blaster":
-        AMP = 1.5
+        AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
     elif name in ("jump", "fall", "hurt", "crouch", "shield", "roll", "knockdown"):

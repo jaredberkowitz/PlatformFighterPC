@@ -260,3 +260,10 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   shorts blend from the hips to the spine across the waist (the same way, so their edges stay together), the shorts' legs from the hips
   into the thighs, the sleeves from the chest into the upper arms.
 - A kicking leg is aimed a little toward the camera, so on the turned body it passes in front of the torso rather than through it.
+- **No more clipping clothes**: the separate sleeve, shorts-leg and sock pieces are gone. Arms and legs carry UVs along their length (0 at the
+  shoulder or hip, 1 at the wrist or ankle) and `shaders/limb.gdshader` paints the clothing on as bands with an ink hem line: a sleeve from
+  the shoulder (with a shirt), the shorts' leg from the hip and a white sock below the knee. They bend exactly with the limb.
+- **Fists**: the gloves are clenched, with the curled fingers as a row of knuckles and the thumb across the front.
+- **Bigger swings**: attack clips play larger (x1.85 for punches and kicks, x1.75 for sword moves), the whole body pitches with each hit
+  (into a hit in front or below, arching back under one overhead, curling forward away from one behind), the lunge is stronger, the torso
+  bends twice as much toward an arm's hit, and a punch reaches out with the wind-up and comes home in the recovery like a kick.
