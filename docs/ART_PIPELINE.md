@@ -248,3 +248,15 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   yellow pulse while charging a smash.
 - **Shield** (`shaders/shield.gdshader`): a bubble that is clear in the middle with a bright fresnel rim and a slight pulse, tinted by its
   health as before.
+
+
+## Skinned limbs, real gloves, clothing that bends (twelfth pass)
+
+- **Arms and legs are single smoothly skinned tubes** (`tube` and `chain_weights` in the Blender script): shoulder to wrist and hip to ankle,
+  fuller at the upper arm, forearm and calf, weighted across the elbow and knee so a bend stays round like flesh instead of two capsules
+  hinging (the elbow and knee balls are gone). A sock covers the lower leg, skinned the same way.
+- **Cartoon gloves**: a puffy palm, four stubby fingers curled a little toward the body and a thumb, each a smooth tube.
+- **Clothing skinned across the joints it covers**, so it bends with the body instead of slicing through the next piece: the shirt and the
+  shorts blend from the hips to the spine across the waist (the same way, so their edges stay together), the shorts' legs from the hips
+  into the thighs, the sleeves from the chest into the upper arms.
+- A kicking leg is aimed a little toward the camera, so on the turned body it passes in front of the torso rather than through it.

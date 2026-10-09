@@ -99,6 +99,107 @@ def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=F
     return res["verts"]
 
 
+def tube(bm, points, radii, segments=22, per_span=8, bulge=None):
+    """A smooth limb: one continuous tube through `points` (a joint chain) with the radius running through `radii`, round caps at both
+    ends. `bulge(t, span)` can add to the radius along a span (a calf, a forearm). Returns nothing; the verts are added to `bm`."""
+    pts = [Vector(q) for q in points]
+    rings = []
+    # Samples along the chain (centre, tangent, radius).
+    samples = []
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        for k in range(per_span + (1 if i == len(pts) - 2 else 0)):
+            t = k / per_span
+            c = a.lerp(b, t)
+            r = radii[i] + (radii[i + 1] - radii[i]) * t
+            if bulge:
+                r += bulge(t, i)
+            samples.append((c, (b - a).normalized(), r))
+    # Round caps: a few extra rings shrinking to a point past each end.
+    cap = 5
+    start = [(samples[0][0] - samples[0][1] * samples[0][2] * math.sin(math.pi / 2 * (1 - j / cap)), samples[0][1],
+              samples[0][2] * math.cos(math.pi / 2 * (1 - j / cap))) for j in range(cap)]
+    end = [(samples[-1][0] + samples[-1][1] * samples[-1][2] * math.sin(math.pi / 2 * j / cap), samples[-1][1],
+            samples[-1][2] * math.cos(math.pi / 2 * j / cap)) for j in range(1, cap + 1)]
+    chain = start + samples + end
+    up = Vector((0.0, 1.0, 0.0))
+    for c, t, r in chain:
+        side = t.cross(up)
+        if side.length < 1e-4:
+            side = t.cross(Vector((1.0, 0.0, 0.0)))
+        side.normalize()
+        other = t.cross(side).normalized()
+        ring = []
+        for k in range(segments):
+            a = 2 * math.pi * k / segments
+            ring.append(bm.verts.new(c + (side * math.cos(a) + other * math.sin(a)) * max(r, 0.002)))
+        rings.append(ring)
+    for i in range(len(rings) - 1):
+        for k in range(segments):
+            k1 = (k + 1) % segments
+            bm.faces.new((rings[i][k], rings[i][k1], rings[i + 1][k1], rings[i + 1][k]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
+
+def chain_weights(points, bones, blend):
+    """Smooth skinning along a joint chain: a vertex goes to the bone of the span it is nearest, blending into the next bone over `blend`
+    either side of each joint, so a bent elbow or knee stays round."""
+    pts = [Vector(q) for q in points]
+    lengths = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]
+    joints = [sum(lengths[:i + 1]) for i in range(len(lengths) - 1)]
+
+    def arclen(co):
+        best, best_s = None, 0.0
+        acc = 0.0
+        for i in range(len(pts) - 1):
+            a, b = pts[i], pts[i + 1]
+            d = b - a
+            t = max(0.0, min(1.0, (co - a).dot(d) / d.length_squared))
+            dist = (a + d * t - co).length
+            if best is None or dist < best:
+                best, best_s = dist, acc + t * lengths[i]
+            acc += lengths[i]
+        return best_s
+
+    def weights(co):
+        s = arclen(co)
+        w = {bones[0]: 1.0}
+        for j, sj in enumerate(joints):
+            k = (s - (sj - blend)) / (2 * blend)
+            k = max(0.0, min(1.0, k))
+            k = k * k * (3 - 2 * k)
+            if k <= 0.0:
+                break
+            w = {b: v * (1 - k) for b, v in w.items()}
+            w[bones[j + 1]] = w.get(bones[j + 1], 0.0) + k
+        return w
+    return weights
+
+
+def to_object_weighted(name, bm, weights, rig):
+    """Like `to_object`, but each vertex is weighted to several bones by `weights(co)` ({bone: weight})."""
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    bm.normal_update()
+    bm.to_mesh(mesh)
+    bm.free()
+    for poly in mesh.polygons:
+        poly.use_smooth = True
+    groups = {}
+    for v in mesh.vertices:
+        for bone, w in weights(v.co).items():
+            if w <= 0.0:
+                continue
+            if bone not in groups:
+                groups[bone] = obj.vertex_groups.new(name=bone)
+            groups[bone].add([v.index], w, "REPLACE")
+    mod = obj.modifiers.new("Armature", "ARMATURE")
+    mod.object = rig
+    obj.parent = rig
+    return obj
+
+
 def capsule(bm, p0, r0, p1, r1):
     """A tapered capsule between two points: the convex hull of a ball at each end."""
     before = set(bm.verts)
@@ -114,6 +215,37 @@ FACE_SIZE = 1.155
 FACE_CENTRE = 1.585
 
 
+# Clothing skinned across the joints it covers, so it bends with the body instead of slicing through the next piece: the shirt and the
+# shorts blend from the hips to the spine across the waist (both the same way, so their edges stay together), the shorts' legs from the
+# hips into the thighs, and the sleeves from the chest into the upper arms at the shoulder.
+def _smooth(a, b, v):
+    k = max(0.0, min(1.0, (v - a) / (b - a)))
+    return k * k * (3 - 2 * k)
+
+
+def waist_weights(co):
+    k = _smooth(0.74, 0.92, co.z)
+    return {"hips": 1.0 - k, "spine": k}
+
+
+def shorts_leg_weights(side):
+    def f(co):
+        k = _smooth(0.56, 0.72, co.z) * 0.7
+        return {"thigh." + side: 1.0 - k, "hips": k}
+    return f
+
+
+def sleeve_weights(x, side):
+    shoulder = Vector((x * 0.47, 0.0, 1.18))
+    elbow = Vector((x * 0.66, -0.02, 0.95))
+    axis = (elbow - shoulder).normalized()
+
+    def f(co):
+        k = (1.0 - _smooth(-0.04, 0.12, (co - shoulder).dot(axis))) * 0.45
+        return {"armU." + side: 1.0 - k, "spine": k}
+    return f
+
+
 ## How much thicker the limbs are than the first model's.
 LIMB = 1.32
 
@@ -127,7 +259,7 @@ def build_meshes(rig):
         t = -(v.co.z - 0.98) / 0.42
         v.co.x *= 1.0 + 0.08 * t
         v.co.y *= 1.0 + 0.08 * t
-    parts["Body"] = to_object("Body", bm, "spine", rig)
+    parts["Body"] = to_object_weighted("Body", bm, waist_weights, rig)
 
     bm = bmesh.new()
     ball(bm, 0.66, (0, 0, 1.56), (1.0, 0.97, 0.94), segments=36, rings=24)
@@ -160,29 +292,32 @@ def build_meshes(rig):
     # and a ball at each elbow and knee so a bent joint stays round instead of pinching.
     T = LIMB
     for side, x in (("L", -1.0), ("R", 1.0)):
+        # The arm: one smoothly skinned tube from the shoulder through the elbow to the wrist (a little fuller at the upper arm and the
+        # forearm), so it bends like an arm instead of two capsules hinging.
+        arm_pts = [(x * 0.47, 0.0, 1.18), (x * 0.66, -0.02, 0.95), (x * 0.75, -0.04, 0.76)]
         bm = bmesh.new()
-        capsule(bm, (x * 0.5, 0.0, 1.15), 0.13 * T, (x * 0.66, -0.02, 0.95), 0.115 * T)
-        parts["ArmU." + side] = to_object("ArmU." + side, bm, "armU." + side, rig)
+        tube(bm, arm_pts, [0.168, 0.15, 0.135], bulge=lambda t, i: 0.012 * math.sin(math.pi * t))
+        parts["Arm." + side] = to_object_weighted("Arm." + side, bm, chain_weights(arm_pts, ["armU." + side, "armL." + side], 0.06), rig)
 
         # A short shirt sleeve: a wider capsule over the top of the upper arm, open at the bottom, so the arm comes out of it.
         bm = bmesh.new()
         capsule(bm, (x * 0.48, 0.0, 1.18), 0.17 * T, (x * 0.62, -0.015, 1.02), 0.16 * T)
         cut = [v for v in bm.verts if (v.co - Vector((x * 0.62, -0.015, 1.02))).dot(Vector((x * 0.14, -0.015, -0.16)).normalized()) > 0.02]
         bmesh.ops.delete(bm, geom=cut, context="VERTS")
-        parts["Sleeve." + side] = to_object("Sleeve." + side, bm, "armU." + side, rig)
+        parts["Sleeve." + side] = to_object_weighted("Sleeve." + side, bm, sleeve_weights(x, side), rig)
 
+        # A cartoon glove: a puffy palm, four stubby fingers hanging from it (curled a little toward the body) and a thumb on the front,
+        # each a smooth tube; the fingers fan slightly so they read as separate.
         bm = bmesh.new()
-        capsule(bm, (x * 0.66, -0.02, 0.95), 0.115 * T, (x * 0.74, -0.04, 0.8), 0.105 * T)
-        parts["ArmL." + side] = to_object("ArmL." + side, bm, "armL." + side, rig)
-        bm = bmesh.new()
-        ball(bm, 0.118 * T, (x * 0.66, -0.02, 0.95), segments=20, rings=12)
-        parts["Elbow." + side] = to_object("Elbow." + side, bm, "armL." + side, rig)
-
-        # A big glove: a round palm a little flattened, puffy, with a thumb on the inner side and a knuckle ridge across the back.
-        bm = bmesh.new()
-        ball(bm, 0.25, (x * 0.76, -0.04, 0.7), (1.0, 0.85, 1.0), segments=32, rings=20)
-        ball(bm, 0.1, (x * 0.76 - x * 0.19, -0.1, 0.75), (0.9, 1.3, 1.0), segments=16, rings=10)
-        ball(bm, 0.07, (x * 0.76 + x * 0.04, -0.2, 0.66), (2.4, 0.8, 1.0), segments=16, rings=8)
+        palm = Vector((x * 0.775, -0.04, 0.65))
+        ball(bm, 0.2, palm, (0.78, 1.0, 1.0), segments=32, rings=20)
+        for k, fy in enumerate((-0.13, -0.045, 0.04, 0.12)):
+            base = Vector((x * 0.79, -0.04 + fy, 0.52))
+            mid = base + Vector((-x * 0.015, fy * 0.15, -0.09))
+            tip = mid + Vector((-x * 0.05, fy * 0.1, -0.07 + 0.01 * abs(k - 1.5)))
+            tube(bm, [base, mid, tip], [0.058, 0.055, 0.05], segments=14, per_span=4)
+        tube(bm, [(x * 0.7, -0.17, 0.66), (x * 0.66, -0.24, 0.6), (x * 0.66, -0.27, 0.52)], [0.066, 0.062, 0.056], segments=14,
+             per_span=4)
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
 
         # A rolled glove cuff just above the mitten: a flat disc square to the forearm, wider than the arm.
@@ -193,19 +328,22 @@ def build_meshes(rig):
         axis = (wrist - elbow).normalized()
         rot = Vector((0.0, 0.0, 1.0)).rotation_difference(axis).to_matrix().to_4x4()
         bmesh.ops.transform(bm, matrix=rot, verts=bm.verts)
-        bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.55, verts=bm.verts)
+        bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.62, verts=bm.verts)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
+        # The leg: one smoothly skinned tube from the hip through the knee into the shoe, with a little calf, and a sock over the lower
+        # leg skinned the same way (so the knee bends round, and the sock moves with the leg).
+        leg_pts = [(x * 0.26, 0.0, 0.66), (x * 0.26, 0.0, 0.42), (x * 0.26, -0.01, 0.22)]
+        leg_w = chain_weights(leg_pts, ["thigh." + side, "shin." + side], 0.06)
+        calf = lambda t, i: 0.014 * math.sin(math.pi * min(1.0, t * 1.6)) if i == 1 else 0.0
         bm = bmesh.new()
-        capsule(bm, (x * 0.26, 0.0, 0.64), 0.14 * T, (x * 0.26, 0.0, 0.42), 0.125 * T)
-        parts["Thigh." + side] = to_object("Thigh." + side, bm, "thigh." + side, rig)
-
+        tube(bm, leg_pts, [0.185, 0.165, 0.155], bulge=calf)
+        parts["Leg." + side] = to_object_weighted("Leg." + side, bm, leg_w, rig)
         bm = bmesh.new()
-        capsule(bm, (x * 0.26, 0.0, 0.42), 0.125 * T, (x * 0.26, 0.0, 0.26), 0.12 * T)
-        parts["Shin." + side] = to_object("Shin." + side, bm, "shin." + side, rig)
-        bm = bmesh.new()
-        ball(bm, 0.128 * T, (x * 0.26, 0.0, 0.42), segments=20, rings=12)
-        parts["Knee." + side] = to_object("Knee." + side, bm, "shin." + side, rig)
+        sock_pts = [(x * 0.26, 0.0, 0.38), (x * 0.26, -0.01, 0.22)]
+        tube(bm, sock_pts, [0.168 + 0.012, 0.155 + 0.012], segments=22, per_span=6,
+             bulge=lambda t, i: 0.014 * math.sin(math.pi * min(1.0, (t * 0.4 + 0.1) * 1.6)))
+        parts["ShinSock." + side] = to_object_weighted("ShinSock." + side, bm, leg_w, rig)
 
         # A chunky shoe: a flat sole and a rounded toe cap.
         bm = bmesh.new()
@@ -236,7 +374,7 @@ def build_meshes(rig):
         parts["Sole." + side] = to_object("Sole." + side, bm, "foot." + side, rig)
         bm = bmesh.new()
         capsule(bm, (x * 0.26, 0.0, 0.66), 0.165 * T, (x * 0.26, 0.0, 0.52), 0.155 * T)
-        parts["ShortsLeg." + side] = to_object("ShortsLeg." + side, bm, "thigh." + side, rig)
+        parts["ShortsLeg." + side] = to_object_weighted("ShortsLeg." + side, bm, shorts_leg_weights(side), rig)
 
     # The shorts: the bottom of the body, a little bigger than it, cut off at the waist.
     bm = bmesh.new()
@@ -247,7 +385,7 @@ def build_meshes(rig):
         v.co.y *= 1.0 + 0.08 * t
     waist = [v for v in bm.verts if v.co.z > 0.8]
     bmesh.ops.delete(bm, geom=waist, context="VERTS")
-    parts["Shorts"] = to_object("Shorts", bm, "hips", rig)
+    parts["Shorts"] = to_object_weighted("Shorts", bm, waist_weights, rig)
 
     # A shirt collar: a soft ring where the head meets the body.
     bm = bmesh.new()
@@ -426,13 +564,13 @@ def lengthen_limbs(rig, parts):
                 continue
             for v in obj.data.vertices:
                 co = v.co.copy()
-                if name.startswith(("Thigh", "Shin", "Knee")):
+                if name.startswith(("Thigh", "Shin", "Knee", "Leg")):
                     co.z = leg_z(co.z)
                 elif name.startswith(("Foot", "Sole", "Strap")):
                     pass
                 elif name.startswith("ShortsLeg"):
                     co.z = leg_z(co.z)
-                elif name.startswith(("ArmU", "ArmL", "Sleeve", "Elbow")):
+                elif name.startswith(("Arm", "Sleeve", "Elbow")):
                     co.z += SHIFT
                     co += along * ((co - shoulder).dot(along) * (KA - 1.0))
                 elif name.startswith(("Hand", "Cuff")):

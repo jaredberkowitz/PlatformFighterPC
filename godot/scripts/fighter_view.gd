@@ -1551,7 +1551,8 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var to_skel := _skeleton_to_frame().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
 		var aim: Vector3 = goals[side]
-		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, 0.2)
+		# (A little toward the camera, so on the turned body the kicking leg passes in front of the torso instead of through it.)
+		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, 0.75)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
