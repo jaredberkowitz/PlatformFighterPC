@@ -645,6 +645,14 @@ fn ref_move(faf: u8, landing_lag: u8, ac_before: u8, ac_after: u8, rows: &[R]) -
     }
 }
 
+/// Sets each hitbox's hitlag multiplier (percent), in the order the rows were given.
+fn with_hitlag(mut mv: Move, percents: &[u16]) -> Move {
+    for (hb, &pct) in mv.hitboxes.iter_mut().zip(percents) {
+        hb.hitlag = pct;
+    }
+    mv
+}
+
 #[allow(clippy::too_many_arguments)]
 fn r(
     first: u8,
@@ -900,16 +908,30 @@ pub fn longsword() -> Weapon {
             r(14, 28, 30, 12, 7, 95, 361, 60, 100, 0, 1),
         ],
     );
-    // Forward air: frames 6-8, 8/11.5 damage (sour/tip), angle 361, landing lag 10, autocancels from 36, FAF 38.
-    moves[MoveId::FAir as usize] = ref_move(
-        38,
-        10,
-        0,
-        36,
-        &[
-            r(6, 8, 19, 12, 8, 80, 361, 40, 80, 1, 0),
-            r(6, 8, 34, 11, 7, 115, 361, 40, 80, 0, 0),
-        ],
+    // Forward air (the reference's, frame for frame): the blade sweeps a crescent in front, from high overhead (frame 6) through straight
+    // ahead (7) to low in front (8). The tip is the tipper: 11.5%, Sakurai angle, BKB 40, KBG 80, hitlag x1.25; the rest of the blade
+    // and the arm are 8% with hitlag x0.7. Landing lag 10, autocancels from frame 36, FAF 38. The hits follow the blade frame by frame
+    // (one hit per target), so the trail and the arm draw the arc where it really hits.
+    moves[MoveId::FAir as usize] = with_hitlag(
+        ref_move(
+            38,
+            10,
+            0,
+            36,
+            &[
+                // Tipper along the arc (centre about the shoulder, 2.7 out): 70, 15 and -45 degrees.
+                r(6, 6, 14, 35, 7, 115, 361, 40, 80, 0, 0),
+                r(7, 7, 31, 17, 7, 115, 361, 40, 80, 0, 0),
+                r(8, 8, 24, -9, 7, 115, 361, 40, 80, 0, 0),
+                // The middle of the blade (1.5 out).
+                r(6, 6, 10, 24, 8, 80, 361, 40, 80, 1, 0),
+                r(7, 7, 20, 14, 8, 80, 361, 40, 80, 1, 0),
+                r(8, 8, 16, -1, 8, 80, 361, 40, 80, 1, 0),
+                // The arm.
+                r(6, 8, 6, 12, 7, 80, 361, 40, 80, 2, 0),
+            ],
+        ),
+        &[125, 125, 125, 70, 70, 70, 70],
     );
     // Back air: frames 7-11, 9/12.5 damage, angle 361, landing lag 10, autocancels frames 1-2 and from 32, FAF 40.
     // The fighter ends the move facing the other way.
@@ -1001,21 +1023,34 @@ pub fn longsword() -> Weapon {
         ],
     );
 
-    // Down air: a stab straight down. Frames 9-13 hit for 12% (blade) and 14% (tip); on frame 11 only, the tip is a
-    // 15% meteor smash. FAF 59. The landing lag and the autocancel frame are estimates.
-    moves[MoveId::DAir as usize] = ref_move(
-        59,
-        18,
-        0,
-        48,
-        &[
-            // The sword swings down: the tip is high on frames 9-10, at its lowest (the meteor) on frame 11, and
-            // trails behind it on frames 12-13. The blade near the hilt hits throughout.
-            r(11, 11, 34, -10, 8, 150, 270, 25, 90, 0, 0),
-            r(9, 10, 24, 12, 8, 140, 361, 35, 85, 1, 0),
-            r(12, 13, 32, -10, 8, 140, 361, 35, 85, 1, 0),
-            r(9, 13, 16, 3, 9, 120, 361, 30, 80, 2, 0),
-        ],
+    // Down air (the reference's): the blade sweeps a crescent underneath, from in front (frame 9) through straight down (11) to behind
+    // (13). The tip is 14% (Sakurai angle, BKB 20, KBG 80, hitlag x1.25) except on frame 11, when a big hitbox straight below is the 15%
+    // meteor (angle 270, BKB 20, KBG 80, hitlag x1.3). The middle of the blade is 12% at 80 degrees (BKB 40, KBG 70) and the arm 12%
+    // Sakurai (BKB 30, KBG 70), both hitlag x0.7. Landing lag 14, autocancels on frames 1-2 and from 55, FAF 60.
+    moves[MoveId::DAir as usize] = with_hitlag(
+        ref_move(
+            60,
+            14,
+            2,
+            55,
+            &[
+                // Tip along the arc (centre at the waist, 2.4 out): -15, -50, (frame 11: the meteor), -130, -165 degrees.
+                r(9, 9, 23, 3, 7, 140, 361, 20, 80, 0, 0),
+                r(10, 10, 15, -9, 7, 140, 361, 20, 80, 0, 0),
+                r(11, 11, 0, -12, 9, 150, 270, 20, 80, 0, 0),
+                r(12, 12, -15, -9, 7, 140, 361, 20, 80, 0, 0),
+                r(13, 13, -23, 3, 7, 140, 361, 20, 80, 0, 0),
+                // The middle of the blade (1.3 out).
+                r(9, 9, 13, 6, 8, 120, 80, 40, 70, 1, 0),
+                r(10, 10, 8, -1, 8, 120, 80, 40, 70, 1, 0),
+                r(11, 11, 0, -4, 8, 120, 80, 40, 70, 1, 0),
+                r(12, 12, -8, -1, 8, 120, 80, 40, 70, 1, 0),
+                r(13, 13, -13, 6, 8, 120, 80, 40, 70, 1, 0),
+                // The arm.
+                r(9, 13, 0, 7, 6, 120, 361, 30, 70, 2, 0),
+            ],
+        ),
+        &[125, 125, 130, 125, 125, 70, 70, 70, 70, 70, 70],
     );
 
     // Grab (hits frames 6-7, FAF 34), dash grab (frames 9-10, FAF 42), pummel 1.3% and the four throws: forward 4%
@@ -1341,16 +1376,21 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
-    // Neutral air: 12% early, then a long 8% hit. The reference frames are 7-9 and 10-26; here 7-11 and 12-34 (a deliberate change so the
-    // kick keeps spinning and reads like a sweeping move). Landing lag 9, autocancels frames 1-6 and from 38, FAF 43.
+    // Neutral air (the reference's): a split kick held out, both legs and the hips hitting. Clean on frames 7-9: 12%, Sakurai angle, BKB
+    // 30, KBG 75; late on frames 10-26: 8%, BKB 0, KBG 100 (a lingering hit). Landing lag 9, autocancels on frames 1-6 and from 39, FAF 43.
     w.moves[MoveId::NAir as usize] = ref_move(
         43,
         9,
         6,
-        38,
+        39,
         &[
-            r(7, 11, 13, 11, 11, 120, 361, 30, 75, 0, 0),
-            r(12, 34, 13, 11, 12, 80, 361, 0, 100, 1, 0),
+            // The front leg (kicked out ahead), the hips, the back leg (kicked out behind).
+            r(7, 9, 8, 8, 7, 120, 361, 30, 75, 0, 0),
+            r(7, 9, 0, 9, 7, 120, 361, 30, 75, 1, 0),
+            r(7, 9, -7, 8, 6, 120, 361, 30, 75, 2, 0),
+            r(10, 26, 8, 8, 7, 80, 361, 0, 100, 0, 0),
+            r(10, 26, 0, 9, 7, 80, 361, 0, 100, 1, 0),
+            r(10, 26, -7, 8, 6, 80, 361, 0, 100, 2, 0),
         ],
     );
     // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 29, FAF 41.
@@ -1821,8 +1861,9 @@ mod tests {
     fn reference_rows_convert_to_move_frames() {
         // The reference numbers the first frame 1; move frames count from 0.
         let fair = &longsword().moves[MoveId::FAir as usize];
+        // The tipper's first row is frame 6 alone (the swing moves it each frame).
         assert_eq!(fair.hitboxes[0].start, 5);
-        assert_eq!(fair.hitboxes[0].end, 7);
+        assert_eq!(fair.hitboxes[0].end, 5);
         assert_eq!(fair.total_frames, 36);
         assert_eq!(fair.autocancel_after, 35);
     }

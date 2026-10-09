@@ -82,9 +82,11 @@ fn launch_velocity(sim: &mut Sim) -> sim_core::Vec2 {
 // ---- Marth-style forward air ---------------------------------------------------------------------------
 
 #[test]
-fn forward_air_hits_on_frame_6_for_8_percent_close_and_11_5_at_the_tip() {
+fn forward_air_hits_from_frame_6_for_8_percent_close_and_11_5_at_the_tip() {
+    // The blade sweeps from overhead (frame 6) down through straight ahead (frame 7): a target level and at tip range takes the tipper
+    // on frame 7.
     let mut tip = air_duel(MARTH, fx(43, 10));
-    assert_eq!(hit_tick(&mut tip, inp(127, 0, ATTACK)), Some(6));
+    assert_eq!(hit_tick(&mut tip, inp(127, 0, ATTACK)), Some(7));
     assert_eq!(tip.fighter(1).percent, pct(&tip, 115));
 
     let mut close = air_duel(MARTH, fx(10, 10));
@@ -554,11 +556,11 @@ fn aerials_autocancel_in_their_reference_windows_and_otherwise_cost_their_landin
     // Neutral air: landing lag 7, autocancels from frame 47.
     assert_eq!(landing_lag(MARTH, MoveId::NAir, 30), 7);
     assert_eq!(landing_lag(MARTH, MoveId::NAir, 45), normal_marth);
-    // Brawler neutral air: lag 9, autocancels frames 1-6 and from 38.
+    // Brawler neutral air: lag 9, autocancels frames 1-6 and from 39.
     assert_eq!(landing_lag(WOLF, MoveId::NAir, 4), normal_wolf);
     assert_eq!(landing_lag(WOLF, MoveId::NAir, 5), 9);
-    assert_eq!(landing_lag(WOLF, MoveId::NAir, 36), normal_wolf);
-    assert_eq!(landing_lag(WOLF, MoveId::NAir, 35), 9);
+    assert_eq!(landing_lag(WOLF, MoveId::NAir, 37), normal_wolf);
+    assert_eq!(landing_lag(WOLF, MoveId::NAir, 36), 9);
     // Brawler forward air: lag 10, autocancels from frame 29.
     assert_eq!(landing_lag(WOLF, MoveId::FAir, 26), 10);
     assert_eq!(landing_lag(WOLF, MoveId::FAir, 27), normal_wolf);

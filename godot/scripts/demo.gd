@@ -139,6 +139,22 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [16, "b_hit"], [19, "c_hitlag"], [30, "d_launched"]]
 			d.end_frame = 45
+		"marth_fair_close", "marth_dair_close", "wolf_nair_close":
+			# One move up close, a picture on every frame of its swing, nobody in the way (for checking the animation and the trail).
+			var marth: bool = demo_name.begins_with("marth")
+			d.chars = [0, 0, 0, 0] if marth else [1, 1, 1, 1]
+			# The other fighter hangs back out of reach (the camera frames them both, so not too far).
+			d.cam_dist = 13.0
+			var away := 6.0 if demo_name.begins_with("marth_dair") else -6.0
+			d.events = [[1, "place", 0, 0.0, 8.0], [1, "place", 1, away, 8.0]]
+			var stick_y := -70 if demo_name.begins_with("marth_dair") else 0  # down for the down air, short of a fast fall
+			var stick_x := 127 if demo_name.begins_with("marth_fair") else 0
+			d.timeline = [[0, 0, 0, 0], [10, stick_x, stick_y, attack], [11, 0, 0, 0]]
+			var first := 13
+			var last := 26 if not demo_name.begins_with("marth_dair") else 30
+			for f in range(first, last + 1):
+				d.shots.append([f, "f%02d" % (f - 10)])
+			d.end_frame = last + 2
 		"marth_bair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0

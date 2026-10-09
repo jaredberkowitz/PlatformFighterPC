@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 30
-    hash 538daa9a072857e9
+    sim_version 31
+    hash 1a484ebc2e0c55ea
 }
 
 ruleset {
@@ -165,8 +165,13 @@ weapon longsword {
         total_frames 36
         landing_lag 10
         autocancel_after 35
-        hitbox { start 5 end 7 x 1.9 y 1.2 radius 0.79999 damage 8 angle 361 bkb 40 kbg 80 priority 1 }
-        hitbox { start 5 end 7 x 3.4 y 1.09999 radius 0.7 damage 11.5 angle 361 bkb 40 kbg 80 }
+        hitbox { start 5 end 5 x 1.4 y 3.5 radius 0.7 damage 11.5 angle 361 bkb 40 kbg 80 hitlag 125 }
+        hitbox { start 6 end 6 x 3.09999 y 1.7 radius 0.7 damage 11.5 angle 361 bkb 40 kbg 80 hitlag 125 }
+        hitbox { start 7 end 7 x 2.4 y -0.9 radius 0.7 damage 11.5 angle 361 bkb 40 kbg 80 hitlag 125 }
+        hitbox { start 5 end 5 x 1 y 2.4 radius 0.79999 damage 8 angle 361 bkb 40 kbg 80 priority 1 hitlag 70 }
+        hitbox { start 6 end 6 x 2 y 1.4 radius 0.79999 damage 8 angle 361 bkb 40 kbg 80 priority 1 hitlag 70 }
+        hitbox { start 7 end 7 x 1.59999 y -0.09999 radius 0.79999 damage 8 angle 361 bkb 40 kbg 80 priority 1 hitlag 70 }
+        hitbox { start 5 end 7 x 0.59999 y 1.2 radius 0.7 damage 8 angle 361 bkb 40 kbg 80 priority 2 hitlag 70 }
     }
     move bair {
         total_frames 38
@@ -188,13 +193,21 @@ weapon longsword {
         hitbox { start 4 end 8 x 0.4 y 3.4 radius 0.7 damage 13 angle 90 bkb 40 kbg 84 }
     }
     move dair {
-        total_frames 57
-        landing_lag 18
-        autocancel_after 47
-        hitbox { start 10 end 10 x 3.4 y -1 radius 0.79999 damage 15 angle 270 bkb 25 kbg 90 }
-        hitbox { start 8 end 9 x 2.4 y 1.2 radius 0.79999 damage 14 angle 361 bkb 35 kbg 85 priority 1 }
-        hitbox { start 11 end 12 x 3.2 y -1 radius 0.79999 damage 14 angle 361 bkb 35 kbg 85 priority 1 }
-        hitbox { start 8 end 12 x 1.59999 y 0.29999 radius 0.9 damage 12 angle 361 bkb 30 kbg 80 priority 2 }
+        total_frames 58
+        landing_lag 14
+        autocancel_before 2
+        autocancel_after 54
+        hitbox { start 8 end 8 x 2.29999 y 0.29999 radius 0.7 damage 14 angle 361 bkb 20 kbg 80 hitlag 125 }
+        hitbox { start 9 end 9 x 1.5 y -0.9 radius 0.7 damage 14 angle 361 bkb 20 kbg 80 hitlag 125 }
+        hitbox { start 10 end 10 x 0 y -1.2 radius 0.9 damage 15 angle 270 bkb 20 kbg 80 hitlag 130 }
+        hitbox { start 11 end 11 x -1.5 y -0.9 radius 0.7 damage 14 angle 361 bkb 20 kbg 80 hitlag 125 }
+        hitbox { start 12 end 12 x -2.29999 y 0.29999 radius 0.7 damage 14 angle 361 bkb 20 kbg 80 hitlag 125 }
+        hitbox { start 8 end 8 x 1.29999 y 0.59999 radius 0.79999 damage 12 angle 80 bkb 40 kbg 70 priority 1 hitlag 70 }
+        hitbox { start 9 end 9 x 0.79999 y -0.09999 radius 0.79999 damage 12 angle 80 bkb 40 kbg 70 priority 1 hitlag 70 }
+        hitbox { start 10 end 10 x 0 y -0.4 radius 0.79999 damage 12 angle 80 bkb 40 kbg 70 priority 1 hitlag 70 }
+        hitbox { start 11 end 11 x -0.79999 y -0.09999 radius 0.79999 damage 12 angle 80 bkb 40 kbg 70 priority 1 hitlag 70 }
+        hitbox { start 12 end 12 x -1.29999 y 0.59999 radius 0.79999 damage 12 angle 80 bkb 40 kbg 70 priority 1 hitlag 70 }
+        hitbox { start 8 end 12 x 0 y 0.7 radius 0.59999 damage 12 angle 361 bkb 30 kbg 70 priority 2 hitlag 70 }
     }
     move neutral_special {
         total_frames 56
@@ -515,9 +528,13 @@ weapon claws {
         total_frames 41
         landing_lag 9
         autocancel_before 6
-        autocancel_after 37
-        hitbox { start 6 end 10 x 1.29999 y 1.09999 radius 1.09999 damage 12 angle 361 bkb 30 kbg 75 }
-        hitbox { start 11 end 33 x 1.29999 y 1.09999 radius 1.2 damage 8 angle 361 bkb 0 kbg 100 priority 1 }
+        autocancel_after 38
+        hitbox { start 6 end 8 x 0.79999 y 0.79999 radius 0.7 damage 12 angle 361 bkb 30 kbg 75 }
+        hitbox { start 6 end 8 x 0 y 0.9 radius 0.7 damage 12 angle 361 bkb 30 kbg 75 priority 1 }
+        hitbox { start 6 end 8 x -0.7 y 0.79999 radius 0.59999 damage 12 angle 361 bkb 30 kbg 75 priority 2 }
+        hitbox { start 9 end 25 x 0.79999 y 0.79999 radius 0.7 damage 8 angle 361 bkb 0 kbg 100 }
+        hitbox { start 9 end 25 x 0 y 0.9 radius 0.7 damage 8 angle 361 bkb 0 kbg 100 priority 1 }
+        hitbox { start 9 end 25 x -0.7 y 0.79999 radius 0.59999 damage 8 angle 361 bkb 0 kbg 100 priority 2 }
     }
     move fair {
         total_frames 39
@@ -758,8 +775,13 @@ weapon maul {
         total_frames 47
         landing_lag 13
         autocancel_after 46
-        hitbox { start 7 end 9 x 2.08997 y 1.2 radius 0.95998 damage 10 angle 361 bkb 40 kbg 86 priority 1 }
-        hitbox { start 7 end 9 x 3.73996 y 1.09999 radius 0.83998 damage 14.375 angle 361 bkb 40 kbg 86 }
+        hitbox { start 7 end 7 x 1.53998 y 3.5 radius 0.83998 damage 14.375 angle 361 bkb 40 kbg 86 hitlag 125 }
+        hitbox { start 8 end 8 x 3.40996 y 1.7 radius 0.83998 damage 14.375 angle 361 bkb 40 kbg 86 hitlag 125 }
+        hitbox { start 9 end 9 x 2.63997 y -0.9 radius 0.83998 damage 14.375 angle 361 bkb 40 kbg 86 hitlag 125 }
+        hitbox { start 7 end 7 x 1.09999 y 2.4 radius 0.95998 damage 10 angle 361 bkb 40 kbg 86 priority 1 hitlag 70 }
+        hitbox { start 8 end 8 x 2.19998 y 1.4 radius 0.95998 damage 10 angle 361 bkb 40 kbg 86 priority 1 hitlag 70 }
+        hitbox { start 9 end 9 x 1.75996 y -0.09999 radius 0.95998 damage 10 angle 361 bkb 40 kbg 86 priority 1 hitlag 70 }
+        hitbox { start 7 end 9 x 0.65997 y 1.2 radius 0.83998 damage 10 angle 361 bkb 40 kbg 86 priority 2 hitlag 70 }
     }
     move bair {
         total_frames 49
@@ -781,13 +803,21 @@ weapon maul {
         hitbox { start 5 end 10 x 0.43999 y 3.4 radius 0.83998 damage 16.25 angle 90 bkb 40 kbg 90 }
     }
     move dair {
-        total_frames 74
-        landing_lag 23
-        autocancel_after 61
-        hitbox { start 13 end 13 x 3.73996 y -1 radius 0.95998 damage 18.75 angle 270 bkb 25 kbg 96 }
-        hitbox { start 10 end 12 x 2.63997 y 1.2 radius 0.95998 damage 17.5 angle 361 bkb 35 kbg 91 priority 1 }
-        hitbox { start 14 end 16 x 3.51996 y -1 radius 0.95998 damage 17.5 angle 361 bkb 35 kbg 91 priority 1 }
-        hitbox { start 10 end 16 x 1.75996 y 0.29999 radius 1.07999 damage 15 angle 361 bkb 30 kbg 86 priority 2 }
+        total_frames 75
+        landing_lag 18
+        autocancel_before 3
+        autocancel_after 70
+        hitbox { start 10 end 10 x 2.52995 y 0.29999 radius 0.83998 damage 17.5 angle 361 bkb 20 kbg 86 hitlag 125 }
+        hitbox { start 12 end 12 x 1.64998 y -0.9 radius 0.83998 damage 17.5 angle 361 bkb 20 kbg 86 hitlag 125 }
+        hitbox { start 13 end 13 x 0 y -1.2 radius 1.07999 damage 18.75 angle 270 bkb 20 kbg 86 hitlag 130 }
+        hitbox { start 14 end 14 x -1.65 y -0.9 radius 0.83998 damage 17.5 angle 361 bkb 20 kbg 86 hitlag 125 }
+        hitbox { start 16 end 16 x -2.52997 y 0.29999 radius 0.83998 damage 17.5 angle 361 bkb 20 kbg 86 hitlag 125 }
+        hitbox { start 10 end 10 x 1.42996 y 0.59999 radius 0.95998 damage 15 angle 80 bkb 40 kbg 76 priority 1 hitlag 70 }
+        hitbox { start 12 end 12 x 0.87997 y -0.09999 radius 0.95998 damage 15 angle 80 bkb 40 kbg 76 priority 1 hitlag 70 }
+        hitbox { start 13 end 13 x 0 y -0.4 radius 0.95998 damage 15 angle 80 bkb 40 kbg 76 priority 1 hitlag 70 }
+        hitbox { start 14 end 14 x -0.87999 y -0.09999 radius 0.95998 damage 15 angle 80 bkb 40 kbg 76 priority 1 hitlag 70 }
+        hitbox { start 16 end 16 x -1.42998 y 0.59999 radius 0.95998 damage 15 angle 80 bkb 40 kbg 76 priority 1 hitlag 70 }
+        hitbox { start 10 end 16 x 0 y 0.7 radius 0.71999 damage 15 angle 361 bkb 30 kbg 76 priority 2 hitlag 70 }
     }
     move neutral_special {
         total_frames 64

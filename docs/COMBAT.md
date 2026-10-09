@@ -333,3 +333,21 @@ playing. Several numbers are marked as estimates above.
 
 Tests: `sim-core/tests/hit_feel_2.rs` (launch speed-up, launch gravity, electric hits, hitlag factors, SDI growth, clanks, grab parry, tech
 timing and lockout, wall tech and bounce, floor bounce) and the revival platform tests in `sim-core/tests/combat.rs`.
+
+## Iconic aerials, frame for frame (sim v31)
+
+Three aerials people build combos around now follow the reference game's data (SmashWiki hitbox tables and ultimateframedata.com, read October
+2026):
+
+| Move | Frames | Hits | Landing lag | Autocancel | FAF |
+| --- | --- | --- | --- | --- | --- |
+| Sword forward air | 6-8 | tip 11.5% (Sakurai, BKB 40, KBG 80, hitlag x1.25); blade and arm 8% (same knockback, hitlag x0.7) | 10 | from 36 | 38 |
+| Sword down air | 9-13 | tip 14% (Sakurai, BKB 20, KBG 80, x1.25); frame 11 meteor 15% (270, BKB 20, KBG 80, x1.3); blade 12% (80, BKB 40, KBG 70, x0.7); arm 12% (Sakurai, BKB 30, KBG 70, x0.7) | 14 | 1-2 and from 55 | 60 |
+| Claws neutral air | clean 7-9, late 10-26 | clean 12% (Sakurai, BKB 30, KBG 75); late 8% (Sakurai, BKB 0, KBG 100); front leg, hips and back leg | 9 | 1-6 and from 39 | 43 |
+
+- The sword swings **move their hits along the swing, frame by frame**: the forward air from overhead (frame 6) through straight ahead (7) to
+  low in front (8); the down air from in front (9) through straight down (11, where the big meteor hitbox sits below the fighter) to behind
+  (13). Each still hits a target once. So what the blade and its trail show is where the hit really is.
+- Hitlag multipliers (`Hitbox::hitlag`) are set per hitbox, so a tipper freezes longer than a sourspot, as in the reference.
+- The claws neutral air is the reference's version (it had been stretched to 7-11 and 12-34 to look like a spin): a held split kick.
+- Positions and sizes are in our world (hurtboxes are rounder than the reference's), so reach is matched by eye, not to the unit.

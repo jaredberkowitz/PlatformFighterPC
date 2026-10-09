@@ -1049,8 +1049,8 @@ impl SimRunner {
         let params = sim_core::combat::params_of(&self.content, fi);
         let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
         let k = params.hitbox_scale;
-        // While a hitbox is live the tip is where it is now, so a move that sweeps across several hitboxes draws its arc; before and
-        // after, it is the move's first hitbox.
+        // While a hitbox is live the tip is where it is now, so a move that sweeps across several hitboxes draws its arc; before, it is
+        // the move's first hitbox, and after, its last (so a swing finishes where it ended rather than snapping back to its start).
         let live =
             sim_core::combat::active_hitboxes(fi, mv, k).min_by_key(|(_, hb, _)| hb.priority);
         if let Some((_, hb, center)) = live {
@@ -1061,7 +1061,20 @@ impl SimRunner {
                 f(hb.radius),
             );
         }
-        if let Some(hb) = mv.hitboxes.iter().min_by_key(|h| (h.priority, h.start)) {
+        let done = mv
+            .hitboxes
+            .iter()
+            .all(|h| fi.state_frame > u16::from(h.end));
+        let pick = if done && !mv.hitboxes.is_empty() {
+            let top = mv.hitboxes.iter().map(|h| h.priority).min().unwrap_or(0);
+            mv.hitboxes
+                .iter()
+                .filter(|h| h.priority == top)
+                .max_by_key(|h| h.end)
+        } else {
+            mv.hitboxes.iter().min_by_key(|h| (h.priority, h.start))
+        };
+        if let Some(hb) = pick {
             return Vector3::new(f(hb.x * k), f(hb.y * k), f(hb.radius * k));
         }
         if let Some(p) = &mv.projectile {

@@ -943,12 +943,23 @@ def main() -> None:
             {"hips": -0.2, "spine": (34.0, 34.0), "head": (-12.0, -10.0), "stance": (56.0, -56.0), "thigh.L": (56.0, 22.0), "thigh.R": (-56.0, 22.0)},
             {"hips": -0.1, "spine": (16.0, 10.0), "stance": (30.0, -30.0)})
 
+    # Down air: the blade sweeps a crescent underneath, front to back (the game aims the arm along it). Gather with the knees tucked and
+    # the sword raised ahead, then open the legs wide (front knee up, back leg kicked out behind) with the torso upright and the head
+    # looking down past the swing, the free arm flung out behind for balance.
+    move_of("sword_dair",
+            {"spine": (2.0, 0.0), "head": (6.0, 0.0), "stance": (44.0, 30.0), "shin.L": (-90.0,), "shin.R": (-80.0,), "arms": (16.0, 26.0)},
+            {"spine": (-8.0, -12.0), "head": (20.0, 0.0), "stance": (46.0, -40.0), "shin.L": (-84.0,), "shin.R": (-22.0,),
+             "arms": (-26.0, 52.0)},
+            {"spine": (4.0, -4.0), "head": (8.0, 0.0), "stance": (34.0, 6.0)})
+
     # Claws fighter. The kicking leg is aimed by the game; these set the torso, arms and the other leg.
     # Neutral air: a spinning kick, tucked, then opened out and turning.
+    # Neutral air: a split kick held out (the game aims both legs, one ahead and one behind). Gather tucked, then open the hips wide,
+    # the torso upright and leaning back a touch over the split, arms flung out for balance; it holds through the long late hit.
     move_of("kick_nair",
-            {"spine": (22.0, -20.0), "stance": (60.0, 64.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (30.0, 30.0)},
-            {"spine": (-10.0, 60.0), "head": (-6.0, -20.0), "stance": (20.0, -30.0), "arms": (-10.0, 60.0)},
-            {"spine": (0.0, 20.0), "stance": (20.0, 10.0)})
+            {"spine": (18.0, 0.0), "head": (6.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (30.0, 26.0)},
+            {"spine": (-8.0, 0.0), "head": (-6.0, 0.0), "arms": (-12.0, 70.0)},
+            {"spine": (-4.0, 0.0), "arms": (-6.0, 50.0)})
     # Back air: lean forward and drive the heel back.
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},

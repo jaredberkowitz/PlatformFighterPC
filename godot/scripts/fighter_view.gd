@@ -1203,7 +1203,7 @@ static func _star_mesh() -> ArrayMesh:
 	return m
 var flame: MeshInstance3D
 ## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
-const SWORD_CLIPS := {"ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
+const SWORD_CLIPS := {"dair": "sword_dair", "ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
 	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
 const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
 	"dtilt": "kick_low", "dash attack": "kick_dash", "usmash": "kick_uair"}
@@ -1211,6 +1211,12 @@ const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uai
 var leg_k := 0.0
 
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
+## Weapon swings that turn one way through several hitboxes: the wind-up starts this many degrees back round from the first one (positive
+## is counter-clockwise when facing right), so the blade comes from the right side. Forward air and down air both swing clockwise, top to
+## bottom, from behind the head and from high in front.
+const SWING_FROM := {"fair": 75.0, "dair": 75.0}
+## Kicks that send both legs out (front and back), each aimed by the game.
+const SPLIT_KICKS := ["nair"]
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
@@ -1243,10 +1249,12 @@ func _blade_target(s: Dictionary) -> Array:
 		var behind := to_tip.x < 0.0
 		if sin(deg_to_rad(swing)) < sin(lowest) and not behind:
 			swing = rad_to_deg(lowest)
-	# Wind-up comes from the opposite side of the swing.
+	# Wind-up comes from the opposite side of the swing (or from where a move says its swing starts: see SWING_FROM).
 	var wind := swing + 100.0
 	if sin(deg_to_rad(swing)) > 0.55 or cos(deg_to_rad(swing)) < 0.0:
 		wind = swing - 100.0
+	if SWING_FROM.has(name):
+		wind = swing + float(SWING_FROM[name])
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
 	var start := maxf(1.0, float(t[1]))
@@ -1305,7 +1313,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
 	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
 	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
-	_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
+	if _cls(s) == 1:
+		_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
+	else:
+		_update_sweep(s, hand, tip)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 	var hammer: bool = _cls(s) == 2
@@ -1439,11 +1450,15 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 	var front := "R" if facing > 0 else "L"
 	var back := "L" if facing > 0 else "R"
 	var kicker := front if tip.x >= 0.0 else back
+	# Where each kicking leg's foot goes (forward space). A split kick (the neutral air) kicks both legs out, one ahead and one behind.
+	var goals := {kicker: tip}
+	if SPLIT_KICKS.has(String(s.move_name)):
+		goals = {front: Vector3(0.95, 0.85, 0.0), back: Vector3(-0.85, 0.85, 0.0)}
 	for side in ["L", "R"]:
 		var it := skeleton.find_bone("thigh." + side)
 		var ish := skeleton.find_bone("shin." + side)
 		var ift := skeleton.find_bone("foot." + side)
-		if side != kicker or leg_k <= 0.01:
+		if not goals.has(side) or leg_k <= 0.01:
 			skeleton.set_bone_global_pose_override(it, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ish, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ift, Transform3D(), 0.0, false)
@@ -1462,7 +1477,8 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 			hip = skeleton.get_bone_global_pose(hips) * skeleton.get_bone_rest(it).origin
 		var to_skel := _skeleton_to_frame().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
-		var goal: Vector3 = to_skel * Vector3(tip.x * float(facing), tip.y, 0.2)
+		var aim: Vector3 = goals[side]
+		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, 0.2)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
@@ -1493,6 +1509,7 @@ const TRAIL_FRAMES := 16
 const TRAIL_WIDTH := 0.42
 const TRAIL_SMOOTH := 4
 var trail: MeshInstance3D
+var last_trail_centre := Vector2(INF, INF)
 var trail_points: Array = []     # [{pos: Vector3, frame: int}]
 var last_trail_frame := -1
 
@@ -1511,6 +1528,96 @@ func _make_trail() -> void:
 	m.render_priority = 5
 	trail.material_override = m
 	add_child(trail)
+
+
+# ---- Weapon swing trail ------------------------------------------------------------------------------------------------------------
+# A sword (or maul) leaves the trail the reference game draws: the whole crescent the blade sweeps through, brightest at the edge the
+# tip traces, fading toward the hilt and with age. Each simulation frame records where the hand and the tip are; the crescent between
+# two records is drawn in thin slices that turn round the hand, so it is a smooth arc rather than a polygon. Time stands still in hitlag,
+# like the swing itself.
+
+const SWEEP_LIFE := 8     # frames a slice of the swing stays visible
+const SWEEP_STEPS := 8    # slices drawn between two simulation frames
+var sweep: MeshInstance3D
+var sweep_samples: Array = []   # [{hand: Vector2, angle: float, length: float, z: float, at: int}], world space
+var sweep_clock := 0
+var sweep_seen_frame := -1
+
+
+func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
+	if sweep == null:
+		sweep = MeshInstance3D.new()
+		sweep.mesh = ImmediateMesh.new()
+		sweep.top_level = true
+		sweep.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.vertex_color_use_as_albedo = true
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.render_priority = 5
+		sweep.material_override = m
+		add_child(sweep)
+	var frame: int = s.frame
+	if frame < sweep_seen_frame:
+		# Rewound (a replay seek): start clean.
+		sweep_samples.clear()
+	if frame != sweep_seen_frame:
+		sweep_seen_frame = frame
+		if int(s.hitlag) == 0:
+			sweep_clock += 1
+			var t: PackedInt32Array = s.move_timing
+			var f: float = s.state_frame
+			var swinging: bool = s.state == "Attack" and s.move_name != "" and t[1] > 0 and f >= float(t[1]) - 1.0 \
+					and f <= float(t[2]) + 1.0 and blade_pivot.visible
+			if swinging:
+				var facing := float(s.facing)
+				var g := stage_frame.global_transform
+				var hw: Vector3 = g * Vector3(hand.x * facing, hand.y, 0.35)
+				var tw: Vector3 = g * Vector3(tip.x * facing, tip.y, 0.35)
+				var d := Vector2(tw.x - hw.x, tw.y - hw.y)
+				sweep_samples.append({"hand": Vector2(hw.x, hw.y), "angle": d.angle(), "length": d.length(), "z": hw.z + 0.2,
+					"at": sweep_clock})
+	while sweep_samples.size() > 0 and sweep_clock - int(sweep_samples[0].at) > SWEEP_LIFE:
+		sweep_samples.pop_front()
+	var im: ImmediateMesh = sweep.mesh
+	im.clear_surfaces()
+	if sweep_samples.size() < 2:
+		return
+	var colours := _trail_colours(s)
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in sweep_samples.size() - 1:
+		for k in SWEEP_STEPS:
+			_sweep_slice(im, sweep_samples[i], sweep_samples[i + 1], float(k) / SWEEP_STEPS, float(k + 1) / SWEEP_STEPS, colours)
+	im.surface_end()
+
+
+## One slice of the crescent, between `u0` and `u1` of the way from record `a` to record `b`: a soft band from near the hilt out to most of
+## the blade in the trail colour, and a bright band along the edge the tip traces.
+func _sweep_slice(im: ImmediateMesh, a: Dictionary, b: Dictionary, u0: float, u1: float, colours: Array) -> void:
+	var rings := [0.3, 0.78, 1.04]
+	var alphas := [0.0, 0.5, 0.95]
+	var cols: Array = [colours[0], colours[0], colours[1]]
+	var edge := []
+	for u in [u0, u1]:
+		var hand: Vector2 = (a.hand as Vector2).lerp(b.hand, u)
+		var ang := lerp_angle(float(a.angle), float(b.angle), u)
+		var length := lerpf(float(a.length), float(b.length), u)
+		var at := lerpf(float(a.at), float(b.at), u)
+		var fade := pow(clampf(1.0 - float(sweep_clock - at) / float(SWEEP_LIFE), 0.0, 1.0), 1.5)
+		var z := lerpf(float(a.z), float(b.z), u)
+		var dir := Vector2.from_angle(ang)
+		var column := []
+		for r in rings.size():
+			var p: Vector2 = hand + dir * length * float(rings[r])
+			var c: Color = cols[r]
+			column.append([Vector3(p.x, p.y, z), Color(c.r, c.g, c.b, float(alphas[r]) * fade)])
+		edge.append(column)
+	for r in rings.size() - 1:
+		var q := [edge[0][r], edge[0][r + 1], edge[1][r + 1], edge[1][r]]
+		for idx in [0, 1, 2, 0, 2, 3]:
+			im.surface_set_color(q[idx][1])
+			im.surface_add_vertex(q[idx][0])
 
 
 # ---- Revival platform ------------------------------------------------------------------------------------------------------------
@@ -1684,7 +1791,7 @@ func _trail_colours(s: Dictionary) -> Array:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
 	if _cls(s) == 2:
 		return [Color(0.95, 0.28, 0.12), Color(1.0, 0.92, 0.8)]
-	return [Color(1.0, 0.62, 0.12), Color(1.0, 1.0, 0.85)]
+	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
 ## Catmull-Rom smoothing so a path of a few points reads as a curve.
@@ -1716,8 +1823,12 @@ func _update_trail(s: Dictionary, centre: Vector2, radius: float) -> void:
 	var facing: float = float(s.facing)
 	var base := Vector3(position.x, position.y, 0.0)
 	var here := base + Vector3(centre.x * facing, centre.y, 0.7)
-	if swinging and int(s.hitlag) == 0 and frame != last_trail_frame:
+	# Only a hit that travels across the body leaves a trail: one held in place (a lingering kick) would only draw the fighter's own
+	# fall or drift as a streak.
+	var moved := last_trail_centre.distance_to(centre) > 0.08
+	if swinging and int(s.hitlag) == 0 and frame != last_trail_frame and (moved or trail_points.is_empty()):
 		last_trail_frame = frame
+		last_trail_centre = centre
 		trail_points.append({"pos": here, "frame": frame})
 	while trail_points.size() > 0 and frame - int(trail_points[0].frame) > TRAIL_FRAMES:
 		trail_points.pop_front()

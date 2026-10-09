@@ -143,10 +143,11 @@ fn the_dash_attack_hits_on_frame_13_for_13_percent_at_the_tip() {
 
 #[test]
 fn the_down_air_is_a_meteor_smash_on_frame_11_only() {
-    // Far enough out that only the tip reaches, low enough to be under the sword on frame 11.
+    // Well under the fighter, where only the big meteor hitbox below the downward sword reaches on frame 11.
     let mut found = None;
-    'search: for x in [42, 44, 46] {
-        for below in [28, 30, 32, 34, 36, 38] {
+    'search: for x in [0, 2, 4] {
+        // (The attacker fast falls with the stick held down, closing the gap as the sword comes round.)
+        for below in [56, 58, 60, 62, 64] {
             let mut sim = air_duel(SWORD, fx(x, 10), fx(below, 10));
             sim.state.fighters[1].percent = Fx::from_int(60);
             let before = sim.fighter(1).percent;

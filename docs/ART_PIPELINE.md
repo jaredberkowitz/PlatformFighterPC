@@ -204,3 +204,21 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   pupils toward the fighter's front (`GAZE` in the drawings, texture right). Facing left, the face shader mirrors the drawing (`mirror`,
   `FighterView.set_gaze`), so both fighters look at each other; the switch happens as the body swings past facing the camera. Menu
   previews look the way they are turned.
+
+
+## Swing trails and iconic aerials (ninth pass)
+
+- **Sword (and maul) trails** are now the reference game's kind: the whole crescent the blade sweeps, blue-white for the sword (orange-white for
+  the maul), brightest along the edge the tip traces and fading toward the hilt and with age (8 frames), drawn in thin slices that turn round
+  the hand so the arc is smooth, and frozen during hitlag (`_update_sweep`). The claws keep the hitbox ribbon, which now only draws when the
+  hit travels across the body (a held kick no longer leaves a streak as the fighter falls).
+- **The swing direction**: a swing's wind-up starts from where its first hit is, turned back by `SWING_FROM` for the moves that sweep top to
+  bottom (forward air from behind the head, down air from high in front), and after its last hit the blade stays where the swing ended
+  (the bridge reports the last hit's place once the hits are over) instead of snapping back.
+- **Forward air**: wind-up behind the head, then the crescent from overhead through level to low in front.
+- **Down air** (`sword_dair`): knees gathered and the sword raised in front, then the legs open wide, torso upright, head looking down as
+  the crescent sweeps under from front to back.
+- **Claws neutral air** (`kick_nair`, `SPLIT_KICKS`): both legs are aimed by the game, one kicked out ahead and one behind, the torso upright
+  over the split with the arms thrown up, held through the long late hit.
+- Close-up demos that photograph every frame: `--demo=marth_fair_close`, `marth_dair_close`, `wolf_nair_close` (with `--noui --noecb
+  --shots=<folder>`).
