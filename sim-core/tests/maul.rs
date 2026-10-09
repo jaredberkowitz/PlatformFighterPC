@@ -52,11 +52,22 @@ fn the_maul_is_slower_and_harder_than_the_sword_it_is_built_from() {
 #[test]
 fn the_maul_keeps_the_sword_recovery_and_none_of_its_scripts() {
     let (sword, hammer) = (longsword(), maul());
-    assert_eq!(
-        hammer.moves[MoveId::UpSpecial as usize],
-        sword.moves[MoveId::UpSpecial as usize],
-        "the rising slash is the recovery"
+    // The same rising slash (the sword's blade is shortened, so compare its timing, travel and damage rather than its reach).
+    let (h, s) = (
+        &hammer.moves[MoveId::UpSpecial as usize],
+        &sword.moves[MoveId::UpSpecial as usize],
     );
+    assert_eq!(
+        (h.total_frames, &h.motion, h.helpless_after, h.intangible),
+        (s.total_frames, &s.motion, s.helpless_after, s.intangible)
+    );
+    let damage = |m: &sim_core::moves::Move| {
+        m.hitboxes
+            .iter()
+            .map(|b| (b.start, b.end, b.damage))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(damage(h), damage(s), "the rising slash is the recovery");
     for m in &hammer.moves {
         assert!(m.script.is_none() && m.projectile_script.is_none());
     }

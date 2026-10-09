@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#ff00ff"/>
+  <rect x="0" y="0.0" width="256" height="64.0" fill="#000000" opacity="0.05"/>
+  <path d="M0 6.9 Q32.0 9.7 64.0 6.9 Q96.0 4.7 128.0 6.9 Q160.0 8.1 192.0 6.9 Q224.0 4.4 256.0 6.9" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 18.0 Q32.0 21.0 64.0 18.0 Q96.0 16.2 128.0 18.0 Q160.0 18.8 192.0 18.0 Q224.0 17.7 256.0 18.0" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 29.8 Q32.0 29.8 64.0 29.8 Q96.0 28.0 128.0 29.8 Q160.0 31.8 192.0 29.8 Q224.0 27.3 256.0 29.8" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 39.9 Q32.0 37.1 64.0 39.9 Q96.0 38.5 128.0 39.9 Q160.0 39.4 192.0 39.9 Q224.0 42.3 256.0 39.9" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 51.5 Q32.0 49.2 64.0 51.5 Q96.0 50.1 128.0 51.5 Q160.0 54.5 192.0 51.5 Q224.0 48.9 256.0 51.5" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <ellipse cx="151.6" cy="32.0" rx="9" ry="5" fill="none" stroke="#000000" stroke-width="2" opacity="0.2"/>
+  <rect x="0" y="61.0" width="256" height="3" fill="#000000" opacity="0.3"/>
+  <rect x="0" y="64.0" width="256" height="64.0" fill="#ffffff" opacity="0.05"/>
+  <path d="M0 71.5 Q32.0 72.5 64.0 71.5 Q96.0 70.5 128.0 71.5 Q160.0 72.7 192.0 71.5 Q224.0 71.5 256.0 71.5" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 83.6 Q32.0 86.0 64.0 83.6 Q96.0 84.1 128.0 83.6 Q160.0 81.5 192.0 83.6 Q224.0 81.0 256.0 83.6" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 95.8 Q32.0 95.7 64.0 95.8 Q96.0 93.9 128.0 95.8 Q160.0 98.5 192.0 95.8 Q224.0 96.3 256.0 95.8" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 105.9 Q32.0 108.2 64.0 105.9 Q96.0 104.6 128.0 105.9 Q160.0 105.1 192.0 105.9 Q224.0 108.2 256.0 105.9" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 114.5 Q32.0 116.1 64.0 114.5 Q96.0 112.1 128.0 114.5 Q160.0 115.7 192.0 114.5 Q224.0 115.8 256.0 114.5" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <ellipse cx="216.2" cy="96.0" rx="9" ry="5" fill="none" stroke="#000000" stroke-width="2" opacity="0.2"/>
+  <rect x="0" y="125.0" width="256" height="3" fill="#000000" opacity="0.3"/>
+  <rect x="0" y="128.0" width="256" height="64.0" fill="#000000" opacity="0.05"/>
+  <path d="M0 137.4 Q32.0 137.4 64.0 137.4 Q96.0 135.6 128.0 137.4 Q160.0 135.3 192.0 137.4 Q224.0 137.5 256.0 137.4" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 147.0 Q32.0 144.5 64.0 147.0 Q96.0 149.5 128.0 147.0 Q160.0 147.1 192.0 147.0 Q224.0 148.2 256.0 147.0" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 156.9 Q32.0 155.3 64.0 156.9 Q96.0 154.0 128.0 156.9 Q160.0 155.9 192.0 156.9 Q224.0 155.5 256.0 156.9" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 168.7 Q32.0 168.0 64.0 168.7 Q96.0 170.7 128.0 168.7 Q160.0 171.0 192.0 168.7 Q224.0 166.7 256.0 168.7" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 179.6 Q32.0 177.6 64.0 179.6 Q96.0 180.6 128.0 179.6 Q160.0 182.4 192.0 179.6 Q224.0 177.8 256.0 179.6" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <ellipse cx="180.2" cy="160.0" rx="9" ry="5" fill="none" stroke="#000000" stroke-width="2" opacity="0.2"/>
+  <rect x="0" y="189.0" width="256" height="3" fill="#000000" opacity="0.3"/>
+  <rect x="0" y="192.0" width="256" height="64.0" fill="#ffffff" opacity="0.05"/>
+  <path d="M0 199.2 Q32.0 196.3 64.0 199.2 Q96.0 200.8 128.0 199.2 Q160.0 198.3 192.0 199.2 Q224.0 197.2 256.0 199.2" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 210.7 Q32.0 209.1 64.0 210.7 Q96.0 210.2 128.0 210.7 Q160.0 210.4 192.0 210.7 Q224.0 210.3 256.0 210.7" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 222.4 Q32.0 221.1 64.0 222.4 Q96.0 219.9 128.0 222.4 Q160.0 219.9 192.0 222.4 Q224.0 220.0 256.0 222.4" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 233.1 Q32.0 232.2 64.0 233.1 Q96.0 234.9 128.0 233.1 Q160.0 233.1 192.0 233.1 Q224.0 234.3 256.0 233.1" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <path d="M0 245.9 Q32.0 243.3 64.0 245.9 Q96.0 243.0 128.0 245.9 Q160.0 243.8 192.0 245.9 Q224.0 245.2 256.0 245.9" fill="none" stroke="#000000" stroke-width="1.6" opacity="0.13"/>
+  <ellipse cx="142.4" cy="224.0" rx="9" ry="5" fill="none" stroke="#000000" stroke-width="2" opacity="0.2"/>
+  <rect x="0" y="253.0" width="256" height="3" fill="#000000" opacity="0.3"/>
+</svg>

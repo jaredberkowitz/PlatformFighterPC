@@ -139,6 +139,47 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [16, "b_hit"], [19, "c_hitlag"], [30, "d_launched"]]
 			d.end_frame = 45
+		"marth_fair_close", "marth_dair_close", "wolf_nair_close":
+			# One move up close, a picture on every frame of its swing, nobody in the way (for checking the animation and the trail).
+			var marth: bool = demo_name.begins_with("marth")
+			d.chars = [0, 0, 0, 0] if marth else [1, 1, 1, 1]
+			# The other fighter hangs back out of reach (the camera frames them both, so not too far).
+			d.cam_dist = 13.0
+			var away := 6.0 if demo_name.begins_with("marth_dair") else -6.0
+			d.events = [[1, "place", 0, 0.0, 8.0], [1, "place", 1, away, 8.0]]
+			var stick_y := -70 if demo_name.begins_with("marth_dair") else 0  # down for the down air, short of a fast fall
+			var stick_x := 127 if demo_name.begins_with("marth_fair") else 0
+			d.timeline = [[0, 0, 0, 0], [10, stick_x, stick_y, attack], [11, 0, 0, 0]]
+			var first := 13
+			var last := 26 if not demo_name.begins_with("marth_dair") else 30
+			for f in range(first, last + 1):
+				d.shots.append([f, "f%02d" % (f - 10)])
+			d.end_frame = last + 2
+		"sword_gallery":
+			# Every sword move in turn, photographed at its wind-up, first hit, middle and recovery (for checking the animation).
+			d.chars = [0, 0, 0, 0]
+			d.cam_dist = 12.0
+			d.events = [[1, "stand", 1, 7.0, -1]]  # out of reach in front, so the camera centres the attacker
+			# [name, stick x, stick y, buttons, airborne, first active, last active]
+			var gallery := [["jab", 0, 0, attack, false, 5, 6], ["ftilt", 40, 0, attack, false, 8, 11], ["utilt", 0, 70, attack, false, 6, 12],
+				["dtilt", 0, -70, attack, false, 7, 8], ["fsmash", 60, 0, attack | strong, false, 10, 13],
+				["usmash", 0, 70, attack | strong, false, 13, 17], ["dsmash", 0, -70, attack | strong, false, 6, 23],
+				["nair", 0, 0, attack, true, 6, 21], ["uair", 0, 100, attack, true, 5, 9], ["bair", -127, 0, attack, true, 7, 11],
+				["fair", 127, 0, attack, true, 6, 8], ["dair", 0, -70, attack, true, 9, 13]]
+			var t := 20
+			var n := 0
+			for g in gallery:
+				d.events.append([t - 4, "place", 0, 0.0, 6.0] if g[4] else [t - 4, "stand", 0, 0.0, 1])
+				d.timeline.append([t, g[1], g[2], g[3]])
+				d.timeline.append([t + 1, 0, 0, 0])
+				var first: int = g[5]
+				var last: int = g[6]
+				var mid := (first + last) / 2
+				for k in [[first - 3, "a"], [first, "b"], [mid, "c"], [last + 5, "d"]]:
+					d.shots.append([t + k[0] - 1, "m%02d_%s_%s" % [n, g[0], k[1]]])
+				t += 80
+				n += 1
+			d.end_frame = t
 		"marth_bair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0

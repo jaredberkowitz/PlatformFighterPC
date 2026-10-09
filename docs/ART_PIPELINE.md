@@ -87,7 +87,7 @@ feet still slide a little at game speed (the cycle is paced by speed, not locked
 
 1. Aim the sword arm at the blade; clips for grabs, throws, rolls, knockdown, ledge and each smash/aerial.
 2. Move the hat, glasses, neckwear and sash into the Blender script as meshes on the rig, then drop the code-built versions.
-3. A face atlas texture and expression set for the head.
+3. ~~A face atlas texture and expression set for the head.~~ Done: drawn SVG faces on a face shell (fifth pass).
 4. Stage backdrops, hit effects and a shield bubble.
 
 
@@ -102,3 +102,172 @@ and now **the kicking leg is too** (two-bone IK from hip to ankle, `_aim_leg` in
 These are original animations made on our own rig, timed to the moves' published frame data and shaped after how the archetypal moves read
 (a rising cut, an overhead arc, a spinning kick); nothing is taken from another game's files. Demos: `--demo=moves` (sword tilts and
 smashes) and `--demo=kicks` (claws kicks), with `--stage=N --noui --noecb --shots=<folder>`.
+
+
+## Victory poses, clothes, and checking against the reference (fourth pass)
+
+- **Clothes**: the rig now has shorts (the outfit colour, the loadout's accent a shade darker) over the bottom of the body and the tops of
+  the thighs, white soles under the shoes and a collar; the sash carries two badges; the eyes have catch-lights and the cheeks a touch of
+  blush; every cel material has a soft rim light.
+- **Victory poses** (`victory_a` weapon raised with a hand on the hip, `victory_b` a fist pump, `victory_c` a cheering hop), played by
+  `FighterView.play_victory` on the results screen: a cheer first, then the class's own pose, with the sword or maul held up in the raised hand.
+- **Reference check**: the public hitbox visualisations on ultimateframedata.com (the moves' frame data was already taken from there) were
+  looked at for the poses of the forward and back airs: the forward air is now a mid-air crouch with the knees pulled up and the torso curling
+  over the swing, and the back air tucks the front knee and trails the back leg. The claws fighter's up smash is a flip kick (`kick_uair`
+  clip, leg aimed at its hitbox). These remain our own animations on our own rig; nothing was copied from the reference's files.
+
+
+## Lighting, shaders and drawn artwork (fifth pass)
+
+The look now comes from lighting, shaders and authored artwork rather than from shapes built in code:
+
+- **Lighting** (`godot/scripts/lighting.gd`, shared by the match and every menu preview): a warm key light with soft shadows, a cool fill
+  from the other side, warm ambient light, a filmic tone curve, a gentle bloom, ambient occlusion in the match and a little extra saturation.
+- **Shaders** (`godot/shaders/`): `toon.gdshader` is the soft cel material for every character surface (a colour, optionally times a tiled
+  texture); `face.gdshader` lays the face drawing over the skin colour; both light through `toon_light.gdshaderinc` (light wraps round the
+  form and steps softly into a cool shadow tint, a warm rim on the lit side, a small soft sheen).
+- **Faces** (`godot/art/faces/<expression>.svg`): one drawing per expression (`deadpan`, `sleepy`, `grumpy`, `smug`, `hurt`, and `blink`,
+  shown for a moment every few seconds). They are shown on a **face shell** in the rig (`Face`, a thin layer just in front of the head,
+  following the head bone), whose UVs are a straight-on projection of a 1.155-unit square centred at height 1.585, so a drawing lands on the
+  head as drawn (eyes at about y = 228 of 512). The upper lids are filled with the placeholder colour `#fe00ff`, which becomes the fighter's
+  colour a shade darker when the face loads; anything else is drawn as is. Edit them in any vector editor.
+- **Clothes**: shirts are a loadout slot (`white`, `outfit` colour, `striped`, `flower` print), worn on the body (which now has globe-style
+  UVs) with short **sleeves** (`Sleeve.L/R` in the rig, open tubes over the upper arm, hidden without a shirt). Prints and the straw weave are
+  tiles in `godot/art/cloth/` with `#ff00ff` as the placeholder for the shirt (or straw) colour. The sash is a flat band with three badges.
+- The SVGs are kept as files (their `.import` says `keep`) and drawn into textures when first used (`godot/scripts/svg_art.gd`), so the
+  colours can be swapped; a texture is made once per drawing and colour.
+- **Checking**: `godot --path godot --script res://tests/lineup_shot.gd -- --out=<folder>` photographs the four default fighters close up
+  (`lineup.png`) and every face and shirt (`lineup_faces.png`).
+
+
+## Animated run, bigger attacks and expressions (sixth pass)
+
+- **The run** (`run_pose` in the Blender script) is a key-pose cartoon sprint instead of a sine wave: a strong forward lean, the knee driven
+  high in front, the heel kicked up behind, arms pumping wide with bent elbows, the body dropping as each foot lands and springing up between
+  steps, shoulders twisting against the hips and the head nodding with each step. The dash uses the same stride launched lower and harder.
+  In the game each footfall squashes the body a little (and each stride stretches it) in step with the clip, and kicks up a puff of dust.
+  The sword and the maul are carried swept back behind the runner while the arm pumps.
+- **The skid** (`skid` clip, for a turn out of a run): leaning back on a planted heel, arms flung back, with a stream of dust. The fighter keeps
+  facing the way it was running until the skid ends (the simulation turns it at once; this is display only).
+- **Attacks**: every move clip winds up past its pose (anticipation, x1.12), strikes, overshoots the strike (follow-through, x1.12) and
+  settles; attack clips play larger overall. In the game the body is drawn back in the late wind-up and thrown forward through the active
+  frames (a lunge), on top of the squash and stretch it already had.
+- **Expressions in action** (`godot/art/faces/`): `attack` (a fierce yell, from the start of the swing to just after the hit), `effort`
+  (gritted teeth and a sweat drop: shielding, hanging from a ledge, charging a smash, holding a grab), `focus` (running, dashing, jumping,
+  dodging) and `happy` (a closed-eyed grin, on the results screen). The fighter's own face comes back when it is idle; blinks only show on
+  the calm faces.
+- **Details**: rolled glove cuffs at the wrists, a strap across each shoe in the outfit colour, and the hat on a spring: it lags behind a
+  sudden start or stop and bounces on landings and jumps.
+- **Fixed on the long-limbed rig**: the soles and the shorts' legs now stay on the feet and thighs (they were lifted with the body).
+- **Checking motion**: `godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>` renders a contact
+  sheet, frame by frame, of the run, dash, skid or any move (`--what=fsmash`, `nair`, ...).
+
+
+## The body follows the limb (seventh pass)
+
+The rule from here on: **when a limb reaches for a hit, the rest of the body moves with it.** The kicking leg (claws fighter) and the
+weapon arm are aimed by the game at the move's live hitbox; the rest of the body now answers that, for every move, on top of its clip
+(`_body_follow` in `fighter_view.gd`):
+
+- The **torso bends at the waist** so the limb can get there: back for a kick high overhead (the up tilt leans back on the standing leg), forward
+  over a kick behind, into a low swing in front. A leg is taken to swing comfortably from about 40 degrees behind to 100 in front; beyond
+  that the body makes up the difference (capped). Arms reach almost anywhere, so they only add a small lean.
+- The **head looks** up at a hit overhead and down at a low one.
+- It **grows and fades with the move**: the limb eases toward its hit through the second half of the wind-up, is on it while the hit is live,
+  and comes home through the first half of the recovery (`_reach_weight`); the body follows the same weight. (Before, a kicking leg stayed
+  stretched toward the hit until the move ended.)
+- The **leg IK** is rooted at the animated hip (not its rest position), and the **knee bends the way a knee does**: ahead of the leg in the
+  plane of the kick (up for a kick in front, down and back for one behind), so it never folds backwards.
+
+Clips touched to agree with it: the claws fighter's up tilt is now a high kick leaning back with the arms thrown out for balance; the sword
+down tilt and the back air lean less (the body follow adds the rest). Check a move with its real hitbox:
+`--script res://tests/anim_sheet.gd -- --what=utilt --class=1 --tip=1.1,3.5 --timing=34,7,11 --zoom=1.4 --out=<file.png>`.
+
+
+## Turned for the camera, and a fighting stance (eighth pass)
+
+- **How a fighter is turned** (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`): the classic cheat for 3D fighters on a
+  2D stage. The hips and legs are turned 60 degrees toward the way the fighter faces, so strides, kicks, lunges and leans happen across the
+  screen instead of toward the camera (where they were foreshortened); the chest then turns 30 degrees back toward the camera and the head 20
+  more, so the body and the face are open to the player (the chest about 30 degrees off straight-on, the face about 10). Before, the whole
+  body was turned 36 degrees and every forward motion went mostly into the screen. Leaning is now a pitch toward the fighter's front.
+- **The stage frame**: a node in the model that undoes its turn, so everything aimed at a hit (the weapon, the arm and leg reaching, the
+  body following them) still works in stage axes. The arm reach is now rooted at the animated shoulder, like the leg's at the hip.
+- **Idle** (in the manner of a plumber's bouncy stance): feet apart with the far foot forward and the back leg nearly straight, knees
+  bent, the weight bobbing down and up twice a cycle, fists up in front of the chest (the lead fist further out), the chest leaning in and
+  turned with the lead shoulder, the head nodding with the bounce.
+- **Walk**: a bouncy, swaggering step: knees lifting, a springy bob on each step, arms swinging wide with loose bent elbows, the shoulders
+  twisting against the hips, a little lean.
+- Menu previews keep their own turn (they set it themselves).
+- **Looking at each other** (after the reference of how fighters stand in the reference game): the body stays open to the camera, but the head
+  turns back toward the opponent (`HEAD_TO_CAMERA` is negative: the face about 40 degrees off straight-on) and every face drawing has its
+  pupils toward the fighter's front (`GAZE` in the drawings, texture right). Facing left, the face shader mirrors the drawing (`mirror`,
+  `FighterView.set_gaze`), so both fighters look at each other; the switch happens as the body swings past facing the camera. Menu
+  previews look the way they are turned.
+
+
+## Swing trails and iconic aerials (ninth pass)
+
+- **Sword (and maul) trails** are now the reference game's kind: the whole crescent the blade sweeps, blue-white for the sword (orange-white for
+  the maul), brightest along the edge the tip traces and fading toward the hilt and with age (8 frames), drawn in thin slices that turn round
+  the hand so the arc is smooth, and frozen during hitlag (`_update_sweep`). The claws keep the hitbox ribbon, which now only draws when the
+  hit travels across the body (a held kick no longer leaves a streak as the fighter falls).
+- **The swing direction**: a swing's wind-up starts from where its first hit is, turned back by `SWING_FROM` for the moves that sweep top to
+  bottom (forward air from behind the head, down air from high in front), and after its last hit the blade stays where the swing ended
+  (the bridge reports the last hit's place once the hits are over) instead of snapping back.
+- **Forward air**: wind-up behind the head, then the crescent from overhead through level to low in front.
+- **Down air** (`sword_dair`): knees gathered and the sword raised in front, then the legs open wide, torso upright, head looking down as
+  the crescent sweeps under from front to back.
+- **Claws neutral air** (`kick_nair`, `SPLIT_KICKS`): both legs are aimed by the game, one kicked out ahead and one behind, the torso upright
+  over the split with the arms thrown up, held through the long late hit.
+- Close-up demos that photograph every frame: `--demo=marth_fair_close`, `marth_dair_close`, `wolf_nair_close` (with `--noui --noecb
+  --shots=<folder>`).
+- **Sword swing directions** (tenth pass): `SWING_FROM` now covers every sword move, so each blade comes from the right side (cuts that come
+  down wind up from above, rising cuts from below); the resting blade is shorter to match the shorter reach; the move tip the game aims at is
+  the hit farthest from the body (the end of the blade). `--demo=sword_gallery` photographs every sword move at wind-up, first hit, middle
+  and recovery.
+
+
+## Readability and finish (eleventh pass)
+
+- **Chunkier fighters** (`LIMB` in the Blender script, 1.32): thicker arms and legs, big puffy gloves with a thumb and a knuckle ridge, bigger
+  boots (soles and straps to match), rolled cuffs at the wrist, and a ball at each elbow and knee so a bent joint stays round. The skeleton
+  and the animations are unchanged.
+- **An outline that holds its weight** (`shaders/outline.gdshader`, the toon material's next pass): the ink line grows with distance from
+  the camera, so it stays about the same thickness on screen when the camera pulls back (it used to thin out to nothing at long range).
+- **Contact shadows**: a soft dark oval under each fighter, projected on whatever is below it (a `Decal`; the fighter's own meshes are on
+  render layer 2 so it skips them; it only lands on upward-facing surfaces and fades with height).
+- **Camera**: it now looks down at the stage a little (`CAMERA_PITCH`, 10 degrees, raised to match) so platform tops and the shadows show,
+  and it comes in closer when the fighters are near each other (minimum distance 19, was 24).
+- **Depth haze** (`lighting.gd`): fog that only thickens far behind the stage (depth 45 to 160), tinted to the stage's horizon colour, so the
+  backdrop sits back and the fighters stand out. (A depth-of-field blur was tried and dropped: it bled the sky over thin things like the
+  blade and the damage numbers.)
+- **Hit effects** (`effects.gd`): a white shockwave ring, a ring in the attacker's colour and a burst of streaks where a hit lands, bigger for
+  a harder hit; a ring at the feet on every jump (brighter for a midair jump).
+- **Flashes** (an `instance uniform` in the toon and face shaders, so each fighter flashes on its own): white for a moment when hit, a soft
+  yellow pulse while charging a smash.
+- **Shield** (`shaders/shield.gdshader`): a bubble that is clear in the middle with a bright fresnel rim and a slight pulse, tinted by its
+  health as before.
+
+
+## Skinned limbs, real gloves, clothing that bends (twelfth pass)
+
+- **Arms and legs are single smoothly skinned tubes** (`tube` and `chain_weights` in the Blender script): shoulder to wrist and hip to ankle,
+  fuller at the upper arm, forearm and calf, weighted across the elbow and knee so a bend stays round like flesh instead of two capsules
+  hinging (the elbow and knee balls are gone). A sock covers the lower leg, skinned the same way.
+- **Cartoon gloves**: a puffy palm, four stubby fingers curled a little toward the body and a thumb, each a smooth tube.
+- **Clothing skinned across the joints it covers**, so it bends with the body instead of slicing through the next piece: the shirt and the
+  shorts blend from the hips to the spine across the waist (the same way, so their edges stay together), the shorts' legs from the hips
+  into the thighs, the sleeves from the chest into the upper arms.
+- A kicking leg is aimed a little toward the camera, so on the turned body it passes in front of the torso rather than through it.
+- **No more clipping clothes**: the separate sleeve, shorts-leg and sock pieces are gone. Arms and legs carry UVs along their length (0 at the
+  shoulder or hip, 1 at the wrist or ankle) and `shaders/limb.gdshader` paints the clothing on as bands with an ink hem line: a sleeve from
+  the shoulder (with a shirt), the shorts' leg from the hip and a white sock below the knee. They bend exactly with the limb.
+- **Fists**: the gloves are clenched, with the curled fingers as a row of knuckles and the thumb across the front.
+- **Bigger swings**: attack clips play larger (x1.85 for punches and kicks, x1.75 for sword moves), the whole body pitches with each hit
+  (into a hit in front or below, arching back under one overhead, curling forward away from one behind), the lunge is stronger, the torso
+  bends twice as much toward an arm's hit, and a punch reaches out with the wind-up and comes home in the recovery like a kick.
+- **Stage textures** (`godot/art/stage/*.svg`, drawn for this game in the same SVG pipeline as the faces, so they stay cel-shaded rather than
+  photographic): painted grass clumps, wind-rippled sand, plank grain, concrete with seams, brushed steel. `#ff00ff` in a tile becomes the
+  surface colour. The toon shader can lay a texture in world space (`world_tile`: world units per repeat, on top faces and fronts), so a
+  surface tiles evenly whatever the block's size (`StageArt._surface`).

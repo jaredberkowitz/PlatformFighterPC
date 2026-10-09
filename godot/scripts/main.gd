@@ -3,6 +3,8 @@ extends Node3D
 
 const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const Lighting := preload("res://scripts/lighting.gd")
+const Effects := preload("res://scripts/effects.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -151,18 +153,11 @@ func _build_world() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.background_color = Color(0.56, 0.78, 0.95)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(1.0, 0.95, 0.9)
-	env.ambient_light_energy = 0.75
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	world_env = env
-
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-42, -28, 0)
-	sun.light_energy = 1.0
-	add_child(sun)
+	Lighting.apply(env, self)
 
 	cam = Camera3D.new()
 	cam.fov = 30.0
@@ -325,6 +320,8 @@ func _apply_sky() -> void:
 	if world_env != null and not stage_view.theme.is_empty():
 		world_env.sky = StageArt.sky(stage_view.theme)
 		world_env.background_mode = Environment.BG_SKY
+		# The haze behind the stage takes the colour of the stage's horizon.
+		world_env.fog_light_color = stage_view.theme.sky_horizon
 
 
 func _apply_rules() -> void:
@@ -1032,7 +1029,7 @@ func _show_results(winner: int) -> void:
 		var st: Dictionary = stats[i] if i < stats.size() else {}
 		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner,
 			"kos": st.get("kos", 0), "falls": st.get("falls", 0), "dealt": st.get("dealt", 0.0), "taken": st.get("taken", 0.0),
-			"look": views[i].loadout})
+			"look": views[i].loadout, "class": sim.fighter_class(i)})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
 	if group_mode:
@@ -1156,6 +1153,11 @@ func _in_play(i: int) -> bool:
 func _on_hit(i: int) -> void:
 	var lag: int = snaps[i].hitlag
 	cam_shake = maxf(cam_shake, minf(0.8, float(lag) * 0.028))
+	# A shockwave and streaks where the hit landed, in the colour of whoever landed it, bigger for a harder hit.
+	if snaps[i].get("launch_pending", false) and _in_play(i):
+		var by: int = stats[i].last_hitter if i < stats.size() else -1
+		var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
+		Effects.hit(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.8), colour, clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0))
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
 		ko_time = 0.75
@@ -1190,13 +1192,19 @@ func _track_stats(befores: Array) -> void:
 			var by: int = stats[i].last_hitter
 			if by >= 0:
 				stats[by].dealt += gained
-		var ko: bool = int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30
+		var ko: bool = _knocked_out(before, now)
 		if ko:
 			stats[i].falls += 1
 			var by: int = stats[i].last_hitter
 			if by >= 0 and by != i:
 				stats[by].kos += 1
 			stats[i].last_hitter = -1
+
+
+## Whether the fighter was knocked out between two snapshots: it lost a stock, or (in free play, where no stock is lost) it has just
+## come back on the revival platform. Not a jump in invincibility: ledge options and get-ups grant some too.
+func _knocked_out(before: Dictionary, now: Dictionary) -> bool:
+	return int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or (now.get("state", "") == "Respawn" and before.get("state", "") != "Respawn")
 
 
 ## Cues for things the sim reports between two snapshots of a fighter: a clank, a wall tech, a knock-out.
@@ -1207,11 +1215,15 @@ func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
 		sfx.play("clank")
 		cam_shake = maxf(cam_shake, 0.25)
 		_burst(Vector3(cur_pos[i].x + 0.9 * float(now.facing), cur_pos[i].y + 1.1, 0.6), Color(1.0, 0.95, 0.6), 0.9, 0.3)
+	# A ring at the feet on every jump, brighter for a midair one.
+	if now.state == "Airborne" and before.state == "JumpSquat":
+		Effects.jump_ring(self, Vector3(cur_pos[i].x, cur_pos[i].y, 0.0), false)
+	elif now.state == "Airborne" and before.state == "Airborne" and int(now.get("jumps", 0)) < int(before.get("jumps", 0)):
+		Effects.jump_ring(self, Vector3(cur_pos[i].x, cur_pos[i].y, 0.0), true)
 	if now.state == "WallTech" and before.state != "WallTech":
 		sfx.play("land", 1.3)
 		_burst(Vector3(cur_pos[i].x, cur_pos[i].y + 1.0, 0.6), Color(0.85, 0.95, 1.0), 1.1, 0.35)
-	# A knock-out respawns the fighter with a long invulnerability (in free play no stock is lost, so this is the sign to watch).
-	if int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30:
+	if _knocked_out(before, now):
 		_ko_blast(i, before.get("pos", cur_pos[i]))
 
 
@@ -1324,6 +1336,10 @@ func _offscreen_markers() -> Array:
 	return out
 
 
+## Degrees the match camera looks down at the stage.
+const CAMERA_PITCH := 10.0
+
+
 func _update_camera(a: float, delta: float) -> void:
 	var lo := Vector2(1e9, 1e9)
 	var hi := Vector2(-1e9, -1e9)
@@ -1337,8 +1353,9 @@ func _update_camera(a: float, delta: float) -> void:
 		return
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
-	var spread := maxf(hi.x - lo.x + 18.0, (hi.y - lo.y + 10.0) * 1.78)
-	var dist := clampf(spread / 0.95, 24.0, 85.0)
+	# (Close together, the camera comes in near so the fighters read big, as the reference game frames a close exchange.)
+	var spread := maxf(hi.x - lo.x + 14.0, (hi.y - lo.y + 8.0) * 1.78)
+	var dist := clampf(spread / 0.95, 19.0, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
@@ -1355,7 +1372,11 @@ func _update_camera(a: float, delta: float) -> void:
 	if cam_shake > 0.001:
 		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
 		cam_shake = move_toward(cam_shake, 0.0, delta * 2.6)
-	cam.position = cam_base + offset
+	# The camera looks slightly down at the stage (raised by as much as it tilts, so the point it frames stays put): the tops of the
+	# platforms and the fighters' shadows on them show, and the stage has depth.
+	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
+	cam.position = cam_base + offset + Vector3(0, lift, 0)
+	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, 0)
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),

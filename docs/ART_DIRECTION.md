@@ -42,9 +42,13 @@ not in the content hash), in `godot/scripts/stage_art.gd`:
   block whose top is not covered by another. Stacked blocks make an island that narrows underneath (Treetop Isle), so the underside you can
   bump into is the shape you see.
 - **Platforms**: rounded wooden planks, a light board on a darker beam, with seams.
-- **Backdrops**: *meadow* (hills and clouds), *grove* (a giant cartoon tree behind a floating island, bushes and flowers on the island, two
-  smaller trees far behind, pastel hills, a pink-to-blue sky and twinkling glints in the canopy), *sunset* (a low sun and mesas in silhouette),
-  *night* (a big moon and stars). Each theme also sets the soil, grass and wood colours.
+- **Backdrops**: *meadow* (rolling hills, a turning windmill, round trees, a fence and flowers behind the fighters), *grove* (a giant cartoon tree behind a floating island, bushes and flowers on the island, two
+  smaller trees far behind, pastel hills, a pink-to-blue sky and twinkling glints in the canopy), *sunset* (a canyon at dusk: a low sun,
+  striped mesas, a rock arch, cacti), *night* (a big moon and stars), *ocean* (a sandy island on a swelling sea, distant islands, a lighthouse,
+  a sailboat, palms) and *city* (a rooftop in front of a lit skyline, a water tower, a blinking antenna). Each theme also sets the block
+  pattern (quilted diamonds, sandstone strata, cobbles, or a building facade with lit windows), what tops a block (grass, sand or a rooftop
+  ledge) and the platforms (wooden planks or riveted steel girders). The built-in stages use: Meadow *meadow*, Triple Tier *sunset*, Flat
+  Island *ocean*, Skyline *city*, Treetop Isle *grove*.
 - Treetop Isle is our take on the classic "floating island under a big tree" stage: original shapes, no face on the tree, no borrowed
   characters or names.
 - Check a stage's art with `Godot --path godot -- --demo=stage --stage=N --noui --noecb --shots=<folder>`.

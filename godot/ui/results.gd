@@ -109,8 +109,10 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 	add_child(board)
 	# The winner, standing large on the coloured side.
 	if winner >= 0 and cards[winner].has("look"):
-		preview = Preview.new(Vector2i(460, 520), false, 7.0)
-		preview.position = Vector2(80, 150)
+		preview = Preview.new(Vector2i(460, 560), false, 9.4)
+		preview.position = Vector2(80, 160)
+		preview.spin = false
+		preview.facing_bias = -0.5
 		preview.set_loadout(cards[winner].look)
 		add_child(preview)
 	var row := HBoxContainer.new()
@@ -133,10 +135,10 @@ func _process(delta: float) -> void:
 	t += delta
 	if board != null:
 		board.queue_redraw()
-	# A victory hop for the first two seconds, then the winner settles.
+	# The winner's victory pose (a cheering hop first, then their own pose).
 	if preview != null and preview.view != null:
-		var hop := absf(sin(t * 5.0)) * 0.35 * clampf(2.2 - t, 0.0, 1.0)
-		preview.view.position.y = hop
+		var cls: int = card_data[winner].get("class", 0) if winner >= 0 else 0
+		preview.view.play_victory(cls, delta, t < 1.0)
 
 
 func set_note(text: String) -> void:

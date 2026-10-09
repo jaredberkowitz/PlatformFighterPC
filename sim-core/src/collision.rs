@@ -150,12 +150,18 @@ pub fn move_up(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dy: Fx) ->
 /// wall (at least `ecb_half_width` outside the edge) and at least `ledge_min_drop` below the ledge, so a
 /// fighter walking or hopping off the stage, whose body still overlaps the corner, does not snap onto it,
 /// and a fighter over the stage never grabs it.
-pub fn find_ledge(stage: &Stage, pos: Vec2, params: &FighterParams) -> Option<usize> {
+pub fn find_ledge(stage: &Stage, pos: Vec2, facing: i8, params: &FighterParams) -> Option<usize> {
     stage.ledges.iter().position(|l| {
         let outside = if l.side < 0 { l.x - pos.x } else { pos.x - l.x };
         let dy = pos.y - l.y;
+        // A ledge behind the fighter (its back to the stage) has a shorter reach.
+        let reach = if facing == l.side {
+            params.ledge_reach_back_x
+        } else {
+            params.ledge_reach_x
+        };
         outside >= params.ecb_half_width
-            && outside <= params.ledge_reach_x
+            && outside <= reach
             && dy <= -params.ledge_min_drop
             && dy >= -params.ledge_reach_down
     })
@@ -223,18 +229,18 @@ mod tests {
         let content = Content::placeholder();
         let p = content.fighters[0];
         let at = |x: i32, y: i32| Vec2::new(Fx::from_int(x), Fx::from_int(y));
-        assert_eq!(find_ledge(&content.stage, at(-12, -2), &p), Some(0));
+        assert_eq!(find_ledge(&content.stage, at(-12, -2), 0, &p), Some(0));
         assert_eq!(
-            find_ledge(&content.stage, at(-21, -2), &p),
+            find_ledge(&content.stage, at(-21, -2), 0, &p),
             None,
             "too far out"
         );
         assert_eq!(
-            find_ledge(&content.stage, at(-12, -5), &p),
+            find_ledge(&content.stage, at(-12, -5), 0, &p),
             None,
             "too far below"
         );
-        assert_eq!(find_ledge(&content.stage, at(12, -2), &p), Some(1));
+        assert_eq!(find_ledge(&content.stage, at(12, -2), 0, &p), Some(1));
     }
 
     #[test]
@@ -251,32 +257,34 @@ mod tests {
                     Fx::from_ratio(-109, 10),
                     -p.ledge_min_drop * Fx::from_int(2)
                 ),
+                0,
                 &p
             ),
             None
         );
         // Walking or hopping off: level with the ledge, outside of it.
         assert_eq!(
-            find_ledge(&content.stage, at(Fx::from_ratio(-111, 10), ledge_y), &p),
+            find_ledge(&content.stage, at(Fx::from_ratio(-111, 10), ledge_y), 0, &p),
             None
         );
         // Still overlapping the stage corner: not yet clear of the wall, however far it has fallen.
         let low = -p.ledge_min_drop * Fx::from_int(2);
         assert_eq!(
-            find_ledge(&content.stage, at(Fx::from_ratio(-111, 10), low), &p),
+            find_ledge(&content.stage, at(Fx::from_ratio(-111, 10), low), 0, &p),
             None
         );
         // Clear of the wall and a little way down, it can be grabbed.
         let clear = Fx::from_int(-11) - p.ecb_half_width;
-        assert_eq!(find_ledge(&content.stage, at(clear, low), &p), Some(0));
+        assert_eq!(find_ledge(&content.stage, at(clear, low), 0, &p), Some(0));
         assert_eq!(
-            find_ledge(&content.stage, at(clear, -p.ledge_min_drop), &p),
+            find_ledge(&content.stage, at(clear, -p.ledge_min_drop), 0, &p),
             Some(0)
         );
         assert_eq!(
             find_ledge(
                 &content.stage,
                 at(clear, -p.ledge_min_drop / Fx::from_int(2)),
+                0,
                 &p
             ),
             None,

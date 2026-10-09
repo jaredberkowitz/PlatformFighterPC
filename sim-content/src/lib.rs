@@ -147,6 +147,13 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             "air_dodge_frames",
             "ledge_hang_max",
             "dash_frames",
+            "input_buffer",
+            "air_dodge_dir_down_frames",
+            "air_dodge_dir_side_frames",
+            "air_dodge_dir_up_frames",
+            "air_dodge_landing_step",
+            "roll_back_frames",
+            "ledge_grab_limit",
         ];
         if value == 0 && at_least_one.contains(&name) {
             errors.push(format!("fighter {i}: {name} must be at least 1"));
@@ -154,14 +161,20 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
     }
     if usize::from(f.air_dodge_buffer) > HISTORY_LEN
         || usize::from(f.shield_drop_buffer) > HISTORY_LEN
+        || usize::from(f.input_buffer) >= HISTORY_LEN
     {
         errors.push(format!(
             "fighter {i}: input buffers cannot exceed {HISTORY_LEN} frames"
         ));
     }
-    if f.ledge_invuln_floor > f.ledge_invuln_base {
+    if f.ledge_option_decay_2 > 100 || f.ledge_option_decay_3 > 100 {
         errors.push(format!(
-            "fighter {i}: ledge_invuln_floor exceeds ledge_invuln_base"
+            "fighter {i}: ledge_option_decay_2 and ledge_option_decay_3 are percents (at most 100)"
+        ));
+    }
+    if f.ledge_reach_back_x > f.ledge_reach_x {
+        errors.push(format!(
+            "fighter {i}: ledge_reach_back_x exceeds ledge_reach_x"
         ));
     }
     if f.ledge_hang_dx < f.ecb_half_width {
@@ -308,7 +321,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
 }
 
 /// The backdrops the game knows how to draw (see `godot/scripts/stage_art.gd`).
-pub const BACKDROPS: [&str; 4] = ["meadow", "grove", "sunset", "night"];
+pub const BACKDROPS: [&str; 6] = ["meadow", "grove", "sunset", "night", "ocean", "city"];
 
 fn validate_look(look: &sim_core::content::StageLook, errors: &mut Vec<String>) {
     if !BACKDROPS.contains(&look.backdrop.as_str()) {

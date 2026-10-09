@@ -230,6 +230,7 @@ mod tests {
                             | FighterState::Landing
                             | FighterState::WaveLand
                             | FighterState::Shield
+                            | FighterState::ShieldRelease
                             | FighterState::Roll
                             | FighterState::SpotDodge
                             | FighterState::Grabbing

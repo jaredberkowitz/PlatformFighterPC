@@ -23,27 +23,38 @@ var lean := 0.0
 
 static var _mat_cache := {}
 static var _mesh_cache := {}
-static var _outline_mat: StandardMaterial3D
+static var _outline_mat: ShaderMaterial
 
 
-static func toon(c: Color, outline := true) -> StandardMaterial3D:
-	var key := "%s%s" % [c.to_html(), outline]
+const TOON_SHADER := preload("res://shaders/toon.gdshader")
+const FACE_SHADER := preload("res://shaders/face.gdshader")
+const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
+const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
+const LIMB_SHADER := preload("res://shaders/limb.gdshader")
+const SvgArt := preload("res://scripts/svg_art.gd")
+
+
+## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
+## `texture` (fabric, straw...) multiplies the colour, tiled `tile` times.
+static func toon(c: Color, outline := true, texture: Texture2D = null, tile := Vector2.ONE, world_tile := 0.0) -> ShaderMaterial:
+	var key := "%s%s%s%s%s" % [c.to_html(), outline, texture.get_instance_id() if texture != null else 0, tile, world_tile]
 	if _mat_cache.has(key):
 		return _mat_cache[key]
-	var m := StandardMaterial3D.new()
+	var m := ShaderMaterial.new()
+	m.shader = TOON_SHADER
 	_mat_cache[key] = m
-	m.albedo_color = c
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	m.roughness = 1.0
+	m.set_shader_parameter("albedo", c)
+	if texture != null:
+		m.set_shader_parameter("use_tex", true)
+		m.set_shader_parameter("albedo_tex", texture)
+		m.set_shader_parameter("tex_scale", tile)
+		m.set_shader_parameter("world_tile", world_tile)
 	if outline:
 		if _outline_mat == null:
-			_outline_mat = StandardMaterial3D.new()
-			_outline_mat.albedo_color = INK
-			_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
-			_outline_mat.grow = true
-			_outline_mat.grow_amount = 0.035
+			# An ink line that keeps about the same thickness on screen at any zoom (shaders/outline.gdshader).
+			_outline_mat = ShaderMaterial.new()
+			_outline_mat.shader = OUTLINE_SHADER
+			_outline_mat.set_shader_parameter("color", INK)
 		m.next_pass = _outline_mat
 	return m
 
@@ -62,8 +73,10 @@ func rebuild(l: RefCounted) -> void:
 	anim = null
 	skeleton = null
 	current_clip = ""
-	face_parts = {}
+	face_mesh = null
+	face_mat = null
 	last_expression = {}
+	shown_face = ""
 	last_ghost = 0.0
 	build(player, l)
 
@@ -113,7 +126,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["idle", "walk", "run", "dash", "fall"]
+const LOOPING := ["idle", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -125,8 +138,11 @@ static func release_caches() -> void:
 	_rig_templates.clear()
 	_parts.clear()
 	_mat_cache.clear()
+	_limb_cache.clear()
 	_mesh_cache.clear()
 	_outline_mat = null
+	SvgArt.release()
+	_shadow_tex = null
 
 
 ## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
@@ -171,7 +187,7 @@ static func _model_scene(path: String) -> Node:
 
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
-func _build_rig(skin: StandardMaterial3D) -> bool:
+func _build_rig(skin: Material) -> bool:
 	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
@@ -195,12 +211,33 @@ func _build_rig(skin: StandardMaterial3D) -> bool:
 		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
 	var white := toon(Color(1, 1, 1))
 	var shoe := toon(Color(0.27, 0.2, 0.3))
+	var shirt := _shirt_material()
+	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
+	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42)
+	var shorts := toon(shorts_colour)
+	var skin_colour: Color = loadout.body_color()
+	# Arms and legs carry their clothes as painted bands (shaders/limb.gdshader): a sleeve from the shoulder when there is a shirt; the
+	# shorts' leg and a white sock on each leg.
+	var arm := _limb_material(skin_colour, _sleeve_colour(), 0.36, Color.WHITE, 2.0)
+	var leg := _limb_material(skin_colour, shorts_colour, 0.3, Color.WHITE, 0.62)
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
-		if part.begins_with("Hand") or part.begins_with("Shin"):
+		if part.begins_with("Arm"):
+			mi.material_override = arm
+		elif part.begins_with("Leg"):
+			mi.material_override = leg
+		elif part.begins_with("Hand") or part.begins_with("Sole") or part.begins_with("Collar") or part.begins_with("Cuff"):
 			mi.material_override = white
+		elif part.begins_with("Strap"):
+			mi.material_override = toon(loadout.accent_color())
+		elif part.begins_with("Shorts"):
+			mi.material_override = shorts
 		elif part.begins_with("Foot"):
 			mi.material_override = shoe
+		elif part.begins_with("Face"):
+			face_mesh = mi
+		elif part.begins_with("Body") and shirt != null:
+			mi.material_override = shirt
 		else:
 			mi.material_override = skin
 		meshes.append(mi)
@@ -261,7 +298,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["grab", 1.0, -1.0]
 		"Attack":
 			return _attack_clip(s)
-		"Idle", "Turn", "LedgeGetUp", "LedgeAttack", "Respawn":
+		"Turn":
+			# Turning out of a run skids; a turn from standing just turns.
+			return ["skid", 1.0, -1.0] if speed > 0.08 else ["idle", 1.0, -1.0]
+		"Idle", "LedgeGetUp", "LedgeAttack", "Respawn", "ShieldRelease":
 			return ["idle", 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
@@ -325,6 +365,26 @@ func _skeleton_to_model() -> Transform3D:
 	return model.global_transform.affine_inverse() * skeleton.global_transform
 
 
+## The stage frame: a node in the model that undoes its turn, so its axes are the stage's (x along the stage, y up, z toward the
+## camera) while it still leans, squashes and moves with the body. Everything aimed at a hit (the weapon, the arm and leg reaching, the
+## body following them) works in it.
+var stage_frame: Node3D
+
+
+func _skeleton_to_frame() -> Transform3D:
+	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
+
+
+## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned most of the way toward the way it
+## faces, so strides, kicks and swings happen across the screen where they read; the chest and then the head twist back toward the
+## camera, so the body and the face stay open to the player.
+const BODY_TURN := 60.0
+const CHEST_TO_CAMERA := 30.0
+## Negative: the head turns back toward the opponent from the chest (to about 40 degrees off straight-on), and the eyes in the face look
+## that way too (see `set_gaze`), so the two fighters look at each other while their bodies stay open to the camera.
+const HEAD_TO_CAMERA := -10.0
+
+
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
 func _animate(s: Dictionary, delta: float) -> void:
 	if anim == null:
@@ -341,11 +401,135 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# (Hitlag freezes the pose along with everything else.)
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
+	_body_follow(s, delta)
 	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
 	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
 	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+
+
+## The rest of the body answers the limb that is reaching for a hit (the kicking leg, or the weapon arm): the torso bends at the waist
+## so the limb can get there (back for a kick high overhead, forward over a kick behind or a low swing), and the head looks at the hit.
+## It grows with the move's wind-up and fades in its recovery, and it is added on top of the move's clip, so every move gets it.
+var body_bend := 0.0
+var head_look := 0.0
+
+
+func _body_follow(s: Dictionary, delta: float) -> void:
+	var target_bend := 0.0
+	var target_look := 0.0
+	var tip: Vector3 = s.move_tip
+	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0:
+		var kicking: bool = _cls(s) == 1 and KICK_CLIPS.has(s.move_name)
+		var to_frame := _skeleton_to_frame()
+		var hips := skeleton.find_bone("hips")
+		var hip_y: float = (to_frame * skeleton.get_bone_global_pose(hips).origin).y if hips >= 0 else 0.6
+		var from := Vector2(0.0, hip_y) if kicking else shoulder
+		var to := Vector2(tip.x, tip.y) - from
+		# The limb's direction: 0 straight down, 90 straight ahead, 180 straight up, negative behind.
+		var phi := rad_to_deg(atan2(to.x, -to.y))
+		if kicking:
+			# A leg swings comfortably from about 40 degrees behind to 100 in front; past that the body has to make room.
+			if phi > 100.0:
+				target_bend = -minf((phi - 100.0) * 0.85, 50.0)
+			elif phi < -40.0:
+				# (Less: kicks behind already lean the body forward in their clips.)
+				target_bend = minf((-40.0 - phi) * 0.4, 24.0)
+		else:
+			# An arm reaches almost anywhere: lean into low swings in front, a little back from ones overhead or behind.
+			if phi > 0.0 and phi < 80.0:
+				target_bend = (80.0 - phi) * 0.35
+			elif phi > 140.0:
+				target_bend = -(phi - 140.0) * 0.4
+			elif phi < -60.0:
+				target_bend = (-60.0 - phi) * 0.3
+		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
+		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
+		target_look = clampf(rise * 0.5, -20.0, 30.0)
+		# In proportion to how far into the move the limb is (its blend toward the hitbox).
+		var k := leg_k if kicking else arm_k
+		target_bend *= k
+		target_look *= k
+	var follow := clampf(delta * 16.0, 0.0, 1.0)
+	body_bend = lerpf(body_bend, target_bend, follow)
+	head_look = lerpf(head_look, target_look, follow)
+	if absf(body_bend) > 0.05:
+		_bend_bone(spine_bone, body_bend, int(s.facing))
+	if absf(head_look) > 0.05:
+		_bend_bone(head_bone, -head_look, int(s.facing))
+	# Open the chest and the face to the camera (see BODY_TURN).
+	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
+	_turn_bone(head_bone, -HEAD_TO_CAMERA * float(s.facing))
+
+
+## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top
+## of its pose.
+func _turn_bone(bone: int, degrees: float) -> void:
+	var parent := skeleton.get_bone_parent(bone)
+	if parent < 0:
+		return
+	var axis: Vector3 = (_skeleton_to_frame().affine_inverse().basis * Vector3(0, 1, 0)).normalized()
+	var turn := Basis(axis, deg_to_rad(degrees))
+	var g := skeleton.get_bone_global_pose(bone)
+	var pg := skeleton.get_bone_global_pose(parent)
+	skeleton.set_bone_pose_rotation(bone, (pg.basis.inverse() * (turn * g.basis)).get_rotation_quaternion())
+
+
+## Bends a bone toward the fighter's front (the way it faces in the world) by `degrees` (negative bends back), about its own joint,
+## on top of the pose the clip gave it.
+func _bend_bone(bone: int, degrees: float, facing: int) -> void:
+	var parent := skeleton.get_bone_parent(bone)
+	if parent < 0:
+		return
+	# The model leans toward its facing by turning about its own front axis (as `apply` does), so the bend uses the same axis.
+	var axis: Vector3 = (_skeleton_to_frame().affine_inverse().basis * Vector3(0, 0, 1)).normalized()
+	var turn := Basis(axis, deg_to_rad(-degrees * float(facing)))
+	var g := skeleton.get_bone_global_pose(bone)
+	var pg := skeleton.get_bone_global_pose(parent)
+	var local := pg.basis.inverse() * (turn * g.basis)
+	skeleton.set_bone_pose_rotation(bone, local.get_rotation_quaternion())
+
+
+## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword and the maul are raised high, the
+## claws fighter pumps a fist; `cheer` makes anyone throw both arms up and hop), with the weapon held up in the raised hand. Call every
+## frame with the time since the last.
+func play_victory(cls: int, delta: float, cheer := false) -> void:
+	if anim == null:
+		return
+	var clip := "victory_c" if cheer else ("victory_b" if cls == 1 else "victory_a")
+	set_expression(Loadout.HAPPY_FACE)
+	_blink(delta)
+	if current_clip != clip and anim.has_animation(clip):
+		anim.play(clip, 0.15)
+		current_clip = clip
+	anim.speed_scale = 1.0
+	anim.advance(delta)
+	var to_model := _skeleton_to_model()
+	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
+	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
+	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+	# The sword or the maul, gripped in the raised hand and pointing up.
+	var armed := cls != 1 and not cheer
+	blade_pivot.visible = armed
+	if armed:
+		var hand := skeleton.find_bone("hand.R")
+		var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
+		blade_pivot.position = at
+		blade_pivot.rotation = Vector3(0, 0, PI / 2.0)
+		var length := 1.9
+		var hammer := cls == 2
+		blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0, 1.0) if not hammer else Vector3.ONE
+		for part in blade_parts:
+			part.visible = not hammer
+		for part in hammer_parts:
+			part.visible = hammer
+		if hammer:
+			hammer_parts[0].scale.x = (length - 0.35) / 2.5
+			hammer_parts[0].position.x = (length - 0.35) / 2.0
+			hammer_parts[1].position.x = length
+			hammer_parts[2].position.x = length
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is
@@ -368,8 +552,9 @@ static func blob_parts() -> Dictionary:
 	return _parts
 
 
-## The face's moving parts, so the expression can change (see set_expression).
-var face_parts := {}
+## The shell in front of the head that shows the drawn face, and its material (the expression swaps its texture).
+var face_mesh: MeshInstance3D
+var face_mat: ShaderMaterial
 
 
 ## Builds the fighter. `l` is its cosmetic loadout (see loadout.gd); without one the player's default look is used.
@@ -378,7 +563,6 @@ func build(p: int, l: RefCounted = null) -> void:
 	loadout = l if l != null else Loadout.default_for(p)
 	var col: Color = loadout.body_color()
 	var skin := toon(col)
-	var ink := toon(INK, false)
 	model = Node3D.new()
 	add_child(model)
 
@@ -411,16 +595,17 @@ func build(p: int, l: RefCounted = null) -> void:
 		model.add_child(torso_rig)
 
 	_neck(skin)
-	_face(skin, ink)
+	_face()
 	_hat()
 	_glasses()
 
+	_contact_shadow()
+	_on_fighter_layer(model)
+
 	shield = MeshInstance3D.new()
 	shield.mesh = _sphere(1.5)
-	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color(0.4, 0.7, 1.0, 0.35)
-	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var sm := ShaderMaterial.new()
+	sm.shader = SHIELD_SHADER
 	shield.material_override = sm
 	shield.position = Vector3(0, 1.1, 0)
 	shield.visible = false
@@ -468,8 +653,10 @@ func build(p: int, l: RefCounted = null) -> void:
 	# Weapon: pivots at the hand and extends along +x. Claws just shrink it (see _pose_blade).
 	blade_parts.clear()
 	hammer_parts.clear()
+	stage_frame = Node3D.new()
+	model.add_child(stage_frame)
 	blade_pivot = Node3D.new()
-	model.add_child(blade_pivot)
+	stage_frame.add_child(blade_pivot)
 	var blade_mesh := BoxMesh.new()
 	blade_mesh.size = Vector3(2.7, 0.16, 0.09)
 	blade_parts.append(_part(blade_pivot, blade_mesh, toon(Color(0.86, 0.91, 0.99)), Vector3(1.55, 0, 0)))
@@ -520,51 +707,192 @@ func build(p: int, l: RefCounted = null) -> void:
 	add_child(flame)
 
 
-const EYE_Y := 1.5
-const EYE_DX := 0.31
+## The whole-body flash: white for a moment when the fighter is hit (strongest at the start of hitlag), a yellow pulse while a smash
+## attack is charging. Cosmetic.
+var flash_amount := 0.0
+var flash_colour := Color.WHITE
+var last_flash := -1.0
 
 
-## The face is drawn on the front of the head: eyes with heavy lids, brows and a mouth. `set_expression` poses them.
-func _face(skin: StandardMaterial3D, ink: StandardMaterial3D) -> void:
-	face_parts = {"lids": [], "lines": [], "brows": [], "mouth": null, "skin": skin}
-	for sx in [-1.0, 1.0]:
-		var eye_pos := Vector3(sx * EYE_DX, EYE_Y, 0.745)
-		_part(head_rig, _sphere(1.0), toon(Color(1, 1, 1), false), eye_pos, Vector3(0.17, 0.19, 0.05))
-		_part(head_rig, _sphere(1.0), ink, eye_pos + Vector3(sx * -0.02, -0.03, 0.03), Vector3(0.08, 0.1, 0.04))
-		face_parts.lids.append(_part(head_rig, _sphere(1.0), skin, eye_pos, Vector3(0.2, 0.1, 0.06)))
-		face_parts.lines.append(_part(head_rig, _sphere(1.0), ink, eye_pos, Vector3(0.18, 0.012, 0.03)))
-		var brow := BoxMesh.new()
-		brow.size = Vector3(0.3, 0.05, 0.05)
-		face_parts.brows.append(_part(head_rig, brow, ink, eye_pos + Vector3(0, 0.3, 0.03)))
-	face_parts.mouth = _part(head_rig, _sphere(1.0), ink, Vector3(0, 1.17, 0.775), Vector3(0.14, 0.05, 0.05))
+func _flash(s: Dictionary, delta: float) -> void:
+	var target := 0.0
+	var colour := Color.WHITE
+	if int(s.hitlag) > 0 and s.launch_pending:
+		target = 0.55
+	elif int(s.charge) > 0 and s.state == "Attack":
+		colour = Color(1.0, 0.85, 0.25)
+		target = 0.12 + 0.1 * sin(float(s.frame) * 0.6)
+	flash_amount = target if target > flash_amount else move_toward(flash_amount, target, delta * 6.0)
+	flash_colour = colour
+	var value := Color(flash_colour.r, flash_colour.g, flash_colour.b, flash_amount)
+	if absf(flash_amount - last_flash) < 0.001:
+		return
+	last_flash = flash_amount
+	for m in meshes:
+		if m.material_override is ShaderMaterial:
+			m.set_instance_shader_parameter("flash", value)
+	if face_mesh != null:
+		face_mesh.set_instance_shader_parameter("flash", value)
+
+
+## A soft dark oval projected down onto whatever the fighter stands over (as the reference game draws one), so its place on the stage reads
+## at a glance, in the air too. A decal reaching down from the feet; it fades with height.
+var contact_shadow: Decal
+static var _shadow_tex: GradientTexture2D
+const SHADOW_DEPTH := 10.0
+
+
+## Puts every mesh under `node` on render layer 2 (seen and lit as usual), so the contact shadow, which only projects on layer 1, skips them.
+func _on_fighter_layer(node: Node) -> void:
+	for g in node.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).layers = 2
+
+
+func _contact_shadow() -> void:
+	if _shadow_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(0.04, 0.02, 0.1, 0.85))
+		g.set_color(1, Color(0.04, 0.02, 0.1, 0.0))
+		g.add_point(0.45, Color(0.04, 0.02, 0.1, 0.75))
+		g.add_point(0.75, Color(0.04, 0.02, 0.1, 0.35))
+		_shadow_tex = GradientTexture2D.new()
+		_shadow_tex.gradient = g
+		_shadow_tex.fill = GradientTexture2D.FILL_RADIAL
+		_shadow_tex.fill_from = Vector2(0.5, 0.5)
+		_shadow_tex.fill_to = Vector2(1.0, 0.5)
+		_shadow_tex.width = 64
+		_shadow_tex.height = 64
+	contact_shadow = Decal.new()
+	contact_shadow.texture_albedo = _shadow_tex
+	contact_shadow.size = Vector3(3.0, SHADOW_DEPTH, 2.6)
+	# Only on surfaces facing up (not down the front of the stage).
+	contact_shadow.normal_fade = 0.6
+	# (Nudged toward the camera so it shows in front of the feet, which would otherwise hide it from the low match camera.)
+	contact_shadow.position = Vector3(0, 0.8 - SHADOW_DEPTH / 2.0, 0.45)
+	# Only the stage takes it: the fighter's own meshes are on layer 2 (see `build`).
+	contact_shadow.cull_mask = 1
+	contact_shadow.upper_fade = 0.0  # (no fade toward the feet; the floor is at the top of the box)
+	contact_shadow.lower_fade = 0.5
+	add_child(contact_shadow)
+
+
+## The face is a drawing (godot/art/faces/<expression>.svg) on the shell in front of the head, lit like the skin around it. The lids in
+## the drawings are a placeholder colour that becomes the fighter's own colour, a shade darker.
+const FACE_DIR := "res://art/faces/"
+const LID_PLACEHOLDER := "#fe00ff"
+
+
+func _face() -> void:
+	if face_mesh == null:
+		return
+	face_mat = ShaderMaterial.new()
+	face_mat.shader = FACE_SHADER
+	face_mat.set_shader_parameter("skin", loadout.body_color())
+	face_mesh.material_override = face_mat
 	set_expression(Loadout.FACES[loadout.face])
 
 
-## Poses the face from a dictionary like the entries of Loadout.FACES (lid, mouth_w, mouth_h, mouth_tilt, brow).
+## Which way the eyes look: 1 toward screen right, -1 toward screen left (the face drawings look right; facing left mirrors them).
+func set_gaze(side: int) -> void:
+	if face_mat != null:
+		face_mat.set_shader_parameter("mirror", side < 0)
+
+
+## Shows an expression: one of Loadout.FACES or Loadout.HURT (its `name` picks the drawing).
 func set_expression(e: Dictionary) -> void:
-	if face_parts.is_empty() or e == last_expression:
+	if e == last_expression:
 		return
 	last_expression = e
-	var lid: float = e.lid
-	for i in 2:
-		var sx := -1.0 if i == 0 else 1.0
-		var cap: MeshInstance3D = face_parts.lids[i]
-		cap.scale = Vector3(0.2, maxf(0.1 * lid * 2.0, 0.001), 0.06)
-		cap.position = Vector3(sx * EYE_DX, EYE_Y + 0.19 - 0.19 * lid, 0.79)
-		var line: MeshInstance3D = face_parts.lines[i]
-		line.position = Vector3(sx * EYE_DX, EYE_Y + 0.19 - 0.38 * lid, 0.795)
-		var brow: MeshInstance3D = face_parts.brows[i]
-		brow.visible = absf(float(e.brow)) >= 1.0
-		brow.rotation_degrees = Vector3(0, 0, float(e.brow) * sx)
-	var mouth: MeshInstance3D = face_parts.mouth
-	mouth.scale = Vector3(e.mouth_w, e.mouth_h, 0.05)
-	mouth.rotation_degrees = Vector3(0, 0, e.mouth_tilt)
+	_show_face()
+
+
+## The drawing to show now: the expression, or closed eyes for a moment while blinking.
+func _show_face() -> void:
+	if face_mat == null or last_expression.is_empty():
+		return
+	var name_now: String = last_expression.name
+	# Blinks show on the calm faces only (not mid-yell, mid-strain or with the eyes already shut).
+	var calm: bool = name_now == Loadout.FOCUS_FACE.name or Loadout.FACES.any(func(f): return f.name == name_now)
+	if blink_left > 0.0 and calm:
+		name_now = "blink"
+	if name_now == shown_face:
+		return
+	shown_face = name_now
+	var lid: Color = loadout.body_color().darkened(0.1)
+	face_mat.set_shader_parameter("face_tex", SvgArt.texture(FACE_DIR + name_now + ".svg", {LID_PLACEHOLDER: lid}))
+
+
+## Blinks every few seconds (cosmetic, so it uses the frame time rather than the simulation).
+func _blink(delta: float) -> void:
+	if blink_left > 0.0:
+		blink_left -= delta
+		if blink_left <= 0.0:
+			blink_wait = randf_range(2.2, 5.0)
+	else:
+		blink_wait -= delta
+		if blink_wait <= 0.0:
+			blink_left = 0.11
+	_show_face()
+
+
+var shown_face := ""
+var blink_wait := 3.0
+var blink_left := 0.0
+
+
+## Shirts (Loadout.SHIRTS): the body in the shirt, plain or with a print from godot/art/cloth/. Null for none (the bare body).
+const SHIRT_WHITE := Color(0.97, 0.95, 0.9)
+
+
+func _shirt_material() -> Material:
+	var accent: Color = loadout.accent_color()
+	match loadout.shirt:
+		1:
+			return toon(SHIRT_WHITE)
+		2:
+			return toon(accent)
+		3:
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1, 7))
+		4:
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}), Vector2(4, 2))
+	return null
+
+
+## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.
+func _sleeve_colour() -> Color:
+	match loadout.shirt:
+		1:
+			return SHIRT_WHITE
+		2, 3, 4:
+			return loadout.accent_color()
+	return Color(0, 0, 0, -1)
+
+
+static var _limb_cache := {}
+
+
+## The banded limb material (see shaders/limb.gdshader), with the ink outline. A `top` with negative alpha means no top band.
+static func _limb_material(skin_c: Color, top_c: Color, top_end: float, bottom_c: Color, bottom_start: float) -> ShaderMaterial:
+	var key := "%s%s%s%s%s" % [skin_c.to_html(), top_c, top_end, bottom_c.to_html(), bottom_start]
+	if _limb_cache.has(key):
+		return _limb_cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = LIMB_SHADER
+	m.set_shader_parameter("skin", skin_c)
+	if top_c.a >= 0.0:
+		m.set_shader_parameter("top", Color(top_c.r, top_c.g, top_c.b, 1.0))
+		m.set_shader_parameter("top_end", top_end)
+	m.set_shader_parameter("bottom", bottom_c)
+	m.set_shader_parameter("bottom_start", bottom_start)
+	m.next_pass = toon(Color.WHITE).next_pass
+	_limb_cache[key] = m
+	return m
 
 
 var last_expression := {}
 
 
-func _neck(_skin: StandardMaterial3D) -> void:
+func _neck(_skin: Material) -> void:
 	var accent: Color = loadout.accent_color()
 	if rig != null:
 		_neck_on_rig(accent)
@@ -604,7 +932,24 @@ func _neck_on_rig(accent: Color) -> void:
 			ring.outer_radius = 0.64
 			ring.rings = 36
 			ring.ring_segments = 10
-			_part(torso_rig, ring, toon(SASH), centre, Vector3(0.88, 1.0, 1.0), Vector3(0, 0, -42))
+			# A flat band (the ring's tube stretched across the ring's plane), worn diagonally.
+			var sash := Node3D.new()
+			sash.position = centre
+			sash.rotation_degrees = Vector3(0, 0, -42)
+			torso_rig.add_child(sash)
+			_part(sash, ring, toon(SASH, false), Vector3.ZERO, Vector3(0.88, 1.7, 1.0))
+			# Round badges pinned on the front of the band, facing out from it.
+			var badge := CylinderMesh.new()
+			badge.top_radius = 0.068
+			badge.bottom_radius = 0.068
+			badge.height = 0.03
+			badge.radial_segments = 16
+			var colours := [Color(1.0, 0.82, 0.3), accent, Color(0.95, 0.95, 0.92)]
+			for k in 3:
+				var t := deg_to_rad(78.0 + 15.0 * k)
+				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
+				var b := _part(sash, badge, toon(colours[k]), Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t)))
+				b.basis = Basis(Quaternion(Vector3.UP, out))
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			_collar(accent)
@@ -628,51 +973,77 @@ func _collar(accent: Color) -> void:
 	_part(torso_rig, ring, toon(accent), Vector3(0, 1.1, 0), Vector3(1.04, 1.0, 0.94))
 
 
+## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (see `_hat_spring`).
+const HAT_PIVOT := Vector3(0, 1.95, 0)
+var hat_pivot: Node3D
+
+
 func _hat() -> void:
+	hat_pivot = Node3D.new()
+	hat_pivot.position = HAT_PIVOT
+	head_rig.add_child(hat_pivot)
 	var accent: Color = loadout.accent_color()
 	var white := toon(Color(0.97, 0.97, 1.0))
 	match loadout.hat:
 		1:
 			# Sailor cap: white crown and brim with a band in the accent colour.
-			_part(head_rig, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0))
-			_part(head_rig, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0))
-			_part(head_rig, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0), Vector3(1.04, 1.0, 1.04))
+			_part(hat_pivot, _cyl(0.5, 0.55, 0.32), white, Vector3(0, 2.18, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.62, 0.62, 0.08), white, Vector3(0, 2.02, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.5, 0.5, 0.05), toon(accent), Vector3(0, 2.1, 0) - HAT_PIVOT, Vector3(1.04, 1.0, 1.04))
 		2:
-			# Aviator cap with goggles on top.
-			_part(head_rig, _sphere(0.86), toon(Color(0.78, 0.6, 0.38)), Vector3(0, 1.84, -0.14), Vector3(1.0, 0.6, 1.0))
+			# Aviator cap: a leather skullcap with ear flaps, a band round it and goggles pushed up on the forehead.
+			var leather := toon(Color(0.55, 0.34, 0.2))
+			_part(hat_pivot, _sphere(0.86), leather, Vector3(0, 1.74, -0.06) - HAT_PIVOT, Vector3(1.0, 0.66, 1.0))
+			for sx in [-1.0, 1.0]:
+				_part(hat_pivot, _sphere(1.0), leather, Vector3(sx * 0.74, 1.5, -0.02) - HAT_PIVOT, Vector3(0.16, 0.34, 0.3))
+			var band := TorusMesh.new()
+			band.inner_radius = 0.8
+			band.outer_radius = 0.88
+			band.rings = 40
+			_part(hat_pivot, band, toon(Color(0.3, 0.2, 0.14), false), Vector3(0, 1.86, -0.04) - HAT_PIVOT, Vector3(1.0, 0.8, 1.0), Vector3(-14, 0, 0))
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
-			ring.outer_radius = 0.2
+			ring.outer_radius = 0.19
+			var glass := toon(Color(0.66, 0.88, 1.0), false)
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.3, 2.12, 0.28), Vector3.ONE, Vector3(70, 0, 0))
+				_part(hat_pivot, ring, toon(Color(0.78, 0.66, 0.42)), Vector3(sx * 0.25, 1.92, 0.74) - HAT_PIVOT, Vector3(1.15, 1.0, 1.15), Vector3(68, 0, 0))
+				_part(hat_pivot, _sphere(1.0), glass, Vector3(sx * 0.25, 1.92, 0.74) - HAT_PIVOT, Vector3(0.14, 0.03, 0.14), Vector3(68, 0, 0))
 		3:
-			# Straw hat with a band in the accent colour.
-			var straw := toon(Color(0.9, 0.78, 0.45))
-			_part(head_rig, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0))
-			_part(head_rig, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0))
-			_part(head_rig, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0))
+			# Straw hat (woven, godot/art/cloth/straw.svg) with a band in the accent colour.
+			var straw := toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.92, 0.8, 0.48)}), Vector2(8, 2))
+			_part(hat_pivot, _cyl(1.15, 1.15, 0.07), straw, Vector3(0, 2.05, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.55, 0.62, 0.35), straw, Vector3(0, 2.25, 0) - HAT_PIVOT)
+			_part(hat_pivot, _cyl(0.63, 0.63, 0.08), toon(accent), Vector3(0, 2.14, 0) - HAT_PIVOT)
 		4:
 			# Beanie with a pompom.
-			_part(head_rig, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0), Vector3(1.0, 0.7, 1.0))
-			_part(head_rig, _sphere(0.18), white, Vector3(0, 2.38, 0))
+			_part(hat_pivot, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
+			_part(hat_pivot, _sphere(0.18), white, Vector3(0, 2.38, 0) - HAT_PIVOT)
 		5:
 			# Crown: a gold band with five points.
 			var gold := toon(Color(0.96, 0.8, 0.25))
-			_part(head_rig, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0))
+			_part(hat_pivot, _cyl(0.55, 0.58, 0.2), gold, Vector3(0, 2.1, 0) - HAT_PIVOT)
 			for i in 5:
 				var a := TAU * i / 5.0
-				_part(head_rig, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5))
+				_part(hat_pivot, _cyl(0.0, 0.11, 0.32), gold, Vector3(sin(a) * 0.5, 2.36, cos(a) * 0.5) - HAT_PIVOT)
 
 
 func _glasses() -> void:
-	var lens := toon(Color(1.0, 0.62, 0.3), false)
 	var frame := toon(INK, false)
 	match loadout.glasses:
 		1:
-			# Shades, like the reference.
+			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
+			var lens := StandardMaterial3D.new()
+			lens.albedo_color = Color(1.0, 0.55, 0.2, 0.5)
+			lens.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			lens.roughness = 0.45
+			lens.metallic_specular = 0.3
+			var rim := TorusMesh.new()
+			rim.inner_radius = 0.95
+			rim.outer_radius = 1.05
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.8), Vector3(0.25, 0.18, 0.04))
-			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.03, 0.03))
+				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
+				_part(head_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
+			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
@@ -695,13 +1066,34 @@ func _glasses() -> void:
 			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
 
 
+## The expression for this moment (see Loadout's action faces).
+func _face_for(s: Dictionary) -> Dictionary:
+	match String(s.state):
+		"Hitstun", "ShieldBreak", "Knockdown", "Grabbed", "Rebound":
+			return Loadout.HURT
+		"Attack":
+			if int(s.charge) > 0:
+				return Loadout.EFFORT_FACE
+			var t: PackedInt32Array = s.move_timing
+			var f: float = s.state_frame
+			# The yell starts as the swing comes round and lasts a little past the hit.
+			if t[1] > 0 and f >= float(t[1]) * 0.4 and f <= float(t[2]) + 10.0:
+				return Loadout.ATTACK_FACE
+			return Loadout.FOCUS_FACE
+		"Shield", "ShieldDrop", "LedgeHang", "LedgeGetUp", "Grabbing", "WallTech":
+			return Loadout.EFFORT_FACE
+		"Run", "Dash", "JumpSquat", "LedgeJump", "AirDodge", "Roll", "SpotDodge", "WaveLand", "Turn":
+			return Loadout.FOCUS_FACE
+	return Loadout.FACES[loadout.face]
+
+
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
 	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
 	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22, "Grabbed": 0.14, "Knockdown": 0.42, "GetUp": 0.2,
 }
 ## Forward lean in degrees per state.
-const LEAN := {"Dash": 16.0, "Run": 12.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
+const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
 
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
@@ -712,6 +1104,18 @@ var squash_vel := 0.0
 var lean_vel := 0.0
 var was_grounded := false
 var last_vy := 0.0
+## The attack lunge: the body is thrown forward through the strike and drawn back in the wind-up (model space, along the facing).
+var lunge := 0.0
+var lunge_vel := 0.0
+## The hat's lag (a roll, radians) and bounce (a drop below its place, units), and the velocity they react to.
+var hat_roll := 0.0
+var hat_roll_vel := 0.0
+var hat_drop := 0.0
+var hat_drop_vel := 0.0
+var prev_vel := Vector2.ZERO
+var prev_frame := -1
+## Where the run cycle was last frame, for the footfalls.
+var last_step_phase := 0.0
 
 
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
@@ -746,6 +1150,23 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
+	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
+	if state == "Attack" and s.move_tip != Vector3.ZERO:
+		var tip: Vector3 = s.move_tip
+		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
+		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
+		target_lean += swing * _reach_weight(s)
+	# The attack lunge: drawn back while winding up, thrown forward through the strike.
+	var target_lunge := 0.0
+	if state == "Attack" and s.move_timing[1] > 0:
+		var first: float = s.move_timing[1]
+		var last: float = s.move_timing[2]
+		var f: float = s.state_frame
+		if f < first and f >= first * 0.5:
+			target_lunge = -0.12
+		elif f >= first and f <= last + 2.0:
+			target_lunge = 0.32
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -758,16 +1179,41 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		squash += squash_vel * h
 		lean_vel += (SPRING_K * (target_lean - lean) - SPRING_DAMP * lean_vel) * h
 		lean += lean_vel * h
+		lunge_vel += (SPRING_K * 1.6 * (target_lunge - lunge) - SPRING_DAMP * 1.2 * lunge_vel) * h
+		lunge += lunge_vel * h
 	squash = clampf(squash, -0.35, 0.55)
 
+	# Running, every footfall squashes the body a little and every stride between them stretches it, in step with the clip.
+	var step_squash := 0.0
+	if (state == "Run" or state == "Dash") and anim != null and (current_clip == "run" or current_clip == "dash"):
+		var length := anim.get_animation(current_clip).length
+		var phase := fmod(anim.current_animation_position / maxf(length, 0.001), 1.0)
+		step_squash = 0.07 * cos((phase - 0.12) * 4.0 * PI)
+		# A puff of dust behind each foot as it lands (at 0.12 and 0.62 of the cycle).
+		for land_at in [0.12, 0.62]:
+			var crossed: bool = (last_step_phase < land_at and phase >= land_at) or (last_step_phase > phase and (phase >= land_at or last_step_phase < land_at))
+			if crossed and grounded and not dusts.is_empty():
+				_puff(-float(facing), 1)
+		last_step_phase = phase
 	# Volume-preserving: squashing down widens the body.
-	model.scale = Vector3(1.0 + 0.5 * squash, 1.0 - squash, 1.0 + 0.5 * squash)
-	yaw = lerp_angle(yaw, float(facing) * deg_to_rad(36.0), clampf(delta * 14.0, 0.0, 1.0))
-	model.rotation = Vector3(0, yaw, -float(facing) * deg_to_rad(lean))
+	var total := squash + step_squash
+	model.scale = Vector3(1.0 + 0.5 * total, 1.0 - total, 1.0 + 0.5 * total)
+	_hat_spring(s, delta)
+	# Skidding out of a run, the fighter still faces the way it was running (the simulation has already turned it), leaning back
+	# against the slide; it swings round as the skid ends.
+	var look := facing
+	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and signf(float(s.vel.x)) == -float(facing):
+		look = -facing
+	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN), clampf(delta * 14.0, 0.0, 1.0))
+	# The eyes switch sides as the body swings past facing the camera.
+	set_gaze(1 if yaw >= 0.0 else -1)
+	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
+	model.rotation = Vector3(deg_to_rad(lean), yaw, 0)
+	stage_frame.rotation = Vector3(0, -yaw, 0)
 
-	# Air dodge and ledge invincibility read as ghostly.
+	# Air dodge and ledge invincibility read as ghostly (a long directional dodge only while it is still intangible).
 	var ghost := 0.0
-	if state == "AirDodge":
+	if state == "AirDodge" and s.invuln > 0:
 		ghost = 0.55
 	elif s.invuln > 0:
 		ghost = 0.5 if (s.frame / 4) % 2 == 0 else 0.15
@@ -783,10 +1229,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var hp: float = clampf(s.shield, 0.0, 1.0)
 		shield.scale = Vector3.ONE * (0.45 + 0.55 * hp)
 		var col := Color(0.4, 0.7, 1.0, 0.35).lerp(Color(1.0, 0.35, 0.25, 0.45), 1.0 - hp)
-		(shield.material_override as StandardMaterial3D).albedo_color = col
+		(shield.material_override as ShaderMaterial).set_shader_parameter("tint", Color(col.r, col.g, col.b, 1.0))
 	speed_lines.visible = fast_falling
 	_animate(s, delta)
 	_apply_combat(s, delta)
+	_blink(delta)
 
 
 var last_ghost := 0.0
@@ -861,15 +1308,23 @@ static func _star_mesh() -> ArrayMesh:
 	return m
 var flame: MeshInstance3D
 ## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
-const SWORD_CLIPS := {"ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
+const SWORD_CLIPS := {"dair": "sword_dair", "ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
 	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
 const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
-	"dtilt": "kick_low", "dash attack": "kick_dash"}
+	"dtilt": "kick_low", "dash attack": "kick_dash", "usmash": "kick_uair"}
 ## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
 var leg_k := 0.0
 
 ## The brawler fights with feet and body, not a blade: these moves draw no weapon.
-const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+## Weapon swings that turn one way through several hitboxes: the wind-up starts this many degrees back round from the first one (positive
+## is counter-clockwise when facing right), so the blade comes from the right side. Cuts that come down (jab, forward smash, forward air,
+## down air, the back air's rise behind) wind up from above; rising cuts (the backhand, forward tilt, dash attack, neutral air, up air)
+## from below.
+const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 80.0, "fair": 75.0, "dair": 75.0,
+	"nair": -60.0, "uair": -60.0, "bair": 60.0}
+## Kicks that send both legs out (front and back), each aimed by the game.
+const SPLIT_KICKS := ["nair"]
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1
@@ -879,7 +1334,7 @@ var blade_length := 2.0
 
 func _rest_length(s: Dictionary) -> float:
 	# Swords are long; claws are short.
-	return clampf(float(s.reach) - HAND.x - 0.2, 0.7, 3.4) if _cls(s) != 1 else 1.0
+	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if _cls(s) != 1 else 1.0
 
 
 ## Where the blade should point, in degrees in forward space, and how long it should be, for this frame.
@@ -901,10 +1356,12 @@ func _blade_target(s: Dictionary) -> Array:
 		var behind := to_tip.x < 0.0
 		if sin(deg_to_rad(swing)) < sin(lowest) and not behind:
 			swing = rad_to_deg(lowest)
-	# Wind-up comes from the opposite side of the swing.
+	# Wind-up comes from the opposite side of the swing (or from where a move says its swing starts: see SWING_FROM).
 	var wind := swing + 100.0
 	if sin(deg_to_rad(swing)) > 0.55 or cos(deg_to_rad(swing)) < 0.0:
 		wind = swing - 100.0
+	if SWING_FROM.has(name):
+		wind = swing + float(SWING_FROM[name])
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
 	var start := maxf(1.0, float(t[1]))
@@ -949,6 +1406,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# then runs from the hand to the same tip.
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
+	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
+	if attacking and _cls(s) == 1:
+		arm_k = _reach_weight(s)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
@@ -963,7 +1423,10 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
 	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
 	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
-	_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
+	if _cls(s) == 1:
+		_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
+	else:
+		_update_sweep(s, hand, tip)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 	var hammer: bool = _cls(s) == 2
@@ -983,6 +1446,61 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		part.visible = hammer
 
 
+## How far into reaching for its hit a limb should be at this point of the move: easing in over the second half of the wind-up, fully
+## there while the hit is live, and easing back out over the first half of the recovery.
+func _reach_weight(s: Dictionary) -> float:
+	var t: PackedInt32Array = s.move_timing
+	var f: float = s.state_frame
+	var first := maxf(1.0, float(t[1]))
+	var last := maxf(first, float(t[2]))
+	var total := maxf(last + 1.0, float(t[0]))
+	var k := 1.0
+	if f < first:
+		k = clampf((f - first * 0.35) / maxf(1.0, first * 0.65), 0.0, 1.0)
+	elif f > last:
+		k = 1.0 - clampf((f - last) / maxf(1.0, (total - last) * 0.5), 0.0, 1.0)
+	return k * k * (3.0 - 2.0 * k)
+
+
+## Puts the weapon in the weapon hand as the clip moves it, swept back and up behind the runner (carried in a run).
+const CARRY_ANGLE := 158.0
+
+
+func _carry_weapon(facing: int) -> void:
+	var hand := skeleton.find_bone("hand.R" if facing > 0 else "hand.L")
+	if hand < 0:
+		return
+	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
+	var angle := CARRY_ANGLE if facing > 0 else 180.0 - CARRY_ANGLE
+	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
+
+
+## The hat's secondary motion: it lags behind a sudden change of speed sideways and dips and springs back on a landing or a jump.
+func _hat_spring(s: Dictionary, delta: float) -> void:
+	if hat_pivot == null:
+		return
+	var vel := Vector2(float(s.vel.x), float(s.vel.y))
+	var frame: int = s.frame
+	if frame != prev_frame:
+		if prev_frame >= 0 and frame - prev_frame <= 2:
+			var dv := vel - prev_vel
+			hat_roll_vel += clampf(dv.x, -0.5, 0.5) * 60.0
+			hat_drop_vel += clampf(dv.y, -1.0, 1.0) * 6.0
+		prev_frame = frame
+		prev_vel = vel
+	var steps := ceili(delta / 0.008)
+	var h := delta / maxi(steps, 1)
+	for _i in steps:
+		hat_roll_vel += (-300.0 * hat_roll - 14.0 * hat_roll_vel) * h
+		hat_roll += hat_roll_vel * h
+		hat_drop_vel += (-500.0 * hat_drop - 18.0 * hat_drop_vel) * h
+		hat_drop += hat_drop_vel * h
+	hat_roll = clampf(hat_roll, -0.5, 0.5)
+	hat_drop = clampf(hat_drop, -0.12, 0.15)
+	hat_pivot.rotation = Vector3(0, 0, hat_roll)
+	hat_pivot.position = HAT_PIVOT + Vector3(0, -hat_drop, 0)
+
+
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
 func _aim_arm(facing: int, holding: bool) -> void:
 	if skeleton == null:
@@ -1000,12 +1518,16 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var rest_u := skeleton.get_bone_global_rest(iu)
 		var rest_l := skeleton.get_bone_global_rest(il)
 		var rest_h := skeleton.get_bone_global_rest(ih)
-		var shoulder := rest_u.origin
 		var elbow0 := rest_l.origin
 		var wrist0 := rest_h.origin
-		var upper := (elbow0 - shoulder).length()
+		var upper := (elbow0 - rest_u.origin).length()
+		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
+		var shoulder := rest_u.origin
+		var parent := skeleton.get_bone_parent(iu)
+		if parent >= 0:
+			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
 		var lower := (wrist0 - elbow0).length() + 0.07
-		var to_skel := _skeleton_to_model().affine_inverse()
+		var to_skel := _skeleton_to_frame().affine_inverse()
 		var goal: Vector3 = to_skel * hand_target
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
@@ -1031,17 +1553,22 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		return
 	var tip: Vector3 = s.move_tip
 	var live := kicking and tip != Vector3.ZERO
-	leg_k = move_toward(leg_k, 1.0 if live else 0.0, delta * 12.0)
+	# The leg reaches for the hit as the wind-up builds, is on it while it is live, and comes home through the recovery.
+	leg_k = _reach_weight(s) if live else move_toward(leg_k, 0.0, delta * 12.0)
 	var facing := int(s.facing)
 	# The front leg kicks forward and up, the back leg backward.
 	var front := "R" if facing > 0 else "L"
 	var back := "L" if facing > 0 else "R"
 	var kicker := front if tip.x >= 0.0 else back
+	# Where each kicking leg's foot goes (forward space). A split kick (the neutral air) kicks both legs out, one ahead and one behind.
+	var goals := {kicker: tip}
+	if SPLIT_KICKS.has(String(s.move_name)):
+		goals = {front: Vector3(0.95, 0.85, 0.0), back: Vector3(-0.85, 0.85, 0.0)}
 	for side in ["L", "R"]:
 		var it := skeleton.find_bone("thigh." + side)
 		var ish := skeleton.find_bone("shin." + side)
 		var ift := skeleton.find_bone("foot." + side)
-		if side != kicker or leg_k <= 0.01:
+		if not goals.has(side) or leg_k <= 0.01:
 			skeleton.set_bone_global_pose_override(it, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ish, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ift, Transform3D(), 0.0, false)
@@ -1049,21 +1576,32 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var rest_t := skeleton.get_bone_global_rest(it)
 		var rest_s := skeleton.get_bone_global_rest(ish)
 		var rest_f := skeleton.get_bone_global_rest(ift)
-		var hip := rest_t.origin
 		var knee0 := rest_s.origin
 		var ankle0 := rest_f.origin
-		var upper := (knee0 - hip).length()
+		var upper := (knee0 - rest_t.origin).length()
 		var lower := (ankle0 - knee0).length() + 0.08
-		var to_skel := _skeleton_to_model().affine_inverse()
+		# The hip joint where the animated pelvis has it now (not where it rests), so the leg stays on the body as it moves.
+		var hips := skeleton.find_bone("hips")
+		var hip := rest_t.origin
+		if hips >= 0:
+			hip = skeleton.get_bone_global_pose(hips) * skeleton.get_bone_rest(it).origin
+		var to_skel := _skeleton_to_frame().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
-		var goal: Vector3 = to_skel * Vector3(tip.x * float(facing), tip.y, 0.2)
+		var aim: Vector3 = goals[side]
+		# (A little toward the camera, so on the turned body the kicking leg passes in front of the torso instead of through it.)
+		var goal: Vector3 = to_skel * Vector3(aim.x * float(facing), aim.y, 0.75)
 		var d := goal - hip
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
 		var cos_a := clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0)
 		var ang := acos(cos_a)
-		# The knee bends forward and a little up.
-		var pole := Vector3(0.0, 0.4, 1.0)
+		# The knee bends the way a knee does: it points ahead of the leg in the plane of the kick (up for a kick in front, down and back
+		# for one behind), a little out toward the camera, so it never folds backwards.
+		var dir_m: Vector3 = (_skeleton_to_frame().basis * dir).normalized()
+		var sin_phi := dir_m.x * float(facing)
+		var cos_phi := -dir_m.y
+		var pole_m := Vector3(float(facing) * cos_phi, sin_phi, 0.3)
+		var pole: Vector3 = (to_skel.basis * pole_m).normalized()
 		var bend := (pole - dir * pole.dot(dir)).normalized()
 		var knee := hip + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
 		var shin_dir := (goal - knee).normalized()
@@ -1082,6 +1620,7 @@ const TRAIL_FRAMES := 16
 const TRAIL_WIDTH := 0.42
 const TRAIL_SMOOTH := 4
 var trail: MeshInstance3D
+var last_trail_centre := Vector2(INF, INF)
 var trail_points: Array = []     # [{pos: Vector3, frame: int}]
 var last_trail_frame := -1
 
@@ -1100,6 +1639,96 @@ func _make_trail() -> void:
 	m.render_priority = 5
 	trail.material_override = m
 	add_child(trail)
+
+
+# ---- Weapon swing trail ------------------------------------------------------------------------------------------------------------
+# A sword (or maul) leaves the trail the reference game draws: the whole crescent the blade sweeps through, brightest at the edge the
+# tip traces, fading toward the hilt and with age. Each simulation frame records where the hand and the tip are; the crescent between
+# two records is drawn in thin slices that turn round the hand, so it is a smooth arc rather than a polygon. Time stands still in hitlag,
+# like the swing itself.
+
+const SWEEP_LIFE := 8     # frames a slice of the swing stays visible
+const SWEEP_STEPS := 8    # slices drawn between two simulation frames
+var sweep: MeshInstance3D
+var sweep_samples: Array = []   # [{hand: Vector2, angle: float, length: float, z: float, at: int}], world space
+var sweep_clock := 0
+var sweep_seen_frame := -1
+
+
+func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
+	if sweep == null:
+		sweep = MeshInstance3D.new()
+		sweep.mesh = ImmediateMesh.new()
+		sweep.top_level = true
+		sweep.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.vertex_color_use_as_albedo = true
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.render_priority = 5
+		sweep.material_override = m
+		add_child(sweep)
+	var frame: int = s.frame
+	if frame < sweep_seen_frame:
+		# Rewound (a replay seek): start clean.
+		sweep_samples.clear()
+	if frame != sweep_seen_frame:
+		sweep_seen_frame = frame
+		if int(s.hitlag) == 0:
+			sweep_clock += 1
+			var t: PackedInt32Array = s.move_timing
+			var f: float = s.state_frame
+			var swinging: bool = s.state == "Attack" and s.move_name != "" and t[1] > 0 and f >= float(t[1]) - 1.0 \
+					and f <= float(t[2]) + 1.0 and blade_pivot.visible
+			if swinging:
+				var facing := float(s.facing)
+				var g := stage_frame.global_transform
+				var hw: Vector3 = g * Vector3(hand.x * facing, hand.y, 0.35)
+				var tw: Vector3 = g * Vector3(tip.x * facing, tip.y, 0.35)
+				var d := Vector2(tw.x - hw.x, tw.y - hw.y)
+				sweep_samples.append({"hand": Vector2(hw.x, hw.y), "angle": d.angle(), "length": d.length(), "z": hw.z + 0.2,
+					"at": sweep_clock})
+	while sweep_samples.size() > 0 and sweep_clock - int(sweep_samples[0].at) > SWEEP_LIFE:
+		sweep_samples.pop_front()
+	var im: ImmediateMesh = sweep.mesh
+	im.clear_surfaces()
+	if sweep_samples.size() < 2:
+		return
+	var colours := _trail_colours(s)
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in sweep_samples.size() - 1:
+		for k in SWEEP_STEPS:
+			_sweep_slice(im, sweep_samples[i], sweep_samples[i + 1], float(k) / SWEEP_STEPS, float(k + 1) / SWEEP_STEPS, colours)
+	im.surface_end()
+
+
+## One slice of the crescent, between `u0` and `u1` of the way from record `a` to record `b`: a soft band from near the hilt out to most of
+## the blade in the trail colour, and a bright band along the edge the tip traces.
+func _sweep_slice(im: ImmediateMesh, a: Dictionary, b: Dictionary, u0: float, u1: float, colours: Array) -> void:
+	var rings := [0.3, 0.78, 1.04]
+	var alphas := [0.0, 0.5, 0.95]
+	var cols: Array = [colours[0], colours[0], colours[1]]
+	var edge := []
+	for u in [u0, u1]:
+		var hand: Vector2 = (a.hand as Vector2).lerp(b.hand, u)
+		var ang := lerp_angle(float(a.angle), float(b.angle), u)
+		var length := lerpf(float(a.length), float(b.length), u)
+		var at := lerpf(float(a.at), float(b.at), u)
+		var fade := pow(clampf(1.0 - float(sweep_clock - at) / float(SWEEP_LIFE), 0.0, 1.0), 1.5)
+		var z := lerpf(float(a.z), float(b.z), u)
+		var dir := Vector2.from_angle(ang)
+		var column := []
+		for r in rings.size():
+			var p: Vector2 = hand + dir * length * float(rings[r])
+			var c: Color = cols[r]
+			column.append([Vector3(p.x, p.y, z), Color(c.r, c.g, c.b, float(alphas[r]) * fade)])
+		edge.append(column)
+	for r in rings.size() - 1:
+		var q := [edge[0][r], edge[0][r + 1], edge[1][r + 1], edge[1][r]]
+		for idx in [0, 1, 2, 0, 2, 3]:
+			im.surface_set_color(q[idx][1])
+			im.surface_add_vertex(q[idx][0])
 
 
 # ---- Revival platform ------------------------------------------------------------------------------------------------------------
@@ -1187,6 +1816,9 @@ func _dust(s: Dictionary) -> void:
 			"JumpSquat", "WaveLand":
 				_puff(-1.0, 1)
 				_puff(1.0, 1)
+	# A skid kicks up a stream of dust from the planted heel, ahead of the slide.
+	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and frame % 3 == 0:
+		_puff(signf(float(s.vel.x)), 1)
 	if grounded and not dust_grounded and state != "Knockdown":
 		_puff(-1.0, 1)
 		_puff(1.0, 1)
@@ -1270,7 +1902,7 @@ func _trail_colours(s: Dictionary) -> Array:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
 	if _cls(s) == 2:
 		return [Color(0.95, 0.28, 0.12), Color(1.0, 0.92, 0.8)]
-	return [Color(1.0, 0.62, 0.12), Color(1.0, 1.0, 0.85)]
+	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
 ## Catmull-Rom smoothing so a path of a few points reads as a curve.
@@ -1302,8 +1934,12 @@ func _update_trail(s: Dictionary, centre: Vector2, radius: float) -> void:
 	var facing: float = float(s.facing)
 	var base := Vector3(position.x, position.y, 0.0)
 	var here := base + Vector3(centre.x * facing, centre.y, 0.7)
-	if swinging and int(s.hitlag) == 0 and frame != last_trail_frame:
+	# Only a hit that travels across the body leaves a trail: one held in place (a lingering kick) would only draw the fighter's own
+	# fall or drift as a streak.
+	var moved := last_trail_centre.distance_to(centre) > 0.08
+	if swinging and int(s.hitlag) == 0 and frame != last_trail_frame and (moved or trail_points.is_empty()):
 		last_trail_frame = frame
+		last_trail_centre = centre
 		trail_points.append({"pos": here, "frame": frame})
 	while trail_points.size() > 0 and frame - int(trail_points[0].frame) > TRAIL_FRAMES:
 		trail_points.pop_front()
@@ -1379,19 +2015,24 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# Only the brawler's body moves leave the arms alone; the sword fighter always has its blade.
 	var swinging_arm: bool = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
 	blade_pivot.visible = not brawler and swinging_arm
+	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
+	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
-		_aim_arm(int(s.facing), swinging_arm if not brawler else (swinging_arm and state == "Attack"))
+		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
+		_aim_arm(int(s.facing), holding and not carrying)
+		if carrying:
+			_carry_weapon(int(s.facing))
 		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.visible = rushing
 	if rushing:
 		flame.scale = Vector3(1.3, 1.5, 1.3) * (1.0 + 0.12 * sin(float(s.frame) * 1.7))
 	if brawler and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
-		model.rotation.z = float(s.frame) * 0.6 * -float(s.facing)
+		model.rotation.x = float(s.frame) * 0.6
 
 	var hitlag: int = s.hitlag
-	# The hurt face is a cosmetic event: it shows while the fighter is being hit and goes back afterwards.
-	set_expression(Loadout.HURT if state == "Hitstun" else Loadout.FACES[loadout.face])
+	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.
+	set_expression(_face_for(s))
 	spark.visible = hitlag > 0 and ((state == "Hitstun" and s.launch_pending) or state == "Rebound")
 	if spark.visible:
 		# A star burst on the side the hit came from, bigger and hotter for a stronger hit, turned a new way for each hit.
@@ -1413,7 +2054,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var t := float(s.frame)
 		model.position = Vector3(sin(t * 9.0) * amp, cos(t * 7.3) * amp * 0.5, 0)
 	else:
-		model.position = Vector3.ZERO
+		model.position = Vector3(lunge * float(s.facing), 0, 0)
+	_flash(s, delta)
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
@@ -1423,9 +2065,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var amount := clampf(charge / 60.0, 0.0, 1.0)
 		spark.visible = (s.frame / 3) % 2 == 0
 		spark.scale = Vector3.ONE * (0.4 + 0.9 * amount)
-		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount), 0, 0)
+		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
-			model.rotation.z = float(s.frame) * 0.4 * -float(s.facing)
+			model.rotation.x = -float(s.frame) * 0.4
 		else:
-			model.rotation.z = deg_to_rad(26.0) * float(s.facing)
+			model.rotation.x = -deg_to_rad(26.0)

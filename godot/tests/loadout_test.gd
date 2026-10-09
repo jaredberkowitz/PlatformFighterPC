@@ -103,10 +103,30 @@ func _budget() -> void:
 		v.rebuild(base)
 	check(v.get_child_count() == children, "rebuilding does not leak nodes")
 	check(v.meshes.size() == base_count, "rebuilding does not leak meshes")
-	# Every face and the hurt face can be posed.
-	for f in Loadout.FACES:
+	# Every face, the hurt face and the blink have a drawing that loads onto the face shell.
+	check(v.face_mesh != null and v.face_mat != null, "the rig has a face shell")
+	for f in Loadout.FACES + [Loadout.HURT]:
 		v.set_expression(f)
-	v.set_expression(Loadout.HURT)
+		check(v.face_mat.get_shader_parameter("face_tex") is Texture2D, "face drawing %s loads" % f.name)
+	v.blink_left = 0.1
+	v.set_expression(Loadout.FACES[0])
+	v._show_face()
+	check(v.shown_face == "blink" and v.face_mat.get_shader_parameter("face_tex") is Texture2D, "the blink drawing loads")
+	# Every shirt dresses the body (prints load) and has sleeves; no shirt has none.
+	for s in Loadout.SHIRTS.size():
+		var l := Loadout.default_for(0)
+		l.shirt = s
+		v.rebuild(l)
+		# Sleeves are a band painted on the arms (shaders/limb.gdshader): there with a shirt, not without.
+		var arms := v.meshes.filter(func(m): return str(m.name).begins_with("Arm"))
+		var banded := arms.all(func(m):
+			var end = m.material_override.get_shader_parameter("top_end")
+			return end != null and float(end) > 0.0)
+		check(arms.size() == 2 and banded == (s != 0), "shirt %s sleeves" % Loadout.SHIRTS[s])
+		var mat = v._shirt_material()
+		check((mat == null) == (s == 0), "shirt %s material" % Loadout.SHIRTS[s])
+		if s >= 3:
+			check(mat.get_shader_parameter("albedo_tex") is Texture2D, "shirt %s print loads" % Loadout.SHIRTS[s])
 	v.free()
 
 
