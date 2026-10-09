@@ -73,6 +73,9 @@ func _initialize() -> void:
 		"skid":
 			for f in 12:
 				frames.append(f)
+		"idle", "walk":
+			for f in range(0, 24 if what == "idle" else 20, 2):
+				frames.append(f)
 		_:
 			for f in range(0, timing[0], 2):
 				frames.append(f)
@@ -84,6 +87,7 @@ func _initialize() -> void:
 		var vel := Vector2.ZERO
 		var move := what
 		var grounded := not ["nair", "fair", "bair", "uair", "dair"].has(what)
+		# (Idle is shown at half speed so its bounce spreads over the sheet.)
 		match what:
 			"run":
 				state = "Run"
@@ -96,6 +100,13 @@ func _initialize() -> void:
 			"skid":
 				state = "Turn"
 				vel = Vector2(-0.2, 0)
+				move = ""
+			"idle":
+				state = "Idle"
+				move = ""
+			"walk":
+				state = "Walk"
+				vel = Vector2(0.11, 0)
 				move = ""
 		# Run the view at 60 frames a second up to this frame (one sim frame per step).
 		var steps := 2

@@ -182,3 +182,20 @@ weapon arm are aimed by the game at the move's live hitbox; the rest of the body
 Clips touched to agree with it: the claws fighter's up tilt is now a high kick leaning back with the arms thrown out for balance; the sword
 down tilt and the back air lean less (the body follow adds the rest). Check a move with its real hitbox:
 `--script res://tests/anim_sheet.gd -- --what=utilt --class=1 --tip=1.1,3.5 --timing=34,7,11 --zoom=1.4 --out=<file.png>`.
+
+
+## Turned for the camera, and a fighting stance (eighth pass)
+
+- **How a fighter is turned** (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`): the classic cheat for 3D fighters on a
+  2D stage. The hips and legs are turned 60 degrees toward the way the fighter faces, so strides, kicks, lunges and leans happen across the
+  screen instead of toward the camera (where they were foreshortened); the chest then turns 30 degrees back toward the camera and the head 20
+  more, so the body and the face are open to the player (the chest about 30 degrees off straight-on, the face about 10). Before, the whole
+  body was turned 36 degrees and every forward motion went mostly into the screen. Leaning is now a pitch toward the fighter's front.
+- **The stage frame**: a node in the model that undoes its turn, so everything aimed at a hit (the weapon, the arm and leg reaching, the
+  body following them) still works in stage axes. The arm reach is now rooted at the animated shoulder, like the leg's at the hip.
+- **Idle** (in the manner of a plumber's bouncy stance): feet apart with the far foot forward and the back leg nearly straight, knees
+  bent, the weight bobbing down and up twice a cycle, fists up in front of the chest (the lead fist further out), the chest leaning in and
+  turned with the lead shoulder, the head nodding with the bounce.
+- **Walk**: a bouncy, swaggering step: knees lifting, a springy bob on each step, arms swinging wide with loose bent elbows, the shoulders
+  twisting against the hips, a little lean.
+- Menu previews keep their own turn (they set it themselves).

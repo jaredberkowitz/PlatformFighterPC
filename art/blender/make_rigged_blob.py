@@ -463,23 +463,58 @@ def main() -> None:
     bpy.ops.object.mode_set(mode="POSE")
     bpy.context.scene.render.fps = FPS
 
-    # Standing, breathing.
+    # Standing ready to fight (in the manner of a plumber's bouncy stance): feet apart with the far foot forward, knees bent, weight
+    # bobbing down and up twice a cycle, fists up in front of the chest with the lead fist further out, the chest leaning in a little and
+    # turned with the lead shoulder, the head nodding with the bounce. The game turns the chest and head toward the camera on top.
     def idle(k):
         def f(rig):
-            b = math.sin(k * 2 * math.pi)
-            pose(rig, "hips", lift=0.015 * b)
-            pose(rig, "spine", fwd=1.5 * b)
-            pose(rig, "head", fwd=-1.0 * b)
-            for side in "LR":
-                pose(rig, "armU." + side, fwd=3.0 * b, out=10.0)
-                pose(rig, "armL." + side, fwd=8.0)
-                pose(rig, "thigh." + side, out=0.0)
+            b = math.cos(k * 4.0 * math.pi)       # 1 at the top of a bob, -1 at the bottom
+            down = 0.5 - 0.5 * b
+            pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0)
+            pose(rig, "thigh.L", fwd=32.0 + 6.0 * down, out=15.0)
+            pose(rig, "shin.L", fwd=-40.0 - 14.0 * down)
+            pose(rig, "foot.L", fwd=6.0 + 6.0 * down, out=-10.0)
+            # The back leg stays nearly straight (a bent back knee would cross the front leg on screen).
+            pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down, out=15.0)
+            pose(rig, "shin.R", fwd=-10.0 - 6.0 * down)
+            pose(rig, "foot.R", fwd=18.0, out=-10.0)
+            pose(rig, "spine", fwd=9.0 + 4.0 * down, twist=8.0 + 2.0 * b)
+            pose(rig, "head", fwd=-7.0 + 4.0 * down, twist=-4.0)
+            # Lead fist (far arm) out in front, rear fist guarding the chin; both ride the bounce a beat behind.
+            lag = math.cos(k * 4.0 * math.pi - 0.8)
+            pose(rig, "armU.L", fwd=52.0 + 5.0 * lag, out=16.0)
+            pose(rig, "armL.L", fwd=92.0 - 6.0 * lag)
+            pose(rig, "hand.L", fwd=-12.0)
+            pose(rig, "armU.R", fwd=34.0 + 5.0 * lag, out=22.0)
+            pose(rig, "armL.R", fwd=112.0 - 6.0 * lag)
+            pose(rig, "hand.R", fwd=-14.0)
         return f
 
-    clip(rig, "idle", 90, {0: idle(0.0), 22: idle(0.25), 45: idle(0.5), 67: idle(0.75), 90: idle(1.0)})
+    clip(rig, "idle", 48, {i: idle(i / 48.0) for i in range(0, 49, 4)})
 
-    n = 8
-    clip(rig, "walk", 40, {int(40 * i / n): walk_pose(i / n, 34.0, 46.0, 28.0, 5.0, 0.05, 26.0, 5.0) for i in range(n + 1)})
+    # A bouncy, swaggering walk: knees lifting, a springy bob on every step, arms swinging wide with loose bent elbows, a little lean.
+    WALK_THIGH = [(0.0, 30.0), (0.15, 14.0), (0.35, -20.0), (0.5, -30.0), (0.65, -6.0), (0.8, 34.0), (0.92, 36.0)]
+    WALK_SHIN = [(0.0, -8.0), (0.15, -22.0), (0.35, -8.0), (0.5, -30.0), (0.65, -70.0), (0.8, -54.0), (0.92, -14.0)]
+    WALK_FOOT = [(0.0, 14.0), (0.15, 0.0), (0.35, -10.0), (0.5, -26.0), (0.65, -16.0), (0.8, 18.0), (0.92, 16.0)]
+
+    def walk(phase):
+        def f(rig):
+            for side, offset in (("L", 0.0), ("R", 0.5)):
+                leg = phase + offset
+                pose(rig, "thigh." + side, fwd=periodic(WALK_THIGH, leg), out=5.0)
+                pose(rig, "shin." + side, fwd=periodic(WALK_SHIN, leg))
+                pose(rig, "foot." + side, fwd=periodic(WALK_FOOT, leg))
+                swing = math.cos((leg + 0.5) * 2.0 * math.pi)
+                pose(rig, "armU." + side, fwd=-40.0 * swing + 10.0, out=18.0)
+                pose(rig, "armL." + side, fwd=46.0 + 26.0 * max(0.0, swing))
+                pose(rig, "hand." + side, fwd=-8.0)
+            step = math.cos((phase - 0.4) * 4.0 * math.pi)
+            pose(rig, "hips", lift=0.05 * step - 0.03, twist=-8.0 * math.sin(phase * 2.0 * math.pi))
+            pose(rig, "spine", fwd=8.0 - 3.0 * step, twist=10.0 * math.sin(phase * 2.0 * math.pi))
+            pose(rig, "head", fwd=-4.0 + 5.0 * step, twist=-6.0 * math.sin(phase * 2.0 * math.pi))
+        return f
+
+    clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
     # The run: a key every other frame so the snappy gait survives interpolation.
     clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21, 2)})
     # The initial dash: the same stride, launched lower and further forward, arms flung harder.

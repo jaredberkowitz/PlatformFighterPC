@@ -357,6 +357,24 @@ func _skeleton_to_model() -> Transform3D:
 	return model.global_transform.affine_inverse() * skeleton.global_transform
 
 
+## The stage frame: a node in the model that undoes its turn, so its axes are the stage's (x along the stage, y up, z toward the
+## camera) while it still leans, squashes and moves with the body. Everything aimed at a hit (the weapon, the arm and leg reaching, the
+## body following them) works in it.
+var stage_frame: Node3D
+
+
+func _skeleton_to_frame() -> Transform3D:
+	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
+
+
+## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned most of the way toward the way it
+## faces, so strides, kicks and swings happen across the screen where they read; the chest and then the head twist back toward the
+## camera, so the body and the face stay open to the player.
+const BODY_TURN := 60.0
+const CHEST_TO_CAMERA := 30.0
+const HEAD_TO_CAMERA := 20.0
+
+
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
 func _animate(s: Dictionary, delta: float) -> void:
 	if anim == null:
@@ -394,9 +412,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	var tip: Vector3 = s.move_tip
 	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0:
 		var kicking: bool = _cls(s) == 1 and KICK_CLIPS.has(s.move_name)
-		var to_model := _skeleton_to_model()
+		var to_frame := _skeleton_to_frame()
 		var hips := skeleton.find_bone("hips")
-		var hip_y: float = (to_model * skeleton.get_bone_global_pose(hips).origin).y if hips >= 0 else 0.6
+		var hip_y: float = (to_frame * skeleton.get_bone_global_pose(hips).origin).y if hips >= 0 else 0.6
 		var from := Vector2(0.0, hip_y) if kicking else shoulder
 		var to := Vector2(tip.x, tip.y) - from
 		# The limb's direction: 0 straight down, 90 straight ahead, 180 straight up, negative behind.
@@ -430,6 +448,22 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		_bend_bone(spine_bone, body_bend, int(s.facing))
 	if absf(head_look) > 0.05:
 		_bend_bone(head_bone, -head_look, int(s.facing))
+	# Open the chest and the face to the camera (see BODY_TURN).
+	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
+	_turn_bone(head_bone, -HEAD_TO_CAMERA * float(s.facing))
+
+
+## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top
+## of its pose.
+func _turn_bone(bone: int, degrees: float) -> void:
+	var parent := skeleton.get_bone_parent(bone)
+	if parent < 0:
+		return
+	var axis: Vector3 = (_skeleton_to_frame().affine_inverse().basis * Vector3(0, 1, 0)).normalized()
+	var turn := Basis(axis, deg_to_rad(degrees))
+	var g := skeleton.get_bone_global_pose(bone)
+	var pg := skeleton.get_bone_global_pose(parent)
+	skeleton.set_bone_pose_rotation(bone, (pg.basis.inverse() * (turn * g.basis)).get_rotation_quaternion())
 
 
 ## Bends a bone toward the fighter's front (the way it faces in the world) by `degrees` (negative bends back), about its own joint,
@@ -439,7 +473,7 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 	if parent < 0:
 		return
 	# The model leans toward its facing by turning about its own front axis (as `apply` does), so the bend uses the same axis.
-	var axis: Vector3 = (_skeleton_to_model().affine_inverse().basis * Vector3(0, 0, 1)).normalized()
+	var axis: Vector3 = (_skeleton_to_frame().affine_inverse().basis * Vector3(0, 0, 1)).normalized()
 	var turn := Basis(axis, deg_to_rad(-degrees * float(facing)))
 	var g := skeleton.get_bone_global_pose(bone)
 	var pg := skeleton.get_bone_global_pose(parent)
@@ -471,7 +505,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	blade_pivot.visible = armed
 	if armed:
 		var hand := skeleton.find_bone("hand.R")
-		var at: Vector3 = to_model * skeleton.get_bone_global_pose(hand).origin
+		var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
 		blade_pivot.position = at
 		blade_pivot.rotation = Vector3(0, 0, PI / 2.0)
 		var length := 1.9
@@ -608,8 +642,10 @@ func build(p: int, l: RefCounted = null) -> void:
 	# Weapon: pivots at the hand and extends along +x. Claws just shrink it (see _pose_blade).
 	blade_parts.clear()
 	hammer_parts.clear()
+	stage_frame = Node3D.new()
+	model.add_child(stage_frame)
 	blade_pivot = Node3D.new()
-	model.add_child(blade_pivot)
+	stage_frame.add_child(blade_pivot)
 	var blade_mesh := BoxMesh.new()
 	blade_mesh.size = Vector3(2.7, 0.16, 0.09)
 	blade_parts.append(_part(blade_pivot, blade_mesh, toon(Color(0.86, 0.91, 0.99)), Vector3(1.55, 0, 0)))
@@ -1055,8 +1091,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var look := facing
 	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and signf(float(s.vel.x)) == -float(facing):
 		look = -facing
-	yaw = lerp_angle(yaw, float(look) * deg_to_rad(36.0), clampf(delta * 14.0, 0.0, 1.0))
-	model.rotation = Vector3(0, yaw, -float(look) * deg_to_rad(lean))
+	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN), clampf(delta * 14.0, 0.0, 1.0))
+	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
+	model.rotation = Vector3(deg_to_rad(lean), yaw, 0)
+	stage_frame.rotation = Vector3(0, -yaw, 0)
 
 	# Air dodge and ledge invincibility read as ghostly (a long directional dodge only while it is still intangible).
 	var ghost := 0.0
@@ -1301,7 +1339,7 @@ func _carry_weapon(facing: int) -> void:
 	var hand := skeleton.find_bone("hand.R" if facing > 0 else "hand.L")
 	if hand < 0:
 		return
-	blade_pivot.position = _skeleton_to_model() * skeleton.get_bone_global_pose(hand).origin
+	blade_pivot.position = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
 	var angle := CARRY_ANGLE if facing > 0 else 180.0 - CARRY_ANGLE
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 
@@ -1349,12 +1387,16 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var rest_u := skeleton.get_bone_global_rest(iu)
 		var rest_l := skeleton.get_bone_global_rest(il)
 		var rest_h := skeleton.get_bone_global_rest(ih)
-		var shoulder := rest_u.origin
 		var elbow0 := rest_l.origin
 		var wrist0 := rest_h.origin
-		var upper := (elbow0 - shoulder).length()
+		var upper := (elbow0 - rest_u.origin).length()
+		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
+		var shoulder := rest_u.origin
+		var parent := skeleton.get_bone_parent(iu)
+		if parent >= 0:
+			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
 		var lower := (wrist0 - elbow0).length() + 0.07
-		var to_skel := _skeleton_to_model().affine_inverse()
+		var to_skel := _skeleton_to_frame().affine_inverse()
 		var goal: Vector3 = to_skel * hand_target
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
@@ -1408,7 +1450,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var hip := rest_t.origin
 		if hips >= 0:
 			hip = skeleton.get_bone_global_pose(hips) * skeleton.get_bone_rest(it).origin
-		var to_skel := _skeleton_to_model().affine_inverse()
+		var to_skel := _skeleton_to_frame().affine_inverse()
 		# The hitbox centre in model space; the foot reaches it (or as near as the leg allows).
 		var goal: Vector3 = to_skel * Vector3(tip.x * float(facing), tip.y, 0.2)
 		var d := goal - hip
@@ -1418,7 +1460,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var ang := acos(cos_a)
 		# The knee bends the way a knee does: it points ahead of the leg in the plane of the kick (up for a kick in front, down and back
 		# for one behind), a little out toward the camera, so it never folds backwards.
-		var dir_m: Vector3 = (_skeleton_to_model().basis * dir).normalized()
+		var dir_m: Vector3 = (_skeleton_to_frame().basis * dir).normalized()
 		var sin_phi := dir_m.x * float(facing)
 		var cos_phi := -dir_m.y
 		var pole_m := Vector3(float(facing) * cos_phi, sin_phi, 0.3)
@@ -1754,7 +1796,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	if rushing:
 		flame.scale = Vector3(1.3, 1.5, 1.3) * (1.0 + 0.12 * sin(float(s.frame) * 1.7))
 	if brawler and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
-		model.rotation.z = float(s.frame) * 0.6 * -float(s.facing)
+		model.rotation.x = float(s.frame) * 0.6
 
 	var hitlag: int = s.hitlag
 	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.
@@ -1793,6 +1835,6 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
-			model.rotation.z = float(s.frame) * 0.4 * -float(s.facing)
+			model.rotation.x = -float(s.frame) * 0.4
 		else:
-			model.rotation.z = deg_to_rad(26.0) * float(s.facing)
+			model.rotation.x = -deg_to_rad(26.0)
