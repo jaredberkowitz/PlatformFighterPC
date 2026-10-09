@@ -1184,13 +1184,19 @@ func _track_stats(befores: Array) -> void:
 			var by: int = stats[i].last_hitter
 			if by >= 0:
 				stats[by].dealt += gained
-		var ko: bool = int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30
+		var ko: bool = _knocked_out(before, now)
 		if ko:
 			stats[i].falls += 1
 			var by: int = stats[i].last_hitter
 			if by >= 0 and by != i:
 				stats[by].kos += 1
 			stats[i].last_hitter = -1
+
+
+## Whether the fighter was knocked out between two snapshots: it lost a stock, or (in free play, where no stock is lost) it has just
+## come back on the revival platform. Not a jump in invincibility: ledge options and get-ups grant some too.
+func _knocked_out(before: Dictionary, now: Dictionary) -> bool:
+	return int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or (now.get("state", "") == "Respawn" and before.get("state", "") != "Respawn")
 
 
 ## Cues for things the sim reports between two snapshots of a fighter: a clank, a wall tech, a knock-out.
@@ -1204,8 +1210,7 @@ func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
 	if now.state == "WallTech" and before.state != "WallTech":
 		sfx.play("land", 1.3)
 		_burst(Vector3(cur_pos[i].x, cur_pos[i].y + 1.0, 0.6), Color(0.85, 0.95, 1.0), 1.1, 0.35)
-	# A knock-out respawns the fighter with a long invulnerability (in free play no stock is lost, so this is the sign to watch).
-	if int(now.get("stocks", 0)) < int(before.get("stocks", 0)) or int(now.get("invuln", 0)) > int(before.get("invuln", 0)) + 30:
+	if _knocked_out(before, now):
 		_ko_blast(i, before.get("pos", cur_pos[i]))
 
 
