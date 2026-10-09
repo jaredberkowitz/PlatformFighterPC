@@ -1032,7 +1032,7 @@ func _show_results(winner: int) -> void:
 		var st: Dictionary = stats[i] if i < stats.size() else {}
 		cards.append({"name": names[i], "stocks": snaps[i].get("stocks", 0), "percent": snaps[i].get("percent", 0.0), "winner": i == winner,
 			"kos": st.get("kos", 0), "falls": st.get("falls", 0), "dealt": st.get("dealt", 0.0), "taken": st.get("taken", 0.0),
-			"look": views[i].loadout})
+			"look": views[i].loadout, "class": sim.fighter_class(i)})
 	var heading := "DRAW!" if winner < 0 else "%s wins!" % names[winner]
 	var choices := []
 	if group_mode:

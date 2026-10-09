@@ -117,7 +117,7 @@ const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Ve
 ## Where the head and torso sit in the rig compared with the sphere-built look the face, hats and glasses were designed for.
 const HEAD_FIT := Transform3D(Basis(Vector3(0.825, 0, 0), Vector3(0, 0.825, 0), Vector3(0, 0, 0.825)), Vector3(0, 1.56 - 1.42 * 0.825, 0))
 const TORSO_FIT := Transform3D()
-const LOOPING := ["idle", "walk", "run", "dash", "fall"]
+const LOOPING := ["idle", "walk", "run", "dash", "fall", "victory_a", "victory_b", "victory_c"]
 ## The rig is read once and copied for every fighter (reading it again renames its bones).
 static var _rig_templates: Dictionary = {}
 
@@ -354,6 +354,45 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
 	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
 	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+
+
+## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword and the maul are raised high, the
+## claws fighter pumps a fist; `cheer` makes anyone throw both arms up and hop), with the weapon held up in the raised hand. Call every
+## frame with the time since the last.
+func play_victory(cls: int, delta: float, cheer := false) -> void:
+	if anim == null:
+		return
+	var clip := "victory_c" if cheer else ("victory_b" if cls == 1 else "victory_a")
+	if current_clip != clip and anim.has_animation(clip):
+		anim.play(clip, 0.15)
+		current_clip = clip
+	anim.speed_scale = 1.0
+	anim.advance(delta)
+	var to_model := _skeleton_to_model()
+	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
+	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
+	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+	# The sword or the maul, gripped in the raised hand and pointing up.
+	var armed := cls != 1 and not cheer
+	blade_pivot.visible = armed
+	if armed:
+		var hand := skeleton.find_bone("hand.R")
+		var at: Vector3 = to_model * skeleton.get_bone_global_pose(hand).origin
+		blade_pivot.position = at
+		blade_pivot.rotation = Vector3(0, 0, PI / 2.0)
+		var length := 1.9
+		var hammer := cls == 2
+		blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0, 1.0) if not hammer else Vector3.ONE
+		for part in blade_parts:
+			part.visible = not hammer
+		for part in hammer_parts:
+			part.visible = hammer
+		if hammer:
+			hammer_parts[0].scale.x = (length - 0.35) / 2.5
+			hammer_parts[0].position.x = (length - 0.35) / 2.0
+			hammer_parts[1].position.x = length
+			hammer_parts[2].position.x = length
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is

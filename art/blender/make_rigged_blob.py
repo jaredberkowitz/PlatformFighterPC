@@ -799,6 +799,27 @@ def main() -> None:
             {"hips": -0.04, "spine": (-4.0, 30.0), "head": (0.0, -20.0), "stance": (30.0, -26.0), "armU.R": (88.0, 6.0), "armL.R": (4.0,)},
             {"spine": (0.0, 14.0), "stance": (16.0, -12.0)})
 
+    # ---- Victory poses (looping, for the results screen) -------------------------------------------------------------------------------
+    # Weapon raised high, the other hand on the hip, chest out; a slow proud breath.
+    def raised(breath):
+        return body({"arms": (8.0, 14.0), "hips": 0.02 * breath, "spine": (-10.0 - 4.0 * breath, 0.0), "head": (-12.0, 8.0),
+                     "stance": (12.0, -12.0), "armU.R": (168.0, 12.0), "armL.R": (8.0,), "armU.L": (-14.0, 42.0), "armL.L": (84.0,)})
+    clip(rig, "victory_a", 60, {0: raised(0.0), 30: raised(1.0), 60: raised(0.0)})
+
+    # A fist pump: the punch goes up twice a second, knees dipping with it; the other arm braced.
+    def pump(up):
+        return body({"arms": (8.0, 14.0), "hips": -0.06 * up, "spine": (-6.0 * up, 14.0 * up), "head": (-14.0 * up, 0.0),
+                     "stance": (16.0, -14.0), "armU.R": (60.0 + 95.0 * up, 18.0), "armL.R": (100.0 - 85.0 * up,),
+                     "armU.L": (20.0, 30.0), "armL.L": (90.0,)})
+    clip(rig, "victory_b", 60, {0: pump(0.0), 15: pump(1.0), 30: pump(0.0), 45: pump(1.0), 60: pump(0.0)})
+
+    # A cheering hop: both arms thrown up, a little jump with the knees tucked at the top.
+    def cheer(k):
+        return body({"arms": (150.0 + 14.0 * k, 26.0), "hips": 0.28 * k, "spine": (-8.0, 0.0), "head": (-16.0, 0.0),
+                     "stance": (10.0 + 40.0 * k, 10.0 + 40.0 * k), "shin.L": (-10.0 - 60.0 * k,), "shin.R": (-10.0 - 60.0 * k,),
+                     "armL.L": (10.0,), "armL.R": (10.0,)})
+    clip(rig, "victory_c", 60, {0: cheer(0.0), 12: cheer(0.6), 22: cheer(1.0), 34: cheer(0.4), 44: cheer(0.0), 60: cheer(0.0)})
+
     # Grabs and throws.
     def grab_pose(rig):
         pose(rig, "hips", lift=-0.06)
