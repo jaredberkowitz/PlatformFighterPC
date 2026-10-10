@@ -7,3 +7,6 @@ tools/godot/
 
 # Packaged builds (build_release.bat)
 /build/
+
+# Raw models from the generation services (tools/art/gen3d.py); only cleaned assets are kept in godot/models/props/
+/art/generated/

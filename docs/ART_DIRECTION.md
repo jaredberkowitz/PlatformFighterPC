@@ -28,6 +28,9 @@ every character, accessory and name we ship must be original (plan section 2).
 
 ## Production rules
 
+How new art is made, cleaned up and brought in (concept, generation, clean-up, budgets, review): `ART_WORKFLOW.md`.
+
+
 - Gameplay hurtboxes come from character data, never the mesh. Round bodies make capsule placeholders
   a close visual match, so placeholder fighters can already be blob-shaped.
 - Keep budgets (plan 7.3) tight: the style needs few polygons, and tiny textures for faces.

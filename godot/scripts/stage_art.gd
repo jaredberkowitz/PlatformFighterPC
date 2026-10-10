@@ -298,6 +298,40 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.25)
 	for layer in MIST.get(t.name, []):
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
+	painted_layers(root, t.name)
+
+
+## Painted backdrop layers for a theme, if it has any: godot/art/backdrops/<theme>/layers.json lists pictures (PNG with transparency) to
+## stand behind the stage as flat cards, each [{"image": "far_hills.png", "z": -110, "y": -8, "width": 260}, ...] (the card's bottom at
+## `y`, its height from the picture's shape). The perspective camera gives the layers their parallax. See docs/ART_WORKFLOW.md.
+static func painted_layers(root: Node3D, theme_name: String) -> int:
+	var dir := "res://art/backdrops/%s/" % theme_name
+	if not FileAccess.file_exists(dir + "layers.json"):
+		return 0
+	var layers = JSON.parse_string(FileAccess.get_file_as_string(dir + "layers.json"))
+	if not (layers is Array):
+		push_warning("%slayers.json is not a list of layers" % dir)
+		return 0
+	var placed := 0
+	for layer in layers:
+		if not (layer is Dictionary) or not ResourceLoader.exists(dir + str(layer.get("image", ""))):
+			continue
+		var tex := load(dir + str(layer.image)) as Texture2D
+		if tex == null:
+			continue
+		var width := float(layer.get("width", 200.0))
+		var height := width * float(tex.get_height()) / maxf(1.0, float(tex.get_width()))
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR if layer.get("cutout", false) else BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_texture = tex
+		var q := QuadMesh.new()
+		q.size = Vector2(width, height)
+		var mi := _mesh(root, q, m, Vector3(float(layer.get("x", 0.0)), float(layer.get("y", -8.0)) + height * 0.5, float(layer.get("z", -100.0))))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.name = "Painted"
+		placed += 1
+	return placed
 
 
 ## The fog layers of each theme: [z, bottom y, height, strength].
