@@ -40,7 +40,7 @@ tumbling roll for strong launches. Fix: a reaction set in the view: a short flin
 speed from the launch speed.
 
 **A3. Generic poses for many moves.** *Medium impact, large fix.* The iconic aerials and the sword tilts have their own poses, but grabs,
-throws, most specials, jabs and the bruiser's kit share generic clips. Fix: per-move poses, best done in a directed Blender session.
+throws, most specials, and jabs share generic clips. Fix: per-move poses, best done in a directed Blender session.
 
 **A4. One landing pose.** *Done: landing out of an aerial stumbles, deeper and pitched forward, for its landing lag.* *Low impact,
 small fix.* Light landings, heavy landings and aerial landing lag all show the same crouch; the

@@ -260,12 +260,12 @@ pub fn cmd_relay(args: &[String]) -> Result<(), String> {
 
 /// A random fighter for the fuzzer: a built-in one a quarter of the time, otherwise a recipe with random stats.
 fn random_spec(rng: &mut Rng) -> sim_content::recipe::FighterSpec {
-    use sim_content::recipe::{FighterSpec, Recipe};
+    use sim_content::recipe::{FighterSpec, Recipe, CLASSES};
     if rng.range(4) == 0 {
-        FighterSpec::Builtin(rng.range(3) as u8)
+        FighterSpec::Builtin(rng.range(u32::from(CLASSES)) as u8)
     } else {
         FighterSpec::Made(Recipe {
-            class: rng.range(3) as u8,
+            class: rng.range(u32::from(CLASSES)) as u8,
             size: 1 + rng.range(9) as u8,
             speed: 1 + rng.range(9) as u8,
             jump: 1 + rng.range(9) as u8,

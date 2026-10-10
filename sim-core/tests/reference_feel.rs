@@ -1,5 +1,5 @@
 //! Closer to the reference game (sim v34): DI bends a launch by about 10 degrees at most, launch speed influence, crouching under
-//! high hits, limbs that can be hit while they attack, and the bruiser's heavyweight attributes; and (sim v35) the reverse aerial
+//! high hits, limbs that can be hit while they attack; and (sim v35) the reverse aerial
 //! rush, the run's committed skid and the dash attack's slide; and (sim v36) bodies that do not pass through each other on the ground.
 
 mod common;
@@ -137,38 +137,6 @@ fn a_claw_or_kick_can_be_hit_while_it_is_out_but_a_blade_cannot() {
     // The sword: nothing past the body (the fourth circle is the middle one).
     let (limb, middle) = limb_in_ftilt(0);
     assert_eq!(limb, middle);
-}
-
-#[test]
-fn the_bruiser_has_the_heavyweight_hammer_fighters_attributes() {
-    let c = sim_core::Content::placeholder();
-    let (duelist, brawler, bruiser) = (&c.fighters[0], &c.fighters[1], &c.fighters[2]);
-    assert_eq!(bruiser.weight, Fx::from_int(127));
-    // Four jumps in the air, a heavy fall, and the slowest drift.
-    assert_eq!(bruiser.air_jumps, 4);
-    assert!(
-        bruiser.max_fall_speed > brawler.max_fall_speed
-            && bruiser.max_fall_speed > duelist.max_fall_speed
-    );
-    assert!(bruiser.air_speed < duelist.air_speed && bruiser.air_speed < brawler.air_speed);
-}
-
-#[test]
-fn the_bruiser_uses_all_four_air_jumps() {
-    let mut sim = duel([2, 0, 0, 0]);
-    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
-    let mut jumps = 0;
-    for _ in 0..6 {
-        let before = sim.f().vel.y;
-        sim.tick(inp(0, 0, JUMP));
-        if sim.f().vel.y > before + fx(1, 10) {
-            jumps += 1;
-        }
-        for _ in 0..20 {
-            sim.tick(inp(0, 0, 0));
-        }
-    }
-    assert_eq!(jumps, 4);
 }
 
 // ---- Reverse aerial rush (sim v35) ----------------------------------------------------------------------------------------------

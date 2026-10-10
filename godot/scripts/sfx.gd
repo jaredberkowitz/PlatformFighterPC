@@ -17,7 +17,6 @@ const FILE_SOUNDS := {
 	"slash": ["knifeSlice", "knifeSlice2"],
 	"metal": ["impactMetal_light_000", "impactMetal_light_001", "impactMetal_light_002", "impactMetal_light_003", "impactMetal_light_004"],
 	"metal_heavy": ["impactMetal_heavy_000", "impactMetal_heavy_001", "impactMetal_heavy_002"],
-	"wood_heavy": ["impactWood_heavy_000", "impactWood_heavy_001", "impactWood_heavy_002"],
 	"thud": ["impactSoft_heavy_000", "impactSoft_heavy_001", "impactSoft_heavy_002"],
 	"glass": ["impactGlass_light_000", "impactGlass_light_001", "impactGlass_light_002"],
 	"shing": ["drawKnife1", "drawKnife2", "drawKnife3"],
@@ -147,8 +146,8 @@ func play_group(group: String, pitch := 1.0, volume_db := 0.0) -> void:
 	p.play()
 
 
-## A hit landing, layered by what landed it (`kind`: 0 a blade, 1 a blow, 2 the maul) and how hard (`strength`, 0..1): a blade slices
-## and rings, a blow smacks, the maul thumps; a heavy hit adds a deep thud and a low boom. Returns the groups played (for tests).
+## A hit landing, layered by what landed it (`kind`: 0 a blade, 1 a blow) and how hard (`strength`, 0..1): a blade slices and rings, a
+## blow smacks; a heavy hit adds a deep thud and a low boom. Returns the groups played (for tests).
 func hit(kind: int, strength: float) -> Array:
 	var heavy := strength > 0.5
 	var played: Array = []
@@ -156,9 +155,6 @@ func hit(kind: int, strength: float) -> Array:
 		0:
 			played.append(["slash", 1.0, 0.0])
 			played.append(["metal_heavy" if heavy else "metal", 1.0, -8.0])
-		2:
-			played.append(["wood_heavy", 0.9, 0.0])
-			played.append(["punch_heavy", 0.8, -4.0])
 		_:
 			played.append(["punch_heavy" if heavy else "punch", 1.0, 0.0])
 	if heavy:

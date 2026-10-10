@@ -92,14 +92,13 @@ class Streaks extends MeshInstance3D:
 		im.surface_end()
 
 
-## What landed a hit, for its effect (and sound): a blade, a blow, the maul, or fire.
-enum Kind { BLADE, BLOW, MAUL, FIRE }
+## What landed a hit, for its effect (and sound): a blade, a blow, or fire.
+enum Kind { BLADE, BLOW, FIRE }
 
 ## Layer colours of a burst by kind, outside in (under an ink outline): the outer flare, the body, the core.
 const BURST_COLOURS := {
 	Kind.BLADE: [Color(1.0, 0.62, 0.18), Color(1.0, 0.88, 0.35), Color(1.0, 1.0, 0.94)],
 	Kind.BLOW: [Color(1.0, 0.5, 0.14), Color(1.0, 0.84, 0.28), Color(1.0, 1.0, 0.92)],
-	Kind.MAUL: [Color(0.92, 0.3, 0.12), Color(1.0, 0.66, 0.2), Color(1.0, 0.95, 0.8)],
 	Kind.FIRE: [Color(0.88, 0.12, 0.06), Color(1.0, 0.5, 0.08), Color(1.0, 0.9, 0.4)],
 }
 
@@ -114,13 +113,12 @@ class Pow extends MeshInstance3D:
 	var dir := Vector2.RIGHT
 	var colours: Array = []
 	var spikes: Array = []     # [angle, length 0..1]
-	var blunt := false         # the maul's: fewer, fatter spikes
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
 		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		extra_cull_margin = 64.0
-		var n := 7 if blunt else 11
+		var n := 11
 		var turn := randf() * TAU
 		for k in n:
 			var a := turn + TAU * (float(k) + randf_range(-0.22, 0.22)) / n
@@ -154,7 +152,7 @@ class Pow extends MeshInstance3D:
 
 	## One layer: a fan of spikes round the middle, `reach` scaling how far the spikes go beyond the round inner part.
 	func _star(im: ImmediateMesh, r: float, c: Color, reach: float) -> void:
-		var inner := r * (0.5 if blunt else 0.36)
+		var inner := r * 0.36
 		var along := Vector3(dir.x, dir.y, 0).normalized()
 		var across := Vector3(-along.y, along.x, 0)
 		var n := spikes.size()
@@ -239,9 +237,8 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	var pow_fx := Pow.new()
 	pow_fx.material_override = _material(true)
 	pow_fx.colours = BURST_COLOURS.get(kind, BURST_COLOURS[Kind.BLOW])
-	pow_fx.blunt = kind == Kind.MAUL
 	pow_fx.dir = dir if dir != Vector2.ZERO else Vector2.RIGHT
-	pow_fx.size = (0.45 + 0.85 * s) * (0.8 if kind == Kind.BLADE else (1.15 if kind == Kind.MAUL else 1.0))
+	pow_fx.size = (0.45 + 0.85 * s) * (0.8 if kind == Kind.BLADE else 1.0)
 	pow_fx.life = 0.17 + 0.1 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)

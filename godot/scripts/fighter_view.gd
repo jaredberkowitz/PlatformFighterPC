@@ -606,8 +606,8 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 	skeleton.set_bone_pose_rotation(bone, local.get_rotation_quaternion())
 
 
-## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword and the maul are raised high, the
-## claws fighter pumps a fist; `cheer` makes anyone throw both arms up and hop), with the weapon held up in the raised hand. Call every
+## A victory pose for the results screen: plays one of the looping victory clips (by class: the sword is raised high, the claws fighter
+## pumps a fist; `cheer` makes anyone throw both arms up and hop), with the weapon held up in the raised hand. Call every
 ## frame with the time since the last.
 func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if anim == null:
@@ -621,7 +621,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	anim.speed_scale = 1.0
 	anim.advance(delta)
 	_follow_bones()
-	# The sword or the maul, gripped in the raised hand and pointing up.
+	# The sword, gripped in the raised hand and pointing up.
 	var armed := cls != 1 and not cheer
 	blade_pivot.visible = armed
 	if armed:
@@ -629,18 +629,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 		var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
 		blade_pivot.position = at
 		blade_pivot.rotation = Vector3(0, 0, PI / 2.0)
-		var length := 1.9
-		var hammer := cls == 2
-		blade_pivot.scale = Vector3(length / MESH_LENGTH, 1.0, 1.0) if not hammer else Vector3.ONE
-		for part in blade_parts:
-			part.visible = not hammer
-		for part in hammer_parts:
-			part.visible = hammer
-		if hammer:
-			hammer_parts[0].scale.x = (length - 0.35) / 2.5
-			hammer_parts[0].position.x = (length - 0.35) / 2.0
-			hammer_parts[1].position.x = length
-			hammer_parts[2].position.x = length
+		blade_pivot.scale = Vector3(1.9 / MESH_LENGTH, 1.0, 1.0)
 
 
 ## The meshes of the modelled blob (Body, Head, FootL, FootR, HandL, HandR), read straight from the glTF file so no editor import is
@@ -766,7 +755,6 @@ func build(p: int, l: RefCounted = null) -> void:
 
 	# Weapon: pivots at the hand and extends along +x. Claws just shrink it (see _pose_blade).
 	blade_parts.clear()
-	hammer_parts.clear()
 	stage_frame = Node3D.new()
 	model.add_child(stage_frame)
 	blade_pivot = Node3D.new()
@@ -780,19 +768,6 @@ func build(p: int, l: RefCounted = null) -> void:
 	var grip_mesh := BoxMesh.new()
 	grip_mesh.size = Vector3(0.4, 0.12, 0.12)
 	_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.02, 0, 0))
-	# The maul: a thick shaft and a big two-sided head at the far end (shown instead of the blade for the third class).
-	var shaft_mesh := BoxMesh.new()
-	shaft_mesh.size = Vector3(2.5, 0.2, 0.2)
-	hammer_parts.append(_part(blade_pivot, shaft_mesh, toon(Color(0.55, 0.36, 0.2)), Vector3(1.3, 0, 0)))
-	var head_mesh := BoxMesh.new()
-	head_mesh.size = Vector3(0.7, 0.7, 0.6)
-	hammer_parts.append(_part(blade_pivot, head_mesh, toon(Color(0.36, 0.4, 0.5)), Vector3(2.45, 0, 0)))
-	# A small gold stud on the head's top, so it reads as a made thing rather than a grey box.
-	var stud_mesh := BoxMesh.new()
-	stud_mesh.size = Vector3(0.22, 0.2, 0.22)
-	hammer_parts.append(_part(blade_pivot, stud_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(2.45, 0.42, 0)))
-	for part in hammer_parts:
-		part.visible = false
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
@@ -1595,10 +1570,9 @@ func set_name_tag(text: String) -> void:
 		name_label.visible = text != ""
 var blade_pivot: Node3D
 var blade_parts: Array[MeshInstance3D] = []
-var hammer_parts: Array[MeshInstance3D] = []
 
 
-## The fighter's class (which moveset it has): 0 longsword, 1 claws, 2 maul. Snapshots made before classes existed only have `char`.
+## The fighter's class (which moveset it has): 0 longsword, 1 claws. Snapshots made before classes existed only have `char`.
 func _cls(s: Dictionary) -> int:
 	return int(s.get("class", s.char))
 var spark: MeshInstance3D
@@ -1716,14 +1690,11 @@ const SHOULDER := Vector2(0.5, 1.15)
 const ARM_REACH := 0.5
 var arm_k := 0.0
 var hand_target := Vector3.ZERO
-## Where the maul's second hand holds the shaft (stage frame), and how far above the first.
-var grip_target := Vector3.ZERO
-const MAUL_GRIP := 0.3
 ## The sword's thrusts: the blade points at the hit throughout and the arm drives it in, rather than swinging round to it.
 const SWORD_THRUSTS := ["usmash", "dtilt"]
-## Neutral airs whose second hit circles the body (the sword's, and the maul's made from it): the whole body flips over backward once
-## while the arm holds the blade out, between these frames, so the blade follows the hits round. By class.
-const NAIR_SPIN := {0: [14, 21], 2: [18, 27]}
+## Neutral airs whose second hit circles the body (the sword's): the whole body flips over backward once while the arm holds the blade
+## out, between these frames, so the blade follows the hits round. By class.
+const NAIR_SPIN := {0: [14, 21]}
 const SPIN_PIVOT := Vector2(0.0, 1.1)
 const SPIN_PIVOT_3D := Vector3(0.0, 1.1, 0.0)
 
@@ -1784,9 +1755,6 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
-	# The maul is swung two-handed: the other hand grips the shaft just above this one.
-	var grip := hand + (tip - hand).normalized() * MAUL_GRIP
-	grip_target = Vector3(grip.x * facing, grip.y, 0.35)
 	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
 	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
 	if _cls(s) == 1:
@@ -1795,21 +1763,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		_update_sweep(s, hand, tip)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
-	var hammer: bool = _cls(s) == 2
 	var thick := 1.0 if _cls(s) == 0 else 1.7
 	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
-	if hammer:
-		# The head keeps its size: only the shaft stretches, and the head sits at the move's sweet spot.
-		blade_pivot.scale = Vector3.ONE
-		var reach := maxf(length, 1.3)
-		hammer_parts[0].scale.x = (reach - 0.35) / 2.5
-		hammer_parts[0].position.x = (reach - 0.35) / 2.0
-		hammer_parts[1].position.x = reach
-		hammer_parts[2].position.x = reach
-	for part in blade_parts:
-		part.visible = not hammer
-	for part in hammer_parts:
-		part.visible = hammer
 
 
 ## How far into reaching for its hit a limb should be at this point of the move: easing in over the second half of the wind-up, fully
@@ -1869,7 +1824,7 @@ func _hat_spring(s: Dictionary, delta: float) -> void:
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
-func _aim_arm(facing: int, holding: bool, two_handed := false) -> void:
+func _aim_arm(facing: int, holding: bool) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
@@ -1877,7 +1832,7 @@ func _aim_arm(facing: int, holding: bool, two_handed := false) -> void:
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
-		if not holding or not (mine or two_handed):
+		if not (mine and holding):
 			skeleton.set_bone_global_pose_override(iu, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(il, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ih, Transform3D(), 0.0, false)
@@ -1895,7 +1850,7 @@ func _aim_arm(facing: int, holding: bool, two_handed := false) -> void:
 			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
 		var lower := (wrist0 - elbow0).length() + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
-		var goal: Vector3 = to_skel * (hand_target if mine else grip_target)
+		var goal: Vector3 = to_skel * hand_target
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
@@ -2005,7 +1960,7 @@ func _make_trail() -> void:
 
 
 # ---- Weapon swing trail ------------------------------------------------------------------------------------------------------------
-# A sword (or maul) leaves the trail the reference game draws: the whole crescent the blade sweeps through, a bright core along the path
+# A sword leaves the trail the reference game draws: the whole crescent the blade sweeps through, a bright core along the path
 # of the tip with a crisp deeper rim, the trail colour inside it fading toward the hilt. As it ages the crescent is eaten away from the
 # hilt side and thins to a point behind the swing. Each simulation frame records where the hand and the tip are; the crescent between
 # two records is drawn in thin slices that turn round the hand, so it is a smooth arc rather than a polygon. Time stands still in hitlag,
@@ -2385,12 +2340,10 @@ func _trail_colours(s: Dictionary) -> Array:
 	return trail_colours_of(_cls(s))
 
 
-## A class's trail colours: [the trail, its bright core] (claws violet, maul ember red, sword blue).
+## A class's trail colours: [the trail, its bright core] (claws violet, sword blue).
 static func trail_colours_of(cls: int) -> Array:
 	if cls == 1:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
-	if cls == 2:
-		return [Color(0.95, 0.28, 0.12), Color(1.0, 0.92, 0.8)]
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
@@ -2498,7 +2451,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
-		_aim_arm(int(s.facing), holding and not carrying, _cls(s) == 2 and state == "Attack")
+		_aim_arm(int(s.facing), holding and not carrying)
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)

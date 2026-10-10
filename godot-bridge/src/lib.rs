@@ -909,7 +909,7 @@ impl SimRunner {
         PackedInt32Array::from(v.as_slice())
     }
 
-    /// The fighter's class: the index of the moveset it uses (0 longsword, 1 claws, 2 maul, or a custom weapon).
+    /// The fighter's class: the index of the moveset it uses (0 longsword, 1 claws, or a custom weapon).
     #[func]
     fn fighter_class(&self, i: i32) -> i32 {
         self.fighter(i).map_or(0, |fi| {

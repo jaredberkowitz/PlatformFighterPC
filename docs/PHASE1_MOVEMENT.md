@@ -40,22 +40,21 @@ Movement now follows the reference game's published attributes. **One world unit
 tall fighter is 2.2 tall (`FighterParams::su(thousandths)` does the conversion). Jump velocities are *derived* from the
 reference jump heights and gravity (`FighterParams::hop_velocity`), and tests assert the measured apex matches.
 
-| | Duelist (sword archetype) | Brawler (blaster archetype) | Bruiser (hammer heavyweight archetype, sim v34) |
-| --- | --- | --- | --- |
-| Walk / run / dash | 1.575 / 1.964 / 2.255 | 1.208 / 1.54 / 2.09 | 1.029 / 1.496 / 1.815 |
-| Air speed | 1.071 | 1.281 | 0.735 |
-| Air acceleration (base + stick) | 0.01 + 0.07 | 0.01 + 0.08 | 0.01 + 0.04 |
-| Gravity | 0.075 | 0.13 | 0.097 |
-| Fall / fast fall | 1.58 / 2.528 | 1.8 / 2.88 | 1.95 / 3.12 |
-| Full hop / short hop / air jump | 33.66 / 16.26 / 33.66 | 32.02 / 15.38 / 30.71 | 32.85 / 16.02 / 32.85 |
-| Air jumps | 1 | 1 | 4 |
-| Weight | 90 | 92 | 127 |
-| Hard landing lag | 4 | 4 | 6 |
-| Jump squat | 3 frames | 3 frames | 3 frames |
+| | Duelist (sword archetype) | Brawler (blaster archetype) |
+| --- | --- | --- |
+| Walk / run / dash | 1.575 / 1.964 / 2.255 | 1.208 / 1.54 / 2.09 |
+| Air speed | 1.071 | 1.281 |
+| Air acceleration (base + stick) | 0.01 + 0.07 | 0.01 + 0.08 |
+| Gravity | 0.075 | 0.13 |
+| Fall / fast fall | 1.58 / 2.528 | 1.8 / 2.88 |
+| Full hop / short hop / air jump | 33.66 / 16.26 / 33.66 | 32.02 / 15.38 / 30.71 |
+| Air jumps | 1 | 1 |
+| Weight | 90 | 92 |
+| Hard landing lag | 4 | 4 |
+| Jump squat | 3 frames | 3 frames |
 
-Source: the public attribute tables for the reference characters (ssbwiki.com, ultimateframedata.com). The bruiser had placeholder
-numbers until sim v34; it now has the hammer-wielding heavyweight's, including its four midair jumps (traction 0.085 and air friction
-0.006 from the same tables; ground friction is doubled from the table's traction like the others). Air friction values were not
+Source: the public attribute tables for the reference characters (ssbwiki.com, ultimateframedata.com). (A third body type, the bruiser, had the
+hammer-wielding heavyweight's attributes in sims v34 and v35; it was removed in v36 with its moveset.) Air friction values were not
 available for the duelist and are estimates. Air dodge, wavedash, shield drop and ledge numbers are unchanged.
 
 The placeholder stage is now Final Destination-sized (main block 22 wide, side platforms 3.6 up) so run speeds feel right.

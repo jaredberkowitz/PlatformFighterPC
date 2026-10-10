@@ -10,7 +10,6 @@ Recorded groups (`FILE_SOUNDS`; one take is picked at random each time, with a s
 | --- | --- | --- |
 | `punch`, `punch_heavy` | impactPunch_medium, impactPunch_heavy | a blow landing (light, heavy) |
 | `slash` + `metal`, `metal_heavy` | knifeSlice, impactMetal_light / heavy | a blade landing: the slice and a ring |
-| `wood_heavy` | impactWood_heavy | the maul landing (with a heavy punch under it) |
 | `thud` | impactSoft_heavy | the low body of any heavy hit |
 | `glass` | impactGlass_light | a hit on a shield |
 | `shing` | drawKnife | a blade's swing |

@@ -624,37 +624,6 @@ impl FighterParams {
             ..FighterParams::base()
         }
     }
-    /// Heavy and slow with a quick fall: the "hammer bruiser" body type.
-    pub fn bruiser() -> FighterParams {
-        let su = FighterParams::su;
-        let gu = FighterParams::gu;
-        let gravity = su(97);
-        let (burst, arc) = Self::full_hop(gravity, su(32850));
-        FighterParams {
-            walk_speed: gu(1029),
-            run_speed: gu(1496),
-            dash_speed: gu(1815),
-            dash_initial_speed: gu(700),
-            air_speed: su(735),
-            air_accel_stick: su(40),
-            air_friction: su(6),
-            gravity,
-            max_fall_speed: su(1950),
-            fast_fall_speed: su(3120),
-            ground_friction: gu(170),
-            dash_attack_friction: gu(85),
-            full_hop_velocity: arc,
-            hop_burst_velocity: burst,
-            hop_burst_frames: HOP_BURST_FRAMES,
-            short_hop_velocity: Self::hop_velocity(gravity, su(16020)),
-            air_jump_velocity: Self::hop_velocity(gravity, su(32850)),
-            air_jumps: 4,
-            heavy_landing_lag: 6,
-            weight: Fx::from_int(127),
-            weapon: 2,
-            ..FighterParams::base()
-        }
-    }
 }
 
 impl StateHash for FighterParams {
@@ -1162,33 +1131,17 @@ impl Content {
         h.finish()
     }
 
-    /// Three placeholder fighters (a swordfighter, a close-range brawler and a hammer bruiser) on a main stage with platforms.
+    /// Two placeholder fighters (a swordfighter and a close-range brawler) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
-            fighters: vec![
-                FighterParams::duelist(),
-                FighterParams::brawler(),
-                FighterParams::bruiser(),
-            ],
-            weapons: vec![
-                crate::moves::longsword(),
-                crate::moves::claws(),
-                crate::moves::maul(),
-            ],
+            fighters: vec![FighterParams::duelist(), FighterParams::brawler()],
+            weapons: vec![crate::moves::longsword(), crate::moves::claws()],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
             look: StageLook::default(),
             names: Names {
-                fighters: vec![
-                    "duelist".to_string(),
-                    "brawler".to_string(),
-                    "bruiser".to_string(),
-                ],
-                weapons: vec![
-                    "longsword".to_string(),
-                    "claws".to_string(),
-                    "maul".to_string(),
-                ],
+                fighters: vec!["duelist".to_string(), "brawler".to_string()],
+                weapons: vec!["longsword".to_string(), "claws".to_string()],
                 stage: "proving_grounds".to_string(),
             },
         }

@@ -4,10 +4,8 @@
 
 - **Weapons choose movesets** (`sim-core/src/moves.rs`): a fighter has a `weapon` index; each weapon holds 13 moves.
   The **longsword** (duelist) has a tip (priority 0, hits harder) and a body (priority 1). The **claws** (brawler) are the
-  same moves pulled in close, quicker and a little heavier, with no tip/body split. The **maul** (bruiser, the third class, SIM_VERSION 25) is the
-  longsword's normals stretched out (130% of the frames, bigger and 25% harder hitboxes) with the rising slash kept as its recovery and three plain
-  specials: a crushing overhead (neutral), a shoulder charge (side) and a ground quake (down). Its body is the heaviest and slowest
-  (`FighterParams::bruiser`). Frame data and numbers are placeholders; `sim-core/tests/maul.rs` pins the shape of it.
+  same moves pulled in close, quicker and a little heavier, with no tip/body split. (A third class, the **maul** bruiser, was added in
+  sim v25 and removed in sim v36 so the sword and claws movesets can be finished first; it is in the git history to bring back later.)
 - **Hitboxes and hurtboxes are circles.** Hitboxes come from move data (active on frames `start..=end`, offset from the feet,
   mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB, brought down to `crouch_height` (0.6) of
   their heights in a crouch so high attacks pass over it; and a fourth for a limb: with a `limbs` moveset (the claws), while a hit is
@@ -361,7 +359,7 @@ Three aerials people build combos around now follow the reference game's data (S
 
 - **A shorter blade**: the duelist's whole kit is pulled in toward the shoulder (`shorten_blade`, 72%), so the sword is about a quarter
   shorter on screen and in reach (the forward tilt tipper is now at about 3.2 units, it was 4). Frames, damage and knockback are unchanged.
-  The claws and the maul are built from the unshortened kit (`sword_kit`), so they did not change.
+  The claws are built from the unshortened kit (`sword_kit`), so they did not change.
 - **Swings follow their arcs**, one hit per frame along the blade's path (each still hits a target once), as the forward and down airs
   already did: jab (a downward slash, then the backhand rising), forward tilt and dash attack (rising cuts), forward smash (coming down
   from overhead), neutral air (a quick sweep in front, then the blade carried right round the fighter on frames 15-21, the reference's

@@ -177,7 +177,7 @@ Still to do for the base body: the neckwear's fit, and the licence of the free-p
 ## 6. Review
 
 - **See it in the game**, in every stage's light: `--demo=stage --stage=N --noui --shots=<dir>` (stages), `tests/lineup_shot.gd` and
-  `tests/anim_sheet.gd` (characters), `--demo=fx_<sword|claws|maul>_<move> --noui --shots=<dir>` (effects, steady camera).
+  `tests/anim_sheet.gd` (characters), `--demo=fx_<sword|claws>_<move> --noui --shots=<dir>` (effects, steady camera).
 - **Checklist**: the silhouette reads at match distance; colour count and triangles within budget (the report); no baked shading left
   (a shaded side darker than the game's own shadow is baked); outlines only round the outside and real edges; it sits in each stage's
   mood (shadows turned to the stage's hue still read); nothing clips or floats; the name and the design are original.

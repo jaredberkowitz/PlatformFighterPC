@@ -49,7 +49,6 @@ func _initialize() -> void:
 	# Hits are layered by what landed them and how hard.
 	check(sfx.hit(0, 0.2) == ["slash", "metal"], "a light blade hit slices and rings")
 	check(sfx.hit(1, 0.9) == ["punch_heavy", "thud"], "a heavy blow smacks and thuds")
-	check(sfx.hit(2, 0.3) == ["wood_heavy", "punch_heavy"], "the maul thumps")
 	for g in Sfx.FILE_SOUNDS:
 		check(sfx.groups[g].size() == Sfx.FILE_SOUNDS[g].size(), "every take of %s loads" % g)
 	check(sfx.watch(0, snap("Idle"), snap("JumpSquat")) == ["jump"], "a jump")

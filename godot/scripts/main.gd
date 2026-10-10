@@ -1209,7 +1209,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		by = stats[i].last_hitter
 	var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
 	# Where the hit met the fighter: toward the hitter's live hitbox from the middle of the body, no further than its edge. What landed
-	# it (a blade, a blow, the maul, fire) picks the effect and the sound; a blade's slash runs the way the blade was moving (across the
+	# it (a blade, a blow, fire) picks the effect and the sound; a blade's slash runs the way the blade was moving (across the
 	# line from the shoulder to the tip).
 	var middle := Vector2(cur_pos[i].x, cur_pos[i].y + 1.1)
 	var contact := middle
@@ -1226,7 +1226,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 			contact = middle + (tip_at - middle).limit_length(0.8)
 			cut = (tip_at - Vector2(cur_pos[by].x + 0.5 * facing, cur_pos[by].y + 1.15)).orthogonal().normalized()
 		if cls != 1 and _weapon_move(move):
-			kind = Effects.Kind.BLADE if cls == 0 else Effects.Kind.MAUL
+			kind = Effects.Kind.BLADE
 		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
 			kind = Effects.Kind.FIRE
 		trail = FighterView.trail_colours_of(cls)[0]
@@ -1237,7 +1237,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	if strength > 0.4:
 		Effects.impact(self, at, dir, colour, strength)
 	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
-	sfx.hit(0 if kind == Effects.Kind.BLADE else (2 if kind == Effects.Kind.MAUL else 1), strength)
+	sfx.hit(0 if kind == Effects.Kind.BLADE else 1, strength)
 	# A heavy hit punches the camera in for a moment and flashes the screen.
 	if strength > 0.55:
 		cam_punch = maxf(cam_punch, 0.6 + 0.6 * strength)
@@ -1250,7 +1250,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		cam_shake = maxf(cam_shake, 0.9)
 
 
-## Whether a move of the blade or maul classes is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
+## Whether a move of a held weapon's class is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
 static func _weapon_move(name: String) -> bool:
 	return not (name.contains("grab") or name.ends_with("throw") or name == "pummel")
 
@@ -1571,7 +1571,7 @@ func _prewarm() -> void:
 	var warm := Node3D.new()
 	add_child(warm)
 	var at := Vector3(cam.position.x, cam.position.y - 2.0, 0.0)
-	for kind in [Effects.Kind.BLADE, Effects.Kind.BLOW, Effects.Kind.MAUL, Effects.Kind.FIRE]:
+	for kind in [Effects.Kind.BLADE, Effects.Kind.BLOW, Effects.Kind.FIRE]:
 		Effects.hit(warm, at, Vector2(1, 0.5).normalized(), Color.WHITE, 1.0, kind, Vector2(0, 1), Color(0.4, 0.7, 1.0))
 	Effects.impact(warm, at, Vector2.RIGHT, Color.WHITE, 1.0)
 	Effects.shield_hit(warm, at, 1.0)
