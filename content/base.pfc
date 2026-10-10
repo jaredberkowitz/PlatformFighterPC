@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 32
-    hash 1dd9d8eebfdc64ed
+    sim_version 33
+    hash f217e537af6ea282
 }
 
 ruleset {
@@ -998,20 +998,21 @@ weapon maul {
 
 fighter duelist {
     weapon longsword
-    walk_speed 0.17719
-    run_speed 0.22095
-    dash_speed 0.25368
-    dash_initial_speed 0.10124
-    dash_accel 0.03374
-    dash_brake 0.05849
+    walk_speed 0.19687
+    run_speed 0.2455
+    dash_speed 0.28186
+    dash_initial_speed 0.11249
+    dash_accel 0.03749
+    dash_brake 0.06499
     dash_frames 10
     dash_reverse_frames 15
     dash_turn_delay 2
+    dash_shield_frame 5
     turn_frames 6
-    ground_accel 0.02249
-    ground_friction 0.02563
-    run_decel 0.00674
-    landing_friction 0.00449
+    ground_accel 0.025
+    ground_friction 0.02849
+    run_decel 0.00749
+    landing_friction 0.00499
     air_speed 0.13387
     air_accel 0.00124
     air_accel_stick 0.00874
@@ -1105,20 +1106,21 @@ fighter duelist {
 
 fighter brawler {
     weapon claws
-    walk_speed 0.1359
-    run_speed 0.17325
-    dash_speed 0.23512
-    dash_initial_speed 0.0945
-    dash_accel 0.03374
-    dash_brake 0.05849
+    walk_speed 0.15099
+    run_speed 0.19249
+    dash_speed 0.26125
+    dash_initial_speed 0.105
+    dash_accel 0.03749
+    dash_brake 0.06499
     dash_frames 10
     dash_reverse_frames 15
     dash_turn_delay 2
+    dash_shield_frame 5
     turn_frames 6
-    ground_accel 0.02249
-    ground_friction 0.02475
-    run_decel 0.00674
-    landing_friction 0.00449
+    ground_accel 0.025
+    ground_friction 0.0275
+    run_decel 0.00749
+    landing_friction 0.00499
     air_speed 0.16011
     air_accel 0.00124
     air_accel_stick 0.01
@@ -1212,20 +1214,21 @@ fighter brawler {
 
 fighter bruiser {
     weapon maul
-    walk_speed 0.10687
-    run_speed 0.14063
-    dash_speed 0.19124
-    dash_initial_speed 0.07874
-    dash_accel 0.03374
-    dash_brake 0.05849
+    walk_speed 0.11874
+    run_speed 0.15625
+    dash_speed 0.2125
+    dash_initial_speed 0.0875
+    dash_accel 0.03749
+    dash_brake 0.06499
     dash_frames 10
     dash_reverse_frames 15
     dash_turn_delay 2
+    dash_shield_frame 5
     turn_frames 6
-    ground_accel 0.02249
-    ground_friction 0.027
-    run_decel 0.00674
-    landing_friction 0.00449
+    ground_accel 0.025
+    ground_friction 0.03
+    run_decel 0.00749
+    landing_friction 0.00499
     air_speed 0.11249
     air_accel 0.00124
     air_accel_stick 0.00749

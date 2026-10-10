@@ -58,12 +58,12 @@ hitlag.
 
 ### Audio
 
-**S1. Two synthesised hit sounds for everything.** *Very high impact, medium fix, certain.* `sfx.gd` makes every hit either a 0.16 s or a
+**S1. Two synthesised hit sounds for everything.** *Done: layered CC0 sounds by kind and size (`docs/AUDIO.md`).* *Very high impact, medium fix, certain.* `sfx.gd` makes every hit either a 0.16 s or a
 0.34 s sine sweep with noise. The reference layers a sharp transient (crack), a body (thud), a type layer (slash, punch, kick, electric) and
 a size tier, plus crowd reactions on strong hits; sound carries much of "weight". Fix: layered sounds by kind and size, either better
 synthesis or CC0 sound files (would need a download; I would ask first).
 
-**S2. The swing sound plays when the move starts, not when it swings.** *Medium impact, small fix.* `whoosh` plays on the first frame of the
+**S2. The swing sound plays when the move starts, not when it swings.** *Done.* *Medium impact, small fix.* `whoosh` plays on the first frame of the
 attack; for a slow move it is heard long before the blade moves. Fix: play it a few frames before the first active frame.
 
 ### Mechanics
@@ -83,7 +83,7 @@ circle along the hit for punches and kicks.
 **M4. Hitbox positions were matched by eye.** *Medium impact, medium fix.* Positions and sizes were placed against our older, thinner model;
 the model has changed since. Fix: re-check every move with the hitbox overlay (F1) against the current model.
 
-**M5. Ground speed is 90% of the reference.** *Low-medium impact, trivial fix, a decision.* `GROUND_SPEED_PERCENT` was set to 90 early on to
+**M5. Ground speed is 90% of the reference.** *Done: 100% since sim v33, with the committed initial dash (`PHASE1_MOVEMENT.md`).* `GROUND_SPEED_PERCENT` was set to 90 early on to
 tame a slippery keyboard; dashes and runs are slower than the reference's. Fix: try 100 now that walking is analog.
 
 ### Camera

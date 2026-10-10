@@ -1,13 +1,32 @@
 extends Node
-## Sound effects, made from scratch at start-up (no audio files): short synthesised bursts, sweeps and blips. Everything here is original
-## and cosmetic: sounds are triggered from what the simulation reports and never feed back into it. F4 mutes.
+## Sound effects. Hits, swings, footsteps and shield hits are recorded sounds (`godot/audio/sfx/`, CC0, from Kenney's Impact Sounds and RPG
+## Audio packs, see docs/THIRD_PARTY.md), several takes of each picked at random and layered by the kind of attack and the size of the hit;
+## the interface sounds, the KO and the low boom under heavy hits are synthesised at start-up. Everything is cosmetic: sounds are triggered
+## from what the simulation reports and never feed back into it. F4 mutes.
 ##
 ## `play(name)` plays one effect; `watch(player, before, now)` compares two snapshots of a fighter (the dictionaries `main.gd` builds from the
 ## simulation) and plays whatever happened between them: a swing, a hit taken, a jump, a landing, a shield, a knock-out.
 
 const RATE := 22050
 const NAMES := ["hit_light", "hit_heavy", "whoosh", "jump", "land", "shield", "ko", "blip", "confirm", "go", "clank"]
-const VOICES := 10
+const VOICES := 18
+## The recorded sounds, by group: several takes each.
+const FILE_SOUNDS := {
+	"punch": ["impactPunch_medium_000", "impactPunch_medium_001", "impactPunch_medium_002", "impactPunch_medium_003", "impactPunch_medium_004"],
+	"punch_heavy": ["impactPunch_heavy_000", "impactPunch_heavy_001", "impactPunch_heavy_002", "impactPunch_heavy_003", "impactPunch_heavy_004"],
+	"slash": ["knifeSlice", "knifeSlice2"],
+	"metal": ["impactMetal_light_000", "impactMetal_light_001", "impactMetal_light_002", "impactMetal_light_003", "impactMetal_light_004"],
+	"metal_heavy": ["impactMetal_heavy_000", "impactMetal_heavy_001", "impactMetal_heavy_002"],
+	"wood_heavy": ["impactWood_heavy_000", "impactWood_heavy_001", "impactWood_heavy_002"],
+	"thud": ["impactSoft_heavy_000", "impactSoft_heavy_001", "impactSoft_heavy_002"],
+	"glass": ["impactGlass_light_000", "impactGlass_light_001", "impactGlass_light_002"],
+	"shing": ["drawKnife1", "drawKnife2", "drawKnife3"],
+	"cloth": ["cloth1", "cloth2", "cloth3", "cloth4"],
+	"step": ["footstep_grass_000", "footstep_grass_001", "footstep_grass_002", "footstep_grass_003", "footstep_grass_004",
+		"footstep_concrete_000", "footstep_concrete_001", "footstep_concrete_002", "footstep_concrete_003", "footstep_concrete_004"],
+}
+var groups := {}
+var rng := RandomNumberGenerator.new()
 
 var streams := {}
 var voices: Array = []
@@ -75,6 +94,13 @@ static func build(name: String) -> AudioStreamWAV:
 func _ready() -> void:
 	for n in NAMES:
 		streams[n] = build(n)
+	for g in FILE_SOUNDS:
+		var takes: Array = []
+		for f in FILE_SOUNDS[g]:
+			var s: AudioStream = load("res://audio/sfx/%s.ogg" % f)
+			if s != null:
+				takes.append(s)
+		groups[g] = takes
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Master"
@@ -108,6 +134,42 @@ func play(name: String, pitch := 1.0, volume_db := 0.0) -> void:
 	p.play()
 
 
+## Plays one take, picked at random, of a recorded group (pitch varied a little so repeats don't sound identical).
+func play_group(group: String, pitch := 1.0, volume_db := 0.0) -> void:
+	if muted or not groups.has(group) or groups[group].is_empty():
+		return
+	var takes: Array = groups[group]
+	var p: AudioStreamPlayer = voices[next_voice]
+	next_voice = (next_voice + 1) % voices.size()
+	p.stream = takes[rng.randi() % takes.size()]
+	p.pitch_scale = pitch * rng.randf_range(0.94, 1.06)
+	p.volume_db = volume_db
+	p.play()
+
+
+## A hit landing, layered by what landed it (`kind`: 0 a blade, 1 a blow, 2 the maul) and how hard (`strength`, 0..1): a blade slices
+## and rings, a blow smacks, the maul thumps; a heavy hit adds a deep thud and a low boom. Returns the groups played (for tests).
+func hit(kind: int, strength: float) -> Array:
+	var heavy := strength > 0.5
+	var played: Array = []
+	match kind:
+		0:
+			played.append(["slash", 1.0, 0.0])
+			played.append(["metal_heavy" if heavy else "metal", 1.0, -8.0])
+		2:
+			played.append(["wood_heavy", 0.9, 0.0])
+			played.append(["punch_heavy", 0.8, -4.0])
+		_:
+			played.append(["punch_heavy" if heavy else "punch", 1.0, 0.0])
+	if heavy:
+		played.append(["thud", 0.9, -3.0])
+	for g in played:
+		play_group(g[0], g[1], g[2])
+	if heavy:
+		play("hit_heavy", 1.0, -6.0)
+	return played.map(func(g): return g[0])
+
+
 func toggle_mute() -> bool:
 	muted = not muted
 	if muted:
@@ -122,11 +184,21 @@ func watch(player: int, before: Dictionary, now: Dictionary) -> Array:
 	if before.is_empty() or now.is_empty():
 		return played
 	var pitch := 1.0 + 0.04 * player
-	if now.state == "Attack" and before.state != "Attack":
-		played.append("whoosh")
-	if now.percent > before.percent + 0.01:
-		var heavy: bool = now.percent - before.percent >= 11.0 or now.tumble
-		played.append("hit_heavy" if heavy else "hit_light")
+	# The swing is heard as the move swings: a few frames before its first hit (or as it starts, if its timing is not known). A blade rings
+	# as it is drawn through the air.
+	if now.state == "Attack":
+		var timing = now.get("move_timing", PackedInt32Array())
+		var at: int = int(now.get("state_frame", 0))
+		var was: int = int(before.get("state_frame", -1)) if before.state == "Attack" else -1
+		# A new move straight out of another starts its count again.
+		if at < was:
+			was = -1
+		var swing: bool = before.state != "Attack"
+		if timing is PackedInt32Array and timing.size() >= 2 and timing[1] > 0:
+			var cue := maxi(0, timing[1] - 4)
+			swing = was < cue and at >= cue
+		if swing:
+			played.append("shing" if int(now.get("class", 1)) == 0 else "whoosh")
 	if (now.state == "JumpSquat" and before.state != "JumpSquat") or (now.state == "LedgeJump" and before.state != "LedgeJump"):
 		played.append("jump")
 	elif now.state == "Airborne" and before.state == "Airborne" and int(now.jumps) < int(before.jumps):
@@ -138,5 +210,15 @@ func watch(player: int, before: Dictionary, now: Dictionary) -> Array:
 	if now.stocks < before.stocks:
 		played.append("ko")
 	for n in played:
-		play(n, pitch)
+		match n:
+			"shing":
+				play_group("shing", pitch * 1.1, -4.0)
+				play("whoosh", pitch, -6.0)
+			"jump":
+				play_group("cloth", pitch, -2.0)
+				play("jump", pitch, -10.0)
+			"land":
+				play_group("step", pitch * 0.9, 0.0)
+			_:
+				play(n, pitch)
 	return played

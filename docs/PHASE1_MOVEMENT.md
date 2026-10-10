@@ -280,9 +280,39 @@ the shield, Smash 4 style), on purpose.
 - A ledge **behind** the fighter (back to the stage) has a 40% shorter reach (`ledge_reach_back_x`).
 - Hanging lets go after **6.5 seconds** (390 frames).
 
-**Not changed**: jump arcs, fall speeds, dash-dance window and air drift (already matched); ground speeds stay at `GROUND_SPEED_PERCENT` 90.
+**Not changed**: jump arcs, fall speeds, dash-dance window and air drift (already matched); ground speeds stayed at `GROUND_SPEED_PERCENT` 90 (100 since sim v33,
+below).
 Not done: dodge staling, the softhop, initial-dash shielding rules, and per-character ledge and dodge numbers beyond the two archetypes.
 
 Tests: `sim-core/tests/reference_movement.rs` (buffer, hold buffer, one press per action, short-hop aerial and its damage, midair jump steering,
 light and heavy landings, rolls) and `movement.rs` (ledge intangibility by grab, option decay, grab limit, back reach, letting go, hang time,
 air dodge lengths and landing lag, shield release).
+
+## The committed initial dash and full ground speed (sim v33)
+
+Sources, read October 2026: SmashWiki (Dash, Initial dash), smashpro.tips and player write-ups on the initial dash; the shield rule is the
+user's description of the reference game's hidden mechanic.
+
+**Ground speed is now 100%** of the reference (`GROUND_SPEED_PERCENT`, was 90 since the keyboard felt slippery; walking is analog now).
+
+**The initial dash is committed** (`dash_frames`, `dash_shield_frame`, `FighterParams::initial_dash_distance`):
+* A tap covers the **whole initial dash**: letting go of the stick no longer stops it. It runs its `dash_frames` (10) at dash speed, then becomes
+  a run if the stick is held that way, or brakes (`dash_brake`) to a stand. A second tap the same way changes nothing.
+* It can be cut short only by: a **dash the other way** (the dash dance, unchanged), a **jump**, a **grab** (the dash grab), a **special**, the
+  **dash attack**, or a **smash attack** (a flick up or down, or the strong button). **Tilts cannot** come out of it (any other attack is the dash
+  attack), and it cannot crouch or drop through a platform.
+* **The shield cuts it to about half**: from frame `dash_shield_frame` (5) the shield comes up, so holding forward and pressing shield stops the
+  dash about halfway. A shield held earlier comes out on that frame.
+* After the initial dash the run behaves as before (a dash attack, dash grab, jump, shield or skid-turn out of it).
+
+**Not the reference's**: the reference game puts each fighter's initial dash at its own length; ours share 10 frames, with the distance set by
+each fighter's dash speeds. Pivots (a flick back released at once, for pivot tilts) are not in.
+
+**The animation keeps step with it** (`godot/scripts/fighter_view.gd`): the initial dash is one bounding step, from the push-off to the other
+foot landing exactly as the dash ends, and the run goes on in step from there at two dash lengths a cycle, so the legs turn over with the
+speed. The fighter's dash length comes from the simulation (`fighter_dash_length` on the bridge), and a test checks the tapped dash covers
+exactly that distance.
+
+Tests: `sim-core/tests/feel.rs` (a tap covers the whole dash and matches `initial_dash_distance`, a second tap changes nothing, dash dance out of
+a tapped dash, no crouch or tilt, smash attacks out of it, the shield at half) and `ground_and_collision.rs` (letting go no longer cancels it;
+any tap shorter than the dash goes as far).

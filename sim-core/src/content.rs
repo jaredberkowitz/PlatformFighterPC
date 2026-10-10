@@ -11,7 +11,7 @@ use crate::vec2::Vec2;
 use crate::{MAX_FIGHTERS, SIM_VERSION};
 
 /// Ground speeds as a percentage of the reference values. Lower this to slow the ground game down.
-pub const GROUND_SPEED_PERCENT: i32 = 90;
+pub const GROUND_SPEED_PERCENT: i32 = 100;
 /// How much of a full hop's height is covered by its fast opening frames (the reference game's
 /// "initial height" is about 0.55 of the full hop). The frame count is an estimate.
 pub const HOP_BURST_SHARE_PERCENT: i32 = 55;
@@ -33,11 +33,15 @@ pub struct FighterParams {
     /// Speed on the first frame of a dash; it ramps to `dash_speed` at `dash_accel` per frame.
     pub dash_initial_speed: Fx,
     pub dash_accel: Fx,
-    /// Friction while a dash is cancelled by releasing the stick. Stronger than `ground_friction`,
+    /// Braking on the frame an initial dash ends with the stick let go. Stronger than `ground_friction`,
     /// so spacing and dash dancing stay tight.
     pub dash_brake: Fx,
-    /// The initial dash: this many frames at dash speed, then a run (if the stick is still held).
+    /// The initial dash: this many frames at dash speed, then a run (if the stick is still held). It is committed: a tap covers the
+    /// whole distance, and only a dash the other way, a jump, a grab, a special, a dash attack or a smash attack cuts it short.
     pub dash_frames: u8,
+    /// The initial dash can be cut short by the shield from this frame on (about half of `dash_frames`); a shield held earlier comes
+    /// out then.
+    pub dash_shield_frame: u8,
     /// A flick the other way this many frames after a dash started reverses it (a dash dance), even once the run has begun.
     pub dash_reverse_frames: u8,
     /// A reversed dash stands still this many frames before it starts accelerating (the turnaround).
@@ -194,6 +198,22 @@ pub struct FighterParams {
 }
 
 impl FighterParams {
+    /// How far a whole initial dash from a standstill goes over the frames it is shown as a dash (`dash_frames`, before it becomes a
+    /// run or brakes). The view times the dash's stride by it; a test checks the simulation agrees.
+    pub fn initial_dash_distance(&self) -> Fx {
+        let mut v = self.dash_initial_speed;
+        let mut d = Fx::ZERO;
+        for _ in 0..self.dash_frames {
+            v = if v < self.dash_speed {
+                (v + self.dash_accel).min(self.dash_speed)
+            } else {
+                (v - self.dash_accel).max(self.dash_speed)
+            };
+            d += v;
+        }
+        d
+    }
+
     /// Every fixed-point field with its name.
     pub fn fx_fields(&self) -> [(&'static str, Fx); 48] {
         [
@@ -249,11 +269,12 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 56] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 57] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("dash_reverse_frames", u32::from(self.dash_reverse_frames)),
             ("dash_turn_delay", u32::from(self.dash_turn_delay)),
+            ("dash_shield_frame", u32::from(self.dash_shield_frame)),
             ("air_dodge_windup", u32::from(self.air_dodge_windup)),
             (
                 "air_dodge_landing_lag",
@@ -417,6 +438,7 @@ impl FighterParams {
             dash_frames: 10,
             dash_reverse_frames: 15,
             dash_turn_delay: 2,
+            dash_shield_frame: 5,
             turn_frames: 6,
             ground_accel: gu(200),
             ground_friction: gu(220),

@@ -158,6 +158,11 @@ var rig: Node3D
 var skeleton: Skeleton3D
 var anim: AnimationPlayer
 var current_clip := ""
+## The dash and run share one stride, set by this fighter's initial dash: a dash is one bounding step (from the push-off at
+## `DASH_STEP_FROM` to the other foot landing half a cycle later) that lands as the dash ends, and the run goes on at two dash lengths
+## a cycle, its legs turning over with the speed.
+const DASH_STEP_FROM := 0.12
+var gait_frame := -1
 ## Parents of the face / hat / glasses (they follow the head bone) and of the neckwear (it follows the torso). Without a rig both are
 ## simply the model.
 var head_rig: Node3D
@@ -277,11 +282,13 @@ func _choose_clip(s: Dictionary) -> Array:
 	var speed := absf(float(s.vel.x))
 	match state:
 		"Walk":
-			return ["walk", clampf(speed / 0.09, 0.5, 2.0), -1.0]
-		"Run":
-			return ["run", clampf(speed / 0.22, 0.6, 1.5), -1.0]
-		"Dash":
-			return ["dash", clampf(speed / 0.3, 0.7, 1.6), -1.0]
+			return ["walk", clampf(speed / 0.09, 0.5, 2.4), -1.0]
+		"Run", "Dash":
+			# Cycles a second (two dash lengths each) times the clip's length in seconds.
+			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))
+			var clip := "dash" if state == "Dash" else "run"
+			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
+			return [clip, minf(2.5, speed * 60.0 / stride * length), -1.0]
 		"Crouch", "JumpSquat", "Landing", "WaveLand":
 			return ["crouch", 1.0, -1.0]
 		"Roll", "SpotDodge", "AirDodge":
@@ -409,9 +416,23 @@ func _animate(s: Dictionary, delta: float) -> void:
 		return
 	var pick: Array = _choose_clip(s)
 	var clip: String = pick[0]
+	# Where the stride is: a dash to a run goes on in step, and a new dash (also one the other way) starts on its push-off.
+	var gait := -1.0
+	if current_clip == "dash" or current_clip == "run":
+		gait = fmod(anim.current_animation_position / maxf(anim.current_animation_length, 0.001), 1.0)
+	var new_dash: bool = s.state == "Dash" and (current_clip != "dash" or int(s.state_frame) < gait_frame)
+	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
 	if clip != current_clip:
 		anim.play(clip, 0.1 if current_clip != "" and not clip.begins_with("attack") else 0.0)
 		current_clip = clip
+		if clip == "run" and gait >= 0.0:
+			anim.seek(gait * anim.current_animation_length, true)
+	if new_dash:
+		# Off the foot that is down: the push-off of whichever step comes next.
+		var from := DASH_STEP_FROM
+		if gait >= 0.0 and fmod(gait - DASH_STEP_FROM + 1.0, 1.0) >= 0.5:
+			from += 0.5
+		anim.seek(from * anim.current_animation_length, true)
 	if float(pick[2]) >= 0.0:
 		anim.pause()
 		anim.seek(float(pick[2]) * anim.get_animation(clip).length, true)

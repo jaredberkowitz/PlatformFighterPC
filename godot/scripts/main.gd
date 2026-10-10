@@ -305,7 +305,7 @@ func _refresh(i: int) -> void:
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
 		"charge": sim.fighter_charge(i), "shield": sim.fighter_shield(i) / sim.shield_max(), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
-		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i),
+		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i),
 	}
 
 
@@ -1193,6 +1193,11 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55)
 	Effects.hit(self, at, colour, strength)
 	Effects.impact(self, at, dir.normalized(), colour, strength)
+	# The hit's sound, by what landed it: a blade, a blow or the maul.
+	var kind := 1
+	if by >= 0:
+		kind = 1 if int(snaps[by].get("class", 1)) == 1 or not _weapon_move(str(snaps[by].get("move_name", ""))) else int(snaps[by].get("class", 1))
+	sfx.hit(kind, strength)
 	# A heavy hit punches the camera in for a moment and flashes the screen.
 	if strength > 0.55:
 		cam_punch = maxf(cam_punch, 0.6 + 0.6 * strength)
@@ -1203,11 +1208,18 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		cam_shake = maxf(cam_shake, 0.9)
 
 
+## Whether a move of the blade or maul classes is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
+static func _weapon_move(name: String) -> bool:
+	return not (name.contains("grab") or name.ends_with("throw") or name == "pummel")
+
+
 ## A hit on a raised shield: a ring of light on the bubble, the camera nudged a little.
 func _on_block(i: int) -> void:
 	var lag: int = snaps[i].hitlag
 	cam_shake = maxf(cam_shake, minf(0.35, float(lag) * 0.015))
 	Effects.shield_hit(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.9), clampf((float(lag) - 4.0) / 12.0, 0.0, 1.0))
+	sfx.play_group("glass", 1.0, -2.0)
+	sfx.play("shield", 1.4, -8.0)
 
 
 ## A white flash over the screen that fades at once (a heavy hit), at most `alpha`.
@@ -1276,7 +1288,7 @@ func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
 	if before.is_empty():
 		return
 	if now.state == "Rebound" and before.state != "Rebound":
-		sfx.play("clank")
+		sfx.play_group("metal_heavy", 1.1, 0.0)
 		cam_shake = maxf(cam_shake, 0.25)
 		_burst(Vector3(cur_pos[i].x + 0.9 * float(now.facing), cur_pos[i].y + 1.1, 0.6), Color(1.0, 0.95, 0.6), 0.9, 0.3)
 	# Starting a fast fall: a little star flashes beside the fighter (as the reference game marks it).

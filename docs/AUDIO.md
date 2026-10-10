@@ -1,23 +1,35 @@
 # Audio
 
-Sound effects are **synthesised at start-up** (`godot/scripts/sfx.gd`): short bursts, sweeps and blips made from noise and sine waves, so there
-are no audio files to license or ship and everything is original. They are cosmetic: triggered from what the simulation reports, never
-feeding back into it.
+Sound effects (`godot/scripts/sfx.gd`) are of two kinds. Most are **recorded sounds** from two free packs by Kenney, released under
+**CC0** (public domain, no attribution required; credited in `docs/THIRD_PARTY.md` anyway), in `godot/audio/sfx/`. The rest are **synthesised at
+start-up** from noise and sine waves. All are cosmetic: triggered from what the simulation reports, never feeding back into it.
 
-| Effect | When |
-| --- | --- |
-| `whoosh` | an attack starts |
-| `hit_light` / `hit_heavy` | a fighter takes damage (heavy from 11% in one hit, or a tumble) |
-| `jump` | a jump squat starts, or a double jump |
-| `land` | a fighter touches the ground (not out of hitstun) |
-| `shield` | the shield goes up |
-| `ko` | a stock is lost |
-| `blip` / `confirm` | main menu selection and choice |
-| `go`, `clank` | made and ready, not triggered yet |
+Recorded groups (`FILE_SOUNDS`; one take is picked at random each time, with a slight random pitch so repeats do not sound mechanical):
 
-* `Sfx.of(node)` adds the sound node to the tree once; `watch(player, before, now)` turns two snapshots of a fighter into sounds.
-* **F4** mutes in a match. Ten voices play at once, oldest replaced first.
-* Tests: `godot/tests/sfx_test.gd` (every effect is made, audible, not clipping, a sensible length; the watcher plays the right sounds).
+| Group | Files (Kenney) | Used for |
+| --- | --- | --- |
+| `punch`, `punch_heavy` | impactPunch_medium, impactPunch_heavy | a blow landing (light, heavy) |
+| `slash` + `metal`, `metal_heavy` | knifeSlice, impactMetal_light / heavy | a blade landing: the slice and a ring |
+| `wood_heavy` | impactWood_heavy | the maul landing (with a heavy punch under it) |
+| `thud` | impactSoft_heavy | the low body of any heavy hit |
+| `glass` | impactGlass_light | a hit on a shield |
+| `shing` | drawKnife | a blade's swing |
+| `cloth` | cloth | a jump |
+| `step` | footstep_grass, footstep_concrete | a landing |
+
+Hits are layered by **kind and size** (`hit(kind, strength)`, called by the match on every hit, flinches and each hit of a multi-hit included):
+a blade slices and rings, a blow smacks, the maul thumps, and a heavy hit (strength above 0.5, from the hitlag) adds the `thud` and the
+synthesised `hit_heavy` boom. Grabs, throws and pummels of the weapon classes sound like blows. A clank plays `metal_heavy`.
+
+Synthesised: `whoosh` (a swing, also under the blade's `shing`), `jump` (under the cloth), `shield`, `ko`, `hit_heavy`, `blip` / `confirm` (menus),
+`go`.
+
+* **The swing is heard as the move swings**: four frames before its first active frame (`move_timing`), not when the move starts.
+* `Sfx.of(node)` adds the sound node to the tree once; `watch(player, before, now)` turns two snapshots of a fighter into swing, jump, landing,
+  shield and KO sounds (hits and blocks are played by the match, which knows who hit whom).
+* **F4** mutes in a match. Eighteen voices play at once, oldest replaced first.
+* Tests: `godot/tests/sfx_test.gd` (every synthesised effect is made, audible, not clipping, a sensible length; every recorded take loads; the
+  swing lands on its frame; hits are layered by kind and size).
 
 ## Music
 
@@ -30,6 +42,5 @@ the tree's root, so it keeps playing across screen changes and asking for the tr
 It has not been heard by a person: the tracks are checked for loudness and loop points, not for whether they are pleasant. Expect to tune the
 notes, mix and tempo by ear, or replace them with composed music later.
 
-Not done: a volume setting menu, per-character voices, stage ambience, sound for blocking (`clank`), grabs, ledge grabs and the countdown
-(`go`), 3D positioning, and judging how it sounds to a person (none of it has been heard by someone yet, and synthesised effects usually need
-tuning by ear).
+Not done: a volume setting menu, per-character voices, crowd reactions, stage ambience, grabs, ledge grabs and the countdown (`go`), 3D
+positioning, and mixing by ear (the levels are first guesses).

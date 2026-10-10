@@ -318,17 +318,21 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         f.dash_age = 255;
     }
     let buffer = p.input_buffer;
+    // The initial dash is committed (see `dash_frames`): no crouch, platform drop or tilt during it, and the shield only from
+    // `dash_shield_frame`, which cuts the dash to about half its distance.
+    let initial_dash = f.state == S::Dash;
     if f.take(buttons::JUMP, buffer) {
         enter(f, S::JumpSquat);
         return;
     }
-    if f.held(buttons::SHIELD) {
+    let shield_held_back = initial_dash && f.state_frame < u16::from(p.dash_shield_frame);
+    if f.held(buttons::SHIELD) && !shield_held_back {
         // The press is the shield's: an air dodge later needs a new one.
         f.buffer_used |= buttons::SHIELD;
         enter(f, S::Shield);
         return;
     }
-    if on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
+    if !initial_dash && on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
         start_platform_drop(f, p);
         return;
     }
@@ -384,12 +388,8 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     let dir = if input.stick_x > 0 { 1 } else { -1 };
     match f.state {
         S::Dash => {
-            if !x_active(input) {
-                // Releasing the stick cancels the dash: the speed bleeds off quickly on
-                // braking (`dash_brake`), and a jump from here keeps it as air momentum.
-                f.vel.x = approach(f.vel.x, Fx::ZERO, p.dash_brake);
-                f.state = S::Idle;
-            } else if f.dash_wait > 0 {
+            // Letting go of the stick does not stop the dash: it runs its full `dash_frames` either way.
+            if f.dash_wait > 0 {
                 // The turnaround of a reversed dash: standing, then the first step.
                 f.dash_wait -= 1;
                 f.vel.x = Fx::ZERO;
@@ -400,8 +400,13 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                 let target = p.dash_speed.mul_int(i32::from(f.facing));
                 f.vel.x = approach(f.vel.x, target, p.dash_accel);
                 if f.state_frame >= u16::from(p.dash_frames) {
-                    let holding = dir == f.facing;
-                    f.state = if holding { S::Run } else { S::Idle };
+                    if x_active(input) && dir == f.facing {
+                        f.state = S::Run;
+                    } else {
+                        // The stick was let go: the speed bleeds off quickly on braking (`dash_brake`).
+                        f.vel.x = approach(f.vel.x, Fx::ZERO, p.dash_brake);
+                        f.state = S::Idle;
+                    }
                 }
             }
         }
@@ -1376,13 +1381,30 @@ fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
     let input = f.history[0];
     // The strong-attack button is a flick made in advance: it turns a direction into a smash attack.
     let strong = f.held(buttons::STRONG);
-    // A dash attack comes out of a dash or run, and also just after letting go of the stick, while the fighter is
-    // still sliding at dash speed (releasing the stick cancels a dash, which must not turn the attack into a jab).
+    // A dash attack comes out of a dash or run, and also just after one, while the fighter is still sliding at dash speed (so letting
+    // go of the stick does not turn the attack into a jab).
     let sliding_fast = f.vel.x.abs() > p.walk_speed * Fx::from_ratio(12, 10)
         && !x_active(input)
         && input.stick_y.unsigned_abs() < STICK_DOWN.unsigned_abs()
         && f.vel.x.signum_int() == i32::from(f.facing);
-    let id = if matches!(f.state, S::Dash | S::Run) || sliding_fast {
+    // Out of the initial dash a smash attack can be used (a flick up or down, or the strong button), but never a tilt: any other
+    // attack is the dash attack. (A sideways flick is the dash's own, so only the strong button makes a forward smash there.)
+    let dash_smash = if f.state == S::Dash {
+        if input.stick_y >= STICK_DOWN && (strong || f.hard_up(SMASH_FLICK_BUFFER)) {
+            Some(MoveId::USmash)
+        } else if input.stick_y <= -STICK_DOWN && (strong || f.hard_down(SMASH_FLICK_BUFFER)) {
+            Some(MoveId::DSmash)
+        } else if strong {
+            Some(MoveId::FSmash)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let id = if let Some(smash) = dash_smash {
+        smash
+    } else if matches!(f.state, S::Dash | S::Run) || sliding_fast {
         MoveId::DashAttack
     } else if input.stick_y >= STICK_DOWN {
         if strong || f.hard_up(SMASH_FLICK_BUFFER) {
