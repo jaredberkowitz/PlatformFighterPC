@@ -136,17 +136,20 @@ class Pow extends MeshInstance3D:
 		var breakup := smoothstep(0.5, 1.0, t)
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
-		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		# Ink, flare, body, core: each layer smaller, the outer ones leaving first as it breaks up.
 		var layers := [[1.0, INK, 0.0], [0.9, colours[0], 0.15], [0.66, colours[1], 0.3], [0.38, colours[2], 0.45]]
+		var shown := []
 		for layer in layers:
-			var k: float = layer[0]
 			var c: Color = layer[1]
-			var gone: float = clampf(breakup * 1.6 - float(layer[2]), 0.0, 1.0)
-			c.a *= 1.0 - gone
-			if c.a <= 0.01:
-				continue
-			_star(im, size * k * pop * (1.0 - 0.35 * breakup), c, 1.0 - 0.55 * breakup)
+			c.a *= 1.0 - clampf(breakup * 1.6 - float(layer[2]), 0.0, 1.0)
+			if c.a > 0.01:
+				shown.append([layer[0], c])
+		# (Once every layer has gone there is nothing to draw: an empty surface is an error.)
+		if shown.is_empty():
+			return
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		for layer in shown:
+			_star(im, size * float(layer[0]) * pop * (1.0 - 0.35 * breakup), layer[1], 1.0 - 0.55 * breakup)
 		im.surface_end()
 
 	## One layer: a fan of spikes round the middle, `reach` scaling how far the spikes go beyond the round inner part.
