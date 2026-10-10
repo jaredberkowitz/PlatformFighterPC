@@ -95,10 +95,10 @@ units straight up with a little forward drift, then its leftover speed) and land
 units a frame), exact range (35 frames), knockback (a flinch) and muzzle position; the 8-to-6 percent damage falloff direction.
 The up tilt's three phases are placed as an arc in front of, above and behind the fighter. Everything else in the movesets
 (the swordfighter's jab, dash attack, down air, grabs and specials) was placeholder until the kit completion below.
-For the brawler, Fire Wolf, Wolf Flash and the jab pages were not in the sources: the Fire Wolf travel (5.6 up, 2.6 forward) and its
-drag hits' knockback, the Wolf Flash distance (7 world units), its ending hit's knockback and the total lengths, the reflector's
-frames, size and reflected speed, and every hitbox position are estimates. (Angling both specials and the reflector's
-intangibility are done, see "Kit completion".)
+For the brawler, the fire rush (up special), flash dash (side special) and jab pages were not in the sources: the fire rush travel
+(5.6 up, 2.6 forward) and its drag hits' knockback, the flash dash distance (7 world units), its ending hit's knockback and the
+total lengths, the reflector's frames, size and reflected speed, and every hitbox position are estimates. (Angling both
+specials and the reflector's intangibility are done, see "Kit completion".)
 
 Two sources disagreed on some values, so: damage numbers come from ultimateframedata and kuroganehammer, which agree; the
 down smash tipper's first-hit base knockback is 50 (kuroganehammer) rather than 57 (SmashWiki); the up air's first actionable
@@ -107,7 +107,7 @@ frame is 46 and landing lag 8 (the 24-frame landing animation is not the lag).
 ### Charging smash attacks
 
 A smash attack holds on its charge frame while the attack button stays held, up to 60 frames (`Ruleset::charge_frames`),
-then deals up to 40% more damage (`charge_bonus_percent`), which also raises knockback. Marth-style charge frames: forward
+then deals up to 40% more damage (`charge_bonus_percent`), which also raises knockback. The sword fighter's charge frames: forward
 smash frame 2, up and down smash frame 4. The fighter trembles and a glow grows while charging. A smash is a flick of the
 stick plus attack, or the strong key (`I`) plus a direction.
 
@@ -126,21 +126,21 @@ At rest it is held up and ready. While standing it is clamped above the floor. F
 
 `sim-core/tests/reference_moves.rs` (about 50 tests) pins each hit frame, damage, launch angle, knockback, control-return frame,
 autocancel window and landing lag above, plus the blaster's spawn frame, speed, range, falloff, flinch, bayonet and blocking,
-and the up special's intangibility, rise, hit and helplessness. Demos: `--demo=marth_fair`, `marth_bair`, `marth_nair`,
-`marth_dolphin`, `marth_utilt`, `marth_dtilt`, `marth_fsmash` (charged), `marth_usmash`, `marth_dsmash`, `marth_uair`,
-`marth_upb_ledge`, `wolf_fair`, `wolf_nair`, `wolf_ftilt`, `wolf_utilt`, `wolf_dtilt`, `wolf_blaster`, `low`.
+and the up special's intangibility, rise, hit and helplessness. Demos: `--demo=sword_fair`, `sword_bair`, `sword_nair`,
+`sword_rising_slash`, `sword_utilt`, `sword_dtilt`, `sword_fsmash` (charged), `sword_usmash`, `sword_dsmash`, `sword_uair`,
+`sword_upb_ledge`, `claws_fair`, `claws_nair`, `claws_ftilt`, `claws_utilt`, `claws_dtilt`, `claws_blaster`, `low`.
 
 ## Engine pieces added for the brawler kit
 
 - **Jab chains:** `Move::next` / `next_window` (the jab hits are `MoveId::Jab2` and `Jab3`, started only by the previous hit).
-- **Multi-hit moves:** `Move::rehit = (start, every)` lets a move's hits land again every N frames (Fire Wolf).
+- **Multi-hit moves:** `Move::rehit = (start, every)` lets a move's hits land again every N frames (the brawler's fire rush).
 - **Reflector:** `Move::reflector`; a projectile that touches an active reflector turns around, is owned by the reflecting
   fighter and deals `damage_percent` of its damage. Projectiles now carry `owner` (who is credited), `origin` (whose weapon holds
   the hit data) and `power`.
 - **Ground motion:** a scripted dash along the ground (`Motion` with no vertical speed) no longer counts as landing and leaves the
   ground when it passes the edge.
-- Tests: `sim-core/tests/reference_moves.rs`. Demos: `wolf_jab`, `wolf_dashattack`, `wolf_uair`, `wolf_bair`, `wolf_dair`,
-  `wolf_fsmash`, `wolf_usmash`, `wolf_dsmash`, `wolf_flash`, `wolf_firewolf`.
+- Tests: `sim-core/tests/reference_moves.rs`. Demos: `claws_jab`, `claws_dashattack`, `claws_uair`, `claws_bair`, `claws_dair`,
+  `claws_fsmash`, `claws_usmash`, `claws_dsmash`, `claws_flash_dash`, `claws_fire_rush`, `claws_fire_rush_aim`.
 
 ## Shields, rolls and spot dodge (sim v15)
 
@@ -190,13 +190,13 @@ The keyboard: throw with a direction held for a few frames (W for up, S for down
 Tests: `sim-core/tests/grabs.rs` (21 tests) plus a mutual-grab invariant in the random play test; the fuzzer now sends grab and
 strong-attack buttons too. Demos: `grab`, `shield_grab`.
 
-## Dash attack and Wolf visuals (follow-up)
+## Dash attack and brawler visuals (follow-up)
 
 - A dash attack now also comes out in the few frames after letting go of the stick while still sliding at dash speed, instead of
   turning into a jab (a held direction still gives a tilt or smash). Dash attacks keep their speed on the gentler run deceleration,
-  so Wolf's slides about 4 units instead of stopping in 12 frames.
-- The brawler no longer draws a sword on its kicks, specials, grabs and throws. Wolf Flash and Fire Wolf show a flame around the body
-  and Fire Wolf spins. These are stand-in visuals; real effects come with the art pass.
+  so the brawler's slides about 4 units instead of stopping in 12 frames.
+- The brawler no longer draws a sword on its kicks, specials, grabs and throws. The flash dash and the fire rush show a flame around
+  the body and the fire rush spins. These are stand-in visuals; real effects come with the art pass.
 
 ## Phase 3 completion: techs, knockdown, ledge attack, training mode (sim v18)
 
@@ -218,7 +218,7 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
 ## Kit completion: the rest of both characters (sim v20)
 
 Frame data and damage come from the community tables (ultimateframedata and SmashWiki, fetched 2026-10-08); the fetch tool read their
-tables with unlabeled columns, so I only used numbers that were stated as text and left alone the Wolf numbers the earlier session
+tables with unlabeled columns, so I only used numbers that were stated as text and left alone the brawler numbers the earlier session
 had already cross-checked. Hitbox positions, sizes, most throw and early-hit knockback, and landing lags are estimates.
 
 **New engine features**
@@ -245,15 +245,15 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 | Counter | down special: window frames 6-27, answer 1.2x (at least 8%), counter-attack on frame 4, FAF 64 unused |
 
 **Claws character**
-- Wolf Flash and Fire Wolf are aimed with the stick (scripts): Flash up or down a little at the start of the dash; Fire Wolf in any
+- The flash dash and the fire rush are aimed with the stick (scripts): the dash up or down a little at its start; the rush in any
   direction at the end of its wind-up (neutral aims up and a little forward; backward turns him around first).
 - The reflector is intangible on frames 5-8 (a script).
 - Ledge attack as above. Everything else was already built from the earlier cross-checked data.
 
 **On the keyboard (K is special):** Shield Breaker is K alone (hold it, release to thrust); Dancing Blade is D + K, then tap K again for
 each further hit (hold W before a tap for the rising hits, S for the low ones); Counter is S + K and then the other fighter has to hit
-you; Fire Wolf is W + K and the direction you hold when the wind-up ends is the direction he flies; Wolf Flash is D + K, with W or S
-held at the start of the dash to angle it.
+you; the fire rush is W + K and the direction you hold when the wind-up ends is the direction he flies; the flash dash is D + K, with
+W or S held at the start of the dash to angle it.
 
 **Follow-up (sim v21): steps, shield damage, pivot grabs**
 - **Dancing Blade steps forward** on the ground: about a unit on hit 1 (frames 3-8) and a short step into each later hit, then it stops. In

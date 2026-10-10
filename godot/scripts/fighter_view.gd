@@ -2147,7 +2147,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
 	_pose_blade(s, delta)
-	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
+	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and the fire rush spins.
 	var brawler: bool = _cls(s) == 1
 	# Only the brawler's body moves leave the arms alone; the sword fighter always has its blade.
 	var swinging_arm: bool = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))

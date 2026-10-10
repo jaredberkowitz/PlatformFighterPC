@@ -17,10 +17,10 @@ dash attack, ledge attack, and four specials (neutral, side, up, down). The up s
 
 ## First two movesets
 
-The reference video is a competitive Wolf vs Marth match. We take the **gameplay roles** as a target and make
+The reference video is a competitive match between a longsword duelist and a blaster-and-claw brawler. We take the **gameplay roles** as a target and make
 everything else original: names, animations, effects, hitbox shapes, numbers and look.
 
-### 1. Longsword duelist (the Marth-like role)
+### 1. Longsword duelist (the reference swordsman's role)
 - A long, thin, **disjointed** blade: a fast, safe poke game at the edge of its range.
 - **Spacing is the skill:** the blade tip hits harder than the hilt, so positioning decides damage.
 - Light and fast on the ground, good aerial mobility, strong edge-guarding, weaker when cornered up close.
@@ -34,7 +34,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - Wants from the sim: hitboxes with a **sweet spot / sour spot** by region of the blade, per-hitbox damage and knockback,
   hitbox priority (disjointed vs hurtbox), a counter state that reacts to hits.
 
-### 2. Blaster-and-claw brawler (the Wolf-like role)
+### 2. Blaster-and-claw brawler (the reference brawler's role)
 - Heavier hits and a **fast fall**, with a ranged blaster that pressures from a distance.
 - Strong close-range kill moves and a good **reflector**; a ground-covering drill-style up special.
 - Wants from the sim: **projectiles** (fixed-capacity pool already in the state design), a reflect state that flips a

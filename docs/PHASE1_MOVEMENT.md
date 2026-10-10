@@ -98,7 +98,7 @@ edge). Walking off now means falling for a moment first.
 - **Keyboard:** the first down tap is a *soft* press (about 0.55): enough to crouch, drop through a platform or shield drop
   (`STICK_DOWN`), but not enough to fast fall. A **double tap** (second press within 14 frames) is a full-strength press,
   which fast falls. Holding down ramps to full after 4 frames, which is a slow roll and so does not fast fall either.
-- Reference clip analysis (the `/watch` skill, 0:30 to 0:50): the Wolf player dash-dances in small bursts near one spot with
+- Reference clip analysis (the `/watch` skill, 0:30 to 0:50): the brawler's player dash-dances in small bursts near one spot with
   a puff of dust at each stop, firing the blaster between dashes, and covers only a few body widths over about two seconds.
 
 ## Air drift model (reference: ssbwiki Air acceleration and Air friction)
@@ -106,7 +106,7 @@ edge). Walking off now means falling for a moment first.
 Per frame while airborne with horizontal stick tilt `t` (signed, -1 to 1):
 
 - **Acceleration** = `air_accel + air_accel_stick * |t|`, applied toward a target speed of `t * air_speed`. It is the same
-  whether you speed up, slow down or reverse. Marth-style: 0.01 + 0.07; Wolf-style: 0.01 + 0.08 (reference units per frame squared).
+  whether you speed up, slow down or reverse. Duelist: 0.01 + 0.07; brawler: 0.01 + 0.08 (reference units per frame squared).
 - **Air friction** applies only with no horizontal input (it decelerates toward zero), and to momentum above the maximum air
   speed when the stick is held the same way (a run or dash jump). Holding the other way brakes that momentum with full
   air acceleration. Values: duelist 0.00375, brawler 0.01. (The brawler's number comes from the dedicated air-friction table;
@@ -229,8 +229,8 @@ waveland, edge stop, landing lag).
 
 ## Second pass toward the reference game (sim v30)
 
-Sources, read October 2026: SmashWiki (Buffer, Jump, Short hop, Fast fall, Landing lag, Air dodge, Edge, Run, Dash, the Lucario and Marth edge
-pages) and ultimateframedata.com (the Marth and Wolf pages: airtimes, dodges, shield drop). Measured first: our short hop / full hop / short hop
+Sources, read October 2026: SmashWiki (Buffer, Jump, Short hop, Fast fall, Landing lag, Air dodge, Edge, Run, Dash, and two characters' edge
+pages) and ultimateframedata.com (the reference duelist's and brawler's pages: airtimes, dodges, shield drop). Measured first: our short hop / full hop / short hop
 fast fall / full hop fast fall airtimes were already within one frame of the published ones (duelist 42/56/29/39 against 41/55/28/38; brawler
 31/44/22/32 against 30/43/21/31; the one frame is how the frames are counted), so the jump arcs were left alone.
 
