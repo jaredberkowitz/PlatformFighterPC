@@ -5,6 +5,9 @@ const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
 const Effects := preload("res://scripts/effects.gd")
+const FxMaterial := preload("res://scripts/fx_material.gd")
+const Particles := preload("res://scripts/particles.gd")
+const POST_SHADER := preload("res://shaders/post.gdshader")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -53,6 +56,8 @@ var world_env: Environment
 var cam_base := Vector3.INF
 ## How hard the camera is shaking (world units), set by strong hits and settling quickly.
 var cam_shake := 0.0
+## How hard the camera is punching in after a heavy hit (0..1.2), settling quickly.
+var cam_punch := 0.0
 ## A hit that will knock a fighter out: the camera closes in on them for a moment.
 var ko_focus := -1
 var ko_time := 0.0
@@ -120,7 +125,8 @@ func _ready() -> void:
 	_apply_rules()
 	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
-	if Roster.session.get("from_menu", false):
+	# (`--noui` demo shots look like a match from the menus, without even the match HUD.)
+	if Roster.session.get("from_menu", false) or OS.get_cmdline_user_args().has("--noui"):
 		overlay_on = false
 		overlay.set_overlay_visible(false)
 		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
@@ -163,6 +169,21 @@ func _build_world() -> void:
 	cam.fov = 30.0
 	cam.position = Vector3(0, 6, 60)
 	add_child(cam)
+	# The illustrated finish over the whole scene: ink lines, paper tone and grain, vignette (shaders/post.gdshader).
+	if not OS.get_cmdline_user_args().has("--nopost"):
+		var post := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(2, 2)
+		post.mesh = quad
+		post.extra_cull_margin = 16384.0
+		post.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var post_mat := ShaderMaterial.new()
+		post_mat.shader = POST_SHADER
+		# First among the see-through things, so the effects, shields and numbers are drawn over the finished picture.
+		post_mat.render_priority = -100
+		post.material_override = post_mat
+		post.position = Vector3(0, 0, -1)
+		cam.add_child(post)
 
 	stage_view = StageView.new()
 	add_child(stage_view)
@@ -184,6 +205,7 @@ func _build_world() -> void:
 	hud = MatchHud.new()
 	add_child(hud)
 	hud.build()
+	hud.visible = not OS.get_cmdline_user_args().has("--noui")
 
 
 ## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.
@@ -286,7 +308,7 @@ func _refresh(i: int) -> void:
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
 		"charge": sim.fighter_charge(i), "shield": sim.fighter_shield(i) / sim.shield_max(), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
-		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i),
+		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i),
 	}
 
 
@@ -322,6 +344,8 @@ func _apply_sky() -> void:
 		world_env.background_mode = Environment.BG_SKY
 		# The haze behind the stage takes the colour of the stage's horizon.
 		world_env.fog_light_color = stage_view.theme.sky_horizon
+		# The light, the shadows' hue and the rim light follow the stage's theme.
+		Lighting.stage_mood(world_env, self, stage_view.theme)
 
 
 func _apply_rules() -> void:
@@ -771,8 +795,13 @@ func _tick_once(advance := true) -> void:
 	for i in PLAYERS:
 		var before: Dictionary = befores[i]
 		sfx.watch(i, before, snaps[i])
-		if int(before.get("hitlag", 0)) == 0 and int(snaps[i].hitlag) > 0 and snaps[i].launch_pending:
-			_on_hit(i)
+		# A hit is hitlag starting with damage taken (a flinch or one hit of a multi-hit move counts too); a block is hitlag starting in
+		# the shield.
+		var struck := int(before.get("hitlag", 0)) == 0 and int(snaps[i].hitlag) > 0
+		if struck and (snaps[i].launch_pending or float(snaps[i].percent) > float(before.get("percent", 0.0)) + 0.01):
+			_on_hit(i, befores)
+		elif struck and snaps[i].state == "Shield":
+			_on_block(i)
 		_on_events(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
@@ -935,6 +964,8 @@ func _process(delta: float) -> void:
 		perf_draw += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
 		perf_prims += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
 	var a := _alpha()
+	# Effects run on the match's clock (see FxMaterial.tick).
+	FxMaterial.tick((float(sim.frame()) + a) / 60.0)
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		views[i].apply(Vector3(p.x, p.y, 0), snaps[i], delta)
@@ -1150,18 +1181,90 @@ func _in_play(i: int) -> bool:
 
 ## A fighter was just hit (its hitlag started): the camera shakes with the hit's strength, and if the launch will knock the fighter
 ## out, it closes in on them for a moment (presentation only).
-func _on_hit(i: int) -> void:
+func _on_hit(i: int, befores: Array = []) -> void:
 	var lag: int = snaps[i].hitlag
-	cam_shake = maxf(cam_shake, minf(0.8, float(lag) * 0.028))
-	# A shockwave and streaks where the hit landed, in the colour of whoever landed it, bigger for a harder hit.
-	if snaps[i].get("launch_pending", false) and _in_play(i):
-		var by: int = stats[i].last_hitter if i < stats.size() else -1
-		var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
-		Effects.hit(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.8), colour, clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0))
+	var strength := clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0)
+	cam_shake = maxf(cam_shake, minf(0.9, float(lag) * 0.03))
+	if not _in_play(i):
+		return
+	# Who landed it: the fighter that froze in an attack on the same frame (or the last one to hit this fighter).
+	var by := -1
+	for j in PLAYERS:
+		if j != i and _in_play(j) and snaps[j].get("state", "") == "Attack" and int(snaps[j].get("hitlag", 0)) > 0:
+			by = j
+	if by < 0 and i < stats.size():
+		by = stats[i].last_hitter
+	var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
+	# Where the hit met the fighter: toward the hitter's live hitbox from the middle of the body, no further than its edge. What landed
+	# it (a blade, a blow, the maul, fire) picks the effect and the sound; a blade's slash runs the way the blade was moving (across the
+	# line from the shoulder to the tip).
+	var middle := Vector2(cur_pos[i].x, cur_pos[i].y + 1.1)
+	var contact := middle
+	var cut := Vector2.ZERO
+	var kind: int = Effects.Kind.BLOW
+	var trail := Color(0.4, 0.7, 1.0)
+	if by >= 0:
+		var cls := int(snaps[by].get("class", 1))
+		var move := str(snaps[by].get("move_name", ""))
+		var tip: Vector3 = snaps[by].get("move_tip", Vector3.ZERO)
+		var facing := float(snaps[by].get("facing", 1))
+		if tip != Vector3.ZERO:
+			var tip_at := Vector2(cur_pos[by].x + tip.x * facing, cur_pos[by].y + tip.y)
+			contact = middle + (tip_at - middle).limit_length(0.8)
+			cut = (tip_at - Vector2(cur_pos[by].x + 0.5 * facing, cur_pos[by].y + 1.15)).orthogonal().normalized()
+		if cls != 1 and _weapon_move(move):
+			kind = Effects.Kind.BLADE if cls == 0 else Effects.Kind.MAUL
+		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
+			kind = Effects.Kind.FIRE
+		trail = FighterView.trail_colours_of(cls)[0]
+	var at := Vector3(contact.x, contact.y, 0.8)
+	# The effect is stretched the way the hit sends the fighter: away from whoever hit it, and up.
+	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55).normalized()
+	Effects.hit(self, at, dir, colour, strength, kind, cut, trail)
+	if strength > 0.4:
+		Effects.impact(self, at, dir, colour, strength)
+	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
+	sfx.hit(0 if kind == Effects.Kind.BLADE else (2 if kind == Effects.Kind.MAUL else 1), strength)
+	# A heavy hit punches the camera in for a moment and flashes the screen.
+	if strength > 0.55:
+		cam_punch = maxf(cam_punch, 0.6 + 0.6 * strength)
+		_screen_flash(0.18 + 0.2 * strength)
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
 		ko_time = 0.75
 		cam_shake = maxf(cam_shake, 0.9)
+
+
+## Whether a move of the blade or maul classes is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
+static func _weapon_move(name: String) -> bool:
+	return not (name.contains("grab") or name.ends_with("throw") or name == "pummel")
+
+
+## A hit on a raised shield: a ring of light on the bubble, the camera nudged a little.
+func _on_block(i: int) -> void:
+	var lag: int = snaps[i].hitlag
+	cam_shake = maxf(cam_shake, minf(0.35, float(lag) * 0.015))
+	Effects.shield_hit(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.9), clampf((float(lag) - 4.0) / 12.0, 0.0, 1.0))
+	sfx.play_group("glass", 1.0, -2.0)
+	sfx.play("shield", 1.4, -8.0)
+
+
+## A white flash over the screen that fades at once (a heavy hit), at most `alpha`.
+var flash_rect: ColorRect
+var flash_alpha := 0.0
+
+
+func _screen_flash(alpha: float) -> void:
+	if flash_rect == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 5
+		add_child(layer)
+		flash_rect = ColorRect.new()
+		flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		flash_rect.color = Color(1, 1, 1, 0)
+		layer.add_child(flash_rect)
+	flash_alpha = maxf(flash_alpha, alpha)
 
 
 ## Keeps the match statistics up to date from two snapshots of every fighter. Who hit whom is read from hitlag starting together: the
@@ -1212,9 +1315,13 @@ func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
 	if before.is_empty():
 		return
 	if now.state == "Rebound" and before.state != "Rebound":
-		sfx.play("clank")
+		sfx.play_group("metal_heavy", 1.1, 0.0)
 		cam_shake = maxf(cam_shake, 0.25)
 		_burst(Vector3(cur_pos[i].x + 0.9 * float(now.facing), cur_pos[i].y + 1.1, 0.6), Color(1.0, 0.95, 0.6), 0.9, 0.3)
+	# Starting a fast fall: a little star flashes beside the fighter (as the reference game marks it).
+	if now.get("fast_fall", false) and not before.get("fast_fall", false) and int(now.get("platform", 0)) < 0:
+		Effects.sparkle(self, Vector3(cur_pos[i].x + 0.7, cur_pos[i].y + 1.9, 0.8))
+		sfx.play("whoosh", 1.6)
 	# A ring at the feet on every jump, brighter for a midair one.
 	if now.state == "Airborne" and before.state == "JumpSquat":
 		Effects.jump_ring(self, Vector3(cur_pos[i].x, cur_pos[i].y, 0.0), false)
@@ -1281,6 +1388,10 @@ func _ko_blast(i: int, at: Vector2) -> void:
 	core.material_override = mat2
 	root3.add_child(core)
 	effects.append([root3, 0.0, 0.9, 1.0])
+	# Sparks, confetti stars and smoke burst back toward the stage with the beam.
+	# (A little way in from the blast line, so the burst is on screen.)
+	var burst_at := at + inward * 13.0
+	Particles.knock_out(self, Vector3(burst_at.x, burst_at.y + 1.0, 0.5), color, inward)
 	cam_shake = maxf(cam_shake, 1.4)
 	if _local_match() and demo == null:
 		Engine.time_scale = 0.35
@@ -1359,15 +1470,25 @@ func _update_camera(a: float, delta: float) -> void:
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
+	var rate := 3.5
+	if demo != null and demo.cam_focus >= 0:
+		var f: Vector2 = prev_pos[demo.cam_focus].lerp(cur_pos[demo.cam_focus], a)
+		target = Vector3(f.x, f.y + 1.1, dist)
+		cam_base = target
 	if cam_base == Vector3.INF:
 		cam_base = cam.position
-	var rate := 3.5
 	if ko_time > 0.0 and ko_focus >= 0:
 		ko_time -= delta
 		var v: Vector2 = prev_pos[ko_focus].lerp(cur_pos[ko_focus], a)
 		target = Vector3(v.x, v.y + 1.2, 17.0)
 		rate = 9.0
 	cam_base = cam_base.lerp(target, clampf(delta * rate, 0.0, 1.0))
+	# A heavy hit's punch-in: the camera jumps closer and eases back.
+	var punch := Vector3(0, 0, -cam_base.z * 0.12 * cam_punch)
+	cam_punch = move_toward(cam_punch, 0.0, delta * 4.0)
+	if flash_rect != null:
+		flash_alpha = move_toward(flash_alpha, 0.0, delta * 3.5)
+		flash_rect.color = Color(1, 1, 1, flash_alpha)
 	var offset := Vector3.ZERO
 	if cam_shake > 0.001:
 		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
@@ -1375,7 +1496,7 @@ func _update_camera(a: float, delta: float) -> void:
 	# The camera looks slightly down at the stage (raised by as much as it tilts, so the point it frames stays put): the tops of the
 	# platforms and the fighters' shadows on them show, and the stage has depth.
 	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
-	cam.position = cam_base + offset + Vector3(0, lift, 0)
+	cam.position = cam_base + offset + punch + Vector3(0, lift, 0)
 	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, 0)
 
 
@@ -1430,8 +1551,38 @@ func _prewarm() -> void:
 	for v in views:
 		v.prewarm(true)
 	overlay.prewarm_text(true)
+	# Every kind of effect once, in front of the camera behind the cover: each hit kind, the impact, a block, the fast-fall star, jump
+	# rings, dust, sparks, embers, a knock-out burst and the flame; then a small card for every effect material made, the trails' included.
+	var warm := Node3D.new()
+	add_child(warm)
+	var at := Vector3(cam.position.x, cam.position.y - 2.0, 0.0)
+	for kind in [Effects.Kind.BLADE, Effects.Kind.BLOW, Effects.Kind.MAUL, Effects.Kind.FIRE]:
+		Effects.hit(warm, at, Vector2(1, 0.5).normalized(), Color.WHITE, 1.0, kind, Vector2(0, 1), Color(0.4, 0.7, 1.0))
+	Effects.impact(warm, at, Vector2.RIGHT, Color.WHITE, 1.0)
+	Effects.shield_hit(warm, at, 1.0)
+	Effects.sparkle(warm, at)
+	Effects.jump_ring(warm, at, true)
+	Effects.jump_ring(warm, at, false)
+	Particles.dust(warm, at, 1.0)
+	Particles.knock_out(warm, at, Color.WHITE, Vector2.UP)
+	var fire := Particles.flame(warm)
+	fire.emitting = true
+	warm.add_child(fire)
+	for on_top in [true, false]:
+		FxMaterial.get_material(on_top, 5)
+	for m in FxMaterial.all():
+		var card := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.5, 0.5)
+		card.mesh = quad
+		card.material_override = m
+		card.position = at
+		warm.add_child(card)
 	for _i in 6:
+		FxMaterial.tick(float(_i) / 60.0)
 		await get_tree().process_frame
+	warm.queue_free()
+	FxMaterial.stop_clock()
 	for v in views:
 		v.prewarm(false)
 	overlay.prewarm_text(false)
@@ -1602,3 +1753,8 @@ func _update_projectiles(a: float) -> void:
 			if proj_prev.size() > i and proj_prev[i] > 0.5:
 				pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
 			proj_nodes[k].position = Vector3(pos.x, pos.y, 0.3)
+
+
+func _exit_tree() -> void:
+	# Effects outside a match (the menus) go back to real time.
+	FxMaterial.stop_clock()

@@ -1,0 +1,7 @@
+Sound effects in this folder are by Kenney (www.kenney.nl), from two packs released under
+Creative Commons Zero (CC0 1.0, public domain): http://creativecommons.org/publicdomain/zero/1.0/
+
+  Impact Sounds 1.0  https://kenney.nl/assets/impact-sounds   impact*.ogg, footstep_*.ogg
+  RPG Audio          https://kenney.nl/assets/rpg-audio       knifeSlice*.ogg, drawKnife*.ogg, cloth*.ogg
+
+Credit is not required by the licence; it is given here as thanks. See docs/THIRD_PARTY.md and docs/AUDIO.md.

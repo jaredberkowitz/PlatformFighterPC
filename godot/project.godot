@@ -35,3 +35,42 @@ common/max_physics_steps_per_frame=8
 anti_aliasing/quality/msaa_3d=2
 
 rendering_device/driver.windows="d3d12"
+
+[shader_globals]
+
+pf_fx_glow={
+"type": "float",
+"value": 4.0
+}
+pf_ao_map={
+"type": "sampler2D",
+"value": ""
+}
+pf_ao_rect={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 1)
+}
+pf_ao_strength={
+"type": "float",
+"value": 0.0
+}
+pf_shadow_tint={
+"type": "color",
+"value": Color(0.74, 0.7, 0.88, 1)
+}
+pf_shadow_hue={
+"type": "float",
+"value": 0.73
+}
+pf_shadow_shift={
+"type": "float",
+"value": 0.07
+}
+pf_shadow_value={
+"type": "float",
+"value": 0.64
+}
+pf_rim_color={
+"type": "color",
+"value": Color(1, 0.93, 0.82, 1)
+}

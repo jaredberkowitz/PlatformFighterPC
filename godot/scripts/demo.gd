@@ -11,6 +11,7 @@ var shots: Array = []     # [frame, label]
 var end_frame := 0
 var out_dir := ""
 var cam_dist := 0.0  # when above zero, overrides the automatic camera distance
+var cam_focus := -1  # when 0 or more, the camera frames this player alone, without easing (steady shots of one fighter's moves)
 var chars: Array = []  # overrides which character each player is (0 sword, 1 claws and blaster)
 var real_keys := false  # drive player 1 through real key events instead of scripted stick values
 
@@ -25,6 +26,26 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var special: int = m.special
 	var strong: int = m.strong
 	var grab: int = m.grab
+	if demo_name.begins_with("fx_"):
+		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails and
+		# hit effects): fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair>.
+		var parts := demo_name.split("_")
+		var cls: int = {"sword": 0, "claws": 1, "maul": 2}.get(parts[1], 0)
+		var move: String = parts[2] if parts.size() > 2 else "ftilt"
+		d.chars = [cls, cls, cls, cls]
+		d.cam_dist = 11.0
+		d.cam_focus = 0
+		var air := move.ends_with("air")
+		if air:
+			d.events = [[1, "place", 0, -1.0, 6.0], [1, "place", 1, 0.8, 6.0]]
+		else:
+			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 0.9, -1]]
+		var x: int = {"jab": 0, "ftilt": 40, "fsmash": 127, "nair": 0, "fair": 127}.get(move, 0)
+		d.timeline = [[0, 0, 0, 0], [10, x, 0, attack], [11, 0, 0, 0]]
+		for f in range(11, 40):
+			d.shots.append([f, "f%02d" % (f - 10)])
+		d.end_frame = 41
+		return d
 	match demo_name:
 		"wavedash":
 			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 100, -80, shield], [36, 0, 0, 0]]
@@ -33,7 +54,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		"ledge":
 			d.events = [[2, "place", 0, -12.0, -0.5]]
 			d.timeline = [[0, 0, 0, 0], [60, 0, 127, 0], [61, 0, 0, 0]]
-			d.shots = [[25, "a_hang"], [62, "b_getup"], [110, "c_idle"]]
+			d.shots = [[6, "a_grab_swing"], [25, "b_hang"], [63, "c_climb1"], [67, "d_climb2"], [71, "e_climb3"], [76, "f_climb4"], [110, "g_idle"]]
 			d.end_frame = 120
 		"portrait":
 			d.cam_dist = 9.0
@@ -132,26 +153,26 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				[110, 0, 0, jump], [118, 0, 0, attack], [119, 0, 0, 0], [170, 0, 0, jump], [178, -127, 0, attack], [179, 0, 0, 0]]
 			d.shots = [[17, "a_utilt"], [66, "b_dtilt"], [128, "c_nair"], [190, "d_bair"]]
 			d.end_frame = 210
-		"marth_fair":
+		"sword_fair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, 1.7, 6.0]]
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [16, "b_hit"], [19, "c_hitlag"], [30, "d_launched"]]
 			d.end_frame = 45
-		"marth_fair_close", "marth_dair_close", "wolf_nair_close":
+		"sword_fair_close", "sword_dair_close", "claws_nair_close":
 			# One move up close, a picture on every frame of its swing, nobody in the way (for checking the animation and the trail).
-			var marth: bool = demo_name.begins_with("marth")
-			d.chars = [0, 0, 0, 0] if marth else [1, 1, 1, 1]
+			var sword: bool = demo_name.begins_with("sword")
+			d.chars = [0, 0, 0, 0] if sword else [1, 1, 1, 1]
 			# The other fighter hangs back out of reach (the camera frames them both, so not too far).
 			d.cam_dist = 13.0
-			var away := 6.0 if demo_name.begins_with("marth_dair") else -6.0
+			var away := 6.0 if demo_name.begins_with("sword_dair") else -6.0
 			d.events = [[1, "place", 0, 0.0, 8.0], [1, "place", 1, away, 8.0]]
-			var stick_y := -70 if demo_name.begins_with("marth_dair") else 0  # down for the down air, short of a fast fall
-			var stick_x := 127 if demo_name.begins_with("marth_fair") else 0
+			var stick_y := -70 if demo_name.begins_with("sword_dair") else 0  # down for the down air, short of a fast fall
+			var stick_x := 127 if demo_name.begins_with("sword_fair") else 0
 			d.timeline = [[0, 0, 0, 0], [10, stick_x, stick_y, attack], [11, 0, 0, 0]]
 			var first := 13
-			var last := 26 if not demo_name.begins_with("marth_dair") else 30
+			var last := 26 if not demo_name.begins_with("sword_dair") else 30
 			for f in range(first, last + 1):
 				d.shots.append([f, "f%02d" % (f - 10)])
 			d.end_frame = last + 2
@@ -180,70 +201,70 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				t += 80
 				n += 1
 			d.end_frame = t
-		"marth_bair":
+		"sword_bair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -5.7, 6.0]]
 			d.timeline = [[0, 0, 0, 0], [10, -127, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[14, "a_windup"], [17, "b_hit"], [20, "c_hitlag"], [32, "d_launched"], [52, "e_turned"]]
 			d.end_frame = 60
-		"marth_nair":
+		"sword_nair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 7.0], [1, "place", 1, 1.0, 7.0]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [16, "b_hit1"], [25, "c_hit2_window"], [40, "d_late"]]
 			d.end_frame = 55
-		"marth_dolphin":
+		"sword_rising_slash":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 24.0
 			d.events = [[1, "stand", 0, -2.0, 1], [1, "stand", 1, -0.2, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 127, special], [11, 0, 0, 0]]
 			d.shots = [[12, "a_start"], [15, "b_hit"], [20, "c_rising"], [30, "d_apex"], [55, "e_helpless"]]
 			d.end_frame = 75
-		"wolf_fair":
+		"claws_fair":
 			d.chars = [1, 1, 1, 1]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, 0.3, 6.0]]
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [17, "b_hit"], [22, "c_hitlag"], [32, "d_launched"]]
 			d.end_frame = 45
-		"wolf_nair":
+		"claws_nair":
 			d.chars = [1, 1, 1, 1]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -0.5, 6.0]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [17, "b_hit"], [25, "c_late"], [38, "d_end"]]
 			d.end_frame = 55
-		"wolf_ftilt":
+		"claws_ftilt":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.8, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 30, 0, attack], [12, 30, 0, 0]]
 			d.shots = [[14, "a_swipe"], [18, "b_hit1"], [25, "c_hit2"], [38, "d_after"]]
 			d.end_frame = 55
-		"wolf_blaster":
+		"claws_blaster":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 26.0
 			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, 2.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [11, 0, 0, 0]]
 			d.shots = [[20, "a_draw"], [27, "b_shot"], [36, "c_flying"], [46, "d_hit"], [62, "e_after"]]
 			d.end_frame = 80
-		"marth_utilt":
+		"sword_utilt":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.2, -1]]
 			d.timeline = [[0, 0, 0, 0], [4, 0, 66, 0], [12, 0, 66, attack], [14, 0, 66, 0], [22, 0, 0, 0]]
 			d.shots = [[15, "a_windup"], [18, "b_hit"], [22, "c_swing"], [32, "d_after"]]
 			d.end_frame = 50
-		"marth_dtilt":
+		"sword_dtilt":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.9, -1]]
 			d.timeline = [[0, 0, 0, 0], [4, 0, -66, 0], [12, 0, -66, attack], [14, 0, -66, 0], [22, 0, 0, 0]]
 			d.shots = [[16, "a_windup"], [19, "b_hit"], [24, "c_after"]]
 			d.end_frame = 40
-		"marth_fsmash":
+		"sword_fsmash":
 			# Holds the attack for 36 frames of charge, then releases.
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
@@ -251,28 +272,28 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 90, 0, attack | strong], [11, 0, 0, attack], [46, 0, 0, 0]]
 			d.shots = [[8, "a_idle"], [30, "b_charging"], [50, "c_swing"], [54, "d_hit"], [62, "e_launch"], [90, "f_after"]]
 			d.end_frame = 110
-		"marth_usmash":
+		"sword_usmash":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.2, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack | strong], [11, 0, 0, 0]]
 			d.shots = [[16, "a_windup"], [23, "b_hit"], [28, "c_launch"], [45, "d_after"]]
 			d.end_frame = 75
-		"marth_dsmash":
+		"sword_dsmash":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, -100, attack | strong], [11, 0, 0, 0]]
 			d.shots = [[14, "a_front_swing"], [18, "b_front_hit"], [28, "c_pause"], [32, "d_back_swing"], [40, "e_after"]]
 			d.end_frame = 75
-		"marth_uair":
+		"sword_uair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -1.4, 8.4]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack], [11, 0, 0, 0]]
 			d.shots = [[12, "a_windup"], [15, "b_hit"], [18, "c_hitlag"], [30, "d_launched"]]
 			d.end_frame = 45
-		"marth_seeker":
+		"sword_seeker":
 			# Neutral special (a scripted placeholder): a bolt that bends toward the enemy's height.
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 26.0
@@ -280,7 +301,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [11, 0, 0, 0]]
 			d.shots = [[16, "a_windup"], [26, "b_fired"], [38, "c_bending"], [50, "d_rising"], [62, "e_hit"]]
 			d.end_frame = 90
-		"marth_lunge":
+		"sword_lunge":
 			# Side special (a scripted placeholder): hold still, then thrust forward.
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
@@ -288,16 +309,16 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, special], [11, 0, 0, 0]]
 			d.shots = [[16, "a_windup"], [21, "b_thrust"], [25, "c_hit"], [34, "d_recover"], [52, "e_after"]]
 			d.end_frame = 70
-		"marth_breaker":
-			# Neutral special, Shield Breaker: hold special to charge, let go to thrust.
+		"sword_charge_thrust":
+			# Neutral special, the charged thrust: hold special to charge, let go to thrust.
 			d.chars = [0, 1, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, -3.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, special], [70, 0, 0, 0]]
 			d.shots = [[20, "a_raised"], [50, "b_charging"], [72, "c_release"], [80, "d_thrust"], [90, "e_hit"]]
 			d.end_frame = 110
-		"marth_dancing":
-			# Side special, Dancing Blade: tap special repeatedly; the later hits follow.
+		"sword_blade_combo":
+			# Side special, the blade combo: tap special repeatedly; the later hits follow.
 			d.chars = [0, 1, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -8.0, 1], [1, "stand", 1, -4.5, -1]]
@@ -309,7 +330,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				tt += 3
 			d.shots = [[21, "a_hit1"], [38, "b_hit2"], [60, "c_hit3"], [85, "d_finisher"], [110, "e_after"]]
 			d.end_frame = 130
-		"marth_counter":
+		"sword_counter":
 			# Down special, Counter: the brawler swings into the stance and gets hit back harder.
 			d.chars = [0, 1, 0, 0]
 			d.cam_dist = 22.0
@@ -318,7 +339,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline2 = [[0, 0, 0, 0], [12, 0, 0, attack], [13, 0, 0, 0]]
 			d.shots = [[16, "a_stance"], [20, "b_caught"], [28, "c_answer"], [40, "d_after"]]
 			d.end_frame = 70
-		"wolf_fire_aim":
+		"claws_fire_rush_aim":
 			# Up special aimed forward and up with the stick.
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 26.0
@@ -326,7 +347,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 100, 127, special], [11, 100, 127, 0]]
 			d.shots = [[20, "a_windup"], [32, "b_flying"], [38, "c_flying"], [52, "d_end"]]
 			d.end_frame = 70
-		"marth_pivot":
+		"sword_pivot":
 			# Dash right, then turn around with grab: the grab comes out behind.
 			d.chars = [0, 1, 0, 0]
 			d.cam_dist = 22.0
@@ -334,7 +355,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [10, 127, 0, 0], [26, -127, 0, grab], [27, -127, 0, 0], [28, 0, 0, 0]]
 			d.shots = [[25, "a_running"], [30, "b_turning"], [36, "c_grab"], [44, "d_caught"]]
 			d.end_frame = 60
-		"marth_upb_ledge":
+		"sword_upb_ledge":
 			# Up special from below the ledge: it grabs in mid-move.
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 24.0
@@ -342,84 +363,84 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [6, 0, 127, special], [7, 0, 0, 0]]
 			d.shots = [[8, "a_start"], [12, "b_rising"], [16, "c_grabbed"], [40, "d_hanging"]]
 			d.end_frame = 50
-		"wolf_utilt":
+		"claws_utilt":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [4, 0, 66, 0], [12, 0, 66, attack], [14, 0, 66, 0], [22, 0, 0, 0]]
 			d.shots = [[15, "a_windup"], [19, "b_hit"], [24, "c_late"], [36, "d_after"]]
 			d.end_frame = 55
-		"wolf_dtilt":
+		"claws_dtilt":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [4, 0, -66, 0], [12, 0, -66, attack], [14, 0, -66, 0], [22, 0, 0, 0]]
 			d.shots = [[15, "a_windup"], [17, "b_hit"], [22, "c_after"]]
 			d.end_frame = 40
-		"wolf_jab":
+		"claws_jab":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.2, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 0, attack], [12, 0, 0, 0], [24, 0, 0, attack], [26, 0, 0, 0], [46, 0, 0, attack], [48, 0, 0, 0]]
 			d.shots = [[15, "a_jab1"], [36, "b_jab2"], [58, "c_jab3"], [90, "d_after"]]
 			d.end_frame = 100
-		"wolf_dashattack":
+		"claws_dashattack":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -9.0, 1], [1, "stand", 1, -1.5, -1]]
 			d.timeline = [[0, 0, 0, 0], [2, 127, 0, 0], [22, 127, 0, attack], [24, 127, 0, 0], [28, 0, 0, 0]]
 			d.shots = [[20, "a_run"], [27, "b_windup"], [34, "c_hit"], [46, "d_after"]]
 			d.end_frame = 70
-		"wolf_uair":
+		"claws_uair":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -1.7, 7.6]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack], [11, 0, 0, 0]]
 			d.shots = [[13, "a_windup"], [17, "b_hit"], [20, "c_hitlag"], [32, "d_launched"]]
 			d.end_frame = 50
-		"wolf_bair":
+		"claws_bair":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 6.0], [1, "place", 1, -4.0, 6.0]]
 			d.timeline = [[0, 0, 0, 0], [10, -127, 0, attack], [11, 0, 0, 0]]
 			d.shots = [[18, "a_windup"], [23, "b_hit"], [26, "c_hitlag"], [38, "d_launched"]]
 			d.end_frame = 60
-		"wolf_dair":
+		"claws_dair":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "place", 0, -2.0, 7.0], [1, "place", 1, -1.6, 5.4]]
 			d.timeline = [[0, 0, 0, 0], [6, 0, -70, 0], [12, 0, -70, attack], [14, 0, 0, 0]]
 			d.shots = [[22, "a_windup"], [28, "b_hit"], [31, "c_hitlag"], [40, "d_spiked"]]
 			d.end_frame = 60
-		"wolf_fsmash":
+		"claws_fsmash":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 90, 0, attack | strong], [11, 0, 0, attack], [40, 0, 0, 0]]
 			d.shots = [[8, "a_idle"], [30, "b_charging"], [58, "c_swing"], [64, "d_hit"], [75, "e_launch"]]
 			d.end_frame = 100
-		"wolf_usmash":
+		"claws_usmash":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, 100, attack | strong], [11, 0, 0, 0]]
 			d.shots = [[22, "a_hit1"], [32, "b_hit2"], [38, "c_launch"], [55, "d_after"]]
 			d.end_frame = 70
-		"wolf_dsmash":
+		"claws_dsmash":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 22.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.8, -1]]
 			d.timeline = [[0, 0, 0, 0], [10, 0, -100, attack | strong], [11, 0, 0, 0]]
 			d.shots = [[22, "a_front"], [26, "b_hit"], [34, "c_back"], [50, "d_after"]]
 			d.end_frame = 65
-		"wolf_flash":
+		"claws_flash_dash":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 24.0
 			d.events = [[1, "stand", 0, -9.0, 1], [1, "stand", 1, -1.0, -1]]
 			d.timeline = [[0, 0, 0, 0], [8, 127, 0, special], [9, 0, 0, 0]]
 			d.shots = [[20, "a_windup"], [30, "b_dash"], [40, "c_hit"], [52, "d_end"], [70, "e_after"]]
 			d.end_frame = 90
-		"wolf_firewolf":
+		"claws_fire_rush":
 			d.chars = [1, 0, 0, 0]
 			d.cam_dist = 24.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, -0.2, -1]]

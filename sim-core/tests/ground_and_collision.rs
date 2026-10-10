@@ -536,6 +536,10 @@ fn walking_off_the_stage_does_not_snap_straight_onto_the_ledge() {
     let mut hung_at = None;
     for t in 0..80 {
         sim.tick(inp(-127, 0, 0));
+        // Running off at full speed reaches this small stage's blast line: the respawn is not a snap.
+        if sim.f().state == S::Respawn {
+            break;
+        }
         positions.push(sim.f().pos);
         if sim.f().state == S::LedgeHang && hung_at.is_none() {
             hung_at = Some(t);
@@ -576,36 +580,33 @@ fn a_fighter_over_the_stage_cannot_grab_the_ledge_from_the_stage_side() {
 // ---- Dash cancel -------------------------------------------------------------------------------
 
 #[test]
-fn releasing_the_stick_cancels_the_dash_straight_away() {
+fn releasing_the_stick_does_not_cancel_the_initial_dash() {
     let mut sim = Sim::new();
     let p = sim.content.fighters[0];
+    let dash = u16::from(p.dash_frames);
     sim.ticks(4, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Dash);
-    assert!(
-        4 < usize::from(p.dash_frames),
-        "test assumes the dash is still in progress"
-    );
-    let before = sim.f().vel.x;
-    sim.tick(inp(0, 0, 0));
-    assert_eq!(
-        sim.f().state,
-        S::Idle,
-        "dash should end the frame the stick is released"
-    );
-    // The speed carries into a slide on ground friction instead of stopping dead.
+    // Let go: the dash carries on to its end, then brakes into a slide on ground friction instead of stopping dead.
+    let mut before = sim.f().vel.x;
+    while sim.f().state == S::Dash {
+        assert!(sim.f().state_frame < dash, "the dash ran past its length");
+        before = sim.f().vel.x;
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(sim.f().state, S::Idle);
+    assert_eq!(sim.f().state_frame, dash, "it ended on its last frame");
     let after = sim.f().vel.x;
     assert!(after > Fx::ZERO && after < before);
-    assert!(before - after <= p.dash_brake);
     assert!(
         p.dash_brake > p.ground_friction,
-        "cancelled dashes should brake harder than plain friction"
+        "a dash that ends with the stick let go should brake harder than plain friction"
     );
     sim.ticks(40, inp(0, 0, 0));
     assert_eq!(sim.f().vel.x, Fx::ZERO);
 }
 
 #[test]
-fn a_quick_tap_makes_a_short_dash_and_a_held_stick_makes_a_long_one() {
+fn a_quick_tap_dashes_the_full_distance_and_a_held_stick_runs_on() {
     let travel = |held_frames: usize| {
         let mut sim = Sim::new();
         sim.state.fighters[0].pos.x = Fx::from_int(-10);
@@ -614,9 +615,13 @@ fn a_quick_tap_makes_a_short_dash_and_a_held_stick_makes_a_long_one() {
         sim.ticks(40, inp(0, 0, 0));
         sim.f().pos.x - start
     };
-    let (tap, short, long) = (travel(1), travel(4), travel(12));
+    let (tap, short, long) = (travel(1), travel(4), travel(16));
     assert!(tap > Fx::ZERO);
-    assert!(tap < short && short < long, "{tap:?} {short:?} {long:?}");
+    assert_eq!(
+        tap, short,
+        "any tap shorter than the dash covers the same ground"
+    );
+    assert!(short < long, "{short:?} {long:?}");
 }
 
 #[test]

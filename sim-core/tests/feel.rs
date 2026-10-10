@@ -4,7 +4,7 @@
 mod common;
 
 use common::{fx, inp, Sim};
-use sim_core::input::buttons::{ATTACK, JUMP, STRONG};
+use sim_core::input::buttons::{ATTACK, JUMP, SHIELD, STRONG};
 use sim_core::moves::MoveId;
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
@@ -285,12 +285,22 @@ fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_for_a_long_way() {
     assert!(slid > fx(35, 10), "slid only {slid:?}");
 }
 
+/// Lets go of the stick after a few frames of dash and waits for the dash to end by itself.
+fn dash_then_let_go(sim: &mut Sim) {
+    sim.ticks(8, inp(127, 0, 0));
+    for _ in 0..20 {
+        if sim.f().state != S::Dash {
+            break;
+        }
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(sim.f().state, S::Idle);
+}
+
 #[test]
 fn attack_just_after_letting_go_of_a_dash_is_still_a_dash_attack_not_a_jab() {
     let mut sim = wolf();
-    sim.ticks(8, inp(127, 0, 0));
-    sim.tick(inp(0, 0, 0)); // released: the dash is cancelled and the fighter is still sliding fast
-    assert_eq!(sim.f().state, S::Idle);
+    dash_then_let_go(&mut sim); // the fighter is still sliding fast
     sim.tick(inp(0, 0, ATTACK));
     assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
 }
@@ -308,8 +318,128 @@ fn attack_once_the_slide_has_stopped_is_a_jab() {
 #[test]
 fn attack_while_sliding_with_a_direction_held_is_still_a_tilt_or_smash() {
     let mut sim = wolf();
-    sim.ticks(8, inp(127, 0, 0));
-    sim.tick(inp(0, 0, 0));
+    dash_then_let_go(&mut sim);
     sim.tick(inp(0, 70, ATTACK)); // up tilt, not a dash attack
     assert_eq!(sim.f().move_id, MoveId::UTilt as u8);
+}
+
+// ---- The initial dash is committed ---------------------------------------------------------------
+
+/// Where the fighter is `frames` frames after a dash started by a one-frame tap (then nothing held), and whether it was still
+/// dashing on every one of them.
+fn tapped_dash(frames: usize) -> (Fx, bool) {
+    let mut sim = Sim::new();
+    let x0 = sim.f().pos.x;
+    sim.tick(inp(127, 0, 0));
+    let mut dashing = true;
+    for _ in 1..frames {
+        sim.tick(inp(0, 0, 0));
+        dashing &= sim.f().state == S::Dash;
+    }
+    (sim.f().pos.x - x0, dashing)
+}
+
+#[test]
+fn a_tap_covers_the_whole_initial_dash() {
+    let sim = Sim::new();
+    let dash = usize::from(sim.content.fighters[0].dash_frames);
+    let (tapped, dashing) = tapped_dash(dash);
+    assert!(dashing, "letting go does not end the dash");
+    // The same distance as a dash with the stick held all the way.
+    let mut held = Sim::new();
+    let x0 = held.f().pos.x;
+    held.ticks(dash, inp(127, 0, 0));
+    assert_eq!(tapped, held.f().pos.x - x0, "a tap dashes as far as a hold");
+    // The view draws the dash's stride from this, so it must be what the simulation does.
+    assert_eq!(tapped, sim.content.fighters[0].initial_dash_distance());
+    // Then it ends by itself, braking to a stand.
+    let mut sim = Sim::new();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(dash, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle);
+    // A second tap the same way does not restart or extend it.
+    let mut again = Sim::new();
+    again.tick(inp(127, 0, 0));
+    again.ticks(3, inp(0, 0, 0));
+    again.tick(inp(127, 0, 0));
+    again.ticks(dash - 4, inp(0, 0, 0));
+    assert_eq!(again.f().state, S::Idle, "the second tap changed nothing");
+}
+
+#[test]
+fn a_flick_the_other_way_still_dash_dances_out_of_a_tapped_dash() {
+    let mut sim = Sim::new();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(3, inp(0, 0, 0));
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!(sim.f().state, S::Dash);
+    assert_eq!(sim.f().facing, -1);
+}
+
+#[test]
+fn no_crouch_or_tilt_during_the_initial_dash() {
+    let mut sim = Sim::new();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(3, inp(0, -70, 0));
+    assert_eq!(
+        sim.f().state,
+        S::Dash,
+        "holding down does not crouch out of it"
+    );
+    // A down tilt (or any tilt) is the dash attack.
+    sim.tick(inp(0, -70, ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
+    let mut sim = Sim::new();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(3, inp(0, 0, 0));
+    sim.tick(inp(0, 70, ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::DashAttack as u8, "an up tilt too");
+}
+
+#[test]
+fn a_smash_attack_can_come_out_of_the_initial_dash() {
+    let mut sim = Sim::new();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(3, inp(127, 0, 0));
+    sim.tick(inp(0, 127, STRONG | ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::USmash as u8);
+    let mut sim = Sim::new();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(3, inp(127, 0, 0));
+    sim.tick(inp(127, 0, STRONG | ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::FSmash as u8);
+    assert_eq!(sim.f().facing, 1);
+}
+
+#[test]
+fn the_shield_cuts_the_initial_dash_to_about_half() {
+    let sim = Sim::new();
+    let p = sim.content.fighters[0];
+    let half = usize::from(p.dash_shield_frame);
+    assert!(
+        half * 2 >= usize::from(p.dash_frames) - 1 && half * 2 <= usize::from(p.dash_frames) + 1
+    );
+    // Forward held and the shield pressed early: it comes up on `dash_shield_frame`, not before.
+    let mut sim = Sim::new();
+    let x0 = sim.f().pos.x;
+    sim.tick(inp(127, 0, 0));
+    for frame in 1..=half {
+        sim.tick(inp(127, 0, SHIELD));
+        if frame < half {
+            assert_eq!(sim.f().state, S::Dash, "frame {frame}: too early to shield");
+        }
+    }
+    assert_eq!(sim.f().state, S::Shield);
+    sim.ticks(30, inp(127, 0, SHIELD));
+    let shielded = sim.f().pos.x - x0;
+    // The whole dash (and its slide to a stop) goes much further.
+    let mut full = Sim::new();
+    full.tick(inp(127, 0, 0));
+    full.ticks(30 + half, inp(0, 0, 0));
+    let whole = full.f().pos.x - x0;
+    assert!(shielded > Fx::ZERO, "it did move");
+    assert!(
+        shielded < whole * fx(7, 10),
+        "shield {shielded:?} against {whole:?}"
+    );
 }

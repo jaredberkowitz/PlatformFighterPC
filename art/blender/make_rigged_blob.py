@@ -86,8 +86,8 @@ def to_object(name, bm, bone, rig):
     return obj
 
 
-def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=False):
-    """A ball. With `uvs` it is unwrapped like a globe (u around, v from the bottom up), for cloth patterns."""
+def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=True):
+    """A ball, unwrapped like a globe (u around, v from the bottom up) for cloth patterns and the painted brush grain."""
     if uvs:
         bm.loops.layers.uv.verify()
     res = bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius, calc_uvs=uvs)
@@ -631,9 +631,12 @@ def main() -> None:
     clip(rig, "idle", 48, {i: idle(i / 48.0) for i in range(0, 49, 4)})
 
     # A bouncy, swaggering walk: knees lifting, a springy bob on every step, arms swinging wide with loose bent elbows, a little lean.
-    WALK_THIGH = [(0.0, 30.0), (0.15, 14.0), (0.35, -20.0), (0.5, -30.0), (0.65, -6.0), (0.8, 34.0), (0.92, 36.0)]
-    WALK_SHIN = [(0.0, -8.0), (0.15, -22.0), (0.35, -8.0), (0.5, -30.0), (0.65, -70.0), (0.8, -54.0), (0.92, -14.0)]
-    WALK_FOOT = [(0.0, 14.0), (0.15, 0.0), (0.35, -10.0), (0.5, -26.0), (0.65, -16.0), (0.8, 18.0), (0.92, 16.0)]
+    # A big, bouncy, swaggering walk (in the manner of a plumber's cheerful stride): long steps with the knee lifted high as the leg
+    # comes through, a springy bob on every step, fists swinging wide and high opposite the legs, the shoulders twisting against the hips
+    # and the head nodding with each step.
+    WALK_THIGH = [(0.0, 44.0), (0.12, 26.0), (0.32, -12.0), (0.48, -40.0), (0.62, -12.0), (0.78, 56.0), (0.9, 52.0)]
+    WALK_SHIN = [(0.0, -6.0), (0.12, -30.0), (0.32, -10.0), (0.48, -22.0), (0.62, -90.0), (0.78, -80.0), (0.9, -18.0)]
+    WALK_FOOT = [(0.0, 18.0), (0.12, -2.0), (0.32, -12.0), (0.48, -34.0), (0.62, -22.0), (0.78, 24.0), (0.9, 22.0)]
 
     def walk(phase):
         def f(rig):
@@ -643,13 +646,14 @@ def main() -> None:
                 pose(rig, "shin." + side, fwd=periodic(WALK_SHIN, leg))
                 pose(rig, "foot." + side, fwd=periodic(WALK_FOOT, leg))
                 swing = math.cos((leg + 0.5) * 2.0 * math.pi)
-                pose(rig, "armU." + side, fwd=-40.0 * swing + 10.0, out=18.0)
-                pose(rig, "armL." + side, fwd=46.0 + 26.0 * max(0.0, swing))
-                pose(rig, "hand." + side, fwd=-8.0)
+                forward = max(0.0, swing)
+                pose(rig, "armU." + side, fwd=-60.0 * swing + 12.0, out=20.0 + 10.0 * forward)
+                pose(rig, "armL." + side, fwd=50.0 + 40.0 * forward)
+                pose(rig, "hand." + side, fwd=-10.0)
             step = math.cos((phase - 0.4) * 4.0 * math.pi)
-            pose(rig, "hips", lift=0.05 * step - 0.03, twist=-8.0 * math.sin(phase * 2.0 * math.pi))
-            pose(rig, "spine", fwd=8.0 - 3.0 * step, twist=10.0 * math.sin(phase * 2.0 * math.pi))
-            pose(rig, "head", fwd=-4.0 + 5.0 * step, twist=-6.0 * math.sin(phase * 2.0 * math.pi))
+            pose(rig, "hips", lift=0.08 * step - 0.045, twist=-13.0 * math.sin(phase * 2.0 * math.pi))
+            pose(rig, "spine", fwd=8.0 - 5.0 * step, twist=17.0 * math.sin(phase * 2.0 * math.pi))
+            pose(rig, "head", fwd=-4.0 + 8.0 * step, twist=-9.0 * math.sin(phase * 2.0 * math.pi))
         return f
 
     clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
@@ -678,29 +682,59 @@ def main() -> None:
 
     clip(rig, "skid", 12, {0: skid(0.0), 3: skid(0.25), 6: skid(0.5), 9: skid(0.75), 12: skid(1.0)})
 
-    def jump(rig):
-        for side in "LR":
-            pose(rig, "armU." + side, fwd=20.0, out=55.0)
-            pose(rig, "armL." + side, fwd=25.0)
-            pose(rig, "thigh." + side, fwd=26.0 if side == "L" else 12.0)
-            pose(rig, "shin." + side, fwd=-46.0 if side == "L" else -30.0)
-        pose(rig, "spine", fwd=-4.0)
-        pose(rig, "head", fwd=4.0)
+    # The jump (rising): pushing off with both legs straight, then the front knee driven up high and the back leg trailing down and
+    # behind, the lead fist thrown up and the other arm swung back (the reference game's jumping pose), held as it rises.
+    def jump(k):
+        def f(rig):
+            tuck = k
+            # The near leg (the right, nearest the game's camera on the turned body) drives its knee up in front; the far leg hangs long
+            # below it, toes pointed, so both read: one high, one low.
+            pose(rig, "thigh.R", fwd=6.0 + 66.0 * tuck, out=8.0)
+            pose(rig, "shin.R", fwd=-6.0 - 84.0 * tuck)
+            pose(rig, "foot.R", fwd=20.0 * tuck)
+            pose(rig, "thigh.L", fwd=-6.0 - 10.0 * tuck, out=14.0)
+            pose(rig, "shin.L", fwd=-8.0 - 6.0 * tuck)
+            pose(rig, "foot.L", fwd=-36.0 * tuck)
+            pose(rig, "armU.L", fwd=40.0 + 56.0 * tuck, out=24.0)
+            pose(rig, "armL.L", fwd=40.0)
+            pose(rig, "armU.R", fwd=-20.0 - 24.0 * tuck, out=42.0)
+            pose(rig, "armL.R", fwd=30.0)
+            pose(rig, "spine", fwd=4.0 - 10.0 * tuck, twist=6.0 * tuck)
+            pose(rig, "head", fwd=-6.0 * tuck)
+        return f
 
-    clip(rig, "jump", 12, {0: jump, 12: jump})
+    clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
 
+    # Falling: legs apart (front knee bent forward, back leg hanging behind), arms raised out to the sides and paddling a little.
     def fall(k):
         def f(rig):
             w = math.sin(k * 2 * math.pi)
+            pose(rig, "thigh.R", fwd=52.0 + 6.0 * w, out=8.0)
+            pose(rig, "shin.R", fwd=-66.0 - 8.0 * w)
+            pose(rig, "thigh.L", fwd=-12.0 - 6.0 * w, out=14.0)
+            pose(rig, "shin.L", fwd=-18.0 + 6.0 * w)
+            pose(rig, "foot.L", fwd=-24.0)
             for side, sign in (("L", 1.0), ("R", -1.0)):
-                pose(rig, "armU." + side, fwd=-10.0 + 6.0 * w * sign, out=70.0 + 8.0 * w)
-                pose(rig, "armL." + side, fwd=14.0)
-                pose(rig, "thigh." + side, fwd=8.0 * sign * w + 6.0, out=6.0)
-                pose(rig, "shin." + side, fwd=-14.0 - 6.0 * w * sign)
-            pose(rig, "spine", fwd=3.0)
+                pose(rig, "armU." + side, fwd=6.0 + 8.0 * w * sign, out=72.0 + 10.0 * w * sign)
+                pose(rig, "armL." + side, fwd=30.0)
+            pose(rig, "spine", fwd=4.0, twist=4.0 * w)
+            pose(rig, "head", fwd=-4.0)
         return f
 
     clip(rig, "fall", 30, {0: fall(0.0), 8: fall(0.25), 15: fall(0.5), 23: fall(0.75), 30: fall(1.0)})
+
+    # The midair jump: curled into a ball (knees to the chest, fists in) for the front flip the game spins it through, then opening out
+    # into the rising pose.
+    def ball_pose(rig):
+        for side in "LR":
+            pose(rig, "thigh." + side, fwd=86.0, out=12.0)
+            pose(rig, "shin." + side, fwd=-112.0)
+            pose(rig, "armU." + side, fwd=60.0, out=24.0)
+            pose(rig, "armL." + side, fwd=96.0)
+        pose(rig, "spine", fwd=26.0)
+        pose(rig, "head", fwd=8.0)
+
+    clip(rig, "air_jump", 26, {0: jump(0.4), 4: ball_pose, 16: ball_pose, 26: jump(1.0)})
 
     def crouch(rig):
         pose(rig, "hips", lift=-0.2)
@@ -1218,6 +1252,41 @@ def main() -> None:
         return f
 
     clip(rig, "ledge", 60, {0: ledge_pose(0.0), 30: ledge_pose(1.0), 60: ledge_pose(0.0)})
+
+    # Climbing up from a ledge (played by progress over the get-up): hanging, then the arms push down on the edge as one knee comes up onto
+    # it, a crouch on the edge, and standing.
+    def climb(k):
+        def f(rig):
+            if k == 0:
+                ledge_pose(0.0)(rig)
+                return
+            if k == 1:
+                for side in "LR":
+                    pose(rig, "armU." + side, fwd=-40.0, out=30.0)
+                    pose(rig, "armL." + side, fwd=60.0)
+                pose(rig, "spine", fwd=34.0)
+                pose(rig, "head", fwd=-16.0)
+                pose(rig, "thigh.L", fwd=96.0, out=10.0)
+                pose(rig, "shin.L", fwd=-110.0)
+                pose(rig, "thigh.R", fwd=-20.0, out=8.0)
+                pose(rig, "shin.R", fwd=-30.0)
+                return
+            if k == 2:
+                pose(rig, "hips", lift=-0.18)
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=66.0, out=8.0)
+                    pose(rig, "shin." + side, fwd=-100.0)
+                    pose(rig, "armU." + side, fwd=24.0, out=20.0)
+                    pose(rig, "armL." + side, fwd=40.0)
+                pose(rig, "spine", fwd=24.0)
+                pose(rig, "head", fwd=-12.0)
+                return
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=8.0, out=14.0)
+                pose(rig, "armL." + side, fwd=30.0)
+        return f
+
+    clip(rig, "ledge_climb", 30, {0: climb(0), 10: climb(1), 20: climb(2), 30: climb(3)})
 
     bpy.ops.object.mode_set(mode="OBJECT")
     reset(rig)

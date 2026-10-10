@@ -19,7 +19,16 @@ qualified. Regenerate it when `Cargo.lock` changes.
 * **Fonts**: the interface asks the operating system for Bahnschrift, Arial Narrow, Impact or Arial (`godot/ui/ui_draw.gd`) and falls back to Godot's
   built-in font. **No font file is bundled**, because those system fonts cannot be redistributed; on a machine without them the menus use the fallback.
   Choosing and shipping an open-licence font (for example one under the SIL Open Font License) is still to do.
-* Sounds and music are synthesised in code (`docs/AUDIO.md`); there are no audio files.
+* Music and some sound effects are synthesised in code (`docs/AUDIO.md`).
+
+## Sound effects (ship in the export)
+
+| Pack | Author | Licence | Files | Source |
+| --- | --- | --- | --- | --- |
+| Impact Sounds | Kenney (kenney.nl) | CC0 1.0 (public domain) | `godot/audio/sfx/impact*.ogg`, `footstep_*.ogg` | https://kenney.nl/assets/impact-sounds |
+| RPG Audio | Kenney (kenney.nl) | CC0 1.0 (public domain) | `godot/audio/sfx/knifeSlice*.ogg`, `drawKnife*.ogg`, `cloth*.ogg` | https://kenney.nl/assets/rpg-audio |
+
+CC0 needs no attribution; it is credited here as a courtesy and so the origin of every file is on record.
 
 ## Rust crates (81, outside this workspace)
 

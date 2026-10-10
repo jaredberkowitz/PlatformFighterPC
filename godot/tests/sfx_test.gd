@@ -34,10 +34,24 @@ func _initialize() -> void:
 	await process_frame
 	check(sfx.streams.size() == Sfx.NAMES.size(), "the node made every effect")
 	check(Sfx.of(holder) == sfx, "and there is only one")
-	check(sfx.watch(0, snap("Idle"), snap("Attack")) == ["whoosh"], "starting an attack swooshes")
+	check(sfx.watch(0, snap("Idle"), snap("Attack")) == ["whoosh"], "starting an attack with no timing known swooshes at once")
 	check(sfx.watch(0, snap("Attack"), snap("Attack")).is_empty(), "carrying on does not")
-	check(sfx.watch(1, snap("Idle", 0.0), snap("Hitstun", 6.0)) == ["hit_light"], "a small hit is a light thud")
-	check(sfx.watch(1, snap("Idle", 0.0), snap("Hitstun", 18.0)) == ["hit_heavy"], "a big hit is a heavy one")
+	# With the move's timing (total, first active, last active), the swing is heard four frames before the first hit.
+	var swing := func(frame: int, cls: int) -> Dictionary:
+		var d := snap("Attack")
+		d.state_frame = frame
+		d.move_timing = PackedInt32Array([40, 12, 14])
+		d["class"] = cls
+		return d
+	check(sfx.watch(0, swing.call(6, 1), swing.call(7, 1)).is_empty(), "not yet at frame 7")
+	check(sfx.watch(0, swing.call(7, 1), swing.call(8, 1)) == ["whoosh"], "a blow whooshes at frame 8")
+	check(sfx.watch(0, swing.call(7, 0), swing.call(8, 0)) == ["shing"], "a blade rings")
+	# Hits are layered by what landed them and how hard.
+	check(sfx.hit(0, 0.2) == ["slash", "metal"], "a light blade hit slices and rings")
+	check(sfx.hit(1, 0.9) == ["punch_heavy", "thud"], "a heavy blow smacks and thuds")
+	check(sfx.hit(2, 0.3) == ["wood_heavy", "punch_heavy"], "the maul thumps")
+	for g in Sfx.FILE_SOUNDS:
+		check(sfx.groups[g].size() == Sfx.FILE_SOUNDS[g].size(), "every take of %s loads" % g)
 	check(sfx.watch(0, snap("Idle"), snap("JumpSquat")) == ["jump"], "a jump")
 	check(sfx.watch(0, snap("Airborne", 0.0, 3, -1, 1), snap("Airborne", 0.0, 3, -1, 0)) == ["jump"], "a double jump")
 	check(sfx.watch(0, snap("Airborne", 0.0, 3, -1), snap("Landing", 0.0, 3, 0)) == ["land"], "a landing")

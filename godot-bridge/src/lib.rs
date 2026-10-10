@@ -917,6 +917,14 @@ impl SimRunner {
         })
     }
 
+    /// How far the fighter's initial dash goes (world units), so its stride can be drawn to fit.
+    #[func]
+    fn fighter_dash_length(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| {
+            f(sim_core::combat::params_of(&self.content, fi).initial_dash_distance())
+        })
+    }
+
     /// [ecb_half_width, ecb_height, ecb_side_height, wavedash_min_down, ground_assist_dist]
     #[func]
     fn fighter_body(&self, i: i32) -> PackedFloat32Array {
