@@ -31,6 +31,7 @@ const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
+const SKIN_SHADER := preload("res://shaders/skin.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
@@ -71,6 +72,10 @@ func rebuild(l: RefCounted) -> void:
 	trail = null
 	trail_points.clear()
 	last_trail_frame = -1
+	sweep = null
+	sweep_samples.clear()
+	dizzy = null
+	launch_lines = null
 	rig = null
 	anim = null
 	skeleton = null
@@ -122,6 +127,14 @@ var loadout: RefCounted
 const RIG_PATH := "res://models/blob_rig.glb"
 ## The brawler's rig has longer arms and legs. It is built about 0.19 taller at the hips, so it is scaled down to keep the same height.
 const RIG_LONG_PATH := "res://models/blob_rig_long.glb"
+## The base body: the character from the concept art, generated, cleaned up and rigged by the art pipeline (docs/ART_WORKFLOW.md,
+## art/generated/base_body). One skinned body on the same skeleton and clips, with glove fists and the drawn face; tried out with
+## `--base-body` for now. Its head, shoulder and wrist (for the hats, glasses, face and the weapon arm) come from base_rig.json, which
+## make_rigged_blob.py writes with it. It is the fighters' body; `--blob` brings back the first, built body.
+const RIG_BASE_PATH := "res://models/base_rig.glb"
+const BASE_INFO_PATH := "res://models/base_rig.json"
+static var use_base_body: bool = not OS.get_cmdline_user_args().has("--blob")
+static var _base_info: Dictionary = {}
 const LONG_SCALE := 0.92
 const LONG_LIFT := 0.19
 const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Vector3(0, 0, 0.92)), Vector3(0, 0.19 * 0.92, 0))
@@ -151,6 +164,8 @@ static func release_caches() -> void:
 ## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
 var long_limbs := false
 var head_fit := Transform3D()
+## Where the glasses go (the same design space as `head_fit`, onto the face drawing's eyes; see `_glasses_fit`).
+var glasses_fit := Transform3D()
 var torso_fit := Transform3D()
 var shoulder := Vector2(0.5, 1.15)
 var arm_reach := 0.5
@@ -193,10 +208,18 @@ static func _model_scene(path: String) -> Node:
 	return null
 
 
+static func _base_rig_info() -> Dictionary:
+	if _base_info.is_empty() and FileAccess.file_exists(BASE_INFO_PATH):
+		var data = JSON.parse_string(FileAccess.get_file_as_string(BASE_INFO_PATH))
+		if data is Dictionary:
+			_base_info = data
+	return _base_info
+
+
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
 func _build_rig(skin: Material) -> bool:
-	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
+	var rig_path := RIG_BASE_PATH if use_base_body else (RIG_LONG_PATH if long_limbs else RIG_PATH)
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
 		_rig_templates[rig_path] = _model_scene(rig_path)
@@ -244,6 +267,8 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = shoe
 		elif part.begins_with("Face"):
 			face_mesh = mi
+		elif part.begins_with("Skin"):
+			mi.material_override = _skin_material(skin_colour, shorts_colour)
 		elif part.begins_with("Body") and shirt != null:
 			mi.material_override = shirt
 		else:
@@ -257,7 +282,27 @@ func _build_rig(skin: Material) -> bool:
 	torso_rig = Node3D.new()
 	model.add_child(head_rig)
 	model.add_child(torso_rig)
-	if long_limbs:
+	if use_base_body:
+		# The look's pieces were designed round a head of radius 0.8 centred 1.42 up, and the neckwear round the rigged torso's ellipsoid
+		# (see `_neck_on_rig`): each is stretched onto this body's own (its head is wider than it is tall, so a hat sits on top rather than
+		# above it). The weapon arm turns at its shoulder and reaches to its wrist and a little past.
+		var info := _base_rig_info()
+		var centre: Array = info.get("head_centre", [0.0, 1.79, 0.0])
+		var radii: Array = info.get("head_radii", [0.4, 0.34, 0.4])
+		var hs := Vector3(float(radii[0]), float(radii[1]), float(radii[2])) / 0.8
+		head_fit = Transform3D(Basis.from_scale(hs), Vector3(0.0, float(centre[1]) - 1.42 * hs.y, float(centre[2])))
+		var face: Array = info.get("face", [float(centre[1]) + 0.04 * float(radii[1]), 1.75 * float(radii[0])])
+		glasses_fit = _glasses_fit(float(face[0]), float(face[1]), hs.z, float(centre[2]))
+		var torso: Dictionary = info.get("torso", {"centre": [0.0, 1.13, 0.0], "radii": [0.3, 0.32, 0.22]})
+		var tc: Array = torso.centre
+		var tr: Array = torso.radii
+		var ts := Vector3(float(tr[0]) / TORSO_RADII.x, float(tr[1]) / TORSO_RADII.y, float(tr[2]) / TORSO_RADII.z)
+		torso_fit = Transform3D(Basis.from_scale(ts), Vector3(0.0, float(tc[1]) - TORSO_CENTRE_Y * ts.y, float(tc[2])))
+		var sh: Array = info.get("shoulder", [0.41, 1.19, 0.04])
+		var wr: Array = info.get("wrist", [0.53, 0.74, 0.15])
+		shoulder = Vector2(float(sh[0]), float(sh[1]))
+		arm_reach = Vector2(float(wr[0]) - float(sh[0]), float(wr[1]) - float(sh[1])).length() + 0.1
+	elif long_limbs:
 		rig.scale = Vector3.ONE * LONG_SCALE
 		head_fit = LONG_FIT * HEAD_FIT
 		torso_fit = LONG_FIT
@@ -268,6 +313,9 @@ func _build_rig(skin: Material) -> bool:
 		torso_fit = TORSO_FIT
 		shoulder = SHOULDER
 		arm_reach = ARM_REACH
+	if not use_base_body:
+		# The blob's face drawing (make_rigged_blob.py's FACE_CENTRE and FACE_SIZE), moved with the long-limbed body's head.
+		glasses_fit = head_fit * HEAD_FIT.affine_inverse() * _glasses_fit(1.585, 1.155, 0.825, 0.0)
 	head_rig.transform = head_fit
 	torso_rig.transform = torso_fit
 	anim.play("idle")
@@ -360,6 +408,12 @@ func _attack_clip(s: Dictionary) -> Array:
 		clip = KICK_CLIPS.get(name, "attack_kick")
 	elif _cls(s) == 1 and name == "neutral special":
 		clip = "blaster"
+	elif _cls(s) == 1 and name == "ftilt":
+		# Both claws thrown out forward in a lunge.
+		clip = "attack_claws"
+	elif _cls(s) == 1 and name == "dsmash":
+		# Down low, a claw swept in front and then behind (the sword's low sweep, body and legs).
+		clip = "sword_dsmash"
 	elif _cls(s) != 1 and SWORD_CLIPS.has(name):
 		clip = SWORD_CLIPS[name]
 	elif name == "fair":
@@ -401,14 +455,14 @@ func _skeleton_to_frame() -> Transform3D:
 	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
 
 
-## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned most of the way toward the way it
-## faces, so strides, kicks and swings happen across the screen where they read; the chest and then the head twist back toward the
-## camera, so the body and the face stay open to the player.
-const BODY_TURN := 60.0
-const CHEST_TO_CAMERA := 30.0
-## Negative: the head turns back toward the opponent from the chest (to about 40 degrees off straight-on), and the eyes in the face look
-## that way too (see `set_gaze`), so the two fighters look at each other while their bodies stay open to the camera.
-const HEAD_TO_CAMERA := -10.0
+## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned nearly side-on toward the way it
+## faces, as the reference game's fighters stand, so strides, kicks and swings happen across the screen where they read; the chest and
+## then the head twist back a little toward the camera, so the drawn face keeps both its eyes in view.
+const BODY_TURN := 80.0
+const CHEST_TO_CAMERA := 14.0
+## The head turns a little further back toward the camera from the chest (to about 60 degrees off straight-on); the eyes in the face look
+## the way the fighter faces (see `set_gaze`), so the two fighters still look at each other.
+const HEAD_TO_CAMERA := 6.0
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -424,7 +478,14 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var new_dash: bool = s.state == "Dash" and (current_clip != "dash" or int(s.state_frame) < gait_frame)
 	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
 	if clip != current_clip:
-		anim.play(clip, 0.1 if current_clip != "" and not clip.begins_with("attack") else 0.0)
+		# A clip that follows the move (or the ledge climb) starts at once: it is posed by seeking while paused, and seeking never moves
+		# a cross-fade on, so it would stay showing the clip before.
+		var follows: bool = float(pick[2]) >= 0.0
+		# Likewise a hit's pose: a fighter frozen by hitlag is already in it for the whole freeze (the animation does not move on then).
+		var frozen: bool = int(s.hitlag) > 0
+		anim.play(clip, 0.1 if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		if frozen and not follows:
+			anim.advance(0.0)
 		current_clip = clip
 		if clip == "run" and gait >= 0.0:
 			anim.seek(gait * anim.current_animation_length, true)
@@ -442,6 +503,13 @@ func _animate(s: Dictionary, delta: float) -> void:
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
 	_body_follow(s, delta)
+	_follow_bones()
+
+
+## Moves the head's and the torso's pieces (hats, glasses, neckwear) with the head and chest bones as they are posed now.
+func _follow_bones() -> void:
+	if skeleton == null or head_rig == null:
+		return
 	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
@@ -460,7 +528,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	var target_bend := 0.0
 	var target_look := 0.0
 	var tip: Vector3 = s.move_tip
-	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0:
+	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0 and _spin(s) == 0.0:
 		var kicking: bool = _cls(s) == 1 and KICK_CLIPS.has(s.move_name)
 		var to_frame := _skeleton_to_frame()
 		var hips := skeleton.find_bone("hips")
@@ -487,8 +555,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
 		target_look = clampf(rise * 0.5, -20.0, 30.0)
-		# In proportion to how far into the move the limb is (its blend toward the hitbox).
-		var k := leg_k if kicking else arm_k
+		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
+		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
+		var k := (leg_k if kicking else arm_k) * (0.5 if use_base_body else 1.0)
 		target_bend *= k
 		target_look *= k
 	var follow := clampf(delta * 16.0, 0.0, 1.0)
@@ -498,6 +567,12 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		_bend_bone(spine_bone, body_bend, int(s.facing))
 	if absf(head_look) > 0.05:
 		_bend_bone(head_bone, -head_look, int(s.facing))
+	# A flinch: the chest and head snap back from the hit and come forward again.
+	if flinch_left > 0.0:
+		flinch_left = maxf(0.0, flinch_left - delta)
+		var k := flinch_left / FLINCH_TIME
+		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
+		_bend_bone(head_bone, -12.0 * k, int(s.facing))
 	# Open the chest and the face to the camera (see BODY_TURN).
 	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
 	_turn_bone(head_bone, -HEAD_TO_CAMERA * float(s.facing))
@@ -545,11 +620,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 		current_clip = clip
 	anim.speed_scale = 1.0
 	anim.advance(delta)
-	var to_model := _skeleton_to_model()
-	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
-	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
-	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
-	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+	_follow_bones()
 	# The sword or the maul, gripped in the raised hand and pointing up.
 	var armed := cls != 1 and not cheer
 	blade_pivot.visible = armed
@@ -603,8 +674,11 @@ func build(p: int, l: RefCounted = null) -> void:
 	loadout = l if l != null else Loadout.default_for(p)
 	var col: Color = loadout.body_color()
 	var skin := toon(col)
+	# (The launch stretch, `_launch_look`, is applied to a frame round the model.)
+	launch_frame = Node3D.new()
+	add_child(launch_frame)
 	model = Node3D.new()
-	add_child(model)
+	launch_frame.add_child(model)
 
 	# Body, head, feet, hands. Height matches the 2.2 unit ECB.
 	var used_rig := _build_rig(skin)
@@ -738,15 +812,23 @@ func build(p: int, l: RefCounted = null) -> void:
 	flame = Particles.flame(self)
 	add_child(flame)
 	_tag_object(self)
+	# The pieces on the head and chest start where the idle pose has them (a fighter shown without `apply`, as in the menus, keeps it).
+	_follow_bones()
 
 
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
 ## where this fighter meets anything else but none between its own parts.
 func _tag_object(node: Node) -> void:
-	if node is GeometryInstance3D and (node as GeometryInstance3D).material_override is ShaderMaterial:
-		var shader := ((node as GeometryInstance3D).material_override as ShaderMaterial).shader
-		if shader == TOON_SHADER or shader == LIMB_SHADER or shader == FACE_SHADER:
-			(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
+	if node is GeometryInstance3D:
+		# Its material may be the override or set per surface (the rig's parts).
+		var mats: Array = [(node as GeometryInstance3D).material_override]
+		if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+			for i in (node as MeshInstance3D).mesh.get_surface_count():
+				mats.append((node as MeshInstance3D).get_active_material(i))
+		for m in mats:
+			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, LIMB_SHADER, FACE_SHADER, SKIN_SHADER]):
+				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
+				break
 	for c in node.get_children():
 		_tag_object(c)
 
@@ -922,6 +1004,50 @@ func _sleeve_colour() -> Color:
 static var _limb_cache := {}
 
 
+## The base body's skin with this look's clothes painted on (shaders/skin.gdshader): the shirt and its sleeves, the shorts, white socks,
+## shoes with the outfit-coloured strap, where base_rig.json puts them.
+func _skin_material(skin_c: Color, shorts_c: Color) -> ShaderMaterial:
+	var key := "skin%s%s%d%s" % [skin_c.to_html(), shorts_c.to_html(), loadout.shirt, loadout.accent_color().to_html()]
+	if _limb_cache.has(key):
+		return _limb_cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = SKIN_SHADER
+	m.set_shader_parameter("skin", skin_c)
+	var accent: Color = loadout.accent_color()
+	match loadout.shirt:
+		1:
+			m.set_shader_parameter("shirt", SHIRT_WHITE)
+		2:
+			m.set_shader_parameter("shirt", accent)
+		3:
+			m.set_shader_parameter("shirt", Color.WHITE)
+			m.set_shader_parameter("shirt_tex", SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}))
+			m.set_shader_parameter("use_shirt_tex", true)
+			m.set_shader_parameter("shirt_tex_scale", Vector2(1.5, 12.0))
+		4:
+			m.set_shader_parameter("shirt", Color.WHITE)
+			m.set_shader_parameter("shirt_tex", SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}))
+			m.set_shader_parameter("use_shirt_tex", true)
+			m.set_shader_parameter("shirt_tex_scale", Vector2(4.0, 4.0))
+		_:
+			m.set_shader_parameter("shirt", Color(0, 0, 0, 0))
+	m.set_shader_parameter("shorts", shorts_c)
+	m.set_shader_parameter("shoe", Color(0.27, 0.2, 0.3))
+	m.set_shader_parameter("strap", accent)
+	var regions: Dictionary = _base_rig_info().get("clothes", {})
+	for name in ["neck", "waist", "shorts_end", "sock_top", "shoe_top", "sole_top"]:
+		if regions.has(name):
+			m.set_shader_parameter(name + "_z", float(regions[name]))
+	if regions.has("torso_half_width"):
+		m.set_shader_parameter("torso_half_width", float(regions.torso_half_width))
+	for name in ["shoulder_l", "elbow_l", "shoulder_r", "elbow_r"]:
+		if regions.has(name):
+			m.set_shader_parameter(name, Vector2(float(regions[name][0]), float(regions[name][1])))
+	m.next_pass = toon(Color.WHITE).next_pass
+	_limb_cache[key] = m
+	return m
+
+
 ## The banded limb material (see shaders/limb.gdshader), with the ink outline. A `top` with negative alpha means no top band.
 static func _limb_material(skin_c: Color, top_c: Color, top_end: float, bottom_c: Color, bottom_start: float) -> ShaderMaterial:
 	var key := "%s%s%s%s%s" % [skin_c.to_html(), top_c, top_end, bottom_c.to_html(), bottom_start]
@@ -971,10 +1097,29 @@ func _neck(_skin: Material) -> void:
 			_part(torso_rig, tail, toon(accent), Vector3(0.28, 0.72, 0.58), Vector3.ONE, Vector3(0, 0, 8))
 
 
-## Neckwear for the rigged torso (a squat ellipsoid centred at height 0.98: half-width 0.56, half-depth 0.5, half-height 0.42). Rings are
-## tori sized to hug it, so nothing pokes through the body whatever the pose.
+## The rigged torso the neckwear is made round: a squat ellipsoid centred this high, with these half-width, half-height and half-depth.
+const TORSO_CENTRE_Y := 0.98
+const TORSO_RADII := Vector3(0.56, 0.42, 0.5)
+
+
+## The glasses' fit: the design space the glasses are made in (the look's head of radius 0.8 centred 1.42 up, eyes at height 1.52 and
+## 0.32 either side) laid onto the face drawing, a square of `face_size` centred `face_centre` up (the drawings in godot/art/faces are
+## 512 square with the eyes' middles on row 228). The glasses are scaled with the drawing, so their lenses are as round as its eyes, and
+## centred GLASSES_DROP rows below the eyes' middles: on the part of the eye the drawings' heavy lids leave open, where the eyes show.
+const GLASSES_DROP := 27.0
+
+
+func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, depth: float) -> Transform3D:
+	# Design units to drawing units: the design eyes 0.32 out are the drawing's 106 rows (of 512) out, so a design unit is this much.
+	var k := face_size * (106.0 / 512.0) / 0.32
+	var eye_y := face_centre + (0.5 - (228.0 + GLASSES_DROP) / 512.0) * face_size
+	return Transform3D(Basis.from_scale(Vector3(k, k, depth_scale)), Vector3(0.0, eye_y - 1.52 * k, depth))
+
+
+## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
+## the pose.
 func _neck_on_rig(accent: Color) -> void:
-	var centre := Vector3(0, 0.98, 0)
+	var centre := Vector3(0, TORSO_CENTRE_Y, 0)
 	match loadout.neck:
 		1:
 			# Sash: a ring worn diagonally from shoulder to hip.
@@ -1080,6 +1225,11 @@ func _hat() -> void:
 
 func _glasses() -> void:
 	var frame := toon(INK, false)
+	# The glasses are placed in design space through their own fit (see `_glasses_fit`): a node under the head whose transform turns
+	# the head's fit into it.
+	var glasses_rig := Node3D.new()
+	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
+	head_rig.add_child(glasses_rig)
 	match loadout.glasses:
 		1:
 			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
@@ -1092,35 +1242,44 @@ func _glasses() -> void:
 			rim.inner_radius = 0.95
 			rim.outer_radius = 1.05
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
-				_part(head_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
-			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
+				_part(glasses_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
+				_part(glasses_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
+			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.14
 			ring.outer_radius = 0.28
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-				_part(head_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
+				_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+				_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.78
 			strap.outer_radius = 0.84
-			_part(head_rig, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
+			_part(glasses_rig, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
 		3:
 			# Round specs: thin rings and a bridge.
 			var thin := TorusMesh.new()
 			thin.inner_radius = 0.17
 			thin.outer_radius = 0.21
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
+				_part(glasses_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
 
 
 ## The expression for this moment (see Loadout's action faces).
 func _face_for(s: Dictionary) -> Dictionary:
 	match String(s.state):
-		"Hitstun", "ShieldBreak", "Knockdown", "Grabbed", "Rebound":
+		"Hitstun":
+			# A wince while frozen by the hit; sent flying (tumbling), dazed.
+			if int(s.hitlag) == 0 and s.tumble:
+				return Loadout.DAZED_FACE
+			return Loadout.HURT
+		"ShieldBreak":
+			return Loadout.DAZED_FACE
+		"Grabbed":
+			return Loadout.SHOCK_FACE
+		"Knockdown", "Rebound":
 			return Loadout.HURT
 		"Attack":
 			if int(s.charge) > 0:
@@ -1136,6 +1295,15 @@ func _face_for(s: Dictionary) -> Dictionary:
 		"Run", "Dash", "JumpSquat", "LedgeJump", "AirDodge", "Roll", "SpotDodge", "WaveLand", "Turn":
 			return Loadout.FOCUS_FACE
 	return Loadout.FACES[loadout.face]
+
+
+## How far round a tumbling launch has turned the body (radians).
+var tumble_angle := 0.0
+## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
+var flinch_left := 0.0
+const FLINCH_TIME := 0.22
+## Landing out of an aerial (its landing lag) or a fast fall: a heavier, deeper landing until it ends.
+var heavy_landing := false
 
 
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
@@ -1245,6 +1413,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		last_vy = vy
 
 	var target_squash: float = SQUASH.get(state, 0.0)
+	# Landing out of an aerial or a fast fall stumbles: deeper, and pitched forward, for its whole landing lag.
+	if state == "Landing" and last_state != "Landing":
+		heavy_landing = last_state == "Attack" or s.fast_fall
+	if state != "Landing":
+		heavy_landing = false
+	if heavy_landing:
+		target_squash = 0.28
 	if state == "Attack" and s.move_timing[1] > 0:
 		# Coil down while winding up, stretch tall through the strike: the move reads from far away.
 		var first: float = s.move_timing[1]
@@ -1257,23 +1432,29 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	if heavy_landing:
+		target_lean = 8.0
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
 	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
 	if state == "Attack" and s.move_tip != Vector3.ZERO:
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
-		target_lean += swing * _reach_weight(s)
+		# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it on
+		# its feet, so the base body keeps only a little of this.)
+		target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
 		var first: float = s.move_timing[1]
 		var last: float = s.move_timing[2]
 		var f: float = s.state_frame
+		# (Less on the base body, whose legs step into the strike in its clips.)
+		var lunge_k := 0.45 if use_base_body else 1.0
 		if f < first and f >= first * 0.5:
-			target_lunge = -0.12
+			target_lunge = -0.12 * lunge_k
 		elif f >= first and f <= last + 2.0:
-			target_lunge = 0.32
+			target_lunge = 0.32 * lunge_k
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -1340,10 +1521,15 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += TAU * ledge_k
 		pivot = Vector3(0, 0.6, 0)
 	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
+	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
+	var spin := _spin(s)
+	if spin != 0.0:
+		model.quaternion = Quaternion(Vector3(0, 0, 1), spin * float(facing)) * model.quaternion
+		pivot = SPIN_PIVOT_3D
 	# Spin about the middle of the body (or the hands, or the curled-up roll) rather than the feet.
 	flip_offset = Vector3.ZERO
-	if flip != 0.0:
-		flip_offset = pivot - Basis.from_euler(model.rotation) * pivot
+	if flip != 0.0 or spin != 0.0:
+		flip_offset = pivot - Basis(model.quaternion) * pivot
 	flip_offset += ledge_offset
 	last_state = state
 	stage_frame.rotation = Vector3(0, -yaw, 0)
@@ -1448,8 +1634,8 @@ var flame: Node3D  # Particles.Burst
 ## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
 const SWORD_CLIPS := {"dair": "sword_dair", "ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
 	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
-const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
-	"dtilt": "kick_low", "dash attack": "kick_dash", "usmash": "kick_uair"}
+const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
+	"usmash": "kick_uair"}
 ## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
 var leg_k := 0.0
 
@@ -1462,7 +1648,8 @@ const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack":
 	"nair": -60.0, "uair": -60.0, "bair": 60.0}
 ## Kicks that send both legs out (front and back), each aimed by the game.
 const SPLIT_KICKS := ["nair"]
-const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+## (Its up air and down air are claw slashes, overhead and down below, so they swing the arm.)
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1
@@ -1500,6 +1687,9 @@ func _blade_target(s: Dictionary) -> Array:
 		wind = swing - 100.0
 	if SWING_FROM.has(name):
 		wind = swing + float(SWING_FROM[name])
+	# A thrust does not swing: the blade points at the hit from the start and the arm drives it in (see `_pose_blade`).
+	if _cls(s) == 0 and SWORD_THRUSTS.has(name):
+		wind = swing
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
 	var start := maxf(1.0, float(t[1]))
@@ -1526,6 +1716,27 @@ const SHOULDER := Vector2(0.5, 1.15)
 const ARM_REACH := 0.5
 var arm_k := 0.0
 var hand_target := Vector3.ZERO
+## Where the maul's second hand holds the shaft (stage frame), and how far above the first.
+var grip_target := Vector3.ZERO
+const MAUL_GRIP := 0.3
+## The sword's thrusts: the blade points at the hit throughout and the arm drives it in, rather than swinging round to it.
+const SWORD_THRUSTS := ["usmash", "dtilt"]
+## Neutral airs whose second hit circles the body (the sword's, and the maul's made from it): the whole body flips over backward once
+## while the arm holds the blade out, between these frames, so the blade follows the hits round. By class.
+const NAIR_SPIN := {0: [14, 21], 2: [18, 27]}
+const SPIN_PIVOT := Vector2(0.0, 1.1)
+const SPIN_PIVOT_3D := Vector3(0.0, 1.1, 0.0)
+
+
+## How far round the backward flip of a spinning neutral air the body is (radians, 0 when not spinning).
+func _spin(s: Dictionary) -> float:
+	if String(s.state) != "Attack" or String(s.move_name) != "nair" or not NAIR_SPIN.has(_cls(s)):
+		return 0.0
+	var w: Array = NAIR_SPIN[_cls(s)]
+	var k := (float(s.state_frame) - float(w[0])) / float(int(w[1]) - int(w[0]))
+	if k <= 0.0 or k >= 1.0:
+		return 0.0
+	return TAU * k
 
 
 func _pose_blade(s: Dictionary, delta: float) -> void:
@@ -1546,20 +1757,36 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
-	if attacking and _cls(s) == 1:
+	if attacking and (_cls(s) == 1 or (_cls(s) == 0 and SWORD_THRUSTS.has(String(s.move_name)))):
 		arm_k = _reach_weight(s)
+	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
+	# holds the blade out and the spin carries it round the circle the hits make.
+	var spin := _spin(s)
+	if spin != 0.0:
+		tip = SPIN_PIVOT + (tip - SPIN_PIVOT).rotated(-spin)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
 		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) != 1 else arm_reach
-		hand = old_hand.lerp(shoulder + to_tip / dist * reach, arm_k)
+		var goal := shoulder + to_tip / dist * reach
+		if use_base_body:
+			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
+			var from_v := old_hand - shoulder
+			var to_v := goal - shoulder
+			var angle := lerp_angle(from_v.angle(), to_v.angle(), arm_k)
+			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
+		else:
+			hand = old_hand.lerp(goal, arm_k)
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
+	# The maul is swung two-handed: the other hand grips the shaft just above this one.
+	var grip := hand + (tip - hand).normalized() * MAUL_GRIP
+	grip_target = Vector3(grip.x * facing, grip.y, 0.35)
 	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
 	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
 	if _cls(s) == 1:
@@ -1642,7 +1869,7 @@ func _hat_spring(s: Dictionary, delta: float) -> void:
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
-func _aim_arm(facing: int, holding: bool) -> void:
+func _aim_arm(facing: int, holding: bool, two_handed := false) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
@@ -1650,7 +1877,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
-		if not (mine and holding):
+		if not holding or not (mine or two_handed):
 			skeleton.set_bone_global_pose_override(iu, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(il, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ih, Transform3D(), 0.0, false)
@@ -1668,7 +1895,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
 		var lower := (wrist0 - elbow0).length() + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
-		var goal: Vector3 = to_skel * hand_target
+		var goal: Vector3 = to_skel * (hand_target if mine else grip_target)
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
@@ -1879,6 +2106,118 @@ func _sweep_slice(im: ImmediateMesh, a: Dictionary, b: Dictionary, u0: float, u1
 		for idx in [0, 1, 2, 0, 2, 3]:
 			im.surface_set_color(q[idx][1])
 			im.surface_add_vertex(q[idx][0])
+
+
+# ---- Big moments: dizzy stars, the launch stretch and speed lines --------------------------------------------------------------------
+
+## Three cartoon stars circling the head while the shield is broken.
+var dizzy: Node3D
+## A strong launch: the body stretched along the way it flies, and streaks trailing behind it.
+var launch_frame: Node3D
+var launch_lines: Node3D
+const LAUNCH_STRETCH_FROM := 0.35   # world units a frame: slower launches are not stretched
+const LAUNCH_LINES_FROM := 0.5
+
+
+## A five-pointed star of radius `r`: an ink outline behind a yellow star with a pale middle, in one mesh (vertex colours).
+static func _cartoon_star(r: float) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	for layer in [[1.28, Color(0.12, 0.07, 0.12), -0.01], [1.0, Color(1.0, 0.82, 0.22), 0.0], [0.45, Color(1.0, 0.97, 0.8), 0.01]]:
+		var k: float = layer[0]
+		for i in 10:
+			var a0 := PI * 0.5 + TAU * float(i) / 10.0
+			var a1 := PI * 0.5 + TAU * float(i + 1) / 10.0
+			var r0 := r * k * (1.0 if i % 2 == 0 else 0.45)
+			var r1 := r * k * (1.0 if (i + 1) % 2 == 0 else 0.45)
+			for v in [Vector3(0, 0, layer[2]), Vector3(cos(a0) * r0, sin(a0) * r0, layer[2]), Vector3(cos(a1) * r1, sin(a1) * r1, layer[2])]:
+				verts.append(v)
+				cols.append(layer[1])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = cols
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return m
+
+
+func _dizzy(s: Dictionary) -> void:
+	var on: bool = String(s.state) == "ShieldBreak"
+	if not on:
+		if dizzy != null:
+			dizzy.visible = false
+		return
+	if dizzy == null:
+		dizzy = Node3D.new()
+		var star := _cartoon_star(0.17)
+		for k in 3:
+			var mi := MeshInstance3D.new()
+			mi.mesh = star
+			mi.material_override = FxMaterial.get_material(false, 3, null, 0.0)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			dizzy.add_child(mi)
+		add_child(dizzy)
+	dizzy.visible = true
+	dizzy.position = Vector3(0, 2.5, 0)
+	# Round the head (in front of it on the near side, behind it on the far side), bobbing, each spinning.
+	var t := float(s.frame) / 60.0 * 4.5
+	for k in 3:
+		var a := t + TAU * float(k) / 3.0
+		var star_node := dizzy.get_child(k) as Node3D
+		star_node.position = Vector3(cos(a) * 0.65, sin(a * 2.0) * 0.06, sin(a) * 0.5)
+		star_node.rotation.z = t * 2.0 + float(k)
+
+
+## A strong launch reads in the body and the air round it: the body is stretched along its flight (up to 45% longer, as thin as it is
+## long, about its middle) and streaks trail behind it, on twos. Back to normal the moment the flight slows.
+func _launch_look(s: Dictionary) -> void:
+	var vel := Vector2(float(s.vel.x), float(s.vel.y))
+	var speed := vel.length()
+	var flying: bool = String(s.state) == "Hitstun" and int(s.hitlag) == 0
+	var k := clampf((speed - LAUNCH_STRETCH_FROM) / 0.8, 0.0, 0.45) if flying else 0.0
+	if k <= 0.0:
+		launch_frame.transform = Transform3D.IDENTITY
+	else:
+		var along := Vector3(vel.x, vel.y, 0).normalized()
+		var across := Vector3(-along.y, along.x, 0)
+		var stretch := Basis(along, across, Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1.0 + k, 1.0 / sqrt(1.0 + k), 1.0)) 				* Basis(along, across, Vector3(0, 0, 1)).inverse()
+		var middle := Vector3(0, 1.1, 0)
+		launch_frame.transform = Transform3D(stretch, middle - stretch * middle)
+	var lines_on := flying and speed > LAUNCH_LINES_FROM
+	if launch_lines == null and lines_on:
+		launch_lines = Node3D.new()
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1.0, 1.0, 0.97, 0.75)
+		mat.disable_fog = true
+		for i in 5:
+			var mi := MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2(1.0, 0.06)
+			mi.mesh = q
+			mi.material_override = mat
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			launch_lines.add_child(mi)
+		add_child(launch_lines)
+	if launch_lines == null:
+		return
+	launch_lines.visible = lines_on
+	if not lines_on:
+		return
+	# Streaks behind the body along the flight, a little spread, their lengths changing on twos.
+	var dir := vel.normalized()
+	launch_lines.position = Vector3(0, 1.1, -0.3)
+	launch_lines.rotation = Vector3(0, 0, dir.angle())
+	var seed_step := int(s.frame) / 2
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_step * 7919 + player
+	for i in 5:
+		var line := launch_lines.get_child(i) as MeshInstance3D
+		var length := rng.randf_range(1.2, 2.6) * clampf(speed / 1.0, 0.6, 1.4)
+		line.scale = Vector3(length, 1.0, 1.0)
+		line.position = Vector3(-0.9 - length * 0.5 - rng.randf_range(0.0, 0.6), (float(i) - 2.0) * 0.32, 0.0)
 
 
 # ---- Revival platform ------------------------------------------------------------------------------------------------------------
@@ -2142,6 +2481,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var state: String = s.state
 	var pct := int(s.percent)
 	if pct != last_percent:
+		# A hit that does not launch (a flinch, or one hit of a multi-hit move) snaps the body back.
+		if last_percent >= 0 and pct > last_percent and not s.launch_pending and state != "Hitstun":
+			flinch_left = FLINCH_TIME
 		last_percent = pct
 		percent_label.text = "%d%%" % pct
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
@@ -2156,7 +2498,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
-		_aim_arm(int(s.facing), holding and not carrying)
+		_aim_arm(int(s.facing), holding and not carrying, _cls(s) == 2 and state == "Attack")
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
@@ -2192,6 +2534,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	else:
 		model.position = Vector3(lunge * float(s.facing), 0, 0)
 	_flash(s, delta)
+	_launch_look(s)
+	_dizzy(s)
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
@@ -2204,6 +2548,13 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
-			model.rotation.x = -float(s.frame) * 0.4
+			# Tumbling head over heels, faster the faster the launch flies (a big launch whirls, a weak one rolls over slowly).
+			var flight: Vector2 = s.vel + s.get("kb_vel", Vector2.ZERO)
+			tumble_angle -= clampf(flight.length() * 1.3, 0.12, 0.6) * delta * 60.0
+			model.rotation.x = tumble_angle
+			# About the middle of the body, not the feet (which would swing the body down through the floor).
+			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
 		else:
 			model.rotation.x = -deg_to_rad(26.0)
+	else:
+		tumble_angle = 0.0

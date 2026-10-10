@@ -2,7 +2,7 @@
 
 Read this first when picking the project up again. The design source of truth is `docs/Platform_Fighter_Project_Plan.docx`;
 this file records where the build is against its roadmap (section 8) and what to do next. Last updated after the
-Phase 7 work (complete): match rules, HUD, results, rematches, the online screen, replays, spectating, groups of 3 to 4 and Quick match; then the third class, music and two movement-tuning passes toward the reference game, `docs/PHASE1_MOVEMENT.md` (sim version 30: the 9-frame and hold input buffer, short-hop aerials, light and heavy landings, shield release, air dodge timings and the reference ledge rules; sim version 33: full ground speed and the committed initial dash; hit feel in `docs/COMBAT.md`, the feel audit in `docs/FEEL_AUDIT.md`, recorded CC0 hit sounds in `docs/AUDIO.md`).
+Phase 7 work (complete): match rules, HUD, results, rematches, the online screen, replays, spectating, groups of 3 to 4 and Quick match; then the third class, music and two movement-tuning passes toward the reference game, `docs/PHASE1_MOVEMENT.md` (sim version 30: the 9-frame and hold input buffer, short-hop aerials, light and heavy landings, shield release, air dodge timings and the reference ledge rules; sim version 33: full ground speed and the committed initial dash; sim version 34: DI at the reference's 10 degrees, launch speed influence, hurtboxes lower in a crouch and on the claws' limbs, and the bruiser on the reference hammer heavyweight's attributes with four air jumps (`docs/FEEL_AUDIT.md`); hit feel in `docs/COMBAT.md`, the feel audit in `docs/FEEL_AUDIT.md`, recorded CC0 hit sounds in `docs/AUDIO.md`).
 
 ## Roadmap progress
 

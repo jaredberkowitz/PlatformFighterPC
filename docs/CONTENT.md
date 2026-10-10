@@ -50,7 +50,8 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
 * **Fighters** need every value in `FighterParams` (including `hitbox_scale`, the size of the fighter's attacks: 1 is the moveset as written) (`sim-core/src/content.rs`), or `inherit other_fighter` to copy
   an earlier fighter and override a few. `weapon <name>` picks the moveset.
 * **Weapons** list the moves they have; a move not mentioned is empty (and `validate` says which empty slots are
-  allowed). `inherit other_weapon` starts from an earlier moveset and replaces the moves you write.
+  allowed). `inherit other_weapon` starts from an earlier moveset and replaces the moves you write. `limbs true` marks a moveset whose
+  attacks are the body's own (claws, fists, feet): while a hit is out, the limb throwing it can be hit (a held weapon cannot).
 * **Moves** are named by slot: `jab ftilt utilt dtilt dash_attack fsmash usmash dsmash nair fair bair uair dair
   neutral_special side_special up_special down_special jab2 jab3 grab dash_grab pummel fthrow bthrow uthrow dthrow
   ledge_attack get_up_attack ext0 ext1 ext2 ext3 ext4 ext5 ext6 ext7 ext8 ext9 pivot_grab`. Frames count from the move's first frame

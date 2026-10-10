@@ -381,3 +381,64 @@ calls against 704, and fewer frames over 25 ms (14 against 37; most at load).
 
 Checking effects: `--demo=fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair> --noui --shots=<dir>` lands one move on a fighter up
 close with the camera steady on the attacker, a picture every frame.
+
+## Faces, big moments and painted stages (eighteenth pass)
+
+**Faces by situation** (`_face_for` in `fighter_view.gd`, `godot/art/faces/`): a wince while frozen by a hit; **dazed** (spiral eyes,
+a crooked open mouth) while flying from a big launch (tumbling) and while the shield is broken, with three cartoon stars circling the
+head; **shocked** (wide eyes, a little round mouth, a sweat drop) when grabbed. The yell, the effort face while charging, focus and
+blinking were already there.
+
+**Knock-out moments**:
+- A strong launch stretches the body along its flight (up to 45% longer and as much thinner, about its middle) and trails streaks behind
+  it, on twos; both stop the moment the flight slows (`_launch_look`).
+- **The finishing hit's impact frame**: for two frames the picture goes to two tones, the fighters pale with their ink lines against a
+  dark frame, while the hit's arc, slash and burst stay in colour and glow on top (`impact` in `post.gdshader`, set by `main.gd` when the
+  hit will knock out).
+
+**Painted stages**:
+- **Painted ridges** far behind each stage, drawn by a shader on flat cut-out cards (`shaders/painted_ridge.gdshader`, `RIDGES` in
+  `stage_art.gd`): rolling hills, peaked mountains, flat-topped mesas or a bank of cloud, filled with a soft gradient, their tops caught
+  by the light, a light brush grain, and their own haze toward the horizon. Coloured from the theme's sky, so the backdrop, the stage and
+  the fighters' light share one scheme.
+- **A colour grade per stage** (`grade` in each `MOODS` entry, applied by the finishing pass): the shadows and the lights of the whole
+  picture tinted toward two colours (cool shadows and warm lights by day, violet and amber at sunset, blue at night, magenta in the city).
+
+**Fixed**: the post pass read the object ids with a decoding this Godot version does not use, so a fighter against the stage got no id
+line (only a depth line); the ids are now read as written (checked by drawing them).
+
+
+## Moves for the base body (nineteenth pass)
+
+The base body (the fighters' body since the eighteenth pass, see `ART_WORKFLOW.md`) has real arms and legs, so its moves are played
+closer to life and posed again where the blob's read wrongly: the shoulders and hips wind back and turn through into each strike, the feet
+stay on the ground, and the game's own lean, slide and body-follow are smaller, since the clips carry the body. Re-posed (`BODY_MOVES` in
+`make_rigged_blob.py`), after how the reference fighters' moves read:
+
+- **Forward air**: a crescent cut (or claw rake) down through the space in front, the weapon raised with the shoulders back and the knees
+  drawn up, then the torso leaning over the swing with the front knee up and the back leg trailing; upright enough that the face stays on
+  the hit. **Up air**: tucked, then arched back under an overhead crescent, looking up. **Back air**: the chest twisted right round to face
+  behind as the swing rises behind. **Down air**: both arms raised, then swept down in front of the drawn-up knees.
+- **Tilts**: the sword's forward tilt leans into a fast rising cut; the claws' forward tilt is a two-handed lunging slash (`attack_claws`).
+- **The claws fighter** now follows its reference more closely: its **up air** and **down air** are claw slashes (overhead, and down below
+  with both hands), no longer kicks, and its **down smash** is a low sweep in front and then behind (the `sword_dsmash` body).
+
+- **Neutral airs**: the sword's (and the maul's, made from it) is an inward cut and then the blade carried right round the body as the
+  whole fighter flips over backward once (`NAIR_SPIN` in `fighter_view.gd`: the body turns in the plane of the stage between the frames its
+  hits circle, and the arm holds the blade out, so the blade follows the hits round); the claws' is the split kick.
+- **Smashes**: the sword's up smash and down tilt are thrusts (`SWORD_THRUSTS`: the blade points at the hit from the start and the arm
+  drives it in, instead of swinging round to it); its down smash is down low on a bent back knee, sweeping in front and then behind.
+- **The maul** is swung two-handed (the other hand grips the shaft above the first), its heavy swings carried on the same body poses.
+- **Fixed**: a clip that follows the move began with a cross-fade from the clip before, and seeking a paused clip never moves a
+  cross-fade on, so some moves (the down smash's crouch, for one) never showed their own pose at all. They now start at once.
+
+- **Side-on, as the reference game's fighters stand**: the hips and legs turn 80 degrees toward the way the fighter faces (was 60), the
+  chest 14 back toward the camera and the head 6 more, so strides, lunges and kicks read across the screen while the drawn face keeps
+  both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`).
+- **Glasses on the eyes**: they are fitted to the face drawing (its place on the head is in `base_rig.json` as `face`), scaled with it
+  and centred on the part of the eye the drawings' heavy lids leave open (`_glasses_fit`, `GLASSES_DROP`); they had been fitted to the
+  head's shape and sat on the brows. And a fighter shown without being played (the menus) now has its hats, glasses and neckwear
+  where its idle pose has its head and chest, not where they would be standing straight.
+
+Check them with `--demo=fx_<sword|claws|maul>_<move> --noui --noecb --shots=<folder>` (every tilt, smash and aerial; a picture on every
+frame, the camera steady on the attacker).

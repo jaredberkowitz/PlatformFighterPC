@@ -56,6 +56,9 @@ var world_env: Environment
 var cam_base := Vector3.INF
 ## How hard the camera is shaking (world units), set by strong hits and settling quickly.
 var cam_shake := 0.0
+## The finishing material over the picture (shaders/post.gdshader), and the frame a finishing hit's two-tone moment ends.
+var post_mat: ShaderMaterial
+var impact_until := -1
 ## How hard the camera is punching in after a heavy hit (0..1.2), settling quickly.
 var cam_punch := 0.0
 ## A hit that will knock a fighter out: the camera closes in on them for a moment.
@@ -177,8 +180,9 @@ func _build_world() -> void:
 		post.mesh = quad
 		post.extra_cull_margin = 16384.0
 		post.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var post_mat := ShaderMaterial.new()
+		post_mat = ShaderMaterial.new()
 		post_mat.shader = POST_SHADER
+		post_mat.set_shader_parameter("impact", 0.0)
 		# First among the see-through things, so the effects, shields and numbers are drawn over the finished picture.
 		post_mat.render_priority = -100
 		post.material_override = post_mat
@@ -301,7 +305,7 @@ func _refresh(i: int) -> void:
 	cur_pos[i] = sim.fighter_pos(i)
 	snaps[i] = {
 		"state": sim.fighter_state(i), "state_frame": sim.fighter_state_frame(i),
-		"facing": sim.fighter_facing(i), "pos": cur_pos[i], "vel": sim.fighter_vel(i),
+		"facing": sim.fighter_facing(i), "pos": cur_pos[i], "vel": sim.fighter_vel(i), "kb_vel": sim.fighter_kb_vel(i),
 		"char": info[0], "class": sim.fighter_class(i), "platform": info[1], "jumps": info[2], "dodged": info[3] != 0,
 		"fast_fall": info[4] != 0, "ledge": info[5], "ledge_invuln": info[6], "grabs": info[7],
 		"lag": info[8], "cooldown": info[9], "ignore": info[10], "frame": sim.frame(),
@@ -345,7 +349,7 @@ func _apply_sky() -> void:
 		# The haze behind the stage takes the colour of the stage's horizon.
 		world_env.fog_light_color = stage_view.theme.sky_horizon
 		# The light, the shadows' hue and the rim light follow the stage's theme.
-		Lighting.stage_mood(world_env, self, stage_view.theme)
+		Lighting.stage_mood(world_env, self, stage_view.theme, post_mat)
 
 
 func _apply_rules() -> void:
@@ -802,6 +806,11 @@ func _tick_once(advance := true) -> void:
 			_on_hit(i, befores)
 		elif struck and snaps[i].state == "Shield":
 			_on_block(i)
+		# A strong launch has just begun (its hitlag over): a blue streak along the line it flies, as bent by DI.
+		if before.get("launch_pending", false) and not snaps[i].launch_pending and snaps[i].get("tumble", false) and _in_play(i):
+			var kb: Vector2 = sim.fighter_kb_vel(i)
+			if kb.length() > 0.01:
+				Effects.launch_line(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.9), kb.normalized())
 		_on_events(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide
@@ -966,6 +975,10 @@ func _process(delta: float) -> void:
 	var a := _alpha()
 	# Effects run on the match's clock (see FxMaterial.tick).
 	FxMaterial.tick((float(sim.frame()) + a) / 60.0)
+	if post_mat != null:
+		var two_tone := 1.0 if int(sim.frame()) < impact_until else 0.0
+		if float(post_mat.get_shader_parameter("impact")) != two_tone:
+			post_mat.set_shader_parameter("impact", two_tone)
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		views[i].apply(Vector3(p.x, p.y, 0), snaps[i], delta)
@@ -1231,6 +1244,8 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		_screen_flash(0.18 + 0.2 * strength)
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
+		# The finishing hit: two frames in two tones.
+		impact_until = int(sim.frame()) + 2
 		ko_time = 0.75
 		cam_shake = maxf(cam_shake, 0.9)
 

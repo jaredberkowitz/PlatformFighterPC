@@ -1863,7 +1863,8 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
 }
 
 /// Turns a pending hit into motion at the end of hitlag. Directional influence: the part of the held stick
-/// that is perpendicular to the launch direction bends the angle, by up to `di_degrees`.
+/// that is perpendicular to the launch direction bends the angle, by up to `di_degrees`. Launch speed influence: holding the
+/// stick up or down makes a tumbling launch a little faster or slower (`lsi_up`, `lsi_down`), unless it is close to vertical.
 fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
     let angle = Angle::from_raw(f.launch_angle);
     let (ux, uy) = (trig::cos(angle), trig::sin(angle));
@@ -1874,11 +1875,23 @@ fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
     let bent = Angle::from_raw((i32::from(f.launch_angle) + bend).rem_euclid(4096) as u16);
 
     // 0.03 reference units per knockback unit, 8 reference units per world unit.
-    let speed = f.launch_kb * Fx::from_ratio(3, 800);
+    let mut speed = f.launch_kb * Fx::from_ratio(3, 800);
+    f.tumble = f.launch_kb >= rules.tumble_knockback;
+    if f.tumble {
+        // The angle after DI, in degrees (0 to 359), against the vertical bands where LSI does nothing.
+        let degrees = i32::from(bent.raw()) * 360 / 4096;
+        let margin = i32::from(rules.lsi_vertical);
+        let vertical = (degrees - 90).abs() <= margin || (degrees - 270).abs() <= margin;
+        let y = input.stick_y_fx().clamp(-Fx::ONE, Fx::ONE);
+        if !vertical && y > Fx::ZERO {
+            speed = speed * (Fx::ONE + (rules.lsi_up - Fx::ONE) * y);
+        } else if !vertical && y < Fx::ZERO {
+            speed = speed * (Fx::ONE + (Fx::ONE - rules.lsi_down) * y);
+        }
+    }
     f.kb_vel = Vec2::new(trig::cos(bent) * speed, trig::sin(bent) * speed);
     f.vel = Vec2::ZERO;
     f.launch_pending = false;
-    f.tumble = f.launch_kb >= rules.tumble_knockback;
     // A tumbling launch is sped up at first (see `launch_speedup`).
     let faf = f.hitstun + 1;
     if f.tumble && faf > u16::from(rules.balloon_min_faf) && rules.balloon_max > Fx::ONE {

@@ -382,6 +382,7 @@ params_io! {
     ecb_height: Fx,
     ecb_side_height: Fx,
     hitbox_scale: Fx,
+    crouch_height: Fx,
     helpless_landing_lag: u8,
     ledge_attack_frames: u8,
     ledge_attack_dx: Fx,
@@ -396,6 +397,9 @@ rules_io! {
     sdi_distance: Fx,
     short_hop_damage: Fx,
     di_degrees: u8,
+    lsi_up: Fx,
+    lsi_down: Fx,
+    lsi_vertical: u8,
     respawn_invuln: u8,
     tech_window: u8,
     tech_lag: u8,
@@ -852,9 +856,13 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
     let context = format!("weapon `{name}`");
     let mut f = Fields::new(block, &context, errors);
     let mut moves: Vec<Move> = (0..MoveId::COUNT).map(|_| Move::empty()).collect();
+    let mut limbs = false;
     if let Some((base, line)) = f.raw("inherit") {
         match earlier.iter().find(|(n, _)| n == base) {
-            Some((_, w)) => moves = w.moves.clone(),
+            Some((_, w)) => {
+                moves = w.moves.clone();
+                limbs = w.limbs;
+            }
             None => err(
                 errors,
                 line,
@@ -862,6 +870,7 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
             ),
         }
     }
+    let limbs = f.or("limbs", limbs, errors);
     f.finish(errors);
     only_known(block, &["move"], &context, errors);
     let mut seen: Vec<MoveId> = Vec::new();
@@ -889,11 +898,14 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
         seen.push(id);
         moves[id as usize] = read_move(mb, &format!("{key} of {context}"), errors);
     }
-    Weapon { moves }
+    Weapon { moves, limbs }
 }
 
 fn write_weapon(name: &str, w: &Weapon) -> Block {
     let mut b = Block::new("weapon", Some(name));
+    if w.limbs {
+        b.field("limbs", "true");
+    }
     for (i, m) in w.moves.iter().enumerate() {
         if !m.is_empty() {
             b.push(write_move(MoveId::from_index(i as u8), m));

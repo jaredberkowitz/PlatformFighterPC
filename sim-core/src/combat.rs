@@ -25,7 +25,8 @@ use crate::trig::Angle;
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
 
-pub const HURT_CIRCLES: usize = 3;
+/// Three up the body and one for a limb thrown out in an attack (see `hurtboxes`).
+pub const HURT_CIRCLES: usize = 4;
 
 pub fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
     let idx = usize::from(f.char_id).min(content.fighters.len().saturating_sub(1));
@@ -37,16 +38,35 @@ pub fn weapon_of<'a>(content: &'a Content, p: &FighterParams) -> &'a Weapon {
     &content.weapons[idx]
 }
 
-/// Three circles stacked up the body, sized from the ECB.
-pub fn hurtboxes(f: &Fighter, p: &FighterParams) -> [(Vec2, Fx); HURT_CIRCLES] {
+/// Three circles stacked up the body, sized from the ECB (lower while crouching: `crouch_height`), and a fourth for a limb.
+/// With a weapon of `limbs` (claws, fists, feet), while an attack's hit is out the arm or leg throwing it reaches toward the
+/// farthest of its hitboxes and can be hit there; otherwise the fourth circle is the middle one again.
+pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HURT_CIRCLES] {
     let radius = p.ecb_half_width * Fx::from_ratio(17, 20);
-    let at = |twentieths: i32| {
-        Vec2::new(
-            f.pos.x,
-            f.pos.y + p.ecb_height * Fx::from_ratio(twentieths, 20),
-        )
+    let height = if f.state == S::Crouch && f.grounded() {
+        p.ecb_height * p.crouch_height
+    } else {
+        p.ecb_height
     };
-    [(at(6), radius), (at(11), radius), (at(16), radius)]
+    let at =
+        |twentieths: i32| Vec2::new(f.pos.x, f.pos.y + height * Fx::from_ratio(twentieths, 20));
+    let middle = at(11);
+    let mut limb = (middle, radius);
+    if w.limbs && matches!(f.state, S::Attack | S::LedgeAttack) {
+        let mut far = Fx::ZERO;
+        for (_, hb, centre) in active_hitboxes(f, w.get(f.move_id), p.hitbox_scale) {
+            let reach = (centre - middle).length();
+            if hb.kind == HIT_NORMAL && reach > far {
+                far = reach;
+                // Most of the way out to the hit, and a little thinner than it: the forearm or shin behind the fist or foot.
+                limb = (
+                    middle + (centre - middle) * Fx::from_ratio(4, 5),
+                    hb.radius * Fx::from_ratio(7, 10),
+                );
+            }
+        }
+    }
+    [(at(6), radius), (middle, radius), (at(16), radius), limb]
 }
 
 /// True while a fighter cannot be hit.
@@ -198,7 +218,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             if is_intangible(fd) {
                 continue;
             }
-            let hurt = hurtboxes(fd, params_of(content, fd));
+            let pd = params_of(content, fd);
+            let hurt = hurtboxes(fd, pd, weapon_of(content, pd));
             let mut best: Option<Hitbox> = None;
             for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
                 if fa.hit_mask & hit_bit(d, hb.group) != 0 {
@@ -832,7 +853,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 continue;
             }
             let fd = &state.fighters[d];
-            let hurt = hurtboxes(fd, params_of(content, fd));
+            let pd = params_of(content, fd);
+            let hurt = hurtboxes(fd, pd, weapon_of(content, pd));
             if hurt
                 .iter()
                 .any(|(hc, hr)| overlaps(pos, hb.radius, *hc, *hr))

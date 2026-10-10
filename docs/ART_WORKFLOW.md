@@ -52,12 +52,40 @@ generators (fill in the brackets; keep the rest):
   gouache style, soft shapes, limited palette of [the stage's sky and ground colours], no characters, no text, [transparent / plain
   sky-coloured] background`
 
+**Preparing a turnaround sheet**: `art/blender/prepare_concept.py` cuts the views out of a sheet listed in a small views file (see
+`art/concept/base_body_views.json`), keeps only the figure (the grey ground, guide lines, labels and bits of neighbouring views turn
+white), puts each view on a white square, and with `blank_face` also writes a version with the face painted out in the skin colour (the
+game draws faces itself). Example: the base body sheet gives `art/concept/base_body_turnaround_{front,front_blank,side,side_blank,back}.png`.
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/prepare_concept.py -- --in art/concept/base_body_turnaround.jpg --views art/concept/base_body_views.json
+```
+
 ## 3. Generate a model
 
-`tools/art/gen3d.py` sends a concept picture (or a text prompt) to **Meshy** or **Tripo** and downloads the raw model to
+**Free**: `tools/art/hf_gen.py` uses public Hugging Face demos of open models: **FLUX.1-schnell** (Apache-2.0) for a picture from a
+prompt (wrapped in the prop style wording: straight-on, eye level, upright, no shadow), and for the model **TRELLIS** (`--model trellis`,
+the default) or **TRELLIS.2** (`--model trellis2`), both Microsoft's and MIT-licensed, or **Stable Fast 3D** (`--model sf3d`, Stability AI
+Community Licence: free under $1M a year in revenue, commercial use after a free registration). Log in once with `hf auth login` (a free
+account's read token). Measured limits (October 2026): the demos share each account's free GPU time (ZeroGPU, a few minutes a day), and
+TRELLIS and TRELLIS.2 each ask for 120 seconds, which is only granted with plenty left, so a free account makes about **one model a day**
+(Hugging Face PRO gives 25 minutes a day, about a dozen). Stable Fast 3D fits easily but its models are lumpy blobs that lose the details;
+it is not good enough for this style. Before generating, cut the picture out of its ground and shadow
+(`art/blender/prepare_concept.py -- --in picture.png --cutout out.png`), or the shadow becomes a disc under the model. Pictures are kept in
+`art/concept/` (props in `art/concept/props/`) as the record of where each model came from.
+
+```bash
+python tools/art/hf_gen.py text-image "a wooden barrel with iron bands" --name barrel
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/prepare_concept.py -- --in art/generated/barrel/concept.png --cutout art/concept/props/barrel.png
+python tools/art/hf_gen.py image-3d art/concept/props/barrel.png --name barrel
+python tools/art/hf_gen.py image-3d art/concept/base_body_turnaround_front_blank.png --name base_body --model trellis2
+```
+
+**Paid**: `tools/art/gen3d.py` sends a concept picture (or a text prompt) to **Meshy** or **Tripo** and downloads the raw model to
 `art/generated/<name>/raw.glb` (raw models are not committed; see `.gitignore`).
 
-1. Make an account with the service and create an API key on its account page.
+1. Make an account with the service and create an API key on its account page (both need a paid plan for API keys: Meshy's docs
+   say free accounts only get a key for its web playground, and Tripo's free tier has no API access).
 2. Put the key in the environment, never in a file in the repository: in PowerShell, `setx MESHY_API_KEY "<key>"` (or
    `TRIPO_API_KEY`), then open a new terminal.
 3. Run it. Without `--yes` it only prints the request (every request spends credits):
@@ -109,13 +137,42 @@ After adding files under `godot/`, run `Godot --headless --path godot --import` 
   turn toward, the rim colour) plus its fog layers (`MIST` in `stage_art.gd`); the baked soft shading comes from the stage's shape by
   itself.
 
-### Characters (next)
+### Characters
 
 Fighters are animated by poses on a shared skeleton (`make_rigged_blob.py`: the clips, the IK and the 2D face all depend on it), so a new
-body has to fit that skeleton rather than bring its own. The plan for generated bodies: an A-pose, blank-headed body made to the blob's
-proportions (the turnaround prompt above) is cleaned up with `--kind fighter`, then `make_rigged_blob.py` uses it in place of its built
-body: scaled to the rig, bound with automatic weights, the face shell laid on the head, and the clips exported as usual. That step is
-written once there is a first generated body to fit, because its fitting depends on what the services actually return.
+body is fitted to that skeleton rather than bringing its own. The base body (from `art/concept/base_body_turnaround.jpg`) was made this way:
+
+1. **Generate** a full body, A-pose or arms down, blank head if possible (it was made with Tripo from the sheet; Tripo built the whole sheet
+   as 3D, so the main figure was picked out in the next step).
+2. **Clean it up** as one closed, low skin in one colour (the face and any patches go; the game draws the face and paints the colour):
+   ```bash
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/import_generated.py -- --in <sheet.glb> --name base_body --kind fighter --keep biggest --remesh 0.02 --out art/models/base_body/base_body.glb
+   ```
+   (`--keep biggest` keeps the largest figure after welding the seams; `--remesh` rebuilds the surface; fighters are kept to 3,500
+   triangles: smooth shading and the ink outline carry the look.)
+3. **Measure it** for the skeleton (`art/blender/fit_body.py`: points spread over the surface are sliced; the neck is the narrowest
+   trunk, the legs are followed up from the feet to the crotch, the arms down from the armpits to the fingertips):
+   ```bash
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/fit_body.py -- --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json
+   ```
+4. **Rig it** with every clip (`make_rigged_blob.py --body`: the head is lowered onto the shoulders (`NECK_DROP`, the generated neck
+   squeezed away), the generated hands give way to the game's glove fists with cuffs fitted to the forearms, a face shell is laid on the
+   head, the skin is weighted automatically and the arms' weights smoothed so the elbows bend round; writes `godot/models/base_rig.glb` and
+   `base_rig.json`, the head, shoulder and wrist the game fits hats, glasses and the weapon arm to, and where the clothes go):
+   ```bash
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json
+   ```
+5. **See it** in the game: it is the fighters' body (`FighterView.use_base_body`; the `--blob` launch option brings back the first, built
+   body). Its clothes are painted on by region (`shaders/skin.gdshader`, regions from `base_rig.json`), so they bend with it and never clip.
+
+The base body is animated closer to life than the blob (whose limbless moves were posed big and exaggerated to read at all): `BODY_AMP`
+pulls the exaggeration most of the way back, the key moves are posed again (`BODY_MOVES`) so the shoulders and hips wind back and turn
+through into the strike as the weight steps onto the front foot, and on the ground the feet stay planted (the hips follow the legs; in a
+standing move both feet stay down, the front knee lifting into a lunge and the feet coming in toward one line so the step reads from the
+three-quarter camera). In the game its punches and swings travel round the shoulder in an arc, and the whole-model tilt and slide are
+smaller, since the spine and legs carry the motion.
+
+Still to do for the base body: the neckwear's fit, and the licence of the free-plan model (see `THIRD_PARTY.md`).
 
 ## 6. Review
 

@@ -12,22 +12,28 @@ extends RefCounted
 const MOODS := {
 	"meadow": {"key": [Color(1.0, 0.93, 0.82), 1.25, -38.0, -32.0], "fill": [Color(0.62, 0.72, 1.0), 0.35],
 		"ambient": [Color(1.0, 0.9, 0.86), 0.5], "shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.64,
-		"shadow_tint": Color(0.74, 0.7, 0.88), "rim": Color(1.0, 0.94, 0.84)},
+		"shadow_tint": Color(0.74, 0.7, 0.88), "rim": Color(1.0, 0.94, 0.84),
+		"grade": [Color(0.92, 0.94, 1.04), Color(1.04, 1.0, 0.94), 0.5]},
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.2, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.88, 0.92), 0.52], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
-		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92)},
+		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
+		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.6]},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.86, 0.66, 0.84), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
-		"shadow_tint": Color(0.72, 0.58, 0.84), "rim": Color(1.0, 0.68, 0.42)},
+		"shadow_tint": Color(0.72, 0.58, 0.84), "rim": Color(1.0, 0.68, 0.42),
+		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.8]},
 	"night": {"key": [Color(0.72, 0.8, 1.0), 0.95, -48.0, -24.0], "fill": [Color(0.5, 0.56, 0.95), 0.4],
 		"ambient": [Color(0.58, 0.64, 0.95), 0.55], "shadow_hue": 0.66, "shadow_shift": 0.1, "shadow_value": 0.56,
-		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0)},
+		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
+		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8]},
 	"ocean": {"key": [Color(1.0, 0.96, 0.88), 1.3, -44.0, -30.0], "fill": [Color(0.56, 0.78, 1.0), 0.38],
 		"ambient": [Color(0.9, 0.95, 1.0), 0.5], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.66,
-		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0)},
+		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0),
+		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5]},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],
 		"ambient": [Color(0.7, 0.6, 0.9), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
-		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78)},
+		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78),
+		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.94, 1.0), 0.8]},
 }
 
 
@@ -92,9 +98,10 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	RenderingServer.global_shader_parameter_set("pf_ao_strength", 0.0)
 
 
-## Lights the scene for the stage's theme `theme` (see `StageArt.theme`): its mood, with the rim taking a little of the sky's horizon.
-## `root` holds the lights made by `apply`.
-static func stage_mood(env: Environment, root: Node, theme: Dictionary) -> void:
+## Lights the scene for the stage's theme `theme` (see `StageArt.theme`): its mood, with the rim taking a little of the sky's horizon, and
+## its colour grade on `post` (the match's finishing material, shaders/post.gdshader) if there is one. `root` holds the lights made by
+## `apply`.
+static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
@@ -107,6 +114,10 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary) -> void:
 		fill.light_energy = mood.fill[1]
 	env.ambient_light_color = mood.ambient[0]
 	env.ambient_light_energy = mood.ambient[1]
+	if post != null:
+		post.set_shader_parameter("grade_shadows", mood.grade[0])
+		post.set_shader_parameter("grade_lights", mood.grade[1])
+		post.set_shader_parameter("grade_amount", mood.grade[2])
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)

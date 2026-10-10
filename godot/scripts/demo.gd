@@ -27,8 +27,9 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var strong: int = m.strong
 	var grab: int = m.grab
 	if demo_name.begins_with("fx_"):
-		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails and
-		# hit effects): fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair>.
+		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails, hit
+		# effects and the animation): fx_<sword|claws|maul>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair>, with
+		# _ko on the end for a finishing hit (the other fighter at 170%).
 		var parts := demo_name.split("_")
 		var cls: int = {"sword": 0, "claws": 1, "maul": 2}.get(parts[1], 0)
 		var move: String = parts[2] if parts.size() > 2 else "ftilt"
@@ -40,11 +41,19 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.events = [[1, "place", 0, -1.0, 6.0], [1, "place", 1, 0.8, 6.0]]
 		else:
 			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 0.9, -1]]
-		var x: int = {"jab": 0, "ftilt": 40, "fsmash": 127, "nair": 0, "fair": 127}.get(move, 0)
-		d.timeline = [[0, 0, 0, 0], [10, x, 0, attack], [11, 0, 0, 0]]
-		for f in range(11, 40):
+		# [stick x, stick y, buttons] for each move.
+		var inputs: Dictionary = {"jab": [0, 0, attack], "ftilt": [40, 0, attack], "utilt": [0, 70, attack], "dtilt": [0, -70, attack],
+			"fsmash": [127, 0, attack], "usmash": [0, 70, attack | strong], "dsmash": [0, -70, attack | strong], "nair": [0, 0, attack],
+			"fair": [127, 0, attack], "bair": [-127, 0, attack], "uair": [0, 100, attack], "dair": [0, -70, attack]}
+		var input: Array = inputs.get(move, inputs.ftilt)
+		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [11, 0, 0, 0]]
+		if demo_name.ends_with("_ko"):
+			d.events.append([1, "percent", 1, 170.0])
+		# (Long enough for a smash, or a multi-hit move whose hits freeze it.)
+		var last := 75
+		for f in range(11, last):
 			d.shots.append([f, "f%02d" % (f - 10)])
-		d.end_frame = 41
+		d.end_frame = last + 1
 		return d
 	match demo_name:
 		"wavedash":

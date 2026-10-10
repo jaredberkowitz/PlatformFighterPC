@@ -1,0 +1,5 @@
+{
+  "front": {"box": [255, 112, 778, 1000], "blank_face": {"centre": [515, 268], "radius": 138}},
+  "side": {"box": [48, 100, 262, 700], "blank_face": {"centre": [140, 200], "radius": 96}},
+  "back": {"box": [722, 100, 992, 548]}
+}

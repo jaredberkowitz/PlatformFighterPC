@@ -417,6 +417,9 @@ impl Move {
 pub struct Weapon {
     /// Indexed by `MoveId as usize`.
     pub moves: Vec<Move>,
+    /// The attacks are the body's own (fists, claws, feet): while a hit is out, the limb throwing it can be hit too (see
+    /// `combat::hurtboxes`). A held weapon (a blade, a hammer) reaches out beyond the body and cannot.
+    pub limbs: bool,
 }
 
 impl Weapon {
@@ -448,6 +451,7 @@ impl StateHash for Hitbox {
 
 impl StateHash for Weapon {
     fn hash_into(&self, h: &mut StateHasher) {
+        h.write_u8(u8::from(self.limbs));
         h.write_u32(self.moves.len() as u32);
         for m in &self.moves {
             h.write_u8(m.total_frames);
@@ -1399,7 +1403,10 @@ fn sword_kit() -> Weapon {
     answer.intangible = 8;
     moves[MoveId::Ext0 as usize] = answer;
 
-    Weapon { moves }
+    Weapon {
+        moves,
+        limbs: false,
+    }
 }
 
 /// Short-reach, quick and heavy hitting: the longsword's moves pulled in close and sped up, with the
@@ -1407,6 +1414,8 @@ fn sword_kit() -> Weapon {
 /// brawler archetype).
 pub fn claws() -> Weapon {
     let mut w = sword_kit();
+    // Claws, fists and feet: the limb throwing a hit can be hit.
+    w.limbs = true;
     for (i, m) in w.moves.iter_mut().enumerate() {
         if MoveId::from_index(i as u8) == MoveId::UpSpecial {
             *m = Move::empty();

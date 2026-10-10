@@ -1037,7 +1037,8 @@ impl SimRunner {
         let mut v: Vec<f32> = Vec::new();
         if let Some(fi) = self.fighter(i) {
             let params = sim_core::combat::params_of(&self.content, fi);
-            for (c, r) in sim_core::combat::hurtboxes(fi, params) {
+            let weapon = sim_core::combat::weapon_of(&self.content, params);
+            for (c, r) in sim_core::combat::hurtboxes(fi, params, weapon) {
                 v.extend([f(c.x), f(c.y), f(r)]);
             }
         }

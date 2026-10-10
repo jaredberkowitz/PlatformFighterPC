@@ -127,10 +127,11 @@ class Burst extends MeshInstance3D:
 		im.surface_end()
 
 
-static func _burst(parent: Node, star: bool, on_top: bool) -> Burst:
+## `glow` 0 for soft things that should never bloom (dust, smoke); sparks, embers and flames keep it.
+static func _burst(parent: Node, star: bool, on_top: bool, glow := 1.0) -> Burst:
 	var b := Burst.new()
 	b.star = star
-	b.material_override = _material(not star, on_top)
+	b.material_override = _material(not star, on_top, glow)
 	parent.add_child(b)
 	return b
 
@@ -146,7 +147,7 @@ static func _aim(dir: Vector3, spread: float, depth := 0.25) -> Vector3:
 ## Dust kicked up at the feet: soft cream puffs that spread low along the ground (toward `side`, or both ways for 0) and swell as they
 ## fade. A bigger `force` for a hard landing.
 static func dust(parent: Node, at: Vector3, side: float, amount := 4, force := 1.0) -> void:
-	var b := _burst(parent, false, false)
+	var b := _burst(parent, false, false, 0.0)
 	b.grow = true
 	b.damping = 5.0
 	b.gravity = Vector3(0, 0.8, 0)
@@ -197,7 +198,7 @@ static func knock_out(parent: Node, at: Vector3, colour: Color, direction: Vecto
 		stars.colours = [c, c, Color(c.r, c.g, c.b, 0)]
 		for n in 6:
 			stars.add(at, _aim(dir, 55.0) * randf_range(7.0, 16.0), randf_range(1.0, 1.6), randf_range(0.9, 1.4))
-	var smoke := _burst(parent, false, false)
+	var smoke := _burst(parent, false, false, 0.0)
 	smoke.grow = true
 	smoke.damping = 3.0
 	smoke.colours = [Color(1, 1, 1, 0.85), Color(0.95, 0.93, 0.98, 0.5), Color(0.95, 0.93, 0.98, 0)]

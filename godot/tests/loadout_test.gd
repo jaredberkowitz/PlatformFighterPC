@@ -117,12 +117,21 @@ func _budget() -> void:
 		var l := Loadout.default_for(0)
 		l.shirt = s
 		v.rebuild(l)
-		# Sleeves are a band painted on the arms (shaders/limb.gdshader): there with a shirt, not without.
-		var arms := v.meshes.filter(func(m): return str(m.name).begins_with("Arm"))
-		var banded := arms.all(func(m):
-			var end = m.material_override.get_shader_parameter("top_end")
-			return end != null and float(end) > 0.0)
-		check(arms.size() == 2 and banded == (s != 0), "shirt %s sleeves" % Loadout.SHIRTS[s])
+		if FighterView.use_base_body:
+			# The base body wears the shirt painted on its skin (shaders/skin.gdshader), sleeves and print included.
+			var skins := v.meshes.filter(func(m): return str(m.name).begins_with("Skin"))
+			var skin_mat: ShaderMaterial = skins[0].material_override if not skins.is_empty() else null
+			var worn: bool = skin_mat != null and (skin_mat.get_shader_parameter("shirt") as Color).a > 0.5
+			check(skins.size() == 1 and worn == (s != 0), "shirt %s on the skin" % Loadout.SHIRTS[s])
+			if s >= 3:
+				check(skin_mat.get_shader_parameter("shirt_tex") is Texture2D, "shirt %s print on the skin" % Loadout.SHIRTS[s])
+		else:
+			# Sleeves are a band painted on the arms (shaders/limb.gdshader): there with a shirt, not without.
+			var arms := v.meshes.filter(func(m): return str(m.name).begins_with("Arm"))
+			var banded := arms.all(func(m):
+				var end = m.material_override.get_shader_parameter("top_end")
+				return end != null and float(end) > 0.0)
+			check(arms.size() == 2 and banded == (s != 0), "shirt %s sleeves" % Loadout.SHIRTS[s])
 		var mat = v._shirt_material()
 		check((mat == null) == (s == 0), "shirt %s material" % Loadout.SHIRTS[s])
 		if s >= 3:

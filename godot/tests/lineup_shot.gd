@@ -2,6 +2,7 @@ extends SceneTree
 ## Photographs the four default fighters side by side, close up, with every face and shirt, for checking the character art against
 ## the reference (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/lineup_shot.gd -- --out=<folder>
+## Writes lineup.png, lineup_faces.png, and lineup_gear_0.png and lineup_gear_1.png (every hat, pair of glasses and neckwear).
 
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -40,4 +41,15 @@ func _initialize() -> void:
 			previews[f % 4].set_expression(Loadout.HURT)
 	await create_timer(0.6).timeout
 	root.get_viewport().get_texture().get_image().save_png(out.path_join("lineup_faces.png"))
+	# Every hat, pair of glasses and neckwear, four fighters at a time.
+	for page in 2:
+		for p in 4:
+			var i := page * 4 + p
+			var l: RefCounted = Loadout.default_for(p)
+			l.hat = 1 + i % (Loadout.HATS.size() - 1)
+			l.glasses = i % Loadout.GLASSES.size()
+			l.neck = 1 + i % (Loadout.NECKS.size() - 1)
+			previews[p].set_loadout(l)
+		await create_timer(0.6).timeout
+		root.get_viewport().get_texture().get_image().save_png(out.path_join("lineup_gear_%d.png" % page))
 	quit(0)
