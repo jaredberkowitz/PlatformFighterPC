@@ -234,6 +234,12 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		return
 	var cx := (left + right) / 2.0
 	var w := right - left
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(left * 13.0 + top * 7.0)
+	# A soft shadow on the front just under the cap, where its overhang keeps the light off: it makes the edge of the fighting surface
+	# read at a glance.
+	var cap_depth := {"roof": 0.42, "sand": 0.5}.get(t.get("cap", "grass"), 0.62) as float
+	_mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
 	match t.get("cap", "grass"):
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
@@ -247,8 +253,6 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
 			# A few pebbles and shells on the back of the sand.
-			var rng := RandomNumberGenerator.new()
-			rng.seed = int(left * 13.0 + top * 7.0)
 			var pebble := FighterView.toon((t.soil as Color).lightened(0.2))
 			var x := left + 0.7
 			while x < right - 0.5:
@@ -262,11 +266,50 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			lip.name = "lip"
 			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.06, front_z + 0.3))
-			var x := left + 0.6
+			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them.
+			var x := left + rng.randf_range(0.4, 0.9)
 			var tuft_mesh := _sphere(0.32, 12)
+			var stone := FighterView.toon((t.soil as Color).lightened(0.25))
 			while x < right - 0.4:
-				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h - 0.12, front_z + 0.2), Vector3(1.2, 0.8, 0.6))
-				x += 1.15
+				var k := rng.randf_range(0.75, 1.3)
+				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h - 0.12 * k, front_z + 0.2), Vector3(1.2, 0.8, 0.6) * k)
+				if rng.randf() < 0.22:
+					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
+				x += rng.randf_range(0.8, 1.6)
+
+
+## A strip `w` wide and `h` tall, dark at its top edge fading to nothing at the bottom (vertex colours), for a soft shadow under an edge.
+static func _shade_band(w: float, h: float) -> ArrayMesh:
+	var key := "%.2f,%.2f" % [w, h]
+	if _band_cache.has(key):
+		return _band_cache[key]
+	var verts := PackedVector3Array([Vector3(-w / 2.0, h / 2.0, 0), Vector3(w / 2.0, h / 2.0, 0), Vector3(w / 2.0, -h / 2.0, 0),
+		Vector3(-w / 2.0, h / 2.0, 0), Vector3(w / 2.0, -h / 2.0, 0), Vector3(-w / 2.0, -h / 2.0, 0)])
+	var dark := Color(0.08, 0.04, 0.12, 0.42)
+	var clear := Color(0.08, 0.04, 0.12, 0.0)
+	var cols := PackedColorArray([dark, dark, clear, dark, clear, clear])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = cols
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_band_cache[key] = mesh
+	return mesh
+
+
+static var _band_cache := {}
+static var _band_mat: StandardMaterial3D
+
+
+static func _band_material() -> StandardMaterial3D:
+	if _band_mat == null:
+		_band_mat = StandardMaterial3D.new()
+		_band_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_band_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_band_mat.vertex_color_use_as_albedo = true
+		_band_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _band_mat
 
 
 ## A pass-through platform in the theme: a rounded wooden plank (a light board on a darker beam), or a steel girder with rivets.
@@ -325,6 +368,7 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
 	painted_layers(root, t.name)
 	_props(root, t.name, _ext(stage))
+	_foreground(root, t.name, _ext(stage))
 	merge_static(root)
 
 
@@ -362,6 +406,55 @@ static func merge_static(root: Node3D) -> int:
 			mi.free()
 		saved += parts.size() - 1
 	return saved
+
+
+# ---- Foreground: a few things in front of the stage, low at its two ends ------------------------------------------------------------
+# Darker than the stage (nearer the camera, in its shade), on the stage's front below the fighting surface and well in from the edges,
+# so they frame the picture without hiding a fighter on the stage or one recovering below a ledge.
+
+static func _foreground(root: Node3D, theme_name: String, e: Array) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var y: float = e[2]
+	for side in [-1.0, 1.0]:
+		var x: float = (e[0] if side < 0.0 else e[1]) - side * 2.6
+		var at := Vector3(x, y - 2.5, 3.0)
+		match theme_name:
+			"sunset":
+				_fg_rocks(root, at, Color(0.42, 0.22, 0.24), rng)
+			"ocean":
+				_fg_rocks(root, at, Color(0.46, 0.44, 0.5), rng)
+			"city":
+				_fg_vent(root, at, side)
+			_:
+				_fg_bush(root, at, Color(0.18, 0.4, 0.26), rng)
+
+
+static func _fg_bush(root: Node3D, at: Vector3, colour: Color, rng: RandomNumberGenerator) -> void:
+	var leaf := FighterView.toon(colour)
+	var light := FighterView.toon(colour.lightened(0.12))
+	for k in 4:
+		var s := rng.randf_range(0.8, 1.25)
+		_mesh(root, _sphere(1.0, 10), leaf if k % 2 == 0 else light, at + Vector3((k - 1.5) * 0.9, rng.randf_range(-0.2, 0.4), rng.randf_range(-0.3, 0.3)),
+			Vector3(s * 1.2, s, s))
+	var petal := _unshaded(Color(1.0, 0.8, 0.86))
+	for k in 3:
+		_mesh(root, _sphere(0.16, 6), petal, at + Vector3(rng.randf_range(-1.4, 1.4), rng.randf_range(0.6, 1.0), 0.9))
+
+
+static func _fg_rocks(root: Node3D, at: Vector3, colour: Color, rng: RandomNumberGenerator) -> void:
+	var stone := FighterView.toon(colour)
+	for k in 3:
+		var s := Vector3(rng.randf_range(1.1, 1.6), rng.randf_range(0.7, 1.0), 1.0) * rng.randf_range(0.7, 1.1)
+		_mesh(root, _sphere(1.0, 6), stone, at + Vector3((k - 1) * 1.2, rng.randf_range(-0.2, 0.2), rng.randf_range(-0.3, 0.3)), s,
+			Vector3(0, rng.randf_range(0, 60), rng.randf_range(-10, 10)))
+
+
+static func _fg_vent(root: Node3D, at: Vector3, side: float) -> void:
+	var metal := FighterView.toon(Color(0.36, 0.34, 0.48))
+	_mesh(root, _box(Vector3(2.0, 1.4, 1.2)), metal, at)
+	_mesh(root, _cylinder(0.22, 0.22, 2.4, 8), metal, at + Vector3(side * -1.2, 0.3, 0), Vector3.ONE, Vector3(0, 0, 90))
+	_mesh(root, _cylinder(0.5, 0.5, 0.12, 10), FighterView.toon(Color(0.22, 0.2, 0.3), false), at + Vector3(0, 0.15, 0.62), Vector3.ONE, Vector3(90, 0, 0))
 
 
 # ---- Props: a few small low-poly things behind the fighters per theme (few sides, flat colours, ink outlines) ------------------------
@@ -441,7 +534,13 @@ static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGener
 	_mesh(root, _sphere(1.0, 6), FighterView.toon(Color(0.74, 0.72, 0.8)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
 
 
-static func _mushroom(root: Node3D, at: Vector3, size: float, cap: Color) -> void:
+## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).
+static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> void:
+	var root := Squish.new()
+	root.position = at
+	root.phase = at.x * 1.7
+	parent.add_child(root)
+	at = Vector3.ZERO
 	_mesh(root, _cylinder(0.12 * size, 0.18 * size, 0.7 * size, 8), FighterView.toon(Color(0.98, 0.94, 0.86)), at + Vector3(0, 0.35 * size, 0))
 	var top := _sphere(0.45 * size, 10)
 	top.is_hemisphere = true
@@ -1039,6 +1138,17 @@ class Sway extends Node3D:
 		t += delta
 		rotation.z = deg_to_rad(amount) * sin(t * speed + phase)
 		rotation.x = deg_to_rad(amount * 0.4) * sin(t * speed * 0.7 + phase * 1.3)
+
+
+## A gentle squash and stretch about the node's base, as if breathing (mushrooms).
+class Squish extends Node3D:
+	var phase := 0.0
+	var t := 0.0
+
+	func _process(delta: float) -> void:
+		t += delta
+		var k := sin(t * 2.2 + phase) * 0.035
+		scale = Vector3(1.0 - k * 0.5, 1.0 + k, 1.0 - k * 0.5)
 
 
 ## Bobs on the water and rolls a little (a boat).

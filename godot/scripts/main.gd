@@ -58,6 +58,7 @@ var cam_base := Vector3.INF
 var cam_shake := 0.0
 ## The finishing material over the picture (shaders/post.gdshader), and the frame a finishing hit's two-tone moment ends.
 var post_mat: ShaderMaterial
+var post_stage_dist := -1.0
 var impact_until := -1
 ## How hard the camera is punching in after a heavy hit (0..1.2), settling quickly.
 var cam_punch := 0.0
@@ -145,8 +146,9 @@ func _ready() -> void:
 	_apply_rules()
 	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
-	# (`--noui` demo shots look like a match from the menus, without even the match HUD.)
-	if Roster.session.get("from_menu", false) or OS.get_cmdline_user_args().has("--noui"):
+	# (`--noui` demo shots look like a match from the menus, without even the match HUD; `--match` like one with it.)
+	var args := OS.get_cmdline_user_args()
+	if Roster.session.get("from_menu", false) or args.has("--noui") or args.has("--match"):
 		overlay_on = false
 		overlay.set_overlay_visible(false)
 		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
@@ -1049,6 +1051,8 @@ func _process_inner(delta: float) -> void:
 
 
 func _update_hud(delta: float) -> void:
+	for i in mini(PLAYERS, views.size()):
+		views[i].set_overhead(overlay_on and not flag_noui, "P%d" % (i + 1), PLAYER_COLORS[i % PLAYER_COLORS.size()])
 	var rules: PackedInt32Array = sim.match_rules()
 	var frame: int = sim.match_frame()
 	var winner: int = sim.winner()
@@ -1057,10 +1061,10 @@ func _update_hud(delta: float) -> void:
 	var urgent := false
 	if rules[1] > 0:
 		var left: int = ceili(maxi(0, rules[1] * 60 - frame) / 60.0)
-		clock = "%d:%02d" % [left / 60, left % 60]
+		clock = "%02d:%02d" % [left / 60, left % 60]
 		urgent = left <= 10 and winner == -1
 	elif rules[0] > 0:
-		clock = "%d:%02d" % [frame / 3600, (frame / 60) % 60]
+		clock = "%02d:%02d" % [frame / 3600, (frame / 60) % 60]
 	var banner := ""
 	var alpha := 1.0
 	if countdown > 0.0:
@@ -1075,7 +1079,11 @@ func _update_hud(delta: float) -> void:
 	var stocks := []
 	var alive := []
 	var in_match := []
+	var classes := []
+	var looks := []
 	for i in PLAYERS:
+		classes.append(int(snaps[i].get("class", snaps[i].get("char", 0))))
+		looks.append(views[i].loadout if i < views.size() else null)
 		percent.append(snaps[i].get("percent", 0.0))
 		stocks.append(snaps[i].get("stocks", 0))
 		alive.append(sim.fighter_active(i))
@@ -1083,6 +1091,7 @@ func _update_hud(delta: float) -> void:
 	hud.show_state({
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
+		"counting_down": rules[1] > 0, "classes": classes, "looks": looks,
 		"status": _net_status_text(),
 		"offscreen": _offscreen_markers(),
 	})
@@ -1576,6 +1585,10 @@ func _update_camera(a: float, delta: float) -> void:
 	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
 	cam.position = cam_base + offset + punch + Vector3(0, lift, 0)
 	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, 0)
+	# The distance haze starts at the stage plane (shaders/post.gdshader).
+	if post_mat != null and absf(cam.position.z - post_stage_dist) > 0.25:
+		post_stage_dist = cam.position.z
+		post_mat.set_shader_parameter("stage_dist", post_stage_dist)
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),

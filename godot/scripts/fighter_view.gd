@@ -1568,9 +1568,31 @@ var name_text := ""
 ## Shows a name above the fighter (empty hides it). Rebuilding the view keeps it.
 func set_name_tag(text: String) -> void:
 	name_text = text
-	if name_label != null:
+	if name_label != null and not match_tag:
 		name_label.text = text
 		name_label.visible = text != ""
+
+
+## What floats over the head. In a match only a small player tag in the player's colour ("P1"): the damage is on the match display, and
+## the tag says who is who without relying on colour alone. In training, the damage and the fighter's name, as before.
+var match_tag := false
+
+
+func set_overhead(training: bool, tag: String, colour: Color) -> void:
+	if percent_label == null or name_label == null or match_tag == not training:
+		return
+	match_tag = not training
+	percent_label.visible = training
+	if training:
+		name_label.text = name_text
+		name_label.visible = name_text != ""
+		name_label.modulate = Color.WHITE
+		name_label.position.y = 3.55
+	else:
+		name_label.text = tag
+		name_label.visible = true
+		name_label.modulate = colour.lightened(0.15)
+		name_label.position.y = 3.35
 var blade_pivot: Node3D
 var blade_parts: Array[MeshInstance3D] = []
 

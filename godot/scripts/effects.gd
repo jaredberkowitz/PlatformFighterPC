@@ -195,8 +195,8 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 		ring.material_override = _material(true)
 		ring.colour = Color(1, 1, 0.95, 0.9)
 		ring.from = 0.4
-		ring.to = 1.6 + 1.4 * s
-		ring.thickness = 0.14
+		ring.to = 1.1 + 1.0 * s
+		ring.thickness = 0.11
 		ring.life = 0.2
 		ring.position = at
 		parent.add_child(ring)

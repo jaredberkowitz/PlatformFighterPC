@@ -482,3 +482,30 @@ the angles it covers and the active frames it is drawn on. The sword's head is w
 always ends at the blade; a claw is swept along its arc. It shows from just before the first active frame to the last, then fades from
 the tail over 5 frames; hitlag freezes it. Thrusts, punches and kicks draw none. The separate slash and claw marks on a hit are gone:
 the arc shows the cut, and the hit is a burst coloured by what landed it.
+
+## Art-direction notes pass (twenty-second pass)
+
+From the art-direction notes, what applied to this game (lighting, the cel shader and ink lines, parallax from the 3D camera, hit-stop
+and directional knockback were already in, so they were tuned rather than rebuilt):
+
+- **Match display** (`godot/ui/match_hud.gd`), after the reference game's: a tilted portrait of each fighter's own face (its real model
+  and outfit, rendered once into a texture by a small private viewport, then never again, so it costs nothing in play), its damage in
+  big italic numbers with a small tenth that heat from white through cream, orange and red to deep red (`heat`), stocks as little heads,
+  the name on a dark slanted bar with a stripe and a P tag in the player's colour, and the weapon's emblem faint behind the number. Ink
+  outlines and soft shadows throughout, the same as the clock. The clock reads 00:12 with "TIME LEFT" or "TIME PLAYED" over it.
+- **No damage over the heads in a match**: only a small "P1" tag in the player's colour (so players are told apart by more than colour).
+  Training keeps the damage and name over the head (`FighterView.set_overhead`). `--match` on the command line shows a match's display
+  without the menus.
+- **Stage material**: a soft shadow on the block front under the cap (the edge of the fighting surface reads at a glance), tufts at
+  uneven gaps and sizes with a stone now and then, and world-laid surfaces drift lighter and darker in broad patches so the pattern does
+  not read as one stamped tile (`world_vary` in `shaders/toon.gdshader`, 0.08).
+- **Atmospheric perspective** (`shaders/post.gdshader`): scenery behind the stage fades toward the mood's haze with distance behind the
+  stage plane (`haze_start` 12, `haze_end` 140, `haze_max` 0.26; `stage_dist` is set each frame by `main.gd`), ink lines with it. The
+  sky is left alone.
+- **Foreground**: a bush, rocks or a rooftop vent low on the stage's front near each end, nearer the camera and darker (`_foreground` in
+  `stage_art.gd`), kept in from the edges so they never cover a fighter recovering below a ledge. Grove mushrooms breathe (`Squish`).
+- **Hit restraint**: the shockwave ring of a strong hit is smaller and thinner, so the big effects stay readable without hiding the
+  opponent.
+- **Anti-aliasing**: MSAA stays at 4x (`msaa_3d=2` in `project.godot` means 4x): measured against 2x it costs about 0.1 ms of GPU
+  time a frame for cleaner edges. With the machine idle the `--perf` tour ran at about 410 to 440 frames a second (GPU 1.4 ms, 456 draw
+  calls).

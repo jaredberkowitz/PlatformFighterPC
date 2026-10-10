@@ -32,6 +32,13 @@ uniform float grade_amount = 0.0;
 uniform float pastel_desat = 0.16;
 uniform float pastel_lift = 0.2;
 uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
+// Atmospheric perspective: scenery behind the stage fades toward the haze colour (lighter, less saturated, lower in contrast) the further
+// back it is, from `haze_start` to `haze_end` world units behind the stage plane, at most `haze_max`. `stage_dist` is the camera's
+// distance to the stage plane (set every frame by main.gd). The sky is left alone.
+uniform float stage_dist = 30.0;
+uniform float haze_start = 12.0;
+uniform float haze_end = 140.0;
+uniform float haze_max = 0.26;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;
@@ -101,6 +108,12 @@ void fragment() {
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
+	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
+	if (d0 < 400.0) {
+		float far_k = smoothstep(haze_start, haze_end, d0 - stage_dist) * haze_max;
+		col = mix(col, mix(pastel_haze.rgb, vec3(1.0), 0.3), far_k);
+		edge *= 1.0 - far_k;
+	}
 	// The pastel finish (fighters, ids below 0.6, get half).
 	float soften = id0 < 0.6 && d0 < 400.0 ? 0.5 : 1.0;
 	float y0 = dot(col, vec3(0.3, 0.59, 0.11));

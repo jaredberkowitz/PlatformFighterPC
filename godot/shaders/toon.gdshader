@@ -10,6 +10,9 @@ uniform vec2 tex_scale = vec2(1.0);
 // Above zero: the texture is laid in world space instead of by UV, `world_tile` world units per repeat, on the top for upward faces and
 // on the front otherwise (so a stage surface tiles evenly whatever the block's size).
 uniform float world_tile = 0.0;
+// World-laid surfaces only: how much their colour drifts lighter and darker in broad, slow patches across the stage (0 = none), so a
+// repeating pattern does not read as one tile stamped over and over.
+uniform float world_vary = 0.08;
 varying vec3 world_pos;
 varying vec3 world_normal;
 
@@ -36,6 +39,11 @@ void fragment() {
 			uv = (abs(world_normal.y) > 0.5 ? world_pos.xz : vec2(world_pos.x, -world_pos.y)) / world_tile;
 		}
 		c *= texture(albedo_tex, uv).rgb;
+		if (world_tile > 0.0) {
+			vec2 p = abs(world_normal.y) > 0.5 ? world_pos.xz : world_pos.xy;
+			float drift = sin(p.x * 0.37 + sin(p.y * 0.53) * 1.7) * sin(p.y * 0.29 + p.x * 0.11 + 1.3);
+			c *= 1.0 + world_vary * drift;
+		}
 	}
 	if (world_tile <= 0.0) {
 		c *= brush(UV);
