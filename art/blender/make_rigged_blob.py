@@ -476,12 +476,12 @@ BODY_MOVES = {
         {"spine": (26.0, 10.0), "head": (-18.0, 0.0), "stance": (50.0, -36.0), "shin.L": (-40.0,), "shin.R": (-2.0,),
          "armU.L": (-40.0, 30.0), "armL.L": (20.0,)},
         {"spine": (12.0, 0.0), "stance": (28.0, -22.0)}),
-    # Fencer's forward tilt: a rising diagonal cut, stepping in and rising onto the front foot as the blade climbs, the free arm opening
-    # back for balance.
+    # Fencer's forward tilt: a fast rising cut, stepping in and leaning forward into it as the blade climbs, the free arm opening back for
+    # balance.
     "sword_ftilt": (
         {"hips": -0.08, "spine": (12.0, -28.0), "head": (6.0, 14.0), "stance": (18.0, -14.0), "shin.L": (-30.0,), "armU.L": (-10.0, 40.0),
          "armL.L": (30.0,)},
-        {"hips": -0.04, "spine": (-4.0, 30.0), "head": (-8.0, -14.0), "stance": (36.0, -28.0), "shin.L": (-26.0,), "shin.R": (-4.0,),
+        {"hips": -0.04, "spine": (10.0, 28.0), "head": (-2.0, -12.0), "stance": (36.0, -28.0), "shin.L": (-26.0,), "shin.R": (-4.0,),
          "armU.L": (-30.0, 50.0), "armL.L": (20.0,)},
         {"spine": (2.0, 10.0), "stance": (14.0, -10.0)}),
     # Fencer's forward smash: the blade raised high with the weight back, then one committed cut down in front into a deep lunge, the
@@ -497,6 +497,44 @@ BODY_MOVES = {
         {"hips": -0.28, "spine": (34.0, 10.0), "head": (-24.0, 0.0), "stance": (70.0, -30.0), "shin.L": (-92.0,), "shin.R": (-20.0,),
          "armU.L": (-30.0, 30.0)},
         {"hips": -0.16, "spine": (22.0, 0.0), "stance": (48.0, -8.0), "shin.L": (-70.0,)}),
+    # The claws' forward tilt: both claws cocked across the chest, then the fighter lunges and throws them out forward and wide (a
+    # two-handed outward slash; the game aims the weapon hand, this the other).
+    "attack_claws": (
+        {"spine": (8.0, -10.0), "head": (0.0, 6.0), "stance": (16.0, -16.0), "armU.L": (60.0, -24.0), "armL.L": (100.0,)},
+        {"spine": (18.0, 8.0), "head": (-6.0, -4.0), "stance": (40.0, -30.0), "shin.L": (-36.0,), "shin.R": (-2.0,),
+         "armU.L": (78.0, 34.0), "armL.L": (8.0,)},
+        {"spine": (6.0, 2.0), "stance": (16.0, -12.0)}),
+    # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
+    # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
+    # flung back. Upright enough that the face stays toward the hit.
+    "attack_fair": (
+        {"spine": (-10.0, -20.0), "head": (-4.0, 8.0), "stance": (36.0, 24.0), "shin.L": (-70.0,), "shin.R": (-60.0,),
+         "armU.L": (20.0, 30.0), "armL.L": (40.0,)},
+        {"spine": (10.0, 24.0), "head": (0.0, -10.0), "stance": (48.0, -12.0), "shin.L": (-84.0,), "shin.R": (-36.0,),
+         "armU.L": (-34.0, 34.0), "armL.L": (30.0,)},
+        {"spine": (6.0, 6.0), "stance": (30.0, 10.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
+    # Up air (an overhead crescent from front to back): tucked, then the body arches back under the swing with the head thrown back to
+    # watch it, the legs stretching down.
+    "attack_uair": (
+        {"spine": (12.0, -8.0), "head": (6.0, 0.0), "stance": (34.0, 30.0), "shin.L": (-80.0,), "shin.R": (-70.0,), "armU.L": (24.0, 20.0)},
+        {"spine": (-16.0, 10.0), "head": (-10.0, 0.0), "stance": (14.0, -16.0), "shin.L": (-30.0,), "shin.R": (-20.0,),
+         "armU.L": (-16.0, 44.0), "armL.L": (20.0,)},
+        {"spine": (-6.0, 0.0), "stance": (24.0, 16.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
+    # Back air (a rising crescent behind): the shoulders turn toward the front, then twist right round so the chest faces behind as the
+    # swing goes up behind, the head looking back over the shoulder, the front knee tucked and the back leg reaching out behind.
+    "attack_bair": (
+        {"spine": (10.0, 26.0), "head": (-4.0, -10.0), "stance": (30.0, 10.0), "shin.L": (-70.0,), "armU.L": (30.0, 20.0)},
+        {"spine": (-12.0, -52.0), "head": (6.0, -18.0), "stance": (50.0, -26.0), "shin.L": (-90.0,), "shin.R": (-20.0,),
+         "armU.L": (40.0, 30.0), "armL.L": (40.0,)},
+        {"spine": (-4.0, -16.0), "stance": (24.0, 0.0), "shin.L": (-40.0,)}),
+    # Down air (both claws, or the weapon, brought down through the space below): both arms raised overhead with the body leaning back and
+    # the knees drawn up, then the torso curls over and both arms sweep down in front of the knees, the head looking down at the hit.
+    "attack_dair": (
+        {"spine": (-12.0, 0.0), "head": (-8.0, 0.0), "stance": (50.0, 46.0), "shin.L": (-96.0,), "shin.R": (-96.0,),
+         "armU.L": (150.0, 24.0), "armL.L": (30.0,)},
+        {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (62.0, 54.0), "shin.L": (-110.0,), "shin.R": (-110.0,),
+         "armU.L": (24.0, 16.0), "armL.L": (6.0,)},
+        {"spine": (10.0, 0.0), "stance": (30.0, 26.0), "shin.L": (-60.0,), "shin.R": (-60.0,)}),
     # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall and arches back a little under it.
     "sword_utilt": (
         {"hips": -0.06, "spine": (14.0, 10.0), "head": (6.0, 0.0), "stance": (12.0, -10.0), "shin.L": (-20.0,)},
@@ -720,10 +758,11 @@ def clip(rig, name, frames, poses):
         AMP = 1.0
     if BODY:
         AMP = 1.0 + (AMP - 1.0) * BODY_AMP
-        if name in BODY_MOVES:
-            wind, strike, rest = BODY_MOVES[name]
-            poses = {0: _spec_held(rest, 0.0), 21: _amped_pose(_spec_pose(wind), 1.12), 33: _spec_pose(strike),
-                     38: _amped_pose(_spec_pose(strike), 1.12), 45: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
+    # (A move with no poses of its own, such as the claws' lunging slash, uses its BODY_MOVES poses on the blob too.)
+    if name in BODY_MOVES and (BODY or not poses):
+        wind, strike, rest = BODY_MOVES[name]
+        poses = {0: _spec_held(rest, 0.0), 21: _amped_pose(_spec_pose(wind), 1.12), 33: _spec_pose(strike),
+                 38: _amped_pose(_spec_pose(strike), 1.12), 45: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:
@@ -1377,6 +1416,8 @@ def main() -> None:
         return f
 
     move("attack_fair", fair_wind, fair_strike, fair_hold)
+    # The claws' forward tilt, a two-handed lunging slash (posed in BODY_MOVES).
+    clip(rig, "attack_claws", 60, {})
 
     # Back air: the body turns away and the sweep goes behind.
     def bair_wind(rig):

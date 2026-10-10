@@ -406,3 +406,22 @@ blinking were already there.
 
 **Fixed**: the post pass read the object ids with a decoding this Godot version does not use, so a fighter against the stage got no id
 line (only a depth line); the ids are now read as written (checked by drawing them).
+
+
+## Moves for the base body (nineteenth pass)
+
+The base body (the fighters' body since the eighteenth pass, see `ART_WORKFLOW.md`) has real arms and legs, so its moves are played
+closer to life and posed again where the blob's read wrongly: the shoulders and hips wind back and turn through into each strike, the feet
+stay on the ground, and the game's own lean, slide and body-follow are smaller, since the clips carry the body. Re-posed (`BODY_MOVES` in
+`make_rigged_blob.py`), after how the reference fighters' moves read:
+
+- **Forward air**: a crescent cut (or claw rake) down through the space in front, the weapon raised with the shoulders back and the knees
+  drawn up, then the torso leaning over the swing with the front knee up and the back leg trailing; upright enough that the face stays on
+  the hit. **Up air**: tucked, then arched back under an overhead crescent, looking up. **Back air**: the chest twisted right round to face
+  behind as the swing rises behind. **Down air**: both arms raised, then swept down in front of the drawn-up knees.
+- **Tilts**: the sword's forward tilt leans into a fast rising cut; the claws' forward tilt is a two-handed lunging slash (`attack_claws`).
+- **The claws fighter** now follows its reference more closely: its **up air** and **down air** are claw slashes (overhead, and down below
+  with both hands), no longer kicks, and its **down smash** is a low sweep in front and then behind (the `sword_dsmash` body).
+
+Check them with `--demo=fx_<sword|claws|maul>_<move> --noui --noecb --shots=<folder>` (every tilt, smash and aerial; a picture on every
+frame, the camera steady on the attacker).

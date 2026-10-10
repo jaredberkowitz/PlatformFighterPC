@@ -401,6 +401,12 @@ func _attack_clip(s: Dictionary) -> Array:
 		clip = KICK_CLIPS.get(name, "attack_kick")
 	elif _cls(s) == 1 and name == "neutral special":
 		clip = "blaster"
+	elif _cls(s) == 1 and name == "ftilt":
+		# Both claws thrown out forward in a lunge.
+		clip = "attack_claws"
+	elif _cls(s) == 1 and name == "dsmash":
+		# Down low, a claw swept in front and then behind (the sword's low sweep, body and legs).
+		clip = "sword_dsmash"
 	elif _cls(s) != 1 and SWORD_CLIPS.has(name):
 		clip = SWORD_CLIPS[name]
 	elif name == "fair":
@@ -528,8 +534,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
 		target_look = clampf(rise * 0.5, -20.0, 30.0)
-		# In proportion to how far into the move the limb is (its blend toward the hitbox).
-		var k := leg_k if kicking else arm_k
+		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
+		# into its swings, so it takes half of this for an arm.
+		var k := leg_k if kicking else arm_k * (0.5 if use_base_body else 1.0)
 		target_bend *= k
 		target_look *= k
 	var follow := clampf(delta * 16.0, 0.0, 1.0)
@@ -1560,8 +1567,8 @@ var flame: Node3D  # Particles.Burst
 ## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
 const SWORD_CLIPS := {"dair": "sword_dair", "ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
 	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
-const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up",
-	"dtilt": "kick_low", "dash attack": "kick_dash", "usmash": "kick_uair"}
+const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
+	"usmash": "kick_uair"}
 ## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
 var leg_k := 0.0
 
@@ -1574,7 +1581,8 @@ const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack":
 	"nair": -60.0, "uair": -60.0, "bair": 60.0}
 ## Kicks that send both legs out (front and back), each aimed by the game.
 const SPLIT_KICKS := ["nair"]
-const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "uair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+## (Its up air and down air are claw slashes, overhead and down below, so they swing the arm.)
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1

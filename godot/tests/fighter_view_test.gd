@@ -54,9 +54,10 @@ func _initialize() -> void:
 	for m in moves + ["jab 2", "jab 3"]:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
 		check(sword.anim != null and sword.anim.has_animation(clip), "the rig has the clip %s for %s" % [clip, m])
-	# The claws fighter: its kicks and its blaster have their own clips.
-	var kicks := {"nair": "kick_nair", "bair": "kick_bair", "uair": "kick_uair", "dair": "kick_dair", "utilt": "kick_up", "dtilt": "kick_low",
-		"dash attack": "kick_dash", "neutral special": "blaster"}
+	# The claws fighter: its kicks, its claw slashes and its blaster have their own clips.
+	var kicks := {"nair": "kick_nair", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
+		"usmash": "kick_uair", "neutral special": "blaster", "ftilt": "attack_claws", "uair": "attack_uair", "dair": "attack_dair",
+		"dsmash": "sword_dsmash", "fair": "attack_fair"}
 	for m in kicks:
 		var clip: String = fists._choose_clip(snap(1, "Attack", m, 10))[0]
 		check(clip == kicks[m] and fists.anim.has_animation(clip), "claws %s plays %s (got %s)" % [m, kicks[m], clip])
