@@ -69,11 +69,8 @@ func rebuild(l: RefCounted) -> void:
 		remove_child(c)
 		c.free()
 	meshes.clear()
-	trail = null
-	trail_points.clear()
-	last_trail_frame = -1
-	sweep = null
-	sweep_samples.clear()
+	arc = null
+	arc_shown = {}
 	dizzy = null
 	launch_lines = null
 	rig = null
@@ -1741,6 +1738,11 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var spin := _spin(s)
 	if spin != 0.0:
 		tip = SPIN_PIVOT + (tip - SPIN_PIVOT).rotated(-spin)
+	# The swing's arc (see ARCS): the sword's follows where its tip is; a claw is swept along its arc (its hitbox holds still while the
+	# hand rakes through it, as the reference's do).
+	var now := _arc_now(s, tip)
+	if _cls(s) == 1 and not now.is_empty():
+		tip = _arc_point(now)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
@@ -1761,12 +1763,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
-	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
-	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
-	if _cls(s) == 1:
-		_update_trail(s, tip - Vector2.from_angle(deg_to_rad(blade_angle)) * radius * 0.7, radius)
-	else:
-		_update_sweep(s, hand, tip)
+	_update_arc(now, delta)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
 	var thick := 1.0 if _cls(s) == 0 else 1.7
@@ -1942,132 +1939,160 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * (ankle0 - knee0).length()), leg_k, true)
 
 
-## A smear behind the hitbox, like the one a fast punch or kick leaves. Each simulation frame the centre of the hitbox (the fist or the
-## foot, which the arm and leg reach for) is added to a path; the path is drawn as a smooth tapering smear, thickest at the hitbox: a
-## bright core in the trail colour with a thin deeper rim, so it reads as a drawn stroke. The points are kept in world space, so the smear
-## stays where the swing was while the fighter moves on. It is cosmetic: it only reads the move.
-const TRAIL_FRAMES := 10
-const TRAIL_WIDTH := 0.62
-const TRAIL_SMOOTH := 4
-var trail: MeshInstance3D
-var last_trail_centre := Vector2(INF, INF)
-var trail_points: Array = []     # [{pos: Vector3, frame: int}]
-var last_trail_frame := -1
+# ---- Swing arcs --------------------------------------------------------------------------------------------------------------------
+# A swing leaves the crescent the reference game draws: one smooth arc where the weapon's tip went, pointed at both ends and thickest a
+# little behind the leading edge, a bright core along the outside fading through the trail colour to nothing on the inside. Each arc is
+# authored per move (`ARCS`; the sword's are fitted to its hitboxes, the claws' to their animations): a circle about the shoulder, the
+# angles it sweeps and the active frames it is drawn on. It grows with the hit, from the frame before the first active frame to the last,
+# then fades from the tail over `ARC_FADE` frames. It depends only on the move and its frame, so hitlag freezes it with the swing and a
+# replay seek redraws it; a move cut short (a landing) lets its arc fade on its own. Moves with no arc (thrusts, punches, kicks) draw
+# none.
+
+const ARC_FADE := 5
+const ARC_STEPS := 36
+const ARC_Z := 0.6
+const ARC_PAST_HAND := 0.8
+## By class, then move (as the sim names it): its arcs, each [centre x, centre y, radius, from degrees, to degrees, first active frame,
+## last active frame] in forward space (x forward and y up from the feet; 0 degrees is forward, 90 up), frames numbered as in the
+## reference's frame data. An arc marked "arm" is the claw's own path: about the fighter's shoulder, just past the hand's reach.
+const ARCS := {
+	0: {
+		"jab": [[0.5, 1.15, 2.3, 75, -15, 5, 6]],
+		"jab 2": [[0.5, 1.15, 2.3, -25, 40, 4, 5]],
+		"ftilt": [[0.45, 1.1, 2.35, -80, 60, 8, 11]],
+		"utilt": [[0.1, 1.2, 2.1, -10, 165, 6, 10]],
+		"dash attack": [[0.55, 1.1, 2.35, -85, 70, 13, 16]],
+		"fsmash": [[0.7, 1.15, 2.3, 135, -45, 10, 13]],
+		"dsmash": [[0.0, 2.7, 2.6, -100, -35, 6, 7], [0.0, 2.7, 2.6, -80, -145, 21, 23]],
+		"nair": [[0.4, 1.1, 2.2, -80, 50, 6, 7], [0.15, 1.1, 2.35, 55, 350, 15, 21]],
+		"fair": [[0.5, 1.05, 2.3, 140, -60, 6, 8]],
+		"bair": [[0.0, 1.1, 2.25, 260, 100, 7, 11]],
+		"uair": [[0.1, 1.3, 2.2, -30, 180, 5, 9]],
+		"dair": [[0.15, 1.1, 2.2, 30, -180, 9, 13]],
+	},
+	1: {
+		"ftilt": [[0.0, 0.0, 0.0, 50, -50, 8, 10, "arm"]],
+		"fsmash": [[0.0, 0.0, 0.0, 60, -60, 20, 23, "arm"]],
+		"dsmash": [[0.0, 2.6, 2.4, -100, -35, 14, 15], [0.0, 2.6, 2.4, -80, -145, 21, 22]],
+		"fair": [[0.0, 0.0, 0.0, 60, -70, 7, 9, "arm"]],
+		"bair": [[0.0, 0.0, 0.0, 215, 140, 13, 15, "arm"]],
+		"uair": [[0.0, 0.0, 0.0, 15, 165, 7, 9, "arm"]],
+		"dair": [[0.0, 0.0, 0.0, 20, -110, 16, 17, "arm"]],
+	},
+}
+var arc: MeshInstance3D
+## The arc drawn now: {"w": its ARCS entry, "k": how far it has grown 0..1, "q": how far it has faded 0..1, "facing", "cls"}, or empty.
+var arc_shown := {}
 
 
-func _make_trail() -> void:
-	trail = MeshInstance3D.new()
-	trail.mesh = ImmediateMesh.new()
-	trail.top_level = true
-	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	trail.extra_cull_margin = 16384.0
-	trail.material_override = FxMaterial.get_material(true, 5)
-	add_child(trail)
+func _update_arc(now: Dictionary, delta: float) -> void:
+	if not now.is_empty() and float(now.q) < 1.0:
+		arc_shown = now
+	elif not arc_shown.is_empty():
+		# The move ended, was cut short (a landing) or its arc is done: what is left fades on its own.
+		arc_shown.q = maxf(float(arc_shown.q), 0.0) + delta * 60.0 / ARC_FADE
+		if float(arc_shown.q) >= 1.0:
+			arc_shown = {}
+	_draw_arc()
 
 
-# ---- Weapon swing trail ------------------------------------------------------------------------------------------------------------
-# A sword leaves the trail the reference game draws: the whole crescent the blade sweeps through, a bright core along the path
-# of the tip with a crisp deeper rim, the trail colour inside it fading toward the hilt. As it ages the crescent is eaten away from the
-# hilt side and thins to a point behind the swing. Each simulation frame records where the hand and the tip are; the crescent between
-# two records is drawn in thin slices that turn round the hand, so it is a smooth arc rather than a polygon. Time stands still in hitlag,
-# like the swing itself.
+## The latest of the move's arcs that has begun (two frames before its first active frame): {"w": its ARCS entry, "k": how far round
+## its head is 0..1, "q": how far it has faded 0..1 (1 and more: gone), "facing", "cls"}, or empty. The sword's head is where its tip is
+## (never going back); a claw's moves round at an even pace and reaches the end on the last active frame.
+func _arc_now(s: Dictionary, tip: Vector2) -> Dictionary:
+	if String(s.state) != "Attack":
+		return {}
+	var windows: Array = (ARCS.get(_cls(s), {}) as Dictionary).get(String(s.move_name), [])
+	var f := float(s.state_frame) + 1.0
+	var out := {}
+	for w in windows:
+		var first := float(w[5])
+		var last := float(w[6])
+		if f < first - 2.0:
+			continue
+		var k := clampf((f - first + 2.0) / (last - first + 2.0), 0.0, 1.0)
+		if _cls(s) == 0:
+			var from := deg_to_rad(float(w[3]))
+			var span := deg_to_rad(float(w[4])) - from
+			var ang := (tip - (_arc_circle(w)[0] as Vector2)).angle()
+			var d := wrapf((ang - from) * signf(span), -PI, PI)
+			var prev := float(arc_shown.k) if not arc_shown.is_empty() and arc_shown.w == w else 0.0
+			# Of the two ways round, the one nearer where the head was (a long arc, like the neutral air's, goes past half a turn).
+			if absf(d + TAU - prev * absf(span)) < absf(d - prev * absf(span)):
+				d += TAU
+			k = maxf(prev, clampf(d / absf(span), 0.0, 1.0))
+		out = {"w": w, "k": k, "q": (f - last) / ARC_FADE, "facing": float(s.facing), "cls": _cls(s)}
+	return out
 
-const SWEEP_LIFE := 7     # frames a slice of the swing stays visible
-const SWEEP_STEPS := 8    # slices drawn between two simulation frames
-var sweep: MeshInstance3D
-var sweep_samples: Array = []   # [{hand: Vector2, angle: float, length: float, z: float, at: int}], world space
-var sweep_clock := 0
-var sweep_seen_frame := -1
+
+## Where an arc's head is (forward space).
+func _arc_point(now: Dictionary) -> Vector2:
+	var w: Array = now.w
+	var ang := lerpf(deg_to_rad(float(w[3])), deg_to_rad(float(w[4])), float(now.k))
+	var g := _arc_circle(w)
+	return (g[0] as Vector2) + Vector2.from_angle(ang) * float(g[1])
 
 
-func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
-	if sweep == null:
-		sweep = MeshInstance3D.new()
-		sweep.mesh = ImmediateMesh.new()
-		sweep.top_level = true
-		sweep.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		sweep.extra_cull_margin = 16384.0
-		sweep.material_override = FxMaterial.get_material(false, 5)
-		add_child(sweep)
-	var frame: int = s.frame
-	if frame < sweep_seen_frame:
-		# Rewound (a replay seek): start clean.
-		sweep_samples.clear()
-	if frame != sweep_seen_frame:
-		sweep_seen_frame = frame
-		if int(s.hitlag) == 0:
-			sweep_clock += 1
-			var t: PackedInt32Array = s.move_timing
-			var f: float = s.state_frame
-			# From the snap through, a few frames before the first hit, so the arc is already drawn when the hit lands and the freeze
-			# holds it.
-			var swinging: bool = s.state == "Attack" and s.move_name != "" and t[1] > 0 and f >= float(t[1]) - 3.0 \
-					and f <= float(t[2]) + 1.0 and blade_pivot.visible
-			if swinging:
-				var facing := float(s.facing)
-				var g := stage_frame.global_transform
-				var hw: Vector3 = g * Vector3(hand.x * facing, hand.y, 0.35)
-				var tw: Vector3 = g * Vector3(tip.x * facing, tip.y, 0.35)
-				var d := Vector2(tw.x - hw.x, tw.y - hw.y)
-				sweep_samples.append({"hand": Vector2(hw.x, hw.y), "angle": d.angle(), "length": d.length(), "z": hw.z + 0.2,
-					"at": sweep_clock})
-	while sweep_samples.size() > 0 and sweep_clock - int(sweep_samples[0].at) > SWEEP_LIFE:
-		sweep_samples.pop_front()
-	var im: ImmediateMesh = sweep.mesh
+## An arc's circle: [centre, radius].
+func _arc_circle(w: Array) -> Array:
+	if w.size() > 7 and w[7] == "arm":
+		return [shoulder, arm_reach + ARC_PAST_HAND]
+	return [Vector2(float(w[0]), float(w[1])), float(w[2])]
+
+
+func _draw_arc() -> void:
+	if arc == null:
+		arc = MeshInstance3D.new()
+		arc.mesh = ImmediateMesh.new()
+		arc.top_level = true
+		arc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		arc.extra_cull_margin = 16384.0
+		arc.material_override = FxMaterial.get_material(false, 5)
+		add_child(arc)
+	var im: ImmediateMesh = arc.mesh
 	if im.get_surface_count() > 0:
 		im.clear_surfaces()
-	# The crescent always reaches the blade where it is now, so a swing frozen by a hit shows its arc right up to the blade.
-	var drawn := sweep_samples.duplicate()
-	var t2: PackedInt32Array = s.move_timing
-	if not drawn.is_empty() and s.state == "Attack" and t2[1] > 0 and float(s.state_frame) <= float(t2[2]) + 1.0 and blade_pivot.visible:
-		var g := stage_frame.global_transform
-		var facing := float(s.facing)
-		var hw: Vector3 = g * Vector3(hand.x * facing, hand.y, 0.35)
-		var tw: Vector3 = g * Vector3(tip.x * facing, tip.y, 0.35)
-		var d := Vector2(tw.x - hw.x, tw.y - hw.y)
-		drawn.append({"hand": Vector2(hw.x, hw.y), "angle": d.angle(), "length": d.length(), "z": hw.z + 0.2, "at": sweep_clock})
-	if drawn.size() < 2:
+	if arc_shown.is_empty():
 		return
-	var colours := _trail_colours(s)
-	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in drawn.size() - 1:
-		for k in SWEEP_STEPS:
-			_sweep_slice(im, drawn[i], drawn[i + 1], float(k) / SWEEP_STEPS, float(k + 1) / SWEEP_STEPS, colours)
-	im.surface_end()
-
-
-## One slice of the crescent, between `u0` and `u1` of the way from record `a` to record `b`. Across the blade, from the hilt out: clear,
-## the trail colour, the bright core along the tip's path, and a thin deeper rim. An older slice starts further out (the crescent is eaten
-## from the hilt side) and fades.
-func _sweep_slice(im: ImmediateMesh, a: Dictionary, b: Dictionary, u0: float, u1: float, colours: Array) -> void:
+	var w: Array = arc_shown.w
+	var q := clampf(float(arc_shown.q), 0.0, 1.0)
+	# The fading arc is eaten from the tail toward the head.
+	var head := lerpf(deg_to_rad(float(w[3])), deg_to_rad(float(w[4])), float(arc_shown.k))
+	var tail := lerpf(deg_to_rad(float(w[3])), head, q * 0.75)
+	if absf(head - tail) < 0.03:
+		return
+	var circle := _arc_circle(w)
+	var centre: Vector2 = circle[0]
+	var r: float = circle[1]
+	var width := r * 0.3 * (1.0 - 0.4 * q)
+	var alpha := 1.0 - q
+	var colours := trail_colours_of(int(arc_shown.cls))
 	var main: Color = colours[0]
 	var core: Color = colours[1]
-	var rim: Color = main.darkened(0.45)
-	var edge := []
-	for u in [u0, u1]:
-		var hand: Vector2 = (a.hand as Vector2).lerp(b.hand, u)
-		var ang := lerp_angle(float(a.angle), float(b.angle), u)
-		var length := lerpf(float(a.length), float(b.length), u)
-		var at := lerpf(float(a.at), float(b.at), u)
-		var age := clampf(float(sweep_clock - at) / float(SWEEP_LIFE), 0.0, 1.0)
-		var live := 1.0 - age
-		var bright := sqrt(live)
-		var inner := lerpf(0.3, 0.9, pow(age, 0.8))
-		var rings := [inner, lerpf(inner, 0.9, 0.5), 0.9, 0.985, 1.0, 1.045]
-		var cols := [Color(main, 0.0), Color(main, 0.85 * live), Color(core, 0.95 * bright), Color(core, bright), Color(rim, 0.95 * bright),
-			Color(rim, 0.9 * bright)]
-		var z := lerpf(float(a.z), float(b.z), u)
-		var dir := Vector2.from_angle(ang)
-		var column := []
-		for r in rings.size():
-			var p: Vector2 = hand + dir * length * float(rings[r])
-			column.append([Vector3(p.x, p.y, z), cols[r]])
-		edge.append(column)
-	for r in (edge[0] as Array).size() - 1:
-		var q := [edge[0][r], edge[0][r + 1], edge[1][r + 1], edge[1][r]]
-		for idx in [0, 1, 2, 0, 2, 3]:
-			im.surface_set_color(q[idx][1])
-			im.surface_add_vertex(q[idx][0])
+	# Across the arc from the outside in (fractions of its thickness there): the bright core, the core blending into the trail colour,
+	# the trail colour, and nothing.
+	var bands := [0.0, 0.22, 0.55, 1.0]
+	var cols := [Color(core, alpha), Color(core.lerp(main, 0.5), alpha), Color(main, 0.8 * alpha), Color(main, 0.0)]
+	var facing := float(arc_shown.facing)
+	var prev: Array = []
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in ARC_STEPS + 1:
+		var u := float(i) / ARC_STEPS
+		var dir := Vector2.from_angle(lerpf(tail, head, u))
+		# Pointed at both ends, thickest a little behind the head.
+		var thick := width * pow(sin(PI * pow(u, 1.4)), 0.8)
+		var column: Array = []
+		for b in bands:
+			var p := centre + dir * (r - thick * float(b))
+			column.append(to_global(Vector3(p.x * facing, p.y, ARC_Z)))
+		if i > 0:
+			for b in bands.size() - 1:
+				var quad := [[prev[b], cols[b]], [prev[b + 1], cols[b + 1]], [column[b + 1], cols[b + 1]], [column[b], cols[b]]]
+				for idx in [0, 1, 2, 0, 2, 3]:
+					im.surface_set_color(quad[idx][1])
+					im.surface_add_vertex(quad[idx][0])
+		prev = column
+	im.surface_end()
 
 
 # ---- Big moments: dizzy stars, the launch stretch and speed lines --------------------------------------------------------------------
@@ -2342,100 +2367,11 @@ func _launch_smoke(s: Dictionary) -> void:
 			last_puff_at = Vector3.INF
 
 
-## Edge and core colours: violet and white-pink for the brawler, gold and white for the sword.
-func _trail_colours(s: Dictionary) -> Array:
-	return trail_colours_of(_cls(s))
-
-
 ## A class's trail colours: [the trail, its bright core] (claws violet, sword blue).
 static func trail_colours_of(cls: int) -> Array:
 	if cls == 1:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
-
-
-## Catmull-Rom smoothing so a path of a few points reads as a curve.
-func _smooth(points: Array) -> Array:
-	if points.size() < 3:
-		return points
-	var out: Array = []
-	for i in points.size() - 1:
-		var p0: Vector3 = points[maxi(i - 1, 0)]
-		var p1: Vector3 = points[i]
-		var p2: Vector3 = points[i + 1]
-		var p3: Vector3 = points[mini(i + 2, points.size() - 1)]
-		for k in TRAIL_SMOOTH:
-			var t := float(k) / TRAIL_SMOOTH
-			out.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t * t * t))
-	out.append(points[points.size() - 1])
-	return out
-
-
-## `centre` is where the hitbox is now (forward space, relative to the fighter) and `radius` its size.
-func _update_trail(s: Dictionary, centre: Vector2, _radius: float) -> void:
-	if trail == null:
-		_make_trail()
-	var t: PackedInt32Array = s.move_timing
-	var f: float = s.state_frame
-	var swinging: bool = s.state == "Attack" and t[1] > 0 and f >= 1.0 and f <= t[2] + 5.0 and s.move_tip != Vector3.ZERO
-	var frame: int = s.frame
-	var facing: float = float(s.facing)
-	var base := Vector3(position.x, position.y, 0.0)
-	var here := base + Vector3(centre.x * facing, centre.y, 0.7)
-	# Only a hit that travels across the body leaves a trail: one held in place (a lingering kick) would only draw the fighter's own
-	# fall or drift as a streak.
-	var moved := last_trail_centre.distance_to(centre) > 0.08
-	if swinging and int(s.hitlag) == 0 and frame != last_trail_frame and (moved or trail_points.is_empty()):
-		last_trail_frame = frame
-		last_trail_centre = centre
-		trail_points.append({"pos": here, "frame": frame})
-	while trail_points.size() > 0 and frame - int(trail_points[0].frame) > TRAIL_FRAMES:
-		trail_points.pop_front()
-	if frame < last_trail_frame:
-		trail_points.clear()
-		last_trail_frame = -1
-	var im: ImmediateMesh = trail.mesh
-	if im.get_surface_count() > 0:
-		im.clear_surfaces()
-	var colours := _trail_colours(s)
-	if trail_points.size() >= 2:
-		var path: Array = []
-		var ages: Array = []
-		for p in trail_points:
-			path.append(p.pos)
-			ages.append(float(frame - int(p.frame)) / float(TRAIL_FRAMES))
-		path = _smooth(path)
-		# Ages for the smoothed points: interpolate along the path.
-		var smooth_ages: Array = []
-		for i in path.size():
-			var u := float(i) / maxf(1.0, path.size() - 1.0) * (ages.size() - 1.0)
-			var lo := int(floor(u))
-			var hi := mini(lo + 1, ages.size() - 1)
-			smooth_ages.append(lerpf(ages[lo], ages[hi], u - lo))
-		_ribbon(im, path, smooth_ages, TRAIL_WIDTH * 1.12, (colours[0] as Color).darkened(0.45), 0.9)
-		_ribbon(im, path, smooth_ages, TRAIL_WIDTH, colours[0], 0.9)
-		_ribbon(im, path, smooth_ages, TRAIL_WIDTH * 0.45, colours[1], 1.0)
-
-
-## A strip along `path`, `width` across at the head (the newest end), tapering to a point at the old end and fading only at the very end,
-## so the smear keeps a crisp shape.
-func _ribbon(im: ImmediateMesh, path: Array, ages: Array, width: float, colour: Color, alpha: float) -> void:
-	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	for i in path.size():
-		var along: Vector3 = (path[mini(i + 1, path.size() - 1)] - path[maxi(i - 1, 0)])
-		along.z = 0.0
-		var side := Vector3(-along.y, along.x, 0.0).normalized() if along.length() > 0.0001 else Vector3.UP
-		var age: float = ages[i]
-		# Thin at the old end of the path, full at the head, and thinning with age.
-		var along_path := float(i) / maxf(1.0, path.size() - 1.0)
-		var strength := pow(clampf(1.0 - age, 0.0, 1.0), 0.7) * sqrt(along_path)
-		var half := width * 0.5 * strength
-		var c := Color(colour.r, colour.g, colour.b, alpha * clampf(strength * 2.5, 0.0, 1.0))
-		im.surface_set_color(c)
-		im.surface_add_vertex(path[i] + side * half)
-		im.surface_set_color(c)
-		im.surface_add_vertex(path[i] - side * half)
-	im.surface_end()
 
 
 func _apply_combat(s: Dictionary, delta: float) -> void:

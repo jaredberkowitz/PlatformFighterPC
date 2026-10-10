@@ -474,3 +474,11 @@ decides the match holds its close-up longer, slows to a quarter speed from the f
   each frame cost about 9 ms against 0.08 on Vulkan); on Vulkan the same frames had half as many over 25 ms.
 - **Hitbox display** (training, F3): one ring mesh drawn as a `MultiMesh`, moved and recoloured each tick, instead of a mesh rebuilt per
   tick (that alone was 6.6 ms a tick). Trails and paths with nothing to show are no longer cleared every frame.
+
+**Swing arcs** (`ARCS` in `fighter_view.gd`, replacing the hand-traced smear and the sampled sweep): every weapon swing draws one smooth
+crescent, pointed at both ends and thickest just behind its head, a bright core on the outside fading through the trail colour to
+nothing inside. Each arc is a circle per move (the sword's fitted to its hitboxes; the claws' about the shoulder just past the hand),
+the angles it covers and the active frames it is drawn on. The sword's head is wherever its blade tip is (never going back), so the arc
+always ends at the blade; a claw is swept along its arc. It shows from just before the first active frame to the last, then fades from
+the tail over 5 frames; hitlag freezes it. Thrusts, punches and kicks draw none. The separate slash and claw marks on a hit are gone:
+the arc shows the cut, and the hit is a burst coloured by what landed it.

@@ -1089,9 +1089,9 @@ fn sword_kit() -> Weapon {
     // Positions and sizes are estimates throughout; the frames, damage and (where known) knockback follow the
     // reference tables. `ext` slots are only reached by a script or a counter.
 
-    // Jab: two hits. Hit 1 on frames 5-6 (3% close, 5% tip), FAF 25; hit 2 on frames 4-5 (4% / 6%), FAF 28.
+    // Jab: two hits. Hit 1 on frames 5-6 (3% close, 5% tip), FAF 26; hit 2 on frames 4-5 (4% / 6%), FAF 29.
     let mut jab1 = ref_move(
-        25,
+        26,
         0,
         0,
         255,
@@ -1107,7 +1107,7 @@ fn sword_kit() -> Weapon {
     jab1.next_window = 10;
     moves[MoveId::Jab as usize] = jab1;
     moves[MoveId::Jab2 as usize] = ref_move(
-        28,
+        29,
         0,
         0,
         255,
@@ -1120,9 +1120,9 @@ fn sword_kit() -> Weapon {
         ],
     );
 
-    // Dash attack: frames 13-16, 9% / 10% / 13% (closest, close, tip), tip knockback 93 base 58 growth, FAF 49.
+    // Dash attack: frames 13-16, 9% / 10% / 13% (closest, close, tip), tip knockback 93 base 58 growth, FAF 50.
     moves[MoveId::DashAttack as usize] = ref_move(
-        49,
+        50,
         0,
         0,
         255,
@@ -1170,29 +1170,30 @@ fn sword_kit() -> Weapon {
         &[125, 125, 130, 125, 125, 70, 70, 70, 70, 70, 70],
     );
 
-    // Grab (hits frames 6-7, FAF 34), dash grab (frames 9-10, FAF 42), pummel 1.3% and the four throws: forward 4%
-    // (releases on frame 18, FAF 34), back 4% (19, FAF 44), up 5% (13, FAF 44, growth 102), down 4% (20, FAF 46,
-    // growth 57). Throw angles, base knockback and the grab's reach are estimates.
+    // Grab (hits frames 6-7, FAF 35), dash grab (frames 9-10, FAF 43), pummel 1.3% (frame 2: the reference says 1, but a hit cannot
+    // start on a move's first frame; FAF 20) and the four throws: forward 4% (releases on frame 18, FAF 35), back 4% (19, FAF 45),
+    // up 5% (13, FAF 45, growth 102), down 4% (20, FAF 47, growth 57). Throw angles, base knockback and the grab's reach are
+    // estimates.
     moves[MoveId::Grab as usize] = with_kind(
-        ref_move(34, 0, 0, 255, &[r(6, 7, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        ref_move(35, 0, 0, 255, &[r(6, 7, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
     moves[MoveId::DashGrab as usize] = with_kind(
-        ref_move(42, 0, 0, 255, &[r(9, 10, 21, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        ref_move(43, 0, 0, 255, &[r(9, 10, 21, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
-    // Pivot grab: a grab out of a dash turned around; frames 10-11, FAF 37.
+    // Pivot grab: a grab out of a dash turned around; frames 10-11, FAF 38.
     moves[MoveId::PivotGrab as usize] = with_kind(
-        ref_move(37, 0, 0, 255, &[r(10, 11, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        ref_move(38, 0, 0, 255, &[r(10, 11, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
     moves[MoveId::Pummel as usize] = with_kind(
-        ref_move(16, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
+        ref_move(20, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
         HIT_PUMMEL,
     );
     moves[MoveId::FThrow as usize] = with_kind(
         ref_move(
-            34,
+            35,
             0,
             0,
             255,
@@ -1202,7 +1203,7 @@ fn sword_kit() -> Weapon {
     );
     moves[MoveId::BThrow as usize] = with_kind(
         ref_move(
-            44,
+            45,
             0,
             0,
             255,
@@ -1212,7 +1213,7 @@ fn sword_kit() -> Weapon {
     );
     moves[MoveId::UThrow as usize] = with_kind(
         ref_move(
-            44,
+            45,
             0,
             0,
             255,
@@ -1222,7 +1223,7 @@ fn sword_kit() -> Weapon {
     );
     moves[MoveId::DThrow as usize] = with_kind(
         ref_move(
-            46,
+            47,
             0,
             0,
             255,
@@ -1759,25 +1760,24 @@ pub fn claws() -> Weapon {
     ));
     w.moves[MoveId::DownSpecial as usize] = reflector;
 
-    // Grabs and throws. Standing grab: hits on frame 7 (dash grab frame 8); pummel 1.3%; throws release on frame 11
-    // (forward, 9%), 24 (back, 11%), 27 (up, 7%) and 26 (down, 8.5%) with first actionable frames 33, 48, 46
-    // and 41. Throw angles and the grab reach, pummel speed and the grab and dash grab lengths are estimates;
-    // the sources disagree on the back throw's damage (8% or 11%).
+    // Grabs and throws. Standing grab: frames 6-7, FAF 37; dash grab 8-9, FAF 45; pivot grab 9-10, FAF 40; pummel 1.3% on
+    // frame 2 (the reference says 1; a hit cannot start on a move's first frame), FAF 20; throws release on frame 11
+    // (forward, 9%), 24 (back, 11%), 27 (up, 7%) and 26 (down, 8.5%) with first actionable frames 33, 48, 46 and 41. Throw
+    // angles and the grab reach are estimates; the sources disagree on the back throw's damage (8% or 11%).
     w.moves[MoveId::Grab as usize] = with_kind(
-        ref_move(30, 0, 0, 255, &[r(7, 8, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        ref_move(37, 0, 0, 255, &[r(6, 7, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
-    // Pivot grab: four frames slower to hit than the standing grab, as the swordfighter's is (an estimate).
     w.moves[MoveId::PivotGrab as usize] = with_kind(
-        ref_move(33, 0, 0, 255, &[r(11, 12, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        ref_move(40, 0, 0, 255, &[r(9, 10, 17, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
     w.moves[MoveId::DashGrab as usize] = with_kind(
-        ref_move(38, 0, 0, 255, &[r(8, 9, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
+        ref_move(45, 0, 0, 255, &[r(8, 9, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
     w.moves[MoveId::Pummel as usize] = with_kind(
-        ref_move(22, 0, 0, 255, &[r(4, 4, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
+        ref_move(20, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
         HIT_PUMMEL,
     );
     // The throws are the reference game's two parts: a hit that damages the held fighter without launching it, then the throw,

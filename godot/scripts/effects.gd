@@ -92,9 +92,8 @@ class Streaks extends MeshInstance3D:
 		im.surface_end()
 
 
-## What landed a hit, for its effect (and sound): a blade, a blow, or fire.
-## What landed a hit, which picks its look: a blade (the sword: a cool blue-white burst under a slash), a blow (punches and kicks: a warm
-## burst), fire, or claws (three violet claw marks raked across a lilac burst).
+## What landed a hit, which picks its look (and sound): a blade (the sword: a cool blue-white burst), a blow (punches and kicks: a warm
+## burst), fire, or claws (a lilac burst). A weapon's cut or rake is shown by the swing's own arc (`ARCS` in fighter_view.gd), not here.
 enum Kind { BLADE, BLOW, FIRE, CLAW }
 
 ## Layer colours of a burst by kind, outside in (under an ink outline): the outer flare, the body, the core.
@@ -178,64 +177,10 @@ class Pow extends MeshInstance3D:
 		return along * cos(angle) * radius * 1.3 + across * sin(angle) * radius * 0.85
 
 
-## A blade's slash: a long thin lens drawn across the hit along the swing, in layers (ink, the blade's trail colour, a white core). It
-## wipes across in two pictures, holds, then thins away.
-class Slash extends MeshInstance3D:
-	var age := 0.0
-	var life := 0.2
-	var length := 3.0
-	var width := 0.4
-	var dir := Vector2.RIGHT
-	var colour := Color(0.4, 0.7, 1.0)
-	var bend := 0.0
-
-	func _ready() -> void:
-		mesh = ImmediateMesh.new()
-		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		extra_cull_margin = 64.0
-		bend = randf_range(-0.18, 0.18)
-
-	func _process(delta: float) -> void:
-		age += FxMaterial.delta(delta)
-		if age >= life:
-			queue_free()
-			return
-		var t := floorf(age * 30.0) / 30.0 / life
-		var drawn := clampf((t + STEP / life) / 0.3, 0.0, 1.0)
-		var thin := 1.0 - smoothstep(0.45, 1.0, t)
-		var im: ImmediateMesh = mesh
-		im.clear_surfaces()
-		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		for layer in [[1.0, 1.0, INK], [0.97, 0.7, colour], [0.9, 0.32, Color(1, 1, 0.97)]]:
-			_lens(im, length * float(layer[0]), width * float(layer[1]) * thin, layer[2], drawn)
-		im.surface_end()
-
-	func _lens(im: ImmediateMesh, l: float, w: float, c: Color, drawn: float) -> void:
-		var along := Vector3(dir.x, dir.y, 0).normalized()
-		var across := Vector3(-along.y, along.x, 0)
-		var steps := 14
-		var prev_top := Vector3.ZERO
-		var prev_bottom := Vector3.ZERO
-		for i in steps + 1:
-			var u := float(i) / steps * drawn
-			var x := (u - 0.5) * l
-			var half := w * 0.5 * (1.0 - pow(2.0 * u - 1.0, 2.0))
-			var centre := along * x + across * bend * l * (1.0 - pow(2.0 * u - 1.0, 2.0))
-			var top := centre + across * half
-			var bottom := centre - across * half
-			if i > 0:
-				for v in [prev_top, top, bottom, prev_top, bottom, prev_bottom]:
-					im.surface_set_color(c)
-					im.surface_add_vertex(v)
-			prev_top = top
-			prev_bottom = bottom
-
-
 ## A hit landing at `at` (where the hit met the fighter): the drawn effect for what landed it (`kind`, see `Kind`), stretched along `dir`
-## (where the hit sends the fighter), a blade's slash laid along `cut` (the way the blade was moving), sparks, and for a strong hit a crisp
-## shockwave ring. Bigger and longer for a stronger hit (`strength` 0..1); `colour` is the hitter's (the sparks) and `trail` its weapon's.
-static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength: float, kind: int = Kind.BLOW, cut := Vector2.ZERO,
-		trail := Color(0.4, 0.7, 1.0)) -> void:
+## (where the hit sends the fighter), sparks, and for a strong hit a crisp shockwave ring. Bigger and longer for a stronger hit (`strength`
+## 0..1); `colour` is the hitter's (the sparks).
+static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength: float, kind: int = Kind.BLOW) -> void:
 	var s := clampf(strength, 0.0, 1.0)
 	var pow_fx := Pow.new()
 	pow_fx.material_override = _material(true)
@@ -245,32 +190,6 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	pow_fx.life = 0.17 + 0.1 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)
-	if kind == Kind.BLADE:
-		var slash := Slash.new()
-		slash.material_override = _material(true)
-		slash.dir = cut if cut != Vector2.ZERO else Vector2(dir.y, -dir.x)
-		slash.length = 2.0 + 1.6 * s
-		slash.width = 0.28 + 0.24 * s
-		slash.colour = trail
-		slash.life = 0.2 + 0.08 * s
-		slash.position = at + Vector3(0, 0, 0.1)
-		parent.add_child(slash)
-	elif kind == Kind.CLAW:
-		# Three marks side by side, raked the way the swipe went, the middle one longest and each a moment after the last.
-		var along := cut if cut != Vector2.ZERO else Vector2(dir.y, -dir.x)
-		var across := along.orthogonal().normalized()
-		for k in 3:
-			var mark := Slash.new()
-			mark.material_override = _material(true)
-			mark.dir = along
-			mark.length = (1.5 + 1.1 * s) * (1.0 if k == 1 else 0.82)
-			mark.width = 0.16 + 0.12 * s
-			mark.colour = trail
-			mark.life = 0.2 + 0.08 * s
-			mark.age = -0.022 * k
-			var off := across * (k - 1) * (0.32 + 0.1 * s)
-			mark.position = at + Vector3(off.x, off.y, 0.1)
-			parent.add_child(mark)
 	if s > 0.5:
 		var ring := Ring.new()
 		ring.material_override = _material(true)

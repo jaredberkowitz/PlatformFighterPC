@@ -5,8 +5,8 @@ bundle {
     schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 37
-    hash 1370dd4f3c1a83e2
+    sim_version 38
+    hash 6172c14bcd2afa6b
 }
 
 ruleset {
@@ -97,7 +97,7 @@ ruleset {
 
 weapon longsword {
     move jab {
-        total_frames 23
+        total_frames 24
         next jab2
         next_window 10
         hitbox { start 4 end 4 x 2.05595 y 2.17996 radius 0.7 damage 5 angle 361 bkb 25 kbg 15 priority 2 }
@@ -136,7 +136,7 @@ weapon longsword {
         hitbox { start 6 end 7 x 2.34395 y 0.596 radius 0.7 damage 10 angle 30 bkb 50 kbg 40 priority 2 }
     }
     move dash_attack {
-        total_frames 47
+        total_frames 48
         hitbox { start 12 end 12 x 2.19995 y 0.09203 radius 0.79999 damage 13 angle 361 bkb 93 kbg 58 priority 2 }
         hitbox { start 13 end 13 x 2.48795 y 1.09999 radius 0.79999 damage 13 angle 361 bkb 93 kbg 58 priority 2 }
         hitbox { start 14 end 14 x 2.19995 y 2.10797 radius 0.79999 damage 13 angle 361 bkb 93 kbg 58 priority 2 }
@@ -317,38 +317,38 @@ weapon longsword {
         counter { start 5 end 26 then ext0 percent 120 min_damage 8 }
     }
     move jab2 {
-        total_frames 26
+        total_frames 27
         hitbox { start 3 end 3 x 2.41595 y 0.73999 radius 0.7 damage 6 angle 361 bkb 40 kbg 30 priority 2 }
         hitbox { start 4 end 4 x 2.19995 y 1.89197 radius 0.7 damage 6 angle 361 bkb 40 kbg 30 priority 2 }
         hitbox { start 3 end 3 x 1.47997 y 0.956 radius 0.79999 damage 4 angle 361 bkb 40 kbg 30 }
         hitbox { start 4 end 4 x 1.40796 y 1.53198 radius 0.79999 damage 4 angle 361 bkb 40 kbg 30 }
     }
     move grab {
-        total_frames 32
+        total_frames 33
         hitbox { start 5 end 6 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move dash_grab {
-        total_frames 40
+        total_frames 41
         hitbox { start 8 end 9 x 2.09999 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 14
+        total_frames 18
         hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
     }
     move fthrow {
-        total_frames 32
+        total_frames 33
         hitbox { start 17 end 17 x 1.29999 y 1.09999 radius 1 damage 4 angle 40 bkb 60 kbg 50 kind throw }
     }
     move bthrow {
-        total_frames 42
+        total_frames 43
         hitbox { start 18 end 18 x -1.29999 y 1.09999 radius 1 damage 4 angle 45 bkb 65 kbg 55 kind throw }
     }
     move uthrow {
-        total_frames 42
+        total_frames 43
         hitbox { start 12 end 12 x 1.29999 y 1.09999 radius 1 damage 5 angle 88 bkb 60 kbg 102 kind throw }
     }
     move dthrow {
-        total_frames 44
+        total_frames 45
         hitbox { start 19 end 19 x 1.29999 y 1.09999 radius 1 damage 4 angle 84 bkb 85 kbg 57 kind throw }
     }
     move ledge_attack {
@@ -519,7 +519,7 @@ weapon longsword {
         }
     }
     move pivot_grab {
-        total_frames 35
+        total_frames 36
         hitbox { start 9 end 10 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
 }
@@ -711,16 +711,16 @@ weapon claws {
         hitbox { start 3 end 4 x 2.09999 y 1.09999 radius 1 damage 4 angle 55 bkb 40 kbg 176 }
     }
     move grab {
-        total_frames 28
-        hitbox { start 6 end 7 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        total_frames 35
+        hitbox { start 5 end 6 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move dash_grab {
-        total_frames 36
+        total_frames 43
         hitbox { start 7 end 8 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 20
-        hitbox { start 3 end 3 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
+        total_frames 18
+        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
     }
     move fthrow {
         total_frames 31
@@ -754,8 +754,8 @@ weapon claws {
         hitbox { start 14 end 17 x -1.07999 y 0.5 radius 0.98997 damage 7.69994 angle 361 bkb 40 kbg 85 group 1 }
     }
     move pivot_grab {
-        total_frames 31
-        hitbox { start 10 end 11 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        total_frames 38
+        hitbox { start 8 end 9 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
 }
 

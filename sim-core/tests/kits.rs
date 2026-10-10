@@ -755,11 +755,7 @@ fn a_pivot_grab_turns_around_out_of_a_dash_and_catches_behind() {
     let (m, facing, caught) = pivot_grab(CLAWS, -127);
     assert_eq!(m, MoveId::PivotGrab as u8);
     assert_eq!(facing, -1);
-    assert_eq!(
-        caught,
-        Some(11),
-        "the claws' (estimated) pivot grab catches on frame 11"
-    );
+    assert_eq!(caught, Some(9), "the claws' pivot grab catches on frame 9");
 }
 
 #[test]
