@@ -5,8 +5,8 @@ bundle {
     schema 1
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 33
-    hash f217e537af6ea282
+    sim_version 34
+    hash 667a84675519f3d3
 }
 
 ruleset {
@@ -16,7 +16,10 @@ ruleset {
     tumble_knockback 80
     sdi_distance 0.25
     short_hop_damage 0.84999
-    di_degrees 18
+    di_degrees 10
+    lsi_up 1.09499
+    lsi_down 0.92
+    lsi_vertical 25
     respawn_invuln 120
     tech_window 11
     tech_lag 4
@@ -517,6 +520,7 @@ weapon longsword {
 }
 
 weapon claws {
+    limbs true
     move jab {
         total_frames 20
         next jab2
@@ -1098,6 +1102,7 @@ fighter duelist {
     ecb_height 2.2
     ecb_side_height 1.09999
     hitbox_scale 1
+    crouch_height 0.59999
     helpless_landing_lag 20
     ledge_attack_frames 55
     ledge_attack_dx 1.5
@@ -1206,6 +1211,7 @@ fighter brawler {
     ecb_height 2.2
     ecb_side_height 1.09999
     hitbox_scale 1
+    crouch_height 0.59999
     helpless_landing_lag 20
     ledge_attack_frames 55
     ledge_attack_dx 1.5
@@ -1214,9 +1220,9 @@ fighter brawler {
 
 fighter bruiser {
     weapon maul
-    walk_speed 0.11874
-    run_speed 0.15625
-    dash_speed 0.2125
+    walk_speed 0.12862
+    run_speed 0.187
+    dash_speed 0.22687
     dash_initial_speed 0.0875
     dash_accel 0.03749
     dash_brake 0.06499
@@ -1226,25 +1232,25 @@ fighter bruiser {
     dash_shield_frame 5
     turn_frames 6
     ground_accel 0.025
-    ground_friction 0.03
+    ground_friction 0.02124
     run_decel 0.00749
     landing_friction 0.00499
-    air_speed 0.11249
+    air_speed 0.09187
     air_accel 0.00124
-    air_accel_stick 0.00749
-    air_friction 0.00124
-    gravity 0.015
-    max_fall_speed 0.2125
-    fast_fall_speed 0.3375
+    air_accel_stick 0.00499
+    air_friction 0.00075
+    gravity 0.01212
+    max_fall_speed 0.24374
+    fast_fall_speed 0.39
     jump_squat_frames 3
-    full_hop_velocity 0.22685
-    hop_burst_velocity 0.48982
+    full_hop_velocity 0.21771
+    hop_burst_velocity 0.56459
     hop_burst_frames 4
-    short_hop_velocity 0.23671
-    air_jumps 1
-    air_jump_velocity 0.31978
+    short_hop_velocity 0.22633
+    air_jumps 4
+    air_jump_velocity 0.32152
     landing_lag 2
-    heavy_landing_lag 4
+    heavy_landing_lag 6
     input_buffer 9
     air_dodge_frames 52
     air_dodge_speed 0.4
@@ -1314,10 +1320,11 @@ fighter bruiser {
     ecb_height 2.2
     ecb_side_height 1.09999
     hitbox_scale 1
+    crouch_height 0.59999
     helpless_landing_lag 20
     ledge_attack_frames 55
     ledge_attack_dx 1.5
-    weight 118
+    weight 127
 }
 
 stage proving_grounds {

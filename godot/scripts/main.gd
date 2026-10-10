@@ -305,7 +305,7 @@ func _refresh(i: int) -> void:
 	cur_pos[i] = sim.fighter_pos(i)
 	snaps[i] = {
 		"state": sim.fighter_state(i), "state_frame": sim.fighter_state_frame(i),
-		"facing": sim.fighter_facing(i), "pos": cur_pos[i], "vel": sim.fighter_vel(i),
+		"facing": sim.fighter_facing(i), "pos": cur_pos[i], "vel": sim.fighter_vel(i), "kb_vel": sim.fighter_kb_vel(i),
 		"char": info[0], "class": sim.fighter_class(i), "platform": info[1], "jumps": info[2], "dodged": info[3] != 0,
 		"fast_fall": info[4] != 0, "ledge": info[5], "ledge_invuln": info[6], "grabs": info[7],
 		"lag": info[8], "cooldown": info[9], "ignore": info[10], "frame": sim.frame(),
@@ -806,6 +806,11 @@ func _tick_once(advance := true) -> void:
 			_on_hit(i, befores)
 		elif struck and snaps[i].state == "Shield":
 			_on_block(i)
+		# A strong launch has just begun (its hitlag over): a blue streak along the line it flies, as bent by DI.
+		if before.get("launch_pending", false) and not snaps[i].launch_pending and snaps[i].get("tumble", false) and _in_play(i):
+			var kb: Vector2 = sim.fighter_kb_vel(i)
+			if kb.length() > 0.01:
+				Effects.launch_line(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.9), kb.normalized())
 		_on_events(i, before, snaps[i])
 		if (cur_pos[i] - prev_pos[i]).length() > 2.5:
 			prev_pos[i] = cur_pos[i]  # teleport-like moves (ledge get-up) should not slide

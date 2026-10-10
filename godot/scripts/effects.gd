@@ -320,6 +320,21 @@ static func impact(parent: Node, at: Vector3, dir: Vector2, color: Color, streng
 	parent.add_child(spike)
 
 
+## The line a strong launch flies along, as DI left it: a long, thin blue streak from the fighter, there for a moment as the launch
+## begins (the reference game's DI indicator).
+static func launch_line(parent: Node, at: Vector3, dir: Vector2) -> void:
+	var spike := Spike.new()
+	spike.material_override = _material(true)
+	spike.dir = dir
+	spike.length = 4.2
+	spike.width = 0.16
+	spike.life = 0.26
+	spike.edge = Color(0.35, 0.65, 1.0, 0.9)
+	spike.core = Color(0.85, 0.95, 1.0, 1.0)
+	spike.position = at
+	parent.add_child(spike)
+
+
 ## A hit on a shield: a bright ring on the bubble and a few sparks.
 static func shield_hit(parent: Node, at: Vector3, strength: float) -> void:
 	var ring := Ring.new()

@@ -474,7 +474,11 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# A clip that follows the move (or the ledge climb) starts at once: it is posed by seeking while paused, and seeking never moves
 		# a cross-fade on, so it would stay showing the clip before.
 		var follows: bool = float(pick[2]) >= 0.0
-		anim.play(clip, 0.1 if current_clip != "" and not follows and not clip.begins_with("attack") else 0.0)
+		# Likewise a hit's pose: a fighter frozen by hitlag is already in it for the whole freeze (the animation does not move on then).
+		var frozen: bool = int(s.hitlag) > 0
+		anim.play(clip, 0.1 if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		if frozen and not follows:
+			anim.advance(0.0)
 		current_clip = clip
 		if clip == "run" and gait >= 0.0:
 			anim.seek(gait * anim.current_animation_length, true)
@@ -549,6 +553,12 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		_bend_bone(spine_bone, body_bend, int(s.facing))
 	if absf(head_look) > 0.05:
 		_bend_bone(head_bone, -head_look, int(s.facing))
+	# A flinch: the chest and head snap back from the hit and come forward again.
+	if flinch_left > 0.0:
+		flinch_left = maxf(0.0, flinch_left - delta)
+		var k := flinch_left / FLINCH_TIME
+		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
+		_bend_bone(head_bone, -12.0 * k, int(s.facing))
 	# Open the chest and the face to the camera (see BODY_TURN).
 	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
 	_turn_bone(head_bone, -HEAD_TO_CAMERA * float(s.facing))
@@ -1256,6 +1266,15 @@ func _face_for(s: Dictionary) -> Dictionary:
 	return Loadout.FACES[loadout.face]
 
 
+## How far round a tumbling launch has turned the body (radians).
+var tumble_angle := 0.0
+## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
+var flinch_left := 0.0
+const FLINCH_TIME := 0.22
+## Landing out of an aerial (its landing lag) or a fast fall: a heavier, deeper landing until it ends.
+var heavy_landing := false
+
+
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
 	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
@@ -1363,6 +1382,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		last_vy = vy
 
 	var target_squash: float = SQUASH.get(state, 0.0)
+	# Landing out of an aerial or a fast fall stumbles: deeper, and pitched forward, for its whole landing lag.
+	if state == "Landing" and last_state != "Landing":
+		heavy_landing = last_state == "Attack" or s.fast_fall
+	if state != "Landing":
+		heavy_landing = false
+	if heavy_landing:
+		target_squash = 0.38
 	if state == "Attack" and s.move_timing[1] > 0:
 		# Coil down while winding up, stretch tall through the strike: the move reads from far away.
 		var first: float = s.move_timing[1]
@@ -1375,6 +1401,8 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	if heavy_landing:
+		target_lean = 16.0
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
 	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
 	if state == "Attack" and s.move_tip != Vector3.ZERO:
@@ -2422,6 +2450,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var state: String = s.state
 	var pct := int(s.percent)
 	if pct != last_percent:
+		# A hit that does not launch (a flinch, or one hit of a multi-hit move) snaps the body back.
+		if last_percent >= 0 and pct > last_percent and not s.launch_pending and state != "Hitstun":
+			flinch_left = FLINCH_TIME
 		last_percent = pct
 		percent_label.text = "%d%%" % pct
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
@@ -2486,6 +2517,13 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
-			model.rotation.x = -float(s.frame) * 0.4
+			# Tumbling head over heels, faster the faster the launch flies (a big launch whirls, a weak one rolls over slowly).
+			var flight: Vector2 = s.vel + s.get("kb_vel", Vector2.ZERO)
+			tumble_angle -= clampf(flight.length() * 1.3, 0.12, 0.6) * delta * 60.0
+			model.rotation.x = tumble_angle
+			# About the middle of the body, not the feet (which would swing the body down through the floor).
+			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
 		else:
 			model.rotation.x = -deg_to_rad(26.0)
+	else:
+		tumble_angle = 0.0

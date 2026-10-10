@@ -187,6 +187,8 @@ pub struct FighterParams {
     /// Scales the size and position of everything this fighter's attacks do (hitboxes, projectile muzzles and sizes,
     /// reflectors). 1.0 is the moveset as written; a big fighter's attacks are bigger and reach further.
     pub hitbox_scale: Fx,
+    /// Crouching, the hurtboxes come down to this share of their standing heights, so high attacks pass over a crouch.
+    pub crouch_height: Fx,
     // Special states
     pub helpless_landing_lag: u8,
     pub ledge_attack_frames: u8,
@@ -215,7 +217,7 @@ impl FighterParams {
     }
 
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 48] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 49] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -263,6 +265,7 @@ impl FighterParams {
             ("ecb_height", self.ecb_height),
             ("ecb_side_height", self.ecb_side_height),
             ("hitbox_scale", self.hitbox_scale),
+            ("crouch_height", self.crouch_height),
             ("ledge_attack_dx", self.ledge_attack_dx),
             ("weight", self.weight),
         ]
@@ -539,6 +542,7 @@ impl FighterParams {
             ecb_height: r(11, 5),
             ecb_side_height: r(11, 10),
             hitbox_scale: Fx::ONE,
+            crouch_height: r(3, 5),
             helpless_landing_lag: 20,
             ledge_attack_frames: 55,
             ledge_attack_dx: r(3, 2),
@@ -617,26 +621,28 @@ impl FighterParams {
     pub fn bruiser() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
-        let gravity = su(120);
-        let (burst, arc) = Self::full_hop(gravity, su(28500));
+        let gravity = su(97);
+        let (burst, arc) = Self::full_hop(gravity, su(32850));
         FighterParams {
-            walk_speed: gu(950),
-            run_speed: gu(1250),
-            dash_speed: gu(1700),
+            walk_speed: gu(1029),
+            run_speed: gu(1496),
+            dash_speed: gu(1815),
             dash_initial_speed: gu(700),
-            air_speed: su(900),
-            air_accel_stick: su(60),
-            air_friction: su(10),
+            air_speed: su(735),
+            air_accel_stick: su(40),
+            air_friction: su(6),
             gravity,
-            max_fall_speed: su(1700),
-            fast_fall_speed: su(2700),
-            ground_friction: gu(240),
+            max_fall_speed: su(1950),
+            fast_fall_speed: su(3120),
+            ground_friction: gu(170),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,
-            short_hop_velocity: Self::hop_velocity(gravity, su(14000)),
-            air_jump_velocity: Self::hop_velocity(gravity, su(26000)),
-            weight: Fx::from_int(118),
+            short_hop_velocity: Self::hop_velocity(gravity, su(16020)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(32850)),
+            air_jumps: 4,
+            heavy_landing_lag: 6,
+            weight: Fx::from_int(127),
             weapon: 2,
             ..FighterParams::base()
         }
@@ -777,8 +783,13 @@ pub struct Ruleset {
     pub sdi_distance: Fx,
     /// Damage of an aerial made during a short hop, as a fraction of its listed damage (the reference game's 0.85).
     pub short_hop_damage: Fx,
-    /// How far the launch angle can be bent by DI, in degrees.
+    /// How far the launch angle can be bent by DI, in degrees (the reference game's 0.17 radians, about 10).
     pub di_degrees: u8,
+    /// Launch speed influence: a tumbling launch is this many times faster with the stick held fully up, and `lsi_down` times
+    /// as fast held fully down (in between in proportion), except within `lsi_vertical` degrees of straight up or down.
+    pub lsi_up: Fx,
+    pub lsi_down: Fx,
+    pub lsi_vertical: u8,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -907,7 +918,10 @@ impl Ruleset {
             tumble_knockback: Fx::from_int(80),
             sdi_distance: Fx::from_ratio(1, 4),
             short_hop_damage: Fx::from_ratio(17, 20),
-            di_degrees: 18,
+            di_degrees: 10,
+            lsi_up: Fx::from_ratio(1095, 1000),
+            lsi_down: Fx::from_ratio(92, 100),
+            lsi_vertical: 25,
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -989,6 +1003,9 @@ impl StateHash for Ruleset {
         self.sdi_distance.hash_into(h);
         self.short_hop_damage.hash_into(h);
         h.write_u8(self.di_degrees);
+        self.lsi_up.hash_into(h);
+        self.lsi_down.hash_into(h);
+        h.write_u8(self.lsi_vertical);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -1175,6 +1192,24 @@ mod tests {
 
         let mut c = base.clone();
         c.stage.platforms[1].pass_through = false;
+        assert_ne!(h, c.hash());
+
+        let mut c = base.clone();
+        c.fighters[0].crouch_height += Fx::from_raw(1);
+        assert_ne!(h, c.hash());
+
+        for change in [
+            |r: &mut Ruleset| r.lsi_up += Fx::from_raw(1),
+            |r: &mut Ruleset| r.lsi_down += Fx::from_raw(1),
+            |r: &mut Ruleset| r.lsi_vertical += 1,
+        ] {
+            let mut c = base.clone();
+            change(&mut c.rules);
+            assert_ne!(h, c.hash());
+        }
+
+        let mut c = base.clone();
+        c.weapons[0].limbs = !c.weapons[0].limbs;
         assert_ne!(h, c.hash());
 
         let mut c = base;

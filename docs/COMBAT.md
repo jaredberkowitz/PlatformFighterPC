@@ -9,7 +9,10 @@
   specials: a crushing overhead (neutral), a shoulder charge (side) and a ground quake (down). Its body is the heaviest and slowest
   (`FighterParams::bruiser`). Frame data and numbers are placeholders; `sim-core/tests/maul.rs` pins the shape of it.
 - **Hitboxes and hurtboxes are circles.** Hitboxes come from move data (active on frames `start..=end`, offset from the feet,
-  mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB. One hit per move per target;
+  mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB, brought down to `crouch_height` (0.6) of
+  their heights in a crouch so high attacks pass over it; and a fourth for a limb: with a `limbs` moveset (the claws), while a hit is
+  out the arm or leg throwing it reaches most of the way to the farthest hitbox and can be hit there (sim v34). A blade or a hammer
+  reaches past the body and cannot be hit. One hit per move per target;
   when several hitboxes overlap a target, the lowest priority number wins (that is what makes spacing matter).
 - **Moves:** jab, forward/up/down tilt, dash attack, forward/up/down smash, neutral/forward/back/up/down aerial.
   *Smash vs tilt:* a stick flick within 4 frames of the attack press is a smash; a stick that was already held is a tilt.
@@ -20,7 +23,9 @@
   `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 is horizontal for weak grounded hits and
   44 degrees otherwise. See "Hit feel" below for rage, staling, crouch cancelling and the rest (sim v27).
 - **Hitlag freezes both fighters.** During it the victim can **DI** (the part of the stick perpendicular to the launch bends
-  it up to 18 degrees, speed unchanged, applied on the frame hitlag ends) and **SDI** (a stick flick nudges 0.25 units, once
+  it up to 10 degrees, the reference game's 0.17 radians, applied on the frame hitlag ends; it was 18, the older game's, until sim
+  v34) and **LSI** (holding up makes a tumbling launch up to 1.095 times as fast, holding down 0.92 times, in proportion to the stick,
+  except within 25 degrees of straight up or down) and **SDI** (a stick flick nudges 0.25 units, once
   every 4 frames).
 - **Hitstun** with gravity and decaying launch speed. Landing in hitstun is a **tech** with a shield press just before
   (4 frames of lag), otherwise a placeholder knockdown (24 frames).
