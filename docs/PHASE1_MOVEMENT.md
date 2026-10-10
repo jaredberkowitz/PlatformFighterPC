@@ -66,8 +66,12 @@ The placeholder stage is now Final Destination-sized (main block 22 wide, side p
 - In the air, speed above `air_speed` is never cut by the stick; only light `air_friction` drags it down. Air acceleration
   is `air_accel + air_accel_stick * stick_tilt`.
 - Walking off a ledge keeps momentum the same way.
-- Landing while holding the stick the way you are moving goes straight into a **run** (no walk phase), and speed above
-  the target eases off at `run_decel` instead of snapping.
+- Landing bleeds speed off at `landing_friction` whatever the stick does, and holding the stick walks on afterwards: as in the
+  reference game, a run needs a new dash (sim v35; until then a held stick landed straight into a run at full run speed, which on
+  a keyboard happened after every drifting jump and felt slippery). Walking faster than walk speed slows at traction
+  (`ground_friction`), not the gentle `run_decel`.
+- A dash attack slides on the reference game's traction (`dash_attack_friction`: 0.114, 0.11 and 0.085 reference units a frame for
+  the three classes), about two world units out of a run (sim v35; it slid nearly twice as far before).
 
 ## Ledge grab rule (bug fix)
 
@@ -83,6 +87,18 @@ edge). Walking off now means falling for a moment first.
 - **`GROUND_SPEED_PERCENT`** (in `sim-core/src/content.rs`, currently 90) scales every ground speed, acceleration and
   friction at once, so starts and stops keep their timing and only the distances shrink. Air speed and jump heights use
   the unscaled reference values. Lower the number to slow the ground game further, or set it to 100 for the raw reference.
+
+## Reverse aerial rush and the run's skid (sim v35)
+
+- **RAR out of the initial dash** (the reference game's way): back with the jump, or a jump within the first frames of the dash
+  turnaround (`dash_turn_delay`), jumps facing back but still moving forward at the dash's speed, so a back aerial leads. The
+  turnaround keeps the dash's speed for this (`Fighter::turn_speed`); without a jump it is an ordinary dash dance.
+- **Out of a run**: pushing back starts the run's skid (a turn that slides to a stop facing the new way). The skid is committed: the
+  flick that started it, still in the input buffer, or a new one, no longer cuts it into a dash the other way (which used to kill the
+  momentum after one frame). A jump at any point of the skid keeps the speed left, facing back. Back with the jump on the same frame
+  counts too, and a soft push back is enough (a keyboard's second key during a run is not a flick). Holding back through the skid
+  runs the other way once it ends.
+- Tests: `sim-core/tests/reference_feel.rs`.
 
 ## Dash dance and jump-ins
 

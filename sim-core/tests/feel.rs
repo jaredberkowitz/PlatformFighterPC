@@ -273,7 +273,9 @@ fn wolf() -> Sim {
 }
 
 #[test]
-fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_for_a_long_way() {
+fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_on_traction() {
+    // From dash speed (2.09 reference units a frame) at the reference traction (0.11): about 20 reference units, 2.5 world units,
+    // well past where a standing attack stops (sim v35; it slid a gentler 3.5 and more before).
     let mut sim = wolf();
     sim.ticks(8, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Dash);
@@ -282,7 +284,7 @@ fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_for_a_long_way() {
     assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
     sim.ticks(40, inp(127, 0, 0));
     let slid = sim.f().pos.x - x0;
-    assert!(slid > fx(35, 10), "slid only {slid:?}");
+    assert!(slid > fx(22, 10) && slid < fx(30, 10), "slid {slid:?}");
 }
 
 /// Lets go of the stick after a few frames of dash and waits for the dash to end by itself.

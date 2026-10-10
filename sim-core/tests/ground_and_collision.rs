@@ -353,34 +353,19 @@ fn dash_speed_eases_down_into_run_speed() {
 }
 
 #[test]
-fn landing_while_holding_the_stick_carries_momentum_into_a_run() {
+fn landing_while_holding_the_stick_walks_on_instead_of_running() {
+    // As in the reference game: holding the stick through a landing walks; a run needs a new dash.
     let mut sim = Sim::new();
     let p = sim.content.fighters[0];
-    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), fx(1, 10), Fx::ZERO);
-    let mut landed_speed = None;
-    let mut last = None;
-    for _ in 0..60 {
+    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), p.air_speed, Fx::ZERO);
+    let mut landed = false;
+    for _ in 0..40 {
         sim.tick(inp(127, 0, 0));
-        let grounded = sim.f().grounded();
-        let v = sim.f().vel.x;
-        if grounded {
-            landed_speed.get_or_insert(v);
-            if let Some(prev) = last {
-                // No snapping: whatever the state, speed only falls by the gentle easing rate.
-                assert!(
-                    prev - v <= p.run_decel,
-                    "snapped from {prev:?} to {v:?} in {:?}",
-                    sim.f().state
-                );
-            }
-            last = Some(v);
-        }
+        landed |= sim.f().grounded();
     }
-    let landed = landed_speed.expect("never landed");
-    assert!(landed > fx(1, 20), "landing killed the speed: {landed:?}");
-    // Holding the stick the way you were moving continues straight into a run: no walk phase.
-    assert_eq!(sim.f().state, S::Run);
-    assert_eq!(sim.f().vel.x, p.run_speed);
+    assert!(landed, "never landed");
+    assert_eq!(sim.f().state, S::Walk);
+    assert!(sim.f().vel.x <= p.walk_speed, "{:?}", sim.f().vel.x);
 }
 
 #[test]

@@ -297,6 +297,7 @@ params_io! {
     ground_friction: Fx,
     run_decel: Fx,
     landing_friction: Fx,
+    dash_attack_friction: Fx,
     air_speed: Fx,
     air_accel: Fx,
     air_accel_stick: Fx,

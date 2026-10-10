@@ -1,10 +1,12 @@
 //! Closer to the reference game (sim v34): DI bends a launch by about 10 degrees at most, launch speed influence, crouching under
-//! high hits, limbs that can be hit while they attack, and the bruiser's heavyweight attributes.
+//! high hits, limbs that can be hit while they attack, and the bruiser's heavyweight attributes; and (sim v35) the reverse aerial
+//! rush, the run's committed skid and the dash attack's slide.
 
 mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::combat::{hitstun_frames, hurtboxes, params_of, weapon_of};
+use sim_core::input::buttons::{ATTACK, JUMP};
 use sim_core::moves::MoveId;
 use sim_core::state::FighterState as S;
 use sim_core::trig::Angle;
@@ -158,7 +160,7 @@ fn the_bruiser_uses_all_four_air_jumps() {
     let mut jumps = 0;
     for _ in 0..6 {
         let before = sim.f().vel.y;
-        sim.tick(inp(0, 0, sim_core::input::buttons::JUMP));
+        sim.tick(inp(0, 0, JUMP));
         if sim.f().vel.y > before + fx(1, 10) {
             jumps += 1;
         }
@@ -167,4 +169,159 @@ fn the_bruiser_uses_all_four_air_jumps() {
         }
     }
     assert_eq!(jumps, 4);
+}
+
+// ---- Reverse aerial rush (sim v35) ----------------------------------------------------------------------------------------------
+
+/// Player 0 dashes right for `dash` frames, then presses back, and jump `gap` frames after (0: together); then holds the stick
+/// right with attack once airborne. Returns (facing in the air, horizontal speed in the air, the aerial it did).
+fn rar_from_dash(dash: usize, gap: usize) -> (i8, Fx, u8) {
+    let mut sim = duel([0, 0, 0, 0]);
+    sim.stand(1, Fx::from_int(12), -1);
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..dash {
+        sim.tick(inp(127, 0, 0));
+    }
+    sim.tick(inp(-127, 0, if gap == 0 { JUMP } else { 0 }));
+    for k in 1..=gap {
+        sim.tick(inp(-127, 0, if k == gap { JUMP } else { 0 }));
+    }
+    let mut n = 0;
+    while sim.f().grounded() && n < 10 {
+        sim.tick(inp(0, 0, 0));
+        n += 1;
+    }
+    let (facing, vx) = (sim.f().facing, sim.f().vel.x);
+    sim.tick(inp(127, 0, ATTACK));
+    sim.tick(inp(0, 0, 0));
+    (facing, vx, sim.f().move_id)
+}
+
+#[test]
+fn a_reverse_aerial_rush_out_of_the_initial_dash_jumps_backward_facing_with_the_dash_momentum() {
+    for gap in [0, 1, 2] {
+        let (facing, vx, aerial) = rar_from_dash(6, gap);
+        assert_eq!(facing, -1, "gap {gap}: facing back");
+        assert!(
+            vx > fx(15, 100),
+            "gap {gap}: still moving forward fast: {vx:?}"
+        );
+        assert_eq!(
+            aerial,
+            MoveId::BAir as u8,
+            "gap {gap}: a back aerial toward the motion"
+        );
+    }
+}
+
+#[test]
+fn a_dash_dance_without_a_jump_still_turns_and_dashes_back() {
+    let mut sim = duel([0, 0, 0, 0]);
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..6 {
+        sim.tick(inp(127, 0, 0));
+    }
+    for _ in 0..8 {
+        sim.tick(inp(-127, 0, 0));
+    }
+    assert_eq!(sim.f().state, S::Dash);
+    assert_eq!(sim.f().facing, -1);
+    assert!(
+        sim.f().vel.x < Fx::ZERO,
+        "dashing back: {:?}",
+        sim.f().vel.x
+    );
+}
+
+#[test]
+fn a_run_turnaround_is_a_committed_skid_that_keeps_its_momentum_for_a_jump() {
+    let run = |sim: &mut Sim| {
+        sim.tick(inp(0, 0, 0));
+        for _ in 0..40 {
+            sim.tick(inp(127, 0, 0));
+        }
+        assert_eq!(sim.f().state, S::Run);
+    };
+    // A jump any time in the skid comes out facing back, still moving forward (the skid is not cut into a dash back).
+    for gap in 0..4 {
+        let mut sim = duel([1, 0, 0, 0]);
+        sim.stand(1, Fx::from_int(12), -1);
+        sim.stand(0, Fx::from_int(-9), 1);
+        run(&mut sim);
+        sim.tick(inp(-127, 0, if gap == 0 { JUMP } else { 0 }));
+        for k in 1..=gap {
+            sim.tick(inp(-127, 0, if k == gap { JUMP } else { 0 }));
+        }
+        let mut n = 0;
+        while sim.f().grounded() && n < 10 {
+            sim.tick(inp(0, 0, 0));
+            n += 1;
+        }
+        assert_eq!(sim.f().facing, -1, "gap {gap}");
+        assert!(sim.f().vel.x > Fx::ZERO, "gap {gap}: {:?}", sim.f().vel.x);
+    }
+    // Holding back through the skid runs the other way once it ends.
+    let mut sim = duel([1, 0, 0, 0]);
+    sim.stand(1, Fx::from_int(12), -1);
+    sim.stand(0, Fx::from_int(-9), 1);
+    run(&mut sim);
+    let mut states = Vec::new();
+    for _ in 0..20 {
+        sim.tick(inp(-127, 0, 0));
+        states.push(sim.f().state);
+    }
+    assert!(
+        !states.contains(&S::Dash),
+        "no dash out of the skid: {states:?}"
+    );
+    assert_eq!(sim.f().state, S::Run);
+    assert!(sim.f().vel.x < Fx::ZERO);
+}
+
+#[test]
+fn a_dash_attack_slides_on_traction() {
+    let mut sim = duel([0, 0, 0, 0]);
+    sim.stand(0, Fx::from_int(-9), 1);
+    sim.stand(1, Fx::from_int(12), -1);
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..40 {
+        sim.tick(inp(127, 0, 0));
+    }
+    let x0 = sim.f().pos.x;
+    sim.tick(inp(127, 0, ATTACK));
+    while sim.f().state == S::Attack {
+        sim.tick(inp(0, 0, 0));
+    }
+    // From run speed at the reference traction (0.114 a frame): about 17 reference units, a little over two world units.
+    let slide = sim.f().pos.x - x0;
+    assert!(slide > fx(17, 10) && slide < fx(25, 10), "{slide:?}");
+}
+
+#[test]
+fn a_keyboard_style_soft_push_back_out_of_a_run_is_a_rar_too() {
+    // A keyboard's second key during a long run is a soft push (about a third), not a flick.
+    for gap in 0..3 {
+        let mut sim = duel([0, 0, 0, 0]);
+        sim.stand(0, Fx::from_int(-9), 1);
+        sim.stand(1, Fx::from_int(12), -1);
+        sim.tick(inp(0, 0, 0));
+        for _ in 0..40 {
+            sim.tick(inp(127, 0, 0));
+        }
+        sim.tick(inp(-44, 0, if gap == 0 { JUMP } else { 0 }));
+        for k in 1..=gap {
+            sim.tick(inp(-50, 0, if k == gap { JUMP } else { 0 }));
+        }
+        let mut n = 0;
+        while sim.f().grounded() && n < 10 {
+            sim.tick(inp(0, 0, 0));
+            n += 1;
+        }
+        assert_eq!(sim.f().facing, -1, "gap {gap}");
+        assert!(
+            sim.f().vel.x > fx(15, 100),
+            "gap {gap}: {:?}",
+            sim.f().vel.x
+        );
+    }
 }

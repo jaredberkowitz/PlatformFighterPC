@@ -151,12 +151,12 @@ fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
     }
 }
 
-/// Acceleration toward a ground speed target: gentle `run_decel` when slowing from extra speed
-/// (left over from a dash or a landing), normal `ground_accel` otherwise.
+/// Acceleration toward a walking speed target: speed above it (left over from a landing or a turn) comes off at traction
+/// (`ground_friction`), as in the reference game, and `ground_accel` brings the walk up to speed.
 fn ease_rate(vel: Fx, target: Fx, p: &FighterParams) -> Fx {
     let overspeed = vel.signum_int() == target.signum_int() && vel.abs() > target.abs();
     if overspeed {
-        p.run_decel
+        p.ground_friction
     } else {
         p.ground_accel
     }
@@ -288,6 +288,8 @@ fn start_dash(f: &mut Fighter, p: &FighterParams, dir: i8) {
     f.facing = dir;
     f.dash_age = 0;
     if reversing && p.dash_turn_delay > 0 {
+        // (Kept for a jump in the turnaround: a reverse aerial rush.)
+        f.turn_speed = f.vel.x;
         f.vel.x = Fx::ZERO;
         // The countdown ends on the frame the first step is taken, so the fighter stands for `dash_turn_delay` frames after the reversal.
         f.dash_wait = p.dash_turn_delay + 1;
@@ -322,6 +324,19 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     // `dash_shield_frame`, which cuts the dash to about half its distance.
     let initial_dash = f.state == S::Dash;
     if f.take(buttons::JUMP, buffer) {
+        // A reverse aerial rush: back with the jump (or just before it) out of a dash or run, or a jump in the first frames of a dash
+        // turnaround, jumps facing back but still moving the way the fighter was going, so a back aerial leads.
+        // (Out of a run any push back past the dead zone turns it, as it does without the jump; out of a dash it takes a flick.)
+        let back_in_run =
+            f.state == S::Run && x_active(input) && (input.stick_x > 0) != (f.facing > 0);
+        if matches!(f.state, S::Dash | S::Run)
+            && f.dash_wait == 0
+            && (f.flick_x(FLICK_BUFFER) == -f.facing || back_in_run)
+        {
+            f.facing = -f.facing;
+        } else if f.state == S::Dash && f.dash_wait > 0 {
+            f.vel.x = f.turn_speed;
+        }
         enter(f, S::JumpSquat);
         return;
     }
@@ -376,11 +391,16 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                     // Still inside the dash-dance window: a new dash the other way.
                     start_dash(f, p, flick);
                 } else {
+                    // A run's turnaround: it skids to a stop facing the new way (a jump in it keeps the run's speed).
                     f.facing = flick;
+                    f.turn_speed = f.vel.x;
                     enter(f, S::Turn);
                 }
             }
-        } else if !(f.state == S::Dash && flick == f.facing) {
+        } else if !(f.state == S::Dash && flick == f.facing)
+            && !(f.state == S::Turn && f.turn_speed != Fx::ZERO)
+        {
+            // (A run's skid is committed: the flick that turned it, still in the buffer, or a new one, does not dash out of it.)
             start_dash(f, p, flick);
         }
     }
@@ -413,7 +433,14 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         S::Turn => {
             f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
             if f.state_frame >= u16::from(p.turn_frames) {
-                f.state = S::Idle;
+                // Out of a run's skid with the stick still pushed hard the new way, the fighter runs on that way.
+                let hard = input.stick_x.unsigned_abs() >= STICK_THRESHOLD.unsigned_abs();
+                f.state = if f.turn_speed != Fx::ZERO && hard && dir == f.facing {
+                    S::Run
+                } else {
+                    S::Idle
+                };
+                f.turn_speed = Fx::ZERO;
             }
         }
         _ if input.stick_y <= -STICK_DOWN => {
@@ -422,6 +449,8 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         }
         _ if x_active(input) => {
             if dir != f.facing {
+                // (Pushed back out of a run without a flick, it is still the run's skid.)
+                f.turn_speed = if f.state == S::Run { f.vel.x } else { Fx::ZERO };
                 f.facing = dir;
                 f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
                 enter(f, S::Turn);
@@ -516,18 +545,10 @@ fn enter_landing(f: &mut Fighter, lag: u8) {
 
 /// Leaves a landing. Holding the stick the way you are moving continues straight into a run,
 /// so a jump keeps its momentum all the way through the landing.
+/// Out of a landing the fighter stands, and walks on if the stick is held (as in the reference game, a run needs a new dash: holding
+/// the stick does not land into one). Speed above walking speed comes off at traction.
 fn exit_landing(f: &mut Fighter) {
-    let input = f.history[0];
-    let moving_right = f.vel.x > Fx::ZERO;
-    let holding = input.stick_x.unsigned_abs() >= STICK_THRESHOLD.unsigned_abs()
-        && (input.stick_x > 0) == moving_right
-        && f.vel.x != Fx::ZERO;
-    if holding {
-        f.facing = if moving_right { 1 } else { -1 };
-        enter(f, S::Run);
-    } else {
-        enter(f, S::Idle);
-    }
+    enter(f, S::Idle);
 }
 
 // ---- Air -------------------------------------------------------------------------------------
@@ -846,13 +867,8 @@ fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
 }
 
 fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
-    // Landing keeps momentum: holding the stick the way you are moving carries it through the
-    // landing, and otherwise it bleeds off at the gentler `landing_friction`.
-    let input = f.history[0];
-    let carrying = x_active(input) && (input.stick_x > 0) == (f.vel.x > Fx::ZERO);
-    if !carrying {
-        f.vel.x = approach(f.vel.x, Fx::ZERO, p.landing_friction);
-    }
+    // The landing's momentum bleeds off at `landing_friction` whatever the stick does (holding it does not carry the speed).
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.landing_friction);
     if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(f.lag) {
         exit_landing(f);
     }
@@ -1560,9 +1576,9 @@ fn attack(
             return None;
         }
     } else {
-        // A dash attack carries its speed a long way; other ground moves stop on normal friction.
+        // A dash attack slides on traction (`dash_attack_friction`); other ground moves stop on the doubled `ground_friction`.
         let friction = if id == MoveId::DashAttack {
-            p.run_decel
+            p.dash_attack_friction
         } else {
             p.ground_friction
         };

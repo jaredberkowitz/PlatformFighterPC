@@ -109,6 +109,9 @@ pub struct Fighter {
     pub dash_age: u8,
     /// Frames a reversed dash still has to stand before it accelerates.
     pub dash_wait: u8,
+    /// The horizontal speed the fighter had as it turned around out of a dash or run (0 for a turn from a walk or standing). A jump
+    /// in the first frames of a dash turnaround keeps it (a reverse aerial rush); in a turn it marks a run's skid.
+    pub turn_speed: Fx,
     /// While non-zero, pass-through platforms are ignored (set by shield drop).
     pub platform_ignore: u8,
     /// Ledge currently held, or [`NONE`].
@@ -307,6 +310,7 @@ impl Fighter {
             hop_boost: 0,
             dash_age: 255,
             dash_wait: 0,
+            turn_speed: Fx::ZERO,
             platform_ignore: 0,
             ledge: NONE,
             ledge_invuln: 0,
@@ -439,6 +443,7 @@ impl StateHash for Fighter {
         h.write_u8(self.hop_boost);
         h.write_u8(self.dash_age);
         h.write_u8(self.dash_wait);
+        self.turn_speed.hash_into(h);
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
@@ -654,6 +659,11 @@ mod tests {
             ("dash_wait", {
                 let mut s = state;
                 s.fighters[0].dash_wait = 1;
+                s
+            }),
+            ("turn_speed", {
+                let mut s = state;
+                s.fighters[0].turn_speed = Fx::from_raw(1);
                 s
             }),
             ("platform_ignore", {

@@ -51,8 +51,11 @@ pub struct FighterParams {
     pub ground_friction: Fx,
     /// How fast speed above `run_speed` (left over from a dash) bleeds off while running.
     pub run_decel: Fx,
-    /// Friction while landing; lower than `ground_friction` so landing keeps momentum.
+    /// Friction during a landing's lag, whatever the stick does.
     pub landing_friction: Fx,
+    /// Friction while a dash attack slides: the reference game's traction (`ground_friction` is twice it, as traction is
+    /// above walking speed).
+    pub dash_attack_friction: Fx,
     // Air movement
     pub air_speed: Fx,
     /// Base air acceleration; the stick adds `air_accel_stick` scaled by how far it is pushed.
@@ -217,7 +220,7 @@ impl FighterParams {
     }
 
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 49] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 50] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -229,6 +232,7 @@ impl FighterParams {
             ("ground_friction", self.ground_friction),
             ("run_decel", self.run_decel),
             ("landing_friction", self.landing_friction),
+            ("dash_attack_friction", self.dash_attack_friction),
             ("air_speed", self.air_speed),
             ("air_accel", self.air_accel),
             ("air_accel_stick", self.air_accel_stick),
@@ -447,6 +451,7 @@ impl FighterParams {
             ground_friction: gu(220),
             run_decel: gu(60),
             landing_friction: gu(40),
+            dash_attack_friction: gu(110),
             air_speed: su(1100),
             air_accel: su(10),
             air_accel_stick: su(70),
@@ -570,6 +575,7 @@ impl FighterParams {
             max_fall_speed: su(1580),
             fast_fall_speed: su(2528),
             ground_friction: gu(228),
+            dash_attack_friction: gu(114),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,
@@ -607,6 +613,7 @@ impl FighterParams {
             air_dodge_intangible_end: 26,
             air_dodge_dir_intangible_end: 20,
             ground_friction: gu(220),
+            dash_attack_friction: gu(110),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,
@@ -635,6 +642,7 @@ impl FighterParams {
             max_fall_speed: su(1950),
             fast_fall_speed: su(3120),
             ground_friction: gu(170),
+            dash_attack_friction: gu(85),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,

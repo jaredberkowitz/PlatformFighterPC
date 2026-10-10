@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! bundle {
-//!     schema 1                 # version of this file format; older files are migrated when loaded
+//!     schema 2                 # version of this file format; older files are migrated when loaded
 //!     name "Base Roster"
 //!     sim_version 19           # the simulation this content was packed for
 //!     hash 1a2b3c4d5e6f7a8b    # fingerprint of the content; checked on load when present
@@ -29,13 +29,39 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
 
-/// Every migration, oldest first. Empty while schema 1 is the only schema there has been.
-pub const MIGRATIONS: &[Migration] = &[];
+/// Every migration, oldest first.
+pub const MIGRATIONS: &[Migration] = &[(1, fighters_get_crouch_and_dash_attack_friction)];
+
+/// Schema 1 to 2 (sim v34 and v35): fighters gained two values every fighter must have, `crouch_height` (how low a crouch brings
+/// the hurtboxes) and `dash_attack_friction` (a dash attack's slide). A fighter written before them gets the shipped crouch (0.6)
+/// and its traction for the slide: half its `ground_friction`, which is twice the reference game's traction. A fighter that
+/// inherits gets them from the one it inherits from.
+fn fighters_get_crouch_and_dash_attack_friction(root: &mut Block) {
+    use crate::format::Scalar;
+    use sim_core::Fx;
+    for item in &mut root.items {
+        let Item::Block(b) = item else { continue };
+        if b.kind != "fighter" || field(b, "inherit").is_some() {
+            continue;
+        }
+        if field(b, "crouch_height").is_none() {
+            b.field("crouch_height", Fx::from_ratio(3, 5).show());
+        }
+        if field(b, "dash_attack_friction").is_none() {
+            let traction = field(b, "ground_friction")
+                .and_then(|(v, _)| <Fx as Scalar>::parse(v))
+                .map(|g| Fx::from_raw(g.raw() / 2));
+            if let Some(t) = traction {
+                b.field("dash_attack_friction", t.show());
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Manifest {

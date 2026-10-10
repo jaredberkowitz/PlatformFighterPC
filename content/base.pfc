@@ -2,11 +2,11 @@
 # `pftool content-pack` to stamp it with a fresh hash.
 
 bundle {
-    schema 1
+    schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 34
-    hash 667a84675519f3d3
+    sim_version 35
+    hash bc579b760ecccbc6
 }
 
 ruleset {
@@ -1017,6 +1017,7 @@ fighter duelist {
     ground_friction 0.02849
     run_decel 0.00749
     landing_friction 0.00499
+    dash_attack_friction 0.01424
     air_speed 0.13387
     air_accel 0.00124
     air_accel_stick 0.00874
@@ -1126,6 +1127,7 @@ fighter brawler {
     ground_friction 0.0275
     run_decel 0.00749
     landing_friction 0.00499
+    dash_attack_friction 0.01375
     air_speed 0.16011
     air_accel 0.00124
     air_accel_stick 0.01
@@ -1235,6 +1237,7 @@ fighter bruiser {
     ground_friction 0.02124
     run_decel 0.00749
     landing_friction 0.00499
+    dash_attack_friction 0.01062
     air_speed 0.09187
     air_accel 0.00124
     air_accel_stick 0.00499
