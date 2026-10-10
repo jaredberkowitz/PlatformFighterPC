@@ -1361,17 +1361,21 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
-		target_lean += swing * _reach_weight(s)
+		# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it on
+		# its feet, so the base body keeps only a little of this.)
+		target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
 		var first: float = s.move_timing[1]
 		var last: float = s.move_timing[2]
 		var f: float = s.state_frame
+		# (Less on the base body, whose legs step into the strike in its clips.)
+		var lunge_k := 0.45 if use_base_body else 1.0
 		if f < first and f >= first * 0.5:
-			target_lunge = -0.12
+			target_lunge = -0.12 * lunge_k
 		elif f >= first and f <= last + 2.0:
-			target_lunge = 0.32
+			target_lunge = 0.32 * lunge_k
 	var fast_falling: bool = s.fast_fall and not grounded and (state == "Airborne" or state == "Helpless" or state == "ShieldDrop")
 	if fast_falling:
 		target_squash = -0.28
@@ -1651,7 +1655,15 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
 		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) != 1 else arm_reach
-		hand = old_hand.lerp(shoulder + to_tip / dist * reach, arm_k)
+		var goal := shoulder + to_tip / dist * reach
+		if use_base_body:
+			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
+			var from_v := old_hand - shoulder
+			var to_v := goal - shoulder
+			var angle := lerp_angle(from_v.angle(), to_v.angle(), arm_k)
+			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
+		else:
+			hand = old_hand.lerp(goal, arm_k)
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())

@@ -401,7 +401,8 @@ AMP = 1.0
 
 
 def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
-    """Sets a bone's pose from forward / outward / twist degrees (and a vertical offset for the hips)."""
+    """Sets a bone's pose from forward / outward / twist degrees (and an offset for the hips: upward on the base body; on the blob, whose
+    clips were tuned with it, along the hip bone's own z, which is backward and forward)."""
     fwd, out, twist, lift = fwd * AMP, out * AMP, twist * AMP, lift * AMP
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
@@ -411,7 +412,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     z = (-out if left else out)
     pb.rotation_euler = (math.radians(x), math.radians(twist), math.radians(z))
     if bone == "hips":
-        pb.location = (0.0, 0.0, lift)
+        pb.location = (0.0, lift, 0.0) if BODY else (0.0, 0.0, lift)
 
 
 def key_all(rig, frame):
@@ -428,8 +429,284 @@ def reset(rig):
         pb.location = (0, 0, 0)
 
 
+BODY = "--body" in sys.argv
+
+
+# ---- The base body's moves --------------------------------------------------------------------------------------------------------------
+# The blob had no limbs to speak of, so its moves were posed big and then exaggerated further (`clip`'s AMP) to read at all. The base body
+# has real arms and legs, so its moves are played closer to life (BODY_AMP pulls the exaggeration most of the way back to 1) and the key
+# moves are posed again so the body drives the hit, in the manner of the reference game's fighters of these builds (a stocky three-heads-
+# tall brawler, a fencer, a wolfish striker): the shoulders and hips wind back, then turn through into the strike as the weight steps onto
+# the front foot, the back leg straightening behind and the free arm pulled back for balance. Each entry is (wind-up, strike, rest) in the
+# `pose_spec` short form, on the shared move timeline.
+BODY_AMP = 0.3
+
+BODY_MOVES = {
+    # A straight punch (or a quick slash): the guard hand stays up at the chin, the shoulders snap round and the front foot steps in.
+    "attack_jab": (
+        {"hips": -0.04, "spine": (2.0, -22.0), "head": (0.0, 12.0), "stance": (14.0, -16.0), "shin.L": (-24.0,),
+         "armU.L": (46.0, 18.0), "armL.L": (100.0,)},
+        {"hips": -0.06, "spine": (8.0, 26.0), "head": (-4.0, -16.0), "stance": (28.0, -26.0), "shin.L": (-30.0,), "shin.R": (-4.0,),
+         "armU.L": (30.0, 16.0), "armL.L": (110.0,)},
+        {"spine": (2.0, 6.0), "stance": (8.0, -6.0)}),
+    # A swinging strike across the body (a claw swipe, a backhanded cut): the torso turns right round through it.
+    "attack_swing": (
+        {"hips": -0.06, "spine": (-6.0, -32.0), "head": (4.0, 16.0), "stance": (16.0, -20.0), "shin.L": (-20.0,),
+         "armU.L": (30.0, 24.0), "armL.L": (80.0,)},
+        {"hips": -0.08, "spine": (12.0, 34.0), "head": (-6.0, -18.0), "stance": (34.0, -30.0), "shin.L": (-34.0,), "shin.R": (-6.0,),
+         "armU.L": (-20.0, 30.0), "armL.L": (40.0,)},
+        {"spine": (4.0, 10.0), "stance": (12.0, -10.0)}),
+    # A low strike from a crouch.
+    "attack_low": (
+        {"hips": -0.16, "spine": (18.0, -14.0), "stance": (50.0, 20.0), "shin.L": (-70.0,), "shin.R": (-90.0,)},
+        {"hips": -0.22, "spine": (30.0, 16.0), "head": (-14.0, -8.0), "stance": (66.0, 10.0), "shin.L": (-60.0,), "shin.R": (-110.0,),
+         "armU.L": (10.0, 40.0)},
+        {"hips": -0.1, "spine": (14.0, 4.0), "stance": (36.0, 10.0)}),
+    # A smash: the weight rocks back onto the bent back leg with the shoulders turned away, then the whole body is thrown into a deep
+    # lunge, the front knee bent and the back leg straight behind (as the stocky brawler's palm thrust).
+    "attack_smash": (
+        {"hips": -0.08, "spine": (-10.0, -38.0), "head": (8.0, 20.0), "stance": (22.0, 28.0), "shin.L": (-16.0,), "shin.R": (-56.0,),
+         "armU.L": (50.0, 20.0), "armL.L": (60.0,)},
+        {"spine": (22.0, 34.0), "head": (-10.0, -18.0), "stance": (46.0, -32.0), "shin.L": (-40.0,), "shin.R": (-2.0,),
+         "armU.L": (-36.0, 26.0), "armL.L": (20.0,)},
+        {"hips": -0.05, "spine": (10.0, 12.0), "stance": (28.0, -22.0), "shin.L": (-24.0,)}),
+    # A running lunge: gather, then stretch out long over the front foot.
+    "attack_lunge": (
+        {"hips": -0.12, "spine": (-8.0, -10.0), "head": (8.0, 0.0), "stance": (20.0, 26.0), "shin.R": (-60.0,), "armU.L": (-20.0, 22.0)},
+        {"spine": (26.0, 10.0), "head": (-18.0, 0.0), "stance": (50.0, -36.0), "shin.L": (-40.0,), "shin.R": (-2.0,),
+         "armU.L": (-40.0, 30.0), "armL.L": (20.0,)},
+        {"spine": (12.0, 0.0), "stance": (28.0, -22.0)}),
+    # Fencer's forward tilt: a rising diagonal cut, stepping in and rising onto the front foot as the blade climbs, the free arm opening
+    # back for balance.
+    "sword_ftilt": (
+        {"hips": -0.08, "spine": (12.0, -28.0), "head": (6.0, 14.0), "stance": (18.0, -14.0), "shin.L": (-30.0,), "armU.L": (-10.0, 40.0),
+         "armL.L": (30.0,)},
+        {"hips": -0.04, "spine": (-4.0, 30.0), "head": (-8.0, -14.0), "stance": (36.0, -28.0), "shin.L": (-26.0,), "shin.R": (-4.0,),
+         "armU.L": (-30.0, 50.0), "armL.L": (20.0,)},
+        {"spine": (2.0, 10.0), "stance": (14.0, -10.0)}),
+    # Fencer's forward smash: the blade raised high with the weight back, then one committed cut down in front into a deep lunge, the
+    # front knee well bent, the back leg straight, the free arm thrown back.
+    "sword_fsmash": (
+        {"hips": -0.02, "spine": (-16.0, -40.0), "head": (10.0, 20.0), "stance": (24.0, 18.0), "shin.R": (-40.0,), "armU.L": (20.0, 40.0)},
+        {"spine": (22.0, 30.0), "head": (-6.0, -14.0), "stance": (48.0, -34.0), "shin.L": (-44.0,), "shin.R": (-2.0,),
+         "armU.L": (-50.0, 40.0), "armL.L": (10.0,)},
+        {"hips": -0.08, "spine": (14.0, 12.0), "stance": (34.0, -28.0), "shin.L": (-36.0,)}),
+    # Fencer's down tilt: a low lunging thrust, down on the bent front leg with the back leg stretched long behind.
+    "sword_dtilt": (
+        {"hips": -0.2, "spine": (20.0, -10.0), "head": (-10.0, 0.0), "stance": (50.0, 26.0), "shin.L": (-90.0,), "shin.R": (-100.0,)},
+        {"hips": -0.28, "spine": (34.0, 10.0), "head": (-24.0, 0.0), "stance": (70.0, -30.0), "shin.L": (-92.0,), "shin.R": (-20.0,),
+         "armU.L": (-30.0, 30.0)},
+        {"hips": -0.16, "spine": (22.0, 0.0), "stance": (48.0, -8.0), "shin.L": (-70.0,)}),
+    # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall and arches back a little under it.
+    "sword_utilt": (
+        {"hips": -0.06, "spine": (14.0, 10.0), "head": (6.0, 0.0), "stance": (12.0, -10.0), "shin.L": (-20.0,)},
+        {"hips": 0.0, "spine": (-20.0, -8.0), "head": (-18.0, 0.0), "stance": (14.0, -18.0), "armU.L": (-20.0, 30.0)},
+        {"spine": (-6.0, 0.0), "stance": (8.0, -8.0)}),
+}
+
+
+# On the ground the base body stands on its feet: whatever the legs are posed to, the hips are raised or lowered so the lower foot is on
+# the ground. In the standing moves (STANDING and BODY_MOVES) both feet stay down: the hips sink until the foot of the wider-spread leg
+# touches, and the other leg is raised to put its foot down too (a lunge: the front knee lifted and bent, the back leg long), the soles
+# level. The walk and run lift and roll their own feet, and the run and dash leave the ground between steps (STRIDING). The blob's stubby
+# legs never needed any of it.
+def grounded(name):
+    """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
+    if name in ("jump", "fall", "air_jump", "hurt", "roll", "knockdown", "ledge", "ledge_climb", "kick_dash"):
+        return False
+    return not name.endswith("air")
+
+
+STANDING = {"idle", "crouch", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
+
+
+def _ankle(rig, side):
+    bpy.context.view_layer.update()
+    return rig.pose.bones["foot." + side].head
+
+
+def _level_sole(rig, side):
+    # A bone's x turn adds along the leg (every bone rests pointing up), so the foot undoes the thigh and shin's.
+    foot = rig.pose.bones["foot." + side]
+    foot.rotation_euler.x = -(rig.pose.bones["thigh." + side].rotation_euler.x + rig.pose.bones["shin." + side].rotation_euler.x)
+
+
+def _bring_down(rig, side, ground):
+    """Turns the leg about the hip (toward hanging straight down) until its foot is on the ground; straightens the knee if it is short."""
+    thigh = rig.pose.bones["thigh." + side]
+    if _ankle(rig, side).z - ground < 0.004:
+        return
+    # Which way down is: a small turn each way.
+    x0 = thigh.rotation_euler.x
+    thigh.rotation_euler.x = x0 + 0.02
+    up = _ankle(rig, side).z
+    thigh.rotation_euler.x = x0 - 0.02
+    step = 0.02 if up < _ankle(rig, side).z else -0.02
+    lo, hi = x0, None
+    best = (_ankle(rig, side).z, x0)
+    x = x0
+    for _ in range(80):
+        x += step
+        thigh.rotation_euler.x = x
+        z = _ankle(rig, side).z
+        if z <= ground:
+            hi = x
+            break
+        if z > best[0] + 1e-5:
+            break   # past straight down: the leg is too short as bent
+        best = (z, x)
+        lo = x
+    if hi is None:
+        thigh.rotation_euler.x = best[1]
+        shin = rig.pose.bones["shin." + side]
+        s_lo, s_hi = shin.rotation_euler.x, 0.0
+        shin.rotation_euler.x = s_hi
+        if _ankle(rig, side).z > ground:
+            return
+        for _ in range(24):
+            shin.rotation_euler.x = (s_lo + s_hi) / 2.0
+            if _ankle(rig, side).z > ground:
+                s_lo = shin.rotation_euler.x
+            else:
+                s_hi = shin.rotation_euler.x
+        shin.rotation_euler.x = s_hi
+        return
+    for _ in range(24):
+        thigh.rotation_euler.x = (lo + hi) / 2.0
+        if _ankle(rig, side).z > ground:
+            lo = thigh.rotation_euler.x
+        else:
+            hi = thigh.rotation_euler.x
+    thigh.rotation_euler.x = hi
+
+
+def _lift_onto(rig, side, ground):
+    """Raises a foot that is below the ground onto it: a leg in front lifts its knee (the thigh turns up, the shin keeps its slant, so the
+    foot stays out in front: a lunge), a leg behind swings further back. Falls back on bending the knee."""
+    thigh = rig.pose.bones["thigh." + side]
+    shin = rig.pose.bones["shin." + side]
+    if _ankle(rig, side).z >= ground - 0.004:
+        return
+    front = thigh.rotation_euler.x <= 0.0     # (a limb's x turn is minus its forward angle)
+    t0, s0 = thigh.rotation_euler.x, shin.rotation_euler.x
+
+    def turn(k):
+        thigh.rotation_euler.x = t0 - k if front else t0 + k
+        shin.rotation_euler.x = s0 + k if front else s0
+
+    lo, hi = 0.0, None
+    k = 0.0
+    while k < math.radians(70.0):
+        k += math.radians(3.0)
+        turn(k)
+        if _ankle(rig, side).z >= ground:
+            hi = k
+            break
+        lo = k
+    if hi is None:
+        turn(0.0)
+        _bend_up(rig, side, ground)
+        return
+    for _ in range(24):
+        turn((lo + hi) / 2.0)
+        if _ankle(rig, side).z < ground:
+            lo = (lo + hi) / 2.0
+        else:
+            hi = (lo + hi) / 2.0
+    turn(hi)
+
+
+def _bend_up(rig, side, ground):
+    """Bends the knee until a foot below the ground is on it."""
+    shin = rig.pose.bones["shin." + side]
+    if _ankle(rig, side).z >= ground - 0.004:
+        return
+    lo = shin.rotation_euler.x
+    limit = lo + math.radians(150.0)
+    hi = None
+    x = lo
+    while x < limit:
+        x = min(x + math.radians(3.0), limit)
+        shin.rotation_euler.x = x
+        if _ankle(rig, side).z >= ground:
+            hi = x
+            break
+        lo = x
+    if hi is None:
+        return
+    for _ in range(24):
+        shin.rotation_euler.x = (lo + hi) / 2.0
+        if _ankle(rig, side).z < ground:
+            lo = shin.rotation_euler.x
+        else:
+            hi = shin.rotation_euler.x
+    shin.rotation_euler.x = hi
+
+
+## Clips with a moment in the air between steps: their feet are only kept from going through the ground.
+STRIDING = {"run", "dash"}
+
+
+def plant(rig, both, lift_only=False):
+    """Puts the lower foot on the ground by raising or lowering the hips (with `lift_only`, only raising them, if it is below); with
+    `both`, sinks to the higher foot and raises the other leg to put that foot down too."""
+    ground = rig.pose.bones["foot.L"].bone.head_local.z
+    hips = rig.pose.bones["hips"]
+    feet = [_ankle(rig, side).z for side in "LR"]
+    hips.location.y += max(0.0, ground - min(feet)) if lift_only else ground - (max(feet) if both else min(feet))
+    if both:
+        for side in "LR":
+            _lift_onto(rig, side, ground)
+            _bring_down(rig, side, ground)
+            _level_sole(rig, side)
+
+
+def _spec_pose(spec):
+    """A pose from the short form: {"hips": lift, "spine": (fwd, twist), "head": (fwd, twist), "stance": (lead, back), "arms": (fwd,
+    out), bone: (fwd, out)...}; the free arm and legs not named rest."""
+    def f(rig):
+        arms = spec.get("arms", (8.0, 14.0))
+        for side in "LR":
+            pose(rig, "armU." + side, fwd=arms[0], out=arms[1])
+            pose(rig, "armL." + side, fwd=30.0)
+        if "hips" in spec:
+            pose(rig, "hips", lift=spec["hips"])
+        if "spine" in spec:
+            pose(rig, "spine", fwd=spec["spine"][0], twist=spec["spine"][1])
+        if "head" in spec:
+            pose(rig, "head", fwd=spec["head"][0], twist=spec["head"][1])
+        if "stance" in spec:
+            lead, back = spec["stance"]
+            # The further the legs step apart front to back, the more the feet come in toward one line (as a fencer's): seen turned three
+            # quarters to the camera, feet set wide apart sideways would hide the step.
+            pose(rig, "thigh.L", fwd=lead, out=5.0 - 0.4 * abs(lead))
+            pose(rig, "shin.L", fwd=-8.0 - max(0.0, -lead) * 0.5)
+            pose(rig, "thigh.R", fwd=back, out=5.0 - 0.4 * abs(back))
+            pose(rig, "shin.R", fwd=-8.0 - max(0.0, -back) * 0.5)
+        for bone, v in spec.items():
+            if "." in bone:
+                pose(rig, bone, fwd=v[0], out=v[1] if len(v) > 1 else 0.0)
+    return f
+
+
+def _spec_held(spec, k):
+    scaled = {key: (tuple(x * k for x in v) if isinstance(v, tuple) else v * k) for key, v in spec.items()}
+    return _spec_pose(scaled)
+
+
+def _amped_pose(fn, k):
+    def f(rig):
+        global AMP
+        keep = AMP
+        AMP = keep * k
+        fn(rig)
+        AMP = keep
+    return f
+
+
 def clip(rig, name, frames, poses):
-    """`poses` maps a frame to a function that sets the pose; the clip is keyed at each of those frames."""
+    """`poses` maps a frame to a function that sets the pose; the clip is keyed at each of those frames. For the base body (--body) the
+    exaggeration is pulled back toward life and its own poses replace the listed moves' (BODY_MOVES)."""
     global AMP
     if name.startswith("attack") or name in ("grab", "throw"):
         AMP = 1.85
@@ -441,6 +718,12 @@ def clip(rig, name, frames, poses):
         AMP = 1.25
     else:
         AMP = 1.0
+    if BODY:
+        AMP = 1.0 + (AMP - 1.0) * BODY_AMP
+        if name in BODY_MOVES:
+            wind, strike, rest = BODY_MOVES[name]
+            poses = {0: _spec_held(rest, 0.0), 21: _amped_pose(_spec_pose(wind), 1.12), 33: _spec_pose(strike),
+                     38: _amped_pose(_spec_pose(strike), 1.12), 45: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:
@@ -449,6 +732,8 @@ def clip(rig, name, frames, poses):
     for frame in sorted(poses):
         reset(rig)
         poses[frame](rig)
+        if BODY and grounded(name):
+            plant(rig, name in BODY_MOVES or name in STANDING, name in STRIDING)
         key_all(rig, frame)
     action.frame_range = (0, max(poses))
 
@@ -540,9 +825,9 @@ def amped(fn, k):
 
 # ---- A generated body (--body): one skinned mesh in place of the built parts -------------------------------------------------------------
 # `-- --body <body.glb> --joints <joints.json>` builds the same skeleton and clips round a body made elsewhere (generated, then cleaned by
-# import_generated.py --kind fighter and measured by fit_body.py, which gives the joints): its arms are filled out front to back (generated
-# arms come out flat), its hands are cut off at the wrists for the game's glove fists, a face shell is laid on the head for the drawn faces,
-# and the skin is weighted to the skeleton automatically. Writes godot/models/base_rig.glb, and base_rig.json beside it with the head and
+# import_generated.py --kind fighter and measured by fit_body.py, which gives the joints): its head is lowered onto its shoulders, its hands
+# are cut off at the wrists for the game's glove fists (cuffs fitted to the forearms), a face shell is laid on the head for the drawn faces,
+# and the skin is weighted to the skeleton automatically, the arms' weights smoothed so the elbows bend round. Writes godot/models/base_rig.glb, and base_rig.json beside it with the head and
 # shoulders for the game (fighter_view.gd).
 BODY = sys.argv[sys.argv.index("--body") + 1] if "--body" in sys.argv else None
 FIT = None
@@ -553,9 +838,42 @@ if BODY:
         if _name in JOINTS:
             JOINTS[_name] = (tuple(_pos), JOINTS[_name][1])
     OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
-## How much fuller the generated arms are made front to back, and how big the glove fists are against the blob's.
-ARM_FILL = 0.45
+## How big the glove fists are against the blob's.
 FIST_SCALE = 0.85
+## How far the head is lowered onto the shoulders: the generated body has a short neck between them, which the character has none of
+## (measured on this body: the head's underside sits this far above the top of the shoulders).
+NECK_DROP = 0.07
+
+
+def smooth_weights(obj, groups, factor=0.5, repeat=6):
+    """Spreads the named vertex groups' weights along the mesh (each point toward its neighbours' average, `repeat` times), then puts
+    every point's weights back to a sum of one."""
+    me = obj.data
+    n = len(me.vertices)
+    near = [[] for _ in range(n)]
+    for e in me.edges:
+        a, b = e.vertices
+        near[a].append(b)
+        near[b].append(a)
+    weights = {g.index: [0.0] * n for g in obj.vertex_groups}
+    for v in me.vertices:
+        for g in v.groups:
+            weights[g.group][v.index] = g.weight
+    for name in groups:
+        w = weights[obj.vertex_groups[name].index]
+        for _ in range(repeat):
+            w[:] = [w[i] + factor * (sum(w[j] for j in near[i]) / len(near[i]) - w[i]) if near[i] else w[i] for i in range(n)]
+    for i in range(n):
+        total = sum(w[i] for w in weights.values())
+        if total > 0.0:
+            for w in weights.values():
+                w[i] /= total
+    for g in obj.vertex_groups:
+        w = weights[g.index]
+        g.remove(list(range(n)))
+        for i in range(n):
+            if w[i] > 1e-4:
+                g.add([i], w[i], "REPLACE")
 
 
 def build_body_meshes(rig):
@@ -578,11 +896,16 @@ def build_body_meshes(rig):
     skin.data.name = "Skin"
     skin.data.materials.clear()
     J = {k: Vector(v) for k, v in FIT["joints"].items()}
+    # No neck: the head is lowered onto the shoulders, the neck between them squeezed down to nothing (`neck` is where they now meet).
+    neck = FIT["neck"] - NECK_DROP / 2.0
+    for v in skin.data.vertices:
+        v.co.z -= NECK_DROP * _smooth(FIT["neck"] - 0.05, FIT["neck"] + 0.05, v.co.z)
 
-    # Arms filled out front to back and the generated hands cut off past the wrist (the glove fists take their place).
+    # The generated hands cut off past the wrist (the glove fists take their place).
     bm = bmesh.new()
     bm.from_mesh(skin.data)
     cut = []
+    wrist_r = {"L": [], "R": []}
     for v in bm.verts:
         for side, sign in (("L", -1.0), ("R", 1.0)):
             s, w = J["armU." + side], J["hand." + side]
@@ -599,8 +922,12 @@ def build_body_meshes(rig):
             if t > 1.03:
                 cut.append(v)
                 break
-            k = _smooth(0.05, 0.3, t) * ARM_FILL
-            v.co.y = closest.y + off.y * (1.0 + k)
+            # (How thick the forearm is near the wrist, for the cuffs.)
+            e = J["armL." + side]
+            fore = J["hand." + side] - e
+            tf = (v.co - e).dot(fore) / fore.length_squared
+            if 0.7 < tf <= 1.0:
+                wrist_r[side].append((v.co - e - fore * tf).length)
             break
     bmesh.ops.delete(bm, geom=cut, context="VERTS")
     bm.to_mesh(skin.data)
@@ -618,18 +945,28 @@ def build_body_meshes(rig):
         rest_b.data[loop.index].uv = (co.y, 0.0)
     parts["Skin"] = skin
 
-    # Glove fists and cuffs, built as the blob's and moved to this body's wrists.
+    # Glove fists, built as the blob's and moved to this body's wrists, turned to its forearms; and cuffs fitted to its forearms, a band a
+    # little wider than the wrist where the glove ends.
     for side, x in (("L", -1.0), ("R", 1.0)):
         wrist_blob = Vector((x * BLOB_WRIST[0], BLOB_WRIST[1], BLOB_WRIST[2]))
-        for name, build in (("Hand", fist), ("Cuff", cuff)):
-            bm = bmesh.new()
-            build(bm, x)
-            for v in bm.verts:
-                v.co = J["hand." + side] + (v.co - wrist_blob) * FIST_SCALE
-            parts[name + "." + side] = to_object(name + "." + side, bm, "hand." + side, rig)
+        fore_blob = (wrist_blob - Vector((x * 0.66, -0.02, 0.95))).normalized()
+        fore = (J["hand." + side] - J["armL." + side]).normalized()
+        turn = fore_blob.rotation_difference(fore).to_matrix()
+        bm = bmesh.new()
+        fist(bm, x)
+        for v in bm.verts:
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE
+        parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
+        radii_at_wrist = sorted(wrist_r[side])
+        r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=r * 1.2, radius2=r * 1.38, depth=0.075)
+        bmesh.ops.transform(bm, matrix=Vector((0.0, 0.0, 1.0)).rotation_difference(fore).to_matrix().to_4x4(), verts=bm.verts)
+        bmesh.ops.translate(bm, vec=J["hand." + side] - fore * 0.055, verts=bm.verts)
+        parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
     # The face shell, as the blob's: a ball fitted to the head, its front only, the face drawing projected straight on.
-    head = [v.co for v in skin.data.vertices if v.co.z > FIT["neck"] + 0.05]
+    head = [v.co for v in skin.data.vertices if v.co.z > FIT["neck"] + 0.05 - NECK_DROP]
     lo = Vector((min(c.x for c in head), min(c.y for c in head), min(c.z for c in head)))
     hi = Vector((max(c.x for c in head), max(c.y for c in head), max(c.z for c in head)))
     centre = (lo + hi) / 2.0
@@ -654,19 +991,21 @@ def build_body_meshes(rig):
     rig.select_set(True)
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    # Softer elbows and shoulders: the automatic weights change over from one arm bone to the next in too short a stretch, which pinches
+    # the arm where it bends; spread out, it bends round.
+    smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")])
 
     # What the game needs to fit hats, glasses, the weapon arm and the neckwear (Godot's axes: x, z, -y).
     def godot(v):
         return [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
     # And where the clothes go, in the rest pose (Blender's axes, as the skin's texture maps hold them): the shirt from the waist to the
     # neck and down the arms to the sleeve's end, the shorts from the waist to above the knee, socks up from the ankle, shoes below it.
-    neck = FIT["neck"]
     hips = J["hips"].z
     crotch = FIT["crotch"]
     knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
     ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
     clothes = {
-        "neck": round(neck - 0.03, 4),
+        "neck": round(neck - 0.015, 4),
         "waist": round(hips + 0.12 * (neck - hips), 4),
         "shorts_end": round(crotch - 0.42 * (crotch - knee), 4),
         "sock_top": round(ankle + 0.19, 4),
@@ -677,7 +1016,7 @@ def build_body_meshes(rig):
         "torso_half_width": round(abs(J["armU.R"].x) * 0.72, 4),
     }
     info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)],
-            "neck": round(FIT["neck"], 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
+            "neck": round(neck, 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
             "height": round(FIT["height"], 4), "clothes": clothes}
     with open(OUT.replace(".glb", ".json"), "w") as f:
         json.dump(info, f, indent=1)
@@ -780,11 +1119,13 @@ def main() -> None:
             pose(rig, "head", fwd=-7.0 + 4.0 * down, twist=-4.0)
             # Lead fist (far arm) out in front, rear fist guarding the chin; both ride the bounce a beat behind.
             lag = math.cos(k * 4.0 * math.pi - 0.8)
+            # (The base body's arms are thick and fully jointed: its elbows bend less, the fists held a little lower.)
+            elbow = 0.72 if BODY else 1.0
             pose(rig, "armU.L", fwd=52.0 + 5.0 * lag, out=16.0)
-            pose(rig, "armL.L", fwd=92.0 - 6.0 * lag)
+            pose(rig, "armL.L", fwd=(92.0 - 6.0 * lag) * elbow)
             pose(rig, "hand.L", fwd=-12.0)
             pose(rig, "armU.R", fwd=34.0 + 5.0 * lag, out=22.0)
-            pose(rig, "armL.R", fwd=112.0 - 6.0 * lag)
+            pose(rig, "armL.R", fwd=(112.0 - 6.0 * lag) * elbow)
             pose(rig, "hand.R", fwd=-14.0)
         return f
 

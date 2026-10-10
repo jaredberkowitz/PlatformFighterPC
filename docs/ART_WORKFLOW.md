@@ -155,17 +155,24 @@ body is fitted to that skeleton rather than bringing its own. The base body (fro
    ```bash
    "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/fit_body.py -- --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json
    ```
-4. **Rig it** with every clip (`make_rigged_blob.py --body`: the arms are filled out front to back, the generated hands give way to the game's
-   glove fists, a face shell is laid on the head, the skin is weighted automatically; writes `godot/models/base_rig.glb` and
-   `base_rig.json`, the head, shoulder and wrist the game fits hats, glasses and the weapon arm to):
+4. **Rig it** with every clip (`make_rigged_blob.py --body`: the head is lowered onto the shoulders (`NECK_DROP`, the generated neck
+   squeezed away), the generated hands give way to the game's glove fists with cuffs fitted to the forearms, a face shell is laid on the
+   head, the skin is weighted automatically and the arms' weights smoothed so the elbows bend round; writes `godot/models/base_rig.glb` and
+   `base_rig.json`, the head, shoulder and wrist the game fits hats, glasses and the weapon arm to, and where the clothes go):
    ```bash
    "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json
    ```
-5. **Try it** in the game with the `--base-body` launch option (`FighterView.use_base_body`).
+5. **See it** in the game: it is the fighters' body (`FighterView.use_base_body`; the `--blob` launch option brings back the first, built
+   body). Its clothes are painted on by region (`shaders/skin.gdshader`, regions from `base_rig.json`), so they bend with it and never clip.
 
-Still to do for the base body: its clothes (the shirt, shorts and shoes the blob wears come from separate parts and limb bands; the base
-body needs them painted on by region or made as fitted pieces), the neckwear's fit, and the licence of the free-plan model (see
-`THIRD_PARTY.md`).
+The base body is animated closer to life than the blob (whose limbless moves were posed big and exaggerated to read at all): `BODY_AMP`
+pulls the exaggeration most of the way back, the key moves are posed again (`BODY_MOVES`) so the shoulders and hips wind back and turn
+through into the strike as the weight steps onto the front foot, and on the ground the feet stay planted (the hips follow the legs; in a
+standing move both feet stay down, the front knee lifting into a lunge and the feet coming in toward one line so the step reads from the
+three-quarter camera). In the game its punches and swings travel round the shoulder in an arc, and the whole-model tilt and slide are
+smaller, since the spine and legs carry the motion.
+
+Still to do for the base body: the neckwear's fit, and the licence of the free-plan model (see `THIRD_PARTY.md`).
 
 ## 6. Review
 
