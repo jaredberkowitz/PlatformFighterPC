@@ -1274,6 +1274,8 @@ func _face_for(s: Dictionary) -> Dictionary:
 
 ## How far round a tumbling launch has turned the body (radians).
 var tumble_angle := 0.0
+## Flying faster than this (world units a frame), a launched fighter is thrown head first along its path rather than tumbling.
+const LAUNCH_POSE_SPEED := 0.32
 ## A hit too weak to launch: the body snaps back from it and recovers over this long (seconds left of FLINCH_TIME).
 var flinch_left := 0.0
 const FLINCH_TIME := 0.22
@@ -2501,9 +2503,15 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		model.position = Vector3(sin(float(s.frame) * 2.3) * 0.04 * (1.0 + 2.0 * amount) + lunge * float(s.facing), 0, 0)
 	if state == "Hitstun" and hitlag == 0:
 		if s.tumble:
-			# Tumbling head over heels, faster the faster the launch flies (a big launch whirls, a weak one rolls over slowly).
 			var flight: Vector2 = s.vel + s.get("kb_vel", Vector2.ZERO)
-			tumble_angle -= clampf(flight.length() * 1.3, 0.12, 0.6) * delta * 60.0
+			if flight.length() > LAUNCH_POSE_SPEED:
+				# Thrown along the launch: arched back (the hurt pose), the head leading the way it flies and the limbs trailing,
+				# as the reference game's fighters fly off a strong hit.
+				var lead := atan2(flight.x * float(s.facing), flight.y)
+				tumble_angle = lerp_angle(tumble_angle, lead, clampf(delta * 18.0, 0.0, 1.0))
+			else:
+				# Slowing down, it tumbles head over heels, faster the faster it still flies.
+				tumble_angle -= clampf(flight.length() * 1.3, 0.12, 0.6) * delta * 60.0
 			model.rotation.x = tumble_angle
 			# About the middle of the body, not the feet (which would swing the body down through the floor).
 			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
