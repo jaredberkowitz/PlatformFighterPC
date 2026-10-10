@@ -52,12 +52,35 @@ generators (fill in the brackets; keep the rest):
   gouache style, soft shapes, limited palette of [the stage's sky and ground colours], no characters, no text, [transparent / plain
   sky-coloured] background`
 
+**Preparing a turnaround sheet**: `art/blender/prepare_concept.py` cuts the views out of a sheet listed in a small views file (see
+`art/concept/base_body_views.json`), keeps only the figure (the grey ground, guide lines, labels and bits of neighbouring views turn
+white), puts each view on a white square, and with `blank_face` also writes a version with the face painted out in the skin colour (the
+game draws faces itself). Example: the base body sheet gives `art/concept/base_body_turnaround_{front,front_blank,side,side_blank,back}.png`.
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/prepare_concept.py -- --in art/concept/base_body_turnaround.jpg --views art/concept/base_body_views.json
+```
+
 ## 3. Generate a model
 
-`tools/art/gen3d.py` sends a concept picture (or a text prompt) to **Meshy** or **Tripo** and downloads the raw model to
+**Free**: `tools/art/hf_gen.py` uses public Hugging Face demos of open models whose licences allow commercial use: **FLUX.1-schnell**
+(Apache-2.0) for a picture from a prompt (wrapped in the prop style wording) and Microsoft **TRELLIS.2** (MIT) for a textured model from a
+picture. No account is needed, but the demos share free GPU time (ZeroGPU): anonymously there is only a few minutes a day (one picture
+and no model, as measured), and a TRELLIS.2 model asks for 120 seconds; a free Hugging Face account's read token (`setx HF_TOKEN
+"<token>"`) gives more. Pictures and their prompts are kept in `art/concept/` (props in `art/concept/props/`) as the record of where each
+model came from.
+
+```bash
+python tools/art/hf_gen.py prop "a wooden barrel with iron bands" --name barrel
+python tools/art/hf_gen.py image-3d art/concept/props/barrel.png --name barrel
+python tools/art/hf_gen.py image-3d art/concept/base_body_turnaround_front_blank.png --name base_body
+```
+
+**Paid**: `tools/art/gen3d.py` sends a concept picture (or a text prompt) to **Meshy** or **Tripo** and downloads the raw model to
 `art/generated/<name>/raw.glb` (raw models are not committed; see `.gitignore`).
 
-1. Make an account with the service and create an API key on its account page.
+1. Make an account with the service and create an API key on its account page (both need a paid plan for API keys: Meshy's docs
+   say free accounts only get a key for its web playground, and Tripo's free tier has no API access).
 2. Put the key in the environment, never in a file in the repository: in PowerShell, `setx MESHY_API_KEY "<key>"` (or
    `TRIPO_API_KEY`), then open a new terminal.
 3. Run it. Without `--yes` it only prints the request (every request spends credits):
