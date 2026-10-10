@@ -972,6 +972,26 @@ impl SimRunner {
         self.fighter(i).map_or(0, |fi| i32::from(fi.charge))
     }
 
+    /// The basic computer opponent's input for `player` at `level` (1 to 9) this frame, as [stick x, stick y, buttons]. It is decided
+    /// from the game state alone (`sim_core::cpu`), so feeding it back through `set_input` records and replays like a person's.
+    #[func]
+    fn cpu_input(&self, player: i32, level: i32) -> PackedInt32Array {
+        let Some(me) = usize::try_from(player)
+            .ok()
+            .filter(|&p| p < self.state.fighters.len())
+        else {
+            return PackedInt32Array::from(&[0, 0, 0][..]);
+        };
+        let i = sim_core::cpu::think(&self.state, &self.content, me, level.clamp(1, 9) as u8);
+        PackedInt32Array::from(
+            &[
+                i32::from(i.stick_x),
+                i32::from(i.stick_y),
+                i32::from(i.buttons),
+            ][..],
+        )
+    }
+
     #[func]
     fn fighter_kb_vel(&self, i: i32) -> Vector2 {
         self.fighter(i).map_or(Vector2::ZERO, |fi| {

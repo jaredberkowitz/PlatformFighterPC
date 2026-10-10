@@ -9,6 +9,7 @@
 pub mod collision;
 pub mod combat;
 pub mod content;
+pub mod cpu;
 pub mod fighter;
 pub mod fixed;
 pub mod fuzz;

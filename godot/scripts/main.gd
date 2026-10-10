@@ -84,6 +84,10 @@ var overlay_dirty := true
 var warmed := false
 var snaps: Array = []
 var inputs: Array = []
+## Computer players: a level (1 to 9) for each player the basic CPU plays (`sim_core::cpu`), 0 for a person. Set from the character
+## select (the session's `cpu`), `--cpu` (player 2 at level 5), or F5 in training (player 2 on and off).
+var cpu_levels: Array = [0, 0, 0, 0]
+const CPU_LEVEL := 5
 var prev_pos: Array = []
 var cur_pos: Array = []
 var paused := false
@@ -120,6 +124,13 @@ func _ready() -> void:
 	PLAYERS = _player_count()
 	_build_world()
 	_parse_demo_args()
+	var chosen_cpu: Array = Roster.session.get("cpu", [])
+	for i in mini(chosen_cpu.size(), 4):
+		cpu_levels[i] = int(chosen_cpu[i])
+	if OS.get_cmdline_user_args().has("--cpu"):
+		cpu_levels[1] = CPU_LEVEL
+	if demo != null and not demo.cpu_levels.is_empty():
+		cpu_levels = demo.cpu_levels.duplicate()
 	_load_content()
 	# `--stage=N` (training and demos) plays on a stage from the library.
 	for arg in OS.get_cmdline_user_args():
@@ -873,6 +884,9 @@ func _gather() -> void:
 	for i in PLAYERS:
 		if demo != null and demo.real_keys and i == 0:
 			inputs[i] = InputReader.read(0, masks)
+		elif cpu_levels[i] > 0 and (demo == null or not demo.cpu_levels.is_empty()) and not replay_mode:
+			var c: PackedInt32Array = sim.cpu_input(i, cpu_levels[i])
+			inputs[i] = {"x": c[0], "y": c[1], "buttons": c[2]}
 		elif demo != null:
 			if i == 0:
 				inputs[i] = demo.input_at(sim.frame())
@@ -1618,11 +1632,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		results.handle_key(event)
 		return
 	# Training keys change the sim directly, which a networked match must never do.
-	if (net_mode or group_mode or spectate_mode) and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
+	if (net_mode or group_mode or spectate_mode) and event.keycode in [KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
 		return
 	match event.keycode:
 		KEY_F4:
 			Music.of(self).set_muted(sfx.toggle_mute())
+		KEY_F5:
+			# Player 2 played by the computer, or by a person again.
+			cpu_levels[1] = 0 if cpu_levels[1] > 0 else CPU_LEVEL
 		KEY_F1:
 			overlay_on = not overlay_on
 			overlay.set_overlay_visible(overlay_on)

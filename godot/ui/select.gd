@@ -5,6 +5,8 @@ extends Control
 ##
 ## Player 1: W A S D move, J locks in, K takes it back.   Player 2: arrow keys move, Enter locks in, Backspace takes it back.
 ## Mouse: left click picks for player 1, right click for player 2.   E edits the saved fighter player 1 is on.
+## C makes every player but player 1 a computer opponent (the basic CPU), or people again; its fighter is still chosen with the
+## player 2 keys (a computer slot that is not locked in when C is pressed takes the fighter its cursor is on).
 ## When everyone is locked in, Space (or Enter, or the band) starts the match. Esc goes back to the menu.
 
 const Music := preload("res://scripts/music.gd")
@@ -26,6 +28,9 @@ var tokens: Array = []
 var cursor := [0, 1, 0, 1]
 var locked := [false, false, false, false]
 var picked: Array = [{}, {}, {}, {}]   # the entry each player ends up with (random is resolved when locking)
+## Which players the computer plays (never player 1).
+var cpu := [false, false, false, false]
+const CPU_LEVEL := 5
 ## How many players are in this match (2 to 4). Players 3 and 4 play on controllers 3 and 4.
 var count := 2
 var players_button: Control
@@ -119,6 +124,8 @@ class PlayerPanel extends Control:
 	var is_ready := false
 	var empty := true
 	var t := 0.0
+	## Played by the computer: the tag says CPU instead of the player number.
+	var cpu := false
 
 	func _init(p: int, disc: Color, flag: Color) -> void:
 		player = p
@@ -156,7 +163,7 @@ class PlayerPanel extends Control:
 			UI.D.draw_text_centered(self, "?", inner, 110, Color(1, 1, 1, 0.6))
 		var tag := Rect2(rect.position + Vector2(14, 12), Vector2(64, 30))
 		UI.D.draw_slant(self, tag, UI.INK, Color(0, 0, 0, 0), 0.0, false)
-		UI.D.draw_text_centered(self, "P%d" % (player + 1), tag, 22, flag_color.lightened(0.3))
+		UI.D.draw_text_centered(self, "CPU" if cpu else "P%d" % (player + 1), tag, 22, flag_color.lightened(0.3))
 		var plate := Rect2(Vector2(rect.position.x + 10, rect.end.y - 56), Vector2(rect.size.x - 20, 46))
 		UI.D.draw_slant(self, plate, UI.INK, Color(0, 0, 0, 0), 0.0, false, 0.1)
 		var f := UI.D.font()
@@ -254,12 +261,12 @@ func _ready() -> void:
 		add_child(panel)
 		panels.append(panel)
 
-	var hint := UI.Tag.new("P1: WASD, J lock, K back     P2: arrows, Enter lock, Backspace back     E edit     T stocks  Y time  G stage     Esc menu", Vector2(1000, 28))
+	var hint := UI.Tag.new("P1: WASD, J lock, K back     P2: arrows, Enter lock, Backspace back     C computer opponents     E edit     T stocks  Y time  G stage     Esc menu", Vector2(1120, 28))
 	hint.fill = Color(0, 0, 0, 0.35)
 	hint.ink = Color(1, 1, 1, 0.85)
 	hint.font_size = 16
 	hint.shadow = false
-	hint.position = Vector2(140, 690)
+	hint.position = Vector2(80, 690)
 	add_child(hint)
 
 	status = UI.Tag.new("", Vector2(760, 30))
@@ -377,6 +384,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				_start()
 		KEY_N:
 			_cycle_players()
+		KEY_C:
+			_toggle_cpu()
 		KEY_E:
 			_edit()
 		KEY_R:
@@ -470,6 +479,22 @@ func _lock(p: int) -> void:
 	_refresh()
 
 
+## Every player but player 1 played by the computer, or by people again. A computer slot that is not locked in takes the fighter its
+## cursor is on (a random one if that is the random or new card).
+func _toggle_cpu() -> void:
+	var on: bool = not cpu[1]
+	for p in range(1, 4):
+		cpu[p] = on
+	if on:
+		for p in range(1, count):
+			if not locked[p]:
+				if cursor[p] >= entries.size():
+					cursor[p] = entries.size() + specials.find("random")
+				_lock(p)
+	_refresh()
+	status.set_text("Players 2 to %d: computer" % count if on else "Every player is a person")
+
+
 func _unlock(p: int) -> void:
 	locked[p] = false
 	picked[p] = {}
@@ -511,6 +536,7 @@ func _refresh() -> void:
 		if not shown.is_empty():
 			var r: Dictionary = editor.recipe_readout(shown["class"], shown.size, shown.speed, shown.jump, shown.weight)
 			size_percent = float(r.size_percent)
+		panels[p].cpu = cpu[p]
 		panels[p].show_entry(shown, size_percent, locked[p])
 	var both := _all_locked()
 	start_button.visible = both
@@ -541,6 +567,12 @@ func _cycle_players() -> void:
 	for p in range(count, 4):
 		locked[p] = false
 		picked[p] = {}
+	# A new slot is played by the computer when the others are.
+	if cpu[1]:
+		for p in range(1, count):
+			if not locked[p]:
+				cursor[p] = entries.size() + specials.find("random")
+				_lock(p)
 	_layout_panels()
 	_refresh()
 	if count > 2:
@@ -586,5 +618,6 @@ func _start() -> void:
 	Roster.session = {
 		"content_text": built.text, "chars": built.chars, "entries": chosen, "ranked": ranked, "from_menu": true,
 		"stocks": Roster.match_stocks, "time": Roster.match_time, "stage": Roster.match_stage,
+		"cpu": range(4).map(func(p): return CPU_LEVEL if cpu[p] and p < count else 0),
 	}
 	get_tree().change_scene_to_file("res://main.tscn")

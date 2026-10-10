@@ -68,7 +68,7 @@ func build(player_count: int, masks: Dictionary) -> void:
 	help.offset_bottom = -8.0
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	help.text = "P1: WASD  Space jump  N short hop  J atk  I smash  K spc  L/Shift shield  Ctrl = slow walk    P2: Arrows  Enter jump
-" 		+ "Tap a direction to WALK, double tap to DASH   S/Down: tap = crouch, double tap = fast fall   F1 overlay  F2 ECB  F3 boxes  F9 DI path  P pause  R restart"
+" 		+ "Tap a direction to WALK, double tap to DASH   S/Down: tap = crouch, double tap = fast fall   F1 overlay  F2 ECB  F3 boxes  F5 CPU player 2  F9 DI path  P pause  R restart"
 	add_child(help)
 
 

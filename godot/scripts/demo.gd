@@ -14,6 +14,7 @@ var cam_dist := 0.0  # when above zero, overrides the automatic camera distance
 var cam_focus := -1  # when 0 or more, the camera frames this player alone, without easing (steady shots of one fighter's moves)
 var chars: Array = []  # overrides which character each player is (0 sword, 1 claws and blaster)
 var real_keys := false  # drive player 1 through real key events instead of scripted stick values
+var cpu_levels: Array = []  # players the basic CPU plays, by level (`cpu`: both, for watching it)
 
 
 static func make(demo_name: String, m: Dictionary, dir: String):
@@ -54,6 +55,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		for f in range(11, last):
 			d.shots.append([f, "f%02d" % (f - 10)])
 		d.end_frame = last + 1
+		return d
+	if demo_name == "cpu":
+		# Computer against computer (sword against claws), a picture every half second for twenty seconds.
+		d.chars = [0, 1, 0, 1]
+		d.cpu_levels = [5, 5, 0, 0]
+		for f in range(30, 1230, 30):
+			d.shots.append([f, "t%04d" % f])
+		d.end_frame = 1231
 		return d
 	match demo_name:
 		"wavedash":
