@@ -1086,7 +1086,10 @@ def build_body_meshes(rig):
     depths = sorted(abs(c.y - mid_y) for c in trunk)
     torso = {"centre": godot(Vector((0.0, mid_y, (hips + neck) / 2.0))),
              "radii": [round(abs(J["armU.R"].x) * 0.75, 4), round((neck - hips) / 2.0, 4), round(depths[int(len(depths) * 0.9)], 4)]}
+    # Where the face drawing is on the head (the middle of its square, as a height, and the square's size), for fitting glasses to its
+    # eyes.
     info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)], "torso": torso,
+            "face": [round(face_centre, 4), round(face_size, 4)],
             "neck": round(neck, 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
             "height": round(FIT["height"], 4), "clothes": clothes}
     with open(OUT.replace(".glb", ".json"), "w") as f:

@@ -164,6 +164,8 @@ static func release_caches() -> void:
 ## Whether this fighter uses the long-limbed rig (set from the fighter's class; changing it rebuilds the model).
 var long_limbs := false
 var head_fit := Transform3D()
+## Where the glasses go (the same design space as `head_fit`, onto the face drawing's eyes; see `_glasses_fit`).
+var glasses_fit := Transform3D()
 var torso_fit := Transform3D()
 var shoulder := Vector2(0.5, 1.15)
 var arm_reach := 0.5
@@ -289,6 +291,8 @@ func _build_rig(skin: Material) -> bool:
 		var radii: Array = info.get("head_radii", [0.4, 0.34, 0.4])
 		var hs := Vector3(float(radii[0]), float(radii[1]), float(radii[2])) / 0.8
 		head_fit = Transform3D(Basis.from_scale(hs), Vector3(0.0, float(centre[1]) - 1.42 * hs.y, float(centre[2])))
+		var face: Array = info.get("face", [float(centre[1]) + 0.04 * float(radii[1]), 1.75 * float(radii[0])])
+		glasses_fit = _glasses_fit(float(face[0]), float(face[1]), hs.z, float(centre[2]))
 		var torso: Dictionary = info.get("torso", {"centre": [0.0, 1.13, 0.0], "radii": [0.3, 0.32, 0.22]})
 		var tc: Array = torso.centre
 		var tr: Array = torso.radii
@@ -309,6 +313,9 @@ func _build_rig(skin: Material) -> bool:
 		torso_fit = TORSO_FIT
 		shoulder = SHOULDER
 		arm_reach = ARM_REACH
+	if not use_base_body:
+		# The blob's face drawing (make_rigged_blob.py's FACE_CENTRE and FACE_SIZE), moved with the long-limbed body's head.
+		glasses_fit = head_fit * HEAD_FIT.affine_inverse() * _glasses_fit(1.585, 1.155, 0.825, 0.0)
 	head_rig.transform = head_fit
 	torso_rig.transform = torso_fit
 	anim.play("idle")
@@ -448,14 +455,14 @@ func _skeleton_to_frame() -> Transform3D:
 	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
 
 
-## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned most of the way toward the way it
-## faces, so strides, kicks and swings happen across the screen where they read; the chest and then the head twist back toward the
-## camera, so the body and the face stay open to the player.
-const BODY_TURN := 60.0
-const CHEST_TO_CAMERA := 30.0
-## Negative: the head turns back toward the opponent from the chest (to about 40 degrees off straight-on), and the eyes in the face look
-## that way too (see `set_gaze`), so the two fighters look at each other while their bodies stay open to the camera.
-const HEAD_TO_CAMERA := -10.0
+## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned nearly side-on toward the way it
+## faces, as the reference game's fighters stand, so strides, kicks and swings happen across the screen where they read; the chest and
+## then the head twist back a little toward the camera, so the drawn face keeps both its eyes in view.
+const BODY_TURN := 80.0
+const CHEST_TO_CAMERA := 14.0
+## The head turns a little further back toward the camera from the chest (to about 60 degrees off straight-on); the eyes in the face look
+## the way the fighter faces (see `set_gaze`), so the two fighters still look at each other.
+const HEAD_TO_CAMERA := 6.0
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -496,6 +503,13 @@ func _animate(s: Dictionary, delta: float) -> void:
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
 	_body_follow(s, delta)
+	_follow_bones()
+
+
+## Moves the head's and the torso's pieces (hats, glasses, neckwear) with the head and chest bones as they are posed now.
+func _follow_bones() -> void:
+	if skeleton == null or head_rig == null:
+		return
 	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
@@ -606,11 +620,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 		current_clip = clip
 	anim.speed_scale = 1.0
 	anim.advance(delta)
-	var to_model := _skeleton_to_model()
-	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
-	var spine_delta: Transform3D = skeleton.get_bone_global_pose(spine_bone) * spine_rest_inv
-	head_rig.transform = to_model * head_delta * to_model.affine_inverse() * head_fit
-	torso_rig.transform = to_model * spine_delta * to_model.affine_inverse() * torso_fit
+	_follow_bones()
 	# The sword or the maul, gripped in the raised hand and pointing up.
 	var armed := cls != 1 and not cheer
 	blade_pivot.visible = armed
@@ -802,6 +812,8 @@ func build(p: int, l: RefCounted = null) -> void:
 	flame = Particles.flame(self)
 	add_child(flame)
 	_tag_object(self)
+	# The pieces on the head and chest start where the idle pose has them (a fighter shown without `apply`, as in the menus, keeps it).
+	_follow_bones()
 
 
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
@@ -1090,6 +1102,20 @@ const TORSO_CENTRE_Y := 0.98
 const TORSO_RADII := Vector3(0.56, 0.42, 0.5)
 
 
+## The glasses' fit: the design space the glasses are made in (the look's head of radius 0.8 centred 1.42 up, eyes at height 1.52 and
+## 0.32 either side) laid onto the face drawing, a square of `face_size` centred `face_centre` up (the drawings in godot/art/faces are
+## 512 square with the eyes' middles on row 228). The glasses are scaled with the drawing, so their lenses are as round as its eyes, and
+## centred GLASSES_DROP rows below the eyes' middles: on the part of the eye the drawings' heavy lids leave open, where the eyes show.
+const GLASSES_DROP := 27.0
+
+
+func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, depth: float) -> Transform3D:
+	# Design units to drawing units: the design eyes 0.32 out are the drawing's 106 rows (of 512) out, so a design unit is this much.
+	var k := face_size * (106.0 / 512.0) / 0.32
+	var eye_y := face_centre + (0.5 - (228.0 + GLASSES_DROP) / 512.0) * face_size
+	return Transform3D(Basis.from_scale(Vector3(k, k, depth_scale)), Vector3(0.0, eye_y - 1.52 * k, depth))
+
+
 ## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
 ## the pose.
 func _neck_on_rig(accent: Color) -> void:
@@ -1199,6 +1225,11 @@ func _hat() -> void:
 
 func _glasses() -> void:
 	var frame := toon(INK, false)
+	# The glasses are placed in design space through their own fit (see `_glasses_fit`): a node under the head whose transform turns
+	# the head's fit into it.
+	var glasses_rig := Node3D.new()
+	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
+	head_rig.add_child(glasses_rig)
 	match loadout.glasses:
 		1:
 			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
@@ -1211,29 +1242,29 @@ func _glasses() -> void:
 			rim.inner_radius = 0.95
 			rim.outer_radius = 1.05
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
-				_part(head_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
-			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
+				_part(glasses_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
+				_part(glasses_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
+			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.14
 			ring.outer_radius = 0.28
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-				_part(head_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
+				_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+				_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.78
 			strap.outer_radius = 0.84
-			_part(head_rig, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
+			_part(glasses_rig, strap, toon(Color(0.3, 0.2, 0.1)), Vector3(0, 1.52, 0), Vector3(1, 0.6, 1))
 		3:
 			# Round specs: thin rings and a bridge.
 			var thin := TorusMesh.new()
 			thin.inner_radius = 0.17
 			thin.outer_radius = 0.21
 			for sx in [-1.0, 1.0]:
-				_part(head_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-			_part(head_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
+				_part(glasses_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
+			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
 
 
 ## The expression for this moment (see Loadout's action faces).
@@ -1388,7 +1419,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state != "Landing":
 		heavy_landing = false
 	if heavy_landing:
-		target_squash = 0.38
+		target_squash = 0.28
 	if state == "Attack" and s.move_timing[1] > 0:
 		# Coil down while winding up, stretch tall through the strike: the move reads from far away.
 		var first: float = s.move_timing[1]
@@ -1402,7 +1433,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
 	if heavy_landing:
-		target_lean = 16.0
+		target_lean = 8.0
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
 	# arches back under one overhead and curls forward away from one behind, as far as the limb is into its reach.
 	if state == "Attack" and s.move_tip != Vector3.ZERO:

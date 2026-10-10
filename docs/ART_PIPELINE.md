@@ -432,5 +432,13 @@ stay on the ground, and the game's own lean, slide and body-follow are smaller, 
 - **Fixed**: a clip that follows the move began with a cross-fade from the clip before, and seeking a paused clip never moves a
   cross-fade on, so some moves (the down smash's crouch, for one) never showed their own pose at all. They now start at once.
 
+- **Side-on, as the reference game's fighters stand**: the hips and legs turn 80 degrees toward the way the fighter faces (was 60), the
+  chest 14 back toward the camera and the head 6 more, so strides, lunges and kicks read across the screen while the drawn face keeps
+  both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`).
+- **Glasses on the eyes**: they are fitted to the face drawing (its place on the head is in `base_rig.json` as `face`), scaled with it
+  and centred on the part of the eye the drawings' heavy lids leave open (`_glasses_fit`, `GLASSES_DROP`); they had been fitted to the
+  head's shape and sat on the brows. And a fighter shown without being played (the menus) now has its hats, glasses and neckwear
+  where its idle pose has its head and chest, not where they would be standing straight.
+
 Check them with `--demo=fx_<sword|claws|maul>_<move> --noui --noecb --shots=<folder>` (every tilt, smash and aerial; a picture on every
 frame, the camera steady on the attacker).
