@@ -269,6 +269,10 @@ fn the_strong_button_does_nothing_special_in_the_air() {
 fn wolf() -> Sim {
     let mut sim = Sim::with_chars([1, 0, 0, 0]);
     sim.stand(0, Fx::from_int(-10), 1);
+    // Nobody in the way: bodies on the ground do not pass through each other.
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
     sim
 }
 
@@ -330,7 +334,7 @@ fn attack_while_sliding_with_a_direction_held_is_still_a_tilt_or_smash() {
 /// Where the fighter is `frames` frames after a dash started by a one-frame tap (then nothing held), and whether it was still
 /// dashing on every one of them.
 fn tapped_dash(frames: usize) -> (Fx, bool) {
-    let mut sim = Sim::new();
+    let mut sim = Sim::alone();
     let x0 = sim.f().pos.x;
     sim.tick(inp(127, 0, 0));
     let mut dashing = true;
@@ -343,24 +347,24 @@ fn tapped_dash(frames: usize) -> (Fx, bool) {
 
 #[test]
 fn a_tap_covers_the_whole_initial_dash() {
-    let sim = Sim::new();
+    let sim = Sim::alone();
     let dash = usize::from(sim.content.fighters[0].dash_frames);
     let (tapped, dashing) = tapped_dash(dash);
     assert!(dashing, "letting go does not end the dash");
     // The same distance as a dash with the stick held all the way.
-    let mut held = Sim::new();
+    let mut held = Sim::alone();
     let x0 = held.f().pos.x;
     held.ticks(dash, inp(127, 0, 0));
     assert_eq!(tapped, held.f().pos.x - x0, "a tap dashes as far as a hold");
     // The view draws the dash's stride from this, so it must be what the simulation does.
     assert_eq!(tapped, sim.content.fighters[0].initial_dash_distance());
     // Then it ends by itself, braking to a stand.
-    let mut sim = Sim::new();
+    let mut sim = Sim::alone();
     sim.tick(inp(127, 0, 0));
     sim.ticks(dash, inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Idle);
     // A second tap the same way does not restart or extend it.
-    let mut again = Sim::new();
+    let mut again = Sim::alone();
     again.tick(inp(127, 0, 0));
     again.ticks(3, inp(0, 0, 0));
     again.tick(inp(127, 0, 0));
@@ -415,14 +419,14 @@ fn a_smash_attack_can_come_out_of_the_initial_dash() {
 
 #[test]
 fn the_shield_cuts_the_initial_dash_to_about_half() {
-    let sim = Sim::new();
+    let sim = Sim::alone();
     let p = sim.content.fighters[0];
     let half = usize::from(p.dash_shield_frame);
     assert!(
         half * 2 >= usize::from(p.dash_frames) - 1 && half * 2 <= usize::from(p.dash_frames) + 1
     );
     // Forward held and the shield pressed early: it comes up on `dash_shield_frame`, not before.
-    let mut sim = Sim::new();
+    let mut sim = Sim::alone();
     let x0 = sim.f().pos.x;
     sim.tick(inp(127, 0, 0));
     for frame in 1..=half {
@@ -435,7 +439,7 @@ fn the_shield_cuts_the_initial_dash_to_about_half() {
     sim.ticks(30, inp(127, 0, SHIELD));
     let shielded = sim.f().pos.x - x0;
     // The whole dash (and its slide to a stop) goes much further.
-    let mut full = Sim::new();
+    let mut full = Sim::alone();
     full.tick(inp(127, 0, 0));
     full.ticks(30 + half, inp(0, 0, 0));
     let whole = full.f().pos.x - x0;

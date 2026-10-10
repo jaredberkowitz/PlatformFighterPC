@@ -1,12 +1,12 @@
 //! Closer to the reference game (sim v34): DI bends a launch by about 10 degrees at most, launch speed influence, crouching under
 //! high hits, limbs that can be hit while they attack, and the bruiser's heavyweight attributes; and (sim v35) the reverse aerial
-//! rush, the run's committed skid and the dash attack's slide.
+//! rush, the run's committed skid and the dash attack's slide; and (sim v36) bodies that do not pass through each other on the ground.
 
 mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::combat::{hitstun_frames, hurtboxes, params_of, weapon_of};
-use sim_core::input::buttons::{ATTACK, JUMP};
+use sim_core::input::buttons::{ATTACK, GRAB, JUMP, SHIELD};
 use sim_core::moves::MoveId;
 use sim_core::state::FighterState as S;
 use sim_core::trig::Angle;
@@ -324,4 +324,143 @@ fn a_keyboard_style_soft_push_back_out_of_a_run_is_a_rar_too() {
             sim.f().vel.x
         );
     }
+}
+
+// ---- Bodies on the ground (sim v36) -----------------------------------------------------------------------------------------------
+
+/// Player 0 at -4 facing right, player 1 at `x1` facing left, nobody else.
+fn two_on_the_ground(chars: [u8; 4], x1: Fx) -> Sim {
+    let mut sim = duel(chars);
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.stand(1, x1, -1);
+    sim
+}
+
+fn gap(sim: &Sim) -> Fx {
+    sim.fighter(1).pos.x - sim.fighter(0).pos.x
+}
+
+#[test]
+fn a_running_fighter_cannot_pass_through_a_standing_one() {
+    let mut sim = two_on_the_ground([0, 0, 0, 0], Fx::from_int(2));
+    let core = {
+        let p = &sim.content.fighters[0];
+        (p.ecb_half_width + p.ecb_half_width)
+            * sim.content.rules.push_ratio
+            * sim.content.rules.push_hard
+    };
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..80 {
+        sim.tick(inp(127, 0, 0));
+        assert!(gap(&sim) > Fx::ZERO, "ran through");
+        assert!(
+            gap(&sim) >= core - fx(1, 1000),
+            "inside the hard core: {:?}",
+            gap(&sim)
+        );
+    }
+    // It stops against the other one, which is only nudged along slowly.
+    assert!(
+        sim.fighter(1).pos.x < Fx::from_int(8),
+        "{:?}",
+        sim.fighter(1).pos.x
+    );
+}
+
+#[test]
+fn a_roll_passes_through_and_a_jump_goes_over() {
+    // A roll toward the other fighter comes out on its far side.
+    let mut sim = two_on_the_ground([0, 0, 0, 0], fx(-25, 10));
+    sim.tick(inp(0, 0, SHIELD));
+    sim.tick(inp(0, 0, SHIELD));
+    sim.tick(inp(127, 0, SHIELD));
+    let mut rolled = false;
+    for _ in 0..40 {
+        rolled |= sim.f().state == S::Roll;
+        sim.tick(inp(0, 0, 0));
+    }
+    assert!(rolled, "never rolled");
+    assert!(
+        gap(&sim) < Fx::ZERO,
+        "the roll went through: gap {:?}",
+        gap(&sim)
+    );
+    // A running jump over the other one lands beyond it.
+    let mut sim = two_on_the_ground([0, 0, 0, 0], Fx::from_int(1));
+    sim.stand(0, Fx::from_int(-6), 1);
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..20 {
+        sim.tick(inp(127, 0, 0));
+    }
+    sim.tick(inp(127, 0, JUMP));
+    for _ in 0..80 {
+        sim.tick(inp(127, 0, JUMP));
+    }
+    assert!(gap(&sim) < Fx::ZERO, "jumped over: gap {:?}", gap(&sim));
+}
+
+#[test]
+fn an_attack_is_never_moved_and_the_other_fighter_gives_way() {
+    let mut sim = two_on_the_ground([0, 0, 0, 0], fx(-25, 10));
+    // Player 1 jabs in place; player 0 walks into it.
+    sim.stand(1, fx(-25, 10), -1);
+    sim.tick2(inp(0, 0, 0), inp(0, 0, ATTACK));
+    let jab_x = sim.fighter(1).pos.x;
+    for _ in 0..12 {
+        sim.tick2(inp(127, 0, 0), inp(0, 0, 0));
+        if sim.fighter(1).state == S::Attack {
+            assert_eq!(sim.fighter(1).pos.x, jab_x, "the attacker was pushed");
+        }
+    }
+}
+
+#[test]
+fn a_fighter_pressed_against_another_can_still_grab_it() {
+    let mut sim = two_on_the_ground([0, 0, 0, 0], Fx::from_int(-2));
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..20 {
+        sim.tick(inp(60, 0, 0));
+    }
+    sim.tick(inp(0, 0, GRAB));
+    for _ in 0..12 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(sim.fighter(1).state, S::Grabbed);
+}
+
+#[test]
+fn overlapping_fighters_ease_apart_without_snapping() {
+    let mut sim = two_on_the_ground([0, 0, 0, 0], fx(-39, 10));
+    let speed = sim.content.rules.push_speed;
+    let width = {
+        let p = &sim.content.fighters[0];
+        (p.ecb_half_width + p.ecb_half_width) * sim.content.rules.push_ratio
+    };
+    let mut last = gap(&sim);
+    for _ in 0..30 {
+        sim.tick(inp(0, 0, 0));
+        let g = gap(&sim);
+        assert!(
+            g - last <= speed.mul_int(2) + fx(1, 1000),
+            "snapped from {last:?} to {g:?}"
+        );
+        last = g;
+    }
+    assert!(last >= width - fx(1, 100), "still overlapping: {last:?}");
+}
+
+#[test]
+fn no_one_is_pushed_off_the_edge_of_the_stage() {
+    // Player 1 stands right at the stage's left edge; player 0 runs into it from the inside.
+    let edge = sim_core::Content::placeholder().stage.platforms[0].left;
+    let mut sim = two_on_the_ground([0, 0, 0, 0], Fx::ZERO);
+    sim.stand(1, edge, 1);
+    sim.stand(0, edge + Fx::from_int(4), -1);
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..60 {
+        sim.tick(inp(-127, 0, 0));
+        assert!(sim.fighter(1).grounded(), "pushed off");
+        assert!(sim.fighter(1).pos.x >= edge);
+    }
+    assert!(sim.f().pos.x > sim.fighter(1).pos.x, "ran through");
 }

@@ -147,6 +147,10 @@ fn tapping_down_on_solid_ground_just_crouches() {
 #[test]
 fn a_wall_stops_a_running_fighter() {
     let mut sim = with_block(8, 10, 0, 4);
+    // Nobody else in the way (bodies on the ground do not pass through each other).
+    sim.stand(1, Fx::from_int(-10), 1);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
     let hw = sim.content.fighters[0].ecb_half_width;
     sim.ticks(120, inp(127, 0, 0));
     assert_eq!(sim.f().pos.x, Fx::from_int(8) - hw);
@@ -469,8 +473,8 @@ fn the_double_jump_is_about_as_high_as_the_first_jump() {
 }
 
 #[test]
-fn a_running_jump_keeps_its_ground_speed_into_the_air() {
-    let mut sim = Sim::new();
+fn a_running_jump_keeps_some_of_its_ground_speed_into_the_air() {
+    let mut sim = Sim::alone();
     sim.state.fighters[0].pos.x = Fx::from_int(-10);
     let p = sim.content.fighters[0];
     sim.ticks(30, inp(127, 0, 0));
@@ -482,10 +486,15 @@ fn a_running_jump_keeps_its_ground_speed_into_the_air() {
         sim.tick(inp(127, 0, JUMP));
     }
     assert!(!sim.f().grounded());
-    assert_eq!(sim.f().vel.x, run, "lost speed leaving the ground");
-    // In the air it keeps almost all of it, since only light air friction acts on the extra speed.
+    // As in the reference game, the ground speed leaves the ground reduced and capped (sim v36): a running jump goes a little faster
+    // than a full drift, not at a run's speed (which made running jumps floaty).
+    let rules = sim.content.rules;
+    let takeoff = (run * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    assert_eq!(sim.f().vel.x, takeoff);
+    assert!(takeoff < run);
+    // In the air it keeps almost all of that, since only light air friction acts on speed above the air speed.
     sim.ticks(15, inp(127, 0, 0));
-    assert!(sim.f().vel.x >= run - p.air_friction.mul_int(16));
+    assert!(sim.f().vel.x >= takeoff - p.air_friction.mul_int(16));
     assert!(
         sim.f().vel.x > p.air_speed,
         "momentum should exceed plain air speed"
@@ -611,7 +620,7 @@ fn a_quick_tap_dashes_the_full_distance_and_a_held_stick_runs_on() {
 
 #[test]
 fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
-    let mut sim = Sim::new();
+    let mut sim = Sim::alone();
     sim.state.fighters[0].pos.x = Fx::from_int(-10);
     let p = sim.content.fighters[0];
     sim.ticks(6, inp(127, 0, 0));
@@ -627,14 +636,13 @@ fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
         sim.tick(inp(0, 0, JUMP));
     }
     assert!(!sim.f().grounded());
-    assert_eq!(
-        sim.f().vel.x,
-        squat_start,
-        "jump squat must not eat the speed"
-    );
+    // The jump squat itself loses nothing; the takeoff carries the reduced, capped share of it (see the running jump above).
+    let rules = sim.content.rules;
+    let takeoff = (squat_start * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    assert_eq!(sim.f().vel.x, takeoff, "jump squat must not eat the speed");
     // With no stick held the air drift continues, slowed only by light air friction.
     sim.ticks(10, inp(0, 0, 0));
-    assert!(sim.f().vel.x >= squat_start - p.air_friction.mul_int(11));
+    assert!(sim.f().vel.x >= takeoff - p.air_friction.mul_int(11));
     assert!(sim.f().vel.x > p.air_speed);
 }
 

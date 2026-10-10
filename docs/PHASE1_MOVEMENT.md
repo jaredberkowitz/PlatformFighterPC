@@ -62,7 +62,8 @@ The placeholder stage is now Final Destination-sized (main block 22 wide, side p
 
 ## Momentum rules
 
-- Jump squat applies no friction, so a run or dash jump keeps its speed off the ground.
+- Jump squat applies no friction, so a run or dash jump takes its speed off the ground (reduced and capped at takeoff since sim
+  v36: see "Running jumps and bodies on the ground").
 - In the air, speed above `air_speed` is never cut by the stick; only light `air_friction` drags it down. Air acceleration
   is `air_accel + air_accel_stick * stick_tilt`.
 - Walking off a ledge keeps momentum the same way.
@@ -87,6 +88,21 @@ edge). Walking off now means falling for a moment first.
 - **`GROUND_SPEED_PERCENT`** (in `sim-core/src/content.rs`, currently 90) scales every ground speed, acceleration and
   friction at once, so starts and stops keep their timing and only the distances shrink. Air speed and jump heights use
   the unscaled reference values. Lower the number to slow the ground game further, or set it to 100 for the raw reference.
+
+## Running jumps and bodies on the ground (sim v36)
+
+- **A running jump no longer carries the run's speed.** The reference game takes the ground speed into the air through a
+  multiplier and a cap (its `jump_speed_x_mul` and `jump_speed_x_max`); here a jump leaves the ground with `jump_momentum` (0.85)
+  of the ground speed, at most `jump_momentum_max` (1.25) times the fighter's air speed. The duelist's run jump now leaves at 1.34
+  reference units a frame (its full drift is 1.07, its run 1.96, which it used to keep through the whole jump). The reference's
+  per-character values are not published, so these two are estimates, kept in the ruleset to tune.
+- **Bodies on the ground do not pass through each other** (`sim-core/src/push.rs`). Each body is `push_ratio` (0.6) of its ECB's
+  half-width either side. Moving into the inner `push_hard` (0.7) of two bodies' width is undone (the one who came in stops; a
+  runner is stopped by a standing fighter rather than shoving it), and the rest of the overlap eases apart at up to `push_speed`
+  (0.075 world units) a frame each. Attacks are untouched: a fighter in an attack is never moved (the other gives way), two
+  attackers pass, and hitboxes, hurtboxes and grabs are as before (a fighter pressed against another still grabs it). Rolls, spot
+  dodges, get-ups, anyone intangible, hit, held or in the air pass straight through, and no one is pushed off a platform's edge.
+- Tests: `sim-core/tests/reference_feel.rs`.
 
 ## Reverse aerial rush and the run's skid (sim v35)
 

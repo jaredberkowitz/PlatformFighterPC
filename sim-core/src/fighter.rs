@@ -227,7 +227,7 @@ pub fn update(
         S::Attack => return attack(f, p, weapon, stage, rules),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
-        S::JumpSquat => jump_squat(f, p, stage),
+        S::JumpSquat => jump_squat(f, p, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage),
         S::Helpless => return helpless(f, p, stage),
         S::AirDodge => return air_dodge(f, p, stage),
@@ -487,7 +487,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     slide_on_platform(f, p, stage);
 }
 
-fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     // No friction here: a run or dash jump keeps its momentum into the air.
     if !slide_on_platform(f, p, stage) {
         return;
@@ -495,6 +495,10 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     if f.state_frame >= u16::from(p.jump_squat_frames) {
         f.platform = NONE;
         f.fast_fall = false;
+        // The ground speed carries into the air reduced (`jump_momentum`) and capped (`jump_momentum_max` of the air speed), so a
+        // running jump is a little faster than a full drift, not a run's speed carried through the whole jump.
+        let cap = p.air_speed * rules.jump_momentum_max;
+        f.vel.x = (f.vel.x * rules.jump_momentum).clamp(-cap, cap);
         enter(f, S::Airborne);
         // An attack pressed during the jump squat (or with the jump) makes it a short hop, held jump or not: the short-hop aerial.
         // The aerial itself comes out of the buffer on the first airborne frame.

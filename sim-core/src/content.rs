@@ -798,6 +798,15 @@ pub struct Ruleset {
     pub lsi_up: Fx,
     pub lsi_down: Fx,
     pub lsi_vertical: u8,
+    /// Bodies on the ground push each other apart (see `push`): each is `push_ratio` of its ECB's half-width either side, the inner
+    /// `push_hard` of two bodies' combined width is a wall, and the rest eases apart at up to `push_speed` a frame.
+    pub push_ratio: Fx,
+    pub push_hard: Fx,
+    pub push_speed: Fx,
+    /// A jump leaves the ground with `jump_momentum` of the ground speed, at most `jump_momentum_max` times the fighter's air speed
+    /// (the reference game's jump speed multiplier and cap; the values are estimates).
+    pub jump_momentum: Fx,
+    pub jump_momentum_max: Fx,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -930,6 +939,11 @@ impl Ruleset {
             lsi_up: Fx::from_ratio(1095, 1000),
             lsi_down: Fx::from_ratio(92, 100),
             lsi_vertical: 25,
+            push_ratio: Fx::from_ratio(3, 5),
+            push_hard: Fx::from_ratio(7, 10),
+            push_speed: Fx::from_ratio(3, 40),
+            jump_momentum: Fx::from_ratio(17, 20),
+            jump_momentum_max: Fx::from_ratio(5, 4),
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -1014,6 +1028,11 @@ impl StateHash for Ruleset {
         self.lsi_up.hash_into(h);
         self.lsi_down.hash_into(h);
         h.write_u8(self.lsi_vertical);
+        self.push_ratio.hash_into(h);
+        self.push_hard.hash_into(h);
+        self.push_speed.hash_into(h);
+        self.jump_momentum.hash_into(h);
+        self.jump_momentum_max.hash_into(h);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -1210,6 +1229,11 @@ mod tests {
             |r: &mut Ruleset| r.lsi_up += Fx::from_raw(1),
             |r: &mut Ruleset| r.lsi_down += Fx::from_raw(1),
             |r: &mut Ruleset| r.lsi_vertical += 1,
+            |r: &mut Ruleset| r.push_ratio += Fx::from_raw(1),
+            |r: &mut Ruleset| r.push_hard += Fx::from_raw(1),
+            |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
+            |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
+            |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

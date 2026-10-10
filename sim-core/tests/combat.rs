@@ -136,13 +136,19 @@ fn out_of_range_attacks_miss() {
 fn the_claws_have_much_shorter_reach_than_the_sword() {
     let reach = |chars: [u8; 4]| {
         let mut sim = Sim::with_chars(chars);
+        // (Only the two of them: a bystander at a spawn point would push them about.)
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
         sim.stand(0, Fx::ZERO, 1);
-        sim.stand(1, fx(35, 10), -1);
+        sim.stand(1, fx(375, 100), -1);
         ftilt(&mut sim);
         sim.ticks(14, inp(0, 0, 0));
         sim.fighter(1).percent > Fx::ZERO
     };
-    assert!(reach([0, 0, 0, 0]), "the sword reaches 3.5 units");
+    assert!(
+        reach([0, 0, 0, 0]),
+        "the sword reaches 3.75 units (3.8 at the tip of its forward tilt; the claws 3.68)"
+    );
     assert!(!reach([1, 0, 0, 0]), "the claws do not");
 }
 
