@@ -508,7 +508,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 
 ## Moves the head's and the torso's pieces (hats, glasses, neckwear) with the head and chest bones as they are posed now.
 func _follow_bones() -> void:
-	if skeleton == null or head_rig == null:
+	if skeleton == null or head_rig == null or not skeleton.is_inside_tree() or not model.is_inside_tree():
 		return
 	var to_model := _skeleton_to_model()
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
@@ -787,8 +787,12 @@ func build(p: int, l: RefCounted = null) -> void:
 	flame = Particles.flame(self)
 	add_child(flame)
 	_tag_object(self)
-	# The pieces on the head and chest start where the idle pose has them (a fighter shown without `apply`, as in the menus, keeps it).
-	_follow_bones()
+	# The pieces on the head and chest start where the idle pose has them (a fighter shown without `apply`, as in the menus, keeps it):
+	# now, or as soon as the fighter is in the scene (its transforms are only known there).
+	if is_inside_tree():
+		_follow_bones()
+	elif not tree_entered.is_connected(_follow_bones):
+		tree_entered.connect(_follow_bones, CONNECT_ONE_SHOT)
 
 
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
@@ -2010,7 +2014,8 @@ func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
 	while sweep_samples.size() > 0 and sweep_clock - int(sweep_samples[0].at) > SWEEP_LIFE:
 		sweep_samples.pop_front()
 	var im: ImmediateMesh = sweep.mesh
-	im.clear_surfaces()
+	if im.get_surface_count() > 0:
+		im.clear_surfaces()
 	# The crescent always reaches the blade where it is now, so a swing frozen by a hit shows its arc right up to the blade.
 	var drawn := sweep_samples.duplicate()
 	var t2: PackedInt32Array = s.move_timing
@@ -2390,7 +2395,8 @@ func _update_trail(s: Dictionary, centre: Vector2, _radius: float) -> void:
 		trail_points.clear()
 		last_trail_frame = -1
 	var im: ImmediateMesh = trail.mesh
-	im.clear_surfaces()
+	if im.get_surface_count() > 0:
+		im.clear_surfaces()
 	var colours := _trail_colours(s)
 	if trail_points.size() >= 2:
 		var path: Array = []

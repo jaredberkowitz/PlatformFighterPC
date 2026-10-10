@@ -84,11 +84,19 @@ static func sky(t: Dictionary) -> Sky:
 
 # ---- Materials --------------------------------------------------------------------------------------------------------------------
 
+## A flat colour, unlit; one shared material per colour (so `merge_static` can join everything drawn in it). Not to be changed: duplicate it.
 static func _unshaded(c: Color) -> StandardMaterial3D:
+	var key := c.to_html()
+	if _flat_cache.has(key):
+		return _flat_cache[key]
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.albedo_color = c
+	_flat_cache[key] = m
 	return m
+
+
+static var _flat_cache := {}
 
 
 ## A stage surface in colour `c` with one of the painted tiles in godot/art/stage/ laid over it in world space (`size` world units a repeat).
@@ -101,69 +109,81 @@ static func _soft(c: Color) -> ShaderMaterial:
 	return FighterView.toon(c, false)
 
 
-## The pattern on a block's front, drawn once into a small texture: quilted diamonds, sandstone strata, rounded cobbles, or a building
-## facade with windows (some lit).
+## The pattern on a block's front, drawn as vector art (an SVG made here and rasterised once, smooth and anti-aliased, in the hand-drawn
+## style of the rest): quilted diamonds, wavy sandstone strata, rounded cobbles, or a building facade with windows (some lit). Each
+## tiles seamlessly.
 static func _soil_material(t: Dictionary) -> ShaderMaterial:
-	var size := 64
-	var img := Image.create_empty(size, size, false, Image.FORMAT_RGB8)
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
 	var pattern: String = t.get("pattern", "diamonds")
+	var key := "%s%s%s" % [pattern, a.to_html(), b.to_html()]
+	if _soil_cache.has(key):
+		return _soil_cache[key]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
-	img.fill(a)
+	var ink := b.darkened(0.35).to_html(false)
+	var hi := a.lightened(0.18).to_html(false)
+	var A := a.to_html(false)
+	var B := b.to_html(false)
+	var body := ""
 	match pattern:
 		"strata":
-			# Wavy horizontal bands in three shades.
-			var shades := [a, b, a.lerp(Color(1, 0.85, 0.6), 0.25), b.darkened(0.12)]
-			for y in size:
-				for x in size:
-					var wave := sin(float(x) / size * TAU) * 2.5
-					var band := int(floor((float(y) + wave) / 8.0)) % shades.size()
-					img.set_pixel(x, y, shades[(band + shades.size()) % shades.size()])
+			# Wavy bands in four shades, each edge a gentle wave with a soft ink line.
+			var shades := [A, B, a.lerp(Color(1, 0.88, 0.7), 0.3).to_html(false), b.darkened(0.1).to_html(false)]
+			for k in 4:
+				var y0 := k * 64.0
+				var d := "M0,%.1f " % y0
+				for x in range(0, 257, 32):
+					d += "L%d,%.1f " % [x, y0 + sin(float(x) / 256.0 * TAU + k) * 9.0]
+				d += "L256,%.1f L0,%.1f Z" % [y0 + 64.0 + 12.0, y0 + 64.0 + 12.0]
+				body += '<path d="%s" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-linejoin="round"/>' % [d, shades[k], ink]
 		"cobble":
-			# Rounded stones with dark gaps.
-			img.fill(b.darkened(0.25))
-			for k in 14:
-				var cx := rng.randi_range(0, size - 1)
-				var cy := rng.randi_range(0, size - 1)
-				var r := rng.randi_range(9, 14)
+			# Rounded stones over dark mortar, each with a lighter top; stones at an edge are drawn again across it, so it tiles.
+			body += '<rect width="256" height="256" fill="#%s"/>' % b.darkened(0.25).to_html(false)
+			for k in 16:
+				var cx := rng.randf_range(0.0, 256.0)
+				var cy := rng.randf_range(0.0, 256.0)
+				var rx := rng.randf_range(30.0, 44.0)
+				var ry := rx * rng.randf_range(0.7, 0.9)
 				var shade := a.lerp(b, rng.randf_range(0.0, 0.5))
-				for y in range(cy - r, cy + r):
-					for x in range(cx - r, cx + r):
-						var dx := x - cx
-						var dy := y - cy
-						if dx * dx + dy * dy < (r - 1) * (r - 1):
-							var lit := shade.lightened(0.08) if dy < -r / 3 else shade
-							img.set_pixel(posmod(x, size), posmod(y, size), lit)
+				for ox in [-256.0, 0.0, 256.0]:
+					for oy in [-256.0, 0.0, 256.0]:
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="3"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.55"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.15).to_html(false)]
 		"facade":
-			# Concrete panels with a grid of windows, some lit warm yellow.
-			for y in size:
-				for x in size:
-					var seam := x % 32 == 0 or y % 32 == 0
-					img.set_pixel(x, y, b if seam else a)
-			for wy in [6, 38]:
-				for wx in [5, 19, 37, 51]:
+			# Concrete panels with rounded windows, some lit warm, each with a sill.
+			body += '<rect width="256" height="256" fill="#%s"/>' % A
+			for x in [0, 128]:
+				for y in [0, 128]:
+					body += '<rect x="%d" y="%d" width="128" height="128" fill="none" stroke="#%s" stroke-width="4"/>' % [x, y, B]
+			for wy in [22, 150]:
+				for wx in [18, 74, 146, 202]:
 					var lit := rng.randf() < 0.55
-					var col := Color(1.0, 0.86, 0.45) if lit else Color(0.16, 0.18, 0.26)
-					for y in range(wy, wy + 14):
-						for x in range(wx, wx + 9):
-							img.set_pixel(x, y, col)
+					var col := "ffe08a" if lit else "2a2f45"
+					body += '<rect x="%d" y="%d" width="36" height="56" rx="6" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx, wy, col, ink]
+					body += '<rect x="%d" y="%d" width="44" height="6" rx="3" fill="#%s"/>' % [wx - 4, wy + 58, hi]
 		_:
-			for y in size:
-				for x in size:
-					var u := absf(float(x % 32) - 16.0)
-					var v := absf(float(y % 32) - 16.0)
-					var inside := u + v < 14.0
-					var edge := absf(u + v - 14.0) < 1.6
-					var c := a if inside else b
-					if edge:
-						c = b.darkened(0.25)
-					img.set_pixel(x, y, c)
+			# Quilted diamonds with a soft highlight along their upper edges.
+			body += '<rect width="256" height="256" fill="#%s"/>' % B
+			for cx in [0, 128, 256]:
+				for cy in [0, 128, 256]:
+					for c in [[cx, cy], [cx - 64, cy - 64]]:
+						var x: float = c[0]
+						var y: float = c[1]
+						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
+						body += '<path d="M%.0f,%.0f L%.0f,%.0f" stroke="#%s" stroke-width="5" stroke-linecap="round" opacity="0.6"/>' % [x - 40, y - 8, x - 8, y - 40, hi]
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">%s</svg>' % body
+	var img := Image.new()
+	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 2.2 units, a facade's every 3.3).
-	return FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 3.3)
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 3.3)
+	_soil_cache[key] = m
+	return m
+
+
+static var _soil_cache := {}
 
 
 static func _mesh(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE, rot := Vector3.ZERO) -> MeshInstance3D:
@@ -304,6 +324,193 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for layer in MIST.get(t.name, []):
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
 	painted_layers(root, t.name)
+	_props(root, t.name, _ext(stage))
+	merge_static(root)
+
+
+## Merges the still scenery that shares a material into one mesh each (a theme is dozens of small shapes: stars, fence posts, windows),
+## so the whole backdrop costs a few draw calls rather than hundreds. Only `root`'s own children are merged: anything that moves (sails,
+## crowns, the sea) sits under a node of its own and is left alone, as is anything see-through. Returns how many meshes it saved.
+static func merge_static(root: Node3D) -> int:
+	var groups := {}
+	var order: Array = []
+	for c in root.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null or mi.mesh == null or mi.material_override == null or mi.transparency > 0.0 or mi.get_child_count() > 0:
+			continue
+		var key: int = mi.material_override.get_instance_id()
+		if not groups.has(key):
+			groups[key] = []
+			order.append(key)
+		groups[key].append(mi)
+	var saved := 0
+	for key in order:
+		var parts: Array = groups[key]
+		if parts.size() < 2:
+			continue
+		var st := SurfaceTool.new()
+		for mi: MeshInstance3D in parts:
+			for surface in mi.mesh.get_surface_count():
+				st.append_from(mi.mesh, surface, mi.transform)
+		var one := MeshInstance3D.new()
+		one.mesh = st.commit()
+		one.material_override = parts[0].material_override
+		one.cast_shadow = parts[0].cast_shadow
+		root.add_child(one)
+		for mi: MeshInstance3D in parts:
+			root.remove_child(mi)
+			mi.free()
+		saved += parts.size() - 1
+	return saved
+
+
+# ---- Props: a few small low-poly things behind the fighters per theme (few sides, flat colours, ink outlines) ------------------------
+
+static func _props(root: Node3D, theme_name: String, e: Array) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var l: float = e[0]
+	var r: float = e[1]
+	var y: float = e[2]
+	match theme_name:
+		"meadow":
+			_hay_bale(root, Vector3(l + 3.0, y, -4.6), 0.0)
+			_hay_bale(root, Vector3(l + 4.3, y, -5.0), 25.0)
+			_barrel(root, Vector3(r - 4.0, y, -4.4), 0.8)
+			_signpost(root, Vector3(r - 2.4, y, -4.0), -1.0)
+			_rock(root, Vector3(l + 7.5, y, -3.8), 0.45, rng)
+		"grove":
+			for k in 3:
+				_mushroom(root, Vector3(l + 2.6 + k * 0.55, y, -3.8 - k * 0.3), 0.5 + k * 0.15, Color(0.95, 0.5, 0.6))
+			_mushroom(root, Vector3(r - 5.0, y, -4.0), 0.55, Color(0.7, 0.6, 1.0))
+			_stump(root, Vector3(r - 6.5, y, -4.4))
+			_rock(root, Vector3(l + 6.0, y, -3.6), 0.4, rng)
+		"sunset":
+			_rock(root, Vector3(l + 3.2, y, -4.2), 0.8, rng)
+			_rock(root, Vector3(l + 4.2, y, -3.8), 0.45, rng)
+			_crate(root, Vector3(r - 4.6, y, -4.4), 0.9, 12.0)
+			_barrel(root, Vector3(r - 3.4, y, -4.0), 0.75)
+			_lantern_post(root, Vector3(l + 8.0, y, -4.8), Color(1.0, 0.75, 0.4))
+			_rock(root, Vector3(r - 7.5, y, -3.6), 0.35, rng)
+		"ocean":
+			_umbrella(root, Vector3(l + 4.5, y, -4.6), Color(0.98, 0.55, 0.55))
+			_life_ring(root, Vector3(r - 4.4, y, -4.8))
+			_bucket(root, Vector3(l + 6.4, y, -3.6), Color(0.45, 0.7, 1.0))
+			_rock(root, Vector3(r - 6.8, y, -3.8), 0.4, rng)
+			_rock(root, Vector3(r - 6.2, y, -4.2), 0.3, rng)
+		"city":
+			_crate(root, Vector3(l + 1.6, y, -4.6), 1.0, 0.0)
+			_crate(root, Vector3(l + 2.7, y, -4.4), 0.8, 8.0)
+			_crate(root, Vector3(l + 2.0, y + 1.0, -4.6), 0.7, -10.0)
+			_potted_plant(root, Vector3(r - 4.0, y, -4.0))
+			_string_lights(root, Vector3(l + 3.0, y + 4.6, -6.0), Vector3(r - 2.5, y + 5.6, -6.5))
+
+
+static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
+	var centre := at + Vector3(0, 0.55, 0)
+	_mesh(root, _cylinder(0.55, 0.55, 1.3, 9), FighterView.toon(Color(0.98, 0.84, 0.5)), centre, Vector3.ONE, Vector3(90, turn, 0))
+	var band := FighterView.toon(Color(0.8, 0.56, 0.32), false)
+	for dz in [-0.32, 0.32]:
+		_mesh(root, _cylinder(0.57, 0.57, 0.08, 9), band, centre + Vector3(0, 0, dz).rotated(Vector3.UP, deg_to_rad(turn)), Vector3.ONE, Vector3(90, turn, 0))
+
+
+static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
+	_mesh(root, _cylinder(0.42 * size, 0.38 * size, 1.1 * size, 10), FighterView.toon(Color(0.78, 0.52, 0.34)), at + Vector3(0, 0.55 * size, 0))
+	var hoop := FighterView.toon(Color(0.42, 0.4, 0.5), false)
+	for h in [0.22, 0.88]:
+		_mesh(root, _cylinder(0.43 * size, 0.43 * size, 0.07 * size, 10), hoop, at + Vector3(0, h * size, 0))
+
+
+static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
+	_mesh(root, _box(Vector3.ONE * size), FighterView.toon(Color(0.86, 0.66, 0.42)), at + Vector3(0, size / 2.0, 0), Vector3.ONE, Vector3(0, turn, 0))
+	# A diagonal brace across the front.
+	var front := Vector3(0, size / 2.0, size / 2.0 + 0.01).rotated(Vector3.UP, deg_to_rad(turn))
+	_mesh(root, _box(Vector3(size * 1.25, size * 0.14, 0.04)), FighterView.toon(Color(0.68, 0.48, 0.3), false), at + front, Vector3.ONE, Vector3(0, turn, 45))
+
+
+static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
+	_mesh(root, _box(Vector3(0.14, 1.7, 0.14)), FighterView.toon(Color(0.74, 0.54, 0.34)), at + Vector3(0, 0.85, 0))
+	var board := FighterView.toon(Color(0.9, 0.72, 0.48))
+	_mesh(root, _box(Vector3(1.1, 0.34, 0.08)), board, at + Vector3(points * 0.3, 1.4, 0.08), Vector3.ONE, Vector3(0, 0, -4))
+	_mesh(root, _box(Vector3(0.9, 0.3, 0.08)), board, at + Vector3(-points * 0.25, 1.0, 0.08), Vector3.ONE, Vector3(0, 0, 5))
+
+
+## A rock: a ball with few sides, squashed and turned, so it reads as a faceted stone.
+static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
+	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
+	_mesh(root, _sphere(1.0, 6), FighterView.toon(Color(0.74, 0.72, 0.8)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+
+
+static func _mushroom(root: Node3D, at: Vector3, size: float, cap: Color) -> void:
+	_mesh(root, _cylinder(0.12 * size, 0.18 * size, 0.7 * size, 8), FighterView.toon(Color(0.98, 0.94, 0.86)), at + Vector3(0, 0.35 * size, 0))
+	var top := _sphere(0.45 * size, 10)
+	top.is_hemisphere = true
+	top.height = 0.4 * size
+	_mesh(root, top, FighterView.toon(cap), at + Vector3(0, 0.68 * size, 0))
+	var spot := _unshaded(Color(1, 0.97, 0.95))
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.4
+		_mesh(root, _sphere(0.07 * size, 6), spot, at + Vector3(cos(a) * 0.22, 0.95, sin(a) * 0.22 + 0.1) * size)
+
+
+static func _stump(root: Node3D, at: Vector3) -> void:
+	_mesh(root, _cylinder(0.5, 0.62, 0.7, 9), FighterView.toon(Color(0.6, 0.42, 0.28)), at + Vector3(0, 0.35, 0))
+	_mesh(root, _cylinder(0.44, 0.44, 0.03, 9), FighterView.toon(Color(0.94, 0.8, 0.58), false), at + Vector3(0, 0.71, 0))
+
+
+static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
+	var wood := FighterView.toon(Color(0.5, 0.36, 0.3))
+	_mesh(root, _box(Vector3(0.14, 2.2, 0.14)), wood, at + Vector3(0, 1.1, 0))
+	_mesh(root, _box(Vector3(0.7, 0.1, 0.1)), wood, at + Vector3(0.3, 2.15, 0))
+	_mesh(root, _cylinder(0.14, 0.18, 0.36, 6), _unshaded(glow), at + Vector3(0.58, 1.86, 0))
+	_mesh(root, _cylinder(0.0, 0.22, 0.14, 6), FighterView.toon(Color(0.3, 0.26, 0.3), false), at + Vector3(0.58, 2.1, 0))
+
+
+static func _umbrella(root: Node3D, at: Vector3, colour: Color) -> void:
+	_mesh(root, _cylinder(0.05, 0.05, 2.4, 6), FighterView.toon(Color(0.95, 0.95, 0.95)), at + Vector3(0, 1.2, 0), Vector3.ONE, Vector3(0, 0, 8))
+	var top := at + Vector3(-0.17, 2.4, 0)
+	_mesh(root, _cylinder(0.0, 1.5, 0.5, 8), FighterView.toon(colour), top, Vector3.ONE, Vector3(0, 0, 8))
+	# A towel on the sand under it.
+	_mesh(root, _box(Vector3(1.6, 0.03, 0.8)), FighterView.toon(Color(0.55, 0.8, 0.95), false), at + Vector3(0.6, 0.02, 0.4))
+
+
+static func _life_ring(root: Node3D, at: Vector3) -> void:
+	_mesh(root, _box(Vector3(0.12, 1.6, 0.12)), FighterView.toon(Color(0.86, 0.7, 0.5)), at + Vector3(0, 0.8, -0.1))
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.28
+	ring.outer_radius = 0.5
+	ring.rings = 12
+	ring.ring_segments = 6
+	_mesh(root, ring, FighterView.toon(Color(1.0, 0.45, 0.42)), at + Vector3(0, 1.2, 0.05), Vector3.ONE, Vector3(90, 0, 0))
+
+
+static func _bucket(root: Node3D, at: Vector3, colour: Color) -> void:
+	_mesh(root, _cylinder(0.26, 0.2, 0.4, 8), FighterView.toon(colour), at + Vector3(0, 0.2, 0))
+	_mesh(root, _cylinder(0.04, 0.1, 0.5, 5), FighterView.toon(Color(1.0, 0.82, 0.3)), at + Vector3(0.4, 0.12, 0.1), Vector3.ONE, Vector3(0, 0, 70))
+
+
+static func _potted_plant(root: Node3D, at: Vector3) -> void:
+	_mesh(root, _cylinder(0.36, 0.26, 0.6, 8), FighterView.toon(Color(0.86, 0.5, 0.42)), at + Vector3(0, 0.3, 0))
+	var leaf := FighterView.toon(Color(0.4, 0.72, 0.5))
+	for k in 5:
+		var a := TAU * k / 5.0
+		_mesh(root, _sphere(1.0, 6), leaf, at + Vector3(cos(a) * 0.25, 0.85, sin(a) * 0.2), Vector3(0.18, 0.55, 0.1), Vector3(0, -rad_to_deg(a), 30))
+
+
+## A string of little lit bulbs sagging between two points.
+static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
+	var cord := FighterView.toon(Color(0.25, 0.22, 0.3), false)
+	var bulbs := [_unshaded(Color(1.0, 0.86, 0.5)), _unshaded(Color(1.0, 0.6, 0.75)), _unshaded(Color(0.6, 0.9, 1.0))]
+	var n := 18
+	var prev := a
+	for k in range(1, n + 1):
+		var f := float(k) / n
+		var p := a.lerp(b, f) + Vector3(0, -1.2 * sin(f * PI), 0)
+		var seg := _mesh(root, _box(Vector3(0.04, 0.04, prev.distance_to(p))), cord, (prev + p) / 2.0)
+		seg.basis = Basis.looking_at(p - prev, Vector3.UP)
+		if k < n:
+			_mesh(root, _sphere(0.11, 6), bulbs[k % 3], p + Vector3(0, -0.12, 0))
+		prev = p
 
 
 ## Painted backdrop layers for a theme, if it has any: godot/art/backdrops/<theme>/layers.json lists pictures (PNG with transparency) to

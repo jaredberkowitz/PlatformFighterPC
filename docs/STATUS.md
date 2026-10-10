@@ -49,6 +49,8 @@ Phase 7 work (complete): match rules, HUD, results, rematches, the online screen
 * **Online has a form, not a game list.** The online screen (menu, Online) picks role, mode, connection, fighter, delay and (host) rules, and group matches have a
   lobby, plus Quick match through a relay, but there is no list of games. Nobody has used it over a real network.
 * Controllers (play and menus) are implemented but untested on real hardware. The art is a rigged blob with a cel shader, shared lighting and drawn SVG faces and prints (`docs/ART_PIPELINE.md`); hats and glasses are still built in code.
+* **Renderer**: Windows now uses Vulkan (Direct3D 12 stalled for milliseconds whenever a mesh was made during play; see the twenty-first
+  pass in `docs/ART_PIPELINE.md`). Measure with `--perf`; the developer's laptop caps even an empty scene near 50 to 65 fps.
 * Four stages, one mode (versus; local and online up to 4 players). No sudden death after a tied clock.
 
 ## Phase 7: what is left, suggested order

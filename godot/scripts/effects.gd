@@ -93,11 +93,14 @@ class Streaks extends MeshInstance3D:
 
 
 ## What landed a hit, for its effect (and sound): a blade, a blow, or fire.
-enum Kind { BLADE, BLOW, FIRE }
+## What landed a hit, which picks its look: a blade (the sword: a cool blue-white burst under a slash), a blow (punches and kicks: a warm
+## burst), fire, or claws (three violet claw marks raked across a lilac burst).
+enum Kind { BLADE, BLOW, FIRE, CLAW }
 
 ## Layer colours of a burst by kind, outside in (under an ink outline): the outer flare, the body, the core.
 const BURST_COLOURS := {
-	Kind.BLADE: [Color(1.0, 0.62, 0.18), Color(1.0, 0.88, 0.35), Color(1.0, 1.0, 0.94)],
+	Kind.BLADE: [Color(0.36, 0.62, 1.0), Color(0.72, 0.9, 1.0), Color(1.0, 1.0, 1.0)],
+	Kind.CLAW: [Color(0.62, 0.32, 1.0), Color(0.9, 0.62, 1.0), Color(1.0, 0.96, 1.0)],
 	Kind.BLOW: [Color(1.0, 0.5, 0.14), Color(1.0, 0.84, 0.28), Color(1.0, 1.0, 0.92)],
 	Kind.FIRE: [Color(0.88, 0.12, 0.06), Color(1.0, 0.5, 0.08), Color(1.0, 0.9, 0.4)],
 }
@@ -238,7 +241,7 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	pow_fx.material_override = _material(true)
 	pow_fx.colours = BURST_COLOURS.get(kind, BURST_COLOURS[Kind.BLOW])
 	pow_fx.dir = dir if dir != Vector2.ZERO else Vector2.RIGHT
-	pow_fx.size = (0.45 + 0.85 * s) * (0.8 if kind == Kind.BLADE else 1.0)
+	pow_fx.size = (0.45 + 0.85 * s) * (0.8 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
 	pow_fx.life = 0.17 + 0.1 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)
@@ -252,6 +255,22 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 		slash.life = 0.2 + 0.08 * s
 		slash.position = at + Vector3(0, 0, 0.1)
 		parent.add_child(slash)
+	elif kind == Kind.CLAW:
+		# Three marks side by side, raked the way the swipe went, the middle one longest and each a moment after the last.
+		var along := cut if cut != Vector2.ZERO else Vector2(dir.y, -dir.x)
+		var across := along.orthogonal().normalized()
+		for k in 3:
+			var mark := Slash.new()
+			mark.material_override = _material(true)
+			mark.dir = along
+			mark.length = (1.5 + 1.1 * s) * (1.0 if k == 1 else 0.82)
+			mark.width = 0.16 + 0.12 * s
+			mark.colour = trail
+			mark.life = 0.2 + 0.08 * s
+			mark.age = -0.022 * k
+			var off := across * (k - 1) * (0.32 + 0.1 * s)
+			mark.position = at + Vector3(off.x, off.y, 0.1)
+			parent.add_child(mark)
 	if s > 0.5:
 		var ring := Ring.new()
 		ring.material_override = _material(true)

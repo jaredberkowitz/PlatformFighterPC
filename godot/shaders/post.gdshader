@@ -26,6 +26,12 @@ uniform float tint_amount = 0.1;
 uniform vec4 grade_shadows : source_color = vec4(1.0);
 uniform vec4 grade_lights : source_color = vec4(1.0);
 uniform float grade_amount = 0.0;
+// The pastel finish (the game's look: soft, airy colours rather than saturated ones): colours eased toward grey by `pastel_desat`, and
+// the darks lifted toward the stage's haze colour by `pastel_lift`, before the ink lines, so the lines stay dark and crisp. Fighters
+// get half of it, so they stay the most vivid thing on screen.
+uniform float pastel_desat = 0.16;
+uniform float pastel_lift = 0.2;
+uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;
@@ -95,6 +101,11 @@ void fragment() {
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
+	// The pastel finish (fighters, ids below 0.6, get half).
+	float soften = id0 < 0.6 && d0 < 400.0 ? 0.5 : 1.0;
+	float y0 = dot(col, vec3(0.3, 0.59, 0.11));
+	col = mix(col, vec3(y0), pastel_desat * soften);
+	col = mix(col, pastel_haze.rgb, pastel_lift * soften * (1.0 - smoothstep(0.0, 0.85, y0)));
 	col = mix(col, ink.rgb, edge * line_strength);
 
 	// A warm paper tone, soft blotches like paper fibre, and a fine print grain.

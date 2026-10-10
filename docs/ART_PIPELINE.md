@@ -442,3 +442,35 @@ stay on the ground, and the game's own lean, slide and body-follow are smaller, 
 
 Check them with `--demo=fx_<sword|claws|maul>_<move> --noui --noecb --shots=<folder>` (every tilt, smash and aerial; a picture on every
 frame, the camera steady on the attacker).
+
+## Pastel finish, props, hit identity and frame time (twenty-first pass)
+
+**One look across the stages**: a pastel finish at the end of the post pass (`post.gdshader`): colours are pulled a little toward grey
+(`pastel_desat`) and their darks lifted toward the stage mood's haze colour (`pastel_lift`, `"haze"` in `lighting.gd`'s `MOODS`), half
+as much on the fighters, so the scene reads soft and airy while ink lines and effects stay crisp. **Block sides** are vector patterns
+(quilted diamonds, wavy strata, rounded cobbles, a facade with lit windows) made as SVG in `stage_art.gd` and rasterised once at 256 px,
+smooth where the old 64 px pixel patterns were blocky.
+
+**Props** (`_props` in `stage_art.gd`): a few small low-poly things behind the fighters per theme, few-sided with flat colours and ink
+outlines: hay bales, a barrel, a signpost and a stone on the meadow; mushrooms and a stump in the grove; rocks, a crate, a barrel and a
+lantern post in the canyon; a beach umbrella and towel, a life ring and a bucket on the beach; stacked crates, a potted plant and a string
+of coloured bulbs on the city roof.
+
+**Merged scenery**: everything still in a backdrop that shares a material is merged into one mesh (`merge_static`), and flat colours share
+one material each, so the extra props cost nothing: about 430 draw calls against 567 unmerged.
+
+**Hits by fighter**: the sword's hits are a cool blue-white burst under its slash, the claws' three violet claw marks raked across a lilac
+burst (`Kind.CLAW` in `effects.gd`), their fire moves still flame, kicks and punches of anyone a warm burst.
+
+**Knock-outs**: every knock-out adds a shockwave (white, then the player's colour) and a flash to the beam and burst; the knock-out that
+decides the match holds its close-up longer, slows to a quarter speed from the finishing hit, and blasts bigger with a longer slow motion.
+
+**Frame time** (`--perf` now also prints GPU time, the render thread's CPU time, the ticks' and the frame scripts' time):
+- The game's own work is about 6 ms a frame (GPU about 4.5 ms, render CPU 0.7, ticks 0.2, frame scripts 0.6). On the developer's laptop
+  an empty Godot scene also runs at about 48 to 65 frames a second, so the frame rate measured there is the machine (other programs,
+  power settings), not the game.
+- **Vulkan on Windows** (`project.godot`, falling back to Direct3D 12 where Vulkan is missing): on Direct3D 12 every mesh made or freed
+  during play (the weapon trails, the drawn hit effects) stalls the frame for several milliseconds (a 40-triangle `ImmediateMesh` rebuilt
+  each frame cost about 9 ms against 0.08 on Vulkan); on Vulkan the same frames had half as many over 25 ms.
+- **Hitbox display** (training, F3): one ring mesh drawn as a `MultiMesh`, moved and recoloured each tick, instead of a mesh rebuilt per
+  tick (that alone was 6.6 ms a tick). Trails and paths with nothing to show are no longer cleared every frame.

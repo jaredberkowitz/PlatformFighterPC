@@ -102,6 +102,12 @@ var perf_draw := 0
 var perf_prims := 0
 var perf_worst := 0.0
 var perf_hitches := 0
+## The game's own rendering time on the GPU and the CPU (timestamps, so other programs sharing the machine count for little).
+var perf_gpu := 0.0
+var perf_cpu := 0.0
+## Script time a frame (ms): the match's ticks (the simulation step and the fighters' views) and the frame's drawing work.
+var perf_tick := 0.0
+var perf_frame := 0.0
 var flag_noui := false
 var flag_noecb := false
 
@@ -256,6 +262,7 @@ func _parse_demo_args() -> void:
 		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
 	if OS.get_cmdline_user_args().has("--perf"):
 		perf = true
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 		name = "tour"
 		if not user_args.has("--vsync"):
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
@@ -796,6 +803,13 @@ func _net_step() -> void:
 
 
 func _tick_once(advance := true) -> void:
+	var t0 := Time.get_ticks_usec()
+	_tick_once_inner(advance)
+	if perf and warmed:
+		perf_tick += float(Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _tick_once_inner(advance := true) -> void:
 	for i in PLAYERS:
 		prev_pos[i] = cur_pos[i]
 	if advance:
@@ -862,7 +876,8 @@ func _rebuild_paths() -> void:
 			path_nodes.append(mi)
 	for i in PLAYERS:
 		var im: ImmediateMesh = path_nodes[i].mesh
-		im.clear_surfaces()
+		if im.get_surface_count() > 0:
+			im.clear_surfaces()
 		var s: Dictionary = snaps[i]
 		if not show_di or not (s.state == "Hitstun" or (s.hitlag > 0 and s.launch_pending)):
 			continue
@@ -956,7 +971,7 @@ func _physics_process(_delta: float) -> void:
 			_capture(shot)
 		if sim.frame() >= demo.end_frame and shot_wait == "":
 			if perf:
-				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames])
+				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives, GPU %.2f ms, render CPU %.2f ms, ticks %.2f ms, frame scripts %.2f ms" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames, perf_gpu / perf_frames, perf_cpu / perf_frames, perf_tick / perf_frames, perf_frame / perf_frames])
 			print("demo '%s' finished at frame %d checksum %s" % [demo.name, sim.frame(), sim.checksum()])
 			get_tree().quit()
 
@@ -978,6 +993,13 @@ func _alpha() -> float:
 
 
 func _process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_inner(delta)
+	if perf and warmed:
+		perf_frame += float(Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _process_inner(delta: float) -> void:
 	if perf and warmed:
 		perf_frames += 1
 		perf_time += delta
@@ -986,6 +1008,9 @@ func _process(delta: float) -> void:
 			perf_hitches += 1
 		perf_draw += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
 		perf_prims += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
+		var vp := get_viewport().get_viewport_rid()
+		perf_gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp)
+		perf_cpu += RenderingServer.viewport_get_measured_render_time_cpu(vp) + RenderingServer.get_frame_setup_time_cpu()
 	var a := _alpha()
 	# Effects run on the match's clock (see FxMaterial.tick).
 	FxMaterial.tick((float(sim.frame()) + a) / 60.0)
@@ -1243,6 +1268,8 @@ func _on_hit(i: int, befores: Array = []) -> void:
 			kind = Effects.Kind.BLADE
 		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
 			kind = Effects.Kind.FIRE
+		elif cls == 1 and _weapon_move(move):
+			kind = Effects.Kind.CLAW
 		trail = FighterView.trail_colours_of(cls)[0]
 	var at := Vector3(contact.x, contact.y, 0.8)
 	# The effect is stretched the way the hit sends the fighter: away from whoever hit it, and up.
@@ -1251,17 +1278,21 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	if strength > 0.4:
 		Effects.impact(self, at, dir, colour, strength)
 	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
-	sfx.hit(0 if kind == Effects.Kind.BLADE else 1, strength)
+	sfx.hit(0 if kind == Effects.Kind.BLADE or kind == Effects.Kind.CLAW else 1, strength)
 	# A heavy hit punches the camera in for a moment and flashes the screen.
 	if strength > 0.55:
 		cam_punch = maxf(cam_punch, 0.6 + 0.6 * strength)
 		_screen_flash(0.18 + 0.2 * strength)
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
-		# The finishing hit: two frames in two tones.
+		# The finishing hit: two frames in two tones. The one that decides the match holds the close-up longer, in slow motion.
 		impact_until = int(sim.frame()) + 2
-		ko_time = 0.75
+		var deciding := _deciding(i, 1)
+		ko_time = 1.3 if deciding else 0.75
 		cam_shake = maxf(cam_shake, 0.9)
+		if deciding and _local_match() and demo == null:
+			Engine.time_scale = 0.25
+			slowmo_until = Time.get_ticks_msec() + 650
 
 
 ## Whether a move of a held weapon's class is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
@@ -1382,9 +1413,21 @@ func _burst(at: Vector3, color: Color, size: float, life: float) -> void:
 	effects.append([m, 0.0, life, size])
 
 
-## A knock-out: a beam of the player's colour bursts from where the fighter left the stage, the camera shakes, and (offline) the
-## match slows for a moment.
+## Whether knocking out fighter `i`, which has `stocks` left, ends the match: its last stock, with one other fighter still in it.
+func _deciding(i: int, stocks: int) -> bool:
+	if int(snaps[i].get("stocks", 0)) != stocks:
+		return false
+	var others := 0
+	for j in PLAYERS:
+		if j != i and _in_play(j) and int(snaps[j].get("stocks", 0)) > 0:
+			others += 1
+	return others == 1
+
+
+## A knock-out: a beam of the player's colour bursts from where the fighter left the stage with a shockwave and a flash, the camera
+## shakes, and (offline) the match slows for a moment; longer, with a brighter flash, for the knock-out that ends the match.
 func _ko_blast(i: int, at: Vector2) -> void:
+	var deciding := _deciding(i, 0)
 	var color: Color = PLAYER_COLORS[i % PLAYER_COLORS.size()]
 	var root3 := Node3D.new()
 	root3.position = Vector3(at.x, at.y + 1.0, 0.0)
@@ -1421,10 +1464,21 @@ func _ko_blast(i: int, at: Vector2) -> void:
 	# (A little way in from the blast line, so the burst is on screen.)
 	var burst_at := at + inward * 13.0
 	Particles.knock_out(self, Vector3(burst_at.x, burst_at.y + 1.0, 0.5), color, inward)
-	cam_shake = maxf(cam_shake, 1.4)
+	for k in 2:
+		var wave := Effects.Ring.new()
+		wave.material_override = Effects._material(true)
+		wave.colour = Color(1, 1, 1, 0.95) if k == 0 else Color(color.r, color.g, color.b, 0.9)
+		wave.from = 0.5 + k * 0.6
+		wave.to = (7.0 if deciding else 5.0) - k * 1.5
+		wave.thickness = 0.7 - k * 0.3
+		wave.life = 0.45 + k * 0.1
+		wave.position = Vector3(burst_at.x, burst_at.y + 1.0, 0.6)
+		add_child(wave)
+	_screen_flash(0.55 if deciding else 0.3)
+	cam_shake = maxf(cam_shake, 1.8 if deciding else 1.4)
 	if _local_match() and demo == null:
-		Engine.time_scale = 0.35
-		slowmo_until = Time.get_ticks_msec() + 450
+		Engine.time_scale = 0.25 if deciding else 0.35
+		slowmo_until = Time.get_ticks_msec() + (1000 if deciding else 450)
 
 
 ## Grows and fades the effects, and ends the knock-out slow motion.
@@ -1707,42 +1761,69 @@ func _build_boxes() -> void:
 	box_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	box_mat.vertex_color_use_as_albedo = true
 	box_mat.no_depth_test = true
+	var circle := _unit_circle()
 	for i in PLAYERS:
-		var mi := MeshInstance3D.new()
-		mi.mesh = ImmediateMesh.new()
+		var mi := MultiMeshInstance3D.new()
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = circle
+		mm.instance_count = MAX_BOXES
+		mm.visible_instance_count = 0
+		mi.multimesh = mm
+		mi.material_override = box_mat
 		add_child(mi)
 		box_nodes.append(mi)
 
 
-func _circle(im: ImmediateMesh, c: Vector2, r: float, color: Color) -> void:
+const MAX_BOXES := 32
+
+
+## A ring of radius 1 drawn in lines: every box is one of these, placed, sized and coloured.
+static func _unit_circle() -> ArrayMesh:
+	var verts := PackedVector3Array()
 	var segments := 20
 	for k in segments:
-		var a0 := TAU * k / segments
-		var a1 := TAU * (k + 1) / segments
-		im.surface_set_color(color)
-		im.surface_add_vertex(Vector3(c.x + cos(a0) * r, c.y + sin(a0) * r, 1.5))
-		im.surface_set_color(color)
-		im.surface_add_vertex(Vector3(c.x + cos(a1) * r, c.y + sin(a1) * r, 1.5))
+		var a := Vector2.from_angle(TAU * k / segments)
+		var b := Vector2.from_angle(TAU * (k + 1) / segments)
+		verts.append(Vector3(a.x, a.y, 0))
+		verts.append(Vector3(b.x, b.y, 0))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+	return mesh
 
 
+## Each box is an instance of one ring mesh (`MultiMesh`), moved and recoloured each tick: making and freeing a mesh per tick instead
+## cost milliseconds a frame on the GPU driver.
 func _rebuild_boxes() -> void:
 	if box_nodes.is_empty():
 		return
 	for i in PLAYERS:
-		var im: ImmediateMesh = box_nodes[i].mesh
-		im.clear_surfaces()
+		var mm: MultiMesh = box_nodes[i].multimesh
 		if not show_boxes:
+			mm.visible_instance_count = 0
 			continue
 		var origin: Vector2 = cur_pos[i]
-		im.surface_begin(Mesh.PRIMITIVE_LINES, box_mat)
+		var n := 0
 		var hurt: PackedFloat32Array = sim.fighter_hurtboxes(i)
 		for k in range(0, hurt.size(), 3):
-			_circle(im, Vector2(hurt[k], hurt[k + 1]) - origin, hurt[k + 2], Color(0.3, 1.0, 0.4, 0.9))
+			n = _box(mm, n, Vector2(hurt[k], hurt[k + 1]) - origin, hurt[k + 2], Color(0.3, 1.0, 0.4, 0.9))
 		var hits: PackedFloat32Array = sim.fighter_hitboxes(i)
 		for k in range(0, hits.size(), 4):
 			var sweet: bool = hits[k + 3] < 0.5
-			_circle(im, Vector2(hits[k], hits[k + 1]) - origin, hits[k + 2], Color(1.0, 0.2, 0.2) if sweet else Color(1.0, 0.6, 0.15))
-		im.surface_end()
+			n = _box(mm, n, Vector2(hits[k], hits[k + 1]) - origin, hits[k + 2], Color(1.0, 0.2, 0.2) if sweet else Color(1.0, 0.6, 0.15))
+		mm.visible_instance_count = n
+
+
+func _box(mm: MultiMesh, n: int, c: Vector2, r: float, color: Color) -> int:
+	if n >= MAX_BOXES:
+		return n
+	mm.set_instance_transform(n, Transform3D(Basis.from_scale(Vector3(r, r, 1.0)), Vector3(c.x, c.y, 1.5)))
+	mm.set_instance_color(n, color)
+	return n + 1
 
 
 func _position_boxes(a: float) -> void:
