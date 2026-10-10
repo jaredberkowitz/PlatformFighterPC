@@ -43,5 +43,20 @@ func _initialize() -> void:
 	check(StageArt.painted_layers(root3, "no_such_theme") == 0, "no layers, nothing placed")
 	holder.free()
 	root3.free()
+	# The base body (art/models/base_body, built by make_rigged_blob.py --body): the same skeleton and clips, its face shell and fists.
+	FighterView.use_base_body = true
+	var view := FighterView.new()
+	view.build(0)
+	check(view.anim != null and view.anim.has_animation("idle") and view.anim.has_animation("sword_fsmash"), "the base body plays the clips")
+	check(view.face_mesh != null, "it has the face shell")
+	check(view.skeleton != null and view.skeleton.find_bone("hand.R") >= 0, "on the game's skeleton")
+	check(view.shoulder.y > 1.0 and view.arm_reach > 0.3, "its shoulder and reach come from base_rig.json")
+	var parts := []
+	for n in view.find_children("*", "MeshInstance3D", true, false):
+		parts.append(str(n.name))
+	check(parts.has("Skin") and (parts.has("Hand_L") or parts.has("Hand.L")), "skin and glove fists: %s" % [parts.slice(0, 6)])
+	view.free()
+	FighterView.use_base_body = false
+	FighterView.release_caches()
 	print("art pipeline test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

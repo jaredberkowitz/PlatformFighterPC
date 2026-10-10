@@ -137,13 +137,35 @@ After adding files under `godot/`, run `Godot --headless --path godot --import` 
   turn toward, the rim colour) plus its fog layers (`MIST` in `stage_art.gd`); the baked soft shading comes from the stage's shape by
   itself.
 
-### Characters (next)
+### Characters
 
 Fighters are animated by poses on a shared skeleton (`make_rigged_blob.py`: the clips, the IK and the 2D face all depend on it), so a new
-body has to fit that skeleton rather than bring its own. The plan for generated bodies: an A-pose, blank-headed body made to the blob's
-proportions (the turnaround prompt above) is cleaned up with `--kind fighter`, then `make_rigged_blob.py` uses it in place of its built
-body: scaled to the rig, bound with automatic weights, the face shell laid on the head, and the clips exported as usual. That step is
-written once there is a first generated body to fit, because its fitting depends on what the services actually return.
+body is fitted to that skeleton rather than bringing its own. The base body (from `art/concept/base_body_turnaround.jpg`) was made this way:
+
+1. **Generate** a full body, A-pose or arms down, blank head if possible (it was made with Tripo from the sheet; Tripo built the whole sheet
+   as 3D, so the main figure was picked out in the next step).
+2. **Clean it up** as one closed, low skin in one colour (the face and any patches go; the game draws the face and paints the colour):
+   ```bash
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/import_generated.py -- --in <sheet.glb> --name base_body --kind fighter --keep biggest --remesh 0.02 --out art/models/base_body/base_body.glb
+   ```
+   (`--keep biggest` keeps the largest figure after welding the seams; `--remesh` rebuilds the surface; fighters are kept to 3,500
+   triangles: smooth shading and the ink outline carry the look.)
+3. **Measure it** for the skeleton (`art/blender/fit_body.py`: points spread over the surface are sliced; the neck is the narrowest
+   trunk, the legs are followed up from the feet to the crotch, the arms down from the armpits to the fingertips):
+   ```bash
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/fit_body.py -- --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json
+   ```
+4. **Rig it** with every clip (`make_rigged_blob.py --body`: the arms are filled out front to back, the generated hands give way to the game's
+   glove fists, a face shell is laid on the head, the skin is weighted automatically; writes `godot/models/base_rig.glb` and
+   `base_rig.json`, the head, shoulder and wrist the game fits hats, glasses and the weapon arm to):
+   ```bash
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json
+   ```
+5. **Try it** in the game with the `--base-body` launch option (`FighterView.use_base_body`).
+
+Still to do for the base body: its clothes (the shirt, shorts and shoes the blob wears come from separate parts and limb bands; the base
+body needs them painted on by region or made as fitted pieces), the neckwear's fit, and the licence of the free-plan model (see
+`THIRD_PARTY.md`).
 
 ## 6. Review
 

@@ -2,6 +2,7 @@
 
 Run:  blender --background --python art/blender/make_rigged_blob.py            (blob_rig.glb)
       blender --background --python art/blender/make_rigged_blob.py -- --long   (blob_rig_long.glb: the brawler's longer limbs)
+      blender --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb           --joints art/models/base_body/joints.json                              (base_rig.glb: the generated base body)
 
 The character is original: a big round head, a squat dumpling torso, stubby capsule limbs, mitten hands and chunky shoes, in the spirit of
 docs/ART_DIRECTION.md. The game paints the flat colours (by part name), draws the face and accessories itself, and plays the clips below.
@@ -14,6 +15,7 @@ Parts are rigid (each is weighted fully to one bone), like a vinyl toy: round, r
 read well on it.
 """
 
+import json
 import math
 import os
 import sys
@@ -254,6 +256,32 @@ def waist_weights(co):
 LIMB = 1.32
 
 
+def fist(bm, x):
+    """A fist on the `x` side (-1 left, 1 right) at the blob's wrist: a round glove clenched, the four curled fingers a row of knuckle
+    bumps underneath, the thumb wrapped across the front."""
+    palm = Vector((x * 0.775, -0.04, 0.66))
+    ball(bm, 0.205, palm, (0.9, 1.0, 0.92), segments=32, rings=20)
+    for fy in (-0.135, -0.045, 0.045, 0.135):
+        ball(bm, 0.082, (x * 0.8, -0.04 + fy, 0.53), (1.0, 0.95, 0.9), segments=16, rings=10)
+    tube(bm, [(x * 0.69, -0.17, 0.68), (x * 0.72, -0.24, 0.6), (x * 0.8, -0.22, 0.55)], [0.07, 0.066, 0.06], segments=14,
+         per_span=4)
+
+
+## The blob's wrist, which `fist` and `cuff` are built round.
+BLOB_WRIST = (0.74, -0.04, 0.78)
+
+
+def cuff(bm, x):
+    """A rolled glove cuff just above the mitten on the `x` side: a flat disc square to the forearm, wider than the arm."""
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=0.17 * LIMB, radius2=0.19 * LIMB, depth=0.1)
+    elbow = Vector((x * 0.66, -0.02, 0.95))
+    wrist = Vector((x * 0.74, -0.04, 0.8))
+    axis = (wrist - elbow).normalized()
+    rot = Vector((0.0, 0.0, 1.0)).rotation_difference(axis).to_matrix().to_4x4()
+    bmesh.ops.transform(bm, matrix=rot, verts=bm.verts)
+    bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.62, verts=bm.verts)
+
+
 def build_meshes(rig):
     parts = {}
 
@@ -304,25 +332,11 @@ def build_meshes(rig):
         tube(bm, arm_pts, [0.168, 0.15, 0.135], bulge=lambda t, i: 0.012 * math.sin(math.pi * t))
         parts["Arm." + side] = to_object_weighted("Arm." + side, bm, chain_weights(arm_pts, ["armU." + side, "armL." + side], 0.06), rig)
 
-        # A fist: a round glove clenched, the four curled fingers a row of knuckle bumps underneath, the thumb wrapped across the front.
         bm = bmesh.new()
-        palm = Vector((x * 0.775, -0.04, 0.66))
-        ball(bm, 0.205, palm, (0.9, 1.0, 0.92), segments=32, rings=20)
-        for fy in (-0.135, -0.045, 0.045, 0.135):
-            ball(bm, 0.082, (x * 0.8, -0.04 + fy, 0.53), (1.0, 0.95, 0.9), segments=16, rings=10)
-        tube(bm, [(x * 0.69, -0.17, 0.68), (x * 0.72, -0.24, 0.6), (x * 0.8, -0.22, 0.55)], [0.07, 0.066, 0.06], segments=14,
-             per_span=4)
+        fist(bm, x)
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
-
-        # A rolled glove cuff just above the mitten: a flat disc square to the forearm, wider than the arm.
         bm = bmesh.new()
-        bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=0.17 * T, radius2=0.19 * T, depth=0.1)
-        elbow = Vector((x * 0.66, -0.02, 0.95))
-        wrist = Vector((x * 0.74, -0.04, 0.8))
-        axis = (wrist - elbow).normalized()
-        rot = Vector((0.0, 0.0, 1.0)).rotation_difference(axis).to_matrix().to_4x4()
-        bmesh.ops.transform(bm, matrix=rot, verts=bm.verts)
-        bmesh.ops.translate(bm, vec=elbow + (wrist - elbow) * 0.62, verts=bm.verts)
+        cuff(bm, x)
         parts["Cuff." + side] = to_object("Cuff." + side, bm, "hand." + side, rig)
 
         # The leg: one smoothly skinned tube from the hip through the knee into the shoe, with a little calf; the shorts' leg and the sock
@@ -524,6 +538,125 @@ def amped(fn, k):
     return f
 
 
+# ---- A generated body (--body): one skinned mesh in place of the built parts -------------------------------------------------------------
+# `-- --body <body.glb> --joints <joints.json>` builds the same skeleton and clips round a body made elsewhere (generated, then cleaned by
+# import_generated.py --kind fighter and measured by fit_body.py, which gives the joints): its arms are filled out front to back (generated
+# arms come out flat), its hands are cut off at the wrists for the game's glove fists, a face shell is laid on the head for the drawn faces,
+# and the skin is weighted to the skeleton automatically. Writes godot/models/base_rig.glb, and base_rig.json beside it with the head and
+# shoulders for the game (fighter_view.gd).
+BODY = sys.argv[sys.argv.index("--body") + 1] if "--body" in sys.argv else None
+FIT = None
+if BODY:
+    with open(sys.argv[sys.argv.index("--joints") + 1]) as _f:
+        FIT = json.load(_f)
+    for _name, _pos in FIT["joints"].items():
+        if _name in JOINTS:
+            JOINTS[_name] = (tuple(_pos), JOINTS[_name][1])
+    OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
+## How much fuller the generated arms are made front to back, and how big the glove fists are against the blob's.
+ARM_FILL = 0.45
+FIST_SCALE = 0.85
+
+
+def build_body_meshes(rig):
+    parts = {}
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.abspath(BODY))
+    meshes = [o for o in bpy.data.objects if o not in before and o.type == "MESH"]
+    for o in [o for o in bpy.data.objects if o not in before and o.type != "MESH"]:
+        bpy.data.objects.remove(o, do_unlink=True)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in meshes:
+        o.parent = None
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = meshes[0]
+    if len(meshes) > 1:
+        bpy.ops.object.join()
+    skin = bpy.context.view_layer.objects.active
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    skin.name = "Skin"
+    skin.data.name = "Skin"
+    skin.data.materials.clear()
+    J = {k: Vector(v) for k, v in FIT["joints"].items()}
+
+    # Arms filled out front to back and the generated hands cut off past the wrist (the glove fists take their place).
+    bm = bmesh.new()
+    bm.from_mesh(skin.data)
+    cut = []
+    for v in bm.verts:
+        for side, sign in (("L", -1.0), ("R", 1.0)):
+            s, w = J["armU." + side], J["hand." + side]
+            if v.co.x * sign < abs(s.x) * 0.7:
+                continue
+            axis = w - s
+            length = axis.length
+            d = axis / length
+            t = (v.co - s).dot(d) / length
+            closest = s + d * max(0.0, min(1.0, t)) * length
+            off = v.co - closest
+            if off.length > 0.25:
+                continue
+            if t > 1.03:
+                cut.append(v)
+                break
+            k = _smooth(0.05, 0.3, t) * ARM_FILL
+            v.co.y = closest.y + off.y * (1.0 + k)
+            break
+    bmesh.ops.delete(bm, geom=cut, context="VERTS")
+    bm.to_mesh(skin.data)
+    bm.free()
+    for poly in skin.data.polygons:
+        poly.use_smooth = True
+    parts["Skin"] = skin
+
+    # Glove fists and cuffs, built as the blob's and moved to this body's wrists.
+    for side, x in (("L", -1.0), ("R", 1.0)):
+        wrist_blob = Vector((x * BLOB_WRIST[0], BLOB_WRIST[1], BLOB_WRIST[2]))
+        for name, build in (("Hand", fist), ("Cuff", cuff)):
+            bm = bmesh.new()
+            build(bm, x)
+            for v in bm.verts:
+                v.co = J["hand." + side] + (v.co - wrist_blob) * FIST_SCALE
+            parts[name + "." + side] = to_object(name + "." + side, bm, "hand." + side, rig)
+
+    # The face shell, as the blob's: a ball fitted to the head, its front only, the face drawing projected straight on.
+    head = [v.co for v in skin.data.vertices if v.co.z > FIT["neck"] + 0.05]
+    lo = Vector((min(c.x for c in head), min(c.y for c in head), min(c.z for c in head)))
+    hi = Vector((max(c.x for c in head), max(c.y for c in head), max(c.z for c in head)))
+    centre = (lo + hi) / 2.0
+    radii = (hi - lo) / 2.0
+    bm = bmesh.new()
+    ball(bm, 1.0, (0, 0, 0), segments=48, rings=32)
+    for v in bm.verts:
+        v.co = Vector((centre.x + v.co.x * radii.x * 1.03, centre.y + v.co.y * radii.y * 1.03, centre.z + v.co.z * radii.z * 1.03))
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y - 0.3 * radii.y], context="VERTS")
+    face_size = 1.75 * radii.x
+    face_centre = centre.z + 0.04 * radii.z
+    uv = bm.loops.layers.uv.verify()
+    for f in bm.faces:
+        for loop in f.loops:
+            co = loop.vert.co
+            loop[uv].uv = (0.5 + co.x / face_size, 0.5 + (co.z - face_centre) / face_size)
+    parts["Face"] = to_object("Face", bm, "head", rig)
+
+    # The skin, weighted to the skeleton by Blender's automatic weights.
+    bpy.ops.object.select_all(action="DESELECT")
+    skin.select_set(True)
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+
+    # What the game needs to fit hats, glasses, the weapon arm and the neckwear (Godot's axes: x, z, -y).
+    def godot(v):
+        return [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
+    info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)],
+            "neck": round(FIT["neck"], 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
+            "height": round(FIT["height"], 4)}
+    with open(OUT.replace(".glb", ".json"), "w") as f:
+        json.dump(info, f, indent=1)
+    return parts
+
+
 # ---- The long-limbed variant (the brawler): legs and arms stretched, the rest of the body lifted to match -------------------------------
 LONG = "--long" in sys.argv
 KL = 1.5      # legs, between the ankle and the hip
@@ -594,7 +727,7 @@ def lengthen_limbs(rig, parts):
 def main() -> None:
     clear()
     rig = make_armature()
-    parts = build_meshes(rig)
+    parts = build_body_meshes(rig) if BODY else build_meshes(rig)
     if LONG:
         lengthen_limbs(rig, parts)
     bpy.context.view_layer.objects.active = rig

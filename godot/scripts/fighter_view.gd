@@ -126,6 +126,14 @@ var loadout: RefCounted
 const RIG_PATH := "res://models/blob_rig.glb"
 ## The brawler's rig has longer arms and legs. It is built about 0.19 taller at the hips, so it is scaled down to keep the same height.
 const RIG_LONG_PATH := "res://models/blob_rig_long.glb"
+## The base body: the character from the concept art, generated, cleaned up and rigged by the art pipeline (docs/ART_WORKFLOW.md,
+## art/generated/base_body). One skinned body on the same skeleton and clips, with glove fists and the drawn face; tried out with
+## `--base-body` for now. Its head, shoulder and wrist (for the hats, glasses, face and the weapon arm) come from base_rig.json, which
+## make_rigged_blob.py writes with it.
+const RIG_BASE_PATH := "res://models/base_rig.glb"
+const BASE_INFO_PATH := "res://models/base_rig.json"
+static var use_base_body: bool = OS.get_cmdline_user_args().has("--base-body")
+static var _base_info: Dictionary = {}
 const LONG_SCALE := 0.92
 const LONG_LIFT := 0.19
 const LONG_FIT := Transform3D(Basis(Vector3(0.92, 0, 0), Vector3(0, 0.92, 0), Vector3(0, 0, 0.92)), Vector3(0, 0.19 * 0.92, 0))
@@ -197,10 +205,18 @@ static func _model_scene(path: String) -> Node:
 	return null
 
 
+static func _base_rig_info() -> Dictionary:
+	if _base_info.is_empty() and FileAccess.file_exists(BASE_INFO_PATH):
+		var data = JSON.parse_string(FileAccess.get_file_as_string(BASE_INFO_PATH))
+		if data is Dictionary:
+			_base_info = data
+	return _base_info
+
+
 ## Builds the rigged blob (arms, legs and animation clips from art/blender/make_rigged_blob.py). Returns false if it is not available, and
 ## the fighter is then built from parts or spheres.
 func _build_rig(skin: Material) -> bool:
-	var rig_path := RIG_LONG_PATH if long_limbs else RIG_PATH
+	var rig_path := RIG_BASE_PATH if use_base_body else (RIG_LONG_PATH if long_limbs else RIG_PATH)
 	if not _rig_templates.has(rig_path):
 		_rig_templates[rig_path] = null
 		_rig_templates[rig_path] = _model_scene(rig_path)
@@ -261,7 +277,20 @@ func _build_rig(skin: Material) -> bool:
 	torso_rig = Node3D.new()
 	model.add_child(head_rig)
 	model.add_child(torso_rig)
-	if long_limbs:
+	if use_base_body:
+		# The look's pieces were designed round a head of radius 0.8 centred 1.42 up: scaled and lifted onto this body's head. The
+		# neckwear goes up to its neck, narrower; the weapon arm turns at its shoulder and reaches to its wrist and a little past.
+		var info := _base_rig_info()
+		var centre: Array = info.get("head_centre", [0.0, 1.86, 0.0])
+		var radii: Array = info.get("head_radii", [0.4, 0.34, 0.4])
+		var k := float(radii[0]) / 0.8
+		head_fit = Transform3D(Basis.from_scale(Vector3.ONE * k), Vector3(0.0, float(centre[1]) - 1.42 * k, float(centre[2])))
+		torso_fit = Transform3D(Basis.from_scale(Vector3(0.7, 1.0, 0.7)), Vector3(0.0, float(info.get("neck", 1.47)) - 1.26, 0.0))
+		var sh: Array = info.get("shoulder", [0.41, 1.19, 0.04])
+		var wr: Array = info.get("wrist", [0.53, 0.74, 0.15])
+		shoulder = Vector2(float(sh[0]), float(sh[1]))
+		arm_reach = Vector2(float(wr[0]) - float(sh[0]), float(wr[1]) - float(sh[1])).length() + 0.1
+	elif long_limbs:
 		rig.scale = Vector3.ONE * LONG_SCALE
 		head_fit = LONG_FIT * HEAD_FIT
 		torso_fit = LONG_FIT

@@ -30,6 +30,15 @@ qualified. Regenerate it when `Cargo.lock` changes.
 
 CC0 needs no attribution; it is credited here as a courtesy and so the origin of every file is on record.
 
+## Generated art (record of origin)
+
+| Asset | Made with | Terms | Status |
+| --- | --- | --- | --- |
+| Base body concept sheet (`art/concept/base_body_turnaround.jpg`) | an image generator (Google Gemini), from the developer's prompt | the generator's terms of use | original design; reference only |
+| Base body model (`art/models/base_body/`, `godot/models/base_rig.glb`) | Tripo, **free plan**, from the concept sheet; cleaned, remeshed and rigged here | **unclear**: Tripo's own pages say free-plan models are public and CC BY 4.0, and elsewhere that they are for non-commercial use only | **development placeholder**: before release, confirm the terms (or regenerate on a paid plan, or with TRELLIS, MIT) and credit Tripo if CC BY applies |
+| Prop pictures (`art/concept/props/`) | FLUX.1-schnell (Apache-2.0) through Hugging Face | the outputs are ours | fine to ship |
+| Models from TRELLIS / TRELLIS.2 | Microsoft's models (MIT) through Hugging Face | the outputs are ours | fine to ship |
+
 ## Rust crates (81, outside this workspace)
 
 Licence summary: 48 MIT OR Apache-2.0; 10 MIT; 8 MPL-2.0; 5 Unlicense OR MIT; 4 Apache-2.0 OR MIT; 3 Apache-2.0; 2 BSD-2-Clause OR Apache-2.0 OR MIT; 1 (MIT OR Apache-2.0) AND Unicode-3.0.

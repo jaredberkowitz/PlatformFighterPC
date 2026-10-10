@@ -15,6 +15,9 @@ What it does, in order:
      --detail texture (the default when the model has a texture) keeps the texture but repaints every texel in the nearest flat colour,
      so details such as spots, badges or stripes stay crisp, at --texture-size pixels (256); --detail flat (the default otherwise) gives
      each face the nearest flat colour, one plain material per colour (only clean on simple shapes: colours follow the faces).
+  (--keep biggest keeps only the largest connected piece, for a sheet of several figures; --remesh VOXEL rebuilds the surface as one
+  closed skin before reducing it, and with it or --single-colour yes the model is painted in its one main colour, which also takes off a
+  painted face: for a base body the game dresses and draws a face on itself.)
   5. Smooths the shading of rounded parts while keeping hard edges (by angle), and exports a .glb with plain colour materials to
      godot/models/props/<name>.glb (--out overrides), with a report beside it (<name>.json: triangles, colours, size).
 
@@ -38,7 +41,7 @@ KINDS = {
     "accessory": {"height": 0.6, "tris": 1500, "colors": 4},
     "prop": {"height": 1.2, "tris": 3000, "colors": 6},
     "scenery": {"height": 6.0, "tris": 2500, "colors": 6},
-    "fighter": {"height": 2.2, "tris": 8000, "colors": 8},
+    "fighter": {"height": 2.2, "tris": 3500, "colors": 8},
 }
 
 
@@ -52,7 +55,8 @@ def parse_args():
         i += 2
     if "in" not in opts or "name" not in opts:
         raise SystemExit("usage: ... -- --in <model> --name <name> [--kind accessory|prop|scenery|fighter] [--height H] [--tris N] "
-                         "[--colors K] [--detail auto|texture|flat] [--texture-size PX] [--turn DEG] [--out PATH]")
+                         "[--colors K] [--detail auto|texture|flat] [--texture-size PX] [--turn DEG] [--out PATH] "
+                         "[--keep biggest] [--remesh VOXEL] [--single-colour yes]")
     kind = KINDS[opts["kind"]]
     opts["height"] = float(opts.get("height", kind["height"]))
     opts["tris"] = int(opts.get("tris", kind["tris"]))
@@ -97,6 +101,73 @@ def import_model(path):
             bpy.data.objects.remove(o, do_unlink=True)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     return obj
+
+
+def keep_biggest(obj):
+    """Keeps only the largest connected piece (a generated sheet of several figures: the main one), after welding the seams the
+    exporter split, so a figure is one piece."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    co = np.array([v.co[:] for v in bm.verts])
+    size = float(np.max(co.max(axis=0) - co.min(axis=0)))
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=size * 0.0002)
+    bm.verts.ensure_lookup_table()
+    seen = np.zeros(len(bm.verts), dtype=bool)
+    best = []
+    for v in bm.verts:
+        if seen[v.index]:
+            continue
+        stack = [v]
+        seen[v.index] = True
+        piece = []
+        while stack:
+            x = stack.pop()
+            piece.append(x)
+            for e in x.link_edges:
+                y = e.other_vert(x)
+                if not seen[y.index]:
+                    seen[y.index] = True
+                    stack.append(y)
+        if len(piece) > len(best):
+            best = piece
+    keep = set(v.index for v in best)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.index not in keep], context="VERTS")
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
+def remesh(obj, voxel):
+    """Rebuilds the surface as one closed, even skin (a voxel remesh, then a light smoothing): cracks, overlaps and stray bits go. The
+    texture coordinates go with them, so the colour is applied afterwards as a single flat colour."""
+    mod = obj.modifiers.new("remesh", "REMESH")
+    mod.mode = "VOXEL"
+    mod.voxel_size = voxel
+    mod.use_smooth_shade = True
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    smooth = obj.modifiers.new("smooth", "SMOOTH")
+    smooth.factor = 0.5
+    smooth.iterations = 4
+    bpy.ops.object.modifier_apply(modifier=smooth.name)
+
+
+def dominant_colour(obj, k):
+    """The model's main colour (its largest group of colours, from its lighter part), in sRGB."""
+    colours, areas, samples, weights, sources, uv = face_colours(obj)
+    flats, centres = palette(samples, weights, k)
+    space = _oklab(samples) * np.array([LIGHTNESS_WEIGHT, 1.0, 1.0])
+    near = np.argmin(np.stack([np.sum((space - c) ** 2, axis=1) for c in centres], axis=1), axis=1)
+    totals = [weights[near == j].sum() for j in range(len(centres))]
+    return flats[int(np.argmax(totals))]
+
+
+def single_colour(obj, srgb):
+    obj.data.materials.clear()
+    obj.data.materials.append(_material("skin", srgb))
+    for p in obj.data.polygons:
+        p.material_index = 0
+    return [_hex(srgb)]
 
 
 # ---- 2. Size and place ------------------------------------------------------------------------------------------------------------------
@@ -398,9 +469,19 @@ def main():
     obj = import_model(os.path.abspath(opts["in"]))
     obj.name = opts["name"]
     before = triangles(obj)
+    if opts.get("keep") == "biggest":
+        keep_biggest(obj)
     normalize(obj, opts["height"], opts["turn"])
-    weld_and_reduce(obj, opts["height"], opts["tris"])
-    hexes = flatten(obj, opts["colors"], opts["detail"], opts["texture_size"])
+    if opts.get("single_colour") or opts.get("remesh"):
+        # (Read the colour while the texture is still on.)
+        colour = dominant_colour(obj, opts["colors"])
+        if opts.get("remesh"):
+            remesh(obj, float(opts["remesh"]))
+        weld_and_reduce(obj, opts["height"], opts["tris"])
+        hexes = single_colour(obj, colour)
+    else:
+        weld_and_reduce(obj, opts["height"], opts["tris"])
+        hexes = flatten(obj, opts["colors"], opts["detail"], opts["texture_size"])
     shade(obj)
     export(obj, opts["out"], len(obj.data.materials) == 1 and obj.data.materials[0].name.startswith("palette"))
     report = {"name": opts["name"], "kind": opts["kind"], "source": os.path.relpath(os.path.abspath(opts["in"]), ROOT).replace("\\", "/"),
