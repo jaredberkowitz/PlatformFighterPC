@@ -63,17 +63,22 @@ game draws faces itself). Example: the base body sheet gives `art/concept/base_b
 
 ## 3. Generate a model
 
-**Free**: `tools/art/hf_gen.py` uses public Hugging Face demos of open models whose licences allow commercial use: **FLUX.1-schnell**
-(Apache-2.0) for a picture from a prompt (wrapped in the prop style wording) and Microsoft **TRELLIS.2** (MIT) for a textured model from a
-picture. No account is needed, but the demos share free GPU time (ZeroGPU): anonymously there is only a few minutes a day (one picture
-and no model, as measured), and a TRELLIS.2 model asks for 120 seconds; a free Hugging Face account's read token (`setx HF_TOKEN
-"<token>"`) gives more. Pictures and their prompts are kept in `art/concept/` (props in `art/concept/props/`) as the record of where each
-model came from.
+**Free**: `tools/art/hf_gen.py` uses public Hugging Face demos of open models: **FLUX.1-schnell** (Apache-2.0) for a picture from a
+prompt (wrapped in the prop style wording: straight-on, eye level, upright, no shadow), and for the model **TRELLIS** (`--model trellis`,
+the default) or **TRELLIS.2** (`--model trellis2`), both Microsoft's and MIT-licensed, or **Stable Fast 3D** (`--model sf3d`, Stability AI
+Community Licence: free under $1M a year in revenue, commercial use after a free registration). Log in once with `hf auth login` (a free
+account's read token). Measured limits (October 2026): the demos share each account's free GPU time (ZeroGPU, a few minutes a day), and
+TRELLIS and TRELLIS.2 each ask for 120 seconds, which is only granted with plenty left, so a free account makes about **one model a day**
+(Hugging Face PRO gives 25 minutes a day, about a dozen). Stable Fast 3D fits easily but its models are lumpy blobs that lose the details;
+it is not good enough for this style. Before generating, cut the picture out of its ground and shadow
+(`art/blender/prepare_concept.py -- --in picture.png --cutout out.png`), or the shadow becomes a disc under the model. Pictures are kept in
+`art/concept/` (props in `art/concept/props/`) as the record of where each model came from.
 
 ```bash
-python tools/art/hf_gen.py prop "a wooden barrel with iron bands" --name barrel
+python tools/art/hf_gen.py text-image "a wooden barrel with iron bands" --name barrel
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/prepare_concept.py -- --in art/generated/barrel/concept.png --cutout art/concept/props/barrel.png
 python tools/art/hf_gen.py image-3d art/concept/props/barrel.png --name barrel
-python tools/art/hf_gen.py image-3d art/concept/base_body_turnaround_front_blank.png --name base_body
+python tools/art/hf_gen.py image-3d art/concept/base_body_turnaround_front_blank.png --name base_body --model trellis2
 ```
 
 **Paid**: `tools/art/gen3d.py` sends a concept picture (or a text prompt) to **Meshy** or **Tripo** and downloads the raw model to

@@ -8,11 +8,15 @@ sheet's pixels (from its top-left). Each view is cropped, put on a clean white s
 turned white: anything nearly colourless), and saved beside the sheet as <sheet>_<view>.png. With `blank_face`, the face inside that
 circle is painted over in the skin colour (the colour most common there), for a head that will carry the game's own 2D face drawings
 (godot/art/faces); `<view>_blank` is then written as well.
+
+For a single generated picture (a prop on a light ground), `-- --in picture.png --cutout out.png` makes the ground and any soft shadow on
+it see-through instead, so image-to-3D does not turn the shadow into a disc under the model.
 """
 
 import json
 import os
 import sys
+from collections import deque
 
 import bpy
 import numpy as np
@@ -52,17 +56,21 @@ def saturation(rgb):
 
 
 def _grow(region, passable):
-    """Floods `region` through `passable` pixels (4-neighbours) until it stops growing."""
-    while True:
-        bigger = region.copy()
-        bigger[1:, :] |= region[:-1, :]
-        bigger[:-1, :] |= region[1:, :]
-        bigger[:, 1:] |= region[:, :-1]
-        bigger[:, :-1] |= region[:, 1:]
-        bigger &= passable
-        if (bigger == region).all():
-            return region
-        region = bigger
+    """Floods `region` through `passable` pixels (4-neighbours): one breadth-first pass over the picture."""
+    h, w = region.shape
+    open_ = bytearray(passable.astype(np.uint8).ravel().tobytes())
+    done = bytearray(h * w)
+    queue = deque(int(i) for i in np.flatnonzero(region & passable))
+    for i in queue:
+        done[i] = 1
+    while queue:
+        i = queue.popleft()
+        y, x = divmod(i, w)
+        for j in ((i - w) if y > 0 else -1, (i + w) if y < h - 1 else -1, (i - 1) if x > 0 else -1, (i + 1) if x < w - 1 else -1):
+            if j >= 0 and open_[j] and not done[j]:
+                done[j] = 1
+                queue.append(j)
+    return np.frombuffer(bytes(done), dtype=np.uint8).reshape(h, w).astype(bool)
 
 
 def clean(view):
@@ -128,8 +136,36 @@ def square(view, margin=0.08):
     return out
 
 
+def cutout(view):
+    """A single picture on a light ground (a generated prop picture): the ground and any soft shadow on it (light and nearly colourless)
+    that can be reached from the edge become see-through, everything else is kept. Returns RGBA."""
+    sat = saturation(view)
+    value = view.max(axis=2)
+    ground = (value > 0.72) & (sat < 0.18)
+    border = np.zeros_like(ground)
+    border[0, :] = border[-1, :] = True
+    border[:, 0] = border[:, -1] = True
+    outside = _grow(border & ground, ground)
+    alpha = (~outside).astype(np.float32)
+    return np.concatenate([view, alpha[:, :, None]], axis=2)
+
+
+def save_rgba(rgba, path):
+    h, w = rgba.shape[0], rgba.shape[1]
+    img = bpy.data.images.new(os.path.basename(path), w, h, alpha=True)
+    img.pixels.foreach_set(rgba[::-1].astype(np.float32).ravel())
+    img.filepath_raw = path
+    img.file_format = "PNG"
+    img.save()
+
+
 def main():
     a = args()
+    if "cutout" in a:
+        # One picture: its ground and shadow made see-through (for image-to-3D without a shadow disc under the model).
+        save_rgba(cutout(load(a["in"])), os.path.abspath(a["cutout"]))
+        print("CUTOUT -> %s" % a["cutout"])
+        return
     sheet = load(a["in"])
     with open(a["views"]) as f:
         views = json.load(f)

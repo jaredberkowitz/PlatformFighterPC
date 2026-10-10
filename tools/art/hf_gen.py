@@ -33,8 +33,10 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 OUT_ROOT = os.path.join(ROOT, "art", "generated")
 FLUX = "https://black-forest-labs-flux-1-schnell.hf.space"
 TRELLIS = "https://microsoft-trellis-2.hf.space"
+SF3D = "https://stabilityai-stable-fast-3d.hf.space"
+TRELLIS1 = "https://trellis-community-trellis.hf.space"
 PROP_STYLE = ("{}, a single object, chunky stylized cartoon game asset, rounded simple shapes, bold flat colours, soft cel shading, "
-              "no text, no shadow on the ground, plain white background, three-quarter view from slightly above, centered, full object in frame")
+              "no text, no shadow, plain white background, straight-on front view at eye level, upright, centered, full object in frame")
 
 
 def _token():
@@ -96,7 +98,9 @@ def _download(url, path):
 
 
 def _file_url(root, value):
-    """The download link of a Gradio file value."""
+    """The download link of a Gradio file value (or of the value inside a component update)."""
+    if isinstance(value, dict) and isinstance(value.get("value"), (dict, str)):
+        value = value["value"]
     if isinstance(value, dict):
         if value.get("url"):
             return value["url"]
@@ -107,14 +111,14 @@ def _file_url(root, value):
     raise SystemExit("no file in the reply: %s" % json.dumps(value)[:300])
 
 
-def _upload(root, path):
+def _upload(root, path, prefix="/gradio_api"):
     boundary = uuid.uuid4().hex
     with open(path, "rb") as f:
         content = f.read()
     mime = mimetypes.guess_type(path)[0] or "image/png"
     body = (("--%s\r\nContent-Disposition: form-data; name=\"files\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n"
              % (boundary, os.path.basename(path), mime)).encode() + content + ("\r\n--%s--\r\n" % boundary).encode())
-    req = urllib.request.Request(root + "/gradio_api/upload", data=body, method="POST",
+    req = urllib.request.Request(root + prefix + "/upload", data=body, method="POST",
                                  headers=_headers({"Content-Type": "multipart/form-data; boundary=" + boundary}))
     with urllib.request.urlopen(req, timeout=120) as r:
         paths = json.loads(r.read().decode())
@@ -147,10 +151,10 @@ def text_image(prompt, name, seed=None):
 
 # ---- TRELLIS.2: a model from a picture -------------------------------------------------------------------------------------------------
 
-def _queue(root, session, fn_index, data, label):
-    _post_json(root + "/gradio_api/queue/join", {"data": data, "event_data": None, "fn_index": fn_index, "trigger_id": None,
-                                                 "session_hash": session})
-    for _, payload in _events("%s/gradio_api/queue/data?session_hash=%s" % (root, session)):
+def _queue(root, session, fn_index, data, label, prefix="/gradio_api"):
+    _post_json(root + prefix + "/queue/join", {"data": data, "event_data": None, "fn_index": fn_index, "trigger_id": None,
+                                               "session_hash": session})
+    for _, payload in _events("%s%s/queue/data?session_hash=%s" % (root, prefix, session)):
         msg = json.loads(payload)
         kind = msg.get("msg")
         if kind == "estimation" and msg.get("rank") is not None:
@@ -185,7 +189,8 @@ def image_3d(image, name, resolution="1024", tris=200000, texture=1024):
     # The defaults of the demo's page for everything but the resolution.
     params = [cleaned, 0, resolution, 7.5, 0.7, 12, 5.0, 7.5, 0.5, 12, 3.0, 1.0, 0.0, 12, 3.0]
     _queue(TRELLIS, session, _fn_index(config, "image_to_3d"), params, "generate")
-    exported = _queue(TRELLIS, session, _fn_index(config, "extract_glb"), [tris, texture], "export")
+    # (Its first input is the session's stored result: sent as nothing, the server fills it in.)
+    exported = _queue(TRELLIS, session, _fn_index(config, "extract_glb"), [None, tris, texture], "export")
     path = os.path.join(_out(name), "raw.glb")
     _download(_file_url(TRELLIS, exported[-1]), path)
     with open(os.path.join(_out(name), "source.json"), "w") as f:
@@ -193,6 +198,57 @@ def image_3d(image, name, resolution="1024", tris=200000, texture=1024):
                    "resolution": resolution}, f, indent=2)
     print("model: saved %s (%d KB)" % (path, os.path.getsize(path) // 1024))
     print("next: blender --background --python art/blender/import_generated.py -- --in %s --name %s --kind prop" % (path, name))
+    return path
+
+
+# ---- TRELLIS (the first version): a textured model from a picture, on a smaller GPU -----------------------------------------------------
+
+def image_3d_trellis1(image, name, texture=1024):
+    """Microsoft TRELLIS, the first version (MIT): textured models nearly as good as TRELLIS.2's for simple props, on a smaller GPU, so
+    it fits the free GPU time far more often. One step generates and exports."""
+    req = urllib.request.Request(TRELLIS1 + "/config", headers=_headers())
+    with urllib.request.urlopen(req, timeout=60) as r:
+        config = json.loads(r.read().decode())
+    session = "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(11))
+    _queue(TRELLIS1, session, _fn_index(config, "start_session"), [], "session")
+    picture = _upload(TRELLIS1, image)
+    cleaned = _queue(TRELLIS1, session, _fn_index(config, "preprocess_image"), [picture], "clean the picture")[0]
+    # Picture, no extra views, the page's own state, seed, then its default sampling settings, simplify 0.95, the texture size.
+    made = _queue(TRELLIS1, session, _fn_index(config, "generate_and_extract_glb"),
+                  [cleaned, [], None, 0, 7.5, 12, 3.0, 12, "stochastic", 0.95, texture], "generate")
+    path = os.path.join(_out(name), "raw.glb")
+    _download(_file_url(TRELLIS1, made[-1] if made[-1] else made[-2]), path)
+    with open(os.path.join(_out(name), "source.json"), "w") as f:
+        json.dump({"model": "microsoft/TRELLIS (MIT)", "picture": os.path.relpath(image, ROOT).replace("\\", "/")}, f, indent=2)
+    print("model: saved %s (%d KB)" % (path, os.path.getsize(path) // 1024))
+    return path
+
+
+# ---- Stable Fast 3D: a model from a picture in seconds ----------------------------------------------------------------------------------
+
+def image_3d_sf3d(image, name, texture=1024):
+    """Stable Fast 3D (Stability AI Community License: free under $1M a year in revenue, commercial use needs a free registration; the
+    outputs are ours). It runs in seconds, so it costs little of the free GPU time. Its page works in two clicks that keep state in the
+    session: the background is taken off the picture, then the model is made from it."""
+    prefix = ""   # (an older Gradio: no /gradio_api prefix)
+    req = urllib.request.Request(SF3D + "/config", headers=_headers())
+    with urllib.request.urlopen(req, timeout=60) as r:
+        config = json.loads(r.read().decode())
+    session = "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(11))
+    picture = _upload(SF3D, image, prefix)
+    ratio = 0.85
+    state = _queue(SF3D, session, _fn_index(config, "requires_bg_remove"), [picture, ratio], "check the picture", prefix)
+    button = state[0].get("value") if isinstance(state[0], dict) else state[0]
+    if button == "Remove Background":
+        _queue(SF3D, session, _fn_index(config, "run_button"), ["Remove Background", picture, None, ratio, "None", -1, texture],
+               "remove the background", prefix)
+    made = _queue(SF3D, session, _fn_index(config, "run_button"), ["Run", picture, None, ratio, "None", -1, texture], "generate", prefix)
+    path = os.path.join(_out(name), "raw.glb")
+    _download(_file_url(SF3D, made[4]), path)
+    with open(os.path.join(_out(name), "source.json"), "w") as f:
+        json.dump({"model": "stabilityai/stable-fast-3d (Stability AI Community License)",
+                   "picture": os.path.relpath(image, ROOT).replace("\\", "/")}, f, indent=2)
+    print("model: saved %s (%d KB)" % (path, os.path.getsize(path) // 1024))
     return path
 
 
@@ -208,20 +264,32 @@ def main(argv):
     s.add_argument("image")
     s.add_argument("--name", required=True)
     s.add_argument("--resolution", default="1024", choices=["512", "1024", "1536"])
+    s.add_argument("--model", default="trellis", choices=["trellis", "trellis2", "sf3d"],
+                   help="trellis (MIT, good, fits the free GPU time), trellis2 (MIT, best, needs about twice a free day's GPU time) or "
+                        "sf3d (Stability community licence, seconds, weaker)")
     s = sub.add_parser("prop")
     s.add_argument("prompt")
     s.add_argument("--name", required=True)
     s.add_argument("--raw", action="store_true")
     s.add_argument("--seed", type=int)
     s.add_argument("--resolution", default="1024", choices=["512", "1024", "1536"])
+    s.add_argument("--model", default="trellis", choices=["trellis", "trellis2", "sf3d"])
     args = p.parse_args(argv)
     if args.command in ("text-image", "prop"):
         prompt = args.prompt if args.raw else PROP_STYLE.format(args.prompt)
         picture = text_image(prompt, args.name, args.seed)
         if args.command == "prop":
-            image_3d(picture, args.name, args.resolution)
+            make_model(args.model, picture, args.name, args.resolution)
     else:
-        image_3d(os.path.abspath(args.image), args.name, args.resolution)
+        make_model(args.model, os.path.abspath(args.image), args.name, args.resolution)
+
+
+def make_model(model, picture, name, resolution):
+    if model == "sf3d":
+        return image_3d_sf3d(picture, name)
+    if model == "trellis2":
+        return image_3d(picture, name, resolution)
+    return image_3d_trellis1(picture, name)
 
 
 if __name__ == "__main__":
