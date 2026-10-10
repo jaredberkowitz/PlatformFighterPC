@@ -1015,7 +1015,14 @@ def build_body_meshes(rig):
         "shoulder_r": [round(J["armU.R"].x, 4), round(J["armU.R"].z, 4)], "elbow_r": [round(J["armL.R"].x, 4), round(J["armL.R"].z, 4)],
         "torso_half_width": round(abs(J["armU.R"].x) * 0.72, 4),
     }
-    info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)],
+    # The torso as the ellipsoid the game's neckwear is made round (fighter_view.gd fits its own design ellipsoid onto this one): from the
+    # hips to where the head meets the shoulders, as wide as the trunk under the arms and as deep as its middle.
+    trunk = [v.co for v in skin.data.vertices if hips < v.co.z < neck and abs(v.co.x) < 0.2]
+    mid_y = (max(c.y for c in trunk) + min(c.y for c in trunk)) / 2.0
+    depths = sorted(abs(c.y - mid_y) for c in trunk)
+    torso = {"centre": godot(Vector((0.0, mid_y, (hips + neck) / 2.0))),
+             "radii": [round(abs(J["armU.R"].x) * 0.75, 4), round((neck - hips) / 2.0, 4), round(depths[int(len(depths) * 0.9)], 4)]}
+    info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)], "torso": torso,
             "neck": round(neck, 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
             "height": round(FIT["height"], 4), "clothes": clothes}
     with open(OUT.replace(".glb", ".json"), "w") as f:

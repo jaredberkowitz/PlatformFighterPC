@@ -281,14 +281,19 @@ func _build_rig(skin: Material) -> bool:
 	model.add_child(head_rig)
 	model.add_child(torso_rig)
 	if use_base_body:
-		# The look's pieces were designed round a head of radius 0.8 centred 1.42 up: scaled and lifted onto this body's head. The
-		# neckwear goes up to its neck, narrower; the weapon arm turns at its shoulder and reaches to its wrist and a little past.
+		# The look's pieces were designed round a head of radius 0.8 centred 1.42 up, and the neckwear round the rigged torso's ellipsoid
+		# (see `_neck_on_rig`): each is stretched onto this body's own (its head is wider than it is tall, so a hat sits on top rather than
+		# above it). The weapon arm turns at its shoulder and reaches to its wrist and a little past.
 		var info := _base_rig_info()
-		var centre: Array = info.get("head_centre", [0.0, 1.86, 0.0])
+		var centre: Array = info.get("head_centre", [0.0, 1.79, 0.0])
 		var radii: Array = info.get("head_radii", [0.4, 0.34, 0.4])
-		var k := float(radii[0]) / 0.8
-		head_fit = Transform3D(Basis.from_scale(Vector3.ONE * k), Vector3(0.0, float(centre[1]) - 1.42 * k, float(centre[2])))
-		torso_fit = Transform3D(Basis.from_scale(Vector3(0.7, 1.0, 0.7)), Vector3(0.0, float(info.get("neck", 1.47)) - 1.26, 0.0))
+		var hs := Vector3(float(radii[0]), float(radii[1]), float(radii[2])) / 0.8
+		head_fit = Transform3D(Basis.from_scale(hs), Vector3(0.0, float(centre[1]) - 1.42 * hs.y, float(centre[2])))
+		var torso: Dictionary = info.get("torso", {"centre": [0.0, 1.13, 0.0], "radii": [0.3, 0.32, 0.22]})
+		var tc: Array = torso.centre
+		var tr: Array = torso.radii
+		var ts := Vector3(float(tr[0]) / TORSO_RADII.x, float(tr[1]) / TORSO_RADII.y, float(tr[2]) / TORSO_RADII.z)
+		torso_fit = Transform3D(Basis.from_scale(ts), Vector3(0.0, float(tc[1]) - TORSO_CENTRE_Y * ts.y, float(tc[2])))
 		var sh: Array = info.get("shoulder", [0.41, 1.19, 0.04])
 		var wr: Array = info.get("wrist", [0.53, 0.74, 0.15])
 		shoulder = Vector2(float(sh[0]), float(sh[1]))
@@ -1060,10 +1065,15 @@ func _neck(_skin: Material) -> void:
 			_part(torso_rig, tail, toon(accent), Vector3(0.28, 0.72, 0.58), Vector3.ONE, Vector3(0, 0, 8))
 
 
-## Neckwear for the rigged torso (a squat ellipsoid centred at height 0.98: half-width 0.56, half-depth 0.5, half-height 0.42). Rings are
-## tori sized to hug it, so nothing pokes through the body whatever the pose.
+## The rigged torso the neckwear is made round: a squat ellipsoid centred this high, with these half-width, half-height and half-depth.
+const TORSO_CENTRE_Y := 0.98
+const TORSO_RADII := Vector3(0.56, 0.42, 0.5)
+
+
+## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever
+## the pose.
 func _neck_on_rig(accent: Color) -> void:
-	var centre := Vector3(0, 0.98, 0)
+	var centre := Vector3(0, TORSO_CENTRE_Y, 0)
 	match loadout.neck:
 		1:
 			# Sash: a ring worn diagonally from shoulder to hip.
