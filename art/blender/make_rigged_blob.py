@@ -607,6 +607,15 @@ def build_body_meshes(rig):
     bm.free()
     for poly in skin.data.polygons:
         poly.use_smooth = True
+    # The rest position of every point, kept in two texture maps (x and height in the first, depth in the second), so the game's skin
+    # shader can paint the clothes by region (shaders/skin.gdshader) on the body as it moves.
+    me = skin.data
+    rest_a = me.uv_layers.new(name="rest")
+    rest_b = me.uv_layers.new(name="rest_depth")
+    for loop in me.loops:
+        co = me.vertices[loop.vertex_index].co
+        rest_a.data[loop.index].uv = (co.x, co.z)
+        rest_b.data[loop.index].uv = (co.y, 0.0)
     parts["Skin"] = skin
 
     # Glove fists and cuffs, built as the blob's and moved to this body's wrists.
@@ -649,9 +658,27 @@ def build_body_meshes(rig):
     # What the game needs to fit hats, glasses, the weapon arm and the neckwear (Godot's axes: x, z, -y).
     def godot(v):
         return [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
+    # And where the clothes go, in the rest pose (Blender's axes, as the skin's texture maps hold them): the shirt from the waist to the
+    # neck and down the arms to the sleeve's end, the shorts from the waist to above the knee, socks up from the ankle, shoes below it.
+    neck = FIT["neck"]
+    hips = J["hips"].z
+    crotch = FIT["crotch"]
+    knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
+    ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
+    clothes = {
+        "neck": round(neck - 0.03, 4),
+        "waist": round(hips + 0.12 * (neck - hips), 4),
+        "shorts_end": round(crotch - 0.42 * (crotch - knee), 4),
+        "sock_top": round(ankle + 0.19, 4),
+        "shoe_top": round(ankle + 0.03, 4),
+        "sole_top": round(0.035, 4),
+        "shoulder_l": [round(J["armU.L"].x, 4), round(J["armU.L"].z, 4)], "elbow_l": [round(J["armL.L"].x, 4), round(J["armL.L"].z, 4)],
+        "shoulder_r": [round(J["armU.R"].x, 4), round(J["armU.R"].z, 4)], "elbow_r": [round(J["armL.R"].x, 4), round(J["armL.R"].z, 4)],
+        "torso_half_width": round(abs(J["armU.R"].x) * 0.72, 4),
+    }
     info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)],
             "neck": round(FIT["neck"], 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
-            "height": round(FIT["height"], 4)}
+            "height": round(FIT["height"], 4), "clothes": clothes}
     with open(OUT.replace(".glb", ".json"), "w") as f:
         json.dump(info, f, indent=1)
     return parts

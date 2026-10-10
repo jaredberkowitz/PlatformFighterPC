@@ -31,6 +31,7 @@ const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
+const SKIN_SHADER := preload("res://shaders/skin.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
@@ -129,10 +130,10 @@ const RIG_LONG_PATH := "res://models/blob_rig_long.glb"
 ## The base body: the character from the concept art, generated, cleaned up and rigged by the art pipeline (docs/ART_WORKFLOW.md,
 ## art/generated/base_body). One skinned body on the same skeleton and clips, with glove fists and the drawn face; tried out with
 ## `--base-body` for now. Its head, shoulder and wrist (for the hats, glasses, face and the weapon arm) come from base_rig.json, which
-## make_rigged_blob.py writes with it.
+## make_rigged_blob.py writes with it. It is the fighters' body; `--blob` brings back the first, built body.
 const RIG_BASE_PATH := "res://models/base_rig.glb"
 const BASE_INFO_PATH := "res://models/base_rig.json"
-static var use_base_body: bool = OS.get_cmdline_user_args().has("--base-body")
+static var use_base_body: bool = not OS.get_cmdline_user_args().has("--blob")
 static var _base_info: Dictionary = {}
 const LONG_SCALE := 0.92
 const LONG_LIFT := 0.19
@@ -264,6 +265,8 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = shoe
 		elif part.begins_with("Face"):
 			face_mesh = mi
+		elif part.begins_with("Skin"):
+			mi.material_override = _skin_material(skin_colour, shorts_colour)
 		elif part.begins_with("Body") and shirt != null:
 			mi.material_override = shirt
 		else:
@@ -786,7 +789,7 @@ func _tag_object(node: Node) -> void:
 			for i in (node as MeshInstance3D).mesh.get_surface_count():
 				mats.append((node as MeshInstance3D).get_active_material(i))
 		for m in mats:
-			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, LIMB_SHADER, FACE_SHADER]):
+			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, LIMB_SHADER, FACE_SHADER, SKIN_SHADER]):
 				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
 				break
 	for c in node.get_children():
@@ -962,6 +965,50 @@ func _sleeve_colour() -> Color:
 
 
 static var _limb_cache := {}
+
+
+## The base body's skin with this look's clothes painted on (shaders/skin.gdshader): the shirt and its sleeves, the shorts, white socks,
+## shoes with the outfit-coloured strap, where base_rig.json puts them.
+func _skin_material(skin_c: Color, shorts_c: Color) -> ShaderMaterial:
+	var key := "skin%s%s%d%s" % [skin_c.to_html(), shorts_c.to_html(), loadout.shirt, loadout.accent_color().to_html()]
+	if _limb_cache.has(key):
+		return _limb_cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = SKIN_SHADER
+	m.set_shader_parameter("skin", skin_c)
+	var accent: Color = loadout.accent_color()
+	match loadout.shirt:
+		1:
+			m.set_shader_parameter("shirt", SHIRT_WHITE)
+		2:
+			m.set_shader_parameter("shirt", accent)
+		3:
+			m.set_shader_parameter("shirt", Color.WHITE)
+			m.set_shader_parameter("shirt_tex", SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}))
+			m.set_shader_parameter("use_shirt_tex", true)
+			m.set_shader_parameter("shirt_tex_scale", Vector2(1.5, 12.0))
+		4:
+			m.set_shader_parameter("shirt", Color.WHITE)
+			m.set_shader_parameter("shirt_tex", SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}))
+			m.set_shader_parameter("use_shirt_tex", true)
+			m.set_shader_parameter("shirt_tex_scale", Vector2(4.0, 4.0))
+		_:
+			m.set_shader_parameter("shirt", Color(0, 0, 0, 0))
+	m.set_shader_parameter("shorts", shorts_c)
+	m.set_shader_parameter("shoe", Color(0.27, 0.2, 0.3))
+	m.set_shader_parameter("strap", accent)
+	var regions: Dictionary = _base_rig_info().get("clothes", {})
+	for name in ["neck", "waist", "shorts_end", "sock_top", "shoe_top", "sole_top"]:
+		if regions.has(name):
+			m.set_shader_parameter(name + "_z", float(regions[name]))
+	if regions.has("torso_half_width"):
+		m.set_shader_parameter("torso_half_width", float(regions.torso_half_width))
+	for name in ["shoulder_l", "elbow_l", "shoulder_r", "elbow_r"]:
+		if regions.has(name):
+			m.set_shader_parameter(name, Vector2(float(regions[name][0]), float(regions[name][1])))
+	m.next_pass = toon(Color.WHITE).next_pass
+	_limb_cache[key] = m
+	return m
 
 
 ## The banded limb material (see shaders/limb.gdshader), with the ink outline. A `top` with negative alpha means no top band.

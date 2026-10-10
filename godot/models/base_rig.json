@@ -21,5 +21,30 @@
   0.151
  ],
  "hips": 0.8116,
- "height": 2.1984
+ "height": 2.1984,
+ "clothes": {
+  "neck": 1.4447,
+  "waist": 0.8911,
+  "shorts_end": 0.6248,
+  "sock_top": 0.3549,
+  "shoe_top": 0.1949,
+  "sole_top": 0.035,
+  "shoulder_l": [
+   -0.4091,
+   1.1889
+  ],
+  "elbow_l": [
+   -0.4692,
+   0.9654
+  ],
+  "shoulder_r": [
+   0.4085,
+   1.1889
+  ],
+  "elbow_r": [
+   0.4692,
+   0.9654
+  ],
+  "torso_half_width": 0.2941
+ }
 }
