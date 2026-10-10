@@ -39,6 +39,9 @@ const HURT := {"name": "hurt", "lid": 0.0, "mouth_w": 0.12, "mouth_h": 0.16, "mo
 const ATTACK_FACE := {"name": "attack"}
 const EFFORT_FACE := {"name": "effort"}
 const FOCUS_FACE := {"name": "focus"}
+## Spiral eyes: sent flying by a big hit, or a broken shield. Wide eyes and a little round mouth: caught in a grab.
+const DAZED_FACE := {"name": "dazed"}
+const SHOCK_FACE := {"name": "shock"}
 const HAPPY_FACE := {"name": "happy"}
 
 const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown"]

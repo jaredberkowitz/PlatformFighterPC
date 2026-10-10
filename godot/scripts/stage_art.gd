@@ -10,6 +10,7 @@ extends RefCounted
 
 const SvgArt := preload("res://scripts/svg_art.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
+const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
@@ -293,6 +294,10 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_city(root, t, stage)
 		_:
 			_meadow(root, t, stage)
+	# Painted ridges far behind everything (shaders/painted_ridge.gdshader), coloured from the theme's own sky so the backdrop, the
+	# stage and the fighters' light share one scheme.
+	for spec in RIDGES.get(t.name, []):
+		ridge(root, t, spec)
 	# Fog layers: soft bands of haze in the horizon's colour between the layers of scenery, thickest at the bottom, so each layer sits
 	# further back than the one before (a painted depth, at the cost of a few see-through cards).
 	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.25)
@@ -332,6 +337,50 @@ static func painted_layers(root: Node3D, theme_name: String) -> int:
 		mi.name = "Painted"
 		placed += 1
 	return placed
+
+
+## The painted ridges of each theme, furthest first: {z, y (the card's foot), height, shape (0 hills, 1 mountains, 2 mesas, 3 cloud), seed,
+## base, amplitude, frequency, tone (a colour the sky's horizon is mixed toward for the ridge), mix (how far), edge (the lit top)}.
+const RIDGES := {
+	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
+		"tone": Color(0.42, 0.52, 0.74), "mix": 0.45, "edge": 0.45}],
+	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
+		"tone": Color(0.62, 0.52, 0.78), "mix": 0.4, "edge": 0.5}],
+	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
+		"tone": Color(0.42, 0.26, 0.5), "mix": 0.55, "edge": 0.4},
+		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
+		"tone": Color(0.55, 0.26, 0.3), "mix": 0.62, "edge": 0.5}],
+	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
+		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
+	"ocean": [{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
+		"tone": Color(0.3, 0.5, 0.62), "mix": 0.45, "edge": 0.4}],
+}
+
+
+## One painted ridge behind the stage, from a RIDGES entry.
+static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance3D:
+	var horizon: Color = t.sky_horizon
+	var tone: Color = spec.tone
+	var m := ShaderMaterial.new()
+	m.shader = RIDGE_SHADER
+	var top := horizon.lerp(tone, float(spec.mix))
+	m.set_shader_parameter("top_colour", top)
+	m.set_shader_parameter("foot_colour", top.lerp(horizon, 0.35))
+	m.set_shader_parameter("edge_colour", horizon.lerp(Color.WHITE, 0.5))
+	m.set_shader_parameter("edge_amount", float(spec.edge))
+	m.set_shader_parameter("shape", int(spec.shape))
+	m.set_shader_parameter("seed", float(spec.seed))
+	m.set_shader_parameter("base", float(spec.base))
+	m.set_shader_parameter("amplitude", float(spec.amplitude))
+	m.set_shader_parameter("frequency", float(spec.frequency))
+	m.set_shader_parameter("haze_colour", horizon)
+	m.set_shader_parameter("haze", float(spec.get("haze", 0.3)))
+	var q := QuadMesh.new()
+	q.size = Vector2(520.0, float(spec.height))
+	var mi := _mesh(root, q, m, Vector3(0, float(spec.y) + float(spec.height) * 0.5, float(spec.z)))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "Ridge"
+	return mi
 
 
 ## The fog layers of each theme: [z, bottom y, height, strength].

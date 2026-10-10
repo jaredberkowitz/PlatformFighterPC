@@ -381,3 +381,28 @@ calls against 704, and fewer frames over 25 ms (14 against 37; most at load).
 
 Checking effects: `--demo=fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair> --noui --shots=<dir>` lands one move on a fighter up
 close with the camera steady on the attacker, a picture every frame.
+
+## Faces, big moments and painted stages (eighteenth pass)
+
+**Faces by situation** (`_face_for` in `fighter_view.gd`, `godot/art/faces/`): a wince while frozen by a hit; **dazed** (spiral eyes,
+a crooked open mouth) while flying from a big launch (tumbling) and while the shield is broken, with three cartoon stars circling the
+head; **shocked** (wide eyes, a little round mouth, a sweat drop) when grabbed. The yell, the effort face while charging, focus and
+blinking were already there.
+
+**Knock-out moments**:
+- A strong launch stretches the body along its flight (up to 45% longer and as much thinner, about its middle) and trails streaks behind
+  it, on twos; both stop the moment the flight slows (`_launch_look`).
+- **The finishing hit's impact frame**: for two frames the picture goes to two tones, the fighters pale with their ink lines against a
+  dark frame, while the hit's arc, slash and burst stay in colour and glow on top (`impact` in `post.gdshader`, set by `main.gd` when the
+  hit will knock out).
+
+**Painted stages**:
+- **Painted ridges** far behind each stage, drawn by a shader on flat cut-out cards (`shaders/painted_ridge.gdshader`, `RIDGES` in
+  `stage_art.gd`): rolling hills, peaked mountains, flat-topped mesas or a bank of cloud, filled with a soft gradient, their tops caught
+  by the light, a light brush grain, and their own haze toward the horizon. Coloured from the theme's sky, so the backdrop, the stage and
+  the fighters' light share one scheme.
+- **A colour grade per stage** (`grade` in each `MOODS` entry, applied by the finishing pass): the shadows and the lights of the whole
+  picture tinted toward two colours (cool shadows and warm lights by day, violet and amber at sunset, blue at night, magenta in the city).
+
+**Fixed**: the post pass read the object ids with a decoding this Godot version does not use, so a fighter against the stage got no id
+line (only a depth line); the ids are now read as written (checked by drawing them).

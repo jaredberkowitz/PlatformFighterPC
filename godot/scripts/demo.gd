@@ -28,7 +28,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var grab: int = m.grab
 	if demo_name.begins_with("fx_"):
 		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails and
-		# hit effects): fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair>.
+		# hit effects): fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair>, with _ko on the end for a finishing hit (the other fighter at
+		# 170%).
 		var parts := demo_name.split("_")
 		var cls: int = {"sword": 0, "claws": 1, "maul": 2}.get(parts[1], 0)
 		var move: String = parts[2] if parts.size() > 2 else "ftilt"
@@ -42,6 +43,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 0.9, -1]]
 		var x: int = {"jab": 0, "ftilt": 40, "fsmash": 127, "nair": 0, "fair": 127}.get(move, 0)
 		d.timeline = [[0, 0, 0, 0], [10, x, 0, attack], [11, 0, 0, 0]]
+		if demo_name.ends_with("_ko"):
+			d.events.append([1, "percent", 1, 170.0])
 		for f in range(11, 40):
 			d.shots.append([f, "f%02d" % (f - 10)])
 		d.end_frame = 41

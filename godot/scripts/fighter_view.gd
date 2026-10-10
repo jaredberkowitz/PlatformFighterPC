@@ -71,6 +71,10 @@ func rebuild(l: RefCounted) -> void:
 	trail = null
 	trail_points.clear()
 	last_trail_frame = -1
+	sweep = null
+	sweep_samples.clear()
+	dizzy = null
+	launch_lines = null
 	rig = null
 	anim = null
 	skeleton = null
@@ -603,8 +607,11 @@ func build(p: int, l: RefCounted = null) -> void:
 	loadout = l if l != null else Loadout.default_for(p)
 	var col: Color = loadout.body_color()
 	var skin := toon(col)
+	# (The launch stretch, `_launch_look`, is applied to a frame round the model.)
+	launch_frame = Node3D.new()
+	add_child(launch_frame)
 	model = Node3D.new()
-	add_child(model)
+	launch_frame.add_child(model)
 
 	# Body, head, feet, hands. Height matches the 2.2 unit ECB.
 	var used_rig := _build_rig(skin)
@@ -743,10 +750,16 @@ func build(p: int, l: RefCounted = null) -> void:
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
 ## where this fighter meets anything else but none between its own parts.
 func _tag_object(node: Node) -> void:
-	if node is GeometryInstance3D and (node as GeometryInstance3D).material_override is ShaderMaterial:
-		var shader := ((node as GeometryInstance3D).material_override as ShaderMaterial).shader
-		if shader == TOON_SHADER or shader == LIMB_SHADER or shader == FACE_SHADER:
-			(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
+	if node is GeometryInstance3D:
+		# Its material may be the override or set per surface (the rig's parts).
+		var mats: Array = [(node as GeometryInstance3D).material_override]
+		if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+			for i in (node as MeshInstance3D).mesh.get_surface_count():
+				mats.append((node as MeshInstance3D).get_active_material(i))
+		for m in mats:
+			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, LIMB_SHADER, FACE_SHADER]):
+				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
+				break
 	for c in node.get_children():
 		_tag_object(c)
 
@@ -1120,7 +1133,16 @@ func _glasses() -> void:
 ## The expression for this moment (see Loadout's action faces).
 func _face_for(s: Dictionary) -> Dictionary:
 	match String(s.state):
-		"Hitstun", "ShieldBreak", "Knockdown", "Grabbed", "Rebound":
+		"Hitstun":
+			# A wince while frozen by the hit; sent flying (tumbling), dazed.
+			if int(s.hitlag) == 0 and s.tumble:
+				return Loadout.DAZED_FACE
+			return Loadout.HURT
+		"ShieldBreak":
+			return Loadout.DAZED_FACE
+		"Grabbed":
+			return Loadout.SHOCK_FACE
+		"Knockdown", "Rebound":
 			return Loadout.HURT
 		"Attack":
 			if int(s.charge) > 0:
@@ -1881,6 +1903,118 @@ func _sweep_slice(im: ImmediateMesh, a: Dictionary, b: Dictionary, u0: float, u1
 			im.surface_add_vertex(q[idx][0])
 
 
+# ---- Big moments: dizzy stars, the launch stretch and speed lines --------------------------------------------------------------------
+
+## Three cartoon stars circling the head while the shield is broken.
+var dizzy: Node3D
+## A strong launch: the body stretched along the way it flies, and streaks trailing behind it.
+var launch_frame: Node3D
+var launch_lines: Node3D
+const LAUNCH_STRETCH_FROM := 0.35   # world units a frame: slower launches are not stretched
+const LAUNCH_LINES_FROM := 0.5
+
+
+## A five-pointed star of radius `r`: an ink outline behind a yellow star with a pale middle, in one mesh (vertex colours).
+static func _cartoon_star(r: float) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	for layer in [[1.28, Color(0.12, 0.07, 0.12), -0.01], [1.0, Color(1.0, 0.82, 0.22), 0.0], [0.45, Color(1.0, 0.97, 0.8), 0.01]]:
+		var k: float = layer[0]
+		for i in 10:
+			var a0 := PI * 0.5 + TAU * float(i) / 10.0
+			var a1 := PI * 0.5 + TAU * float(i + 1) / 10.0
+			var r0 := r * k * (1.0 if i % 2 == 0 else 0.45)
+			var r1 := r * k * (1.0 if (i + 1) % 2 == 0 else 0.45)
+			for v in [Vector3(0, 0, layer[2]), Vector3(cos(a0) * r0, sin(a0) * r0, layer[2]), Vector3(cos(a1) * r1, sin(a1) * r1, layer[2])]:
+				verts.append(v)
+				cols.append(layer[1])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = cols
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return m
+
+
+func _dizzy(s: Dictionary) -> void:
+	var on: bool = String(s.state) == "ShieldBreak"
+	if not on:
+		if dizzy != null:
+			dizzy.visible = false
+		return
+	if dizzy == null:
+		dizzy = Node3D.new()
+		var star := _cartoon_star(0.17)
+		for k in 3:
+			var mi := MeshInstance3D.new()
+			mi.mesh = star
+			mi.material_override = FxMaterial.get_material(false, 3, null, 0.0)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			dizzy.add_child(mi)
+		add_child(dizzy)
+	dizzy.visible = true
+	dizzy.position = Vector3(0, 2.5, 0)
+	# Round the head (in front of it on the near side, behind it on the far side), bobbing, each spinning.
+	var t := float(s.frame) / 60.0 * 4.5
+	for k in 3:
+		var a := t + TAU * float(k) / 3.0
+		var star_node := dizzy.get_child(k) as Node3D
+		star_node.position = Vector3(cos(a) * 0.65, sin(a * 2.0) * 0.06, sin(a) * 0.5)
+		star_node.rotation.z = t * 2.0 + float(k)
+
+
+## A strong launch reads in the body and the air round it: the body is stretched along its flight (up to 45% longer, as thin as it is
+## long, about its middle) and streaks trail behind it, on twos. Back to normal the moment the flight slows.
+func _launch_look(s: Dictionary) -> void:
+	var vel := Vector2(float(s.vel.x), float(s.vel.y))
+	var speed := vel.length()
+	var flying: bool = String(s.state) == "Hitstun" and int(s.hitlag) == 0
+	var k := clampf((speed - LAUNCH_STRETCH_FROM) / 0.8, 0.0, 0.45) if flying else 0.0
+	if k <= 0.0:
+		launch_frame.transform = Transform3D.IDENTITY
+	else:
+		var along := Vector3(vel.x, vel.y, 0).normalized()
+		var across := Vector3(-along.y, along.x, 0)
+		var stretch := Basis(along, across, Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1.0 + k, 1.0 / sqrt(1.0 + k), 1.0)) 				* Basis(along, across, Vector3(0, 0, 1)).inverse()
+		var middle := Vector3(0, 1.1, 0)
+		launch_frame.transform = Transform3D(stretch, middle - stretch * middle)
+	var lines_on := flying and speed > LAUNCH_LINES_FROM
+	if launch_lines == null and lines_on:
+		launch_lines = Node3D.new()
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(1.0, 1.0, 0.97, 0.75)
+		mat.disable_fog = true
+		for i in 5:
+			var mi := MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2(1.0, 0.06)
+			mi.mesh = q
+			mi.material_override = mat
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			launch_lines.add_child(mi)
+		add_child(launch_lines)
+	if launch_lines == null:
+		return
+	launch_lines.visible = lines_on
+	if not lines_on:
+		return
+	# Streaks behind the body along the flight, a little spread, their lengths changing on twos.
+	var dir := vel.normalized()
+	launch_lines.position = Vector3(0, 1.1, -0.3)
+	launch_lines.rotation = Vector3(0, 0, dir.angle())
+	var seed_step := int(s.frame) / 2
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_step * 7919 + player
+	for i in 5:
+		var line := launch_lines.get_child(i) as MeshInstance3D
+		var length := rng.randf_range(1.2, 2.6) * clampf(speed / 1.0, 0.6, 1.4)
+		line.scale = Vector3(length, 1.0, 1.0)
+		line.position = Vector3(-0.9 - length * 0.5 - rng.randf_range(0.0, 0.6), (float(i) - 2.0) * 0.32, 0.0)
+
+
 # ---- Revival platform ------------------------------------------------------------------------------------------------------------
 # After a knock-out the fighter waits on a glowing platform above the stage (see `Respawn` in the sim).
 
@@ -2192,6 +2326,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	else:
 		model.position = Vector3(lunge * float(s.facing), 0, 0)
 	_flash(s, delta)
+	_launch_look(s)
+	_dizzy(s)
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
