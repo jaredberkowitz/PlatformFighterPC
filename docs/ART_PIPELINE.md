@@ -340,3 +340,44 @@ lands on the clip's strike); a ledge jump flips.
   only for a fast one, as there), but the body used to snap back to a relaxed pose right after the hit, so a move looked over early. Now it
   holds the follow-through and settles only near the end (`_attack_clip` progress after the last active frame is `0.63 + 0.37 k^1.8`), and
   the reaching limb, the body's pitch and the blade come home late the same way.
+
+## Drawn effects, painted shadows and stage moods (seventeenth pass)
+
+**Swing trails** (`fighter_view.gd`): a blade's crescent has a bright core along the tip's path with a crisp deeper rim; it starts three
+frames before the first hit (the snap through), so it is already drawn when a hit freezes the swing, and always reaches the blade where it
+is; as it ages it is eaten away from the hilt and thins to a point. Limb smears (the claws) taper along the path and with age, in three
+layers (rim, colour, core); the ring that marked the live hitbox is gone.
+
+**Drawn hit effects** (`effects.gd`, `main.gd`), by what landed the hit (`Effects.Kind`): a blow is a layered ink-outlined starburst
+(outer flare, yellow body, white core) that pops out with an overshoot and breaks up; a blade adds a slash, a lens in the weapon's trail
+colour laid along the swing; the maul's burst is blunter and bigger; fire (the brawler's rushing specials) is red-orange with embers.
+They sit **where the hit met the fighter** (toward the hitter's live hitbox, no further than the body's edge), stretched the way the hit
+sends it, and scale with the hit. The white hit flash lasts three frames, then stays faint, so the struck fighter stays readable.
+
+**Painted shadows** (`shaders/toon_light.gdshaderinc`): a surface's shadow is its own colour turned toward the stage's shadow hue, a
+little darker and richer (yellows shade orange, greens teal, blues violet); pale colours take a cool tint instead of going grey. The rim
+light takes the stage's sky colour. **Stage moods** (`lighting.gd`, `MOODS`) set, per theme, the key and fill light (colour, strength,
+angle), the ambient light, the shadow hue and the rim colour, through global shader parameters (`pf_*`, declared in `project.godot`).
+Stage blocks and trims are on the same cel shader now (their patterns laid in world space).
+
+**Processing**:
+- **Effects are warmed up before the match**: behind the loading cover, every kind of hit, the impact, a block, the stars and rings, dust,
+  a knock-out burst, embers and the flame are drawn once, and a card for every effect material, so no shader is compiled at the first
+  hit. Effects share one material per kind (`fx_material.gd`).
+- **Ink lines at real edges** (`shaders/post.gdshader`): every cel surface writes an object id as its roughness (each fighter its own,
+  the stage and scenery a shared one); lines are drawn where the id changes and where the depth jumps (an arm in front of the body), and
+  creases only on the stage and scenery, so there are no stray lines inside a fighter. Lines are thinner further away.
+- **Only effects glow**: the cores of effects are drawn at four times white (`pf_fx_glow`) above a glow threshold (2.3) that lit surfaces
+  stay under; the bloom is a screen blend.
+- **Baked stage shading** (`stage_light.gd`, `shaders/stage_ao.gdshaderinc`): when a stage is built, how much sky each point near the
+  stage plane sees is worked out from its blocks and platforms (in 2D, about 10 ms) into a small texture; every cel surface reads it as
+  ambient occlusion, so the ground under a platform, a fighter standing there, and the foot of a block are softly shaded. **Fog layers**:
+  bands of haze in the horizon's colour between the layers of scenery (`MIST` in `stage_art.gd`).
+- **Effects on twos**: hit effects and particles are drawn 30 times a second, like hand-drawn effects, while the game runs at 60. Effects
+  run on the match's clock (`FxMaterial.tick`), so they stop with a pause and slow with the knock-out slow motion.
+
+Measured on the KO demo (`--demo=ko --perf`, the developer's laptop): about 350 frames a second against 200 before this pass, 614 draw
+calls against 704, and fewer frames over 25 ms (14 against 37; most at load).
+
+Checking effects: `--demo=fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair> --noui --shots=<dir>` lands one move on a fighter up
+close with the camera steady on the attacker, a picture every frame.

@@ -96,18 +96,13 @@ static func _surface(c: Color, tile: String, size: float, outline := true) -> Sh
 	return FighterView.toon(Color.WHITE, outline, tex, Vector2.ONE, size)
 
 
-static func _soft(c: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
-	m.roughness = 1.0
-	return m
+static func _soft(c: Color) -> ShaderMaterial:
+	return FighterView.toon(c, false)
 
 
 ## The pattern on a block's front, drawn once into a small texture: quilted diamonds, sandstone strata, rounded cobbles, or a building
 ## facade with windows (some lit).
-static func _soil_material(t: Dictionary) -> StandardMaterial3D:
+static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var size := 64
 	var img := Image.create_empty(size, size, false, Image.FORMAT_RGB8)
 	var a: Color = t.soil
@@ -164,16 +159,10 @@ static func _soil_material(t: Dictionary) -> StandardMaterial3D:
 					if edge:
 						c = b.darkened(0.25)
 					img.set_pixel(x, y, c)
+	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
-	var m := StandardMaterial3D.new()
-	m.albedo_texture = tex
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
-	m.roughness = 1.0
-	m.uv1_triplanar = true
-	m.uv1_scale = Vector3(0.45, 0.45, 0.45) if pattern != "facade" else Vector3(0.3, 0.3, 0.3)
-	return m
+	# On the stage's cel shading, laid in world space (one repeat every 2.2 units, a facade's every 3.3).
+	return FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 3.3)
 
 
 static func _mesh(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vector3.ONE, rot := Vector3.ZERO) -> MeshInstance3D:
@@ -304,6 +293,45 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_city(root, t, stage)
 		_:
 			_meadow(root, t, stage)
+	# Fog layers: soft bands of haze in the horizon's colour between the layers of scenery, thickest at the bottom, so each layer sits
+	# further back than the one before (a painted depth, at the cost of a few see-through cards).
+	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.25)
+	for layer in MIST.get(t.name, []):
+		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
+
+
+## The fog layers of each theme: [z, bottom y, height, strength].
+const MIST := {
+	"meadow": [[-56.0, -24.0, 17.0, 0.55], [-86.0, -26.0, 20.0, 0.6]],
+	"grove": [[-60.0, -24.0, 18.0, 0.5], [-90.0, -26.0, 22.0, 0.6]],
+	"sunset": [[-60.0, -26.0, 20.0, 0.45], [-95.0, -24.0, 26.0, 0.55]],
+	"ocean": [[-130.0, -10.0, 13.0, 0.55]],
+	"night": [[-70.0, -26.0, 18.0, 0.4]],
+	"city": [[-80.0, -30.0, 24.0, 0.35]],
+}
+
+
+static func _mist(root: Node3D, colour: Color, z: float, bottom: float, height: float, strength: float) -> void:
+	var g := Gradient.new()
+	g.set_color(0, Color(colour, strength))
+	g.set_color(1, Color(colour, 0.0))
+	g.add_point(0.35, Color(colour, strength * 0.75))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill_from = Vector2(0.5, 1.0)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 4
+	tex.height = 64
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_texture = tex
+	m.disable_fog = true
+	var q := QuadMesh.new()
+	q.size = Vector2(500.0, height)
+	var mi := _mesh(root, q, m, Vector3(0, bottom + height * 0.5, z))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "Mist"
 
 
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2) -> void:

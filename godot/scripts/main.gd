@@ -5,6 +5,7 @@ const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
 const Effects := preload("res://scripts/effects.gd")
+const FxMaterial := preload("res://scripts/fx_material.gd")
 const Particles := preload("res://scripts/particles.gd")
 const POST_SHADER := preload("res://shaders/post.gdshader")
 const FighterView := preload("res://scripts/fighter_view.gd")
@@ -124,7 +125,8 @@ func _ready() -> void:
 	_apply_rules()
 	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
-	if Roster.session.get("from_menu", false):
+	# (`--noui` demo shots look like a match from the menus, without even the match HUD.)
+	if Roster.session.get("from_menu", false) or OS.get_cmdline_user_args().has("--noui"):
 		overlay_on = false
 		overlay.set_overlay_visible(false)
 		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
@@ -203,6 +205,7 @@ func _build_world() -> void:
 	hud = MatchHud.new()
 	add_child(hud)
 	hud.build()
+	hud.visible = not OS.get_cmdline_user_args().has("--noui")
 
 
 ## Two, unless the menus chose a bigger free-for-all or a replay of one is being watched.
@@ -341,6 +344,8 @@ func _apply_sky() -> void:
 		world_env.background_mode = Environment.BG_SKY
 		# The haze behind the stage takes the colour of the stage's horizon.
 		world_env.fog_light_color = stage_view.theme.sky_horizon
+		# The light, the shadows' hue and the rim light follow the stage's theme.
+		Lighting.stage_mood(world_env, self, stage_view.theme)
 
 
 func _apply_rules() -> void:
@@ -959,6 +964,8 @@ func _process(delta: float) -> void:
 		perf_draw += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
 		perf_prims += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
 	var a := _alpha()
+	# Effects run on the match's clock (see FxMaterial.tick).
+	FxMaterial.tick((float(sim.frame()) + a) / 60.0)
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		views[i].apply(Vector3(p.x, p.y, 0), snaps[i], delta)
@@ -1188,16 +1195,36 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	if by < 0 and i < stats.size():
 		by = stats[i].last_hitter
 	var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
-	var at := Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.8)
-	# The impact points the way the hit sends the fighter: away from whoever hit it, and up.
-	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55)
-	Effects.hit(self, at, colour, strength)
-	Effects.impact(self, at, dir.normalized(), colour, strength)
-	# The hit's sound, by what landed it: a blade, a blow or the maul.
-	var kind := 1
+	# Where the hit met the fighter: toward the hitter's live hitbox from the middle of the body, no further than its edge. What landed
+	# it (a blade, a blow, the maul, fire) picks the effect and the sound; a blade's slash runs the way the blade was moving (across the
+	# line from the shoulder to the tip).
+	var middle := Vector2(cur_pos[i].x, cur_pos[i].y + 1.1)
+	var contact := middle
+	var cut := Vector2.ZERO
+	var kind: int = Effects.Kind.BLOW
+	var trail := Color(0.4, 0.7, 1.0)
 	if by >= 0:
-		kind = 1 if int(snaps[by].get("class", 1)) == 1 or not _weapon_move(str(snaps[by].get("move_name", ""))) else int(snaps[by].get("class", 1))
-	sfx.hit(kind, strength)
+		var cls := int(snaps[by].get("class", 1))
+		var move := str(snaps[by].get("move_name", ""))
+		var tip: Vector3 = snaps[by].get("move_tip", Vector3.ZERO)
+		var facing := float(snaps[by].get("facing", 1))
+		if tip != Vector3.ZERO:
+			var tip_at := Vector2(cur_pos[by].x + tip.x * facing, cur_pos[by].y + tip.y)
+			contact = middle + (tip_at - middle).limit_length(0.8)
+			cut = (tip_at - Vector2(cur_pos[by].x + 0.5 * facing, cur_pos[by].y + 1.15)).orthogonal().normalized()
+		if cls != 1 and _weapon_move(move):
+			kind = Effects.Kind.BLADE if cls == 0 else Effects.Kind.MAUL
+		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
+			kind = Effects.Kind.FIRE
+		trail = FighterView.trail_colours_of(cls)[0]
+	var at := Vector3(contact.x, contact.y, 0.8)
+	# The effect is stretched the way the hit sends the fighter: away from whoever hit it, and up.
+	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55).normalized()
+	Effects.hit(self, at, dir, colour, strength, kind, cut, trail)
+	if strength > 0.4:
+		Effects.impact(self, at, dir, colour, strength)
+	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
+	sfx.hit(0 if kind == Effects.Kind.BLADE else (2 if kind == Effects.Kind.MAUL else 1), strength)
 	# A heavy hit punches the camera in for a moment and flashes the screen.
 	if strength > 0.55:
 		cam_punch = maxf(cam_punch, 0.6 + 0.6 * strength)
@@ -1443,9 +1470,13 @@ func _update_camera(a: float, delta: float) -> void:
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
+	var rate := 3.5
+	if demo != null and demo.cam_focus >= 0:
+		var f: Vector2 = prev_pos[demo.cam_focus].lerp(cur_pos[demo.cam_focus], a)
+		target = Vector3(f.x, f.y + 1.1, dist)
+		cam_base = target
 	if cam_base == Vector3.INF:
 		cam_base = cam.position
-	var rate := 3.5
 	if ko_time > 0.0 and ko_focus >= 0:
 		ko_time -= delta
 		var v: Vector2 = prev_pos[ko_focus].lerp(cur_pos[ko_focus], a)
@@ -1520,8 +1551,38 @@ func _prewarm() -> void:
 	for v in views:
 		v.prewarm(true)
 	overlay.prewarm_text(true)
+	# Every kind of effect once, in front of the camera behind the cover: each hit kind, the impact, a block, the fast-fall star, jump
+	# rings, dust, sparks, embers, a knock-out burst and the flame; then a small card for every effect material made, the trails' included.
+	var warm := Node3D.new()
+	add_child(warm)
+	var at := Vector3(cam.position.x, cam.position.y - 2.0, 0.0)
+	for kind in [Effects.Kind.BLADE, Effects.Kind.BLOW, Effects.Kind.MAUL, Effects.Kind.FIRE]:
+		Effects.hit(warm, at, Vector2(1, 0.5).normalized(), Color.WHITE, 1.0, kind, Vector2(0, 1), Color(0.4, 0.7, 1.0))
+	Effects.impact(warm, at, Vector2.RIGHT, Color.WHITE, 1.0)
+	Effects.shield_hit(warm, at, 1.0)
+	Effects.sparkle(warm, at)
+	Effects.jump_ring(warm, at, true)
+	Effects.jump_ring(warm, at, false)
+	Particles.dust(warm, at, 1.0)
+	Particles.knock_out(warm, at, Color.WHITE, Vector2.UP)
+	var fire := Particles.flame(warm)
+	fire.emitting = true
+	warm.add_child(fire)
+	for on_top in [true, false]:
+		FxMaterial.get_material(on_top, 5)
+	for m in FxMaterial.all():
+		var card := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.5, 0.5)
+		card.mesh = quad
+		card.material_override = m
+		card.position = at
+		warm.add_child(card)
 	for _i in 6:
+		FxMaterial.tick(float(_i) / 60.0)
 		await get_tree().process_frame
+	warm.queue_free()
+	FxMaterial.stop_clock()
 	for v in views:
 		v.prewarm(false)
 	overlay.prewarm_text(false)
@@ -1692,3 +1753,8 @@ func _update_projectiles(a: float) -> void:
 			if proj_prev.size() > i and proj_prev[i] > 0.5:
 				pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
 			proj_nodes[k].position = Vector3(pos.x, pos.y, 0.3)
+
+
+func _exit_tree() -> void:
+	# Effects outside a match (the menus) go back to real time.
+	FxMaterial.stop_clock()

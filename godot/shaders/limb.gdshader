@@ -12,9 +12,19 @@ uniform float bottom_start = 2.0;
 uniform vec4 hem : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 uniform float hem_width = 0.025;
 instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
+// Which object this is, for the ink lines (shaders/post.gdshader): written as the roughness, which the cel lighting does not use. Each
+// fighter has its own (set by fighter_view.gd); the stage and scenery keep the default.
+instance uniform float object_id = 0.95;
 
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/brush.gdshaderinc"
+#include "res://shaders/stage_ao.gdshaderinc"
+
+varying vec3 world_pos;
+
+void vertex() {
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
 
 void fragment() {
 	float v = UV.y;
@@ -29,6 +39,8 @@ void fragment() {
 	c = mix(hem.rgb, c, smoothstep(hem_width * 0.5, hem_width, line));
 	ALBEDO = c * brush(UV);
 	EMISSION = flash.rgb * flash.a;
-	ROUGHNESS = 1.0;
+	ROUGHNESS = object_id;
+	AO = pf_stage_ao(world_pos);
+	AO_LIGHT_AFFECT = 0.45;
 	SPECULAR = 0.0;
 }

@@ -33,6 +33,7 @@ const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SvgArt := preload("res://scripts/svg_art.gd")
 const Particles := preload("res://scripts/particles.gd")
+const FxMaterial := preload("res://scripts/fx_material.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -736,6 +737,18 @@ func build(p: int, l: RefCounted = null) -> void:
 	# Flame around the body for the brawler's rushing specials (a stand-in for a proper effect).
 	flame = Particles.flame(self)
 	add_child(flame)
+	_tag_object(self)
+
+
+## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
+## where this fighter meets anything else but none between its own parts.
+func _tag_object(node: Node) -> void:
+	if node is GeometryInstance3D and (node as GeometryInstance3D).material_override is ShaderMaterial:
+		var shader := ((node as GeometryInstance3D).material_override as ShaderMaterial).shader
+		if shader == TOON_SHADER or shader == LIMB_SHADER or shader == FACE_SHADER:
+			(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
+	for c in node.get_children():
+		_tag_object(c)
 
 
 ## The whole-body flash: white for a moment when the fighter is hit (strongest at the start of hitlag), a yellow pulse while a smash
@@ -743,17 +756,24 @@ func build(p: int, l: RefCounted = null) -> void:
 var flash_amount := 0.0
 var flash_colour := Color.WHITE
 var last_flash := -1.0
+var flash_hit_frame := -1
 
 
 func _flash(s: Dictionary, delta: float) -> void:
 	var target := 0.0
 	var colour := Color.WHITE
-	if int(s.hitlag) > 0 and s.launch_pending:
-		target = 0.55
+	var struck: bool = int(s.hitlag) > 0 and s.launch_pending
+	if not struck:
+		flash_hit_frame = -1
+	if struck:
+		# A bright flash on the first three frames of the freeze, then only a faint one, so the fighter stays readable.
+		if flash_hit_frame < 0:
+			flash_hit_frame = int(s.frame)
+		target = 0.55 if int(s.frame) - flash_hit_frame < 3 else 0.12
 	elif int(s.charge) > 0 and s.state == "Attack":
 		colour = Color(1.0, 0.85, 0.25)
 		target = 0.12 + 0.1 * sin(float(s.frame) * 0.6)
-	flash_amount = target if target > flash_amount else move_toward(flash_amount, target, delta * 6.0)
+	flash_amount = target if target > flash_amount else move_toward(flash_amount, target, delta * 12.0)
 	flash_colour = colour
 	var value := Color(flash_colour.r, flash_colour.g, flash_colour.b, flash_amount)
 	if absf(flash_amount - last_flash) < 0.001:
@@ -1734,12 +1754,12 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * (ankle0 - knee0).length()), leg_k, true)
 
 
-## A crescent trail behind the hitbox, like the one a fast punch or slash leaves. Each simulation frame the centre of the hitbox (the fist,
-## or the part of the blade that hits) is added to a path; the path is drawn as a smooth ribbon that is thickest at the hitbox and tapers
-## to nothing behind it, with a bright core inside a coloured edge. While the hitbox is live a thin ring marks where it is. The points are
-## kept in world space, so the trail stays where the swing was while the fighter moves on. It is cosmetic: it only reads the move.
-const TRAIL_FRAMES := 16
-const TRAIL_WIDTH := 0.42
+## A smear behind the hitbox, like the one a fast punch or kick leaves. Each simulation frame the centre of the hitbox (the fist or the
+## foot, which the arm and leg reach for) is added to a path; the path is drawn as a smooth tapering smear, thickest at the hitbox: a
+## bright core in the trail colour with a thin deeper rim, so it reads as a drawn stroke. The points are kept in world space, so the smear
+## stays where the swing was while the fighter moves on. It is cosmetic: it only reads the move.
+const TRAIL_FRAMES := 10
+const TRAIL_WIDTH := 0.62
 const TRAIL_SMOOTH := 4
 var trail: MeshInstance3D
 var last_trail_centre := Vector2(INF, INF)
@@ -1752,24 +1772,19 @@ func _make_trail() -> void:
 	trail.mesh = ImmediateMesh.new()
 	trail.top_level = true
 	trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.vertex_color_use_as_albedo = true
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = true
-	m.render_priority = 5
-	trail.material_override = m
+	trail.extra_cull_margin = 16384.0
+	trail.material_override = FxMaterial.get_material(true, 5)
 	add_child(trail)
 
 
 # ---- Weapon swing trail ------------------------------------------------------------------------------------------------------------
-# A sword (or maul) leaves the trail the reference game draws: the whole crescent the blade sweeps through, brightest at the edge the
-# tip traces, fading toward the hilt and with age. Each simulation frame records where the hand and the tip are; the crescent between
+# A sword (or maul) leaves the trail the reference game draws: the whole crescent the blade sweeps through, a bright core along the path
+# of the tip with a crisp deeper rim, the trail colour inside it fading toward the hilt. As it ages the crescent is eaten away from the
+# hilt side and thins to a point behind the swing. Each simulation frame records where the hand and the tip are; the crescent between
 # two records is drawn in thin slices that turn round the hand, so it is a smooth arc rather than a polygon. Time stands still in hitlag,
 # like the swing itself.
 
-const SWEEP_LIFE := 8     # frames a slice of the swing stays visible
+const SWEEP_LIFE := 7     # frames a slice of the swing stays visible
 const SWEEP_STEPS := 8    # slices drawn between two simulation frames
 var sweep: MeshInstance3D
 var sweep_samples: Array = []   # [{hand: Vector2, angle: float, length: float, z: float, at: int}], world space
@@ -1783,13 +1798,8 @@ func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
 		sweep.mesh = ImmediateMesh.new()
 		sweep.top_level = true
 		sweep.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.vertex_color_use_as_albedo = true
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		m.render_priority = 5
-		sweep.material_override = m
+		sweep.extra_cull_margin = 16384.0
+		sweep.material_override = FxMaterial.get_material(false, 5)
 		add_child(sweep)
 	var frame: int = s.frame
 	if frame < sweep_seen_frame:
@@ -1801,7 +1811,9 @@ func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
 			sweep_clock += 1
 			var t: PackedInt32Array = s.move_timing
 			var f: float = s.state_frame
-			var swinging: bool = s.state == "Attack" and s.move_name != "" and t[1] > 0 and f >= float(t[1]) - 1.0 \
+			# From the snap through, a few frames before the first hit, so the arc is already drawn when the hit lands and the freeze
+			# holds it.
+			var swinging: bool = s.state == "Attack" and s.move_name != "" and t[1] > 0 and f >= float(t[1]) - 3.0 \
 					and f <= float(t[2]) + 1.0 and blade_pivot.visible
 			if swinging:
 				var facing := float(s.facing)
@@ -1815,38 +1827,54 @@ func _update_sweep(s: Dictionary, hand: Vector2, tip: Vector2) -> void:
 		sweep_samples.pop_front()
 	var im: ImmediateMesh = sweep.mesh
 	im.clear_surfaces()
-	if sweep_samples.size() < 2:
+	# The crescent always reaches the blade where it is now, so a swing frozen by a hit shows its arc right up to the blade.
+	var drawn := sweep_samples.duplicate()
+	var t2: PackedInt32Array = s.move_timing
+	if not drawn.is_empty() and s.state == "Attack" and t2[1] > 0 and float(s.state_frame) <= float(t2[2]) + 1.0 and blade_pivot.visible:
+		var g := stage_frame.global_transform
+		var facing := float(s.facing)
+		var hw: Vector3 = g * Vector3(hand.x * facing, hand.y, 0.35)
+		var tw: Vector3 = g * Vector3(tip.x * facing, tip.y, 0.35)
+		var d := Vector2(tw.x - hw.x, tw.y - hw.y)
+		drawn.append({"hand": Vector2(hw.x, hw.y), "angle": d.angle(), "length": d.length(), "z": hw.z + 0.2, "at": sweep_clock})
+	if drawn.size() < 2:
 		return
 	var colours := _trail_colours(s)
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in sweep_samples.size() - 1:
+	for i in drawn.size() - 1:
 		for k in SWEEP_STEPS:
-			_sweep_slice(im, sweep_samples[i], sweep_samples[i + 1], float(k) / SWEEP_STEPS, float(k + 1) / SWEEP_STEPS, colours)
+			_sweep_slice(im, drawn[i], drawn[i + 1], float(k) / SWEEP_STEPS, float(k + 1) / SWEEP_STEPS, colours)
 	im.surface_end()
 
 
-## One slice of the crescent, between `u0` and `u1` of the way from record `a` to record `b`: a soft band from near the hilt out to most of
-## the blade in the trail colour, and a bright band along the edge the tip traces.
+## One slice of the crescent, between `u0` and `u1` of the way from record `a` to record `b`. Across the blade, from the hilt out: clear,
+## the trail colour, the bright core along the tip's path, and a thin deeper rim. An older slice starts further out (the crescent is eaten
+## from the hilt side) and fades.
 func _sweep_slice(im: ImmediateMesh, a: Dictionary, b: Dictionary, u0: float, u1: float, colours: Array) -> void:
-	var rings := [0.3, 0.78, 1.04]
-	var alphas := [0.0, 0.5, 0.95]
-	var cols: Array = [colours[0], colours[0], colours[1]]
+	var main: Color = colours[0]
+	var core: Color = colours[1]
+	var rim: Color = main.darkened(0.45)
 	var edge := []
 	for u in [u0, u1]:
 		var hand: Vector2 = (a.hand as Vector2).lerp(b.hand, u)
 		var ang := lerp_angle(float(a.angle), float(b.angle), u)
 		var length := lerpf(float(a.length), float(b.length), u)
 		var at := lerpf(float(a.at), float(b.at), u)
-		var fade := pow(clampf(1.0 - float(sweep_clock - at) / float(SWEEP_LIFE), 0.0, 1.0), 1.5)
+		var age := clampf(float(sweep_clock - at) / float(SWEEP_LIFE), 0.0, 1.0)
+		var live := 1.0 - age
+		var bright := sqrt(live)
+		var inner := lerpf(0.3, 0.9, pow(age, 0.8))
+		var rings := [inner, lerpf(inner, 0.9, 0.5), 0.9, 0.985, 1.0, 1.045]
+		var cols := [Color(main, 0.0), Color(main, 0.85 * live), Color(core, 0.95 * bright), Color(core, bright), Color(rim, 0.95 * bright),
+			Color(rim, 0.9 * bright)]
 		var z := lerpf(float(a.z), float(b.z), u)
 		var dir := Vector2.from_angle(ang)
 		var column := []
 		for r in rings.size():
 			var p: Vector2 = hand + dir * length * float(rings[r])
-			var c: Color = cols[r]
-			column.append([Vector3(p.x, p.y, z), Color(c.r, c.g, c.b, float(alphas[r]) * fade)])
+			column.append([Vector3(p.x, p.y, z), cols[r]])
 		edge.append(column)
-	for r in rings.size() - 1:
+	for r in (edge[0] as Array).size() - 1:
 		var q := [edge[0][r], edge[0][r + 1], edge[1][r + 1], edge[1][r]]
 		for idx in [0, 1, 2, 0, 2, 3]:
 			im.surface_set_color(q[idx][1])
@@ -2015,9 +2043,14 @@ func _launch_smoke(s: Dictionary) -> void:
 
 ## Edge and core colours: violet and white-pink for the brawler, gold and white for the sword.
 func _trail_colours(s: Dictionary) -> Array:
-	if _cls(s) == 1:
+	return trail_colours_of(_cls(s))
+
+
+## A class's trail colours: [the trail, its bright core] (claws violet, maul ember red, sword blue).
+static func trail_colours_of(cls: int) -> Array:
+	if cls == 1:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
-	if _cls(s) == 2:
+	if cls == 2:
 		return [Color(0.95, 0.28, 0.12), Color(1.0, 0.92, 0.8)]
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
@@ -2040,13 +2073,12 @@ func _smooth(points: Array) -> Array:
 
 
 ## `centre` is where the hitbox is now (forward space, relative to the fighter) and `radius` its size.
-func _update_trail(s: Dictionary, centre: Vector2, radius: float) -> void:
+func _update_trail(s: Dictionary, centre: Vector2, _radius: float) -> void:
 	if trail == null:
 		_make_trail()
 	var t: PackedInt32Array = s.move_timing
 	var f: float = s.state_frame
 	var swinging: bool = s.state == "Attack" and t[1] > 0 and f >= 1.0 and f <= t[2] + 5.0 and s.move_tip != Vector3.ZERO
-	var dangerous: bool = swinging and f >= t[1] and f <= t[2]
 	var frame: int = s.frame
 	var facing: float = float(s.facing)
 	var base := Vector3(position.x, position.y, 0.0)
@@ -2080,13 +2112,13 @@ func _update_trail(s: Dictionary, centre: Vector2, radius: float) -> void:
 			var lo := int(floor(u))
 			var hi := mini(lo + 1, ages.size() - 1)
 			smooth_ages.append(lerpf(ages[lo], ages[hi], u - lo))
-		_ribbon(im, path, smooth_ages, TRAIL_WIDTH, colours[0], 0.8)
-		_ribbon(im, path, smooth_ages, TRAIL_WIDTH * 0.38, colours[1], 1.0)
-	if dangerous:
-		_ring(im, here, maxf(radius * 0.8, 0.25), colours[0])
+		_ribbon(im, path, smooth_ages, TRAIL_WIDTH * 1.12, (colours[0] as Color).darkened(0.45), 0.9)
+		_ribbon(im, path, smooth_ages, TRAIL_WIDTH, colours[0], 0.9)
+		_ribbon(im, path, smooth_ages, TRAIL_WIDTH * 0.45, colours[1], 1.0)
 
 
-## A strip along `path`, `width` across at full strength, thinning toward the old end (high age) and fading out.
+## A strip along `path`, `width` across at the head (the newest end), tapering to a point at the old end and fading only at the very end,
+## so the smear keeps a crisp shape.
 func _ribbon(im: ImmediateMesh, path: Array, ages: Array, width: float, colour: Color, alpha: float) -> void:
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	for i in path.size():
@@ -2094,27 +2126,15 @@ func _ribbon(im: ImmediateMesh, path: Array, ages: Array, width: float, colour: 
 		along.z = 0.0
 		var side := Vector3(-along.y, along.x, 0.0).normalized() if along.length() > 0.0001 else Vector3.UP
 		var age: float = ages[i]
-		var strength := pow(clampf(1.0 - age, 0.0, 1.0), 0.8)
+		# Thin at the old end of the path, full at the head, and thinning with age.
+		var along_path := float(i) / maxf(1.0, path.size() - 1.0)
+		var strength := pow(clampf(1.0 - age, 0.0, 1.0), 0.7) * sqrt(along_path)
 		var half := width * 0.5 * strength
-		var c := Color(colour.r, colour.g, colour.b, alpha * clampf(strength * 1.4, 0.0, 1.0))
+		var c := Color(colour.r, colour.g, colour.b, alpha * clampf(strength * 2.5, 0.0, 1.0))
 		im.surface_set_color(c)
 		im.surface_add_vertex(path[i] + side * half)
 		im.surface_set_color(c)
 		im.surface_add_vertex(path[i] - side * half)
-	im.surface_end()
-
-
-## A thin ring marking the live hitbox.
-func _ring(im: ImmediateMesh, centre: Vector3, radius: float, colour: Color) -> void:
-	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	var c := Color(colour.r, colour.g, colour.b, 0.9)
-	for i in 33:
-		var a := TAU * float(i) / 32.0
-		var dir := Vector3(cos(a), sin(a), 0.0)
-		im.surface_set_color(c)
-		im.surface_add_vertex(centre + dir * (radius + 0.04))
-		im.surface_set_color(c)
-		im.surface_add_vertex(centre + dir * (radius - 0.04))
 	im.surface_end()
 
 
@@ -2148,7 +2168,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var hitlag: int = s.hitlag
 	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.
 	set_expression(_face_for(s))
-	spark.visible = hitlag > 0 and ((state == "Hitstun" and s.launch_pending) or state == "Rebound")
+	# (A hit's burst is drawn where it lands by the match, scripts/effects.gd; the star here only flashes on a rebound.)
+	spark.visible = hitlag > 0 and state == "Rebound"
 	if spark.visible:
 		# A star burst on the side the hit came from, bigger and hotter for a stronger hit, turned a new way for each hit.
 		if not spark_was_visible:

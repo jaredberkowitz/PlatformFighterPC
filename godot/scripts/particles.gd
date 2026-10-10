@@ -1,10 +1,12 @@
 extends RefCounted
 ## Particle effects (presentation only, never the simulation): one-shot bursts that free themselves when they are done (dust, sparks,
 ## knock-out explosions), and the looping flame worn by the brawler's rushing specials. A small particle system of its own: each
-## particle is a camera-facing soft disc or a spinning star, drawn every frame into one mesh, flat-coloured to sit with the cel art.
+## particle is a camera-facing soft disc or a spinning star, drawn into one mesh, flat-coloured to sit with the cel art. The particles
+## move every frame but are drawn on twos (30 pictures a second), like hand-drawn effects.
+
+const FxMaterial := preload("res://scripts/fx_material.gd")
 
 static var _soft: GradientTexture2D
-static var _materials := {}
 
 
 ## A soft round blob (white, fading out at the edge), the texture of every disc particle.
@@ -24,21 +26,8 @@ static func _soft_tex() -> GradientTexture2D:
 	return _soft
 
 
-static func _material(textured: bool, on_top: bool) -> StandardMaterial3D:
-	var key := "%s%s" % [textured, on_top]
-	if _materials.has(key):
-		return _materials[key]
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.vertex_color_use_as_albedo = true
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	if textured:
-		m.albedo_texture = _soft_tex()
-	m.no_depth_test = on_top
-	m.render_priority = 4 if on_top else 1
-	_materials[key] = m
-	return m
+static func _material(textured: bool, on_top: bool, glow := 1.0) -> ShaderMaterial:
+	return FxMaterial.get_material(on_top, 4 if on_top else 1, _soft_tex() if textured else null, glow)
 
 
 ## A set of particles: each moves, slows, falls (or rises) and changes colour and size over its life. `spawn_per_second` above zero keeps
@@ -56,6 +45,8 @@ class Burst extends MeshInstance3D:
 	var source: Node3D
 	var spawn: Callable             # () -> [pos, vel, life, size]
 	var _carry := 0.0
+	var _clock := 0.0
+	var _drawn_step := -1
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
@@ -67,7 +58,8 @@ class Burst extends MeshInstance3D:
 	func add(pos: Vector3, vel: Vector3, life: float, size: float) -> void:
 		parts.append([pos, vel, 0.0, life, size, randf() * TAU, randf_range(-8.0, 8.0) if star else 0.0])
 
-	func _process(delta: float) -> void:
+	func _process(real_delta: float) -> void:
+		var delta := FxMaterial.delta(real_delta)
 		if looping and emitting and source != null and is_instance_valid(source):
 			_carry += delta * spawn_per_second
 			while _carry >= 1.0:
@@ -87,7 +79,12 @@ class Burst extends MeshInstance3D:
 		if parts.is_empty() and not looping:
 			queue_free()
 			return
-		_draw_parts()
+		# Drawn on twos.
+		_clock += delta
+		var step := int(_clock * 30.0)
+		if step != _drawn_step:
+			_drawn_step = step
+			_draw_parts()
 
 	func _colour(t: float) -> Color:
 		return colours[0].lerp(colours[1], t * 2.0) if t < 0.5 else colours[1].lerp(colours[2], t * 2.0 - 1.0)
@@ -173,6 +170,16 @@ static func sparks(parent: Node, at: Vector3, colour: Color, strength: float) ->
 		b.add(at, vel, randf_range(0.25, 0.4 + 0.15 * s), randf_range(0.3, 0.5))
 
 
+## Embers off a fire hit: small hot discs thrown up and out that rise a little and go from yellow to red as they die.
+static func embers(parent: Node, at: Vector3, strength: float) -> void:
+	var b := _burst(parent, false, true)
+	b.damping = 3.0
+	b.gravity = Vector3(0, 3.0, 0)
+	b.colours = [Color(1.0, 0.92, 0.5, 1), Color(1.0, 0.45, 0.1, 1), Color(0.7, 0.08, 0.05, 0)]
+	for k in 10 + int(10 * strength):
+		b.add(at, _aim(Vector3(0, 1, 0), 80.0) * randf_range(3.0, 8.0), randf_range(0.35, 0.6), randf_range(0.25, 0.45))
+
+
 ## A knock-out: sparks and confetti stars in the player's colour thrown along `direction` (back toward the stage), and a cloud of smoke.
 static func knock_out(parent: Node, at: Vector3, colour: Color, direction: Vector2) -> void:
 	var dir := Vector3(direction.x, direction.y, 0)
@@ -217,4 +224,4 @@ static func flame(source: Node3D) -> Burst:
 
 static func release() -> void:
 	_soft = null
-	_materials.clear()
+	FxMaterial.release()

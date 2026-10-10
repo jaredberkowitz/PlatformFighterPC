@@ -11,6 +11,7 @@ var shots: Array = []     # [frame, label]
 var end_frame := 0
 var out_dir := ""
 var cam_dist := 0.0  # when above zero, overrides the automatic camera distance
+var cam_focus := -1  # when 0 or more, the camera frames this player alone, without easing (steady shots of one fighter's moves)
 var chars: Array = []  # overrides which character each player is (0 sword, 1 claws and blaster)
 var real_keys := false  # drive player 1 through real key events instead of scripted stick values
 
@@ -25,6 +26,26 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var special: int = m.special
 	var strong: int = m.strong
 	var grab: int = m.grab
+	if demo_name.begins_with("fx_"):
+		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails and
+		# hit effects): fx_<sword|claws|maul>_<jab|ftilt|fsmash|nair|fair>.
+		var parts := demo_name.split("_")
+		var cls: int = {"sword": 0, "claws": 1, "maul": 2}.get(parts[1], 0)
+		var move: String = parts[2] if parts.size() > 2 else "ftilt"
+		d.chars = [cls, cls, cls, cls]
+		d.cam_dist = 11.0
+		d.cam_focus = 0
+		var air := move.ends_with("air")
+		if air:
+			d.events = [[1, "place", 0, -1.0, 6.0], [1, "place", 1, 0.8, 6.0]]
+		else:
+			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 0.9, -1]]
+		var x: int = {"jab": 0, "ftilt": 40, "fsmash": 127, "nair": 0, "fair": 127}.get(move, 0)
+		d.timeline = [[0, 0, 0, 0], [10, x, 0, attack], [11, 0, 0, 0]]
+		for f in range(11, 40):
+			d.shots.append([f, "f%02d" % (f - 10)])
+		d.end_frame = 41
+		return d
 	match demo_name:
 		"wavedash":
 			d.timeline = [[0, 0, 0, 0], [30, 0, 0, jump], [31, 100, -80, shield], [36, 0, 0, 0]]

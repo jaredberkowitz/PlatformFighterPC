@@ -1,8 +1,9 @@
 shader_type spatial;
-// The match's illustrated finish, drawn over the 3D scene on a quad in front of the camera: ink lines wherever the depth or the surface
-// direction changes sharply (every silhouette and crease, the stage and the scenery included, fading with distance), a warm paper tone, a
-// fine grain like printed paper, and a soft vignette. Transparent things (effects, the shield, damage numbers) are drawn after it, so they
-// stay clean.
+// The match's illustrated finish, drawn over the 3D scene on a quad in front of the camera: ink lines at the real edges of things (where
+// one object meets another, read from the object id each surface writes as its roughness, and where the depth jumps, as an arm passes in
+// front of the body), creases on the stage and scenery only (so no stray lines inside a fighter), thinner and fainter with distance; a
+// warm paper tone, a fine grain like printed paper, and a soft vignette. Transparent things (effects, the shield, damage numbers) are
+// drawn after it, so they stay clean.
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
@@ -32,6 +33,15 @@ float view_depth(vec2 uv, mat4 inv_proj) {
 	return -v.z / v.w;
 }
 
+// The object id a surface wrote (see `object_id` in toon.gdshader). Godot keeps roughness in 7 bits, mirrored for moving objects.
+float object_at(vec2 uv) {
+	float r = texture(normal_tex, uv).w;
+	if (r > 0.5) {
+		r = 1.0 - r;
+	}
+	return r / (127.0 / 255.0);
+}
+
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
 	p += dot(p, p + 45.32);
@@ -52,11 +62,14 @@ float value_noise(vec2 p) {
 void fragment() {
 	vec2 uv = SCREEN_UV;
 	vec3 col = texture(screen_tex, uv).rgb;
-	vec2 px = line_width * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
+	float d0 = view_depth(uv, INV_PROJECTION_MATRIX);
+	// Lines are thinner further away (full width up close, about half on the far scenery).
+	float width = line_width * clamp(28.0 / max(d0, 0.001), 0.5, 1.15);
+	vec2 px = width * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
 
 	// Ink: compare this pixel with its four neighbours.
-	float d0 = view_depth(uv, INV_PROJECTION_MATRIX);
 	vec3 n0 = texture(normal_tex, uv).xyz * 2.0 - 1.0;
+	float id0 = object_at(uv);
 	float edge = 0.0;
 	vec2 offs[4] = vec2[](vec2(px.x, 0.0), vec2(-px.x, 0.0), vec2(0.0, px.y), vec2(0.0, -px.y));
 	for (int k = 0; k < 4; k++) {
@@ -65,9 +78,14 @@ void fragment() {
 		// Only the nearer side draws the line, so it sits on the edge of the object in front.
 		float jump = (d - d0) / max(d0, 0.001);
 		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump));
-		vec3 n = texture(normal_tex, q).xyz * 2.0 - 1.0;
-		float crease = 1.0 - dot(normalize(n0), normalize(n));
-		if (d0 < 400.0) {
+		float id = object_at(q);
+		if (abs(id - id0) > 0.03 && d > d0) {
+			edge = max(edge, 1.0);
+		}
+		// Creases only where both sides are stage or scenery (ids from 0.8 up).
+		if (d0 < 400.0 && id0 > 0.8 && id > 0.8) {
+			vec3 n = texture(normal_tex, q).xyz * 2.0 - 1.0;
+			float crease = 1.0 - dot(normalize(n0), normalize(n));
 			edge = max(edge, smoothstep(normal_edge, normal_edge * 1.5, crease) * 0.55);
 		}
 	}

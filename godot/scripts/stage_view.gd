@@ -4,6 +4,7 @@ extends Node3D
 
 const FighterView := preload("res://scripts/fighter_view.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const StageLight := preload("res://scripts/stage_light.gd")
 
 ## Fighters live in the z = 0 plane. Stage geometry is pushed BACK so its front face sits just in front of
 ## that plane. If a block were centred on z = 0, perspective would make its front face look wider than the
@@ -60,6 +61,9 @@ func build(sim) -> void:
 				if o[4] < 0.5 and o != r and is_equal_approx(o[3], top) and o[0] <= left + 0.01 and o[1] >= right - 0.01:
 					exposed = false
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed)
+
+	# The soft shading under platforms and at the foot of walls, baked once for this stage.
+	StageLight.bake(rects)
 
 	var scenery := Node3D.new()
 	scenery.name = "Backdrop"

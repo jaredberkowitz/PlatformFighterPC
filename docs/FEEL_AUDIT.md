@@ -44,11 +44,11 @@ reference's aerial landing lag is a visible stumble. Fix: a heavier landing pose
 
 ### Art and effects
 
-**E1. Hit effects appear at the victim's middle, not where the hit connected.** *Medium-high impact, small fix, certain.* We know where the
+**E1. Hit effects appear at the victim's middle, not where the hit connected.** *Done (seventeenth art pass).* *Medium-high impact, small fix, certain.* We know where the
 live hitbox is (the attacker's move tip), but the spark, rings and spike are placed at the victim's body centre, so a sword tip and a
 point-blank kick spark in the same place. Fix: place them where the hitbox meets the victim.
 
-**E2. Effects are soft and pastel.** *High impact, medium fix.* Ours are thin rings and additive discs at partial opacity in the attacker's
+**E2. Effects are soft and pastel.** *Done: drawn bursts and slashes by kind (seventeenth art pass, `docs/ART_PIPELINE.md`).* *High impact, medium fix.* Ours are thin rings and additive discs at partial opacity in the attacker's
 colour. The reference's hit effects are large, opaque, high-contrast (a white core, a yellow-orange starburst, often outlined), last 6 to 10
 frames, scale with damage, and come in kinds: slashes for blades, stars for blows, sparks for electric, flames for fire. Fix: drawn,
 opaque effect sprites (SVG like the faces) by kind and size.
