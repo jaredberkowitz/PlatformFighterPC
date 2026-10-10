@@ -10,7 +10,7 @@
 
 The prompt is wrapped in the style sheet's prop wording (docs/ART_WORKFLOW.md) unless --raw. The raw model then goes through
 art/blender/import_generated.py like any other. The demos are shared and rate-limited (ZeroGPU): without a token a few models a day;
-set HF_TOKEN (a free Hugging Face account's read token) in the environment for more. Both models' licences allow commercial use; their
+log in with `hf auth login` (a free Hugging Face account's read token) or set HF_TOKEN for more. Both models' licences allow commercial use; their
 outputs are ours.
 
 Only the Python standard library is used: the demos are called through Gradio's HTTP queue protocol (upload, join the queue with a
@@ -37,9 +37,25 @@ PROP_STYLE = ("{}, a single object, chunky stylized cartoon game asset, rounded 
               "no text, no shadow on the ground, plain white background, three-quarter view from slightly above, centered, full object in frame")
 
 
+def _token():
+    """The Hugging Face token: HF_TOKEN, or the one `hf auth login` stored (as the Hugging Face tools look for it). Never printed."""
+    token = os.environ.get("HF_TOKEN", "").strip()
+    if token.startswith("hf_"):
+        return token
+    home = os.environ.get("HF_HOME") or os.path.join(os.path.expanduser("~"), ".cache", "huggingface")
+    try:
+        with open(os.path.join(home, "token")) as f:
+            stored = f.read().strip()
+        if stored.startswith("hf_"):
+            return stored
+    except OSError:
+        pass
+    return ""
+
+
 def _headers(extra=None):
     h = {"User-Agent": "platform-fighter-art-pipeline"}
-    token = os.environ.get("HF_TOKEN", "")
+    token = _token()
     if token:
         h["Authorization"] = "Bearer " + token
     if extra:
