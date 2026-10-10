@@ -6,6 +6,11 @@
   The **longsword** (duelist) has a tip (priority 0, hits harder) and a body (priority 1). The **claws** (brawler) are the
   same moves pulled in close, quicker and a little heavier, with no tip/body split. (A third class, the **maul** bruiser, was added in
   sim v25 and removed in sim v36 so the sword and claws movesets can be finished first; it is in the git history to bring back later.)
+- **Throws** (sim v37): as in the reference game, the claws' forward, up and back throws come in two parts: a hit that damages
+  the held fighter without launching it, then the throw, whose own smaller damage is all the launch is worked out from (up throw:
+  5% then 2% at base 75, growth 110; forward 5% then 4%; back 6% then 5% at base 40, growth 150). Folding the hit's damage into the
+  throw had made them launch much too far. Forward, up and down throws are combo throws that never knock out; the back throw is the
+  kill throw. The sword's throws were already single-part reference values. Tests: `sim-core/tests/throw_combos.rs`.
 - **Hitboxes and hurtboxes are circles.** Hitboxes come from move data (active on frames `start..=end`, offset from the feet,
   mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB, brought down to `crouch_height` (0.6) of
   their heights in a crouch so high attacks pass over it; and a fourth for a limb: with a `limbs` moveset (the claws), while a hit is
@@ -181,13 +186,13 @@ are pinned 1.3 units in front of the holder, facing it (`grab.rs`).
 | Time held | `90 + 1.7 * percent` frames (at least 19). Each button press takes 14 frames off, each stick flick 8 |
 | Breaking free | the holder is stuck in a 25 frame release; the released fighter cannot be grabbed for 60 frames |
 | Pummel | attack while holding: 1.3% on frame 4, 22 frames, repeatable until the hold runs out |
-| Throws | a stick direction while holding: forward 9% (release frame 11, FAF 33), back 11% (24, 48), up 7% (27, 46), down 8.5% (26, 41) |
+| Throws | a stick direction while holding: forward 5% + 4% (hit frame 10, release 11, FAF 33), back 6% + 5% (23, 24, 48), up 5% + 2% (26, 27, 46), down 8.5% (26, 41) |
 | Interruptions | hitting the holder, hitting the held fighter or knocking either out frees both |
 
 Throw angles and knockback are partly estimates (forward 45 degrees, base 55, growth 57; back 50 / 40 / 150; up 80 / 75 / 110; down
 361 / 50 / 65); the reference sources disagree on the back throw's damage (8% or 11%) and do not give the throws' angles. The
 swordfighter's grab and throws now have reference frames and damage (see "Kit completion"). Not implemented: pivot grab, cargo carries, grab release lag differences
-between characters, and the throws' two-part damage (a hit while being held, then the throw).
+between characters. (The throws' two-part damage, a hit while being held and then the throw, is in since sim v37.)
 
 The keyboard: throw with a direction held for a few frames (W for up, S for down, A / D forward or back), pummel with attack.
 Tests: `sim-core/tests/grabs.rs` (21 tests) plus a mutual-grab invariant in the random play test; the fuzzer now sends grab and

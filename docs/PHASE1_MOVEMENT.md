@@ -90,6 +90,7 @@ edge). Walking off now means falling for a moment first.
 
 ## Running jumps and bodies on the ground (sim v36)
 
+- **Running or walking off a platform** takes the speed into the air the same way as a jump (sim v37): reduced and capped.
 - **A running jump no longer carries the run's speed.** The reference game takes the ground speed into the air through a
   multiplier and a cap (its `jump_speed_x_mul` and `jump_speed_x_max`); here a jump leaves the ground with `jump_momentum` (0.85)
   of the ground speed, at most `jump_momentum_max` (1.25) times the fighter's air speed. The duelist's run jump now leaves at 1.34

@@ -223,6 +223,12 @@ pub fn update(
         f.shield_hp = (f.shield_hp + rules.shield_regen).min(rules.shield_max);
     }
 
+    // Walking or running off a platform takes the ground speed into the air the way a jump does (see `jump_squat`).
+    let on_foot = f.grounded()
+        && matches!(
+            f.state,
+            S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch | S::Landing
+        );
     match f.state {
         S::Attack => return attack(f, p, weapon, stage, rules),
         S::Hitstun => hitstun(f, p, stage, rules),
@@ -251,7 +257,17 @@ pub fn update(
         S::Respawn => revival(f, p, rules),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f),
     }
+    if on_foot && !f.grounded() && f.state == S::Airborne {
+        f.vel.x = air_momentum(f.vel.x, p, rules);
+    }
     None
+}
+
+/// Ground speed leaving the ground: `jump_momentum` of it, at most `jump_momentum_max` times the air speed (the reference game's
+/// jump speed multiplier and cap; the same for stepping off a platform as for a jump).
+fn air_momentum(vx: Fx, p: &FighterParams, rules: &Ruleset) -> Fx {
+    let cap = p.air_speed * rules.jump_momentum_max;
+    (vx * rules.jump_momentum).clamp(-cap, cap)
 }
 
 /// Puts a fighter into the special fall (what an up-special will do when it ends).
@@ -497,8 +513,7 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset
         f.fast_fall = false;
         // The ground speed carries into the air reduced (`jump_momentum`) and capped (`jump_momentum_max` of the air speed), so a
         // running jump is a little faster than a full drift, not a run's speed carried through the whole jump.
-        let cap = p.air_speed * rules.jump_momentum_max;
-        f.vel.x = (f.vel.x * rules.jump_momentum).clamp(-cap, cap);
+        f.vel.x = air_momentum(f.vel.x, p, rules);
         enter(f, S::Airborne);
         // An attack pressed during the jump squat (or with the jump) makes it a short hop, held jump or not: the short-hop aerial.
         // The aerial itself comes out of the buffer on the first airborne frame.

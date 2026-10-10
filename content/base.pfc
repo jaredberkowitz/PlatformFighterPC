@@ -5,8 +5,8 @@ bundle {
     schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 36
-    hash 23abfb4a66899ee7
+    sim_version 37
+    hash 1370dd4f3c1a83e2
 }
 
 ruleset {
@@ -724,15 +724,18 @@ weapon claws {
     }
     move fthrow {
         total_frames 31
-        hitbox { start 10 end 10 x 1.29999 y 1.09999 radius 1 damage 9 angle 45 bkb 55 kbg 57 kind throw }
+        hitbox { start 9 end 9 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 10 end 10 x 1.29999 y 1.09999 radius 1 damage 4 angle 45 bkb 55 kbg 57 group 1 kind throw }
     }
     move bthrow {
         total_frames 46
-        hitbox { start 23 end 23 x -1.29999 y 1.09999 radius 1 damage 11 angle 50 bkb 40 kbg 150 kind throw }
+        hitbox { start 22 end 22 x 1.29999 y 1.09999 radius 1 damage 6 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 23 end 23 x -1.29999 y 1.09999 radius 1 damage 5 angle 50 bkb 40 kbg 150 group 1 kind throw }
     }
     move uthrow {
         total_frames 44
-        hitbox { start 26 end 26 x 1.29999 y 1.09999 radius 1 damage 7 angle 80 bkb 75 kbg 110 kind throw }
+        hitbox { start 25 end 25 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 26 end 26 x 1.29999 y 1.09999 radius 1 damage 2 angle 80 bkb 75 kbg 110 group 1 kind throw }
     }
     move dthrow {
         total_frames 39

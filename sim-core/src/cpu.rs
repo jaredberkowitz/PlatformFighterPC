@@ -5,7 +5,8 @@
 //! inputs like anyone else's, replays play it back exactly, and rollback is unaffected. Its "choices" come from a hash of the frame
 //! (in windows of a few frames, so a choice holds for a moment) and the player, never from the game's own random number generator.
 //!
-//! What it does, roughly in order of priority: mashes out of a grab, DIs toward the middle of the stage and techs in hitstun, picks a
+//! What it does, roughly in order of priority: mashes out of a grab, DIs toward the middle of the stage, techs, and buffers a way out
+//! (air dodge, jump or aerial) at the end of hitstun when its attacker is close, picks a
 //! ledge option after a moment on the ledge, recovers to the stage (air jump, then the up special), keeps to the stage while its
 //! opponent is off it, shields an attack coming at it close in (and grabs out of the shield), and otherwise approaches and attacks
 //! in range: jabs, tilts, grabs and the occasional smash on the ground, aerials toward the opponent in the air.
@@ -95,6 +96,24 @@ pub fn think(state: &GameState, content: &Content, me: usize, level: u8) -> Inpu
             // A tech, sometimes, when falling close to the ground.
             if f.vel.y < Fx::ZERO && f.pos.y - top < Fx::from_int(2) && chance(1, 10 * level) {
                 press(&mut out, f, buttons::SHIELD);
+                return out;
+            }
+            // In the last frames of hitstun with the attacker close by, a buffered way out (it comes out on the first free frame, as a
+            // person's would): an air dodge, a jump away, or an aerial; more often at higher levels. Without it a follow-up that
+            // leaves a gap still lands, as on someone who does nothing.
+            let threat = nearest(state, me).is_some_and(|t| {
+                let o = &state.fighters[t];
+                (o.pos.x - f.pos.x).abs() + (o.pos.y - f.pos.y).abs() < Fx::from_int(5)
+            });
+            if f.hitstun <= 2 && !f.grounded() && threat && chance(10, 10 * level) {
+                match roll(state, me, every, 11, 3) {
+                    0 => {
+                        out.stick_y = 0;
+                        press(&mut out, f, buttons::SHIELD);
+                    }
+                    1 => press(&mut out, f, buttons::JUMP),
+                    _ => press(&mut out, f, buttons::ATTACK),
+                }
             }
             return out;
         }

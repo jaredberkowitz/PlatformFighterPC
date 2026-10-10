@@ -301,11 +301,13 @@ fn throw(stick: (i8, i8), percent: i32) -> (usize, sim_core::Vec2, Sim) {
 }
 
 #[test]
-fn the_throws_release_on_their_frames_for_their_damage() {
+fn the_throws_land_on_their_frames_for_their_damage() {
+    // (Forward, back and up throws are a hit and then the throw, one frame apart, as in the reference: the first damage is the hit's.
+    // The damage in all is the two together.)
     for (stick, release, tenths) in [
-        ((100, 0), 11, 90),
-        ((-100, 0), 24, 110),
-        ((0, 100), 27, 70),
+        ((100, 0), 10, 90),
+        ((-100, 0), 23, 110),
+        ((0, 100), 26, 70),
         ((0, -100), 26, 85),
     ] {
         let (tick, _, sim) = throw(stick, 0);
@@ -337,7 +339,7 @@ fn a_throw_lets_go_and_the_thrower_recovers_on_its_first_actionable_frame() {
 }
 
 #[test]
-fn the_forward_throw_returns_control_on_frame_33_plus_the_hitlag_of_its_hit() {
+fn the_forward_throw_returns_control_on_frame_33_plus_the_hitlag_of_its_hit_and_throw() {
     let mut sim = duel(fx(15, 10));
     grab_now(&mut sim);
     sim.tick(inp(100, 0, 0)); // throw tick 1
@@ -349,8 +351,9 @@ fn the_forward_throw_returns_control_on_frame_33_plus_the_hitlag_of_its_hit() {
             break;
         }
     }
-    // The reference's first actionable frame leaves out hitlag: floor(9 * 0.65 + 6) = 11 frames for a 9% hit.
-    assert_eq!(free_at, Some(33 + 11));
+    // The reference's first actionable frame leaves out hitlag: floor(5 * 0.65 + 6) = 9 frames for the 5% hit, then
+    // floor(4 * 0.65 + 6) = 8 for the 4% throw.
+    assert_eq!(free_at, Some(33 + 9 + 8));
 }
 
 // ---- Interruptions ----------------------------------------------------------------------------------------------

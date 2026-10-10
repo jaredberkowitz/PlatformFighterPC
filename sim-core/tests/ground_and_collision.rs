@@ -502,13 +502,31 @@ fn a_running_jump_keeps_some_of_its_ground_speed_into_the_air() {
 }
 
 #[test]
-fn walking_off_the_edge_while_running_keeps_the_speed() {
-    let mut sim = Sim::new();
+fn running_off_the_edge_takes_the_speed_into_the_air_like_a_jump() {
+    // As a jump does (sim v37): the ground speed leaves the ground reduced and capped, so a run off a platform is not faster than the
+    // reference game's; above the air speed it then fades only by light air friction.
+    let mut sim = Sim::alone();
+    sim.stand(1, Fx::from_int(-10), 1);
     sim.state.fighters[0].pos.x = Fx::from_int(6);
-    sim.ticks(40, inp(127, 0, 0));
-    assert!(!sim.f().grounded() || sim.f().state == S::LedgeHang);
-    let run = sim.content.fighters[0].run_speed;
-    assert!(sim.f().vel.x >= run - sim.content.fighters[0].air_friction.mul_int(30));
+    let p = sim.content.fighters[0];
+    let rules = sim.content.rules;
+    let mut left_at = None;
+    for _ in 0..40 {
+        let was = sim.f().vel.x;
+        let grounded = sim.f().grounded();
+        sim.tick(inp(127, 0, 0));
+        if grounded && !sim.f().grounded() && left_at.is_none() {
+            left_at = Some((was, sim.f().vel.x));
+        }
+    }
+    let (ground, air) = left_at.expect("never ran off");
+    assert!(
+        ground >= p.run_speed - fx(1, 1000),
+        "it was running: {ground:?}"
+    );
+    let takeoff = (p.run_speed * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    assert!(air <= takeoff, "{air:?} against {takeoff:?}");
+    assert!(air > p.air_speed, "still more than a drift");
 }
 
 #[test]

@@ -629,6 +629,21 @@ fn row(r: &R) -> Hitbox {
 }
 
 /// Marks every hitbox of a move as `kind` (a grab, throw or pummel).
+/// A throw in two parts: on frame `hit.0` a hit of `hit.1` tenths of a percent on the held fighter (damage only, like a pummel), then
+/// the throw `throw` (its own group, so both land), which lets go and launches.
+fn throw_after_hit(faf: u8, hit: (u8, i32), throw: R) -> Move {
+    let mut m = ref_move(
+        faf,
+        0,
+        0,
+        255,
+        &[r(hit.0, hit.0, 13, 11, 10, hit.1, 361, 0, 0, 0, 0), throw],
+    );
+    m.hitboxes[0].kind = HIT_PUMMEL;
+    m.hitboxes[1].kind = HIT_THROW;
+    m
+}
+
 fn with_kind(mut m: Move, kind: u8) -> Move {
     for hb in &mut m.hitboxes {
         hb.kind = kind;
@@ -1765,36 +1780,15 @@ pub fn claws() -> Weapon {
         ref_move(22, 0, 0, 255, &[r(4, 4, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
         HIT_PUMMEL,
     );
-    w.moves[MoveId::FThrow as usize] = with_kind(
-        ref_move(
-            33,
-            0,
-            0,
-            255,
-            &[r(11, 11, 13, 11, 10, 90, 45, 55, 57, 0, 0)],
-        ),
-        HIT_THROW,
-    );
-    w.moves[MoveId::BThrow as usize] = with_kind(
-        ref_move(
-            48,
-            0,
-            0,
-            255,
-            &[r(24, 24, -13, 11, 10, 110, 50, 40, 150, 0, 0)],
-        ),
-        HIT_THROW,
-    );
-    w.moves[MoveId::UThrow as usize] = with_kind(
-        ref_move(
-            46,
-            0,
-            0,
-            255,
-            &[r(27, 27, 13, 11, 10, 70, 80, 75, 110, 0, 0)],
-        ),
-        HIT_THROW,
-    );
+    // The throws are the reference game's two parts: a hit that damages the held fighter without launching it, then the throw,
+    // whose own (smaller) damage is all the launch is worked out from. So forward, up and down throws lead into combos at low
+    // percents and never kill; the back throw is the kill throw (base 40, growth 150).
+    w.moves[MoveId::FThrow as usize] =
+        throw_after_hit(33, (10, 50), r(11, 11, 13, 11, 10, 40, 45, 55, 57, 0, 1));
+    w.moves[MoveId::BThrow as usize] =
+        throw_after_hit(48, (23, 60), r(24, 24, -13, 11, 10, 50, 50, 40, 150, 0, 1));
+    w.moves[MoveId::UThrow as usize] =
+        throw_after_hit(46, (26, 50), r(27, 27, 13, 11, 10, 20, 80, 75, 110, 0, 1));
     // Ledge attack: 9%, angle 45, base knockback 90, growth 20, hits on frames 24-26, intangible through frame 26,
     // FAF 56 (reference numbers). Positions are estimates.
     let mut ledge = ref_move(

@@ -8,7 +8,8 @@ A sparring partner for testing and for playing alone: `sim-core/src/cpu.rs`, `cp
   chosen with the player 2 keys; a slot not yet locked in takes the fighter under its cursor). In training, **F5** switches player 2
   between the computer and a person. `--cpu` on the command line starts with player 2 a computer. `--demo=cpu` plays computer
   against computer with a picture every half second.
-* **What it does**: mashes out of grabs; DIs toward the middle of the stage and techs some of the time in hitstun; takes a ledge
+* **What it does**: mashes out of grabs; DIs toward the middle of the stage, techs some of the time, and in the last frames of hitstun with
+  its attacker close buffers a way out (an air dodge, a jump or an aerial), as a person would; takes a ledge
   option after a moment on the ledge; recovers (air jump, then up special); waits near the edge while its opponent is off the stage
   rather than following it out; shields attacks coming at it up close and grabs out of the shield; otherwise approaches and attacks
   in range (jabs, tilts, grabs, the occasional smash; aerials toward the opponent in the air) and fast falls now and then.
