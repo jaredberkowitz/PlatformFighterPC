@@ -49,9 +49,11 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [11, 0, 0, 0]]
 		if demo_name.ends_with("_ko"):
 			d.events.append([1, "percent", 1, 170.0])
-		for f in range(11, 40):
+		# (Long enough for a smash, or a multi-hit move whose hits freeze it.)
+		var last := 75
+		for f in range(11, last):
 			d.shots.append([f, "f%02d" % (f - 10)])
-		d.end_frame = 41
+		d.end_frame = last + 1
 		return d
 	match demo_name:
 		"wavedash":

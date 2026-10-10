@@ -471,7 +471,10 @@ func _animate(s: Dictionary, delta: float) -> void:
 	var new_dash: bool = s.state == "Dash" and (current_clip != "dash" or int(s.state_frame) < gait_frame)
 	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
 	if clip != current_clip:
-		anim.play(clip, 0.1 if current_clip != "" and not clip.begins_with("attack") else 0.0)
+		# A clip that follows the move (or the ledge climb) starts at once: it is posed by seeking while paused, and seeking never moves
+		# a cross-fade on, so it would stay showing the clip before.
+		var follows: bool = float(pick[2]) >= 0.0
+		anim.play(clip, 0.1 if current_clip != "" and not follows and not clip.begins_with("attack") else 0.0)
 		current_clip = clip
 		if clip == "run" and gait >= 0.0:
 			anim.seek(gait * anim.current_animation_length, true)
@@ -507,7 +510,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	var target_bend := 0.0
 	var target_look := 0.0
 	var tip: Vector3 = s.move_tip
-	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0:
+	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0 and _spin(s) == 0.0:
 		var kicking: bool = _cls(s) == 1 and KICK_CLIPS.has(s.move_name)
 		var to_frame := _skeleton_to_frame()
 		var hips := skeleton.find_bone("hips")
@@ -535,8 +538,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
 		target_look = clampf(rise * 0.5, -20.0, 30.0)
 		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
-		# into its swings, so it takes half of this for an arm.
-		var k := leg_k if kicking else arm_k * (0.5 if use_base_body else 1.0)
+		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
+		var k := (leg_k if kicking else arm_k) * (0.5 if use_base_body else 1.0)
 		target_bend *= k
 		target_look *= k
 	var follow := clampf(delta * 16.0, 0.0, 1.0)
@@ -1459,10 +1462,15 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		flip += TAU * ledge_k
 		pivot = Vector3(0, 0.6, 0)
 	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
+	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
+	var spin := _spin(s)
+	if spin != 0.0:
+		model.quaternion = Quaternion(Vector3(0, 0, 1), spin * float(facing)) * model.quaternion
+		pivot = SPIN_PIVOT_3D
 	# Spin about the middle of the body (or the hands, or the curled-up roll) rather than the feet.
 	flip_offset = Vector3.ZERO
-	if flip != 0.0:
-		flip_offset = pivot - Basis.from_euler(model.rotation) * pivot
+	if flip != 0.0 or spin != 0.0:
+		flip_offset = pivot - Basis(model.quaternion) * pivot
 	flip_offset += ledge_offset
 	last_state = state
 	stage_frame.rotation = Vector3(0, -yaw, 0)
@@ -1620,6 +1628,9 @@ func _blade_target(s: Dictionary) -> Array:
 		wind = swing - 100.0
 	if SWING_FROM.has(name):
 		wind = swing + float(SWING_FROM[name])
+	# A thrust does not swing: the blade points at the hit from the start and the arm drives it in (see `_pose_blade`).
+	if _cls(s) == 0 and SWORD_THRUSTS.has(name):
+		wind = swing
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
 	var start := maxf(1.0, float(t[1]))
@@ -1646,6 +1657,27 @@ const SHOULDER := Vector2(0.5, 1.15)
 const ARM_REACH := 0.5
 var arm_k := 0.0
 var hand_target := Vector3.ZERO
+## Where the maul's second hand holds the shaft (stage frame), and how far above the first.
+var grip_target := Vector3.ZERO
+const MAUL_GRIP := 0.3
+## The sword's thrusts: the blade points at the hit throughout and the arm drives it in, rather than swinging round to it.
+const SWORD_THRUSTS := ["usmash", "dtilt"]
+## Neutral airs whose second hit circles the body (the sword's, and the maul's made from it): the whole body flips over backward once
+## while the arm holds the blade out, between these frames, so the blade follows the hits round. By class.
+const NAIR_SPIN := {0: [14, 21], 2: [18, 27]}
+const SPIN_PIVOT := Vector2(0.0, 1.1)
+const SPIN_PIVOT_3D := Vector3(0.0, 1.1, 0.0)
+
+
+## How far round the backward flip of a spinning neutral air the body is (radians, 0 when not spinning).
+func _spin(s: Dictionary) -> float:
+	if String(s.state) != "Attack" or String(s.move_name) != "nair" or not NAIR_SPIN.has(_cls(s)):
+		return 0.0
+	var w: Array = NAIR_SPIN[_cls(s)]
+	var k := (float(s.state_frame) - float(w[0])) / float(int(w[1]) - int(w[0]))
+	if k <= 0.0 or k >= 1.0:
+		return 0.0
+	return TAU * k
 
 
 func _pose_blade(s: Dictionary, delta: float) -> void:
@@ -1666,8 +1698,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
-	if attacking and _cls(s) == 1:
+	if attacking and (_cls(s) == 1 or (_cls(s) == 0 and SWORD_THRUSTS.has(String(s.move_name)))):
 		arm_k = _reach_weight(s)
+	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
+	# holds the blade out and the spin carries it round the circle the hits make.
+	var spin := _spin(s)
+	if spin != 0.0:
+		tip = SPIN_PIVOT + (tip - SPIN_PIVOT).rotated(-spin)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
@@ -1688,6 +1725,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
 	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
+	# The maul is swung two-handed: the other hand grips the shaft just above this one.
+	var grip := hand + (tip - hand).normalized() * MAUL_GRIP
+	grip_target = Vector3(grip.x * facing, grip.y, 0.35)
 	# Trail: the hitbox's centre (the blade tip is the centre plus most of the hitbox radius along the blade).
 	var radius: float = s.move_tip.z if s.move_tip != Vector3.ZERO else 0.4
 	if _cls(s) == 1:
@@ -1770,7 +1810,7 @@ func _hat_spring(s: Dictionary, delta: float) -> void:
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
-func _aim_arm(facing: int, holding: bool) -> void:
+func _aim_arm(facing: int, holding: bool, two_handed := false) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
@@ -1778,7 +1818,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
-		if not (mine and holding):
+		if not holding or not (mine or two_handed):
 			skeleton.set_bone_global_pose_override(iu, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(il, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ih, Transform3D(), 0.0, false)
@@ -1796,7 +1836,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
 		var lower := (wrist0 - elbow0).length() + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
-		var goal: Vector3 = to_skel * hand_target
+		var goal: Vector3 = to_skel * (hand_target if mine else grip_target)
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
@@ -2396,7 +2436,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
-		_aim_arm(int(s.facing), holding and not carrying)
+		_aim_arm(int(s.facing), holding and not carrying, _cls(s) == 2 and state == "Attack")
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)

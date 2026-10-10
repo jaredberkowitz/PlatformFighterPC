@@ -535,6 +535,31 @@ BODY_MOVES = {
         {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (62.0, 54.0), "shin.L": (-110.0,), "shin.R": (-110.0,),
          "armU.L": (24.0, 16.0), "armL.L": (6.0,)},
         {"spine": (10.0, 0.0), "stance": (30.0, 26.0), "shin.L": (-60.0,), "shin.R": (-60.0,)}),
+    # Neutral air (an inward cut, then the blade carried right round the body as the game flips it over backward): drawn up compact for
+    # the spin, the free arm out.
+    "attack_nair": (
+        {"spine": (8.0, -18.0), "head": (0.0, 8.0), "stance": (30.0, 24.0), "shin.L": (-60.0,), "shin.R": (-50.0,), "armU.L": (20.0, 20.0)},
+        {"spine": (10.0, 6.0), "head": (2.0, -4.0), "stance": (56.0, 50.0), "shin.L": (-100.0,), "shin.R": (-96.0,),
+         "armU.L": (-10.0, 56.0), "armL.L": (30.0,)},
+        {"spine": (4.0, 0.0), "stance": (26.0, 20.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
+    # Fencer's down smash: down low, kneeling on the back knee with the front one bent, sweeping in front and then behind, the torso turned
+    # into each sweep (the game aims the blade).
+    "sword_dsmash": (
+        {"spine": (16.0, -20.0), "head": (-6.0, 10.0), "stance": (24.0, -6.0), "shin.L": (-40.0,), "shin.R": (-50.0,)},
+        {"spine": (26.0, 30.0), "head": (-12.0, -10.0), "stance": (34.0, -8.0), "shin.L": (-46.0,), "shin.R": (-70.0,),
+         "armU.L": (-20.0, 50.0), "armL.L": (20.0,)},
+        {"spine": (10.0, 8.0), "stance": (20.0, -6.0), "shin.L": (-30.0,), "shin.R": (-30.0,)}),
+    # The claws' down tilt: a low sweeping kick from a crouch on the back leg (the game aims the kicking front leg), the torso over it.
+    "kick_low": (
+        {"spine": (20.0, -10.0), "stance": (30.0, 30.0), "shin.L": (-80.0,), "shin.R": (-70.0,), "armU.L": (30.0, 30.0)},
+        {"spine": (26.0, 16.0), "head": (-10.0, 0.0), "stance": (20.0, 44.0), "shin.R": (-90.0,), "armU.L": (40.0, 40.0)},
+        {"spine": (12.0, 0.0), "stance": (24.0, 24.0), "shin.L": (-40.0,), "shin.R": (-40.0,)}),
+    # The claws' up tilt: a stretch kick straight up from the standing leg (the game aims the kicking one), upright and leaning back only a
+    # little, the arms out for balance.
+    "kick_up": (
+        {"spine": (10.0, 0.0), "head": (4.0, 0.0), "stance": (10.0, 6.0), "shin.L": (-50.0,), "shin.R": (-20.0,), "armU.L": (20.0, 20.0)},
+        {"spine": (-8.0, 0.0), "head": (-12.0, 0.0), "stance": (0.0, 4.0), "shin.R": (-4.0,), "armU.L": (-20.0, 50.0)},
+        {"spine": (-2.0, 0.0), "stance": (4.0, 4.0)}),
     # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall and arches back a little under it.
     "sword_utilt": (
         {"hips": -0.06, "spine": (14.0, 10.0), "head": (6.0, 0.0), "stance": (12.0, -10.0), "shin.L": (-20.0,)},

@@ -423,5 +423,14 @@ stay on the ground, and the game's own lean, slide and body-follow are smaller, 
 - **The claws fighter** now follows its reference more closely: its **up air** and **down air** are claw slashes (overhead, and down below
   with both hands), no longer kicks, and its **down smash** is a low sweep in front and then behind (the `sword_dsmash` body).
 
+- **Neutral airs**: the sword's (and the maul's, made from it) is an inward cut and then the blade carried right round the body as the
+  whole fighter flips over backward once (`NAIR_SPIN` in `fighter_view.gd`: the body turns in the plane of the stage between the frames its
+  hits circle, and the arm holds the blade out, so the blade follows the hits round); the claws' is the split kick.
+- **Smashes**: the sword's up smash and down tilt are thrusts (`SWORD_THRUSTS`: the blade points at the hit from the start and the arm
+  drives it in, instead of swinging round to it); its down smash is down low on a bent back knee, sweeping in front and then behind.
+- **The maul** is swung two-handed (the other hand grips the shaft above the first), its heavy swings carried on the same body poses.
+- **Fixed**: a clip that follows the move began with a cross-fade from the clip before, and seeking a paused clip never moves a
+  cross-fade on, so some moves (the down smash's crouch, for one) never showed their own pose at all. They now start at once.
+
 Check them with `--demo=fx_<sword|claws|maul>_<move> --noui --noecb --shots=<folder>` (every tilt, smash and aerial; a picture on every
 frame, the camera steady on the attacker).
