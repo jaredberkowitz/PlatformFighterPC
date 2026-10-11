@@ -12,9 +12,18 @@ condensed type, and a slight lift on hovered buttons (see "Look" below). The pie
 
 ## Character creator
 
-Choose a **class** (the moveset: Longsword or Claws), a **look** (face, hat, glasses, neckwear, body colour, accent colour: cosmetic
-only) and four **stats**, give it a **name**, and press **Finish**. Up/Down pick a row, Left/Right change it, Enter on the name
-or Finish saves. The "Fighter" row at the top opens a saved fighter to edit (or "New fighter"); Delete removes it.
+Laid out like a caricature kit (`godot/ui/creator.gd`). Down the left, the **categories**: body colour, the face's **eyes, brows,
+nose, mouth and cheeks**, its resting **mood**, the **hat, glasses, neckwear and shirt**, and **how it plays**. Beside them the fighter
+on its own little stage, turned to the camera (it moves in close for the face and the hat; Z and X turn it, C faces it front), with its
+**name** on the plate below. In the middle the choices for the category, as pictures (the part alone for face parts, the fighter
+wearing it for clothes); on the right the part's **colours** and the **tools**: move up or down, closer or apart, smaller or bigger,
+tilt, squash or stretch, each press saying what it did at the top ("+1 height"), and **Reset**. **Exit** (asks again with unsaved
+changes) and **Done** (saves and goes to character select) at the top right. How it plays holds the saved-fighter picker ("New
+fighter" or one to edit, and Delete), the **class** (the moveset: Longsword or Claws), the four **stats** and the rules.
+
+Keys: arrows or WASD move between the categories, the choices and the tools (on a stat or a selector, left and right change it); J,
+Space or Enter picks; Q and E change category; N types the name; Esc exits. Looks are cosmetic only (`docs/ART_PIPELINE.md`, faces from
+parts).
 
 The stats are 1 to 9, where 5 is the class exactly as it ships. They change how the fighter plays, through one function in Rust
 (`sim-content/src/recipe.rs`), so the same recipe is the same fighter on any machine:

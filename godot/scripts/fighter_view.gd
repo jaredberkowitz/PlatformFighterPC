@@ -34,6 +34,7 @@ const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SKIN_SHADER := preload("res://shaders/skin.gdshader")
 const UIDraw := preload("res://ui/ui_draw.gd")
 const SvgArt := preload("res://scripts/svg_art.gd")
+const FaceLook := preload("res://scripts/face_look.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
 
@@ -911,10 +912,8 @@ func _contact_shadow() -> void:
 	add_child(contact_shadow)
 
 
-## The face is a drawing (godot/art/faces/<expression>.svg) on the shell in front of the head, lit like the skin around it. The lids in
-## the drawings are a placeholder colour that becomes the fighter's own colour, a shade darker.
-const FACE_DIR := "res://art/faces/"
-const LID_PLACEHOLDER := "#fe00ff"
+## The face is drawn on the shell in front of the head, lit like the skin around it: the look's own eyes, brows, nose, mouth and cheeks
+## (FaceLook), with each expression changing the lids, brows and mouth.
 
 
 func _face() -> void:
@@ -924,7 +923,10 @@ func _face() -> void:
 	face_mat.shader = FACE_SHADER
 	face_mat.set_shader_parameter("skin", loadout.body_color())
 	face_mesh.material_override = face_mat
-	set_expression(Loadout.FACES[loadout.face])
+	# (A new material: show the face even if the expression is the one already set.)
+	shown_face = ""
+	last_expression = Loadout.FACES[loadout.face]
+	_show_face()
 
 
 ## Which way the eyes look: 1 toward screen right, -1 toward screen left (the face drawings look right; facing left mirrors them).
@@ -933,7 +935,7 @@ func set_gaze(side: int) -> void:
 		face_mat.set_shader_parameter("mirror", side < 0)
 
 
-## Shows an expression: one of Loadout.FACES or Loadout.HURT (its `name` picks the drawing).
+## Shows an expression: one of Loadout.FACES or Loadout.HURT, or an action face (its `name` is one of FaceLook.EXPRESSIONS).
 func set_expression(e: Dictionary) -> void:
 	if e == last_expression:
 		return
@@ -941,7 +943,7 @@ func set_expression(e: Dictionary) -> void:
 	_show_face()
 
 
-## The drawing to show now: the expression, or closed eyes for a moment while blinking.
+## The face to show now: the expression, or closed eyes for a moment while blinking.
 func _show_face() -> void:
 	if face_mat == null or last_expression.is_empty():
 		return
@@ -953,8 +955,7 @@ func _show_face() -> void:
 	if name_now == shown_face:
 		return
 	shown_face = name_now
-	var lid: Color = loadout.body_color().darkened(0.1)
-	face_mat.set_shader_parameter("face_tex", SvgArt.texture(FACE_DIR + name_now + ".svg", {LID_PLACEHOLDER: lid}))
+	FaceLook.apply(face_mat, loadout, name_now)
 
 
 ## Blinks every few seconds (cosmetic, so it uses the frame time rather than the simulation).
@@ -1122,19 +1123,16 @@ const TORSO_RADII := Vector3(0.56, 0.42, 0.5)
 
 
 ## The glasses' fit: the design space the glasses are made in (the look's head of radius 0.8 centred 1.42 up, eyes at height 1.52 and
-## 0.32 either side) laid onto the face drawing, a square of `face_size` centred `face_centre` up. The drawings in godot/art/faces are 512
-## square with the eyes' middles on row 214, 96 columns either side of the middle, and shown `face_zoom` (1.15) times larger, so on the
-## head the eyes are at row FACE_EYE_ROW and FACE_EYE_OUT columns out. The glasses are scaled with the drawing, so their lenses are as
-## round as its eyes.
-const FACE_EYE_ROW := 207.0
-const FACE_EYE_OUT := 110.0
-
-
+## 0.32 either side) laid onto the face, a square of `face_size` centred `face_centre` up. The face is shown 1.15 times larger than the
+## shell's 512 square, so for the standard face its eyes are on row 207, 110 columns out (FaceLook.eye_row and eye_out follow the look's
+## own eye placement). The lenses spread with the eyes and grow with them.
 func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, depth: float) -> Transform3D:
-	# Design units to drawing units: the design eyes 0.32 out are the drawing's FACE_EYE_OUT columns (of 512) out.
-	var k := face_size * (FACE_EYE_OUT / 512.0) / 0.32
-	var eye_y := face_centre + (0.5 - FACE_EYE_ROW / 512.0) * face_size
-	return Transform3D(Basis.from_scale(Vector3(k, k, depth_scale)), Vector3(0.0, eye_y - 1.52 * k, depth))
+	# Design units to face units: the design eyes 0.32 out are the face's eyes, `out` columns (of 512) out.
+	var out := FaceLook.eye_out(loadout)
+	var kx := face_size * (out / 512.0) / 0.32
+	var ky := face_size * (110.0 / 512.0) / 0.32 * (1.0 + FaceLook.offset(loadout, "eye_size") * 0.06)
+	var eye_y := face_centre + (0.5 - FaceLook.eye_row(loadout) / 512.0) * face_size
+	return Transform3D(Basis.from_scale(Vector3(kx, ky, depth_scale)), Vector3(0.0, eye_y - 1.52 * ky, depth))
 
 
 ## Neckwear for the rigged torso (TORSO_CENTRE_Y, TORSO_RADII). Rings are tori sized to hug it, so nothing pokes through the body whatever

@@ -22,7 +22,8 @@ Every asset follows these, whatever made it:
   shadows (each stage turns them toward its own hue, `lighting.gd` `MOODS`), draws the rim light and the ink lines. A colour that is
   only a darker version of another is a mistake (the clean-up step merges those).
 - **Outlines** come from the game (the cel material's ink hull and the post-process), never from the model or its texture.
-- **Faces** are 2D drawings (`godot/art/faces/*.svg`) laid on the head. A generated character's head must be **blank**.
+- **Faces** are 2D drawings put together from parts (`godot/art/face_parts/`, see `docs/ART_PIPELINE.md`) laid on the head. A generated
+  character's head must be **blank**.
 - **Originality**: the reference image is a style target only. Never feed another game's characters, screenshots or logos to a
   generator, never ask for a "character from X" or "in the style of X game", and keep names clear of the blocked list (`Roster.name_problem`).
   Everything we ship must be ours.

@@ -126,7 +126,7 @@ The look now comes from lighting, shaders and authored artwork rather than from 
 - **Shaders** (`godot/shaders/`): `toon.gdshader` is the soft cel material for every character surface (a colour, optionally times a tiled
   texture); `face.gdshader` lays the face drawing over the skin colour; both light through `toon_light.gdshaderinc` (light wraps round the
   form and steps softly into a cool shadow tint, a warm rim on the lit side, a small soft sheen).
-- **Faces** (`godot/art/faces/<expression>.svg`): one drawing per expression (`deadpan`, `sleepy`, `grumpy`, `smug`, `hurt`, and `blink`,
+- **Faces** (since the twenty-sixth pass: parts, see the end; before that `godot/art/faces/<expression>.svg`): one drawing per expression (`deadpan`, `sleepy`, `grumpy`, `smug`, `hurt`, and `blink`,
   shown for a moment every few seconds). They are shown on a **face shell** in the rig (`Face`, a thin layer just in front of the head,
   following the head bone), whose UVs are a straight-on projection of a 1.155-unit square centred at height 1.585, so a drawing lands on the
   head as drawn (eyes at about y = 228 of 512). The upper lids are filled with the placeholder colour `#fe00ff`, which becomes the fighter's
@@ -637,3 +637,27 @@ painted shirt used; hidden with no shirt) and the shorts the shorts colour; the 
 and still paints the socks and shoes. The clothes keep the plain rim light (the fighters' stronger one picked out every fold).
 One shirt and one pair of shorts for now, recoloured per look; other cuts later go in the same function. Known: in a full tuck a thin
 glint of skin can show at the hip crease. Poses: `docs/screenshots/modelled_clothes.png`.
+
+## Faces from parts (twenty-sixth pass)
+
+The face is no longer one drawing per expression: it is put together on the head from **parts** a player chooses and places, like a
+caricature kit (the character creator, `docs/MENUS.md`).
+
+- **The parts** (`godot/art/face_parts/`, all drawn by `tools/art/make_face_parts.py` in the concept art's style; re-run it to change
+  them): 8 eye shapes (`round` is the concept's), 6 brows, 6 noses, 6 cheeks, 9 resting mouths (`smile` is the concept's), and the
+  expressions' shut eyes (blink, happy, effort, hurt, a dazed spiral) and mouths. Each is a 256 square; eyes, brows, cheeks, noses and
+  shut eyes are white masks the game colours, mouths are in colour. Eyes, brows and cheeks are drawn for the right-hand side and mirrored.
+- **Putting it together** (`godot/shaders/face_common.gdshaderinc`, used by `face.gdshader` on the head and `face_ui.gdshader` in the
+  menus): the eye's white (cream), a pupil and highlight drawn in it (in the eye colour, looking the way the fighter faces), lids in the
+  fighter's colour with an ink edge, then the ink outline; brows, cheeks and the nose are tinted masks; the mouth is laid on as drawn.
+  Every part has a place, size, tilt and squash.
+- **The look** (`godot/scripts/face_look.gd`, `loadout.gd`): each part's style, its colour (eyes, brows, cheeks) and adjustments in
+  steps (eyes: height, spacing, size, tilt, stretch; brows: height, spacing, size, tilt; nose: height, size; mouth: height, size,
+  width), appended to the look's bytes (about 30 now, at most 48); an older look reads with the standard face. Cheeks follow the eyes.
+- **Expressions** are the player's own face changed (`FaceLook.EXPRESSIONS`): lids (top, slope, lower), brow tilt and lift, pupil
+  size, shut or spiral eyes, and an expression mouth. Moods (deadpan, sleepy, grumpy, smug) are the same with the player's own mouth.
+- **The face shell reaches the chin**: the base body's skin bulged past the shell toward the jaw and hid anything drawn below the
+  mouth; each point of the shell is now pushed out until it clears the skin (`FACE_CLEARANCE` in `make_rigged_blob.py`), so parts can
+  move anywhere on the face. The glasses follow the eyes' place and size (`FaceLook.eye_row`, `eye_out`).
+- The old per-expression drawings (`godot/art/faces/`) and `tools/art/make_faces.py` are gone.
+

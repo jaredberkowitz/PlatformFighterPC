@@ -22,7 +22,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector, kdtree
+from mathutils import Matrix, Vector, bvhtree, kdtree
 
 OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "godot", "models", "blob_rig.glb"))
 FPS = 60
@@ -236,6 +236,8 @@ def capsule(bm, p0, r0, p1, r1):
 
 ## The square of the head front the face texture covers (Blender units, centred on the head's middle line).
 FACE_SIZE = 1.155
+# How far outside the base body's skin its face shell sits (where the skin bulges past the shell's ball).
+FACE_CLEARANCE = 0.006
 FACE_CENTRE = 1.585
 
 
@@ -1040,6 +1042,19 @@ def build_body_meshes(rig):
     for v in bm.verts:
         v.co = Vector((centre.x + v.co.x * radii.x * 1.03, centre.y + v.co.y * radii.y * 1.03, centre.z + v.co.z * radii.z * 1.03))
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y - 0.3 * radii.y], context="VERTS")
+    # The head is not quite a ball: toward the jaw the skin bulges past it and would hide the lower face (a mouth moved down, big eyes).
+    # Each point of the shell is pushed out, along the line from the head's middle, until it is just outside the skin.
+    skin_bm = bmesh.new()
+    skin_bm.from_mesh(skin.data)
+    skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
+    for v in bm.verts:
+        out = v.co - centre
+        hit = skin_tree.ray_cast(centre, out.normalized(), out.length * 1.5)
+        if hit[0] is not None:
+            reach = (hit[0] - centre).length + FACE_CLEARANCE
+            if reach > out.length:
+                v.co = centre + out.normalized() * reach
+    skin_bm.free()
     face_size = 1.75 * radii.x
     face_centre = centre.z + 0.04 * radii.z
     uv = bm.loops.layers.uv.verify()

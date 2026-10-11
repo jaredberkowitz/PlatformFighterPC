@@ -144,6 +144,7 @@ func _screens() -> void:
 	root.add_child(creator)
 	await process_frame
 	await process_frame
+	creator._open(creator.CATEGORIES.size() - 1)
 	var speed = creator.stat_rows["speed"]
 	speed.step(1)
 	check(speed.value == 5, "a stat cannot go up when the 20 points are spent")
@@ -152,12 +153,12 @@ func _screens() -> void:
 	check(speed.value == 6 and Roster.points(creator.current_entry()) == 20, "lowering one stat frees a point for another")
 	speed.step(1)
 	check(speed.value == 6, "and only one")
-	creator.selectors["rules"].set_index(1)
+	creator.rules.set_index(1)
 	speed.step(1)
 	speed.step(1)
 	check(speed.value == 8, "casual rules have no limit")
 	check(creator.points_tag.text.contains("CASUAL"), "and the points tag says so: " + creator.points_tag.text)
-	creator.selectors["rules"].set_index(0)
+	creator.rules.set_index(0)
 	creator.name_edit.text = "zz_test Over"
 	creator._finish()
 	check(creator.status.text.contains("budget"), "saving an over-budget ranked fighter is refused: " + creator.status.text)

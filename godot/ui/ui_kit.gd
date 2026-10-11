@@ -62,7 +62,7 @@ class Scene extends Control:
 		add_child(ledge)
 
 	func _notification(what: int) -> void:
-		if what == NOTIFICATION_RESIZED:
+		if what == NOTIFICATION_RESIZED or what == NOTIFICATION_READY:
 			sky.size = size
 			ledge.size = size
 			ledge.queue_redraw()

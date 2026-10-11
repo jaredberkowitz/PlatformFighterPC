@@ -15,13 +15,24 @@ var facing_bias := 0.5
 var show_floor := true
 var floor_node: Node3D
 var camera: Camera3D
+## The creator's framing (off elsewhere, where callers place the camera themselves): `close_up` 0 shows the whole fighter, 1 its
+## head, and the camera eases between them.
+var framed := false
+var close_up := 0.0
+var close_up_target := 0.0
+var distance := 8.2
+## Where the camera stands and looks for the whole fighter when `framed` (by default, as when it was made).
+var body_from := Vector3.ZERO
+var body_at := Vector3(0, 1.25, 0)
 
 
-func _init(vp_size := Vector2i(400, 460), floor := true, distance := 8.2) -> void:
+func _init(vp_size := Vector2i(400, 460), floor := true, cam_distance := 8.2) -> void:
 	stretch = true
 	custom_minimum_size = Vector2(vp_size)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	show_floor = floor
+	distance = cam_distance
+	body_from = Vector3(0, 1.45, cam_distance)
 	viewport = SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.transparent_bg = true
@@ -83,8 +94,25 @@ func set_size_percent(p: float) -> void:
 	view.scale = Vector3.ONE * (p / 100.0)
 
 
+## Moves the camera in on the face (or back out to the whole fighter).
+func frame_face(on: bool) -> void:
+	close_up_target = 1.0 if on else 0.0
+
+
+func _frame_camera(delta: float) -> void:
+	close_up = move_toward(close_up, close_up_target, delta * 3.0)
+	var k := close_up * close_up * (3.0 - 2.0 * close_up)
+	var s := size_percent / 100.0
+	var head := Vector3(0.0, 1.78 * s, 0.0)
+	var from := body_from.lerp(head + Vector3(0, 0.08, 3.6 * s + 0.6), k)
+	var at := body_at.lerp(head - Vector3(0, 0.02, 0), k)
+	camera.look_at_from_position(from, at)
+
+
 func _process(delta: float) -> void:
 	t += delta
+	if framed:
+		_frame_camera(delta)
 	if view.model != null:
 		view.model.rotation.y = (sin(t * 0.9) * 0.8 if spin else 0.0) + facing_bias * (0.0 if spin else 1.0)
 		# The eyes look the way the fighter is turned.

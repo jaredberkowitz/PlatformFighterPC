@@ -235,7 +235,7 @@ class SkyScene extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _notification(what: int) -> void:
-		if what == NOTIFICATION_RESIZED and size != built:
+		if (what == NOTIFICATION_RESIZED or what == NOTIFICATION_READY) and size != built:
 			_build()
 
 	func _process(delta: float) -> void:

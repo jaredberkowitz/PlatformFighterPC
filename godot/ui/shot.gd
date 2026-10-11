@@ -6,6 +6,8 @@ var path := ""
 var frames := 0
 var keys: Array = []
 var wait := 40
+var sent := 0
+var done := false
 
 
 static func attach(owner: Node) -> void:
@@ -35,12 +37,15 @@ func _process(_delta: float) -> void:
 	frames += 1
 	if frames >= 10 and frames % 3 == 0 and not keys.is_empty():
 		var code := OS.find_keycode_from_string(keys.pop_front())
+		sent += 1
 		for pressed in [true, false]:
 			var ev := InputEventKey.new()
 			ev.keycode = code
 			ev.physical_keycode = code
 			ev.pressed = pressed
 			Input.parse_input_event(ev)
-	if frames == wait + keys.size() * 3:
+	# Once every key is sent, a moment for the screen to settle (as long as the keys took), then the picture.
+	if not done and keys.is_empty() and frames >= wait + sent * 3:
+		done = true
 		get_viewport().get_texture().get_image().save_png(path)
 		get_tree().quit()
