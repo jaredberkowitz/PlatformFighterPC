@@ -17,6 +17,7 @@ const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
 const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
+const VisualSettings := preload("res://scripts/visual_settings.gd")
 const Replays := preload("res://scripts/replays.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 const Sfx := preload("res://scripts/sfx.gd")
@@ -34,6 +35,7 @@ var views: Array = []
 var stage_view: Node3D
 var overlay: CanvasLayer
 var hud: CanvasLayer
+var hud_before_results := true
 var results: CanvasLayer
 var names: Array = ["Player 1", "Player 2", "Player 3", "Player 4"]
 var end_timer := 0.0
@@ -192,6 +194,8 @@ func _build_world() -> void:
 	add_child(we)
 	world_env = env
 	Lighting.apply(env, self)
+	VisualSettings.apply_quality(env, self, get_viewport())
+	Particles.Burst.density = VisualSettings.effects()
 
 	cam = Camera3D.new()
 	cam.fov = 30.0
@@ -292,6 +296,8 @@ func _restart() -> void:
 	if results != null:
 		results.queue_free()
 		results = null
+		hud.visible = hud_before_results
+	cam.attributes = null
 	end_timer = 0.0
 	var chars: Array = chosen_chars
 	if demo != null and demo.chars.size() > 0:
@@ -1142,6 +1148,16 @@ func _show_results(winner: int) -> void:
 		choices = [["Rematch", "rematch"], ["Character Select", "select"], ["Main Menu", "menu"]]
 	else:
 		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
+	# The stage behind the results goes soft (depth of field kept for presentation, never for play), so the cards and the winner lead.
+	var dof := CameraAttributesPractical.new()
+	dof.dof_blur_far_enabled = true
+	dof.dof_blur_far_distance = 2.0
+	dof.dof_blur_far_transition = 6.0
+	dof.dof_blur_amount = RESULTS_BLUR
+	cam.attributes = dof
+	# (The match display steps aside while the results are up.)
+	hud_before_results = hud.visible
+	hud.visible = false
 	results = Results.new()
 	add_child(results)
 	results.build(heading, cards, choices)
@@ -1250,6 +1266,8 @@ func _in_play(i: int) -> bool:
 ## out, it closes in on them for a moment (presentation only).
 ## How far the camera aims below the fighters, per unit of distance (about 4% of the view's height), to keep them above the HUD.
 const HUD_LIFT := 0.022
+## How soft the stage behind the results screen goes.
+const RESULTS_BLUR := 0.09
 ## Hitlag (frames) above which a hit shakes the camera.
 const HIT_SHAKE_FROM := 9.0
 
@@ -1308,7 +1326,8 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
 		# The finishing hit: two frames in two tones. The one that decides the match holds the close-up longer, in slow motion.
-		impact_until = int(sim.frame()) + 2
+		if VisualSettings.two_tone():
+			impact_until = int(sim.frame()) + 2
 		var deciding := _deciding(i, 1)
 		ko_time = 1.3 if deciding else 0.75
 		cam_shake = maxf(cam_shake, 0.9)
@@ -1346,7 +1365,7 @@ func _screen_flash(alpha: float) -> void:
 		flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		flash_rect.color = Color(1, 1, 1, 0)
 		layer.add_child(flash_rect)
-	flash_alpha = maxf(flash_alpha, alpha)
+	flash_alpha = maxf(flash_alpha, alpha * VisualSettings.flashes())
 
 
 ## Keeps the match statistics up to date from two snapshots of every fighter. Who hit whom is read from hitlag starting together: the
@@ -1614,8 +1633,10 @@ func _update_camera(a: float, delta: float) -> void:
 	# The camera looks slightly down at the stage (raised by as much as it tilts, so the point it frames stays put): the tops of the
 	# platforms and the fighters' shadows on them show, and the stage has depth.
 	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
-	cam.position = cam_base + offset + punch + Vector3(0, lift, 0)
-	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, roll)
+	# (The comfort setting scales the shake and the punch-in; scripts/visual_settings.gd.)
+	var calm := VisualSettings.shake()
+	cam.position = cam_base + (offset + punch) * calm + Vector3(0, lift, 0)
+	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, roll * calm)
 	# The distance haze starts at the stage plane (shaders/post.gdshader).
 	if post_mat != null and absf(cam.position.z - post_stage_dist) > 0.25:
 		post_stage_dist = cam.position.z

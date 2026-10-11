@@ -75,3 +75,27 @@ pf_rim_color={
 "type": "color",
 "value": Color(1, 0.93, 0.82, 1)
 }
+pf_ramp={
+"type": "sampler2D",
+"value": ""
+}
+pf_deep_shade={
+"type": "float",
+"value": 0.78
+}
+pf_edge_light={
+"type": "color",
+"value": Color(1, 0.96, 0.9, 0.2)
+}
+pf_paint_warm={
+"type": "color",
+"value": Color(1.04, 1.0, 0.94, 1)
+}
+pf_paint_cool={
+"type": "color",
+"value": Color(0.94, 0.96, 1.05, 1)
+}
+pf_paint_amount={
+"type": "float",
+"value": 0.0
+}

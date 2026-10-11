@@ -55,7 +55,15 @@ class Burst extends MeshInstance3D:
 		global_transform = Transform3D.IDENTITY
 		extra_cull_margin = 16384.0
 
+	## The share of particles kept (the Effects setting, scripts/visual_settings.gd): the rest are skipped evenly.
+	static var density := 1.0
+	var _kept := 0.0
+
 	func add(pos: Vector3, vel: Vector3, life: float, size: float) -> void:
+		_kept += density
+		if _kept < 1.0:
+			return
+		_kept -= 1.0
 		parts.append([pos, vel, 0.0, life, size, randf() * TAU, randf_range(-8.0, 8.0) if star else 0.0])
 
 	func _process(real_delta: float) -> void:

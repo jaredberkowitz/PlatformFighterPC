@@ -18,9 +18,10 @@ uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
 uniform float scenery_lines = 0.72;       // how strong the screen-space ink is on the stage and scenery (the fighters get it all)
+uniform float inner_lines = 0.6;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
 uniform float grain = 0.045;
 uniform float paper = 0.03;
-uniform float vignette = 0.32;
+uniform float vignette = 0.16;          // kept light: dark corners make a fighter near the edge hard to read
 uniform vec4 tint : source_color = vec4(1.0, 0.95, 0.86, 1.0);
 uniform float tint_amount = 0.1;
 // The stage's colour grade (set with its mood, scripts/lighting.gd): its shadows and its lights tinted toward two colours.
@@ -96,8 +97,10 @@ void fragment() {
 		float d = view_depth(q, INV_PROJECTION_MATRIX);
 		// Only the nearer side draws the line, so it sits on the edge of the object in front.
 		float jump = (d - d0) / max(d0, 0.001);
-		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump));
 		float id = object_at(q);
+		// Silhouettes are the strongest lines; a fold inside one fighter is lighter, so forms read without a tangle of black.
+		float inner = abs(id - id0) <= 0.03 && id0 < 0.6 ? inner_lines : 1.0;
+		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump) * inner);
 		if (abs(id - id0) > 0.03 && d > d0) {
 			edge = max(edge, 1.0);
 		}

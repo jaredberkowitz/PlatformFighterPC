@@ -38,6 +38,59 @@ const MOODS := {
 }
 
 
+## Each stage's shading profile, on top of its mood (anything left out takes `STYLE_DEFAULT`): the cel ramp's bands (`ramp`: stops of
+## [where on the way from facing away to facing the light, how lit], drawn into `pf_ramp`), how much darker a cast shadow makes the shadow
+## side (`deep`), the pale edge light round the fighters (`edge`, its alpha the strength: strong on dark stages so no fighter sinks into
+## the background), and the painted gradient over the scenery (`paint`: the warm colour tops lean to, the cool one undersides lean to,
+## and how far; fighters take a third of it).
+const STYLE_DEFAULT := {
+	"ramp": [[0.0, 0.0], [0.34, 0.0], [0.42, 0.56], [0.55, 0.56], [0.62, 1.0], [1.0, 1.0]],
+	"deep": 0.78,
+	"edge": Color(1.0, 0.97, 0.9, 0.26),
+	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
+}
+const STYLES := {
+	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55]},
+	"sunset": {"edge": Color(1.0, 0.86, 0.74, 0.34), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72},
+	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74,
+		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
+	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5]},
+	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72},
+}
+
+
+## The shading profile for theme `name` (its own values over the defaults).
+static func style(name: String) -> Dictionary:
+	var out := STYLE_DEFAULT.duplicate()
+	out.merge(STYLES.get(name, {}), true)
+	return out
+
+
+static var _ramps := {}
+
+
+## The ramp's lookup texture: 256 steps across, each the ramp's lightness there, eased between the stops so each band's edge is soft.
+static func ramp_texture(stops: Array) -> ImageTexture:
+	var key := str(stops)
+	if _ramps.has(key):
+		return _ramps[key]
+	var img := Image.create(256, 1, false, Image.FORMAT_L8)
+	for i in 256:
+		var x := i / 255.0
+		var v := 0.0
+		for k in stops.size() - 1:
+			var a: Array = stops[k]
+			var b: Array = stops[k + 1]
+			if x >= float(a[0]) and x <= float(b[0]):
+				var t := (x - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.0001)
+				v = lerpf(float(a[1]), float(b[1]), t * t * (3.0 - 2.0 * t))
+				break
+		img.set_pixel(i, 0, Color(v, v, v))
+	var tex := ImageTexture.create_from_image(img)
+	_ramps[key] = tex
+	return tex
+
+
 ## How many times white the cores of the effects are drawn (so they, and only they, bloom).
 const FX_GLOW := 4.0
 
@@ -91,7 +144,7 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	fill.light_energy = 0.35
 	root.add_child(fill)
 	# The menus (and anything lit before a stage is chosen) use the meadow's mood, with no stage shading.
-	_set_globals(MOODS.meadow)
+	_set_globals(MOODS.meadow, style("meadow"))
 	RenderingServer.global_shader_parameter_set("pf_ao_strength", 0.0)
 
 
@@ -119,10 +172,16 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
-	_set_globals(m)
+	_set_globals(m, style(theme.get("name", "meadow")))
 
 
-static func _set_globals(mood: Dictionary) -> void:
+static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
+	RenderingServer.global_shader_parameter_set("pf_ramp", ramp_texture(look.ramp))
+	RenderingServer.global_shader_parameter_set("pf_deep_shade", look.deep)
+	RenderingServer.global_shader_parameter_set("pf_edge_light", look.edge)
+	RenderingServer.global_shader_parameter_set("pf_paint_warm", look.paint[0])
+	RenderingServer.global_shader_parameter_set("pf_paint_cool", look.paint[1])
+	RenderingServer.global_shader_parameter_set("pf_paint_amount", look.paint[2])
 	RenderingServer.global_shader_parameter_set("pf_shadow_hue", mood.shadow_hue)
 	RenderingServer.global_shader_parameter_set("pf_shadow_shift", mood.shadow_shift)
 	RenderingServer.global_shader_parameter_set("pf_shadow_value", mood.shadow_value)

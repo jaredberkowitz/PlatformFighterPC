@@ -837,6 +837,10 @@ func _tag_object(node: Node) -> void:
 				# (Clothes keep the plain rim: a strong one picks out every fold as a bright streak.)
 				var cloth := str(node.name).begins_with("Shirt") or str(node.name).begins_with("Shorts")
 				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
+				(node as GeometryInstance3D).set_instance_shader_parameter("fighter", 1.0)
+				# The line art in the fighter's own colour, much darkened (see `outline_tint` in shaders/outline.gdshader).
+				var line_c: Color = loadout.body_color().darkened(OUTLINE_TINT_DARKEN) if loadout != null else INK
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
 				break
 	for c in node.get_children():
 		_tag_object(c)
@@ -875,9 +879,12 @@ func _flash(s: Dictionary, delta: float) -> void:
 	if absf(flash_amount - last_flash) < 0.001:
 		return
 	last_flash = flash_amount
+	# The rim light flares with the flash too (a material reaction, not only a colour wash), settling with it.
 	for m in meshes:
 		if m.material_override is ShaderMaterial:
 			m.set_instance_shader_parameter("flash", value)
+			var cloth := str(m.name).begins_with("Shirt") or str(m.name).begins_with("Shorts")
+			m.set_instance_shader_parameter("rim_boost", (1.0 if cloth else FIGHTER_RIM_BOOST) * (1.0 + HIT_RIM_FLARE * flash_amount))
 	if face_mesh != null:
 		face_mesh.set_instance_shader_parameter("flash", value)
 
@@ -1056,6 +1063,11 @@ static func _cloth(m: Material) -> Material:
 
 const CLOTH_OUTLINE_PUSH_BACK := 2.2
 const CLOTH_OUTLINE_THIN := 0.65
+## How much the rim light flares with a hit's flash (times its usual strength at a full flash).
+const HIT_RIM_FLARE := 2.5
+## How much of its own colour a fighter's outline takes, and how dark that colour is made first.
+const OUTLINE_TINT := 0.4
+const OUTLINE_TINT_DARKEN := 0.72
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012

@@ -19,6 +19,8 @@ uniform vec4 scenery_color : source_color = vec4(0.2, 0.15, 0.24, 1.0);
 // it gets there, so the body's outline does not poke through the cloth. Off for everything else.
 uniform bool hide_under_shirt = false;
 uniform bool hide_under_shorts = false;
+// A fighter's line takes a little of its own colour (`rgb`, by `a`), so its line art reads as its own rather than a generic black.
+instance uniform vec4 outline_tint = vec4(0.0);
 
 void vertex() {
 	vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
@@ -34,4 +36,5 @@ void vertex() {
 
 void fragment() {
 	ALBEDO = mix(scenery_color.rgb, color.rgb, smoothstep(0.6, 1.0, outline_weight));
+	ALBEDO = mix(ALBEDO, outline_tint.rgb, outline_tint.a);
 }

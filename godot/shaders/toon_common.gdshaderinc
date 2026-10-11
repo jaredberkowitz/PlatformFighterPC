@@ -1,5 +1,8 @@
 // The soft cel material's body, shared by toon.gdshader (one-sided) and toon_cloth.gdshader (two-sided).
 
+global uniform vec4 pf_paint_warm;
+global uniform vec4 pf_paint_cool;
+global uniform float pf_paint_amount;
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable, hint_default_white;
 uniform bool use_tex = false;
@@ -47,11 +50,19 @@ void fragment() {
 			vec2 p = abs(world_normal.y) > 0.5 ? world_pos.xz : world_pos.xy;
 			float drift = sin(p.x * 0.37 + sin(p.y * 0.53) * 1.7) * sin(p.y * 0.29 + p.x * 0.11 + 1.3);
 			c *= 1.0 + world_vary * drift;
+			// And a slight drift in hue between warmer and cooler patches, slower still, so neighbouring areas differ a little.
+			float hue_drift = sin(p.x * 0.17 + 2.1 + sin(p.y * 0.23) * 1.3) * sin(p.y * 0.13 + p.x * 0.07);
+			c *= vec3(1.0) + vec3(0.035, 0.0, -0.035) * hue_drift * (world_vary / 0.08);
 		}
 	}
 	if (world_tile <= 0.0) {
 		c *= brush(UV);
 	}
+	// The painted gradient (the stage's profile, scripts/lighting.gd): what faces up leans warm, what faces down leans cool. Fighters take
+	// a third of it, so their own colours stay true.
+	float up = smoothstep(0.2, 0.8, world_normal.y * 0.5 + 0.5);
+	vec3 paint = mix(pf_paint_cool.rgb, pf_paint_warm.rgb, up);
+	c *= mix(vec3(1.0), paint, pf_paint_amount * mix(1.0, 0.33, fighter));
 #ifdef PF_TWO_SIDED
 	if (hem_ink > 0.0 && FRONT_FACING) {
 		float above = (1.0 - UV.y) - hem_low;
