@@ -5,7 +5,8 @@
 //! inputs like anyone else's, replays play it back exactly, and rollback is unaffected. Its "choices" come from a hash of the frame
 //! (in windows of a few frames, so a choice holds for a moment) and the player, never from the game's own random number generator.
 //!
-//! What it does, roughly in order of priority: mashes out of a grab, DIs toward the middle of the stage, techs, and buffers a way out
+//! What it does, roughly in order of priority: mashes out of a grab, DIs toward the middle of the stage, techs (in hitstun and when
+//! landing from a tumble), and buffers a way out
 //! (air dodge, jump or aerial) at the end of hitstun when its attacker is close, picks a
 //! ledge option after a moment on the ledge, recovers to the stage (air jump, then the up special), keeps to the stage while its
 //! opponent is off it, shields an attack coming at it close in (and grabs out of the shield), and otherwise approaches and attacks
@@ -139,6 +140,16 @@ pub fn think(state: &GameState, content: &Content, me: usize, level: u8) -> Inpu
             return out;
         }
         _ => {}
+    }
+
+    // Still tumbling after a launch and about to land: a tech, sometimes (a missed one leaves it lying down).
+    if f.damage_fall
+        && f.vel.y < Fx::ZERO
+        && f.pos.y - top < Fx::from_int(2)
+        && chance(1, 10 * level)
+    {
+        press(&mut out, f, buttons::SHIELD);
+        return out;
     }
 
     // Off the stage: head back. An air jump when falling below the stage's top, then the up special once the jumps are spent.

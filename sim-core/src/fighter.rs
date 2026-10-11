@@ -238,7 +238,7 @@ pub fn update(
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
         S::JumpSquat => jump_squat(f, p, stage, rules),
-        S::Airborne => return airborne(f, p, weapon, stage),
+        S::Airborne => return airborne(f, p, weapon, stage, rules),
         S::Helpless => return helpless(f, p, stage),
         S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
@@ -708,7 +708,13 @@ fn plain_landing_lag(f: &Fighter, p: &FighterParams) -> u8 {
     }
 }
 
-fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) -> Option<u8> {
+fn airborne(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+) -> Option<u8> {
     let buffer = p.input_buffer;
     if f.air_jumps_left > 0 && f.take(buttons::JUMP, buffer) {
         f.vel.y = p.air_jump_velocity;
@@ -739,8 +745,15 @@ fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) 
         return None;
     }
     let lag = plain_landing_lag(f, p);
+    // Still tumbling from a strong launch (it has not acted since): landing is a tech, or a missed tech that leaves it lying down,
+    // as at the end of a launch.
+    let tumbling = f.damage_fall;
     if air_move(f, p, stage) {
-        enter_landing(f, lag);
+        if tumbling {
+            tumble_landing(f, rules);
+        } else {
+            enter_landing(f, lag);
+        }
         return None;
     }
     ledge_request(f, p, stage)
@@ -1907,25 +1920,30 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
             return false;
         }
         land(f, p, stage, platform);
-        // A shield press just before touching down is a tech: in place, or a roll if the stick is flicked
-        // sideways. Without one the fighter lies in a knockdown and picks a get-up.
-        let roll_dir = f.flick_x(rules.tech_window);
         f.kb_vel = Vec2::ZERO;
-        f.vel.x = Fx::ZERO;
         f.hitstun = 0;
         f.tumble = false;
-        if teched && roll_dir != 0 {
-            f.dodge_dir = Vec2::new(Fx::from_int(i32::from(roll_dir)), Fx::ZERO);
-            enter(f, S::Roll);
-        } else if teched {
-            f.invuln = f.invuln.max(rules.tech_invuln);
-            enter_landing(f, rules.tech_lag);
-        } else {
-            enter(f, S::Knockdown);
-        }
+        tumble_landing(f, rules);
         return false;
     }
     true
+}
+
+/// Touching down from a launch, or from the tumble after one: a shield press just before is a tech (in place, or a roll if the stick
+/// is flicked sideways); without one it is a missed tech and the fighter lies in a knockdown and picks a get-up.
+fn tumble_landing(f: &mut Fighter, rules: &Ruleset) {
+    let teched = tech_ready(f, rules);
+    let roll_dir = f.flick_x(rules.tech_window);
+    f.vel.x = Fx::ZERO;
+    if teched && roll_dir != 0 {
+        f.dodge_dir = Vec2::new(Fx::from_int(i32::from(roll_dir)), Fx::ZERO);
+        enter(f, S::Roll);
+    } else if teched {
+        f.invuln = f.invuln.max(rules.tech_invuln);
+        enter_landing(f, rules.tech_lag);
+    } else {
+        enter(f, S::Knockdown);
+    }
 }
 
 /// Turns a pending hit into motion at the end of hitlag. Directional influence: the part of the held stick

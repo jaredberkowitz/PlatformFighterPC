@@ -386,8 +386,12 @@ Checked against the reference game's own formula (the open SSBU calculator ports
 | Hitstun cancel | An air dodge from frame 40, an aerial from frame 45, as before, **and only once the launch has slowed below 2.5 (air dodge) or 2.0 (aerial) reference units a frame** | `hitstun_*_cancel`, `hitstun_*_cancel_speed` |
 | Fast fall | A hard press down counts up to 3 frames before the apex, and only if the stick is still held when falling starts (it had been 10 frames, held or not, which let a fast fall come out on every jump almost by itself). **An aerial ends a fast fall**: the fighter falls at its normal top speed again until it presses down anew during the move. **A tumbling fighter cannot fast fall** after its hitstun until it acts (any action, a midair jump, a landing): `Fighter::damage_fall` | `FAST_FALL_BUFFER` |
 
-Not done: landing while still tumbling (the reference's missed tech, a knockdown) is not yet modelled; a tumbling fighter that lands
-without acting simply lands.
+Missed techs: see below (sim v40).
 
 Tests: `sim-core/tests/launch_reference.rs` (the reference's hitstun table, the frame skipping, the cancel speeds, the tumble and aerial
 fast-fall rules), `ground_and_collision.rs` (the fast-fall buffer).
+
+**Missed techs (sim v40):** a fighter still tumbling after a launch's hitstun (it has not acted since: `damage_fall`) that lands is
+treated as the end of a launch: a shield press just before touching down techs (in place, or a roll with a sideways flick), and
+without one it is a missed tech and it lies in a knockdown. A fighter that acted first (an aerial, an air dodge, a midair jump) lands
+normally. The computer techs these sometimes. Test: `launch_reference.rs`.

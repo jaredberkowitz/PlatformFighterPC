@@ -129,3 +129,53 @@ fn an_aerial_ends_a_fast_fall() {
     sim.tick(inp(0, -127, 0));
     assert!(sim.f().fast_fall, "fast falls again during the aerial");
 }
+
+/// Launches player 0 hard enough to tumble, waits out the hitstun high up, then lets it fall to the stage below, giving `input` on
+/// the last few frames before it lands. Returns the state it lands in.
+fn tumble_down(act_first: bool, tech: bool) -> S {
+    let mut sim = launch(120, 80);
+    while sim.f().state == S::Hitstun {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert!(sim.f().damage_fall);
+    if act_first {
+        // A midair jump ends the tumble.
+        sim.tick(inp(0, 0, sim_core::input::buttons::JUMP));
+        assert!(!sim.f().damage_fall);
+    }
+    // Drop it just above the stage, falling.
+    let top = sim.content.stage.platforms[0].y;
+    let x = (sim.content.stage.platforms[0].left + sim.content.stage.platforms[0].right)
+        / Fx::from_int(2);
+    let f = &mut sim.state.fighters[0];
+    f.pos.x = x;
+    f.pos.y = top + Fx::ONE;
+    f.vel = sim_core::vec2::Vec2::new(Fx::ZERO, -Fx::from_ratio(1, 4));
+    for t in 0..30 {
+        let b = if tech && t == 0 { SHIELD } else { 0 };
+        sim.tick(inp(0, 0, b));
+        if sim.f().grounded() {
+            return sim.f().state;
+        }
+    }
+    panic!("never landed");
+}
+
+#[test]
+fn landing_while_still_tumbling_is_a_missed_tech_unless_teched() {
+    assert_eq!(
+        tumble_down(false, false),
+        S::Knockdown,
+        "a missed tech lies down"
+    );
+    assert_ne!(
+        tumble_down(false, true),
+        S::Knockdown,
+        "a shield press just before is a tech"
+    );
+    assert_ne!(
+        tumble_down(true, false),
+        S::Knockdown,
+        "a fighter that acted lands normally"
+    );
+}
