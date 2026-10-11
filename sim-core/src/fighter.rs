@@ -8,7 +8,10 @@
 use crate::collision;
 use crate::content::{FighterParams, Ledge, Ruleset, Stage};
 use crate::fixed::Fx;
-use crate::input::{buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FROM, STICK_THRESHOLD};
+use crate::input::{
+    buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES, STICK_FLICK_FROM,
+    STICK_THRESHOLD,
+};
 use crate::moves::{Motion, MoveId, Weapon};
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, NONE};
@@ -80,18 +83,25 @@ impl Fighter {
     }
 
     /// True if the stick was pressed down *hard and fast* within the last `frames` frames: it reached
-    /// the full threshold coming from near neutral. Merely holding down, or rolling slowly down to it,
-    /// does not count. This is the fast-fall input: a flick or hard press on a stick, a double tap
-    /// on a keyboard.
+    /// the full threshold coming from near neutral within `STICK_FLICK_FRAMES`. Merely holding down, or
+    /// rolling slowly down to it, does not count. This is the fast-fall input: a flick or hard press on
+    /// a stick, a double tap on a keyboard.
     pub fn hard_down(&self, frames: u8) -> bool {
         let n = usize::from(frames).min(self.history.len());
         (0..n).any(|i| {
             self.history[i].stick_y <= -STICK_THRESHOLD
-                && match self.history.get(i + 1) {
-                    Some(older) => older.stick_y > -STICK_FLICK_FROM,
-                    None => true,
-                }
+                && self
+                    .history
+                    .get(i + 1)
+                    .is_none_or(|o| o.stick_y > -STICK_THRESHOLD)
+                && self.flick_started(i, |o| o.stick_y > -STICK_FLICK_FROM)
         })
+    }
+
+    /// Whether, within `STICK_FLICK_FRAMES` before history frame `crossed`, the stick was where a flick
+    /// starts (`low`): how fast it travelled to the threshold. Frames older than the history count.
+    fn flick_started(&self, crossed: usize, low: impl Fn(&Input) -> bool) -> bool {
+        (crossed + 1..=crossed + STICK_FLICK_FRAMES).any(|j| self.history.get(j).is_none_or(&low))
     }
 
     /// Direction (-1 or 1) of a horizontal flick within the last `frames` frames, or 0. A flick is
@@ -109,10 +119,8 @@ impl Fighter {
         let n = usize::from(frames).min(self.history.len());
         let crossed = (0..n).any(|i| {
             past(self.history[i].stick_x)
-                && match self.history.get(i + 1) {
-                    Some(older) => started_low(older.stick_x),
-                    None => true,
-                }
+                && self.history.get(i + 1).is_none_or(|o| !past(o.stick_x))
+                && self.flick_started(i, |o| started_low(o.stick_x))
         });
         if crossed {
             dir

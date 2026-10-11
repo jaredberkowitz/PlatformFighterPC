@@ -75,6 +75,24 @@ fn slowly_rolling_the_stick_to_full_does_not_dash() {
 }
 
 #[test]
+fn a_flick_over_two_or_three_frames_still_dashes() {
+    // A thumb on a real stick takes a frame or two to travel from the middle to the rim: still a dash.
+    for path in [[0i8, 60, 127, 127], [0, 30, 70, 127]] {
+        let mut sim = Sim::new();
+        for x in path {
+            sim.tick(inp(x, 0, 0));
+        }
+        assert_eq!(sim.f().state, S::Dash, "{path:?}");
+    }
+    // Four frames of travel (only reaching flick range on the fourth) is a deliberate roll: a walk.
+    let mut sim = Sim::new();
+    for x in [0i8, 40, 55, 70, 127] {
+        sim.tick(inp(x, 0, 0));
+        assert_ne!(sim.f().state, S::Dash, "dashed at x={x}");
+    }
+}
+
+#[test]
 fn reversing_a_dash_with_a_flick_is_a_dash_dance() {
     let mut sim = Sim::new();
     sim.ticks(4, inp(127, 0, 0));
@@ -789,6 +807,14 @@ fn a_hard_down_press_while_falling_fast_falls() {
     assert!(sim.f().fast_fall);
     sim.ticks(40, inp(0, -127, 0));
     assert_eq!(sim.f().vel.y, -sim.content.fighters[0].fast_fall_speed);
+}
+
+#[test]
+fn a_down_flick_over_two_frames_fast_falls() {
+    let mut sim = falling_sim();
+    sim.tick(inp(0, -50, 0));
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall);
 }
 
 #[test]

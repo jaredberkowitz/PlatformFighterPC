@@ -25,6 +25,10 @@ pub const STICK_DOWN: i8 = 64;
 /// A dash flick must start from below this magnitude (or the opposite side), so slowly rolling the
 /// stick up to full tilt walks instead of dashing.
 pub const STICK_FLICK_FROM: i8 = 38;
+/// How many frames a flick may take to travel from below `STICK_FLICK_FROM` to past `STICK_THRESHOLD` (dash, fast fall). A
+/// thumb on a real stick needs two or three frames for that at 60 a second; the documented reference rule (Melee's dash: past
+/// 0.8 within a 3-sample window) allows three, while one frame was too strict to hit reliably on a controller.
+pub const STICK_FLICK_FRAMES: usize = 3;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Input {
