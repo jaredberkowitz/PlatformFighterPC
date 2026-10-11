@@ -509,3 +509,7 @@ and directional knockback were already in, so they were tuned rather than rebuil
 - **Anti-aliasing**: MSAA stays at 4x (`msaa_3d=2` in `project.godot` means 4x): measured against 2x it costs about 0.1 ms of GPU
   time a frame for cleaner edges. With the machine idle the `--perf` tour ran at about 410 to 440 frames a second (GPU 1.4 ms, 456 draw
   calls).
+
+**Outlines** (`shaders/outline.gdshader`): thinner (0.0022 of the distance, 0.02 to 0.11 units), pushed out only across the screen and
+set a little back, so they rim the silhouette without cutting across the model where one part is in front of another. The pastel
+finish no longer lifts near-black (`not_ink` in `post.gdshader`): it had turned the ink outlines grey in a match.

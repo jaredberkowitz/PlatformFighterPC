@@ -856,6 +856,13 @@ pub struct Ruleset {
     /// A fighter in a long hitstun can air dodge out of it from this frame of the hitstun, and attack from the second.
     pub hitstun_dodge_cancel: u8,
     pub hitstun_attack_cancel: u8,
+    /// ...and only once the launch has slowed below these speeds (world units a frame; the reference's 2.5 and 2.0).
+    pub hitstun_dodge_cancel_speed: Fx,
+    pub hitstun_attack_cancel_speed: Fx,
+    /// Gravity boost: a tumbling launch outside the vertical band gains `gravity_boost * (gravity - gravity_boost_from)` of upward
+    /// speed, so a fighter that falls faster is launched a little higher (the reference's 5 and 0.075).
+    pub gravity_boost: Fx,
+    pub gravity_boost_from: Fx,
     /// Hitlag factor of an electric hit (for both fighters).
     pub electric_hitlag_mult: Fx,
     /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
@@ -957,6 +964,10 @@ impl Ruleset {
             stale_moves: 1,
             hitstun_dodge_cancel: 40,
             hitstun_attack_cancel: 45,
+            hitstun_dodge_cancel_speed: Fx::from_ratio(25, 80),
+            hitstun_attack_cancel_speed: Fx::from_ratio(20, 80),
+            gravity_boost: Fx::from_int(5),
+            gravity_boost_from: Fx::from_ratio(75, 8000),
             electric_hitlag_mult: Fx::from_ratio(3, 2),
             asdi_distance: Fx::from_ratio(133, 800),
             sdi_combo_hits: 5,
@@ -967,7 +978,7 @@ impl Ruleset {
             balloon_max: Fx::from_int(6),
             launch_fall_accel: Fx::from_ratio(87, 8000),
             launch_fall: Fx::from_ratio(15, 80),
-            launch_fall_frames: 10,
+            launch_fall_frames: 0,
             vertical_launch_fall: Fx::from_ratio(18, 80),
             vertical_launch_from: 70,
             vertical_launch_to: 110,
@@ -1046,6 +1057,10 @@ impl StateHash for Ruleset {
         h.write_u8(self.stale_moves);
         h.write_u8(self.hitstun_dodge_cancel);
         h.write_u8(self.hitstun_attack_cancel);
+        self.hitstun_dodge_cancel_speed.hash_into(h);
+        self.hitstun_attack_cancel_speed.hash_into(h);
+        self.gravity_boost.hash_into(h);
+        self.gravity_boost_from.hash_into(h);
         self.electric_hitlag_mult.hash_into(h);
         self.asdi_distance.hash_into(h);
         h.write_u8(self.sdi_combo_hits);

@@ -905,31 +905,33 @@ fn stopping_from_a_full_run_takes_under_ten_frames() {
     assert!(frames <= 10, "took {frames} frames to stop");
 }
 
-#[test]
-fn a_hard_press_just_before_the_apex_fast_falls_once_falling_starts() {
-    // Press hard while still rising; the fighter reaches the apex a few frames later.
+/// Puts player 0 in the air rising so that it reaches the apex after `frames` frames, then holds the stick hard down from
+/// `press_at` frames before the apex (releasing it after one frame if `tap`). Returns whether it fast fell by a few frames after.
+fn fast_fall_from(press_at: i32, tap: bool) -> bool {
     let mut sim = Sim::new();
-    sim.put_airborne(
-        0,
-        Fx::ZERO,
-        Fx::from_int(40),
-        Fx::ZERO,
-        Fx::from_ratio(1, 20),
-    );
-    sim.ticks(1, inp(0, 0, 0));
-    sim.tick(inp(0, -127, 0));
-    assert!(
-        sim.f().vel.y > Fx::ZERO,
-        "test needs the fighter still rising"
-    );
-    assert!(!sim.f().fast_fall);
-    sim.ticks(1, inp(0, 0, 0));
-    for _ in 0..8 {
-        sim.tick(inp(0, 0, 0));
+    let g = sim.content.fighters[0].gravity;
+    let frames = 8;
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, g.mul_int(frames));
+    for t in 0..frames + 4 {
+        let down = t >= frames - press_at && (!tap || t == frames - press_at);
+        sim.tick(inp(0, if down { -127 } else { 0 }, 0));
     }
+    sim.f().fast_fall
+}
+
+#[test]
+fn a_fast_fall_pressed_up_to_three_frames_before_the_apex_comes_out_if_still_held() {
     assert!(
-        sim.f().fast_fall,
-        "a recent hard press should apply once the fighter starts falling"
+        fast_fall_from(2, false),
+        "held from 2 frames before the apex"
+    );
+    assert!(
+        !fast_fall_from(7, false),
+        "held from 7 frames before: too early (the reference buffers 3)"
+    );
+    assert!(
+        !fast_fall_from(2, true),
+        "a tap let go before the apex does nothing"
     );
 }
 

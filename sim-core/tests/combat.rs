@@ -179,9 +179,16 @@ fn the_launch_follows_the_knockback_formula() {
     assert_eq!(kb, expected);
     let victim = sim.fighter(1);
     assert!(!victim.launch_pending, "the hit launches when hitlag ends");
-    // Launch speed is 0.03 reference units per knockback unit, 8 reference units per world unit.
+    // Launch speed is 0.03 reference units per knockback unit, 8 reference units per world unit. A tumbling launch also gains the
+    // gravity boost upward (5 times how much the victim's gravity exceeds the reference's 0.075).
     let expected_speed = expected * Fx::from_ratio(3, 800);
-    let speed = victim.kb_vel.length();
+    let rules = &sim.content.rules;
+    let boost = if victim.tumble {
+        rules.gravity_boost * (sim.content.fighters[1].gravity - rules.gravity_boost_from)
+    } else {
+        Fx::ZERO
+    };
+    let speed = sim_core::vec2::Vec2::new(victim.kb_vel.x, victim.kb_vel.y - boost).length();
     assert!(
         (speed - expected_speed).abs() < fx(1, 200),
         "{speed:?} vs {expected_speed:?}"

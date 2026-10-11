@@ -372,3 +372,22 @@ Three aerials people build combos around now follow the reference game's data (S
   the smashes' other hits and the down air already had their shape.
 - **The tipper must be spaced**: as in the reference game, where the blade's sourspot and the tipper both reach, the sourspot wins (`tipper_last`
   reorders the priorities: blade, then arm, then tip).
+
+## Launches and fast falls checked against the reference (sim v39)
+
+Checked against the reference game's own formula (the open SSBU calculator ports the game's code: `rubendal/SSBU-Calculator`,
+`formulas.js`, `DamageSpeedUpFrames` and `knockback.js`), not just the wiki's one worked example:
+
+| Mechanic | Behaviour | Fields |
+| --- | --- | --- |
+| Launch speed-up ("balloon") | Same curve as before (it already matched: `1 + (F - 30) / 10` at first, at most 6x, easing to one after 70% of the launch), but now it **skips whole knockback frames, gravity included**, as the reference does: the fighter follows the same path as an unhurried launch, only sooner. The real hitstun now equals the reference's to the frame (60 knockback: free on frame 24; 90: 34; 100: 36; 120: 39; 140: 41; 160: 44; 200: 50). (It had been one frame long on sped-up launches.) | `balloon_*` |
+| Gravity boost | A tumbling launch outside the 70 to 110 degree band gains `5 * (gravity - 0.075)` (reference units) of upward speed, so a fighter that falls faster is launched a little higher | `gravity_boost`, `gravity_boost_from` |
+| Launch gravity | A launched fighter falls by its own gravity from the start. (The reference's "everyone falls alike for 10 frames" is only for hits of fixed knockback, which no move here has; it had been applied to every launch and made light hits float everyone the same, which kept victims in the air longer than the reference at combo percents.) A launch between 70 and 110 degrees still falls at 1.8 for its whole hitstun | `launch_fall_frames` (now 0) |
+| Hitstun cancel | An air dodge from frame 40, an aerial from frame 45, as before, **and only once the launch has slowed below 2.5 (air dodge) or 2.0 (aerial) reference units a frame** | `hitstun_*_cancel`, `hitstun_*_cancel_speed` |
+| Fast fall | A hard press down counts up to 3 frames before the apex, and only if the stick is still held when falling starts (it had been 10 frames, held or not, which let a fast fall come out on every jump almost by itself). **An aerial ends a fast fall**: the fighter falls at its normal top speed again until it presses down anew during the move. **A tumbling fighter cannot fast fall** after its hitstun until it acts (any action, a midair jump, a landing): `Fighter::damage_fall` | `FAST_FALL_BUFFER` |
+
+Not done: landing while still tumbling (the reference's missed tech, a knockdown) is not yet modelled; a tumbling fighter that lands
+without acting simply lands.
+
+Tests: `sim-core/tests/launch_reference.rs` (the reference's hitstun table, the frame skipping, the cancel speeds, the tumble and aerial
+fast-fall rules), `ground_and_collision.rs` (the fast-fall buffer).

@@ -53,6 +53,21 @@ fn hit_tick(sim: &mut Sim, first: sim_core::Input) -> Option<usize> {
     (sim.fighter(1).percent > before).then_some(120)
 }
 
+/// A down air with a fast fall during it, as a player does it: down and attack, the stick let go, then pressed down again (an
+/// aerial ends a fast fall, and one held from before the move does not start one). Returns the tick player 1's percent first rose.
+fn dair_fast_falling(sim: &mut Sim) -> Option<usize> {
+    let before = sim.fighter(1).percent;
+    sim.tick(inp(0, -100, ATTACK));
+    sim.tick(inp(0, 0, 0));
+    for t in 3..=120 {
+        if sim.fighter(1).percent > before {
+            return Some(t - 1);
+        }
+        sim.tick(inp(0, -100, 0));
+    }
+    None
+}
+
 // ---- Sword: jab, dash attack, down air ----------------------------------------------------------------
 
 #[test]
@@ -146,12 +161,12 @@ fn the_down_air_is_a_meteor_smash_on_frame_11_only() {
     // Well under the fighter, where only the big meteor hitbox below the downward sword reaches on frame 11.
     let mut found = None;
     'search: for x in [0, 2, 4] {
-        // (The attacker fast falls with the stick held down, closing the gap as the sword comes round.)
+        // (The attacker fast falls during the move, closing the gap as the sword comes round.)
         for below in [60, 62, 64, 66, 68] {
             let mut sim = air_duel(SWORD, fx(x, 10), fx(below, 10));
             sim.state.fighters[1].percent = Fx::from_int(60);
             let before = sim.fighter(1).percent;
-            if let Some(11) = hit_tick(&mut sim, inp(0, -100, ATTACK)) {
+            if let Some(11) = dair_fast_falling(&mut sim) {
                 found = Some((sim.fighter(1).percent - before, sim));
                 break 'search;
             }
@@ -177,10 +192,15 @@ fn pct_of(sim: &Sim, tenths: i32) -> Fx {
 
 #[test]
 fn the_down_air_before_frame_11_is_the_14_percent_tip_on_frame_9() {
-    let mut sim = air_duel(SWORD, fx(24, 10), fx(12, 10));
-    sim.state.fighters[1].percent = Fx::ZERO;
-    assert_eq!(hit_tick(&mut sim, inp(0, -100, ATTACK)), Some(9));
-    assert_eq!(sim.fighter(1).percent, pct(&sim, 140));
+    // In front of and a little below the fighter, where the tip passes on frame 9.
+    let found = [24, 26, 28].iter().any(|&x| {
+        [10, 12, 14, 16].iter().any(|&below| {
+            let mut sim = air_duel(SWORD, fx(x, 10), fx(below, 10));
+            sim.state.fighters[1].percent = Fx::ZERO;
+            dair_fast_falling(&mut sim) == Some(9) && sim.fighter(1).percent == pct(&sim, 140)
+        })
+    });
+    assert!(found, "some position takes the 14% tip on frame 9");
 }
 
 // ---- Sword: grabs, throws, ledge attack --------------------------------------------------------------------

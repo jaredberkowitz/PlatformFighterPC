@@ -163,6 +163,9 @@ pub struct Fighter {
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
     pub balloon_left: Fx,
+    /// Still tumbling after a strong launch's hitstun ran out (the reference's damage fall): the fighter can act, but cannot fast fall
+    /// until it does something (any action, a midair jump, a landing).
+    pub damage_fall: bool,
     /// Hits taken in the current combo (it ends when the fighter is free again); survival DI grows with it.
     pub hits_taken: u8,
     /// Frames since the last tech press that counted (255: long ago).
@@ -337,6 +340,7 @@ impl Fighter {
             sdi_wait: 0,
             balloon_faf: 0,
             balloon_left: Fx::ZERO,
+            damage_fall: false,
             hits_taken: 0,
             tech_timer: 255,
             asdi: 0,
@@ -470,6 +474,7 @@ impl StateHash for Fighter {
         h.write_u8(self.sdi_wait);
         h.write_u8(self.balloon_faf);
         self.balloon_left.hash_into(h);
+        h.write_bool(self.damage_fall);
         h.write_u8(self.hits_taken);
         h.write_u8(self.tech_timer);
         h.write_u8(self.asdi);
@@ -779,6 +784,11 @@ mod tests {
             ("balloon_faf", {
                 let mut s = state;
                 s.fighters[0].balloon_faf = 40;
+                s
+            }),
+            ("damage_fall", {
+                let mut s = state;
+                s.fighters[0].damage_fall = true;
                 s
             }),
             ("balloon_left", {

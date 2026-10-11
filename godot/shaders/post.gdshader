@@ -118,7 +118,9 @@ void fragment() {
 	float soften = id0 < 0.6 && d0 < 400.0 ? 0.5 : 1.0;
 	float y0 = dot(col, vec3(0.3, 0.59, 0.11));
 	col = mix(col, vec3(y0), pastel_desat * soften);
-	col = mix(col, pastel_haze.rgb, pastel_lift * soften * (1.0 - smoothstep(0.0, 0.85, y0)));
+	// Darks are lifted toward the haze, but not the near-black ink of the outlines, which stays ink.
+	float not_ink = smoothstep(0.05, 0.16, y0);
+	col = mix(col, pastel_haze.rgb, pastel_lift * soften * not_ink * (1.0 - smoothstep(0.0, 0.85, y0)));
 	col = mix(col, ink.rgb, edge * line_strength);
 
 	// A warm paper tone, soft blotches like paper fibre, and a fine print grain.

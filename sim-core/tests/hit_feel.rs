@@ -215,7 +215,8 @@ fn a_long_hitstun_can_be_air_dodged_out_of_after_forty_frames() {
         f.state = S::Hitstun;
         f.state_frame = 0;
         f.hitstun = 90;
-        f.kb_vel = Vec2::new(fx(1, 2), fx(1, 2));
+        // Slow enough by frame 40 to be cancelled (a fast launch cannot be: see tests/launch_reference.rs).
+        f.kb_vel = Vec2::new(fx(1, 4), fx(1, 4));
         f.tumble = true;
     };
     launch(&mut sim);
