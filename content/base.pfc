@@ -5,8 +5,8 @@ bundle {
     schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 46
-    hash d03f980faa28058e
+    sim_version 47
+    hash 4b5602635257af97
 }
 
 ruleset {
@@ -779,6 +779,7 @@ fighter duelist {
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
+    run_turn_frames 12
     ground_accel 0.025
     ground_friction 0.02849
     run_decel 0.00749
@@ -889,6 +890,7 @@ fighter brawler {
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
+    run_turn_frames 12
     ground_accel 0.025
     ground_friction 0.0275
     run_decel 0.00749

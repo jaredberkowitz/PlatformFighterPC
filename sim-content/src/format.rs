@@ -293,6 +293,7 @@ params_io! {
     dash_turn_delay: u8,
     dash_shield_frame: u8,
     turn_frames: u8,
+    run_turn_frames: u8,
     ground_accel: Fx,
     ground_friction: Fx,
     run_decel: Fx,

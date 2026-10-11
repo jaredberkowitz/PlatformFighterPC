@@ -247,6 +247,34 @@ fn a_run_turnaround_is_a_committed_skid_that_keeps_its_momentum_for_a_jump() {
 }
 
 #[test]
+fn a_run_turnaround_is_longer_than_a_standing_turn_and_jumps_back_all_through_it() {
+    let p = duel([1, 0, 0, 0]).content.fighters[0];
+    assert!(p.run_turn_frames > p.turn_frames);
+    // A jump anywhere in the run's turnaround comes out facing back (the reverse aerial rush's window), however late.
+    for gap in 0..usize::from(p.run_turn_frames) {
+        let mut sim = duel([1, 0, 0, 0]);
+        sim.stand(1, Fx::from_int(12), -1);
+        sim.stand(0, Fx::from_int(-9), 1);
+        sim.tick(inp(0, 0, 0));
+        for _ in 0..40 {
+            sim.tick(inp(127, 0, 0));
+        }
+        sim.tick(inp(-127, 0, 0));
+        for _ in 1..gap {
+            sim.tick(inp(-127, 0, 0));
+            assert_eq!(sim.f().state, S::Turn, "gap {gap}: still turning");
+        }
+        sim.tick(inp(-127, 0, JUMP));
+        assert_eq!(sim.f().state, S::JumpSquat, "gap {gap}");
+        assert_eq!(sim.f().facing, -1, "gap {gap}");
+        // The early part keeps the run's momentum the way it was going.
+        if gap <= 4 {
+            assert!(sim.f().vel.x > Fx::ZERO, "gap {gap}: {:?}", sim.f().vel.x);
+        }
+    }
+}
+
+#[test]
 fn a_dash_attack_slides_on_traction() {
     let mut sim = duel([0, 0, 0, 0]);
     sim.stand(0, Fx::from_int(-9), 1);

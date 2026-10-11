@@ -49,6 +49,9 @@ pub struct FighterParams {
     /// A reversed dash stands still this many frames before it starts accelerating (the turnaround).
     pub dash_turn_delay: u8,
     pub turn_frames: u8,
+    /// How long a run's turnaround lasts (it skids to a stop facing the new way): longer than a turn from standing, as in the
+    /// reference game, where the run's turnaround is a visible slide. A jump in it is a reverse aerial rush, so this is that window.
+    pub run_turn_frames: u8,
     pub ground_accel: Fx,
     pub ground_friction: Fx,
     /// How fast speed above `run_speed` (left over from a dash) bleeds off while running.
@@ -280,7 +283,7 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 57] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 58] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("dash_reverse_frames", u32::from(self.dash_reverse_frames)),
@@ -390,6 +393,7 @@ impl FighterParams {
             ("roll_back_frames", u32::from(self.roll_back_frames)),
             ("dash_frames", u32::from(self.dash_frames)),
             ("turn_frames", u32::from(self.turn_frames)),
+            ("run_turn_frames", u32::from(self.run_turn_frames)),
             ("helpless_landing_lag", u32::from(self.helpless_landing_lag)),
             ("ledge_attack_frames", u32::from(self.ledge_attack_frames)),
             ("weapon", u32::from(self.weapon)),
@@ -456,6 +460,7 @@ impl FighterParams {
             dash_turn_delay: 2,
             dash_shield_frame: 5,
             turn_frames: 6,
+            run_turn_frames: 12,
             ground_accel: gu(200),
             ground_friction: gu(220),
             run_decel: gu(60),

@@ -474,7 +474,13 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         }
         S::Turn => {
             f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-            if f.state_frame >= u16::from(p.turn_frames) {
+            // (A run's skid, which keeps the run's speed for a reverse aerial rush, lasts longer than a turn from standing.)
+            let length = if f.turn_speed != Fx::ZERO {
+                p.run_turn_frames
+            } else {
+                p.turn_frames
+            };
+            if f.state_frame >= u16::from(length) {
                 // Out of a run's skid with the stick still pushed hard the new way, the fighter runs on that way.
                 let hard = input.stick_x.unsigned_abs() >= STICK_THRESHOLD.unsigned_abs();
                 f.state = if f.turn_speed != Fx::ZERO && hard && dir == f.facing {
@@ -828,7 +834,8 @@ fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 /// How long an air dodge lasts: `air_dodge_frames` for a neutral one; for a directional one, between the sideways length and the
 /// straight down (or up) one by how steep it is.
-fn air_dodge_length(p: &FighterParams, dir: Vec2) -> u16 {
+/// How many frames an air dodge in direction `dir` lasts (`Vec2::ZERO` for a neutral one).
+pub fn air_dodge_length(p: &FighterParams, dir: Vec2) -> u16 {
     if dir == Vec2::ZERO {
         return u16::from(p.air_dodge_frames);
     }
