@@ -128,6 +128,8 @@ The menus follow the concept art: a sunny fantasy world drawn entirely in code (
 - **Painted cards** (`Art.card`): cut corners, an offset ink shadow, a fill lighter at the top, a broad translucent plane and an ink
   outline. Buttons, labels, menu tiles and the roster cards are all cards; buttons and tiles repaint only when they change.
 - **Brush strokes** (`Art.brush_band`): ragged-ended bands with streaks, for titles, names, player tabs, READY badges and the ribbon.
+- **Type**: Barlow Condensed (`godot/fonts`, SIL Open Font License; the licence goes with the font, also into the desktop build's
+  folder), Bold Italic for text and ExtraBold Italic for titles, loaded by `ui_draw.gd` (`font()`, `display_font()`).
 - **Titles** (`Art.title`): live text with an ink outline and a soft shadow. **Key glyphs** (`UI.KeyBar`): the controls along the bottom.
 
 The screens:

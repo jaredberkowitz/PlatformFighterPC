@@ -134,7 +134,7 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := 14.0
 
 ## Text in the menus' display style: live text, outlined in ink, with a soft drop shadow.
 static func title(c: CanvasItem, text: String, at: Vector2, size: int, fill := Color.WHITE, outline_scale := 0.16) -> void:
-	var f := D.font()
+	var f := D.display_font()
 	var o := maxi(4, int(size * outline_scale))
 	c.draw_string_outline(f, at + Vector2(3, 4), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, o, Color(INK, 0.4))
 	c.draw_string_outline(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, o, INK)
@@ -143,7 +143,7 @@ static func title(c: CanvasItem, text: String, at: Vector2, size: int, fill := C
 
 ## The same, centred in `rect` (shrunk to fit its width).
 static func title_centered(c: CanvasItem, text: String, rect: Rect2, size: int, fill := Color.WHITE, outline_scale := 0.16) -> void:
-	var f := D.font()
+	var f := D.display_font()
 	var s := size
 	while s > 10 and f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, s).x > rect.size.x - 8.0:
 		s -= 2

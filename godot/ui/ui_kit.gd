@@ -119,7 +119,7 @@ class KeyBar extends Control:
 		var total := 0.0
 		for item in items:
 			var kw := maxf(28.0, f.get_string_size(item[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 12.0)
-			var tw := f.get_string_size(item[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			var tw := f.get_string_size(item[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
 			widths.append([kw, tw])
 			total += kw + 6.0 + tw + 18.0
 		var x := (size.x - total) * 0.5
@@ -127,7 +127,7 @@ class KeyBar extends Control:
 			var kw: float = widths[k][0]
 			Art.key_cap(self, Rect2(x, size.y * 0.5 - 12.0, kw, 24.0), items[k][0])
 			x += kw + 6.0
-			draw_string(f, Vector2(x, size.y * 0.5 + 6.0), items[k][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.9))
+			draw_string(f, Vector2(x, size.y * 0.5 + 6.0), items[k][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.9))
 			x += float(widths[k][1]) + 18.0
 
 

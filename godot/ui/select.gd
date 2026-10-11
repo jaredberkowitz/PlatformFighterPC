@@ -285,7 +285,7 @@ class Header extends Control:
 	func _draw() -> void:
 		var big := Rect2(Vector2(250, 8), Vector2(490, 74))
 		Art.brush_band(self, big, Art.INK, 3, 22.0, true, 1.0)
-		Art.title(self, "CHOOSE YOUR FIGHTER", Vector2(big.position.x + 30, big.end.y - 22), 42, Color.WHITE, 0.0)
+		Art.title(self, "CHOOSE YOUR FIGHTER", Vector2(big.position.x + 32, big.end.y - 18), 54, Color.WHITE, 0.0)
 		var small := Rect2(Vector2(22, 14), Vector2(210, 62))
 		Art.brush_band(self, small, Art.SUN, 5, 18.0, true, 0.8)
 		Art.title_centered(self, "VERSUS", small.grow_individual(-8, 0, -14, 0), 40, Art.INK, 0.0)
@@ -313,7 +313,7 @@ class Ribbon extends Control:
 		var r := Rect2(Vector2(40, 6), size - Vector2(80, 12))
 		Art.brush_band(self, r, Color("e8424a"), 21, 28.0, true, 1.6)
 		Art.brush_band(self, Rect2(r.position + Vector2(80, r.size.y * 0.7), Vector2(r.size.x - 220, r.size.y * 0.16)), Color(1, 1, 1, 0.12), 27, 6.0, false, 0.6)
-		var f := UI.D.font()
+		var f := UI.D.display_font()
 		var text := "READY TO FIGHT!"
 		var size_big := 64
 		var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_big).x

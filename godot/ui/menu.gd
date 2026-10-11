@@ -46,10 +46,10 @@ class Logo extends Control:
 	func _draw() -> void:
 		var a := Rect2(Vector2(6, 2), Vector2(380, 64))
 		Art.brush_band(self, a, Art.INK, 31, 20.0, true, 1.0)
-		Art.title_centered(self, "PLATFORM", a.grow_individual(-10, 0, -20, 0), 50, Color.WHITE, 0.0)
+		Art.title_centered(self, "PLATFORM", a.grow_individual(-10, 0, -20, 0), 62, Color.WHITE, 0.0)
 		var b := Rect2(Vector2(220, 56), Vector2(300, 62))
 		Art.brush_band(self, b, Art.SUN, 37, 18.0, true, 1.0)
-		Art.title_centered(self, "FIGHTER", b.grow_individual(-8, 0, -18, 0), 50, Art.INK, 0.0)
+		Art.title_centered(self, "FIGHTER", b.grow_individual(-8, 0, -18, 0), 62, Art.INK, 0.0)
 		Art.sparkle(self, Vector2(206, 66), 16.0, Color.WHITE)
 
 
