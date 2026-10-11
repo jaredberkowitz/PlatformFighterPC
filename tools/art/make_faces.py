@@ -18,9 +18,11 @@ MOUTH_IN = '#6b2234'
 TONGUE = '#ef7f8e'
 LID = '#fe00ff'
 
-EYES = [(160, 236), (352, 236)]
-R_EYE = 74       # the cream ring's radius
-R_PUPIL = 52
+# The face shell shows the drawing down to about row 320, so everything sits above that: eyes, cheeks level with their bottoms, and
+# the mouth just under them, as in the concept art.
+EYES = [(160, 214), (352, 214)]
+R_EYE = 70       # the cream ring's radius
+R_PUPIL = 50
 LOOK = 10        # how far the pupils sit toward the right
 
 
@@ -29,7 +31,7 @@ def svg(body):
 
 
 def cheeks(op=0.85):
-    return ''.join(f'  <ellipse cx="{x}" cy="352" rx="40" ry="27" fill="{CHEEK}" opacity="{op}"/>\n' for x in (104, 408))
+    return ''.join(f'  <ellipse cx="{x}" cy="290" rx="36" ry="22" fill="{CHEEK}" opacity="{op}"/>\n' for x in (98, 414))
 
 
 def eye(cx, cy, scale=1.0, pupil=1.0, lid_top=None, lid_tilt=0.0, lower=None, look=LOOK, uid='e'):
@@ -66,14 +68,14 @@ def line(d, w=10):
     return f'  <path d="{d}" fill="none" stroke="{INK}" stroke-width="{w}" stroke-linecap="round" stroke-linejoin="round"/>\n'
 
 
-def smile(width=34, depth=22, y=356, w=10):
+def smile(width=30, depth=18, y=292, w=10):
     return line(f'M{256 - width},{y} Q256,{y + depth} {256 + width},{y}', w)
 
 
 def open_mouth(path, tongue=True):
     out = f'  <clipPath id="m"><path d="{path}"/></clipPath>\n  <path d="{path}" fill="{MOUTH_IN}"/>\n'
     if tongue:
-        out += f'  <ellipse cx="256" cy="404" rx="30" ry="16" fill="{TONGUE}" clip-path="url(#m)"/>\n'
+        out += f'  <ellipse cx="256" cy="316" rx="24" ry="12" fill="{TONGUE}" clip-path="url(#m)"/>\n'
     return out + f'  <path d="{path}" fill="none" stroke="{INK}" stroke-width="9" stroke-linejoin="round"/>\n'
 
 
@@ -88,21 +90,21 @@ FACES = {
     # The concept art's face: open, round, a small smile.
     'deadpan': eyes() + cheeks() + smile(),
     'sleepy': eyes(lid_top=0.55) + cheeks(0.7) + smile(26, 10),
-    'grumpy': eyes(lid_top=0.36, lid_tilt=16) + cheeks(0.6) + line('M222,370 Q256,354 290,370', 10),
-    'smug': eyes(lower=0.32, lid_top=0.22) + cheeks() + line('M224,360 Q262,380 296,350', 10),
+    'grumpy': eyes(lid_top=0.36, lid_tilt=16) + cheeks(0.6) + line('M226,304 Q256,290 286,304', 10),
+    'smug': eyes(lower=0.32, lid_top=0.22) + cheeks() + line('M226,296 Q260,312 292,288', 10),
     'blink': closed_eye(*EYES[0]) + closed_eye(*EYES[1]) + cheeks() + smile(),
     'happy': closed_eye(*EYES[0], happy=True) + closed_eye(*EYES[1], happy=True) + cheeks(1.0)
-    + open_mouth('M206,350 Q256,352 306,350 Q300,420 256,424 Q212,420 206,350 Z'),
-    'focus': eyes(lid_top=0.24, lid_tilt=10) + cheeks(0.7) + line('M232,364 L280,364', 10),
+    + open_mouth('M216,286 Q256,288 296,286 Q292,322 256,324 Q220,322 216,286 Z'),
+    'focus': eyes(lid_top=0.24, lid_tilt=10) + cheeks(0.7) + line('M236,298 L276,298', 10),
     'attack': eyes(lid_top=0.3, lid_tilt=22, pupil=0.85) + cheeks(0.7)
-    + open_mouth('M214,348 L298,348 Q294,410 256,416 Q218,410 214,348 Z'),
-    'effort': line('M108,206 L196,236 L108,262', 12) + line('M404,206 L316,236 L404,262', 12) + cheeks(0.8)
-    + f'  <rect x="206" y="344" width="100" height="44" rx="14" fill="#ffffff" stroke="{INK}" stroke-width="9"/>\n'
-    + line('M206,366 L306,366', 6) + line('M240,344 L240,388', 5) + line('M272,344 L272,388', 5),
-    'hurt': line('M100,206 L188,236 L100,266', 13) + line('M412,206 L324,236 L412,266', 13) + cheeks(0.6)
-    + open_mouth('M216,382 Q232,348 256,362 Q280,348 296,382 Q256,398 216,382 Z', tongue=False),
+    + open_mouth('M220,284 L292,284 Q290,320 256,324 Q222,320 220,284 Z'),
+    'effort': line('M108,186 L196,214 L108,242', 12) + line('M404,186 L316,214 L404,242', 12) + cheeks(0.8)
+    + f'  <rect x="214" y="282" width="84" height="34" rx="12" fill="#ffffff" stroke="{INK}" stroke-width="9"/>\n'
+    + line('M214,299 L298,299', 6) + line('M242,282 L242,316', 5) + line('M270,282 L270,316', 5),
+    'hurt': line('M100,184 L188,214 L100,244', 13) + line('M412,184 L324,214 L412,244', 13) + cheeks(0.6)
+    + open_mouth('M220,312 Q234,282 256,294 Q278,282 292,312 Q256,324 220,312 Z', tongue=False),
     'shock': eyes(scale=1.08, pupil=0.55, look=0) + cheeks(0.6)
-    + f'  <ellipse cx="256" cy="378" rx="22" ry="27" fill="{MOUTH_IN}" stroke="{INK}" stroke-width="9"/>\n',
+    + f'  <ellipse cx="256" cy="302" rx="18" ry="20" fill="{MOUTH_IN}" stroke="{INK}" stroke-width="9"/>\n',
 }
 
 
@@ -116,7 +118,7 @@ def spiral(cx, cy):
             + line('M' + ' L'.join(pts), 9))
 
 
-FACES['dazed'] = spiral(*EYES[0]) + spiral(*EYES[1]) + cheeks(0.6) + line('M220,372 Q238,356 256,372 Q274,388 292,372', 10)
+FACES['dazed'] = spiral(*EYES[0]) + spiral(*EYES[1]) + cheeks(0.6) + line('M222,300 Q239,286 256,300 Q273,314 290,300', 10)
 
 for name, body in FACES.items():
     open(OUT + name + '.svg', 'w', newline='\n').write(svg(body))

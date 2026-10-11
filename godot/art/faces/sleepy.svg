@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <clipPath id="eL"><circle cx="160" cy="236" r="74.0"/></clipPath>
-  <circle cx="160" cy="236" r="74.0" fill="#fff4dc"/>
-  <circle cx="170.0" cy="238.0" r="52.0" fill="#2d1a3c"/>
-  <circle cx="150.2" cy="215.2" r="10.4" fill="#ffffff" opacity="0.9"/>
-  <g clip-path="url(#eL)"><rect x="82.0" y="102.0" width="156.0" height="141.4" fill="#fe00ff" transform="rotate(0.0 160 243.4)"/><line x1="82.0" y1="243.4" x2="238.0" y2="243.4" stroke="#2a1a33" stroke-width="10" transform="rotate(0.0 160 243.4)"/></g>
-  <circle cx="160" cy="236" r="74.0" fill="none" stroke="#2a1a33" stroke-width="9"/>
-  <clipPath id="eR"><circle cx="352" cy="236" r="74.0"/></clipPath>
-  <circle cx="352" cy="236" r="74.0" fill="#fff4dc"/>
-  <circle cx="362.0" cy="238.0" r="52.0" fill="#2d1a3c"/>
-  <circle cx="342.2" cy="215.2" r="10.4" fill="#ffffff" opacity="0.9"/>
-  <g clip-path="url(#eR)"><rect x="274.0" y="102.0" width="156.0" height="141.4" fill="#fe00ff" transform="rotate(-0.0 352 243.4)"/><line x1="274.0" y1="243.4" x2="430.0" y2="243.4" stroke="#2a1a33" stroke-width="10" transform="rotate(-0.0 352 243.4)"/></g>
-  <circle cx="352" cy="236" r="74.0" fill="none" stroke="#2a1a33" stroke-width="9"/>
-  <ellipse cx="104" cy="352" rx="40" ry="27" fill="#f59393" opacity="0.7"/>
-  <ellipse cx="408" cy="352" rx="40" ry="27" fill="#f59393" opacity="0.7"/>
-  <path d="M230,356 Q256,366 282,356" fill="none" stroke="#2a1a33" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <clipPath id="eL"><circle cx="160" cy="214" r="70.0"/></clipPath>
+  <circle cx="160" cy="214" r="70.0" fill="#fff4dc"/>
+  <circle cx="170.0" cy="216.0" r="50.0" fill="#2d1a3c"/>
+  <circle cx="151.0" cy="194.0" r="10.0" fill="#ffffff" opacity="0.9"/>
+  <g clip-path="url(#eL)"><rect x="86.0" y="84.0" width="148.0" height="137.0" fill="#fe00ff" transform="rotate(0.0 160 221.0)"/><line x1="86.0" y1="221.0" x2="234.0" y2="221.0" stroke="#2a1a33" stroke-width="10" transform="rotate(0.0 160 221.0)"/></g>
+  <circle cx="160" cy="214" r="70.0" fill="none" stroke="#2a1a33" stroke-width="9"/>
+  <clipPath id="eR"><circle cx="352" cy="214" r="70.0"/></clipPath>
+  <circle cx="352" cy="214" r="70.0" fill="#fff4dc"/>
+  <circle cx="362.0" cy="216.0" r="50.0" fill="#2d1a3c"/>
+  <circle cx="343.0" cy="194.0" r="10.0" fill="#ffffff" opacity="0.9"/>
+  <g clip-path="url(#eR)"><rect x="278.0" y="84.0" width="148.0" height="137.0" fill="#fe00ff" transform="rotate(-0.0 352 221.0)"/><line x1="278.0" y1="221.0" x2="426.0" y2="221.0" stroke="#2a1a33" stroke-width="10" transform="rotate(-0.0 352 221.0)"/></g>
+  <circle cx="352" cy="214" r="70.0" fill="none" stroke="#2a1a33" stroke-width="9"/>
+  <ellipse cx="98" cy="290" rx="36" ry="22" fill="#f59393" opacity="0.7"/>
+  <ellipse cx="414" cy="290" rx="36" ry="22" fill="#f59393" opacity="0.7"/>
+  <path d="M230,292 Q256,302 282,292" fill="none" stroke="#2a1a33" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

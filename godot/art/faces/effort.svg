@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <path d="M108,206 L196,236 L108,262" fill="none" stroke="#2a1a33" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M404,206 L316,236 L404,262" fill="none" stroke="#2a1a33" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <ellipse cx="104" cy="352" rx="40" ry="27" fill="#f59393" opacity="0.8"/>
-  <ellipse cx="408" cy="352" rx="40" ry="27" fill="#f59393" opacity="0.8"/>
-  <rect x="206" y="344" width="100" height="44" rx="14" fill="#ffffff" stroke="#2a1a33" stroke-width="9"/>
-  <path d="M206,366 L306,366" fill="none" stroke="#2a1a33" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M240,344 L240,388" fill="none" stroke="#2a1a33" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M272,344 L272,388" fill="none" stroke="#2a1a33" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M108,186 L196,214 L108,242" fill="none" stroke="#2a1a33" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M404,186 L316,214 L404,242" fill="none" stroke="#2a1a33" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="98" cy="290" rx="36" ry="22" fill="#f59393" opacity="0.8"/>
+  <ellipse cx="414" cy="290" rx="36" ry="22" fill="#f59393" opacity="0.8"/>
+  <rect x="214" y="282" width="84" height="34" rx="12" fill="#ffffff" stroke="#2a1a33" stroke-width="9"/>
+  <path d="M214,299 L298,299" fill="none" stroke="#2a1a33" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M242,282 L242,316" fill="none" stroke="#2a1a33" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M270,282 L270,316" fill="none" stroke="#2a1a33" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

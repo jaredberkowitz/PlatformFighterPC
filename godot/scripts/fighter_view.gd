@@ -1096,16 +1096,18 @@ const TORSO_RADII := Vector3(0.56, 0.42, 0.5)
 
 
 ## The glasses' fit: the design space the glasses are made in (the look's head of radius 0.8 centred 1.42 up, eyes at height 1.52 and
-## 0.32 either side) laid onto the face drawing, a square of `face_size` centred `face_centre` up (the drawings in godot/art/faces are
-## 512 square with the eyes' middles on row 228). The glasses are scaled with the drawing, so their lenses are as round as its eyes, and
-## centred GLASSES_DROP rows below the eyes' middles: on the part of the eye the drawings' heavy lids leave open, where the eyes show.
-const GLASSES_DROP := 27.0
+## 0.32 either side) laid onto the face drawing, a square of `face_size` centred `face_centre` up. The drawings in godot/art/faces are 512
+## square with the eyes' middles on row 214, 96 columns either side of the middle, and shown `face_zoom` (1.15) times larger, so on the
+## head the eyes are at row FACE_EYE_ROW and FACE_EYE_OUT columns out. The glasses are scaled with the drawing, so their lenses are as
+## round as its eyes.
+const FACE_EYE_ROW := 207.0
+const FACE_EYE_OUT := 110.0
 
 
 func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, depth: float) -> Transform3D:
-	# Design units to drawing units: the design eyes 0.32 out are the drawing's 106 rows (of 512) out, so a design unit is this much.
-	var k := face_size * (106.0 / 512.0) / 0.32
-	var eye_y := face_centre + (0.5 - (228.0 + GLASSES_DROP) / 512.0) * face_size
+	# Design units to drawing units: the design eyes 0.32 out are the drawing's FACE_EYE_OUT columns (of 512) out.
+	var k := face_size * (FACE_EYE_OUT / 512.0) / 0.32
+	var eye_y := face_centre + (0.5 - FACE_EYE_ROW / 512.0) * face_size
 	return Transform3D(Basis.from_scale(Vector3(k, k, depth_scale)), Vector3(0.0, eye_y - 1.52 * k, depth))
 
 

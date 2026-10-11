@@ -619,3 +619,6 @@ haze and the colour grade after play-testing.
   the fighter's own colour. The drawing is shown 1.15 times the shell's square (`face_zoom` in `shaders/face.gdshader`), since the
   concept's eyes are big for the head. The calm face is the one named `deadpan` in the catalog (kept, so saved fighters keep their face).
   Sheet: `docs/screenshots/faces_concept_style.png`.
+- **The face fits the shell**: the face shell shows the drawing down to about row 320 of 512, so eyes (middles on row 214), cheeks
+  (level with the bottoms of the eyes) and mouth (just under them) all sit above that; the first redraw had the mouth and cheeks
+  lower, where they were cut off. The glasses follow the eyes' place on the head (`FACE_EYE_ROW`, `FACE_EYE_OUT`).
