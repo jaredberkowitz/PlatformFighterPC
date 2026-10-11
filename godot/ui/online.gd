@@ -51,12 +51,7 @@ func _ready() -> void:
 	entries = Roster.all()
 	add_child(UI.Backdrop.new(false))
 
-	var ribbon := UI.Tag.new("Online Match", Vector2(560, 58))
-	ribbon.fill = UI.SKY
-	ribbon.font_size = 32
-	ribbon.edge = UI.INK
-	ribbon.position = Vector2(0, 14)
-	add_child(ribbon)
+	add_child(UI.ScreenTitle.new("Online match"))
 
 	column = VBoxContainer.new()
 	column.position = Vector2(40, 92)
@@ -79,28 +74,30 @@ func _ready() -> void:
 	_add_selector("time", "Time", Roster.TIME_CHOICES.map(Roster.time_text))
 	_add_selector("rules", "Rules", ["Casual", "Ranked"])
 
-	preview = Preview.new(Vector2i(420, 480), true)
-	preview.position = Vector2(640, 150)
-	add_child(preview)
-	bubble = UI.Bubble.new(Vector2(600, 120))
+	# The fighter on its own stage, and what the chosen row means above it.
+	var stage := UI.Stage.new(Vector2(560, 470), 0.25, 47)
+	stage.position = Vector2(690, 150)
+	add_child(stage)
+	preview = Preview.new(Vector2i(530, 438), false)
+	stage.add_fighter(preview)
+	bubble = UI.Bubble.new(Vector2(600, 124))
 	bubble.position = Vector2(660, 16)
 	add_child(bubble)
 
-	status = UI.Tag.new("", Vector2(700, 40))
-	status.fill = Color(1, 1, 1, 0.0)
-	status.ink = UI.GOLD
-	status.shadow = false
-	status.font_size = 22
-	status.position = Vector2(60, 612)
+	status = UI.notice(Vector2(40, 600), 620)
 	add_child(status)
 
 	connect_button = UI.Btn.new("Connect", Vector2(300, 64))
-	connect_button.position = Vector2(960, 640)
+	connect_button.position = Vector2(960, 638)
 	connect_button.activated.connect(_connect)
 	add_child(connect_button)
 	var back := UI.Btn.new("Back", Vector2(190, 64))
 	back.font_size = 30
-	back.position = Vector2(740, 640)
+	back.position = Vector2(750, 638)
+	var keys := UI.KeyBar.new([["W S", "Choose"], ["A D", "Change"], ["Enter", "Go"], ["Esc", "Back"]])
+	keys.position = Vector2(40, 672)
+	keys.size = Vector2(620, 30)
+	add_child(keys)
 	back.activated.connect(_back)
 	add_child(back)
 

@@ -147,8 +147,11 @@ The menus follow the concept art: a sunny fantasy world drawn entirely in code (
   shape, and a button's shine crosses once when it is selected. Icons share one line weight.
 - **Type hierarchy**: titles in the display face with a thin outline; subtitles and small text in the text face with only a soft shadow;
   text over a painted scene sits on a band of shade.
-- **The Play tile's scene**: the fighter stands on a layered grass-over-rock platform with a contact shadow (the same platform under the
-  fighters in character select).
+- **The Play tile's scene**: the fighter stands on a round grass-over-rock platform (its top an oval seen a little from above, lit from
+  the upper left, over the turf and the rock) with a contact shadow; the same platform is under the fighters in character select, the
+  creator and the online screen (`UI.Stage`).
+- **Every screen** opens with its name on an ink brush stroke (`UI.ScreenTitle`), keeps its keys in the key-glyph bar at the bottom, and
+  shows news (a status, a warning) in gold on a dark band (`UI.notice`), never as pale text over the sky.
 - **Brush strokes** (`Art.brush_band`): ragged-ended bands with streaks, for titles, names, player tabs, READY badges and the ribbon.
 - **Type**: Barlow Condensed (`godot/fonts`, SIL Open Font License; the licence goes with the font, also into the desktop build's
   folder), Bold Italic for text and ExtraBold Italic for titles, loaded by `ui_draw.gd` (`font()`, `display_font()`).

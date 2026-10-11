@@ -358,6 +358,14 @@ class SkyScene extends Control:
 			var sd := seed + 40 + k
 			_add(func(c): Me.cloud(c, Vector2.ZERO, s, cream.lerp(haze, 0.45), shade_c.lerp(haze, 0.55), sd), Vector2(0, h * float(b[1])), 1,
 				2.0 + 0.5 * k, float(b[0]) * w * 1.3 + w * 0.15)
+		# Two faint banks high up, almost lost in the sky's colour: depth in the open middle without drawing the eye.
+		var mid: Color = pal.mid
+		if detail > 0.5:
+			for k in 2:
+				var s := w * (0.2 + 0.05 * k)
+				var sd := seed + 60 + k
+				_add(func(c): Me.cloud(c, Vector2.ZERO, s, cream.lerp(mid, 0.72), shade_c.lerp(mid, 0.8), sd), Vector2(0, h * (0.4 + 0.05 * k)), 1,
+					1.5, w * (0.45 + 0.6 * k))
 		for k in 3:
 			var wy := h * (0.22 + 0.09 * k)
 			var ws := w * (0.16 + 0.05 * absf(Me.noise(seed + 70 + k)))
@@ -440,6 +448,26 @@ static func island(c: CanvasItem, at: Vector2, size: float, top: Color, rock: Co
 	var grass := slab.duplicate()
 	grass.append_array(lip)
 	c.draw_colored_polygon(grass, top.darkened(0.12 * shade))
+	if bare:
+		# A platform to stand on: its grass top seen a little from above, an oval lit from the upper left, with a pale rim along the front
+		# edge; the slab below it is the front of the turf.
+		var face := PackedVector2Array()
+		var rim := PackedVector2Array()
+		var centre := at + Vector2(0, -size * 0.055)
+		for k in 49:
+			var a := TAU * k / 48.0
+			var q := centre + Vector2(cos(a) * hw * 1.04, sin(a) * size * 0.05)
+			face.append(q)
+			if a > 0.15 and a < PI - 0.15:
+				rim.append(q)
+		c.draw_colored_polygon(face, top.lightened(0.1))
+		var sunlit := PackedVector2Array()
+		for k in 25:
+			var a := PI * 0.55 + PI * 1.1 * k / 24.0
+			sunlit.append(centre + Vector2(cos(a) * hw * 0.98, sin(a) * size * 0.042) + Vector2(-hw * 0.06, 0))
+		c.draw_colored_polygon(sunlit, top.lightened(0.2))
+		c.draw_polyline(rim, top.lightened(0.32), maxf(1.5, size * 0.006), true)
+		return
 	# The lit top of the grass (the left two thirds), as one broad lighter shape.
 	var light := PackedVector2Array()
 	for k in 10:

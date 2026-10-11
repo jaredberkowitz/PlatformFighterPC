@@ -20,12 +20,7 @@ var info: Control
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(UI.Backdrop.new(false))
-	var ribbon := UI.Tag.new("Controls", Vector2(520, 58))
-	ribbon.fill = UI.SKY
-	ribbon.font_size = 32
-	ribbon.edge = UI.INK
-	ribbon.position = Vector2(0, 14)
-	add_child(ribbon)
+	add_child(UI.ScreenTitle.new("Controls"))
 
 	for p in 2:
 		var head := UI.Tag.new("Player %d" % (p + 1), Vector2(420, 44))
@@ -54,27 +49,20 @@ func _ready() -> void:
 			col.append({"label": label, "key": key})
 		cells.append(col)
 
+	# A controller's layout, on a dark band so it reads over the sky.
 	info = UI.Tag.new("Controller: stick or D-pad move, A jump, X attack, B special, bumpers shield, stick click grab, right stick smash", Vector2(1160, 36))
-	info.fill = Color(1, 1, 1, 0.12)
-	info.ink = Color(1, 1, 1, 0.85)
+	info.fill = Color(UI.INK, 0.72)
+	info.ink = Color(1, 1, 1, 0.92)
 	info.font_size = 18
 	info.shadow = false
 	info.position = Vector2(60, 592)
 	add_child(info)
-	status = UI.Tag.new("", Vector2(1100, 40))
-	status.fill = Color(1, 1, 1, 0)
-	status.ink = UI.GOLD
-	status.shadow = false
-	status.font_size = 24
-	status.position = Vector2(60, 632)
+	status = UI.notice(Vector2(60, 632), 1100, 22)
 	add_child(status)
-	var hint := UI.Tag.new("Up / Down choose     Left / Right player     Enter rebind     Delete reset     Esc back", Vector2(900, 36))
-	hint.fill = Color(1, 1, 1, 0.12)
-	hint.ink = Color(1, 1, 1, 0.8)
-	hint.font_size = 20
-	hint.shadow = false
-	hint.position = Vector2(60, 676)
-	add_child(hint)
+	var keys := UI.KeyBar.new([["W S", "Choose"], ["A D", "Player"], ["Enter", "Rebind"], ["Del", "Reset"], ["Esc", "Back"]])
+	keys.position = Vector2(60, 676)
+	keys.size = Vector2(760, 30)
+	add_child(keys)
 	_show()
 	PadNav.attach(self)
 	UI.reveal(self)

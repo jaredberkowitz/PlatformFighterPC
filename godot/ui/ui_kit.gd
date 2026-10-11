@@ -136,6 +136,72 @@ class KeyBar extends Control:
 			x += float(widths[k][1]) + 18.0
 
 
+# ---- Screen pieces -------------------------------------------------------------------------------------------------
+
+class ScreenTitle extends Control:
+	## A screen's name on an ink brush stroke at the top left (as on the creator and character select).
+	var text := ""
+
+	func _init(label: String, width := 470.0) -> void:
+		text = label
+		position = Vector2(12, 8)
+		size = Vector2(width, 66)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var band := Rect2(Vector2.ZERO, Vector2(size.x, 62))
+		Art.brush_band(self, band, Art.INK, 41 + text.length(), 20.0, true, 0.9)
+		Art.title_centered(self, text.to_upper(), band.grow_individual(-10, 0, -22, 0), 44, Color.WHITE, 0.0)
+
+
+## A line of news for the player (a status, a warning) on a dark band in gold, so it reads over the sky; nothing while it is empty.
+static func notice(at: Vector2, width: float, font_size := 22) -> Tag:
+	var t := Tag.new("", Vector2(width, 38))
+	t.fill = Color(Art.INK, 0.78)
+	t.ink = Art.SUN
+	t.shadow = false
+	t.font_size = font_size
+	t.position = at
+	return t
+
+
+class Stage extends Control:
+	## A fighter's own little stage in a card: a painted scene (sky and a grass-over-rock platform) with the fighter standing on it.
+	## `add_fighter` puts a preview (preview.gd, made without its floor) in, framed so its feet are on the platform.
+	var mask: Control
+	var scene: Control
+
+	func _init(sz: Vector2, mood := 0.25, seed := 31) -> void:
+		size = sz
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mask = Mask.new()
+		mask.position = Vector2(10, 10)
+		mask.size = sz - Vector2(30, 32)
+		var m := mask.size
+		mask.set_shape(PackedVector2Array([Vector2(16, 0), Vector2(m.x, 0), Vector2(m.x, m.y - 16), Vector2(m.x - 16, m.y), Vector2(0, m.y),
+			Vector2(0, 16)]))
+		add_child(mask)
+		scene = Scene.new()
+		scene.mood = mood
+		scene.seed = seed
+		scene.size = m
+		mask.add_child(scene)
+
+	func add_fighter(preview: Control) -> void:
+		preview.spin = false
+		preview.facing_bias = 0.35
+		preview.framed = true
+		# The camera aims so the feet are on the platform (0.7 of the way down; see the creator's stage).
+		preview.body_from = Vector3(0, 1.0, 7.4)
+		preview.body_at = Vector3(0, 0.79, 0)
+		preview.position = Vector2.ZERO
+		preview.size = mask.size
+		mask.add_child(preview)
+
+	func _draw() -> void:
+		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), Art.INDIGO, 61, 20.0, 5.0, Color(1, 1, 1, 0.5))
+
+
 ## A wipe that opens a new screen: two slanted bands slide away. `UI.reveal(screen)` from a screen's `_ready`.
 class Reveal extends CanvasLayer:
 	var t := 0.0
@@ -196,6 +262,8 @@ class Tag extends Control:
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size).grow(-4)
+		if fill.a < 0.9 and text == "":
+			return
 		if fill.a < 0.9:
 			var skew_pad := rect.size.y * D.SKEW
 			D.draw_slant(self, rect, fill, D.GOLD if highlight else edge, 4.0 if highlight else 3.0, shadow)
@@ -758,7 +826,7 @@ class Bubble extends Control:
 
 	func _draw() -> void:
 		_layout()
-		D.draw_slant(self, Rect2(Vector2.ZERO, size).grow(-4), fill, D.INK, 3.0, true)
+		Art.card(self, Rect2(Vector2(4, 4), size - Vector2(14, 16)), fill, 77)
 
 
 # ---- Stat bars: how a character plays -------------------------------------------------------------------------------------------

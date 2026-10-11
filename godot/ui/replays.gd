@@ -24,12 +24,7 @@ func _ready() -> void:
 	add_child(UI.Backdrop.new(false))
 	sim = ClassDB.instantiate("SimRunner")
 	add_child(sim)
-	var ribbon := UI.Tag.new("Replays", Vector2(520, 58))
-	ribbon.fill = UI.SKY
-	ribbon.font_size = 32
-	ribbon.edge = UI.INK
-	ribbon.position = Vector2(0, 14)
-	add_child(ribbon)
+	add_child(UI.ScreenTitle.new("Replays"))
 
 	scroll = ScrollContainer.new()
 	scroll.position = Vector2(60, 100)
@@ -40,20 +35,12 @@ func _ready() -> void:
 	list.add_theme_constant_override("separation", 8)
 	scroll.add_child(list)
 
-	note = UI.Tag.new("", Vector2(1000, 44))
-	note.fill = Color(1, 1, 1, 0)
-	note.ink = UI.GOLD
-	note.shadow = false
-	note.font_size = 24
-	note.position = Vector2(60, 630)
+	note = UI.notice(Vector2(60, 630), 1000, 22)
 	add_child(note)
-	var hint := UI.Tag.new("Up / Down choose     Enter watch     Delete remove     Esc back", Vector2(760, 36))
-	hint.fill = Color(1, 1, 1, 0.12)
-	hint.ink = Color(1, 1, 1, 0.8)
-	hint.font_size = 20
-	hint.shadow = false
-	hint.position = Vector2(60, 676)
-	add_child(hint)
+	var keys := UI.KeyBar.new([["W S", "Choose"], ["Enter", "Watch"], ["Del", "Remove"], ["Esc", "Back"]])
+	keys.position = Vector2(60, 676)
+	keys.size = Vector2(620, 30)
+	add_child(keys)
 	_fill()
 	PadNav.attach(self)
 	UI.reveal(self)
