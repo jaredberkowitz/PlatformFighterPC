@@ -428,3 +428,10 @@ Refined:
 - **Portraits**: a hit of 9% or more (`HEAVY_HIT`) flashes the portrait white and the face inside winces for a moment
   (`Portrait.react`; the portrait is redrawn only for the two changes).
 
+## B-reverse (sim v45)
+
+As in the reference game: in the first `special_reverse_window` frames (4) of a neutral or side special, the stick pushed the other way
+turns the fighter round, and in the air its horizontal momentum reverses too (once per special: `Fighter::b_reversed`). A side special
+already faces the stick it was input with, so stick one way then quickly the other is a turnaround and a reverse in one (a wavebounce).
+Up specials keep their own turn (`special_turn_window`, up and back).
+

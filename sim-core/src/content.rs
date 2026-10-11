@@ -879,6 +879,9 @@ pub struct Ruleset {
     pub helpless_drift: Fx,
     /// The first frames of an up special in which pushing the stick back turns it around (an estimate).
     pub special_turn_window: u8,
+    /// A B-reverse: the stick pushed the other way in the first this many frames of a neutral or side special turns the fighter round and
+    /// reverses its momentum in the air (the reference game: within 4 frames of the special input).
+    pub special_reverse_window: u8,
     /// Hitlag factor of an electric hit (for both fighters).
     pub electric_hitlag_mult: Fx,
     /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
@@ -986,6 +989,7 @@ impl Ruleset {
             gravity_boost_from: Fx::from_ratio(75, 8000),
             helpless_drift: Fx::from_ratio(1, 2),
             special_turn_window: 3,
+            special_reverse_window: 4,
             electric_hitlag_mult: Fx::from_ratio(3, 2),
             asdi_distance: Fx::from_ratio(133, 800),
             sdi_combo_hits: 5,
@@ -1081,6 +1085,7 @@ impl StateHash for Ruleset {
         self.gravity_boost_from.hash_into(h);
         self.helpless_drift.hash_into(h);
         h.write_u8(self.special_turn_window);
+        h.write_u8(self.special_reverse_window);
         self.electric_hitlag_mult.hash_into(h);
         self.asdi_distance.hash_into(h);
         h.write_u8(self.sdi_combo_hits);

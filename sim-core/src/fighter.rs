@@ -1447,6 +1447,7 @@ pub fn free_held(f: &mut Fighter, immunity: u8) {
 pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.hit_mask = 0;
+    f.b_reversed = false;
     enter(f, S::Attack);
     f.charge = 0;
 }
@@ -1544,6 +1545,21 @@ fn attack(
         let input = f.history[0];
         if x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(f.facing) {
             f.facing = -f.facing;
+        }
+    }
+    // A B-reverse: in the first frames of a neutral or side special, the stick pushed the other way turns the fighter round, and in the
+    // air its momentum goes the other way too.
+    if matches!(id, MoveId::NSpecial | MoveId::SideSpecial)
+        && f.state_frame <= u16::from(rules.special_reverse_window)
+        && !f.b_reversed
+    {
+        let input = f.history[0];
+        if x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(f.facing) {
+            f.facing = -f.facing;
+            f.b_reversed = true;
+            if f.platform == NONE {
+                f.vel.x = -f.vel.x;
+            }
         }
     }
 
