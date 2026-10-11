@@ -22,12 +22,21 @@ class Board extends Control:
 	var last_ms := 0
 	## Each fighter's portrait (the texture of its `Portrait`).
 	var portraits: Array = []
+	## Stocks a moment ago, and when each player last lost one (ms; 0: not lately): the lost head pops off and the portrait flashes.
+	var last_stocks := [-1, -1, -1, -1]
+	var lost_at := [0, 0, 0, 0]
+	const LOST_MS := 700.0
 
 	## Notices new damage: the number shakes, harder for a bigger hit.
 	func take(d: Dictionary) -> void:
 		var now := Time.get_ticks_msec()
 		var dt := clampf((now - last_ms) / 1000.0, 0.0, 0.1) if last_ms > 0 else 0.0
 		last_ms = now
+		var stocks: Array = d.get("stocks", [])
+		for i in mini(stocks.size(), 4):
+			if last_stocks[i] >= 0 and int(stocks[i]) < last_stocks[i]:
+				lost_at[i] = now
+			last_stocks[i] = int(stocks[i])
 		var percent: Array = d.get("percent", [])
 		for i in mini(percent.size(), 4):
 			var p: float = percent[i]
@@ -105,6 +114,11 @@ class Board extends Control:
 		elif stocks <= 6:
 			for k in stocks:
 				_head(Vector2(base.x + 136 + k * 23, sy), color)
+			# The stock just lost pops off: it swells and fades where it was.
+			var since := float(Time.get_ticks_msec() - int(lost_at[i]))
+			if lost_at[i] > 0 and since < LOST_MS:
+				var k := since / LOST_MS
+				_head(Vector2(base.x + 136 + stocks * 23, sy - 10.0 * k), color, 1.0 + 1.2 * k, 1.0 - k)
 		else:
 			_head(Vector2(base.x + 136, sy), color)
 			_outlined(f, Vector2(base.x + 152, sy + 8), "x%d" % stocks, 22, Color(1, 1, 1))
@@ -156,17 +170,23 @@ class Board extends Control:
 		if tex != null:
 			draw_texture_rect(tex, r.grow(-3.0), false, Color(1, 1, 1) if not out else Color(0.55, 0.55, 0.6))
 		draw_rect(r.grow(-4.0), Color(1, 1, 1, 0.55), false, 1.5)
+		# Just lost a stock: a red flash over the portrait that fades.
+		var since := float(Time.get_ticks_msec() - int(lost_at[i]))
+		if lost_at[i] > 0 and since < LOST_MS:
+			draw_rect(r, Color(0.95, 0.2, 0.2, 0.55 * (1.0 - since / LOST_MS)))
 		draw_rect(r, D.INK, false, 4.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-	## A stock: a little round head in the player's colour with two eyes, in ink.
-	func _head(c: Vector2, color: Color) -> void:
-		draw_circle(c + Vector2(1.5, 2.5), 10.0, Color(0, 0, 0, 0.25))
-		draw_circle(c, 10.0, color.lightened(0.1))
-		draw_arc(c, 10.0, 0, TAU, 24, D.INK, 2.5, true)
-		draw_circle(c + Vector2(-3.4, -3.6), 2.6, Color(1, 1, 1, 0.55))
-		draw_circle(c + Vector2(1.5, 0.5), 1.8, D.INK)
-		draw_circle(c + Vector2(5.5, 0.5), 1.8, D.INK)
+	## A stock: a little round head in the player's colour with two eyes, in ink (`scale` and `alpha` for the one popping off).
+	func _head(c: Vector2, color: Color, scale := 1.0, alpha := 1.0) -> void:
+		var r := 10.0 * scale
+		var ink := Color(D.INK, alpha)
+		draw_circle(c + Vector2(1.5, 2.5) * scale, r, Color(0, 0, 0, 0.25 * alpha))
+		draw_circle(c, r, Color(color.lightened(0.1), alpha))
+		draw_arc(c, r, 0, TAU, 24, ink, 2.5, true)
+		draw_circle(c + Vector2(-3.4, -3.6) * scale, 2.6 * scale, Color(1, 1, 1, 0.55 * alpha))
+		draw_circle(c + Vector2(1.5, 0.5) * scale, 1.8 * scale, ink)
+		draw_circle(c + Vector2(5.5, 0.5) * scale, 1.8 * scale, ink)
 
 	## The fighter's weapon as a mark of radius `r` in one colour: a sword (class 0) or three claw marks (class 1).
 	func _emblem_mark(cls: int, c: Vector2, r: float, color: Color, width: float) -> void:

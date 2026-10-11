@@ -32,6 +32,7 @@ const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SKIN_SHADER := preload("res://shaders/skin.gdshader")
+const UIDraw := preload("res://ui/ui_draw.gd")
 const SvgArt := preload("res://scripts/svg_art.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
@@ -734,6 +735,7 @@ func build(p: int, l: RefCounted = null) -> void:
 	percent_label.font_size = 80
 	percent_label.pixel_size = 0.0075
 	percent_label.outline_size = 20
+	percent_label.font = UIDraw.font()
 	percent_label.no_depth_test = true
 	percent_label.position = Vector3(0, 4.1, 0)
 	percent_label.text = "0%"
@@ -745,6 +747,8 @@ func build(p: int, l: RefCounted = null) -> void:
 	name_label.pixel_size = 0.0075
 	name_label.outline_size = 14
 	name_label.no_depth_test = true
+	# The match display's typeface, so the player tags over the fighters match it.
+	name_label.font = UIDraw.font()
 	name_label.position = Vector3(0, 3.55, 0)
 	name_label.text = name_text
 	name_label.visible = name_text != ""

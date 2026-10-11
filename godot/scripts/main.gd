@@ -1242,6 +1242,8 @@ func _in_play(i: int) -> bool:
 
 ## A fighter was just hit (its hitlag started): the camera shakes with the hit's strength, and if the launch will knock the fighter
 ## out, it closes in on them for a moment (presentation only).
+## How far the camera aims below the fighters, per unit of distance (about 4% of the view's height), to keep them above the HUD.
+const HUD_LIFT := 0.022
 ## Hitlag (frames) above which a hit shakes the camera.
 const HIT_SHAKE_FROM := 9.0
 
@@ -1562,7 +1564,8 @@ func _update_camera(a: float, delta: float) -> void:
 	var dist := clampf(spread / 0.95, 19.0, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
-	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
+	# (Aimed a little low, by a share of the view's height, so fighters on the ground sit clear of the match display along the bottom.)
+	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6 - dist * HUD_LIFT, dist)
 	var rate := 3.5
 	if demo != null and demo.cam_focus >= 0:
 		var f: Vector2 = prev_pos[demo.cam_focus].lerp(cur_pos[demo.cam_focus], a)

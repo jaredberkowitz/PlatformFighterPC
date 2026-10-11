@@ -588,3 +588,21 @@ heavy hits and kept effects off the action:
 - **Bursts sit a little toward the hitter**, so even a big one leaves the struck fighter's face in view.
 - Effects clean themselves up (each frees itself when its life ends) and are a few small meshes each, drawn on twos.
 Light against heavy (the sword's jab and forward smash): `docs/screenshots/phase5_light_vs_heavy.png`.
+
+**Phase 6, presentation:**
+- **Camera**: it already eases position and zoom smoothly (no snaps), frames both fighters with a margin, closes in on a close
+  exchange and zooms on a finishing hit; now it also aims a little low (`HUD_LIFT`, about 4% of the view's height) so fighters on the
+  ground sit clear of the match display along the bottom. Shake is kept for strong hits (phase 5).
+- **HUD**: losing a stock is a moment of its own: the lost head swells and fades off the row and the portrait flashes red
+  (`lost_at`, `LOST_MS` in `match_hud.gd`). The damage number already jumps and shakes on each hit, the round starts with "3, 2, 1, GO!"
+  and ends with "GAME!" or "TIME!" and the results screen. The player tags over the fighters (and the training damage) now use the
+  match display's typeface.
+- **Audio**: skipped for now, as asked; the hit sounds already play on the impact frame (with the hit effect, as hitlag starts).
+- **Performance** under combat load (`--perf` tour, the machine otherwise idle): 465 frames a second, GPU 1.3 ms, render CPU 0.6 ms,
+  scripts 0.3 ms, 506 draw calls; 2 frames in 10 seconds over 25 ms (loading).
+
+**Next, essential:** play-test the readability changes at real speed (the outline hierarchy and the light/heavy hit difference are
+tuned from still frames); the other four stages have not had the grove's composition pass (their trees and props use the new
+materials, but no hand-built focal shapes or undersides). **Optional:** sound design when it is time; a damage pop when a fighter
+comes back at 0%; attack wind-up and recovery poses per move (animation work, best done with the movesets); per-stage tuning of the
+haze and the colour grade after play-testing.
