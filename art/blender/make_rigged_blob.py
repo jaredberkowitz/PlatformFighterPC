@@ -238,6 +238,8 @@ def capsule(bm, p0, r0, p1, r1):
 FACE_SIZE = 1.155
 # How far outside the base body's skin its face shell sits (where the skin bulges past the shell's ball).
 FACE_CLEARANCE = 0.006
+# How far under the skin the face shell's rim is sunk (so its edge never shows).
+FACE_RIM_SINK = 0.01
 FACE_CENTRE = 1.585
 
 
@@ -1047,13 +1049,21 @@ def build_body_meshes(rig):
     skin_bm = bmesh.new()
     skin_bm.from_mesh(skin.data)
     skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
+    # The shell's rim sinks just under the skin (the next ring in, level with it), so the head itself hides the shell's edge: no step in
+    # depth there for the ink pass to draw as a line round the face.
+    rim = {v for v in bm.verts if v.is_boundary}
+    near_rim = {e.other_vert(v) for v in rim for e in v.link_edges} - rim
     for v in bm.verts:
         out = v.co - centre
         hit = skin_tree.ray_cast(centre, out.normalized(), out.length * 1.5)
         if hit[0] is not None:
-            reach = (hit[0] - centre).length + FACE_CLEARANCE
-            if reach > out.length:
-                v.co = centre + out.normalized() * reach
+            skin_at = (hit[0] - centre).length
+            if v in rim:
+                v.co = centre + out.normalized() * (skin_at - FACE_RIM_SINK)
+            elif v in near_rim:
+                v.co = centre + out.normalized() * skin_at
+            elif skin_at + FACE_CLEARANCE > out.length:
+                v.co = centre + out.normalized() * (skin_at + FACE_CLEARANCE)
     skin_bm.free()
     face_size = 1.75 * radii.x
     face_centre = centre.z + 0.04 * radii.z
