@@ -136,6 +136,19 @@ The menus follow the concept art: a sunny fantasy world drawn entirely in code (
   only the birds and motes are redrawn, which keeps the menus cheap (repainting the whole sky each frame cost about 15 ms).
 - **Painted cards** (`Art.card`): cut corners, an offset ink shadow, a fill lighter at the top, a broad translucent plane and an ink
   outline. Buttons, labels, menu tiles and the roster cards are all cards; buttons and tiles repaint only when they change.
+- **One light** (the visual quality pass): everything is lit from the upper left (the sun's glow sits behind the logo). Card shadows
+  fall down and right (`Art.SHADOW`), islands are lit on their left with a shadowed grass lip, clouds catch light on their upper-left
+  edges, and the menu previews' own key light comes from the same side (separate from the match's lighting).
+- **Depth, not detail**: a few islands at fixed places (far ones faded into a horizon haze, near ones framing the edges), cloud banks in
+  two layers each with its own silhouette, a few high wisps, and a quiet halo. Only birds and a dozen motes move per frame; islands bob
+  and clouds drift by moving pieces drawn once.
+- **Cards share one recipe** (`Art.card`): corner cut and outline from the card's size, a soft shadow, a broad pale light shape, a top
+  highlight. Only the cards that lead get the painted rim (the Play tile, the roster cards); focus is a glow that follows the card's
+  shape, and a button's shine crosses once when it is selected. Icons share one line weight.
+- **Type hierarchy**: titles in the display face with a thin outline; subtitles and small text in the text face with only a soft shadow;
+  text over a painted scene sits on a band of shade.
+- **The Play tile's scene**: the fighter stands on a layered grass-over-rock platform with a contact shadow (the same platform under the
+  fighters in character select).
 - **Brush strokes** (`Art.brush_band`): ragged-ended bands with streaks, for titles, names, player tabs, READY badges and the ribbon.
 - **Type**: Barlow Condensed (`godot/fonts`, SIL Open Font License; the licence goes with the font, also into the desktop build's
   folder), Bold Italic for text and ExtraBold Italic for titles, loaded by `ui_draw.gd` (`font()`, `display_font()`).

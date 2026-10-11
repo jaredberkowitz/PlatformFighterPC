@@ -207,10 +207,6 @@ class PlayerPanel extends Control:
 		preview.size = Vector2(pw, 260)
 		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, -26)
 
-	func _process(delta: float) -> void:
-		t += delta
-		if is_ready:
-			queue_redraw()
 
 	func _draw() -> void:
 		var f := _frame()
@@ -222,7 +218,7 @@ class PlayerPanel extends Control:
 			sh.append(q + Vector2(7, 9))
 		draw_colored_polygon(sh, Color(Art.INK, 0.55))
 		if is_ready:
-			var glow := 0.25 + 0.15 * sin(t * 4.0)
+			var glow := 0.32
 			for k in 3:
 				var g := PackedVector2Array()
 				for q in rough:
@@ -303,11 +299,6 @@ class Ribbon extends Control:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			activated.emit()
 
-	func _process(delta: float) -> void:
-		if not visible:
-			return
-		t += delta
-		queue_redraw()
 
 	func _draw() -> void:
 		var r := Rect2(Vector2(40, 6), size - Vector2(80, 12))
@@ -319,8 +310,7 @@ class Ribbon extends Control:
 		var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_big).x
 		var x := r.position.x + (r.size.x - tw) * 0.5 - 90.0
 		var y := r.position.y + r.size.y * 0.5 + f.get_ascent(size_big) * 0.36
-		var pulse := 1.0 + 0.02 * sin(t * 5.0)
-		Art.title(self, text, Vector2(x, y), int(size_big * pulse), Color.WHITE, 0.12)
+		Art.title(self, text, Vector2(x, y), size_big, Color.WHITE, 0.12)
 		Art.title(self, "Press Start", Vector2(x + tw + 30.0, y - 8.0), 28, Color(1, 0.86, 0.8), 0.0)
 
 

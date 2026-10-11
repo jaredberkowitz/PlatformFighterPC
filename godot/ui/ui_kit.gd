@@ -68,19 +68,24 @@ class Scene extends Control:
 			ledge.queue_redraw()
 
 	func _paint_ledge(c: CanvasItem) -> void:
-		# A grassy top with a rocky face, where the fighter stands.
+		# A layered platform of grass over rock (the islands' drawing, without trees), lit from the upper left like everything else, its
+		# top at 0.7 of the way down where the fighter's feet are, and a soft contact shadow under them so the fighter stands on it.
 		var w := size.x
 		var h := size.y
-		var face := PackedVector2Array([Vector2(w * 0.12, h * 0.76), Vector2(w * 0.3, h * 0.7), Vector2(w * 0.72, h * 0.7), Vector2(w * 0.9, h * 0.76),
-			Vector2(w * 0.86, h * 1.05), Vector2(w * 0.16, h * 1.05)])
-		c.draw_colored_polygon(Art.rough(face, seed, 3.0, 24.0), Color("6a5a7e").lerp(Color("8a5a4e"), clampf(mood, 0.0, 1.0)))
-		var grass := PackedVector2Array([Vector2(w * 0.11, h * 0.76), Vector2(w * 0.3, h * 0.69), Vector2(w * 0.72, h * 0.69), Vector2(w * 0.91, h * 0.76),
-			Vector2(w * 0.88, h * 0.79), Vector2(w * 0.14, h * 0.79)])
-		c.draw_colored_polygon(Art.rough(grass, seed + 1, 2.5, 18.0), Color("5cc46a"))
-		for k in 14:
-			var x := w * (0.16 + 0.68 * k / 13.0)
-			var y := h * (0.72 if k > 2 and k < 11 else 0.76)
-			c.draw_line(Vector2(x, y), Vector2(x + Art.noise(seed + k) * 5.0, y - 9.0 - 5.0 * absf(Art.noise(seed + 30 + k))), Color("8be07a"), 2.5, true)
+		var pal: Dictionary = Art.palette(mood)
+		var span := minf(w * 0.8, h * 1.3)
+		var top_y := h * 0.7
+		Art.island(c, Vector2(w * 0.5, top_y + span * 0.08), span, Color("5cc46a").lerp(pal.grass, 0.4), pal.rock, pal.rock_light, seed + 5,
+			false, 1.0, true, true)
+		var shadow := PackedVector2Array()
+		for k in 24:
+			var a := TAU * k / 24.0
+			shadow.append(Vector2(w * 0.5 + 6.0, top_y + 2.0) + Vector2(cos(a) * span * 0.13, sin(a) * span * 0.022))
+		c.draw_colored_polygon(shadow, Color(Art.INK, 0.28))
+		var core := PackedVector2Array()
+		for q in shadow:
+			core.append(Vector2(w * 0.5 + 6.0, top_y + 2.0) + (q - Vector2(w * 0.5 + 6.0, top_y + 2.0)) * 0.6)
+		c.draw_colored_polygon(core, Color(Art.INK, 0.18))
 
 
 class Mask extends Control:
@@ -197,7 +202,7 @@ class Tag extends Control:
 			D.draw_text_centered(self, text, Rect2(rect.position.x + skew_pad * 0.5, rect.position.y, rect.size.x - skew_pad, rect.size.y), font_size, ink)
 			return
 		rect.size -= Vector2(3, 3)
-		Art.card(self, rect, fill, seed, minf(10.0, rect.size.y * 0.3), 3.0, D.GOLD if highlight else Color(0, 0, 0, 0))
+		Art.card(self, rect, fill, seed, -1.0, -1.0, D.GOLD if highlight else Color(0, 0, 0, 0))
 		D.draw_text_centered(self, text, rect, font_size, ink)
 
 
@@ -237,6 +242,7 @@ class Btn extends Control:
 	var hover := false
 	var pop := 0.0
 	var seed := 1
+	var shine := 0.0
 
 	func _init(label := "", min_size := Vector2(320, 64)) -> void:
 		text = label
@@ -252,7 +258,13 @@ class Btn extends Control:
 		var target := 1.0 if (selected or hover) and not disabled else 0.0
 		var was := pop
 		pop = move_toward(pop, target, delta * 7.0)
-		if pop != was or selected:
+		# The shine crosses once when the button is selected (brief focus feedback), then the button rests.
+		if selected and shine < 1.0:
+			shine = minf(1.0, shine + delta / 0.5)
+			queue_redraw()
+		elif not selected:
+			shine = 0.0
+		if pop != was:
 			queue_redraw()
 
 	func _gui_input(event: InputEvent) -> void:
@@ -269,14 +281,11 @@ class Btn extends Control:
 		var shown := base.lerp(accent, pop * 0.55)
 		var lift := pop * 4.0
 		var r := Rect2(rect.position - Vector2(0, lift), rect.size)
-		if pop > 0.05:
-			D.draw_glow(self, r, accent, pop, 0.0)
-		var cut := minf(14.0, rect.size.y * 0.3)
-		var shape := Art.card(self, rect, shown, seed, cut, 4.0, Color(1, 1, 1, 0.85) if selected else Color(0, 0, 0, 0), lift)
-		if selected:
-			# A shine that sweeps across now and then.
-			var sweep := fmod(Time.get_ticks_msec() / 1000.0, 2.4) / 2.4
-			var sx := lerpf(r.position.x - 40.0, r.end.x + 40.0, sweep)
+		Art.card_glow(self, r, accent, pop)
+		var shape := Art.card(self, rect, shown, seed, -1.0, -1.0, Color(0, 0, 0, 0), lift)
+		if selected and shine < 1.0:
+			# The shine, crossing once.
+			var sx := lerpf(r.position.x - 40.0, r.end.x + 40.0, shine)
 			var lean := r.size.y * D.SKEW
 			var band := PackedVector2Array([Vector2(sx, r.position.y + 2), Vector2(sx + 22, r.position.y + 2), Vector2(sx + 22 - lean, r.end.y - 2), Vector2(sx - lean, r.end.y - 2)])
 			for poly in Geometry2D.intersect_polygons(band, shape):
@@ -339,8 +348,10 @@ class Tile extends Control:
 				ch.queue_redraw()
 		queue_redraw()
 
-	const CUT := 22.0
+	const CUT := 20.0
 	var _laid := Vector2(-1, -1)
+	## The tile that leads (Play): it alone gets the painted rim.
+	var hero := false
 	## A painted scene inside the card (the Play tile's), made by `show_scene`.
 	var mask: Control
 	var scene: Control
@@ -387,10 +398,9 @@ class Tile extends Control:
 
 	func _draw() -> void:
 		var r := _card_rect()
-		if pop > 0.02:
-			D.draw_glow(self, Rect2(r.position - Vector2(0, _lift()), r.size), Color(1, 0.92, 0.6), pop, 0.0)
-		var fill := color.lerp(color.lightened(0.12), pop)
-		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, 5.0, color.lightened(0.4), _lift())
+		Art.card_glow(self, Rect2(r.position - Vector2(0, _lift()), r.size), Color(1, 0.92, 0.6), pop, CUT)
+		var fill := color.lerp(color.lightened(0.1), pop)
+		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, 4.0, Color(1, 1, 1, 0.6) if hero else Color(0, 0, 0, 0), _lift())
 		if top == null:
 			paint_text(self)
 
@@ -398,79 +408,101 @@ class Tile extends Control:
 	func paint_text(c: CanvasItem) -> void:
 		var rect := _card_rect()
 		rect.position.y -= _lift()
-		# The icon, big and pale, toward the right.
-		var box := minf(rect.size.x, rect.size.y) * 0.55
-		var ic := Vector2(rect.end.x - box * 0.62 - 6.0, rect.position.y + rect.size.y * 0.42)
+		# The icon: one size rule and one line weight for every tile, pale, with a shadow the way the light falls (down and right).
+		var short := minf(rect.size.x, rect.size.y)
+		var r := clampf(short * (0.27 if short > 200.0 else 0.21), 22.0, 64.0)
+		var ic := Vector2(rect.end.x - r * 1.25 - 10.0, rect.position.y + maxf(r * 1.2 + 8.0, rect.size.y * 0.4))
+		if rect.size.y < 110.0:
+			ic.y = rect.get_center().y
+		elif short <= 200.0:
+			ic = Vector2(rect.end.x - r - 18.0, rect.position.y + r + 16.0)
+		if mask != null:
+			# Over a painted scene the text gets a band of shade to sit on, inside the card, fading up into the picture.
+			var top_y := rect.end.y - rect.size.y * 0.3
+			var cut := CUT
+			var scrim := PackedVector2Array([Vector2(rect.position.x + 8.0, top_y), Vector2(rect.end.x - 8.0, top_y), Vector2(rect.end.x - 8.0, rect.end.y - cut - 2.0),
+				Vector2(rect.end.x - cut - 2.0, rect.end.y - 8.0), Vector2(rect.position.x + 8.0, rect.end.y - 8.0)])
+			var clear := Color(D.INK, 0.0)
+			var dark := Color(D.INK, 0.55)
+			c.draw_polygon(scrim, PackedColorArray([clear, clear, dark, dark, dark]))
 		if icon != "":
-			_icon(c, ic + Vector2(3, 4), box * 0.5, Color(D.INK, 0.35))
-			_icon(c, ic, box * 0.5, Color(1, 1, 1, 0.85 + 0.15 * pop))
-		# The title (outlined) and the subtitle at the bottom left, shrunk to fit the tile.
-		var f := D.font()
+			_icon(c, ic + Art.SHADOW * 0.5, r, Color(D.INK, 0.3))
+			_icon(c, ic, r, Color(1, 1, 1, 0.82 + 0.18 * pop))
+		# The title in the display face with a thin outline; the subtitle in the text face with only a soft shadow (outlines muddy small
+		# type). Both at the bottom left, shrunk to fit.
+		var f := D.display_font()
 		var big := clampi(int(rect.size.y * 0.2), 24, 64)
 		var room := rect.size.x - 44.0
 		while big > 16 and f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x > room:
 			big -= 2
-		var has_sub := subtitle != "" and f.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x <= room
-		var base := rect.end.y - (34.0 if has_sub else 18.0) - (6.0 if rect.size.y > 200.0 else 0.0)
-		Art.title(c, title, Vector2(rect.position.x + 20.0, base), big, Color.WHITE, 0.14)
+		var body := D.font()
+		var sub_size := 18 if rect.size.y > 200.0 else 16
+		var has_sub := subtitle != "" and body.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x <= room
+		var pad := 22.0 if rect.size.y > 200.0 else 16.0
+		var base := rect.end.y - (pad + sub_size + 8.0 if has_sub else pad)
+		Art.title(c, title, Vector2(rect.position.x + pad, base), big, Color.WHITE, 0.09)
 		if has_sub:
-			Art.title(c, subtitle, Vector2(rect.position.x + 22.0, rect.end.y - 14.0), 17, Color(1, 1, 1, 0.92), 0.0)
+			var at := Vector2(rect.position.x + pad + 2.0, rect.end.y - pad + 2.0)
+			c.draw_string(body, at + Vector2(1, 2), subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Color(D.INK, 0.45))
+			c.draw_string(body, at, subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Color(1, 1, 1, 0.92))
 
-	## Simple line icons drawn in code (original, no fonts or images).
+	## Simple line icons drawn in code (original, no fonts or images), all with the same line weight.
+	const ICON_LINE := 5.5
+
 	func _icon(canvas: CanvasItem, c: Vector2, r: float, col: Color) -> void:
-		var wdt := maxf(3.0, r * 0.09)
+		var wdt := ICON_LINE
 		match icon:
-			"play":
-				# Two round fighters squaring up, with a spark between them.
-				canvas.draw_arc(c + Vector2(-r * 0.45, r * 0.15), r * 0.38, 0, TAU, 40, col, wdt, true)
-				canvas.draw_arc(c + Vector2(r * 0.45, r * 0.15), r * 0.38, 0, TAU, 40, col, wdt, true)
-				var s := c + Vector2(0, -r * 0.45)
-				for k in 8:
-					var a := TAU * k / 8.0
-					canvas.draw_line(s + Vector2(cos(a), sin(a)) * r * 0.1, s + Vector2(cos(a), sin(a)) * r * (0.3 if k % 2 == 0 else 0.2), col, wdt * 0.8, true)
 			"online":
-				# A globe: the outline, the equator and two lines of latitude, and a meridian ellipse.
+				# A globe: the outline, the equator, two lines of latitude and a meridian.
 				canvas.draw_arc(c, r * 0.8, 0, TAU, 48, col, wdt, true)
-				canvas.draw_line(c + Vector2(-r * 0.8, 0), c + Vector2(r * 0.8, 0), col, wdt * 0.8, true)
-				for y in [-0.42, 0.42]:
+				canvas.draw_line(c + Vector2(-r * 0.8, 0), c + Vector2(r * 0.8, 0), col, wdt, true)
+				for y in [-0.45, 0.45]:
 					var half := sqrt(0.64 - y * y) * r
-					canvas.draw_line(c + Vector2(-half, y * r), c + Vector2(half, y * r), col, wdt * 0.6, true)
+					canvas.draw_line(c + Vector2(-half, y * r), c + Vector2(half, y * r), col, wdt, true)
 				var ell := PackedVector2Array()
 				for k in 33:
 					var a := TAU * k / 32.0
-					ell.append(c + Vector2(cos(a) * r * 0.36, sin(a) * r * 0.8))
-				canvas.draw_polyline(ell, col, wdt * 0.8, true)
+					ell.append(c + Vector2(cos(a) * r * 0.34, sin(a) * r * 0.8))
+				canvas.draw_polyline(ell, col, wdt, true)
 			"replays":
-				var rr := Rect2(c - Vector2(r * 0.85, r * 0.55), Vector2(r * 1.7, r * 1.1))
+				# A frame of film with a play mark.
+				var rr := Rect2(c - Vector2(r * 0.9, r * 0.6), Vector2(r * 1.8, r * 1.2))
 				canvas.draw_rect(rr, col, false, wdt)
 				for k in 5:
-					canvas.draw_rect(Rect2(rr.position + Vector2(r * 0.12 + k * r * 0.32, r * 0.06), Vector2(r * 0.14, r * 0.12)), col)
-					canvas.draw_rect(Rect2(rr.position + Vector2(r * 0.12 + k * r * 0.32, rr.size.y - r * 0.18), Vector2(r * 0.14, r * 0.12)), col)
-				canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.2, -r * 0.25), c + Vector2(r * 0.3, 0), c + Vector2(-r * 0.2, r * 0.25)]), col)
+					var x := rr.position.x + r * 0.16 + k * r * 0.33
+					canvas.draw_rect(Rect2(Vector2(x, rr.position.y + wdt), Vector2(r * 0.13, r * 0.12)), col)
+					canvas.draw_rect(Rect2(Vector2(x, rr.end.y - wdt - r * 0.12), Vector2(r * 0.13, r * 0.12)), col)
+				canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.18, -r * 0.24), c + Vector2(r * 0.3, 0), c + Vector2(-r * 0.18, r * 0.24)]), col)
 			"creator":
-				# A pencil over a star.
+				# A star.
 				var pts := PackedVector2Array()
 				for k in 10:
 					var a := -PI / 2 + TAU * k / 10.0
-					pts.append(c + Vector2(cos(a), sin(a)) * r * (0.75 if k % 2 == 0 else 0.32))
+					pts.append(c + Vector2(cos(a), sin(a)) * r * (0.82 if k % 2 == 0 else 0.36))
 				pts.append(pts[0])
 				canvas.draw_polyline(pts, col, wdt, true)
 			"controls":
-				var body := Rect2(c - Vector2(r * 0.85, r * 0.42), Vector2(r * 1.7, r * 0.84))
-				canvas.draw_rect(body, col, false, wdt)
-				canvas.draw_line(c + Vector2(-r * 0.55, 0), c + Vector2(-r * 0.25, 0), col, wdt, true)
-				canvas.draw_line(c + Vector2(-r * 0.4, -r * 0.15), c + Vector2(-r * 0.4, r * 0.15), col, wdt, true)
-				canvas.draw_circle(c + Vector2(r * 0.35, -r * 0.1), r * 0.09, col)
-				canvas.draw_circle(c + Vector2(r * 0.55, r * 0.1), r * 0.09, col)
+				# A pad: its body with two grips, a cross and two buttons.
+				var outline := PackedVector2Array()
+				for q in [Vector2(-0.55, -0.38), Vector2(0.55, -0.38), Vector2(0.78, -0.25), Vector2(0.92, 0.3), Vector2(0.8, 0.5), Vector2(0.58, 0.48),
+						Vector2(0.38, 0.22), Vector2(-0.38, 0.22), Vector2(-0.58, 0.48), Vector2(-0.8, 0.5), Vector2(-0.92, 0.3), Vector2(-0.78, -0.25),
+						Vector2(-0.55, -0.38)]:
+					outline.append(c + q * r)
+				canvas.draw_polyline(outline, col, wdt, true)
+				canvas.draw_line(c + Vector2(-r * 0.6, -r * 0.06), c + Vector2(-r * 0.26, -r * 0.06), col, wdt, true)
+				canvas.draw_line(c + Vector2(-r * 0.43, -r * 0.23), c + Vector2(-r * 0.43, r * 0.11), col, wdt, true)
+				canvas.draw_circle(c + Vector2(r * 0.32, -r * 0.14), wdt * 0.85, col)
+				canvas.draw_circle(c + Vector2(r * 0.52, r * 0.04), wdt * 0.85, col)
 			"editors":
 				# A wrench.
-				canvas.draw_line(c + Vector2(-r * 0.55, r * 0.55), c + Vector2(r * 0.2, -r * 0.2), col, wdt * 1.6, true)
-				canvas.draw_arc(c + Vector2(r * 0.35, -r * 0.35), r * 0.3, PI * 0.9, PI * 2.6, 24, col, wdt * 1.4, true)
+				canvas.draw_line(c + Vector2(-r * 0.6, r * 0.6), c + Vector2(r * 0.12, -r * 0.12), col, wdt * 1.4, true)
+				canvas.draw_arc(c + Vector2(r * 0.34, -r * 0.34), r * 0.32, PI * 0.95, PI * 2.55, 24, col, wdt, true)
 			"quit":
-				var door := Rect2(c - Vector2(r * 0.5, r * 0.7), Vector2(r * 0.7, r * 1.4))
+				# A door and the way out.
+				var door := Rect2(c - Vector2(r * 0.65, r * 0.75), Vector2(r * 0.75, r * 1.5))
 				canvas.draw_rect(door, col, false, wdt)
-				canvas.draw_line(c + Vector2(0, 0), c + Vector2(r * 0.8, 0), col, wdt, true)
-				canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.8, -r * 0.2), c + Vector2(r * 1.05, 0), c + Vector2(r * 0.8, r * 0.2)]), col)
+				canvas.draw_line(c + Vector2(-r * 0.15, 0), c + Vector2(r * 0.7, 0), col, wdt, true)
+				canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.62, -r * 0.28), c + Vector2(r * 1.0, 0), c + Vector2(r * 0.62, r * 0.28)]), col)
 
 
 # ---- Round arrow button ------------------------------------------------------------------------------------------

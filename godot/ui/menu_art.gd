@@ -92,44 +92,74 @@ static func brush_band(c: CanvasItem, rect: Rect2, fill: Color, seed: int, lean 
 	c.draw_line(Vector2(x0 + lean + 6.0, y0 + 3.0), Vector2(x1 + lean * 0.5 - 8.0, y0 + 3.0), Color(1, 1, 1, 0.3 * fill.a), 2.0, true)
 
 
-## A card: an angled panel (corners cut on the top left and bottom right), an offset shadow, the fill lighter toward the top, a broad
-## translucent plane across it, a pale inner highlight along the top and left, and a thick ink outline. `border` adds a painted rim
-## in that colour inside the outline (the roster cards).
-static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := 14.0, outline := 4.0, border := Color(0, 0, 0, 0), lift := 0.0) -> PackedVector2Array:
+## The light: everything in the menus is lit from the upper left (the sun's glow is behind the logo), so shadows fall down and to the right
+## by this much, highlights sit on upper-left edges, and islands are lit on their left.
+const SHADOW := Vector2(6, 8)
+
+
+## A card: an angled panel (corners cut on the top left and bottom right) with one recipe everywhere: a soft offset shadow, the fill
+## lighter toward the top, a broad pale shape across its upper part (the light falling on it), a highlight along the top edge, and an
+## ink outline. `cut` and `outline` below zero pick the standard ones for the card's size (corners 13% of its short side, 8 to 20; a 4
+## outline, 3 on small cards), so every card shares one shape language. `border` adds a painted rim inside the outline: kept for the
+## few cards that should lead (the Play tile, the roster cards).
+static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0, outline := -1.0, border := Color(0, 0, 0, 0), lift := 0.0) -> PackedVector2Array:
 	var r := rect
 	r.position.y -= lift
-	var p := PackedVector2Array([
-		r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.end.y - cut),
-		Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x, r.end.y), r.position + Vector2(0, cut)])
-	var shape := rough(p, seed, 1.2, 26.0)
+	var short := minf(r.size.x, r.size.y)
+	if cut < 0.0:
+		cut = clampf(short * 0.13, 8.0, 20.0)
+	if outline < 0.0:
+		outline = 3.0 if short < 50.0 else 4.0
+	var shape := card_shape(r, cut, seed)
 	var sh := PackedVector2Array()
 	for q in shape:
-		sh.append(q + Vector2(6, 8 + lift * 0.6))
-	c.draw_colored_polygon(sh, Color(INK, 0.5))
-	var top := fill.lightened(0.14)
-	var bottom := fill.darkened(0.12)
+		sh.append(q + SHADOW + Vector2(0, lift * 0.6))
+	c.draw_colored_polygon(sh, Color(INK, 0.32 * fill.a))
+	var top := fill.lightened(0.12)
+	var bottom := fill.darkened(0.14)
 	var cols := PackedColorArray()
 	for q in shape:
 		cols.append(top.lerp(bottom, clampf((q.y - r.position.y) / maxf(r.size.y, 1.0), 0.0, 1.0)))
 	c.draw_polygon(shape, cols)
-	# A broad translucent plane across the lower right.
-	var plane := PackedVector2Array([Vector2(r.position.x + r.size.x * 0.45, r.end.y), Vector2(r.end.x, r.position.y + r.size.y * 0.25),
-		Vector2(r.end.x, r.end.y - cut), Vector2(r.end.x - cut, r.end.y)])
-	c.draw_colored_polygon(plane, Color(0, 0, 0, 0.1))
+	# The light falling across the upper part: one broad pale shape with a slanted lower edge.
+	var band := PackedVector2Array([r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.position.y + r.size.y * 0.22),
+		Vector2(r.position.x, r.position.y + r.size.y * 0.46), r.position + Vector2(0, cut)])
+	c.draw_colored_polygon(band, Color(1, 1, 1, 0.07 * fill.a))
 	if border.a > 0.0:
 		var inner := PackedVector2Array()
 		var centre := r.get_center()
 		for q in shape:
 			inner.append(centre + (q - centre) * Vector2(1.0 - 14.0 / r.size.x, 1.0 - 14.0 / r.size.y))
 		inner.append(inner[0])
-		c.draw_polyline(inner, border, 6.0, true)
-	# The highlight along the top and the left.
-	c.draw_line(r.position + Vector2(cut + 4.0, 4.0), Vector2(r.end.x - 6.0, r.position.y + 4.0), Color(1, 1, 1, 0.32), 2.5, true)
-	c.draw_line(r.position + Vector2(4.0, cut + 4.0), Vector2(r.position.x + 4.0, r.end.y - 8.0), Color(1, 1, 1, 0.18), 2.0, true)
+		c.draw_polyline(inner, border, 5.0, true)
+	c.draw_line(r.position + Vector2(cut + 3.0, outline * 0.5 + 2.5), Vector2(r.end.x - 5.0, r.position.y + outline * 0.5 + 2.5),
+		Color(1, 1, 1, 0.3 * fill.a), 2.5, true)
 	var closed := shape.duplicate()
 	closed.append(shape[0])
 	c.draw_polyline(closed, INK, outline, true)
 	return shape
+
+
+## The card's outline (cut corners, its edges very slightly uneven, as if inked by hand).
+static func card_shape(r: Rect2, cut: float, seed: int) -> PackedVector2Array:
+	var p := PackedVector2Array([
+		r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.end.y - cut),
+		Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x, r.end.y), r.position + Vector2(0, cut)])
+	return rough(p, seed, 1.0, 30.0)
+
+
+## Focus feedback for a card: a few soft rings of `colour` that follow its shape (not a box), `strength` 0..1.
+static func card_glow(c: CanvasItem, rect: Rect2, colour: Color, strength: float, cut := -1.0) -> void:
+	if strength <= 0.01:
+		return
+	if cut < 0.0:
+		cut = clampf(minf(rect.size.x, rect.size.y) * 0.13, 8.0, 20.0)
+	for k in 3:
+		var g := rect.grow(3.0 + k * 4.0)
+		var shape := PackedVector2Array([g.position + Vector2(cut + k * 2.0, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - cut - k * 2.0),
+			Vector2(g.end.x - cut - k * 2.0, g.end.y), Vector2(g.position.x, g.end.y), g.position + Vector2(0, cut + k * 2.0)])
+		shape.append(shape[0])
+		c.draw_polyline(shape, Color(colour, (0.55 - k * 0.17) * strength), 4.0, true)
 
 
 ## Text in the menus' display style: live text, outlined in ink, with a soft drop shadow.
@@ -195,9 +225,17 @@ static func sky_base(c: CanvasItem, rect: Rect2, mood: float) -> void:
 		var y1: float = o.y + h * float(bands[k + 1][0])
 		c.draw_polygon(PackedVector2Array([Vector2(o.x, y0), Vector2(o.x + w, y0), Vector2(o.x + w, y1), Vector2(o.x, y1)]),
 			PackedColorArray([bands[k][1], bands[k][1], bands[k + 1][1], bands[k + 1][1]]))
-	var sun_at := o + Vector2(w * 0.66, h * 0.1)
+	# The sun's glow, upper left (where the light comes from), behind the title.
+	var sun_at := o + Vector2(w * 0.2, h * 0.04)
 	for k in 6:
-		c.draw_circle(sun_at, h * (0.08 + k * 0.06), Color(SUN.lerp(Color.WHITE, 0.5), 0.05))
+		c.draw_circle(sun_at, h * (0.08 + k * 0.07), Color(SUN.lerp(Color.WHITE, 0.55), 0.05))
+	# Haze lying along the horizon, where the far islands and clouds sit: depth without detail.
+	var hz := o.y + h * 0.66
+	var hc := low.lerp(Color.WHITE, 0.35)
+	c.draw_polygon(PackedVector2Array([Vector2(o.x, hz - h * 0.12), Vector2(o.x + w, hz - h * 0.12), Vector2(o.x + w, hz), Vector2(o.x, hz)]),
+		PackedColorArray([Color(hc, 0.0), Color(hc, 0.0), Color(hc, 0.35), Color(hc, 0.35)]))
+	c.draw_polygon(PackedVector2Array([Vector2(o.x, hz), Vector2(o.x + w, hz), Vector2(o.x + w, hz + h * 0.14), Vector2(o.x, hz + h * 0.14)]),
+		PackedColorArray([Color(hc, 0.35), Color(hc, 0.35), Color(hc, 0.0), Color(hc, 0.0)]))
 
 
 class Piece extends Control:
@@ -278,28 +316,29 @@ class SkyScene extends Control:
 		_add(func(c): Me.sky_base(c, full, m), Vector2.ZERO)
 		var sun_at := Vector2(w * 0.66, h * 0.1)
 		var halo_r := w * 0.11
-		_add(func(c): Me._halo_rings(c, Vector2.ZERO, halo_r, 1.0), sun_at + Vector2(0, h * 0.02))
-		var rng := RandomNumberGenerator.new()
-		rng.seed = seed
-		# Far islands in the haze, small and pale.
+		# The halo is a quiet landmark, not a focal point: the UI leads. Its few sparkles stay put.
+		_add(func(c): Me._halo_rings(c, Vector2.ZERO, halo_r, 0.5), sun_at + Vector2(0, h * 0.02))
+		_add(func(c):
+			for k in 3:
+				var a := TAU * (0.1 + k * 0.31)
+				Me.sparkle(c, Vector2(cos(a) * halo_r * 1.2, sin(a) * halo_r * 0.34), 5.0, Color(1, 1, 1, 0.55)), sun_at + Vector2(0, h * 0.02))
+		# Far islands in the haze: a few, spread along a band at the horizon (fixed places, so the picture is always the same).
 		var far: Color = pal.far
-		for k in int(6 * detail) + 1:
-			var x := w * (0.05 + 0.9 * rng.randf())
-			var y := h * rng.randf_range(0.3, 0.55)
-			var s := w * rng.randf_range(0.035, 0.07)
-			var castle := rng.randf() < 0.4
+		var far_spots := [[0.16, 0.47, 0.05, false], [0.44, 0.52, 0.035, true], [0.6, 0.44, 0.045, false], [0.86, 0.5, 0.04, true]]
+		for k in far_spots.size() if detail > 0.5 else 2:
+			var f: Array = far_spots[k]
+			var s: float = w * float(f[2])
+			var castle: bool = f[3]
 			var sd := seed * 31 + k
-			_add(func(c): Me.island(c, Vector2.ZERO, s, far, far.darkened(0.08), far.lightened(0.1), sd, castle, 0.0), Vector2(x, y), 0, 0.35, k, 2.0)
-		# Near islands: the castle island under the halo, one large at each side, two small high up.
+			_add(func(c): Me.island(c, Vector2.ZERO, s, far, far.darkened(0.06), far.lightened(0.08), sd, castle, 0.0),
+				Vector2(w * float(f[0]), h * float(f[1])), 0, 0.35, k, 2.0)
+		# Near islands: the castle island under the halo and one at each edge, half off screen, framing the middle.
 		var grass: Color = pal.grass
 		var rock: Color = pal.rock
 		var light: Color = pal.rock_light
-		var near := [[sun_at + Vector2(0, h * 0.22), 0.075, 1, true, 1.0, true, 0.3, 0.0, 3.0],
-			[Vector2(w * 0.06, h * 0.28), 0.12, 2, false, 1.0, false, 0.25, 1.0, 3.0],
-			[Vector2(w * 0.95, h * 0.33), 0.11, 3, true, 1.0, false, 0.28, 2.0, 3.0]]
-		if detail > 0.5:
-			near.append([Vector2(w * 0.3, h * 0.12), 0.045, 4, false, 0.7, false, 0.33, 3.0, 2.0])
-			near.append([Vector2(w * 0.83, h * 0.12), 0.04, 5, false, 0.7, false, 0.31, 4.0, 2.0])
+		var near := [[sun_at + Vector2(0, h * 0.22), 0.07, 1, true, 1.0, true, 0.3, 0.0, 3.0],
+			[Vector2(w * 0.03, h * 0.3), 0.12, 2, false, 1.0, false, 0.25, 1.0, 3.0],
+			[Vector2(w * 0.97, h * 0.36), 0.1, 3, false, 1.0, false, 0.28, 2.0, 3.0]]
 		for n in near:
 			var s: float = w * float(n[1])
 			var sd: int = seed * 7 + int(n[2])
@@ -307,22 +346,29 @@ class SkyScene extends Control:
 			var shade: float = n[4]
 			var tall: bool = n[5]
 			_add(func(c): Me.island(c, Vector2.ZERO, s, grass, rock, light, sd, castle, shade, tall), n[0], 0, n[6], n[7], n[8])
-		# Banks of cloud along the bottom, drifting slowly, and a few at the sides.
+		# Clouds in two layers: smaller banks far off at the horizon, faded into the haze, and a few big ones near, low and half off the
+		# bottom; between them some thin wisps. Each bank has its own silhouette; they drift slowly, the near ones a little faster.
 		var cream: Color = pal.cream
 		var shade_c: Color = pal.shade
-		var count := int(9 * detail) + 3
-		for k in count:
-			var u := float(k) / (count - 1)
-			var y := h * (0.8 + 0.12 * Me.noise(seed + 40 + k))
-			var s := w * (0.06 + 0.03 * absf(Me.noise(seed + 60 + k)))
-			var sd := seed + k
-			_add(func(c): Me.cloud(c, Vector2.ZERO, s, cream, shade_c, sd), Vector2(0, y), 1, 4.0 + 2.0 * Me.noise(seed + k), u * w * 1.3)
-		for k in int(4 * detail):
-			var side := -1.0 if k % 2 == 0 else 1.0
-			var x := w * 0.02 if side < 0 else w * 0.98
-			var s := w * 0.06
-			var sd := seed + 90 + k
-			_add(func(c): Me.cloud(c, Vector2.ZERO, s, cream, shade_c, sd), Vector2(x, h * (0.5 + 0.1 * k)), 2, 0.2, k, 6.0)
+		var haze: Color = pal.low
+		var far_banks := [[0.08, 0.7, 0.16], [0.36, 0.73, 0.12], [0.62, 0.69, 0.18], [0.9, 0.72, 0.13]]
+		for k in far_banks.size() if detail > 0.5 else 2:
+			var b: Array = far_banks[k]
+			var s: float = w * float(b[2])
+			var sd := seed + 40 + k
+			_add(func(c): Me.cloud(c, Vector2.ZERO, s, cream.lerp(haze, 0.45), shade_c.lerp(haze, 0.55), sd), Vector2(0, h * float(b[1])), 1,
+				2.0 + 0.5 * k, float(b[0]) * w * 1.3 + w * 0.15)
+		for k in 3:
+			var wy := h * (0.22 + 0.09 * k)
+			var ws := w * (0.16 + 0.05 * absf(Me.noise(seed + 70 + k)))
+			var sd := seed + 70 + k
+			_add(func(c): Me.wisp(c, Vector2.ZERO, ws, Color(1, 1, 1, 0.18), sd), Vector2(0, wy), 1, 3.0, w * (0.25 + 0.4 * k))
+		var near_banks := [[0.14, 1.0, 0.3], [0.55, 1.02, 0.26], [0.92, 0.99, 0.32]]
+		for k in near_banks.size() if detail > 0.5 else 1:
+			var b: Array = near_banks[k]
+			var s: float = w * float(b[2])
+			var sd := seed + 80 + k
+			_add(func(c): Me.cloud(c, Vector2.ZERO, s, cream, shade_c, sd), Vector2(0, h * float(b[1])), 1, 4.0 + k, float(b[0]) * w * 1.3 + w * 0.15)
 		if foliage:
 			_add(func(c): Me.leaves(c, full, -1.0, 3), Vector2.ZERO)
 			_add(func(c): Me.leaves(c, full, 1.0, 9), Vector2.ZERO)
@@ -333,61 +379,84 @@ class SkyScene extends Control:
 	func _paint_live(c: CanvasItem) -> void:
 		var w := size.x
 		var h := size.y
-		for k in int(5 * detail):
-			var bx := fmod(w * (0.2 + 0.15 * k) + t * 10.0, w)
+		# A few birds far off, and a handful of motes rising slowly (quiet ambient movement; nothing is built per frame).
+		var bird := Color(1, 1, 1, 0.7)
+		for k in int(3 * detail):
+			var bx := fmod(w * (0.2 + 0.27 * k) + t * 9.0, w)
 			var by := h * (0.18 + 0.05 * Me.noise(seed + 200 + k))
-			var flap := sin(t * 6.0 + k) * 2.0
-			c.draw_polyline(PackedVector2Array([Vector2(bx - 6, by - 2 + flap), Vector2(bx, by + 1), Vector2(bx + 6, by - 2 + flap)]), Color(1, 1, 1, 0.75), 1.6, true)
-		for k in int(26 * detail):
+			var flap := sin(t * 5.0 + k) * 2.0
+			c.draw_line(Vector2(bx - 6, by - 2 + flap), Vector2(bx, by + 1), bird, 1.6, true)
+			c.draw_line(Vector2(bx, by + 1), Vector2(bx + 6, by - 2 + flap), bird, 1.6, true)
+		for k in int(12 * detail):
 			var mx := w * absf(Me.noise(seed + 400 + k))
-			var my := fmod(h * absf(Me.noise(seed + 500 + k)) - t * (6.0 + 4.0 * absf(Me.noise(seed + 600 + k))) + h * 4.0, h)
-			var a := 0.25 + 0.25 * sin(t * 2.0 + k)
-			if k % 5 == 0:
-				Me.sparkle(c, Vector2(mx, my), 4.0 + 3.0 * absf(Me.noise(seed + 700 + k)), Color(1, 1, 1, a + 0.2))
-			else:
-				c.draw_circle(Vector2(mx, my), 1.6, Color(GLOW, a))
-		var centre := Vector2(w * 0.66, h * 0.12)
-		var r := w * 0.11
-		for k in 4:
-			var a := t * 0.4 + TAU * k / 4.0
-			Me.sparkle(c, centre + Vector2(cos(a) * r * 1.2, sin(a) * r * 0.34), 5.0, Color(1, 1, 1, 0.7))
+			var my := fmod(h * absf(Me.noise(seed + 500 + k)) - t * (4.0 + 3.0 * absf(Me.noise(seed + 600 + k))) + h * 4.0, h)
+			c.draw_circle(Vector2(mx, my), 1.6, Color(GLOW, 0.3 + 0.12 * sin(t * 1.2 + k)))
 
 
-## A floating island centred at `at`, `size` wide: a grassy top, a jagged rocky underside narrowing to a point, a few lighter strata, a
-## thin waterfall, and optionally a castle (`castle`), drawn with `shade` 0..1 of the near islands' contrast (0 for a pale far one).
+## A floating island centred at `at`, `size` wide: a grassy slab with a lip that overhangs and drips a little, over a body of rock
+## that tapers to a main point with smaller ones beside it. Lit from the upper left: the left facets of the rock are lighter, the lip
+## casts a band of shadow on the rock, and the grass catches light along its top. `shade` (0..1) is how much of that light and shadow it
+## gets (0 for a pale one far off in the haze); `castle` puts a castle on it, `tall` makes its rock longer.
 static func island(c: CanvasItem, at: Vector2, size: float, top: Color, rock: Color, rock_light: Color, seed: int, castle := false, shade := 1.0,
-		tall := false) -> void:
+		tall := false, bare := false) -> void:
 	var hw := size * 0.5
-	var under := PackedVector2Array([at + Vector2(-hw, 0)])
-	var n := 7
-	for k in range(1, n):
-		var u := float(k) / n
-		var depth := size * (0.55 + 0.25 * absf(noise(seed + k))) * sin(u * PI) * (1.3 if tall else 1.0)
-		under.append(at + Vector2(-hw + size * u + noise(seed + 20 + k) * size * 0.04, depth))
-	under.append(at + Vector2(hw, 0))
-	c.draw_colored_polygon(rough(under, seed, size * 0.02, size * 0.08), rock)
-	# Lighter strata on the left of the underside.
-	var strata := PackedVector2Array([at + Vector2(-hw * 0.9, 2), at + Vector2(-hw * 0.1, 2), at + Vector2(-hw * 0.25, size * 0.35)])
-	c.draw_colored_polygon(strata, Color(rock_light, 0.6 * shade + 0.3))
-	if shade > 0.5:
-		c.draw_line(at + Vector2(hw * 0.35, size * 0.05), at + Vector2(hw * 0.35, size * 0.9), Color(1, 1, 1, 0.35), maxf(1.5, size * 0.025), true)
-	# The grassy top, a rounded cap with a lighter rim.
-	var cap := PackedVector2Array()
-	for k in 13:
-		var a := PI + PI * k / 12.0
-		cap.append(at + Vector2(cos(a) * hw * 1.05, sin(a) * size * 0.07 - size * 0.02))
-	cap.append(at + Vector2(hw * 1.02, size * 0.04))
-	cap.append(at + Vector2(-hw * 1.02, size * 0.04))
-	c.draw_colored_polygon(cap, top)
-	c.draw_line(at + Vector2(-hw * 0.8, -size * 0.07), at + Vector2(hw * 0.6, -size * 0.08), Color(top.lightened(0.3), 0.8), maxf(1.0, size * 0.02), true)
+	var depth := size * (1.05 if tall else 0.82)
+	var j := noise(seed) * size * 0.05
+	var body := PackedVector2Array([at + Vector2(-hw * 0.98, 0), at + Vector2(-hw * 0.9, size * 0.12), at + Vector2(-hw * 0.66, size * 0.2),
+		at + Vector2(-hw * 0.52, depth * 0.5), at + Vector2(-hw * 0.34, size * 0.28), at + Vector2(-hw * 0.06 + j, depth),
+		at + Vector2(hw * 0.2, size * 0.34), at + Vector2(hw * 0.4, depth * 0.56), at + Vector2(hw * 0.58, size * 0.22),
+		at + Vector2(hw * 0.88, size * 0.12), at + Vector2(hw * 0.98, 0)])
+	body = rough(body, seed, size * 0.012, size * 0.1)
+	var rock_shadow := rock.darkened(0.18 * shade)
+	c.draw_colored_polygon(body, rock_shadow)
+	# The lit facets: the left of the rock down to the main point.
+	var lit := PackedVector2Array([at + Vector2(-hw * 0.98, 0), at + Vector2(-hw * 0.9, size * 0.12), at + Vector2(-hw * 0.66, size * 0.2),
+		at + Vector2(-hw * 0.52, depth * 0.5), at + Vector2(-hw * 0.34, size * 0.28), at + Vector2(-hw * 0.06 + j, depth),
+		at + Vector2(-hw * 0.02 + j * 0.5, size * 0.3), at + Vector2(hw * 0.12, 0)])
+	c.draw_colored_polygon(rough(lit, seed + 3, size * 0.01, size * 0.1), rock.lerp(rock_light, 0.6 * shade))
+	if shade > 0.5 and not bare:
+		# A seam of strata across the rock, and a thin waterfall from under the lip.
+		c.draw_line(at + Vector2(-hw * 0.7, size * 0.16), at + Vector2(hw * 0.6, size * 0.19), Color(rock_shadow.darkened(0.15), 0.6), maxf(1.0, size * 0.012), true)
+		c.draw_line(at + Vector2(hw * 0.5, size * 0.05), at + Vector2(hw * 0.5, size * 0.75), Color(1, 1, 1, 0.3), maxf(1.2, size * 0.018), true)
+	# The grass slab: a gentle dome on top, a lip with a few drips, and the lip's shadow on the rock.
+	var slab := PackedVector2Array()
+	var steps := 14
+	for k in steps + 1:
+		var u := float(k) / steps * 2.0 - 1.0
+		slab.append(at + Vector2(u * hw * 1.06, -size * (0.05 + 0.03 * (1.0 - u * u))))
+	var lip := PackedVector2Array()
+	for k in steps + 1:
+		var u := 1.0 - float(k) / steps * 2.0
+		var drip := maxf(0.0, sin(u * 9.0 + float(seed))) * size * 0.035
+		lip.append(at + Vector2(u * hw * 1.04, size * 0.045 + drip))
+	var lip_shadow := PackedVector2Array()
+	for q in lip:
+		lip_shadow.append(q + Vector2(size * 0.01, size * 0.035))
+	if shade > 0.0:
+		var band := lip.duplicate()
+		lip_shadow.reverse()
+		band.append_array(lip_shadow)
+		c.draw_colored_polygon(band, Color(rock_shadow.darkened(0.3), 0.55 * shade))
+	var grass := slab.duplicate()
+	grass.append_array(lip)
+	c.draw_colored_polygon(grass, top.darkened(0.12 * shade))
+	# The lit top of the grass (the left two thirds), as one broad lighter shape.
+	var light := PackedVector2Array()
+	for k in 10:
+		var u := float(k) / 9.0 * 1.5 - 1.0
+		light.append(at + Vector2(u * hw * 1.0, -size * (0.05 + 0.03 * (1.0 - u * u))))
+	light.append(at + Vector2(hw * 0.3, size * 0.0))
+	light.append(at + Vector2(-hw * 0.95, size * 0.02))
+	c.draw_colored_polygon(light, top.lerp(top.lightened(0.25), shade))
 	if castle:
-		_castle(c, at + Vector2(-size * 0.05, -size * 0.05), size * (0.5 if tall else 0.35), Color(rock_light.lerp(Color.WHITE, 0.25), 1.0), Color(rock.darkened(0.1), 1.0))
-	elif shade > 0.5:
-		# A couple of round trees.
+		_castle(c, at + Vector2(-size * 0.05, -size * 0.06), size * (0.5 if tall else 0.35), Color(rock_light.lerp(Color.WHITE, 0.3), 1.0), Color(rock.darkened(0.1), 1.0))
+	elif shade > 0.5 and not bare:
+		# A couple of round trees, lit on their left.
 		for k in 2:
-			var tx := at.x + size * (-0.25 + 0.4 * k)
-			c.draw_circle(Vector2(tx, at.y - size * 0.13), size * 0.08, top.darkened(0.15))
-			c.draw_circle(Vector2(tx - size * 0.02, at.y - size * 0.15), size * 0.05, top.lightened(0.12))
+			var tx := at.x + size * (-0.25 + 0.42 * k)
+			var tr := size * (0.075 - 0.015 * k)
+			c.draw_circle(Vector2(tx, at.y - size * 0.07 - tr), tr, top.darkened(0.2))
+			c.draw_circle(Vector2(tx - tr * 0.25, at.y - size * 0.07 - tr * 1.2), tr * 0.62, top.lightened(0.12))
 
 
 static func _castle(c: CanvasItem, base: Vector2, size: float, light: Color, dark: Color) -> void:
@@ -403,18 +472,47 @@ static func _castle(c: CanvasItem, base: Vector2, size: float, light: Color, dar
 	c.draw_rect(Rect2(base.x - size * 0.35, base.y - size * 0.25, size * 0.7, size * 0.25), light)
 
 
-## A cloud of round lobes at `at`, `size` across: a lavender shadow below, the cream body, and a bright top.
+## A bank of cloud at `at` (the middle of its base), about `size` across: billows of different sizes on a flat base, the tallest a little
+## left of the middle. Lit from the upper left: a cool shadow along the base, the body, and light on the billows' upper-left edges.
+## Each `seed` gives its own silhouette.
 static func cloud(c: CanvasItem, at: Vector2, size: float, cream: Color, shade: Color, seed: int) -> void:
-	var lobes := 6
-	for pass_i in 3:
-		var col: Color = [shade, cream, cream.lerp(Color.WHITE, 0.55)][pass_i]
-		var lift: float = [0.0, -size * 0.06, -size * 0.13][pass_i]
-		var shrink: float = [1.0, 0.92, 0.55][pass_i]
-		for k in lobes:
-			var u := float(k) / (lobes - 1) - 0.5
-			var r := size * (0.22 + 0.12 * (1.0 - absf(u) * 2.0) + 0.04 * noise(seed + k)) * shrink
-			var p := at + Vector2(u * size * 1.4, -absf(noise(seed + 30 + k)) * size * 0.12 + lift)
-			c.draw_circle(p, r, col)
+	var n := 4 + int(absf(noise(seed)) * 4.0)
+	var centres := PackedVector2Array()
+	var radii := PackedFloat32Array()
+	var x := -size * 0.5
+	for k in n:
+		var u := float(k) / float(n - 1)
+		var r := size * (0.1 + 0.11 * absf(noise(seed + 10 + k))) * (0.6 + 0.55 * sin(PI * clampf(u * 1.1, 0.0, 1.0)))
+		centres.append(at + Vector2(x + r * 0.6, -r * 0.62))
+		radii.append(r)
+		x += r * (1.0 + 0.3 * absf(noise(seed + 30 + k)))
+	# Centre the bank on `at`.
+	var shift := Vector2((-size * 0.5 - (x - size * 0.5)) * 0.5 + size * 0.0, 0) + Vector2((size * 0.5 - x) * 0.5, 0)
+	var light := cream.lerp(Color.WHITE, 0.6)
+	var left := centres[0].x - radii[0] + shift.x
+	var right := centres[n - 1].x + radii[n - 1] + shift.x
+	var base_h := size * 0.07
+	# The shadow along the base, then the light rims, then the body inset from them (so only the upper-left edges stay light).
+	c.draw_rect(Rect2(Vector2(left + base_h, at.y - base_h), Vector2(right - left - base_h * 2.0, base_h * 1.6)), shade)
+	c.draw_circle(Vector2(left + base_h, at.y - base_h * 0.2), base_h, shade)
+	c.draw_circle(Vector2(right - base_h, at.y - base_h * 0.2), base_h, shade)
+	for k in n:
+		c.draw_circle(centres[k] + shift + Vector2(0, radii[k] * 0.1), radii[k], shade)
+	for k in n:
+		c.draw_circle(centres[k] + shift + Vector2(-radii[k] * 0.06, -radii[k] * 0.08), radii[k] * 0.96, light)
+	for k in n:
+		c.draw_circle(centres[k] + shift + Vector2(radii[k] * 0.08, radii[k] * 0.06), radii[k] * 0.86, cream)
+	c.draw_rect(Rect2(Vector2(left + base_h * 1.2, at.y - base_h * 1.9), Vector2(right - left - base_h * 2.4, base_h * 1.1)), cream)
+
+
+## A thin streak of high cloud, for variety between the banks.
+static func wisp(c: CanvasItem, at: Vector2, size: float, colour: Color, seed: int) -> void:
+	var pts := PackedVector2Array()
+	for k in 25:
+		var a := TAU * k / 24.0
+		var bulge := 1.0 + 0.25 * sin(a * 3.0 + float(seed))
+		pts.append(at + Vector2(cos(a) * size * 0.5, sin(a) * size * 0.06 * bulge))
+	c.draw_colored_polygon(pts, colour)
 
 
 ## A four-pointed sparkle.

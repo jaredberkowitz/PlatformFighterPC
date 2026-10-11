@@ -81,6 +81,7 @@ func _ready() -> void:
 		if item[4] == "play":
 			# The last fighter played stands in the Play tile (in place of its icon).
 			tile.icon = ""
+			tile.hero = true
 			tile.show_scene(0.35, 23)
 			preview = Preview.new(Vector2i(300, 420), false, 9.0)
 			preview.position = Vector2(r.size.x * 0.5 - 150.0, 16)
