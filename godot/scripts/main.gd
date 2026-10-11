@@ -66,6 +66,12 @@ var cam_punch := 0.0
 var ko_focus := -1
 var ko_time := 0.0
 var shake_rng := RandomNumberGenerator.new()
+## The shake's direction (the way the last hit sent its fighter; random for one with no direction) and where it is in its swing.
+var shake_dir := Vector2.ZERO
+var shake_phase := 0.0
+## The shake swings this many times a second, and rolls the camera by up to this many radians per unit of shake.
+const SHAKE_HZ := 15.0
+const SHAKE_ROLL := 0.012
 ## Seconds of "3, 2, 1" before a local match starts (the sim waits).
 var countdown := 0.0
 var countdown_shown := -1
@@ -1287,6 +1293,10 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	# The effect is stretched the way the hit sends the fighter: away from whoever hit it, and up.
 	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55).normalized()
 	Effects.hit(self, at, dir, colour, strength, kind)
+	# The shake swings along the line the hit sends the fighter, so a heavy blow reads as a push in that direction.
+	if float(lag) > HIT_SHAKE_FROM:
+		shake_dir = dir
+		shake_phase = 0.0
 	if strength > 0.4:
 		Effects.impact(self, at, dir, colour, strength)
 	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
@@ -1586,14 +1596,26 @@ func _update_camera(a: float, delta: float) -> void:
 		flash_alpha = move_toward(flash_alpha, 0.0, delta * 3.5)
 		flash_rect.color = Color(1, 1, 1, flash_alpha)
 	var offset := Vector3.ZERO
+	var roll := 0.0
 	if cam_shake > 0.001:
-		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
+		# A damped swing along the hit's line with a smaller one across it and a slight roll (not a fresh random jolt every frame, which
+		# read as jitter). A shake with no direction of its own picks one.
+		if shake_dir == Vector2.ZERO:
+			shake_dir = Vector2.from_angle(shake_rng.randf() * TAU)
+		shake_phase += delta * SHAKE_HZ * TAU
+		var along := sin(shake_phase) * cam_shake
+		var across := sin(shake_phase * 1.7 + 1.3) * cam_shake * 0.35
+		offset = Vector3(shake_dir.x * along - shake_dir.y * across, shake_dir.y * along + shake_dir.x * across, 0.0)
+		roll = sin(shake_phase * 0.9 + 0.5) * cam_shake * SHAKE_ROLL
 		cam_shake = move_toward(cam_shake, 0.0, delta * 2.6)
+	else:
+		shake_dir = Vector2.ZERO
+		shake_phase = 0.0
 	# The camera looks slightly down at the stage (raised by as much as it tilts, so the point it frames stays put): the tops of the
 	# platforms and the fighters' shadows on them show, and the stage has depth.
 	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
 	cam.position = cam_base + offset + punch + Vector3(0, lift, 0)
-	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, 0)
+	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, roll)
 	# The distance haze starts at the stage plane (shaders/post.gdshader).
 	if post_mat != null and absf(cam.position.z - post_stage_dist) > 0.25:
 		post_stage_dist = cam.position.z

@@ -412,3 +412,19 @@ normally. The computer techs these sometimes. Test: `launch_reference.rs`.
 - **Reversing an up special** (sim v42): holding up and back as it starts, or pushing back in its first 3 frames
   (`special_turn_window`, an estimate), turns it around, so it comes out the other way. (The claws' flight also aims by the stick at the
   end of its wind-up, as before.)
+
+## Polish pass (from the graphical implementation plan)
+
+Audited against the plan: tonemapping, glow kept to effects, warm key and cool fill light, the reference's hitlag (in the sim, so it is
+not retuned by feel), hit bursts by weapon, sparks, impacts, launch smoke and the DI line, dash dust, jump rings, swing arcs, camera
+framing, punch-in and the knock-out close-up were already in place. Saturation and contrast stay as they are (the pastel finish is the
+art direction), there is no ocean stage, and floating damage numbers are left out (the HUD carries damage, as in the reference game).
+Refined:
+
+- **Camera shake** (`main.gd`): a damped swing along the line the hit sends its fighter, with a smaller swing across and a slight roll
+  (`SHAKE_HZ`, `SHAKE_ROLL`), instead of a fresh random jolt each frame, which read as jitter.
+- **Damage number** (`match_hud.gd`): a spring kicked by each hit (`POP_KICK`, `POP_STIFF`, `POP_DAMP`), overshooting to about 1.3 times its
+  size for a heavy hit and settling; the jolt is smaller.
+- **Portraits**: a hit of 9% or more (`HEAVY_HIT`) flashes the portrait white and the face inside winces for a moment
+  (`Portrait.react`; the portrait is redrawn only for the two changes).
+

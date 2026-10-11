@@ -7,6 +7,7 @@ extends CanvasLayer
 const D := preload("res://ui/ui_draw.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Lighting := preload("res://scripts/lighting.gd")
+const Loadout := preload("res://scripts/loadout.gd")
 
 const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 
@@ -26,6 +27,15 @@ class Board extends Control:
 	var last_stocks := [-1, -1, -1, -1]
 	var lost_at := [0, 0, 0, 0]
 	const LOST_MS := 700.0
+	## The damage number's pop: a spring that a hit kicks (it overshoots to about 1.3 times the size for a heavy one, then settles).
+	var pop := [0.0, 0.0, 0.0, 0.0]
+	var pop_vel := [0.0, 0.0, 0.0, 0.0]
+	## When each fighter last took a heavy hit (ms): its portrait flashes white and pulls a hurt face.
+	var hurt_at := [0, 0, 0, 0]
+	const HURT_MS := 450.0
+	## Damage in one hit from which the portrait reacts.
+	const HEAVY_HIT := 9.0
+	signal heavy_hit(player: int)
 
 	## Notices new damage: the number shakes, harder for a bigger hit.
 	func take(d: Dictionary) -> void:
@@ -41,9 +51,17 @@ class Board extends Control:
 		for i in mini(percent.size(), 4):
 			var p: float = percent[i]
 			if p > last_percent[i] + 0.01:
-				shake[i] = clampf(shake[i] + (p - last_percent[i]) / 12.0, 0.0, 1.5)
+				var taken: float = p - float(last_percent[i])
+				shake[i] = clampf(shake[i] + taken / 12.0, 0.0, 1.5)
+				pop_vel[i] += clampf(taken / 14.0, 0.25, 1.0) * POP_KICK
+				if taken >= HEAVY_HIT:
+					hurt_at[i] = now
+					heavy_hit.emit(i)
 			last_percent[i] = p
 			shake[i] = move_toward(shake[i], 0.0, dt * 3.5)
+			# The spring: pulled back to rest, damped, so it overshoots once and settles.
+			pop_vel[i] += (-POP_STIFF * pop[i] - POP_DAMP * pop_vel[i]) * dt
+			pop[i] += pop_vel[i] * dt
 
 	func _init() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -130,8 +148,9 @@ class Board extends Control:
 		var tenth := ".%d%%" % (int(percent * 10.0) % 10)
 		var k: float = shake[i] if i < shake.size() else 0.0
 		var t := Time.get_ticks_msec() / 1000.0
-		var jolt := Vector2(sin(t * 61.0), cos(t * 47.0)) * 7.0 * k
-		var big := 72 + int(10.0 * minf(k, 1.0))
+		var jolt := Vector2(sin(t * 61.0), cos(t * 47.0)) * 4.0 * k
+		var grow: float = clampf(1.0 + (pop[i] if i < pop.size() else 0.0), 0.85, 1.35)
+		var big := int(72.0 * grow)
 		var small := 32
 		var right := base.x + 318.0
 		var baseline := base.y + 88.0
@@ -146,6 +165,10 @@ class Board extends Control:
 		draw_string_outline(f, at + Vector2(3, 4), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, o, Color(0, 0, 0, 0.3))
 		draw_string_outline(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, o, D.INK)
 		draw_string(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
+
+	const POP_KICK := 9.0
+	const POP_STIFF := 260.0
+	const POP_DAMP := 16.0
 
 	## The damage colour: white when fresh, through cream, orange and red to a deep red at high damage (the reference's scale).
 	static func heat(percent: float) -> Color:
@@ -174,6 +197,10 @@ class Board extends Control:
 		var since := float(Time.get_ticks_msec() - int(lost_at[i]))
 		if lost_at[i] > 0 and since < LOST_MS:
 			draw_rect(r, Color(0.95, 0.2, 0.2, 0.55 * (1.0 - since / LOST_MS)))
+		# A heavy hit: a white flash over the portrait (the face inside turns hurt for a moment, see `Portrait.react`).
+		var hurt := float(Time.get_ticks_msec() - int(hurt_at[i]))
+		if hurt_at[i] > 0 and hurt < HURT_MS:
+			draw_rect(r, Color(1, 1, 1, 0.6 * (1.0 - hurt / HURT_MS)))
 		draw_rect(r, D.INK, false, 4.0)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -284,7 +311,24 @@ class Portrait extends SubViewport:
 		frames_left = 4
 		render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
-	func _process(_delta: float) -> void:
+	## A heavy hit: the face pulls a wince for a moment, then goes back to its own (each change is drawn once; the portrait is still otherwise).
+	var hurt_left := 0.0
+
+	func react() -> void:
+		if view == null or shown == null:
+			return
+		view.set_expression(Loadout.HURT)
+		hurt_left = 0.6
+		frames_left = 2
+		render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	func _process(delta: float) -> void:
+		if hurt_left > 0.0:
+			hurt_left -= delta
+			if hurt_left <= 0.0:
+				view.set_expression(Loadout.FACES[shown.face])
+				frames_left = 2
+				render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		if frames_left > 0:
 			frames_left -= 1
 			if frames_left == 0:
@@ -303,6 +347,7 @@ func build() -> void:
 		add_child(p)
 		portraits.append(p)
 		board.portraits.append(p.get_texture())
+	board.heavy_hit.connect(func(i): portraits[i].react())
 
 
 ## `d`: names, percent, stocks, alive, in_match, classes, looks (loadouts, for the portraits) (arrays per player), unlimited, clock,
