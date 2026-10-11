@@ -14,7 +14,7 @@ const OPTIONS := {
 	"effects": {"label": "Effects", "choices": ["Low", "Medium", "Full"], "default": 2,
 		"about": "How many sparks, dust puffs and confetti hit effects throw."},
 	"quality": {"label": "Quality", "choices": ["Fast", "Balanced", "Best"], "default": 2,
-		"about": "Fast turns off shadows, ambient occlusion and anti-aliasing for slower machines; Balanced turns off ambient occlusion."},
+		"about": "Fast turns off shadows and anti-aliasing for slower machines; Balanced uses lighter anti-aliasing."},
 }
 const ORDER := ["shake", "flashes", "effects", "quality"]
 
@@ -64,8 +64,8 @@ static func effects() -> float:
 ## Applies the quality setting to a scene's environment and lights (the key light's shadows) and the viewport's anti-aliasing.
 static func apply_quality(env: Environment, root: Node, viewport: Viewport) -> void:
 	var q := get_index("quality")
-	if q <= 1:
-		env.ssao_enabled = false
+	if q == 1:
+		viewport.msaa_3d = Viewport.MSAA_2X
 	if q == 0:
 		var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 		if key != null:

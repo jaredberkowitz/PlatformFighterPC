@@ -1,7 +1,7 @@
 extends RefCounted
 ## The game's lighting and camera look, shared by the match and the menus' 3D previews: a warm key light with soft shadows, a cool fill
-## from the other side, warm ambient light, a filmic tone curve, a bloom kept for the effects, soft ambient occlusion and a touch more
-## saturation. With the soft cel shader (`shaders/toon.gdshader`) this gives the painterly, warm-lit look of the art reference.
+## from the other side, warm ambient light, a filmic tone curve, a bloom kept for the effects and a touch more saturation (no screen-space
+## ambient occlusion: under the cel light it made no visible difference, so contact shade is painted instead; see `StageArt._contact`). With the soft cel shader (`shaders/toon.gdshader`) this gives the painterly, warm-lit look of the art reference.
 ##
 ## Each stage theme has a mood (`MOODS`): the colour and angle of its light, its ambient light, the hue its shadows are painted toward and
 ## the colour of the rim light (taken from its sky), applied with `stage_mood`. The shadow and rim colours are global shader parameters
@@ -116,23 +116,19 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.04
 	env.adjustment_contrast = 1.06
-	if not preview:
-		# Soft ambient occlusion where forms meet (a finishing touch; the stage's baked shading does most of the work). The haze behind
-		# the stage is the match's own, in its stage's colour (`haze_*` in shaders/post.gdshader), not the engine's fog.
-		env.ssao_enabled = true
-		env.ssao_radius = 1.0
-		env.ssao_intensity = 0.9
-		env.ssao_power = 1.3
+	# (The haze behind the stage is the match's own, in its stage's colour (`haze_*` in shaders/post.gdshader), not the engine's fog.)
+	env.ssao_enabled = false
 	var key := DirectionalLight3D.new()
 	key.name = "KeyLight"
 	key.rotation_degrees = Vector3(-38, -32, 0)
 	key.light_color = Color(1.0, 0.93, 0.82)
 	key.light_energy = 1.25
 	key.shadow_enabled = not preview
-	# Crisp enough that a fighter's shadow under its feet reads as contact, soft enough to stay painterly; the shadow range only as far
+	# Crisp, as an illustration's cast shadows are (a soft wide penumbra read as haze on the grass, not shade), with just enough blur to
+	# keep the edge clean; the shadow range only as far
 	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
-	key.shadow_blur = 1.0
-	key.light_angular_distance = 1.0
+	key.shadow_blur = 0.5
+	key.light_angular_distance = 0.35
 	key.directional_shadow_max_distance = 70.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	key.directional_shadow_split_1 = 0.35

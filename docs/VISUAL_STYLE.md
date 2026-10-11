@@ -59,8 +59,9 @@ hit does not stutter. The Effects setting thins particles evenly (`Burst.density
 
 The Controls screen's Display page (`scripts/visual_settings.gd`, saved in `user://display.cfg`): **Screen shake** (off, low, full: scales
 the shake, roll and punch-in), **Flashes** (off, soft, full: the full-screen flash; the finishing blow's two-tone frames only at full),
-**Effects** (low, medium, full: particle counts) and **Quality** (fast: no shadows, ambient occlusion or anti-aliasing; balanced: no
-ambient occlusion; best).
+**Effects** (low, medium, full: particle counts) and **Quality** (fast: no shadows or anti-aliasing; balanced: 2x
+anti-aliasing; best: 4x). There is no screen-space ambient occlusion: under the cel light it made no visible difference, so contact shade
+is painted (see section 1).
 
 ## 7. Checking it: the look bench
 
