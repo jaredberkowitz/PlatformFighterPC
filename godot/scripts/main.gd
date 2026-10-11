@@ -1242,10 +1242,15 @@ func _in_play(i: int) -> bool:
 
 ## A fighter was just hit (its hitlag started): the camera shakes with the hit's strength, and if the launch will knock the fighter
 ## out, it closes in on them for a moment (presentation only).
+## Hitlag (frames) above which a hit shakes the camera.
+const HIT_SHAKE_FROM := 9.0
+
+
 func _on_hit(i: int, befores: Array = []) -> void:
 	var lag: int = snaps[i].hitlag
 	var strength := clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0)
-	cam_shake = maxf(cam_shake, minf(0.9, float(lag) * 0.03))
+	# The camera shakes only for a hit that matters (more than a jab's or a tilt's hitlag), harder the stronger it is.
+	cam_shake = maxf(cam_shake, clampf((float(lag) - HIT_SHAKE_FROM) * 0.045, 0.0, 0.9))
 	if not _in_play(i):
 		return
 	# Who landed it: the fighter that froze in an attack on the same frame (or the last one to hit this fighter).
@@ -1268,7 +1273,8 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		var facing := float(snaps[by].get("facing", 1))
 		if tip != Vector3.ZERO:
 			var tip_at := Vector2(cur_pos[by].x + tip.x * facing, cur_pos[by].y + tip.y)
-			contact = middle + (tip_at - middle).limit_length(0.8)
+			# (A little toward the hitter, so even a big burst leaves the struck fighter's face in view.)
+			contact = middle + (tip_at - middle).limit_length(1.0)
 		if cls != 1 and _weapon_move(move):
 			kind = Effects.Kind.BLADE
 		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):

@@ -186,7 +186,8 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	pow_fx.material_override = _material(true)
 	pow_fx.colours = BURST_COLOURS.get(kind, BURST_COLOURS[Kind.BLOW])
 	pow_fx.dir = dir if dir != Vector2.ZERO else Vector2.RIGHT
-	pow_fx.size = (0.45 + 0.85 * s) * (0.8 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
+	# Small and quick for a light hit, big for a strong one (so the big ones stay special and a jab never hides the fighter).
+	pow_fx.size = (0.36 + 0.9 * s) * (0.8 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
 	pow_fx.life = 0.17 + 0.1 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)

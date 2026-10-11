@@ -575,3 +575,16 @@ let `toonify.gd` make it a cel material; a family can be assigned to it in Godot
 - **A stronger rim on the fighters** (`rim_boost`, an instance parameter in `toon_light.gdshaderinc`, 1.4 for fighters,
   `FIGHTER_RIM_BOOST`), so they lift off the background; foliage's own rim brought down to 0.35 so the trees do not compete.
 - Checked in close-up: even outlines, no gaps or dark seams where the fighters' parts meet. Screenshots in `docs/screenshots/`.
+
+**Phase 5, combat effects:** the roadmap's effect set was already in (landing dust, hit bursts by what landed the hit, the swing
+arcs, heavy-hit rings and impact spikes, launch streaks and puffs, shield flashes, and the sim's hitlag as hit-stop, scaled by damage
+and set in the ruleset: `hitlag_per_damage`, `hitlag_base`, `hitlag_cap`), so this pass sharpened the difference between light and
+heavy hits and kept effects off the action:
+- **Camera shake only for hits that matter**: from more hitlag than a jab's or a tilt's (`HIT_SHAKE_FROM`, 9 frames, in `main.gd`),
+  growing with it; it had been a little on every hit.
+- **Sparks** 4 for a light hit up to 22 for a strong one (was 10 to 24); the burst smaller at the light end (`0.36 + 0.9 * strength`).
+- **The hit flash** on the struck fighter scales with the hit: soft (0.3) for two frames on a light hit, bright (0.6) for three on a
+  strong one, then faint; a jab had whitened the fighter as much as a smash.
+- **Bursts sit a little toward the hitter**, so even a big one leaves the struck fighter's face in view.
+- Effects clean themselves up (each frees itself when its life ends) and are a few small meshes each, drawn on twos.
+Light against heavy (the sword's jab and forward smash): `docs/screenshots/phase5_light_vs_heavy.png`.

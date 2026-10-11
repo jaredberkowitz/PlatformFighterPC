@@ -819,6 +819,8 @@ func _tag_object(node: Node) -> void:
 ## The whole-body flash: white for a moment when the fighter is hit (strongest at the start of hitlag), a yellow pulse while a smash
 ## attack is charging. Cosmetic.
 var flash_amount := 0.0
+## How strong the hit being flashed for is (0 light to 1 strong), from its hitlag.
+var flash_strength := 0.0
 var flash_colour := Color.WHITE
 var last_flash := -1.0
 var flash_hit_frame := -1
@@ -831,10 +833,13 @@ func _flash(s: Dictionary, delta: float) -> void:
 	if not struck:
 		flash_hit_frame = -1
 	if struck:
-		# A bright flash on the first three frames of the freeze, then only a faint one, so the fighter stays readable.
+		# A flash on the first frames of the freeze, then only a faint one, so the fighter stays readable: soft and short for a light hit
+		# (by its hitlag), bright for a strong one.
 		if flash_hit_frame < 0:
 			flash_hit_frame = int(s.frame)
-		target = 0.55 if int(s.frame) - flash_hit_frame < 3 else 0.12
+			flash_strength = clampf((float(s.hitlag) - 4.0) / 14.0, 0.0, 1.0)
+		var bright_frames := 2 if flash_strength < 0.4 else 3
+		target = lerpf(0.3, 0.6, flash_strength) if int(s.frame) - flash_hit_frame < bright_frames else 0.1
 	elif int(s.charge) > 0 and s.state == "Attack":
 		colour = Color(1.0, 0.85, 0.25)
 		target = 0.12 + 0.1 * sin(float(s.frame) * 0.6)
