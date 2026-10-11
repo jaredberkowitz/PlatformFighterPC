@@ -38,9 +38,9 @@ uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
 // back it is, from `haze_start` to `haze_end` world units behind the stage plane, at most `haze_max`. `stage_dist` is the camera's
 // distance to the stage plane (set every frame by main.gd). The sky is left alone.
 uniform float stage_dist = 30.0;
-uniform float haze_start = 12.0;
-uniform float haze_end = 140.0;
-uniform float haze_max = 0.3;
+uniform float haze_start = 4.0;
+uniform float haze_end = 110.0;
+uniform float haze_max = 0.36;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;
@@ -138,9 +138,10 @@ void fragment() {
 	vec2 c = uv - 0.5;
 	col *= 1.0 - vignette * smoothstep(0.35, 0.85, length(c * vec2(1.25, 1.0)));
 
-	// The stage's grade.
+	// The stage's grade: its colour accent on the scenery; fighters take a third of it, so their own colours stay true on every stage.
 	float luma = dot(col, vec3(0.3, 0.59, 0.11));
-	col = mix(col, col * mix(grade_shadows.rgb, grade_lights.rgb, smoothstep(0.1, 0.85, luma)), grade_amount);
+	float grade_k = id0 < 0.6 && d0 < 400.0 ? 0.33 : 1.0;
+	col = mix(col, col * mix(grade_shadows.rgb, grade_lights.rgb, smoothstep(0.1, 0.85, luma)), grade_amount * grade_k);
 
 	// The finishing hit's two tones: fighters (ids below 0.6) pale, everything else dark, the ink lines kept.
 	if (impact > 0.0) {

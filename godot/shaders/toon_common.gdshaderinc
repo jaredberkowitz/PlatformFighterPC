@@ -13,6 +13,12 @@ uniform float world_tile = 0.0;
 // World-laid surfaces only: how much their colour drifts lighter and darker in broad, slow patches across the stage (0 = none), so a
 // repeating pattern does not read as one tile stamped over and over.
 uniform float world_vary = 0.08;
+// World-laid surfaces only: a solid block's front falls gradually into a cool shade below its top edge (`front_top`, the block's top in
+// world units, set per block by stage_art.gd), so the stage reads as one solid mass with a lit rim rather than a flat repeated pattern.
+// `front_fall` is how dark it gets at most, reached `front_span` units down.
+uniform float front_fall = 0.4;
+uniform float front_span = 5.0;
+uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
 varying vec3 world_pos;
 varying vec3 world_normal;
 
@@ -21,6 +27,8 @@ instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 // Which object this is, for the ink lines (shaders/post.gdshader): written as the roughness, which the cel lighting does not use. Each
 // fighter has its own (set by fighter_view.gd); the stage and scenery keep the default.
 instance uniform float object_id = 0.95;
+// The top of the block this front belongs to (see `front_fall`); far below anything for everything else, which leaves it untouched.
+instance uniform float front_top = -100000.0;
 
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/brush.gdshaderinc"
@@ -53,6 +61,10 @@ void fragment() {
 			// And a slight drift in hue between warmer and cooler patches, slower still, so neighbouring areas differ a little.
 			float hue_drift = sin(p.x * 0.17 + 2.1 + sin(p.y * 0.23) * 1.3) * sin(p.y * 0.13 + p.x * 0.07);
 			c *= vec3(1.0) + vec3(0.035, 0.0, -0.035) * hue_drift * (world_vary / 0.08);
+			if (abs(world_normal.y) < 0.5) {
+				float below = smoothstep(0.6, front_span, front_top - world_pos.y);
+				c *= mix(vec3(1.0), front_shade, front_fall * below);
+			}
 		}
 	}
 	if (world_tile <= 0.0) {

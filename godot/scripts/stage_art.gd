@@ -230,6 +230,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	var body := _mesh(parent, _box(Vector3(right - left, top - bottom, depth)), _soil_material(t),
 		Vector3((left + right) / 2.0, (top + bottom) / 2.0, front_z - depth / 2.0))
 	body.name = "block"
+	# Its front falls into shade below the top edge (`front_fall` in shaders/toon_common.gdshaderinc).
+	body.set_instance_shader_parameter("front_top", top)
 	if not exposed:
 		return
 	var cx := (left + right) / 2.0
@@ -420,20 +422,28 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 	var l: float = e[0]
 	var r: float = e[1]
 	var y: float = e[2]
+	# Each prop sits in a soft contact patch (an ellipse, `[x, z, half width, half depth]`), so it rests on the ground rather than floating
+	# over it: screen-space ambient occlusion does not show under this light, and the baked shading (`StageLight`) only knows the blocks.
+	var patches: Array = []
 	match theme_name:
 		"meadow":
+			patches = [[l + 3.0, -4.6, 0.95, 0.75], [l + 4.3, -5.0, 0.95, 0.75], [r - 4.0, -4.4, 0.55, 0.45], [r - 2.4, -4.0, 0.3, 0.25],
+				[l + 7.5, -3.8, 0.6, 0.45]]
 			_hay_bale(root, Vector3(l + 3.0, y, -4.6), 0.0)
 			_hay_bale(root, Vector3(l + 4.3, y, -5.0), 25.0)
 			_barrel(root, Vector3(r - 4.0, y, -4.4), 0.8)
 			_signpost(root, Vector3(r - 2.4, y, -4.0), -1.0)
 			_rock(root, Vector3(l + 7.5, y, -3.8), 0.45, rng)
 		"grove":
+			patches = [[l + 3.15, -4.1, 1.1, 0.6], [r - 5.0, -4.0, 0.4, 0.3], [r - 6.5, -4.4, 0.85, 0.65], [l + 6.0, -3.6, 0.55, 0.42]]
 			for k in 3:
 				_mushroom(root, Vector3(l + 2.6 + k * 0.55, y, -3.8 - k * 0.3), 0.5 + k * 0.15, Color(0.95, 0.5, 0.6))
 			_mushroom(root, Vector3(r - 5.0, y, -4.0), 0.55, Color(0.7, 0.6, 1.0))
 			_stump(root, Vector3(r - 6.5, y, -4.4))
 			_rock(root, Vector3(l + 6.0, y, -3.6), 0.4, rng)
 		"sunset":
+			patches = [[l + 3.2, -4.2, 1.15, 0.85], [l + 4.2, -3.8, 0.6, 0.45], [r - 4.6, -4.4, 0.75, 0.6], [r - 3.4, -4.0, 0.5, 0.4],
+				[l + 8.0, -4.8, 0.3, 0.25], [r - 7.5, -3.6, 0.48, 0.36]]
 			_rock(root, Vector3(l + 3.2, y, -4.2), 0.8, rng)
 			_rock(root, Vector3(l + 4.2, y, -3.8), 0.45, rng)
 			_crate(root, Vector3(r - 4.6, y, -4.4), 0.9, 12.0)
@@ -441,17 +451,59 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			_lantern_post(root, Vector3(l + 8.0, y, -4.8), Color(1.0, 0.75, 0.4))
 			_rock(root, Vector3(r - 7.5, y, -3.6), 0.35, rng)
 		"ocean":
+			patches = [[l + 4.5, -4.6, 0.25, 0.2], [r - 4.4, -4.8, 0.25, 0.2], [l + 6.4, -3.6, 0.38, 0.3], [r - 6.5, -4.0, 0.9, 0.55]]
 			_umbrella(root, Vector3(l + 4.5, y, -4.6), Color(0.98, 0.55, 0.55))
 			_life_ring(root, Vector3(r - 4.4, y, -4.8))
 			_bucket(root, Vector3(l + 6.4, y, -3.6), Color(0.45, 0.7, 1.0))
 			_rock(root, Vector3(r - 6.8, y, -3.8), 0.4, rng)
 			_rock(root, Vector3(r - 6.2, y, -4.2), 0.3, rng)
 		"city":
+			patches = [[l + 2.2, -4.5, 1.6, 0.75], [r - 4.0, -4.0, 0.5, 0.4]]
 			_crate(root, Vector3(l + 1.6, y, -4.6), 1.0, 0.0)
 			_crate(root, Vector3(l + 2.7, y, -4.4), 0.8, 8.0)
 			_crate(root, Vector3(l + 2.0, y + 1.0, -4.6), 0.7, -10.0)
 			_potted_plant(root, Vector3(r - 4.0, y, -4.0))
 			_string_lights(root, Vector3(l + 3.0, y + 4.6, -6.0), Vector3(r - 2.5, y + 5.6, -6.5))
+	for p in patches:
+		_contact(root, Vector3(p[0], y, p[1]), Vector2(p[2], p[3]))
+
+
+## A soft dark ellipse lying on the ground at `at` (`half` its half width and half depth), darkest in the middle: the shade a thing casts
+## on the ground right where it stands. One shared see-through material, in the stage's shadow hue family.
+static func _contact(root: Node3D, at: Vector3, half: Vector2) -> void:
+	if _contact_mat == null:
+		var g := Gradient.new()
+		var ink := Color(0.1, 0.05, 0.16)
+		g.set_color(0, Color(ink, CONTACT_STRENGTH))
+		g.set_color(1, Color(ink, 0.0))
+		g.add_point(0.55, Color(ink, CONTACT_STRENGTH * 0.85))
+		var tex := GradientTexture2D.new()
+		tex.gradient = g
+		tex.fill = GradientTexture2D.FILL_RADIAL
+		tex.fill_from = Vector2(0.5, 0.5)
+		tex.fill_to = Vector2(1.0, 0.5)
+		tex.width = 64
+		tex.height = 64
+		_contact_mat = StandardMaterial3D.new()
+		_contact_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_contact_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_contact_mat.albedo_texture = tex
+		_contact_mat.disable_fog = true
+	# The match camera looks along the ground from low down, so most of the patch is hidden behind its prop: it reaches wider than the
+	# footprint and further toward the camera, where it shows.
+	var q := QuadMesh.new()
+	q.size = half * Vector2(2.6, 3.2)
+	q.orientation = PlaneMesh.FACE_Y
+	at.z += half.y * 0.35
+	# (Just above the ground, the grass cap included, which stands 0.04 proud of the block, so it never fights the top face for depth.)
+	var mi := _mesh(root, q, _contact_mat, at + Vector3(0, 0.06, 0))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "Contact"
+
+
+static var _contact_mat: StandardMaterial3D
+## How dark a contact patch is at its middle (alpha).
+const CONTACT_STRENGTH := 0.55
 
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
@@ -914,6 +966,7 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Cacti behind the stage.
 	for x in [e[0] + 1.5, e[1] - 2.0]:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
+		_contact(root, Vector3(x, e[2], -6.5), Vector2(0.45, 0.38))
 	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
 
 
@@ -965,6 +1018,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var s := rng.randf_range(1.1, 1.5)
 		_mesh(root, _sphere(1.0, 16), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
 		_mesh(root, _sphere(0.55, 12), bush_light, Vector3(x - 0.3, top + 1.2, -5.6))
+		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
 	# Under the island: tapered earth and rock with roots hanging from it, so it reads as a floating island.
@@ -1012,6 +1066,8 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Palms at the ends of the island, behind the fighters.
 	_palm(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), 1.0, rng)
 	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)
+	_contact(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), Vector2(0.4, 0.35))
+	_contact(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), Vector2(0.45, 0.38))
 
 
 ## A palm: a curving trunk of stacked rings under a fan of long leaves and a few coconuts.
@@ -1079,6 +1135,10 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var metal := FighterView.toon(Color(0.66, 0.68, 0.76))
 	_mesh(root, _box(Vector3(1.6, 1.0, 1.2)), metal, Vector3(float(e[0]) + 6.5, roof + 0.5, -4.5))
 	_mesh(root, _cylinder(0.3, 0.3, 0.9, 10), metal, Vector3(float(e[1]) - 6.0, roof + 0.45, -4.0))
+	_contact(root, Vector3(float(e[0]) + 6.5, roof, -4.5), Vector2(0.95, 0.7))
+	_contact(root, Vector3(float(e[1]) - 6.0, roof, -4.0), Vector2(0.38, 0.32))
+	_contact(root, tower, Vector2(1.2, 1.1))
+	_contact(root, mast, Vector2(0.2, 0.18))
 
 
 static func _building(root: Node3D, base: Vector3, size: Vector3, shade: Color, rng: RandomNumberGenerator, layer: int) -> void:

@@ -19,6 +19,11 @@ socks and shoes, `limb.gdshader`, `face.gdshader`). Lighting is not physical:
   strong on dark stages) and keep their shadow side a little lighter (`PF_FIGHTER_LIFT`), so no fighter sinks into a background.
 - **Painted variation**: tops lean warm and undersides cool (`pf_paint_*`; fighters take a third), and world-laid stage textures drift
   slowly in lightness and hue so large areas are never one flat tile.
+- **Solid mass**: a stage block's front falls gradually into a cool shade below its top edge (`front_fall`, `front_span`; each block
+  passes its top as the `front_top` instance uniform), so the ground reads as one solid body with a lit rim, not a flat repeated pattern.
+- **Contact shading**: every prop and piece of furniture standing on the stage sits in a soft dark patch (`StageArt._contact`). Screen-
+  space ambient occlusion does not show under this cel light, and the baked stage shading (`scripts/stage_light.gd`) only knows the blocks
+  and platforms, so this is what keeps props from floating.
 
 ## 2. Outlines
 
@@ -37,8 +42,11 @@ a theme and inherits all of it; it overrides only what it needs.
 
 ## 4. Atmosphere and post
 
-The post pass adds distance haze toward the stage's haze colour, the pastel finish (fighters get half, so they stay the most vivid
-thing), a paper tone and grain, a light vignette (0.16: dark corners hide fighters near the edge) and the stage's grade. Glow is kept for
+The post pass adds distance haze toward the stage's haze colour (from 4 units behind the stage plane, so the nearer scenery layers already
+separate from the farther ones, up to 36% far back; the stage and its props are untouched), the pastel finish (fighters get half, so they stay the most vivid
+thing), a paper tone and grain, a light vignette (0.16: dark corners hide fighters near the edge) and the stage's grade. The grade is
+restrained: fighters take a third of it, so a white glove stays white on a dusk or night stage, and no stage washes everything in one hue
+(the city's purple stays in its sky and buildings; its roof is pale stone). Glow is kept for
 effects (`Lighting.FX_GLOW`). Depth of field is only for presentation: the stage softens behind the results screen (`RESULTS_BLUR`).
 
 ## 5. Combat effects
