@@ -863,6 +863,8 @@ pub struct Ruleset {
     /// speed, so a fighter that falls faster is launched a little higher (the reference's 5 and 0.075).
     pub gravity_boost: Fx,
     pub gravity_boost_from: Fx,
+    /// In the special fall after an up special, the share of its air speed and air acceleration a fighter keeps (a slight drift).
+    pub helpless_drift: Fx,
     /// Hitlag factor of an electric hit (for both fighters).
     pub electric_hitlag_mult: Fx,
     /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
@@ -968,6 +970,7 @@ impl Ruleset {
             hitstun_attack_cancel_speed: Fx::from_ratio(20, 80),
             gravity_boost: Fx::from_int(5),
             gravity_boost_from: Fx::from_ratio(75, 8000),
+            helpless_drift: Fx::from_ratio(1, 2),
             electric_hitlag_mult: Fx::from_ratio(3, 2),
             asdi_distance: Fx::from_ratio(133, 800),
             sdi_combo_hits: 5,
@@ -1061,6 +1064,7 @@ impl StateHash for Ruleset {
         self.hitstun_attack_cancel_speed.hash_into(h);
         self.gravity_boost.hash_into(h);
         self.gravity_boost_from.hash_into(h);
+        self.helpless_drift.hash_into(h);
         self.electric_hitlag_mult.hash_into(h);
         self.asdi_distance.hash_into(h);
         h.write_u8(self.sdi_combo_hits);

@@ -454,6 +454,7 @@ rules_io! {
     hitstun_attack_cancel_speed: Fx,
     gravity_boost: Fx,
     gravity_boost_from: Fx,
+    helpless_drift: Fx,
     electric_hitlag_mult: Fx,
     asdi_distance: Fx,
     sdi_combo_hits: u8,

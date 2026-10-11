@@ -395,3 +395,16 @@ fast-fall rules), `ground_and_collision.rs` (the fast-fall buffer).
 treated as the end of a launch: a shield press just before touching down techs (in place, or a roll with a sideways flick), and
 without one it is a missed tech and it lies in a knockdown. A fighter that acted first (an aerial, an air dodge, a midair jump) lands
 normally. The computer techs these sometimes. Test: `launch_reference.rs`.
+
+## Edges, jumps and the special fall (sim v41)
+
+- **Rolls stay on**: a roll (and a tech roll, a get-up roll, a spot dodge) that reaches the edge of the stage or of a platform stops
+  on the edge instead of going over it, as in the reference (`slide_kept_on_platform`). Walking, running and attacks still go off.
+- **Jumps checked against the reference** (SmashWiki's attribute tables and ultimateframedata.com): jump squat 3 frames for both;
+  short hop, full hop and air jump heights 16.25 / 33.66 / 33.66 (sword) and 15.38 / 32.03 / 30.72 (claws) reference units, the
+  reference's to the hundredth; the air times differ between hop types exactly as the reference's do (short hop to full hop 14 frames
+  for both, a fast fall saving 13 and 17).
+- **The special fall** after an up special (both leave the fighter helpless, as in the reference) drifts at half the fighter's air
+  speed and acceleration (`helpless_drift`, an estimate: the reference varies it per move and does not publish it). The up specials'
+  rise and travel are still estimates (none of the sources give them): the sword's rises about 1.3 full hops, the claws' is a short
+  straight flight.

@@ -239,7 +239,7 @@ pub fn update(
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
         S::JumpSquat => jump_squat(f, p, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage, rules),
-        S::Helpless => return helpless(f, p, stage),
+        S::Helpless => return helpless(f, p, stage, rules),
         S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
@@ -300,6 +300,20 @@ fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool 
         return false;
     }
     true
+}
+
+/// Like `slide_on_platform`, but the fighter stops at the platform's edge instead of going over it (rolls, tech rolls and spot
+/// dodges, as in the reference: a roll into the edge ends on the edge).
+fn slide_kept_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+        f.vel.x = Fx::ZERO;
+    }
+    if let Some(plat) = collision::platform(stage, f.platform) {
+        if f.pos.x < plat.left || f.pos.x > plat.right {
+            f.pos.x = f.pos.x.clamp(plat.left, plat.right);
+            f.vel.x = Fx::ZERO;
+        }
+    }
 }
 
 fn start_dash(f: &mut Fighter, p: &FighterParams, dir: i8) {
@@ -760,8 +774,14 @@ fn airborne(
 }
 
 /// Special fall: drift and ledge grabs only. Landing costs extra lag.
-fn helpless(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
-    if air_move(f, p, stage) {
+/// The special fall after an up special (or another move that leaves the fighter helpless): it can only drift a little (a share of
+/// its air speed and acceleration, `helpless_drift`), fast fall, and catch a ledge, until it lands.
+fn helpless(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> Option<u8> {
+    let mut q = *p;
+    q.air_speed = p.air_speed * rules.helpless_drift;
+    q.air_accel = p.air_accel * rules.helpless_drift;
+    q.air_accel_stick = p.air_accel_stick * rules.helpless_drift;
+    if air_move(f, &q, stage) {
         enter_landing(f, p.helpless_landing_lag);
         return None;
     }
@@ -1005,9 +1025,7 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     }
-    if !slide_on_platform(f, p, stage) {
-        return;
-    }
+    slide_kept_on_platform(f, p, stage);
     // Rolling backward (away from the way the fighter faces) takes longer.
     let frames = if dir == i32::from(f.facing) {
         p.roll_frames
@@ -1029,9 +1047,7 @@ fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         f.invuln = f.invuln.max(1);
     }
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if !slide_on_platform(f, p, stage) {
-        return;
-    }
+    slide_kept_on_platform(f, p, stage);
     if f.state_frame >= u16::from(p.spot_dodge_frames) {
         enter(f, S::Idle);
     }
