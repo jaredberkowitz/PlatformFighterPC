@@ -1117,13 +1117,15 @@ def build_body_meshes(rig):
 
 
 # ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
-SHIRT_LIFT = 0.034      # how far off the skin the shirt sits
-SHORTS_LIFT = 0.022     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
-CLOTH_THICKNESS = 0.012
+SHIRT_LIFT = 0.04      # how far off the skin the shirt sits
+SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
+SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
+CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
 SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
 HEM_FLARE = 0.02
 GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
-GARMENT_WEIGHT_SMOOTH = 12   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+GARMENT_WEIGHT_SMOOTH = 24
+ARMPIT_NO_INK = 0.07          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
 
 
 def build_garments(skin, J, neck):
@@ -1160,7 +1162,7 @@ def build_garments(skin, J, neck):
         return co.z > waist - 0.012      # just below the waist, over the shorts' waistband
 
     def in_shorts(co):
-        return not on_arm(co) and shorts_end < co.z <= waist + 0.02
+        return not on_arm(co) and shorts_end < co.z <= waist + SHORTS_TOP
 
     def shirt_hem(co):
         # Distance to the nearest of the shirt's edges (the waist hem, the neckline, a sleeve end).
@@ -1175,7 +1177,7 @@ def build_garments(skin, J, neck):
         return abs(co.z - shorts_end)
 
     cuts = [(Vector((0, 0, waist - 0.012)), Vector((0, 0, 1))), (Vector((0, 0, neck_line)), Vector((0, 0, 1))),
-            (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + 0.02)), Vector((0, 0, 1)))]
+            (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1)))]
     for side in "LR":
         a, b = arm[side]
         cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
@@ -1220,7 +1222,9 @@ def build_garments(skin, J, neck):
         bm.normal_update()
         for v in bm.verts:
             flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
-            v.co = v.co + v.normal * (lift + flare)
+            # The shorts' waistband hugs the body (two thirds of their distance), well inside the shirt's hem over it.
+            snug = 0.67 if name == "Shorts" and v.co.z > waist - 0.05 else 1.0
+            v.co = v.co + v.normal * (lift * snug + flare)
         for v in bm.verts:
             hit = skin_tree.find_nearest(v.co)
             if hit[0] is None:
@@ -1228,33 +1232,82 @@ def build_garments(skin, J, neck):
             away = (v.co - hit[0]).dot(hit[1])
             if away < lift * 0.8:
                 v.co = v.co + hit[1] * (lift * 0.8 - away)
+        # Straight hems: the edges were cut level, but pushing the cloth out along a bumpy surface's normals left them wavy (like torn
+        # paper where the shirt meets the shorts). Every edge point near a level cut goes back to its height.
+        levels = [waist - 0.012, neck_line] if name == "Shirt" else [waist + SHORTS_TOP, shorts_end]
+        for v in hems:
+            if on_arm(v.co):
+                continue
+            nearest = min(levels, key=lambda z: abs(v.co.z - z))
+            if abs(v.co.z - nearest) < 0.04:
+                v.co.z = nearest
         # Every point takes the bone weights of the nearest point of the skin (the cuts and the mirroring made new points, and an
         # unweighted point would be left behind when the body moves).
+        # The left half copies the right half's weights, left and right swapped, so both sides of the garment move alike (the body's own
+        # weights are not quite symmetric either).
         deform = bm.verts.layers.deform.verify()
+        names = [g.name for g in skin.vertex_groups]
+        index = {n: k for k, n in enumerate(names)}
         for v in bm.verts:
-            _, i, _ = skin_points.find(v.co)
+            left = v.co.x < 0.0
+            co = Vector((-v.co.x, v.co.y, v.co.z)) if left else v.co
+            _, i, _ = skin_points.find(co)
             v[deform].clear()
             for g in skin.data.vertices[i].groups:
-                v[deform][g.group] = g.weight
+                group = g.group
+                if left:
+                    n = names[g.group]
+                    swapped = n[:-2] + (".L" if n.endswith(".R") else ".R") if n.endswith((".L", ".R")) else n
+                    group = index.get(swapped, g.group)
+                v[deform][group] = g.weight
+            if name == "Shorts" and v.co.z < crotch:
+                # Below the crotch each leg of the shorts follows its own thigh, fully at the hem: the leg openings keep their place on
+                # the thighs in any pose rather than riding up or standing off like a skirt.
+                t = min(1.0, (crotch - v.co.z) / max(crotch - shorts_end, 0.01) * 1.4)
+                thigh = index.get("thigh." + ("L" if v.co.x < 0.0 else "R"))
+                if thigh is not None:
+                    for k in list(v[deform].keys()):
+                        v[deform][k] = v[deform][k] * (1.0 - t)
+                    v[deform][thigh] = v[deform].get(thigh, 0.0) + t
         bm.to_mesh(obj.data)
         bm.free()
         for poly in obj.data.polygons:
             poly.use_smooth = True
-        # Thickness, so a hem shows as a rolled edge rather than a paper-thin cut.
-        sol = obj.modifiers.new("Thickness", "SOLIDIFY")
-        sol.thickness = CLOTH_THICKNESS
-        sol.offset = -1.0
-        sol.use_even_offset = False
+        # No thickness: an inner layer crossed the outer one wherever the cloth folds (the game draws the cloth on both sides instead).
         bpy.context.view_layer.objects.active = obj
-        # (The solidify goes first, under the armature, so the clothes are posed with the body.)
-        while obj.modifiers.find("Thickness") > 0:
-            bpy.ops.object.modifier_move_up(modifier="Thickness")
-        bpy.ops.object.modifier_apply(modifier="Thickness")
-        # Weights spread smoothly over the cloth, so it stretches evenly as the body moves rather than bunching where the skin's weights
-        # change quickly (the shirt's sides when the fists come up, the shorts between the legs).
-        used = {g.group for v in obj.data.vertices for g in v.groups if g.weight > 0.0}
-        smooth_weights(obj, [g.name for g in obj.vertex_groups if g.index in used], 0.5, GARMENT_WEIGHT_SMOOTH)
+        sol = None if CLOTH_THICKNESS <= 0.0 else obj.modifiers.new("Thickness", "SOLIDIFY")
+        if sol is not None:
+            sol.thickness = CLOTH_THICKNESS
+            sol.offset = -1.0
+            sol.use_even_offset = False
+            # (The solidify goes first, under the armature, so the clothes are posed with the body.)
+            while obj.modifiers.find("Thickness") > 0:
+                bpy.ops.object.modifier_move_up(modifier="Thickness")
+            bpy.ops.object.modifier_apply(modifier="Thickness")
+        # The shirt's arm and spine weights spread smoothly over it, so its sides stretch evenly when the fists come up rather than
+        # bunching where the skin's weights change quickly. Its hips weights are left as the skin's, so the hem moves with the shorts'
+        # waistband; the shorts keep the skin's own weights, so each leg follows its own thigh.
+        if name == "Shirt":
+            smooth_weights(obj, [g for g in ("armU.L", "armU.R", "spine") if g in obj.vertex_groups], 0.5, GARMENT_WEIGHT_SMOOTH)
+            # Where the sleeve meets the side the cloth pinches when the elbows come in; the ink outline is left out there (the vertex
+            # colour's red is how much outline a point gets: shaders/outline.gdshader), so the folds do not turn into black scratches.
+            ink = obj.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+            for v in obj.data.vertices:
+                side = 1.0 if v.co.x > 0.0 else -1.0
+                pit = Vector((side * half_width, J["armU." + ("R" if side > 0 else "L")].z - 0.12))
+                d = (Vector((v.co.x, v.co.z)) - pit).length
+                w = min(1.0, max(0.0, (d - ARMPIT_NO_INK) / 0.08))
+                ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
+            obj.data.color_attributes.active_color = ink
         out[name] = obj
+    # The skin's marks for the game's outline (shaders/outline.gdshader): green is how much line a point gets under the shirt, blue under
+    # the shorts (none deep under a garment, all of it near a hem), red always all.
+    cover = skin.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+    for v in skin.data.vertices:
+        g = 1.0 - min(1.0, max(0.0, (shirt_hem(v.co) - 0.02) / 0.03)) if in_shirt(v.co) else 1.0
+        b = 1.0 - min(1.0, max(0.0, (shorts_hem(v.co) - 0.02) / 0.03)) if in_shorts(v.co) else 1.0
+        cover.data[v.index].color = (1.0, g, b, 1.0)
+    skin.data.color_attributes.active_color = cover
     return out
 
 
@@ -2039,6 +2092,7 @@ def main() -> None:
         export_animation_mode="ACTIONS",
         export_skins=True,
         export_apply=False,
+        export_vertex_color="ACTIVE",
     )
     print("wrote", OUT, "clips:", [a.name for a in bpy.data.actions])
 

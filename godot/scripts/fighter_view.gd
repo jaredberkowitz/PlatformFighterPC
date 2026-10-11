@@ -27,6 +27,7 @@ static var _outline_mat: ShaderMaterial
 
 
 const TOON_SHADER := preload("res://shaders/toon.gdshader")
+const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
@@ -820,7 +821,7 @@ func _tag_object(node: Node) -> void:
 			for i in (node as MeshInstance3D).mesh.get_surface_count():
 				mats.append((node as MeshInstance3D).get_active_material(i))
 		for m in mats:
-			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, LIMB_SHADER, FACE_SHADER, SKIN_SHADER]):
+			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, TOON_CLOTH_SHADER, LIMB_SHADER, FACE_SHADER, SKIN_SHADER]):
 				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
 				# The fighters are the clearest things on screen: the full ink outline (the scenery's is thinner and softer) and a
 				# stronger rim.
@@ -1027,13 +1028,24 @@ static func _cloth(m: Material) -> Material:
 	if _cloth_outline == null:
 		_cloth_outline = ((m as ShaderMaterial).next_pass as ShaderMaterial).duplicate()
 		_cloth_outline.set_shader_parameter("push_back", CLOTH_OUTLINE_PUSH_BACK)
+		# A little thinner than the body's line too: the garments' edges are inner lines, lighter than the silhouette.
+		for w in ["width", "min_width", "max_width"]:
+			var now: Variant = _cloth_outline.get_shader_parameter(w)
+			if now == null:
+				now = RenderingServer.shader_get_parameter_default(_cloth_outline.shader.get_rid(), w)
+			if now == null:
+				# (Without a renderer, as in the headless tests: outline.gdshader's own defaults.)
+				now = {"width": 0.0022, "min_width": 0.02, "max_width": 0.11}[w]
+			_cloth_outline.set_shader_parameter(w, float(now) * CLOTH_OUTLINE_THIN)
 	var c: ShaderMaterial = (m as ShaderMaterial).duplicate()
+	c.shader = TOON_CLOTH_SHADER
 	c.next_pass = _cloth_outline
 	_cloth_cache[m] = c
 	return c
 
 
-const CLOTH_OUTLINE_PUSH_BACK := 3.0
+const CLOTH_OUTLINE_PUSH_BACK := 2.2
+const CLOTH_OUTLINE_THIN := 0.65
 
 
 ## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.
@@ -1090,6 +1102,12 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 		if regions.has(name):
 			m.set_shader_parameter(name, Vector2(float(regions[name][0]), float(regions[name][1])))
 	m.next_pass = toon(Color.WHITE).next_pass
+	if not painted_clothes:
+		# Under the modelled clothes the skin's outline is left out too (it would poke through the cloth where it sits close).
+		var line: ShaderMaterial = (m.next_pass as ShaderMaterial).duplicate()
+		line.set_shader_parameter("hide_under_shirt", loadout.shirt != 0)
+		line.set_shader_parameter("hide_under_shorts", true)
+		m.next_pass = line
 	_limb_cache[key] = m
 	return m
 

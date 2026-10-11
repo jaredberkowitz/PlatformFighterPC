@@ -15,12 +15,18 @@ uniform float push_back = 0.6;   // how far back the line sits, as a share of it
 // else keeps this default, a thinner line in a softer ink, so the fighters are the clearest things on screen.
 instance uniform float outline_weight = 0.6;
 uniform vec4 scenery_color : source_color = vec4(0.2, 0.15, 0.24, 1.0);
+// The base body's skin under modelled clothes: its vertex colour's green (under the shirt) and blue (under the shorts) say how much line
+// it gets there, so the body's outline does not poke through the cloth. Off for everything else.
+uniform bool hide_under_shirt = false;
+uniform bool hide_under_shorts = false;
 
 void vertex() {
 	vec4 view = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
 	vec3 n = (MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	vec2 across = n.xy / max(length(n.xy), 0.0001);
-	float w = clamp(-view.z * width, min_width, max_width) * outline_weight;
+	// A mesh can leave the line out in places through its vertex colour's red (the shirt, round the armpits); without colours it is white.
+	float cover = (hide_under_shirt ? COLOR.g : 1.0) * (hide_under_shorts ? COLOR.b : 1.0);
+	float w = clamp(-view.z * width, min_width, max_width) * outline_weight * COLOR.r * cover;
 	view.xy += across * w;
 	view.z -= w * push_back;
 	POSITION = PROJECTION_MATRIX * view;

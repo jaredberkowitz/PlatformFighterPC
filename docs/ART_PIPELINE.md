@@ -675,5 +675,16 @@ The modelled shirt and shorts creased and the shorts' legs differed. Causes and 
 - **Dark specks in folds**: the ink outline (an expanded hull just behind the surface) poked through where cloth folds inward. Garments
   use the same outline pushed further back (`CLOTH_OUTLINE_PUSH_BACK`): their silhouettes keep the line, their folds do not.
 
+Second round (the desktop build still showed different legs and marks on the shirt):
+
+- **Weights mirrored too**: the left half of each garment takes the right half's bone weights with left and right swapped, so both sides
+  move alike; below the crotch each leg of the shorts follows its own thigh (fully at the hem), so the leg openings stay put.
+- **No thickness**: the solidified inner layer crossed the outer one wherever the cloth folded (black scratches at the armpits). Garments
+  are a single surface drawn on both sides (`toon_cloth.gdshader`, the inside a shade darker).
+- **No line through cloth**: the skin's outline is left out under the clothes (the skin's vertex colour marks where;
+  `hide_under_shirt` / `hide_under_shorts` in `outline.gdshader`), and the shirt has none round the armpits; the garments' own line is
+  thinner and further back (`CLOTH_OUTLINE_THIN`, `CLOTH_OUTLINE_PUSH_BACK`).
+- **Straight hems**, a snug waistband just under the shirt's hem (`SHORTS_TOP`), and only the shirt's arm and spine weights smoothed.
+
 Posed: `docs/screenshots/clothes_smoothed.png`.
 
