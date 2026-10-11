@@ -1093,6 +1093,31 @@ impl SimRunner {
         PackedInt32Array::from(flat.as_slice())
     }
 
+    /// For the view: how many frames the fighter's current dodge lasts and which way it goes, as [length, way] (way 1 forward, -1
+    /// backward, 0 in place). Rolls, spot dodges, air dodges and the stand-up from the floor; zeros otherwise. The animation is
+    /// played by progress through it.
+    #[func]
+    fn fighter_dodge(&self, i: i32) -> PackedInt32Array {
+        use sim_core::state::FighterState as S;
+        let Some(fi) = self.fighter(i) else {
+            return PackedInt32Array::from(&[0, 0][..]);
+        };
+        let p = sim_core::combat::params_of(&self.content, fi);
+        let way = fi.dodge_dir.x.signum_int() * i32::from(fi.facing);
+        let v = match fi.state {
+            S::Roll if way >= 0 => [i32::from(p.roll_frames), 1],
+            S::Roll => [i32::from(p.roll_back_frames), -1],
+            S::SpotDodge => [i32::from(p.spot_dodge_frames), 0],
+            S::GetUp => [i32::from(self.content.rules.getup_frames), 0],
+            S::AirDodge => [
+                i32::from(sim_core::fighter::air_dodge_length(p, fi.dodge_dir)),
+                way,
+            ],
+            _ => [0, 0],
+        };
+        PackedInt32Array::from(&v[..])
+    }
+
     /// Active hitboxes this frame as flat [x, y, radius, priority] groups.
     #[func]
     fn fighter_hitboxes(&self, i: i32) -> PackedFloat32Array {

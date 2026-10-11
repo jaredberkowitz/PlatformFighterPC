@@ -18,8 +18,8 @@ const STATE_CLIPS := {
 	"Landing": "land",
 	"WaveLand": "land",
 	"Roll": "roll",
-	"SpotDodge": "roll",
-	"AirDodge": "roll",
+	"SpotDodge": "spot_dodge",
+	"AirDodge": "air_dodge",
 	"Shield": "shield",
 	"ShieldDrop": "shield",
 	"WallTech": "shield",
@@ -28,7 +28,7 @@ const STATE_CLIPS := {
 	"Grabbed": "hurt",
 	"Rebound": "hurt",
 	"Knockdown": "knockdown",
-	"GetUp": "knockdown",
+	"GetUp": "getup",
 	"LedgeHang": "ledge",
 	"Grabbing": "grab",
 	"Idle": "idle",
@@ -99,6 +99,8 @@ const CLASS_MOVES := {
 		"dsmash": "sword_dsmash",
 		"nair": "kick_nair",
 		"bair": "kick_bair",
+		# (A stomp in the simulation: the hit is at the foot.)
+		"dair": "kick_dair",
 		"neutral special": "blaster",
 		"side special": "attack_kick",
 		"up special": "attack_kick",
@@ -135,7 +137,11 @@ static func attack_clip(cls: int, move: String, anim: AnimationPlayer = null) ->
 
 
 ## Clips added to the library later, and what a rig built before them plays instead (the older blob rigs have none of them).
-const STAND_INS := {"jumpsquat": "crouch", "land": "crouch"}
+const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll", "air_dodge": "roll", "getup": "knockdown"}
+
+## States whose clip is played by progress through the state's own length (the bridge's `fighter_dodge`), so the pose matches the
+## simulation's frames whatever a fighter's dodge lengths are.
+const BY_PROGRESS := ["Roll", "SpotDodge", "AirDodge", "GetUp"]
 
 
 ## The shared clip for a simulation state, or "" for a state chosen with more context; with `anim`, a clip that rig lacks becomes its

@@ -11,10 +11,10 @@ uniform vec4 bottom : source_color = vec4(1.0);
 uniform float bottom_start = 2.0;
 uniform vec4 hem : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 uniform float hem_width = 0.025;
-instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
+instance uniform vec4 flash : source_color, instance_index(0) = vec4(1.0, 1.0, 1.0, 0.0);
 // Which object this is, for the ink lines (shaders/post.gdshader): written as the roughness, which the cel lighting does not use. Each
 // fighter has its own (set by fighter_view.gd); the stage and scenery keep the default.
-instance uniform float object_id = 0.95;
+instance uniform float object_id : instance_index(1) = 0.95;
 
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/brush.gdshaderinc"

@@ -40,8 +40,8 @@ uniform bool painted_clothes = true;
 const float COVER = 0.03;
 const float COVER_ARM = 0.15;
 
-instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
-instance uniform float object_id = 0.95;
+instance uniform vec4 flash : source_color, instance_index(0) = vec4(1.0, 1.0, 1.0, 0.0);
+instance uniform float object_id : instance_index(1) = 0.95;
 
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/stage_ao.gdshaderinc"

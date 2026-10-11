@@ -1,7 +1,8 @@
 extends SceneTree
 ## Renders a contact sheet of one animation, frame by frame, for judging motion (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
-##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | <move name> (an attack such as fsmash, nair, jab)
+##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | roll | backroll | spotdodge | airdodge | knockdown | getup |
+##   <move name> (an attack such as fsmash, nair, jab)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -85,6 +86,9 @@ func _initialize() -> void:
 		"jumpsquat", "land":
 			for f in range(0, 16, 1 if what == "jumpsquat" else 2):
 				frames.append(f)
+		"roll", "backroll", "spotdodge", "airdodge", "knockdown", "getup":
+			for f in range(0, 30, 2):
+				frames.append(f)
 		_:
 			for f in range(0, timing[0], 2):
 				frames.append(f)
@@ -95,7 +99,7 @@ func _initialize() -> void:
 		var state := "Attack"
 		var vel := Vector2.ZERO
 		var move := what
-		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump"].has(what)
+		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge"].has(what)
 		var jumps := 1
 		# (Idle is shown at half speed so its bounce spreads over the sheet.)
 		match what:
@@ -127,6 +131,21 @@ func _initialize() -> void:
 			"hurt":
 				state = "Hitstun"
 				move = ""
+			"roll", "backroll":
+				state = "Roll"
+				move = ""
+			"spotdodge":
+				state = "SpotDodge"
+				move = ""
+			"airdodge":
+				state = "AirDodge"
+				move = ""
+			"knockdown":
+				state = "Knockdown"
+				move = ""
+			"getup":
+				state = "GetUp"
+				move = ""
 			"jump", "fall", "airjump":
 				state = "Airborne"
 				vel = Vector2(0.05, -0.2 if what == "fall" else 0.3)
@@ -139,7 +158,8 @@ func _initialize() -> void:
 			var s := {"state": state, "facing": facing, "vel": vel, "platform": 0 if grounded else -1, "fast_fall": false, "invuln": 0,
 				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": 0.0, "move_name": move,
 				"move_tip": tip if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
-				"tumble": false, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3}
+				"tumble": false, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3,
+				"dodge": PackedInt32Array([30, -1 if what == "backroll" else (0 if what == "spotdodge" else 1)])}
 			view.apply(Vector3(0, 0 if grounded else 0.6, 0), s, 1.0 / 60.0)
 		await process_frame
 		await process_frame

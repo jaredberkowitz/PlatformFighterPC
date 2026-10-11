@@ -1,6 +1,6 @@
 extends SceneTree
 ## What a fighter's model shows: the sword fighter's blade is there in every move (it never vanishes), the brawler never has one,
-## the brawler uses the long-limbed rig and the sword fighter the normal one.
+## and both share one body (the base rig: a fighter is never rebuilt for its class).
 ## Run: Godot --headless --path godot --script res://tests/fighter_view_test.gd
 
 const FighterView := preload("res://scripts/fighter_view.gd")
@@ -50,7 +50,7 @@ func _initialize() -> void:
 		check(sword.anim != null and sword.anim.has_animation(clip), "the rig has the clip %s for %s" % [clip, m])
 	# The claws fighter: its kicks, its claw slashes and its blaster have their own clips.
 	var kicks := {"nair": "kick_nair", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
-		"usmash": "kick_uair", "neutral special": "blaster", "ftilt": "attack_claws", "uair": "attack_uair", "dair": "attack_dair",
+		"usmash": "kick_uair", "neutral special": "blaster", "ftilt": "attack_claws", "uair": "attack_uair", "dair": "kick_dair",
 		"dsmash": "sword_dsmash", "fair": "attack_fair"}
 	for m in kicks:
 		var clip: String = fists._choose_clip(snap(1, "Attack", m, 10))[0]
@@ -61,6 +61,6 @@ func _initialize() -> void:
 	for state in ["Idle", "Walk", "Run", "Shield", "Hitstun", "Airborne", "Roll", "LedgeHang"]:
 		sword.apply(Vector3.ZERO, snap(0, state, "", frame), 1.0 / 60.0)
 		check(sword.blade_pivot.visible, "the blade is there while %s" % state)
-	check(not sword.long_limbs and fists.long_limbs, "the brawler uses the long-limbed rig, the sword fighter does not")
+	check(not sword.long_limbs and not fists.long_limbs, "both classes share the base body (no long-limbed rig swap)")
 	print("fighter view test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

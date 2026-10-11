@@ -23,12 +23,12 @@ varying vec3 world_pos;
 varying vec3 world_normal;
 
 // A flash over the whole fighter, per mesh (set by the game with `set_instance_shader_parameter`): white when hit, yellow while charging.
-instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
+instance uniform vec4 flash : source_color, instance_index(0) = vec4(1.0, 1.0, 1.0, 0.0);
 // Which object this is, for the ink lines (shaders/post.gdshader): written as the roughness, which the cel lighting does not use. Each
 // fighter has its own (set by fighter_view.gd); the stage and scenery keep the default.
-instance uniform float object_id = 0.95;
+instance uniform float object_id : instance_index(1) = 0.95;
 // The top of the block this front belongs to (see `front_fall`); far below anything for everything else, which leaves it untouched.
-instance uniform float front_top = -100000.0;
+instance uniform float front_top : instance_index(6) = -100000.0;
 
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/brush.gdshaderinc"

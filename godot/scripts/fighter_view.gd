@@ -363,7 +363,7 @@ func _choose_clip(s: Dictionary) -> Array:
 			return ["skid", 1.0, -1.0] if speed > 0.08 else ["idle", 1.0, -1.0]
 		"LedgeGetUp":
 			if ledge_rolling:
-				return ["roll", 1.0, -1.0]
+				return ["roll", 1.0, ledge_k]
 			return ["ledge_climb", 1.0, ledge_k]
 		"LedgeAttack":
 			# Up onto the edge, then the sweep (its hit on frames 24-26 of 55 lands on the clip's strike).
@@ -372,15 +372,27 @@ func _choose_clip(s: Dictionary) -> Array:
 				return ["ledge_climb", 1.0, clampf(f / 14.0, 0.0, 1.0) * 0.66]
 			var p := 0.55 * (f - 14.0) / 11.0 if f < 25.0 else 0.55 + (f - 25.0) / 30.0 * 0.45
 			return ["attack_low", 1.0, clampf(p, 0.0, 1.0)]
-	# The shared clips (scripts/anim_library.gd): the same for every moveset.
+	# The shared clips (scripts/anim_library.gd): the same for every moveset. The dodges follow their own frames.
 	var shared := AnimLibrary.state_clip(state, anim)
 	if shared != "":
+		var k := dodge_progress(s)
+		if AnimLibrary.BY_PROGRESS.has(state) and k >= 0.0:
+			return [shared, 1.0, k]
 		return [shared, 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
 	if flip_left > 0.0:
 		return ["air_jump", 1.0, -1.0]
 	return ["jump", 1.0, -1.0] if float(s.vel.y) > 0.02 else ["fall", 1.0, -1.0]
+
+
+## How far through its dodge (roll, spot dodge, air dodge) the fighter is, 0..1, or -1 when not dodging (`dodge` from the bridge's
+## `fighter_dodge`: [length, way]).
+static func dodge_progress(s: Dictionary) -> float:
+	var d: PackedInt32Array = s.get("dodge", PackedInt32Array())
+	if d.size() < 2 or d[0] <= 0:
+		return -1.0
+	return clampf(float(s.state_frame) / float(d[0]), 0.0, 1.0)
 
 
 ## The clip for the move being performed and how far through it we are, mapped onto the clip's timeline: wind-up to 0.35, the strike
@@ -1382,10 +1394,10 @@ var heavy_landing := false
 ## Squash pose per state as a single number: positive squashes down and out, negative stretches up.
 const SQUASH := {
 	"JumpSquat": 0.32, "Landing": 0.2, "Crouch": 0.28, "WaveLand": 0.24, "Turn": 0.08,
-	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22, "Grabbed": 0.14, "Knockdown": 0.42, "GetUp": 0.2,
+	"Dash": 0.04, "ShieldDrop": 0.0, "Roll": 0.3, "SpotDodge": 0.34, "ShieldBreak": 0.22, "Grabbed": 0.14, "Knockdown": 0.12, "GetUp": 0.1,
 }
 ## Forward lean in degrees per state.
-const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "Roll": 24.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
+const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeAttack": 20.0, "ShieldBreak": 32.0, "Grabbing": 8.0, "Grabbed": -10.0, "Knockdown": 78.0, "GetUp": 24.0}
 
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
@@ -1446,6 +1458,12 @@ func _ledge_motion(s: Dictionary, pos: Vector3) -> void:
 	ledge_offset = Vector3(climb_from.x * (1.0 - ease), climb_from.y * (1.0 - rise), 0.0)
 
 
+## A roll's somersault turns through the middle of the roll (as shares of it), and a spot dodge steps this far back into the stage.
+const ROLL_SPIN_FROM := 0.12
+const ROLL_SPIN_TO := 0.78
+const SPOT_DODGE_STEP := 0.7
+## How far a fighter lying on the floor is raised (see `apply`).
+const KNOCKDOWN_LIFT := 0.32
 ## The midair jump's front flip: seconds left of it, and the offset that keeps it turning about the body's middle.
 const FLIP_TIME := 0.38
 var flip_left := 0.0
@@ -1467,8 +1485,10 @@ var last_step_phase := 0.0
 
 ## `s` is a dictionary of sim state (see main.gd `_refresh`).
 func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
-	# The brawler has longer limbs: swap to its rig the first time we see its class.
-	if rig != null and (_cls(s) == 1) != long_limbs:
+	# The old built body's brawler has longer limbs: swap to its rig the first time we see its class. (The base body is one rig for every
+	# class, so it never rebuilds here: a rebuild on the first frame of a match also left that fighter's per-mesh shader values, the ink
+	# pass's object id among them, stale on part of the body, which drew a line round its face.)
+	if rig != null and not use_base_body and (_cls(s) == 1) != long_limbs:
 		long_limbs = _cls(s) == 1
 		rebuild(loadout)
 	position = pos
@@ -1505,6 +1525,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if state == "Airborne" or state == "Helpless":
 		target_squash = -0.1 if vy > 0.06 else (-0.05 if vy < -0.12 else 0.0)
 	var target_lean: float = LEAN.get(state, 0.0)
+	# Standing up from the floor: the body rises from lying (the knockdown's lean) as the `getup` clip sits it up and gets the feet
+	# under it.
+	if state == "GetUp" and dodge_progress(s) >= 0.0:
+		target_lean = LEAN.Knockdown * (1.0 - smoothstep(0.0, 0.55, dodge_progress(s)))
 	if heavy_landing:
 		target_lean = 8.0
 	# The whole body swings with the hit (in the manner of the reference game's big aerials): it pitches into a hit in front or below,
@@ -1593,6 +1617,14 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if ledge_rolling and state == "LedgeGetUp":
 		flip += TAU * ledge_k
 		pivot = Vector3(0, 0.6, 0)
+	# A roll is a somersault the way it goes (forward, or backward for a back roll), about the curled body's middle, over the roll's
+	# moving frames; the `roll` clip curls the body up for it.
+	var dodge := dodge_progress(s)
+	if state == "Roll" and dodge >= 0.0:
+		var way: int = (s.dodge as PackedInt32Array)[1]
+		flip += (-1.0 if way < 0 else 1.0) * TAU * smoothstep(ROLL_SPIN_FROM, ROLL_SPIN_TO, dodge)
+		# (About the curled ball's middle, high enough that the head clears the floor as it comes round.)
+		pivot = Vector3(0, 0.8, 0)
 	model.rotation = Vector3(deg_to_rad(lean) + flip, yaw, 0)
 	# A spinning neutral air turns the whole body over once backward, in the plane of the stage (see NAIR_SPIN).
 	var spin := _spin(s)
@@ -1630,6 +1662,14 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	_animate(s, delta)
 	_apply_combat(s, delta)
 	model.position += flip_offset
+	# Lying down, the body (pitched over by its lean about the feet) is raised so its arms and chest rest on the floor, not in it.
+	if state == "Knockdown":
+		model.position.y += KNOCKDOWN_LIFT
+	elif state == "GetUp" and dodge >= 0.0:
+		model.position.y += KNOCKDOWN_LIFT * (1.0 - smoothstep(0.0, 0.55, dodge))
+	# A spot dodge steps back into the stage (away from the camera) and back out, so it reads as getting out of the way.
+	if state == "SpotDodge" and dodge >= 0.0:
+		model.position.z -= SPOT_DODGE_STEP * sin(PI * dodge)
 	_blink(delta)
 
 
@@ -1739,7 +1779,7 @@ const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack":
 ## Kicks that send both legs out (front and back), each aimed by the game.
 const SPLIT_KICKS := ["nair"]
 ## (Its up air and down air are claw slashes, overhead and down below, so they swing the arm.)
-const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
+const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
 const BRAWLER_FLAME := ["side special", "up special"]
 var last_percent := -1

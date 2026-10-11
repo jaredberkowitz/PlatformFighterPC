@@ -22,6 +22,9 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
   by progress through the move's own frames (`fighter_view.gd` `strike_progress`): the strike lands on the first active frame, follows
   through while active, holds through end lag and settles at the end. So one clip serves moves of any length without changing their frame
   data, and the animation can never become the source of truth.
+- **Timed states**: the dodges and the stand-up from the floor are played by progress through their own lengths (the bridge's
+  `fighter_dodge`: the state's length from the fighter's parameters, and which way it goes), so a fighter with longer rolls still lands
+  its roll's poses on its own frames. The roll's somersault and the spot dodge's step back into the stage are code on top.
 - **Multihit**: the bridge exposes each move's separate hits (`fighter_move_windows`: one window per hitbox group, cut again at every
   re-hit of a `rehit` move). Between two hits the body draws back toward the wind-up and strikes again on the next hit's first frame;
   back-to-back hits take the draw-back on the frame just before, so the impact frame (frozen by hitlag) always shows the strike. The last
@@ -37,11 +40,12 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
 | --- | --- |
 | A. Shared, ready | `walk`, `run`, `dash`, `skid`, `fall`, `air_jump`, `crouch`, `shield`, `ledge`, `ledge_climb`, `grab`, `throw`, `victory_a/b/c` |
 | B. Shared, polished in the first slice | `idle`, `jump`, `hurt` (now `jumpsquat` and `land` too) |
-| B. Shared, still to polish | `roll` (one curled pose serves roll, spot dodge and air dodge), `knockdown` (one held pose), `shield` (static) |
+| B. Shared, polished in the second slice | `roll` (crouch, somersault, open out), `spot_dodge` (new: duck and tuck, stepped back into the stage), `air_dodge` (new: curl, then open into the fall), `knockdown` (slam, then flat), `getup` (new: push-up, crouch, stand) |
+| B. Shared, still to polish | `shield` (static) |
 | C. Archetypes used by several moves | `attack_jab`, `attack_fair`, `attack_uair`, `attack_swing`, `attack_lunge`, `attack_smash`, `attack_low`, `attack_nair`, `attack_bair`, `attack_dair`, `attack_kick`, `grab`, `throw`, `sword_dsmash` |
 | D. Specialised, keep unique | `sword_ftilt`, `sword_utilt`, `sword_dtilt`, `sword_fsmash`, `sword_usmash`, `sword_dair`, `kick_up`, `kick_low`, `kick_dash`, `kick_uair`, `kick_nair`, `kick_bair`, `attack_claws`, `blaster` |
-| E. Unused | `kick_dair` (a stomp; the claws' down air, which is a stomp in the sim, still plays the shared `attack_dair`: see the plan) |
-| F. Missing | a distinct air dodge and spot dodge; a tech; a platform drop; a stronger hitstun for heavy hits (code poses cover tumble and launch); a run stop |
+| E. Unused | none (the claws' down air now plays its stomp, `kick_dair`) |
+| F. Missing | a tech; a platform drop; a stronger hitstun for heavy hits (code poses cover tumble and launch); a run stop |
 | G. Not reusable as is | the `BODY_MOVES` poses are for the base body only; the old blob rigs have no `jumpsquat` or `land` (stand-ins play `crouch`) |
 
 ## 3. Which moves use which clip
@@ -57,7 +61,7 @@ Blade's later hits).
 | `attack_smash` | neutral special | fsmash |
 | `attack_low` | down special (the counter stance), ledge attack's sweep | ledge attack's sweep |
 | `attack_nair` / `attack_bair` | nair / bair | |
-| `attack_dair` | | dair |
+| `attack_dair` | | (none: the claws' dair plays `kick_dair`) |
 | `sword_dsmash` | dsmash | dsmash (a claw swept in front then behind) |
 | `attack_kick` | | side, up and down specials |
 
@@ -94,11 +98,10 @@ The look is physical and loose between actions and decisive in them.
 ## 6. Plan
 
 Done (first slice): the library and its test, per-hit strikes for multihit moves, the idle, the jump's take-off and rise, the landing, the
-jab, the forward air and the hit reaction. Next, by how often each is seen:
+jab, the forward air and the hit reaction. Done (second slice): roll, spot dodge and air dodge as their own clips played on the sim's
+frames, knockdown and get-up, and the claws' down air on its stomp. Next, by how often each is seen:
 
-1. Dodges: separate `spot_dodge` and `air_dodge` from the roll (one curled pose serves all three now).
-2. Knockdown and get-up: a fall onto the back with a bounce, and a push-up (the get-up rolls and attack already have their own frames).
-3. The claws' down air onto `kick_dair` (it is a stomp in the sim), with its foot aimed and no claw drawn.
-4. A heavy hitstun pose for hits that launch but do not tumble.
-5. Shield: a small breathing hold, and a flinch on shield hits.
-6. Secondary motion: hand follow-through on the fists after strikes; head lag on dashes.
+1. A heavy hitstun pose for hits that launch but do not tumble.
+2. Shield: a small breathing hold, and a flinch on shield hits.
+3. Secondary motion: hand follow-through on the fists after strikes; head lag on dashes.
+4. A tech (a quick roll up off the floor) and a platform drop.

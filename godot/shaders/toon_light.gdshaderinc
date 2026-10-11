@@ -21,9 +21,9 @@ uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 1.0) = 0.55;
 uniform float sheen : hint_range(0.0, 1.0) = 0.04;
 // How much stronger the rim is on this object (fighters set it above 1 so they lift off the background; see `_tag_object`).
-instance uniform float rim_boost = 1.0;
+instance uniform float rim_boost : instance_index(2) = 1.0;
 // 1 on a fighter (set by fighter_view.gd): it gets the edge light, and its shadow side is kept a little lighter so it reads anywhere.
-instance uniform float fighter = 0.0;
+instance uniform float fighter : instance_index(3) = 0.0;
 // How much lighter a fighter's shadow side is kept (a share of the way to lit).
 const float PF_FIGHTER_LIFT = 0.18;
 

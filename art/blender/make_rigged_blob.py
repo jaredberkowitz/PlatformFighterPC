@@ -88,6 +88,29 @@ def to_object(name, bm, bone, rig):
     return obj
 
 
+def match_skin(obj, skin):
+    """Gives `obj` (lying on `skin`) the skin's bone weights and normals at the nearest point, so it moves and shades as the skin under it."""
+    obj.vertex_groups.clear()
+    for g in skin.vertex_groups:
+        obj.vertex_groups.new(name=g.name)
+    dt = obj.modifiers.new("Match skin", "DATA_TRANSFER")
+    dt.object = skin
+    dt.use_vert_data = True
+    dt.data_types_verts = {"VGROUP_WEIGHTS"}
+    dt.vert_mapping = "POLYINTERP_NEAREST"
+    dt.layers_vgroup_select_src = "ALL"
+    dt.layers_vgroup_select_dst = "NAME"
+    dt.use_loop_data = True
+    dt.data_types_loops = {"CUSTOM_NORMAL"}
+    dt.loop_mapping = "POLYINTERP_NEAREST"
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    # (Applied first in the stack, before the armature.)
+    bpy.ops.object.modifier_move_to_index(modifier=dt.name, index=0)
+    bpy.ops.object.modifier_apply(modifier=dt.name)
+
+
 def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=True):
     """A ball, unwrapped like a globe (u around, v from the bottom up) for cloth patterns and the painted brush grain."""
     if uvs:
@@ -583,12 +606,12 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
-    if name in ("jump", "fall", "air_jump", "hurt", "roll", "knockdown", "ledge", "ledge_climb", "kick_dash"):
+    if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash"):
         return False
     return not name.endswith("air")
 
 
-STANDING = {"idle", "crouch", "jumpsquat", "land", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
+STANDING = {"idle", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
 
 
 def _ankle(rig, side):
@@ -785,7 +808,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "knockdown"):
+    elif name in ("jump", "fall", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -1087,6 +1110,12 @@ def build_body_meshes(rig):
     # Softer elbows and shoulders: the automatic weights change over from one arm bone to the next in too short a stretch, which pinches
     # the arm where it bends; spread out, it bends round.
     smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")])
+
+    # The face shell bends and shades with the skin it lies on: it takes the skin's own weights (the jaw and cheeks partly follow the
+    # chest, which the game twists toward the camera) and its normals. Bound rigidly to the head bone, it slid into the skin on one side
+    # when the chest twisted, and its ball normals shaded it a little darker than the skin there: a jagged seam down the face of a
+    # fighter facing left.
+    match_skin(parts["Face"], skin)
 
     # The clothes, modelled: a shirt and a pair of shorts cut from the skin itself (so they fit it and bend with it exactly, weights and
     # all), lifted off it and given a little thickness, with clean straight hems.
@@ -2203,7 +2232,63 @@ def main() -> None:
             pose(rig, "armU." + side, fwd=42.0, out=8.0)
             pose(rig, "armL." + side, fwd=88.0)
 
-    clip(rig, "roll", 8, {0: roll_pose, 8: roll_pose})
+    if BODY:
+        # The dodges, played by progress through the simulation's own frames (the game spins the roll and steps the spot dodge
+        # back into the stage). A roll: a quick crouch into a tight ball for the somersault, then opening out onto the feet.
+        def roll_launch(rig):
+            pose(rig, "hips", lift=-0.16)
+            pose(rig, "spine", fwd=34.0)
+            pose(rig, "head", fwd=-10.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=56.0, out=6.0)
+                pose(rig, "shin." + side, fwd=-90.0)
+                pose(rig, "armU." + side, fwd=60.0, out=10.0)
+                pose(rig, "armL." + side, fwd=60.0)
+
+        def roll_land(rig):
+            pose(rig, "hips", lift=-0.12)
+            pose(rig, "spine", fwd=16.0)
+            pose(rig, "head", fwd=-8.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=46.0, out=8.0)
+                pose(rig, "shin." + side, fwd=-70.0)
+                pose(rig, "armU." + side, fwd=30.0, out=24.0)
+                pose(rig, "armL." + side, fwd=50.0)
+
+        clip(rig, "roll", 30, {0: roll_launch, 4: roll_pose, 21: roll_pose, 27: roll_land, 30: roll_land})
+
+        # A spot dodge: a quick duck and tuck in place, arms drawn in to the chest and the knees bent, held while it is safe, then
+        # back up (the game turns the chest away and steps the body back into the stage).
+        def duck(k):
+            def f(rig):
+                pose(rig, "hips", lift=-0.18 * k)
+                pose(rig, "spine", fwd=6.0 + 14.0 * k)
+                pose(rig, "head", fwd=-4.0 - 6.0 * k)
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=22.0 + 34.0 * k, out=8.0)
+                    pose(rig, "shin." + side, fwd=-30.0 - 50.0 * k)
+                    pose(rig, "armU." + side, fwd=30.0 + 34.0 * k, out=20.0 - 14.0 * k)
+                    pose(rig, "armL." + side, fwd=60.0 + 60.0 * k)
+            return f
+
+        clip(rig, "spot_dodge", 30, {0: duck(0.2), 5: amped(duck(1.0), 1.05), 22: duck(1.0), 30: duck(0.2)})
+
+        # An air dodge: a flinch into a tight curl, knees up and arms crossed before the face (not over it: the hands stay under the
+        # chin), held through the dodge, then opening into the fall.
+        def curl(k):
+            def f(rig):
+                pose(rig, "spine", fwd=4.0 + 18.0 * k)
+                pose(rig, "head", fwd=-4.0 - 4.0 * k)
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=20.0 + 50.0 * k, out=10.0)
+                    pose(rig, "shin." + side, fwd=-30.0 - 66.0 * k)
+                    pose(rig, "armU." + side, fwd=30.0 + 34.0 * k, out=30.0 - 34.0 * k)
+                    pose(rig, "armL." + side, fwd=50.0 + 60.0 * k)
+            return f
+
+        clip(rig, "air_dodge", 30, {0: curl(0.3), 4: amped(curl(1.0), 1.06), 20: curl(1.0), 30: fall(0.0)})
+    else:
+        clip(rig, "roll", 8, {0: roll_pose, 8: roll_pose})
 
     def down_pose(rig):
         for side in "LR":
@@ -2213,7 +2298,54 @@ def main() -> None:
             pose(rig, "shin." + side, fwd=-8.0)
         pose(rig, "head", fwd=-8.0)
 
-    clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
+    if BODY:
+        # Knocked down (the game lays the body face down with its lean): the slam arches it, head and heels up and the arms flung out
+        # ahead, a small bounce, then it lies flat.
+        def slam(rig):
+            pose(rig, "spine", fwd=-20.0)
+            pose(rig, "head", fwd=-22.0)
+            # (Lying face down, "ahead along the floor" is overhead for the arms: raised forward they went into the floor.)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=172.0, out=34.0)
+                pose(rig, "armL." + side, fwd=-14.0)
+                pose(rig, "thigh." + side, fwd=-22.0, out=12.0)
+                pose(rig, "shin." + side, fwd=-64.0)
+
+        def flat(rig):
+            pose(rig, "spine", fwd=0.0)
+            pose(rig, "head", fwd=6.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=166.0, out=52.0)
+                pose(rig, "armL." + side, fwd=-8.0)
+                pose(rig, "thigh." + side, fwd=-6.0, out=14.0)
+                pose(rig, "shin." + side, fwd=-12.0)
+
+        clip(rig, "knockdown", 14, {0: slam, 4: amped(slam, 1.1), 9: flat, 14: flat})
+
+        # Standing up from it (played by progress; the game swings the body upright over its first half): hands planted and pushing
+        # up, the knees drawn under, a crouch, then standing.
+        def push_up(rig):
+            pose(rig, "spine", fwd=24.0)
+            pose(rig, "head", fwd=-16.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=72.0, out=18.0)
+                pose(rig, "armL." + side, fwd=16.0)
+                pose(rig, "thigh." + side, fwd=92.0, out=10.0)
+                pose(rig, "shin." + side, fwd=-116.0)
+
+        def rise(rig):
+            pose(rig, "hips", lift=-0.16)
+            pose(rig, "spine", fwd=22.0)
+            pose(rig, "head", fwd=-10.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=34.0, out=22.0)
+                pose(rig, "armL." + side, fwd=40.0)
+                pose(rig, "thigh." + side, fwd=66.0, out=8.0)
+                pose(rig, "shin." + side, fwd=-98.0)
+
+        clip(rig, "getup", 30, {0: flat, 9: push_up, 18: rise, 30: idle(0.0)})
+    else:
+        clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
 
     def ledge_pose(k):
         def f(rig):

@@ -344,7 +344,7 @@ func _refresh(i: int) -> void:
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
 		"charge": sim.fighter_charge(i), "shield": sim.fighter_shield(i) / sim.shield_max(), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
-		"move_windows": sim.fighter_move_windows(i),
+		"move_windows": sim.fighter_move_windows(i), "dodge": sim.fighter_dodge(i),
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i),
 	}
 
@@ -1574,6 +1574,11 @@ func _offscreen_markers() -> Array:
 
 ## Degrees the match camera looks down at the stage.
 const CAMERA_PITCH := 10.0
+## The nearest the match camera comes (world units). At 26 it shows about 25 units across, the whole main stage (22, the reference
+## game's stage length) with a little to spare, and a fighter (2.2 tall) is about a sixth of the screen's height, as the reference
+## game frames a close exchange. It came in to 19 before, where a fighter filled over a fifth of the screen and the stage did not fit,
+## so every speed (which follow the reference's published numbers) read faster than the reference's.
+const CAMERA_NEAREST := 26.0
 
 
 func _update_camera(a: float, delta: float) -> void:
@@ -1589,9 +1594,9 @@ func _update_camera(a: float, delta: float) -> void:
 		return
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
-	# (Close together, the camera comes in near so the fighters read big, as the reference game frames a close exchange.)
+	# (Close together, the camera comes in, but never nearer than CAMERA_NEAREST: see there.)
 	var spread := maxf(hi.x - lo.x + 14.0, (hi.y - lo.y + 8.0) * 1.78)
-	var dist := clampf(spread / 0.95, 19.0, 85.0)
+	var dist := clampf(spread / 0.95, CAMERA_NEAREST, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
 	# (Aimed a little low, by a share of the view's height, so fighters on the ground sit clear of the match display along the bottom.)
