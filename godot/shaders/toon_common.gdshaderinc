@@ -23,6 +23,13 @@ instance uniform float object_id = 0.95;
 #include "res://shaders/brush.gdshaderinc"
 #include "res://shaders/stage_ao.gdshaderinc"
 
+#ifdef PF_TWO_SIDED
+// An ink line along the garment's bottom hem (the shirt's, over the shorts), `hem_ink` wide in rest units above `hem_low`; 0 for none.
+uniform float hem_low = -99.0;
+uniform float hem_ink = 0.0;
+uniform vec4 hem_color : source_color = vec4(0.1, 0.07, 0.12, 1.0);
+#endif
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -46,6 +53,10 @@ void fragment() {
 		c *= brush(UV);
 	}
 #ifdef PF_TWO_SIDED
+	if (hem_ink > 0.0 && FRONT_FACING) {
+		float above = (1.0 - UV.y) - hem_low;
+		c = mix(hem_color.rgb, c, smoothstep(hem_ink * 0.6, hem_ink, above));
+	}
 	// The inside of a garment (seen through a hem): lit from its own side, a shade darker.
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;

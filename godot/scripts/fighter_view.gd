@@ -257,6 +257,9 @@ func _build_rig(skin: Material) -> bool:
 	var garments := rig.find_child("Shirt", true, false) != null
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
+		# Full detail always: Godot simplifies meshes that look small on screen (its automatic LOD), which chewed thin cloth's hems into
+		# a torn edge in the menus' small previews.
+		mi.lod_bias = 128.0
 		if part.begins_with("Arm"):
 			mi.material_override = arm
 		elif part.begins_with("Leg"):
@@ -271,7 +274,12 @@ func _build_rig(skin: Material) -> bool:
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
 			if cloth != null:
-				mi.material_override = _cloth(cloth)
+				var shirt_mat: ShaderMaterial = (_cloth(cloth) as ShaderMaterial).duplicate()
+				# An ink line along the bottom hem, so where the shirt meets the shorts reads as one clean edge at any size.
+				shirt_mat.set_shader_parameter("hem_low", float(_base_rig_info().get("clothes", {}).get("waist", 0.89)) - SHIRT_HEM_BELOW_WAIST)
+				shirt_mat.set_shader_parameter("hem_ink", SHIRT_HEM_INK)
+				shirt_mat.set_shader_parameter("hem_color", INK)
+				mi.material_override = shirt_mat
 		elif part.begins_with("Foot"):
 			mi.material_override = shoe
 		elif part.begins_with("Face"):
@@ -1039,6 +1047,8 @@ static func _cloth(m: Material) -> Material:
 			_cloth_outline.set_shader_parameter(w, float(now) * CLOTH_OUTLINE_THIN)
 	var c: ShaderMaterial = (m as ShaderMaterial).duplicate()
 	c.shader = TOON_CLOTH_SHADER
+	# A softer step from light to shadow than the body's: on cloth the hard one picked out every small bump as a row of teeth.
+	c.set_shader_parameter("ramp_softness", CLOTH_RAMP_SOFTNESS)
 	c.next_pass = _cloth_outline
 	_cloth_cache[m] = c
 	return c
@@ -1046,6 +1056,10 @@ static func _cloth(m: Material) -> Material:
 
 const CLOTH_OUTLINE_PUSH_BACK := 2.2
 const CLOTH_OUTLINE_THIN := 0.65
+const CLOTH_RAMP_SOFTNESS := 0.32
+## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
+const SHIRT_HEM_BELOW_WAIST := 0.012
+const SHIRT_HEM_INK := 0.01
 
 
 ## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.

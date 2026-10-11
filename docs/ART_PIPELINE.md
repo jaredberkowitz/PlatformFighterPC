@@ -686,5 +686,17 @@ Second round (the desktop build still showed different legs and marks on the shi
   thinner and further back (`CLOTH_OUTLINE_THIN`, `CLOTH_OUTLINE_PUSH_BACK`).
 - **Straight hems**, a snug waistband just under the shirt's hem (`SHORTS_TOP`), and only the shirt's arm and spine weights smoothed.
 
+Third round (the shirt's hem still looked torn in the creator's stance):
+
+- **The hem crumpled in the stance**: hem points had picked up a little of the thighs' and arms' influence (the arms hang beside the hips
+  in the rest pose), so spreading the legs or raising the fists pulled them into teeth. Torso cloth now takes only the trunk's bones
+  (hips, spine, neck), averaged per height over the torso's skin (`trunk_weights`); sleeves keep the arm's, and the shorts' legs blend
+  into their own thigh below the crotch.
+- **What counts as arm** is now closeness to the arm's axis (`ARM_RADIUS`, in the builder and `skin.gdshader`); far from the middle alone
+  took the hips' sides for arms. The hems are smoothed along their own loops too (`HEM_SMOOTH`).
+- **Finish**: a thin ink line along the shirt's bottom hem (`hem_ink` in `toon_common.gdshaderinc`), a softer light-to-shadow step on
+  cloth (`CLOTH_RAMP_SOFTNESS`), full mesh detail at any size (`lod_bias`), and the skin hidden in one stretch from the shorts' hems to the
+  neck when both are worn.
+
 Posed: `docs/screenshots/clothes_smoothed.png`.
 

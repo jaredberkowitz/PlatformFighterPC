@@ -62,7 +62,13 @@ void fragment() {
 	vec2 p = vec2(UV.x, 1.0 - UV.y);   // rest x and height
 	vec3 c = skin.rgb;
 	// (The head is never clothed: an arm is below the neck.)
-	bool arm = abs(p.x) > torso_half_width && p.y > shorts_end_z && p.y < neck_z;
+	// On the arm: close to its axis (shoulder to wrist, the wrist taken past the elbow), as make_rigged_blob.py's garments decide it. The
+	// hips are about as wide as the arms' inner edge, so being far from the middle alone is not enough.
+	vec2 sa = p.x < 0.0 ? shoulder_l : shoulder_r;
+	vec2 se = p.x < 0.0 ? elbow_l : elbow_r;
+	vec2 sw = se + (se - sa) * 1.05;
+	float st = clamp(dot(p - sa, sw - sa) / dot(sw - sa, sw - sa), 0.0, 1.0);
+	bool arm = abs(p.x) > 0.15 && p.y < neck_z && length(p - (sa + (sw - sa) * st)) < 0.14;
 	bool has_shirt = painted_clothes && shirt.a > 0.5;
 	vec3 shirt_c = shirt.rgb;
 	if (use_shirt_tex) {
@@ -121,7 +127,9 @@ void fragment() {
 			vec2 b = p.x < 0.0 ? elbow_l : elbow_r;
 			covered = shirt.a > 0.5 && along_arm(p, a, b) < sleeve - COVER_ARM;
 		} else {
-			covered = (shirt.a > 0.5 && p.y > waist_z + COVER && p.y < neck_z - COVER * 1.5) || (p.y > shorts_end_z + COVER && p.y < waist_z);
+			// (With a shirt over the shorts, one stretch from the shorts' hems to the neck: no band of skin between them to show.)
+			float top = shirt.a > 0.5 ? neck_z - COVER * 1.5 : waist_z;
+			covered = p.y > shorts_end_z + COVER && p.y < top;
 		}
 		if (covered) {
 			discard;

@@ -1123,6 +1123,11 @@ SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem 
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
 SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
 HEM_FLARE = 0.02
+ARM_RADIUS = 0.14      # how far from the arm's axis a point still counts as the arm (the upper arm is about 0.09 thick)
+HEM_SMOOTH = 30
+TORSO_SLICE = 0.01       # the height of a slice of the torso that shares one blend of the trunk's bones
+TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # how many smoothing steps each hem gets along its loop
+WEIGHT_BLUR = 0.06     # how far round each cloth point the skin's bone weights are averaged
 GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
 GARMENT_WEIGHT_SMOOTH = 24
 ARMPIT_NO_INK = 0.07          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
@@ -1146,8 +1151,19 @@ def build_garments(skin, J, neck):
         b = Vector((J["armL." + side].x, 0.0, J["armL." + side].z))
         arm[side] = (a, b)
 
+    wrist = {side: Vector((J["hand." + side].x, 0.0, J["hand." + side].z)) for side in "LR"}
+
     def on_arm(co):
-        return abs(co.x) > half_width and shorts_end < co.z < neck
+        # Close to the arm's own axis (shoulder to wrist): the body is about as wide at the hips as the arms' inner edge, so being far from
+        # the middle alone took the hips' sides for arms (they missed the smoothing and the straight hems, and stuck out as spikes).
+        if co.z >= neck or abs(co.x) < 0.15:
+            return False
+        side = "L" if co.x < 0.0 else "R"
+        a = arm[side][0]
+        b = wrist[side]
+        p = Vector((co.x, 0.0, co.z))
+        t = max(0.0, min(1.0, (p - a).dot(b - a) / (b - a).length_squared))
+        return (p - (a + (b - a) * t)).length < ARM_RADIUS
 
     def sleeve_t(co):
         a, b = arm["L" if co.x < 0.0 else "R"]
@@ -1185,6 +1201,40 @@ def build_garments(skin, J, neck):
     for v in skin.data.vertices:
         skin_points.insert(v.co, v.index)
     skin_points.balance()
+    # The torso's skin alone, for the cloth over the torso to take its weights from: in the rest pose the arms hang right beside the hips,
+    # and hem points that took some of an arm's weights were dragged up in teeth when the fists came up.
+    arm_groups = {g.index for g in skin.vertex_groups if g.name.startswith(("armU", "armL", "hand"))}
+    torso_ids = [v.index for v in skin.data.vertices if not on_arm(v.co) and not any(g.group in arm_groups and g.weight > 0.05 for g in v.groups)]
+    torso_points = kdtree.KDTree(len(torso_ids))
+    for i in torso_ids:
+        torso_points.insert(skin.data.vertices[i].co, i)
+    torso_points.balance()
+    # The torso's own bones by height: the average of the hips, spine and neck weights over each slice of the torso's skin (the thighs and
+    # arms left out: in the wide stance hem points that followed a thigh a little crumpled into teeth). Torso cloth takes these.
+    trunk = {g.index: g.name for g in skin.vertex_groups if g.name in ("hips", "spine", "neck")}
+    sums = {}
+    for i in torso_ids:
+        v = skin.data.vertices[i]
+        b = int(round(v.co.z / TORSO_SLICE))
+        acc = sums.setdefault(b, {})
+        for g in v.groups:
+            if g.group in trunk:
+                acc[g.group] = acc.get(g.group, 0.0) + g.weight
+    trunk_slices = {}
+    for b in sums:
+        total = {}
+        for k in range(b - TORSO_SLICE_SPREAD, b + TORSO_SLICE_SPREAD + 1):
+            for gi, w in sums.get(k, {}).items():
+                total[gi] = total.get(gi, 0.0) + w
+        whole = sum(total.values())
+        if whole > 0.0:
+            trunk_slices[b] = {gi: w / whole for gi, w in total.items()}
+
+    def trunk_weights(z):
+        if not trunk_slices:
+            return None
+        return trunk_slices[min(trunk_slices, key=lambda k: abs(k - z / TORSO_SLICE))]
+
     skin_bm = bmesh.new()
     skin_bm.from_mesh(skin.data)
     skin_bm.normal_update()
@@ -1232,6 +1282,17 @@ def build_garments(skin, J, neck):
             away = (v.co - hit[0]).dot(hit[1])
             if away < lift * 0.8:
                 v.co = v.co + hit[1] * (lift * 0.8 - away)
+        # The hems themselves: held still while the cloth was smoothed, they kept every bump of the body's surface, which the flare then
+        # turned into a torn-looking edge. Each hem (not the sleeves') is smoothed along its own loop, across but not up or down.
+        loop = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in hems if not on_arm(v.co)}
+        for _ in range(HEM_SMOOTH):
+            moved = {}
+            for v, nbrs in loop.items():
+                if len(nbrs) == 2:
+                    mid = (nbrs[0].co + nbrs[1].co) * 0.5
+                    moved[v] = Vector((v.co.x + (mid.x - v.co.x) * 0.5, v.co.y + (mid.y - v.co.y) * 0.5, v.co.z))
+            for v, co in moved.items():
+                v.co = co
         # Straight hems: the edges were cut level, but pushing the cloth out along a bumpy surface's normals left them wavy (like torn
         # paper where the shirt meets the shorts). Every edge point near a level cut goes back to its height.
         levels = [waist - 0.012, neck_line] if name == "Shirt" else [waist + SHORTS_TOP, shorts_end]
@@ -1251,15 +1312,35 @@ def build_garments(skin, J, neck):
         for v in bm.verts:
             left = v.co.x < 0.0
             co = Vector((-v.co.x, v.co.y, v.co.z)) if left else v.co
-            _, i, _ = skin_points.find(co)
+            # The skin's weights blurred over a few centimetres round the point (Blender's automatic weights alternate between bones
+            # from one point to the next, which made a hem zigzag in a pose); the sleeves keep the nearest point's.
+            if on_arm(co):
+                _, i, _ = skin_points.find(co)
+                near = [(skin.data.vertices[i], 1.0)]
+            else:
+                found = torso_points.find_range(co, WEIGHT_BLUR)
+                if not found:
+                    found = [torso_points.find(co)]
+                near = [(skin.data.vertices[i], max(0.0, 1.0 - d / WEIGHT_BLUR) + 1e-4) for _, i, d in found]
+            blend = {}
+            even = None if on_arm(co) or co.z < crotch else trunk_weights(co.z)
+            if even is not None:
+                blend = dict(even)
+                near = []
+            for sv, k in near:
+                for g in sv.groups:
+                    blend[g.group] = blend.get(g.group, 0.0) + g.weight * k
+            whole = sum(blend.values())
             v[deform].clear()
-            for g in skin.data.vertices[i].groups:
-                group = g.group
+            for gi, w in blend.items():
+                if whole <= 0.0 or w / whole < 0.01:
+                    continue
+                group = gi
                 if left:
-                    n = names[g.group]
+                    n = names[gi]
                     swapped = n[:-2] + (".L" if n.endswith(".R") else ".R") if n.endswith((".L", ".R")) else n
-                    group = index.get(swapped, g.group)
-                v[deform][group] = g.weight
+                    group = index.get(swapped, gi)
+                v[deform][group] = w / whole
             if name == "Shorts" and v.co.z < crotch:
                 # Below the crotch each leg of the shorts follows its own thigh, fully at the hem: the leg openings keep their place on
                 # the thighs in any pose rather than riding up or standing off like a skirt.
