@@ -46,6 +46,16 @@ func build(sim) -> void:
 			extent = [r[0], r[1], r[2], r[3]]
 		else:
 			extent = [minf(extent[0], r[0]), maxf(extent[1], r[1]), maxf(extent[2], r[2]), minf(extent[3], r[3])]
+	# ...and the left and right of the lowest block (what hangs under the stage is fitted to it).
+	var lowest := INF
+	for r in rects:
+		if r[4] < 0.5 and r[3] < lowest:
+			lowest = r[3]
+			if extent.size() == 4:
+				extent.append_array([r[0], r[1]])
+			else:
+				extent[4] = r[0]
+				extent[5] = r[1]
 	for i in rects.size():
 		var r: PackedFloat32Array = rects[i]
 		var left := r[0]

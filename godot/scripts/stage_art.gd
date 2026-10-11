@@ -333,6 +333,10 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	_mesh(parent, _box(Vector3(w - 0.3, 0.22, depth - 0.4)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.37, front_z - depth / 2.0))
 	for side in [-1.0, 1.0]:
 		_mesh(parent, _cylinder(0.13, 0.13, depth), board, Vector3(cx + side * w / 2.0, top - 0.13, front_z - depth / 2.0), Vector3.ONE, Vector3(90, 0, 0))
+	# A light edge where the top meets the front (it catches the light, and says where the platform ends), and a soft shade on the beam
+	# under the board.
+	_mesh(parent, _box(Vector3(w, 0.05, 0.06)), _soft((t.wood as Color).lightened(0.22)), Vector3(cx, top - 0.02, front_z + 0.005))
+	_mesh(parent, _shade_band(w - 0.3, 0.3), _band_material(), Vector3(cx, top - 0.4, front_z - 0.19))
 	var seam := _unshaded((t.wood_dark as Color).darkened(0.2))
 	var n := maxi(1, int(w / 1.6))
 	for k in range(1, n):
@@ -368,7 +372,6 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
 	painted_layers(root, t.name)
 	_props(root, t.name, _ext(stage))
-	_foreground(root, t.name, _ext(stage))
 	merge_static(root)
 
 
@@ -380,7 +383,8 @@ static func merge_static(root: Node3D) -> int:
 	var order: Array = []
 	for c in root.get_children():
 		var mi := c as MeshInstance3D
-		if mi == null or mi.mesh == null or mi.material_override == null or mi.transparency > 0.0 or mi.get_child_count() > 0:
+		# (Meshes built by hand, like the great tree's trunk, are left as they are: merged in with the built-in shapes they were lost.)
+		if mi == null or mi.mesh == null or mi.mesh is ArrayMesh or mi.material_override == null or mi.transparency > 0.0 				or mi.get_child_count() > 0:
 			continue
 		var key: int = mi.material_override.get_instance_id()
 		if not groups.has(key):
@@ -406,55 +410,6 @@ static func merge_static(root: Node3D) -> int:
 			mi.free()
 		saved += parts.size() - 1
 	return saved
-
-
-# ---- Foreground: a few things in front of the stage, low at its two ends ------------------------------------------------------------
-# Darker than the stage (nearer the camera, in its shade), on the stage's front below the fighting surface and well in from the edges,
-# so they frame the picture without hiding a fighter on the stage or one recovering below a ledge.
-
-static func _foreground(root: Node3D, theme_name: String, e: Array) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 5
-	var y: float = e[2]
-	for side in [-1.0, 1.0]:
-		var x: float = (e[0] if side < 0.0 else e[1]) - side * 2.6
-		var at := Vector3(x, y - 2.5, 3.0)
-		match theme_name:
-			"sunset":
-				_fg_rocks(root, at, Color(0.42, 0.22, 0.24), rng)
-			"ocean":
-				_fg_rocks(root, at, Color(0.46, 0.44, 0.5), rng)
-			"city":
-				_fg_vent(root, at, side)
-			_:
-				_fg_bush(root, at, Color(0.18, 0.4, 0.26), rng)
-
-
-static func _fg_bush(root: Node3D, at: Vector3, colour: Color, rng: RandomNumberGenerator) -> void:
-	var leaf := Materials.foliage(colour)
-	var light := Materials.foliage(Materials.greens(colour)[2])
-	for k in 4:
-		var s := rng.randf_range(0.8, 1.25)
-		_mesh(root, _sphere(1.0, 10), leaf if k % 2 == 0 else light, at + Vector3((k - 1.5) * 0.9, rng.randf_range(-0.2, 0.4), rng.randf_range(-0.3, 0.3)),
-			Vector3(s * 1.2, s, s))
-	var petal := _unshaded(Color(1.0, 0.8, 0.86))
-	for k in 3:
-		_mesh(root, _sphere(0.16, 6), petal, at + Vector3(rng.randf_range(-1.4, 1.4), rng.randf_range(0.6, 1.0), 0.9))
-
-
-static func _fg_rocks(root: Node3D, at: Vector3, colour: Color, rng: RandomNumberGenerator) -> void:
-	var stone := Materials.stone(colour)
-	for k in 3:
-		var s := Vector3(rng.randf_range(1.1, 1.6), rng.randf_range(0.7, 1.0), 1.0) * rng.randf_range(0.7, 1.1)
-		_mesh(root, _sphere(1.0, 6), stone, at + Vector3((k - 1) * 1.2, rng.randf_range(-0.2, 0.2), rng.randf_range(-0.3, 0.3)), s,
-			Vector3(0, rng.randf_range(0, 60), rng.randf_range(-10, 10)))
-
-
-static func _fg_vent(root: Node3D, at: Vector3, side: float) -> void:
-	var metal := FighterView.toon(Color(0.36, 0.34, 0.48))
-	_mesh(root, _box(Vector3(2.0, 1.4, 1.2)), metal, at)
-	_mesh(root, _cylinder(0.22, 0.22, 2.4, 8), metal, at + Vector3(side * -1.2, 0.3, 0), Vector3.ONE, Vector3(0, 0, 90))
-	_mesh(root, _cylinder(0.5, 0.5, 0.12, 10), FighterView.toon(Color(0.22, 0.2, 0.3), false), at + Vector3(0, 0.15, 0.62), Vector3.ONE, Vector3(90, 0, 0))
 
 
 # ---- Props: a few small low-poly things behind the fighters per theme (few sides, flat colours, ink outlines) ------------------------
@@ -754,9 +709,113 @@ static func _hills(root: Node3D, rng: RandomNumberGenerator, near: Color, far: C
 			Vector3(w, rng.randf_range(10.0, 18.0), 6.0))
 
 
+## A trunk as one mesh: rings up a gentle bow (`bend` sideways at most), tapering from `r_bottom` to `r_top` and flaring by `flare` at the
+## foot; bark UVs run round (u) and up (v). One mesh, so its ink outline has no seams.
+static func trunk_mesh(height: float, r_bottom: float, r_top: float, bend: float, flare: float) -> ArrayMesh:
+	var key := "%.2f,%.2f,%.2f,%.2f,%.2f" % [height, r_bottom, r_top, bend, flare]
+	if _trunk_cache.has(key):
+		return _trunk_cache[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sides := 22
+	var rings := 12
+	var rows: Array = []
+	for j in rings + 1:
+		var v := float(j) / rings
+		var r := lerpf(r_bottom, r_top, v) + flare * exp(-v * 9.0)
+		var centre := Vector3(sin(v * PI * 0.9) * bend, v * height, 0)
+		var row: Array = []
+		for i in sides + 1:
+			var a := TAU * i / sides
+			var n := Vector3(sin(a), 0, cos(a))
+			row.append([centre + n * r, n, Vector2(float(i) / sides, 1.0 - v)])
+		rows.append(row)
+	for j in rings:
+		for i in sides:
+			for c in [[j, i], [j + 1, i], [j + 1, i + 1], [j, i], [j + 1, i + 1], [j, i + 1]]:
+				var vtx: Array = rows[c[0]][c[1]]
+				st.set_normal(vtx[1])
+				st.set_uv(vtx[2])
+				st.add_vertex(vtx[0])
+	var mesh := st.commit()
+	_trunk_cache[key] = mesh
+	return mesh
+
+
+static var _trunk_cache := {}
+
+
+## A row of soft tree shapes far back on the hills: a short trunk under a ball or two, all in one hazy colour, so they read as a
+## distant wood rather than as things to look at.
+static func _tree_line(root: Node3D, rng: RandomNumberGenerator, y: float, z: float, colour: Color) -> void:
+	var leaf := _soft(colour)
+	var trunk := _soft(colour.darkened(0.25))
+	var x := -110.0
+	while x < 110.0:
+		var s := rng.randf_range(3.0, 5.0)
+		var at := Vector3(x, y + rng.randf_range(-1.5, 1.5), z + rng.randf_range(-6, 6))
+		_mesh(root, _cylinder(0.35 * s * 0.3, 0.45 * s * 0.3, s * 0.9, 6), trunk, at + Vector3(0, s * 0.45, 0))
+		_mesh(root, _sphere(1.0, 10), leaf, at + Vector3(0, s * 1.3, 0), Vector3(s, s * 1.1, s))
+		if rng.randf() < 0.5:
+			_mesh(root, _sphere(1.0, 10), leaf, at + Vector3(s * 0.7, s * 0.95, -0.5), Vector3.ONE * s * 0.7)
+		x += rng.randf_range(7.0, 12.0)
+
+
+## Flowers and grass tufts in a few clusters near each end of the stage's top `e` = [left, right, top] (and none in the middle third),
+## behind the fighters.
+static func _flower_clusters(root: Node3D, e: Array, rng: RandomNumberGenerator, petals: Array, tuft_colour: Color) -> void:
+	var heart := _unshaded(Color(1, 0.85, 0.3))
+	var tuft := Materials.foliage(tuft_colour, Vector2(1, 1), false)
+	var l: float = e[0]
+	var r: float = e[1]
+	var top: float = e[2]
+	var third := (r - l) / 3.0
+	for side in [-1.0, 1.0]:
+		for c in 2:
+			var cx: float = (l + rng.randf_range(0.8, third - 0.6)) if side < 0.0 else (r - rng.randf_range(0.8, third - 0.6))
+			var cz := rng.randf_range(-4.6, -2.4)
+			for k in rng.randi_range(3, 5):
+				var p := Vector3(cx + rng.randf_range(-0.7, 0.7), top + 0.08, cz + rng.randf_range(-0.6, 0.6))
+				_mesh(root, _sphere(0.13, 8), _unshaded(petals[k % petals.size()]), p)
+				_mesh(root, _sphere(0.06, 6), heart, p + Vector3(0, 0.04, 0.08))
+			for k in 3:
+				var p := Vector3(cx + rng.randf_range(-0.9, 0.9), top + 0.1, cz + rng.randf_range(-0.7, 0.4))
+				_mesh(root, _sphere(1.0, 6), tuft, p, Vector3(0.22, 0.3, 0.18) * rng.randf_range(0.8, 1.3))
+
+
+## The underside of a floating island below its lowest block `e` = [left, right, top, bottom]: a tapering mass of earth
+## (its face in the theme's soil, the stone tile drawn on), a few rocks jutting from it and roots hanging from its rim.
+static func _island_underside(root: Node3D, t: Dictionary, e: Array) -> void:
+	var l: float = e[0]
+	var r: float = e[1]
+	var bottom: float = e[3]
+	var w := r - l
+	var cx := (l + r) / 2.0
+	var earth := Materials.stone((t.soil_dark as Color).darkened(0.1), Vector2(4, 2))
+	var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.5))
+	# The mass: a cone hanging under the block, no wider than it (so nothing sticks out past it), squashed front to back to the block's
+	# depth, and a smaller tip below it, off-centre.
+	_mesh(root, _cylinder(w * 0.48, w * 0.1, 6.0, 10), earth, Vector3(cx, bottom - 3.0, -3.7), Vector3(1.0, 1.0, 7.4 / w))
+	_mesh(root, _cylinder(w * 0.14, 0.0, 3.5, 8), earth, Vector3(cx + w * 0.06, bottom - 7.6, -3.7), Vector3(1.0, 1.0, 0.6))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 13
+	for k in 5:
+		var x := cx + rng.randf_range(-w * 0.35, w * 0.35)
+		var depth := absf(x - cx) / (w * 0.5)
+		_mesh(root, _sphere(1.0, 6), rock, Vector3(x * 0.85 + cx * 0.15, bottom - 1.2 - (1.0 - depth) * rng.randf_range(1.0, 3.5), -0.6),
+			Vector3(1.4, 1.0, 1.1) * rng.randf_range(0.6, 1.1), Vector3(0, rng.randf_range(0, 60), rng.randf_range(-15, 15)))
+	# Roots hanging from the rim, thin and few.
+	var root_mat := Materials.bark(Color(0.55, 0.36, 0.24), Vector2(1, 2))
+	for k in 6:
+		var x := l + 1.0 + rng.randf_range(0.0, w - 2.0)
+		var len := rng.randf_range(1.5, 3.5)
+		_mesh(root, _cylinder(0.07, 0.14, len, 5), root_mat, Vector3(x, bottom - len * 0.5, 0.1), Vector3.ONE,
+			Vector3(0, 0, rng.randf_range(-12, 12)))
+
+
 ## Stage extent helpers: [left, right, top, bottom] of the solid ground, with defaults.
 static func _ext(stage: Array) -> Array:
-	return stage if stage.size() == 4 else [-11.0, 11.0, 0.0, -8.0]
+	return stage.slice(0, 4) if stage.size() >= 4 else [-11.0, 11.0, 0.0, -8.0]
 
 
 static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
@@ -891,6 +950,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var top: float = stage[2] if stage.size() == 4 else 0.0
 	var left: float = stage[0] if stage.size() == 4 else -11.0
 	var right: float = stage[1] if stage.size() == 4 else 11.0
+	# A far line of soft tree shapes on the hills, between them and the trees, for one more layer of depth (the haze fades it).
+	_tree_line(root, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
 	# Two smaller trees further back, either side.
@@ -904,15 +965,11 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var s := rng.randf_range(1.1, 1.5)
 		_mesh(root, _sphere(1.0, 16), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
 		_mesh(root, _sphere(0.55, 12), bush_light, Vector3(x - 0.3, top + 1.2, -5.6))
-	# Little flowers on the grass behind the fighters.
-	var petal := _unshaded(Color(1, 1, 1))
-	var heart := _unshaded(Color(1, 0.85, 0.3))
-	var x := left + 0.8
-	while x < right - 0.8:
-		var z := rng.randf_range(-4.5, -2.0)
-		_mesh(root, _sphere(0.13, 8), petal, Vector3(x, top + 0.08, z))
-		_mesh(root, _sphere(0.06, 6), heart, Vector3(x, top + 0.12, z + 0.08))
-		x += rng.randf_range(0.9, 1.8)
+	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
+	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
+	# Under the island: tapered earth and rock with roots hanging from it, so it reads as a floating island.
+	if stage.size() >= 6:
+		_island_underside(root, t, [stage[4], stage[5], top, stage[3]])
 	# Sparkles in the canopy: four-pointed glints that twinkle (see `Twinkle`).
 	var tw := Twinkle.new()
 	root.add_child(tw)
@@ -1040,13 +1097,15 @@ static func _building(root: Node3D, base: Vector3, size: Vector3, shade: Color, 
 ## A big round cartoon tree: a tapered trunk with bark grooves and roots, under a canopy of soft green balls.
 static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	var trunk_h := 18.0 * size
-	# Bark drawn on (grooves and knots, `Materials.bark`) rather than built of boxes.
+	# Bark drawn on (grooves and knots, `Materials.bark`) rather than built of boxes, on one trunk that bows gently as it rises, tapers,
+	# and flares into broad roots at its foot.
 	var bark := Materials.bark(Color(0.62, 0.42, 0.26), Vector2(5, 3))
-	_mesh(root, _cylinder(2.0 * size, 2.9 * size, trunk_h, 24), bark, base + Vector3(0, trunk_h / 2.0, 0))
-	for k in 5:
-		var a := -1.2 + k * 0.6
-		_mesh(root, _cylinder(0.25 * size, 1.1 * size, 3.2 * size, 10), bark,
-			base + Vector3(sin(a) * 3.0 * size, 0.6 * size, cos(a) * 2.2 * size), Vector3.ONE, Vector3(0, 0, -rad_to_deg(a) * 0.6))
+	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size), bark, base)
+	for k in 6:
+		var a := -1.25 + k * 0.5
+		var reach := rng.randf_range(0.85, 1.15)
+		_mesh(root, _cylinder(0.25 * size, 1.15 * size * reach, 3.4 * size * reach, 10), bark,
+			base + Vector3(sin(a) * 3.2 * size, 0.6 * size, cos(a) * 2.3 * size), Vector3.ONE, Vector3(0, 0, -rad_to_deg(a) * 0.6))
 	# Four coordinated greens: deep shade, body, light, and sunlit tips.
 	var g := Materials.greens(Color(0.27, 0.62, 0.34))
 	var leaf := Materials.foliage(g[0])

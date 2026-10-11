@@ -19,7 +19,7 @@ const SvgArt := preload("res://scripts/svg_art.gd")
 
 ## How each family takes the light: ramp softness (how gradual the step into shadow is), sheen (a small soft highlight) and rim strength.
 const FAMILIES := {
-	"wood": {"ramp_softness": 0.13, "sheen": 0.0, "rim_strength": 0.25},
+	"wood": {"ramp_softness": 0.13, "sheen": 0.0, "rim_strength": 0.25, "world_vary": 0.13},
 	"grass": {"ramp_softness": 0.18, "sheen": 0.0, "rim_strength": 0.2},
 	"bark": {"ramp_softness": 0.2, "sheen": 0.0, "rim_strength": 0.25},
 	"foliage": {"ramp_softness": 0.26, "sheen": 0.0, "rim_strength": 0.5},

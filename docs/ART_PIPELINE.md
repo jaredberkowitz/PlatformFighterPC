@@ -502,8 +502,8 @@ and directional knockback were already in, so they were tuned rather than rebuil
 - **Atmospheric perspective** (`shaders/post.gdshader`): scenery behind the stage fades toward the mood's haze with distance behind the
   stage plane (`haze_start` 12, `haze_end` 140, `haze_max` 0.26; `stage_dist` is set each frame by `main.gd`), ink lines with it. The
   sky is left alone.
-- **Foreground**: a bush, rocks or a rooftop vent low on the stage's front near each end, nearer the camera and darker (`_foreground` in
-  `stage_art.gd`), kept in from the edges so they never cover a fighter recovering below a ledge. Grove mushrooms breathe (`Squish`).
+- **Foreground** pieces (low on the stage's front near each end) were tried and removed in the twenty-third pass: the match display
+  hides that part of the screen, and when the camera pulls out they looked like bushes growing out of the stage's wall.
 - **Hit restraint**: the shockwave ring of a strong hit is smaller and thinner, so the big effects stay readable without hiding the
   opponent.
 - **Anti-aliasing**: MSAA stays at 4x (`msaa_3d=2` in `project.godot` means 4x): measured against 2x it costs about 0.1 ms of GPU
@@ -554,3 +554,15 @@ and pebbles (stone). Measured on the same machine at the same moment: no change 
 
 Blender's part, for imported props: keep the shapes, bevels and UVs there, give each surface a plain material in the right colour, and
 let `toonify.gd` make it a cel material; a family can be assigned to it in Godot without touching the `.blend`.
+
+**Phase 3, stage composition** (the grove is the stage the roadmap describes; the rest apply to every stage):
+- **The great tree** is one hand-built mesh (`trunk_mesh`): it bows gently as it rises, tapers, and flares into its roots; the bark is
+  drawn on; six broader roots. One mesh, so its ink line has no seams. (Hand-built meshes are left out of `merge_static`: merged in with
+  the built-in shapes, the trunk vanished.)
+- **Platforms**: a light edge where the top meets the front (it says where the platform ends) and a soft shade on the beam under the
+  board; wood planks drift a little more in tone (`world_vary` 0.13 for the wood family).
+- **The grass**: flowers and tufts in small clusters toward the stage's ends, none in the middle third (`_flower_clusters`).
+- **Depth**: a far line of soft tree shapes on the hills (`_tree_line`), faded by the distance haze.
+- **The island's underside** (`_island_underside`): a cone of earth hanging under the lowest block (fitted to it: `stage_view.gd` now
+  passes the lowest block's left and right with the extent), a smaller tip below, rocks jutting from it and thin roots hanging from the
+  rim, so the grove reads as a floating island when the camera pulls out.
