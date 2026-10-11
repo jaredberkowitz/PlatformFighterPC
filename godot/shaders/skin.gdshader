@@ -36,6 +36,9 @@ uniform vec2 elbow_r = vec2(0.47, 0.97);
 uniform float sleeve = 0.55;
 // False when the body wears modelled clothes (the rig's "Shirt" and "Shorts" meshes): then only the socks and shoes are painted here.
 uniform bool painted_clothes = true;
+// How far inside a modelled garment's hems the skin stops being drawn (rest units; along the upper arm, a share of it).
+const float COVER = 0.03;
+const float COVER_ARM = 0.15;
 
 instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 instance uniform float object_id = 0.95;
@@ -109,6 +112,21 @@ void fragment() {
 		}
 	}
 	c = mix(hem.rgb, c, smoothstep(hem_width * 0.5, hem_width, edge));
+	// Under modelled clothes the skin is not drawn at all (a little inside the hems, so no gap opens at an edge): however the body bends,
+	// it cannot poke through the cloth (an upper arm at the shirt's side when the fists come up).
+	if (!painted_clothes) {
+		bool covered = false;
+		if (arm) {
+			vec2 a = p.x < 0.0 ? shoulder_l : shoulder_r;
+			vec2 b = p.x < 0.0 ? elbow_l : elbow_r;
+			covered = shirt.a > 0.5 && along_arm(p, a, b) < sleeve - COVER_ARM;
+		} else {
+			covered = (shirt.a > 0.5 && p.y > waist_z + COVER && p.y < neck_z - COVER * 1.5) || (p.y > shorts_end_z + COVER && p.y < waist_z);
+		}
+		if (covered) {
+			discard;
+		}
+	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = object_id;

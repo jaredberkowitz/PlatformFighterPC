@@ -153,8 +153,10 @@ static func release_caches() -> void:
 	_parts.clear()
 	_mat_cache.clear()
 	_limb_cache.clear()
+	_cloth_cache.clear()
 	_mesh_cache.clear()
 	_outline_mat = null
+	_cloth_outline = null
 	SvgArt.release()
 	Particles.release()
 	_shadow_tex = null
@@ -263,12 +265,12 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Strap"):
 			mi.material_override = toon(loadout.accent_color())
 		elif part.begins_with("Shorts"):
-			mi.material_override = shorts
+			mi.material_override = _cloth(shorts)
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
 			if cloth != null:
-				mi.material_override = cloth
+				mi.material_override = _cloth(cloth)
 		elif part.begins_with("Foot"):
 			mi.material_override = shoe
 		elif part.begins_with("Face"):
@@ -1008,6 +1010,30 @@ func _garment_shirt_material() -> Material:
 		4:
 			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}), Vector2(4.0, 4.0))
 	return null
+
+
+## A modelled garment's material: its cel material with an ink outline pushed further back than the body's. Cloth folds inward where
+## the body bends (the shirt's sides when the fists come up), and the ordinary outline, sitting just behind the surface, pokes through a
+## fold as dark specks; pushed back it still draws the garment's silhouette but stays behind its folds.
+static var _cloth_outline: ShaderMaterial
+static var _cloth_cache := {}
+
+
+static func _cloth(m: Material) -> Material:
+	if not (m is ShaderMaterial) or (m as ShaderMaterial).next_pass == null:
+		return m
+	if _cloth_cache.has(m):
+		return _cloth_cache[m]
+	if _cloth_outline == null:
+		_cloth_outline = ((m as ShaderMaterial).next_pass as ShaderMaterial).duplicate()
+		_cloth_outline.set_shader_parameter("push_back", CLOTH_OUTLINE_PUSH_BACK)
+	var c: ShaderMaterial = (m as ShaderMaterial).duplicate()
+	c.next_pass = _cloth_outline
+	_cloth_cache[m] = c
+	return c
+
+
+const CLOTH_OUTLINE_PUSH_BACK := 3.0
 
 
 ## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.

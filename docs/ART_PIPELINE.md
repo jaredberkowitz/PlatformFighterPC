@@ -661,3 +661,19 @@ caricature kit (the character creator, `docs/MENUS.md`).
   move anywhere on the face. The glasses follow the eyes' place and size (`FaceLook.eye_row`, `eye_out`).
 - The old per-expression drawings (`godot/art/faces/`) and `tools/art/make_faces.py` are gone.
 
+## Clothes that sit flat (twenty-seventh pass)
+
+The modelled shirt and shorts creased and the shorts' legs differed. Causes and fixes (`build_garments`, `skin.gdshader`, `fighter_view.gd`):
+
+- **Different legs**: the body mesh (from the generated model) is not symmetric, so a copy of it was not either. Each garment is now cut
+  at the middle and its right half mirrored.
+- **Creases from the body's bumps**: the cloth followed every bump of the skin (belly, chest, hips). It is smoothed (`GARMENT_SMOOTH`
+  steps, the hems held) so it drapes over them, then pushed back out wherever smoothing pulled it toward the body.
+- **Bunching when the body moves**: each point copied the nearest skin point's bone weights, so neighbours followed different bones and
+  folded (the shirt's sides with the fists up). The cloth's weights are now smoothed over it (`GARMENT_WEIGHT_SMOOTH`).
+- **Skin through the cloth**: under modelled clothes, a little inside the hems, the skin is not drawn at all.
+- **Dark specks in folds**: the ink outline (an expanded hull just behind the surface) poked through where cloth folds inward. Garments
+  use the same outline pushed further back (`CLOTH_OUTLINE_PUSH_BACK`): their silhouettes keep the line, their folds do not.
+
+Posed: `docs/screenshots/clothes_smoothed.png`.
+

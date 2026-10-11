@@ -1121,7 +1121,9 @@ SHIRT_LIFT = 0.034      # how far off the skin the shirt sits
 SHORTS_LIFT = 0.022     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.012
 SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
-HEM_FLARE = 0.02        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+HEM_FLARE = 0.02
+GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
+GARMENT_WEIGHT_SMOOTH = 12   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
 
 
 def build_garments(skin, J, neck):
@@ -1181,6 +1183,10 @@ def build_garments(skin, J, neck):
     for v in skin.data.vertices:
         skin_points.insert(v.co, v.index)
     skin_points.balance()
+    skin_bm = bmesh.new()
+    skin_bm.from_mesh(skin.data)
+    skin_bm.normal_update()
+    skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
     out = {}
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT)):
         obj = skin.copy()
@@ -1199,18 +1205,37 @@ def build_garments(skin, J, neck):
         # (The cuts leave slivers; merged away, they cannot throw a point far off when the surface is pushed out.)
         bmesh.ops.dissolve_degenerate(bm, dist=0.002, edges=bm.edges)
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.002)
-        # Every point takes the bone weights of the nearest point of the skin (the cuts made new points, with no weights of their own,
-        # and an unweighted point would be left behind when the body moves).
+        # The body mesh is not quite symmetric, so a copy of it has two different legs and sides: keep the right half and mirror it.
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces), plane_co=(0, 0, 0), plane_no=(1, 0, 0),
+                               clear_inner=True)
+        bmesh.ops.symmetrize(bm, input=list(bm.verts) + list(bm.edges) + list(bm.faces), direction="X", dist=0.001)
+        if min(v.co.x for v in bm.verts) > -0.05:
+            raise RuntimeError(name + ": mirroring kept only one side")
+        # Cloth drapes over the body's small bumps (the belly, the chest) rather than following each one: smooth the surface, the hems
+        # held where they are, then push any point the smoothing pulled toward the body back out to the garment's distance from it.
+        hems = {v for v in bm.verts if v.is_boundary}
+        inner = [v for v in bm.verts if v not in hems]
+        for _ in range(GARMENT_SMOOTH):
+            bmesh.ops.smooth_vert(bm, verts=inner, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+        bm.normal_update()
+        for v in bm.verts:
+            flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
+            v.co = v.co + v.normal * (lift + flare)
+        for v in bm.verts:
+            hit = skin_tree.find_nearest(v.co)
+            if hit[0] is None:
+                continue
+            away = (v.co - hit[0]).dot(hit[1])
+            if away < lift * 0.8:
+                v.co = v.co + hit[1] * (lift * 0.8 - away)
+        # Every point takes the bone weights of the nearest point of the skin (the cuts and the mirroring made new points, and an
+        # unweighted point would be left behind when the body moves).
         deform = bm.verts.layers.deform.verify()
         for v in bm.verts:
             _, i, _ = skin_points.find(v.co)
             v[deform].clear()
             for g in skin.data.vertices[i].groups:
                 v[deform][g.group] = g.weight
-        bm.normal_update()
-        for v in bm.verts:
-            flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
-            v.co = v.co + v.normal * (lift + flare)
         bm.to_mesh(obj.data)
         bm.free()
         for poly in obj.data.polygons:
@@ -1225,6 +1250,10 @@ def build_garments(skin, J, neck):
         while obj.modifiers.find("Thickness") > 0:
             bpy.ops.object.modifier_move_up(modifier="Thickness")
         bpy.ops.object.modifier_apply(modifier="Thickness")
+        # Weights spread smoothly over the cloth, so it stretches evenly as the body moves rather than bunching where the skin's weights
+        # change quickly (the shirt's sides when the fists come up, the shorts between the legs).
+        used = {g.group for v in obj.data.vertices for g in v.groups if g.weight > 0.0}
+        smooth_weights(obj, [g.name for g in obj.vertex_groups if g.index in used], 0.5, GARMENT_WEIGHT_SMOOTH)
         out[name] = obj
     return out
 
