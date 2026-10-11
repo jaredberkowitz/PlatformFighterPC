@@ -447,12 +447,14 @@ BODY_AMP = 0.3
 
 BODY_MOVES = {
     # A straight punch (or a quick slash): the guard hand stays up at the chin, the shoulders snap round and the front foot steps in.
+    # (The shoulders load further back and snap further through than a turn of the chest alone, and the step lands deeper, so even a
+    # 4-frame jab reads as the whole body behind the fist at the match camera's distance.)
     "attack_jab": (
-        {"hips": -0.04, "spine": (2.0, -22.0), "head": (0.0, 12.0), "stance": (14.0, -16.0), "shin.L": (-24.0,),
-         "armU.L": (46.0, 18.0), "armL.L": (100.0,)},
-        {"hips": -0.06, "spine": (8.0, 26.0), "head": (-4.0, -16.0), "stance": (28.0, -26.0), "shin.L": (-30.0,), "shin.R": (-4.0,),
-         "armU.L": (30.0, 16.0), "armL.L": (110.0,)},
-        {"spine": (2.0, 6.0), "stance": (8.0, -6.0)}),
+        {"hips": -0.05, "spine": (0.0, -30.0), "head": (2.0, 16.0), "stance": (16.0, -18.0), "shin.L": (-26.0,),
+         "armU.L": (52.0, 18.0), "armL.L": (106.0,)},
+        {"hips": -0.08, "spine": (12.0, 34.0), "head": (-6.0, -20.0), "stance": (34.0, -30.0), "shin.L": (-34.0,), "shin.R": (-4.0,),
+         "armU.L": (24.0, 14.0), "armL.L": (112.0,)},
+        {"spine": (2.0, 8.0), "stance": (10.0, -8.0)}),
     # A swinging strike across the body (a claw swipe, a backhanded cut): the torso turns right round through it.
     "attack_swing": (
         {"hips": -0.06, "spine": (-6.0, -32.0), "head": (4.0, 16.0), "stance": (16.0, -20.0), "shin.L": (-20.0,),
@@ -511,12 +513,14 @@ BODY_MOVES = {
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
     # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
     # flung back. Upright enough that the face stays toward the hit.
+    # (Compact then long: the wind-up tucks both knees high and cocks the free arm, the strike opens out, the front knee driven up and the
+    # back leg kicked long behind with the free arm flung back, so the silhouette changes shape, not just angle.)
     "attack_fair": (
-        {"spine": (-10.0, -20.0), "head": (-4.0, 8.0), "stance": (36.0, 24.0), "shin.L": (-70.0,), "shin.R": (-60.0,),
-         "armU.L": (20.0, 30.0), "armL.L": (40.0,)},
-        {"spine": (10.0, 24.0), "head": (0.0, -10.0), "stance": (48.0, -12.0), "shin.L": (-84.0,), "shin.R": (-36.0,),
-         "armU.L": (-34.0, 34.0), "armL.L": (30.0,)},
-        {"spine": (6.0, 6.0), "stance": (30.0, 10.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
+        {"spine": (-20.0, -28.0), "head": (-8.0, 12.0), "stance": (52.0, 40.0), "shin.L": (-96.0,), "shin.R": (-88.0,),
+         "armU.L": (40.0, 30.0), "armL.L": (50.0,)},
+        {"spine": (20.0, 30.0), "head": (4.0, -14.0), "stance": (64.0, -24.0), "shin.L": (-100.0,), "shin.R": (-16.0,),
+         "armU.L": (-56.0, 40.0), "armL.L": (20.0,)},
+        {"spine": (6.0, 8.0), "stance": (34.0, 14.0), "shin.L": (-56.0,), "shin.R": (-46.0,)}),
     # Up air (an overhead crescent from front to back): tucked, then the body arches back under the swing with the head thrown back to
     # watch it, the legs stretching down.
     "attack_uair": (
@@ -584,7 +588,7 @@ def grounded(name):
     return not name.endswith("air")
 
 
-STANDING = {"idle", "crouch", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
+STANDING = {"idle", "crouch", "jumpsquat", "land", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
 
 
 def _ankle(rig, side):
@@ -781,7 +785,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "hurt", "crouch", "shield", "roll", "knockdown"):
+    elif name in ("jump", "fall", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "knockdown"):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -1486,25 +1490,34 @@ def main() -> None:
         def f(rig):
             b = math.cos(k * 4.0 * math.pi)       # 1 at the top of a bob, -1 at the bottom
             down = 0.5 - 0.5 * b
-            pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0)
-            pose(rig, "thigh.L", fwd=32.0 + 6.0 * down, out=15.0)
-            pose(rig, "shin.L", fwd=-40.0 - 14.0 * down)
+            # A slower breath under the bounce (one a cycle): the chest rises and turns a touch, so the loop never reads as one repeated
+            # step.
+            breath = math.sin(k * 2.0 * math.pi)
+            # On the base body the feet are planted (`plant`), which takes over the hips' own drop, so the bob has to come from the knees:
+            # they flex twice as far.
+            flex = 2.0 if BODY else 1.0
+            pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0 + 1.5 * breath)
+            pose(rig, "thigh.L", fwd=32.0 + 6.0 * down * flex, out=15.0)
+            pose(rig, "shin.L", fwd=-40.0 - 14.0 * down * flex)
             pose(rig, "foot.L", fwd=6.0 + 6.0 * down, out=-10.0)
             # The back leg stays nearly straight (a bent back knee would cross the front leg on screen).
-            pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down, out=15.0)
-            pose(rig, "shin.R", fwd=-10.0 - 6.0 * down)
+            pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down * flex, out=15.0)
+            pose(rig, "shin.R", fwd=-10.0 - 6.0 * down * flex)
             pose(rig, "foot.R", fwd=18.0, out=-10.0)
-            pose(rig, "spine", fwd=9.0 + 4.0 * down, twist=8.0 + 2.0 * b)
-            pose(rig, "head", fwd=-7.0 + 4.0 * down, twist=-4.0)
+            # The chest sinks into each bob; the head keeps nearly level over it, settling a beat late.
+            settle = math.cos(k * 4.0 * math.pi - 0.6)
+            pose(rig, "spine", fwd=9.0 + 4.0 * down * flex - 2.0 * breath, twist=8.0 + 2.0 * b + 2.0 * breath)
+            pose(rig, "head", fwd=-7.0 + 4.0 * down - (2.5 * (0.5 - 0.5 * settle) if BODY else 0.0), twist=-4.0 - 1.5 * breath)
             # Lead fist (far arm) out in front, rear fist guarding the chin; both ride the bounce a beat behind.
             lag = math.cos(k * 4.0 * math.pi - 0.8)
+            swing = 1.8 if BODY else 1.0
             # (The base body's arms are thick and fully jointed: its elbows bend less, the fists held a little lower.)
             elbow = 0.72 if BODY else 1.0
-            pose(rig, "armU.L", fwd=52.0 + 5.0 * lag, out=16.0)
-            pose(rig, "armL.L", fwd=(92.0 - 6.0 * lag) * elbow)
+            pose(rig, "armU.L", fwd=52.0 + 5.0 * lag * swing, out=16.0)
+            pose(rig, "armL.L", fwd=(92.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=34.0 + 5.0 * lag, out=22.0)
-            pose(rig, "armL.R", fwd=(112.0 - 6.0 * lag) * elbow)
+            pose(rig, "armU.R", fwd=34.0 + 5.0 * lag * swing, out=22.0)
+            pose(rig, "armL.R", fwd=(112.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.R", fwd=-14.0)
         return f
 
@@ -1575,15 +1588,29 @@ def main() -> None:
             pose(rig, "thigh.L", fwd=-6.0 - 10.0 * tuck, out=14.0)
             pose(rig, "shin.L", fwd=-8.0 - 6.0 * tuck)
             pose(rig, "foot.L", fwd=-36.0 * tuck)
-            pose(rig, "armU.L", fwd=40.0 + 56.0 * tuck, out=24.0)
-            pose(rig, "armL.L", fwd=40.0)
-            pose(rig, "armU.R", fwd=-20.0 - 24.0 * tuck, out=42.0)
-            pose(rig, "armL.R", fwd=30.0)
+            if BODY:
+                # The far fist is thrown up overhead and the near arm (the left, nearest the camera once the game turns the chest to it)
+                # swings down and back, so the arms make one long diagonal through the body and neither crosses the face: the base body's
+                # thick near arm raised in front hid it.
+                pose(rig, "armU.R", fwd=30.0 + 110.0 * tuck, out=24.0 + 6.0 * tuck)
+                pose(rig, "armL.R", fwd=40.0 - 12.0 * tuck)
+                pose(rig, "armU.L", fwd=-20.0 - 34.0 * tuck, out=36.0)
+                pose(rig, "armL.L", fwd=24.0)
+            else:
+                pose(rig, "armU.L", fwd=40.0 + 56.0 * tuck, out=24.0)
+                pose(rig, "armL.L", fwd=40.0)
+                pose(rig, "armU.R", fwd=-20.0 - 24.0 * tuck, out=42.0)
+                pose(rig, "armL.R", fwd=30.0)
             pose(rig, "spine", fwd=4.0 - 10.0 * tuck, twist=6.0 * tuck)
             pose(rig, "head", fwd=-6.0 * tuck)
         return f
 
-    clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
+    if BODY:
+        # Up out of the crouch: stretched long on the push-off, the knee driven up, then easing open toward the top of the arc (where the
+        # fall takes over), so the rise keeps moving instead of freezing in one pose.
+        clip(rig, "jump", 30, {0: amped(jump(0.0), 1.1), 5: amped(jump(1.0), 1.08), 14: jump(0.85), 30: jump(0.62)})
+    else:
+        clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
 
     # Falling: legs apart (front knee bent forward, back leg hanging behind), arms raised out to the sides and paddling a little.
     def fall(k):
@@ -1629,6 +1656,40 @@ def main() -> None:
 
     clip(rig, "crouch", 8, {0: crouch, 8: crouch})
 
+    # The jump's take-off crouch (anticipation, a few frames): the knees load deep, the chest leans into it and both arms swing down and
+    # back, so the jump that follows throws them up through the push-off.
+    def jumpsquat(k):
+        def f(rig):
+            pose(rig, "hips", lift=-0.08 - 0.14 * k)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=24.0 + 42.0 * k, out=8.0)
+                pose(rig, "shin." + side, fwd=-36.0 - 66.0 * k)
+                pose(rig, "foot." + side, fwd=12.0 + 20.0 * k)
+                pose(rig, "armU." + side, fwd=10.0 - 46.0 * k, out=18.0 + 6.0 * k)
+                pose(rig, "armL." + side, fwd=30.0 - 10.0 * k)
+            pose(rig, "spine", fwd=8.0 + 18.0 * k)
+            pose(rig, "head", fwd=-4.0 - 12.0 * k)
+        return f
+
+    clip(rig, "jumpsquat", 4, {0: jumpsquat(0.3), 4: jumpsquat(1.0)})
+
+    # Landing: the weight drops onto bent knees, the chest pitched forward and the arms flung out and down for balance, then a small
+    # rebound and a settle back up toward standing (the game adds its squash on top, deeper after an aerial).
+    def land(k, rebound=0.0):
+        def f(rig):
+            pose(rig, "hips", lift=-0.24 * k)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=20.0 + 50.0 * k, out=10.0)
+                pose(rig, "shin." + side, fwd=-30.0 - 78.0 * k)
+                pose(rig, "foot." + side, fwd=10.0 + 26.0 * k)
+                pose(rig, "armU." + side, fwd=20.0 + 16.0 * k - 10.0 * rebound, out=24.0 + 34.0 * k)
+                pose(rig, "armL." + side, fwd=26.0)
+            pose(rig, "spine", fwd=6.0 + 22.0 * k - 4.0 * rebound)
+            pose(rig, "head", fwd=-4.0 - 10.0 * k + 6.0 * rebound)
+        return f
+
+    clip(rig, "land", 14, {0: land(1.0), 3: amped(land(1.0), 1.06), 8: land(0.45, rebound=1.0), 14: land(0.3)})
+
     def shield(rig):
         pose(rig, "hips", lift=-0.08)
         for side in "LR":
@@ -1649,7 +1710,39 @@ def main() -> None:
         pose(rig, "spine", fwd=-18.0, twist=-8.0)
         pose(rig, "head", fwd=-14.0)
 
-    clip(rig, "hurt", 8, {0: hurt, 8: hurt})
+    # The base body's hit reaction: on the hit (held through the hitlag freeze) the chest is thrown back and twisted off the blow, the head
+    # snapped back, the arms flung forward and out as the body leaves them behind, one knee jerked up; then over the hitstun it slackens
+    # into a looser reel, the arms dropping, so a long stun does not read as one frozen pose. The game's flinch, tumble and launch poses
+    # go on top for stronger hits.
+    def hurt_snap(rig):
+        pose(rig, "armU.L", fwd=46.0, out=64.0)
+        pose(rig, "armL.L", fwd=20.0)
+        pose(rig, "armU.R", fwd=14.0, out=84.0)
+        pose(rig, "armL.R", fwd=10.0)
+        pose(rig, "thigh.R", fwd=38.0, out=12.0)
+        pose(rig, "shin.R", fwd=-62.0)
+        pose(rig, "thigh.L", fwd=-16.0, out=14.0)
+        pose(rig, "shin.L", fwd=-20.0)
+        # (Not so far back or so twisted that the face turns away: the hurt face is half the read.)
+        pose(rig, "spine", fwd=-18.0, twist=-4.0)
+        pose(rig, "head", fwd=2.0, twist=4.0)
+
+    def hurt_reel(rig):
+        pose(rig, "armU.L", fwd=20.0, out=58.0)
+        pose(rig, "armL.L", fwd=30.0)
+        pose(rig, "armU.R", fwd=-6.0, out=66.0)
+        pose(rig, "armL.R", fwd=24.0)
+        pose(rig, "thigh.R", fwd=18.0, out=12.0)
+        pose(rig, "shin.R", fwd=-40.0)
+        pose(rig, "thigh.L", fwd=-10.0, out=14.0)
+        pose(rig, "shin.L", fwd=-22.0)
+        pose(rig, "spine", fwd=-12.0, twist=-2.0)
+        pose(rig, "head", fwd=0.0, twist=2.0)
+
+    if BODY:
+        clip(rig, "hurt", 18, {0: hurt_snap, 4: amped(hurt_snap, 1.05), 18: hurt_reel})
+    else:
+        clip(rig, "hurt", 8, {0: hurt, 8: hurt})
 
     # Attacks are played by progress (0 to 1 over the move), so the swing lands on the move's active frames: wind up (to 0.35),
     # strike (to 0.55), hold, recover.

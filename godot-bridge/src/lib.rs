@@ -89,6 +89,53 @@ fn clamp_i8(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
+/// A move's separate hits as (first, last) frame windows in order (see `fighter_move_windows`).
+fn hit_windows(mv: &sim_core::moves::Move) -> Vec<(i32, i32)> {
+    // One window per hitbox group.
+    let mut groups: Vec<(u8, i32, i32)> = Vec::new();
+    for h in &mv.hitboxes {
+        let (a, b) = (i32::from(h.start), i32::from(h.end));
+        match groups.iter_mut().find(|g| g.0 == h.group) {
+            Some(g) => {
+                g.1 = g.1.min(a);
+                g.2 = g.2.max(b);
+            }
+            None => groups.push((h.group, a, b)),
+        }
+    }
+    let mut spans: Vec<(i32, i32)> = Vec::new();
+    for &(_, a, b) in &groups {
+        // A multihit move's hits land again every `every` frames from `from`: each stretch between two of those is its own hit.
+        match mv.rehit {
+            Some((from, every)) if every > 0 => {
+                let (from, every) = (i32::from(from), i32::from(every));
+                let mut lo = a;
+                while lo <= b {
+                    let next = if lo < from {
+                        from
+                    } else {
+                        from + ((lo - from) / every + 1) * every
+                    };
+                    let hi = b.min(next - 1);
+                    spans.push((lo, hi));
+                    lo = hi + 1;
+                }
+            }
+            _ => spans.push((a, b)),
+        }
+    }
+    spans.sort_unstable();
+    // Hits that overlap in time (a sweet and a sour spot in separate groups, say) are one strike.
+    let mut out: Vec<(i32, i32)> = Vec::new();
+    for (a, b) in spans {
+        match out.last_mut() {
+            Some(last) if a <= last.1 => last.1 = last.1.max(b),
+            _ => out.push((a, b)),
+        }
+    }
+    out
+}
+
 /// A replay being watched: the record and the state it starts from.
 struct Playback {
     record: MatchRecord,
@@ -1026,6 +1073,24 @@ impl SimRunner {
             vec![i32::from(mv.total_frames), i32::from(start), i32::from(end)]
         });
         PackedInt32Array::from(v.as_slice())
+    }
+
+    /// The current move's separate hits as flat [start, end, ...] frame windows, in order. A hit is a hitbox group's active frames (a
+    /// sweep across several hitboxes of one group is one hit), cut again wherever a multihit move lets its hits land anew (`Move::rehit`);
+    /// groups active at the same time are one strike. Empty when not attacking. The view uses it to give each hit its own strike.
+    #[func]
+    fn fighter_move_windows(&self, i: i32) -> PackedInt32Array {
+        let Some(fi) = self.fighter(i) else {
+            return PackedInt32Array::new();
+        };
+        if fi.state != sim_core::state::FighterState::Attack {
+            return PackedInt32Array::new();
+        }
+        let params = sim_core::combat::params_of(&self.content, fi);
+        let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
+        let windows = hit_windows(mv);
+        let flat: Vec<i32> = windows.iter().flat_map(|&(a, b)| [a, b]).collect();
+        PackedInt32Array::from(flat.as_slice())
     }
 
     /// Active hitboxes this frame as flat [x, y, radius, priority] groups.
@@ -2088,5 +2153,27 @@ impl SimRunner {
         usize::try_from(i)
             .ok()
             .and_then(|i| self.state.fighters.get(i))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hit_windows;
+    use sim_core::moves::{claws, longsword, MoveId};
+
+    #[test]
+    fn hit_windows_split_multihit_moves_and_keep_sweeps_whole() {
+        let sword = longsword();
+        let wolf = claws();
+        // A sweep across several hitboxes of one group is one hit.
+        assert_eq!(hit_windows(&sword.moves[MoveId::FAir as usize]).len(), 1);
+        // Two groups apart in time: two hits (front, then behind).
+        assert_eq!(hit_windows(&sword.moves[MoveId::DSmash as usize]).len(), 2);
+        assert_eq!(hit_windows(&sword.moves[MoveId::NAir as usize]).len(), 2);
+        // The flame kick lands five times (rehit every 3 frames from frame 17), the last its own launching hit.
+        let fire = hit_windows(&wolf.moves[MoveId::UpSpecial as usize]);
+        assert_eq!(fire.len(), 5, "{fire:?}");
+        // In order and apart.
+        assert!(fire.windows(2).all(|w| w[0].1 < w[1].0), "{fire:?}");
     }
 }

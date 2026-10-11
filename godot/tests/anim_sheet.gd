@@ -1,7 +1,7 @@
 extends SceneTree
 ## Renders a contact sheet of one animation, frame by frame, for judging motion (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
-##   --what=run | dash | skid | idle | walk | jump | fall | airjump | <move name> (an attack such as fsmash, nair, jab)
+##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | <move name> (an attack such as fsmash, nair, jab)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -79,8 +79,11 @@ func _initialize() -> void:
 		"idle", "walk":
 			for f in range(0, 24 if what == "idle" else 20, 2):
 				frames.append(f)
-		"jump", "fall", "airjump":
+		"jump", "fall", "airjump", "hurt":
 			for f in range(0, 30, 2):
+				frames.append(f)
+		"jumpsquat", "land":
+			for f in range(0, 16, 1 if what == "jumpsquat" else 2):
 				frames.append(f)
 		_:
 			for f in range(0, timing[0], 2):
@@ -114,6 +117,15 @@ func _initialize() -> void:
 			"walk":
 				state = "Walk"
 				vel = Vector2(0.11, 0)
+				move = ""
+			"jumpsquat":
+				state = "JumpSquat"
+				move = ""
+			"land":
+				state = "Landing"
+				move = ""
+			"hurt":
+				state = "Hitstun"
 				move = ""
 			"jump", "fall", "airjump":
 				state = "Airborne"

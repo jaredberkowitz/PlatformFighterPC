@@ -38,6 +38,7 @@ const SvgArt := preload("res://scripts/svg_art.gd")
 const FaceLook := preload("res://scripts/face_look.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
+const AnimLibrary := preload("res://scripts/anim_library.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -355,22 +356,6 @@ func _choose_clip(s: Dictionary) -> Array:
 			var clip := "dash" if state == "Dash" else "run"
 			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
 			return [clip, minf(2.5, speed * 60.0 / stride * length), -1.0]
-		"Crouch", "JumpSquat", "Landing", "WaveLand":
-			return ["crouch", 1.0, -1.0]
-		"Roll", "SpotDodge", "AirDodge":
-			return ["roll", 1.0, -1.0]
-		"Shield", "ShieldDrop":
-			return ["shield", 1.0, -1.0]
-		"Hitstun", "ShieldBreak", "Grabbed", "Rebound":
-			return ["hurt", 1.0, -1.0]
-		"WallTech":
-			return ["shield", 1.0, -1.0]
-		"Knockdown", "GetUp":
-			return ["knockdown", 1.0, -1.0]
-		"LedgeHang":
-			return ["ledge", 1.0, -1.0]
-		"Grabbing":
-			return ["grab", 1.0, -1.0]
 		"Attack":
 			return _attack_clip(s)
 		"Turn":
@@ -387,8 +372,10 @@ func _choose_clip(s: Dictionary) -> Array:
 				return ["ledge_climb", 1.0, clampf(f / 14.0, 0.0, 1.0) * 0.66]
 			var p := 0.55 * (f - 14.0) / 11.0 if f < 25.0 else 0.55 + (f - 25.0) / 30.0 * 0.45
 			return ["attack_low", 1.0, clampf(p, 0.0, 1.0)]
-		"Idle", "Respawn", "ShieldRelease":
-			return ["idle", 1.0, -1.0]
+	# The shared clips (scripts/anim_library.gd): the same for every moveset.
+	var shared := AnimLibrary.state_clip(state, anim)
+	if shared != "":
+		return [shared, 1.0, -1.0]
 	if grounded:
 		return ["idle", 1.0, -1.0]
 	if flip_left > 0.0:
@@ -400,62 +387,57 @@ func _choose_clip(s: Dictionary) -> Array:
 ## through 0.55 to 0.75, then recovery. The move's own frames set the pace, so the swing lands when the hitbox does.
 func _attack_clip(s: Dictionary) -> Array:
 	var t: PackedInt32Array = s.move_timing
-	var name: String = s.move_name
 	var total := maxf(1.0, float(t[0]))
 	var start := clampf(float(t[1]), 1.0, total)
 	var last := clampf(float(t[2]), start, total)
-	var f: float = s.state_frame
-	var progress: float
-	# The swing lands on the move's first active frame and follows through while it is active; through the end lag the body holds the
-	# follow-through and only settles back near the end (as the reference game's moves do), so a move looks as long as it really is.
+	var progress := strike_progress(float(s.state_frame), total, start, last, s.get("move_windows", PackedInt32Array()))
+	# Which clip: the moveset's own for this move, or the shared archetype (scripts/anim_library.gd).
+	return [AnimLibrary.attack_clip(_cls(s), s.move_name, anim), 1.0, clampf(progress, 0.0, 1.0)]
+
+
+## Where an attack clip is (0..1, on the shared move timeline: wind-up to 0.35, strike at 0.55, follow-through to 0.63, settled at 1) at
+## move frame `f`. The swing lands on the move's first active frame and follows through while it is active; through the end lag the body
+## holds the follow-through and only settles back near the end (as the reference game's moves do), so a move looks as long as it really
+## is. A move with several separate hits (`windows`: [first, last] frame pairs, from the bridge's `fighter_move_windows`) strikes again
+## for each: between two hits the body draws partly back toward the wind-up, then snaps forward onto the next hit's first frame, so a
+## sequence of hits reads as a rhythm of strikes rather than one long held pose; the last hit gets the full follow-through. Only the
+## move's frames drive it, so the animation never sets the timing.
+static func strike_progress(f: float, total: float, start: float, last: float, windows: PackedInt32Array) -> float:
 	if f < start:
-		progress = f / start * 0.55
-	elif f <= last:
-		progress = 0.55 + (f - start) / maxf(1.0, last - start) * 0.08
-	else:
-		var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
-		progress = 0.63 + 0.37 * pow(k, 1.8)
-	var brawler_body: bool = _cls(s) == 1 and BRAWLER_NO_BLADE.has(name)
-	var clip := "attack_swing"
-	if name.ends_with("throw"):
-		clip = "throw"
-	elif name.begins_with("grab") or name.begins_with("dash grab") or name.begins_with("pivot") or name == "pummel":
-		clip = "grab"
-	elif brawler_body:
-		clip = KICK_CLIPS.get(name, "attack_kick")
-	elif _cls(s) == 1 and name == "neutral special":
-		clip = "blaster"
-	elif _cls(s) == 1 and name == "ftilt":
-		# Both claws thrown out forward in a lunge.
-		clip = "attack_claws"
-	elif _cls(s) == 1 and name == "dsmash":
-		# Down low, a claw swept in front and then behind (the sword's low sweep, body and legs).
-		clip = "sword_dsmash"
-	elif _cls(s) != 1 and SWORD_CLIPS.has(name):
-		clip = SWORD_CLIPS[name]
-	elif name == "fair":
-		clip = "attack_fair"
-	elif name == "bair":
-		clip = "attack_bair"
-	elif name == "nair":
-		clip = "attack_nair"
-	elif name == "uair":
-		clip = "attack_uair"
-	elif name == "dair":
-		clip = "attack_dair"
-	elif name.ends_with("smash"):
-		clip = "attack_smash"
-	elif name == "dtilt" or name == "down special":
-		clip = "attack_low"
-	elif name.begins_with("jab"):
-		clip = "attack_jab"
-	elif name == "dash attack" or name == "side special":
-		clip = "attack_lunge"
-	elif name == "utilt" or name == "up special":
-		clip = "attack_uair"
-	elif name == "neutral special":
-		clip = "attack_smash"
-	return [clip, 1.0, clampf(progress, 0.0, 1.0)]
+		return f / start * 0.55
+	if windows.size() >= 4:
+		for k in range(0, windows.size() - 2, 2):
+			var a := float(windows[k])
+			var b := float(windows[k + 1])
+			var next := float(windows[k + 2])
+			if next - b - 1.0 >= 2.0:
+				if f <= b:
+					return 0.55 + clampf((f - a) / maxf(1.0, b - a), 0.0, 1.0) * 0.08
+				if f < next:
+					# Draw back to RESTRIKE_FROM over the first half of the gap, then strike again.
+					var u := (f - b) / maxf(1.0, next - b)
+					if u < 0.5:
+						return lerpf(0.63, RESTRIKE_FROM, smoothstep(0.0, 1.0, u * 2.0))
+					return lerpf(RESTRIKE_FROM, 0.55, (u - 0.5) * 2.0)
+			else:
+				# Hits back to back (a flurry, or a multihit's re-hits): the draw-back takes the one frame before the next hit, so each
+				# hit's own first frame (where its hitlag freezes the pose) still shows the strike.
+				var back_at := next - 1.0
+				if f < back_at or back_at <= a:
+					if f <= b:
+						return 0.55 + clampf((f - a) / maxf(1.0, back_at - a), 0.0, 1.0) * 0.08
+				elif f < next:
+					return RESTRIKE_FROM
+		start = float(windows[windows.size() - 2])
+	if f <= last:
+		return 0.55 + (f - start) / maxf(1.0, last - start) * 0.08
+	var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
+	return 0.63 + 0.37 * pow(k, 1.8)
+
+
+## Between two hits of a multihit move the clip draws back to here (0.35 is the full wind-up, 0.55 the strike): enough to read as a new
+## blow, not a whole new wind-up.
+const RESTRIKE_FROM := 0.43
 
 
 func _skeleton_to_model() -> Transform3D:
@@ -547,7 +529,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	var target_look := 0.0
 	var tip: Vector3 = s.move_tip
 	if s.state == "Attack" and tip != Vector3.ZERO and spine_bone >= 0 and _spin(s) == 0.0:
-		var kicking: bool = _cls(s) == 1 and KICK_CLIPS.has(s.move_name)
+		var kicking: bool = AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim))
 		var to_frame := _skeleton_to_frame()
 		var hips := skeleton.find_bone("hips")
 		var hip_y: float = (to_frame * skeleton.get_bone_global_pose(hips).origin).y if hips >= 0 else 0.6
@@ -1744,10 +1726,6 @@ static func _star_mesh() -> ArrayMesh:
 	return m
 var flame: Node3D  # Particles.Burst
 ## One clip per move where there is one (the rest share a clip by move type, below in `_attack_clip`).
-const SWORD_CLIPS := {"dair": "sword_dair", "ftilt": "sword_ftilt", "utilt": "sword_utilt", "dtilt": "sword_dtilt", "fsmash": "sword_fsmash",
-	"usmash": "sword_usmash", "dsmash": "sword_dsmash"}
-const KICK_CLIPS := {"nair": "kick_nair", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
-	"usmash": "kick_uair"}
 ## How far the kicking leg is pulled toward the hitbox (eases in and out like the arm).
 var leg_k := 0.0
 
@@ -2533,7 +2511,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		_aim_arm(int(s.facing), holding and not carrying)
 		if carrying:
 			_carry_weapon(int(s.facing))
-		_aim_leg(s, brawler and state == "Attack" and KICK_CLIPS.has(s.move_name), delta)
+		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
 	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
 	if brawler and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:

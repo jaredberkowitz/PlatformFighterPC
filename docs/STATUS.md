@@ -6,7 +6,11 @@ Phase 7 work (complete): match rules, HUD, results, rematches, the online screen
 rolls stopping at edges, the special fall, up specials reversing with up-and-back, the ledge jump peaking the reference's height above
 the stage, the get-up attacks on reference numbers); the base body with modelled clothes; menus in the concept art's painted style with
 a bundled OFL font (`docs/MENUS.md`); a Mii-style character creator with faces built from placeable parts (`docs/ART_PIPELINE.md`); and
-a visual quality pass on the menus (one light, depth, one card language).
+a visual quality pass on the menus (one light, depth, one card language). Then a rendering framework (`docs/VISUAL_STYLE.md`: shading
+ramps, stage profiles, the look bench, display settings; an art pass with restrained grading, contact shading under props, deeper haze and
+crisp cast shadows); B-reverse (sim 45); a 3-frame stick flick for dash and fast fall, so a controller's flick registers (sim 46); and the
+shared animation library (`docs/ANIMATION.md`: one clip set for every moveset, mapped in `godot/scripts/anim_library.gd`, per-hit strikes
+for multihit moves, a polished idle, jump, landing, jab, forward air and hit reaction).
 
 ## Roadmap progress
 
