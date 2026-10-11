@@ -1467,13 +1467,47 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.charge = 0;
 }
 
+/// The input an attack is aimed by: the movement stick, or, when the attack came from the attack stick (C-stick), its direction
+/// (the frame the attack was pressed on had a C direction), with the strong flag a C-stick attack carries on the ground. Out of a
+/// run the attack stick up or down is a smash and sideways the dash attack.
+fn attack_aim(f: &Fighter, p: &FighterParams) -> (Input, bool) {
+    // (The press may have waited in the input buffer.)
+    let n = usize::from(p.input_buffer) + 1;
+    let pressed_at = (0..n.min(f.history.len())).find(|&i| {
+        f.history[i].pressed(buttons::ATTACK)
+            && !f
+                .history
+                .get(i + 1)
+                .is_some_and(|o| o.pressed(buttons::ATTACK))
+    });
+    let mut aim = f.history[0];
+    if let Some(c) = pressed_at.map(|i| f.history[i].buttons & buttons::C_ANY) {
+        if c != 0 {
+            let axis = |neg: u16, pos: u16| -> i8 {
+                if c & pos != 0 {
+                    127
+                } else if c & neg != 0 {
+                    -127
+                } else {
+                    0
+                }
+            };
+            aim.stick_x = axis(buttons::C_LEFT, buttons::C_RIGHT);
+            aim.stick_y = axis(buttons::C_DOWN, buttons::C_UP);
+            return (aim, true);
+        }
+    }
+    (aim, f.held(buttons::STRONG))
+}
+
 fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
-    let input = f.history[0];
-    // The strong-attack button is a flick made in advance: it turns a direction into a smash attack.
-    let strong = f.held(buttons::STRONG);
+    // The strong-attack button is a flick made in advance: it turns a direction into a smash attack. (So is the attack stick.)
+    let (input, strong) = attack_aim(f, p);
+    let c_stick = strong && input != f.history[0];
     // A dash attack comes out of a dash or run, and also just after one, while the fighter is still sliding at dash speed (so letting
     // go of the stick does not turn the attack into a jab).
     let sliding_fast = f.vel.x.abs() > p.walk_speed * Fx::from_ratio(12, 10)
+        && !c_stick
         && !x_active(input)
         && input.stick_y.unsigned_abs() < STICK_DOWN.unsigned_abs()
         && f.vel.x.signum_int() == i32::from(f.facing);
@@ -1494,7 +1528,9 @@ fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
     };
     let id = if let Some(smash) = dash_smash {
         smash
-    } else if matches!(f.state, S::Dash | S::Run) || sliding_fast {
+    } else if (matches!(f.state, S::Dash | S::Run) && !(c_stick && input.stick_y != 0))
+        || sliding_fast
+    {
         MoveId::DashAttack
     } else if input.stick_y >= STICK_DOWN {
         if strong || f.hard_up(SMASH_FLICK_BUFFER) {
@@ -1527,7 +1563,7 @@ fn start_air_attack(f: &mut Fighter, p: &FighterParams) {
         f.fast_fall = false;
         f.vel.y = f.vel.y.max(-p.max_fall_speed);
     }
-    let input = f.history[0];
+    let (input, _) = attack_aim(f, p);
     let id = if input.stick_y >= STICK_DOWN {
         MoveId::UAir
     } else if input.stick_y <= -STICK_DOWN {

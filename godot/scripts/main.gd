@@ -134,7 +134,7 @@ func _ready() -> void:
 	sim = ClassDB.instantiate("SimRunner")
 	add_child(sim)
 	sfx = Sfx.of(self)
-	for n in ["jump", "attack", "special", "shield", "grab", "strong"]:
+	for n in ["jump", "attack", "special", "shield", "grab", "strong", "c_up", "c_down", "c_left", "c_right"]:
 		masks[n] = sim.button_mask(n)
 	PLAYERS = _player_count()
 	_build_world()

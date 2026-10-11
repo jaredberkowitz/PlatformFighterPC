@@ -18,7 +18,8 @@ const Bindings := preload("res://scripts/bindings.gd")
 ##     direction while dash dancing) is full strength at once, which is a flick: it dashes.
 ##   - Down: tap = soft (crouch, drop through), double tap = hard (fast fall).
 ## Gamepads: left stick as is (analog); a hard flick down fast falls; A/Y jump, X attack, B special,
-## bumpers/triggers shield, right stick click grab, right stick = strong (smash) attack in that direction.
+## bumpers/triggers shield, right stick click grab, right stick = the attack stick (the reference's C-stick): a smash in its direction
+## on the ground, an aerial in the air. It only aims the attack; the left stick keeps moving the fighter (drift, fast fall).
 
 const TILT := 0.45  # stick magnitude while the tilt key is held
 ## A connected controller only overrides the keyboard once its stick is pushed past this, so a
@@ -176,13 +177,17 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 		if Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.5 or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.5:
 			b |= masks.shield
 		if Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_STICK): b |= masks.grab
-		# The right stick is the smash stick: pushed, it attacks hard in that direction.
+		# The right stick is the attack stick: pushed, it attacks in its direction (the nearer of the four), sent as its own bits so
+		# the left stick's drift and fast fall carry on through the attack. (It once replaced the left stick while held, which ate a
+		# fast-fall flick made during a right-stick aerial.)
 		var rx := Input.get_joy_axis(pad, JOY_AXIS_RIGHT_X)
 		var ry := -Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y)
-		if Vector2(rx, ry).length() > 0.65:
-			b |= masks.attack | masks.strong
-			sx = rx
-			sy = ry
+		if Vector2(rx, ry).length() > 0.65 and masks.has("c_up"):
+			b |= masks.attack
+			if absf(rx) >= absf(ry):
+				b |= masks.c_right if rx > 0.0 else masks.c_left
+			else:
+				b |= masks.c_up if ry > 0.0 else masks.c_down
 
 	# Digital diagonals would be a longer vector than a physical stick can make; clamp to the unit circle.
 	var len := Vector2(sx, sy).length()

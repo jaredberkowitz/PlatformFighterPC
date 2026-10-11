@@ -890,6 +890,10 @@ impl SimRunner {
             "shield" => buttons::SHIELD,
             "grab" => buttons::GRAB,
             "strong" => buttons::STRONG,
+            "c_up" => buttons::C_UP,
+            "c_down" => buttons::C_DOWN,
+            "c_left" => buttons::C_LEFT,
+            "c_right" => buttons::C_RIGHT,
             _ => 0,
         };
         i32::from(mask)

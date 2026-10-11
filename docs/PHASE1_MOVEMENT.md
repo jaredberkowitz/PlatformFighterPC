@@ -355,3 +355,16 @@ exactly that distance.
 Tests: `sim-core/tests/feel.rs` (a tap covers the whole dash and matches `initial_dash_distance`, a second tap changes nothing, dash dance out of
 a tapped dash, no crouch or tilt, smash attacks out of it, the shield at half) and `ground_and_collision.rs` (letting go no longer cancels it;
 any tap shorter than the dash goes as far).
+
+## Short-hop fast-fall aerials and the attack stick (sim 48)
+
+Short hop air times match the reference's published ones (ultimateframedata.com, Jump Durations) within a frame: the swordfighter 42
+and 29 frames with a fast fall (reference 41 and 28), the blaster fighter 31 and 22 (30 and 21). An aerial made on the take-off frame
+and fast fallen at the apex gets every hit out before landing (a test checks every aerial of both kits; the blaster fighter's neutral
+air's long late hit is the exception, as in the reference). As in the reference, starting an aerial cancels a fast fall already under
+way (falling speed goes back to normal), so the dependable order is: aerial first, then fast fall during it.
+
+The controller's right stick is the **attack stick** (the reference's C-stick): its four directions are their own input bits
+(`buttons::C_*`), which only aim the attack (a smash on the ground, an aerial in the air; out of a run, up or down is a smash and
+sideways the dash attack). Before, the right stick replaced the left stick while held, so a fast-fall flick made during a
+right-stick aerial was lost.
