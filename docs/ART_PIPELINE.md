@@ -538,3 +538,19 @@ gameplay camera with the match display.
 - Anti-aliasing: MSAA 4x kept; SMAA on top was tried and made no visible difference (the screen-space ink is already smooth), so it
   is off. TAA was not used: it smears fast-moving fighters and effects, the worst trade for a fighting game.
 - GPU time unchanged (about 1.5 ms a frame on the `--perf` tour).
+
+**Phase 2, the material library** (`godot/scripts/materials.gd`): one cel material per surface family, each the shared cel shader with a
+hand-drawn tile and its own response to light (`FAMILIES`): wood and grass matte with a firm step into shadow, bark soft and matte,
+foliage softer still with a stronger rim (a puffy mass), stone crisp with a faint sheen. The fighters keep their own small sheen, so
+they read a touch livelier than the scenery. Families: `Materials.world(tile, colour, size)` for stage surfaces laid in world space
+(grass, wood, sand, roof, steel), `wood`, `bark`, `foliage` and `stone` for props and trees by their UVs, and `greens(base)`, four
+coordinated greens (deep shade, body, light, sunlit tips) so a crown or bush reads as one plant. New tiles in `godot/art/stage/`:
+`bark.svg` (vertical grooves, a few knots), `foliage.svg` (soft clumps with shaded undersides) and `stone.svg` (faint facets, hairline
+cracks, speckles), made by `tools/art/make_tiles.py` (re-run it to change them); like every tile they are drawn on #ff00ff and only
+translucent black and white, so one tile takes any colour. Used for: platform beams, fence posts, barrels, crates, signposts, the
+lantern post, the life-ring post, the water tower, the windmill sails (wood); the great tree, the round trees, the palms and the stump
+(bark, drawn on rather than built of boxes); crowns, bushes, palm fronds, the potted plant and the foreground bushes (foliage); rocks
+and pebbles (stone). Measured on the same machine at the same moment: no change in GPU time or draw calls.
+
+Blender's part, for imported props: keep the shapes, bevels and UVs there, give each surface a plain material in the right colour, and
+let `toonify.gd` make it a cel material; a family can be assigned to it in Godot without touching the `.blend`.

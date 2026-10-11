@@ -10,6 +10,7 @@ extends RefCounted
 
 const SvgArt := preload("res://scripts/svg_art.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
+const Materials := preload("res://scripts/materials.gd")
 const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
@@ -101,8 +102,7 @@ static var _flat_cache := {}
 
 ## A stage surface in colour `c` with one of the painted tiles in godot/art/stage/ laid over it in world space (`size` world units a repeat).
 static func _surface(c: Color, tile: String, size: float, outline := true) -> ShaderMaterial:
-	var tex := SvgArt.texture("res://art/stage/%s.svg" % tile, {"#ff00ff": c})
-	return FighterView.toon(Color.WHITE, outline, tex, Vector2.ONE, size)
+	return Materials.world(tile, c, size, outline)
 
 
 static func _soft(c: Color) -> ShaderMaterial:
@@ -253,7 +253,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
 			# A few pebbles and shells on the back of the sand.
-			var pebble := FighterView.toon((t.soil as Color).lightened(0.2))
+			var pebble := Materials.stone((t.soil as Color).lightened(0.2))
 			var x := left + 0.7
 			while x < right - 0.5:
 				_mesh(parent, _sphere(0.14, 8), pebble, Vector3(x, top + 0.04, front_z - rng.randf_range(2.0, 5.0)), Vector3(1.3, 0.6, 1.0))
@@ -269,7 +269,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them.
 			var x := left + rng.randf_range(0.4, 0.9)
 			var tuft_mesh := _sphere(0.32, 12)
-			var stone := FighterView.toon((t.soil as Color).lightened(0.25))
+			var stone := Materials.stone((t.soil as Color).lightened(0.25))
 			while x < right - 0.4:
 				var k := rng.randf_range(0.75, 1.3)
 				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h - 0.12 * k, front_z + 0.2), Vector3(1.2, 0.8, 0.6) * k)
@@ -320,7 +320,7 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	if t.get("platform", "wood") == "girder":
 		var steel := _surface(t.wood, "steel", 3.0)
 		_mesh(parent, _box(Vector3(w, 0.18, depth)), steel, Vector3(cx, top - 0.09, front_z - depth / 2.0))
-		_mesh(parent, _box(Vector3(w, 0.5, 0.16)), FighterView.toon(t.wood_dark), Vector3(cx, top - 0.4, front_z - 0.3))
+		_mesh(parent, _box(Vector3(w, 0.5, 0.16)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.4, front_z - 0.3))
 		_mesh(parent, _box(Vector3(w, 0.14, depth * 0.7)), steel, Vector3(cx, top - 0.68, front_z - depth / 2.0))
 		var rivet := _unshaded(Color(0.95, 0.82, 0.6))
 		var x := left + 0.35
@@ -330,7 +330,7 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 		return
 	var board := _surface(t.wood, "wood", 2.4)
 	_mesh(parent, _box(Vector3(w, 0.26, depth)), board, Vector3(cx, top - 0.13, front_z - depth / 2.0))
-	_mesh(parent, _box(Vector3(w - 0.3, 0.22, depth - 0.4)), FighterView.toon(t.wood_dark), Vector3(cx, top - 0.37, front_z - depth / 2.0))
+	_mesh(parent, _box(Vector3(w - 0.3, 0.22, depth - 0.4)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.37, front_z - depth / 2.0))
 	for side in [-1.0, 1.0]:
 		_mesh(parent, _cylinder(0.13, 0.13, depth), board, Vector3(cx + side * w / 2.0, top - 0.13, front_z - depth / 2.0), Vector3.ONE, Vector3(90, 0, 0))
 	var seam := _unshaded((t.wood_dark as Color).darkened(0.2))
@@ -431,8 +431,8 @@ static func _foreground(root: Node3D, theme_name: String, e: Array) -> void:
 
 
 static func _fg_bush(root: Node3D, at: Vector3, colour: Color, rng: RandomNumberGenerator) -> void:
-	var leaf := FighterView.toon(colour)
-	var light := FighterView.toon(colour.lightened(0.12))
+	var leaf := Materials.foliage(colour)
+	var light := Materials.foliage(Materials.greens(colour)[2])
 	for k in 4:
 		var s := rng.randf_range(0.8, 1.25)
 		_mesh(root, _sphere(1.0, 10), leaf if k % 2 == 0 else light, at + Vector3((k - 1.5) * 0.9, rng.randf_range(-0.2, 0.4), rng.randf_range(-0.3, 0.3)),
@@ -443,7 +443,7 @@ static func _fg_bush(root: Node3D, at: Vector3, colour: Color, rng: RandomNumber
 
 
 static func _fg_rocks(root: Node3D, at: Vector3, colour: Color, rng: RandomNumberGenerator) -> void:
-	var stone := FighterView.toon(colour)
+	var stone := Materials.stone(colour)
 	for k in 3:
 		var s := Vector3(rng.randf_range(1.1, 1.6), rng.randf_range(0.7, 1.0), 1.0) * rng.randf_range(0.7, 1.1)
 		_mesh(root, _sphere(1.0, 6), stone, at + Vector3((k - 1) * 1.2, rng.randf_range(-0.2, 0.2), rng.randf_range(-0.3, 0.3)), s,
@@ -508,22 +508,22 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
-	_mesh(root, _cylinder(0.42 * size, 0.38 * size, 1.1 * size, 10), FighterView.toon(Color(0.78, 0.52, 0.34)), at + Vector3(0, 0.55 * size, 0))
+	_mesh(root, _cylinder(0.42 * size, 0.38 * size, 1.1 * size, 10), Materials.wood(Color(0.78, 0.52, 0.34), Vector2(2, 1)), at + Vector3(0, 0.55 * size, 0))
 	var hoop := FighterView.toon(Color(0.42, 0.4, 0.5), false)
 	for h in [0.22, 0.88]:
 		_mesh(root, _cylinder(0.43 * size, 0.43 * size, 0.07 * size, 10), hoop, at + Vector3(0, h * size, 0))
 
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
-	_mesh(root, _box(Vector3.ONE * size), FighterView.toon(Color(0.86, 0.66, 0.42)), at + Vector3(0, size / 2.0, 0), Vector3.ONE, Vector3(0, turn, 0))
+	_mesh(root, _box(Vector3.ONE * size), Materials.wood(Color(0.86, 0.66, 0.42)), at + Vector3(0, size / 2.0, 0), Vector3.ONE, Vector3(0, turn, 0))
 	# A diagonal brace across the front.
 	var front := Vector3(0, size / 2.0, size / 2.0 + 0.01).rotated(Vector3.UP, deg_to_rad(turn))
 	_mesh(root, _box(Vector3(size * 1.25, size * 0.14, 0.04)), FighterView.toon(Color(0.68, 0.48, 0.3), false), at + front, Vector3.ONE, Vector3(0, turn, 45))
 
 
 static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
-	_mesh(root, _box(Vector3(0.14, 1.7, 0.14)), FighterView.toon(Color(0.74, 0.54, 0.34)), at + Vector3(0, 0.85, 0))
-	var board := FighterView.toon(Color(0.9, 0.72, 0.48))
+	_mesh(root, _box(Vector3(0.14, 1.7, 0.14)), Materials.wood(Color(0.74, 0.54, 0.34)), at + Vector3(0, 0.85, 0))
+	var board := Materials.wood(Color(0.9, 0.72, 0.48))
 	_mesh(root, _box(Vector3(1.1, 0.34, 0.08)), board, at + Vector3(points * 0.3, 1.4, 0.08), Vector3.ONE, Vector3(0, 0, -4))
 	_mesh(root, _box(Vector3(0.9, 0.3, 0.08)), board, at + Vector3(-points * 0.25, 1.0, 0.08), Vector3.ONE, Vector3(0, 0, 5))
 
@@ -531,7 +531,7 @@ static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
 ## A rock: a ball with few sides, squashed and turned, so it reads as a faceted stone.
 static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
-	_mesh(root, _sphere(1.0, 6), FighterView.toon(Color(0.74, 0.72, 0.8)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+	_mesh(root, _sphere(1.0, 6), Materials.stone(Color(0.74, 0.72, 0.8)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
 
 
 ## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).
@@ -553,12 +553,12 @@ static func _mushroom(parent: Node3D, at: Vector3, size: float, cap: Color) -> v
 
 
 static func _stump(root: Node3D, at: Vector3) -> void:
-	_mesh(root, _cylinder(0.5, 0.62, 0.7, 9), FighterView.toon(Color(0.6, 0.42, 0.28)), at + Vector3(0, 0.35, 0))
+	_mesh(root, _cylinder(0.5, 0.62, 0.7, 9), Materials.bark(Color(0.6, 0.42, 0.28), Vector2(2, 1)), at + Vector3(0, 0.35, 0))
 	_mesh(root, _cylinder(0.44, 0.44, 0.03, 9), FighterView.toon(Color(0.94, 0.8, 0.58), false), at + Vector3(0, 0.71, 0))
 
 
 static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
-	var wood := FighterView.toon(Color(0.5, 0.36, 0.3))
+	var wood := Materials.wood(Color(0.5, 0.36, 0.3))
 	_mesh(root, _box(Vector3(0.14, 2.2, 0.14)), wood, at + Vector3(0, 1.1, 0))
 	_mesh(root, _box(Vector3(0.7, 0.1, 0.1)), wood, at + Vector3(0.3, 2.15, 0))
 	_mesh(root, _cylinder(0.14, 0.18, 0.36, 6), _unshaded(glow), at + Vector3(0.58, 1.86, 0))
@@ -574,7 +574,7 @@ static func _umbrella(root: Node3D, at: Vector3, colour: Color) -> void:
 
 
 static func _life_ring(root: Node3D, at: Vector3) -> void:
-	_mesh(root, _box(Vector3(0.12, 1.6, 0.12)), FighterView.toon(Color(0.86, 0.7, 0.5)), at + Vector3(0, 0.8, -0.1))
+	_mesh(root, _box(Vector3(0.12, 1.6, 0.12)), Materials.wood(Color(0.86, 0.7, 0.5)), at + Vector3(0, 0.8, -0.1))
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.28
 	ring.outer_radius = 0.5
@@ -590,7 +590,7 @@ static func _bucket(root: Node3D, at: Vector3, colour: Color) -> void:
 
 static func _potted_plant(root: Node3D, at: Vector3) -> void:
 	_mesh(root, _cylinder(0.36, 0.26, 0.6, 8), FighterView.toon(Color(0.86, 0.5, 0.42)), at + Vector3(0, 0.3, 0))
-	var leaf := FighterView.toon(Color(0.4, 0.72, 0.5))
+	var leaf := Materials.foliage(Color(0.4, 0.72, 0.5), Vector2(1, 1))
 	for k in 5:
 		var a := TAU * k / 5.0
 		_mesh(root, _sphere(1.0, 6), leaf, at + Vector3(cos(a) * 0.25, 0.85, sin(a) * 0.2), Vector3(0.18, 0.55, 0.1), Vector3(0, -rad_to_deg(a), 30))
@@ -772,7 +772,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for k in 6:
 		_round_tree(root, Vector3(rng.randf_range(-70, 70), rng.randf_range(-12, -6), rng.randf_range(-62, -48)), rng.randf_range(0.7, 1.2), rng)
 	# A wooden fence along the back of the stage, and flowers.
-	var post := FighterView.toon(Color(0.86, 0.66, 0.42))
+	var post := Materials.wood(Color(0.86, 0.66, 0.42))
 	var x: float = e[0] + 0.6
 	while x <= e[1] - 0.5:
 		_mesh(root, _box(Vector3(0.18, 1.0, 0.18)), post, Vector3(x, e[2] + 0.5, -6.2))
@@ -795,14 +795,14 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		var arm := Node3D.new()
 		arm.rotation.z = TAU * k / 4.0
 		hub.add_child(arm)
-		_mesh(arm, _box(Vector3(0.3, 7.0, 0.2)), FighterView.toon(Color(0.55, 0.38, 0.26)), Vector3(0, 3.5, 0))
+		_mesh(arm, _box(Vector3(0.3, 7.0, 0.2)), Materials.wood(Color(0.55, 0.38, 0.26)), Vector3(0, 3.5, 0))
 		_mesh(arm, _box(Vector3(1.6, 5.4, 0.1)), sail, Vector3(0.9, 4.2, 0.1))
 
 
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
-	_mesh(root, _cylinder(0.35 * size, 0.5 * size, 3.0 * size, 8), FighterView.toon(Color(0.55, 0.38, 0.24)), at + Vector3(0, 1.5 * size, 0))
-	var leaf := FighterView.toon(Color(0.3, 0.62, 0.34).lerp(Color(0.45, 0.72, 0.3), rng.randf()))
+	_mesh(root, _cylinder(0.35 * size, 0.5 * size, 3.0 * size, 8), Materials.bark(Color(0.55, 0.38, 0.24), Vector2(2, 1)), at + Vector3(0, 1.5 * size, 0))
+	var leaf := Materials.foliage(Materials.greens(Color(0.32, 0.64, 0.34))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
 	crown.amount = 2.5
@@ -897,8 +897,9 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_tree(root, Vector3(-30, top - 12.0, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, top - 13.0, -60.0), 0.55, rng)
 	# Round bushes along the back of the island.
-	var bush := FighterView.toon(Color(0.3, 0.66, 0.34))
-	var bush_light := _soft(Color(0.44, 0.78, 0.4))
+	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
+	var bush := Materials.foliage(bush_greens[1])
+	var bush_light := Materials.foliage(bush_greens[3], Vector2(2, 1), false)
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
 		_mesh(root, _sphere(1.0, 16), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
@@ -958,14 +959,14 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 
 ## A palm: a curving trunk of stacked rings under a fan of long leaves and a few coconuts.
 static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
-	var bark := FighterView.toon(Color(0.66, 0.5, 0.32))
+	var bark := Materials.bark(Color(0.66, 0.5, 0.32), Vector2(1, 1))
 	var lean := rng.randf_range(-0.12, 0.12)
 	var top := base
 	for k in 8:
 		var seg := base + Vector3(lean * k * k * 0.12 * size, k * 0.75 * size, 0)
 		_mesh(root, _cylinder(0.24 * size, 0.3 * size, 0.8 * size, 10), bark, seg + Vector3(0, 0.4 * size, 0))
 		top = seg + Vector3(0, 0.8 * size, 0)
-	var leaf := FighterView.toon(Color(0.24, 0.6, 0.3))
+	var leaf := Materials.foliage(Color(0.24, 0.6, 0.3), Vector2(2, 1))
 	var head := Sway.new()
 	head.position = top
 	head.amount = 5.0
@@ -1006,7 +1007,7 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
 	var tower := Vector3(float(e[0]) + 3.0, roof, -6.0)
-	var wood := FighterView.toon(Color(0.55, 0.36, 0.26))
+	var wood := Materials.wood(Color(0.55, 0.36, 0.26))
 	for leg in [Vector3(-0.9, 0, -0.9), Vector3(0.9, 0, -0.9), Vector3(-0.9, 0, 0.9), Vector3(0.9, 0, 0.9)]:
 		_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
 	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
@@ -1039,20 +1040,19 @@ static func _building(root: Node3D, base: Vector3, size: Vector3, shade: Color, 
 ## A big round cartoon tree: a tapered trunk with bark grooves and roots, under a canopy of soft green balls.
 static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	var trunk_h := 18.0 * size
-	var bark := FighterView.toon(Color(0.62, 0.42, 0.26))
-	var groove := _soft(Color(0.48, 0.31, 0.19))
+	# Bark drawn on (grooves and knots, `Materials.bark`) rather than built of boxes.
+	var bark := Materials.bark(Color(0.62, 0.42, 0.26), Vector2(5, 3))
 	_mesh(root, _cylinder(2.0 * size, 2.9 * size, trunk_h, 24), bark, base + Vector3(0, trunk_h / 2.0, 0))
-	for k in 6:
-		var a := -0.9 + k * 0.36
-		_mesh(root, _box(Vector3(0.22 * size, trunk_h * rng.randf_range(0.5, 0.85), 0.2 * size)), groove,
-			base + Vector3(sin(a) * 2.55 * size, trunk_h * 0.38, cos(a) * 2.55 * size), Vector3.ONE, Vector3(0, rad_to_deg(a), 0))
 	for k in 5:
 		var a := -1.2 + k * 0.6
 		_mesh(root, _cylinder(0.25 * size, 1.1 * size, 3.2 * size, 10), bark,
 			base + Vector3(sin(a) * 3.0 * size, 0.6 * size, cos(a) * 2.2 * size), Vector3.ONE, Vector3(0, 0, -rad_to_deg(a) * 0.6))
-	var leaf := FighterView.toon(Color(0.2, 0.55, 0.3))
-	var leaf_mid := _soft(Color(0.28, 0.66, 0.34))
-	var leaf_light := _soft(Color(0.45, 0.8, 0.42))
+	# Four coordinated greens: deep shade, body, light, and sunlit tips.
+	var g := Materials.greens(Color(0.27, 0.62, 0.34))
+	var leaf := Materials.foliage(g[0])
+	var leaf_mid := Materials.foliage(g[1], Vector2(3, 2), false)
+	var leaf_light := Materials.foliage(g[2], Vector2(2, 1), false)
+	var leaf_sun := Materials.foliage(g[3], Vector2(2, 1), false)
 	var sway := Sway.new()
 	sway.position = base + Vector3(0, trunk_h, 0)
 	sway.amount = 0.8
@@ -1067,7 +1067,7 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		_mesh(sway, _sphere(1.0, 20), leaf if k % 3 == 0 else leaf_mid, crown + off, Vector3.ONE * s)
 	for k in 8:
 		var off := Vector3(rng.randf_range(-8.0, 8.0), rng.randf_range(1.5, 6.0), rng.randf_range(1.0, 3.0)) * size
-		_mesh(sway, _sphere(1.0, 16), leaf_light, crown + off, Vector3.ONE * rng.randf_range(2.2, 3.6) * size)
+		_mesh(sway, _sphere(1.0, 16), leaf_light if k % 2 == 0 else leaf_sun, crown + off, Vector3.ONE * rng.randf_range(2.2, 3.6) * size)
 
 
 ## Four-pointed glints that slowly turn and pulse. Cosmetic; they run on their own clock.
