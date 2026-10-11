@@ -7,8 +7,8 @@ directly, so `play_host.bat`, `play_join.bat`, demos and test scripts work as be
 
 Look and feel: sleek but cartoony, in the spirit of the two reference screens (a round-portrait select grid with big player
 panels; a creator with arrow selectors, slanted label tabs, a name field and a preview on a little stage). All of it is original:
-slanted cream labels, round arrow buttons, gold highlights, a slate backdrop with light beams (a pastel graph-paper one for
-select), bold condensed type, and a slight bounce on hovered buttons. The pieces live in `godot/ui/ui_kit.gd` and `ui_draw.gd`.
+painted cards and brush strokes, round arrow buttons, gold highlights, a fantasy sky of floating islands drawn in code, bold
+condensed type, and a slight lift on hovered buttons (see "Look" below). The pieces live in `godot/ui/ui_kit.gd`, `menu_art.gd` and `ui_draw.gd`.
 
 ## Character creator
 
@@ -117,19 +117,30 @@ To play online with a made fighter, make it in the creator, then either play one
   fighters' speed and jump height, then driving the creator, select and menu screens with key presses.
 
 
-## Look (second pass)
+## Look (third pass: the painted style)
 
-The menus share one visual language (`godot/ui/ui_draw.gd`, `ui_kit.gd`): slanted panels with a soft two-step shadow, a fill lighter at the
-top, a thin highlight and an ink edge; selected buttons glow and a shine sweeps across them; long labels shrink to fit; every screen opens
-with a slanted wipe (`UI.reveal`). The backdrop is a deep indigo-to-navy gradient with slow light rays, faint scrolling stripes and drifting
-motes (a warmer magenta variant behind character select).
+The menus follow the concept art: a sunny fantasy world drawn entirely in code (`godot/ui/menu_art.gd`), with no images. Pieces:
 
-- **Main menu**: a mosaic of tiles (Play, Online, Replays, Character Creator, Controls, Editors, Quit), each with its own colour and a
-  line-drawn icon; Play is the biggest, with the last fighter played standing in it. Up and down step through the tiles in order, left and
-  right move across.
-- **Character select**: roster cards with each fighter's own 3D portrait (rendered once, then kept as a still), name strips and rings in
-  the colours of the players on them; the players' cards along the bottom with the fighter standing large; a "READY TO FIGHT!" band across
-  the screen once everyone is locked in.
+- **The sky** (`Art.SkyScene`): a blue gradient with the sun's glow and a halo of rings, floating islands with grass, waterfalls and
+  castles (pale ones far off), banks of cream clouds, birds, motes and sparkles, leaves in the bottom corners. A `mood` warms it
+  (player 1's coral and gold) or cools it (player 2's blue). Each piece is drawn once and only moved after (islands bob, clouds drift);
+  only the birds and motes are redrawn, which keeps the menus cheap (repainting the whole sky each frame cost about 15 ms).
+- **Painted cards** (`Art.card`): cut corners, an offset ink shadow, a fill lighter at the top, a broad translucent plane and an ink
+  outline. Buttons, labels, menu tiles and the roster cards are all cards; buttons and tiles repaint only when they change.
+- **Brush strokes** (`Art.brush_band`): ragged-ended bands with streaks, for titles, names, player tabs, READY badges and the ribbon.
+- **Titles** (`Art.title`): live text with an ink outline and a soft shadow. **Key glyphs** (`UI.KeyBar`): the controls along the bottom.
+
+The screens:
+
+- **Main menu**: the name on two brush strokes; a mosaic of tiles (Play, Online, Replays, Character Creator, Controls, Editors, Quit),
+  each a card in its own colour with a line-drawn icon; Play is the biggest, a painted scene with the last fighter played standing on a
+  ledge in it. Up and down step through the tiles in order, left and right move across. Every screen opens with a slanted wipe
+  (`UI.reveal`).
+- **Character select**: "VERSUS" and "CHOOSE YOUR FIGHTER" on brush strokes; roster cards in a fixed run of colours with each fighter's
+  own 3D portrait (rendered once, then kept as a still), the name on an ink stroke, outlines and P tabs in the colours of the players on
+  them (the card lifts); the players' panels along the bottom, each a painted scene (warm for player 1, cool for player 2) with the
+  fighter standing on a ledge, the name on a stroke in the player's colour and a gold READY! badge once locked in; a coral "READY TO
+  FIGHT!" ribbon across the screen once everyone is in; the keys along the bottom.
 - **Results**: the winner standing large on their colour, a card for each fighter in finishing order with knock-outs, falls, damage dealt
   and taken and stocks left (tracked by the match scene from hits and knock-outs; with more than two fighters the attacker is the one frozen
   in an attack on the same frame), and the choices.

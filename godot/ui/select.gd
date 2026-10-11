@@ -11,6 +11,7 @@ extends Control
 
 const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
+const Art := preload("res://ui/menu_art.gd")
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -18,7 +19,14 @@ const Shot := preload("res://ui/shot.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
 const COLUMNS := 7
-const TOKEN := 124
+const TOKEN := 132
+## The roster cards' colours, in turn (the built-in fighters first), and the random and new-fighter cards'.
+const CARD_COLORS := [Art.CORAL, Art.BLUE, Art.SUN, Art.VIOLET, Art.GREEN, Art.TEAL]
+const RANDOM_COLOR := Color("252a52")
+const NEW_COLOR := Color("1f7a5a")
+## The keys along the bottom.
+const KEYS := [["WASD", "P1 move   J lock   K back"], ["\u2190\u2192", "P2 move   Enter lock   Bksp back"], ["C", "Computer"],
+	["E", "Edit"], ["T", "Stocks"], ["Y", "Time"], ["G", "Stage"], ["Esc", "Menu"]]
 const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 const P_DISC := [Color(0.98, 0.72, 0.72), Color(0.74, 0.8, 0.98), Color(0.99, 0.9, 0.62), Color(0.76, 0.94, 0.8)]
 
@@ -46,21 +54,26 @@ var stocks_button: Control
 var time_button: Control
 var stage_button: Control
 var thumbs_frozen := false
+var panels_overlay: Control
 var frames := 0
 
 
 class Card extends Control:
-	## A roster card: a slanted panel with the fighter's 3D portrait (or a "?" or "+" glyph) and its name; rings in the colours of the
-	## players whose cursor is on it are drawn over the top by `Overlay`.
+	## A roster card, like a collectible card: an angled panel in its own colour with a painted rim, the fighter's 3D portrait (or a "?" or
+	## "+" glyph), and its name on an ink brush stroke along the bottom. The players whose cursor is on it outline it in their colours
+	## (thicker once locked in) and it lifts a little; their P tabs sit on its top corners. The top layer is drawn by `Overlay`.
 	var name_text := ""
 	var glyph := ""
+	var fill := Art.CORAL
 	var rings: Array = []   # [colour, locked] for each player on it
 	var casual := false
 	var hover := false
+	var seed := 1
+	var lift := 0.0
 	signal clicked(button: int)
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(TOKEN, TOKEN + 8)
+		custom_minimum_size = Vector2(TOKEN, TOKEN + 12)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_entered.connect(func():
 			hover = true
@@ -73,32 +86,47 @@ class Card extends Control:
 		if event is InputEventMouseButton and event.pressed:
 			clicked.emit(event.button_index)
 
-	func _draw() -> void:
-		var rect := Rect2(Vector2(4, 4), size - Vector2(8, 8))
-		if not rings.is_empty() or hover:
-			var c: Color = rings[0][0] if not rings.is_empty() else UI.GOLD
-			UI.D.draw_glow(self, rect, c, 1.0, 0.12)
-		var fill := Color(0.94, 0.92, 0.86) if glyph == "" else Color(0.3, 0.32, 0.42)
-		UI.D.draw_slant(self, rect, fill, UI.INK, 3.0, true, 0.12)
-		if glyph != "":
-			UI.D.draw_text_centered(self, glyph, Rect2(rect.position, rect.size - Vector2(0, 20)), 58, UI.GOLD)
+	func _process(delta: float) -> void:
+		var target := 5.0 if (not rings.is_empty() or hover) else 0.0
+		if absf(lift - target) > 0.01:
+			lift = move_toward(lift, target, delta * 40.0)
+			queue_redraw()
+			for ch in get_children():
+				if ch is SubViewportContainer:
+					ch.position.y = 12.0 - lift
+				ch.queue_redraw()
 
-	## Drawn over the portrait: the name strip and the player rings.
+	func _rect() -> Rect2:
+		return Rect2(Vector2(6, 8), size - Vector2(14, 18))
+
+	func _draw() -> void:
+		Art.card(self, _rect(), fill, seed, 12.0, 4.0, fill.lightened(0.35), lift)
+		# A soft burst behind the portrait, and the glyph cards' sign.
+		var r := _rect()
+		r.position.y -= lift
+		draw_circle(r.get_center() + Vector2(0, -10), r.size.x * 0.34, Color(1, 1, 1, 0.14))
+		if glyph != "":
+			Art.title_centered(self, glyph, Rect2(r.position, r.size - Vector2(0, 26)), 70, Art.SUN, 0.12)
+
+	## Drawn over the portrait: the name on its brush stroke, the player outlines and the casual tag.
 	func paint_over(over: Control) -> void:
-		var rect := Rect2(Vector2(4, 4), size - Vector2(8, 8))
-		var strip := Rect2(Vector2(rect.position.x + 2, rect.end.y - 24), Vector2(rect.size.x - 6, 22))
-		over.draw_rect(strip, Color(0.08, 0.09, 0.14, 0.85))
+		var r := _rect()
+		r.position.y -= lift
+		var band := Rect2(Vector2(r.position.x + 2, r.end.y - 30), Vector2(r.size.x - 6, 28))
+		Art.brush_band(over, band, Color(Art.INK, 0.92), seed + 5, 8.0, false, 0.4)
 		if name_text != "":
-			UI.D.draw_text_centered(over, name_text.left(14), strip, 17, Color(1, 1, 1))
+			Art.title_centered(over, name_text.to_upper(), band.grow_individual(-6, 0, -10, 0), 17, Color.WHITE, 0.14)
 		for k in rings.size():
-			var r := rect.grow(-2.0 - k * 5.0)
-			var pts := UI.D.skew_points(r, 0.12)
-			pts.append(pts[0])
+			var g := r.grow(3.0 + k * 6.0)
+			var pts := PackedVector2Array([g.position + Vector2(12, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - 12),
+				Vector2(g.end.x - 12, g.end.y), Vector2(g.position.x, g.end.y), g.position + Vector2(0, 12), g.position + Vector2(12, 0)])
+			over.draw_polyline(pts, Art.INK, (9.0 if rings[k][1] else 6.0) + 3.0, true)
 			over.draw_polyline(pts, rings[k][0], 7.0 if rings[k][1] else 4.0, true)
 		if casual:
-			var tag := Rect2(Vector2(rect.position.x + 8, rect.position.y + 4), Vector2(56, 17))
-			over.draw_rect(tag, UI.SKY)
-			UI.D.draw_text_centered(over, "CASUAL", tag, 12, UI.INK)
+			var tag := Rect2(Vector2(r.position.x + 10, r.position.y + 8), Vector2(58, 18))
+			over.draw_rect(tag, Art.GLOW)
+			over.draw_rect(tag, Art.INK, false, 2.0)
+			UI.D.draw_text_centered(over, "CASUAL", tag, 12, Art.INK)
 
 
 class Overlay extends Control:
@@ -114,18 +142,41 @@ class Overlay extends Control:
 		card.paint_over(self)
 
 
+class PTab extends Control:
+	## A player's tab on a roster card: "P1" on a small brush stroke in the player's colour.
+	var text := ""
+	var fill := Color.WHITE
+	var seed := 1
+
+	func _init(label: String, colour: Color, s := 1) -> void:
+		text = label
+		fill = colour
+		seed = s
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		Art.brush_band(self, Rect2(Vector2.ZERO, size), fill, seed, 8.0, true, 0.4)
+		Art.title_centered(self, text, Rect2(Vector2(0, 0), size - Vector2(6, 0)), 20, Color.WHITE, 0.14)
+
+
 class PlayerPanel extends Control:
-	## One player's card along the bottom: their colour, the fighter standing large, the fighter's name, and READY when locked in.
+	## One player's panel along the bottom: a painted scene (warm for player 1, cool for player 2) framed in the player's colour, the
+	## fighter standing on its ledge, the fighter's name on a brush stroke in the player's colour, the player tab, and a gold READY badge
+	## when locked in.
 	var player := 0
 	var disc_color := Color.WHITE
 	var flag_color := Color.WHITE
 	var preview: Control
+	var mask: Control
+	var scenery: Control
 	var name_text := ""
 	var is_ready := false
 	var empty := true
 	var t := 0.0
 	## Played by the computer: the tag says CPU instead of the player number.
 	var cpu := false
+	const LEAN := 30.0
+	const MOODS := [0.85, -0.7, 0.35, 0.0]
 
 	func _init(p: int, disc: Color, flag: Color) -> void:
 		player = p
@@ -133,14 +184,28 @@ class PlayerPanel extends Control:
 		flag_color = flag
 		custom_minimum_size = Vector2(300, 290)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mask = UI.Mask.new()
+		add_child(mask)
+		scenery = UI.Scene.new()
+		scenery.mood = MOODS[p]
+		scenery.seed = 11 + p * 17
+		mask.add_child(scenery)
 		preview = Preview.new(Vector2i(260, 260), false, 6.8)
 		add_child(preview)
 
+	func _frame() -> Rect2:
+		return Rect2(Vector2(10, 8), size - Vector2(20, 22))
+
 	func lay_out(w: float) -> void:
 		size = Vector2(w, 290)
+		var f := _frame()
+		mask.position = f.position + Vector2(8, 8)
+		mask.size = f.size - Vector2(16, 16)
+		mask.set_shape(PackedVector2Array([Vector2(LEAN, 0), Vector2(mask.size.x, 0), Vector2(mask.size.x - LEAN, mask.size.y), Vector2(0, mask.size.y)]))
+		scenery.size = mask.size
 		var pw := minf(w * 0.8, 300.0)
 		preview.size = Vector2(pw, 260)
-		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, -40)
+		preview.position = Vector2(w * 0.5 - pw * 0.5 + 10.0, -26)
 
 	func _process(delta: float) -> void:
 		t += delta
@@ -148,34 +213,44 @@ class PlayerPanel extends Control:
 			queue_redraw()
 
 	func _draw() -> void:
-		var rect := Rect2(Vector2(6, 6), size - Vector2(12, 12))
+		var f := _frame()
+		var outer := PackedVector2Array([f.position + Vector2(LEAN, 0), Vector2(f.end.x, f.position.y), Vector2(f.end.x - LEAN, f.end.y),
+			Vector2(f.position.x, f.end.y)])
+		var rough := Art.rough(outer, 40 + player, 2.5, 30.0)
+		var sh := PackedVector2Array()
+		for q in rough:
+			sh.append(q + Vector2(7, 9))
+		draw_colored_polygon(sh, Color(Art.INK, 0.55))
 		if is_ready:
-			UI.D.draw_glow(self, rect, Color(1, 0.9, 0.5), 0.6 + 0.4 * sin(t * 4.0), 0.1)
-		UI.D.draw_slant(self, rect, flag_color.darkened(0.15), UI.INK, 5.0, true, 0.1)
-		# A lighter field behind the fighter, with diagonal light bands.
-		var inner := rect.grow(-12.0)
-		inner.size.y -= 58.0
-		UI.D.draw_slant(self, inner, disc_color, Color(0, 0, 0, 0), 0.0, false, 0.1)
-		for i in 6:
-			var x := inner.position.x + 20.0 + i * inner.size.x / 6.0
-			draw_line(Vector2(x, inner.end.y - 4.0), Vector2(x + 40.0, inner.position.y + 4.0), Color(1, 1, 1, 0.16), 12.0)
+			var glow := 0.25 + 0.15 * sin(t * 4.0)
+			for k in 3:
+				var g := PackedVector2Array()
+				for q in rough:
+					g.append(f.get_center() + (q - f.get_center()) * (1.0 + 0.012 * (k + 1)))
+				g.append(g[0])
+				draw_polyline(g, Color(Art.SUN, glow * (1.0 - k * 0.3)), 5.0, true)
+		draw_colored_polygon(rough, flag_color)
+		var closed := rough.duplicate()
+		closed.append(rough[0])
+		draw_polyline(closed, Art.INK, 5.0, true)
+
+	## Drawn above the fighter by the screen's overlay: the name stroke, the tab and the badge (and "?" with nobody chosen).
+	func paint_over(over: Control) -> void:
+		var f := _frame()
+		f.position += position
 		if empty:
-			UI.D.draw_text_centered(self, "?", inner, 110, Color(1, 1, 1, 0.6))
-		var tag := Rect2(rect.position + Vector2(14, 12), Vector2(64, 30))
-		UI.D.draw_slant(self, tag, UI.INK, Color(0, 0, 0, 0), 0.0, false)
-		UI.D.draw_text_centered(self, "CPU" if cpu else "P%d" % (player + 1), tag, 22, flag_color.lightened(0.3))
-		var plate := Rect2(Vector2(rect.position.x + 10, rect.end.y - 56), Vector2(rect.size.x - 20, 46))
-		UI.D.draw_slant(self, plate, UI.INK, Color(0, 0, 0, 0), 0.0, false, 0.1)
-		var f := UI.D.font()
-		var shown := name_text if not empty else "Choose a fighter"
-		var fs := 34
-		while fs > 16 and f.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > plate.size.x - 30.0:
-			fs -= 2
-		UI.D.draw_text_centered(self, shown, plate, fs, Color(1, 1, 1))
+			Art.title_centered(over, "?", Rect2(f.position, f.size - Vector2(0, 60)), 110, Color(1, 1, 1, 0.75))
+		var band := Rect2(Vector2(f.position.x + 24, f.end.y - 52), Vector2(minf(f.size.x * 0.62, 420.0), 58))
+		Art.brush_band(over, band, flag_color.darkened(0.1), 70 + player, 16.0, true, 1.0)
+		var shown := name_text.to_upper() if not empty else "CHOOSE A FIGHTER"
+		Art.title_centered(over, shown, band.grow_individual(-10, 0, -24, 0), 40, Color.WHITE, 0.12)
+		var tab := Rect2(f.position + Vector2(-6, -14), Vector2(86, 48))
+		Art.brush_band(over, tab, flag_color.darkened(0.05), 90 + player, 10.0, true, 0.5)
+		Art.title_centered(over, "CPU" if cpu else "P%d" % (player + 1), tab, 30, Color.WHITE, 0.14)
 		if is_ready:
-			var badge := Rect2(Vector2(rect.end.x - 150, rect.position.y + 10), Vector2(136, 40))
-			UI.D.draw_slant(self, badge, UI.GOLD, UI.INK, 3.0, true)
-			UI.D.draw_text_centered(self, "READY!", badge, 26, UI.INK)
+			var badge := Rect2(Vector2(f.end.x - 196, f.position.y + 6), Vector2(170, 48))
+			Art.brush_band(over, badge, Art.SUN, 110 + player, 12.0, true, 0.6)
+			Art.title_centered(over, "READY!", badge, 30, Art.INK, 0.0)
 
 	func show_entry(e: Dictionary, size_percent: float, ready: bool) -> void:
 		empty = e.is_empty()
@@ -188,6 +263,67 @@ class PlayerPanel extends Control:
 		queue_redraw()
 
 
+class PanelsOverlay extends Control:
+	## The players' panels' top layer (their names, tabs and badges), above the fighters.
+	var panels: Array = []
+
+	func _init() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		for p in panels:
+			if p.visible:
+				p.paint_over(self)
+
+
+class Header extends Control:
+	## The screen's title: "VERSUS" on a gold brush stroke and "CHOOSE YOUR FIGHTER" on a dark one.
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var big := Rect2(Vector2(250, 8), Vector2(490, 74))
+		Art.brush_band(self, big, Art.INK, 3, 22.0, true, 1.0)
+		Art.title(self, "CHOOSE YOUR FIGHTER", Vector2(big.position.x + 30, big.end.y - 22), 42, Color.WHITE, 0.0)
+		var small := Rect2(Vector2(22, 14), Vector2(210, 62))
+		Art.brush_band(self, small, Art.SUN, 5, 18.0, true, 0.8)
+		Art.title_centered(self, "VERSUS", small.grow_individual(-8, 0, -14, 0), 40, Art.INK, 0.0)
+
+
+class Ribbon extends Control:
+	## The band across the screen once everyone has locked in: "READY TO FIGHT!" on a broad coral brush stroke. Click (or Start) begins.
+	signal activated
+	var t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			activated.emit()
+
+	func _process(delta: float) -> void:
+		if not visible:
+			return
+		t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var r := Rect2(Vector2(40, 6), size - Vector2(80, 12))
+		Art.brush_band(self, r, Color("e8424a"), 21, 28.0, true, 1.6)
+		Art.brush_band(self, Rect2(r.position + Vector2(80, r.size.y * 0.7), Vector2(r.size.x - 220, r.size.y * 0.16)), Color(1, 1, 1, 0.12), 27, 6.0, false, 0.6)
+		var f := UI.D.font()
+		var text := "READY TO FIGHT!"
+		var size_big := 64
+		var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_big).x
+		var x := r.position.x + (r.size.x - tw) * 0.5 - 90.0
+		var y := r.position.y + r.size.y * 0.5 + f.get_ascent(size_big) * 0.36
+		var pulse := 1.0 + 0.02 * sin(t * 5.0)
+		Art.title(self, text, Vector2(x, y), int(size_big * pulse), Color.WHITE, 0.12)
+		Art.title(self, "Press Start", Vector2(x + tw + 30.0, y - 8.0), 28, Color(1, 0.86, 0.8), 0.0)
+
+
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	rng.randomize()
@@ -195,25 +331,16 @@ func _ready() -> void:
 	editor.new_from_builtin("preview")
 	add_child(UI.Backdrop.new(true))
 
-	var mode := UI.Tag.new("Versus", Vector2(220, 48))
-	mode.fill = UI.GOLD
-	mode.edge = UI.INK
-	mode.font_size = 28
-	mode.position = Vector2(16, 10)
-	add_child(mode)
-	var ribbon := UI.Tag.new("Choose your fighter", Vector2(420, 56))
-	ribbon.fill = UI.INK
-	ribbon.ink = Color(1, 1, 1)
-	ribbon.font_size = 34
-	ribbon.position = Vector2(232, 6)
-	add_child(ribbon)
+	var header := Header.new()
+	header.size = Vector2(800, 100)
+	add_child(header)
 
 	entries = Roster.all()
 	scroll = ScrollContainer.new()
 	var columns := mini(COLUMNS, entries.size() + specials.size())
 	var grid_w := columns * (TOKEN + 10) + 10
-	scroll.position = Vector2(640 - grid_w * 0.5, 74)
-	scroll.size = Vector2(grid_w + 16, 252)
+	scroll.position = Vector2(640 - grid_w * 0.5, 92)
+	scroll.size = Vector2(grid_w + 16, 236)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	var grid := GridContainer.new()
@@ -223,12 +350,14 @@ func _ready() -> void:
 	scroll.add_child(grid)
 	for i in entries.size() + specials.size():
 		var card := Card.new()
+		card.seed = 100 + i * 13
 		if i < entries.size():
+			card.fill = CARD_COLORS[i % CARD_COLORS.size()]
 			card.name_text = entries[i].name
 			card.casual = not Roster.ranked_legal(entries[i])
 			# The fighter's own 3D portrait, rendered once (see `_process`).
-			var thumb := Preview.new(Vector2i(TOKEN - 12, TOKEN - 16), false, 4.6)
-			thumb.position = Vector2(6, 4)
+			var thumb := Preview.new(Vector2i(TOKEN - 24, TOKEN - 30), false, 4.6)
+			thumb.position = Vector2(10, 12)
 			thumb.spin = false
 			thumb.facing_bias = 0.35
 			thumb.camera.position = Vector3(0, 1.75, 4.6)
@@ -238,6 +367,7 @@ func _ready() -> void:
 		else:
 			card.glyph = "?" if specials[i - entries.size()] == "random" else "+"
 			card.name_text = "Random" if card.glyph == "?" else "New fighter"
+			card.fill = RANDOM_COLOR if card.glyph == "?" else NEW_COLOR
 		var over := Overlay.new(card)
 		card.add_child(over)
 		var index := i
@@ -245,12 +375,9 @@ func _ready() -> void:
 		grid.add_child(card)
 		var tags := []
 		for p in 4:
-			var flag := UI.Tag.new("P%d" % (p + 1), Vector2(46, 28))
-			flag.fill = P_COLORS[p]
-			flag.ink = Color(1, 1, 1)
-			flag.edge = UI.INK
-			flag.font_size = 16
-			flag.position = [Vector2(-8, -10), Vector2(TOKEN - 40, -10), Vector2(-8, TOKEN - 22), Vector2(TOKEN - 40, TOKEN - 22)][p]
+			var flag := PTab.new("P%d" % (p + 1), P_COLORS[p], 60 + p)
+			flag.size = Vector2(50, 28)
+			flag.position = [Vector2(-6, -1), Vector2(TOKEN - 46, -1), Vector2(-6, TOKEN - 24), Vector2(TOKEN - 46, TOKEN - 24)][p]
 			flag.visible = false
 			card.add_child(flag)
 			tags.append(flag)
@@ -260,14 +387,14 @@ func _ready() -> void:
 		var panel := PlayerPanel.new(p, P_DISC[p], P_COLORS[p])
 		add_child(panel)
 		panels.append(panel)
+	panels_overlay = PanelsOverlay.new()
+	panels_overlay.panels = panels
+	add_child(panels_overlay)
 
-	var hint := UI.Tag.new("P1: WASD, J lock, K back     P2: arrows, Enter lock, Backspace back     C computer opponents     E edit     T stocks  Y time  G stage     Esc menu", Vector2(1120, 28))
-	hint.fill = Color(0, 0, 0, 0.35)
-	hint.ink = Color(1, 1, 1, 0.85)
-	hint.font_size = 16
-	hint.shadow = false
-	hint.position = Vector2(80, 690)
-	add_child(hint)
+	var footer := UI.KeyBar.new(KEYS)
+	footer.position = Vector2(60, 686)
+	footer.size = Vector2(1160, 30)
+	add_child(footer)
 
 	status = UI.Tag.new("", Vector2(760, 30))
 	status.fill = Color(1, 1, 1, 0)
@@ -307,13 +434,9 @@ func _ready() -> void:
 	_show_match_rules()
 
 	# The band across the screen once everyone has locked in.
-	start_button = UI.Btn.new("READY TO FIGHT!   Press Start", Vector2(1300, 84))
-	start_button.position = Vector2(-10, 296)
-	start_button.font_size = 46
-	start_button.fill = Color(0.95, 0.3, 0.24)
-	start_button.ink = Color(1, 1, 1)
-	start_button.accent = Color(1.0, 0.45, 0.3)
-	start_button.selected = true
+	start_button = Ribbon.new()
+	start_button.position = Vector2(-20, 296)
+	start_button.size = Vector2(1320, 96)
 	start_button.activated.connect(_start)
 	start_button.visible = false
 	add_child(start_button)
@@ -538,6 +661,7 @@ func _refresh() -> void:
 			size_percent = float(r.size_percent)
 		panels[p].cpu = cpu[p]
 		panels[p].show_entry(shown, size_percent, locked[p])
+	panels_overlay.queue_redraw()
 	var both := _all_locked()
 	start_button.visible = both
 	status.set_text("")
@@ -556,8 +680,10 @@ func _layout_panels() -> void:
 	var w := (1280.0 - 40.0 - gap * (count - 1)) / count
 	for p in 4:
 		var panel: Control = panels[p]
-		panel.position = Vector2(20.0 + p * (w + gap), 396)
+		panel.position = Vector2(20.0 + p * (w + gap), 392)
 		panel.lay_out(w)
+	if panels_overlay != null:
+		panels_overlay.queue_redraw()
 	players_button.text = "Players: %d" % count
 	players_button.queue_redraw()
 
