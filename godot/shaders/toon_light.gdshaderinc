@@ -15,6 +15,8 @@ uniform float shadow_amount : hint_range(0.0, 1.0) = 0.62;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 1.0) = 0.55;
 uniform float sheen : hint_range(0.0, 1.0) = 0.04;
+// How much stronger the rim is on this object (fighters set it above 1 so they lift off the background; see `_tag_object`).
+instance uniform float rim_boost = 1.0;
 
 vec3 pf_rgb2hsv(vec3 c) {
 	vec4 k = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -49,7 +51,7 @@ void light() {
 	DIFFUSE_LIGHT += tone * LIGHT_COLOR / PI;
 	float edge = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float rim = smoothstep(1.0 - rim_width, 1.0, edge) * clamp(wrap + 0.2, 0.0, 1.0);
-	SPECULAR_LIGHT += pf_rim_color.rgb * rim * rim_strength * LIGHT_COLOR / PI * ALBEDO;
+	SPECULAR_LIGHT += pf_rim_color.rgb * rim * rim_strength * rim_boost * LIGHT_COLOR / PI * ALBEDO;
 	vec3 half_dir = normalize(LIGHT + VIEW);
 	float s = pow(clamp(dot(NORMAL, half_dir), 0.0, 1.0), 24.0);
 	SPECULAR_LIGHT += vec3(smoothstep(0.4, 0.6, s) * sheen) * LIGHT_COLOR / PI * ATTENUATION;

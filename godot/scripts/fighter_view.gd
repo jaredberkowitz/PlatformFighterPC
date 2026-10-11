@@ -792,6 +792,9 @@ func build(p: int, l: RefCounted = null) -> void:
 		tree_entered.connect(_follow_bones, CONNECT_ONE_SHOT)
 
 
+const FIGHTER_RIM_BOOST := 1.4
+
+
 ## Gives every cel-shaded part of this fighter its own object id (see `object_id` in shaders/toon.gdshader), so the ink pass draws a line
 ## where this fighter meets anything else but none between its own parts.
 func _tag_object(node: Node) -> void:
@@ -804,6 +807,10 @@ func _tag_object(node: Node) -> void:
 		for m in mats:
 			if m is ShaderMaterial and ((m as ShaderMaterial).shader in [TOON_SHADER, LIMB_SHADER, FACE_SHADER, SKIN_SHADER]):
 				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
+				# The fighters are the clearest things on screen: the full ink outline (the scenery's is thinner and softer) and a
+				# stronger rim.
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", 1.0)
+				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", FIGHTER_RIM_BOOST)
 				break
 	for c in node.get_children():
 		_tag_object(c)

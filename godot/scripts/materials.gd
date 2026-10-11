@@ -22,7 +22,7 @@ const FAMILIES := {
 	"wood": {"ramp_softness": 0.13, "sheen": 0.0, "rim_strength": 0.25, "world_vary": 0.13},
 	"grass": {"ramp_softness": 0.18, "sheen": 0.0, "rim_strength": 0.2},
 	"bark": {"ramp_softness": 0.2, "sheen": 0.0, "rim_strength": 0.25},
-	"foliage": {"ramp_softness": 0.26, "sheen": 0.0, "rim_strength": 0.5},
+	"foliage": {"ramp_softness": 0.26, "sheen": 0.0, "rim_strength": 0.35},
 	"stone": {"ramp_softness": 0.1, "sheen": 0.03, "rim_strength": 0.3},
 	"plain": {"ramp_softness": 0.16, "sheen": 0.0, "rim_strength": 0.3},
 }

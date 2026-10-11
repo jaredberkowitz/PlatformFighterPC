@@ -17,6 +17,7 @@ uniform float normal_edge = 0.6;         // 1 - cosine between neighbouring surf
 uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
+uniform float scenery_lines = 0.72;       // how strong the screen-space ink is on the stage and scenery (the fighters get it all)
 uniform float grain = 0.045;
 uniform float paper = 0.03;
 uniform float vignette = 0.32;
@@ -108,6 +109,7 @@ void fragment() {
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
+	edge *= id0 > 0.6 ? scenery_lines : 1.0;
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {
 		float far_k = smoothstep(haze_start, haze_end, d0 - stage_dist) * haze_max;

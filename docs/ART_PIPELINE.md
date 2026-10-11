@@ -566,3 +566,12 @@ let `toonify.gd` make it a cel material; a family can be assigned to it in Godot
 - **The island's underside** (`_island_underside`): a cone of earth hanging under the lowest block (fitted to it: `stage_view.gd` now
   passes the lowest block's left and right with the extent), a smaller tip below, rocks jutting from it and thin roots hanging from the
   rim, so the grove reads as a floating island when the camera pulls out.
+
+**Phase 4, characters and outlines:** the fighters are now the clearest things on screen.
+- **Outline hierarchy** (`outline_weight`, an instance parameter in `shaders/outline.gdshader`): the scenery's hull outline is 0.6 as
+  thick and in a softer ink (`scenery_color`); each fighter's meshes set it to 1 (`_tag_object` in `fighter_view.gd`), the full black
+  line. One shared outline material still serves everything.
+- **Screen-space ink** on the stage and scenery at 0.72 strength (`scenery_lines` in `post.gdshader`); the fighters' lines in full.
+- **A stronger rim on the fighters** (`rim_boost`, an instance parameter in `toon_light.gdshaderinc`, 1.4 for fighters,
+  `FIGHTER_RIM_BOOST`), so they lift off the background; foliage's own rim brought down to 0.35 so the trees do not compete.
+- Checked in close-up: even outlines, no gaps or dark seams where the fighters' parts meet. Screenshots in `docs/screenshots/`.
