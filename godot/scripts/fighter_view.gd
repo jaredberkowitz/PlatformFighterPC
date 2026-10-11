@@ -249,6 +249,8 @@ func _build_rig(skin: Material) -> bool:
 	# shorts' leg and a white sock on each leg.
 	var arm := _limb_material(skin_colour, _sleeve_colour(), 0.36, Color.WHITE, 2.0)
 	var leg := _limb_material(skin_colour, shorts_colour, 0.3, Color.WHITE, 0.62)
+	# The base body wears modelled clothes (art/blender/make_rigged_blob.py's `build_garments`): a shirt and shorts, coloured here.
+	var garments := rig.find_child("Shirt", true, false) != null
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
 		if part.begins_with("Arm"):
@@ -261,12 +263,17 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = toon(loadout.accent_color())
 		elif part.begins_with("Shorts"):
 			mi.material_override = shorts
+		elif part.begins_with("Shirt"):
+			var cloth := _garment_shirt_material()
+			mi.visible = cloth != null
+			if cloth != null:
+				mi.material_override = cloth
 		elif part.begins_with("Foot"):
 			mi.material_override = shoe
 		elif part.begins_with("Face"):
 			face_mesh = mi
 		elif part.begins_with("Skin"):
-			mi.material_override = _skin_material(skin_colour, shorts_colour)
+			mi.material_override = _skin_material(skin_colour, shorts_colour, not garments)
 		elif part.begins_with("Body") and shirt != null:
 			mi.material_override = shirt
 		else:
@@ -815,7 +822,9 @@ func _tag_object(node: Node) -> void:
 				# The fighters are the clearest things on screen: the full ink outline (the scenery's is thinner and softer) and a
 				# stronger rim.
 				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", 1.0)
-				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", FIGHTER_RIM_BOOST)
+				# (Clothes keep the plain rim: a strong one picks out every fold as a bright streak.)
+				var cloth := str(node.name).begins_with("Shirt") or str(node.name).begins_with("Shorts")
+				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
 				break
 	for c in node.get_children():
 		_tag_object(c)
@@ -984,6 +993,22 @@ func _shirt_material() -> Material:
 	return null
 
 
+## The modelled shirt's material for this look (or null: no shirt): the cel material in the shirt's colour, its print laid by the
+## garment's rest-pose texture map (x and height, as the skin's), at the scales the painted shirt used.
+func _garment_shirt_material() -> Material:
+	var accent: Color = loadout.accent_color()
+	match loadout.shirt:
+		1:
+			return toon(SHIRT_WHITE)
+		2:
+			return toon(accent)
+		3:
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/stripes.svg", {"#ff00ff": accent}), Vector2(1.5, 12.0))
+		4:
+			return toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/aloha.svg", {"#ff00ff": accent}), Vector2(4.0, 4.0))
+	return null
+
+
 ## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.
 func _sleeve_colour() -> Color:
 	match loadout.shirt:
@@ -999,8 +1024,8 @@ static var _limb_cache := {}
 
 ## The base body's skin with this look's clothes painted on (shaders/skin.gdshader): the shirt and its sleeves, the shorts, white socks,
 ## shoes with the outfit-coloured strap, where base_rig.json puts them.
-func _skin_material(skin_c: Color, shorts_c: Color) -> ShaderMaterial:
-	var key := "skin%s%s%d%s" % [skin_c.to_html(), shorts_c.to_html(), loadout.shirt, loadout.accent_color().to_html()]
+func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> ShaderMaterial:
+	var key := "skin%s%s%d%s%s" % [skin_c.to_html(), shorts_c.to_html(), loadout.shirt, loadout.accent_color().to_html(), painted_clothes]
 	if _limb_cache.has(key):
 		return _limb_cache[key]
 	var m := ShaderMaterial.new()
@@ -1025,6 +1050,7 @@ func _skin_material(skin_c: Color, shorts_c: Color) -> ShaderMaterial:
 		_:
 			m.set_shader_parameter("shirt", Color(0, 0, 0, 0))
 	m.set_shader_parameter("shorts", shorts_c)
+	m.set_shader_parameter("painted_clothes", painted_clothes)
 	m.set_shader_parameter("shoe", Color(0.27, 0.2, 0.3))
 	m.set_shader_parameter("strap", accent)
 	var regions: Dictionary = _base_rig_info().get("clothes", {})

@@ -622,3 +622,18 @@ haze and the colour grade after play-testing.
 - **The face fits the shell**: the face shell shows the drawing down to about row 320 of 512, so eyes (middles on row 214), cheeks
   (level with the bottoms of the eyes) and mouth (just under them) all sit above that; the first redraw had the mouth and cheeks
   lower, where they were cut off. The glasses follow the eyes' place on the head (`FACE_EYE_ROW`, `FACE_EYE_OUT`).
+
+## Modelled clothes (twenty-fifth pass)
+
+The base body's shirt and shorts are real meshes now, not painted on (`build_garments` in `art/blender/make_rigged_blob.py`, run with
+`--body`; exported in `godot/models/base_rig.glb` as "Shirt" and "Shorts"). Each is a copy of the skin cut along its hems by planes (so
+the hems are straight however the mesh is laid out): the shirt from just below the waist to the neck with short sleeves (55% down the
+upper arm), the shorts from the waist to above the knee. They are pushed off the skin (the shirt 0.034, the shorts 0.022, so the
+shirt's hem lies over the waistband), flare a little at the hems (the leg openings and the shirt's), and have a thickness of 0.012 so a
+hem reads as a rolled edge. Every point takes the bone weights of the nearest point of the skin, so the clothes move exactly with the
+body in every clip; the cuts' slivers are merged away first (they threw points far off). In the game (`fighter_view.gd`) the shirt takes
+the look's shirt (white, the outfit colour, stripes or the flower print, laid by the garment's rest-pose texture map at the scales the
+painted shirt used; hidden with no shirt) and the shorts the shorts colour; the skin shader stops painting them (`painted_clothes`),
+and still paints the socks and shoes. The clothes keep the plain rim light (the fighters' stronger one picked out every fold).
+One shirt and one pair of shorts for now, recoloured per look; other cuts later go in the same function. Known: in a full tuck a thin
+glint of skin can show at the hip crease. Poses: `docs/screenshots/modelled_clothes.png`.

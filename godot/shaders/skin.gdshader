@@ -34,6 +34,8 @@ uniform vec2 shoulder_r = vec2(0.41, 1.19);
 uniform vec2 elbow_r = vec2(0.47, 0.97);
 // How far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow).
 uniform float sleeve = 0.55;
+// False when the body wears modelled clothes (the rig's "Shirt" and "Shorts" meshes): then only the socks and shoes are painted here.
+uniform bool painted_clothes = true;
 
 instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 instance uniform float object_id = 0.95;
@@ -58,7 +60,7 @@ void fragment() {
 	vec3 c = skin.rgb;
 	// (The head is never clothed: an arm is below the neck.)
 	bool arm = abs(p.x) > torso_half_width && p.y > shorts_end_z && p.y < neck_z;
-	bool has_shirt = shirt.a > 0.5;
+	bool has_shirt = painted_clothes && shirt.a > 0.5;
 	vec3 shirt_c = shirt.rgb;
 	if (use_shirt_tex) {
 		shirt_c *= texture(shirt_tex, vec2(p.x, -p.y) * shirt_tex_scale).rgb;
@@ -79,7 +81,7 @@ void fragment() {
 		if (has_shirt && p.y > waist_z && p.y < neck_z) {
 			c = shirt_c;
 		}
-		if (p.y > shorts_end_z && p.y <= waist_z) {
+		if (painted_clothes && p.y > shorts_end_z && p.y <= waist_z) {
 			c = shorts.rgb;
 		}
 		if (p.y <= sock_top_z && p.y > shoe_top_z) {
@@ -95,8 +97,10 @@ void fragment() {
 		if (p.y <= sole_top_z) {
 			c = sole.rgb;
 		}
-		edge = min(edge, abs(p.y - waist_z));
-		edge = min(edge, abs(p.y - shorts_end_z));
+		if (painted_clothes) {
+			edge = min(edge, abs(p.y - waist_z));
+			edge = min(edge, abs(p.y - shorts_end_z));
+		}
 		edge = min(edge, abs(p.y - sock_top_z));
 		edge = min(edge, abs(p.y - shoe_top_z));
 		edge = min(edge, abs(p.y - sole_top_z));

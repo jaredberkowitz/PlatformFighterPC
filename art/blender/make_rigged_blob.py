@@ -22,7 +22,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Vector, kdtree
 
 OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "godot", "models", "blob_rig.glb"))
 FPS = 60
@@ -1059,6 +1059,10 @@ def build_body_meshes(rig):
     # the arm where it bends; spread out, it bends round.
     smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")])
 
+    # The clothes, modelled: a shirt and a pair of shorts cut from the skin itself (so they fit it and bend with it exactly, weights and
+    # all), lifted off it and given a little thickness, with clean straight hems.
+    parts.update(build_garments(skin, J, neck))
+
     # What the game needs to fit hats, glasses, the weapon arm and the neckwear (Godot's axes: x, z, -y).
     def godot(v):
         return [round(v.x, 4), round(v.z, 4), round(-v.y, 4)]
@@ -1095,6 +1099,119 @@ def build_body_meshes(rig):
     with open(OUT.replace(".glb", ".json"), "w") as f:
         json.dump(info, f, indent=1)
     return parts
+
+
+# ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
+SHIRT_LIFT = 0.034      # how far off the skin the shirt sits
+SHORTS_LIFT = 0.022     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
+CLOTH_THICKNESS = 0.012
+SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
+HEM_FLARE = 0.02        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+
+
+def build_garments(skin, J, neck):
+    """A shirt (from the waist to the neck, short sleeves) and shorts (from the waist to above the knee) for the base body. Each is a copy of
+    the skin cut along its hems (planes, so the edges are straight however the mesh is laid out), keeping the faces in the garment's region,
+    pushed out along the surface (further near a hem, so it flares a little) and given thickness. The copies keep the skin's bone weights,
+    so the clothes move exactly with the body. The game colours them (by name: "Shirt", "Shorts")."""
+    hips = J["hips"].z
+    crotch = FIT["crotch"]
+    knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
+    waist = hips + 0.12 * (neck - hips)
+    shorts_end = crotch - 0.42 * (crotch - knee)
+    neck_line = neck - 0.015
+    half_width = abs(J["armU.R"].x) * 0.72
+    arm = {}
+    for side in "LR":
+        a = Vector((J["armU." + side].x, 0.0, J["armU." + side].z))
+        b = Vector((J["armL." + side].x, 0.0, J["armL." + side].z))
+        arm[side] = (a, b)
+
+    def on_arm(co):
+        return abs(co.x) > half_width and shorts_end < co.z < neck
+
+    def sleeve_t(co):
+        a, b = arm["L" if co.x < 0.0 else "R"]
+        ab = b - a
+        return (Vector((co.x, 0.0, co.z)) - a).dot(ab) / ab.length_squared
+
+    def in_shirt(co):
+        if co.z >= neck_line:
+            return False
+        if on_arm(co):
+            return sleeve_t(co) < SLEEVE
+        return co.z > waist - 0.012      # just below the waist, over the shorts' waistband
+
+    def in_shorts(co):
+        return not on_arm(co) and shorts_end < co.z <= waist + 0.02
+
+    def shirt_hem(co):
+        # Distance to the nearest of the shirt's edges (the waist hem, the neckline, a sleeve end).
+        d = min(abs(co.z - (waist - 0.012)), abs(co.z - neck_line))
+        if on_arm(co):
+            a, b = arm["L" if co.x < 0.0 else "R"]
+            d = min(d, abs(sleeve_t(co) - SLEEVE) * (b - a).length)
+        return d
+
+    def shorts_hem(co):
+        # Only the leg openings flare: the waistband stays close in, under the shirt's hem.
+        return abs(co.z - shorts_end)
+
+    cuts = [(Vector((0, 0, waist - 0.012)), Vector((0, 0, 1))), (Vector((0, 0, neck_line)), Vector((0, 0, 1))),
+            (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + 0.02)), Vector((0, 0, 1)))]
+    for side in "LR":
+        a, b = arm[side]
+        cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
+    skin_points = kdtree.KDTree(len(skin.data.vertices))
+    for v in skin.data.vertices:
+        skin_points.insert(v.co, v.index)
+    skin_points.balance()
+    out = {}
+    for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT)):
+        obj = skin.copy()
+        obj.data = skin.data.copy()
+        obj.name = name
+        obj.data.name = name
+        bpy.context.collection.objects.link(obj)
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        for co, normal in cuts:
+            geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+            bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=normal)
+        drop = [f for f in bm.faces if not inside(f.calc_center_median())]
+        bmesh.ops.delete(bm, geom=drop, context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        # (The cuts leave slivers; merged away, they cannot throw a point far off when the surface is pushed out.)
+        bmesh.ops.dissolve_degenerate(bm, dist=0.002, edges=bm.edges)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.002)
+        # Every point takes the bone weights of the nearest point of the skin (the cuts made new points, with no weights of their own,
+        # and an unweighted point would be left behind when the body moves).
+        deform = bm.verts.layers.deform.verify()
+        for v in bm.verts:
+            _, i, _ = skin_points.find(v.co)
+            v[deform].clear()
+            for g in skin.data.vertices[i].groups:
+                v[deform][g.group] = g.weight
+        bm.normal_update()
+        for v in bm.verts:
+            flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
+            v.co = v.co + v.normal * (lift + flare)
+        bm.to_mesh(obj.data)
+        bm.free()
+        for poly in obj.data.polygons:
+            poly.use_smooth = True
+        # Thickness, so a hem shows as a rolled edge rather than a paper-thin cut.
+        sol = obj.modifiers.new("Thickness", "SOLIDIFY")
+        sol.thickness = CLOTH_THICKNESS
+        sol.offset = -1.0
+        sol.use_even_offset = False
+        bpy.context.view_layer.objects.active = obj
+        # (The solidify goes first, under the armature, so the clothes are posed with the body.)
+        while obj.modifiers.find("Thickness") > 0:
+            bpy.ops.object.modifier_move_up(modifier="Thickness")
+        bpy.ops.object.modifier_apply(modifier="Thickness")
+        out[name] = obj
+    return out
 
 
 # ---- The long-limbed variant (the brawler): legs and arms stretched, the rest of the body lifted to match -------------------------------
