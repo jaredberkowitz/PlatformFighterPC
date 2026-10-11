@@ -311,7 +311,8 @@ the shield, Smash 4 style), on purpose.
   frames (capped at 300), percent capped at 120: 63 at 0% after a short fall, up to 123 after a long time in the air, 23 at 120%. A
   **regrab** without landing or being hit gets **none**.
 - **Options**: get up 34 frames (intangible 1-33), roll 45 (1-26), ledge attack 55 (its move's intangibility), ledge jump (new state
-  `LedgeJump`, can act on frame 15, intangible 1-12). On the second grab without landing their intangibility is **80%**, on the third
+  `LedgeJump`, can act on frame 15, intangible 1-12; like the reference game's it peaks its `cliff_jump_y` above the **stage**, about
+  12% over a full hop: 36.83 units for the duelist, 36.01 for the brawler, drifting at 0.6, and keeps the double jump). On the second grab without landing their intangibility is **80%**, on the third
   **50%**, from the fourth **none**. Jump wins over attack when both are pressed.
 - **Six grabs** between landings (or hits); a seventh does not catch the ledge (`ledge_grab_limit`).
 - Letting go by pressing down or away **ends the ledge intangibility** at once; trumping takes it away too.

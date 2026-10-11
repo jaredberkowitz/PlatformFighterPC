@@ -16,6 +16,8 @@ pub const GROUND_SPEED_PERCENT: i32 = 100;
 /// "initial height" is about 0.55 of the full hop). The frame count is an estimate.
 pub const HOP_BURST_SHARE_PERCENT: i32 = 55;
 pub const HOP_BURST_FRAMES: u8 = 4;
+/// How far below a ledge a fighter hangs (its feet), the start of a ledge jump.
+pub const LEDGE_HANG_DY: Fx = Fx::from_ratio(9, 5);
 
 pub const MAX_PLATFORMS: usize = 8;
 pub const MAX_LEDGES: usize = 8;
@@ -178,6 +180,8 @@ pub struct FighterParams {
     pub ledge_option_decay_3: u8,
     pub ledge_getup_dx: Fx,
     pub ledge_roll_dx: Fx,
+    /// The ledge jump's launch speed. Set (`ledge_jump_velocity_for`) so that, like the reference game's, it peaks a given height above
+    /// the stage (its `cliff_jump_y`, a little higher than a full hop): the climb from the hang is part of the jump.
     pub ledge_jump_velocity: Fx,
     pub ledge_jump_dx: Fx,
     pub ledge_trump_vx: Fx,
@@ -419,6 +423,11 @@ impl FighterParams {
         (gravity + (gravity * gravity + (gravity * height).mul_int(8)).sqrt()) * Fx::HALF
     }
 
+    /// The ledge jump's launch speed for a jump peaking `height` above the stage, from a hang `LEDGE_HANG_DY` below it.
+    pub fn ledge_jump_velocity_for(gravity: Fx, height: Fx) -> Fx {
+        Self::hop_velocity(gravity, height + LEDGE_HANG_DY)
+    }
+
     /// Full hop split into its fast opening and the arc after it: returns
     /// `(burst_velocity, arc_velocity)` so the whole hop peaks `height` above where it started.
     /// The opening covers [`HOP_BURST_SHARE_PERCENT`] of the height in [`HOP_BURST_FRAMES`] frames.
@@ -516,7 +525,7 @@ impl FighterParams {
             ledge_min_drop: r(9, 10),
             ledge_reach_down: r(13, 5),
             ledge_hang_dx: r(4, 5),
-            ledge_hang_dy: r(9, 5),
+            ledge_hang_dy: LEDGE_HANG_DY,
             // Ledges follow the reference game: 6.5 seconds of hanging, a 19-frame grab, intangibility from airtime and damage on the
             // first grab only, six grabs between landings, a 40% shorter reach behind, and getup options of 34 frames (intangible
             // 1-33), a 45-frame roll (1-26) and a jump that can act on frame 15 (1-12), their intangibility cut to 80% and 50% on the
@@ -539,8 +548,9 @@ impl FighterParams {
             ledge_option_decay_3: 50,
             ledge_getup_dx: Fx::ONE,
             ledge_roll_dx: Fx::from_int(3),
-            ledge_jump_velocity: r(11, 50),
-            ledge_jump_dx: r(3, 50),
+            // The reference game: a ledge jump peaks about 36 units above the stage (12% over a full hop) and drifts at 0.6.
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(su(100), su(36000)),
+            ledge_jump_dx: su(600),
             ledge_trump_vx: r(1, 8),
             ledge_trump_vy: r(1, 15),
             ecb_half_width: r(4, 5),
@@ -559,7 +569,7 @@ impl FighterParams {
     /// Fast on the ground, light and floaty in the air: the "longsword duelist" body type.
     /// Movement numbers follow a swordfighter-style profile from the reference game, in world units.
     /// Marth-style reference: walk 1.575, run 1.964, dash 2.255, air speed 1.071, gravity 0.075,
-    /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66.
+    /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66, ledge jump 36.83.
     pub fn duelist() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
@@ -581,13 +591,14 @@ impl FighterParams {
             hop_burst_frames: HOP_BURST_FRAMES,
             short_hop_velocity: Self::hop_velocity(gravity, su(16260)),
             air_jump_velocity: Self::hop_velocity(gravity, su(33660)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36830)),
             ..FighterParams::base()
         }
     }
 
     /// Heavier, faster in the air, with a high gravity and fast fall: the "blaster brawler" body type.
     /// Wolf-style reference: walk 1.208, run 1.54, dash 2.09, air speed 1.281, gravity 0.13,
-    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71.
+    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71, ledge jump 36.01.
     pub fn brawler() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
@@ -619,6 +630,7 @@ impl FighterParams {
             hop_burst_frames: HOP_BURST_FRAMES,
             short_hop_velocity: Self::hop_velocity(gravity, su(15380)),
             air_jump_velocity: Self::hop_velocity(gravity, su(30710)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36010)),
             weight: Fx::from_int(92),
             weapon: 1,
             ..FighterParams::base()

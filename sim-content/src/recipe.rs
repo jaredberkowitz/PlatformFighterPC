@@ -135,6 +135,7 @@ impl Recipe {
             &mut p.hop_burst_velocity,
             &mut p.short_hop_velocity,
             &mut p.air_jump_velocity,
+            &mut p.ledge_jump_velocity,
         ] {
             *v = scale(*v, lift);
         }

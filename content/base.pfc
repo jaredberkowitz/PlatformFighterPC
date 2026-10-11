@@ -5,8 +5,8 @@ bundle {
     schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 42
-    hash b15f52ec947733a9
+    sim_version 43
+    hash e488e8deec1c990c
 }
 
 ruleset {
@@ -860,8 +860,8 @@ fighter duelist {
     ledge_option_decay_3 50
     ledge_getup_dx 1
     ledge_roll_dx 3
-    ledge_jump_velocity 0.21999
-    ledge_jump_dx 0.06
+    ledge_jump_velocity 0.35106
+    ledge_jump_dx 0.075
     ledge_trump_vx 0.125
     ledge_trump_vy 0.06667
     ecb_half_width 0.79999
@@ -970,8 +970,8 @@ fighter brawler {
     ledge_option_decay_3 50
     ledge_getup_dx 1
     ledge_roll_dx 3
-    ledge_jump_velocity 0.21999
-    ledge_jump_dx 0.06
+    ledge_jump_velocity 0.4605
+    ledge_jump_dx 0.075
     ledge_trump_vx 0.125
     ledge_trump_vy 0.06667
     ecb_half_width 0.79999
