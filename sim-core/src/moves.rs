@@ -1232,32 +1232,33 @@ fn sword_kit() -> Weapon {
         HIT_THROW,
     );
 
-    // Ledge attack: 9%, angle 45, base knockback 90, growth 20, hits on frames 24-26, intangible through frame 26,
-    // FAF 56 (the same numbers the reference gives the brawler; the sword's own are not published in the sources
-    // used). The get-up attack (7% each side) keeps its placeholder frames.
+    // Ledge attack (the reference's swordfighter): 9%, angle 45, base knockback 90, growth 20, hits on frames 23-25,
+    // intangible through frame 25, FAF 56.
     let mut ledge = ref_move(
         56,
         0,
         0,
         255,
         &[
-            r(24, 26, 31, 6, 9, 90, 45, 90, 20, 0, 0),
-            r(24, 26, 19, 6, 10, 90, 45, 90, 20, 1, 0),
+            r(23, 25, 31, 6, 9, 90, 45, 90, 20, 0, 0),
+            r(23, 25, 19, 6, 10, 90, 45, 90, 20, 1, 0),
         ],
     );
-    ledge.intangible = 26;
+    ledge.intangible = 25;
     moves[MoveId::LedgeAttack as usize] = ledge;
+    // Get-up attack from the floor (the reference's swordfighter): 7% in front on frames 16-17, then 7% behind on 22-23, angle 361,
+    // base knockback 80, growth 48 (it always sends into tumble but barely grows with damage), intangible through frame 23, FAF 46.
     let mut getup_attack = ref_move(
-        38,
+        46,
         0,
         0,
         255,
         &[
-            r(12, 15, 18, 5, 9, 70, 361, 40, 80, 0, 0),
-            r(18, 21, -18, 5, 9, 70, 361, 40, 80, 0, 1),
+            r(16, 17, 18, 5, 9, 70, 361, 80, 48, 0, 0),
+            r(22, 23, -18, 5, 9, 70, 361, 80, 48, 0, 1),
         ],
     );
-    getup_attack.intangible = 10;
+    getup_attack.intangible = 23;
     moves[MoveId::GetUpAttack as usize] = getup_attack;
 
     // Neutral special, Shield Breaker: hold special to charge (from frame 19, at most the charge limit), let go to
@@ -1803,6 +1804,20 @@ pub fn claws() -> Weapon {
     );
     ledge.intangible = 26;
     w.moves[MoveId::LedgeAttack as usize] = ledge;
+    // Get-up attack from the floor (reference numbers): as the swordfighter's, but the second hit on frames 21-22 and intangible
+    // through frame 22.
+    let mut getup_attack = ref_move(
+        46,
+        0,
+        0,
+        255,
+        &[
+            r(16, 17, 18, 5, 9, 70, 361, 80, 48, 0, 0),
+            r(21, 22, -18, 5, 9, 70, 361, 80, 48, 0, 1),
+        ],
+    );
+    getup_attack.intangible = 22;
+    w.moves[MoveId::GetUpAttack as usize] = getup_attack;
     w.moves[MoveId::DThrow as usize] = with_kind(
         ref_move(
             41,

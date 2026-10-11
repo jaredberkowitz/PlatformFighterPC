@@ -5,8 +5,8 @@ bundle {
     schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 43
-    hash e488e8deec1c990c
+    sim_version 44
+    hash 46ca6c8f854c8a80
 }
 
 ruleset {
@@ -359,15 +359,15 @@ weapon longsword {
     }
     move ledge_attack {
         total_frames 54
-        intangible 26
-        hitbox { start 23 end 25 x 2.34395 y 0.73999 radius 0.9 damage 9 angle 45 bkb 90 kbg 20 priority 2 }
-        hitbox { start 23 end 25 x 1.47997 y 0.73999 radius 1 damage 9 angle 45 bkb 90 kbg 20 }
+        intangible 25
+        hitbox { start 22 end 24 x 2.34395 y 0.73999 radius 0.9 damage 9 angle 45 bkb 90 kbg 20 priority 2 }
+        hitbox { start 22 end 24 x 1.47997 y 0.73999 radius 1 damage 9 angle 45 bkb 90 kbg 20 }
     }
     move get_up_attack {
-        total_frames 36
-        intangible 10
-        hitbox { start 11 end 14 x 1.40796 y 0.668 radius 0.9 damage 7 angle 361 bkb 40 kbg 80 priority 2 }
-        hitbox { start 17 end 20 x -1.18398 y 0.668 radius 0.9 damage 7 angle 361 bkb 40 kbg 80 priority 2 group 1 }
+        total_frames 44
+        intangible 23
+        hitbox { start 15 end 16 x 1.40796 y 0.668 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 priority 2 }
+        hitbox { start 21 end 22 x -1.18398 y 0.668 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 priority 2 group 1 }
     }
     move ext0 {
         total_frames 38
@@ -754,10 +754,10 @@ weapon claws {
         hitbox { start 23 end 25 x 1.2 y 0.59999 radius 1 damage 9 angle 45 bkb 90 kbg 20 }
     }
     move get_up_attack {
-        total_frames 31
-        intangible 10
-        hitbox { start 9 end 12 x 1.07997 y 0.5 radius 0.98997 damage 7.69994 angle 361 bkb 40 kbg 85 }
-        hitbox { start 14 end 17 x -1.07999 y 0.5 radius 0.98997 damage 7.69994 angle 361 bkb 40 kbg 85 group 1 }
+        total_frames 44
+        intangible 22
+        hitbox { start 15 end 16 x 1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 }
+        hitbox { start 20 end 21 x -1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 group 1 }
     }
     move pivot_grab {
         total_frames 38
