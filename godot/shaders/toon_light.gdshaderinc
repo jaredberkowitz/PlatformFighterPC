@@ -11,7 +11,7 @@ global uniform vec4 pf_rim_color;
 uniform float ramp_center : hint_range(0.0, 1.0) = 0.45;
 uniform float ramp_softness : hint_range(0.0, 0.5) = 0.16;
 // How dark cast shadows (a hat's shadow on the face, a fighter's on the stage) are, 0 to 1: kept light so they read as soft shade.
-uniform float shadow_amount : hint_range(0.0, 1.0) = 0.5;
+uniform float shadow_amount : hint_range(0.0, 1.0) = 0.62;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 1.0) = 0.55;
 uniform float sheen : hint_range(0.0, 1.0) = 0.04;

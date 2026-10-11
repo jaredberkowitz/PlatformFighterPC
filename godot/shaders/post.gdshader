@@ -29,8 +29,8 @@ uniform float grade_amount = 0.0;
 // The pastel finish (the game's look: soft, airy colours rather than saturated ones): colours eased toward grey by `pastel_desat`, and
 // the darks lifted toward the stage's haze colour by `pastel_lift`, before the ink lines, so the lines stay dark and crisp. Fighters
 // get half of it, so they stay the most vivid thing on screen.
-uniform float pastel_desat = 0.16;
-uniform float pastel_lift = 0.2;
+uniform float pastel_desat = 0.1;
+uniform float pastel_lift = 0.13;
 uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
 // Atmospheric perspective: scenery behind the stage fades toward the haze colour (lighter, less saturated, lower in contrast) the further
 // back it is, from `haze_start` to `haze_end` world units behind the stage plane, at most `haze_max`. `stage_dist` is the camera's
@@ -38,7 +38,7 @@ uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
 uniform float stage_dist = 30.0;
 uniform float haze_start = 12.0;
 uniform float haze_end = 140.0;
-uniform float haze_max = 0.26;
+uniform float haze_max = 0.3;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;

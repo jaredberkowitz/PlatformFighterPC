@@ -513,3 +513,28 @@ and directional knockback were already in, so they were tuned rather than rebuil
 **Outlines** (`shaders/outline.gdshader`): thinner (0.0022 of the distance, 0.02 to 0.11 units), pushed out only across the screen and
 set a little back, so they rim the silhouette without cutting across the model where one part is in front of another. The pastel
 finish no longer lifts near-black (`not_ink` in `post.gdshader`): it had turned the ink outlines grey in a match.
+
+## Visual-polish roadmap, phases 0 and 1 (twenty-third pass)
+
+**Phase 0 audit** (Godot 4.7.1, Forward+ on Vulkan with a Direct3D 12 fallback, 1280x720 base viewport stretched, MSAA 4x). One
+scene builds everything in code: `main.tscn` / `main.gd` (camera, effects, match flow), `lighting.gd` (the environment, a warm key
+light with shadows and a cool fill, per-stage moods), `stage_view.gd` / `stage_art.gd` (the stage and its scenery, procedural, not
+Blender), `fighter_view.gd` (fighters: the rigged base body from `art/blender/make_rigged_blob.py`, imported as glTF, materials
+converted to the cel material by `toonify.gd`), `shaders/toon.gdshader` + `toon_light.gdshaderinc` (the cel lighting),
+`outline.gdshader` (inverted-hull ink), `post.gdshader` (screen-space ink lines, colour grade, pastel finish, distance haze, paper
+grain), `ui/match_hud.gd`, `effects.gd` / `particles.gd`. The cel shader is a deliberate custom shader (painted shadow hues, a rim, a
+stepped ramp), so the roadmap's "prefer StandardMaterial3D" does not apply to it. Found: two distance hazes stacked (the engine's depth
+fog in one fixed blue for every stage, and the post pass's per-stage haze), a saturation boost of 1.12 that the pastel finish then
+partly took back, SSAO at 1.2, soft and faint cast shadows, ink as heavy on props as on fighters. Baseline: all five stages from the
+gameplay camera with the match display.
+
+**Phase 1, lighting and rendering:**
+- The engine's depth fog is off: the post pass's haze (in each stage's own colour) is the one atmospheric perspective.
+- Less veil: saturation 1.04 (was 1.12), contrast 1.06 (was 1.03), pastel desaturation 0.1 (was 0.16) and lift 0.13 (was 0.2), distance
+  haze at most 0.3.
+- Firmer contact: cast shadows 0.62 dark (`shadow_amount` in `toon_light.gdshaderinc`, was 0.5), shadow blur 1.0 (was 2.0), the
+  shadow range 70 units (the farthest the camera goes) in two splits, so the detail goes where the fighting is.
+- SSAO a finishing touch: radius 1.0, intensity 0.9 (was 1.4 and 1.2).
+- Anti-aliasing: MSAA 4x kept; SMAA on top was tried and made no visible difference (the screen-space ink is already smooth), so it
+  is off. TAA was not used: it smears fast-moving fighters and effects, the worst trade for a fighting game.
+- GPU time unchanged (about 1.5 ms a frame on the `--perf` tour).

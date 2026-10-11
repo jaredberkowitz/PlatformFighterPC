@@ -61,32 +61,28 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	RenderingServer.global_shader_parameter_set("pf_fx_glow", FX_GLOW)
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.03
+	env.adjustment_saturation = 1.04
+	env.adjustment_contrast = 1.06
 	if not preview:
-		# Haze that thickens with distance behind the stage, so the backdrop sits back and the fighters stand out.
-		env.fog_enabled = true
-		env.fog_mode = Environment.FOG_MODE_DEPTH
-		env.fog_light_color = Color(0.78, 0.86, 0.95)
-		env.fog_light_energy = 1.0
-		env.fog_density = 0.55
-		env.fog_sky_affect = 0.0
-		env.fog_depth_curve = 1.4
-		env.fog_depth_begin = 45.0
-		env.fog_depth_end = 160.0
+		# Soft ambient occlusion where forms meet (a finishing touch; the stage's baked shading does most of the work). The haze behind
+		# the stage is the match's own, in its stage's colour (`haze_*` in shaders/post.gdshader), not the engine's fog.
 		env.ssao_enabled = true
-		env.ssao_radius = 1.4
-		env.ssao_intensity = 1.2
-		env.ssao_power = 1.4
+		env.ssao_radius = 1.0
+		env.ssao_intensity = 0.9
+		env.ssao_power = 1.3
 	var key := DirectionalLight3D.new()
 	key.name = "KeyLight"
 	key.rotation_degrees = Vector3(-38, -32, 0)
 	key.light_color = Color(1.0, 0.93, 0.82)
 	key.light_energy = 1.25
 	key.shadow_enabled = not preview
-	key.shadow_blur = 2.0
-	key.light_angular_distance = 1.5
-	key.directional_shadow_max_distance = 90.0
+	# Crisp enough that a fighter's shadow under its feet reads as contact, soft enough to stay painterly; the shadow range only as far
+	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
+	key.shadow_blur = 1.0
+	key.light_angular_distance = 1.0
+	key.directional_shadow_max_distance = 70.0
+	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	key.directional_shadow_split_1 = 0.35
 	root.add_child(key)
 	var fill := DirectionalLight3D.new()
 	fill.name = "FillLight"
