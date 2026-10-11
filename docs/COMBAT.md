@@ -408,3 +408,6 @@ normally. The computer techs these sometimes. Test: `launch_reference.rs`.
   speed and acceleration (`helpless_drift`, an estimate: the reference varies it per move and does not publish it). The up specials'
   rise and travel are still estimates (none of the sources give them): the sword's rises about 1.3 full hops, the claws' is a short
   straight flight.
+- **Reversing an up special** (sim v42): holding up and back as it starts, or pushing back in its first 3 frames
+  (`special_turn_window`, an estimate), turns it around, so it comes out the other way. (The claws' flight also aims by the stick at the
+  end of its wind-up, as before.)

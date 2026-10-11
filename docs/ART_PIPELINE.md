@@ -186,7 +186,7 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
 
 ## Turned for the camera, and a fighting stance (eighth pass)
 
-- **How a fighter is turned** (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`): the classic cheat for 3D fighters on a
+- **How a fighter is turned** (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TOWARD_FOE` in `fighter_view.gd`): the classic cheat for 3D fighters on a
   2D stage. The hips and legs are turned 60 degrees toward the way the fighter faces, so strides, kicks, lunges and leans happen across the
   screen instead of toward the camera (where they were foreshortened); the chest then turns 30 degrees back toward the camera and the head 20
   more, so the body and the face are open to the player (the chest about 30 degrees off straight-on, the face about 10). Before, the whole
@@ -200,7 +200,7 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   twisting against the hips, a little lean.
 - Menu previews keep their own turn (they set it themselves).
 - **Looking at each other** (after the reference of how fighters stand in the reference game): the body stays open to the camera, but the head
-  turns back toward the opponent (`HEAD_TO_CAMERA` is negative: the face about 40 degrees off straight-on) and every face drawing has its
+  turns back toward the opponent (`HEAD_TOWARD_FOE`: the face about 40 degrees off straight-on) and every face drawing has its
   pupils toward the fighter's front (`GAZE` in the drawings, texture right). Facing left, the face shader mirrors the drawing (`mirror`,
   `FighterView.set_gaze`), so both fighters look at each other; the switch happens as the body swings past facing the camera. Menu
   previews look the way they are turned.
@@ -434,7 +434,7 @@ stay on the ground, and the game's own lean, slide and body-follow are smaller, 
 
 - **Side-on, as the reference game's fighters stand**: the hips and legs turn 80 degrees toward the way the fighter faces (was 60), the
   chest 14 back toward the camera and the head 6 more, so strides, lunges and kicks read across the screen while the drawn face keeps
-  both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`).
+  both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TOWARD_FOE` in `fighter_view.gd`).
 - **Glasses on the eyes**: they are fitted to the face drawing (its place on the head is in `base_rig.json` as `face`), scaled with it
   and centred on the part of the eye the drawings' heavy lids leave open (`_glasses_fit`, `GLASSES_DROP`); they had been fitted to the
   head's shape and sat on the brows. And a fighter shown without being played (the menus) now has its hats, glasses and neckwear
@@ -606,3 +606,16 @@ tuned from still frames); the other four stages have not had the grove's composi
 materials, but no hand-built focal shapes or undersides). **Optional:** sound design when it is time; a damage pop when a fighter
 comes back at 0%; attack wind-up and recovery poses per move (animation work, best done with the movesets); per-stage tuning of the
 haze and the colour grade after play-testing.
+
+## Stance and faces after the concept art (twenty-fourth pass)
+
+- **Stance**, as the reference game's fighters stand: the hips and legs turned 70 degrees toward the way the fighter faces (strides and
+  kicks still read across the screen), the chest twisted back to 35 degrees off the camera (it mostly faces the viewer), and the head
+  turned 10 degrees back toward the opponent, a three-quarter face with both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`,
+  `HEAD_TOWARD_FOE` in `fighter_view.gd`).
+- **Faces** redrawn in the concept art's style (`tools/art/make_faces.py` draws every one; re-run it to change them): big round eyes, a
+  cream ring round a large dark pupil with a small highlight, round pink cheeks, a small simple mouth; every expression (calm, sleepy,
+  grumpy, smug, blink, happy, focus, attack, effort, hurt, shock, dazed) is the same face with its eyes and mouth changed, the lids in
+  the fighter's own colour. The drawing is shown 1.15 times the shell's square (`face_zoom` in `shaders/face.gdshader`), since the
+  concept's eyes are big for the head. The calm face is the one named `deadpan` in the catalog (kept, so saved fighters keep their face).
+  Sheet: `docs/screenshots/faces_concept_style.png`.

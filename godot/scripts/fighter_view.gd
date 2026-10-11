@@ -453,14 +453,15 @@ func _skeleton_to_frame() -> Transform3D:
 	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
 
 
-## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage): the hips and legs are turned nearly side-on toward the way it
-## faces, as the reference game's fighters stand, so strides, kicks and swings happen across the screen where they read; the chest and
-## then the head twist back a little toward the camera, so the drawn face keeps both its eyes in view.
-const BODY_TURN := 80.0
-const CHEST_TO_CAMERA := 14.0
-## The head turns a little further back toward the camera from the chest (to about 60 degrees off straight-on); the eyes in the face look
-## the way the fighter faces (see `set_gaze`), so the two fighters still look at each other.
-const HEAD_TO_CAMERA := 6.0
+## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage), as the reference game's fighters stand: the hips and legs turned
+## well toward the way it faces (70 degrees off straight-on), so strides, kicks and swings happen across the screen where they read; the
+## chest twisted back so it mostly faces the camera (35 degrees off); and the head turned again a little toward the way it faces (45
+## degrees off: a three-quarter face), so the two fighters look at each other while the drawn face keeps both eyes in view.
+const BODY_TURN := 70.0
+const CHEST_TO_CAMERA := 35.0
+## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
+## too (see `set_gaze`).
+const HEAD_TOWARD_FOE := 10.0
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -571,9 +572,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		var k := flinch_left / FLINCH_TIME
 		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))
-	# Open the chest and the face to the camera (see BODY_TURN).
+	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN).
 	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
-	_turn_bone(head_bone, -HEAD_TO_CAMERA * float(s.facing))
+	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
 
 
 ## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top

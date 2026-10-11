@@ -455,6 +455,7 @@ rules_io! {
     gravity_boost: Fx,
     gravity_boost_from: Fx,
     helpless_drift: Fx,
+    special_turn_window: u8,
     electric_hitlag_mult: Fx,
     asdi_distance: Fx,
     sdi_combo_hits: u8,

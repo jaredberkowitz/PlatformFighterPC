@@ -8,6 +8,8 @@ uniform sampler2D face_tex : source_color, filter_linear_mipmap, repeat_disable,
 // The drawings look toward texture right (the fighter's front when it faces screen right); facing left, the drawing is mirrored so the
 // fighter still looks the way it faces.
 uniform bool mirror = false;
+// How much larger than the shell's square the drawing is shown (about its middle): the concept art's eyes are big for the head.
+uniform float face_zoom = 1.15;
 
 // A flash over the whole fighter, per mesh (set by the game with `set_instance_shader_parameter`): white when hit, yellow while charging.
 instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
@@ -26,6 +28,7 @@ void vertex() {
 
 void fragment() {
 	vec2 uv = mirror ? vec2(1.0 - UV.x, UV.y) : UV;
+	uv = (uv - 0.5) / face_zoom + 0.5;
 	vec4 f = texture(face_tex, uv);
 	if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
 		f = vec4(0.0);

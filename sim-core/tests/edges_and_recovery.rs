@@ -78,3 +78,40 @@ fn the_special_fall_only_drifts_a_little() {
         );
     }
 }
+
+/// Player 0, facing right in the air, uses its up special with `input` (then `after` for a few frames). Returns its facing on frame 5.
+fn up_special_facing(ch: u8, input: sim_core::Input, after: sim_core::Input) -> i8 {
+    let mut sim = Sim::with_chars([ch, 0, 0, 0]);
+    sim.stand(1, Fx::from_int(9), -1);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.tick(input);
+    for _ in 0..4 {
+        sim.tick(after);
+    }
+    assert_eq!(sim.f().state, S::Attack);
+    sim.f().facing
+}
+
+#[test]
+fn up_and_back_reverses_an_up_special() {
+    use sim_core::input::buttons::SPECIAL;
+    for ch in [0u8, 1] {
+        assert_eq!(
+            up_special_facing(ch, inp(0, 127, SPECIAL), inp(0, 127, 0)),
+            1,
+            "class {ch}: straight up keeps facing"
+        );
+        assert_eq!(
+            up_special_facing(ch, inp(-90, 90, SPECIAL), inp(-90, 90, 0)),
+            -1,
+            "class {ch}: up and back turns round"
+        );
+        // Up first, then back within the first frames, turns it too.
+        assert_eq!(
+            up_special_facing(ch, inp(0, 127, SPECIAL), inp(-100, 60, 0)),
+            -1,
+            "class {ch}: back just after"
+        );
+    }
+}

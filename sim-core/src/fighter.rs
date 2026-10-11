@@ -1539,6 +1539,14 @@ fn attack(
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
 
+    // In the first frames of an up special, the stick pushed back turns it around (up and back reverses it).
+    if id == MoveId::UpSpecial && f.state_frame <= u16::from(rules.special_turn_window) {
+        let input = f.history[0];
+        if x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(f.facing) {
+            f.facing = -f.facing;
+        }
+    }
+
     // A smash attack holds on its charge frame while the button stays held.
     let charging = mv.charge_at.is_some_and(|c| u16::from(c) == f.state_frame)
         && f.charge < rules.charge_frames
@@ -1701,6 +1709,13 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     }
     if id == MoveId::SideSpecial {
         f.facing = if input.stick_x > 0 { 1 } else { -1 };
+    }
+    // An up special held up and back comes out the other way (see also `special_turn_window`).
+    if id == MoveId::UpSpecial
+        && x_active(input)
+        && i32::from(input.stick_x.signum()) == -i32::from(f.facing)
+    {
+        f.facing = -f.facing;
     }
     begin_attack(f, id);
     f.invuln = f.invuln.max(mv.intangible);
