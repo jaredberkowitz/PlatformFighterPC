@@ -109,6 +109,9 @@ pub struct Fighter {
     pub dash_age: u8,
     /// Frames a reversed dash still has to stand before it accelerates.
     pub dash_wait: u8,
+    /// The horizontal speed the fighter had as it turned around out of a dash or run (0 for a turn from a walk or standing). A jump
+    /// in the first frames of a dash turnaround keeps it (a reverse aerial rush); in a turn it marks a run's skid.
+    pub turn_speed: Fx,
     /// While non-zero, pass-through platforms are ignored (set by shield drop).
     pub platform_ignore: u8,
     /// Ledge currently held, or [`NONE`].
@@ -146,8 +149,8 @@ pub struct Fighter {
     pub tumble: bool,
     /// Index of the move being performed, see `moves::MoveId`.
     pub move_id: u8,
-    /// Bit `n` set means this move has already hit fighter `n`.
-    pub hit_mask: u8,
+    /// The move's hit history: bit `n + 4 * g` set means hit group `g` (0 to 7) of this move has already hit fighter `n`.
+    pub hit_mask: u32,
     /// Frames the current smash attack has been charged.
     pub charge: u8,
     /// Shield health; it drains while the shield is up and refills when it is not.
@@ -156,10 +159,27 @@ pub struct Fighter {
     pub shield_stun: u8,
     /// Frames until the next survival-DI nudge can happen.
     pub sdi_wait: u8,
+    /// Percent of the normal survival-DI distance during the current hitlag (the hit's own multiplier).
+    pub sdi_mult: u16,
+    /// The pending launch is an autolink (angle 367): when hitlag ends the fighter is sent at `link_vel` (the attacker's velocity
+    /// when it hit) plus a share of the way from where it is to `link_point` (where the hitbox was), not along a knockback angle.
+    pub link: bool,
+    pub link_vel: Vec2,
+    pub link_point: Vec2,
+    /// Being pulled (the pull angle): while hitstun lasts the fighter is drawn toward `link_point` (just in front of whoever pulled
+    /// it), see `fighter::pull_frame`.
+    pub pull: bool,
+    /// A charge kept between uses of a move (the needles a fighter has stored), set and read by move scripts (`store`, `stored`).
+    pub stored: u8,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
     pub balloon_left: Fx,
+    /// Still tumbling after a strong launch's hitstun ran out (the reference's damage fall): the fighter can act, but cannot fast fall
+    /// until it does something (any action, a midair jump, a landing).
+    pub damage_fall: bool,
+    /// This special has already been B-reversed (only once per special).
+    pub b_reversed: bool,
     /// Hits taken in the current combo (it ends when the fighter is free again); survival DI grows with it.
     pub hits_taken: u8,
     /// Frames since the last tech press that counted (255: long ago).
@@ -307,6 +327,7 @@ impl Fighter {
             hop_boost: 0,
             dash_age: 255,
             dash_wait: 0,
+            turn_speed: Fx::ZERO,
             platform_ignore: 0,
             ledge: NONE,
             ledge_invuln: 0,
@@ -328,11 +349,17 @@ impl Fighter {
             move_id: 0,
             hit_mask: 0,
             charge: 0,
+            sdi_mult: 100,
+            link: false,
+            link_vel: Vec2::ZERO,
+            link_point: Vec2::ZERO,
             shield_hp,
             shield_stun: 0,
             sdi_wait: 0,
             balloon_faf: 0,
             balloon_left: Fx::ZERO,
+            damage_fall: false,
+            b_reversed: false,
             hits_taken: 0,
             tech_timer: 255,
             asdi: 0,
@@ -346,6 +373,8 @@ impl Fighter {
             spawn_pos: Vec2::ZERO,
             spawn_vel: Vec2::ZERO,
             counter_damage: Fx::ZERO,
+            pull: false,
+            stored: 0,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -439,6 +468,7 @@ impl StateHash for Fighter {
         h.write_u8(self.hop_boost);
         h.write_u8(self.dash_age);
         h.write_u8(self.dash_wait);
+        self.turn_speed.hash_into(h);
         h.write_u8(self.platform_ignore);
         h.write_i8(self.ledge);
         h.write_u8(self.ledge_invuln);
@@ -458,13 +488,19 @@ impl StateHash for Fighter {
         self.kb_vel.hash_into(h);
         h.write_bool(self.tumble);
         h.write_u8(self.move_id);
-        h.write_u8(self.hit_mask);
+        h.write_u32(self.hit_mask);
         h.write_u8(self.charge);
+        h.write_u16(self.sdi_mult);
+        h.write_bool(self.link);
+        self.link_vel.hash_into(h);
+        self.link_point.hash_into(h);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
         h.write_u8(self.sdi_wait);
         h.write_u8(self.balloon_faf);
         self.balloon_left.hash_into(h);
+        h.write_bool(self.damage_fall);
+        h.write_bool(self.b_reversed);
         h.write_u8(self.hits_taken);
         h.write_u8(self.tech_timer);
         h.write_u8(self.asdi);
@@ -477,6 +513,8 @@ impl StateHash for Fighter {
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
         self.counter_damage.hash_into(h);
+        h.write_bool(self.pull);
+        h.write_u8(self.stored);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
@@ -656,6 +694,11 @@ mod tests {
                 s.fighters[0].dash_wait = 1;
                 s
             }),
+            ("turn_speed", {
+                let mut s = state;
+                s.fighters[0].turn_speed = Fx::from_raw(1);
+                s
+            }),
             ("platform_ignore", {
                 let mut s = state;
                 s.fighters[0].platform_ignore = 1;
@@ -756,6 +799,31 @@ mod tests {
                 s.fighters[0].hit_mask = 1;
                 s
             }),
+            ("hit_mask high groups", {
+                let mut s = state;
+                s.fighters[0].hit_mask = 1 << 28;
+                s
+            }),
+            ("sdi_mult", {
+                let mut s = state;
+                s.fighters[0].sdi_mult = 120;
+                s
+            }),
+            ("link", {
+                let mut s = state;
+                s.fighters[0].link = true;
+                s
+            }),
+            ("link_vel", {
+                let mut s = state;
+                s.fighters[0].link_vel = Vec2::new(Fx::ZERO, Fx::ONE);
+                s
+            }),
+            ("link_point", {
+                let mut s = state;
+                s.fighters[0].link_point = Vec2::new(Fx::ONE, Fx::ZERO);
+                s
+            }),
             ("charge", {
                 let mut s = state;
                 s.fighters[0].charge = 1;
@@ -769,6 +837,16 @@ mod tests {
             ("balloon_faf", {
                 let mut s = state;
                 s.fighters[0].balloon_faf = 40;
+                s
+            }),
+            ("damage_fall", {
+                let mut s = state;
+                s.fighters[0].damage_fall = true;
+                s
+            }),
+            ("b_reversed", {
+                let mut s = state;
+                s.fighters[0].b_reversed = true;
                 s
             }),
             ("balloon_left", {
@@ -854,6 +932,16 @@ mod tests {
             ("counter_damage", {
                 let mut s = state;
                 s.fighters[1].counter_damage = Fx::from_raw(1);
+                s
+            }),
+            ("pull", {
+                let mut s = state;
+                s.fighters[1].pull = true;
+                s
+            }),
+            ("stored", {
+                let mut s = state;
+                s.fighters[2].stored = 1;
                 s
             }),
             ("fighter_vars", {

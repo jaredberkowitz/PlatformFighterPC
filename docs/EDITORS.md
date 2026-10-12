@@ -37,7 +37,8 @@ Both players of an online match must have the same bundle (the handshake refuses
 
 ## Looks (loadouts)
 
-A look is seven bytes: a version and six catalog indices (`godot/scripts/loadout.gd`). It is saved per player slot in
+A look is a version byte and one byte per slot (`godot/scripts/loadout.gd`): catalog indices and, for the face's parts, adjustment
+steps (about 30 bytes, at most 48). Slots are only ever added at the end, so an older, shorter look reads with defaults for the rest. It is saved per player slot in
 `user://loadout_p1.dat` / `_p2.dat`, loaded by the game at start-up, and sent in the network handshake, where the other player's
 game rebuilds its view of you. It never reaches the simulation or its checksum. A value the receiving game does not know falls
 back to the default for that slot, so a newer or missing part never blocks a match. Budgets are enforced by

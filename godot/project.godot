@@ -34,10 +34,15 @@ common/max_physics_steps_per_frame=8
 
 anti_aliasing/quality/msaa_3d=2
 
-rendering_device/driver.windows="d3d12"
+rendering_device/driver.windows="vulkan"
+rendering_device/fallback_to_d3d12=true
 
 [shader_globals]
 
+pf_wind={
+"type": "float",
+"value": 1.0
+}
 pf_fx_glow={
 "type": "float",
 "value": 4.0
@@ -73,4 +78,28 @@ pf_shadow_value={
 pf_rim_color={
 "type": "color",
 "value": Color(1, 0.93, 0.82, 1)
+}
+pf_ramp={
+"type": "sampler2D",
+"value": ""
+}
+pf_deep_shade={
+"type": "float",
+"value": 0.78
+}
+pf_edge_light={
+"type": "color",
+"value": Color(1, 0.96, 0.9, 0.2)
+}
+pf_paint_warm={
+"type": "color",
+"value": Color(1.04, 1.0, 0.94, 1)
+}
+pf_paint_cool={
+"type": "color",
+"value": Color(0.94, 0.96, 1.05, 1)
+}
+pf_paint_amount={
+"type": "float",
+"value": 0.0
 }

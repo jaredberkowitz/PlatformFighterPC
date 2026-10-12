@@ -1,40 +1,101 @@
 extends RefCounted
 ## The game's lighting and camera look, shared by the match and the menus' 3D previews: a warm key light with soft shadows, a cool fill
-## from the other side, warm ambient light, a filmic tone curve, a bloom kept for the effects, soft ambient occlusion and a touch more
-## saturation. With the soft cel shader (`shaders/toon.gdshader`) this gives the painterly, warm-lit look of the art reference.
+## from the other side, warm ambient light, a filmic tone curve, a bloom kept for the effects and a touch more saturation (no screen-space
+## ambient occlusion: under the cel light it made no visible difference, so contact shade is painted instead; see `StageArt._contact`). With the soft cel shader (`shaders/toon.gdshader`) this gives the painterly, warm-lit look of the art reference.
 ##
 ## Each stage theme has a mood (`MOODS`): the colour and angle of its light, its ambient light, the hue its shadows are painted toward and
 ## the colour of the rim light (taken from its sky), applied with `stage_mood`. The shadow and rim colours are global shader parameters
 ## (`pf_*`), so every cel surface follows them.
 
 ## The look of each theme: key light [colour, energy, pitch, yaw], fill [colour, energy], ambient [colour, energy], shadows (the hue they
-## turn toward 0..1, how far at most, how dark, the tint for pale colours) and the rim colour.
+## turn toward 0..1, how far at most, how dark, the tint for pale colours), the rim colour, the colour grade and the haze its darks are
+## lifted toward (the pastel finish in shaders/post.gdshader).
 const MOODS := {
 	"meadow": {"key": [Color(1.0, 0.93, 0.82), 1.25, -38.0, -32.0], "fill": [Color(0.62, 0.72, 1.0), 0.35],
 		"ambient": [Color(1.0, 0.9, 0.86), 0.5], "shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.64,
 		"shadow_tint": Color(0.74, 0.7, 0.88), "rim": Color(1.0, 0.94, 0.84),
-		"grade": [Color(0.92, 0.94, 1.04), Color(1.04, 1.0, 0.94), 0.5]},
+		"grade": [Color(0.92, 0.94, 1.04), Color(1.04, 1.0, 0.94), 0.5], "haze": Color(0.86, 0.9, 1.0)},
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.2, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.88, 0.92), 0.52], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
 		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
-		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.6]},
+		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.6], "haze": Color(0.94, 0.86, 0.98)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
-		"ambient": [Color(0.86, 0.66, 0.84), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
+		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84), "rim": Color(1.0, 0.68, 0.42),
-		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.8]},
+		"grade": [Color(0.88, 0.8, 1.05), Color(1.08, 0.96, 0.86), 0.45], "haze": Color(1.0, 0.86, 0.88)},
 	"night": {"key": [Color(0.72, 0.8, 1.0), 0.95, -48.0, -24.0], "fill": [Color(0.5, 0.56, 0.95), 0.4],
 		"ambient": [Color(0.58, 0.64, 0.95), 0.55], "shadow_hue": 0.66, "shadow_shift": 0.1, "shadow_value": 0.56,
 		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
-		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8]},
+		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.72, 0.74, 0.96)},
 	"ocean": {"key": [Color(1.0, 0.96, 0.88), 1.3, -44.0, -30.0], "fill": [Color(0.56, 0.78, 1.0), 0.38],
 		"ambient": [Color(0.9, 0.95, 1.0), 0.5], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.66,
 		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0),
-		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5]},
+		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5], "haze": Color(0.84, 0.94, 1.0)},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],
-		"ambient": [Color(0.7, 0.6, 0.9), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
+		"ambient": [Color(0.84, 0.8, 0.94), 0.55], "shadow_hue": 0.75, "shadow_shift": 0.1, "shadow_value": 0.55,
 		"shadow_tint": Color(0.66, 0.6, 0.88), "rim": Color(1.0, 0.62, 0.78),
-		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.94, 1.0), 0.8]},
+		"grade": [Color(0.92, 0.82, 1.08), Color(1.06, 0.97, 0.98), 0.4], "haze": Color(0.68, 0.58, 0.9)},
 }
+
+
+## Each stage's shading profile, on top of its mood (anything left out takes `STYLE_DEFAULT`): the cel ramp's bands (`ramp`: stops of
+## [where on the way from facing away to facing the light, how lit], drawn into `pf_ramp`), how much darker a cast shadow makes the shadow
+## side (`deep`), the pale edge light round the fighters (`edge`, its alpha the strength: strong on dark stages so no fighter sinks into
+## the background), and the painted gradient over the scenery (`paint`: the warm colour tops lean to, the cool one undersides lean to,
+## and how far; fighters take a third of it).
+const STYLE_DEFAULT := {
+	"ramp": [[0.0, 0.0], [0.34, 0.0], [0.42, 0.56], [0.55, 0.56], [0.62, 1.0], [1.0, 1.0]],
+	"deep": 0.78,
+	"edge": Color(1.0, 0.97, 0.9, 0.26),
+	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
+	# How strongly the effects and lit things (the city's windows, lamps) bloom.
+	"glow": 0.75,
+	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
+	# lifted toward the haze (`lift`), the vignette, how far the far scenery fades into the haze at most (`haze_max`) and a gentle
+	# S-curve on the values (`s_curve`, 0 none). The fighters take half of the pastel and the curve.
+	"finish": {"desat": 0.07, "lift": 0.06, "vignette": 0.16, "haze_max": 0.3, "s_curve": 0.2},
+}
+const STYLES := {
+	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55]},
+	"sunset": {"edge": Color(1.0, 0.86, 0.74, 0.34), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72},
+	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
+		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
+	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5]},
+	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
+		"finish": {"lift": 0.02, "s_curve": 0.48}},
+}
+
+
+## The shading profile for theme `name` (its own values over the defaults).
+static func style(name: String) -> Dictionary:
+	var out := STYLE_DEFAULT.duplicate()
+	out.merge(STYLES.get(name, {}), true)
+	return out
+
+
+static var _ramps := {}
+
+
+## The ramp's lookup texture: 256 steps across, each the ramp's lightness there, eased between the stops so each band's edge is soft.
+static func ramp_texture(stops: Array) -> ImageTexture:
+	var key := str(stops)
+	if _ramps.has(key):
+		return _ramps[key]
+	var img := Image.create(256, 1, false, Image.FORMAT_L8)
+	for i in 256:
+		var x := i / 255.0
+		var v := 0.0
+		for k in stops.size() - 1:
+			var a: Array = stops[k]
+			var b: Array = stops[k + 1]
+			if x >= float(a[0]) and x <= float(b[0]):
+				var t := (x - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.0001)
+				v = lerpf(float(a[1]), float(b[1]), t * t * (3.0 - 2.0 * t))
+				break
+		img.set_pixel(i, 0, Color(v, v, v))
+	var tex := ImageTexture.create_from_image(img)
+	_ramps[key] = tex
+	return tex
 
 
 ## How many times white the cores of the effects are drawn (so they, and only they, bloom).
@@ -60,32 +121,24 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	RenderingServer.global_shader_parameter_set("pf_fx_glow", FX_GLOW)
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.03
-	if not preview:
-		# Haze that thickens with distance behind the stage, so the backdrop sits back and the fighters stand out.
-		env.fog_enabled = true
-		env.fog_mode = Environment.FOG_MODE_DEPTH
-		env.fog_light_color = Color(0.78, 0.86, 0.95)
-		env.fog_light_energy = 1.0
-		env.fog_density = 0.55
-		env.fog_sky_affect = 0.0
-		env.fog_depth_curve = 1.4
-		env.fog_depth_begin = 45.0
-		env.fog_depth_end = 160.0
-		env.ssao_enabled = true
-		env.ssao_radius = 1.4
-		env.ssao_intensity = 1.2
-		env.ssao_power = 1.4
+	env.adjustment_saturation = 1.04
+	env.adjustment_contrast = 1.06
+	# (The haze behind the stage is the match's own, in its stage's colour (`haze_*` in shaders/post.gdshader), not the engine's fog.)
+	env.ssao_enabled = false
 	var key := DirectionalLight3D.new()
 	key.name = "KeyLight"
 	key.rotation_degrees = Vector3(-38, -32, 0)
 	key.light_color = Color(1.0, 0.93, 0.82)
 	key.light_energy = 1.25
 	key.shadow_enabled = not preview
-	key.shadow_blur = 2.0
-	key.light_angular_distance = 1.5
-	key.directional_shadow_max_distance = 90.0
+	# Crisp, as an illustration's cast shadows are (a soft wide penumbra read as haze on the grass, not shade), with just enough blur to
+	# keep the edge clean; the shadow range only as far
+	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
+	key.shadow_blur = 0.5
+	key.light_angular_distance = 0.35
+	key.directional_shadow_max_distance = 70.0
+	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	key.directional_shadow_split_1 = 0.35
 	root.add_child(key)
 	var fill := DirectionalLight3D.new()
 	fill.name = "FillLight"
@@ -94,7 +147,7 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	fill.light_energy = 0.35
 	root.add_child(fill)
 	# The menus (and anything lit before a stage is chosen) use the meadow's mood, with no stage shading.
-	_set_globals(MOODS.meadow)
+	_set_globals(MOODS.meadow, style("meadow"))
 	RenderingServer.global_shader_parameter_set("pf_ao_strength", 0.0)
 
 
@@ -114,17 +167,32 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		fill.light_energy = mood.fill[1]
 	env.ambient_light_color = mood.ambient[0]
 	env.ambient_light_energy = mood.ambient[1]
+	env.glow_intensity = float(style(theme.get("name", "meadow")).glow)
 	if post != null:
 		post.set_shader_parameter("grade_shadows", mood.grade[0])
 		post.set_shader_parameter("grade_lights", mood.grade[1])
 		post.set_shader_parameter("grade_amount", mood.grade[2])
+		post.set_shader_parameter("pastel_haze", mood.get("haze", Color(0.88, 0.9, 1.0)))
+		var finish: Dictionary = STYLE_DEFAULT.finish.duplicate()
+		finish.merge(style(theme.get("name", "meadow")).get("finish", {}), true)
+		post.set_shader_parameter("pastel_desat", finish.desat)
+		post.set_shader_parameter("pastel_lift", finish.lift)
+		post.set_shader_parameter("vignette", finish.vignette)
+		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("s_curve", finish.s_curve)
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
-	_set_globals(m)
+	_set_globals(m, style(theme.get("name", "meadow")))
 
 
-static func _set_globals(mood: Dictionary) -> void:
+static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
+	RenderingServer.global_shader_parameter_set("pf_ramp", ramp_texture(look.ramp))
+	RenderingServer.global_shader_parameter_set("pf_deep_shade", look.deep)
+	RenderingServer.global_shader_parameter_set("pf_edge_light", look.edge)
+	RenderingServer.global_shader_parameter_set("pf_paint_warm", look.paint[0])
+	RenderingServer.global_shader_parameter_set("pf_paint_cool", look.paint[1])
+	RenderingServer.global_shader_parameter_set("pf_paint_amount", look.paint[2])
 	RenderingServer.global_shader_parameter_set("pf_shadow_hue", mood.shadow_hue)
 	RenderingServer.global_shader_parameter_set("pf_shadow_shift", mood.shadow_shift)
 	RenderingServer.global_shader_parameter_set("pf_shadow_value", mood.shadow_value)

@@ -219,9 +219,18 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             w.moves.len()
         ));
     }
+    // Moves some aerial lands into (a landing hit): their hitboxes may come out on their first frame, the landing frame.
+    let landing_moves: Vec<u8> = w.moves.iter().filter_map(|mv| mv.landing_move).collect();
     for (m, mv) in w.moves.iter().enumerate() {
         let id = MoveId::from_index(m as u8);
         let name = id.name();
+        if let Some(l) = mv.landing_move {
+            if usize::from(l) >= MoveId::COUNT
+                || w.moves.get(usize::from(l)).is_none_or(Move::is_empty)
+            {
+                errors.push(format!("weapon {i} {name}: landing_move needs a real move"));
+            }
+        }
         if mv.is_empty() {
             // Only special moves may be left unimplemented.
             if !id.may_be_empty() {
@@ -297,12 +306,17 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             }
         }
         for hb in &mv.hitboxes {
-            if hb.group > 1 {
-                errors.push(format!("weapon {i} {name}: hitbox group must be 0 or 1"));
+            if hb.group > 7 {
+                errors.push(format!("weapon {i} {name}: hitbox group must be 0 to 7"));
             }
         }
         for hb in &mv.hitboxes {
-            if hb.start == 0 || hb.start > hb.end || hb.end > mv.total_frames {
+            let first = if landing_moves.contains(&(m as u8)) {
+                0
+            } else {
+                1
+            };
+            if hb.start < first || hb.start > hb.end || hb.end > mv.total_frames {
                 errors.push(format!(
                     "weapon {i} {name}: hitbox frames {}..{} are outside the move",
                     hb.start, hb.end

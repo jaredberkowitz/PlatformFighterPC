@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <clipPath id="m"><path d="M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z"/></clipPath>
+  <path d="M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z" fill="#6b2234"/>
+  <path d="M46,155 Q78,87 128,114 Q178,87 210,155 Q128,182 46,155 Z" fill="none" stroke="#2a1a33" stroke-width="20" stroke-linejoin="round"/>
+</svg>

@@ -104,6 +104,12 @@ func _budget_rules() -> void:
 func _online() -> void:
 	var big := entry("zz_test Big", 0, 9, 4, 4, 4)
 	var small := entry("zz_test Small", 1, 1, 7, 6, 6)
+	# A look made in the creator, every part changed: both players must see exactly this fighter.
+	for slot in Loadout.SLOTS:
+		small.look.set_slot(slot, (Loadout.slot_size(slot) - 1) * 2 / 3)
+	big.look.set_slot("eyes", 5)
+	big.look.set_slot("brows", 4)
+	big.look.set_slot("mouth_y", 2)
 	var r: Array = play(big, small, false)
 	var a = r[0]
 	var b = r[1]
@@ -118,6 +124,8 @@ func _online() -> void:
 	check(shared > 100, "a match was played (%d frames)" % shared)
 	var theirs := Roster.parse_profile(a.net_their_cosmetics(), 1)
 	check(theirs.name == "zz_test Small", "the host got the joiner's name: " + theirs.name)
+	check(theirs.look.equals(small.look), "and the joiner's whole look, every face part and adjustment, so both see the same fighter")
+	check(Roster.parse_profile(b.net_their_cosmetics(), 0).look.equals(big.look), "and the joiner got the host's")
 
 	# Built-in against made also works, and built-in against built-in is the old behaviour.
 	var duelist: Dictionary = Roster.builtins()[0]
@@ -144,6 +152,7 @@ func _screens() -> void:
 	root.add_child(creator)
 	await process_frame
 	await process_frame
+	creator._open(creator.CATEGORIES.size() - 1)
 	var speed = creator.stat_rows["speed"]
 	speed.step(1)
 	check(speed.value == 5, "a stat cannot go up when the 20 points are spent")
@@ -152,12 +161,12 @@ func _screens() -> void:
 	check(speed.value == 6 and Roster.points(creator.current_entry()) == 20, "lowering one stat frees a point for another")
 	speed.step(1)
 	check(speed.value == 6, "and only one")
-	creator.selectors["rules"].set_index(1)
+	creator.rules.set_index(1)
 	speed.step(1)
 	speed.step(1)
 	check(speed.value == 8, "casual rules have no limit")
 	check(creator.points_tag.text.contains("CASUAL"), "and the points tag says so: " + creator.points_tag.text)
-	creator.selectors["rules"].set_index(0)
+	creator.rules.set_index(0)
 	creator.name_edit.text = "zz_test Over"
 	creator._finish()
 	check(creator.status.text.contains("budget"), "saving an over-budget ranked fighter is refused: " + creator.status.text)

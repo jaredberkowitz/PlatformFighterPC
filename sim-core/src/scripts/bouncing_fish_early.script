@@ -1,0 +1,8 @@
+// Bouncing Fish, the early kick (ext6, slot 34), entered on the fish's frame 16: the same flight carried on (its speeds are the
+// fish's variables), the kick on its frames 3-9 (the fish's 18-24). The stick steers from the fish's frame 30 (this move's 15).
+var sx;
+var sy;
+if hit { goto(33); }
+sy = max(sy - 0.028, -0.28);
+if frame >= 14 { sx = clamp(sx + stick_x * 0.025, 0, 0.3); }
+set_vel(sx, sy);

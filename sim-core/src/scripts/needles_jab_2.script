@@ -1,0 +1,10 @@
+// Needles jab 2 (slot 17). The rapid jab (29 = ext1) follows as early as frame 5 once attack has been pressed twice since jab 1's
+// hit (the reference counts three, but presses during hitlag reach no script, and a jab's hitlag is long), or if attack is held as
+// the hit lands. (The variables are jab 1's: `taps` carries on counting.)
+var queued;
+var taps;
+if frame == 1 { queued = 0; }
+if attack_tap { taps = taps + 1; }
+if taps >= 2 { queued = 1; }
+if hit && attack && frame == 4 { queued = 1; }
+if queued && frame >= 4 { goto(29); }

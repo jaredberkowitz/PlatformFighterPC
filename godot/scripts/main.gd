@@ -3,6 +3,7 @@ extends Node3D
 
 const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const SvgArt := preload("res://scripts/svg_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
 const Effects := preload("res://scripts/effects.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
@@ -17,6 +18,7 @@ const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
 const MatchHud := preload("res://ui/match_hud.gd")
 const Results := preload("res://ui/results.gd")
+const VisualSettings := preload("res://scripts/visual_settings.gd")
 const Replays := preload("res://scripts/replays.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 const Sfx := preload("res://scripts/sfx.gd")
@@ -34,6 +36,7 @@ var views: Array = []
 var stage_view: Node3D
 var overlay: CanvasLayer
 var hud: CanvasLayer
+var hud_before_results := true
 var results: CanvasLayer
 var names: Array = ["Player 1", "Player 2", "Player 3", "Player 4"]
 var end_timer := 0.0
@@ -58,6 +61,7 @@ var cam_base := Vector3.INF
 var cam_shake := 0.0
 ## The finishing material over the picture (shaders/post.gdshader), and the frame a finishing hit's two-tone moment ends.
 var post_mat: ShaderMaterial
+var post_stage_dist := -1.0
 var impact_until := -1
 ## How hard the camera is punching in after a heavy hit (0..1.2), settling quickly.
 var cam_punch := 0.0
@@ -65,6 +69,12 @@ var cam_punch := 0.0
 var ko_focus := -1
 var ko_time := 0.0
 var shake_rng := RandomNumberGenerator.new()
+## The shake's direction (the way the last hit sent its fighter; random for one with no direction) and where it is in its swing.
+var shake_dir := Vector2.ZERO
+var shake_phase := 0.0
+## The shake swings this many times a second, and rolls the camera by up to this many radians per unit of shake.
+const SHAKE_HZ := 15.0
+const SHAKE_ROLL := 0.012
 ## Seconds of "3, 2, 1" before a local match starts (the sim waits).
 var countdown := 0.0
 var countdown_shown := -1
@@ -84,6 +94,10 @@ var overlay_dirty := true
 var warmed := false
 var snaps: Array = []
 var inputs: Array = []
+## Computer players: a level (1 to 9) for each player the basic CPU plays (`sim_core::cpu`), 0 for a person. Set from the character
+## select (the session's `cpu`), `--cpu` (player 2 at level 5), or F5 in training (player 2 on and off).
+var cpu_levels: Array = [0, 0, 0, 0]
+const CPU_LEVEL := 5
 var prev_pos: Array = []
 var cur_pos: Array = []
 var paused := false
@@ -98,6 +112,14 @@ var perf_draw := 0
 var perf_prims := 0
 var perf_worst := 0.0
 var perf_hitches := 0
+## Every measured frame's length (ms), for the 99th percentile.
+var perf_deltas: PackedFloat32Array = PackedFloat32Array()
+## The game's own rendering time on the GPU and the CPU (timestamps, so other programs sharing the machine count for little).
+var perf_gpu := 0.0
+var perf_cpu := 0.0
+## Script time a frame (ms): the match's ticks (the simulation step and the fighters' views) and the frame's drawing work.
+var perf_tick := 0.0
+var perf_frame := 0.0
 var flag_noui := false
 var flag_noecb := false
 
@@ -115,11 +137,18 @@ func _ready() -> void:
 	sim = ClassDB.instantiate("SimRunner")
 	add_child(sim)
 	sfx = Sfx.of(self)
-	for n in ["jump", "attack", "special", "shield", "grab", "strong"]:
+	for n in ["jump", "attack", "special", "shield", "grab", "strong", "c_up", "c_down", "c_left", "c_right"]:
 		masks[n] = sim.button_mask(n)
 	PLAYERS = _player_count()
 	_build_world()
 	_parse_demo_args()
+	var chosen_cpu: Array = Roster.session.get("cpu", [])
+	for i in mini(chosen_cpu.size(), 4):
+		cpu_levels[i] = int(chosen_cpu[i])
+	if OS.get_cmdline_user_args().has("--cpu"):
+		cpu_levels[1] = CPU_LEVEL
+	if demo != null and not demo.cpu_levels.is_empty():
+		cpu_levels = demo.cpu_levels.duplicate()
 	_load_content()
 	# `--stage=N` (training and demos) plays on a stage from the library.
 	for arg in OS.get_cmdline_user_args():
@@ -128,8 +157,9 @@ func _ready() -> void:
 	_apply_rules()
 	_rebuild_stage()
 	# A match started from the menus shows the match HUD only; F1 brings back the training readout.
-	# (`--noui` demo shots look like a match from the menus, without even the match HUD.)
-	if Roster.session.get("from_menu", false) or OS.get_cmdline_user_args().has("--noui"):
+	# (`--noui` demo shots look like a match from the menus, without even the match HUD; `--match` like one with it.)
+	var args := OS.get_cmdline_user_args()
+	if Roster.session.get("from_menu", false) or args.has("--noui") or args.has("--match"):
 		overlay_on = false
 		overlay.set_overlay_visible(false)
 		# ...and the hitbox and hurtbox drawings (F3) and the fighters' collision outlines (F2).
@@ -167,6 +197,8 @@ func _build_world() -> void:
 	add_child(we)
 	world_env = env
 	Lighting.apply(env, self)
+	VisualSettings.apply_quality(env, self, get_viewport())
+	Particles.Burst.density = VisualSettings.effects()
 
 	cam = Camera3D.new()
 	cam.fov = 30.0
@@ -183,6 +215,7 @@ func _build_world() -> void:
 		post_mat = ShaderMaterial.new()
 		post_mat.shader = POST_SHADER
 		post_mat.set_shader_parameter("impact", 0.0)
+		post_mat.set_shader_parameter("far_blur", PLAY_BLUR if VisualSettings.get_index("quality") == 2 else 0.0)
 		# First among the see-through things, so the effects, shields and numbers are drawn over the finished picture.
 		post_mat.render_priority = -100
 		post.material_override = post_mat
@@ -216,6 +249,10 @@ func _build_world() -> void:
 func _player_count() -> int:
 	if Roster.session.has("online") and Roster.session.online.get("group", false):
 		return 4
+	# (Demos and tests: `--players=N`.)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--players="):
+			return clampi(int(a.substr(10)), 2, 4)
 	var replay := PackedByteArray()
 	if Roster.session.has("replay"):
 		replay = Roster.session.replay
@@ -245,7 +282,10 @@ func _parse_demo_args() -> void:
 		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
 	if OS.get_cmdline_user_args().has("--perf"):
 		perf = true
-		name = "tour"
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+		# (Any demo can be measured, `--demo=stage --stage=3` for one stage's frame time; the tour by default.)
+		if name == "":
+			name = "tour"
 		if not user_args.has("--vsync"):
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 			Engine.max_fps = 0
@@ -266,6 +306,9 @@ func _restart() -> void:
 	if results != null:
 		results.queue_free()
 		results = null
+		hud.visible = hud_before_results
+	cam.attributes = null
+	_clear_scuffs()
 	end_timer = 0.0
 	var chars: Array = chosen_chars
 	if demo != null and demo.chars.size() > 0:
@@ -312,6 +355,7 @@ func _refresh(i: int) -> void:
 		"percent": sim.fighter_percent(i), "stocks": cb[0], "hitlag": cb[1], "hitstun": cb[2],
 		"move_id": cb[3], "tumble": cb[4] != 0, "invuln": cb[5], "launch_pending": cb[6] != 0,
 		"charge": sim.fighter_charge(i), "shield": sim.fighter_shield(i) / sim.shield_max(), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
+		"move_windows": sim.fighter_move_windows(i), "dodge": sim.fighter_dodge(i),
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i),
 	}
 
@@ -785,6 +829,13 @@ func _net_step() -> void:
 
 
 func _tick_once(advance := true) -> void:
+	var t0 := Time.get_ticks_usec()
+	_tick_once_inner(advance)
+	if perf and warmed:
+		perf_tick += float(Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _tick_once_inner(advance := true) -> void:
 	for i in PLAYERS:
 		prev_pos[i] = cur_pos[i]
 	if advance:
@@ -851,7 +902,8 @@ func _rebuild_paths() -> void:
 			path_nodes.append(mi)
 	for i in PLAYERS:
 		var im: ImmediateMesh = path_nodes[i].mesh
-		im.clear_surfaces()
+		if im.get_surface_count() > 0:
+			im.clear_surfaces()
 		var s: Dictionary = snaps[i]
 		if not show_di or not (s.state == "Hitstun" or (s.hitlag > 0 and s.launch_pending)):
 			continue
@@ -873,6 +925,9 @@ func _gather() -> void:
 	for i in PLAYERS:
 		if demo != null and demo.real_keys and i == 0:
 			inputs[i] = InputReader.read(0, masks)
+		elif cpu_levels[i] > 0 and (demo == null or not demo.cpu_levels.is_empty()) and not replay_mode:
+			var c: PackedInt32Array = sim.cpu_input(i, cpu_levels[i])
+			inputs[i] = {"x": c[0], "y": c[1], "buttons": c[2]}
 		elif demo != null:
 			if i == 0:
 				inputs[i] = demo.input_at(sim.frame())
@@ -942,7 +997,11 @@ func _physics_process(_delta: float) -> void:
 			_capture(shot)
 		if sim.frame() >= demo.end_frame and shot_wait == "":
 			if perf:
-				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames])
+				var sorted := perf_deltas.duplicate()
+				sorted.sort()
+				var p99: float = sorted[mini(sorted.size() - 1, int(sorted.size() * 0.99))] if sorted.size() > 0 else 0.0
+				print("PERF p99 %.2f ms" % p99)
+				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives, GPU %.2f ms, render CPU %.2f ms, ticks %.2f ms, frame scripts %.2f ms" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames, perf_gpu / perf_frames, perf_cpu / perf_frames, perf_tick / perf_frames, perf_frame / perf_frames])
 			print("demo '%s' finished at frame %d checksum %s" % [demo.name, sim.frame(), sim.checksum()])
 			get_tree().quit()
 
@@ -964,14 +1023,25 @@ func _alpha() -> float:
 
 
 func _process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_inner(delta)
+	if perf and warmed:
+		perf_frame += float(Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _process_inner(delta: float) -> void:
 	if perf and warmed:
 		perf_frames += 1
 		perf_time += delta
 		perf_worst = maxf(perf_worst, delta)
+		perf_deltas.append(delta * 1000.0)
 		if delta > 0.025:
 			perf_hitches += 1
 		perf_draw += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
 		perf_prims += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
+		var vp := get_viewport().get_viewport_rid()
+		perf_gpu += RenderingServer.viewport_get_measured_render_time_gpu(vp)
+		perf_cpu += RenderingServer.viewport_get_measured_render_time_cpu(vp) + RenderingServer.get_frame_setup_time_cpu()
 	var a := _alpha()
 	# Effects run on the match's clock (see FxMaterial.tick).
 	FxMaterial.tick((float(sim.frame()) + a) / 60.0)
@@ -1010,6 +1080,8 @@ func _process(delta: float) -> void:
 
 
 func _update_hud(delta: float) -> void:
+	for i in mini(PLAYERS, views.size()):
+		views[i].set_overhead(overlay_on and not flag_noui, "P%d" % (i + 1), PLAYER_COLORS[i % PLAYER_COLORS.size()])
 	var rules: PackedInt32Array = sim.match_rules()
 	var frame: int = sim.match_frame()
 	var winner: int = sim.winner()
@@ -1018,10 +1090,10 @@ func _update_hud(delta: float) -> void:
 	var urgent := false
 	if rules[1] > 0:
 		var left: int = ceili(maxi(0, rules[1] * 60 - frame) / 60.0)
-		clock = "%d:%02d" % [left / 60, left % 60]
+		clock = "%02d:%02d" % [left / 60, left % 60]
 		urgent = left <= 10 and winner == -1
 	elif rules[0] > 0:
-		clock = "%d:%02d" % [frame / 3600, (frame / 60) % 60]
+		clock = "%02d:%02d" % [frame / 3600, (frame / 60) % 60]
 	var banner := ""
 	var alpha := 1.0
 	if countdown > 0.0:
@@ -1036,7 +1108,11 @@ func _update_hud(delta: float) -> void:
 	var stocks := []
 	var alive := []
 	var in_match := []
+	var classes := []
+	var looks := []
 	for i in PLAYERS:
+		classes.append(int(snaps[i].get("class", snaps[i].get("char", 0))))
+		looks.append(views[i].loadout if i < views.size() else null)
 		percent.append(snaps[i].get("percent", 0.0))
 		stocks.append(snaps[i].get("stocks", 0))
 		alive.append(sim.fighter_active(i))
@@ -1044,6 +1120,7 @@ func _update_hud(delta: float) -> void:
 	hud.show_state({
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
+		"counting_down": rules[1] > 0, "classes": classes, "looks": looks,
 		"status": _net_status_text(),
 		"offscreen": _offscreen_markers(),
 	})
@@ -1088,6 +1165,16 @@ func _show_results(winner: int) -> void:
 		choices = [["Rematch", "rematch"], ["Character Select", "select"], ["Main Menu", "menu"]]
 	else:
 		choices = [["Rematch", "rematch"], ["Quit", "quit"]]
+	# The stage behind the results goes soft (depth of field kept for presentation, never for play), so the cards and the winner lead.
+	var dof := CameraAttributesPractical.new()
+	dof.dof_blur_far_enabled = true
+	dof.dof_blur_far_distance = 2.0
+	dof.dof_blur_far_transition = 6.0
+	dof.dof_blur_amount = RESULTS_BLUR
+	cam.attributes = dof
+	# (The match display steps aside while the results are up.)
+	hud_before_results = hud.visible
+	hud.visible = false
 	results = Results.new()
 	add_child(results)
 	results.build(heading, cards, choices)
@@ -1194,10 +1281,21 @@ func _in_play(i: int) -> bool:
 
 ## A fighter was just hit (its hitlag started): the camera shakes with the hit's strength, and if the launch will knock the fighter
 ## out, it closes in on them for a moment (presentation only).
+## How far the camera aims below the fighters, per unit of distance (about 4% of the view's height), to keep them above the HUD.
+const HUD_LIFT := 0.022
+## How soft the stage behind the results screen goes.
+const RESULTS_BLUR := 0.09
+## Far scenery's blur in play (pixels at 1080 lines, `far_blur` in shaders/post.gdshader): the Best tier only.
+const PLAY_BLUR := 2.6
+## Hitlag (frames) above which a hit shakes the camera.
+const HIT_SHAKE_FROM := 9.0
+
+
 func _on_hit(i: int, befores: Array = []) -> void:
 	var lag: int = snaps[i].hitlag
 	var strength := clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0)
-	cam_shake = maxf(cam_shake, minf(0.9, float(lag) * 0.03))
+	# The camera shakes only for a hit that matters (more than a jab's or a tilt's hitlag), harder the stronger it is.
+	cam_shake = maxf(cam_shake, clampf((float(lag) - HIT_SHAKE_FROM) * 0.045, 0.0, 0.9))
 	if not _in_play(i):
 		return
 	# Who landed it: the fighter that froze in an attack on the same frame (or the last one to hit this fighter).
@@ -1209,13 +1307,10 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		by = stats[i].last_hitter
 	var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
 	# Where the hit met the fighter: toward the hitter's live hitbox from the middle of the body, no further than its edge. What landed
-	# it (a blade, a blow, the maul, fire) picks the effect and the sound; a blade's slash runs the way the blade was moving (across the
-	# line from the shoulder to the tip).
+	# it (a blade, a blow, fire, claws) picks the effect and the sound.
 	var middle := Vector2(cur_pos[i].x, cur_pos[i].y + 1.1)
 	var contact := middle
-	var cut := Vector2.ZERO
 	var kind: int = Effects.Kind.BLOW
-	var trail := Color(0.4, 0.7, 1.0)
 	if by >= 0:
 		var cls := int(snaps[by].get("class", 1))
 		var move := str(snaps[by].get("move_name", ""))
@@ -1223,34 +1318,49 @@ func _on_hit(i: int, befores: Array = []) -> void:
 		var facing := float(snaps[by].get("facing", 1))
 		if tip != Vector3.ZERO:
 			var tip_at := Vector2(cur_pos[by].x + tip.x * facing, cur_pos[by].y + tip.y)
-			contact = middle + (tip_at - middle).limit_length(0.8)
-			cut = (tip_at - Vector2(cur_pos[by].x + 0.5 * facing, cur_pos[by].y + 1.15)).orthogonal().normalized()
-		if cls != 1 and _weapon_move(move):
-			kind = Effects.Kind.BLADE if cls == 0 else Effects.Kind.MAUL
+			# (A little toward the hitter, so even a big burst leaves the struck fighter's face in view.)
+			contact = middle + (tip_at - middle).limit_length(1.0)
+		if cls == 0 and _weapon_move(move):
+			kind = Effects.Kind.BLADE
 		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
 			kind = Effects.Kind.FIRE
-		trail = FighterView.trail_colours_of(cls)[0]
+		elif cls == 1 and _weapon_move(move):
+			kind = Effects.Kind.CLAW
 	var at := Vector3(contact.x, contact.y, 0.8)
 	# The effect is stretched the way the hit sends the fighter: away from whoever hit it, and up.
 	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55).normalized()
-	Effects.hit(self, at, dir, colour, strength, kind, cut, trail)
-	if strength > 0.4:
+	Effects.hit(self, at, dir, colour, strength, kind)
+	# A heavy hit on a fighter standing on the stage scuffs the floor under it.
+	if strength >= SCUFF_FROM and int(snaps[i].get("platform", -1)) >= 0:
+		_scuff(cur_pos[i], dir.x)
+	# The shake swings along the line the hit sends the fighter, so a heavy blow reads as a push in that direction.
+	if float(lag) > HIT_SHAKE_FROM:
+		shake_dir = dir
+		shake_phase = 0.0
+	# The three tiers of hit: a light one is a small spark; a medium one adds a short dart the way it sends the fighter; a strong one a
+	# bigger burst, a ring and a long spear (scripts/effects.gd).
+	if strength > 0.25:
 		Effects.impact(self, at, dir, colour, strength)
 	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
-	sfx.hit(0 if kind == Effects.Kind.BLADE else (2 if kind == Effects.Kind.MAUL else 1), strength)
+	sfx.hit(0 if kind == Effects.Kind.BLADE or kind == Effects.Kind.CLAW else 1, strength)
 	# A heavy hit punches the camera in for a moment and flashes the screen.
 	if strength > 0.55:
 		cam_punch = maxf(cam_punch, 0.6 + 0.6 * strength)
 		_screen_flash(0.18 + 0.2 * strength)
 	if not replay_mode and sim.fighter_will_ko(i, 200):
 		ko_focus = i
-		# The finishing hit: two frames in two tones.
-		impact_until = int(sim.frame()) + 2
-		ko_time = 0.75
+		# The finishing hit: two frames in two tones. The one that decides the match holds the close-up longer, in slow motion.
+		if VisualSettings.two_tone():
+			impact_until = int(sim.frame()) + 2
+		var deciding := _deciding(i, 1)
+		ko_time = 1.3 if deciding else 0.75
 		cam_shake = maxf(cam_shake, 0.9)
+		if deciding and _local_match() and demo == null:
+			Engine.time_scale = 0.25
+			slowmo_until = Time.get_ticks_msec() + 650
 
 
-## Whether a move of the blade or maul classes is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
+## Whether a move of a held weapon's class is swung with the weapon (grabs, throws and pummels are hands, and sound like blows).
 static func _weapon_move(name: String) -> bool:
 	return not (name.contains("grab") or name.ends_with("throw") or name == "pummel")
 
@@ -1279,7 +1389,7 @@ func _screen_flash(alpha: float) -> void:
 		flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		flash_rect.color = Color(1, 1, 1, 0)
 		layer.add_child(flash_rect)
-	flash_alpha = maxf(flash_alpha, alpha)
+	flash_alpha = maxf(flash_alpha, alpha * VisualSettings.flashes())
 
 
 ## Keeps the match statistics up to date from two snapshots of every fighter. Who hit whom is read from hitlag starting together: the
@@ -1368,9 +1478,21 @@ func _burst(at: Vector3, color: Color, size: float, life: float) -> void:
 	effects.append([m, 0.0, life, size])
 
 
-## A knock-out: a beam of the player's colour bursts from where the fighter left the stage, the camera shakes, and (offline) the
-## match slows for a moment.
+## Whether knocking out fighter `i`, which has `stocks` left, ends the match: its last stock, with one other fighter still in it.
+func _deciding(i: int, stocks: int) -> bool:
+	if int(snaps[i].get("stocks", 0)) != stocks:
+		return false
+	var others := 0
+	for j in PLAYERS:
+		if j != i and _in_play(j) and int(snaps[j].get("stocks", 0)) > 0:
+			others += 1
+	return others == 1
+
+
+## A knock-out: a beam of the player's colour bursts from where the fighter left the stage with a shockwave and a flash, the camera
+## shakes, and (offline) the match slows for a moment; longer, with a brighter flash, for the knock-out that ends the match.
 func _ko_blast(i: int, at: Vector2) -> void:
+	var deciding := _deciding(i, 0)
 	var color: Color = PLAYER_COLORS[i % PLAYER_COLORS.size()]
 	var root3 := Node3D.new()
 	root3.position = Vector3(at.x, at.y + 1.0, 0.0)
@@ -1407,10 +1529,21 @@ func _ko_blast(i: int, at: Vector2) -> void:
 	# (A little way in from the blast line, so the burst is on screen.)
 	var burst_at := at + inward * 13.0
 	Particles.knock_out(self, Vector3(burst_at.x, burst_at.y + 1.0, 0.5), color, inward)
-	cam_shake = maxf(cam_shake, 1.4)
+	for k in 2:
+		var wave := Effects.Ring.new()
+		wave.material_override = Effects._material(true)
+		wave.colour = Color(1, 1, 1, 0.95) if k == 0 else Color(color.r, color.g, color.b, 0.9)
+		wave.from = 0.5 + k * 0.6
+		wave.to = (7.0 if deciding else 5.0) - k * 1.5
+		wave.thickness = 0.7 - k * 0.3
+		wave.life = 0.45 + k * 0.1
+		wave.position = Vector3(burst_at.x, burst_at.y + 1.0, 0.6)
+		add_child(wave)
+	_screen_flash(0.55 if deciding else 0.3)
+	cam_shake = maxf(cam_shake, 1.8 if deciding else 1.4)
 	if _local_match() and demo == null:
-		Engine.time_scale = 0.35
-		slowmo_until = Time.get_ticks_msec() + 450
+		Engine.time_scale = 0.25 if deciding else 0.35
+		slowmo_until = Time.get_ticks_msec() + (1000 if deciding else 450)
 
 
 ## Grows and fades the effects, and ends the knock-out slow motion.
@@ -1464,6 +1597,11 @@ func _offscreen_markers() -> Array:
 
 ## Degrees the match camera looks down at the stage.
 const CAMERA_PITCH := 10.0
+## The nearest the match camera comes (world units). At 26 it shows about 25 units across, the whole main stage (22, the reference
+## game's stage length) with a little to spare, and a fighter (2.2 tall) is about a sixth of the screen's height, as the reference
+## game frames a close exchange. It came in to 19 before, where a fighter filled over a fifth of the screen and the stage did not fit,
+## so every speed (which follow the reference's published numbers) read faster than the reference's.
+const CAMERA_NEAREST := 26.0
 
 
 func _update_camera(a: float, delta: float) -> void:
@@ -1479,12 +1617,13 @@ func _update_camera(a: float, delta: float) -> void:
 		return
 	var center := (lo + hi) / 2.0
 	# Fit both fighters (plus margin) in view: visible width at distance d is about d * 0.95 at 30 deg fov, 16:9.
-	# (Close together, the camera comes in near so the fighters read big, as the reference game frames a close exchange.)
+	# (Close together, the camera comes in, but never nearer than CAMERA_NEAREST: see there.)
 	var spread := maxf(hi.x - lo.x + 14.0, (hi.y - lo.y + 8.0) * 1.78)
-	var dist := clampf(spread / 0.95, 19.0, 85.0)
+	var dist := clampf(spread / 0.95, CAMERA_NEAREST, 85.0)
 	if demo != null and demo.cam_dist > 0.0:
 		dist = demo.cam_dist
-	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6, dist)
+	# (Aimed a little low, by a share of the view's height, so fighters on the ground sit clear of the match display along the bottom.)
+	var target := Vector3(clampf(center.x, -12, 12), clampf(center.y, -3, 10) + 1.6 - dist * HUD_LIFT, dist)
 	var rate := 3.5
 	if demo != null and demo.cam_focus >= 0:
 		var f: Vector2 = prev_pos[demo.cam_focus].lerp(cur_pos[demo.cam_focus], a)
@@ -1505,14 +1644,66 @@ func _update_camera(a: float, delta: float) -> void:
 		flash_alpha = move_toward(flash_alpha, 0.0, delta * 3.5)
 		flash_rect.color = Color(1, 1, 1, flash_alpha)
 	var offset := Vector3.ZERO
+	var roll := 0.0
 	if cam_shake > 0.001:
-		offset = Vector3(shake_rng.randf_range(-1.0, 1.0), shake_rng.randf_range(-1.0, 1.0), 0.0) * cam_shake
+		# A damped swing along the hit's line with a smaller one across it and a slight roll (not a fresh random jolt every frame, which
+		# read as jitter). A shake with no direction of its own picks one.
+		if shake_dir == Vector2.ZERO:
+			shake_dir = Vector2.from_angle(shake_rng.randf() * TAU)
+		shake_phase += delta * SHAKE_HZ * TAU
+		var along := sin(shake_phase) * cam_shake
+		var across := sin(shake_phase * 1.7 + 1.3) * cam_shake * 0.35
+		offset = Vector3(shake_dir.x * along - shake_dir.y * across, shake_dir.y * along + shake_dir.x * across, 0.0)
+		roll = sin(shake_phase * 0.9 + 0.5) * cam_shake * SHAKE_ROLL
 		cam_shake = move_toward(cam_shake, 0.0, delta * 2.6)
+	else:
+		shake_dir = Vector2.ZERO
+		shake_phase = 0.0
 	# The camera looks slightly down at the stage (raised by as much as it tilts, so the point it frames stays put): the tops of the
 	# platforms and the fighters' shadows on them show, and the stage has depth.
 	var lift := cam_base.z * tan(deg_to_rad(CAMERA_PITCH))
-	cam.position = cam_base + offset + punch + Vector3(0, lift, 0)
-	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, 0)
+	# (The comfort setting scales the shake and the punch-in; scripts/visual_settings.gd.)
+	var calm := VisualSettings.shake()
+	cam.position = cam_base + (offset + punch) * calm + Vector3(0, lift, 0)
+	cam.rotation = Vector3(-deg_to_rad(CAMERA_PITCH), 0, roll * calm)
+	# The distance haze starts at the stage plane (shaders/post.gdshader).
+	if post_mat != null and absf(cam.position.z - post_stage_dist) > 0.25:
+		post_stage_dist = cam.position.z
+		post_mat.set_shader_parameter("stage_dist", post_stage_dist)
+
+
+## Scuffs left on the stage by heavy hits (presentation only): a few decals reused in turn, cleared when a match starts, none on the
+## Fast tier. `SCUFF_FROM` is the least hit strength (0..1, from its hitlag) that leaves one.
+const SCUFF_FROM := 0.6
+const SCUFFS := 6
+var scuffs: Array = []
+var scuff_next := 0
+
+
+func _scuff(at: Vector2, side: float) -> void:
+	if VisualSettings.get_index("quality") == 0:
+		return
+	if scuffs.size() < SCUFFS:
+		var d := Decal.new()
+		d.texture_albedo = SvgArt.texture("res://art/stage/scuff.svg")
+		# Thin, and faded toward its top, so it marks the floor and not the feet on it.
+		d.size = Vector3(1.8, 0.24, 0.9)
+		d.upper_fade = 1.0
+		d.lower_fade = 0.3
+		add_child(d)
+		scuffs.append(d)
+	var s: Decal = scuffs[scuff_next % scuffs.size()] if scuffs.size() >= SCUFFS else scuffs[scuffs.size() - 1]
+	scuff_next += 1
+	s.position = Vector3(at.x + 0.3 * side, at.y + 0.02, 0.1)
+	s.rotation = Vector3(0, 0, 0)
+	s.scale = Vector3(-1.0 if side < 0.0 else 1.0, 1.0, 1.0)
+	s.visible = true
+
+
+func _clear_scuffs() -> void:
+	for s in scuffs:
+		s.visible = false
+	scuff_next = 0
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),
@@ -1571,8 +1762,8 @@ func _prewarm() -> void:
 	var warm := Node3D.new()
 	add_child(warm)
 	var at := Vector3(cam.position.x, cam.position.y - 2.0, 0.0)
-	for kind in [Effects.Kind.BLADE, Effects.Kind.BLOW, Effects.Kind.MAUL, Effects.Kind.FIRE]:
-		Effects.hit(warm, at, Vector2(1, 0.5).normalized(), Color.WHITE, 1.0, kind, Vector2(0, 1), Color(0.4, 0.7, 1.0))
+	for kind in [Effects.Kind.BLADE, Effects.Kind.BLOW, Effects.Kind.FIRE]:
+		Effects.hit(warm, at, Vector2(1, 0.5).normalized(), Color.WHITE, 1.0, kind)
 	Effects.impact(warm, at, Vector2.RIGHT, Color.WHITE, 1.0)
 	Effects.shield_hit(warm, at, 1.0)
 	Effects.sparkle(warm, at)
@@ -1618,11 +1809,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		results.handle_key(event)
 		return
 	# Training keys change the sim directly, which a networked match must never do.
-	if (net_mode or group_mode or spectate_mode) and event.keycode in [KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
+	if (net_mode or group_mode or spectate_mode) and event.keycode in [KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_P, KEY_PERIOD, KEY_COMMA, KEY_R]:
 		return
 	match event.keycode:
 		KEY_F4:
 			Music.of(self).set_muted(sfx.toggle_mute())
+		KEY_F5:
+			# Player 2 played by the computer, or by a person again.
+			cpu_levels[1] = 0 if cpu_levels[1] > 0 else CPU_LEVEL
 		KEY_F1:
 			overlay_on = not overlay_on
 			overlay.set_overlay_visible(overlay_on)
@@ -1690,42 +1884,69 @@ func _build_boxes() -> void:
 	box_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	box_mat.vertex_color_use_as_albedo = true
 	box_mat.no_depth_test = true
+	var circle := _unit_circle()
 	for i in PLAYERS:
-		var mi := MeshInstance3D.new()
-		mi.mesh = ImmediateMesh.new()
+		var mi := MultiMeshInstance3D.new()
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = circle
+		mm.instance_count = MAX_BOXES
+		mm.visible_instance_count = 0
+		mi.multimesh = mm
+		mi.material_override = box_mat
 		add_child(mi)
 		box_nodes.append(mi)
 
 
-func _circle(im: ImmediateMesh, c: Vector2, r: float, color: Color) -> void:
+const MAX_BOXES := 32
+
+
+## A ring of radius 1 drawn in lines: every box is one of these, placed, sized and coloured.
+static func _unit_circle() -> ArrayMesh:
+	var verts := PackedVector3Array()
 	var segments := 20
 	for k in segments:
-		var a0 := TAU * k / segments
-		var a1 := TAU * (k + 1) / segments
-		im.surface_set_color(color)
-		im.surface_add_vertex(Vector3(c.x + cos(a0) * r, c.y + sin(a0) * r, 1.5))
-		im.surface_set_color(color)
-		im.surface_add_vertex(Vector3(c.x + cos(a1) * r, c.y + sin(a1) * r, 1.5))
+		var a := Vector2.from_angle(TAU * k / segments)
+		var b := Vector2.from_angle(TAU * (k + 1) / segments)
+		verts.append(Vector3(a.x, a.y, 0))
+		verts.append(Vector3(b.x, b.y, 0))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+	return mesh
 
 
+## Each box is an instance of one ring mesh (`MultiMesh`), moved and recoloured each tick: making and freeing a mesh per tick instead
+## cost milliseconds a frame on the GPU driver.
 func _rebuild_boxes() -> void:
 	if box_nodes.is_empty():
 		return
 	for i in PLAYERS:
-		var im: ImmediateMesh = box_nodes[i].mesh
-		im.clear_surfaces()
+		var mm: MultiMesh = box_nodes[i].multimesh
 		if not show_boxes:
+			mm.visible_instance_count = 0
 			continue
 		var origin: Vector2 = cur_pos[i]
-		im.surface_begin(Mesh.PRIMITIVE_LINES, box_mat)
+		var n := 0
 		var hurt: PackedFloat32Array = sim.fighter_hurtboxes(i)
 		for k in range(0, hurt.size(), 3):
-			_circle(im, Vector2(hurt[k], hurt[k + 1]) - origin, hurt[k + 2], Color(0.3, 1.0, 0.4, 0.9))
+			n = _box(mm, n, Vector2(hurt[k], hurt[k + 1]) - origin, hurt[k + 2], Color(0.3, 1.0, 0.4, 0.9))
 		var hits: PackedFloat32Array = sim.fighter_hitboxes(i)
 		for k in range(0, hits.size(), 4):
 			var sweet: bool = hits[k + 3] < 0.5
-			_circle(im, Vector2(hits[k], hits[k + 1]) - origin, hits[k + 2], Color(1.0, 0.2, 0.2) if sweet else Color(1.0, 0.6, 0.15))
-		im.surface_end()
+			n = _box(mm, n, Vector2(hits[k], hits[k + 1]) - origin, hits[k + 2], Color(1.0, 0.2, 0.2) if sweet else Color(1.0, 0.6, 0.15))
+		mm.visible_instance_count = n
+
+
+func _box(mm: MultiMesh, n: int, c: Vector2, r: float, color: Color) -> int:
+	if n >= MAX_BOXES:
+		return n
+	mm.set_instance_transform(n, Transform3D(Basis.from_scale(Vector3(r, r, 1.0)), Vector3(c.x, c.y, 1.5)))
+	mm.set_instance_color(n, color)
+	return n + 1
 
 
 func _position_boxes(a: float) -> void:
@@ -1735,8 +1956,18 @@ func _position_boxes(a: float) -> void:
 
 
 # ---- Projectiles ------------------------------------------------------------------------------------
+# Each slot can show a bolt (the claws' blaster and anything else), a needle (the Needles moveset's Needle Storm: thin, teal, pointing
+# where it flies) or the Needles' pulling line (a small weight with a cord back to the thrower's hand).
+
+## Numbers per slot in `projectile_slots` (see the bridge).
+const PROJECTILE_STRIDE := 9
+## The Needles class (2) and the move slots its needles and line come from (ext4 = 32, side special = 14).
+const NEEDLE_FROM := [2, 32]
+const LINE_FROM := [2, 14]
 
 var proj_nodes: Array = []
+var proj_needles: Array = []
+var proj_lines: Array = []
 var proj_prev := PackedFloat32Array()
 var proj_cur := PackedFloat32Array()
 
@@ -1745,6 +1976,12 @@ func _build_projectiles() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Color(0.78, 0.4, 1.0)
+	var needle_mat := StandardMaterial3D.new()
+	needle_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	needle_mat.albedo_color = Color(0.75, 1.0, 0.95)
+	var line_mat := StandardMaterial3D.new()
+	line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_mat.albedo_color = Color(0.25, 0.85, 0.75)
 	for k in 8:
 		var mi := MeshInstance3D.new()
 		var bolt := SphereMesh.new()
@@ -1756,18 +1993,79 @@ func _build_projectiles() -> void:
 		mi.visible = false
 		add_child(mi)
 		proj_nodes.append(mi)
+		# A needle: a long thin box along x, turned to its flight.
+		var nd := MeshInstance3D.new()
+		var stick := BoxMesh.new()
+		stick.size = Vector3(0.75, 0.05, 0.05)
+		nd.mesh = stick
+		nd.material_override = needle_mat
+		nd.visible = false
+		add_child(nd)
+		proj_needles.append(nd)
+		# The line: its weight, and the cord drawn fresh each frame.
+		var ln := MeshInstance3D.new()
+		var weight := SphereMesh.new()
+		weight.radius = 0.16
+		weight.height = 0.32
+		ln.mesh = weight
+		ln.material_override = line_mat
+		ln.visible = false
+		add_child(ln)
+		var cord := MeshInstance3D.new()
+		cord.mesh = ImmediateMesh.new()
+		cord.material_override = line_mat
+		cord.top_level = true
+		cord.extra_cull_margin = 16384.0
+		cord.visible = false
+		add_child(cord)
+		proj_lines.append([ln, cord])
 
 
 func _update_projectiles(a: float) -> void:
+	var n := PROJECTILE_STRIDE
 	for k in proj_nodes.size():
-		var i := k * 4
-		var active: bool = proj_cur.size() > i and proj_cur[i] > 0.5
-		proj_nodes[k].visible = active
-		if active:
-			var pos := Vector2(proj_cur[i + 1], proj_cur[i + 2])
-			if proj_prev.size() > i and proj_prev[i] > 0.5:
-				pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
-			proj_nodes[k].position = Vector3(pos.x, pos.y, 0.3)
+		var i := k * n
+		var active: bool = proj_cur.size() > i + n - 1 and proj_cur[i] > 0.5
+		var from := [int(proj_cur[i + 6]), int(proj_cur[i + 7])] if active else []
+		var needle: bool = active and from == NEEDLE_FROM
+		var line: bool = active and from == LINE_FROM
+		proj_nodes[k].visible = active and not needle and not line
+		proj_needles[k].visible = needle
+		proj_lines[k][0].visible = line
+		proj_lines[k][1].visible = line
+		if not active:
+			continue
+		var pos := Vector2(proj_cur[i + 1], proj_cur[i + 2])
+		if proj_prev.size() > i + n - 1 and proj_prev[i] > 0.5:
+			pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
+		var at := Vector3(pos.x, pos.y, 0.3)
+		if needle:
+			proj_needles[k].position = at
+			proj_needles[k].rotation.z = Vector2(proj_cur[i + 4], proj_cur[i + 5]).angle()
+		elif line:
+			proj_lines[k][0].position = at
+			_draw_cord(proj_lines[k][1], int(proj_cur[i + 8]), at, a)
+		else:
+			proj_nodes[k].position = at
+
+
+## The pulling line's cord: from the thrower's hand (about chest height, a little in front) to the weight.
+func _draw_cord(cord: MeshInstance3D, owner: int, to: Vector3, a: float) -> void:
+	var im: ImmediateMesh = cord.mesh
+	im.clear_surfaces()
+	if owner < 0 or owner >= cur_pos.size():
+		return
+	var p: Vector2 = cur_pos[owner]
+	if prev_pos.size() > owner:
+		p = (prev_pos[owner] as Vector2).lerp(p, a)
+	var hand := Vector3(p.x + 0.4 * signf(to.x - p.x), p.y + 1.1, 0.3)
+	# A thin ribbon facing the camera (two triangles), sagging a little in the middle.
+	var mid := (hand + to) * 0.5 + Vector3(0, -0.15, 0)
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for pt in [hand, mid, to]:
+		im.surface_add_vertex(pt + Vector3(0, 0.025, 0))
+		im.surface_add_vertex(pt - Vector3(0, 0.025, 0))
+	im.surface_end()
 
 
 func _exit_tree() -> void:

@@ -1,8 +1,9 @@
 //! The content format: round trips, error reporting, versioning, and the Phase 5 exit criterion (a fighter
 //! defined in data plays identically to its hand-coded version).
 
-use sim_content::bundle::{load_with, Migration};
+use sim_content::bundle::{load_with, Migration, MIGRATIONS};
 use sim_content::tree::{Block, Item};
+use sim_content::SCHEMA_VERSION;
 use sim_content::{load, to_text, validate};
 use sim_core::fuzz::random_inputs;
 use sim_core::moves::MoveId;
@@ -220,7 +221,11 @@ fn content_for_another_sim_version_is_refused() {
 
 #[test]
 fn newer_schemas_are_refused_and_missing_manifests_explained() {
-    let t = text(&Content::placeholder(), false).replacen("schema 1", "schema 99", 1);
+    let t = text(&Content::placeholder(), false).replacen(
+        &format!("schema {SCHEMA_VERSION}"),
+        "schema 99",
+        1,
+    );
     assert!(has(&errors(&t), "update the game"));
     let no_bundle = "ruleset { damage_mult 1 }";
     assert!(has(&errors(no_bundle), "no `bundle` section"));
@@ -228,7 +233,8 @@ fn newer_schemas_are_refused_and_missing_manifests_explained() {
     assert!(has(&errors(no_schema), "needs `schema`"));
 }
 
-/// An example migration: schema 1 called `gravity` by the old name `grav`.
+/// An example migration: an imagined current schema (`SCHEMA_VERSION`) that called `gravity` by the old name `grav`, migrated to a
+/// next one by a build one schema newer. (The real migrations, from older schemas, run first.)
 fn rename_grav(root: &mut Block) {
     fn visit(b: &mut Block) {
         for item in &mut b.items {
@@ -244,17 +250,24 @@ fn rename_grav(root: &mut Block) {
 
 #[test]
 fn old_files_are_migrated_on_load() {
-    let migrations: &[Migration] = &[(1, rename_grav)];
-    // An old (schema 1) file that still says `grav`.
+    let now = SCHEMA_VERSION;
+    let migrations: Vec<Migration> = MIGRATIONS
+        .iter()
+        .copied()
+        .chain([(now, rename_grav as fn(&mut Block))])
+        .collect();
+    // A file of the current schema that still says `grav`.
     let old = text(&Content::placeholder(), false).replace("gravity ", "grav ");
     assert!(has(
-        &load_with(&old, &[], 2).unwrap_err(),
-        "no migration from schema 1 to 2"
+        &load_with(&old, MIGRATIONS, now + 1).unwrap_err(),
+        &format!("no migration from schema {now} to {}", now + 1)
     ));
-    let bundle = load_with(&old, migrations, 2).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    let bundle =
+        load_with(&old, &migrations, now + 1).unwrap_or_else(|e| panic!("{}", e.join("\n")));
     assert_eq!(bundle.content, Content::placeholder());
     assert_eq!(
-        bundle.manifest.schema, 2,
+        bundle.manifest.schema,
+        now + 1,
         "the manifest now says the current schema"
     );
 }
@@ -276,10 +289,18 @@ fn migrations_chain_in_order() {
             }
         }
     }
-    let migrations: &[Migration] = &[(1, rename_grav), (2, add_note)];
+    let now = SCHEMA_VERSION;
+    let migrations: Vec<Migration> = MIGRATIONS
+        .iter()
+        .copied()
+        .chain([
+            (now, rename_grav as fn(&mut Block)),
+            (now + 1, add_note as fn(&mut Block)),
+        ])
+        .collect();
     let old = text(&Content::placeholder(), false).replace("gravity ", "grav ");
-    let bundle = load_with(&old, migrations, 3).unwrap();
-    assert_eq!(bundle.manifest.schema, 3);
+    let bundle = load_with(&old, &migrations, now + 2).unwrap();
+    assert_eq!(bundle.manifest.schema, now + 2);
     assert!(bundle.manifest.description.contains("migrated twice"));
 }
 
@@ -351,4 +372,24 @@ fn garbage_input_never_panics_and_always_errors_cleanly() {
         let damaged: String = bytes.into_iter().collect();
         let _ = load(&damaged);
     }
+}
+
+#[test]
+fn a_schema_1_file_from_before_crouch_height_and_dash_attack_friction_still_loads() {
+    // Written before sim v34/v35: no crouch_height, no dash_attack_friction, schema 1.
+    let now = text(&Content::placeholder(), false);
+    let mut old = String::new();
+    for line in now.lines() {
+        let t = line.trim_start();
+        if t.starts_with("crouch_height ") || t.starts_with("dash_attack_friction ") {
+            continue;
+        }
+        old.push_str(&line.replace("schema 2", "schema 1"));
+        old.push('\n');
+    }
+    assert!(old.contains("schema 1") && !old.contains("crouch_height"));
+    let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    // The shipped fighters' values are exactly what the migration fills in.
+    assert_eq!(bundle.content, Content::placeholder());
+    assert_eq!(bundle.manifest.schema, 2);
 }

@@ -16,20 +16,33 @@ const BLUE := Color(0.25, 0.5, 0.95)
 const SKEW := 0.22
 
 static var _font: Font
+static var _display: Font
 
 
-## Bold, italic, condensed-looking type: a system display face if there is one, the built-in font otherwise.
+## The game's type: Barlow Condensed (godot/fonts, SIL Open Font License), a bold condensed italic. `font()` for text, `display_font()`
+## (the extra-bold cut) for titles and big labels. Should the files be missing, a similar system face stands in.
 static func font() -> Font:
 	if _font == null:
-		var sys := SystemFont.new()
-		sys.font_names = PackedStringArray(["Bahnschrift SemiBold Condensed", "Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Impact", "Arial"])
-		sys.font_italic = true
-		sys.font_weight = 700
-		var v := FontVariation.new()
-		v.base_font = sys
-		v.variation_embolden = 0.25
-		_font = v
+		_font = _load("res://fonts/BarlowCondensed-BoldItalic.ttf")
 	return _font
+
+
+static func display_font() -> Font:
+	if _display == null:
+		_display = _load("res://fonts/BarlowCondensed-ExtraBoldItalic.ttf")
+	return _display
+
+
+static func _load(path: String) -> Font:
+	if ResourceLoader.exists(path):
+		var f: FontFile = load(path)
+		if f != null:
+			return f
+	var sys := SystemFont.new()
+	sys.font_names = PackedStringArray(["Bahnschrift SemiBold Condensed", "Bahnschrift Condensed", "Arial Narrow", "Arial"])
+	sys.font_italic = true
+	sys.font_weight = 700
+	return sys
 
 
 static func skew_points(rect: Rect2, skew := SKEW) -> PackedVector2Array:

@@ -16,7 +16,19 @@ func check(ok: bool, what: String) -> void:
 		failed = true
 
 
+## Every SVG under res://art is read as a file (svg_art.gd) and so must be kept, not imported as a texture: an imported one is left
+## out of the exported game, and that face or print goes missing in the build only.
+func _check_svgs_kept(dir: String) -> void:
+	for sub in DirAccess.get_directories_at(dir):
+		_check_svgs_kept(dir.path_join(sub))
+	for file in DirAccess.get_files_at(dir):
+		if file.ends_with(".svg.import"):
+			var text := FileAccess.get_file_as_string(dir.path_join(file))
+			check(text.contains("importer=\"keep\""), "%s is kept as a file (importer=\"keep\")" % dir.path_join(file))
+
+
 func _initialize() -> void:
+	_check_svgs_kept("res://art")
 	# A mesh with a plain material, as the import script exports them.
 	var mi := MeshInstance3D.new()
 	var box := BoxMesh.new()

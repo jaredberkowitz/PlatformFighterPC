@@ -3,7 +3,7 @@
 
 use sim_core::input::buttons::{JUMP, SHIELD};
 use sim_core::state::{Fighter, FighterState as S, NONE};
-use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS};
+use sim_core::{step, Content, FighterParams, Fx, GameState, Input, MAX_FIGHTERS};
 
 fn inp(x: i8, y: i8, buttons: u16) -> Input {
     Input {
@@ -635,6 +635,36 @@ fn ledge_jump_launches_up_and_toward_the_stage() {
     // It can act from frame 15.
     sim.ticks(usize::from(p.ledge_jump_frames), inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Airborne);
+}
+
+#[test]
+fn ledge_jump_peaks_above_the_stage_like_the_reference() {
+    // The reference game's ledge jump goes about 12% higher than a full hop, measured from the stage, so it clears the edge with
+    // room to spare and no double jump is needed. Marth-style duelist: 36.83 units (4.6 world units) above the stage.
+    for (fighter, height) in [(0, 36_830), (1, 36_010)] {
+        let mut sim = Sim::new();
+        sim.content.fighters[0] = sim.content.fighters[fighter];
+        sim.ready_on_left_ledge();
+        let stage_y = Fx::ZERO;
+        sim.tick(inp(0, 0, JUMP));
+        assert_eq!(sim.f().state, S::LedgeJump);
+        let mut peak = sim.f().pos.y;
+        for _ in 0..80 {
+            sim.tick(inp(0, 0, 0));
+            peak = peak.max(sim.f().pos.y);
+        }
+        let want = FighterParams::su(height);
+        let tolerance = Fx::from_ratio(1, 10);
+        assert!(
+            (peak - stage_y - want).abs() < tolerance,
+            "fighter {fighter}: peaks {peak:?} above the stage, want {want:?}"
+        );
+        assert_eq!(
+            sim.f().air_jumps_left,
+            sim.content.fighters[0].air_jumps,
+            "the double jump is kept"
+        );
+    }
 }
 
 #[test]

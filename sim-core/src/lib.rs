@@ -9,6 +9,7 @@
 pub mod collision;
 pub mod combat;
 pub mod content;
+pub mod cpu;
 pub mod fighter;
 pub mod fixed;
 pub mod fuzz;
@@ -16,6 +17,7 @@ pub mod grab;
 pub mod hash;
 pub mod input;
 pub mod moves;
+pub mod push;
 pub mod rng;
 pub mod scripting;
 pub mod state;
@@ -32,7 +34,7 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 34;
+pub const SIM_VERSION: u16 = 52;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;
 /// Persistent script variables each fighter and each projectile carries (see `sim-script`).

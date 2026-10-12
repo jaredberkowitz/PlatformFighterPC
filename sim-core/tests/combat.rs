@@ -136,13 +136,19 @@ fn out_of_range_attacks_miss() {
 fn the_claws_have_much_shorter_reach_than_the_sword() {
     let reach = |chars: [u8; 4]| {
         let mut sim = Sim::with_chars(chars);
+        // (Only the two of them: a bystander at a spawn point would push them about.)
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
         sim.stand(0, Fx::ZERO, 1);
-        sim.stand(1, fx(35, 10), -1);
+        sim.stand(1, fx(375, 100), -1);
         ftilt(&mut sim);
         sim.ticks(14, inp(0, 0, 0));
         sim.fighter(1).percent > Fx::ZERO
     };
-    assert!(reach([0, 0, 0, 0]), "the sword reaches 3.5 units");
+    assert!(
+        reach([0, 0, 0, 0]),
+        "the sword reaches 3.75 units (3.8 at the tip of its forward tilt; the claws 3.68)"
+    );
     assert!(!reach([1, 0, 0, 0]), "the claws do not");
 }
 
@@ -173,9 +179,16 @@ fn the_launch_follows_the_knockback_formula() {
     assert_eq!(kb, expected);
     let victim = sim.fighter(1);
     assert!(!victim.launch_pending, "the hit launches when hitlag ends");
-    // Launch speed is 0.03 reference units per knockback unit, 8 reference units per world unit.
+    // Launch speed is 0.03 reference units per knockback unit, 8 reference units per world unit. A tumbling launch also gains the
+    // gravity boost upward (5 times how much the victim's gravity exceeds the reference's 0.075).
     let expected_speed = expected * Fx::from_ratio(3, 800);
-    let speed = victim.kb_vel.length();
+    let rules = &sim.content.rules;
+    let boost = if victim.tumble {
+        rules.gravity_boost * (sim.content.fighters[1].gravity - rules.gravity_boost_from)
+    } else {
+        Fx::ZERO
+    };
+    let speed = sim_core::vec2::Vec2::new(victim.kb_vel.x, victim.kb_vel.y - boost).length();
     assert!(
         (speed - expected_speed).abs() < fx(1, 200),
         "{speed:?} vs {expected_speed:?}"
@@ -253,6 +266,8 @@ fn the_knockback_direction_mirrors_when_the_attacker_faces_left() {
     let mut sim = Sim::new();
     sim.stand(0, fx(30, 10), -1);
     sim.stand(1, fx(8, 10), 1);
+    // Damaged enough that the jab lifts it off the ground (the Sakurai angle rises from 60 knockback).
+    sim.state.fighters[1].percent = Fx::from_int(150);
     sim.tick(inp(-30, 0, ATTACK));
     ticks_until_hit(&mut sim, 20).expect("should hit");
     let lag = sim.fighter(1).hitlag;
@@ -281,9 +296,11 @@ fn a_weak_hit_on_a_grounded_fighter_slides_them_instead_of_launching_them() {
 
 /// The launch velocity after the victim holds `stick` through hitlag.
 fn launch_with_di(stick: (i8, i8)) -> Vec2 {
-    // A jab close in on a damaged victim: quick enough to land before the victim's held stick carries it away, strong enough to launch.
+    // A jab close in on a damaged victim just off the ground: quick enough to land before the victim's held stick carries it away,
+    // strong enough to launch (in the air the Sakurai angle is 38 degrees; a weak hit on the ground would only slide it).
     let mut sim = Sim::duel(fx(10, 10));
     sim.state.fighters[1].percent = Fx::from_int(80);
+    sim.put_airborne(1, fx(10, 10), fx(6, 10), Fx::ZERO, Fx::ZERO);
     sim.tick(inp(0, 0, ATTACK));
     for _ in 0..20 {
         sim.tick2(inp(0, 0, 0), inp(stick.0, stick.1, 0));
@@ -459,6 +476,8 @@ fn land_in_hitstun(press_shield: bool) -> (S, u8) {
     let f = &mut sim.state.fighters[1];
     f.state = S::Hitstun;
     f.hitstun = 60;
+    // Tumbling (a light hitstun lands on its feet, with nothing to tech).
+    f.tumble = true;
     f.pos = Vec2::new(Fx::ZERO, fx(5, 10));
     f.vel = Vec2::new(Fx::ZERO, fx(-2, 10));
     f.platform = sim_core::state::NONE;

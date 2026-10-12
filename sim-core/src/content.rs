@@ -16,6 +16,8 @@ pub const GROUND_SPEED_PERCENT: i32 = 100;
 /// "initial height" is about 0.55 of the full hop). The frame count is an estimate.
 pub const HOP_BURST_SHARE_PERCENT: i32 = 55;
 pub const HOP_BURST_FRAMES: u8 = 4;
+/// How far below a ledge a fighter hangs (its feet), the start of a ledge jump.
+pub const LEDGE_HANG_DY: Fx = Fx::from_ratio(9, 5);
 
 pub const MAX_PLATFORMS: usize = 8;
 pub const MAX_LEDGES: usize = 8;
@@ -47,12 +49,18 @@ pub struct FighterParams {
     /// A reversed dash stands still this many frames before it starts accelerating (the turnaround).
     pub dash_turn_delay: u8,
     pub turn_frames: u8,
+    /// How long a run's turnaround lasts (it skids to a stop facing the new way): longer than a turn from standing, as in the
+    /// reference game, where the run's turnaround is a visible slide. A jump in it is a reverse aerial rush, so this is that window.
+    pub run_turn_frames: u8,
     pub ground_accel: Fx,
     pub ground_friction: Fx,
     /// How fast speed above `run_speed` (left over from a dash) bleeds off while running.
     pub run_decel: Fx,
-    /// Friction while landing; lower than `ground_friction` so landing keeps momentum.
+    /// Friction during a landing's lag, whatever the stick does.
     pub landing_friction: Fx,
+    /// Friction while a dash attack slides: the reference game's traction (`ground_friction` is twice it, as traction is
+    /// above walking speed).
+    pub dash_attack_friction: Fx,
     // Air movement
     pub air_speed: Fx,
     /// Base air acceleration; the stick adds `air_accel_stick` scaled by how far it is pushed.
@@ -175,6 +183,8 @@ pub struct FighterParams {
     pub ledge_option_decay_3: u8,
     pub ledge_getup_dx: Fx,
     pub ledge_roll_dx: Fx,
+    /// The ledge jump's launch speed. Set (`ledge_jump_velocity_for`) so that, like the reference game's, it peaks a given height above
+    /// the stage (its `cliff_jump_y`, a little higher than a full hop): the climb from the hang is part of the jump.
     pub ledge_jump_velocity: Fx,
     pub ledge_jump_dx: Fx,
     pub ledge_trump_vx: Fx,
@@ -217,7 +227,7 @@ impl FighterParams {
     }
 
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 49] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 50] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -229,6 +239,7 @@ impl FighterParams {
             ("ground_friction", self.ground_friction),
             ("run_decel", self.run_decel),
             ("landing_friction", self.landing_friction),
+            ("dash_attack_friction", self.dash_attack_friction),
             ("air_speed", self.air_speed),
             ("air_accel", self.air_accel),
             ("air_accel_stick", self.air_accel_stick),
@@ -272,7 +283,7 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 57] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 58] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("dash_reverse_frames", u32::from(self.dash_reverse_frames)),
@@ -382,6 +393,7 @@ impl FighterParams {
             ("roll_back_frames", u32::from(self.roll_back_frames)),
             ("dash_frames", u32::from(self.dash_frames)),
             ("turn_frames", u32::from(self.turn_frames)),
+            ("run_turn_frames", u32::from(self.run_turn_frames)),
             ("helpless_landing_lag", u32::from(self.helpless_landing_lag)),
             ("ledge_attack_frames", u32::from(self.ledge_attack_frames)),
             ("weapon", u32::from(self.weapon)),
@@ -415,6 +427,11 @@ impl FighterParams {
         (gravity + (gravity * gravity + (gravity * height).mul_int(8)).sqrt()) * Fx::HALF
     }
 
+    /// The ledge jump's launch speed for a jump peaking `height` above the stage, from a hang `LEDGE_HANG_DY` below it.
+    pub fn ledge_jump_velocity_for(gravity: Fx, height: Fx) -> Fx {
+        Self::hop_velocity(gravity, height + LEDGE_HANG_DY)
+    }
+
     /// Full hop split into its fast opening and the arc after it: returns
     /// `(burst_velocity, arc_velocity)` so the whole hop peaks `height` above where it started.
     /// The opening covers [`HOP_BURST_SHARE_PERCENT`] of the height in [`HOP_BURST_FRAMES`] frames.
@@ -443,10 +460,12 @@ impl FighterParams {
             dash_turn_delay: 2,
             dash_shield_frame: 5,
             turn_frames: 6,
+            run_turn_frames: 12,
             ground_accel: gu(200),
             ground_friction: gu(220),
             run_decel: gu(60),
             landing_friction: gu(40),
+            dash_attack_friction: gu(110),
             air_speed: su(1100),
             air_accel: su(10),
             air_accel_stick: su(70),
@@ -511,7 +530,7 @@ impl FighterParams {
             ledge_min_drop: r(9, 10),
             ledge_reach_down: r(13, 5),
             ledge_hang_dx: r(4, 5),
-            ledge_hang_dy: r(9, 5),
+            ledge_hang_dy: LEDGE_HANG_DY,
             // Ledges follow the reference game: 6.5 seconds of hanging, a 19-frame grab, intangibility from airtime and damage on the
             // first grab only, six grabs between landings, a 40% shorter reach behind, and getup options of 34 frames (intangible
             // 1-33), a 45-frame roll (1-26) and a jump that can act on frame 15 (1-12), their intangibility cut to 80% and 50% on the
@@ -534,8 +553,9 @@ impl FighterParams {
             ledge_option_decay_3: 50,
             ledge_getup_dx: Fx::ONE,
             ledge_roll_dx: Fx::from_int(3),
-            ledge_jump_velocity: r(11, 50),
-            ledge_jump_dx: r(3, 50),
+            // The reference game: a ledge jump peaks about 36 units above the stage (12% over a full hop) and drifts at 0.6.
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(su(100), su(36000)),
+            ledge_jump_dx: su(600),
             ledge_trump_vx: r(1, 8),
             ledge_trump_vy: r(1, 15),
             ecb_half_width: r(4, 5),
@@ -554,7 +574,7 @@ impl FighterParams {
     /// Fast on the ground, light and floaty in the air: the "longsword duelist" body type.
     /// Movement numbers follow a swordfighter-style profile from the reference game, in world units.
     /// Marth-style reference: walk 1.575, run 1.964, dash 2.255, air speed 1.071, gravity 0.075,
-    /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66.
+    /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66, ledge jump 36.83.
     pub fn duelist() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
@@ -570,18 +590,20 @@ impl FighterParams {
             max_fall_speed: su(1580),
             fast_fall_speed: su(2528),
             ground_friction: gu(228),
+            dash_attack_friction: gu(114),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,
             short_hop_velocity: Self::hop_velocity(gravity, su(16260)),
             air_jump_velocity: Self::hop_velocity(gravity, su(33660)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36830)),
             ..FighterParams::base()
         }
     }
 
     /// Heavier, faster in the air, with a high gravity and fast fall: the "blaster brawler" body type.
     /// Wolf-style reference: walk 1.208, run 1.54, dash 2.09, air speed 1.281, gravity 0.13,
-    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71.
+    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71, ledge jump 36.01.
     pub fn brawler() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
@@ -607,43 +629,70 @@ impl FighterParams {
             air_dodge_intangible_end: 26,
             air_dodge_dir_intangible_end: 20,
             ground_friction: gu(220),
+            dash_attack_friction: gu(110),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,
             short_hop_velocity: Self::hop_velocity(gravity, su(15380)),
             air_jump_velocity: Self::hop_velocity(gravity, su(30710)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36010)),
             weight: Fx::from_int(92),
             weapon: 1,
             ..FighterParams::base()
         }
     }
-    /// Heavy and slow with a quick fall: the "hammer bruiser" body type.
-    pub fn bruiser() -> FighterParams {
+}
+
+impl FighterParams {
+    /// Light, fast on the ground, a high gravity and fast fall: the "rogue" body type of the Needles moveset. The reference game's
+    /// Sheik attributes (SmashWiki / ultimateframedata.com, `docs/sheik/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
+    /// run 2.42, traction 0.106, air speed 1.155, air acceleration 0.01 + 0.08, air friction 0.015, gravity 0.15, fall 1.75 (fast
+    /// 2.8), full hop 39, short hop 18.75, double jump 40; air dodges 44 (neutral, intangible 2-26) and 63 / 74 / 93 (directional,
+    /// intangible 2-19). The ledge jump height is not published: the duelist's (an estimate).
+    pub fn rogue() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
-        let gravity = su(97);
-        let (burst, arc) = Self::full_hop(gravity, su(32850));
+        let gravity = su(150);
+        let (burst, arc) = Self::full_hop(gravity, su(39000));
         FighterParams {
-            walk_speed: gu(1029),
-            run_speed: gu(1496),
-            dash_speed: gu(1815),
-            dash_initial_speed: gu(700),
-            air_speed: su(735),
-            air_accel_stick: su(40),
-            air_friction: su(6),
+            walk_speed: gu(1470),
+            run_speed: gu(2420),
+            dash_speed: gu(2178),
+            air_speed: su(1155),
+            air_accel: su(10),
+            air_accel_stick: su(80),
+            air_friction: su(15),
             gravity,
-            max_fall_speed: su(1950),
-            fast_fall_speed: su(3120),
-            ground_friction: gu(170),
+            max_fall_speed: su(1750),
+            fast_fall_speed: su(2800),
+            air_dodge_frames: 44,
+            air_dodge_dir_down_frames: 63,
+            air_dodge_dir_side_frames: 74,
+            air_dodge_dir_up_frames: 93,
+            air_dodge_intangible_start: 2,
+            air_dodge_intangible_end: 26,
+            air_dodge_dir_intangible_end: 19,
+            // Traction 0.106 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(212),
+            dash_attack_friction: gu(106),
             full_hop_velocity: arc,
             hop_burst_velocity: burst,
             hop_burst_frames: HOP_BURST_FRAMES,
-            short_hop_velocity: Self::hop_velocity(gravity, su(16020)),
-            air_jump_velocity: Self::hop_velocity(gravity, su(32850)),
-            air_jumps: 4,
-            heavy_landing_lag: 6,
-            weight: Fx::from_int(127),
+            short_hop_velocity: Self::hop_velocity(gravity, su(18750)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(40000)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36830)),
+            weight: Fx::from_int(78),
             weapon: 2,
+            // Dodges (the reference's): a forward roll of 26 frames, a backward one of 32, intangible on 4-12 (the backward roll's
+            // 4-14 is not separate here [D]); a spot dodge of 23, intangible on 3-14. The roll moves on frames 5-21 [E].
+            roll_frames: 26,
+            roll_back_frames: 32,
+            roll_move_end: 21,
+            roll_intangible_start: 4,
+            roll_intangible_end: 12,
+            spot_dodge_frames: 23,
+            spot_intangible_start: 3,
+            spot_intangible_end: 14,
             ..FighterParams::base()
         }
     }
@@ -790,6 +839,15 @@ pub struct Ruleset {
     pub lsi_up: Fx,
     pub lsi_down: Fx,
     pub lsi_vertical: u8,
+    /// Bodies on the ground push each other apart (see `push`): each is `push_ratio` of its ECB's half-width either side, the inner
+    /// `push_hard` of two bodies' combined width is a wall, and the rest eases apart at up to `push_speed` a frame.
+    pub push_ratio: Fx,
+    pub push_hard: Fx,
+    pub push_speed: Fx,
+    /// A jump leaves the ground with `jump_momentum` of the ground speed, at most `jump_momentum_max` times the fighter's air speed
+    /// (the reference game's jump speed multiplier and cap; the values are estimates).
+    pub jump_momentum: Fx,
+    pub jump_momentum_max: Fx,
     pub respawn_invuln: u8,
     /// A shield press this many frames before landing in hitstun is a tech.
     pub tech_window: u8,
@@ -870,6 +928,29 @@ pub struct Ruleset {
     /// A fighter in a long hitstun can air dodge out of it from this frame of the hitstun, and attack from the second.
     pub hitstun_dodge_cancel: u8,
     pub hitstun_attack_cancel: u8,
+    /// ...and only once the launch has slowed below these speeds (world units a frame; the reference's 2.5 and 2.0).
+    pub hitstun_dodge_cancel_speed: Fx,
+    pub hitstun_attack_cancel_speed: Fx,
+    /// Gravity boost: a tumbling launch outside the vertical band gains `gravity_boost * (gravity - gravity_boost_from)` of upward
+    /// speed, so a fighter that falls faster is launched a little higher (the reference's 5 and 0.075).
+    pub gravity_boost: Fx,
+    pub gravity_boost_from: Fx,
+    /// In the special fall after an up special, the share of its air speed and air acceleration a fighter keeps (a slight drift).
+    pub helpless_drift: Fx,
+    /// The first frames of an up special in which pushing the stick back turns it around (an estimate).
+    pub special_turn_window: u8,
+    /// A B-reverse: the stick pushed the other way in the first this many frames of a neutral or side special turns the fighter round and
+    /// reverses its momentum in the air (the reference game: within 4 frames of the special input).
+    pub special_reverse_window: u8,
+    /// The autolink angle's caps (world units a frame): the launch speed at most `autolink_max_speed` (the reference's 3, the speed
+    /// of 100 knockback) and the fall no faster than `autolink_max_fall` (the reference's 1).
+    pub autolink_max_speed: Fx,
+    pub autolink_max_fall: Fx,
+    /// The pull angle (ours, see `moves::ANGLE_PULL`): each frame the victim moves `pull_rate` of the way to the point `pull_gap` in
+    /// front of the attacker, at most `pull_max_speed` (world units a frame).
+    pub pull_rate: Fx,
+    pub pull_max_speed: Fx,
+    pub pull_gap: Fx,
     /// Hitlag factor of an electric hit (for both fighters).
     pub electric_hitlag_mult: Fx,
     /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
@@ -922,6 +1003,11 @@ impl Ruleset {
             lsi_up: Fx::from_ratio(1095, 1000),
             lsi_down: Fx::from_ratio(92, 100),
             lsi_vertical: 25,
+            push_ratio: Fx::from_ratio(3, 5),
+            push_hard: Fx::from_ratio(7, 10),
+            push_speed: Fx::from_ratio(3, 40),
+            jump_momentum: Fx::from_ratio(17, 20),
+            jump_momentum_max: Fx::from_ratio(5, 4),
             respawn_invuln: 120,
             tech_window: 11,
             tech_lag: 4,
@@ -966,6 +1052,18 @@ impl Ruleset {
             stale_moves: 1,
             hitstun_dodge_cancel: 40,
             hitstun_attack_cancel: 45,
+            hitstun_dodge_cancel_speed: Fx::from_ratio(25, 80),
+            hitstun_attack_cancel_speed: Fx::from_ratio(20, 80),
+            gravity_boost: Fx::from_int(5),
+            gravity_boost_from: Fx::from_ratio(75, 8000),
+            helpless_drift: Fx::from_ratio(1, 2),
+            special_turn_window: 3,
+            special_reverse_window: 4,
+            autolink_max_speed: Fx::from_ratio(3, 8),
+            autolink_max_fall: Fx::from_ratio(1, 8),
+            pull_rate: Fx::from_ratio(1, 3),
+            pull_max_speed: Fx::from_ratio(1, 2),
+            pull_gap: Fx::from_ratio(9, 10),
             electric_hitlag_mult: Fx::from_ratio(3, 2),
             asdi_distance: Fx::from_ratio(133, 800),
             sdi_combo_hits: 5,
@@ -976,7 +1074,7 @@ impl Ruleset {
             balloon_max: Fx::from_int(6),
             launch_fall_accel: Fx::from_ratio(87, 8000),
             launch_fall: Fx::from_ratio(15, 80),
-            launch_fall_frames: 10,
+            launch_fall_frames: 0,
             vertical_launch_fall: Fx::from_ratio(18, 80),
             vertical_launch_from: 70,
             vertical_launch_to: 110,
@@ -1006,6 +1104,11 @@ impl StateHash for Ruleset {
         self.lsi_up.hash_into(h);
         self.lsi_down.hash_into(h);
         h.write_u8(self.lsi_vertical);
+        self.push_ratio.hash_into(h);
+        self.push_hard.hash_into(h);
+        self.push_speed.hash_into(h);
+        self.jump_momentum.hash_into(h);
+        self.jump_momentum_max.hash_into(h);
         h.write_u8(self.respawn_invuln);
         h.write_u8(self.tech_window);
         h.write_u8(self.tech_lag);
@@ -1050,6 +1153,18 @@ impl StateHash for Ruleset {
         h.write_u8(self.stale_moves);
         h.write_u8(self.hitstun_dodge_cancel);
         h.write_u8(self.hitstun_attack_cancel);
+        self.hitstun_dodge_cancel_speed.hash_into(h);
+        self.hitstun_attack_cancel_speed.hash_into(h);
+        self.gravity_boost.hash_into(h);
+        self.gravity_boost_from.hash_into(h);
+        self.helpless_drift.hash_into(h);
+        h.write_u8(self.special_turn_window);
+        h.write_u8(self.special_reverse_window);
+        self.autolink_max_speed.hash_into(h);
+        self.autolink_max_fall.hash_into(h);
+        self.pull_rate.hash_into(h);
+        self.pull_max_speed.hash_into(h);
+        self.pull_gap.hash_into(h);
         self.electric_hitlag_mult.hash_into(h);
         self.asdi_distance.hash_into(h);
         h.write_u8(self.sdi_combo_hits);
@@ -1135,18 +1250,18 @@ impl Content {
         h.finish()
     }
 
-    /// Three placeholder fighters (a swordfighter, a close-range brawler and a hammer bruiser) on a main stage with platforms.
+    /// The built-in fighters (a swordfighter, a close-range brawler and a quick rogue) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
                 FighterParams::duelist(),
                 FighterParams::brawler(),
-                FighterParams::bruiser(),
+                FighterParams::rogue(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
                 crate::moves::claws(),
-                crate::moves::maul(),
+                crate::moves::needles(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1155,12 +1270,12 @@ impl Content {
                 fighters: vec![
                     "duelist".to_string(),
                     "brawler".to_string(),
-                    "bruiser".to_string(),
+                    "rogue".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
                     "claws".to_string(),
-                    "maul".to_string(),
+                    "needles".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },
@@ -1202,6 +1317,11 @@ mod tests {
             |r: &mut Ruleset| r.lsi_up += Fx::from_raw(1),
             |r: &mut Ruleset| r.lsi_down += Fx::from_raw(1),
             |r: &mut Ruleset| r.lsi_vertical += 1,
+            |r: &mut Ruleset| r.push_ratio += Fx::from_raw(1),
+            |r: &mut Ruleset| r.push_hard += Fx::from_raw(1),
+            |r: &mut Ruleset| r.push_speed += Fx::from_raw(1),
+            |r: &mut Ruleset| r.jump_momentum += Fx::from_raw(1),
+            |r: &mut Ruleset| r.jump_momentum_max += Fx::from_raw(1),
         ] {
             let mut c = base.clone();
             change(&mut c.rules);

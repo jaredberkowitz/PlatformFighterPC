@@ -29,7 +29,7 @@ still exist the two must agree; if you change a number in code, re-export the fi
 ```text
 # comment to end of line
 bundle {                         # the manifest, required
-    schema 1
+    schema 2
     name "Base Roster"
     sim_version 19
     hash af788ccc46c9f9e2
@@ -70,7 +70,9 @@ A move block (omitted fields take the default shown):
 | `charge_at` | smash attack hold frame | none |
 | `next`, `next_window` | jab chain: move to continue into, and the press window | none |
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |
-| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric` | |
+| `rehit_groups` | the hit groups the rehit rhythm re-arms, a bit per group (a looping phase is re-armed, its final hit is not) | 255 (all) |
+| `landing_move` | a move (usually an `ext` slot) started when this aerial lands outside its autocancel windows: a landing hit; its length is the landing lag | none |
+| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] [targets] [fixed_kb] [hitstun_add] [sdi] [link_ahead] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric`; `group` 0 to 7 (each group hits a target once per move, or once per rehit); `targets` is `all`, `grounded` or `aerial`; `fixed_kb` set knockback (the same at any percent; 0 = normal); `hitstun_add` extra hitstun frames; `sdi` the percent of the normal survival-DI distance (default 100). `link_ahead` moves an autolink's pull point that far in front of the hitbox (world units). `angle` 361 is the Sakurai angle, 367 the autolink angle (an airborne victim is carried along at the attacker's velocity and pulled toward the hitbox; a grounded one goes up at 80) and 368 the pull angle (ours: no launch; the victim is drawn to just in front of the attacker, or a projectile's owner, while its hitstun lasts) | |
 | `motion { start end vx vy }` | scripted-motion segments (`vx` forward-relative) | |
 | `projectile { frame x y speed life end_damage  hitbox { ... } }` | at most one | |
 | `reflector { start end x y radius damage_percent speed_percent }` | at most one | |
@@ -129,12 +131,15 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`, `jump`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap` and `special_tap` are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
-`hit` is 1 once the move has connected.
+`hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
-`intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`.
+`intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`.
+
+* `store(n)` keeps a charge of `n` (0 to 255) on the fighter after the move ends, read back by any later script as `stored`
+  (the needles a fighter has charged and saved); a KO clears it. `store(0)` spends it.
 
 * `set_vel` replaces the move's data motion and normal physics for that frame (like a `motion` segment); stop
   calling it and gravity and air drift resume. On the ground it follows the ground: it never pushes the fighter
@@ -179,8 +184,9 @@ Line numbers inside a script count from its first non-blank line.
   migration in `sim-content/src/bundle.rs` (`MIGRATIONS`), which rewrites the old file's tree one version at a
   time on load, so old content keeps loading. Adding an optional field does not need a bump. A file with a newer
   schema than the build understands is refused with a clear message. Migrations are tested with a stand-in chain
-  (`old_files_are_migrated_on_load`, `migrations_chain_in_order`); there is no real migration yet because there has
-  only been one schema.
+  (`old_files_are_migrated_on_load`, `migrations_chain_in_order`). The first real one is schema 1 to 2 (sim v34 and v35): every
+  fighter gained a required `crouch_height` and `dash_attack_friction`, and a schema 1 fighter that does not inherit gets 0.6 and
+  half its `ground_friction` (tested by `a_schema_1_file_from_before_crouch_height_and_dash_attack_friction_still_loads`).
 * `sim_version` is the simulation's behaviour version (`SIM_VERSION`). Content packed for another version is
   refused: the same numbers can play differently.
 * `hash` fingerprints everything the simulation reads (sim version, parameters, movesets including script

@@ -35,7 +35,7 @@ from what only a person on real hardware and a real network (or a publisher) can
 
 * **A list of games, skill-based matchmaking, regions**: Quick match exists (the relay pairs whoever is waiting, `docs/MATCHES.md`), but it is first-come only and
   needs someone to run and publish a relay; nobody has hosted one on the internet yet.
-* **More archetypes** beyond the three classes (longsword, claws, maul), per-move animation clips beyond the three attack types, and *composed* music (the
+* **More archetypes** beyond the two classes (longsword, claws; a maul was removed for now), per-move animation clips beyond the three attack types, and *composed* music (the
   game has synthesised placeholder tracks that nobody has listened to).
 * **Reporting and moderation for shared content** (needs an account or a server to act on; the name filter in the policy document is all there is),
   a privacy policy, terms of service and an age rating. The groundwork is written: what the game stores and sends is in `docs/DATA_FLOW.md`, and every

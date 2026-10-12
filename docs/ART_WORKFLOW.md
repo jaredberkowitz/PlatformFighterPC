@@ -22,7 +22,8 @@ Every asset follows these, whatever made it:
   shadows (each stage turns them toward its own hue, `lighting.gd` `MOODS`), draws the rim light and the ink lines. A colour that is
   only a darker version of another is a mistake (the clean-up step merges those).
 - **Outlines** come from the game (the cel material's ink hull and the post-process), never from the model or its texture.
-- **Faces** are 2D drawings (`godot/art/faces/*.svg`) laid on the head. A generated character's head must be **blank**.
+- **Faces** are 2D drawings put together from parts (`godot/art/face_parts/`, see `docs/ART_PIPELINE.md`) laid on the head. A generated
+  character's head must be **blank**.
 - **Originality**: the reference image is a style target only. Never feed another game's characters, screenshots or logos to a
   generator, never ask for a "character from X" or "in the style of X game", and keep names clear of the blocked list (`Roster.name_problem`).
   Everything we ship must be ours.
@@ -177,7 +178,7 @@ Still to do for the base body: the neckwear's fit, and the licence of the free-p
 ## 6. Review
 
 - **See it in the game**, in every stage's light: `--demo=stage --stage=N --noui --shots=<dir>` (stages), `tests/lineup_shot.gd` and
-  `tests/anim_sheet.gd` (characters), `--demo=fx_<sword|claws|maul>_<move> --noui --shots=<dir>` (effects, steady camera).
+  `tests/anim_sheet.gd` (characters), `--demo=fx_<sword|claws>_<move> --noui --shots=<dir>` (effects, steady camera).
 - **Checklist**: the silhouette reads at match distance; colour count and triangles within budget (the report); no baked shading left
   (a shaded side darker than the game's own shadow is baked); outlines only round the outside and real edges; it sits in each stage's
   mood (shadows turned to the stage's hue still read); nothing clips or floats; the name and the design are original.

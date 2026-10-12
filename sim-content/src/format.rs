@@ -9,7 +9,8 @@ use sim_core::content::{
 };
 use sim_core::moves::{
     Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, EFFECT_ELECTRIC,
-    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_ALL,
+    TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -293,10 +294,12 @@ params_io! {
     dash_turn_delay: u8,
     dash_shield_frame: u8,
     turn_frames: u8,
+    run_turn_frames: u8,
     ground_accel: Fx,
     ground_friction: Fx,
     run_decel: Fx,
     landing_friction: Fx,
+    dash_attack_friction: Fx,
     air_speed: Fx,
     air_accel: Fx,
     air_accel_stick: Fx,
@@ -400,6 +403,11 @@ rules_io! {
     lsi_up: Fx,
     lsi_down: Fx,
     lsi_vertical: u8,
+    push_ratio: Fx,
+    push_hard: Fx,
+    push_speed: Fx,
+    jump_momentum: Fx,
+    jump_momentum_max: Fx,
     respawn_invuln: u8,
     tech_window: u8,
     tech_lag: u8,
@@ -444,6 +452,18 @@ rules_io! {
     stale_moves: u8,
     hitstun_dodge_cancel: u8,
     hitstun_attack_cancel: u8,
+    hitstun_dodge_cancel_speed: Fx,
+    hitstun_attack_cancel_speed: Fx,
+    gravity_boost: Fx,
+    gravity_boost_from: Fx,
+    helpless_drift: Fx,
+    special_turn_window: u8,
+    special_reverse_window: u8,
+    autolink_max_speed: Fx,
+    autolink_max_fall: Fx,
+    pull_rate: Fx,
+    pull_max_speed: Fx,
+    pull_gap: Fx,
     electric_hitlag_mult: Fx,
     asdi_distance: Fx,
     sdi_combo_hits: u8,
@@ -510,6 +530,19 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             EFFECT_NORMAL
         }
     };
+    let targets = match f.raw("targets") {
+        None | Some(("all", _)) => TARGETS_ALL,
+        Some(("grounded", _)) => TARGETS_GROUNDED,
+        Some(("aerial", _)) => TARGETS_AERIAL,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox targets must be all, grounded or aerial, not `{other}`"),
+            );
+            TARGETS_ALL
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -526,6 +559,11 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         shield_damage: f.or("shield_damage", 100, errors),
         hitlag: f.or("hitlag", 100, errors),
         effect,
+        targets,
+        fixed_kb: f.or("fixed_kb", 0, errors),
+        hitstun_add: f.or("hitstun_add", 0, errors),
+        sdi: f.or("sdi", 100, errors),
+        link_ahead: f.or("link_ahead", Fx::ZERO, errors),
     };
     f.finish(errors);
     hb
@@ -559,6 +597,23 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.effect == EFFECT_ELECTRIC {
         b.field("effect", "electric");
+    }
+    match hb.targets {
+        TARGETS_GROUNDED => b.field("targets", "grounded"),
+        TARGETS_AERIAL => b.field("targets", "aerial"),
+        _ => {}
+    }
+    if hb.fixed_kb != 0 {
+        b.field("fixed_kb", hb.fixed_kb.to_string());
+    }
+    if hb.hitstun_add != 0 {
+        b.field("hitstun_add", hb.hitstun_add.to_string());
+    }
+    if hb.sdi != 100 {
+        b.field("sdi", hb.sdi.to_string());
+    }
+    if hb.link_ahead != Fx::ZERO {
+        b.field("link_ahead", hb.link_ahead.show());
     }
     b
 }
@@ -610,6 +665,17 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 errors,
                 line,
                 format!("`next` must be a move name, not `{key}`"),
+            ),
+        }
+    }
+    m.rehit_groups = f.or("rehit_groups", 0xff, errors);
+    if let Some((key, line)) = f.raw("landing_move") {
+        match MoveId::from_key(key) {
+            Some(id) => m.landing_move = Some(id as u8),
+            None => err(
+                errors,
+                line,
+                format!("`landing_move` must be a move name, not `{key}`"),
             ),
         }
     }
@@ -683,6 +749,11 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     shield_damage: 100,
                     hitlag: 100,
                     effect: EFFECT_NORMAL,
+                    targets: TARGETS_ALL,
+                    fixed_kb: 0,
+                    hitstun_add: 0,
+                    sdi: 100,
+                    link_ahead: Fx::ZERO,
                 }
             }
         };
@@ -787,6 +858,12 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if let Some((start, every)) = m.rehit {
         b.field("rehit_start", start.to_string());
         b.field("rehit_every", every.to_string());
+    }
+    if m.rehit_groups != 0xff {
+        b.field("rehit_groups", m.rehit_groups.to_string());
+    }
+    if let Some(id) = m.landing_move {
+        b.field("landing_move", MoveId::from_index(id).key());
     }
     if m.counter_strike {
         b.field("counter_strike", "true");

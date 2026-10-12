@@ -16,8 +16,8 @@ use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
-    Hitbox, Move, MoveId, Reflector, Weapon, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_THROW,
+    Hitbox, Move, MoveId, Reflector, Weapon, ANGLE_AUTOLINK, ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB,
+    HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -111,6 +111,16 @@ pub fn knockback(percent: Fx, damage: Fx, weight: Fx, base: i16, growth: i16) ->
     kb * Fx::from_ratio(i32::from(growth), 100) + Fx::from_int(i32::from(base))
 }
 
+/// Set knockback (a hitbox's `fixed_kb`): the reference's formula with the set value standing in for the victim's percent after the
+/// hit and the damage term dropped, so it is the same at any percent: `((fkv * 10 / 20 + 1) * 1.4 * 200 / (weight + 100) + 18) * growth
+/// / 100 + base`.
+pub fn fixed_knockback(fkv: u16, weight: Fx, base: i16, growth: i16) -> Fx {
+    let mut kb = Fx::from_int(i32::from(fkv)) * Fx::from_ratio(10, 20) + Fx::ONE;
+    kb = kb * Fx::from_ratio(7, 5) * (Fx::from_int(200) / (weight + Fx::from_int(100)));
+    kb += Fx::from_int(18);
+    kb * Fx::from_ratio(i32::from(growth), 100) + Fx::from_int(i32::from(base))
+}
+
 /// Hitlag in frames for a hit of `damage`: `floor(d * 0.65 + 6)` in the standard rules, times the hitbox's own factor `scale`
 /// (its hitlag multiplier, and 1.5 for an electric hit), times 0.67 on a shield, times 0.67 again against a crouch, at most
 /// `hitlag_cap`. A hit that deals no damage has none.
@@ -176,13 +186,19 @@ pub fn rage_multiplier(attacker_percent: Fx, rules: &Ruleset) -> Fx {
 
 /// World launch angle: mirrored when the attacker faces left, with the 361 "Sakurai" angle resolved.
 pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, kb: Fx) -> Angle {
+    // The reference's rules (SmashWiki, "Sakurai angle"): against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38
+    // at 88 and 38 above; against an airborne one always 38. A move aimed straight sideways (0) rises to 32 from 120 knockback.
     let mut d = i32::from(degrees);
     if d == 361 {
-        d = if defender_grounded && kb < Fx::from_int(32) {
+        d = if !defender_grounded || kb >= Fx::from_int(88) {
+            38
+        } else if kb <= Fx::from_int(60) {
             0
         } else {
-            44
+            ((kb - Fx::from_int(60)).mul_int(38) / Fx::from_int(28)).floor_int()
         };
+    } else if d == 0 && kb >= Fx::from_int(120) {
+        d = 32;
     }
     if attacker_facing < 0 {
         d = 180 - d;
@@ -190,9 +206,32 @@ pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, 
     Angle::from_degrees(d)
 }
 
-/// The bit that records "this attacker already hit fighter `d` with hitbox group `g`".
-fn hit_bit(d: usize, group: u8) -> u8 {
-    1 << (d + MAX_FIGHTERS * usize::from(group.min(1)))
+/// The bit that records "this attacker already hit fighter `d` with hitbox group `g`" (eight groups).
+pub fn hit_bit(d: usize, group: u8) -> u32 {
+    1 << (d + MAX_FIGHTERS * usize::from(group.min(7)))
+}
+
+/// The bits of every fighter for the hit groups in `groups` (bit `g` for group `g`): what a multi-hit's rehit clears.
+pub fn group_bits(groups: u8) -> u32 {
+    let mut bits = 0;
+    for g in 0..8u8 {
+        if groups & (1 << g) != 0 {
+            for d in 0..MAX_FIGHTERS {
+                bits |= hit_bit(d, g);
+            }
+        }
+    }
+    bits
+}
+
+/// Whether a hitbox can hit this fighter at all: a grounded-only one misses a fighter in the air and an aerial-only one a fighter on
+/// the ground.
+fn hits_target(hb: &Hitbox, target: &Fighter) -> bool {
+    match hb.targets {
+        TARGETS_GROUNDED => target.grounded(),
+        TARGETS_AERIAL => !target.grounded(),
+        _ => true,
+    }
 }
 
 /// Finds and applies this frame's hits. Everything is collected before anything changes, so a trade
@@ -204,6 +243,8 @@ fn hit_bit(d: usize, group: u8) -> u8 {
 pub fn resolve_hits(state: &mut GameState, content: &Content) {
     let mut chosen: [[Option<Hitbox>; MAX_FIGHTERS]; MAX_FIGHTERS] =
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
+    // Where each chosen hitbox was (for an autolink's pull).
+    let mut chosen_at = [[Vec2::ZERO; MAX_FIGHTERS]; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
         if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
@@ -222,7 +263,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             let hurt = hurtboxes(fd, pd, weapon_of(content, pd));
             let mut best: Option<Hitbox> = None;
             for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
-                if fa.hit_mask & hit_bit(d, hb.group) != 0 {
+                if fa.hit_mask & hit_bit(d, hb.group) != 0 || !hits_target(&hb, fd) {
                     continue;
                 }
                 let touching = match hb.kind {
@@ -243,6 +284,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 };
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
                     best = Some(hb);
+                    chosen_at[a][d] = center;
                 }
             }
             chosen[a][d] = best;
@@ -306,6 +348,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 true,
                                 Fx::ONE,
                                 attacker.move_id,
+                                (chosen_at[a][d], attacker.vel),
                             );
                         }
                         _ => {
@@ -321,6 +364,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 true,
                                 mult,
                                 attacker.move_id,
+                                (chosen_at[a][d], attacker.vel),
                             );
                         }
                     }
@@ -548,7 +592,7 @@ fn catch_with_counter(
 
 /// Applies one hit: damage, knockback, hitlag and the victim's state change. `source` is the fighter
 /// responsible (the attacker, or a projectile's owner). Only a melee attacker is frozen by hitlag. `move_id` is the source's move
-/// that hit, for stale-move negation.
+/// that hit, for stale-move negation. `link` is where the hitbox was and how fast its owner was moving (for an autolink angle).
 #[allow(clippy::too_many_arguments)]
 fn apply_hit(
     state: &mut GameState,
@@ -561,6 +605,7 @@ fn apply_hit(
     freeze_source: bool,
     stun_mult: Fx,
     move_id: u8,
+    link: (Vec2, Vec2),
 ) {
     let rules = &content.rules;
     // Stale-move negation: a move used again and again deals less damage (and a little less knockback); a fresh one a little more.
@@ -618,6 +663,7 @@ fn apply_hit(
     }
 
     let rage = rage_multiplier(state.fighters[source].percent, rules);
+    let puller = state.fighters[source].pos;
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
@@ -630,19 +676,42 @@ fn apply_hit(
     }
 
     def.percent = (def.percent + hb.damage * rules.damage_mult).min(Fx::from_int(999));
-    let mut kb = knockback(
-        def.percent,
-        kb_damage,
-        defender_params.weight,
-        hb.base_knockback,
-        hb.knockback_growth,
-    ) * rage;
+    let mut kb = if hb.fixed_kb > 0 {
+        fixed_knockback(
+            hb.fixed_kb,
+            defender_params.weight,
+            hb.base_knockback,
+            hb.knockback_growth,
+        )
+    } else {
+        knockback(
+            def.percent,
+            kb_damage,
+            defender_params.weight,
+            hb.base_knockback,
+            hb.knockback_growth,
+        ) * rage
+    };
     if crouching {
         // Crouch cancelling: holding down on the ground takes some of the knockback off.
         kb = kb * rules.crouch_cancel_kb;
     }
-    let angle = launch_angle(hb.angle, facing, def.grounded(), kb);
-    let stun = hitstun_frames(kb, rules.hitstun_mult);
+    // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
+    let link_hit = hb.angle == ANGLE_AUTOLINK && !def.grounded();
+    // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
+    let pull_hit = hb.angle == ANGLE_PULL;
+    let degrees = if hb.angle == ANGLE_AUTOLINK {
+        80
+    } else if pull_hit {
+        0
+    } else {
+        hb.angle
+    };
+    let angle = launch_angle(degrees, facing, def.grounded(), kb);
+    let mut stun = hitstun_frames(kb, rules.hitstun_mult);
+    if stun > 0 {
+        stun = stun.saturating_add(u16::from(hb.hitstun_add));
+    }
 
     def.hitlag = if crouching {
         hitlag.min(rules.crouch_cancel_hitlag_cap)
@@ -650,6 +719,7 @@ fn apply_hit(
         hitlag
     };
     def.sdi_wait = 0;
+    def.sdi_mult = hb.sdi;
     // Electric hits let the victim drift with the held stick as hitlag ends (automatic SDI), twice.
     def.asdi = if electric { 2 } else { 0 };
     // Hits taken while still in hitstun are one combo (survival DI grows over a long one).
@@ -678,6 +748,15 @@ fn apply_hit(
     def.launch_pending = true;
     def.launch_kb = kb;
     def.launch_angle = angle.raw();
+    def.link = link_hit;
+    def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
+    def.link_vel = link.1;
+    def.pull = pull_hit;
+    if pull_hit {
+        // Just in front of whoever pulled it, on the victim's side.
+        let side = if def.pos.x >= puller.x { 1 } else { -1 };
+        def.link_point = puller + Vec2::new(rules.pull_gap.mul_int(side), Fx::ZERO);
+    }
     def.kb_vel = Vec2::ZERO;
     def.fast_fall = false;
     def.tumble = false;
@@ -863,7 +942,17 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 // Projectiles stun a shield much less.
                 let mult = Fx::from_ratio(29, 100);
                 apply_hit(
-                    state, content, owner, d, &hb, facing, pos, false, mult, pr.move_id,
+                    state,
+                    content,
+                    owner,
+                    d,
+                    &hb,
+                    facing,
+                    pos,
+                    false,
+                    mult,
+                    pr.move_id,
+                    (pos, pr.vel),
                 );
                 state.projectiles[n].active = false;
                 break;
@@ -1093,9 +1182,16 @@ mod tests {
             Angle::from_degrees(0).raw(),
             "weak grounded hit is horizontal"
         );
-        assert_eq!(a(361, 1, true, 60), Angle::from_degrees(44).raw());
-        assert_eq!(a(361, 1, false, 20), Angle::from_degrees(44).raw());
-        assert_eq!(a(361, -1, false, 60), Angle::from_degrees(136).raw());
+        // The reference's: grounded 0 up to 60 knockback, 38 from 88, evenly between (19 at 74); airborne always 38.
+        assert_eq!(a(361, 1, true, 60), Angle::from_degrees(0).raw());
+        assert_eq!(a(361, 1, true, 74), Angle::from_degrees(19).raw());
+        assert_eq!(a(361, 1, true, 88), Angle::from_degrees(38).raw());
+        assert_eq!(a(361, 1, true, 150), Angle::from_degrees(38).raw());
+        assert_eq!(a(361, 1, false, 20), Angle::from_degrees(38).raw());
+        assert_eq!(a(361, -1, false, 60), Angle::from_degrees(142).raw());
+        // A sideways (0 degree) move rises to 32 from 120 knockback.
+        assert_eq!(a(0, 1, true, 119), Angle::from_degrees(0).raw());
+        assert_eq!(a(0, 1, false, 120), Angle::from_degrees(32).raw());
     }
 
     #[test]

@@ -40,34 +40,38 @@ Movement now follows the reference game's published attributes. **One world unit
 tall fighter is 2.2 tall (`FighterParams::su(thousandths)` does the conversion). Jump velocities are *derived* from the
 reference jump heights and gravity (`FighterParams::hop_velocity`), and tests assert the measured apex matches.
 
-| | Duelist (sword archetype) | Brawler (blaster archetype) | Bruiser (hammer heavyweight archetype, sim v34) |
-| --- | --- | --- | --- |
-| Walk / run / dash | 1.575 / 1.964 / 2.255 | 1.208 / 1.54 / 2.09 | 1.029 / 1.496 / 1.815 |
-| Air speed | 1.071 | 1.281 | 0.735 |
-| Air acceleration (base + stick) | 0.01 + 0.07 | 0.01 + 0.08 | 0.01 + 0.04 |
-| Gravity | 0.075 | 0.13 | 0.097 |
-| Fall / fast fall | 1.58 / 2.528 | 1.8 / 2.88 | 1.95 / 3.12 |
-| Full hop / short hop / air jump | 33.66 / 16.26 / 33.66 | 32.02 / 15.38 / 30.71 | 32.85 / 16.02 / 32.85 |
-| Air jumps | 1 | 1 | 4 |
-| Weight | 90 | 92 | 127 |
-| Hard landing lag | 4 | 4 | 6 |
-| Jump squat | 3 frames | 3 frames | 3 frames |
+| | Duelist (sword archetype) | Brawler (blaster archetype) |
+| --- | --- | --- |
+| Walk / run / dash | 1.575 / 1.964 / 2.255 | 1.208 / 1.54 / 2.09 |
+| Air speed | 1.071 | 1.281 |
+| Air acceleration (base + stick) | 0.01 + 0.07 | 0.01 + 0.08 |
+| Gravity | 0.075 | 0.13 |
+| Fall / fast fall | 1.58 / 2.528 | 1.8 / 2.88 |
+| Full hop / short hop / air jump | 33.66 / 16.26 / 33.66 | 32.02 / 15.38 / 30.71 |
+| Air jumps | 1 | 1 |
+| Weight | 90 | 92 |
+| Hard landing lag | 4 | 4 |
+| Jump squat | 3 frames | 3 frames |
 
-Source: the public attribute tables for the reference characters (ssbwiki.com, ultimateframedata.com). The bruiser had placeholder
-numbers until sim v34; it now has the hammer-wielding heavyweight's, including its four midair jumps (traction 0.085 and air friction
-0.006 from the same tables; ground friction is doubled from the table's traction like the others). Air friction values were not
+Source: the public attribute tables for the reference characters (ssbwiki.com, ultimateframedata.com). (A third body type, the bruiser, had the
+hammer-wielding heavyweight's attributes in sims v34 and v35; it was removed in v36 with its moveset.) Air friction values were not
 available for the duelist and are estimates. Air dodge, wavedash, shield drop and ledge numbers are unchanged.
 
 The placeholder stage is now Final Destination-sized (main block 22 wide, side platforms 3.6 up) so run speeds feel right.
 
 ## Momentum rules
 
-- Jump squat applies no friction, so a run or dash jump keeps its speed off the ground.
+- Jump squat applies no friction, so a run or dash jump takes its speed off the ground (reduced and capped at takeoff since sim
+  v36: see "Running jumps and bodies on the ground").
 - In the air, speed above `air_speed` is never cut by the stick; only light `air_friction` drags it down. Air acceleration
   is `air_accel + air_accel_stick * stick_tilt`.
 - Walking off a ledge keeps momentum the same way.
-- Landing while holding the stick the way you are moving goes straight into a **run** (no walk phase), and speed above
-  the target eases off at `run_decel` instead of snapping.
+- Landing bleeds speed off at `landing_friction` whatever the stick does, and holding the stick walks on afterwards: as in the
+  reference game, a run needs a new dash (sim v35; until then a held stick landed straight into a run at full run speed, which on
+  a keyboard happened after every drifting jump and felt slippery). Walking faster than walk speed slows at traction
+  (`ground_friction`), not the gentle `run_decel`.
+- A dash attack slides on the reference game's traction (`dash_attack_friction`: 0.114, 0.11 and 0.085 reference units a frame for
+  the three classes), about two world units out of a run (sim v35; it slid nearly twice as far before).
 
 ## Ledge grab rule (bug fix)
 
@@ -83,6 +87,34 @@ edge). Walking off now means falling for a moment first.
 - **`GROUND_SPEED_PERCENT`** (in `sim-core/src/content.rs`, currently 90) scales every ground speed, acceleration and
   friction at once, so starts and stops keep their timing and only the distances shrink. Air speed and jump heights use
   the unscaled reference values. Lower the number to slow the ground game further, or set it to 100 for the raw reference.
+
+## Running jumps and bodies on the ground (sim v36)
+
+- **Running or walking off a platform** takes the speed into the air the same way as a jump (sim v37): reduced and capped.
+- **A running jump no longer carries the run's speed.** The reference game takes the ground speed into the air through a
+  multiplier and a cap (its `jump_speed_x_mul` and `jump_speed_x_max`); here a jump leaves the ground with `jump_momentum` (0.85)
+  of the ground speed, at most `jump_momentum_max` (1.25) times the fighter's air speed. The duelist's run jump now leaves at 1.34
+  reference units a frame (its full drift is 1.07, its run 1.96, which it used to keep through the whole jump). The reference's
+  per-character values are not published, so these two are estimates, kept in the ruleset to tune.
+- **Bodies on the ground do not pass through each other** (`sim-core/src/push.rs`). Each body is `push_ratio` (0.6) of its ECB's
+  half-width either side. Moving into the inner `push_hard` (0.7) of two bodies' width is undone (the one who came in stops; a
+  runner is stopped by a standing fighter rather than shoving it), and the rest of the overlap eases apart at up to `push_speed`
+  (0.075 world units) a frame each. Attacks are untouched: a fighter in an attack is never moved (the other gives way), two
+  attackers pass, and hitboxes, hurtboxes and grabs are as before (a fighter pressed against another still grabs it). Rolls, spot
+  dodges, get-ups, anyone intangible, hit, held or in the air pass straight through, and no one is pushed off a platform's edge.
+- Tests: `sim-core/tests/reference_feel.rs`.
+
+## Reverse aerial rush and the run's skid (sim v35)
+
+- **RAR out of the initial dash** (the reference game's way): back with the jump, or a jump within the first frames of the dash
+  turnaround (`dash_turn_delay`), jumps facing back but still moving forward at the dash's speed, so a back aerial leads. The
+  turnaround keeps the dash's speed for this (`Fighter::turn_speed`); without a jump it is an ordinary dash dance.
+- **Out of a run**: pushing back starts the run's skid (a turn that slides to a stop facing the new way). The skid is committed: the
+  flick that started it, still in the input buffer, or a new one, no longer cuts it into a dash the other way (which used to kill the
+  momentum after one frame). A jump at any point of the skid keeps the speed left, facing back. Back with the jump on the same frame
+  counts too, and a soft push back is enough (a keyboard's second key during a run is not a flick). Holding back through the skid
+  runs the other way once it ends.
+- Tests: `sim-core/tests/reference_feel.rs`.
 
 ## Dash dance and jump-ins
 
@@ -279,7 +311,8 @@ the shield, Smash 4 style), on purpose.
   frames (capped at 300), percent capped at 120: 63 at 0% after a short fall, up to 123 after a long time in the air, 23 at 120%. A
   **regrab** without landing or being hit gets **none**.
 - **Options**: get up 34 frames (intangible 1-33), roll 45 (1-26), ledge attack 55 (its move's intangibility), ledge jump (new state
-  `LedgeJump`, can act on frame 15, intangible 1-12). On the second grab without landing their intangibility is **80%**, on the third
+  `LedgeJump`, can act on frame 15, intangible 1-12; like the reference game's it peaks its `cliff_jump_y` above the **stage**, about
+  12% over a full hop: 36.83 units for the duelist, 36.01 for the brawler, drifting at 0.6, and keeps the double jump). On the second grab without landing their intangibility is **80%**, on the third
   **50%**, from the fourth **none**. Jump wins over attack when both are pressed.
 - **Six grabs** between landings (or hits); a seventh does not catch the ledge (`ledge_grab_limit`).
 - Letting go by pressing down or away **ends the ledge intangibility** at once; trumping takes it away too.
@@ -322,3 +355,16 @@ exactly that distance.
 Tests: `sim-core/tests/feel.rs` (a tap covers the whole dash and matches `initial_dash_distance`, a second tap changes nothing, dash dance out of
 a tapped dash, no crouch or tilt, smash attacks out of it, the shield at half) and `ground_and_collision.rs` (letting go no longer cancels it;
 any tap shorter than the dash goes as far).
+
+## Short-hop fast-fall aerials and the attack stick (sim 48)
+
+Short hop air times match the reference's published ones (ultimateframedata.com, Jump Durations) within a frame: the swordfighter 42
+and 29 frames with a fast fall (reference 41 and 28), the blaster fighter 31 and 22 (30 and 21). An aerial made on the take-off frame
+and fast fallen at the apex gets every hit out before landing (a test checks every aerial of both kits; the blaster fighter's neutral
+air's long late hit is the exception, as in the reference). As in the reference, starting an aerial cancels a fast fall already under
+way (falling speed goes back to normal), so the dependable order is: aerial first, then fast fall during it.
+
+The controller's right stick is the **attack stick** (the reference's C-stick): its four directions are their own input bits
+(`buttons::C_*`), which only aim the attack (a smash on the ground, an aerial in the air; out of a run, up or down is a smash and
+sideways the dash attack). Before, the right stick replaced the left stick while held, so a fast-fall flick made during a
+right-stick aerial was lost.

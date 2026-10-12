@@ -12,6 +12,14 @@ pub mod buttons {
     /// Strong attack: with ATTACK, a smash attack in the stick's direction (the keyboard's stand-in
     /// for flicking the stick or the C-stick). Ignored in the air.
     pub const STRONG: u16 = 1 << 5;
+    /// The attack stick (a controller's right stick, the reference game's C-stick), as four directions on screen. It only aims an
+    /// attack (sent with ATTACK: a smash on the ground, an aerial in the air); the movement stick stays free, so a fighter can drift
+    /// and fast fall through an aerial made with it.
+    pub const C_UP: u16 = 1 << 6;
+    pub const C_DOWN: u16 = 1 << 7;
+    pub const C_LEFT: u16 = 1 << 8;
+    pub const C_RIGHT: u16 = 1 << 9;
+    pub const C_ANY: u16 = C_UP | C_DOWN | C_LEFT | C_RIGHT;
 }
 
 /// Stick magnitude (of 127) that counts as a deliberate flick or tap, about 0.6.
@@ -25,6 +33,10 @@ pub const STICK_DOWN: i8 = 64;
 /// A dash flick must start from below this magnitude (or the opposite side), so slowly rolling the
 /// stick up to full tilt walks instead of dashing.
 pub const STICK_FLICK_FROM: i8 = 38;
+/// How many frames a flick may take to travel from below `STICK_FLICK_FROM` to past `STICK_THRESHOLD` (dash, fast fall). A
+/// thumb on a real stick needs two or three frames for that at 60 a second; the documented reference rule (Melee's dash: past
+/// 0.8 within a 3-sample window) allows three, while one frame was too strict to hit reliably on a controller.
+pub const STICK_FLICK_FRAMES: usize = 3;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Input {

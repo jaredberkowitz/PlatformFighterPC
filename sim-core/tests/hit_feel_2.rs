@@ -81,7 +81,7 @@ fn a_light_launch_is_not_sped_up() {
 }
 
 #[test]
-fn every_fighter_falls_alike_early_in_a_launch_and_a_vertical_launch_falls_at_its_own_speed() {
+fn a_launched_fighter_falls_by_its_own_gravity_and_a_vertical_launch_at_its_own_speed() {
     let fall = |chars: [u8; 4], degrees: i32, frames: usize| {
         let mut sim = Sim::with_chars(chars);
         sim.state.fighters[2].active = false;
@@ -92,8 +92,9 @@ fn every_fighter_falls_alike_early_in_a_launch_and_a_vertical_launch_falls_at_it
         }
         sim.fighter(1).vel.y
     };
-    // A sword fighter and a claws fighter are alike for the first frames of a launch (different gravity otherwise).
-    assert_eq!(fall([0, 0, 0, 0], 30, 8), fall([1, 1, 1, 1], 30, 8));
+    // A sword fighter and a claws fighter fall by their own gravity from the start of a launch (the reference makes every fighter
+    // fall alike early on only for hits of fixed knockback, which no move here has; `launch_fall_frames` is 0).
+    assert_ne!(fall([0, 0, 0, 0], 30, 8), fall([1, 1, 1, 1], 30, 8));
     // Straight up: the fall speed is the vertical-launch one.
     let rules = Sim::new().content.rules;
     for chars in [[0, 0, 0, 0], [1, 1, 1, 1]] {
@@ -313,14 +314,10 @@ fn a_tech_press_counts_for_eleven_frames_and_mashing_locks_it_out() {
     // Falling onto the stage: a press 8 frames before touching down techs.
     let land_after = |presses: &[usize]| {
         let mut sim = duel();
-        tumbling(
-            &mut sim,
-            Vec2::new(Fx::ZERO, Fx::from_int(8)),
-            Vec2::new(Fx::ZERO, fx(-1, 10)),
-        );
-        // Not a tumble, so it lands rather than bouncing off the floor. No air dodge either, so an early press (buffered for
-        // nine frames) cannot become a dodge out of the hitstun instead.
-        sim.state.fighters[1].tumble = false;
+        // Falling from rest, with no launch speed downward, so it lands rather than bouncing off the floor (a light, non-tumble
+        // hitstun would land on its feet with nothing to tech). No air dodge either, so an early press (buffered for nine frames)
+        // cannot become a dodge out of the hitstun instead.
+        tumbling(&mut sim, Vec2::new(Fx::ZERO, Fx::from_int(8)), Vec2::ZERO);
         sim.state.fighters[1].air_dodge_used = true;
         let mut t = 0;
         while sim.fighter(1).platform == NONE && t < 200 {

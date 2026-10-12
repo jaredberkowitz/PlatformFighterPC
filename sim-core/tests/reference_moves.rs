@@ -108,9 +108,9 @@ fn forward_air_launches_at_the_sakurai_angle_with_base_knockback_40_and_growth_8
     );
     assert_eq!(kb, expected);
     let v = launch_velocity(&mut sim);
-    // Angle 361 against an airborne target is 44 degrees: up and forward at a slope of about 0.97.
+    // Angle 361 against an airborne target is 38 degrees (the reference's): up and forward at a slope of about 0.78.
     let slope = v.y / v.x;
-    assert!(slope > fx(9, 10) && slope < fx(104, 100), "{slope:?}");
+    assert!(slope > fx(74, 100) && slope < fx(82, 100), "{slope:?}");
 }
 
 // ---- Marth-style back air -------------------------------------------------------------------------------

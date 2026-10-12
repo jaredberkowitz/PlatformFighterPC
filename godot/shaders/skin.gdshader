@@ -34,9 +34,14 @@ uniform vec2 shoulder_r = vec2(0.41, 1.19);
 uniform vec2 elbow_r = vec2(0.47, 0.97);
 // How far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow).
 uniform float sleeve = 0.55;
+// False when the body wears modelled clothes (the rig's "Shirt" and "Shorts" meshes): then only the socks and shoes are painted here.
+uniform bool painted_clothes = true;
+// How far inside a modelled garment's hems the skin stops being drawn (rest units; along the upper arm, a share of it).
+const float COVER = 0.03;
+const float COVER_ARM = 0.15;
 
-instance uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
-instance uniform float object_id = 0.95;
+instance uniform vec4 flash : source_color, instance_index(0) = vec4(1.0, 1.0, 1.0, 0.0);
+instance uniform float object_id : instance_index(1) = 0.95;
 
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/stage_ao.gdshaderinc"
@@ -57,8 +62,14 @@ void fragment() {
 	vec2 p = vec2(UV.x, 1.0 - UV.y);   // rest x and height
 	vec3 c = skin.rgb;
 	// (The head is never clothed: an arm is below the neck.)
-	bool arm = abs(p.x) > torso_half_width && p.y > shorts_end_z && p.y < neck_z;
-	bool has_shirt = shirt.a > 0.5;
+	// On the arm: close to its axis (shoulder to wrist, the wrist taken past the elbow), as make_rigged_blob.py's garments decide it. The
+	// hips are about as wide as the arms' inner edge, so being far from the middle alone is not enough.
+	vec2 sa = p.x < 0.0 ? shoulder_l : shoulder_r;
+	vec2 se = p.x < 0.0 ? elbow_l : elbow_r;
+	vec2 sw = se + (se - sa) * 1.05;
+	float st = clamp(dot(p - sa, sw - sa) / dot(sw - sa, sw - sa), 0.0, 1.0);
+	bool arm = abs(p.x) > 0.15 && p.y < neck_z && length(p - (sa + (sw - sa) * st)) < 0.14;
+	bool has_shirt = painted_clothes && shirt.a > 0.5;
 	vec3 shirt_c = shirt.rgb;
 	if (use_shirt_tex) {
 		shirt_c *= texture(shirt_tex, vec2(p.x, -p.y) * shirt_tex_scale).rgb;
@@ -79,7 +90,7 @@ void fragment() {
 		if (has_shirt && p.y > waist_z && p.y < neck_z) {
 			c = shirt_c;
 		}
-		if (p.y > shorts_end_z && p.y <= waist_z) {
+		if (painted_clothes && p.y > shorts_end_z && p.y <= waist_z) {
 			c = shorts.rgb;
 		}
 		if (p.y <= sock_top_z && p.y > shoe_top_z) {
@@ -95,8 +106,10 @@ void fragment() {
 		if (p.y <= sole_top_z) {
 			c = sole.rgb;
 		}
-		edge = min(edge, abs(p.y - waist_z));
-		edge = min(edge, abs(p.y - shorts_end_z));
+		if (painted_clothes) {
+			edge = min(edge, abs(p.y - waist_z));
+			edge = min(edge, abs(p.y - shorts_end_z));
+		}
 		edge = min(edge, abs(p.y - sock_top_z));
 		edge = min(edge, abs(p.y - shoe_top_z));
 		edge = min(edge, abs(p.y - sole_top_z));
@@ -105,6 +118,23 @@ void fragment() {
 		}
 	}
 	c = mix(hem.rgb, c, smoothstep(hem_width * 0.5, hem_width, edge));
+	// Under modelled clothes the skin is not drawn at all (a little inside the hems, so no gap opens at an edge): however the body bends,
+	// it cannot poke through the cloth (an upper arm at the shirt's side when the fists come up).
+	if (!painted_clothes) {
+		bool covered = false;
+		if (arm) {
+			vec2 a = p.x < 0.0 ? shoulder_l : shoulder_r;
+			vec2 b = p.x < 0.0 ? elbow_l : elbow_r;
+			covered = shirt.a > 0.5 && along_arm(p, a, b) < sleeve - COVER_ARM;
+		} else {
+			// (With a shirt over the shorts, one stretch from the shorts' hems to the neck: no band of skin between them to show.)
+			float top = shirt.a > 0.5 ? neck_z - COVER * 1.5 : waist_z;
+			covered = p.y > shorts_end_z + COVER && p.y < top;
+		}
+		if (covered) {
+			discard;
+		}
+	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = object_id;

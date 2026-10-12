@@ -55,7 +55,15 @@ class Burst extends MeshInstance3D:
 		global_transform = Transform3D.IDENTITY
 		extra_cull_margin = 16384.0
 
+	## The share of particles kept (the Effects setting, scripts/visual_settings.gd): the rest are skipped evenly.
+	static var density := 1.0
+	var _kept := 0.0
+
 	func add(pos: Vector3, vel: Vector3, life: float, size: float) -> void:
+		_kept += density
+		if _kept < 1.0:
+			return
+		_kept -= 1.0
 		parts.append([pos, vel, 0.0, life, size, randf() * TAU, randf_range(-8.0, 8.0) if star else 0.0])
 
 	func _process(real_delta: float) -> void:
@@ -166,9 +174,10 @@ static func sparks(parent: Node, at: Vector3, colour: Color, strength: float) ->
 	b.damping = 9.0
 	b.gravity = Vector3(0, -5, 0)
 	b.colours = [Color(1, 1, 0.92, 1), Color(1.0, 0.86, 0.32, 1), Color(colour.r, colour.g, colour.b, 0)]
-	for k in 10 + int(14 * s):
+	# A light hit throws a few small sparks; the shower is kept for the strong ones.
+	for k in 4 + int(18 * s):
 		var vel := _aim(Vector3(1, 0, 0), 180.0) * randf_range(6.0, 12.0 + 8.0 * s)
-		b.add(at, vel, randf_range(0.25, 0.4 + 0.15 * s), randf_range(0.3, 0.5))
+		b.add(at, vel, randf_range(0.22, 0.36 + 0.18 * s), randf_range(0.3, 0.5))
 
 
 ## Embers off a fire hit: small hot discs thrown up and out that rise a little and go from yellow to red as they die.

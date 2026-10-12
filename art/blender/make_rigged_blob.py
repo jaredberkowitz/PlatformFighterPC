@@ -22,7 +22,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Vector, bvhtree, kdtree
 
 OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "godot", "models", "blob_rig.glb"))
 FPS = 60
@@ -86,6 +86,29 @@ def to_object(name, bm, bone, rig):
     mod.object = rig
     obj.parent = rig
     return obj
+
+
+def match_skin(obj, skin):
+    """Gives `obj` (lying on `skin`) the skin's bone weights and normals at the nearest point, so it moves and shades as the skin under it."""
+    obj.vertex_groups.clear()
+    for g in skin.vertex_groups:
+        obj.vertex_groups.new(name=g.name)
+    dt = obj.modifiers.new("Match skin", "DATA_TRANSFER")
+    dt.object = skin
+    dt.use_vert_data = True
+    dt.data_types_verts = {"VGROUP_WEIGHTS"}
+    dt.vert_mapping = "POLYINTERP_NEAREST"
+    dt.layers_vgroup_select_src = "ALL"
+    dt.layers_vgroup_select_dst = "NAME"
+    dt.use_loop_data = True
+    dt.data_types_loops = {"CUSTOM_NORMAL"}
+    dt.loop_mapping = "POLYINTERP_NEAREST"
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    # (Applied first in the stack, before the armature.)
+    bpy.ops.object.modifier_move_to_index(modifier=dt.name, index=0)
+    bpy.ops.object.modifier_apply(modifier=dt.name)
 
 
 def ball(bm, radius, centre, scale=(1.0, 1.0, 1.0), segments=32, rings=20, uvs=True):
@@ -236,6 +259,10 @@ def capsule(bm, p0, r0, p1, r1):
 
 ## The square of the head front the face texture covers (Blender units, centred on the head's middle line).
 FACE_SIZE = 1.155
+# How far outside the base body's skin its face shell sits (where the skin bulges past the shell's ball).
+FACE_CLEARANCE = 0.006
+# How far under the skin the face shell's rim is sunk (so its edge never shows).
+FACE_RIM_SINK = 0.01
 FACE_CENTRE = 1.585
 
 
@@ -443,12 +470,14 @@ BODY_AMP = 0.3
 
 BODY_MOVES = {
     # A straight punch (or a quick slash): the guard hand stays up at the chin, the shoulders snap round and the front foot steps in.
+    # (The shoulders load further back and snap further through than a turn of the chest alone, and the step lands deeper, so even a
+    # 4-frame jab reads as the whole body behind the fist at the match camera's distance.)
     "attack_jab": (
-        {"hips": -0.04, "spine": (2.0, -22.0), "head": (0.0, 12.0), "stance": (14.0, -16.0), "shin.L": (-24.0,),
-         "armU.L": (46.0, 18.0), "armL.L": (100.0,)},
-        {"hips": -0.06, "spine": (8.0, 26.0), "head": (-4.0, -16.0), "stance": (28.0, -26.0), "shin.L": (-30.0,), "shin.R": (-4.0,),
-         "armU.L": (30.0, 16.0), "armL.L": (110.0,)},
-        {"spine": (2.0, 6.0), "stance": (8.0, -6.0)}),
+        {"hips": -0.05, "spine": (0.0, -30.0), "head": (2.0, 16.0), "stance": (16.0, -18.0), "shin.L": (-26.0,),
+         "armU.L": (52.0, 18.0), "armL.L": (106.0,)},
+        {"hips": -0.08, "spine": (12.0, 34.0), "head": (-6.0, -20.0), "stance": (34.0, -30.0), "shin.L": (-34.0,), "shin.R": (-4.0,),
+         "armU.L": (24.0, 14.0), "armL.L": (112.0,)},
+        {"spine": (2.0, 8.0), "stance": (10.0, -8.0)}),
     # A swinging strike across the body (a claw swipe, a backhanded cut): the torso turns right round through it.
     "attack_swing": (
         {"hips": -0.06, "spine": (-6.0, -32.0), "head": (4.0, 16.0), "stance": (16.0, -20.0), "shin.L": (-20.0,),
@@ -507,12 +536,14 @@ BODY_MOVES = {
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
     # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
     # flung back. Upright enough that the face stays toward the hit.
+    # (Compact then long: the wind-up tucks both knees high and cocks the free arm, the strike opens out, the front knee driven up and the
+    # back leg kicked long behind with the free arm flung back, so the silhouette changes shape, not just angle.)
     "attack_fair": (
-        {"spine": (-10.0, -20.0), "head": (-4.0, 8.0), "stance": (36.0, 24.0), "shin.L": (-70.0,), "shin.R": (-60.0,),
-         "armU.L": (20.0, 30.0), "armL.L": (40.0,)},
-        {"spine": (10.0, 24.0), "head": (0.0, -10.0), "stance": (48.0, -12.0), "shin.L": (-84.0,), "shin.R": (-36.0,),
-         "armU.L": (-34.0, 34.0), "armL.L": (30.0,)},
-        {"spine": (6.0, 6.0), "stance": (30.0, 10.0), "shin.L": (-50.0,), "shin.R": (-40.0,)}),
+        {"spine": (-20.0, -28.0), "head": (-8.0, 12.0), "stance": (52.0, 40.0), "shin.L": (-96.0,), "shin.R": (-88.0,),
+         "armU.L": (40.0, 30.0), "armL.L": (50.0,)},
+        {"spine": (20.0, 30.0), "head": (4.0, -14.0), "stance": (64.0, -24.0), "shin.L": (-100.0,), "shin.R": (-16.0,),
+         "armU.L": (-56.0, 40.0), "armL.L": (20.0,)},
+        {"spine": (6.0, 8.0), "stance": (34.0, 14.0), "shin.L": (-56.0,), "shin.R": (-46.0,)}),
     # Up air (an overhead crescent from front to back): tucked, then the body arches back under the swing with the head thrown back to
     # watch it, the legs stretching down.
     "attack_uair": (
@@ -575,12 +606,12 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
-    if name in ("jump", "fall", "air_jump", "hurt", "roll", "knockdown", "ledge", "ledge_climb", "kick_dash"):
+    if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash"):
         return False
     return not name.endswith("air")
 
 
-STANDING = {"idle", "crouch", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
+STANDING = {"idle", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
 
 
 def _ankle(rig, side):
@@ -777,7 +808,7 @@ def clip(rig, name, frames, poses):
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
-    elif name in ("jump", "fall", "hurt", "crouch", "shield", "roll", "knockdown"):
+    elif name in ("jump", "fall", "hurt", "crouch", "jumpsquat", "land", "shield", "roll", "spot_dodge", "air_dodge", "knockdown"):
         AMP = 1.25
     else:
         AMP = 1.0
@@ -1040,6 +1071,27 @@ def build_body_meshes(rig):
     for v in bm.verts:
         v.co = Vector((centre.x + v.co.x * radii.x * 1.03, centre.y + v.co.y * radii.y * 1.03, centre.z + v.co.z * radii.z * 1.03))
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > centre.y - 0.3 * radii.y], context="VERTS")
+    # The head is not quite a ball: toward the jaw the skin bulges past it and would hide the lower face (a mouth moved down, big eyes).
+    # Each point of the shell is pushed out, along the line from the head's middle, until it is just outside the skin.
+    skin_bm = bmesh.new()
+    skin_bm.from_mesh(skin.data)
+    skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
+    # The shell's rim sinks just under the skin (the next ring in, level with it), so the head itself hides the shell's edge: no step in
+    # depth there for the ink pass to draw as a line round the face.
+    rim = {v for v in bm.verts if v.is_boundary}
+    near_rim = {e.other_vert(v) for v in rim for e in v.link_edges} - rim
+    for v in bm.verts:
+        out = v.co - centre
+        hit = skin_tree.ray_cast(centre, out.normalized(), out.length * 1.5)
+        if hit[0] is not None:
+            skin_at = (hit[0] - centre).length
+            if v in rim:
+                v.co = centre + out.normalized() * (skin_at - FACE_RIM_SINK)
+            elif v in near_rim:
+                v.co = centre + out.normalized() * skin_at
+            elif skin_at + FACE_CLEARANCE > out.length:
+                v.co = centre + out.normalized() * (skin_at + FACE_CLEARANCE)
+    skin_bm.free()
     face_size = 1.75 * radii.x
     face_centre = centre.z + 0.04 * radii.z
     uv = bm.loops.layers.uv.verify()
@@ -1058,6 +1110,16 @@ def build_body_meshes(rig):
     # Softer elbows and shoulders: the automatic weights change over from one arm bone to the next in too short a stretch, which pinches
     # the arm where it bends; spread out, it bends round.
     smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")])
+
+    # The face shell bends and shades with the skin it lies on: it takes the skin's own weights (the jaw and cheeks partly follow the
+    # chest, which the game twists toward the camera) and its normals. Bound rigidly to the head bone, it slid into the skin on one side
+    # when the chest twisted, and its ball normals shaded it a little darker than the skin there: a jagged seam down the face of a
+    # fighter facing left.
+    match_skin(parts["Face"], skin)
+
+    # The clothes, modelled: a shirt and a pair of shorts cut from the skin itself (so they fit it and bend with it exactly, weights and
+    # all), lifted off it and given a little thickness, with clean straight hems.
+    parts.update(build_garments(skin, J, neck))
 
     # What the game needs to fit hats, glasses, the weapon arm and the neckwear (Godot's axes: x, z, -y).
     def godot(v):
@@ -1095,6 +1157,282 @@ def build_body_meshes(rig):
     with open(OUT.replace(".glb", ".json"), "w") as f:
         json.dump(info, f, indent=1)
     return parts
+
+
+# ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
+SHIRT_LIFT = 0.04      # how far off the skin the shirt sits
+SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
+SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
+CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
+SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
+HEM_FLARE = 0.02
+ARM_RADIUS = 0.14      # how far from the arm's axis a point still counts as the arm (the upper arm is about 0.09 thick)
+HEM_SMOOTH = 30
+TORSO_SLICE = 0.01       # the height of a slice of the torso that shares one blend of the trunk's bones
+TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # how many smoothing steps each hem gets along its loop
+WEIGHT_BLUR = 0.06     # how far round each cloth point the skin's bone weights are averaged
+GARMENT_SMOOTH = 14     # how many smoothing steps the cloth gets (it drapes over the body's small bumps)
+GARMENT_WEIGHT_SMOOTH = 24
+ARMPIT_NO_INK = 0.07          # how far round each armpit the shirt has no ink outline   # how many smoothing steps the cloth's bone weights get        # how much further out a hem stands than the rest of the garment (a soft, cartoony flare)
+
+
+def build_garments(skin, J, neck):
+    """A shirt (from the waist to the neck, short sleeves) and shorts (from the waist to above the knee) for the base body. Each is a copy of
+    the skin cut along its hems (planes, so the edges are straight however the mesh is laid out), keeping the faces in the garment's region,
+    pushed out along the surface (further near a hem, so it flares a little) and given thickness. The copies keep the skin's bone weights,
+    so the clothes move exactly with the body. The game colours them (by name: "Shirt", "Shorts")."""
+    hips = J["hips"].z
+    crotch = FIT["crotch"]
+    knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
+    waist = hips + 0.12 * (neck - hips)
+    shorts_end = crotch - 0.42 * (crotch - knee)
+    neck_line = neck - 0.015
+    half_width = abs(J["armU.R"].x) * 0.72
+    arm = {}
+    for side in "LR":
+        a = Vector((J["armU." + side].x, 0.0, J["armU." + side].z))
+        b = Vector((J["armL." + side].x, 0.0, J["armL." + side].z))
+        arm[side] = (a, b)
+
+    wrist = {side: Vector((J["hand." + side].x, 0.0, J["hand." + side].z)) for side in "LR"}
+
+    def on_arm(co):
+        # Close to the arm's own axis (shoulder to wrist): the body is about as wide at the hips as the arms' inner edge, so being far from
+        # the middle alone took the hips' sides for arms (they missed the smoothing and the straight hems, and stuck out as spikes).
+        if co.z >= neck or abs(co.x) < 0.15:
+            return False
+        side = "L" if co.x < 0.0 else "R"
+        a = arm[side][0]
+        b = wrist[side]
+        p = Vector((co.x, 0.0, co.z))
+        t = max(0.0, min(1.0, (p - a).dot(b - a) / (b - a).length_squared))
+        return (p - (a + (b - a) * t)).length < ARM_RADIUS
+
+    def sleeve_t(co):
+        a, b = arm["L" if co.x < 0.0 else "R"]
+        ab = b - a
+        return (Vector((co.x, 0.0, co.z)) - a).dot(ab) / ab.length_squared
+
+    def in_shirt(co):
+        if co.z >= neck_line:
+            return False
+        if on_arm(co):
+            return sleeve_t(co) < SLEEVE
+        return co.z > waist - 0.012      # just below the waist, over the shorts' waistband
+
+    def in_shorts(co):
+        return not on_arm(co) and shorts_end < co.z <= waist + SHORTS_TOP
+
+    def shirt_hem(co):
+        # Distance to the nearest of the shirt's edges (the waist hem, the neckline, a sleeve end).
+        d = min(abs(co.z - (waist - 0.012)), abs(co.z - neck_line))
+        if on_arm(co):
+            a, b = arm["L" if co.x < 0.0 else "R"]
+            d = min(d, abs(sleeve_t(co) - SLEEVE) * (b - a).length)
+        return d
+
+    def shorts_hem(co):
+        # Only the leg openings flare: the waistband stays close in, under the shirt's hem.
+        return abs(co.z - shorts_end)
+
+    cuts = [(Vector((0, 0, waist - 0.012)), Vector((0, 0, 1))), (Vector((0, 0, neck_line)), Vector((0, 0, 1))),
+            (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1)))]
+    for side in "LR":
+        a, b = arm[side]
+        cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
+    skin_points = kdtree.KDTree(len(skin.data.vertices))
+    for v in skin.data.vertices:
+        skin_points.insert(v.co, v.index)
+    skin_points.balance()
+    # The torso's skin alone, for the cloth over the torso to take its weights from: in the rest pose the arms hang right beside the hips,
+    # and hem points that took some of an arm's weights were dragged up in teeth when the fists came up.
+    arm_groups = {g.index for g in skin.vertex_groups if g.name.startswith(("armU", "armL", "hand"))}
+    torso_ids = [v.index for v in skin.data.vertices if not on_arm(v.co) and not any(g.group in arm_groups and g.weight > 0.05 for g in v.groups)]
+    torso_points = kdtree.KDTree(len(torso_ids))
+    for i in torso_ids:
+        torso_points.insert(skin.data.vertices[i].co, i)
+    torso_points.balance()
+    # The torso's own bones by height: the average of the hips, spine and neck weights over each slice of the torso's skin (the thighs and
+    # arms left out: in the wide stance hem points that followed a thigh a little crumpled into teeth). Torso cloth takes these.
+    trunk = {g.index: g.name for g in skin.vertex_groups if g.name in ("hips", "spine", "neck")}
+    sums = {}
+    for i in torso_ids:
+        v = skin.data.vertices[i]
+        b = int(round(v.co.z / TORSO_SLICE))
+        acc = sums.setdefault(b, {})
+        for g in v.groups:
+            if g.group in trunk:
+                acc[g.group] = acc.get(g.group, 0.0) + g.weight
+    trunk_slices = {}
+    for b in sums:
+        total = {}
+        for k in range(b - TORSO_SLICE_SPREAD, b + TORSO_SLICE_SPREAD + 1):
+            for gi, w in sums.get(k, {}).items():
+                total[gi] = total.get(gi, 0.0) + w
+        whole = sum(total.values())
+        if whole > 0.0:
+            trunk_slices[b] = {gi: w / whole for gi, w in total.items()}
+
+    def trunk_weights(z):
+        if not trunk_slices:
+            return None
+        return trunk_slices[min(trunk_slices, key=lambda k: abs(k - z / TORSO_SLICE))]
+
+    skin_bm = bmesh.new()
+    skin_bm.from_mesh(skin.data)
+    skin_bm.normal_update()
+    skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
+    out = {}
+    for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT)):
+        obj = skin.copy()
+        obj.data = skin.data.copy()
+        obj.name = name
+        obj.data.name = name
+        bpy.context.collection.objects.link(obj)
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        for co, normal in cuts:
+            geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+            bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=normal)
+        drop = [f for f in bm.faces if not inside(f.calc_center_median())]
+        bmesh.ops.delete(bm, geom=drop, context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        # (The cuts leave slivers; merged away, they cannot throw a point far off when the surface is pushed out.)
+        bmesh.ops.dissolve_degenerate(bm, dist=0.002, edges=bm.edges)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.002)
+        # The body mesh is not quite symmetric, so a copy of it has two different legs and sides: keep the right half and mirror it.
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces), plane_co=(0, 0, 0), plane_no=(1, 0, 0),
+                               clear_inner=True)
+        bmesh.ops.symmetrize(bm, input=list(bm.verts) + list(bm.edges) + list(bm.faces), direction="X", dist=0.001)
+        if min(v.co.x for v in bm.verts) > -0.05:
+            raise RuntimeError(name + ": mirroring kept only one side")
+        # Cloth drapes over the body's small bumps (the belly, the chest) rather than following each one: smooth the surface, the hems
+        # held where they are, then push any point the smoothing pulled toward the body back out to the garment's distance from it.
+        hems = {v for v in bm.verts if v.is_boundary}
+        inner = [v for v in bm.verts if v not in hems]
+        for _ in range(GARMENT_SMOOTH):
+            bmesh.ops.smooth_vert(bm, verts=inner, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+        bm.normal_update()
+        for v in bm.verts:
+            flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
+            # The shorts' waistband hugs the body (two thirds of their distance), well inside the shirt's hem over it.
+            snug = 0.67 if name == "Shorts" and v.co.z > waist - 0.05 else 1.0
+            v.co = v.co + v.normal * (lift * snug + flare)
+        for v in bm.verts:
+            hit = skin_tree.find_nearest(v.co)
+            if hit[0] is None:
+                continue
+            away = (v.co - hit[0]).dot(hit[1])
+            if away < lift * 0.8:
+                v.co = v.co + hit[1] * (lift * 0.8 - away)
+        # The hems themselves: held still while the cloth was smoothed, they kept every bump of the body's surface, which the flare then
+        # turned into a torn-looking edge. Each hem (not the sleeves') is smoothed along its own loop, across but not up or down.
+        loop = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in hems if not on_arm(v.co)}
+        for _ in range(HEM_SMOOTH):
+            moved = {}
+            for v, nbrs in loop.items():
+                if len(nbrs) == 2:
+                    mid = (nbrs[0].co + nbrs[1].co) * 0.5
+                    moved[v] = Vector((v.co.x + (mid.x - v.co.x) * 0.5, v.co.y + (mid.y - v.co.y) * 0.5, v.co.z))
+            for v, co in moved.items():
+                v.co = co
+        # Straight hems: the edges were cut level, but pushing the cloth out along a bumpy surface's normals left them wavy (like torn
+        # paper where the shirt meets the shorts). Every edge point near a level cut goes back to its height.
+        levels = [waist - 0.012, neck_line] if name == "Shirt" else [waist + SHORTS_TOP, shorts_end]
+        for v in hems:
+            if on_arm(v.co):
+                continue
+            nearest = min(levels, key=lambda z: abs(v.co.z - z))
+            if abs(v.co.z - nearest) < 0.04:
+                v.co.z = nearest
+        # Every point takes the bone weights of the nearest point of the skin (the cuts and the mirroring made new points, and an
+        # unweighted point would be left behind when the body moves).
+        # The left half copies the right half's weights, left and right swapped, so both sides of the garment move alike (the body's own
+        # weights are not quite symmetric either).
+        deform = bm.verts.layers.deform.verify()
+        names = [g.name for g in skin.vertex_groups]
+        index = {n: k for k, n in enumerate(names)}
+        for v in bm.verts:
+            left = v.co.x < 0.0
+            co = Vector((-v.co.x, v.co.y, v.co.z)) if left else v.co
+            # The skin's weights blurred over a few centimetres round the point (Blender's automatic weights alternate between bones
+            # from one point to the next, which made a hem zigzag in a pose); the sleeves keep the nearest point's.
+            if on_arm(co):
+                _, i, _ = skin_points.find(co)
+                near = [(skin.data.vertices[i], 1.0)]
+            else:
+                found = torso_points.find_range(co, WEIGHT_BLUR)
+                if not found:
+                    found = [torso_points.find(co)]
+                near = [(skin.data.vertices[i], max(0.0, 1.0 - d / WEIGHT_BLUR) + 1e-4) for _, i, d in found]
+            blend = {}
+            even = None if on_arm(co) or co.z < crotch else trunk_weights(co.z)
+            if even is not None:
+                blend = dict(even)
+                near = []
+            for sv, k in near:
+                for g in sv.groups:
+                    blend[g.group] = blend.get(g.group, 0.0) + g.weight * k
+            whole = sum(blend.values())
+            v[deform].clear()
+            for gi, w in blend.items():
+                if whole <= 0.0 or w / whole < 0.01:
+                    continue
+                group = gi
+                if left:
+                    n = names[gi]
+                    swapped = n[:-2] + (".L" if n.endswith(".R") else ".R") if n.endswith((".L", ".R")) else n
+                    group = index.get(swapped, gi)
+                v[deform][group] = w / whole
+            if name == "Shorts" and v.co.z < crotch:
+                # Below the crotch each leg of the shorts follows its own thigh, fully at the hem: the leg openings keep their place on
+                # the thighs in any pose rather than riding up or standing off like a skirt.
+                t = min(1.0, (crotch - v.co.z) / max(crotch - shorts_end, 0.01) * 1.4)
+                thigh = index.get("thigh." + ("L" if v.co.x < 0.0 else "R"))
+                if thigh is not None:
+                    for k in list(v[deform].keys()):
+                        v[deform][k] = v[deform][k] * (1.0 - t)
+                    v[deform][thigh] = v[deform].get(thigh, 0.0) + t
+        bm.to_mesh(obj.data)
+        bm.free()
+        for poly in obj.data.polygons:
+            poly.use_smooth = True
+        # No thickness: an inner layer crossed the outer one wherever the cloth folds (the game draws the cloth on both sides instead).
+        bpy.context.view_layer.objects.active = obj
+        sol = None if CLOTH_THICKNESS <= 0.0 else obj.modifiers.new("Thickness", "SOLIDIFY")
+        if sol is not None:
+            sol.thickness = CLOTH_THICKNESS
+            sol.offset = -1.0
+            sol.use_even_offset = False
+            # (The solidify goes first, under the armature, so the clothes are posed with the body.)
+            while obj.modifiers.find("Thickness") > 0:
+                bpy.ops.object.modifier_move_up(modifier="Thickness")
+            bpy.ops.object.modifier_apply(modifier="Thickness")
+        # The shirt's arm and spine weights spread smoothly over it, so its sides stretch evenly when the fists come up rather than
+        # bunching where the skin's weights change quickly. Its hips weights are left as the skin's, so the hem moves with the shorts'
+        # waistband; the shorts keep the skin's own weights, so each leg follows its own thigh.
+        if name == "Shirt":
+            smooth_weights(obj, [g for g in ("armU.L", "armU.R", "spine") if g in obj.vertex_groups], 0.5, GARMENT_WEIGHT_SMOOTH)
+            # Where the sleeve meets the side the cloth pinches when the elbows come in; the ink outline is left out there (the vertex
+            # colour's red is how much outline a point gets: shaders/outline.gdshader), so the folds do not turn into black scratches.
+            ink = obj.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+            for v in obj.data.vertices:
+                side = 1.0 if v.co.x > 0.0 else -1.0
+                pit = Vector((side * half_width, J["armU." + ("R" if side > 0 else "L")].z - 0.12))
+                d = (Vector((v.co.x, v.co.z)) - pit).length
+                w = min(1.0, max(0.0, (d - ARMPIT_NO_INK) / 0.08))
+                ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
+            obj.data.color_attributes.active_color = ink
+        out[name] = obj
+    # The skin's marks for the game's outline (shaders/outline.gdshader): green is how much line a point gets under the shirt, blue under
+    # the shorts (none deep under a garment, all of it near a hem), red always all.
+    cover = skin.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+    for v in skin.data.vertices:
+        g = 1.0 - min(1.0, max(0.0, (shirt_hem(v.co) - 0.02) / 0.03)) if in_shirt(v.co) else 1.0
+        b = 1.0 - min(1.0, max(0.0, (shorts_hem(v.co) - 0.02) / 0.03)) if in_shorts(v.co) else 1.0
+        cover.data[v.index].color = (1.0, g, b, 1.0)
+    skin.data.color_attributes.active_color = cover
+    return out
 
 
 # ---- The long-limbed variant (the brawler): legs and arms stretched, the rest of the body lifted to match -------------------------------
@@ -1181,25 +1519,34 @@ def main() -> None:
         def f(rig):
             b = math.cos(k * 4.0 * math.pi)       # 1 at the top of a bob, -1 at the bottom
             down = 0.5 - 0.5 * b
-            pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0)
-            pose(rig, "thigh.L", fwd=32.0 + 6.0 * down, out=15.0)
-            pose(rig, "shin.L", fwd=-40.0 - 14.0 * down)
+            # A slower breath under the bounce (one a cycle): the chest rises and turns a touch, so the loop never reads as one repeated
+            # step.
+            breath = math.sin(k * 2.0 * math.pi)
+            # On the base body the feet are planted (`plant`), which takes over the hips' own drop, so the bob has to come from the knees:
+            # they flex twice as far.
+            flex = 2.0 if BODY else 1.0
+            pose(rig, "hips", lift=-0.06 - 0.04 * down, twist=-6.0 + 1.5 * breath)
+            pose(rig, "thigh.L", fwd=32.0 + 6.0 * down * flex, out=15.0)
+            pose(rig, "shin.L", fwd=-40.0 - 14.0 * down * flex)
             pose(rig, "foot.L", fwd=6.0 + 6.0 * down, out=-10.0)
             # The back leg stays nearly straight (a bent back knee would cross the front leg on screen).
-            pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down, out=15.0)
-            pose(rig, "shin.R", fwd=-10.0 - 6.0 * down)
+            pose(rig, "thigh.R", fwd=-14.0 + 3.0 * down * flex, out=15.0)
+            pose(rig, "shin.R", fwd=-10.0 - 6.0 * down * flex)
             pose(rig, "foot.R", fwd=18.0, out=-10.0)
-            pose(rig, "spine", fwd=9.0 + 4.0 * down, twist=8.0 + 2.0 * b)
-            pose(rig, "head", fwd=-7.0 + 4.0 * down, twist=-4.0)
+            # The chest sinks into each bob; the head keeps nearly level over it, settling a beat late.
+            settle = math.cos(k * 4.0 * math.pi - 0.6)
+            pose(rig, "spine", fwd=9.0 + 4.0 * down * flex - 2.0 * breath, twist=8.0 + 2.0 * b + 2.0 * breath)
+            pose(rig, "head", fwd=-7.0 + 4.0 * down - (2.5 * (0.5 - 0.5 * settle) if BODY else 0.0), twist=-4.0 - 1.5 * breath)
             # Lead fist (far arm) out in front, rear fist guarding the chin; both ride the bounce a beat behind.
             lag = math.cos(k * 4.0 * math.pi - 0.8)
+            swing = 1.8 if BODY else 1.0
             # (The base body's arms are thick and fully jointed: its elbows bend less, the fists held a little lower.)
             elbow = 0.72 if BODY else 1.0
-            pose(rig, "armU.L", fwd=52.0 + 5.0 * lag, out=16.0)
-            pose(rig, "armL.L", fwd=(92.0 - 6.0 * lag) * elbow)
+            pose(rig, "armU.L", fwd=52.0 + 5.0 * lag * swing, out=16.0)
+            pose(rig, "armL.L", fwd=(92.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=34.0 + 5.0 * lag, out=22.0)
-            pose(rig, "armL.R", fwd=(112.0 - 6.0 * lag) * elbow)
+            pose(rig, "armU.R", fwd=34.0 + 5.0 * lag * swing, out=22.0)
+            pose(rig, "armL.R", fwd=(112.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.R", fwd=-14.0)
         return f
 
@@ -1270,15 +1617,29 @@ def main() -> None:
             pose(rig, "thigh.L", fwd=-6.0 - 10.0 * tuck, out=14.0)
             pose(rig, "shin.L", fwd=-8.0 - 6.0 * tuck)
             pose(rig, "foot.L", fwd=-36.0 * tuck)
-            pose(rig, "armU.L", fwd=40.0 + 56.0 * tuck, out=24.0)
-            pose(rig, "armL.L", fwd=40.0)
-            pose(rig, "armU.R", fwd=-20.0 - 24.0 * tuck, out=42.0)
-            pose(rig, "armL.R", fwd=30.0)
+            if BODY:
+                # The far fist is thrown up overhead and the near arm (the left, nearest the camera once the game turns the chest to it)
+                # swings down and back, so the arms make one long diagonal through the body and neither crosses the face: the base body's
+                # thick near arm raised in front hid it.
+                pose(rig, "armU.R", fwd=30.0 + 110.0 * tuck, out=24.0 + 6.0 * tuck)
+                pose(rig, "armL.R", fwd=40.0 - 12.0 * tuck)
+                pose(rig, "armU.L", fwd=-20.0 - 34.0 * tuck, out=36.0)
+                pose(rig, "armL.L", fwd=24.0)
+            else:
+                pose(rig, "armU.L", fwd=40.0 + 56.0 * tuck, out=24.0)
+                pose(rig, "armL.L", fwd=40.0)
+                pose(rig, "armU.R", fwd=-20.0 - 24.0 * tuck, out=42.0)
+                pose(rig, "armL.R", fwd=30.0)
             pose(rig, "spine", fwd=4.0 - 10.0 * tuck, twist=6.0 * tuck)
             pose(rig, "head", fwd=-6.0 * tuck)
         return f
 
-    clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
+    if BODY:
+        # Up out of the crouch: stretched long on the push-off, the knee driven up, then easing open toward the top of the arc (where the
+        # fall takes over), so the rise keeps moving instead of freezing in one pose.
+        clip(rig, "jump", 30, {0: amped(jump(0.0), 1.1), 5: amped(jump(1.0), 1.08), 14: jump(0.85), 30: jump(0.62)})
+    else:
+        clip(rig, "jump", 14, {0: jump(0.0), 5: jump(1.0), 14: jump(0.85)})
 
     # Falling: legs apart (front knee bent forward, back leg hanging behind), arms raised out to the sides and paddling a little.
     def fall(k):
@@ -1324,6 +1685,40 @@ def main() -> None:
 
     clip(rig, "crouch", 8, {0: crouch, 8: crouch})
 
+    # The jump's take-off crouch (anticipation, a few frames): the knees load deep, the chest leans into it and both arms swing down and
+    # back, so the jump that follows throws them up through the push-off.
+    def jumpsquat(k):
+        def f(rig):
+            pose(rig, "hips", lift=-0.08 - 0.14 * k)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=24.0 + 42.0 * k, out=8.0)
+                pose(rig, "shin." + side, fwd=-36.0 - 66.0 * k)
+                pose(rig, "foot." + side, fwd=12.0 + 20.0 * k)
+                pose(rig, "armU." + side, fwd=10.0 - 46.0 * k, out=18.0 + 6.0 * k)
+                pose(rig, "armL." + side, fwd=30.0 - 10.0 * k)
+            pose(rig, "spine", fwd=8.0 + 18.0 * k)
+            pose(rig, "head", fwd=-4.0 - 12.0 * k)
+        return f
+
+    clip(rig, "jumpsquat", 4, {0: jumpsquat(0.3), 4: jumpsquat(1.0)})
+
+    # Landing: the weight drops onto bent knees, the chest pitched forward and the arms flung out and down for balance, then a small
+    # rebound and a settle back up toward standing (the game adds its squash on top, deeper after an aerial).
+    def land(k, rebound=0.0):
+        def f(rig):
+            pose(rig, "hips", lift=-0.24 * k)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=20.0 + 50.0 * k, out=10.0)
+                pose(rig, "shin." + side, fwd=-30.0 - 78.0 * k)
+                pose(rig, "foot." + side, fwd=10.0 + 26.0 * k)
+                pose(rig, "armU." + side, fwd=20.0 + 16.0 * k - 10.0 * rebound, out=24.0 + 34.0 * k)
+                pose(rig, "armL." + side, fwd=26.0)
+            pose(rig, "spine", fwd=6.0 + 22.0 * k - 4.0 * rebound)
+            pose(rig, "head", fwd=-4.0 - 10.0 * k + 6.0 * rebound)
+        return f
+
+    clip(rig, "land", 14, {0: land(1.0), 3: amped(land(1.0), 1.06), 8: land(0.45, rebound=1.0), 14: land(0.3)})
+
     def shield(rig):
         pose(rig, "hips", lift=-0.08)
         for side in "LR":
@@ -1344,7 +1739,39 @@ def main() -> None:
         pose(rig, "spine", fwd=-18.0, twist=-8.0)
         pose(rig, "head", fwd=-14.0)
 
-    clip(rig, "hurt", 8, {0: hurt, 8: hurt})
+    # The base body's hit reaction: on the hit (held through the hitlag freeze) the chest is thrown back and twisted off the blow, the head
+    # snapped back, the arms flung forward and out as the body leaves them behind, one knee jerked up; then over the hitstun it slackens
+    # into a looser reel, the arms dropping, so a long stun does not read as one frozen pose. The game's flinch, tumble and launch poses
+    # go on top for stronger hits.
+    def hurt_snap(rig):
+        pose(rig, "armU.L", fwd=46.0, out=64.0)
+        pose(rig, "armL.L", fwd=20.0)
+        pose(rig, "armU.R", fwd=14.0, out=84.0)
+        pose(rig, "armL.R", fwd=10.0)
+        pose(rig, "thigh.R", fwd=38.0, out=12.0)
+        pose(rig, "shin.R", fwd=-62.0)
+        pose(rig, "thigh.L", fwd=-16.0, out=14.0)
+        pose(rig, "shin.L", fwd=-20.0)
+        # (Not so far back or so twisted that the face turns away: the hurt face is half the read.)
+        pose(rig, "spine", fwd=-18.0, twist=-4.0)
+        pose(rig, "head", fwd=2.0, twist=4.0)
+
+    def hurt_reel(rig):
+        pose(rig, "armU.L", fwd=20.0, out=58.0)
+        pose(rig, "armL.L", fwd=30.0)
+        pose(rig, "armU.R", fwd=-6.0, out=66.0)
+        pose(rig, "armL.R", fwd=24.0)
+        pose(rig, "thigh.R", fwd=18.0, out=12.0)
+        pose(rig, "shin.R", fwd=-40.0)
+        pose(rig, "thigh.L", fwd=-10.0, out=14.0)
+        pose(rig, "shin.L", fwd=-22.0)
+        pose(rig, "spine", fwd=-12.0, twist=-2.0)
+        pose(rig, "head", fwd=0.0, twist=2.0)
+
+    if BODY:
+        clip(rig, "hurt", 18, {0: hurt_snap, 4: amped(hurt_snap, 1.05), 18: hurt_reel})
+    else:
+        clip(rig, "hurt", 8, {0: hurt, 8: hurt})
 
     # Attacks are played by progress (0 to 1 over the move), so the swing lands on the move's active frames: wind up (to 0.35),
     # strike (to 0.55), hold, recover.
@@ -1805,7 +2232,63 @@ def main() -> None:
             pose(rig, "armU." + side, fwd=42.0, out=8.0)
             pose(rig, "armL." + side, fwd=88.0)
 
-    clip(rig, "roll", 8, {0: roll_pose, 8: roll_pose})
+    if BODY:
+        # The dodges, played by progress through the simulation's own frames (the game spins the roll and steps the spot dodge
+        # back into the stage). A roll: a quick crouch into a tight ball for the somersault, then opening out onto the feet.
+        def roll_launch(rig):
+            pose(rig, "hips", lift=-0.16)
+            pose(rig, "spine", fwd=34.0)
+            pose(rig, "head", fwd=-10.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=56.0, out=6.0)
+                pose(rig, "shin." + side, fwd=-90.0)
+                pose(rig, "armU." + side, fwd=60.0, out=10.0)
+                pose(rig, "armL." + side, fwd=60.0)
+
+        def roll_land(rig):
+            pose(rig, "hips", lift=-0.12)
+            pose(rig, "spine", fwd=16.0)
+            pose(rig, "head", fwd=-8.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=46.0, out=8.0)
+                pose(rig, "shin." + side, fwd=-70.0)
+                pose(rig, "armU." + side, fwd=30.0, out=24.0)
+                pose(rig, "armL." + side, fwd=50.0)
+
+        clip(rig, "roll", 30, {0: roll_launch, 4: roll_pose, 21: roll_pose, 27: roll_land, 30: roll_land})
+
+        # A spot dodge: a quick duck and tuck in place, arms drawn in to the chest and the knees bent, held while it is safe, then
+        # back up (the game turns the chest away and steps the body back into the stage).
+        def duck(k):
+            def f(rig):
+                pose(rig, "hips", lift=-0.18 * k)
+                pose(rig, "spine", fwd=6.0 + 14.0 * k)
+                pose(rig, "head", fwd=-4.0 - 6.0 * k)
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=22.0 + 34.0 * k, out=8.0)
+                    pose(rig, "shin." + side, fwd=-30.0 - 50.0 * k)
+                    pose(rig, "armU." + side, fwd=30.0 + 34.0 * k, out=20.0 - 14.0 * k)
+                    pose(rig, "armL." + side, fwd=60.0 + 60.0 * k)
+            return f
+
+        clip(rig, "spot_dodge", 30, {0: duck(0.2), 5: amped(duck(1.0), 1.05), 22: duck(1.0), 30: duck(0.2)})
+
+        # An air dodge: a flinch into a tight curl, knees up and arms crossed before the face (not over it: the hands stay under the
+        # chin), held through the dodge, then opening into the fall.
+        def curl(k):
+            def f(rig):
+                pose(rig, "spine", fwd=4.0 + 18.0 * k)
+                pose(rig, "head", fwd=-4.0 - 4.0 * k)
+                for side in "LR":
+                    pose(rig, "thigh." + side, fwd=20.0 + 50.0 * k, out=10.0)
+                    pose(rig, "shin." + side, fwd=-30.0 - 66.0 * k)
+                    pose(rig, "armU." + side, fwd=30.0 + 34.0 * k, out=30.0 - 34.0 * k)
+                    pose(rig, "armL." + side, fwd=50.0 + 60.0 * k)
+            return f
+
+        clip(rig, "air_dodge", 30, {0: curl(0.3), 4: amped(curl(1.0), 1.06), 20: curl(1.0), 30: fall(0.0)})
+    else:
+        clip(rig, "roll", 8, {0: roll_pose, 8: roll_pose})
 
     def down_pose(rig):
         for side in "LR":
@@ -1815,7 +2298,54 @@ def main() -> None:
             pose(rig, "shin." + side, fwd=-8.0)
         pose(rig, "head", fwd=-8.0)
 
-    clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
+    if BODY:
+        # Knocked down (the game lays the body face down with its lean): the slam arches it, head and heels up and the arms flung out
+        # ahead, a small bounce, then it lies flat.
+        def slam(rig):
+            pose(rig, "spine", fwd=-20.0)
+            pose(rig, "head", fwd=-22.0)
+            # (Lying face down, "ahead along the floor" is overhead for the arms: raised forward they went into the floor.)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=172.0, out=34.0)
+                pose(rig, "armL." + side, fwd=-14.0)
+                pose(rig, "thigh." + side, fwd=-22.0, out=12.0)
+                pose(rig, "shin." + side, fwd=-64.0)
+
+        def flat(rig):
+            pose(rig, "spine", fwd=0.0)
+            pose(rig, "head", fwd=6.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=166.0, out=52.0)
+                pose(rig, "armL." + side, fwd=-8.0)
+                pose(rig, "thigh." + side, fwd=-6.0, out=14.0)
+                pose(rig, "shin." + side, fwd=-12.0)
+
+        clip(rig, "knockdown", 14, {0: slam, 4: amped(slam, 1.1), 9: flat, 14: flat})
+
+        # Standing up from it (played by progress; the game swings the body upright over its first half): hands planted and pushing
+        # up, the knees drawn under, a crouch, then standing.
+        def push_up(rig):
+            pose(rig, "spine", fwd=24.0)
+            pose(rig, "head", fwd=-16.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=72.0, out=18.0)
+                pose(rig, "armL." + side, fwd=16.0)
+                pose(rig, "thigh." + side, fwd=92.0, out=10.0)
+                pose(rig, "shin." + side, fwd=-116.0)
+
+        def rise(rig):
+            pose(rig, "hips", lift=-0.16)
+            pose(rig, "spine", fwd=22.0)
+            pose(rig, "head", fwd=-10.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=34.0, out=22.0)
+                pose(rig, "armL." + side, fwd=40.0)
+                pose(rig, "thigh." + side, fwd=66.0, out=8.0)
+                pose(rig, "shin." + side, fwd=-98.0)
+
+        clip(rig, "getup", 30, {0: flat, 9: push_up, 18: rise, 30: idle(0.0)})
+    else:
+        clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
 
     def ledge_pose(k):
         def f(rig):
@@ -1878,6 +2408,7 @@ def main() -> None:
         export_animation_mode="ACTIONS",
         export_skins=True,
         export_apply=False,
+        export_vertex_color="ACTIVE",
     )
     print("wrote", OUT, "clips:", [a.name for a in bpy.data.actions])
 

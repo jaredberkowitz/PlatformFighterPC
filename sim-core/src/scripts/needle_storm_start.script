@@ -1,0 +1,14 @@
+// Needle Storm, the wind-up (neutral special). With a full charge stored it throws at once (32 = ext4); with some stored it charges on
+// from there, otherwise from none, after the wind-up (frame 7; 31 = ext3). Special pressed again during the wind-up is kept (`quick`):
+// the charge throws on its first frame.
+var needles;
+var thrown;
+var t;
+var quick;
+if frame >= 1 && special_tap { quick = 1; }
+if frame == 1 && stored > 0 {
+    needles = stored;
+    store(0);
+    if needles >= 6 { goto(32); }
+}
+if frame >= 6 { goto(31); }

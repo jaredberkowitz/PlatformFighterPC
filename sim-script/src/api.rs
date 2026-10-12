@@ -89,6 +89,7 @@ pub const F_TURN: u8 = 37;
 pub const F_REHIT: u8 = 38;
 pub const F_STALL: u8 = 39;
 pub const F_GOTO: u8 = 40;
+pub const F_STORE: u8 = 41;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -112,6 +113,8 @@ pub const R_SPECIAL_TAP: u8 = 13;
 pub const R_SHIELD: u8 = 14;
 pub const R_CHARGE: u8 = 15;
 pub const R_HIT: u8 = 16;
+pub const R_STORED: u8 = 17;
+pub const R_JUMP: u8 = 18;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -165,6 +168,12 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
     reg("shield", R_SHIELD, "shield button held"),
     reg("charge", R_CHARGE, "frames stalled so far"),
     reg("hit", R_HIT, "1 once this move has hit someone"),
+    reg(
+        "stored",
+        R_STORED,
+        "a charge kept from an earlier use (see store), 0 to 255",
+    ),
+    reg("jump", R_JUMP, "jump button held"),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[
@@ -228,7 +237,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 9] = [
+    const OWN: [Func; 10] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -273,8 +282,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "goto(move): switch to another move slot (0 = jab, see the move list)",
         ),
+        func(
+            "store",
+            F_STORE,
+            1,
+            "store(n): keep a charge of n (0 to 255) for the next use, read back as stored; lost on a KO",
+        ),
     ];
-    concat::<9, 9, 18>(MATH, OWN)
+    concat::<9, 10, 19>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

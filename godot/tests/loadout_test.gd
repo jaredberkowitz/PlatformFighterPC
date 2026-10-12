@@ -5,6 +5,7 @@ extends SceneTree
 
 const Loadout := preload("res://scripts/loadout.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
+const FaceLook := preload("res://scripts/face_look.gd")
 
 var failed := false
 
@@ -103,15 +104,36 @@ func _budget() -> void:
 		v.rebuild(base)
 	check(v.get_child_count() == children, "rebuilding does not leak nodes")
 	check(v.meshes.size() == base_count, "rebuilding does not leak meshes")
-	# Every face, the hurt face and the blink have a drawing that loads onto the face shell.
+	# The face is built from parts: every part of every catalog has its drawings, and every expression (moods, the action faces,
+	# the blink) puts the eyes and mouth on the face shell, shut eyes where the expression shuts them.
 	check(v.face_mesh != null and v.face_mat != null, "the rig has a face shell")
-	for f in Loadout.FACES + [Loadout.HURT]:
-		v.set_expression(f)
-		check(v.face_mat.get_shader_parameter("face_tex") is Texture2D, "face drawing %s loads" % f.name)
+	for expr in FaceLook.EXPRESSIONS:
+		v.set_expression({"name": expr})
+		var ok: bool = v.face_mat.get_shader_parameter("eye_fill_tex") is Texture2D and v.face_mat.get_shader_parameter("mouth_tex") is Texture2D
+		if FaceLook.SHUT.has(expr):
+			ok = ok and v.face_mat.get_shader_parameter("eye_extra_tex") is Texture2D
+		check(ok, "expression %s has its drawings" % expr)
 	v.blink_left = 0.1
 	v.set_expression(Loadout.FACES[0])
 	v._show_face()
-	check(v.shown_face == "blink" and v.face_mat.get_shader_parameter("face_tex") is Texture2D, "the blink drawing loads")
+	check(v.shown_face == "blink" and v.face_mat.get_shader_parameter("eye_mode") == 1, "the blink shuts the eyes")
+	for slot in ["eyes", "brows", "nose", "mouth", "cheeks"]:
+		for i in Loadout.slot_size(slot):
+			var l := Loadout.default_for(0)
+			l.set_slot(slot, i)
+			var mat := ShaderMaterial.new()
+			mat.shader = preload("res://shaders/face.gdshader")
+			FaceLook.apply(mat, l)
+			var tex_name: String = {"eyes": "eye_fill_tex", "brows": "brow_tex", "nose": "nose_tex", "mouth": "mouth_tex", "cheeks": "cheek_tex"}[slot]
+			var none: bool = Loadout.slot_names(slot)[i] == "none"
+			check((mat.get_shader_parameter(tex_name) == null) == none, "%s %s has its drawing" % [slot, Loadout.slot_names(slot)[i]])
+	# Old looks (before the face had parts: seven slots) still read, with the standard face.
+	var old := Loadout.from_bytes(PackedByteArray([Loadout.VERSION, 3, 1, 2, 1, 2, 4, 3]), 0)
+	check(old.color == 3 and old.face == 1 and old.eyes == 0 and old.cheeks == 1 and old.eye_y == FaceLook.neutral("eye_y"), "an old look keeps the standard face")
+	# Glasses follow the eyes.
+	var spread := Loadout.default_for(0)
+	spread.eye_gap = Loadout.slot_size("eye_gap") - 1
+	check(FaceLook.eye_out(spread) > FaceLook.eye_out(Loadout.default_for(0)), "eyes set apart move the glasses' lenses apart")
 	# Every shirt dresses the body (prints load) and has sleeves; no shirt has none.
 	for s in Loadout.SHIRTS.size():
 		var l := Loadout.default_for(0)

@@ -3,6 +3,7 @@
 use crate::combat;
 use crate::content::{Content, FighterParams};
 use crate::fighter;
+use crate::fixed::Fx;
 use crate::grab;
 use crate::input::Input;
 use crate::state::{Fighter, FighterState, GameState, DRAW, NONE, PLAYING};
@@ -66,6 +67,10 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
 
     // Phase 1: every fighter updates in player-index order and may request a ledge.
     let mut wants: [Option<u8>; MAX_FIGHTERS] = [None; MAX_FIGHTERS];
+    let mut before = [Fx::ZERO; MAX_FIGHTERS];
+    for (b, f) in before.iter_mut().zip(state.fighters.iter()) {
+        *b = f.pos.x;
+    }
     for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
         if !f.active {
             continue;
@@ -74,6 +79,9 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         let weapon = combat::weapon_of(content, params);
         wants[i] = fighter::update(f, params, weapon, stage, &content.rules, *input);
     }
+
+    // Bodies on the ground cannot pass through each other (see `push`).
+    crate::push::separate(state, content, &before);
 
     // Phase 1b: hits. Everything has moved, so hitboxes and hurtboxes are where they will be seen.
     combat::resolve_hits(state, content);

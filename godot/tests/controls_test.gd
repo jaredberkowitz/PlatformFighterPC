@@ -119,6 +119,9 @@ func _reader() -> void:
 
 func _screen() -> void:
 	Bindings.reset()
+	# (Let the reader test's synthetic key presses reach nobody before the screen opens: Q would turn its page.)
+	await process_frame
+	await process_frame
 	var screen: Control = load("res://controls.tscn").instantiate()
 	root.add_child(screen)
 	await process_frame
@@ -139,6 +142,19 @@ func _screen() -> void:
 	check(Bindings.key(0, "right") == KEY_X and "kept" in screen.status.text, "a reserved key is refused with a message")
 	screen._unhandled_key_input(key_event(KEY_DELETE))
 	check(Bindings.key(0, "right") == KEY_D, "Delete resets the player's keys")
+	# The display page: E turns to it, Up/Down choose a setting, Left/Right change it (saved), Q turns back.
+	var VisualSettings: Script = load("res://scripts/visual_settings.gd")
+	var shake_before: int = VisualSettings.get_index("shake")
+	screen._unhandled_key_input(key_event(KEY_E))
+	check(screen.page == 1 and screen.display_page.visible and not screen.key_page[0].visible, "E turns to the display page")
+	screen._unhandled_key_input(key_event(KEY_LEFT))
+	check(VisualSettings.get_index("shake") == maxi(shake_before - 1, 0), "Left lowers the screen shake")
+	check(VisualSettings.shake() <= 1.0, "and the match reads it")
+	screen._unhandled_key_input(key_event(KEY_DOWN))
+	check(screen.setting == 1, "Down chooses the next setting")
+	VisualSettings.set_index("shake", shake_before)
+	screen._unhandled_key_input(key_event(KEY_Q))
+	check(screen.page == 0, "Q turns back to the keys")
 	screen.queue_free()
 	await process_frame
 

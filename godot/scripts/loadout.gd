@@ -1,12 +1,14 @@
 extends RefCounted
 ## A cosmetic loadout: what a fighter looks like. Pure presentation: nothing here reaches the simulation, and the
-## checksum never sees it. A loadout is a handful of catalog indices, so it packs into a few bytes that travel in
+## checksum never sees it. A loadout is a handful of catalog indices and steps, so it packs into a few bytes that travel in
 ## the network handshake; an index the receiving game does not know falls back to the default for that slot, so a
-## missing or newer asset never blocks a match (plan section 6).
+## missing or newer asset never blocks a match (plan section 6). Slots are only ever added at the end: a shorter loadout
+## (an older one) gives the defaults for the slots it lacks, so old looks and share codes keep working.
 
+const FaceLook := preload("res://scripts/face_look.gd")
 const VERSION := 1
-## Hard budget (plan 7.3): a loadout is at most this many bytes.
-const MAX_BYTES := 16
+## Budget: a loadout is at most this many bytes (was 16 before the face was made of parts; it is about 30 now).
+const MAX_BYTES := 48
 
 const PALETTE := [
 	Color(1.0, 0.85, 0.2),    # sunny
@@ -24,16 +26,11 @@ const PALETTE := [
 ]
 const PALETTE_NAMES := ["sunny", "tangerine", "cobalt", "bubblegum", "meadow", "plum", "cherry", "lagoon", "cloud", "slate", "biscuit", "midnight"]
 
-## Faces. Each `name` is a drawing, godot/art/faces/<name>.svg, shown on the head (see FighterView.set_expression). The numbers
-## (lids, mouth, brow) describe the drawing and are kept for older tools.
-const FACES := [
-	{"name": "deadpan", "lid": 0.5, "mouth_w": 0.14, "mouth_h": 0.05, "mouth_tilt": 0.0, "brow": 0.0},
-	{"name": "sleepy", "lid": 0.82, "mouth_w": 0.1, "mouth_h": 0.04, "mouth_tilt": -4.0, "brow": -8.0},
-	{"name": "grumpy", "lid": 0.55, "mouth_w": 0.16, "mouth_h": 0.045, "mouth_tilt": -14.0, "brow": 24.0},
-	{"name": "smug", "lid": 0.62, "mouth_w": 0.18, "mouth_h": 0.05, "mouth_tilt": 14.0, "brow": -10.0},
-]
+## Moods: the face a fighter wears when it is not doing anything in particular (the `face` slot). Each `name` is an expression in
+## FaceLook.EXPRESSIONS, applied to the fighter's own eyes, brows and mouth (see FighterView.set_expression).
+const FACES := [{"name": "deadpan"}, {"name": "sleepy"}, {"name": "grumpy"}, {"name": "smug"}]
 ## What every face turns into while the fighter is being hit (a cosmetic event, never a sim input).
-const HURT := {"name": "hurt", "lid": 0.0, "mouth_w": 0.12, "mouth_h": 0.16, "mouth_tilt": 0.0, "brow": -16.0}
+const HURT := {"name": "hurt"}
 ## Faces every fighter pulls in action, whatever its own face (cosmetic, like the hurt face): a yell while attacking, gritted teeth while
 ## straining (shielding, hanging on, charging a smash), a focused look while running and jumping, a grin when it wins.
 const ATTACK_FACE := {"name": "attack"}
@@ -50,8 +47,13 @@ const NECKS := ["none", "sash", "neckerchief", "scarf"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
 const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower shirt"]
 
-## The slots in the order they are written, each with its catalog size.
-const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt"]
+## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
+const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
+	"eyes", "eye_color", "eye_y", "eye_gap", "eye_size", "eye_squash", "eye_turn",
+	"brows", "brow_color", "brow_y", "brow_gap", "brow_size", "brow_turn",
+	"nose", "nose_y", "nose_size",
+	"mouth", "mouth_y", "mouth_size", "mouth_squash",
+	"cheeks", "cheek_color"]
 
 var color := 0
 var face := 0
@@ -60,6 +62,30 @@ var glasses := 0
 var neck := 1
 var accent := 2
 var shirt := 1
+# The face's parts (FaceLook): the concept art's face (round eyes, no brows or nose, a small smile, round pink cheeks), every
+# adjustment in the middle.
+var eyes := 0
+var eye_color := 0
+var eye_y := FaceLook.neutral("eye_y")
+var eye_gap := FaceLook.neutral("eye_gap")
+var eye_size := FaceLook.neutral("eye_size")
+var eye_squash := FaceLook.neutral("eye_squash")
+var eye_turn := FaceLook.neutral("eye_turn")
+var brows := 0
+var brow_color := 0
+var brow_y := FaceLook.neutral("brow_y")
+var brow_gap := FaceLook.neutral("brow_gap")
+var brow_size := FaceLook.neutral("brow_size")
+var brow_turn := FaceLook.neutral("brow_turn")
+var nose := 0
+var nose_y := FaceLook.neutral("nose_y")
+var nose_size := FaceLook.neutral("nose_size")
+var mouth := 0
+var mouth_y := FaceLook.neutral("mouth_y")
+var mouth_size := FaceLook.neutral("mouth_size")
+var mouth_squash := FaceLook.neutral("mouth_squash")
+var cheeks := 1
+var cheek_color := 0
 
 
 static func slot_size(slot: String) -> int:
@@ -76,7 +102,23 @@ static func slot_size(slot: String) -> int:
 			return NECKS.size()
 		"shirt":
 			return SHIRTS.size()
-	return 1
+		"eyes":
+			return FaceLook.EYES.size()
+		"eye_color":
+			return FaceLook.EYE_COLORS.size()
+		"brows":
+			return FaceLook.BROWS.size()
+		"brow_color":
+			return FaceLook.BROW_COLORS.size()
+		"nose":
+			return FaceLook.NOSES.size()
+		"mouth":
+			return FaceLook.MOUTHS.size()
+		"cheeks":
+			return FaceLook.CHEEKS.size()
+		"cheek_color":
+			return FaceLook.CHEEK_COLORS.size()
+	return FaceLook.steps(slot)
 
 
 static func slot_names(slot: String) -> Array:
@@ -93,6 +135,29 @@ static func slot_names(slot: String) -> Array:
 			return NECKS
 		"shirt":
 			return SHIRTS
+		"eyes":
+			return FaceLook.EYES
+		"eye_color":
+			return FaceLook.EYE_COLOR_NAMES
+		"brows":
+			return FaceLook.BROWS
+		"brow_color":
+			return FaceLook.BROW_COLOR_NAMES
+		"nose":
+			return FaceLook.NOSES
+		"mouth":
+			return FaceLook.MOUTHS
+		"cheeks":
+			return FaceLook.CHEEKS
+		"cheek_color":
+			return FaceLook.CHEEK_COLOR_NAMES
+	if FaceLook.ADJUST.has(slot):
+		# Adjustments read as steps from the middle: -3 .. 0 .. +3.
+		var out := []
+		for i in FaceLook.steps(slot):
+			var d := i - FaceLook.neutral(slot)
+			out.append(("+%d" % d) if d > 0 else str(d))
+		return out
 	return []
 
 

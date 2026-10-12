@@ -32,6 +32,16 @@ impl Sim {
         Sim { content, state }
     }
 
+    /// Player 0 where it spawns with nobody in its way: player 1 at the far right end of the stage, the others out of the match
+    /// (bodies on the ground do not pass through each other).
+    pub fn alone() -> Sim {
+        let mut sim = Sim::new();
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
+        sim
+    }
+
     pub fn tick(&mut self, p0: Input) {
         let mut inputs = [Input::default(); MAX_FIGHTERS];
         inputs[0] = p0;

@@ -126,7 +126,7 @@ The look now comes from lighting, shaders and authored artwork rather than from 
 - **Shaders** (`godot/shaders/`): `toon.gdshader` is the soft cel material for every character surface (a colour, optionally times a tiled
   texture); `face.gdshader` lays the face drawing over the skin colour; both light through `toon_light.gdshaderinc` (light wraps round the
   form and steps softly into a cool shadow tint, a warm rim on the lit side, a small soft sheen).
-- **Faces** (`godot/art/faces/<expression>.svg`): one drawing per expression (`deadpan`, `sleepy`, `grumpy`, `smug`, `hurt`, and `blink`,
+- **Faces** (since the twenty-sixth pass: parts, see the end; before that `godot/art/faces/<expression>.svg`): one drawing per expression (`deadpan`, `sleepy`, `grumpy`, `smug`, `hurt`, and `blink`,
   shown for a moment every few seconds). They are shown on a **face shell** in the rig (`Face`, a thin layer just in front of the head,
   following the head bone), whose UVs are a straight-on projection of a 1.155-unit square centred at height 1.585, so a drawing lands on the
   head as drawn (eyes at about y = 228 of 512). The upper lids are filled with the placeholder colour `#fe00ff`, which becomes the fighter's
@@ -186,7 +186,7 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
 
 ## Turned for the camera, and a fighting stance (eighth pass)
 
-- **How a fighter is turned** (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`): the classic cheat for 3D fighters on a
+- **How a fighter is turned** (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TOWARD_FOE` in `fighter_view.gd`): the classic cheat for 3D fighters on a
   2D stage. The hips and legs are turned 60 degrees toward the way the fighter faces, so strides, kicks, lunges and leans happen across the
   screen instead of toward the camera (where they were foreshortened); the chest then turns 30 degrees back toward the camera and the head 20
   more, so the body and the face are open to the player (the chest about 30 degrees off straight-on, the face about 10). Before, the whole
@@ -200,7 +200,7 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   twisting against the hips, a little lean.
 - Menu previews keep their own turn (they set it themselves).
 - **Looking at each other** (after the reference of how fighters stand in the reference game): the body stays open to the camera, but the head
-  turns back toward the opponent (`HEAD_TO_CAMERA` is negative: the face about 40 degrees off straight-on) and every face drawing has its
+  turns back toward the opponent (`HEAD_TOWARD_FOE`: the face about 40 degrees off straight-on) and every face drawing has its
   pupils toward the fighter's front (`GAZE` in the drawings, texture right). Facing left, the face shader mirrors the drawing (`mirror`,
   `FighterView.set_gaze`), so both fighters look at each other; the switch happens as the body swings past facing the camera. Menu
   previews look the way they are turned.
@@ -434,7 +434,7 @@ stay on the ground, and the game's own lean, slide and body-follow are smaller, 
 
 - **Side-on, as the reference game's fighters stand**: the hips and legs turn 80 degrees toward the way the fighter faces (was 60), the
   chest 14 back toward the camera and the head 6 more, so strides, lunges and kicks read across the screen while the drawn face keeps
-  both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TO_CAMERA` in `fighter_view.gd`).
+  both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`, `HEAD_TOWARD_FOE` in `fighter_view.gd`).
 - **Glasses on the eyes**: they are fitted to the face drawing (its place on the head is in `base_rig.json` as `face`), scaled with it
   and centred on the part of the eye the drawings' heavy lids leave open (`_glasses_fit`, `GLASSES_DROP`); they had been fitted to the
   head's shape and sat on the brows. And a fighter shown without being played (the menus) now has its hats, glasses and neckwear
@@ -442,3 +442,261 @@ stay on the ground, and the game's own lean, slide and body-follow are smaller, 
 
 Check them with `--demo=fx_<sword|claws|maul>_<move> --noui --noecb --shots=<folder>` (every tilt, smash and aerial; a picture on every
 frame, the camera steady on the attacker).
+
+## Pastel finish, props, hit identity and frame time (twenty-first pass)
+
+**One look across the stages**: a pastel finish at the end of the post pass (`post.gdshader`): colours are pulled a little toward grey
+(`pastel_desat`) and their darks lifted toward the stage mood's haze colour (`pastel_lift`, `"haze"` in `lighting.gd`'s `MOODS`), half
+as much on the fighters, so the scene reads soft and airy while ink lines and effects stay crisp. **Block sides** are vector patterns
+(quilted diamonds, wavy strata, rounded cobbles, a facade with lit windows) made as SVG in `stage_art.gd` and rasterised once at 256 px,
+smooth where the old 64 px pixel patterns were blocky.
+
+**Props** (`_props` in `stage_art.gd`): a few small low-poly things behind the fighters per theme, few-sided with flat colours and ink
+outlines: hay bales, a barrel, a signpost and a stone on the meadow; mushrooms and a stump in the grove; rocks, a crate, a barrel and a
+lantern post in the canyon; a beach umbrella and towel, a life ring and a bucket on the beach; stacked crates, a potted plant and a string
+of coloured bulbs on the city roof.
+
+**Merged scenery**: everything still in a backdrop that shares a material is merged into one mesh (`merge_static`), and flat colours share
+one material each, so the extra props cost nothing: about 430 draw calls against 567 unmerged.
+
+**Hits by fighter**: the sword's hits are a cool blue-white burst under its slash, the claws' three violet claw marks raked across a lilac
+burst (`Kind.CLAW` in `effects.gd`), their fire moves still flame, kicks and punches of anyone a warm burst.
+
+**Knock-outs**: every knock-out adds a shockwave (white, then the player's colour) and a flash to the beam and burst; the knock-out that
+decides the match holds its close-up longer, slows to a quarter speed from the finishing hit, and blasts bigger with a longer slow motion.
+
+**Frame time** (`--perf` now also prints GPU time, the render thread's CPU time, the ticks' and the frame scripts' time):
+- The game's own work is about 6 ms a frame (GPU about 4.5 ms, render CPU 0.7, ticks 0.2, frame scripts 0.6). On the developer's laptop
+  an empty Godot scene also runs at about 48 to 65 frames a second, so the frame rate measured there is the machine (other programs,
+  power settings), not the game.
+- **Vulkan on Windows** (`project.godot`, falling back to Direct3D 12 where Vulkan is missing): on Direct3D 12 every mesh made or freed
+  during play (the weapon trails, the drawn hit effects) stalls the frame for several milliseconds (a 40-triangle `ImmediateMesh` rebuilt
+  each frame cost about 9 ms against 0.08 on Vulkan); on Vulkan the same frames had half as many over 25 ms.
+- **Hitbox display** (training, F3): one ring mesh drawn as a `MultiMesh`, moved and recoloured each tick, instead of a mesh rebuilt per
+  tick (that alone was 6.6 ms a tick). Trails and paths with nothing to show are no longer cleared every frame.
+
+**Swing arcs** (`ARCS` in `fighter_view.gd`, replacing the hand-traced smear and the sampled sweep): every weapon swing draws one smooth
+crescent, pointed at both ends and thickest just behind its head, a bright core on the outside fading through the trail colour to
+nothing inside. Each arc is a circle per move (the sword's fitted to its hitboxes; the claws' about the shoulder just past the hand),
+the angles it covers and the active frames it is drawn on. The sword's head is wherever its blade tip is (never going back), so the arc
+always ends at the blade; a claw is swept along its arc. It shows from just before the first active frame to the last, then fades from
+the tail over 5 frames; hitlag freezes it. Thrusts, punches and kicks draw none. The separate slash and claw marks on a hit are gone:
+the arc shows the cut, and the hit is a burst coloured by what landed it.
+
+## Art-direction notes pass (twenty-second pass)
+
+From the art-direction notes, what applied to this game (lighting, the cel shader and ink lines, parallax from the 3D camera, hit-stop
+and directional knockback were already in, so they were tuned rather than rebuilt):
+
+- **Match display** (`godot/ui/match_hud.gd`), after the reference game's: a tilted portrait of each fighter's own face (its real model
+  and outfit, rendered once into a texture by a small private viewport, then never again, so it costs nothing in play), its damage in
+  big italic numbers with a small tenth that heat from white through cream, orange and red to deep red (`heat`), stocks as little heads,
+  the name on a dark slanted bar with a stripe and a P tag in the player's colour, and the weapon's emblem faint behind the number. Ink
+  outlines and soft shadows throughout, the same as the clock. The clock reads 00:12 with "TIME LEFT" or "TIME PLAYED" over it.
+- **No damage over the heads in a match**: only a small "P1" tag in the player's colour (so players are told apart by more than colour).
+  Training keeps the damage and name over the head (`FighterView.set_overhead`). `--match` on the command line shows a match's display
+  without the menus.
+- **Stage material**: a soft shadow on the block front under the cap (the edge of the fighting surface reads at a glance), tufts at
+  uneven gaps and sizes with a stone now and then, and world-laid surfaces drift lighter and darker in broad patches so the pattern does
+  not read as one stamped tile (`world_vary` in `shaders/toon.gdshader`, 0.08).
+- **Atmospheric perspective** (`shaders/post.gdshader`): scenery behind the stage fades toward the mood's haze with distance behind the
+  stage plane (`haze_start` 12, `haze_end` 140, `haze_max` 0.26; `stage_dist` is set each frame by `main.gd`), ink lines with it. The
+  sky is left alone.
+- **Foreground** pieces (low on the stage's front near each end) were tried and removed in the twenty-third pass: the match display
+  hides that part of the screen, and when the camera pulls out they looked like bushes growing out of the stage's wall.
+- **Hit restraint**: the shockwave ring of a strong hit is smaller and thinner, so the big effects stay readable without hiding the
+  opponent.
+- **Anti-aliasing**: MSAA stays at 4x (`msaa_3d=2` in `project.godot` means 4x): measured against 2x it costs about 0.1 ms of GPU
+  time a frame for cleaner edges. With the machine idle the `--perf` tour ran at about 410 to 440 frames a second (GPU 1.4 ms, 456 draw
+  calls).
+
+**Outlines** (`shaders/outline.gdshader`): thinner (0.0022 of the distance, 0.02 to 0.11 units), pushed out only across the screen and
+set a little back, so they rim the silhouette without cutting across the model where one part is in front of another. The pastel
+finish no longer lifts near-black (`not_ink` in `post.gdshader`): it had turned the ink outlines grey in a match.
+
+## Visual-polish roadmap, phases 0 and 1 (twenty-third pass)
+
+**Phase 0 audit** (Godot 4.7.1, Forward+ on Vulkan with a Direct3D 12 fallback, 1280x720 base viewport stretched, MSAA 4x). One
+scene builds everything in code: `main.tscn` / `main.gd` (camera, effects, match flow), `lighting.gd` (the environment, a warm key
+light with shadows and a cool fill, per-stage moods), `stage_view.gd` / `stage_art.gd` (the stage and its scenery, procedural, not
+Blender), `fighter_view.gd` (fighters: the rigged base body from `art/blender/make_rigged_blob.py`, imported as glTF, materials
+converted to the cel material by `toonify.gd`), `shaders/toon.gdshader` + `toon_light.gdshaderinc` (the cel lighting),
+`outline.gdshader` (inverted-hull ink), `post.gdshader` (screen-space ink lines, colour grade, pastel finish, distance haze, paper
+grain), `ui/match_hud.gd`, `effects.gd` / `particles.gd`. The cel shader is a deliberate custom shader (painted shadow hues, a rim, a
+stepped ramp), so the roadmap's "prefer StandardMaterial3D" does not apply to it. Found: two distance hazes stacked (the engine's depth
+fog in one fixed blue for every stage, and the post pass's per-stage haze), a saturation boost of 1.12 that the pastel finish then
+partly took back, SSAO at 1.2, soft and faint cast shadows, ink as heavy on props as on fighters. Baseline: all five stages from the
+gameplay camera with the match display.
+
+**Phase 1, lighting and rendering:**
+- The engine's depth fog is off: the post pass's haze (in each stage's own colour) is the one atmospheric perspective.
+- Less veil: saturation 1.04 (was 1.12), contrast 1.06 (was 1.03), pastel desaturation 0.1 (was 0.16) and lift 0.13 (was 0.2), distance
+  haze at most 0.3.
+- Firmer contact: cast shadows 0.62 dark (`shadow_amount` in `toon_light.gdshaderinc`, was 0.5), shadow blur 1.0 (was 2.0), the
+  shadow range 70 units (the farthest the camera goes) in two splits, so the detail goes where the fighting is.
+- SSAO a finishing touch: radius 1.0, intensity 0.9 (was 1.4 and 1.2).
+- Anti-aliasing: MSAA 4x kept; SMAA on top was tried and made no visible difference (the screen-space ink is already smooth), so it
+  is off. TAA was not used: it smears fast-moving fighters and effects, the worst trade for a fighting game.
+- GPU time unchanged (about 1.5 ms a frame on the `--perf` tour).
+
+**Phase 2, the material library** (`godot/scripts/materials.gd`): one cel material per surface family, each the shared cel shader with a
+hand-drawn tile and its own response to light (`FAMILIES`): wood and grass matte with a firm step into shadow, bark soft and matte,
+foliage softer still with a stronger rim (a puffy mass), stone crisp with a faint sheen. The fighters keep their own small sheen, so
+they read a touch livelier than the scenery. Families: `Materials.world(tile, colour, size)` for stage surfaces laid in world space
+(grass, wood, sand, roof, steel), `wood`, `bark`, `foliage` and `stone` for props and trees by their UVs, and `greens(base)`, four
+coordinated greens (deep shade, body, light, sunlit tips) so a crown or bush reads as one plant. New tiles in `godot/art/stage/`:
+`bark.svg` (vertical grooves, a few knots), `foliage.svg` (soft clumps with shaded undersides) and `stone.svg` (faint facets, hairline
+cracks, speckles), made by `tools/art/make_tiles.py` (re-run it to change them); like every tile they are drawn on #ff00ff and only
+translucent black and white, so one tile takes any colour. Used for: platform beams, fence posts, barrels, crates, signposts, the
+lantern post, the life-ring post, the water tower, the windmill sails (wood); the great tree, the round trees, the palms and the stump
+(bark, drawn on rather than built of boxes); crowns, bushes, palm fronds, the potted plant and the foreground bushes (foliage); rocks
+and pebbles (stone). Measured on the same machine at the same moment: no change in GPU time or draw calls.
+
+Blender's part, for imported props: keep the shapes, bevels and UVs there, give each surface a plain material in the right colour, and
+let `toonify.gd` make it a cel material; a family can be assigned to it in Godot without touching the `.blend`.
+
+**Phase 3, stage composition** (the grove is the stage the roadmap describes; the rest apply to every stage):
+- **The great tree** is one hand-built mesh (`trunk_mesh`): it bows gently as it rises, tapers, and flares into its roots; the bark is
+  drawn on; six broader roots. One mesh, so its ink line has no seams. (Hand-built meshes are left out of `merge_static`: merged in with
+  the built-in shapes, the trunk vanished.)
+- **Platforms**: a light edge where the top meets the front (it says where the platform ends) and a soft shade on the beam under the
+  board; wood planks drift a little more in tone (`world_vary` 0.13 for the wood family).
+- **The grass**: flowers and tufts in small clusters toward the stage's ends, none in the middle third (`_flower_clusters`).
+- **Depth**: a far line of soft tree shapes on the hills (`_tree_line`), faded by the distance haze.
+- **The island's underside** (`_island_underside`): a cone of earth hanging under the lowest block (fitted to it: `stage_view.gd` now
+  passes the lowest block's left and right with the extent), a smaller tip below, rocks jutting from it and thin roots hanging from the
+  rim, so the grove reads as a floating island when the camera pulls out.
+
+**Phase 4, characters and outlines:** the fighters are now the clearest things on screen.
+- **Outline hierarchy** (`outline_weight`, an instance parameter in `shaders/outline.gdshader`): the scenery's hull outline is 0.6 as
+  thick and in a softer ink (`scenery_color`); each fighter's meshes set it to 1 (`_tag_object` in `fighter_view.gd`), the full black
+  line. One shared outline material still serves everything.
+- **Screen-space ink** on the stage and scenery at 0.72 strength (`scenery_lines` in `post.gdshader`); the fighters' lines in full.
+- **A stronger rim on the fighters** (`rim_boost`, an instance parameter in `toon_light.gdshaderinc`, 1.4 for fighters,
+  `FIGHTER_RIM_BOOST`), so they lift off the background; foliage's own rim brought down to 0.35 so the trees do not compete.
+- Checked in close-up: even outlines, no gaps or dark seams where the fighters' parts meet. Screenshots in `docs/screenshots/`.
+
+**Phase 5, combat effects:** the roadmap's effect set was already in (landing dust, hit bursts by what landed the hit, the swing
+arcs, heavy-hit rings and impact spikes, launch streaks and puffs, shield flashes, and the sim's hitlag as hit-stop, scaled by damage
+and set in the ruleset: `hitlag_per_damage`, `hitlag_base`, `hitlag_cap`), so this pass sharpened the difference between light and
+heavy hits and kept effects off the action:
+- **Camera shake only for hits that matter**: from more hitlag than a jab's or a tilt's (`HIT_SHAKE_FROM`, 9 frames, in `main.gd`),
+  growing with it; it had been a little on every hit.
+- **Sparks** 4 for a light hit up to 22 for a strong one (was 10 to 24); the burst smaller at the light end (`0.36 + 0.9 * strength`).
+- **The hit flash** on the struck fighter scales with the hit: soft (0.3) for two frames on a light hit, bright (0.6) for three on a
+  strong one, then faint; a jab had whitened the fighter as much as a smash.
+- **Bursts sit a little toward the hitter**, so even a big one leaves the struck fighter's face in view.
+- Effects clean themselves up (each frees itself when its life ends) and are a few small meshes each, drawn on twos.
+Light against heavy (the sword's jab and forward smash): `docs/screenshots/phase5_light_vs_heavy.png`.
+
+**Phase 6, presentation:**
+- **Camera**: it already eases position and zoom smoothly (no snaps), frames both fighters with a margin, closes in on a close
+  exchange and zooms on a finishing hit; now it also aims a little low (`HUD_LIFT`, about 4% of the view's height) so fighters on the
+  ground sit clear of the match display along the bottom. Shake is kept for strong hits (phase 5).
+- **HUD**: losing a stock is a moment of its own: the lost head swells and fades off the row and the portrait flashes red
+  (`lost_at`, `LOST_MS` in `match_hud.gd`). The damage number already jumps and shakes on each hit, the round starts with "3, 2, 1, GO!"
+  and ends with "GAME!" or "TIME!" and the results screen. The player tags over the fighters (and the training damage) now use the
+  match display's typeface.
+- **Audio**: skipped for now, as asked; the hit sounds already play on the impact frame (with the hit effect, as hitlag starts).
+- **Performance** under combat load (`--perf` tour, the machine otherwise idle): 465 frames a second, GPU 1.3 ms, render CPU 0.6 ms,
+  scripts 0.3 ms, 506 draw calls; 2 frames in 10 seconds over 25 ms (loading).
+
+**Next, essential:** play-test the readability changes at real speed (the outline hierarchy and the light/heavy hit difference are
+tuned from still frames); the other four stages have not had the grove's composition pass (their trees and props use the new
+materials, but no hand-built focal shapes or undersides). **Optional:** sound design when it is time; a damage pop when a fighter
+comes back at 0%; attack wind-up and recovery poses per move (animation work, best done with the movesets); per-stage tuning of the
+haze and the colour grade after play-testing.
+
+## Stance and faces after the concept art (twenty-fourth pass)
+
+- **Stance**, as the reference game's fighters stand: the hips and legs turned 70 degrees toward the way the fighter faces (strides and
+  kicks still read across the screen), the chest twisted back to 35 degrees off the camera (it mostly faces the viewer), and the head
+  turned 10 degrees back toward the opponent, a three-quarter face with both eyes in view (`BODY_TURN`, `CHEST_TO_CAMERA`,
+  `HEAD_TOWARD_FOE` in `fighter_view.gd`).
+- **Faces** redrawn in the concept art's style (`tools/art/make_faces.py` draws every one; re-run it to change them): big round eyes, a
+  cream ring round a large dark pupil with a small highlight, round pink cheeks, a small simple mouth; every expression (calm, sleepy,
+  grumpy, smug, blink, happy, focus, attack, effort, hurt, shock, dazed) is the same face with its eyes and mouth changed, the lids in
+  the fighter's own colour. The drawing is shown 1.15 times the shell's square (`face_zoom` in `shaders/face.gdshader`), since the
+  concept's eyes are big for the head. The calm face is the one named `deadpan` in the catalog (kept, so saved fighters keep their face).
+  Sheet: `docs/screenshots/faces_concept_style.png`.
+- **The face fits the shell**: the face shell shows the drawing down to about row 320 of 512, so eyes (middles on row 214), cheeks
+  (level with the bottoms of the eyes) and mouth (just under them) all sit above that; the first redraw had the mouth and cheeks
+  lower, where they were cut off. The glasses follow the eyes' place on the head (`FACE_EYE_ROW`, `FACE_EYE_OUT`).
+
+## Modelled clothes (twenty-fifth pass)
+
+The base body's shirt and shorts are real meshes now, not painted on (`build_garments` in `art/blender/make_rigged_blob.py`, run with
+`--body`; exported in `godot/models/base_rig.glb` as "Shirt" and "Shorts"). Each is a copy of the skin cut along its hems by planes (so
+the hems are straight however the mesh is laid out): the shirt from just below the waist to the neck with short sleeves (55% down the
+upper arm), the shorts from the waist to above the knee. They are pushed off the skin (the shirt 0.034, the shorts 0.022, so the
+shirt's hem lies over the waistband), flare a little at the hems (the leg openings and the shirt's), and have a thickness of 0.012 so a
+hem reads as a rolled edge. Every point takes the bone weights of the nearest point of the skin, so the clothes move exactly with the
+body in every clip; the cuts' slivers are merged away first (they threw points far off). In the game (`fighter_view.gd`) the shirt takes
+the look's shirt (white, the outfit colour, stripes or the flower print, laid by the garment's rest-pose texture map at the scales the
+painted shirt used; hidden with no shirt) and the shorts the shorts colour; the skin shader stops painting them (`painted_clothes`),
+and still paints the socks and shoes. The clothes keep the plain rim light (the fighters' stronger one picked out every fold).
+One shirt and one pair of shorts for now, recoloured per look; other cuts later go in the same function. Known: in a full tuck a thin
+glint of skin can show at the hip crease. Poses: `docs/screenshots/modelled_clothes.png`.
+
+## Faces from parts (twenty-sixth pass)
+
+The face is no longer one drawing per expression: it is put together on the head from **parts** a player chooses and places, like a
+caricature kit (the character creator, `docs/MENUS.md`).
+
+- **The parts** (`godot/art/face_parts/`, all drawn by `tools/art/make_face_parts.py` in the concept art's style; re-run it to change
+  them): 8 eye shapes (`round` is the concept's), 6 brows, 6 noses, 6 cheeks, 9 resting mouths (`smile` is the concept's), and the
+  expressions' shut eyes (blink, happy, effort, hurt, a dazed spiral) and mouths. Each is a 256 square; eyes, brows, cheeks, noses and
+  shut eyes are white masks the game colours, mouths are in colour. Eyes, brows and cheeks are drawn for the right-hand side and mirrored.
+- **Putting it together** (`godot/shaders/face_common.gdshaderinc`, used by `face.gdshader` on the head and `face_ui.gdshader` in the
+  menus): the eye's white (cream), a pupil and highlight drawn in it (in the eye colour, looking the way the fighter faces), lids in the
+  fighter's colour with an ink edge, then the ink outline; brows, cheeks and the nose are tinted masks; the mouth is laid on as drawn.
+  Every part has a place, size, tilt and squash.
+- **The look** (`godot/scripts/face_look.gd`, `loadout.gd`): each part's style, its colour (eyes, brows, cheeks) and adjustments in
+  steps (eyes: height, spacing, size, tilt, stretch; brows: height, spacing, size, tilt; nose: height, size; mouth: height, size,
+  width), appended to the look's bytes (about 30 now, at most 48); an older look reads with the standard face. Cheeks follow the eyes.
+- **Expressions** are the player's own face changed (`FaceLook.EXPRESSIONS`): lids (top, slope, lower), brow tilt and lift, pupil
+  size, shut or spiral eyes, and an expression mouth. Moods (deadpan, sleepy, grumpy, smug) are the same with the player's own mouth.
+- **The face shell reaches the chin**: the base body's skin bulged past the shell toward the jaw and hid anything drawn below the
+  mouth; each point of the shell is now pushed out until it clears the skin (`FACE_CLEARANCE` in `make_rigged_blob.py`), so parts can
+  move anywhere on the face. The glasses follow the eyes' place and size (`FaceLook.eye_row`, `eye_out`).
+- The old per-expression drawings (`godot/art/faces/`) and `tools/art/make_faces.py` are gone.
+
+## Clothes that sit flat (twenty-seventh pass)
+
+The modelled shirt and shorts creased and the shorts' legs differed. Causes and fixes (`build_garments`, `skin.gdshader`, `fighter_view.gd`):
+
+- **Different legs**: the body mesh (from the generated model) is not symmetric, so a copy of it was not either. Each garment is now cut
+  at the middle and its right half mirrored.
+- **Creases from the body's bumps**: the cloth followed every bump of the skin (belly, chest, hips). It is smoothed (`GARMENT_SMOOTH`
+  steps, the hems held) so it drapes over them, then pushed back out wherever smoothing pulled it toward the body.
+- **Bunching when the body moves**: each point copied the nearest skin point's bone weights, so neighbours followed different bones and
+  folded (the shirt's sides with the fists up). The cloth's weights are now smoothed over it (`GARMENT_WEIGHT_SMOOTH`).
+- **Skin through the cloth**: under modelled clothes, a little inside the hems, the skin is not drawn at all.
+- **Dark specks in folds**: the ink outline (an expanded hull just behind the surface) poked through where cloth folds inward. Garments
+  use the same outline pushed further back (`CLOTH_OUTLINE_PUSH_BACK`): their silhouettes keep the line, their folds do not.
+
+Second round (the desktop build still showed different legs and marks on the shirt):
+
+- **Weights mirrored too**: the left half of each garment takes the right half's bone weights with left and right swapped, so both sides
+  move alike; below the crotch each leg of the shorts follows its own thigh (fully at the hem), so the leg openings stay put.
+- **No thickness**: the solidified inner layer crossed the outer one wherever the cloth folded (black scratches at the armpits). Garments
+  are a single surface drawn on both sides (`toon_cloth.gdshader`, the inside a shade darker).
+- **No line through cloth**: the skin's outline is left out under the clothes (the skin's vertex colour marks where;
+  `hide_under_shirt` / `hide_under_shorts` in `outline.gdshader`), and the shirt has none round the armpits; the garments' own line is
+  thinner and further back (`CLOTH_OUTLINE_THIN`, `CLOTH_OUTLINE_PUSH_BACK`).
+- **Straight hems**, a snug waistband just under the shirt's hem (`SHORTS_TOP`), and only the shirt's arm and spine weights smoothed.
+
+Third round (the shirt's hem still looked torn in the creator's stance):
+
+- **The hem crumpled in the stance**: hem points had picked up a little of the thighs' and arms' influence (the arms hang beside the hips
+  in the rest pose), so spreading the legs or raising the fists pulled them into teeth. Torso cloth now takes only the trunk's bones
+  (hips, spine, neck), averaged per height over the torso's skin (`trunk_weights`); sleeves keep the arm's, and the shorts' legs blend
+  into their own thigh below the crotch.
+- **What counts as arm** is now closeness to the arm's axis (`ARM_RADIUS`, in the builder and `skin.gdshader`); far from the middle alone
+  took the hips' sides for arms. The hems are smoothed along their own loops too (`HEM_SMOOTH`).
+- **Finish**: a thin ink line along the shirt's bottom hem (`hem_ink` in `toon_common.gdshaderinc`), a softer light-to-shadow step on
+  cloth (`CLOTH_RAMP_SOFTNESS`), full mesh detail at any size (`lod_bias`), and the skin hidden in one stretch from the shorts' hems to the
+  neck when both are worn.
+
+Posed: `docs/screenshots/clothes_smoothed.png`.
+

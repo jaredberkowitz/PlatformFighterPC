@@ -7,6 +7,7 @@ extends Control
 const Music := preload("res://scripts/music.gd")
 const UI := preload("res://ui/ui_kit.gd")
 const D := preload("res://ui/ui_draw.gd")
+const Art := preload("res://ui/menu_art.gd")
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
@@ -41,14 +42,15 @@ const DIRECT_ARGS := ["--demo", "--host", "--join", "--relay", "--content", "--c
 
 
 class Logo extends Control:
-	## The game's name, set in two slanted bars.
+	## The game's name on two brush strokes: "PLATFORM" in white on ink, "FIGHTER" in ink on gold, with a spark where they cross.
 	func _draw() -> void:
-		var a := Rect2(Vector2(0, 0), Vector2(420, 62))
-		D.draw_slant(self, a, Color(0.97, 0.96, 0.92), D.INK, 4.0, true)
-		D.draw_text_centered(self, "PLATFORM", a, 50, D.INK)
-		var b := Rect2(Vector2(230, 52), Vector2(300, 62))
-		D.draw_slant(self, b, D.GOLD, D.INK, 4.0, true)
-		D.draw_text_centered(self, "FIGHTER", b, 50, D.INK)
+		var a := Rect2(Vector2(6, 2), Vector2(380, 64))
+		Art.brush_band(self, a, Art.INK, 31, 20.0, true, 1.0)
+		Art.title_centered(self, "PLATFORM", a.grow_individual(-10, 0, -20, 0), 62, Color.WHITE, 0.0)
+		var b := Rect2(Vector2(220, 56), Vector2(300, 62))
+		Art.brush_band(self, b, Art.SUN, 37, 18.0, true, 1.0)
+		Art.title_centered(self, "FIGHTER", b.grow_individual(-8, 0, -18, 0), 62, Art.INK, 0.0)
+		Art.sparkle(self, Vector2(206, 66), 16.0, Color.WHITE)
 
 
 func _ready() -> void:
@@ -79,19 +81,18 @@ func _ready() -> void:
 		if item[4] == "play":
 			# The last fighter played stands in the Play tile (in place of its icon).
 			tile.icon = ""
+			tile.hero = true
+			tile.show_scene(0.35, 23)
 			preview = Preview.new(Vector2i(300, 420), false, 9.0)
-			preview.position = Vector2(r.size.x - 330, 10)
+			preview.position = Vector2(r.size.x * 0.5 - 150.0, 16)
 			preview.set_loadout(Roster.net_entry().look)
-			tile.add_child(preview)
+			tile.add_layer(preview)
 	_select(0)
 
-	var hint := UI.Tag.new("Up / Down: next tile     Left / Right: across     Enter: pick     Esc: quit", Vector2(700, 36))
-	hint.fill = Color(1, 1, 1, 0.1)
-	hint.ink = Color(1, 1, 1, 0.75)
-	hint.font_size = 18
-	hint.shadow = false
-	hint.position = Vector2(50, 672)
-	add_child(hint)
+	var keys := UI.KeyBar.new([["W S", "Next tile"], ["A D", "Across"], ["Enter", "Pick"], ["Esc", "Quit"]])
+	keys.position = Vector2(50, 672)
+	keys.size = Vector2(620, 30)
+	add_child(keys)
 	PadNav.attach(self)
 	Music.of(self).play("menu")
 	UI.reveal(self)

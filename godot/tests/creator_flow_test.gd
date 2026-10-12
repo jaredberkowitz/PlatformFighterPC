@@ -135,10 +135,33 @@ func _screens() -> void:
 	root.add_child(creator)
 	await process_frame
 	await process_frame
-	check(creator.selectors["class"].index == 0 and creator.stat_rows["size"].value == 5, "a new fighter starts neutral")
-	# Casual rules: this test raises stats freely (the budget has its own test).
-	creator.selectors["rules"].set_index(1)
-	creator._set_focus(creator.rows.find(creator.rows.filter(func(r): return r.id == "size")[0]))
+	check(creator.class_index == 0 and creator.current_entry().size == 5, "a new fighter starts neutral")
+	check(creator.CATEGORIES[creator.category].id == "eyes", "it opens on the eyes")
+	# A face part: choose a mouth from the grid, then move it with the tools.
+	creator._open(creator.CATEGORIES.map(func(c): return c.id).find("mouth"))
+	creator._choose(3)
+	check(creator.look.mouth == 3, "choosing in the grid sets the part")
+	var y0: int = creator.look.mouth_y
+	creator._nudge("mouth_y", -1)
+	check(creator.look.mouth_y == y0 - 1 and creator.header.feedback == "+1 height", "the up button raises it and says so: " + creator.header.feedback)
+	for i in 30:
+		creator._nudge("mouth_y", -1)
+	check(creator.look.mouth_y == 0, "and stops at the limit")
+	creator._reset_part()
+	check(creator.look.mouth_y == y0, "Reset puts it back")
+	# Keys: Q and E change category; arrows move through the grid; J picks.
+	var at: int = creator.category
+	creator._unhandled_key_input(key(KEY_E))
+	check(creator.category == at + 1, "E opens the next category")
+	creator._unhandled_key_input(key(KEY_Q))
+	creator._focus(creator.page_items[0])
+	creator._unhandled_key_input(key(KEY_RIGHT))
+	creator._unhandled_key_input(key(KEY_J))
+	check(creator.look.mouth == 1, "right then J picks the next choice")
+	# How it plays: casual rules (this test raises stats freely; the budget has its own test), then a stat with the keys.
+	creator._open(creator.CATEGORIES.size() - 1)
+	creator.rules.set_index(1)
+	creator._focus(creator.stat_rows["size"])
 	creator._unhandled_key_input(key(KEY_RIGHT))
 	creator._unhandled_key_input(key(KEY_RIGHT))
 	check(creator.stat_rows["size"].value == 7, "right arrow raises the focused stat")
@@ -149,9 +172,12 @@ func _screens() -> void:
 	check(creator.bars.values["Weight"] > before["Weight"] and creator.bars.values["Run speed"] < before["Run speed"], "bigger shows heavier and slower in the bars")
 	check(creator.preview.size_percent > 120.0, "and a bigger fighter on the stand: %f" % creator.preview.size_percent)
 	creator.name_edit.text = "zz_test Made"
-	creator.selectors["hat"].set_index(4)
+	creator._open(creator.CATEGORIES.map(func(c): return c.id).find("hat"))
+	creator._choose(4)
 	var made: Dictionary = creator.current_entry()
-	check(made.name == "zz_test Made" and made.size == 9 and made.look.hat == 4, "the entry reflects the screen")
+	check(made.name == "zz_test Made" and made.size == 9 and made.look.hat == 4 and made.look.mouth == 1, "the entry reflects the screen")
+	creator._back()
+	check(creator.exit_armed, "leaving with unsaved changes asks first")
 	check(Roster.save(made) == "", "it saves")
 	creator.queue_free()
 	await process_frame
@@ -159,7 +185,8 @@ func _screens() -> void:
 	Roster.edit_slug = "zz_test_made"
 	root.add_child(reopened)
 	await process_frame
-	check(reopened.name_edit.text == "zz_test Made" and reopened.stat_rows["size"].value == 9 and reopened.selectors["hat"].index == 4, "a saved fighter reopens for editing")
+	check(reopened.name_edit.text == "zz_test Made" and reopened.current_entry().size == 9 and reopened.look.hat == 4 and reopened.look.mouth == 1,
+		"a saved fighter reopens for editing")
 	reopened.name_edit.text = ""
 	check(Roster.name_problem(reopened.current_entry().name, reopened.editing_slug) != "", "saving without a name is refused")
 	reopened.queue_free()

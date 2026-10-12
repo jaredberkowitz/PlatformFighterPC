@@ -8,8 +8,11 @@
 use crate::collision;
 use crate::content::{FighterParams, Ledge, Ruleset, Stage};
 use crate::fixed::Fx;
-use crate::input::{buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FROM, STICK_THRESHOLD};
-use crate::moves::{Motion, MoveId, Weapon};
+use crate::input::{
+    buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES, STICK_FLICK_FROM,
+    STICK_THRESHOLD,
+};
+use crate::moves::{Motion, Move, MoveId, Weapon};
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, NONE};
 use crate::trig::{self, Angle};
@@ -22,9 +25,9 @@ const TAP_BUFFER: u8 = 3;
 const HOLD_BUFFERED: u16 = buttons::ATTACK | buttons::SPECIAL | buttons::JUMP | buttons::GRAB;
 /// Frames in which a stick flick still counts as a dash input.
 const FLICK_BUFFER: u8 = 2;
-/// Frames in which a hard down press still triggers a fast fall. Long enough that a press made
-/// just before the apex of a jump still works once the fighter starts falling.
-const FAST_FALL_BUFFER: u8 = 10;
+/// Frames in which a hard down press still triggers a fast fall, as in the reference: a press up to three frames before the apex
+/// works once the fighter starts falling, if the stick is still held down.
+const FAST_FALL_BUFFER: u8 = 3;
 
 impl Fighter {
     pub fn held(&self, mask: u16) -> bool {
@@ -80,18 +83,25 @@ impl Fighter {
     }
 
     /// True if the stick was pressed down *hard and fast* within the last `frames` frames: it reached
-    /// the full threshold coming from near neutral. Merely holding down, or rolling slowly down to it,
-    /// does not count. This is the fast-fall input: a flick or hard press on a stick, a double tap
-    /// on a keyboard.
+    /// the full threshold coming from near neutral within `STICK_FLICK_FRAMES`. Merely holding down, or
+    /// rolling slowly down to it, does not count. This is the fast-fall input: a flick or hard press on
+    /// a stick, a double tap on a keyboard.
     pub fn hard_down(&self, frames: u8) -> bool {
         let n = usize::from(frames).min(self.history.len());
         (0..n).any(|i| {
             self.history[i].stick_y <= -STICK_THRESHOLD
-                && match self.history.get(i + 1) {
-                    Some(older) => older.stick_y > -STICK_FLICK_FROM,
-                    None => true,
-                }
+                && self
+                    .history
+                    .get(i + 1)
+                    .is_none_or(|o| o.stick_y > -STICK_THRESHOLD)
+                && self.flick_started(i, |o| o.stick_y > -STICK_FLICK_FROM)
         })
+    }
+
+    /// Whether, within `STICK_FLICK_FRAMES` before history frame `crossed`, the stick was where a flick
+    /// starts (`low`): how fast it travelled to the threshold. Frames older than the history count.
+    fn flick_started(&self, crossed: usize, low: impl Fn(&Input) -> bool) -> bool {
+        (crossed + 1..=crossed + STICK_FLICK_FRAMES).any(|j| self.history.get(j).is_none_or(&low))
     }
 
     /// Direction (-1 or 1) of a horizontal flick within the last `frames` frames, or 0. A flick is
@@ -109,10 +119,8 @@ impl Fighter {
         let n = usize::from(frames).min(self.history.len());
         let crossed = (0..n).any(|i| {
             past(self.history[i].stick_x)
-                && match self.history.get(i + 1) {
-                    Some(older) => started_low(older.stick_x),
-                    None => true,
-                }
+                && self.history.get(i + 1).is_none_or(|o| !past(o.stick_x))
+                && self.flick_started(i, |o| started_low(o.stick_x))
         });
         if crossed {
             dir
@@ -123,6 +131,10 @@ impl Fighter {
 }
 
 fn enter(f: &mut Fighter, state: S) {
+    // A pull lasts only while the fighter is in hitstun.
+    if state != S::Hitstun {
+        f.pull = false;
+    }
     // Script variables belong to one attack (and the moves it switches to), so a new attack starts clean.
     if state == S::Attack && f.state != S::Attack {
         f.vars = [0; crate::FIGHTER_VARS];
@@ -131,6 +143,10 @@ fn enter(f: &mut Fighter, state: S) {
         f.balloon_faf = 0;
         f.balloon_left = Fx::ZERO;
         f.hits_taken = 0;
+    }
+    // Doing anything at all (or landing, or being hit again) ends a damage fall.
+    if state != S::Airborne {
+        f.damage_fall = false;
     }
     f.state = state;
     f.state_frame = 0;
@@ -151,12 +167,12 @@ fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
     }
 }
 
-/// Acceleration toward a ground speed target: gentle `run_decel` when slowing from extra speed
-/// (left over from a dash or a landing), normal `ground_accel` otherwise.
+/// Acceleration toward a walking speed target: speed above it (left over from a landing or a turn) comes off at traction
+/// (`ground_friction`), as in the reference game, and `ground_accel` brings the walk up to speed.
 fn ease_rate(vel: Fx, target: Fx, p: &FighterParams) -> Fx {
     let overspeed = vel.signum_int() == target.signum_int() && vel.abs() > target.abs();
     if overspeed {
-        p.run_decel
+        p.ground_friction
     } else {
         p.ground_accel
     }
@@ -202,7 +218,7 @@ pub fn update(
         f.hitlag -= 1;
         if f.hitlag == 0 && f.launch_pending {
             asdi(f, p, stage, rules);
-            apply_launch(f, rules);
+            apply_launch(f, p, rules);
         }
         return None;
     }
@@ -223,13 +239,19 @@ pub fn update(
         f.shield_hp = (f.shield_hp + rules.shield_regen).min(rules.shield_max);
     }
 
+    // Walking or running off a platform takes the ground speed into the air the way a jump does (see `jump_squat`).
+    let on_foot = f.grounded()
+        && matches!(
+            f.state,
+            S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch | S::Landing
+        );
     match f.state {
         S::Attack => return attack(f, p, weapon, stage, rules),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
-        S::JumpSquat => jump_squat(f, p, stage),
-        S::Airborne => return airborne(f, p, weapon, stage),
-        S::Helpless => return helpless(f, p, stage),
+        S::JumpSquat => jump_squat(f, p, stage, rules),
+        S::Airborne => return airborne(f, p, weapon, stage, rules),
+        S::Helpless => return helpless(f, p, stage, rules),
         S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
@@ -251,7 +273,17 @@ pub fn update(
         S::Respawn => revival(f, p, rules),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f),
     }
+    if on_foot && !f.grounded() && f.state == S::Airborne {
+        f.vel.x = air_momentum(f.vel.x, p, rules);
+    }
     None
+}
+
+/// Ground speed leaving the ground: `jump_momentum` of it, at most `jump_momentum_max` times the air speed (the reference game's
+/// jump speed multiplier and cap; the same for stepping off a platform as for a jump).
+fn air_momentum(vx: Fx, p: &FighterParams, rules: &Ruleset) -> Fx {
+    let cap = p.air_speed * rules.jump_momentum_max;
+    (vx * rules.jump_momentum).clamp(-cap, cap)
 }
 
 /// Puts a fighter into the special fall (what an up-special will do when it ends).
@@ -282,12 +314,28 @@ fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool 
     true
 }
 
+/// Like `slide_on_platform`, but the fighter stops at the platform's edge instead of going over it (rolls, tech rolls and spot
+/// dodges, as in the reference: a roll into the edge ends on the edge).
+fn slide_kept_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+        f.vel.x = Fx::ZERO;
+    }
+    if let Some(plat) = collision::platform(stage, f.platform) {
+        if f.pos.x < plat.left || f.pos.x > plat.right {
+            f.pos.x = f.pos.x.clamp(plat.left, plat.right);
+            f.vel.x = Fx::ZERO;
+        }
+    }
+}
+
 fn start_dash(f: &mut Fighter, p: &FighterParams, dir: i8) {
     // Turning around out of a dash or run is a dash dance: the fighter stands for `dash_turn_delay` frames, then dashes the new way.
     let reversing = f.facing != dir && matches!(f.state, S::Dash | S::Run);
     f.facing = dir;
     f.dash_age = 0;
     if reversing && p.dash_turn_delay > 0 {
+        // (Kept for a jump in the turnaround: a reverse aerial rush.)
+        f.turn_speed = f.vel.x;
         f.vel.x = Fx::ZERO;
         // The countdown ends on the frame the first step is taken, so the fighter stands for `dash_turn_delay` frames after the reversal.
         f.dash_wait = p.dash_turn_delay + 1;
@@ -322,6 +370,19 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     // `dash_shield_frame`, which cuts the dash to about half its distance.
     let initial_dash = f.state == S::Dash;
     if f.take(buttons::JUMP, buffer) {
+        // A reverse aerial rush: back with the jump (or just before it) out of a dash or run, or a jump in the first frames of a dash
+        // turnaround, jumps facing back but still moving the way the fighter was going, so a back aerial leads.
+        // (Out of a run any push back past the dead zone turns it, as it does without the jump; out of a dash it takes a flick.)
+        let back_in_run =
+            f.state == S::Run && x_active(input) && (input.stick_x > 0) != (f.facing > 0);
+        if matches!(f.state, S::Dash | S::Run)
+            && f.dash_wait == 0
+            && (f.flick_x(FLICK_BUFFER) == -f.facing || back_in_run)
+        {
+            f.facing = -f.facing;
+        } else if f.state == S::Dash && f.dash_wait > 0 {
+            f.vel.x = f.turn_speed;
+        }
         enter(f, S::JumpSquat);
         return;
     }
@@ -376,11 +437,16 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                     // Still inside the dash-dance window: a new dash the other way.
                     start_dash(f, p, flick);
                 } else {
+                    // A run's turnaround: it skids to a stop facing the new way (a jump in it keeps the run's speed).
                     f.facing = flick;
+                    f.turn_speed = f.vel.x;
                     enter(f, S::Turn);
                 }
             }
-        } else if !(f.state == S::Dash && flick == f.facing) {
+        } else if !(f.state == S::Dash && flick == f.facing)
+            && !(f.state == S::Turn && f.turn_speed != Fx::ZERO)
+        {
+            // (A run's skid is committed: the flick that turned it, still in the buffer, or a new one, does not dash out of it.)
             start_dash(f, p, flick);
         }
     }
@@ -412,8 +478,21 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         }
         S::Turn => {
             f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-            if f.state_frame >= u16::from(p.turn_frames) {
-                f.state = S::Idle;
+            // (A run's skid, which keeps the run's speed for a reverse aerial rush, lasts longer than a turn from standing.)
+            let length = if f.turn_speed != Fx::ZERO {
+                p.run_turn_frames
+            } else {
+                p.turn_frames
+            };
+            if f.state_frame >= u16::from(length) {
+                // Out of a run's skid with the stick still pushed hard the new way, the fighter runs on that way.
+                let hard = input.stick_x.unsigned_abs() >= STICK_THRESHOLD.unsigned_abs();
+                f.state = if f.turn_speed != Fx::ZERO && hard && dir == f.facing {
+                    S::Run
+                } else {
+                    S::Idle
+                };
+                f.turn_speed = Fx::ZERO;
             }
         }
         _ if input.stick_y <= -STICK_DOWN => {
@@ -422,6 +501,8 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         }
         _ if x_active(input) => {
             if dir != f.facing {
+                // (Pushed back out of a run without a flick, it is still the run's skid.)
+                f.turn_speed = if f.state == S::Run { f.vel.x } else { Fx::ZERO };
                 f.facing = dir;
                 f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
                 enter(f, S::Turn);
@@ -458,7 +539,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     slide_on_platform(f, p, stage);
 }
 
-fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     // No friction here: a run or dash jump keeps its momentum into the air.
     if !slide_on_platform(f, p, stage) {
         return;
@@ -466,6 +547,9 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     if f.state_frame >= u16::from(p.jump_squat_frames) {
         f.platform = NONE;
         f.fast_fall = false;
+        // The ground speed carries into the air reduced (`jump_momentum`) and capped (`jump_momentum_max` of the air speed), so a
+        // running jump is a little faster than a full drift, not a run's speed carried through the whole jump.
+        f.vel.x = air_momentum(f.vel.x, p, rules);
         enter(f, S::Airborne);
         // An attack pressed during the jump squat (or with the jump) makes it a short hop, held jump or not: the short-hop aerial.
         // The aerial itself comes out of the buffer on the first airborne frame.
@@ -516,18 +600,10 @@ fn enter_landing(f: &mut Fighter, lag: u8) {
 
 /// Leaves a landing. Holding the stick the way you are moving continues straight into a run,
 /// so a jump keeps its momentum all the way through the landing.
+/// Out of a landing the fighter stands, and walks on if the stick is held (as in the reference game, a run needs a new dash: holding
+/// the stick does not land into one). Speed above walking speed comes off at traction.
 fn exit_landing(f: &mut Fighter) {
-    let input = f.history[0];
-    let moving_right = f.vel.x > Fx::ZERO;
-    let holding = input.stick_x.unsigned_abs() >= STICK_THRESHOLD.unsigned_abs()
-        && (input.stick_x > 0) == moving_right
-        && f.vel.x != Fx::ZERO;
-    if holding {
-        f.facing = if moving_right { 1 } else { -1 };
-        enter(f, S::Run);
-    } else {
-        enter(f, S::Idle);
-    }
+    enter(f, S::Idle);
 }
 
 // ---- Air -------------------------------------------------------------------------------------
@@ -592,7 +668,12 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
     }
-    if !f.fast_fall && f.vel.y <= Fx::ZERO && f.hard_down(FAST_FALL_BUFFER) {
+    if !f.fast_fall
+        && !f.damage_fall
+        && f.vel.y <= Fx::ZERO
+        && f.hard_down(FAST_FALL_BUFFER)
+        && f.history[0].stick_y <= -STICK_THRESHOLD
+    {
         f.fast_fall = true;
         // Fast fall snaps straight to fast-fall speed (it is not a gradual speed-up), so it is
         // unmistakable when it happens.
@@ -659,7 +740,13 @@ fn plain_landing_lag(f: &Fighter, p: &FighterParams) -> u8 {
     }
 }
 
-fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) -> Option<u8> {
+fn airborne(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+) -> Option<u8> {
     let buffer = p.input_buffer;
     if f.air_jumps_left > 0 && f.take(buttons::JUMP, buffer) {
         f.vel.y = p.air_jump_velocity;
@@ -674,6 +761,7 @@ fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) 
         f.hop_boost = 0;
         f.air_jumps_left -= 1;
         f.fast_fall = false;
+        f.damage_fall = false;
         f.short_hop = false;
     }
     if !f.air_dodge_used && f.take(buttons::SHIELD, buffer) {
@@ -685,20 +773,33 @@ fn airborne(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) 
         return None;
     }
     if f.take(buttons::ATTACK, buffer) {
-        start_air_attack(f);
+        start_air_attack(f, p);
         return None;
     }
     let lag = plain_landing_lag(f, p);
+    // Still tumbling from a strong launch (it has not acted since): landing is a tech, or a missed tech that leaves it lying down,
+    // as at the end of a launch.
+    let tumbling = f.damage_fall;
     if air_move(f, p, stage) {
-        enter_landing(f, lag);
+        if tumbling {
+            tumble_landing(f, rules);
+        } else {
+            enter_landing(f, lag);
+        }
         return None;
     }
     ledge_request(f, p, stage)
 }
 
 /// Special fall: drift and ledge grabs only. Landing costs extra lag.
-fn helpless(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
-    if air_move(f, p, stage) {
+/// The special fall after an up special (or another move that leaves the fighter helpless): it can only drift a little (a share of
+/// its air speed and acceleration, `helpless_drift`), fast fall, and catch a ledge, until it lands.
+fn helpless(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> Option<u8> {
+    let mut q = *p;
+    q.air_speed = p.air_speed * rules.helpless_drift;
+    q.air_accel = p.air_accel * rules.helpless_drift;
+    q.air_accel_stick = p.air_accel_stick * rules.helpless_drift;
+    if air_move(f, &q, stage) {
         enter_landing(f, p.helpless_landing_lag);
         return None;
     }
@@ -737,7 +838,8 @@ fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 /// How long an air dodge lasts: `air_dodge_frames` for a neutral one; for a directional one, between the sideways length and the
 /// straight down (or up) one by how steep it is.
-fn air_dodge_length(p: &FighterParams, dir: Vec2) -> u16 {
+/// How many frames an air dodge in direction `dir` lasts (`Vec2::ZERO` for a neutral one).
+pub fn air_dodge_length(p: &FighterParams, dir: Vec2) -> u16 {
     if dir == Vec2::ZERO {
         return u16::from(p.air_dodge_frames);
     }
@@ -846,13 +948,8 @@ fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
 }
 
 fn landing(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
-    // Landing keeps momentum: holding the stick the way you are moving carries it through the
-    // landing, and otherwise it bleeds off at the gentler `landing_friction`.
-    let input = f.history[0];
-    let carrying = x_active(input) && (input.stick_x > 0) == (f.vel.x > Fx::ZERO);
-    if !carrying {
-        f.vel.x = approach(f.vel.x, Fx::ZERO, p.landing_friction);
-    }
+    // The landing's momentum bleeds off at `landing_friction` whatever the stick does (holding it does not carry the speed).
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.landing_friction);
     if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(f.lag) {
         exit_landing(f);
     }
@@ -947,9 +1044,7 @@ fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     }
-    if !slide_on_platform(f, p, stage) {
-        return;
-    }
+    slide_kept_on_platform(f, p, stage);
     // Rolling backward (away from the way the fighter faces) takes longer.
     let frames = if dir == i32::from(f.facing) {
         p.roll_frames
@@ -971,9 +1066,7 @@ fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         f.invuln = f.invuln.max(1);
     }
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if !slide_on_platform(f, p, stage) {
-        return;
-    }
+    slide_kept_on_platform(f, p, stage);
     if f.state_frame >= u16::from(p.spot_dodge_frames) {
         enter(f, S::Idle);
     }
@@ -1373,17 +1466,52 @@ pub fn free_held(f: &mut Fighter, immunity: u8) {
 pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.hit_mask = 0;
+    f.b_reversed = false;
     enter(f, S::Attack);
     f.charge = 0;
 }
 
+/// The input an attack is aimed by: the movement stick, or, when the attack came from the attack stick (C-stick), its direction
+/// (the frame the attack was pressed on had a C direction), with the strong flag a C-stick attack carries on the ground. Out of a
+/// run the attack stick up or down is a smash and sideways the dash attack.
+fn attack_aim(f: &Fighter, p: &FighterParams) -> (Input, bool) {
+    // (The press may have waited in the input buffer.)
+    let n = usize::from(p.input_buffer) + 1;
+    let pressed_at = (0..n.min(f.history.len())).find(|&i| {
+        f.history[i].pressed(buttons::ATTACK)
+            && !f
+                .history
+                .get(i + 1)
+                .is_some_and(|o| o.pressed(buttons::ATTACK))
+    });
+    let mut aim = f.history[0];
+    if let Some(c) = pressed_at.map(|i| f.history[i].buttons & buttons::C_ANY) {
+        if c != 0 {
+            let axis = |neg: u16, pos: u16| -> i8 {
+                if c & pos != 0 {
+                    127
+                } else if c & neg != 0 {
+                    -127
+                } else {
+                    0
+                }
+            };
+            aim.stick_x = axis(buttons::C_LEFT, buttons::C_RIGHT);
+            aim.stick_y = axis(buttons::C_DOWN, buttons::C_UP);
+            return (aim, true);
+        }
+    }
+    (aim, f.held(buttons::STRONG))
+}
+
 fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
-    let input = f.history[0];
-    // The strong-attack button is a flick made in advance: it turns a direction into a smash attack.
-    let strong = f.held(buttons::STRONG);
+    // The strong-attack button is a flick made in advance: it turns a direction into a smash attack. (So is the attack stick.)
+    let (input, strong) = attack_aim(f, p);
+    let c_stick = strong && input != f.history[0];
     // A dash attack comes out of a dash or run, and also just after one, while the fighter is still sliding at dash speed (so letting
     // go of the stick does not turn the attack into a jab).
     let sliding_fast = f.vel.x.abs() > p.walk_speed * Fx::from_ratio(12, 10)
+        && !c_stick
         && !x_active(input)
         && input.stick_y.unsigned_abs() < STICK_DOWN.unsigned_abs()
         && f.vel.x.signum_int() == i32::from(f.facing);
@@ -1404,7 +1532,9 @@ fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
     };
     let id = if let Some(smash) = dash_smash {
         smash
-    } else if matches!(f.state, S::Dash | S::Run) || sliding_fast {
+    } else if (matches!(f.state, S::Dash | S::Run) && !(c_stick && input.stick_y != 0))
+        || sliding_fast
+    {
         MoveId::DashAttack
     } else if input.stick_y >= STICK_DOWN {
         if strong || f.hard_up(SMASH_FLICK_BUFFER) {
@@ -1431,8 +1561,13 @@ fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
     begin_attack(f, id);
 }
 
-fn start_air_attack(f: &mut Fighter) {
-    let input = f.history[0];
+/// An aerial. As in the reference it ends a fast fall: the fighter falls at its normal top speed again until it fast falls anew.
+fn start_air_attack(f: &mut Fighter, p: &FighterParams) {
+    if f.fast_fall {
+        f.fast_fall = false;
+        f.vel.y = f.vel.y.max(-p.max_fall_speed);
+    }
+    let (input, _) = attack_aim(f, p);
     let id = if input.stick_y >= STICK_DOWN {
         MoveId::UAir
     } else if input.stick_y <= -STICK_DOWN {
@@ -1460,6 +1595,29 @@ fn attack(
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
 
+    // In the first frames of an up special, the stick pushed back turns it around (up and back reverses it).
+    if id == MoveId::UpSpecial && f.state_frame <= u16::from(rules.special_turn_window) {
+        let input = f.history[0];
+        if x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(f.facing) {
+            f.facing = -f.facing;
+        }
+    }
+    // A B-reverse: in the first frames of a neutral or side special, the stick pushed the other way turns the fighter round, and in the
+    // air its momentum goes the other way too.
+    if matches!(id, MoveId::NSpecial | MoveId::SideSpecial)
+        && f.state_frame <= u16::from(rules.special_reverse_window)
+        && !f.b_reversed
+    {
+        let input = f.history[0];
+        if x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(f.facing) {
+            f.facing = -f.facing;
+            f.b_reversed = true;
+            if f.platform == NONE {
+                f.vel.x = -f.vel.x;
+            }
+        }
+    }
+
     // A smash attack holds on its charge frame while the button stays held.
     let charging = mv.charge_at.is_some_and(|c| u16::from(c) == f.state_frame)
         && f.charge < rules.charge_frames
@@ -1469,11 +1627,11 @@ fn attack(
         f.state_frame -= 1;
     }
 
-    // A multi-hit move lets its hits land again at a steady rhythm.
+    // A multi-hit move lets its hits land again at a steady rhythm (only the groups it re-arms: a final hit lands once).
     if let Some((start, every)) = mv.rehit {
         let start = u16::from(start);
         if f.state_frame >= start && (f.state_frame - start) % u16::from(every.max(1)) == 0 {
-            f.hit_mask = 0;
+            f.hit_mask &= !crate::combat::group_bits(mv.rehit_groups);
         }
     }
 
@@ -1541,7 +1699,12 @@ fn attack(
         }
         if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
-            enter_landing(f, mv.landing_lag);
+            if mv.landing_move.is_some() {
+                // (A dive with a landing hit, such as a down air: the same rule as any aerial landing.)
+                land_out_of_move(f, mv, frame, plain_landing_lag(f, p));
+            } else {
+                enter_landing(f, mv.landing_lag);
+            }
             return None;
         }
         // A dash along the ground that carries the fighter past the edge leaves the ground.
@@ -1554,15 +1717,13 @@ fn attack(
         let plain = plain_landing_lag(f, p);
         if air_move(f, p, stage) {
             // Landing early or late in the move autocancels: only the normal landing lag.
-            let clean =
-                frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
-            enter_landing(f, if clean { plain } else { mv.landing_lag });
+            land_out_of_move(f, mv, frame, plain);
             return None;
         }
     } else {
-        // A dash attack carries its speed a long way; other ground moves stop on normal friction.
+        // A dash attack slides on traction (`dash_attack_friction`); other ground moves stop on the doubled `ground_friction`.
         let friction = if id == MoveId::DashAttack {
-            p.run_decel
+            p.dash_attack_friction
         } else {
             p.ground_friction
         };
@@ -1622,6 +1783,13 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     }
     if id == MoveId::SideSpecial {
         f.facing = if input.stick_x > 0 { 1 } else { -1 };
+    }
+    // An up special held up and back comes out the other way (see also `special_turn_window`).
+    if id == MoveId::UpSpecial
+        && x_active(input)
+        && i32::from(input.stick_x.signum()) == -i32::from(f.facing)
+    {
+        f.facing = -f.facing;
     }
     begin_attack(f, id);
     f.invuln = f.invuln.max(mv.intangible);
@@ -1729,27 +1897,30 @@ fn rebound(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 }
 
 fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
-    let speedup = launch_speedup(f, rules);
+    // A sped-up launch (see `launch_speedup`) plays several whole knockback frames in one frame, all of it (the slowing, gravity and
+    // the movement), as the reference does by skipping frames: the fighter follows the same path, only sooner.
+    let mut steps = 1;
     if f.balloon_faf > 0 {
-        f.balloon_left -= speedup;
-        f.hitstun = if f.balloon_left > Fx::ZERO {
-            (f.balloon_left + Fx::from_raw(65535))
-                .floor_int()
-                .clamp(0, 600) as u16
-        } else {
-            0
-        };
+        let before = f.balloon_left;
+        f.balloon_left -= launch_speedup(f, rules);
+        let ceil = |x: Fx| (x + Fx::from_raw(65535)).floor_int().max(0);
+        steps = (ceil(before) - ceil(f.balloon_left)).clamp(1, 8);
+        // (The count starts at the first actionable frame, one past the last frame of hitstun.)
+        f.hitstun = (ceil(f.balloon_left) - 1).clamp(0, 600) as u16;
     } else {
         f.hitstun = f.hitstun.saturating_sub(1);
     }
-    // Hitstun cancel: deep into a long hitstun in the air, an air dodge (and a little later an aerial) ends it early. What is left of
-    // the launch carries on as ordinary momentum.
+    // Hitstun cancel: deep into a long hitstun in the air, once the launch has slowed enough, an air dodge (and a little later an
+    // aerial) ends it early. What is left of the launch carries on as ordinary momentum.
     if !f.grounded() && !f.launch_pending && f.hitstun > 0 {
+        let speed = f.kb_vel.length();
         let dodge = f.state_frame >= u16::from(rules.hitstun_dodge_cancel)
+            && speed < rules.hitstun_dodge_cancel_speed
             && !f.air_dodge_used
             && f.take(buttons::SHIELD, p.input_buffer);
         let attack = !dodge
             && f.state_frame >= u16::from(rules.hitstun_attack_cancel)
+            && speed < rules.hitstun_attack_cancel_speed
             && f.take(buttons::ATTACK, p.input_buffer);
         if dodge || attack {
             f.vel += f.kb_vel;
@@ -1759,13 +1930,39 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
             if dodge {
                 start_air_dodge(f, p, stage);
             } else {
-                start_air_attack(f);
+                start_air_attack(f, p);
             }
             return;
         }
     }
-    // The launch decays (faster while sped up, since several knockback frames play at once).
-    let decay = rules.knockback_decay * speedup;
+    for _ in 0..steps {
+        if !knockback_frame(f, p, stage, rules) {
+            return;
+        }
+    }
+
+    if f.hitstun == 0 {
+        if f.grounded() {
+            f.tumble = false;
+            f.kb_vel = Vec2::ZERO;
+            enter(f, S::Idle);
+        } else {
+            // Leftover launch speed carries on as ordinary air momentum. A tumbling fighter is still tumbling: it can act, but not
+            // fast fall until it does.
+            let tumbling = f.tumble;
+            f.tumble = false;
+            f.vel += f.kb_vel;
+            f.kb_vel = Vec2::ZERO;
+            enter(f, S::Airborne);
+            f.damage_fall = tumbling;
+        }
+    }
+}
+
+/// One knockback frame: the launch slows, gravity pulls, the fighter moves, and walls, ceilings and the floor do what they do (a
+/// bounce, a tech, a landing). Returns false when the hitstun ended here (a tech or a landing), so no more frames play.
+fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> bool {
+    let decay = rules.knockback_decay;
     let speed = f.kb_vel.length();
     f.kb_vel = if speed > decay {
         f.kb_vel * ((speed - decay) / speed)
@@ -1773,10 +1970,17 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         Vec2::ZERO
     };
 
+    if f.pull {
+        pull_frame(f, rules);
+    }
     if f.grounded() {
-        // A grounded hit slides the fighter along the floor.
+        // A grounded hit slides the fighter along the floor, and its traction slows the slide too (the reference: low-traction
+        // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches. (A pull is not slowed.)
+        if !f.pull {
+            f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, p.ground_friction);
+        }
         f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
-        if collision::move_x(stage, p, &mut f.pos, f.vel.x * speedup) {
+        if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
             f.kb_vel.x = Fx::ZERO;
         }
         let still_on = collision::platform(stage, f.platform)
@@ -1784,88 +1988,145 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         if !still_on {
             f.platform = NONE;
         }
-    } else {
-        let (gravity, max_fall) = launch_fall(f, p, rules);
-        f.vel.y = (f.vel.y - gravity).max(-max_fall);
-        let falling = f.vel.y + f.kb_vel.y;
-        let heading_x = (f.vel.x + f.kb_vel.x).signum_int();
-        let moved = move_by(f, p, stage, f.vel + f.kb_vel * speedup);
-        if moved.wall {
-            if tech_ready(f, rules) {
-                start_wall_tech(f, rules, (-heading_x) as i8);
-                return;
-            }
-            // A tumbling fighter bounces off the wall; a lighter launch just stops against it.
-            f.kb_vel.x = if f.tumble {
-                -(f.kb_vel.x * rules.bounce_keep)
-            } else {
-                Fx::ZERO
-            };
-            f.vel.x = Fx::ZERO;
+        return true;
+    }
+    let (gravity, max_fall) = launch_fall(f, p, rules);
+    f.vel.y = (f.vel.y - gravity).max(-max_fall);
+    let falling = f.vel.y + f.kb_vel.y;
+    let heading_x = (f.vel.x + f.kb_vel.x).signum_int();
+    let moved = move_by(f, p, stage, f.vel + f.kb_vel);
+    if moved.wall {
+        if tech_ready(f, rules) {
+            start_wall_tech(f, rules, (-heading_x) as i8);
+            return false;
         }
-        if moved.ceiling {
-            if tech_ready(f, rules) {
-                start_wall_tech(f, rules, 0);
-                return;
-            }
-            f.kb_vel.y = if f.tumble {
-                -(f.kb_vel.y * rules.bounce_keep)
-            } else {
-                Fx::ZERO
-            };
-            f.vel.y = Fx::ZERO;
+        // A tumbling fighter bounces off the wall; a lighter launch just stops against it.
+        f.kb_vel.x = if f.tumble {
+            -(f.kb_vel.x * rules.bounce_keep)
+        } else {
+            Fx::ZERO
+        };
+        f.vel.x = Fx::ZERO;
+    }
+    if moved.ceiling {
+        if tech_ready(f, rules) {
+            start_wall_tech(f, rules, 0);
+            return false;
         }
-        if let Some(platform) = moved.landing {
-            let teched = tech_ready(f, rules);
-            // Spiked into the floor hard enough, a tumbling fighter bounces back up instead of lying down (unless it techs).
-            if !teched && f.tumble && f.kb_vel.y < Fx::ZERO && -falling > rules.ground_bounce_speed
-            {
-                if let Some(plat) = stage.platforms.get(platform) {
-                    f.pos.y = plat.y;
-                }
-                f.kb_vel.y = -(f.kb_vel.y * rules.bounce_keep);
-                f.vel.y = Fx::ZERO;
-                return;
-            }
+        f.kb_vel.y = if f.tumble {
+            -(f.kb_vel.y * rules.bounce_keep)
+        } else {
+            Fx::ZERO
+        };
+        f.vel.y = Fx::ZERO;
+    }
+    if let Some(platform) = moved.landing {
+        // A lighter hit (not a tumble: a jab, an autolink loop dragging the fighter down) lands it on its feet, as in the reference:
+        // the hitstun carries on on the ground, with no tech and no knockdown.
+        if !f.tumble {
             land(f, p, stage, platform);
-            // A shield press just before touching down is a tech: in place, or a roll if the stick is flicked
-            // sideways. Without one the fighter lies in a knockdown and picks a get-up.
-            let roll_dir = f.flick_x(rules.tech_window);
-            f.kb_vel = Vec2::ZERO;
-            f.vel.x = Fx::ZERO;
-            f.hitstun = 0;
-            f.tumble = false;
-            if teched && roll_dir != 0 {
-                f.dodge_dir = Vec2::new(Fx::from_int(i32::from(roll_dir)), Fx::ZERO);
-                enter(f, S::Roll);
-            } else if teched {
-                f.invuln = f.invuln.max(rules.tech_invuln);
-                enter_landing(f, rules.tech_lag);
-            } else {
-                enter(f, S::Knockdown);
+            f.kb_vel.y = Fx::ZERO;
+            return true;
+        }
+        let teched = tech_ready(f, rules);
+        // Spiked into the floor hard enough, a tumbling fighter bounces back up instead of lying down (unless it techs).
+        if !teched && f.tumble && f.kb_vel.y < Fx::ZERO && -falling > rules.ground_bounce_speed {
+            if let Some(plat) = stage.platforms.get(platform) {
+                f.pos.y = plat.y;
             }
-            return;
+            f.kb_vel.y = -(f.kb_vel.y * rules.bounce_keep);
+            f.vel.y = Fx::ZERO;
+            return false;
+        }
+        land(f, p, stage, platform);
+        f.kb_vel = Vec2::ZERO;
+        f.hitstun = 0;
+        f.tumble = false;
+        tumble_landing(f, rules);
+        return false;
+    }
+    true
+}
+
+/// One frame of a pull (the pull angle): the fighter moves `pull_rate` of the way to `link_point` (just in front of whoever pulled
+/// it), at most `pull_max_speed`, with no fall of its own, and stops being pulled once it is there. The hitstun runs as usual.
+fn pull_frame(f: &mut Fighter, rules: &Ruleset) {
+    let to = f.link_point - f.pos;
+    let len = to.length();
+    if len <= Fx::from_ratio(1, 10) {
+        f.pull = false;
+        f.kb_vel = Vec2::ZERO;
+        return;
+    }
+    let mut v = to * rules.pull_rate;
+    let speed = v.length();
+    if speed > rules.pull_max_speed {
+        v = v * (rules.pull_max_speed / speed);
+    }
+    f.kb_vel = v;
+    f.vel = Vec2::ZERO;
+}
+
+/// Touching down from a launch, or from the tumble after one: a shield press just before is a tech (in place, or a roll if the stick
+/// is flicked sideways); without one it is a missed tech and the fighter lies in a knockdown and picks a get-up.
+fn tumble_landing(f: &mut Fighter, rules: &Ruleset) {
+    let teched = tech_ready(f, rules);
+    let roll_dir = f.flick_x(rules.tech_window);
+    f.vel.x = Fx::ZERO;
+    if teched && roll_dir != 0 {
+        f.dodge_dir = Vec2::new(Fx::from_int(i32::from(roll_dir)), Fx::ZERO);
+        enter(f, S::Roll);
+    } else if teched {
+        f.invuln = f.invuln.max(rules.tech_invuln);
+        enter_landing(f, rules.tech_lag);
+    } else {
+        enter(f, S::Knockdown);
+    }
+}
+
+/// An autolink launch (angle 367, as the reference): the fighter is sent at the attacker's velocity when it hit plus a fifth of the way
+/// from its body (its middle, where it is now, after any survival DI) to where the hitbox was, at most `autolink_max_speed` and
+/// falling no faster than `autolink_max_fall`. It is not a tumble, DI has no angle to bend, and the hitstun is the knockback's as usual.
+fn autolink(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    let middle = f.pos + Vec2::new(Fx::ZERO, p.ecb_height / Fx::from_int(2));
+    let pull = (f.link_point - middle) * Fx::from_ratio(1, 5);
+    let mut v = f.link_vel + pull;
+    let len = v.length();
+    if len > rules.autolink_max_speed && len > Fx::ZERO {
+        v = v * (rules.autolink_max_speed / len);
+    }
+    v.y = v.y.max(-rules.autolink_max_fall);
+    f.kb_vel = v;
+    f.tumble = false;
+    f.link = false;
+    f.vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.balloon_faf = 0;
+    f.balloon_left = Fx::ZERO;
+    if f.grounded() {
+        if f.kb_vel.y > Fx::ZERO {
+            f.platform = NONE;
+        } else {
+            f.kb_vel.y = Fx::ZERO;
         }
     }
+}
 
-    if f.hitstun == 0 {
-        f.tumble = false;
-        if f.grounded() {
-            f.kb_vel = Vec2::ZERO;
-            enter(f, S::Idle);
-        } else {
-            // Leftover launch speed carries on as ordinary air momentum.
-            f.vel += f.kb_vel;
-            f.kb_vel = Vec2::ZERO;
-            enter(f, S::Airborne);
-        }
+/// Landing during an aerial on its move frame `frame`: early or late in the move it autocancels (only the normal landing lag, `plain`);
+/// otherwise the move's landing lag, or its landing move (a landing hit: its own short move, whose hitboxes come out on the landing
+/// frame).
+fn land_out_of_move(f: &mut Fighter, mv: &Move, frame: u16, plain: u8) {
+    let clean = frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
+    match mv.landing_move {
+        Some(next) if !clean => begin_attack(f, MoveId::from_index(next)),
+        _ => enter_landing(f, if clean { plain } else { mv.landing_lag }),
     }
 }
 
 /// Turns a pending hit into motion at the end of hitlag. Directional influence: the part of the held stick
 /// that is perpendicular to the launch direction bends the angle, by up to `di_degrees`. Launch speed influence: holding the
 /// stick up or down makes a tumbling launch a little faster or slower (`lsi_up`, `lsi_down`), unless it is close to vertical.
-fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
+fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     let angle = Angle::from_raw(f.launch_angle);
     let (ux, uy) = (trig::cos(angle), trig::sin(angle));
     let input = f.history[0];
@@ -1874,6 +2135,20 @@ fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
         (cross.mul_int(i32::from(rules.di_degrees)) * Fx::from_ratio(4096, 360)).raw() / 65536;
     let bent = Angle::from_raw((i32::from(f.launch_angle) + bend).rem_euclid(4096) as u16);
 
+    if f.link {
+        autolink(f, p, rules);
+        return;
+    }
+    if f.pull {
+        // A pull has no launch of its own: the fighter is drawn in frame by frame (`pull_frame`) while its hitstun lasts.
+        f.kb_vel = Vec2::ZERO;
+        f.vel = Vec2::ZERO;
+        f.tumble = false;
+        f.launch_pending = false;
+        f.balloon_faf = 0;
+        f.balloon_left = Fx::ZERO;
+        return;
+    }
     // 0.03 reference units per knockback unit, 8 reference units per world unit.
     let mut speed = f.launch_kb * Fx::from_ratio(3, 800);
     f.tumble = f.launch_kb >= rules.tumble_knockback;
@@ -1890,6 +2165,13 @@ fn apply_launch(f: &mut Fighter, rules: &Ruleset) {
         }
     }
     f.kb_vel = Vec2::new(trig::cos(bent) * speed, trig::sin(bent) * speed);
+    // The gravity boost of a tumbling launch (not one in the vertical band, which falls at its own fixed speed).
+    let degrees = i32::from(f.launch_angle) * 360 / 4096;
+    let vertical = (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
+        .contains(&degrees);
+    if f.tumble && !vertical {
+        f.kb_vel.y += rules.gravity_boost * (p.gravity - rules.gravity_boost_from);
+    }
     f.vel = Vec2::ZERO;
     f.launch_pending = false;
     // A tumbling launch is sped up at first (see `launch_speedup`).
@@ -1960,6 +2242,10 @@ fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset, shiel
     } else {
         rules.sdi_distance
     };
+    // The hit's own SDI multiplier (a multi-hit's loop is easier to escape, a hit meant to connect harder).
+    if !shield {
+        d = d * Fx::from_ratio(i32::from(f.sdi_mult), 100);
+    }
     // Every `sdi_combo_hits` hits of one combo, survival DI goes further (so long multi-hits can be escaped).
     if let Some(steps) = f.hits_taken.checked_div(rules.sdi_combo_hits) {
         for _ in 0..steps.min(8) {

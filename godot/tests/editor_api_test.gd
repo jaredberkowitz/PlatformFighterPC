@@ -115,7 +115,7 @@ func _initialize() -> void:
 	check(ed.save(path, true) == "", "the bundle saves")
 	check(sim.load_content(path) == "", "the game loads the saved bundle")
 	check(sim.content_name() == "My Pack", "with its name")
-	check(Array(sim.fighter_names()) == ["duelist", "brawler", "bruiser", "sprinter"], "including the new fighter: " + str(sim.fighter_names()))
+	check(Array(sim.fighter_names()) == ["duelist", "brawler", "rogue", "sprinter"], "including the new fighter: " + str(sim.fighter_names()))
 	check(sim.platform_count() == 4, "and the new platform: %d" % sim.platform_count())
 	var look: Dictionary = sim.stage_look()
 	check(look.backdrop == "grove" and look.sky_top == "ff8800", "and its look: " + str(look))
@@ -124,6 +124,8 @@ func _initialize() -> void:
 	var run := func(who: int) -> float:
 		sim.start(3, PackedInt32Array([who, 1, 0, 1]))
 		sim.debug_stand(0, -9.0, 1)
+		# (The other one stands behind, out of the way: bodies on the ground do not pass through each other.)
+		sim.debug_stand(1, -10.5, 1)
 		var x0: float = sim.fighter_pos(0).x
 		for t in 40:
 			sim.set_input(0, 127, 0, 0)

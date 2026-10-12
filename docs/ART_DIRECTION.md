@@ -54,4 +54,10 @@ not in the content hash), in `godot/scripts/stage_art.gd`:
   Island *ocean*, Skyline *city*, Treetop Isle *grove*.
 - Treetop Isle is our take on the classic "floating island under a big tree" stage: original shapes, no face on the tree, no borrowed
   characters or names.
-- Check a stage's art with `Godot --path godot -- --demo=stage --stage=N --noui --noecb --shots=<folder>`.
+- Surfaces and scenery since the graphics fidelity pass (`docs/GRAPHICS_FIDELITY_PLAN.md`, results in `docs/GRAPHICS_FIDELITY_LOG.md`): the
+  skyline's windows are painted by one facade shader and glow; stage surfaces carry painted wear at two scales; tree crowns are leaf
+  cards over solid cores that move in the wind, with grass tufts behind the fighters; the sea has bands, streaks, glints and foam; roofs
+  and floors take decals (stains, scuffs from heavy hits). All of it is drawn in the same hand-drawn style as the tiles: new tiles are
+  SVGs in `godot/art/stage/`.
+- Check a stage's art with `Godot --path godot -- --demo=stage --stage=N --noui --noecb --shots=<folder>` (the still at frame 40 and a
+  second one at frame 100, for anything that moves), and judge a change with `godot/tests/shot_stats.gd` and the look bench.

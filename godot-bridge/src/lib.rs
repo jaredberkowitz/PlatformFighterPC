@@ -89,6 +89,53 @@ fn clamp_i8(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
+/// A move's separate hits as (first, last) frame windows in order (see `fighter_move_windows`).
+fn hit_windows(mv: &sim_core::moves::Move) -> Vec<(i32, i32)> {
+    // One window per hitbox group.
+    let mut groups: Vec<(u8, i32, i32)> = Vec::new();
+    for h in &mv.hitboxes {
+        let (a, b) = (i32::from(h.start), i32::from(h.end));
+        match groups.iter_mut().find(|g| g.0 == h.group) {
+            Some(g) => {
+                g.1 = g.1.min(a);
+                g.2 = g.2.max(b);
+            }
+            None => groups.push((h.group, a, b)),
+        }
+    }
+    let mut spans: Vec<(i32, i32)> = Vec::new();
+    for &(_, a, b) in &groups {
+        // A multihit move's hits land again every `every` frames from `from`: each stretch between two of those is its own hit.
+        match mv.rehit {
+            Some((from, every)) if every > 0 => {
+                let (from, every) = (i32::from(from), i32::from(every));
+                let mut lo = a;
+                while lo <= b {
+                    let next = if lo < from {
+                        from
+                    } else {
+                        from + ((lo - from) / every + 1) * every
+                    };
+                    let hi = b.min(next - 1);
+                    spans.push((lo, hi));
+                    lo = hi + 1;
+                }
+            }
+            _ => spans.push((a, b)),
+        }
+    }
+    spans.sort_unstable();
+    // Hits that overlap in time (a sweet and a sour spot in separate groups, say) are one strike.
+    let mut out: Vec<(i32, i32)> = Vec::new();
+    for (a, b) in spans {
+        match out.last_mut() {
+            Some(last) if a <= last.1 => last.1 = last.1.max(b),
+            _ => out.push((a, b)),
+        }
+    }
+    out
+}
+
 /// A replay being watched: the record and the state it starts from.
 struct Playback {
     record: MatchRecord,
@@ -843,6 +890,10 @@ impl SimRunner {
             "shield" => buttons::SHIELD,
             "grab" => buttons::GRAB,
             "strong" => buttons::STRONG,
+            "c_up" => buttons::C_UP,
+            "c_down" => buttons::C_DOWN,
+            "c_left" => buttons::C_LEFT,
+            "c_right" => buttons::C_RIGHT,
             _ => 0,
         };
         i32::from(mask)
@@ -909,7 +960,7 @@ impl SimRunner {
         PackedInt32Array::from(v.as_slice())
     }
 
-    /// The fighter's class: the index of the moveset it uses (0 longsword, 1 claws, 2 maul, or a custom weapon).
+    /// The fighter's class: the index of the moveset it uses (0 longsword, 1 claws, 2 needles, or a custom weapon).
     #[func]
     fn fighter_class(&self, i: i32) -> i32 {
         self.fighter(i).map_or(0, |fi| {
@@ -972,6 +1023,26 @@ impl SimRunner {
         self.fighter(i).map_or(0, |fi| i32::from(fi.charge))
     }
 
+    /// The basic computer opponent's input for `player` at `level` (1 to 9) this frame, as [stick x, stick y, buttons]. It is decided
+    /// from the game state alone (`sim_core::cpu`), so feeding it back through `set_input` records and replays like a person's.
+    #[func]
+    fn cpu_input(&self, player: i32, level: i32) -> PackedInt32Array {
+        let Some(me) = usize::try_from(player)
+            .ok()
+            .filter(|&p| p < self.state.fighters.len())
+        else {
+            return PackedInt32Array::from(&[0, 0, 0][..]);
+        };
+        let i = sim_core::cpu::think(&self.state, &self.content, me, level.clamp(1, 9) as u8);
+        PackedInt32Array::from(
+            &[
+                i32::from(i.stick_x),
+                i32::from(i.stick_y),
+                i32::from(i.buttons),
+            ][..],
+        )
+    }
+
     #[func]
     fn fighter_kb_vel(&self, i: i32) -> Vector2 {
         self.fighter(i).map_or(Vector2::ZERO, |fi| {
@@ -1006,6 +1077,49 @@ impl SimRunner {
             vec![i32::from(mv.total_frames), i32::from(start), i32::from(end)]
         });
         PackedInt32Array::from(v.as_slice())
+    }
+
+    /// The current move's separate hits as flat [start, end, ...] frame windows, in order. A hit is a hitbox group's active frames (a
+    /// sweep across several hitboxes of one group is one hit), cut again wherever a multihit move lets its hits land anew (`Move::rehit`);
+    /// groups active at the same time are one strike. Empty when not attacking. The view uses it to give each hit its own strike.
+    #[func]
+    fn fighter_move_windows(&self, i: i32) -> PackedInt32Array {
+        let Some(fi) = self.fighter(i) else {
+            return PackedInt32Array::new();
+        };
+        if fi.state != sim_core::state::FighterState::Attack {
+            return PackedInt32Array::new();
+        }
+        let params = sim_core::combat::params_of(&self.content, fi);
+        let mv = sim_core::combat::weapon_of(&self.content, params).get(fi.move_id);
+        let windows = hit_windows(mv);
+        let flat: Vec<i32> = windows.iter().flat_map(|&(a, b)| [a, b]).collect();
+        PackedInt32Array::from(flat.as_slice())
+    }
+
+    /// For the view: how many frames the fighter's current dodge lasts and which way it goes, as [length, way] (way 1 forward, -1
+    /// backward, 0 in place). Rolls, spot dodges, air dodges and the stand-up from the floor; zeros otherwise. The animation is
+    /// played by progress through it.
+    #[func]
+    fn fighter_dodge(&self, i: i32) -> PackedInt32Array {
+        use sim_core::state::FighterState as S;
+        let Some(fi) = self.fighter(i) else {
+            return PackedInt32Array::from(&[0, 0][..]);
+        };
+        let p = sim_core::combat::params_of(&self.content, fi);
+        let way = fi.dodge_dir.x.signum_int() * i32::from(fi.facing);
+        let v = match fi.state {
+            S::Roll if way >= 0 => [i32::from(p.roll_frames), 1],
+            S::Roll => [i32::from(p.roll_back_frames), -1],
+            S::SpotDodge => [i32::from(p.spot_dodge_frames), 0],
+            S::GetUp => [i32::from(self.content.rules.getup_frames), 0],
+            S::AirDodge => [
+                i32::from(sim_core::fighter::air_dodge_length(p, fi.dodge_dir)),
+                way,
+            ],
+            _ => [0, 0],
+        };
+        PackedInt32Array::from(&v[..])
     }
 
     /// Active hitboxes this frame as flat [x, y, radius, priority] groups.
@@ -1124,16 +1238,25 @@ impl SimRunner {
             .fold(0.0, f32::max)
     }
 
-    /// Projectile slots as flat [active, x, y, direction] groups, one per slot, in fixed order.
+    /// Projectile slots as flat [active, x, y, direction, vx, vy, class, move, owner] groups (`PROJECTILE_STRIDE` numbers), one per
+    /// slot, in fixed order. `class` is the weapon of the fighter that fired it and `move` the move it came from (so the view can draw
+    /// a needle, a line or a bolt); `owner` is the fighter it belongs to now.
     #[func]
     fn projectile_slots(&self) -> PackedFloat32Array {
         let mut v: Vec<f32> = Vec::new();
         for p in &self.state.projectiles {
+            let origin = &self.state.fighters[usize::from(p.origin).min(MAX_FIGHTERS - 1)];
+            let class = sim_core::combat::params_of(&self.content, origin).weapon;
             v.extend([
                 if p.active { 1.0 } else { 0.0 },
                 f(p.pos.x),
                 f(p.pos.y),
                 if p.vel.x < Fx::ZERO { -1.0 } else { 1.0 },
+                f(p.vel.x),
+                f(p.vel.y),
+                f32::from(class),
+                f32::from(p.move_id),
+                f32::from(p.owner),
             ]);
         }
         PackedFloat32Array::from(v.as_slice())
@@ -2068,5 +2191,27 @@ impl SimRunner {
         usize::try_from(i)
             .ok()
             .and_then(|i| self.state.fighters.get(i))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hit_windows;
+    use sim_core::moves::{claws, longsword, MoveId};
+
+    #[test]
+    fn hit_windows_split_multihit_moves_and_keep_sweeps_whole() {
+        let sword = longsword();
+        let wolf = claws();
+        // A sweep across several hitboxes of one group is one hit.
+        assert_eq!(hit_windows(&sword.moves[MoveId::FAir as usize]).len(), 1);
+        // Two groups apart in time: two hits (front, then behind).
+        assert_eq!(hit_windows(&sword.moves[MoveId::DSmash as usize]).len(), 2);
+        assert_eq!(hit_windows(&sword.moves[MoveId::NAir as usize]).len(), 2);
+        // The flame kick lands five times (rehit every 3 frames from frame 17), the last its own launching hit.
+        let fire = hit_windows(&wolf.moves[MoveId::UpSpecial as usize]);
+        assert_eq!(fire.len(), 5, "{fire:?}");
+        // In order and apart.
+        assert!(fire.windows(2).all(|w| w[0].1 < w[1].0), "{fire:?}");
     }
 }

@@ -17,15 +17,39 @@ uniform float normal_edge = 0.6;         // 1 - cosine between neighbouring surf
 uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
+uniform float scenery_lines = 0.72;       // how strong the screen-space ink is on the stage and scenery (the fighters get it all)
+uniform float inner_lines = 0.6;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
 uniform float grain = 0.045;
 uniform float paper = 0.03;
-uniform float vignette = 0.32;
+uniform float vignette = 0.16;          // kept light: dark corners make a fighter near the edge hard to read
 uniform vec4 tint : source_color = vec4(1.0, 0.95, 0.86, 1.0);
 uniform float tint_amount = 0.1;
 // The stage's colour grade (set with its mood, scripts/lighting.gd): its shadows and its lights tinted toward two colours.
 uniform vec4 grade_shadows : source_color = vec4(1.0);
 uniform vec4 grade_lights : source_color = vec4(1.0);
 uniform float grade_amount = 0.0;
+// The pastel finish (the game's look: soft, airy colours rather than saturated ones): colours eased toward grey by `pastel_desat`, and
+// the darks lifted toward the stage's haze colour by `pastel_lift`, before the ink lines, so the lines stay dark and crisp. Fighters
+// get half of it, so they stay the most vivid thing on screen.
+uniform float pastel_desat = 0.1;
+uniform float pastel_lift = 0.13;
+uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
+// Atmospheric perspective: scenery behind the stage fades toward the haze colour (lighter, less saturated, lower in contrast) the further
+// back it is, from `haze_start` to `haze_end` world units behind the stage plane, at most `haze_max`. `stage_dist` is the camera's
+// distance to the stage plane (set every frame by main.gd). The sky is left alone.
+uniform float stage_dist = 30.0;
+uniform float haze_start = 4.0;
+uniform float haze_end = 110.0;
+uniform float haze_max = 0.36;
+// A gentle S-curve on the values (0 none): darker darks and brighter lights for more depth in the picture. Only the 0..1 range is curved
+// (lit windows above white keep their brightness); fighters take half.
+uniform float s_curve = 0.0;
+// Far scenery goes a little soft in play (a depth of field done here rather than by the camera, so the effects, name tags and halos drawn
+// after this pass stay sharp): `far_blur` pixels (at 1080 lines) at most, from `far_blur_start` world units behind the stage plane over
+// `far_blur_ramp`. Only pixels that are far themselves are gathered, so nothing near bleeds into the blur. 0 turns it off (Fast, Balanced).
+uniform float far_blur = 0.0;
+uniform float far_blur_start = 14.0;
+uniform float far_blur_ramp = 30.0;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;
@@ -68,6 +92,27 @@ void fragment() {
 	vec2 uv = SCREEN_UV;
 	vec3 col = texture(screen_tex, uv).rgb;
 	float d0 = view_depth(uv, INV_PROJECTION_MATRIX);
+	float blur_k = 0.0;
+	if (far_blur > 0.0) {
+		float k = smoothstep(far_blur_start, far_blur_start + far_blur_ramp, d0 - stage_dist);
+		blur_k = k;
+		if (k > 0.0) {
+			vec2 r = k * far_blur * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
+			vec3 sum = col;
+			float n = 1.0;
+			// Ten taps on a spiral (the golden angle), out to radius r.
+			for (int t = 0; t < 10; t++) {
+				float f = (float(t) + 0.5) / 10.0;
+				float a = float(t) * 2.39996;
+				vec2 q = uv + vec2(cos(a), sin(a)) * r * sqrt(f);
+				if (view_depth(q, INV_PROJECTION_MATRIX) - stage_dist > far_blur_start) {
+					sum += texture(screen_tex, q).rgb;
+					n += 1.0;
+				}
+			}
+			col = sum / n;
+		}
+	}
 	// Lines are thinner further away (full width up close, about half on the far scenery).
 	float width = line_width * clamp(28.0 / max(d0, 0.001), 0.5, 1.15);
 	vec2 px = width * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
@@ -82,8 +127,10 @@ void fragment() {
 		float d = view_depth(q, INV_PROJECTION_MATRIX);
 		// Only the nearer side draws the line, so it sits on the edge of the object in front.
 		float jump = (d - d0) / max(d0, 0.001);
-		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump));
 		float id = object_at(q);
+		// Silhouettes are the strongest lines; a fold inside one fighter is lighter, so forms read without a tangle of black.
+		float inner = abs(id - id0) <= 0.03 && id0 < 0.6 ? inner_lines : 1.0;
+		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump) * inner);
 		if (abs(id - id0) > 0.03 && d > d0) {
 			edge = max(edge, 1.0);
 		}
@@ -95,6 +142,24 @@ void fragment() {
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
+	// (Lines on blurred far scenery soften with it.)
+	edge *= 1.0 - 0.6 * blur_k;
+	edge *= id0 > 0.6 ? scenery_lines : 1.0;
+	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
+	if (d0 < 400.0) {
+		float far_k = smoothstep(haze_start, haze_end, d0 - stage_dist) * haze_max;
+		col = mix(col, mix(pastel_haze.rgb, vec3(1.0), 0.3), far_k);
+		edge *= 1.0 - far_k;
+	}
+	// The pastel finish (fighters, ids below 0.6, get half).
+	float soften = id0 < 0.6 && d0 < 400.0 ? 0.5 : 1.0;
+	float y0 = dot(col, vec3(0.3, 0.59, 0.11));
+	col = mix(col, vec3(y0), pastel_desat * soften);
+	// Darks are lifted toward the haze, but not the near-black ink of the outlines, which stays ink.
+	float not_ink = smoothstep(0.05, 0.16, y0);
+	col = mix(col, pastel_haze.rgb, pastel_lift * soften * not_ink * (1.0 - smoothstep(0.0, 0.85, y0)));
+	vec3 c01 = clamp(col, 0.0, 1.0);
+	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
 
 	// A warm paper tone, soft blotches like paper fibre, and a fine print grain.
@@ -107,9 +172,10 @@ void fragment() {
 	vec2 c = uv - 0.5;
 	col *= 1.0 - vignette * smoothstep(0.35, 0.85, length(c * vec2(1.25, 1.0)));
 
-	// The stage's grade.
+	// The stage's grade: its colour accent on the scenery; fighters take a third of it, so their own colours stay true on every stage.
 	float luma = dot(col, vec3(0.3, 0.59, 0.11));
-	col = mix(col, col * mix(grade_shadows.rgb, grade_lights.rgb, smoothstep(0.1, 0.85, luma)), grade_amount);
+	float grade_k = id0 < 0.6 && d0 < 400.0 ? 0.33 : 1.0;
+	col = mix(col, col * mix(grade_shadows.rgb, grade_lights.rgb, smoothstep(0.1, 0.85, luma)), grade_amount * grade_k);
 
 	// The finishing hit's two tones: fighters (ids below 0.6) pale, everything else dark, the ink lines kept.
 	if (impact > 0.0) {

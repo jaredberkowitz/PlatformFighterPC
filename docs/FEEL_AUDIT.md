@@ -31,8 +31,9 @@ hitlag is 0, and a clip change cross-fades over 0.1 s, so on the frame a hit lan
 mid-swing) and only bends into the hurt pose *after* the freeze. In the reference the victim is already in its damage pose for the whole
 freeze, shaking. This is the single biggest reason hits don't land with weight. Fix: snap straight to the damage pose when hitlag starts.
 
-**A2. One damage pose for every hit; none for a flinch.** *Partly done: a hit that does not launch snaps the chest and head back
-(a flinch); a tumble whirls faster the faster the launch, about the middle of the body. Still one launch pose.* *High impact, medium
+**A2. One damage pose for every hit; none for a flinch.** *Done: a hit that does not launch snaps the chest and head back (a flinch);
+a strong launch throws the body along its path, arched back with the head leading, while it flies fast (`LAUNCH_POSE_SPEED`), then
+tumbles head over heels, faster the faster it still flies, about the middle of the body.* *High impact, medium
 fix, certain.* Every launch uses the same `hurt` pose and a hit
 too weak to cause hitstun (a flinch, many multi-hit hits) shows no reaction at all, only a shake. The reference has a set: a light flinch
 (the head snapping back, by hit height: high, middle, low), damage in the air, a launch pose with the body thrown along the trajectory, and a
@@ -40,7 +41,7 @@ tumbling roll for strong launches. Fix: a reaction set in the view: a short flin
 speed from the launch speed.
 
 **A3. Generic poses for many moves.** *Medium impact, large fix.* The iconic aerials and the sword tilts have their own poses, but grabs,
-throws, most specials, jabs and the bruiser's kit share generic clips. Fix: per-move poses, best done in a directed Blender session.
+throws, most specials, and jabs share generic clips. Fix: per-move poses, best done in a directed Blender session.
 
 **A4. One landing pose.** *Done: landing out of an aerial stumbles, deeper and pitched forward, for its landing lag.* *Low impact,
 small fix.* Light landings, heavy landings and aerial landing lag all show the same crouch; the

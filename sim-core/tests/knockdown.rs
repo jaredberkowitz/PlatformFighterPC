@@ -9,7 +9,8 @@ use sim_core::moves::MoveId;
 use sim_core::state::{FighterState as S, NONE};
 use sim_core::{Fx, Vec2};
 
-/// Player 1 falls in hitstun toward the main stage; player 0 stands well away.
+/// Player 1 falls tumbling in hitstun toward the main stage (a light, non-tumble hitstun would land on its feet); player 0 stands
+/// well away.
 fn falling_victim() -> Sim {
     let mut sim = Sim::new();
     sim.stand(0, fx(-80, 10), 1);
@@ -18,6 +19,7 @@ fn falling_victim() -> Sim {
     let f = &mut sim.state.fighters[1];
     f.state = S::Hitstun;
     f.hitstun = 80;
+    f.tumble = true;
     f.pos = Vec2::new(Fx::ZERO, fx(5, 10));
     f.vel = Vec2::new(Fx::ZERO, fx(-2, 10));
     f.platform = NONE;
@@ -126,6 +128,34 @@ fn attack_is_a_get_up_attack_that_hits_on_both_sides() {
     assert!(is_intangible(sim.fighter(1)), "intangible as it rises");
     sim.ticks_both(30);
     assert!(sim.fighter(0).percent > Fx::ZERO, "the get-up attack hit");
+}
+
+#[test]
+fn get_up_and_ledge_attacks_use_the_reference_numbers() {
+    // The reference game's floor attack: 7%, base knockback 80 and only 48 growth, so it pushes away without sending far even at
+    // high percents; act on frame 46, intangible through frame 22 or 23. Its ledge attack: 9%, angle 45, base 90, growth 20.
+    let sim = Sim::new();
+    for weapon in &sim.content.weapons {
+        let getup = weapon.get(MoveId::GetUpAttack as u8);
+        assert_eq!(getup.total_frames, 44, "FAF 46");
+        assert!(getup.intangible == 22 || getup.intangible == 23);
+        for hb in &getup.hitboxes {
+            assert_eq!(
+                (hb.damage, hb.base_knockback, hb.knockback_growth),
+                (fx(7, 1), 80, 48)
+            );
+        }
+        assert_eq!(
+            getup.hitboxes[0].start, 15,
+            "first hit on frame 16 (counted from 0)"
+        );
+        for hb in &weapon.get(MoveId::LedgeAttack as u8).hitboxes {
+            assert_eq!(
+                (hb.damage, hb.angle, hb.base_knockback, hb.knockback_growth),
+                (fx(9, 1), 45, 90, 20)
+            );
+        }
+    }
 }
 
 #[test]

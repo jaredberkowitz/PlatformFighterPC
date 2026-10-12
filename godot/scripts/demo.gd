@@ -14,6 +14,7 @@ var cam_dist := 0.0  # when above zero, overrides the automatic camera distance
 var cam_focus := -1  # when 0 or more, the camera frames this player alone, without easing (steady shots of one fighter's moves)
 var chars: Array = []  # overrides which character each player is (0 sword, 1 claws and blaster)
 var real_keys := false  # drive player 1 through real key events instead of scripted stick values
+var cpu_levels: Array = []  # players the basic CPU plays, by level (`cpu`: both, for watching it)
 
 
 static func make(demo_name: String, m: Dictionary, dir: String):
@@ -28,32 +29,61 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var grab: int = m.grab
 	if demo_name.begins_with("fx_"):
 		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails, hit
-		# effects and the animation): fx_<sword|claws|maul>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair>, with
+		# effects and the animation): fx_<sword|claws|needles>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair|
+		# nspecial|sspecial|uspecial|dspecial>, with
 		# _ko on the end for a finishing hit (the other fighter at 170%).
 		var parts := demo_name.split("_")
-		var cls: int = {"sword": 0, "claws": 1, "maul": 2}.get(parts[1], 0)
+		var cls: int = {"sword": 0, "claws": 1, "needles": 2}.get(parts[1], 0)
 		var move: String = parts[2] if parts.size() > 2 else "ftilt"
 		d.chars = [cls, cls, cls, cls]
 		d.cam_dist = 11.0
 		d.cam_focus = 0
 		var air := move.ends_with("air")
-		if air:
+		if move == "sspecial" or move == "nspecial":
+			# Far enough that the shot travels before it hits.
+			d.events = [[1, "stand", 0, -4.0, 1], [1, "stand", 1, 1.5, -1]]
+		elif move == "dspecial":
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 1.6, -1]]
+		elif move == "uair":
+			# The other fighter just overhead, both falling from rest: the up air's loop catches it and drags it down.
+			d.events = [[1, "place", 0, -1.0, 3.0], [1, "place", 1, -0.9, 4.8]]
+		elif air:
 			d.events = [[1, "place", 0, -1.0, 6.0], [1, "place", 1, 0.8, 6.0]]
 		else:
 			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 0.9, -1]]
 		# [stick x, stick y, buttons] for each move.
 		var inputs: Dictionary = {"jab": [0, 0, attack], "ftilt": [40, 0, attack], "utilt": [0, 70, attack], "dtilt": [0, -70, attack],
 			"fsmash": [127, 0, attack], "usmash": [0, 70, attack | strong], "dsmash": [0, -70, attack | strong], "nair": [0, 0, attack],
-			"fair": [127, 0, attack], "bair": [-127, 0, attack], "uair": [0, 100, attack], "dair": [0, -70, attack]}
+			"fair": [127, 0, attack], "bair": [-127, 0, attack], "uair": [0, 100, attack], "dair": [0, -70, attack],
+			"nspecial": [0, 0, special], "sspecial": [127, 0, special], "uspecial": [0, 100, special], "dspecial": [0, -100, special]}
 		var input: Array = inputs.get(move, inputs.ftilt)
-		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [11, 0, 0, 0]]
+		# (Neutral special is held: a charge of three needles.)
+		var hold := 46 if move == "nspecial" else 1
+		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [10 + hold, 0, 0, 0]]
 		if demo_name.ends_with("_ko"):
 			d.events.append([1, "percent", 1, 170.0])
 		# (Long enough for a smash, or a multi-hit move whose hits freeze it.)
-		var last := 75
+		var last := 120 if move.ends_with("special") else 75
 		for f in range(11, last):
 			d.shots.append([f, "f%02d" % (f - 10)])
 		d.end_frame = last + 1
+		return d
+	if demo_name == "cpu4":
+		# Four computers in a free-for-all (one of each class and a second sword fighter; add --players=4), for measuring a busy fight:
+		# a picture every second for twenty seconds.
+		d.chars = [0, 1, 2, 0]
+		d.cpu_levels = [5, 5, 5, 5]
+		for f in range(60, 1230, 60):
+			d.shots.append([f, "t%04d" % f])
+		d.end_frame = 1231
+		return d
+	if demo_name == "cpu":
+		# Computer against computer (sword against claws), a picture every half second for twenty seconds.
+		d.chars = [0, 1, 0, 1]
+		d.cpu_levels = [5, 5, 0, 0]
+		for f in range(30, 1230, 30):
+			d.shots.append([f, "t%04d" % f])
+		d.end_frame = 1231
 		return d
 	match demo_name:
 		"wavedash":
@@ -142,8 +172,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		"stage":
 			# A still of the stage with both fighters standing (for checking stage art; add --stage=N).
 			d.timeline = [[0, 0, 0, 0]]
-			d.shots = [[40, "a_stage"]]
-			d.end_frame = 45
+			d.shots = [[40, "a_stage"], [100, "b_stage_later"]]
+			d.end_frame = 105
 		"moves":
 			# A tour of ground moves for checking animation: forward tilt, up tilt, down tilt, then the smashes (sword fighter, player 1).
 			d.chars = [0, 1, 0, 1]

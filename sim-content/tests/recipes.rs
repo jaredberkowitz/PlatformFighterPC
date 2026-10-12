@@ -73,6 +73,8 @@ fn run_distance(r: Recipe) -> Fx {
     let c = content_with(&[r]);
     let mut s = GameState::new_with_active(&c, 1, [MADE, 1, 0, 1], 0b0011);
     s.fighters[0].pos.x = Fx::from_int(-9);
+    // The other fighter stands behind, out of the way (bodies on the ground do not pass through each other).
+    s.fighters[1].pos.x = Fx::from_int(-10);
     let start = s.fighters[0].pos.x;
     for _ in 0..50 {
         step(

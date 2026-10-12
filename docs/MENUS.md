@@ -7,14 +7,23 @@ directly, so `play_host.bat`, `play_join.bat`, demos and test scripts work as be
 
 Look and feel: sleek but cartoony, in the spirit of the two reference screens (a round-portrait select grid with big player
 panels; a creator with arrow selectors, slanted label tabs, a name field and a preview on a little stage). All of it is original:
-slanted cream labels, round arrow buttons, gold highlights, a slate backdrop with light beams (a pastel graph-paper one for
-select), bold condensed type, and a slight bounce on hovered buttons. The pieces live in `godot/ui/ui_kit.gd` and `ui_draw.gd`.
+painted cards and brush strokes, round arrow buttons, gold highlights, a fantasy sky of floating islands drawn in code, bold
+condensed type, and a slight lift on hovered buttons (see "Look" below). The pieces live in `godot/ui/ui_kit.gd`, `menu_art.gd` and `ui_draw.gd`.
 
 ## Character creator
 
-Choose a **class** (the moveset: Longsword, Claws or Maul), a **look** (face, hat, glasses, neckwear, body colour, accent colour: cosmetic
-only) and four **stats**, give it a **name**, and press **Finish**. Up/Down pick a row, Left/Right change it, Enter on the name
-or Finish saves. The "Fighter" row at the top opens a saved fighter to edit (or "New fighter"); Delete removes it.
+Laid out like a caricature kit (`godot/ui/creator.gd`). Down the left, the **categories**: body colour, the face's **eyes, brows,
+nose, mouth and cheeks**, its resting **mood**, the **hat, glasses, neckwear and shirt**, and **how it plays**. Beside them the fighter
+on its own little stage, turned to the camera (it moves in close for the face and the hat; Z and X turn it, C faces it front), with its
+**name** on the plate below. In the middle the choices for the category, as pictures (the part alone for face parts, the fighter
+wearing it for clothes); on the right the part's **colours** and the **tools**: move up or down, closer or apart, smaller or bigger,
+tilt, squash or stretch, each press saying what it did at the top ("+1 height"), and **Reset**. **Exit** (asks again with unsaved
+changes) and **Done** (saves and goes to character select) at the top right. How it plays holds the saved-fighter picker ("New
+fighter" or one to edit, and Delete), the **class** (the moveset: Longsword or Claws), the four **stats** and the rules.
+
+Keys: arrows or WASD move between the categories, the choices and the tools (on a stat or a selector, left and right change it); J,
+Space or Enter picks; Q and E change category; N types the name; Esc exits. Looks are cosmetic only (`docs/ART_PIPELINE.md`, faces from
+parts).
 
 The stats are 1 to 9, where 5 is the class exactly as it ships. They change how the fighter plays, through one function in Rust
 (`sim-content/src/recipe.rs`), so the same recipe is the same fighter on any machine:
@@ -89,7 +98,8 @@ To play online with a made fighter, make it in the creator, then either play one
   by the same player's other action swaps with it, so no key is ever on two actions; Esc and the F-keys the game uses stay reserved.
   Saved in `user://controls.json` (`godot/scripts/bindings.gd`); a damaged or hand-edited file is repaired. The sim never sees keys.
 * **Controllers** play with: left stick or D-pad to move, A or Y jump, X attack, B special, bumpers and triggers shield, right-stick
-  click grab, and the **right stick smashes** (a strong attack in the direction pushed). Controller 1 is player 1, controller 2 player 2,
+  click grab, and the **right stick attacks** (the reference's C-stick: a smash in the direction pushed on the ground, an aerial in the
+  air; it only aims the attack, so the left stick keeps drifting and fast falling through it). Controller 1 is player 1, controller 2 player 2,
   alongside the keyboards. (Not tested with real hardware: no controller was available.)
 * **Controllers in the menus** (`godot/scripts/pad_nav.gd`): D-pad or left stick moves (with key repeat), A confirms, B goes back,
   Start starts, Back/Select leaves; it works by pressing the keys the screens already understand. In character select controller 1 plays
@@ -117,19 +127,48 @@ To play online with a made fighter, make it in the creator, then either play one
   fighters' speed and jump height, then driving the creator, select and menu screens with key presses.
 
 
-## Look (second pass)
+## Look (third pass: the painted style)
 
-The menus share one visual language (`godot/ui/ui_draw.gd`, `ui_kit.gd`): slanted panels with a soft two-step shadow, a fill lighter at the
-top, a thin highlight and an ink edge; selected buttons glow and a shine sweeps across them; long labels shrink to fit; every screen opens
-with a slanted wipe (`UI.reveal`). The backdrop is a deep indigo-to-navy gradient with slow light rays, faint scrolling stripes and drifting
-motes (a warmer magenta variant behind character select).
+The menus follow the concept art: a sunny fantasy world drawn entirely in code (`godot/ui/menu_art.gd`), with no images. Pieces:
 
-- **Main menu**: a mosaic of tiles (Play, Online, Replays, Character Creator, Controls, Editors, Quit), each with its own colour and a
-  line-drawn icon; Play is the biggest, with the last fighter played standing in it. Up and down step through the tiles in order, left and
-  right move across.
-- **Character select**: roster cards with each fighter's own 3D portrait (rendered once, then kept as a still), name strips and rings in
-  the colours of the players on them; the players' cards along the bottom with the fighter standing large; a "READY TO FIGHT!" band across
-  the screen once everyone is locked in.
+- **The sky** (`Art.SkyScene`): a blue gradient with the sun's glow and a halo of rings, floating islands with grass, waterfalls and
+  castles (pale ones far off), banks of cream clouds, birds, motes and sparkles, leaves in the bottom corners. A `mood` warms it
+  (player 1's coral and gold) or cools it (player 2's blue). Each piece is drawn once and only moved after (islands bob, clouds drift);
+  only the birds and motes are redrawn, which keeps the menus cheap (repainting the whole sky each frame cost about 15 ms).
+- **Painted cards** (`Art.card`): cut corners, an offset ink shadow, a fill lighter at the top, a broad translucent plane and an ink
+  outline. Buttons, labels, menu tiles and the roster cards are all cards; buttons and tiles repaint only when they change.
+- **One light** (the visual quality pass): everything is lit from the upper left (the sun's glow sits behind the logo). Card shadows
+  fall down and right (`Art.SHADOW`), islands are lit on their left with a shadowed grass lip, clouds catch light on their upper-left
+  edges, and the menu previews' own key light comes from the same side (separate from the match's lighting).
+- **Depth, not detail**: a few islands at fixed places (far ones faded into a horizon haze, near ones framing the edges), cloud banks in
+  two layers each with its own silhouette, a few high wisps, and a quiet halo. Only birds and a dozen motes move per frame; islands bob
+  and clouds drift by moving pieces drawn once.
+- **Cards share one recipe** (`Art.card`): corner cut and outline from the card's size, a soft shadow, a broad pale light shape, a top
+  highlight. Only the cards that lead get the painted rim (the Play tile, the roster cards); focus is a glow that follows the card's
+  shape, and a button's shine crosses once when it is selected. Icons share one line weight.
+- **Type hierarchy**: titles in the display face with a thin outline; subtitles and small text in the text face with only a soft shadow;
+  text over a painted scene sits on a band of shade.
+- **The Play tile's scene**: the fighter stands on a round grass-over-rock platform (its top an oval seen a little from above, lit from
+  the upper left, over the turf and the rock) with a contact shadow; the same platform is under the fighters in character select, the
+  creator and the online screen (`UI.Stage`).
+- **Every screen** opens with its name on an ink brush stroke (`UI.ScreenTitle`), keeps its keys in the key-glyph bar at the bottom, and
+  shows news (a status, a warning) in gold on a dark band (`UI.notice`), never as pale text over the sky.
+- **Brush strokes** (`Art.brush_band`): ragged-ended bands with streaks, for titles, names, player tabs, READY badges and the ribbon.
+- **Type**: Barlow Condensed (`godot/fonts`, SIL Open Font License; the licence goes with the font, also into the desktop build's
+  folder), Bold Italic for text and ExtraBold Italic for titles, loaded by `ui_draw.gd` (`font()`, `display_font()`).
+- **Titles** (`Art.title`): live text with an ink outline and a soft shadow. **Key glyphs** (`UI.KeyBar`): the controls along the bottom.
+
+The screens:
+
+- **Main menu**: the name on two brush strokes; a mosaic of tiles (Play, Online, Replays, Character Creator, Controls, Editors, Quit),
+  each a card in its own colour with a line-drawn icon; Play is the biggest, a painted scene with the last fighter played standing on a
+  ledge in it. Up and down step through the tiles in order, left and right move across. Every screen opens with a slanted wipe
+  (`UI.reveal`).
+- **Character select**: "VERSUS" and "CHOOSE YOUR FIGHTER" on brush strokes; roster cards in a fixed run of colours with each fighter's
+  own 3D portrait (rendered once, then kept as a still), the name on an ink stroke, outlines and P tabs in the colours of the players on
+  them (the card lifts); the players' panels along the bottom, each a painted scene (warm for player 1, cool for player 2) with the
+  fighter standing on a ledge, the name on a stroke in the player's colour and a gold READY! badge once locked in; a coral "READY TO
+  FIGHT!" ribbon across the screen once everyone is in; the keys along the bottom.
 - **Results**: the winner standing large on their colour, a card for each fighter in finishing order with knock-outs, falls, damage dealt
   and taken and stocks left (tracked by the match scene from hits and knock-outs; with more than two fighters the attacker is the one frozen
   in an attack on the same frame), and the choices.

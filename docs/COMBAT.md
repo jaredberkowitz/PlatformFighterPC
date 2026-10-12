@@ -4,10 +4,13 @@
 
 - **Weapons choose movesets** (`sim-core/src/moves.rs`): a fighter has a `weapon` index; each weapon holds 13 moves.
   The **longsword** (duelist) has a tip (priority 0, hits harder) and a body (priority 1). The **claws** (brawler) are the
-  same moves pulled in close, quicker and a little heavier, with no tip/body split. The **maul** (bruiser, the third class, SIM_VERSION 25) is the
-  longsword's normals stretched out (130% of the frames, bigger and 25% harder hitboxes) with the rising slash kept as its recovery and three plain
-  specials: a crushing overhead (neutral), a shoulder charge (side) and a ground quake (down). Its body is the heaviest and slowest
-  (`FighterParams::bruiser`). Frame data and numbers are placeholders; `sim-core/tests/maul.rs` pins the shape of it.
+  same moves pulled in close, quicker and a little heavier, with no tip/body split. (A third class, the **maul** bruiser, was added in
+  sim v25 and removed in sim v36 so the sword and claws movesets can be finished first; it is in the git history to bring back later.)
+- **Throws** (sim v37): as in the reference game, the claws' forward, up and back throws come in two parts: a hit that damages
+  the held fighter without launching it, then the throw, whose own smaller damage is all the launch is worked out from (up throw:
+  5% then 2% at base 75, growth 110; forward 5% then 4%; back 6% then 5% at base 40, growth 150). Folding the hit's damage into the
+  throw had made them launch much too far. Forward, up and down throws are combo throws that never knock out; the back throw is the
+  kill throw. The sword's throws were already single-part reference values. Tests: `sim-core/tests/throw_combos.rs`.
 - **Hitboxes and hurtboxes are circles.** Hitboxes come from move data (active on frames `start..=end`, offset from the feet,
   mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB, brought down to `crouch_height` (0.6) of
   their heights in a crouch so high attacks pass over it; and a fourth for a limb: with a `limbs` moveset (the claws), while a hit is
@@ -20,15 +23,21 @@
 - **Aerial landing lag** with autocancel windows (landing early or late in the move costs only the normal landing lag).
 - **Damage and launch** follow the reference formulas: `KB = ((((p/10 + p*d/20) * 200/(w+100) * 1.4) + 18) * g/100) + b`,
   launch speed `KB * 0.03` reference units/frame (8 per world unit), hitstun `floor(KB * 0.4) - 1` frames, hitlag
-  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 is horizontal for weak grounded hits and
-  44 degrees otherwise. See "Hit feel" below for rage, staling, crouch cancelling and the rest (sim v27).
+  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 (the Sakurai angle) is the reference's since sim v50:
+  against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38 at 88; against an airborne one 38 (it was the older
+  game's 0 below 32 knockback and 44 above). A sideways (0 degree) hit rises to 32 degrees from 120 knockback. A grounded hit that
+  does not lift the fighter slides it, and its traction slows the slide as well as the usual knockback decay (sim v50), so a jab's
+  push stays short. See "Hit feel" below for rage, staling, crouch cancelling and the rest (sim v27).
 - **Hitlag freezes both fighters.** During it the victim can **DI** (the part of the stick perpendicular to the launch bends
   it up to 10 degrees, the reference game's 0.17 radians, applied on the frame hitlag ends; it was 18, the older game's, until sim
   v34) and **LSI** (holding up makes a tumbling launch up to 1.095 times as fast, holding down 0.92 times, in proportion to the stick,
   except within 25 degrees of straight up or down) and **SDI** (a stick flick nudges 0.25 units, once
   every 4 frames).
-- **Hitstun** with gravity and decaying launch speed. Landing in hitstun is a **tech** with a shield press just before
-  (4 frames of lag), otherwise a placeholder knockdown (24 frames).
+- **Hitstun** with gravity and decaying launch speed. Landing out of a tumble is a **tech** with a shield press just before
+  (4 frames of lag), otherwise a knockdown. Landing out of a lighter hit (no tumble: a jab, an autolink loop dragging the fighter
+  down) lands it on its feet and the hitstun carries on on the ground, with no tech and no knockdown, as in the reference (sim v50).
+- **Pull** (angle 368, ours, sim v51): no launch; while its hitstun lasts the victim moves a third of the way a frame (at most half a
+  unit) to 0.9 units in front of whoever hit it (a projectile's owner), on its own side, and is never tumbling. The Needles' line uses it.
 - **Shield** blocks: no damage, no launch, a little pushback. Intangible: respawn invulnerability, ledge invulnerability and
   the middle of an air dodge.
 - **KO and respawn:** leaving the blast zone costs a stock, resets damage and respawns at the spawn point with 120 frames of
@@ -183,13 +192,13 @@ are pinned 1.3 units in front of the holder, facing it (`grab.rs`).
 | Time held | `90 + 1.7 * percent` frames (at least 19). Each button press takes 14 frames off, each stick flick 8 |
 | Breaking free | the holder is stuck in a 25 frame release; the released fighter cannot be grabbed for 60 frames |
 | Pummel | attack while holding: 1.3% on frame 4, 22 frames, repeatable until the hold runs out |
-| Throws | a stick direction while holding: forward 9% (release frame 11, FAF 33), back 11% (24, 48), up 7% (27, 46), down 8.5% (26, 41) |
+| Throws | a stick direction while holding: forward 5% + 4% (hit frame 10, release 11, FAF 33), back 6% + 5% (23, 24, 48), up 5% + 2% (26, 27, 46), down 8.5% (26, 41) |
 | Interruptions | hitting the holder, hitting the held fighter or knocking either out frees both |
 
 Throw angles and knockback are partly estimates (forward 45 degrees, base 55, growth 57; back 50 / 40 / 150; up 80 / 75 / 110; down
 361 / 50 / 65); the reference sources disagree on the back throw's damage (8% or 11%) and do not give the throws' angles. The
 swordfighter's grab and throws now have reference frames and damage (see "Kit completion"). Not implemented: pivot grab, cargo carries, grab release lag differences
-between characters, and the throws' two-part damage (a hit while being held, then the throw).
+between characters. (The throws' two-part damage, a hit while being held and then the throw, is in since sim v37.)
 
 The keyboard: throw with a direction held for a few frames (W for up, S for down, A / D forward or back), pummel with attack.
 Tests: `sim-core/tests/grabs.rs` (21 tests) plus a mutual-grab invariant in the random play test; the fuzzer now sends grab and
@@ -244,7 +253,8 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 | Down air | frames 9-13, 12-14%; frame 11 only, the tip is a 15% meteor; FAF 59 |
 | Grab / dash grab / pummel | frames 6-7 (FAF 34), 9-10 (FAF 42), 1.3% |
 | Throws | forward 4% (release 18, FAF 34), back 4% (19, 44), up 5% (13, 44), down 4% (20, 46) |
-| Ledge attack | 9%, angle 45, base 90 / growth 20, frames 24-26, intangible to 26, FAF 56 (the brawler's published numbers; the sword's are not in the sources) |
+| Ledge attack | 9%, angle 45, base 90 / growth 20, frames 23-25, intangible to 25, FAF 56 (the brawler: 24-26, to 26) |
+| Get-up attack (from the floor) | 7% in front on frames 16-17 then 7% behind on 22-23 (the brawler 21-22), angle 361, base 80 / growth 48, intangible to 23 (22), FAF 46 (sim v44; it had growth 80 and sent far at high percents) |
 | Shield Breaker | neutral special: hold special from frame 19 (at most 60 frames), thrust 8 frames after release, 8% (9% tip) to about 24% charged, 39 frames from release |
 | Dancing Blade | side special: hit 1 on frame 9 (FAF 39, ends at 29 in the air); each press of special before the end continues; stick up gives the rising hits; hits 2.5-3%, 3-4%; finishers 4-6% (straight), 5-7% (rising), 2% x4 then 4-5% (low) |
 | Counter | down special: window frames 6-27, answer 1.2x (at least 8%), counter-attack on frame 4, FAF 64 unused |
@@ -361,7 +371,7 @@ Three aerials people build combos around now follow the reference game's data (S
 
 - **A shorter blade**: the duelist's whole kit is pulled in toward the shoulder (`shorten_blade`, 72%), so the sword is about a quarter
   shorter on screen and in reach (the forward tilt tipper is now at about 3.2 units, it was 4). Frames, damage and knockback are unchanged.
-  The claws and the maul are built from the unshortened kit (`sword_kit`), so they did not change.
+  The claws are built from the unshortened kit (`sword_kit`), so they did not change.
 - **Swings follow their arcs**, one hit per frame along the blade's path (each still hits a target once), as the forward and down airs
   already did: jab (a downward slash, then the backhand rising), forward tilt and dash attack (rising cuts), forward smash (coming down
   from overhead), neutral air (a quick sweep in front, then the blade carried right round the fighter on frames 15-21, the reference's
@@ -369,3 +379,65 @@ Three aerials people build combos around now follow the reference game's data (S
   the smashes' other hits and the down air already had their shape.
 - **The tipper must be spaced**: as in the reference game, where the blade's sourspot and the tipper both reach, the sourspot wins (`tipper_last`
   reorders the priorities: blade, then arm, then tip).
+
+## Launches and fast falls checked against the reference (sim v39)
+
+Checked against the reference game's own formula (the open SSBU calculator ports the game's code: `rubendal/SSBU-Calculator`,
+`formulas.js`, `DamageSpeedUpFrames` and `knockback.js`), not just the wiki's one worked example:
+
+| Mechanic | Behaviour | Fields |
+| --- | --- | --- |
+| Launch speed-up ("balloon") | Same curve as before (it already matched: `1 + (F - 30) / 10` at first, at most 6x, easing to one after 70% of the launch), but now it **skips whole knockback frames, gravity included**, as the reference does: the fighter follows the same path as an unhurried launch, only sooner. The real hitstun now equals the reference's to the frame (60 knockback: free on frame 24; 90: 34; 100: 36; 120: 39; 140: 41; 160: 44; 200: 50). (It had been one frame long on sped-up launches.) | `balloon_*` |
+| Gravity boost | A tumbling launch outside the 70 to 110 degree band gains `5 * (gravity - 0.075)` (reference units) of upward speed, so a fighter that falls faster is launched a little higher | `gravity_boost`, `gravity_boost_from` |
+| Launch gravity | A launched fighter falls by its own gravity from the start. (The reference's "everyone falls alike for 10 frames" is only for hits of fixed knockback, which no move here has; it had been applied to every launch and made light hits float everyone the same, which kept victims in the air longer than the reference at combo percents.) A launch between 70 and 110 degrees still falls at 1.8 for its whole hitstun | `launch_fall_frames` (now 0) |
+| Hitstun cancel | An air dodge from frame 40, an aerial from frame 45, as before, **and only once the launch has slowed below 2.5 (air dodge) or 2.0 (aerial) reference units a frame** | `hitstun_*_cancel`, `hitstun_*_cancel_speed` |
+| Fast fall | A hard press down counts up to 3 frames before the apex, and only if the stick is still held when falling starts (it had been 10 frames, held or not, which let a fast fall come out on every jump almost by itself). **An aerial ends a fast fall**: the fighter falls at its normal top speed again until it presses down anew during the move. **A tumbling fighter cannot fast fall** after its hitstun until it acts (any action, a midair jump, a landing): `Fighter::damage_fall` | `FAST_FALL_BUFFER` |
+
+Missed techs: see below (sim v40).
+
+Tests: `sim-core/tests/launch_reference.rs` (the reference's hitstun table, the frame skipping, the cancel speeds, the tumble and aerial
+fast-fall rules), `ground_and_collision.rs` (the fast-fall buffer).
+
+**Missed techs (sim v40):** a fighter still tumbling after a launch's hitstun (it has not acted since: `damage_fall`) that lands is
+treated as the end of a launch: a shield press just before touching down techs (in place, or a roll with a sideways flick), and
+without one it is a missed tech and it lies in a knockdown. A fighter that acted first (an aerial, an air dodge, a midair jump) lands
+normally. The computer techs these sometimes. Test: `launch_reference.rs`.
+
+## Edges, jumps and the special fall (sim v41)
+
+- **Rolls stay on**: a roll (and a tech roll, a get-up roll, a spot dodge) that reaches the edge of the stage or of a platform stops
+  on the edge instead of going over it, as in the reference (`slide_kept_on_platform`). Walking, running and attacks still go off.
+- **Jumps checked against the reference** (SmashWiki's attribute tables and ultimateframedata.com): jump squat 3 frames for both;
+  short hop, full hop and air jump heights 16.25 / 33.66 / 33.66 (sword) and 15.38 / 32.03 / 30.72 (claws) reference units, the
+  reference's to the hundredth; the air times differ between hop types exactly as the reference's do (short hop to full hop 14 frames
+  for both, a fast fall saving 13 and 17).
+- **The special fall** after an up special (both leave the fighter helpless, as in the reference) drifts at half the fighter's air
+  speed and acceleration (`helpless_drift`, an estimate: the reference varies it per move and does not publish it). The up specials'
+  rise and travel are still estimates (none of the sources give them): the sword's rises about 1.3 full hops, the claws' is a short
+  straight flight.
+- **Reversing an up special** (sim v42): holding up and back as it starts, or pushing back in its first 3 frames
+  (`special_turn_window`, an estimate), turns it around, so it comes out the other way. (The claws' flight also aims by the stick at the
+  end of its wind-up, as before.)
+
+## Polish pass (from the graphical implementation plan)
+
+Audited against the plan: tonemapping, glow kept to effects, warm key and cool fill light, the reference's hitlag (in the sim, so it is
+not retuned by feel), hit bursts by weapon, sparks, impacts, launch smoke and the DI line, dash dust, jump rings, swing arcs, camera
+framing, punch-in and the knock-out close-up were already in place. Saturation and contrast stay as they are (the pastel finish is the
+art direction), there is no ocean stage, and floating damage numbers are left out (the HUD carries damage, as in the reference game).
+Refined:
+
+- **Camera shake** (`main.gd`): a damped swing along the line the hit sends its fighter, with a smaller swing across and a slight roll
+  (`SHAKE_HZ`, `SHAKE_ROLL`), instead of a fresh random jolt each frame, which read as jitter.
+- **Damage number** (`match_hud.gd`): a spring kicked by each hit (`POP_KICK`, `POP_STIFF`, `POP_DAMP`), overshooting to about 1.3 times its
+  size for a heavy hit and settling; the jolt is smaller.
+- **Portraits**: a hit of 9% or more (`HEAVY_HIT`) flashes the portrait white and the face inside winces for a moment
+  (`Portrait.react`; the portrait is redrawn only for the two changes).
+
+## B-reverse (sim v45)
+
+As in the reference game: in the first `special_reverse_window` frames (4) of a neutral or side special, the stick pushed the other way
+turns the fighter round, and in the air its horizontal momentum reverses too (once per special: `Fighter::b_reversed`). A side special
+already faces the stick it was input with, so stick one way then quickly the other is a turnaround and a reverse in one (a wavebounce).
+Up specials keep their own turn (`special_turn_window`, up and back).
+

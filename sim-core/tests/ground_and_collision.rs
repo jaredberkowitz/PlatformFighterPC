@@ -75,6 +75,24 @@ fn slowly_rolling_the_stick_to_full_does_not_dash() {
 }
 
 #[test]
+fn a_flick_over_two_or_three_frames_still_dashes() {
+    // A thumb on a real stick takes a frame or two to travel from the middle to the rim: still a dash.
+    for path in [[0i8, 60, 127, 127], [0, 30, 70, 127]] {
+        let mut sim = Sim::new();
+        for x in path {
+            sim.tick(inp(x, 0, 0));
+        }
+        assert_eq!(sim.f().state, S::Dash, "{path:?}");
+    }
+    // Four frames of travel (only reaching flick range on the fourth) is a deliberate roll: a walk.
+    let mut sim = Sim::new();
+    for x in [0i8, 40, 55, 70, 127] {
+        sim.tick(inp(x, 0, 0));
+        assert_ne!(sim.f().state, S::Dash, "dashed at x={x}");
+    }
+}
+
+#[test]
 fn reversing_a_dash_with_a_flick_is_a_dash_dance() {
     let mut sim = Sim::new();
     sim.ticks(4, inp(127, 0, 0));
@@ -147,6 +165,10 @@ fn tapping_down_on_solid_ground_just_crouches() {
 #[test]
 fn a_wall_stops_a_running_fighter() {
     let mut sim = with_block(8, 10, 0, 4);
+    // Nobody else in the way (bodies on the ground do not pass through each other).
+    sim.stand(1, Fx::from_int(-10), 1);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
     let hw = sim.content.fighters[0].ecb_half_width;
     sim.ticks(120, inp(127, 0, 0));
     assert_eq!(sim.f().pos.x, Fx::from_int(8) - hw);
@@ -353,34 +375,19 @@ fn dash_speed_eases_down_into_run_speed() {
 }
 
 #[test]
-fn landing_while_holding_the_stick_carries_momentum_into_a_run() {
+fn landing_while_holding_the_stick_walks_on_instead_of_running() {
+    // As in the reference game: holding the stick through a landing walks; a run needs a new dash.
     let mut sim = Sim::new();
     let p = sim.content.fighters[0];
-    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), fx(1, 10), Fx::ZERO);
-    let mut landed_speed = None;
-    let mut last = None;
-    for _ in 0..60 {
+    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), p.air_speed, Fx::ZERO);
+    let mut landed = false;
+    for _ in 0..40 {
         sim.tick(inp(127, 0, 0));
-        let grounded = sim.f().grounded();
-        let v = sim.f().vel.x;
-        if grounded {
-            landed_speed.get_or_insert(v);
-            if let Some(prev) = last {
-                // No snapping: whatever the state, speed only falls by the gentle easing rate.
-                assert!(
-                    prev - v <= p.run_decel,
-                    "snapped from {prev:?} to {v:?} in {:?}",
-                    sim.f().state
-                );
-            }
-            last = Some(v);
-        }
+        landed |= sim.f().grounded();
     }
-    let landed = landed_speed.expect("never landed");
-    assert!(landed > fx(1, 20), "landing killed the speed: {landed:?}");
-    // Holding the stick the way you were moving continues straight into a run: no walk phase.
-    assert_eq!(sim.f().state, S::Run);
-    assert_eq!(sim.f().vel.x, p.run_speed);
+    assert!(landed, "never landed");
+    assert_eq!(sim.f().state, S::Walk);
+    assert!(sim.f().vel.x <= p.walk_speed, "{:?}", sim.f().vel.x);
 }
 
 #[test]
@@ -484,8 +491,8 @@ fn the_double_jump_is_about_as_high_as_the_first_jump() {
 }
 
 #[test]
-fn a_running_jump_keeps_its_ground_speed_into_the_air() {
-    let mut sim = Sim::new();
+fn a_running_jump_keeps_some_of_its_ground_speed_into_the_air() {
+    let mut sim = Sim::alone();
     sim.state.fighters[0].pos.x = Fx::from_int(-10);
     let p = sim.content.fighters[0];
     sim.ticks(30, inp(127, 0, 0));
@@ -497,10 +504,15 @@ fn a_running_jump_keeps_its_ground_speed_into_the_air() {
         sim.tick(inp(127, 0, JUMP));
     }
     assert!(!sim.f().grounded());
-    assert_eq!(sim.f().vel.x, run, "lost speed leaving the ground");
-    // In the air it keeps almost all of it, since only light air friction acts on the extra speed.
+    // As in the reference game, the ground speed leaves the ground reduced and capped (sim v36): a running jump goes a little faster
+    // than a full drift, not at a run's speed (which made running jumps floaty).
+    let rules = sim.content.rules;
+    let takeoff = (run * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    assert_eq!(sim.f().vel.x, takeoff);
+    assert!(takeoff < run);
+    // In the air it keeps almost all of that, since only light air friction acts on speed above the air speed.
     sim.ticks(15, inp(127, 0, 0));
-    assert!(sim.f().vel.x >= run - p.air_friction.mul_int(16));
+    assert!(sim.f().vel.x >= takeoff - p.air_friction.mul_int(16));
     assert!(
         sim.f().vel.x > p.air_speed,
         "momentum should exceed plain air speed"
@@ -508,13 +520,31 @@ fn a_running_jump_keeps_its_ground_speed_into_the_air() {
 }
 
 #[test]
-fn walking_off_the_edge_while_running_keeps_the_speed() {
-    let mut sim = Sim::new();
+fn running_off_the_edge_takes_the_speed_into_the_air_like_a_jump() {
+    // As a jump does (sim v37): the ground speed leaves the ground reduced and capped, so a run off a platform is not faster than the
+    // reference game's; above the air speed it then fades only by light air friction.
+    let mut sim = Sim::alone();
+    sim.stand(1, Fx::from_int(-10), 1);
     sim.state.fighters[0].pos.x = Fx::from_int(6);
-    sim.ticks(40, inp(127, 0, 0));
-    assert!(!sim.f().grounded() || sim.f().state == S::LedgeHang);
-    let run = sim.content.fighters[0].run_speed;
-    assert!(sim.f().vel.x >= run - sim.content.fighters[0].air_friction.mul_int(30));
+    let p = sim.content.fighters[0];
+    let rules = sim.content.rules;
+    let mut left_at = None;
+    for _ in 0..40 {
+        let was = sim.f().vel.x;
+        let grounded = sim.f().grounded();
+        sim.tick(inp(127, 0, 0));
+        if grounded && !sim.f().grounded() && left_at.is_none() {
+            left_at = Some((was, sim.f().vel.x));
+        }
+    }
+    let (ground, air) = left_at.expect("never ran off");
+    assert!(
+        ground >= p.run_speed - fx(1, 1000),
+        "it was running: {ground:?}"
+    );
+    let takeoff = (p.run_speed * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    assert!(air <= takeoff, "{air:?} against {takeoff:?}");
+    assert!(air > p.air_speed, "still more than a drift");
 }
 
 #[test]
@@ -626,7 +656,7 @@ fn a_quick_tap_dashes_the_full_distance_and_a_held_stick_runs_on() {
 
 #[test]
 fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
-    let mut sim = Sim::new();
+    let mut sim = Sim::alone();
     sim.state.fighters[0].pos.x = Fx::from_int(-10);
     let p = sim.content.fighters[0];
     sim.ticks(6, inp(127, 0, 0));
@@ -642,14 +672,13 @@ fn jumping_out_of_a_cancelled_dash_keeps_the_momentum_in_the_air() {
         sim.tick(inp(0, 0, JUMP));
     }
     assert!(!sim.f().grounded());
-    assert_eq!(
-        sim.f().vel.x,
-        squat_start,
-        "jump squat must not eat the speed"
-    );
+    // The jump squat itself loses nothing; the takeoff carries the reduced, capped share of it (see the running jump above).
+    let rules = sim.content.rules;
+    let takeoff = (squat_start * rules.jump_momentum).min(p.air_speed * rules.jump_momentum_max);
+    assert_eq!(sim.f().vel.x, takeoff, "jump squat must not eat the speed");
     // With no stick held the air drift continues, slowed only by light air friction.
     sim.ticks(10, inp(0, 0, 0));
-    assert!(sim.f().vel.x >= squat_start - p.air_friction.mul_int(11));
+    assert!(sim.f().vel.x >= takeoff - p.air_friction.mul_int(11));
     assert!(sim.f().vel.x > p.air_speed);
 }
 
@@ -781,6 +810,14 @@ fn a_hard_down_press_while_falling_fast_falls() {
 }
 
 #[test]
+fn a_down_flick_over_two_frames_fast_falls() {
+    let mut sim = falling_sim();
+    sim.tick(inp(0, -50, 0));
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall);
+}
+
+#[test]
 fn simply_holding_down_does_not_fast_fall() {
     let mut sim = Sim::new();
     // Jump with down already held the whole time (never a fresh press while falling).
@@ -894,31 +931,33 @@ fn stopping_from_a_full_run_takes_under_ten_frames() {
     assert!(frames <= 10, "took {frames} frames to stop");
 }
 
-#[test]
-fn a_hard_press_just_before_the_apex_fast_falls_once_falling_starts() {
-    // Press hard while still rising; the fighter reaches the apex a few frames later.
+/// Puts player 0 in the air rising so that it reaches the apex after `frames` frames, then holds the stick hard down from
+/// `press_at` frames before the apex (releasing it after one frame if `tap`). Returns whether it fast fell by a few frames after.
+fn fast_fall_from(press_at: i32, tap: bool) -> bool {
     let mut sim = Sim::new();
-    sim.put_airborne(
-        0,
-        Fx::ZERO,
-        Fx::from_int(40),
-        Fx::ZERO,
-        Fx::from_ratio(1, 20),
-    );
-    sim.ticks(1, inp(0, 0, 0));
-    sim.tick(inp(0, -127, 0));
-    assert!(
-        sim.f().vel.y > Fx::ZERO,
-        "test needs the fighter still rising"
-    );
-    assert!(!sim.f().fast_fall);
-    sim.ticks(1, inp(0, 0, 0));
-    for _ in 0..8 {
-        sim.tick(inp(0, 0, 0));
+    let g = sim.content.fighters[0].gravity;
+    let frames = 8;
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, g.mul_int(frames));
+    for t in 0..frames + 4 {
+        let down = t >= frames - press_at && (!tap || t == frames - press_at);
+        sim.tick(inp(0, if down { -127 } else { 0 }, 0));
     }
+    sim.f().fast_fall
+}
+
+#[test]
+fn a_fast_fall_pressed_up_to_three_frames_before_the_apex_comes_out_if_still_held() {
     assert!(
-        sim.f().fast_fall,
-        "a recent hard press should apply once the fighter starts falling"
+        fast_fall_from(2, false),
+        "held from 2 frames before the apex"
+    );
+    assert!(
+        !fast_fall_from(7, false),
+        "held from 7 frames before: too early (the reference buffers 3)"
+    );
+    assert!(
+        !fast_fall_from(2, true),
+        "a tap let go before the apex does nothing"
     );
 }
 

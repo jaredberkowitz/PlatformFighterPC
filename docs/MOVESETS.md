@@ -40,6 +40,20 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - Wants from the sim: **projectiles** (fixed-capacity pool already in the state design), a reflect state that flips a
   projectile's owner, fast-fall tuning, and multi-hit moves.
 
+### 3. Needles rogue (the Sheik-like role)
+- A light, fast fighter (weight 78) that strings hits together: quick kicks, a multi-hit up air that drags an airborne foe down with it,
+  a stalling, plunging down air, and (planned) thrown needles, a pulling grenade, a vanish recovery and a flip-kick.
+- Built to exercise the multi-hit engine (sim 49): up to eight hit groups, a rehit that clears only chosen groups, the autolink angle
+  (367: the hit carries the foe along with the attacker instead of launching), set knockback, extra hitstun, per-hitbox SDI and landing hits.
+- **As built (phase 1, sim 49):** the body (`FighterParams::rogue`) and the forward, up and down tilts and all five aerials on the
+  reference's published data (`docs/sheik/REFERENCE_DATA.md`, which labels each number verified, derived or estimated).
+- **Phase 2 (sim 50):** the jabs with the rapid jab and its finisher (scripts), the earlier game's dash attack (a pop-up), the two-hit
+  forward and down smashes and the up smash, grabs, pummel and throws, and the reference's rolls and spot dodge.
+- **Phase 3 (sim 51):** the specials: Needle Storm (charge, store with shield, throw up to six needles), our own pulling line in place
+  of the reference's grenade (a hit reels the target in to just in front, for a follow-up), Vanish (an explosion, a teleport along
+  the stick, a reappearance hit, then helpless) and Bouncing Fish (a flip into a heel kick that bounces back off a hit). The up air's
+  drag now lands its target in front of the fighter.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

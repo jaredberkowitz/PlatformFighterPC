@@ -238,3 +238,123 @@ fn a_backward_roll_takes_longer_than_a_forward_one() {
     assert_eq!(roll(127), usize::from(p.roll_frames));
     assert_eq!(roll(-127), usize::from(p.roll_back_frames));
 }
+
+// ---- Short-hop fast-fall aerials and the attack stick -----------------------------------------------------------------------------
+
+/// A short hop by `ch` (with `first` pressed on the take-off frame, stick `aim`), fast falling with a fresh down flick on the first
+/// falling frame; the movement stick is otherwise `hold`. Returns (frames in the air, the furthest move frame reached, the move).
+fn short_hop(ch: u8, first: u16, ff: bool, hold: (i8, i8)) -> (u32, u16, u8) {
+    let mut sim = Sim::with_chars([ch, 1 - ch, 0, 1]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.tick(inp(hold.0, hold.1, JUMP | first));
+    while sim.f().grounded() {
+        sim.tick(inp(hold.0, hold.1, first & !JUMP));
+    }
+    let (mut n, mut reached, mut mv) = (0, 0, 255);
+    let mut flicked = false;
+    while !sim.f().grounded() && n < 200 {
+        let down = ff && !flicked && sim.f().vel.y <= Fx::ZERO;
+        flicked |= down;
+        let y = if down { -127 } else { hold.1 };
+        sim.tick(inp(hold.0, y, first & sim_core::input::buttons::C_ANY));
+        if sim.f().state == S::Attack {
+            reached = sim.f().state_frame;
+            mv = sim.f().move_id;
+        }
+        n += 1;
+    }
+    (n, reached, mv)
+}
+
+#[test]
+fn short_hop_air_times_match_the_reference() {
+    // The reference's published short hop and short hop fast fall air times (ultimateframedata.com): the swordfighter 41 and 28,
+    // the blaster fighter 30 and 21. Ours count the landing frame too: within one.
+    for (ch, sh, shff) in [(0u8, 41u32, 28u32), (1, 30, 21)] {
+        let (a, _, _) = short_hop(ch, 0, false, (0, 0));
+        let (b, _, _) = short_hop(ch, 0, true, (0, 0));
+        assert!(a.abs_diff(sh) <= 1, "class {ch}: short hop {a} vs {sh}");
+        assert!(
+            b.abs_diff(shff) <= 1,
+            "class {ch}: short hop fast fall {b} vs {shff}"
+        );
+    }
+}
+
+#[test]
+fn a_fast_fallen_short_hop_aerial_made_on_take_off_finishes_its_hits_before_landing() {
+    use sim_core::input::buttons::{C_DOWN, C_LEFT, C_RIGHT, C_UP};
+    use sim_core::moves::MoveId;
+    // Each aerial from the attack stick on the take-off frame, fast falling as early as possible: every hit of the swordfighter's
+    // aerials, and of the blaster fighter's (but its neutral air's long late hit, as in the reference), is out before the landing.
+    for ch in [0u8, 1] {
+        let sim = Sim::with_chars([ch, 1 - ch, 0, 1]);
+        let weapon =
+            &sim.content.weapons[usize::from(sim.content.fighters[usize::from(ch)].weapon)];
+        for (c, id) in [
+            (C_RIGHT, MoveId::FAir),
+            (C_LEFT, MoveId::BAir),
+            (C_UP, MoveId::UAir),
+            (C_DOWN, MoveId::DAir),
+        ] {
+            let (_, reached, mv) = short_hop(ch, ATTACK | c, true, (0, 0));
+            assert_eq!(
+                mv, id as u8,
+                "class {ch}: the attack stick picks the aerial"
+            );
+            let last_hit = weapon
+                .get(id as u8)
+                .hitboxes
+                .iter()
+                .map(|h| h.end)
+                .max()
+                .unwrap_or(0);
+            assert!(
+                reached >= u16::from(last_hit),
+                "class {ch} {id:?}: reached frame {reached}, last hit on {last_hit}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_movement_stick_fast_falls_and_drifts_through_an_attack_stick_aerial() {
+    use sim_core::input::buttons::C_UP;
+    use sim_core::moves::MoveId;
+    // Up air on the attack stick while the movement stick holds forward: the aerial is the up air (not a forward air), the fighter
+    // keeps drifting forward, and the down flick still fast falls it.
+    let (air, _, mv) = short_hop(0, ATTACK | C_UP, true, (127, 0));
+    assert_eq!(mv, MoveId::UAir as u8);
+    let (slow, _, _) = short_hop(0, ATTACK | C_UP, false, (127, 0));
+    assert!(air + 8 < slow, "fast fell: {air} vs {slow}");
+    // Drift: forward on the movement stick through the aerial moves the fighter further than with it let go.
+    let drift = |x: i8| {
+        let mut sim = Sim::alone();
+        sim.tick(inp(0, 0, JUMP | ATTACK | C_UP));
+        sim.ticks(20, inp(x, 0, C_UP));
+        sim.f().pos.x
+    };
+    assert!(drift(127) > drift(0) + fx(1, 2), "drifting forward");
+}
+
+#[test]
+fn the_attack_stick_on_the_ground_is_a_smash_in_its_direction() {
+    use sim_core::input::buttons::{C_DOWN, C_LEFT, C_UP};
+    use sim_core::moves::MoveId;
+    for (c, id, facing) in [
+        (C_UP, MoveId::USmash, 1),
+        (C_DOWN, MoveId::DSmash, 1),
+        (C_LEFT, MoveId::FSmash, -1),
+    ] {
+        let mut sim = Sim::alone();
+        sim.tick(inp(0, 0, 0));
+        sim.tick(inp(0, 0, ATTACK | c));
+        assert_eq!(
+            (sim.f().move_id, sim.f().facing),
+            (id as u8, facing),
+            "{id:?}"
+        );
+    }
+}
