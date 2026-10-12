@@ -33,6 +33,11 @@ class Board extends Control:
 	## When each fighter last took a heavy hit (ms): its portrait flashes white and pulls a hurt face.
 	var hurt_at := [0, 0, 0, 0]
 	const HURT_MS := 450.0
+	## When each fighter last took any damage (ms): its number flashes toward white and settles back to its heat colour.
+	var hit_at := [0, 0, 0, 0]
+	const FLASH_MS := 160.0
+	## The cards' distance from the bottom of the screen (about 4% of the height: clear of a television's overscan).
+	const BOTTOM_MARGIN := 30.0
 	## Damage in one hit from which the portrait reacts.
 	const HEAVY_HIT := 9.0
 	signal heavy_hit(player: int)
@@ -52,6 +57,7 @@ class Board extends Control:
 			var p: float = percent[i]
 			if p > last_percent[i] + 0.01:
 				var taken: float = p - float(last_percent[i])
+				hit_at[i] = now
 				shake[i] = clampf(shake[i] + taken / 12.0, 0.0, 1.5)
 				pop_vel[i] += clampf(taken / 14.0, 0.25, 1.0) * POP_KICK
 				if taken >= HEAVY_HIT:
@@ -99,7 +105,7 @@ class Board extends Control:
 		var block := Vector2(330, 126)
 		var gap := (size.x - 80.0 - block.x * count) / maxf(1.0, count - 1.0) if count > 1 else 0.0
 		var x := 40.0 + i * (block.x + gap) if count > 1 else (size.x - block.x) * 0.5
-		var base := Vector2(x, size.y - block.y - 20.0)
+		var base := Vector2(x, size.y - block.y - BOTTOM_MARGIN)
 		var out: bool = not data.alive[i]
 		var color: Color = PLAYER_COLORS[i]
 		var grey := Color(0.5, 0.5, 0.55)
@@ -128,7 +134,10 @@ class Board extends Control:
 		var stocks: int = data.stocks[i]
 		var sy := base.y + 12.0
 		if data.unlimited:
-			_outlined(f, Vector2(base.x + 124, sy + 6), "FREE PLAY", 16, Color(1, 1, 1))
+			# On a small dark chip like the name bar's, so it sits on the card rather than floating over the stage.
+			var chip := Rect2(Vector2(base.x + 116, sy - 12), Vector2(102, 24))
+			D.draw_slant(self, chip, Color(0.1, 0.11, 0.16, 0.86), D.INK, 2.0, true)
+			D.draw_text_centered(self, "FREE PLAY", chip, 15, Color(1, 1, 1))
 		elif stocks <= 6:
 			for k in stocks:
 				_head(Vector2(base.x + 136 + k * 23, sy), color)
@@ -144,6 +153,9 @@ class Board extends Control:
 		# (and grow a little) for a moment.
 		var percent: float = data.percent[i]
 		var hot := heat(percent)
+		# A hit flashes the number toward white for a moment.
+		var since_hit := float(Time.get_ticks_msec() - int(hit_at[i])) if hit_at[i] > 0 else FLASH_MS
+		hot = hot.lerp(Color(1, 1, 1), 0.85 * clampf(1.0 - since_hit / FLASH_MS, 0.0, 1.0))
 		var whole := "%d" % int(percent)
 		var tenth := ".%d%%" % (int(percent * 10.0) % 10)
 		var k: float = shake[i] if i < shake.size() else 0.0

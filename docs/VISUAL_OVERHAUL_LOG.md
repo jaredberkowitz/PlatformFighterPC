@@ -77,3 +77,18 @@ finishing forward smash (claws), left to right through the hit.
   scaled: 0.9 + 3.3 x strength long).
 * The strongest burst no longer covers the fighter it hit: it is a little smaller (0.36 + 0.74 x strength, from 0.9) and its ring thinner.
 * Unchanged on purpose: hitlag, shake and every timing (presentation only).
+
+## Phase 6: HUD
+
+Audit: the HUD (`ui/match_hud.gd`) is drawn in its own canvas, so world lighting and the finishing pass never touch it, and it scales
+with the window (`canvas_items` stretch, 1280 x 720 base). It already had the damage's heat colours (white through orange and red to
+deep red), a spring pop and a shake on every hit, a hurt face on the portrait for heavy hits, stocks that pop off, and the player's tag
+beside the name (so players are told apart by more than colour).
+
+* Checked at 16:9, 16:10, 4:3 and 21:9 (`overhaul_6_hud_1024x768.png`, `overhaul_6_hud_1680x720.png`): nothing clips; the cards keep to
+  the corners.
+* The cards sit 30 pixels (about 4%) above the bottom instead of 20, clear of a television's overscan.
+* A hit flashes the damage number toward white for 160 ms before it settles to its heat colour (the brief colour feedback; at high
+  damage, where the number is deep red, it reads as a flare).
+* "FREE PLAY" sits on a small dark slanted chip like the name bar's, instead of floating over the stage (`overhaul_6_hud_cards.png`).
+* Match flow test PASSED.
