@@ -37,8 +37,32 @@ socks and shoes, `limb.gdshader`, `face.gdshader`). Lighting is not physical:
 ## 3. Stage profiles
 
 Each stage theme has a **mood** (`Lighting.MOODS`: key and fill light, ambient, shadow hue, rim, colour grade, haze) and a **shading
-profile** (`Lighting.STYLES`: ramp, deep shade, edge light, painted gradient), applied together by `Lighting.stage_mood`. A new stage picks
-a theme and inherits all of it; it overrides only what it needs.
+profile** (`Lighting.STYLES`: ramp, deep shade, edge light, painted gradient, glow strength and the finishing pass's value range,
+`finish`), applied together by `Lighting.stage_mood`. A new stage picks a theme and inherits all of it; it overrides only what it needs.
+
+The value range per theme (`finish`, graphics phase 2): `desat` (eases colour toward grey, 0.07 by default), `lift` (lifts the darks toward
+the haze, 0.06), `vignette` (0.16), `haze_max` (the far scenery's most haze, 0.30) and `s_curve` (a gentle S-curve on the 0..1 range, 0.2;
+lit windows above white keep their glow); fighters take half of the pastel and the curve. The city curves more (0.48) and lifts less (0.02)
+for a deep night. `glow` sets the bloom (0.75 by default, 0.95 night, 1.1 city).
+
+### Stage surfaces and scenery (graphics fidelity pass)
+
+- **Facades** (`shaders/facade.gdshader`): the city's backdrop buildings, one mesh and one material per layer, windows painted on in fitted
+  bays (frames, sills, parapets, floor bands, rooftop boxes), lit ones HDR (3.4 / 2.5 / 1.8 times white from the near layer back) so the
+  near ones bloom. Light sources get halos (`StageArt._halo`, see-through cards drawn after the finishing pass).
+- **Painted detail** (`detail_*` in `toon_common.gdshaderinc`): world-laid stage surfaces only, two scales of a hand-drawn grey tile
+  (`godot/art/stage/detail_concrete.svg`, `detail_soil.svg`, `detail_stone.svg`) varying the lightness and a little the hue; off unless a
+  material sets it (`Materials.TILE_DETAIL`, the block fronts in `StageArt._soil_material`).
+- **Foliage** (`shaders/toon_foliage.gdshader`): leaf-cluster cards (`leaf_cluster.svg`, `grass_tuft.svg`) over solid cores, alpha to
+  coverage, normals bent from each leaf mass's middle so crowns shade as volumes, light through the leaves (`PF_TRANSLUCENT` in
+  `toon_light.gdshaderinc`) and wind (`pf_wind`, a shader global). `StageArt._leaf_cards`, `_tufts` (Balanced and Best only).
+- **Water** (`shaders/water.gdshader`): banded colour, drifting streaks, swell, glints and depth-texture foam where things stand in it; drawn
+  after the finishing pass at priority -50, so it hazes itself; Fast keeps the bands only.
+- **Weathering**: decals for the city roof's stains and puddle (`roof_detail.svg`) and for scuffs left by heavy hits (`scuff.svg`, a pool
+  of six in `main.gd`, cleared each match, none on Fast).
+
+Shader inventory, stage side: `toon.gdshader` / `toon_common` / `toon_light` / `brush` / `stage_ao` (surfaces), `facade.gdshader`,
+`toon_foliage.gdshader`, `water.gdshader`, `painted_ridge.gdshader`, `fx.gdshader` (halos and effects), `post.gdshader` (finishing pass).
 
 ## 4. Atmosphere and post
 
@@ -47,7 +71,10 @@ separate from the farther ones, up to 36% far back; the stage and its props are 
 thing), a paper tone and grain, a light vignette (0.16: dark corners hide fighters near the edge) and the stage's grade. The grade is
 restrained: fighters take a third of it, so a white glove stays white on a dusk or night stage, and no stage washes everything in one hue
 (the city's purple stays in its sky and buildings; its roof is pale stone). Glow is kept for
-effects (`Lighting.FX_GLOW`). Depth of field is only for presentation: the stage softens behind the results screen (`RESULTS_BLUR`).
+effects (`Lighting.FX_GLOW`) and HDR lights (the city's windows). Far scenery is softly out of focus in play on the Best tier (`far_blur`
+in the finishing pass, 2.6 pixels at most from 14 units behind the stage plane): done there rather than by the camera so the effects, name
+tags and halos drawn after it stay sharp, and depth-aware so the fighters never bleed into it. The results screen adds the camera's own
+depth of field (`RESULTS_BLUR`).
 
 ## 5. Combat effects
 
@@ -59,8 +86,8 @@ hit does not stutter. The Effects setting thins particles evenly (`Burst.density
 
 The Controls screen's Display page (`scripts/visual_settings.gd`, saved in `user://display.cfg`): **Screen shake** (off, low, full: scales
 the shake, roll and punch-in), **Flashes** (off, soft, full: the full-screen flash; the finishing blow's two-tone frames only at full),
-**Effects** (low, medium, full: particle counts) and **Quality** (fast: no shadows or anti-aliasing; balanced: 2x
-anti-aliasing; best: 4x). There is no screen-space ambient occlusion: under the cel light it made no visible difference, so contact shade
+**Effects** (low, medium, full: particle counts) and **Quality** (fast: no shadows, anti-aliasing, glow, grass tufts or hit scuffs, and
+the sea's bands only; balanced: 2x anti-aliasing; best: 4x and the far blur). There is no screen-space ambient occlusion: under the cel light it made no visible difference, so contact shade
 is painted (see section 1).
 
 ## 7. Checking it: the look bench

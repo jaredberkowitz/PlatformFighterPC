@@ -125,3 +125,13 @@ Look bench PASSED, worst 0.93.
 
 Final stills: `fidelity_6_*.png`. Spreads against the baseline: Meadow 0.588 (0.535), Triple Tier 0.523 (0.492), Flat Island 0.539
 (0.468), Skyline 0.784 (0.622), Treetop Isle 0.479 (0.420).
+
+## Phase 7: authored asset kit
+
+Not started: the plan asks the owner to choose the source first (CC0 packs, the repo's Blender scripts, or generated props).
+
+## Phase 8: wrap-up
+
+`docs/VISUAL_STYLE.md` (the finish values, far blur, facades, painted detail, foliage, water, weathering, the shader inventory),
+`docs/ART_DIRECTION.md` (stages) and `docs/STATUS.md` updated. Checks: `cargo fmt`, `cargo clippy -D warnings` and all 44 Rust test suites;
+the 19 Godot tests; the character select and creator previews photographed and lit as before.
