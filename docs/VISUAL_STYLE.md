@@ -61,6 +61,18 @@ for a deep night. `glow` sets the bloom (0.75 by default, 0.95 night, 1.1 city).
 - **Weathering**: decals for the city roof's stains and puddle (`roof_detail.svg`) and for scuffs left by heavy hits (`scuff.svg`, a pool
   of six in `main.gd`, cleared each match, none on Fast).
 
+### Characters and stage refinements (visual overhaul, `docs/VISUAL_OVERHAUL_LOG.md`)
+
+- **Material responses** (`FighterView.RESPONSES`, `respond()`): skin a softer ramp, gloves and shoes rubbery (a firmer step, a soft
+  sheen), cloth matte, the blade and guard metal (`metal` in `toon_light.gdshaderinc`: a crisp glint band and a stronger rim). The sword's
+  blade is a bevelled, pointed shape (`_blade_shape`), so its two-tone bevels read as steel.
+- **Skyline buildings**: each has its own pattern (bay, pane, lit share, shade; one in five office strips); a few windows switch on and
+  off; lit neon signs and two rooftop billboards (a sign face kind in `facade.gdshader`); the far layer windows only.
+- **Stage detail**: legible roof pavers, three-part girders with a lit top edge, built props (the water tower's hoops and ladder, framed
+  crates, the air conditioner's grille).
+- **Hits**: three tiers (a spark; a spark and a short dart; a burst, ring and long spear), the strongest kept from covering its target.
+- **HUD**: cards 4% above the bottom, a white flash on the damage number when hit, scaled to fit four players.
+
 Shader inventory, stage side: `toon.gdshader` / `toon_common` / `toon_light` / `brush` / `stage_ao` (surfaces), `facade.gdshader`,
 `toon_foliage.gdshader`, `water.gdshader`, `painted_ridge.gdshader`, `fx.gdshader` (halos and effects), `post.gdshader` (finishing pass).
 
@@ -87,7 +99,9 @@ hit does not stutter. The Effects setting thins particles evenly (`Burst.density
 The Controls screen's Display page (`scripts/visual_settings.gd`, saved in `user://display.cfg`): **Screen shake** (off, low, full: scales
 the shake, roll and punch-in), **Flashes** (off, soft, full: the full-screen flash; the finishing blow's two-tone frames only at full),
 **Effects** (low, medium, full: particle counts) and **Quality** (fast: no shadows, anti-aliasing, glow, grass tufts or hit scuffs, and
-the sea's bands only; balanced: 2x anti-aliasing; best: 4x and the far blur). There is no screen-space ambient occlusion: under the cel light it made no visible difference, so contact shade
+the sea's bands only; balanced: 2x MSAA plus SMAA; best: 4x MSAA plus SMAA and the far blur). SMAA smooths what MSAA cannot reach: the
+finishing pass's ink lines and the leaves' cut-outs (FXAA was compared and softened every drawn detail). The tone mapper is Filmic
+(ACES and AgX compared: ACES blows the day stages' pale surfaces to white, AgX greys the palette). There is no screen-space ambient occlusion: under the cel light it made no visible difference, so contact shade
 is painted (see section 1).
 
 ## 7. Checking it: the look bench

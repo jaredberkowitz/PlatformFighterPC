@@ -249,6 +249,10 @@ func _build_world() -> void:
 func _player_count() -> int:
 	if Roster.session.has("online") and Roster.session.online.get("group", false):
 		return 4
+	# (Demos and tests: `--players=N`.)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--players="):
+			return clampi(int(a.substr(10)), 2, 4)
 	var replay := PackedByteArray()
 	if Roster.session.has("replay"):
 		replay = Roster.session.replay

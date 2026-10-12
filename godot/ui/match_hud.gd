@@ -80,6 +80,7 @@ class Board extends Control:
 		for i in count:
 			if data.in_match[i]:
 				_card(i, count)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		_clock()
 		_banner()
 		_status()
@@ -103,9 +104,16 @@ class Board extends Control:
 	## One fighter's display: the portrait, the damage, the stocks and the name bar, with the weapon's emblem faint behind.
 	func _card(i: int, count: int) -> void:
 		var block := Vector2(330, 126)
-		var gap := (size.x - 80.0 - block.x * count) / maxf(1.0, count - 1.0) if count > 1 else 0.0
-		var x := 40.0 + i * (block.x + gap) if count > 1 else (size.x - block.x) * 0.5
+		# Cards shrink to fit when there are more than the screen is wide for (four players at 16:9), with at least 14 pixels between
+		# them; each is drawn at full size and scaled about its bottom-left corner.
+		var fit := minf(1.0, (size.x - 80.0 - 14.0 * maxf(0.0, count - 1.0)) / (block.x * count))
+		var cw := block.x * fit
+		var gap := (size.x - 80.0 - cw * count) / maxf(1.0, count - 1.0) if count > 1 else 0.0
+		var x := 40.0 + i * (cw + gap) if count > 1 else (size.x - cw) * 0.5
 		var base := Vector2(x, size.y - block.y - BOTTOM_MARGIN)
+		if fit < 1.0:
+			var corner := Vector2(x, size.y - BOTTOM_MARGIN)
+			draw_set_transform(corner * (1.0 - fit), 0.0, Vector2(fit, fit))
 		var out: bool = not data.alive[i]
 		var color: Color = PLAYER_COLORS[i]
 		var grey := Color(0.5, 0.5, 0.55)

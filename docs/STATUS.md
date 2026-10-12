@@ -21,7 +21,10 @@ Fish's early kick. Then the graphics fidelity pass (branch `graphics-fidelity`, 
 times in `docs/GRAPHICS_FIDELITY_LOG.md`): painted facades and glowing windows on the skyline, per-theme value range and more contrast on
 every stage, far scenery softly out of focus (Best), painted surface wear and hit scuffs, leafy tree crowns in the wind, a banded sea
 with foam. Every phase measured within about 0.1 ms of GPU time of the baseline (Treetop Isle draws fewer calls than before); the look
-bench is unchanged. Phase 7 (authored prop models) waits on the owner's choice of source.
+bench is unchanged. Phase 7 (authored prop models) waits on the owner's choice of source. Then a visual overhaul (branch `visual-overhaul`,
+`docs/VISUAL_OVERHAUL_PLAN.md`, audit and results in `docs/VISUAL_OVERHAUL_AUDIT.md` / `_LOG.md`): SMAA, per-material light responses
+and a real blade, built stage props and girders, varied skyline buildings with signs, three hit tiers, HUD refinements (and cards that fit
+four players), and a four-computer stress demo (`--demo=cpu4 --players=4`).
 
 ## Roadmap progress
 

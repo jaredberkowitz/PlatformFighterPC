@@ -92,3 +92,21 @@ beside the name (so players are told apart by more than colour).
   damage, where the number is deep red, it reads as a flare).
 * "FREE PLAY" sits on a small dark slanted chip like the name bar's, instead of floating over the stage (`overhaul_6_hud_cards.png`).
 * Match flow test PASSED.
+
+## Phase 7: performance and regressions
+
+* A busy fight to measure: `--demo=cpu4 --players=4` (four computers, one of each class and a second sword fighter, twenty seconds;
+  `--players=N` is a new demo/test override of the player count). Frame time on this machine (Best, vsync off): Skyline 5.2 to 5.6 ms
+  average, p99 11 to 12.5 ms, GPU 1.4 to 1.5 ms, 551 draw calls; Treetop Isle 5.7 to 5.8 ms average, p99 16.7 ms, GPU 1.8 ms, 636 draw
+  calls. The CPU side (scripts, rendering setup, the four computers' thinking) is most of it; the shaders added in both passes cost about
+  0.2 to 0.4 ms of GPU time in all. Within a 60 fps budget; Treetop Isle's p99 is at its edge.
+* A bug the four-fighter run found (it predates this pass): with four players the HUD's cards (330 pixels each) did not fit 1280 and each
+  portrait covered its neighbour's damage. Cards now shrink to fit, each scaled about its own bottom-left corner
+  (`overhaul_7_hud_four.png`).
+* Regressions: all 19 Godot tests and all 44 Rust suites passed; look bench PASSED, worst 0.93; the character select's previews are lit as
+  before. Every class's moves render (the fighter view test plays each); nothing in this pass touches the simulation, collision, input or
+  timing.
+* Effects clean up after themselves (each frees itself when its life ends; the scuffs are a pool of six cleared each match). Shader
+  warm-up: the first frame-time run after a change sometimes stalls (a cold shader cache); later runs do not.
+* Compromises: the blade's metal reads mostly through its new shape (a flat card cannot glint); the second billboard sits behind nearer
+  buildings at the default camera; the HUD flash and the window flicker are presentation only and do not follow replay seeks exactly.

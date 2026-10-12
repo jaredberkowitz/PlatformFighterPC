@@ -68,6 +68,15 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.shots.append([f, "f%02d" % (f - 10)])
 		d.end_frame = last + 1
 		return d
+	if demo_name == "cpu4":
+		# Four computers in a free-for-all (one of each class and a second sword fighter; add --players=4), for measuring a busy fight:
+		# a picture every second for twenty seconds.
+		d.chars = [0, 1, 2, 0]
+		d.cpu_levels = [5, 5, 5, 5]
+		for f in range(60, 1230, 60):
+			d.shots.append([f, "t%04d" % f])
+		d.end_frame = 1231
+		return d
 	if demo_name == "cpu":
 		# Computer against computer (sword against claws), a picture every half second for twenty seconds.
 		d.chars = [0, 1, 0, 1]
