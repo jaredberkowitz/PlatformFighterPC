@@ -163,8 +163,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		"stage":
 			# A still of the stage with both fighters standing (for checking stage art; add --stage=N).
 			d.timeline = [[0, 0, 0, 0]]
-			d.shots = [[40, "a_stage"]]
-			d.end_frame = 45
+			d.shots = [[40, "a_stage"], [100, "b_stage_later"]]
+			d.end_frame = 105
 		"moves":
 			# A tour of ground moves for checking animation: forward tilt, up tilt, down tilt, then the smashes (sword fighter, player 1).
 			d.chars = [0, 1, 0, 1]

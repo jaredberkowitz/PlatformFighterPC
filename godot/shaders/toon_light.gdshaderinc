@@ -84,4 +84,9 @@ void light() {
 	// A fighter's edge light: pale, all round the silhouette whatever the light's direction (half from each of the two lights).
 	float around = smoothstep(0.62, 0.95, edge);
 	SPECULAR_LIGHT += pf_edge_light.rgb * pf_edge_light.a * around * fighter * 0.5;
+#ifdef PF_TRANSLUCENT
+	// Thin things (leaves) glow a little where the light is behind them (`translucency`, defined by the including shader).
+	float behind = clamp(dot(-LIGHT, VIEW), 0.0, 1.0);
+	DIFFUSE_LIGHT += translucency * behind * behind * behind * LIGHT_COLOR / PI;
+#endif
 }

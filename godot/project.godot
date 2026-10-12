@@ -39,6 +39,10 @@ rendering_device/fallback_to_d3d12=true
 
 [shader_globals]
 
+pf_wind={
+"type": "float",
+"value": 1.0
+}
 pf_fx_glow={
 "type": "float",
 "value": 4.0

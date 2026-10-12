@@ -90,3 +90,20 @@ would have been used for here, and it adds a texture format question for no visi
 * Checked: block fronts, the rooftop and the grass show mid-scale variation at play zoom with no tiling seams; GPU Skyline 1.05 ms
   (1.04 before), Treetop Isle 1.39 to 1.41 ms (1.36); look bench PASSED, worst 0.93. Fighters are untouched by construction (their
   materials never set `detail_amount`); a pixel diff of a fighter crop is not meaningful here for the reason given in phase 2.
+
+## Phase 5: foliage
+
+* `shaders/toon_foliage.gdshader`: leaf-cluster cards on the cel light, cut out with alpha to coverage (clean edges with MSAA), their
+  normals bent away from the middle of the leaf mass each belongs to (per card, in its own space, as MultiMesh custom data) so a crown
+  shades as rounded volumes, a little light through the leaves from behind (`PF_TRANSLUCENT` in `toon_light.gdshaderinc`) and a gentle
+  flutter from a new global, `pf_wind` (`project.godot`). Two new tiles: `leaf_cluster.svg` (broad leaves in a rounded clump) and
+  `grass_tuft.svg` (blades and three small flowers).
+* The meadow's round trees and Treetop Isle's trees (`StageArt._leaf_cards`): each leaf mass is a solid core (the old ball, a little
+  smaller, all of a crown's cores one mesh) with cards over its surface, so the crown has a leafy edge and texture and no sky through
+  it. Cards alone (the first try) read as sparse speckle with the sky showing through, paler than the old crowns; the first card version
+  also shifted the meadow's tree positions (the cards drew from the stage's random sequence), so they now have their own.
+* Grass and flower tufts along the back of the Meadow and Treetop stage tops (`_tufts`), Balanced and Best only.
+* Checked: crowns read as foliage with volume at play distance; the flutter shows between `fidelity_5_treetop.png` and
+  `fidelity_5_treetop_later.png` (a second apart); Treetop Isle GPU 1.47 ms (1.39 before; budget 1 ms), draw calls 367 (440 before: the
+  tree's 23 balls were separate draws, now one core mesh and one card MultiMesh per crown); look bench as below.
+Look bench PASSED, worst 0.93.

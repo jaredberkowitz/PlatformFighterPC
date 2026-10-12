@@ -13,6 +13,8 @@ const FxMaterial := preload("res://scripts/fx_material.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Materials := preload("res://scripts/materials.gd")
 const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
+const FOLIAGE_SHADER := preload("res://shaders/toon_foliage.gdshader")
+const VisualSettings := preload("res://scripts/visual_settings.gd")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
@@ -630,6 +632,102 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 		prev = p
 
 
+## Leaf cards for a crown: for each mass [centre, radius, cards] (in `parent`'s space), that many cards about `card` units across scattered
+## through it (more toward its front and its outside), each facing the camera within a few tens of degrees and turned at random, coloured
+## from `greens` (deep shade to sunlit tips, by how high and how far forward the card sits). One MultiMesh per crown, drawn by
+## shaders/toon_foliage.gdshader: each card knows its mass's middle, so its normals bend away from it and the mass shades as one round
+## volume; it flutters in the wind.
+static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: float, _stage_rng: RandomNumberGenerator,
+		tile := "leaf_cluster", rooted := false, core: Material = null) -> MultiMeshInstance3D:
+	# Its own random numbers, seeded from where it is, so adding the cards leaves the rest of the stage's layout as it was.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(masses[0][0]) + tile)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.use_custom_data = true
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	mm.mesh = quad
+	var total := 0
+	for m in masses:
+		total += int(m[2])
+	mm.instance_count = total
+	var i := 0
+	# A solid core inside each mass (a little smaller than it), so the cards over its surface give the crown a leafy edge and texture
+	# while the volume stays whole: no sky through the middle of a tree. All of a crown's cores are one mesh (one draw call).
+	var cores: SurfaceTool = null
+	var ball := _sphere(1.0, 14)
+	if core != null:
+		cores = SurfaceTool.new()
+	for m in masses:
+		var centre: Vector3 = m[0]
+		var radius: float = m[1]
+		if cores != null:
+			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * 0.82), centre))
+		for k in int(m[2]):
+			# A direction out from the middle, mostly toward the front (the back of a crown is never seen), placed about its surface.
+			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.8, 1), rng.randf_range(-0.2, 1)).normalized()
+			var pos := centre + dir * radius * rng.randf_range(0.72, 1.02)
+			var s := card * rng.randf_range(0.8, 1.2)
+			var b := Basis.from_euler(Vector3(rng.randf_range(-0.5, 0.5), rng.randf_range(-0.6, 0.6), rng.randf_range(0, TAU))).scaled(Vector3.ONE * s)
+			if rooted:
+				# A tuft stands upright on the ground, facing the camera give or take.
+				b = Basis.from_euler(Vector3(0, rng.randf_range(-0.5, 0.5), rng.randf_range(-0.12, 0.12))).scaled(Vector3.ONE * s)
+				pos = centre + Vector3(0, s * 0.5, 0)
+			mm.set_instance_transform(i, Transform3D(b, pos))
+			var mid := b.inverse() * ((centre - Vector3(0, s, s * 0.5) if rooted else centre) - pos)
+			mm.set_instance_custom_data(i, Color(mid.x, mid.y, mid.z, rng.randf()))
+			var light := clampf(0.45 + dir.y * 0.3 + dir.z * 0.3 + rng.randf_range(-0.15, 0.15), 0.0, 0.999)
+			mm.set_instance_color(i, greens[int(light * greens.size())] if not rooted else greens[rng.randi_range(0, greens.size() - 1)])
+			i += 1
+	if cores != null:
+		var c := MeshInstance3D.new()
+		c.mesh = cores.commit()
+		c.material_override = core
+		parent.add_child(c)
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = _foliage_material(tile, rooted)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	return mi
+
+
+static var _foliage_cache := {}
+
+
+static func _foliage_material(tile: String, rooted: bool) -> ShaderMaterial:
+	var key := "%s|%s" % [tile, rooted]
+	if _foliage_cache.has(key):
+		return _foliage_cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = FOLIAGE_SHADER
+	m.set_shader_parameter("leaf_tex", SvgArt.texture("res://art/stage/%s.svg" % tile))
+	m.set_shader_parameter("rooted", rooted)
+	if rooted:
+		m.set_shader_parameter("flutter", 0.08)
+	_foliage_cache[key] = m
+	return m
+
+
+## Grass and flower tufts along the back of a grassy stage top (from `left` to `right` at height `top`, between `z_front` and
+## `z_back`), stirring in the wind: on the Balanced and Best tiers only.
+static func _tufts(root: Node3D, left: float, right: float, top: float, z_front: float, z_back: float, rng: RandomNumberGenerator,
+		greens: Array) -> void:
+	if VisualSettings.get_index("quality") == 0:
+		return
+	var spots := []
+	# (Its own random numbers, so the stage's layout stays as it was.)
+	var r := RandomNumberGenerator.new()
+	r.seed = int(left * 31.0 + top * 7.0) + 5
+	var x := left + 0.4
+	while x < right - 0.4:
+		spots.append([Vector3(x, top, r.randf_range(z_back, z_front)), 0.0, 1])
+		x += r.randf_range(0.5, 1.1)
+	_leaf_cards(root, spots, greens, 1.0, rng, "grass_tuft", true)
+
+
 ## A soft glow round a light (a lamp, a bulb): a see-through card facing the camera, its colour fading out from a near-white middle
 ## (shaders/fx.gdshader), so it blooms with the effects and is drawn after the finishing pass. `size` is its width in world units.
 static func _halo(parent: Node3D, at: Vector3, colour: Color, size: float) -> MeshInstance3D:
@@ -939,6 +1037,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for h in [0.35, 0.75]:
 		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), post, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
+	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -2.4, -5.8, rng, Materials.greens(Color(0.42, 0.74, 0.38)))
 
 
 ## A windmill: a tapered white tower with a cone roof, and four sails that turn.
@@ -961,14 +1060,15 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	_mesh(root, _cylinder(0.35 * size, 0.5 * size, 3.0 * size, 8), Materials.bark(Color(0.55, 0.38, 0.24), Vector2(2, 1)), at + Vector3(0, 1.5 * size, 0))
-	var leaf := Materials.foliage(Materials.greens(Color(0.32, 0.64, 0.34))[rng.randi_range(0, 2)])
+	var greens := Materials.greens(Materials.greens(Color(0.32, 0.64, 0.34))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
 	crown.amount = 2.5
 	crown.phase = rng.randf() * TAU
 	root.add_child(crown)
-	_mesh(crown, _sphere(1.0, 16), leaf, Vector3(0, 1.4 * size, 0), Vector3.ONE * 2.4 * size)
-	_mesh(crown, _sphere(1.0, 12), leaf, Vector3(1.4, 0.7, 0.5) * size, Vector3.ONE * 1.4 * size)
+	# Two masses of leaf cards (a big one and a smaller one to its side), shading as rounded volumes (`_leaf_cards`).
+	_leaf_cards(crown, [[Vector3(0, 1.4, 0) * size, 2.4 * size, 64], [Vector3(1.4, 0.7, 0.5) * size, 1.4 * size, 26]], greens,
+		1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[0], Vector2(3, 2), false))
 
 
 static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors: Array) -> void:
@@ -1069,6 +1169,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
+	_tufts(root, left, right, top, -2.4, -5.8, rng, Materials.greens(Color(0.46, 0.8, 0.42)))
 	# Under the island: tapered earth and rock with roots hanging from it, so it reads as a floating island.
 	if stage.size() >= 6:
 		_island_underside(root, t, [stage[4], stage[5], top, stage[3]])
@@ -1329,15 +1430,19 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	sway.speed = 0.5
 	root.add_child(sway)
 	var crown := Vector3(0, 3.0 * size, 0)
+	# The crown: fifteen big masses round the top of the trunk and eight smaller sunlit ones in front, each a cluster of leaf cards that
+	# shades as one rounded volume (`_leaf_cards`). (The sphere materials above stay for the cards' colours.)
+	var masses := []
 	for k in 15:
 		var a := TAU * k / 15.0
 		var r := rng.randf_range(4.0, 9.0) * size
 		var off := Vector3(cos(a) * r * 1.3, sin(a) * r * 0.55 + rng.randf_range(-1.0, 2.0) * size, rng.randf_range(-2.0, 1.5) * size)
-		var s := rng.randf_range(4.0, 6.5) * size
-		_mesh(sway, _sphere(1.0, 20), leaf if k % 3 == 0 else leaf_mid, crown + off, Vector3.ONE * s)
+		masses.append([crown + off, rng.randf_range(4.0, 6.5) * size, 30])
 	for k in 8:
 		var off := Vector3(rng.randf_range(-8.0, 8.0), rng.randf_range(1.5, 6.0), rng.randf_range(1.0, 3.0)) * size
-		_mesh(sway, _sphere(1.0, 16), leaf_light if k % 2 == 0 else leaf_sun, crown + off, Vector3.ONE * rng.randf_range(2.2, 3.6) * size)
+		masses.append([crown + off, rng.randf_range(2.2, 3.6) * size, 14])
+	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf)
+	var _unused := [leaf_mid, leaf_light, leaf_sun]
 
 
 ## Four-pointed glints that slowly turn and pulse. Cosmetic; they run on their own clock.
