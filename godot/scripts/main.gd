@@ -1333,7 +1333,9 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	if float(lag) > HIT_SHAKE_FROM:
 		shake_dir = dir
 		shake_phase = 0.0
-	if strength > 0.4:
+	# The three tiers of hit: a light one is a small spark; a medium one adds a short dart the way it sends the fighter; a strong one a
+	# bigger burst, a ring and a long spear (scripts/effects.gd).
+	if strength > 0.25:
 		Effects.impact(self, at, dir, colour, strength)
 	# The hit's sound, by what landed it: a blade, a blow or the maul (fire sounds like a blow).
 	sfx.hit(0 if kind == Effects.Kind.BLADE or kind == Effects.Kind.CLAW else 1, strength)

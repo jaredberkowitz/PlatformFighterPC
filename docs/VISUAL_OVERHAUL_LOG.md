@@ -64,3 +64,16 @@ The three skyline layers, their haze and the far blur came from the graphics pas
 * The far layer drops frames, sills and floor bands (`detail` 0): only windows, so it stays a quiet silhouette.
 * No new lights: everything glowing is emissive in the one facade material per layer.
 * Cost: Skyline GPU 1.27 ms (1.22 after phase 1), 282 draw calls (267; the extra fifteen are phase 3's prop details).
+
+## Phase 5: combat effects
+
+Audit: hits already scaled with their strength (from hitlag): the burst's size and life, a ring from half strength, sparks, a directional
+spike above 0.4, a white flash on the struck fighter, screen shake along the hit's line, scuffs; every effect frees itself when its life
+ends (the scuffs are a pool of six, cleared each match). `overhaul_5_hits_before.png` / `_after.png`: rows are a jab, a forward tilt and a
+finishing forward smash (claws), left to right through the hit.
+
+* Three tiers that read apart: a light hit is a small spark; a medium one (strength over 0.25, a tilt) now adds a short dart the way it
+  sends the fighter, so its direction reads; a strong one a bigger burst, a ring and a long spear (the dart and spear are one effect
+  scaled: 0.9 + 3.3 x strength long).
+* The strongest burst no longer covers the fighter it hit: it is a little smaller (0.36 + 0.74 x strength, from 0.9) and its ring thinner.
+* Unchanged on purpose: hitlag, shake and every timing (presentation only).

@@ -186,8 +186,9 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	pow_fx.material_override = _material(true)
 	pow_fx.colours = BURST_COLOURS.get(kind, BURST_COLOURS[Kind.BLOW])
 	pow_fx.dir = dir if dir != Vector2.ZERO else Vector2.RIGHT
-	# Small and quick for a light hit, big for a strong one (so the big ones stay special and a jab never hides the fighter).
-	pow_fx.size = (0.36 + 0.9 * s) * (0.8 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
+	# Small and quick for a light hit, big for a strong one (so the big ones stay special and a jab never hides the fighter); even the
+	# strongest stops short of covering the fighter it hit.
+	pow_fx.size = (0.36 + 0.74 * s) * (0.8 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
 	pow_fx.life = 0.17 + 0.1 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)
@@ -197,7 +198,7 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 		ring.colour = Color(1, 1, 0.95, 0.9)
 		ring.from = 0.4
 		ring.to = 1.1 + 1.0 * s
-		ring.thickness = 0.11
+		ring.thickness = 0.07
 		ring.life = 0.2
 		ring.position = at
 		parent.add_child(ring)
@@ -250,8 +251,9 @@ static func impact(parent: Node, at: Vector3, dir: Vector2, color: Color, streng
 	var spike := Spike.new()
 	spike.material_override = _material(true)
 	spike.dir = dir
-	spike.length = 1.6 + 2.6 * s
-	spike.width = 0.35 + 0.35 * s
+	# From a short dart on a medium hit to a long spear on a strong one.
+	spike.length = 0.9 + 3.3 * s
+	spike.width = 0.24 + 0.46 * s
 	spike.life = 0.1 + 0.08 * s
 	spike.edge = Color(color.r, color.g, color.b, 0.95)
 	spike.core = Color(1, 1, 0.95, 1)
