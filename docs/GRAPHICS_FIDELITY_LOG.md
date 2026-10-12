@@ -60,3 +60,17 @@ lantern's glow on Triple Tier.
 
 Look bench PASSED, worst 0.93 (unchanged). The optional colour-grade LUT (step 3) was skipped: the per-theme finish values cover what it
 would have been used for here, and it adds a texture format question for no visible gain yet.
+
+## Phase 3: depth
+
+* Far-only depth of field in play, the Best tier only. Tried first as the plan says, with the camera's `CameraAttributesPractical`: it
+  blurred the name tags, the light halos and would blur any effect drawn over the sky, because see-through things write no depth and
+  take the blur of whatever is behind them. So the blur is in the finishing pass instead (`far_blur` in `post.gdshader`, 2.6 pixels at
+  1080 lines at most, from 14 units behind the stage plane over 30): it runs before the effects, tags and halos are drawn, so they stay
+  sharp, and it gathers only from pixels that are far themselves (ten taps on a spiral), so the fighters do not bleed into it. Ink lines
+  on the blurred scenery fade with it. Fast and Balanced keep `far_blur` at 0. The results screen's own camera blur is unchanged; a
+  rematch clears it as before.
+* Checked: the stage plane, the fighters and the tags stay sharp in the wide stills and in a close-up
+  (`fidelity_3_skyline_closeup.png`); Skyline GPU 1.04 ms (1.09 before), Treetop Isle 1.36 ms (1.32); look bench PASSED, worst 0.93.
+* Skipped: the optional foreground framing (cables and leaves at the frame's edges). The blur alone gives the depth, and framing pieces
+  over the outer 8% of the screen risk hiding a fighter near the blast lines for little gain.

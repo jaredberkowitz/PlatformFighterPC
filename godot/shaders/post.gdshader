@@ -44,6 +44,12 @@ uniform float haze_max = 0.36;
 // A gentle S-curve on the values (0 none): darker darks and brighter lights for more depth in the picture. Only the 0..1 range is curved
 // (lit windows above white keep their brightness); fighters take half.
 uniform float s_curve = 0.0;
+// Far scenery goes a little soft in play (a depth of field done here rather than by the camera, so the effects, name tags and halos drawn
+// after this pass stay sharp): `far_blur` pixels (at 1080 lines) at most, from `far_blur_start` world units behind the stage plane over
+// `far_blur_ramp`. Only pixels that are far themselves are gathered, so nothing near bleeds into the blur. 0 turns it off (Fast, Balanced).
+uniform float far_blur = 0.0;
+uniform float far_blur_start = 14.0;
+uniform float far_blur_ramp = 30.0;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;
@@ -86,6 +92,27 @@ void fragment() {
 	vec2 uv = SCREEN_UV;
 	vec3 col = texture(screen_tex, uv).rgb;
 	float d0 = view_depth(uv, INV_PROJECTION_MATRIX);
+	float blur_k = 0.0;
+	if (far_blur > 0.0) {
+		float k = smoothstep(far_blur_start, far_blur_start + far_blur_ramp, d0 - stage_dist);
+		blur_k = k;
+		if (k > 0.0) {
+			vec2 r = k * far_blur * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
+			vec3 sum = col;
+			float n = 1.0;
+			// Ten taps on a spiral (the golden angle), out to radius r.
+			for (int t = 0; t < 10; t++) {
+				float f = (float(t) + 0.5) / 10.0;
+				float a = float(t) * 2.39996;
+				vec2 q = uv + vec2(cos(a), sin(a)) * r * sqrt(f);
+				if (view_depth(q, INV_PROJECTION_MATRIX) - stage_dist > far_blur_start) {
+					sum += texture(screen_tex, q).rgb;
+					n += 1.0;
+				}
+			}
+			col = sum / n;
+		}
+	}
 	// Lines are thinner further away (full width up close, about half on the far scenery).
 	float width = line_width * clamp(28.0 / max(d0, 0.001), 0.5, 1.15);
 	vec2 px = width * (VIEWPORT_SIZE.y / 1080.0) / VIEWPORT_SIZE;
@@ -115,6 +142,8 @@ void fragment() {
 		}
 	}
 	edge *= 1.0 - smoothstep(line_fade_start, line_fade_end, d0);
+	// (Lines on blurred far scenery soften with it.)
+	edge *= 1.0 - 0.6 * blur_k;
 	edge *= id0 > 0.6 ? scenery_lines : 1.0;
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {

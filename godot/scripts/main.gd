@@ -214,6 +214,7 @@ func _build_world() -> void:
 		post_mat = ShaderMaterial.new()
 		post_mat.shader = POST_SHADER
 		post_mat.set_shader_parameter("impact", 0.0)
+		post_mat.set_shader_parameter("far_blur", PLAY_BLUR if VisualSettings.get_index("quality") == 2 else 0.0)
 		# First among the see-through things, so the effects, shields and numbers are drawn over the finished picture.
 		post_mat.render_priority = -100
 		post.material_override = post_mat
@@ -1278,6 +1279,8 @@ func _in_play(i: int) -> bool:
 const HUD_LIFT := 0.022
 ## How soft the stage behind the results screen goes.
 const RESULTS_BLUR := 0.09
+## Far scenery's blur in play (pixels at 1080 lines, `far_blur` in shaders/post.gdshader): the Best tier only.
+const PLAY_BLUR := 2.6
 ## Hitlag (frames) above which a hit shakes the camera.
 const HIT_SHAKE_FROM := 9.0
 
