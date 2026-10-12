@@ -61,3 +61,33 @@ not in the content hash), in `godot/scripts/stage_art.gd`:
   SVGs in `godot/art/stage/`.
 - Check a stage's art with `Godot --path godot -- --demo=stage --stage=N --noui --noecb --shots=<folder>` (the still at frame 40 and a
   second one at frame 100, for anything that moves), and judge a change with `godot/tests/shot_stats.gd` and the look bench.
+
+## The rules every screen follows
+
+The game should look like one artist drew the fighters, the stage, the light, the effects and the HUD together. The references are for
+qualities, not content: decisive cel shadow shapes and confident silhouettes (*The Wind Waker*), simple playful bodies (*PEAK*), warm
+light against cool atmospheric shadow (*Valheim*). Never copy their characters, places or designs.
+
+**Attention hierarchy.** Three levels, in this order; a change that lifts a lower level above a higher one is wrong even if it looks good
+alone.
+
+1. *Primary*: fighters, attacks, hit effects, damage. The most contrast, the clearest edges (full hull outline, edge light, rim boost),
+   the truest colours (they take only half the pastel finish and a third of the grade, `post.gdshader`).
+2. *Secondary*: the stage, platforms and nearby props. Clear edges where you can stand (the lit trim along every platform), moderate
+   detail, colours a step calmer than the fighters (the city's girders are coral, not red).
+3. *Tertiary*: buildings, skyline, sky, decorative lights. Lower contrast and less detail with distance (haze, far blur, the far layer has
+   windows only); lit windows in clusters, not an even grid; only the nearest layer's windows bloom, and softly.
+
+**Palette.** Each object keeps its own colour; the stage's mood bends it, it never replaces it. Light leans warm (peach, amber, ivory:
+the key light and the painted gradient's tops), shadow leans cool (violet, indigo, plum: `pf_shadow_hue`, the painted shadow), with
+pastel accents (mint, seafoam, pale cyan, dusty pink) for small things. Backgrounds use muted plum, indigo, mauve and blue-grey. The
+player colours and the effects' colours stay distinct from all of these. All of it is set per stage in `scripts/lighting.gd` (`MOODS`,
+`STYLES`), never as a tint over everything.
+
+**Material families** (all one cel material family, `VISUAL_STYLE.md`; responses from `FighterView.RESPONSES` and the shared light):
+skin soft; cloth matte; rubber (gloves, soles) a soft broad sheen; metal (the blade) a crisp glint band and stronger rim, never a
+mirror; stone and concrete broad, low-frequency painted variation (no noisy texture); emissive windows and signs bright in colour, glow
+restrained; distant buildings flat-shaded and simple.
+
+**What we do not add**: photographic textures, realistic wear everywhere, screen-space reflections, heavy depth of field in play, motion
+blur, film grain beyond the existing paper grain, chromatic aberration.

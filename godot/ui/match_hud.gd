@@ -142,10 +142,8 @@ class Board extends Control:
 		var stocks: int = data.stocks[i]
 		var sy := base.y + 12.0
 		if data.unlimited:
-			# On a small dark chip like the name bar's, so it sits on the card rather than floating over the stage.
-			var chip := Rect2(Vector2(base.x + 116, sy - 12), Vector2(102, 24))
-			D.draw_slant(self, chip, Color(0.1, 0.11, 0.16, 0.86), D.INK, 2.0, true)
-			D.draw_text_centered(self, "FREE PLAY", chip, 15, Color(1, 1, 1))
+			# (Free play is said once, by the clock, not on every card: see `_clock`.)
+			pass
 		elif stocks <= 6:
 			for k in stocks:
 				_head(Vector2(base.x + 136 + k * 23, sy), color)
@@ -206,7 +204,8 @@ class Board extends Control:
 		draw_set_transform(centre, deg_to_rad(-7.0), Vector2.ONE)
 		var r := Rect2(-50, -50, 100, 100)
 		draw_rect(Rect2(r.position + Vector2(5, 7), r.size), Color(0, 0, 0, 0.28))
-		var back := color if not out else Color(0.55, 0.55, 0.58)
+		# The backing in the player's colour, a little muted, so four cards read as one calm strip and the damage numbers lead.
+		var back := color.lerp(Color(0.32, 0.3, 0.4), 0.22) if not out else Color(0.55, 0.55, 0.58)
 		draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
 			PackedColorArray([back.lightened(0.45), back.lightened(0.3), back.darkened(0.1), back]))
 		var tex: Texture2D = portraits[i] if i < portraits.size() else null
@@ -262,14 +261,20 @@ class Board extends Control:
 	## left (a timed match) or the time played (a stock match with no time limit).
 	func _clock() -> void:
 		var text: String = data.clock
+		var free: bool = data.get("unlimited", false)
 		if text == "":
+			# No clock: free play still gets its one label, on a small chip at the top.
+			if free:
+				var chip := Rect2(Vector2(size.x * 0.5 - 56, 12), Vector2(112, 26))
+				D.draw_slant(self, chip, Color(0.11, 0.12, 0.17, 0.86), D.INK, 2.0, true)
+				D.draw_text_centered(self, "FREE PLAY", chip, 15, Color(1, 1, 1))
 			return
 		var rect := Rect2(Vector2(size.x * 0.5 - 95, 10), Vector2(190, 64))
 		var urgent: bool = data.urgent
 		var down: bool = data.get("counting_down", true)
 		D.draw_slant(self, rect, Color(0.8, 0.15, 0.15, 0.95) if urgent else Color(0.11, 0.12, 0.17, 0.92), D.INK, 4.0, true)
-		D.draw_text_centered(self, "TIME LEFT" if down else "TIME PLAYED", Rect2(rect.position + Vector2(0, 4), Vector2(rect.size.x, 16)), 14,
-			Color(1, 1, 1, 0.7))
+		var label := "TIME LEFT" if down else ("FREE PLAY" if free else "TIME PLAYED")
+		D.draw_text_centered(self, label, Rect2(rect.position + Vector2(0, 4), Vector2(rect.size.x, 16)), 14, Color(1, 1, 1, 0.7))
 		D.draw_text_centered(self, text, Rect2(rect.position + Vector2(0, 16), Vector2(rect.size.x, rect.size.y - 16)), 36, Color(1, 1, 1))
 
 	func _status() -> void:

@@ -5,8 +5,9 @@ shader_type spatial;
 // the face is (0 a wall with windows, 1 a roof or a rooftop box, plain) and COLOR.b a lit sign. Lit windows are drawn brighter than white
 // (`lit_energy`), so they glow softly; the far layers get less.
 //
-// No two buildings share a pattern: each one's seed picks its bay and pane size, how many of its windows are lit and how bright, and about
-// one in five has long office strips instead of separate windows. A few windows switch on or off now and then. `detail` 0 (the far layer)
+// No two buildings share a pattern: each one's seed picks its bay and pane size, its hue, how many of its windows are lit (in clusters)
+// and how bright, and about one in eight has office strips (broken by piers and service floors) instead of separate windows. A few
+// windows switch on or off now and then. `detail` 0 (the far layer)
 // leaves out frames, sills and floor bands, which would only be noise at that distance.
 render_mode unshaded, cull_back, shadows_disabled;
 
@@ -59,14 +60,29 @@ void fragment() {
 		ROUGHNESS = 0.95;
 	} else {
 		vec3 base = plain ? roof_shade.rgb : base_shade.rgb;
-		// Each building's own shade, a touch lighter or darker than its layer's.
+		// Each building's own shade, a touch lighter or darker than its layer's, and its own muted hue: plum, indigo, mauve or blue-grey
+		// (so neighbouring buildings read as different buildings, not one wall).
 		base *= mix(0.88, 1.12, hash(vec2(seed, 6.6)));
+		float hue_pick = hash(vec2(seed, 8.8));
+		float grey = dot(base, vec3(0.3, 0.59, 0.11));
+		if (hue_pick < 0.3) {
+			base *= vec3(1.08, 0.93, 0.98);
+		} else if (hue_pick < 0.55) {
+			base *= vec3(0.9, 0.95, 1.08);
+		} else if (hue_pick < 0.78) {
+			base *= vec3(1.14, 1.0, 1.06);
+		} else {
+			base = mix(base, vec3(grey), 0.4) * vec3(0.96, 1.02, 1.1);
+		}
 		// Darker toward the street, a little lighter toward the top.
 		vec3 col = base * mix(0.72, 1.06, smoothstep(0.0, 16.0, at.y));
 		if (!plain) {
 			// This building's pattern.
 			vec2 bay_size = cell * vec2(mix(0.8, 1.3, hash(vec2(seed, 1.1))), mix(0.88, 1.16, hash(vec2(seed, 2.2))));
-			bool strips = hash(vec2(seed, 3.3)) < 0.2;
+			bool strips = hash(vec2(seed, 3.3)) < 0.12;
+			// A strip building's runs are broken by a pier every few bays and a plain service floor every sixth, so its face is not one
+			// stack of identical bands.
+			float pier_every = floor(mix(3.0, 5.99, hash(vec2(seed, 9.9))));
 			float share = clamp(lit_share * mix(0.4, 1.55, hash(vec2(seed, 5.5))), 0.06, 0.85);
 			// The parapet cap.
 			float cap = step(height - parapet, at.y);
@@ -92,6 +108,9 @@ void fragment() {
 				vec2 c1 = c0 + pane_size;
 				float in_x = step(c0.x, in_bay.x) * step(in_bay.x, c1.x);
 				float in_y = step(c0.y, in_bay.y) * step(in_bay.y, c1.y);
+				if (strips && (mod(bay.x, pier_every) == pier_every - 1.0 || mod(bay.y, 6.0) == 5.0)) {
+					in_x = 0.0;
+				}
 				if (detail > 0.0 && !strips) {
 					// The frame round the pane (a touch lighter than the wall) and the sill under it.
 					float frame_x = step(c0.x - 0.08, in_bay.x) * step(in_bay.x, c1.x + 0.08);
@@ -101,9 +120,13 @@ void fragment() {
 					col = mix(col, base * 1.45, sill * detail);
 				}
 				// A strip's lit stretch is a run of a few bays (an office floor), not single windows.
-				vec2 key = strips ? vec2(floor(bay.x / 2.0), bay.y) : bay;
+				vec2 key = strips ? vec2(floor(bay.x / pier_every), bay.y) : bay;
 				float h = hash(key + vec2(seed * 0.37, seed * 0.13));
-				float lit = step(1.0 - share, h);
+				// Lit windows come in clusters (a busy floor, a dark wing) rather than evenly salted over the face: each block of a few
+				// bays and two floors has its own occupancy.
+				vec2 group = floor(bay / vec2(floor(mix(2.0, 4.99, hash(vec2(seed, 10.1)))), 2.0));
+				float occupancy = mix(0.15, 1.75, hash(group + vec2(seed * 0.71, seed * 0.29)));
+				float lit = step(1.0 - clamp(share * occupancy, 0.0, 0.95), h);
 				// Now and then a window switches (one in forty, each on its own slow clock).
 				float flicker_pick = hash(key * 2.3 + seed * 0.19);
 				if (flicker_pick < 0.025) {

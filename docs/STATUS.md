@@ -28,7 +28,10 @@ with foam. Every phase measured within about 0.1 ms of GPU time of the baseline 
 bench is unchanged. Phase 7 (authored prop models) waits on the owner's choice of source. Then a visual overhaul (branch `visual-overhaul`,
 `docs/VISUAL_OVERHAUL_PLAN.md`, audit and results in `docs/VISUAL_OVERHAUL_AUDIT.md` / `_LOG.md`): SMAA, per-material light responses
 and a real blade, built stage props and girders, varied skyline buildings with signs, three hit tiers, HUD refinements (and cards that fit
-four players), and a four-computer stress demo (`--demo=cpu4 --players=4`).
+four players), and a four-computer stress demo (`--demo=cpu4 --players=4`). Then an art-direction polish (branch `art-direction-polish`,
+`docs/ART_DIRECTION_POLISH_LOG.md`): the attention hierarchy, palette and material rules written into `ART_DIRECTION.md`, calmer coral
+girders, skyline buildings in varied muted hues with clustered windows and broken-up office strips, a quieter roof wall, and "FREE PLAY"
+said once on the HUD. Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on hold.
 
 ## Roadmap progress
 

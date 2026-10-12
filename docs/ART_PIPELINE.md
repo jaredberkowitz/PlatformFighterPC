@@ -492,7 +492,8 @@ and directional knockback were already in, so they were tuned rather than rebuil
   and outfit, rendered once into a texture by a small private viewport, then never again, so it costs nothing in play), its damage in
   big italic numbers with a small tenth that heat from white through cream, orange and red to deep red (`heat`), stocks as little heads,
   the name on a dark slanted bar with a stripe and a P tag in the player's colour, and the weapon's emblem faint behind the number. Ink
-  outlines and soft shadows throughout, the same as the clock. The clock reads 00:12 with "TIME LEFT" or "TIME PLAYED" over it.
+  outlines and soft shadows throughout, the same as the clock. The clock reads 00:12 with "TIME LEFT", "TIME PLAYED" or, in free play, "FREE PLAY" over it (said once there, not on every
+  card; with no clock it is a small chip at the top). The portrait backings are the player colours a little muted, so the numbers lead.
 - **No damage over the heads in a match**: only a small "P1" tag in the player's colour (so players are told apart by more than colour).
   Training keeps the damage and name over the head (`FighterView.set_overhead`). `--match` on the command line shows a match's display
   without the menus.

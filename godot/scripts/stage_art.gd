@@ -52,7 +52,7 @@ const THEMES := {
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_horizon": Color(0.42, 0.22, 0.46),
 		"soil": Color(0.42, 0.44, 0.54), "soil_dark": Color(0.3, 0.32, 0.4), "grass": Color(0.56, 0.58, 0.66),
-		"grass_light": Color(0.78, 0.8, 0.88), "wood": Color(0.86, 0.36, 0.3), "wood_dark": Color(0.5, 0.2, 0.2),
+		"grass_light": Color(0.78, 0.8, 0.88), "wood": Color(0.84, 0.48, 0.41), "wood_dark": Color(0.5, 0.26, 0.27),
 		"pattern": "facade", "cap": "roof", "platform": "girder",
 	},
 }
@@ -154,15 +154,16 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="3"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.55"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.15).to_html(false)]
 		"facade":
-			# Concrete panels with rounded windows, some lit warm, each with a sill.
-			body += '<rect width="256" height="256" fill="#%s"/>' % A
-			for x in [0, 128]:
-				for y in [0, 128]:
+			# Concrete panels with rounded windows, some lit warm, each with a sill. Twice the size of the other patterns (sixteen windows
+			# a repeat, about a third lit, in a softer warm), so the wall under the fighters is not a busy grid stamped every few units.
+			body += '<rect width="512" height="512" fill="#%s"/>' % A
+			for x in [0, 128, 256, 384]:
+				for y in [0, 128, 256, 384]:
 					body += '<rect x="%d" y="%d" width="128" height="128" fill="none" stroke="#%s" stroke-width="4"/>' % [x, y, B]
-			for wy in [22, 150]:
-				for wx in [18, 74, 146, 202]:
-					var lit := rng.randf() < 0.55
-					var col := "ffe08a" if lit else "2a2f45"
+			for wy in [22, 150, 278, 406]:
+				for wx in [18, 74, 146, 202, 274, 330, 402, 458]:
+					var lit := rng.randf() < 0.32
+					var col := "f2d394" if lit else "2a2f45"
 					body += '<rect x="%d" y="%d" width="36" height="56" rx="6" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx, wy, col, ink]
 					body += '<rect x="%d" y="%d" width="44" height="6" rx="3" fill="#%s"/>' % [wx - 4, wy + 58, hi]
 		_:
@@ -175,13 +176,14 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						var y: float = c[1]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f" stroke="#%s" stroke-width="5" stroke-linecap="round" opacity="0.6"/>' % [x - 40, y - 8, x - 8, y - 40, hi]
-	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">%s</svg>' % body
+	var px := 512 if pattern == "facade" else 256
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg>' % [px, px, px, px, body]
 	var img := Image.new()
 	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
-	# On the stage's cel shading, laid in world space (one repeat every 2.2 units, a facade's every 3.3).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 3.3)
+	# On the stage's cel shading, laid in world space (one repeat every 2.2 units, a facade's every 6.6: twice the pixels, same scale).
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 6.6)
 	# Painted wear over the pattern, so a block's front reads as one weathered mass rather than a stamped tile.
 	match pattern:
 		"facade":
@@ -1272,7 +1274,7 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# (shaders/facade.gdshader): the nearest layer's lit windows glow, the far ones less.
 	for layer in 3:
 		var z := -40.0 - layer * 28.0
-		var shade := Color(0.16, 0.14, 0.3).lerp(Color(0.28, 0.2, 0.42), layer / 2.0)
+		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - 6.0)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -1361,8 +1363,9 @@ static func _roof_mark_textures() -> Array:
 
 
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
-## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms, the far ones barely.
-const FACADE_LIT := [3.4, 2.5, 1.8]
+## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms softly, the others do not
+## (emissive, not bloomed: the background should not outshine the fighters).
+const FACADE_LIT := [3.0, 2.3, 1.7]
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
