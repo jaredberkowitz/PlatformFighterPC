@@ -933,11 +933,11 @@ if BODY:
         if _name in JOINTS:
             JOINTS[_name] = (tuple(_pos), JOINTS[_name][1])
     OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
-## How big the glove fists are against the blob's.
-FIST_SCALE = 0.85
-## How far the head is lowered onto the shoulders: the generated body has a short neck between them, which the character has none of
-## (measured on this body: the head's underside sits this far above the top of the shoulders).
-NECK_DROP = 0.07
+## How big the fists are against the blob's (the concept's mitten hands are small: about a quarter of the head across).
+FIST_SCALE = 0.7
+## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
+## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
+NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
 
 
 def smooth_weights(obj, groups, factor=0.5, repeat=6):

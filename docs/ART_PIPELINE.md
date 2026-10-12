@@ -701,3 +701,31 @@ Third round (the shirt's hem still looked torn in the creator's stance):
 
 Posed: `docs/screenshots/clothes_smoothed.png`.
 
+## A body after the concept art, modelled by script (twenty-eighth pass)
+
+The base body is no longer the generated (Tripo) model: `art/blender/make_base_body.py` builds it from numbers read off the concept sheet,
+then the usual steps measure and rig it (`docs/ART_WORKFLOW.md`, Characters). Lineup: `docs/screenshots/concept_body_lineup.png`, in gear:
+`concept_body_gear.png`.
+
+- **Proportions as on the sheet**, at the old height (2.2) so hats, the camera and the hurtbox picture still fit: a big round head (about a
+  third of the height) sitting straight on a small pear-shaped trunk with no neck, the shoulders slim front to back under it so the head
+  overhangs them all round (its outline reads as a whole circle, as drawn); a round belly pushed forward and a little seat behind; soft
+  tube arms hanging out at about 20 degrees; short thick legs; wide puffy oval feet. The arms end at the top of the thigh (the sheet's
+  reach to mid-thigh read as too long in play).
+- **One seamless skin**: each part is a simple solid (a ball, a lathed trunk, limbs swept as chains of balls), joined by voxel remeshing,
+  softened where they meet and reduced to 6,500 triangles. Parts stand at least 2% of the height apart below the armpits and crotch, or
+  `fit_body.py` cannot tell them from the trunk.
+- **Rigging**: `make_rigged_blob.py --neck-drop 0` (the head is not lowered: there is no neck); the fists are smaller (`FIST_SCALE` 0.7),
+  the concept's small mitten hands.
+- **Bare by default** (`Loadout.GEAR`, a new slot at the end of the look: none, shorts, shorts and gloves, full kit): every player starts
+  as the plain coloured body with only a hat and glasses to tell them apart; shirts, neckwear and gear are the creator's choices (Gear is
+  a new category there). Bare hands take the body's colour and skin, without the glove's cuff; without shoes the feet are the body. A look
+  saved before the slot existed keeps the full kit it wore.
+- **Shading closer to the sheet**: skin is matte with a softer step into shade (`RESPONSES.skin`); the outline is thinner and warmer, the
+  body's own colour darkened rather than near-black (`FIGHTER_OUTLINE_WEIGHT` 0.82, `OUTLINE_TINT` 0.75). Still the strongest line on
+  screen: the look bench passes (worst 0.90, needs 0.85).
+- **Neckwear** sits just under the chin (`_collar` from `base_rig.json`'s neck), not on the chest.
+- Known: a tiny ink speck can show at the chin's middle where the head meets the trunk; the fists are still the glove fist's shape in the
+  body's colour (fingers modelled for bare hands would be the next step); the clips were re-keyed on the new joints but not re-posed for
+  the new proportions.
+

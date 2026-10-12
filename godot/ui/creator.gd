@@ -38,6 +38,7 @@ const CATEGORIES := [
 	{"id": "glasses", "title": "Glasses", "slot": "glasses", "shot": "head"},
 	{"id": "neck", "title": "Neckwear", "slot": "neck", "color": "accent", "shot": "body"},
 	{"id": "shirt", "title": "Shirt", "slot": "shirt", "color": "accent", "shot": "body"},
+	{"id": "gear", "title": "Gear", "slot": "gear", "color": "accent", "shot": "body"},
 	{"id": "play", "title": "How it plays"},
 ]
 ## What each adjustment's buttons do: [the button for one step down, the one for a step up, the word for the change, which way is
@@ -198,6 +199,10 @@ class RailTab extends Pick:
 				draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.4, -s * 0.8), c + Vector2(-s, -s * 0.4), c + Vector2(-s * 0.75, 0),
 					c + Vector2(-s * 0.5, -s * 0.1), c + Vector2(-s * 0.5, s * 0.9), c + Vector2(s * 0.5, s * 0.9), c + Vector2(s * 0.5, -s * 0.1),
 					c + Vector2(s * 0.75, 0), c + Vector2(s, -s * 0.4), c + Vector2(s * 0.4, -s * 0.8)]), ink)
+			"gear":
+				# A pair of shorts.
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.8, -s * 0.7), c + Vector2(s * 0.8, -s * 0.7), c + Vector2(s * 0.95, s * 0.8),
+					c + Vector2(s * 0.15, s * 0.8), c + Vector2(0, -s * 0.05), c + Vector2(-s * 0.15, s * 0.8), c + Vector2(-s * 0.95, s * 0.8)]), ink)
 			"play":
 				for k in 3:
 					var h := s * (0.6 + 0.4 * k)

@@ -269,14 +269,20 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = arm
 		elif part.begins_with("Leg"):
 			mi.material_override = leg
+		elif part.begins_with("Hand") and use_base_body and not loadout.has_gloves():
+			# Bare hands (the concept's mittens): the body's own colour and skin.
+			mi.material_override = respond(toon(skin_colour), "skin")
 		elif part.begins_with("Hand") or part.begins_with("Sole"):
 			mi.material_override = glove
 		elif part.begins_with("Collar") or part.begins_with("Cuff"):
 			mi.material_override = white
+			# (The glove's cuff: none on a bare hand.)
+			mi.visible = not (use_base_body and part.begins_with("Cuff") and not loadout.has_gloves())
 		elif part.begins_with("Strap"):
 			mi.material_override = toon(loadout.accent_color())
 		elif part.begins_with("Shorts"):
 			mi.material_override = _cloth(shorts)
+			mi.visible = loadout.has_shorts()
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
@@ -832,7 +838,7 @@ func _tag_object(node: Node) -> void:
 				(node as GeometryInstance3D).set_instance_shader_parameter("object_id", 0.06 + 0.07 * float(player % 8))
 				# The fighters are the clearest things on screen: the full ink outline (the scenery's is thinner and softer) and a
 				# stronger rim.
-				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", 1.0)
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_weight", FIGHTER_OUTLINE_WEIGHT)
 				# (Clothes keep the plain rim: a strong one picks out every fold as a bright streak.)
 				var cloth := str(node.name).begins_with("Shirt") or str(node.name).begins_with("Shorts")
 				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
@@ -1065,8 +1071,11 @@ const CLOTH_OUTLINE_THIN := 0.65
 ## How much the rim light flares with a hit's flash (times its usual strength at a full flash).
 const HIT_RIM_FLARE := 2.5
 ## How much of its own colour a fighter's outline takes, and how dark that colour is made first.
-const OUTLINE_TINT := 0.4
-const OUTLINE_TINT_DARKEN := 0.72
+const OUTLINE_TINT := 0.75
+## The fighters' line weight against the scenery's 0.6 (outline.gdshader): still the strongest line on screen, but a thinner, warmer line
+## like the concept art's, not a heavy black one.
+const FIGHTER_OUTLINE_WEIGHT := 0.82
+const OUTLINE_TINT_DARKEN := 0.64
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
@@ -1089,7 +1098,8 @@ static var _limb_cache := {}
 ## The base body's skin with this look's clothes painted on (shaders/skin.gdshader): the shirt and its sleeves, the shorts, white socks,
 ## shoes with the outfit-coloured strap, where base_rig.json puts them.
 func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> ShaderMaterial:
-	var key := "skin%s%s%d%s%s" % [skin_c.to_html(), shorts_c.to_html(), loadout.shirt, loadout.accent_color().to_html(), painted_clothes]
+	var key := "skin%s%s%d%s%s%d" % [skin_c.to_html(), shorts_c.to_html(), loadout.shirt, loadout.accent_color().to_html(), painted_clothes,
+		loadout.gear]
 	if _limb_cache.has(key):
 		return _limb_cache[key]
 	var m := ShaderMaterial.new()
@@ -1115,6 +1125,8 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 			m.set_shader_parameter("shirt", Color(0, 0, 0, 0))
 	m.set_shader_parameter("shorts", shorts_c)
 	m.set_shader_parameter("painted_clothes", painted_clothes)
+	m.set_shader_parameter("shorts_on", loadout.has_shorts())
+	m.set_shader_parameter("shod", loadout.has_shoes())
 	for p in RESPONSES.skin:
 		m.set_shader_parameter(p, RESPONSES.skin[p])
 	m.set_shader_parameter("shoe", Color(0.27, 0.2, 0.3))
@@ -1133,7 +1145,7 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 		# Under the modelled clothes the skin's outline is left out too (it would poke through the cloth where it sits close).
 		var line: ShaderMaterial = (m.next_pass as ShaderMaterial).duplicate()
 		line.set_shader_parameter("hide_under_shirt", loadout.shirt != 0)
-		line.set_shader_parameter("hide_under_shorts", true)
+		line.set_shader_parameter("hide_under_shorts", loadout.has_shorts())
 		m.next_pass = line
 	_limb_cache[key] = m
 	return m
@@ -1181,7 +1193,8 @@ static func _blade_shape() -> ArrayMesh:
 ## How each kind of stuff on a fighter takes the light (shaders/toon_light.gdshaderinc), so skin, cloth, rubber and metal read apart while
 ## sharing one cel look: [parameter: value].
 const RESPONSES := {
-	"skin": {"ramp_softness": 0.21, "sheen": 0.015},
+	# (Skin is matte and soft-stepped, as the concept art's bodies: flat colour that turns gently into shade, no glossy bands.)
+	"skin": {"ramp_softness": 0.3, "sheen": 0.0},
 	"rubber": {"ramp_softness": 0.12, "sheen": 0.16},
 	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "metal": 1.0, "rim_strength": 0.55},
 	"gold": {"ramp_softness": 0.1, "sheen": 0.0, "metal": 0.75, "rim_strength": 0.5},
@@ -1302,25 +1315,36 @@ func _neck_on_rig(accent: Color) -> void:
 				b.basis = Basis(Quaternion(Vector3.UP, out))
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
-			_collar(accent)
+			var at := _collar(accent)
 			var bib := BoxMesh.new()
 			bib.size = Vector3(0.34, 0.34, 0.06)
-			_part(torso_rig, bib, toon(accent), Vector3(0, 0.94, 0.5), Vector3.ONE, Vector3(0, 0, 45))
+			_part(torso_rig, bib, toon(accent), Vector3(0, at - 0.16, 0.5), Vector3.ONE, Vector3(0, 0, 45))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
-			_collar(accent)
+			var at := _collar(accent)
 			var tail := BoxMesh.new()
 			tail.size = Vector3(0.2, 0.5, 0.06)
-			_part(torso_rig, tail, toon(accent), Vector3(0.26, 0.82, 0.46), Vector3.ONE, Vector3(0, 0, 6))
+			_part(torso_rig, tail, toon(accent), Vector3(0.26, at - 0.28, 0.46), Vector3.ONE, Vector3(0, 0, 6))
 
 
-func _collar(accent: Color) -> void:
+## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).
+## Returns its height in the torso's design space, for what hangs from it.
+func _collar(accent: Color) -> float:
 	var ring := TorusMesh.new()
 	ring.inner_radius = 0.44
 	ring.outer_radius = 0.58
 	ring.rings = 36
 	ring.ring_segments = 10
-	_part(torso_rig, ring, toon(accent), Vector3(0, 1.1, 0), Vector3(1.04, 1.0, 0.94))
+	var at := 1.1
+	var info := _base_rig_info()
+	if info.has("neck") and torso_fit.basis.y.y > 0.001:
+		at = (float(info.neck) - COLLAR_BELOW_NECK - torso_fit.origin.y) / torso_fit.basis.y.y
+	_part(torso_rig, ring, toon(accent), Vector3(0, at, 0), Vector3(1.04, 1.0, 0.94))
+	return at
+
+
+## How far below the neck (where the head meets the shoulders) the collar ring sits: its top just shows under the chin.
+const COLLAR_BELOW_NECK := 0.1
 
 
 ## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (see `_hat_spring`).

@@ -141,10 +141,21 @@ After adding files under `godot/`, run `Godot --headless --path godot --import` 
 ### Characters
 
 Fighters are animated by poses on a shared skeleton (`make_rigged_blob.py`: the clips, the IK and the 2D face all depend on it), so a new
-body is fitted to that skeleton rather than bringing its own. The base body (from `art/concept/base_body_turnaround.jpg`) was made this way:
+body is fitted to that skeleton rather than bringing its own.
 
-1. **Generate** a full body, A-pose or arms down, blank head if possible (it was made with Tripo from the sheet; Tripo built the whole sheet
-   as 3D, so the main figure was picked out in the next step).
+**The base body is modelled by script** after the concept sheet (`art/concept/base_body_turnaround.jpg`): `art/blender/make_base_body.py`
+holds its proportions as numbers (the head, the trunk's rings, the arm and leg joints and radii, the feet) and builds one seamless skin
+from them, so a change is an edit to a number and a re-run, and the model is entirely ours. Rebuild it, then measure and rig it (steps 3
+and 4 below, with `--neck-drop 0`: this body has no neck to squeeze away):
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_base_body.py -- --out art/models/base_body/base_body.glb --preview <folder>/body.png
+```
+
+A body from elsewhere (generated, or modelled by hand) goes through all of these steps; the first base body was made this way, from Tripo:
+
+1. **Generate** a full body, A-pose or arms down, blank head if possible (Tripo built the whole sheet as 3D, so the main figure was picked
+   out in the next step).
 2. **Clean it up** as one closed, low skin in one colour (the face and any patches go; the game draws the face and paints the colour):
    ```bash
    "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/import_generated.py -- --in <sheet.glb> --name base_body --kind fighter --keep biggest --remesh 0.02 --out art/models/base_body/base_body.glb

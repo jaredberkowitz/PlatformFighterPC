@@ -31,7 +31,10 @@ and a real blade, built stage props and girders, varied skyline buildings with s
 four players), and a four-computer stress demo (`--demo=cpu4 --players=4`). Then an art-direction polish (branch `art-direction-polish`,
 `docs/ART_DIRECTION_POLISH_LOG.md`): the attention hierarchy, palette and material rules written into `ART_DIRECTION.md`, calmer coral
 girders, skyline buildings in varied muted hues with clustered windows and broken-up office strips, a quieter roof wall, and "FREE PLAY"
-said once on the HUD. Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on hold.
+said once on the HUD. Then a new base body modelled by script after the concept sheet (`art/blender/make_base_body.py`,
+`docs/ART_PIPELINE.md` twenty-eighth pass): the concept's proportions, bare by default (a new Gear slot), matte skin and a warmer, thinner
+outline; it replaces the Tripo model, whose licence was unclear. Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on
+hold.
 
 ## Roadmap progress
 

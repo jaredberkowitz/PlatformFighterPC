@@ -46,6 +46,10 @@ const GLASSES := ["none", "shades", "goggles", "round specs"]
 const NECKS := ["none", "sash", "neckerchief", "scarf"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
 const SHIRTS := ["none", "white shirt", "outfit shirt", "striped shirt", "flower shirt"]
+## Gear over the bare body (the concept art's plain body is the default): shorts, then gloves, then socks and shoes, each step adding to the
+## last. Looks saved before this slot existed wear the full kit, as they did.
+const GEAR := ["none", "shorts", "shorts and gloves", "full kit"]
+const GEAR_FULL := 3
 
 ## The slots in the order they are written, each with its catalog size. New slots go at the end (see the top).
 const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
@@ -53,7 +57,7 @@ const SLOTS := ["color", "face", "hat", "glasses", "neck", "accent", "shirt",
 	"brows", "brow_color", "brow_y", "brow_gap", "brow_size", "brow_turn",
 	"nose", "nose_y", "nose_size",
 	"mouth", "mouth_y", "mouth_size", "mouth_squash",
-	"cheeks", "cheek_color"]
+	"cheeks", "cheek_color", "gear"]
 
 var color := 0
 var face := 0
@@ -86,6 +90,19 @@ var mouth_size := FaceLook.neutral("mouth_size")
 var mouth_squash := FaceLook.neutral("mouth_squash")
 var cheeks := 1
 var cheek_color := 0
+var gear := 0
+
+
+func has_shorts() -> bool:
+	return gear >= 1
+
+
+func has_gloves() -> bool:
+	return gear >= 2
+
+
+func has_shoes() -> bool:
+	return gear >= 3
 
 
 static func slot_size(slot: String) -> int:
@@ -102,6 +119,8 @@ static func slot_size(slot: String) -> int:
 			return NECKS.size()
 		"shirt":
 			return SHIRTS.size()
+		"gear":
+			return GEAR.size()
 		"eyes":
 			return FaceLook.EYES.size()
 		"eye_color":
@@ -135,6 +154,8 @@ static func slot_names(slot: String) -> Array:
 			return NECKS
 		"shirt":
 			return SHIRTS
+		"gear":
+			return GEAR
 		"eyes":
 			return FaceLook.EYES
 		"eye_color":
@@ -161,7 +182,8 @@ static func slot_names(slot: String) -> Array:
 	return []
 
 
-## The look each player had before loadouts existed, so nothing changes until someone edits theirs.
+## Each player's starting look: the concept art's bare body in the player's colour (no shirt, neckwear or gear), told apart by a hat and
+## glasses as before.
 static func default_for(player: int) -> RefCounted:
 	var l: RefCounted = load("res://scripts/loadout.gd").new()
 	l.color = player % 4
@@ -173,10 +195,11 @@ static func default_for(player: int) -> RefCounted:
 		3:
 			l.hat = 3
 	l.glasses = 1 if player % 4 == 1 or player % 4 == 2 else 0
-	l.neck = 1
+	l.neck = 0
 	l.face = 0
 	l.accent = 2
-	l.shirt = [1, 4, 1, 3][player % 4]
+	l.shirt = 0
+	l.gear = 0
 	return l
 
 
@@ -201,6 +224,9 @@ static func from_bytes(b: PackedByteArray, player := 0) -> RefCounted:
 	var l: RefCounted = default_for(player)
 	if b.size() < 1 or b.size() > MAX_BYTES or b[0] != VERSION:
 		return l
+	# (A look from before the gear slot was dressed in the full kit: it keeps it.)
+	if b.size() <= SLOTS.find("gear") + 1:
+		l.gear = GEAR_FULL
 	for i in SLOTS.size():
 		if i + 1 < b.size():
 			var v := int(b[i + 1])

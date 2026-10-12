@@ -36,6 +36,9 @@ uniform vec2 elbow_r = vec2(0.47, 0.97);
 uniform float sleeve = 0.55;
 // False when the body wears modelled clothes (the rig's "Shirt" and "Shorts" meshes): then only the socks and shoes are painted here.
 uniform bool painted_clothes = true;
+// The look's gear (Loadout.GEAR): shorts, and socks and shoes. Without them the legs and feet are the bare body.
+uniform bool shorts_on = true;
+uniform bool shod = true;
 // How far inside a modelled garment's hems the skin stops being drawn (rest units; along the upper arm, a share of it).
 const float COVER = 0.03;
 const float COVER_ARM = 0.15;
@@ -90,29 +93,31 @@ void fragment() {
 		if (has_shirt && p.y > waist_z && p.y < neck_z) {
 			c = shirt_c;
 		}
-		if (painted_clothes && p.y > shorts_end_z && p.y <= waist_z) {
+		if (painted_clothes && shorts_on && p.y > shorts_end_z && p.y <= waist_z) {
 			c = shorts.rgb;
 		}
-		if (p.y <= sock_top_z && p.y > shoe_top_z) {
-			c = sock.rgb;
-		}
-		if (p.y <= shoe_top_z) {
-			c = shoe.rgb;
-			// A strap over the front of the shoe, in the outfit colour.
-			if (p.y > shoe_top_z - 0.075 && p.y < shoe_top_z - 0.03 && UV2.x < -0.06) {
-				c = strap.rgb;
+		if (shod) {
+			if (p.y <= sock_top_z && p.y > shoe_top_z) {
+				c = sock.rgb;
 			}
+			if (p.y <= shoe_top_z) {
+				c = shoe.rgb;
+				// A strap over the front of the shoe, in the outfit colour.
+				if (p.y > shoe_top_z - 0.075 && p.y < shoe_top_z - 0.03 && UV2.x < -0.06) {
+					c = strap.rgb;
+				}
+			}
+			if (p.y <= sole_top_z) {
+				c = sole.rgb;
+			}
+			edge = min(edge, abs(p.y - sock_top_z));
+			edge = min(edge, abs(p.y - shoe_top_z));
+			edge = min(edge, abs(p.y - sole_top_z));
 		}
-		if (p.y <= sole_top_z) {
-			c = sole.rgb;
-		}
-		if (painted_clothes) {
+		if (painted_clothes && shorts_on) {
 			edge = min(edge, abs(p.y - waist_z));
 			edge = min(edge, abs(p.y - shorts_end_z));
 		}
-		edge = min(edge, abs(p.y - sock_top_z));
-		edge = min(edge, abs(p.y - shoe_top_z));
-		edge = min(edge, abs(p.y - sole_top_z));
 		if (has_shirt) {
 			edge = min(edge, abs(p.y - neck_z));
 		}
@@ -128,8 +133,10 @@ void fragment() {
 			covered = shirt.a > 0.5 && along_arm(p, a, b) < sleeve - COVER_ARM;
 		} else {
 			// (With a shirt over the shorts, one stretch from the shorts' hems to the neck: no band of skin between them to show.)
-			float top = shirt.a > 0.5 ? neck_z - COVER * 1.5 : waist_z;
-			covered = p.y > shorts_end_z + COVER && p.y < top;
+			// (With no shorts, only the shirt covers: from its hem at the waist.)
+			float bottom = shorts_on ? shorts_end_z + COVER : waist_z + COVER;
+			float top = shirt.a > 0.5 ? neck_z - COVER * 1.5 : (shorts_on ? waist_z : -1.0);
+			covered = p.y > bottom && p.y < top;
 		}
 		if (covered) {
 			discard;

@@ -35,7 +35,7 @@ CC0 needs no attribution; it is credited here as a courtesy and so the origin of
 | Asset | Made with | Terms | Status |
 | --- | --- | --- | --- |
 | Base body concept sheet (`art/concept/base_body_turnaround.jpg`) | an image generator (Google Gemini), from the developer's prompt | the generator's terms of use | original design; reference only |
-| Base body model (`art/models/base_body/`, `godot/models/base_rig.glb`) | Tripo, **free plan**, from the concept sheet; cleaned, remeshed and rigged here | **unclear**: Tripo's own pages say free-plan models are public and CC BY 4.0, and elsewhere that they are for non-commercial use only | **development placeholder**: before release, confirm the terms (or regenerate on a paid plan, or with TRELLIS, MIT) and credit Tripo if CC BY applies |
+| Base body model (`art/models/base_body/`, `godot/models/base_rig.glb`) | modelled by script here (`art/blender/make_base_body.py`, from numbers read off the concept sheet) | ours | fine to ship. (The earlier body, made with Tripo's free plan and of unclear terms, is no longer used; it remains only in the repository's history.) |
 | Prop pictures (`art/concept/props/`) | FLUX.1-schnell (Apache-2.0) through Hugging Face | the outputs are ours | fine to ship |
 | Models from TRELLIS / TRELLIS.2 | Microsoft's models (MIT) through Hugging Face | the outputs are ours | fine to ship |
 
