@@ -114,6 +114,7 @@ pub const R_SHIELD: u8 = 14;
 pub const R_CHARGE: u8 = 15;
 pub const R_HIT: u8 = 16;
 pub const R_STORED: u8 = 17;
+pub const R_JUMP: u8 = 18;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -172,6 +173,7 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         R_STORED,
         "a charge kept from an earlier use (see store), 0 to 255",
     ),
+    reg("jump", R_JUMP, "jump button held"),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[

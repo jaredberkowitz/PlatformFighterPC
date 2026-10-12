@@ -634,45 +634,89 @@ fn shots_fired(sim: &mut Sim, frames: usize, input: impl Fn(usize) -> sim_core::
     fired
 }
 
+/// Presses special on the frames in `presses` (one frame each), holding it through `held` if given, with `extra` buttons on their frames.
+fn needle_input(
+    k: usize,
+    presses: &[usize],
+    held: usize,
+    extra: &[(usize, u16)],
+) -> sim_core::Input {
+    let mut b = if presses.contains(&k) || k < held {
+        SPECIAL
+    } else {
+        0
+    };
+    for &(at, button) in extra {
+        if at == k {
+            b |= button;
+        }
+    }
+    inp(0, 0, b)
+}
+
+fn needle_range() -> Sim {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim
+}
+
 #[test]
-fn needle_storm_throws_one_needle_for_a_tap_and_more_the_longer_it_charges() {
-    // A needle more on frames 8, 23, 38, 53, 68 and 83 of holding, at most six.
-    for (held, needles) in [(1usize, 1usize), (30, 2), (45, 3), (120, 6)] {
-        let mut sim = duel();
-        sim.stand(0, Fx::ZERO, 1);
-        sim.stand(1, Fx::from_int(10), -1);
-        let fired = shots_fired(&mut sim, held + 60, |k| {
-            inp(0, 0, if k < held { SPECIAL } else { 0 })
+fn needle_storm_charges_by_itself_and_a_second_press_throws() {
+    // As the reference: one press starts the charge, which carries on with the button let go (a needle on frame 8, then every 15
+    // frames); pressing again throws what has built up. A second press during the wind-up throws the first needle at once.
+    for (second, needles) in [(3usize, 1usize), (15, 1), (30, 2), (45, 3), (75, 5)] {
+        let mut sim = needle_range();
+        let fired = shots_fired(&mut sim, second + 60, |k| {
+            needle_input(k, &[0, second], 0, &[])
         });
-        assert_eq!(fired, needles, "held {held} frames");
+        assert_eq!(fired, needles, "second press on frame {second}");
+        assert_eq!(sim.f().stored, 0);
     }
 }
 
 #[test]
-fn needles_stored_with_shield_are_thrown_at_once_next_time() {
-    let mut sim = duel();
-    sim.stand(0, Fx::ZERO, 1);
-    sim.stand(1, Fx::from_int(10), -1);
-    // Charge three needles, then shield: they are kept, nothing is thrown.
-    let fired = shots_fired(&mut sim, 60, |k| {
-        inp(
-            0,
-            0,
-            if k < 45 {
-                SPECIAL
-            } else if k < 47 {
-                SHIELD
-            } else {
-                0
-            },
-        )
-    });
-    assert_eq!(fired, 0, "storing throws nothing");
-    assert_eq!(sim.f().stored, 3);
-    // The next press throws all three without charging, starting on the throw's frame 11.
-    let fired = shots_fired(&mut sim, 30, |k| inp(0, 0, if k < 2 { SPECIAL } else { 0 }));
-    assert_eq!(fired, 3);
+fn a_full_charge_stores_itself_and_the_next_press_throws_all_six() {
+    let mut sim = needle_range();
+    // Held (or not: it charges either way) until full: six needles, stored, nothing thrown, free to move again.
+    let fired = shots_fired(&mut sim, 110, |k| needle_input(k, &[], 110, &[]));
+    assert_eq!(fired, 0, "a full charge throws nothing by itself");
+    assert_eq!(sim.f().stored, 6);
+    assert_ne!(sim.f().state, S::Attack, "and ends");
+    sim.ticks(5, inp(0, 0, 0));
+    let fired = shots_fired(&mut sim, 40, |k| needle_input(k, &[0], 0, &[]));
+    assert_eq!(fired, 6, "thrown at once");
     assert_eq!(sim.f().stored, 0, "spent");
+}
+
+#[test]
+fn shield_or_jump_stores_a_part_charge_and_the_next_press_charges_on_from_it() {
+    for (button, name) in [(SHIELD, "shield"), (JUMP, "jump")] {
+        let mut sim = needle_range();
+        // Three needles (frames 8, 23 and 38), then the button: kept, nothing thrown.
+        let fired = shots_fired(&mut sim, 60, |k| needle_input(k, &[0], 0, &[(44, button)]));
+        assert_eq!(fired, 0, "{name}: storing throws nothing");
+        assert_eq!(sim.f().stored, 3, "{name}: three kept");
+        // Back on the ground, still: the next press carries on charging from three; a press 20 frames later throws four.
+        sim.ticks(40, inp(0, 0, 0));
+        let fired = shots_fired(&mut sim, 70, |k| needle_input(k, &[0, 25], 0, &[]));
+        assert_eq!(fired, 4, "{name}: charged on from three");
+    }
+}
+
+#[test]
+fn a_charge_in_the_air_carries_on_after_landing() {
+    let mut sim = needle_range();
+    sim.put_airborne(0, Fx::ZERO, fx(15, 10), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(0, 0, SPECIAL));
+    let mut charging_on_ground = false;
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        charging_on_ground |= sim.f().grounded()
+            && sim.f().move_id == MoveId::Ext3 as u8
+            && sim.f().state == S::Attack;
+    }
+    assert!(charging_on_ground, "still charging on the ground");
 }
 
 #[test]
@@ -680,9 +724,7 @@ fn needles_hit_a_fighter_down_the_stage() {
     let mut sim = duel();
     sim.stand(0, Fx::ZERO, 1);
     sim.stand(1, Fx::from_int(5), -1);
-    shots_fired(&mut sim, 120, |k| {
-        inp(0, 0, if k < 45 { SPECIAL } else { 0 })
-    });
+    shots_fired(&mut sim, 120, |k| needle_input(k, &[0, 45], 0, &[]));
     let took = sim.fighter(1).percent;
     assert!(
         took >= dealt(&sim, 3 * 8) && took <= dealt(&sim, 3 * 15),
@@ -868,4 +910,33 @@ fn a_drag_down_up_air_lands_its_target_in_front() {
             "facing {facing}: landed {ahead:?} in front"
         );
     }
+}
+
+#[test]
+fn pressing_special_again_kicks_the_bouncing_fish_early() {
+    // Pressed again before frame 16, the kick comes out on frame 18 instead of 23 (the early kick, ext6), so it lands shorter.
+    let first_hit = |press: bool| {
+        let mut sim = duel();
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, Fx::from_int(-10), 1);
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DownSpecial);
+        let mut kicked = None;
+        for k in 0..40 {
+            sim.tick(inp(0, 0, if press && k == 5 { SPECIAL } else { 0 }));
+            let f = sim.f();
+            let kicking = f.state == S::Attack
+                && sim_core::combat::active_hitboxes(f, needles(&sim).get(f.move_id), Fx::ONE)
+                    .next()
+                    .is_some();
+            if kicking && kicked.is_none() {
+                kicked = Some((k, f.move_id));
+            }
+        }
+        kicked.expect("it kicked")
+    };
+    let (normal_at, normal_move) = first_hit(false);
+    let (early_at, early_move) = first_hit(true);
+    assert_eq!(normal_move, MoveId::DownSpecial as u8);
+    assert_eq!(early_move, MoveId::Ext6 as u8);
+    assert_eq!(normal_at - early_at, 5, "five frames sooner (23 to 18)");
 }

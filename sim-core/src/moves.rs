@@ -1885,9 +1885,10 @@ pub fn needles() -> Weapon {
     // estimate [E].
 
     // ---- Specials ----
-    // Needle Storm (neutral special): a wind-up to frame 7, then charging (ext3), a needle more every 15 frames up to 6; letting go
-    // throws them (ext4), one every 3 frames from frame 11; shield stores them for the next use, which throws them at once (all
-    // scripts). Each needle: 1.5% falling to 0.8% over its 9 frames, 60 degrees, BK 0, KS 167, hitlag x0.8, 10 reference units a frame
+    // Needle Storm (neutral special), charged and stored as the reference's: a wind-up to frame 7, then charging (ext3), which carries
+    // on by itself, a needle on its first frame and another every 15 up to 6; pressing special again throws them (ext4), one every 3
+    // frames from frame 11; shield or jump stores them, and a full charge stores itself. A full store is thrown at once next time; a
+    // part charge carries on charging from where it was (all scripts). Each needle: 1.5% falling to 0.8% over its 9 frames, 60 degrees, BK 0, KS 167, hitlag x0.8, 10 reference units a frame
     // (straight on the ground, 35 degrees down in the air). Throw FAF 49 (43 in the air), landing lag 12.
     let mut storm = ref_move(10, 0, 0, 255, &[]);
     storm.script = Some(script(
@@ -1900,6 +1901,8 @@ pub fn needles() -> Weapon {
         Kind::Fighter,
         include_str!("scripts/needle_storm_charge.script"),
     ));
+    // Landing carries the charge on.
+    charge.landing_move = Some(MoveId::Ext3 as u8);
     w.moves[MoveId::Ext3 as usize] = charge;
     let mut throw = ref_move(49, 12, 0, 255, &[]);
     let mut needle = row(&r(1, 1, 0, 0, 2, 15, 60, 0, 167, 0, 0));
@@ -1981,6 +1984,24 @@ pub fn needles() -> Weapon {
     ));
     fish.grabs_ledge = true;
     w.moves[MoveId::DownSpecial as usize] = fish;
+    // The early kick (ext6): pressing special again before frame 16 carries on into it there, kicking on frames 18-24 (its 3-9), FAF 46.
+    let mut early = ref_move(
+        31,
+        36,
+        0,
+        255,
+        &[
+            r(3, 9, 7, 3, 4, 110, 361, 26, 97, 0, 0),
+            r(3, 9, 1, 6, 4, 110, 361, 26, 97, 1, 0),
+        ],
+    );
+    set_rows(&mut early, &[0, 1], |h| h.hitlag = 170);
+    early.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bouncing_fish_early.script"),
+    ));
+    early.grabs_ledge = true;
+    w.moves[MoveId::Ext6 as usize] = early;
     let mut bounce = ref_move(80, 20, 0, 255, &[]);
     bounce.script = Some(script(
         Kind::Fighter,

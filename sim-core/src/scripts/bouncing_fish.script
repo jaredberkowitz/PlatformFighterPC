@@ -1,8 +1,12 @@
 // Bouncing Fish (down special): a flip forward into a heel kick coming down (frames 23-29). It leaves at 1.6 reference units a frame
 // forward (1.5 in the air) and 3 up and falls at 1.5 times the rogue's gravity; from frame 30 the stick steers it (0 to 2.4 forward).
-// A hit bounces it back off the target (33 = ext5).
+// A hit bounces it back off the target (33 = ext5). Pressing special again before frame 16 kicks early: on frame 16 it carries on as
+// the early kick (34 = ext6), whose kick lands on frames 18-24 instead.
 var sx;
 var sy;
+var early;
+if frame >= 1 && frame <= 15 && special_tap { early = 1; }
+if early && frame >= 15 { goto(34); }
 if frame == 1 {
     sy = 0.375;
     if grounded { sx = 0.2; } else { sx = 0.1875; }

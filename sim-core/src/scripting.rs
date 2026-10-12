@@ -80,6 +80,7 @@ impl Host for FighterHost<'_> {
             api::R_CHARGE => Fx::from_int(i32::from(f.charge)).raw(),
             api::R_HIT => flag(f.hit_mask != 0),
             api::R_STORED => Fx::from_int(i32::from(f.stored)).raw(),
+            api::R_JUMP => flag(f.held(buttons::JUMP)),
             _ => 0,
         }
     }

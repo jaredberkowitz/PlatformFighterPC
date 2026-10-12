@@ -4,7 +4,7 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::fuzz::random_inputs;
-use sim_core::input::buttons::SPECIAL;
+use sim_core::input::buttons::{JUMP, SPECIAL};
 use sim_core::moves::{Motion, Move, MoveId};
 use sim_core::state::FighterState as S;
 use sim_core::{step, Content, Fx, GameState, Rng, MAX_FIGHTERS};
@@ -150,6 +150,17 @@ fn variables_persist_through_a_move_and_reset_for_the_next() {
         Fx::ONE.raw(),
         "one run of the script so far"
     );
+}
+
+#[test]
+fn a_script_sees_the_jump_button() {
+    // The move ends on the first frame jump is held (a charge cancelled by a jump).
+    let mut sim = with_special(scripted(40, "if jump { end(); }"));
+    start(&mut sim);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "not without jump");
+    sim.tick(inp(0, 0, JUMP));
+    assert_ne!(sim.f().state, S::Attack, "jump ended it");
 }
 
 #[test]

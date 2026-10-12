@@ -57,9 +57,8 @@ everything about the pulling line (it is ours by request).
 
 * **Animations** are placeholders borrowed from the shared library and the claws (kicks, the fair chop, a lunge for the dash attack);
   the Needles clips are the next step, then refitting the trails to them.
-* Needle Storm: letting go throws (the reference keeps charging on the ground until pressed again) and only shield stores (the reference
-  also stores with a jump or spot dodge).
-* Bouncing Fish: no early kick input, consecutive kicks or wall bounces. Vanish: no reappearance wind box; the explosion moves with the
+* Needle Storm: the charge cancel's 4 frames of lag before the chosen action are not modelled.
+* Bouncing Fish: no consecutive kicks after a bounce, and no wall bounces. Vanish: no reappearance wind box; the explosion moves with the
   fighter for its 3 frames instead of staying behind.
 * Up smash arm intangibility and the back roll's separate intangibility are not modelled.
 * The rapid jab cannot see presses made during hitlag, so it asks for two presses rather than three.
