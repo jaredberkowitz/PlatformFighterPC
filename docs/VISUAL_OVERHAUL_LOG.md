@@ -36,3 +36,15 @@ See the audit. Baselines: `overhaul_0_skyline_hud.png`, `overhaul_0_fx.png` and 
 * Outlines: already distance-compensated (`outline.gdshader`: constant screen width between a minimum and a maximum) and weighted
   (fighters full, scenery 0.6); fighters stay told apart by their tinted line, edge light and look. No change needed.
 * Checks: fighter view test (every move of all three classes), loadout and art pipeline tests passed; look bench PASSED, worst 0.93.
+
+## Phase 3: rooftop, platforms and props
+
+All art only (`stage_art.gd`, the roof tile): no collision, platform position or size changed. `overhaul_3_skyline_before_after.png`.
+
+* Rooftop: the pavers' seams are legible (a darker seam with a light bevel beside it, `godot/art/stage/roof.svg`) on top of the painted
+  concrete wear from the graphics pass; the front edge already has its trim, ledge and shade band.
+* Girder platforms: three parts that read apart: the top plate, the red web, and a darker steel flange underneath; a bright trim along the
+  top front edge (it catches the light and marks where the platform ends) and the top plate's shade falling on the web.
+* Props: the water tower gets iron hoops, a roof hatch and a ladder; crates (Skyline and Triple Tier) a frame of darker boards and an X
+  brace; the air conditioner a grille and a fan on top; the vent a cap; the light mast a base plate. Every prop already stood on painted
+  contact shade.

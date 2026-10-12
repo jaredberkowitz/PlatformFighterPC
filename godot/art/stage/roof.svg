@@ -151,5 +151,6 @@
   <circle cx="-2.9" cy="241.8" r="3.3" fill="#ffffff" opacity="0.08"/>
   <circle cx="253.1" cy="241.8" r="2.4" fill="#ffffff" opacity="0.08"/>
   <circle cx="122.3" cy="249.1" r="2.5" fill="#ffffff" opacity="0.08"/>
-  <path d="M0 0 H256 M0 128.0 H256 M0 0 V256 M128.0 0 V256" stroke="#000000" stroke-width="3" opacity="0.18"/>
+  <path d="M0 0 H256 M0 128.0 H256 M0 0 V256 M128.0 0 V256" stroke="#000000" stroke-width="3" opacity="0.28"/>
+  <path d="M0 3 H256 M0 131.0 H256 M3 0 V256 M131.0 0 V256" stroke="#ffffff" stroke-width="2" opacity="0.16"/>
 </svg>

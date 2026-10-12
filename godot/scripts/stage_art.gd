@@ -334,7 +334,12 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 		var steel := _surface(t.wood, "steel", 3.0)
 		_mesh(parent, _box(Vector3(w, 0.18, depth)), steel, Vector3(cx, top - 0.09, front_z - depth / 2.0))
 		_mesh(parent, _box(Vector3(w, 0.5, 0.16)), Materials.wood(t.wood_dark, Vector2(4, 1)), Vector3(cx, top - 0.4, front_z - 0.3))
-		_mesh(parent, _box(Vector3(w, 0.14, depth * 0.7)), steel, Vector3(cx, top - 0.68, front_z - depth / 2.0))
+		# The flange underneath in a darker steel, so top, web and underside read as three parts of one beam.
+		_mesh(parent, _box(Vector3(w, 0.14, depth * 0.7)), _surface((t.wood_dark as Color).darkened(0.15), "steel", 3.0), Vector3(cx, top - 0.68, front_z - depth / 2.0))
+		# A bright edge where the top plate meets its front (it catches the light and marks where the platform ends), and the plate's
+		# shade falling on the web below it.
+		_mesh(parent, _box(Vector3(w, 0.05, 0.06)), _soft((t.wood as Color).lightened(0.3)), Vector3(cx, top - 0.02, front_z + 0.005))
+		_mesh(parent, _shade_band(w, 0.28), _band_material(), Vector3(cx, top - 0.3, front_z - 0.21))
 		var rivet := _unshaded(Color(0.95, 0.82, 0.6))
 		var x := left + 0.35
 		while x < right - 0.2:
@@ -534,9 +539,16 @@ static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
 	_mesh(root, _box(Vector3.ONE * size), Materials.wood(Color(0.86, 0.66, 0.42)), at + Vector3(0, size / 2.0, 0), Vector3.ONE, Vector3(0, turn, 0))
-	# A diagonal brace across the front.
-	var front := Vector3(0, size / 2.0, size / 2.0 + 0.01).rotated(Vector3.UP, deg_to_rad(turn))
-	_mesh(root, _box(Vector3(size * 1.25, size * 0.14, 0.04)), FighterView.toon(Color(0.68, 0.48, 0.3), false), at + front, Vector3.ONE, Vector3(0, turn, 45))
+	# The front: a frame of darker boards round its edge and an X brace across it (a crate is built, not a block).
+	var plank := FighterView.toon(Color(0.68, 0.48, 0.3), false)
+	var basis := Basis(Vector3.UP, deg_to_rad(turn))
+	var face := at + basis * Vector3(0, size / 2.0, size / 2.0 + 0.01)
+	var b := size * 0.12
+	for e2 in [[Vector3(0, size / 2.0 - b / 2.0, 0), Vector3(size, b, 0.04)], [Vector3(0, -size / 2.0 + b / 2.0, 0), Vector3(size, b, 0.04)],
+			[Vector3(size / 2.0 - b / 2.0, 0, 0), Vector3(b, size, 0.04)], [Vector3(-size / 2.0 + b / 2.0, 0, 0), Vector3(b, size, 0.04)]]:
+		_mesh(root, _box(e2[1]), plank, face + basis * (e2[0] as Vector3), Vector3.ONE, Vector3(0, turn, 0))
+	for diag in [45.0, -45.0]:
+		_mesh(root, _box(Vector3(size * 1.15, b * 0.9, 0.035)), plank, face + basis * Vector3(0, 0, 0.005), Vector3.ONE, Vector3(0, turn, diag))
 
 
 static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
@@ -1270,6 +1282,15 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mesh(root, _box(Vector3(0.18, 2.4, 0.18)), wood, tower + leg + Vector3(0, 1.2, 0))
 	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
 	_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
+	# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
+	var iron := FighterView.toon(Color(0.3, 0.26, 0.32))
+	for hy in [2.6, 3.5, 4.4]:
+		_mesh(root, _cylinder(1.34, 1.34, 0.08, 14), iron, tower + Vector3(0, hy, 0))
+	_mesh(root, _box(Vector3(0.5, 0.12, 0.5)), iron, tower + Vector3(0.3, 5.45, 0.55), Vector3.ONE, Vector3(-30, 0, 0))
+	for lx in [-0.18, 0.18]:
+		_mesh(root, _box(Vector3(0.05, 3.4, 0.05)), iron, tower + Vector3(1.0 + lx, 2.2, 0.95))
+	for ly in range(5):
+		_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
 	var mast := Vector3(float(e[1]) - 2.5, roof, -6.5)
 	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.toon(Color(0.6, 0.62, 0.7)), mast + Vector3(0, 3, 0))
 	var blink := Blinker.new()
@@ -1278,8 +1299,19 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	blink.build(Color(1.0, 0.25, 0.25))
 	# Vents and an air conditioner.
 	var metal := FighterView.toon(Color(0.66, 0.68, 0.76))
-	_mesh(root, _box(Vector3(1.6, 1.0, 1.2)), metal, Vector3(float(e[0]) + 6.5, roof + 0.5, -4.5))
-	_mesh(root, _cylinder(0.3, 0.3, 0.9, 10), metal, Vector3(float(e[1]) - 6.0, roof + 0.45, -4.0))
+	var unit := Vector3(float(e[0]) + 6.5, roof, -4.5)
+	_mesh(root, _box(Vector3(1.6, 1.0, 1.2)), metal, unit + Vector3(0, 0.5, 0))
+	# Its grille (slats across the front) and a fan on top.
+	var slat := FighterView.toon(Color(0.42, 0.42, 0.52), false)
+	for k in 5:
+		_mesh(root, _box(Vector3(1.3, 0.05, 0.03)), slat, unit + Vector3(0, 0.22 + k * 0.14, 0.61))
+	_mesh(root, _cylinder(0.42, 0.42, 0.06, 16), slat, unit + Vector3(0, 1.03, 0))
+	_mesh(root, _cylinder(0.12, 0.12, 0.08, 10), metal, unit + Vector3(0, 1.06, 0))
+	var vent := Vector3(float(e[1]) - 6.0, roof, -4.0)
+	_mesh(root, _cylinder(0.3, 0.3, 0.9, 10), metal, vent + Vector3(0, 0.45, 0))
+	# A wider cap on the vent.
+	_mesh(root, _cylinder(0.42, 0.42, 0.1, 12), slat, vent + Vector3(0, 0.95, 0))
+	_mesh(root, _box(Vector3(0.5, 0.06, 0.5)), slat, mast + Vector3(0, 0.03, 0))
 	_contact(root, Vector3(float(e[0]) + 6.5, roof, -4.5), Vector2(0.95, 0.7))
 	_contact(root, Vector3(float(e[1]) - 6.0, roof, -4.0), Vector2(0.38, 0.32))
 	_contact(root, tower, Vector2(1.2, 1.1))
