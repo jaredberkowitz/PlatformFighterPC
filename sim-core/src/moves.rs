@@ -1482,6 +1482,193 @@ fn sword_kit() -> Weapon {
     }
 }
 
+/// Sets fields on the hitboxes `rows` (indices, in the order the rows were given) of a move.
+fn set_rows(mv: &mut Move, rows: &[usize], f: impl Fn(&mut Hitbox)) {
+    for &i in rows {
+        f(&mut mv.hitboxes[i]);
+    }
+}
+
+/// The Needles moveset (the rogue body): quick kicks and chops, modelled mechanically on the reference game's Sheik. The priority
+/// moves (forward, up and down tilt; neutral, forward, back, up and down air) follow the reference frame for frame: frames, damage,
+/// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
+/// lag and autocancel windows, the up air's looping autolink hits and final hit, the down air's dive and landing hit. Radii are the
+/// reference's converted; positions are estimates on our body (the reference attaches its hitboxes to bones of its own skeleton). The
+/// data and its sources: `docs/sheik/REFERENCE_DATA.md`. The other slots start from the claws kit as stand-ins (the next phase replaces
+/// them with the reference's jab, dash attack, smashes, grabs, throws and specials).
+pub fn needles() -> Weapon {
+    let mut w = claws();
+    // Kicks and the hands: the limb throwing a hit can be hit.
+    w.limbs = true;
+
+    // Forward tilt: a rising front kick, frames 5-8, FAF 25. 3% each; angles 84 / 86 / 78 (a near-vertical launch), BK 20, KS 180 /
+    // 180 / 188, hitlag x0.5. Thigh, knee, foot (the foot at chest height in front).
+    let mut ftilt = ref_move(
+        25,
+        0,
+        0,
+        255,
+        &[
+            r(5, 8, 4, 9, 5, 30, 84, 20, 180, 0, 0),
+            r(5, 8, 7, 11, 4, 30, 86, 20, 180, 1, 0),
+            r(5, 8, 11, 13, 5, 30, 78, 20, 188, 2, 0),
+        ],
+    );
+    set_rows(&mut ftilt, &[0, 1, 2], |h| h.hitlag = 50);
+    w.moves[MoveId::FTilt as usize] = ftilt;
+
+    // Up tilt: a stretch kick then an axe kick. Hit 1 (frames 5-8, the leg stretched straight up: hard to land on a grounded target) is
+    // set knockback (FKV 30 / 28 / 40, KS 80, BK 0) at 0 / 330 / 75 degrees with +2 hitstun and SDI x0.5, which holds the target for
+    // hit 2 (frames 16-23, the axe kick coming down in front): 4%, 60 degrees, BK 25, KS 147. FAF 33.
+    let mut utilt = ref_move(
+        33,
+        0,
+        0,
+        255,
+        &[
+            r(5, 8, 4, 22, 4, 30, 0, 0, 80, 0, 0),
+            r(5, 8, 3, 18, 7, 30, 330, 0, 80, 1, 0),
+            r(5, 8, 2, 14, 6, 30, 75, 0, 80, 2, 0),
+            r(16, 23, 3, 12, 5, 40, 60, 25, 147, 0, 1),
+            r(16, 23, 10, 12, 5, 40, 60, 25, 147, 1, 1),
+            r(16, 23, 7, 13, 6, 40, 60, 25, 147, 2, 1),
+        ],
+    );
+    for (i, fkv) in [(0usize, 30u16), (1, 28), (2, 40)] {
+        set_rows(&mut utilt, &[i], |h| {
+            h.fixed_kb = fkv;
+            h.hitstun_add = 2;
+            h.sdi = 50;
+        });
+    }
+    w.moves[MoveId::UTilt as usize] = utilt;
+
+    // Down tilt: a low kick along the floor, frames 5-6, FAF 27. 4.5%, 70 / 70 / 90 degrees (the toe is the 90), BK 37, KS 100.
+    w.moves[MoveId::DTilt as usize] = ref_move(
+        27,
+        0,
+        0,
+        255,
+        &[
+            r(5, 6, 3, 2, 4, 45, 70, 37, 100, 0, 0),
+            r(5, 6, 7, 2, 4, 45, 70, 37, 100, 1, 0),
+            r(5, 6, 11, 2, 5, 45, 90, 37, 100, 2, 0),
+        ],
+    );
+
+    // Neutral air: a held flying kick. Clean on frames 3-6 (6 / 6 / 5%), late 7-30 (4 / 4 / 3%), Sakurai angle, BK 30, KS 100.
+    // Landing lag 6, autocancels on frames 1-2 and from 31, FAF 50. One hit per target (clean and late are one group).
+    w.moves[MoveId::NAir as usize] = ref_move(
+        50,
+        6,
+        2,
+        31,
+        &[
+            r(3, 6, 9, 8, 5, 60, 361, 30, 100, 0, 0),
+            r(3, 6, 4, 9, 4, 60, 361, 30, 100, 1, 0),
+            r(3, 6, 0, 9, 4, 50, 361, 30, 100, 2, 0),
+            r(7, 30, 8, 8, 4, 40, 361, 30, 100, 0, 0),
+            r(7, 30, 4, 9, 3, 40, 361, 30, 100, 1, 0),
+            r(7, 30, 0, 9, 2, 30, 361, 30, 100, 2, 0),
+        ],
+    );
+
+    // Forward air: a downward chop in front. Early 5-6, late 7: the shoulder 3.8%, the arm 4.5% (BK 44 / 43, KS 127, 50 degrees).
+    // Landing lag 5, autocancels on frames 1-4 and from 11, FAF 35.
+    w.moves[MoveId::FAir as usize] = ref_move(
+        35,
+        5,
+        4,
+        11,
+        &[
+            r(5, 6, 3, 13, 6, 38, 50, 44, 127, 0, 0),
+            r(5, 6, 7, 12, 6, 45, 50, 43, 127, 1, 0),
+            r(7, 7, 3, 12, 6, 38, 50, 44, 127, 0, 0),
+            r(7, 7, 7, 10, 6, 45, 50, 43, 127, 1, 0),
+        ],
+    );
+
+    // Back air: a back kick. Clean 4-6: the hip and knee 7.5% (BK 32), the foot 9.5% (BK 30), KS 98; late 7-14: 6%, BK 10, KS 101.
+    // Sakurai angle, sent away behind. Landing lag 7, autocancels on frames 1-3 and from 31, FAF 38.
+    w.moves[MoveId::BAir as usize] = ref_move(
+        38,
+        7,
+        3,
+        31,
+        &[
+            r(4, 6, -1, 9, 5, 75, 361, 32, 98, 0, 0),
+            r(4, 6, -4, 8, 3, 75, 361, 32, 98, 1, 0),
+            r(4, 6, -9, 8, 5, 95, 361, 30, 98, 2, 0),
+            r(7, 14, -1, 9, 5, 60, 361, 10, 101, 0, 0),
+            r(7, 14, -4, 8, 4, 60, 361, 10, 101, 1, 0),
+            r(7, 14, -8, 8, 4, 60, 361, 10, 101, 2, 0),
+        ],
+    );
+
+    // Up air: a flurry of kicks overhead, then a final kick. The loop (frames 4-15, re-armed every 4: hits on 4, 8 and 12) is 1%,
+    // hitlag x0.7, SDI x1.2: against a grounded target 80 degrees (BK 20, KS 80), against an airborne one the autolink angle (BK 30,
+    // KS 100), which carries the target along with the fighter (a fast fall drags it down). The final hit (frames 23-24) is its own
+    // group, never re-armed: 4%, 80 degrees, BK 50, KS 138, hitlag x2. Landing lag 13, autocancels on 1-3 and from 44, FAF 44.
+    let mut uair = ref_move(
+        44,
+        13,
+        3,
+        44,
+        &[
+            r(4, 15, 1, 23, 6, 10, 80, 20, 80, 0, 0),
+            r(4, 15, 1, 23, 6, 10, ANGLE_AUTOLINK, 30, 100, 1, 0),
+            r(23, 24, 1, 21, 9, 40, 80, 50, 138, 0, 1),
+        ],
+    );
+    set_rows(&mut uair, &[0], |h| h.targets = TARGETS_GROUNDED);
+    set_rows(&mut uair, &[1], |h| h.targets = TARGETS_AERIAL);
+    set_rows(&mut uair, &[0, 1], |h| {
+        h.hitlag = 70;
+        h.sdi = 120;
+    });
+    set_rows(&mut uair, &[2], |h| h.hitlag = 200);
+    // (Reference frame 4 is move frame 3.)
+    uair.rehit = Some((3, 4));
+    uair.rehit_groups = 0b1;
+    w.moves[MoveId::UAir as usize] = uair;
+
+    // Down air: a stall, then a dive kick. Frames 1-14 rise (from 2 a frame, slowing under gravity, no drift), then from frame 15 a
+    // dive of 1.2 forward and 6 down a frame. Clean 15-18: 10%, 280 degrees (a meteor), BK 30, KS 90; late 19-33: 10%, 56 degrees,
+    // BK 55, KS 78. Landing (outside the autocancel windows, frames 1-2 and from 53) is the landing hit: its own move (`Ext0`, 22
+    // frames of landing lag) with a 2% hit at 48 degrees (BK 77, KS 50) on its frames 1-2. FAF 55.
+    let mut dair = ref_move(
+        55,
+        22,
+        2,
+        53,
+        &[
+            r(15, 18, 2, 1, 7, 100, 280, 30, 90, 0, 0),
+            r(19, 33, 2, 1, 7, 100, 56, 55, 78, 0, 0),
+        ],
+    );
+    let su = |thousandths: i32| Fx::from_ratio(thousandths, 8000);
+    for k in 0..14u8 {
+        dair.motion.push(Motion {
+            start: k,
+            end: k,
+            vx: Fx::ZERO,
+            vy: su(2000 - 150 * i32::from(k)),
+        });
+    }
+    dair.motion.push(Motion {
+        start: 14,
+        end: 53,
+        vx: su(1200),
+        vy: -su(6000),
+    });
+    dair.landing_move = Some(MoveId::Ext0 as u8);
+    w.moves[MoveId::DAir as usize] = dair;
+    w.moves[MoveId::Ext0 as usize] =
+        ref_move(23, 0, 0, 255, &[r(1, 2, 0, 8, 8, 20, 48, 77, 50, 0, 0)]);
+
+    w
+}
+
 /// Short-reach, quick and heavy hitting: the longsword's moves pulled in close and sped up, with the
 /// forward tilt, neutral air, forward air and blaster built from reference frame data (a blaster-wielding
 /// brawler archetype).

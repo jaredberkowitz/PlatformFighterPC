@@ -643,6 +643,51 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// Light, fast on the ground, a high gravity and fast fall: the "rogue" body type of the Needles moveset. The reference game's
+    /// Sheik attributes (SmashWiki / ultimateframedata.com, `docs/sheik/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
+    /// run 2.42, traction 0.106, air speed 1.155, air acceleration 0.01 + 0.08, air friction 0.015, gravity 0.15, fall 1.75 (fast
+    /// 2.8), full hop 39, short hop 18.75, double jump 40; air dodges 44 (neutral, intangible 2-26) and 63 / 74 / 93 (directional,
+    /// intangible 2-19). The ledge jump height is not published: the duelist's (an estimate).
+    pub fn rogue() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(150);
+        let (burst, arc) = Self::full_hop(gravity, su(39000));
+        FighterParams {
+            walk_speed: gu(1470),
+            run_speed: gu(2420),
+            dash_speed: gu(2178),
+            air_speed: su(1155),
+            air_accel: su(10),
+            air_accel_stick: su(80),
+            air_friction: su(15),
+            gravity,
+            max_fall_speed: su(1750),
+            fast_fall_speed: su(2800),
+            air_dodge_frames: 44,
+            air_dodge_dir_down_frames: 63,
+            air_dodge_dir_side_frames: 74,
+            air_dodge_dir_up_frames: 93,
+            air_dodge_intangible_start: 2,
+            air_dodge_intangible_end: 26,
+            air_dodge_dir_intangible_end: 19,
+            // Traction 0.106 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(212),
+            dash_attack_friction: gu(106),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(18750)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(40000)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36830)),
+            weight: Fx::from_int(78),
+            weapon: 2,
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1184,17 +1229,33 @@ impl Content {
         h.finish()
     }
 
-    /// Two placeholder fighters (a swordfighter and a close-range brawler) on a main stage with platforms.
+    /// The built-in fighters (a swordfighter, a close-range brawler and a quick rogue) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
-            fighters: vec![FighterParams::duelist(), FighterParams::brawler()],
-            weapons: vec![crate::moves::longsword(), crate::moves::claws()],
+            fighters: vec![
+                FighterParams::duelist(),
+                FighterParams::brawler(),
+                FighterParams::rogue(),
+            ],
+            weapons: vec![
+                crate::moves::longsword(),
+                crate::moves::claws(),
+                crate::moves::needles(),
+            ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
             look: StageLook::default(),
             names: Names {
-                fighters: vec!["duelist".to_string(), "brawler".to_string()],
-                weapons: vec!["longsword".to_string(), "claws".to_string()],
+                fighters: vec![
+                    "duelist".to_string(),
+                    "brawler".to_string(),
+                    "rogue".to_string(),
+                ],
+                weapons: vec![
+                    "longsword".to_string(),
+                    "claws".to_string(),
+                    "needles".to_string(),
+                ],
                 stage: "proving_grounds".to_string(),
             },
         }

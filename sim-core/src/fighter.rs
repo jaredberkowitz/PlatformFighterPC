@@ -12,7 +12,7 @@ use crate::input::{
     buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES, STICK_FLICK_FROM,
     STICK_THRESHOLD,
 };
-use crate::moves::{Motion, MoveId, Weapon};
+use crate::moves::{Motion, Move, MoveId, Weapon};
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, NONE};
 use crate::trig::{self, Angle};
@@ -1695,7 +1695,12 @@ fn attack(
         }
         if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
-            enter_landing(f, mv.landing_lag);
+            if mv.landing_move.is_some() {
+                // (A dive with a landing hit, such as a down air: the same rule as any aerial landing.)
+                land_out_of_move(f, mv, frame, plain_landing_lag(f, p));
+            } else {
+                enter_landing(f, mv.landing_lag);
+            }
             return None;
         }
         // A dash along the ground that carries the fighter past the edge leaves the ground.
@@ -1708,13 +1713,7 @@ fn attack(
         let plain = plain_landing_lag(f, p);
         if air_move(f, p, stage) {
             // Landing early or late in the move autocancels: only the normal landing lag.
-            let clean =
-                frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
-            match mv.landing_move {
-                // A landing hit: its own short move, whose hitboxes come out on the landing frame.
-                Some(next) if !clean => begin_attack(f, MoveId::from_index(next)),
-                _ => enter_landing(f, if clean { plain } else { mv.landing_lag }),
-            }
+            land_out_of_move(f, mv, frame, plain);
             return None;
         }
     } else {
@@ -2049,10 +2048,11 @@ fn tumble_landing(f: &mut Fighter, rules: &Ruleset) {
 }
 
 /// An autolink launch (angle 367, as the reference): the fighter is sent at the attacker's velocity when it hit plus a fifth of the way
-/// from where it is now (after any survival DI) to where the hitbox was, at most `autolink_max_speed` and falling no faster than
-/// `autolink_max_fall`. It is not a tumble, DI has no angle to bend, and the hitstun is the knockback's as usual.
-fn autolink(f: &mut Fighter, rules: &Ruleset) {
-    let pull = (f.link_point - f.pos) * Fx::from_ratio(1, 5);
+/// from its body (its middle, where it is now, after any survival DI) to where the hitbox was, at most `autolink_max_speed` and
+/// falling no faster than `autolink_max_fall`. It is not a tumble, DI has no angle to bend, and the hitstun is the knockback's as usual.
+fn autolink(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    let middle = f.pos + Vec2::new(Fx::ZERO, p.ecb_height / Fx::from_int(2));
+    let pull = (f.link_point - middle) * Fx::from_ratio(1, 5);
     let mut v = f.link_vel + pull;
     let len = v.length();
     if len > rules.autolink_max_speed && len > Fx::ZERO {
@@ -2075,6 +2075,17 @@ fn autolink(f: &mut Fighter, rules: &Ruleset) {
     }
 }
 
+/// Landing during an aerial on its move frame `frame`: early or late in the move it autocancels (only the normal landing lag, `plain`);
+/// otherwise the move's landing lag, or its landing move (a landing hit: its own short move, whose hitboxes come out on the landing
+/// frame).
+fn land_out_of_move(f: &mut Fighter, mv: &Move, frame: u16, plain: u8) {
+    let clean = frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
+    match mv.landing_move {
+        Some(next) if !clean => begin_attack(f, MoveId::from_index(next)),
+        _ => enter_landing(f, if clean { plain } else { mv.landing_lag }),
+    }
+}
+
 /// Turns a pending hit into motion at the end of hitlag. Directional influence: the part of the held stick
 /// that is perpendicular to the launch direction bends the angle, by up to `di_degrees`. Launch speed influence: holding the
 /// stick up or down makes a tumbling launch a little faster or slower (`lsi_up`, `lsi_down`), unless it is close to vertical.
@@ -2088,7 +2099,7 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     let bent = Angle::from_raw((i32::from(f.launch_angle) + bend).rem_euclid(4096) as u16);
 
     if f.link {
-        autolink(f, rules);
+        autolink(f, p, rules);
         return;
     }
     // 0.03 reference units per knockback unit, 8 reference units per world unit.
