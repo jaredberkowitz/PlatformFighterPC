@@ -220,7 +220,7 @@ down tilt and the back air lean less (the body follow adds the rest). Check a mo
   the crescent sweeps under from front to back.
 - **Claws neutral air** (`kick_nair`, `SPLIT_KICKS`): both legs are aimed by the game, one kicked out ahead and one behind, the torso upright
   over the split with the arms thrown up, held through the long late hit.
-- Close-up demos that photograph every frame: `--demo=marth_fair_close`, `marth_dair_close`, `wolf_nair_close` (with `--noui --noecb
+- Close-up demos that photograph every frame: `--demo=sword_fair_close`, `sword_dair_close`, `claws_nair_close` (with `--noui --noecb
   --shots=<folder>`).
 - **Sword swing directions** (tenth pass): `SWING_FROM` now covers every sword move, so each blade comes from the right side (cuts that come
   down wind up from above, rising cuts from below); the resting blade is shorter to match the shorter reach; the move tip the game aims at is
