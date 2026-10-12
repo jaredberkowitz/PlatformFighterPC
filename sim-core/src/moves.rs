@@ -270,6 +270,35 @@ pub struct Hitbox {
     pub hitlag: u16,
     /// What the hit is made of: [`EFFECT_NORMAL`] or [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick).
     pub effect: u8,
+    /// Who it can hit: [`TARGETS_ALL`], or only fighters on the ground ([`TARGETS_GROUNDED`]) or in the air ([`TARGETS_AERIAL`]).
+    pub targets: u8,
+    /// Set knockback (the reference's "fixed knockback value"): when above 0 the knockback is worked out as if the victim's percent
+    /// were this, whatever it really is, so the hit sends the same distance at any percent. 0 for normal knockback.
+    pub fixed_kb: u16,
+    /// Extra hitstun frames this hit adds (the reference's hitstun modifier).
+    pub hitstun_add: u8,
+    /// Percent of the normal survival-DI distance the victim gets during this hit's hitlag (100 is normal).
+    pub sdi: u16,
+}
+
+/// `Hitbox::targets` values.
+pub const TARGETS_ALL: u8 = 0;
+pub const TARGETS_GROUNDED: u8 = 1;
+pub const TARGETS_AERIAL: u8 = 2;
+
+/// The autolink angle (the reference's 367): an airborne victim is launched at the attacker's velocity plus a pull toward the
+/// hitbox (see `combat::autolink`), so a multi-hit carries it along; a grounded one is sent at 80 degrees.
+pub const ANGLE_AUTOLINK: i16 = 367;
+
+impl Hitbox {
+    /// The fields added after the first release of the format, at their defaults (what older content means).
+    pub const fn extras(mut self) -> Hitbox {
+        self.targets = TARGETS_ALL;
+        self.fixed_kb = 0;
+        self.hitstun_add = 0;
+        self.sdi = 100;
+        self
+    }
 }
 
 /// `Hitbox::effect` values.
@@ -368,6 +397,11 @@ pub struct Move {
     pub next_window: u8,
     /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
     pub rehit: Option<(u8, u8)>,
+    /// The hit groups the rehit rhythm re-arms (bit `g` for group `g`); others hit once per move (a multi-hit's final hit). All by default.
+    pub rehit_groups: u8,
+    /// A move (usually an `ext` slot) started when this aerial lands outside its autocancel windows, instead of the plain landing lag:
+    /// a landing hit. Its length is the landing lag.
+    pub landing_move: Option<u8>,
     pub reflector: Option<Reflector>,
     pub counter: Option<Counter>,
     /// This move's hitboxes deal the damage the fighter's counter stance caught (see [`Counter`]).
@@ -399,6 +433,8 @@ impl Move {
             next: None,
             next_window: 0,
             rehit: None,
+            rehit_groups: 0xff,
+            landing_move: None,
             reflector: None,
             counter: None,
             counter_strike: false,
@@ -446,6 +482,10 @@ impl StateHash for Hitbox {
         h.write_u16(self.shield_damage);
         h.write_u16(self.hitlag);
         h.write_u8(self.effect);
+        h.write_u8(self.targets);
+        h.write_u16(self.fixed_kb);
+        h.write_u8(self.hitstun_add);
+        h.write_u16(self.sdi);
     }
 }
 
@@ -506,6 +546,14 @@ impl StateHash for Weapon {
                     h.write_bool(true);
                     h.write_u8(start);
                     h.write_u8(every);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.rehit_groups);
+            match m.landing_move {
+                Some(id) => {
+                    h.write_bool(true);
+                    h.write_u8(id);
                 }
                 None => h.write_bool(false),
             }
@@ -585,6 +633,10 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 shield_damage: 100,
                 hitlag: 100,
                 effect: EFFECT_NORMAL,
+                targets: TARGETS_ALL,
+                fixed_kb: 0,
+                hitstun_add: 0,
+                sdi: 100,
             })
             .collect(),
         ..Move::empty()
@@ -625,6 +677,10 @@ fn row(r: &R) -> Hitbox {
         shield_damage: 100,
         hitlag: 100,
         effect: EFFECT_NORMAL,
+        targets: TARGETS_ALL,
+        fixed_kb: 0,
+        hitstun_add: 0,
+        sdi: 100,
     }
 }
 
@@ -1548,6 +1604,10 @@ pub fn claws() -> Weapon {
             shield_damage: 100,
             hitlag: 100,
             effect: EFFECT_NORMAL,
+            targets: TARGETS_ALL,
+            fixed_kb: 0,
+            hitstun_add: 0,
+            sdi: 100,
         },
         end_damage: Fx::from_int(6),
     });

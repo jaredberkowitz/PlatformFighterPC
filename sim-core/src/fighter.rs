@@ -1623,11 +1623,11 @@ fn attack(
         f.state_frame -= 1;
     }
 
-    // A multi-hit move lets its hits land again at a steady rhythm.
+    // A multi-hit move lets its hits land again at a steady rhythm (only the groups it re-arms: a final hit lands once).
     if let Some((start, every)) = mv.rehit {
         let start = u16::from(start);
         if f.state_frame >= start && (f.state_frame - start) % u16::from(every.max(1)) == 0 {
-            f.hit_mask = 0;
+            f.hit_mask &= !crate::combat::group_bits(mv.rehit_groups);
         }
     }
 
@@ -1710,7 +1710,11 @@ fn attack(
             // Landing early or late in the move autocancels: only the normal landing lag.
             let clean =
                 frame < u16::from(mv.autocancel_before) || frame >= u16::from(mv.autocancel_after);
-            enter_landing(f, if clean { plain } else { mv.landing_lag });
+            match mv.landing_move {
+                // A landing hit: its own short move, whose hitboxes come out on the landing frame.
+                Some(next) if !clean => begin_attack(f, MoveId::from_index(next)),
+                _ => enter_landing(f, if clean { plain } else { mv.landing_lag }),
+            }
             return None;
         }
     } else {
@@ -2044,6 +2048,33 @@ fn tumble_landing(f: &mut Fighter, rules: &Ruleset) {
     }
 }
 
+/// An autolink launch (angle 367, as the reference): the fighter is sent at the attacker's velocity when it hit plus a fifth of the way
+/// from where it is now (after any survival DI) to where the hitbox was, at most `autolink_max_speed` and falling no faster than
+/// `autolink_max_fall`. It is not a tumble, DI has no angle to bend, and the hitstun is the knockback's as usual.
+fn autolink(f: &mut Fighter, rules: &Ruleset) {
+    let pull = (f.link_point - f.pos) * Fx::from_ratio(1, 5);
+    let mut v = f.link_vel + pull;
+    let len = v.length();
+    if len > rules.autolink_max_speed && len > Fx::ZERO {
+        v = v * (rules.autolink_max_speed / len);
+    }
+    v.y = v.y.max(-rules.autolink_max_fall);
+    f.kb_vel = v;
+    f.tumble = false;
+    f.link = false;
+    f.vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.balloon_faf = 0;
+    f.balloon_left = Fx::ZERO;
+    if f.grounded() {
+        if f.kb_vel.y > Fx::ZERO {
+            f.platform = NONE;
+        } else {
+            f.kb_vel.y = Fx::ZERO;
+        }
+    }
+}
+
 /// Turns a pending hit into motion at the end of hitlag. Directional influence: the part of the held stick
 /// that is perpendicular to the launch direction bends the angle, by up to `di_degrees`. Launch speed influence: holding the
 /// stick up or down makes a tumbling launch a little faster or slower (`lsi_up`, `lsi_down`), unless it is close to vertical.
@@ -2056,6 +2087,10 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
         (cross.mul_int(i32::from(rules.di_degrees)) * Fx::from_ratio(4096, 360)).raw() / 65536;
     let bent = Angle::from_raw((i32::from(f.launch_angle) + bend).rem_euclid(4096) as u16);
 
+    if f.link {
+        autolink(f, rules);
+        return;
+    }
     // 0.03 reference units per knockback unit, 8 reference units per world unit.
     let mut speed = f.launch_kb * Fx::from_ratio(3, 800);
     f.tumble = f.launch_kb >= rules.tumble_knockback;
@@ -2149,6 +2184,10 @@ fn sdi(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset, shiel
     } else {
         rules.sdi_distance
     };
+    // The hit's own SDI multiplier (a multi-hit's loop is easier to escape, a hit meant to connect harder).
+    if !shield {
+        d = d * Fx::from_ratio(i32::from(f.sdi_mult), 100);
+    }
     // Every `sdi_combo_hits` hits of one combo, survival DI goes further (so long multi-hits can be escaped).
     if let Some(steps) = f.hits_taken.checked_div(rules.sdi_combo_hits) {
         for _ in 0..steps.min(8) {

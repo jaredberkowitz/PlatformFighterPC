@@ -70,7 +70,9 @@ A move block (omitted fields take the default shown):
 | `charge_at` | smash attack hold frame | none |
 | `next`, `next_window` | jab chain: move to continue into, and the press window | none |
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |
-| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric` | |
+| `rehit_groups` | the hit groups the rehit rhythm re-arms, a bit per group (a looping phase is re-armed, its final hit is not) | 255 (all) |
+| `landing_move` | a move (usually an `ext` slot) started when this aerial lands outside its autocancel windows: a landing hit; its length is the landing lag | none |
+| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] [targets] [fixed_kb] [hitstun_add] [sdi] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric`; `group` 0 to 7 (each group hits a target once per move, or once per rehit); `targets` is `all`, `grounded` or `aerial`; `fixed_kb` set knockback (the same at any percent; 0 = normal); `hitstun_add` extra hitstun frames; `sdi` the percent of the normal survival-DI distance (default 100). `angle` 361 is the Sakurai angle and 367 the autolink angle (an airborne victim is carried along at the attacker's velocity and pulled toward the hitbox; a grounded one goes up at 80) | |
 | `motion { start end vx vy }` | scripted-motion segments (`vx` forward-relative) | |
 | `projectile { frame x y speed life end_damage  hitbox { ... } }` | at most one | |
 | `reflector { start end x y radius damage_percent speed_percent }` | at most one | |

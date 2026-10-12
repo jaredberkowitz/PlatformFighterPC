@@ -887,6 +887,10 @@ pub struct Ruleset {
     /// A B-reverse: the stick pushed the other way in the first this many frames of a neutral or side special turns the fighter round and
     /// reverses its momentum in the air (the reference game: within 4 frames of the special input).
     pub special_reverse_window: u8,
+    /// The autolink angle's caps (world units a frame): the launch speed at most `autolink_max_speed` (the reference's 3, the speed
+    /// of 100 knockback) and the fall no faster than `autolink_max_fall` (the reference's 1).
+    pub autolink_max_speed: Fx,
+    pub autolink_max_fall: Fx,
     /// Hitlag factor of an electric hit (for both fighters).
     pub electric_hitlag_mult: Fx,
     /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
@@ -995,6 +999,8 @@ impl Ruleset {
             helpless_drift: Fx::from_ratio(1, 2),
             special_turn_window: 3,
             special_reverse_window: 4,
+            autolink_max_speed: Fx::from_ratio(3, 8),
+            autolink_max_fall: Fx::from_ratio(1, 8),
             electric_hitlag_mult: Fx::from_ratio(3, 2),
             asdi_distance: Fx::from_ratio(133, 800),
             sdi_combo_hits: 5,
@@ -1091,6 +1097,8 @@ impl StateHash for Ruleset {
         self.helpless_drift.hash_into(h);
         h.write_u8(self.special_turn_window);
         h.write_u8(self.special_reverse_window);
+        self.autolink_max_speed.hash_into(h);
+        self.autolink_max_fall.hash_into(h);
         self.electric_hitlag_mult.hash_into(h);
         self.asdi_distance.hash_into(h);
         h.write_u8(self.sdi_combo_hits);

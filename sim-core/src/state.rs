@@ -149,8 +149,8 @@ pub struct Fighter {
     pub tumble: bool,
     /// Index of the move being performed, see `moves::MoveId`.
     pub move_id: u8,
-    /// Bit `n` set means this move has already hit fighter `n`.
-    pub hit_mask: u8,
+    /// The move's hit history: bit `n + 4 * g` set means hit group `g` (0 to 7) of this move has already hit fighter `n`.
+    pub hit_mask: u32,
     /// Frames the current smash attack has been charged.
     pub charge: u8,
     /// Shield health; it drains while the shield is up and refills when it is not.
@@ -159,6 +159,13 @@ pub struct Fighter {
     pub shield_stun: u8,
     /// Frames until the next survival-DI nudge can happen.
     pub sdi_wait: u8,
+    /// Percent of the normal survival-DI distance during the current hitlag (the hit's own multiplier).
+    pub sdi_mult: u16,
+    /// The pending launch is an autolink (angle 367): when hitlag ends the fighter is sent at `link_vel` (the attacker's velocity
+    /// when it hit) plus a share of the way from where it is to `link_point` (where the hitbox was), not along a knockback angle.
+    pub link: bool,
+    pub link_vel: Vec2,
+    pub link_point: Vec2,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
@@ -337,6 +344,10 @@ impl Fighter {
             move_id: 0,
             hit_mask: 0,
             charge: 0,
+            sdi_mult: 100,
+            link: false,
+            link_vel: Vec2::ZERO,
+            link_point: Vec2::ZERO,
             shield_hp,
             shield_stun: 0,
             sdi_wait: 0,
@@ -470,8 +481,12 @@ impl StateHash for Fighter {
         self.kb_vel.hash_into(h);
         h.write_bool(self.tumble);
         h.write_u8(self.move_id);
-        h.write_u8(self.hit_mask);
+        h.write_u32(self.hit_mask);
         h.write_u8(self.charge);
+        h.write_u16(self.sdi_mult);
+        h.write_bool(self.link);
+        self.link_vel.hash_into(h);
+        self.link_point.hash_into(h);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
         h.write_u8(self.sdi_wait);
@@ -773,6 +788,31 @@ mod tests {
             ("hit_mask", {
                 let mut s = state;
                 s.fighters[0].hit_mask = 1;
+                s
+            }),
+            ("hit_mask high groups", {
+                let mut s = state;
+                s.fighters[0].hit_mask = 1 << 28;
+                s
+            }),
+            ("sdi_mult", {
+                let mut s = state;
+                s.fighters[0].sdi_mult = 120;
+                s
+            }),
+            ("link", {
+                let mut s = state;
+                s.fighters[0].link = true;
+                s
+            }),
+            ("link_vel", {
+                let mut s = state;
+                s.fighters[0].link_vel = Vec2::new(Fx::ZERO, Fx::ONE);
+                s
+            }),
+            ("link_point", {
+                let mut s = state;
+                s.fighters[0].link_point = Vec2::new(Fx::ONE, Fx::ZERO);
                 s
             }),
             ("charge", {
