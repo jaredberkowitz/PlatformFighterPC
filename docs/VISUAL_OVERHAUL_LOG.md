@@ -19,3 +19,20 @@ See the audit. Baselines: `overhaul_0_skyline_hud.png`, `overhaul_0_fx.png` and 
   blur 0.5); props already sit on painted contact shade from the graphics pass; any prop missing it is covered in phase 3.
 * No other change was needed for the plan's 1.1 / 1.2 (the moods, rim light and fighters' edge light already give the separation it asks
   for, and the look bench measures it).
+
+## Phase 2: character rendering
+
+* Audit: every fighter part is the shared cel family (`toon`, `skin`, `limb`, `toon_cloth`, `face`), lit by `toon_light.gdshaderinc`, with
+  the hull outline (constant screen width, fighters at full weight and tinted with their own colour) plus the screen-space ink; every
+  class and moveset uses the one base body, so changes there reach all of them. Before this phase every part had the same response.
+* Material responses (`FighterView.RESPONSES`, applied with `respond()` on copies, so props sharing a cached material are untouched):
+  skin a softer ramp and almost no sheen; gloves and soles rubbery (a firmer step, a wider soft sheen); shoes the same; cloth stays matte
+  (the existing cloth ramp); the blade and its guard metal. A new optional term in the shared light, `metal` (0 by default): a crisp glint
+  band and a stronger rim.
+* The sword's blade was a thin box, so its face never changed angle and no light term could make it read as metal. It is now a blade
+  shape of the same size (`_blade_shape`: a diamond cross-section, a ridge, flat bevels, a point): the upper bevels light and the lower
+  ones shade, the classic two-tone blade, and the glint moves along the bevels as it swings (`overhaul_2_materials.png`, before and after
+  pairs; `overhaul_2_closeup.png`).
+* Outlines: already distance-compensated (`outline.gdshader`: constant screen width between a minimum and a maximum) and weighted
+  (fighters full, scenery 0.6); fighters stay told apart by their tinted line, edge light and look. No change needed.
+* Checks: fighter view test (every move of all three classes), loadout and art pipeline tests passed; look bench PASSED, worst 0.93.

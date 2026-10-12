@@ -20,6 +20,9 @@ uniform float shadow_amount : hint_range(0.0, 1.0) = 0.62;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 1.0) = 0.55;
 uniform float sheen : hint_range(0.0, 1.0) = 0.04;
+// How metallic the surface reads (0 none, the default): a crisp bright band where the light glances off it, which slides along a blade as
+// it turns, and a stronger rim. Stylized, not physical.
+uniform float metal : hint_range(0.0, 1.0) = 0.0;
 // How much stronger the rim is on this object (fighters set it above 1 so they lift off the background; see `_tag_object`).
 instance uniform float rim_boost : instance_index(2) = 1.0;
 // 1 on a fighter (set by fighter_view.gd): it gets the edge light, and its shadow side is kept a little lighter so it reads anywhere.
@@ -81,6 +84,12 @@ void light() {
 	vec3 half_dir = normalize(LIGHT + VIEW);
 	float s = pow(clamp(dot(NORMAL, half_dir), 0.0, 1.0), 24.0);
 	SPECULAR_LIGHT += vec3(smoothstep(0.4, 0.6, s) * sheen) * LIGHT_COLOR / PI * ATTENUATION;
+	if (metal > 0.0) {
+		float nh = clamp(dot(NORMAL, half_dir), 0.0, 1.0);
+		float band = smoothstep(0.9, 0.93, nh) + 0.35 * smoothstep(0.62, 0.7, nh) * (1.0 - smoothstep(0.84, 0.9, nh));
+		SPECULAR_LIGHT += vec3(band * metal * 1.4) * LIGHT_COLOR / PI * ATTENUATION;
+		SPECULAR_LIGHT += pf_rim_color.rgb * rim * metal * 0.5 * LIGHT_COLOR / PI;
+	}
 	// A fighter's edge light: pale, all round the silhouette whatever the light's direction (half from each of the two lights).
 	float around = smoothstep(0.62, 0.95, edge);
 	SPECULAR_LIGHT += pf_edge_light.rgb * pf_edge_light.a * around * fighter * 0.5;

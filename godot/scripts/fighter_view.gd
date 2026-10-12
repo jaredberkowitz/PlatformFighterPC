@@ -156,6 +156,8 @@ static func release_caches() -> void:
 	_mat_cache.clear()
 	_limb_cache.clear()
 	_cloth_cache.clear()
+	_respond_cache.clear()
+	_blade_cache = null
 	_mesh_cache.clear()
 	_outline_mat = null
 	_cloth_outline = null
@@ -244,7 +246,9 @@ func _build_rig(skin: Material) -> bool:
 	for clip_name in anim.get_animation_list():
 		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
 	var white := toon(Color(1, 1, 1))
-	var shoe := toon(Color(0.27, 0.2, 0.3))
+	# Each kind of stuff takes the light its own way (`respond`): rubbery gloves and soles, the shoes' sheen; cloth stays matte.
+	var glove := respond(white, "rubber")
+	var shoe := respond(toon(Color(0.27, 0.2, 0.3)), "rubber")
 	var shirt := _shirt_material()
 	# The shorts take the outfit colour (the accent, a shade darker) under a plain shirt, and navy under a coloured one.
 	var shorts_colour: Color = loadout.accent_color().darkened(0.2) if loadout.shirt <= 1 else Color(0.22, 0.25, 0.42)
@@ -265,7 +269,9 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = arm
 		elif part.begins_with("Leg"):
 			mi.material_override = leg
-		elif part.begins_with("Hand") or part.begins_with("Sole") or part.begins_with("Collar") or part.begins_with("Cuff"):
+		elif part.begins_with("Hand") or part.begins_with("Sole"):
+			mi.material_override = glove
+		elif part.begins_with("Collar") or part.begins_with("Cuff"):
 			mi.material_override = white
 		elif part.begins_with("Strap"):
 			mi.material_override = toon(loadout.accent_color())
@@ -774,12 +780,11 @@ func build(p: int, l: RefCounted = null) -> void:
 	model.add_child(stage_frame)
 	blade_pivot = Node3D.new()
 	stage_frame.add_child(blade_pivot)
-	var blade_mesh := BoxMesh.new()
-	blade_mesh.size = Vector3(2.7, 0.16, 0.09)
-	blade_parts.append(_part(blade_pivot, blade_mesh, toon(Color(0.86, 0.91, 0.99)), Vector3(1.55, 0, 0)))
+	var blade_mesh := _blade_shape()
+	blade_parts.append(_part(blade_pivot, blade_mesh, respond(toon(Color(0.82, 0.87, 0.96)), "metal"), Vector3(1.55, 0, 0)))
 	var guard_mesh := BoxMesh.new()
 	guard_mesh.size = Vector3(0.12, 0.6, 0.12)
-	blade_parts.append(_part(blade_pivot, guard_mesh, toon(Color(0.92, 0.76, 0.3)), Vector3(0.18, 0, 0)))
+	blade_parts.append(_part(blade_pivot, guard_mesh, respond(toon(Color(0.92, 0.76, 0.3)), "gold"), Vector3(0.18, 0, 0)))
 	var grip_mesh := BoxMesh.new()
 	grip_mesh.size = Vector3(0.4, 0.12, 0.12)
 	_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.02, 0, 0))
@@ -1110,6 +1115,8 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 			m.set_shader_parameter("shirt", Color(0, 0, 0, 0))
 	m.set_shader_parameter("shorts", shorts_c)
 	m.set_shader_parameter("painted_clothes", painted_clothes)
+	for p in RESPONSES.skin:
+		m.set_shader_parameter(p, RESPONSES.skin[p])
 	m.set_shader_parameter("shoe", Color(0.27, 0.2, 0.3))
 	m.set_shader_parameter("strap", accent)
 	var regions: Dictionary = _base_rig_info().get("clothes", {})
@@ -1133,6 +1140,68 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 
 
 ## The banded limb material (see shaders/limb.gdshader), with the ink outline. A `top` with negative alpha means no top band.
+static var _blade_cache: ArrayMesh = null
+
+
+## The sword's blade: 2.7 long (x, centred), 0.16 deep and 0.09 thick like the box it replaced (so the code that stretches it to the
+## move's reach is unchanged), but with a diamond cross-section (a ridge down the middle, two bevels each side, flat-shaded) and a point.
+## The upper bevels catch the key light and the lower ones fall into shade, the classic two-tone blade, and as the blade swings its bevels
+## tilt and the metal highlight (`RESPONSES.metal`) slides along them.
+static func _blade_shape() -> ArrayMesh:
+	if _blade_cache != null:
+		return _blade_cache
+	var half := 1.35
+	var tip_from := 0.95
+	var h := 0.08
+	var t := 0.045
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
+	# The cross-section at x: top, front, bottom, back, shrinking to nothing at the point.
+	var ring := func(x: float) -> Array:
+		var k := 1.0 if x <= tip_from else clampf((half - x) / (half - tip_from), 0.0, 1.0)
+		return [Vector3(x, h * k, 0), Vector3(x, 0, t * k), Vector3(x, -h * k, 0), Vector3(x, 0, -t * k)]
+	var xs := [-half, tip_from, half]
+	for i in xs.size() - 1:
+		var a: Array = ring.call(xs[i])
+		var b: Array = ring.call(xs[i + 1])
+		for k in 4:
+			var k2 := (k + 1) % 4
+			st.add_vertex(a[k]); st.add_vertex(b[k]); st.add_vertex(b[k2])
+			st.add_vertex(a[k]); st.add_vertex(b[k2]); st.add_vertex(a[k2])
+	# The flat end at the hilt.
+	var base: Array = ring.call(-half)
+	st.add_vertex(base[0]); st.add_vertex(base[2]); st.add_vertex(base[1])
+	st.add_vertex(base[0]); st.add_vertex(base[3]); st.add_vertex(base[2])
+	st.generate_normals()
+	_blade_cache = st.commit()
+	return _blade_cache
+
+
+## How each kind of stuff on a fighter takes the light (shaders/toon_light.gdshaderinc), so skin, cloth, rubber and metal read apart while
+## sharing one cel look: [parameter: value].
+const RESPONSES := {
+	"skin": {"ramp_softness": 0.21, "sheen": 0.015},
+	"rubber": {"ramp_softness": 0.12, "sheen": 0.16},
+	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "metal": 1.0, "rim_strength": 0.55},
+	"gold": {"ramp_softness": 0.1, "sheen": 0.0, "metal": 0.75, "rim_strength": 0.5},
+}
+static var _respond_cache := {}
+
+
+## A copy of material `m` with the light response `kind` (`RESPONSES`). Copies are shared per material and kind; `m` itself (often shared
+## with props through `toon`'s cache) is never changed.
+static func respond(m: ShaderMaterial, kind: String) -> ShaderMaterial:
+	var key := "%d|%s" % [m.get_instance_id(), kind]
+	if _respond_cache.has(key):
+		return _respond_cache[key]
+	var c := m.duplicate() as ShaderMaterial
+	for p in RESPONSES[kind]:
+		c.set_shader_parameter(p, RESPONSES[kind][p])
+	_respond_cache[key] = c
+	return c
+
+
 static func _limb_material(skin_c: Color, top_c: Color, top_end: float, bottom_c: Color, bottom_start: float) -> ShaderMaterial:
 	var key := "%s%s%s%s%s" % [skin_c.to_html(), top_c, top_end, bottom_c.to_html(), bottom_start]
 	if _limb_cache.has(key):
@@ -1145,6 +1214,8 @@ static func _limb_material(skin_c: Color, top_c: Color, top_end: float, bottom_c
 		m.set_shader_parameter("top_end", top_end)
 	m.set_shader_parameter("bottom", bottom_c)
 	m.set_shader_parameter("bottom_start", bottom_start)
+	for p in RESPONSES.skin:
+		m.set_shader_parameter(p, RESPONSES.skin[p])
 	m.next_pass = toon(Color.WHITE).next_pass
 	_limb_cache[key] = m
 	return m
