@@ -1614,36 +1614,26 @@ class Waves extends Node3D:
 	var level := -9.0
 	var foam: Array = []
 
+	## The sea (shaders/water.gdshader): banded colour, drifting streaks, a swell, glints and foam where things stand in it; the Fast
+	## tier gets the bands only.
 	func build() -> void:
 		var water := MeshInstance3D.new()
 		var plane := PlaneMesh.new()
 		plane.size = Vector2(500, 260)
+		plane.subdivide_width = 80
+		plane.subdivide_depth = 40
 		water.mesh = plane
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.2, 0.56, 0.82)
-		m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-		m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-		m.roughness = 0.4
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/water.gdshader")
+		m.set_shader_parameter("cheap", load("res://scripts/visual_settings.gd").get_index("quality") == 0)
+		# After the finishing pass (-100) but before every other see-through thing (name tags, effects, halos at 0), which it would
+		# otherwise paint over.
+		m.render_priority = -50
 		water.material_override = m
 		water.position = Vector3(0, level, -100)
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(water)
-		var fm := StandardMaterial3D.new()
-		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		fm.albedo_color = Color(0.9, 0.97, 1.0)
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 4
-		for k in 40:
-			var f := MeshInstance3D.new()
-			var b := BoxMesh.new()
-			b.size = Vector3(rng.randf_range(2.0, 6.0), 0.05, 0.25)
-			f.mesh = b
-			f.material_override = fm
-			f.position = Vector3(rng.randf_range(-120, 120), level + 0.05, rng.randf_range(-150, -8))
-			add_child(f)
-			foam.append([f, rng.randf() * TAU, f.position.x])
 
 	func _process(_delta: float) -> void:
 		var t := Time.get_ticks_msec() / 1000.0
 		position.y = sin(t * 0.8) * 0.12
-		for f in foam:
-			f[0].position.x = f[2] + sin(t * 0.4 + f[1]) * 1.5

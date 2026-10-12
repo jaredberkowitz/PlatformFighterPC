@@ -107,3 +107,21 @@ would have been used for here, and it adds a texture format question for no visi
   `fidelity_5_treetop_later.png` (a second apart); Treetop Isle GPU 1.47 ms (1.39 before; budget 1 ms), draw calls 367 (440 before: the
   tree's 23 balls were separate draws, now one core mesh and one card MultiMesh per crown); look bench as below.
 Look bench PASSED, worst 0.93.
+
+## Phase 6: water
+
+* `shaders/water.gdshader` replaces the flat toon sea and its 40 foam boxes: shallow-to-deep colour in four bands toward the horizon, two
+  layers of long streaks drifting at different speeds, a gentle swell on a subdivided plane, glints that come and go, and a ruffled band
+  of foam where something stands in the water (from the depth texture: the far islands, the lighthouse, the boat). It is drawn after the
+  finishing pass, so it applies the stage's distance haze itself. The Fast tier keeps the bands only.
+* A draw-order bug caught in the stills: as a see-through material the sea sorted after the name tags and painted over them (they went
+  pale); it now draws at priority -50, after the finishing pass (-100) and before every other see-through thing (0).
+* Unchanged on purpose: the plane's size, so a fighter below the waterline is hidden by the sea as before; the ledges and anything a
+  fighter does on the island are well above it.
+* Checked: Flat Island GPU 1.15 ms with the new sea (no before figure: the comparison run accidentally used the new code too); look bench
+  PASSED, worst 0.93.
+* Phase 3's far blur softened Skyline's brightest windows into the walls and its spread fell to 0.762; the city's finish now lifts less
+  and curves more (lift 0.02, S-curve 0.48), back to 0.784 (+26% on the baseline).
+
+Final stills: `fidelity_6_*.png`. Spreads against the baseline: Meadow 0.588 (0.535), Triple Tier 0.523 (0.492), Flat Island 0.539
+(0.468), Skyline 0.784 (0.622), Treetop Isle 0.479 (0.420).
