@@ -14,7 +14,7 @@ const OPTIONS := {
 	"effects": {"label": "Effects", "choices": ["Low", "Medium", "Full"], "default": 2,
 		"about": "How many sparks, dust puffs and confetti hit effects throw."},
 	"quality": {"label": "Quality", "choices": ["Fast", "Balanced", "Best"], "default": 2,
-		"about": "Fast turns off shadows and anti-aliasing for slower machines; Balanced uses lighter anti-aliasing."},
+		"about": "Fast turns off shadows, anti-aliasing and glow for slower machines; Balanced uses lighter anti-aliasing."},
 }
 const ORDER := ["shake", "flashes", "effects", "quality"]
 
@@ -71,6 +71,8 @@ static func apply_quality(env: Environment, root: Node, viewport: Viewport) -> v
 		if key != null:
 			key.shadow_enabled = false
 		viewport.msaa_3d = Viewport.MSAA_DISABLED
+		# No bloom on Fast (the effects and lit windows stay flat).
+		env.glow_enabled = false
 
 
 static func _load() -> void:

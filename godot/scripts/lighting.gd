@@ -48,14 +48,16 @@ const STYLE_DEFAULT := {
 	"deep": 0.78,
 	"edge": Color(1.0, 0.97, 0.9, 0.26),
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
+	# How strongly the effects and lit things (the city's windows, lamps) bloom.
+	"glow": 0.75,
 }
 const STYLES := {
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55]},
 	"sunset": {"edge": Color(1.0, 0.86, 0.74, 0.34), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72},
-	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74,
+	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5]},
-	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72},
+	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1},
 }
 
 
@@ -160,6 +162,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		fill.light_energy = mood.fill[1]
 	env.ambient_light_color = mood.ambient[0]
 	env.ambient_light_energy = mood.ambient[1]
+	env.glow_intensity = float(style(theme.get("name", "meadow")).glow)
 	if post != null:
 		post.set_shader_parameter("grade_shadows", mood.grade[0])
 		post.set_shader_parameter("grade_lights", mood.grade[1])

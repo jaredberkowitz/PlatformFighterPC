@@ -9,6 +9,7 @@ extends RefCounted
 ## project's soft cel style.
 
 const SvgArt := preload("res://scripts/svg_art.gd")
+const FxMaterial := preload("res://scripts/fx_material.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Materials := preload("res://scripts/materials.gd")
 const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
@@ -569,6 +570,7 @@ static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
 	_mesh(root, _box(Vector3(0.14, 2.2, 0.14)), wood, at + Vector3(0, 1.1, 0))
 	_mesh(root, _box(Vector3(0.7, 0.1, 0.1)), wood, at + Vector3(0.3, 2.15, 0))
 	_mesh(root, _cylinder(0.14, 0.18, 0.36, 6), _unshaded(glow), at + Vector3(0.58, 1.86, 0))
+	_halo(root, at + Vector3(0.58, 1.86, 0.25), glow, 1.3)
 	_mesh(root, _cylinder(0.0, 0.22, 0.14, 6), FighterView.toon(Color(0.3, 0.26, 0.3), false), at + Vector3(0.58, 2.1, 0))
 
 
@@ -616,7 +618,45 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 		seg.basis = Basis.looking_at(p - prev, Vector3.UP)
 		if k < n:
 			_mesh(root, _sphere(0.11, 6), bulbs[k % 3], p + Vector3(0, -0.12, 0))
+			_halo(root, p + Vector3(0, -0.12, 0.15), (bulbs[k % 3] as StandardMaterial3D).albedo_color, 0.55)
 		prev = p
+
+
+## A soft glow round a light (a lamp, a bulb): a see-through card facing the camera, its colour fading out from a near-white middle
+## (shaders/fx.gdshader), so it blooms with the effects and is drawn after the finishing pass. `size` is its width in world units.
+static func _halo(parent: Node3D, at: Vector3, colour: Color, size: float) -> MeshInstance3D:
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	var mi := MeshInstance3D.new()
+	mi.mesh = quad
+	mi.material_override = FxMaterial.get_material(false, 0, _halo_texture(colour), 0.6)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = at
+	parent.add_child(mi)
+	return mi
+
+
+static var _halo_cache := {}
+
+
+static func _halo_texture(colour: Color) -> Texture2D:
+	var key := colour.to_html()
+	if _halo_cache.has(key):
+		return _halo_cache[key]
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 1.0, 1.0, 0.95).lerp(colour, 0.25))
+	g.set_color(1, Color(colour.r, colour.g, colour.b, 0.0))
+	g.add_point(0.18, Color(colour.r, colour.g, colour.b, 0.75).lerp(Color.WHITE, 0.35))
+	g.add_point(0.5, Color(colour.r, colour.g, colour.b, 0.22))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 64
+	tex.height = 64
+	_halo_cache[key] = tex
+	return tex
 
 
 ## Painted backdrop layers for a theme, if it has any: godot/art/backdrops/<theme>/layers.json lists pictures (PNG with transparency) to
@@ -1107,16 +1147,12 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var dot := _sphere(0.3, 6)
 	for k in 70:
 		_mesh(root, dot, star, Vector3(rng.randf_range(-140, 140), rng.randf_range(20, 75), rng.randf_range(-160, -130)))
-	# Three layers of buildings, darker and smaller the further back, with lit windows.
+	# Three layers of buildings, darker and smaller the further back, their windows painted on by one facade shader per layer
+	# (shaders/facade.gdshader): the nearest layer's lit windows glow, the far ones less.
 	for layer in 3:
 		var z := -40.0 - layer * 28.0
 		var shade := Color(0.16, 0.14, 0.3).lerp(Color(0.28, 0.2, 0.42), layer / 2.0)
-		var x := -120.0
-		while x < 120.0:
-			var w := rng.randf_range(6.0, 13.0)
-			var h := rng.randf_range(10.0, 34.0) * (1.0 - layer * 0.15)
-			_building(root, Vector3(x + w / 2.0, float(e[3]) - 6.0, z), Vector3(w, h, 5.0), shade, rng, layer)
-			x += w + rng.randf_range(0.5, 3.0)
+		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - 6.0)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
 	var tower := Vector3(float(e[0]) + 3.0, roof, -6.0)
@@ -1139,19 +1175,126 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_contact(root, Vector3(float(e[1]) - 6.0, roof, -4.0), Vector2(0.38, 0.32))
 	_contact(root, tower, Vector2(1.2, 1.1))
 	_contact(root, mast, Vector2(0.2, 0.18))
+	_roof_marks(root, e, rng)
 
 
-static func _building(root: Node3D, base: Vector3, size: Vector3, shade: Color, rng: RandomNumberGenerator, layer: int) -> void:
-	_mesh(root, _box(size), _unshaded(shade), base + Vector3(0, size.y / 2.0, 0))
-	# Windows: a grid of small squares, some lit.
-	var lit := _unshaded(Color(1.0, 0.86, 0.48).darkened(layer * 0.15))
-	var cols := maxi(1, int(size.x / 2.0))
-	var rows := maxi(1, int(size.y / 2.6))
-	var pane := _box(Vector3(0.7, 0.9, 0.05))
-	for r in rows:
-		for c in cols:
-			if rng.randf() < 0.42:
-				_mesh(root, pane, lit, base + Vector3(-size.x / 2.0 + (c + 0.5) * size.x / cols, 1.5 + r * 2.6, size.z / 2.0 + 0.03))
+## Weathering on the rooftop behind the fighters: a water stain, a puddle with the sky in it, a tar patch and some grime
+## (godot/art/stage/roof_detail.svg, four marks side by side), each a decal laid on the roof, turned and sized a little differently.
+static func _roof_marks(root: Node3D, e: Array, rng: RandomNumberGenerator) -> void:
+	var marks := _roof_mark_textures()
+	if marks.is_empty():
+		return
+	var roof: float = e[2]
+	var left: float = e[0]
+	var right: float = e[1]
+	var spots := [[0.18, -2.2, 0], [0.42, -4.6, 1], [0.66, -1.8, 2], [0.86, -3.8, 3], [0.3, -5.6, 3]]
+	for spot in spots:
+		var d := Decal.new()
+		d.texture_albedo = marks[int(spot[2])]
+		var k := rng.randf_range(2.2, 3.4)
+		d.size = Vector3(k, 0.3, k * 0.8)
+		d.position = Vector3(lerpf(left, right, float(spot[0])), roof + 0.05, float(spot[1]))
+		d.rotation.y = rng.randf_range(-0.5, 0.5)
+		d.upper_fade = 0.3
+		d.lower_fade = 0.3
+		root.add_child(d)
+
+
+static var _roof_marks_cache: Array = []
+
+
+static func _roof_mark_textures() -> Array:
+	if not _roof_marks_cache.is_empty():
+		return _roof_marks_cache
+	var sheet := SvgArt.texture("res://art/stage/roof_detail.svg")
+	if sheet == null:
+		return []
+	var img := sheet.get_image()
+	img.clear_mipmaps()
+	var w := img.get_width() / 4
+	for k in 4:
+		var part := img.get_region(Rect2i(k * w, 0, w, img.get_height()))
+		part.generate_mipmaps()
+		_roof_marks_cache.append(ImageTexture.create_from_image(part))
+	return _roof_marks_cache
+
+
+const FACADE_SHADER := preload("res://shaders/facade.gdshader")
+## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms, the far ones barely.
+const FACADE_LIT := [3.4, 2.5, 1.8]
+
+
+## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
+## vents, tanks and an antenna) built as one mesh, windows and all painted by `facade.gdshader`. Faces carry their own coordinates (see
+## the shader). One mesh and one material per layer, so it costs a draw call or two however many windows it shows.
+static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int, z: float, shade: Color, street: float) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var depth := 5.0
+	var x := -120.0
+	while x < 120.0:
+		var w := rng.randf_range(6.0, 13.0)
+		var h := rng.randf_range(10.0, 34.0) * (1.0 - layer * 0.15)
+		var seed := rng.randf()
+		var lo := Vector3(x, street, z - depth / 2.0)
+		var hi := Vector3(x + w, street + h, z + depth / 2.0)
+		_facade_box(st, lo, hi, seed, false, h)
+		# Something on the roof now and then: a vent box, a round tank on legs (a box here, at this distance) or an antenna.
+		var top := street + h
+		var n := rng.randi_range(0, 2)
+		for k in n:
+			var kind := rng.randi_range(0, 2)
+			var cx := rng.randf_range(x + 1.0, x + w - 1.0)
+			match kind:
+				0:
+					var s := Vector3(rng.randf_range(1.0, 2.2), rng.randf_range(0.6, 1.2), rng.randf_range(1.0, 2.0))
+					_facade_box(st, Vector3(cx - s.x / 2.0, top, z - s.z / 2.0), Vector3(cx + s.x / 2.0, top + s.y, z + s.z / 2.0), seed, true, s.y)
+				1:
+					_facade_box(st, Vector3(cx - 1.0, top + 1.2, z - 1.0), Vector3(cx + 1.0, top + 3.0, z + 1.0), seed, true, 1.8)
+					_facade_box(st, Vector3(cx - 0.8, top, z - 0.1), Vector3(cx - 0.6, top + 1.2, z + 0.1), seed, true, 1.2)
+					_facade_box(st, Vector3(cx + 0.6, top, z - 0.1), Vector3(cx + 0.8, top + 1.2, z + 0.1), seed, true, 1.2)
+				_:
+					_facade_box(st, Vector3(cx - 0.08, top, z - 0.08), Vector3(cx + 0.08, top + rng.randf_range(2.5, 5.0), z + 0.08), seed, true, 4.0)
+		x += w + rng.randf_range(0.5, 3.0)
+	var m := ShaderMaterial.new()
+	m.shader = FACADE_SHADER
+	m.set_shader_parameter("base_shade", shade)
+	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
+	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "skyline_%d" % layer
+	root.add_child(mi)
+
+
+## A box from `lo` to `hi` into `st` for the facade shader: its front and sides as walls (windows unless `plain`), its top plain. Each
+## face's UV runs in world units across it and up from the street; UV2 holds the face's width and the building's height `h`.
+static func _facade_box(st: SurfaceTool, lo: Vector3, hi: Vector3, seed: float, plain: bool, h: float) -> void:
+	var col := Color(seed, 1.0 if plain else 0.0, 0.0)
+	var w := hi.x - lo.x
+	var d := hi.z - lo.z
+	var y0 := 0.0 if not plain else 0.0
+	# Front (+z), left (-x), right (+x), top: corners bottom-left, bottom-right, top-right, top-left seen from outside.
+	_facade_quad(st, [Vector3(lo.x, lo.y, hi.z), Vector3(hi.x, lo.y, hi.z), Vector3(hi.x, hi.y, hi.z), Vector3(lo.x, hi.y, hi.z)], Vector3(0, 0, 1),
+		Vector2(w, h), y0, col)
+	_facade_quad(st, [Vector3(lo.x, lo.y, lo.z), Vector3(lo.x, lo.y, hi.z), Vector3(lo.x, hi.y, hi.z), Vector3(lo.x, hi.y, lo.z)], Vector3(-1, 0, 0),
+		Vector2(d, h), y0, col)
+	_facade_quad(st, [Vector3(hi.x, lo.y, hi.z), Vector3(hi.x, lo.y, lo.z), Vector3(hi.x, hi.y, lo.z), Vector3(hi.x, hi.y, hi.z)], Vector3(1, 0, 0),
+		Vector2(d, h), y0, col)
+	_facade_quad(st, [Vector3(lo.x, hi.y, hi.z), Vector3(hi.x, hi.y, hi.z), Vector3(hi.x, hi.y, lo.z), Vector3(lo.x, hi.y, lo.z)], Vector3(0, 1, 0),
+		Vector2(w, d), y0, Color(seed, 1.0, 0.0))
+
+
+static func _facade_quad(st: SurfaceTool, c: Array, normal: Vector3, size: Vector2, _y0: float, col: Color) -> void:
+	var uvs := [Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(0, size.y)]
+	for i in [0, 2, 1, 0, 3, 2]:
+		st.set_color(col)
+		st.set_normal(normal)
+		st.set_uv(uvs[i])
+		st.set_uv2(size)
+		st.add_vertex(c[i])
 
 
 ## A big round cartoon tree: a tapered trunk with bark grooves and roots, under a canopy of soft green balls.
@@ -1345,6 +1488,8 @@ class Blinker extends Node3D:
 		m.albedo_color = color
 		lamp.material_override = m
 		add_child(lamp)
+		# Its glow blinks with it.
+		load("res://scripts/stage_art.gd")._halo(lamp, Vector3(0, 0, 0.3), color, 1.6)
 
 	func _process(_delta: float) -> void:
 		if lamp != null:
