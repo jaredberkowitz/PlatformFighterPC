@@ -17,7 +17,7 @@ const Bindings := preload("res://scripts/bindings.gd")
 ##   - A second press within DASH_TAP_FRAMES of the previous press (double tap, or tapping the other
 ##     direction while dash dancing) is full strength at once, which is a flick: it dashes.
 ##   - Down: tap = soft (crouch, drop through), double tap = hard (fast fall).
-## Gamepads: left stick as is (analog); a hard flick down fast falls; A/Y jump, X attack, B special,
+## Gamepads: left stick as is (analog); a hard flick down fast falls; A/Y jump, B attack, X special,
 ## bumpers/triggers shield, right stick click grab, right stick = the attack stick (the reference's C-stick): a smash in its direction
 ## on the ground, an aerial in the air. It only aims the attack; the left stick keeps moving the fighter (drift, fast fall).
 
@@ -170,8 +170,8 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 			sy = py
 		if Input.is_joy_button_pressed(pad, JOY_BUTTON_A) or Input.is_joy_button_pressed(pad, JOY_BUTTON_Y):
 			b |= masks.jump
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_X): b |= masks.attack
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_B): b |= masks.special
+		if Input.is_joy_button_pressed(pad, JOY_BUTTON_B): b |= masks.attack
+		if Input.is_joy_button_pressed(pad, JOY_BUTTON_X): b |= masks.special
 		if Input.is_joy_button_pressed(pad, JOY_BUTTON_LEFT_SHOULDER) or Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_SHOULDER):
 			b |= masks.shield
 		if Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.5 or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.5:

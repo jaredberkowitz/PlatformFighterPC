@@ -97,7 +97,7 @@ To play online with a made fighter, make it in the creator, then either play one
   Left/Right switch player, **Enter** then the new key rebinds, **Delete** resets that player's keys, Esc goes back. A key already used
   by the same player's other action swaps with it, so no key is ever on two actions; Esc and the F-keys the game uses stay reserved.
   Saved in `user://controls.json` (`godot/scripts/bindings.gd`); a damaged or hand-edited file is repaired. The sim never sees keys.
-* **Controllers** play with: left stick or D-pad to move, A or Y jump, X attack, B special, bumpers and triggers shield, right-stick
+* **Controllers** play with: left stick or D-pad to move, A or Y jump, B attack, X special, bumpers and triggers shield, right-stick
   click grab, and the **right stick attacks** (the reference's C-stick: a smash in the direction pushed on the ground, an aerial in the
   air; it only aims the attack, so the left stick keeps drifting and fast falling through it). Controller 1 is player 1, controller 2 player 2,
   alongside the keyboards. (Not tested with real hardware: no controller was available.)

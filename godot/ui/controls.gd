@@ -1,7 +1,7 @@
 extends Control
 ## The Controls screen: shows both players' keyboard keys and lets you rebind them. Up/Down choose an action, Left/Right switch between
 ## player 1 and player 2, Enter then a key rebinds, Delete resets the player's keys, Esc goes back. Controllers need no setup: the
-## left stick or D-pad moves, A jumps, X attacks, B special, bumpers shield, right stick click grabs, the right stick attacks (smash or aerial).
+## left stick or D-pad moves, A jumps, B attacks, X special, bumpers shield, right stick click grabs, the right stick attacks (smash or aerial).
 ## Q and E switch to the Display page: screen shake, flashes, effects and quality (scripts/visual_settings.gd); there Up/Down choose and
 ## Left/Right (or Enter) change the setting.
 
@@ -70,7 +70,7 @@ func _ready() -> void:
 		cells.append(col)
 
 	# A controller's layout, on a dark band so it reads over the sky.
-	info = UI.Tag.new("Controller: stick or D-pad move, A jump, X attack, B special, bumpers shield, stick click grab, right stick attack", Vector2(1160, 36))
+	info = UI.Tag.new("Controller: stick or D-pad move, A jump, B attack, X special, bumpers shield, stick click grab, right stick attack", Vector2(1160, 36))
 	info.fill = Color(UI.INK, 0.72)
 	info.ink = Color(1, 1, 1, 0.92)
 	info.font_size = 18
