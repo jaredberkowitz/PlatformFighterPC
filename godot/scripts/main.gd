@@ -111,6 +111,8 @@ var perf_draw := 0
 var perf_prims := 0
 var perf_worst := 0.0
 var perf_hitches := 0
+## Every measured frame's length (ms), for the 99th percentile.
+var perf_deltas: PackedFloat32Array = PackedFloat32Array()
 ## The game's own rendering time on the GPU and the CPU (timestamps, so other programs sharing the machine count for little).
 var perf_gpu := 0.0
 var perf_cpu := 0.0
@@ -275,7 +277,9 @@ func _parse_demo_args() -> void:
 	if OS.get_cmdline_user_args().has("--perf"):
 		perf = true
 		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
-		name = "tour"
+		# (Any demo can be measured, `--demo=stage --stage=3` for one stage's frame time; the tour by default.)
+		if name == "":
+			name = "tour"
 		if not user_args.has("--vsync"):
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 			Engine.max_fps = 0
@@ -986,6 +990,10 @@ func _physics_process(_delta: float) -> void:
 			_capture(shot)
 		if sim.frame() >= demo.end_frame and shot_wait == "":
 			if perf:
+				var sorted := perf_deltas.duplicate()
+				sorted.sort()
+				var p99: float = sorted[mini(sorted.size() - 1, int(sorted.size() * 0.99))] if sorted.size() > 0 else 0.0
+				print("PERF p99 %.2f ms" % p99)
 				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives, GPU %.2f ms, render CPU %.2f ms, ticks %.2f ms, frame scripts %.2f ms" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames, perf_gpu / perf_frames, perf_cpu / perf_frames, perf_tick / perf_frames, perf_frame / perf_frames])
 			print("demo '%s' finished at frame %d checksum %s" % [demo.name, sim.frame(), sim.checksum()])
 			get_tree().quit()
@@ -1019,6 +1027,7 @@ func _process_inner(delta: float) -> void:
 		perf_frames += 1
 		perf_time += delta
 		perf_worst = maxf(perf_worst, delta)
+		perf_deltas.append(delta * 1000.0)
 		if delta > 0.025:
 			perf_hitches += 1
 		perf_draw += int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
