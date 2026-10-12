@@ -190,7 +190,8 @@ fn a_midair_jump_takes_its_drift_from_the_stick() {
 #[test]
 fn a_landing_at_full_fall_speed_is_heavy_and_a_short_hop_landing_is_light() {
     let p = Sim::new().content.fighters[0];
-    assert_eq!((p.landing_lag, p.heavy_landing_lag), (2, 4));
+    // (The duelist's: a heavy landing of 4 frames from touchdown, 3 of lag; see `ground_attributes.rs` for every fighter.)
+    assert_eq!((p.landing_lag, p.heavy_landing_lag), (2, 3));
 
     let mut sim = Sim::new();
     sim.tick(inp(0, 0, JUMP));

@@ -52,7 +52,13 @@ pub struct FighterParams {
     /// How long a run's turnaround lasts (it skids to a stop facing the new way): longer than a turn from standing, as in the
     /// reference game, where the run's turnaround is a visible slide. A jump in it is a reverse aerial rush, so this is that window.
     pub run_turn_frames: u8,
-    pub ground_accel: Fx,
+    /// Walking acceleration a frame: `walk_accel` plus `walk_accel_stick` scaled by how far the stick is pushed (the reference
+    /// game's `walk_accel_add` and `walk_accel_mul`).
+    pub walk_accel: Fx,
+    pub walk_accel_stick: Fx,
+    /// Running acceleration a frame, the same way (the reference's `run_accel_add` and `run_accel_mul`).
+    pub run_accel: Fx,
+    pub run_accel_stick: Fx,
     pub ground_friction: Fx,
     /// How fast speed above `run_speed` (left over from a dash) bleeds off while running.
     pub run_decel: Fx,
@@ -227,7 +233,7 @@ impl FighterParams {
     }
 
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 50] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 53] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -235,7 +241,10 @@ impl FighterParams {
             ("dash_initial_speed", self.dash_initial_speed),
             ("dash_accel", self.dash_accel),
             ("dash_brake", self.dash_brake),
-            ("ground_accel", self.ground_accel),
+            ("walk_accel", self.walk_accel),
+            ("walk_accel_stick", self.walk_accel_stick),
+            ("run_accel", self.run_accel),
+            ("run_accel_stick", self.run_accel_stick),
             ("ground_friction", self.ground_friction),
             ("run_decel", self.run_decel),
             ("landing_friction", self.landing_friction),
@@ -419,6 +428,11 @@ impl FighterParams {
         Fx::from_ratio(thousandths * GROUND_SPEED_PERCENT, 800_000)
     }
 
+    /// Like `gu`, in hundred-thousandths, for ground values with more digits (run acceleration 0.10978).
+    pub const fn gu_fine(hundred_thousandths: i32) -> Fx {
+        Fx::from_ratio(hundred_thousandths * GROUND_SPEED_PERCENT, 80_000_000)
+    }
+
     /// Initial upward velocity that makes a jump peak `height` above where it started.
     ///
     /// Gravity is applied before moving each frame, so the peak is `v^2/(2g) - v/2`,
@@ -461,7 +475,10 @@ impl FighterParams {
             dash_shield_frame: 5,
             turn_frames: 6,
             run_turn_frames: 12,
-            ground_accel: gu(200),
+            walk_accel: Fx::ZERO,
+            walk_accel_stick: gu(189),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(9020),
             ground_friction: gu(220),
             run_decel: gu(60),
             landing_friction: gu(40),
@@ -579,11 +596,19 @@ impl FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
         let gravity = su(75);
+        // Ground: walk acceleration 0 + 0.189 (by the stick), run acceleration 0.044 + 0.0902, an initial dash of 10 frames, a heavy
+        // landing of 4 frames counted from the touchdown (3 of lag).
         let (burst, arc) = Self::full_hop(gravity, su(33660));
         FighterParams {
             walk_speed: gu(1575),
             run_speed: gu(1964),
             dash_speed: gu(2255),
+            walk_accel: Fx::ZERO,
+            walk_accel_stick: gu(189),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(9020),
+            dash_frames: 10,
+            heavy_landing_lag: 3,
             air_speed: su(1071),
             air_friction: FighterParams::su_fine(375),
             gravity,
@@ -603,7 +628,8 @@ impl FighterParams {
 
     /// Heavier, faster in the air, with a high gravity and fast fall: the "blaster brawler" body type.
     /// Wolf-style reference: walk 1.208, run 1.54, dash 2.09, air speed 1.281, gravity 0.13,
-    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71, ledge jump 36.01.
+    /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71, ledge jump 36.01; on the ground, traction 0.11, walk
+    /// acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, an initial dash of 10 frames, a heavy landing of 4 (3 of lag).
     pub fn brawler() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
@@ -613,6 +639,12 @@ impl FighterParams {
             walk_speed: gu(1208),
             run_speed: gu(1540),
             dash_speed: gu(2090),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(105),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(10978),
+            dash_frames: 10,
+            heavy_landing_lag: 3,
             dash_initial_speed: gu(840),
             air_speed: su(1281),
             air_accel_stick: su(80),
@@ -648,7 +680,9 @@ impl FighterParams {
     /// Sheik attributes (SmashWiki / ultimateframedata.com, `docs/sheik/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
     /// run 2.42, traction 0.106, air speed 1.155, air acceleration 0.01 + 0.08, air friction 0.015, gravity 0.15, fall 1.75 (fast
     /// 2.8), full hop 39, short hop 18.75, double jump 40; air dodges 44 (neutral, intangible 2-26) and 63 / 74 / 93 (directional,
-    /// intangible 2-19). The ledge jump height is not published: the duelist's (an estimate).
+    /// intangible 2-19). On the ground: walk acceleration 0.105 + 0.21, run acceleration 0.044 + 0.121, an initial dash of 7 frames
+    /// (the others' 10), a heavy landing of 7 (6 of lag) (the parameter file, via dragdown.wiki and SmashWiki's dash table). The
+    /// ledge jump height is not published: the duelist's (an estimate).
     pub fn rogue() -> FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
@@ -658,6 +692,14 @@ impl FighterParams {
             walk_speed: gu(1470),
             run_speed: gu(2420),
             dash_speed: gu(2178),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(210),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(12100),
+            dash_frames: 7,
+            // (The shield can cut a dash short from about half way, as for the others.)
+            dash_shield_frame: 4,
+            heavy_landing_lag: 6,
             air_speed: su(1155),
             air_accel: su(10),
             air_accel_stick: su(80),

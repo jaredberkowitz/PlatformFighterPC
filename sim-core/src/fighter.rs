@@ -180,14 +180,20 @@ fn approach(v: Fx, target: Fx, delta: Fx) -> Fx {
 }
 
 /// Acceleration toward a walking speed target: speed above it (left over from a landing or a turn) comes off at traction
-/// (`ground_friction`), as in the reference game, and `ground_accel` brings the walk up to speed.
-fn ease_rate(vel: Fx, target: Fx, p: &FighterParams) -> Fx {
+/// (`ground_friction`), as in the reference game, and the walk acceleration (`walk_accel`, more the further the stick is pushed)
+/// brings the walk up to speed.
+fn ease_rate(vel: Fx, target: Fx, p: &FighterParams, input: Input) -> Fx {
     let overspeed = vel.signum_int() == target.signum_int() && vel.abs() > target.abs();
     if overspeed {
         p.ground_friction
     } else {
-        p.ground_accel
+        stick_accel(p.walk_accel, p.walk_accel_stick, input)
     }
+}
+
+/// A ground acceleration as the reference game has it: a base plus a share scaled by how far the stick is pushed sideways.
+fn stick_accel(base: Fx, stick: Fx, input: Input) -> Fx {
+    base + stick * input.stick_x_fx().abs()
 }
 
 fn x_active(input: Input) -> bool {
@@ -546,7 +552,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                 let rate = if overspeed {
                     p.run_decel
                 } else {
-                    p.ground_accel
+                    stick_accel(p.run_accel, p.run_accel_stick, input)
                 };
                 f.vel.x = approach(f.vel.x, target, rate);
             } else {
@@ -559,7 +565,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                 );
                 let target = Fx::from_ratio(tilt, i32::from(STICK_THRESHOLD)) * p.walk_speed;
                 let target = target.mul_int(i32::from(dir));
-                f.vel.x = approach(f.vel.x, target, ease_rate(f.vel.x, target, p));
+                f.vel.x = approach(f.vel.x, target, ease_rate(f.vel.x, target, p, input));
                 f.state = S::Walk;
             }
         }

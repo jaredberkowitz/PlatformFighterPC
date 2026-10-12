@@ -29,7 +29,7 @@ still exist the two must agree; if you change a number in code, re-export the fi
 ```text
 # comment to end of line
 bundle {                         # the manifest, required
-    schema 2
+    schema 3
     name "Base Roster"
     sim_version 19
     hash af788ccc46c9f9e2
@@ -187,6 +187,9 @@ Line numbers inside a script count from its first non-blank line.
   (`old_files_are_migrated_on_load`, `migrations_chain_in_order`). The first real one is schema 1 to 2 (sim v34 and v35): every
   fighter gained a required `crouch_height` and `dash_attack_friction`, and a schema 1 fighter that does not inherit gets 0.6 and
   half its `ground_friction` (tested by `a_schema_1_file_from_before_crouch_height_and_dash_attack_friction_still_loads`).
+  Schema 2 to 3 (sim v54): a fighter's one `ground_accel` became the reference game's walk and run accelerations, a base and a
+  share by the stick each (`walk_accel`, `walk_accel_stick`, `run_accel`, `run_accel_stick`); an old value becomes both bases with
+  no stick share, which moves as it did (`a_schema_2_file_with_one_ground_accel_still_loads_and_moves_as_before`).
 * `sim_version` is the simulation's behaviour version (`SIM_VERSION`). Content packed for another version is
   refused: the same numbers can play differently.
 * `hash` fingerprints everything the simulation reads (sim version, parameters, movesets including script

@@ -118,7 +118,10 @@ impl Recipe {
         for v in [
             &mut p.dash_accel,
             &mut p.dash_brake,
-            &mut p.ground_accel,
+            &mut p.walk_accel,
+            &mut p.walk_accel_stick,
+            &mut p.run_accel,
+            &mut p.run_accel_stick,
             &mut p.ground_friction,
             &mut p.run_decel,
             &mut p.landing_friction,

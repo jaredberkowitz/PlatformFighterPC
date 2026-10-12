@@ -64,13 +64,15 @@ The placeholder stage is now Final Destination-sized (main block 22 wide, side p
 - Jump squat applies no friction, so a run or dash jump takes its speed off the ground (reduced and capped at takeoff since sim
   v36: see "Running jumps and bodies on the ground").
 - In the air, speed above `air_speed` is never cut by the stick; only light `air_friction` drags it down. Air acceleration
-  is `air_accel + air_accel_stick * stick_tilt`.
+  is `air_accel + air_accel_stick * stick_tilt`. On the ground, walking and running accelerate the same way
+  (`walk_accel + walk_accel_stick * |stick x|`, `run_accel + run_accel_stick * |stick x|`), each fighter with its reference
+  character's numbers (sim v54, `sim-core/tests/ground_attributes.rs`).
 - Walking off a ledge keeps momentum the same way.
 - Landing bleeds speed off at `landing_friction` whatever the stick does, and holding the stick walks on afterwards: as in the
   reference game, a run needs a new dash (sim v35; until then a held stick landed straight into a run at full run speed, which on
   a keyboard happened after every drifting jump and felt slippery). Walking faster than walk speed slows at traction
   (`ground_friction`), not the gentle `run_decel`.
-- A dash attack slides on the reference game's traction (`dash_attack_friction`: 0.114, 0.11 and 0.085 reference units a frame for
+- A dash attack slides on the reference game's traction (`dash_attack_friction`: 0.114, 0.11 and 0.106 reference units a frame for
   the three classes), about two world units out of a run (sim v35; it slid nearly twice as far before).
 
 ## Ledge grab rule (bug fix)
@@ -288,7 +290,8 @@ out of shield does not air dodge (shielding uses the press). Stick inputs (dashe
 and with the stick neutral it goes straight up.
 
 **Landings**: a **light** landing is 2 frames (`landing_lag`); landing while fast falling or at the maximum fall speed is a **heavy** one,
-4 frames (`heavy_landing_lag`; the reference game's heavy landings are 2 to 6 by character). Aerials that autocancel use the same rule.
+by character (`heavy_landing_lag`: 3 for the duelist and brawler, 6 for the rogue since sim v54, the reference's 4 and 7 counted from
+touchdown). Aerials that autocancel use the same rule.
 
 **Shield release**: letting go of the shield takes **11 frames** (`shield_release_frames`, new state `ShieldRelease`) before anything else;
 jumping, grabbing, rolling and dodging straight out of the shield skip it. The perfect shield is unchanged (a hit in the first frames of

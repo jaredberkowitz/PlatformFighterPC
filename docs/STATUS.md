@@ -19,7 +19,9 @@ feet (no knockdown after a drag-down). Sim 51: its specials (Needle Storm, a pul
 pull angle (368) and a stored charge for scripts (`store`, `stored`). Sim 52: Needle Storm charges and stores as the reference, Bouncing
 Fish's early kick. Sim 53 (from playtest notes): a dash takes a fuller flick (0.75 instead of 0.6, `STICK_DASH`) so a quick push
 stays a walk; a run's stick rolled along the bottom or top turns it (the reference's reverse aerial rush motion), since down and
-forward no longer crouches out of a run; and the guard held out in front is a hurtbox (`sim-core/tests/stick_feel.rs`). Then the graphics fidelity pass (branch `graphics-fidelity`, `docs/GRAPHICS_FIDELITY_PLAN.md`, results and frame
+forward no longer crouches out of a run; and the guard held out in front is a hurtbox (`sim-core/tests/stick_feel.rs`). Sim 54
+(content schema 3): every fighter's ground movement is its reference character's, from the parameter file: walk and run
+acceleration by the stick, the rogue's 7-frame initial dash, heavy landings (`sim-core/tests/ground_attributes.rs`). Then the graphics fidelity pass (branch `graphics-fidelity`, `docs/GRAPHICS_FIDELITY_PLAN.md`, results and frame
 times in `docs/GRAPHICS_FIDELITY_LOG.md`): painted facades and glowing windows on the skyline, per-theme value range and more contrast on
 every stage, far scenery softly out of focus (Best), painted surface wear and hit scuffs, leafy tree crowns in the wind, a banded sea
 with foam. Every phase measured within about 0.1 ms of GPU time of the baseline (Treetop Isle draws fewer calls than before); the look

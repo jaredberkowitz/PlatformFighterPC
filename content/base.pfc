@@ -2,11 +2,11 @@
 # `pftool content-pack` to stamp it with a fresh hash.
 
 bundle {
-    schema 2
+    schema 3
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 53
-    hash 3f596f2d569029a7
+    sim_version 54
+    hash f2f8794e47f573dc
 }
 
 ruleset {
@@ -1209,7 +1209,10 @@ fighter duelist {
     dash_shield_frame 5
     turn_frames 6
     run_turn_frames 12
-    ground_accel 0.025
+    walk_accel 0
+    walk_accel_stick 0.02362
+    run_accel 0.0055
+    run_accel_stick 0.01126
     ground_friction 0.02849
     run_decel 0.00749
     landing_friction 0.00499
@@ -1229,7 +1232,7 @@ fighter duelist {
     air_jumps 1
     air_jump_velocity 0.28548
     landing_lag 2
-    heavy_landing_lag 4
+    heavy_landing_lag 3
     input_buffer 9
     air_dodge_frames 52
     air_dodge_speed 0.4
@@ -1320,7 +1323,10 @@ fighter brawler {
     dash_shield_frame 5
     turn_frames 6
     run_turn_frames 12
-    ground_accel 0.025
+    walk_accel 0.01312
+    walk_accel_stick 0.01312
+    run_accel 0.0055
+    run_accel_stick 0.01372
     ground_friction 0.0275
     run_decel 0.00749
     landing_friction 0.00499
@@ -1340,7 +1346,7 @@ fighter brawler {
     air_jumps 1
     air_jump_velocity 0.36124
     landing_lag 2
-    heavy_landing_lag 4
+    heavy_landing_lag 3
     input_buffer 9
     air_dodge_frames 44
     air_dodge_speed 0.4
@@ -1425,13 +1431,16 @@ fighter rogue {
     dash_initial_speed 0.11249
     dash_accel 0.03749
     dash_brake 0.06499
-    dash_frames 10
+    dash_frames 7
     dash_reverse_frames 15
     dash_turn_delay 2
-    dash_shield_frame 5
+    dash_shield_frame 4
     turn_frames 6
     run_turn_frames 12
-    ground_accel 0.025
+    walk_accel 0.01312
+    walk_accel_stick 0.02625
+    run_accel 0.0055
+    run_accel_stick 0.01512
     ground_friction 0.02649
     run_decel 0.00749
     landing_friction 0.00499
@@ -1451,7 +1460,7 @@ fighter rogue {
     air_jumps 1
     air_jump_velocity 0.44234
     landing_lag 2
-    heavy_landing_lag 4
+    heavy_landing_lag 6
     input_buffer 9
     air_dodge_frames 44
     air_dodge_speed 0.4

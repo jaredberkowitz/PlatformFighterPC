@@ -29,13 +29,42 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
 
 /// Every migration, oldest first.
-pub const MIGRATIONS: &[Migration] = &[(1, fighters_get_crouch_and_dash_attack_friction)];
+pub const MIGRATIONS: &[Migration] = &[
+    (1, fighters_get_crouch_and_dash_attack_friction),
+    (2, ground_accel_splits_into_walk_and_run),
+];
+
+/// Schema 2 to 3 (sim v54): a fighter's one `ground_accel` became the reference game's walk and run accelerations, each a base and
+/// a share scaled by the stick (`walk_accel`, `walk_accel_stick`, `run_accel`, `run_accel_stick`). An old value becomes both bases,
+/// with no stick share, which moves the same as it did. (A fighter that inherits and never set it inherits the new ones.)
+fn ground_accel_splits_into_walk_and_run(root: &mut Block) {
+    for item in &mut root.items {
+        let Item::Block(b) = item else { continue };
+        if b.kind != "fighter" {
+            continue;
+        }
+        let Some(at) = b
+            .items
+            .iter()
+            .position(|i| matches!(i, Item::Field { name, .. } if name == "ground_accel"))
+        else {
+            continue;
+        };
+        let Item::Field { value, .. } = b.items.remove(at) else {
+            continue;
+        };
+        b.field("walk_accel", value.clone());
+        b.field("walk_accel_stick", "0");
+        b.field("run_accel", value);
+        b.field("run_accel_stick", "0");
+    }
+}
 
 /// Schema 1 to 2 (sim v34 and v35): fighters gained two values every fighter must have, `crouch_height` (how low a crouch brings
 /// the hurtboxes) and `dash_attack_friction` (a dash attack's slide). A fighter written before them gets the shipped crouch (0.6)
