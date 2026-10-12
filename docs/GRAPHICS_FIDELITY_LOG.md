@@ -40,3 +40,23 @@ Look bench: PASSED, worst silhouette 0.93 (needs 0.85); every mood 0.93 to 1.00 
 Checks: fighters in front of lit windows do not bloom (the white-shirted fighter in `fidelity_1_skyline.png`); look bench PASSED, worst
 0.93 (unchanged); Skyline 1.58 ms average, p99 2.08 ms, GPU 1.09 ms (+0.08 ms). The other four stages are unchanged apart from the
 lantern's glow on Triple Tier.
+
+## Phase 2: value range and grade
+
+* `pastel_desat`, `pastel_lift`, `vignette` and `haze_max` moved from the post shader's defaults into each theme's style
+  (`Lighting.STYLES`, `finish`), pushed with the grade in `stage_mood`, with a new gentle S-curve (`s_curve`, the 0..1 range only, so lit
+  windows keep their glow; fighters take half). Moved at today's values first: a whole-frame pixel diff is no use here (two renders of
+  the same build differ on 19-29% of pixels because clouds, sails and idle poses move with real time), so the check was the shot
+  statistics, which matched to the third decimal (Meadow spread 0.535 / 0.537, Skyline 0.747 / 0.747, Flat Island 0.474 / 0.475).
+* Tuned: by default desat 0.07 (was 0.10), lift 0.06 (0.13), haze ceiling 0.30 (0.36), S-curve 0.2; the city lift 0.04, S-curve 0.3.
+
+| Stage | p2 | p50 | p98 | spread (baseline) | saturation (baseline) |
+| --- | --- | --- | --- | --- | --- |
+| Meadow | 0.279 | 0.771 | 0.870 | 0.590 (0.535) | 0.240 (0.188) |
+| Triple Tier | 0.270 | 0.627 | 0.799 | 0.530 (0.492) | 0.426 (0.358) |
+| Flat Island | 0.391 | 0.753 | 0.934 | 0.543 (0.468) | 0.200 (0.181) |
+| Skyline | 0.097 | 0.233 | 0.877 | 0.780 (0.622: +25.4%, the target) | 0.488 (0.447) |
+| Treetop Isle | 0.342 | 0.751 | 0.856 | 0.514 (0.420) | 0.259 (0.212) |
+
+Look bench PASSED, worst 0.93 (unchanged). The optional colour-grade LUT (step 3) was skipped: the per-theme finish values cover what it
+would have been used for here, and it adds a texture format question for no visible gain yet.

@@ -50,6 +50,10 @@ const STYLE_DEFAULT := {
 	"paint": [Color(1.06, 1.01, 0.92), Color(0.9, 0.94, 1.06), 0.55],
 	# How strongly the effects and lit things (the city's windows, lamps) bloom.
 	"glow": 0.75,
+	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
+	# lifted toward the haze (`lift`), the vignette, how far the far scenery fades into the haze at most (`haze_max`) and a gentle
+	# S-curve on the values (`s_curve`, 0 none). The fighters take half of the pastel and the curve.
+	"finish": {"desat": 0.07, "lift": 0.06, "vignette": 0.16, "haze_max": 0.3, "s_curve": 0.2},
 }
 const STYLES := {
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55]},
@@ -57,7 +61,8 @@ const STYLES := {
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
 	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5]},
-	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1},
+	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
+		"finish": {"lift": 0.04, "s_curve": 0.3}},
 }
 
 
@@ -168,6 +173,13 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("grade_lights", mood.grade[1])
 		post.set_shader_parameter("grade_amount", mood.grade[2])
 		post.set_shader_parameter("pastel_haze", mood.get("haze", Color(0.88, 0.9, 1.0)))
+		var finish: Dictionary = STYLE_DEFAULT.finish.duplicate()
+		finish.merge(style(theme.get("name", "meadow")).get("finish", {}), true)
+		post.set_shader_parameter("pastel_desat", finish.desat)
+		post.set_shader_parameter("pastel_lift", finish.lift)
+		post.set_shader_parameter("vignette", finish.vignette)
+		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("s_curve", finish.s_curve)
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)

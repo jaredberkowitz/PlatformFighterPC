@@ -41,6 +41,9 @@ uniform float stage_dist = 30.0;
 uniform float haze_start = 4.0;
 uniform float haze_end = 110.0;
 uniform float haze_max = 0.36;
+// A gentle S-curve on the values (0 none): darker darks and brighter lights for more depth in the picture. Only the 0..1 range is curved
+// (lit windows above white keep their brightness); fighters take half.
+uniform float s_curve = 0.0;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
 uniform float impact = 0.0;
@@ -126,6 +129,8 @@ void fragment() {
 	// Darks are lifted toward the haze, but not the near-black ink of the outlines, which stays ink.
 	float not_ink = smoothstep(0.05, 0.16, y0);
 	col = mix(col, pastel_haze.rgb, pastel_lift * soften * not_ink * (1.0 - smoothstep(0.0, 0.85, y0)));
+	vec3 c01 = clamp(col, 0.0, 1.0);
+	col += (c01 * c01 * (3.0 - 2.0 * c01) - c01) * s_curve * soften;
 	col = mix(col, ink.rgb, edge * line_strength);
 
 	// A warm paper tone, soft blotches like paper fibre, and a fine print grain.
