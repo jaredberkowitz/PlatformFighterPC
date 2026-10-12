@@ -1,11 +1,12 @@
 //! The Needles moveset on the rogue body (class 2), modelled mechanically on the reference game's Sheik: frame data against the
 //! reference, the up air's looping autolink hits and final hit (and its drag-down), the down air's dive and landing hit, the up tilt's
-//! two hits, and the body's jump air times. Reference data and sources: `docs/sheik/REFERENCE_DATA.md`.
+//! two hits, and the body's jump air times; then the rest of the kit (the jabs and rapid jab, the earlier game's dash attack, the two-hit
+//! smashes, grabs and throws) and light hits landing on their feet. Reference data and sources: `docs/sheik/REFERENCE_DATA.md`.
 
 mod common;
 
 use common::{fx, inp, Sim};
-use sim_core::input::buttons::JUMP;
+use sim_core::input::buttons::{ATTACK, JUMP};
 use sim_core::moves::{MoveId, ANGLE_AUTOLINK, TARGETS_AERIAL, TARGETS_GROUNDED};
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
@@ -352,4 +353,266 @@ fn forward_tilt_launches_nearly_straight_up_for_a_follow_up() {
     }
     let degrees = i32::from(sim.fighter(1).launch_angle) * 360 / 4096;
     assert!((70..=90).contains(&degrees), "launch angle {degrees}");
+}
+
+/// Checks each move against reference frame data: every hitbox in one of the windows, every window with a hitbox, the FAF, the landing
+/// lag and the autocancel windows.
+fn check_frame_data(w: &sim_core::moves::Weapon, table: &[FrameData]) {
+    for &(id, windows, faf, landing, ac_before, ac_from) in table {
+        let mv = w.get(id as u8);
+        for hb in &mv.hitboxes {
+            assert!(
+                windows
+                    .iter()
+                    .any(|&(a, b)| hb.start + 1 == a && hb.end + 1 == b),
+                "{id:?}: hitbox {}..{} (reference {}..{}) is in no window of {windows:?}",
+                hb.start,
+                hb.end,
+                hb.start + 1,
+                hb.end + 1
+            );
+        }
+        for &(a, b) in windows {
+            assert!(
+                mv.hitboxes
+                    .iter()
+                    .any(|hb| hb.start + 1 == a && hb.end + 1 == b),
+                "{id:?}: window {a}..{b} has no hitbox"
+            );
+        }
+        assert_eq!(u16::from(mv.total_frames) + 2, u16::from(faf), "{id:?} FAF");
+        assert_eq!(mv.landing_lag, landing, "{id:?} landing lag");
+        assert_eq!(mv.autocancel_before, ac_before, "{id:?} autocancel before");
+        let from = if ac_from == 255 { 255 } else { ac_from - 1 };
+        assert_eq!(mv.autocancel_after, from, "{id:?} autocancel from");
+    }
+}
+
+#[test]
+fn the_rest_of_the_kit_has_the_references_frame_data() {
+    // The jabs, rapid jab (ours loops in 14 frames, see moves.rs), finisher, smashes, grabs and throws (the hit, then the release) from
+    // the reference; the dash attack from the earlier game (clean 6, late 7-12, FAF 36).
+    let table: [FrameData; 16] = [
+        (MoveId::Jab, &[(2, 2)], 18, 0, 0, 255),
+        (MoveId::Jab2, &[(3, 3)], 18, 0, 0, 255),
+        (MoveId::Ext1, &[(5, 13)], 16, 0, 0, 255),
+        (MoveId::Ext2, &[(5, 6)], 36, 0, 0, 255),
+        (MoveId::DashAttack, &[(6, 6), (7, 12)], 36, 0, 0, 255),
+        (MoveId::FSmash, &[(12, 12), (20, 21)], 45, 0, 0, 255),
+        (MoveId::USmash, &[(11, 11), (14, 15)], 53, 0, 0, 255),
+        (MoveId::DSmash, &[(8, 9), (15, 16)], 49, 0, 0, 255),
+        (MoveId::Grab, &[(6, 7)], 37, 0, 0, 255),
+        (MoveId::DashGrab, &[(9, 10)], 45, 0, 0, 255),
+        (MoveId::PivotGrab, &[(11, 12)], 40, 0, 0, 255),
+        (MoveId::Pummel, &[(2, 2)], 16, 0, 0, 255),
+        (MoveId::FThrow, &[(20, 20), (22, 22)], 40, 0, 0, 255),
+        (MoveId::BThrow, &[(15, 15), (17, 17)], 36, 0, 0, 255),
+        (MoveId::UThrow, &[(19, 19), (21, 21)], 50, 0, 0, 255),
+        (MoveId::DThrow, &[(26, 26), (30, 30)], 54, 0, 0, 255),
+    ];
+    let sim = duel();
+    let w = needles(&sim);
+    check_frame_data(w, &table);
+    // No third jab; the throws total the reference's 7 / 7 / 6 / 6%.
+    assert!(w.get(MoveId::Jab3 as u8).is_empty());
+    for (id, tenths) in [
+        (MoveId::FThrow, 70),
+        (MoveId::BThrow, 70),
+        (MoveId::UThrow, 60),
+        (MoveId::DThrow, 60),
+    ] {
+        let total = w
+            .get(id as u8)
+            .hitboxes
+            .iter()
+            .fold(Fx::ZERO, |a, h| a + h.damage);
+        assert_eq!(total, Fx::from_ratio(tenths, 10), "{id:?} damage");
+    }
+}
+
+/// The rogue standing at 0 with the duelist just in front, facing it.
+fn up_close(gap: Fx) -> Sim {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, gap, -1);
+    sim
+}
+
+/// The moves player 0 went through (each new move once, in order) over `frames` frames of `input(frame)`.
+fn moves_seen(sim: &mut Sim, frames: usize, input: impl Fn(usize) -> sim_core::Input) -> Vec<u8> {
+    let mut seen: Vec<u8> = Vec::new();
+    let mut last_frame = u16::MAX;
+    for k in 0..frames {
+        sim.tick(input(k));
+        let f = sim.f();
+        if f.state == S::Attack {
+            // A move started again (the rapid jab's loop) counts once more only when it changes slot.
+            if seen.last() != Some(&f.move_id) || f.state_frame < last_frame && seen.is_empty() {
+                seen.push(f.move_id);
+            }
+            last_frame = f.state_frame;
+        }
+    }
+    seen
+}
+
+#[test]
+fn mashing_attack_goes_jab_jab_rapid_jab_then_the_finisher() {
+    let mut sim = up_close(fx(9, 10));
+    // Mash for 60 frames (a press every 4 frames), then let go.
+    let seen = moves_seen(&mut sim, 140, |k| {
+        inp(0, 0, if k < 60 && k % 4 < 2 { ATTACK } else { 0 })
+    });
+    assert_eq!(
+        seen,
+        vec![
+            MoveId::Jab as u8,
+            MoveId::Jab2 as u8,
+            MoveId::Ext1 as u8,
+            MoveId::Ext2 as u8
+        ],
+        "jab, jab 2, the rapid jab, the finisher"
+    );
+    // 2 + 1.6, at least eight 0.3% stabs (the loops' worth less rounding), and the 2% finisher.
+    let took = sim.fighter(1).percent;
+    assert!(
+        took >= dealt(&sim, 20 + 16 + 24 + 20),
+        "the rapid jab kept hitting: {took:?}"
+    );
+}
+
+#[test]
+fn holding_attack_through_the_hits_runs_the_rapid_jab_until_let_go() {
+    let mut sim = up_close(fx(9, 10));
+    let seen = moves_seen(&mut sim, 120, |k| {
+        inp(0, 0, if k < 70 { ATTACK } else { 0 })
+    });
+    assert_eq!(
+        seen,
+        vec![
+            MoveId::Jab as u8,
+            MoveId::Jab2 as u8,
+            MoveId::Ext1 as u8,
+            MoveId::Ext2 as u8
+        ]
+    );
+}
+
+#[test]
+fn one_press_is_one_jab() {
+    let mut sim = up_close(fx(9, 10));
+    let seen = moves_seen(&mut sim, 40, |k| inp(0, 0, if k < 1 { ATTACK } else { 0 }));
+    assert_eq!(seen, vec![MoveId::Jab as u8]);
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 20));
+}
+
+#[test]
+fn the_rapid_jab_holds_its_target_in_place() {
+    // The stabs' +2 hitstun keeps the target caught: it is still in hitstun on every frame of a loop after the first stab.
+    let mut sim = up_close(fx(9, 10));
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::Ext1);
+    let mut caught = 0;
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, ATTACK));
+        if sim.fighter(1).state == S::Hitstun {
+            caught += 1;
+        }
+    }
+    assert!(caught >= 34, "caught on {caught} of 40 frames");
+    assert_eq!(
+        sim.f().move_id,
+        MoveId::Ext1 as u8,
+        "still looping while held"
+    );
+}
+
+#[test]
+fn dash_attack_is_the_earlier_games_pop_up() {
+    let mut sim = up_close(fx(6, 10));
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DashAttack);
+    let mut n = 0;
+    while !sim.fighter(1).launch_pending && n < 20 {
+        sim.tick(inp(0, 0, 0));
+        n += 1;
+    }
+    let degrees = i32::from(sim.fighter(1).launch_angle) * 360 / 4096;
+    assert!(
+        (79..=80).contains(&degrees),
+        "the clean hit's 80 degrees: {degrees}"
+    );
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 100));
+}
+
+#[test]
+fn both_smash_kicks_land_at_low_and_high_percent() {
+    // Forward smash and down smash: the first kick's set knockback holds the target for the second (5 + 8% and 4 + 6%).
+    for (id, gap, both) in [
+        (MoveId::FSmash, fx(8, 10), 130),
+        (MoveId::DSmash, fx(7, 10), 100),
+    ] {
+        for percent in [0, 100] {
+            let mut sim = up_close(gap);
+            sim.state.fighters[1].percent = Fx::from_int(percent);
+            sim_core::fighter::begin_attack(&mut sim.state.fighters[0], id);
+            sim.ticks(40, inp(0, 0, 0));
+            let took = sim.fighter(1).percent - Fx::from_int(percent);
+            assert_eq!(took, dealt(&sim, both), "{id:?} both hits at {percent}%");
+        }
+    }
+}
+
+#[test]
+fn a_light_hit_lands_on_its_feet_and_a_tumble_lies_down() {
+    // Just above the floor in hitstun, falling: a light (non-tumble) hitstun lands standing and finishes on the ground; a tumble that
+    // lands without a tech is a knockdown.
+    for (tumble, lies_down) in [(false, false), (true, true)] {
+        let mut sim = duel();
+        sim.stand(0, Fx::from_int(-10), 1);
+        sim.put_airborne(1, Fx::ZERO, fx(3, 10), Fx::ZERO, Fx::ZERO);
+        let f = &mut sim.state.fighters[1];
+        f.state = S::Hitstun;
+        f.hitstun = 20;
+        f.tumble = tumble;
+        f.kb_vel = sim_core::Vec2::new(Fx::ZERO, -fx(1, 10));
+        let mut states = Vec::new();
+        for _ in 0..40 {
+            sim.tick(inp(0, 0, 0));
+            states.push(sim.fighter(1).state);
+        }
+        assert_eq!(
+            states.contains(&S::Knockdown),
+            lies_down,
+            "tumble {tumble}: {states:?}"
+        );
+        if !tumble {
+            assert!(sim.fighter(1).grounded());
+            assert!(
+                states.iter().take(15).all(|s| *s == S::Hitstun),
+                "the hitstun carries on on the ground"
+            );
+            assert_eq!(*states.last().unwrap(), S::Idle);
+        }
+    }
+}
+
+#[test]
+fn a_drag_down_up_air_lands_its_target_standing() {
+    // The up air dragging a target down to the floor: the looping hits are light, so it lands on its feet (no tech, no knockdown), as
+    // the reference's drag-downs do, open to a follow-up.
+    let top = duel().content.fighters[usize::from(ROGUE)].max_fall_speed;
+    let mut sim = duel();
+    sim.put_airborne(0, Fx::ZERO, fx(8, 10), Fx::ZERO, -top / Fx::from_int(2));
+    sim.put_airborne(1, fx(1, 10), fx(8, 10) + fx(18, 10), Fx::ZERO, Fx::ZERO);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::UAir);
+    let mut states = Vec::new();
+    for _ in 0..90 {
+        sim.tick(inp(0, 0, 0));
+        states.push(sim.fighter(1).state);
+    }
+    assert!(sim.fighter(1).percent > Fx::ZERO, "the loop hit");
+    assert!(sim.fighter(1).grounded(), "and the target came down");
+    assert!(
+        !states.contains(&S::Knockdown) && !states.contains(&S::GetUp),
+        "without a knockdown: {states:?}"
+    );
 }

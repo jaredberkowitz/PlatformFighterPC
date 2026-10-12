@@ -1,0 +1,10 @@
+// Needles rapid jab (ext1, slot 29): one loop of quick stabs. At its end it loops again while attack is held or was pressed in
+// the last 10 frames; otherwise it ends in the finisher (30 = ext2).
+var queued;
+var taps;
+var since;
+since = since + 1;
+if attack || attack_tap { since = 0; }
+if frame >= 13 {
+    if since < 10 { goto(29); } else { goto(30); }
+}

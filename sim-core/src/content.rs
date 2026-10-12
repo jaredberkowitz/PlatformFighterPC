@@ -683,6 +683,16 @@ impl FighterParams {
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36830)),
             weight: Fx::from_int(78),
             weapon: 2,
+            // Dodges (the reference's): a forward roll of 26 frames, a backward one of 32, intangible on 4-12 (the backward roll's
+            // 4-14 is not separate here [D]); a spot dodge of 23, intangible on 3-14. The roll moves on frames 5-21 [E].
+            roll_frames: 26,
+            roll_back_frames: 32,
+            roll_move_end: 21,
+            roll_intangible_start: 4,
+            roll_intangible_end: 12,
+            spot_dodge_frames: 23,
+            spot_intangible_start: 3,
+            spot_intangible_end: 14,
             ..FighterParams::base()
         }
     }

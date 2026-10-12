@@ -314,14 +314,10 @@ fn a_tech_press_counts_for_eleven_frames_and_mashing_locks_it_out() {
     // Falling onto the stage: a press 8 frames before touching down techs.
     let land_after = |presses: &[usize]| {
         let mut sim = duel();
-        tumbling(
-            &mut sim,
-            Vec2::new(Fx::ZERO, Fx::from_int(8)),
-            Vec2::new(Fx::ZERO, fx(-1, 10)),
-        );
-        // Not a tumble, so it lands rather than bouncing off the floor. No air dodge either, so an early press (buffered for
-        // nine frames) cannot become a dodge out of the hitstun instead.
-        sim.state.fighters[1].tumble = false;
+        // Falling from rest, with no launch speed downward, so it lands rather than bouncing off the floor (a light, non-tumble
+        // hitstun would land on its feet with nothing to tech). No air dodge either, so an early press (buffered for nine frames)
+        // cannot become a dodge out of the hitstun instead.
+        tumbling(&mut sim, Vec2::new(Fx::ZERO, Fx::from_int(8)), Vec2::ZERO);
         sim.state.fighters[1].air_dodge_used = true;
         let mut t = 0;
         while sim.fighter(1).platform == NONE && t < 200 {

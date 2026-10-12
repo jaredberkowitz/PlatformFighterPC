@@ -153,21 +153,43 @@ is ambiguous between a held speed and an initial one; a held 2 would rise 28 uni
 1.2 forward and 6 down a frame until landing or the move's end. The landing hit is its own short move (the landing lag, 22 frames, FAF
 23) started only by a real landing outside the autocancel windows; its hitbox is out on its frames 1-2 and cannot repeat.
 
-## The rest of the kit (timing [R] from UFD / SmashWiki; hitboxes from SmashWiki where parsed)
+## The rest of the kit (built in phase 2, sim 50)
 
-| Move | Frames (active / FAF) | Damage | Notes |
-| --- | --- | --- | --- |
-| Jab 1, 2 | 2 (FAF 18), 3 (FAF 18) | 2.0, 1.6 | chains on 4 / 5; rapid jab 0.3 a hit, finisher 2.0 (5-6, FAF 36) |
-| Dash attack | clean 5-6, late 7-8 (FAF 35) | 7.0 / 5.0 | 60 BK70 KS90, H 1.3; late 361 BK20 KS100 |
-| Forward smash | 12, 20-21 (FAF 45); charge on 3 | 5.0 / 8.0 | hit 1 FKV 47/47/30 (35/45/80), hit 2 361 BK60 KS109 |
-| Up smash | 11, 14-15 (FAF 53); charge on 6; arms intangible 8-15 | 15.0 / 11.0 | 93 BK52 KS88 H1.3; 50 BK38 KS100 |
-| Down smash | 8-9, 15-16 (FAF 49); charge on 1 | 4.0 / 6.0 | hit 1 FKV 35; hit 2 43 BK35 KS165 both sides |
-| Grab / dash / pivot | 6-7 / 9-10 / 11-12 (FAF 37 / 45 / 40) | | |
-| Throws | release f 20/22 (F), 15/17 (B), 19/21 (U), 26-29/30 (D) | 5+2, 5+2, 3+3, 3+3 | throw angles and knockback still to parse |
-| Needle Storm | 4-16 per needle (+7 to charge); full charge 86 frames | 1.5 / 0.8 each | projectiles: later phase |
-| Burst Grenade | 13 throw, explodes 67-88 | 1.0 windboxes / 12.6 | later phase |
-| Vanish | 36-38, 55-57 (FAF 96); intangible 14-60 ground, 19-55 air | 12.0 / 5.0 | later phase |
-| Bouncing Fish | 18 / 26 | 11.0 | later phase |
+Sources as above, plus SmashWiki's `Sheik_(SSBU)/Neutral_attack/Hit_1`, `/Hit_2` and `/Infinite` (the jab's per-hit tables),
+`Sheik_(SSBU)/Pummel`, and, for the dash attack only, the earlier game's `Sheik_(SSBM)/Dash_attack` (asked for by name).
 
-These are filled in after the priority moves; until then the slots use the reference timing with simple hitboxes, each labelled in
-`moves.rs`, and the specials are plain stand-ins (see `PROJECT_AUDIT.md`, plan step 4).
+| Move | Built as | Labels |
+| --- | --- | --- |
+| Jab 1 | frame 2, 2%, FAF 18, H 1.6; close Sakurai angle BK 35 / 30 KS 30, tip 180 degrees BK 20 KS 15 (the tip's fighter-only box; its twin for objects is not modelled) | [R]; positions [E] |
+| Jab 1 to 2 | a press (or attack held through the hit) carries on from frame 4 | [R] (a script) |
+| Jab 2 | frame 3, 1.6%, FAF 18, H 1.2; Sakurai angle BK 35 / 35 / 25, KS 25 / 25 / 20 | [R] |
+| Jab 2 to rapid jab | from frame 5, after two presses since jab 1 (the reference: three; presses during hitlag reach no script) or attack held as it hits | [D] |
+| Rapid jab | stabs on loop frames 5-13 every 2 frames, 0.3%, Sakurai angle BK 12 KS 15, +2 hitstun, H 0.5, SDI 0.4; loops while attack is held or pressed within 10 frames | values [R]; the loop is 14 frames (the reference's 12) [D] |
+| Finisher | frames 5-6, 2%, 40 degrees, BK 60, KS 132, H 2.0, FAF 36 | [R] |
+| Dash attack (the earlier game's) | clean frame 6: 10%, 80 degrees, BK 34, KS 100; late 7-12: 7%, Sakurai angle, BK 15, KS 100; FAF 36; radii 3.9 / 3.1 of its units | [R] (earlier game); positions [E]; its knockback runs through our (the reference's) formula [D] |
+| Forward smash | hit 1 frame 12: 5%, FKV 47 / 47 / 30 at 35 / 45 / 80 degrees, KS 100, SDI 0.5; hit 2 frames 20-21: 8%, Sakurai angle, BK 60, KS 109; charge hold frame 3; FAF 45 | [R] |
+| Up smash | hit 1 frame 11: 15%, 93 degrees, BK 52, KS 88, H 1.3, SDI 1.5; hit 2 frames 14-15: 11%, 50 degrees, BK 38, KS 100, both sides; charge hold frame 6; FAF 53 | [R]; arm intangibility 8-15 not modelled [E] |
+| Down smash | hit 1 frames 8-9: 4%, FKV 35, KS 100; 140 degrees in front (200 against airborne), 165 behind; hit 2 frames 15-16: 6%, 43 degrees, BK 35, KS 165, both sides; FAF 49 | [R]; charge hold on frame 2, not 1 [D] |
+| Grabs | standing 6-7 (FAF 37), dash 9-10 (FAF 45), pivot 11-12 (FAF 40) | [R]; reach [E] |
+| Pummel | 1%, FKV 30, H 1.7, on frame 2 (a hit cannot start on frame 1), FAF 16 | [R] / [D] |
+| Forward throw | 5% hit frame 20, release 22: 2%, 72 degrees, BK 80, KS 79; FAF 40 | [R] |
+| Back throw | 5% hit frame 15, release 17: 2%, BK 90, KS 50, 120 degrees from the front (60 behind); FAF 36 | [R] / [D] |
+| Up throw | 3% hit frame 19, release 21: 3%, 85 degrees, BK 110, KS 62; FAF 50 | [R] |
+| Down throw | 3% hit frame 26, release 30: 3%, 77 degrees, BK 95, KS 60; FAF 54 | [R] |
+| Rolls, spot dodge | forward roll 26 frames, back roll 32, intangible 4-12 (the back roll's 4-14 is not separate); spot dodge 23, intangible 3-14 | [R] / [D]; roll distance [E] |
+| Ledge attack, get-up attack | 9% / 7% (the reference's damage), the claws' frames | damage [R], timing [E] |
+
+Two general rules changed with this phase, because the jab and the up air's drag-down depend on them (sim 50, `docs/COMBAT.md`): the
+Sakurai angle is the reference's (0 degrees on the ground up to 60 knockback, 38 from 88 and in the air; it was the older game's 0 / 44 at
+32), grounded slides are slowed by traction, and a non-tumble hitstun lands on its feet (no knockdown, no tech).
+
+### Still to build
+
+| Move | Frames (active / FAF) | Damage |
+| --- | --- | --- |
+| Needle Storm | 4-16 per needle (+7 to charge); full charge 86 frames | 1.5 / 0.8 each |
+| Burst Grenade | 13 throw, explodes 67-88 | 1.0 windboxes / 12.6 |
+| Vanish | 36-38, 55-57 (FAF 96); intangible 14-60 ground, 19-55 air | 12.0 / 5.0 |
+| Bouncing Fish | 18 / 26 | 11.0 |
+
+Until then the specials are the claws kit's stand-ins.

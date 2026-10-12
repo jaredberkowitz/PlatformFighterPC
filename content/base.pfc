@@ -5,8 +5,8 @@ bundle {
     schema 2
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 49
-    hash b2ad3e5e97eb112c
+    sim_version 50
+    hash c9c037fc28fcf808
 }
 
 ruleset {
@@ -771,11 +771,22 @@ weapon claws {
 weapon needles {
     limbs true
     move jab {
-        total_frames 20
-        next jab2
-        next_window 12
-        hitbox { start 3 end 4 x 1.09999 y 1.09999 radius 0.9 damage 2 angle 361 bkb 20 kbg 15 priority 1 }
-        hitbox { start 3 end 4 x 1.9 y 1.09999 radius 0.9 damage 2 angle 361 bkb 25 kbg 25 }
+        total_frames 16
+        hitbox { start 1 end 1 x 0.29999 y 1.09999 radius 0.2 damage 2 angle 361 bkb 35 kbg 30 hitlag 160 }
+        hitbox { start 1 end 1 x 0.59999 y 1.09999 radius 0.2 damage 2 angle 361 bkb 30 kbg 30 priority 1 hitlag 160 }
+        hitbox { start 1 end 1 x 1 y 1.09999 radius 0.29999 damage 2 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 }
+        script {
+            // Needles jab 1. Press attack again (or hold it through the hit) to carry on into jab 2 (slot 17), as early as frame 4. The
+            // presses are counted for the rapid jab, which jab 2 reads.
+            var queued;
+            var taps;
+            if attack_tap {
+                queued = 1;
+                taps = taps + 1;
+            }
+            if hit && attack { queued = 1; }
+            if queued && frame >= 3 { goto(17); }
+        }
     }
     move ftilt {
         total_frames 23
@@ -799,36 +810,38 @@ weapon needles {
         hitbox { start 4 end 5 x 1.09999 y 0.2 radius 0.5 damage 4.5 angle 90 bkb 37 kbg 100 priority 2 }
     }
     move dash_attack {
-        total_frames 36
-        hitbox { start 10 end 13 x 0.79999 y 1 radius 0.79999 damage 11 angle 80 bkb 40 kbg 92 priority 1 }
-        hitbox { start 10 end 13 x 1.4 y 0.59999 radius 1 damage 11 angle 50 bkb 40 kbg 91 priority 1 }
-        hitbox { start 10 end 13 x 2 y 0.5 radius 1.09999 damage 11 angle 361 bkb 45 kbg 85 }
-        hitbox { start 14 end 17 x 0.79999 y 1 radius 0.79999 damage 8 angle 80 bkb 40 kbg 60 priority 1 }
-        hitbox { start 14 end 17 x 1.4 y 0.59999 radius 1 damage 8 angle 50 bkb 40 kbg 60 priority 1 }
-        hitbox { start 14 end 17 x 2 y 0.5 radius 1.09999 damage 8 angle 361 bkb 40 kbg 60 }
+        total_frames 34
+        hitbox { start 5 end 5 x 0.4 y 0.79999 radius 0.5 damage 10 angle 80 bkb 34 kbg 100 }
+        hitbox { start 5 end 5 x 0.09999 y 0.5 radius 0.4 damage 10 angle 80 bkb 34 kbg 100 priority 1 }
+        hitbox { start 6 end 11 x 0.5 y 0.7 radius 0.4 damage 7 angle 361 bkb 15 kbg 100 }
+        hitbox { start 6 end 11 x 0.2 y 0.4 radius 0.4 damage 7 angle 361 bkb 15 kbg 100 priority 1 }
     }
     move fsmash {
-        total_frames 40
-        charge_at 5
-        hitbox { start 19 end 22 x 2.2 y 1.09999 radius 1.09999 damage 15 angle 361 bkb 30 kbg 106 }
-        hitbox { start 19 end 22 x 1.5 y 1.09999 radius 1 damage 15 angle 361 bkb 30 kbg 106 priority 1 }
+        total_frames 43
+        charge_at 2
+        hitbox { start 11 end 11 x 0.4 y 0.79999 radius 0.4 damage 5 angle 35 bkb 0 kbg 100 fixed_kb 47 sdi 50 }
+        hitbox { start 11 end 11 x 0.59999 y 0.9 radius 0.4 damage 5 angle 45 bkb 0 kbg 100 priority 1 fixed_kb 47 sdi 50 }
+        hitbox { start 11 end 11 x 0.9 y 1 radius 0.5 damage 5 angle 80 bkb 0 kbg 100 priority 2 fixed_kb 30 sdi 50 }
+        hitbox { start 19 end 20 x 0.79999 y 1 radius 0.59999 damage 8 angle 361 bkb 60 kbg 109 group 1 }
+        hitbox { start 19 end 20 x 1.4 y 1 radius 0.59999 damage 8 angle 361 bkb 60 kbg 109 priority 1 group 1 }
     }
     move usmash {
-        total_frames 46
-        charge_at 2
-        hitbox { start 12 end 14 x 0.79999 y 1.79999 radius 1 damage 6 angle 110 bkb 70 kbg 15 priority 1 }
-        hitbox { start 12 end 14 x 0.4 y 2.2 radius 0.9 damage 6 angle 125 bkb 80 kbg 15 priority 1 }
-        hitbox { start 12 end 14 x 0 y 1.2 radius 0.9 damage 6 angle 125 bkb 80 kbg 15 priority 1 }
-        hitbox { start 19 end 22 x 0.5 y 2.7 radius 1.09999 damage 12 angle 95 bkb 85 kbg 65 group 1 }
-        hitbox { start 19 end 22 x 0.09999 y 2.4 radius 1 damage 12 angle 95 bkb 85 kbg 65 priority 1 group 1 }
+        total_frames 51
+        charge_at 5
+        hitbox { start 10 end 10 x 0.09999 y 2.2 radius 0.79999 damage 15 angle 93 bkb 52 kbg 88 hitlag 130 sdi 150 }
+        hitbox { start 13 end 14 x 0.79999 y 0.7 radius 0.4 damage 11 angle 50 bkb 38 kbg 100 group 1 }
+        hitbox { start 13 end 14 x 0 y 0.7 radius 0.4 damage 11 angle 50 bkb 38 kbg 100 priority 1 group 1 }
+        hitbox { start 13 end 14 x -0.79999 y 0.7 radius 0.4 damage 11 angle 50 bkb 38 kbg 100 priority 2 group 1 }
     }
     move dsmash {
-        total_frames 42
+        total_frames 47
         charge_at 1
-        hitbox { start 13 end 14 x 1.2 y 0.79999 radius 0.9 damage 14 angle 35 bkb 50 kbg 80 priority 1 }
-        hitbox { start 13 end 14 x 2 y 0.59999 radius 1.09999 damage 16 angle 30 bkb 37 kbg 93 }
-        hitbox { start 20 end 21 x -1.2 y 0.79999 radius 0.9 damage 12 angle 35 bkb 50 kbg 80 priority 1 group 1 }
-        hitbox { start 20 end 21 x -2 y 0.59999 radius 1.09999 damage 14 angle 30 bkb 50 kbg 90 group 1 }
+        hitbox { start 7 end 8 x 0.5 y 0.79999 radius 0.5 damage 4 angle 200 bkb 0 kbg 100 targets aerial fixed_kb 35 }
+        hitbox { start 7 end 8 x 0.5 y 0.79999 radius 0.5 damage 4 angle 140 bkb 0 kbg 100 priority 1 fixed_kb 35 }
+        hitbox { start 7 end 8 x -0.5 y 0.5 radius 0.5 damage 4 angle 165 bkb 0 kbg 100 priority 2 fixed_kb 35 }
+        hitbox { start 7 end 8 x -1.09999 y 0.5 radius 0.5 damage 4 angle 165 bkb 0 kbg 100 priority 3 fixed_kb 35 }
+        hitbox { start 14 end 15 x 0.7 y 0.59999 radius 0.59999 damage 6 angle 43 bkb 35 kbg 165 group 1 }
+        hitbox { start 14 end 15 x -0.7 y 0.79999 radius 0.59999 damage 6 angle 43 bkb 35 kbg 165 priority 1 group 1 }
     }
     move nair {
         total_frames 48
@@ -972,47 +985,54 @@ weapon needles {
         }
     }
     move jab2 {
-        total_frames 20
-        next jab3
-        next_window 12
-        hitbox { start 3 end 4 x 1.09999 y 1.09999 radius 0.9 damage 2 angle 361 bkb 20 kbg 20 priority 1 }
-        hitbox { start 3 end 4 x 1.9 y 1.09999 radius 0.9 damage 2 angle 361 bkb 25 kbg 25 }
-    }
-    move jab3 {
-        total_frames 33
-        hitbox { start 3 end 4 x 1.2 y 1.09999 radius 1 damage 4 angle 55 bkb 40 kbg 176 priority 1 }
-        hitbox { start 3 end 4 x 2.09999 y 1.09999 radius 1 damage 4 angle 55 bkb 40 kbg 176 }
+        total_frames 16
+        hitbox { start 2 end 2 x 0.5 y 0.9 radius 0.2 damage 1.59999 angle 361 bkb 35 kbg 25 hitlag 120 }
+        hitbox { start 2 end 2 x 0.9 y 1 radius 0.29999 damage 1.59999 angle 361 bkb 35 kbg 25 priority 1 hitlag 120 }
+        hitbox { start 2 end 2 x 1.4 y 1 radius 0.29999 damage 1.59999 angle 361 bkb 25 kbg 20 priority 2 hitlag 120 }
+        script {
+            // Needles jab 2 (slot 17). The rapid jab (29 = ext1) follows as early as frame 5 once attack has been pressed twice since jab 1's
+            // hit (the reference counts three, but presses during hitlag reach no script, and a jab's hitlag is long), or if attack is held as
+            // the hit lands. (The variables are jab 1's: `taps` carries on counting.)
+            var queued;
+            var taps;
+            if frame == 1 { queued = 0; }
+            if attack_tap { taps = taps + 1; }
+            if taps >= 2 { queued = 1; }
+            if hit && attack && frame == 4 { queued = 1; }
+            if queued && frame >= 4 { goto(29); }
+        }
     }
     move grab {
         total_frames 35
-        hitbox { start 5 end 6 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 5 end 6 x 1.59999 y 1.09999 radius 1 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move dash_grab {
         total_frames 43
-        hitbox { start 7 end 8 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 8 end 9 x 1.79999 y 1.09999 radius 1 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 18
-        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
+        total_frames 14
+        hitbox { start 1 end 1 x 0.59999 y 1 radius 0.59999 damage 1 angle 361 bkb 0 kbg 100 kind pummel hitlag 170 }
     }
     move fthrow {
-        total_frames 31
-        hitbox { start 9 end 9 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel }
-        hitbox { start 10 end 10 x 1.29999 y 1.09999 radius 1 damage 4 angle 45 bkb 55 kbg 57 group 1 kind throw }
+        total_frames 38
+        hitbox { start 19 end 19 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 21 end 21 x 1.29999 y 1.09999 radius 1 damage 2 angle 72 bkb 80 kbg 79 group 1 kind throw }
     }
     move bthrow {
-        total_frames 46
-        hitbox { start 22 end 22 x 1.29999 y 1.09999 radius 1 damage 6 angle 361 bkb 0 kbg 0 kind pummel }
-        hitbox { start 23 end 23 x -1.29999 y 1.09999 radius 1 damage 5 angle 50 bkb 40 kbg 150 group 1 kind throw }
+        total_frames 34
+        hitbox { start 14 end 14 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 16 end 16 x -1.29999 y 1.09999 radius 1 damage 2 angle 60 bkb 90 kbg 50 group 1 kind throw }
     }
     move uthrow {
-        total_frames 44
-        hitbox { start 25 end 25 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel }
-        hitbox { start 26 end 26 x 1.29999 y 1.09999 radius 1 damage 2 angle 80 bkb 75 kbg 110 group 1 kind throw }
+        total_frames 48
+        hitbox { start 18 end 18 x 1.29999 y 1.09999 radius 1 damage 3 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 20 end 20 x 1.29999 y 1.09999 radius 1 damage 3 angle 85 bkb 110 kbg 62 group 1 kind throw }
     }
     move dthrow {
-        total_frames 39
-        hitbox { start 25 end 25 x 1.29999 y 1.09999 radius 1 damage 8.5 angle 361 bkb 50 kbg 65 kind throw }
+        total_frames 52
+        hitbox { start 25 end 25 x 1.29999 y 1.09999 radius 1 damage 3 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 29 end 29 x 1.29999 y 1.09999 radius 1 damage 3 angle 77 bkb 95 kbg 60 group 1 kind throw }
     }
     move ledge_attack {
         total_frames 54
@@ -1030,9 +1050,34 @@ weapon needles {
         total_frames 21
         hitbox { start 0 end 1 x 0 y 0.79999 radius 0.79999 damage 2 angle 48 bkb 77 kbg 50 }
     }
+    move ext1 {
+        total_frames 14
+        rehit_start 4
+        rehit_every 2
+        hitbox { start 4 end 12 x 0.79999 y 1.09999 radius 0.29999 damage 0.29999 angle 361 bkb 12 kbg 15 hitlag 50 hitstun_add 2 sdi 40 }
+        hitbox { start 4 end 12 x 1.2 y 1 radius 0.59999 damage 0.29999 angle 361 bkb 12 kbg 15 priority 1 hitlag 50 hitstun_add 2 sdi 40 }
+        script {
+            // Needles rapid jab (ext1, slot 29): one loop of quick stabs. At its end it loops again while attack is held or was pressed in
+            // the last 10 frames; otherwise it ends in the finisher (30 = ext2).
+            var queued;
+            var taps;
+            var since;
+            since = since + 1;
+            if attack || attack_tap { since = 0; }
+            if frame >= 13 {
+                if since < 10 { goto(29); } else { goto(30); }
+            }
+        }
+    }
+    move ext2 {
+        total_frames 34
+        hitbox { start 4 end 5 x 0.59999 y 1 radius 0.4 damage 2 angle 40 bkb 60 kbg 132 hitlag 200 }
+        hitbox { start 4 end 5 x 0.9 y 1.2 radius 0.4 damage 2 angle 40 bkb 60 kbg 132 priority 1 hitlag 200 }
+        hitbox { start 4 end 5 x 1.2 y 1.4 radius 0.4 damage 2 angle 40 bkb 60 kbg 132 priority 2 hitlag 200 }
+    }
     move pivot_grab {
         total_frames 38
-        hitbox { start 8 end 9 x 1.7 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 10 end 11 x 1.59999 y 1.09999 radius 1 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
 }
 
@@ -1319,16 +1364,16 @@ fighter rogue {
     shield_drop_buffer 4
     shield_drop_recovery 6
     shield_release_frames 11
-    roll_frames 29
-    roll_back_frames 34
+    roll_frames 26
+    roll_back_frames 32
     roll_speed 0.14
     roll_move_start 5
-    roll_move_end 24
+    roll_move_end 21
     roll_intangible_start 4
-    roll_intangible_end 15
-    spot_dodge_frames 25
+    roll_intangible_end 12
+    spot_dodge_frames 23
     spot_intangible_start 3
-    spot_intangible_end 17
+    spot_intangible_end 14
     shield_drop_speed 0.06
     platform_ignore_frames 8
     ledge_reach_x 2.2

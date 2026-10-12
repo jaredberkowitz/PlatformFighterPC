@@ -1967,7 +1967,9 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
     };
 
     if f.grounded() {
-        // A grounded hit slides the fighter along the floor.
+        // A grounded hit slides the fighter along the floor, and its traction slows the slide too (the reference: low-traction
+        // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches.
+        f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, p.ground_friction);
         f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
         if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
             f.kb_vel.x = Fx::ZERO;
@@ -2010,6 +2012,13 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         f.vel.y = Fx::ZERO;
     }
     if let Some(platform) = moved.landing {
+        // A lighter hit (not a tumble: a jab, an autolink loop dragging the fighter down) lands it on its feet, as in the reference:
+        // the hitstun carries on on the ground, with no tech and no knockdown.
+        if !f.tumble {
+            land(f, p, stage, platform);
+            f.kb_vel.y = Fx::ZERO;
+            return true;
+        }
         let teched = tech_ready(f, rules);
         // Spiked into the floor hard enough, a tumbling fighter bounces back up instead of lying down (unless it techs).
         if !teched && f.tumble && f.kb_vel.y < Fx::ZERO && -falling > rules.ground_bounce_speed {

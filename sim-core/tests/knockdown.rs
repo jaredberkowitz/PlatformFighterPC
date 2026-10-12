@@ -9,7 +9,8 @@ use sim_core::moves::MoveId;
 use sim_core::state::{FighterState as S, NONE};
 use sim_core::{Fx, Vec2};
 
-/// Player 1 falls in hitstun toward the main stage; player 0 stands well away.
+/// Player 1 falls tumbling in hitstun toward the main stage (a light, non-tumble hitstun would land on its feet); player 0 stands
+/// well away.
 fn falling_victim() -> Sim {
     let mut sim = Sim::new();
     sim.stand(0, fx(-80, 10), 1);
@@ -18,6 +19,7 @@ fn falling_victim() -> Sim {
     let f = &mut sim.state.fighters[1];
     f.state = S::Hitstun;
     f.hitstun = 80;
+    f.tumble = true;
     f.pos = Vec2::new(Fx::ZERO, fx(5, 10));
     f.vel = Vec2::new(Fx::ZERO, fx(-2, 10));
     f.platform = NONE;

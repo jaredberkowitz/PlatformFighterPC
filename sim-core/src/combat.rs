@@ -186,13 +186,19 @@ pub fn rage_multiplier(attacker_percent: Fx, rules: &Ruleset) -> Fx {
 
 /// World launch angle: mirrored when the attacker faces left, with the 361 "Sakurai" angle resolved.
 pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, kb: Fx) -> Angle {
+    // The reference's rules (SmashWiki, "Sakurai angle"): against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38
+    // at 88 and 38 above; against an airborne one always 38. A move aimed straight sideways (0) rises to 32 from 120 knockback.
     let mut d = i32::from(degrees);
     if d == 361 {
-        d = if defender_grounded && kb < Fx::from_int(32) {
+        d = if !defender_grounded || kb >= Fx::from_int(88) {
+            38
+        } else if kb <= Fx::from_int(60) {
             0
         } else {
-            44
+            ((kb - Fx::from_int(60)).mul_int(38) / Fx::from_int(28)).floor_int()
         };
+    } else if d == 0 && kb >= Fx::from_int(120) {
+        d = 32;
     }
     if attacker_facing < 0 {
         d = 180 - d;
@@ -1165,9 +1171,16 @@ mod tests {
             Angle::from_degrees(0).raw(),
             "weak grounded hit is horizontal"
         );
-        assert_eq!(a(361, 1, true, 60), Angle::from_degrees(44).raw());
-        assert_eq!(a(361, 1, false, 20), Angle::from_degrees(44).raw());
-        assert_eq!(a(361, -1, false, 60), Angle::from_degrees(136).raw());
+        // The reference's: grounded 0 up to 60 knockback, 38 from 88, evenly between (19 at 74); airborne always 38.
+        assert_eq!(a(361, 1, true, 60), Angle::from_degrees(0).raw());
+        assert_eq!(a(361, 1, true, 74), Angle::from_degrees(19).raw());
+        assert_eq!(a(361, 1, true, 88), Angle::from_degrees(38).raw());
+        assert_eq!(a(361, 1, true, 150), Angle::from_degrees(38).raw());
+        assert_eq!(a(361, 1, false, 20), Angle::from_degrees(38).raw());
+        assert_eq!(a(361, -1, false, 60), Angle::from_degrees(142).raw());
+        // A sideways (0 degree) move rises to 32 from 120 knockback.
+        assert_eq!(a(0, 1, true, 119), Angle::from_degrees(0).raw());
+        assert_eq!(a(0, 1, false, 120), Angle::from_degrees(32).raw());
     }
 
     #[test]

@@ -38,7 +38,10 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		d.cam_dist = 11.0
 		d.cam_focus = 0
 		var air := move.ends_with("air")
-		if air:
+		if move == "uair":
+			# The other fighter just overhead, both falling from rest: the up air's loop catches it and drags it down.
+			d.events = [[1, "place", 0, -1.0, 3.0], [1, "place", 1, -0.9, 4.8]]
+		elif air:
 			d.events = [[1, "place", 0, -1.0, 6.0], [1, "place", 1, 0.8, 6.0]]
 		else:
 			d.events = [[1, "stand", 0, -1.0, 1], [1, "stand", 1, 0.9, -1]]

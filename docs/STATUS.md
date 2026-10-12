@@ -13,7 +13,9 @@ shared animation library (`docs/ANIMATION.md`: one clip set for every moveset, m
 for multihit moves, a polished idle, jump, landing, jab, forward air and hit reaction). Then the multi-hit engine and a third class
 (sim 49): eight hit groups per move, a rehit that clears chosen groups, the autolink angle 367, set knockback, extra hitstun, per-hitbox
 SDI and landing hits; and the Needles rogue, whose body, tilts and aerials follow the reference's published data (`docs/sheik/`,
-`docs/MOVESETS.md`; its other moves are still the claws kit's).
+`docs/MOVESETS.md`). Sim 50: the rest of its normals, grabs and throws on reference data (its specials are still the claws kit's), and
+three general rules brought to the reference's: the Sakurai angle, traction slowing grounded slides, and light hitstun landing on its
+feet (no knockdown after a drag-down).
 
 ## Roadmap progress
 

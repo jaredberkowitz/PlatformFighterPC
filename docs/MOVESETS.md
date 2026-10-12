@@ -46,8 +46,10 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - Built to exercise the multi-hit engine (sim 49): up to eight hit groups, a rehit that clears only chosen groups, the autolink angle
   (367: the hit carries the foe along with the attacker instead of launching), set knockback, extra hitstun, per-hitbox SDI and landing hits.
 - **As built (phase 1, sim 49):** the body (`FighterParams::rogue`) and the forward, up and down tilts and all five aerials on the
-  reference's published data (`docs/sheik/REFERENCE_DATA.md`, which labels each number verified, derived or estimated). The jabs, dash
-  attack, smashes, grabs, throws and specials are still the claws kit's and are next.
+  reference's published data (`docs/sheik/REFERENCE_DATA.md`, which labels each number verified, derived or estimated).
+- **Phase 2 (sim 50):** the jabs with the rapid jab and its finisher (scripts), the earlier game's dash attack (a pop-up), the two-hit
+  forward and down smashes and the up smash, grabs, pummel and throws, and the reference's rolls and spot dodge. The specials are still
+  the claws kit's and are next.
 
 ## What this needs from the engine (Phase 3 list)
 

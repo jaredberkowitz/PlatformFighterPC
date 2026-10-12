@@ -1494,8 +1494,8 @@ fn set_rows(mv: &mut Move, rows: &[usize], f: impl Fn(&mut Hitbox)) {
 /// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
 /// lag and autocancel windows, the up air's looping autolink hits and final hit, the down air's dive and landing hit. Radii are the
 /// reference's converted; positions are estimates on our body (the reference attaches its hitboxes to bones of its own skeleton). The
-/// data and its sources: `docs/sheik/REFERENCE_DATA.md`. The other slots start from the claws kit as stand-ins (the next phase replaces
-/// them with the reference's jab, dash attack, smashes, grabs, throws and specials).
+/// data and its sources: `docs/sheik/REFERENCE_DATA.md`. The jabs and rapid jab, smashes, grabs and throws follow the reference too;
+/// the dash attack is the earlier game's. The specials are still the claws kit's stand-ins.
 pub fn needles() -> Weapon {
     let mut w = claws();
     // Kicks and the hands: the limb throwing a hit can be hit.
@@ -1665,6 +1665,207 @@ pub fn needles() -> Weapon {
     w.moves[MoveId::DAir as usize] = dair;
     w.moves[MoveId::Ext0 as usize] =
         ref_move(23, 0, 0, 255, &[r(1, 2, 0, 8, 8, 20, 48, 77, 50, 0, 0)]);
+
+    // ---- The rest of the kit (docs/sheik/REFERENCE_DATA.md, "The rest of the kit") ----
+    // Frames, damage, angles, knockback, hitlag and SDI multipliers are the reference's; positions are estimates on our body.
+
+    // Jab 1: a hand swipe on frame 2, 2%, FAF 18; hitlag x1.6. The close hits use the Sakurai angle (BK 35 / 30, KS 30); the tip
+    // pulls a fighter in (180 degrees, BK 20, KS 15). Pressing attack again (or holding it through a hit) carries on into jab 2 from
+    // frame 4 (a script).
+    let mut jab1 = ref_move(
+        18,
+        0,
+        0,
+        255,
+        &[
+            r(2, 2, 3, 11, 2, 20, 361, 35, 30, 0, 0),
+            r(2, 2, 6, 11, 2, 20, 361, 30, 30, 1, 0),
+            r(2, 2, 10, 11, 3, 20, 180, 20, 15, 2, 0),
+        ],
+    );
+    set_rows(&mut jab1, &[0, 1, 2], |h| h.hitlag = 160);
+    jab1.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/needles_jab_1.script"),
+    ));
+    w.moves[MoveId::Jab as usize] = jab1;
+    // Jab 2: the backhand on frame 3, 1.6%, FAF 18; hitlag x1.2; Sakurai angle, BK 35 / 35 / 25, KS 25 / 25 / 20. Three presses since
+    // jab 1 (or attack held as it hits) go on into the rapid jab from frame 5. There is no jab 3.
+    let mut jab2 = ref_move(
+        18,
+        0,
+        0,
+        255,
+        &[
+            r(3, 3, 5, 9, 2, 16, 361, 35, 25, 0, 0),
+            r(3, 3, 9, 10, 3, 16, 361, 35, 25, 1, 0),
+            r(3, 3, 14, 10, 3, 16, 361, 25, 20, 2, 0),
+        ],
+    );
+    set_rows(&mut jab2, &[0, 1, 2], |h| h.hitlag = 120);
+    jab2.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/needles_jab_2.script"),
+    ));
+    w.moves[MoveId::Jab2 as usize] = jab2;
+    w.moves[MoveId::Jab3 as usize] = Move::empty();
+    // Rapid jab (ext1): stabs on loop frames 5, 7, 9, 11 and 13, each 0.3% at the Sakurai angle (BK 12, KS 15) with +2 hitstun,
+    // hitlag x0.5 and SDI x0.4, so the target stays caught. The reference's loop is 12 frames; ours restarts the move, 14 frames a
+    // loop [D]. Each loop's end goes round again while attack is held or mashed, else into the finisher (a script).
+    let mut rapid = ref_move(
+        16,
+        0,
+        0,
+        255,
+        &[
+            r(5, 13, 8, 11, 3, 3, 361, 12, 15, 0, 0),
+            r(5, 13, 12, 10, 6, 3, 361, 12, 15, 1, 0),
+        ],
+    );
+    set_rows(&mut rapid, &[0, 1], |h| {
+        h.hitlag = 50;
+        h.sdi = 40;
+        h.hitstun_add = 2;
+    });
+    rapid.rehit = Some((4, 2));
+    rapid.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/needles_rapid_jab.script"),
+    ));
+    w.moves[MoveId::Ext1 as usize] = rapid;
+    // Rapid jab finisher (ext2): an upward palm thrust on frames 5-6, 2%, 40 degrees, BK 60, KS 132, hitlag x2. FAF 36.
+    let mut finisher = ref_move(
+        36,
+        0,
+        0,
+        255,
+        &[
+            r(5, 6, 6, 10, 4, 20, 40, 60, 132, 0, 0),
+            r(5, 6, 9, 12, 4, 20, 40, 60, 132, 1, 0),
+            r(5, 6, 12, 14, 4, 20, 40, 60, 132, 2, 0),
+        ],
+    );
+    set_rows(&mut finisher, &[0, 1, 2], |h| h.hitlag = 200);
+    w.moves[MoveId::Ext2 as usize] = finisher;
+
+    // Dash attack: the earlier game's (asked for by name), not the reference game's. Clean on frame 6: 10%, 80 degrees, BK 34, KS 100,
+    // a pop-up that starts combos; late on frames 7-12: 7%, Sakurai angle, BK 15, KS 100. FAF 36. Radii from that game's table
+    // (3.9 and 3.1 of its units, the same scale as the reference's); positions estimated from its offsets.
+    w.moves[MoveId::DashAttack as usize] = ref_move(
+        36,
+        0,
+        0,
+        255,
+        &[
+            r(6, 6, 4, 8, 5, 100, 80, 34, 100, 0, 0),
+            r(6, 6, 1, 5, 4, 100, 80, 34, 100, 1, 0),
+            r(7, 12, 5, 7, 4, 70, 361, 15, 100, 0, 0),
+            r(7, 12, 2, 4, 4, 70, 361, 15, 100, 1, 0),
+        ],
+    );
+
+    // Forward smash: two kicks. Hit 1 on frame 12, 5%, set knockback (FKV 47 / 47 / 30 at 35 / 45 / 80 degrees, KS 100) with SDI x0.5,
+    // holds the target for hit 2 on frames 20-21: 8%, Sakurai angle, BK 60, KS 109. Charges on frame 3, FAF 45.
+    let mut fsmash = ref_move(
+        45,
+        0,
+        0,
+        255,
+        &[
+            r(12, 12, 4, 8, 4, 50, 35, 0, 100, 0, 0),
+            r(12, 12, 6, 9, 4, 50, 45, 0, 100, 1, 0),
+            r(12, 12, 9, 10, 5, 50, 80, 0, 100, 2, 0),
+            r(20, 21, 8, 10, 6, 80, 361, 60, 109, 0, 1),
+            r(20, 21, 14, 10, 6, 80, 361, 60, 109, 1, 1),
+        ],
+    );
+    for (i, fkv) in [(0usize, 47u16), (1, 47), (2, 30)] {
+        set_rows(&mut fsmash, &[i], |h| {
+            h.fixed_kb = fkv;
+            h.sdi = 50;
+        });
+    }
+    fsmash.charge_at = Some(2);
+    w.moves[MoveId::FSmash as usize] = fsmash;
+
+    // Up smash: both hands thrust overhead on frame 11, 15%, 93 degrees, BK 52, KS 88, hitlag x1.3, SDI x1.5; then a low hit around the
+    // feet on frames 14-15, 11%, 50 degrees, BK 38, KS 100. Charges on frame 6, FAF 53. (The reference's arms are intangible on
+    // frames 8-15; ours are not [E].)
+    let mut usmash = ref_move(
+        53,
+        0,
+        0,
+        255,
+        &[
+            r(11, 11, 1, 22, 8, 150, 93, 52, 88, 0, 0),
+            r(14, 15, 8, 7, 4, 110, 50, 38, 100, 0, 1),
+            r(14, 15, 0, 7, 4, 110, 50, 38, 100, 1, 1),
+            r(14, 15, -8, 7, 4, 110, 50, 38, 100, 2, 1),
+        ],
+    );
+    set_rows(&mut usmash, &[0], |h| {
+        h.hitlag = 130;
+        h.sdi = 150;
+    });
+    usmash.charge_at = Some(5);
+    w.moves[MoveId::USmash as usize] = usmash;
+
+    // Down smash: a spinning kick, in front and behind. Hit 1 on frames 8-9, 4%, set knockback 35 (KS 100): in front 140 degrees (200
+    // against an airborne target), behind 165, both drawing the target in; hit 2 on frames 15-16, 6%, 43 degrees, BK 35, KS 165, both
+    // sides. Charges on frame 2 (the reference holds on frame 1, before our first moving frame [D]), FAF 49.
+    let mut dsmash = ref_move(
+        49,
+        0,
+        0,
+        255,
+        &[
+            r(8, 9, 5, 8, 5, 40, 200, 0, 100, 0, 0),
+            r(8, 9, 5, 8, 5, 40, 140, 0, 100, 1, 0),
+            r(8, 9, -5, 5, 5, 40, 165, 0, 100, 2, 0),
+            r(8, 9, -11, 5, 5, 40, 165, 0, 100, 3, 0),
+            r(15, 16, 7, 6, 6, 60, 43, 35, 165, 0, 1),
+            r(15, 16, -7, 8, 6, 60, 43, 35, 165, 1, 1),
+        ],
+    );
+    set_rows(&mut dsmash, &[0, 1, 2, 3], |h| h.fixed_kb = 35);
+    set_rows(&mut dsmash, &[0], |h| h.targets = TARGETS_AERIAL);
+    dsmash.charge_at = Some(1);
+    w.moves[MoveId::DSmash as usize] = dsmash;
+
+    // Grabs: standing on frames 6-7 (FAF 37), dash 9-10 (FAF 45), pivot 11-12 (FAF 40). The reach is an estimate.
+    w.moves[MoveId::Grab as usize] = with_kind(
+        ref_move(37, 0, 0, 255, &[r(6, 7, 16, 11, 10, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    w.moves[MoveId::DashGrab as usize] = with_kind(
+        ref_move(45, 0, 0, 255, &[r(9, 10, 18, 11, 10, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    w.moves[MoveId::PivotGrab as usize] = with_kind(
+        ref_move(40, 0, 0, 255, &[r(11, 12, 16, 11, 10, 0, 361, 0, 0, 0, 0)]),
+        HIT_GRAB,
+    );
+    // Pummel: a knee, 1% (on frame 2: a hit cannot start on a move's first frame), hitlag x1.7. FAF 16 (the reference's 15 frames
+    // include its hitlag [D]).
+    let mut pummel = with_kind(
+        ref_move(16, 0, 0, 255, &[r(2, 2, 6, 10, 6, 10, 361, 0, 100, 0, 0)]),
+        HIT_PUMMEL,
+    );
+    pummel.hitboxes[0].hitlag = 170;
+    w.moves[MoveId::Pummel as usize] = pummel;
+    // Throws: a hit on the held fighter, then the throw. Forward: 5% on frame 20, released on 22 (2%, 72 degrees, BK 80, KS 79), FAF 40.
+    // Back: 5% on 15, released on 17 (2%, BK 90, KS 50; the reference's 120 degrees from the front is 60 behind), FAF 36. Up: 3% on 19,
+    // released on 21 (3%, 85 degrees, BK 110, KS 62), FAF 50. Down: 3% on 26, released on 30 (3%, 77 degrees, BK 95, KS 60), FAF 54.
+    w.moves[MoveId::FThrow as usize] =
+        throw_after_hit(40, (20, 50), r(22, 22, 13, 11, 10, 20, 72, 80, 79, 0, 1));
+    w.moves[MoveId::BThrow as usize] =
+        throw_after_hit(36, (15, 50), r(17, 17, -13, 11, 10, 20, 60, 90, 50, 0, 1));
+    w.moves[MoveId::UThrow as usize] =
+        throw_after_hit(50, (19, 30), r(21, 21, 13, 11, 10, 30, 85, 110, 62, 0, 1));
+    w.moves[MoveId::DThrow as usize] =
+        throw_after_hit(54, (26, 30), r(30, 30, 13, 11, 10, 30, 77, 95, 60, 0, 1));
+    // The ledge attack (9%) and get-up attack (7% each side) keep the claws' frames: the damage is the reference's, the timing an
+    // estimate [E].
 
     w
 }

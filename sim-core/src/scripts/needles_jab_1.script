@@ -1,0 +1,10 @@
+// Needles jab 1. Press attack again (or hold it through the hit) to carry on into jab 2 (slot 17), as early as frame 4. The
+// presses are counted for the rapid jab, which jab 2 reads.
+var queued;
+var taps;
+if attack_tap {
+    queued = 1;
+    taps = taps + 1;
+}
+if hit && attack { queued = 1; }
+if queued && frame >= 3 { goto(17); }

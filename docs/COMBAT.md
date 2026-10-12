@@ -23,15 +23,19 @@
 - **Aerial landing lag** with autocancel windows (landing early or late in the move costs only the normal landing lag).
 - **Damage and launch** follow the reference formulas: `KB = ((((p/10 + p*d/20) * 200/(w+100) * 1.4) + 18) * g/100) + b`,
   launch speed `KB * 0.03` reference units/frame (8 per world unit), hitstun `floor(KB * 0.4) - 1` frames, hitlag
-  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 is horizontal for weak grounded hits and
-  44 degrees otherwise. See "Hit feel" below for rage, staling, crouch cancelling and the rest (sim v27).
+  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 (the Sakurai angle) is the reference's since sim v50:
+  against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38 at 88; against an airborne one 38 (it was the older
+  game's 0 below 32 knockback and 44 above). A sideways (0 degree) hit rises to 32 degrees from 120 knockback. A grounded hit that
+  does not lift the fighter slides it, and its traction slows the slide as well as the usual knockback decay (sim v50), so a jab's
+  push stays short. See "Hit feel" below for rage, staling, crouch cancelling and the rest (sim v27).
 - **Hitlag freezes both fighters.** During it the victim can **DI** (the part of the stick perpendicular to the launch bends
   it up to 10 degrees, the reference game's 0.17 radians, applied on the frame hitlag ends; it was 18, the older game's, until sim
   v34) and **LSI** (holding up makes a tumbling launch up to 1.095 times as fast, holding down 0.92 times, in proportion to the stick,
   except within 25 degrees of straight up or down) and **SDI** (a stick flick nudges 0.25 units, once
   every 4 frames).
-- **Hitstun** with gravity and decaying launch speed. Landing in hitstun is a **tech** with a shield press just before
-  (4 frames of lag), otherwise a placeholder knockdown (24 frames).
+- **Hitstun** with gravity and decaying launch speed. Landing out of a tumble is a **tech** with a shield press just before
+  (4 frames of lag), otherwise a knockdown. Landing out of a lighter hit (no tumble: a jab, an autolink loop dragging the fighter
+  down) lands it on its feet and the hitstun carries on on the ground, with no tech and no knockdown, as in the reference (sim v50).
 - **Shield** blocks: no damage, no launch, a little pushback. Intangible: respawn invulnerability, ledge invulnerability and
   the middle of an air dodge.
 - **KO and respawn:** leaving the blast zone costs a stock, resets damage and respawns at the spawn point with 120 frames of

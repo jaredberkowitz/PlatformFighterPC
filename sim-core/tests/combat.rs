@@ -266,6 +266,8 @@ fn the_knockback_direction_mirrors_when_the_attacker_faces_left() {
     let mut sim = Sim::new();
     sim.stand(0, fx(30, 10), -1);
     sim.stand(1, fx(8, 10), 1);
+    // Damaged enough that the jab lifts it off the ground (the Sakurai angle rises from 60 knockback).
+    sim.state.fighters[1].percent = Fx::from_int(150);
     sim.tick(inp(-30, 0, ATTACK));
     ticks_until_hit(&mut sim, 20).expect("should hit");
     let lag = sim.fighter(1).hitlag;
@@ -294,9 +296,11 @@ fn a_weak_hit_on_a_grounded_fighter_slides_them_instead_of_launching_them() {
 
 /// The launch velocity after the victim holds `stick` through hitlag.
 fn launch_with_di(stick: (i8, i8)) -> Vec2 {
-    // A jab close in on a damaged victim: quick enough to land before the victim's held stick carries it away, strong enough to launch.
+    // A jab close in on a damaged victim just off the ground: quick enough to land before the victim's held stick carries it away,
+    // strong enough to launch (in the air the Sakurai angle is 38 degrees; a weak hit on the ground would only slide it).
     let mut sim = Sim::duel(fx(10, 10));
     sim.state.fighters[1].percent = Fx::from_int(80);
+    sim.put_airborne(1, fx(10, 10), fx(6, 10), Fx::ZERO, Fx::ZERO);
     sim.tick(inp(0, 0, ATTACK));
     for _ in 0..20 {
         sim.tick2(inp(0, 0, 0), inp(stick.0, stick.1, 0));
@@ -472,6 +476,8 @@ fn land_in_hitstun(press_shield: bool) -> (S, u8) {
     let f = &mut sim.state.fighters[1];
     f.state = S::Hitstun;
     f.hitstun = 60;
+    // Tumbling (a light hitstun lands on its feet, with nothing to tech).
+    f.tumble = true;
     f.pos = Vec2::new(Fx::ZERO, fx(5, 10));
     f.vel = Vec2::new(Fx::ZERO, fx(-2, 10));
     f.platform = sim_core::state::NONE;
