@@ -11,10 +11,11 @@ extends RefCounted
 ## turn toward 0..1, how far at most, how dark, the tint for pale colours), the rim colour, the colour grade and the haze its darks are
 ## lifted toward (the pastel finish in shaders/post.gdshader).
 const MOODS := {
-	"meadow": {"key": [Color(1.0, 0.93, 0.82), 1.25, -38.0, -32.0], "fill": [Color(0.62, 0.72, 1.0), 0.35],
-		"ambient": [Color(1.0, 0.9, 0.86), 0.5], "shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.64,
-		"shadow_tint": Color(0.74, 0.7, 0.88), "rim": Color(1.0, 0.94, 0.84),
-		"grade": [Color(0.92, 0.94, 1.04), Color(1.04, 1.0, 0.94), 0.5], "haze": Color(0.86, 0.9, 1.0)},
+	# Magic hour: a lower, golden key that rakes across the props and fighters, violet fill and shadows, a lavender-peach haze.
+	"meadow": {"key": [Color(1.0, 0.86, 0.66), 1.38, -30.0, -34.0], "fill": [Color(0.66, 0.6, 1.0), 0.4],
+		"ambient": [Color(0.94, 0.86, 0.96), 0.46], "shadow_hue": 0.76, "shadow_shift": 0.1, "shadow_value": 0.62,
+		"shadow_tint": Color(0.76, 0.68, 0.92), "rim": Color(1.0, 0.86, 0.7),
+		"grade": [Color(0.92, 0.88, 1.06), Color(1.07, 1.0, 0.9), 0.55], "haze": Color(0.98, 0.86, 0.92)},
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.2, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.88, 0.92), 0.52], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
 		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
@@ -38,6 +39,11 @@ const MOODS := {
 }
 
 
+## The menus' 3D previews: plain warm daylight (the meadow's look before it turned to magic hour), so a stage's mood never reaches them.
+const MENU_MOOD := {"shadow_hue": 0.73, "shadow_shift": 0.07, "shadow_value": 0.64, "shadow_tint": Color(0.74, 0.7, 0.88),
+	"rim": Color(1.0, 0.94, 0.84)}
+
+
 ## Each stage's shading profile, on top of its mood (anything left out takes `STYLE_DEFAULT`): the cel ramp's bands (`ramp`: stops of
 ## [where on the way from facing away to facing the light, how lit], drawn into `pf_ramp`), how much darker a cast shadow makes the shadow
 ## side (`deep`), the pale edge light round the fighters (`edge`, its alpha the strength: strong on dark stages so no fighter sinks into
@@ -57,6 +63,11 @@ const STYLE_DEFAULT := {
 }
 const STYLES := {
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55]},
+	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
+	# and cooler undersides, and less of the pastel wash, so the colours carry.
+	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
+		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74,
+		"finish": {"desat": 0.02, "lift": 0.03, "haze_max": 0.18, "s_curve": 0.28}},
 	"sunset": {"edge": Color(1.0, 0.86, 0.74, 0.34), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
@@ -146,8 +157,8 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	fill.light_color = Color(0.62, 0.72, 1.0)
 	fill.light_energy = 0.35
 	root.add_child(fill)
-	# The menus (and anything lit before a stage is chosen) use the meadow's mood, with no stage shading.
-	_set_globals(MOODS.meadow, style("meadow"))
+	# The menus (and anything lit before a stage is chosen) use their own neutral daylight mood, with no stage shading.
+	_set_globals(MENU_MOOD, style("menu"))
 	RenderingServer.global_shader_parameter_set("pf_ao_strength", 0.0)
 
 

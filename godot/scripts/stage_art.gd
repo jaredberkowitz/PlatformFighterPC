@@ -20,37 +20,43 @@ const VisualSettings := preload("res://scripts/visual_settings.gd")
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
 const THEMES := {
 	"meadow": {
-		"sky_top": Color(0.32, 0.55, 0.9), "sky_horizon": Color(0.8, 0.92, 0.98),
+		"sky_top": Color(0.36, 0.4, 0.9), "sky_mid": Color(0.88, 0.64, 0.9), "sky_horizon": Color(1.0, 0.84, 0.74),
+		"sky_glow": [Color(1.0, 0.74, 0.46), 0.5], "sky_wisps": [Color(1.0, 0.8, 0.88), 0.6],
 		"soil": Color(0.62, 0.46, 0.32), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.42, 0.76, 0.36),
 		"grass_light": Color(0.62, 0.88, 0.46), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "cobble", "cap": "grass", "platform": "wood",
+		"pattern": "cobble", "cap": "grass", "platform": "wood", "grass_vary": 0.17,
 	},
 	"grove": {
-		"sky_top": Color(0.42, 0.6, 0.96), "sky_horizon": Color(0.99, 0.86, 0.93),
+		"sky_top": Color(0.42, 0.6, 0.96), "sky_mid": Color(0.8, 0.74, 0.98), "sky_horizon": Color(0.99, 0.86, 0.93),
+		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.36, 0.76, 0.36),
 		"grass_light": Color(0.58, 0.9, 0.45), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
 		"pattern": "diamonds", "cap": "grass", "platform": "wood",
 	},
 	"sunset": {
-		"sky_top": Color(0.36, 0.28, 0.6), "sky_horizon": Color(1.0, 0.64, 0.4),
+		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
+		"sky_glow": [Color(1.0, 0.56, 0.26), 0.7], "sky_wisps": [Color(1.0, 0.7, 0.62), 0.5],
 		"soil": Color(0.86, 0.5, 0.32), "soil_dark": Color(0.68, 0.34, 0.24), "grass": Color(0.93, 0.74, 0.46),
 		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.56, 0.37, 0.28), "wood_dark": Color(0.38, 0.24, 0.2),
 		"pattern": "strata", "cap": "sand", "platform": "wood",
 	},
 	"night": {
-		"sky_top": Color(0.05, 0.07, 0.2), "sky_horizon": Color(0.2, 0.25, 0.48),
+		"sky_top": Color(0.05, 0.07, 0.2), "sky_mid": Color(0.12, 0.13, 0.36), "sky_horizon": Color(0.2, 0.25, 0.48),
+		"sky_glow": [Color(0.46, 0.42, 0.86), 0.35],
 		"soil": Color(0.36, 0.4, 0.56), "soil_dark": Color(0.27, 0.3, 0.44), "grass": Color(0.38, 0.62, 0.6),
 		"grass_light": Color(0.52, 0.78, 0.74), "wood": Color(0.62, 0.66, 0.78), "wood_dark": Color(0.42, 0.45, 0.58),
 		"pattern": "diamonds", "cap": "grass", "platform": "wood",
 	},
 	"ocean": {
-		"sky_top": Color(0.2, 0.52, 0.92), "sky_horizon": Color(0.74, 0.92, 1.0),
+		"sky_top": Color(0.2, 0.52, 0.92), "sky_mid": Color(0.56, 0.78, 1.0), "sky_horizon": Color(0.74, 0.92, 1.0),
+		"sky_glow": [Color(1.0, 0.86, 0.64), 0.45], "sky_wisps": [Color(1.0, 0.95, 0.92), 0.4],
 		"soil": Color(0.62, 0.58, 0.54), "soil_dark": Color(0.5, 0.46, 0.44), "grass": Color(0.98, 0.88, 0.62),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
 		"pattern": "cobble", "cap": "sand", "platform": "wood",
 	},
 	"city": {
-		"sky_top": Color(0.08, 0.06, 0.22), "sky_horizon": Color(0.42, 0.22, 0.46),
+		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
+		"sky_glow": [Color(0.95, 0.38, 0.6), 0.45],
 		"soil": Color(0.42, 0.44, 0.54), "soil_dark": Color(0.3, 0.32, 0.4), "grass": Color(0.56, 0.58, 0.66),
 		"grass_light": Color(0.78, 0.8, 0.88), "wood": Color(0.84, 0.48, 0.41), "wood_dark": Color(0.5, 0.26, 0.27),
 		"pattern": "facade", "cap": "roof", "platform": "girder",
@@ -73,17 +79,29 @@ static func theme(look: Dictionary) -> Dictionary:
 
 
 ## The sky for a theme: a gradient from the top colour to the horizon (the camera never sees below the horizon much).
+## The theme's sky (shaders/sky.gdshader): its top, an optional middle tint (`sky_mid`) and horizon, with an optional warm glow low over
+## the horizon behind the stage (`sky_glow`: colour, strength) and painted wisps (`sky_wisps`: colour, amount).
 static func sky(t: Dictionary) -> Sky:
-	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = t.sky_top
-	mat.sky_horizon_color = t.sky_horizon
-	mat.ground_horizon_color = t.sky_horizon
-	mat.ground_bottom_color = (t.sky_horizon as Color).darkened(0.2)
-	mat.sun_angle_max = 0.0
-	mat.sky_curve = 0.12
+	var mat := ShaderMaterial.new()
+	mat.shader = SKY_SHADER
+	var top: Color = t.sky_top
+	var horizon: Color = t.sky_horizon
+	mat.set_shader_parameter("top_color", top)
+	mat.set_shader_parameter("mid_color", t.get("sky_mid", top.lerp(horizon, 0.5)))
+	mat.set_shader_parameter("horizon_color", horizon)
+	mat.set_shader_parameter("ground_color", horizon.darkened(0.2))
+	if t.has("sky_glow"):
+		mat.set_shader_parameter("glow_color", t.sky_glow[0])
+		mat.set_shader_parameter("glow_strength", t.sky_glow[1])
+	if t.has("sky_wisps"):
+		mat.set_shader_parameter("wisp_color", t.sky_wisps[0])
+		mat.set_shader_parameter("wisp_amount", t.sky_wisps[1])
 	var s := Sky.new()
 	s.sky_material = mat
 	return s
+
+
+const SKY_SHADER := preload("res://shaders/sky.gdshader")
 
 
 # ---- Materials --------------------------------------------------------------------------------------------------------------------
@@ -276,6 +294,10 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		_:
 			# A thick grass cap that rolls over the front edge, with tufts hanging over.
 			var grass := _surface(t.grass, "grass", 3.5)
+			# Broad sunlit and shaded patches across the lawn where the theme asks for them (`grass_vary`), so the top is not one sheet.
+			if t.has("grass_vary"):
+				grass = grass.duplicate()
+				grass.set_shader_parameter("world_vary", t.grass_vary)
 			var cap_h := 0.55
 			_mesh(parent, _box(Vector3(w + 0.25, cap_h, depth + 0.1)), grass, Vector3(cx, top - cap_h / 2.0 + 0.04, front_z - depth / 2.0))
 			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
@@ -526,7 +548,10 @@ const CONTACT_STRENGTH := 0.55
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 	var centre := at + Vector3(0, 0.55, 0)
-	_mesh(root, _cylinder(0.55, 0.55, 1.3, 9), FighterView.toon(Color(0.98, 0.84, 0.5)), centre, Vector3.ONE, Vector3(90, turn, 0))
+	# Woven straw (the straw hat's drawing, godot/art/cloth/straw.svg) in a warm gold, so the bale reads as straw with a lit and a shaded
+	# side, not a flat yellow drum.
+	var straw := FighterView.toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.96, 0.8, 0.46)}), Vector2(9, 3))
+	_mesh(root, _cylinder(0.55, 0.55, 1.3, 12), straw, centre, Vector3.ONE, Vector3(90, turn, 0))
 	var band := FighterView.toon(Color(0.8, 0.56, 0.32), false)
 	for dz in [-0.32, 0.32]:
 		_mesh(root, _cylinder(0.57, 0.57, 0.08, 9), band, centre + Vector3(0, 0, dz).rotated(Vector3.UP, deg_to_rad(turn)), Vector3.ONE, Vector3(90, turn, 0))
@@ -537,6 +562,8 @@ static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 	var hoop := FighterView.toon(Color(0.42, 0.4, 0.5), false)
 	for h in [0.22, 0.88]:
 		_mesh(root, _cylinder(0.43 * size, 0.43 * size, 0.07 * size, 10), hoop, at + Vector3(0, h * size, 0))
+	# The lid: a darker inset disc, so the top reads apart from the side.
+	_mesh(root, _cylinder(0.33 * size, 0.33 * size, 0.03 * size, 10), FighterView.toon(Color(0.56, 0.36, 0.24)), at + Vector3(0, 1.1 * size + 0.01, 0))
 
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
@@ -890,6 +917,102 @@ static func _mist(root: Node3D, colour: Color, z: float, bottom: float, height: 
 	mi.name = "Mist"
 
 
+## Motes: soft glowing specks (pollen, seeds, petals of light) drifting slowly over the stage `e` ([left, right, top, bottom]), mostly
+## behind the fighters, in `colour`; they bloom a little (FxMaterial). Presentation only: fewer with the Effects setting, none on Fast.
+static func _motes(root: Node3D, colour: Color, e: Array) -> void:
+	if VisualSettings.get_index("quality") == 0:
+		return
+	var p := GPUParticles3D.new()
+	p.name = "motes"
+	p.amount = maxi(8, int(MOTE_COUNT * VisualSettings.effects()))
+	p.lifetime = 9.0
+	p.preprocess = 9.0
+	p.randomness = 1.0
+	var w := float(e[1]) - float(e[0]) + 16.0
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w / 2.0, 5.0, 7.0)
+	pm.direction = Vector3(0.3, 1.0, 0.0)
+	pm.spread = 60.0
+	pm.initial_velocity_min = 0.08
+	pm.initial_velocity_max = 0.3
+	pm.gravity = Vector3(0.0, 0.03, 0.0)
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.6
+	pm.turbulence_noise_scale = 6.0
+	pm.turbulence_noise_speed_random = 0.4
+	pm.scale_min = 0.5
+	pm.scale_max = 1.3
+	# Fade in and out over each mote's life, so none pops.
+	var fade := Gradient.new()
+	fade.set_color(0, Color(colour, 0.0))
+	fade.set_color(1, Color(colour, 0.0))
+	fade.add_point(0.2, Color(colour, 0.85))
+	fade.add_point(0.8, Color(colour, 0.85))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	p.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.14, 0.14)
+	p.draw_pass_1 = quad
+	p.material_override = FxMaterial.get_material(false, 0, _soft_dot(), 0.6)
+	p.position = Vector3((float(e[0]) + float(e[1])) / 2.0, float(e[2]) + 4.0, -5.0)
+	p.visibility_aabb = AABB(Vector3(-w, -12, -14), Vector3(w * 2.0, 24, 28))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(p)
+
+
+const MOTE_COUNT := 70
+
+
+## Light shafts: a few long soft beams slanting down across the far hills behind the stage `e`, added faintly onto what is behind them
+## (they sit behind the stage, so the fighters and the playing surface are never washed by them).
+static func _light_shafts(root: Node3D, colour: Color, e: Array) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.no_depth_test = false
+	mat.albedo_color = Color(colour, SHAFT_STRENGTH)
+	mat.albedo_texture = _soft_dot()
+	var cx := (float(e[0]) + float(e[1])) / 2.0
+	var y := float(e[2])
+	for k in 5:
+		var quad := QuadMesh.new()
+		quad.size = Vector2(3.0 + 1.6 * (k % 3), 46.0)
+		var mi := MeshInstance3D.new()
+		mi.mesh = quad
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(cx - 30.0 + k * 14.0, y + 6.0, -22.0 - k * 4.0)
+		mi.rotation_degrees = Vector3(0, 0, 28.0)
+		root.add_child(mi)
+
+
+const SHAFT_STRENGTH := 0.1
+
+
+static var _dot: GradientTexture2D = null
+
+
+## A soft round spot, white in the middle fading to nothing at the edge.
+static func _soft_dot() -> GradientTexture2D:
+	if _dot == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		_dot = GradientTexture2D.new()
+		_dot.gradient = g
+		_dot.fill = GradientTexture2D.FILL_RADIAL
+		_dot.fill_from = Vector2(0.5, 0.5)
+		_dot.fill_to = Vector2(0.5, 0.0)
+		_dot.width = 64
+		_dot.height = 64
+	return _dot
+
+
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2) -> void:
 	var mat := _unshaded(color)
 	for k in count:
@@ -1034,24 +1157,32 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var e := _ext(stage)
-	_hills(root, rng, Color(0.5, 0.78, 0.5), Color(0.62, 0.8, 0.86))
-	_clouds(root, rng, 9, Color(1, 1, 1), Vector2(14, 34))
+	_hills(root, rng, Color(0.46, 0.76, 0.46), Color(0.66, 0.66, 0.9))
+	_clouds(root, rng, 9, Color(1.0, 0.93, 0.92), Vector2(14, 34))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on a far hill, its sails turning slowly.
 	_windmill(root, Vector3(-34, -6, -70))
 	# Round trees dotted over the nearer hills.
 	for k in 6:
 		_round_tree(root, Vector3(rng.randf_range(-70, 70), rng.randf_range(-12, -6), rng.randf_range(-62, -48)), rng.randf_range(0.7, 1.2), rng)
-	# A wooden fence along the back of the stage, and flowers.
-	var post := Materials.wood(Color(0.86, 0.66, 0.42))
+	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
+	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
+	var post := Materials.wood(Color(0.9, 0.7, 0.46))
+	var rail := Materials.wood(Color(0.72, 0.5, 0.32), Vector2(6, 1))
+	var cap := FighterView.toon(Color(0.78, 0.56, 0.36))
 	var x: float = e[0] + 0.6
 	while x <= e[1] - 0.5:
 		_mesh(root, _box(Vector3(0.18, 1.0, 0.18)), post, Vector3(x, e[2] + 0.5, -6.2))
+		_mesh(root, _sphere(0.12, 8), cap, Vector3(x, e[2] + 1.02, -6.2), Vector3(1.0, 0.55, 1.0))
+		_contact(root, Vector3(x, e[2], -6.2), Vector2(0.2, 0.16))
 		x += 1.6
 	for h in [0.35, 0.75]:
-		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), post, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
+		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), rail, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -2.4, -5.8, rng, Materials.greens(Color(0.42, 0.74, 0.38)))
+	# The magic-hour air: golden pollen drifting over the meadow and faint shafts of light falling across the far hills.
+	_light_shafts(root, Color(1.0, 0.86, 0.62), e)
+	_motes(root, Color(1.0, 0.9, 0.6), e)
 
 
 ## A windmill: a tapered white tower with a cone roof, and four sails that turn.
@@ -1184,6 +1315,9 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
 	_tufts(root, left, right, top, -2.4, -5.8, rng, Materials.greens(Color(0.46, 0.8, 0.42)))
+	# Pale pink motes drifting under the great tree, and light falling through its canopy.
+	_light_shafts(root, Color(1.0, 0.84, 0.9), [left, right, top, top - 10.0])
+	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
 	# Under the island: tapered earth and rock with roots hanging from it, so it reads as a floating island.
 	if stage.size() >= 6:
 		_island_underside(root, t, [stage[4], stage[5], top, stage[3]])

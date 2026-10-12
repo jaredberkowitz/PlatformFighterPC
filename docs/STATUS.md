@@ -33,7 +33,8 @@ four players), and a four-computer stress demo (`--demo=cpu4 --players=4`). Then
 girders, skyline buildings in varied muted hues with clustered windows and broken-up office strips, a quieter roof wall, and "FREE PLAY"
 said once on the HUD. Then a new base body modelled by script after the concept sheet (`art/blender/make_base_body.py`,
 `docs/ART_PIPELINE.md` twenty-eighth pass): the concept's proportions, bare by default (a new Gear slot), matte skin and a warmer, thinner
-outline; it replaces the Tripo model, whose licence was unclear. Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on
+outline; it replaces the Tripo model, whose licence was unclear. Then magic-hour painted skies per stage, a golden raking key and
+violet shadows on Meadow, straw hay bales and a built fence, and drifting motes and light shafts (`docs/ART_PIPELINE.md` twenty-ninth pass). Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on
 hold.
 
 ## Roadmap progress

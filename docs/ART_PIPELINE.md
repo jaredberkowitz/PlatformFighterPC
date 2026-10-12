@@ -729,3 +729,27 @@ then the usual steps measure and rig it (`docs/ART_WORKFLOW.md`, Characters). Li
   body's colour (fingers modelled for bare hands would be the next step); the clips were re-keyed on the new joints but not re-posed for
   the new proportions.
 
+## Magic-hour skies, raking light and drifting motes (twenty-ninth pass)
+
+Aim: colours that carry and an ethereal air (painted skies of violets, pinks and oranges) while every stage keeps its own mood. Meadow
+before / after: `docs/screenshots/ethereal_meadow_before.png`, `_after.png`; all five stages: `ethereal_all_stages.png`.
+
+- **Painted sky** (`shaders/sky.gdshader`, built by `StageArt.sky`): four bands (top, a middle tint `sky_mid`, horizon, ground) placed low
+  enough that the match camera, which sees only the lowest quarter of the sky, shows all of them; a warm glow low over the horizon behind
+  the stage (`sky_glow`) and faint painted wisps (`sky_wisps`). Each theme sets its own: Meadow violet to pink to peach with a gold glow;
+  the grove pink-lavender; Triple Tier deeper dusk; Flat Island a soft warm glow on its blue; Skyline a magenta horizon. Static (no time),
+  so it costs nothing per frame.
+- **Meadow's light** (`Lighting.MOODS.meadow`, `STYLES.meadow`): a lower, golden key (pitch -30, 1.38) that rakes across fighters and
+  props, violet fill and shadows, a lavender-peach haze; crisper light-to-shadow steps, warmer tops and cooler undersides, and much less of
+  the pastel wash (desat 0.02, lift 0.03, haze 0.18). The menus keep their own neutral daylight (`MENU_MOOD`), unchanged.
+- **Props**: hay bales are woven straw (the straw hat's drawing) with a lit and a shaded side; the fence has pale posts with rounded caps,
+  each in its own contact shade, and darker rails; the barrel has a darker lid. The lawn has broad sunlit and shaded patches
+  (`grass_vary`).
+- **Air**: golden pollen motes drifting over the meadow (pink ones under the grove's tree): GPU particles that fade in and out and bloom a
+  little, fewer with the Effects setting and none on Fast (`StageArt._motes`); faint light shafts slanting across the far hills, behind
+  the stage so they never wash the fighters (`_light_shafts`).
+- Checks: match flow, art pipeline, fighter view, creator and editor tests passed; look bench PASSED (worst 0.90). Four-player Meadow
+  frame time was measured with the machine busy (about 45 fps both before and after); the pass adds about 0.14 ms of GPU time.
+- Not done: Godot 4 has no per-light contact shadows, and screen-space ambient occlusion cannot be used (the object id lives in the
+  roughness channel), so grounding stays painted (contact patches, the fighters' drop shadow).
+
