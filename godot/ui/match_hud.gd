@@ -215,9 +215,17 @@ class Board extends Control:
 		draw_circle(c + Vector2(1.5, 0.5) * scale, 1.8 * scale, ink)
 		draw_circle(c + Vector2(5.5, 0.5) * scale, 1.8 * scale, ink)
 
-	## The fighter's weapon as a mark of radius `r` in one colour: a sword (class 0) or three claw marks (class 1).
+	## The fighter's weapon as a mark of radius `r` in one colour: a sword (class 0), three claw marks (class 1) or three thin needles
+	## fanned out (class 2).
 	func _emblem_mark(cls: int, c: Vector2, r: float, color: Color, width: float) -> void:
-		if cls == 1:
+		if cls == 2:
+			for k in 3:
+				var a := deg_to_rad(-62.0 + 14.0 * (k - 1))
+				var dir := Vector2(cos(a), sin(a))
+				var from := c - dir * r * 0.85 + Vector2((k - 1) * r * 0.22, 0)
+				draw_line(from, from + dir * r * 1.7, color, width * 0.55, true)
+				draw_circle(from + dir * r * 1.7, width * 0.35, color)
+		elif cls == 1:
 			for k in 3:
 				var off := Vector2((k - 1) * r * 0.42, 0)
 				var pts := PackedVector2Array()

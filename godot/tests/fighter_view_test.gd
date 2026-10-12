@@ -1,6 +1,6 @@
 extends SceneTree
 ## What a fighter's model shows: the sword fighter's blade is there in every move (it never vanishes), the brawler never has one,
-## and both share one body (the base rig: a fighter is never rebuilt for its class).
+## and all share one body (the base rig: a fighter is never rebuilt for its class).
 ## Run: Godot --headless --path godot --script res://tests/fighter_view_test.gd
 
 const FighterView := preload("res://scripts/fighter_view.gd")
@@ -24,10 +24,13 @@ func snap(char_id: int, state: String, move: String, frame: int) -> Dictionary:
 func _initialize() -> void:
 	var sword := FighterView.new()
 	var fists := FighterView.new()
+	var needles := FighterView.new()
 	root.add_child(sword)
 	root.add_child(fists)
+	root.add_child(needles)
 	sword.build(0, Loadout.default_for(0))
 	fists.build(1, Loadout.default_for(1))
+	needles.build(2, Loadout.default_for(2))
 	await process_frame
 	await process_frame
 	var moves := ["jab", "ftilt", "utilt", "dtilt", "dash attack", "fsmash", "usmash", "dsmash", "nair", "fair", "bair", "uair", "dair",
@@ -40,6 +43,8 @@ func _initialize() -> void:
 		check(sword.blade_pivot.visible, "the sword fighter keeps its blade in %s" % m)
 		fists.apply(Vector3.ZERO, snap(1, "Attack", m, frame), 1.0 / 60.0)
 		check(not fists.blade_pivot.visible, "the brawler never has a blade in %s" % m)
+		needles.apply(Vector3.ZERO, snap(2, "Attack", m, frame), 1.0 / 60.0)
+		check(not needles.blade_pivot.visible, "the needles fighter never has a blade in %s" % m)
 		check(sword.blade_parts[0].visible, "the sword fighter's weapon is a blade in %s" % m)
 	# Every move plays a clip the rig has, and the common ones have their own.
 	var expect := {"jab": "attack_jab", "jab 2": "attack_jab", "dash attack": "attack_lunge", "side special": "attack_lunge", "utilt": "sword_utilt",
@@ -55,12 +60,18 @@ func _initialize() -> void:
 	for m in kicks:
 		var clip: String = fists._choose_clip(snap(1, "Attack", m, 10))[0]
 		check(clip == kicks[m] and fists.anim.has_animation(clip), "claws %s plays %s (got %s)" % [m, kicks[m], clip])
+	# The needles fighter: kicks for its tilts and aerials, the shared chop for its forward air, a landing for its down air's landing hit.
+	var needle_kicks := {"ftilt": "kick_up", "utilt": "kick_up", "dtilt": "kick_low", "nair": "kick_nair", "bair": "kick_bair",
+		"uair": "kick_uair", "dair": "kick_dair", "fair": "attack_fair", "extra move 0": "land"}
+	for m in needle_kicks:
+		var clip: String = needles._choose_clip(snap(2, "Attack", m, 10))[0]
+		check(clip == needle_kicks[m] and needles.anim.has_animation(clip), "needles %s plays %s (got %s)" % [m, needle_kicks[m], clip])
 	for m in expect:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
 		check(clip == expect[m], "%s plays %s (got %s)" % [m, expect[m], clip])
 	for state in ["Idle", "Walk", "Run", "Shield", "Hitstun", "Airborne", "Roll", "LedgeHang"]:
 		sword.apply(Vector3.ZERO, snap(0, state, "", frame), 1.0 / 60.0)
 		check(sword.blade_pivot.visible, "the blade is there while %s" % state)
-	check(not sword.long_limbs and not fists.long_limbs, "both classes share the base body (no long-limbed rig swap)")
+	check(not sword.long_limbs and not fists.long_limbs and not needles.long_limbs, "all classes share the base body (no long-limbed rig swap)")
 	print("fighter view test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

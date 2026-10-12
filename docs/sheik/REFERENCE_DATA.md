@@ -46,7 +46,9 @@ computed when hitlag ends; the speed is capped at 3 (the speed of 100 knockback)
 still comes from the numeric knockback; against a grounded victim the angle is 80 with the normal launch. Ours: exactly that, in
 world units (3 / 8 and -1 / 8 a frame), with the launch then decaying like any launch. The 5-frame delay before the cap applies is
 not modelled (the cap applies from the start) [E]. DI does not bend an autolink launch (it has no angle to bend); SDI during hitlag
-moves the victim and so changes the pull, which is how a looping hit is escaped [D].
+moves the victim and so changes the pull, which is how a looping hit is escaped [D]. Our SDI step (a quarter of a world unit, times
+the hitbox's SDI multiplier) is the game-wide value and was not tuned against the reference's; the tests show an up-air SDI nudge moving
+the victim, not a measured escape rate [E]. The natural escape that is tested is the attacker fast-falling out from under the pull.
 
 ## Priority moves
 

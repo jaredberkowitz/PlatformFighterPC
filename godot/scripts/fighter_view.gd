@@ -624,7 +624,7 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if anim == null:
 		return
-	var clip := "victory_c" if cheer else ("victory_b" if cls == 1 else "victory_a")
+	var clip := "victory_c" if cheer else ("victory_b" if cls != 0 else "victory_a")
 	set_expression(Loadout.HAPPY_FACE)
 	_blink(delta)
 	if current_clip != clip and anim.has_animation(clip):
@@ -634,7 +634,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	anim.advance(delta)
 	_follow_bones()
 	# The sword, gripped in the raised hand and pointing up.
-	var armed := cls != 1 and not cheer
+	var armed := cls == 0 and not cheer
 	blade_pivot.visible = armed
 	if armed:
 		var hand := skeleton.find_bone("hand.R")
@@ -1788,8 +1788,8 @@ var blade_length := 2.0
 
 
 func _rest_length(s: Dictionary) -> float:
-	# Swords are long; claws are short.
-	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if _cls(s) != 1 else 1.0
+	# Swords are long; claws and bare hands are short.
+	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if _cls(s) == 0 else 1.0
 
 
 ## Where the blade should point, in degrees in forward space, and how long it should be, for this frame.
@@ -1803,7 +1803,7 @@ func _blade_target(s: Dictionary) -> Array:
 	var to_tip := Vector2(tip.x - hand_x, tip.y - HAND.y)
 	var swing := rad_to_deg(atan2(to_tip.y, to_tip.x))
 	var length := clampf(to_tip.length() + tip.z * 0.7, 0.7, 3.6)
-	if _cls(s) == 1:
+	if _cls(s) != 0:
 		length = clampf(length, 0.7, 1.4)
 	# Never point into the floor while standing on it.
 	if s.platform >= 0:
@@ -1884,7 +1884,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
-	if attacking and (_cls(s) == 1 or (_cls(s) == 0 and SWORD_THRUSTS.has(String(s.move_name)))):
+	if attacking and (_cls(s) != 0 or SWORD_THRUSTS.has(String(s.move_name))):
 		arm_k = _reach_weight(s)
 	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
 	# holds the blade out and the spin carries it round the circle the hits make.
@@ -1894,13 +1894,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# The swing's arc (see ARCS): the sword's follows where its tip is; a claw is swept along its arc (its hitbox holds still while the
 	# hand rakes through it, as the reference's do).
 	var now := _arc_now(s, tip)
-	if _cls(s) == 1 and not now.is_empty():
+	if _cls(s) != 0 and not now.is_empty():
 		tip = _arc_point(now)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
-		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) != 1 else arm_reach
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) == 0 else arm_reach
 		var goal := shoulder + to_tip / dist * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
@@ -2520,10 +2520,12 @@ func _launch_smoke(s: Dictionary) -> void:
 			last_puff_at = Vector3.INF
 
 
-## A class's trail colours: [the trail, its bright core] (claws violet, sword blue).
+## A class's trail colours: [the trail, its bright core] (claws violet, needles teal, sword blue).
 static func trail_colours_of(cls: int) -> Array:
 	if cls == 1:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
+	if cls == 2:
+		return [Color(0.25, 0.85, 0.75), Color(0.9, 1.0, 0.97)]
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
@@ -2539,10 +2541,18 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
 	_pose_blade(s, delta)
-	# The brawler's kicks and rushes use the body, not a blade; its rushes burn and Fire Wolf spins.
-	var brawler: bool = _cls(s) == 1
-	# Only the brawler's body moves leave the arms alone; the sword fighter always has its blade.
-	var swinging_arm: bool = not (brawler and BRAWLER_NO_BLADE.has(s.move_name))
+	# The claws and needles fighters' kicks and rushes use the body, not a blade (the needles' stand-in specials are the claws', so they
+	# burn and spin the same way).
+	var brawler: bool = _cls(s) != 0
+	# Only the body moves leave the arms alone (the claws' listed ones; the needles' kicks, grabs and throws); the sword fighter always
+	# has its blade.
+	var body_move := false
+	if _cls(s) == 1:
+		body_move = BRAWLER_NO_BLADE.has(s.move_name)
+	elif _cls(s) == 2 and s.move_name != "":
+		var clip := AnimLibrary.attack_clip(2, s.move_name, anim)
+		body_move = AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land"]
+	var swinging_arm: bool = not (brawler and body_move)
 	blade_pivot.visible = not brawler and swinging_arm
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")

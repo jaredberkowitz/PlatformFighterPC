@@ -65,6 +65,10 @@ Blade's later hits).
 | `sword_dsmash` | dsmash | dsmash (a claw swept in front then behind) |
 | `attack_kick` | | side, up and down specials |
 
+The Needles moveset (class 2) maps its kicks in `CLASS_MOVES[2]`: `kick_up` (ftilt, utilt), `kick_low` (dtilt), `kick_nair`, `kick_bair`,
+`kick_uair` (uair, usmash), `kick_dair` (dair; its landing hit, `extra move 0`, plays `land`) and `kick_dash` (dash attack). The forward air
+keeps the shared `attack_fair` chop. Its stand-in specials use the claws' clips until the real ones are built.
+
 ## 4. Style guide
 
 The look is physical and loose between actions and decisive in them.

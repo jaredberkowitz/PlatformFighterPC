@@ -54,10 +54,12 @@ func _every_move_mapped() -> void:
 	# Overrides are only for moves that exist, and never just repeat the shared clip (that would be a duplicate mapping).
 	for cls in AnimLibrary.CLASS_MOVES:
 		for m in AnimLibrary.CLASS_MOVES[cls]:
-			check(MOVES.has(m), "class %d overrides a real move ('%s')" % [cls, m])
+			# A moveset's own extra slots count (the needles' down air lands into its landing hit in extra move 0).
+			check(MOVES.has(m) or String(m).begins_with("extra move "), "class %d overrides a real move ('%s')" % [cls, m])
 			check(AnimLibrary.CLASS_MOVES[cls][m] != AnimLibrary.SHARED_MOVES.get(m, ""), "class %d's '%s' differs from the shared clip" % [cls, m])
 	# The script-only slots take the fallback without a fuss.
 	check(AnimLibrary.attack_clip(0, "extra move 3") == AnimLibrary.FALLBACK, "script slots fall back")
+	check(AnimLibrary.attack_clip(2, "extra move 0") == "land", "the needles' down-air landing hit plays the landing")
 
 
 func _shared_states() -> void:

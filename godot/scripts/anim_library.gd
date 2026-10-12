@@ -106,6 +106,25 @@ const CLASS_MOVES := {
 		"up special": "attack_kick",
 		"down special": "attack_kick",
 	},
+	# Needles: kicks for the kicks (the leg is aimed at the hit), the shared chop for the forward air, its landing hit as a landing;
+	# the slots still standing in from the claws kit keep the claws' clips.
+	2: {
+		"ftilt": "kick_up",
+		"utilt": "kick_up",
+		"dtilt": "kick_low",
+		"nair": "kick_nair",
+		"bair": "kick_bair",
+		"uair": "kick_uair",
+		"dair": "kick_dair",
+		"extra move 0": "land",
+		"dash attack": "kick_dash",
+		"usmash": "kick_uair",
+		"dsmash": "sword_dsmash",
+		"neutral special": "blaster",
+		"side special": "attack_kick",
+		"up special": "attack_kick",
+		"down special": "attack_kick",
+	},
 }
 
 ## The clip every move falls back to when nothing maps it (with a warning, once per move).

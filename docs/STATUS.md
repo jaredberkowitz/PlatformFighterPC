@@ -10,7 +10,10 @@ a visual quality pass on the menus (one light, depth, one card language). Then a
 ramps, stage profiles, the look bench, display settings; an art pass with restrained grading, contact shading under props, deeper haze and
 crisp cast shadows); B-reverse (sim 45); a 3-frame stick flick for dash and fast fall, so a controller's flick registers (sim 46); and the
 shared animation library (`docs/ANIMATION.md`: one clip set for every moveset, mapped in `godot/scripts/anim_library.gd`, per-hit strikes
-for multihit moves, a polished idle, jump, landing, jab, forward air and hit reaction).
+for multihit moves, a polished idle, jump, landing, jab, forward air and hit reaction). Then the multi-hit engine and a third class
+(sim 49): eight hit groups per move, a rehit that clears chosen groups, the autolink angle 367, set knockback, extra hitstun, per-hitbox
+SDI and landing hits; and the Needles rogue, whose body, tilts and aerials follow the reference's published data (`docs/sheik/`,
+`docs/MOVESETS.md`; its other moves are still the claws kit's).
 
 ## Roadmap progress
 
