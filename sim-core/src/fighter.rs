@@ -9,7 +9,7 @@ use crate::collision;
 use crate::content::{FighterParams, Ledge, Ruleset, Stage};
 use crate::fixed::Fx;
 use crate::input::{
-    buttons, Input, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES, STICK_FLICK_FROM,
+    buttons, Input, STICK_DASH, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES, STICK_FLICK_FROM,
     STICK_THRESHOLD,
 };
 use crate::moves::{Motion, Move, MoveId, Weapon};
@@ -28,6 +28,8 @@ const FLICK_BUFFER: u8 = 2;
 /// Frames in which a hard down press still triggers a fast fall, as in the reference: a press up to three frames before the apex
 /// works once the fighter starts falling, if the stick is still held down.
 const FAST_FALL_BUFFER: u8 = 3;
+/// Frames a run skids on while its stick, rolled along the bottom or top to turn it, passes straight down or up.
+const RUN_SKID_FRAMES: usize = 3;
 
 impl Fighter {
     pub fn held(&self, mask: u16) -> bool {
@@ -107,7 +109,17 @@ impl Fighter {
     /// Direction (-1 or 1) of a horizontal flick within the last `frames` frames, or 0. A flick is
     /// the stick crossing the threshold from below, and it must still be held past it now.
     pub fn flick_x(&self, frames: u8) -> i8 {
-        let threshold = STICK_THRESHOLD.unsigned_abs();
+        self.flick_x_past(frames, STICK_THRESHOLD)
+    }
+
+    /// [`Fighter::flick_x`] for a dash (and a dash's turnarounds): the stick has to go further, to `STICK_DASH`, so a quick
+    /// push to a walk stays a walk.
+    pub fn dash_flick(&self, frames: u8) -> i8 {
+        self.flick_x_past(frames, STICK_DASH)
+    }
+
+    fn flick_x_past(&self, frames: u8, threshold: i8) -> i8 {
+        let threshold = threshold.unsigned_abs();
         let current = self.history[0].stick_x;
         if current.unsigned_abs() < threshold {
             return 0;
@@ -180,6 +192,18 @@ fn ease_rate(vel: Fx, target: Fx, p: &FighterParams) -> Fx {
 
 fn x_active(input: Input) -> bool {
     input.stick_x.unsigned_abs() >= STICK_DEADZONE.unsigned_abs()
+}
+
+/// The stick is on its rim at the top or bottom, and was pushed to one side within the last `RUN_SKID_FRAMES`: it is being
+/// rolled from one side to the other, not let go (see the run in `ground`).
+fn rolling(f: &Fighter) -> bool {
+    let now = f.history[0];
+    now.stick_y.unsigned_abs() >= STICK_DOWN.unsigned_abs()
+        && f.history
+            .iter()
+            .skip(1)
+            .take(RUN_SKID_FRAMES)
+            .any(|&i| x_active(i))
 }
 
 fn on_pass_through(f: &Fighter, stage: &Stage) -> bool {
@@ -377,7 +401,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
             f.state == S::Run && x_active(input) && (input.stick_x > 0) != (f.facing > 0);
         if matches!(f.state, S::Dash | S::Run)
             && f.dash_wait == 0
-            && (f.flick_x(FLICK_BUFFER) == -f.facing || back_in_run)
+            && (f.dash_flick(FLICK_BUFFER) == -f.facing || back_in_run)
         {
             f.facing = -f.facing;
         } else if f.state == S::Dash && f.dash_wait > 0 {
@@ -402,7 +426,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         // fighter is turning, while it keeps sliding. A weapon without one just uses its normal grab.
         // (A turn from standing still, with no speed to slide on, is not one.)
         let reversing = (f.state == S::Turn && f.vel.x.abs() > p.walk_speed)
-            || (matches!(f.state, S::Dash | S::Run) && f.flick_x(FLICK_BUFFER) == -f.facing);
+            || (matches!(f.state, S::Dash | S::Run) && f.dash_flick(FLICK_BUFFER) == -f.facing);
         let pivot = reversing && !weapon.get(MoveId::PivotGrab as u8).is_empty();
         let id = if pivot {
             if f.state != S::Turn {
@@ -429,7 +453,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     // A flick starts a dash (and turns around instantly if it is against the facing). A run is
     // committed: flicking the other way skids to a stop and turns instead of dash dancing, and a
     // flick the same way changes nothing.
-    let flick = f.flick_x(FLICK_BUFFER);
+    let flick = f.dash_flick(FLICK_BUFFER);
     if flick != 0 {
         if f.state == S::Run {
             if flick != f.facing {
@@ -466,7 +490,7 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                 let target = p.dash_speed.mul_int(i32::from(f.facing));
                 f.vel.x = approach(f.vel.x, target, p.dash_accel);
                 if f.state_frame >= u16::from(p.dash_frames) {
-                    if x_active(input) && dir == f.facing {
+                    if (x_active(input) && dir == f.facing) || rolling(f) {
                         f.state = S::Run;
                     } else {
                         // The stick was let go: the speed bleeds off quickly on braking (`dash_brake`).
@@ -495,7 +519,15 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
                 f.turn_speed = Fx::ZERO;
             }
         }
-        _ if input.stick_y <= -STICK_DOWN => {
+        // A stick rolled along the bottom (or the top) from one side to the other, the reference's way into a run's turnaround:
+        // it only points straight down or up for a moment, so the run skids on through that moment (`RUN_SKID_FRAMES`) instead
+        // of stopping or crouching, and the far side turns it. (Straight down still crouches, once the skid is over.)
+        S::Run if !x_active(input) && rolling(f) => {
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.run_decel);
+        }
+        // While running, the stick's lower half on either side is still that side: down and forward keeps running, down and
+        // back turns the run.
+        _ if input.stick_y <= -STICK_DOWN && !(f.state == S::Run && x_active(input)) => {
             f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
             f.state = S::Crouch;
         }

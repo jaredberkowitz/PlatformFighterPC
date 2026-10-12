@@ -104,6 +104,8 @@ fn the_second_jab_hit_follows_if_attack_is_pressed_again_and_there_is_no_third()
 #[test]
 fn the_second_jab_hit_does_4_percent_and_6_at_the_tip_on_its_frame_4() {
     let mut sim = duel(SWORD, fx(32, 10));
+    // (Its back turned: the spacing is to the body, not to a guard held out in front.)
+    sim.state.fighters[1].facing = 1;
     sim.state.fighters[1].invuln = 255;
     sim.tick(inp(0, 0, ATTACK));
     for _ in 0..16 {

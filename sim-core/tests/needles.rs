@@ -261,7 +261,8 @@ fn up_air_pops_a_grounded_target_up_without_linking_it() {
 fn down_air_dives_and_its_landing_hit_comes_out_once_on_landing() {
     // The rogue starts its down air above the stage with the duelist standing ahead of where it lands.
     let mut sim = duel();
-    sim.stand(1, Fx::from_int(3), -1);
+    // (Its back turned, so the dive passes just short of it: facing the rogue, its guard would be in reach.)
+    sim.stand(1, Fx::from_int(3), 1);
     sim.put_airborne(0, Fx::ZERO, Fx::from_int(6), Fx::ZERO, Fx::ZERO);
     sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DAir);
     let y0 = sim.f().pos.y;

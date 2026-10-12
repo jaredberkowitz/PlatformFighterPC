@@ -723,6 +723,8 @@ fn marth_style_up_smash_hits_overhead_on_frame_13() {
 fn marth_style_down_smash_hits_in_front_on_frame_6_and_behind_on_frame_21() {
     // Front hit: 12% at the tip.
     let mut front = ground_duel(MARTH, fx(31, 10));
+    // (Its back turned: tipper spacing is to the body, not to a guard held out in front.)
+    front.state.fighters[1].facing = 1;
     assert_eq!(hit_tick(&mut front, inp(0, -100, ATTACK | STRONG)), Some(6));
     assert_eq!(front.fighter(1).percent, pct(&front, 120));
     // Back hit: 17% at the tip, from a victim standing behind.
@@ -1167,6 +1169,8 @@ fn wolf_style_smash_attacks_charge_like_the_others() {
 #[test]
 fn wolf_flash_dashes_forward_about_seven_units_and_hits_for_3_percent_on_the_way() {
     let mut sim = ground_duel(WOLF, fx(40, 10));
+    // (Its back turned: the reach is to the body, not to a guard held out in front.)
+    sim.state.fighters[1].facing = 1;
     sim.tick(inp(127, 0, SPECIAL));
     assert_eq!(sim.f().move_id, MoveId::SideSpecial as u8);
     let x0 = sim.f().pos.x;

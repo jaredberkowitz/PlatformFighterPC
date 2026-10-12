@@ -13,7 +13,9 @@
   kill throw. The sword's throws were already single-part reference values. Tests: `sim-core/tests/throw_combos.rs`.
 - **Hitboxes and hurtboxes are circles.** Hitboxes come from move data (active on frames `start..=end`, offset from the feet,
   mirrored by facing). Hurtboxes are three circles stacked up the body, derived from the ECB, brought down to `crouch_height` (0.6) of
-  their heights in a crouch so high attacks pass over it; and a fourth for a limb: with a `limbs` moveset (the claws), while a hit is
+  their heights in a crouch so high attacks pass over it; and a fourth for a limb. Standing or walking it is the guard held out in
+  front (0.8 of the ECB's half width ahead at mid height, half of it in radius), so the fists reach about 1.04 ahead against 0.68
+  behind and a hit that touches them connects (sim v53). With a `limbs` moveset (the claws), while a hit is
   out the arm or leg throwing it reaches most of the way to the farthest hitbox and can be hit there (sim v34). A blade or a hammer
   reaches past the body and cannot be hit. One hit per move per target;
   when several hitboxes overlap a target, the lowest priority number wins (that is what makes spacing matter).

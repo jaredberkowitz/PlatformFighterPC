@@ -24,6 +24,9 @@ pub mod buttons {
 
 /// Stick magnitude (of 127) that counts as a deliberate flick or tap, about 0.6.
 pub const STICK_THRESHOLD: i8 = 76;
+/// How far a flick has to go to dash, about 0.75: further than other flicks (`STICK_THRESHOLD`), so a quick push to a brisk
+/// walk stays a walk. (The reference's dash takes most of the stick; Melee's documented rule is 0.8.)
+pub const STICK_DASH: i8 = 95;
 /// Stick magnitude below which an axis is treated as neutral, about 0.17.
 pub const STICK_DEADZONE: i8 = 22;
 /// Stick-down amount that counts as pressing down for crouch, platform drop and shield drop, about 0.5.

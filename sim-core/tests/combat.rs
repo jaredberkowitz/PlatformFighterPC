@@ -140,7 +140,8 @@ fn the_claws_have_much_shorter_reach_than_the_sword() {
         sim.state.fighters[2].active = false;
         sim.state.fighters[3].active = false;
         sim.stand(0, Fx::ZERO, 1);
-        sim.stand(1, fx(375, 100), -1);
+        // (Its back to them: the reach to the body, not to a guard held out in front.)
+        sim.stand(1, fx(375, 100), 1);
         ftilt(&mut sim);
         sim.ticks(14, inp(0, 0, 0));
         sim.fighter(1).percent > Fx::ZERO

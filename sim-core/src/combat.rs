@@ -39,8 +39,9 @@ pub fn weapon_of<'a>(content: &'a Content, p: &FighterParams) -> &'a Weapon {
 }
 
 /// Three circles stacked up the body, sized from the ECB (lower while crouching: `crouch_height`), and a fourth for a limb.
-/// With a weapon of `limbs` (claws, fists, feet), while an attack's hit is out the arm or leg throwing it reaches toward the
-/// farthest of its hitboxes and can be hit there; otherwise the fourth circle is the middle one again.
+/// Standing or walking it is the guard held out in front. With a weapon of `limbs` (claws, fists, feet), while an attack's hit
+/// is out the arm or leg throwing it reaches toward the farthest of its hitboxes and can be hit there; otherwise the fourth
+/// circle is the middle one again.
 pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HURT_CIRCLES] {
     let radius = p.ecb_half_width * Fx::from_ratio(17, 20);
     let height = if f.state == S::Crouch && f.grounded() {
@@ -52,6 +53,15 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
         |twentieths: i32| Vec2::new(f.pos.x, f.pos.y + height * Fx::from_ratio(twentieths, 20));
     let middle = at(11);
     let mut limb = (middle, radius);
+    if matches!(f.state, S::Idle | S::Walk) && f.grounded() {
+        // Standing or walking, the fighter holds its guard up in front (fists, or a hilt), past the body circles: the fourth circle
+        // covers the hands, so a hit that reaches them connects, as it looks like it should against someone facing you.
+        let ahead = p.ecb_half_width * Fx::from_ratio(4, 5);
+        limb = (
+            middle + Vec2::new(ahead.mul_int(i32::from(f.facing)), Fx::ZERO),
+            p.ecb_half_width * Fx::from_ratio(1, 2),
+        );
+    }
     if w.limbs && matches!(f.state, S::Attack | S::LedgeAttack) {
         let mut far = Fx::ZERO;
         for (_, hb, centre) in active_hitboxes(f, w.get(f.move_id), p.hitbox_scale) {
