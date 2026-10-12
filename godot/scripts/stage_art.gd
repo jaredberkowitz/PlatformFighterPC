@@ -1372,6 +1372,12 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var depth := 5.0
+	# Signs on some of the nearer buildings, from their own random numbers (so the skyline's layout is the same with or without them).
+	var signs := RandomNumberGenerator.new()
+	signs.seed = 77 + layer
+	# Two rooftop billboards on the middle layer, on the buildings nearest these places (in view, above the stage's roofline).
+	var billboard_at := [-20.0, 24.0] if layer == 1 else []
+	var billboard_best := {}
 	var x := -120.0
 	while x < 120.0:
 		var w := rng.randf_range(6.0, 13.0)
@@ -1380,6 +1386,20 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var lo := Vector3(x, street, z - depth / 2.0)
 		var hi := Vector3(x + w, street + h, z + depth / 2.0)
 		_facade_box(st, lo, hi, seed, false, h)
+		if layer < 2 and signs.randf() < 0.34:
+			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
+			var front := hi.z + 0.08
+			var tall := signs.randf() < 0.5
+			var sw := 1.7 if tall else minf(w * 0.6, 6.0)
+			var sh := minf(h * 0.4, 6.0) if tall else 1.8
+			var sx := lo.x + (0.8 if signs.randf() < 0.5 else w - 0.8 - sw) if tall else lo.x + (w - sw) * 0.5
+			var sy := street + h * signs.randf_range(0.35, 0.7)
+			_facade_quad(st, [Vector3(sx, sy, front), Vector3(sx + sw, sy, front), Vector3(sx + sw, sy + sh, front), Vector3(sx, sy + sh, front)],
+				Vector3(0, 0, 1), Vector2(sw, sh), 0.0, Color(signs.randf(), 0.0, 1.0))
+		for b in billboard_at:
+			var d := absf(x + w / 2.0 - float(b))
+			if not billboard_best.has(b) or d < float(billboard_best[b][0]):
+				billboard_best[b] = [d, x, w, street + h, seed]
 		# Something on the roof now and then: a vent box, a round tank on legs (a box here, at this distance) or an antenna.
 		var top := street + h
 		var n := rng.randi_range(0, 2)
@@ -1397,11 +1417,24 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 				_:
 					_facade_box(st, Vector3(cx - 0.08, top, z - 0.08), Vector3(cx + 0.08, top + rng.randf_range(2.5, 5.0), z + 0.08), seed, true, 4.0)
 		x += w + rng.randf_range(0.5, 3.0)
+	for b in billboard_best.values():
+		var bx: float = b[1]
+		var bw := minf(float(b[2]) * 0.75, 7.0)
+		var left: float = bx + (float(b[2]) - bw) * 0.5
+		var top: float = b[3]
+		# Two legs and the sign standing on them, facing the stage.
+		for lx in [left + bw * 0.2, left + bw * 0.8]:
+			_facade_box(st, Vector3(lx - 0.1, top, z - 0.1), Vector3(lx + 0.1, top + 1.2, z + 0.1), float(b[4]), true, 1.2)
+		_facade_quad(st, [Vector3(left, top + 1.2, z + 0.12), Vector3(left + bw, top + 1.2, z + 0.12), Vector3(left + bw, top + 3.4, z + 0.12),
+			Vector3(left, top + 3.4, z + 0.12)], Vector3(0, 0, 1), Vector2(bw, 2.2), 0.0, Color(signs.randf(), 0.0, 1.0))
 	var m := ShaderMaterial.new()
 	m.shader = FACADE_SHADER
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
+	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
+	m.set_shader_parameter("detail", 0.0 if layer == 2 else 1.0)
+	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = m

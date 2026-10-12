@@ -48,3 +48,19 @@ All art only (`stage_art.gd`, the roof tile): no collision, platform position or
 * Props: the water tower gets iron hoops, a roof hatch and a ladder; crates (Skyline and Triple Tier) a frame of darker boards and an X
   brace; the air conditioner a grille and a fan on top; the vent a cap; the light mast a base plate. Every prop already stood on painted
   contact shade.
+
+## Phase 4: background depth and life
+
+The three skyline layers, their haze and the far blur came from the graphics pass; this phase is about the buildings themselves
+(`facade.gdshader`, `StageArt._skyline_layer`). `overhaul_4_skyline.png` against `overhaul_3_skyline.png`.
+
+* No two buildings share a pattern: each building's seed picks its bay width and height, its pane shape, its share of lit windows (0.4 to
+  1.55 of the layer's) and a slightly different wall shade; about one in five has office strips (rows of wide panes with thin mullions,
+  lit in runs of two bays, at half brightness: at full strength their long runs of light outshone the fighters in the first try).
+* A few windows switch on and off on slow clocks (one in forty, each its own); signs stutter off now and then. Both shader-only.
+* Lit signs: a new face kind in the facade shader (a neon border, a faintly lit panel and bars of lettering, in pink, cyan or amber), on
+  about a third of the nearer buildings' fronts and as two rooftop billboards on the middle layer near the centre of the view. The first
+  version's thin border vanished at that distance; the border, letters and signs are bigger now.
+* The far layer drops frames, sills and floor bands (`detail` 0): only windows, so it stays a quiet silhouette.
+* No new lights: everything glowing is emissive in the one facade material per layer.
+* Cost: Skyline GPU 1.27 ms (1.22 after phase 1), 282 draw calls (267; the extra fifteen are phase 3's prop details).
