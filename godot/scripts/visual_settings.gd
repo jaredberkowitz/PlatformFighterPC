@@ -64,6 +64,9 @@ static func effects() -> float:
 ## Applies the quality setting to a scene's environment and lights (the key light's shadows) and the viewport's anti-aliasing.
 static func apply_quality(env: Environment, root: Node, viewport: Viewport) -> void:
 	var q := get_index("quality")
+	# SMAA on top of MSAA smooths what MSAA cannot reach: the ink lines the finishing pass draws (shaders/post.gdshader) and the cut-out
+	# leaves. (FXAA was tried too: it smooths the same edges but softens every drawn detail with them.)
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_SMAA if q >= 1 else Viewport.SCREEN_SPACE_AA_DISABLED
 	if q == 1:
 		viewport.msaa_3d = Viewport.MSAA_2X
 	if q == 0:
