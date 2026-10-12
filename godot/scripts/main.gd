@@ -3,6 +3,7 @@ extends Node3D
 
 const Music := preload("res://scripts/music.gd")
 const StageArt := preload("res://scripts/stage_art.gd")
+const SvgArt := preload("res://scripts/svg_art.gd")
 const Lighting := preload("res://scripts/lighting.gd")
 const Effects := preload("res://scripts/effects.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
@@ -303,6 +304,7 @@ func _restart() -> void:
 		results = null
 		hud.visible = hud_before_results
 	cam.attributes = null
+	_clear_scuffs()
 	end_timer = 0.0
 	var chars: Array = chosen_chars
 	if demo != null and demo.chars.size() > 0:
@@ -1324,6 +1326,9 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	# The effect is stretched the way the hit sends the fighter: away from whoever hit it, and up.
 	var dir := Vector2(1.0 if by < 0 or cur_pos[by].x <= cur_pos[i].x else -1.0, 0.55).normalized()
 	Effects.hit(self, at, dir, colour, strength, kind)
+	# A heavy hit on a fighter standing on the stage scuffs the floor under it.
+	if strength >= SCUFF_FROM and int(snaps[i].get("platform", -1)) >= 0:
+		_scuff(cur_pos[i], dir.x)
 	# The shake swings along the line the hit sends the fighter, so a heavy blow reads as a push in that direction.
 	if float(lag) > HIT_SHAKE_FROM:
 		shake_dir = dir
@@ -1659,6 +1664,40 @@ func _update_camera(a: float, delta: float) -> void:
 	if post_mat != null and absf(cam.position.z - post_stage_dist) > 0.25:
 		post_stage_dist = cam.position.z
 		post_mat.set_shader_parameter("stage_dist", post_stage_dist)
+
+
+## Scuffs left on the stage by heavy hits (presentation only): a few decals reused in turn, cleared when a match starts, none on the
+## Fast tier. `SCUFF_FROM` is the least hit strength (0..1, from its hitlag) that leaves one.
+const SCUFF_FROM := 0.6
+const SCUFFS := 6
+var scuffs: Array = []
+var scuff_next := 0
+
+
+func _scuff(at: Vector2, side: float) -> void:
+	if VisualSettings.get_index("quality") == 0:
+		return
+	if scuffs.size() < SCUFFS:
+		var d := Decal.new()
+		d.texture_albedo = SvgArt.texture("res://art/stage/scuff.svg")
+		# Thin, and faded toward its top, so it marks the floor and not the feet on it.
+		d.size = Vector3(1.8, 0.24, 0.9)
+		d.upper_fade = 1.0
+		d.lower_fade = 0.3
+		add_child(d)
+		scuffs.append(d)
+	var s: Decal = scuffs[scuff_next % scuffs.size()] if scuffs.size() >= SCUFFS else scuffs[scuffs.size() - 1]
+	scuff_next += 1
+	s.position = Vector3(at.x + 0.3 * side, at.y + 0.02, 0.1)
+	s.rotation = Vector3(0, 0, 0)
+	s.scale = Vector3(-1.0 if side < 0.0 else 1.0, 1.0, 1.0)
+	s.visible = true
+
+
+func _clear_scuffs() -> void:
+	for s in scuffs:
+		s.visible = false
+	scuff_next = 0
 
 
 ## The ECB outline is a static diamond mesh per fighter (its shape never changes in a match),

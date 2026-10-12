@@ -74,3 +74,19 @@ would have been used for here, and it adds a texture format question for no visi
   (`fidelity_3_skyline_closeup.png`); Skyline GPU 1.04 ms (1.09 before), Treetop Isle 1.36 ms (1.32); look bench PASSED, worst 0.93.
 * Skipped: the optional foreground framing (cables and leaves at the frame's edges). The blur alone gives the depth, and framing pieces
   over the outer 8% of the screen risk hiding a fighter near the blast lines for little gain.
+
+## Phase 4: surface detail
+
+* A painted detail overlay in `toon_common.gdshaderinc` for world-laid surfaces only (`detail_tex`, `detail_amount`, `detail_scale`): two
+  scales of one grey tile (fine every 2.5 to 4 units, broad at 4.7 times that) vary the lightness and, a little, the hue. `detail_amount`
+  is 0 unless a material sets it, so fighters and props cannot change. Three new tileable tiles in the hand-drawn style
+  (`godot/art/stage/detail_concrete.svg`, `detail_soil.svg`, `detail_stone.svg`); the stage tiles (`Materials.TILE_DETAIL`: roof, steel,
+  grass, sand, stone, a light touch on wood) and the block fronts (concrete on the facade, stone on cobbles, soil on the rest) use them.
+* Persistent hit scuffs: a heavy hit (hit strength 0.6 and up) on a fighter standing on the stage leaves a skid mark under it, from a pool
+  of six decals reused in turn (`main.gd` `_scuff`, `godot/art/stage/scuff.svg`), cleared when a match starts, none on Fast. The decal box
+  is thin and fades upward, so it marks the floor and not the feet. (A debugging note: a decal tinted red over a near-black texture still
+  looks dark; the first scuff was simply too faint, not missing.)
+* Skipped: the optional normal perturbation of the cel bands (it would fight the ink pass's crease lines on the same surfaces).
+* Checked: block fronts, the rooftop and the grass show mid-scale variation at play zoom with no tiling seams; GPU Skyline 1.05 ms
+  (1.04 before), Treetop Isle 1.39 to 1.41 ms (1.36); look bench PASSED, worst 0.93. Fighters are untouched by construction (their
+  materials never set `detail_amount`); a pixel diff of a fighter crop is not meaningful here for the reason given in phase 2.

@@ -31,7 +31,22 @@ const FAMILIES := {
 const TILE_FAMILY := {"wood": "wood", "grass": "grass", "sand": "grass", "roof": "stone", "steel": "plain", "bark": "bark",
 	"foliage": "foliage", "stone": "stone"}
 
+## The painted detail laid over each world-laid stage tile (shaders/toon_common.gdshaderinc `detail_*`): [detail tile, amount, world units
+## per fine repeat]. Tiles not listed have none.
+const TILE_DETAIL := {"roof": ["concrete", 0.5, 3.0], "steel": ["concrete", 0.3, 2.5], "grass": ["soil", 0.35, 2.5],
+	"sand": ["soil", 0.3, 3.0], "stone": ["stone", 0.4, 3.5], "wood": ["stone", 0.18, 4.0]}
+
 static var _cache := {}
+
+
+## Sets a world-laid material's painted detail: the tile `detail` (concrete, soil, stone), `amount`, `scale` world units per fine repeat.
+static func set_detail(m: ShaderMaterial, detail: String, amount: float, scale: float) -> void:
+	var tex := SvgArt.texture("res://art/stage/detail_%s.svg" % detail)
+	if tex == null:
+		return
+	m.set_shader_parameter("detail_tex", tex)
+	m.set_shader_parameter("detail_amount", amount)
+	m.set_shader_parameter("detail_scale", scale)
 
 
 static func _make(family: String, colour: Color, tile_name: String, tile: Vector2, world_tile: float, outline: bool) -> ShaderMaterial:
@@ -45,6 +60,9 @@ static func _make(family: String, colour: Color, tile_name: String, tile: Vector
 	var m := base.duplicate() as ShaderMaterial
 	for p in FAMILIES[family]:
 		m.set_shader_parameter(p, FAMILIES[family][p])
+	if world_tile > 0.0 and TILE_DETAIL.has(tile_name):
+		var d: Array = TILE_DETAIL[tile_name]
+		set_detail(m, d[0], d[1], d[2])
 	_cache[key] = m
 	return m
 

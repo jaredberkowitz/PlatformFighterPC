@@ -180,6 +180,14 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 2.2 units, a facade's every 3.3).
 	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 3.3)
+	# Painted wear over the pattern, so a block's front reads as one weathered mass rather than a stamped tile.
+	match pattern:
+		"facade":
+			Materials.set_detail(m, "concrete", 0.45, 3.0)
+		"cobble":
+			Materials.set_detail(m, "stone", 0.4, 3.5)
+		_:
+			Materials.set_detail(m, "soil", 0.35, 3.0)
 	_soil_cache[key] = m
 	return m
 

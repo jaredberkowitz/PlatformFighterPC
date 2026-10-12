@@ -19,6 +19,12 @@ uniform float world_vary = 0.08;
 uniform float front_fall = 0.4;
 uniform float front_span = 5.0;
 uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
+// World-laid surfaces only: a painted detail tile (godot/art/stage/detail_*.svg, grey around the middle) varies the lightness, and a
+// little the hue, at two scales: fine every `detail_scale` world units, broad at 4.7 times that. `detail_amount` 0 (everything by
+// default, fighters always) leaves the surface as it was.
+uniform sampler2D detail_tex : filter_linear_mipmap, repeat_enable, hint_default_white;
+uniform float detail_amount = 0.0;
+uniform float detail_scale = 3.0;
 varying vec3 world_pos;
 varying vec3 world_normal;
 
@@ -61,6 +67,12 @@ void fragment() {
 			// And a slight drift in hue between warmer and cooler patches, slower still, so neighbouring areas differ a little.
 			float hue_drift = sin(p.x * 0.17 + 2.1 + sin(p.y * 0.23) * 1.3) * sin(p.y * 0.13 + p.x * 0.07);
 			c *= vec3(1.0) + vec3(0.035, 0.0, -0.035) * hue_drift * (world_vary / 0.08);
+			if (detail_amount > 0.0) {
+				float fine = texture(detail_tex, p / detail_scale).r - 0.5;
+				float broad = texture(detail_tex, p / (detail_scale * 4.7) + vec2(0.37, 0.61)).r - 0.5;
+				c *= 1.0 + detail_amount * (fine * 0.7 + broad * 1.3);
+				c *= vec3(1.0) + vec3(0.04, 0.0, -0.04) * broad * detail_amount * 2.0;
+			}
 			if (abs(world_normal.y) < 0.5) {
 				float below = smoothstep(0.6, front_span, front_top - world_pos.y);
 				c *= mix(vec3(1.0), front_shade, front_fall * below);
