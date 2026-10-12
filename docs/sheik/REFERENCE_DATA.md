@@ -183,13 +183,16 @@ Two general rules changed with this phase, because the jab and the up air's drag
 Sakurai angle is the reference's (0 degrees on the ground up to 60 knockback, 38 from 88 and in the air; it was the older game's 0 / 44 at
 32), grounded slides are slowed by traction, and a non-tumble hitstun lands on its feet (no knockdown, no tech).
 
-### Still to build
+### Specials (phase 3, sim 51)
 
-| Move | Frames (active / FAF) | Damage |
+Sources: SmashWiki `Sheik_(SSBU)/Neutral_special`, `/Up_special`, `/Down_special` (hitbox tables, timing and the parameter lists).
+
+| Move | Built as | Labels |
 | --- | --- | --- |
-| Needle Storm | 4-16 per needle (+7 to charge); full charge 86 frames | 1.5 / 0.8 each |
-| Burst Grenade | 13 throw, explodes 67-88 | 1.0 windboxes / 12.6 |
-| Vanish | 36-38, 55-57 (FAF 96); intangible 14-60 ground, 19-55 air | 12.0 / 5.0 |
-| Bouncing Fish | 18 / 26 | 11.0 |
+| Needle Storm | wind-up to frame 7; a needle added on charge frames 8, 23, 38, 53, 68, 83 (6 at most); let go to throw them on frames 11, 14, 17, 20, 23, 26 of the throw; each 1.5% falling to 0.8% over its 9-frame life, 60 degrees, BK 0, KS 167, H 0.8, 10 units a frame (35 degrees down in the air); throw FAF 49 grounded, 43 aerial; landing lag 12. Shield stores the charge; the next use throws at once | [R]; the reference keeps charging after the button is let go on the ground (here letting go throws) and also stores with a jump or spot dodge [D]; clean vs late damage as a linear fall [D] |
+| Side special (ours, asked for in place of Burst Grenade) | a weighted line thrown on frame 13 that flies 0.5 units a frame for 14 frames; a hit (3%, set knockback 80) reels the target in to 0.9 units in front of the thrower (the pull angle, 368, `docs/CONTENT.md`) during a hitstun of about 30 frames; FAF 45 | all [E], by design |
+| Vanish | explosion frames 36-38 (12%, 55 degrees, BK 50, KS 112, radius 13); teleport for 20 frames along the stick held on frame 36 (1.5 units a frame, plus up to 1 with the stick pushed past 0.3; straight up when neutral), keeping 0.3 of the speed after; reappearance hit frames 55-56 (5%, 45 degrees, FKV 80, KS 100, SDI 0); intangible 14-54 (19-54 in the air); FAF 95 then helpless; landing lag 20 | [R]; the startup hop in the air is an estimate (the wiki's "initial vertical speed 3.2" would lift 3 units, which the move does not visibly do), the 0% reappearance wind box and the explosion staying behind as a projectile are not modelled [E] |
+| Bouncing Fish | leaves at 1.6 units a frame forward (1.5 in the air) and 3 up, 1.5 times gravity, steerable from frame 30 (0 to 2.4); kick frames 23-29: 11%, Sakurai angle, BK 26, KS 97, H 1.7; a hit bounces back (1.8 back, 3.5 up; FAF 80, landing 20); FAF 51; landing lag 36 | [R]; the earlier kick input, consecutive kicks (13%), wall bounces and the 22-frame landing before the kick are not modelled [E] |
 
-Until then the specials are the claws kit's stand-ins.
+Up air, ours: the aerial loop's pull aims 0.6 units in front of the kick (`link_ahead`), so a dragged-down target lands in front of the
+fighter for a follow-up; the reference pulls toward the kick itself.

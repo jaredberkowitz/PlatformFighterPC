@@ -36,6 +36,8 @@
 - **Hitstun** with gravity and decaying launch speed. Landing out of a tumble is a **tech** with a shield press just before
   (4 frames of lag), otherwise a knockdown. Landing out of a lighter hit (no tumble: a jab, an autolink loop dragging the fighter
   down) lands it on its feet and the hitstun carries on on the ground, with no tech and no knockdown, as in the reference (sim v50).
+- **Pull** (angle 368, ours, sim v51): no launch; while its hitstun lasts the victim moves a third of the way a frame (at most half a
+  unit) to 0.9 units in front of whoever hit it (a projectile's owner), on its own side, and is never tumbling. The Needles' line uses it.
 - **Shield** blocks: no damage, no launch, a little pushback. Intangible: respawn invulnerability, ledge invulnerability and
   the middle of an air dodge.
 - **KO and respawn:** leaving the blast zone costs a stock, resets damage and respawns at the spawn point with 120 frames of

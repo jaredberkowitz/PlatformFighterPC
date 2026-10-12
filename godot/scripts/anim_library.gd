@@ -108,8 +108,8 @@ const CLASS_MOVES := {
 	},
 	# Needles: kicks for the kicks (the leg is aimed at the hit), the shared chop for the forward air and lunge for the dash attack's
 	# hand strike, hands overhead for the up smash, its down air's landing hit as a landing, the rapid jab's stabs as jabs and its
-	# finisher as a heavy strike; the specials still standing in from the claws kit keep the claws' clips. (Placeholders until the
-	# Needles clips are made.)
+	# finisher as a heavy strike; Needle Storm aims (wind-up and charge) and flicks (the throw), the line is swung out, Vanish crouches
+	# into its explosion, Bouncing Fish is a heel kick and its bounce a jump. (Placeholders until the Needles clips are made.)
 	2: {
 		"ftilt": "kick_up",
 		"utilt": "kick_up",
@@ -125,9 +125,12 @@ const CLASS_MOVES := {
 		"usmash": "attack_uair",
 		"dsmash": "sword_dsmash",
 		"neutral special": "blaster",
-		"side special": "attack_kick",
-		"up special": "attack_kick",
-		"down special": "attack_kick",
+		"extra move 3": "blaster",
+		"extra move 4": "attack_jab",
+		"side special": "attack_swing",
+		"up special": "attack_low",
+		"down special": "kick_dair",
+		"extra move 5": "jump",
 	},
 }
 

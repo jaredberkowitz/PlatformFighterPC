@@ -1,0 +1,29 @@
+// Vanish (up special): a small hop in the air (on the ground it stays put), the explosion where the fighter stands (frames 36-38), then 20 frames of teleport in the
+// direction the stick holds on frame 36 (straight up when it is near neutral), faster the further it is pushed (1.5 reference units a
+// frame plus up to 1 more); it reappears with a hit (frames 55-56) keeping 0.3 of the speed. Intangible from frame 14 (19 in the
+// air) to 54.
+var rise;
+var dx;
+var dy;
+var speed;
+if frame == 1 && grounded == 0 { rise = 0.15; }
+if frame == 13 && grounded { intangible(41); }
+if frame == 18 && grounded == 0 { intangible(36); }
+if frame < 35 {
+    rise = max(rise - 0.024, -0.031);
+    set_vel(0, rise);
+}
+if frame == 35 {
+    let len = sqrt(stick_x * stick_x + stick_y * stick_y);
+    if len < 0.3 {
+        dx = 0;
+        dy = 1;
+        speed = 0.1875;
+    } else {
+        dx = stick_x / len;
+        dy = stick_y / len;
+        speed = 0.1875 + 0.125 * min(len, 1);
+    }
+}
+if frame >= 35 && frame < 55 { set_vel(dx * speed, dy * speed); }
+if frame == 55 { set_vel(dx * speed * 0.3, dy * speed * 0.3); }

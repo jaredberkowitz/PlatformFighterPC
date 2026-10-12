@@ -461,6 +461,9 @@ rules_io! {
     special_reverse_window: u8,
     autolink_max_speed: Fx,
     autolink_max_fall: Fx,
+    pull_rate: Fx,
+    pull_max_speed: Fx,
+    pull_gap: Fx,
     electric_hitlag_mult: Fx,
     asdi_distance: Fx,
     sdi_combo_hits: u8,
@@ -560,6 +563,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         fixed_kb: f.or("fixed_kb", 0, errors),
         hitstun_add: f.or("hitstun_add", 0, errors),
         sdi: f.or("sdi", 100, errors),
+        link_ahead: f.or("link_ahead", Fx::ZERO, errors),
     };
     f.finish(errors);
     hb
@@ -607,6 +611,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.sdi != 100 {
         b.field("sdi", hb.sdi.to_string());
+    }
+    if hb.link_ahead != Fx::ZERO {
+        b.field("link_ahead", hb.link_ahead.show());
     }
     b
 }
@@ -746,6 +753,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     fixed_kb: 0,
                     hitstun_add: 0,
                     sdi: 100,
+                    link_ahead: Fx::ZERO,
                 }
             }
         };

@@ -48,8 +48,11 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - **As built (phase 1, sim 49):** the body (`FighterParams::rogue`) and the forward, up and down tilts and all five aerials on the
   reference's published data (`docs/sheik/REFERENCE_DATA.md`, which labels each number verified, derived or estimated).
 - **Phase 2 (sim 50):** the jabs with the rapid jab and its finisher (scripts), the earlier game's dash attack (a pop-up), the two-hit
-  forward and down smashes and the up smash, grabs, pummel and throws, and the reference's rolls and spot dodge. The specials are still
-  the claws kit's and are next.
+  forward and down smashes and the up smash, grabs, pummel and throws, and the reference's rolls and spot dodge.
+- **Phase 3 (sim 51):** the specials: Needle Storm (charge, store with shield, throw up to six needles), our own pulling line in place
+  of the reference's grenade (a hit reels the target in to just in front, for a follow-up), Vanish (an explosion, a teleport along
+  the stick, a reappearance hit, then helpless) and Bouncing Fish (a flip into a heel kick that bounces back off a hit). The up air's
+  drag now lands its target in front of the fighter.
 
 ## What this needs from the engine (Phase 3 list)
 

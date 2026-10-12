@@ -1,0 +1,12 @@
+// Needle Storm, charging (ext3, slot 31): one needle more at the start of each 15-frame loop (the reference's frames 8, 23, 38, ...),
+// at most 6. Letting go of special throws them (32 = ext4); shield stores them for the next use and ends the move.
+var needles;
+if frame == 1 && needles < 6 { needles = needles + 1; }
+if shield {
+    store(needles);
+    end();
+} else if special == 0 {
+    goto(32);
+} else if frame >= 15 {
+    goto(31);
+}

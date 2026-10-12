@@ -29,7 +29,8 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 	var grab: int = m.grab
 	if demo_name.begins_with("fx_"):
 		# One move landing on a fighter up close, a picture on every frame, the camera steady on the attacker (for checking trails, hit
-		# effects and the animation): fx_<sword|claws>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair>, with
+		# effects and the animation): fx_<sword|claws|needles>_<jab|ftilt|utilt|dtilt|fsmash|usmash|dsmash|nair|fair|bair|uair|dair|
+		# nspecial|sspecial|uspecial|dspecial>, with
 		# _ko on the end for a finishing hit (the other fighter at 170%).
 		var parts := demo_name.split("_")
 		var cls: int = {"sword": 0, "claws": 1, "needles": 2}.get(parts[1], 0)
@@ -38,7 +39,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		d.cam_dist = 11.0
 		d.cam_focus = 0
 		var air := move.ends_with("air")
-		if move == "uair":
+		if move == "sspecial" or move == "nspecial":
+			# Far enough that the shot travels before it hits.
+			d.events = [[1, "stand", 0, -4.0, 1], [1, "stand", 1, 1.5, -1]]
+		elif move == "dspecial":
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 1.6, -1]]
+		elif move == "uair":
 			# The other fighter just overhead, both falling from rest: the up air's loop catches it and drags it down.
 			d.events = [[1, "place", 0, -1.0, 3.0], [1, "place", 1, -0.9, 4.8]]
 		elif air:
@@ -48,13 +54,16 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		# [stick x, stick y, buttons] for each move.
 		var inputs: Dictionary = {"jab": [0, 0, attack], "ftilt": [40, 0, attack], "utilt": [0, 70, attack], "dtilt": [0, -70, attack],
 			"fsmash": [127, 0, attack], "usmash": [0, 70, attack | strong], "dsmash": [0, -70, attack | strong], "nair": [0, 0, attack],
-			"fair": [127, 0, attack], "bair": [-127, 0, attack], "uair": [0, 100, attack], "dair": [0, -70, attack]}
+			"fair": [127, 0, attack], "bair": [-127, 0, attack], "uair": [0, 100, attack], "dair": [0, -70, attack],
+			"nspecial": [0, 0, special], "sspecial": [127, 0, special], "uspecial": [0, 100, special], "dspecial": [0, -100, special]}
 		var input: Array = inputs.get(move, inputs.ftilt)
-		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [11, 0, 0, 0]]
+		# (Neutral special is held: a charge of three needles.)
+		var hold := 46 if move == "nspecial" else 1
+		d.timeline = [[0, 0, 0, 0], [10, input[0], input[1], input[2]], [10 + hold, 0, 0, 0]]
 		if demo_name.ends_with("_ko"):
 			d.events.append([1, "percent", 1, 170.0])
 		# (Long enough for a smash, or a multi-hit move whose hits freeze it.)
-		var last := 75
+		var last := 120 if move.ends_with("special") else 75
 		for f in range(11, last):
 			d.shots.append([f, "f%02d" % (f - 10)])
 		d.end_frame = last + 1

@@ -1304,7 +1304,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 			contact = middle + (tip_at - middle).limit_length(1.0)
 		if cls == 0 and _weapon_move(move):
 			kind = Effects.Kind.BLADE
-		elif cls != 0 and FighterView.BRAWLER_FLAME.has(move):
+		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
 			kind = Effects.Kind.FIRE
 		elif cls == 1 and _weapon_move(move):
 			kind = Effects.Kind.CLAW
@@ -1899,8 +1899,18 @@ func _position_boxes(a: float) -> void:
 
 
 # ---- Projectiles ------------------------------------------------------------------------------------
+# Each slot can show a bolt (the claws' blaster and anything else), a needle (the Needles moveset's Needle Storm: thin, teal, pointing
+# where it flies) or the Needles' pulling line (a small weight with a cord back to the thrower's hand).
+
+## Numbers per slot in `projectile_slots` (see the bridge).
+const PROJECTILE_STRIDE := 9
+## The Needles class (2) and the move slots its needles and line come from (ext4 = 32, side special = 14).
+const NEEDLE_FROM := [2, 32]
+const LINE_FROM := [2, 14]
 
 var proj_nodes: Array = []
+var proj_needles: Array = []
+var proj_lines: Array = []
 var proj_prev := PackedFloat32Array()
 var proj_cur := PackedFloat32Array()
 
@@ -1909,6 +1919,12 @@ func _build_projectiles() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Color(0.78, 0.4, 1.0)
+	var needle_mat := StandardMaterial3D.new()
+	needle_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	needle_mat.albedo_color = Color(0.75, 1.0, 0.95)
+	var line_mat := StandardMaterial3D.new()
+	line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_mat.albedo_color = Color(0.25, 0.85, 0.75)
 	for k in 8:
 		var mi := MeshInstance3D.new()
 		var bolt := SphereMesh.new()
@@ -1920,18 +1936,79 @@ func _build_projectiles() -> void:
 		mi.visible = false
 		add_child(mi)
 		proj_nodes.append(mi)
+		# A needle: a long thin box along x, turned to its flight.
+		var nd := MeshInstance3D.new()
+		var stick := BoxMesh.new()
+		stick.size = Vector3(0.75, 0.05, 0.05)
+		nd.mesh = stick
+		nd.material_override = needle_mat
+		nd.visible = false
+		add_child(nd)
+		proj_needles.append(nd)
+		# The line: its weight, and the cord drawn fresh each frame.
+		var ln := MeshInstance3D.new()
+		var weight := SphereMesh.new()
+		weight.radius = 0.16
+		weight.height = 0.32
+		ln.mesh = weight
+		ln.material_override = line_mat
+		ln.visible = false
+		add_child(ln)
+		var cord := MeshInstance3D.new()
+		cord.mesh = ImmediateMesh.new()
+		cord.material_override = line_mat
+		cord.top_level = true
+		cord.extra_cull_margin = 16384.0
+		cord.visible = false
+		add_child(cord)
+		proj_lines.append([ln, cord])
 
 
 func _update_projectiles(a: float) -> void:
+	var n := PROJECTILE_STRIDE
 	for k in proj_nodes.size():
-		var i := k * 4
-		var active: bool = proj_cur.size() > i and proj_cur[i] > 0.5
-		proj_nodes[k].visible = active
-		if active:
-			var pos := Vector2(proj_cur[i + 1], proj_cur[i + 2])
-			if proj_prev.size() > i and proj_prev[i] > 0.5:
-				pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
-			proj_nodes[k].position = Vector3(pos.x, pos.y, 0.3)
+		var i := k * n
+		var active: bool = proj_cur.size() > i + n - 1 and proj_cur[i] > 0.5
+		var from := [int(proj_cur[i + 6]), int(proj_cur[i + 7])] if active else []
+		var needle: bool = active and from == NEEDLE_FROM
+		var line: bool = active and from == LINE_FROM
+		proj_nodes[k].visible = active and not needle and not line
+		proj_needles[k].visible = needle
+		proj_lines[k][0].visible = line
+		proj_lines[k][1].visible = line
+		if not active:
+			continue
+		var pos := Vector2(proj_cur[i + 1], proj_cur[i + 2])
+		if proj_prev.size() > i + n - 1 and proj_prev[i] > 0.5:
+			pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
+		var at := Vector3(pos.x, pos.y, 0.3)
+		if needle:
+			proj_needles[k].position = at
+			proj_needles[k].rotation.z = Vector2(proj_cur[i + 4], proj_cur[i + 5]).angle()
+		elif line:
+			proj_lines[k][0].position = at
+			_draw_cord(proj_lines[k][1], int(proj_cur[i + 8]), at, a)
+		else:
+			proj_nodes[k].position = at
+
+
+## The pulling line's cord: from the thrower's hand (about chest height, a little in front) to the weight.
+func _draw_cord(cord: MeshInstance3D, owner: int, to: Vector3, a: float) -> void:
+	var im: ImmediateMesh = cord.mesh
+	im.clear_surfaces()
+	if owner < 0 or owner >= cur_pos.size():
+		return
+	var p: Vector2 = cur_pos[owner]
+	if prev_pos.size() > owner:
+		p = (prev_pos[owner] as Vector2).lerp(p, a)
+	var hand := Vector3(p.x + 0.4 * signf(to.x - p.x), p.y + 1.1, 0.3)
+	# A thin ribbon facing the camera (two triangles), sagging a little in the middle.
+	var mid := (hand + to) * 0.5 + Vector3(0, -0.15, 0)
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for pt in [hand, mid, to]:
+		im.surface_add_vertex(pt + Vector3(0, 0.025, 0))
+		im.surface_add_vertex(pt - Vector3(0, 0.025, 0))
+	im.surface_end()
 
 
 func _exit_tree() -> void:

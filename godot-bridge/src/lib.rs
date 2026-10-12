@@ -1238,16 +1238,25 @@ impl SimRunner {
             .fold(0.0, f32::max)
     }
 
-    /// Projectile slots as flat [active, x, y, direction] groups, one per slot, in fixed order.
+    /// Projectile slots as flat [active, x, y, direction, vx, vy, class, move, owner] groups (`PROJECTILE_STRIDE` numbers), one per
+    /// slot, in fixed order. `class` is the weapon of the fighter that fired it and `move` the move it came from (so the view can draw
+    /// a needle, a line or a bolt); `owner` is the fighter it belongs to now.
     #[func]
     fn projectile_slots(&self) -> PackedFloat32Array {
         let mut v: Vec<f32> = Vec::new();
         for p in &self.state.projectiles {
+            let origin = &self.state.fighters[usize::from(p.origin).min(MAX_FIGHTERS - 1)];
+            let class = sim_core::combat::params_of(&self.content, origin).weapon;
             v.extend([
                 if p.active { 1.0 } else { 0.0 },
                 f(p.pos.x),
                 f(p.pos.y),
                 if p.vel.x < Fx::ZERO { -1.0 } else { 1.0 },
+                f(p.vel.x),
+                f(p.vel.y),
+                f32::from(class),
+                f32::from(p.move_id),
+                f32::from(p.owner),
             ]);
         }
         PackedFloat32Array::from(v.as_slice())

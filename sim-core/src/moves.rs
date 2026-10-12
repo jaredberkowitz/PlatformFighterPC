@@ -251,8 +251,8 @@ pub struct Hitbox {
     pub radius: Fx,
     /// Percent of damage dealt.
     pub damage: Fx,
-    /// Launch angle in degrees, 0 = forward. 361 is the "Sakurai" angle: horizontal for weak hits on the
-    /// ground, 44 degrees otherwise.
+    /// Launch angle in degrees, 0 = forward. 361 is the "Sakurai" angle (see `combat::launch_angle`), 367 the autolink angle,
+    /// 368 the pull angle.
     pub angle: i16,
     pub base_knockback: i16,
     pub knockback_growth: i16,
@@ -279,6 +279,9 @@ pub struct Hitbox {
     pub hitstun_add: u8,
     /// Percent of the normal survival-DI distance the victim gets during this hit's hitlag (100 is normal).
     pub sdi: u16,
+    /// For the autolink angle: the pull aims this far in front of the hitbox (world units, the way the hit sends), so a carried victim
+    /// drifts in front of the attacker instead of staying where the hitbox is. 0 aims at the hitbox itself (the reference).
+    pub link_ahead: Fx,
 }
 
 /// `Hitbox::targets` values.
@@ -290,6 +293,11 @@ pub const TARGETS_AERIAL: u8 = 2;
 /// hitbox (see `combat::autolink`), so a multi-hit carries it along; a grounded one is sent at 80 degrees.
 pub const ANGLE_AUTOLINK: i16 = 367;
 
+/// The pull angle (ours, not the reference's): instead of a launch, the victim is drawn to just in front of the attacker (a
+/// projectile's owner) while its hitstun lasts, `pull_gap` from it (see `fighter::pull_frame`). Its hitstun comes from the
+/// knockback as usual (set knockback makes it the same at any percent).
+pub const ANGLE_PULL: i16 = 368;
+
 impl Hitbox {
     /// The fields added after the first release of the format, at their defaults (what older content means).
     pub const fn extras(mut self) -> Hitbox {
@@ -297,6 +305,7 @@ impl Hitbox {
         self.fixed_kb = 0;
         self.hitstun_add = 0;
         self.sdi = 100;
+        self.link_ahead = Fx::ZERO;
         self
     }
 }
@@ -486,6 +495,7 @@ impl StateHash for Hitbox {
         h.write_u16(self.fixed_kb);
         h.write_u8(self.hitstun_add);
         h.write_u16(self.sdi);
+        self.link_ahead.hash_into(h);
     }
 }
 
@@ -637,6 +647,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 fixed_kb: 0,
                 hitstun_add: 0,
                 sdi: 100,
+                link_ahead: Fx::ZERO,
             })
             .collect(),
         ..Move::empty()
@@ -681,6 +692,7 @@ fn row(r: &R) -> Hitbox {
         fixed_kb: 0,
         hitstun_add: 0,
         sdi: 100,
+        link_ahead: Fx::ZERO,
     }
 }
 
@@ -1494,8 +1506,8 @@ fn set_rows(mv: &mut Move, rows: &[usize], f: impl Fn(&mut Hitbox)) {
 /// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
 /// lag and autocancel windows, the up air's looping autolink hits and final hit, the down air's dive and landing hit. Radii are the
 /// reference's converted; positions are estimates on our body (the reference attaches its hitboxes to bones of its own skeleton). The
-/// data and its sources: `docs/sheik/REFERENCE_DATA.md`. The jabs and rapid jab, smashes, grabs and throws follow the reference too;
-/// the dash attack is the earlier game's. The specials are still the claws kit's stand-ins.
+/// data and its sources: `docs/sheik/REFERENCE_DATA.md`. The jabs and rapid jab, smashes, grabs, throws and the needle, vanish and
+/// bouncing specials follow the reference too; the dash attack is the earlier game's, and the side special is our own pulling line.
 pub fn needles() -> Weapon {
     let mut w = claws();
     // Kicks and the hands: the limb throwing a hit can be hit.
@@ -1621,7 +1633,12 @@ pub fn needles() -> Weapon {
         ],
     );
     set_rows(&mut uair, &[0], |h| h.targets = TARGETS_GROUNDED);
-    set_rows(&mut uair, &[1], |h| h.targets = TARGETS_AERIAL);
+    // (Ours: the aerial loop's pull aims 0.6 units in front of the kick, so a dragged-down target lands in front of the fighter, open to
+    // a follow-up; the reference pulls toward the kick itself.)
+    set_rows(&mut uair, &[1], |h| {
+        h.targets = TARGETS_AERIAL;
+        h.link_ahead = Fx::from_ratio(6, 10);
+    });
     set_rows(&mut uair, &[0, 1], |h| {
         h.hitlag = 70;
         h.sdi = 120;
@@ -1867,6 +1884,111 @@ pub fn needles() -> Weapon {
     // The ledge attack (9%) and get-up attack (7% each side) keep the claws' frames: the damage is the reference's, the timing an
     // estimate [E].
 
+    // ---- Specials ----
+    // Needle Storm (neutral special): a wind-up to frame 7, then charging (ext3), a needle more every 15 frames up to 6; letting go
+    // throws them (ext4), one every 3 frames from frame 11; shield stores them for the next use, which throws them at once (all
+    // scripts). Each needle: 1.5% falling to 0.8% over its 9 frames, 60 degrees, BK 0, KS 167, hitlag x0.8, 10 reference units a frame
+    // (straight on the ground, 35 degrees down in the air). Throw FAF 49 (43 in the air), landing lag 12.
+    let mut storm = ref_move(10, 0, 0, 255, &[]);
+    storm.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/needle_storm_start.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = storm;
+    let mut charge = ref_move(18, 0, 0, 255, &[]);
+    charge.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/needle_storm_charge.script"),
+    ));
+    w.moves[MoveId::Ext3 as usize] = charge;
+    let mut throw = ref_move(49, 12, 0, 255, &[]);
+    let mut needle = row(&r(1, 1, 0, 0, 2, 15, 60, 0, 167, 0, 0));
+    needle.hitlag = 80;
+    throw.projectile = Some(ProjectileSpawn {
+        // (Only the script fires them.)
+        frame: 255,
+        x: Fx::ONE,
+        y: Fx::from_ratio(11, 10),
+        speed: su(10000),
+        life: 9,
+        hitbox: needle,
+        end_damage: Fx::from_ratio(8, 10),
+    });
+    throw.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/needle_storm_throw.script"),
+    ));
+    w.moves[MoveId::Ext4 as usize] = throw;
+
+    // Side special, our own in place of the reference's grenade (asked for): a line thrown on frame 13 that, if it hits, reels the
+    // target in to just in front of the fighter (the pull angle). 3%, set knockback 80 (KS 100) so the hitstun is the same at any
+    // percent (about 30 frames: time for the pull and a follow-up). The line flies 0.5 units a frame for 14 frames (7 units). FAF 45,
+    // landing lag 10. All estimates [E].
+    let mut hook = ref_move(45, 10, 0, 255, &[]);
+    let mut line = row(&r(1, 1, 0, 0, 5, 30, ANGLE_PULL, 0, 100, 0, 0));
+    line.fixed_kb = 80;
+    hook.projectile = Some(ProjectileSpawn {
+        frame: 12,
+        x: Fx::from_ratio(9, 10),
+        y: Fx::from_ratio(10, 10),
+        speed: Fx::from_ratio(1, 2),
+        life: 14,
+        hitbox: line,
+        end_damage: Fx::from_int(3),
+    });
+    w.moves[MoveId::SideSpecial as usize] = hook;
+
+    // Vanish (up special): a small hop [E], the explosion on frames 36-38 (12%, 55 degrees, BK 50, KS 112, radius 13), then 20 frames of
+    // teleport the way the stick points on frame 36 (1.5 reference units a frame, up to 2.5 with the stick pushed all the way), and the
+    // reappearance hit on frames 55-56 (5%, 45 degrees, set knockback 80, SDI x0). Intangible 14-54 (19-54 in the air). FAF 95, then
+    // helpless; landing lag 20. Its 0% wind box on reappearing is not modelled [E].
+    let mut vanish = ref_move(
+        95,
+        20,
+        0,
+        255,
+        &[
+            r(36, 38, 0, 6, 16, 120, 55, 50, 112, 0, 0),
+            r(55, 56, 0, 12, 11, 50, 45, 0, 100, 0, 1),
+        ],
+    );
+    set_rows(&mut vanish, &[1], |h| {
+        h.fixed_kb = 80;
+        h.sdi = 0;
+    });
+    vanish.script = Some(script(Kind::Fighter, include_str!("scripts/vanish.script")));
+    vanish.helpless_after = true;
+    vanish.grabs_ledge = true;
+    w.moves[MoveId::UpSpecial as usize] = vanish;
+
+    // Bouncing Fish (down special): a flip forward into a heel kick (frames 23-29): 11%, Sakurai angle, BK 26, KS 97, hitlag x1.7. A hit
+    // bounces the fighter back off the target (ext5; FAF 80, landing lag 20). FAF 51; landing during it, 36 frames (the reference's kick
+    // landing; landing before the kick is 22 there [D]). Consecutive kicks after a bounce and wall bounces are not modelled [E].
+    let mut fish = ref_move(
+        51,
+        36,
+        0,
+        255,
+        &[
+            r(23, 29, 7, 3, 4, 110, 361, 26, 97, 0, 0),
+            r(23, 29, 1, 6, 4, 110, 361, 26, 97, 1, 0),
+        ],
+    );
+    set_rows(&mut fish, &[0, 1], |h| h.hitlag = 170);
+    fish.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bouncing_fish.script"),
+    ));
+    fish.grabs_ledge = true;
+    w.moves[MoveId::DownSpecial as usize] = fish;
+    let mut bounce = ref_move(80, 20, 0, 255, &[]);
+    bounce.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bouncing_fish_bounce.script"),
+    ));
+    bounce.grabs_ledge = true;
+    w.moves[MoveId::Ext5 as usize] = bounce;
+
     w
 }
 
@@ -1996,6 +2118,7 @@ pub fn claws() -> Weapon {
             fixed_kb: 0,
             hitstun_add: 0,
             sdi: 100,
+            link_ahead: Fx::ZERO,
         },
         end_damage: Fx::from_int(6),
     });

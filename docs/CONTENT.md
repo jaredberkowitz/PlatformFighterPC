@@ -72,7 +72,7 @@ A move block (omitted fields take the default shown):
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |
 | `rehit_groups` | the hit groups the rehit rhythm re-arms, a bit per group (a looping phase is re-armed, its final hit is not) | 255 (all) |
 | `landing_move` | a move (usually an `ext` slot) started when this aerial lands outside its autocancel windows: a landing hit; its length is the landing lag | none |
-| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] [targets] [fixed_kb] [hitstun_add] [sdi] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric`; `group` 0 to 7 (each group hits a target once per move, or once per rehit); `targets` is `all`, `grounded` or `aerial`; `fixed_kb` set knockback (the same at any percent; 0 = normal); `hitstun_add` extra hitstun frames; `sdi` the percent of the normal survival-DI distance (default 100). `angle` 361 is the Sakurai angle and 367 the autolink angle (an airborne victim is carried along at the attacker's velocity and pulled toward the hitbox; a grounded one goes up at 80) | |
+| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] [targets] [fixed_kb] [hitstun_add] [sdi] [link_ahead] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric`; `group` 0 to 7 (each group hits a target once per move, or once per rehit); `targets` is `all`, `grounded` or `aerial`; `fixed_kb` set knockback (the same at any percent; 0 = normal); `hitstun_add` extra hitstun frames; `sdi` the percent of the normal survival-DI distance (default 100). `link_ahead` moves an autolink's pull point that far in front of the hitbox (world units). `angle` 361 is the Sakurai angle, 367 the autolink angle (an airborne victim is carried along at the attacker's velocity and pulled toward the hitbox; a grounded one goes up at 80) and 368 the pull angle (ours: no launch; the victim is drawn to just in front of the attacker, or a projectile's owner, while its hitstun lasts) | |
 | `motion { start end vx vy }` | scripted-motion segments (`vx` forward-relative) | |
 | `projectile { frame x y speed life end_damage  hitbox { ... } }` | at most one | |
 | `reflector { start end x y radius damage_percent speed_percent }` | at most one | |
@@ -131,12 +131,15 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap` and `special_tap` are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
-`hit` is 1 once the move has connected.
+`hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
-`intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`.
+`intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`.
+
+* `store(n)` keeps a charge of `n` (0 to 255) on the fighter after the move ends, read back by any later script as `stored`
+  (the needles a fighter has charged and saved); a KO clears it. `store(0)` spends it.
 
 * `set_vel` replaces the move's data motion and normal physics for that frame (like a `motion` segment); stop
   calling it and gravity and air drift resume. On the ground it follows the ground: it never pushes the fighter

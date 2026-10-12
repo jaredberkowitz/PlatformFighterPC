@@ -15,7 +15,8 @@ for multihit moves, a polished idle, jump, landing, jab, forward air and hit rea
 SDI and landing hits; and the Needles rogue, whose body, tilts and aerials follow the reference's published data (`docs/sheik/`,
 `docs/MOVESETS.md`). Sim 50: the rest of its normals, grabs and throws on reference data (its specials are still the claws kit's), and
 three general rules brought to the reference's: the Sakurai angle, traction slowing grounded slides, and light hitstun landing on its
-feet (no knockdown after a drag-down).
+feet (no knockdown after a drag-down). Sim 51: its specials (Needle Storm, a pulling line of our own, Vanish, Bouncing Fish), the
+pull angle (368) and a stored charge for scripts (`store`, `stored`).
 
 ## Roadmap progress
 

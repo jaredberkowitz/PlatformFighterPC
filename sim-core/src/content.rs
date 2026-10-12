@@ -946,6 +946,11 @@ pub struct Ruleset {
     /// of 100 knockback) and the fall no faster than `autolink_max_fall` (the reference's 1).
     pub autolink_max_speed: Fx,
     pub autolink_max_fall: Fx,
+    /// The pull angle (ours, see `moves::ANGLE_PULL`): each frame the victim moves `pull_rate` of the way to the point `pull_gap` in
+    /// front of the attacker, at most `pull_max_speed` (world units a frame).
+    pub pull_rate: Fx,
+    pub pull_max_speed: Fx,
+    pub pull_gap: Fx,
     /// Hitlag factor of an electric hit (for both fighters).
     pub electric_hitlag_mult: Fx,
     /// How far an electric hit lets the victim drift with the held stick as its hitlag ends (applied twice).
@@ -1056,6 +1061,9 @@ impl Ruleset {
             special_reverse_window: 4,
             autolink_max_speed: Fx::from_ratio(3, 8),
             autolink_max_fall: Fx::from_ratio(1, 8),
+            pull_rate: Fx::from_ratio(1, 3),
+            pull_max_speed: Fx::from_ratio(1, 2),
+            pull_gap: Fx::from_ratio(9, 10),
             electric_hitlag_mult: Fx::from_ratio(3, 2),
             asdi_distance: Fx::from_ratio(133, 800),
             sdi_combo_hits: 5,
@@ -1154,6 +1162,9 @@ impl StateHash for Ruleset {
         h.write_u8(self.special_reverse_window);
         self.autolink_max_speed.hash_into(h);
         self.autolink_max_fall.hash_into(h);
+        self.pull_rate.hash_into(h);
+        self.pull_max_speed.hash_into(h);
+        self.pull_gap.hash_into(h);
         self.electric_hitlag_mult.hash_into(h);
         self.asdi_distance.hash_into(h);
         h.write_u8(self.sdi_combo_hits);

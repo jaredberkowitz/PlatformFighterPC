@@ -1,0 +1,9 @@
+// Needle Storm, the wind-up (neutral special). With needles stored from before, it throws them at once (32 = ext4); otherwise after
+// the wind-up (frame 7) it starts charging (31 = ext3).
+var needles;
+if frame == 1 && stored > 0 {
+    needles = stored;
+    store(0);
+    goto(32);
+}
+if frame >= 6 { goto(31); }

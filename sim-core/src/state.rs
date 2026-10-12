@@ -166,6 +166,11 @@ pub struct Fighter {
     pub link: bool,
     pub link_vel: Vec2,
     pub link_point: Vec2,
+    /// Being pulled (the pull angle): while hitstun lasts the fighter is drawn toward `link_point` (just in front of whoever pulled
+    /// it), see `fighter::pull_frame`.
+    pub pull: bool,
+    /// A charge kept between uses of a move (the needles a fighter has stored), set and read by move scripts (`store`, `stored`).
+    pub stored: u8,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
@@ -368,6 +373,8 @@ impl Fighter {
             spawn_pos: Vec2::ZERO,
             spawn_vel: Vec2::ZERO,
             counter_damage: Fx::ZERO,
+            pull: false,
+            stored: 0,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -506,6 +513,8 @@ impl StateHash for Fighter {
         h.write_u8(self.invuln);
         h.write_bool(self.spawn_request);
         self.counter_damage.hash_into(h);
+        h.write_bool(self.pull);
+        h.write_u8(self.stored);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
@@ -923,6 +932,16 @@ mod tests {
             ("counter_damage", {
                 let mut s = state;
                 s.fighters[1].counter_damage = Fx::from_raw(1);
+                s
+            }),
+            ("pull", {
+                let mut s = state;
+                s.fighters[1].pull = true;
+                s
+            }),
+            ("stored", {
+                let mut s = state;
+                s.fighters[2].stored = 1;
                 s
             }),
             ("fighter_vars", {

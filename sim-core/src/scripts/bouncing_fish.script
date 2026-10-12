@@ -1,0 +1,13 @@
+// Bouncing Fish (down special): a flip forward into a heel kick coming down (frames 23-29). It leaves at 1.6 reference units a frame
+// forward (1.5 in the air) and 3 up and falls at 1.5 times the rogue's gravity; from frame 30 the stick steers it (0 to 2.4 forward).
+// A hit bounces it back off the target (33 = ext5).
+var sx;
+var sy;
+if frame == 1 {
+    sy = 0.375;
+    if grounded { sx = 0.2; } else { sx = 0.1875; }
+}
+if hit { goto(33); }
+sy = max(sy - 0.028, -0.28);
+if frame >= 29 { sx = clamp(sx + stick_x * 0.025, 0, 0.3); }
+set_vel(sx, sy);

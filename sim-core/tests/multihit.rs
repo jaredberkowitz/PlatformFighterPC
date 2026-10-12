@@ -35,6 +35,7 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         fixed_kb: 0,
         hitstun_add: 0,
         sdi: 100,
+        link_ahead: Fx::ZERO,
     }
 }
 

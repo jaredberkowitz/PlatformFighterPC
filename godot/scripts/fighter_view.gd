@@ -1493,6 +1493,10 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		rebuild(loadout)
 	position = pos
 	var state: String = s.state
+	# Vanish: nothing to see while it teleports.
+	if model != null:
+		model.visible = not (_cls(s) == 2 and state == "Attack" and s.move_name == "up special"
+			and int(s.state_frame) >= VANISH_GONE[0] and int(s.state_frame) <= VANISH_GONE[1])
 	_ledge_motion(s, pos)
 	var facing: int = s.facing
 	var vy: float = s.vel.y
@@ -2151,8 +2155,12 @@ const ARCS := {
 		"uair": [[0.1, 1.1, 1.25, 50, 110, 4, 6], [0.1, 1.1, 1.25, 130, 70, 8, 10], [0.1, 1.1, 1.25, 50, 110, 12, 14],
 			[0.1, 1.0, 1.2, 20, 125, 23, 24]],
 		"dair": [[0.0, 1.0, 0.95, -55, -95, 15, 18]],
+		"down special": [[0.1, 1.0, 1.0, 20, -95, 23, 29]],
 	},
 }
+
+## The Needles' Vanish: the fighter is gone (move frames, from 0) while it teleports, between the explosion and the reappearance.
+const VANISH_GONE := [36, 54]
 var arc: MeshInstance3D
 ## The arc drawn now: {"w": its ARCS entry, "k": how far it has grown 0..1, "q": how far it has faded 0..1, "facing", "cls"}, or empty.
 var arc_shown := {}
@@ -2582,9 +2590,10 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
-	var rushing: bool = brawler and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
+	# (The claws' flame rushes only: the Needles' specials are their own.)
+	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
-	if brawler and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
+	if _cls(s) == 1 and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
 		model.rotation.x = float(s.frame) * 0.6
 
 	var hitlag: int = s.hitlag

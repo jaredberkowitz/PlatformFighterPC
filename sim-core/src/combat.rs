@@ -16,8 +16,8 @@ use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
-    Hitbox, Move, MoveId, Reflector, Weapon, ANGLE_AUTOLINK, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL,
-    HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    Hitbox, Move, MoveId, Reflector, Weapon, ANGLE_AUTOLINK, ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB,
+    HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -663,6 +663,7 @@ fn apply_hit(
     }
 
     let rage = rage_multiplier(state.fighters[source].percent, rules);
+    let puller = state.fighters[source].pos;
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
@@ -697,8 +698,12 @@ fn apply_hit(
     }
     // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
     let link_hit = hb.angle == ANGLE_AUTOLINK && !def.grounded();
+    // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
+    let pull_hit = hb.angle == ANGLE_PULL;
     let degrees = if hb.angle == ANGLE_AUTOLINK {
         80
+    } else if pull_hit {
+        0
     } else {
         hb.angle
     };
@@ -744,8 +749,14 @@ fn apply_hit(
     def.launch_kb = kb;
     def.launch_angle = angle.raw();
     def.link = link_hit;
-    def.link_point = link.0;
+    def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
     def.link_vel = link.1;
+    def.pull = pull_hit;
+    if pull_hit {
+        // Just in front of whoever pulled it, on the victim's side.
+        let side = if def.pos.x >= puller.x { 1 } else { -1 };
+        def.link_point = puller + Vec2::new(rules.pull_gap.mul_int(side), Fx::ZERO);
+    }
     def.kb_vel = Vec2::ZERO;
     def.fast_fall = false;
     def.tumble = false;

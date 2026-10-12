@@ -6,7 +6,7 @@
 mod common;
 
 use common::{fx, inp, Sim};
-use sim_core::input::buttons::{ATTACK, JUMP};
+use sim_core::input::buttons::{ATTACK, JUMP, SHIELD, SPECIAL};
 use sim_core::moves::{MoveId, ANGLE_AUTOLINK, TARGETS_AERIAL, TARGETS_GROUNDED};
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
@@ -615,4 +615,257 @@ fn a_drag_down_up_air_lands_its_target_standing() {
         !states.contains(&S::Knockdown) && !states.contains(&S::GetUp),
         "without a knockdown: {states:?}"
     );
+}
+
+// ---- Specials ----------------------------------------------------------------------------------------------------------------------
+
+/// Runs `frames` frames of `input(frame)` for player 0 and counts the projectiles it fired (new ones appearing).
+fn shots_fired(sim: &mut Sim, frames: usize, input: impl Fn(usize) -> sim_core::Input) -> usize {
+    let mut fired = 0;
+    for k in 0..frames {
+        sim.tick(input(k));
+        fired += sim
+            .state
+            .projectiles
+            .iter()
+            .filter(|p| p.active && p.owner == 0 && p.age == 1)
+            .count();
+    }
+    fired
+}
+
+#[test]
+fn needle_storm_throws_one_needle_for_a_tap_and_more_the_longer_it_charges() {
+    // A needle more on frames 8, 23, 38, 53, 68 and 83 of holding, at most six.
+    for (held, needles) in [(1usize, 1usize), (30, 2), (45, 3), (120, 6)] {
+        let mut sim = duel();
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, Fx::from_int(10), -1);
+        let fired = shots_fired(&mut sim, held + 60, |k| {
+            inp(0, 0, if k < held { SPECIAL } else { 0 })
+        });
+        assert_eq!(fired, needles, "held {held} frames");
+    }
+}
+
+#[test]
+fn needles_stored_with_shield_are_thrown_at_once_next_time() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    // Charge three needles, then shield: they are kept, nothing is thrown.
+    let fired = shots_fired(&mut sim, 60, |k| {
+        inp(
+            0,
+            0,
+            if k < 45 {
+                SPECIAL
+            } else if k < 47 {
+                SHIELD
+            } else {
+                0
+            },
+        )
+    });
+    assert_eq!(fired, 0, "storing throws nothing");
+    assert_eq!(sim.f().stored, 3);
+    // The next press throws all three without charging, starting on the throw's frame 11.
+    let fired = shots_fired(&mut sim, 30, |k| inp(0, 0, if k < 2 { SPECIAL } else { 0 }));
+    assert_eq!(fired, 3);
+    assert_eq!(sim.f().stored, 0, "spent");
+}
+
+#[test]
+fn needles_hit_a_fighter_down_the_stage() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(5), -1);
+    shots_fired(&mut sim, 120, |k| {
+        inp(0, 0, if k < 45 { SPECIAL } else { 0 })
+    });
+    let took = sim.fighter(1).percent;
+    assert!(
+        took >= dealt(&sim, 3 * 8) && took <= dealt(&sim, 3 * 15),
+        "three needles of 0.8 to 1.5%: {took:?}"
+    );
+}
+
+/// The rogue throws its pulling line at the duelist standing `gap` away (or in the air at `height`), then waits `frames` frames.
+fn hooked(gap: Fx, height: Fx, frames: usize) -> Sim {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    if height > Fx::ZERO {
+        sim.put_airborne(1, gap, height, Fx::ZERO, Fx::ZERO);
+    } else {
+        sim.stand(1, gap, -1);
+    }
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::SideSpecial);
+    sim.ticks(frames, inp(0, 0, 0));
+    sim
+}
+
+#[test]
+fn the_line_reels_a_hit_fighter_in_to_just_in_front() {
+    for gap in [Fx::from_int(3), Fx::from_int(6)] {
+        let sim = hooked(gap, Fx::ZERO, 55);
+        let ahead = sim.fighter(1).pos.x - sim.f().pos.x;
+        assert!(
+            sim.fighter(1).percent == dealt(&sim, 30),
+            "the line hit from {gap:?}"
+        );
+        assert!(
+            ahead > fx(6, 10) && ahead < fx(14, 10),
+            "reeled in from {gap:?} to {ahead:?} in front"
+        );
+    }
+}
+
+#[test]
+fn a_reeled_in_fighter_is_still_in_hitstun_when_the_thrower_can_act() {
+    // The hitstun outlasts the pull and the throw's ending lag: a follow-up is guaranteed.
+    let mut sim = hooked(Fx::from_int(5), Fx::ZERO, 0);
+    let mut free_at = None;
+    for k in 0..90 {
+        sim.tick(inp(0, 0, 0));
+        if free_at.is_none() && sim.f().state != S::Attack {
+            free_at = Some(k);
+            assert_eq!(
+                sim.fighter(1).state,
+                S::Hitstun,
+                "the target is still caught when the thrower is free"
+            );
+            assert!(
+                sim.fighter(1).hitstun >= 5,
+                "with time to spare: {}",
+                sim.fighter(1).hitstun
+            );
+        }
+    }
+    assert!(free_at.is_some());
+}
+
+#[test]
+fn a_fighter_reeled_in_from_the_air_lands_on_its_feet() {
+    let mut sim = hooked(Fx::from_int(5), Fx::from_int(3), 0);
+    let mut states = Vec::new();
+    for _ in 0..80 {
+        sim.tick(inp(0, 0, 0));
+        states.push(sim.fighter(1).state);
+    }
+    assert!(sim.fighter(1).percent > Fx::ZERO, "hit");
+    assert!(sim.fighter(1).grounded(), "brought down to the thrower");
+    assert!(!states.contains(&S::Knockdown), "standing: {states:?}");
+    let ahead = sim.fighter(1).pos.x - sim.f().pos.x;
+    assert!(
+        ahead > fx(5, 10) && ahead < fx(15, 10),
+        "in front: {ahead:?}"
+    );
+}
+
+#[test]
+fn vanish_teleports_the_way_the_stick_points_and_leaves_the_fighter_helpless() {
+    // Neutral: straight up, 20 frames at 1.5 reference units; pushed sideways: 2.5 units a frame along the stick.
+    for (stick, dx_min, dy_min) in [(0i8, -1, 3), (127, 5, -1)] {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(8), Fx::ZERO, Fx::ZERO);
+        sim.state.fighters[0].facing = 1;
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::UpSpecial);
+        let p0 = sim.f().pos;
+        let mut intangible = 0;
+        for k in 0..60 {
+            sim.tick(inp(stick, 0, 0));
+            if sim_core::combat::is_intangible(sim.f()) && (20..54).contains(&k) {
+                intangible += 1;
+            }
+        }
+        let d = sim.f().pos - p0;
+        assert!(
+            d.x >= Fx::from_int(dx_min) && d.y >= Fx::from_int(dy_min),
+            "stick {stick}: moved {d:?}"
+        );
+        assert!(
+            (33..=34).contains(&intangible),
+            "intangible through the teleport: {intangible}"
+        );
+        let mut n = 0;
+        while sim.f().state == S::Attack && n < 60 {
+            sim.tick(inp(0, 0, 0));
+            n += 1;
+        }
+        assert_eq!(sim.f().state, S::Helpless, "helpless after");
+    }
+}
+
+#[test]
+fn vanish_explodes_where_it_starts() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::UpSpecial);
+    sim.ticks(45, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 120));
+}
+
+#[test]
+fn bouncing_fish_kicks_down_on_a_fighter_ahead_and_bounces_back_off_it() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(46, 10), -1);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DownSpecial);
+    let mut bounced_at = None;
+    for k in 0..70 {
+        sim.tick(inp(0, 0, 0));
+        if bounced_at.is_none() && sim.f().move_id == MoveId::Ext5 as u8 {
+            bounced_at = Some((k, sim.f().pos.x));
+        }
+    }
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 110), "the kick");
+    let (_, x) = bounced_at.expect("it bounced");
+    assert!(sim.f().pos.x < x, "back off the target");
+}
+
+#[test]
+fn a_missed_bouncing_fish_lands_with_its_lag() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(-10), 1);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DownSpecial);
+    sim.tick(inp(0, 0, 0));
+    while !sim.f().grounded() {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert!(
+        sim.f().pos.x > Fx::from_int(4),
+        "it flipped forward: {:?}",
+        sim.f().pos.x
+    );
+    assert_eq!(sim.f().state, S::Landing);
+    assert_eq!(sim.f().lag, 36);
+}
+
+#[test]
+fn a_drag_down_up_air_lands_its_target_in_front() {
+    // The loop's pull aims a little in front of the kick, so the dragged target comes down in front of the rogue, not on top of it.
+    for facing in [1i8, -1] {
+        let top = duel().content.fighters[usize::from(ROGUE)].max_fall_speed;
+        let mut sim = duel();
+        sim.put_airborne(0, Fx::ZERO, fx(8, 10), Fx::ZERO, -top / Fx::from_int(2));
+        sim.state.fighters[0].facing = facing;
+        sim.put_airborne(
+            1,
+            fx(1, 10).mul_int(i32::from(facing)),
+            fx(26, 10),
+            Fx::ZERO,
+            Fx::ZERO,
+        );
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::UAir);
+        sim.ticks(60, inp(0, 0, 0));
+        let ahead = (sim.fighter(1).pos.x - sim.f().pos.x).mul_int(i32::from(facing));
+        assert!(sim.fighter(1).percent > Fx::ZERO);
+        assert!(
+            ahead > fx(5, 10) && ahead < fx(25, 10),
+            "facing {facing}: landed {ahead:?} in front"
+        );
+    }
 }

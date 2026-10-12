@@ -131,6 +131,10 @@ impl Fighter {
 }
 
 fn enter(f: &mut Fighter, state: S) {
+    // A pull lasts only while the fighter is in hitstun.
+    if state != S::Hitstun {
+        f.pull = false;
+    }
     // Script variables belong to one attack (and the moves it switches to), so a new attack starts clean.
     if state == S::Attack && f.state != S::Attack {
         f.vars = [0; crate::FIGHTER_VARS];
@@ -1966,10 +1970,15 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         Vec2::ZERO
     };
 
+    if f.pull {
+        pull_frame(f, rules);
+    }
     if f.grounded() {
         // A grounded hit slides the fighter along the floor, and its traction slows the slide too (the reference: low-traction
-        // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches.
-        f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, p.ground_friction);
+        // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches. (A pull is not slowed.)
+        if !f.pull {
+            f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, p.ground_friction);
+        }
         f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
         if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
             f.kb_vel.x = Fx::ZERO;
@@ -2037,6 +2046,25 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         return false;
     }
     true
+}
+
+/// One frame of a pull (the pull angle): the fighter moves `pull_rate` of the way to `link_point` (just in front of whoever pulled
+/// it), at most `pull_max_speed`, with no fall of its own, and stops being pulled once it is there. The hitstun runs as usual.
+fn pull_frame(f: &mut Fighter, rules: &Ruleset) {
+    let to = f.link_point - f.pos;
+    let len = to.length();
+    if len <= Fx::from_ratio(1, 10) {
+        f.pull = false;
+        f.kb_vel = Vec2::ZERO;
+        return;
+    }
+    let mut v = to * rules.pull_rate;
+    let speed = v.length();
+    if speed > rules.pull_max_speed {
+        v = v * (rules.pull_max_speed / speed);
+    }
+    f.kb_vel = v;
+    f.vel = Vec2::ZERO;
 }
 
 /// Touching down from a launch, or from the tumble after one: a shield press just before is a tech (in place, or a roll if the stick
@@ -2109,6 +2137,16 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
 
     if f.link {
         autolink(f, p, rules);
+        return;
+    }
+    if f.pull {
+        // A pull has no launch of its own: the fighter is drawn in frame by frame (`pull_frame`) while its hitstun lasts.
+        f.kb_vel = Vec2::ZERO;
+        f.vel = Vec2::ZERO;
+        f.tumble = false;
+        f.launch_pending = false;
+        f.balloon_faf = 0;
+        f.balloon_left = Fx::ZERO;
         return;
     }
     // 0.03 reference units per knockback unit, 8 reference units per world unit.

@@ -79,6 +79,7 @@ impl Host for FighterHost<'_> {
             api::R_SHIELD => flag(f.held(buttons::SHIELD)),
             api::R_CHARGE => Fx::from_int(i32::from(f.charge)).raw(),
             api::R_HIT => flag(f.hit_mask != 0),
+            api::R_STORED => Fx::from_int(i32::from(f.stored)).raw(),
             _ => 0,
         }
     }
@@ -116,6 +117,9 @@ impl Host for FighterHost<'_> {
             api::F_TURN => self.f.facing = -self.f.facing,
             api::F_REHIT => self.f.hit_mask = 0,
             api::F_STALL => self.effects.stall = true,
+            api::F_STORE => {
+                self.f.stored = arg(0).floor_int().clamp(0, 255) as u8;
+            }
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);
