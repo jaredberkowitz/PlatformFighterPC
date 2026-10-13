@@ -349,6 +349,11 @@ These override anything above that disagrees.
     Done in sim 78 (branch `counter-fix`): the Longsword's and the Staff's, the only counters.
 29. **Counter bubble**: counters catch with the reference's counter bubble (`Counter::bubble`), not the body's hurtboxes. Done in sim
     78: the Longsword's radius 10.5 at 10 up, the Staff's radius 11.5 at 10 up and 1.5 ahead (ssbwiki.com raw parameters, [R]).
+30. **Cloud names**: class/weapon **Greatsword**; built-in fighter shown as **Fighter**; the body's id in code is `swordfighter`
+    (so it does not clash with the word "fighter" used throughout the code); the gauge is called **Boost** for now (to be renamed).
+31. **The gauge (E9)**: approved as designed in docs/movesets/cloud/PROJECT_AUDIT.md (schema 6 with a migration), built general.
+32. **Gauge gain from damage dealt**: counts the damage actually applied (after staleness and the 1v1 multiplier) [E: unpublished].
+33. **Blade Beam's tall hitbox (E3f) and the vortex angle 366 (E28)**: build both 1:1.
 
 ## Still open
 
