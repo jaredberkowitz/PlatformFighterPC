@@ -181,6 +181,8 @@ pub struct Fighter {
     /// Once-per-airtime flags (bit per flag), set by move scripts (`set_air_flag`) and cleared by landing, catching a ledge or being
     /// hit: what lets a move's boost happen only once until the fighter is back on the ground (the reference's cape stall).
     pub air_flags: u8,
+    /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
+    pub wall_jumps: u8,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
@@ -411,6 +413,7 @@ impl Fighter {
             pull: false,
             stored: 0,
             air_flags: 0,
+            wall_jumps: 0,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -557,6 +560,7 @@ impl StateHash for Fighter {
         h.write_bool(self.pull);
         h.write_u8(self.stored);
         h.write_u8(self.air_flags);
+        h.write_u8(self.wall_jumps);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
@@ -1011,6 +1015,11 @@ mod tests {
             ("stored", {
                 let mut s = state;
                 s.fighters[2].stored = 1;
+                s
+            }),
+            ("wall_jumps", {
+                let mut s = state;
+                s.fighters[1].wall_jumps = 1;
                 s
             }),
             ("air_flags", {

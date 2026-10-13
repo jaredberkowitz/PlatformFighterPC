@@ -662,6 +662,7 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.short_hop = false;
     f.ledge_grab_count = 0;
     f.air_flags = 0;
+    f.wall_jumps = 0;
 }
 
 fn enter_landing(f: &mut Fighter, lag: u8) {
@@ -850,6 +851,13 @@ fn airborne(
     if !f.air_dodge_used && f.take(buttons::SHIELD, buffer) {
         start_air_dodge(f, p, stage);
         return None;
+    }
+    // A wall jump: touching a wall, the stick flicked away from it.
+    if p.wall_jump != 0 {
+        let side = collision::wall_beside(stage, p, f.pos, WALL_JUMP_REACH);
+        if side != 0 && i32::from(f.flick_x(SMASH_FLICK_BUFFER)) == -i32::from(side) {
+            wall_jump(f, p, rules, -side);
+        }
     }
     if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
         f.buffer_used |= buttons::SPECIAL;
@@ -1264,6 +1272,7 @@ pub fn grab_ledge(f: &mut Fighter, p: &FighterParams, stage: &Stage, ledge: usiz
     // Grabbing a ledge refreshes airborne options (and the once-per-airtime flags).
     f.air_jumps_left = p.air_jumps;
     f.air_flags = 0;
+    f.wall_jumps = 0;
     f.air_dodge_used = false;
     f.fast_fall = false;
     enter(f, S::LedgeHang);
@@ -2069,13 +2078,35 @@ fn wall_tech(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     }
     let away = f.dodge_dir.x.signum_int();
     enter(f, S::Airborne);
-    // Holding jump as it ends kicks off the wall (a wall-tech jump).
+    // Holding jump as it ends kicks off the wall (a wall-tech jump, at the body's wall-jump speeds).
     if away != 0 && f.held(buttons::JUMP) {
         // The press is used: it does not also become a midair jump.
         f.buffer_used |= buttons::JUMP;
-        f.vel = Vec2::new(p.air_speed.mul_int(away), p.air_jump_velocity);
+        f.vel = Vec2::new(p.wall_jump_vx.mul_int(away), p.wall_jump_vy);
         f.facing = away as i8;
     }
+}
+
+/// How close to a wall (world units, from the side of the ECB) a fighter must be to kick off it [E: the reference's wall-contact
+/// range is not published].
+const WALL_JUMP_REACH: Fx = Fx::from_ratio(1, 8);
+
+/// Kicks off a wall toward `away` (-1 or 1): the body's wall-jump speeds, weaker by `Ruleset::wall_jump_decay` for each wall jump
+/// already made since the fighter last stood on the ground or held a ledge.
+fn wall_jump(f: &mut Fighter, p: &FighterParams, rules: &Ruleset, away: i8) {
+    let mut k = Fx::ONE;
+    for _ in 0..f.wall_jumps.min(32) {
+        k = k * rules.wall_jump_decay;
+    }
+    f.wall_jumps = f.wall_jumps.saturating_add(1);
+    f.vel = Vec2::new(
+        (p.wall_jump_vx * k).mul_int(i32::from(away)),
+        p.wall_jump_vy * k,
+    );
+    f.facing = away;
+    f.hop_boost = 0;
+    f.fast_fall = false;
+    f.damage_fall = false;
 }
 
 /// On the revival platform: held in place and invincible until the player does something new (a stick held from before the

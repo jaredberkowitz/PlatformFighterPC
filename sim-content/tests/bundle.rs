@@ -386,14 +386,14 @@ fn a_schema_1_file_from_before_crouch_height_and_dash_attack_friction_still_load
         if t.starts_with("crouch_height ") || t.starts_with("dash_attack_friction ") {
             continue;
         }
-        old.push_str(&line.replace("schema 3", "schema 1"));
+        old.push_str(&line.replace("schema 4", "schema 1"));
         old.push('\n');
     }
     assert!(old.contains("schema 1") && !old.contains("crouch_height"));
     let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
     // The shipped fighters' values are exactly what the migration fills in.
     assert_eq!(bundle.content, Content::placeholder());
-    assert_eq!(bundle.manifest.schema, 3);
+    assert_eq!(bundle.manifest.schema, 4);
 }
 
 #[test]
@@ -414,16 +414,45 @@ fn a_schema_2_file_with_one_ground_accel_still_loads_and_moves_as_before() {
             old.push_str(&format!("{indent}ground_accel 0.025\n"));
             continue;
         }
-        old.push_str(&line.replace("schema 3", "schema 2"));
+        old.push_str(&line.replace("schema 4", "schema 2"));
         old.push('\n');
     }
     assert!(old.contains("schema 2") && old.contains("ground_accel") && !old.contains("run_accel"));
     let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
-    assert_eq!(bundle.manifest.schema, 3);
+    assert_eq!(bundle.manifest.schema, 4);
     // The old value is both bases, with no stick share: every push of the stick accelerates as the one value did.
     for p in &bundle.content.fighters {
         let g = sim_core::Fx::from_ratio(1, 40);
         assert_eq!((p.walk_accel, p.walk_accel_stick), (g, sim_core::Fx::ZERO));
         assert_eq!((p.run_accel, p.run_accel_stick), (g, sim_core::Fx::ZERO));
+    }
+}
+
+#[test]
+fn a_schema_3_file_from_before_wall_jumps_still_loads_and_wall_techs_as_before() {
+    // Written before sim v64: no wall_jump, wall_jump_vx or wall_jump_vy, schema 3.
+    let now = text(&Content::placeholder(), false);
+    let mut old = String::new();
+    for line in now.lines() {
+        let t = line.trim_start();
+        if t.starts_with("wall_jump ")
+            || t.starts_with("wall_jump_vx ")
+            || t.starts_with("wall_jump_vy ")
+        {
+            continue;
+        }
+        old.push_str(&line.replace("schema 4", "schema 3"));
+        old.push('\n');
+    }
+    assert!(old.contains("schema 3") && !old.contains("wall_jump_vx"));
+    let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    assert_eq!(bundle.manifest.schema, 4);
+    // No wall jump, and the wall-tech jump it had: its air speed away from the wall, its midair jump up.
+    for p in &bundle.content.fighters {
+        assert_eq!(p.wall_jump, 0);
+        assert_eq!(
+            (p.wall_jump_vx, p.wall_jump_vy),
+            (p.air_speed, p.air_jump_velocity)
+        );
     }
 }
