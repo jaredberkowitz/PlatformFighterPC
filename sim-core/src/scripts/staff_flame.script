@@ -1,0 +1,14 @@
+// Staff side special (the explosive flame): the point is fixed where the fighter stood as the move began (read on its first
+// script frame, the position after frame 0), 5.625 world units ahead (9.375 when the special was input like a smash attack) and
+// 1.25 up; on frame 26 (the reference's 27) the explosion is made there, wherever the fighter has gone since.
+var x0;
+var y0;
+if frame == 1 {
+    x0 = x;
+    y0 = y;
+}
+if frame == 26 {
+    let ahead = 5.625;
+    if flick { ahead = 9.375; }
+    spawn_at(x0 + ahead * facing, y0 + 1.25, 0, 0);
+}

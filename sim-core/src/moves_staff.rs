@@ -81,7 +81,77 @@ pub fn staff() -> Weapon {
     }
     warp(&mut w);
     counter_and_barrier(&mut w);
+    explosive_flame(&mut w);
     w
+}
+
+/// Side special, the explosive flame (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Explosive Flame"): a stationary
+/// explosion summoned at a distance, a projectile (E3a: it pierces, hits each fighter again 5 frames after its last hit on it, and
+/// grows by its age).
+///
+/// * The point is fixed where the seer stood on frame 1: 45 reference units ahead (5.625 world units), 75 (9.375) when the special
+///   was input like a smash attack (the `flick` register) [R]; 10 up (1.25) [E: gap 5, its height is not published]. The explosion is
+///   made on frame 27 at that point, whatever the seer did since (it fell, it was carried) [R]; a B-reverse in the first frames
+///   turns the point round with the seer [E].
+/// * Six loop hits from frame 28 (its age 1), every 5 frames on a fighter inside it: 1.5%, 160 degrees **away from the explosion's
+///   centre by position** (the target is drawn back into the middle: the trap), BK 50, KS 100, SDI x0.4, shield damage -0.7 (53%)
+///   [R]; the radius grows on 28 / 32 / 36 / 40 / 44 / 48 / 52 (4.8 / 6.0 / 7.2 / 8.4 / 9.6 / 10.8 / 12.0 reference units) [R]; the loop
+///   ends after 55, nothing on 56 [R].
+/// * The last hit on frame 57 (its own group): 5.5%, 84 degrees the way the seer faced, BK 60, KS 141, radius 15.5, hitlag x1.5, SDI
+///   x0.4, shield damage -2.7 (51%) [R]. Never clanks (`clang=f`) [R]; reflectable [R].
+/// * FAF 72; x0.8 horizontal speed on starting in the air [R]; the body's air physics, and touching down carries the move on [E:
+///   gaps 4 and 6].
+fn explosive_flame(w: &mut Weapon) {
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
+    let flame = |radius: i32, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8| {
+        let mut h = row(&r(1, 1, 0, 0, u(radius), damage, angle, bkb, kbg, 0, group));
+        h.sdi = 40;
+        h.clanks = false;
+        h
+    };
+    let looped = |radius: i32| {
+        let mut h = flame(radius, 15, 160, 50, 100, 0);
+        h.angle_type = ANGLE_BY_POSITION;
+        h.shield_damage = 53;
+        h
+    };
+    let mut last = flame(155, 55, 84, 60, 141, 1);
+    last.angle_type = ANGLE_FORWARD;
+    last.hitlag = 150;
+    last.shield_damage = 51;
+    let mut gap = looped(0);
+    gap.radius = Fx::ZERO;
+    let mut mv = ref_move(72, 0, 0, 255, &[]);
+    mv.projectile = Some(ProjectileSpawn {
+        // (Made by the script on move frame 26, the reference's 27; it first hits the frame after, at age 1.)
+        frame: 255,
+        x: tenths(u(450)),
+        y: tenths(u(100)),
+        speed: Fx::ZERO,
+        life: 31,
+        hitbox: looped(48),
+        end_damage: Fx::from_ratio(15, 10),
+        arc: ProjectileArc::NONE,
+        phases: phase_list(&[
+            (5, looped(60)),
+            (9, looped(72)),
+            (13, looped(84)),
+            (17, looped(96)),
+            (21, looped(108)),
+            (25, looped(120)),
+            (29, gap),
+            (30, last),
+        ]),
+        pierce: true,
+        rehit: 5,
+    });
+    mv.start_speed = 80;
+    mv.land_continue = true;
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/staff_flame.script"),
+    ));
+    w.moves[MoveId::SideSpecial as usize] = mv;
 }
 
 /// The counterattack and the reflection (slots 29 and 30).

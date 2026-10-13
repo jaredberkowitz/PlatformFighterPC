@@ -547,3 +547,29 @@ fn a_script_can_fire_a_bigger_harder_hitting_projectile() {
     assert_eq!(plain.pos, scaled.pos);
     assert_eq!(plain.vel, scaled.vel);
 }
+
+#[test]
+fn a_script_can_fire_a_projectile_at_a_fixed_point_while_the_fighter_moves() {
+    // Falling in the air: `spawn` is an offset from where the fighter ends the frame, `spawn_at` the absolute point given. (Sim 76.)
+    let fire = |src: &str| {
+        let mut sim = with_special(scripted(30, src));
+        sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
+            sim.content.weapons[1].moves[MoveId::NSpecial as usize].projectile;
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(10), Fx::ZERO, -Fx::ONE);
+        start(&mut sim);
+        sim.ticks(4, inp(0, 0, 0));
+        sim.state
+            .projectiles
+            .iter()
+            .copied()
+            .find(|p| p.active)
+            .unwrap()
+    };
+    let fixed = fire("if frame == 3 { spawn_at(2, 7, 0, 0); }");
+    assert_eq!(
+        fixed.pos,
+        sim_core::Vec2::new(Fx::from_int(2), Fx::from_int(7))
+    );
+    let offset = fire("if frame == 3 { spawn(2, 7, 0, 0); }");
+    assert_ne!(offset.pos.y, Fx::from_int(7));
+}

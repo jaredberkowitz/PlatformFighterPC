@@ -1029,6 +1029,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
         state.fighters[i].spawn_custom = false;
+        state.fighters[i].spawn_fixed = false;
         state.fighters[i].spawn_kb_add = 0;
         state.fighters[i].spawn_size = 100;
         // A move that already connected in melee does not also fire, unless its script asked for the shot.
@@ -1050,7 +1051,9 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 origin: i as u8,
                 power: 100,
                 move_id: f.move_id,
-                pos: if f.spawn_custom {
+                pos: if f.spawn_fixed {
+                    f.spawn_pos
+                } else if f.spawn_custom {
                     f.pos + f.spawn_pos
                 } else {
                     Vec2::new(
@@ -1075,6 +1078,9 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
                 size: if f.spawn_custom { f.spawn_size } else { 100 },
                 vars: [0; crate::PROJECTILE_VARS],
+                hit_mask: 0,
+                hit_age: [0; MAX_FIGHTERS],
+                facing: f.facing,
             };
         }
     }
@@ -1165,6 +1171,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             );
             p.pos = pos;
             p.age = 0;
+            // (Its hits start again for its new owner, and it faces the other way.)
+            p.hit_mask = 0;
+            p.hit_age = [0; MAX_FIGHTERS];
+            p.facing = -p.facing;
             p.life = ((u16::from(pr.life) * u16::from(rf.life_percent)) / 100).clamp(1, 255) as u8;
             continue;
         }
@@ -1187,17 +1197,37 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
         }
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        // (A phase of radius 0 is a gap: no hit this frame.)
+        if hb.radius <= Fx::ZERO {
+            continue;
+        }
 
         for d in 0..MAX_FIGHTERS {
             let fd = &state.fighters[d];
             if d == owner || (is_intangible(fd) && !counter_open(content, fd, false)) {
                 continue;
             }
+            // A fighter already hit by this group waits for the rehit interval (the reference's per-target rehit), or for ever.
+            let bit = hit_bit(d, hb.group);
+            let seen = state.projectiles[n].hit_mask & bit != 0;
+            if seen
+                && (spec.rehit == 0
+                    || age.saturating_sub(state.projectiles[n].hit_age[d]) < spec.rehit)
+            {
+                continue;
+            }
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
             let hurt = hurtboxes(fd, pd, wd);
             if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
-                let travel = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
+                // Forward is the way it travels; a projectile standing still faces the way its owner did when it was made.
+                let travel = if pr.vel.x < Fx::ZERO {
+                    -1
+                } else if pr.vel.x > Fx::ZERO || pr.facing == 0 {
+                    1
+                } else {
+                    pr.facing
+                };
                 let facing = launch_side(hb.angle_type, travel, travel, pos.x, fd.pos.x);
                 // Projectiles stun a shield much less.
                 let mult = STUN_PROJECTILE;
@@ -1214,8 +1244,13 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     pr.move_id,
                     (pos, pr.vel),
                 );
-                state.projectiles[n].active = false;
-                break;
+                let p = &mut state.projectiles[n];
+                p.hit_mask |= bit;
+                p.hit_age[d] = age;
+                if !spec.pierce {
+                    p.active = false;
+                    break;
+                }
             }
         }
     }

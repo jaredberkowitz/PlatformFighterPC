@@ -428,9 +428,26 @@ pub struct ProjectileSpawn {
     pub end_damage: Fx,
     /// Its flight: a launch angle, gravity and bounces off the ground (default: straight on, through the ground's air).
     pub arc: ProjectileArc,
-    /// Later hits by age (the reference's clean, late and latest hits of one projectile): from age `.0` on, `.1` replaces the hit
-    /// (with no damage falloff). Up to two; `None` for none.
-    pub phases: [Option<(u8, Hitbox)>; 2],
+    /// Later hits by age (the reference's clean, late and latest hits of one projectile, or a growing explosion): from age `.0` on,
+    /// `.1` replaces the hit (with no damage falloff); a hit of radius 0 is none (a gap). Up to [`MAX_PHASES`]; `None` for none.
+    pub phases: [Option<(u8, Hitbox)>; MAX_PHASES],
+    /// It is not used up by a hit: it goes on (through every fighter it touches) to the end of its life.
+    pub pierce: bool,
+    /// A fighter it already hit with a hit group can be hit by that group again this many frames after its last hit on that fighter
+    /// (the reference's per-target rehit; `Projectile::hit_mask` and `hit_age` remember); 0 never.
+    pub rehit: u8,
+}
+
+/// The most later hits by age a projectile can have (`ProjectileSpawn::phases`).
+pub const MAX_PHASES: usize = 8;
+
+/// A projectile's later hits from a list (the rest `None`).
+pub fn phase_list(list: &[(u8, Hitbox)]) -> [Option<(u8, Hitbox)>; MAX_PHASES] {
+    let mut out = [None; MAX_PHASES];
+    for (slot, p) in out.iter_mut().zip(list) {
+        *slot = Some(*p);
+    }
+    out
 }
 
 impl ProjectileSpawn {
@@ -939,6 +956,8 @@ impl StateHash for Weapon {
                     a.bounce_min.hash_into(h);
                     a.bounce_max.hash_into(h);
                     h.write_u8(a.bounce_keep);
+                    h.write_bool(p.pierce);
+                    h.write_u8(p.rehit);
                     for phase in &p.phases {
                         match phase {
                             Some((from, hb)) => {
@@ -2532,7 +2551,9 @@ pub fn needles() -> Weapon {
         hitbox: needle,
         end_damage: Fx::from_ratio(8, 10),
         arc: ProjectileArc::NONE,
-        phases: [None; 2],
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
     });
     throw.script = Some(script(
         Kind::Fighter,
@@ -2556,7 +2577,9 @@ pub fn needles() -> Weapon {
         hitbox: line,
         end_damage: Fx::from_int(3),
         arc: ProjectileArc::NONE,
-        phases: [None; 2],
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
@@ -3175,7 +3198,9 @@ fn water_pump(w: &mut Weapon) {
             max_fall: su(3000),
             ..ProjectileArc::NONE
         },
-        phases: [None; 2],
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
     });
     shot.script = Some(script(
         Kind::Fighter,
@@ -3276,10 +3301,9 @@ fn fireball() -> Move {
             bounce_keep: 97,
         },
         // Its age is 1 on frame 17: the late hit from frame 22, the latest from 47.
-        phases: [
-            Some((6, hit(50, 28, 15, 275))),
-            Some((31, hit(40, 22, 10, 250))),
-        ],
+        phases: phase_list(&[(6, hit(50, 28, 15, 275)), (31, hit(40, 22, 10, 250))]),
+        pierce: false,
+        rehit: 0,
     });
     mv
 }
@@ -3640,7 +3664,9 @@ pub fn claws() -> Weapon {
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
-        phases: [None; 2],
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
     });
     w.moves[MoveId::NSpecial as usize] = blaster;
 

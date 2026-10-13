@@ -210,6 +210,43 @@ seer's at x1.4 power and x1.25 speed), `a_shot_outside_the_window_hits` (before 
 `the_stance_holds_the_rise_at_0_8_and_keeps_a_third_of_the_speed`, `the_down_specials_new_fields_are_in_the_content_hash`. Workspace
 tests, clippy, fmt, `fuzz-rollback 1000`, `net-fuzz 200` at 0 mismatches.
 
+### Milestone 3 (sim 76): Explosive Flame (side special)
+
+`moves_staff.rs` `explosive_flame`, script `scripts/staff_flame.script`.
+
+**Engine (E3a as the audit gives it, the `flick` register, one new script function; defaults leave every older projectile as it
+was, no schema change):**
+
+| Field | What | Where |
+| --- | --- | --- |
+| `ProjectileSpawn::pierce` | not used up by a hit: it goes on through every fighter it touches to the end of its life | `combat::update_projectiles` |
+| `ProjectileSpawn::rehit` | a fighter already hit by a group is hit by it again this many frames after its last hit on that fighter (per target) | `update_projectiles` |
+| `ProjectileSpawn::phases` | up to **8** (`MAX_PHASES`, was 2); a phase of radius 0 is a gap (no hit); `moves::phase_list` builds them | `moves.rs`, `format.rs` (`phase` blocks up to 8) |
+| `Projectile::hit_mask`, `hit_age[4]`, `facing` (hashed, checksum cases) | who it hit by group (`combat::hit_bit` layout), its age at its last hit on each fighter, its owner's facing at spawn (turned round by a reflection, which also clears its hits): "forward" for a projectile standing still (E26 by position, forward and backward then work for it) | `state.rs`, `combat.rs` |
+| `Fighter::special_flick` (hashed, checksum case) and the **`flick`** register | the special was input like a smash attack: the stick flicked (sideways, up or down, within the smash-flick buffer) or the strong button held; set when a special starts | `fighter::start_special`, `scripting.rs`, `sim-script/src/api.rs` |
+| **`spawn_at(x, y, speed_forward, speed_up)`** and `Fighter::spawn_fixed` (hashed, checksum case) | `spawn` at an absolute point (a `spawn` offset is applied after the fighter's move that frame, so a falling seer's explosion would land low); found while testing the aerial version | `scripting.rs`, `combat::spawn_projectiles` |
+
+E3c for projectiles already existed (`Hitbox::clanks` false skips `clank_projectile`) and E26's by-position side for a projectile
+already measured from its centre; both are used as built.
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Point | where the seer stood as the move began, 45 reference units ahead (75 with `flick`), 10 up | [R] ahead; [E] height (gap 5); [E] a B-reverse turns the point round |
+| Made | on frame 27 (move 26) by `spawn_at`, whatever the seer did since (falling, carried) | [R] |
+| Loop | 1.5%, 160 by position from its centre (BK 50, KS 100, SDI x0.4, shield 53%), on ages 1-28 (frames 28-55), per target every 5 frames (28, 33, 38, 43, 48, 53 on a fighter inside throughout); radius 6 / 8 / 9 / 11 / 12 / 14 / 15 tenths from frames 28 / 32 / 36 / 40 / 44 / 48 / 52; nothing on 56 | [R] / [D] |
+| Last hit | frame 57 (age 30, group 1): 5.5%, 84 the seer's way, BK 60, KS 141, radius 19 tenths, hitlag x1.5, shield 51%; life 31 | [R] |
+| No clank, reflectable | `clanks` false on every box; a reflector takes it over (it stays put) | [R] |
+| Move | FAF 72; x0.8 horizontal speed in the air; the body's air physics; touching down carries on | [R]; [E] gaps 4, 6 |
+| Hitlag | the victim's hitlag does not freeze the explosion (its rhythm is by its own age) | [E] |
+
+Tests (all run): `the_explosive_flames_data_is_the_references`, `the_flame_appears_on_frame_27_45_units_ahead_or_75_with_a_flick`,
+`the_flame_stays_where_the_seer_stood_on_frame_1` (falling), `a_shielding_fighter_inside_it_is_hit_on_28_33_38_43_48_53_and_57`,
+`a_fighter_walking_in_late_is_hit_every_5_frames_from_its_first_hit` (30, 35 ... 55, 57), `the_flame_pierces_and_pulls_each_target_back_toward_its_centre`
+(two fighters hit on one frame, sent at 160 and 20), `the_flame_never_clanks_and_its_new_fields_are_hashed`; `scripted_moves::a_script_can_fire_a_projectile_at_a_fixed_point_while_the_fighter_moves`;
+checksum cases in `state.rs`. Workspace tests, clippy, fmt, `fuzz-rollback 1000`, `net-fuzz 200` at 0 mismatches (note: `pftool`'s fuzzers
+play classes 0 and 1 only; the seer's rollback is covered by `staff.rs` `random_play_with_the_seer_is_deterministic_and_rolls_back` and the
+specials' own rollback test).
+
 ## Phase 2 plan: the specials (as written before building)
 
 Slots: the rapid jab holds `ext10` to `ext12`; the claws' placeholders in `ext0` to `ext2` go. The specials need two: the

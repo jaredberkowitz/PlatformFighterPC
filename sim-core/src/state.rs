@@ -230,6 +230,8 @@ pub struct Fighter {
     pub spawn_request: bool,
     /// ...and a script chose where the projectile appears and how fast it goes, instead of the move's defaults.
     pub spawn_custom: bool,
+    /// ...at the absolute point `spawn_pos` (`spawn_at`), not an offset from the fighter.
+    pub spawn_fixed: bool,
     pub spawn_pos: Vec2,
     pub spawn_vel: Vec2,
     /// ...with this much extra base knockback and this size (percent), from `spawn_scaled` (a charged shot).
@@ -237,6 +239,9 @@ pub struct Fighter {
     pub spawn_size: u16,
     /// Damage the fighter's counter stance caught; its counter-strike move deals this.
     pub counter_damage: Fx,
+    /// The current special was started with a flick of the stick (a smash-style input, or the strong button): what the `flick`
+    /// script register reads. Set when a special starts.
+    pub special_flick: bool,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
@@ -266,6 +271,12 @@ pub struct Projectile {
     pub size: u16,
     /// Persistent variables of the projectile's script.
     pub vars: [i32; PROJECTILE_VARS],
+    /// Who it has hit: bit `combat::hit_bit(fighter, group)`, as a move's `Fighter::hit_mask` (for a piercing or multi-hit one).
+    pub hit_mask: u32,
+    /// Its age when it last hit each fighter (the per-target rehit interval counts from it).
+    pub hit_age: [u8; MAX_FIGHTERS],
+    /// The way its owner faced when it was made (-1 or 1; turned round by a reflection): "forward" for a projectile standing still.
+    pub facing: i8,
 }
 
 impl StateHash for Projectile {
@@ -285,6 +296,11 @@ impl StateHash for Projectile {
         for v in &self.vars {
             h.write_i32(*v);
         }
+        h.write_u32(self.hit_mask);
+        for a in &self.hit_age {
+            h.write_u8(*a);
+        }
+        h.write_i8(self.facing);
     }
 }
 
@@ -415,6 +431,7 @@ impl Fighter {
             invuln: 0,
             spawn_request: false,
             spawn_custom: false,
+            spawn_fixed: false,
             spawn_pos: Vec2::ZERO,
             spawn_vel: Vec2::ZERO,
             spawn_kb_add: 0,
@@ -428,6 +445,7 @@ impl Fighter {
             releases: 0,
             next_move: 0,
             touched_wall: false,
+            special_flick: false,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -579,7 +597,9 @@ impl StateHash for Fighter {
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
         h.write_bool(self.touched_wall);
+        h.write_bool(self.special_flick);
         h.write_bool(self.spawn_custom);
+        h.write_bool(self.spawn_fixed);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
         h.write_u8(self.spawn_kb_add);
@@ -1005,6 +1025,11 @@ mod tests {
                 s.fighters[2].active = false;
                 s
             }),
+            ("spawn_fixed", {
+                let mut s = state;
+                s.fighters[0].spawn_fixed = true;
+                s
+            }),
             ("spawn_custom", {
                 let mut s = state;
                 s.fighters[0].spawn_custom = true;
@@ -1063,6 +1088,26 @@ mod tests {
             ("next_move", {
                 let mut s = state;
                 s.fighters[1].next_move = 30;
+                s
+            }),
+            ("special_flick", {
+                let mut s = state;
+                s.fighters[2].special_flick = true;
+                s
+            }),
+            ("projectile_hit_mask", {
+                let mut s = state;
+                s.projectiles[3].hit_mask = 1 << 30;
+                s
+            }),
+            ("projectile_hit_age", {
+                let mut s = state;
+                s.projectiles[3].hit_age[MAX_FIGHTERS - 1] = 1;
+                s
+            }),
+            ("projectile_facing", {
+                let mut s = state;
+                s.projectiles[3].facing = -1;
                 s
             }),
             ("fighter_vars", {

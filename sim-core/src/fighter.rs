@@ -2114,6 +2114,12 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
         _ => (id, mv),
     };
     begin_attack(f, id);
+    // A special input like a smash attack (the stick flicked sideways, up or down, or the strong button) is remembered for its
+    // script (the `flick` register).
+    f.special_flick = f.held(buttons::STRONG)
+        || f.flick_x(SMASH_FLICK_BUFFER) != 0
+        || f.hard_up(SMASH_FLICK_BUFFER)
+        || f.hard_down(SMASH_FLICK_BUFFER);
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);
     }

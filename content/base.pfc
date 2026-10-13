@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 75
-    hash c0a70a70895932f2
+    sim_version 76
+    hash d7210149c5f899ac
 }
 
 ruleset {
@@ -3019,21 +3019,83 @@ weapon staff {
         }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
-        script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
+        total_frames 70
+        land_continue true
+        start_speed 80
+        projectile {
+            frame 255
+            x 5.59999
+            y 1.29999
+            speed 0
+            life 31
+            end_damage 1.5
+            pierce true
+            rehit 5
+            hitbox { start 0 end 0 x 0 y 0 radius 0.59999 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            phase {
+                from 5
+                hitbox { start 0 end 0 x 0 y 0 radius 0.79999 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
+            phase {
+                from 9
+                hitbox { start 0 end 0 x 0 y 0 radius 0.9 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            }
+            phase {
+                from 13
+                hitbox { start 0 end 0 x 0 y 0 radius 1.09999 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            }
+            phase {
+                from 17
+                hitbox { start 0 end 0 x 0 y 0 radius 1.2 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            }
+            phase {
+                from 21
+                hitbox { start 0 end 0 x 0 y 0 radius 1.4 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            }
+            phase {
+                from 25
+                hitbox { start 0 end 0 x 0 y 0 radius 1.5 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            }
+            phase {
+                from 29
+                hitbox { start 0 end 0 x 0 y 0 radius 0 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
+            }
+            phase {
+                from 30
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 1.9
+                    damage 5.5
+                    angle 84
+                    bkb 60
+                    kbg 141
+                    group 1
+                    shield_damage 51
+                    hitlag 150
+                    sdi 40
+                    clanks false
+                    angle_type forward
+                }
+            }
+        }
+        script {
+            // Staff side special (the explosive flame): the point is fixed where the fighter stood as the move began (read on its first
+            // script frame, the position after frame 0), 5.625 world units ahead (9.375 when the special was input like a smash attack) and
+            // 1.25 up; on frame 26 (the reference's 27) the explosion is made there, wherever the fighter has gone since.
+            var x0;
+            var y0;
+            if frame == 1 {
+                x0 = x;
+                y0 = y;
+            }
+            if frame == 26 {
+                let ahead = 5.625;
+                if flick { ahead = 9.375; }
+                spawn_at(x0 + ahead * facing, y0 + 1.25, 0, 0);
+            }
         }
     }
     move up_special {

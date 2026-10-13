@@ -84,6 +84,7 @@ impl Host for FighterHost<'_> {
             api::R_PRESSES => Fx::from_int(i32::from(f.presses)).raw(),
             api::R_RELEASES => Fx::from_int(i32::from(f.releases)).raw(),
             api::R_WALL => flag(f.touched_wall),
+            api::R_FLICK => flag(f.special_flick),
             _ => 0,
         }
     }
@@ -107,10 +108,15 @@ impl Host for FighterHost<'_> {
                 self.f.vel.x += self.forward(arg(0));
                 self.f.vel.y += arg(1);
             }
-            api::F_SPAWN | api::F_SPAWN_SCALED => {
+            api::F_SPAWN | api::F_SPAWN_SCALED | api::F_SPAWN_AT => {
                 self.f.spawn_request = true;
                 self.f.spawn_custom = true;
-                self.f.spawn_pos = Vec2::new(self.forward(arg(0)), arg(1));
+                self.f.spawn_fixed = id == api::F_SPAWN_AT;
+                self.f.spawn_pos = if id == api::F_SPAWN_AT {
+                    Vec2::new(arg(0), arg(1))
+                } else {
+                    Vec2::new(self.forward(arg(0)), arg(1))
+                };
                 self.f.spawn_vel = Vec2::new(self.forward(arg(2)), arg(3));
                 if id == api::F_SPAWN_SCALED {
                     self.f.spawn_kb_add = arg(4).floor_int().clamp(0, 255) as u8;

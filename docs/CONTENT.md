@@ -152,17 +152,21 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`, `stored`, `jump`, `presses`, `releases`, `wall`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap` and `special_tap` are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
 `hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
 `presses` and `releases` count the attack button's presses and releases since the attack began (the move a button started;
 moves reached from it by `next`, `goto` or a counter keep counting), **hitlag included**, which no `attack_tap` can see; the press
 that started an attack is 1 (and a release of it already made counts 1; an attack started by another button starts at 0). A rapid jab's entry rule reads them (the reference's "pressed
 3 times and released twice since jab 1"). `wall` is 1 when the fighter's last movement step (last frame's, as the script runs before the move moves) was stopped by a wall: what a slide that crashes into walls reads.
+`flick` is 1 when the current special was started like a smash attack (the stick flicked its way, within the smash-flick buffer, or the strong button held): what a special with a farther smash-input version reads.
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
 `intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`, `air_flag(n)`, `set_air_flag(n)`,
-`spawn_scaled(forward, up, speed_forward, speed_up, knockback, size)`.
+`spawn_scaled(forward, up, speed_forward, speed_up, knockback, size)`, `spawn_at(x, y, speed_forward, speed_up)`.
+
+* `spawn_at` is `spawn` at an absolute point of the stage (the projectile appears there however the fighter moves this frame): a
+  summoned explosion fixed where the fighter stood when the move began.
 
 * `spawn_scaled` is `spawn` for a charged shot: the projectile also gets `knockback` (0 to 255) more base knockback and `size`
   percent (10 to 400) of its hitbox's radius (the reference's water pump grows with its charge).

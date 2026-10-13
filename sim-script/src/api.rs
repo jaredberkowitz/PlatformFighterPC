@@ -96,6 +96,7 @@ pub const F_STORE: u8 = 41;
 pub const F_AIR_FLAG: u8 = 42;
 pub const F_SET_AIR_FLAG: u8 = 43;
 pub const F_SPAWN_SCALED: u8 = 44;
+pub const F_SPAWN_AT: u8 = 45;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -124,6 +125,7 @@ pub const R_JUMP: u8 = 18;
 pub const R_PRESSES: u8 = 19;
 pub const R_RELEASES: u8 = 20;
 pub const R_WALL: u8 = 21;
+pub const R_FLICK: u8 = 22;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -198,6 +200,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         R_WALL,
         "1 if the fighter's last movement step was stopped by a wall, else 0",
     ),
+    reg(
+        "flick",
+        R_FLICK,
+        "1 if the current special was started with a flick of the stick (a smash-style input) or the strong button",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[
@@ -261,7 +268,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 13] = [
+    const OWN: [Func; 14] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -330,8 +337,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             6,
             "spawn_scaled(forward, up, speed_forward, speed_up, knockback, size): spawn with extra base knockback (0 to 255) and a size in percent (10 to 400)",
         ),
+        func(
+            "spawn_at",
+            F_SPAWN_AT,
+            4,
+            "spawn_at(x, y, speed_forward, speed_up): fire the move's projectile at this absolute point, however the fighter moves this frame",
+        ),
     ];
-    concat::<9, 13, 22>(MATH, OWN)
+    concat::<9, 14, 23>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

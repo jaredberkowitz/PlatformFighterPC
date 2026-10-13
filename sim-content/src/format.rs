@@ -12,7 +12,8 @@ use sim_core::moves::{
     ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD,
     ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
     EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW,
-    PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL,
+    TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -968,10 +969,14 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             bounce_max: f.or("bounce_max", none.bounce_max, errors),
             bounce_keep: f.or("bounce_keep", none.bounce_keep, errors),
         };
-        let mut phases = [None; 2];
+        let mut phases = [None; MAX_PHASES];
         let blocks = children(b, "phase");
-        if blocks.len() > 2 {
-            err(errors, b.line, format!("{ctx} has at most two phases"));
+        if blocks.len() > MAX_PHASES {
+            err(
+                errors,
+                b.line,
+                format!("{ctx} has at most {MAX_PHASES} phases"),
+            );
         }
         for (slot, pb) in phases.iter_mut().zip(blocks) {
             let pctx = format!("a phase of {ctx}");
@@ -994,6 +999,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             end_damage: f.need("end_damage", None, errors),
             arc,
             phases,
+            pierce: f.or("pierce", false, errors),
+            rehit: f.or("rehit", 0, errors),
         };
         f.finish(errors);
         m.projectile = Some(spawn);
@@ -1300,6 +1307,12 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         }
         if a.bounce_keep != none.bounce_keep {
             c.field("bounce_keep", a.bounce_keep.to_string());
+        }
+        if p.pierce {
+            c.field("pierce", "true");
+        }
+        if p.rehit != 0 {
+            c.field("rehit", p.rehit.to_string());
         }
         c.push(write_hitbox(&p.hitbox));
         for (from, hb) in p.phases.iter().flatten() {
