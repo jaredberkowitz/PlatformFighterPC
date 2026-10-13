@@ -169,11 +169,12 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 				var cy := rng.randf_range(0.0, 256.0)
 				var rx := rng.randf_range(30.0, 44.0)
 				var ry := rx * rng.randf_range(0.7, 0.9)
-				var shade := a.lerp(b, rng.randf_range(0.1, 0.4))
+				# (Stones close in value to their mortar: the wall reads as one mass, the stones as a texture on it.)
+				var shade := a.lerp(b, rng.randf_range(0.3, 0.55))
 				for ox in [-256.0, 0.0, 256.0]:
 					for oy in [-256.0, 0.0, 256.0]:
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.55"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
-						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.15).to_html(false)]
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.1).to_html(false)]
 		"facade":
 			# Concrete panels with rounded windows, some lit warm, each with a sill. Twice the size of the other patterns (sixteen windows
 			# a repeat, about a third lit, in a softer warm), so the wall under the fighters is not a busy grid stamped every few units.
