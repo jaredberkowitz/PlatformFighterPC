@@ -247,6 +247,74 @@ checksum cases in `state.rs`. Workspace tests, clippy, fmt, `fuzz-rollback 1000`
 play classes 0 and 1 only; the seer's rollback is covered by `staff.rs` `random_play_with_the_seer_is_deterministic_and_rolls_back` and the
 specials' own rollback test).
 
+### Milestone 4 (sim 77): Autoreticle (neutral special)
+
+`moves_staff.rs` `autoreticle`, script `scripts/staff_reticle.script`.
+
+**Engine (the E16 target lock):**
+
+| Piece | What | Where |
+| --- | --- | --- |
+| **`lock(range)`** and the registers **`locked`, `lock_x`, `lock_y`** | once this attack has a lock it returns 1; otherwise it looks for the nearest other fighter (lowest index on a tie) that can be targeted (active, stocks left, not intangible), in front (`(target - self) x facing > 0`), chest within `range` of the fighter's chest, with no solid block across the line between the chests, and keeps that chest as the lock point | `scripting.rs` (`FighterHost::lock`), `sim-script/src/api.rs` |
+| `Fighter::lock` (Vec2), `Fighter::locked` (hashed, checksum cases) | the lock point; cleared when a new attack begins (`begin_attack`), kept through `goto` | `state.rs`, `fighter.rs` |
+| `scripting::World` | what a move script sees of the others: every fighter's chest height and, for those that can be targeted, its chest; a snapshot taken at the start of each frame before anyone moves (deterministic; a fighter that moves this frame is seen where it began it) | `step.rs`, passed through `fighter::update` / `attack` to `run_fighter` |
+| `collision::segment_blocked(stage, a, b)` | whether a solid block lies across a segment (its inside: touching an edge is not crossing), slab clipping in fixed point; pass-through platforms never block | `collision.rs` |
+| `combat::chest_height` | the middle hurtbox circle's height (the "chest" of every body) | `combat.rs` |
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Search | frames 7-14 (move 6-13): `lock(15)`: 120 reference units chest to chest, in front, not intangible, line of sight | [R] rules; [E] the "in front" region (a half-plane), chest to chest instead of the search circle against the hurtbox, pass-through platforms not blocking, the nearest wins (gap 2) |
+| Reticle | stays where the target's chest was | [R] |
+| Shots | with a lock, made on 23 / 29 / 35 (move 22 / 28 / 34, hitting from the next frame) at the staff (1.0 ahead, 1.3 up) straight at the reticle at 0.75 world units a frame (6 reference), life 25; 3.5%, 361 forward, BK 40, KS 41, radius 3 tenths, shield 51%; not piercing, reflectable, they clank | [R] numbers; [E] the muzzle and the straight path, carrying on past the point (gap 1) |
+| No lock | nothing comes out; the move plays out to FAF 68 | [R] |
+| Air | x0.6 horizontal speed on starting; the body's physics (the descent stall has no published numbers); touching down carries on | [R]; [E] gaps 3, 4 |
+
+Tests (all run): `the_reticles_data_is_the_references`, `a_locked_reticle_fires_three_shots_on_23_29_35_at_the_point`,
+`without_a_lock_the_reticle_fires_nothing`, `the_reticle_stays_put_when_the_target_moves`, `a_reticle_shot_hits_for_3_5_percent`,
+`the_specials_are_deterministic_and_roll_back` (every special in a row, replayed straight and from a snapshot mid-move);
+`scripted_moves::lock_finds_the_nearest_opponent_in_front_and_keeps_its_chest`, `lock_ignores_fighters_behind_out_of_range_intangible_or_behind_a_block`,
+`segment_blocked_is_a_line_of_sight_through_solid_blocks_only`; checksum cases `lock`, `locked`. Workspace tests, clippy, fmt,
+`fuzz-rollback 1000`, `net-fuzz 200` (0 mismatches), `content-check content/base.pfc` (ok).
+
+### Phase 2 summary
+
+**Slots**: `ext0` the counterattack, `ext1` the reflection; `ext10`-`ext12` the rapid jab (phase 1). The warp, flame and reticle are
+one move each. **Commits** on `seer-phase2`: sim 74 warp (`b1ed63f`), sim 75 counter / barrier (`9e90b5e`), sim 76 flame (`a22f7dd`),
+the merge of `movesets` with the sim 73 cleanup (`f90ba8c`), sim 77 reticle. **Schema**: unchanged (5): every new field is optional
+with a default meaning the old behaviour. `content/base.pfc` re-exported at every milestone.
+
+**Verified against [R] / [D] by tests that ran**: every special's frame data (startup, active frames, FAF, intangibility, landing
+lag), the warp's distance, direction and endings, the counter's ratio, floor and cap and its melee-only rule, the reflection on the
+touching frame with its multipliers, the barrier's height, the push without hitstun, the stance's air numbers, the flame's placement,
+timing, rhythm per target, piercing, growth and pull toward the centre, the reticle's search rules, shot frames, speed and damage;
+determinism and rollback of all of it.
+
+**Estimated [E] (listed per milestone above)**: the warp's neutral direction, ledge windows, stage contact and reappearance physics;
+the counter's catch on the hurtboxes (not the bubble) and its freeze (conflict 3); both answers' air physics; the reflected shot's
+vertical speed; the flame's height and its B-reverse; the reticle's "in front", muzzle and path; every aerial special's landing
+(gap 4) and the reticle's descent stall (gap 3).
+
+**Owner-chosen approximation**: the barrier ends with the reflection move (decision 20; no E25).
+
+**Remaining limits**: the barrier's ten frames past FAF 35 and staying when the seer is hit; a push (windbox) is caught by any open
+counter like a hit (shared, unchanged); `pftool`'s fuzzers play classes 0 and 1 only (the seer's rollback is covered by its own tests);
+the Godot tests were not run (no editor here).
+
+### For the art agent (phase 2)
+
+Moves that want their own clip (they fall back to the shared archetypes now):
+
+* **Up special, warp** (`up_special`): a vanish on frame 16, the fighter **hidden while intangible (16-32)**, reappearing on 33 and a
+  35-frame reappearance; then the special fall.
+* **Down special, stance** (`down_special`): guard pose 1-70, the counter window 7-34. **Counterattack** (`ext0`): a strike in front on
+  5-7 (boxes 10.5 reference units up, 9 to 20 ahead), FAF 37. **Reflection** (`ext1`): a barrier of light 1.3 world units ahead from
+  0.2 to 2.6 up, frames 1-33 (the push 2-11), FAF 35.
+* **Side special, explosive flame** (`side_special`): a point marked at frame 1 5.6 (9.4 with a flick) world units ahead, 1.25 up; the
+  explosion (a projectile of this move) growing from radius 0.6 to 1.5 on frames 28-55 and bursting to 1.9 on 57; the seer's pose
+  plays to FAF 72.
+* **Neutral special, reticle** (`neutral_special`): the staff raised on 7-14 (the search), a reticle at the lock point while it
+  lasts, three shots from the staff tip (1.0 ahead, 1.3 up) on 23, 29, 35; FAF 68.
+
 ## Phase 2 plan: the specials (as written before building)
 
 Slots: the rapid jab holds `ext10` to `ext12`; the claws' placeholders in `ext0` to `ext2` go. The specials need two: the
@@ -286,6 +354,18 @@ counterattack (`ext0`) and the reflection (`ext1`).
 * (Merged: the Gauntlets' phase 2 is in, and the no-clank boxes were set in sim 73.)
 
 ## Questions for the owner
+
+Phase 2 (new):
+
+1. **Footage for the [E] readings**: Warp's ledge windows (front / back, from which frame) and what the travel does against the ground,
+   walls and pass-through platforms; the explosive flame's height; how the reticle's shots fly (straight from the staff, or steering)
+   and its "in front" region; the counter's freeze before the strike (conflict 3). Each is one constant or one line to change.
+2. **Counters and pushes**: any open counter (the Longsword's too) catches a push (windbox) like a hit; the reference's counters
+   ignore flinchless hits. Change it for every counter (it changes the Longsword's corner case), or leave it?
+3. **Counter bubble**: the reference catches on its own bubble (radius 11.5 at 10 up); ours on the body's hurtboxes. Add a bubble
+   (`Counter::bubble`) or leave it?
+
+Phase 1:
 
 1. **Angle type 1 (speed-based)**: the Claws' up special loop is the reference's type 1 (from the direction of travel); its row already
    lists "angles from the facing" as a limit. Add it as a fifth angle type (small: the attacker's velocity sign), or leave it?

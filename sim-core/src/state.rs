@@ -242,6 +242,9 @@ pub struct Fighter {
     /// The current special was started with a flick of the stick (a smash-style input, or the strong button): what the `flick`
     /// script register reads. Set when a special starts.
     pub special_flick: bool,
+    /// The current attack's target lock (`lock` in a move script): where the target's chest was when it was found, and whether one was.
+    pub lock: Vec2,
+    pub locked: bool,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
@@ -446,6 +449,8 @@ impl Fighter {
             next_move: 0,
             touched_wall: false,
             special_flick: false,
+            lock: Vec2::ZERO,
+            locked: false,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -598,6 +603,8 @@ impl StateHash for Fighter {
         h.write_u8(self.next_move);
         h.write_bool(self.touched_wall);
         h.write_bool(self.special_flick);
+        self.lock.hash_into(h);
+        h.write_bool(self.locked);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
         self.spawn_pos.hash_into(h);
@@ -1088,6 +1095,16 @@ mod tests {
             ("next_move", {
                 let mut s = state;
                 s.fighters[1].next_move = 30;
+                s
+            }),
+            ("lock", {
+                let mut s = state;
+                s.fighters[1].lock.x = Fx::from_raw(1);
+                s
+            }),
+            ("locked", {
+                let mut s = state;
+                s.fighters[1].locked = true;
                 s
             }),
             ("special_flick", {

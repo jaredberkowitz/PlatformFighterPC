@@ -80,6 +80,11 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
     [(at(6), radius), (middle, radius), (at(16), radius), limb]
 }
 
+/// How high above the feet a standing fighter's chest is: the centre of its middle hurtbox circle (see [`hurtboxes`]).
+pub fn chest_height(p: &FighterParams) -> Fx {
+    p.ecb_height * Fx::from_ratio(11, 20)
+}
+
 /// The hurtbox circles (bit `i` for circle `i` of [`hurtboxes`]) that the fighter's current move makes intangible this frame
 /// (`Move::part_intangible`); 0 when the whole body can be hit.
 pub fn intangible_parts(f: &Fighter, w: &Weapon) -> u8 {

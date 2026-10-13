@@ -4,13 +4,15 @@
 //! `sim_script::api` is the whole surface. Effects that need the rest of the game (firing a projectile, switching
 //! move) are recorded on the fighter or returned, and the caller applies them.
 
+use crate::collision;
+use crate::content::Stage;
 use crate::fixed::Fx;
 use crate::input::{buttons, Input};
 use crate::moves::MoveId;
 use crate::state::{Fighter, Projectile};
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
-use crate::{FIGHTER_VARS, PROJECTILE_VARS};
+use crate::{FIGHTER_VARS, MAX_FIGHTERS, PROJECTILE_VARS};
 use sim_script::api;
 use sim_script::{run, Host, Program, ONE};
 
@@ -46,14 +48,58 @@ pub struct FighterEffects {
     pub goto: Option<u8>,
 }
 
+/// What a fighter's move script can see of the others (taken at the start of the frame, before anyone moves): for each fighter
+/// its chest if it can be targeted (in the match with stocks left, not intangible), and the height of every chest above the feet.
+#[derive(Clone, Copy, Debug)]
+pub struct World<'a> {
+    pub stage: &'a Stage,
+    pub targets: [Option<Vec2>; MAX_FIGHTERS],
+    pub chest: [Fx; MAX_FIGHTERS],
+    /// Which fighter the script belongs to.
+    pub me: usize,
+}
+
 struct FighterHost<'a> {
     f: &'a mut Fighter,
+    world: &'a World<'a>,
     effects: FighterEffects,
 }
 
 impl FighterHost<'_> {
     fn forward(&self, x: Fx) -> Fx {
         x.mul_int(i32::from(self.f.facing))
+    }
+
+    /// The target lock (`lock(range)`): the nearest other fighter (lowest index on a tie) that can be targeted, in front of the
+    /// fighter, its chest within `range` of the fighter's chest and no solid platform across the line between the two; its chest is
+    /// kept as the lock point. Once locked, the attack keeps that point.
+    fn lock(&mut self, range: Fx) -> bool {
+        if self.f.locked {
+            return true;
+        }
+        let w = self.world;
+        let me = w.me.min(MAX_FIGHTERS - 1);
+        let from = Vec2::new(self.f.pos.x, self.f.pos.y + w.chest[me]);
+        let mut best: Option<(Fx, Vec2)> = None;
+        for (i, t) in w.targets.iter().enumerate() {
+            let Some(chest) = *t else { continue };
+            if i == me {
+                continue;
+            }
+            let ahead = (chest.x - from.x).mul_int(i32::from(self.f.facing));
+            let d = (chest - from).length();
+            if ahead <= Fx::ZERO || d > range || collision::segment_blocked(w.stage, from, chest) {
+                continue;
+            }
+            if best.is_none_or(|(b, _)| d < b) {
+                best = Some((d, chest));
+            }
+        }
+        if let Some((_, chest)) = best {
+            self.f.lock = chest;
+            self.f.locked = true;
+        }
+        self.f.locked
     }
 }
 
@@ -85,6 +131,9 @@ impl Host for FighterHost<'_> {
             api::R_RELEASES => Fx::from_int(i32::from(f.releases)).raw(),
             api::R_WALL => flag(f.touched_wall),
             api::R_FLICK => flag(f.special_flick),
+            api::R_LOCKED => flag(f.locked),
+            api::R_LOCK_X => f.lock.x.raw(),
+            api::R_LOCK_Y => f.lock.y.raw(),
             _ => 0,
         }
     }
@@ -144,6 +193,7 @@ impl Host for FighterHost<'_> {
             api::F_SET_AIR_FLAG => {
                 self.f.air_flags |= 1u8 << arg(0).floor_int().clamp(0, 7);
             }
+            api::F_LOCK => return flag(self.lock(arg(0))),
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);
@@ -155,9 +205,10 @@ impl Host for FighterHost<'_> {
 }
 
 /// Runs a fighter's move script for this frame.
-pub fn run_fighter(program: &Program, f: &mut Fighter) -> FighterEffects {
+pub fn run_fighter(program: &Program, f: &mut Fighter, world: &World) -> FighterEffects {
     let mut host = FighterHost {
         f,
+        world,
         effects: FighterEffects::default(),
     };
     run(program, &mut host);

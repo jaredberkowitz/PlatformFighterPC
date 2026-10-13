@@ -1,5 +1,5 @@
 //! The Staff's specials (class 5, the seer body; phase 2), modelled mechanically on a reference character: frame data, movement
-//! and the behaviour of each special against `docs/movesets/palutena/REFERENCE_DATA.md` ("Specials"), and the extensions they
+//! and the behaviour of each special against the Staff port's `REFERENCE_DATA.md` ("Specials"), and the extensions they
 //! brought.
 
 mod common;
@@ -813,4 +813,145 @@ fn the_flame_never_clanks_and_its_new_fields_are_hashed() {
     assert_ne!(h, edit(&|p| p.pierce = false), "pierce");
     assert_ne!(h, edit(&|p| p.rehit = 4), "rehit");
     assert_ne!(h, edit(&|p| p.phases[7] = None), "the eighth phase");
+}
+
+// ---- Neutral special: the reticle ------------------------------------------------------------------------------------------
+
+#[test]
+fn the_reticles_data_is_the_references() {
+    use sim_core::moves::ANGLE_FORWARD;
+    let sim = duel();
+    let mv = staff(&sim).get(MoveId::NSpecial as u8);
+    assert_eq!(u16::from(mv.total_frames) + 2, 68, "FAF 68");
+    assert_eq!(mv.start_speed, 60);
+    let p = mv.projectile.expect("the shots");
+    assert_eq!((p.life, p.speed, p.pierce), (25, su(6000), false));
+    let h = p.hitbox;
+    assert_eq!(
+        (
+            h.damage,
+            h.angle,
+            h.base_knockback,
+            h.knockback_growth,
+            h.angle_type
+        ),
+        (fx(35, 10), 361, 40, 41, ANGLE_FORWARD)
+    );
+    assert_eq!((h.radius, h.shield_damage, h.clanks), (fx(3, 10), 51, true));
+}
+
+/// The seer at -6 facing right uses the reticle; the duelist (player 1) stands at `target_x`. Returns the frames (reference
+/// numbering) each shot appeared on and the sim after 40 frames.
+fn reticle_at(target_x: Fx) -> (Vec<u16>, Sim) {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-6), 1);
+    sim.stand(1, target_x, -1);
+    sim.tick(inp(0, 0, SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
+    let mut shots = Vec::new();
+    let mut seen = 0;
+    for frame in 1..=40u16 {
+        sim.tick(inp(0, 0, 0));
+        let made = sim
+            .state
+            .projectiles
+            .iter()
+            .filter(|p| p.active && p.age == 0)
+            .count();
+        if made > 0 {
+            shots.push(frame + 1);
+        }
+        seen += made;
+    }
+    assert_eq!(seen, shots.len());
+    (shots, sim)
+}
+
+#[test]
+fn a_locked_reticle_fires_three_shots_on_23_29_35_at_the_point() {
+    let (shots, sim) = reticle_at(Fx::ZERO);
+    assert_eq!(shots, vec![23, 29, 35]);
+    let f = sim.f();
+    assert!(f.locked);
+    let chest = sim_core::combat::chest_height(&sim.content.fighters[0]);
+    assert_eq!(
+        f.lock,
+        sim_core::Vec2::new(Fx::ZERO, chest),
+        "the duelist's chest"
+    );
+    // Each shot flies straight at the point at 6 reference units a frame.
+    for p in sim.state.projectiles.iter().filter(|p| p.active) {
+        assert!(near(p.vel.length(), su(6000), 2), "{:?}", p.vel);
+        assert!(p.vel.x > Fx::ZERO);
+    }
+}
+
+#[test]
+fn without_a_lock_the_reticle_fires_nothing() {
+    // Out of range (16 world units ahead).
+    let (shots, sim) = reticle_at(Fx::from_int(10));
+    assert!(shots.is_empty());
+    assert!(!sim.f().locked);
+}
+
+#[test]
+fn the_reticle_stays_put_when_the_target_moves() {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-6), 1);
+    sim.stand(1, Fx::ZERO, -1);
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.ticks(15, inp(0, 0, 0));
+    assert!(sim.f().locked);
+    let lock = sim.f().lock;
+    sim.stand(1, Fx::from_int(5), -1);
+    sim.ticks(10, inp(0, 0, 0));
+    assert_eq!(sim.f().lock, lock);
+}
+
+#[test]
+fn a_reticle_shot_hits_for_3_5_percent() {
+    let (_, mut sim) = reticle_at(Fx::ZERO);
+    for _ in 0..30 {
+        sim.tick(inp(0, 0, 0));
+    }
+    let hits = sim.fighter(1).percent / (fx(35, 10) * sim.content.rules.damage_mult);
+    assert!(hits >= Fx::ONE, "at least one shot landed: {hits:?}");
+}
+
+#[test]
+fn the_specials_are_deterministic_and_roll_back() {
+    use sim_core::{step, GameState, Input, MAX_FIGHTERS};
+    // A scripted round of every special against a duelist, replayed straight and from a snapshot taken mid-explosion.
+    let content = duel().content;
+    let mut inputs: Vec<[Input; MAX_FIGHTERS]> = Vec::new();
+    let mut push = |n: usize, i: Input| {
+        for k in 0..n {
+            let mut row = [Input::default(); MAX_FIGHTERS];
+            row[0] = if k == 0 {
+                i
+            } else {
+                inp(i.stick_x, i.stick_y, 0)
+            };
+            inputs.push(row);
+        }
+    };
+    push(80, inp(0, 0, SPECIAL));
+    push(80, inp(127, 0, SPECIAL));
+    push(80, inp(0, -127, SPECIAL));
+    push(80, inp(0, 127, SPECIAL));
+    push(60, inp(0, 0, 0));
+    let play = |from: Option<(GameState, usize)>| {
+        let (mut s, start) = from.unwrap_or((GameState::new(&content, 3, [SEER, 0, SEER, 1]), 0));
+        for i in &inputs[start..] {
+            step(&mut s, &content, i);
+        }
+        s
+    };
+    let straight = play(None);
+    let mut s = GameState::new(&content, 3, [SEER, 0, SEER, 1]);
+    for i in &inputs[..110] {
+        step(&mut s, &content, i);
+    }
+    let replayed = play(Some((s, 110)));
+    assert_eq!(straight.checksum(), replayed.checksum());
 }

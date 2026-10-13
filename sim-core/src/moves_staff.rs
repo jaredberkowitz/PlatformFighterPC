@@ -101,7 +101,49 @@ pub fn staff() -> Weapon {
     warp(&mut w);
     counter_and_barrier(&mut w);
     explosive_flame(&mut w);
+    autoreticle(&mut w);
     w
+}
+
+/// Neutral special, the reticle and its three shots (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Autoreticle").
+///
+/// * The search on frames 7-14 (the `lock` register): the nearest opponent that can be hit, in front, chest within 120 reference
+///   units (15 world) of the seer's chest, with nothing solid between [R rules; E: the exact "in front" region, chest to chest
+///   rather than the search circle against the hurtbox, pass-through platforms not blocking (gaps 2)]. The reticle stays where
+///   the target's chest was [R].
+/// * With a lock, three shots made on frames 23, 29 and 35 (hitting from the next frame) from the staff (1.0 ahead, 1.3 up [E]),
+///   straight at the reticle at 6 reference units a frame (0.75 world) [R speed; E: the path, gap 1], life 25 [R]: 3.5%, angle 361
+///   forward, BK 40, KS 41, radius 2.3 reference units, shield damage -1.7 (51%) [R]; not piercing, reflectable, they clank [R].
+///   Without a lock nothing comes out [R].
+/// * FAF 68 [R]; x0.6 horizontal speed in the air [R]; the aerial descent stall is not published (the body's physics) [E: gap 3];
+///   touching down carries the move on [E: gap 4].
+fn autoreticle(w: &mut Weapon) {
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
+    let mut shot = row(&r(1, 1, 0, 0, u(23), 35, 361, 40, 41, 0, 0));
+    shot.shield_damage = 51;
+    shot.angle_type = ANGLE_FORWARD;
+    let mut mv = ref_move(68, 0, 0, 255, &[]);
+    mv.projectile = Some(ProjectileSpawn {
+        // (Only the script fires it.)
+        frame: 255,
+        x: Fx::ONE,
+        y: tenths(13),
+        speed: su(6000),
+        life: 25,
+        hitbox: shot,
+        end_damage: Fx::from_ratio(35, 10),
+        arc: ProjectileArc::NONE,
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+    });
+    mv.start_speed = 60;
+    mv.land_continue = true;
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/staff_reticle.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = mv;
 }
 
 /// Side special, the explosive flame (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Explosive Flame"): a stationary

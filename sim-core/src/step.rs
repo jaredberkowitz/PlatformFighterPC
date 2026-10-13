@@ -71,13 +71,28 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     for (b, f) in before.iter_mut().zip(state.fighters.iter()) {
         *b = f.pos.x;
     }
+    // What move scripts see of the others this frame (a target lock): every chest, and which fighters can be targeted.
+    let mut world = crate::scripting::World {
+        stage,
+        targets: [None; MAX_FIGHTERS],
+        chest: [Fx::ZERO; MAX_FIGHTERS],
+        me: 0,
+    };
+    for (i, f) in state.fighters.iter().enumerate() {
+        let height = combat::chest_height(params_of(content, f));
+        world.chest[i] = height;
+        if f.active && f.stocks > 0 && !combat::is_intangible(f) {
+            world.targets[i] = Some(f.pos + crate::vec2::Vec2::new(Fx::ZERO, height));
+        }
+    }
     for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
         if !f.active {
             continue;
         }
         let params = params_of(content, f);
         let weapon = combat::weapon_of(content, params);
-        wants[i] = fighter::update(f, params, weapon, stage, &content.rules, *input);
+        world.me = i;
+        wants[i] = fighter::update(f, params, weapon, stage, &content.rules, *input, &world);
     }
 
     // Bodies on the ground cannot pass through each other (see `push`).

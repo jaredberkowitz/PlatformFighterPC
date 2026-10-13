@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 76
-    hash 8751580bea2a8d7d
+    sim_version 77
+    hash ec953d7ca6e2dfb7
 }
 
 ruleset {
@@ -3134,16 +3134,34 @@ weapon staff {
         hitbox { start 9 end 10 x -0.09999 y -0.59999 radius 0.79999 damage 11 angle 55 bkb 30 kbg 100 priority 1 hitlag 150 targets grounded clanks false angle_type backward }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
+        total_frames 66
+        land_continue true
+        start_speed 60
         projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+            frame 255
+            x 1
+            y 1.29999
+            speed 0.75
+            life 25
+            end_damage 3.5
+            hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 3.5 angle 361 bkb 40 kbg 41 shield_damage 51 angle_type forward }
+        }
+        script {
+            // Staff neutral special (the reticle): on frames 6-13 (the reference's 7-14) it looks for a target in front, within 15 world units
+            // (120 reference units) chest to chest, with nothing solid in the way; the lock stays where the target's chest was. With a lock,
+            // three shots on frames 22, 28 and 34 (the reference's 23, 29, 35) from the staff (1.0 ahead, 1.3 up [E]) straight at that point at
+            // 0.75 world units a frame (6 reference units); without one, nothing.
+            if frame >= 6 && frame <= 13 { lock(15); }
+            if locked && (frame == 22 || frame == 28 || frame == 34) {
+                let mx = x + facing;
+                let my = y + 1.3;
+                let dx = lock_x - mx;
+                let dy = lock_y - my;
+                let len = sqrt(dx * dx + dy * dy);
+                if len > 0.01 {
+                    spawn_at(mx, my, dx * facing / len * 0.75, dy / len * 0.75);
+                }
+            }
         }
     }
     move side_special {

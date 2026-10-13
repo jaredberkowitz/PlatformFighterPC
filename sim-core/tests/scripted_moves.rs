@@ -573,3 +573,91 @@ fn a_script_can_fire_a_projectile_at_a_fixed_point_while_the_fighter_moves() {
     let offset = fire("if frame == 3 { spawn(2, 7, 0, 0); }");
     assert_ne!(offset.pos.y, Fx::from_int(7));
 }
+
+/// Player 0 at -7 facing right uses a special that calls `lock(range)` on its frame 2 and keeps what it found in vars; returns the
+/// sim after frame 3 of the move.
+fn locking(range: i32, arrange: impl Fn(&mut Sim)) -> Sim {
+    let src = format!("if frame == 2 {{ lock({range}); }}");
+    let mut sim = with_special(scripted(30, &src));
+    arrange(&mut sim);
+    start(&mut sim);
+    sim.ticks(3, inp(0, 0, 0));
+    sim
+}
+
+#[test]
+fn lock_finds_the_nearest_opponent_in_front_and_keeps_its_chest() {
+    // Player 1 at 7 (14 ahead), player 2 at -2 (5 ahead): the nearer one is locked, at its chest.
+    let sim = locking(15, |sim| {
+        sim.state.fighters[2].invuln = 0;
+        sim.stand(2, Fx::from_int(-2), -1);
+    });
+    let f = sim.f();
+    assert!(f.locked);
+    let chest = sim_core::combat::chest_height(&sim.content.fighters[0]);
+    assert_eq!(f.lock, sim_core::Vec2::new(Fx::from_int(-2), chest));
+    // The lock stays where it was found when the target moves on, for the rest of the attack.
+    let mut sim = sim;
+    sim.stand(2, Fx::from_int(3), -1);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.f().lock.x, Fx::from_int(-2));
+    // A new attack starts without one.
+    sim.ticks(30, inp(0, 0, 0));
+    start(&mut sim);
+    assert!(!sim.f().locked);
+}
+
+#[test]
+fn lock_ignores_fighters_behind_out_of_range_intangible_or_behind_a_block() {
+    // Behind: the only other fighter at -10 (player 0 faces right at -7).
+    let sim = locking(15, |sim| sim.stand(1, Fx::from_int(-10), 1));
+    assert!(!sim.f().locked, "behind");
+    // Out of range: 14 ahead with a range of 10.
+    let sim = locking(10, |_| {});
+    assert!(!sim.f().locked, "out of range");
+    assert!(locking(15, |_| {}).f().locked, "in range");
+    // Intangible.
+    let sim = locking(15, |sim| sim.state.fighters[1].invuln = 30);
+    assert!(!sim.f().locked, "intangible");
+    // A solid block across the line between the chests (a pass-through platform does not count).
+    let sim = locking(15, |sim| {
+        sim.content
+            .stage
+            .platforms
+            .push(sim_core::content::Platform {
+                left: Fx::ZERO,
+                right: Fx::ONE,
+                y: Fx::from_int(4),
+                bottom: Fx::ZERO,
+                pass_through: false,
+            });
+    });
+    assert!(!sim.f().locked, "behind a block");
+    let sim = locking(15, |sim| {
+        sim.content
+            .stage
+            .platforms
+            .push(sim_core::content::Platform {
+                left: Fx::ZERO,
+                right: Fx::ONE,
+                y: Fx::from_int(4),
+                bottom: Fx::ZERO,
+                pass_through: true,
+            });
+    });
+    assert!(sim.f().locked, "a pass-through platform does not block");
+}
+
+#[test]
+fn segment_blocked_is_a_line_of_sight_through_solid_blocks_only() {
+    use sim_core::collision::segment_blocked;
+    use sim_core::Vec2;
+    let stage = Content::placeholder().stage;
+    let p = |x: i32, y: i32| Vec2::new(Fx::from_int(x), Fx::from_int(y));
+    // Above the main stage: clear; through it: blocked; along its top surface: clear (touching is not crossing).
+    assert!(!segment_blocked(&stage, p(-5, 1), p(5, 1)));
+    assert!(segment_blocked(&stage, p(0, 2), p(0, -4)));
+    assert!(!segment_blocked(&stage, p(-5, 0), p(5, 0)));
+    // The pass-through platforms (y 3.6) never block.
+    assert!(!segment_blocked(&stage, p(5, 6), p(5, 1)));
+}
