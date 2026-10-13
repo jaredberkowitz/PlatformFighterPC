@@ -503,9 +503,49 @@ pub struct Reflector {
     pub detect_x: Fx,
     pub detect_y: Fx,
     pub detect_radius: Fx,
+    /// What the detector does: `None` skips this move ahead (above); `Some(move)` starts that move (usually an `ext` slot: the
+    /// reference's separate reflection move) at once, so its own reflector can turn the shot round on the same frame. With it the
+    /// detector works on its whole window, whatever this reflector's own frames are.
+    pub detect_then: Option<u8>,
+    /// Half the height of the field: above 0 it is a vertical capsule from `y - half_height` to `y + half_height` (a standing barrier)
+    /// instead of a circle.
+    pub half_height: Fx,
+    /// A second field with the same numbers on move frames `body_start..=body_end` (the reference's body reflector beside a barrier):
+    /// a circle at (`body_x`, `body_y`) of `body_radius`; radius 0 for none.
+    pub body_start: u8,
+    pub body_end: u8,
+    pub body_x: Fx,
+    pub body_y: Fx,
+    pub body_radius: Fx,
 }
 
 impl Reflector {
+    /// An empty reflector (no frames, no field): the base the builders fill in, with every later field at its default.
+    pub const NONE: Reflector = Reflector {
+        start: 255,
+        end: 0,
+        x: Fx::ZERO,
+        y: Fx::ZERO,
+        radius: Fx::ZERO,
+        damage_percent: 100,
+        speed_percent: 100,
+        reverse_vertical: false,
+        life_percent: 100,
+        max_damage: Fx::ZERO,
+        detect_start: 0,
+        detect_end: 255,
+        detect_x: Fx::ZERO,
+        detect_y: Fx::ZERO,
+        detect_radius: Fx::ZERO,
+        detect_then: None,
+        half_height: Fx::ZERO,
+        body_start: 0,
+        body_end: 0,
+        body_x: Fx::ZERO,
+        body_y: Fx::ZERO,
+        body_radius: Fx::ZERO,
+    };
+
     /// The fields added after the first reflectors, at their defaults (what older content means).
     pub const fn extras(mut self) -> Reflector {
         self.reverse_vertical = false;
@@ -516,6 +556,13 @@ impl Reflector {
         self.detect_x = Fx::ZERO;
         self.detect_y = Fx::ZERO;
         self.detect_radius = Fx::ZERO;
+        self.detect_then = None;
+        self.half_height = Fx::ZERO;
+        self.body_start = 0;
+        self.body_end = 0;
+        self.body_x = Fx::ZERO;
+        self.body_y = Fx::ZERO;
+        self.body_radius = Fx::ZERO;
         self
     }
 }
@@ -529,9 +576,13 @@ pub struct Counter {
     pub end: u8,
     /// The move the fighter switches to (usually an `ext` slot).
     pub then: u8,
-    /// The answer deals this percent of the caught hit's damage, at least `min_damage`.
+    /// The answer deals this percent of the caught hit's damage, at least `min_damage` and (when above 0) at most `max_damage`.
     pub percent: u8,
     pub min_damage: Fx,
+    pub max_damage: Fx,
+    /// Only melee hits are caught: a projectile's hit is taken as usual (the reference's counters that leave projectiles to a
+    /// reflector).
+    pub melee_only: bool,
 }
 
 /// Intangibility of part of the body (the reference's per-bone intangibility): during move frames `start..=end` the hurtbox
@@ -644,6 +695,9 @@ pub struct Move {
     pub air_max_fall: Option<Fx>,
     pub air_friction: Option<Fx>,
     pub air_drift: u8,
+    /// While the move runs without a motion in the air, its upward speed is held at or under this (the reference's maximum vertical
+    /// speed of a stance); `None` for no limit.
+    pub air_max_rise: Option<Fx>,
     /// Intangibility (`intangible` frames from the start) begins on this move frame instead of the first, when the move started
     /// on the ground (`intangible_from`) or in the air (`intangible_from_air`, 255 = the same as on the ground).
     pub intangible_from: u8,
@@ -737,6 +791,7 @@ impl Move {
             air_max_fall: None,
             air_friction: None,
             air_drift: 100,
+            air_max_rise: None,
             intangible_from: 0,
             intangible_from_air: 255,
             land_continue: false,
@@ -918,7 +973,12 @@ impl StateHash for Weapon {
             ] {
                 h.write_u8(b);
             }
-            for v in [m.air_gravity, m.air_max_fall, m.air_friction] {
+            for v in [
+                m.air_gravity,
+                m.air_max_fall,
+                m.air_friction,
+                m.air_max_rise,
+            ] {
                 match v {
                     Some(x) => {
                         h.write_bool(true);
@@ -1037,6 +1097,19 @@ impl StateHash for Weapon {
                     r.detect_x.hash_into(h);
                     r.detect_y.hash_into(h);
                     r.detect_radius.hash_into(h);
+                    match r.detect_then {
+                        Some(id) => {
+                            h.write_bool(true);
+                            h.write_u8(id);
+                        }
+                        None => h.write_bool(false),
+                    }
+                    r.half_height.hash_into(h);
+                    h.write_u8(r.body_start);
+                    h.write_u8(r.body_end);
+                    r.body_x.hash_into(h);
+                    r.body_y.hash_into(h);
+                    r.body_radius.hash_into(h);
                 }
                 None => h.write_bool(false),
             }
@@ -1048,6 +1121,8 @@ impl StateHash for Weapon {
                     h.write_u8(c.then);
                     h.write_u8(c.percent);
                     c.min_damage.hash_into(h);
+                    c.max_damage.hash_into(h);
+                    h.write_bool(c.melee_only);
                 }
                 None => h.write_bool(false),
             }
@@ -1992,6 +2067,8 @@ fn sword_kit() -> Weapon {
         then: MoveId::Ext0 as u8,
         percent: 120,
         min_damage: Fx::from_int(8),
+        max_damage: Fx::ZERO,
+        melee_only: false,
     });
     moves[MoveId::DownSpecial as usize] = counter;
     let mut answer = ref_move(
@@ -3152,6 +3229,7 @@ fn cape() -> Move {
         detect_x: Fx::from_ratio(66, 100),
         detect_y: Fx::from_ratio(81, 100),
         detect_radius: Fx::from_ratio(134, 100),
+        ..Reflector::NONE
     });
     mv.script = Some(script(Kind::Fighter, include_str!("scripts/cape.script")));
     mv.start_speed = 40;
@@ -3753,6 +3831,7 @@ pub fn claws() -> Weapon {
         detect_x: Fx::ZERO,
         detect_y: Fx::ZERO,
         detect_radius: Fx::ZERO,
+        ..Reflector::NONE
     });
     reflector.script = Some(script(
         Kind::Fighter,

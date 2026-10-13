@@ -746,6 +746,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.air_gravity = f.parsed("air_gravity", errors);
     m.air_max_fall = f.parsed("air_max_fall", errors);
     m.air_friction = f.parsed("air_friction", errors);
+    m.air_max_rise = f.parsed("air_max_rise", errors);
     m.air_drift = f.or("air_drift", 100, errors);
     m.intangible_from = f.or("intangible_from", 0, errors);
     m.intangible_from_air = f.or("intangible_from_air", 255, errors);
@@ -1016,7 +1017,25 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             detect_x: f.or("detect_x", Fx::ZERO, errors),
             detect_y: f.or("detect_y", Fx::ZERO, errors),
             detect_radius: f.or("detect_radius", Fx::ZERO, errors),
+            detect_then: None,
+            half_height: f.or("half_height", Fx::ZERO, errors),
+            body_start: f.or("body_start", 0, errors),
+            body_end: f.or("body_end", 0, errors),
+            body_x: f.or("body_x", Fx::ZERO, errors),
+            body_y: f.or("body_y", Fx::ZERO, errors),
+            body_radius: f.or("body_radius", Fx::ZERO, errors),
         };
+        let mut r = r;
+        if let Some((key, line)) = f.raw("detect_then") {
+            match MoveId::from_key(key) {
+                Some(id) => r.detect_then = Some(id as u8),
+                None => err(
+                    errors,
+                    line,
+                    format!("`detect_then` must be a move name, not `{key}`"),
+                ),
+            }
+        }
         f.finish(errors);
         m.reflector = Some(r);
     }
@@ -1046,6 +1065,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             then,
             percent: f.need("percent", None, errors),
             min_damage: f.need("min_damage", None, errors),
+            max_damage: f.or("max_damage", Fx::ZERO, errors),
+            melee_only: f.or("melee_only", false, errors),
         };
         f.finish(errors);
         m.counter = Some(c);
@@ -1131,6 +1152,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("air_gravity", m.air_gravity),
         ("air_max_fall", m.air_max_fall),
         ("air_friction", m.air_friction),
+        ("air_max_rise", m.air_max_rise),
     ] {
         if let Some(v) = value {
             b.field(name, v.show());
@@ -1234,6 +1256,12 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         cb.field("then", MoveId::from_index(c.then).key());
         cb.field("percent", c.percent.to_string());
         cb.field("min_damage", c.min_damage.show());
+        if c.max_damage != Fx::ZERO {
+            cb.field("max_damage", c.max_damage.show());
+        }
+        if c.melee_only {
+            cb.field("melee_only", "true");
+        }
         b.push(cb);
     }
     for mo in &m.motion {
@@ -1306,6 +1334,19 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             c.field("detect_x", r.detect_x.show());
             c.field("detect_y", r.detect_y.show());
             c.field("detect_radius", r.detect_radius.show());
+        }
+        if let Some(id) = r.detect_then {
+            c.field("detect_then", MoveId::from_index(id).key());
+        }
+        if r.half_height != Fx::ZERO {
+            c.field("half_height", r.half_height.show());
+        }
+        if r.body_radius != Fx::ZERO {
+            c.field("body_start", r.body_start.to_string());
+            c.field("body_end", r.body_end.to_string());
+            c.field("body_x", r.body_x.show());
+            c.field("body_y", r.body_y.show());
+            c.field("body_radius", r.body_radius.show());
         }
         b.push(c);
     }

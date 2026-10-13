@@ -254,3 +254,354 @@ fn the_warp_catches_a_ledge_from_the_reappearance_on() {
         frame + 1
     );
 }
+
+// ---- Down special: the counter and the reflect barrier ------------------------------------------------------------------
+
+const COUNTERATTACK: MoveId = MoveId::Ext0;
+const REFLECTION: MoveId = MoveId::Ext1;
+
+#[test]
+fn the_counter_and_barriers_data_is_the_references() {
+    let sim = duel();
+    let w = staff(&sim);
+    let stance = w.get(MoveId::DownSpecial as u8);
+    assert_eq!(u16::from(stance.total_frames) + 2, 71, "FAF 71");
+    // Intangible 6-12.
+    assert_eq!((stance.intangible_from, stance.intangible), (5, 12));
+    let c = stance.counter.expect("a counter");
+    assert_eq!((c.start + 1, c.end + 1), (7, 34), "counter window 7-34");
+    assert_eq!(c.then, COUNTERATTACK as u8);
+    assert_eq!(
+        (c.percent, c.min_damage, c.max_damage, c.melee_only),
+        (130, Fx::from_int(10), Fx::from_int(50), true)
+    );
+    let rf = stance.reflector.expect("a projectile search box");
+    assert_eq!((rf.detect_start + 1, rf.detect_end + 1), (7, 34));
+    assert_eq!(rf.detect_then, Some(REFLECTION as u8));
+    assert!(rf.start > rf.end, "the stance itself reflects nothing");
+    assert_eq!(rf.detect_radius, fx(15, 10));
+    // The air: x0.33 on starting, friction 0.0025, gravity 0.04, top fall 1.2, top rise 0.8 (reference units).
+    assert_eq!(stance.start_speed, 33);
+    assert_eq!(
+        (
+            stance.air_friction,
+            stance.air_gravity,
+            stance.air_max_fall,
+            stance.air_max_rise
+        ),
+        (
+            Some(fx(25, 80_000)),
+            Some(su(40)),
+            Some(su(1200)),
+            Some(su(800))
+        )
+    );
+
+    let strike = w.get(COUNTERATTACK as u8);
+    assert_eq!(u16::from(strike.total_frames) + 2, 37, "FAF 37");
+    assert_eq!(strike.intangible, 5, "intangible 1-5");
+    assert!(strike.counter_strike);
+    assert!(strike
+        .hitboxes
+        .iter()
+        .all(|h| (h.start + 1, h.end + 1, h.angle, h.hitlag, h.clanks) == (5, 7, 361, 150, false)));
+    let kb: Vec<(u8, i16, i16)> = strike
+        .hitboxes
+        .iter()
+        .map(|h| (h.priority, h.base_knockback, h.knockback_growth))
+        .collect();
+    assert!(kb.contains(&(0, 50, 70)) && kb.contains(&(1, 30, 65)));
+
+    let reflection = w.get(REFLECTION as u8);
+    assert_eq!(u16::from(reflection.total_frames) + 2, 35, "FAF 35");
+    let rf = reflection.reflector.expect("the barrier");
+    assert_eq!(
+        (
+            rf.damage_percent,
+            rf.speed_percent,
+            rf.life_percent,
+            rf.max_damage
+        ),
+        (140, 125, 100, Fx::from_int(50))
+    );
+    assert_eq!(
+        (rf.body_start + 1, rf.body_end + 1),
+        (1, 4),
+        "body reflector 1-4"
+    );
+    assert_eq!(
+        (rf.start, rf.end),
+        (0, reflection.total_frames),
+        "the barrier to the end"
+    );
+    assert!(rf.half_height > Fx::ZERO, "a standing barrier");
+    assert!(reflection.hitboxes.iter().all(|h| h.push
+        && h.set_weight
+        && h.fixed_kb == 50
+        && (h.start + 1, h.end + 1) == (2, 11)));
+    assert_eq!(reflection.rehit, Some((1, 1)));
+}
+
+/// The seer standing at 0 facing right; player 1 (`class`) standing at `x` facing left.
+fn stance_against(class: u8, x: Fx) -> Sim {
+    let mut sim = Sim::with_chars([SEER, class, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, x, -1);
+    sim
+}
+
+#[test]
+fn a_melee_hit_in_the_window_is_countered_for_1_3_times_between_10_and_50() {
+    use sim_core::input::buttons::ATTACK;
+    // A jab (a few percent) is answered with the 10% floor; the counterattack then strikes for it.
+    let mut sim = stance_against(0, fx(15, 10));
+    sim.tick2(inp(0, -127, SPECIAL), inp(0, 0, 0));
+    sim.ticks(3, inp(0, 0, 0));
+    let mut caught = false;
+    for _ in 0..30 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, ATTACK));
+        if sim.f().move_id == COUNTERATTACK as u8 {
+            caught = true;
+            break;
+        }
+    }
+    assert!(caught, "the jab was countered");
+    assert_eq!(sim.f().percent, Fx::ZERO, "the counter took no damage");
+    assert_eq!(sim.f().counter_damage, Fx::from_int(10));
+    let before = sim.fighter(1).percent;
+    for _ in 0..40 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+    }
+    assert_eq!(
+        sim.fighter(1).percent - before,
+        Fx::from_int(10) * sim.content.rules.damage_mult,
+        "the counterattack deals what it caught"
+    );
+
+    // A huge hit is answered with at most 50%.
+    let mut sim = stance_against(0, fx(15, 10));
+    let w = usize::from(sim.content.fighters[0].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+        h.damage = Fx::from_int(45);
+    }
+    sim.tick2(inp(0, -127, SPECIAL), inp(0, 0, 0));
+    sim.ticks(3, inp(0, 0, 0));
+    for _ in 0..30 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, ATTACK));
+        if sim.f().move_id == COUNTERATTACK as u8 {
+            break;
+        }
+    }
+    assert_eq!(sim.f().move_id, COUNTERATTACK as u8);
+    assert_eq!(sim.f().counter_damage, Fx::from_int(50));
+}
+
+/// The claws' blaster fired at the seer, whose stance starts `delay` frames after the shot's owner presses special. Returns the sim
+/// once the shot has been reflected or has hit (or 60 frames have passed).
+fn shot_at_stance(delay: usize) -> Sim {
+    let mut sim = stance_against(1, Fx::from_int(6));
+    sim.tick2(inp(0, 0, 0), inp(0, 0, SPECIAL));
+    for t in 1..60 {
+        let seer = if t == delay {
+            inp(0, -127, SPECIAL)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(seer, inp(0, 0, 0));
+        if sim.f().move_id == REFLECTION as u8 || sim.f().percent > Fx::ZERO {
+            break;
+        }
+    }
+    sim
+}
+
+#[test]
+fn a_shot_touching_the_search_box_starts_the_reflection_and_is_never_countered() {
+    let sim = shot_at_stance(8);
+    assert_eq!(sim.f().move_id, REFLECTION as u8, "the reflection started");
+    assert_eq!(sim.f().state_frame, 0, "on the frame the shot touched");
+    assert_eq!(sim.f().percent, Fx::ZERO);
+    let shot = sim
+        .state
+        .projectiles
+        .iter()
+        .find(|p| p.active)
+        .expect("the shot is still flying");
+    assert_eq!(shot.owner, 0, "it belongs to the seer now");
+    assert_eq!(shot.power, 140, "x1.4 damage");
+    assert_eq!(
+        shot.vel.x,
+        su(3000) * fx(125, 100),
+        "turned round at x1.25 speed"
+    );
+}
+
+/// The seer (standing at 0, facing right) in `move` at move frame `frame`, and the claws' blaster shot flying at it from `x` ahead
+/// at `height`.
+fn shot_into(move_id: MoveId, frame: u16, x: Fx, height: Fx) -> Sim {
+    use sim_core::state::Projectile;
+    use sim_core::Vec2;
+    let mut sim = stance_against(1, Fx::from_int(9));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = move_id as u8;
+    f.state_frame = frame;
+    sim.state.projectiles[0] = Projectile {
+        active: true,
+        owner: 1,
+        origin: 1,
+        power: 100,
+        move_id: MoveId::NSpecial as u8,
+        pos: Vec2::new(x, height),
+        vel: Vec2::new(-su(3000), Fx::ZERO),
+        age: 1,
+        life: 35,
+        size: 100,
+        ..Projectile::default()
+    };
+    sim
+}
+
+#[test]
+fn a_shot_outside_the_window_hits() {
+    // Before the search box (the stance's frame 1, not yet intangible) and after it (frame 36): the seer is hit and nothing reflects.
+    // (Before: from close enough to land on frame 1 or 2.)
+    for (frame, x) in [(0u16, fx(13, 10)), (36, Fx::from_int(3))] {
+        let mut sim = shot_into(MoveId::DownSpecial, frame, x, fx(12, 10));
+        for _ in 0..10 {
+            sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+        }
+        assert!(sim.f().percent > Fx::ZERO, "frame {frame}: the shot landed");
+        assert_ne!(sim.f().move_id, REFLECTION as u8);
+        assert_ne!(sim.f().move_id, COUNTERATTACK as u8, "never countered");
+    }
+}
+
+#[test]
+fn the_reflections_barrier_reflects_shots_at_its_height_and_not_above() {
+    // The seer in the reflection at its frame 10 (past the body reflector): a shot at 2.2 up meets the barrier, one at 4.0 up flies
+    // over it.
+    for (height, reflected) in [(fx(22, 10), true), (Fx::from_int(4), false)] {
+        let mut sim = shot_into(REFLECTION, 10, Fx::from_int(3), height);
+        for _ in 0..4 {
+            sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+        }
+        let shot = sim.state.projectiles[0];
+        assert_eq!(shot.owner == 0, reflected, "height {height:?}: {shot:?}");
+    }
+}
+
+#[test]
+fn a_melee_hit_during_the_reflection_is_taken() {
+    use sim_core::input::buttons::ATTACK;
+    // The reflection does not counter: a jab into it lands.
+    let mut sim = stance_against(0, fx(15, 10));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = REFLECTION as u8;
+    f.state_frame = 12;
+    for _ in 0..12 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, ATTACK));
+    }
+    assert!(sim.f().percent > Fx::ZERO);
+    assert_ne!(sim.f().move_id, COUNTERATTACK as u8);
+}
+
+#[test]
+fn the_barriers_push_moves_a_fighter_without_hitstun() {
+    let mut sim = stance_against(0, fx(14, 10));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = REFLECTION as u8;
+    f.state_frame = 0;
+    let x0 = sim.fighter(1).pos.x;
+    for _ in 0..10 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+        assert_ne!(sim.fighter(1).state, S::Hitstun);
+    }
+    assert!(sim.fighter(1).pos.x > x0, "pushed away");
+    assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+}
+
+#[test]
+fn the_stance_holds_the_rise_at_0_8_and_keeps_a_third_of_the_speed() {
+    let mut sim = duel();
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(6), fx(1, 5), Fx::ONE);
+    sim.tick(inp(0, -127, SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::DownSpecial as u8);
+    assert_eq!(sim.f().vel.x, fx(1, 5) * fx(33, 100));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.f().vel.y,
+        su(800) - su(40),
+        "held at 0.8, then gravity 0.04"
+    );
+}
+
+#[test]
+fn the_counter_catches_through_its_own_intangibility() {
+    use sim_core::input::buttons::ATTACK;
+    // The stance is intangible on 6-12, but its counter (7-34) still catches a melee hit then, as the reference's counters do.
+    let mut sim = stance_against(0, fx(15, 10));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = MoveId::DownSpecial as u8;
+    f.state_frame = 6;
+    f.invuln = 6;
+    let mut caught_while_intangible = false;
+    for _ in 0..8 {
+        let was_intangible = is_intangible(sim.f());
+        sim.tick2(inp(0, 0, 0), inp(0, 0, ATTACK));
+        if sim.f().move_id == COUNTERATTACK as u8 {
+            caught_while_intangible = was_intangible;
+            break;
+        }
+    }
+    assert!(caught_while_intangible);
+}
+
+#[test]
+fn the_down_specials_new_fields_are_in_the_content_hash() {
+    use sim_core::Content;
+    let base = Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[usize::from(SEER)].weapon);
+    let edit = |f: &dyn Fn(&mut sim_core::moves::Move)| {
+        let mut c = base.clone();
+        f(&mut c.weapons[w].moves[MoveId::DownSpecial as usize]);
+        c.hash()
+    };
+    assert_ne!(
+        h,
+        edit(&|m| m.counter.as_mut().unwrap().melee_only = false),
+        "melee_only"
+    );
+    assert_ne!(
+        h,
+        edit(&|m| m.counter.as_mut().unwrap().max_damage = Fx::ZERO),
+        "max_damage"
+    );
+    assert_ne!(
+        h,
+        edit(&|m| m.reflector.as_mut().unwrap().detect_then = None),
+        "detect_then"
+    );
+    assert_ne!(h, edit(&|m| m.air_max_rise = None), "air_max_rise");
+    assert_ne!(
+        h,
+        edit(&|m| m.reflector.as_mut().unwrap().half_height = Fx::ONE),
+        "half_height"
+    );
+    assert_ne!(
+        h,
+        edit(&|m| m.reflector.as_mut().unwrap().body_radius = Fx::ONE),
+        "body_radius"
+    );
+    assert_ne!(
+        h,
+        edit(&|m| m.reflector.as_mut().unwrap().body_end = 9),
+        "body_end"
+    );
+}

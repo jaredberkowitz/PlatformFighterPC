@@ -1940,6 +1940,11 @@ fn attack(
         let plain = plain_landing_lag(f, p);
         let q = move_air_physics(p, mv, frame);
         let fast_fall_ok = frame >= u16::from(mv.fast_fall_from);
+        // (A stance's top rising speed holds the fighter's upward speed down before it moves.)
+        if let Some(rise) = mv.air_max_rise {
+            f.vel.y = f.vel.y.min(rise);
+            f.hop_boost = 0;
+        }
         if air_move_with(f, &q, stage, fast_fall_ok)
             && !mv.land_continue
             && frame >= u16::from(mv.lands_from)

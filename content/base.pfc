@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 74
-    hash 82cfe219e1b8368d
+    sim_version 75
+    hash c0a70a70895932f2
 }
 
 ruleset {
@@ -3069,13 +3069,17 @@ weapon staff {
         }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 angle_type position }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
-        script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
-        }
+        total_frames 69
+        intangible 12
+        land_continue true
+        start_speed 33
+        intangible_from 5
+        air_gravity 0.00499
+        air_max_fall 0.15
+        air_friction 0.0003
+        air_max_rise 0.09999
+        counter { start 6 end 33 then ext0 percent 130 min_damage 10 max_damage 50 melee_only true }
+        reflector { start 255 end 0 x 0 y 0 radius 0 damage_percent 140 speed_percent 125 max_damage 50 detect_start 6 detect_end 33 detect_x 0.2 detect_y 1.29999 detect_radius 1.5 detect_then ext1 }
     }
     move grab {
         total_frames 38
@@ -3126,6 +3130,37 @@ weapon staff {
         hitbox { start 24 end 25 x 1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
         hitbox { start 24 end 25 x 1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
         hitbox { start 24 end 25 x 0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
+    }
+    move ext0 {
+        total_frames 35
+        intangible 5
+        land_continue true
+        start_speed 33
+        air_gravity 0.00499
+        air_max_fall 0.15
+        air_friction 0.0003
+        air_max_rise 0.09999
+        counter_strike true
+        hitbox { start 4 end 6 x 1.59999 y 1.29999 radius 0.9 damage 10 angle 361 bkb 50 kbg 70 hitlag 150 clanks false angle_type forward }
+        hitbox { start 4 end 6 x 1.79999 y 1.29999 radius 0.9 damage 10 angle 361 bkb 50 kbg 70 hitlag 150 clanks false angle_type forward }
+        hitbox { start 4 end 6 x 1.09999 y 1.29999 radius 1.09999 damage 10 angle 361 bkb 30 kbg 65 priority 1 hitlag 150 clanks false angle_type forward }
+        hitbox { start 4 end 6 x 1.79999 y 1.29999 radius 1.09999 damage 10 angle 361 bkb 30 kbg 65 priority 1 hitlag 150 clanks false angle_type forward }
+        hitbox { start 4 end 6 x 2.5 y 1.29999 radius 1.09999 damage 10 angle 361 bkb 30 kbg 65 priority 1 hitlag 150 clanks false angle_type forward }
+    }
+    move ext1 {
+        total_frames 33
+        land_continue true
+        start_speed 33
+        air_gravity 0.00499
+        air_max_fall 0.15
+        air_friction 0.0003
+        air_max_rise 0.09999
+        rehit_start 1
+        rehit_every 1
+        hitbox { start 1 end 10 x 1.4 y 0.59999 radius 0.59999 damage 0 angle 361 bkb 0 kbg 100 fixed_kb 50 set_weight true push true angle_type forward }
+        hitbox { start 1 end 10 x 1.4 y 1.4 radius 0.59999 damage 0 angle 361 bkb 0 kbg 100 fixed_kb 50 set_weight true push true angle_type forward }
+        hitbox { start 1 end 10 x 1.4 y 2.29999 radius 0.59999 damage 0 angle 361 bkb 0 kbg 100 fixed_kb 50 set_weight true push true angle_type forward }
+        reflector { start 0 end 33 x 1.29999 y 1.4 radius 0.5 damage_percent 140 speed_percent 125 max_damage 50 half_height 1.2 body_start 0 body_end 3 body_x 0.2 body_y 1.29999 body_radius 1.4 }
     }
     move pivot_grab {
         total_frames 41

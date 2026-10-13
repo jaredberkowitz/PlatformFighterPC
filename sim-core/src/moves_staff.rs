@@ -80,7 +80,131 @@ pub fn staff() -> Weapon {
         w.moves[id as usize] = Move::empty();
     }
     warp(&mut w);
+    counter_and_barrier(&mut w);
     w
+}
+
+/// The counterattack and the reflection (slots 29 and 30).
+const COUNTERATTACK: MoveId = MoveId::Ext0;
+const REFLECTION: MoveId = MoveId::Ext1;
+
+/// The down special's air physics (the reference's parameters, in its units a frame), shared by the stance and its two answers [R]
+/// (the answers' own aerial physics are not published: [E] the stance's): horizontal speed x0.33 on starting, air friction 0.0025,
+/// gravity 0.04, top fall speed 1.2, top rising speed 0.8. Touching down carries the move on along the ground [E: gap 4].
+fn stance_air(m: &mut Move) {
+    m.start_speed = 33;
+    m.air_friction = Some(Fx::from_ratio(25, 80_000));
+    m.air_gravity = Some(su(40));
+    m.air_max_fall = Some(su(1200));
+    m.air_max_rise = Some(su(800));
+    m.land_continue = true;
+}
+
+/// Down special: the counter and the reflect barrier, one stance with two separate answers (the reference's, ssbwiki.com 13.0.1;
+/// `REFERENCE_DATA.md` "Down special"). A melee hit is countered; a projectile is reflected; never both.
+///
+/// * The stance (down special): FAF 71; intangible 6-12. It **counters melee hits only** on frames 7-34 (E10c `melee_only`): the
+///   counterattack deals 1.3 times the caught damage, at least 10% and at most 50% (E10c `max_damage`). On the same frames a
+///   **projectile search box** (radius 12.3 reference units on the chest: 1.5 world units at 0.2 ahead, 1.3 up [D]) starts the
+///   reflection the moment a shot touches it (E10c `detect_then`).
+/// * The counterattack (ext0, decision 22): the hit on frames 5-7 [R: ssbwiki.com, dragdown; UFD and kuroganehammer.com say 4-6],
+///   intangible 1-5 [R: the majority; ssbwiki.com 1-6], FAF 37. Two boxes, both the caught damage: id 0 BK 50 / KS 70 (radius 7.0 at
+///   10.5 up, 13.0 to 14.5 ahead) wins over id 1 BK 30 / KS 65 (radius 9.0, 9.0 to 20.0 ahead) [D positions on the root]; angle 361
+///   sent forward, hitlag x1.5, no clank.
+/// * The reflection (ext1): FAF 35. The body reflector on frames 1-4 (radius 11.5 at 10 up, 1.5 ahead: 1.4 at 1.3 up, 0.2 ahead [D])
+///   and the barrier, a standing capsule (radius 3.8, from 2 to 21 reference units up, 10 ahead: radius 0.5, centre 1.4 up and 1.3
+///   ahead, half height 1.2 [D]); both reflect at x1.4 damage, x1.25 speed, x1 lifetime, up to 50% shots [R]. The barrier's push
+///   (frames 2-11): set knockback 50 with set weight at angle 361 forward, re-applied every frame as the smashes' wind (radius 5.0,
+///   at the barrier from 5 to 18 up) [R numbers, D positions]. **Owner-chosen approximation (decision 20)**: the reference's barrier is
+///   a separate object lasting 45 frames (ten past the reflection's FAF) that stays when the seer is hit; here it is part of the
+///   reflection move and ends with it. A reflected shot turns its horizontal speed round only [E: gap 12].
+fn counter_and_barrier(w: &mut Weapon) {
+    let mut stance = ref_move(71, 0, 0, 255, &[]);
+    stance.intangible_from = 5;
+    stance.intangible = 12;
+    stance.counter = Some(Counter {
+        start: 6,
+        end: 33,
+        then: COUNTERATTACK as u8,
+        percent: 130,
+        min_damage: Fx::from_int(10),
+        max_damage: Fx::from_int(50),
+        melee_only: true,
+    });
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
+    stance.reflector = Some(Reflector {
+        damage_percent: 140,
+        speed_percent: 125,
+        max_damage: Fx::from_int(50),
+        detect_start: 6,
+        detect_end: 33,
+        detect_x: tenths(u(15)),
+        detect_y: tenths(u(100)),
+        detect_radius: tenths(u(123)),
+        detect_then: Some(REFLECTION as u8),
+        ..Reflector::NONE
+    });
+    stance_air(&mut stance);
+    w.moves[MoveId::DownSpecial as usize] = stance;
+
+    let mut strike = ref_move(37, 0, 0, 255, &[]);
+    for x in [130, 145] {
+        strike
+            .hitboxes
+            .push(row(&ru(5, 7, x, 105, 70, 100, 361, 50, 70, 0, 0)));
+    }
+    for x in along(90, 200, 55) {
+        strike
+            .hitboxes
+            .push(row(&ru(5, 7, x, 105, 90, 100, 361, 30, 65, 1, 0)));
+    }
+    for h in &mut strike.hitboxes {
+        h.hitlag = 150;
+        h.angle_type = ANGLE_FORWARD;
+        h.clanks = false;
+    }
+    strike.counter_strike = true;
+    strike.intangible = 5;
+    stance_air(&mut strike);
+    w.moves[COUNTERATTACK as usize] = strike;
+
+    let mut reflection = ref_move(
+        35,
+        0,
+        0,
+        255,
+        &along(50, 180, 65)
+            .into_iter()
+            .map(|y| ru(2, 11, 110, y, 50, 0, 361, 0, 100, 0, 0))
+            .collect::<Vec<_>>(),
+    );
+    for h in &mut reflection.hitboxes {
+        h.push = true;
+        h.fixed_kb = 50;
+        h.set_weight = true;
+        h.angle_type = ANGLE_FORWARD;
+    }
+    // (The push, reference frames 2-11, lands again every frame.)
+    reflection.rehit = Some((1, 1));
+    reflection.reflector = Some(Reflector {
+        start: 0,
+        end: reflection.total_frames,
+        x: tenths(u(100)),
+        y: tenths(u(115)),
+        radius: tenths(u(38)),
+        half_height: tenths(u(95)),
+        damage_percent: 140,
+        speed_percent: 125,
+        max_damage: Fx::from_int(50),
+        body_start: 0,
+        body_end: 3,
+        body_x: tenths(u(15)),
+        body_y: tenths(u(100)),
+        body_radius: tenths(u(115)),
+        ..Reflector::NONE
+    });
+    stance_air(&mut reflection);
+    w.moves[REFLECTION as usize] = reflection;
 }
 
 /// A reference speed or acceleration in thousandths of its units a frame, as world units a frame (1 world unit = 8) [D].

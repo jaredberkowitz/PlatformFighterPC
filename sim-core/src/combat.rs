@@ -320,7 +320,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 continue;
             }
             let fd = &state.fighters[d];
-            if is_intangible(fd) {
+            if is_intangible(fd) && !counter_open(content, fd, true) {
                 continue;
             }
             let pd = params_of(content, fd);
@@ -642,6 +642,22 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     held.hitlag = hitlag;
 }
 
+/// Whether `f` is in a counter stance whose window is open for a hit of this kind (`melee`, or a projectile's): such a hit reaches
+/// the counter even while the stance is intangible (the reference's counters catch through their own intangibility).
+fn counter_open(content: &Content, f: &Fighter, melee: bool) -> bool {
+    if !f.active || f.state != S::Attack {
+        return false;
+    }
+    weapon_of(content, params_of(content, f))
+        .get(f.move_id)
+        .counter
+        .is_some_and(|c| {
+            u16::from(c.start) <= f.state_frame
+                && f.state_frame <= u16::from(c.end)
+                && (melee || !c.melee_only)
+        })
+}
+
 /// If fighter `d` is in a counter stance whose window is open, cancels the hit and switches `d` to its answer.
 fn catch_with_counter(
     state: &mut GameState,
@@ -650,6 +666,7 @@ fn catch_with_counter(
     d: usize,
     damage: Fx,
     hitlag: u8,
+    melee: bool,
 ) -> bool {
     let def = &state.fighters[d];
     if def.state != S::Attack {
@@ -662,10 +679,17 @@ fn catch_with_counter(
     if def.state_frame < u16::from(c.start) || def.state_frame > u16::from(c.end) {
         return false;
     }
+    // A melee-only counter leaves projectiles alone (they are a reflector's business).
+    if c.melee_only && !melee {
+        return false;
+    }
     let answer_id = MoveId::from_index(c.then);
     let intangible = weapon.get(c.then).intangible;
-    let caught =
+    let mut caught =
         (damage * Fx::from_int(i32::from(c.percent)) / Fx::from_int(100)).max(c.min_damage);
+    if c.max_damage > Fx::ZERO {
+        caught = caught.min(c.max_damage);
+    }
     let attacker_x = state.fighters[source].pos.x;
     let def = &mut state.fighters[d];
     // The answer is swung at whoever struck.
@@ -740,7 +764,7 @@ fn apply_hit(
         hitlag_frames(hb.damage, rules, shielding, crouching, scale)
     };
     // A fighter in a counter stance catches the hit instead of taking it.
-    if catch_with_counter(state, content, source, d, hb.damage, hitlag) {
+    if catch_with_counter(state, content, source, d, hb.damage, hitlag, freeze_source) {
         if freeze_source {
             state.fighters[source].hitlag = hitlag;
         }
@@ -1165,10 +1189,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
 
         for d in 0..MAX_FIGHTERS {
-            if d == owner || is_intangible(&state.fighters[d]) {
+            let fd = &state.fighters[d];
+            if d == owner || (is_intangible(fd) && !counter_open(content, fd, false)) {
                 continue;
             }
-            let fd = &state.fighters[d];
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
             let hurt = hurtboxes(fd, pd, wd);
@@ -1234,19 +1258,44 @@ fn reflector_touching(
             continue;
         };
         let frame = u8::try_from(f.state_frame).unwrap_or(u8::MAX);
-        if frame < rf.start || frame > rf.end {
-            continue;
-        }
         let scale = params_of(content, f).hitbox_scale;
-        let centre = Vec2::new(
-            f.pos.x + (rf.x * scale).mul_int(i32::from(f.facing)),
-            f.pos.y + rf.y * scale,
-        );
-        if overlaps(pos, radius, centre, rf.radius * scale) {
+        let at = |x: Fx, y: Fx| {
+            Vec2::new(
+                f.pos.x + (x * scale).mul_int(i32::from(f.facing)),
+                f.pos.y + y * scale,
+            )
+        };
+        // The field (a circle, or a standing capsule), and the body field beside it on its own frames.
+        let field = frame >= rf.start
+            && frame <= rf.end
+            && overlaps_upright(
+                pos,
+                radius,
+                at(rf.x, rf.y),
+                rf.half_height * scale,
+                rf.radius * scale,
+            );
+        let body = rf.body_radius > Fx::ZERO
+            && frame >= rf.body_start
+            && frame <= rf.body_end
+            && overlaps(
+                pos,
+                radius,
+                at(rf.body_x, rf.body_y),
+                rf.body_radius * scale,
+            );
+        if field || body {
             return Some((i, rf));
         }
     }
     None
+}
+
+/// Whether a circle at `c1` of `r1` touches a vertical capsule centred on `c2`, from `half_height` below it to `half_height` above,
+/// of radius `r2` (a circle when `half_height` is 0).
+fn overlaps_upright(c1: Vec2, r1: Fx, c2: Vec2, half_height: Fx, r2: Fx) -> bool {
+    let nearest = Vec2::new(c2.x, c1.y.clamp(c2.y - half_height, c2.y + half_height));
+    overlaps(c1, r1, nearest, r2)
 }
 
 /// A reflector's projectile detector (the reference's): a projectile touching it while it is out, before the reflector is up, skips
@@ -1273,7 +1322,7 @@ fn reflector_detects(
         if rf.detect_end == 255
             || frame < u16::from(rf.detect_start)
             || frame > u16::from(rf.detect_end)
-            || frame + 1 >= u16::from(rf.start)
+            || (rf.detect_then.is_none() && frame + 1 >= u16::from(rf.start))
         {
             continue;
         }
@@ -1283,8 +1332,23 @@ fn reflector_detects(
             f.pos.y + rf.detect_y * scale,
         );
         if overlaps(pos, radius, centre, rf.detect_radius * scale) {
-            // (The next frame's update adds one.)
-            state.fighters[i].state_frame = u16::from(rf.start) - 1;
+            match rf.detect_then {
+                // The reflection move starts now (its frame 0 is this frame), so its reflector meets this shot at once.
+                Some(next) => {
+                    let w = weapon_of(content, params_of(content, f));
+                    let then = w.get(next);
+                    let invuln = if then.intangible_start(f.move_air) == 0 {
+                        then.intangible
+                    } else {
+                        0
+                    };
+                    let f = &mut state.fighters[i];
+                    fighter::begin_attack(f, MoveId::from_index(next));
+                    f.invuln = f.invuln.max(invuln);
+                }
+                // (The next frame's update adds one.)
+                None => state.fighters[i].state_frame = u16::from(rf.start) - 1,
+            }
         }
     }
 }

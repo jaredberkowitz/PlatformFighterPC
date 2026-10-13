@@ -173,6 +173,43 @@ exact distance, the half-speed frame, intangibility frame by frame), `the_stick_
 `the_warp_catches_a_ledge_from_the_reappearance_on`. Workspace tests, clippy, fmt, `fuzz-rollback 1000` and `net-fuzz 200` at 0
 mismatches.
 
+### Milestone 2 (sim 75): Counter / Reflect Barrier (down special)
+
+`moves_staff.rs` `counter_and_barrier`: the stance (down special), the counterattack (`ext0`), the reflection (`ext1`).
+
+**Engine (E10c and two small additions; each defaults to the old behaviour, no schema change: older content means the same):**
+
+| Field | What | Where |
+| --- | --- | --- |
+| `Counter::melee_only` | a projectile's hit is not caught (it lands as usual) | `combat::catch_with_counter` (told whether the hit is melee) |
+| `Counter::max_damage` | the answer's damage is at most this (0: no cap) | `catch_with_counter` |
+| (rule) | a counter whose window is open catches **through its own intangibility** (the reference's counters do: their intangibility and catch windows overlap). Only a fighter in an open counter window is affected, so no existing fighter changes (the Longsword's stance has no intangibility) | `combat::counter_open`, `resolve_hits`, `update_projectiles` |
+| `Reflector::detect_then` | a shot touching the detector **starts that move at once** (with its intangibility), so its reflector meets the shot on the same frame; the detector then works on its whole window | `combat::reflector_detects` |
+| `Reflector::half_height` | the field as a standing capsule (the barrier) instead of a circle | `combat::reflector_touching`, `overlaps_upright` |
+| `Reflector::body_*` | a second circle with the same numbers on its own frames (the body reflector beside the barrier) | `reflector_touching` |
+| `Move::air_max_rise` | the upward speed is held at or under it while the move runs without a motion in the air (the full hop's opening is cut too) | `fighter::attack` |
+
+Content: `counter { max_damage melee_only }`, `reflector { detect_then half_height body_start body_end body_x body_y body_radius }`,
+`air_max_rise` (`docs/CONTENT.md`); validation: `detect_then` must be a real move, `max_damage` not under `min_damage`.
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Stance | FAF 71; intangible 6-12; counter 7-34 (130%, min 10, max 50, melee only, answer `ext0`); the projectile search box 7-34 (radius 12.3 reference units on the chest: 1.5 at 0.2 ahead, 1.3 up) starting `ext1` | [R]; positions [D] |
+| Stance air | x0.33 on starting, friction 0.0025, gravity 0.04, top fall 1.2, top rise 0.8; touching down carries on | [R]; landing [E] gap 4 |
+| Counterattack | hit 5-7 (decision 22), intangible 1-5 (the majority), FAF 37; id 0 BK 50 / KS 70 (r 7.0, 10.5 up, 13.0-14.5 ahead) over id 1 BK 30 / KS 65 (r 9.0, 9.0-20.0 ahead); 361 forward, x1.5 hitlag, no clank; the caught damage; turned toward whoever struck; the caught hit's hitlag only before it (conflict 3) | [R]; positions [D]; the freeze [E] |
+| Reflection | FAF 35; body reflector 1-4 (r 11.5 at 10 up, 1.5 ahead); the barrier a capsule r 3.8 from 2 to 21 up, 10 ahead, to the end of the move; x1.4 damage, x1.25 speed, x1 life, limit 50; the push on 2-11 (set knockback 50, set weight, 361 forward, re-applied every frame as the smashes' wind) | [R]; positions [D]; **barrier ending with the move: owner-chosen approximation (decision 20)** |
+| Both answers' air | the stance's numbers | [E] |
+| Reflected shot | horizontal speed turned round only | [E] gap 12 |
+| Counter bubble | the reference catches on its own bubble (r 11.5 at 10 up); here the body's hurtboxes | [E] |
+
+Tests (all run): `the_counter_and_barriers_data_is_the_references`, `a_melee_hit_in_the_window_is_countered_for_1_3_times_between_10_and_50`
+(a jab answered with the 10% floor and the counterattack dealing it; a 45% hit answered with 50), `the_counter_catches_through_its_own_intangibility`,
+`a_shot_touching_the_search_box_starts_the_reflection_and_is_never_countered` (the reflection on the touching frame, the shot the
+seer's at x1.4 power and x1.25 speed), `a_shot_outside_the_window_hits` (before and after), `the_reflections_barrier_reflects_shots_at_its_height_and_not_above`,
+`a_melee_hit_during_the_reflection_is_taken` (the two answers never both), `the_barriers_push_moves_a_fighter_without_hitstun`,
+`the_stance_holds_the_rise_at_0_8_and_keeps_a_third_of_the_speed`, `the_down_specials_new_fields_are_in_the_content_hash`. Workspace
+tests, clippy, fmt, `fuzz-rollback 1000`, `net-fuzz 200` at 0 mismatches.
+
 ## Phase 2 plan: the specials (as written before building)
 
 Slots: the rapid jab holds `ext10` to `ext12`; the claws' placeholders in `ext0` to `ext2` go. The specials need two: the
