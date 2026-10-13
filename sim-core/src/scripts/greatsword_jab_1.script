@@ -1,0 +1,3 @@
+// Greatsword jab 1. Holding attack (no new press) throws jab 1 again from frame 16, the reference's consecutive jab: the move restarts
+// on its own slot (0). A new press carries on into jab 2 instead, from frame 8 (the move's `next_from`, not this script).
+if attack && frame == 15 { goto(0); }

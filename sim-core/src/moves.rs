@@ -4006,13 +4006,24 @@ pub use gauntlets::gauntlets;
 mod staff;
 pub use staff::staff;
 
+#[path = "moves_greatsword.rs"]
+mod greatsword;
+pub use greatsword::greatsword;
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn every_weapon_has_every_move_slot() {
-        for w in [longsword(), claws(), needles(), embers(), gauntlets()] {
+        for w in [
+            longsword(),
+            claws(),
+            needles(),
+            embers(),
+            gauntlets(),
+            greatsword(),
+        ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
                 if m.is_empty() {

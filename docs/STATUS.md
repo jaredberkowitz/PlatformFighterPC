@@ -93,6 +93,12 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 83** (branch `greatsword-phase1`, on `movesets` at sim 82; no schema change): the seventh class, Greatsword on the champion body
+(built-in fighter Champion, modelled on the reference game's Cloud, owner decision 30), phase 1: the body (weight 100, wall jump 1.3 /
+2.4, heavy landing 3) and every normal on the reference's data read from ssbwiki.com's raw hitbox tables (`docs/movesets/cloud/`): the
+jab chain's continuable windows and held repeat, the forward smash's three set-weight hits, the up air as one hit, the forward and down
+air meteors, hit-then-throw throws. No engine change. Its specials are still the claws' until phases 2 and 3 (the Boost gauge E9,
+E3e, E3f, E11 and E16 additions, E22b, E28: plan in `docs/movesets/cloud/IMPLEMENTATION_REPORT.md`). Tests `sim-core/tests/greatsword.rs`.
 
 ## Roadmap progress
 

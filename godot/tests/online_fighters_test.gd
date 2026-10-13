@@ -116,7 +116,7 @@ func _online() -> void:
 	check(r[2][0] == 1 and r[2][1] == 1, "both sides are running: %s" % str(r[2]))
 	check(a.fighter_scale(0) > 1.25 and a.fighter_scale(1) < 0.75, "the host sees a big fighter 1 and a small fighter 2: %f %f" % [a.fighter_scale(0), a.fighter_scale(1)])
 	check(is_equal_approx(a.fighter_scale(0), b.fighter_scale(0)) and is_equal_approx(a.fighter_scale(1), b.fighter_scale(1)), "and the joiner agrees")
-	check(Array(a.fighter_names()).size() == 8 and Array(b.fighter_names()).size() == 8, "both built the same eight-fighter roster (six built in, two made)")
+	check(Array(a.fighter_names()).size() == 9 and Array(b.fighter_names()).size() == 9, "both built the same nine-fighter roster (seven built in, two made)")
 	check(a.content_hash() == b.content_hash(), "with the same content hash")
 	var specs: Array = a.net_fighter_specs()
 	check(specs.size() == 2 and specs[0] == Roster.spec_bytes(big) and specs[1] == Roster.spec_bytes(small), "the specs were exchanged")
@@ -132,7 +132,7 @@ func _online() -> void:
 	r = play(duelist, small, false)
 	check(r[2][0] == 1 and r[2][1] == 1, "a built-in fighter against a made one plays")
 	r = play(Roster.builtins()[1], duelist, false)
-	check(r[2][0] == 1 and r[2][1] == 1 and Array(r[0].fighter_names()).size() == 6, "two built-in fighters keep the base roster")
+	check(r[2][0] == 1 and r[2][1] == 1 and Array(r[0].fighter_names()).size() == 7, "two built-in fighters keep the base roster")
 
 	# Ranked rules refuse an over-budget fighter, from either side; a casual match accepts it.
 	r = play(big, small, true)

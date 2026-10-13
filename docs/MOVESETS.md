@@ -93,6 +93,15 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   hitstun modifier (`Hitbox::hitstun_add`). Since sim 73 its reference no-clank moves never clank (`Hitbox::clanks`). The specials
   are the claws' until phase 2.
 
+### 7. Greatsword champion (the reference greatsword swordsman's role)
+- A middleweight (100) with a huge two-handed sword and kicks: long, single strong hits rather than multi-hits (the forward smash's three
+  quick hits are the exception), sword meteors in the forward and down air, a strong-then-lingering up air, and (phases 2 and 3) a slow
+  sword wave, a combo slash that only carries on when it lands, a rising slash with a falling follow-up, and a gauge ("Boost" for now)
+  that charges from damage and turns the next special into a finisher.
+- **As built (phase 1, sim 83):** the body (`FighterParams::champion`, wall jump 1.3 / 2.4, heavy landing 3) and every normal on the
+  reference's published data (`docs/movesets/cloud/`, code in `sim-core/src/moves_greatsword.rs`), on existing mechanics only. The
+  specials are the claws' until phase 2.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

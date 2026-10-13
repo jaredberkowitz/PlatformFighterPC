@@ -112,6 +112,27 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (4, Ext9, all(P)),
         (4, Ext7, all(F)),
         (4, Ext8, all(P)),
+        // Greatsword (weapon 6, phase 1, sim 81: ssbwiki.com raw tables, 13.0.1). Every damaging normal carries its type: the jabs,
+        // tilts but the up tilt, dash attack, forward smash, forward air and ledge attack forward (3); the up tilt, neutral, up and down
+        // airs and the get-up attack by position (0); the back air backward (4); the up smash forward (3) but its late hit by position;
+        // the down smash's first hit forward and its second backward.
+        (6, Jab, all(F)),
+        (6, Jab2, all(F)),
+        (6, Jab3, all(F)),
+        (6, FTilt, all(F)),
+        (6, UTilt, all(P)),
+        (6, DTilt, all(F)),
+        (6, DashAttack, all(F)),
+        (6, FSmash, all(F)),
+        (6, USmash, [vec![F; 8], vec![P; 3]].concat()),
+        (6, DSmash, [vec![F; 10], vec![B; 3]].concat()),
+        (6, NAir, all(P)),
+        (6, FAir, all(F)),
+        (6, BAir, all(B)),
+        (6, UAir, all(P)),
+        (6, DAir, all(P)),
+        (6, LedgeAttack, all(F)),
+        (6, GetUpAttack, all(P)),
     ]
 }
 
@@ -137,7 +158,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 75);
+    assert_eq!(checked, 92);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {

@@ -958,6 +958,65 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A middleweight with a huge sword: the "champion" body of the Greatsword moveset. The reference character's attributes
+    /// (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the seventh moveset's `REFERENCE_DATA.md` in
+    /// `docs/movesets/`): weight 100, walk 1.155, initial dash 2.145, run 2.167, traction 0.106, air speed 1.155, air acceleration 0.01 + 0.06, air friction 0.009,
+    /// gravity 0.098, fall 1.68 (fast 2.688), full hop 32.5, short hop 17, double jump 32.5, ledge jump 36.25 (drift 0.6). On the
+    /// ground: walk acceleration 0 + 0.1575, run acceleration 0.011 + 0.099, an initial dash of 10 frames, a heavy landing of 4 (3 of
+    /// lag: the parameter file's `landing_heavy_frame`). Air dodges 47 (neutral, intangible 3-30) and 64 / 79 / 104 (directional,
+    /// intangible 3-21); rolls 29 forward (intangible 4-15) and 34 back, spot dodge 25 (3-17): the shared ones. A wall jump (the
+    /// parameter file's `wall_jump_type`), 1.3 away and 2.4 up, the same speeds as its wall-tech jump. The shared body height [E].
+    pub fn champion() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(98);
+        let (burst, arc) = Self::full_hop(gravity, su(32500));
+        FighterParams {
+            walk_speed: gu(1155),
+            run_speed: gu(2167),
+            dash_speed: gu(2145),
+            walk_accel: Fx::ZERO,
+            walk_accel_stick: FighterParams::gu_fine(15750),
+            run_accel: gu(11),
+            run_accel_stick: gu(99),
+            dash_frames: 10,
+            heavy_landing_lag: 3,
+            air_speed: su(1155),
+            air_accel: su(10),
+            air_accel_stick: su(60),
+            air_friction: su(9),
+            gravity,
+            max_fall_speed: su(1680),
+            fast_fall_speed: su(2688),
+            air_dodge_frames: 47,
+            air_dodge_dir_down_frames: 64,
+            air_dodge_dir_side_frames: 79,
+            air_dodge_dir_up_frames: 104,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.106 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(212),
+            dash_attack_friction: gu(106),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(17000)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(32500)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36250)),
+            weight: Fx::from_int(100),
+            weapon: 6,
+            // The reference's wall jump (`passive_wall_jump_x_speed` 1.3, `_y_speed` 2.4). (Its 0.2 "enable" speed and 0.5 passive wall
+            // speed are not modelled for anyone.)
+            wall_jump: 1,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2400),
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1515,8 +1574,8 @@ impl Content {
         h.finish()
     }
 
-    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter and a
-    /// tall caster) on a main stage with platforms.
+    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
+    /// tall caster and a champion with a greatsword) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1526,6 +1585,7 @@ impl Content {
                 FighterParams::tumbler(),
                 FighterParams::sprinter(),
                 FighterParams::seer(),
+                FighterParams::champion(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -1534,6 +1594,7 @@ impl Content {
                 crate::moves::embers(),
                 crate::moves::gauntlets(),
                 crate::moves::staff(),
+                crate::moves::greatsword(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1546,6 +1607,7 @@ impl Content {
                     "tumbler".to_string(),
                     "sprinter".to_string(),
                     "seer".to_string(),
+                    "champion".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -1554,6 +1616,7 @@ impl Content {
                     "embers".to_string(),
                     "gauntlets".to_string(),
                     "staff".to_string(),
+                    "greatsword".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

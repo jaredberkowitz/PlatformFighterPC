@@ -12,7 +12,7 @@ static var session := {}
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 
-const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff"]
+const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword"]
 const CLASS_BLURBS := [
 	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
 	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
@@ -20,6 +20,7 @@ const CLASS_BLURBS := [
 	"Fast fists and feet: an all-rounder with high jumps, up-air juggles, a spinning down air and a meteor overhand.",
 	"Blazing speed and heavy hands: a dashing bruiser with a one-frame flying knee, a stomping meteor and a jab flurry.",
 	"Light from a distance: a tall caster with a staff who sets off blasts where it points, locks on and fires, blinks across the stage and answers a strike or a shot in kind.",
+	"A huge blade and a rising boost: long reach, a slow wave that crosses the stage, a combo slash that only carries on when it lands, and a boost that turns every special into a finisher.",
 ]
 
 
@@ -207,7 +208,10 @@ static func builtins() -> Array:
 	var seer := neutral_entry("Seer", 5, oracle)
 	seer.builtin = true
 	seer.base_index = 5
-	return [duelist, brawler, rogue, tumbler, sprinter, seer]
+	var champion := neutral_entry("Champion", 6, Loadout.default_for(6))
+	champion.builtin = true
+	champion.base_index = 6
+	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion]
 
 
 static func slug_of(name: String) -> String:
