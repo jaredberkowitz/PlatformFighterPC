@@ -2097,7 +2097,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		# The bubble shrinks and turns from blue through yellow to red as its health runs out.
 		var hp: float = clampf(s.shield, 0.0, 1.0)
 		shield.scale = Vector3.ONE * (0.45 + 0.55 * hp)
-		var col := Color(0.4, 0.7, 1.0, 0.35).lerp(Color(1.0, 0.35, 0.25, 0.45), 1.0 - hp)
+		var col := Color(0.24, 0.56, 1.0, 0.35).lerp(Color(1.0, 0.3, 0.22, 0.45), 1.0 - hp)
 		(shield.material_override as ShaderMaterial).set_shader_parameter("tint", Color(col.r, col.g, col.b, 1.0))
 	speed_lines.visible = fast_falling
 	_animate(s, delta)

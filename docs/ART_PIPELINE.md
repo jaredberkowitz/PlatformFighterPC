@@ -977,3 +977,10 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   grit, low in contrast. `grove_roots_front.png`.
 - **The Skyline roof**: the roofing laid in sheets, seams running back from the front with a lighter lap beside each, low in contrast
   under the fighters. `city_roof_seams.png`.
+
+## A painted shield (forty-third pass)
+
+- **The shield bubble** (`shaders/shield.gdshader`) in cel steps: a faint fill in its tint with brush streaks swirling over it, a rim
+  that steps up in two crisp bands to a dark line at the edge, a white highlight crescent on the upper left and a thin bounce of light on
+  the lower right (from the world-space normal: the camera looks down the stage's depth). Its tint still follows its health, now a deeper
+  blue when full (`0.24, 0.56, 1.0`) through to red. `shield_before.png` / `shield_painted.png`.
