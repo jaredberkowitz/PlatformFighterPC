@@ -104,16 +104,19 @@ class Board extends Control:
 	## One fighter's display: the portrait, the damage, the stocks and the name bar, with the weapon's emblem faint behind.
 	func _card(i: int, count: int) -> void:
 		var block := Vector2(330, 126)
-		# Cards shrink to fit when there are more than the screen is wide for (four players at 16:9), with at least 14 pixels between
-		# them; each is drawn at full size and scaled about its bottom-left corner.
-		var fit := minf(1.0, (size.x - 80.0 - 14.0 * maxf(0.0, count - 1.0)) / (block.x * count))
+		# Cards shrink to fit when there are more than the screen is wide for (four players at 16:9), with at least `CARD_GAP` pixels
+		# between them; each is drawn at full size and scaled about its bottom-left corner (`card_xf`, which the portrait's own tilt is
+		# drawn inside, so the stocks and the damage after it keep the card's scale).
+		var fit := minf(1.0, (size.x - 80.0 - CARD_GAP * maxf(0.0, count - 1.0)) / (block.x * count))
 		var cw := block.x * fit
 		var gap := (size.x - 80.0 - cw * count) / maxf(1.0, count - 1.0) if count > 1 else 0.0
 		var x := 40.0 + i * (cw + gap) if count > 1 else (size.x - cw) * 0.5
 		var base := Vector2(x, size.y - block.y - BOTTOM_MARGIN)
+		card_xf = Transform2D.IDENTITY
 		if fit < 1.0:
 			var corner := Vector2(x, size.y - BOTTOM_MARGIN)
-			draw_set_transform(corner * (1.0 - fit), 0.0, Vector2(fit, fit))
+			card_xf = Transform2D(0.0, Vector2(fit, fit), 0.0, corner * (1.0 - fit))
+		draw_set_transform_matrix(card_xf)
 		var out: bool = not data.alive[i]
 		var color: Color = PLAYER_COLORS[i]
 		var grey := Color(0.5, 0.5, 0.55)
@@ -184,6 +187,9 @@ class Board extends Control:
 		draw_string_outline(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, o, D.INK)
 		draw_string(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
 
+	const CARD_GAP := 14.0
+	## The card being drawn's scale to fit (see `_card`).
+	var card_xf := Transform2D.IDENTITY
 	const POP_KICK := 9.0
 	const POP_STIFF := 260.0
 	const POP_DAMP := 16.0
@@ -201,7 +207,7 @@ class Board extends Control:
 
 	## The fighter's face in a tilted square: a backing in the player's colour, the portrait, a pale inner line and an ink edge.
 	func _portrait(i: int, centre: Vector2, color: Color, out: bool) -> void:
-		draw_set_transform(centre, deg_to_rad(-7.0), Vector2.ONE)
+		draw_set_transform_matrix(card_xf * Transform2D(deg_to_rad(-7.0), centre))
 		var r := Rect2(-50, -50, 100, 100)
 		draw_rect(Rect2(r.position + Vector2(5, 7), r.size), Color(0, 0, 0, 0.28))
 		# The backing in the player's colour, a little muted, so four cards read as one calm strip and the damage numbers lead.
@@ -221,7 +227,7 @@ class Board extends Control:
 		if hurt_at[i] > 0 and hurt < HURT_MS:
 			draw_rect(r, Color(1, 1, 1, 0.6 * (1.0 - hurt / HURT_MS)))
 		draw_rect(r, D.INK, false, 4.0)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_set_transform_matrix(card_xf)
 
 	## A stock: a little round head in the player's colour with two eyes, in ink (`scale` and `alpha` for the one popping off).
 	func _head(c: Vector2, color: Color, scale := 1.0, alpha := 1.0) -> void:
