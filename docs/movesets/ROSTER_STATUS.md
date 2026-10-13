@@ -259,11 +259,9 @@ These override anything above that disagrees.
 5. **Yoshi's shield**: a regular shield. **E13 (shield geometry) is dropped**; no change to anyone's shield.
 6. **1:1 for existing kits**: the Needles' side special (our pulling line) is our own move and **stays as it is**. Every other Needles and
    Claws special should be made as close to 1:1 with its reference as the engine allows (re-research the [E] values, then match them).
+7. **Up specials and E11**: when E11 lands, re-fit both the Claws' and the Longsword's up specials to their reference numbers.
+8. **Naming cleanup**: reference character names in code and test names are being removed as a separate change.
 
 ## Still open
 
-1. When E11 lands, should the Longsword's up special also be re-fitted to its reference numbers? (The Claws' is covered by decision 6.)
-2. Existing code and test names mention reference characters (comments in `sim-core/src/content.rs` and `moves.rs`,
-   `sim-core/src/scripts/fire_aim.script`, test names such as `wolf_flash_*`, `fire_wolf_*`, `marth_style_*` in `reference_moves.rs`,
-   `kits.rs`, `feel.rs`). The porting rules say code never names them. Clean these up as a separate change?
-3. Whether Cloud's Limit gauge carries across stocks in the reference: research before Cloud.
+1. Whether Cloud's Limit gauge carries across stocks in the reference: research before Cloud.
