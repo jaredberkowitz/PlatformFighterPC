@@ -1463,6 +1463,9 @@ const RESPONSES := {
 	"rubber": {"ramp_softness": 0.12, "sheen": 0.16},
 	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "metal": 1.0, "rim_strength": 0.55},
 	"gold": {"ramp_softness": 0.1, "sheen": 0.0, "metal": 0.75, "rim_strength": 0.5},
+	# Painted metal (car bodies, a rooftop unit): a crisp step, a broad glossy sheen and a little of the metal band, so it reads as
+	# enamel over steel rather than bare metal or matte wood.
+	"paint": {"ramp_softness": 0.08, "sheen": 0.4, "metal": 0.3, "rim_strength": 0.45},
 }
 static var _respond_cache := {}
 

@@ -1058,3 +1058,8 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   crescent of amber light standing on its edge (an ink rim, amber, gold and a hot core along the leading edge, its edge flickering on
   twos), 1.1 tall, 1.7 when powered, in place of the generic purple bolt. Where the powered wave bursts (`projectile_bursting`, read
   when the bridge has it) it becomes a spinning ring of three amber blades 1.8 round. `champion_wave.png`.
+- **Material identity on the props** (the plan's slice (3), handed back by the fidelity session): a `paint` response
+  (`FighterView.RESPONSES`: crisp step, broad sheen, a little metal band) for enamel over steel (the cars, the rooftop unit), the `metal`
+  response for bare iron (the water tower's hoops and ladder, the mast, the unit's trim, barrel hoops), wood and concrete left matte. Geometry
+  where a prop read as a flat box: corner battens on every crate (proud planes that catch the key light), a lip and a plinth on the rooftop
+  unit. `props_material_before.png` / `props_material_after.png`.
