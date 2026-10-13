@@ -136,6 +136,7 @@ fn autoreticle(w: &mut Weapon) {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     mv.start_speed = 60;
     mv.land_continue = true;
@@ -205,6 +206,7 @@ fn explosive_flame(w: &mut Weapon) {
         ]),
         pierce: true,
         rehit: 5,
+        burst: None,
     });
     mv.start_speed = 80;
     mv.land_continue = true;

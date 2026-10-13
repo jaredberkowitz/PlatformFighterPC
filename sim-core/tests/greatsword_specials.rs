@@ -9,7 +9,7 @@ use common::{fx, inp, Sim};
 use sim_core::input::buttons::{GRAB, JUMP, SHIELD, SPECIAL};
 use sim_core::moves::greatsword_slots as slots;
 use sim_core::moves::{
-    greatsword, MoveId, Weapon, ANGLE_AUTOLINK, ANGLE_BY_TRAVEL, TARGETS_AERIAL, TARGETS_GROUNDED,
+    greatsword, MoveId, Weapon, ANGLE_BY_TRAVEL, ANGLE_VORTEX, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, Vec2};
@@ -295,7 +295,7 @@ fn the_combo_slashes_frame_data_and_hits_are_the_references() {
         ]
     );
     let angles: Vec<i16> = one.hitboxes.iter().map(|h| h.angle).collect();
-    assert_eq!(angles, vec![75, 112, ANGLE_AUTOLINK]);
+    assert_eq!(angles, vec![75, 112, ANGLE_VORTEX]);
     assert!(one.hitboxes.iter().all(|h| h.damage == Fx::from_int(4)));
     assert!(two.hitboxes.iter().all(|h| h.damage == Fx::from_int(3)));
     let row: Vec<(i16, i16, i16, u16)> = three
@@ -681,7 +681,7 @@ fn a_hit_during_the_charge_drains_the_gauge() {
 }
 
 #[test]
-fn every_greatsword_special_slot_is_its_own_and_the_powered_ones_are_still_empty() {
+fn every_greatsword_special_slot_is_its_own_and_four_are_spare() {
     let w = sword();
     for id in [
         slots::WAVE_AIR,
@@ -690,15 +690,17 @@ fn every_greatsword_special_slot_is_its_own_and_the_powered_ones_are_still_empty
         slots::FALL,
         slots::FALL_LANDING,
         slots::CHARGE_CANCEL,
+        slots::POWER_WAVE,
+        slots::POWER_WAVE_AIR,
+        slots::POWER_COMBO,
+        slots::POWER_RISE,
+        slots::FINISHER,
+        slots::FINISHER_AIR,
     ] {
         assert!(!w.moves[id as usize].is_empty(), "{id:?}");
     }
-    for i in 34..=44u8 {
-        let id = MoveId::from_index(i);
-        if id.is_ext() {
-            assert!(w.moves[usize::from(i)].is_empty(), "{id:?} is for phase 3");
-        }
+    // ext12 to ext15 (41 to 44) are spare.
+    for i in 41..=44u8 {
+        assert!(w.moves[usize::from(i)].is_empty());
     }
-    // No powered versions yet: nothing spends the gauge (owner default for phase 2).
-    assert!(w.moves.iter().all(|m| m.limit_version.is_none()));
 }

@@ -309,6 +309,23 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 }
                 last = *from;
             }
+            if let Some(b) = &p.burst {
+                let mut last = 0;
+                let mut ordered = b.life > 0;
+                for (from, hb) in b.phases.iter().flatten() {
+                    ordered &= *from > last
+                        && *from < b.life
+                        && hb.radius >= Fx::ZERO
+                        && hb.half_height >= Fx::ZERO;
+                    last = *from;
+                }
+                if !ordered || last == 0 {
+                    errors.push(format!(
+                        "weapon {i} {name}: a projectile's burst needs a lifetime and at least one phase, its phases in order, \
+                         after age 0 and within its life, with no negative radius or half_height"
+                    ));
+                }
+            }
         }
         if mv.projectile_script.is_some() && mv.projectile.is_none() {
             errors.push(format!(
@@ -411,9 +428,10 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             || mv.air_drift > 100
             || mv.start_speed > 100
             || mv.start_speed_y > 100
+            || mv.motion_drift > 100
         {
             errors.push(format!(
-                "weapon {i} {name}: fall_drift, air_drift, start_speed and start_speed_y are percents up to 100"
+                "weapon {i} {name}: fall_drift, air_drift, start_speed, start_speed_y and motion_drift are percents up to 100"
             ));
         }
         if mv
@@ -698,6 +716,46 @@ mod combat_tests {
         let text = crate::bundle::to_text(&c, "test", "", "", false);
         let back = crate::bundle::load(&text).expect("reads back").content;
         assert_eq!(back.hash(), c.hash());
+    }
+
+    #[test]
+    fn a_burst_and_motion_drift_round_trip_and_are_checked() {
+        let base = Content::placeholder();
+        let champion = base
+            .fighters
+            .iter()
+            .position(|p| p.gauge.exists())
+            .expect("the champion");
+        let w = usize::from(base.fighters[champion].weapon);
+        let burst_move = base.weapons[w]
+            .moves
+            .iter()
+            .position(|m| m.projectile.is_some_and(|p| p.burst.is_some()))
+            .expect("the powered wave bursts");
+        // The shipped burst and the powered rise's motion_drift come back from a file unchanged.
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        assert!(text.contains("burst {") && text.contains("motion_drift 100"));
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // A burst with no phase, or out of order, and a motion_drift over 100 are refused.
+        let mut c = base.clone();
+        let b = c.weapons[w].moves[burst_move]
+            .projectile
+            .as_mut()
+            .unwrap()
+            .burst
+            .as_mut()
+            .unwrap();
+        b.phases = [None; sim_core::moves::MAX_PHASES];
+        let errors = validate(&c).unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("burst")), "{errors:?}");
+        let mut c = base.clone();
+        c.weapons[w].moves[burst_move].motion_drift = 101;
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("motion_drift")),
+            "{errors:?}"
+        );
     }
 
     #[test]
