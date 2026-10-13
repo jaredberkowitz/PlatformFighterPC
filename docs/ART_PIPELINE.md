@@ -859,5 +859,9 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   lit tops, shaded feet, a few cracks) in warm sandstone, with moss hanging over the top of the wall in clumpy tongues
   (`moss_color`/`moss_amount` in `toon_common.gdshaderinc`: lit top, shaded hanging edge, a darker rim and a soft cast shadow on the
   stone), in place of the cobbles and the green bubbles. `meadow_lawn_close.png`.
+- **Painted trees** (`StageArt._leaf_cards`): a crown is mostly its solid lobes (cores at 95% of each mass, in the body green) with a
+  crisp step from lit top to cool underside (ramp 0.08, shadow 0.78) and a warm rim, its leaf cards cut to a third, larger, kept round
+  the silhouette and top so the edge scallops gently, in the body and lit greens only (the pale sunlit cards read as blossom). The
+  meadow's round trees are yellow-green to match the lawn; Treetop Isle keeps its teal. `meadow_trees.png`, `grove_trees.png`.
 - Costs (Meadow, stage demo): GPU about 1.8 to 1.9 ms, Treetop Isle 2.1 ms; look bench 0.87.
 
