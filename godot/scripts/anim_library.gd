@@ -173,8 +173,8 @@ const CLASS_MOVES := {
 		"extra move 9": "kick_low",
 		"extra move 13": "land",
 	},
-	# Staff (the Seer): the staff spun and swept with the sword's cuts (no blade is drawn), the palm pulse a straight strike, the staff
-	# driven down for the down air, the down smash's burst both ways; the rapid jab's flurry as jabs and its burst as a heavy strike.
+	# Staff (the Seer): the staff spun and swept with the sword's cuts (no blade is drawn), the palm pulse a straight strike, kicks for
+	# the back and down airs, the down smash's burst both ways; the rapid jab's flurry as jabs and its burst as a heavy strike.
 	5: {
 		"ftilt": "sword_ftilt",
 		"utilt": "sword_utilt",
@@ -182,7 +182,10 @@ const CLASS_MOVES := {
 		"dtilt": "sword_dtilt",
 		"dsmash": "sword_dsmash",
 		"fair": "attack_jab",
-		"dair": "sword_dair",
+		# (Kicks for the back air and down air, whose hits are close to the body; the staff stays in hand. The neutral air keeps the
+		# shared clip: the staff follows its hits round the body.)
+		"bair": "kick_bair",
+		"dair": "kick_dair",
 		"extra move 10": "attack_jab",
 		"extra move 11": "attack_jab",
 		"extra move 12": "attack_smash",

@@ -12,10 +12,10 @@ extends RefCounted
 ## lifted toward (the pastel finish in shaders/post.gdshader).
 const MOODS := {
 	# Magic hour: a lower, golden key that rakes across the props and fighters, violet fill and shadows, a lavender-peach haze.
-	"meadow": {"key": [Color(1.0, 0.86, 0.66), 1.38, -30.0, -34.0], "fill": [Color(0.66, 0.6, 1.0), 0.4],
-		"ambient": [Color(0.94, 0.86, 0.96), 0.46], "shadow_hue": 0.76, "shadow_shift": 0.1, "shadow_value": 0.62,
-		"shadow_tint": Color(0.76, 0.68, 0.92), "rim": Color(1.0, 0.86, 0.7),
-		"grade": [Color(0.92, 0.88, 1.06), Color(1.07, 1.0, 0.9), 0.55], "haze": Color(0.96, 0.78, 0.8)},
+	"meadow": {"key": [Color(1.0, 0.96, 0.86), 1.38, -44.0, -34.0], "fill": [Color(0.6, 0.76, 1.0), 0.4],
+		"ambient": [Color(0.86, 0.92, 1.0), 0.48], "shadow_hue": 0.66, "shadow_shift": 0.08, "shadow_value": 0.64,
+		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.98, 0.9),
+		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.2, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
 		"ambient": [Color(1.0, 0.88, 0.92), 0.52], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
 		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),

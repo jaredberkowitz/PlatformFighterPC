@@ -30,6 +30,12 @@ void vertex() {
 void fragment() {
 	vec4 t = texture(leaf_tex, UV);
 	ALBEDO = albedo.rgb * COLOR.rgb * t.rgb;
+	// A tuft is dark down among its roots and bright at its tips (UV.y is 1 at its foot), deeper and a touch cooler low down, so a lawn
+	// of them reads as thick grass with depth rather than a pale fringe.
+	if (rooted) {
+		float low = smoothstep(0.25, 1.0, UV.y);
+		ALBEDO *= mix(vec3(1.08, 1.06, 0.98), vec3(0.46, 0.56, 0.6), low);
+	}
 	ALPHA = t.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 	ALPHA_ANTIALIASING_EDGE = 0.25;

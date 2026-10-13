@@ -19,6 +19,10 @@ uniform float world_vary = 0.08;
 uniform float front_fall = 0.4;
 uniform float front_span = 5.0;
 uniform vec3 front_shade : source_color = vec3(0.6, 0.57, 0.72);
+// World-laid fronts only: moss hanging over the top of the wall (0 = none), in `moss_color`, a band a little under a unit deep whose lower
+// edge drips in uneven tongues; it sits above the cool fall, so it stays lit like the lawn it grows from.
+uniform float moss_amount = 0.0;
+uniform vec3 moss_color : source_color = vec3(0.4, 0.66, 0.14);
 // World-laid surfaces only: a painted detail tile (godot/art/stage/detail_*.svg, grey around the middle) varies the lightness, and a
 // little the hue, at two scales: fine every `detail_scale` world units, broad at 4.7 times that. `detail_amount` 0 (everything by
 // default, fighters always) leaves the surface as it was.
@@ -76,6 +80,22 @@ void fragment() {
 			if (abs(world_normal.y) < 0.5) {
 				float below = smoothstep(0.6, front_span, front_top - world_pos.y);
 				c *= mix(vec3(1.0), front_shade, front_fall * below);
+				if (moss_amount > 0.0) {
+					float x = world_pos.x;
+					float drip = 1.15 + 0.45 * sin(x * 1.1 + sin(x * 0.4) * 2.0) * sin(x * 0.37 + 1.1) + 0.55 * pow(max(0.0, sin(x * 2.3 + 0.7)), 3.0);
+					float depth = front_top - world_pos.y;
+					// A clumpy edge (small bumps on the big tongues), the moss mottled lighter and darker in soft patches, lit at its top and
+					// shaded toward its hanging edge, a thin darker rim where it curls under, and a soft shadow it casts on the stone below.
+					float bumps = 0.07 * sin(x * 9.0 + 1.3) + 0.05 * sin(x * 15.0 + 0.4);
+					float edge = drip + bumps;
+					float moss = (1.0 - smoothstep(edge - 0.035, edge + 0.035, depth)) * step(-0.5, depth);
+					float mottle = sin(x * 4.3 + world_pos.y * 3.1) * sin(x * 2.1 - world_pos.y * 5.3 + 0.8);
+					vec3 mc = moss_color * (1.08 - 0.3 * smoothstep(0.0, edge, depth)) * (1.0 + 0.08 * mottle);
+					mc = mix(mc, moss_color * 0.55, smoothstep(edge - 0.16, edge - 0.02, depth));
+					float cast = (1.0 - smoothstep(edge, edge + 0.3, depth)) * (1.0 - moss);
+					c *= 1.0 - 0.25 * cast * moss_amount;
+					c = mix(c, mc, moss * moss_amount);
+				}
 			}
 		}
 	}

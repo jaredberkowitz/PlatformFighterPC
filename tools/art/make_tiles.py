@@ -1,4 +1,4 @@
-"""Generates the bark, foliage and stone tiles (godot/art/stage/*.svg): 256x256, tileable, on the placeholder colour #ff00ff (which the
+"""Generates the bark, foliage, stone and grass tiles (godot/art/stage/*.svg): 256x256, tileable, on the placeholder colour #ff00ff (which the
 game swaps for the surface's own colour), with only translucent black and white over it, so each stays low-contrast and takes any hue."""
 import math
 import random
@@ -73,6 +73,33 @@ def foliage():
     return s + '</svg>\n'
 
 
+def grass():
+    """A lawn as the reference paints it: one clean, vivid sheet of green, its variation in long soft sweeps (as wind or a mower lays
+    grass), a few broad cooler hollows and warmer rises, no blades or speckle. Low contrast and large in scale, so at play distance it is
+    a calm, saturated surface the fighters stand out on."""
+    rng = random.Random(11)
+    s = HEAD
+    # Broad cool hollows and warm rises.
+    for _ in range(9):
+        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
+        rx, ry = rng.uniform(50, 90), rng.uniform(26, 44)
+        col, op = ('#fff8d0', 0.07) if rng.random() < 0.5 else ('#002a30', 0.07)
+        s += wrap(lambda a, b: f'  <ellipse cx="{a:.1f}" cy="{b:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" fill="{col}" opacity="{op}"/>\n', x, y, rx)
+    # Long soft sweeps across the lawn, a little curved, lighter and darker in turn.
+    for k in range(26):
+        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
+        length = rng.uniform(70, 150)
+        bend = rng.uniform(-10, 10)
+        width = rng.uniform(5, 12)
+        col, op = ('#ffffff', 0.06) if k % 2 == 0 else ('#00262a', 0.06)
+
+        def sweep(a, b, length=length, bend=bend, width=width, col=col, op=op):
+            return (f'  <path d="M{a - length / 2:.1f},{b:.1f} q{length / 2:.1f},{bend:.1f} {length:.1f},0" fill="none" stroke="{col}" '
+                    f'stroke-width="{width:.1f}" stroke-linecap="round" opacity="{op}"/>\n')
+        s += wrap(sweep, x, y, length / 2 + width)
+    return s + '</svg>\n'
+
+
 def stone():
     rng = random.Random(11)
     s = HEAD
@@ -105,7 +132,7 @@ def stone():
     return s + '</svg>\n'
 
 
-for name, make in [('bark', bark), ('foliage', foliage), ('stone', stone)]:
+for name, make in [('bark', bark), ('foliage', foliage), ('stone', stone), ('grass', grass)]:
     open(OUT + name + '.svg', 'w', newline='\n').write(make())
     open(OUT + name + '.svg.import', 'w', newline='\n').write('[remap]\n\nimporter="keep"\n')
     print(name, 'ok')
