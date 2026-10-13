@@ -931,3 +931,14 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   with a lit advert, trees in planters, and a row of shops along the foot of the nearest buildings (lit windows, striped awnings, a sign
   band and a glow each). The cars have a stepped body, wheel arches, hubs, split side windows, bumpers, head and tail light glows, and
   one is a cab with a roof sign and a chequer stripe. `city_street_life.png`. City: GPU about 1.4 ms, 578 draw calls.
+
+## A forest below the grove, finer beach islands (thirty-ninth pass)
+
+- **Treetop Isle's valley** (`_canopy`): below the near rise, rows of round crowns (balls of painted leaf clumps, every third a little
+  lighter, sizes and heights varied) over a dark band of shade, each row lower, nearer and larger than the one behind, so the hazy mint
+  under the island is a forest falling away down a valley. Two flat-banded tries read as stripes and were dropped. `grove_canopy.png`.
+- **Flat Island's distant islands** (`_isle_detail`, their own random numbers): a ring of white surf, a second palm, more greenery,
+  rocks with surf at one end, and a red-roofed hut on the middle one. `beach_islands.png`.
+- Draw calls: each sky island's and the farm's still parts are merged by material (`merge_static` on their nodes): the meadow went
+  from 714 to 600 draw calls. GPU about 1.6 ms on the meadow and the grove when the machine is not throttling (this machine's timings
+  swing by up to six times between runs; compare runs side by side).
