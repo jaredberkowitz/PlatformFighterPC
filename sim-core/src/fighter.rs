@@ -314,6 +314,12 @@ pub fn update(
         f.dash_buffer = 0;
     }
 
+    // The gauge's powered mode counts down every frame, hitlag included [E: gap 12]; a hold out of a draining move drains only while
+    // it lasts (a throw's hit, which lets go on the frame it lands, still drains: it is applied before this runs again).
+    crate::gauge::tick(f);
+    if f.state != S::Grabbed {
+        f.gauge_drain = false;
+    }
     // Hitlag freezes everything about the fighter except its input history. A struck fighter can still
     // survival-DI, and its launch happens on the frame hitlag ends.
     if f.hitlag > 0 {
@@ -1670,6 +1676,7 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
         f.lock = Vec2::ZERO;
     }
     f.move_id = id as u8;
+    f.move_y0 = f.pos.y;
     f.hit_mask = 0;
     f.b_reversed = false;
     f.aim = 0;
@@ -1910,7 +1917,7 @@ fn attack(
     // The move's script steers the move: motion, branching into another move, projectiles, ending early.
     let mut script_motion = None;
     if let Some(program) = &mv.script {
-        let effects = scripting::run_fighter(program, f, world);
+        let effects = scripting::run_fighter(program, f, world, &p.gauge);
         if let Some(next) = effects.goto {
             begin_attack(f, MoveId::from_index(next));
             return None;
@@ -1964,6 +1971,11 @@ fn attack(
         }
         if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
+            if let Some(other) = mv.on_land {
+                // An aerial move with a grounded version goes on as it, on the same frame (`Move::on_land`).
+                f.move_id = other;
+                return None;
+            }
             if mv.land_continue || frame < u16::from(mv.lands_from) {
                 // (The move goes on along the ground.)
             } else if mv.landing_move.is_some() {
@@ -1994,10 +2006,15 @@ fn attack(
             f.vel.y = f.vel.y.min(rise);
             f.hop_boost = 0;
         }
-        if air_move_with(f, &q, stage, fast_fall_ok)
-            && !mv.land_continue
-            && frame >= u16::from(mv.lands_from)
-        {
+        let landed = air_move_with(f, &q, stage, fast_fall_ok);
+        if landed {
+            if let Some(other) = mv.on_land {
+                // An aerial move with a grounded version goes on as it, on the same frame, keeping its frame and hits (`Move::on_land`).
+                f.move_id = other;
+                return None;
+            }
+        }
+        if landed && !mv.land_continue && frame >= u16::from(mv.lands_from) {
             // Landing early or late in the move autocancels: only the normal landing lag.
             land_out_of_move(f, mv, frame, plain);
             return None;
@@ -2053,7 +2070,12 @@ fn attack(
             .ledges
             .get(usize::from(ledge))
             .is_some_and(|l| l.side == f.facing);
-        if f.state_frame >= u16::from(mv.ledge_from(behind)) {
+        // (A move with a fall rule catches a ledge only once it has come far enough down from where it began: `Move::ledge_drop`.)
+        let fallen = f.move_y0 - f.pos.y;
+        let deep_enough = mv
+            .ledge_drop
+            .is_none_or(|(front, back)| fallen >= if behind { back } else { front });
+        if f.state_frame >= u16::from(mv.ledge_from(behind)) && deep_enough {
             return Some(ledge);
         }
     }
@@ -2157,6 +2179,15 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     {
         f.facing = -f.facing;
     }
+    // With the gauge's powered mode running, a special with a powered version (`limit_version`) uses it instead and spends the gauge
+    // at once, whether it hits or not. (Until a weapon has such a version nothing is spent: phase 2 of the Greatsword.)
+    let (id, mv) = match mv.limit_version {
+        Some(l) if f.gauge_mode > 0 => {
+            crate::gauge::spend(f);
+            (MoveId::from_index(l), weapon.get(l))
+        }
+        _ => (id, mv),
+    };
     // Started in the air, a special with an aerial version uses it (its own slot).
     let (id, mv) = match mv.air_version {
         Some(v) if !f.grounded() => (MoveId::from_index(v), weapon.get(v)),
@@ -2175,6 +2206,11 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     // Started in the air, a special may keep only part of the fighter's momentum.
     if !f.grounded() && mv.start_speed != 100 {
         f.vel.x = f.vel.x * Fx::from_ratio(i32::from(mv.start_speed), 100);
+    }
+    // ...and of its vertical speed (the reference's vertical multiplier on startup: a stall).
+    if !f.grounded() && mv.start_speed_y != 100 {
+        f.vel.y = f.vel.y * Fx::from_ratio(i32::from(mv.start_speed_y), 100);
+        f.hop_boost = 0;
     }
     true
 }

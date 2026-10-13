@@ -2,11 +2,11 @@
 # `pftool content-pack` to stamp it with a fresh hash.
 
 bundle {
-    schema 5
+    schema 6
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 83
-    hash 82ad1ef91bc3f369
+    sim_version 85
+    hash 2629da64f94af7f2
 }
 
 ruleset {
@@ -5196,6 +5196,7 @@ fighter champion {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 100
+    gauge { max 100 per_dealt 0.66699 per_taken 1 mode_frames 900 walk 115 dash 110 run 110 traction 115 air_speed 120 air_accel 120 air_friction 115 gravity 110 fall 110 }
 }
 
 stage proving_grounds {

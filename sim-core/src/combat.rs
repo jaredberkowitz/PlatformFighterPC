@@ -99,11 +99,18 @@ pub fn intangible_parts(f: &Fighter, w: &Weapon) -> u8 {
         .fold(0, |bits, p| bits | p.parts)
 }
 
-/// Whether a hitbox at `center` of `radius` touches one of the hurtbox circles that can be hit (`shut` from [`intangible_parts`]).
-fn touches(hurt: &[(Vec2, Fx); HURT_CIRCLES], shut: u8, center: Vec2, radius: Fx) -> bool {
-    hurt.iter()
-        .enumerate()
-        .any(|(i, (hc, hr))| shut & (1 << i) == 0 && overlaps(center, radius, *hc, *hr))
+/// Whether a hitbox at `center` of `radius` (a standing capsule `half` above and below it when `half` is above 0: `Hitbox::half_height`)
+/// touches one of the hurtbox circles that can be hit (`shut` from [`intangible_parts`]).
+fn touches(
+    hurt: &[(Vec2, Fx); HURT_CIRCLES],
+    shut: u8,
+    center: Vec2,
+    half: Fx,
+    radius: Fx,
+) -> bool {
+    hurt.iter().enumerate().any(|(i, (hc, hr))| {
+        shut & (1 << i) == 0 && capsules_touch(*hc, Fx::ZERO, *hr, center, half, radius)
+    })
 }
 
 /// True while a fighter cannot be hit.
@@ -130,6 +137,7 @@ pub fn active_hitboxes<'a>(
             hb.x = hb.x * scale;
             hb.y = hb.y * scale;
             hb.radius = hb.radius * scale;
+            hb.half_height = hb.half_height * scale;
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
             (i, hb, center)
         })
@@ -352,7 +360,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 }
                 if hb.kind == HIT_SEARCH {
                     // A search box only notices (shields do not matter); it never competes with the move's hits.
-                    if fa.grab_with != d as i8 && touches(&hurt, shut, center, hb.radius) {
+                    if fa.grab_with != d as i8
+                        && touches(&hurt, shut, center, hb.half_height, hb.radius)
+                    {
                         searched[a] = true;
                     }
                     continue;
@@ -364,7 +374,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     HIT_GRAB => (
                         !intangible
                             && grab::can_catch(&hb, fd)
-                            && touches(&hurt, shut, center, hb.radius),
+                            && touches(&hurt, shut, center, hb.half_height, hb.radius),
                         false,
                     ),
                     _ if fa.grab_with == d as i8 => (false, false),
@@ -486,10 +496,13 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             if both && !struck[a] && !struck[d] {
                 chosen[a][d] = None;
                 chosen[d][a] = None;
-                for i in [a, d] {
+                for (i, other) in [(a, d), (d, a)] {
                     let f = &mut state.fighters[i];
+                    let before = f.percent;
                     f.percent = (f.percent + content.rules.damage_mult).min(Fx::from_int(999));
                     start_rebound(f, content.rules.grab_parry_lag, 0);
+                    let added = state.fighters[i].percent - before;
+                    crate::gauge::on_damage(state, content, other, i, added);
                 }
             }
         }
@@ -672,8 +685,11 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, scale);
     state.fighters[a].hitlag = hitlag;
     let held = &mut state.fighters[d];
+    let before = held.percent;
     held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
     held.hitlag = hitlag;
+    let added = held.percent - before;
+    crate::gauge::on_damage(state, content, a, d, added);
 }
 
 /// Where an open counter catches: on the body's hurtboxes (a counter without a bubble), or on its bubble, a standing capsule
@@ -722,12 +738,14 @@ fn reach(
     shut: u8,
     center: Vec2,
 ) -> (bool, bool) {
-    let body = || touches(hurt, shut, center, hb.radius);
+    let body = || touches(hurt, shut, center, hb.half_height, hb.radius);
     let caught = match counter {
         _ if hb.push => false,
         None => false,
         Some(CatchArea::Body) => body(),
-        Some(CatchArea::Bubble(c, half, r)) => overlaps_upright(center, hb.radius, c, half, r),
+        Some(CatchArea::Bubble(c, half, r)) => {
+            capsules_touch(center, hb.half_height, hb.radius, c, half, r)
+        }
     };
     (caught || (!intangible && body()), caught)
 }
@@ -875,7 +893,13 @@ fn apply_hit(
         fighter::restore_shield(def, rules);
     }
 
+    let before = def.percent;
     def.percent = (def.percent + hb.damage * rules.damage_mult).min(Fx::from_int(999));
+    let added = def.percent - before;
+    // The gauges (the damage actually added: owner decision 32). The victim is still in the move it was hit in, so a hit during a
+    // draining move drains.
+    crate::gauge::on_damage(state, content, source, d, added);
+    let def = &mut state.fighters[d];
     // (A set-weight hit treats every victim as weighing 100.)
     let weight = if hb.set_weight {
         Fx::from_int(100)
@@ -1227,11 +1251,13 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         // reflector's damage limit goes through.)
         let size = Fx::from_ratio(i32::from(pr.size), 100);
         let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale * size;
+        let shot_half = spec.hitbox.half_height * origin_params.hitbox_scale * size;
         let shot_damage =
             spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
-        reflector_detects(state, content, owner, pos, shot_radius);
-        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, shot_radius)
-            .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
+        reflector_detects(state, content, owner, pos, shot_half, shot_radius);
+        if let Some((r, rf)) =
+            reflector_touching(state, content, owner, pos, shot_half, shot_radius)
+                .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
         {
             let speed = Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100);
             let p = &mut state.projectiles[n];
@@ -1268,6 +1294,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
         let (mut hb, phased) = spec.hit_at(age);
         hb.radius = hb.radius * origin_params.hitbox_scale * size;
+        hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
         hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
         if !phased && !spec.any_phase() {
             hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
@@ -1367,6 +1394,7 @@ fn reflector_touching(
     content: &Content,
     owner: usize,
     pos: Vec2,
+    half: Fx,
     radius: Fx,
 ) -> Option<(usize, Reflector)> {
     for (i, f) in state.fighters.iter().enumerate() {
@@ -1390,8 +1418,9 @@ fn reflector_touching(
         // The field (a circle, or a standing capsule), and the body field beside it on its own frames.
         let field = frame >= rf.start
             && frame <= rf.end
-            && overlaps_upright(
+            && capsules_touch(
                 pos,
+                half,
                 radius,
                 at(rf.x, rf.y),
                 rf.half_height * scale,
@@ -1400,10 +1429,12 @@ fn reflector_touching(
         let body = rf.body_radius > Fx::ZERO
             && frame >= rf.body_start
             && frame <= rf.body_end
-            && overlaps(
+            && capsules_touch(
                 pos,
+                half,
                 radius,
                 at(rf.body_x, rf.body_y),
+                Fx::ZERO,
                 rf.body_radius * scale,
             );
         if field || body {
@@ -1413,11 +1444,13 @@ fn reflector_touching(
     None
 }
 
-/// Whether a circle at `c1` of `r1` touches a vertical capsule centred on `c2`, from `half_height` below it to `half_height` above,
-/// of radius `r2` (a circle when `half_height` is 0).
-fn overlaps_upright(c1: Vec2, r1: Fx, c2: Vec2, half_height: Fx, r2: Fx) -> bool {
-    let nearest = Vec2::new(c2.x, c1.y.clamp(c2.y - half_height, c2.y + half_height));
-    overlaps(c1, r1, nearest, r2)
+/// Whether two standing capsules touch: each centred on `c`, reaching `h` above and below it, of radius `r` (a circle when its `h`
+/// is 0). Their nearest points are the centres' horizontal gap and the vertical gap between their two spans (0 where they overlap).
+fn capsules_touch(c1: Vec2, h1: Fx, r1: Fx, c2: Vec2, h2: Fx, r2: Fx) -> bool {
+    let dy = ((c1.y - c2.y).abs() - h1 - h2).max(Fx::ZERO);
+    let gap = Vec2::new(c1.x - c2.x, dy);
+    let reach = r1 + r2;
+    gap.length_sq() <= reach * reach
 }
 
 /// A reflector's projectile detector (the reference's): a projectile touching it while it is out, before the reflector is up, skips
@@ -1427,6 +1460,7 @@ fn reflector_detects(
     content: &Content,
     owner: usize,
     pos: Vec2,
+    half: Fx,
     radius: Fx,
 ) {
     for i in 0..MAX_FIGHTERS {
@@ -1453,7 +1487,14 @@ fn reflector_detects(
             f.pos.x + (rf.detect_x * scale).mul_int(i32::from(f.facing)),
             f.pos.y + rf.detect_y * scale,
         );
-        if overlaps(pos, radius, centre, rf.detect_radius * scale) {
+        if capsules_touch(
+            pos,
+            half,
+            radius,
+            centre,
+            Fx::ZERO,
+            rf.detect_radius * scale,
+        ) {
             match rf.detect_then {
                 // The reflection move starts now (its frame 0 is this frame), so its reflector meets this shot at once.
                 Some(next) => {

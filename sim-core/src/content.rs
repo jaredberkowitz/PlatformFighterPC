@@ -217,8 +217,132 @@ pub struct FighterParams {
     pub ledge_attack_dx: Fx,
     /// Weight in reference units; heavier fighters are launched less.
     pub weight: Fx,
+    /// The body's gauge and its powered mode (see [`Gauge`]); [`Gauge::NONE`] for a body without one.
+    pub gauge: Gauge,
     /// Index into `Content::weapons`.
     pub weapon: u8,
+}
+
+/// A gauge that fills from damage dealt and taken (and from moves that charge it), and a powered mode while it is full: the
+/// reference's gauge-and-break mechanic, built general (owner decision 31). Its working name in the game is in [`GAUGE_NAME`].
+///
+/// `max` 0 means no gauge (every body but the champion). Gain: `per_dealt` units per percent of damage this fighter's hits add to
+/// another fighter's percent, `per_taken` per percent added to its own (or taken away while it is in a `Move::gauge_drain` move, or
+/// held out of one). Reaching `max` starts the powered mode for `mode_frames` frames; while it runs nothing more is gained or lost,
+/// and the body's numbers are multiplied by the percents below (100 = unchanged; jump launch speeds never change): `walk` (walk
+/// speed and both walk accelerations), `dash` (both dash speeds), `run` (run speed and both run accelerations), `traction`
+/// (`ground_friction` and `dash_attack_friction`), `air_speed`, `air_accel` (both parts), `air_friction`, `gravity`, `fall` (both fall
+/// speeds). The mode ends when its time runs out (the gauge empties) or a special with a `Move::limit_version` spends it. A KO empties
+/// the gauge and ends the mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Gauge {
+    pub max: Fx,
+    pub per_dealt: Fx,
+    pub per_taken: Fx,
+    pub mode_frames: u16,
+    pub walk: u16,
+    pub dash: u16,
+    pub run: u16,
+    pub traction: u16,
+    pub air_speed: u16,
+    pub air_accel: u16,
+    pub air_friction: u16,
+    pub gravity: u16,
+    pub fall: u16,
+}
+
+/// The gauge's working name in the game, the one place it is written down in code (owner decision 30: "Boost" for now). The script
+/// names that follow it are `boost`, `boosting` and `boost_add` (`sim-script/src/api.rs`, `docs/CONTENT.md`); a rename changes
+/// those three and this.
+pub const GAUGE_NAME: &str = "Boost";
+
+impl Gauge {
+    /// No gauge (every multiplier 100).
+    pub const NONE: Gauge = Gauge {
+        max: Fx::ZERO,
+        per_dealt: Fx::ZERO,
+        per_taken: Fx::ZERO,
+        mode_frames: 0,
+        walk: 100,
+        dash: 100,
+        run: 100,
+        traction: 100,
+        air_speed: 100,
+        air_accel: 100,
+        air_friction: 100,
+        gravity: 100,
+        fall: 100,
+    };
+
+    /// Whether the body has a gauge.
+    pub const fn exists(&self) -> bool {
+        self.max.raw() > 0
+    }
+
+    /// The multipliers by name, in file order.
+    pub fn percents(&self) -> [(&'static str, u16); 9] {
+        [
+            ("walk", self.walk),
+            ("dash", self.dash),
+            ("run", self.run),
+            ("traction", self.traction),
+            ("air_speed", self.air_speed),
+            ("air_accel", self.air_accel),
+            ("air_friction", self.air_friction),
+            ("gravity", self.gravity),
+            ("fall", self.fall),
+        ]
+    }
+}
+
+impl StateHash for Gauge {
+    fn hash_into(&self, h: &mut StateHasher) {
+        self.max.hash_into(h);
+        self.per_dealt.hash_into(h);
+        self.per_taken.hash_into(h);
+        h.write_u16(self.mode_frames);
+        for (_, p) in self.percents() {
+            h.write_u16(p);
+        }
+    }
+}
+
+/// `x` times `percent` / 100, exactly in the fixed-point raw value (rounded toward zero) [D].
+fn percent_of(x: Fx, percent: u16) -> Fx {
+    if percent == 100 {
+        return x;
+    }
+    Fx::from_raw((i64::from(x.raw()) * i64::from(percent) / 100) as i32)
+}
+
+impl FighterParams {
+    /// The body as it moves this frame: itself, or, while the fighter's gauge's powered mode runs, a copy with the gauge's
+    /// multipliers applied (see [`Gauge`]). Weight, size, jump speeds and every other number stay as they are.
+    pub fn powered(&self, powered: bool) -> FighterParams {
+        let g = self.gauge;
+        if !powered || !g.exists() {
+            return *self;
+        }
+        let mut q = *self;
+        q.walk_speed = percent_of(self.walk_speed, g.walk);
+        q.walk_accel = percent_of(self.walk_accel, g.walk);
+        q.walk_accel_stick = percent_of(self.walk_accel_stick, g.walk);
+        q.dash_speed = percent_of(self.dash_speed, g.dash);
+        q.dash_initial_speed = percent_of(self.dash_initial_speed, g.dash);
+        q.run_speed = percent_of(self.run_speed, g.run);
+        q.run_accel = percent_of(self.run_accel, g.run);
+        q.run_accel_stick = percent_of(self.run_accel_stick, g.run);
+        q.ground_friction = percent_of(self.ground_friction, g.traction);
+        q.dash_attack_friction = percent_of(self.dash_attack_friction, g.traction);
+        q.air_speed = percent_of(self.air_speed, g.air_speed);
+        q.air_accel = percent_of(self.air_accel, g.air_accel);
+        q.air_accel_stick = percent_of(self.air_accel_stick, g.air_accel);
+        q.air_friction = percent_of(self.air_friction, g.air_friction);
+        q.gravity = percent_of(self.gravity, g.gravity);
+        q.max_fall_speed = percent_of(self.max_fall_speed, g.fall);
+        q.fast_fall_speed = percent_of(self.fast_fall_speed, g.fall);
+        q
+    }
 }
 
 impl FighterParams {
@@ -472,6 +596,7 @@ impl FighterParams {
         let su = FighterParams::su;
         let gu = FighterParams::gu;
         FighterParams {
+            gauge: Gauge::NONE,
             walk_speed: gu(1400),
             run_speed: gu(1800),
             dash_speed: gu(2200),
@@ -1012,7 +1137,30 @@ impl FighterParams {
             wall_jump: 1,
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2400),
+            gauge: Self::champion_gauge(),
             ..FighterParams::base()
+        }
+    }
+
+    /// The champion's gauge (the reference's, ssbwiki.com and ultimateframedata.com, 13.0.1): 100 units, 0.667 a percent of damage
+    /// dealt and 1 a percent taken; full, 900 frames of the powered mode with walk x1.15, dash and run x1.1, traction x1.15, air speed
+    /// and acceleration x1.2, air friction x1.15, gravity and fall speeds x1.1 (the jumps' launch speeds unchanged, so they are a
+    /// little lower) [R].
+    pub fn champion_gauge() -> Gauge {
+        Gauge {
+            max: Fx::from_int(100),
+            per_dealt: Fx::from_ratio(667, 1000),
+            per_taken: Fx::ONE,
+            mode_frames: 900,
+            walk: 115,
+            dash: 110,
+            run: 110,
+            traction: 115,
+            air_speed: 120,
+            air_accel: 120,
+            air_friction: 115,
+            gravity: 110,
+            fall: 110,
         }
     }
 }
@@ -1025,6 +1173,7 @@ impl StateHash for FighterParams {
         for (_, v) in self.int_fields() {
             h.write_u32(v);
         }
+        self.gauge.hash_into(h);
     }
 }
 

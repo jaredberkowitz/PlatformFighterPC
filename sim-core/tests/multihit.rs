@@ -45,6 +45,7 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         angle_type: ANGLE_BY_BOX,
         command: false,
         clanks: true,
+        half_height: Fx::ZERO,
     }
 }
 

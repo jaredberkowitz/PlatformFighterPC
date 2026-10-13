@@ -1034,6 +1034,33 @@ impl SimRunner {
         PackedInt32Array::from(v.as_slice())
     }
 
+    /// The fighter's gauge (the champion's Boost gauge: `sim_core::content::Gauge`), 0 to `fighter_gauge_max`; 0 for a body without
+    /// one. Read-only, for the HUD to draw.
+    #[func]
+    fn fighter_gauge(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| f(fi.gauge))
+    }
+
+    /// The most the fighter's gauge holds (100 for the champion), 0 when its body has no gauge (draw nothing then).
+    #[func]
+    fn fighter_gauge_max(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| {
+            f(sim_core::combat::params_of(&self.content, fi).gauge.max)
+        })
+    }
+
+    /// Whether the fighter's gauge is full and its powered mode is running.
+    #[func]
+    fn fighter_gauge_full(&self, i: i32) -> bool {
+        self.fighter(i).is_some_and(|fi| fi.gauge_mode > 0)
+    }
+
+    /// Frames left of the fighter's powered mode (0 when it is not running).
+    #[func]
+    fn fighter_gauge_frames(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(0, |fi| i32::from(fi.gauge_mode))
+    }
+
     /// Frames the fighter's current smash attack has been charged.
     #[func]
     fn fighter_charge(&self, i: i32) -> i32 {

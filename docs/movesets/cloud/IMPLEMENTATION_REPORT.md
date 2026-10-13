@@ -120,6 +120,16 @@ the hands, behind on 15-16; (3) the neutral air's four poses round the body; (4)
 air's tip 0.3 to 0.4 below the feet; (6) the up air's three columns over the head on 8. Move the [E] blade poses to the sword in the
 clips once they exist.
 
+## Phase 2 (sim 85, content schema 6): in progress
+
+Branch `greatsword-phase2` (from `movesets` at a88c09f). Sim 84 is reserved for the engine session.
+
+* **Milestone 1, engine (committed)**: E9, the gauge (`content::Gauge` on `FighterParams::gauge`, schema 6, `sim-core/src/gauge.rs`,
+  hashed `Fighter::gauge` / `gauge_mode` / `gauge_drain`, `Move::limit_version` / `gauge_drain`, `FighterParams::powered`); E16
+  (`boost`, `boosting`, `grab`, `boost_add`); E11 (`Move::start_speed_y`, `Move::ledge_drop` with hashed `Fighter::move_y0`); E22b
+  (`Move::on_land`); E3f (`Hitbox::half_height`). Tests: `sim-core/tests/gauge.rs`, `move_rules.rs`, `scripted_moves.rs`,
+  `sim-content/tests/bundle.rs`. The specials follow (milestone 2). The full write-up replaces this section when the phase ends.
+
 ## For the art agent
 
 * An emblem for class 6 (Greatsword) in `godot/ui/match_hud.gd`, a look for the built-in Champion (it uses `Loadout.default_for(6)`,

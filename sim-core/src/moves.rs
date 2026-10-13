@@ -338,6 +338,9 @@ pub struct Hitbox {
     /// The hit can clank with other attacks and projectiles (the reference's `clang`). False: it never clanks (the reference's
     /// no-clank hits, and a projectile's transcendent priority): it trades instead.
     pub clanks: bool,
+    /// Half the height of the box: above 0 it is a standing capsule from `y - half_height` to `y + half_height` (a tall wall of a
+    /// projectile, the reference's stacked circles) instead of a circle. Scaled like the radius.
+    pub half_height: Fx,
 }
 
 /// `Hitbox::angle_type` values.
@@ -384,6 +387,7 @@ impl Hitbox {
         self.angle_type = ANGLE_BY_BOX;
         self.command = false;
         self.clanks = true;
+        self.half_height = Fx::ZERO;
         self
     }
 }
@@ -789,6 +793,21 @@ pub struct Move {
     pub counter_strike: bool,
     /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
     pub charge_bonus: u8,
+    /// A special used while the fighter's gauge's powered mode runs uses this slot instead (its powered version) and spends the gauge
+    /// at once (see `content::Gauge`); `None`: the move is the same in the mode and spends nothing.
+    pub limit_version: Option<u8>,
+    /// Damage taken during this move drains the fighter's gauge instead of filling it, and so does every hit while it is held by an
+    /// ordinary grab that caught it in this move (the reference's charge and its cancel).
+    pub gauge_drain: bool,
+    /// Started in the air, the fighter keeps this percent of its vertical speed (the reference's vertical speed multiplier on startup:
+    /// a stall); 100 keeps it all.
+    pub start_speed_y: u8,
+    /// Ledges during the move only once the fighter has fallen this far below where the move began (`Fighter::move_y0`): `.0` for a
+    /// ledge in front, `.1` for one behind (on top of `ledge_front_from` / `ledge_back_from`). `None`: no such rule.
+    pub ledge_drop: Option<(Fx, Fx)>,
+    /// An aerial move that touches the ground goes on as this move instead (usually its grounded version), on the same frame, keeping
+    /// its frame and its hits so far: the mirror of `off_edge`. `None`: the usual landing.
+    pub on_land: Option<u8>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -850,6 +869,11 @@ impl Move {
             counter: None,
             counter_strike: false,
             charge_bonus: 0,
+            limit_version: None,
+            gauge_drain: false,
+            start_speed_y: 100,
+            ledge_drop: None,
+            on_land: None,
             script: None,
             projectile_script: None,
         }
@@ -931,6 +955,7 @@ impl StateHash for Hitbox {
         h.write_u8(self.angle_type);
         h.write_bool(self.command);
         h.write_bool(self.clanks);
+        self.half_height.hash_into(h);
     }
 }
 
@@ -1173,6 +1198,25 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.counter_strike);
             h.write_u8(m.charge_bonus);
+            for slot in [m.limit_version, m.on_land] {
+                match slot {
+                    Some(id) => {
+                        h.write_bool(true);
+                        h.write_u8(id);
+                    }
+                    None => h.write_bool(false),
+                }
+            }
+            h.write_bool(m.gauge_drain);
+            h.write_u8(m.start_speed_y);
+            match m.ledge_drop {
+                Some((front, back)) => {
+                    h.write_bool(true);
+                    front.hash_into(h);
+                    back.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -1236,6 +1280,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 angle_type: ANGLE_BY_BOX,
                 command: false,
                 clanks: true,
+                half_height: Fx::ZERO,
             })
             .collect(),
         ..Move::empty()
@@ -1289,6 +1334,7 @@ fn row(r: &R) -> Hitbox {
         angle_type: ANGLE_BY_BOX,
         command: false,
         clanks: true,
+        half_height: Fx::ZERO,
     }
 }
 
@@ -3698,6 +3744,7 @@ pub fn claws() -> Weapon {
             angle_type: ANGLE_BY_BOX,
             command: false,
             clanks: true,
+            half_height: Fx::ZERO,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
