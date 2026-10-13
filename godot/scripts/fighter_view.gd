@@ -544,6 +544,13 @@ const CHEST_TO_CAMERA := 35.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
 const HEAD_TOWARD_FOE := 10.0
+## In a move: how far the chest still opens to the camera, how much further the hips turn toward the foe, and how far the head may turn
+## from the camera (a three-quarter face instead of the near front view of the rest of the time).
+const CHEST_IN_ATTACK := 6.0
+const BODY_TURN_IN_ATTACK := 14.0
+const FACE_AWAY_IN_ATTACK := 58.0
+## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
+var attack_turn := 0.0
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -689,8 +696,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		var k := flinch_left / FLINCH_TIME
 		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))
-	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN).
-	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
+	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN). In a move the chest turns into it instead,
+	# toward the opponent (`attack_turn`), so a strike is thrown at the foe and not at the camera.
+	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * float(s.facing))
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
 
 
@@ -729,8 +737,9 @@ func _face_camera(facing: int) -> void:
 	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
 	var ahead: Vector3 = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
 	var away := rad_to_deg(atan2(ahead.x, ahead.z))
-	if absf(away) > FACE_AWAY_MAX:
-		_turn_bone(head_bone, -signf(away) * (absf(away) - FACE_AWAY_MAX))
+	var limit := lerpf(FACE_AWAY_MAX, FACE_AWAY_IN_ATTACK, attack_turn)
+	if absf(away) > limit:
+		_turn_bone(head_bone, -signf(away) * (absf(away) - limit))
 	var down := -rad_to_deg(asin(clampf(ahead.y, -1.0, 1.0)))
 	if down > FACE_DOWN_MAX:
 		_bend_bone(head_bone, -(down - FACE_DOWN_MAX), facing)
@@ -1911,7 +1920,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var look := facing
 	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and signf(float(s.vel.x)) == -float(facing):
 		look = -facing
-	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN), clampf(delta * 14.0, 0.0, 1.0))
+	var into := 1.0 if state == "Attack" or state == "Grabbing" else 0.0
+	attack_turn = move_toward(attack_turn, into, delta * (12.0 if into > attack_turn else 5.0))
+	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn), clampf(delta * 14.0, 0.0, 1.0))
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
 	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).

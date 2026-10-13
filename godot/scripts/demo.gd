@@ -263,7 +263,9 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				["bair", -127, 0, attack, true], ["uair", 0, 100, attack, true], ["dair", 0, -70, attack, true],
 				["nspecial", 0, 0, special, false], ["sspecial", 127, 0, special, false], ["uspecial", 0, 100, special, false],
 				["dspecial", 0, -100, special, false]]
-			# (The first input after the stand-in is placed is dropped, so the tour starts a little later.)
+			# (The fighter starts on its revival platform, where the first attack only takes it off: one unrecorded press first.)
+			d.timeline.append([40, 0, 0, attack])
+			d.timeline.append([41, 0, 0, 0])
 			var t := 90
 			var n := 0
 			for g in moves:
