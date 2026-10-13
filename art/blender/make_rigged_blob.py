@@ -439,6 +439,9 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     """Sets a bone's pose from forward / outward / twist degrees (and an offset for the hips: upward on the base body; on the blob, whose
     clips were tuned with it, along the hip bone's own z, which is backward and forward)."""
     fwd, out, twist, lift = fwd * AMP, out * AMP, twist * AMP, lift * AMP
+    # The base body's head is big: tipped back more than a little it shows its chin and hides the drawn face, the half of every read.
+    if BODY and bone == "head" and CLIP_NOW not in HEAD_FREE_CLIPS:
+        fwd = max(fwd, HEAD_BACK_LIMIT)
     pb = rig.pose.bones[bone]
     pb.rotation_mode = "XYZ"
     limb = bone.split(".")[0] in LIMBS
@@ -448,6 +451,13 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     pb.rotation_euler = (math.radians(x), math.radians(twist), math.radians(z))
     if bone == "hips":
         pb.location = (0.0, lift, 0.0) if BODY else (0.0, 0.0, lift)
+
+
+# How far back (degrees) the base body's head may tip, and the clips exempt (lying down or hanging, where the head lifts off the floor or
+# looks up the wall).
+HEAD_BACK_LIMIT = -8.0
+HEAD_FREE_CLIPS = ("knockdown", "getup", "ledge", "ledge_climb")
+CLIP_NOW = ""
 
 
 def key_all(rig, frame):
@@ -811,7 +821,8 @@ def _amped_pose(fn, k):
 def clip(rig, name, frames, poses):
     """`poses` maps a frame to a function that sets the pose; the clip is keyed at each of those frames. For the base body (--body) the
     exaggeration is pulled back toward life and its own poses replace the listed moves' (BODY_MOVES)."""
-    global AMP
+    global AMP, CLIP_NOW
+    CLIP_NOW = name
     if name.startswith("attack") or name in ("grab", "throw"):
         AMP = 1.85
     elif name.startswith(("sword_", "kick_")) or name == "blaster":

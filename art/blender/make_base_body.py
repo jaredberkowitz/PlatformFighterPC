@@ -22,37 +22,39 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-# ---- Proportions (units; read off the concept's front and side views, scaled to 2.2 tall) -------------------------------------------
+# ---- Proportions (units; first read off the concept's front and side views, scaled to 2.2 tall, then made cuter on request: a bigger,
+# rounder head, a shorter and plumper trunk, shorter thicker legs and arms, puffier feet, all within the same 2.2 so the game's fit of
+# hats, camera and hurtboxes holds) -------------------------------------------------------------------------------------------------------
 HEIGHT = 2.2
-HEAD_CENTRE = Vector((0.0, 0.0, 1.795))
-HEAD_RADII = Vector((0.4, 0.385, 0.39))
+HEAD_CENTRE = Vector((0.0, 0.0, 1.725))
+HEAD_RADII = Vector((0.475, 0.455, 0.465))
 # The trunk as rings from the top (hidden inside the head) to the crotch: (height, half-width, half-depth, forward shift of the ring's
 # middle). The shoulders tuck under the head (no neck) and are slim front to back there, so the head overhangs them all round and its
 # outline reads as a whole circle, as on the sheet; the belly is the widest and pushes forward, with a little seat behind.
 TRUNK = [
-    (1.56, 0.12, 0.1, 0.0),
-    (1.48, 0.215, 0.12, 0.0),
-    (1.40, 0.232, 0.135, 0.01),
-    (1.27, 0.232, 0.162, 0.015),
-    (1.13, 0.245, 0.19, 0.03),
-    (1.00, 0.27, 0.21, 0.048),
-    (0.89, 0.272, 0.205, 0.04),
-    (0.80, 0.255, 0.19, 0.012),
-    (0.73, 0.21, 0.15, -0.005),
-    (0.67, 0.12, 0.08, 0.0),
+    (1.42, 0.13, 0.1, 0.0),
+    (1.36, 0.235, 0.13, 0.0),
+    (1.29, 0.26, 0.15, 0.01),
+    (1.18, 0.28, 0.185, 0.02),
+    (1.06, 0.3, 0.22, 0.04),
+    (0.93, 0.318, 0.24, 0.058),
+    (0.8, 0.315, 0.232, 0.048),
+    (0.68, 0.295, 0.212, 0.016),
+    (0.58, 0.245, 0.17, -0.005),
+    (0.505, 0.13, 0.09, 0.0),
 ]
 # Arms: shoulder (inside the trunk), elbow, wrist, each with its radius; hanging out at about 20 degrees, the hands ending at the top of
-# the thigh (the sheet's reach to mid-thigh read as too long in play). Parts must stand at least 2% of the height apart below the armpits
-# and the crotch, or fit_body.py cannot tell them from the trunk.
-ARM = [((0.22, 0.0, 1.40), 0.088), ((0.42, 0.012, 1.13), 0.078), ((0.535, 0.025, 0.87), 0.068)]
+# the thigh. Parts must stand at least 2% of the height apart below the armpits and the crotch, or fit_body.py cannot tell them from the
+# trunk.
+ARM = [((0.24, 0.0, 1.27), 0.105), ((0.45, 0.012, 1.075), 0.094), ((0.585, 0.025, 0.885), 0.083)]
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
-HAND_LENGTH = 0.22
-HAND_RADII = (0.055, 0.092)   # thickness, width
-# Legs: hip (inside the trunk), knee, ankle (inside the foot).
-LEG = [((0.15, 0.0, 0.82), 0.113), ((0.152, 0.0, 0.45), 0.103), ((0.158, 0.0, 0.12), 0.096)]
+HAND_LENGTH = 0.2
+HAND_RADII = (0.062, 0.1)   # thickness, width
+# Legs: hip (inside the trunk), knee, ankle (inside the foot): short and thick.
+LEG = [((0.165, 0.0, 0.57), 0.135), ((0.168, 0.0, 0.34), 0.127), ((0.172, 0.0, 0.13), 0.116)]
 # Feet: wide puffy ovals, pushed forward, their soles on the ground.
-FOOT_CENTRE = (0.172, -0.07, 0.075)
-FOOT_RADII = (0.13, 0.21, 0.08)
+FOOT_CENTRE = (0.18, -0.075, 0.085)
+FOOT_RADII = (0.145, 0.225, 0.09)
 
 VOXEL = 0.009          # remesh detail (units)
 SOFTEN = 6             # smoothing steps where the parts meet
@@ -133,6 +135,15 @@ def mend_folds(obj):
     fins = [v for v in bm.verts if len(v.link_edges) <= 2]
     if fins:
         bmesh.ops.delete(bm, geom=fins, context="VERTS")
+    # Deleting a fin (or a fold the decimation left) can open a slit in the skin, which showed as a crack of background through the chin
+    # and the belly: every open edge is closed again, and the patches cut into triangles.
+    for _ in range(3):
+        open_edges = [e for e in bm.edges if len(e.link_faces) < 2]
+        if not open_edges:
+            break
+        bmesh.ops.holes_fill(bm, edges=open_edges, sides=0)
+        bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3])
+    print("open edges left: %d" % len([e for e in bm.edges if len(e.link_faces) < 2]))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bm.to_mesh(obj.data)
     bm.free()

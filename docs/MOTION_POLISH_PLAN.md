@@ -205,14 +205,17 @@ All on branch `motion-polish`, presentation only (no sim, content or bridge chan
 
 Foot slide after phase 4 (`tests/motion_probe.gd`, drift while planted over ground speed): walk 0.38, 0.39, 0.33 (was 0.51, 0.49, 0.49);
 run 0.08, 0.12, 0.11 (was 0.45, 0.46, 0.43); dash 0.10, 0.12, 0.12 (was 0.36, 0.36, 0.37). The plan's "a few percent" is not reachable
-for the walk on these short legs without a scurrying tempo; the run and dash meet it closely enough to read as planted.
+for the walk on these short legs without a scurrying tempo; the run and dash meet it closely enough to read as planted. After the cuter, shorter body
+(`ART_PIPELINE.md` thirty-first pass) the run and dash take 1.4 times the steps and the walk is quicker: run about 0.09, dash about 0.13,
+walk 0.42 to 0.45.
 
 Not done or deferred, honestly:
 - The heavy hitstun's directions are sideways and upward only (no separate low pose): the snapshot has no hit height before the launch.
 - The impact squash is across the stage, not along the launch angle: the launch angle is not in the snapshot until the launch.
 - The tech pop is short (the tech's landing lag is 4 frames); the intangibility ghosting is the same as before.
 - Smears on punches are small, as the fists only travel about half a unit; the kicks' are larger.
-- The clips are still not re-posed for the base body's proportions (see `ANIMATION.md` section 6).
+- The clips were re-posed for the cuter body only where it showed (the head's back tilt, overhead kicks); a full pose-by-pose pass is
+  still open (see `ANIMATION.md` section 6).
 
 ## Spike results
 

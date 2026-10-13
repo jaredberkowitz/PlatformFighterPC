@@ -375,7 +375,10 @@ func _build_rig(skin: Material) -> bool:
 const RUN_STOP_SPEED := 0.04
 ## The walk clip plays once a cycle at this ground speed (units a frame), faster or slower with the speed: quick enough that the planted
 ## foot slides only about a third of the ground speed on the short legs (motion plan phase 4), not so quick that the walk scurries.
-const WALK_TEMPO := 0.07
+const WALK_TEMPO := 0.055
+## The run and dash take this many more steps than one stride a dash length: the cute body's short legs cover less ground a step, so
+## they scurry (motion plan phase 4, measured by tests/motion_probe.gd).
+const STEP_CADENCE := 1.4
 const RUN_STOP_FRAMES := 20.0
 const FIDGET_AFTER := 300
 const FIDGET_EVERY := 420
@@ -393,13 +396,13 @@ func _choose_clip(s: Dictionary) -> Array:
 	var speed := absf(float(s.vel.x))
 	match state:
 		"Walk":
-			return ["walk", clampf(speed / WALK_TEMPO, 0.5, 3.0), -1.0]
+			return ["walk", clampf(speed / WALK_TEMPO, 0.5, 3.6), -1.0]
 		"Run", "Dash":
 			# Cycles a second (two dash lengths each) times the clip's length in seconds.
 			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))
 			var clip := "dash" if state == "Dash" else "run"
 			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
-			return [clip, minf(2.5, speed * 60.0 / stride * length), -1.0]
+			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
 			return _attack_clip(s)
 		"Turn":
@@ -628,6 +631,7 @@ func _follow_bones() -> void:
 ## It grows with the move's wind-up and fades in its recovery, and it is added on top of the move's clip, so every move gets it.
 var body_bend := 0.0
 var head_look := 0.0
+const HEAD_COUNTER_ARCH := 0.75
 
 
 func _body_follow(s: Dictionary, delta: float) -> void:
@@ -646,7 +650,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		if kicking:
 			# A leg swings comfortably from about 40 degrees behind to 100 in front; past that the body has to make room.
 			if phi > 100.0:
-				target_bend = -minf((phi - 100.0) * 0.85, 50.0)
+				# (Not too far: the base body's big head arched back past this shows its chin, not its face.)
+				target_bend = -minf((phi - 100.0) * 0.85, 26.0 if use_base_body else 50.0)
 			elif phi < -40.0:
 				# (Less: kicks behind already lean the body forward in their clips.)
 				target_bend = minf((-40.0 - phi) * 0.4, 24.0)
@@ -660,7 +665,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 				target_bend = (-60.0 - phi) * 0.3
 		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
-		target_look = clampf(rise * 0.5, -20.0, 30.0)
+		# (Less far up for a kick: the body already leans back under a high one, and the face must stay toward the camera.)
+		target_look = clampf(rise * 0.5, -20.0, 12.0 if kicking else 30.0)
 		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
 		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
 		var k := (leg_k if kicking else arm_k) * (0.5 if use_base_body else 1.0)
@@ -671,8 +677,11 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	head_look = lerpf(head_look, target_look, follow)
 	if absf(body_bend) > 0.05:
 		_bend_bone(spine_bone, body_bend, int(s.facing))
-	if absf(head_look) > 0.05:
-		_bend_bone(head_bone, -head_look, int(s.facing))
+	# (When the body arches back, the head tips forward against most of it, so the face stays toward the camera: the big head tipped back
+	# showed only its chin.)
+	var head_bend := -head_look - minf(body_bend, 0.0) * HEAD_COUNTER_ARCH
+	if absf(head_bend) > 0.05:
+		_bend_bone(head_bone, head_bend, int(s.facing))
 	# A flinch: the chest and head snap back from the hit and come forward again.
 	if flinch_left > 0.0:
 		flinch_left = maxf(0.0, flinch_left - delta)
@@ -948,7 +957,10 @@ func _tag_object(node: Node) -> void:
 				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
 				(node as GeometryInstance3D).set_instance_shader_parameter("fighter", 1.0)
 				# The line art in the fighter's own colour, much darkened (see `outline_tint` in shaders/outline.gdshader).
-				var line_c: Color = loadout.body_color().darkened(OUTLINE_TINT_DARKEN) if loadout != null else INK
+				# (A pale body gets a darker line, so its outline still parts it from a pale sky.)
+				var body_c: Color = loadout.body_color() if loadout != null else INK
+				var darken := lerpf(OUTLINE_TINT_DARKEN, OUTLINE_TINT_DARKEN_PALE, smoothstep(0.55, 0.9, body_c.get_luminance()))
+				var line_c: Color = body_c.darkened(darken) if loadout != null else INK
 				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
 				break
 	for c in node.get_children():
@@ -1180,6 +1192,7 @@ const OUTLINE_TINT := 0.75
 ## like the concept art's, not a heavy black one.
 const FIGHTER_OUTLINE_WEIGHT := 0.82
 const OUTLINE_TINT_DARKEN := 0.64
+const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
@@ -1532,6 +1545,7 @@ func _glasses() -> void:
 	var glasses_rig := Node3D.new()
 	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
 	head_rig.add_child(glasses_rig)
+	var to_head: Transform3D = glasses_rig.transform
 	match loadout.glasses:
 		1:
 			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
@@ -1544,17 +1558,18 @@ func _glasses() -> void:
 			rim.inner_radius = 0.95
 			rim.outer_radius = 1.05
 			for sx in [-1.0, 1.0]:
-				_part(glasses_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
-				_part(glasses_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
-			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
+				_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3(0.25, 0.18, 0.03))
+				_on_face(_part(glasses_rig, rim, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.045, Vector3(0.25, 0.04, 0.18), true)
+			_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.14
 			ring.outer_radius = 0.28
 			for sx in [-1.0, 1.0]:
-				_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-				_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
+				_on_face(_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
+				_on_face(_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.02,
+					Vector3(0.14, 0.14, 0.02))
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.78
 			strap.outer_radius = 0.84
@@ -1565,8 +1580,26 @@ func _glasses() -> void:
 			thin.inner_radius = 0.17
 			thin.outer_radius = 0.21
 			for sx in [-1.0, 1.0]:
-				_part(glasses_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
+				_on_face(_part(glasses_rig, thin, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
+			_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.54, 0.02, Vector3(0.1, 0.02, 0.02))
+
+
+## Seats a piece of the glasses on the face: over the drawn eye at (`x`, `y`) in the glasses' design space, on the head's surface
+## (`lift` out from it, in the head's design units) and turned to face out from it, so on a fighter turned three-quarters to the camera the
+## far lens stays on the face instead of floating past the head's edge. `to_head` takes the glasses' space to the head's design space (a
+## sphere of radius 0.8 about 1.42 up, see `head_fit`). `ring` turns a torus to lie flat on the face.
+func _on_face(mi: MeshInstance3D, to_head: Transform3D, x: float, y: float, lift: float, scl: Vector3, ring := false) -> void:
+	var d := to_head * Vector3(x, y, 0.0)
+	var up := d.y - 1.42
+	var z := sqrt(maxf(0.0, 0.64 - d.x * d.x - up * up))
+	var normal := Vector3(d.x, up, z).normalized()
+	var on := Vector3(d.x, d.y, 0.0) + Vector3(0.0, 0.0, z) + normal * lift
+	var back := to_head.affine_inverse()
+	mi.position = back * on
+	# The surface's outward direction in the glasses' space (their space is only scaled and moved from the head's).
+	var out := (back.basis * normal).normalized()
+	var turn := Basis(Quaternion(Vector3(0, 0, 1), out))
+	mi.basis = turn * (Basis.from_euler(Vector3(PI / 2.0, 0, 0)) if ring else Basis.IDENTITY) * Basis.from_scale(scl)
 
 
 ## The expression for this moment (see Loadout's action faces).
@@ -2390,7 +2423,7 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var knee0 := rest_s.origin
 		var ankle0 := rest_f.origin
 		# On the strike the kicking leg stretches and reaches that much further (`strike_e`).
-		var e := strike_e * leg_k
+		var e := strike_e * MotionDeform.LEG_STRETCH_FACTOR * leg_k
 		var upper := (knee0 - rest_t.origin).length() * (1.0 + e)
 		var shin_len := (ankle0 - knee0).length() * (1.0 + e)
 		var lower := shin_len + 0.08

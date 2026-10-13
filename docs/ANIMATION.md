@@ -123,6 +123,7 @@ frames, knockdown and get-up, and the claws' down air on its stomp. Done (motion
 springs and tails, the missing clips, the shield, locomotion slide. Checks: `tests/motion_test.gd` (rollback, hitlag and rest behaviour of
 every layer) and `tests/motion_probe.gd` (foot slide). Next:
 
-1. Re-pose the clips for the base body's proportions (they were re-keyed on its joints, not re-posed), together with any change to the
-   proportions themselves.
-2. The walk still slides about a third of its ground speed; a longer stride needs longer legs, so it waits on (1).
+1. The body is now the cuter one (`ART_PIPELINE.md` thirty-first pass). Every clip was rebuilt on it and the worst reads fixed (the
+   head never tips back past 8 degrees, overhead kicks keep the face to the camera, kicking legs stretch to reach); a pose-by-pose pass
+   for its proportions is still open.
+2. The walk still slides about 0.45 of its ground speed: short legs cannot plant at these walk speeds without scurrying.

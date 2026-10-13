@@ -7,6 +7,9 @@ extends RefCounted
 
 ## How much longer the striking limb gets on the strike (a share of its length), and how many frames it eases back after the hit.
 const STRIKE_STRETCH := 0.22
+## A kicking leg stretches this many times as far: the cute body's legs are short, and a kick has to reach its hitbox (a rubbery leg suits
+## the style).
+const LEG_STRETCH_FACTOR := 2.2
 const STRIKE_RELAX := 6.0
 ## The victim's squash along the hit for its freeze: per frame of hitlag, and at most.
 const IMPACT_PER_HITLAG := 0.012

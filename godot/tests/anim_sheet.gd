@@ -3,7 +3,7 @@ extends SceneTree
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
 ##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | shield | flinch | launch | tumble | roll | backroll | spotdodge | airdodge | knockdown | getup |
 ##   <move name> (an attack such as fsmash, nair, jab)
-##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N to wear neckwear N (loadout.gd),
+##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N to wear that neckwear, those glasses or that gear (loadout.gd),
 ##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
@@ -25,6 +25,8 @@ func _initialize() -> void:
 	var facing := 1
 	var timing := PackedInt32Array([40, 12, 16])
 	var neck := -1
+	var glasses := -1
+	var gear := -1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
 			what = a.substr(7)
@@ -34,6 +36,10 @@ func _initialize() -> void:
 			out = a.substr(6)
 		elif a.begins_with("--facing="):
 			facing = int(a.substr(9))
+		elif a.begins_with("--gear="):
+			gear = int(a.substr(7))
+		elif a.begins_with("--glasses="):
+			glasses = int(a.substr(10))
 		elif a.begins_with("--neck="):
 			neck = int(a.substr(7))
 		elif a.begins_with("--zoom="):
@@ -75,6 +81,10 @@ func _initialize() -> void:
 	var look: RefCounted = Loadout.default_for(cls)
 	if neck >= 0:
 		look.neck = neck
+	if glasses >= 0:
+		look.glasses = glasses
+	if gear >= 0:
+		look.gear = gear
 	view.build(cls, look)
 
 	var frames: Array = []
