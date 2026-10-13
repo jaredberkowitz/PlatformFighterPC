@@ -936,7 +936,26 @@ func build(p: int, l: RefCounted = null) -> void:
 	blade_parts.append(_part(blade_pivot, guard_mesh, respond(toon(Color(0.92, 0.76, 0.3)), "gold"), Vector3(0.18, 0, 0)))
 	var grip_mesh := BoxMesh.new()
 	grip_mesh.size = Vector3(0.4, 0.12, 0.12)
-	_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.02, 0, 0))
+	blade_parts.append(_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.02, 0, 0)))
+	# The Seer's staff (class STAFF_CLASS), on the same pivot so it is posed as the blade is: a pale wooden shaft held a little from its
+	# foot, a gold collar and a glowing round head.
+	staff_parts.clear()
+	var shaft := CylinderMesh.new()
+	shaft.top_radius = 0.08
+	shaft.bottom_radius = 0.095
+	shaft.height = MESH_LENGTH
+	shaft.radial_segments = 10
+	staff_parts.append(_part(blade_pivot, shaft, toon(Color(0.86, 0.72, 0.52)), Vector3(MESH_LENGTH * 0.5 - 0.35, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	var collar := CylinderMesh.new()
+	collar.top_radius = 0.14
+	collar.bottom_radius = 0.14
+	collar.height = 0.14
+	collar.radial_segments = 12
+	staff_parts.append(_part(blade_pivot, collar, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.42, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	var head := SphereMesh.new()
+	head.radius = 0.26
+	head.height = 0.52
+	staff_parts.append(_part(blade_pivot, head, toon(Color(0.78, 0.96, 1.0)), Vector3(MESH_LENGTH - 0.22, 0, 0)))
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
@@ -2115,6 +2134,9 @@ static func _tag_arrow_texture() -> ImageTexture:
 static var _tag_arrow_cache: ImageTexture
 var blade_pivot: Node3D
 var blade_parts: Array[MeshInstance3D] = []
+var staff_parts: Array[MeshInstance3D] = []
+## The class that fights with a staff (the Seer): posed like the sword, drawn as a staff.
+const STAFF_CLASS := 5
 
 
 ## The fighter's class (which moveset it has): 0 longsword, 1 claws. Snapshots made before classes existed only have `char`.
@@ -2175,6 +2197,8 @@ var blade_length := 2.0
 
 func _rest_length(s: Dictionary) -> float:
 	# Swords are long; claws and bare hands are short.
+	if _cls(s) == STAFF_CLASS:
+		return 2.0
 	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if _cls(s) == 0 else 1.0
 
 
@@ -2189,7 +2213,9 @@ func _blade_target(s: Dictionary) -> Array:
 	var to_tip := Vector2(tip.x - hand_x, tip.y - HAND.y)
 	var swing := rad_to_deg(atan2(to_tip.y, to_tip.x))
 	var length := clampf(to_tip.length() + tip.z * 0.7, 0.7, 3.6)
-	if _cls(s) != 0:
+	if _cls(s) == STAFF_CLASS:
+		length = clampf(length, 1.6, 2.6)
+	elif _cls(s) != 0:
 		length = clampf(length, 0.7, 1.4)
 	# Never point into the floor while standing on it.
 	if s.platform >= 0:
@@ -2311,7 +2337,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	_update_arc(now, delta)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
-	var thick := 1.0 if _cls(s) == 0 else 1.7
+	var thick := 1.0 if _cls(s) == 0 or _cls(s) == STAFF_CLASS else 1.7
 	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
 
 
@@ -3056,7 +3082,12 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_pose_blade(s, delta)
 	# The claws and needles fighters' kicks and rushes use the body, not a blade (the needles' stand-in specials are the claws', so they
 	# burn and spin the same way).
-	var brawler: bool = _cls(s) != 0
+	var staff: bool = _cls(s) == STAFF_CLASS
+	var brawler: bool = _cls(s) != 0 and not staff
+	for p in blade_parts:
+		p.visible = not staff
+	for p in staff_parts:
+		p.visible = staff
 	# Only the body moves leave the arms alone (the claws' listed ones; the needles' kicks, grabs and throws); the sword fighter always
 	# has its blade.
 	var body_move := false

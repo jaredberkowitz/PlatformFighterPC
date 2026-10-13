@@ -834,4 +834,8 @@ An audit of every stage in a four-player match (`docs/screenshots/clear_meadow.p
 - **Flat Island's front was cold**: grey cobbles in slate mortar under warm sand. The stones are now warm sandstone (soil 0.82, 0.66, 0.5;
   dark 0.6, 0.48, 0.46) and the sand top golden (0.96, 0.8, 0.5) instead of bleached near-white.
 - Look bench 0.87 (passes at 0.85).
+- **The Seer (class 5, Staff)**: a staff on the weapon pivot, posed like the sword from the live hitboxes (a pale wooden shaft, a gold
+  collar, a glowing head; `FighterView.STAFF_CLASS`), its own look (plum, a crown, a sash), an eye-of-light HUD emblem, and its moves
+  mapped to the sword's cuts for the staff spins and sweeps (`AnimLibrary.CLASS_MOVES[5]`). The Gauntlets' specials are mapped too
+  (charged punch, uppercut and overhand, the leaping grab's catch, the slide and dive kicks). `docs/screenshots/seer_staff_jab.png`.
 

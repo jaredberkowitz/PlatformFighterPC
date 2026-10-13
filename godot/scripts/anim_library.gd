@@ -158,6 +158,34 @@ const CLASS_MOVES := {
 		"extra move 10": "attack_jab",
 		"extra move 11": "attack_jab",
 		"extra move 12": "attack_uair",
+		# The specials: the charged punch keeps the shared heavy strike (its reversed and aerial versions too); the dash's uppercut and
+		# the aerial overhand; the leaping grab's catch; the slide kick, its dive-kick and off-edge versions, and their landings.
+		"extra move 0": "attack_smash",
+		"extra move 1": "attack_smash",
+		"extra move 2": "attack_smash",
+		"extra move 3": "attack_uair",
+		"extra move 4": "attack_smash",
+		"extra move 5": "attack_smash",
+		"extra move 6": "grab",
+		"down special": "kick_low",
+		"extra move 7": "kick_dair",
+		"extra move 8": "land",
+		"extra move 9": "kick_low",
+		"extra move 13": "land",
+	},
+	# Staff (the Seer): the staff spun and swept with the sword's cuts (no blade is drawn), the palm pulse a straight strike, the staff
+	# driven down for the down air, the down smash's burst both ways; the rapid jab's flurry as jabs and its burst as a heavy strike.
+	5: {
+		"ftilt": "sword_ftilt",
+		"utilt": "sword_utilt",
+		"uair": "sword_utilt",
+		"dtilt": "sword_dtilt",
+		"dsmash": "sword_dsmash",
+		"fair": "attack_jab",
+		"dair": "sword_dair",
+		"extra move 10": "attack_jab",
+		"extra move 11": "attack_jab",
+		"extra move 12": "attack_smash",
 	},
 }
 

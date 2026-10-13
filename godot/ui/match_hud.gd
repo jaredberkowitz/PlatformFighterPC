@@ -260,6 +260,18 @@ class Board extends Control:
 					pts.append(c + (q as Vector2) * r)
 				pts.append(pts[0])
 				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 5:
+			# Staff: an eye of light (an almond with a round pupil) with three rays above it.
+			var lid := PackedVector2Array()
+			for t in 17:
+				var u := float(t) / 16.0 * TAU
+				lid.append(c + Vector2(cos(u) * r * 0.95, sin(u) * r * 0.45 * (1.0 if sin(u) >= 0.0 else 1.0)))
+			draw_polyline(lid, color, width, true)
+			draw_circle(c, r * 0.24, color)
+			for k in 3:
+				var a := deg_to_rad(-90.0 + 34.0 * (k - 1))
+				var dir := Vector2(cos(a), sin(a))
+				draw_line(c + dir * r * 0.72, c + dir * r * 1.12, color, width * 0.7, true)
 		elif cls == 4:
 			# Gauntlets: a lightning bolt (speed and a charged fist), drawn as one closed zigzag.
 			var pts := PackedVector2Array()

@@ -33,7 +33,7 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 		# nspecial|sspecial|uspecial|dspecial>, with
 		# _ko on the end for a finishing hit (the other fighter at 170%).
 		var parts := demo_name.split("_")
-		var cls: int = {"sword": 0, "claws": 1, "needles": 2, "embers": 3, "gauntlets": 4}.get(parts[1], 0)
+		var cls: int = {"sword": 0, "claws": 1, "needles": 2, "embers": 3, "gauntlets": 4, "staff": 5}.get(parts[1], 0)
 		var move: String = parts[2] if parts.size() > 2 else "ftilt"
 		d.chars = [cls, cls, cls, cls]
 		d.cam_dist = 11.0

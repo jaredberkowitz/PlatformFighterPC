@@ -197,7 +197,14 @@ static func builtins() -> Array:
 	var sprinter := neutral_entry("Sprinter", 4, racer)
 	sprinter.builtin = true
 	sprinter.base_index = 4
-	var seer := neutral_entry("Seer", 5, Loadout.default_for(5))
+	# (Its own look: a plum seer in a crown with a sash.)
+	var oracle: RefCounted = Loadout.default_for(5)
+	oracle.color = 5
+	oracle.hat = 5
+	oracle.glasses = 0
+	oracle.neck = 1
+	oracle.gear = 0
+	var seer := neutral_entry("Seer", 5, oracle)
 	seer.builtin = true
 	seer.base_index = 5
 	return [duelist, brawler, rogue, tumbler, sprinter, seer]
