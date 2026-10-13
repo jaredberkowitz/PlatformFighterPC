@@ -2288,13 +2288,17 @@ var blade_angle := REST_ANGLE
 var blade_length := 2.0
 
 
-## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword, too big to hold up,
-## hanging low in front with its point toward the ground.
+## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword carried over the
+## shoulder, its blade lying back across the back (pointing up and behind), so it never hides the fighter or the stage in front.
 func _rest_angle(s: Dictionary) -> float:
 	return GREAT_REST_ANGLE if _cls(s) == GREATSWORD_CLASS else REST_ANGLE
 
 
-const GREAT_REST_ANGLE := -28.0
+const GREAT_REST_ANGLE := 152.0
+## Where the hand holds the greatsword at rest (forward space): up by the shoulder, a little in front of it.
+const GREAT_REST_HAND := Vector2(0.3, 1.25)
+## How far in front of (positive) or behind the body the greatsword's hand is, eased between the two.
+var great_z := -0.45
 ## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
 const GREAT_LENGTH := 2.45
 
@@ -2313,7 +2317,7 @@ func _blade_target(s: Dictionary) -> Array:
 	var rest_len := _rest_length(s)
 	var name: String = s.move_name
 	if name == "" or ((_cls(s) == STAFF_CLASS or _cls(s) == GREATSWORD_CLASS) and _body_clip(_cls(s), name)):
-		return [_rest_angle(s), rest_len, HAND.x]
+		return [_rest_angle(s), rest_len, GREAT_REST_HAND.x if _cls(s) == GREATSWORD_CLASS else HAND.x]
 	# The Seer's neutral air: the staff whirled round the body, held at its middle, turning from the wind-up through the last hit.
 	if _cls(s) == STAFF_CLASS and name == "nair":
 		var tt: PackedInt32Array = s.move_timing
@@ -2409,7 +2413,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	blade_length = lerpf(blade_length, float(target[1]), follow)
 	var facing: int = s.facing
 	# Where the blade's tip is (forward space). It is fixed by the move's hitboxes and never moves because of the arm.
-	var old_hand := Vector2(float(target[2]), HAND.y)
+	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and float(target[2]) == GREAT_REST_HAND.x
+	var old_hand := Vector2(float(target[2]), GREAT_REST_HAND.y if great_rest else HAND.y)
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
 	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
 	# then runs from the hand to the same tip.
@@ -2452,7 +2457,12 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var swing := rad_to_deg(along.angle())
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
-	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
+	# (The greatsword at rest lies behind the body, its blade across the back; swinging, it comes round in front.)
+	var hand_z := 0.35
+	if _cls(s) == GREATSWORD_CLASS:
+		great_z = move_toward(great_z, -0.45 if great_rest else 0.35, delta * 8.0)
+		hand_z = great_z
+	hand_target = Vector3(hand.x * facing, hand.y, hand_z)
 	# The greatsword is held in both hands: the other one a little further down the grip (toward the pommel), just behind the blade.
 	var back_along := Vector2.from_angle(deg_to_rad(angle)) * -0.3
 	off_hand_target = hand_target + Vector3(back_along.x, back_along.y, -0.15)

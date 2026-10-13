@@ -989,3 +989,7 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   time left, and reads "BOOST!". The match reads it from the bridge's `fighter_gauge`, `fighter_gauge_max`, `fighter_gauge_full` and
   `fighter_gauge_frames` when they exist (`main.gd`, "gauges"), and draws nothing for a fighter without one. `hud_boost_meter.png`
   (left: filling; right: powered).
+- **The Champion carries the greatsword over the shoulder** (the owner: keep the big blade out of the view): at rest and through its
+  kicks and stance the hand is up by the shoulder (`GREAT_REST_HAND`) and the blade lies back across the back (`GREAT_REST_ANGLE` 152,
+  behind the body: `great_z` eases the hand behind and in front); a swing brings it up off the shoulder and round in front.
+  `champion_shoulder_carry.png`. (The longsword keeps its raised guard: it is small enough not to block the view.)
