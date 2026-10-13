@@ -337,6 +337,8 @@ These override anything above that disagrees.
 26. **Held-weapon bodies' arm intangibility**: the windows stay a listed limit (no arm hurtbox for now; they act on nothing).
 27. **Get-up attacks**: fix the Longsword's and the Claws' to the reference's angle 48 (they used 361). Done in sim 73; the Needles use
     the Claws' get-up attack, whose reference is also 48 (ssbwiki.com raw tables), so theirs changed too.
+28. **Counters ignore pushes**: no counter (the Longsword's included) catches a push / windbox (a flinchless hit), as in the reference.
+29. **Counter bubble**: counters catch with the reference's counter bubble (`Counter::bubble`), not the body's hurtboxes.
 
 ## Still open
 
