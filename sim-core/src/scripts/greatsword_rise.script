@@ -1,0 +1,2 @@
+// Greatsword up special, the rise. Special pressed again on frames 20-26 (move frames 19-25) [R] starts the falling slash (31 = ext3).
+if special_tap && frame >= 19 && frame <= 25 { goto(31); }

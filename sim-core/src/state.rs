@@ -248,9 +248,18 @@ pub struct Fighter {
     /// The current attack's target lock (`lock` in a move script): where the target's chest was when it was found, and whether one was.
     pub lock: Vec2,
     pub locked: bool,
-    /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 90), with the ruleset's trip
+    /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 86), with the ruleset's trip
     /// timings instead of a missed tech's.
     pub tripped: bool,
+    /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
+    pub gauge: Fx,
+    /// Frames left of the gauge's powered mode (0: not powered).
+    pub gauge_mode: u16,
+    /// Held by an ordinary grab out of a `Move::gauge_drain` move: until the hold ends, damage taken drains the gauge.
+    pub gauge_drain: bool,
+    /// Where the fighter's feet were (height) when its current move began (also on a switch by `goto`): what `Move::ledge_drop`
+    /// measures the fall from.
+    pub move_y0: Fx,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
@@ -459,6 +468,10 @@ impl Fighter {
             lock: Vec2::ZERO,
             locked: false,
             tripped: false,
+            gauge: Fx::ZERO,
+            gauge_mode: 0,
+            gauge_drain: false,
+            move_y0: Fx::ZERO,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -621,6 +634,10 @@ impl StateHash for Fighter {
         self.spawn_vel.hash_into(h);
         h.write_u8(self.spawn_kb_add);
         h.write_u16(self.spawn_size);
+        self.gauge.hash_into(h);
+        h.write_u16(self.gauge_mode);
+        h.write_bool(self.gauge_drain);
+        self.move_y0.hash_into(h);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -1075,6 +1092,26 @@ mod tests {
             ("stored", {
                 let mut s = state;
                 s.fighters[2].stored = 1;
+                s
+            }),
+            ("gauge", {
+                let mut s = state;
+                s.fighters[2].gauge = Fx::from_raw(1);
+                s
+            }),
+            ("gauge_mode", {
+                let mut s = state;
+                s.fighters[2].gauge_mode = 1;
+                s
+            }),
+            ("gauge_drain", {
+                let mut s = state;
+                s.fighters[2].gauge_drain = true;
+                s
+            }),
+            ("move_y0", {
+                let mut s = state;
+                s.fighters[2].move_y0 = Fx::from_raw(1);
                 s
             }),
             ("wall_jumps", {

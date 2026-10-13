@@ -98,6 +98,7 @@ pub const F_SET_AIR_FLAG: u8 = 43;
 pub const F_SPAWN_SCALED: u8 = 44;
 pub const F_SPAWN_AT: u8 = 45;
 pub const F_LOCK: u8 = 46;
+pub const F_BOOST_ADD: u8 = 47;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -130,6 +131,9 @@ pub const R_FLICK: u8 = 22;
 pub const R_LOCKED: u8 = 23;
 pub const R_LOCK_X: u8 = 24;
 pub const R_LOCK_Y: u8 = 25;
+pub const R_BOOST: u8 = 26;
+pub const R_BOOSTING: u8 = 27;
+pub const R_GRAB: u8 = 28;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -224,6 +228,17 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         R_LOCK_Y,
         "where the lock was made: the target's chest then, absolute (0 without a lock)",
     ),
+    reg(
+        "boost",
+        R_BOOST,
+        "the fighter's gauge (the body's Boost gauge), 0 to its max (0 for a body without one)",
+    ),
+    reg(
+        "boosting",
+        R_BOOSTING,
+        "1 while the gauge's powered mode runs, else 0",
+    ),
+    reg("grab", R_GRAB, "grab button held"),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[
@@ -287,7 +302,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 15] = [
+    const OWN: [Func; 16] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -368,8 +383,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "lock(range): 1 if this attack has a lock; else looks for the nearest opponent in front that can be hit, chest within range of the chest, nothing solid between, and locks onto its chest there (it stays put)",
         ),
+        func(
+            "boost_add",
+            F_BOOST_ADD,
+            1,
+            "boost_add(n): add n units to the fighter's gauge (negative drains), between 0 and its max; filling it starts the powered mode; nothing while the mode runs",
+        ),
     ];
-    concat::<9, 15, 24>(MATH, OWN)
+    concat::<9, 16, 25>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

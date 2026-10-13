@@ -534,7 +534,7 @@ fn tilts(w: &mut Weapon) {
         end: 34,
         parts: PART_LIMB,
     }];
-    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 90).
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
     for h in &mut ftilt.hitboxes {
         h.rebounds = false;
     }
@@ -578,7 +578,7 @@ fn tilts(w: &mut Weapon) {
     // (Reference frame 8 is move frame 7.)
     utilt.rehit = Some((7, 3));
     utilt.rehit_groups = 0b1;
-    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 90).
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
     for h in &mut utilt.hitboxes {
         h.rebounds = false;
     }
@@ -608,7 +608,7 @@ fn tilts(w: &mut Weapon) {
         h.shield_damage = if grounded { 112 } else { 120 };
         h.angle_type = ANGLE_BY_POSITION;
     }
-    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 90).
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
     for h in &mut dtilt.hitboxes {
         h.rebounds = false;
     }
@@ -827,7 +827,7 @@ fn aerials(w: &mut Weapon) {
     // (Reference frame 5 is move frame 4.)
     nair.rehit = Some((4, 4));
     nair.rehit_groups = 0b1;
-    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 90).
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
     for h in &mut nair.hitboxes {
         h.rebounds = false;
     }

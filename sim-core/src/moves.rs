@@ -344,6 +344,9 @@ pub struct Hitbox {
     /// Percent chance (0 to 100) that the hit trips a fighter on the ground instead of launching it, when its launch would not lift
     /// it off the ground (the reference's `trip`). Rolled on the game's own random generator, so it is the same on every machine.
     pub trip: u8,
+    /// Half the height of the box: above 0 it is a standing capsule from `y - half_height` to `y + half_height` (a tall wall of a
+    /// projectile, the reference's stacked circles) instead of a circle. Scaled like the radius.
+    pub half_height: Fx,
 }
 
 /// `Hitbox::angle_type` values.
@@ -392,6 +395,7 @@ impl Hitbox {
         self.clanks = true;
         self.rebounds = true;
         self.trip = 0;
+        self.half_height = Fx::ZERO;
         self
     }
 }
@@ -797,6 +801,21 @@ pub struct Move {
     pub counter_strike: bool,
     /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
     pub charge_bonus: u8,
+    /// A special used while the fighter's gauge's powered mode runs uses this slot instead (its powered version) and spends the gauge
+    /// at once (see `content::Gauge`); `None`: the move is the same in the mode and spends nothing.
+    pub limit_version: Option<u8>,
+    /// Damage taken during this move drains the fighter's gauge instead of filling it, and so does every hit while it is held by an
+    /// ordinary grab that caught it in this move (the reference's charge and its cancel).
+    pub gauge_drain: bool,
+    /// Started in the air, the fighter keeps this percent of its vertical speed (the reference's vertical speed multiplier on startup:
+    /// a stall); 100 keeps it all.
+    pub start_speed_y: u8,
+    /// Ledges during the move only once the fighter has fallen this far below where the move began (`Fighter::move_y0`): `.0` for a
+    /// ledge in front, `.1` for one behind (on top of `ledge_front_from` / `ledge_back_from`). `None`: no such rule.
+    pub ledge_drop: Option<(Fx, Fx)>,
+    /// An aerial move that touches the ground goes on as this move instead (usually its grounded version), on the same frame, keeping
+    /// its frame and its hits so far: the mirror of `off_edge`. `None`: the usual landing.
+    pub on_land: Option<u8>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -858,6 +877,11 @@ impl Move {
             counter: None,
             counter_strike: false,
             charge_bonus: 0,
+            limit_version: None,
+            gauge_drain: false,
+            start_speed_y: 100,
+            ledge_drop: None,
+            on_land: None,
             script: None,
             projectile_script: None,
         }
@@ -941,6 +965,7 @@ impl StateHash for Hitbox {
         h.write_bool(self.clanks);
         h.write_bool(self.rebounds);
         h.write_u8(self.trip);
+        self.half_height.hash_into(h);
     }
 }
 
@@ -1183,6 +1208,25 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.counter_strike);
             h.write_u8(m.charge_bonus);
+            for slot in [m.limit_version, m.on_land] {
+                match slot {
+                    Some(id) => {
+                        h.write_bool(true);
+                        h.write_u8(id);
+                    }
+                    None => h.write_bool(false),
+                }
+            }
+            h.write_bool(m.gauge_drain);
+            h.write_u8(m.start_speed_y);
+            match m.ledge_drop {
+                Some((front, back)) => {
+                    h.write_bool(true);
+                    front.hash_into(h);
+                    back.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -1248,6 +1292,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 clanks: true,
                 rebounds: true,
                 trip: 0,
+                half_height: Fx::ZERO,
             })
             .collect(),
         ..Move::empty()
@@ -1303,6 +1348,7 @@ fn row(r: &R) -> Hitbox {
         clanks: true,
         rebounds: true,
         trip: 0,
+        half_height: Fx::ZERO,
     }
 }
 
@@ -1395,7 +1441,7 @@ pub fn longsword() -> Weapon {
     );
     w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
     tipper_last(&mut w);
-    // The down tilt's 35% trip chance (ssbwiki.com raw table, 13.0.1; E20, sim 90). At its 30-degree angle it lifts a grounded
+    // The down tilt's 35% trip chance (ssbwiki.com raw table, 13.0.1; E20, sim 86). At its 30-degree angle it lifts a grounded
     // target, so it can only trip on a slope (as the reference says): never on the flat stages here.
     for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
         h.trip = 35;
@@ -3719,6 +3765,7 @@ pub fn claws() -> Weapon {
             clanks: true,
             rebounds: true,
             trip: 0,
+            half_height: Fx::ZERO,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3854,7 +3901,7 @@ pub fn claws() -> Weapon {
         ],
     );
     usmash.charge_at = Some(2);
-    // Every box clanks but cannot rebound (the reference's `rebound=f` without `clang=f`, ssbwiki.com raw table; E3g, sim 90): a clank
+    // Every box clanks but cannot rebound (the reference's `rebound=f` without `clang=f`, ssbwiki.com raw table; E3g, sim 86): a clank
     // stops its hit for that frame and the smash carries on.
     for h in &mut usmash.hitboxes {
         h.rebounds = false;
@@ -4035,6 +4082,12 @@ pub use staff::staff;
 #[path = "moves_greatsword.rs"]
 mod greatsword;
 pub use greatsword::greatsword;
+/// The Greatsword's special follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod greatsword_slots {
+    pub use super::greatsword::{
+        CHARGE_CANCEL, COMBO_2, COMBO_3, FALL, FALL_LANDING, RISE, WAVE_AIR,
+    };
+}
 
 #[path = "moves_bracers.rs"]
 mod bracers;
@@ -4077,7 +4130,9 @@ mod tests {
                         MoveId::from_index(i as u8).name()
                     );
                     assert!(
-                        (hb.damage > Fx::ZERO || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
+                        (hb.damage > Fx::ZERO
+                            || hb.push
+                            || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
                             && hb.radius > Fx::ZERO
                     );
                 }

@@ -133,6 +133,25 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (6, DAir, all(P)),
         (6, LedgeAttack, all(F)),
         (6, GetUpAttack, all(P)),
+        // Bracers (weapon 7, phase 1, sim 86: ssbwiki.com raw tables, 13.0.1): the jabs, forward tilt, dash attack, forward smash,
+        // forward air and ledge attack forward (3); the up and down tilts, up and down smashes, neutral, up and down airs and the get-up
+        // attack by position (no `af`: 0); the back air backward (4).
+        (7, Jab, all(F)),
+        (7, Jab2, all(F)),
+        (7, FTilt, all(F)),
+        (7, UTilt, all(P)),
+        (7, DTilt, all(P)),
+        (7, DashAttack, all(F)),
+        (7, FSmash, all(F)),
+        (7, USmash, all(P)),
+        (7, DSmash, all(P)),
+        (7, NAir, all(P)),
+        (7, FAir, all(F)),
+        (7, BAir, all(B)),
+        (7, UAir, all(P)),
+        (7, DAir, all(P)),
+        (7, LedgeAttack, all(F)),
+        (7, GetUpAttack, all(P)),
     ]
 }
 
@@ -158,7 +177,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 92);
+    assert_eq!(checked, 108);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {

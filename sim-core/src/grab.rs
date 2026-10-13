@@ -70,9 +70,17 @@ pub fn connect(state: &mut GameState, content: &Content, a: usize, d: usize) {
         h.next_move = next.saturating_add(1);
         fighter::become_held(&mut state.fighters[d], a, facing, 0);
     } else {
+        // An ordinary grab out of a gauge-draining move (the reference's charge) keeps draining the held fighter's gauge on every hit
+        // until the hold ends (not a command grab: the reference's rule).
+        let victim = &state.fighters[d];
+        let drain = crate::gauge::draining(
+            victim,
+            combat::weapon_of(content, combat::params_of(content, victim)),
+        );
         let timer = hold_time(content, state.fighters[d].percent);
         fighter::become_holder(&mut state.fighters[a], d);
         fighter::become_held(&mut state.fighters[d], a, facing, timer);
+        state.fighters[d].gauge_drain = drain;
     }
     pin(state, content, a, d);
 }

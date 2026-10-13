@@ -1,0 +1,9 @@
+// Greatsword down special, the charge: 0.3 of the gauge a frame [R, since 7.0.0], from the first frame the script runs [E: gap 9].
+// Special, shield (a roll, a spot dodge, an air dodge), jump or grab cancels it into the cancel's 7 frames of lag (33 = ext5), and so
+// does a full gauge [E: gap 10]. The move restarts itself (16 = down_special) to keep going under the stall cap.
+boost_add(0.3);
+if special_tap || shield || jump || grab || boosting {
+    goto(33);
+} else if frame >= 30 {
+    goto(16);
+}

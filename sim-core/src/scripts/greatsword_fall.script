@@ -1,0 +1,4 @@
+// Greatsword up special, the falling slash (ext3): it holds where the rise left it for its first 11 frames [E: the reference's slash
+// winds up there; the timing of its quickest loop, falling hits from frame 31 of the whole move and the landing on 45, fits it],
+// then drops straight down at 4.2 of the reference's units a frame (0.525 here) with every bit of sideways speed cancelled [R].
+if frame < 11 { set_vel(0, 0); } else { set_vel(0, -0.525); }

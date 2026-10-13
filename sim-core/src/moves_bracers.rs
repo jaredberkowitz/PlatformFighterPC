@@ -381,13 +381,14 @@ fn aerials(w: &mut Weapon) {
     // Back air: a kick behind. Clean on frames 7-8: 13%, BK 20, KS 97 (the foot, radius 7.0; the knee and hip, 5.0); late on 9-16: 8%,
     // BK 10, KS 100 (6.0; 4.0); angle 361 always sent backward (type 4). The leg straight out behind at 9.0 of the reference's units up
     // [E]. Landing lag 11, autocancels on frames 1-6 and from 31, FAF 32.
-    let leg = |first: u8, last: u8, damage: i32, bkb: i16, kbg: i16, foot: i32, rest: i32| -> Vec<R> {
-        vec![
-            ru(first, last, -150, 85, foot, damage, 361, bkb, kbg, 0, 0),
-            ru(first, last, -90, 90, rest, damage, 361, bkb, kbg, 1, 0),
-            ru(first, last, -40, 95, rest, damage, 361, bkb, kbg, 2, 0),
-        ]
-    };
+    let leg =
+        |first: u8, last: u8, damage: i32, bkb: i16, kbg: i16, foot: i32, rest: i32| -> Vec<R> {
+            vec![
+                ru(first, last, -150, 85, foot, damage, 361, bkb, kbg, 0, 0),
+                ru(first, last, -90, 90, rest, damage, 361, bkb, kbg, 1, 0),
+                ru(first, last, -40, 95, rest, damage, 361, bkb, kbg, 2, 0),
+            ]
+        };
     let mut rows = leg(7, 8, 130, 20, 97, 70, 50);
     rows.extend(leg(9, 16, 80, 10, 100, 60, 40));
     let mut bair = ref_move(32, 11, 6, 31, &rows);
@@ -465,7 +466,13 @@ fn grabs_and_throws(w: &mut Weapon) {
     // 7% at the 361 angle (along the ground), BK 60, KS 50, FAF 55. Forward: the reference's forward throw is the carry (phase 3);
     // until then a placeholder plain throw with the forward cargo throw's numbers (on 15, 12% at 60, BK 90, KS 46, FAF 46) [E].
     w.moves[MoveId::FThrow as usize] = with_kind(
-        ref_move(46, 0, 0, 255, &[r(15, 15, 13, 11, 10, 120, 60, 90, 46, 0, 0)]),
+        ref_move(
+            46,
+            0,
+            0,
+            255,
+            &[r(15, 15, 13, 11, 10, 120, 60, 90, 46, 0, 0)],
+        ),
         HIT_THROW,
     );
     let mut bthrow = with_kind(
@@ -481,11 +488,23 @@ fn grabs_and_throws(w: &mut Weapon) {
     bthrow.turns_around = true;
     w.moves[MoveId::BThrow as usize] = bthrow;
     w.moves[MoveId::UThrow as usize] = with_kind(
-        ref_move(44, 0, 0, 255, &[r(14, 14, 13, 11, 10, 90, 90, 70, 50, 0, 0)]),
+        ref_move(
+            44,
+            0,
+            0,
+            255,
+            &[r(14, 14, 13, 11, 10, 90, 90, 70, 50, 0, 0)],
+        ),
         HIT_THROW,
     );
     w.moves[MoveId::DThrow as usize] = with_kind(
-        ref_move(55, 0, 0, 255, &[r(19, 19, 13, 11, 10, 70, 361, 60, 50, 0, 0)]),
+        ref_move(
+            55,
+            0,
+            0,
+            255,
+            &[r(19, 19, 13, 11, 10, 70, 361, 60, 50, 0, 0)],
+        ),
         HIT_THROW,
     );
 }

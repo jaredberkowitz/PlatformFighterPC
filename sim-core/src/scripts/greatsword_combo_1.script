@@ -1,0 +1,8 @@
+// Greatsword side special, slash 1 (the combo slash). On the ground it steps forward as it winds up [E: the reference's step is not
+// published]. Special pressed at any point of it (kept in a var) carries on into slash 2 (29 = ext1), but only once this slash has
+// connected, a shield included (the hit register), from frame 10 on (move frame 9) [R: UFD]; a whiff never carries on.
+var asked;
+if grounded && frame >= 3 && frame <= 8 { set_vel(0.12, 0); }
+if grounded && frame == 9 { set_vel(0, 0); }
+if special_tap { asked = 1; }
+if asked && hit && frame >= 9 { goto(29); }

@@ -5,7 +5,7 @@
 
 use crate::tree::{Block, Item};
 use sim_core::content::{
-    Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
+    Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
     AirBlock, Armor, Counter, CounterBubble, Hitbox, Motion, Move, MoveId, PartIntangible,
@@ -256,6 +256,7 @@ macro_rules! params_io {
         ) -> FighterParams {
             FighterParams {
                 $($name: fields.need::<$ty>(stringify!($name), base.map(|b| b.$name), errors),)*
+                gauge: base.map_or(Gauge::NONE, |b| b.gauge),
                 weapon,
             }
         }
@@ -620,6 +621,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         clanks: f.or("clanks", true, errors),
         rebounds: f.or("rebounds", true, errors),
         trip: f.or("trip", 0, errors),
+        half_height: f.or("half_height", Fx::ZERO, errors),
     };
     f.finish(errors);
     hb
@@ -700,6 +702,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.shieldstun != 100 {
         b.field("shieldstun", hb.shieldstun.to_string());
+    }
+    if hb.half_height != Fx::ZERO {
+        b.field("half_height", hb.half_height.show());
     }
     match hb.angle_type {
         ANGLE_FORWARD => b.field("angle_type", "forward"),
@@ -797,12 +802,27 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         }
     }
     m.rehit_groups = f.or("rehit_groups", 0xff, errors);
+    m.gauge_drain = f.or("gauge_drain", false, errors);
+    m.start_speed_y = f.or("start_speed_y", 100, errors);
+    let drop_front: Option<Fx> = f.parsed("ledge_drop_front", errors);
+    let drop_back: Option<Fx> = f.parsed("ledge_drop_back", errors);
+    match (drop_front, drop_back) {
+        (Some(a), Some(b)) => m.ledge_drop = Some((a, b)),
+        (None, None) => {}
+        _ => err(
+            errors,
+            block.line,
+            format!("{context}: ledge_drop_front and ledge_drop_back go together"),
+        ),
+    }
     for (name, slot) in [
         ("landing_move", &mut m.landing_move),
         ("on_search", &mut m.on_search),
         ("air_version", &mut m.air_version),
         ("catch_move", &mut m.catch_move),
         ("off_edge", &mut m.off_edge),
+        ("limit_version", &mut m.limit_version),
+        ("on_land", &mut m.on_land),
     ] {
         if let Some((key, line)) = f.raw(name) {
             match MoveId::from_key(key) {
@@ -971,6 +991,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     clanks: true,
                     rebounds: true,
                     trip: 0,
+                    half_height: Fx::ZERO,
                 }
             }
         };
@@ -1169,6 +1190,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ),
         ("fast_fall_from", m.fast_fall_from, empty.fast_fall_from),
         ("lands_from", m.lands_from, empty.lands_from),
+        ("start_speed_y", m.start_speed_y, empty.start_speed_y),
     ] {
         if value != default {
             b.field(name, value.to_string());
@@ -1215,10 +1237,19 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("air_version", m.air_version),
         ("catch_move", m.catch_move),
         ("off_edge", m.off_edge),
+        ("limit_version", m.limit_version),
+        ("on_land", m.on_land),
     ] {
         if let Some(id) = slot {
             b.field(name, MoveId::from_index(id).key());
         }
+    }
+    if m.gauge_drain {
+        b.field("gauge_drain", "true");
+    }
+    if let Some((front, back)) = m.ledge_drop {
+        b.field("ledge_drop_front", front.show());
+        b.field("ledge_drop_back", back.show());
     }
     if m.counter_strike {
         b.field("counter_strike", "true");
@@ -1649,7 +1680,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             continue;
         }
         let context = format!("fighter `{name}`");
-        only_known(b, &[], &context, errors);
+        only_known(b, &["gauge"], &context, errors);
         let mut f = Fields::new(b, &context, errors);
         let mut base: Option<FighterParams> = None;
         if let Some((from, line)) = f.raw("inherit") {
@@ -1682,8 +1713,12 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
                 }
             },
         };
-        let params = read_params(&mut f, base.as_ref(), weapon, errors);
+        let mut params = read_params(&mut f, base.as_ref(), weapon, errors);
         f.finish(errors);
+        // The gauge (schema 6): a `gauge { ... }` block, or the inherited fighter's, or none.
+        if let Some(g) = at_most_one(children(b, "gauge"), "gauge", &context, errors) {
+            params.gauge = read_gauge(g, &format!("the gauge of {context}"), errors);
+        }
         fighters.push((name.to_string(), params));
     }
 
@@ -1709,11 +1744,51 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
     }
 }
 
-/// A fighter section with every parameter written out.
+/// A fighter's `gauge { ... }` block: `max per_dealt per_taken mode_frames` are required, the multipliers (percents) default to 100.
+fn read_gauge(block: &Block, context: &str, errors: &mut Vec<String>) -> Gauge {
+    let mut f = Fields::new(block, context, errors);
+    let none = Gauge::NONE;
+    let g = Gauge {
+        max: f.need("max", None, errors),
+        per_dealt: f.need("per_dealt", None, errors),
+        per_taken: f.need("per_taken", None, errors),
+        mode_frames: f.need("mode_frames", None, errors),
+        walk: f.or("walk", none.walk, errors),
+        dash: f.or("dash", none.dash, errors),
+        run: f.or("run", none.run, errors),
+        traction: f.or("traction", none.traction, errors),
+        air_speed: f.or("air_speed", none.air_speed, errors),
+        air_accel: f.or("air_accel", none.air_accel, errors),
+        air_friction: f.or("air_friction", none.air_friction, errors),
+        gravity: f.or("gravity", none.gravity, errors),
+        fall: f.or("fall", none.fall, errors),
+    };
+    f.finish(errors);
+    g
+}
+
+fn write_gauge(g: &Gauge) -> Block {
+    let mut b = Block::new("gauge", None);
+    b.field("max", g.max.show());
+    b.field("per_dealt", g.per_dealt.show());
+    b.field("per_taken", g.per_taken.show());
+    b.field("mode_frames", g.mode_frames.to_string());
+    for (name, p) in g.percents() {
+        if p != 100 {
+            b.field(name, p.to_string());
+        }
+    }
+    b
+}
+
+/// A fighter section with every parameter written out (and its gauge, when the body has one).
 pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block {
     let mut b = Block::new("fighter", Some(name));
     b.field("weapon", weapon_name);
     write_params(p, &mut b);
+    if p.gauge != Gauge::NONE {
+        b.push(write_gauge(&p.gauge));
+    }
     b
 }
 

@@ -426,6 +426,27 @@ One hit group across the phases (a target is hit once) [D]. Hits behind Cloud ar
 aerial version weaker still [R]. **It no longer ignores weight** in 13.0.1 (no `setweight`) [R]. It can be shielded, countered and
 armoured [R]. UFD: "12 (13-14) / 22-26 // 14-15 (17) / 25-29", FAF 85 / 88 (total 84 / 87) agree.
 
+## As built in phase 2 (sim 85): fits and readings
+
+* **Climhazzard's rise** [E, owner decision 12]: 5.5 reference units a frame on 8-15, 4.0 on 16-19, 1.5 on 20-23, still on 24 (60 by
+  frame 19, 66 at the peak; x1.1 from the air), straight up. Fitted to ssbwiki.com's **quickest loop** (rows re-read 2026-10-13: the
+  falling hit 31-44, the landing hit 45-47, interruptible 71, animation 84): the falling slash, falling 4.2 a frame from its frame 12
+  (absolute 31 with the second press on 20), lands on 45 from 60 units up. The test `the_quickest_rise_and_fall_lands_on_45_and_is_free_on_71`
+  reproduces 20 / 45 / 71 exactly. The falling slash holds still on its frames 1-11 [E].
+* **Climhazzard part 2's ledge distances** [E, gap 7]: 56 units below its start for a ledge in front (just under the 60 rise), 92
+  behind (just under the powered rise, 1.6 x 60 = 96).
+* **Blade Beam's capsule** [D]: the two circles (1.7 to 11.0 up on the beam) are one standing capsule centred 6.35 up, 4.65 above
+  and below; spawned 8.35 up (2 + 6.35) and 12 ahead; lifetime 51 here for the reference's 50 (it hits from 18 to 67, the house
+  projectile rule); its slight slant (-2.1 / -0.8 units) is not modelled. The windbox is on both the grounded and the aerial beam
+  [R reading]. Landing after the beam fired carries the rest of the move on the ground [E].
+* **Cross Slash** [E, gap 1]: three / two / two boxes per hit along the blade in front, angle type 3; the 366 box is the 367 autolink
+  until E28 (conflict 2); a press any time during a part counts once the part has connected (gap 2: the window runs to the part's
+  end); the ground step 0.12 world a frame on 3-8 [E]; in the air the body's air physics (gap 3).
+* **Limit Charge** [E, gaps 9-11]: gains from the move's second frame (full on 335 after 334 frames of charging); a full gauge ends
+  it into the cancel; in the air the body's air physics, and a landing carries it on.
+* **The gauge** [R / E]: gain from the damage actually added (owner decision 32); the 900-frame timer counts during hitlag (gap 12 [E]);
+  a reflected projectile's damage is credited to the reflector (its new owner).
+
 ## Conflicts and how they are resolved
 
 1. **Limit Cross Slash damage and frames**: ssbwiki.com's articles say 27% in total; its moveset summary lists 5 / 3 / 3 / 3 / 10 (24);

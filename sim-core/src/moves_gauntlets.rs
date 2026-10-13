@@ -847,7 +847,7 @@ fn aerials(w: &mut Weapon) {
         ],
     );
     set_rows(&mut fair, &[0, 1], |h| h.hitlag = 120);
-    // The late hit's 20% trip chance on a grounded target (E20, sim 90): at the 361 angle its low knockback sends a grounded target
+    // The late hit's 20% trip chance on a grounded target (E20, sim 86): at the 361 angle its low knockback sends a grounded target
     // straight along the ground, so it can trip.
     set_rows(&mut fair, &[2, 3], |h| h.trip = 20);
     fair.hitboxes[0].effect = EFFECT_ELECTRIC;

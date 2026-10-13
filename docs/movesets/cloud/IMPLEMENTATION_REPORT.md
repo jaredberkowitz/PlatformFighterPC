@@ -120,6 +120,124 @@ the hands, behind on 15-16; (3) the neutral air's four poses round the body; (4)
 air's tip 0.3 to 0.4 below the feet; (6) the up air's three columns over the head on 8. Move the [E] blade poses to the sword in the
 clips once they exist.
 
+## Phase 2 (sim 85, content schema 6): the Boost gauge and the four normal specials
+
+Branch `greatsword-phase2`, from `movesets` at a88c09f (sim 83). Sim 84 is reserved for the engine session; this phase is **85**. Two
+commits: the engine (milestone 1) and the specials (milestone 2).
+
+### Milestone 1: the engine (all general, every default today's behaviour)
+
+* **E9, the gauge** (owner decisions 9, 31, 32). Content: `FighterParams::gauge: content::Gauge` (`max`, `per_dealt`, `per_taken`,
+  `mode_frames` and nine percents), a `gauge { ... }` block in the fighter section, **schema 6** with a migration that rewrites nothing
+  (no block = no gauge); `Move::limit_version` and `Move::gauge_drain`. State, hashed with checksum cases: `Fighter::gauge`,
+  `gauge_mode`, `gauge_drain`. Rules in `sim-core/src/gauge.rs`: gain at every percent rise (`combat::apply_hit`, `combat::pummel`, the
+  grab parry) from the damage actually added, `per_dealt` to the attacker and `per_taken` to the victim; a victim in a `gauge_drain` move,
+  or held by an ordinary grab that caught it in one (`grab::connect` sets the flag, `fighter::update` clears it once the hold is over,
+  so a throw's own damage still drains), loses it instead; nothing from shields or counters; filling starts the mode, nothing more is
+  gained or lost while it runs; `gauge::tick` counts it down every frame, hitlag included [E: gap 12], and empties the gauge at 0; a KO
+  rebuilds the fighter (`Fighter::spawn`), so the gauge and the mode reset (decision 9, pinned by a test). The multipliers:
+  `FighterParams::powered`, a copy of the body used by `step.rs` for the fighter's update and the ledge phase (`combat.rs` keeps the
+  plain body); jump launch speeds untouched. Spending: `fighter::start_special` swaps to the move's `limit_version` in the mode and
+  spends the gauge on the attempt, before the `air_version` swap; **no Greatsword move has one yet, so nothing spends in phase 2**
+  (owner default). The name "Boost" is `content::GAUGE_NAME` (the script names `boost`, `boosting`, `boost_add` follow it).
+* **E16**: registers `boost`, `boosting`, `grab`; the function `boost_add(n)` (whitelist, `scripting.rs`, `scripted_moves.rs`,
+  `docs/CONTENT.md`).
+* **E11**: `Move::start_speed_y` (vertical speed kept on an aerial start) and `Move::ledge_drop` (front / back fall distances, measured
+  from the hashed `Fighter::move_y0` that every `begin_attack`, a `goto` included, sets).
+* **E22b**: `Move::on_land` (an aerial move touching down goes on as that slot on the same frame, keeping its frame and hits).
+* **E3f**: `Hitbox::half_height` (a standing capsule; `combat::capsules_touch` against hurtboxes, counter bubbles, reflector fields
+  and detectors; clanks still use the circle).
+* **Bridge (read-only, for the art director's HUD)**: `fighter_gauge(i)` (0 to max), `fighter_gauge_max(i)` (0: no gauge, draw
+  nothing), `fighter_gauge_full(i)` (the powered mode is running), `fighter_gauge_frames(i)` (frames left of it). No GDScript changed.
+
+### Milestone 2: the specials (`sim-core/src/moves_greatsword.rs`, `specials`; scripts `greatsword_*.script`)
+
+Slots: neutral special = the grounded wave, `ext0` the aerial wave, side special / `ext1` / `ext2` the combo slash's three parts, up
+special / `ext3` / `ext4` the rise, the falling slash and its landing hit, down special / `ext5` the charge and its cancel. `ext6` to
+`ext15` are left for phase 3. (`moves::greatsword_slots` names them for tests.)
+
+* **The wave (Blade Beam)** [R unless noted]: the grounded-only push windbox on 16-17 (FKV 40), the wave out on 17 and hitting from 18:
+  8% to 35, 6% to 67 (aerial 6.4 / 4.8), 55 degrees by travel, BK 38, KS 60, hitlag x0.5, shield 50% [D]; 0.25 / 0.2 world a frame,
+  gone on its first hit; one standing capsule for the two circles [D]; FAF 54 / 61; x0.2 ground speed on startup; in the air x0.4 /
+  x0.65 and gravity 0.06, no ledge grab; landing switches to the grounded wave on the same frame (fires the grounded wave if it lands
+  first).
+* **The combo slash (Cross Slash)**: slash 1 on 10-11 (4%, 75 / 112 / 367), FAF 41, a ground step [E]; special pressed during it
+  carries on only once it has connected (shields count) from frame 10 into slash 2 (its 2-3, 3%, FAF 32); pressed again and connected,
+  from its 14, into the last three (its 2-3, 11-12, 25-26: 3 / 3 / 6%, FAF 56). 19% in all. Boxes [E] (gap 1); 366 is 367 until E28.
+* **The rising slash (Climhazzard)**: stab on 7 (3%, FKV 80, H 2.5, SDI 0), rising slash 10 / 11 / 12-15 (4%, set weight, FKV 121
+  then BK, H 1.2); rise fitted [E] (60 units by frame 19, 66 at the peak, x1.1 aerial); 0.6 of the horizontal speed on startup;
+  ledges from 24 both sides; second press 20-26; animation 57, then the special fall (x0.6, landing lag 20). Falling slash: holds on
+  its 1-11 [E], then 4.2 a frame straight down; its 12-61 the aerial-only 262 meteor (FKV 110) and the 45-degree box, H 1.3, no clank;
+  ledges only after falling 56 (front) / 92 (behind) units [E]; landing = the landing hit (3.5%, 64, BK 64, KS 128, frames 1-3, no
+  clank, FAF 27).
+* **The charge (Limit Charge)**: 0.3 of the gauge a frame from its second frame (full on 335) [R / E]; special, shield (roll, spot
+  dodge, air dodge), jump or grab cancel it into 7 frames of lag (FAF 8); a full gauge ends it [E]; `gauge_drain` on both parts; in
+  the air the body's physics, carrying on through a landing [E].
+
+### Verified against [R] / [D] (by tests that ran)
+
+`sim-core/tests/greatsword_specials.rs` (24 tests): the wave's data (frames, lifetime, speeds, damage by age, angle type, hitlag,
+shield, capsule, windbox), its first hit from 18 clean and from 36 late on the shot, its expiry, the tall hit reaching a fighter 1.4 up,
+FAF 54 / 61 by running, the fall break, the land switch firing the grounded wave, the windbox pushing without hitstun; the combo
+slash's data, all five hits for 19% with presses, a whiff never carrying on (FAF 41), no carry-on without a new press, slash 2 ending on
+its own, the follow-ups on a shield; the rise's height by frame 19 and at the peak (ground and air), the special fall from 57, the
+**quickest loop exact: the fall from 20, the landing hit on 45, free on 71 (the reference's)**, the second press only on 20-26, the
+fall at 4.2 with no drift, the meteor down on an aerial target, the landing hit and its 26 frames, the special fall's 20 frames of
+lag, the rise's hit data, the ledge windows, the falling slash missing a ledge from just above and catching it from the rise's height;
+the charge filling in 334 frames and ending into the cancel, each cancel button with FAF 8 keeping the charge, a hit during it
+draining, every special slot the Greatsword's own and no powered versions. `sim-core/tests/gauge.rs` (12): gain dealt and taken,
+nothing on a shield, pummels and the grab parry, a draining move, a grab out of one draining on pummels and the throw then stopping,
+the 900-frame mode, the multipliers exact in fixed point (and jumps, weight, size unchanged), faster drift and fall in a match, the KO
+reset (partial and running), the powered version spending (and none without one), no gauge on other bodies, rollback with the mode
+running. `sim-core/tests/move_rules.rs` (6): `start_speed_y`, `ledge_drop`, `move_y0`, `on_land`, the capsule projectile, every new
+field in the content hash. `scripted_moves.rs` (+3): `boost_add`, `boost`, `boosting`, `grab`. `sim-content/tests/bundle.rs` (+3): the
+schema 5 file loading unchanged, the gauge block round trip, inherit and ranges, the new move and hitbox fields round trip.
+`state::checksum_sees_every_field` has `gauge`, `gauge_mode`, `gauge_drain`, `move_y0`.
+
+### Estimated or limited [E]
+
+* The rise's shape and height (fitted to the quickest loop and the "top platform" description), the falling slash's hold on 1-11,
+  its ledge distances (gap 7), the "initial thrust" ledge window (gap 6, not modelled), the helpless fall after part 2's 61 frames
+  using the shared fall speed.
+* Every combo slash box (gap 1), its window ends (gap 2: to each part's end), its air behaviour (gap 3), the ground step (gap 13), the
+  366 box as 367 (E28 in phase 3).
+* The charge's start frame, full-gauge end and air physics (gaps 9-11).
+* The wave's slant, and landing after it fired carrying on as the grounded move.
+* The gauge's timer counting during hitlag (gap 12); gain basis (decision 32, [E]).
+
+### Tests and checks run
+
+`cargo fmt --all`; `cargo test --workspace` (986 passed, 0 failed); `cargo clippy --workspace --all-targets -- -D warnings` (clean);
+`pftool fuzz-rollback 1000` (0 mismatches); `pftool net-fuzz 200` (0 mismatches); `pftool content-check content/base.pfc` (ok);
+`base.pfc` re-exported (sim 85, schema 6) and equal to the builders. Not run: the Godot tests (they need the editor and a built bridge;
+no GDScript changed). Other fighters: their kit tests are green and their content is unchanged (only the champion's gauge block and the
+Greatsword's specials are new in `base.pfc`).
+
+### Training-mode check (hitbox view)
+
+Champion vs a standing duelist at 0%: (1) the grounded wave: the windbox on 16-17 just ahead, the wave from 1.5 ahead, a tall capsule
+from the floor to about 2 up, sliding 0.25 a frame; (2) the combo slash on a duelist with special mashed: five hits, 22.8% shown (19
+x 1.2); whiffed, slash 1 only; (3) the rising slash from the ground with special pressed on 20: a rise of about 7.5 units, the falling
+slash's meteor box under the feet from 31, the landing hit on 45; (4) the charge: the HUD's gauge (once drawn) filling in about 5.6
+seconds; hit while charging, it drops.
+
+## Phase 3 plan (the powered versions)
+
+1. **E3e, burst on contact**: `ProjectileSpawn::burst: Option<Burst { life, rehit, on_wall, phases }>` and a hashed
+   `Projectile::bursting`; the first fighter (or a wall with `on_wall`) stops the projectile, which turns piercing and runs the burst's
+   phases (E3a's machinery). Tests: 19% on the first target, 13% behind it, the wall burst, reflection, a checksum case.
+2. **E28, angle 366**: `ANGLE_VORTEX` with a hashed `Fighter::link_kind` and a 5-frame pull count beside the autolink fields; then the
+   combo slash's 367 box becomes 366.
+3. **The powered versions** on `limit_version` (slots `ext6` to `ext15`): the powered wave (ground / air: intangible 10-17, a no-clank
+   capsule beam from 16, 6% / 4.8%, 0.369 / 0.3 a frame, life 47, the burst of five 2% hits every 6 frames at 366 and a 3% finisher at
+   48 BK 50 KS 226), the powered combo slash (all five hits by themselves, UFD's frames and 5 / 5 / 3 / 3 / 10 [E: conflict 1],
+   intangible 6-11, autolink 367 on the first two, FAF 61, in the air `start_speed` 0, `start_speed_y` 0, gravity 0), the powered rise
+   (6% then 7%, KS 142 / 110, intangible 5-12, x1.6 / x1.85 height, x0.67 horizontal, second press 33-39 into the same falling slash,
+   ledges throughout, special fall x0.8 with 20 frames of lag), the finisher (the down special's powered version, ground / air: 1% hits
+   at 80, KS 431 / 406 and 371 / 349, H 2.0, the both-sides windbox, FAF 85 / 88, the air hover, `on_land` into the grounded one).
+   With these the gauge is spent by any special in the mode; the shipped default changes from "keep" to "spend" then.
+4. The iconic-move re-check in the hitbox view and against footage for the open gaps (1-14).
+
 ## For the art agent
 
 * An emblem for class 6 (Greatsword) in `godot/ui/match_hud.gd`, a look for the built-in Champion (it uses `Loadout.default_for(6)`,
@@ -137,8 +255,17 @@ clips once they exist.
   up and forward, lingering to 23); down air (the sword driven straight down below the feet, 11-39); the throws (forward and back
   kicks, the up throw's kick and rising slash, a down throw that pins the target behind); ledge attack (a sweep 20-22) and get-up attack
   (behind 20-21, in front 24-25).
-* The Boost gauge's display (above the percent, and over the fighter while charging) comes in phase 2; the bridge will expose it like
-  the percent, presentation only.
+* **The Boost gauge's display** (phase 2): above the percent at all times, and over the fighter while it charges (the reference shows
+  it there for about 60 frames after a cancel); read it with `fighter_gauge(i)` / `fighter_gauge_max(i)` (0: no gauge, draw nothing),
+  `fighter_gauge_full(i)` (the powered mode: a full, glowing look) and `fighter_gauge_frames(i)` (frames left of the mode; the reference
+  shows no countdown). Presentation only.
+* Phase 2 moves that want their own clip (first active frame, span, pose): the wave (a rising upward slash that throws a tall wave
+  along the ground, out on 17, the windbox just ahead on 16-17; the aerial one the same in a stalled pose); the combo slash (slash 1 a
+  forward diagonal cut on 10-11 with a small step, slash 2 a rising cut on its 2-3, the last three on its 2-3 (down), 11-12 (up) and
+  25-26 (a big forward finisher), boxes 0.9 to 2.4 ahead at 1 to 1.75 up); the rise (a short stab ahead on 7, then the sword held
+  straight up in front, rising 7.5 units by frame 19 and 8.25 at the peak on 24); the falling slash (the sword pointed down below the
+  feet from its frame 12, dropping fast; the landing hit's burst 1 unit round on landing); the charge (a crouched power-up stance held
+  as long as it lasts, a 7-frame recovery when cancelled).
 
 ## Phase 2 and 3 plan
 
@@ -220,6 +347,22 @@ own test. One `SIM_VERSION` bump per phase.
 4. Then the iconic-move re-check in the hitbox view and against footage for the open gaps (`REFERENCE_DATA.md` gaps 1-14).
 
 ## Questions for the owner
+
+Phase 2 (new):
+
+1. **The rise's height** is fitted [E] so that the quickest rise-and-fall lands its hit on frame 45 and is free on 71, as the reference's
+   frame table says (60 units by frame 19, 66 at the peak). Footage of the rise next to a platform would confirm the shape.
+2. **The combo slash's boxes and windows** (gaps 1-3): built [E]; footage of it whiffed, on hit and on shield, from a short hop, would
+   settle them.
+3. **The charge**: starts filling on its second frame and ends itself on a full gauge [E] (gaps 9-10). Keep?
+4. **The gauge's timer during hitlag** (gap 12): counts now. Keep?
+
+Phase 1 questions 1-4 are answered (owner defaults, decisions 34-36 in `ROSTER_STATUS.md`; the phase-2 spend rule: keep the gauge
+until the powered versions exist). Question 5 (the gauge's final name) stays open: rename `content::GAUGE_NAME` and the three script
+names.
+
+### Phase 1 questions (answered)
+
 
 1. **The up tilt's sweep direction**: the reference data describes the sword sweeping from behind over the head; its early boxes are
    placed up and behind and the late one up and in front [E]. If footage shows the opposite way round, it is a two-line change.
