@@ -359,6 +359,15 @@ These override anything above that disagrees.
 31. **The gauge (E9)**: approved as designed in docs/movesets/cloud/PROJECT_AUDIT.md (schema 6 with a migration), built general.
 32. **Gauge gain from damage dealt**: counts the damage actually applied (after staleness and the 1v1 multiplier) [E: unpublished].
 33. **Blade Beam's tall hitbox (E3f) and the vortex angle 366 (E28)**: build both 1:1.
+37. **Donkey Kong names**: class/weapon **Bracers**, body and built-in fighter **Hauler**.
+38. **Bury (E5) and cargo carry (E7)**: both approved as designed in docs/movesets/donkey_kong/PROJECT_AUDIT.md, built general. The bury
+    includes the reference's stock-difference terms.
+39. **Trips (E20)**: build them (deterministic, from the sim's RNG); also the Longsword's down tilt and the Sprinter's forward-air late hit.
+40. **No-rebound hits (E3g)**: build `Hitbox::rebounds` for the moves that clank without rebounding.
+41. **Defaults for the other Donkey Kong questions**: phases as the audit suggests (normals; specials with E5 and E29; carry with E7);
+    Spinning Kong's windbox immunity is modelled; the aerial spin's "gravity 0.07" is read as the gravity itself [E]; conflicts (cargo
+    armor 16 vs 80, carry walk) resolved by the porter with the reasoning recorded; E28 for the spin's first hit once Cloud phase 3 builds
+    it (367 until then, labelled).
 
 ## Still open
 
