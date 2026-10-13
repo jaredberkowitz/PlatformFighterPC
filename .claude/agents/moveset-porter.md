@@ -76,6 +76,11 @@ Reference characters (port them in the order the owner gives; if none, recommend
 | Captain Falcon | ultimateframedata.com/captain_falcon | Falcon Punch turnaround and air variant; Raptor Boost ground/air; Falcon Dive grab, hit, rebound; Falcon Kick ground/air phases and recovery |
 | Link (adult, not Young/Toon) | ultimateframedata.com/link | Hero's Bow charge and arrow speed; Boomerang out/return/catch; Remote Bomb manual detonation and lifecycle; Spin Attack ground/air; sword tip/mid/hilt |
 
+**The target is 1:1 with the reference, not "close".** Each fighter's iconic moves (the ones players know on sight, e.g. adult Link's
+Spin Attack: the chargeable grounded spin and the multi-hit aerial rising recovery) are top priority and must match exactly: timing, hit sequence,
+launch, movement and recovery distance, ledge grab, helpless and landing. If the engine can't reproduce one exactly, build the general
+extension that makes it exact; never settle for an [E] approximation on an iconic move without asking the owner first.
+
 Each becomes a new class (body + weapon), selectable, spawnable and resettable through the existing select screen and recipes; every
 recipe must stay valid content (a test checks it).
 
