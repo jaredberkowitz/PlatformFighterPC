@@ -39,7 +39,7 @@ fn free_after(kb: i32) -> u32 {
 
 #[test]
 fn strong_launches_end_as_soon_as_the_reference_says() {
-    // The reference's real first actionable frames with the speed-up (worked out with its own formula: the SSBU calculator's
+    // The reference's real first actionable frames with the speed-up (worked out with its own formula: the reference knockback calculator's
     // port of the game's code), against the plain 0.4 * knockback.
     for (kb, faf) in [
         (60, 24),

@@ -12,8 +12,8 @@ use sim_core::input::buttons::{ATTACK, JUMP, SHIELD, SPECIAL};
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
 
-const MARTH: [u8; 4] = [0, 0, 0, 0];
-const WOLF: [u8; 4] = [1, 1, 1, 1];
+const DUELIST: [u8; 4] = [0, 0, 0, 0];
+const BRAWLER: [u8; 4] = [1, 1, 1, 1];
 
 fn park(sim: &mut Sim) {
     sim.state.fighters[2].invuln = 255;
@@ -32,7 +32,7 @@ fn duel(chars: [u8; 4], gap: Fx) -> Sim {
 /// Player 1 holds shield from tick 1; player 0 forward-tilts on tick `attack_at`. Returns the sim just after
 /// player 1 blocks (the tick its shield stun is set).
 fn block_a_forward_tilt(shield_from: usize, attack_at: usize) -> Sim {
-    let mut sim = duel(MARTH, fx(10, 10));
+    let mut sim = duel(DUELIST, fx(10, 10));
     for t in 1..=40 {
         let p0 = if t == attack_at {
             inp(30, 0, ATTACK)
@@ -158,7 +158,7 @@ fn a_hit_in_the_first_frames_of_the_shield_is_a_perfect_shield() {
 #[test]
 fn aerials_smashes_and_projectiles_stun_a_shield_less() {
     // The blaster's close shot (8%): floor(0.8 * 8 * 0.29 + 2) = 3 frames.
-    let mut sim = duel(WOLF, fx(100, 10));
+    let mut sim = duel(BRAWLER, fx(100, 10));
     for t in 1..=60 {
         let p0 = if t == 1 {
             inp(0, 0, SPECIAL)
@@ -176,7 +176,7 @@ fn aerials_smashes_and_projectiles_stun_a_shield_less() {
 
 #[test]
 fn a_hit_that_empties_the_shield_breaks_it() {
-    let mut sim = duel(MARTH, fx(10, 10));
+    let mut sim = duel(DUELIST, fx(10, 10));
     sim.state.fighters[1].shield_hp = fx(5, 1);
     for t in 1..=30 {
         let p0 = if t == 1 {
@@ -311,7 +311,7 @@ fn a_roll_is_intangible_for_part_of_its_length() {
 
 #[test]
 fn a_hit_during_the_roll_misses_but_one_after_it_lands() {
-    let mut dodged = duel(MARTH, fx(10, 10));
+    let mut dodged = duel(DUELIST, fx(10, 10));
     dodged.ticks(6, inp(0, 0, 0));
     // Player 1 rolls away on tick 7; player 0 tilts on tick 12 (a hit on tick 19, mid-roll).
     for t in 1..=60 {

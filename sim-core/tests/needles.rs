@@ -1,4 +1,4 @@
-//! The Needles moveset on the rogue body (class 2), modelled mechanically on the reference game's Sheik: frame data against the
+//! The Needles moveset on the rogue body (class 2), modelled mechanically on the reference rogue: frame data against the
 //! reference, the up air's looping autolink hits and final hit (and its drag-down), the down air's dive and landing hit, the up tilt's
 //! two hits, and the body's jump air times; then the rest of the kit (the jabs and rapid jab, the earlier game's dash attack, the two-hit
 //! smashes, grabs and throws) and light hits landing on their feet. Reference data and sources: `docs/sheik/REFERENCE_DATA.md`.

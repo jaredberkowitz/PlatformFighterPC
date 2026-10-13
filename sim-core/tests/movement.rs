@@ -640,7 +640,7 @@ fn ledge_jump_launches_up_and_toward_the_stage() {
 #[test]
 fn ledge_jump_peaks_above_the_stage_like_the_reference() {
     // The reference game's ledge jump goes about 12% higher than a full hop, measured from the stage, so it clears the edge with
-    // room to spare and no double jump is needed. Marth-style duelist: 36.83 units (4.6 world units) above the stage.
+    // room to spare and no double jump is needed. The duelist: 36.83 units (4.6 world units) above the stage.
     for (fighter, height) in [(0, 36_830), (1, 36_010)] {
         let mut sim = Sim::new();
         sim.content.fighters[0] = sim.content.fighters[fighter];

@@ -1,5 +1,5 @@
 //! Each fighter's ground movement is its reference character's (sim v54), from the reference game's parameter file (via
-//! dragdown.wiki) and SmashWiki's dash table: walk, initial dash and run speeds, traction, walk and run acceleration (a base and a
+//! dragdown.wiki) and ssbwiki.com's dash table: walk, initial dash and run speeds, traction, walk and run acceleration (a base and a
 //! share by the stick), the initial dash's length and the heavy landing. Shared numbers are the reference's universal ones.
 
 mod common;
@@ -23,21 +23,21 @@ fn every_fighter_has_its_reference_characters_ground_numbers() {
     // (walk, initial dash, run, traction, walk accel base + stick, run accel base + stick, dash frames, heavy landing lag)
     let expected = [
         (
-            "duelist (Marth)",
+            "duelist",
             FighterParams::duelist(),
             [g(1575), g(2255), g(1964), g(114)],
             [Fx::ZERO, g(189), g(44), fine(9020)],
             (10, 3),
         ),
         (
-            "brawler (Wolf)",
+            "brawler",
             FighterParams::brawler(),
             [g(1208), g(2090), g(1540), g(110)],
             [g(105), g(105), g(44), fine(10978)],
             (10, 3),
         ),
         (
-            "rogue (Sheik)",
+            "rogue",
             FighterParams::rogue(),
             [g(1470), g(2178), g(2420), g(106)],
             [g(105), g(210), g(44), fine(12100)],

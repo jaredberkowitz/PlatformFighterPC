@@ -2202,14 +2202,14 @@ mod tests {
     #[test]
     fn hit_windows_split_multihit_moves_and_keep_sweeps_whole() {
         let sword = longsword();
-        let wolf = claws();
+        let brawler = claws();
         // A sweep across several hitboxes of one group is one hit.
         assert_eq!(hit_windows(&sword.moves[MoveId::FAir as usize]).len(), 1);
         // Two groups apart in time: two hits (front, then behind).
         assert_eq!(hit_windows(&sword.moves[MoveId::DSmash as usize]).len(), 2);
         assert_eq!(hit_windows(&sword.moves[MoveId::NAir as usize]).len(), 2);
         // The flame kick lands five times (rehit every 3 frames from frame 17), the last its own launching hit.
-        let fire = hit_windows(&wolf.moves[MoveId::UpSpecial as usize]);
+        let fire = hit_windows(&brawler.moves[MoveId::UpSpecial as usize]);
         assert_eq!(fire.len(), 5, "{fire:?}");
         // In order and apart.
         assert!(fire.windows(2).all(|w| w[0].1 < w[1].0), "{fire:?}");

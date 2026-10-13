@@ -1,8 +1,8 @@
 //! Grabs: catching, holding, pummels, throws and breaking free.
 //!
-//! Reference numbers (SmashWiki): a held fighter breaks free after `90 + 1.7 * percent` frames (at least 19), each
+//! Reference numbers (ssbwiki.com): a held fighter breaks free after `90 + 1.7 * percent` frames (at least 19), each
 //! button press takes 14.4 frames off and each stick flick 8; a released fighter cannot be grabbed again for a while;
-//! grabs ignore shields. Wolf-style standing grab hits on frame 7 and dash grab on frame 8, pummel does 1.3%, and the
+//! grabs ignore shields. The brawler's standing grab hits on frame 7 and dash grab on frame 8, pummel does 1.3%, and the
 //! throws release on frames 11 / 24 / 27 / 26 (forward / back / up / down).
 
 mod common;
@@ -13,7 +13,7 @@ use sim_core::moves::MoveId;
 use sim_core::state::{FighterState as S, NONE};
 use sim_core::{step, Fx, Input, MAX_FIGHTERS};
 
-const WOLF: [u8; 4] = [1, 1, 1, 1];
+const BRAWLER: [u8; 4] = [1, 1, 1, 1];
 
 fn park(sim: &mut Sim) {
     sim.state.fighters[2].invuln = 255;
@@ -22,7 +22,7 @@ fn park(sim: &mut Sim) {
 
 /// Player 0 at x = -7 facing right, player 1 `gap` in front of it, everyone standing.
 fn duel(gap: Fx) -> Sim {
-    let mut sim = Sim::with_chars(WOLF);
+    let mut sim = Sim::with_chars(BRAWLER);
     sim.stand(0, Fx::from_int(-7), 1);
     sim.stand(1, Fx::from_int(-7) + gap, -1);
     park(&mut sim);
@@ -75,7 +75,7 @@ fn a_grab_that_misses_returns_control_on_its_first_actionable_frame() {
 
 #[test]
 fn a_dash_grab_catches_on_frame_8_and_keeps_moving() {
-    let mut sim = Sim::with_chars(WOLF);
+    let mut sim = Sim::with_chars(BRAWLER);
     sim.stand(0, Fx::from_int(-9), 1);
     sim.stand(1, Fx::from_int(-3), -1);
     park(&mut sim);
@@ -394,7 +394,7 @@ fn a_holder_that_is_knocked_out_frees_the_held_fighter() {
 
 #[test]
 fn the_held_fighter_stays_on_the_platform_when_held_near_an_edge() {
-    let mut sim = Sim::with_chars(WOLF);
+    let mut sim = Sim::with_chars(BRAWLER);
     sim.stand(0, fx(97, 10), 1); // near the right edge of the stage
     sim.stand(1, fx(111, 10), -1);
     park(&mut sim);
