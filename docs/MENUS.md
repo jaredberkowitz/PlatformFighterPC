@@ -201,3 +201,6 @@ colour-coded destinations).
 - Not taken up: a second typeface (the display and text faces already split headings from body), constant motion on the cards (the plan
   advises against it too), and controller glyphs that change with the input device (a later pass).
 - `docs/screenshots/menu_redesign_before.png` / `menu_redesign_after.png`, `menu_utility_tiles.png`.
+- **Every screen's cards** (`MenuArt.card`): the outline defaults to a deep shade of the card's own colour (a quarter of the way to the
+  ink), so the fighter tokens, the creator's option cards, the results cards and the panels share the main menu's construction rather
+  than black sticker outlines; dark cards come out near the ink anyway. `select_own_colour_lines.png`, `creator_own_colour_lines.png`.
