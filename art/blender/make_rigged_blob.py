@@ -625,7 +625,7 @@ BODY_MOVES = {
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
     if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
-                "hurt_heavy", "hurt_up", "platform_drop"):
+                "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp"):
         return False
     return not name.endswith("air")
 
@@ -825,7 +825,7 @@ def clip(rig, name, frames, poses):
     CLIP_NOW = name
     if name.startswith("attack") or name in ("grab", "throw"):
         AMP = 1.85
-    elif name.startswith(("sword_", "kick_")) or name == "blaster":
+    elif name.startswith(("sword_", "kick_", "gaunt_")) or name == "blaster":
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
@@ -2206,6 +2206,42 @@ def main() -> None:
             {"hips": -0.04, "spine": (20.0, 0.0), "stance": (30.0, -30.0), "arms": (30.0, 20.0)},
             {"hips": 0.08, "spine": (-14.0, 0.0), "head": (-10.0, 0.0), "stance": (10.0, -50.0), "shin.R": (-70.0,), "arms": (-20.0, 40.0)},
             {"spine": (4.0, 0.0), "stance": (20.0, -20.0)})
+    # Gauntlets (class 4), after the reference's moves. thigh.L is the front leg (nearest the camera facing right).
+    # The knee (forward air, jab 3): curled up tight, then the front knee driven forward and up, the shin folded hard under it so the knee
+    # leads; the back leg trails long behind for balance, the body leans back over it and both fists are thrown back.
+    move_of("gaunt_knee",
+            {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (60.0, 40.0), "shin.L": (-120.0,), "shin.R": (-100.0,), "arms": (40.0, 22.0)},
+            {"spine": (-14.0, 0.0), "head": (2.0, 0.0), "stance": (112.0, -34.0), "shin.L": (-140.0,), "shin.R": (-36.0,),
+             "foot.L": (40.0,), "foot.R": (-30.0,), "arms": (-52.0, 40.0)},
+            {"spine": (-4.0, 0.0), "stance": (80.0, -10.0), "shin.L": (-120.0,), "shin.R": (-50.0,), "arms": (-20.0, 34.0)})
+    # The stomp (down air): both knees pulled up to the chest, then both legs driven straight down together, the feet flat, the body
+    # pitched forward over them and the arms flung up and out (the recoil).
+    move_of("gaunt_stomp",
+            {"spine": (14.0, 0.0), "head": (-4.0, 0.0), "stance": (86.0, 86.0), "shin.L": (-124.0,), "shin.R": (-124.0,), "arms": (40.0, 26.0)},
+            {"spine": (18.0, 0.0), "head": (-6.0, 0.0), "stance": (-6.0, -6.0), "shin.L": (-2.0,), "shin.R": (-2.0,),
+             "foot.L": (-20.0,), "foot.R": (-20.0,), "arms": (-60.0, 70.0)},
+            {"spine": (10.0, 0.0), "stance": (20.0, 20.0), "shin.L": (-30.0,), "shin.R": (-30.0,), "arms": (-20.0, 60.0)})
+    # The axe kick (up tilt): the weight rocks back onto the planted back leg, the front leg swings straight up overhead (the game aims
+    # the foot at the heel's hitbox and brings it down in front), the arms spread wide; the body leans back under the raised leg.
+    move_of("kick_axe",
+            {"hips": -0.06, "spine": (12.0, 0.0), "stance": (20.0, -8.0), "shin.L": (-40.0,), "shin.R": (-20.0,), "arms": (30.0, 30.0)},
+            {"hips": 0.02, "spine": (-16.0, 0.0), "head": (4.0, 0.0), "stance": (150.0, -6.0), "shin.L": (-4.0,), "shin.R": (-6.0,),
+             "arms": (-30.0, 74.0)},
+            {"hips": -0.08, "spine": (18.0, 0.0), "stance": (40.0, -10.0), "shin.L": (-30.0,), "arms": (10.0, 50.0)})
+    # The shoulder charge (dash attack): dropped low and turned side-on, the lead shoulder driven forward with the fists tucked to the
+    # chest, the back leg pushing off long behind.
+    move_of("gaunt_shoulder",
+            {"hips": -0.12, "spine": (24.0, -20.0), "head": (-10.0, 10.0), "stance": (44.0, -20.0), "shin.L": (-70.0,), "arms": (50.0, 10.0)},
+            {"hips": -0.16, "spine": (34.0, 36.0), "head": (-18.0, -24.0), "stance": (58.0, -52.0), "shin.L": (-80.0,), "shin.R": (-6.0,),
+             "armL.L": (120.0,), "armL.R": (120.0,), "arms": (64.0, 6.0)},
+            {"hips": -0.08, "spine": (18.0, 14.0), "stance": (36.0, -28.0), "arms": (40.0, 16.0)})
+    # The elbow (forward smash): wound right round, the weight on the back leg and the elbow drawn back; then a big step in, the hips
+    # and shoulders turning through and the elbow driven ahead at chest height, the other arm whipped back.
+    move_of("gaunt_elbow",
+            {"hips": -0.1, "spine": (-6.0, -44.0), "head": (4.0, 30.0), "stance": (16.0, -16.0), "shin.R": (-40.0,), "arms": (-30.0, 30.0)},
+            {"hips": -0.14, "spine": (26.0, 46.0), "head": (-14.0, -30.0), "stance": (64.0, -46.0), "shin.L": (-60.0,), "shin.R": (-4.0,),
+             "armL.R": (130.0,), "arms": (-40.0, 40.0)},
+            {"hips": -0.08, "spine": (12.0, 20.0), "stance": (40.0, -24.0), "arms": (10.0, 26.0)})
     # Blaster: draw and fire, arm out level, braced.
     move_of("blaster",
             {"spine": (6.0, -20.0), "head": (0.0, 14.0), "stance": (20.0, -20.0)},
