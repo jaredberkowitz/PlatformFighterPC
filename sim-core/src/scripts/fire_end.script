@@ -1,0 +1,7 @@
+// Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
+// gravity: 0.1 (the reference's numbers, in world units: reference / 8).
+if grounded {
+    set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
+} else {
+    set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
+}

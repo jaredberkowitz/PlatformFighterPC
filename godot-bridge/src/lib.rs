@@ -933,6 +933,13 @@ impl SimRunner {
         self.fighter(i).map_or(0, |fi| i32::from(fi.state_frame))
     }
 
+    /// Wall jumps made since the fighter last stood on the ground or held a ledge (read only, for the view: it goes up on the
+    /// frame of a kick-off). A wall-tech jump does not count; it is the wall tech state ending with an upward launch.
+    #[func]
+    fn fighter_wall_jumps(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(0, |fi| i32::from(fi.wall_jumps))
+    }
+
     #[func]
     fn fighter_facing(&self, i: i32) -> i32 {
         self.fighter(i).map_or(1, |fi| i32::from(fi.facing))
@@ -2208,10 +2215,14 @@ mod tests {
         // Two groups apart in time: two hits (front, then behind).
         assert_eq!(hit_windows(&sword.moves[MoveId::DSmash as usize]).len(), 2);
         assert_eq!(hit_windows(&sword.moves[MoveId::NAir as usize]).len(), 2);
-        // The flame kick lands five times (rehit every 3 frames from frame 17), the last its own launching hit.
+        // The flame kick lands four times (the wind-up hit, then the loop every 2 frames from frame 27); its last, launching hit is
+        // its ending's (ext0 on the ground, ext1 in the air).
         let fire = hit_windows(&brawler.moves[MoveId::UpSpecial as usize]);
-        assert_eq!(fire.len(), 5, "{fire:?}");
+        assert_eq!(fire.len(), 4, "{fire:?}");
         // In order and apart.
         assert!(fire.windows(2).all(|w| w[0].1 < w[1].0), "{fire:?}");
+        for ending in [MoveId::Ext0, MoveId::Ext1] {
+            assert_eq!(hit_windows(&brawler.moves[ending as usize]).len(), 1);
+        }
     }
 }

@@ -430,3 +430,91 @@ fn wild_scripts_cannot_push_fighters_into_the_stage() {
         }
     }
 }
+
+#[test]
+fn presses_and_releases_count_the_attack_button_since_the_attack_began_hitlag_included() {
+    // The script keeps 10 x presses + releases where a test can read it.
+    let mut sim = with_special(scripted(60, "store(presses * 10 + releases);"));
+    start(&mut sim);
+    // Started by special: nothing counted yet.
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 0);
+    // Press, let go, press (held).
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    assert_eq!(sim.f().stored, 21);
+    // During hitlag the script does not run, but the counts go on: let go and press again while frozen.
+    sim.state.fighters[0].hitlag = 4;
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 21, "frozen");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 33, "the presses in hitlag counted");
+    // A new attack starts counting again.
+    sim.ticks(60, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 0);
+}
+
+#[test]
+fn a_once_per_airtime_flag_lasts_until_the_fighter_lands() {
+    // Each use in the air adds a lift only while flag 2 is clear, and sets it.
+    let mut sim = with_special(scripted(
+        12,
+        "if frame == 1 && air_flag(2) == 0 { set_air_flag(2); add_vel(0, 0.5); }",
+    ));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    let lift = |sim: &mut Sim| {
+        sim.tick(inp(0, 0, SPECIAL));
+        let before = sim.f().vel.y;
+        sim.tick(inp(0, 0, 0));
+        let after = sim.f().vel.y;
+        sim.ticks(14, inp(0, 0, 0));
+        after > before
+    };
+    assert!(lift(&mut sim), "the first use lifts");
+    assert_eq!(sim.f().air_flags, 0b100);
+    assert!(!lift(&mut sim), "the second in the same airtime does not");
+    // Landing clears it.
+    sim.stand(0, Fx::ZERO, 1);
+    sim.tick(inp(0, 0, 0));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].air_flags = 0b100;
+    sim.state.fighters[0].pos.y = fx(1, 100);
+    sim.state.fighters[0].vel.y = -Fx::ONE;
+    sim.ticks(3, inp(0, 0, 0));
+    assert!(sim.f().grounded());
+    assert_eq!(sim.f().air_flags, 0, "landing clears the flags");
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    assert!(lift(&mut sim), "so the next airtime lifts again");
+}
+
+#[test]
+fn a_script_can_fire_a_bigger_harder_hitting_projectile() {
+    // The same shot fired plain and scaled (30 more base knockback, 150% size): the scaled one carries both. (Sim 62.)
+    let fire = |src: &str| {
+        let mut sim = with_special(scripted(30, src));
+        sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
+            sim.content.weapons[1].moves[MoveId::NSpecial as usize].projectile;
+        start(&mut sim);
+        sim.ticks(4, inp(0, 0, 0));
+        sim.state
+            .projectiles
+            .iter()
+            .copied()
+            .find(|p| p.active)
+            .unwrap()
+    };
+    let plain = fire("if frame == 3 { spawn(1, 1, 0.4, 0); }");
+    let scaled = fire("if frame == 3 { spawn_scaled(1, 1, 0.4, 0, 30, 150); }");
+    assert_eq!((plain.kb_add, plain.size), (0, 100));
+    assert_eq!((scaled.kb_add, scaled.size), (30, 150));
+    assert_eq!(plain.pos, scaled.pos);
+    assert_eq!(plain.vel, scaled.vel);
+}

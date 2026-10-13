@@ -685,7 +685,8 @@ fn flash_dash_aims_up_and_down_with_the_stick() {
 
 #[test]
 fn flame_kick_goes_where_the_stick_pointed_and_turns_around_for_backward() {
-    // The flight is move frames 17-30. Measure from the first tick of it to the last.
+    // The dash is frames 26-32 (the reference's): 3.8 reference units a frame for 4 frames, then 0.2 less a frame, so 25.4 reference
+    // units (3.175 world units) along the aimed direction. Measured from the tick before it to its last.
     let fly = |x: i8, y: i8| {
         let mut sim = Sim::with_chars(CLAWS);
         sim.state = GameState::new_with_active(&sim.content, 1, CLAWS, 0b0011);
@@ -693,39 +694,36 @@ fn flame_kick_goes_where_the_stick_pointed_and_turns_around_for_backward() {
         sim.put_airborne(1, Fx::from_int(40), Fx::from_int(60), Fx::ZERO, Fx::ZERO);
         sim.state.fighters[0].facing = 1;
         sim.tick(inp(0, 127, SPECIAL));
-        for _ in 0..17 {
+        for _ in 0..24 {
             sim.tick(inp(x, y, 0));
         }
         let start = sim.f().pos;
-        for _ in 0..14 {
+        for _ in 0..7 {
             sim.tick(inp(x, y, 0));
         }
         (sim.f().pos - start, sim.f().facing)
     };
+    let dash = Fx::from_ratio(3175, 1000);
+    let near = |v: Fx, want: Fx| (v - want).abs() < Fx::from_ratio(1, 20);
     let (neutral, _) = fly(0, 0);
     assert!(
-        neutral.y > Fx::from_int(4) && neutral.x > Fx::from_int(1),
-        "neutral aims up: {neutral:?}"
+        near(neutral.y, dash) && neutral.x.abs() < Fx::from_ratio(1, 20),
+        "neutral goes straight up: {neutral:?}"
     );
     let (forward, f1) = fly(127, 0);
     assert!(
-        forward.x > Fx::from_int(4) && forward.y.abs() < Fx::from_int(2),
+        near(forward.x, dash) && forward.y.abs() < Fx::from_ratio(1, 20),
         "{forward:?}"
     );
     assert_eq!(f1, 1);
     let (back, f2) = fly(-127, 0);
-    assert!(
-        back.x < Fx::from_int(-4),
-        "backward goes backward: {back:?}"
-    );
+    assert!(near(back.x, -dash), "backward goes backward: {back:?}");
     assert_eq!(f2, -1, "and the brawler turns around");
     let (down, _) = fly(0, -127);
-    assert!(down.y < Fx::from_int(-3), "down dives: {down:?}");
+    assert!(near(down.y, -dash), "down dives: {down:?}");
     let (diag, _) = fly(100, 100);
-    assert!(
-        diag.x > Fx::from_int(2) && diag.y > Fx::from_int(2),
-        "{diag:?}"
-    );
+    let diagonal = dash * Fx::from_ratio(7071, 10_000);
+    assert!(near(diag.x, diagonal) && near(diag.y, diagonal), "{diag:?}");
 }
 
 #[test]

@@ -134,8 +134,10 @@ fn attack_is_a_get_up_attack_that_hits_on_both_sides() {
 fn get_up_and_ledge_attacks_use_the_reference_numbers() {
     // The reference game's floor attack: 7%, base knockback 80 and only 48 growth, so it pushes away without sending far even at
     // high percents; act on frame 46, intangible through frame 22 or 23. Its ledge attack: 9%, angle 45, base 90, growth 20.
+    // (The first four weapons share these; the gauntlets have their own reference character's, 6% and 10%, checked in
+    // `gauntlets.rs`.)
     let sim = Sim::new();
-    for weapon in &sim.content.weapons {
+    for weapon in sim.content.weapons.iter().take(4) {
         let getup = weapon.get(MoveId::GetUpAttack as u8);
         assert_eq!(getup.total_frames, 44, "FAF 46");
         assert!(getup.intangible == 22 || getup.intangible == 23);

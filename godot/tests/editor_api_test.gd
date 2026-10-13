@@ -75,12 +75,12 @@ func _initialize() -> void:
 
 	# A new fighter and a new stage, then save and play.
 	ed.new_from_builtin("My Pack")
-	var sprinter := {"kind": "fighter", "name": "sprinter", "items": []}
-	set_field(sprinter, "inherit", "brawler")
-	set_field(sprinter, "walk_speed", "0.45")
-	set_field(sprinter, "run_speed", "0.5")
-	set_field(sprinter, "dash_speed", "0.6")
-	check(ed.put_section(sprinter).size() == 0, "a new fighter that inherits is valid")
+	var racer := {"kind": "fighter", "name": "racer", "items": []}
+	set_field(racer, "inherit", "brawler")
+	set_field(racer, "walk_speed", "0.45")
+	set_field(racer, "run_speed", "0.5")
+	set_field(racer, "dash_speed", "0.6")
+	check(ed.put_section(racer).size() == 0, "a new fighter that inherits is valid")
 
 	var stage: Dictionary = ed.get_section("stage", "")
 	stage.name = "my_stage"
@@ -115,7 +115,7 @@ func _initialize() -> void:
 	check(ed.save(path, true) == "", "the bundle saves")
 	check(sim.load_content(path) == "", "the game loads the saved bundle")
 	check(sim.content_name() == "My Pack", "with its name")
-	check(Array(sim.fighter_names()) == ["duelist", "brawler", "rogue", "tumbler", "sprinter"], "including the new fighter: " + str(sim.fighter_names()))
+	check(Array(sim.fighter_names()) == ["duelist", "brawler", "rogue", "tumbler", "sprinter", "racer"], "including the new fighter: " + str(sim.fighter_names()))
 	check(sim.platform_count() == 4, "and the new platform: %d" % sim.platform_count())
 	var look: Dictionary = sim.stage_look()
 	check(look.backdrop == "grove" and look.sky_top == "ff8800", "and its look: " + str(look))
@@ -132,13 +132,13 @@ func _initialize() -> void:
 			sim.tick()
 		return sim.fighter_pos(0).x - x0
 	var slow: float = run.call(1)
-	var fast: float = run.call(4)
+	var fast: float = run.call(5)
 	check(fast > slow * 1.2, "the new fighter runs faster: %f vs %f" % [fast, slow])
 
 	# The saved file is a normal bundle: it reopens in the editor with the new content.
 	var ed2 = ClassDB.instantiate("ContentEditor")
 	check(ed2.open_file(path) == "" and ed2.is_valid(), "the saved bundle reopens")
-	check(ed2.get_section("fighter", "sprinter").size() > 0, "with the new fighter in it")
+	check(ed2.get_section("fighter", "racer").size() > 0, "with the new fighter in it")
 
 	print("editor api test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

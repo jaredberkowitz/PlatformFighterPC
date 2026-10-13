@@ -1,0 +1,7 @@
+// Side special (the reference's): in the air, the first use since the fighter was last on the ground, caught a ledge or was
+// hit stops its fall and lifts it by 0.3 reference units a frame (once per airtime: flag 0). Later uses keep their fall, slowed by
+// the move's own light gravity.
+if frame == 1 && grounded == 0 && air_flag(0) == 0 {
+    set_air_flag(0);
+    add_vel(0, 0.0375 - min(vy, 0));
+}

@@ -15,19 +15,23 @@ Status words: **verified** (every move on [R] data, tested, no approximations le
 
 | In game (class, weapon, body) | Reference | Status | Tests | Known limits (from `docs/COMBAT.md`, `docs/sheik/`) |
 | --- | --- | --- | --- | --- |
-| 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs` | Normals on [R] frames and damage. Up special's travel is [E] (about 1.3 full hops, not a published curve); its special-fall landing lag and drift are the shared body/global values. Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Shield Breaker's shield multiplier is [E]. Counter's answer uses our `percent` model (check the reference's 1.2x and minimum). |
-| 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Specials are largely [E]**: the flash dash distance and its end hit, the fire flight's travel and drag hits, the reflector's frames, size and reflected speed. Throw angles partly [E]. |
-| 2 Needles, rogue body | Sheik | playable | `needles.rs`, `multihit.rs` | Body, normals, Needle Storm, Vanish, Bouncing Fish on [R] data (`docs/sheik/REFERENCE_DATA.md`). **The side special is our own pulling line, not the reference's grenade** (owner's earlier request); under the 1:1 rule this is a known divergence. No wall jump (the reference character has one). Vanish: no reappearance wind box, explosion moves with the fighter. Bouncing Fish: no consecutive kicks, no wall bounce. Up smash arm intangibility not modelled. Rapid jab cannot see presses in hitlag. |
-| 3 Embers, tumbler body | Mario | **in progress** (phase 1 of 2: body and every normal) | `embers.rs` | Body and every normal on [R] frame data and hit data (`docs/movesets/mario/`), the angled forward tilt and smash, the jab's continuable windows and held repeat, the down air's set-weight loop and landing hit, the back throw's spin hitting bystanders. **Specials are still the claws' placeholders** (phase 2). Up smash head intangibility not modelled (E19). One get-up attack slot (face up). No wall jump (E15). Positions on non-root bones [E]. |
+| 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs` | Normals on [R] frames and damage. **Up special on the reference's numbers since sim 58** (hits, grounded / aerial intangibility, 39-frame animation, front ledge from 8, special fall x0.4 and 24 frames of landing lag, x1.1 aerial rise, 20-degree angling, 0.06 gravity after the rise); its rise itself is still [E] (about 44 reference units: no published height). Pummel on [R] timing (sim 63). Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Shield Breaker's shield multiplier is [E]. Counter's answer uses our `percent` model (check the reference's 1.2x and minimum). |
+| 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Up special on the reference's numbers since sim 58** (hits, the dash from its published parameters, the grounded / aerial endings, the ground bounce, ledge windows, special fall x0.65 and 36 frames of landing lag); its looping hits angle from the facing, not the direction of travel [E]. Wall jump (sim 64). Pummel on [R] timing (sim 63). **Still [E]**: the flash dash's distance and end hit, the reflector's frames, size and reflected speed (it turns only the horizontal speed: owner decision 2026-10-13, keep it unlike the cape's). Wall jump also from the jump button (sim 65). Throw angles partly [E]. |
+| 2 Needles, rogue body | Sheik | playable | `needles.rs`, `multihit.rs` | Body, normals, Needle Storm, Vanish, Bouncing Fish on [R] data (`docs/sheik/REFERENCE_DATA.md`). **The side special is our own pulling line, not the reference's grenade** (owner's decision 6: it stays). Wall jump since sim 64 (1.4 / 2.8). Pummel on [R] timing (sim 63). Vanish: no reappearance wind box (the push hit, E2, now exists to build it), explosion moves with the fighter; its special fall uses the shared drift and landing lag (not re-researched). Bouncing Fish: no consecutive kicks, no wall bounce. Up smash arm intangibility not modelled. Rapid jab cannot see presses in hitlag. |
+| 3 Embers, tumbler body | Mario | **playable** (phases 1 and 2 done, sims 57 to 64) | `embers.rs` | Body, every normal and every special on [R] data (`docs/movesets/mario/`): the rising punch, the bouncing fireball, the cape (reverse, reflector with its detector, once-per-airtime lift), the water pump (charge, store, pushing pumps), and the wall jump. **Not verified**: the rising punch's rise is [E] (no published height; re-searched 2026-10-13), and a few readings are [E] (the cape's lift frame, a reflected shot's vertical reversal). **Owner decisions 2026-10-13 (sim 65)**: a full pump holds its stance until special or shield; the cape's reflector turns vertical speed round and the Claws' stays horizontal-only (meant to differ); jump pressed against a wall (stick neutral or toward it) also wall-jumps, for every wall-jumping body, without spending a midair jump. Up smash head intangibility not modelled (E19). One get-up attack slot (face up). Positions on non-root bones [E]. |
+
+| 4 Gauntlets, sprinter body (built-in fighter Sprinter) | Captain Falcon | **in progress** (phase 1 done, sim 66: the body and every normal) | `gauntlets.rs` | Body and every normal on [R] data (`docs/movesets/captain_falcon/`): the jab chain and the rapid jab's entry rule (presses in hitlag counted), its loop and finisher, the one-frame knee, the down air meteor, the up tilt's and up smash's intangible legs (E19), the rapid jab's and dash attack's shieldstun (E24). **Specials are still the claws' placeholders** (phase 2). Limits: the knee's late-hit trip (E20); the down tilt's type-0 box behind; one get-up attack slot; the rapid jab's "let go" is not held and not pressed for 8 frames [E]; the neutral air dodge (42) is single-source; positions on non-root bones and the body's height [E]. |
 
 Top-fidelity priorities for the existing ports (to revisit once the shared extensions below exist):
 
-* **Longsword**: the tipper on every sword move (done, [R]); Dolphin-Slash-style up special: rise height and drift, intangibility (done),
-  ledge window, special-fall landing lag (**needs E11**); Counter's window and answer (check against [R]).
-* **Claws**: the reflector (frames, field size, reflected speed and angle: [E] today; reflected vertical speed **needs E10b**); the fire
-  flight's travel and hit sequence ([E]; fit with E11); the flash dash's distance and end hit ([E]).
+* **Longsword**: the tipper on every sword move (done, [R]); Dolphin-Slash-style up special: hits, intangibility, ledge window,
+  special-fall drift and landing lag, angling (done, sim 58); rise height (**[E]**, no published figure); Counter's window and answer
+  (check against [R]).
+* **Claws**: the fire flight's travel and hit sequence (done, sim 58, from the published parameters); the reflector (frames, field
+  size, reflected speed and angle: still [E]; E10b's vertical reversal exists but stays off: owner decision 2026-10-13, the Claws' reflector stays horizontal-only);
+  the flash dash's distance and end hit ([E]).
 * **Needles**: up air drag-down (done, [R]); Bouncing Fish (done except consecutive kicks and wall bounce); Vanish (done except wind box,
-  **needs E2**); the grenade (**not built**: needs E3 for a pulling, exploding projectile).
+  which E2's push hit can now build); the grenade (our own line stays, owner's decision 6); wall jump (done, sim 64).
 
 ## The seven reference fighters
 
@@ -36,9 +40,9 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Mario
 
-* **Status (2026-10-13)**: phase 1 done on branch `worktree-agent-a555f451ab3174bb4` (sim 57): the tumbler body and every normal,
-  with three general extensions (`Move::next_from`, `Hitbox::aim` with `Fighter::aim`, `Hitbox::set_weight`). The phase-2 plan for the
-  specials (E11 first, re-fitting the Longsword's and the Claws' up specials) is in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
+* **Status (2026-10-13)**: phase 1 (sim 57: the body and every normal) and phase 2 (sims 58 to 64: the four specials and the wall
+  jump, with E2, E3b, E10, E10b, E11, E15, E16 and the set-knockback launch rule) done on branch `movesets`; **playable**, not yet
+  verified (the rising punch's rise is [E]). Report: `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
 * **Kit mechanics**: three-hit jab (exists: `Move::next`); Fireball (gravity, bounces along the ground several times); Cape (reflects at
   1.5x, **turns opponents around and reverses their control**, a fall break in the air; no armor since an update); Super Jump Punch
   (seven hits 5 / 0.6 x5 / 3, intangible startup, angled 12 degrees by the stick, ledge sweetspot from frame 14, helpless); F.L.U.D.D.
@@ -54,8 +58,8 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
   * **F.L.U.D.D.**: charge time, storing and cancels, push strength by charge, no damage and no hitstun. Needs **E2** (wind boxes) and,
     for the stream, **E3a** (a projectile that hits each target once and passes on, or several pushing shots).
   * **Fireball**: arc, bounce count and height, life. Needs **E3b** (projectile ground bounce).
-* **Gaps**: E2, E3a, E3b, E10, E11, E15 (wall jump), E16 (per-airtime flag).
-* **Cost**: low to moderate; every extension is small and reused later.
+* **Gaps**: none left for the kit (E3a was not needed: each pump hits once). Open: the rising punch's rise height.
+* **Cost**: done.
 
 ### Donkey Kong
 
@@ -150,6 +154,11 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Captain Falcon
 
+* **Status (2026-10-13)**: **phase 1 done (sim 66, schema 5)**: class 4 Gauntlets on the sprinter body, built-in fighter Sprinter,
+  every normal on [R] data, with E17 (16 `ext` slots), E19 (per-limb intangibility), E24 (per-hitbox shieldstun) and the
+  `presses` / `releases` registers (the narrow part of E16 the rapid jab needs). Specials are placeholders; the phase-2 plan (E1, E6,
+  E21, E22, E3c, the E11 additions, each special) is in `docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`. Research:
+  `REFERENCE_DATA.md`, `PROJECT_AUDIT.md`.
 * **Kit mechanics**: Falcon Punch (turning around during startup gives the reversed punch: 25 / 28 grounded, 22 / 25 aerial; aerial nudged
   up or down by the stick; slides back at the end); Raptor Boost (grounded dash into an uppercut with **10% damage-based armor on frames
   1-5**; aerial overhand that meteors; **helpless only if the aerial version misses**); Falcon Dive (**command grab that catches any
@@ -226,9 +235,10 @@ architectural changes (E4, E7, E9, E13, E17) are explained to the owner before t
 | E14 | Passive projectile block | a body option: in given states, a projectile hitting from the front is blocked with a push | Link |
 | E15 | Wall jump | a body option and per-body numbers | Mario, Falcon, Needles |
 | E16 | Script surface | registers: `grab` button, nearest opponent (fighter scripts), once-per-airtime flags, "was hit during this move", "hit a shield"; more fighter variables than 4 | Mario, Yoshi, Palutena, Cloud, Link |
-| E17 | More move slots | more than ten `ext` slots (or named sub-move lists per special), and room for cargo throws. A content schema change (move keys, a migration) | Cloud, DK, probably Link |
-| E19 | Partial intangibility | intangibility per hurtbox circle (arm, head, legs) | DK, Yoshi, Needles (up smash) |
+| E17 | More move slots | **built (sim 66, schema 5)**: sixteen `ext` slots, `ext10` to `ext15` numbered 39 to 44 after `pivot_grab` | Falcon (rapid jab now), Cloud, DK, probably Link |
+| E19 | Partial intangibility | **built (sim 66)**: `Move::part_intangible` windows naming hurtbox circles (low, middle, high, limb) | Falcon (up tilt, up smash), DK, Yoshi, Needles (up smash), Embers (up smash head) |
 | E20 | Trip | a hitbox chance or flag that trips a grounded target (deterministic: from the sim's RNG) | Palutena, Longsword (down tilt) |
+| E24 | Per-hitbox shieldstun | **built (sim 66)**: `Hitbox::shieldstun` percent | Falcon (rapid jab x9, dash attack x1.5) |
 
 (E18 is not used: Warp's stage collision is research, not yet an extension.)
 
@@ -269,7 +279,20 @@ These override anything above that disagrees.
 7. **Up specials and E11**: when E11 lands, re-fit both the Claws' and the Longsword's up specials to their reference numbers.
 8. **Naming cleanup**: reference character names in code and test names are being removed as a separate change.
 9. **Cloud's Limit on stock loss**: the gauge (any partial charge too) and an active Limit Break reset to empty when he loses a stock.
+10. **Captain Falcon names**: class **Gauntlets**, body and built-in fighter **Sprinter**.
+11. **Move slots (E17)**: add 16 `ext` slots now, with Falcon (a schema change with a migration); Cloud and DK reuse it.
+12. **Root-motion distances** (Falcon Dive rise, Raptor Boost dash, Falcon Kick slide, Super Jump Punch rise and the like): fit them to
+    published recovery-distance or height figures, labelled [D]/[E] with the source. No footage for now.
+13. **Per-limb intangibility (E19)**: build it with Falcon (his up tilt and up smash legs); DK, Yoshi and the Needles' up smash reuse it.
+14. **Armor (E1)**: build the damage-threshold kind with Falcon, with the `kind` field in place for the later kinds (DK, Yoshi).
 
 ## Still open
 
-Nothing at the moment.
+From the Embers' phase 2 (details in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):
+
+1. Up-special rise heights (the rising punch, the cape's lift, the Longsword's): re-searched 2026-10-13, still no published figure in
+   units (list of sources in `docs/movesets/mario/REFERENCE_DATA.md`); footage would settle them.
+
+Answered by the owner on 2026-10-13 (sim 65): a full water-pump charge holds the stance until special or shield (built); reflectors
+stay as they are, the cape turning a shot's vertical speed round and the Claws' not (meant to differ); the jump button against a
+wall also wall-jumps, stick neutral or toward the wall, for every wall-jumping body, without spending a midair jump (built).

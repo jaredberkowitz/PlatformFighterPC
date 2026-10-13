@@ -1,0 +1,12 @@
+// Down special (the reference's water pump), the wind-up: 19 frames, then the charge (29 = ext1) from whatever was stored, or the
+// shot (30 = ext2) at once with a full charge stored or special pressed again during the wind-up. The shot starts aimed 12 degrees up.
+var c;
+var quick;
+var aim;
+if frame >= 1 && special_tap { quick = 1; }
+if frame == 18 {
+    c = stored;
+    store(0);
+    aim = 12;
+    if quick || c >= 80 { goto(30); } else { goto(29); }
+}

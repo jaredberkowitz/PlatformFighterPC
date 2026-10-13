@@ -405,7 +405,7 @@ fn the_rest_of_the_kit_has_the_references_frame_data() {
         (MoveId::Grab, &[(6, 7)], 37, 0, 0, 255),
         (MoveId::DashGrab, &[(9, 10)], 45, 0, 0, 255),
         (MoveId::PivotGrab, &[(11, 12)], 40, 0, 0, 255),
-        (MoveId::Pummel, &[(2, 2)], 16, 0, 0, 255),
+        (MoveId::Pummel, &[(2, 2)], 7, 0, 0, 255),
         (MoveId::FThrow, &[(20, 20), (22, 22)], 40, 0, 0, 255),
         (MoveId::BThrow, &[(15, 15), (17, 17)], 36, 0, 0, 255),
         (MoveId::UThrow, &[(19, 19), (21, 21)], 50, 0, 0, 255),

@@ -96,6 +96,17 @@ pub fn move_x(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dx: Fx) -> 
     hit
 }
 
+/// The side (-1 left, 1 right) of a solid wall within `reach` of the fighter's ECB, or 0 if none (a wall jump's contact).
+pub fn wall_beside(stage: &Stage, params: &FighterParams, pos: Vec2, reach: Fx) -> i8 {
+    for side in [1i8, -1] {
+        let mut probe = pos;
+        if move_x(stage, params, &mut probe, reach.mul_int(i32::from(side))) {
+            return side;
+        }
+    }
+    0
+}
+
 /// Resolves any overlap between the ECB diamond and solid blocks by pushing the fighter sideways
 /// to the nearest face. Needed because the diamond widens as a fighter slides down a wall, which
 /// can put a fighter that started outside the wall inside it. Returns true if it moved.

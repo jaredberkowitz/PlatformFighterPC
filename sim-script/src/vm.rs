@@ -217,7 +217,7 @@ fn execute<H: Host>(program: &Program, host: &mut H, steps: &mut u32) -> Result<
                     return Err(Fault::StackUnderflow);
                 }
                 let base = stack.len - n;
-                let mut args = [0i32; 4];
+                let mut args = [0i32; crate::api::MAX_ARITY];
                 args[..n].copy_from_slice(&stack.items[base..stack.len]);
                 stack.len = base;
                 let result = if id < FIRST_HOST_FUNC {

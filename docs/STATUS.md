@@ -42,7 +42,23 @@ heavy hitstun, an idle fidget), a fix for the head spinning in a long shield hol
 Moveset ports from the reference game (`docs/movesets/ROSTER_STATUS.md`): **sim 57**, the fourth class, Embers on the tumbler body
 (modelled on the reference game's Mario), phase 1: the body and every normal on reference data (`docs/movesets/mario/`), with early jab
 continuation (`Move::next_from`), angled forward tilts and smashes (`Hitbox::aim`) and set-weight hits (`Hitbox::set_weight`); its
-specials are still the claws' until phase 2.
+specials are still the claws' until phase 2. **Sims 58 to 64** (phase 2, branch `movesets`): its four specials on reference data
+(the rising punch, the bouncing fireball, the cape, the water pump) and the general pieces they needed: per-move recovery rules (ledge
+windows by side and frame, the special fall's drift and landing lag per move, height multipliers, stick angling, a move's own air
+physics, later or air-only intangibility, carrying on after touching down), set-knockback launches keeping plain launch physics,
+projectile arcs, ground bounces and hits by age, reversing hits, push hits, fuller reflectors (vertical reversal, lifetime, damage limit,
+projectile detector), once-per-airtime script flags, charged scaled shots, a 16-slot projectile pool, pummels with their own hitlag on
+the reference's timing, and wall jumps (content schema 4). The Longsword's and the Claws' up specials were re-fitted to their
+references with the new rules. **Sim 65** (owner's follow-up): a full water-pump charge holds its stance until special or shield, and
+jump pressed against a wall (stick neutral or toward it) also wall-jumps without spending a midair jump. Details and what is still
+estimated: `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
+**Sim 66** (content schema 5): the fifth class, Gauntlets on the sprinter body (built-in fighter Sprinter, modelled on the reference
+game's Captain Falcon), phase 1: the body (15-frame initial dash, wall jump 1.4 / 3.1) and every normal on reference data
+(`docs/movesets/captain_falcon/`): the jab chain with the rapid jab's entry rule (three presses and two releases since jab 1, presses in
+hitlag counted), its loop and finisher, the one-frame knee, the down air meteor, angled forward tilt and smash. General pieces: sixteen
+`ext` slots (E17, schema 5), per-limb intangibility (E19, `Move::part_intangible`), per-hitbox shieldstun (E24, `Hitbox::shieldstun`)
+and the `presses` / `releases` script registers. Its specials are still the claws' until phase 2 (plan in
+`docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`).
 
 ## Roadmap progress
 

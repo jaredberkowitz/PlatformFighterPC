@@ -60,7 +60,21 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   multi-hit punch and a pushing water pack.
 - **As built (phase 1, sim 57):** the body (`FighterParams::tumbler`) and every normal on the reference's published data
   (`docs/movesets/mario/`), with three general extensions: early jab continuation (`Move::next_from`), angled moves (`Hitbox::aim`) and
-  set weight (`Hitbox::set_weight`). The specials are still the claws' until phase 2.
+  set weight (`Hitbox::set_weight`).
+- **Phase 2 (sims 58 to 64):** the specials on the reference's data: a rising multi-hit punch (up), a bouncing fireball (neutral), a
+  cape that turns its victim round and reflects (side), and a charged water pump that pushes without damage (down); and a wall jump.
+  The general pieces they needed (per-move recovery rules, projectile arcs and bounces, reversing and push hits, fuller reflectors,
+  once-per-airtime flags, scaled shots) are listed in `docs/movesets/SHARED_MECHANICS.md`. The longsword's and the claws' up specials
+  were re-fitted to their references with the same rules.
+
+### 5. Gauntlets sprinter (the reference speedster bruiser's role)
+- A tall heavyweight (104) with the fastest run on the roster (2.55), a long 15-frame initial dash, a high fall speed and heavy hits:
+  a jab flurry, a one-frame flying knee, a meteor stomp, and (phase 2) a wound-up punch that turns round, a dash that searches for its
+  target, a leaping command grab that explodes and a diving kick.
+- **As built (phase 1, sim 66, content schema 5):** the body (`FighterParams::sprinter`) and every normal on the reference's
+  published data (`docs/movesets/captain_falcon/`, code in `sim-core/src/moves_gauntlets.rs`), with general extensions: sixteen `ext`
+  slots, per-limb intangibility (`Move::part_intangible`), per-hitbox shieldstun (`Hitbox::shieldstun`) and the `presses` / `releases`
+  script registers. The specials are the claws' until phase 2.
 
 ## What this needs from the engine (Phase 3 list)
 

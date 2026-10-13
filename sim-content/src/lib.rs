@@ -249,6 +249,28 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             if p.life == 0 {
                 errors.push(format!("weapon {i} {name}: projectile has no lifetime"));
             }
+            let a = &p.arc;
+            if a.gravity < Fx::ZERO
+                || a.max_fall < Fx::ZERO
+                || a.bounce_min < Fx::ZERO
+                || a.bounce_min > a.bounce_max
+                || a.bounce_keep > 100
+                || !(-90..=90).contains(&a.angle)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: projectile flight out of range (angle -90 to 90, no negative gravity, fall or bounce \
+                     speed, bounce_min at most bounce_max, bounce_keep at most 100)"
+                ));
+            }
+            let mut last = 0;
+            for (from, _) in p.phases.iter().flatten() {
+                if *from <= last || *from >= p.life {
+                    errors.push(format!(
+                        "weapon {i} {name}: projectile phases must start in order, after age 0 and within its life"
+                    ));
+                }
+                last = *from;
+            }
         }
         if mv.projectile_script.is_some() && mv.projectile.is_none() {
             errors.push(format!(
@@ -286,6 +308,32 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                     "weapon {i} {name}: chain needs a real move and a window"
                 ));
             }
+        }
+        for p in &mv.part_intangible {
+            if p.start > p.end || p.end > mv.total_frames || p.parts == 0 || p.parts > 15 {
+                errors.push(format!(
+                    "weapon {i} {name}: part_intangible {}..{} must lie inside the move and name at least one part",
+                    p.start, p.end
+                ));
+            }
+        }
+        if mv.steer_degrees > 90 || mv.steer_stick > 99 {
+            errors.push(format!(
+                "weapon {i} {name}: steer_degrees is at most 90 and steer_stick at most 99"
+            ));
+        }
+        if mv.fall_drift > 100 || mv.air_drift > 100 || mv.start_speed > 100 {
+            errors.push(format!(
+                "weapon {i} {name}: fall_drift, air_drift and start_speed are percents up to 100"
+            ));
+        }
+        if mv.air_gravity.is_some_and(|g| g < Fx::ZERO)
+            || mv.air_max_fall.is_some_and(|v| v <= Fx::ZERO)
+            || mv.air_friction.is_some_and(|v| v < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: air_gravity and air_friction cannot be negative, air_max_fall must be above 0"
+            ));
         }
         if let Some((_, every)) = mv.rehit {
             if every == 0 {

@@ -185,23 +185,35 @@ fn neutral_air_marks_both_hit_groups_once_each() {
 
 // ---- Duelist up special -----------------------------------------------------------------------------
 
-#[test]
-fn up_special_is_intangible_for_its_first_five_frames() {
+/// The ticks of the duelist's up special (the first 8) on which it is intangible, from the ground or from the air.
+fn up_special_intangible_ticks(air: bool) -> Vec<usize> {
     let mut sim = Sim::new();
-    sim.stand(0, Fx::from_int(-7), 1);
+    if air {
+        sim.put_airborne(0, Fx::from_int(-2), Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    } else {
+        sim.stand(0, Fx::from_int(-7), 1);
+    }
     sim.stand(1, Fx::from_int(8), -1);
     park_the_others(&mut sim);
-    sim.tick(inp(0, 127, SPECIAL));
-    assert_eq!(sim.f().state, S::Attack);
-    assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
-    for tick in 1..=5 {
-        if tick > 1 {
-            sim.tick(inp(0, 0, 0));
+    let mut ticks = Vec::new();
+    for tick in 1..=8 {
+        sim.tick(if tick == 1 {
+            inp(0, 127, SPECIAL)
+        } else {
+            inp(0, 0, 0)
+        });
+        assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
+        if is_intangible(sim.f()) {
+            ticks.push(tick);
         }
-        assert!(is_intangible(sim.f()), "intangible on frame {tick}");
     }
-    sim.tick(inp(0, 0, 0));
-    assert!(!is_intangible(sim.f()), "vulnerable from frame 6");
+    ticks
+}
+
+#[test]
+fn up_special_is_intangible_on_frames_4_and_5_from_the_ground_and_1_to_5_in_the_air() {
+    assert_eq!(up_special_intangible_ticks(false), vec![4, 5]);
+    assert_eq!(up_special_intangible_ticks(true), vec![1, 2, 3, 4, 5]);
 }
 
 #[test]
@@ -232,14 +244,153 @@ fn up_special_hits_on_frame_5_for_11_percent_then_ends_helpless() {
     sim.stand(1, Fx::from_int(8), -1);
     park_the_others(&mut sim);
     sim.tick(inp(0, 127, SPECIAL));
-    sim.ticks(47, inp(0, 0, 0));
-    assert_eq!(sim.f().state, S::Attack, "still going on tick 48");
+    sim.ticks(37, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "still going on tick 38");
     sim.tick(inp(0, 0, 0));
     assert_eq!(
         sim.f().state,
         S::Helpless,
-        "helpless once the move ends in the air"
+        "the 39-frame animation is over: the special fall from frame 40"
     );
+}
+
+#[test]
+fn up_special_has_the_references_clean_and_late_hits() {
+    let sim = Sim::new();
+    let w = &sim.content.weapons[usize::from(sim.content.fighters[0].weapon)];
+    let mv = w.get(MoveId::UpSpecial as u8);
+    // (frames as the reference numbers them, damage in tenths, angle, BK, KS, hitlag percent)
+    let mut rows: Vec<(u8, u8, i32, i16, i16, i16, u16)> = mv
+        .hitboxes
+        .iter()
+        .map(|h| {
+            (
+                h.start + 1,
+                h.end + 1,
+                (h.damage * Fx::from_int(10)).floor_int(),
+                h.angle,
+                h.base_knockback,
+                h.knockback_growth,
+                h.hitlag,
+            )
+        })
+        .collect();
+    rows.sort();
+    assert_eq!(
+        rows,
+        vec![
+            (5, 6, 110, 74, 70, 74, 100),
+            (5, 6, 110, 361, 70, 74, 100),
+            (6, 11, 70, 74, 20, 90, 90),
+            (6, 11, 70, 361, 20, 90, 90),
+        ]
+    );
+    // One hit in all: every row is in the same group.
+    assert!(mv.hitboxes.iter().all(|h| h.group == 0));
+    // The blade (the reference's ids 0 and 1) wins over the hand where both reach on frame 6.
+    let blade = mv.hitboxes.iter().filter(|h| h.damage < Fx::from_int(10));
+    let hand = mv.hitboxes.iter().filter(|h| h.damage > Fx::from_int(10));
+    let worst_blade = blade.map(|h| h.priority).max().unwrap();
+    let best_hand = hand.map(|h| h.priority).min().unwrap();
+    assert!(worst_blade < best_hand);
+}
+
+/// The duelist in the air next to the left ledge (x = -11, y = 0), `dx` outside it and `dy` below it, facing `facing`.
+fn below_the_ledge(dx: Fx, dy: Fx, facing: i8) -> Sim {
+    let mut sim = recovery_from(Fx::from_int(-11) - dx, dy);
+    sim.state.fighters[0].facing = facing;
+    sim
+}
+
+#[test]
+fn up_special_catches_a_ledge_in_front_from_frame_8_and_one_behind_only_after_the_move() {
+    // Facing the stage, the rise brings the ledge into reach on frame 6; it is caught on frame 8.
+    let mut sim = below_the_ledge(fx(12, 10), fx(-34, 10), 1);
+    sim.tick(inp(0, 127, SPECIAL));
+    let mut grabbed = None;
+    for t in 2..=39 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::LedgeHang {
+            grabbed = Some(t);
+            break;
+        }
+    }
+    assert_eq!(grabbed, Some(8));
+
+    // Its back to the stage, the same rise never catches it during the move.
+    let mut sim = below_the_ledge(fx(12, 10), fx(-34, 10), -1);
+    sim.tick(inp(0, 127, SPECIAL));
+    for t in 2..=39 {
+        sim.tick(inp(0, 0, 0));
+        assert_ne!(sim.f().state, S::LedgeHang, "tick {t}");
+    }
+}
+
+#[test]
+fn the_special_fall_after_the_up_special_drifts_at_0_4_and_lands_with_24_frames_of_lag() {
+    let mut sim = recovery_from(fx(-2, 1), Fx::from_int(20));
+    sim.tick(inp(0, 127, SPECIAL));
+    sim.ticks(39, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Helpless);
+    for _ in 0..60 {
+        sim.tick(inp(127, 0, 0));
+    }
+    let cap = sim.content.fighters[0].air_speed * fx(4, 10);
+    assert!(sim.f().vel.x > Fx::ZERO);
+    assert!(
+        sim.f().vel.x <= cap + Fx::from_raw(64),
+        "{:?}",
+        sim.f().vel.x
+    );
+    // Down onto the stage.
+    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::ZERO, fx(5, 10));
+    for _ in 0..30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Landing {
+            break;
+        }
+    }
+    assert_eq!(sim.f().state, S::Landing);
+    assert_eq!(sim.f().lag, 24);
+}
+
+/// Height the duelist's up special gains from its tick 4 to its tick 19 (the rise), started on the ground or in the air.
+fn up_special_rise(air: bool, stick_x: i8) -> (Fx, Fx) {
+    let mut sim = Sim::new();
+    if air {
+        sim.put_airborne(0, fx(-3, 1), Fx::from_int(10), Fx::ZERO, Fx::ZERO);
+    } else {
+        sim.stand(0, fx(-3, 1), 1);
+    }
+    park_the_others(&mut sim);
+    sim.state.fighters[1].invuln = 255;
+    sim.tick(inp(0, 127, SPECIAL));
+    sim.ticks(2, inp(0, 0, 0));
+    let start = sim.f().pos;
+    sim.ticks(16, inp(stick_x, 0, 0));
+    let end = sim.f().pos;
+    (end.x - start.x, end.y - start.y)
+}
+
+#[test]
+fn up_special_rises_1_1_times_as_high_from_the_air() {
+    let (_, ground) = up_special_rise(false, 0);
+    let (_, air) = up_special_rise(true, 0);
+    let ratio = air / ground;
+    assert!(ratio > fx(108, 100) && ratio < fx(112, 100), "{ratio:?}");
+}
+
+#[test]
+fn the_stick_angles_the_up_special_up_to_20_degrees() {
+    let (x0, y0) = up_special_rise(false, 0);
+    let (x1, y1) = up_special_rise(false, 127);
+    let (x2, _) = up_special_rise(false, 50);
+    assert!(x1 > x0 && y1 < y0, "leaned forward: {x1:?} {y1:?}");
+    assert_eq!(x2, x0, "a tilt inside the sensitivity (0.5) does nothing");
+    // The rise turned by 20 degrees: the straight one leans about 16 degrees forward (x / y 0.28), the angled one about 36 (0.72).
+    let lean = |x: Fx, y: Fx| (x / y).mul_int(100).floor_int();
+    assert!((27..=29).contains(&lean(x0, y0)), "{}", lean(x0, y0));
+    assert!((70..=74).contains(&lean(x1, y1)), "{}", lean(x1, y1));
 }
 
 #[test]
@@ -1319,4 +1470,180 @@ fn without_the_reflector_the_same_shot_hits_the_target() {
         sim.tick2(p0, inp(0, 0, 0));
     }
     assert!(sim.fighter(1).percent > Fx::ZERO);
+}
+
+// ---- Brawler up special: the reference's numbers ---------------------------------------------------------------------------
+
+/// The brawler's up special and its endings as reference-numbered rows: (move, first, last, damage in tenths, angle, BK, KS,
+/// targets).
+type FlameRow = (u8, u8, u8, i32, i16, i16, i16, u8);
+
+fn flame_kick_rows(sim: &Sim) -> Vec<FlameRow> {
+    let w = &sim.content.weapons[usize::from(sim.content.fighters[1].weapon)];
+    let mut rows = Vec::new();
+    for id in [MoveId::UpSpecial, MoveId::Ext0, MoveId::Ext1] {
+        for h in &w.get(id as u8).hitboxes {
+            rows.push((
+                id as u8,
+                h.start + 1,
+                h.end + 1,
+                (h.damage * Fx::from_int(10)).floor_int(),
+                h.angle,
+                h.base_knockback,
+                h.knockback_growth,
+                h.targets,
+            ));
+        }
+    }
+    rows.sort();
+    rows.dedup();
+    rows
+}
+
+#[test]
+fn flame_kick_has_the_references_hits() {
+    use sim_core::moves::{TARGETS_AERIAL as A, TARGETS_ALL as ALL, TARGETS_GROUNDED as G};
+    let sim = Sim::with_chars(BRAWLER);
+    let up = MoveId::UpSpecial as u8;
+    // The endings start on the reference's frame 35 (their frame 1, numbered 2 by these rows), so their rows are 33 frames earlier.
+    let (ground, air) = (MoveId::Ext0 as u8, MoveId::Ext1 as u8);
+    assert_eq!(
+        flame_kick_rows(&sim),
+        vec![
+            (up, 18, 21, 40, 93, 50, 10, ALL),
+            (up, 27, 29, 25, 40, 60, 20, G),
+            (up, 27, 29, 25, 367, 35, 20, A),
+            (up, 27, 29, 25, 367, 40, 20, A),
+            (up, 30, 32, 25, 40, 70, 20, G),
+            (up, 30, 32, 25, 367, 35, 20, A),
+            (up, 30, 32, 25, 367, 40, 20, A),
+            (ground, 36 - 33, 37 - 33, 50, 361, 60, 148, ALL),
+            (air, 37 - 33, 38 - 33, 60, 361, 60, 136, ALL),
+        ]
+    );
+    let w = &sim.content.weapons[usize::from(sim.content.fighters[1].weapon)];
+    let mv = w.get(up);
+    assert!(mv.hitboxes[0].set_weight, "the wind-up hit is set weight");
+    assert!(mv.hitboxes[1..]
+        .iter()
+        .all(|h| h.hitlag == 50 && h.sdi == 0));
+    assert_eq!(
+        mv.rehit,
+        Some((26, 2)),
+        "the loop lands every 2 frames from 27"
+    );
+    for id in [ground, air] {
+        assert!(w.get(id).hitboxes.iter().all(|h| h.hitlag == 250));
+    }
+}
+
+#[test]
+fn flame_kick_wind_up_hit_lands_on_frame_18() {
+    let mut sim = ground_duel(BRAWLER, fx(10, 10));
+    assert_eq!(hit_tick(&mut sim, inp(0, 127, SPECIAL)), Some(18));
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 40));
+}
+
+/// The brawler `dx` outside the left ledge and `dy` below it, facing `facing`, using its up special aimed `aim`: the tick it catches
+/// the ledge, if it does within `ticks`.
+fn flame_kick_ledge_tick(dx: Fx, dy: Fx, facing: i8, aim: (i8, i8), ticks: usize) -> Option<usize> {
+    let mut sim = recovery_from(Fx::from_int(-11) - dx, dy);
+    sim.state.fighters[0].char_id = 1;
+    sim.state.fighters[0].facing = facing;
+    sim.tick(inp(0, 127, SPECIAL));
+    for t in 2..=ticks {
+        sim.tick(inp(aim.0, aim.1, 0));
+        if sim.f().state == S::LedgeHang {
+            return Some(t);
+        }
+    }
+    None
+}
+
+#[test]
+fn flame_kick_catches_ledges_behind_from_frame_26_and_in_front_from_27() {
+    // In reach of the ledge through the startup (it barely sinks) and the start of the dash straight up. (Holding the stick down would
+    // decline the ledge.)
+    assert_eq!(
+        flame_kick_ledge_tick(fx(12, 10), fx(-15, 10), 1, (0, 0), 40),
+        Some(27)
+    );
+    assert_eq!(
+        flame_kick_ledge_tick(fx(12, 10), fx(-15, 10), -1, (0, 0), 40),
+        Some(26)
+    );
+}
+
+#[test]
+fn flame_kick_on_the_ground_ends_standing_on_frame_67() {
+    let mut sim = Sim::with_chars(BRAWLER);
+    sim.stand(0, Fx::from_int(-9), 1);
+    park_the_others(&mut sim);
+    sim.state.fighters[1].invuln = 255;
+    sim.tick(inp(0, 127, SPECIAL));
+    // Aimed along the ground.
+    sim.ticks(64, inp(127, 0, 0));
+    assert_eq!(sim.f().state, S::Attack);
+    assert!(sim.f().grounded());
+    assert_eq!(sim.f().move_id, MoveId::Ext0 as u8, "the grounded ending");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle, "actionable on frame 67");
+    assert!(sim.f().pos.x > Fx::from_int(-6), "{:?}", sim.f().pos);
+}
+
+#[test]
+fn flame_kick_in_the_air_falls_helpless_after_71_frames_drifting_at_0_65_and_lands_with_36_frames_of_lag(
+) {
+    let mut sim = recovery_from(fx(-2, 1), Fx::from_int(30));
+    sim.state.fighters[0].char_id = 1;
+    sim.tick(inp(0, 127, SPECIAL));
+    sim.ticks(69, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "tick 70");
+    assert_eq!(sim.f().move_id, MoveId::Ext1 as u8, "the aerial ending");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Helpless, "the special fall from frame 72");
+    for _ in 0..60 {
+        sim.tick(inp(127, 0, 0));
+    }
+    let cap = sim.content.fighters[1].air_speed * fx(65, 100);
+    assert!(sim.f().vel.x > Fx::ZERO);
+    assert!(
+        sim.f().vel.x <= cap + Fx::from_raw(64),
+        "{:?}",
+        sim.f().vel.x
+    );
+    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::ZERO, fx(5, 10));
+    for _ in 0..30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Landing {
+            break;
+        }
+    }
+    assert_eq!(sim.f().lag, 36);
+}
+
+#[test]
+fn flame_kick_dashing_steeply_into_the_ground_bounces_off_and_a_shallow_one_slides_on() {
+    // Just above the stage, aimed straight down: the dash hits the ground and bounces back up.
+    let mut sim = recovery_from(fx(-2, 1), fx(5, 10));
+    sim.state.fighters[0].char_id = 1;
+    sim.tick(inp(0, 127, SPECIAL));
+    let mut bounced = false;
+    for _ in 0..40 {
+        sim.tick(inp(0, -127, 0));
+        if sim.f().move_id == MoveId::Ext2 as u8 && sim.f().vel.y > Fx::ZERO {
+            bounced = true;
+            break;
+        }
+    }
+    assert!(bounced, "{:?} {:?}", sim.f().state, sim.f().move_id);
+
+    // Aimed only a little down (under 20 degrees), it touches down and carries on along the ground.
+    let mut sim = recovery_from(fx(-6, 1), fx(3, 10));
+    sim.state.fighters[0].char_id = 1;
+    sim.tick(inp(0, 127, SPECIAL));
+    sim.ticks(31, inp(127, -30, 0));
+    assert!(sim.f().grounded());
+    assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
+    assert_eq!(sim.f().state, S::Attack);
 }

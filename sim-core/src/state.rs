@@ -20,7 +20,7 @@ pub const PLAYING: i8 = -1;
 /// [`GameState::winner`] when nobody won (the last fighters were knocked out together, or the time ran out level).
 pub const DRAW: i8 = -2;
 /// Fixed capacity of the projectile pool.
-pub const MAX_PROJECTILES: usize = 8;
+pub const MAX_PROJECTILES: usize = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -146,6 +146,9 @@ pub struct Fighter {
     /// A hit is waiting to launch at the end of hitlag (so DI can bend it).
     pub launch_pending: bool,
     pub launch_kb: Fx,
+    /// The pending (or current) launch is from set knockback, which keeps the plain launch physics: no speed-up and no shared fall
+    /// speed for a vertical launch (the reference's rule for set-knockback hits).
+    pub launch_set: bool,
     /// World angle of the pending launch, in `trig::Angle` units.
     pub launch_angle: u16,
     /// Current launch velocity, decaying each frame.
@@ -175,6 +178,16 @@ pub struct Fighter {
     pub pull: bool,
     /// A charge kept between uses of a move (the needles a fighter has stored), set and read by move scripts (`store`, `stored`).
     pub stored: u8,
+    /// Once-per-airtime flags (bit per flag), set by move scripts (`set_air_flag`) and cleared by landing, catching a ledge or being
+    /// hit: what lets a move's boost happen only once until the fighter is back on the ground (the reference's cape stall).
+    pub air_flags: u8,
+    /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
+    pub wall_jumps: u8,
+    /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
+    /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
+    /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
+    pub presses: u8,
+    pub releases: u8,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
@@ -187,6 +200,10 @@ pub struct Fighter {
     /// How the current attack was aimed as it started: 1 up, -1 down, 0 straight (the reference's angled forward tilts and smashes;
     /// see `Hitbox::aim`).
     pub aim: i8,
+    /// The current attack started in the air (it picks the move's aerial height multiplier and intangibility; see `Move::rise_air`).
+    pub move_air: bool,
+    /// Degrees the current move's motion was angled by the stick (positive toward forward; see `Move::steer_frame`).
+    pub steer: i8,
     /// Hits taken in the current combo (it ends when the fighter is free again); survival DI grows with it.
     pub hits_taken: u8,
     /// Frames since the last tech press that counted (255: long ago).
@@ -210,6 +227,9 @@ pub struct Fighter {
     pub spawn_custom: bool,
     pub spawn_pos: Vec2,
     pub spawn_vel: Vec2,
+    /// ...with this much extra base knockback and this size (percent), from `spawn_scaled` (a charged shot).
+    pub spawn_kb_add: u8,
+    pub spawn_size: u16,
     /// Damage the fighter's counter stance caught; its counter-strike move deals this.
     pub counter_damage: Fx,
     /// Persistent script variables of the move being performed.
@@ -234,6 +254,11 @@ pub struct Projectile {
     pub vel: Vec2,
     pub age: u8,
     pub life: u8,
+    /// Times it has bounced off the ground (see `ProjectileArc::bounces`).
+    pub bounces: u8,
+    /// Extra base knockback and size (percent of its hitbox's radius) it was fired with (a charged shot; 0 and 100 otherwise).
+    pub kb_add: u8,
+    pub size: u16,
     /// Persistent variables of the projectile's script.
     pub vars: [i32; PROJECTILE_VARS],
 }
@@ -249,6 +274,9 @@ impl StateHash for Projectile {
         self.vel.hash_into(h);
         h.write_u8(self.age);
         h.write_u8(self.life);
+        h.write_u8(self.bounces);
+        h.write_u8(self.kb_add);
+        h.write_u16(self.size);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -351,6 +379,7 @@ impl Fighter {
             hitstun: 0,
             launch_pending: false,
             launch_kb: Fx::ZERO,
+            launch_set: false,
             launch_angle: 0,
             kb_vel: Vec2::ZERO,
             tumble: false,
@@ -369,6 +398,8 @@ impl Fighter {
             damage_fall: false,
             b_reversed: false,
             aim: 0,
+            move_air: false,
+            steer: 0,
             hits_taken: 0,
             tech_timer: 255,
             asdi: 0,
@@ -381,9 +412,15 @@ impl Fighter {
             spawn_custom: false,
             spawn_pos: Vec2::ZERO,
             spawn_vel: Vec2::ZERO,
+            spawn_kb_add: 0,
+            spawn_size: 100,
             counter_damage: Fx::ZERO,
             pull: false,
             stored: 0,
+            air_flags: 0,
+            wall_jumps: 0,
+            presses: 0,
+            releases: 0,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -494,6 +531,7 @@ impl StateHash for Fighter {
         h.write_u16(self.hitstun);
         h.write_bool(self.launch_pending);
         self.launch_kb.hash_into(h);
+        h.write_bool(self.launch_set);
         h.write_u16(self.launch_angle);
         self.kb_vel.hash_into(h);
         h.write_bool(self.tumble);
@@ -512,6 +550,8 @@ impl StateHash for Fighter {
         h.write_bool(self.damage_fall);
         h.write_bool(self.b_reversed);
         h.write_u8(self.aim as u8);
+        h.write_bool(self.move_air);
+        h.write_i8(self.steer);
         h.write_u8(self.hits_taken);
         h.write_u8(self.tech_timer);
         h.write_u8(self.asdi);
@@ -526,9 +566,15 @@ impl StateHash for Fighter {
         self.counter_damage.hash_into(h);
         h.write_bool(self.pull);
         h.write_u8(self.stored);
+        h.write_u8(self.air_flags);
+        h.write_u8(self.wall_jumps);
+        h.write_u8(self.presses);
+        h.write_u8(self.releases);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
+        h.write_u8(self.spawn_kb_add);
+        h.write_u16(self.spawn_size);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -790,6 +836,11 @@ mod tests {
                 s.fighters[0].launch_kb = Fx::from_int(1);
                 s
             }),
+            ("launch_set", {
+                let mut s = state;
+                s.fighters[0].launch_set = true;
+                s
+            }),
             ("launch_angle", {
                 let mut s = state;
                 s.fighters[0].launch_angle = 1;
@@ -868,6 +919,16 @@ mod tests {
             ("aim", {
                 let mut s = state;
                 s.fighters[0].aim = 1;
+                s
+            }),
+            ("move_air", {
+                let mut s = state;
+                s.fighters[0].move_air = true;
+                s
+            }),
+            ("steer", {
+                let mut s = state;
+                s.fighters[0].steer = 3;
                 s
             }),
             ("balloon_left", {
@@ -965,6 +1026,26 @@ mod tests {
                 s.fighters[2].stored = 1;
                 s
             }),
+            ("wall_jumps", {
+                let mut s = state;
+                s.fighters[1].wall_jumps = 1;
+                s
+            }),
+            ("air_flags", {
+                let mut s = state;
+                s.fighters[1].air_flags = 1;
+                s
+            }),
+            ("presses", {
+                let mut s = state;
+                s.fighters[1].presses = 1;
+                s
+            }),
+            ("releases", {
+                let mut s = state;
+                s.fighters[2].releases = 1;
+                s
+            }),
             ("fighter_vars", {
                 let mut s = state;
                 s.fighters[3].vars[FIGHTER_VARS - 1] = 1;
@@ -993,6 +1074,31 @@ mod tests {
             ("projectile_power", {
                 let mut s = state;
                 s.projectiles[0].power = 150;
+                s
+            }),
+            ("projectile_kb_add", {
+                let mut s = state;
+                s.projectiles[2].kb_add = 1;
+                s
+            }),
+            ("projectile_size", {
+                let mut s = state;
+                s.projectiles[2].size = 120;
+                s
+            }),
+            ("spawn_kb_add", {
+                let mut s = state;
+                s.fighters[1].spawn_kb_add = 1;
+                s
+            }),
+            ("spawn_size", {
+                let mut s = state;
+                s.fighters[1].spawn_size = 80;
+                s
+            }),
+            ("projectile_bounces", {
+                let mut s = state;
+                s.projectiles[1].bounces = 1;
                 s
             }),
             ("projectile_pos", {
