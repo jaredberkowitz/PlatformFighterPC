@@ -1500,37 +1500,15 @@ func _deciding(i: int, stocks: int) -> bool:
 func _ko_blast(i: int, at: Vector2) -> void:
 	var deciding := _deciding(i, 0)
 	var color: Color = PLAYER_COLORS[i % PLAYER_COLORS.size()]
-	var root3 := Node3D.new()
-	root3.position = Vector3(at.x, at.y + 1.0, 0.0)
-	add_child(root3)
-	# Point the beam back toward the middle of the stage.
+	# The beam, pointed back toward the middle of the stage.
 	var inward := (Vector2(0, 4) - at).normalized()
-	root3.rotation.z = atan2(inward.y, inward.x) - PI / 2.0
-	var beam := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 2.6
-	cyl.bottom_radius = 0.4
-	cyl.height = 26.0
-	beam.mesh = cyl
-	beam.position = Vector3(0, 13.0, 0)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = Color(color.r, color.g, color.b, 0.9)
-	beam.material_override = mat
-	root3.add_child(beam)
-	var core := MeshInstance3D.new()
-	var c2 := CylinderMesh.new()
-	c2.top_radius = 1.0
-	c2.bottom_radius = 0.15
-	c2.height = 26.0
-	core.mesh = c2
-	core.position = Vector3(0, 13.0, 0.1)
-	var mat2 := mat.duplicate()
-	mat2.albedo_color = Color(1, 1, 1, 0.9)
-	core.material_override = mat2
-	root3.add_child(core)
-	effects.append([root3, 0.0, 0.9, 1.0])
+	var beam := Effects.Beam.new()
+	beam.material_override = Effects._material(false)
+	beam.colour = color
+	beam.width = 3.2 if deciding else 2.6
+	beam.position = Vector3(at.x, at.y + 1.0, 0.0)
+	beam.rotation.z = atan2(inward.y, inward.x) - PI / 2.0
+	add_child(beam)
 	# Sparks, confetti stars and smoke burst back toward the stage with the beam.
 	# (A little way in from the blast line, so the burst is on screen.)
 	var burst_at := at + inward * 13.0

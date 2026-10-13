@@ -4,14 +4,15 @@ const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
 ## Short-lived hit and movement effects (presentation only): a drawn burst or slash where a hit lands, by what landed it, a ring under the
 ## feet on a jump and a midair jump, and so on. Each effect is a node that animates itself for its short life and then frees itself.
-## They animate on twos (30 pictures a second, `STEP`) like hand-drawn effects, while the game runs at 60.
+## They animate on twos (30 pictures a second, `STEP`) like hand-drawn effects, while the game runs at 60, and are laid on in brush
+## strokes that break up into ragged chunks as they go (`paint` in shaders/fx.gdshaderinc) rather than fading out like vector shapes.
 
 const STEP := 1.0 / 30.0
 const INK := Color(0.12, 0.07, 0.12, 1.0)
 
 
 static func _material(on_top: bool) -> ShaderMaterial:
-	return FxMaterial.get_material(on_top, 6 if on_top else 0)
+	return FxMaterial.get_material(on_top, 6 if on_top else 0, null, 1.0, 1.0)
 
 
 
@@ -85,7 +86,7 @@ class Streaks extends MeshInstance3D:
 			var side := Vector3(-d.y, d.x, 0)
 			var near := d * reach * (0.25 + 0.75 * t)
 			var far := d * reach * (0.6 + 0.6 * t)
-			var w := 0.09 * (1.0 - t)
+			var w := (0.05 + 0.03 * reach) * (1.0 - t)
 			for v in [near + side * w, far, near - side * w]:
 				im.surface_set_color(c)
 				im.surface_add_vertex(v)
@@ -202,9 +203,20 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 		ring.life = 0.2
 		ring.position = at
 		parent.add_child(ring)
+	# A strong hit bursts: speed lines flung out round it and a ring of smoke balls.
+	if s > 0.45:
+		var lines := Streaks.new()
+		lines.material_override = _material(true)
+		lines.colour = Color(1, 1, 0.94, 0.95)
+		lines.count = 10
+		lines.reach = 1.6 + 1.6 * s
+		lines.life = 0.2
+		lines.position = at
+		parent.add_child(lines)
+		Particles.impact_smoke(parent, at, s)
 	if kind == Kind.FIRE:
 		Particles.embers(parent, at, s)
-	Particles.sparks(parent, at, color, s * 0.7)
+	Particles.sparks(parent, at, color, s * 0.7, dir)
 
 
 ## The directional impact of a hit: a sharp white spike with a coloured edge thrust along `dir` (where the hit sends the fighter) and a
@@ -274,6 +286,69 @@ static func launch_line(parent: Node, at: Vector3, dir: Vector2) -> void:
 	spike.core = Color(0.85, 0.95, 1.0, 1.0)
 	spike.position = at
 	parent.add_child(spike)
+
+
+## A knock-out's beam: a column of the player's colour blasting from where the fighter left the stage back across the screen, drawn in
+## its own XY plane pointing up its +Y (turn the node to aim it). Painted in layers (an ink edge, the colour, a lighter band and a
+## white-hot core) whose edges crackle, redrawn on twos with new jags like a hand-drawn flame. It slams out to full width in a few
+## frames, holds, then thins and breaks up.
+class Beam extends MeshInstance3D:
+	var age := 0.0
+	var life := 0.9
+	var length := 26.0
+	var width := 2.6
+	var colour := Color.WHITE
+	var _step := -1
+
+	func _ready() -> void:
+		mesh = ImmediateMesh.new()
+		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		extra_cull_margin = 64.0
+
+	func _process(delta: float) -> void:
+		age += FxMaterial.delta(delta)
+		if age >= life:
+			queue_free()
+			return
+		var step := int(age * 30.0)
+		if step == _step:
+			return
+		_step = step
+		var t := float(step) / 30.0 / life
+		var open := minf(1.0, t / 0.08)
+		var thin := 1.0 - smoothstep(0.35, 1.0, t)
+		var fade := 1.0 - smoothstep(0.45, 1.0, t)
+		var im: ImmediateMesh = mesh
+		im.clear_surfaces()
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		var n := 16
+		var jag: Array = []
+		for k in n + 1:
+			jag.append(randf_range(-1.0, 1.0))
+		# (The body in a deeper, purer version of the colour, so the white core's glow does not wash it out.)
+		var body := Color.from_hsv(colour.h, minf(1.0, colour.s * 1.35), colour.v * 0.92)
+		var light := colour.lerp(Color.WHITE, 0.3)
+		for layer in [[1.0, INK, 0.0], [0.92, body, 0.05], [0.5, light, 0.15], [0.18, Color(1, 1, 0.97), 0.25]]:
+			var c: Color = layer[1]
+			c.a = clampf(fade * 1.4 - float(layer[2]), 0.0, 1.0)
+			if c.a <= 0.01:
+				continue
+			for k in n:
+				var u0 := float(k) / n
+				var u1 := float(k + 1) / n
+				var w0 := _half(u0, float(layer[0]), float(jag[k])) * open * thin
+				var w1 := _half(u1, float(layer[0]), float(jag[k + 1])) * open * thin
+				var y0 := u0 * length
+				var y1 := u1 * length
+				for v in [Vector3(-w0, y0, 0), Vector3(w0, y0, 0), Vector3(w1, y1, 0), Vector3(-w0, y0, 0), Vector3(w1, y1, 0), Vector3(-w1, y1, 0)]:
+					im.surface_set_color(c)
+					im.surface_add_vertex(v)
+		im.surface_end()
+
+	## Half the width at `u` (0 at the root, 1 at the far end) for a layer `scale` wide: narrow at the root, flaring out, with a crackle.
+	func _half(u: float, scale: float, jag: float) -> float:
+		var flare := lerpf(0.18, 1.0, sqrt(u))
+		return width * scale * flare * (1.0 + 0.12 * jag * (0.4 + u))
 
 
 ## A hit on a shield: a bright ring on the bubble and a few sparks.

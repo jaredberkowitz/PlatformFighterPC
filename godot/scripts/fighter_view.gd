@@ -2974,49 +2974,68 @@ func _puff(side: float, count: int) -> void:
 # A strong launch leaves a trail of puffs behind the tumbling fighter (as the reference game does), so the eye can follow a big hit.
 
 const PUFFS := 14
-var puffs: Array[MeshInstance3D] = []
-var puff_age: Array[float] = []
+## The trail: a ring of puffs ([where, age, size, seed]) drawn as cel-shaded smoke balls into one mesh (FxMaterial's `puff`), each
+## swelling and breaking up over PUFF_LIFE seconds of sim time (so hitlag holds them and a replay draws them the same).
+const PUFF_LIFE := 0.6
+var puffs: Array = []
+var puff_mesh: MeshInstance3D
 var next_puff := 0
 var last_puff_at := Vector3.INF
 var last_puff_frame := -1
 
 
 func _launch_smoke(s: Dictionary) -> void:
-	if puffs.is_empty():
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.albedo_color = Color(0.92, 0.92, 0.95, 0.55)
+	if puff_mesh == null:
+		puff_mesh = MeshInstance3D.new()
+		puff_mesh.mesh = ImmediateMesh.new()
+		puff_mesh.top_level = true
+		puff_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		puff_mesh.extra_cull_margin = 16384.0
+		puff_mesh.material_override = FxMaterial.get_material(false, 2, null, 0.0, 0.0, true)
+		add_child(puff_mesh)
+		puff_mesh.global_transform = Transform3D.IDENTITY
 		for i in PUFFS:
-			var p := MeshInstance3D.new()
-			p.mesh = _sphere(0.35)
-			p.material_override = mat.duplicate()
-			p.top_level = true
-			p.visible = false
-			add_child(p)
-			puffs.append(p)
-			puff_age.append(99.0)
+			puffs.append([Vector3.ZERO, 99.0, 1.0, Vector2.ZERO])
 	var frame: int = s.frame
-	if frame != last_puff_frame:
-		var dt := 1.0 / 60.0 * float(maxi(1, frame - last_puff_frame)) if last_puff_frame >= 0 else 1.0 / 60.0
-		last_puff_frame = frame
-		for i in PUFFS:
-			puff_age[i] += dt
-			var life := puff_age[i] / 0.55
-			puffs[i].visible = life < 1.0
-			if puffs[i].visible:
-				puffs[i].scale = Vector3.ONE * (0.6 + life * 0.9)
-				(puffs[i].material_override as StandardMaterial3D).albedo_color.a = 0.55 * (1.0 - life)
-		var here := global_position + Vector3(0, 1.0, 0)
-		if s.state == "Hitstun" and int(s.hitlag) == 0 and s.tumble and (last_puff_at == Vector3.INF or here.distance_to(last_puff_at) > 0.45):
-			var p := puffs[next_puff]
-			next_puff = (next_puff + 1) % PUFFS
-			p.global_position = here
-			puff_age[puffs.find(p)] = 0.0
-			p.visible = true
-			last_puff_at = here
-		elif s.state != "Hitstun":
-			last_puff_at = Vector3.INF
+	if frame == last_puff_frame:
+		return
+	var dt := 1.0 / 60.0 * float(maxi(1, frame - last_puff_frame)) if last_puff_frame >= 0 else 1.0 / 60.0
+	last_puff_frame = frame
+	for p in puffs:
+		p[1] += dt
+	var here := global_position + Vector3(0, 1.0, 0)
+	if s.state == "Hitstun" and int(s.hitlag) == 0 and s.tumble and (last_puff_at == Vector3.INF or here.distance_to(last_puff_at) > 0.45):
+		puffs[next_puff] = [here + Vector3(0, 0, -0.3), 0.0, randf_range(0.8, 1.1), Vector2(randf(), randf())]
+		next_puff = (next_puff + 1) % PUFFS
+		last_puff_at = here
+	elif s.state != "Hitstun":
+		last_puff_at = Vector3.INF
+	var im: ImmediateMesh = puff_mesh.mesh
+	im.clear_surfaces()
+	var cam := get_viewport().get_camera_3d()
+	var right := cam.global_transform.basis.x if cam != null else Vector3.RIGHT
+	var up := cam.global_transform.basis.y if cam != null else Vector3.UP
+	var live := false
+	for p in puffs:
+		var life: float = p[1] / PUFF_LIFE
+		if life >= 1.0:
+			continue
+		if not live:
+			im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+			live = true
+		var size: float = p[2] * (0.6 + life * 0.9)
+		var at: Vector3 = p[0] + Vector3(0, life * 0.4, 0)
+		var r := right * size * 0.5
+		var u := up * size * 0.5
+		var corners := [at - r - u, at + r - u, at + r + u, at - r + u]
+		var uvs := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]
+		for idx in [0, 1, 2, 0, 2, 3]:
+			im.surface_set_color(Color(0.98, 0.97, 1.0, 1.0 - life))
+			im.surface_set_uv(uvs[idx])
+			im.surface_set_uv2(p[3])
+			im.surface_add_vertex(corners[idx])
+	if live:
+		im.surface_end()
 
 
 ## A class's trail colours: [the trail, its bright core] (claws violet, needles teal, sword blue).
