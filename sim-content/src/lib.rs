@@ -195,6 +195,33 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
     if hop_height(f.short_hop_velocity, f.gravity) > full_hop_height(f) {
         errors.push(format!("fighter {i}: short hop is higher than full hop"));
     }
+    let g = &f.gauge;
+    if g.max < Fx::ZERO || g.max > Fx::from_int(1000) {
+        errors.push(format!("fighter {i}: the gauge's max must be 0 to 1000"));
+    }
+    if g.exists() {
+        if g.per_dealt < Fx::ZERO
+            || g.per_taken < Fx::ZERO
+            || g.per_dealt > Fx::from_int(100)
+            || g.per_taken > Fx::from_int(100)
+        {
+            errors.push(format!(
+                "fighter {i}: the gauge's per_dealt and per_taken must be 0 to 100"
+            ));
+        }
+        if g.mode_frames == 0 {
+            errors.push(format!(
+                "fighter {i}: the gauge's mode_frames must be at least 1"
+            ));
+        }
+        for (name, p) in g.percents() {
+            if p == 0 || p > 400 {
+                errors.push(format!(
+                    "fighter {i}: the gauge's {name} must be a percent from 1 to 400"
+                ));
+            }
+        }
+    }
 }
 
 /// Peak height of a hop that leaves the ground at `v` (gravity acts before each move).
@@ -230,6 +257,8 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             ("air_version", mv.air_version),
             ("catch_move", mv.catch_move),
             ("off_edge", mv.off_edge),
+            ("limit_version", mv.limit_version),
+            ("on_land", mv.on_land),
             ("detect_then", mv.reflector.and_then(|r| r.detect_then)),
         ] {
             if let Some(l) = slot {
@@ -279,6 +308,23 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                     ));
                 }
                 last = *from;
+            }
+            if let Some(b) = &p.burst {
+                let mut last = 0;
+                let mut ordered = b.life > 0;
+                for (from, hb) in b.phases.iter().flatten() {
+                    ordered &= *from > last
+                        && *from < b.life
+                        && hb.radius >= Fx::ZERO
+                        && hb.half_height >= Fx::ZERO;
+                    last = *from;
+                }
+                if !ordered || last == 0 {
+                    errors.push(format!(
+                        "weapon {i} {name}: a projectile's burst needs a lifetime and at least one phase, its phases in order, \
+                         after age 0 and within its life, with no negative radius or half_height"
+                    ));
+                }
             }
         }
         if mv.projectile_script.is_some() && mv.projectile.is_none() {
@@ -378,9 +424,36 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 "weapon {i} {name}: steer_degrees is at most 90 and steer_stick at most 99"
             ));
         }
-        if mv.fall_drift > 100 || mv.air_drift > 100 || mv.start_speed > 100 {
+        if mv.fall_drift > 100
+            || mv.air_drift > 100
+            || mv.start_speed > 100
+            || mv.start_speed_y > 100
+            || mv.motion_drift > 100
+        {
             errors.push(format!(
-                "weapon {i} {name}: fall_drift, air_drift and start_speed are percents up to 100"
+                "weapon {i} {name}: fall_drift, air_drift, start_speed, start_speed_y and motion_drift are percents up to 100"
+            ));
+        }
+        if mv
+            .ledge_drop
+            .is_some_and(|(front, back)| front < Fx::ZERO || back < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: ledge_drop_front and ledge_drop_back cannot be negative"
+            ));
+        }
+        let projectile_boxes = mv.projectile.iter().flat_map(|p| {
+            std::iter::once(p.hitbox).chain(p.phases.iter().flatten().map(|(_, hb)| *hb))
+        });
+        if mv
+            .hitboxes
+            .iter()
+            .copied()
+            .chain(projectile_boxes)
+            .any(|hb| hb.half_height < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: a hitbox's half_height cannot be negative"
             ));
         }
         if mv.air_gravity.is_some_and(|g| g < Fx::ZERO)
@@ -412,6 +485,11 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         for hb in &mv.hitboxes {
             if hb.group > 7 {
                 errors.push(format!("weapon {i} {name}: hitbox group must be 0 to 7"));
+            }
+            if hb.trip > 100 {
+                errors.push(format!(
+                    "weapon {i} {name}: a hitbox's trip chance is a percent (0 to 100)"
+                ));
             }
         }
         for hb in &mv.hitboxes {
@@ -643,6 +721,46 @@ mod combat_tests {
         let text = crate::bundle::to_text(&c, "test", "", "", false);
         let back = crate::bundle::load(&text).expect("reads back").content;
         assert_eq!(back.hash(), c.hash());
+    }
+
+    #[test]
+    fn a_burst_and_motion_drift_round_trip_and_are_checked() {
+        let base = Content::placeholder();
+        let champion = base
+            .fighters
+            .iter()
+            .position(|p| p.gauge.exists())
+            .expect("the champion");
+        let w = usize::from(base.fighters[champion].weapon);
+        let burst_move = base.weapons[w]
+            .moves
+            .iter()
+            .position(|m| m.projectile.is_some_and(|p| p.burst.is_some()))
+            .expect("the powered wave bursts");
+        // The shipped burst and the powered rise's motion_drift come back from a file unchanged.
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        assert!(text.contains("burst {") && text.contains("motion_drift 100"));
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // A burst with no phase, or out of order, and a motion_drift over 100 are refused.
+        let mut c = base.clone();
+        let b = c.weapons[w].moves[burst_move]
+            .projectile
+            .as_mut()
+            .unwrap()
+            .burst
+            .as_mut()
+            .unwrap();
+        b.phases = [None; sim_core::moves::MAX_PHASES];
+        let errors = validate(&c).unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("burst")), "{errors:?}");
+        let mut c = base.clone();
+        c.weapons[w].moves[burst_move].motion_drift = 101;
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("motion_drift")),
+            "{errors:?}"
+        );
     }
 
     #[test]

@@ -115,7 +115,7 @@ func _initialize() -> void:
 	check(ed.save(path, true) == "", "the bundle saves")
 	check(sim.load_content(path) == "", "the game loads the saved bundle")
 	check(sim.content_name() == "My Pack", "with its name")
-	check(Array(sim.fighter_names()) == ["duelist", "brawler", "rogue", "tumbler", "sprinter", "seer", "champion", "racer"], "including the new fighter: " + str(sim.fighter_names()))
+	check(Array(sim.fighter_names()) == ["duelist", "brawler", "rogue", "tumbler", "sprinter", "seer", "champion", "hauler", "racer"], "including the new fighter: " + str(sim.fighter_names()))
 	check(sim.platform_count() == 4, "and the new platform: %d" % sim.platform_count())
 	var look: Dictionary = sim.stage_look()
 	check(look.backdrop == "grove" and look.sky_top == "ff8800", "and its look: " + str(look))
@@ -132,7 +132,7 @@ func _initialize() -> void:
 			sim.tick()
 		return sim.fighter_pos(0).x - x0
 	var slow: float = run.call(1)
-	var fast: float = run.call(7)
+	var fast: float = run.call(8)
 	check(fast > slow * 1.2, "the new fighter runs faster: %f vs %f" % [fast, slow])
 
 	# The saved file is a normal bundle: it reopens in the editor with the new content.

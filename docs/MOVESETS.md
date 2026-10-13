@@ -102,6 +102,15 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   reference's published data (`docs/movesets/cloud/`, code in `sim-core/src/moves_greatsword.rs`), on existing mechanics only. The
   specials are the claws' until phase 2.
 
+### 8. Bracers hauler (the reference super-heavyweight brawler's role)
+- A super-heavyweight (127) with huge bare arms: long-reaching tilts with intangible forearms, a jab hook into an uppercut, two
+  meteors (the forward air's late fist and the down air's stomp), a backward kick that always sends backward, smashes that clank without
+  rebounding, and trips on the down tilt and the down-aimed forward tilt; (phases 2 and 3) a wind-up punch that charges and stores, a
+  headbutt that buries, a spinning clothesline, ground slaps and a throw that carries the catch anywhere.
+- **As built (phase 1, sim 86):** the body (`FighterParams::hauler`, no wall jump, heavy landing 3, a bigger body [E]) and every
+  normal on the reference's published data (`docs/movesets/donkey_kong/`, code in `sim-core/src/moves_bracers.rs`), with E20 trips and
+  E3g no-rebound hits. The specials are the claws' until phase 2; the forward throw is a plain placeholder until the carry (phase 3).
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

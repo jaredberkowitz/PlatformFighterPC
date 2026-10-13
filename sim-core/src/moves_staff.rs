@@ -136,6 +136,7 @@ fn autoreticle(w: &mut Weapon) {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     mv.start_speed = 60;
     mv.land_continue = true;
@@ -205,6 +206,7 @@ fn explosive_flame(w: &mut Weapon) {
         ]),
         pierce: true,
         rehit: 5,
+        burst: None,
     });
     mv.start_speed = 80;
     mv.land_continue = true;
@@ -534,6 +536,10 @@ fn tilts(w: &mut Weapon) {
         end: 34,
         parts: PART_LIMB,
     }];
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
+    for h in &mut ftilt.hitboxes {
+        h.rebounds = false;
+    }
     w.moves[MoveId::FTilt as usize] = ftilt;
 
     // Up tilt: the staff spun overhead. Five loop hits on frames 8-22 (re-armed every 3: hits on 8, 11, 14, 17, 20), 1.4% each, set
@@ -574,6 +580,10 @@ fn tilts(w: &mut Weapon) {
     // (Reference frame 8 is move frame 7.)
     utilt.rehit = Some((7, 3));
     utilt.rehit_groups = 0b1;
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
+    for h in &mut utilt.hitboxes {
+        h.rebounds = false;
+    }
     w.moves[MoveId::UTilt as usize] = utilt;
 
     // Down tilt: the staff swept along the floor. Early on frame 14, late 15-27: on grounded targets 8.5%, 35 degrees, BK 40, KS 100,
@@ -599,6 +609,10 @@ fn tilts(w: &mut Weapon) {
         };
         h.shield_damage = if grounded { 112 } else { 120 };
         h.angle_type = ANGLE_BY_POSITION;
+    }
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
+    for h in &mut dtilt.hitboxes {
+        h.rebounds = false;
     }
     w.moves[MoveId::DTilt as usize] = dtilt;
 
@@ -815,6 +829,10 @@ fn aerials(w: &mut Weapon) {
     // (Reference frame 5 is move frame 4.)
     nair.rehit = Some((4, 4));
     nair.rehit_groups = 0b1;
+    // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
+    for h in &mut nair.hitboxes {
+        h.rebounds = false;
+    }
     w.moves[MoveId::NAir as usize] = nair;
 
     // Forward air: a pulse from the palm in front on frames 9-11, 10%, 45 degrees (type 3), BK 31, KS 92, radius 5.5, 6.9 of the

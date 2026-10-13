@@ -29,7 +29,7 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 5;
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
@@ -40,7 +40,15 @@ pub const MIGRATIONS: &[Migration] = &[
     (2, ground_accel_splits_into_walk_and_run),
     (3, fighters_get_wall_jumps),
     (4, weapons_get_sixteen_ext_slots),
+    (5, fighters_get_gauges),
 ];
+
+/// Schema 5 to 6 (sim v85): a fighter may have a gauge and its powered mode (a `gauge { ... }` block, `sim_core::content::Gauge`), and
+/// a move its powered version and the gauge rules (`limit_version`, `gauge_drain`) and three more rules (`start_speed_y`,
+/// `ledge_drop_front` / `ledge_drop_back`, `on_land`), a hitbox a height (`half_height`). A fighter written before them has no gauge,
+/// which is what an absent block means, and every new move and hitbox field defaults to the old behaviour: nothing to rewrite. The
+/// bump makes an older build refuse a file with a gauge block clearly instead of failing on an unknown section.
+fn fighters_get_gauges(_root: &mut Block) {}
 
 /// Schema 4 to 5 (sim v66): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44, after
 /// `pivot_grab`, so no older slot or script `goto` number moves). A weapon written before them leaves the new slots empty, which is

@@ -5,7 +5,7 @@
 //! move) are recorded on the fighter or returned, and the caller applies them.
 
 use crate::collision;
-use crate::content::Stage;
+use crate::content::{Gauge, Stage};
 use crate::fixed::Fx;
 use crate::input::{buttons, Input};
 use crate::moves::MoveId;
@@ -62,6 +62,8 @@ pub struct World<'a> {
 struct FighterHost<'a> {
     f: &'a mut Fighter,
     world: &'a World<'a>,
+    /// The body's gauge rules (`boost_add`).
+    gauge: &'a Gauge,
     effects: FighterEffects,
 }
 
@@ -134,6 +136,9 @@ impl Host for FighterHost<'_> {
             api::R_LOCKED => flag(f.locked),
             api::R_LOCK_X => f.lock.x.raw(),
             api::R_LOCK_Y => f.lock.y.raw(),
+            api::R_BOOST => f.gauge.raw(),
+            api::R_BOOSTING => flag(f.gauge_mode > 0),
+            api::R_GRAB => flag(f.held(buttons::GRAB)),
             _ => 0,
         }
     }
@@ -194,6 +199,7 @@ impl Host for FighterHost<'_> {
                 self.f.air_flags |= 1u8 << arg(0).floor_int().clamp(0, 7);
             }
             api::F_LOCK => return flag(self.lock(arg(0))),
+            api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);
@@ -205,10 +211,16 @@ impl Host for FighterHost<'_> {
 }
 
 /// Runs a fighter's move script for this frame.
-pub fn run_fighter(program: &Program, f: &mut Fighter, world: &World) -> FighterEffects {
+pub fn run_fighter(
+    program: &Program,
+    f: &mut Fighter,
+    world: &World,
+    gauge: &Gauge,
+) -> FighterEffects {
     let mut host = FighterHost {
         f,
         world,
+        gauge,
         effects: FighterEffects::default(),
     };
     run(program, &mut host);

@@ -313,20 +313,20 @@ fn a_custom_fighter_can_inherit_and_override() {
     let c = load(&format!("{base}{extra}"))
         .unwrap_or_else(|e| panic!("{}", e.join("\n")))
         .content;
-    assert_eq!(c.fighters.len(), 8);
-    assert_eq!(c.names.fighters[7], "racer");
+    assert_eq!(c.fighters.len(), 9);
+    assert_eq!(c.names.fighters[8], "racer");
     let brawler = c.fighters[1];
-    let racer = c.fighters[7];
+    let racer = c.fighters[8];
     assert_eq!(racer.walk_speed, Fx::from_int(3));
     assert_eq!(
         racer.gravity, brawler.gravity,
         "unlisted values come from the inherited fighter"
     );
     assert_eq!(racer.weapon, brawler.weapon);
-    assert_eq!(c.weapons.len(), 8);
-    assert_eq!(c.weapons[7].moves[MoveId::Jab as usize].total_frames, 10);
+    assert_eq!(c.weapons.len(), 9);
+    assert_eq!(c.weapons[8].moves[MoveId::Jab as usize].total_frames, 10);
     assert_eq!(
-        c.weapons[7].moves[MoveId::FTilt as usize],
+        c.weapons[8].moves[MoveId::FTilt as usize],
         c.weapons[1].moves[MoveId::FTilt as usize],
         "moves not mentioned are inherited"
     );
@@ -487,4 +487,87 @@ fn a_schema_4_file_from_before_sixteen_ext_slots_still_loads_unchanged() {
         .weapons
         .iter()
         .all(|w| w.moves.len() == MoveId::COUNT));
+}
+
+#[test]
+fn a_schema_5_file_from_before_gauges_still_loads_unchanged() {
+    // Written before sim v85: schema 5, no fighter with a gauge block (the built-in roster with its gauges taken off).
+    let mut c = Content::placeholder();
+    for p in &mut c.fighters {
+        p.gauge = sim_core::content::Gauge::NONE;
+    }
+    let old = text(&c, false).replace(&format!("schema {SCHEMA_VERSION}"), "schema 5");
+    assert!(old.contains("schema 5") && !old.contains("gauge {"));
+    let bundle = load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
+    assert_eq!(
+        bundle.content, c,
+        "nothing is rewritten: no fighter has a gauge"
+    );
+}
+
+#[test]
+fn a_gauge_block_round_trips_is_inherited_and_is_checked() {
+    let c = Content::placeholder();
+    let champion = c
+        .fighters
+        .iter()
+        .position(|p| p.gauge.exists())
+        .expect("the champion has a gauge");
+    let t = text(&c, false);
+    assert!(t.contains("gauge {") && t.contains("mode_frames 900"));
+    assert_eq!(load(&t).unwrap().content, c);
+    // An inheriting fighter keeps the gauge unless it has its own block.
+    let name = c.names.fighters[champion].clone();
+    let extra = format!(
+        "fighter heir {{ inherit {name} walk_speed 1 }}\nfighter other {{ inherit {name} gauge {{ max 50 per_dealt 1 per_taken 1 mode_frames 60 walk 130 }} }}\n"
+    );
+    let at = t.find("stage ").unwrap();
+    let with = format!("{}{}{}", &t[..at], extra, &t[at..]);
+    let loaded = load(&with)
+        .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+        .content;
+    let n = loaded.fighters.len();
+    assert_eq!(loaded.fighters[n - 2].gauge, c.fighters[champion].gauge);
+    let other = loaded.fighters[n - 1].gauge;
+    assert_eq!(
+        (other.max, other.mode_frames, other.walk, other.run),
+        (Fx::from_int(50), 60, 130, 100)
+    );
+    // Ranges.
+    let bad = with.replace("mode_frames 60", "mode_frames 0");
+    let invalid = |t: &str| validate(&load(t).unwrap().content).unwrap_err();
+    assert!(has(&invalid(&bad), "mode_frames must be at least 1"));
+    let bad = with.replace("walk 130", "walk 0");
+    assert!(has(&invalid(&bad), "walk must be a percent"));
+}
+
+#[test]
+fn the_new_move_and_hitbox_fields_round_trip() {
+    let mut c = Content::placeholder();
+    let w = &mut c.weapons[0];
+    let jab = MoveId::Jab as usize;
+    w.moves[MoveId::NSpecial as usize].limit_version = Some(MoveId::Jab as u8);
+    w.moves[MoveId::NSpecial as usize].on_land = Some(MoveId::Jab as u8);
+    w.moves[jab].gauge_drain = true;
+    w.moves[jab].start_speed_y = 40;
+    w.moves[jab].ledge_drop = Some((Fx::from_int(2), Fx::from_int(3)));
+    w.moves[jab].hitboxes[0].half_height = Fx::from_ratio(1, 2);
+    let t = text(&c, false);
+    for field in [
+        "limit_version jab",
+        "on_land jab",
+        "gauge_drain true",
+        "start_speed_y 40",
+        "ledge_drop_front 2",
+        "ledge_drop_back 3",
+        "half_height 0.5",
+    ] {
+        assert!(t.contains(field), "{field}");
+    }
+    assert_eq!(load(&t).unwrap().content, c);
+    assert!(has(
+        &errors(&t.replace("ledge_drop_back 3", "")),
+        "go together"
+    ));
 }

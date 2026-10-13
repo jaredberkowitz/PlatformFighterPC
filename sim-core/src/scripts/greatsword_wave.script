@@ -1,0 +1,3 @@
+// Greatsword neutral special on the ground (the wave): the fighter keeps a fifth of its ground speed as it starts (the reference's
+// x0.2 on startup [R]; read on the move's first frame the script sees [D]). The wave itself is the move's projectile (its frame 16).
+if frame == 1 { set_vel(vx * 0.2, 0); }

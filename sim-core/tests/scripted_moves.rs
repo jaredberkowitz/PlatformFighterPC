@@ -661,3 +661,76 @@ fn segment_blocked_is_a_line_of_sight_through_solid_blocks_only() {
     // The pass-through platforms (y 3.6) never block.
     assert!(!segment_blocked(&stage, p(5, 6), p(5, 1)));
 }
+
+// ---- The gauge (E9) through scripts: `boost`, `boosting`, `grab`, `boost_add` ---------------------------------------------------
+
+/// The champion (class 6, the body with a gauge) as player 0, with `mv` as its neutral special, standing alone.
+fn champion_with_special(mv: Move) -> Sim {
+    let mut sim = Sim::with_chars([6, 1, 0, 1]);
+    let w = usize::from(sim.content.fighters[6].weapon);
+    sim.content.weapons[w].moves[MoveId::NSpecial as usize] = mv;
+    sim.stand(0, Fx::from_int(-7), 1);
+    sim.stand(1, Fx::from_int(7), -1);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim
+}
+
+#[test]
+fn boost_add_fills_the_gauge_and_starts_the_powered_mode_which_the_registers_read() {
+    // 40 units a frame: 40, 80, then full (100) on the third frame, which starts the mode; after that it does nothing, even a drain.
+    let src = "var seen; var mode; if boosting { boost_add(-50); } else { boost_add(40); } seen = boost; mode = boosting;";
+    let mut sim = champion_with_special(scripted(30, src));
+    start(&mut sim);
+    // (The script first runs on the move's next frame.)
+    sim.tick(inp(0, 0, 0));
+    let one = Fx::ONE.raw();
+    assert_eq!(sim.f().gauge, Fx::from_int(40));
+    assert_eq!(sim.f().vars[0], 40 * one);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().gauge, Fx::from_int(80));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().gauge, Fx::from_int(100));
+    assert_eq!(sim.f().gauge_mode, 900);
+    assert_eq!(sim.f().vars[1], one, "boosting reads the mode");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.f().gauge,
+        Fx::from_int(100),
+        "nothing drains while the mode runs"
+    );
+    assert_eq!(sim.f().vars[0], 100 * one);
+}
+
+#[test]
+fn boost_add_drains_down_to_empty_and_does_nothing_for_a_body_without_a_gauge() {
+    let mut sim = champion_with_special(scripted(30, "boost_add(-5);"));
+    sim.state.fighters[0].gauge = Fx::from_int(7);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().gauge, Fx::from_int(2));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().gauge, Fx::ZERO, "never below empty");
+    // The duelist's body has no gauge: the register reads 0 and boost_add changes nothing.
+    let mut sim = with_special(scripted(
+        30,
+        "var seen; boost_add(50); seen = boost + boosting;",
+    ));
+    start(&mut sim);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(
+        (sim.f().gauge, sim.f().gauge_mode, sim.f().vars[0]),
+        (Fx::ZERO, 0, 0)
+    );
+}
+
+#[test]
+fn the_grab_register_reads_the_grab_button() {
+    use sim_core::input::buttons::GRAB;
+    let mut sim = with_special(scripted(30, "var g; g = grab;"));
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0);
+    sim.tick(inp(0, 0, GRAB));
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+}

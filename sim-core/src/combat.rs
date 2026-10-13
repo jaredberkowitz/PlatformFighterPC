@@ -17,8 +17,9 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
+    EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL,
+    TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -99,11 +100,18 @@ pub fn intangible_parts(f: &Fighter, w: &Weapon) -> u8 {
         .fold(0, |bits, p| bits | p.parts)
 }
 
-/// Whether a hitbox at `center` of `radius` touches one of the hurtbox circles that can be hit (`shut` from [`intangible_parts`]).
-fn touches(hurt: &[(Vec2, Fx); HURT_CIRCLES], shut: u8, center: Vec2, radius: Fx) -> bool {
-    hurt.iter()
-        .enumerate()
-        .any(|(i, (hc, hr))| shut & (1 << i) == 0 && overlaps(center, radius, *hc, *hr))
+/// Whether a hitbox at `center` of `radius` (a standing capsule `half` above and below it when `half` is above 0: `Hitbox::half_height`)
+/// touches one of the hurtbox circles that can be hit (`shut` from [`intangible_parts`]).
+fn touches(
+    hurt: &[(Vec2, Fx); HURT_CIRCLES],
+    shut: u8,
+    center: Vec2,
+    half: Fx,
+    radius: Fx,
+) -> bool {
+    hurt.iter().enumerate().any(|(i, (hc, hr))| {
+        shut & (1 << i) == 0 && capsules_touch(*hc, Fx::ZERO, *hr, center, half, radius)
+    })
 }
 
 /// True while a fighter cannot be hit.
@@ -130,6 +138,7 @@ pub fn active_hitboxes<'a>(
             hb.x = hb.x * scale;
             hb.y = hb.y * scale;
             hb.radius = hb.radius * scale;
+            hb.half_height = hb.half_height * scale;
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
             (i, hb, center)
         })
@@ -352,7 +361,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 }
                 if hb.kind == HIT_SEARCH {
                     // A search box only notices (shields do not matter); it never competes with the move's hits.
-                    if fa.grab_with != d as i8 && touches(&hurt, shut, center, hb.radius) {
+                    if fa.grab_with != d as i8
+                        && touches(&hurt, shut, center, hb.half_height, hb.radius)
+                    {
                         searched[a] = true;
                     }
                     continue;
@@ -364,7 +375,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     HIT_GRAB => (
                         !intangible
                             && grab::can_catch(&hb, fd)
-                            && touches(&hurt, shut, center, hb.radius),
+                            && touches(&hurt, shut, center, hb.half_height, hb.radius),
                         false,
                     ),
                     _ if fa.grab_with == d as i8 => (false, false),
@@ -486,10 +497,13 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             if both && !struck[a] && !struck[d] {
                 chosen[a][d] = None;
                 chosen[d][a] = None;
-                for i in [a, d] {
+                for (i, other) in [(a, d), (d, a)] {
                     let f = &mut state.fighters[i];
+                    let before = f.percent;
                     f.percent = (f.percent + content.rules.damage_mult).min(Fx::from_int(999));
                     start_rebound(f, content.rules.grab_parry_lag, 0);
+                    let added = state.fighters[i].percent - before;
+                    crate::gauge::on_damage(state, content, other, i, added);
                 }
             }
         }
@@ -538,14 +552,15 @@ fn clanks(f: &Fighter) -> bool {
     f.state == S::Attack && f.grounded() && f.hitlag == 0
 }
 
-/// The strongest damaging hitbox of `a` that touches one of `b`'s, and `b`'s strongest that touches one of `a`'s, if any do.
-fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx)> {
+/// Where two attacks meet: the strongest damaging hitbox of `a` that touches one of `b`'s, and `b`'s strongest that touches one of
+/// `a`'s, and whether each side has a box among them that rebounds (`Hitbox::rebounds`), if any touch.
+fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx, bool, bool)> {
     let (pa, pb) = (params_of(content, a), params_of(content, b));
     let (ma, mb) = (
         weapon_of(content, pa).get(a.move_id),
         weapon_of(content, pb).get(b.move_id),
     );
-    let mut best: Option<(Fx, Fx)> = None;
+    let mut best: Option<(Fx, Fx, bool, bool)> = None;
     for (_, ha, ca) in active_hitboxes(a, ma, pa.hitbox_scale) {
         if ha.kind != HIT_NORMAL || !ha.clanks {
             continue;
@@ -554,8 +569,13 @@ fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx)> {
             if hb.kind != HIT_NORMAL || !hb.clanks || !overlaps(ca, ha.radius, cb, hb.radius) {
                 continue;
             }
-            let (da, db) = best.unwrap_or((Fx::ZERO, Fx::ZERO));
-            best = Some((da.max(ha.damage), db.max(hb.damage)));
+            let (da, db, ra, rb) = best.unwrap_or((Fx::ZERO, Fx::ZERO, false, false));
+            best = Some((
+                da.max(ha.damage),
+                db.max(hb.damage),
+                ra || ha.rebounds,
+                rb || hb.rebounds,
+            ));
         }
     }
     best
@@ -594,7 +614,7 @@ fn clank_attacks(
             if !fa.active || !fb.active || !clanks(&fa) || !clanks(&fb) {
                 continue;
             }
-            let Some((da, db)) = clash(content, &fa, &fb) else {
+            let Some((da, db, rebound_a, rebound_b)) = clash(content, &fa, &fb) else {
                 continue;
             };
             chosen[a][b] = None;
@@ -603,10 +623,11 @@ fn clank_attacks(
             let lag = rebound_frames(stronger, rules);
             let freeze = hitlag_frames(stronger, rules, false, false, Fx::ONE);
             let both = (da - db).abs() <= rules.clank_range;
-            if both || da < db {
+            // (A side whose clanking hits all cannot rebound is only stopped from hitting this frame: it carries on with its move.)
+            if (both || da < db) && rebound_a {
                 start_rebound(&mut state.fighters[a], lag, freeze);
             }
-            if both || db < da {
+            if (both || db < da) && rebound_b {
                 start_rebound(&mut state.fighters[b], lag, freeze);
             }
         }
@@ -637,9 +658,11 @@ fn clank_projectile(
         let p = params_of(content, &f);
         let mv = weapon_of(content, p).get(f.move_id);
         let mut touching: Option<Fx> = None;
+        let mut rebounds = false;
         for (_, hb, c) in active_hitboxes(&f, mv, p.hitbox_scale) {
             if hb.kind == HIT_NORMAL && hb.clanks && overlaps(c, hb.radius, pos, radius) {
                 touching = Some(touching.map_or(hb.damage, |d: Fx| d.max(hb.damage)));
+                rebounds |= hb.rebounds;
             }
         }
         let Some(attack) = touching else {
@@ -654,6 +677,10 @@ fn clank_projectile(
         }
         if attack - damage > rules.clank_range {
             return true;
+        }
+        if !rebounds {
+            // An attack that cannot rebound is not knocked out of its move by the projectile (the reference's `rebound=f`).
+            return !projectile_wins;
         }
         start_rebound(
             &mut state.fighters[i],
@@ -672,8 +699,11 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, scale);
     state.fighters[a].hitlag = hitlag;
     let held = &mut state.fighters[d];
+    let before = held.percent;
     held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
     held.hitlag = hitlag;
+    let added = held.percent - before;
+    crate::gauge::on_damage(state, content, a, d, added);
 }
 
 /// Where an open counter catches: on the body's hurtboxes (a counter without a bubble), or on its bubble, a standing capsule
@@ -722,12 +752,14 @@ fn reach(
     shut: u8,
     center: Vec2,
 ) -> (bool, bool) {
-    let body = || touches(hurt, shut, center, hb.radius);
+    let body = || touches(hurt, shut, center, hb.half_height, hb.radius);
     let caught = match counter {
         _ if hb.push => false,
         None => false,
         Some(CatchArea::Body) => body(),
-        Some(CatchArea::Bubble(c, half, r)) => overlaps_upright(center, hb.radius, c, half, r),
+        Some(CatchArea::Bubble(c, half, r)) => {
+            capsules_touch(center, hb.half_height, hb.radius, c, half, r)
+        }
     };
     (caught || (!intangible && body()), caught)
 }
@@ -875,7 +907,13 @@ fn apply_hit(
         fighter::restore_shield(def, rules);
     }
 
+    let before = def.percent;
     def.percent = (def.percent + hb.damage * rules.damage_mult).min(Fx::from_int(999));
+    let added = def.percent - before;
+    // The gauges (the damage actually added: owner decision 32). The victim is still in the move it was hit in, so a hit during a
+    // draining move drains.
+    crate::gauge::on_damage(state, content, source, d, added);
+    let def = &mut state.fighters[d];
     // (A set-weight hit treats every victim as weighing 100.)
     let weight = if hb.set_weight {
         Fx::from_int(100)
@@ -898,11 +936,16 @@ fn apply_hit(
         kb = kb * rules.crouch_cancel_kb;
     }
     // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
-    let link_hit = hb.angle == ANGLE_AUTOLINK && !def.grounded();
+    // The vortex angle (E28): grounded or not, the launch follows the attacker's movement plus a pull (see `fighter::vortex_launch`).
+    let vortex_hit = hb.angle == ANGLE_VORTEX;
+    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit;
     // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
     let pull_hit = hb.angle == ANGLE_PULL;
     let degrees = if hb.angle == ANGLE_AUTOLINK {
         80
+    } else if vortex_hit {
+        // (A vortex launch is along the attacker's movement, not an angle: this is only for what reads the launch angle in hitlag.)
+        90
     } else if pull_hit {
         0
     } else {
@@ -928,6 +971,25 @@ fn apply_hit(
     {
         def.hitlag = hitlag;
         def.sdi_wait = 0;
+        return;
+    }
+    // A trip (the reference's trip chance, sim 86): a fighter on the ground whose launch would not lift it off the ground (sent
+    // sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of being launched, if the game's
+    // own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use up the generator.
+    if hb.trip > 0
+        && def.grounded()
+        && !matches!(def.state, S::Knockdown | S::GetUp)
+        && crate::trig::sin(angle) <= Fx::ZERO
+        && state.rng.range(100) < u32::from(hb.trip)
+    {
+        fighter::trip(def, rules);
+        def.hitlag = if crouching {
+            hitlag.min(rules.crouch_cancel_hitlag_cap)
+        } else {
+            hitlag
+        };
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
         return;
     }
     let mut stun = hitstun_frames(kb, rules.hitstun_mult);
@@ -973,6 +1035,7 @@ fn apply_hit(
     }
     def.state = S::Hitstun;
     def.state_frame = 0;
+    def.tripped = false;
     // Being hit gives back the air dodge and a fresh set of ledge grabs, and ends a short hop.
     def.air_dodge_used = false;
     def.ledge_grab_count = 0;
@@ -983,6 +1046,12 @@ fn apply_hit(
     def.launch_set = hb.fixed_kb > 0;
     def.launch_angle = angle.raw();
     def.link = link_hit;
+    def.link_kind = if vortex_hit {
+        crate::state::LINK_VORTEX
+    } else {
+        crate::state::LINK_AUTOLINK
+    };
+    def.vortex = 0;
     def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
     def.link_vel = link.1;
     def.pull = pull_hit;
@@ -1157,6 +1226,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 hit_mask: 0,
                 hit_age: [0; MAX_FIGHTERS],
                 facing: f.facing,
+                bursting: false,
             };
         }
     }
@@ -1191,7 +1261,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         let age = pr.age.saturating_add(1);
         // Gravity (an arcing projectile), then the move; a bouncing one comes back up off the top of a platform it falls onto.
         let arc = spec.arc;
-        if arc.gravity != Fx::ZERO {
+        // A projectile that has burst stands still (E3e).
+        let burst = spec.burst.filter(|_| pr.bursting);
+        if arc.gravity != Fx::ZERO && burst.is_none() {
             pr.vel.y -= arc.gravity;
             if arc.max_fall > Fx::ZERO {
                 pr.vel.y = pr.vel.y.max(-arc.max_fall);
@@ -1219,19 +1291,32 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             || pos.x > stage.blast_right
             || pos.y < stage.blast_bottom
             || pos.y > stage.blast_top;
+        let scale = origin_params.hitbox_scale;
+        // A projectile that bursts on a wall (E3e) bursts just short of it (where it was), instead of being removed.
+        if let Some(b) = spec.burst.filter(|b| b.on_wall && !pr.bursting) {
+            if in_wall && age < pr.life && !outside {
+                start_burst(&mut state.projectiles[n], &b, pr.pos, scale);
+                continue;
+            }
+        }
         if age >= pr.life || in_wall || outside {
             state.projectiles[n].active = false;
             continue;
         }
         // A reflector in the way turns it around: it now belongs to the reflector and hits harder. (One stronger than the
-        // reflector's damage limit goes through.)
+        // reflector's damage limit goes through; a burst is not reflected.)
         let size = Fx::from_ratio(i32::from(pr.size), 100);
         let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale * size;
+        let shot_half = spec.hitbox.half_height * origin_params.hitbox_scale * size;
         let shot_damage =
             spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
-        reflector_detects(state, content, owner, pos, shot_radius);
-        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, shot_radius)
-            .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
+        if burst.is_none() {
+            reflector_detects(state, content, owner, pos, shot_half, shot_radius);
+        }
+        if let Some((r, rf)) =
+            reflector_touching(state, content, owner, pos, shot_half, shot_radius)
+                .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
+                .filter(|_| burst.is_none())
         {
             let speed = Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100);
             let p = &mut state.projectiles[n];
@@ -1256,6 +1341,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         }
         // An attack in the way may clank with it.
         if spec.hitbox.clanks
+            && burst.is_none()
             && clank_projectile(state, content, owner, pos, shot_radius, shot_damage)
         {
             state.projectiles[n].active = false;
@@ -1266,8 +1352,19 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
 
         // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
-        let (mut hb, phased) = spec.hit_at(age);
+        let (mut hb, phased) = match burst {
+            Some(b) => match b.hit_at(age) {
+                Some(h) => (h, true),
+                None => continue,
+            },
+            None => spec.hit_at(age),
+        };
+        let (pierce, rehit) = match burst {
+            Some(b) => (true, b.rehit),
+            None => (spec.pierce, spec.rehit),
+        };
         hb.radius = hb.radius * origin_params.hitbox_scale * size;
+        hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
         hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
         if !phased && !spec.any_phase() {
             hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
@@ -1288,10 +1385,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             // A fighter already hit by this group waits for the rehit interval (the reference's per-target rehit), or for ever.
             let bit = hit_bit(d, hb.group);
             let seen = state.projectiles[n].hit_mask & bit != 0;
-            if seen
-                && (spec.rehit == 0
-                    || age.saturating_sub(state.projectiles[n].hit_age[d]) < spec.rehit)
-            {
+            if seen && (rehit == 0 || age.saturating_sub(state.projectiles[n].hit_age[d]) < rehit) {
                 continue;
             }
             let pd = params_of(content, fd);
@@ -1334,13 +1428,32 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 let p = &mut state.projectiles[n];
                 p.hit_mask |= bit;
                 p.hit_age[d] = age;
-                if !spec.pierce {
+                if burst.is_none() {
+                    // The first fighter it touches makes a bursting projectile burst there (E3e).
+                    if let Some(b) = spec.burst {
+                        start_burst(p, &b, pos, scale);
+                        break;
+                    }
+                }
+                if !pierce {
                     p.active = false;
                     break;
                 }
             }
         }
     }
+}
+
+/// A projectile becomes its burst (E3e) at `at`: it stops, its age and life start again as the burst's, and its hits start afresh
+/// (the fighter that stopped it is hit again).
+fn start_burst(p: &mut Projectile, b: &crate::moves::Burst, at: Vec2, scale: Fx) {
+    p.bursting = true;
+    p.pos = at + Vec2::new(Fx::ZERO, b.y * scale);
+    p.vel = Vec2::ZERO;
+    p.age = 0;
+    p.life = b.life;
+    p.hit_mask = 0;
+    p.hit_age = [0; MAX_FIGHTERS];
 }
 
 /// What a projectile script can see: its owner and the nearest other fighter that is still in the match.
@@ -1367,6 +1480,7 @@ fn reflector_touching(
     content: &Content,
     owner: usize,
     pos: Vec2,
+    half: Fx,
     radius: Fx,
 ) -> Option<(usize, Reflector)> {
     for (i, f) in state.fighters.iter().enumerate() {
@@ -1390,8 +1504,9 @@ fn reflector_touching(
         // The field (a circle, or a standing capsule), and the body field beside it on its own frames.
         let field = frame >= rf.start
             && frame <= rf.end
-            && overlaps_upright(
+            && capsules_touch(
                 pos,
+                half,
                 radius,
                 at(rf.x, rf.y),
                 rf.half_height * scale,
@@ -1400,10 +1515,12 @@ fn reflector_touching(
         let body = rf.body_radius > Fx::ZERO
             && frame >= rf.body_start
             && frame <= rf.body_end
-            && overlaps(
+            && capsules_touch(
                 pos,
+                half,
                 radius,
                 at(rf.body_x, rf.body_y),
+                Fx::ZERO,
                 rf.body_radius * scale,
             );
         if field || body {
@@ -1413,11 +1530,13 @@ fn reflector_touching(
     None
 }
 
-/// Whether a circle at `c1` of `r1` touches a vertical capsule centred on `c2`, from `half_height` below it to `half_height` above,
-/// of radius `r2` (a circle when `half_height` is 0).
-fn overlaps_upright(c1: Vec2, r1: Fx, c2: Vec2, half_height: Fx, r2: Fx) -> bool {
-    let nearest = Vec2::new(c2.x, c1.y.clamp(c2.y - half_height, c2.y + half_height));
-    overlaps(c1, r1, nearest, r2)
+/// Whether two standing capsules touch: each centred on `c`, reaching `h` above and below it, of radius `r` (a circle when its `h`
+/// is 0). Their nearest points are the centres' horizontal gap and the vertical gap between their two spans (0 where they overlap).
+fn capsules_touch(c1: Vec2, h1: Fx, r1: Fx, c2: Vec2, h2: Fx, r2: Fx) -> bool {
+    let dy = ((c1.y - c2.y).abs() - h1 - h2).max(Fx::ZERO);
+    let gap = Vec2::new(c1.x - c2.x, dy);
+    let reach = r1 + r2;
+    gap.length_sq() <= reach * reach
 }
 
 /// A reflector's projectile detector (the reference's): a projectile touching it while it is out, before the reflector is up, skips
@@ -1427,6 +1546,7 @@ fn reflector_detects(
     content: &Content,
     owner: usize,
     pos: Vec2,
+    half: Fx,
     radius: Fx,
 ) {
     for i in 0..MAX_FIGHTERS {
@@ -1453,7 +1573,14 @@ fn reflector_detects(
             f.pos.x + (rf.detect_x * scale).mul_int(i32::from(f.facing)),
             f.pos.y + rf.detect_y * scale,
         );
-        if overlaps(pos, radius, centre, rf.detect_radius * scale) {
+        if capsules_touch(
+            pos,
+            half,
+            radius,
+            centre,
+            Fx::ZERO,
+            rf.detect_radius * scale,
+        ) {
             match rf.detect_then {
                 // The reflection move starts now (its frame 0 is this frame), so its reflector meets this shot at once.
                 Some(next) => {

@@ -80,7 +80,7 @@ frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable 
 | Swordfighter forward tilt | hits 8-11, 9% / 12%, angle 361, KB 30 / 55, growth 70 / 85, FAF 34 |
 | Swordfighter up special | intangible frames 1-5 in the air, hits from frame 5 (11% early tip, then 7%), angle 74, helpless after |
 | Swordfighter up tilt | one hit in three phases: frame 6 (6% tip, 5% arm and body, angle 100, KB 65, growth 100), 7-8 (10% tipper, 6% sour, 5%), 9-12 (same damage, angle 85, KB 52), FAF 34 |
-| Swordfighter down tilt | frames 7-8, 7% close / 10% tip, angle 30, KB 40 / 50, growth 40, FAF 24 (the reference game's 35% trip chance is not implemented) |
+| Swordfighter down tilt | frames 7-8, 7% close / 10% tip, angle 30, KB 40 / 50, growth 40, FAF 24 (its 35% trip chance is data since sim v86, but at 30 degrees it lifts the target, so it never trips on a flat stage) |
 | Swordfighter forward smash | frames 10-13, 13% / 18% tip, angle 361, KB 48 / 80, growth 75 / 80, FAF 52, charges |
 | Swordfighter up smash | frames 13-17 overhead, 13% / 17% tip, angle 89, KB 45 / 40, growth 90 / 95, FAF 59, charges. The reference 3% launcher (pulls grounded targets in) is not implemented |
 | Swordfighter down smash | front hit frames 6-7 (8% / 12% tip, KB 60 / 50, growth 88), back hit frames 21-23 (12% / 17% tip, KB 40 / 50, growth 88 / 92), angle 361, FAF 56, charges |
@@ -237,6 +237,15 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
 - **Knockdown get-ups** after lying for at least 24 frames (it stands by itself at 90): **stick up or jump** stands (26 frames, the first
   15 intangible), **attack** is a get-up attack (hits both sides, intangible for 10 frames), a **sideways flick** is a get-up roll.
   `Ruleset`: `knockdown_lag`, `knockdown_max`, `getup_frames`, `getup_intangible`, `tech_invuln`.
+- **Trips** (sim v86, E20): a hit with a trip chance (`Hitbox::trip`, the reference's percent) on a fighter on the ground whose
+  launch would not lift it off the ground (sent sideways or down) rolls the game's random generator (`GameState::rng`, hashed, so
+  every machine rolls the same; nothing is rolled for a hit that cannot trip). On a success the fighter takes the damage and hitlag,
+  then sits in a knockdown (`Fighter::tripped`): intangible through the hitlag and 5 frames after, a get-up from frame 40, standing up
+  by itself on frame 100 (the reference's hard trip). The get-ups are the knockdown's (the trip get-up attack has no slot of its own).
+  `Ruleset`: `trip_lag`, `trip_max`, `trip_invuln`. Not modelled: the reference's base 7% trip on any hit over 55 knockback that does
+  not lift, and slopes (every stage is flat, so a trip at an upward angle never happens).
+- **Hits that cannot rebound** (sim v86, E3g): `Hitbox::rebounds` false (the reference's `rebound=f` without `clang=f`): the hit
+  clanks as usual (it does not land that frame) but its owner carries on with the move instead of rebounding.
 - **Ledge attack** now has hitboxes (`MoveId::LedgeAttack`) and the get-up attack is `MoveId::GetUpAttack`; both have placeholder numbers
   that need the reference data.
 - **Training mode** (F9 toggles the path): while a fighter is in hitlag or hitstun the view draws where it will fly, as a white line

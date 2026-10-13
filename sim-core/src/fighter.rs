@@ -190,6 +190,8 @@ fn enter(f: &mut Fighter, state: S) {
     }
     f.state = state;
     f.state_frame = 0;
+    // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
+    f.tripped = false;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
     if !matches!(state, S::Airborne | S::Attack) {
         f.hop_boost = 0;
@@ -314,6 +316,12 @@ pub fn update(
         f.dash_buffer = 0;
     }
 
+    // The gauge's powered mode counts down every frame, hitlag included [E: gap 12]; a hold out of a draining move drains only while
+    // it lasts (a throw's hit, which lets go on the frame it lands, still drains: it is applied before this runs again).
+    crate::gauge::tick(f);
+    if f.state != S::Grabbed {
+        f.gauge_drain = false;
+    }
     // Hitlag freezes everything about the fighter except its input history. A struck fighter can still
     // survival-DI, and its launch happens on the frame hitlag ends.
     if f.hitlag > 0 {
@@ -799,6 +807,12 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
 
 /// [`air_move`], with the fast fall allowed or not (a move's `fast_fall_from`).
 fn air_move_with(f: &mut Fighter, p: &FighterParams, stage: &Stage, fast_fall_ok: bool) -> bool {
+    air_steer_x(f, p);
+    air_move_vertical(f, p, stage, fast_fall_ok)
+}
+
+/// The horizontal part of air control (see `air_move_with`): the stick's pull toward its share of the air speed, or air friction.
+fn air_steer_x(f: &mut Fighter, p: &FighterParams) {
     let input = f.history[0];
     if x_active(input) {
         // Air acceleration (reference model): a base value plus an additional value scaled by stick
@@ -818,6 +832,15 @@ fn air_move_with(f: &mut Fighter, p: &FighterParams, stage: &Stage, fast_fall_ok
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
     }
+}
+
+/// The rest of `air_move_with` after the horizontal control: fast fall, gravity, the move and its landing.
+fn air_move_vertical(
+    f: &mut Fighter,
+    p: &FighterParams,
+    stage: &Stage,
+    fast_fall_ok: bool,
+) -> bool {
     if fast_fall_ok
         && !f.fast_fall
         && !f.damage_fall
@@ -1507,14 +1530,32 @@ fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S, frames: u
     enter(f, state);
 }
 
-/// Lying on the ground after a hard landing. After a short while the fighter chooses a get-up: attack, roll
-/// sideways, or stand (stick up, jump, or just waiting).
+/// A trip (`Hitbox::trip`): the fighter sits down where it stands, intangible for `trip_invuln` frames, and gets up as from a
+/// knockdown on the ruleset's trip timings (see [`knockdown`]).
+pub fn trip(f: &mut Fighter, rules: &Ruleset) {
+    enter(f, S::Knockdown);
+    f.tripped = true;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.hitstun = 0;
+    // (Through the hit's hitlag, then `trip_invuln` frames: the count goes down at the start of each frame, before its hits.)
+    f.invuln = f.invuln.max(rules.trip_invuln.saturating_add(1));
+}
+
+/// Lying on the ground after a hard landing (or sitting after a trip). After a short while the fighter chooses a get-up: attack,
+/// roll sideways, or stand (stick up, jump, or just waiting).
 fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     if !slide_on_platform(f, p, stage) {
         return;
     }
-    if f.state_frame < u16::from(rules.knockdown_lag) {
+    let (lag, max) = if f.tripped {
+        (rules.trip_lag, rules.trip_max)
+    } else {
+        (rules.knockdown_lag, rules.knockdown_max)
+    };
+    if f.state_frame < u16::from(lag) {
         return;
     }
     let flick = f.flick_x(TAP_BUFFER);
@@ -1528,7 +1569,7 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
         enter(f, S::Roll);
     } else if f.history[0].stick_y >= STICK_DOWN
         || f.take(buttons::JUMP, p.input_buffer)
-        || f.state_frame >= u16::from(rules.knockdown_max)
+        || f.state_frame >= u16::from(max)
     {
         enter(f, S::GetUp);
     }
@@ -1670,6 +1711,7 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
         f.lock = Vec2::ZERO;
     }
     f.move_id = id as u8;
+    f.move_y0 = f.pos.y;
     f.hit_mask = 0;
     f.b_reversed = false;
     f.aim = 0;
@@ -1910,7 +1952,7 @@ fn attack(
     // The move's script steers the move: motion, branching into another move, projectiles, ending early.
     let mut script_motion = None;
     if let Some(program) = &mv.script {
-        let effects = scripting::run_fighter(program, f, world);
+        let effects = scripting::run_fighter(program, f, world, &p.gauge);
         if let Some(next) = effects.goto {
             begin_attack(f, MoveId::from_index(next));
             return None;
@@ -1948,7 +1990,18 @@ fn attack(
         } else {
             m.vy
         };
-        f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), vy);
+        if mv.motion_drift > 0 && !f.grounded() {
+            // A rise with air control (`Move::motion_drift`): the motion sets the vertical speed, the stick the horizontal.
+            let mut q = *p;
+            let k = Fx::from_ratio(i32::from(mv.motion_drift), 100);
+            q.air_speed = p.air_speed * k;
+            q.air_accel = p.air_accel * k;
+            q.air_accel_stick = p.air_accel_stick * k;
+            air_steer_x(f, &q);
+            f.vel.y = vy;
+        } else {
+            f.vel = Vec2::new(m.vx.mul_int(i32::from(f.facing)), vy);
+        }
         f.hop_boost = 0;
         // A dash along the ground is not a landing, however flat it is.
         let on_ground = f.grounded() && vy <= Fx::ZERO;
@@ -1964,6 +2017,11 @@ fn attack(
         }
         if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
+            if let Some(other) = mv.on_land {
+                // An aerial move with a grounded version goes on as it, on the same frame (`Move::on_land`).
+                f.move_id = other;
+                return None;
+            }
             if mv.land_continue || frame < u16::from(mv.lands_from) {
                 // (The move goes on along the ground.)
             } else if mv.landing_move.is_some() {
@@ -1994,10 +2052,15 @@ fn attack(
             f.vel.y = f.vel.y.min(rise);
             f.hop_boost = 0;
         }
-        if air_move_with(f, &q, stage, fast_fall_ok)
-            && !mv.land_continue
-            && frame >= u16::from(mv.lands_from)
-        {
+        let landed = air_move_with(f, &q, stage, fast_fall_ok);
+        if landed {
+            if let Some(other) = mv.on_land {
+                // An aerial move with a grounded version goes on as it, on the same frame, keeping its frame and hits (`Move::on_land`).
+                f.move_id = other;
+                return None;
+            }
+        }
+        if landed && !mv.land_continue && frame >= u16::from(mv.lands_from) {
             // Landing early or late in the move autocancels: only the normal landing lag.
             land_out_of_move(f, mv, frame, plain);
             return None;
@@ -2053,7 +2116,12 @@ fn attack(
             .ledges
             .get(usize::from(ledge))
             .is_some_and(|l| l.side == f.facing);
-        if f.state_frame >= u16::from(mv.ledge_from(behind)) {
+        // (A move with a fall rule catches a ledge only once it has come far enough down from where it began: `Move::ledge_drop`.)
+        let fallen = f.move_y0 - f.pos.y;
+        let deep_enough = mv
+            .ledge_drop
+            .is_none_or(|(front, back)| fallen >= if behind { back } else { front });
+        if f.state_frame >= u16::from(mv.ledge_from(behind)) && deep_enough {
             return Some(ledge);
         }
     }
@@ -2157,6 +2225,15 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     {
         f.facing = -f.facing;
     }
+    // With the gauge's powered mode running, a special with a powered version (`limit_version`) uses it instead and spends the gauge
+    // at once, whether it hits or not. (Until a weapon has such a version nothing is spent: phase 2 of the Greatsword.)
+    let (id, mv) = match mv.limit_version {
+        Some(l) if f.gauge_mode > 0 => {
+            crate::gauge::spend(f);
+            (MoveId::from_index(l), weapon.get(l))
+        }
+        _ => (id, mv),
+    };
     // Started in the air, a special with an aerial version uses it (its own slot).
     let (id, mv) = match mv.air_version {
         Some(v) if !f.grounded() => (MoveId::from_index(v), weapon.get(v)),
@@ -2175,6 +2252,11 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     // Started in the air, a special may keep only part of the fighter's momentum.
     if !f.grounded() && mv.start_speed != 100 {
         f.vel.x = f.vel.x * Fx::from_ratio(i32::from(mv.start_speed), 100);
+    }
+    // ...and of its vertical speed (the reference's vertical multiplier on startup: a stall).
+    if !f.grounded() && mv.start_speed_y != 100 {
+        f.vel.y = f.vel.y * Fx::from_ratio(i32::from(mv.start_speed_y), 100);
+        f.hop_boost = 0;
     }
     true
 }
@@ -2381,7 +2463,25 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
     if f.pull {
         pull_frame(f, rules);
     }
+    let pulling = f.vortex > 0;
+    let vortex = vortex_pull(f, p);
+    if f.grounded() && vortex.y > Fx::ZERO {
+        // (A vortex drawing a grounded fighter up lifts it off the floor.)
+        f.platform = NONE;
+    }
     if f.grounded() {
+        if pulling {
+            f.vel = Vec2::new(f.kb_vel.x + vortex.x, Fx::ZERO);
+            if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+                f.kb_vel.x = Fx::ZERO;
+            }
+            let still_on = collision::platform(stage, f.platform)
+                .is_some_and(|plat| f.pos.x >= plat.left && f.pos.x <= plat.right);
+            if !still_on {
+                f.platform = NONE;
+            }
+            return true;
+        }
         // A grounded hit slides the fighter along the floor, and its traction slows the slide too (the reference: low-traction
         // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches. (A pull is not slowed.)
         if !f.pull {
@@ -2398,11 +2498,13 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         }
         return true;
     }
-    let (gravity, max_fall) = launch_fall(f, p, rules);
-    f.vel.y = (f.vel.y - gravity).max(-max_fall);
-    let falling = f.vel.y + f.kb_vel.y;
-    let heading_x = (f.vel.x + f.kb_vel.x).signum_int();
-    let moved = move_by(f, p, stage, f.vel + f.kb_vel);
+    if !pulling {
+        let (gravity, max_fall) = launch_fall(f, p, rules);
+        f.vel.y = (f.vel.y - gravity).max(-max_fall);
+    }
+    let falling = f.vel.y + f.kb_vel.y + vortex.y;
+    let heading_x = (f.vel.x + f.kb_vel.x + vortex.x).signum_int();
+    let moved = move_by(f, p, stage, f.vel + f.kb_vel + vortex);
     if moved.wall {
         if tech_ready(f, rules) {
             start_wall_tech(f, rules, (-heading_x) as i8);
@@ -2520,6 +2622,43 @@ fn autolink(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     }
 }
 
+/// A vortex launch (angle 366, E28, ssbwiki.com `Autolink_angle`): the fighter is sent the way the attacker was moving when it
+/// hit (`link_vel`'s direction) at the knockback's own launch speed, with no cap and no grounded rule, and for the next
+/// [`crate::state::VORTEX_FRAMES`] knockback frames it is also drawn to the hitbox's centre (`vortex_pull`). An attacker standing
+/// still gives the pull alone. Not a tumble below the tumble threshold; DI does not bend it [E: the reference's DI on 366 is not
+/// published].
+fn vortex_launch(f: &mut Fighter, rules: &Ruleset) {
+    let speed = f.launch_kb * Fx::from_ratio(3, 800);
+    let len = f.link_vel.length();
+    f.kb_vel = if len > Fx::ZERO {
+        f.link_vel * (speed / len)
+    } else {
+        Vec2::ZERO
+    };
+    f.tumble = f.launch_kb >= rules.tumble_knockback;
+    f.link = false;
+    f.vortex = crate::state::VORTEX_FRAMES;
+    f.vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.balloon_faf = 0;
+    f.balloon_left = Fx::ZERO;
+}
+
+/// One frame of a vortex pull: the share (`1 / frames left`) of the way from the fighter's middle to the hitbox centre it covers
+/// this frame, on top of its launch, so it is there when the count runs out (with no launch of its own). Its own fall is held
+/// while it is pulled.
+fn vortex_pull(f: &mut Fighter, p: &FighterParams) -> Vec2 {
+    if f.vortex == 0 {
+        return Vec2::ZERO;
+    }
+    let middle = f.pos + Vec2::new(Fx::ZERO, p.ecb_height / Fx::from_int(2));
+    let (to, n) = (f.link_point - middle, Fx::from_int(i32::from(f.vortex)));
+    let step = Vec2::new(to.x / n, to.y / n);
+    f.vortex -= 1;
+    f.vel = Vec2::ZERO;
+    step
+}
+
 /// Landing during an aerial on its move frame `frame`: early or late in the move it autocancels (only the normal landing lag, `plain`);
 /// otherwise the move's landing lag, or its landing move (a landing hit: its own short move, whose hitboxes come out on the landing
 /// frame).
@@ -2543,6 +2682,10 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
         (cross.mul_int(i32::from(rules.di_degrees)) * Fx::from_ratio(4096, 360)).raw() / 65536;
     let bent = Angle::from_raw((i32::from(f.launch_angle) + bend).rem_euclid(4096) as u16);
 
+    if f.link && f.link_kind == crate::state::LINK_VORTEX {
+        vortex_launch(f, rules);
+        return;
+    }
     if f.link {
         autolink(f, p, rules);
         return;

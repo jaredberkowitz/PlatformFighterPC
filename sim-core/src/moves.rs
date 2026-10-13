@@ -338,6 +338,15 @@ pub struct Hitbox {
     /// The hit can clank with other attacks and projectiles (the reference's `clang`). False: it never clanks (the reference's
     /// no-clank hits, and a projectile's transcendent priority): it trades instead.
     pub clanks: bool,
+    /// When this hit clanks, its owner rebounds out of the move as usual (the reference's `rebound`). False: the hit is cancelled by
+    /// the clank but its owner carries on with the move (the reference's "cannot rebound": `rebound=f` without `clang=f`).
+    pub rebounds: bool,
+    /// Percent chance (0 to 100) that the hit trips a fighter on the ground instead of launching it, when its launch would not lift
+    /// it off the ground (the reference's `trip`). Rolled on the game's own random generator, so it is the same on every machine.
+    pub trip: u8,
+    /// Half the height of the box: above 0 it is a standing capsule from `y - half_height` to `y + half_height` (a tall wall of a
+    /// projectile, the reference's stacked circles) instead of a circle. Scaled like the radius.
+    pub half_height: Fx,
 }
 
 /// `Hitbox::angle_type` values.
@@ -363,6 +372,11 @@ pub const TARGETS_AERIAL: u8 = 2;
 /// hitbox (see `combat::autolink`), so a multi-hit carries it along; a grounded one is sent at 80 degrees.
 pub const ANGLE_AUTOLINK: i16 = 367;
 
+/// The vortex angle (the reference's 366, E28): the victim is sent the way the attacker was moving when it hit, at the knockback's
+/// own launch speed (no cap, no cut, grounded victims too), and for its first [`crate::state::VORTEX_FRAMES`] frames it is also
+/// drawn to the hitbox's centre (see `fighter::vortex_pull`). An attacker standing still (a burst) gives the pull alone.
+pub const ANGLE_VORTEX: i16 = 366;
+
 /// The pull angle (ours, not the reference's): instead of a launch, the victim is drawn to just in front of the attacker (a
 /// projectile's owner) while its hitstun lasts, `pull_gap` from it (see `fighter::pull_frame`). Its hitstun comes from the
 /// knockback as usual (set knockback makes it the same at any percent).
@@ -384,6 +398,9 @@ impl Hitbox {
         self.angle_type = ANGLE_BY_BOX;
         self.command = false;
         self.clanks = true;
+        self.rebounds = true;
+        self.trip = 0;
+        self.half_height = Fx::ZERO;
         self
     }
 }
@@ -439,6 +456,53 @@ pub struct ProjectileSpawn {
     /// A fighter it already hit with a hit group can be hit by that group again this many frames after its last hit on that fighter
     /// (the reference's per-target rehit; `Projectile::hit_mask` and `hit_age` remember); 0 never.
     pub rehit: u8,
+    /// It bursts where it hits (E3e, the reference's powered wave): the first fighter it touches (shielding or not) takes its own hit,
+    /// then it stops there and becomes the burst (`Projectile::bursting`). `None`: it is used up or pierces as above.
+    pub burst: Option<Burst>,
+}
+
+/// What a bursting projectile becomes (`ProjectileSpawn::burst`): it stands still `y` above where it stopped, its age starts again
+/// at 0 and it lasts `life` frames, piercing, with `rehit` as its per-target rehit, its hits by age from `phases` (as
+/// `ProjectileSpawn::phases`: from age `.0` on, `.1`; radius 0 is a gap; before the first phase there is no hit). It hits the
+/// fighter that stopped it again (its hits start afresh). With `on_wall`, touching a solid wall bursts it there too (just short of
+/// the wall) instead of removing it. A bursting projectile is not reflected and does not clank.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Burst {
+    pub life: u8,
+    pub rehit: u8,
+    pub on_wall: bool,
+    pub y: Fx,
+    pub phases: [Option<(u8, Hitbox)>; MAX_PHASES],
+}
+
+impl Burst {
+    /// The burst's hit at `age` (`None` before its first phase or in a radius-0 gap).
+    pub fn hit_at(&self, age: u8) -> Option<Hitbox> {
+        let mut out = None;
+        for (from, hb) in self.phases.iter().flatten() {
+            if age >= *from {
+                out = Some(*hb);
+            }
+        }
+        out.filter(|hb| hb.radius > Fx::ZERO)
+    }
+
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_u8(self.life);
+        h.write_u8(self.rehit);
+        h.write_bool(self.on_wall);
+        self.y.hash_into(h);
+        for phase in &self.phases {
+            match phase {
+                Some((from, hb)) => {
+                    h.write_bool(true);
+                    h.write_u8(*from);
+                    hb.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+        }
+    }
 }
 
 /// The most later hits by age a projectile can have (`ProjectileSpawn::phases`).
@@ -789,6 +853,25 @@ pub struct Move {
     pub counter_strike: bool,
     /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
     pub charge_bonus: u8,
+    /// A special used while the fighter's gauge's powered mode runs uses this slot instead (its powered version) and spends the gauge
+    /// at once (see `content::Gauge`); `None`: the move is the same in the mode and spends nothing.
+    pub limit_version: Option<u8>,
+    /// Damage taken during this move drains the fighter's gauge instead of filling it, and so does every hit while it is held by an
+    /// ordinary grab that caught it in this move (the reference's charge and its cancel).
+    pub gauge_drain: bool,
+    /// Started in the air, the fighter keeps this percent of its vertical speed (the reference's vertical speed multiplier on startup:
+    /// a stall); 100 keeps it all.
+    pub start_speed_y: u8,
+    /// Ledges during the move only once the fighter has fallen this far below where the move began (`Fighter::move_y0`): `.0` for a
+    /// ledge in front, `.1` for one behind (on top of `ledge_front_from` / `ledge_back_from`). `None`: no such rule.
+    pub ledge_drop: Option<(Fx, Fx)>,
+    /// An aerial move that touches the ground goes on as this move instead (usually its grounded version), on the same frame, keeping
+    /// its frame and its hits so far: the mirror of `off_edge`. `None`: the usual landing.
+    pub on_land: Option<u8>,
+    /// During the move's motion in the air, the fighter steers sideways with its own air control at this percent of the body's air
+    /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
+    /// control. 0 (the default): the motion's `vx`, as before.
+    pub motion_drift: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -850,6 +933,12 @@ impl Move {
             counter: None,
             counter_strike: false,
             charge_bonus: 0,
+            limit_version: None,
+            gauge_drain: false,
+            start_speed_y: 100,
+            ledge_drop: None,
+            on_land: None,
+            motion_drift: 0,
             script: None,
             projectile_script: None,
         }
@@ -931,6 +1020,9 @@ impl StateHash for Hitbox {
         h.write_u8(self.angle_type);
         h.write_bool(self.command);
         h.write_bool(self.clanks);
+        h.write_bool(self.rebounds);
+        h.write_u8(self.trip);
+        self.half_height.hash_into(h);
     }
 }
 
@@ -983,6 +1075,13 @@ impl StateHash for Weapon {
                             }
                             None => h.write_bool(false),
                         }
+                    }
+                    match &p.burst {
+                        Some(b) => {
+                            h.write_bool(true);
+                            b.hash_into(h);
+                        }
+                        None => h.write_bool(false),
                     }
                 }
                 None => h.write_bool(false),
@@ -1173,6 +1272,26 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.counter_strike);
             h.write_u8(m.charge_bonus);
+            for slot in [m.limit_version, m.on_land] {
+                match slot {
+                    Some(id) => {
+                        h.write_bool(true);
+                        h.write_u8(id);
+                    }
+                    None => h.write_bool(false),
+                }
+            }
+            h.write_bool(m.gauge_drain);
+            h.write_u8(m.start_speed_y);
+            h.write_u8(m.motion_drift);
+            match m.ledge_drop {
+                Some((front, back)) => {
+                    h.write_bool(true);
+                    front.hash_into(h);
+                    back.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -1236,6 +1355,9 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 angle_type: ANGLE_BY_BOX,
                 command: false,
                 clanks: true,
+                rebounds: true,
+                trip: 0,
+                half_height: Fx::ZERO,
             })
             .collect(),
         ..Move::empty()
@@ -1289,6 +1411,9 @@ fn row(r: &R) -> Hitbox {
         angle_type: ANGLE_BY_BOX,
         command: false,
         clanks: true,
+        rebounds: true,
+        trip: 0,
+        half_height: Fx::ZERO,
     }
 }
 
@@ -1381,6 +1506,11 @@ pub fn longsword() -> Weapon {
     );
     w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
     tipper_last(&mut w);
+    // The down tilt's 35% trip chance (ssbwiki.com raw table, 13.0.1; E20, sim 86). At its 30-degree angle it lifts a grounded
+    // target, so it can only trip on a slope (as the reference says): never on the flat stages here.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 35;
+    }
     // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
     // centre or behind it, the only ones where the type can change where a hit sends: by position (type 0) for the up tilt, up and
     // down smash, neutral, up and down air and the get-up attack; forward (3) for the forward smash and forward air. The back air
@@ -2591,6 +2721,7 @@ pub fn needles() -> Weapon {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     throw.script = Some(script(
         Kind::Fighter,
@@ -2617,6 +2748,7 @@ pub fn needles() -> Weapon {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
@@ -3238,6 +3370,7 @@ fn water_pump(w: &mut Weapon) {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     shot.script = Some(script(
         Kind::Fighter,
@@ -3341,6 +3474,7 @@ fn fireball() -> Move {
         phases: phase_list(&[(6, hit(50, 28, 15, 275)), (31, hit(40, 22, 10, 250))]),
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     mv
 }
@@ -3698,12 +3832,16 @@ pub fn claws() -> Weapon {
             angle_type: ANGLE_BY_BOX,
             command: false,
             clanks: true,
+            rebounds: true,
+            trip: 0,
+            half_height: Fx::ZERO,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     w.moves[MoveId::NSpecial as usize] = blaster;
 
@@ -3833,6 +3971,11 @@ pub fn claws() -> Weapon {
         ],
     );
     usmash.charge_at = Some(2);
+    // Every box clanks but cannot rebound (the reference's `rebound=f` without `clang=f`, ssbwiki.com raw table; E3g, sim 86): a clank
+    // stops its hit for that frame and the smash carries on.
+    for h in &mut usmash.hitboxes {
+        h.rebounds = false;
+    }
     w.moves[MoveId::USmash as usize] = usmash;
     // Down smash: a front hit on frames 14-15 (16% at the claw, 14% closer in, angle 30-35) and a back hit on frames
     // 21-22 (14% / 12%), FAF 44. Charges on frame 2.
@@ -4009,6 +4152,17 @@ pub use staff::staff;
 #[path = "moves_greatsword.rs"]
 mod greatsword;
 pub use greatsword::greatsword;
+/// The Greatsword's special follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod greatsword_slots {
+    pub use super::greatsword::{
+        CHARGE_CANCEL, COMBO_2, COMBO_3, FALL, FALL_LANDING, FINISHER, FINISHER_AIR, POWER_COMBO,
+        POWER_RISE, POWER_WAVE, POWER_WAVE_AIR, RISE, WAVE_AIR,
+    };
+}
+
+#[path = "moves_bracers.rs"]
+mod bracers;
+pub use bracers::bracers;
 
 #[cfg(test)]
 mod tests {
@@ -4023,6 +4177,7 @@ mod tests {
             embers(),
             gauntlets(),
             greatsword(),
+            bracers(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
@@ -4046,7 +4201,9 @@ mod tests {
                         MoveId::from_index(i as u8).name()
                     );
                     assert!(
-                        (hb.damage > Fx::ZERO || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
+                        (hb.damage > Fx::ZERO
+                            || hb.push
+                            || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
                             && hb.radius > Fx::ZERO
                     );
                 }
