@@ -1,7 +1,8 @@
 # Embers moveset: implementation report
 
 The fourth moveset (in game: the **Tumbler**, class 3, weapon **Embers**), modelled mechanically on the reference game's Mario,
-version 13.0.1. Phase 1 (this report): the body and every normal, sim version 57. The audit is `PROJECT_AUDIT.md`; every number and
+version 13.0.1. Phase 1: the body and every normal, sim version 57. Phase 2 (below): the specials, the wall jump and the shared
+extensions they needed, sims 58 to 64. The audit is `PROJECT_AUDIT.md`; every number and
 its label ([R] published, [D] derived, [E] estimate) is in `REFERENCE_DATA.md`.
 
 ## What was built (phase 1)
@@ -16,7 +17,7 @@ its label ([R] published, [D] derived, [E] estimate) is in `REFERENCE_DATA.md`.
 | Aerials | neutral (clean / late), forward (early / meteor clean / late), back, up (front-to-back sweep), down (five set-weight loop hits, a final hit, a landing hit) with the reference's landing lags and autocancel windows |
 | Grabs, throws | standing / dash / pivot grabs with the reference's reach; pummel 1.3% (set knockback 30); forward, back (with its spin hitting bystanders, turning round), up and down throws |
 | Ledge and floor | ledge attack (9%, 24-26, intangible through 26), get-up attack face up (behind then in front, 7%) |
-| Specials | **still the claws' placeholders** (blaster, flash dash, fire flight, reflector). Phase 2 below |
+| Specials | phase 1: the claws' placeholders; **phase 2 (below): the rising punch, the fireball, the cape, the water pump** |
 | Registration | class 3 in `sim-content/src/recipe.rs` (`CLASSES = 4`), `Content::placeholder` (fighter "tumbler", weapon "embers"), `godot/scripts/roster.gd` (`CLASS_NAMES`, a blurb, the built-in "Tumbler"), `content/base.pfc` re-exported |
 
 Names: the class **Embers**, the body **tumbler**, the built-in fighter **Tumbler**, the blurb "Fast fists and feet: an all-rounder with
@@ -86,10 +87,9 @@ Training (F1/F2, hitbox view F3), Tumbler against any fighter at 0%, stage centr
 
 ## Limits (phase 1)
 
-* Specials are the claws' placeholders (phase 2).
 * Up smash head intangibility (9-12) not modelled (needs per-hurtbox intangibility, E19).
 * The face-down and trip get-up attacks have no slot (one get-up attack per weapon); the face-up one is used.
-* Wall jump (the reference character has one): not built (E15).
+* Wall jump (the reference character has one): built in phase 2 (E15).
 * The throws' thrower intangibility and the throws' "interrupted" rows are not modelled.
 * The angled-move stick threshold is an estimate; with a keyboard, angling needs a partial stick (the attack stick always aims
   straight).
@@ -121,137 +121,177 @@ hit data (first active frame, active span, pose):
 
 The HUD's class emblem (`godot/ui/match_hud.gd` `_emblem_mark`) has no mark for class 3 yet (it draws the sword's).
 
-## Phase 2 plan: the specials
+## Phase 2 (sims 58 to 64): the specials, the shared extensions, the up-special re-fits
 
-Order: **E11 first** (checked against the Longsword and Claws up specials, the owner's decisions), then Super Jump Punch, Fireball
-(E3b + age phases), Cape (E10, E10b, E16, uses E11), F.L.U.D.D. (E2 + the charge-scaled spawn), wall jump (E15) last. Each extension
-below is general, defaults to today's behaviour, is hashed, has a content field and a test in its topic file, and bumps the sim
-version once per phase.
+Branch `movesets` (this worktree's branch built on it), one commit per green milestone:
 
-### E11: per-move recovery rules
+| Commit | Sim | Built |
+| --- | --- | --- |
+| `10f3793` | 58 | **E11, per-move recovery rules**, and the Longsword's and the Claws' up specials re-fitted to their references |
+| `45fcd17` | 59 | **The rising punch** (up special), and set-knockback launches keeping the plain launch physics |
+| `fe3cc93` | 60 | **The fireball** (neutral special), with **E3b**: projectile arcs, ground bounces and hits by age |
+| `9e80692` | 61 | **The cape** (side special), with **E10** reversing hits, **E2** push hits, **E10b** fuller reflectors, **E16** once-per-airtime flags |
+| `23d8a10` | 62 | **The water pump** (down special), with `spawn_scaled` and a 16-slot projectile pool |
+| `c6a6f8d` | 63 | Pummels on the reference's timing with their own hitlag (the Needles', Claws' and Longsword's) |
+| `7618f6f` | 64 | **E15, wall jumps** (content schema 4) |
 
-Shape (new optional fields on `Move`, content `recovery { ... }` block):
+Every number and its label is in `REFERENCE_DATA.md` ("Specials", "Wall jump", "Defaults chosen").
 
-```text
-ledge_front_from: u8   // move frame from which a ledge in front can be caught; 255 never. Default: 0 if grabs_ledge else 255
-ledge_back_from:  u8   // the same for a ledge behind (the shorter back reach is the body's, as now)
-fall_air_speed:   u16  // percent of the body's air speed and acceleration in the special fall after this move
-                       //   (default: Ruleset::helpless_drift, today's global value)
-fall_landing_lag: u8   // landing lag of that special fall (default 0 = the body's helpless_landing_lag, today's)
-air: Option<{ gravity: Fx, max_fall: Fx, air_speed_percent: u16, air_friction: Fx }>  // the move's own air physics while it runs
-                       //   without a motion override (Cape's 0.031 / 1.0 / speed / 2.5); default None = the body's
-steer: Option<{ frame: u8, stick_min: Fx, max_degrees: u8 }>  // the motion rows are rotated toward the stick read on `frame`,
-                       //   at most `max_degrees` (Super Jump Punch 12, the Longsword's 20); default None
-```
+### The engine extensions (all general, each off by default)
 
-`grabs_ledge` stays and means "both sides from frame 0" so old content reads the same. The special fall reads its numbers from the
-move that caused it (`Fighter::move_id` is still that move in `Helpless`), so no new fighter state is needed. Ledge side: the ledge
-found by `collision::find_ledge` is in front when its side faces the fighter, else behind.
+* **E11, per-move recovery rules** (`Move`, content fields in `docs/CONTENT.md`): ledge windows from a frame, in front and behind
+  separately (`ledge_front_from`, `ledge_back_from`; `grabs_ledge` still means both from frame 0); the special fall's drift and landing
+  lag per move (`fall_drift`, `fall_landing_lag`; the fall reads the move that caused it, so no new state); height multipliers on the
+  motion (`rise_ground`, `rise_air`); momentum kept on an aerial start (`start_speed`); stick angling of the motion (`steer_frame`,
+  `steer_stick`, `steer_degrees`, hashed `Fighter::steer`); the move's own air physics without a motion (`air_gravity`, `air_max_fall`,
+  `air_friction`, `air_drift`); intangibility starting later or only in the air (`intangible_from`, `intangible_from_air`); carrying on
+  after touching down (`land_continue`). Hashed `Fighter::move_air` remembers where an attack began. The flat field layout leaves room
+  for the next port's `fast_fall_from`, frame-ranged air blocks, a per-move `turn_at` and `lands_from` without changing these.
+* **Set knockback keeps plain launch physics** (SmashWiki, Knockback): no launch speed-up and no shared vertical fall speed for a
+  set-knockback launch (hashed `Fighter::launch_set`). It changes every set-knockback hit in the game, as the reference does; no
+  existing test moved.
+* **E3b, projectile flight** (`ProjectileSpawn::arc`, `phases`): a launch angle, gravity and a fall cap, bounces off platform tops (a
+  count, a vertical speed band, a share of the speed kept; hashed `Projectile::bounces`), and up to two later hits by age.
+* **E10, reversing hits** (`Hitbox::reverse`): the victim ends up facing away from the attacker, its horizontal speed reversed.
+* **E2, push hits** (`Hitbox::push`, the reference's flinchless hit): the knockback is added to the victim's speed (sideways only on the
+  ground) with no hitlag, hitstun or change of state; a shield is pushed back.
+* **E10b, fuller reflectors** (`Reflector`): the shot's vertical speed turned round too, a share of its lifetime, a damage limit, and a
+  projectile detector that brings the reflector up early.
+* **E16, once-per-airtime flags** (hashed `Fighter::air_flags`, script `air_flag(n)` / `set_air_flag(n)`): cleared by landing, a
+  ledge or a hit.
+* **Scaled shots** (script `spawn_scaled`, hashed `Fighter::spawn_kb_add` / `spawn_size` and `Projectile::kb_add` / `size`); the VM
+  passes up to 8 arguments (`sim_script::api::MAX_ARITY`, checked at compile time). `MAX_PROJECTILES` 8 to 16.
+* **Pummel hitlag**: a pummel uses its hit's hitlag multiplier, as every other hit does.
+* **E15, wall jumps** (`FighterParams::wall_jump`, `wall_jump_vx`, `wall_jump_vy`, `Ruleset::wall_jump_decay` 0.96, hashed
+  `Fighter::wall_jumps`; `collision::wall_beside`): touching a wall in the air, the stick flicked away: a jump away, each further one
+  before landing or a ledge x0.96. The same speeds are every body's wall-tech jump. Content schema 3 to 4 with a migration
+  (`fighters_get_wall_jumps`) that gives an old fighter no wall jump and its old wall-tech jump.
 
-What it changes for existing fighters: nothing until a move sets the fields. Then, by the owner's decisions:
+### The Embers' specials
 
-* **Longsword up special** (reference: SmashWiki Marth up special, 13.0.1): ledge from the front from frame 8, never from behind during
-  it; helpless air speed x0.4; landing lag 24 (the special fall's, today it is the body's 20); intangible 4-5 grounded, 1-5 in the air
-  (today 1-5 both: needs a grounded/aerial split, a small `intangible_air` field or a script); hits 11% on 5-6 and 7% on 7-11 (today
-  7% from 6); angle up to 20 degrees by the stick (0.5); "gravity after jump 0.06", "aerial height x1.1". The rise is root motion: its
-  height needs measuring (question 2). Tests that move: `reference_moves::up_special_is_intangible_for_its_first_five_frames`,
-  `up_special_rises_about_44_reference_units_and_leaves_the_ground`, `up_special_hits_on_frame_5_for_11_percent_then_ends_helpless`,
-  `an_up_special_grabs_the_ledge_in_the_middle_of_the_move` and the three after it (they use the Longsword's up special; the
-  mid-move grab must happen from frame 8 and in front), `ground_and_collision::helpless_landing_costs_extra_lag` (it reads the body's
-  20) and `edges_and_recovery` recovery distances if they use it.
-* **Claws up special** (reference: SmashWiki Wolf up special, 13.0.1): wind-up hit 18-21 (4%, 93 degrees, BK 50, KS 10, set weight),
-  loop 27-32 (2.5%, 40 degrees grounded targets / 367 airborne, rehit 2, SDI 0, H 0.5), final 36-37 grounded / 37-38 aerial (5% and
-  6%, 361, BK 60, KS 148 / 136, H 2.5); FAF 67 grounded; ledge from behind from 26 and from the front from 27; the dash decided on
-  frame 16, 7 frames at 3.8 with friction 0.2 after 4 frames, then x0.7 (ground) / x0.8 (air); a bounce off the ground at an angle
-  difference over 20 degrees (22 frames, x0.4 horizontal, 3 up, gravity 0.2); helpless air speed x0.65; landing lag 36. The dash and
-  the bounce stay a script (`fire_aim.script`: `set_vel` per frame and `grounded`); the ledge windows and the special fall are E11.
-  Tests that move: `kits::fire_wolf_goes_where_the_stick_pointed_and_turns_around_for_backward`, `reference_moves::fire_wolf_*` (three:
-  hits, rise, mid-move ledge grab; renamed by the naming cleanup on `ship-polish`).
-* **Mario's Super Jump Punch** (below), and later Link's Spin Attack, Donkey Kong's Spinning Kong, Cloud's Climhazzard, Captain
-  Falcon's Falcon Dive, Palutena's Warp.
+* **Up, the rising punch**: hit 1 (5%, set knockback 160 / 150 / 150, set weight, no SDI; the body box misses grounded fighters), hits
+  2-6 (0.6% every 2 frames), hit 7 (3%, BK 50, KS 145) on the reference's frames; 11% when all connect; intangible 3-6; special fall
+  x0.6, landing lag 30; ledges on either side from 14; x1.1 / x1.08 rise; 12-degree angling; 0.67 startup momentum. **The rise is [E].**
+* **Neutral, the fireball**: out on 17 (hits 17-86), FAF 50; 1.4 at 10 degrees down, gravity 0.1, 7 bounces at 1.4 to 1.6 keeping 0.97;
+  clean / late / latest hits; hitlag x0.6; half damage to shields.
+* **Side, the cape**: the swing (7%, 110 degrees, set knockback 80, reverse, shield +4) on 12-14; the reflector on 9-20 (x1.5 damage,
+  x0.75 life, 50% limit) with its detector on 6-8; aerial physics (1 / 2.5 of the momentum, gravity 0.031, fall 1, friction 0.0025) and
+  the once-per-airtime lift; ledges in front from 2, behind from 16; FAF 36.
+* **Down, the water pump**: wind-up 19, 80 frames of charge (shield or jump keep it with no lag; a full charge keeps itself [E]; a
+  stored charge carries on), the shot: recoil 0.02 a charge frame, seven pushing pumps every 5 frames growing with the charge, aimed
+  12 degrees and turned by the stick to +50 / -18; FAF 49 from the shot.
+* **Wall jump**: 1.3 away, 2.3 up (the parameter file), x0.96 each further one.
 
-### Super Jump Punch (up special)
+Slots: `down_special` (wind-up), `ext1` (charge), `ext2` (shot); `ext0` stays the down air's landing hit. The claws' leftover follow-up
+slots are cleared from the Embers' weapon.
 
-Data plus E11: hit 1 (3-6) and hits 2-6 (7-16, rehit 2, its own group re-armed) and hit 7 (17-18, its own group) as rows, all set
-weight except hit 7, SDI 0 on 1-6, set knockback 160 / 150 / 150 and 180 / 170 / 110 / 110; intangible 3-6 (`Move::intangible` counts
-from frame 0: needs an `intangible_from` field or the existing script `intangible(n)` on frame 2); B-reverse on frame 3 (exists:
-`special_turn_window` is a ruleset value of 3 frames today, check it matches the stick sensitivity 0.3); E11: rise as motion rows
-fitted to the measured height (x1.1 grounded, x1.08 aerial), `steer { frame 2, stick 0.5, 12 degrees }`, `ledge_front_from` and
-`ledge_back_from` 13 (frame 14), `fall_air_speed` 60, `fall_landing_lag` 30, startup air speed x0.67. Tests: hit sequence and damage,
-set knockback ignoring rage (already true: `fixed_knockback` skips rage), intangibility window, rise height within a stated
-tolerance of the measured value, angle by stick, ledge grab not before frame 14, helpless drift and landing lag 30.
+### What changed for the Longsword
 
-### Fireball (neutral special): E3b and age phases
+The up special (SmashWiki, 13.0.1): the clean hit on 5 (11%, 361 / 74 degrees, BK 70, KS 74) and the blade on 6-11 (7%, BK 20, KS 90,
+hitlag x0.9, winning where both reach on 6); intangible 4-5 from the ground (1-5 before), 1-5 in the air; a 39-frame animation (48
+before); the special fall x0.4 (0.5) with 24 frames of landing lag (20); ledges in front from frame 8 (any frame, either side, before),
+none behind during the move; x1.1 rise from the air; 0.66 of the momentum kept; angling up to 20 degrees (none before); gravity 0.06
+after the rise. Its rise (about 44 reference units) is still the earlier estimate. The up special is now built after the blade is
+shortened, so its hand hits sit on the reference's root offsets. The pummel is the reference's (1.3%, hitlag x2.1, FAF 8 here; 20
+before). The wall-tech jump is the reference's 1.3 / 2.4 (its air speed and midair jump before). Tests that moved:
+`reference_moves::up_special_is_intangible_*` (now 4-5 / 1-5), `up_special_hits_on_frame_5_*` (helpless after 39), new
+`up_special_has_the_references_clean_and_late_hits`, `up_special_catches_a_ledge_in_front_from_frame_8_*`,
+`the_special_fall_after_the_up_special_*`, `up_special_rises_1_1_times_as_high_from_the_air`, `the_stick_angles_the_up_special_*`.
 
-Shape (on `ProjectileSpawn`, content fields with defaults):
+### What changed for the Claws
 
-```text
-gravity: Fx, max_fall: Fx          // default 0 (today's straight flight); Fireball 0.1 (reference units), fall cap from footage
-launch_degrees: i16                // initial angle (-10); default 0
-ground: Die | Pass | Bounce { vy_min: Fx, vy_max: Fx, keep_x_percent: u8, count: u8, wall_max_degrees: u8 } | Lodge { frames }
-                                   // default: today's behaviour (passes over the ground and dies in a solid wall)
-phases: [(age_from: u8, Hitbox)]   // the hitbox by age (clean / mid / late); default: one hitbox with today's linear falloff
-```
+The up special (SmashWiki, 13.0.1) on every published number: the wind-up hit 18-21 (4%, 93 degrees, BK 50, KS 10, set weight); the
+dash's loop 27-32 every 2 frames (2.5%, hitlag x0.5, SDI 0; 40 degrees and BK 60 / 70 on grounded targets, the autolink angle and BK
+35 / 40 on airborne ones); the last hit by where it ends: on the ground 36-37 (5%, KS 148, hitlag x2.5; the move ends on 67), in the air
+37-38 (6%, KS 136; the 71-frame animation, then the special fall x0.65 with 36 frames of landing lag); the movement built from the
+published parameters (startup x0.67 momentum, friction 0.01, gravity 0.02; aimed on frame 16, straight up with the stick neutral [E];
+the dash 26-32 at 3.8 less 0.2 a frame after 4; x0.7 / x0.8 after it; then friction 0.1 / 0.04 and gravity 0.1); a dash more than 20
+degrees into the ground bounces off (22 frames, x0.4, 3 up, gravity 0.2, friction 0.16), a shallower one slides on; ledges behind from
+26, in front from 27. Slots `ext0` (ground ending), `ext1` (air ending), `ext2` (bounce). Hitbox positions on the hip and legs are [E];
+the loop's angle is measured from the facing, not the direction of travel (the reference's "speed-based" angle) [E]. The pummel is the
+reference's (FAF 8 here; 20 before). It now wall jumps (1.3 / 2.3, as the reference's Wolf can). Tests that moved:
+`kits::flame_kick_goes_where_the_stick_pointed_*` (the dash distance is now the reference's 25.4 units); new
+`reference_moves::flame_kick_has_the_references_hits`, `_wind_up_hit_lands_on_frame_18`, `_catches_ledges_behind_from_frame_26_*`,
+`_on_the_ground_ends_standing_on_frame_67`, `_in_the_air_falls_helpless_after_71_frames_*`, `_dashing_steeply_into_the_ground_*`;
+`godot-bridge` `hit_windows_*` (the main move now has four hit windows, the last hit is its ending's).
 
-The bounce is checked against the stage's surfaces in `combat::update_projectiles` (deterministic, fixed point); a bounce count is a
-hashed `Projectile` field (with its checksum case). Fireball: spawned on 17, speed 1.4, 70 frames, 7 bounces, vertical speed 1.4 to
-1.6 after a bounce, x0.97, walls under 60 degrees bounce, three hit phases (5% BK 35 KS 20, 5% BK 28 KS 15, 4% BK 22 KS 10), H 0.6,
-shield damage -2.5 / -2.0 (additive: a percent per phase, [D]); Mario keeps full air control (an aerial special with no motion: exists).
-Also used by Yoshi's Egg Throw and Link's arrows (Lodge). Tests: arc and bounce heights, bounce count and life, phase damage by age,
-wall bounce, reflected by the Claws' reflector.
+### What changed for the Needles
 
-### Cape (side special): E10, E10b, E16, E11
+The pummel (FAF 7 here, 16 before; hitlag x1.7 now applied), the wall jump (1.4 / 2.8, as the reference's Sheik has one) and the
+wall-tech jump at the same speeds. The test that moved: `needles::the_rest_of_the_kit_has_the_references_frame_data` (pummel FAF 7).
 
-* **E10** `Hitbox::reverse: bool` (content `reverse`): on hit the victim's facing is flipped and its horizontal speed reversed (the
-  reference's "Reverse" effect), after the launch is worked out; with set knockback 80 at 110 degrees. Default false.
-* **E10b** `Reflector::reverse_vertical: bool` (default false: today's horizontal-only reversal), `Reflector::life_percent: u8`
-  (default 100; Cape 75), `Reflector::max_damage_percent`-style cap left as is (the reference's 50% "damage threshold" is a reflect
-  limit, to research); `Reflector::detect_from: u8` (default 255): a projectile touching the field from this frame jumps the move to
-  `start` (Cape's detector on 6-8). The Claws' reflector is re-checked against its reference under decision 6 (vertical reversal).
-* **E16** once-per-airtime flags: `Fighter::air_flags: u8` (hashed, checksum case), cleared on landing, on being hit and on a ledge
-  grab; script `air_flag(n)` (read) and `set_air_flag(n)` (whitelist entries in `sim-script/src/api.rs`, implemented in
-  `scripting.rs`, tested in `scripted_moves.rs`, documented in `docs/CONTENT.md`). Cape's +0.3 vertical speed applies only when flag 0
-  is clear (the fall break once per airtime).
-* **E11** for its aerial physics (gravity 0.031, fall 1, speed / 2.5, friction 0.0025) and ledge windows (front from 2, back from 16).
-* Hit 12-14 (7%, r 7.5 / 5.0, shield +4), reflector 9-20 at (0, 6.5, 8) size 6.5 (radius 8 tenths [D]), x1.5 damage, FAF 36.
-  Tests: a projectile reflected on 9-20 (and on 7 with the detector), its life cut, a melee hit turning the victim round, the fall break
-  only once per airtime, ledge grabs by side and frame.
+### Verified, derived, estimated (phase 2)
 
-### F.L.U.D.D. (down special): E2 and a charge-scaled spawn
+* **[R]**: every special's hit data and frames, intangibility, FAF, ledge windows, special-fall drift and landing lag, height
+  multipliers, angle limits, startup momentum, the fireball's flight and bounces, the cape's reflector and aerial physics, the pump's
+  charge, pumps, recoil and aim limits, the wall-jump speeds and decay, the Claws' up-special parameters, the Longsword's up-special
+  hits and rules, the pummels.
+* **[D]**: positions on the root, radii, shield damage as a percent, the pump's charge counted from the charge's start, the fireball's
+  appearing a frame early (a projectile hits from the next frame), the detector capsule as one circle, the bounce-speed band and count
+  readings, the Claws' dash distance from its parameters.
+* **[E]**: the rising punch's rise; the Longsword's rise; the frames the stick angle is read on and the reading of "sensitivity"; the
+  cape's lift frame and stopped fall; a reflected shot's vertical reversal; the 50% limit's reading; a full pump keeping itself; the
+  pump's aim threshold, nozzle and its push as an added velocity; pumps removed by their first hit; the Claws' neutral aim straight up,
+  its bounce ending in the special fall, positions on bones; the wall-contact range; the wall-tech jump speeds used for the wall jump.
 
-* **E2** `Hitbox::push: bool` (content `push`, the reference's flinchless / wind hit): damage still applies (0 here), the knockback is
-  added to the victim's velocity as a push, with no hitstun, no hitlag, no tumble and no state change (the victim keeps control);
-  shields take the push as pushback. Default false. Also used by Cloud's Finishing Touch wind and the Needles' Vanish wind box.
-* **Charge-scaled spawn**: a script ability `spawn_scaled(fx, up, vx, vy, kb_add, size_percent)` (whitelist entry, test, doc), so each
-  pump carries the charge's extra base knockback (up to +55) and size (x0.8 to x1.2) and speed (4.3 + up to 4.3). The pump's gravity
-  (0.17, fall 3) is E3b's projectile `gravity`.
-* Charge and store: the Needle Storm pattern (exists: `stall` / `goto` loop, `store`, shield / jump store; "charge-cancel with no
-  lag"); the full charge is 80 or 100 frames (question 1). Release: 7 pumps every 5 frames, aimed from 12 degrees and turned by the
-  stick 1.9 degrees a frame within +50 / -18 (a script: rotating the shot velocity by fixed sine and cosine constants), the recoil
-  (0.02 per charge frame) by `add_vel`. FAF 49 from release.
-* Pool: 7 pumps with a 12-frame life every 5 frames means at most 3 alive at once; `MAX_PROJECTILES` 8 is shared by every fighter, so a
-  four-player match could run short (question 5).
-* Tests: no damage and no hitstun on a hit, push strength rising with charge, a shielding target pushed, store and spend, aim limits,
-  recoil.
+### Tests (actually run)
 
-### Wall jump: E15
+New or extended: `sim-core/tests/embers.rs` (46 tests: 24 new for the four specials), `reference_moves.rs` (the Longsword's and
+Claws' up specials, 12 new or rewritten), `edges_and_recovery.rs` (E11 defaults and fields, the wall jump), `multihit.rs` (set-knockback
+launch physics, reversing hits, push hits), `scripted_moves.rs` (`air_flag` / `set_air_flag`, `spawn_scaled`), `kits.rs`,
+`needles.rs`, `sim-content/tests/bundle.rs` (the schema 3 to 4 migration; the gravity-field edits made specific to fighters), the
+checksum cases in `state.rs` (`move_air`, `steer`, `launch_set`, `air_flags`, `wall_jumps`, `spawn_kb_add`, `spawn_size`,
+`projectile_bounces`, `projectile_kb_add`, `projectile_size`), `godot-bridge` (`hit_windows_*`).
 
-`FighterParams::wall_jump: bool` plus `wall_jump_vx`, `wall_jump_vy`, `wall_jump_min_speed` (the reference's passive wall jump 1.3 /
-2.3 / 0.2), a stick-away press near a wall in the air. Default off (no fighter has it today). Also Captain Falcon and the Needles.
+Commands, at every milestone (with `CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0`): `cargo fmt --all`; `cargo test --workspace`
+(at the end: 48 suites, 765 tests, all pass); `cargo clippy --workspace --all-targets -- -D warnings` (clean);
+`content-export content/base.pfc`; `pftool fuzz-rollback 100` (0 mismatches) and `pftool net-fuzz 50` (0 mismatches) after each
+milestone. Both fuzzers use fixed rosters of classes 0 and 1, so the Longsword's and Claws' changes are fuzzed; the Embers' specials are
+covered by `embers::random_play_with_the_tumbler_is_deterministic_and_rolls_back` (6 seeds, a mid-match snapshot). The Godot headless
+tests were **not run** (no Godot in this worktree); no GDScript was changed.
 
-## Questions for the owner
+### Training-mode check (phase 2)
 
-1. **F.L.U.D.D.'s full charge**: SmashWiki's parameter table says 80 frames, ultimateframedata.com says 100. Can you record it (or
-   should I keep looking for a third source before phase 2)?
-2. **Up-special rises are root motion**: the reference publishes only multipliers (Super Jump Punch x1.1 / x1.08, the Longsword's
-   reference x1.1) and not the heights. For 1:1 travel I need a measured height and drift for Super Jump Punch, Cape's fall break, the
-   Longsword's and the Claws' up specials: footage you record (frame-stepped in training mode on a flat stage, from a standing start
-   and from a full hop), or may I fit them to a published recovery-distance figure if I find one (labelled [D])?
-3. **Angled forward tilt / smash threshold**: ours is 0.25 of the stick ([E]). Keep, or do you have a measured value?
-4. **Pummel FAF**: the Needles' pummel note says its FAF comes from a total that includes the pummel's hitlag; our hitlag also freezes
-   the move, so that pummel may be too long by its hitlag (not re-checked this run). The Embers' pummel uses the reference's animation
-   frames (FAF 7 + 1). Re-check the Needles' and Claws' pummels under the 1:1 rule?
-5. **Projectile pool**: F.L.U.D.D. alone can hold 3 of the 8 shared projectile slots. Raise `MAX_PROJECTILES` (a state-size change, a
-   net-fuzz run) when building phase 2?
-6. **Get-up attacks by facing**: the reference has face-up, face-down and trip get-up attacks; we have one slot. Add two slots now
-   (a small E17-like content change), or leave it until E17?
+Training, hitbox view (F3), Tumbler at stage centre:
+1. Up special next to an airborne opponent: seven hits, 11% (the first hit misses a grounded opponent at the body; the others reach).
+2. Neutral special on the flat stage: the ball dips, bounces two or three times along the stage and is gone after 70 frames.
+3. Side special against an opponent's projectile: it flies back; against a melee opponent: they end up facing away.
+4. Down special, wait about 1.7 seconds: the charge keeps itself; down special again: the pumps push the opponent without damage.
+5. Against the stage's side below the ledge, flick the stick away: a wall jump; the third in a row is visibly lower.
+
+### Limits (phase 2)
+
+* The rising punch's and the Longsword's rises are estimates (no published heights; open).
+* The Claws' looping hits angle from the facing, not from the direction of travel.
+* A push is an added velocity rather than the reference's decaying knockback velocity.
+* One frame without movement where a script switches move (`goto`): the Claws' up special at the end of its dash and on a bounce.
+* Partial intangibility (E19), get-up attack variants (E17), the throws' thrower intangibility: unchanged from phase 1.
+* `wall_jump_enable_x_speed` and `passive_wall_x_speed` (parameter file) are not modelled.
+
+### For the art agent (phase 2)
+
+New moves and slots (all fall back to the shared archetypes in `anim_library.gd`):
+
+| Move | Active | Pose |
+| --- | --- | --- |
+| Up special (Embers) | 3-18, rising until about 20, special fall from 38 | a jumping uppercut, fist up, spinning slightly on the rise |
+| Neutral special (Embers) | ball out on 17 | a forward palm push throwing a ball from the hand at chest height |
+| Side special (Embers) | swing 12-14, reflect 9-20 | a cape swept from behind across the front |
+| Down special (Embers) | wind-up 1-19, charge (ext1), shot (ext2) 1-43 | a water pack worn on the back, nozzle forward at chest height, aimed up or down |
+| Wall jump (tumbler, brawler, rogue) | | a kick off the wall, turned away from it |
+| Claws up special | wind-up hit 18-21, dash 26-32, ending in `ext0` (ground, hit 2-3) or `ext1` (air, hit 3-4), bounce `ext2` | a spinning flame dash along the aimed direction |
+| Longsword up special | 5-11 | the same rising slash; the special fall from 40 |
+
+The Claws' up special's last hit moved to its ending slots (`ext0` / `ext1`), so `godot-bridge`'s per-move hit windows show four strikes
+on the main move and one on the ending.
+
+### Questions for the owner
+
+1. **Rises**: no published height or recovery distance was found for the rising punch, the cape's lift or the Longsword's rise. Keep
+   the estimates until footage, or do you know a source?
+2. **A full pump charge**: keep itself at once (as built, like the other auto-charging specials), or hold the stance until special or
+   shield?
+3. **Reflected shots' vertical speed**: built as turned round for the cape (a shot comes back the way it came). The Claws' reflector still
+   turns only the horizontal speed: make both the same once confirmed?
+4. **Wall jump input**: built as a flick of the stick away from the wall (the reference's). Also allow the jump button against a
+   wall (an older game's option)?

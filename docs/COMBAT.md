@@ -130,7 +130,22 @@ stick plus attack, or the strong key (`I`) plus a direction.
 ### Up specials grab the ledge mid-move
 
 `Move::grabs_ledge`: while the up special is in progress (rising or not) the fighter grabs a ledge that is inside its grab
-box, so a recovery that reaches the ledge is forgiving. The regrab cooldown still applies.
+box, so a recovery that reaches the ledge is forgiving. The regrab cooldown still applies. Since sim 58 a move can instead give its
+own windows, in front and behind separately (`ledge_front_from`, `ledge_back_from`, the reference's).
+
+### Up specials on the reference's numbers (sim 58)
+
+The per-move recovery rules (`docs/CONTENT.md`, the move fields from `intangible_from` to `land_continue`) brought both up specials to
+their references (SmashWiki, 13.0.1; the full list is in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`):
+
+- **Longsword**: the clean hit on frame 5 (11%, 361 / 74 degrees, BK 70, KS 74), the blade 6-11 (7%, BK 20, KS 90, hitlag x0.9) winning
+  where both reach on 6; intangible 4-5 from the ground, 1-5 in the air; a 39-frame animation, then the special fall at x0.4 air speed
+  with 24 frames of landing lag; ledges in front from frame 8, none behind during the move; x1.1 rise from the air, 0.66 of the
+  momentum kept, angled up to 20 degrees by the stick, gravity 0.06 after the rise. The rise itself stays the earlier estimate.
+- **Claws**: the wind-up hit 18-21 (4%, 93 degrees, BK 50, KS 10, set weight), the dash's loop 27-32 every 2 frames (2.5%; 40 degrees on
+  grounded targets, the autolink angle on airborne ones), the last hit on the ground 36-37 (5%, KS 148) or in the air 37-38 (6%,
+  KS 136); the dash from the published parameters (3.8 a frame for 7 frames, aimed on frame 16), the ground bounce, ledges behind from
+  26 and in front from 27, the special fall at x0.65 with 36 frames of landing lag; FAF 67 on the ground.
 
 ## Weapon visuals
 
@@ -414,9 +429,9 @@ normally. The computer techs these sometimes. Test: `launch_reference.rs`.
   reference's to the hundredth; the air times differ between hop types exactly as the reference's do (short hop to full hop 14 frames
   for both, a fast fall saving 13 and 17).
 - **The special fall** after an up special (both leave the fighter helpless, as in the reference) drifts at half the fighter's air
-  speed and acceleration (`helpless_drift`, an estimate: the reference varies it per move and does not publish it). The up specials'
-  rise and travel are still estimates (none of the sources give them): the sword's rises about 1.3 full hops, the claws' is a short
-  straight flight.
+  speed and acceleration (`helpless_drift`, an estimate) unless the move sets its own (`fall_drift`, `fall_landing_lag`: since sim 58
+  every up special does, from the reference). The sword's rise is still an estimate (about 1.3 full hops); the claws' flight is built
+  from the reference's published dash parameters.
 - **Reversing an up special** (sim v42): holding up and back as it starts, or pushing back in its first 3 frames
   (`special_turn_window`, an estimate), turns it around, so it comes out the other way. (The claws' flight also aims by the stick at the
   end of its wind-up, as before.)
