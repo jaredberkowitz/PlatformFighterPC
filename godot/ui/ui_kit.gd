@@ -172,6 +172,8 @@ class Stage extends Control:
 	## `add_fighter` puts a preview (preview.gd, made without its floor) in, framed so its feet are on the platform.
 	var mask: Control
 	var scene: Control
+	## The frame's inner rim (a player's colour on the results screen; pale by default).
+	var rim := Color(1, 1, 1, 0.5)
 
 	func _init(sz: Vector2, mood := 0.25, seed := 31) -> void:
 		size = sz
@@ -201,7 +203,7 @@ class Stage extends Control:
 		mask.add_child(preview)
 
 	func _draw() -> void:
-		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), Art.INDIGO, 61, 20.0, 5.0, Color(1, 1, 1, 0.5))
+		Art.card(self, Rect2(Vector2.ZERO, size - Vector2(10, 12)), Art.INDIGO, 61, 20.0, 5.0, rim)
 
 
 ## A wipe that opens a new screen: two slanted bands slide away. `UI.reveal(screen)` from a screen's `_ready`.
