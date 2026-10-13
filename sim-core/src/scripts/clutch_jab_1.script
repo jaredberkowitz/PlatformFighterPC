@@ -1,0 +1,5 @@
+// Clutch jab 1. Attack held (no new press) carries on into jab 2 (slot 17): from frame 6 once jab 1 has hit, from frame 16 if it has
+// not (the reference's two continuable rows: "held on hit" and "held without hitting"). A new press carries on from frame 6 through
+// the move's `next_from`, not this script.
+if attack && hit == 1 && frame >= 5 { goto(17); }
+if attack && frame == 15 { goto(17); }

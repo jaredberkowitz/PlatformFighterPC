@@ -1313,6 +1313,16 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
+    /// Whether projectile slot `i` (the order of `projectile_slots`) has burst: it stopped on a fighter or a wall and is running its
+    /// burst's hits (read only, for the view's burst effect).
+    #[func]
+    fn projectile_bursting(&self, i: i32) -> bool {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| self.state.projectiles.get(i))
+            .is_some_and(|p| p.active && p.bursting)
+    }
+
     // ---- Network play ----
     //
     // Call one of the `net_host*` / `net_join*` functions, then `net_update` once per frame with the local

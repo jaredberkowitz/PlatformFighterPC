@@ -152,6 +152,30 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (7, DAir, all(P)),
         (7, LedgeAttack, all(F)),
         (7, GetUpAttack, all(P)),
+        // Clutch (weapon 8, phase 1, sim 89: ssbwiki.com raw tables, 13.0.1): the jabs, forward tilt, dash attack, forward smash,
+        // forward air and ledge attack forward (3); the up and down tilts, up smash, neutral, up and down airs (and the down air's
+        // landing hit, ext3) and the get-up attack by position (0); the back air backward (4); the down smash forward then backward.
+        (8, Jab, all(F)),
+        (8, Jab2, all(F)),
+        (8, FTilt, all(F)),
+        (8, UTilt, all(P)),
+        (8, DTilt, all(P)),
+        (8, DashAttack, all(F)),
+        (8, FSmash, all(F)),
+        (8, USmash, all(P)),
+        (8, DSmash, {
+            let mut v = vec![F; 6];
+            v.extend([B; 6]);
+            v
+        }),
+        (8, NAir, all(P)),
+        (8, FAir, all(F)),
+        (8, BAir, all(B)),
+        (8, UAir, all(P)),
+        (8, DAir, all(P)),
+        (8, Ext3, all(P)),
+        (8, LedgeAttack, all(F)),
+        (8, GetUpAttack, all(P)),
     ]
 }
 
@@ -177,7 +201,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 108);
+    assert_eq!(checked, 125);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {

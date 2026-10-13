@@ -15,7 +15,7 @@ Tools (`cargo run -p tools -- ...`, or `target/release/pftool`):
 | `content-check <file.pfc>` | Load and validate; prints a summary or every problem with line numbers |
 | `content-pack <in.pfc> <out.pfc>` | Validate, then write canonical text with a fresh hash and this build's sim version |
 | `content-export <out.pfc> [name]` | Write the built-in roster (this is how `content/base.pfc` was made) |
-| any command with env `PF_CONTENT=<file>` | Run the fuzzers, `net-host`/`net-join`, replays against that bundle instead |
+| any command with env `PF_CONTENT=<file>` | Run the fuzzers, `net-host`/`net-join`, replays against that bundle instead (the fuzzers draw their fighters from every class the bundle has a weapon for, built-in or made, and print a per-class count) |
 
 ## Exit criterion: data plays identically to code
 
@@ -49,6 +49,12 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   labels only: they are not part of the content hash.
 * **Fighters** need every value in `FighterParams` (including `hitbox_scale`, the size of the fighter's attacks: 1 is the moveset as written) (`sim-core/src/content.rs`), or `inherit other_fighter` to copy
   an earlier fighter and override a few. `weapon <name>` picks the moveset.
+* **A fighter's air jump** (sim 89, E33; optional, no schema change): `air_jump_armor { start end [kind] [threshold] [subtract]
+  [min_kb] }` (the same fields as a move's `armor`, below) is armor during the midair jump: frames counted from the jump (0 is the
+  jump's own frame, as a move's are), lasting only while the fighter stays in the jump (an attack, a special, an air dodge, a wall
+  jump, a landing, a ledge or a launch ends it); `air_jump_turns true` turns the fighter round when the stick is held back as it
+  jumps. Both are inherited by `inherit` and default to none / false. The bounder's: `start 0 end 43 kind knockback threshold 120
+  subtract true min_kb 60` (the reference's double-jump armor, frames 1-44).
 * **A fighter's gauge** (schema 6, sim 85): an optional `gauge { max per_dealt per_taken mode_frames [walk] [dash] [run] [traction]
   [air_speed] [air_accel] [air_friction] [gravity] [fall] }` block inside the fighter (`sim_core::content::Gauge`; the game calls the
   champion's the **Boost** gauge, `content::GAUGE_NAME`). It fills by `per_dealt` units a percent of damage the fighter's hits add to
@@ -94,7 +100,7 @@ A move block (omitted fields take the default shown):
 | `turn_frame`, `turn_stick` | the move's own turnaround: on move frame `turn_frame` the stick held backward past `turn_stick` percent turns the fighter round (in the air its horizontal speed too); it replaces the shared up-special turn window, the up-and-back start and the B-reverse window for this move | none |
 | `lands_from` | touching down before this move frame does not end the move (it lands and carries on) | 0 |
 | `part_intangible { start end [low] [middle] [high] [limb] }` | any number: on move frames `start..=end` the named hurtbox circles cannot be hit (`true` each; the body's low, middle and high circles, and `limb`, the arm or leg an attack throws out), while the rest of the body can: the reference's per-limb intangibility (a kicking leg, a headbutting head) | none |
-| `armor { start end [kind] [threshold] }` | at most one: on move frames `start..=end` a hit deals its damage and hitlag but does not knock the fighter out of the move. `kind` `damage` (default: a hit of at most `threshold` percent, compared before the one-on-one multiplier, the reference's damage-based armor) or `super` (every hit); `knockback` (the reference's knockback-subtracting armor) is reserved and refused until it is built. Grabs ignore armor; a push still pushes | none |
+| `armor { start end [kind] [threshold] [subtract] [min_kb] }` | at most one: on move frames `start..=end` a hit deals its damage and hitlag but does not knock the fighter out of the move. `kind` `damage` (default: a hit of at most `threshold` percent, compared before the one-on-one multiplier, the reference's damage-based armor), `super` (every hit) or `knockback` (sim 89: a hit of at most `threshold` units of knockback, rage, staleness and set knockback included, before crouch cancelling: the reference's knockback-based armor). `subtract true` (knockback kind only): a hit that breaks it launches with its knockback less `threshold`, at least `min_kb` (only with `subtract`). Damage and knockback armor need a `threshold` above 0. Grabs ignore armor; a push still pushes | none |
 | `charge_at` | smash attack hold frame | none |
 | `next`, `next_window`, `next_from` | jab chain: move to continue into, and the press window; with `next_from` (a move frame) a press from that frame on carries on at once (the reference's continuable window), otherwise only at the end | none; `next_from` 255 |
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |
@@ -279,6 +285,8 @@ Line numbers inside a script count from its first non-blank line.
   Still schema 6 (sim v86, before schema 6 was released): hitboxes may have `trip` and `rebounds`, the ruleset `trip_lag`,
   `trip_max` and `trip_invuln`; every one defaults to the old behaviour. (If schema 6 has shipped by the time this merges, these
   belong in a schema 7 with a migration that rewrites nothing.)
+  Still schema 6 (sim v87): a projectile may have a `burst { ... }` block (E3e), a move `motion_drift`, and a hitbox angle may be 366
+  (the vortex, E28); every one defaults to the old behaviour, so an older file loads unchanged (the same note about schema 7 applies).
   Still schema 6 (sim v90, the hauler's phase 2): the ruleset's `trip_base` (7) and `trip_base_kb` (55), the
   reference's base trip chance (owner decision 50): any hit of more than `trip_base_kb` knockback that would not lift a grounded
   fighter trips it `trip_base` percent of the time, and a hit with its own `trip` adds `trip_base` to it (a 40% hit trips 47% of the

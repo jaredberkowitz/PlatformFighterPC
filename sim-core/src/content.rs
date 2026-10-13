@@ -219,6 +219,14 @@ pub struct FighterParams {
     pub weight: Fx,
     /// The body's gauge and its powered mode (see [`Gauge`]); [`Gauge::NONE`] for a body without one.
     pub gauge: Gauge,
+    /// Armor on the body's midair jump (sim 89, E33; `None` for none). Its window counts the frames of the jump (1 is the jump's own
+    /// frame: `Fighter::air_jump_frame`), and it lasts only while the fighter stays in the jump: an attack, a special, an air dodge, a
+    /// landing, a ledge or a launch ends it. Read in `combat::apply_hit` as a move's armor is; grabs ignore it. The reference's
+    /// double-jump armor is the subtractive knockback kind (`Armor::subtract`).
+    pub air_jump_armor: Option<crate::moves::Armor>,
+    /// The midair jump turns the fighter round when the stick is held back (past the deadzone) as it jumps: the reference's
+    /// double-jump turnaround, a trait of a few bodies. False: the facing stays.
+    pub air_jump_turns: bool,
     /// Index into `Content::weapons`.
     pub weapon: u8,
 }
@@ -597,6 +605,8 @@ impl FighterParams {
         let gu = FighterParams::gu;
         FighterParams {
             gauge: Gauge::NONE,
+            air_jump_armor: None,
+            air_jump_turns: false,
             walk_speed: gu(1400),
             run_speed: gu(1800),
             dash_speed: gu(2200),
@@ -1240,6 +1250,91 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A floaty heavyweight with a towering second jump: the "bounder" body of the Clutch moveset. The reference character's attributes
+    /// (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the ninth moveset's `REFERENCE_DATA.md` in
+    /// `docs/movesets/`): weight 104, walk 1.208, initial dash 1.98, run 2.046, traction 0.095, air speed 1.344, air acceleration 0.03 +
+    /// 0.068, air friction 0.005, gravity 0.08, fall 1.29 (fast 2.064), full hop 36.09, short hop 14.43, **double jump 51.56**, ledge jump
+    /// 38.045 (drift 0.6, the shared value). On the ground: walk acceleration 0.105 + 0.168, run acceleration 0.044 + 0.1056, an initial
+    /// dash of 14 frames, a heavy landing of 7 (6 of lag: the parameter file's `landing_heavy_frame`). Air dodges 58 (neutral,
+    /// intangible 3-30) and 79 / 107 / 130 (directional down / sideways / up, intangible 3-21); rolls 30 forward (intangible 4-15) and 35
+    /// back, spot dodge 26 (3-17); the ledge options' intangibility cut to 82% and 50% on the second and third grab. No wall jump; the
+    /// wall-tech jump 1.3 away, 2.3 up (the shared one). The shared body size [E].
+    ///
+    /// **The double jump** (E33): an ordinary jump to 51.56 (not a delayed one in 13.0.1), turning round with the stick held back, and
+    /// **subtractive knockback armor on its frames 1-44**: a hit of at most 120 units of knockback only damages and freezes; a stronger
+    /// one launches with its knockback less 120, at least 60 (each hit compared on its own: owner decision 47). An attack, a special or
+    /// an air dodge ends it; grabs ignore it.
+    pub fn bounder() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(80);
+        let (burst, arc) = Self::full_hop(gravity, su(36090));
+        FighterParams {
+            walk_speed: gu(1208),
+            run_speed: gu(2046),
+            dash_speed: gu(1980),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(168),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(10560),
+            dash_frames: 14,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 7,
+            heavy_landing_lag: 6,
+            air_speed: su(1344),
+            air_accel: su(30),
+            air_accel_stick: su(68),
+            air_friction: su(5),
+            gravity,
+            max_fall_speed: su(1290),
+            fast_fall_speed: su(2064),
+            air_dodge_frames: 58,
+            air_dodge_dir_down_frames: 79,
+            air_dodge_dir_side_frames: 107,
+            air_dodge_dir_up_frames: 130,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.095 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(190),
+            dash_attack_friction: gu(95),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(14430)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(51560)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(38045)),
+            weight: Fx::from_int(104),
+            weapon: 8,
+            // Dodges (the reference's): a forward roll of 30 frames, a backward one of 35, intangible 4-15 (the back roll's 5-16 is
+            // not separate here [D]); a spot dodge of 26, intangible 3-17 (the shared windows).
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            ledge_option_decay_2: 82,
+            // No wall jump; the reference's wall-tech jump (1.3 away, 2.3 up) is the shared one.
+            wall_jump: 0,
+            air_jump_armor: Some(Self::bounder_air_jump_armor()),
+            air_jump_turns: true,
+            ..FighterParams::base()
+        }
+    }
+
+    /// The bounder's double-jump armor (ssbwiki.com's list of armored attacks and the move notes, dragdown.wiki, 13.0.1): frames 1-44
+    /// of the jump (move frames 0-43), knockback-based, 120 units, subtractive, a breaking hit launching with at least 60 units [R].
+    pub fn bounder_air_jump_armor() -> crate::moves::Armor {
+        crate::moves::Armor {
+            start: 0,
+            end: 43,
+            kind: crate::moves::ARMOR_KNOCKBACK,
+            threshold: Fx::from_int(120),
+            subtract: true,
+            min_kb: Fx::from_int(60),
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1249,6 +1344,19 @@ impl StateHash for FighterParams {
             h.write_u32(v);
         }
         self.gauge.hash_into(h);
+        match &self.air_jump_armor {
+            Some(a) => {
+                h.write_bool(true);
+                h.write_u8(a.start);
+                h.write_u8(a.end);
+                h.write_u8(a.kind);
+                a.threshold.hash_into(h);
+                h.write_bool(a.subtract);
+                a.min_kb.hash_into(h);
+            }
+            None => h.write_bool(false),
+        }
+        h.write_bool(self.air_jump_turns);
     }
 }
 
@@ -1820,7 +1928,8 @@ impl Content {
     }
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
-    /// tall caster, a champion with a greatsword and a huge hauler with bracers) on a main stage with platforms.
+    /// tall caster, a champion with a greatsword, a huge hauler with bracers and a
+    /// floaty, high-jumping bounder with a long tongue) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1832,6 +1941,7 @@ impl Content {
                 FighterParams::seer(),
                 FighterParams::champion(),
                 FighterParams::hauler(),
+                FighterParams::bounder(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -1842,6 +1952,7 @@ impl Content {
                 crate::moves::staff(),
                 crate::moves::greatsword(),
                 crate::moves::bracers(),
+                crate::moves::clutch(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1856,6 +1967,7 @@ impl Content {
                     "seer".to_string(),
                     "champion".to_string(),
                     "hauler".to_string(),
+                    "bounder".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -1866,6 +1978,7 @@ impl Content {
                     "staff".to_string(),
                     "greatsword".to_string(),
                     "bracers".to_string(),
+                    "clutch".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },
@@ -1902,6 +2015,41 @@ mod tests {
         let mut c = base.clone();
         c.fighters[0].crouch_height += Fx::from_raw(1);
         assert_ne!(h, c.hash());
+
+        // The air jump's armor and turnaround (E33), every field of the armor.
+        let mut c = base.clone();
+        c.fighters[0].air_jump_turns = true;
+        assert_ne!(h, c.hash());
+        let armor = FighterParams::bounder_air_jump_armor();
+        let mut with = base.clone();
+        with.fighters[0].air_jump_armor = Some(armor);
+        assert_ne!(h, with.hash());
+        let hw = with.hash();
+        for change in [
+            |a: &mut crate::moves::Armor| a.start += 1,
+            |a: &mut crate::moves::Armor| a.end += 1,
+            |a: &mut crate::moves::Armor| a.kind = crate::moves::ARMOR_SUPER,
+            |a: &mut crate::moves::Armor| a.threshold += Fx::from_raw(1),
+            |a: &mut crate::moves::Armor| a.subtract = false,
+            |a: &mut crate::moves::Armor| a.min_kb += Fx::from_raw(1),
+        ] {
+            let mut c = with.clone();
+            let mut a = armor;
+            change(&mut a);
+            c.fighters[0].air_jump_armor = Some(a);
+            assert_ne!(hw, c.hash());
+        }
+        // A move armor's new fields too.
+        let mut c = with.clone();
+        let gauntlet_armor = c.weapons[4]
+            .moves
+            .iter()
+            .position(|m| m.armor.is_some())
+            .expect("a move with armor");
+        if let Some(a) = c.weapons[4].moves[gauntlet_armor].armor.as_mut() {
+            a.min_kb += Fx::from_raw(1);
+        }
+        assert_ne!(hw, c.hash());
 
         for change in [
             |r: &mut Ruleset| r.lsi_up += Fx::from_raw(1),

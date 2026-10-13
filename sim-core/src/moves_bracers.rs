@@ -102,6 +102,18 @@ pub const PUNCH_FULL: MoveId = MoveId::Ext2;
 pub const PUNCH_FULL_AIR: MoveId = MoveId::Ext3;
 pub const PUNCH_CANCEL: MoveId = MoveId::Ext4;
 
+/// Super armor (every hit withstood: the reference's) on move frames `start..=end`.
+fn super_armor(start: u8, end: u8) -> Option<Armor> {
+    Some(Armor {
+        start,
+        end,
+        kind: ARMOR_SUPER,
+        threshold: Fx::ZERO,
+        subtract: false,
+        min_kb: Fx::ZERO,
+    })
+}
+
 fn specials(w: &mut Weapon) {
     // The claws' specials and their follow-up slots go: every special slot is the reference's or empty.
     for id in MoveId::all() {
@@ -197,12 +209,7 @@ fn punch(w: &mut Weapon) {
             h.angle_type = ANGLE_BY_POSITION;
             h.rebounds = false;
         });
-        mv.armor = Some(Armor {
-            start: armor_from - 2,
-            end: 18,
-            kind: ARMOR_SUPER,
-            threshold: Fx::ZERO,
-        });
+        mv.armor = super_armor(armor_from - 2, 18);
         mv
     };
     let mut ground = full([280, 280, 280, 180], 35, 73, 9);

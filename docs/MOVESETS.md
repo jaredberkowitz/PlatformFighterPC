@@ -111,6 +111,15 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   normal on the reference's published data (`docs/movesets/donkey_kong/`, code in `sim-core/src/moves_bracers.rs`), with E20 trips and
   E3g no-rebound hits. The specials are the claws' until phase 2; the forward throw is a plain placeholder until the carry (phase 3).
 
+### 9. Clutch bounder (the reference floaty heavyweight's role)
+- A floaty heavyweight (104, the fastest air speed) with a towering second jump that shrugs off blows (it turns round with the stick
+  held back): quick kicks, a tail, a headbutt forward smash with an intangible head, a bicycle-kick up smash, a flurry of twelve
+  down-air kicks, a set-weight back air, and a long, slow tongue grab; (phases 2 and 3) lobbed shells that lift it, a crashing drop
+  that scatters stars, a tongue that seals foes in a shell, and a rolling shell.
+- **As built (phase 1, sim 89):** the body (`FighterParams::bounder`, no wall jump, heavy landing 6, the double jump's subtractive
+  knockback armor on its frames 1-44 and its turnaround: E33 and the E1 knockback kind) and every normal on the reference's published
+  data (`docs/movesets/yoshi/`, code in `sim-core/src/moves_clutch.rs`). The specials are the claws' until phase 2.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.
