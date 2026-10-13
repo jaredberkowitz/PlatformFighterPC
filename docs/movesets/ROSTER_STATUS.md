@@ -111,6 +111,13 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Palutena
 
+* **Status (2026-10-13)**: research done, nothing built: `docs/movesets/palutena/REFERENCE_DATA.md` (the full kit at 13.0.1,
+  labelled, with conflicts and 13 gaps) and `PROJECT_AUDIT.md` (what exists; the exact shape of E3a, the E16 target lock and `flick`,
+  two small E11 additions; new E10c counter / reflector routing, E25 a reflector left in the stage, E26 angle types, E27 negative
+  hitstun; 4 `ext` slots). **Corrections to the notes below from that research**: nothing in the kit trips (the shots can *lock*, so
+  E20 is not needed); the Reflect Barrier is **stationary** in 13.0.1 (it moved in the earlier game) and outlives the reflection's
+  FAF; the counter and the reflection are **exclusive** (melee is countered, projectiles reflected, never both); Warp's edge-cancel
+  already works in the engine.
 * **Kit mechanics**: Autoreticle (a reticle on the nearest opponent in range; three shots of 3.5% on frames 25 / 31 / 37 toward it; the
   shots can trip; a fall break in the air); Explosive Flame (placed about four body lengths ahead, 7.5 units with a smash input; six 1.5%
   loop hits and a 5.5% final with 1.5x hitlag; FAF 72); Warp (stick-aimed teleport, intangible 16-32, falls faster while warping, no hitbox,
@@ -128,7 +135,8 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
   * **Counter + Reflect Barrier** on one move: the counter catches melee, the barrier reflects projectiles, both at once. Exists in parts
     (`Move::counter` and `Move::reflector` are separate fields; check that one move can carry both and that the counter does not also
     catch the projectiles the barrier should reflect).
-* **Gaps**: E3a, E11, E16, E20; verify counter/reflector on one move.
+* **Gaps** (from the audit): E3a, E3c (projectiles), E10c, E11 (two fields), E16 (`lock`, `flick`, Falcon's `presses`), E19, E24,
+  E25, E26, E27. Counter and reflector can sit on one move as data, but need E10c and E25 to behave as the reference.
 * **Cost**: moderate.
 
 ### Yoshi
@@ -237,8 +245,12 @@ architectural changes (E4, E7, E9, E13, E17) are explained to the owner before t
 | E16 | Script surface | registers: `grab` button, nearest opponent (fighter scripts), once-per-airtime flags, "was hit during this move", "hit a shield"; more fighter variables than 4 | Mario, Yoshi, Palutena, Cloud, Link |
 | E17 | More move slots | **built (sim 66, schema 5)**: sixteen `ext` slots, `ext10` to `ext15` numbered 39 to 44 after `pivot_grab` | Falcon (rapid jab now), Cloud, DK, probably Link |
 | E19 | Partial intangibility | **built (sim 66)**: `Move::part_intangible` windows naming hurtbox circles (low, middle, high, limb) | Falcon (up tilt, up smash), DK, Yoshi, Needles (up smash), Embers (up smash head) |
-| E20 | Trip | a hitbox chance or flag that trips a grounded target (deterministic: from the sim's RNG) | Palutena, Longsword (down tilt) |
 | E24 | Per-hitbox shieldstun | **built (sim 66)**: `Hitbox::shieldstun` percent | Falcon (rapid jab x9, dash attack x1.5) |
+| E20 | Trip | a hitbox chance or flag that trips a grounded target (deterministic: from the sim's RNG) | Longsword (down tilt), Falcon (forward air late hit); not Palutena (research 2026-10-13) |
+| E10c | Counter / reflector routing | `Counter::melee_only`, `Counter::max_damage`, `Reflector::detect_then` (a projectile detector that starts another move) | Palutena |
+| E25 | Reflector left in the stage | a projectile that reflects other owners' shots (`ProjectileSpawn::reflects`), a tall reflector shape | Palutena |
+| E26 | Angle types | `Hitbox::angle_type`: by box side (today), forward, backward, by position (melee and projectiles) | Palutena; re-check existing back airs |
+| E27 | Negative hitstun modifier | signed `Hitbox::hitstun_add` | Palutena |
 
 (E18 is not used: Warp's stage collision is research, not yet an extension.)
 
