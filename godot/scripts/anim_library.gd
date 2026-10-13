@@ -163,11 +163,23 @@ static func attack_clip(cls: int, move: String, anim: AnimationPlayer = null) ->
 
 
 ## Clips added to the library later, and what a rig built before them plays instead (the older blob rigs have none of them).
-const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll", "air_dodge": "roll", "getup": "knockdown"}
+const STAND_INS := {"jumpsquat": "crouch", "land": "crouch", "spot_dodge": "roll", "air_dodge": "roll", "getup": "knockdown",
+	"tech": "crouch", "run_stop": "skid", "idle_look": "idle", "platform_drop": "fall", "hurt_heavy": "hurt", "hurt_up": "hurt"}
+
+## Clips chosen in fighter_view.gd `_choose_clip` from more than the state (a tech is an intangible landing, a run stop a sliding idle, a
+## platform drop the first frames of a fall through a platform, heavy hitstun a fast launch that does not tumble, a fidget a long idle).
+const POLISH_CLIPS := ["tech", "run_stop", "idle_look", "platform_drop", "hurt_heavy", "hurt_up"]
 
 ## States whose clip is played by progress through the state's own length (the bridge's `fighter_dodge`), so the pose matches the
 ## simulation's frames whatever a fighter's dodge lengths are.
 const BY_PROGRESS := ["Roll", "SpotDodge", "AirDodge", "GetUp"]
+
+
+## `clip`, or its stand-in on a rig that lacks it.
+static func or_stand_in(clip: String, anim: AnimationPlayer) -> String:
+	if anim != null and not anim.has_animation(clip):
+		return STAND_INS.get(clip, clip)
+	return clip
 
 
 ## The shared clip for a simulation state, or "" for a state chosen with more context; with `anim`, a clip that rig lacks becomes its
@@ -185,7 +197,7 @@ static func problems(anim: AnimationPlayer) -> Array[String]:
 	var named := {}
 	for c in STATE_CLIPS.values():
 		named[c] = "state"
-	for c in ["idle", "walk", "run", "dash", "skid", "jump", "fall", "air_jump", "ledge_climb", "attack_low"]:
+	for c in ["idle", "walk", "run", "dash", "skid", "jump", "fall", "air_jump", "ledge_climb", "attack_low"] + POLISH_CLIPS:
 		named[c] = "state"
 	for c in SHARED_MOVES.values():
 		named[c] = "shared move"

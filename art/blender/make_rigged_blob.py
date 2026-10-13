@@ -614,12 +614,14 @@ BODY_MOVES = {
 # legs never needed any of it.
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
-    if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash"):
+    if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
+                "hurt_heavy", "hurt_up", "platform_drop"):
         return False
     return not name.endswith("air")
 
 
-STANDING = {"idle", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash"}
+STANDING = {"idle", "crouch", "jumpsquat", "land", "spot_dodge", "shield", "skid", "grab", "throw", "blaster", "sword_usmash", "sword_dsmash",
+            "tech", "run_stop", "idle_look"}
 
 
 def _ankle(rig, side):
@@ -2358,6 +2360,146 @@ def main() -> None:
                 pose(rig, "shin." + side, fwd=-98.0)
 
         clip(rig, "getup", 30, {0: flat, 9: push_up, 18: rise, 30: idle(0.0)})
+
+        # Motion polish phase 3 (docs/MOTION_POLISH_PLAN.md): the clips the inventory was missing.
+
+        # A tech in place (played by progress over its short landing lag): slapped down low with both hands to the floor, then popped
+        # straight up into the stance, a little over-stretched on the way.
+        def tech_slap(rig):
+            pose(rig, "hips", lift=-0.22)
+            pose(rig, "spine", fwd=34.0)
+            pose(rig, "head", fwd=-22.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=70.0, out=16.0)
+                pose(rig, "shin." + side, fwd=-104.0)
+                pose(rig, "foot." + side, fwd=30.0)
+                pose(rig, "armU." + side, fwd=22.0, out=46.0)
+                pose(rig, "armL." + side, fwd=8.0)
+
+        def tech_pop(rig):
+            pose(rig, "hips", lift=0.02)
+            pose(rig, "spine", fwd=-6.0)
+            pose(rig, "head", fwd=-2.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=8.0, out=10.0)
+                pose(rig, "shin." + side, fwd=-10.0)
+                pose(rig, "armU." + side, fwd=40.0, out=58.0)
+                pose(rig, "armL." + side, fwd=50.0)
+
+        clip(rig, "tech", 12, {0: tech_slap, 3: amped(tech_slap, 1.06), 7: tech_pop, 12: idle(0.0)})
+
+        # Dropping through a platform (by progress over the first frames of the drop): a hop down out of a crouch, tipping forward, the
+        # knees tucked and the arms thrown up as the body falls away, then opening into the fall.
+        def drop_tip(rig):
+            pose(rig, "spine", fwd=26.0)
+            pose(rig, "head", fwd=-14.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=60.0, out=10.0)
+                pose(rig, "shin." + side, fwd=-92.0)
+                pose(rig, "foot." + side, fwd=24.0)
+                pose(rig, "armU." + side, fwd=20.0, out=30.0)
+                pose(rig, "armL." + side, fwd=30.0)
+
+        def drop_away(rig):
+            pose(rig, "spine", fwd=8.0)
+            pose(rig, "head", fwd=-6.0)
+            for side, sign in (("L", 1.0), ("R", -1.0)):
+                pose(rig, "thigh." + side, fwd=34.0 + 10.0 * sign, out=12.0)
+                pose(rig, "shin." + side, fwd=-70.0)
+                pose(rig, "armU." + side, fwd=96.0, out=58.0)
+                pose(rig, "armL." + side, fwd=20.0)
+
+        clip(rig, "platform_drop", 20, {0: drop_tip, 8: drop_away, 20: fall(0.0)})
+
+        # A run stopping: braced and leaning back against the slide, the front heel dug in and the arms flung back, a rebound forward
+        # over the feet, then settling into the stance.
+        def stop_brace(rig):
+            pose(rig, "hips", lift=-0.12)
+            pose(rig, "spine", fwd=-18.0)
+            pose(rig, "head", fwd=10.0)
+            pose(rig, "thigh.L", fwd=44.0, out=8.0)
+            pose(rig, "shin.L", fwd=-8.0)
+            pose(rig, "foot.L", fwd=-18.0)
+            pose(rig, "thigh.R", fwd=-16.0, out=8.0)
+            pose(rig, "shin.R", fwd=-62.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=-46.0, out=56.0)
+                pose(rig, "armL." + side, fwd=24.0)
+
+        def stop_rebound(rig):
+            pose(rig, "hips", lift=-0.08)
+            pose(rig, "spine", fwd=20.0)
+            pose(rig, "head", fwd=-12.0)
+            for side in "LR":
+                pose(rig, "thigh." + side, fwd=34.0, out=12.0)
+                pose(rig, "shin." + side, fwd=-50.0)
+                pose(rig, "armU." + side, fwd=46.0, out=34.0)
+                pose(rig, "armL." + side, fwd=60.0)
+
+        clip(rig, "run_stop", 20, {0: stop_brace, 4: amped(stop_brace, 1.08), 11: stop_rebound, 20: idle(0.0)})
+
+        # Hitstun from a hit strong enough to send the fighter flying but not to tumble: folded round the blow (the game turns it to
+        # face the hit), the arms and legs left trailing toward the hitter, the head pitched down over it but still showing the face.
+        def heavy_fold(rig):
+            pose(rig, "spine", fwd=30.0, twist=-4.0)
+            pose(rig, "head", fwd=-8.0, twist=4.0)
+            pose(rig, "armU.L", fwd=84.0, out=40.0)
+            pose(rig, "armL.L", fwd=12.0)
+            pose(rig, "armU.R", fwd=62.0, out=62.0)
+            pose(rig, "armL.R", fwd=20.0)
+            pose(rig, "thigh.L", fwd=52.0, out=14.0)
+            pose(rig, "shin.L", fwd=-30.0)
+            pose(rig, "thigh.R", fwd=30.0, out=16.0)
+            pose(rig, "shin.R", fwd=-56.0)
+
+        def heavy_drift(rig):
+            pose(rig, "spine", fwd=18.0, twist=-2.0)
+            pose(rig, "head", fwd=-4.0, twist=2.0)
+            pose(rig, "armU.L", fwd=60.0, out=56.0)
+            pose(rig, "armL.L", fwd=24.0)
+            pose(rig, "armU.R", fwd=40.0, out=70.0)
+            pose(rig, "armL.R", fwd=26.0)
+            pose(rig, "thigh.L", fwd=36.0, out=14.0)
+            pose(rig, "shin.L", fwd=-44.0)
+            pose(rig, "thigh.R", fwd=14.0, out=16.0)
+            pose(rig, "shin.R", fwd=-60.0)
+
+        clip(rig, "hurt_heavy", 24, {0: heavy_fold, 4: amped(heavy_fold, 1.06), 24: heavy_drift})
+
+        # The same, sent upward: the chest arched up off the blow, the arms and legs flung down and out below the body, the face up.
+        def up_arch(rig):
+            pose(rig, "spine", fwd=-26.0)
+            pose(rig, "head", fwd=4.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=-24.0, out=40.0)
+                pose(rig, "armL." + side, fwd=14.0)
+                pose(rig, "thigh." + side, fwd=-18.0, out=18.0)
+                pose(rig, "shin." + side, fwd=-38.0)
+                pose(rig, "foot." + side, fwd=-20.0)
+
+        def up_drift(rig):
+            pose(rig, "spine", fwd=-14.0)
+            pose(rig, "head", fwd=2.0)
+            for side in "LR":
+                pose(rig, "armU." + side, fwd=4.0, out=58.0)
+                pose(rig, "armL." + side, fwd=26.0)
+                pose(rig, "thigh." + side, fwd=6.0, out=16.0)
+                pose(rig, "shin." + side, fwd=-46.0)
+
+        clip(rig, "hurt_up", 24, {0: up_arch, 4: amped(up_arch, 1.06), 24: up_drift})
+
+        # A rare fidget after a long stillness (the game plays it now and then in a long idle): from the stance, a glance off toward the
+        # camera side and back, the weight shuffled from foot to foot, a roll of the shoulders, back into the stance.
+        def glance(turn, shift):
+            def f(rig):
+                idle(0.0)(rig)
+                pose(rig, "hips", lift=-0.06, twist=-6.0 + 4.0 * shift)
+                pose(rig, "spine", fwd=8.0, twist=8.0 + 10.0 * turn)
+                pose(rig, "head", fwd=-4.0, twist=-4.0 + 26.0 * turn)
+            return f
+
+        clip(rig, "idle_look", 72, {0: idle(0.0), 12: glance(1.0, 0.5), 30: glance(1.0, 1.0), 42: glance(-0.6, 0.0),
+                                    60: glance(-0.6, -0.5), 72: idle(0.0)})
     else:
         clip(rig, "knockdown", 8, {0: down_pose, 8: down_pose})
 

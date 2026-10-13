@@ -14,7 +14,7 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
   `godot/models/base_rig.glb` (`--body`); `blob_rig.glb` and `blob_rig_long.glb` are the older built bodies (`--blob`). The model is read
   once and copied per fighter, so **every fighter shares one clip library**; nothing is duplicated per moveset.
 - **Rebuild**: `"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body
-  art/models/base_body/base_body.glb --joints art/models/base_body/joints.json` (about 20 s; prints the clip list).
+  art/models/base_body/base_body.glb --joints art/models/base_body/joints.json --neck-drop 0` (about 20 s; prints the clip list).
 - **Mapping**: `scripts/anim_library.gd` (the library): shared state clips (`STATE_CLIPS`), shared attack archetypes by move name
   (`SHARED_MOVES`), and per-class overrides (`CLASS_MOVES`) for moves whose movement genuinely differs. A missing mapping or a clip missing
   from the rig warns once and plays the fallback; clips added later have stand-ins for older rigs (`STAND_INS`).

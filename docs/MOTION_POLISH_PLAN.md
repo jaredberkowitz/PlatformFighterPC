@@ -66,7 +66,7 @@ tools/godot/Godot_v4.7.1-stable_win64_console.exe --path godot --script res://te
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path godot --script res://tests/anim_library_test.gd
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path godot --script res://tests/fighter_view_test.gd
 # Rig rebuild after pose changes (about 20 s)
-"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json --neck-drop 0
 ```
 
 Also run the demo stills (`--demo=...` in `demo.gd`) at several frames around each change, plus `match_flow_test` and, once at the end,

@@ -367,6 +367,19 @@ func _build_rig(skin: Material) -> bool:
 	return true
 
 
+## When the polish clips play (motion plan phase 3): a stop out of a run while still sliding faster than this (units a frame), over this
+## many frames; a fidget after this many frames standing still, for its length, every so often; a platform drop's hop over its first
+## frames; the heavy hitstun pose for knockback faster than this.
+const RUN_STOP_SPEED := 0.04
+const RUN_STOP_FRAMES := 20.0
+const FIDGET_AFTER := 300
+const FIDGET_EVERY := 420
+const FIDGET_FRAMES := 72.0
+const DROP_FRAMES := 20.0
+const HEAVY_HITSTUN_SPEED := 0.15
+const TECH_INVULN_AT_MOST := 24
+
+
 ## Which clip suits this state of the simulation: [clip name, speed, progress]. Progress is -1 for a clip that simply plays, or 0..1 for
 ## one that follows the move (an attack's swing lands on the move's own frames).
 func _choose_clip(s: Dictionary) -> Array:
@@ -391,6 +404,28 @@ func _choose_clip(s: Dictionary) -> Array:
 			if ledge_rolling:
 				return ["roll", 1.0, ledge_k]
 			return ["ledge_climb", 1.0, ledge_k]
+		"Landing":
+			# A tech in place is a landing with a tech's intangibility (a plain landing has none; a fighter still invincible from its
+			# respawn has far more): a slap on the floor and a pop up, over its lag.
+			if int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST:
+				return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / maxf(1.0, float(s.get("lag", 4))), 0.0, 1.0)]
+		"Idle":
+			# Still sliding as it stops out of a run: braced against the slide, then settled.
+			if grounded and speed > RUN_STOP_SPEED and int(s.state_frame) < RUN_STOP_FRAMES:
+				return [AnimLibrary.or_stand_in("run_stop", anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
+			# Standing still for a long time, a fidget now and then.
+			var still := int(s.state_frame) - FIDGET_AFTER
+			if grounded and still >= 0 and still % FIDGET_EVERY < FIDGET_FRAMES:
+				return [AnimLibrary.or_stand_in("idle_look", anim), 1.0, float(still % FIDGET_EVERY) / FIDGET_FRAMES]
+		"Airborne":
+			# Just dropped through a platform (the sim ignores platforms for a few frames after it): a hop down out of a crouch.
+			if int(s.get("ignore", 0)) > 0 and int(s.state_frame) < DROP_FRAMES and flip_left <= 0.0:
+				return [AnimLibrary.or_stand_in("platform_drop", anim), 1.0, float(s.state_frame) / DROP_FRAMES]
+		"Hitstun":
+			# Sent flying by a hit that does not tumble: folded round the blow, or arched up off it when sent upward.
+			var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
+			if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
+				return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
 		"LedgeAttack":
 			# Up onto the edge, then the sweep (its hit on frames 24-26 of 55 lands on the clip's strike).
 			var f: float = s.state_frame
@@ -2996,7 +3031,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			model.rotation.x = tumble_angle
 			# About the middle of the body, not the feet (which would swing the body down through the floor).
 			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
-		else:
+		elif current_clip == "hurt":
 			model.rotation.x = -deg_to_rad(26.0)
 	else:
 		tumble_angle = 0.0

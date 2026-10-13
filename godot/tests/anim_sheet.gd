@@ -3,7 +3,8 @@ extends SceneTree
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
 ##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | shield | flinch | launch | tumble | roll | backroll | spotdodge | airdodge | knockdown | getup |
 ##   <move name> (an attack such as fsmash, nair, jab)
-##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N to wear neckwear N (loadout.gd)
+##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N to wear neckwear N (loadout.gd),
+##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -90,8 +91,14 @@ func _initialize() -> void:
 		"jump", "fall", "airjump", "hurt", "shield", "launch", "tumble":
 			for f in range(0, 30, 2):
 				frames.append(f)
-		"dashstop":
+		"dashstop", "runstop", "drop", "heavy", "heavyup":
 			for f in range(0, 30, 2):
+				frames.append(f)
+		"tech":
+			for f in range(0, 12, 1):
+				frames.append(f)
+		"fidget":
+			for f in range(300, 376, 5):
 				frames.append(f)
 		"jumpsquat", "land", "flinch":
 			for f in range(0, 16, 1 if what == "jumpsquat" else 2):
@@ -109,10 +116,12 @@ func _initialize() -> void:
 		var state := "Attack"
 		var vel := Vector2.ZERO
 		var move := what
-		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge", "launch", "tumble"].has(what)
+		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge", "launch", "tumble", "drop", "heavy",
+			"heavyup"].has(what)
 		var jumps := 1
 		var tumble := false
 		var percent := 0.0
+		var extra := {}
 		# (Idle is shown at half speed so its bounce spreads over the sheet.)
 		match what:
 			"run":
@@ -145,6 +154,26 @@ func _initialize() -> void:
 				move = ""
 			"shield":
 				state = "Shield"
+				move = ""
+			"tech":
+				state = "Landing"
+				move = ""
+				extra = {"invuln": 18, "lag": 12}
+			"runstop":
+				state = "Idle"
+				move = ""
+				vel = Vector2(maxf(0.0, 0.2 - 0.012 * f), 0)
+			"drop":
+				state = "Airborne"
+				move = ""
+				vel = Vector2(0, -0.1)
+				extra = {"ignore": maxi(0, 8 - f)}
+			"heavy", "heavyup":
+				state = "Hitstun"
+				move = ""
+				extra = {"kb_vel": Vector2(0.45, 0.1) if what == "heavy" else Vector2(0.1, 0.5)}
+			"fidget":
+				state = "Idle"
 				move = ""
 			"dashstop":
 				# Standing, a dash from frame 4, stopped dead at frame 16.
@@ -190,6 +219,7 @@ func _initialize() -> void:
 				"move_tip": tip if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
 				"tumble": tumble, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3,
 				"dodge": PackedInt32Array([30, -1 if what == "backroll" else (0 if what == "spotdodge" else 1)])}
+			s.merge(extra, true)
 			view.apply(Vector3(0, 0 if grounded else 0.6, 0), s, 1.0 / 60.0)
 		await process_frame
 		await process_frame

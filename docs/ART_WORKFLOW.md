@@ -172,7 +172,7 @@ A body from elsewhere (generated, or modelled by hand) goes through all of these
    head, the skin is weighted automatically and the arms' weights smoothed so the elbows bend round; writes `godot/models/base_rig.glb` and
    `base_rig.json`, the head, shoulder and wrist the game fits hats, glasses and the weapon arm to, and where the clothes go):
    ```bash
-   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json
+   "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json --neck-drop 0
    ```
 5. **See it** in the game: it is the fighters' body (`FighterView.use_base_body`; the `--blob` launch option brings back the first, built
    body). Its clothes are painted on by region (`shaders/skin.gdshader`, regions from `base_rig.json`), so they bend with it and never clip.
