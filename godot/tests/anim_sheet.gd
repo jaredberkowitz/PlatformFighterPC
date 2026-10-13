@@ -1,7 +1,7 @@
 extends SceneTree
 ## Renders a contact sheet of one animation, frame by frame, for judging motion (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
-##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | roll | backroll | spotdodge | airdodge | knockdown | getup |
+##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | shield | flinch | launch | tumble | roll | backroll | spotdodge | airdodge | knockdown | getup |
 ##   <move name> (an attack such as fsmash, nair, jab)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
@@ -80,10 +80,10 @@ func _initialize() -> void:
 		"idle", "walk":
 			for f in range(0, 24 if what == "idle" else 20, 2):
 				frames.append(f)
-		"jump", "fall", "airjump", "hurt":
+		"jump", "fall", "airjump", "hurt", "shield", "launch", "tumble":
 			for f in range(0, 30, 2):
 				frames.append(f)
-		"jumpsquat", "land":
+		"jumpsquat", "land", "flinch":
 			for f in range(0, 16, 1 if what == "jumpsquat" else 2):
 				frames.append(f)
 		"roll", "backroll", "spotdodge", "airdodge", "knockdown", "getup":
@@ -99,8 +99,10 @@ func _initialize() -> void:
 		var state := "Attack"
 		var vel := Vector2.ZERO
 		var move := what
-		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge"].has(what)
+		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge", "launch", "tumble"].has(what)
 		var jumps := 1
+		var tumble := false
+		var percent := 0.0
 		# (Idle is shown at half speed so its bounce spreads over the sheet.)
 		match what:
 			"run":
@@ -131,6 +133,19 @@ func _initialize() -> void:
 			"hurt":
 				state = "Hitstun"
 				move = ""
+			"shield":
+				state = "Shield"
+				move = ""
+			"flinch":
+				# A hit too weak to launch: the percent goes up on the second frame while standing.
+				state = "Idle"
+				move = ""
+				percent = 0.0 if f == 0 else 9.0
+			"launch", "tumble":
+				state = "Hitstun"
+				move = ""
+				tumble = true
+				vel = Vector2(0.55, 0.35) if what == "launch" else Vector2(0.08, 0.04)
 			"roll", "backroll":
 				state = "Roll"
 				move = ""
@@ -156,9 +171,9 @@ func _initialize() -> void:
 		for i in steps:
 			sim_frame += 1
 			var s := {"state": state, "facing": facing, "vel": vel, "platform": 0 if grounded else -1, "fast_fall": false, "invuln": 0,
-				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": 0.0, "move_name": move,
+				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": percent, "move_name": move,
 				"move_tip": tip if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
-				"tumble": false, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3,
+				"tumble": tumble, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3,
 				"dodge": PackedInt32Array([30, -1 if what == "backroll" else (0 if what == "spotdodge" else 1)])}
 			view.apply(Vector3(0, 0 if grounded else 0.6, 0), s, 1.0 / 60.0)
 		await process_frame

@@ -36,8 +36,8 @@ head follow-through, a tech, a platform drop, a run stop.
 
 ## Hard constraints
 
-- Read `CLAUDE.md` and `docs/STATUS.md` first. The working tree on `phase7-match-rules` may hold unrelated uncommitted sim and moveset
-  changes. Branch from `main` (own branch or worktree) and never commit files from other work.
+- Read `CLAUDE.md` and `docs/STATUS.md` first. Moveset work happens in its own worktree (`.claude/worktrees/movesets`); this plan runs
+  on its own branch (`motion-polish`) and never commits files from other work.
 - No sim-crate edits. The view reads the snapshot dictionary `s` (built in `main.gd` `_refresh`). If a state cannot be told apart from
   the snapshot (for example a tech), add a **read-only bridge accessor** over existing state; that is not a sim change, but confirm it with
   the user before touching `pf_bridge`.
@@ -192,4 +192,37 @@ parallel by separate agents if their module files stay separate.
 
 ## Spike results
 
-*(To be filled in by phase 0.)*
+Phase 0, 2026-10-13 (branch `motion-polish`).
+
+**Baselines.** Contact sheets `docs/screenshots/motion_0_*.png` (idle, walk, run, dash, jumpsquat, jump, land, jab, ftilt, fair, fsmash,
+hurt, flinch, launch, tumble, knockdown, getup, shield; `tests/anim_sheet.gd` gained `shield`, `flinch`, `launch` and `tumble`). What
+they show:
+
+- **Shield turns the face away**: over the hold the head and chest turn until the back of the head faces the camera (frames 10 to 24),
+  breaking the "face is half of every read" rule. Phase 3 item 2 fixes it with the new hold.
+- **Flinch barely reads**: the snap back is a few degrees for a fraction of a second; at match distance it is invisible. Phase 1 item 3
+  (impact squash) and a stronger flinch carry it.
+- **Hurt is one held pose** (the same frame for the whole stun): phase 3 item 1.
+- **Strikes are not stretched**: the forward smash's arm reaches the blade out, but nothing in the body says speed on the strike frame.
+  Phase 1.
+- **The launch** reads (head first along the path, limbs trailing) but the body keeps its standing proportions: phase 1 item 2.
+
+**Foot slide** (`tests/motion_probe.gd`, headless; the same for every class, since they share the clips and the stride code):
+
+| State | Speeds (units/frame) | Drift while planted / ground speed |
+| --- | --- | --- |
+| Walk | 0.08, 0.14, 0.19 | 0.51, 0.49, 0.49 |
+| Run | 0.19, 0.24, 0.30 | 0.45, 0.46, 0.43 |
+| Dash | 0.24, 0.27, 0.28 | 0.36, 0.36, 0.37 |
+
+The ratio is flat across speeds, so the clip rates already scale with speed correctly; what is wrong is the **stride**: a planted foot
+sweeps back at about half the ground speed, so feet skate forward. Phase 4 lengthens the stance sweep (or rates the clip to it).
+
+**Spring bones (item 3): no-go.** `SpringBoneSimulator3D` does run with the `AnimationPlayer` in manual mode (a chain on `armU.L` to
+`hand.L` visibly changed the pose), but: a teleport of the fighter (a rollback correction, a respawn) swings the chain about 1 unit, a
+visible explosion, every time; setting `active = false` for hitlag does not freeze it, it snaps the chain back to the clip pose; and at
+rest gravity pulls the chain off the clip's pose. Phase 2b therefore uses hand-written chains of code springs (`motion_springs.gd`), which
+follow the `prev_frame` guard and freeze in hitlag.
+
+**Pose overrides (item 4): fine.** `set_bone_global_pose_override` gives no deprecation warning in 4.7.1 and still composes (the arm IK
+read back correctly with and without a modifier on the skeleton). Phase 5 is skipped.
