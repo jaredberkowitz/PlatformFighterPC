@@ -629,10 +629,19 @@ func _connect_pair(cfg: Dictionary, me: Dictionary) -> void:
 	print("network mode: ", "host" if cfg.host else "joiner")
 
 
-## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat).
+## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat), and a fighter whose body is
+## broader than the standard one (the Hauler's: its ECB half width against `STANDARD_HALF_WIDTH`) that much bigger again, so the big
+## fighter looks as big as it is to hit. (Taller-but-standard-width bodies keep their drawn size.)
+const STANDARD_HALF_WIDTH := 0.8
+
+
 func _apply_scales() -> void:
 	for i in PLAYERS:
-		views[i].scale = Vector3.ONE * sim.fighter_scale(i)
+		var broad := 1.0
+		var body: PackedFloat32Array = sim.fighter_body(i)
+		if body.size() > 0 and body[0] > STANDARD_HALF_WIDTH + 0.01:
+			broad = body[0] / STANDARD_HALF_WIDTH
+		views[i].scale = Vector3.ONE * sim.fighter_scale(i) * broad
 
 
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.
@@ -1116,7 +1125,19 @@ func _update_hud(delta: float) -> void:
 	var in_match := []
 	var classes := []
 	var looks := []
+	# The Boost gauge where a fighter has one (the Champion): [fill 0..1, the powered mode running, its time left 0..1], or [] for
+	# none. (Read only when the bridge has it.)
+	var gauges := []
+	var has_gauge: bool = sim.has_method("fighter_gauge_max")
 	for i in PLAYERS:
+		var g := []
+		if has_gauge:
+			var top := float(sim.fighter_gauge_max(i))
+			if top > 0.0:
+				# (The powered mode's length is the body's; 900 frames for the Champion, until the bridge gives it.)
+				var mode_frames: float = float(sim.fighter_gauge_frames_max(i)) if sim.has_method("fighter_gauge_frames_max") else 900.0
+				g = [clampf(float(sim.fighter_gauge(i)) / top, 0.0, 1.0), bool(sim.fighter_gauge_full(i)), clampf(float(sim.fighter_gauge_frames(i)) / mode_frames, 0.0, 1.0)]
+		gauges.append(g)
 		classes.append(int(snaps[i].get("class", snaps[i].get("char", 0))))
 		looks.append(views[i].loadout if i < views.size() else null)
 		percent.append(snaps[i].get("percent", 0.0))
@@ -1126,7 +1147,7 @@ func _update_hud(delta: float) -> void:
 	hud.show_state({
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
-		"counting_down": rules[1] > 0, "classes": classes, "looks": looks,
+		"counting_down": rules[1] > 0, "classes": classes, "looks": looks, "gauges": gauges,
 		"status": _net_status_text(),
 		"offscreen": _offscreen_markers(),
 	})
@@ -1326,7 +1347,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 			var tip_at := Vector2(cur_pos[by].x + tip.x * facing, cur_pos[by].y + tip.y)
 			# (A little toward the hitter, so even a big burst leaves the struck fighter's face in view.)
 			contact = middle + (tip_at - middle).limit_length(1.0)
-		if cls == 0 and _weapon_move(move):
+		if FighterView.bladed(cls) and _weapon_move(move) and not (cls == FighterView.GREATSWORD_CLASS and move in ["jab", "jab 2", "dtilt"]):
 			kind = Effects.Kind.BLADE
 		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
 			kind = Effects.Kind.FIRE

@@ -735,7 +735,7 @@ fn the_grab_register_reads_the_grab_button() {
     assert_eq!(sim.f().vars[0], Fx::ONE.raw());
 }
 
-// ---- `aimed` (owner decision 52, sim 100) ---------------------------------------------------------------------------------------
+// ---- `aimed` (owner decision 52, sim 90) ---------------------------------------------------------------------------------------
 
 #[test]
 fn the_aimed_register_reads_how_the_attack_was_aimed_as_it_started() {

@@ -186,6 +186,7 @@ fn a_tall_projectile_hitbox_reaches_above_its_circle() {
                     phases: [None; MAX_PHASES],
                     pierce: false,
                     rehit: 0,
+                    burst: None,
                 }),
                 ..Move::empty()
             },
@@ -214,6 +215,7 @@ fn the_new_fields_are_in_the_content_hash() {
         ("ledge_drop", |m| m.ledge_drop = Some((Fx::ONE, Fx::ONE))),
         ("on_land", |m| m.on_land = Some(13)),
         ("half_height", |m| m.hitboxes[0].half_height = Fx::ONE),
+        ("motion_drift", |m| m.motion_drift = 50),
     ] {
         let mut c = base.clone();
         edit(&mut c.weapons[0].moves[MoveId::NAir as usize]);

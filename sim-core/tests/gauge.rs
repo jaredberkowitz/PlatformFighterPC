@@ -298,12 +298,24 @@ fn a_ko_empties_the_gauge_and_ends_the_powered_mode() {
 
 #[test]
 fn a_special_with_a_powered_version_uses_it_and_spends_the_gauge_and_one_without_spends_nothing() {
-    // The shipped Greatsword has no powered versions yet (phase 3): a special in the mode is the normal one and keeps the gauge.
+    // The shipped Greatsword (phase 3): a special in the mode is its powered version and spends the gauge (the reference's rule).
     let mut sim = pair(CHAMPION, 0);
     sim.state.fighters[0].gauge = Fx::from_int(100);
     sim.state.fighters[0].gauge_mode = 600;
     sim.tick(inp(0, 0, SPECIAL));
     assert_eq!(sim.f().state, S::Attack);
+    assert_eq!(
+        sim.f().move_id,
+        sim_core::moves::greatsword_slots::POWER_WAVE as u8
+    );
+    assert_eq!((sim.f().gauge, sim.f().gauge_mode), (Fx::ZERO, 0), "spent");
+    // A special without a powered version (the Greatsword's taken off) is the normal one and keeps the gauge.
+    let mut sim = pair(CHAMPION, 0);
+    let w = weapon_index(&sim, CHAMPION);
+    sim.content.weapons[w].moves[MoveId::NSpecial as usize].limit_version = None;
+    sim.state.fighters[0].gauge = Fx::from_int(100);
+    sim.state.fighters[0].gauge_mode = 600;
+    sim.tick(inp(0, 0, SPECIAL));
     assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
     assert_eq!(sim.f().gauge, Fx::from_int(100), "kept");
     assert!(sim.f().gauge_mode > 0);

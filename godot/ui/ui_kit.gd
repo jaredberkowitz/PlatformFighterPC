@@ -117,8 +117,10 @@ class KeyBar extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
+		# A slim slanted backing in the menus' deep indigo (the utility tiles' colour), with a lit top edge, tying the hints to the cards.
 		var band := PackedVector2Array([Vector2(12, 0), Vector2(size.x, 0), Vector2(size.x - 12, size.y), Vector2(0, size.y)])
-		draw_colored_polygon(band, Color(Art.INK, 0.72))
+		draw_colored_polygon(band, Color(0.21, 0.22, 0.38, 0.88))
+		draw_line(Vector2(13, 1.5), Vector2(size.x - 1, 1.5), Color(1, 1, 1, 0.18), 2.0, true)
 		var f := D.font()
 		var widths := []
 		var total := 0.0
@@ -382,6 +384,11 @@ class Tile extends Control:
 			queue_redraw()
 	var hover := false
 	var pop := 0.0
+	## 0 primary (a destination: bigger type, a deeper body under the card), 1 utility (quieter: a thinner line, a shallower body, smaller
+	## type).
+	var tier := 0
+	## A press: the card sinks into its body for a moment (1 at the press, easing to 0).
+	var press := 0.0
 	const TILE_SKEW := 0.08
 
 	func _init(label: String, sub: String, tint: Color, glyph: String) -> void:
@@ -397,10 +404,17 @@ class Tile extends Control:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			activated.emit()
 
+	## Shows the card being pressed (it sinks into its body and springs back).
+	func pressed() -> void:
+		press = 1.0
+		queue_redraw()
+
 	func _process(delta: float) -> void:
 		var was := pop
-		pop = move_toward(pop, 1.0 if (selected or hover) else 0.0, delta * 6.0)
-		if pop == was and _laid == size:
+		pop = move_toward(pop, 1.0 if (selected or hover) else 0.0, delta * 8.0)
+		var was_press := press
+		press = move_toward(press, 0.0, delta * 7.0)
+		if pop == was and press == was_press and _laid == size:
 			return
 		_laid = size
 		if mask != null:
@@ -459,16 +473,28 @@ class Tile extends Control:
 		move_child(top, -1)
 
 	func _lift() -> float:
-		return pop * 6.0
+		return pop * 7.0 - press * (_slab() + 3.0)
+
+	func _slab() -> float:
+		return 7.0 if tier == 0 else 4.0
 
 	func _card_rect() -> Rect2:
-		return Rect2(Vector2(6, 6), size - Vector2(16, 18))
+		return Rect2(Vector2(6, 6), size - Vector2(16, 18 + _slab()))
 
 	func _draw() -> void:
 		var r := _card_rect()
 		Art.card_glow(self, Rect2(r.position - Vector2(0, _lift()), r.size), Color(1, 0.92, 0.6), pop, CUT)
 		var fill := color.lerp(color.lightened(0.1), pop)
-		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, 4.0, Color(1, 1, 1, 0.6) if hero else Color(0, 0, 0, 0), _lift())
+		# The line in a deep shade of the card's own colour (the hero keeps the ink, with its gold rim), thinner for a utility card.
+		var line := Art.INK if hero else color.darkened(0.62)
+		var weight := 4.0 if tier == 0 else 3.0
+		Art.card(self, r, fill, absi(title.hash()) % 997, CUT, weight, Color(Art.SUN, 0.85) if hero else Color(0, 0, 0, 0), _lift(), line, _slab())
+		# Focused: a bright accent along the top and left edges (it reads without the colour, as a lit edge with the lift).
+		if pop > 0.01:
+			var lr := Rect2(r.position - Vector2(0, _lift()), r.size)
+			var a := Color(1, 0.97, 0.85, 0.95 * pop)
+			draw_polyline(PackedVector2Array([Vector2(lr.position.x + 3.0, lr.end.y - 6.0), Vector2(lr.position.x + 3.0, lr.position.y + CUT + 1.0),
+				Vector2(lr.position.x + CUT + 1.0, lr.position.y + 3.0), Vector2(lr.end.x - 6.0, lr.position.y + 3.0)]), a, 4.0, true)
 		if top == null:
 			paint_text(self)
 
@@ -478,12 +504,12 @@ class Tile extends Control:
 		rect.position.y -= _lift()
 		# The icon: one size rule and one line weight for every tile, pale, with a shadow the way the light falls (down and right).
 		var short := minf(rect.size.x, rect.size.y)
-		var r := clampf(short * (0.27 if short > 200.0 else 0.21), 22.0, 64.0)
+		var r := clampf(short * (0.27 if short > 200.0 else (0.21 if tier == 0 else 0.16)), 18.0, 64.0)
 		var ic := Vector2(rect.end.x - r * 1.25 - 10.0, rect.position.y + maxf(r * 1.2 + 8.0, rect.size.y * 0.4))
 		if rect.size.y < 110.0:
 			ic.y = rect.get_center().y
 		elif short <= 200.0:
-			ic = Vector2(rect.end.x - r - 18.0, rect.position.y + r + 16.0)
+			ic = Vector2(rect.end.x - r - 16.0, rect.position.y + r + 12.0)
 		if mask != null:
 			# Over a painted scene the text gets a band of shade to sit on, inside the card, fading up into the picture.
 			var top_y := rect.end.y - rect.size.y * 0.3
@@ -499,12 +525,12 @@ class Tile extends Control:
 		# The title in the display face with a thin outline; the subtitle in the text face with only a soft shadow (outlines muddy small
 		# type). Both at the bottom left, shrunk to fit.
 		var f := D.display_font()
-		var big := clampi(int(rect.size.y * 0.2), 24, 64)
+		var big := clampi(int(rect.size.y * 0.2), 24, 64) if tier == 0 else clampi(int(rect.size.y * 0.2), 20, 30)
 		var room := rect.size.x - 44.0
 		while big > 16 and f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x > room:
 			big -= 2
 		var body := D.font()
-		var sub_size := 18 if rect.size.y > 200.0 else 16
+		var sub_size := 18 if rect.size.y > 200.0 else (16 if tier == 0 else 14)
 		var has_sub := subtitle != "" and body.get_string_size(subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size).x <= room
 		var pad := 22.0 if rect.size.y > 200.0 else 16.0
 		var base := rect.end.y - (pad + sub_size + 8.0 if has_sub else pad)
@@ -518,7 +544,8 @@ class Tile extends Control:
 	const ICON_LINE := 5.5
 
 	func _icon(canvas: CanvasItem, c: Vector2, r: float, col: Color) -> void:
-		var wdt := ICON_LINE
+		# (The weight scales with the icon, so a small one keeps the same optical stroke as a big one.)
+		var wdt := clampf(r * 0.1, 3.0, ICON_LINE)
 		match icon:
 			"online":
 				# A globe: the outline, the equator, two lines of latitude and a meridian.

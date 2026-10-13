@@ -167,13 +167,19 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 ## Lights the scene for the stage's theme `theme` (see `StageArt.theme`): its mood, with the rim taking a little of the sky's horizon, and
 ## its colour grade on `post` (the match's finishing material, shaders/post.gdshader) if there is one. `root` holds the lights made by
 ## `apply`.
+## How much further round to the side every stage's key light comes (degrees of yaw on top of the mood's): from nearly behind the camera
+## the light left round forms (heads, bodies, barrels) one flat value; from further to the side each has a lit side and a shadow side,
+## and cast shadows fall across the stage rather than straight back.
+const KEY_SIDE := -28.0
+
+
 static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
 	var mood: Dictionary = MOODS.get(theme.get("name", "meadow"), MOODS.meadow)
 	var key := root.get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
 		key.light_color = mood.key[0]
 		key.light_energy = mood.key[1]
-		key.rotation_degrees = Vector3(mood.key[2], mood.key[3], 0)
+		key.rotation_degrees = Vector3(mood.key[2], float(mood.key[3]) + KEY_SIDE, 0)
 	var fill := root.get_node_or_null("FillLight") as DirectionalLight3D
 	if fill != null:
 		fill.light_color = mood.fill[0]

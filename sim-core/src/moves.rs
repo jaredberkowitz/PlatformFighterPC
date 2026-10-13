@@ -372,6 +372,11 @@ pub const TARGETS_AERIAL: u8 = 2;
 /// hitbox (see `combat::autolink`), so a multi-hit carries it along; a grounded one is sent at 80 degrees.
 pub const ANGLE_AUTOLINK: i16 = 367;
 
+/// The vortex angle (the reference's 366, E28): the victim is sent the way the attacker was moving when it hit, at the knockback's
+/// own launch speed (no cap, no cut, grounded victims too), and for its first [`crate::state::VORTEX_FRAMES`] frames it is also
+/// drawn to the hitbox's centre (see `fighter::vortex_pull`). An attacker standing still (a burst) gives the pull alone.
+pub const ANGLE_VORTEX: i16 = 366;
+
 /// The pull angle (ours, not the reference's): instead of a launch, the victim is drawn to just in front of the attacker (a
 /// projectile's owner) while its hitstun lasts, `pull_gap` from it (see `fighter::pull_frame`). Its hitstun comes from the
 /// knockback as usual (set knockback makes it the same at any percent).
@@ -451,6 +456,53 @@ pub struct ProjectileSpawn {
     /// A fighter it already hit with a hit group can be hit by that group again this many frames after its last hit on that fighter
     /// (the reference's per-target rehit; `Projectile::hit_mask` and `hit_age` remember); 0 never.
     pub rehit: u8,
+    /// It bursts where it hits (E3e, the reference's powered wave): the first fighter it touches (shielding or not) takes its own hit,
+    /// then it stops there and becomes the burst (`Projectile::bursting`). `None`: it is used up or pierces as above.
+    pub burst: Option<Burst>,
+}
+
+/// What a bursting projectile becomes (`ProjectileSpawn::burst`): it stands still `y` above where it stopped, its age starts again
+/// at 0 and it lasts `life` frames, piercing, with `rehit` as its per-target rehit, its hits by age from `phases` (as
+/// `ProjectileSpawn::phases`: from age `.0` on, `.1`; radius 0 is a gap; before the first phase there is no hit). It hits the
+/// fighter that stopped it again (its hits start afresh). With `on_wall`, touching a solid wall bursts it there too (just short of
+/// the wall) instead of removing it. A bursting projectile is not reflected and does not clank.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Burst {
+    pub life: u8,
+    pub rehit: u8,
+    pub on_wall: bool,
+    pub y: Fx,
+    pub phases: [Option<(u8, Hitbox)>; MAX_PHASES],
+}
+
+impl Burst {
+    /// The burst's hit at `age` (`None` before its first phase or in a radius-0 gap).
+    pub fn hit_at(&self, age: u8) -> Option<Hitbox> {
+        let mut out = None;
+        for (from, hb) in self.phases.iter().flatten() {
+            if age >= *from {
+                out = Some(*hb);
+            }
+        }
+        out.filter(|hb| hb.radius > Fx::ZERO)
+    }
+
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_u8(self.life);
+        h.write_u8(self.rehit);
+        h.write_bool(self.on_wall);
+        self.y.hash_into(h);
+        for phase in &self.phases {
+            match phase {
+                Some((from, hb)) => {
+                    h.write_bool(true);
+                    h.write_u8(*from);
+                    hb.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+        }
+    }
 }
 
 /// The most later hits by age a projectile can have (`ProjectileSpawn::phases`).
@@ -816,6 +868,10 @@ pub struct Move {
     /// An aerial move that touches the ground goes on as this move instead (usually its grounded version), on the same frame, keeping
     /// its frame and its hits so far: the mirror of `off_edge`. `None`: the usual landing.
     pub on_land: Option<u8>,
+    /// During the move's motion in the air, the fighter steers sideways with its own air control at this percent of the body's air
+    /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
+    /// control. 0 (the default): the motion's `vx`, as before.
+    pub motion_drift: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -882,6 +938,7 @@ impl Move {
             start_speed_y: 100,
             ledge_drop: None,
             on_land: None,
+            motion_drift: 0,
             script: None,
             projectile_script: None,
         }
@@ -1018,6 +1075,13 @@ impl StateHash for Weapon {
                             }
                             None => h.write_bool(false),
                         }
+                    }
+                    match &p.burst {
+                        Some(b) => {
+                            h.write_bool(true);
+                            b.hash_into(h);
+                        }
+                        None => h.write_bool(false),
                     }
                 }
                 None => h.write_bool(false),
@@ -1219,6 +1283,7 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.gauge_drain);
             h.write_u8(m.start_speed_y);
+            h.write_u8(m.motion_drift);
             match m.ledge_drop {
                 Some((front, back)) => {
                     h.write_bool(true);
@@ -2664,6 +2729,7 @@ pub fn needles() -> Weapon {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     throw.script = Some(script(
         Kind::Fighter,
@@ -2690,6 +2756,7 @@ pub fn needles() -> Weapon {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
@@ -3315,6 +3382,7 @@ fn water_pump(w: &mut Weapon) {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     shot.script = Some(script(
         Kind::Fighter,
@@ -3418,6 +3486,7 @@ fn fireball() -> Move {
         phases: phase_list(&[(6, hit(50, 28, 15, 275)), (31, hit(40, 22, 10, 250))]),
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     mv
 }
@@ -3714,7 +3783,7 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
-    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51, sim 100): at the 361 angle's low knockback
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51, sim 90): at the 361 angle's low knockback
     // it sends along the ground, so it can trip.
     for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
         h.trip = 40;
@@ -3789,6 +3858,7 @@ pub fn claws() -> Weapon {
         phases: [None; MAX_PHASES],
         pierce: false,
         rehit: 0,
+        burst: None,
     });
     w.moves[MoveId::NSpecial as usize] = blaster;
 
@@ -4107,7 +4177,8 @@ pub use greatsword::greatsword;
 /// The Greatsword's special follow-up slots (which `ext` slot holds which part), for tests and tools.
 pub mod greatsword_slots {
     pub use super::greatsword::{
-        CHARGE_CANCEL, COMBO_2, COMBO_3, FALL, FALL_LANDING, RISE, WAVE_AIR,
+        CHARGE_CANCEL, COMBO_2, COMBO_3, FALL, FALL_LANDING, FINISHER, FINISHER_AIR, POWER_COMBO,
+        POWER_RISE, POWER_WAVE, POWER_WAVE_AIR, RISE, WAVE_AIR,
     };
 }
 

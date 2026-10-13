@@ -63,7 +63,7 @@ func _init(vp_size := Vector2i(400, 460), floor := true, cam_distance := 8.2) ->
 		var gbox := BoxMesh.new()
 		gbox.size = Vector3(3.0, 0.12, 3.0)
 		grass.mesh = gbox
-		grass.material_override = FighterView.toon(Color(0.55, 0.82, 0.4), false)
+		grass.material_override = FighterView.toon(Color(0.5, 0.84, 0.24), false)
 		grass.position = Vector3(0, -0.02, 0)
 		root.add_child(grass)
 	view = FighterView.new()

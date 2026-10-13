@@ -64,6 +64,10 @@ ends with a one-byte epoch (matches played on this link), so nothing from a fini
 * `tools/tests/net_udp.rs`: two peers over **real UDP sockets** on localhost, directly and through the relay, agree on every confirmed frame.
 * `pftool net-fuzz 2000`: randomised input delay, latency, loss, duplication and a mid-match total outage; every confirmed frame of
   both peers must equal a single-machine run of the same inputs. Current result: 2000 runs, 0 mismatches, about 105,000 rollbacks.
+  The fighters are drawn from every class in the content (from the run's seed, on their own generator so the network schedule of a
+  seed does not depend on them): even runs two random built-in fighters, odd runs a random built-in or made fighter each. The last
+  line prints how many fighters of each class ran. `pftool fuzz-rollback` does the same for its four fighters (every run, each a
+  built-in fighter a quarter of the time, otherwise made from random stats of a random class) and takes `--only <seed>` too.
 * `godot/tests/net_e2e.gd`: two `SimRunner` nodes play each other over UDP through the bridge.
 * `netplay/tests/fighters.rs`: made vs made, built-in vs made, over lossy links, **frame for frame equal to a single-machine run on the
   match content**; ranked refusals from either side; seven kinds of bad spec; a host that lies about fighter numbers.
