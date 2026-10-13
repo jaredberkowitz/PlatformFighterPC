@@ -48,9 +48,9 @@ pub fn gauntlets() -> Weapon {
     angle_type_rows(&mut w, MoveId::USmash, &[0, 1, 2], ANGLE_BY_POSITION);
     angle_type_rows(&mut w, MoveId::USmash, &[3, 4, 5, 6], ANGLE_FORWARD);
     raptor_boost(&mut w);
-    falcon_dive(&mut w);
-    falcon_punch(&mut w);
-    falcon_kick(&mut w);
+    leaping_grab(&mut w);
+    charged_punch(&mut w);
+    slide_kick(&mut w);
     // The specials' angle types (ssbwiki.com raw hitbox tables, 13.0.1; sim 73): every punch box has no `af` (the template's
     // default 0, by position); the uppercut, the overhand, the dive kick and the leap's explosion are 3 (forward); the slide kick,
     // its off-edge version and the dive's landing hit have no `af` (by position). (Search boxes and grab boxes launch nobody.)
@@ -91,7 +91,7 @@ const KICK_CRASH: MoveId = MoveId::Ext13;
 ///
 /// Positions on the leg [E]; the slide's and the dive's speeds are the reference's animation, not published: [E] (see "Fitted
 /// distances" in the reference data).
-fn falcon_kick(w: &mut Weapon) {
+fn slide_kick(w: &mut Weapon) {
     let slide_rows = |shift: u8| -> Vec<R> {
         let mut rows = Vec::new();
         for (first, last, damage, angle, bkb, kbg, radius) in [
@@ -202,7 +202,7 @@ const PUNCH_AIR_REVERSED: MoveId = MoveId::Ext2;
 ///
 /// Every box: hitlag x1.5, and it never clanks (the reference's `clang=f`). Positions on the arm and shoulder [E]. Touching down
 /// in the air versions carries the punch on along the ground [E: not published].
-fn falcon_punch(w: &mut Weapon) {
+fn charged_punch(w: &mut Weapon) {
     // The three boxes (fist, upper arm, forearm) of `damage` tenths at `bkb` / `kbg`, from reference frame `first` to `last`;
     // `big` the aerial x1.15 radii.
     let punch = |first: u8, last: u8, damage: i32, bkb: i16, kbg: i16, big: bool| -> Vec<R> {
@@ -281,7 +281,7 @@ const DIVE_CATCH: MoveId = MoveId::Ext6;
 ///
 /// The rise and the backflip after the throw are the reference's animation, not published: [E] (see "Fitted distances" in the
 /// reference data).
-fn falcon_dive(w: &mut Weapon) {
+fn leaping_grab(w: &mut Weapon) {
     let grab = |first: u8, last: u8, x: i32, y: i32, radius: i32, priority: u8| {
         let mut h = row(&r(first, last, x, y, radius, 0, 361, 0, 0, priority, 0));
         h.kind = HIT_GRAB;
