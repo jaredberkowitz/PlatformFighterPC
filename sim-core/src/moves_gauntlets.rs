@@ -14,7 +14,7 @@ const RAPID_END: MoveId = MoveId::Ext12;
 /// damage, grounded- and aerial-only boxes; the jab's continuable windows, the held repeat and the rapid jab's entry rule; the angled
 /// forward tilt and smash; the up tilt's and up smash's intangible legs. Radii and offsets on the reference's root bone (`top`) are
 /// its values converted (x 1.25, rounded half up to a tenth) [D]; boxes on other bones are placed on our body where that bone is in
-/// the move's pose [E]. The specials are still the claws' (phase 2 builds the reference's).
+/// the move's pose [E]. The specials (phase 2, sims 68-71) follow the reference too: see each special's builder below.
 pub fn gauntlets() -> Weapon {
     let mut w = claws();
     // Fists, knees and feet: the limb throwing a hit can be hit.
@@ -51,6 +51,26 @@ pub fn gauntlets() -> Weapon {
     falcon_dive(&mut w);
     falcon_punch(&mut w);
     falcon_kick(&mut w);
+    // The specials' angle types (ssbwiki.com raw hitbox tables, 13.0.1; sim 73): every punch box has no `af` (the template's
+    // default 0, by position); the uppercut, the overhand, the dive kick and the leap's explosion are 3 (forward); the slide kick,
+    // its off-edge version and the dive's landing hit have no `af` (by position). (Search boxes and grab boxes launch nobody.)
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::NSpecial, ANGLE_BY_POSITION),
+            (PUNCH_REVERSED, ANGLE_BY_POSITION),
+            (PUNCH_AIR, ANGLE_BY_POSITION),
+            (PUNCH_AIR_REVERSED, ANGLE_BY_POSITION),
+            (RAPTOR_GROUND_HIT, ANGLE_FORWARD),
+            (RAPTOR_AIR_HIT, ANGLE_FORWARD),
+            (MoveId::DownSpecial, ANGLE_BY_POSITION),
+            (KICK_OFF_EDGE, ANGLE_BY_POSITION),
+            (KICK_AIR, ANGLE_FORWARD),
+            (KICK_LANDING, ANGLE_BY_POSITION),
+        ],
+    );
+    // The explosion on the held fighter (a pummel row) and on bystanders; the throw keeps the default.
+    angle_type_rows(&mut w, DIVE_CATCH, &[0, 1], ANGLE_FORWARD);
     w
 }
 

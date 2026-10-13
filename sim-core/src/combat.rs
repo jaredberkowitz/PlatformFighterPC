@@ -17,8 +17,8 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB,
-    HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC,
+    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -250,11 +250,20 @@ pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, 
 
 /// The side (1 right, -1 left) a hit launches toward at 0 degrees, from its angle type (the reference's): `by_box` is the default
 /// (the side of the attacker the hitbox is on, or a projectile's direction of travel), `forward` the way the attacker faces (a
-/// projectile's travel), and `source_x` / `victim_x` where the attacker (or projectile) and the victim are, for "by position".
-pub fn launch_side(angle_type: u8, by_box: i8, forward: i8, source_x: Fx, victim_x: Fx) -> i8 {
+/// projectile's travel), `travel` the way the attacker is moving (the sign of its horizontal speed; for a projectile its travel), for
+/// "by travel", and `source_x` / `victim_x` where the attacker (or projectile) and the victim are, for "by position".
+pub fn launch_side(
+    angle_type: u8,
+    by_box: i8,
+    forward: i8,
+    travel: i8,
+    source_x: Fx,
+    victim_x: Fx,
+) -> i8 {
     match angle_type {
         ANGLE_FORWARD => forward,
         ANGLE_BACKWARD => -forward,
+        ANGLE_BY_TRAVEL => travel,
         ANGLE_BY_POSITION => {
             if victim_x > source_x {
                 1
@@ -374,10 +383,16 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     } else {
                         attacker.facing
                     };
+                    // The way the attacker is moving (the reference's speed-based type 1); not moving sideways, its facing [E].
+                    let travel = match attacker.vel.x.raw().signum() {
+                        0 => attacker.facing,
+                        s => s as i8,
+                    };
                     let facing = launch_side(
                         hb.angle_type,
                         by_box,
                         attacker.facing,
+                        travel,
                         attacker.pos.x,
                         state.fighters[d].pos.x,
                     );
@@ -1174,7 +1189,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             let hurt = hurtboxes(fd, pd, wd);
             if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
                 let travel = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
-                let facing = launch_side(hb.angle_type, travel, travel, pos.x, fd.pos.x);
+                let facing = launch_side(hb.angle_type, travel, travel, travel, pos.x, fd.pos.x);
                 // Projectiles stun a shield much less.
                 let mult = STUN_PROJECTILE;
                 apply_hit(

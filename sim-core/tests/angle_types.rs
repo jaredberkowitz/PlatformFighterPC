@@ -6,7 +6,8 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::moves::{
-    MoveId, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_FORWARD, HIT_NORMAL,
+    MoveId, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD,
+    HIT_NORMAL,
 };
 use sim_core::state::FighterState as S;
 use sim_core::{Content, Fx};
@@ -14,6 +15,7 @@ use sim_core::{Content, Fx};
 const P: u8 = ANGLE_BY_POSITION;
 const F: u8 = ANGLE_FORWARD;
 const B: u8 = ANGLE_BACKWARD;
+const T: u8 = ANGLE_BY_TRAVEL;
 
 /// (weapon, move, the angle type of each damaging hitbox in order; one entry for "all of them")
 fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
@@ -44,9 +46,11 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (1, Ext0, all(F)),
         (1, Ext1, all(F)),
         (1, GetUpAttack, all(P)),
+        // The up special's wind-up hit by position, its eight looping hits from the direction of travel (type 1: sim 73, owner
+        // decision 23).
         (1, UpSpecial, {
             let mut v = vec![P];
-            v.extend([ANGLE_BY_BOX; 8]);
+            v.extend([T; 8]);
             v
         }),
         // Needles (weapon 2).
@@ -93,7 +97,21 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (4, DAir, all(P)),
         (4, LedgeAttack, all(F)),
         (4, GetUpAttack, all(P)),
-        // (The gauntlets' own specials, sim 68-71, are not re-checked for angle types yet.)
+        // The Gauntlets' specials (sim 73, ssbwiki.com raw tables: no `af` is the template's 0, by position): the four punches by
+        // position; the uppercut and the overhand forward; the leap's explosion on bystanders forward (its row on the held
+        // fighter is a pummel row, its throw keeps the default); the slide kick and its off-edge version by position, the dive kick
+        // forward and its landing hit by position.
+        (4, NSpecial, all(P)),
+        (4, Ext0, all(P)),
+        (4, Ext1, all(P)),
+        (4, Ext2, all(P)),
+        (4, Ext3, all(F)),
+        (4, Ext5, all(F)),
+        (4, Ext6, all(F)),
+        (4, DownSpecial, all(P)),
+        (4, Ext9, all(P)),
+        (4, Ext7, all(F)),
+        (4, Ext8, all(P)),
     ]
 }
 
@@ -119,7 +137,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 64);
+    assert_eq!(checked, 75);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {
@@ -162,6 +180,25 @@ fn embers_up_smash_sends(victim_x: i32, by_box: bool) -> i32 {
     }
     assert_eq!(sim.fighter(1).state, S::Hitstun, "hit");
     sim.fighter(1).kb_vel.x.raw().signum()
+}
+
+#[test]
+fn the_longsword_claws_and_needles_get_up_attacks_launch_at_48_degrees() {
+    // Owner decision 27 (sim 73): the reference's get-up attacks are 7% at angle 48, BK 80, KS 48 (ssbwiki.com raw tables, 13.0.1);
+    // they were written as 361. The Needles use the claws' get-up attack (the reference's is also 48).
+    let content = Content::placeholder();
+    for w in 0..3 {
+        let boxes = &content.weapons[w].moves[MoveId::GetUpAttack as usize].hitboxes;
+        assert_eq!(boxes.len(), 2, "weapon {w}");
+        for h in boxes {
+            assert_eq!(
+                (h.angle, h.base_knockback, h.knockback_growth),
+                (48, 80, 48),
+                "weapon {w}"
+            );
+            assert_eq!(h.damage, Fx::from_int(7), "weapon {w}");
+        }
+    }
 }
 
 #[test]
