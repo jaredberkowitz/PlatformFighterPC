@@ -15,6 +15,7 @@ const Materials := preload("res://scripts/materials.gd")
 const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
 const FOLIAGE_SHADER := preload("res://shaders/toon_foliage.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
+const Toonify := preload("res://scripts/toonify.gd")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
@@ -435,8 +436,9 @@ static func merge_static(root: Node3D) -> int:
 	var order: Array = []
 	for c in root.get_children():
 		var mi := c as MeshInstance3D
-		# (Meshes built by hand, like the great tree's trunk, are left as they are: merged in with the built-in shapes they were lost.)
-		if mi == null or mi.mesh == null or mi.mesh is ArrayMesh or mi.material_override == null or mi.transparency > 0.0 				or mi.get_child_count() > 0:
+		# (Meshes built by hand, like the great tree's trunk, are left as they are: merged in with the built-in shapes they were lost.
+		# Authored props' parts, placed by `_place_prop`, are merged.)
+		if mi == null or mi.mesh == null or (mi.mesh is ArrayMesh and not mi.has_meta("prop")) or mi.material_override == null or mi.transparency > 0.0 				or mi.get_child_count() > 0:
 			continue
 		var key: int = mi.material_override.get_instance_id()
 		if not groups.has(key):
@@ -1312,6 +1314,32 @@ static func _under_haze(root: Node3D, t: Dictionary, from_y: float, depth: float
 	below.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
+## An authored prop (godot/models/props/<name>.glb, from art/blender/make_props.py) at `at`, `size` times its modelled size, turned `turn`
+## degrees about the vertical. Its parts go straight under `root` with their cel materials as overrides, so `merge_static` joins them
+## with everything else drawn in the same colours (a few draw calls for a whole row of mesas). False if the prop is missing.
+static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn := 0.0) -> bool:
+	var prop := Toonify.load_prop(prop_name)
+	if prop == null:
+		push_warning("stage prop %s is missing (run art/blender/make_props.py)" % prop_name)
+		return false
+	var place := Transform3D(Basis(Vector3.UP, deg_to_rad(turn)).scaled(Vector3.ONE * size), at)
+	for part: MeshInstance3D in prop.find_children("*", "MeshInstance3D", true, false):
+		var xf := part.transform
+		var up := part.get_parent() as Node3D
+		while up != null and up != prop:
+			xf = up.transform * xf
+			up = up.get_parent() as Node3D
+		var mi := MeshInstance3D.new()
+		mi.mesh = part.mesh
+		mi.material_override = part.get_surface_override_material(0)
+		mi.transform = place * prop.transform * xf
+		mi.name = prop_name
+		mi.set_meta("prop", true)
+		root.add_child(mi)
+	prop.free()
+	return true
+
+
 ## Stage extent helpers: [left, right, top, bottom] of the solid ground, with defaults.
 static func _ext(stage: Array) -> Array:
 	return stage.slice(0, 4) if stage.size() >= 4 else [-11.0, 11.0, 0.0, -8.0]
@@ -1399,22 +1427,11 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var e := _ext(stage)
 	_mesh(root, _sphere(14.0, 32), _unshaded(Color(1.0, 0.86, 0.55)), Vector3(18, 2, -140))
 	_mesh(root, _sphere(18.0, 32), _unshaded(Color(1.0, 0.75, 0.5, 1.0)).duplicate(), Vector3(18, 2, -142)).transparency = 0.7
+	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
-		var w := rng.randf_range(10.0, 24.0)
-		var h := rng.randf_range(12.0, 24.0)
 		var far := k % 2 == 1
-		var base := Color(0.55, 0.3, 0.36) if far else Color(0.72, 0.36, 0.3)
-		var mesa := Node3D.new()
-		mesa.position = Vector3(-110.0 + k * 30.0 + rng.randf_range(-6, 6), -16.0, -110.0 if far else -78.0)
-		root.add_child(mesa)
-		# Each mesa is a few stacked slabs in alternating shades (strata).
-		var y := 0.0
-		var r := w * 0.55
-		for band in 4:
-			var bh := h / 4.0
-			_mesh(mesa, _cylinder(r * 0.94, r, bh, 10), _soft(base.lightened(0.08 * (band % 2))), Vector3(0, y + bh / 2.0, 0))
-			y += bh
-			r *= 0.93
+		var at := Vector3(-110.0 + k * 30.0 + rng.randf_range(-6, 6), -16.0, -110.0 if far else -78.0)
+		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, rng.randf_range(0.7, 1.05), rng.randf_range(0.0, 360.0))
 	# A rock arch on the left.
 	var arch := _soft(Color(0.78, 0.42, 0.3))
 	_mesh(root, _cylinder(1.6, 2.2, 14.0, 10), arch, Vector3(-40, -6, -48))
@@ -1508,19 +1525,20 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mesh(root, _sphere(1.0, 16), _soft(Color(0.98, 0.88, 0.62)), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
 		_mesh(root, _sphere(1.0, 16), _soft(Color(0.3, 0.62, 0.42)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
-	# A lighthouse on the right.
-	var lh := Vector3(52, float(e[3]) - 2.0, -80)
-	_mesh(root, _cylinder(2.0, 3.0, 20.0, 16), FighterView.toon(Color(0.96, 0.95, 0.92)), lh + Vector3(0, 10, 0))
-	for k in 3:
-		_mesh(root, _cylinder(2.6 - k * 0.3, 2.8 - k * 0.3, 2.2, 16), FighterView.toon(Color(0.86, 0.3, 0.28)), lh + Vector3(0, 3.0 + k * 6.0, 0))
-	_mesh(root, _sphere(1.6, 16), _unshaded(Color(1.0, 0.95, 0.7)), lh + Vector3(0, 21.5, 0))
-	_mesh(root, _cylinder(0.0, 2.2, 2.0, 16), FighterView.toon(Color(0.3, 0.32, 0.4)), lh + Vector3(0, 23.5, 0))
+	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
+	var lh := Vector3(52, float(e[3]) - 2.4, -80)
+	_place_prop(root, "lighthouse", lh, 2.3, -20.0)
+	_halo(root, lh + Vector3(0, 8.3 * 2.3, 0), Color(1.0, 0.9, 0.6), 7.0)
 	# A sailboat.
 	var boat := Bob.new()
 	boat.position = Vector3(-30, float(e[3]) - 0.6, -60)
 	root.add_child(boat)
-	_mesh(boat, _box(Vector3(6.0, 1.2, 2.0)), FighterView.toon(Color(0.86, 0.36, 0.3)), Vector3.ZERO)
-	_mesh(boat, _cylinder(0.0, 2.6, 6.0, 3), FighterView.toon(Color(1, 1, 1)), Vector3(0.6, 3.6, 0), Vector3(1, 1, 0.15))
+	var dinghy := Toonify.load_prop("sailboat")
+	if dinghy != null:
+		dinghy.scale = Vector3.ONE * 1.6
+		dinghy.position = Vector3(0, -0.9, 0)
+		dinghy.rotation_degrees = Vector3(0, 160, 0)
+		boat.add_child(dinghy)
 	# Palms at the ends of the island, behind the fighters.
 	_palm(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), 1.0, rng)
 	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)

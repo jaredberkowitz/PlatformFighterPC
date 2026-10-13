@@ -770,3 +770,9 @@ the clarity of a cel-shaded adventure. Before / after: `docs/screenshots/undersi
   the back of the hips); `mend_folds` joins copied points, triangulates and deletes any point with only two edges, so the skin is
   closed (every edge two faces). Body rebuilt (6,496 triangles), joints refitted (changes under 0.002), rig rebuilt.
 - Checks: fighter view, loadout, art pipeline, match flow and creator flow tests passed; look bench PASSED (worst 0.90).
+- **Crisper fighters, readable tags**: skin takes the stage's crisp cel step (`RESPONSES.skin` 0.16); match tags are bold, in the
+  player's colour over a pointer, one size on screen at any zoom (`FighterView.TAG_PIXEL`). Look bench worst 0.88 (passes at 0.85).
+- **Authored props by script** (`art/blender/make_props.py`, original designs): a lighthouse on its rocks (red bands, gallery and
+  railing, glowing lantern, a halo), a sailing dinghy, and two sandstone buttes in strata on rubble slopes, one flat colour per part so
+  `Toonify` makes each part cel. Placed by `StageArt._place_prop`, whose parts `merge_static` batches. Flat Island 476 draw calls (463
+  before), Triple Tier 413 (427 before); GPU time unchanged within noise (about 1.4 ms on the developer's laptop).
