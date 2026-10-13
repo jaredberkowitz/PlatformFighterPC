@@ -31,9 +31,10 @@ static func delta(real: float) -> float:
 
 
 ## `on_top` draws over everything; `texture` is laid on each quad (a soft disc for particles); `priority` orders see-through effects;
-## `glow` scales how much the material's bright cores bloom (0: never).
-static func get_material(on_top: bool, priority := 0, texture: Texture2D = null, glow := 1.0) -> ShaderMaterial:
-	var key := "%s|%d|%s|%.2f" % [on_top, priority, texture.get_rid() if texture != null else 0, glow]
+## `glow` scales how much the material's bright cores bloom (0: never); `paint` lays it on in brush strokes that break up into ragged
+## chunks as it fades (0: a flat fill that fades), and `puff` draws each quad as a cel-shaded ball of smoke (shaders/fx.gdshaderinc).
+static func get_material(on_top: bool, priority := 0, texture: Texture2D = null, glow := 1.0, paint := 0.0, puff := false) -> ShaderMaterial:
+	var key := "%s|%d|%s|%.2f|%.2f|%s" % [on_top, priority, texture.get_rid() if texture != null else 0, glow, paint, puff]
 	if _cache.has(key):
 		return _cache[key]
 	var m := ShaderMaterial.new()
@@ -43,6 +44,8 @@ static func get_material(on_top: bool, priority := 0, texture: Texture2D = null,
 		m.set_shader_parameter("tex", texture)
 		m.set_shader_parameter("use_tex", true)
 	m.set_shader_parameter("glow_scale", glow)
+	m.set_shader_parameter("paint", paint)
+	m.set_shader_parameter("puff", puff)
 	_cache[key] = m
 	return m
 

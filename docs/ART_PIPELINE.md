@@ -878,3 +878,31 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
 - **Skyline** left as it is: a dark, moody stage where the fighters already stand out (the plan: keep a dark stage's mood).
 - Look bench 0.87.
 
+
+## Painted effects, stages that stand on the ground, signs of life (thirty-sixth pass)
+
+- **Painted effects** (`shaders/fx.gdshaderinc`, opt-in per material through `FxMaterial.get_material(..., paint, puff)`):
+  - `paint`: an effect's colour varies in brush streaks running out from its middle, and as it fades it breaks up into ragged chunks
+    with a darker pooled edge, rather than going see-through like a vector shape. On the hit bursts, rings, speed lines, spikes, sparks,
+    embers and the flame.
+  - `puff`: each particle quad is a cel-shaded ball of smoke (lumpy rim, lit from the upper left, a cool shade crescent), eaten away by
+    the same breakup. Dust at the feet, the launch trail (now one mesh in `fighter_view.gd`), a knock-out's smoke and chimney smoke.
+- **More explosive hits** (`Effects.hit`): sparks are shards stretched along their flight, two in three thrown the way the hit sends;
+  a strong hit adds speed lines and a ring of smoke balls behind the fighters (`Particles.impact_smoke`), so it frames the hit rather
+  than hiding it. `fx_hit_before.png` / `fx_hit_after.png`, `fx_dust_puffs.png`.
+- **The knock-out beam** (`Effects.Beam`): the pale see-through cylinders became a painted column in the player's colour (ink edge,
+  deep body, lighter band, thin white core) whose edges crackle on twos; it slams open, holds, thins and breaks up.
+  `fx_ko_before.png` / `fx_ko_after.png`.
+- **Stages stand on the ground** (the owner: the hills' bottoms showed as circles, the city had no street, the windmill floated):
+  - Hills are continuous land (`_land_band`): the same round hilltops melted into a valley floor, running 180 units down out of view.
+    `hill_top` and the nearer `_fore_band` (meadow, grove) give heights to stand things on; trees, cottages and the windmill sit just
+    behind a band's edge. `ground_meadow_before.png` / `ground_meadow_after.png`, `ground_grove_after.png`.
+  - Skyline: the rooftop building runs down to a street (`_street`, `CITY_STREET_DROP` below the stage): pavements and kerbs, a road
+    with a dashed line, street lamps with warm halos, cars driving both ways, and a shopfront with a striped awning at the building's
+    foot. `ground_city_before.png` / `ground_city_after.png`.
+  - Triple Tier: the mesa column stands in a desert floor (`DESERT_FLOOR`, level with the far buttes) with fallen rock at its foot, and
+    less haze over it. `ground_canyon_after.png`.
+- **The windmill** has a stone footing, a door, shuttered windows, a gallery, a shingled cap with a finial, and lattice sails.
+- **Signs of life**: cottages with smoking chimneys on the meadow hills, telegraph poles and sagging wires across the desert, strings
+  of lanterns under the great tree, and a fisherman's hut on stilts with a jetty and floats off Flat Island (`beach_stilt_hut.png`).
+- Layouts kept: the hills draw the same random numbers as before, and the new pieces draw none, so nothing else moved. Look bench passes.
