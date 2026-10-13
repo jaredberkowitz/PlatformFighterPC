@@ -42,6 +42,7 @@ const AnimLibrary := preload("res://scripts/anim_library.gd")
 const MotionDeform := preload("res://scripts/motion_deform.gd")
 const Smear := preload("res://scripts/smear.gd")
 const MotionSprings := preload("res://scripts/motion_springs.gd")
+const TailRig := preload("res://scripts/tail_rig.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -91,6 +92,7 @@ func rebuild(l: RefCounted) -> void:
 	last_ghost = 0.0
 	unkeyed = {}
 	neck_pivot = null
+	tails = []
 	reset_motion()
 	build(player, l)
 
@@ -1412,6 +1414,8 @@ func _neck_on_rig(accent: Color) -> void:
 				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
 				var b := _part(sash, badge, toon(colours[k]), Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t)))
 				b.basis = Basis(Quaternion(Vector3.UP, out))
+			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
+			_tail(centre + Vector3(0.3, -0.36, 0.4), toon(SASH, false), 0.36, 0.13, 0.05, 3)
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			var at := _collar(accent)
@@ -1425,17 +1429,23 @@ func _neck_on_rig(accent: Color) -> void:
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
 			var at := _collar(accent)
-			var tail := BoxMesh.new()
-			tail.size = Vector3(0.2, 0.5, 0.06)
-			# (Hung from its top on a pivot, so it swings with the body: the `neck` spring.)
-			neck_pivot = Node3D.new()
-			neck_pivot.position = Vector3(0.23, at - 0.03, 0.46)
-			torso_rig.add_child(neck_pivot)
-			_part(neck_pivot, tail, toon(accent), Vector3(0.03, -0.25, 0), Vector3.ONE, Vector3(0, 0, 6))
+			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
+			_tail(Vector3(0.26, at - 0.03, 0.46), toon(accent), 0.5, 0.2, 0.06, 4)
 
 
-## The pivot the neckerchief's point or the scarf's tail hangs from (none for the other neckwear).
+## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
+## sash's end).
 var neck_pivot: Node3D
+var tails: Array = []
+
+
+func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: float, segments: int) -> void:
+	var t := TailRig.new()
+	t.position = at
+	torso_rig.add_child(t)
+	t.build(mat, length, width, thickness, segments)
+	meshes.append_array(t.meshes())
+	tails.append(t)
 
 
 ## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).
@@ -1715,6 +1725,8 @@ func reset_motion() -> void:
 	smear_pts.clear()
 	smear_frame = -1
 	flinch_left = 0.0
+	for t in tails:
+		t.reset()
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -2284,6 +2296,8 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		hat_pivot.position = HAT_PIVOT + Vector3(0, -springs.value("hat_drop"), 0)
 	if neck_pivot != null:
 		neck_pivot.rotation = Vector3(0, 0, springs.value("neck"))
+	for t in tails:
+		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.

@@ -90,6 +90,26 @@ func _initialize() -> void:
 		idle.frame = 600 + f
 		view.apply(Vector3.ZERO, idle, 1.0 / 60.0)
 	check(absf(view.springs.value("head")) < 0.05 and absf(view.springs.value("hat_roll")) < 0.01, "standing still, the springs settle")
+	# A scarf's tail (a spring chain) swings on a dash start and is at rest at once after a rollback.
+	var scarf_look: RefCounted = Loadout.default_for(0)
+	scarf_look.neck = 3
+	var scarfed := FighterView.new()
+	root.add_child(scarfed)
+	scarfed.build(0, scarf_look)
+	await process_frame
+	check(scarfed.tails.size() == 1, "the scarf has a tail chain")
+	var go := snap(0, "Idle", "", 3000, 0)
+	scarfed.apply(Vector3.ZERO, go, 1.0 / 60.0)
+	go = snap(0, "Dash", "", 3001, 1)
+	go.vel = Vector2(0.28, 0.0)
+	for f in 4:
+		go.frame = 3001 + f
+		scarfed.apply(Vector3.ZERO, go, 1.0 / 60.0)
+	var tail: Node3D = scarfed.tails[0]
+	check(absf(tail.joints[-1].rotation.z) > 0.02, "the scarf's tail swings on a dash start")
+	go.frame = 10
+	scarfed.apply(Vector3.ZERO, go, 1.0 / 60.0)
+	check(tail.joints[-1].rotation.z == 0.0, "a rollback puts the tail at rest")
 	# A long shield hold keeps the head where it is (the shield clip has no head track: the turn toward the camera must not pile up).
 	var guard := snap(0, "Shield", "", 2000, 0)
 	var sword_guard := FighterView.new()
