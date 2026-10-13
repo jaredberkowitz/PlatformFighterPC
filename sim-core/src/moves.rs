@@ -325,6 +325,9 @@ pub struct Hitbox {
     /// Percent of the normal shield stun this hit causes on a shield (the reference's per-hitbox shieldstun multiplier; 100 is
     /// normal). It scales the damage part of the stun, before the cap.
     pub shieldstun: u16,
+    /// A command grab (on a [`HIT_GRAB`] box): it catches fighters in the air too, shielding or in hitstun (`grab::catchable`), and
+    /// the holder goes on with its move's `Move::catch_move` instead of the ordinary hold.
+    pub command: bool,
 }
 
 /// `Hitbox::aim` values.
@@ -360,6 +363,7 @@ impl Hitbox {
         self.reverse = false;
         self.push = false;
         self.shieldstun = 100;
+        self.command = false;
         self
     }
 }
@@ -649,6 +653,12 @@ pub struct Move {
     pub on_search: Option<u8>,
     /// A special started in the air uses this slot instead (its aerial version, with its own frames and hits); `None`: the same move.
     pub air_version: Option<u8>,
+    /// The move a command grab of this move goes on with when it catches someone (see `Hitbox::command`): it starts on the next frame,
+    /// the holder keeping its speed and staying in the air if it is there.
+    pub catch_move: Option<u8>,
+    /// Where a fighter held during this move is pinned: (forward, up) from the holder's feet. `None`: the ordinary hold, the ruleset's
+    /// `grab_distance` in front on the holder's platform.
+    pub hold_at: Option<(Fx, Fx)>,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -717,6 +727,8 @@ impl Move {
             armor: None,
             on_search: None,
             air_version: None,
+            catch_move: None,
+            hold_at: None,
             charge_at: None,
             next: None,
             next_window: 0,
@@ -806,6 +818,7 @@ impl StateHash for Hitbox {
         h.write_bool(self.reverse);
         h.write_bool(self.push);
         h.write_u16(self.shieldstun);
+        h.write_bool(self.command);
     }
 }
 
@@ -933,7 +946,15 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
-            for slot in [m.on_search, m.air_version] {
+            match m.hold_at {
+                Some((x, y)) => {
+                    h.write_bool(true);
+                    x.hash_into(h);
+                    y.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            for slot in [m.on_search, m.air_version, m.catch_move] {
                 match slot {
                     Some(id) => {
                         h.write_bool(true);
@@ -1068,6 +1089,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 reverse: false,
                 push: false,
                 shieldstun: 100,
+                command: false,
             })
             .collect(),
         ..Move::empty()
@@ -1118,6 +1140,7 @@ fn row(r: &R) -> Hitbox {
         reverse: false,
         push: false,
         shieldstun: 100,
+        command: false,
     }
 }
 
@@ -3417,6 +3440,7 @@ pub fn claws() -> Weapon {
             reverse: false,
             push: false,
             shieldstun: 100,
+            command: false,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,

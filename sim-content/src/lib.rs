@@ -228,6 +228,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             ("landing_move", mv.landing_move),
             ("on_search", mv.on_search),
             ("air_version", mv.air_version),
+            ("catch_move", mv.catch_move),
         ] {
             if let Some(l) = slot {
                 if usize::from(l) >= MoveId::COUNT

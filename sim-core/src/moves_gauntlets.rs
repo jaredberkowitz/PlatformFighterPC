@@ -26,7 +26,95 @@ pub fn gauntlets() -> Weapon {
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
     raptor_boost(&mut w);
+    falcon_dive(&mut w);
     w
+}
+
+const DIVE_CATCH: MoveId = MoveId::Ext6;
+
+/// Up special, a leaping command grab that explodes (the reference's, ssbwiki.com 13.0.1).
+///
+/// * The leap (up special): grab boxes on frame 14 (5.0 reference units at 13.0 up and 7.0 ahead; 5.5 at 8.8 up and 13.7 ahead on
+///   grounded fighters only) and 15-30 (5.0 at 15.0 and at 11.0 up, 6.0 ahead), converted [D]. They are command grabs: they catch
+///   fighters on the ground or in the air, shielding or in hitstun. The turnaround only on frame 14, with the stick held back past
+///   0.25 (the reference's B-reverse frame); before it, x6 horizontal acceleration in the air (the reference's "Tokyo drift"), air
+///   speed x0.95 throughout; after the rise, gravity 0.103. Fast fall from frame 50. Ledges in front from frame 20, behind from 37.
+///   Animation 66, then the special fall (air speed x0.7, landing lag 24).
+/// * The catch (ext6): the held fighter at the fist [E]; on frames 2-3 an explosion of 5% (361, BK 50, KS 100) on the held fighter
+///   and on anyone else it reaches (radius 9.6 at the body, [D]); the throw on frame 17: 13%, 50 degrees, BK 85, KS 62. FAF 40, then
+///   free (not helpless: the leap can be used again). Touching down during the catch does not end it [E: not published].
+///
+/// The rise and the backflip after the throw are the reference's animation, not published: [E] (see "Fitted distances" in the
+/// reference data).
+fn falcon_dive(w: &mut Weapon) {
+    let grab = |first: u8, last: u8, x: i32, y: i32, radius: i32, priority: u8| {
+        let mut h = row(&r(first, last, x, y, radius, 0, 361, 0, 0, priority, 0));
+        h.kind = HIT_GRAB;
+        h.command = true;
+        h
+    };
+    let mut dive = ref_move(67, 0, 0, 255, &[]);
+    dive.hitboxes = vec![
+        grab(14, 14, 9, 16, 6, 0),
+        grab(14, 14, 17, 11, 7, 1),
+        grab(15, 30, 8, 19, 6, 0),
+        grab(15, 30, 8, 14, 6, 1),
+    ];
+    dive.hitboxes[1].targets = TARGETS_GROUNDED;
+    dive.turn_at = Some((13, 25));
+    dive.air_blocks = vec![
+        AirBlock {
+            from: 0,
+            to: 12,
+            gravity: None,
+            max_fall: None,
+            friction: None,
+            drift: 95,
+            accel: 600,
+        },
+        AirBlock {
+            from: 31,
+            to: 255,
+            gravity: Some(su(103)),
+            max_fall: None,
+            friction: None,
+            drift: 95,
+            accel: 100,
+        },
+    ];
+    dive.fast_fall_from = 49;
+    dive.ledge_front_from = 19;
+    dive.ledge_back_from = 36;
+    dive.helpless_after = true;
+    dive.fall_drift = 70;
+    dive.fall_landing_lag = 24;
+    dive.catch_move = Some(DIVE_CATCH as u8);
+    dive.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_dive.script"),
+    ));
+    w.moves[MoveId::UpSpecial as usize] = dive;
+
+    let mut catch = ref_move(
+        40,
+        0,
+        0,
+        255,
+        &[
+            r(2, 3, 0, 10, 12, 50, 361, 50, 100, 0, 0),
+            r(2, 3, 0, 10, 12, 50, 361, 50, 100, 0, 0),
+            r(17, 17, 9, 10, 10, 130, 50, 85, 62, 0, 1),
+        ],
+    );
+    catch.hitboxes[0].kind = HIT_PUMMEL;
+    catch.hitboxes[2].kind = HIT_THROW;
+    catch.hold_at = Some((Fx::from_ratio(9, 10), Fx::from_ratio(1, 2)));
+    catch.land_continue = true;
+    catch.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_dive_catch.script"),
+    ));
+    w.moves[DIVE_CATCH as usize] = catch;
 }
 
 /// Reference units (thousandths) to world units: 1 world unit is 8 reference units.

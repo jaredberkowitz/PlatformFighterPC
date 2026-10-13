@@ -594,6 +594,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         reverse: f.or("reverse", false, errors),
         push: f.or("push", false, errors),
         shieldstun: f.or("shieldstun", 100, errors),
+        command: f.or("command", false, errors),
     };
     f.finish(errors);
     hb
@@ -660,6 +661,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     if hb.push {
         b.field("push", "true");
     }
+    if hb.command {
+        b.field("command", "true");
+    }
     if hb.shieldstun != 100 {
         b.field("shieldstun", hb.shieldstun.to_string());
     }
@@ -724,6 +728,17 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     let turn_frame: Option<u8> = f.parsed("turn_frame", errors);
     let turn_stick: u8 = f.or("turn_stick", 0, errors);
     m.turn_at = turn_frame.map(|frame| (frame, turn_stick));
+    let hold_x: Option<Fx> = f.parsed("hold_x", errors);
+    let hold_y: Option<Fx> = f.parsed("hold_y", errors);
+    match (hold_x, hold_y) {
+        (Some(x), Some(y)) => m.hold_at = Some((x, y)),
+        (None, None) => {}
+        _ => err(
+            errors,
+            block.line,
+            format!("{context}: hold_x and hold_y go together"),
+        ),
+    }
     m.counter_strike = f.or("counter_strike", false, errors);
     m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
@@ -744,6 +759,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         ("landing_move", &mut m.landing_move),
         ("on_search", &mut m.on_search),
         ("air_version", &mut m.air_version),
+        ("catch_move", &mut m.catch_move),
     ] {
         if let Some((key, line)) = f.raw(name) {
             match MoveId::from_key(key) {
@@ -907,6 +923,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     reverse: false,
                     push: false,
                     shieldstun: 100,
+                    command: false,
                 }
             }
         };
@@ -1076,6 +1093,10 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         b.field("turn_frame", frame.to_string());
         b.field("turn_stick", stick.to_string());
     }
+    if let Some((x, y)) = m.hold_at {
+        b.field("hold_x", x.show());
+        b.field("hold_y", y.show());
+    }
     for (name, value) in [
         ("air_gravity", m.air_gravity),
         ("air_max_fall", m.air_max_fall),
@@ -1106,6 +1127,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("landing_move", m.landing_move),
         ("on_search", m.on_search),
         ("air_version", m.air_version),
+        ("catch_move", m.catch_move),
     ] {
         if let Some(id) = slot {
             b.field(name, MoveId::from_index(id).key());

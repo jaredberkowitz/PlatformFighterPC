@@ -248,14 +248,20 @@ mod tests {
                             | FighterState::LedgeGetUp
                             | FighterState::LedgeAttack
                     );
-                    // Attacks and hitstun can happen on the ground or in the air.
-                    if !matches!(
-                        f.state,
-                        FighterState::Attack
-                            | FighterState::Hitstun
-                            | FighterState::ShieldBreak
-                            | FighterState::Rebound
-                    ) {
+                    // Attacks and hitstun can happen on the ground or in the air, and so can being held by a command grab (the
+                    // holder in its catch move).
+                    let command_held = f.state == FighterState::Grabbed
+                        && usize::try_from(f.grab_with)
+                            .is_ok_and(|h| s.fighters[h].state == FighterState::Attack);
+                    if !command_held
+                        && !matches!(
+                            f.state,
+                            FighterState::Attack
+                                | FighterState::Hitstun
+                                | FighterState::ShieldBreak
+                                | FighterState::Rebound
+                        )
+                    {
                         assert_eq!(
                             grounded_state,
                             f.grounded(),

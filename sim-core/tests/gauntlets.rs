@@ -994,6 +994,11 @@ fn the_new_fields_are_in_the_content_hash() {
             (|m| m.fast_fall_from = 9) as fn(&mut sim_core::moves::Move),
         ),
         ("lands_from", |m| m.lands_from = 9),
+        ("on_search", |m| m.on_search = Some(30)),
+        ("air_version", |m| m.air_version = Some(30)),
+        ("catch_move", |m| m.catch_move = Some(30)),
+        ("hold_at", |m| m.hold_at = Some((Fx::ONE, Fx::ONE))),
+        ("command", |m| m.hitboxes[0].command = true),
         ("turn_at", |m| m.turn_at = Some((13, 25))),
         ("air_blocks", |m| {
             m.air_blocks = vec![sim_core::moves::AirBlock {

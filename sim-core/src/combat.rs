@@ -322,7 +322,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 let touching = match hb.kind {
                     // Throws and pummels act on the fighter being held, wherever the hitbox is.
                     HIT_THROW | HIT_PUMMEL => fa.grab_with == d as i8,
-                    HIT_GRAB => grab::grabbable(fd) && touches(&hurt, shut, center, hb.radius),
+                    HIT_GRAB => grab::can_catch(&hb, fd) && touches(&hurt, shut, center, hb.radius),
                     _ => fa.grab_with != d as i8 && touches(&hurt, shut, center, hb.radius),
                 };
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
@@ -419,8 +419,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     // Two fighters grabbing each other on the same frame both let go: a grab parry (1% each, and a rebound).
     for a in 0..MAX_FIGHTERS {
         for d in a + 1..MAX_FIGHTERS {
-            let both = matches!(chosen[a][d], Some(h) if h.kind == HIT_GRAB)
-                && matches!(chosen[d][a], Some(h) if h.kind == HIT_GRAB);
+            let both = matches!(chosen[a][d], Some(h) if h.kind == HIT_GRAB && !h.command)
+                && matches!(chosen[d][a], Some(h) if h.kind == HIT_GRAB && !h.command);
             if both && !struck[a] && !struck[d] {
                 chosen[a][d] = None;
                 chosen[d][a] = None;
@@ -444,7 +444,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 || struck[a]
                 || struck[d]
                 || state.fighters[a].state != S::Attack
-                || !grab::grabbable(&state.fighters[d])
+                || state.fighters[a].grab_with != NONE
+                || !grab::can_catch(&hb, &state.fighters[d])
             {
                 continue;
             }

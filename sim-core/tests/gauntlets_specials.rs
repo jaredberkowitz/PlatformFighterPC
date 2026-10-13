@@ -270,6 +270,7 @@ fn the_uppercut_withstands_a_hit_of_up_to_10_percent_on_frames_1_to_4() {
         reverse: false,
         push: false,
         shieldstun: 100,
+        command: false,
     };
     for (damage, holds) in [(10, true), (11, false)] {
         let mut sim = duel();
@@ -371,4 +372,252 @@ fn a_missed_aerial_dash_ends_in_the_special_fall() {
         (sim.f().state, sim.f().move_id),
         (S::Helpless, RAPTOR_AIR as u8)
     );
+}
+
+// ---- Up special: the leaping command grab ----------------------------------------------------------------------------------
+
+const DIVE_CATCH: MoveId = MoveId::Ext6;
+
+#[test]
+fn the_up_specials_frame_data_is_the_references() {
+    use sim_core::moves::{HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW};
+    let sim = duel();
+    let w = gauntlets(&sim);
+    let dive = w.get(MoveId::UpSpecial as u8);
+    assert_eq!(
+        windows(w, MoveId::UpSpecial, HIT_GRAB),
+        vec![(14, 14), (15, 30)]
+    );
+    assert!(dive.hitboxes.iter().all(|h| h.command), "command grabs");
+    assert_eq!(
+        faf(w, MoveId::UpSpecial),
+        67,
+        "an animation of 66, then the special fall"
+    );
+    assert!(dive.helpless_after);
+    assert_eq!((dive.fall_drift, dive.fall_landing_lag), (70, 24));
+    assert_eq!(
+        (dive.ledge_front_from + 1, dive.ledge_back_from + 1),
+        (20, 37)
+    );
+    assert_eq!(dive.fast_fall_from + 1, 50);
+    assert_eq!(
+        dive.turn_at,
+        Some((13, 25)),
+        "turns only on frame 14, past 0.25"
+    );
+    let before = dive
+        .air_blocks
+        .iter()
+        .find(|b| b.from == 0)
+        .expect("startup block");
+    assert_eq!((before.to + 1, before.accel, before.drift), (13, 600, 95));
+    let after = dive
+        .air_blocks
+        .iter()
+        .find(|b| b.from > 0)
+        .expect("fall block");
+    assert_eq!(after.gravity, Some(su(103)));
+    assert_eq!(dive.catch_move, Some(DIVE_CATCH as u8));
+
+    let catch = w.get(DIVE_CATCH as u8);
+    assert_eq!(windows(w, DIVE_CATCH, HIT_PUMMEL), vec![(2, 3)]);
+    assert_eq!(windows(w, DIVE_CATCH, HIT_NORMAL), vec![(2, 3)]);
+    assert_eq!(windows(w, DIVE_CATCH, HIT_THROW), vec![(17, 17)]);
+    assert_eq!(faf(w, DIVE_CATCH), 40);
+    assert!(!catch.helpless_after, "free after a catch");
+    let throw = catch.hitboxes.iter().find(|h| h.kind == HIT_THROW).unwrap();
+    assert_eq!(
+        (
+            throw.damage,
+            throw.angle,
+            throw.base_knockback,
+            throw.knockback_growth
+        ),
+        (Fx::from_int(13), 50, 85, 62)
+    );
+    assert!(catch
+        .hitboxes
+        .iter()
+        .filter(|h| h.kind != HIT_THROW)
+        .all(
+            |h| (h.damage, h.angle, h.base_knockback, h.knockback_growth)
+                == (Fx::from_int(5), 361, 50, 100)
+        ));
+}
+
+/// The sprinter's up special from standing at x = -4 (stick up), with the duelist held still in the air at `target` (relative), until
+/// it is caught. Returns the sim and the reference frame of the catch.
+fn dive_at(target: Vec2, grounded_target: bool) -> (Sim, Option<u16>) {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.tick(inp(0, 127, SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
+    let mut caught = None;
+    for tick in 2..=40u16 {
+        if caught.is_none() {
+            let me = sim.f().pos;
+            if grounded_target {
+                sim.stand(1, me.x + target.x, -1);
+            } else {
+                sim.put_airborne(1, me.x + target.x, me.y + target.y, Fx::ZERO, Fx::ZERO);
+            }
+        }
+        sim.tick(inp(0, 0, 0));
+        if caught.is_none() && sim.fighter(1).state == S::Grabbed {
+            caught = Some(tick);
+        }
+    }
+    (sim, caught)
+}
+
+#[test]
+fn the_leap_catches_an_airborne_fighter_on_frame_14_explodes_and_throws_it() {
+    let (mut sim, caught) = dive_at(Vec2::new(fx(9, 10), fx(10, 10)), false);
+    assert_eq!(caught, Some(14));
+    // Run on through the catch: 5% from the explosion and 13% from the throw.
+    sim.ticks(40, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 180));
+    assert_eq!(sim.fighter(1).grab_with, sim_core::state::NONE);
+    // Free afterwards, not in the special fall; and the leap can be used again.
+    assert!(
+        matches!(sim.f().state, S::Airborne | S::Idle | S::Landing),
+        "{:?}",
+        sim.f().state
+    );
+    if sim.f().state == S::Airborne {
+        sim.tick(inp(0, 127, SPECIAL));
+        assert_eq!(sim.f().move_id, MoveId::UpSpecial as u8);
+    }
+}
+
+#[test]
+fn the_leap_catches_a_grounded_or_shielding_fighter_in_front() {
+    let (_, caught) = dive_at(Vec2::new(fx(15, 10), Fx::ZERO), true);
+    assert_eq!(
+        caught,
+        Some(14),
+        "the frame-14 box that reaches grounded fighters"
+    );
+    // Shielding: the same, through the shield.
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.stand(1, Fx::from_int(-4) + fx(15, 10), -1);
+    sim.state.fighters[1].state = S::Shield;
+    sim.state.fighters[1].state_frame = 30;
+    sim.tick(inp(0, 127, SPECIAL));
+    let mut got = false;
+    for _ in 0..20 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, sim_core::input::buttons::SHIELD));
+        got |= sim.fighter(1).state == S::Grabbed;
+    }
+    assert!(got);
+}
+
+#[test]
+fn the_explosion_also_hits_a_bystander() {
+    let mut sim = Sim::with_chars([SPRINTER, 0, 0, 0]);
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.tick(inp(0, 127, SPECIAL));
+    for _ in 2..=20 {
+        if sim.fighter(1).state != S::Grabbed {
+            let me = sim.f().pos;
+            sim.put_airborne(1, me.x + fx(9, 10), me.y + Fx::ONE, Fx::ZERO, Fx::ZERO);
+        }
+        // The bystander, just behind the sprinter.
+        let me = sim.f().pos;
+        sim.put_airborne(2, me.x - fx(5, 10), me.y + fx(5, 10), Fx::ZERO, Fx::ZERO);
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(
+        sim.fighter(2).percent,
+        dealt(&sim, 50),
+        "5% to the bystander"
+    );
+}
+
+#[test]
+fn a_missed_leap_ends_in_the_special_fall_after_frame_66() {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.put_airborne(0, Fx::from_int(-4), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(0, 127, SPECIAL));
+    sim.ticks(64, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        (sim.f().state, sim.f().move_id),
+        (S::Helpless, MoveId::UpSpecial as u8)
+    );
+}
+
+#[test]
+fn the_leap_turns_only_on_frame_14_and_drifts_hard_before_it() {
+    // Up and back from the start: no turn until frame 14, then a turn (the momentum with it).
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.put_airborne(0, Fx::from_int(-4), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(-127, 127, SPECIAL));
+    assert_eq!(
+        sim.f().facing,
+        1,
+        "up and back does not reverse it at the start"
+    );
+    sim.ticks(12, inp(-127, 0, 0));
+    assert_eq!((sim.f().state_frame, sim.f().facing), (12, 1));
+    let vx = sim.f().vel.x;
+    assert!(vx < Fx::ZERO, "drifting back");
+    sim.tick(inp(-127, 0, 0));
+    assert_eq!(sim.f().facing, -1, "turned on frame 14");
+    // The x6 acceleration: 12 frames held forward build far more speed than the body's own air control would.
+    let drift = |accel: u16| {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(10), -1);
+        let w = usize::from(SPRINTER);
+        sim.content.weapons[w].moves[MoveId::UpSpecial as usize].air_blocks[0].accel = accel;
+        sim.put_airborne(0, Fx::from_int(-4), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+        sim.state.fighters[0].facing = 1;
+        sim.tick(inp(0, 127, SPECIAL));
+        sim.ticks(3, inp(127, 0, 0));
+        sim.f().vel.x
+    };
+    assert!(
+        drift(600) > drift(100).mul_int(4),
+        "{:?} vs {:?}",
+        drift(600),
+        drift(100)
+    );
+}
+
+#[test]
+fn the_leap_rises_and_cannot_fast_fall_before_frame_50() {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.put_airborne(0, Fx::from_int(-4), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(0, 127, SPECIAL));
+    let mut start = sim.f().pos.y;
+    let mut top = start;
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state_frame == 12 {
+            start = sim.f().pos.y;
+        }
+        top = top.max(sim.f().pos.y);
+    }
+    // [E] about 34 reference units (4.3 world units) above the start of the rise.
+    let risen = top - start;
+    assert!(risen > fx(35, 10) && risen < fx(50, 10), "{risen:?}");
+    // Frame 42: falling; a flick down does nothing yet.
+    sim.tick(inp(0, -127, 0));
+    assert!(!sim.f().fast_fall);
+    sim.ticks(6, inp(0, 0, 0));
+    // Reference frame 49: still not.
+    sim.tick(inp(0, -127, 0));
+    assert_eq!(sim.f().state_frame, 48);
+    assert!(!sim.f().fast_fall);
+    // Frame 50: the flick (still held, within the fast-fall buffer) takes.
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall, "frame 50");
 }
