@@ -578,6 +578,8 @@ fn damage_armor_withstands_hits_up_to_its_threshold_and_super_armor_every_hit() 
             end: 30,
             kind: ARMOR_DAMAGE,
             threshold: Fx::from_int(threshold),
+            subtract: false,
+            min_kb: Fx::ZERO,
         })
     };
     // 9% and 10% against a 10% threshold: the damage and hitlag are taken, the move goes on.
@@ -610,6 +612,8 @@ fn damage_armor_withstands_hits_up_to_its_threshold_and_super_armor_every_hit() 
         end: 30,
         kind: ARMOR_SUPER,
         threshold: Fx::ZERO,
+        subtract: false,
+        min_kb: Fx::ZERO,
     });
     assert_eq!(armored(sup, 30, HIT_NORMAL).fighter(1).state, S::Attack);
     // A grab ignores armor.

@@ -445,6 +445,8 @@ fn raptor_boost(w: &mut Weapon) {
         end: 3,
         kind: ARMOR_DAMAGE,
         threshold: Fx::from_int(10),
+        subtract: false,
+        min_kb: Fx::ZERO,
     });
     hit.script = Some(script(
         Kind::Fighter,

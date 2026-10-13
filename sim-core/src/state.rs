@@ -251,6 +251,9 @@ pub struct Fighter {
     /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 86), with the ruleset's trip
     /// timings instead of a missed tech's.
     pub tripped: bool,
+    /// Frames of the midair jump the fighter is in (sim 95, E33): 1 on the jump's own frame, one more each frame it stays in it (hitlag
+    /// excluded, saturating); 0 when it is not in one (anything but `Airborne` clears it). The body's `air_jump_armor` reads it.
+    pub air_jump_frame: u8,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -468,6 +471,7 @@ impl Fighter {
             lock: Vec2::ZERO,
             locked: false,
             tripped: false,
+            air_jump_frame: 0,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -628,6 +632,7 @@ impl StateHash for Fighter {
         self.lock.hash_into(h);
         h.write_bool(self.locked);
         h.write_bool(self.tripped);
+        h.write_u8(self.air_jump_frame);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
         self.spawn_pos.hash_into(h);
@@ -1167,6 +1172,11 @@ mod tests {
             ("tripped", {
                 let mut s = state;
                 s.fighters[1].tripped = true;
+                s
+            }),
+            ("air_jump_frame", {
+                let mut s = state;
+                s.fighters[2].air_jump_frame = 7;
                 s
             }),
             ("projectile_hit_mask", {
