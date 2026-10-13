@@ -103,7 +103,7 @@ pub const DAIR_LANDING: MoveId = MoveId::Ext3;
 /// the head and foot intangibility windows. Radii and offsets on the reference's root bone (`top`) are its values converted (x 1.25,
 /// rounded half up to a tenth) [D]; boxes on the tail, head, leg, foot and tongue bones are placed on our body where that bone is in the
 /// move's pose [E]. No normal has the reference's `rebound=f` alone, or a shieldstun multiplier (checked in the raw tables). The specials
-/// are still the claws' (phase 2 builds the egg throw and the drop, phase 3 the tongue's egg and the roll).
+/// are still the claws' (phase 2 builds the lobbed shell and the drop, phase 3 the tongue's shell and the rolling shell).
 pub fn clutch() -> Weapon {
     let mut w = claws();
     // Kicks, a tail, a head: the body's own limbs (the limb circle reaches toward the hits, and its intangibility acts on it).
