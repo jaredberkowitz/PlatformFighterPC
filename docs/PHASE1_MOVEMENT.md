@@ -279,6 +279,11 @@ before it still starts it (it was 2 or 3). Holding a button counts too, however 
 special, jump and grab, not shield. Each press starts **one** action: an action uses the press up, and only a new press of that button can
 start another. So a held jump that made a full hop does not also double jump, a buffered attack gives one jab, and holding shield into a jump
 out of shield does not air dodge (shielding uses the press). Stick inputs (dashes, rolls, smash flicks) keep their short windows.
+**Buffered dash out of lag** (sim 55): on the first frame a fighter can act after lag (a landing, an aerial's landing lag, autocancelled
+or not, the end of an attack), a dash flicked during that lag still comes out, if the stick is still held past the dash threshold; the
+window reaches back the input buffer (9 frames, plus the current one). A stick pushed longer ago than that is a walk, as before. Tests:
+`sim-core/tests/landing_buffer.rs`. (Aerials already autocancel in their reference windows, landing with only the plain 2-frame landing
+lag; `reference_moves.rs` checks the windows.)
 
 **Short hops**
 - An attack pressed with the jump or during the jump squat makes the jump a **short hop**, even with jump held, and the aerial comes out on

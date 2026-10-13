@@ -459,7 +459,15 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     // A flick starts a dash (and turns around instantly if it is against the facing). A run is
     // committed: flicking the other way skids to a stop and turns instead of dash dancing, and a
     // flick the same way changes nothing.
-    let flick = f.dash_flick(FLICK_BUFFER);
+    // On the first frame the fighter can act after lag (a landing, an aerial's landing lag, the end of an attack), a dash flicked during
+    // that lag still comes out, as long as the stick is still held past the dash threshold: the input buffer, for the stick. Otherwise
+    // only a fresh flick dashes.
+    let window = if f.state == S::Idle && f.state_frame <= 1 {
+        buffer.saturating_add(1)
+    } else {
+        FLICK_BUFFER
+    };
+    let flick = f.dash_flick(window);
     if flick != 0 {
         if f.state == S::Run {
             if flick != f.facing {
