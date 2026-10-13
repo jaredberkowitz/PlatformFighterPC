@@ -66,6 +66,14 @@ and up air with their last hits, the smashes' wind as pushes, the up smash's pil
 `Hitbox::angle_type`), applied to the older classes too (owner decision 21: each change in `sim-core/tests/angle_types.rs`), and a
 signed hitstun modifier (E27). Its specials are still the claws' until phase 2 (plan in
 `docs/movesets/palutena/IMPLEMENTATION_REPORT.md`).
+**Sims 67 to 71** (branch `falcon-phase2`, merged into `movesets` at **sim 72**): the Gauntlets' four specials on reference data, with
+the reference's exact shield stun for every fighter (whole-number stuns were a frame short; the changed moves are listed in the
+Gauntlets' report), armor (E1), frame-ranged air physics with fast-fall and turn frames (E11 additions), search boxes (E21), command
+grabs (E6), no-clank hits (E3c), off-edge versions (E22) and the `wall` script register. **Sim 73** (branch `cleanup-72`): the
+reference's angle type 1 (from the direction of travel) on the Claws' up special loop, every Gauntlets special's angle type, the Staff's
+no-clank boxes, the Longsword's, Claws' and Needles' get-up attacks at the reference's angle 48, and a second source for the Sprinter's
+42-frame neutral air dodge (owner decisions 18 and 23 to 27). The Gauntlets are now **playable** (travel distances [E]); details in
+`docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`.
 
 ## Roadmap progress
 

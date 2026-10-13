@@ -1,6 +1,7 @@
 //! The reference's no-clank boxes (`clang=f`, E3c `Hitbox::clanks`) on the Staff (class 5, sim 73): every box of the rapid jab and
 //! its finisher, the dash attack, the three smashes, the down air, the pummel, the ledge and the get-up attacks never clanks, as in
-//! `docs/movesets/palutena/REFERENCE_DATA.md` (ssbwiki.com raw hitbox tables, 13.0.1); every other normal still does.
+//! the Staff's reference data (its port's `REFERENCE_DATA.md` under `docs/movesets/`; ssbwiki.com raw hitbox tables, 13.0.1); every
+//! other normal still does.
 
 mod common;
 
