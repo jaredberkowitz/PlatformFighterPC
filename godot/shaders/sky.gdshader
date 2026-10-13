@@ -9,9 +9,10 @@ uniform vec4 mid_color : source_color = vec4(0.56, 0.72, 0.94, 1.0);
 uniform vec4 horizon_color : source_color = vec4(0.8, 0.92, 0.98, 1.0);
 uniform vec4 ground_color : source_color = vec4(0.64, 0.74, 0.78, 1.0);
 // Where the middle tint is strongest and where the top colour is reached (the sky's elevation, 0 at the horizon, 1 straight up). The match
-// camera sees only the lowest quarter of the sky, so the bands sit low enough for all of them to show.
-uniform float mid_at = 0.08;
-uniform float top_at = 0.3;
+// camera sees only the lowest few degrees of the sky (about 0.09 up at the top of the screen), so the bands sit low enough for all of
+// them to show.
+uniform float mid_at = 0.035;
+uniform float top_at = 0.13;
 uniform vec4 glow_color : source_color = vec4(1.0, 0.8, 0.55, 1.0);
 uniform float glow_strength = 0.0;
 // The glow's direction (toward it), and how wide it spreads (bigger is wider).

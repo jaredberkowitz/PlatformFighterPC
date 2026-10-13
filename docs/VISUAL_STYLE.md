@@ -40,8 +40,8 @@ Each stage theme has a **mood** (`Lighting.MOODS`: key and fill light, ambient, 
 profile** (`Lighting.STYLES`: ramp, deep shade, edge light, painted gradient, glow strength and the finishing pass's value range,
 `finish`), applied together by `Lighting.stage_mood`. A new stage picks a theme and inherits all of it; it overrides only what it needs.
 
-The value range per theme (`finish`, graphics phase 2): `desat` (eases colour toward grey, 0.07 by default), `lift` (lifts the darks toward
-the haze, 0.06), `vignette` (0.16), `haze_max` (the far scenery's most haze, 0.30) and `s_curve` (a gentle S-curve on the 0..1 range, 0.2;
+The value range per theme (`finish`, graphics phase 2): `desat` (eases colour toward grey, 0 by default), `lift` (lifts the darks toward
+the haze, 0.03), `vignette` (0.16), `haze_max` (the far scenery's most haze, 0.22) and `s_curve` (a gentle S-curve on the 0..1 range, 0.22;
 lit windows above white keep their glow); fighters take half of the pastel and the curve. The city curves more (0.48) and lifts less (0.02)
 for a deep night. `glow` sets the bloom (0.75 by default, 0.95 night, 1.1 city).
 
@@ -77,6 +77,13 @@ Shader inventory, stage side: `toon.gdshader` / `toon_common` / `toon_light` / `
 `toon_foliage.gdshader`, `water.gdshader`, `painted_ridge.gdshader`, `fx.gdshader` (halos and effects), `post.gdshader` (finishing pass).
 
 ## 4. Atmosphere and post
+
+**Clear and vivid, not milky** (ship-polish pass): far scenery hazes toward each stage's own saturated haze colour (`MOODS[...].haze`),
+never toward white; the paper tint is light (0.04); colours are not eased toward grey by default; the mist layers between scenery
+layers are thin; the sky's bands sit low (`mid_at` 0.035, `top_at` 0.13 in `sky.gdshader`) because the match camera only sees the
+lowest few degrees, so each stage's rich top colour shows. Clouds are cel-lit cumulus (`StageArt._clouds`): a warm lit top and a
+shaded underside in the stage's shadow colour, on a flat base. Targets: the clarity of a cel-shaded adventure, the painted skies of the
+concept art, the readability of a modern platform fighter.
 
 The post pass adds distance haze toward the stage's haze colour (from 4 units behind the stage plane, so the nearer scenery layers already
 separate from the farther ones, up to 36% far back; the stage and its props are untouched), the pastel finish (fighters get half, so they stay the most vivid

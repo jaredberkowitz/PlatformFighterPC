@@ -20,14 +20,14 @@ const VisualSettings := preload("res://scripts/visual_settings.gd")
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
 const THEMES := {
 	"meadow": {
-		"sky_top": Color(0.36, 0.4, 0.9), "sky_mid": Color(0.88, 0.64, 0.9), "sky_horizon": Color(1.0, 0.84, 0.74),
+		"sky_top": Color(0.3, 0.32, 0.88), "sky_mid": Color(0.66, 0.5, 0.95), "sky_horizon": Color(1.0, 0.8, 0.62),
 		"sky_glow": [Color(1.0, 0.74, 0.46), 0.5], "sky_wisps": [Color(1.0, 0.8, 0.88), 0.6],
 		"soil": Color(0.62, 0.46, 0.32), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.42, 0.76, 0.36),
 		"grass_light": Color(0.62, 0.88, 0.46), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "cobble", "cap": "grass", "platform": "wood", "grass_vary": 0.17,
 	},
 	"grove": {
-		"sky_top": Color(0.42, 0.6, 0.96), "sky_mid": Color(0.8, 0.74, 0.98), "sky_horizon": Color(0.99, 0.86, 0.93),
+		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.36, 0.76, 0.36),
 		"grass_light": Color(0.58, 0.9, 0.45), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
@@ -48,7 +48,7 @@ const THEMES := {
 		"pattern": "diamonds", "cap": "grass", "platform": "wood",
 	},
 	"ocean": {
-		"sky_top": Color(0.2, 0.52, 0.92), "sky_mid": Color(0.56, 0.78, 1.0), "sky_horizon": Color(0.74, 0.92, 1.0),
+		"sky_top": Color(0.12, 0.44, 0.94), "sky_mid": Color(0.36, 0.68, 1.0), "sky_horizon": Color(0.7, 0.9, 1.0),
 		"sky_glow": [Color(1.0, 0.86, 0.64), 0.45], "sky_wisps": [Color(1.0, 0.95, 0.92), 0.4],
 		"soil": Color(0.62, 0.58, 0.54), "soil_dark": Color(0.5, 0.46, 0.44), "grass": Color(0.98, 0.88, 0.62),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
@@ -416,7 +416,7 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 		ridge(root, t, spec)
 	# Fog layers: soft bands of haze in the horizon's colour between the layers of scenery, thickest at the bottom, so each layer sits
 	# further back than the one before (a painted depth, at the cost of a few see-through cards).
-	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.25)
+	var haze: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.1)
 	for layer in MIST.get(t.name, []):
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
 	painted_layers(root, t.name)
@@ -853,9 +853,9 @@ static func painted_layers(root: Node3D, theme_name: String) -> int:
 ## base, amplitude, frequency, tone (a colour the sky's horizon is mixed toward for the ridge), mix (how far), edge (the lit top)}.
 const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
-		"tone": Color(0.42, 0.52, 0.74), "mix": 0.45, "edge": 0.45}],
+		"tone": Color(0.4, 0.44, 0.78), "mix": 0.6, "edge": 0.45}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
-		"tone": Color(0.62, 0.52, 0.78), "mix": 0.4, "edge": 0.5}],
+		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
 		"tone": Color(0.42, 0.26, 0.5), "mix": 0.55, "edge": 0.4},
 		{"z": -132.0, "y": -34.0, "height": 46.0, "shape": 2, "seed": 11.0, "base": 0.36, "amplitude": 0.36, "frequency": 2.6,
@@ -876,7 +876,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	var top := horizon.lerp(tone, float(spec.mix))
 	m.set_shader_parameter("top_colour", top)
 	m.set_shader_parameter("foot_colour", top.lerp(horizon, 0.35))
-	m.set_shader_parameter("edge_colour", horizon.lerp(Color.WHITE, 0.5))
+	m.set_shader_parameter("edge_colour", horizon.lerp(Color.WHITE, 0.3))
 	m.set_shader_parameter("edge_amount", float(spec.edge))
 	m.set_shader_parameter("shape", int(spec.shape))
 	m.set_shader_parameter("seed", float(spec.seed))
@@ -884,7 +884,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	m.set_shader_parameter("amplitude", float(spec.amplitude))
 	m.set_shader_parameter("frequency", float(spec.frequency))
 	m.set_shader_parameter("haze_colour", horizon)
-	m.set_shader_parameter("haze", float(spec.get("haze", 0.3)))
+	m.set_shader_parameter("haze", float(spec.get("haze", 0.14)))
 	var q := QuadMesh.new()
 	q.size = Vector2(520.0, float(spec.height))
 	var mi := _mesh(root, q, m, Vector3(0, float(spec.y) + float(spec.height) * 0.5, float(spec.z)))
@@ -895,10 +895,10 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 
 ## The fog layers of each theme: [z, bottom y, height, strength].
 const MIST := {
-	"meadow": [[-56.0, -24.0, 17.0, 0.55], [-86.0, -26.0, 20.0, 0.6]],
-	"grove": [[-60.0, -24.0, 18.0, 0.5], [-90.0, -26.0, 22.0, 0.6]],
-	"sunset": [[-60.0, -26.0, 20.0, 0.45], [-95.0, -24.0, 26.0, 0.55]],
-	"ocean": [[-130.0, -10.0, 13.0, 0.55]],
+	"meadow": [[-56.0, -24.0, 14.0, 0.3], [-86.0, -26.0, 18.0, 0.38]],
+	"grove": [[-60.0, -24.0, 12.0, 0.18], [-90.0, -26.0, 16.0, 0.26]],
+	"sunset": [[-60.0, -26.0, 18.0, 0.35], [-95.0, -24.0, 24.0, 0.45]],
+	"ocean": [[-130.0, -10.0, 8.0, 0.2]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],
 	"city": [[-80.0, -30.0, 24.0, 0.35]],
 }
@@ -1023,17 +1023,28 @@ static func _soft_dot() -> GradientTexture2D:
 	return _dot
 
 
+## Painted cumulus: each cloud a cluster of puffs, the biggest in the middle, on a flattened base, in the cel material, so the stage's
+## light gives it a warm lit top and a shaded underside in the stage's own shadow colour (the clouds of a cel-shaded adventure, not
+## flat white blobs). No ink outline: they are far, and the haze softens them.
 static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2) -> void:
-	var mat := _unshaded(color)
+	var mat := FighterView.toon(color, false).duplicate() as ShaderMaterial
+	mat.set_shader_parameter("ramp_softness", 0.12)
+	mat.set_shader_parameter("rim_strength", 0.5)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
 		cloud.position = Vector3(rng.randf_range(-90, 90), rng.randf_range(y_range.x, y_range.y), rng.randf_range(-120, -85))
 		root.add_child(cloud)
-		var puffs := rng.randi_range(3, 5)
+		var size := rng.randf_range(0.8, 1.35)
+		var puffs := rng.randi_range(4, 7)
+		var span := puffs * 2.6 * size
 		for b in puffs:
-			var s := rng.randf_range(2.4, 4.4)
-			_mesh(cloud, _sphere(1.0, 16), mat, Vector3(b * 3.0 - puffs * 1.5, rng.randf_range(-0.6, 1.4), 0), Vector3(s, s * 0.8, s))
+			var u := (float(b) + 0.5) / puffs * 2.0 - 1.0
+			# Taller toward the middle, so the cluster domes; every puff sits on the same base line.
+			var s := (4.6 - absf(u) * 2.4) * size * rng.randf_range(0.85, 1.15)
+			_mesh(cloud, _sphere(1.0, 16), mat, Vector3(u * span * 0.5, s * 0.55, rng.randf_range(-1.5, 1.5)), Vector3(s, s * 0.85, s * 0.8))
+		# The flat base: a wide squashed puff under them all.
+		_mesh(cloud, _sphere(1.0, 16), mat, Vector3(0, 0.6 * size, 0), Vector3(span * 0.62, 1.4 * size, 3.5 * size))
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
@@ -1310,7 +1321,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var e := _ext(stage)
-	_hills(root, rng, Color(0.46, 0.76, 0.46), Color(0.66, 0.66, 0.9))
+	_hills(root, rng, Color(0.4, 0.74, 0.4), Color(0.52, 0.6, 0.88))
 	_clouds(root, rng, 9, Color(1.0, 0.93, 0.92), Vector2(14, 34))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on a far hill, its sails turning slowly.
@@ -1443,7 +1454,7 @@ static func _night(root: Node3D, t: Dictionary) -> void:
 static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
-	_hills(root, rng, Color(0.62, 0.84, 0.66), Color(0.76, 0.84, 0.95))
+	_hills(root, rng, Color(0.46, 0.8, 0.52), Color(0.58, 0.72, 0.92))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0

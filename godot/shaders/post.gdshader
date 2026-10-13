@@ -23,7 +23,7 @@ uniform float grain = 0.045;
 uniform float paper = 0.03;
 uniform float vignette = 0.16;          // kept light: dark corners make a fighter near the edge hard to read
 uniform vec4 tint : source_color = vec4(1.0, 0.95, 0.86, 1.0);
-uniform float tint_amount = 0.1;
+uniform float tint_amount = 0.04;
 // The stage's colour grade (set with its mood, scripts/lighting.gd): its shadows and its lights tinted toward two colours.
 uniform vec4 grade_shadows : source_color = vec4(1.0);
 uniform vec4 grade_lights : source_color = vec4(1.0);
@@ -148,7 +148,8 @@ void fragment() {
 	// Distance haze on the scenery behind the stage (before the pastel finish and the ink, so far lines fade with it).
 	if (d0 < 400.0) {
 		float far_k = smoothstep(haze_start, haze_end, d0 - stage_dist) * haze_max;
-		col = mix(col, mix(pastel_haze.rgb, vec3(1.0), 0.3), far_k);
+		// (Toward the stage's own haze colour, not toward white: coloured air, as in a painted landscape, rather than a milky veil.)
+		col = mix(col, pastel_haze.rgb, far_k);
 		edge *= 1.0 - far_k;
 	}
 	// The pastel finish (fighters, ids below 0.6, get half).
