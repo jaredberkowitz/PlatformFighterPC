@@ -591,10 +591,30 @@ func _animate(s: Dictionary, delta: float) -> void:
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
 	_rest_unkeyed(clip)
+	_bulk_arms(_cls(s))
 	_body_follow(s, delta)
 	_lag_bones(s)
 	_face_camera(int(s.facing))
 	_follow_bones()
+
+
+## Arm bulk by class: [forearm scale, hand scale] (the bone's own axes: x and z across it, y along it). The Hauler (Bracers) has huge
+## forearms and fists, thick across and a little long; every other class its plain arms. Applied to the pose every frame (`_bulk_arms`)
+## and to the arm IK's overrides (`_aim_arm`), so the bulk holds through its swings.
+const ARM_BULK := {7: [Vector3(1.55, 1.08, 1.55), Vector3(1.45, 1.35, 1.45)]}
+
+
+func _bulk_arms(cls: int) -> void:
+	if skeleton == null or not ARM_BULK.has(cls):
+		return
+	var b: Array = ARM_BULK[cls]
+	for side in ["L", "R"]:
+		var il := skeleton.find_bone("armL." + side)
+		var ih := skeleton.find_bone("hand." + side)
+		if il >= 0:
+			skeleton.set_bone_pose_scale(il, b[0])
+		if ih >= 0:
+			skeleton.set_bone_pose_scale(ih, b[1])
 
 
 ## The chest and head get turns and bends added on top of the clip every frame (`_body_follow`, `_lag_bones`), which only works if the
@@ -2600,8 +2620,10 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 		var q_lower := Quaternion((wrist0 - elbow0).normalized(), fore)
 		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
 		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
-		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch, elbow), 1.0, true)
-		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * fore_len), 1.0, true)
+		# (The class's arm bulk carried into the override, which replaces the pose's own scale.)
+		var bulk: Array = ARM_BULK.get(_cls_now, [Vector3.ONE, Vector3.ONE])
+		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch * Basis.from_scale(bulk[0]), elbow), 1.0, true)
+		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis * Basis.from_scale(bulk[1]), elbow + fore * fore_len * float((bulk[0] as Vector3).y)), 1.0, true)
 		if not bladed(_cls_now) and mine:
 			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
 			strike_tip_ok = true

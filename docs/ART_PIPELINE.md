@@ -1051,3 +1051,6 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
 - **The Boost meter is live** now that the gauge accessors are on main (the Champion's card shows the bar). `hud_boost_live.png`.
 - Still open for the Hauler: the huge forearms and short legs (a rig change), and the trip sit pose (waits on the bridge's
   `fighter_tripped`).
+- **The Hauler's forearms** (`ARM_BULK` in `fighter_view.gd`, by class): forearm bones scaled 1.55 across and 1.08 along, fists
+  1.45 and 1.35, applied to the pose every frame and carried into the arm IK's overrides, so the bulk holds through its swings. Other
+  classes are unchanged. `hauler_forearms.png`.
