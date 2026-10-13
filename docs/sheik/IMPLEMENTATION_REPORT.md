@@ -24,7 +24,7 @@ Added (all general, all hashed, all in the content format with defaults that kee
 * **Multi-hit engine** (sim 49): eight hit groups per move; a rehit that re-arms chosen groups only; per-hitbox targets (grounded or
   aerial only), set knockback, extra hitstun and SDI multiplier; the autolink angle 367 (carried along at the attacker's velocity plus a
   pull toward the hitbox, capped, no tumble); landing hits (an aerial's own landing move).
-* **Reference rules** (sim 50): the Sakurai angle (0 on the ground up to 60 knockback, 38 from 88 and in the air); traction slows
+* **Reference rules** (sim 50): the 361 angle (0 on the ground up to 60 knockback, 38 from 88 and in the air); traction slows
   grounded slides; a non-tumble hitstun lands on its feet (no knockdown or tech after a drag-down).
 * **Pull angle 368** (sim 51, ours): the victim is drawn to just in front of the attacker while its hitstun lasts.
 * **`link_ahead`** (sim 51, ours): an autolink's pull can aim in front of its hitbox, so the up air leaves its target in front.
@@ -49,7 +49,7 @@ everything about the pulling line (it is ours by request).
   the line reeling in from the ground and the air with frame advantage, Vanish's direction, intangibility, explosion and helplessness,
   Bouncing Fish's kick, bounce and landing lag.
 * `sim-core/tests/multihit.rs` (the engine features), `scripted_moves.rs` (the stored charge), and the existing combat, knockdown and
-  hit-feel tests updated for the reference's Sakurai angle and standing landings.
+  hit-feel tests updated for the reference's 361 angle and standing landings.
 * All 44 Rust suites, clippy, `net-fuzz` (200 runs, 0 mismatches) and the 19 Godot tests pass; contact sheets of the up air, forward
   tilt, forward smash, jab and all four specials were checked by eye.
 

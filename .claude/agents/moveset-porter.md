@@ -31,7 +31,7 @@ determinism, maintainability and compatibility with what already exists.
 - **Reference frame data goes in through `ref_move` / `row`** (`moves.rs`): frames are written in the reference's numbering (frame 1 =
   first frame, FAF as published) and converted there. Do not hand-convert frame numbers elsewhere.
 - **Units**: 1 world unit = 8 reference units (`FighterParams::su`); radius in world tenths = reference radius x 1.25. Angles in degrees,
-  361 = the reference's Sakurai angle, 367 = autolink (implemented per the reference), 368 = ours (pull in front).
+  361 = the reference's 361 angle, 367 = autolink (implemented per the reference), 368 = ours (pull in front).
 - **Specials that data cannot express** are `sim-script` scripts in `sim-core/src/scripts/*.script`, reaching the game only through the
   whitelist in `sim-script/src/api.rs` (implemented in `sim-core/src/scripting.rs`). A new script ability = whitelist entry + test in
   `sim-core/tests/scripted_moves.rs` + the doc line (a test checks it).

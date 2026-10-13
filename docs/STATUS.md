@@ -14,7 +14,7 @@ for multihit moves, a polished idle, jump, landing, jab, forward air and hit rea
 (sim 49): eight hit groups per move, a rehit that clears chosen groups, the autolink angle 367, set knockback, extra hitstun, per-hitbox
 SDI and landing hits; and the Needles rogue, whose body, tilts and aerials follow the reference's published data (`docs/sheik/`,
 `docs/MOVESETS.md`). Sim 50: the rest of its normals, grabs and throws on reference data (its specials are still the claws kit's), and
-three general rules brought to the reference's: the Sakurai angle, traction slowing grounded slides, and light hitstun landing on its
+three general rules brought to the reference's: the 361 angle, traction slowing grounded slides, and light hitstun landing on its
 feet (no knockdown after a drag-down). Sim 51: its specials (Needle Storm, a pulling line of our own, Vanish, Bouncing Fish), the
 pull angle (368) and a stored charge for scripts (`store`, `stored`). Sim 52: Needle Storm charges and stores as the reference, Bouncing
 Fish's early kick. Sim 53 (from playtest notes): a dash takes a fuller flick (0.75 instead of 0.6, `STICK_DASH`) so a quick push

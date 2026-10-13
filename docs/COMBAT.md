@@ -25,7 +25,7 @@
 - **Aerial landing lag** with autocancel windows (landing early or late in the move costs only the normal landing lag).
 - **Damage and launch** follow the reference formulas: `KB = ((((p/10 + p*d/20) * 200/(w+100) * 1.4) + 18) * g/100) + b`,
   launch speed `KB * 0.03` reference units/frame (8 per world unit), hitstun `floor(KB * 0.4) - 1` frames, hitlag
-  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 (the Sakurai angle) is the reference's since sim v50:
+  `floor(d * 0.65 + 6)` frames for both fighters (at most 30). Angle 361 is the reference's since sim v50:
   against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38 at 88; against an airborne one 38 (it was the older
   game's 0 below 32 knockback and 44 above). A sideways (0 degree) hit rises to 32 degrees from 120 knockback. A grounded hit that
   does not lift the fighter slides it, and its traction slows the slide as well as the usual knockback decay (sim v50), so a jab's
@@ -358,9 +358,9 @@ Three aerials people build combos around now follow the reference game's data (S
 
 | Move | Frames | Hits | Landing lag | Autocancel | FAF |
 | --- | --- | --- | --- | --- | --- |
-| Sword forward air | 6-8 | tip 11.5% (Sakurai, BKB 40, KBG 80, hitlag x1.25); blade and arm 8% (same knockback, hitlag x0.7) | 10 | from 36 | 38 |
-| Sword down air | 9-13 | tip 14% (Sakurai, BKB 20, KBG 80, x1.25); frame 11 meteor 15% (270, BKB 20, KBG 80, x1.3); blade 12% (80, BKB 40, KBG 70, x0.7); arm 12% (Sakurai, BKB 30, KBG 70, x0.7) | 14 | 1-2 and from 55 | 60 |
-| Claws neutral air | clean 7-9, late 10-26 | clean 12% (Sakurai, BKB 30, KBG 75); late 8% (Sakurai, BKB 0, KBG 100); front leg, hips and back leg | 9 | 1-6 and from 39 | 43 |
+| Sword forward air | 6-8 | tip 11.5% (361, BKB 40, KBG 80, hitlag x1.25); blade and arm 8% (same knockback, hitlag x0.7) | 10 | from 36 | 38 |
+| Sword down air | 9-13 | tip 14% (361, BKB 20, KBG 80, x1.25); frame 11 meteor 15% (270, BKB 20, KBG 80, x1.3); blade 12% (80, BKB 40, KBG 70, x0.7); arm 12% (361, BKB 30, KBG 70, x0.7) | 14 | 1-2 and from 55 | 60 |
+| Claws neutral air | clean 7-9, late 10-26 | clean 12% (361, BKB 30, KBG 75); late 8% (361, BKB 0, KBG 100); front leg, hips and back leg | 9 | 1-6 and from 39 | 43 |
 
 - The sword swings **move their hits along the swing, frame by frame**: the forward air from overhead (frame 6) through straight ahead (7) to
   low in front (8); the down air from in front (9) through straight down (11, where the big meteor hitbox sits below the fighter) to behind

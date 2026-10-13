@@ -95,7 +95,7 @@ fn forward_air_hits_from_frame_6_for_8_percent_close_and_11_5_at_the_tip() {
 }
 
 #[test]
-fn forward_air_launches_at_the_sakurai_angle_with_base_knockback_40_and_growth_80() {
+fn forward_air_launches_at_the_361_angle_with_base_knockback_40_and_growth_80() {
     let mut sim = air_duel(DUELIST, fx(34, 10));
     hit_tick(&mut sim, inp(127, 0, ATTACK)).unwrap();
     let kb = sim.fighter(1).launch_kb;

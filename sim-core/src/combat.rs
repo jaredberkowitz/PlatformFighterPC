@@ -194,9 +194,9 @@ pub fn rage_multiplier(attacker_percent: Fx, rules: &Ruleset) -> Fx {
     Fx::ONE + t * rules.rage_max
 }
 
-/// World launch angle: mirrored when the attacker faces left, with the 361 "Sakurai" angle resolved.
+/// World launch angle: mirrored when the attacker faces left, with the 361 angle resolved.
 pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, kb: Fx) -> Angle {
-    // The reference's rules (ssbwiki.com, "Sakurai angle"): against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38
+    // The reference's rules (ssbwiki.com, the 361 angle's page): against a grounded fighter 0 degrees up to 60 knockback, rising evenly to 38
     // at 88 and 38 above; against an airborne one always 38. A move aimed straight sideways (0) rises to 32 from 120 knockback.
     let mut d = i32::from(degrees);
     if d == 361 {
@@ -1183,7 +1183,7 @@ mod tests {
     }
 
     #[test]
-    fn launch_angles_mirror_with_facing_and_resolve_the_sakurai_angle() {
+    fn launch_angles_mirror_with_facing_and_resolve_the_361_angle() {
         let a = |deg, facing, grounded, kb| launch_angle(deg, facing, grounded, fx(kb)).raw();
         assert_eq!(a(45, 1, false, 100), Angle::from_degrees(45).raw());
         assert_eq!(a(45, -1, false, 100), Angle::from_degrees(135).raw());

@@ -251,7 +251,7 @@ pub struct Hitbox {
     pub radius: Fx,
     /// Percent of damage dealt.
     pub damage: Fx,
-    /// Launch angle in degrees, 0 = forward. 361 is the "Sakurai" angle (see `combat::launch_angle`), 367 the autolink angle,
+    /// Launch angle in degrees, 0 = forward. 361 is the reference's 361 angle (see `combat::launch_angle`), 367 the autolink angle,
     /// 368 the pull angle.
     pub angle: i16,
     pub base_knockback: i16,
@@ -965,7 +965,7 @@ fn sword_kit() -> Weapon {
             r(7, 8, 31, 4, 7, 100, 30, 50, 40, 0, 0),
         ],
     );
-    // Forward smash: frames 10-13, 13% (18% at the tip), Sakurai angle, FAF 52. Charges on frame 2. A big downward cut: the blade comes
+    // Forward smash: frames 10-13, 13% (18% at the tip), angle 361, FAF 52. Charges on frame 2. A big downward cut: the blade comes
     // over from high in front (frame 10) down through level (12) to just below it (13).
     let mut fsmash = ref_move(
         52,
@@ -1002,7 +1002,7 @@ fn sword_kit() -> Weapon {
     usmash.charge_at = Some(3);
     moves[MoveId::USmash as usize] = usmash;
     // Down smash: a front hit on frames 6-7 (8%, 12% at the tip), then a back hit on frames 21-23 (12%, 17%
-    // at the tip), Sakurai angle, FAF 56. Charges on frame 4.
+    // at the tip), angle 361, FAF 56. Charges on frame 4.
     let mut dsmash = ref_move(
         56,
         0,
@@ -1072,7 +1072,7 @@ fn sword_kit() -> Weapon {
         ],
     );
     // Forward air (the reference's, frame for frame): the blade sweeps a crescent in front, from high overhead (frame 6) through straight
-    // ahead (7) to low in front (8). The tip is the tipper: 11.5%, Sakurai angle, BKB 40, KBG 80, hitlag x1.25; the rest of the blade
+    // ahead (7) to low in front (8). The tip is the tipper: 11.5%, angle 361, BKB 40, KBG 80, hitlag x1.25; the rest of the blade
     // and the arm are 8% with hitlag x0.7. Landing lag 10, autocancels from frame 36, FAF 38. The hits follow the blade frame by frame
     // (one hit per target), so the trail and the arm draw the arc where it really hits.
     moves[MoveId::FAir as usize] = with_hitlag(
@@ -1209,9 +1209,9 @@ fn sword_kit() -> Weapon {
     );
 
     // Down air (the reference's): the blade sweeps a crescent underneath, from in front (frame 9) through straight down (11) to behind
-    // (13). The tip is 14% (Sakurai angle, BKB 20, KBG 80, hitlag x1.25) except on frame 11, when a big hitbox straight below is the 15%
+    // (13). The tip is 14% (angle 361, BKB 20, KBG 80, hitlag x1.25) except on frame 11, when a big hitbox straight below is the 15%
     // meteor (angle 270, BKB 20, KBG 80, hitlag x1.3). The middle of the blade is 12% at 80 degrees (BKB 40, KBG 70) and the arm 12%
-    // Sakurai (BKB 30, KBG 70), both hitlag x0.7. Landing lag 14, autocancels on frames 1-2 and from 55, FAF 60.
+    // 361 (BKB 30, KBG 70), both hitlag x0.7. Landing lag 14, autocancels on frames 1-2 and from 55, FAF 60.
     moves[MoveId::DAir as usize] = with_hitlag(
         ref_move(
             60,
@@ -1568,7 +1568,7 @@ pub fn needles() -> Weapon {
         ],
     );
 
-    // Neutral air: a held flying kick. Clean on frames 3-6 (6 / 6 / 5%), late 7-30 (4 / 4 / 3%), Sakurai angle, BK 30, KS 100.
+    // Neutral air: a held flying kick. Clean on frames 3-6 (6 / 6 / 5%), late 7-30 (4 / 4 / 3%), angle 361, BK 30, KS 100.
     // Landing lag 6, autocancels on frames 1-2 and from 31, FAF 50. One hit per target (clean and late are one group).
     w.moves[MoveId::NAir as usize] = ref_move(
         50,
@@ -1601,7 +1601,7 @@ pub fn needles() -> Weapon {
     );
 
     // Back air: a back kick. Clean 4-6: the hip and knee 7.5% (BK 32), the foot 9.5% (BK 30), KS 98; late 7-14: 6%, BK 10, KS 101.
-    // Sakurai angle, sent away behind. Landing lag 7, autocancels on frames 1-3 and from 31, FAF 38.
+    // angle 361, sent away behind. Landing lag 7, autocancels on frames 1-3 and from 31, FAF 38.
     w.moves[MoveId::BAir as usize] = ref_move(
         38,
         7,
@@ -1686,7 +1686,7 @@ pub fn needles() -> Weapon {
     // ---- The rest of the kit (docs/sheik/REFERENCE_DATA.md, "The rest of the kit") ----
     // Frames, damage, angles, knockback, hitlag and SDI multipliers are the reference's; positions are estimates on our body.
 
-    // Jab 1: a hand swipe on frame 2, 2%, FAF 18; hitlag x1.6. The close hits use the Sakurai angle (BK 35 / 30, KS 30); the tip
+    // Jab 1: a hand swipe on frame 2, 2%, FAF 18; hitlag x1.6. The close hits use the 361 angle (BK 35 / 30, KS 30); the tip
     // pulls a fighter in (180 degrees, BK 20, KS 15). Pressing attack again (or holding it through a hit) carries on into jab 2 from
     // frame 4 (a script).
     let mut jab1 = ref_move(
@@ -1706,7 +1706,7 @@ pub fn needles() -> Weapon {
         include_str!("scripts/needles_jab_1.script"),
     ));
     w.moves[MoveId::Jab as usize] = jab1;
-    // Jab 2: the backhand on frame 3, 1.6%, FAF 18; hitlag x1.2; Sakurai angle, BK 35 / 35 / 25, KS 25 / 25 / 20. Three presses since
+    // Jab 2: the backhand on frame 3, 1.6%, FAF 18; hitlag x1.2; angle 361, BK 35 / 35 / 25, KS 25 / 25 / 20. Three presses since
     // jab 1 (or attack held as it hits) go on into the rapid jab from frame 5. There is no jab 3.
     let mut jab2 = ref_move(
         18,
@@ -1726,7 +1726,7 @@ pub fn needles() -> Weapon {
     ));
     w.moves[MoveId::Jab2 as usize] = jab2;
     w.moves[MoveId::Jab3 as usize] = Move::empty();
-    // Rapid jab (ext1): stabs on loop frames 5, 7, 9, 11 and 13, each 0.3% at the Sakurai angle (BK 12, KS 15) with +2 hitstun,
+    // Rapid jab (ext1): stabs on loop frames 5, 7, 9, 11 and 13, each 0.3% at the 361 angle (BK 12, KS 15) with +2 hitstun,
     // hitlag x0.5 and SDI x0.4, so the target stays caught. The reference's loop is 12 frames; ours restarts the move, 14 frames a
     // loop [D]. Each loop's end goes round again while attack is held or mashed, else into the finisher (a script).
     let mut rapid = ref_move(
@@ -1766,7 +1766,7 @@ pub fn needles() -> Weapon {
     w.moves[MoveId::Ext2 as usize] = finisher;
 
     // Dash attack: the earlier game's (asked for by name), not the reference game's. Clean on frame 6: 10%, 80 degrees, BK 34, KS 100,
-    // a pop-up that starts combos; late on frames 7-12: 7%, Sakurai angle, BK 15, KS 100. FAF 36. Radii from that game's table
+    // a pop-up that starts combos; late on frames 7-12: 7%, angle 361, BK 15, KS 100. FAF 36. Radii from that game's table
     // (3.9 and 3.1 of its units, the same scale as the reference's); positions estimated from its offsets.
     w.moves[MoveId::DashAttack as usize] = ref_move(
         36,
@@ -1782,7 +1782,7 @@ pub fn needles() -> Weapon {
     );
 
     // Forward smash: two kicks. Hit 1 on frame 12, 5%, set knockback (FKV 47 / 47 / 30 at 35 / 45 / 80 degrees, KS 100) with SDI x0.5,
-    // holds the target for hit 2 on frames 20-21: 8%, Sakurai angle, BK 60, KS 109. Charges on frame 3, FAF 45.
+    // holds the target for hit 2 on frames 20-21: 8%, angle 361, BK 60, KS 109. Charges on frame 3, FAF 45.
     let mut fsmash = ref_move(
         45,
         0,
@@ -1964,7 +1964,7 @@ pub fn needles() -> Weapon {
     vanish.grabs_ledge = true;
     w.moves[MoveId::UpSpecial as usize] = vanish;
 
-    // Bouncing Fish (down special): a flip forward into a heel kick (frames 23-29): 11%, Sakurai angle, BK 26, KS 97, hitlag x1.7. A hit
+    // Bouncing Fish (down special): a flip forward into a heel kick (frames 23-29): 11%, angle 361, BK 26, KS 97, hitlag x1.7. A hit
     // bounces the fighter back off the target (ext5; FAF 80, landing lag 20). FAF 51; landing during it, 36 frames (the reference's kick
     // landing; landing before the kick is 22 there [D]). Consecutive kicks after a bounce and wall bounces are not modelled [E].
     let mut fish = ref_move(
@@ -2075,7 +2075,7 @@ pub fn claws() -> Weapon {
             r(7, 11, 6, 20, 11, 100, 80, 30, 120, 0, 0),
         ],
     );
-    // Down tilt: a low kick on frames 5-6, 6%, Sakurai angle, base knockback 25, growth 100, FAF 28.
+    // Down tilt: a low kick on frames 5-6, 6%, angle 361, base knockback 25, growth 100, FAF 28.
     w.moves[MoveId::DTilt as usize] = ref_move(
         28,
         0,
@@ -2087,7 +2087,7 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
-    // Neutral air (the reference's): a split kick held out, both legs and the hips hitting. Clean on frames 7-9: 12%, Sakurai angle, BKB
+    // Neutral air (the reference's): a split kick held out, both legs and the hips hitting. Clean on frames 7-9: 12%, angle 361, BKB
     // 30, KBG 75; late on frames 10-26: 8%, BKB 0, KBG 100 (a lingering hit). Landing lag 9, autocancels on frames 1-6 and from 39, FAF 43.
     w.moves[MoveId::NAir as usize] = ref_move(
         43,
@@ -2216,7 +2216,7 @@ pub fn claws() -> Weapon {
             r(7, 9, 1, 16, 9, 120, 80, 30, 85, 1, 0),
         ],
     );
-    // Back air: a back kick, frames 13-15, 15% / 13% / 11% from the foot in, Sakurai angle, base knockback 37,
+    // Back air: a back kick, frames 13-15, 15% / 13% / 11% from the foot in, angle 361, base knockback 37,
     // growth 96. Landing lag 15, autocancels on 1-7 and from 19, FAF 45. The brawler keeps facing forward.
     w.moves[MoveId::BAir as usize] = ref_move(
         45,
@@ -2242,7 +2242,7 @@ pub fn claws() -> Weapon {
         ],
     );
 
-    // Forward smash: frames 20-23, 15%, Sakurai angle, base knockback 30, growth 106, FAF 42. Charges on frame 6.
+    // Forward smash: frames 20-23, 15%, angle 361, base knockback 30, growth 106, FAF 42. Charges on frame 6.
     let mut fsmash = ref_move(
         42,
         0,

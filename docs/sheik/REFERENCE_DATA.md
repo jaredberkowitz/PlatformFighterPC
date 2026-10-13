@@ -24,7 +24,7 @@ the move's pose. Radii are converted exactly.
 
 - Frames are the reference's (frame 1 is the move's first); the sim stores them minus one (`moves.rs` `ref_move` / `row`).
 - Units: 1 world unit = 8 reference units (`FighterParams::su`). Radius (world tenths) = reference radius x 1.25 **[D]**.
-- Angles: degrees, 0 forward, 90 up; 361 Sakurai angle; 367 autolink (below). "Backward" angle type: sends away behind the fighter (our
+- Angles: degrees, 0 forward, 90 up; 361 the reference's 361 angle (set by knockback and ground); 367 autolink (below). "Backward" angle type: sends away behind the fighter (our
   hitboxes behind the body send that way).
 - BK base knockback, KS knockback growth, FKV set (fixed) knockback, H hitlag multiplier, SDI multiplier.
 
@@ -160,14 +160,14 @@ Sources as above, plus SmashWiki's `Sheik_(SSBU)/Neutral_attack/Hit_1`, `/Hit_2`
 
 | Move | Built as | Labels |
 | --- | --- | --- |
-| Jab 1 | frame 2, 2%, FAF 18, H 1.6; close Sakurai angle BK 35 / 30 KS 30, tip 180 degrees BK 20 KS 15 (the tip's fighter-only box; its twin for objects is not modelled) | [R]; positions [E] |
+| Jab 1 | frame 2, 2%, FAF 18, H 1.6; close angle 361 BK 35 / 30 KS 30, tip 180 degrees BK 20 KS 15 (the tip's fighter-only box; its twin for objects is not modelled) | [R]; positions [E] |
 | Jab 1 to 2 | a press (or attack held through the hit) carries on from frame 4 | [R] (a script) |
-| Jab 2 | frame 3, 1.6%, FAF 18, H 1.2; Sakurai angle BK 35 / 35 / 25, KS 25 / 25 / 20 | [R] |
+| Jab 2 | frame 3, 1.6%, FAF 18, H 1.2; angle 361 BK 35 / 35 / 25, KS 25 / 25 / 20 | [R] |
 | Jab 2 to rapid jab | from frame 5, after two presses since jab 1 (the reference: three; presses during hitlag reach no script) or attack held as it hits | [D] |
-| Rapid jab | stabs on loop frames 5-13 every 2 frames, 0.3%, Sakurai angle BK 12 KS 15, +2 hitstun, H 0.5, SDI 0.4; loops while attack is held or pressed within 10 frames | values [R]; the loop is 14 frames (the reference's 12) [D] |
+| Rapid jab | stabs on loop frames 5-13 every 2 frames, 0.3%, angle 361 BK 12 KS 15, +2 hitstun, H 0.5, SDI 0.4; loops while attack is held or pressed within 10 frames | values [R]; the loop is 14 frames (the reference's 12) [D] |
 | Finisher | frames 5-6, 2%, 40 degrees, BK 60, KS 132, H 2.0, FAF 36 | [R] |
-| Dash attack (the earlier game's) | clean frame 6: 10%, 80 degrees, BK 34, KS 100; late 7-12: 7%, Sakurai angle, BK 15, KS 100; FAF 36; radii 3.9 / 3.1 of its units | [R] (earlier game); positions [E]; its knockback runs through our (the reference's) formula [D] |
-| Forward smash | hit 1 frame 12: 5%, FKV 47 / 47 / 30 at 35 / 45 / 80 degrees, KS 100, SDI 0.5; hit 2 frames 20-21: 8%, Sakurai angle, BK 60, KS 109; charge hold frame 3; FAF 45 | [R] |
+| Dash attack (the earlier game's) | clean frame 6: 10%, 80 degrees, BK 34, KS 100; late 7-12: 7%, angle 361, BK 15, KS 100; FAF 36; radii 3.9 / 3.1 of its units | [R] (earlier game); positions [E]; its knockback runs through our (the reference's) formula [D] |
+| Forward smash | hit 1 frame 12: 5%, FKV 47 / 47 / 30 at 35 / 45 / 80 degrees, KS 100, SDI 0.5; hit 2 frames 20-21: 8%, angle 361, BK 60, KS 109; charge hold frame 3; FAF 45 | [R] |
 | Up smash | hit 1 frame 11: 15%, 93 degrees, BK 52, KS 88, H 1.3, SDI 1.5; hit 2 frames 14-15: 11%, 50 degrees, BK 38, KS 100, both sides; charge hold frame 6; FAF 53 | [R]; arm intangibility 8-15 not modelled [E] |
 | Down smash | hit 1 frames 8-9: 4%, FKV 35, KS 100; 140 degrees in front (200 against airborne), 165 behind; hit 2 frames 15-16: 6%, 43 degrees, BK 35, KS 165, both sides; FAF 49 | [R]; charge hold on frame 2, not 1 [D] |
 | Grabs | standing 6-7 (FAF 37), dash 9-10 (FAF 45), pivot 11-12 (FAF 40) | [R]; reach [E] |
@@ -180,7 +180,7 @@ Sources as above, plus SmashWiki's `Sheik_(SSBU)/Neutral_attack/Hit_1`, `/Hit_2`
 | Ledge attack, get-up attack | 9% / 7% (the reference's damage), the claws' frames | damage [R], timing [E] |
 
 Two general rules changed with this phase, because the jab and the up air's drag-down depend on them (sim 50, `docs/COMBAT.md`): the
-Sakurai angle is the reference's (0 degrees on the ground up to 60 knockback, 38 from 88 and in the air; it was the older game's 0 / 44 at
+Angle 361 is the reference's (0 degrees on the ground up to 60 knockback, 38 from 88 and in the air; it was the older game's 0 / 44 at
 32), grounded slides are slowed by traction, and a non-tumble hitstun lands on its feet (no knockdown, no tech).
 
 ### Specials (phase 3, sim 51)
@@ -192,7 +192,7 @@ Sources: SmashWiki `Sheik_(SSBU)/Neutral_special`, `/Up_special`, `/Down_special
 | Needle Storm | wind-up to frame 7; the charge carries on by itself, a needle on frames 8, 23, 38, 53, 68, 83 (6 at most), and stores itself 4 frames after the sixth; press special again to throw them on frames 11, 14, 17, 20, 23, 26 of the throw; each 1.5% falling to 0.8% over its 9-frame life, 60 degrees, BK 0, KS 167, H 0.8, 10 units a frame (35 degrees down in the air); throw FAF 49 grounded, 43 aerial; landing lag 12. Shield (so also a spot dodge or roll) or jump stores the charge; a full store is thrown at once next time, a part store charges on from where it was; landing carries an aerial charge on | [R]; the charge cancel's 4 frames of lag are not modelled (the stored-by action starts at once) [D]; clean vs late damage as a linear fall [D] |
 | Side special (ours, asked for in place of Burst Grenade) | a weighted line thrown on frame 13 that flies 0.5 units a frame for 14 frames; a hit (3%, set knockback 80) reels the target in to 0.9 units in front of the thrower (the pull angle, 368, `docs/CONTENT.md`) during a hitstun of about 30 frames; FAF 45 | all [E], by design |
 | Vanish | explosion frames 36-38 (12%, 55 degrees, BK 50, KS 112, radius 13); teleport for 20 frames along the stick held on frame 36 (1.5 units a frame, plus up to 1 with the stick pushed past 0.3; straight up when neutral), keeping 0.3 of the speed after; reappearance hit frames 55-56 (5%, 45 degrees, FKV 80, KS 100, SDI 0); intangible 14-54 (19-54 in the air); FAF 95 then helpless; landing lag 20 | [R]; the startup hop in the air is an estimate (the wiki's "initial vertical speed 3.2" would lift 3 units, which the move does not visibly do), the 0% reappearance wind box and the explosion staying behind as a projectile are not modelled [E] |
-| Bouncing Fish | leaves at 1.6 units a frame forward (1.5 in the air) and 3 up, 1.5 times gravity, steerable from frame 30 (0 to 2.4); kick frames 23-29: 11%, Sakurai angle, BK 26, KS 97, H 1.7; pressing special again before frame 16 kicks early, on frames 18-24 (FAF 46); a hit bounces back (1.8 back, 3.5 up; FAF 80, landing 20); FAF 51; landing lag 36 | [R]; consecutive kicks (13%), wall bounces and the 22-frame landing before the kick are not modelled [E] |
+| Bouncing Fish | leaves at 1.6 units a frame forward (1.5 in the air) and 3 up, 1.5 times gravity, steerable from frame 30 (0 to 2.4); kick frames 23-29: 11%, angle 361, BK 26, KS 97, H 1.7; pressing special again before frame 16 kicks early, on frames 18-24 (FAF 46); a hit bounces back (1.8 back, 3.5 up; FAF 80, landing 20); FAF 51; landing lag 36 | [R]; consecutive kicks (13%), wall bounces and the 22-frame landing before the kick are not modelled [E] |
 
 Up air, ours: the aerial loop's pull aims 0.6 units in front of the kick (`link_ahead`), so a dragged-down target lands in front of the
 fighter for a follow-up; the reference pulls toward the kick itself.
