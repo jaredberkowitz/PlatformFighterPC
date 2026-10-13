@@ -25,7 +25,7 @@ pub mod buttons {
 /// Stick magnitude (of 127) that counts as a deliberate flick or tap, about 0.6.
 pub const STICK_THRESHOLD: i8 = 76;
 /// How far a flick has to go to dash, about 0.75: further than other flicks (`STICK_THRESHOLD`), so a quick push to a brisk
-/// walk stays a walk. (The reference's dash takes most of the stick; Melee's documented rule is 0.8.)
+/// walk stays a walk. (The reference's dash takes most of the stick; an earlier reference game's documented rule is 0.8.)
 pub const STICK_DASH: i8 = 95;
 /// Stick magnitude below which an axis is treated as neutral, about 0.17.
 pub const STICK_DEADZONE: i8 = 22;
@@ -37,7 +37,7 @@ pub const STICK_DOWN: i8 = 64;
 /// stick up to full tilt walks instead of dashing.
 pub const STICK_FLICK_FROM: i8 = 38;
 /// How many frames a flick may take to travel from below `STICK_FLICK_FROM` to past `STICK_THRESHOLD` (dash, fast fall). A
-/// thumb on a real stick needs two or three frames for that at 60 a second; the documented reference rule (Melee's dash: past
+/// thumb on a real stick needs two or three frames for that at 60 a second; an earlier reference game's documented rule (its dash: past
 /// 0.8 within a 3-sample window) allows three, while one frame was too strict to hit reliably on a controller.
 pub const STICK_FLICK_FRAMES: usize = 3;
 

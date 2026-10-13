@@ -656,7 +656,7 @@ fn an_unused_counter_stance_costs_62_frames() {
 // ---- Claws: aimed specials and guard frames -----------------------------------------------------------------
 
 #[test]
-fn wolf_flash_aims_up_and_down_with_the_stick() {
+fn flash_dash_aims_up_and_down_with_the_stick() {
     let run = |y: i8| {
         let mut sim = Sim::with_chars(CLAWS);
         sim.state = GameState::new_with_active(&sim.content, 1, CLAWS, 0b0011);
@@ -684,7 +684,7 @@ fn wolf_flash_aims_up_and_down_with_the_stick() {
 }
 
 #[test]
-fn fire_wolf_goes_where_the_stick_pointed_and_turns_around_for_backward() {
+fn flame_kick_goes_where_the_stick_pointed_and_turns_around_for_backward() {
     // The flight is move frames 17-30. Measure from the first tick of it to the last.
     let fly = |x: i8, y: i8| {
         let mut sim = Sim::with_chars(CLAWS);
@@ -718,7 +718,7 @@ fn fire_wolf_goes_where_the_stick_pointed_and_turns_around_for_backward() {
         back.x < Fx::from_int(-4),
         "backward goes backward: {back:?}"
     );
-    assert_eq!(f2, -1, "and Wolf turns around");
+    assert_eq!(f2, -1, "and the brawler turns around");
     let (down, _) = fly(0, -127);
     assert!(down.y < Fx::from_int(-3), "down dives: {down:?}");
     let (diag, _) = fly(100, 100);

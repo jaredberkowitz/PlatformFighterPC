@@ -1461,7 +1461,7 @@ fn sword_kit() -> Weapon {
     low.script = db_script(include_str!("scripts/dancing_blade_4.script"));
     moves[ext(8)] = low;
 
-    // Down special, Counter: for 22 frames starting on frame 6 a hit is caught instead of taken, and Marth
+    // Down special, Counter: for 22 frames starting on frame 6 a hit is caught instead of taken, and the duelist
     // answers with the counter-attack (`ext0`), which deals 1.2 times the caught damage (at least 8%). Without a
     // hit the stance lasts 64 frames. The counter-attack comes out on frame 4 and lasts to FAF 40; its
     // position, size and knockback are estimates.
@@ -1501,7 +1501,7 @@ fn set_rows(mv: &mut Move, rows: &[usize], f: impl Fn(&mut Hitbox)) {
     }
 }
 
-/// The Needles moveset (the rogue body): quick kicks and chops, modelled mechanically on the reference game's Sheik. The priority
+/// The Needles moveset (the rogue body): quick kicks and chops, modelled mechanically on the reference rogue. The priority
 /// moves (forward, up and down tilt; neutral, forward, back, up and down air) follow the reference frame for frame: frames, damage,
 /// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
 /// lag and autocancel windows, the up air's looping autolink hits and final hit, the down air's dive and landing hit. Radii are the
@@ -2217,7 +2217,7 @@ pub fn claws() -> Weapon {
         ],
     );
     // Back air: a back kick, frames 13-15, 15% / 13% / 11% from the foot in, Sakurai angle, base knockback 37,
-    // growth 96. Landing lag 15, autocancels on 1-7 and from 19, FAF 45. Wolf keeps facing forward.
+    // growth 96. Landing lag 15, autocancels on 1-7 and from 19, FAF 45. The brawler keeps facing forward.
     w.moves[MoveId::BAir as usize] = ref_move(
         45,
         15,
@@ -2289,7 +2289,7 @@ pub fn claws() -> Weapon {
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 
-    // Wolf Flash (side special): after a 19 frame wind-up a dash of about 7 world units (3% on the way), ending in a
+    // Flash dash (side special): after a 19 frame wind-up a dash of about 7 world units (3% on the way), ending in a
     // 20% spike with a 15% hit around it. Helpless in the air. The stick at the start of the dash angles it up or
     // down (a script). The distance, the ending hit knockback and the total length are estimates.
     let mut flash = ref_move(
@@ -2310,8 +2310,8 @@ pub fn claws() -> Weapon {
     flash.helpless_after = true;
     w.moves[MoveId::SideSpecial as usize] = flash;
 
-    // Fire Wolf (up special): after an 18 frame wind-up a rising flame kick that hits five times (4%, 2.5% x 3, then
-    // 6%; the last hit launches) and then leaves Wolf helpless. It can grab the ledge mid-move. The travel
+    // Flame kick (up special): after an 18 frame wind-up a rising flame kick that hits five times (4%, 2.5% x 3, then
+    // 6%; the last hit launches) and then leaves the brawler helpless. It can grab the ledge mid-move. The travel
     // (about 6 world units) and the knockback values are estimates. The stick at the end of the wind-up aims the
     // flight in any direction (a script); neutral aims up and a little forward.
     let mut fire = ref_move(
@@ -2334,9 +2334,9 @@ pub fn claws() -> Weapon {
     fire.grabs_ledge = true;
     w.moves[MoveId::UpSpecial as usize] = fire;
 
-    // Reflector (down special): a reflecting field in front of Wolf from frame 9 to 21 that turns projectiles
+    // Reflector (down special): a reflecting field in front of the brawler from frame 9 to 21 that turns projectiles
     // around (1.5 times the damage), plus a 4% hit on anyone touching it. The reflector frames, size and
-    // reflected speed are estimates. Wolf is intangible on frames 5-8 (a script).
+    // reflected speed are estimates. The brawler is intangible on frames 5-8 (a script).
     let mut reflector = ref_move(31, 0, 0, 255, &[r(9, 12, 14, 11, 15, 40, 65, 60, 85, 0, 0)]);
     reflector.reflector = Some(Reflector {
         start: 8,

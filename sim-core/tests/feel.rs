@@ -266,7 +266,7 @@ fn the_strong_button_does_nothing_special_in_the_air() {
 
 // ---- Dash attacks -------------------------------------------------------------------------------------------
 
-fn wolf() -> Sim {
+fn brawler() -> Sim {
     let mut sim = Sim::with_chars([1, 0, 0, 0]);
     sim.stand(0, Fx::from_int(-10), 1);
     // Nobody in the way: bodies on the ground do not pass through each other.
@@ -280,7 +280,7 @@ fn wolf() -> Sim {
 fn a_dash_attack_out_of_a_dash_keeps_sliding_forward_on_traction() {
     // From dash speed (2.09 reference units a frame) at the reference traction (0.11): about 20 reference units, 2.5 world units,
     // well past where a standing attack stops (sim v35; it slid a gentler 3.5 and more before).
-    let mut sim = wolf();
+    let mut sim = brawler();
     sim.ticks(8, inp(127, 0, 0));
     assert_eq!(sim.f().state, S::Dash);
     let x0 = sim.f().pos.x;
@@ -305,7 +305,7 @@ fn dash_then_let_go(sim: &mut Sim) {
 
 #[test]
 fn attack_just_after_letting_go_of_a_dash_is_still_a_dash_attack_not_a_jab() {
-    let mut sim = wolf();
+    let mut sim = brawler();
     dash_then_let_go(&mut sim); // the fighter is still sliding fast
     sim.tick(inp(0, 0, ATTACK));
     assert_eq!(sim.f().move_id, MoveId::DashAttack as u8);
@@ -313,7 +313,7 @@ fn attack_just_after_letting_go_of_a_dash_is_still_a_dash_attack_not_a_jab() {
 
 #[test]
 fn attack_once_the_slide_has_stopped_is_a_jab() {
-    let mut sim = wolf();
+    let mut sim = brawler();
     sim.ticks(8, inp(127, 0, 0));
     sim.ticks(30, inp(0, 0, 0));
     assert_eq!(sim.f().vel.x, Fx::ZERO);
@@ -323,7 +323,7 @@ fn attack_once_the_slide_has_stopped_is_a_jab() {
 
 #[test]
 fn attack_while_sliding_with_a_direction_held_is_still_a_tilt_or_smash() {
-    let mut sim = wolf();
+    let mut sim = brawler();
     dash_then_let_go(&mut sim);
     sim.tick(inp(0, 70, ATTACK)); // up tilt, not a dash attack
     assert_eq!(sim.f().move_id, MoveId::UTilt as u8);

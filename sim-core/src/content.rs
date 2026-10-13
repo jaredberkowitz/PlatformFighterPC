@@ -409,7 +409,7 @@ impl FighterParams {
         ]
     }
 
-    /// Converts a Smash-Ultimate-style number (given in thousandths of a unit) into world units.
+    /// Converts a reference-style number (given in thousandths of a unit) into world units.
     /// One world unit is 8 of those units, so a ~17 unit tall fighter is about 2.2 world units tall.
     pub const fn su(thousandths: i32) -> Fx {
         Fx::from_ratio(thousandths, 8000)
@@ -590,7 +590,7 @@ impl FighterParams {
 
     /// Fast on the ground, light and floaty in the air: the "longsword duelist" body type.
     /// Movement numbers follow a swordfighter-style profile from the reference game, in world units.
-    /// Marth-style reference: walk 1.575, run 1.964, dash 2.255, air speed 1.071, gravity 0.075,
+    /// The reference duelist: walk 1.575, run 1.964, dash 2.255, air speed 1.071, gravity 0.075,
     /// fall 1.58 (fast 2.528), full hop 33.66, short hop 16.26, double jump 33.66, ledge jump 36.83.
     pub fn duelist() -> FighterParams {
         let su = FighterParams::su;
@@ -627,7 +627,7 @@ impl FighterParams {
     }
 
     /// Heavier, faster in the air, with a high gravity and fast fall: the "blaster brawler" body type.
-    /// Wolf-style reference: walk 1.208, run 1.54, dash 2.09, air speed 1.281, gravity 0.13,
+    /// The reference brawler: walk 1.208, run 1.54, dash 2.09, air speed 1.281, gravity 0.13,
     /// fall 1.8 (fast 2.88), full hop 32.02, short hop 15.38, double jump 30.71, ledge jump 36.01; on the ground, traction 0.11, walk
     /// acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, an initial dash of 10 frames, a heavy landing of 4 (3 of lag).
     pub fn brawler() -> FighterParams {
@@ -652,7 +652,7 @@ impl FighterParams {
             gravity,
             max_fall_speed: su(1800),
             fast_fall_speed: su(2880),
-            // Wolf-style air dodges: neutral 44 frames (intangible 2-26), directional 61 / 73 / 93 (2-20).
+            // The reference brawler's air dodges: neutral 44 frames (intangible 2-26), directional 61 / 73 / 93 (2-20).
             air_dodge_frames: 44,
             air_dodge_dir_down_frames: 61,
             air_dodge_dir_side_frames: 73,
@@ -676,12 +676,12 @@ impl FighterParams {
 }
 
 impl FighterParams {
-    /// Light, fast on the ground, a high gravity and fast fall: the "rogue" body type of the Needles moveset. The reference game's
-    /// Sheik attributes (SmashWiki / ultimateframedata.com, `docs/sheik/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
+    /// Light, fast on the ground, a high gravity and fast fall: the "rogue" body type of the Needles moveset. The reference rogue's
+    /// attributes (ssbwiki.com / ultimateframedata.com, `docs/sheik/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
     /// run 2.42, traction 0.106, air speed 1.155, air acceleration 0.01 + 0.08, air friction 0.015, gravity 0.15, fall 1.75 (fast
     /// 2.8), full hop 39, short hop 18.75, double jump 40; air dodges 44 (neutral, intangible 2-26) and 63 / 74 / 93 (directional,
     /// intangible 2-19). On the ground: walk acceleration 0.105 + 0.21, run acceleration 0.044 + 0.121, an initial dash of 7 frames
-    /// (the others' 10), a heavy landing of 7 (6 of lag) (the parameter file, via dragdown.wiki and SmashWiki's dash table). The
+    /// (the others' 10), a heavy landing of 7 (6 of lag) (the parameter file, via dragdown.wiki and ssbwiki.com's dash table). The
     /// ledge jump height is not published: the duelist's (an estimate).
     pub fn rogue() -> FighterParams {
         let su = FighterParams::su;
