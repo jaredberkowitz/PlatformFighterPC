@@ -39,6 +39,8 @@ const FaceLook := preload("res://scripts/face_look.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
 const AnimLibrary := preload("res://scripts/anim_library.gd")
+const MotionDeform := preload("res://scripts/motion_deform.gd")
+const Smear := preload("res://scripts/smear.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -1505,6 +1507,8 @@ const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeA
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
 const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
+## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
+const TAKE_OFF_KICK := 9.0
 
 var squash := 0.0
 var squash_vel := 0.0
@@ -1611,6 +1615,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	was_grounded = grounded
 	if not grounded:
 		last_vy = vy
+	# Leaving the jump squat: a kick into a tall stretch, so the take-off springs up out of the crouch rather than only rebounding.
+	if last_state == "JumpSquat" and state != "JumpSquat" and not grounded:
+		squash_vel -= TAKE_OFF_KICK
 
 	var target_squash: float = SQUASH.get(state, 0.0)
 	# Landing out of an aerial or a fast fall stumbles: deeper, and pitched forward, for its whole landing lag.
@@ -2050,7 +2057,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
-		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) == 0 else arm_reach
+		# (A fist reaches further by the strike's stretch, `strike_e`, so the stretched arm is straight on the hit.)
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) == 0 else arm_reach * (1.0 + strike_e)
 		var goal := shoulder + to_tip / dist * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
@@ -2148,13 +2156,16 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var rest_h := skeleton.get_bone_global_rest(ih)
 		var elbow0 := rest_l.origin
 		var wrist0 := rest_h.origin
-		var upper := (elbow0 - rest_u.origin).length()
+		# On a strike the arm stretches (`strike_e`, the fists only: a blade's reach is the blade), and reaches that much further.
+		var e := strike_e if _cls_now != 0 else 0.0
+		var upper := (elbow0 - rest_u.origin).length() * (1.0 + e)
 		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
 		var shoulder := rest_u.origin
 		var parent := skeleton.get_bone_parent(iu)
 		if parent >= 0:
 			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
-		var lower := (wrist0 - elbow0).length() + 0.07
+		var fore_len := (wrist0 - elbow0).length() * (1.0 + e)
+		var lower := fore_len + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
 		var goal: Vector3 = to_skel * hand_target
 		var d := goal - shoulder
@@ -2169,9 +2180,13 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var fore := (goal - elbow).normalized()
 		var q_upper := Quaternion((elbow0 - shoulder).normalized(), (elbow - shoulder).normalized())
 		var q_lower := Quaternion((wrist0 - elbow0).normalized(), fore)
-		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis, shoulder), 1.0, true)
-		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis, elbow), 1.0, true)
-		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
+		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
+		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
+		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch, elbow), 1.0, true)
+		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * fore_len), 1.0, true)
+		if _cls_now != 0:
+			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
+			strike_tip_ok = true
 
 
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
@@ -2208,8 +2223,11 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var rest_f := skeleton.get_bone_global_rest(ift)
 		var knee0 := rest_s.origin
 		var ankle0 := rest_f.origin
-		var upper := (knee0 - rest_t.origin).length()
-		var lower := (ankle0 - knee0).length() + 0.08
+		# On the strike the kicking leg stretches and reaches that much further (`strike_e`).
+		var e := strike_e * leg_k
+		var upper := (knee0 - rest_t.origin).length() * (1.0 + e)
+		var shin_len := (ankle0 - knee0).length() * (1.0 + e)
+		var lower := shin_len + 0.08
 		# The hip joint where the animated pelvis has it now (not where it rests), so the leg stays on the body as it moves.
 		var hips := skeleton.find_bone("hips")
 		var hip := rest_t.origin
@@ -2237,9 +2255,13 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var shin_dir := (goal - knee).normalized()
 		var q_upper := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
 		var q_lower := Quaternion((ankle0 - knee0).normalized(), shin_dir)
-		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis, hip), leg_k, true)
-		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis, knee), leg_k, true)
-		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * (ankle0 - knee0).length()), leg_k, true)
+		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
+		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis * stretch, hip), leg_k, true)
+		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis * stretch, knee), leg_k, true)
+		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * shin_len), leg_k, true)
+		if side == kicker:
+			strike_tip = to_local(skeleton.global_transform * (knee + shin_dir * shin_len))
+			strike_tip_ok = true
 
 
 # ---- Swing arcs --------------------------------------------------------------------------------------------------------------------
@@ -2429,7 +2451,6 @@ var dizzy: Node3D
 ## A strong launch: the body stretched along the way it flies, and streaks trailing behind it.
 var launch_frame: Node3D
 var launch_lines: Node3D
-const LAUNCH_STRETCH_FROM := 0.35   # world units a frame: slower launches are not stretched
 const LAUNCH_LINES_FROM := 0.5
 
 
@@ -2483,21 +2504,33 @@ func _dizzy(s: Dictionary) -> void:
 		star_node.rotation.z = t * 2.0 + float(k)
 
 
-## A strong launch reads in the body and the air round it: the body is stretched along its flight (up to 45% longer, as thin as it is
-## long, about its middle) and streaks trail behind it, on twos. Back to normal the moment the flight slows.
+## A strong hit reads in the body (`MotionDeform.body_target`): squashed along the blow through the victim's freeze, released into a
+## stretch along its flight (up to 42% longer, thinner across, about its middle) while it flies fast, relaxing as it slows; streaks trail
+## behind it, on twos. The deformation eases in and out (`body_k`), and jumps straight to where it should be after a rollback or seek.
+var body_k := 0.0
+var body_dir := Vector2.UP
+var body_frame := -1
+
+
 func _launch_look(s: Dictionary) -> void:
 	var vel := Vector2(float(s.vel.x), float(s.vel.y))
 	var speed := vel.length()
 	var flying: bool = String(s.state) == "Hitstun" and int(s.hitlag) == 0
-	var k := clampf((speed - LAUNCH_STRETCH_FROM) / 0.8, 0.0, 0.45) if flying else 0.0
-	if k <= 0.0:
-		launch_frame.transform = Transform3D.IDENTITY
-	else:
-		var along := Vector3(vel.x, vel.y, 0).normalized()
-		var across := Vector3(-along.y, along.x, 0)
-		var stretch := Basis(along, across, Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1.0 + k, 1.0 / sqrt(1.0 + k), 1.0)) 				* Basis(along, across, Vector3(0, 0, 1)).inverse()
-		var middle := Vector3(0, 1.1, 0)
-		launch_frame.transform = Transform3D(stretch, middle - stretch * middle)
+	var flight: Vector2 = vel + s.get("kb_vel", Vector2.ZERO)
+	var target: Array = MotionDeform.body_target(String(s.state), int(s.hitlag), bool(s.launch_pending), flight)
+	var frame := int(s.frame)
+	var steps := frame - body_frame
+	if body_frame < 0 or steps < 0 or steps > 2:
+		body_k = float(target[0])
+		steps = 0
+	# Per sim frame (so hitlag and a paused game hold it): into the squash fast, out into the stretch fast, relaxing slower.
+	for _i in steps:
+		var rate := 0.6 if float(target[0]) < 0.0 or float(target[0]) > body_k else 0.25
+		body_k = lerpf(body_k, float(target[0]), rate)
+	body_frame = frame
+	if absf(float(target[0])) > 0.001:
+		body_dir = target[1]
+	launch_frame.transform = MotionDeform.along(body_k, body_dir, Vector3(0, 1.1, 0))
 	var lines_on := flying and speed > LAUNCH_LINES_FROM
 	if launch_lines == null and lines_on:
 		launch_lines = Node3D.new()
@@ -2703,6 +2736,54 @@ static func trail_colours_of(cls: int) -> Array:
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
+## How stretched the striking limb is this frame (`MotionDeform.strike_stretch`), and the fighter's class, for the arm and leg IK.
+var strike_e := 0.0
+var _cls_now := 0
+## Where the striking fist or foot is this frame (local), when the arm or leg IK placed one.
+var strike_tip := Vector3.ZERO
+var strike_tip_ok := false
+## The smear ribbon behind a fist or foot (`Smear`): its recent points (local, oldest first), how far it has faded, the class it is coloured
+## for, and the sim frame it last moved on.
+var smear_pts: Array = []
+var smear_q := 1.0
+var smear_cls := 0
+var smear_frame := -1
+
+
+## A strike with no authored arc (a punch or a kick of the classes without a blade) leaves a smear behind the striking fist or foot: drawn
+## out a point a sim frame from `Smear.LEAD` frames before its hit (so it runs from the wind-up) to the hit, held while the hit is live,
+## then faded over `ARC_FADE` frames. Nothing moves in hitlag, so a freeze holds it; a rollback or seek drops it.
+func _update_smear(s: Dictionary) -> void:
+	var frame := int(s.frame)
+	if smear_frame >= 0 and (frame < smear_frame or frame - smear_frame > 2):
+		smear_pts.clear()
+	var advanced := frame != smear_frame
+	smear_frame = frame
+	# Drawn out over the throw (from the wind-up to the hit's first frame), held while the hit is live, then faded.
+	var throwing := false
+	var holding := false
+	if String(s.state) == "Attack" and _cls(s) != 0 and strike_tip_ok and not (ARCS.get(_cls(s), {}) as Dictionary).has(String(s.move_name)):
+		var f := float(s.state_frame)
+		var first := float(s.move_timing[1])
+		var last := float(s.move_timing[2])
+		throwing = first > 0.0 and f >= first - Smear.LEAD and f <= first
+		holding = first > 0.0 and f > first and f <= last + 1.0
+	if advanced and int(s.hitlag) == 0 and not holding:
+		if throwing:
+			smear_pts.append(Vector3(strike_tip.x, strike_tip.y, ARC_Z))
+			if smear_pts.size() > Smear.POINTS:
+				smear_pts.pop_front()
+			smear_q = 0.0
+			smear_cls = _cls(s)
+		elif not smear_pts.is_empty():
+			smear_q += 1.0 / ARC_FADE
+			if smear_q >= 1.0:
+				smear_pts.clear()
+	if smear_pts.size() >= 2 and arc != null:
+		var colours := trail_colours_of(smear_cls)
+		Smear.draw(arc.mesh, smear_pts, smear_q, colours[0], colours[1], to_global)
+
+
 func _apply_combat(s: Dictionary, delta: float) -> void:
 	var state: String = s.state
 	var pct := int(s.percent)
@@ -2714,6 +2795,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		percent_label.text = "%d%%" % pct
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
+	strike_e = 0.0
+	strike_tip_ok = false
+	_cls_now = _cls(s)
+	if state == "Attack" and s.move_timing[1] > 0:
+		strike_e = MotionDeform.strike_stretch(float(s.state_frame), float(s.move_timing[1]), float(s.move_timing[2]))
 	_pose_blade(s, delta)
 	# The claws and needles fighters' kicks and rushes use the body, not a blade (the needles' stand-in specials are the claws', so they
 	# burn and spin the same way).
@@ -2736,6 +2822,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
+		_update_smear(s)
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
