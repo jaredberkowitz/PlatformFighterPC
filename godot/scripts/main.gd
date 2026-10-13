@@ -1125,7 +1125,9 @@ func _update_hud(delta: float) -> void:
 		if has_gauge:
 			var top := float(sim.fighter_gauge_max(i))
 			if top > 0.0:
-				g = [clampf(float(sim.fighter_gauge(i)) / top, 0.0, 1.0), bool(sim.fighter_gauge_full(i)), clampf(float(sim.fighter_gauge_frames(i)) / 900.0, 0.0, 1.0)]
+				# (The powered mode's length is the body's; 900 frames for the Champion, until the bridge gives it.)
+				var mode_frames: float = float(sim.fighter_gauge_frames_max(i)) if sim.has_method("fighter_gauge_frames_max") else 900.0
+				g = [clampf(float(sim.fighter_gauge(i)) / top, 0.0, 1.0), bool(sim.fighter_gauge_full(i)), clampf(float(sim.fighter_gauge_frames(i)) / mode_frames, 0.0, 1.0)]
 		gauges.append(g)
 		classes.append(int(snaps[i].get("class", snaps[i].get("char", 0))))
 		looks.append(views[i].loadout if i < views.size() else null)
