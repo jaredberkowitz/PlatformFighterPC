@@ -959,3 +959,13 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
     to reach each hitbox.
   - The hilt is placed where the hand actually is after the arm is posed: the shorter, cuter arms could not reach the swing's target,
     so the sword floated in front of the fist through a swing's end lag. `sword_in_hand_before.png` / `sword_in_hand_after.png`.
+
+## Sandstone strata, cloud bellies, a horizon of cloud (forty-first pass)
+
+- **Triple Tier's front** (`strata` pattern, 6 units a repeat): layered sandstone in place of four flat wavy stripes: beds of uneven
+  thickness in close warm shades with a pale one now and then, each bed's top a waving ledge lit along its edge with shade under its lip,
+  slanting cross-bedding in the thick beds, joints broken bed by bed, streaks of desert varnish and a few pebbles. `canyon_sandstone.png`.
+- **Clouds** (`_clouds`): a band of cool shade in each cloud's belly (the sky's colour under a sunlit top), so they read as volumes.
+- **Flat Island's horizon**: a low bank of piled cumulus far out behind the far coast (a `shape 3` painted ridge). `beach_cloud_bank.png`.
+- The Champion's gauge charge (down special) holds the crouched stance with the blade at rest (`CLASS_MOVES[6]`), as the moveset session
+  asked; its other specials pose the blade from their hits.

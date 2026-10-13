@@ -2541,7 +2541,7 @@ func _secondary(s: Dictionary, delta: float) -> void:
 ## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.
 func _body_clip(cls: int, move: String) -> bool:
 	var clip := AnimLibrary.attack_clip(cls, move, anim)
-	return AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land"]
+	return AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land", "crouch"]
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space), and with `two_hands` the other arm reaches `off_hand_target` (the

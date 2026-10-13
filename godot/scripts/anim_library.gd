@@ -203,6 +203,8 @@ const CLASS_MOVES := {
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
 		"dair": "sword_dair",
+		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
+		"down special": "crouch",
 	},
 }
 

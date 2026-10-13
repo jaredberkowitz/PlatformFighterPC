@@ -151,15 +151,53 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var body := ""
 	match pattern:
 		"strata":
-			# Wavy bands in four shades, each edge a gentle wave with a soft ink line.
-			var shades := [A, B, a.lerp(Color(1, 0.88, 0.7), 0.3).to_html(false), b.darkened(0.1).to_html(false)]
-			for k in 4:
-				var y0 := k * 64.0
-				var d := "M0,%.1f " % y0
-				for x in range(0, 257, 32):
-					d += "L%d,%.1f " % [x, y0 + sin(float(x) / 256.0 * TAU + k) * 9.0]
-				d += "L256,%.1f L0,%.1f Z" % [y0 + 64.0 + 12.0, y0 + 64.0 + 12.0]
-				body += '<path d="%s" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5" stroke-linejoin="round"/>' % [d, shades[k], ink]
+			# Layered sandstone, as a canyon wall is painted: beds of uneven thickness in close warm shades (a pale band now and then), each
+			# bed's top edge a gently waving ledge caught by the light with a band of shade under its lip, fine cross-bedding drawn
+			# slantwise inside the thicker beds, vertical joints broken bed by bed, dark streaks of desert varnish running down from a few
+			# ledges, and a scatter of pebbles. Every wave has a whole number of periods across the tile, and anything crossing an edge is
+			# drawn again across it, so it tiles.
+			var pale := a.lerp(Color(1.0, 0.9, 0.74), 0.4)
+			var beds := [[0.0, 38.0, a], [38.0, 22.0, b], [60.0, 46.0, a.lerp(b, 0.35)], [106.0, 16.0, pale], [122.0, 40.0, a],
+				[162.0, 30.0, b.lerp(a, 0.3)], [192.0, 20.0, a.lerp(b, 0.6)], [212.0, 44.0, a.lerp(pale, 0.3)]]
+			var wave := func(x: float, k: int) -> float:
+				return sin(x / 256.0 * TAU * float(1 + k % 2) + float(k) * 1.7) * 4.0 + sin(x / 256.0 * TAU * 3.0 + float(k)) * 1.5
+			for k in beds.size():
+				var bed: Array = beds[k]
+				var y0: float = bed[0]
+				var h: float = bed[1]
+				var col: Color = bed[2]
+				var top := "M0,%.1f " % (y0 + wave.call(0.0, k))
+				for x in range(16, 257, 16):
+					top += "L%d,%.1f " % [x, y0 + wave.call(float(x), k)]
+				var shape := top + "L256,%.1f L0,%.1f Z" % [y0 + h + 10.0, y0 + h + 10.0]
+				body += '<path d="%s" fill="#%s"/>' % [shape, col.to_html(false)]
+				# Shade under the lip of the bed above (a soft band at this bed's top), then the lit ledge line.
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="9" stroke-opacity="0.22" transform="translate(0,5)"/>' % [top, col.darkened(0.45).to_html(false)]
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="2.6" stroke-opacity="0.5"/>' % [top, ink]
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="2.2" stroke-opacity="0.55" transform="translate(0,-2.5)"/>' % [top, col.lightened(0.28).to_html(false)]
+				# Cross-bedding in the thick beds: short slanting lines in one direction per bed.
+				if h >= 30.0:
+					var lean := 1.0 if k % 2 == 0 else -1.0
+					for j in 6:
+						var cx := fmod(float(j) * 47.0 + float(k) * 29.0, 256.0)
+						for ox in [-256.0, 0.0, 256.0]:
+							var x0: float = cx + ox
+							body += '<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="#%s" stroke-width="1.6" stroke-opacity="0.28"/>' % [x0, y0 + h * 0.3, lean * 14.0, h * 0.25, lean * 30.0, h * 0.55, col.darkened(0.3).to_html(false)]
+				# A joint or two through the bed, offset from the beds above and below.
+				for j in 2:
+					var jx := fmod(float(k) * 83.0 + float(j) * 131.0, 256.0)
+					body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2" stroke-opacity="0.35" stroke-linecap="round"/>' % [jx, y0 + 4.0, sin(k + j) * 3.0, h * 0.5, sin(k * 2 + j) * 3.0, h * 0.45, ink]
+			# Desert varnish: dark streaks running down from a few ledges, wider at the top.
+			for j in 5:
+				var vx := fmod(float(j) * 61.0 + 17.0, 256.0)
+				var vy: float = (beds[(j * 3) % beds.size()] as Array)[0]
+				body += '<path d="M%.1f,%.1f q-2,%.1f 1,%.1f q2,6 -1,0 Z" fill="#%s" opacity="0.16" stroke="none"/>' % [vx - 4.0, vy + 3.0, 22.0 + j * 6.0, 40.0 + j * 9.0, b.darkened(0.5).to_html(false)]
+				body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="3" fill="#%s" opacity="0.13"/>' % [vx - 3.0, vy + 3.0, 6.0 + j % 3 * 2.0, 34.0 + j * 10.0, b.darkened(0.5).to_html(false)]
+			# Pebbles set in the rock.
+			for j in 6:
+				var px2 := fmod(float(j) * 97.0 + 11.0, 256.0)
+				var py := fmod(float(j) * 59.0 + 23.0, 256.0)
+				body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="1.4" stroke-opacity="0.45"/>' % [px2, py, 4.0 + j % 3, 3.0 + j % 2, a.lerp(pale, 0.5).to_html(false), ink]
 		"masonry":
 			# Big rounded stone blocks laid in rough courses (as a cliff of dressed stone in the reference's style): each a soft-cornered
 			# slab a little irregular, its top edge lit, its lower edge and the gaps between in shade, a few cracks and chips. Large, so a
@@ -232,7 +270,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0}.get(pattern, 3.0))
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -926,7 +964,10 @@ const RIDGES := {
 		"tone": Color(0.55, 0.26, 0.3), "mix": 0.62, "edge": 0.5}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
-	"ocean": [{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
+	# (The sea's horizon: a bank of piled cumulus far off, then the low hazy line of a far coast in front of it.)
+	"ocean": [{"z": -190.0, "y": -4.0, "height": 22.0, "shape": 3, "seed": 9.0, "base": 0.12, "amplitude": 0.6, "frequency": 9.0,
+		"tone": Color(1.0, 1.0, 1.0), "mix": 0.85, "edge": 0.8},
+		{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
 		"tone": Color(0.3, 0.5, 0.62), "mix": 0.45, "edge": 0.4}],
 }
 
@@ -1094,6 +1135,8 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 	var mat := FighterView.toon(color, false).duplicate() as ShaderMaterial
 	mat.set_shader_parameter("ramp_softness", 0.12)
 	mat.set_shader_parameter("rim_strength", 0.5)
+	var belly := FighterView.toon(color * Color(0.8, 0.84, 0.98), false).duplicate() as ShaderMaterial
+	belly.set_shader_parameter("ramp_softness", 0.12)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
@@ -1107,8 +1150,10 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 			# Taller toward the middle, so the cluster domes; every puff sits on the same base line.
 			var s := (4.6 - absf(u) * 2.4) * size * rng.randf_range(0.85, 1.15)
 			_mesh(cloud, _sphere(1.0, 16), mat, Vector3(u * span * 0.5, s * 0.55, rng.randf_range(-1.5, 1.5)), Vector3(s, s * 0.85, s * 0.8))
-		# The flat base: a wide squashed puff under them all.
+		# The flat base: a wide squashed puff under them all, and under that a band of cool shade (the sky's colour in the cloud's belly,
+		# as a painted cloud is lit on top and shadowed beneath), a little wider and lower so it shows as the cloud's underside.
 		_mesh(cloud, _sphere(1.0, 16), mat, Vector3(0, 0.6 * size, 0), Vector3(span * 0.62, 1.4 * size, 3.5 * size))
+		_mesh(cloud, _sphere(1.0, 16), belly, Vector3(0, 0.15 * size, 0.4), Vector3(span * 0.66, 0.9 * size, 3.4 * size))
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
