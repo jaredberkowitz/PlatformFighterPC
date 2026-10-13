@@ -150,6 +150,9 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Captain Falcon
 
+* **Status (2026-10-13)**: research done, nothing built: `docs/movesets/captain_falcon/REFERENCE_DATA.md` (the full kit at 13.0.1,
+  labelled, with conflicts) and `PROJECT_AUDIT.md` (what exists, the exact shape of E1 and E6, four small additions to E11, and new
+  extensions E21 search boxes, E22 situation change keeping the frame, E23 optional, E24 per-hitbox shieldstun; 13 `ext` slots needed).
 * **Kit mechanics**: Falcon Punch (turning around during startup gives the reversed punch: 25 / 28 grounded, 22 / 25 aerial; aerial nudged
   up or down by the stick; slides back at the end); Raptor Boost (grounded dash into an uppercut with **10% damage-based armor on frames
   1-5**; aerial overhand that meteors; **helpless only if the aerial version misses**); Falcon Dive (**command grab that catches any
