@@ -544,6 +544,13 @@ const CHEST_TO_CAMERA := 35.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
 const HEAD_TOWARD_FOE := 10.0
+## In a move: how far the chest still opens to the camera, how much further the hips turn toward the foe, and how far the head may turn
+## from the camera (a three-quarter face instead of the near front view of the rest of the time).
+const CHEST_IN_ATTACK := 6.0
+const BODY_TURN_IN_ATTACK := 14.0
+const FACE_AWAY_IN_ATTACK := 58.0
+## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
+var attack_turn := 0.0
 
 
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
@@ -586,6 +593,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 	_rest_unkeyed(clip)
 	_body_follow(s, delta)
 	_lag_bones(s)
+	_face_camera(int(s.facing))
 	_follow_bones()
 
 
@@ -688,8 +696,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		var k := flinch_left / FLINCH_TIME
 		_bend_bone(spine_bone, -16.0 * k, int(s.facing))
 		_bend_bone(head_bone, -12.0 * k, int(s.facing))
-	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN).
-	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
+	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN). In a move the chest turns into it instead,
+	# toward the opponent (`attack_turn`), so a strike is thrown at the foe and not at the camera.
+	_turn_bone(spine_bone, -lerpf(CHEST_TO_CAMERA, CHEST_IN_ATTACK, attack_turn) * float(s.facing))
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
 
 
@@ -713,6 +722,27 @@ func _lag_bones(s: Dictionary) -> void:
 		_bend_bone(head_bone, springs.value("head"), facing)
 	if absf(springs.value("head_turn")) > 0.05:
 		_turn_bone(head_bone, springs.value("head_turn"))
+
+
+## The base body's big head carries the drawn face, half of every read: however a clip and the layers on it twist the chest (a strike
+## turns it into the swing), the head never turns more than this far from the camera; past it, it is turned back.
+const FACE_AWAY_MAX := 32.0
+## Nor does it look down further than this (a pitched-down head shows its crown, and the hat).
+const FACE_DOWN_MAX := 18.0
+
+
+func _face_camera(facing: int) -> void:
+	if not use_base_body or skeleton == null or head_bone < 0 or not skeleton.is_inside_tree():
+		return
+	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+	var ahead: Vector3 = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
+	var away := rad_to_deg(atan2(ahead.x, ahead.z))
+	var limit := lerpf(FACE_AWAY_MAX, FACE_AWAY_IN_ATTACK, attack_turn)
+	if absf(away) > limit:
+		_turn_bone(head_bone, -signf(away) * (absf(away) - limit))
+	var down := -rad_to_deg(asin(clampf(ahead.y, -1.0, 1.0)))
+	if down > FACE_DOWN_MAX:
+		_bend_bone(head_bone, -(down - FACE_DOWN_MAX), facing)
 
 
 ## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top
@@ -1730,6 +1760,9 @@ const FLIP_TIME := 0.38
 var flip_left := 0.0
 var flip_offset := Vector3.ZERO
 var prev_jumps := -1
+## A wall jump flips the other way (backward, off the wall); the count of wall jumps seen last frame.
+var flip_back := false
+var prev_wall_jumps := -1
 ## The attack lunge: the body is thrown forward through the strike and drawn back in the wind-up (model space, along the facing).
 var lunge := 0.0
 var lunge_vel := 0.0
@@ -1887,7 +1920,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var look := facing
 	if state == "Turn" and absf(float(s.vel.x)) > 0.08 and signf(float(s.vel.x)) == -float(facing):
 		look = -facing
-	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN), clampf(delta * 14.0, 0.0, 1.0))
+	var into := 1.0 if state == "Attack" or state == "Grabbing" else 0.0
+	attack_turn = move_toward(attack_turn, into, delta * (12.0 if into > attack_turn else 5.0))
+	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn), clampf(delta * 14.0, 0.0, 1.0))
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
 	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
@@ -1898,14 +1933,23 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# A ledge jump flips too.
 	if state == "LedgeJump" and last_state != "LedgeJump":
 		flip_left = FLIP_TIME
+	# Kicking off a wall (the sim counts wall jumps; a wall-tech jump leaves the tech going up): a back flip away from the wall.
+	var wall_jumps := int(s.get("wall_jumps", 0))
+	var kicked_off: bool = (wall_jumps > prev_wall_jumps and prev_wall_jumps >= 0) or (last_state == "WallTech" and state == "Airborne" and vy > 0.0)
+	if kicked_off:
+		flip_left = FLIP_TIME
+		flip_back = true
+	prev_wall_jumps = wall_jumps
 	prev_jumps = jumps
 	if grounded or not (state == "Airborne" or state == "LedgeJump"):
 		flip_left = 0.0
+	if flip_left <= 0.0:
+		flip_back = false
 	flip_left = maxf(0.0, flip_left - delta)
 	var flip := 0.0
 	if flip_left > 0.0:
 		var k := 1.0 - flip_left / FLIP_TIME
-		flip = TAU * k * k * (3.0 - 2.0 * k)
+		flip = TAU * k * k * (3.0 - 2.0 * k) * (-1.0 if flip_back else 1.0)
 	# The ledge: a swing on the arms when it is caught, a forward roll for a ledge roll (the clip curls the body up).
 	var pivot := Vector3(0, 1.1, 0)
 	if ledge_swing_t >= 0.0 and state == "LedgeHang":
@@ -2118,7 +2162,8 @@ var leg_k := 0.0
 const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 80.0, "fair": 75.0, "dair": 75.0,
 	"nair": -60.0, "uair": -60.0, "bair": 60.0}
 ## Kicks that send both legs out (front and back), each aimed by the game.
-const SPLIT_KICKS := ["nair"]
+## (None now: the neutral air is a held kick with the other leg tucked, as the reference's are, which the clip poses.)
+const SPLIT_KICKS: Array[String] = []
 ## (Its up air and down air are claw slashes, overhead and down below, so they swing the arm.)
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.
@@ -2191,7 +2236,9 @@ var hand_target := Vector3.ZERO
 const SWORD_THRUSTS := ["usmash", "dtilt"]
 ## Neutral airs whose second hit circles the body (the sword's): the whole body flips over backward once while the arm holds the blade
 ## out, between these frames, so the blade follows the hits round. By class.
-const NAIR_SPIN := {0: [14, 21]}
+## (None now: the sword's neutral air no longer turns the body upside down. Ours is a windmill slash: the body stays upright and the arm
+## sweeps the blade round the whole circle its hits make, following the live hitbox.)
+const NAIR_SPIN := {}
 const SPIN_PIVOT := Vector2(0.0, 1.1)
 const SPIN_PIVOT_3D := Vector3(0.0, 1.1, 0.0)
 
@@ -3032,8 +3079,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
+	# The flame rush up: a corkscrew about the body's own upright axis (our take; the head stays up, the face comes round every turn).
 	if _cls(s) == 1 and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
-		model.rotation.x = float(s.frame) * 0.6
+		model.rotation.y = yaw + float(s.state_frame - 17) * 0.75
 
 	var hitlag: int = s.hitlag
 	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.

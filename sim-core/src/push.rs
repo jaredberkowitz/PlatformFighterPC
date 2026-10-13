@@ -1,8 +1,9 @@
-//! Bodies on the ground push each other apart, so a fighter cannot walk, run or dash through another (as in the reference game).
-//! Runs once a frame after every fighter has moved and before hits are resolved.
+//! Bodies push each other apart, so a fighter cannot walk, run, dash, jump or drift through another. Runs once a frame after every
+//! fighter has moved and before hits are resolved.
 //!
-//! Each fighter's body is `push_ratio` of its ECB's half-width either side of it. Two grounded fighters on the same platform whose
-//! bodies overlap are separated in two parts:
+//! Each fighter's body is `push_ratio` of its ECB's half-width either side of it, from its feet up to the top of its ECB. Two
+//! fighters whose bodies overlap (both on the same platform, or at least one in the air and overlapping in height as well) are pushed
+//! apart sideways in two parts:
 //!
 //! * a **hard core** (`push_hard` of the bodies' combined width) they cannot move into: whoever moved toward the other this frame
 //!   is put back, in proportion to how far each came, so a runner stops against a standing fighter instead of shoving it along
@@ -12,8 +13,8 @@
 //!
 //! Nothing here touches attacks: a fighter in an attack is never moved (the other one gives way), two attacking fighters pass
 //! as they would, and hits, hurtboxes and grabs are unchanged. Rolls, spot dodges, get-ups, anyone intangible, hit or held, and
-//! anyone in the air go straight through. No one is pushed off the edge of a platform: the push stops there and the other gives
-//! way instead.
+//! anyone air dodging, attacking in the air or hanging on a ledge go straight through. No one on the ground is pushed off the edge of a platform: the
+//! push stops there and the other gives way instead; in the air the push stops at walls.
 
 use crate::collision;
 use crate::combat::params_of;
@@ -34,7 +35,7 @@ enum Body {
 }
 
 fn body(f: &Fighter) -> Body {
-    if !f.active || !f.grounded() || f.invuln > 0 || f.ledge_invuln > 0 || f.grab_with >= 0 {
+    if !f.active || f.invuln > 0 || f.ledge_invuln > 0 || f.grab_with >= 0 {
         return Body::None;
     }
     match f.state {
@@ -48,14 +49,29 @@ fn body(f: &Fighter) -> Body {
         | S::ShieldBreak
         | S::Respawn
         | S::LedgeGetUp
-        | S::LedgeAttack => Body::None,
+        | S::LedgeAttack
+        | S::AirDodge
+        | S::LedgeHang
+        | S::LedgeJump
+        | S::WallTech => Body::None,
+        // (An attack in the air passes through bodies: aerials that carry or juggle a fighter on top of them, a drag-down, need the
+        // overlap; on the ground an attack blocks but is not moved.)
+        S::Attack if !f.grounded() => Body::None,
         S::Attack => Body::Fixed,
         _ => Body::Free,
     }
 }
 
-/// Moves fighter `i` by `dx` along the ground, as far as its platform allows; returns how far it actually went.
+/// Moves fighter `i` sideways by `dx`: along the ground as far as its platform allows, or through the air as far as walls allow;
+/// returns how far it actually went.
 fn shift(state: &mut GameState, content: &Content, i: usize, dx: Fx) -> Fx {
+    if !state.fighters[i].grounded() {
+        let p = *params_of(content, &state.fighters[i]);
+        let f = &mut state.fighters[i];
+        let from = f.pos.x;
+        collision::move_x(&content.stage, &p, &mut f.pos, dx);
+        return f.pos.x - from;
+    }
     let f = &mut state.fighters[i];
     let mut to = f.pos.x + dx;
     if let Some(p) = collision::platform(&content.stage, f.platform) {
@@ -73,8 +89,22 @@ pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_FIGH
         for j in i + 1..MAX_FIGHTERS {
             let (a, b) = (&state.fighters[i], &state.fighters[j]);
             let (bi, bj) = (body(a), body(b));
-            if bi == Body::None || bj == Body::None || a.platform != b.platform {
+            if bi == Body::None || bj == Body::None {
                 continue;
+            }
+            if a.grounded() && b.grounded() {
+                if a.platform != b.platform {
+                    continue;
+                }
+            } else {
+                // In the air (either of them): only bodies that overlap in height as well, feet to the top of the ECB.
+                let (ha, hb) = (
+                    params_of(content, a).ecb_height,
+                    params_of(content, b).ecb_height,
+                );
+                if a.pos.y >= b.pos.y + hb || b.pos.y >= a.pos.y + ha {
+                    continue;
+                }
             }
             if bi == Body::Fixed && bj == Body::Fixed {
                 continue;

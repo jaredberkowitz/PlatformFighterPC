@@ -188,6 +188,9 @@ class Board extends Control:
 		draw_string(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
 
 	const CARD_GAP := 14.0
+	## The Gauntlets emblem: a lightning bolt, in units of the emblem's radius (y down).
+	const BOLT := [Vector2(0.25, -1.0), Vector2(-0.55, 0.12), Vector2(-0.02, 0.12), Vector2(-0.3, 1.0), Vector2(0.58, -0.22),
+		Vector2(0.06, -0.22), Vector2(0.45, -1.0)]
 	## The Embers emblem's outline and inner tongue, in units of the emblem's radius (y down).
 	const FLAME_OUTER := [Vector2(0.12, -1.0), Vector2(0.3, -0.6), Vector2(0.52, -0.22), Vector2(0.58, 0.2), Vector2(0.42, 0.56),
 		Vector2(0.0, 0.76), Vector2(-0.42, 0.56), Vector2(-0.58, 0.18), Vector2(-0.48, -0.18), Vector2(-0.46, -0.62),
@@ -257,6 +260,13 @@ class Board extends Control:
 					pts.append(c + (q as Vector2) * r)
 				pts.append(pts[0])
 				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 4:
+			# Gauntlets: a lightning bolt (speed and a charged fist), drawn as one closed zigzag.
+			var pts := PackedVector2Array()
+			for q in BOLT:
+				pts.append(c + (q as Vector2) * r)
+			pts.append(pts[0])
+			draw_polyline(pts, color, width, true)
 		elif cls == 2:
 			for k in 3:
 				var a := deg_to_rad(-62.0 + 14.0 * (k - 1))

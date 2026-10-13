@@ -132,6 +132,33 @@ const CLASS_MOVES := {
 		"down special": "kick_dair",
 		"extra move 5": "jump",
 	},
+	# Embers (the tumbler body): the fireball is thrown with a straight arm, the cape swept across (the rising punch keeps the shared uppercut),
+	# the water pump braced with both hands forward (wind-up, charge held, the shots); the down air's landing hit is a landing.
+	3: {
+		"neutral special": "attack_jab",
+		"side special": "attack_swing",
+		"down special": "blaster",
+		"extra move 0": "land",
+		"extra move 1": "blaster",
+		"extra move 2": "blaster",
+	},
+	# Gauntlets (the reference's Captain Falcon): the knee for the forward air and jab 3, the axe kick, the stomp, the shoulder charge,
+	# the elbow, flip kicks for the up smash, the rapid jab's punches as jabs and its rising backhand finisher as an uppercut.
+	4: {
+		"jab 3": "gaunt_knee",
+		"fair": "gaunt_knee",
+		"utilt": "kick_axe",
+		"dair": "gaunt_stomp",
+		"dash attack": "gaunt_shoulder",
+		"fsmash": "gaunt_elbow",
+		"usmash": "kick_uair",
+		"nair": "kick_nair",
+		"bair": "kick_bair",
+		"dtilt": "kick_low",
+		"extra move 10": "attack_jab",
+		"extra move 11": "attack_jab",
+		"extra move 12": "attack_uair",
+	},
 }
 
 ## The clip every move falls back to when nothing maps it (with a warning, once per move).
