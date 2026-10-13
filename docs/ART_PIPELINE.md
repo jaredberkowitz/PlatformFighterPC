@@ -1014,3 +1014,20 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
     flattens far below, and the fields, hedges, lane and farm are laid on it (`roll_z`), so they recede in real perspective (near fields
     big, far ones compressed) instead of being painted on a wall. `meadow_valley_depth.png`.
   - Treetop Isle keeps a rolled ridge (its forest canopy fills the valley below).
+
+## Lighting, form and material: the audit and the first fixes (forty-sixth pass)
+
+Following an outside visual-fidelity plan (audit first, one change at a time, same views before and after).
+
+- **Audit** (Flat Island and Skyline, the Champion and the Brawler, close and in greyscale). The pipeline already has a key and fill
+  per stage, a stepped ramp with painted shadow hues, rim light, a fighter edge light and material responses (skin, rubber, metal,
+  gold). Ranked causes of flatness: (1) **fighters read as one value**: the key comes from near the camera, so a round body is lit
+  evenly from the front, and their shadow side was lifted for readability; (2) the city's lights glow but light nothing; (3) the props'
+  construction and materials already read (kept).
+- **Key light further to the side** (`Lighting.KEY_SIDE`, -28 degrees of yaw on every stage): a modest gain alone; cast shadows now
+  fall across the stage rather than straight back.
+- **Fighter form light** (`PF_FIGHTER_FORM` 0.85 in `toon_light.gdshaderinc`, fighters only, shading only): the light's
+  toward-the-camera part is left out of a fighter's shading, so every head, body and limb shows a lit side, a turn and a shadow side
+  facing the camera, as a character light rig does. The shadow-side lift went from 0.18 to 0.07. Look bench rose from 0.87 to 0.89.
+  `form_before.png` / `form_after.png` (Skyline), `form_after_meadow.png`. On Flat Island a yellow fighter's shade stays subtle (that
+  stage's shadow hue barely darkens yellow): a per-stage colour choice, left as it is.

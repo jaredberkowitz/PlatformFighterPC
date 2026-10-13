@@ -28,7 +28,7 @@ instance uniform float rim_boost : instance_index(2) = 1.0;
 // 1 on a fighter (set by fighter_view.gd): it gets the edge light, and its shadow side is kept a little lighter so it reads anywhere.
 instance uniform float fighter : instance_index(3) = 0.0;
 // How much lighter a fighter's shadow side is kept (a share of the way to lit).
-const float PF_FIGHTER_LIFT = 0.18;
+const float PF_FIGHTER_LIFT = 0.07;
 
 vec3 pf_rgb2hsv(vec3 c) {
 	vec4 k = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -66,8 +66,18 @@ float pf_band(float wrap) {
 		+ texture(pf_ramp, vec2(clamp(x + extra, 0.0, 1.0), 0.5)).r) / 3.0;
 }
 
+// How much of the light's toward-the-camera part a fighter's shading leaves out (0 none): the stage's key comes from near the camera, which
+// lit a round body evenly from the front; without that part the light grazes the form from the side and above, so every head, body and
+// limb shows a lit side, a turn into shade and a shadow side facing the camera (a character light rig's usual move). Shading only: cast
+// shadows still come from the stage's light.
+const float PF_FIGHTER_FORM = 0.85;
+
 void light() {
-	float wrap = dot(NORMAL, LIGHT) * 0.5 + 0.5;
+	vec3 L = LIGHT;
+	if (fighter > 0.0) {
+		L = normalize(LIGHT - VIEW * dot(LIGHT, VIEW) * PF_FIGHTER_FORM * fighter);
+	}
+	float wrap = dot(NORMAL, L) * 0.5 + 0.5;
 	float band = pf_band(wrap);
 	float lit = band * mix(1.0, ATTENUATION, shadow_amount);
 	// (The diffuse light is multiplied by the albedo afterwards, so the shadow colour is given as a ratio to it.)
