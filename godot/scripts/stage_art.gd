@@ -21,8 +21,8 @@ const Toonify := preload("res://scripts/toonify.gd")
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
 const THEMES := {
 	"meadow": {
-		"sky_top": Color(0.3, 0.32, 0.88), "sky_mid": Color(0.66, 0.5, 0.95), "sky_horizon": Color(1.0, 0.8, 0.62),
-		"sky_glow": [Color(1.0, 0.74, 0.46), 0.5], "sky_wisps": [Color(1.0, 0.8, 0.88), 0.6],
+		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
+		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
 		"soil": Color(0.62, 0.46, 0.32), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.42, 0.76, 0.36),
 		"grass_light": Color(0.62, 0.88, 0.46), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "cobble", "cap": "grass", "platform": "wood", "grass_vary": 0.17,
@@ -856,7 +856,7 @@ static func painted_layers(root: Node3D, theme_name: String) -> int:
 ## base, amplitude, frequency, tone (a colour the sky's horizon is mixed toward for the ridge), mix (how far), edge (the lit top)}.
 const RIDGES := {
 	"meadow": [{"z": -170.0, "y": -44.0, "height": 60.0, "shape": 1, "seed": 3.0, "base": 0.42, "amplitude": 0.5, "frequency": 4.5,
-		"tone": Color(0.4, 0.44, 0.78), "mix": 0.6, "edge": 0.45}],
+		"tone": Color(0.36, 0.56, 0.84), "mix": 0.55, "edge": 0.5}],
 	"grove": [{"z": -165.0, "y": -34.0, "height": 52.0, "shape": 0, "seed": 8.0, "base": 0.5, "amplitude": 0.32, "frequency": 3.5,
 		"tone": Color(0.5, 0.5, 0.84), "mix": 0.55, "edge": 0.5}],
 	"sunset": [{"z": -175.0, "y": -36.0, "height": 58.0, "shape": 2, "seed": 5.0, "base": 0.4, "amplitude": 0.4, "frequency": 3.0,
@@ -1350,8 +1350,10 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
 	var e := _ext(stage)
-	_hills(root, rng, Color(0.4, 0.74, 0.4), Color(0.52, 0.6, 0.88))
-	_clouds(root, rng, 9, Color(1.0, 0.93, 0.92), Vector2(14, 34))
+	_hills(root, rng, Color(0.36, 0.72, 0.34), Color(0.42, 0.66, 0.6))
+	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
+	# Islands floating in the sky beyond the stage, at several depths (smaller and paler with distance).
+	_sky_islands(root, t, rng, 9)
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on a far hill, its sails turning slowly.
 	_windmill(root, Vector3(-34, -6, -70))
@@ -1373,9 +1375,43 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), rail, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -2.4, -5.8, rng, Materials.greens(Color(0.42, 0.74, 0.38)))
-	# The magic-hour air: golden pollen drifting over the meadow and faint shafts of light falling across the far hills.
-	_light_shafts(root, Color(1.0, 0.86, 0.62), e)
-	_motes(root, Color(1.0, 0.9, 0.6), e)
+	# A bright day: a few motes of pollen in the air, no shafts of light.
+	_motes(root, Color(1.0, 0.98, 0.8), e)
+
+
+## Islands floating in the sky behind the stage (the way the stage itself floats): an earth keel tapering to a point, a thick grassy cap
+## with a lip of turf over its edge, and on some a round tree or a bush. `count` of them over the sky at depths from 55 to 130 units,
+## higher and smaller the further they are, so they layer the sky into distances. Each bobs gently (`Drift` keeps them in place).
+static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator, count: int) -> void:
+	var grass: Color = t.grass
+	var earth := Materials.stone((t.soil_dark as Color).darkened(0.08), Vector2(4, 2))
+	var turf := FighterView.toon(grass.lightened(0.05))
+	var lip := FighterView.toon(grass.darkened(0.12))
+	for k in count:
+		var depth := rng.randf_range(0.0, 1.0)
+		var z := lerpf(-70.0, -140.0, depth)
+		var size := lerpf(2.4, 4.4, rng.randf()) * lerpf(1.0, 1.4, depth)
+		# (Spread across the sky, kept off the middle above the stage where the fighters fly.)
+		var side := -1.0 if k % 2 == 0 else 1.0
+		var x := side * (rng.randf_range(12.0, 34.0) + 10.0 * float(k / 2)) * lerpf(1.0, 1.5, depth)
+		var y := rng.randf_range(4.0, 11.0) + depth * 8.0
+		var island := Node3D.new()
+		island.position = Vector3(x, y, z)
+		root.add_child(island)
+		var hw := size
+		var keel := _hanging_mass(0.0, size * rng.randf_range(0.9, 1.4), -hw, hw, size * 0.6, size * 0.6, 0.14, 7,
+			func(u: float) -> float: return (1.0 - 0.2 * u) * (1.0 - pow(u, 2.2)),
+			func(u: float) -> float: return 0.06 * u * u)
+		_mesh(island, keel, earth, Vector3.ZERO)
+		# The grassy top: a thick squashed disc, its rim rolling down over the earth.
+		_mesh(island, _cylinder(hw * 0.98, hw * 1.02, 0.7, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.62))
+		_mesh(island, _cylinder(hw * 1.04, hw * 0.96, 0.4, 20), lip, Vector3(0, -0.05, 0), Vector3(1.0, 1.0, 0.64))
+		var on_top := rng.randf()
+		if on_top < 0.45:
+			_round_tree(island, Vector3(rng.randf_range(-0.4, 0.4) * hw, 0.6, 0), clampf(size / 6.0, 0.7, 1.4), rng)
+		elif on_top < 0.75:
+			var bush := Materials.foliage(Materials.greens(grass)[1], Vector2(2, 2), false)
+			_mesh(island, _sphere(1.0, 12), bush, Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.9, 0), Vector3(1.6, 1.1, 1.2) * size / 6.0)
 
 
 ## A windmill: a tapered white tower with a cone roof, and four sails that turn.
