@@ -1,8 +1,8 @@
 # Reference data for the fifth moveset (the reference game's Captain Falcon)
 
-Mechanical reference for the fifth port, collected 2026-10-13 for version **13.0.1**, before anything was built. Proposed in-game
-names (not registered yet): the **Gauntlets** weapon on the **sprinter** body, built-in fighter **Sprinter** (see
-`PROJECT_AUDIT.md`). The reference character's name is not used in the game. What the engine can and cannot do with this data is in
+Mechanical reference for the fifth port, collected 2026-10-13 for version **13.0.1**, before anything was built. In game: the
+**Gauntlets** weapon on the **sprinter** body, built-in fighter **Sprinter** (owner decision 10; class 4). Updated at sim 73 with the
+specials' angle types, the second air dodge source and the fitted distances (what was built and tested: `IMPLEMENTATION_REPORT.md`). The reference character's name is not used in the game. What the engine can and cannot do with this data is in
 `PROJECT_AUDIT.md`; the format follows `docs/movesets/mario/REFERENCE_DATA.md` and `docs/sheik/REFERENCE_DATA.md`.
 
 ## Sources and version
@@ -44,10 +44,11 @@ directly [D]. A reference "capsule" (`zpos=4.0 to 9.7`) is two or three circles 
   [D] (the Mario port's rule).
 - Damage in percent before the 1.2 one-on-one multiplier. Angles in degrees; **361** is the reference's 361 angle (named "angle 361"
   here). H = hitlag multiplier (`ff`), SDI = SDI multiplier.
-- **Angle type** (`af`, the wiki's hitbox-row template): 0 standard (away from the attacker by the target's position), 3 forward (the
-  attacker's facing), 4 backward (opposite the attacker's facing). Ours sends a hitbox behind the attacker backward and the rest forward,
-  which gives the same result for every box below whose position matches its type [D]; the few type-0 boxes close to the body's centre
-  (down tilt id 2, Falcon Dive's explosion) are noted where they occur.
+- **Angle type** (`af`, the wiki's hitbox-row template): 0 standard (away from the attacker by the target's position; **the template's
+  default when a row has no `af`**, checked in `Template:UltimateHitboxTableRow`), 1 speed-based (the attacker's direction of movement),
+  3 forward (the attacker's facing), 4 backward (opposite the attacker's facing). Built as E26 (`Hitbox::angle_type`, sim 67; type 1
+  since sim 73): every normal with a box at the body or behind it carries its type since sim 67, every special box since sim 73 (the
+  specials' types are in each special's section below).
 - **Targets**: `a=f` cannot hit aerial targets (grounded only), `g=f` cannot hit grounded targets (aerial only) [R].
 - Shield damage: the reference adds `sd` to the damage before the shield multiplier; ours is a percent of the damage, so `sd` becomes
   `100 x (damage + sd) / damage` [D].
@@ -74,8 +75,11 @@ audit); **wall jump**: `wall_jump_type` true, `passive_wall_jump_x_speed` 1.4, `
 Jump air times (UFD) [R]: short hop 34, full hop 48, short hop fast fall 24, full hop fast fall 34.
 
 Dodges (UFD) [R]: spot dodge 26 (UFD "21/26"; intangible 3-17), forward roll 30 (4-15), back roll 35 (5-16), neutral air dodge **42**
-(3-30), directional down 62, diagonal down 66, sideways 72, diagonal up 85, up 94 (3-21), air dodge landing lag 10 / 11-19. Single
-source; the neutral air dodge differs from Mario's 52 on the same site, so check it against footage before relying on it.
+(3-30), directional down 62, diagonal down 66, sideways 72, diagonal up 85, up 94 (3-21), air dodge landing lag 10 / 11-19. **Second
+source (sim 73, owner decision 18)**: ssbwiki.com's `Air_dodge` page (raw wikitext, the current game's table) gives the same: neutral
+42, intangible 3-30 (6-27 fully stale); sideways 72, up 94, down 62, diagonally up 85, diagonally down 66, intangible 3-21 (6-20 fully
+stale). That table has a cleanup tag ("some values may be inaccurate"); dragdown's page has the air dodge fields but no values. Mario's
+52 is also in both. **42 is kept, [R] from two sources**.
 
 Body size [E]: the reference model is tall (its `top`-bone hitboxes reach 29 units up on the up smash, 10-11 on the jab); our sprinter
 body needs a taller hurtbox than the tumbler's (`ecb_height`), fitted to those heights.
@@ -210,7 +214,8 @@ Four versions, chosen by the situation when it starts and by the stick on frame 
 | Aerial | 53-57 | 104 | 22 | 361 | 93 | 59 | 5.175 / 2.875 / 4.6 → 6 / 4 / 6 (x1.15) | as grounded |
 | Aerial, reversed | 62-66 | 118 | 25 | 361 | 93 | 59 | as aerial | |
 
-Every box: H 1.5, flame (presentation), **no clank and no rebound** (`clang=f rebound=f`), Special Zoom on hit (presentation).
+Every box: H 1.5, flame (presentation), **no clank and no rebound** (`clang=f rebound=f`), Special Zoom on hit (presentation). **Angle
+type**: no row has an `af`, so 0, by position [R] (raw wikitext, re-read 2026-10-13).
 
 - **Turnaround** [R]: the move "can be reversed on frame 15" (stick held backward then): it changes to the reversed version from
   that version's frame 15 ("transition start 15"), Falcon turns round on frame 35, the hit is 62-66 and the FAF 118 (counted from the
@@ -236,6 +241,9 @@ A dash that searches for a target; touching one switches to the hit move.
 | Aerial hit | clean 5, late 6 | **45** | clean id 0: 10%, **270** (meteor), BK 60, KS 70, r 8.0 → 10, arml (8.0, 0, 0.4) [E], **aerial targets only** (top priority since 8.0.0); id 1: 10%, 60, BK 60, KS 80, same box, **grounded targets only**; id 2: 10%, 60, BK 60, KS 80, r 2.5 → 3, arml (-2.0 to -5.0) [E]. Late: ids 0 / 1 as clean; id 2 r 4.0 → 5, top (0, 8.0 → 1.0, 5.5 → 3.0) [D]. All H 2.0, shield +2 (120 [D]), angle type 3, rebound off. **On frame 6, a set momentum of 1.5 backward and 2.5 upward** (reference units a frame) whether or not anything is hit; **no ledge grab and no landing before frame 8**. **Not helpless afterwards** |
 | Helpless after an aerial miss | | | air speed x0.7; **special-fall landing lag 22** |
 
+**Angle types** [R] (raw wikitext): every uppercut and overhand row is `af=3` (forward); the grounded search boxes are `af=3` too and
+the aerial one has none (they launch nobody). The late uppercut box has no `clang=f` (it clanks); the clean ones do not clank.
+
 The search box "does not possess a damaging hitbox unless it connects" and the move has "more ending lag when it connects with an
 opponent or a shield" (ssbwiki.com move article): **the search also triggers on a shielding target** [R]. The 3.1.0 frame speed multiplier
 (0.8x on frames 1-7) is already inside the published frame numbers.
@@ -254,6 +262,9 @@ A rising command grab with no damaging hitbox of its own.
 | Helpless after a miss | | | air speed x0.7; **special-fall landing lag 24** (ssbwiki.com landing table: interruptible 25; UFD and dragdown 24) |
 | Catch (after a grab) | hit 1 on 2-3, throw release 17 | **40** (animation 71) | hit 1: 5%, 361, BK 50, KS 100, r **9.6 → 12** on `rot` (the body's centre) [D], flame: it damages the held fighter and **launches bystanders** too (ssbwiki.com move article: in this game "a successful grab now also deals knockback to bystanders"). Throw: **13%, 50, BK 85, KS 62**. Interrupted-throw row (kind 1): 8%, 0, BK 100, KS 10 (not modelled). **Ledge grab from the front from frame 61** of the catch. Afterwards Falcon "flips backward" and is **not helpless**: he can act, jump if he still has a jump, and use Falcon Dive again |
 
+**Angle types** [R] (raw wikitext): the explosion (hit 1) is `af=3` (forward); the grab boxes and the throw rows have none (a grab and a
+throw launch from the throw's own angle).
+
 The rise itself and the backward flip after a catch are the animation's root motion: **not published** [gap: footage]. Where the held
 fighter is carried during the catch is not published [E: at the fist, about (0, 13, 7) on `top`].
 
@@ -264,6 +275,9 @@ fighter is carried during the catch is not published [E: at the fist, about (0, 
 | Grounded | clean 13-16, mid 17-23, late 24-33 | **69** on the ground (animation 83), **66** if it goes off an edge (animation 66) | clean: 15%, **52**, BK 60, KS 88, r 3.8 → 5; mid: 11%, 52, BK 90, KS 60, r 3.2 → 4; late: 7%, **46**, BK 80, KS 65, r 3.2 → 4; all along legr (10.0 to 2.0) [E], H 1.0, flame. Jostling off 13-33. **Crashes into walls on 14-36** (a 53-frame wall-crash animation). On hit: speed x0.8 and "maximum speed decreases on hit 4"; friction on ending 0.12 |
 | Aerial (a diagonal dive) | clean 14-18, mid 19-24, late 25-27 | **57** | clean: 15%, 361, BK 80, KS 57, r 5.76 → 7, kneel (4.0) [E], H 1.2; mid: 12%, 361, BK 80, KS 46, r 5.0 → 6, kneel (4.0 to -2.0), H 1.0; late: 9%, same as mid. Angle type 3. Not helpless afterwards |
 | Landing (aerial version touching down) | hits 1-2 | **36** (landing lag 35) | 9%, 60, BK 80, KS 35, r 4.5 → 6, top (0, 2.0, 7.2 to -7.2) [D]: both sides |
+
+**Angle types** [R] (raw wikitext): the grounded rows and the landing row have no `af` (0, by position); the aerial rows are `af=3`
+(forward).
 
 UFD: "Total frames is 68 on the ground or 65 if you go over an edge" (FAF 69 / 66), aerial 56 (57), landing lag 35 with the landing hit
 on frame 1; dragdown agrees on every frame. **Not published**: the slide's and the dive's speed and distance (root motion) [gap].
@@ -280,14 +294,34 @@ on frame 1; dragdown agrees on every frame. **Not published**: the slide's and t
    the 11.0.0 patch note says "FAF 55 → 24"; UFD says "54 frames endlag when successful". Resolved to **40 from the start of the catch**:
    the patch note's 24 is counted from the throw release (17 + 23 = 40) [D], and UFD's 54 is the pre-11.0.0 value (FAF 55 - 1).
 4. **Down throw FAF**: ssbwiki.com 40, UFD 39 (FAF 40), dragdown 33 (FAF 34). Resolved to **40**.
-5. **Face-up get-up attack angle**: ssbwiki.com 48, dragdown 361. **Unresolved**; ssbwiki.com used (the other two get-up attacks' rows agree
-   between the sources).
+5. **Face-up get-up attack angle**: ssbwiki.com 48, dragdown 361. ssbwiki.com used (the other two get-up attacks' rows agree between
+   the sources). Supporting it (sim 73): ssbwiki.com's raw tables give 48 for the swordfighter's, Wolf's and Sheik's get-up attacks too,
+   which the older ports had written as 361 (fixed in sim 73, owner decision 27).
 6. **Falcon Dive throw values**: dragdown lists the throw as 8%, 0 degrees, BK 100, KS 10, which is ssbwiki.com's *interrupted* row
    (kind 1); the real throw is 13%, 50, BK 85, KS 62 (ssbwiki.com, and the moveset summary's "13% (throw)"). Resolved to ssbwiki.com.
 7. **Raptor Boost aerial hit landing lag**: dragdown alone gives 21. ssbwiki.com only says no landing before frame 8. **Unresolved** [gap].
 8. **Rapid jab hit frames**: ssbwiki.com 5, 7 ... 19 within the loop; dragdown 3, 5 ... 15. A frame-origin difference; ssbwiki.com's quickest
    loop table (15 ... 29 from jab 1) is consistent with its own numbering, so it is used.
-9. **Neutral air dodge**: UFD 42 frames for this character against 52 for Mario on the same site; only one source. Check in footage.
+9. **Neutral air dodge**: UFD 42 frames for this character against 52 for Mario on the same site. **Resolved (sim 73)**: ssbwiki.com's
+   air dodge table agrees on 42 (and on every directional figure), so 42 stands [R].
+
+## Fitted distances [E] (built in sims 68-71)
+
+None of the specials' travel is published (gap 1), and no published distance or height was found to fit them to (owner decision 12), so
+they are estimates chosen to look and reach about right, in reference units (world units x 8):
+
+| Move | Fitted motion | Roughly |
+| --- | --- | --- |
+| Side special, grounded dash | 0.8 a frame on frames 1-9, 2.0 on 10-25, 0.6 on 26-30 (the uppercut then cuts the speed to x0.18 [R]) | 42 units forward |
+| Side special, aerial dash | 0.5 forward on 1-9, then 1.8 forward and 0.3 down on 10-35 | 51 forward, 8 down |
+| Up special, the rise | from frame 14 the speed built by the x6 acceleration [R] plus 0.6 forward; upward 3.4 a frame slowing evenly to 0.4 on 31; then gravity 0.103 [R] | 34 up, 11 forward (plus the drift) |
+| Up special, the backflip after the throw | held still to frame 17, then 0.8 back and 1.5 up slowing by 0.16 a frame to 24 | 6 back, 7 up |
+| Neutral special, the aerial boost | 1.0 a frame along 35 degrees up or down (the angle and the stick range are [R]) | (gap 2) |
+| Down special, the slide | 0.4 a frame to 12, 2.4 on 13-33, easing to a stop by 45; x0.8 once it hits [R] | 69 units |
+| Down special, the dive | 0.3 forward on 1-13, then 2.1 forward and 2.1 down on 14-27, then the body's air physics | 33 forward, 29 down |
+| Down special, the wall crash | pushed 0.4 a frame back for 6 frames, then still | 2.4 back |
+
+Their code: `sim-core/src/moves_gauntlets.rs` (`motion` blocks) and `sim-core/src/scripts/gauntlets_*.script`. Footage would replace them.
 
 ## Gaps (needed for 1:1, not published)
 

@@ -271,7 +271,7 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 | Grab / dash grab / pummel | frames 6-7 (FAF 34), 9-10 (FAF 42), 1.3% |
 | Throws | forward 4% (release 18, FAF 34), back 4% (19, 44), up 5% (13, 44), down 4% (20, 46) |
 | Ledge attack | 9%, angle 45, base 90 / growth 20, frames 23-25, intangible to 25, FAF 56 (the brawler: 24-26, to 26) |
-| Get-up attack (from the floor) | 7% in front on frames 16-17 then 7% behind on 22-23 (the brawler 21-22), angle 361, base 80 / growth 48, intangible to 23 (22), FAF 46 (sim v44; it had growth 80 and sent far at high percents) |
+| Get-up attack (from the floor) | 7% in front on frames 16-17 then 7% behind on 22-23 (the brawler 21-22), angle 48 (the reference's; 361 before sim 73), base 80 / growth 48, intangible to 23 (22), FAF 46 (sim v44; it had growth 80 and sent far at high percents) |
 | Shield Breaker | neutral special: hold special from frame 19 (at most 60 frames), thrust 8 frames after release, 8% (9% tip) to about 24% charged, 39 frames from release |
 | Dancing Blade | side special: hit 1 on frame 9 (FAF 39, ends at 29 in the air); each press of special before the end continues; stick up gives the rising hits; hits 2.5-3%, 3-4%; finishers 4-6% (straight), 5-7% (rising), 2% x4 then 4-5% (low) |
 | Counter | down special: window frames 6-27, answer 1.2x (at least 8%), counter-attack on frame 4, FAF 64 unused |

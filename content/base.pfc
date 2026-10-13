@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 76
-    hash d7210149c5f899ac
+    hash 8751580bea2a8d7d
 }
 
 ruleset {
@@ -384,8 +384,8 @@ weapon longsword {
     move get_up_attack {
         total_frames 44
         intangible 23
-        hitbox { start 15 end 16 x 1.40796 y 0.668 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 priority 2 angle_type position }
-        hitbox { start 21 end 22 x -1.18398 y 0.668 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 priority 2 group 1 angle_type position }
+        hitbox { start 15 end 16 x 1.40796 y 0.668 radius 0.9 damage 7 angle 48 bkb 80 kbg 48 priority 2 angle_type position }
+        hitbox { start 21 end 22 x -1.18398 y 0.668 radius 0.9 damage 7 angle 48 bkb 80 kbg 48 priority 2 group 1 angle_type position }
     }
     move ext0 {
         total_frames 38
@@ -695,14 +695,110 @@ weapon claws {
         rehit_every 2
         rehit_groups 2
         hitbox { start 17 end 20 x 0.09999 y 1 radius 0.9 damage 4 angle 93 bkb 50 kbg 10 set_weight true angle_type position }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 60 kbg 20 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.79999 damage 2.5 angle 367 bkb 35 kbg 20 priority 1 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 26 end 28 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 40 bkb 60 kbg 20 priority 2 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 26 end 28 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 367 bkb 40 kbg 20 priority 3 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 70 kbg 20 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.79999 damage 2.5 angle 367 bkb 35 kbg 20 priority 1 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 29 end 31 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 40 bkb 70 kbg 20 priority 2 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 29 end 31 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 367 bkb 40 kbg 20 priority 3 group 1 hitlag 50 targets aerial sdi 0 }
+        hitbox { start 26 end 28 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 60 kbg 20 group 1 hitlag 50 targets grounded sdi 0 angle_type travel }
+        hitbox {
+            start 26
+            end 28
+            x 0
+            y 1
+            radius 0.79999
+            damage 2.5
+            angle 367
+            bkb 35
+            kbg 20
+            priority 1
+            group 1
+            hitlag 50
+            targets aerial
+            sdi 0
+            angle_type travel
+        }
+        hitbox {
+            start 26
+            end 28
+            x 0.5
+            y 0.79999
+            radius 0.4
+            damage 2.5
+            angle 40
+            bkb 60
+            kbg 20
+            priority 2
+            group 1
+            hitlag 50
+            targets grounded
+            sdi 0
+            angle_type travel
+        }
+        hitbox {
+            start 26
+            end 28
+            x 0.5
+            y 0.79999
+            radius 0.4
+            damage 2.5
+            angle 367
+            bkb 40
+            kbg 20
+            priority 3
+            group 1
+            hitlag 50
+            targets aerial
+            sdi 0
+            angle_type travel
+        }
+        hitbox { start 29 end 31 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 70 kbg 20 group 1 hitlag 50 targets grounded sdi 0 angle_type travel }
+        hitbox {
+            start 29
+            end 31
+            x 0
+            y 1
+            radius 0.79999
+            damage 2.5
+            angle 367
+            bkb 35
+            kbg 20
+            priority 1
+            group 1
+            hitlag 50
+            targets aerial
+            sdi 0
+            angle_type travel
+        }
+        hitbox {
+            start 29
+            end 31
+            x 0.5
+            y 0.79999
+            radius 0.4
+            damage 2.5
+            angle 40
+            bkb 70
+            kbg 20
+            priority 2
+            group 1
+            hitlag 50
+            targets grounded
+            sdi 0
+            angle_type travel
+        }
+        hitbox {
+            start 29
+            end 31
+            x 0.5
+            y 0.79999
+            radius 0.4
+            damage 2.5
+            angle 367
+            bkb 40
+            kbg 20
+            priority 3
+            group 1
+            hitlag 50
+            targets aerial
+            sdi 0
+            angle_type travel
+        }
         script {
             // Up special (the reference's parameters, in world units: reference / 8). In the air the startup keeps 0.67 of the horizontal
             // speed and stops the fall, then sinks at 0.02 with friction 0.01. The stick on frame 16 aims the dash (neutral: straight up;
@@ -805,8 +901,8 @@ weapon claws {
     move get_up_attack {
         total_frames 44
         intangible 22
-        hitbox { start 15 end 16 x 1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 angle_type position }
-        hitbox { start 20 end 21 x -1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 group 1 angle_type position }
+        hitbox { start 15 end 16 x 1.79999 y 0.5 radius 0.9 damage 7 angle 48 bkb 80 kbg 48 angle_type position }
+        hitbox { start 20 end 21 x -1.79999 y 0.5 radius 0.9 damage 7 angle 48 bkb 80 kbg 48 group 1 angle_type position }
     }
     move ext0 {
         total_frames 32
@@ -1188,8 +1284,8 @@ weapon needles {
     move get_up_attack {
         total_frames 44
         intangible 22
-        hitbox { start 15 end 16 x 1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 angle_type position }
-        hitbox { start 20 end 21 x -1.79999 y 0.5 radius 0.9 damage 7 angle 361 bkb 80 kbg 48 group 1 angle_type position }
+        hitbox { start 15 end 16 x 1.79999 y 0.5 radius 0.9 damage 7 angle 48 bkb 80 kbg 48 angle_type position }
+        hitbox { start 20 end 21 x -1.79999 y 0.5 radius 0.9 damage 7 angle 48 bkb 80 kbg 48 group 1 angle_type position }
     }
     move ext0 {
         total_frames 21
@@ -1879,9 +1975,9 @@ weapon gauntlets {
     move neutral_special {
         total_frames 102
         air_version ext1
-        hitbox { start 52 end 56 x 1.29999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 hitlag 150 clanks false }
-        hitbox { start 52 end 56 x 0.79999 y 1.4 radius 0.29999 damage 25 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false }
-        hitbox { start 52 end 56 x 1.79999 y 1.29999 radius 0.5 damage 25 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false }
+        hitbox { start 52 end 56 x 1.29999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 hitlag 150 clanks false angle_type position }
+        hitbox { start 52 end 56 x 0.79999 y 1.4 radius 0.29999 damage 25 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false angle_type position }
+        hitbox { start 52 end 56 x 1.79999 y 1.29999 radius 0.5 damage 25 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false angle_type position }
         script {
             // Gauntlets neutral special on the ground. On the reference's frame 15 (14 here) the stick held back [E: past 0.25 of its travel]
             // switches to the reversed punch (28 = ext0), which starts there and turns round later.
@@ -1933,12 +2029,12 @@ weapon gauntlets {
         total_frames 67
         air_version ext7
         off_edge ext9
-        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
-        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
-        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
-        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
-        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
-        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 angle_type position }
+        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 angle_type position }
+        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 angle_type position }
+        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 angle_type position }
+        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 angle_type position }
+        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 angle_type position }
         script {
             // Gauntlets down special on the ground, the slide (world units: reference / 8). A slow start, the slide at 2.4 reference units a
             // frame through the kick's frames (13-33 here, the reference's 13 on is 12 on), easing to a stop by frame 45 [E: the reference's
@@ -2035,9 +2131,9 @@ weapon gauntlets {
     }
     move ext0 {
         total_frames 102
-        hitbox { start 47 end 51 x 1.29999 y 1.29999 radius 0.59999 damage 28 angle 361 bkb 85 kbg 65 hitlag 150 clanks false }
-        hitbox { start 47 end 51 x 0.79999 y 1.4 radius 0.29999 damage 28 angle 361 bkb 85 kbg 65 priority 1 hitlag 150 clanks false }
-        hitbox { start 47 end 51 x 1.79999 y 1.29999 radius 0.5 damage 28 angle 361 bkb 85 kbg 65 priority 2 hitlag 150 clanks false }
+        hitbox { start 47 end 51 x 1.29999 y 1.29999 radius 0.59999 damage 28 angle 361 bkb 85 kbg 65 hitlag 150 clanks false angle_type position }
+        hitbox { start 47 end 51 x 0.79999 y 1.4 radius 0.29999 damage 28 angle 361 bkb 85 kbg 65 priority 1 hitlag 150 clanks false angle_type position }
+        hitbox { start 47 end 51 x 1.79999 y 1.29999 radius 0.5 damage 28 angle 361 bkb 85 kbg 65 priority 2 hitlag 150 clanks false angle_type position }
         script {
             // Gauntlets neutral special, reversed on the ground: this move starts on the reference's frame 15, so its frame 20 is the
             // reference's 35, where the fighter turns round.
@@ -2047,9 +2143,9 @@ weapon gauntlets {
     move ext1 {
         total_frames 102
         land_continue true
-        hitbox { start 52 end 56 x 1.29999 y 1.29999 radius 0.59999 damage 22 angle 361 bkb 93 kbg 59 hitlag 150 clanks false }
-        hitbox { start 52 end 56 x 0.79999 y 1.4 radius 0.4 damage 22 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false }
-        hitbox { start 52 end 56 x 1.79999 y 1.29999 radius 0.59999 damage 22 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false }
+        hitbox { start 52 end 56 x 1.29999 y 1.29999 radius 0.59999 damage 22 angle 361 bkb 93 kbg 59 hitlag 150 clanks false angle_type position }
+        hitbox { start 52 end 56 x 0.79999 y 1.4 radius 0.4 damage 22 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false angle_type position }
+        hitbox { start 52 end 56 x 1.79999 y 1.29999 radius 0.59999 damage 22 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false angle_type position }
         air { from 0 to 18 friction 0 drift 0 }
         script {
             // Gauntlets neutral special in the air (world units: reference / 8). On starting a set upward speed of 0.2 (0.025); the
@@ -2069,9 +2165,9 @@ weapon gauntlets {
     move ext2 {
         total_frames 102
         land_continue true
-        hitbox { start 47 end 51 x 1.29999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 hitlag 150 clanks false }
-        hitbox { start 47 end 51 x 0.79999 y 1.4 radius 0.4 damage 25 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false }
-        hitbox { start 47 end 51 x 1.79999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false }
+        hitbox { start 47 end 51 x 1.29999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 hitlag 150 clanks false angle_type position }
+        hitbox { start 47 end 51 x 0.79999 y 1.4 radius 0.4 damage 25 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false angle_type position }
+        hitbox { start 47 end 51 x 1.79999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false angle_type position }
         air { from 0 to 4 friction 0 drift 0 }
         script {
             // Gauntlets neutral special in the air, reversed: this move starts on the reference's frame 15 (its frame 0), so the x0.92 a frame
@@ -2087,10 +2183,42 @@ weapon gauntlets {
     }
     move ext3 {
         total_frames 26
-        hitbox { start 4 end 4 x 1 y 1.29999 radius 0.79999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 clanks false }
-        hitbox { start 4 end 4 x 0.7 y 1.09999 radius 0.7 damage 10 angle 85 bkb 82 kbg 30 priority 1 shield_damage 140 hitlag 150 hitstun_add 3 clanks false }
-        hitbox { start 4 end 4 x 1.59999 y 1.09999 radius 0.7 damage 10 angle 85 bkb 82 kbg 30 priority 2 shield_damage 140 hitlag 150 hitstun_add 3 clanks false }
-        hitbox { start 5 end 6 x 1 y 1.59999 radius 0.59999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 }
+        hitbox { start 4 end 4 x 1 y 1.29999 radius 0.79999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 clanks false angle_type forward }
+        hitbox {
+            start 4
+            end 4
+            x 0.7
+            y 1.09999
+            radius 0.7
+            damage 10
+            angle 85
+            bkb 82
+            kbg 30
+            priority 1
+            shield_damage 140
+            hitlag 150
+            hitstun_add 3
+            clanks false
+            angle_type forward
+        }
+        hitbox {
+            start 4
+            end 4
+            x 1.59999
+            y 1.09999
+            radius 0.7
+            damage 10
+            angle 85
+            bkb 82
+            kbg 30
+            priority 2
+            shield_damage 140
+            hitlag 150
+            hitstun_add 3
+            clanks false
+            angle_type forward
+        }
+        hitbox { start 5 end 6 x 1 y 1.59999 radius 0.59999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 angle_type forward }
         armor { start 0 end 3 kind damage threshold 10 }
         script {
             // Gauntlets side special, the uppercut after the dash's search box touched someone: the dash's speed is cut to 0.18 of itself on
@@ -2119,13 +2247,13 @@ weapon gauntlets {
         ledge_front_from 7
         ledge_back_from 7
         lands_from 7
-        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial }
-        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded }
-        hitbox { start 4 end 4 x 0.5 y 1.29999 radius 0.29999 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 }
-        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial }
-        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded }
-        hitbox { start 5 end 5 x 0.7 y 1 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 }
-        hitbox { start 5 end 5 x 0.4 y 0.09999 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 3 shield_damage 120 hitlag 200 }
+        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial angle_type forward }
+        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded angle_type forward }
+        hitbox { start 4 end 4 x 0.5 y 1.29999 radius 0.29999 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 angle_type forward }
+        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial angle_type forward }
+        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded angle_type forward }
+        hitbox { start 5 end 5 x 0.7 y 1 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 angle_type forward }
+        hitbox { start 5 end 5 x 0.4 y 0.09999 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 3 shield_damage 120 hitlag 200 angle_type forward }
         script {
             // Gauntlets side special in the air, the overhand after the dash's search box touched someone: on its frame 6, hit or not, a set
             // momentum of 1.5 reference units a frame backward and 2.5 upward (world units: / 8), then the body's air physics.
@@ -2137,8 +2265,8 @@ weapon gauntlets {
         land_continue true
         hold_x 0.9
         hold_y 0.5
-        hitbox { start 1 end 2 x 0 y 1 radius 1.2 damage 5 angle 361 bkb 50 kbg 100 kind pummel }
-        hitbox { start 1 end 2 x 0 y 1 radius 1.2 damage 5 angle 361 bkb 50 kbg 100 }
+        hitbox { start 1 end 2 x 0 y 1 radius 1.2 damage 5 angle 361 bkb 50 kbg 100 kind pummel angle_type forward }
+        hitbox { start 1 end 2 x 0 y 1 radius 1.2 damage 5 angle 361 bkb 50 kbg 100 angle_type forward }
         hitbox { start 16 end 16 x 0.9 y 1 radius 1 damage 13 angle 50 bkb 85 kbg 62 group 1 kind throw }
         script {
             // Gauntlets up special, the catch: held still in the air through the explosion and the throw (frame 17 here is the reference's
@@ -2150,30 +2278,30 @@ weapon gauntlets {
     move ext7 {
         total_frames 55
         landing_move ext8
-        hitbox { start 13 end 17 x 0.79999 y 0.4 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 hitlag 120 }
-        hitbox { start 13 end 17 x 0.4 y 0.7 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 priority 1 hitlag 120 }
-        hitbox { start 18 end 23 x 0.79999 y 0.4 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 }
-        hitbox { start 18 end 23 x 0.4 y 0.7 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 priority 1 }
-        hitbox { start 24 end 26 x 0.79999 y 0.4 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 }
-        hitbox { start 24 end 26 x 0.4 y 0.7 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 priority 1 }
+        hitbox { start 13 end 17 x 0.79999 y 0.4 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 hitlag 120 angle_type forward }
+        hitbox { start 13 end 17 x 0.4 y 0.7 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 priority 1 hitlag 120 angle_type forward }
+        hitbox { start 18 end 23 x 0.79999 y 0.4 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 angle_type forward }
+        hitbox { start 18 end 23 x 0.4 y 0.7 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 priority 1 angle_type forward }
+        hitbox { start 24 end 26 x 0.79999 y 0.4 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 angle_type forward }
+        hitbox { start 24 end 26 x 0.4 y 0.7 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 priority 1 angle_type forward }
         motion { start 0 end 12 vx 0.03749 vy 0 }
         motion { start 13 end 26 vx 0.2625 vy -0.2625 }
     }
     move ext8 {
         total_frames 34
-        hitbox { start 0 end 1 x 0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
-        hitbox { start 0 end 1 x 0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
-        hitbox { start 0 end 1 x -0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
-        hitbox { start 0 end 1 x -0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x 0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 angle_type position }
+        hitbox { start 0 end 1 x 0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 angle_type position }
+        hitbox { start 0 end 1 x -0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 angle_type position }
+        hitbox { start 0 end 1 x -0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 angle_type position }
     }
     move ext9 {
         total_frames 64
-        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
-        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
-        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
-        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
-        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
-        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 angle_type position }
+        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 angle_type position }
+        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 angle_type position }
+        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 angle_type position }
+        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 angle_type position }
+        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 angle_type position }
         air { from 0 to 32 friction 0 drift 0 }
     }
     move pivot_grab {
@@ -2576,12 +2704,12 @@ weapon staff {
     }
     move dash_attack {
         total_frames 39
-        hitbox { start 5 end 8 x 1.59999 y 1.09999 radius 0.59999 damage 11 angle 70 bkb 71 kbg 76 shield_damage 127 angle_type forward }
-        hitbox { start 5 end 8 x 1.59999 y 1.4 radius 0.59999 damage 11 angle 70 bkb 71 kbg 76 shield_damage 127 angle_type forward }
-        hitbox { start 5 end 8 x 0.59999 y 1.29999 radius 0.4 damage 11 angle 60 bkb 71 kbg 76 priority 1 shield_damage 127 angle_type forward }
-        hitbox { start 5 end 8 x 1.09999 y 1.29999 radius 0.4 damage 11 angle 60 bkb 71 kbg 76 priority 1 shield_damage 127 angle_type forward }
-        hitbox { start 9 end 16 x 1.29999 y 1.09999 radius 0.29999 damage 7 angle 60 bkb 61 kbg 56 shield_damage 143 angle_type forward }
-        hitbox { start 9 end 16 x 1.29999 y 1.5 radius 0.29999 damage 7 angle 60 bkb 61 kbg 56 shield_damage 143 angle_type forward }
+        hitbox { start 5 end 8 x 1.59999 y 1.09999 radius 0.59999 damage 11 angle 70 bkb 71 kbg 76 shield_damage 127 clanks false angle_type forward }
+        hitbox { start 5 end 8 x 1.59999 y 1.4 radius 0.59999 damage 11 angle 70 bkb 71 kbg 76 shield_damage 127 clanks false angle_type forward }
+        hitbox { start 5 end 8 x 0.59999 y 1.29999 radius 0.4 damage 11 angle 60 bkb 71 kbg 76 priority 1 shield_damage 127 clanks false angle_type forward }
+        hitbox { start 5 end 8 x 1.09999 y 1.29999 radius 0.4 damage 11 angle 60 bkb 71 kbg 76 priority 1 shield_damage 127 clanks false angle_type forward }
+        hitbox { start 9 end 16 x 1.29999 y 1.09999 radius 0.29999 damage 7 angle 60 bkb 61 kbg 56 shield_damage 143 clanks false angle_type forward }
+        hitbox { start 9 end 16 x 1.29999 y 1.5 radius 0.29999 damage 7 angle 60 bkb 61 kbg 56 shield_damage 143 clanks false angle_type forward }
         part_intangible { start 4 end 5 middle true high true limb true }
         part_intangible { start 4 end 15 limb true }
     }
@@ -2591,57 +2719,57 @@ weapon staff {
         rehit_start 20
         rehit_every 1
         rehit_groups 2
-        hitbox { start 17 end 19 x 0.79999 y 1.4 radius 0.59999 damage 16 angle 361 bkb 40 kbg 100 shield_damage 106 angle_type forward }
-        hitbox { start 17 end 19 x 1.5 y 1.2 radius 0.59999 damage 16 angle 361 bkb 40 kbg 100 shield_damage 106 angle_type forward }
-        hitbox { start 17 end 19 x 1.59999 y 1.2 radius 0.59999 damage 13 angle 361 bkb 40 kbg 102 priority 1 shield_damage 108 angle_type forward }
-        hitbox { start 17 end 19 x 2.29999 y 1.09999 radius 0.59999 damage 13 angle 361 bkb 40 kbg 102 priority 1 shield_damage 108 angle_type forward }
-        hitbox { start 20 end 24 x 1 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 60 push true angle_type forward }
-        hitbox { start 20 end 24 x 2.09999 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 60 push true angle_type forward }
-        hitbox { start 20 end 24 x 3.09999 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 60 push true angle_type forward }
-        hitbox { start 25 end 30 x 1 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true angle_type forward }
-        hitbox { start 25 end 30 x 2 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true angle_type forward }
-        hitbox { start 25 end 30 x 3 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true angle_type forward }
-        hitbox { start 25 end 30 x 4 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true angle_type forward }
-        hitbox { start 25 end 30 x 5 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true angle_type forward }
+        hitbox { start 17 end 19 x 0.79999 y 1.4 radius 0.59999 damage 16 angle 361 bkb 40 kbg 100 shield_damage 106 clanks false angle_type forward }
+        hitbox { start 17 end 19 x 1.5 y 1.2 radius 0.59999 damage 16 angle 361 bkb 40 kbg 100 shield_damage 106 clanks false angle_type forward }
+        hitbox { start 17 end 19 x 1.59999 y 1.2 radius 0.59999 damage 13 angle 361 bkb 40 kbg 102 priority 1 shield_damage 108 clanks false angle_type forward }
+        hitbox { start 17 end 19 x 2.29999 y 1.09999 radius 0.59999 damage 13 angle 361 bkb 40 kbg 102 priority 1 shield_damage 108 clanks false angle_type forward }
+        hitbox { start 20 end 24 x 1 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 60 push true clanks false angle_type forward }
+        hitbox { start 20 end 24 x 2.09999 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 60 push true clanks false angle_type forward }
+        hitbox { start 20 end 24 x 3.09999 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 60 push true clanks false angle_type forward }
+        hitbox { start 25 end 30 x 1 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true clanks false angle_type forward }
+        hitbox { start 25 end 30 x 2 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true clanks false angle_type forward }
+        hitbox { start 25 end 30 x 3 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true clanks false angle_type forward }
+        hitbox { start 25 end 30 x 4 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true clanks false angle_type forward }
+        hitbox { start 25 end 30 x 5 y 1.29999 radius 1.5 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 35 push true clanks false angle_type forward }
     }
     move usmash {
         total_frames 62
         charge_at 11
-        hitbox { start 17 end 28 x 1.2 y 0.5 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 1 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 1.59999 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 2.09999 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 2.59999 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 2.59999 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 3.2 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 3.79999 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 4.4 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 4.9 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 5.5 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 5.5 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 6 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 6.59999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 7.09999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 7.59999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 17 end 28 x 1.2 y 8.09999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 0.29999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 0.79999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 1.29999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 1.79999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 2.29999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 2.79999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 2.79999 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 3.29999 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 3.9 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 4.4 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 5 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 5.5 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 5.5 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 6 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 6.59999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 7.09999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 7.59999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
-        hitbox { start 29 end 34 x 1.2 y 8.09999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 0.5 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 1 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 1.59999 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 2.09999 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 2.59999 radius 0.59999 damage 16 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 2.59999 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 3.2 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 3.79999 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 4.4 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 4.9 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 5.5 radius 0.4 damage 12 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 5.5 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 6 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 6.59999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 7.09999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 7.59999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 17 end 28 x 1.2 y 8.09999 radius 0.4 damage 9 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 0.29999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 0.79999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 1.29999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 1.79999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 2.29999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 2.79999 radius 0.4 damage 13 angle 88 bkb 53 kbg 84 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 2.79999 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 3.29999 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 3.9 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 4.4 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 5 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 5.5 radius 0.4 damage 9 angle 88 bkb 58 kbg 89 priority 1 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 5.5 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 6 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 6.59999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 7.09999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 7.59999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
+        hitbox { start 29 end 34 x 1.2 y 8.09999 radius 0.4 damage 7 angle 88 bkb 62 kbg 92 priority 2 clanks false angle_type forward }
     }
     move dsmash {
         total_frames 67
@@ -2649,21 +2777,21 @@ weapon staff {
         rehit_start 19
         rehit_every 1
         rehit_groups 2
-        hitbox { start 16 end 16 x 0.9 y 1.2 radius 0.5 damage 15 angle 60 bkb 52 kbg 103 hitlag 140 angle_type position }
-        hitbox { start 16 end 16 x 0 y 1.2 radius 0.5 damage 15 angle 60 bkb 52 kbg 103 hitlag 140 angle_type position }
-        hitbox { start 16 end 16 x -0.9 y 1.2 radius 0.5 damage 15 angle 60 bkb 52 kbg 103 hitlag 140 angle_type position }
-        hitbox { start 17 end 18 x 1.79999 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 angle_type position }
-        hitbox { start 17 end 18 x 0.9 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 angle_type position }
-        hitbox { start 17 end 18 x 0 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 angle_type position }
-        hitbox { start 17 end 18 x -0.9 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 angle_type position }
-        hitbox { start 17 end 18 x -1.79999 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 angle_type position }
-        hitbox { start 19 end 28 x 3 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
-        hitbox { start 19 end 28 x 2 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
-        hitbox { start 19 end 28 x 1 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
-        hitbox { start 19 end 28 x 0 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
-        hitbox { start 19 end 28 x -1 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
-        hitbox { start 19 end 28 x -2 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
-        hitbox { start 19 end 28 x -3 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true angle_type position }
+        hitbox { start 16 end 16 x 0.9 y 1.2 radius 0.5 damage 15 angle 60 bkb 52 kbg 103 hitlag 140 clanks false angle_type position }
+        hitbox { start 16 end 16 x 0 y 1.2 radius 0.5 damage 15 angle 60 bkb 52 kbg 103 hitlag 140 clanks false angle_type position }
+        hitbox { start 16 end 16 x -0.9 y 1.2 radius 0.5 damage 15 angle 60 bkb 52 kbg 103 hitlag 140 clanks false angle_type position }
+        hitbox { start 17 end 18 x 1.79999 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 clanks false angle_type position }
+        hitbox { start 17 end 18 x 0.9 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 clanks false angle_type position }
+        hitbox { start 17 end 18 x 0 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 clanks false angle_type position }
+        hitbox { start 17 end 18 x -0.9 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 clanks false angle_type position }
+        hitbox { start 17 end 18 x -1.79999 y 0.5 radius 0.79999 damage 13 angle 28 bkb 30 kbg 90 hitlag 85 clanks false angle_type position }
+        hitbox { start 19 end 28 x 3 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
+        hitbox { start 19 end 28 x 2 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
+        hitbox { start 19 end 28 x 1 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
+        hitbox { start 19 end 28 x 0 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
+        hitbox { start 19 end 28 x -1 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
+        hitbox { start 19 end 28 x -2 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
+        hitbox { start 19 end 28 x -3 y 0.5 radius 1.09999 damage 0 angle 361 bkb 0 kbg 100 group 1 fixed_kb 55 push true clanks false angle_type position }
     }
     move nair {
         total_frames 50
@@ -3000,10 +3128,10 @@ weapon staff {
         landing_lag 11
         autocancel_before 2
         autocancel_after 47
-        hitbox { start 9 end 10 x 0.09999 y -0.5 radius 0.5 damage 11 angle 270 bkb 20 kbg 100 hitlag 150 targets aerial angle_type position }
-        hitbox { start 9 end 10 x 0.09999 y -0.59999 radius 0.5 damage 11 angle 270 bkb 20 kbg 100 hitlag 150 targets aerial angle_type position }
-        hitbox { start 9 end 10 x 0.2 y -0.59999 radius 0.79999 damage 11 angle 55 bkb 30 kbg 100 priority 1 hitlag 150 targets grounded angle_type backward }
-        hitbox { start 9 end 10 x -0.09999 y -0.59999 radius 0.79999 damage 11 angle 55 bkb 30 kbg 100 priority 1 hitlag 150 targets grounded angle_type backward }
+        hitbox { start 9 end 10 x 0.09999 y -0.5 radius 0.5 damage 11 angle 270 bkb 20 kbg 100 hitlag 150 targets aerial clanks false angle_type position }
+        hitbox { start 9 end 10 x 0.09999 y -0.59999 radius 0.5 damage 11 angle 270 bkb 20 kbg 100 hitlag 150 targets aerial clanks false angle_type position }
+        hitbox { start 9 end 10 x 0.2 y -0.59999 radius 0.79999 damage 11 angle 55 bkb 30 kbg 100 priority 1 hitlag 150 targets grounded clanks false angle_type backward }
+        hitbox { start 9 end 10 x -0.09999 y -0.59999 radius 0.79999 damage 11 angle 55 bkb 30 kbg 100 priority 1 hitlag 150 targets grounded clanks false angle_type backward }
     }
     move neutral_special {
         total_frames 51
@@ -3156,7 +3284,7 @@ weapon staff {
     }
     move pummel {
         total_frames 6
-        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 0.59999 damage 1.29999 angle 361 bkb 0 kbg 100 kind pummel hitlag 210 fixed_kb 30 }
+        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 0.59999 damage 1.29999 angle 361 bkb 0 kbg 100 kind pummel hitlag 210 fixed_kb 30 clanks false }
     }
     move fthrow {
         total_frames 43
@@ -3178,20 +3306,20 @@ weapon staff {
     move ledge_attack {
         total_frames 54
         intangible 25
-        hitbox { start 22 end 24 x 1.2 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 angle_type forward }
-        hitbox { start 22 end 24 x 0.59999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 angle_type forward }
-        hitbox { start 22 end 24 x -0.09999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 angle_type forward }
-        hitbox { start 22 end 24 x -0.7 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 angle_type forward }
+        hitbox { start 22 end 24 x 1.2 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 clanks false angle_type forward }
+        hitbox { start 22 end 24 x 0.59999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 clanks false angle_type forward }
+        hitbox { start 22 end 24 x -0.09999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 clanks false angle_type forward }
+        hitbox { start 22 end 24 x -0.7 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 shield_damage 111 clanks false angle_type forward }
     }
     move get_up_attack {
         total_frames 44
         intangible 26
-        hitbox { start 15 end 16 x -1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 angle_type position }
-        hitbox { start 15 end 16 x -1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 angle_type position }
-        hitbox { start 15 end 16 x -0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 angle_type position }
-        hitbox { start 24 end 25 x 1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
-        hitbox { start 24 end 25 x 1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
-        hitbox { start 24 end 25 x 0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
+        hitbox { start 15 end 16 x -1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false angle_type position }
+        hitbox { start 15 end 16 x -1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false angle_type position }
+        hitbox { start 15 end 16 x -0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false angle_type position }
+        hitbox { start 24 end 25 x 1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false angle_type position }
+        hitbox { start 24 end 25 x 1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false angle_type position }
+        hitbox { start 24 end 25 x 0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false angle_type position }
     }
     move ext0 {
         total_frames 35
@@ -3235,27 +3363,27 @@ weapon staff {
         total_frames 24
         rehit_start 3
         rehit_every 3
-        hitbox { start 3 end 3 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 3 end 3 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 3 end 3 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 6 end 6 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 6 end 6 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 6 end 6 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 9 end 9 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 9 end 9 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 9 end 9 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 12 end 12 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 12 end 12 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 12 end 12 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 15 end 15 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 15 end 15 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 15 end 15 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 18 end 18 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 18 end 18 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 18 end 18 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 21 end 21 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 21 end 21 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 21 end 21 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
+        hitbox { start 3 end 3 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 3 end 3 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 3 end 3 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 6 end 6 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 6 end 6 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 6 end 6 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 9 end 9 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 9 end 9 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 9 end 9 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 12 end 12 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 12 end 12 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 12 end 12 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 15 end 15 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 15 end 15 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 15 end 15 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 18 end 18 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 18 end 18 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 18 end 18 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 21 end 21 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 21 end 21 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 21 end 21 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
         script {
             // Staff rapid jab, first cycle (ext10, slot 39). The first cycle always plays out. At its loop point (frame 24) it loops on (40 =
             // ext11, whose first frame is this cycle's frame 2) while attack is held or was pressed in the last 8 frames, else it ends in the
@@ -3273,27 +3401,27 @@ weapon staff {
         total_frames 23
         rehit_start 2
         rehit_every 3
-        hitbox { start 2 end 2 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 2 end 2 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 2 end 2 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 5 end 5 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 5 end 5 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 5 end 5 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 8 end 8 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 8 end 8 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 8 end 8 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 11 end 11 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 11 end 11 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 11 end 11 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 14 end 14 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 14 end 14 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 14 end 14 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 17 end 17 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 17 end 17 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 17 end 17 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 20 end 20 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 20 end 20 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
-        hitbox { start 20 end 20 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 shieldstun 700 angle_type forward }
+        hitbox { start 2 end 2 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 2 end 2 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 2 end 2 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 5 end 5 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 5 end 5 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 5 end 5 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 8 end 8 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 8 end 8 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 8 end 8 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 11 end 11 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 11 end 11 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 11 end 11 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 14 end 14 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 14 end 14 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 14 end 14 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 17 end 17 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 17 end 17 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 17 end 17 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 20 end 20 x 1 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 20 end 20 x 1.29999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
+        hitbox { start 20 end 20 x 1.59999 y 1.09999 radius 0.79999 damage 0.59999 angle 361 bkb 10 kbg 20 hitlag 50 sdi 40 clanks false shieldstun 700 angle_type forward }
         script {
             // Staff rapid jab, later cycles (ext11, slot 40; its frame 0 is the cycle's frame 2, so frame 22 is the loop point, frame 24). After
             // the first cycle, letting go of attack ends it in the finisher (41 = ext12) at any point: once attack has been neither held nor
@@ -3308,8 +3436,8 @@ weapon staff {
     }
     move ext12 {
         total_frames 38
-        hitbox { start 2 end 3 x 1.29999 y 1.09999 radius 0.79999 damage 3.5 angle 361 bkb 55 kbg 140 hitlag 200 angle_type forward }
-        hitbox { start 2 end 3 x 2 y 1.09999 radius 0.79999 damage 3.5 angle 361 bkb 55 kbg 140 priority 1 hitlag 200 angle_type forward }
+        hitbox { start 2 end 3 x 1.29999 y 1.09999 radius 0.79999 damage 3.5 angle 361 bkb 55 kbg 140 hitlag 200 clanks false angle_type forward }
+        hitbox { start 2 end 3 x 2 y 1.09999 radius 0.79999 damage 3.5 angle 361 bkb 55 kbg 140 priority 1 hitlag 200 clanks false angle_type forward }
     }
 }
 

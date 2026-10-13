@@ -328,7 +328,8 @@ pub struct Hitbox {
     pub shieldstun: u16,
     /// Which way "forward" (0 degrees) is for this hit's launch (the reference's angle type): [`ANGLE_BY_BOX`] (the default: a box
     /// behind the attacker sends backward, any other forward), [`ANGLE_FORWARD`] (always the way the attacker faces),
-    /// [`ANGLE_BACKWARD`] (always the other way) or [`ANGLE_BY_POSITION`] (away from the attacker, from the side the victim is on).
+    /// [`ANGLE_BACKWARD`] (always the other way), [`ANGLE_BY_POSITION`] (away from the attacker, from the side the victim is on) or
+    /// [`ANGLE_BY_TRAVEL`] (the way the attacker is moving sideways, its facing when it is not: the reference's speed-based type).
     /// For a projectile the attacker is the projectile: its direction of travel, and its own position.
     pub angle_type: u8,
     /// A command grab (on a [`HIT_GRAB`] box): it catches fighters in the air too, shielding or in hitstun (`grab::catchable`), and
@@ -344,6 +345,8 @@ pub const ANGLE_BY_BOX: u8 = 0;
 pub const ANGLE_FORWARD: u8 = 1;
 pub const ANGLE_BACKWARD: u8 = 2;
 pub const ANGLE_BY_POSITION: u8 = 3;
+/// The reference's type 1 (sim 73, owner decision 23): 0 degrees is the way the attacker is moving.
+pub const ANGLE_BY_TRAVEL: u8 = 4;
 
 /// `Hitbox::aim` values.
 pub const AIM_ANY: u8 = 0;
@@ -1928,16 +1931,17 @@ fn sword_kit() -> Weapon {
     );
     ledge.intangible = 25;
     moves[MoveId::LedgeAttack as usize] = ledge;
-    // Get-up attack from the floor (the reference's swordfighter): 7% in front on frames 16-17, then 7% behind on 22-23, angle 361,
-    // base knockback 80, growth 48 (it always sends into tumble but barely grows with damage), intangible through frame 23, FAF 46.
+    // Get-up attack from the floor (the reference's swordfighter): 7% in front on frames 16-17, then 7% behind on 22-23, angle 48
+    // (ssbwiki.com 13.0.1; it was 361 before sim 73, owner decision 27), base knockback 80, growth 48 (it always sends into tumble but
+    // barely grows with damage), intangible through frame 23, FAF 46.
     let mut getup_attack = ref_move(
         46,
         0,
         0,
         255,
         &[
-            r(16, 17, 18, 5, 9, 70, 361, 80, 48, 0, 0),
-            r(22, 23, -18, 5, 9, 70, 361, 80, 48, 0, 1),
+            r(16, 17, 18, 5, 9, 70, 48, 80, 48, 0, 0),
+            r(22, 23, -18, 5, 9, 70, 48, 80, 48, 0, 1),
         ],
     );
     getup_attack.intangible = 23;
@@ -3905,16 +3909,16 @@ pub fn claws() -> Weapon {
     );
     ledge.intangible = 26;
     w.moves[MoveId::LedgeAttack as usize] = ledge;
-    // Get-up attack from the floor (reference numbers): as the swordfighter's, but the second hit on frames 21-22 and intangible
-    // through frame 22.
+    // Get-up attack from the floor (reference numbers): as the swordfighter's (angle 48 since sim 73), but the second hit on frames
+    // 21-22 and intangible through frame 22.
     let mut getup_attack = ref_move(
         46,
         0,
         0,
         255,
         &[
-            r(16, 17, 18, 5, 9, 70, 361, 80, 48, 0, 0),
-            r(21, 22, -18, 5, 9, 70, 361, 80, 48, 0, 1),
+            r(16, 17, 18, 5, 9, 70, 48, 80, 48, 0, 0),
+            r(21, 22, -18, 5, 9, 70, 48, 80, 48, 0, 1),
         ],
     );
     getup_attack.intangible = 22;
@@ -3932,8 +3936,8 @@ pub fn claws() -> Weapon {
     // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
     // centre or behind it: by position (type 0) for the up and down tilt, up and down smash, neutral, up and down air, the up
     // special's wind-up hit, the reflector's hit and the get-up attack; backward (4) for the back air; forward (3) for the up
-    // special's last hits. (The up special's looping hits are the reference's type 1, from the direction of travel, which is not
-    // built: they keep the default, from the facing.)
+    // special's last hits; the up special's looping hits are the reference's type 1, from the direction of travel (sim 73, owner
+    // decision 23).
     angle_types(
         &mut w,
         &[
@@ -3952,6 +3956,12 @@ pub fn claws() -> Weapon {
         ],
     );
     angle_type_rows(&mut w, MoveId::UpSpecial, &[0], ANGLE_BY_POSITION);
+    angle_type_rows(
+        &mut w,
+        MoveId::UpSpecial,
+        &[1, 2, 3, 4, 5, 6, 7, 8],
+        ANGLE_BY_TRAVEL,
+    );
     w
 }
 

@@ -75,6 +75,25 @@ pub fn staff() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    // The reference's no-clank moves (`clang=f` on every box, ssbwiki.com raw hitbox tables, 13.0.1; sim 73): the rapid jab and its
+    // finisher, the dash attack, the three smashes (their wind too), the down air, the pummel, the ledge and get-up attacks.
+    for id in [
+        RAPID,
+        RAPID_LOOP,
+        RAPID_END,
+        MoveId::DashAttack,
+        MoveId::FSmash,
+        MoveId::USmash,
+        MoveId::DSmash,
+        MoveId::DAir,
+        MoveId::Pummel,
+        MoveId::LedgeAttack,
+        MoveId::GetUpAttack,
+    ] {
+        for h in &mut w.moves[id as usize].hitboxes {
+            h.clanks = false;
+        }
+    }
     // Phase 2: the specials (none of the claws' follow-up slots belong to the staff).
     for id in [MoveId::Ext0, MoveId::Ext1, MoveId::Ext2] {
         w.moves[id as usize] = Move::empty();

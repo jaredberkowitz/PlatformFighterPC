@@ -107,8 +107,8 @@ seer's ground numbers; the "no two share a traction" check dropped: the rogue an
 * The rapid jab's cycle reading (frames 2-23, the loop points "1-2 and 23-24" read as the Gauntlets' "2-3 and 19-20") and its "let go"
   rule (not held and not pressed for 8 frames), the Gauntlets' open question 2.
 * The hitstun floor of 1 frame (E27).
-* **No-clank boxes clank**: the rapid jab, finisher, dash attack, smashes, down air, pummel, ledge and get-up attacks are `clang=f` in
-  the reference; E3c (`Hitbox::clanks`) is being built on the Gauntlets' phase-2 branch: set it on these after the merge.
+* (Done in sim 73 on the cleanup branch: the rapid jab, finisher, dash attack, smashes, down air, pummel, ledge and get-up attacks
+  carry `clanks = false`, the reference's `clang=f`.)
 * The **arm intangibility windows** (forward tilt 14-35, dash attack 5-16, back air 7-10) are recorded but act on nothing: with a held
   weapon the fourth hurtbox circle is the middle one, so the arm is inside the body's circles. The head-and-torso windows work.
 * The down throw's 8 frames of hitlag are folded into its timeline (release 33, FAF 54); the held fighter's invincibility meanwhile and
@@ -283,8 +283,7 @@ counterattack (`ext0`) and the reflection (`ext1`).
   in front at (1.375, 1.19), x1.4 damage, x1.25 speed, limit 50, with the wind (a push, set weight, FKV 50, on 2-11) and FAF 35.
   **Recorded approximation**: the reference's barrier outlives the FAF by ten frames and stays when she is hit; here it ends with the
   move. Tests: melee countered for 1.3x within 10-50; a shot reflected by the new move and not countered; the two never both.
-* Merge with the Gauntlets' phase 2 first (E1, E3c, E6, E11 additions, E21, E22, the shield-stun fix), then set `clanks = false` on the
-  Staff's no-clank boxes.
+* (Merged: the Gauntlets' phase 2 is in, and the no-clank boxes were set in sim 73.)
 
 ## Questions for the owner
 

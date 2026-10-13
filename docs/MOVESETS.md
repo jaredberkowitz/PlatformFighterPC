@@ -74,7 +74,14 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - **As built (phase 1, sim 66, content schema 5):** the body (`FighterParams::sprinter`) and every normal on the reference's
   published data (`docs/movesets/captain_falcon/`, code in `sim-core/src/moves_gauntlets.rs`), with general extensions: sixteen `ext`
   slots, per-limb intangibility (`Move::part_intangible`), per-hitbox shieldstun (`Hitbox::shieldstun`) and the `presses` / `releases`
-  script registers. The specials are the claws' until phase 2.
+  script registers.
+- **As built (phase 2, sims 67 to 71, merged at 72; sim 73):** the four specials on the reference's data: the punch (reversed by the
+  stick on frame 15, never clanking, the aerial one slowing and nudged along 35 degrees), the search dash into an armored uppercut or
+  a meteor overhand, the leaping command grab that explodes on everyone it reaches, the slide kick (crashing into walls, flying on over
+  an edge) and the dive kick with its landing hit. General pieces: armor (`Move::armor`), frame-ranged air physics and per-move fast-fall
+  and turn frames, search boxes (`HIT_SEARCH`, `Move::on_search`), command grabs (`Hitbox::command`, `Move::catch_move`), no-clank hits
+  (`Hitbox::clanks`), off-edge versions (`Move::off_edge`), the `wall` script register, and the reference's exact shield stun for
+  everyone. Travel distances are estimates (not published). Report: `docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`.
 
 ### 6. Staff seer (the reference ranged caster's role)
 - A tall middleweight (91) with a slow air speed (1.0) but quick air acceleration, a long-reaching staff and shield: spinning multi-hit
@@ -83,7 +90,8 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - **As built (phase 1, sim 67):** the body (`FighterParams::seer`, no wall jump, heavy landing 6) and every normal on the reference's
   published data (`docs/movesets/palutena/`, code in `sim-core/src/moves_staff.rs`), with two general extensions: angle types
   (`Hitbox::angle_type`: by box, forward, backward, by position; the older classes now carry their reference types too) and a signed
-  hitstun modifier (`Hitbox::hitstun_add`). The specials are the claws' until phase 2.
+  hitstun modifier (`Hitbox::hitstun_add`). Since sim 73 its reference no-clank moves never clank (`Hitbox::clanks`). The specials
+  are the claws' until phase 2.
 
 ## What this needs from the engine (Phase 3 list)
 

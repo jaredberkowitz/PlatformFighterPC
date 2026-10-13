@@ -3,6 +3,10 @@
 In game: class 4 **Gauntlets** (weapon `gauntlets`), body `sprinter`, built-in fighter **Sprinter** (owner decision 10). Target version
 13.0.1. Data: `REFERENCE_DATA.md`; what the engine had and needed: `PROJECT_AUDIT.md`.
 
+**Status (sim 73): playable.** Every normal (phase 1) and every special (phase 2) is built on [R] data and tested. Not yet *verified*:
+the specials' travel distances (the dash, the leap's rise, the slide and the dive) are the reference's animation, not published, so they
+are [E]; a few readings are [E] (listed per special below).
+
 ## Phase 1 (sim 66, content schema 5): the body and every normal
 
 Branch `falcon-phase1` (from `movesets`, with `movesets` merged back in before the last commit; movesets was at sim 65, so this is 66).
@@ -77,10 +81,11 @@ now covers the first four weapons; the gauntlets' own numbers are in `gauntlets.
 * **Limits**: the forward air's late-hit 20% trip (E20, not built); the down tilt's type-0 box at the body sends by our "behind sends
   backward" rule, not by the target's side; the throws' hit on the held fighter is one frame (the reference's 11-12 / 12-13 boxes);
   the throws' interrupted rows and the thrower's invincibility are not modelled; the grabs' thin aerial-target boxes are not modelled
-  (grabs catch grounded fighters only); one get-up attack slot (face up); the neutral air dodge (42) is single-source; the wall jump's
+  (grabs catch grounded fighters only); one get-up attack slot (face up); the neutral air dodge (42: a second source agreed in sim
+  73, see phase 2); the wall jump's
   0.2 "enable" speed and passive wall speed are not modelled for anyone; jostling is not modelled for anyone.
-* Shared, noted in passing: `combat::block`'s 0.8 is a hair under in fixed point, so a stun that should come out whole is one frame short
-  (10% blocked gives 9, not 10) for every fighter. Not changed here (it would change every fighter).
+* Shared, noted in passing: `combat::block`'s 0.8 was a hair under in fixed point, so a stun that should come out whole was one frame
+  short (10% blocked gave 9, not 10) for every fighter. **Fixed in sim 67** (owner decision 17): see phase 2.
 
 ### Training-mode check (hitbox view)
 
@@ -107,59 +112,160 @@ and a built bridge.
   the forward smash elbow (19-22, three heights); the back throw (turns round on frame 13).
 * Optional: `godot-bridge` could expose `combat::intangible_parts` so the hitbox view draws an intangible limb differently.
 
-## Phase 2 plan: the specials (needs the owner's go for the broad pieces)
+## Phase 2 (sims 67 to 71 on branch `falcon-phase2`, merged into `movesets` at sim 72): the specials
 
-Slots: the rapid jab holds `ext10` to `ext12`; the specials get `ext0` to `ext9` and `ext13` to `ext15` (13), exactly the audit's count
-(Falcon Punch 3, Raptor Boost 3, Falcon Dive 1, Falcon Kick 4, plus 2 spare; the rapid jab's 2 were counted in its 13).
+The four specials on reference data (`REFERENCE_DATA.md`, "Specials"), and the general pieces they needed. Each piece defaults to the old
+behaviour, so no other fighter's moves changed, **except the shield stun fix**, which is meant to change everyone (owner decision 17).
+Commits: `0b9511d` (shield stun), `0c3608b` (E1), `4f661de` (E11 additions), `68f5370` (sim 68, E21 and the side special), `1c32a2b` (sim
+69, E6 and the up special), `472449d` (sim 70, E3c and the neutral special), `27f1134` (sim 71, E22, `wall` and the down special), merge
+`c6177a3` (sim 72). The specials sit in `sim-core/src/moves_gauntlets.rs` (`raptor_boost`, `falcon_dive`, `falcon_punch`, `falcon_kick`)
+and its scripts `sim-core/src/scripts/gauntlets_*.script`; tests in `sim-core/tests/gauntlets_specials.rs` (27 tests).
 
-### Extensions
+### Slots
 
-* **E1 armor** (owner decision 14): `Move::armor: Option<Armor { start, end, kind, threshold }>` with `ARMOR_SUPER` / `ARMOR_DAMAGE` /
-  `ARMOR_KNOCKBACK` defined and only `ARMOR_DAMAGE` applied now. In `combat::apply_hit`, after damage and hitlag, before the hitstun: an
-  attacker in `Attack` inside the window and a hit whose damage (after `damage_mult`) is at most `threshold x damage_mult` leaves only
-  damage and hitlag; grabs ignore armor. Content `armor { start end kind threshold }`; hashed; tests in `multihit.rs` (9% does not
-  interrupt, 11% does, a grab catches). Raptor Boost: window 1-4 (conflict 2), threshold 10.
-* **E6 command grabs**: `Hitbox::command` on a `HIT_GRAB` box uses `grab::catchable` (airborne or grounded, in hitstun, shielding; not
-  intangible, held or grab-immune); `Move::catch_move` (an `ext` slot started on the catch instead of `Grabbing`; the holder stays in
-  `Attack` with its velocity and air physics; the victim is `Grabbed` with no hold timer); `Move::hold_at` (where the victim is pinned,
-  not snapped to a platform in the air). Tests in `grabs.rs`.
-* **E21 search boxes**: hitbox kind `HIT_SEARCH` (never clanks, deals nothing, sees shields) and `Move::on_search` (the slot started at
-  the end of the frame of contact, keeping velocity). Raptor Boost's dash. Open: intangible targets (gap 6).
-* **E22 situation change keeping the frame**: `Move::off_edge` / `Move::on_land` (switch slot at the same `state_frame`, hit mask and
-  charge kept). Falcon Kick off an edge (FAF 69 to 66); possibly the aerial Falcon Punch on landing (gap 3).
-* **E3c no-clank melee**: `Hitbox::clanks` (default true), read by `combat::clash` / `clank_attacks`; Falcon Punch, Raptor Boost, ledge and
-  get-up attacks; later transcendent projectiles.
-* **E11 additions** (on the per-move rules `movesets` built): `fast_fall_from` (Falcon Dive from 50); a framed air block with
-  `air_accel_percent` (`air_from`, `air_to`: Falcon Dive's x6 acceleration before frame 14 and gravity 0.103 after the rise; it could
-  replace Falcon Punch's x0.92 script); `turn_at: Option<(frame, stick)>` overriding `special_turn_window` (Falcon Dive turns only on 14 at
-  0.25); `lands_from` (Raptor Boost's aerial hit ignores landings before 8).
-* **E16 wall register** for Falcon Kick's wall crash (14-36): `wall` (1 when the last move step hit a wall).
-* **E15**: done in phase 1 (1.4 / 3.1, the jump-button wall jump included).
+| Slot | Move |
+| --- | --- |
+| `NSpecial` | the punch on the ground (its `air_version` is `ext1`) |
+| `ext0` / `ext1` / `ext2` | the punch reversed on the ground / in the air / reversed in the air |
+| `SideSpecial` | the dash on the ground (`air_version` `ext4`, `on_search` `ext3`) |
+| `ext3` / `ext4` / `ext5` | the uppercut / the aerial dash (`on_search` `ext5`) / the overhand |
+| `UpSpecial` | the leap (`catch_move` `ext6`) |
+| `ext6` | the catch: explosion and throw |
+| `DownSpecial` | the slide kick (`air_version` `ext7`, `off_edge` `ext9`) |
+| `ext7` / `ext8` / `ext9` / `ext13` | the dive kick (`landing_move` `ext8`) / its landing hit / the slide over an edge / the wall crash |
+| `ext10` to `ext12` | the rapid jab (phase 1) |
+| `ext14`, `ext15` | free |
 
-### Each special
+### The shield stun fix (sim 67, owner decision 17; every fighter)
 
-* **Falcon Punch** (neutral): grounded (hit 53-57, FAF 104, 25%), aerial (22%, x1.15 boxes) and the two reversed versions (turn on 35,
-  hit 62-66, FAF 118; 28% BK 85 KS 65 grounded, 25% aerial), reached by script on frame 15 with the stick back; B-reverse shared; aerial:
-  0.2 up on start, x0.92 a frame for 19 frames, the 35-degree stick nudge on 51 / 60 (speed not published: fitted [E] per owner decision
-  12, or asked); no clank (E3c).
-* **Raptor Boost** (side): grounded search 10-25 (E21) into the uppercut (armor 1-4, E1; 10%, 85 degrees, +3 hitstun; FAF 28; the dash
-  x0.18 on contact), FAF 72 on a miss; aerial search 19-35, ledges from 26, into the overhand (meteor on aerial targets, 60 on grounded,
-  set momentum 1.5 back / 2.5 up on frame 6, no landing or ledge before 8; FAF 45, not helpless); helpless only on a miss (x0.7, landing
-  lag 22). Dash speed fitted [D/E] to a published distance (owner decision 12).
-* **Falcon Dive** (up): command grab boxes 14 and 15-30 (E6), catch move: 5% on 2-3 that also hits bystanders, 13% throw at 50 on 17,
-  FAF 40, free afterwards (can use it again); miss: helpless x0.7, landing lag 24; ledges front 20 / back 37 (61 in the catch); fast fall
-  from 50, turn only on 14, x6 air acceleration, x0.95 air speed, gravity 0.103 (E11 additions). Rise fitted to a published height.
-* **Falcon Kick** (down): grounded slide with three phases (15 / 11 / 7%, FAF 69, 66 off an edge via E22), wall crash 14-36 (the `wall`
-  register), on-hit slowdown; aerial dive (15 / 12 / 9%, FAF 57) with the 9% landing hit on both sides (`landing_move`, 35 frames).
+`combat::shield_stun_frames` works the reference's `floor(0.8 x damage x type x hitbox multiplier + 2)` (ssbwiki.com, Shieldstun) in
+integers over the damage's raw fixed-point value, with 32 raw units (about 0.0005 of a frame) of slack so the damage's own fixed-point
+rounding cannot drop a whole result. Before, 0.8, 0.33 and 0.725 were each a hair under in 16.16 fixed point and **every stun that should
+come out a whole number came out one frame short** (10% gave 9, not 10). The type multipliers are named (`STUN_NORMAL` 1, `STUN_AERIAL`
+0.33, `STUN_SMASH` 0.725, `STUN_PROJECTILE` 0.29), and, as in the reference, the projectile 0.29 now applies only to a projectile hit whose
+own multiplier is 1 (no shipped projectile has another, so nothing changed there). Test: `combat::tests::shield_stun_is_the_reference_formula_with_whole_results_whole`.
 
-## Questions for the owner
+**Which fighters changed** (worked out at sim 73 from every shipped hitbox, old formula against new): a hit gains one frame of shield stun
+only where `0.8 x damage x type x multiplier` is a whole number. At the base damage that is every 1.25% step for normal moves (2.5, 5, 10,
+15, 20, 25% hits); but a hit also carries the stale-move factor, 1.05 on a fresh move, and with it the whole cases are rarer. The moves
+whose stun changed:
 
-1. **Rapid jab presses**: should the press that starts jab 1 count toward "pressed 3 times" (built; it makes "released twice"
-   meaningful but makes the published quickest jab 3 impossible to input), or not (then four presses make a rapid jab)?
-2. **Rapid jab "let go"**: built as "not held and not pressed for 8 frames" so mashing keeps it going. Keep, or end on the first frame
-   attack is up?
-3. **Phase 2 broad pieces**: E6 (command grabs with their own catch sequence) and E21 (search boxes) are new hit kinds in
-   `resolve_hits`; OK to build them as sketched above?
-4. **Shield stun rounding**: fix `combat::block`'s 0.8 so whole-number stuns are exact (changes every fighter's stun by up to a frame,
-   toward the reference)?
-5. The neutral air dodge's 42 frames is from one source (Mario's on the same site is 52). Keep until checked?
+* At the base damage (a move that is neither fresh nor staled, which in play means after some uses): Longsword jab and up tilt (5%,
+  10%), down tilt, dash attack, Dancing Blade hits (2.5%, 5%); Claws forward tilt (5%), up tilt (10%), flash dash (15%, 20%), up special
+  loop (2.5%), up special ending (5%); Needles dash attack (10%), Vanish (5%); Embers down tilt (5%), rising punch (5%); Gauntlets forward
+  and down tilt, ledge attack, uppercut and overhand (10%), dash attack (10% x1.5), jab 3 and the leap's explosion (5%), slide and dive
+  kick (15%), the punch (25%); the Staff's down tilt (5%) and its placeholder specials (the claws').
+* On a fresh hit (x1.05, the usual first use): **only the 25% hits**, which go from 22 to 23 frames: the Gauntlets' grounded punch and
+  aerial reversed punch.
+
+Every change is one frame more, toward the reference. The Gauntlets' tests were moved to the exact numbers (dash attack 14, a rapid jab
+hit 6).
+
+### General extensions
+
+| Id | What | Where | Tests |
+| --- | --- | --- | --- |
+| E1 armor (sim 67, `0c3608b`) | `Move::armor: Option<Armor { start, end, kind, threshold }>`: on move frames `start..=end`, a hit deals its damage and hitlag but does not knock the fighter out of the move. `ARMOR_DAMAGE` (a hit of at most `threshold` percent, compared before the one-on-one multiplier: the reference's damage-based armor) and `ARMOR_SUPER` (every hit) are built; `ARMOR_KNOCKBACK` (knockback subtraction, for Yoshi) is reserved and refused by validation. Grabs ignore armor; a push still pushes. Content `armor { start end [kind] [threshold] }`, hashed in the content hash | `moves.rs`, `combat::apply_hit`, `sim-content` format and validation | `multihit::damage_armor_withstands_hits_up_to_its_threshold_and_super_armor_every_hit`, `gauntlets_specials::the_uppercut_withstands_a_hit_of_up_to_10_percent_on_frames_1_to_4` |
+| E11 additions (`4f661de`) | `Move::air_blocks: Vec<AirBlock { from, to, gravity, max_fall, friction, drift, accel }>` (frame-ranged air physics; `accel` the reference's horizontal acceleration multiplier, x6 = 600), `fast_fall_from`, `turn_at: Option<(frame, stick)>` (a move's own turnaround, replacing the up-special turn window, the up-and-back start and the B-reverse window for it), `lands_from` (touching down earlier does not end the move). Content `air { ... }`, `fast_fall_from`, `turn_frame` / `turn_stick`, `lands_from` | `moves.rs`, `fighter.rs` | `edges_and_recovery::an_air_block_changes_the_air_physics_only_on_its_frames_and_can_multiply_the_acceleration`, `fast_fall_from_holds_the_fast_fall_back_until_its_frame`, `a_move_can_turn_only_on_its_own_frame`, `lands_from_lets_the_move_touch_down_early_and_carry_on` |
+| E21 search boxes (sim 68, `68f5370`) | hit kind `HIT_SEARCH`: a box that only notices a fighter it touches (shields or not; intangible fighters are skipped like every hit), deals nothing and never clanks or competes with the move's hits; `Move::on_search` (an `ext` slot) starts at the beginning of the next frame keeping the speed, unless the searcher was hit that frame. `Fighter::next_move` (the switch waiting for the next frame), hashed. `Move::air_version`: a special started in the air uses that slot instead | `combat::resolve_hits`, `fighter.rs`, `state.rs` | `multihit::a_search_box_touches_without_hitting_or_clanking_and_switches_the_move_next_frame`, the state hash case `next_move` |
+| E6 command grabs (sim 69, `1c32a2b`) | `Hitbox::command` on a `HIT_GRAB` box uses `grab::catchable` (on the ground or in the air, shielding or in hitstun; not on or climbing a ledge, not already held or holding, not grab-immune, not respawning); `Move::catch_move` (the `ext` slot the holder goes on with: the holder stays in `Attack` with its speed and air physics; the victim is `Grabbed` with no hold clock and no mash-out); `Move::hold_at` (content `hold_x` / `hold_y`: where the victim is pinned, in the air if the holder is) | `grab.rs`, `combat.rs`, `step.rs`, `moves.rs` | `grabs::a_command_grab_catches_airborne_shielding_and_hitstunned_fighters`, `a_command_grab_holds_its_catch_in_the_air_without_a_mash_out_and_throws_it` |
+| E3c no-clank hits (sim 70, `472449d`) | `Hitbox::clanks` (default true; content `clanks false`): a hit that never clanks with attacks, nor with projectiles (`clank_projectile` reads it too: a projectile's transcendent priority); it trades instead. Also in sim 70: an aerial version (`air_version`) counts as its special for the turn and B-reverse windows | `combat::clank_attacks`, `clash`, `clank_projectile`, `fighter.rs` | `hit_feel_2::a_hit_that_never_clanks_trades_instead`, `gauntlets_specials::the_punch_never_clanks_with_a_grounded_attack` |
+| E22 off-edge version (sim 71, `27f1134`) | `Move::off_edge`: a ground move that goes over an edge goes on as that slot on the same frame (its own FAF), keeping its hits so far; without it, a move with a motion goes on as itself and one without ends (as before) | `fighter.rs` | `gauntlets_specials::the_slide_kick_off_an_edge_goes_on_as_its_off_edge_version_and_ends_on_66` |
+| E16 `wall` register (sim 71) | script register `wall`: 1 when the fighter's last movement step was stopped by a wall (`Fighter::touched_wall`, hashed; the script runs before the move moves, so it is last frame's step) | `sim-script/src/api.rs`, `scripting.rs`, `fighter.rs`, `state.rs`, `docs/CONTENT.md` | `scripted_moves::the_wall_register_says_the_last_step_was_stopped_by_a_wall`, the state hash case `touched_wall` |
+| E26 on the specials (sim 73) | every special box carries its reference angle type (below) | `moves_gauntlets.rs` | `angle_types::the_older_movesets_carry_their_reference_angle_types` |
+
+### Each special: verified against [R] / [D] and what is [E]
+
+**Side special** (the dash into an uppercut or an overhand; `raptor_boost`):
+
+* [R], tested: grounded search 10-25 on grounded and airborne fighters (shields too), FAF 72 on a miss; the uppercut (clean 5, late 6-7,
+  10%, 85, BK 82, KS 30, +3 hitstun, hitlag x1.5, shield +4 = 140 [D]; FAF 28), its **damage armor on 1-4 against hits up to 10%**
+  (conflict 2: 1-4 by two sources to one), the dash speed x0.18 on switching; the aerial search 19-35, ledges from 26 on either side,
+  landing lag 22, the special fall after the 79-frame animation (air speed x0.7, landing lag 22); the overhand (clean 5, late 6; the 270
+  meteor on airborne fighters, 60 degrees BK 60 KS 80 on grounded ones and from the arm box; hitlag x2, shield +2 = 120 [D]), the set
+  momentum 1.5 back and 2.5 up on frame 6 hit or not, no landing and no ledge before 8, FAF 45, free afterwards. The clean uppercut boxes
+  never clank; the late box clanks (the reference's `clang` rows). Angle types (sim 73): uppercut and overhand forward (type 3).
+* [E]: the dash's speed (0.8 / 2.0 / 0.6 reference units a frame on frames 1-9 / 10-25 / 26-30 on the ground, about 42 units; 0.5 then
+  1.8 forward and 0.3 down in the air): the reference's root motion, not published. The overhand's landing lag 21 is dragdown's alone
+  (conflict 7). Box positions on the hand and arm.
+
+**Up special** (the leaping command grab; `falcon_dive`):
+
+* [R], tested: grab boxes on 14 (the second one grounded-only) and 15-30, command grabs catching airborne, grounded, shielding and
+  hitstunned fighters; the turnaround only on 14 with the stick back past 0.25; x6 air acceleration before 14, air speed x0.95, gravity
+  0.103 after the rise; fast fall from 50; ledges in front from 20, behind from 37; a miss ends in the special fall after frame 66 (air
+  speed x0.7, landing lag 24); the catch: the 5% explosion on 2-3 on the held fighter **and on bystanders** (radius 9.6 → 12 at the body
+  [D]), the 13% throw at 50 degrees (BK 85, KS 62) on 17, FAF 40 (conflict 3), then free (it can be used again). Angle type (sim 73): the
+  explosion forward (type 3).
+* [E]: the rise (3.4 reference units a frame slowing evenly to 0.4 over frames 14-31, about 34 units up and 11 forward, plus the drift the
+  x6 acceleration built), the backflip after the throw, where the held fighter is pinned (at the fist, 0.9 ahead and 0.5 up); touching down
+  during the catch carries it on (gap 5); the catch grabs no ledge (the reference's: in front from its frame 61).
+
+**Neutral special** (the wound-up punch; `falcon_punch`):
+
+* [R], tested: grounded hit 53-57, 25%, 361, BK 93, KS 59, FAF 104; the stick held back on 15 switches to the reversed version (turns on
+  35, hit 62-66, 28% BK 85 KS 65 on the ground, 25% in the air, FAF 118 from the start); aerial 22% with the x1.15 boxes, the set 0.2
+  upward speed on starting, x0.92 a frame for 19 frames with no air control meanwhile; the 35-degree boost read on 51 (60 reversed) with
+  the stick up or down between 0.25 and 0.65; hitlag x1.5; **no clank** on every box. Angle types (sim 73): every box by position (no `af`
+  in the reference's rows, the template's default 0).
+* [E]: the boost's speed (1.0 reference units a frame along 35 degrees: not published, gap 2); the stick's "back" threshold 0.25 for the
+  reversal; touching down during an aerial punch carries it on along the ground (gap 3); the grounded slide is not modelled (none
+  published); box positions on the arm.
+
+**Down special** (the slide kick and the dive kick; `falcon_kick`):
+
+* [R], tested: the slide's three phases (clean 13-16 15% 52 BK 60 KS 88, mid 17-23 11% 52 BK 90 KS 60, late 24-33 7% 46 BK 80 KS 65;
+  conflict 1 resolved to ssbwiki.com), FAF 69, **66 when it goes over an edge** (E22), the **wall crash on 14-36** (the `wall` register,
+  a 53-frame crash), x0.8 speed once it hits; the dive (clean 14-18 15% 361 BK 80 KS 57 hitlag x1.2, mid 19-24 12% KS 46, late 25-27 9%
+  KS 46; FAF 57, not helpless) and its **landing hit** on both sides (9%, 60, BK 80, KS 35 on 1-2, landing lag 35). Angle types (sim
+  73): the slide, its off-edge version and the landing hit by position (no `af`), the dive forward (type 3).
+* [E]: the slide's speed (2.4 reference units a frame through the kick, easing to a stop by 45: about 69 units in all) and the dive's
+  (0.3 a frame forward on 1-13, then 2.1 forward and 2.1 down on 14-27: about 33 units forward and 29 down); the crash's push off the wall; "maximum speed decreases on hit 4"
+  and the 0.12 ending friction (not modelled); positions on the leg; whether the aerial kick is limited per airtime (gap 4: not limited
+  here).
+
+### Sim 73 follow-ups (branch `cleanup-72`)
+
+* **Angle types** for every special box, read from ssbwiki.com's raw wikitext (`Captain_Falcon_(SSBU)/<special>&action=raw`, the `af`
+  field; a row without one is the template's default 0, "standard", by position): see each special above. Visible change: a target behind
+  the fighter when a punch, slide or landing-hit box reaches it is now sent away from the fighter (backward) instead of forward.
+* **The neutral air dodge** (owner decision 18): a second source agrees. ssbwiki.com's air dodge page (`Air_dodge`, the current game's
+  table, raw wikitext) gives this character's neutral air dodge as 42 frames, intangible 3-30 (fully stale 6-27), and the directional
+  ones 72 sideways, 94 up, 62 down, 85 diagonally up, 66 diagonally down, intangible 3-21: every number the same as UFD's. (That table
+  carries a cleanup tag saying some values may be inaccurate.) dragdown's parameter page has the fields but no values. **42 kept**, now
+  [R] from two sources. The other figure that made it look odd, Mario's 52, is also on both sites.
+
+### Tests and checks run
+
+The phase-2 run was cut off before its checks were recorded. At sim 73 (this branch): `cargo fmt --all`,
+`cargo test --workspace` (all green), `cargo clippy --workspace --all-targets -- -D warnings` (clean), `pftool fuzz-rollback 1000`
+(0 mismatches), `pftool net-fuzz 200` (0 mismatches), `pftool content-check content/base.pfc` (ok). **Not run**: the Godot tests.
+
+### Training-mode checks (hitbox view)
+
+Sprinter vs a duelist at 0%: (1) side special on the ground into a shielding duelist: the search box touching the shield switches to the
+uppercut, which hits the shield; (2) aerial side special over a grounded and an airborne duelist: the meteor box only sends the airborne
+one down; (3) up special under a duelist in the air and next to a shielding one: both are caught and exploded, a third fighter inside the
+explosion radius is launched too; (4) down special toward a wall from close: the crash before frame 37, no crash after; off an edge, the
+kick goes on in the air and ends sooner. Distances (dash, rise, slide, dive) should be compared with footage when the owner has some.
+
+### For the art agent
+
+Moves that want their own clip (they fall back to the shared archetypes now): the punch (wind-up 1-52, the fist out 53-57; the reversed
+one turns on 35 and hits 62-66), the dash and its uppercut (search 10-25, the uppercut 5-7) and the aerial overhand (5-6), the leap (rise
+14-30, the grab hand forward; the catch: hold, explosion 2-3, throw on 17, backflip), the slide kick (13-33, the leg forward along the
+ground) and the dive kick (14-27, diagonal), its landing (1-2), the wall crash (53 frames).
+
+## Owner decisions on this port (answered)
+
+15 (rapid jab presses: the press that starts jab 1 counts; mashing keeps it going), 16 (E6 and E21 as hit kinds in `resolve_hits`), 17
+(fix the shield stun rounding for everyone), 18 (keep the 42-frame neutral air dodge unless a second source disagrees: it agrees). See
+`docs/movesets/ROSTER_STATUS.md`, "Owner decisions".
+
+## Still open
+
+* The root-motion distances (gap 1), the aerial punch's boost speed (gap 2), landing during the aerial punch (gap 3), per-airtime limits
+  (gap 4), the catch reaching the ground or a ledge-hanging fighter (gap 5): footage or a published figure would settle them
+  (owner decision 12: fit to published figures; none found so far).
+* Limits kept from phase 1: the forward air's late-hit trip (E20), one get-up attack slot, the throws' interrupted rows and thrower
+  invincibility, grabs on aerial targets (ordinary grabs).
