@@ -1079,3 +1079,180 @@ fn the_stick_angles_the_rising_punch_by_up_to_12_degrees() {
     assert_eq!(lean(127), 12);
     assert_eq!(lean(50), 0, "inside the stick sensitivity (0.5)");
 }
+
+// ---- Neutral special: the fireball (phase 2) ----------------------------------------------------------------------------------
+
+/// The tumbler at `x` facing right throws a fireball; player 1 is parked out of the way unless placed. Ticks until it appears.
+fn throw_fireball(sim: &mut Sim) -> usize {
+    sim.tick(inp(0, 0, sim_core::input::buttons::SPECIAL));
+    for t in 2..=30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.state.projectiles.iter().any(|p| p.active) {
+            return t;
+        }
+    }
+    panic!("no fireball");
+}
+
+fn the_ball(sim: &Sim) -> Option<sim_core::Projectile> {
+    sim.state.projectiles.iter().copied().find(|p| p.active)
+}
+
+#[test]
+fn the_fireball_appears_on_frame_17_and_the_move_ends_on_frame_50() {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.state.fighters[1].invuln = 255;
+    assert_eq!(throw_fireball(&mut sim), 17);
+    // (Tick 17 done: 32 more to the end of tick 49, the move's last.)
+    sim.ticks(31, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle, "actionable on frame 50");
+}
+
+#[test]
+fn the_fireball_falls_bounces_off_the_ground_and_lasts_70_frames() {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.state.fighters[1].invuln = 255;
+    throw_fireball(&mut sim);
+    let first = the_ball(&sim).unwrap();
+    // 1.4 reference units a frame, 10 degrees down.
+    let units = |n: i32| Fx::from_ratio(n, 8000);
+    assert!(
+        (first.vel.x - units(1379)).abs() < units(5),
+        "{:?}",
+        first.vel
+    );
+    assert!(
+        (first.vel.y + units(243)).abs() < units(5),
+        "{:?}",
+        first.vel
+    );
+    let mut frames = 0;
+    let mut bounces = 0;
+    let mut peak_after_bounce = Fx::ZERO;
+    let mut last_vy = first.vel.y;
+    while let Some(p) = the_ball(&sim) {
+        if p.vel.y > Fx::ZERO && last_vy < Fx::ZERO {
+            bounces += 1;
+            // Off the ground at 1.4 to 1.6, keeping 0.97 of its forward speed.
+            assert!(
+                p.vel.y >= units(1400) && p.vel.y <= units(1600),
+                "{:?}",
+                p.vel
+            );
+            assert_eq!(p.bounces, bounces);
+        }
+        if bounces == 1 {
+            peak_after_bounce = peak_after_bounce.max(p.pos.y);
+        }
+        last_vy = p.vel.y;
+        sim.tick(inp(0, 0, 0));
+        frames += 1;
+    }
+    assert_eq!(frames, 70, "its lifetime");
+    assert!(bounces >= 2, "{bounces}");
+    // A bounce at 1.4 to 1.6 under gravity 0.1 rises 9.8 to 12.8 reference units.
+    assert!(
+        peak_after_bounce > units(9000) && peak_after_bounce < units(13_500),
+        "{peak_after_bounce:?}"
+    );
+}
+
+#[test]
+fn the_fireball_is_gone_after_its_seventh_bounce() {
+    let mut sim = duel();
+    // A longer-lived ball, to see the bounce limit.
+    let w = usize::from(sim.content.fighters[usize::from(TUMBLER)].weapon);
+    let spec = sim.content.weapons[w].moves[MoveId::NSpecial as usize]
+        .projectile
+        .as_mut()
+        .unwrap();
+    spec.life = 255;
+    spec.speed = Fx::ZERO;
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.state.fighters[1].invuln = 255;
+    throw_fireball(&mut sim);
+    let mut most = 0;
+    for _ in 0..254 {
+        match the_ball(&sim) {
+            Some(p) => most = most.max(p.bounces),
+            None => break,
+        }
+        sim.tick(inp(0, 0, 0));
+    }
+    assert!(
+        the_ball(&sim).is_none(),
+        "removed on the touch after the seventh bounce"
+    );
+    assert_eq!(most, 7);
+}
+
+/// Damage a fireball does to a duelist standing `gap` ahead of the tumbler, and the launch it gets.
+fn fireball_hit(gap: Fx) -> (Fx, Fx, Sim) {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-10), 1);
+    sim.stand(1, Fx::from_int(-10) + gap, -1);
+    sim.tick(inp(0, 0, sim_core::input::buttons::SPECIAL));
+    for _ in 0..100 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > Fx::ZERO {
+            break;
+        }
+    }
+    (sim.fighter(1).percent, sim.fighter(1).launch_kb, sim)
+}
+
+#[test]
+fn the_fireballs_hit_weakens_with_its_age() {
+    // Close: the clean hit (5%); a few units on: the late hit (5%, weaker knockback); far: the latest (4%).
+    let (near, near_kb, _) = fireball_hit(fx(15, 10));
+    let (mid, mid_kb, _) = fireball_hit(fx(40, 10));
+    let (far, _, sim) = fireball_hit(fx(80, 10));
+    assert_eq!(near, dealt(&sim, 50));
+    assert_eq!(mid, dealt(&sim, 50));
+    assert!(
+        mid_kb < near_kb,
+        "the late hit launches less: {mid_kb:?} {near_kb:?}"
+    );
+    assert_eq!(far, dealt(&sim, 40));
+}
+
+#[test]
+fn a_shield_takes_half_the_fireballs_damage() {
+    // The same 40 frames of a held shield, with and without a fireball into it: the most the shield loses in one frame (the hit,
+    // with the shield's own steady drain).
+    let shield_after = |throw: bool| {
+        let mut sim = duel();
+        sim.stand(0, Fx::from_int(-10), 1);
+        sim.stand(1, Fx::from_int(-8), -1);
+        let mut most = Fx::ZERO;
+        for t in 1..=40 {
+            let p0 = if throw && t == 1 {
+                inp(0, 0, sim_core::input::buttons::SPECIAL)
+            } else {
+                inp(0, 0, 0)
+            };
+            let before = sim.fighter(1).shield_hp;
+            sim.tick2(p0, inp(0, 0, sim_core::input::buttons::SHIELD));
+            if t > 2 {
+                most = most.max(before - sim.fighter(1).shield_hp);
+            }
+        }
+        assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+        (most, sim)
+    };
+    let (hit, sim) = shield_after(true);
+    let (drain, _) = shield_after(false);
+    let lost = hit - drain;
+    let half = dealt(&sim, 50) * Fx::from_ratio(50, 100);
+    assert!(
+        (lost - half).abs() < Fx::from_ratio(1, 100),
+        "{lost:?} vs {half:?}"
+    );
+}

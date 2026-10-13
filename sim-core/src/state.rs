@@ -241,6 +241,8 @@ pub struct Projectile {
     pub vel: Vec2,
     pub age: u8,
     pub life: u8,
+    /// Times it has bounced off the ground (see `ProjectileArc::bounces`).
+    pub bounces: u8,
     /// Persistent variables of the projectile's script.
     pub vars: [i32; PROJECTILE_VARS],
 }
@@ -256,6 +258,7 @@ impl StateHash for Projectile {
         self.vel.hash_into(h);
         h.write_u8(self.age);
         h.write_u8(self.life);
+        h.write_u8(self.bounces);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -1021,6 +1024,11 @@ mod tests {
             ("projectile_power", {
                 let mut s = state;
                 s.projectiles[0].power = 150;
+                s
+            }),
+            ("projectile_bounces", {
+                let mut s = state;
+                s.projectiles[1].bounces = 1;
                 s
             }),
             ("projectile_pos", {

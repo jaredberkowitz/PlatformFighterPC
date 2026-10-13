@@ -868,11 +868,18 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 },
                 vel: if f.spawn_custom {
                     f.spawn_vel
+                } else if spec.arc.angle != 0 {
+                    let a = Angle::from_degrees(i32::from(spec.arc.angle));
+                    Vec2::new(
+                        (spec.speed * crate::trig::cos(a)).mul_int(dir),
+                        spec.speed * crate::trig::sin(a),
+                    )
                 } else {
                     Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
                 },
                 age: 0,
                 life: spec.life,
+                bounces: 0,
                 vars: [0; crate::PROJECTILE_VARS],
             };
         }
@@ -903,10 +910,32 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 continue;
             }
         }
-        let pr = state.projectiles[n];
+        let mut pr = state.projectiles[n];
 
         let age = pr.age.saturating_add(1);
-        let pos = pr.pos + pr.vel;
+        // Gravity (an arcing projectile), then the move; a bouncing one comes back up off the top of a platform it falls onto.
+        let arc = spec.arc;
+        if arc.gravity != Fx::ZERO {
+            pr.vel.y -= arc.gravity;
+            if arc.max_fall > Fx::ZERO {
+                pr.vel.y = pr.vel.y.max(-arc.max_fall);
+            }
+        }
+        let mut pos = pr.pos + pr.vel;
+        if arc.bounces > 0 && pr.vel.y < Fx::ZERO {
+            if let Some(i) = collision::find_landing(stage, pr.pos, pos, false) {
+                if pr.bounces >= arc.bounces {
+                    state.projectiles[n].active = false;
+                    continue;
+                }
+                pos.y = stage.platforms[i].y;
+                pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max);
+                pr.vel.x = pr.vel.x * Fx::from_ratio(i32::from(arc.bounce_keep), 100);
+                pr.bounces += 1;
+            }
+        }
+        state.projectiles[n].vel = pr.vel;
+        state.projectiles[n].bounces = pr.bounces;
         let in_wall = stage.platforms.iter().any(|b| {
             !b.pass_through && pos.x > b.left && pos.x < b.right && pos.y > b.bottom && pos.y < b.y
         });
@@ -943,11 +972,13 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         state.projectiles[n].pos = pos;
         state.projectiles[n].age = age;
 
-        // Damage falls off with distance travelled.
+        // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
-        let mut hb = spec.hitbox;
+        let (mut hb, phased) = spec.hit_at(age);
         hb.radius = hb.radius * origin_params.hitbox_scale;
-        hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+        if !phased && !spec.any_phase() {
+            hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+        }
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
 
         for d in 0..MAX_FIGHTERS {

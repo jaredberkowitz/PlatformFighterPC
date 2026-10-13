@@ -249,6 +249,28 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             if p.life == 0 {
                 errors.push(format!("weapon {i} {name}: projectile has no lifetime"));
             }
+            let a = &p.arc;
+            if a.gravity < Fx::ZERO
+                || a.max_fall < Fx::ZERO
+                || a.bounce_min < Fx::ZERO
+                || a.bounce_min > a.bounce_max
+                || a.bounce_keep > 100
+                || !(-90..=90).contains(&a.angle)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: projectile flight out of range (angle -90 to 90, no negative gravity, fall or bounce \
+                     speed, bounce_min at most bounce_max, bounce_keep at most 100)"
+                ));
+            }
+            let mut last = 0;
+            for (from, _) in p.phases.iter().flatten() {
+                if *from <= last || *from >= p.life {
+                    errors.push(format!(
+                        "weapon {i} {name}: projectile phases must start in order, after age 0 and within its life"
+                    ));
+                }
+                last = *from;
+            }
         }
         if mv.projectile_script.is_some() && mv.projectile.is_none() {
             errors.push(format!(

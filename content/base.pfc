@@ -5,8 +5,8 @@ bundle {
     schema 3
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 59
-    hash 46b098983e889c92
+    sim_version 60
+    hash 44fb506404f6a5eb
 }
 
 ruleset {
@@ -1431,16 +1431,29 @@ weapon embers {
         hitbox { start 22 end 22 x 0 y 0.9 radius 1.4 damage 5.5 angle 75 bkb 80 kbg 100 group 1 sdi 80 }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
+        total_frames 48
         projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+            frame 16
+            x 0.79999
+            y 0.9
+            speed 0.17499
+            life 70
+            end_damage 5
+            angle -10
+            gravity 0.0125
+            bounce_min 0.17499
+            bounce_max 0.2
+            bounces 7
+            bounce_keep 97
+            hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 5 angle 361 bkb 35 kbg 20 shield_damage 50 hitlag 60 }
+            phase {
+                from 5
+                hitbox { start 0 end 0 x 0 y 0 radius 0.275 damage 5 angle 361 bkb 28 kbg 15 shield_damage 50 hitlag 60 }
+            }
+            phase {
+                from 30
+                hitbox { start 0 end 0 x 0 y 0 radius 0.25 damage 4 angle 361 bkb 22 kbg 10 shield_damage 50 hitlag 60 }
+            }
         }
     }
     move side_special {

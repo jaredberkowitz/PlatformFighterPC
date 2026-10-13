@@ -8,9 +8,9 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
-    AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_THROW, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Counter, Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, Reflector, Weapon,
+    AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
+    HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -773,7 +773,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         .collect();
     if let Some(b) = at_most_one(children(block, "projectile"), "projectile", context, errors) {
         let ctx = format!("the projectile of {context}");
-        only_known(b, &["hitbox"], &ctx, errors);
+        only_known(b, &["hitbox", "phase"], &ctx, errors);
         let mut f = Fields::new(b, &ctx, errors);
         let hitbox = match at_most_one(children(b, "hitbox"), "hitbox", &ctx, errors) {
             Some(h) => read_hitbox(h, &ctx, errors),
@@ -805,6 +805,32 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 }
             }
         };
+        let none = ProjectileArc::NONE;
+        let arc = ProjectileArc {
+            angle: f.or("angle", none.angle, errors),
+            gravity: f.or("gravity", none.gravity, errors),
+            max_fall: f.or("max_fall", none.max_fall, errors),
+            bounces: f.or("bounces", none.bounces, errors),
+            bounce_min: f.or("bounce_min", none.bounce_min, errors),
+            bounce_max: f.or("bounce_max", none.bounce_max, errors),
+            bounce_keep: f.or("bounce_keep", none.bounce_keep, errors),
+        };
+        let mut phases = [None; 2];
+        let blocks = children(b, "phase");
+        if blocks.len() > 2 {
+            err(errors, b.line, format!("{ctx} has at most two phases"));
+        }
+        for (slot, pb) in phases.iter_mut().zip(blocks) {
+            let pctx = format!("a phase of {ctx}");
+            only_known(pb, &["hitbox"], &pctx, errors);
+            let mut pf = Fields::new(pb, &pctx, errors);
+            let from: u8 = pf.need("from", None, errors);
+            pf.finish(errors);
+            match at_most_one(children(pb, "hitbox"), "hitbox", &pctx, errors) {
+                Some(h) => *slot = Some((from, read_hitbox(h, &pctx, errors))),
+                None => err(errors, pb.line, format!("{pctx} needs a hitbox")),
+            }
+        }
         let spawn = ProjectileSpawn {
             frame: f.need("frame", None, errors),
             x: f.need("x", None, errors),
@@ -813,6 +839,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             life: f.need("life", None, errors),
             hitbox,
             end_damage: f.need("end_damage", None, errors),
+            arc,
+            phases,
         };
         f.finish(errors);
         m.projectile = Some(spawn);
@@ -992,7 +1020,34 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         c.field("speed", p.speed.show());
         c.field("life", p.life.to_string());
         c.field("end_damage", p.end_damage.show());
+        let none = ProjectileArc::NONE;
+        let a = &p.arc;
+        if a.angle != none.angle {
+            c.field("angle", a.angle.to_string());
+        }
+        for (name, v, d) in [
+            ("gravity", a.gravity, none.gravity),
+            ("max_fall", a.max_fall, none.max_fall),
+            ("bounce_min", a.bounce_min, none.bounce_min),
+            ("bounce_max", a.bounce_max, none.bounce_max),
+        ] {
+            if v != d {
+                c.field(name, v.show());
+            }
+        }
+        if a.bounces != none.bounces {
+            c.field("bounces", a.bounces.to_string());
+        }
+        if a.bounce_keep != none.bounce_keep {
+            c.field("bounce_keep", a.bounce_keep.to_string());
+        }
         c.push(write_hitbox(&p.hitbox));
+        for (from, hb) in p.phases.iter().flatten() {
+            let mut pb = Block::new("phase", None);
+            pb.field("from", from.to_string());
+            pb.push(write_hitbox(hb));
+            c.push(pb);
+        }
         b.push(c);
     }
     if let Some(r) = &m.reflector {

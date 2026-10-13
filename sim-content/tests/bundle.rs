@@ -137,7 +137,8 @@ fn every_problem_in_a_file_is_reported_at_once() {
         .replacen("walk_speed ", "walk_spead ", 1)
         .replacen("move jab {", "move jabb {", 1)
         .replacen("weapon claws", "weapon clawz", 1)
-        .replacen(" gravity ", " # gravity ", 1);
+        // (A fighter's own field, at the top level of its block.)
+        .replacen("\n    gravity ", "\n    # gravity ", 1);
     let e = errors(&t);
     assert!(has(&e, "unknown field `walk_spead`"), "{e:?}");
     assert!(has(&e, "missing `walk_speed`"), "{e:?}");
@@ -171,7 +172,8 @@ fn damage_and_ranges_are_validations_not_parse_errors() {
     let t: String = text(&c, false)
         .lines()
         .map(|l| {
-            if !done && l.trim_start().starts_with("gravity ") {
+            // (A fighter's gravity, at the top level of its block; a projectile's may be 0.)
+            if !done && l.starts_with("    gravity ") {
                 done = true;
                 "    gravity 0".to_string()
             } else {

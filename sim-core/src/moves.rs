@@ -363,6 +363,57 @@ pub struct ProjectileSpawn {
     /// Its hit. The damage falls linearly from `hitbox.damage` to `end_damage` over its life.
     pub hitbox: Hitbox,
     pub end_damage: Fx,
+    /// Its flight: a launch angle, gravity and bounces off the ground (default: straight on, through the ground's air).
+    pub arc: ProjectileArc,
+    /// Later hits by age (the reference's clean, late and latest hits of one projectile): from age `.0` on, `.1` replaces the hit
+    /// (with no damage falloff). Up to two; `None` for none.
+    pub phases: [Option<(u8, Hitbox)>; 2],
+}
+
+impl ProjectileSpawn {
+    /// The hit a projectile of this kind has at `age`, and whether a phase gave it (a phase has no falloff).
+    pub fn hit_at(&self, age: u8) -> (Hitbox, bool) {
+        let mut out = (self.hitbox, false);
+        for (from, hb) in self.phases.iter().flatten() {
+            if age >= *from {
+                out = (*hb, true);
+            }
+        }
+        out
+    }
+
+    /// Whether it has later hits by age.
+    pub fn any_phase(&self) -> bool {
+        self.phases.iter().any(Option::is_some)
+    }
+}
+
+/// How a projectile flies (world units per frame): fired `angle` degrees above its facing (negative is downward), pulled down by
+/// `gravity` to at most `max_fall` (0: no limit). With `bounces` above 0 it bounces off the top of any platform up to that many
+/// times (the next touch removes it): it comes off with its falling speed held between `bounce_min` and `bounce_max` and keeps
+/// `bounce_keep` percent of its horizontal speed. With `bounces` 0 it ignores the ground's top as today (a solid wall removes it).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProjectileArc {
+    pub angle: i16,
+    pub gravity: Fx,
+    pub max_fall: Fx,
+    pub bounces: u8,
+    pub bounce_min: Fx,
+    pub bounce_max: Fx,
+    pub bounce_keep: u8,
+}
+
+impl ProjectileArc {
+    /// A straight flight (the original projectiles).
+    pub const NONE: ProjectileArc = ProjectileArc {
+        angle: 0,
+        gravity: Fx::ZERO,
+        max_fall: Fx::ZERO,
+        bounces: 0,
+        bounce_min: Fx::ZERO,
+        bounce_max: Fx::ZERO,
+        bounce_keep: 100,
+    };
 }
 
 /// A reflecting field in front of the fighter: projectiles that touch it while it is up turn around and
@@ -626,6 +677,24 @@ impl StateHash for Weapon {
                     h.write_u8(p.life);
                     p.hitbox.hash_into(h);
                     p.end_damage.hash_into(h);
+                    let a = &p.arc;
+                    h.write_u16(a.angle as u16);
+                    a.gravity.hash_into(h);
+                    a.max_fall.hash_into(h);
+                    h.write_u8(a.bounces);
+                    a.bounce_min.hash_into(h);
+                    a.bounce_max.hash_into(h);
+                    h.write_u8(a.bounce_keep);
+                    for phase in &p.phases {
+                        match phase {
+                            Some((from, hb)) => {
+                                h.write_bool(true);
+                                h.write_u8(*from);
+                                hb.hash_into(h);
+                            }
+                            None => h.write_bool(false),
+                        }
+                    }
                 }
                 None => h.write_bool(false),
             }
@@ -2073,6 +2142,8 @@ pub fn needles() -> Weapon {
         life: 9,
         hitbox: needle,
         end_damage: Fx::from_ratio(8, 10),
+        arc: ProjectileArc::NONE,
+        phases: [None; 2],
     });
     throw.script = Some(script(
         Kind::Fighter,
@@ -2095,6 +2166,8 @@ pub fn needles() -> Weapon {
         life: 14,
         hitbox: line,
         end_damage: Fx::from_int(3),
+        arc: ProjectileArc::NONE,
+        phases: [None; 2],
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
@@ -2607,6 +2680,49 @@ fn embers_specials(w: &mut Weapon) {
         w.moves[id as usize] = Move::empty();
     }
     w.moves[MoveId::UpSpecial as usize] = rising_punch();
+    w.moves[MoveId::NSpecial as usize] = fireball();
+}
+
+/// Neutral special, a bouncing fireball (the reference's Fireball). Thrown on frame 17, FAF 50; in the air the fighter keeps its air
+/// control (no motion). The ball [R]: 70 frames of life, 1.4 reference units a frame at 10 degrees down, gravity 0.1; off the ground
+/// it bounces back up at 1.4 to 1.6 keeping 0.97 of its speed, 7 times (the next touch removes it); it does not pierce. Its hits by
+/// age (frames 17-21, 22-46, 47-86 of the move): 5% BK 35 KS 20 radius 2.4, 5% BK 28 KS 15 radius 2.2, 4% BK 22 KS 10 radius 2.0;
+/// 361 degrees, hitlag x0.6, shield damage -2.5 / -2.5 / -2.0 (half its damage on a shield, [D]). Where it leaves the hand is [E].
+/// (The reference's walls under 60 degrees also bounce it; this game's walls are upright, so a wall removes it, as before.)
+fn fireball() -> Move {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let hit = |damage: i32, bkb: i16, kbg: i16, radius_thousandths: i32| {
+        let mut h = row(&r(1, 1, 0, 0, 1, damage, 361, bkb, kbg, 0, 0));
+        h.radius = Fx::from_ratio(radius_thousandths, 1000);
+        h.hitlag = 60;
+        h.shield_damage = 50;
+        h
+    };
+    let mut mv = ref_move(50, 0, 0, 255, &[]);
+    mv.projectile = Some(ProjectileSpawn {
+        frame: 16,
+        x: Fx::from_ratio(8, 10),
+        y: Fx::from_ratio(9, 10),
+        speed: su(1400),
+        life: 70,
+        hitbox: hit(50, 35, 20, 300),
+        end_damage: Fx::from_int(5),
+        arc: ProjectileArc {
+            angle: -10,
+            gravity: su(100),
+            max_fall: Fx::ZERO,
+            bounces: 7,
+            bounce_min: su(1400),
+            bounce_max: su(1600),
+            bounce_keep: 97,
+        },
+        // Its age counts from the frame after it appears (move frame 17): the late hit from frame 22, the latest from 47.
+        phases: [
+            Some((5, hit(50, 28, 15, 275))),
+            Some((30, hit(40, 22, 10, 250))),
+        ],
+    });
+    mv
 }
 
 /// Up special, a rising multi-hit punch (the reference's Super Jump Punch). Every hit is on the root (`top`), so the positions are
@@ -2939,6 +3055,8 @@ pub fn claws() -> Weapon {
             set_weight: false,
         },
         end_damage: Fx::from_int(6),
+        arc: ProjectileArc::NONE,
+        phases: [None; 2],
     });
     w.moves[MoveId::NSpecial as usize] = blaster;
 
