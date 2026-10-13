@@ -282,7 +282,12 @@ static func from_json(text: String) -> Dictionary:
 const MAX_FIGHTERS := 100
 
 
-static func save(e: Dictionary) -> String:
+## Saves `e`; returns "" or what went wrong. A fighter that is new (no file under its name, and not a rename of `replacing`, an existing
+## saved fighter) is refused once MAX_FIGHTERS are saved.
+static func save(e: Dictionary, replacing := "") -> String:
+	var adds := not FileAccess.file_exists(path_of(e.slug)) and (replacing == "" or not FileAccess.file_exists(path_of(replacing)))
+	if adds and saved().size() >= MAX_FIGHTERS:
+		return "The roster is full (%d fighters): delete one to make room." % MAX_FIGHTERS
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
 	var f := FileAccess.open(path_of(e.slug), FileAccess.WRITE)
 	if f == null:

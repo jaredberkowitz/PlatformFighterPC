@@ -1032,7 +1032,7 @@ func _finish() -> void:
 		if e.name == "" or Roster.name_problem(e.name, editing_slug) != "":
 			name_edit.grab_focus()
 		return
-	var err := Roster.save(e)
+	var err := Roster.save(e, editing_slug)
 	if err != "":
 		_say(err)
 		return

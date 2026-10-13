@@ -5,6 +5,7 @@ extends SceneTree
 
 const Select := preload("res://ui/select.gd")
 const Roster := preload("res://scripts/roster.gd")
+const Loadout := preload("res://scripts/loadout.gd")
 
 var failed := false
 
@@ -30,5 +31,22 @@ func _initialize() -> void:
 		prev_t = t
 	check(int(Select.grid_layout(9)[0]) >= 9, "nine cards sit in one row")
 	check(ceili(30.0 / float(Select.grid_layout(30)[0])) >= 2, "thirty cards start new rows")
+	# The roster refuses a fighter past the cap (a rename of a saved one still saves). Test fighters are named zz_cap and removed after.
+	var made: Array = []
+	var start := Roster.saved().size()
+	for k in maxi(0, Roster.MAX_FIGHTERS - start):
+		var e := Roster.neutral_entry("zz cap %d" % k, 0, Loadout.default_for(0))
+		if Roster.save(e) == "":
+			made.append(e.slug)
+	check(Roster.saved().size() == Roster.MAX_FIGHTERS, "the roster fills to the cap (%d)" % Roster.saved().size())
+	var extra := Roster.neutral_entry("zz cap extra", 0, Loadout.default_for(0))
+	check(Roster.save(extra) != "", "a fighter past the cap is refused")
+	if not made.is_empty():
+		var renamed := Roster.neutral_entry("zz cap renamed", 0, Loadout.default_for(0))
+		check(Roster.save(renamed, made[0]) == "", "renaming a saved fighter at the cap still saves")
+		made.append(renamed.slug)
+	for slug in made + [extra.slug]:
+		Roster.delete(slug)
+	check(Roster.saved().size() == start, "the test leaves the roster as it found it")
 	print("select grid test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)

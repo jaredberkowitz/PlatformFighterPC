@@ -178,6 +178,7 @@ The screens:
   top over pink and a peach horizon; it does not mix blue straight toward coral, which goes grey on the way.
 - **Fighter select grows with the roster** (`select.gd` `grid_layout`): the cards fit the band under the header, one row while they can,
   then new rows with smaller cards (132 down to 52 across), names and glyphs scaled with them; past what fits at the smallest size the
-  grid scrolls. Players can save up to `Roster.MAX_FIGHTERS` (100); at that many the "New fighter" card is not offered. Checked by
+  grid scrolls. Players can save up to `Roster.MAX_FIGHTERS` (100): at that many the "New fighter" card is not offered and the creator
+  refuses a new fighter (a rename of a saved one still saves). Checked by
   `tests/select_grid_test.gd` for every roster size up to the cap. Screenshots: `docs/screenshots/menu_select_30.png`, `menu_select_100.png`.
 
