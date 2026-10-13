@@ -7,11 +7,11 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_always, shadows_disabled, fog_disabled;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
-uniform vec4 shallow : source_color = vec4(0.36, 0.78, 0.9, 1.0);
-uniform vec4 deep : source_color = vec4(0.16, 0.5, 0.8, 1.0);
-uniform vec4 streak : source_color = vec4(0.62, 0.88, 0.98, 1.0);
+uniform vec4 shallow : source_color = vec4(0.12, 0.74, 0.88, 1.0);
+uniform vec4 deep : source_color = vec4(0.04, 0.36, 0.84, 1.0);
+uniform vec4 streak : source_color = vec4(0.5, 0.88, 1.0, 1.0);
 uniform vec4 foam : source_color = vec4(0.95, 0.99, 1.0, 1.0);
-uniform vec4 haze : source_color = vec4(0.84, 0.94, 1.0, 1.0);
+uniform vec4 haze : source_color = vec4(0.56, 0.84, 1.0, 1.0);
 uniform float haze_max = 0.3;
 uniform float foam_width = 1.4;    // world units of foam out from where something meets the water
 uniform bool cheap = false;

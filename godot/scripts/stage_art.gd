@@ -49,11 +49,11 @@ const THEMES := {
 		"pattern": "diamonds", "cap": "grass", "platform": "wood",
 	},
 	"ocean": {
-		"sky_top": Color(0.12, 0.44, 0.94), "sky_mid": Color(0.36, 0.68, 1.0), "sky_horizon": Color(0.7, 0.9, 1.0),
+		"sky_top": Color(0.06, 0.34, 0.9), "sky_mid": Color(0.2, 0.58, 1.0), "sky_horizon": Color(0.6, 0.86, 1.0),
 		"sky_glow": [Color(1.0, 0.86, 0.64), 0.45], "sky_wisps": [Color(1.0, 0.95, 0.92), 0.4],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
-		"pattern": "cobble", "cap": "sand", "platform": "wood",
+		"pattern": "masonry", "cap": "sand", "platform": "wood",
 	},
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
@@ -723,6 +723,11 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 ## from `greens` (deep shade to sunlit tips, by how high and how far forward the card sits). One MultiMesh per crown, drawn by
 ## shaders/toon_foliage.gdshader: each card knows its mass's middle, so its normals bend away from it and the mass shades as one round
 ## volume; it flutters in the wind.
+## A crown's leaf cards: what share of the listed count is made, and how much larger each is (see `_leaf_cards`).
+const CROWN_CARD_SHARE := 0.0
+const CROWN_CARD_GROWTH := 1.35
+
+
 static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: float, _stage_rng: RandomNumberGenerator,
 		tile := "leaf_cluster", rooted := false, core: Material = null) -> MultiMeshInstance3D:
 	# Its own random numbers, seeded from where it is, so adding the cards leaves the rest of the stage's layout as it was.
@@ -735,9 +740,13 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	mm.mesh = quad
+	# (A crown is its solid lobes, painted with round leaf clumps (the `foliage` tile), as a painted tree's masses are: an artistic choice
+	# over pointed leaf cards, which read as noise at play distance. `CROWN_CARD_SHARE` brings cards back if a stage wants them. A tuft is
+	# all cards.)
+	var share := 1.0 if rooted else CROWN_CARD_SHARE
 	var total := 0
 	for m in masses:
-		total += int(m[2])
+		total += int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))
 	mm.instance_count = total
 	var i := 0
 	# A solid core inside each mass (a little smaller than it), so the cards over its surface give the crown a leafy edge and texture
@@ -750,12 +759,15 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 		var centre: Vector3 = m[0]
 		var radius: float = m[1]
 		if cores != null:
-			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * 0.82), centre))
-		for k in int(m[2]):
+			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * (0.82 if rooted else 1.0)), centre))
+		for k in (int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))):
 			# A direction out from the middle, mostly toward the front (the back of a crown is never seen), placed about its surface.
 			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.8, 1), rng.randf_range(-0.2, 1)).normalized()
-			var pos := centre + dir * radius * rng.randf_range(0.72, 1.02)
-			var s := card * rng.randf_range(0.8, 1.2)
+			if not rooted:
+				# Round the edge and over the top, where a scallop shows against the sky.
+				dir = Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2, 1), rng.randf_range(-0.6, 0.4)).normalized()
+			var pos := centre + dir * radius * (rng.randf_range(0.72, 1.02) if rooted else rng.randf_range(0.9, 1.0))
+			var s := card * rng.randf_range(0.8, 1.2) * (1.0 if rooted else CROWN_CARD_GROWTH)
 			var b := Basis.from_euler(Vector3(rng.randf_range(-0.5, 0.5), rng.randf_range(-0.6, 0.6), rng.randf_range(0, TAU))).scaled(Vector3.ONE * s)
 			if rooted:
 				# A tuft stands upright on the ground, facing the camera give or take.
@@ -765,12 +777,19 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 			var mid := b.inverse() * ((centre - Vector3(0, s, s * 0.5) if rooted else centre) - pos)
 			mm.set_instance_custom_data(i, Color(mid.x, mid.y, mid.z, rng.randf()))
 			var light := clampf(0.45 + dir.y * 0.3 + dir.z * 0.3 + rng.randf_range(-0.15, 0.15), 0.0, 0.999)
-			mm.set_instance_color(i, greens[int(light * greens.size())] if not rooted else greens[rng.randi_range(0, greens.size() - 1)])
+			mm.set_instance_color(i, greens[1 + int(light * 1.999)] if not rooted else greens[rng.randi_range(0, greens.size() - 1)])
 			i += 1
 	if cores != null:
 		var c := MeshInstance3D.new()
 		c.mesh = cores.commit()
-		c.material_override = core
+		# A crown takes the light the way a painted tree does: a crisp step from its lit top into a deep, cool underside, a warm rim.
+		var crisp := core
+		if not rooted and core is ShaderMaterial:
+			crisp = (core as ShaderMaterial).duplicate()
+			crisp.set_shader_parameter("ramp_softness", 0.08)
+			crisp.set_shader_parameter("shadow_amount", 0.78)
+			crisp.set_shader_parameter("rim_strength", 0.5)
+		c.material_override = crisp
 		parent.add_child(c)
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
@@ -941,8 +960,8 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 const MIST := {
 	"meadow": [[-56.0, -24.0, 12.0, 0.16], [-86.0, -26.0, 16.0, 0.24]],
 	"grove": [[-60.0, -24.0, 12.0, 0.18], [-90.0, -26.0, 16.0, 0.26]],
-	"sunset": [[-60.0, -26.0, 18.0, 0.35], [-95.0, -24.0, 24.0, 0.45]],
-	"ocean": [[-130.0, -10.0, 8.0, 0.2]],
+	"sunset": [[-60.0, -26.0, 14.0, 0.16], [-95.0, -24.0, 20.0, 0.26]],
+	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],
 	"city": [[-80.0, -30.0, 24.0, 0.35]],
 }
@@ -1474,7 +1493,7 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
 	_mesh(root, _cylinder(0.35 * size, 0.5 * size, 3.0 * size, 8), Materials.bark(Color(0.55, 0.38, 0.24), Vector2(2, 1)), at + Vector3(0, 1.5 * size, 0))
-	var greens := Materials.greens(Materials.greens(Color(0.32, 0.64, 0.34))[rng.randi_range(0, 2)])
+	var greens := Materials.greens(Materials.greens(Color(0.3, 0.62, 0.16))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
 	crown.amount = 2.5
@@ -1482,7 +1501,7 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 	root.add_child(crown)
 	# Two masses of leaf cards (a big one and a smaller one to its side), shading as rounded volumes (`_leaf_cards`).
 	_leaf_cards(crown, [[Vector3(0, 1.4, 0) * size, 2.4 * size, 64], [Vector3(1.4, 0.7, 0.5) * size, 1.4 * size, 26]], greens,
-		1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[0], Vector2(3, 2), false))
+		1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true))
 
 
 static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors: Array) -> void:
@@ -1889,8 +1908,8 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	for k in 8:
 		var off := Vector3(rng.randf_range(-8.0, 8.0), rng.randf_range(1.5, 6.0), rng.randf_range(1.0, 3.0)) * size
 		masses.append([crown + off, rng.randf_range(2.2, 3.6) * size, 14])
-	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf)
-	var _unused := [leaf_mid, leaf_light, leaf_sun]
+	_leaf_cards(sway, masses, g, 3.6 * size, rng, "leaf_cluster", false, leaf_mid)
+	var _unused := [leaf, leaf_light, leaf_sun]
 
 
 ## Four-pointed glints that slowly turn and pulse. Cosmetic; they run on their own clock.

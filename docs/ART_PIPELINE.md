@@ -859,5 +859,20 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   lit tops, shaded feet, a few cracks) in warm sandstone, with moss hanging over the top of the wall in clumpy tongues
   (`moss_color`/`moss_amount` in `toon_common.gdshaderinc`: lit top, shaded hanging edge, a darker rim and a soft cast shadow on the
   stone), in place of the cobbles and the green bubbles. `meadow_lawn_close.png`.
+- **Round painted crowns** (`StageArt._leaf_cards`): a crown is its solid lobes, full size, painted with round leaf clumps (the
+  `foliage` tile), with a crisp step from lit top to cool underside (ramp 0.08, shadow 0.78) and a warm rim. Pointed leaf cards were
+  tried at a third of the count and dropped: like blade grass, they read as noise at play distance (`CROWN_CARD_SHARE` 0; it brings
+  them back if a stage wants them). The meadow's round trees are yellow-green to match the lawn; Treetop Isle keeps its teal.
+  `meadow_trees.png`, `grove_trees.png`.
 - Costs (Meadow, stage demo): GPU about 1.8 to 1.9 ms, Treetop Isle 2.1 ms; look bench 0.87.
+
+## Beach and canyon after the reference (thirty-fifth pass)
+
+- **Flat Island**: the repeating pebble front (the owner's plan named it) is dressed sandstone blocks (`masonry`); the sea is vivid
+  turquoise to deep blue (`water.gdshader` shallow, deep, streak, haze) under a stronger blue sky, with far less distance haze (STYLES
+  ocean `haze_max` 0.07, a lighter mist). `docs/screenshots/beach_vivid.png`.
+- **Triple Tier**: its sunset kept, the fog lifted (STYLES sunset `haze_max` 0.1, mists about half), so the mesas keep their strata
+  colours against the sky. `canyon_clear.png`.
+- **Skyline** left as it is: a dark, moody stage where the fighters already stand out (the plan: keep a dark stage's mood).
+- Look bench 0.87.
 
