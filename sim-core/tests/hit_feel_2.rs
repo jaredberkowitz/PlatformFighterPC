@@ -233,6 +233,38 @@ fn two_jabs_that_meet_clank_and_both_fighters_rebound() {
 }
 
 #[test]
+fn a_hit_that_never_clanks_trades_instead() {
+    // The same two jabs, one fighter's made no-clank (the reference's `clang=f`): no rebound, both are hit.
+    let mut sim = Sim::with_chars([0, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    let w = usize::from(sim.content.fighters[0].weapon);
+    let mut jab = sim.content.weapons[w].moves[MoveId::Jab as usize].clone();
+    for hb in &mut jab.hitboxes {
+        hb.clanks = false;
+    }
+    sim.content.weapons.push(sim.content.weapons[w].clone());
+    let w2 = sim.content.weapons.len() - 1;
+    sim.content.weapons[w2].moves[MoveId::Jab as usize] = jab;
+    let mut p = sim.content.fighters[0];
+    p.weapon = w2 as u8;
+    sim.content.fighters.push(p);
+    sim.state.fighters[1].char_id = (sim.content.fighters.len() - 1) as u8;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(30, 10), -1);
+    sim.tick2(inp(0, 0, ATTACK), inp(0, 0, ATTACK));
+    for _ in 0..12 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+        assert_ne!(sim.f().state, S::Rebound);
+        assert_ne!(sim.fighter(1).state, S::Rebound);
+    }
+    assert!(
+        sim.f().percent > Fx::ZERO && sim.fighter(1).percent > Fx::ZERO,
+        "a trade"
+    );
+}
+
+#[test]
 fn a_much_stronger_attack_wins_a_clank_and_carries_on() {
     let mut sim = Sim::with_chars([0, 0, 0, 0]);
     sim.state.fighters[2].active = false;

@@ -1782,7 +1782,10 @@ fn attack(
         }
     }
     // In the first frames of an up special, the stick pushed back turns it around (up and back reverses it).
-    if id == MoveId::UpSpecial
+    // (An aerial version a special started as counts as that special.)
+    let current = f.move_id;
+    let as_special = |s: MoveId| id == s || weapon.get(s as u8).air_version == Some(current);
+    if as_special(MoveId::UpSpecial)
         && mv.turn_at.is_none()
         && f.state_frame <= u16::from(rules.special_turn_window)
     {
@@ -1793,7 +1796,7 @@ fn attack(
     }
     // A B-reverse: in the first frames of a neutral or side special, the stick pushed the other way turns the fighter round, and in the
     // air its momentum goes the other way too.
-    if matches!(id, MoveId::NSpecial | MoveId::SideSpecial)
+    if (as_special(MoveId::NSpecial) || as_special(MoveId::SideSpecial))
         && mv.turn_at.is_none()
         && f.state_frame <= u16::from(rules.special_reverse_window)
         && !f.b_reversed

@@ -27,7 +27,88 @@ pub fn gauntlets() -> Weapon {
     ledge_and_floor(&mut w);
     raptor_boost(&mut w);
     falcon_dive(&mut w);
+    falcon_punch(&mut w);
     w
+}
+
+const PUNCH_REVERSED: MoveId = MoveId::Ext0;
+const PUNCH_AIR: MoveId = MoveId::Ext1;
+const PUNCH_AIR_REVERSED: MoveId = MoveId::Ext2;
+
+/// Neutral special, a wound-up flaming punch (the reference's, ssbwiki.com 13.0.1). Four versions:
+///
+/// * On the ground (neutral special): the hit on frames 53-57, 25%, angle 361, BK 93, KS 59; FAF 104.
+/// * Reversed on the ground (ext0): the stick held back on frame 15 [E: past 0.25 of its travel] switches to it; it turns round on
+///   frame 35 and hits on 62-66 for 28% (BK 85, KS 65); FAF 118, all counted from the start of the punch. The reversed slots begin at
+///   the reference's frame 15 (their frame 0), so their rows are the reference's minus 14.
+/// * In the air (ext1): 22% with boxes x1.15 the size; on starting a set upward speed of 0.2 (reference units a frame), the
+///   horizontal speed x0.92 a frame for 19 frames (then the body's air control), and on frame 51 the stick held up or down between
+///   0.25 and 0.65 of its travel gives a boost along 35 degrees up or down [E: its speed is not published, 1.0 here].
+/// * Reversed in the air (ext2): 25%, the same boxes; the turn on 35, the hit on 62-66, the boost read on 60, FAF 118.
+///
+/// Every box: hitlag x1.5, and it never clanks (the reference's `clang=f`). Positions on the arm and shoulder [E]. Touching down
+/// in the air versions carries the punch on along the ground [E: not published].
+fn falcon_punch(w: &mut Weapon) {
+    // The three boxes (fist, upper arm, forearm) of `damage` tenths at `bkb` / `kbg`, from reference frame `first` to `last`;
+    // `big` the aerial x1.15 radii.
+    let punch = |first: u8, last: u8, damage: i32, bkb: i16, kbg: i16, big: bool| -> Vec<R> {
+        let (r0, r1, r2) = if big { (6, 4, 6) } else { (6, 3, 5) };
+        vec![
+            r(first, last, 13, 13, r0, damage, 361, bkb, kbg, 0, 0),
+            r(first, last, 8, 14, r1, damage, 361, bkb, kbg, 1, 0),
+            r(first, last, 18, 13, r2, damage, 361, bkb, kbg, 2, 0),
+        ]
+    };
+    let finish = |mut m: Move| {
+        for h in &mut m.hitboxes {
+            h.hitlag = 150;
+            h.clanks = false;
+        }
+        m
+    };
+    // The reversed slots start on the reference's frame 15: hit 62-66 is their 48-52, FAF 118 their 104.
+    let mut ground = finish(ref_move(104, 0, 0, 255, &punch(53, 57, 250, 93, 59, false)));
+    ground.air_version = Some(PUNCH_AIR as u8);
+    ground.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_punch.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = ground;
+
+    let mut reversed = finish(ref_move(104, 0, 0, 255, &punch(48, 52, 280, 85, 65, false)));
+    reversed.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_punch_reversed.script"),
+    ));
+    w.moves[PUNCH_REVERSED as usize] = reversed;
+
+    // In the air: no air control and no air friction while the speed is cut by 0.92 a frame (frames 1-19).
+    let still = |to: u8| AirBlock {
+        from: 0,
+        to,
+        gravity: None,
+        max_fall: None,
+        friction: Some(Fx::ZERO),
+        drift: 0,
+        accel: 100,
+    };
+    let mut air = finish(ref_move(104, 0, 0, 255, &punch(53, 57, 220, 93, 59, true)));
+    air.air_blocks = vec![still(18)];
+    air.land_continue = true;
+    air.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_punch_air.script"),
+    ));
+    w.moves[PUNCH_AIR as usize] = air;
+
+    let mut air_reversed = finish(ref_move(104, 0, 0, 255, &punch(48, 52, 250, 93, 59, true)));
+    air_reversed.air_blocks = vec![still(4)];
+    air_reversed.land_continue = true;
+    air_reversed.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_punch_air_reversed.script"),
+    ));
+    w.moves[PUNCH_AIR_REVERSED as usize] = air_reversed;
 }
 
 const DIVE_CATCH: MoveId = MoveId::Ext6;
@@ -203,6 +284,8 @@ fn raptor_boost(w: &mut Weapon) {
         h.hitlag = 150;
         h.shield_damage = 140;
     });
+    // (The clean boxes never clank: the reference's `clang=f`.)
+    set_rows(&mut hit, &[0, 1, 2], |h| h.clanks = false);
     hit.armor = Some(Armor {
         start: 0,
         end: 3,

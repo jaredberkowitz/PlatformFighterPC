@@ -328,6 +328,9 @@ pub struct Hitbox {
     /// A command grab (on a [`HIT_GRAB`] box): it catches fighters in the air too, shielding or in hitstun (`grab::catchable`), and
     /// the holder goes on with its move's `Move::catch_move` instead of the ordinary hold.
     pub command: bool,
+    /// The hit can clank with other attacks and projectiles (the reference's `clang`). False: it never clanks (the reference's
+    /// no-clank hits, and a projectile's transcendent priority): it trades instead.
+    pub clanks: bool,
 }
 
 /// `Hitbox::aim` values.
@@ -364,6 +367,7 @@ impl Hitbox {
         self.push = false;
         self.shieldstun = 100;
         self.command = false;
+        self.clanks = true;
         self
     }
 }
@@ -819,6 +823,7 @@ impl StateHash for Hitbox {
         h.write_bool(self.push);
         h.write_u16(self.shieldstun);
         h.write_bool(self.command);
+        h.write_bool(self.clanks);
     }
 }
 
@@ -1090,6 +1095,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 push: false,
                 shieldstun: 100,
                 command: false,
+                clanks: true,
             })
             .collect(),
         ..Move::empty()
@@ -1141,6 +1147,7 @@ fn row(r: &R) -> Hitbox {
         push: false,
         shieldstun: 100,
         command: false,
+        clanks: true,
     }
 }
 
@@ -3441,6 +3448,7 @@ pub fn claws() -> Weapon {
             push: false,
             shieldstun: 100,
             command: false,
+            clanks: true,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,

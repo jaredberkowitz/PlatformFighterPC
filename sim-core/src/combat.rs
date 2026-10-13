@@ -485,11 +485,11 @@ fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx)> {
     );
     let mut best: Option<(Fx, Fx)> = None;
     for (_, ha, ca) in active_hitboxes(a, ma, pa.hitbox_scale) {
-        if ha.kind != HIT_NORMAL {
+        if ha.kind != HIT_NORMAL || !ha.clanks {
             continue;
         }
         for (_, hb, cb) in active_hitboxes(b, mb, pb.hitbox_scale) {
-            if hb.kind != HIT_NORMAL || !overlaps(ca, ha.radius, cb, hb.radius) {
+            if hb.kind != HIT_NORMAL || !hb.clanks || !overlaps(ca, ha.radius, cb, hb.radius) {
                 continue;
             }
             let (da, db) = best.unwrap_or((Fx::ZERO, Fx::ZERO));
@@ -576,7 +576,7 @@ fn clank_projectile(
         let mv = weapon_of(content, p).get(f.move_id);
         let mut touching: Option<Fx> = None;
         for (_, hb, c) in active_hitboxes(&f, mv, p.hitbox_scale) {
-            if hb.kind == HIT_NORMAL && overlaps(c, hb.radius, pos, radius) {
+            if hb.kind == HIT_NORMAL && hb.clanks && overlaps(c, hb.radius, pos, radius) {
                 touching = Some(touching.map_or(hb.damage, |d: Fx| d.max(hb.damage)));
             }
         }
@@ -1115,7 +1115,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             continue;
         }
         // An attack in the way may clank with it.
-        if clank_projectile(state, content, owner, pos, shot_radius, shot_damage) {
+        if spec.hitbox.clanks
+            && clank_projectile(state, content, owner, pos, shot_radius, shot_damage)
+        {
             state.projectiles[n].active = false;
             continue;
         }

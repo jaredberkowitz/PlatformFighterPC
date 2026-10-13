@@ -271,6 +271,7 @@ fn the_uppercut_withstands_a_hit_of_up_to_10_percent_on_frames_1_to_4() {
         push: false,
         shieldstun: 100,
         command: false,
+        clanks: true,
     };
     for (damage, holds) in [(10, true), (11, false)] {
         let mut sim = duel();
@@ -620,4 +621,191 @@ fn the_leap_rises_and_cannot_fast_fall_before_frame_50() {
     // Frame 50: the flick (still held, within the fast-fall buffer) takes.
     sim.tick(inp(0, -127, 0));
     assert!(sim.f().fast_fall, "frame 50");
+}
+
+// ---- Neutral special: the wound-up punch -----------------------------------------------------------------------------------
+
+const PUNCH_REVERSED: MoveId = MoveId::Ext0;
+const PUNCH_AIR: MoveId = MoveId::Ext1;
+const PUNCH_AIR_REVERSED: MoveId = MoveId::Ext2;
+
+#[test]
+fn the_neutral_specials_frame_data_is_the_references() {
+    let sim = duel();
+    let w = gauntlets(&sim);
+    // (The reversed versions start on the reference's frame 15: their frames are the reference's minus 14.)
+    for (id, window, faf_from_start, damage, bkb, kbg, fist) in [
+        (MoveId::NSpecial, (53, 57), 104, 25, 93, 59, fx(6, 10)),
+        (PUNCH_REVERSED, (62, 66), 118, 28, 85, 65, fx(6, 10)),
+        (PUNCH_AIR, (53, 57), 104, 22, 93, 59, fx(6, 10)),
+        (PUNCH_AIR_REVERSED, (62, 66), 118, 25, 93, 59, fx(6, 10)),
+    ] {
+        let shift = if matches!(id, PUNCH_REVERSED | PUNCH_AIR_REVERSED) {
+            14
+        } else {
+            0
+        };
+        assert_eq!(
+            windows(w, id, 0),
+            vec![(window.0 - shift, window.1 - shift)],
+            "{id:?}"
+        );
+        assert_eq!(faf(w, id) + u16::from(shift), faf_from_start, "{id:?}");
+        let mv = w.get(id as u8);
+        assert!(mv.hitboxes.iter().all(|h| (
+            h.damage,
+            h.angle,
+            h.base_knockback,
+            h.knockback_growth,
+            h.hitlag,
+            h.clanks
+        ) == (Fx::from_int(damage), 361, bkb, kbg, 150, false)));
+        assert_eq!(mv.hitboxes[0].radius, fist);
+    }
+    // The aerial boxes are x1.15 the grounded ones (rounded to tenths).
+    let (g, a) = (w.get(MoveId::NSpecial as u8), w.get(PUNCH_AIR as u8));
+    let total = |m: &sim_core::moves::Move| m.hitboxes.iter().fold(Fx::ZERO, |s, h| s + h.radius);
+    assert!(total(a) > total(g));
+    assert_eq!(g.air_version, Some(PUNCH_AIR as u8));
+}
+
+/// The punch from standing at x = -4 facing right (`stick_x` held from frame 2), with the duelist standing at `target` (relative);
+/// returns the reference frame player 1 was first hit on, and the sim after `ticks` frames.
+fn punch(target: Fx, stick_x: i8, ticks: u16) -> (Option<u16>, Sim) {
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.stand(
+        1,
+        Fx::from_int(-4) + target,
+        if target > Fx::ZERO { -1 } else { 1 },
+    );
+    sim.tick(inp(0, 0, SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
+    let mut hit = None;
+    for tick in 2..=ticks {
+        sim.tick(inp(stick_x, 0, 0));
+        if hit.is_none() && sim.fighter(1).percent > Fx::ZERO {
+            hit = Some(tick);
+        }
+    }
+    (hit, sim)
+}
+
+#[test]
+fn the_grounded_punch_hits_on_frame_53_for_25_percent_and_ends_on_104() {
+    let (hit, sim) = punch(fx(18, 10), 0, 102);
+    assert_eq!(hit, Some(53));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 250));
+    assert_eq!(sim.f().state, S::Attack);
+    // (Missed: the hit's hitlag would hold the move back.)
+    let (_, sim) = punch(Fx::from_int(10), 0, 103);
+    assert_eq!(sim.f().state, S::Idle, "actionable on 104");
+}
+
+#[test]
+fn the_stick_held_back_on_frame_15_reverses_the_punch() {
+    // The stick held back from frame 2: on frame 15 the punch switches, turns round on 35 and hits behind on 62, for 28%.
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.stand(1, Fx::from_int(-4) - fx(18, 10), 1);
+    sim.tick(inp(0, 0, SPECIAL));
+    let mut hit = None;
+    for tick in 2..=116u16 {
+        // (Not in the first five frames, where the stick back is a B-reverse.)
+        sim.tick(inp(if tick > 6 { -127 } else { 0 }, 0, 0));
+        match tick {
+            15 => assert_eq!(sim.f().move_id, PUNCH_REVERSED as u8),
+            34 => assert_eq!(sim.f().facing, 1, "not turned yet"),
+            35 => assert_eq!(sim.f().facing, -1, "turned on 35"),
+            _ => {}
+        }
+        if hit.is_none() && sim.fighter(1).percent > Fx::ZERO {
+            hit = Some(tick);
+        }
+    }
+    assert_eq!(hit, Some(62));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 280));
+    // Missed (nobody near): actionable on 118, counted from the start of the punch.
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.tick(inp(0, 0, SPECIAL));
+    for tick in 2..=116u16 {
+        sim.tick(inp(if tick > 6 && tick < 30 { -127 } else { 0 }, 0, 0));
+    }
+    assert_eq!(sim.f().state, S::Attack);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle, "actionable on 118");
+    // Not held back on frame 15: no reversal.
+    let (_, sim) = punch(fx(18, 10), 0, 20);
+    assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
+}
+
+#[test]
+fn the_aerial_punch_rises_a_little_and_bleeds_its_speed_for_19_frames() {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    let vx = su(1000);
+    sim.put_airborne(0, Fx::from_int(-4), Fx::from_int(20), vx, -su(1000));
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(0, 0, SPECIAL));
+    assert_eq!(sim.f().move_id, PUNCH_AIR as u8);
+    sim.tick(inp(0, 0, 0));
+    let g = sim.content.fighters[usize::from(SPRINTER)].gravity;
+    // The set 0.2 upward speed, less a frame of gravity.
+    assert_eq!(sim.f().vel.y, su(200) - g);
+    // After the reference's 19 frames: x0.92 nineteen times, the stick not steering meanwhile.
+    for _ in 2..=18 {
+        sim.tick(inp(127, 0, 0));
+    }
+    let expected = Fx::from_ratio(92, 100);
+    let mut v = vx;
+    for _ in 0..19 {
+        v = v * expected;
+    }
+    assert!(
+        (sim.f().vel.x - v).abs() < fx(2, 1000),
+        "{:?} vs {v:?}",
+        sim.f().vel.x
+    );
+}
+
+#[test]
+fn the_aerial_punch_is_boosted_along_35_degrees_by_the_stick_on_frame_51() {
+    let boost = |stick_y: i8| {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.put_airborne(0, Fx::from_int(-4), Fx::from_int(60), Fx::ZERO, Fx::ZERO);
+        sim.state.fighters[0].facing = 1;
+        sim.tick(inp(0, 0, SPECIAL));
+        sim.ticks(49, inp(0, 0, 0));
+        sim.tick(inp(0, stick_y, 0));
+        assert_eq!(sim.f().state_frame, 50);
+        sim.f().vel
+    };
+    // Half way up: boosted up and forward; all the way up (past 0.65): nothing.
+    let up = boost(64);
+    assert!(up.x > Fx::ZERO && up.y > Fx::ZERO, "{up:?}");
+    let down = boost(-64);
+    assert!(down.y < Fx::ZERO && down.x > Fx::ZERO);
+    let none = boost(127);
+    assert!(none.y < Fx::ZERO && none.x == Fx::ZERO, "{none:?}");
+}
+
+#[test]
+fn the_punch_never_clanks_with_a_grounded_attack() {
+    // The duelist's jab meets the fist on frame 53: no rebound for either; the punch lands.
+    let mut sim = duel();
+    sim.stand(0, Fx::from_int(-4), 1);
+    sim.stand(1, Fx::from_int(-4) + fx(30, 10), -1);
+    sim.tick(inp(0, 0, SPECIAL));
+    for tick in 2..=60u16 {
+        let p1 = if tick == 51 {
+            inp(0, 0, sim_core::input::buttons::ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+        assert_ne!(sim.f().state, S::Rebound, "frame {tick}");
+    }
 }

@@ -595,6 +595,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         push: f.or("push", false, errors),
         shieldstun: f.or("shieldstun", 100, errors),
         command: f.or("command", false, errors),
+        clanks: f.or("clanks", true, errors),
     };
     f.finish(errors);
     hb
@@ -660,6 +661,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.push {
         b.field("push", "true");
+    }
+    if !hb.clanks {
+        b.field("clanks", "false");
     }
     if hb.command {
         b.field("command", "true");
@@ -924,6 +928,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     push: false,
                     shieldstun: 100,
                     command: false,
+                    clanks: true,
                 }
             }
         };

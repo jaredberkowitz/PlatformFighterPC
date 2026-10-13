@@ -1,0 +1,3 @@
+// Gauntlets neutral special, reversed on the ground: this move starts on the reference's frame 15, so its frame 20 is the
+// reference's 35, where the fighter turns round.
+if frame == 20 { turn(); }
