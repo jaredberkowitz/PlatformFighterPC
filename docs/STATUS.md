@@ -59,6 +59,13 @@ hitlag counted), its loop and finisher, the one-frame knee, the down air meteor,
 `ext` slots (E17, schema 5), per-limb intangibility (E19, `Move::part_intangible`), per-hitbox shieldstun (E24, `Hitbox::shieldstun`)
 and the `presses` / `releases` script registers. Its specials are still the claws' until phase 2 (plan in
 `docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`).
+**Sim 67** (branch `seer-phase1`, no schema change): the sixth class, Staff on the seer body (built-in fighter Seer, modelled on the
+reference game's Palutena), phase 1: the body (no wall jump, heavy landing 6 from the parameter file) and every normal on reference data
+(`docs/movesets/palutena/`): jab 1 into the rapid jab (two presses and releases, or held on a hit), the multi-hit up tilt, neutral air
+and up air with their last hits, the smashes' wind as pushes, the up smash's pillar. General pieces: angle types (E26,
+`Hitbox::angle_type`), applied to the older classes too (owner decision 21: each change in `sim-core/tests/angle_types.rs`), and a
+signed hitstun modifier (E27). Its specials are still the claws' until phase 2 (plan in
+`docs/movesets/palutena/IMPLEMENTATION_REPORT.md`).
 
 ## Roadmap progress
 

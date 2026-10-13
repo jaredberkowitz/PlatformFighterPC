@@ -76,6 +76,15 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   slots, per-limb intangibility (`Move::part_intangible`), per-hitbox shieldstun (`Hitbox::shieldstun`) and the `presses` / `releases`
   script registers. The specials are the claws' until phase 2.
 
+### 6. Staff seer (the reference ranged caster's role)
+- A tall middleweight (91) with a slow air speed (1.0) but quick air acceleration, a long-reaching staff and shield: spinning multi-hit
+  tilts and aerials that carry a target, wings and a pillar of light for smashes with a wind that pushes, a shield-bash back air, and
+  (phase 2) a blast set off where it points, a lock-on volley, a teleport and a counter that also reflects shots.
+- **As built (phase 1, sim 67):** the body (`FighterParams::seer`, no wall jump, heavy landing 6) and every normal on the reference's
+  published data (`docs/movesets/palutena/`, code in `sim-core/src/moves_staff.rs`), with two general extensions: angle types
+  (`Hitbox::angle_type`: by box, forward, backward, by position; the older classes now carry their reference types too) and a signed
+  hitstun modifier (`Hitbox::hitstun_add`). The specials are the claws' until phase 2.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

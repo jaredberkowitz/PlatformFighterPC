@@ -1,7 +1,7 @@
 # Reference data for the sixth moveset (the reference game's Palutena)
 
 Mechanical reference for the sixth port, collected 2026-10-13 for version **13.0.1**, before anything was built. Proposed in-game
-names (not registered yet): the **Beacon** weapon on the **seer** body, built-in fighter **Seer** (see `PROJECT_AUDIT.md`). The
+names (registered in sim 67, owner decision 19): the **Staff** class and weapon (`staff`) on the **seer** body, built-in fighter **Seer**. The
 reference character's name is not used in the game. What the engine can and cannot do with this data is in `PROJECT_AUDIT.md`; the
 format follows `docs/movesets/captain_falcon/REFERENCE_DATA.md`, `docs/movesets/mario/REFERENCE_DATA.md` and `docs/sheik/REFERENCE_DATA.md`.
 
@@ -83,6 +83,9 @@ fast fall **35**.
 Dodges (UFD total frames, so FAF one more; kuroganehammer.com gives the FAF and agrees) [R]: spot dodge FAF 26 (intangible 3-17), forward
 roll FAF 30 (4-15), back roll FAF 35 (5-16): the shared values. Neutral air dodge FAF **50** (intangible 3-30, landing lag 10);
 directional down **71**, diagonal down **78**, sideways **83**, diagonal up **94**, up **106** (intangible 3-21; landing lag 11-19).
+UFD's own numbers (re-read 2026-10-13, as every other body's fields take them): spot dodge "20/25", forward roll 29, back roll 34,
+neutral air dodge 49 (landing lag 10), down 70, diagonally down 77, sideways 82, diagonally up 93, up 105: the body uses these (the
+engine's dodge lengths count as UFD's do, as for the tumbler and the sprinter) [R].
 
 Body size [E]: the reference model is tall (ssbwiki.com: "a tall middleweight"; the up tilt's top box is 23 units up and the counter's
 bubble is centred 10 up); our seer body needs a taller hurtbox than the tumbler's (`ecb_height`), fitted to those heights.
