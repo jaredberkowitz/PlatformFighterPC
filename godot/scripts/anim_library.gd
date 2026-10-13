@@ -142,7 +142,7 @@ const CLASS_MOVES := {
 		"extra move 1": "blaster",
 		"extra move 2": "blaster",
 	},
-	# Gauntlets (the reference's Captain Falcon): the knee for the forward air and jab 3, the axe kick, the stomp, the shoulder charge,
+	# Gauntlets (after the reference rusher): the knee for the forward air and jab 3, the axe kick, the stomp, the shoulder charge,
 	# the elbow, flip kicks for the up smash, the rapid jab's punches as jabs and its rising backhand finisher as an uppercut.
 	4: {
 		"jab 3": "gaunt_knee",
