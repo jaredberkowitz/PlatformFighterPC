@@ -1838,8 +1838,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var state: String = s.state
 	# Vanish: nothing to see while it teleports.
 	if model != null:
-		model.visible = not (_cls(s) == 2 and state == "Attack" and s.move_name == "up special"
-			and int(s.state_frame) >= VANISH_GONE[0] and int(s.state_frame) <= VANISH_GONE[1])
+		var gone: Array = VANISH_GONE if _cls(s) == 2 else WARP_GONE
+		model.visible = not ((_cls(s) == 2 or _cls(s) == STAFF_CLASS) and state == "Attack" and s.move_name == "up special"
+			and int(s.state_frame) >= gone[0] and int(s.state_frame) <= gone[1])
 	_ledge_motion(s, pos)
 	var facing: int = s.facing
 	var vy: float = s.vel.y
@@ -2618,6 +2619,8 @@ const ARCS := {
 
 ## The Needles' Vanish: the fighter is gone (move frames, from 0) while it teleports, between the explosion and the reappearance.
 const VANISH_GONE := [36, 54]
+## The Seer's Warp: gone (move frames) while it travels, back on the next.
+const WARP_GONE := [16, 32]
 var arc: MeshInstance3D
 ## The arc drawn now: {"w": its ARCS entry, "k": how far it has grown 0..1, "q": how far it has faded 0..1, "facing", "cls"}, or empty.
 var arc_shown := {}
