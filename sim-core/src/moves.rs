@@ -4056,6 +4056,12 @@ pub use staff::staff;
 #[path = "moves_greatsword.rs"]
 mod greatsword;
 pub use greatsword::greatsword;
+/// The Greatsword's special follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod greatsword_slots {
+    pub use super::greatsword::{
+        CHARGE_CANCEL, COMBO_2, COMBO_3, FALL, FALL_LANDING, RISE, WAVE_AIR,
+    };
+}
 
 #[cfg(test)]
 mod tests {
@@ -4093,7 +4099,9 @@ mod tests {
                         MoveId::from_index(i as u8).name()
                     );
                     assert!(
-                        (hb.damage > Fx::ZERO || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
+                        (hb.damage > Fx::ZERO
+                            || hb.push
+                            || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
                             && hb.radius > Fx::ZERO
                     );
                 }

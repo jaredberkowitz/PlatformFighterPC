@@ -1,0 +1,7 @@
+// Greatsword combo slash, slash 2 (ext1). Special pressed again in it (its own var: the first slash's press does not count) carries on
+// into the last three slashes (30 = ext2), but only once this slash has connected (a shield included), from its frame 14 on
+// (move frame 13) [R: UFD].
+var asked;
+var again;
+if special_tap { again = 1; }
+if again && hit && frame >= 13 { goto(30); }

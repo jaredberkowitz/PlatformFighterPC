@@ -1,0 +1,2 @@
+// Greatsword charge's cancel (ext5): 7 frames of lag (FAF 8) [R], then whatever was pressed (in the input buffer) comes out.
+let lag = frame;

@@ -908,14 +908,14 @@ fn the_greatsword_is_registered_as_class_6() {
     assert_eq!(c.names.weapons[6], "greatsword");
     assert_eq!(c.fighters[6], FighterParams::champion());
     assert_eq!(c.weapons[6], sim_core::moves::greatsword());
-    // The specials are still the claws' (phases 2 and 3).
+    // Its own specials since phase 2 (`greatsword_specials.rs`), none of them the claws'.
     for id in [
         MoveId::NSpecial,
         MoveId::SideSpecial,
         MoveId::UpSpecial,
         MoveId::DownSpecial,
     ] {
-        assert_eq!(
+        assert_ne!(
             c.weapons[6].moves[id as usize], c.weapons[1].moves[id as usize],
             "{id:?}"
         );
