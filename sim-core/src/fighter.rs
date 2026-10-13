@@ -832,6 +832,17 @@ fn airborne(
     rules: &Ruleset,
 ) -> Option<u8> {
     let buffer = p.input_buffer;
+    // A wall jump from the jump button: touching a wall, jump pressed with the stick neutral or toward the wall (with the stick
+    // held away it is a midair jump; a flick away is the stick's wall jump below). It is checked first, so it never spends a
+    // midair jump.
+    if p.wall_jump != 0 {
+        let side = collision::wall_beside(stage, p, f.pos, WALL_JUMP_REACH);
+        let input = f.history[0];
+        let away = x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(side);
+        if side != 0 && !away && f.take(buttons::JUMP, buffer) {
+            wall_jump(f, p, rules, -side);
+        }
+    }
     if f.air_jumps_left > 0 && f.take(buttons::JUMP, buffer) {
         f.vel.y = p.air_jump_velocity;
         // A midair jump sets the drift from the stick: it can change direction at once, and with the stick neutral it goes
