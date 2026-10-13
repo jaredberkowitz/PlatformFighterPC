@@ -751,16 +751,9 @@ fn shield_stun(id: MoveId, frame: u16, shieldstun: Option<u16>) -> u8 {
 
 #[test]
 fn the_dash_attack_and_rapid_jab_stun_a_shield_longer() {
-    // floor(damage x 0.8 x multiplier + 2), in the engine's fixed point (its 0.8 is a hair under, so a whole result comes out one
-    // frame short, for every hit alike): the dash attack 10% x1.5, a rapid jab hit 0.6% x9.
-    let stun = |tenths: i32, percent: i32| {
-        (Fx::from_ratio(tenths, 10)
-            * Fx::from_ratio(8, 10)
-            * Fx::ONE
-            * Fx::from_ratio(percent, 100)
-            + Fx::from_int(2))
-        .floor_int() as u8
-    };
+    // floor(damage x 0.8 x multiplier + 2), exact (sim 67): the dash attack 10% x1.5 = 14, a rapid jab hit 0.6% x9 = 6.
+    let stun = |tenths: i32, percent: i32| (tenths * 8 * percent / 10_000 + 2) as u8;
+    assert_eq!((stun(100, 150), stun(100, 100)), (14, 10));
     assert_eq!(shield_stun(MoveId::DashAttack, 6, None), stun(100, 150));
     assert_eq!(
         shield_stun(MoveId::DashAttack, 6, Some(100)),

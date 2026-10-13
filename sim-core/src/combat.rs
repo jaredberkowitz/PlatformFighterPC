@@ -380,7 +380,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 facing,
                                 attacker.pos,
                                 true,
-                                Fx::ONE,
+                                STUN_NORMAL,
                                 attacker.move_id,
                                 (chosen_at[a][d], attacker.vel),
                             );
@@ -639,7 +639,7 @@ fn apply_hit(
     facing: i8,
     source_pos: Vec2,
     freeze_source: bool,
-    stun_mult: Fx,
+    stun_mult: u16,
     move_id: u8,
     link: (Vec2, Vec2),
 ) {
@@ -859,12 +859,11 @@ fn reverse(def: &mut Fighter, source_pos: Vec2) {
 }
 
 /// A hit on a raised shield: no damage or launch. The shield loses health (unless it was a perfect shield),
-/// the blocker is stunned for `0.8 * damage * type + 2` frames and slides back. If the shield runs out it breaks.
-fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8, stun_mult: Fx) {
+/// the blocker is stunned for `floor(0.8 * damage * type * multiplier + 2)` frames (the reference's formula, see
+/// [`shield_stun_frames`]) and slides back. If the shield runs out it breaks.
+fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8, stun_mult: u16) {
     let perfect = def.state_frame <= u16::from(rules.perfect_shield_window);
-    // (The hitbox's own shieldstun multiplier scales the damage part.)
-    let own = Fx::from_ratio(i32::from(hb.shieldstun), 100);
-    let raw = (hb.damage * Fx::from_ratio(8, 10) * stun_mult * own + Fx::from_int(2)).floor_int();
+    let raw = shield_stun_frames(hb.damage, stun_mult, hb.shieldstun);
     let mut stun = raw.clamp(0, i32::from(rules.shield_stun_cap));
     // A perfect shield freezes only the attacker.
     def.hitlag = if perfect { 0 } else { hitlag };
@@ -891,15 +890,42 @@ fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8
     def.vel.x += push.mul_int(i32::from(facing));
 }
 
-/// How much a hit of this attacker's current move counts toward the shield stun it causes.
-fn stun_multiplier(f: &Fighter) -> Fx {
+/// Shield stun type multipliers (the reference's), in thousandths: most hits 1, aerials 0.33, smash attacks 0.725, projectiles 0.29.
+pub const STUN_NORMAL: u16 = 1000;
+pub const STUN_AERIAL: u16 = 330;
+pub const STUN_SMASH: u16 = 725;
+pub const STUN_PROJECTILE: u16 = 290;
+
+/// Raw fixed-point units (1/65536) added before flooring the shield stun (about 0.0005 of a frame): they absorb the damage's own
+/// fixed-point rounding (a 1.05 fresh-move bonus, a 1.3% hit), so a stun that should come out whole does.
+const SHIELD_STUN_SLACK: i64 = 32;
+
+/// `floor(0.8 * damage * type * multiplier + 2)` (ssbwiki.com, Shieldstun): `stun_mult` is the type in thousandths, `shieldstun`
+/// the hitbox's own multiplier in percent. Worked in integers over the damage's raw fixed-point value: 0.8, 0.33 and 0.725 are not
+/// exact in 16.16 fixed point, and multiplying by them used to make every whole result a frame short (10% gave 9, not 10). The
+/// projectile penalty (0.29) applies only to a projectile hit whose own multiplier is 1, as in the reference.
+pub fn shield_stun_frames(damage: Fx, stun_mult: u16, shieldstun: u16) -> i32 {
+    let kind = if stun_mult == STUN_PROJECTILE && shieldstun != 100 {
+        STUN_NORMAL
+    } else {
+        stun_mult
+    };
+    let scaled = i64::from(damage.raw().max(0)) * 8 * i64::from(kind) * i64::from(shieldstun);
+    let raw = scaled / (10 * 1000 * 100) + SHIELD_STUN_SLACK;
+    i32::try_from(raw >> Fx::FRAC_BITS)
+        .unwrap_or(i32::MAX)
+        .saturating_add(2)
+}
+
+/// How much a hit of this attacker's current move counts toward the shield stun it causes (the type multiplier, thousandths).
+fn stun_multiplier(f: &Fighter) -> u16 {
     let id = MoveId::from_index(f.move_id);
     if id.is_aerial() {
-        Fx::from_ratio(33, 100)
+        STUN_AERIAL
     } else if matches!(id, MoveId::FSmash | MoveId::USmash | MoveId::DSmash) {
-        Fx::from_ratio(725, 1000)
+        STUN_SMASH
     } else {
-        Fx::ONE
+        STUN_NORMAL
     }
 }
 
@@ -1081,7 +1107,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
                 let facing = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
                 // Projectiles stun a shield much less.
-                let mult = Fx::from_ratio(29, 100);
+                let mult = STUN_PROJECTILE;
                 apply_hit(
                     state,
                     content,
@@ -1291,6 +1317,33 @@ mod tests {
         assert_eq!(hitlag_frames(fx(10), &r, true, false, Fx::ONE), 8);
         assert_eq!(hitlag_frames(fx(10), &r, false, true, Fx::ONE), 8);
         assert_eq!(hitlag_frames(fx(10), &r, false, false, Fx::ONE), 12);
+    }
+
+    #[test]
+    fn shield_stun_is_the_reference_formula_with_whole_results_whole() {
+        let s = |tenths: i32, kind: u16, own: u16| {
+            shield_stun_frames(Fx::from_ratio(tenths, 10), kind, own)
+        };
+        // floor(0.8 d t m + 2): 10% -> 10 (was 9 in fixed point), 9% -> 9.2 -> 9, 15% -> 14.
+        assert_eq!(s(100, STUN_NORMAL, 100), 10);
+        assert_eq!(s(90, STUN_NORMAL, 100), 9);
+        assert_eq!(s(150, STUN_NORMAL, 100), 14);
+        // Smash attacks x0.725: 50% -> 0.58 x 50 + 2 = 31 exactly; 20% -> 13.6 -> 13.
+        assert_eq!(s(500, STUN_SMASH, 100), 31);
+        assert_eq!(s(200, STUN_SMASH, 100), 13);
+        // Aerials x0.33: 25% -> 6.6 + 2 -> 8; 50% -> 13.2 + 2 -> 15.
+        assert_eq!(s(250, STUN_AERIAL, 100), 8);
+        assert_eq!(s(500, STUN_AERIAL, 100), 15);
+        // A hitbox's own multiplier: 10% x1.5 -> 14; 0.6% x9 -> 6.32 -> 6.
+        assert_eq!(s(100, STUN_NORMAL, 150), 14);
+        assert_eq!(s(6, STUN_NORMAL, 900), 6);
+        // Projectiles x0.29, unless the hitbox has its own multiplier: 25% -> 7.8 -> 7; with x2 -> 42.
+        assert_eq!(s(250, STUN_PROJECTILE, 100), 7);
+        assert_eq!(s(250, STUN_PROJECTILE, 200), 42);
+        // A fresh move's 1.05 (in fixed point a hair under): 25 x 1.05 = 26.25 -> 21 + 2.
+        let fresh = Fx::from_int(25) * Fx::from_ratio(105_000, 100_000);
+        assert_eq!(shield_stun_frames(fresh, STUN_NORMAL, 100), 23);
+        assert_eq!(shield_stun_frames(Fx::ZERO, STUN_NORMAL, 100), 2);
     }
 
     #[test]
