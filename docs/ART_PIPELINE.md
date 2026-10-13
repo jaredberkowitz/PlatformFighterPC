@@ -806,3 +806,21 @@ The owner asked for the base body to read cuter: rounder, shorter, stubbier. Bef
 - The body script also closes any slit left after removing decimation fins (`mend_folds`; none were found this time).
 - Checks: art pipeline, match flow, fighter view, loadout, replay, motion, anim library, creator flow, content, controls and online flow
   tests passed.
+
+## Faces after the concept, with depth (thirty-second pass)
+
+Compared straight on with the concept's front view (`godot/tests/face_sheet.gd`, framed like the concept's crop): `docs/screenshots/
+face_concept.png`, `face_before.png`, `face_after.png`.
+
+- **Centred on the head**: the rig laid the drawing out about the middle of the head's points counted from the neck up, well above the
+  round head's middle, so every face sat high. It is now centred on the ball's middle (its crown less its radius, `make_rigged_blob.py`).
+- **The concept's layout** (`FaceLook`, measured in head radii off the sheet): eyes 0.41 out and 0.185 up, 0.25 across (they were 20%
+  bigger and closer together); the smile 0.36 wide (it was two thirds that; only the resting smile is wider, the expressions' mouths keep
+  their size); the blush 0.51 out and 0.2 down (it was further out and higher); a finer eye line (11 of 256, was 16). Lenses are sized to
+  the eyes and kept round.
+- **Depth in the drawing** (`face_common.gdshaderinc`, so the face on the head and the creator's pictures agree): the eye's white is
+  shaded as a dome (cooler toward its rim, shadowed under the upper lid); the iris has a darker rim, a deep core, a warm glow welling up
+  in its lower half, a main catchlight and a small second one opposite; lids are lit from above and cast a soft shadow on the eye; an
+  open mouth is in shadow under the upper lip; the blush softens toward its edge. Expressions: `face_attack.png`, `face_shock.png`.
+- Checks: creator flow, fighter view, loadout, art pipeline and match flow tests passed; look bench 0.87.
+

@@ -75,20 +75,40 @@ vec3 face_eye(vec3 col, vec2 uv, float side) {
 	vec2 m = t - 0.5;
 	vec3 e = cream_color.rgb;
 	if (eye_mode == 0) {
-		// The pupil and its highlight, placed in the face's own left-right (not mirrored), so both eyes look the same way.
+		// The white is a dome, not a sticker: cooler and darker toward its rim, most of all under the upper lid, which shades its top.
+		float rr = clamp(length(m * vec2(1.0, 1.08)) / 0.36, 0.0, 1.0);
+		vec3 shade = cream_color.rgb * vec3(0.78, 0.76, 0.88);
+		e = mix(e, shade, 0.55 * smoothstep(0.55, 1.0, rr));
+		e = mix(e, shade * 0.92, 0.75 * smoothstep(-0.12, -0.34, m.y));
+		// The pupil, placed in the face's own left-right (not mirrored), so both eyes look the same way. An iris with depth: a darker
+		// rim, a deep core, a warm glow welling up in its lower half; a main catchlight up toward the light and a small one opposite.
 		vec2 pc = vec2(pupil_shift.x * side, pupil_shift.y);
-		e = mix(e, eye_color.rgb, face_edge(length(m - pc) - pupil_size));
+		vec2 q = m - pc;
+		float pr = length(q) / pupil_size;
+		vec3 iris = eye_color.rgb;
+		vec3 glow = mix(eye_color.rgb, vec3(0.95, 0.72, 1.0), 0.42);
+		iris = mix(iris, glow, 0.85 * smoothstep(0.05, 0.75, q.y / pupil_size) * smoothstep(1.0, 0.45, pr));
+		iris = mix(iris, eye_color.rgb * 0.45, smoothstep(0.62, 0.98, pr));
+		iris = mix(iris, eye_color.rgb * 0.35, face_edge(pr - 0.42) * 0.9);
+		// (The lid's shadow falls across the top of the iris too.)
+		iris *= mix(1.0, 0.72, smoothstep(-0.05, -0.32, m.y));
+		e = mix(e, iris, face_edge(length(q) - pupil_size));
 		vec2 hc = pc + vec2(-0.38 * side, -0.4) * pupil_size;
-		e = mix(e, vec3(1.0), 0.9 * face_edge(length(m - hc) - max(0.026, 0.2 * pupil_size)));
-		// Lids in the fighter's colour, each with an ink edge.
+		e = mix(e, vec3(1.0), 0.95 * face_edge(length(m - hc) - max(0.026, 0.2 * pupil_size)));
+		vec2 hc2 = pc + vec2(0.36 * side, 0.42) * pupil_size;
+		e = mix(e, vec3(1.0, 0.96, 1.0), 0.75 * face_edge(length(m - hc2) - max(0.012, 0.09 * pupil_size)));
+		// Lids in the fighter's colour (lit from above: lighter toward their top), each with an ink edge and a soft shadow on the eye
+		// below it.
 		if (lids.x > 0.001) {
 			float d = m.y - (-0.36 + 0.72 * lids.x + lids.y * -m.x);
-			e = mix(e, lid_color.rgb, face_edge(d));
+			e *= mix(1.0, 0.7, smoothstep(0.14, 0.0, -d) * step(-d, 0.0) + 0.0);
+			vec3 lid = lid_color.rgb * mix(1.12, 0.92, smoothstep(-0.36, 0.2, m.y));
+			e = mix(e, lid, face_edge(d));
 			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.024));
 		}
 		if (lids.z > 0.001) {
 			float d = (0.36 - 0.72 * lids.z) - m.y;
-			e = mix(e, lid_color.rgb, face_edge(d));
+			e = mix(e, lid_color.rgb * 0.95, face_edge(d));
 			e = mix(e, ink_color.rgb, face_edge(abs(d) - 0.022));
 		}
 	}
@@ -105,13 +125,18 @@ vec3 face_draw(vec2 uv, vec3 base) {
 	for (int i = 0; i < 2; i++) {
 		float side = i == 0 ? -1.0 : 1.0;
 		vec2 t = face_part_uv(uv, vec2(0.5 + side * cheek_place.x, cheek_place.y), cheek_place.z, vec2(1.0), 0.0, side);
-		col = mix(col, cheek_color.rgb, cheek_color.a * face_mask(cheek_tex, t));
+		// (Soft toward its edge, as a flush of colour is.)
+		float soft = smoothstep(0.5, 0.18, length((t - 0.5) * vec2(1.0, 1.5)));
+		col = mix(col, cheek_color.rgb, cheek_color.a * face_mask(cheek_tex, t) * mix(0.55, 1.0, soft));
 	}
 	vec2 nt = face_part_uv(uv, nose_place.xy, nose_place.z, vec2(1.0), 0.0, 1.0);
 	col = mix(col, nose_color.rgb, nose_color.a * face_mask(nose_tex, nt));
 	vec2 mt = face_part_uv(uv, mouth_place.xy, mouth_place.z, mouth_squash, mouth_place.w, 1.0);
 	if (mt.x >= 0.0 && mt.x <= 1.0 && mt.y >= 0.0 && mt.y <= 1.0) {
 		vec4 mc = texture(mouth_tex, mt);
+		// An open mouth is hollow: its inside (anything lighter than the ink line) is in shadow toward the top, under the upper lip.
+		float inside = smoothstep(0.12, 0.25, dot(mc.rgb, vec3(0.3, 0.5, 0.2)));
+		mc.rgb *= mix(1.0, mix(0.62, 1.06, smoothstep(0.36, 0.66, mt.y)), inside);
 		col = mix(col, mc.rgb, mc.a);
 	}
 	for (int i = 0; i < 2; i++) {
