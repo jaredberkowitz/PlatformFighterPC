@@ -894,6 +894,70 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A tall middleweight caster with a slow air speed and quick acceleration in the air: the "seer" body of the Staff moveset. The
+    /// reference character's attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com,
+    /// `docs/movesets/palutena/REFERENCE_DATA.md`): weight 91, walk 1.271, initial dash 2.035, run 2.077, traction 0.106, air speed
+    /// 1.0, air acceleration 0.01 + 0.105, air friction 0.01, gravity 0.12, fall 1.55 (fast 2.48), full hop 35.9, short hop 17.3,
+    /// double jump 35.9, ledge jump 37.95. On the ground: walk acceleration 0.105 + 0.21, run acceleration 0.044 + 0.12991, an initial
+    /// dash of 10 frames, a heavy landing of 7 (6 of lag: the parameter file, owner decision 22). Air dodges 49 (neutral, intangible
+    /// 3-30) and 70 / 82 / 105 (directional, intangible 3-21); rolls 29 forward (intangible 4-15) and 34 back, spot dodge 25 (3-17):
+    /// the shared ones. No wall jump (the parameter file); the wall-tech jump 1.3 away, 2.2 up. The body is taller than the shared
+    /// one [E: fitted to the heights its attacks reach].
+    pub fn seer() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let r = Fx::from_ratio;
+        let gravity = su(120);
+        let (burst, arc) = Self::full_hop(gravity, su(35900));
+        FighterParams {
+            walk_speed: gu(1271),
+            run_speed: gu(2077),
+            dash_speed: gu(2035),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(210),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(12991),
+            dash_frames: 10,
+            heavy_landing_lag: 6,
+            air_speed: su(1000),
+            air_accel: su(10),
+            air_accel_stick: su(105),
+            air_friction: su(10),
+            gravity,
+            max_fall_speed: su(1550),
+            fast_fall_speed: su(2480),
+            air_dodge_frames: 49,
+            air_dodge_dir_down_frames: 70,
+            air_dodge_dir_side_frames: 82,
+            air_dodge_dir_up_frames: 105,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.106 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(212),
+            dash_attack_friction: gu(106),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(17300)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(35900)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(37950)),
+            weight: Fx::from_int(91),
+            weapon: 5,
+            // No wall jump; the reference's wall-tech jump (the parameter file): 1.3 away, 2.2 up.
+            wall_jump: 0,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2200),
+            // Taller than the shared body, as the sprinter: the up tilt's top box is 23 reference units up and the counter's bubble is
+            // centred 10 up [E].
+            ecb_height: r(13, 5),
+            ecb_side_height: r(13, 10),
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1451,8 +1515,8 @@ impl Content {
         h.finish()
     }
 
-    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler and a fast, heavy sprinter) on
-    /// a main stage with platforms.
+    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter and a
+    /// tall caster) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1461,6 +1525,7 @@ impl Content {
                 FighterParams::rogue(),
                 FighterParams::tumbler(),
                 FighterParams::sprinter(),
+                FighterParams::seer(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -1468,6 +1533,7 @@ impl Content {
                 crate::moves::needles(),
                 crate::moves::embers(),
                 crate::moves::gauntlets(),
+                crate::moves::staff(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1479,6 +1545,7 @@ impl Content {
                     "rogue".to_string(),
                     "tumbler".to_string(),
                     "sprinter".to_string(),
+                    "seer".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -1486,6 +1553,7 @@ impl Content {
                     "needles".to_string(),
                     "embers".to_string(),
                     "gauntlets".to_string(),
+                    "staff".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

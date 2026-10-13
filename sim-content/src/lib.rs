@@ -224,11 +224,19 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
     for (m, mv) in w.moves.iter().enumerate() {
         let id = MoveId::from_index(m as u8);
         let name = id.name();
-        if let Some(l) = mv.landing_move {
-            if usize::from(l) >= MoveId::COUNT
-                || w.moves.get(usize::from(l)).is_none_or(Move::is_empty)
-            {
-                errors.push(format!("weapon {i} {name}: landing_move needs a real move"));
+        for (field, slot) in [
+            ("landing_move", mv.landing_move),
+            ("on_search", mv.on_search),
+            ("air_version", mv.air_version),
+            ("catch_move", mv.catch_move),
+            ("off_edge", mv.off_edge),
+        ] {
+            if let Some(l) = slot {
+                if usize::from(l) >= MoveId::COUNT
+                    || w.moves.get(usize::from(l)).is_none_or(Move::is_empty)
+                {
+                    errors.push(format!("weapon {i} {name}: {field} needs a real move"));
+                }
             }
         }
         if mv.is_empty() {
@@ -314,6 +322,41 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 errors.push(format!(
                     "weapon {i} {name}: part_intangible {}..{} must lie inside the move and name at least one part",
                     p.start, p.end
+                ));
+            }
+        }
+        for a in &mv.air_blocks {
+            if a.from > a.to
+                || a.drift > 100
+                || a.accel == 0
+                || a.accel > 1000
+                || a.gravity.is_some_and(|g| g < Fx::ZERO)
+                || a.max_fall.is_some_and(|v| v <= Fx::ZERO)
+                || a.friction.is_some_and(|v| v < Fx::ZERO)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: an air block needs from <= to, drift up to 100, accel 1 to 1000, no negative gravity or friction and max_fall above 0"
+                ));
+            }
+        }
+        if mv.turn_at.is_some_and(|(_, stick)| stick > 99) {
+            errors.push(format!("weapon {i} {name}: turn_stick is at most 99"));
+        }
+        if let Some(a) = &mv.armor {
+            if a.start > a.end || a.end > mv.total_frames {
+                errors.push(format!(
+                    "weapon {i} {name}: armor {}..{} must lie inside the move",
+                    a.start, a.end
+                ));
+            }
+            if a.kind == sim_core::moves::ARMOR_KNOCKBACK {
+                errors.push(format!(
+                    "weapon {i} {name}: knockback armor is not built yet (use super or damage)"
+                ));
+            }
+            if a.kind == sim_core::moves::ARMOR_DAMAGE && a.threshold <= Fx::ZERO {
+                errors.push(format!(
+                    "weapon {i} {name}: damage armor needs a threshold above 0"
                 ));
             }
         }

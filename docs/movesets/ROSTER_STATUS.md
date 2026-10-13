@@ -21,6 +21,15 @@ Status words: **verified** (every move on [R] data, tested, no approximations le
 | 3 Embers, tumbler body | Mario | **playable** (phases 1 and 2 done, sims 57 to 64) | `embers.rs` | Body, every normal and every special on [R] data (`docs/movesets/mario/`): the rising punch, the bouncing fireball, the cape (reverse, reflector with its detector, once-per-airtime lift), the water pump (charge, store, pushing pumps), and the wall jump. **Not verified**: the rising punch's rise is [E] (no published height; re-searched 2026-10-13), and a few readings are [E] (the cape's lift frame, a reflected shot's vertical reversal). **Owner decisions 2026-10-13 (sim 65)**: a full pump holds its stance until special or shield; the cape's reflector turns vertical speed round and the Claws' stays horizontal-only (meant to differ); jump pressed against a wall (stick neutral or toward it) also wall-jumps, for every wall-jumping body, without spending a midair jump. Up smash head intangibility not modelled (E19). One get-up attack slot (face up). Positions on non-root bones [E]. |
 
 | 4 Gauntlets, sprinter body (built-in fighter Sprinter) | Captain Falcon | **in progress** (phase 1 done, sim 66: the body and every normal) | `gauntlets.rs` | Body and every normal on [R] data (`docs/movesets/captain_falcon/`): the jab chain and the rapid jab's entry rule (presses in hitlag counted), its loop and finisher, the one-frame knee, the down air meteor, the up tilt's and up smash's intangible legs (E19), the rapid jab's and dash attack's shieldstun (E24). **Specials are still the claws' placeholders** (phase 2). Limits: the knee's late-hit trip (E20); the down tilt's type-0 box behind; one get-up attack slot; the rapid jab's "let go" is not held and not pressed for 8 frames [E]; the neutral air dodge (42) is single-source; positions on non-root bones and the body's height [E]. |
+| 5 Staff, seer body (built-in fighter Seer) | Palutena | **in progress** (phase 1 done, sim 67: the body and every normal) | `staff.rs`, `angle_types.rs` | Body and every normal on [R] data (`docs/movesets/palutena/`): jab 1 and the rapid jab's entry rule (two presses and releases on 10-24, or held on a hit at 13), its loop, finisher and x7 shieldstun; the forward tilt's set-weight phases; the up tilt's, neutral air's and up air's loops and last hits; the neutral air's late -13 hitstun (E27) and the angle types of every box (E26: the neutral air's last hit forward, every up air box backward); the smashes' wind as pushes re-applied every frame; the dash attack's and back air's head-and-torso intangibility (E19). **Specials are still the claws' placeholders** (phase 2). Limits: no-clank boxes (E3c, being built for the Gauntlets) clank; the arm-intangibility windows act on nothing (a held staff); one get-up attack slot; the rapid jab's "let go" [E] as the Gauntlets'; the down throw's hitlag folded into its timeline [D]; positions on the staff bone and the body's height [E]. |
+
+**Angle types on the older ports (sim 67, owner decision 21).** Every move of the five older weapons with a box reaching the fighter's
+centre or behind it now carries its reference angle type (ssbwiki.com, 13.0.1); the list is `sim-core/tests/angle_types.rs` and the
+Staff's implementation report. Visible changes: boxes of type 0 (by position) send a target the way it is from the attacker, not by the
+box's side (the Embers' up smash, every down smash, the up tilts and up airs sweeping over the head, the get-up attacks, the Gauntlets'
+down tilt box at the body). The type 3 (forward) and type 4 (backward) boxes set on the older ports all sit on the side that already
+sent that way, so they change nothing today (they are data for later repositioning). Not built: the reference's type 1 (from the
+direction of travel) on the Claws' up special loop.
 
 Top-fidelity priorities for the existing ports (to revisit once the shared extensions below exist):
 
@@ -111,6 +120,16 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Palutena
 
+* **Status (sim 67)**: **phase 1 done**: class 5 Staff on the seer body, built-in fighter Seer (owner decision 19), every normal on
+  [R] data, with E26 (angle types, also applied to the older ports) and E27 (signed hitstun modifier); specials are placeholders. Report
+  and phase-2 plan: `docs/movesets/palutena/IMPLEMENTATION_REPORT.md`.
+* **Research (2026-10-13)**: `docs/movesets/palutena/REFERENCE_DATA.md` (the full kit at 13.0.1,
+  labelled, with conflicts and 13 gaps) and `PROJECT_AUDIT.md` (what exists; the exact shape of E3a, the E16 target lock and `flick`,
+  two small E11 additions; new E10c counter / reflector routing, E25 a reflector left in the stage, E26 angle types, E27 negative
+  hitstun; 4 `ext` slots). **Corrections to the notes below from that research**: nothing in the kit trips (the shots can *lock*, so
+  E20 is not needed); the Reflect Barrier is **stationary** in 13.0.1 (it moved in the earlier game) and outlives the reflection's
+  FAF; the counter and the reflection are **exclusive** (melee is countered, projectiles reflected, never both); Warp's edge-cancel
+  already works in the engine.
 * **Kit mechanics**: Autoreticle (a reticle on the nearest opponent in range; three shots of 3.5% on frames 25 / 31 / 37 toward it; the
   shots can trip; a fall break in the air); Explosive Flame (placed about four body lengths ahead, 7.5 units with a smash input; six 1.5%
   loop hits and a 5.5% final with 1.5x hitlag; FAF 72); Warp (stick-aimed teleport, intangible 16-32, falls faster while warping, no hitbox,
@@ -128,7 +147,8 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
   * **Counter + Reflect Barrier** on one move: the counter catches melee, the barrier reflects projectiles, both at once. Exists in parts
     (`Move::counter` and `Move::reflector` are separate fields; check that one move can carry both and that the counter does not also
     catch the projectiles the barrier should reflect).
-* **Gaps**: E3a, E11, E16, E20; verify counter/reflector on one move.
+* **Gaps** (from the audit): E3a, E3c (projectiles), E10c, E11 (two fields), E16 (`lock`, `flick`, Falcon's `presses`), E19, E24,
+  E25, E26, E27. Counter and reflector can sit on one move as data, but need E10c and E25 to behave as the reference.
 * **Cost**: moderate.
 
 ### Yoshi
@@ -237,8 +257,12 @@ architectural changes (E4, E7, E9, E13, E17) are explained to the owner before t
 | E16 | Script surface | registers: `grab` button, nearest opponent (fighter scripts), once-per-airtime flags, "was hit during this move", "hit a shield"; more fighter variables than 4 | Mario, Yoshi, Palutena, Cloud, Link |
 | E17 | More move slots | **built (sim 66, schema 5)**: sixteen `ext` slots, `ext10` to `ext15` numbered 39 to 44 after `pivot_grab` | Falcon (rapid jab now), Cloud, DK, probably Link |
 | E19 | Partial intangibility | **built (sim 66)**: `Move::part_intangible` windows naming hurtbox circles (low, middle, high, limb) | Falcon (up tilt, up smash), DK, Yoshi, Needles (up smash), Embers (up smash head) |
-| E20 | Trip | a hitbox chance or flag that trips a grounded target (deterministic: from the sim's RNG) | Palutena, Longsword (down tilt) |
 | E24 | Per-hitbox shieldstun | **built (sim 66)**: `Hitbox::shieldstun` percent | Falcon (rapid jab x9, dash attack x1.5) |
+| E20 | Trip | a hitbox chance or flag that trips a grounded target (deterministic: from the sim's RNG) | Longsword (down tilt), Falcon (forward air late hit); not Palutena (research 2026-10-13) |
+| E10c | Counter / reflector routing | `Counter::melee_only`, `Counter::max_damage`, `Reflector::detect_then` (a projectile detector that starts another move) | Palutena |
+| E25 | Reflector left in the stage | a projectile that reflects other owners' shots (`ProjectileSpawn::reflects`), a tall reflector shape | Palutena |
+| E26 | Angle types | **built (sim 67)**: `Hitbox::angle_type`: by box side (the default), forward, backward, by position (melee and projectiles) | Palutena; the older ports re-checked (decision 21) |
+| E27 | Negative hitstun modifier | **built (sim 67)**: signed `Hitbox::hitstun_add` (i16; a launch keeps 1 frame) | Palutena |
 
 (E18 is not used: Warp's stage collision is research, not yet an extension.)
 
@@ -285,6 +309,18 @@ These override anything above that disagrees.
     published recovery-distance or height figures, labelled [D]/[E] with the source. No footage for now.
 13. **Per-limb intangibility (E19)**: build it with Falcon (his up tilt and up smash legs); DK, Yoshi and the Needles' up smash reuse it.
 14. **Armor (E1)**: build the damage-threshold kind with Falcon, with the `kind` field in place for the later kinds (DK, Yoshi).
+15. **Sprinter rapid jab**: the press that starts jab 1 counts toward the three presses, and mashing keeps the rapid jab going (both as
+    built in sim 66).
+16. **Command grabs and search boxes (E6, E21)**: build them as new hit kinds in `combat::resolve_hits`.
+17. **Shield stun rounding**: fix it so whole-number shield stun matches the reference for every fighter (it came out one frame short).
+18. **Sprinter neutral air dodge (42 frames, one source)**: keep it unless a second source shows otherwise; check it against the reference.
+19. **Palutena names**: class/weapon **Staff** (the owner allowed Beacon or Staff; Staff fits the other weapon names), body and built-in
+    fighter **Seer**.
+20. **Reflect Barrier**: keep it on the reflection move (no E25 stage object). Recorded as an owner-chosen approximation: the 10 frames
+    after FAF 35 and "stays when she is hit" are not modelled.
+21. **Angle types (E26)**: build them for Palutena and also re-check the existing fighters' angle types (back airs and others) against
+    the reference.
+22. **Palutena data conflicts**: counterattack hitbox on frames 5-7; heavy landing lag from the parameter file (6 here).
 
 ## Still open
 

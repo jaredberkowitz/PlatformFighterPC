@@ -8,10 +8,11 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
-    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
-    TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    AirBlock, Armor, Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc,
+    ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD,
+    ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
+    EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW,
+    PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -505,6 +506,7 @@ fn kind_name(kind: u8) -> &'static str {
         HIT_GRAB => "grab",
         HIT_THROW => "throw",
         HIT_PUMMEL => "pummel",
+        HIT_SEARCH => "search",
         _ => "normal",
     }
 }
@@ -517,11 +519,12 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         Some(("grab", _)) => HIT_GRAB,
         Some(("throw", _)) => HIT_THROW,
         Some(("pummel", _)) => HIT_PUMMEL,
+        Some(("search", _)) => HIT_SEARCH,
         Some((other, line)) => {
             err(
                 errors,
                 line,
-                format!("hitbox kind must be normal, grab, throw or pummel, not `{other}`"),
+                format!("hitbox kind must be normal, grab, throw, pummel or search, not `{other}`"),
             );
             HIT_NORMAL
         }
@@ -565,6 +568,22 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             AIM_ANY
         }
     };
+    let angle_type = match f.raw("angle_type") {
+        None | Some(("box", _)) => ANGLE_BY_BOX,
+        Some(("forward", _)) => ANGLE_FORWARD,
+        Some(("backward", _)) => ANGLE_BACKWARD,
+        Some(("position", _)) => ANGLE_BY_POSITION,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!(
+                    "hitbox angle_type must be box, forward, backward or position, not `{other}`"
+                ),
+            );
+            ANGLE_BY_BOX
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -591,6 +610,9 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         reverse: f.or("reverse", false, errors),
         push: f.or("push", false, errors),
         shieldstun: f.or("shieldstun", 100, errors),
+        angle_type,
+        command: f.or("command", false, errors),
+        clanks: f.or("clanks", true, errors),
     };
     f.finish(errors);
     hb
@@ -657,8 +679,20 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     if hb.push {
         b.field("push", "true");
     }
+    if !hb.clanks {
+        b.field("clanks", "false");
+    }
+    if hb.command {
+        b.field("command", "true");
+    }
     if hb.shieldstun != 100 {
         b.field("shieldstun", hb.shieldstun.to_string());
+    }
+    match hb.angle_type {
+        ANGLE_FORWARD => b.field("angle_type", "forward"),
+        ANGLE_BACKWARD => b.field("angle_type", "backward"),
+        ANGLE_BY_POSITION => b.field("angle_type", "position"),
+        _ => {}
     }
     b
 }
@@ -716,6 +750,22 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.intangible_from = f.or("intangible_from", 0, errors);
     m.intangible_from_air = f.or("intangible_from_air", 255, errors);
     m.land_continue = f.or("land_continue", false, errors);
+    m.fast_fall_from = f.or("fast_fall_from", 0, errors);
+    m.lands_from = f.or("lands_from", 0, errors);
+    let turn_frame: Option<u8> = f.parsed("turn_frame", errors);
+    let turn_stick: u8 = f.or("turn_stick", 0, errors);
+    m.turn_at = turn_frame.map(|frame| (frame, turn_stick));
+    let hold_x: Option<Fx> = f.parsed("hold_x", errors);
+    let hold_y: Option<Fx> = f.parsed("hold_y", errors);
+    match (hold_x, hold_y) {
+        (Some(x), Some(y)) => m.hold_at = Some((x, y)),
+        (None, None) => {}
+        _ => err(
+            errors,
+            block.line,
+            format!("{context}: hold_x and hold_y go together"),
+        ),
+    }
     m.counter_strike = f.or("counter_strike", false, errors);
     m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
@@ -732,14 +782,22 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         }
     }
     m.rehit_groups = f.or("rehit_groups", 0xff, errors);
-    if let Some((key, line)) = f.raw("landing_move") {
-        match MoveId::from_key(key) {
-            Some(id) => m.landing_move = Some(id as u8),
-            None => err(
-                errors,
-                line,
-                format!("`landing_move` must be a move name, not `{key}`"),
-            ),
+    for (name, slot) in [
+        ("landing_move", &mut m.landing_move),
+        ("on_search", &mut m.on_search),
+        ("air_version", &mut m.air_version),
+        ("catch_move", &mut m.catch_move),
+        ("off_edge", &mut m.off_edge),
+    ] {
+        if let Some((key, line)) = f.raw(name) {
+            match MoveId::from_key(key) {
+                Some(id) => *slot = Some(id as u8),
+                None => err(
+                    errors,
+                    line,
+                    format!("`{name}` must be a move name, not `{key}`"),
+                ),
+            }
         }
     }
     let rehit_start: Option<u8> = f.parsed("rehit_start", errors);
@@ -766,10 +824,55 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "script",
             "projectile_script",
             "part_intangible",
+            "armor",
+            "air",
         ],
         context,
         errors,
     );
+    m.air_blocks = children(block, "air")
+        .into_iter()
+        .map(|b| {
+            let ctx = format!("an air block of {context}");
+            let mut f = Fields::new(b, &ctx, errors);
+            let a = AirBlock {
+                from: f.need("from", None, errors),
+                to: f.need("to", None, errors),
+                gravity: f.parsed("gravity", errors),
+                max_fall: f.parsed("max_fall", errors),
+                friction: f.parsed("friction", errors),
+                drift: f.or("drift", 100, errors),
+                accel: f.or("accel", 100, errors),
+            };
+            f.finish(errors);
+            a
+        })
+        .collect();
+    if let Some(b) = at_most_one(children(block, "armor"), "armor", context, errors) {
+        let ctx = format!("the armor of {context}");
+        let mut f = Fields::new(b, &ctx, errors);
+        let kind = match f.raw("kind") {
+            None | Some(("damage", _)) => ARMOR_DAMAGE,
+            Some(("super", _)) => ARMOR_SUPER,
+            Some(("knockback", _)) => ARMOR_KNOCKBACK,
+            Some((other, line)) => {
+                err(
+                    errors,
+                    line,
+                    format!("armor kind must be super, damage or knockback, not `{other}`"),
+                );
+                ARMOR_DAMAGE
+            }
+        };
+        let a = Armor {
+            start: f.need("start", None, errors),
+            end: f.need("end", None, errors),
+            kind,
+            threshold: f.or("threshold", Fx::ZERO, errors),
+        };
+        f.finish(errors);
+        m.armor = Some(a);
+    }
     m.part_intangible = children(block, "part_intangible")
         .into_iter()
         .map(|b| {
@@ -848,6 +951,9 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     reverse: false,
                     push: false,
                     shieldstun: 100,
+                    angle_type: ANGLE_BY_BOX,
+                    command: false,
+                    clanks: true,
                 }
             }
         };
@@ -1006,10 +1112,20 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             m.intangible_from_air,
             empty.intangible_from_air,
         ),
+        ("fast_fall_from", m.fast_fall_from, empty.fast_fall_from),
+        ("lands_from", m.lands_from, empty.lands_from),
     ] {
         if value != default {
             b.field(name, value.to_string());
         }
+    }
+    if let Some((frame, stick)) = m.turn_at {
+        b.field("turn_frame", frame.to_string());
+        b.field("turn_stick", stick.to_string());
+    }
+    if let Some((x, y)) = m.hold_at {
+        b.field("hold_x", x.show());
+        b.field("hold_y", y.show());
     }
     for (name, value) in [
         ("air_gravity", m.air_gravity),
@@ -1037,8 +1153,16 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if m.rehit_groups != 0xff {
         b.field("rehit_groups", m.rehit_groups.to_string());
     }
-    if let Some(id) = m.landing_move {
-        b.field("landing_move", MoveId::from_index(id).key());
+    for (name, slot) in [
+        ("landing_move", m.landing_move),
+        ("on_search", m.on_search),
+        ("air_version", m.air_version),
+        ("catch_move", m.catch_move),
+        ("off_edge", m.off_edge),
+    ] {
+        if let Some(id) = slot {
+            b.field(name, MoveId::from_index(id).key());
+        }
     }
     if m.counter_strike {
         b.field("counter_strike", "true");
@@ -1062,6 +1186,44 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             if w.parts & bit != 0 {
                 c.field(name, "true");
             }
+        }
+        b.push(c);
+    }
+    for a in &m.air_blocks {
+        let mut c = Block::new("air", None);
+        c.field("from", a.from.to_string());
+        c.field("to", a.to.to_string());
+        for (name, v) in [
+            ("gravity", a.gravity),
+            ("max_fall", a.max_fall),
+            ("friction", a.friction),
+        ] {
+            if let Some(v) = v {
+                c.field(name, v.show());
+            }
+        }
+        if a.drift != 100 {
+            c.field("drift", a.drift.to_string());
+        }
+        if a.accel != 100 {
+            c.field("accel", a.accel.to_string());
+        }
+        b.push(c);
+    }
+    if let Some(a) = &m.armor {
+        let mut c = Block::new("armor", None);
+        c.field("start", a.start.to_string());
+        c.field("end", a.end.to_string());
+        c.field(
+            "kind",
+            match a.kind {
+                ARMOR_SUPER => "super",
+                ARMOR_KNOCKBACK => "knockback",
+                _ => "damage",
+            },
+        );
+        if a.threshold != Fx::ZERO {
+            c.field("threshold", a.threshold.show());
         }
         b.push(c);
     }

@@ -405,3 +405,123 @@ fn the_held_fighter_stays_on_the_platform_when_held_near_an_edge() {
         assert_eq!(sim.fighter(1).pos.y, Fx::ZERO);
     }
 }
+
+// ---- Command grabs (E6) ------------------------------------------------------------------------------------------
+
+/// Player 0 (brawler) with a grab of its own as its neutral special: a grab box on frames 2-5 one unit ahead (`command` or not) that
+/// goes on with a catch move (ext9: the held fighter pinned 1.0 ahead and 1.0 up, a throw on frame 10, 30 frames), player 1 one unit
+/// ahead, then `place` applied.
+fn command_grab(command: bool, place: &dyn Fn(&mut Sim)) -> Sim {
+    use sim_core::moves::{Move, HIT_GRAB, HIT_THROW};
+    let mut sim = duel(Fx::ONE);
+    let w = usize::from(sim.content.fighters[1].weapon);
+    let mut grab = sim.content.weapons[w].moves[MoveId::Grab as usize].hitboxes[0];
+    grab.start = 2;
+    grab.end = 5;
+    grab.x = Fx::ONE;
+    grab.y = Fx::ONE;
+    grab.radius = fx(8, 10);
+    grab.kind = HIT_GRAB;
+    grab.targets = sim_core::moves::TARGETS_ALL;
+    grab.command = command;
+    let mut throw = grab;
+    throw.kind = HIT_THROW;
+    throw.start = 10;
+    throw.end = 10;
+    throw.command = false;
+    throw.damage = Fx::from_int(5);
+    throw.angle = 45;
+    throw.base_knockback = 60;
+    throw.knockback_growth = 100;
+    sim.content.weapons[w].moves[MoveId::Ext9 as usize] = Move {
+        total_frames: 30,
+        hitboxes: vec![throw],
+        hold_at: Some((Fx::ONE, Fx::ONE)),
+        ..Move::empty()
+    };
+    sim.content.weapons[w].moves[MoveId::NSpecial as usize] = Move {
+        total_frames: 30,
+        hitboxes: vec![grab],
+        catch_move: Some(MoveId::Ext9 as u8),
+        ..Move::empty()
+    };
+    place(&mut sim);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::NSpecial);
+    sim
+}
+
+/// A command-grab case: its name, where player 1 is put, and player 1's buttons.
+type Case<'a> = (&'a str, &'a dyn Fn(&mut Sim), u16);
+
+/// Runs the command grab's first two frames, keeping player 1 still (`p1` its input).
+fn reach(sim: &mut Sim, p1: Input) {
+    for _ in 0..2 {
+        sim.state.fighters[1].vel = sim_core::Vec2::ZERO;
+        sim.tick2(inp(0, 0, 0), p1);
+    }
+}
+
+#[test]
+fn a_command_grab_catches_airborne_shielding_and_hitstunned_fighters() {
+    let airborne = |sim: &mut Sim| {
+        let x = sim.fighter(1).pos.x;
+        sim.put_airborne(1, x, Fx::ONE, Fx::ZERO, Fx::ZERO);
+    };
+    let shielding = |sim: &mut Sim| {
+        sim.state.fighters[1].state = S::Shield;
+        sim.state.fighters[1].state_frame = 20;
+    };
+    let stunned = |sim: &mut Sim| {
+        let x = sim.fighter(1).pos.x;
+        sim.put_airborne(1, x, Fx::ONE, Fx::ZERO, Fx::ZERO);
+        sim.state.fighters[1].state = S::Hitstun;
+        sim.state.fighters[1].hitstun = 30;
+    };
+    let cases: [Case; 3] = [
+        ("airborne", &airborne, 0),
+        ("shielding", &shielding, SHIELD),
+        ("in hitstun", &stunned, 0),
+    ];
+    for (name, place, p1) in cases {
+        let mut sim = command_grab(true, place);
+        reach(&mut sim, inp(0, 0, p1));
+        assert_eq!(sim.fighter(1).state, S::Grabbed, "{name}");
+        assert_eq!((sim.f().state, sim.f().grab_with), (S::Attack, 1), "{name}");
+        // Next frame the holder is in its catch move, not the ordinary hold.
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(
+            (sim.f().state, sim.f().move_id),
+            (S::Attack, MoveId::Ext9 as u8),
+            "{name}"
+        );
+    }
+    // An ordinary grab box misses the same airborne fighter.
+    let mut sim = command_grab(false, &airborne);
+    reach(&mut sim, inp(0, 0, 0));
+    assert_ne!(sim.fighter(1).state, S::Grabbed);
+}
+
+#[test]
+fn a_command_grab_holds_its_catch_in_the_air_without_a_mash_out_and_throws_it() {
+    // The holder in the air: it stays in the air, the held fighter pinned 1.0 ahead and 1.0 up of its feet.
+    let mut sim = command_grab(true, &|sim: &mut Sim| {
+        sim.put_airborne(0, Fx::from_int(-7), Fx::from_int(10), Fx::ZERO, Fx::ZERO);
+        sim.put_airborne(1, Fx::from_int(-6), Fx::from_int(10), Fx::ZERO, Fx::ZERO);
+    });
+    reach(&mut sim, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).state, S::Grabbed);
+    for n in 0..8 {
+        // The held fighter mashes every button: no effect during a catch move.
+        let mash = if n % 2 == 0 { ATTACK | JUMP | GRAB } else { 0 };
+        sim.tick2(inp(0, 0, 0), inp(127, 0, mash));
+        let (h, v) = (sim.fighter(0), sim.fighter(1));
+        assert!(!h.grounded() && !v.grounded());
+        assert_eq!(v.state, S::Grabbed);
+        assert_eq!(v.pos, h.pos + sim_core::Vec2::new(Fx::ONE, Fx::ONE));
+    }
+    // The throw (frame 10 of the catch) lets go and launches.
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).grab_with, NONE);
+    assert_eq!(sim.fighter(1).state, S::Hitstun);
+    assert_eq!(sim.fighter(1).percent, pct(&sim, 50));
+}

@@ -290,6 +290,10 @@ pub fn update(
         }
         return None;
     }
+    // A move switch decided after last frame's update (a search box, a command grab) only waits for an attack that is still going.
+    if f.state != S::Attack {
+        f.next_move = 0;
+    }
 
     f.airtime = if f.platform == NONE {
         f.airtime.saturating_add(1)
@@ -365,7 +369,8 @@ pub fn enter_helpless(f: &mut Fighter) {
 /// Moves along the ground, stopping at walls and stepping off into the air if the platform ends.
 /// Returns false if the fighter left the ground.
 fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
-    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+    f.touched_wall = collision::move_x(stage, p, &mut f.pos, f.vel.x);
+    if f.touched_wall {
         f.vel.x = Fx::ZERO;
     }
     let Some(plat) = collision::platform(stage, f.platform) else {
@@ -734,6 +739,7 @@ fn move_by(f: &mut Fighter, p: &FighterParams, stage: &Stage, v: Vec2) -> Moved 
     if landing.is_none() && collision::push_out(stage, p, &mut f.pos) {
         wall = true;
     }
+    f.touched_wall = wall;
     Moved {
         landing,
         wall,
@@ -743,6 +749,11 @@ fn move_by(f: &mut Fighter, p: &FighterParams, stage: &Stage, v: Vec2) -> Moved 
 
 /// Air drift, gravity, movement and landing. Returns true if the fighter landed.
 fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
+    air_move_with(f, p, stage, true)
+}
+
+/// [`air_move`], with the fast fall allowed or not (a move's `fast_fall_from`).
+fn air_move_with(f: &mut Fighter, p: &FighterParams, stage: &Stage, fast_fall_ok: bool) -> bool {
     let input = f.history[0];
     if x_active(input) {
         // Air acceleration (reference model): a base value plus an additional value scaled by stick
@@ -762,7 +773,8 @@ fn air_move(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
     }
-    if !f.fast_fall
+    if fast_fall_ok
+        && !f.fast_fall
         && !f.damage_fall
         && f.vel.y <= Fx::ZERO
         && f.hard_down(FAST_FALL_BUFFER)
@@ -1748,11 +1760,37 @@ fn attack(
     stage: &Stage,
     rules: &Ruleset,
 ) -> Option<u8> {
+    // A switch decided last frame after the fighter moved (a search box's contact, a command grab's catch): the new move's first
+    // frame is this one, keeping the speed (as a `goto`).
+    if f.next_move != 0 {
+        let next = f.next_move - 1;
+        f.next_move = 0;
+        begin_attack(f, MoveId::from_index(next));
+        return None;
+    }
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
 
+    // A move with its own turnaround frame (`turn_at`) turns only then, with the stick held back far enough, and in the air its
+    // momentum turns with it; the shared windows below do not apply to it.
+    if let Some((at, stick)) = mv.turn_at {
+        let input = f.history[0];
+        let back = -input.stick_x_fx().mul_int(i32::from(f.facing));
+        if f.state_frame == u16::from(at) && back > Fx::from_ratio(i32::from(stick), 100) {
+            f.facing = -f.facing;
+            if f.platform == NONE {
+                f.vel.x = -f.vel.x;
+            }
+        }
+    }
     // In the first frames of an up special, the stick pushed back turns it around (up and back reverses it).
-    if id == MoveId::UpSpecial && f.state_frame <= u16::from(rules.special_turn_window) {
+    // (An aerial version a special started as counts as that special.)
+    let current = f.move_id;
+    let as_special = |s: MoveId| id == s || weapon.get(s as u8).air_version == Some(current);
+    if as_special(MoveId::UpSpecial)
+        && mv.turn_at.is_none()
+        && f.state_frame <= u16::from(rules.special_turn_window)
+    {
         let input = f.history[0];
         if x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(f.facing) {
             f.facing = -f.facing;
@@ -1760,7 +1798,8 @@ fn attack(
     }
     // A B-reverse: in the first frames of a neutral or side special, the stick pushed the other way turns the fighter round, and in the
     // air its momentum goes the other way too.
-    if matches!(id, MoveId::NSpecial | MoveId::SideSpecial)
+    if (as_special(MoveId::NSpecial) || as_special(MoveId::SideSpecial))
+        && mv.turn_at.is_none()
         && f.state_frame <= u16::from(rules.special_reverse_window)
         && !f.b_reversed
     {
@@ -1876,7 +1915,7 @@ fn attack(
         }
         if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
-            if mv.land_continue {
+            if mv.land_continue || frame < u16::from(mv.lands_from) {
                 // (The move goes on along the ground.)
             } else if mv.landing_move.is_some() {
                 // (A dive with a landing hit, such as a down air: the same rule as any aerial landing.)
@@ -1887,16 +1926,24 @@ fn attack(
                 return None;
             }
         }
-        // A dash along the ground that carries the fighter past the edge leaves the ground.
+        // A dash along the ground that carries the fighter past the edge leaves the ground (and a move with an `off_edge` version
+        // goes on as it, on the same frame).
         if let Some(plat) = collision::platform(stage, f.platform) {
             if f.pos.x < plat.left || f.pos.x > plat.right {
                 f.platform = NONE;
+                if let Some(other) = mv.off_edge {
+                    f.move_id = other;
+                }
             }
         }
     } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
         let plain = plain_landing_lag(f, p);
-        let q = move_air_physics(p, mv);
-        if air_move(f, &q, stage) && !mv.land_continue {
+        let q = move_air_physics(p, mv, frame);
+        let fast_fall_ok = frame >= u16::from(mv.fast_fall_from);
+        if air_move_with(f, &q, stage, fast_fall_ok)
+            && !mv.land_continue
+            && frame >= u16::from(mv.lands_from)
+        {
             // Landing early or late in the move autocancels: only the normal landing lag.
             land_out_of_move(f, mv, frame, plain);
             return None;
@@ -1909,8 +1956,14 @@ fn attack(
             p.ground_friction
         };
         f.vel.x = approach(f.vel.x, Fx::ZERO, friction);
+        let (kept_frame, kept_charge) = (f.state_frame, f.charge);
         if !slide_on_platform(f, p, stage) {
-            return None;
+            // Off the edge: a move with an `off_edge` version goes on as it, on the same frame; any other ends.
+            let other = mv.off_edge?;
+            f.state = S::Attack;
+            f.state_frame = kept_frame;
+            f.charge = kept_charge;
+            f.move_id = other;
         }
     }
 
@@ -1986,24 +2039,39 @@ fn shaped_motion(m: Motion, mv: &Move, air: bool, steer: i8) -> Motion {
     Motion { vx, vy, ..m }
 }
 
-/// The body's air physics with a move's own overrides (`Move::air_gravity` and the rest), for a move running without a motion.
-fn move_air_physics(p: &FighterParams, mv: &Move) -> FighterParams {
+/// The body's air physics with a move's own overrides (`Move::air_gravity` and the rest, or the air block covering move frame
+/// `frame`: `Move::air_blocks`), for a move running without a motion.
+fn move_air_physics(p: &FighterParams, mv: &Move, frame: u16) -> FighterParams {
+    let block = mv
+        .air_blocks
+        .iter()
+        .find(|b| u16::from(b.from) <= frame && frame <= u16::from(b.to));
+    let gravity = block.and_then(|b| b.gravity).or(mv.air_gravity);
+    let max_fall = block.and_then(|b| b.max_fall).or(mv.air_max_fall);
+    let friction = block.and_then(|b| b.friction).or(mv.air_friction);
+    let drift = block.map_or(mv.air_drift, |b| b.drift);
+    let accel = block.map_or(100, |b| b.accel);
     let mut q = *p;
-    if let Some(g) = mv.air_gravity {
+    if let Some(g) = gravity {
         q.gravity = g;
     }
-    if let Some(v) = mv.air_max_fall {
+    if let Some(v) = max_fall {
         q.max_fall_speed = v;
         q.fast_fall_speed = q.fast_fall_speed.max(v);
     }
-    if let Some(fr) = mv.air_friction {
+    if let Some(fr) = friction {
         q.air_friction = fr;
     }
-    if mv.air_drift != 100 {
-        let k = Fx::from_ratio(i32::from(mv.air_drift), 100);
+    if drift != 100 {
+        let k = Fx::from_ratio(i32::from(drift), 100);
         q.air_speed = p.air_speed * k;
         q.air_accel = p.air_accel * k;
         q.air_accel_stick = p.air_accel_stick * k;
+    }
+    if accel != 100 {
+        let k = Fx::from_ratio(i32::from(accel), 100);
+        q.air_accel = q.air_accel * k;
+        q.air_accel_stick = q.air_accel_stick * k;
     }
     q
 }
@@ -2029,11 +2097,17 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     }
     // An up special held up and back comes out the other way (see also `special_turn_window`).
     if id == MoveId::UpSpecial
+        && mv.turn_at.is_none()
         && x_active(input)
         && i32::from(input.stick_x.signum()) == -i32::from(f.facing)
     {
         f.facing = -f.facing;
     }
+    // Started in the air, a special with an aerial version uses it (its own slot).
+    let (id, mv) = match mv.air_version {
+        Some(v) if !f.grounded() => (MoveId::from_index(v), weapon.get(v)),
+        _ => (id, mv),
+    };
     begin_attack(f, id);
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);

@@ -301,8 +301,9 @@ pub struct Hitbox {
     /// Set knockback (the reference's "fixed knockback value"): when above 0 the knockback is worked out as if the victim's percent
     /// were this, whatever it really is, so the hit sends the same distance at any percent. 0 for normal knockback.
     pub fixed_kb: u16,
-    /// Extra hitstun frames this hit adds (the reference's hitstun modifier).
-    pub hitstun_add: u8,
+    /// Hitstun frames this hit adds, or takes away when negative (the reference's hitstun modifier). A launched victim keeps at
+    /// least one frame of hitstun.
+    pub hitstun_add: i16,
     /// Percent of the normal survival-DI distance the victim gets during this hit's hitlag (100 is normal).
     pub sdi: u16,
     /// For the autolink angle: the pull aims this far in front of the hitbox (world units, the way the hit sends), so a carried victim
@@ -325,7 +326,24 @@ pub struct Hitbox {
     /// Percent of the normal shield stun this hit causes on a shield (the reference's per-hitbox shieldstun multiplier; 100 is
     /// normal). It scales the damage part of the stun, before the cap.
     pub shieldstun: u16,
+    /// Which way "forward" (0 degrees) is for this hit's launch (the reference's angle type): [`ANGLE_BY_BOX`] (the default: a box
+    /// behind the attacker sends backward, any other forward), [`ANGLE_FORWARD`] (always the way the attacker faces),
+    /// [`ANGLE_BACKWARD`] (always the other way) or [`ANGLE_BY_POSITION`] (away from the attacker, from the side the victim is on).
+    /// For a projectile the attacker is the projectile: its direction of travel, and its own position.
+    pub angle_type: u8,
+    /// A command grab (on a [`HIT_GRAB`] box): it catches fighters in the air too, shielding or in hitstun (`grab::catchable`), and
+    /// the holder goes on with its move's `Move::catch_move` instead of the ordinary hold.
+    pub command: bool,
+    /// The hit can clank with other attacks and projectiles (the reference's `clang`). False: it never clanks (the reference's
+    /// no-clank hits, and a projectile's transcendent priority): it trades instead.
+    pub clanks: bool,
 }
+
+/// `Hitbox::angle_type` values.
+pub const ANGLE_BY_BOX: u8 = 0;
+pub const ANGLE_FORWARD: u8 = 1;
+pub const ANGLE_BACKWARD: u8 = 2;
+pub const ANGLE_BY_POSITION: u8 = 3;
 
 /// `Hitbox::aim` values.
 pub const AIM_ANY: u8 = 0;
@@ -360,6 +378,9 @@ impl Hitbox {
         self.reverse = false;
         self.push = false;
         self.shieldstun = 100;
+        self.angle_type = ANGLE_BY_BOX;
+        self.command = false;
+        self.clanks = true;
         self
     }
 }
@@ -376,6 +397,9 @@ pub const HIT_GRAB: u8 = 1;
 pub const HIT_THROW: u8 = 2;
 /// Damages the fighter being held without releasing it.
 pub const HIT_PUMMEL: u8 = 3;
+/// A search box (the reference's "search" collision): touching a fighter's hurtbox does nothing to it (no damage, hitlag or clank;
+/// shields do not matter), but switches the attacker's move to its `Move::on_search` on the next frame, keeping its speed.
+pub const HIT_SEARCH: u8 = 4;
 
 /// Scripted movement during a move (for example a rising special). While active it overrides
 /// the fighter's velocity; `vx` is relative to facing.
@@ -520,6 +544,50 @@ pub struct PartIntangible {
     pub parts: u8,
 }
 
+/// Air physics for move frames `from..=to` of a move that runs without a motion: gravity, top fall speed and air friction
+/// (`None`: the move's flat value, else the body's), the percent of the body's air speed and acceleration kept (`drift`), and a further
+/// percent on the acceleration alone (`accel`: the reference's horizontal acceleration multiplier, x6 is 600).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AirBlock {
+    pub from: u8,
+    pub to: u8,
+    pub gravity: Option<Fx>,
+    pub max_fall: Option<Fx>,
+    pub friction: Option<Fx>,
+    pub drift: u8,
+    pub accel: u16,
+}
+
+/// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
+/// move. `kind` says which hits it withstands: [`ARMOR_SUPER`] every hit, [`ARMOR_DAMAGE`] a hit dealing at most `threshold` percent
+/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] (the reference's knockback-subtracting
+/// armor: not built yet, refused by validation). Grabs ignore armor; a push still pushes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Armor {
+    pub start: u8,
+    pub end: u8,
+    pub kind: u8,
+    pub threshold: Fx,
+}
+
+/// `Armor::kind` values.
+pub const ARMOR_SUPER: u8 = 0;
+pub const ARMOR_DAMAGE: u8 = 1;
+pub const ARMOR_KNOCKBACK: u8 = 2;
+
+impl Armor {
+    /// Whether this armor, on move frame `frame`, withstands a hit dealing `damage` percent (before the damage multiplier).
+    pub fn withstands(&self, frame: u16, damage: Fx) -> bool {
+        let inside = u16::from(self.start) <= frame && frame <= u16::from(self.end);
+        inside
+            && match self.kind {
+                ARMOR_SUPER => true,
+                ARMOR_DAMAGE => damage <= self.threshold,
+                _ => false,
+            }
+    }
+}
+
 /// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
 /// attack throws out (the arm or leg reaching toward the move's hitboxes).
 pub const PART_LOW: u8 = 1;
@@ -582,8 +650,36 @@ pub struct Move {
     pub intangible_from_air: u8,
     /// Touching down during the move does not end it: the fighter lands and the move carries on along the ground.
     pub land_continue: bool,
+    /// Frame-ranged air physics (the reference's per-frame move parameters): on move frames `from..=to` of a block, its values replace
+    /// the flat `air_*` ones above (the first block that covers the frame; empty for none). See [`AirBlock`].
+    pub air_blocks: Vec<AirBlock>,
+    /// A fast fall is only possible from this move frame on (0: any frame, as before).
+    pub fast_fall_from: u8,
+    /// The move's own turnaround (the reference's per-move B-reverse frame): on move frame `.0` the stick held backward past `.1`
+    /// percent turns the fighter round (in the air its horizontal speed too). It replaces the shared up-special turn window, the
+    /// up-and-back start and the B-reverse window for this move. `None`: the shared rules.
+    pub turn_at: Option<(u8, u8)>,
+    /// Touching down before this move frame does not end the move (it lands and carries on, as `land_continue`); 0: no such window.
+    pub lands_from: u8,
     /// Windows in which part of the body cannot be hit (a kicking leg, a headbutting head); empty for none.
     pub part_intangible: Vec<PartIntangible>,
+    /// Armor while the move runs (see [`Armor`]); `None` for none.
+    pub armor: Option<Armor>,
+    /// The move (usually an `ext` slot) a search box of this move switches to when it touches someone (see [`HIT_SEARCH`]): it starts
+    /// on the next frame, with the speed the fighter had.
+    pub on_search: Option<u8>,
+    /// A special started in the air uses this slot instead (its aerial version, with its own frames and hits); `None`: the same move.
+    pub air_version: Option<u8>,
+    /// The move a command grab of this move goes on with when it catches someone (see `Hitbox::command`): it starts on the next frame,
+    /// the holder keeping its speed and staying in the air if it is there.
+    pub catch_move: Option<u8>,
+    /// A ground move that goes over an edge goes on as this move instead (usually an `ext` slot: the reference's version for leaving
+    /// the ground, with its own FAF), on the same frame, keeping its hits so far. `None`: it goes on as itself (a motion) or ends
+    /// (no motion), as before.
+    pub off_edge: Option<u8>,
+    /// Where a fighter held during this move is pinned: (forward, up) from the holder's feet. `None`: the ordinary hold, the ruleset's
+    /// `grab_distance` in front on the holder's platform.
+    pub hold_at: Option<(Fx, Fx)>,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -644,7 +740,17 @@ impl Move {
             intangible_from: 0,
             intangible_from_air: 255,
             land_continue: false,
+            air_blocks: Vec::new(),
+            fast_fall_from: 0,
+            turn_at: None,
+            lands_from: 0,
             part_intangible: Vec::new(),
+            armor: None,
+            on_search: None,
+            air_version: None,
+            catch_move: None,
+            off_edge: None,
+            hold_at: None,
             charge_at: None,
             next: None,
             next_window: 0,
@@ -726,7 +832,7 @@ impl StateHash for Hitbox {
         h.write_u8(self.effect);
         h.write_u8(self.targets);
         h.write_u16(self.fixed_kb);
-        h.write_u8(self.hitstun_add);
+        h.write_u16(self.hitstun_add as u16);
         h.write_u16(self.sdi);
         self.link_ahead.hash_into(h);
         h.write_u8(self.aim);
@@ -734,6 +840,9 @@ impl StateHash for Hitbox {
         h.write_bool(self.reverse);
         h.write_bool(self.push);
         h.write_u16(self.shieldstun);
+        h.write_u8(self.angle_type);
+        h.write_bool(self.command);
+        h.write_bool(self.clanks);
     }
 }
 
@@ -819,11 +928,64 @@ impl StateHash for Weapon {
                 }
             }
             h.write_bool(m.land_continue);
+            h.write_u32(m.air_blocks.len() as u32);
+            for b in &m.air_blocks {
+                h.write_u8(b.from);
+                h.write_u8(b.to);
+                for v in [b.gravity, b.max_fall, b.friction] {
+                    match v {
+                        Some(x) => {
+                            h.write_bool(true);
+                            x.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                }
+                h.write_u8(b.drift);
+                h.write_u16(b.accel);
+            }
+            h.write_u8(m.fast_fall_from);
+            match m.turn_at {
+                Some((frame, stick)) => {
+                    h.write_bool(true);
+                    h.write_u8(frame);
+                    h.write_u8(stick);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.lands_from);
             h.write_u32(m.part_intangible.len() as u32);
             for w in &m.part_intangible {
                 h.write_u8(w.start);
                 h.write_u8(w.end);
                 h.write_u8(w.parts);
+            }
+            match &m.armor {
+                Some(a) => {
+                    h.write_bool(true);
+                    h.write_u8(a.start);
+                    h.write_u8(a.end);
+                    h.write_u8(a.kind);
+                    a.threshold.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            match m.hold_at {
+                Some((x, y)) => {
+                    h.write_bool(true);
+                    x.hash_into(h);
+                    y.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            for slot in [m.on_search, m.air_version, m.catch_move, m.off_edge] {
+                match slot {
+                    Some(id) => {
+                        h.write_bool(true);
+                        h.write_u8(id);
+                    }
+                    None => h.write_bool(false),
+                }
             }
             match m.charge_at {
                 Some(f) => {
@@ -951,6 +1113,9 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 reverse: false,
                 push: false,
                 shieldstun: 100,
+                angle_type: ANGLE_BY_BOX,
+                command: false,
+                clanks: true,
             })
             .collect(),
         ..Move::empty()
@@ -1001,6 +1166,9 @@ fn row(r: &R) -> Hitbox {
         reverse: false,
         push: false,
         shieldstun: 100,
+        angle_type: ANGLE_BY_BOX,
+        command: false,
+        clanks: true,
     }
 }
 
@@ -1093,6 +1261,25 @@ pub fn longsword() -> Weapon {
     );
     w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
     tipper_last(&mut w);
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it, the only ones where the type can change where a hit sends: by position (type 0) for the up tilt, up and
+    // down smash, neutral, up and down air and the get-up attack; forward (3) for the forward smash and forward air. The back air
+    // is type 3 too, but the reference fighter has turned round when it hits, so from its starting facing it sends backward.
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::UTilt, ANGLE_BY_POSITION),
+            (MoveId::FSmash, ANGLE_FORWARD),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
     w
 }
 
@@ -1834,6 +2021,22 @@ fn set_rows(mv: &mut Move, rows: &[usize], f: impl Fn(&mut Hitbox)) {
     }
 }
 
+/// Gives every damaging hitbox of each move its reference angle type (`Hitbox::angle_type`): `(move, type)` pairs.
+fn angle_types(w: &mut Weapon, moves: &[(MoveId, u8)]) {
+    for &(id, t) in moves {
+        for hb in &mut w.moves[id as usize].hitboxes {
+            if hb.kind == HIT_NORMAL {
+                hb.angle_type = t;
+            }
+        }
+    }
+}
+
+/// Gives the hitboxes `rows` of move `id` the angle type `t`.
+fn angle_type_rows(w: &mut Weapon, id: MoveId, rows: &[usize], t: u8) {
+    set_rows(&mut w.moves[id as usize], rows, |h| h.angle_type = t);
+}
+
 /// The Needles moveset (the rogue body): quick kicks and chops, modelled mechanically on the reference rogue. The priority
 /// moves (forward, up and down tilt; neutral, forward, back, up and down air) follow the reference frame for frame: frames, damage,
 /// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
@@ -2349,6 +2552,34 @@ pub fn needles() -> Weapon {
     bounce.grabs_ledge = true;
     w.moves[MoveId::Ext5 as usize] = bounce;
 
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it: forward (type 3) for the forward tilt, the up tilt's first hit, the forward air, the down air's landing
+    // hit and both down-special kicks; by position (0) for the up tilt's second hit, the down tilt, up smash, neutral air, down air
+    // and the up special; backward (4) for the back air and the down smash's boxes behind (its front ones forward); the up air's
+    // grounded loop box forward, its aerial loop box and final hit by position. (The dash attack is the earlier game's, kept at the
+    // default; the get-up attack is the claws'.)
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::FTilt, ANGLE_FORWARD),
+            (MoveId::DTilt, ANGLE_BY_POSITION),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::Ext0, ANGLE_FORWARD),
+            (MoveId::UpSpecial, ANGLE_BY_POSITION),
+            (MoveId::DownSpecial, ANGLE_FORWARD),
+            (MoveId::Ext6, ANGLE_FORWARD),
+        ],
+    );
+    angle_type_rows(&mut w, MoveId::UTilt, &[0, 1, 2], ANGLE_FORWARD);
+    angle_type_rows(&mut w, MoveId::UTilt, &[3, 4, 5], ANGLE_BY_POSITION);
+    angle_type_rows(&mut w, MoveId::DSmash, &[0, 1, 4], ANGLE_FORWARD);
+    angle_type_rows(&mut w, MoveId::DSmash, &[2, 3, 5], ANGLE_BACKWARD);
+    angle_type_rows(&mut w, MoveId::UAir, &[0], ANGLE_FORWARD);
+    angle_type_rows(&mut w, MoveId::UAir, &[1, 2], ANGLE_BY_POSITION);
     w
 }
 
@@ -2769,6 +3000,31 @@ pub fn embers() -> Weapon {
     w.moves[MoveId::GetUpAttack as usize] = getup;
 
     embers_specials(&mut w);
+
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it: forward (type 3) for jab 2, the forward tilt, forward air and up special; backward (4) for the back air;
+    // by position (0) for the up tilt, up and down smash, neutral, up and down air, the down air's landing hit, the back throw's
+    // hits on bystanders, the ledge attack and the get-up attack.
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::Jab2, ANGLE_FORWARD),
+            (MoveId::FTilt, ANGLE_FORWARD),
+            (MoveId::UTilt, ANGLE_BY_POSITION),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::Ext0, ANGLE_BY_POSITION),
+            (MoveId::UpSpecial, ANGLE_FORWARD),
+            (MoveId::BThrow, ANGLE_BY_POSITION),
+            (MoveId::LedgeAttack, ANGLE_BY_POSITION),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
     w
 }
 
@@ -3300,6 +3556,9 @@ pub fn claws() -> Weapon {
             reverse: false,
             push: false,
             shieldstun: 100,
+            angle_type: ANGLE_BY_BOX,
+            command: false,
+            clanks: true,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3565,12 +3824,39 @@ pub fn claws() -> Weapon {
         ),
         HIT_THROW,
     );
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it: by position (type 0) for the up and down tilt, up and down smash, neutral, up and down air, the up
+    // special's wind-up hit, the reflector's hit and the get-up attack; backward (4) for the back air; forward (3) for the up
+    // special's last hits. (The up special's looping hits are the reference's type 1, from the direction of travel, which is not
+    // built: they keep the default, from the facing.)
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::UTilt, ANGLE_BY_POSITION),
+            (MoveId::DTilt, ANGLE_BY_POSITION),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::DownSpecial, ANGLE_BY_POSITION),
+            (MoveId::Ext0, ANGLE_FORWARD),
+            (MoveId::Ext1, ANGLE_FORWARD),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
+    angle_type_rows(&mut w, MoveId::UpSpecial, &[0], ANGLE_BY_POSITION);
     w
 }
 
 #[path = "moves_gauntlets.rs"]
 mod gauntlets;
 pub use gauntlets::gauntlets;
+
+#[path = "moves_staff.rs"]
+mod staff;
+pub use staff::staff;
 
 #[cfg(test)]
 mod tests {
@@ -3600,7 +3886,10 @@ mod tests {
                         "{}",
                         MoveId::from_index(i as u8).name()
                     );
-                    assert!((hb.damage > Fx::ZERO || hb.kind == HIT_GRAB) && hb.radius > Fx::ZERO);
+                    assert!(
+                        (hb.damage > Fx::ZERO || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
+                            && hb.radius > Fx::ZERO
+                    );
                 }
             }
         }
