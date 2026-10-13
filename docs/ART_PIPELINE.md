@@ -993,3 +993,13 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   kicks and stance the hand is up by the shoulder (`GREAT_REST_HAND`) and the blade lies back across the back (`GREAT_REST_ANGLE` 152,
   behind the body: `great_z` eases the hand behind and in front); a swing brings it up off the shoulder and round in front.
   `champion_shoulder_carry.png`. (The longsword keeps its raised guard: it is small enough not to block the view.)
+
+## Menus closer to the world (forty-fourth pass)
+
+- **Menu islands** (`MenuArt.island`): warm earth under vivid turf, as the stages' floating islands, with a pale strata band under the
+  turf, stones lit on their upper left and roots from under the lip; the select screen's pedestals in the stages' lime green.
+  `menu_islands_before.png` / `menu_islands_after.png`.
+- **The main menu's palette**: the four destination tiles in one related, slightly softened family (coral Play, cobalt Online, plum
+  Replays, leaf Creator); Controls, Editors and Quit share one deep indigo so they recede behind them, rather than six unrelated
+  saturated colours side by side. Every card (`MenuArt.card`) has a few long brushed strokes in a shade of its own colour and a warm bounce
+  of light along its bottom edge. `menu_main_before.png` / `menu_main_after.png`.
