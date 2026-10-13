@@ -887,9 +887,12 @@ def periodic(table, t):
 
 # One leg through a running stride, by its own phase: contact (heel down in front), down (the weight lands, knee bends), push off (leg
 # straight behind), the heel kicks right up behind, then the knee drives high in front and the leg reaches out for the next contact.
-RUN_THIGH = [(0.0, 42.0), (0.12, 22.0), (0.32, -38.0), (0.46, -52.0), (0.6, -18.0), (0.78, 82.0), (0.9, 70.0)]
-RUN_SHIN = [(0.0, -12.0), (0.12, -40.0), (0.32, -14.0), (0.46, -70.0), (0.6, -128.0), (0.78, -112.0), (0.9, -34.0)]
-RUN_FOOT = [(0.0, 12.0), (0.12, -4.0), (0.32, -26.0), (0.46, -44.0), (0.6, -30.0), (0.78, 24.0), (0.9, 20.0)]
+# The foot is down only briefly (contact to push-off is 0.18 of the cycle) and the rest is flight: the stubby legs can only sweep so far,
+# so a short stance is what keeps the planted foot from sliding at the fighters' running speeds (motion plan phase 4, measured by
+# godot/tests/motion_probe.gd).
+RUN_THIGH = [(0.0, 42.0), (0.06, 24.0), (0.18, -40.0), (0.32, -56.0), (0.5, -20.0), (0.74, 82.0), (0.88, 70.0)]
+RUN_SHIN = [(0.0, -12.0), (0.06, -40.0), (0.18, -14.0), (0.32, -70.0), (0.5, -128.0), (0.74, -112.0), (0.88, -34.0)]
+RUN_FOOT = [(0.0, 12.0), (0.06, -4.0), (0.18, -26.0), (0.32, -44.0), (0.5, -30.0), (0.74, 24.0), (0.88, 20.0)]
 
 
 def run_pose(phase, lean=24.0, stride=1.0, arms=1.0, bounce=0.085):
@@ -909,8 +912,8 @@ def run_pose(phase, lean=24.0, stride=1.0, arms=1.0, bounce=0.085):
             pose(rig, "armU." + side, fwd=arms * (-58.0 * swing + 8.0), out=16.0 + 10.0 * forward)
             pose(rig, "armL." + side, fwd=arms * (62.0 + 46.0 * forward))
             pose(rig, "hand." + side, fwd=10.0 * swing)
-        # Two steps a cycle: lowest just after each landing (0.12, 0.62), highest in the flight between them.
-        step = math.cos((phase - 0.37) * 4.0 * math.pi)
+        # Two steps a cycle: lowest just after each landing (0.06, 0.56), highest in the flight between them.
+        step = math.cos((phase - 0.31) * 4.0 * math.pi)
         pose(rig, "hips", lift=bounce * step - bounce * 0.3, twist=-11.0 * math.sin(phase * 2.0 * math.pi))
         pose(rig, "spine", fwd=lean - 5.0 * step, twist=15.0 * math.sin(phase * 2.0 * math.pi))
         pose(rig, "head", fwd=-lean * 0.45 + 7.0 * step, twist=-9.0 * math.sin(phase * 2.0 * math.pi))
@@ -1596,9 +1599,9 @@ def main() -> None:
 
     clip(rig, "walk", 40, {i: walk(i / 40.0) for i in range(0, 41, 2)})
     # The run: a key every other frame so the snappy gait survives interpolation.
-    clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21, 2)})
+    clip(rig, "run", 20, {i: run_pose(i / 20.0) for i in range(0, 21)})
     # The initial dash: the same stride, launched lower and further forward, arms flung harder.
-    clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17, 2)})
+    clip(rig, "dash", 16, {i: run_pose(i / 16.0, lean=32.0, stride=1.1, arms=1.15, bounce=0.06) for i in range(0, 17)})
 
     # A skid: braking out of a run to turn around. Leaning back hard on a planted front heel, the back knee bent low, arms flung back and
     # up for balance; a little wobble so it is alive.

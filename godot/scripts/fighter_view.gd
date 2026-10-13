@@ -190,7 +190,7 @@ var current_clip := ""
 ## The dash and run share one stride, set by this fighter's initial dash: a dash is one bounding step (from the push-off at
 ## `DASH_STEP_FROM` to the other foot landing half a cycle later) that lands as the dash ends, and the run goes on at two dash lengths
 ## a cycle, its legs turning over with the speed.
-const DASH_STEP_FROM := 0.12
+const DASH_STEP_FROM := 0.06
 var gait_frame := -1
 ## Parents of the face / hat / glasses (they follow the head bone) and of the neckwear (it follows the torso). Without a rig both are
 ## simply the model.
@@ -373,6 +373,9 @@ func _build_rig(skin: Material) -> bool:
 ## many frames; a fidget after this many frames standing still, for its length, every so often; a platform drop's hop over its first
 ## frames; the heavy hitstun pose for knockback faster than this.
 const RUN_STOP_SPEED := 0.04
+## The walk clip plays once a cycle at this ground speed (units a frame), faster or slower with the speed: quick enough that the planted
+## foot slides only about a third of the ground speed on the short legs (motion plan phase 4), not so quick that the walk scurries.
+const WALK_TEMPO := 0.07
 const RUN_STOP_FRAMES := 20.0
 const FIDGET_AFTER := 300
 const FIDGET_EVERY := 420
@@ -390,7 +393,7 @@ func _choose_clip(s: Dictionary) -> Array:
 	var speed := absf(float(s.vel.x))
 	match state:
 		"Walk":
-			return ["walk", clampf(speed / 0.09, 0.5, 2.4), -1.0]
+			return ["walk", clampf(speed / WALK_TEMPO, 0.5, 3.0), -1.0]
 		"Run", "Dash":
 			# Cycles a second (two dash lengths each) times the clip's length in seconds.
 			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))
@@ -1828,9 +1831,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if (state == "Run" or state == "Dash") and anim != null and (current_clip == "run" or current_clip == "dash"):
 		var length := anim.get_animation(current_clip).length
 		var phase := fmod(anim.current_animation_position / maxf(length, 0.001), 1.0)
-		step_squash = 0.07 * cos((phase - 0.12) * 4.0 * PI)
-		# A puff of dust behind each foot as it lands (at 0.12 and 0.62 of the cycle).
-		for land_at in [0.12, 0.62]:
+		step_squash = 0.07 * cos((phase - 0.06) * 4.0 * PI)
+		# A puff of dust behind each foot as it lands (at 0.06 and 0.56 of the cycle).
+		for land_at in [0.06, 0.56]:
 			var crossed: bool = (last_step_phase < land_at and phase >= land_at) or (last_step_phase > phase and (phase >= land_at or last_step_phase < land_at))
 			if crossed and grounded and not dusts.is_empty():
 				_puff(-float(facing), 1)
