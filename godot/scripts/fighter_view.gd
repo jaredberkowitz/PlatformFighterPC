@@ -662,7 +662,7 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 				target_bend = -minf((phi - 100.0) * 0.85, 26.0 if use_base_body else 50.0)
 			elif phi < -40.0:
 				# (Less: kicks behind already lean the body forward in their clips.)
-				target_bend = minf((-40.0 - phi) * 0.4, 24.0)
+				target_bend = minf((-40.0 - phi) * 0.4, 10.0 if use_base_body else 24.0)
 		else:
 			# An arm reaches almost anywhere: lean into low swings in front, a little back from ones overhead or behind.
 			if phi > 0.0 and phi < 80.0:

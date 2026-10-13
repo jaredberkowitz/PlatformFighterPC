@@ -2173,11 +2173,11 @@ def main() -> None:
             {"spine": (-10.0, 0.0), "head": (2.0, 0.0), "stance": (84.0, 58.0), "shin.L": (-4.0,), "shin.R": (-122.0,),
              "foot.L": (-30.0,), "foot.R": (34.0,), "arms": (-18.0, 76.0)},
             {"spine": (-4.0, 0.0), "stance": (70.0, 56.0), "shin.L": (-20.0,), "shin.R": (-116.0,), "arms": (-8.0, 60.0)})
-    # Back air: lean forward and drive the heel back.
+    # Back air: lean forward and drive the heel back (not so far forward, nor twisted, that the big head shows its crown).
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
-            {"spine": (32.0, -24.0), "head": (-20.0, 34.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
-            {"spine": (18.0, 0.0), "stance": (30.0, 0.0)})
+            {"spine": (14.0, -10.0), "head": (-6.0, 10.0), "stance": (50.0, -20.0), "shin.L": (-80.0,), "arms": (60.0, 30.0)},
+            {"spine": (10.0, 0.0), "stance": (30.0, 0.0)})
     # Up air: a flip kick, arching back as the leg goes up.
     move_of("kick_uair",
             {"spine": (24.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (20.0, 20.0)},
