@@ -769,6 +769,7 @@ fn apply_hit(
     def.hitstun = stun;
     def.launch_pending = true;
     def.launch_kb = kb;
+    def.launch_set = hb.fixed_kb > 0;
     def.launch_angle = angle.raw();
     def.link = link_hit;
     def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);

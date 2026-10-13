@@ -2027,10 +2027,13 @@ fn launch_speedup(f: &Fighter, rules: &Ruleset) -> Fx {
 
 /// The gravity and fall speed of a launched fighter: for the first frames of a launch every fighter falls alike, and a launch close
 /// to straight up falls at its own fixed speed for the whole hitstun.
+///
+/// A set-knockback launch keeps the plain physics: no shared vertical fall speed (the reference's rule).
 fn launch_fall(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> (Fx, Fx) {
     let degrees = i32::from(f.launch_angle) * 360 / 4096;
-    if (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
-        .contains(&degrees)
+    if !f.launch_set
+        && (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
+            .contains(&degrees)
     {
         return (p.gravity, rules.vertical_launch_fall);
     }
@@ -2385,9 +2388,14 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     }
     f.vel = Vec2::ZERO;
     f.launch_pending = false;
-    // A tumbling launch is sped up at first (see `launch_speedup`).
+    // A tumbling launch is sped up at first (see `launch_speedup`), unless it is from set knockback (the reference: those keep the
+    // plain launch physics).
     let faf = f.hitstun + 1;
-    if f.tumble && faf > u16::from(rules.balloon_min_faf) && rules.balloon_max > Fx::ONE {
+    if f.tumble
+        && !f.launch_set
+        && faf > u16::from(rules.balloon_min_faf)
+        && rules.balloon_max > Fx::ONE
+    {
         f.balloon_faf = faf.min(u16::from(rules.balloon_max_faf)) as u8;
         f.balloon_left = Fx::from_int(i32::from(faf));
     } else {

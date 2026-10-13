@@ -354,3 +354,38 @@ fn a_set_weight_hit_launches_light_and_heavy_fighters_alike() {
     assert!(launch(2, false) > launch(1, false));
     assert!((launch(2, true) - launch(1, true)).abs() <= Fx::from_raw(64));
 }
+
+#[test]
+fn a_set_knockback_launch_keeps_the_plain_launch_physics() {
+    // The reference: launches of over 32 frames of hitstun are sped up at first, except from set knockback, which also keeps the
+    // fighter's own fall speed on a vertical launch. (Sim 59.)
+    let launch = |fixed_kb: u16| {
+        let mut h = hb(2, 2, 5, 50, 0, 100, 0);
+        h.fixed_kb = fixed_kb;
+        if fixed_kb == 0 {
+            // About the same knockback without set knockback.
+            h.base_knockback = 120;
+        }
+        let mut sim = setup(mv(30, vec![h]));
+        start(&mut sim);
+        for _ in 0..30 {
+            sim.tick(inp(0, 0, 0));
+            if sim.fighter(1).state == S::Hitstun && !sim.fighter(1).launch_pending {
+                break;
+            }
+        }
+        (
+            sim.fighter(1).launch_kb,
+            sim.fighter(1).hitstun,
+            sim.fighter(1).balloon_faf,
+            sim.fighter(1).launch_set,
+        )
+    };
+    let (kb, stun, balloon, set) = launch(150);
+    assert!(set);
+    assert!(stun > 32, "a long hitstun: {stun} from {kb:?}");
+    assert_eq!(balloon, 0, "no speed-up");
+    let (_, stun, balloon, set) = launch(0);
+    assert!(!set && stun > 32);
+    assert!(balloon > 0, "a normal launch of that strength is sped up");
+}

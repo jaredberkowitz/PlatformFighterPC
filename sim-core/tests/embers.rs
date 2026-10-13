@@ -863,3 +863,219 @@ fn random_play_with_the_tumbler_is_deterministic_and_rolls_back() {
         assert_eq!(r.checksum(), straight.checksum(), "seed {seed}");
     }
 }
+
+// ---- Up special: the rising punch (phase 2) -----------------------------------------------------------------------------------
+
+#[test]
+fn the_rising_punch_has_the_references_hits() {
+    use sim_core::moves::{TARGETS_AERIAL, TARGETS_ALL};
+    let sim = duel();
+    let mv = embers(&sim).get(MoveId::UpSpecial as u8);
+    // (reference frames, group, damage in tenths, angle, BK, KS, set knockback, set weight, SDI, targets)
+    let rows: Vec<_> = mv
+        .hitboxes
+        .iter()
+        .map(|h| {
+            (
+                (h.start + 1, h.end + 1, h.group),
+                (h.damage * Fx::from_int(10) + Fx::from_ratio(1, 100)).floor_int(),
+                (h.angle, h.base_knockback, h.knockback_growth, h.fixed_kb),
+                (h.set_weight, h.sdi, h.targets),
+            )
+        })
+        .collect();
+    let set = (true, 0, TARGETS_ALL);
+    assert_eq!(
+        rows,
+        vec![
+            ((3, 6, 0), 50, (60, 0, 100, 160), (true, 0, TARGETS_AERIAL)),
+            ((3, 6, 0), 50, (86, 0, 100, 150), set),
+            ((3, 6, 0), 50, (100, 0, 100, 150), set),
+            ((7, 16, 1), 6, (60, 0, 100, 180), set),
+            ((7, 16, 1), 6, (92, 0, 100, 170), set),
+            ((7, 16, 1), 6, (60, 0, 100, 110), set),
+            ((7, 16, 1), 6, (92, 0, 100, 110), set),
+            ((17, 18, 2), 30, (60, 50, 145, 0), (false, 100, TARGETS_ALL)),
+            ((17, 18, 2), 30, (60, 50, 145, 0), (false, 100, TARGETS_ALL)),
+        ]
+    );
+    // Hits 2-6 land again every 2 frames from frame 7 (on 7, 9, 11, 13 and 15); hits 1 and 7 once.
+    assert_eq!(mv.rehit, Some((6, 2)));
+    assert_eq!(mv.rehit_groups, 0b10);
+    // The hit radii, converted [D]: 2.5 / 4.0 / 4.0, 3.0 / 3.8 / 3.0 / 3.8 and 9.0 reference units.
+    let radii: Vec<i32> = mv
+        .hitboxes
+        .iter()
+        .map(|h| (h.radius * Fx::from_int(10) + Fx::from_ratio(1, 100)).floor_int())
+        .collect();
+    assert_eq!(radii, vec![3, 5, 5, 4, 5, 4, 5, 11, 11]);
+}
+
+/// The tumbler using its up special with a duelist floating at `(dx, dy)` from it; the ticks on which the duelist's percent rose.
+fn rising_punch_hits(dx: Fx, dy: Fx, attacker_percent: Fx) -> (Vec<usize>, Sim) {
+    let mut sim = duel();
+    sim.stand(0, fx(-3, 1), 1);
+    sim.state.fighters[0].percent = attacker_percent;
+    sim.put_airborne(1, fx(-3, 1) + dx, dy, Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[1].facing = -1;
+    let mut ticks = Vec::new();
+    let mut last = Fx::ZERO;
+    for t in 1..=80 {
+        sim.tick(if t == 1 {
+            inp(0, 127, sim_core::input::buttons::SPECIAL)
+        } else {
+            inp(0, 0, 0)
+        });
+        if sim.fighter(1).percent > last {
+            last = sim.fighter(1).percent;
+            ticks.push(t);
+        }
+    }
+    (ticks, sim)
+}
+
+#[test]
+fn the_rising_punch_carries_a_fighter_through_all_seven_hits_for_11_percent() {
+    let (ticks, sim) = rising_punch_hits(fx(6, 10), fx(6, 10), Fx::ZERO);
+    assert_eq!(ticks.len(), 7, "{ticks:?}");
+    assert_eq!(ticks[0], 3, "the first hit on frame 3");
+    let total = sim.fighter(1).percent;
+    assert!(
+        (total - dealt(&sim, 110)).abs() < Fx::from_ratio(1, 100),
+        "{total:?}"
+    );
+}
+
+#[test]
+fn the_rising_punchs_set_knockback_ignores_rage() {
+    let (_, calm) = rising_punch_hits(fx(6, 10), fx(6, 10), Fx::ZERO);
+    let (_, raging) = rising_punch_hits(fx(6, 10), fx(6, 10), Fx::from_int(150));
+    // Up to the last hit (whose knockback is not set) the two victims are thrown exactly alike; the angry one's last hit is harder.
+    let first_launch = |ticks_to: usize, rage: Fx| {
+        let mut sim = duel();
+        sim.stand(0, fx(-3, 1), 1);
+        sim.state.fighters[0].percent = rage;
+        sim.put_airborne(1, fx(-24, 10), fx(6, 10), Fx::ZERO, Fx::ZERO);
+        sim.tick(inp(0, 127, sim_core::input::buttons::SPECIAL));
+        sim.ticks(ticks_to - 1, inp(0, 0, 0));
+        sim.fighter(1).launch_kb
+    };
+    assert_eq!(
+        first_launch(3, Fx::ZERO),
+        first_launch(3, Fx::from_int(150))
+    );
+    assert!(raging.fighter(1).launch_kb >= calm.fighter(1).launch_kb);
+}
+
+#[test]
+fn the_rising_punch_is_intangible_on_frames_3_to_6() {
+    for air in [false, true] {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(9), -1);
+        if air {
+            sim.put_airborne(0, fx(-3, 1), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+        } else {
+            sim.stand(0, fx(-3, 1), 1);
+        }
+        let mut seen = Vec::new();
+        for t in 1..=10 {
+            sim.tick(if t == 1 {
+                inp(0, 127, sim_core::input::buttons::SPECIAL)
+            } else {
+                inp(0, 0, 0)
+            });
+            if sim_core::combat::is_intangible(sim.f()) {
+                seen.push(t);
+            }
+        }
+        assert_eq!(seen, vec![3, 4, 5, 6], "air {air}");
+    }
+}
+
+#[test]
+fn the_rising_punch_ends_in_a_special_fall_drifting_at_0_6_that_lands_with_30_frames_of_lag() {
+    let mut sim = duel();
+    sim.put_airborne(0, fx(-2, 1), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(0, 127, sim_core::input::buttons::SPECIAL));
+    sim.ticks(35, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "tick 36");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Helpless, "the 37-frame animation is over");
+    for _ in 0..60 {
+        sim.tick(inp(127, 0, 0));
+    }
+    let cap = sim.content.fighters[usize::from(TUMBLER)].air_speed * fx(6, 10);
+    assert!(sim.f().vel.x > Fx::ZERO && sim.f().vel.x <= cap + Fx::from_raw(64));
+    sim.state.fighters[0].pos = Vec2::new(Fx::ZERO, fx(5, 10));
+    for _ in 0..30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Landing {
+            break;
+        }
+    }
+    assert_eq!(sim.f().lag, 30);
+}
+
+/// The tick the tumbler catches the left ledge using its up special while held in reach of it (1.2 outside, 1.8 below, put back
+/// there before every frame), facing `facing`.
+fn rising_punch_ledge_tick(facing: i8) -> Option<usize> {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(9), -1);
+    let hold = |sim: &mut Sim| {
+        sim.state.fighters[0].pos = Vec2::new(fx(-122, 10), fx(-18, 10));
+        sim.state.fighters[0].platform = sim_core::state::NONE;
+    };
+    hold(&mut sim);
+    sim.state.fighters[0].state = S::Airborne;
+    sim.state.fighters[0].facing = facing;
+    sim.tick(inp(0, 127, sim_core::input::buttons::SPECIAL));
+    (2..=37).find(|_| {
+        hold(&mut sim);
+        sim.tick(inp(0, 0, 0));
+        sim.f().state == S::LedgeHang
+    })
+}
+
+#[test]
+fn the_rising_punch_catches_a_ledge_on_either_side_from_frame_14() {
+    assert_eq!(rising_punch_ledge_tick(1), Some(14));
+    assert_eq!(rising_punch_ledge_tick(-1), Some(14));
+}
+
+#[test]
+fn the_rising_punch_rises_higher_from_the_ground_than_from_the_air() {
+    let rise = |air: bool| {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(9), -1);
+        if air {
+            sim.put_airborne(0, fx(-3, 1), Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+        } else {
+            sim.stand(0, fx(-3, 1), 1);
+        }
+        sim.tick(inp(0, 127, sim_core::input::buttons::SPECIAL));
+        sim.ticks(1, inp(0, 0, 0));
+        let y0 = sim.f().pos.y;
+        sim.ticks(18, inp(0, 0, 0));
+        sim.f().pos.y - y0
+    };
+    let (ground, air) = (rise(false), rise(true));
+    // 39.6 reference units of rise in the motion [E], x1.1 from the ground and x1.08 from the air.
+    let units = |n: i32| Fx::from_ratio(n, 8000);
+    assert!((ground - units(43_560)).abs() < units(200), "{ground:?}");
+    assert!((air - units(42_768)).abs() < units(200), "{air:?}");
+}
+
+#[test]
+fn the_stick_angles_the_rising_punch_by_up_to_12_degrees() {
+    let lean = |stick: i8| {
+        let mut sim = duel();
+        sim.stand(0, fx(-3, 1), 1);
+        sim.tick(inp(0, 127, sim_core::input::buttons::SPECIAL));
+        sim.tick(inp(stick, 0, 0));
+        sim.tick(inp(stick, 0, 0));
+        sim.f().steer
+    };
+    assert_eq!(lean(0), 0);
+    assert_eq!(lean(127), 12);
+    assert_eq!(lean(50), 0, "inside the stick sensitivity (0.5)");
+}

@@ -2586,7 +2586,109 @@ pub fn embers() -> Weapon {
     getup.intangible = 22;
     w.moves[MoveId::GetUpAttack as usize] = getup;
 
+    embers_specials(&mut w);
     w
+}
+
+/// The Embers' special moves (the reference: SmashWiki, the reference game's Mario, specials, 13.0.1; `docs/movesets/mario/`).
+fn embers_specials(w: &mut Weapon) {
+    // Nothing of the claws' follow-up slots belongs to the Embers (ext0 is its down air's landing hit, set above).
+    for id in [
+        MoveId::Ext1,
+        MoveId::Ext2,
+        MoveId::Ext3,
+        MoveId::Ext4,
+        MoveId::Ext5,
+        MoveId::Ext6,
+        MoveId::Ext7,
+        MoveId::Ext8,
+        MoveId::Ext9,
+    ] {
+        w.moves[id as usize] = Move::empty();
+    }
+    w.moves[MoveId::UpSpecial as usize] = rising_punch();
+}
+
+/// Up special, a rising multi-hit punch (the reference's Super Jump Punch). Every hit is on the root (`top`), so the positions are
+/// converted directly [D].
+///
+/// * Hit 1, frames 3-6: 5%, set knockback 160 / 150 / 150 at 60 / 86 / 100 degrees (KS 100, set weight, no SDI); the box at the
+///   body (60 degrees) does not hit grounded fighters.
+/// * Hits 2-6, frames 7-16, landing again every 2 frames: 0.6%, set knockback 180 / 170 / 110 / 110 at 60 / 92 / 60 / 92 (set weight,
+///   no SDI).
+/// * Hit 7, frames 17-18: 3%, 60 degrees, BK 50, KS 145, radius 9.
+///
+/// Intangible on frames 3-6. Animation 37 frames, then the special fall (air speed x0.6, landing lag 30). Ledges from either side
+/// from frame 14. Angled by the stick (sensitivity 0.5, up to 12 degrees); x1.1 the rise from the ground, x1.08 from the air; 0.67 of
+/// the momentum kept on startup. The rise itself is the reference's animation, not published: [E] about 40 reference units before
+/// the multipliers (44 from the ground), a little forward.
+fn rising_punch() -> Move {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let mut up = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            // Hit 1 (group 0).
+            r(3, 6, 0, 8, 3, 50, 60, 0, 100, 0, 0),
+            r(3, 6, 6, 8, 5, 50, 86, 0, 100, 1, 0),
+            r(3, 6, 12, 8, 5, 50, 100, 0, 100, 2, 0),
+            // Hits 2-6 (group 1).
+            r(7, 16, 3, 8, 4, 6, 60, 0, 100, 0, 1),
+            r(7, 16, 10, 8, 5, 6, 92, 0, 100, 1, 1),
+            r(7, 16, 3, 14, 4, 6, 60, 0, 100, 2, 1),
+            r(7, 16, 11, 14, 5, 6, 92, 0, 100, 3, 1),
+            // Hit 7 (group 2).
+            r(17, 18, 10, 14, 11, 30, 60, 50, 145, 0, 2),
+            r(17, 18, 3, 14, 11, 30, 60, 50, 145, 1, 2),
+        ],
+    );
+    let set = [160, 150, 150, 180, 170, 110, 110];
+    for (hb, fkv) in up.hitboxes.iter_mut().zip(set) {
+        hb.fixed_kb = fkv;
+        hb.set_weight = true;
+        hb.sdi = 0;
+    }
+    up.hitboxes[0].targets = TARGETS_AERIAL;
+    // Hits 2-6 land again every 2 frames from frame 7; hits 1 and 7 once each.
+    up.rehit = Some((6, 2));
+    up.rehit_groups = 0b10;
+    up.motion = vec![
+        Motion {
+            start: 2,
+            end: 7,
+            vx: su(800),
+            vy: su(3600),
+        },
+        Motion {
+            start: 8,
+            end: 13,
+            vx: su(600),
+            vy: su(2000),
+        },
+        Motion {
+            start: 14,
+            end: 19,
+            vx: su(400),
+            vy: su(1000),
+        },
+    ];
+    up.intangible = 6;
+    up.intangible_from = 2;
+    up.helpless_after = true;
+    up.ledge_front_from = 13;
+    up.ledge_back_from = 13;
+    up.fall_drift = 60;
+    up.fall_landing_lag = 30;
+    up.rise_ground = 110;
+    up.rise_air = 108;
+    up.start_speed = 67;
+    // Read on frame 3, the move's turnaround frame [E: the angle's frame is not published].
+    up.steer_frame = 2;
+    up.steer_stick = 50;
+    up.steer_degrees = 12;
+    up
 }
 
 /// A jab that carries on into `next` when attack is pressed from reference frame `from` on (its continuable window), with the input

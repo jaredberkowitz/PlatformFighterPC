@@ -146,6 +146,9 @@ pub struct Fighter {
     /// A hit is waiting to launch at the end of hitlag (so DI can bend it).
     pub launch_pending: bool,
     pub launch_kb: Fx,
+    /// The pending (or current) launch is from set knockback, which keeps the plain launch physics: no speed-up and no shared fall
+    /// speed for a vertical launch (the reference's rule for set-knockback hits).
+    pub launch_set: bool,
     /// World angle of the pending launch, in `trig::Angle` units.
     pub launch_angle: u16,
     /// Current launch velocity, decaying each frame.
@@ -355,6 +358,7 @@ impl Fighter {
             hitstun: 0,
             launch_pending: false,
             launch_kb: Fx::ZERO,
+            launch_set: false,
             launch_angle: 0,
             kb_vel: Vec2::ZERO,
             tumble: false,
@@ -500,6 +504,7 @@ impl StateHash for Fighter {
         h.write_u16(self.hitstun);
         h.write_bool(self.launch_pending);
         self.launch_kb.hash_into(h);
+        h.write_bool(self.launch_set);
         h.write_u16(self.launch_angle);
         self.kb_vel.hash_into(h);
         h.write_bool(self.tumble);
@@ -796,6 +801,11 @@ mod tests {
             ("launch_kb", {
                 let mut s = state;
                 s.fighters[0].launch_kb = Fx::from_int(1);
+                s
+            }),
+            ("launch_set", {
+                let mut s = state;
+                s.fighters[0].launch_set = true;
                 s
             }),
             ("launch_angle", {
