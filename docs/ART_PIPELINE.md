@@ -873,6 +873,8 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   ocean `haze_max` 0.07, a lighter mist). `docs/screenshots/beach_vivid.png`.
 - **Triple Tier**: its sunset kept, the fog lifted (STYLES sunset `haze_max` 0.1, mists about half), so the mesas keep their strata
   colours against the sky. `canyon_clear.png`.
+- Flat Island's horizon: the warm glow there washed a pale band over the sea; now a faint white one (0.15) over a bluer horizon.
+- The meadow's round trees stand on tapering, slightly bowed trunks with flared roots (`trunk_mesh`), not straight cylinders.
 - **Skyline** left as it is: a dark, moody stage where the fighters already stand out (the plan: keep a dark stage's mood).
 - Look bench 0.87.
 

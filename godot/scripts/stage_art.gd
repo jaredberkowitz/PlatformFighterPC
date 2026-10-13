@@ -49,8 +49,8 @@ const THEMES := {
 		"pattern": "diamonds", "cap": "grass", "platform": "wood",
 	},
 	"ocean": {
-		"sky_top": Color(0.06, 0.34, 0.9), "sky_mid": Color(0.2, 0.58, 1.0), "sky_horizon": Color(0.6, 0.86, 1.0),
-		"sky_glow": [Color(1.0, 0.86, 0.64), 0.45], "sky_wisps": [Color(1.0, 0.95, 0.92), 0.4],
+		"sky_top": Color(0.06, 0.34, 0.9), "sky_mid": Color(0.2, 0.58, 1.0), "sky_horizon": Color(0.5, 0.8, 1.0),
+		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
 		"pattern": "masonry", "cap": "sand", "platform": "wood",
@@ -1492,7 +1492,9 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
 static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
-	_mesh(root, _cylinder(0.35 * size, 0.5 * size, 3.0 * size, 8), Materials.bark(Color(0.55, 0.38, 0.24), Vector2(2, 1)), at + Vector3(0, 1.5 * size, 0))
+	# A tapering trunk with a slight bow and roots flaring at its foot (one mesh, `trunk_mesh`), in warm painted bark.
+	_mesh(root, trunk_mesh(3.2 * size, 0.42 * size, 0.26 * size, 0.18 * size * (1.0 if fmod(absf(at.x), 2.0) < 1.0 else -1.0), 0.35 * size),
+		Materials.bark(Color(0.6, 0.4, 0.24), Vector2(2, 2)), at)
 	var greens := Materials.greens(Materials.greens(Color(0.3, 0.62, 0.16))[rng.randi_range(0, 2)])
 	var crown := Sway.new()
 	crown.position = at + Vector3(0, 2.8 * size, 0)
