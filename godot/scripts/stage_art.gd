@@ -628,8 +628,31 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 			_crate(root, Vector3(l + 2.0, y + 1.0, -4.6), 0.7, -10.0)
 			_potted_plant(root, Vector3(r - 4.0, y, -4.0))
 			_string_lights(root, Vector3(l + 3.0, y + 4.6, -6.0), Vector3(r - 2.5, y + 5.6, -6.5))
+			# The bulbs light what is under them: three soft warm and rose pools along the string (no shadows, short range), so the roof,
+			# the crates and the fighters take a little of their colour, and a red one from the mast's beacon. A few practical lights
+			# rather than one per bulb.
+			for k in 3:
+				var f := (float(k) + 0.5) / 3.0
+				var at := Vector3(l + 3.0, y + 4.6, -6.0).lerp(Vector3(r - 2.5, y + 5.6, -6.5), f) + Vector3(0, -1.6, 1.5)
+				_practical(root, at, [Color(1.0, 0.78, 0.5), Color(1.0, 0.6, 0.72), Color(1.0, 0.78, 0.5)][k], 1.1, 7.0)
+			_practical(root, Vector3(r - 2.5, y + 6.1, -6.0), Color(1.0, 0.3, 0.3), 0.8, 4.0)
 	for p in patches:
 		_contact(root, Vector3(p[0], y, p[1]), Vector2(p[2], p[3]))
+
+
+## A practical light: a small warm pool from a lamp or a bulb in the scenery (`energy`, `reach` in units), no shadows, so it costs little.
+## Emission alone makes a thing look lit; this lets it light what is round it.
+static func _practical(root: Node3D, at: Vector3, colour: Color, energy: float, reach: float) -> OmniLight3D:
+	var o := OmniLight3D.new()
+	o.light_color = colour
+	o.light_energy = energy
+	o.omni_range = reach
+	o.omni_attenuation = 1.6
+	o.shadow_enabled = false
+	o.light_specular = 0.0
+	o.position = at
+	root.add_child(o)
+	return o
 
 
 ## A soft dark ellipse lying on the ground at `at` (`half` its half width and half depth), darkest in the middle: the shade a thing casts
@@ -2530,16 +2553,37 @@ static func _roof_marks(root: Node3D, e: Array, rng: RandomNumberGenerator) -> v
 	var left: float = e[0]
 	var right: float = e[1]
 	var spots := [[0.18, -2.2, 0], [0.42, -4.6, 1], [0.66, -1.8, 2], [0.86, -3.8, 3], [0.3, -5.6, 3]]
+	# (Flat quads that multiply the roof by the mark, not decals: a decal's box showed as a pale rectangle under the practical lights, and
+	# a multiplied stain takes whatever light falls on the roof under it.)
 	for spot in spots:
-		var d := Decal.new()
-		d.texture_albedo = marks[int(spot[2])]
 		var k := rng.randf_range(2.2, 3.4)
-		d.size = Vector3(k, 0.3, k * 0.8)
-		d.position = Vector3(lerpf(left, right, float(spot[0])), roof + 0.05, float(spot[1]))
-		d.rotation.y = rng.randf_range(-0.5, 0.5)
-		d.upper_fade = 0.3
-		d.lower_fade = 0.3
-		root.add_child(d)
+		var q := QuadMesh.new()
+		q.size = Vector2(k, k * 0.8)
+		q.orientation = PlaneMesh.FACE_Y
+		var m := ShaderMaterial.new()
+		m.shader = _stain_shader()
+		m.set_shader_parameter("mark", marks[int(spot[2])])
+		var mi := _mesh(root, q, m, Vector3(lerpf(left, right, float(spot[0])), roof + 0.035, float(spot[1])), Vector3.ONE,
+			Vector3(0, rad_to_deg(rng.randf_range(-0.5, 0.5)), 0))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+static var _stain: Shader
+
+
+## A stain laid on a surface: multiplies what is under it by the mark's colour where the mark is opaque, and leaves it alone elsewhere.
+static func _stain_shader() -> Shader:
+	if _stain == null:
+		_stain = Shader.new()
+		_stain.code = """shader_type spatial;
+render_mode unshaded, blend_mul, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform sampler2D mark : source_color, filter_linear_mipmap;
+void fragment() {
+	vec4 c = texture(mark, UV);
+	ALBEDO = mix(vec3(1.0), c.rgb, c.a);
+}
+"""
+	return _stain
 
 
 static var _roof_marks_cache: Array = []

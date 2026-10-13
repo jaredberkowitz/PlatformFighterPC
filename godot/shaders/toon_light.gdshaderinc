@@ -87,10 +87,13 @@ void light() {
 	shade = mix(shade, shade * pf_deep_shade, deep);
 	shade = mix(shade, vec3(1.0), fighter * PF_FIGHTER_LIFT);
 	vec3 tone = mix(shade, vec3(1.0), lit);
-	DIFFUSE_LIGHT += tone * LIGHT_COLOR / PI;
+	// A point or spot light (a practical lamp in the scenery) fades with distance: ATTENUATION carries its falloff, and the cel ramp would
+	// otherwise light everything inside its range evenly and stop dead at the edge.
+	float falloff = LIGHT_IS_DIRECTIONAL ? 1.0 : ATTENUATION;
+	DIFFUSE_LIGHT += tone * LIGHT_COLOR / PI * falloff;
 	float edge = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float rim = smoothstep(1.0 - rim_width, 1.0, edge) * clamp(wrap + 0.2, 0.0, 1.0);
-	SPECULAR_LIGHT += pf_rim_color.rgb * rim * rim_strength * rim_boost * LIGHT_COLOR / PI * ALBEDO;
+	SPECULAR_LIGHT += pf_rim_color.rgb * rim * rim_strength * rim_boost * LIGHT_COLOR / PI * ALBEDO * falloff;
 	vec3 half_dir = normalize(LIGHT + VIEW);
 	float s = pow(clamp(dot(NORMAL, half_dir), 0.0, 1.0), 24.0);
 	SPECULAR_LIGHT += vec3(smoothstep(0.4, 0.6, s) * sheen) * LIGHT_COLOR / PI * ATTENUATION;

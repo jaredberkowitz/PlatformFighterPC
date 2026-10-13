@@ -1031,3 +1031,12 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   facing the camera, as a character light rig does. The shadow-side lift went from 0.18 to 0.07. Look bench rose from 0.87 to 0.89.
   `form_before.png` / `form_after.png` (Skyline), `form_after_meadow.png`. On Flat Island a yellow fighter's shade stays subtle (that
   stage's shadow hue barely darkens yellow): a per-stage colour choice, left as it is.
+- **Practical light in the city** (`StageArt._practical`): three soft warm and rose point lights under the string of bulbs and a red one
+  at the mast's beacon (no shadows, 4 to 7 units), so the roof, the crates and the fighters take a little of their colour. A few
+  practical lights, not one per bulb. `city_practical_before.png` / `city_practical_after.png`.
+- **The cel shader respects a point light's falloff** (`toon_light.gdshaderinc`): the ramp had lit everything inside a point light's
+  range evenly and stopped dead at its edge (a hard rectangle on the roof); point and spot lights now fade with their attenuation.
+  (Directional lights are unchanged.)
+- **The roof's weathering marks** are quads that multiply the roof by the mark (`_stain_shader`), not decals.
+- Look bench 0.89. Performance: the machine was throttling for this pass (the meadow, untouched, measured the same 47 fps as the city);
+  no measurable cost from the four shadowless lights.
