@@ -125,6 +125,14 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 	var band := PackedVector2Array([r.position + Vector2(cut, 0), Vector2(r.end.x, r.position.y), Vector2(r.end.x, r.position.y + r.size.y * 0.22),
 		Vector2(r.position.x, r.position.y + r.size.y * 0.46), r.position + Vector2(0, cut)])
 	c.draw_colored_polygon(band, Color(1, 1, 1, 0.07 * fill.a))
+	# Painted grain: a few long soft strokes across the card in a shade of its own colour, so it reads as brushed, not a flat fill.
+	for k in 5:
+		var y := r.position.y + r.size.y * (0.18 + 0.17 * k) + noise(seed * 5 + k) * 8.0
+		var x0 := r.position.x + r.size.x * (0.06 + 0.1 * noise(seed + k))
+		var x1 := r.end.x - r.size.x * (0.06 + 0.1 * noise(seed * 2 + k))
+		c.draw_line(Vector2(x0, y), Vector2(x1, y - r.size.y * 0.04), Color(fill.darkened(0.12), 0.18 * fill.a), clampf(short * 0.05, 3.0, 14.0), true)
+	# A warm bounce of light along the bottom edge (the cards are lit by the same sun as the world).
+	c.draw_line(Vector2(r.position.x + 6.0, r.end.y - 5.0), Vector2(r.end.x - cut - 2.0, r.end.y - 5.0), Color(1.0, 0.85, 0.6, 0.18 * fill.a), 3.0, true)
 	if border.a > 0.0:
 		var inner := PackedVector2Array()
 		var centre := r.get_center()
@@ -199,13 +207,14 @@ static func key_cap(c: CanvasItem, rect: Rect2, label: String) -> void:
 static func palette(mood: float) -> Dictionary:
 	var warm := clampf(mood, 0.0, 1.0)
 	var cool := clampf(-mood, 0.0, 1.0)
-	var rock := Color("8a7ea6").lerp(Color("b06a5c"), warm * 0.5).lerp(Color("5f6ea8"), cool * 0.4)
+	# (Warm earth under vivid turf, as the stages' floating islands are.)
+	var rock := Color("a07a5a").lerp(Color("b06a5c"), warm * 0.5).lerp(Color("6a6ea0"), cool * 0.4)
 	return {
 		"top": SKY_TOP.lerp(Color("6a46d8"), warm * 0.9).lerp(Color("1f5bbf"), cool * 0.6),
 		"mid": SKY.lerp(Color("b46fe0"), warm * 0.55).lerp(Color("f28aa6"), warm * warm * 0.5).lerp(Color("3f8fe8"), cool * 0.5),
 		"low": HORIZON.lerp(Color("ffcf9a"), warm * 0.85).lerp(Color("a9dcf6"), cool * 0.5),
 		"far": Color("a9bfe8").lerp(Color("c99ad8"), warm * 0.7),
-		"grass": Color("57c26a").lerp(Color("c9a64b"), warm * 0.4),
+		"grass": Color("6fcc3a").lerp(Color("c9a64b"), warm * 0.4),
 		"rock": rock,
 		"rock_light": rock.lightened(0.2),
 		"cream": CLOUD.lerp(Color("ffd6b0"), warm * 0.6),
@@ -424,6 +433,30 @@ static func island(c: CanvasItem, at: Vector2, size: float, top: Color, rock: Co
 		at + Vector2(-hw * 0.02 + j * 0.5, size * 0.3), at + Vector2(hw * 0.12, 0)])
 	c.draw_colored_polygon(rough(lit, seed + 3, size * 0.01, size * 0.1), rock.lerp(rock_light, 0.6 * shade))
 	if shade > 0.5 and not bare:
+		# A pale band of strata just under the turf, stones bedded in the earth (lit on their upper left), and roots trailing from under
+		# the lip, as on the stages' islands.
+		var band_top := PackedVector2Array()
+		for k in 9:
+			var u := float(k) / 8.0 * 2.0 - 1.0
+			band_top.append(at + Vector2(u * hw * 0.9, size * (0.08 + 0.01 * sin(u * 5.0 + seed))))
+		var band_low := PackedVector2Array()
+		for k in 9:
+			var u := 1.0 - float(k) / 8.0 * 2.0
+			band_low.append(at + Vector2(u * hw * 0.82, size * (0.13 + 0.012 * sin(u * 4.0 + seed * 2))))
+		var strata := band_top.duplicate()
+		strata.append_array(band_low)
+		c.draw_colored_polygon(strata, Color(rock_light.lightened(0.15), 0.75))
+		for k in 3:
+			var u := -0.45 + 0.42 * k + noise(seed + k) * 0.12
+			var sp := at + Vector2(u * hw, size * (0.2 + 0.05 * k * (1.0 - absf(u))))
+			var sr := size * (0.035 - 0.006 * k)
+			c.draw_circle(sp, sr, rock.lerp(Color(0.62, 0.6, 0.66), 0.5))
+			c.draw_circle(sp + Vector2(-sr * 0.3, -sr * 0.3), sr * 0.5, rock.lerp(Color(0.8, 0.78, 0.82), 0.5))
+		for k in 4:
+			var rx := at.x + hw * (-0.7 + 0.45 * k + noise(seed * 3 + k) * 0.1)
+			var ry := at.y + size * 0.06
+			c.draw_polyline(PackedVector2Array([Vector2(rx, ry), Vector2(rx + size * 0.01, ry + size * 0.05), Vector2(rx - size * 0.006, ry + size * (0.09 + 0.02 * float(k % 2)))]),
+				Color(rock_shadow.darkened(0.4), 0.85), maxf(1.0, size * 0.008), true)
 		# A seam of strata across the rock, and a thin waterfall from under the lip.
 		c.draw_line(at + Vector2(-hw * 0.7, size * 0.16), at + Vector2(hw * 0.6, size * 0.19), Color(rock_shadow.darkened(0.15), 0.6), maxf(1.0, size * 0.012), true)
 		c.draw_line(at + Vector2(hw * 0.5, size * 0.05), at + Vector2(hw * 0.5, size * 0.75), Color(1, 1, 1, 0.3), maxf(1.2, size * 0.018), true)

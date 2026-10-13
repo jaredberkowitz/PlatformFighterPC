@@ -179,6 +179,49 @@ class Board extends Control:
 		var ww := f.get_string_size(whole, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x
 		_outlined(f, Vector2(right - tw, baseline) + jolt, tenth, small, hot)
 		_outlined(f, Vector2(right - tw - ww - 2.0, baseline) + jolt, whole, big, hot)
+		var gauges: Array = data.get("gauges", [])
+		if i < gauges.size() and not (gauges[i] as Array).is_empty():
+			_boost(f, base, gauges[i])
+
+	## The Boost gauge (fighters that have one): a slanted bar above the card, ink-outlined with a soft drop shadow, in four notches,
+	## filling in amber with a lit top edge; full, the powered mode runs: the bar glows gold and white, pulsing, and drains as its time
+	## runs out, and "BOOST!" is written over it. `g` = [fill 0..1, powered, time left 0..1].
+	func _boost(f: Font, base: Vector2, g: Array) -> void:
+		var fill: float = g[0]
+		var powered: bool = g[1]
+		if powered:
+			fill = g[2]
+		var x0 := base.x + 140.0
+		var x1 := base.x + 316.0
+		var y0 := base.y - 22.0
+		var h := 13.0
+		var lean := 7.0
+		var bar := func(a: float, b: float) -> PackedVector2Array:
+			var l := lerpf(x0, x1, a)
+			var r := lerpf(x0, x1, b)
+			return PackedVector2Array([Vector2(l + lean, y0), Vector2(r + lean, y0), Vector2(r, y0 + h), Vector2(l, y0 + h)])
+		var shadow: PackedVector2Array = bar.call(0.0, 1.0)
+		for k in shadow.size():
+			shadow[k] += Vector2(3, 4)
+		draw_colored_polygon(shadow, Color(0, 0, 0, 0.3))
+		draw_colored_polygon(bar.call(0.0, 1.0), Color(0.16, 0.12, 0.2, 0.92))
+		if fill > 0.0:
+			var t := Time.get_ticks_msec() / 1000.0
+			var body := Color(1.0, 0.62, 0.22)
+			if powered:
+				body = Color(1.0, 0.84, 0.36).lerp(Color(1.0, 1.0, 0.92), 0.5 + 0.5 * sin(t * 9.0))
+			draw_colored_polygon(bar.call(0.0, fill), body)
+			# The lit top edge of the fill.
+			var lit: PackedVector2Array = bar.call(0.0, fill)
+			draw_colored_polygon(PackedVector2Array([lit[0], lit[1], lit[1] + Vector2(-1.5, 4.0), lit[0] + Vector2(-1.5, 4.0)]), body.lightened(0.45))
+		for k in range(1, 4):
+			var p: PackedVector2Array = bar.call(0.0, float(k) / 4.0)
+			draw_line(p[1], p[2], D.INK, 2.5, true)
+		var outline: PackedVector2Array = bar.call(0.0, 1.0)
+		outline.append(outline[0])
+		draw_polyline(outline, D.INK, 3.0, true)
+		if powered:
+			_outlined(f, Vector2(x0 + 52.0, y0 - 4.0), "BOOST!", 22, Color(1.0, 0.9, 0.5))
 
 	## Text in the HUD's style: a soft drop shadow, a thick ink outline, then the fill.
 	func _outlined(f: Font, at: Vector2, text: String, font_size: int, fill: Color) -> void:
@@ -260,6 +303,18 @@ class Board extends Control:
 					pts.append(c + (q as Vector2) * r)
 				pts.append(pts[0])
 				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 6:
+			# Greatsword: a broad blade on the diagonal (spine straight, the edge cut to a chisel point), a heavy guard and a long grip.
+			var d := Vector2(0.7071, -0.7071)
+			var n := Vector2(0.7071, 0.7071)
+			var base := c - d * r * 0.35
+			var blade := PackedVector2Array([base + n * r * 0.26, base + d * r * 1.25 + n * r * 0.26, base + d * r * 0.95 - n * r * 0.26,
+				base - n * r * 0.26])
+			blade.append(blade[0])
+			draw_polyline(blade, color, width, true)
+			draw_line(base + n * r * 0.5, base - n * r * 0.5, color, width * 1.3, true)
+			draw_line(base, base - d * r * 0.6, color, width * 1.1, true)
+			draw_circle(base - d * r * 0.68, width * 0.75, color)
 		elif cls == 5:
 			# Staff: an eye of light (an almond with a round pupil) with three rays above it.
 			var lid := PackedVector2Array()

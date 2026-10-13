@@ -190,6 +190,22 @@ const CLASS_MOVES := {
 		"extra move 11": "attack_jab",
 		"extra move 12": "attack_smash",
 	},
+	# Greatsword (the Champion): the longsword's cuts for its sword moves (the blade follows its hits), front kicks for the first two
+	# jabs, a sliding low kick for the down tilt, kicks for the throws (the throw clip, the blade at rest).
+	6: {
+		"jab": "kick_dash",
+		"jab 2": "kick_up",
+		"jab 3": "sword_ftilt",
+		"ftilt": "sword_ftilt",
+		"utilt": "sword_utilt",
+		"dtilt": "kick_low",
+		"fsmash": "sword_fsmash",
+		"usmash": "sword_usmash",
+		"dsmash": "sword_dsmash",
+		"dair": "sword_dair",
+		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
+		"down special": "crouch",
+	},
 }
 
 ## The clip every move falls back to when nothing maps it (with a warning, once per move).

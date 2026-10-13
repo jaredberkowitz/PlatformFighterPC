@@ -942,3 +942,75 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
 - Draw calls: each sky island's and the farm's still parts are merged by material (`merge_static` on their nodes): the meadow went
   from 714 to 600 draw calls. GPU about 1.6 ms on the meadow and the grove when the machine is not throttling (this machine's timings
   swing by up to six times between runs; compare runs side by side).
+
+## The Champion's greatsword; every weapon its own length and in the hand (fortieth pass)
+
+- **The Champion (class 6, `GREATSWORD_CLASS` in `fighter_view.gd`)** swings a greatsword posed like the longsword (its blade follows
+  the move's hitboxes, `bladed(cls)`): a broad single-edged blade with a dark fuller and a chisel point (`_greatsword_shape`), a heavy
+  bronze guard, a long wrapped grip and a pommel, held in both hands (`_aim_arm(..., two_hands)`, the other hand lower on the grip at
+  `off_hand_target`). It hangs low in front at rest (`GREAT_REST_ANGLE`), is always `GREAT_LENGTH` long, and draws amber arcs fitted to
+  the moveset report's timings (`ARCS[6]`); the down air is a thrust (`GREAT_THRUSTS`). Its kicks keep the blade at rest in the hand:
+  jabs 1 and 2 (`kick_dash`, `kick_up`), the sliding down tilt (`kick_low`) and the throws (`AnimLibrary.CLASS_MOVES[6]`). Its cuts count
+  as blade hits for the hit effect and sound. `champion_ftilt.png`, `champion_fsmash.png`, `champion_nair.png`, `champion_dtilt_kick.png`.
+- **Its look** (built-in Champion): a stern slate swordsman, bareheaded, with a scarf and the full kit; **its emblem** on the HUD: a
+  broad blade on the diagonal with a heavy guard and a long grip.
+- **For every weapon** (the owner: a fix that suits all weapons goes to all of them):
+  - The longsword, the greatsword and the staff are always their own length, pointed at the hit, rather than stretching and shrinking
+    to reach each hitbox.
+  - The hilt is placed where the hand actually is after the arm is posed: the shorter, cuter arms could not reach the swing's target,
+    so the sword floated in front of the fist through a swing's end lag. `sword_in_hand_before.png` / `sword_in_hand_after.png`.
+
+## Sandstone strata, cloud bellies, a horizon of cloud (forty-first pass)
+
+- **Triple Tier's front** (`strata` pattern, 6 units a repeat): layered sandstone in place of four flat wavy stripes: beds of uneven
+  thickness in close warm shades with a pale one now and then, each bed's top a waving ledge lit along its edge with shade under its lip,
+  slanting cross-bedding in the thick beds, joints broken bed by bed, streaks of desert varnish and a few pebbles. `canyon_sandstone.png`.
+- **Clouds** (`_clouds`): a band of cool shade in each cloud's belly (the sky's colour under a sunlit top), so they read as volumes.
+- **Flat Island's horizon**: a low bank of piled cumulus far out behind the far coast (a `shape 3` painted ridge). `beach_cloud_bank.png`.
+- The Champion's gauge charge (down special) holds the crouched stance with the blade at rest (`CLASS_MOVES[6]`), as the moveset session
+  asked; its other specials pose the blade from their hits.
+
+## Earth and roots under the grove, a laid roof (forty-second pass)
+
+- **Treetop Isle's front** (`roots` pattern, 8 units a repeat): packed earth under the great tree in place of the quilted diamonds: soft
+  layers of warm soil, roots winding through it (rounded strokes with a lit upper edge and an ink under edge), a few bedded stones and
+  grit, low in contrast. `grove_roots_front.png`.
+- **The Skyline roof**: the roofing laid in sheets, seams running back from the front with a lighter lap beside each, low in contrast
+  under the fighters. `city_roof_seams.png`.
+
+## A painted shield (forty-third pass)
+
+- **The shield bubble** (`shaders/shield.gdshader`) in cel steps: a faint fill in its tint with brush streaks swirling over it, a rim
+  that steps up in two crisp bands to a dark line at the edge, a white highlight crescent on the upper left and a thin bounce of light on
+  the lower right (from the world-space normal: the camera looks down the stage's depth). Its tint still follows its health, now a deeper
+  blue when full (`0.24, 0.56, 1.0`) through to red. `shield_before.png` / `shield_painted.png`.
+- **The Boost meter** (`match_hud.gd` `_boost`, for a fighter with a gauge: the Champion): a slanted, ink-outlined bar above the card in
+  four notches, filling in amber with a lit top edge; while the powered mode runs it glows gold and white, pulsing, drains with the
+  time left, and reads "BOOST!". The match reads it from the bridge's `fighter_gauge`, `fighter_gauge_max`, `fighter_gauge_full` and
+  `fighter_gauge_frames` when they exist (`main.gd`, "gauges"), and draws nothing for a fighter without one. `hud_boost_meter.png`
+  (left: filling; right: powered).
+- **The Champion carries the greatsword over the shoulder** (the owner: keep the big blade out of the view): at rest and through its
+  kicks and stance the hand is up by the shoulder (`GREAT_REST_HAND`) and the blade lies back across the back (`GREAT_REST_ANGLE` 152,
+  behind the body: `great_z` eases the hand behind and in front); a swing brings it up off the shoulder and round in front.
+  `champion_shoulder_carry.png`. (The longsword keeps its raised guard: it is small enough not to block the view.)
+
+## Menus closer to the world (forty-fourth pass)
+
+- **Menu islands** (`MenuArt.island`): warm earth under vivid turf, as the stages' floating islands, with a pale strata band under the
+  turf, stones lit on their upper left and roots from under the lip; the select screen's pedestals in the stages' lime green.
+  `menu_islands_before.png` / `menu_islands_after.png`.
+- **The main menu's palette**: the four destination tiles in one related, slightly softened family (coral Play, cobalt Online, plum
+  Replays, leaf Creator); Controls, Editors and Quit share one deep indigo so they recede behind them, rather than six unrelated
+  saturated colours side by side. Every card (`MenuArt.card`) has a few long brushed strokes in a shade of its own colour and a warm bounce
+  of light along its bottom edge. `menu_main_before.png` / `menu_main_after.png`.
+
+## Depth in the backdrop land (forty-fifth pass)
+
+- The owner: the painted look is good, but the backgrounds should still feel 3D. The bands of land were flat sheets facing the camera
+  (shaded by a painted gradient only); now they are real ground:
+  - **Rolled ridges** (`_land_band` with `ROLL_PROFILE`): each hill row's crest rolls away behind and over toward the camera, then falls
+    away, so the key light gives it a lit top, a cel-shaded front and a silhouette in depth (normals from the geometry).
+  - **The meadow's valley floor** (`VALLEY_PROFILE` on the near band): below the crest the land slopes down toward the camera and
+    flattens far below, and the fields, hedges, lane and farm are laid on it (`roll_z`), so they recede in real perspective (near fields
+    big, far ones compressed) instead of being painted on a wall. `meadow_valley_depth.png`.
+  - Treetop Isle keeps a rolled ridge (its forest canopy fills the valley below).

@@ -33,7 +33,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.36, 0.76, 0.36),
 		"grass_light": Color(0.58, 0.9, 0.45), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
-		"pattern": "diamonds", "cap": "grass", "platform": "wood",
+		"pattern": "roots", "cap": "grass", "platform": "wood",
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -151,15 +151,53 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var body := ""
 	match pattern:
 		"strata":
-			# Wavy bands in four shades, each edge a gentle wave with a soft ink line.
-			var shades := [A, B, a.lerp(Color(1, 0.88, 0.7), 0.3).to_html(false), b.darkened(0.1).to_html(false)]
-			for k in 4:
-				var y0 := k * 64.0
-				var d := "M0,%.1f " % y0
-				for x in range(0, 257, 32):
-					d += "L%d,%.1f " % [x, y0 + sin(float(x) / 256.0 * TAU + k) * 9.0]
-				d += "L256,%.1f L0,%.1f Z" % [y0 + 64.0 + 12.0, y0 + 64.0 + 12.0]
-				body += '<path d="%s" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5" stroke-linejoin="round"/>' % [d, shades[k], ink]
+			# Layered sandstone, as a canyon wall is painted: beds of uneven thickness in close warm shades (a pale band now and then), each
+			# bed's top edge a gently waving ledge caught by the light with a band of shade under its lip, fine cross-bedding drawn
+			# slantwise inside the thicker beds, vertical joints broken bed by bed, dark streaks of desert varnish running down from a few
+			# ledges, and a scatter of pebbles. Every wave has a whole number of periods across the tile, and anything crossing an edge is
+			# drawn again across it, so it tiles.
+			var pale := a.lerp(Color(1.0, 0.9, 0.74), 0.4)
+			var beds := [[0.0, 38.0, a], [38.0, 22.0, b], [60.0, 46.0, a.lerp(b, 0.35)], [106.0, 16.0, pale], [122.0, 40.0, a],
+				[162.0, 30.0, b.lerp(a, 0.3)], [192.0, 20.0, a.lerp(b, 0.6)], [212.0, 44.0, a.lerp(pale, 0.3)]]
+			var wave := func(x: float, k: int) -> float:
+				return sin(x / 256.0 * TAU * float(1 + k % 2) + float(k) * 1.7) * 4.0 + sin(x / 256.0 * TAU * 3.0 + float(k)) * 1.5
+			for k in beds.size():
+				var bed: Array = beds[k]
+				var y0: float = bed[0]
+				var h: float = bed[1]
+				var col: Color = bed[2]
+				var top := "M0,%.1f " % (y0 + wave.call(0.0, k))
+				for x in range(16, 257, 16):
+					top += "L%d,%.1f " % [x, y0 + wave.call(float(x), k)]
+				var shape := top + "L256,%.1f L0,%.1f Z" % [y0 + h + 10.0, y0 + h + 10.0]
+				body += '<path d="%s" fill="#%s"/>' % [shape, col.to_html(false)]
+				# Shade under the lip of the bed above (a soft band at this bed's top), then the lit ledge line.
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="9" stroke-opacity="0.22" transform="translate(0,5)"/>' % [top, col.darkened(0.45).to_html(false)]
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="2.6" stroke-opacity="0.5"/>' % [top, ink]
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="2.2" stroke-opacity="0.55" transform="translate(0,-2.5)"/>' % [top, col.lightened(0.28).to_html(false)]
+				# Cross-bedding in the thick beds: short slanting lines in one direction per bed.
+				if h >= 30.0:
+					var lean := 1.0 if k % 2 == 0 else -1.0
+					for j in 6:
+						var cx := fmod(float(j) * 47.0 + float(k) * 29.0, 256.0)
+						for ox in [-256.0, 0.0, 256.0]:
+							var x0: float = cx + ox
+							body += '<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="#%s" stroke-width="1.6" stroke-opacity="0.28"/>' % [x0, y0 + h * 0.3, lean * 14.0, h * 0.25, lean * 30.0, h * 0.55, col.darkened(0.3).to_html(false)]
+				# A joint or two through the bed, offset from the beds above and below.
+				for j in 2:
+					var jx := fmod(float(k) * 83.0 + float(j) * 131.0, 256.0)
+					body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2" stroke-opacity="0.35" stroke-linecap="round"/>' % [jx, y0 + 4.0, sin(k + j) * 3.0, h * 0.5, sin(k * 2 + j) * 3.0, h * 0.45, ink]
+			# Desert varnish: dark streaks running down from a few ledges, wider at the top.
+			for j in 5:
+				var vx := fmod(float(j) * 61.0 + 17.0, 256.0)
+				var vy: float = (beds[(j * 3) % beds.size()] as Array)[0]
+				body += '<path d="M%.1f,%.1f q-2,%.1f 1,%.1f q2,6 -1,0 Z" fill="#%s" opacity="0.16" stroke="none"/>' % [vx - 4.0, vy + 3.0, 22.0 + j * 6.0, 40.0 + j * 9.0, b.darkened(0.5).to_html(false)]
+				body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="3" fill="#%s" opacity="0.13"/>' % [vx - 3.0, vy + 3.0, 6.0 + j % 3 * 2.0, 34.0 + j * 10.0, b.darkened(0.5).to_html(false)]
+			# Pebbles set in the rock.
+			for j in 6:
+				var px2 := fmod(float(j) * 97.0 + 11.0, 256.0)
+				var py := fmod(float(j) * 59.0 + 23.0, 256.0)
+				body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="1.4" stroke-opacity="0.45"/>' % [px2, py, 4.0 + j % 3, 3.0 + j % 2, a.lerp(pale, 0.5).to_html(false), ink]
 		"masonry":
 			# Big rounded stone blocks laid in rough courses (as a cliff of dressed stone in the reference's style): each a soft-cornered
 			# slab a little irregular, its top edge lit, its lower edge and the gaps between in shade, a few cracks and chips. Large, so a
@@ -186,6 +224,37 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.4"/>' % [cx, by + 14.0, rng.randf_range(-8, 8), rng.randf_range(16, 30), rng.randf_range(-10, 10), rng.randf_range(10, 22), ink]
 					x += w
 				course += 1
+		"roots":
+			# Packed earth under a great tree, painted: soft layers of warm soil, roots winding through it (thick and thin, each a rounded
+			# stroke with a lit upper edge and a dark under edge, tapering as they go), a few rounded stones bedded in it and specks of
+			# grit. Anything crossing an edge is drawn again across it, so it tiles.
+			body += '<rect width="256" height="256" fill="#%s"/>' % B
+			for k in 4:
+				var y0 := 18.0 + k * 64.0
+				var band := a.lerp(b, [0.15, 0.55, 0.3, 0.7][k])
+				body += '<path d="M0,%.1f C64,%.1f 128,%.1f 192,%.1f S256,%.1f 256,%.1f L256,%.1f L0,%.1f Z" fill="#%s" opacity="0.7"/>' % [y0, y0 - 8.0,
+					y0 + 8.0, y0 - 4.0, y0 + 2.0, y0, y0 + 40.0, y0 + 40.0, band.to_html(false)]
+			var root_col := Color(0.56, 0.37, 0.24)
+			var roots := [[20.0, -10.0, 90.0, 120.0, 30.0, 270.0, 16.0], [150.0, -10.0, 230.0, 70.0, 120.0, 270.0, 11.0],
+				[-20.0, 120.0, 90.0, 170.0, 200.0, 140.0, 8.0], [200.0, 150.0, 140.0, 220.0, 250.0, 270.0, 9.0], [90.0, 30.0, 60.0, 90.0, 110.0, 150.0, 6.0]]
+			for r in roots:
+				var w: float = r[6]
+				for ox in [-256.0, 0.0, 256.0]:
+					for oy in [-256.0, 0.0, 256.0]:
+						var d := "M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f" % [r[0] + ox, r[1] + oy, r[2] + ox, r[3] + oy, r[4] + ox, r[5] + oy]
+						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" stroke-opacity="0.6"/>' % [d, ink, w + 4.0]
+						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round"/>' % [d, root_col.to_html(false), w]
+						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.5" transform="translate(-1,-%.1f)"/>' % [d, root_col.lightened(0.3).to_html(false), w * 0.3, w * 0.25]
+			for j in 6:
+				var cx := fmod(float(j) * 83.0 + 40.0, 256.0)
+				var cy := fmod(float(j) * 131.0 + 60.0, 256.0)
+				var rx := 9.0 + float(j % 3) * 5.0
+				var stone := Color(0.74, 0.7, 0.72).lerp(a, 0.55)
+				for ox in [-256.0, 0.0, 256.0]:
+					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [cx + ox, cy, rx, rx * 0.72, stone.to_html(false), ink]
+					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.45"/>' % [cx + ox - rx * 0.2, cy - rx * 0.25, rx * 0.5, rx * 0.3, stone.lightened(0.25).to_html(false)]
+			for j in 24:
+				body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.35"/>' % [fmod(float(j) * 53.0, 256.0), fmod(float(j) * 97.0 + 13.0, 256.0), 1.5 + float(j % 2), b.darkened(0.35).to_html(false)]
 		"cobble":
 			# Rounded stones over dark mortar, each with a lighter top; stones at an edge are drawn again across it, so it tiles.
 			# (Mortar only a step darker than the stones and a soft ink, so the wall is one calm mass under the fighters, not a busy pattern
@@ -232,7 +301,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0}.get(pattern, 3.0))
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -322,6 +391,15 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(t.grass, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			_mesh(parent, _box(Vector3(w + 0.34, 0.1, 0.12)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.18))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.12)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.42, front_z + 0.16))
+			# The roofing laid in sheets: seams running back from the front a little darker than the roof, each with a lighter lap beside it
+			# (low in contrast: the fighters stand on it).
+			var seam := _soft((t.grass as Color).darkened(0.14))
+			var lap := _soft((t.grass as Color).lightened(0.08))
+			var sx := left + 1.3
+			while sx < right - 0.6:
+				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.2)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0))
+				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.2)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0))
+				sx += 2.6
 		"sand":
 			var sand := _surface(t.grass, "sand", 5.0)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
@@ -926,7 +1004,10 @@ const RIDGES := {
 		"tone": Color(0.55, 0.26, 0.3), "mix": 0.62, "edge": 0.5}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
-	"ocean": [{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
+	# (The sea's horizon: a bank of piled cumulus far off, then the low hazy line of a far coast in front of it.)
+	"ocean": [{"z": -190.0, "y": -4.0, "height": 22.0, "shape": 3, "seed": 9.0, "base": 0.12, "amplitude": 0.6, "frequency": 9.0,
+		"tone": Color(1.0, 1.0, 1.0), "mix": 0.85, "edge": 0.8},
+		{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
 		"tone": Color(0.3, 0.5, 0.62), "mix": 0.45, "edge": 0.4}],
 }
 
@@ -1094,6 +1175,8 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 	var mat := FighterView.toon(color, false).duplicate() as ShaderMaterial
 	mat.set_shader_parameter("ramp_softness", 0.12)
 	mat.set_shader_parameter("rim_strength", 0.5)
+	var belly := FighterView.toon(color * Color(0.8, 0.84, 0.98), false).duplicate() as ShaderMaterial
+	belly.set_shader_parameter("ramp_softness", 0.12)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
@@ -1107,8 +1190,10 @@ static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color:
 			# Taller toward the middle, so the cluster domes; every puff sits on the same base line.
 			var s := (4.6 - absf(u) * 2.4) * size * rng.randf_range(0.85, 1.15)
 			_mesh(cloud, _sphere(1.0, 16), mat, Vector3(u * span * 0.5, s * 0.55, rng.randf_range(-1.5, 1.5)), Vector3(s, s * 0.85, s * 0.8))
-		# The flat base: a wide squashed puff under them all.
+		# The flat base: a wide squashed puff under them all, and under that a band of cool shade (the sky's colour in the cloud's belly,
+		# as a painted cloud is lit on top and shadowed beneath), a little wider and lower so it shows as the cloud's underside.
 		_mesh(cloud, _sphere(1.0, 16), mat, Vector3(0, 0.6 * size, 0), Vector3(span * 0.62, 1.4 * size, 3.5 * size))
+		_mesh(cloud, _sphere(1.0, 16), belly, Vector3(0, 0.15 * size, 0.4), Vector3(span * 0.66, 0.9 * size, 3.4 * size))
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
@@ -1162,35 +1247,60 @@ static func _land_top(bumps: Array, floor_y: float, x: float) -> float:
 ## A band of land facing the camera at depth `z`: its top follows `_land_top` across x from -240 to 240, and it runs down 180 units below
 ## that, so it is ground all the way out of view. Its normals tip up toward the top edge (lit like the round of a hill) and face the camera
 ## further down, where the haze takes it; one mesh, toon-shaded in `colour`.
-static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0) -> void:
+static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0, roll := 1.0, profile: Array = ROLL_PROFILE) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var drops := [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]
+	# The cross-section, back to front: [drop below the crest, depth from z]. With `roll` the land is a rounded ridge: it rolls away
+	# behind the crest and over toward the camera in front, then falls away (`ROLL_PROFILE`, scaled), so the key light gives it a lit
+	# top, a cel-shaded front and a real silhouette in depth; without, it is a flat front (the canopy's shade band).
+	var rows: Array = []
+	if roll > 0.0:
+		for r in profile:
+			rows.append([float(r[0]), float(r[1]) * roll])
+	else:
+		for d in [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]:
+			rows.append([d, 0.0])
 	var cols: Array = []
 	var x := -240.0
 	while x <= 240.0:
 		var top := _land_top(bumps, floor_y, x)
-		var slope := (_land_top(bumps, floor_y, x + 0.5) - _land_top(bumps, floor_y, x - 0.5))
-		var crest := Vector3(-slope, 1.0, 0.0).normalized()
 		var col: Array = []
-		for d in drops:
-			var w := exp(-float(d) / 3.5)
-			var n := (crest * w + Vector3(0.0, 0.2, 1.0).normalized() * (1.0 - w)).normalized()
-			col.append([Vector3(x, top - float(d), z), n])
+		for r in rows:
+			col.append(Vector3(x, top - float(r[0]), z + float(r[1])))
 		cols.append(col)
 		x += step
 	for i in cols.size() - 1:
-		for j in drops.size() - 1:
+		for j in rows.size() - 1:
 			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
-				var v: Array = cols[c[0]][c[1]]
-				st.set_normal(v[1])
-				st.add_vertex(v[0])
+				st.add_vertex(cols[c[0]][c[1]])
+	st.generate_normals()
 	_mesh(root, st.commit(), _soft(colour), Vector3.ZERO)
+
+
+## A rolled band's cross-section (see `_land_band`): [drop below the crest, depth from the band's z], from behind the crest to the foot.
+const ROLL_PROFILE := [[3.0, -6.0], [1.0, -3.6], [0.2, -1.6], [0.0, 0.0], [0.25, 1.3], [0.9, 2.5], [1.9, 3.4], [3.3, 4.0], [5.2, 4.35],
+	[9.0, 4.5], [18.0, 4.55], [40.0, 4.6], [90.0, 4.6], [180.0, 4.6]]
+
+
+## The near land's cross-section: the same roll over the crest, then a valley floor sloping down toward the camera (as a hillside seen
+## from above), flattening out far below, so what is laid on it (fields, hedges, a farm) recedes in real perspective.
+const VALLEY_PROFILE := [[3.0, -6.0], [1.0, -3.6], [0.2, -1.6], [0.0, 0.0], [0.25, 1.3], [0.9, 2.5], [1.9, 3.6], [3.3, 5.0], [5.2, 7.2],
+	[9.0, 11.5], [18.0, 21.0], [32.0, 33.0], [50.0, 40.0], [90.0, 42.0], [180.0, 42.0]]
+
+
+## How far in front of a rolled band's z its face is, `d` below the crest (to lay things on the face), for `profile`.
+static func roll_z(d: float, profile: Array = ROLL_PROFILE) -> float:
+	for k in range(1, profile.size()):
+		var a: Array = profile[k - 1]
+		var b: Array = profile[k]
+		if d <= float(b[0]) and float(b[0]) > float(a[0]):
+			return lerpf(float(a[1]), float(b[1]), (d - float(a[0])) / (float(b[0]) - float(a[0])))
+	return float(profile[-1][1])
 
 
 ## A low band of land nearer the stage (at depth `z`, its top rolling gently round `y`), that the nearer trees stand on; deterministic
 ## (no random draws), so adding it leaves the rest of a theme's layout where it was. `fore_top` gives its height at x.
-static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
+static func _fore_band(root: Node3D, z: float, y: float, colour: Color, profile: Array = VALLEY_PROFILE) -> void:
 	var bumps: Array = []
 	var x := -230.0
 	var k := 0
@@ -1199,7 +1309,7 @@ static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
 		x += 22.0 + 8.0 * absf(sin(k * 0.9))
 		k += 1
 	_fore_bumps = bumps
-	_land_band(root, bumps, y - 1.0, z, colour)
+	_land_band(root, bumps, y - 1.0, z, colour, 2.0, 1.0, profile)
 
 
 static var _fore_bumps: Array = []
@@ -1216,7 +1326,7 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		var size := 1.8 + float(r) * 0.7
 		var rz := z + float(r) * 1.4
 		# The shade between the crowns: a band behind them, from just under their tops on down.
-		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill)
+		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill, 2.0, 0.0)
 		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), false)
 		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), false)
 		var x := -150.0 + float(r) * 1.3
@@ -1237,6 +1347,7 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 ## through them. Deterministic (no random draws). One mesh per colour, each a hair in front of the band.
 static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colour: Color) -> void:
 	var hedges := [2.2, 5.4, 9.6, 15.0, 22.0, 31.0, 43.0]
+	var y_ref := y
 	var mean := y + 0.5
 	# Each hedge follows the land's roll near the top and a slower swell of its own further down; and the fields fan out from a point
 	# above the middle as they come down (`at`: from across `u` and down `d` to a point on the face), as rows of fields do in perspective.
@@ -1245,7 +1356,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		return lerpf(mean, fore_top(x, y), k) - d + sin(x * 0.045 + d * 0.7) * d * 0.07
 	var at := func(u: float, d: float) -> Vector3:
 		var x := u * (1.0 + d * 0.03)
-		return Vector3(x, line.call(x, d), z)
+		var ly: float = line.call(x, d)
+		return Vector3(x, ly, z + roll_z(fore_top(x, y_ref) - ly, VALLEY_PROFILE) + 0.12)
 	var tools: Array = []
 	for c in colours.size() + 2:
 		var st := SurfaceTool.new()
@@ -1999,7 +2111,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
-	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42))
+	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
+	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	# Below it, the treetops of a forest falling away down the valley.
