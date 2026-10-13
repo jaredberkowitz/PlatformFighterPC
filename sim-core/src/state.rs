@@ -183,6 +183,9 @@ pub struct Fighter {
     pub air_flags: u8,
     /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
     pub wall_jumps: u8,
+    /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
+    /// the first frame the fighter can act (see `fighter::update`).
+    pub dash_buffer: i8,
     /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
     /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
     /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
@@ -444,6 +447,7 @@ impl Fighter {
             stored: 0,
             air_flags: 0,
             wall_jumps: 0,
+            dash_buffer: 0,
             presses: 0,
             releases: 0,
             next_move: 0,
@@ -598,6 +602,7 @@ impl StateHash for Fighter {
         h.write_u8(self.stored);
         h.write_u8(self.air_flags);
         h.write_u8(self.wall_jumps);
+        h.write_i8(self.dash_buffer);
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
@@ -1070,6 +1075,11 @@ mod tests {
             ("wall_jumps", {
                 let mut s = state;
                 s.fighters[1].wall_jumps = 1;
+                s
+            }),
+            ("dash_buffer", {
+                let mut s = state;
+                s.fighters[1].dash_buffer = 1;
                 s
             }),
             ("air_flags", {

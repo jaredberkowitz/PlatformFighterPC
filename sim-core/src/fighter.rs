@@ -240,6 +240,23 @@ fn rolling(f: &Fighter) -> bool {
             .any(|&i| x_active(i))
 }
 
+/// A grab, a pummel or a throw is under way (command grabs too: a move that catches, or anything done while holding someone).
+fn grab_lag(f: &Fighter, weapon: &Weapon) -> bool {
+    f.state == S::Attack
+        && (matches!(
+            MoveId::from_index(f.move_id),
+            MoveId::Grab
+                | MoveId::DashGrab
+                | MoveId::PivotGrab
+                | MoveId::Pummel
+                | MoveId::FThrow
+                | MoveId::BThrow
+                | MoveId::UThrow
+                | MoveId::DThrow
+        ) || f.grab_with != NONE
+            || weapon.get(f.move_id).catch_move.is_some())
+}
+
 fn on_pass_through(f: &Fighter, stage: &Stage) -> bool {
     collision::platform(stage, f.platform).is_some_and(|p| p.pass_through)
 }
@@ -273,6 +290,24 @@ pub fn update(
     f.tech_timer = f.tech_timer.saturating_add(1);
     if f.pressed_within(buttons::SHIELD, 1) && f.tech_timer > rules.tech_lockout {
         f.tech_timer = 0;
+    }
+
+    // A dash flicked at any point of a grab, a pummel or a throw is kept for the first frame the fighter can act, as long as the stick
+    // stays pushed that way (hitlag included): more lenient than the reference's 6 or 7 frames, so a throw can be chased (owner's
+    // call). The flick that picked the throw is not one (it was made while holding, before the throw began).
+    if grab_lag(f, weapon) {
+        let flick = f.dash_flick(1);
+        if flick != 0 {
+            f.dash_buffer = flick;
+        }
+    } else if !(f.state == S::Idle && f.state_frame == 0) {
+        f.dash_buffer = 0;
+    }
+    if f.dash_buffer != 0
+        && !(input.stick_x.signum() == f.dash_buffer
+            && input.stick_x.unsigned_abs() >= STICK_DASH.unsigned_abs())
+    {
+        f.dash_buffer = 0;
     }
 
     // Hitlag freezes everything about the fighter except its input history. A struck fighter can still
@@ -511,7 +546,12 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     } else {
         FLICK_BUFFER
     };
-    let flick = f.dash_flick(window);
+    let mut flick = f.dash_flick(window);
+    // A dash flicked during a grab or throw (see `update`) comes out now.
+    if flick == 0 && f.state == S::Idle && f.state_frame <= 1 {
+        flick = f.dash_buffer;
+    }
+    f.dash_buffer = 0;
     if flick != 0 {
         if f.state == S::Run {
             if flick != f.facing {

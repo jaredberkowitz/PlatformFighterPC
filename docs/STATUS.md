@@ -82,6 +82,10 @@ intangibility), the explosive flame (76, with E3a: piercing, per-target rehit an
 and `spawn_at`), and the reticle (77, the `lock(range)` target lock with a line-of-sight test, `collision::segment_blocked`). The
 Staff is now **playable**; the open [E] readings are listed in its report.
 
+**Sim 79** (branch `grab-dash`; 78 is the moveset session's counter fix): a dash flicked at any point of a grab, pummel or throw
+comes out on the first frame the fighter can act if the stick is still held (`Fighter::dash_buffer`), so throws can be chased; the
+reference buffers a dash only in the last 6 or 7 frames (owner's call to be more lenient). Tests `sim-core/tests/grab_dash.rs`.
+
 ## Roadmap progress
 
 | Phase | State | Where to read |
