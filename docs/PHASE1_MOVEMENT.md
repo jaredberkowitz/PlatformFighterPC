@@ -288,6 +288,10 @@ lag; `reference_moves.rs` checks the windows.)
 from it with the stick still held that way goes straight back into the run when the landing ends (`exit_landing`), instead of standing.
 Let go, or a jump from standing, and the landing ends standing (or walking, stick held) as before. A hit, a ledge or anything else done on
 the ground forgets it. Tests: `sim-core/tests/landing_buffer.rs`.
+**Bodies in the air** (sim 67): fighters cannot drift, jump or fall through each other in the air any more than they can walk through
+each other on the ground (`push.rs`): bodies that overlap in height as well as side to side are pushed apart sideways, stopping at walls.
+An air dodge passes through, as do an aerial attack (multi-hit aerials and drag-downs need the overlap), anyone hanging on a ledge, and the
+ground's exemptions (intangible, hit, held, rolling). Tests: `sim-core/tests/air_bodies.rs`.
 
 **Short hops**
 - An attack pressed with the jump or during the jump squat makes the jump a **short hop**, even with jump held, and the aerial comes out on
