@@ -90,6 +90,20 @@ func _initialize() -> void:
 		idle.frame = 600 + f
 		view.apply(Vector3.ZERO, idle, 1.0 / 60.0)
 	check(absf(view.springs.value("head")) < 0.05 and absf(view.springs.value("hat_roll")) < 0.01, "standing still, the springs settle")
+	# A long shield hold keeps the head where it is (the shield clip has no head track: the turn toward the camera must not pile up).
+	var guard := snap(0, "Shield", "", 2000, 0)
+	var sword_guard := FighterView.new()
+	root.add_child(sword_guard)
+	sword_guard.build(0, Loadout.default_for(0))
+	await process_frame
+	var head_at := []
+	for f in 120:
+		guard.frame = 2000 + f
+		guard.state_frame = f
+		sword_guard.apply(Vector3.ZERO, guard, 1.0 / 60.0)
+		if f == 20 or f == 119:
+			head_at.append(sword_guard.skeleton.get_bone_pose_rotation(sword_guard.head_bone))
+	check((head_at[0] as Quaternion).angle_to(head_at[1]) < deg_to_rad(8.0), "the head holds still behind a long shield")
 	# The sword's moves have authored arcs and draw no smear.
 	var sword := FighterView.new()
 	root.add_child(sword)

@@ -89,6 +89,7 @@ func rebuild(l: RefCounted) -> void:
 	last_expression = {}
 	shown_face = ""
 	last_ghost = 0.0
+	unkeyed = {}
 	neck_pivot = null
 	reset_motion()
 	build(player, l)
@@ -539,9 +540,36 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# (Hitlag freezes the pose along with everything else.)
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
+	_rest_unkeyed(clip)
 	_body_follow(s, delta)
-	_lag_bones(int(s.facing))
+	_lag_bones(s)
 	_follow_bones()
+
+
+## The chest and head get turns and bends added on top of the clip every frame (`_body_follow`, `_lag_bones`), which only works if the
+## clip sets them every frame. A clip that leaves one at rest has no track for it (the exporter drops it), so nothing would put it back
+## and the additions would pile up (the head spun round in a long shield hold): such a bone is put back to rest first.
+var unkeyed := {}
+
+
+func _rest_unkeyed(clip: String) -> void:
+	if not unkeyed.has(clip):
+		var missing: Array[int] = []
+		var a := anim.get_animation(clip) if anim.has_animation(clip) else null
+		for bone in [spine_bone, head_bone]:
+			if bone < 0 or a == null:
+				continue
+			var name := skeleton.get_bone_name(bone)
+			var found := false
+			for t in a.get_track_count():
+				if String(a.track_get_path(t)).get_slice(":", 1) == name:
+					found = true
+					break
+			if not found:
+				missing.append(bone)
+		unkeyed[clip] = missing
+	for bone in unkeyed[clip]:
+		skeleton.reset_bone_pose(bone)
 
 
 ## Moves the head's and the torso's pieces (hats, glasses, neckwear) with the head and chest bones as they are posed now.
@@ -616,10 +644,20 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
 
 
-## The chest and head lagging the hips (the `spine`, `head` and `head_turn` springs), on top of the clip and the body follow.
-func _lag_bones(facing: int) -> void:
+## The chest and head lagging the hips (the `spine`, `head` and `head_turn` springs), on top of the clip and the body follow; and behind a
+## shield, a slow breath (by the sim frame, so a freeze holds it) that moves the chest and head but never the bubble.
+const SHIELD_BREATH := 2.5
+const SHIELD_BREATH_FRAMES := 80.0
+
+
+func _lag_bones(s: Dictionary) -> void:
 	if skeleton == null or spine_bone < 0:
 		return
+	var facing := int(s.facing)
+	if String(s.state) == "Shield":
+		var b := sin(float(s.frame) * TAU / SHIELD_BREATH_FRAMES)
+		_bend_bone(spine_bone, SHIELD_BREATH * b, facing)
+		_bend_bone(head_bone, -SHIELD_BREATH * 0.6 * b, facing)
 	if absf(springs.value("spine")) > 0.05:
 		_bend_bone(spine_bone, springs.value("spine"), facing)
 	if absf(springs.value("head")) > 0.05:
@@ -1616,6 +1654,7 @@ var springs := _make_springs()
 var prev_vel := Vector2.ZERO
 var prev_facing := 0
 var prev_state_frame := -1
+var prev_hitlag := 0
 
 
 static func _make_springs() -> RefCounted:
@@ -2189,6 +2228,12 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		springs.kick("neck", -dv.x * 40.0)
 		if prev_facing != 0 and facing != prev_facing:
 			springs.kick("head_turn", float(prev_facing) * 420.0)
+	# A hit on the shield: as its freeze ends the chest and head are knocked back behind it and come forward again.
+	if springs.new_frames > 0 and prev_hitlag > 0 and int(s.hitlag) == 0 and String(s.state) == "Shield":
+		springs.kick("spine", -90.0 - 6.0 * float(prev_hitlag))
+		springs.kick("head", -110.0 - 8.0 * float(prev_hitlag))
+	if springs.new_frames > 0 or int(s.hitlag) > 0:
+		prev_hitlag = int(s.hitlag)
 	# A strike's follow-through: as a fist's hit ends the hand carries on past it and settles back.
 	var f := int(s.state_frame)
 	if String(s.state) == "Attack" and _cls(s) != 0 and prev_state_frame >= 0:
