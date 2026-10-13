@@ -75,7 +75,312 @@ pub fn staff() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    // The reference's no-clank moves (`clang=f` on every box, ssbwiki.com raw hitbox tables, 13.0.1; sim 73): the rapid jab and its
+    // finisher, the dash attack, the three smashes (their wind too), the down air, the pummel, the ledge and get-up attacks.
+    for id in [
+        RAPID,
+        RAPID_LOOP,
+        RAPID_END,
+        MoveId::DashAttack,
+        MoveId::FSmash,
+        MoveId::USmash,
+        MoveId::DSmash,
+        MoveId::DAir,
+        MoveId::Pummel,
+        MoveId::LedgeAttack,
+        MoveId::GetUpAttack,
+    ] {
+        for h in &mut w.moves[id as usize].hitboxes {
+            h.clanks = false;
+        }
+    }
+    // Phase 2: the specials (none of the claws' follow-up slots belong to the staff).
+    for id in [MoveId::Ext0, MoveId::Ext1, MoveId::Ext2] {
+        w.moves[id as usize] = Move::empty();
+    }
+    warp(&mut w);
+    counter_and_barrier(&mut w);
+    explosive_flame(&mut w);
+    autoreticle(&mut w);
     w
+}
+
+/// Neutral special, the reticle and its three shots (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Autoreticle").
+///
+/// * The search on frames 7-14 (the `lock` register): the nearest opponent that can be hit, in front, chest within 120 reference
+///   units (15 world) of the seer's chest, with nothing solid between [R rules; E: the exact "in front" region, chest to chest
+///   rather than the search circle against the hurtbox, pass-through platforms not blocking (gaps 2)]. The reticle stays where
+///   the target's chest was [R].
+/// * With a lock, three shots made on frames 23, 29 and 35 (hitting from the next frame) from the staff (1.0 ahead, 1.3 up [E]),
+///   straight at the reticle at 6 reference units a frame (0.75 world) [R speed; E: the path, gap 1], life 25 [R]: 3.5%, angle 361
+///   forward, BK 40, KS 41, radius 2.3 reference units, shield damage -1.7 (51%) [R]; not piercing, reflectable, they clank [R].
+///   Without a lock nothing comes out [R].
+/// * FAF 68 [R]; x0.6 horizontal speed in the air [R]; the aerial descent stall is not published (the body's physics) [E: gap 3];
+///   touching down carries the move on [E: gap 4].
+fn autoreticle(w: &mut Weapon) {
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
+    let mut shot = row(&r(1, 1, 0, 0, u(23), 35, 361, 40, 41, 0, 0));
+    shot.shield_damage = 51;
+    shot.angle_type = ANGLE_FORWARD;
+    let mut mv = ref_move(68, 0, 0, 255, &[]);
+    mv.projectile = Some(ProjectileSpawn {
+        // (Only the script fires it.)
+        frame: 255,
+        x: Fx::ONE,
+        y: tenths(13),
+        speed: su(6000),
+        life: 25,
+        hitbox: shot,
+        end_damage: Fx::from_ratio(35, 10),
+        arc: ProjectileArc::NONE,
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+    });
+    mv.start_speed = 60;
+    mv.land_continue = true;
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/staff_reticle.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = mv;
+}
+
+/// Side special, the explosive flame (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Explosive Flame"): a stationary
+/// explosion summoned at a distance, a projectile (E3a: it pierces, hits each fighter again 5 frames after its last hit on it, and
+/// grows by its age).
+///
+/// * The point is fixed where the seer stood on frame 1: 45 reference units ahead (5.625 world units), 75 (9.375) when the special
+///   was input like a smash attack (the `flick` register) [R]; 10 up (1.25) [E: gap 5, its height is not published]. The explosion is
+///   made on frame 27 at that point, whatever the seer did since (it fell, it was carried) [R]; a B-reverse in the first frames
+///   turns the point round with the seer [E].
+/// * Six loop hits from frame 28 (its age 1), every 5 frames on a fighter inside it: 1.5%, 160 degrees **away from the explosion's
+///   centre by position** (the target is drawn back into the middle: the trap), BK 50, KS 100, SDI x0.4, shield damage -0.7 (53%)
+///   [R]; the radius grows on 28 / 32 / 36 / 40 / 44 / 48 / 52 (4.8 / 6.0 / 7.2 / 8.4 / 9.6 / 10.8 / 12.0 reference units) [R]; the loop
+///   ends after 55, nothing on 56 [R].
+/// * The last hit on frame 57 (its own group): 5.5%, 84 degrees the way the seer faced, BK 60, KS 141, radius 15.5, hitlag x1.5, SDI
+///   x0.4, shield damage -2.7 (51%) [R]. Never clanks (`clang=f`) [R]; reflectable [R].
+/// * FAF 72; x0.8 horizontal speed on starting in the air [R]; the body's air physics, and touching down carries the move on [E:
+///   gaps 4 and 6].
+fn explosive_flame(w: &mut Weapon) {
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
+    let flame = |radius: i32, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8| {
+        let mut h = row(&r(1, 1, 0, 0, u(radius), damage, angle, bkb, kbg, 0, group));
+        h.sdi = 40;
+        h.clanks = false;
+        h
+    };
+    let looped = |radius: i32| {
+        let mut h = flame(radius, 15, 160, 50, 100, 0);
+        h.angle_type = ANGLE_BY_POSITION;
+        h.shield_damage = 53;
+        h
+    };
+    let mut last = flame(155, 55, 84, 60, 141, 1);
+    last.angle_type = ANGLE_FORWARD;
+    last.hitlag = 150;
+    last.shield_damage = 51;
+    let mut gap = looped(0);
+    gap.radius = Fx::ZERO;
+    let mut mv = ref_move(72, 0, 0, 255, &[]);
+    mv.projectile = Some(ProjectileSpawn {
+        // (Made by the script on move frame 26, the reference's 27; it first hits the frame after, at age 1.)
+        frame: 255,
+        x: tenths(u(450)),
+        y: tenths(u(100)),
+        speed: Fx::ZERO,
+        life: 31,
+        hitbox: looped(48),
+        end_damage: Fx::from_ratio(15, 10),
+        arc: ProjectileArc::NONE,
+        phases: phase_list(&[
+            (5, looped(60)),
+            (9, looped(72)),
+            (13, looped(84)),
+            (17, looped(96)),
+            (21, looped(108)),
+            (25, looped(120)),
+            (29, gap),
+            (30, last),
+        ]),
+        pierce: true,
+        rehit: 5,
+    });
+    mv.start_speed = 80;
+    mv.land_continue = true;
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/staff_flame.script"),
+    ));
+    w.moves[MoveId::SideSpecial as usize] = mv;
+}
+
+/// The counterattack and the reflection (slots 29 and 30).
+const COUNTERATTACK: MoveId = MoveId::Ext0;
+const REFLECTION: MoveId = MoveId::Ext1;
+
+/// The down special's air physics (the reference's parameters, in its units a frame), shared by the stance and its two answers [R]
+/// (the answers' own aerial physics are not published: [E] the stance's): horizontal speed x0.33 on starting, air friction 0.0025,
+/// gravity 0.04, top fall speed 1.2, top rising speed 0.8. Touching down carries the move on along the ground [E: gap 4].
+fn stance_air(m: &mut Move) {
+    m.start_speed = 33;
+    m.air_friction = Some(Fx::from_ratio(25, 80_000));
+    m.air_gravity = Some(su(40));
+    m.air_max_fall = Some(su(1200));
+    m.air_max_rise = Some(su(800));
+    m.land_continue = true;
+}
+
+/// Down special: the counter and the reflect barrier, one stance with two separate answers (the reference's, ssbwiki.com 13.0.1;
+/// `REFERENCE_DATA.md` "Down special"). A melee hit is countered; a projectile is reflected; never both.
+///
+/// * The stance (down special): FAF 71; intangible 6-12. It **counters melee hits only** on frames 7-34 (E10c `melee_only`): the
+///   counterattack deals 1.3 times the caught damage, at least 10% and at most 50% (E10c `max_damage`). On the same frames a
+///   **projectile search box** (radius 12.3 reference units on the chest: 1.5 world units at 0.2 ahead, 1.3 up [D]) starts the
+///   reflection the moment a shot touches it (E10c `detect_then`).
+/// * The counterattack (ext0, decision 22): the hit on frames 5-7 [R: ssbwiki.com, dragdown; UFD and kuroganehammer.com say 4-6],
+///   intangible 1-5 [R: the majority; ssbwiki.com 1-6], FAF 37. Two boxes, both the caught damage: id 0 BK 50 / KS 70 (radius 7.0 at
+///   10.5 up, 13.0 to 14.5 ahead) wins over id 1 BK 30 / KS 65 (radius 9.0, 9.0 to 20.0 ahead) [D positions on the root]; angle 361
+///   sent forward, hitlag x1.5, no clank.
+/// * The reflection (ext1): FAF 35. The body reflector on frames 1-4 (radius 11.5 at 10 up, 1.5 ahead: 1.4 at 1.3 up, 0.2 ahead [D])
+///   and the barrier, a standing capsule (radius 3.8, from 2 to 21 reference units up, 10 ahead: radius 0.5, centre 1.4 up and 1.3
+///   ahead, half height 1.2 [D]); both reflect at x1.4 damage, x1.25 speed, x1 lifetime, up to 50% shots [R]. The barrier's push
+///   (frames 2-11): set knockback 50 with set weight at angle 361 forward, re-applied every frame as the smashes' wind (radius 5.0,
+///   at the barrier from 5 to 18 up) [R numbers, D positions]. **Owner-chosen approximation (decision 20)**: the reference's barrier is
+///   a separate object lasting 45 frames (ten past the reflection's FAF) that stays when the seer is hit; here it is part of the
+///   reflection move and ends with it. A reflected shot turns its horizontal speed round only [E: gap 12].
+fn counter_and_barrier(w: &mut Weapon) {
+    let mut stance = ref_move(71, 0, 0, 255, &[]);
+    stance.intangible_from = 5;
+    stance.intangible = 12;
+    stance.counter = Some(Counter {
+        start: 6,
+        end: 33,
+        then: COUNTERATTACK as u8,
+        percent: 130,
+        min_damage: Fx::from_int(10),
+        max_damage: Fx::from_int(50),
+        melee_only: true,
+    });
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
+    stance.reflector = Some(Reflector {
+        damage_percent: 140,
+        speed_percent: 125,
+        max_damage: Fx::from_int(50),
+        detect_start: 6,
+        detect_end: 33,
+        detect_x: tenths(u(15)),
+        detect_y: tenths(u(100)),
+        detect_radius: tenths(u(123)),
+        detect_then: Some(REFLECTION as u8),
+        ..Reflector::NONE
+    });
+    stance_air(&mut stance);
+    w.moves[MoveId::DownSpecial as usize] = stance;
+
+    let mut strike = ref_move(37, 0, 0, 255, &[]);
+    for x in [130, 145] {
+        strike
+            .hitboxes
+            .push(row(&ru(5, 7, x, 105, 70, 100, 361, 50, 70, 0, 0)));
+    }
+    for x in along(90, 200, 55) {
+        strike
+            .hitboxes
+            .push(row(&ru(5, 7, x, 105, 90, 100, 361, 30, 65, 1, 0)));
+    }
+    for h in &mut strike.hitboxes {
+        h.hitlag = 150;
+        h.angle_type = ANGLE_FORWARD;
+        h.clanks = false;
+    }
+    strike.counter_strike = true;
+    strike.intangible = 5;
+    stance_air(&mut strike);
+    w.moves[COUNTERATTACK as usize] = strike;
+
+    let mut reflection = ref_move(
+        35,
+        0,
+        0,
+        255,
+        &along(50, 180, 65)
+            .into_iter()
+            .map(|y| ru(2, 11, 110, y, 50, 0, 361, 0, 100, 0, 0))
+            .collect::<Vec<_>>(),
+    );
+    for h in &mut reflection.hitboxes {
+        h.push = true;
+        h.fixed_kb = 50;
+        h.set_weight = true;
+        h.angle_type = ANGLE_FORWARD;
+    }
+    // (The push, reference frames 2-11, lands again every frame.)
+    reflection.rehit = Some((1, 1));
+    reflection.reflector = Some(Reflector {
+        start: 0,
+        end: reflection.total_frames,
+        x: tenths(u(100)),
+        y: tenths(u(115)),
+        radius: tenths(u(38)),
+        half_height: tenths(u(95)),
+        damage_percent: 140,
+        speed_percent: 125,
+        max_damage: Fx::from_int(50),
+        body_start: 0,
+        body_end: 3,
+        body_x: tenths(u(15)),
+        body_y: tenths(u(100)),
+        body_radius: tenths(u(115)),
+        ..Reflector::NONE
+    });
+    stance_air(&mut reflection);
+    w.moves[REFLECTION as usize] = reflection;
+}
+
+/// A reference speed or acceleration in thousandths of its units a frame, as world units a frame (1 world unit = 8) [D].
+const fn su(thousandths: i32) -> Fx {
+    Fx::from_ratio(thousandths, 8000)
+}
+
+/// Up special, the warp (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Warp").
+///
+/// * Startup on frames 1-15 with gravity 0.03 and a top fall speed of 0.75 (reference units a frame) [R].
+/// * On frame 16 the stick picks the direction (straight up when near neutral, and how far it is pushed does not matter [E]); 17
+///   frames of travel (16-32) at 3.5 reference units a frame (59.5 in all, 7.44 world units) [R], intangible on 16-32 [R], no hitbox.
+///   The travel follows the ground if it meets it (it never sinks in, and glides on to the edge) and stops at walls and ceilings [E:
+///   gap 9]; touching down during it does not end the move (`lands_from`, the reference's frame 33).
+/// * The reappearance on frame 33 at half the speed [R], then the body's own air physics [E: gap 10] or the ground's friction; FAF 68
+///   [R]. Ending in the air leaves the fighter helpless with 22 frames of landing lag [R]; landing during the reappearance costs the
+///   same 22 [R]. Sliding off an edge during a grounded reappearance cancels it into an ordinary fall (the shared special-move edge
+///   cancel) [R].
+/// * Ledges can be caught from the reappearance on, in front and behind [E: gap 8; "grabs ledges more easily" since 2.0.0, no
+///   numbers published].
+fn warp(w: &mut Weapon) {
+    let mut warp = ref_move(68, 22, 0, 255, &[]);
+    warp.air_blocks = vec![AirBlock {
+        from: 0,
+        to: 14,
+        gravity: Some(su(30)),
+        max_fall: Some(su(750)),
+        friction: None,
+        drift: 100,
+        accel: 100,
+    }];
+    // Intangible on the reference's frames 16-32 (move frames 15-31).
+    warp.intangible_from = 15;
+    warp.intangible = 32;
+    // Touching down before the reappearance carries the warp on along the ground.
+    warp.lands_from = 32;
+    warp.ledge_front_from = 32;
+    warp.ledge_back_from = 32;
+    warp.helpless_after = true;
+    warp.fall_landing_lag = 22;
+    warp.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/staff_warp.script"),
+    ));
+    w.moves[MoveId::UpSpecial as usize] = warp;
 }
 
 fn jabs(w: &mut Weapon) {

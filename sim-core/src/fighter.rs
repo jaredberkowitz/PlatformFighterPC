@@ -253,6 +253,7 @@ pub fn update(
     stage: &Stage,
     rules: &Ruleset,
     input: Input,
+    world: &scripting::World,
 ) -> Option<u8> {
     f.history.rotate_right(1);
     f.history[0] = input;
@@ -318,7 +319,7 @@ pub fn update(
             S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch | S::Landing
         );
     match f.state {
-        S::Attack => return attack(f, p, weapon, stage, rules),
+        S::Attack => return attack(f, p, weapon, stage, rules, world),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
         S::JumpSquat => jump_squat(f, p, stage, rules),
@@ -1620,6 +1621,9 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
         let by_attack = held || f.pressed_within(buttons::ATTACK, 10);
         f.presses = u8::from(by_attack);
         f.releases = u8::from(by_attack && !held);
+        // A target lock belongs to one attack.
+        f.locked = false;
+        f.lock = Vec2::ZERO;
     }
     f.move_id = id as u8;
     f.hit_mask = 0;
@@ -1759,6 +1763,7 @@ fn attack(
     weapon: &Weapon,
     stage: &Stage,
     rules: &Ruleset,
+    world: &scripting::World,
 ) -> Option<u8> {
     // A switch decided last frame after the fighter moved (a search box's contact, a command grab's catch): the new move's first
     // frame is this one, keeping the speed (as a `goto`).
@@ -1861,7 +1866,7 @@ fn attack(
     // The move's script steers the move: motion, branching into another move, projectiles, ending early.
     let mut script_motion = None;
     if let Some(program) = &mv.script {
-        let effects = scripting::run_fighter(program, f);
+        let effects = scripting::run_fighter(program, f, world);
         if let Some(next) = effects.goto {
             begin_attack(f, MoveId::from_index(next));
             return None;
@@ -1940,6 +1945,11 @@ fn attack(
         let plain = plain_landing_lag(f, p);
         let q = move_air_physics(p, mv, frame);
         let fast_fall_ok = frame >= u16::from(mv.fast_fall_from);
+        // (A stance's top rising speed holds the fighter's upward speed down before it moves.)
+        if let Some(rise) = mv.air_max_rise {
+            f.vel.y = f.vel.y.min(rise);
+            f.hop_boost = 0;
+        }
         if air_move_with(f, &q, stage, fast_fall_ok)
             && !mv.land_continue
             && frame >= u16::from(mv.lands_from)
@@ -2109,6 +2119,12 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
         _ => (id, mv),
     };
     begin_attack(f, id);
+    // A special input like a smash attack (the stick flicked sideways, up or down, or the strong button) is remembered for its
+    // script (the `flick` register).
+    f.special_flick = f.held(buttons::STRONG)
+        || f.flick_x(SMASH_FLICK_BUFFER) != 0
+        || f.hard_up(SMASH_FLICK_BUFFER)
+        || f.hard_down(SMASH_FLICK_BUFFER);
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);
     }

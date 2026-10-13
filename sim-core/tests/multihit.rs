@@ -6,9 +6,9 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::moves::{
-    Hitbox, Move, MoveId, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK, ANGLE_BACKWARD,
-    ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_FORWARD, EFFECT_NORMAL, HIT_NORMAL, TARGETS_AERIAL,
-    TARGETS_ALL, TARGETS_GROUNDED,
+    Hitbox, Motion, Move, MoveId, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
+    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, EFFECT_NORMAL,
+    HIT_NORMAL, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, Vec2};
@@ -230,6 +230,41 @@ fn angle_types_choose_which_way_forward_is() {
     assert_eq!(sent_by(ANGLE_BY_POSITION, -2, 5), 1);
     assert_eq!(sent_by(ANGLE_BY_POSITION, 0, 5), 1);
     assert_eq!(sent_by(ANGLE_BY_POSITION, 0, -5), -1);
+}
+
+/// As [`sent_by`], with player 0 sliding at `vx` (world tenths a frame, relative to its facing) through the move.
+fn sent_moving(angle_type: u8, vx: i32) -> i32 {
+    let mut h = hb(2, 2, 10, 45, 80, 100, 0);
+    h.radius = fx(15, 10);
+    h.angle_type = angle_type;
+    let mut m = mv(30, vec![h]);
+    m.motion = vec![Motion {
+        start: 0,
+        end: 29,
+        vx: fx(vx, 10),
+        vy: Fx::ZERO,
+    }];
+    let mut sim = setup(m);
+    start(&mut sim);
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).state == S::Hitstun && !sim.fighter(1).launch_pending {
+            break;
+        }
+    }
+    assert_eq!(sim.fighter(1).state, S::Hitstun, "hit");
+    sim.fighter(1).kb_vel.x.raw().signum()
+}
+
+#[test]
+fn the_travel_angle_type_sends_the_way_the_attacker_is_moving() {
+    // (Sim 73, owner decision 23: the reference's type 1, speed-based.) A box in front, the victim in front; the attacker facing
+    // right. Sliding backward it sends the victim backward (the way it moves), sliding forward or standing still forward.
+    assert_eq!(sent_moving(ANGLE_BY_TRAVEL, -1), -1);
+    assert_eq!(sent_moving(ANGLE_BY_TRAVEL, 1), 1);
+    assert_eq!(sent_moving(ANGLE_BY_TRAVEL, 0), 1, "not moving: its facing");
+    // The default (by box) ignores the movement.
+    assert_eq!(sent_moving(ANGLE_BY_BOX, -1), 1);
 }
 
 #[test]

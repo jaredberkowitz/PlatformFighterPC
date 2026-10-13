@@ -107,8 +107,8 @@ seer's ground numbers; the "no two share a traction" check dropped: the rogue an
 * The rapid jab's cycle reading (frames 2-23, the loop points "1-2 and 23-24" read as the Gauntlets' "2-3 and 19-20") and its "let go"
   rule (not held and not pressed for 8 frames), the Gauntlets' open question 2.
 * The hitstun floor of 1 frame (E27).
-* **No-clank boxes clank**: the rapid jab, finisher, dash attack, smashes, down air, pummel, ledge and get-up attacks are `clang=f` in
-  the reference; E3c (`Hitbox::clanks`) is being built on the Gauntlets' phase-2 branch: set it on these after the merge.
+* (Done in sim 73 on the cleanup branch: the rapid jab, finisher, dash attack, smashes, down air, pummel, ledge and get-up attacks
+  carry `clanks = false`, the reference's `clang=f`.)
 * The **arm intangibility windows** (forward tilt 14-35, dash attack 5-16, back air 7-10) are recorded but act on nothing: with a held
   weapon the fourth hurtbox circle is the middle one, so the arm is inside the body's circles. The head-and-torso windows work.
 * The down throw's 8 frames of hitlag are folded into its timeline (release 33, FAF 54); the held fighter's invincibility meanwhile and
@@ -141,7 +141,181 @@ the Godot tests (`godot/tests/*.gd`): updated for the sixth class, but they need
   the forward air (a palm pulse, 9-11); the back air (shield bash behind, 8-10); the down air (staff driven down, 10-11); the back throw
   (turns round on 20).
 
-## Phase 2 plan: the specials
+## Phase 2 (sims 74 onward, branch `seer-phase2`): the specials
+
+Branch `seer-phase2` from `movesets` at `17e91f7` (sim 72, after the Gauntlets' phase 2). A parallel cleanup branch takes sim 73; this
+one starts at 74 and the two are reconciled at merge. Built in the owner's order, each milestone tested and committed before the next.
+Tests: `sim-core/tests/staff_specials.rs`.
+
+### Milestone 1 (sim 74): Warp (up special)
+
+`moves_staff.rs` `warp`, script `scripts/staff_warp.script`. No new engine field: the E11 addition the plan called
+`land_continue_to` already exists as **`Move::lands_from`** (built with the Gauntlets' E11 additions: "touching down before this move
+frame does not end the move"), which is exactly that frame. The claws' follow-up slots `ext0` to `ext2` are cleared.
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Startup 1-15 | an air block on move frames 0-14: gravity 0.03, top fall 0.75 (reference units) | [R] |
+| Direction | read on frame 16 (move 15) from the stick, normalised; under 0.2 of its travel it is straight up; the tilt does not change the distance | [R] frame; [E] neutral = up, magnitude ignored, any angle (not snapped), facing unchanged |
+| Travel | 17 frames (16-32) at 3.5 reference units (0.4375 world) along it: 7.4375 world units | [R] / [D] |
+| Intangible | 16-32 (`intangible_from` 15, `intangible` 32) | [R] |
+| Against the stage | a motion: it follows the ground if it meets it (never sinks in; glides on, leaves at an edge), stops at walls and ceilings; touching down before frame 33 carries on (`lands_from` 32) | [E] gap 9 |
+| Reappearance | frame 33 at half speed once, then the body's own air physics (in the air) or the ground's friction | [R] x0.5; [E] gap 10 for the physics |
+| End | FAF 68; ending in the air: helpless, landing lag 22; landing during the reappearance: 22 | [R] |
+| Edge-cancel | a grounded reappearance sliding off an edge ends in an ordinary fall (the shared rule in `slide_on_platform`) | [R] behaviour |
+| Ledges | front and back from frame 33 (`ledge_front_from` / `ledge_back_from` 32) | [E] gap 8 ("more easily" since 2.0.0, no numbers) |
+
+Tests (all run): `the_warps_data_is_the_references`, `the_warp_travels_59_5_reference_units_straight_up_intangible_on_16_to_32` (the
+exact distance, the half-speed frame, intangibility frame by frame), `the_stick_on_frame_16_aims_the_warp_and_later_changes_do_not`
+(45 degrees, neutral, a light tilt the full distance), `an_aerial_warp_ends_helpless_and_lands_with_22_frames`,
+`landing_during_the_reappearance_costs_22_frames`, `a_warp_into_the_ground_glides_along_it_and_reappears_standing`,
+`a_grounded_warp_along_the_stage_ends_standing_and_one_sliding_off_an_edge_is_cancelled`,
+`the_warp_catches_a_ledge_from_the_reappearance_on`. Workspace tests, clippy, fmt, `fuzz-rollback 1000` and `net-fuzz 200` at 0
+mismatches.
+
+### Milestone 2 (sim 75): Counter / Reflect Barrier (down special)
+
+`moves_staff.rs` `counter_and_barrier`: the stance (down special), the counterattack (`ext0`), the reflection (`ext1`).
+
+**Engine (E10c and two small additions; each defaults to the old behaviour, no schema change: older content means the same):**
+
+| Field | What | Where |
+| --- | --- | --- |
+| `Counter::melee_only` | a projectile's hit is not caught (it lands as usual) | `combat::catch_with_counter` (told whether the hit is melee) |
+| `Counter::max_damage` | the answer's damage is at most this (0: no cap) | `catch_with_counter` |
+| (rule) | a counter whose window is open catches **through its own intangibility** (the reference's counters do: their intangibility and catch windows overlap). Only a fighter in an open counter window is affected, so no existing fighter changes (the Longsword's stance has no intangibility) | `combat::counter_open`, `resolve_hits`, `update_projectiles` |
+| `Reflector::detect_then` | a shot touching the detector **starts that move at once** (with its intangibility), so its reflector meets the shot on the same frame; the detector then works on its whole window | `combat::reflector_detects` |
+| `Reflector::half_height` | the field as a standing capsule (the barrier) instead of a circle | `combat::reflector_touching`, `overlaps_upright` |
+| `Reflector::body_*` | a second circle with the same numbers on its own frames (the body reflector beside the barrier) | `reflector_touching` |
+| `Move::air_max_rise` | the upward speed is held at or under it while the move runs without a motion in the air (the full hop's opening is cut too) | `fighter::attack` |
+
+Content: `counter { max_damage melee_only }`, `reflector { detect_then half_height body_start body_end body_x body_y body_radius }`,
+`air_max_rise` (`docs/CONTENT.md`); validation: `detect_then` must be a real move, `max_damage` not under `min_damage`.
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Stance | FAF 71; intangible 6-12; counter 7-34 (130%, min 10, max 50, melee only, answer `ext0`); the projectile search box 7-34 (radius 12.3 reference units on the chest: 1.5 at 0.2 ahead, 1.3 up) starting `ext1` | [R]; positions [D] |
+| Stance air | x0.33 on starting, friction 0.0025, gravity 0.04, top fall 1.2, top rise 0.8; touching down carries on | [R]; landing [E] gap 4 |
+| Counterattack | hit 5-7 (decision 22), intangible 1-5 (the majority), FAF 37; id 0 BK 50 / KS 70 (r 7.0, 10.5 up, 13.0-14.5 ahead) over id 1 BK 30 / KS 65 (r 9.0, 9.0-20.0 ahead); 361 forward, x1.5 hitlag, no clank; the caught damage; turned toward whoever struck; the caught hit's hitlag only before it (conflict 3) | [R]; positions [D]; the freeze [E] |
+| Reflection | FAF 35; body reflector 1-4 (r 11.5 at 10 up, 1.5 ahead); the barrier a capsule r 3.8 from 2 to 21 up, 10 ahead, to the end of the move; x1.4 damage, x1.25 speed, x1 life, limit 50; the push on 2-11 (set knockback 50, set weight, 361 forward, re-applied every frame as the smashes' wind) | [R]; positions [D]; **barrier ending with the move: owner-chosen approximation (decision 20)** |
+| Both answers' air | the stance's numbers | [E] |
+| Reflected shot | horizontal speed turned round only | [E] gap 12 |
+| Counter bubble | the reference catches on its own bubble (r 11.5 at 10 up); here the body's hurtboxes | [E] |
+
+Tests (all run): `the_counter_and_barriers_data_is_the_references`, `a_melee_hit_in_the_window_is_countered_for_1_3_times_between_10_and_50`
+(a jab answered with the 10% floor and the counterattack dealing it; a 45% hit answered with 50), `the_counter_catches_through_its_own_intangibility`,
+`a_shot_touching_the_search_box_starts_the_reflection_and_is_never_countered` (the reflection on the touching frame, the shot the
+seer's at x1.4 power and x1.25 speed), `a_shot_outside_the_window_hits` (before and after), `the_reflections_barrier_reflects_shots_at_its_height_and_not_above`,
+`a_melee_hit_during_the_reflection_is_taken` (the two answers never both), `the_barriers_push_moves_a_fighter_without_hitstun`,
+`the_stance_holds_the_rise_at_0_8_and_keeps_a_third_of_the_speed`, `the_down_specials_new_fields_are_in_the_content_hash`. Workspace
+tests, clippy, fmt, `fuzz-rollback 1000`, `net-fuzz 200` at 0 mismatches.
+
+### Milestone 3 (sim 76): Explosive Flame (side special)
+
+`moves_staff.rs` `explosive_flame`, script `scripts/staff_flame.script`.
+
+**Engine (E3a as the audit gives it, the `flick` register, one new script function; defaults leave every older projectile as it
+was, no schema change):**
+
+| Field | What | Where |
+| --- | --- | --- |
+| `ProjectileSpawn::pierce` | not used up by a hit: it goes on through every fighter it touches to the end of its life | `combat::update_projectiles` |
+| `ProjectileSpawn::rehit` | a fighter already hit by a group is hit by it again this many frames after its last hit on that fighter (per target) | `update_projectiles` |
+| `ProjectileSpawn::phases` | up to **8** (`MAX_PHASES`, was 2); a phase of radius 0 is a gap (no hit); `moves::phase_list` builds them | `moves.rs`, `format.rs` (`phase` blocks up to 8) |
+| `Projectile::hit_mask`, `hit_age[4]`, `facing` (hashed, checksum cases) | who it hit by group (`combat::hit_bit` layout), its age at its last hit on each fighter, its owner's facing at spawn (turned round by a reflection, which also clears its hits): "forward" for a projectile standing still (E26 by position, forward and backward then work for it) | `state.rs`, `combat.rs` |
+| `Fighter::special_flick` (hashed, checksum case) and the **`flick`** register | the special was input like a smash attack: the stick flicked (sideways, up or down, within the smash-flick buffer) or the strong button held; set when a special starts | `fighter::start_special`, `scripting.rs`, `sim-script/src/api.rs` |
+| **`spawn_at(x, y, speed_forward, speed_up)`** and `Fighter::spawn_fixed` (hashed, checksum case) | `spawn` at an absolute point (a `spawn` offset is applied after the fighter's move that frame, so a falling seer's explosion would land low); found while testing the aerial version | `scripting.rs`, `combat::spawn_projectiles` |
+
+E3c for projectiles already existed (`Hitbox::clanks` false skips `clank_projectile`) and E26's by-position side for a projectile
+already measured from its centre; both are used as built.
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Point | where the seer stood as the move began, 45 reference units ahead (75 with `flick`), 10 up | [R] ahead; [E] height (gap 5); [E] a B-reverse turns the point round |
+| Made | on frame 27 (move 26) by `spawn_at`, whatever the seer did since (falling, carried) | [R] |
+| Loop | 1.5%, 160 by position from its centre (BK 50, KS 100, SDI x0.4, shield 53%), on ages 1-28 (frames 28-55), per target every 5 frames (28, 33, 38, 43, 48, 53 on a fighter inside throughout); radius 6 / 8 / 9 / 11 / 12 / 14 / 15 tenths from frames 28 / 32 / 36 / 40 / 44 / 48 / 52; nothing on 56 | [R] / [D] |
+| Last hit | frame 57 (age 30, group 1): 5.5%, 84 the seer's way, BK 60, KS 141, radius 19 tenths, hitlag x1.5, shield 51%; life 31 | [R] |
+| No clank, reflectable | `clanks` false on every box; a reflector takes it over (it stays put) | [R] |
+| Move | FAF 72; x0.8 horizontal speed in the air; the body's air physics; touching down carries on | [R]; [E] gaps 4, 6 |
+| Hitlag | the victim's hitlag does not freeze the explosion (its rhythm is by its own age) | [E] |
+
+Tests (all run): `the_explosive_flames_data_is_the_references`, `the_flame_appears_on_frame_27_45_units_ahead_or_75_with_a_flick`,
+`the_flame_stays_where_the_seer_stood_on_frame_1` (falling), `a_shielding_fighter_inside_it_is_hit_on_28_33_38_43_48_53_and_57`,
+`a_fighter_walking_in_late_is_hit_every_5_frames_from_its_first_hit` (30, 35 ... 55, 57), `the_flame_pierces_and_pulls_each_target_back_toward_its_centre`
+(two fighters hit on one frame, sent at 160 and 20), `the_flame_never_clanks_and_its_new_fields_are_hashed`; `scripted_moves::a_script_can_fire_a_projectile_at_a_fixed_point_while_the_fighter_moves`;
+checksum cases in `state.rs`. Workspace tests, clippy, fmt, `fuzz-rollback 1000`, `net-fuzz 200` at 0 mismatches (note: `pftool`'s fuzzers
+play classes 0 and 1 only; the seer's rollback is covered by `staff.rs` `random_play_with_the_seer_is_deterministic_and_rolls_back` and the
+specials' own rollback test).
+
+### Milestone 4 (sim 77): Autoreticle (neutral special)
+
+`moves_staff.rs` `autoreticle`, script `scripts/staff_reticle.script`.
+
+**Engine (the E16 target lock):**
+
+| Piece | What | Where |
+| --- | --- | --- |
+| **`lock(range)`** and the registers **`locked`, `lock_x`, `lock_y`** | once this attack has a lock it returns 1; otherwise it looks for the nearest other fighter (lowest index on a tie) that can be targeted (active, stocks left, not intangible), in front (`(target - self) x facing > 0`), chest within `range` of the fighter's chest, with no solid block across the line between the chests, and keeps that chest as the lock point | `scripting.rs` (`FighterHost::lock`), `sim-script/src/api.rs` |
+| `Fighter::lock` (Vec2), `Fighter::locked` (hashed, checksum cases) | the lock point; cleared when a new attack begins (`begin_attack`), kept through `goto` | `state.rs`, `fighter.rs` |
+| `scripting::World` | what a move script sees of the others: every fighter's chest height and, for those that can be targeted, its chest; a snapshot taken at the start of each frame before anyone moves (deterministic; a fighter that moves this frame is seen where it began it) | `step.rs`, passed through `fighter::update` / `attack` to `run_fighter` |
+| `collision::segment_blocked(stage, a, b)` | whether a solid block lies across a segment (its inside: touching an edge is not crossing), slab clipping in fixed point; pass-through platforms never block | `collision.rs` |
+| `combat::chest_height` | the middle hurtbox circle's height (the "chest" of every body) | `combat.rs` |
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Search | frames 7-14 (move 6-13): `lock(15)`: 120 reference units chest to chest, in front, not intangible, line of sight | [R] rules; [E] the "in front" region (a half-plane), chest to chest instead of the search circle against the hurtbox, pass-through platforms not blocking, the nearest wins (gap 2) |
+| Reticle | stays where the target's chest was | [R] |
+| Shots | with a lock, made on 23 / 29 / 35 (move 22 / 28 / 34, hitting from the next frame) at the staff (1.0 ahead, 1.3 up) straight at the reticle at 0.75 world units a frame (6 reference), life 25; 3.5%, 361 forward, BK 40, KS 41, radius 3 tenths, shield 51%; not piercing, reflectable, they clank | [R] numbers; [E] the muzzle and the straight path, carrying on past the point (gap 1) |
+| No lock | nothing comes out; the move plays out to FAF 68 | [R] |
+| Air | x0.6 horizontal speed on starting; the body's physics (the descent stall has no published numbers); touching down carries on | [R]; [E] gaps 3, 4 |
+
+Tests (all run): `the_reticles_data_is_the_references`, `a_locked_reticle_fires_three_shots_on_23_29_35_at_the_point`,
+`without_a_lock_the_reticle_fires_nothing`, `the_reticle_stays_put_when_the_target_moves`, `a_reticle_shot_hits_for_3_5_percent`,
+`the_specials_are_deterministic_and_roll_back` (every special in a row, replayed straight and from a snapshot mid-move);
+`scripted_moves::lock_finds_the_nearest_opponent_in_front_and_keeps_its_chest`, `lock_ignores_fighters_behind_out_of_range_intangible_or_behind_a_block`,
+`segment_blocked_is_a_line_of_sight_through_solid_blocks_only`; checksum cases `lock`, `locked`. Workspace tests, clippy, fmt,
+`fuzz-rollback 1000`, `net-fuzz 200` (0 mismatches), `content-check content/base.pfc` (ok).
+
+### Phase 2 summary
+
+**Slots**: `ext0` the counterattack, `ext1` the reflection; `ext10`-`ext12` the rapid jab (phase 1). The warp, flame and reticle are
+one move each. **Commits** on `seer-phase2`: sim 74 warp (`b1ed63f`), sim 75 counter / barrier (`9e90b5e`), sim 76 flame (`a22f7dd`),
+the merge of `movesets` with the sim 73 cleanup (`f90ba8c`), sim 77 reticle. **Schema**: unchanged (5): every new field is optional
+with a default meaning the old behaviour. `content/base.pfc` re-exported at every milestone.
+
+**Verified against [R] / [D] by tests that ran**: every special's frame data (startup, active frames, FAF, intangibility, landing
+lag), the warp's distance, direction and endings, the counter's ratio, floor and cap and its melee-only rule, the reflection on the
+touching frame with its multipliers, the barrier's height, the push without hitstun, the stance's air numbers, the flame's placement,
+timing, rhythm per target, piercing, growth and pull toward the centre, the reticle's search rules, shot frames, speed and damage;
+determinism and rollback of all of it.
+
+**Estimated [E] (listed per milestone above)**: the warp's neutral direction, ledge windows, stage contact and reappearance physics;
+the counter's catch on the hurtboxes (not the bubble) and its freeze (conflict 3); both answers' air physics; the reflected shot's
+vertical speed; the flame's height and its B-reverse; the reticle's "in front", muzzle and path; every aerial special's landing
+(gap 4) and the reticle's descent stall (gap 3).
+
+**Owner-chosen approximation**: the barrier ends with the reflection move (decision 20; no E25).
+
+**Remaining limits**: the barrier's ten frames past FAF 35 and staying when the seer is hit; a push (windbox) is caught by any open
+counter like a hit (shared, unchanged); `pftool`'s fuzzers play classes 0 and 1 only (the seer's rollback is covered by its own tests);
+the Godot tests were not run (no editor here).
+
+### For the art agent (phase 2)
+
+Moves that want their own clip (they fall back to the shared archetypes now):
+
+* **Up special, warp** (`up_special`): a vanish on frame 16, the fighter **hidden while intangible (16-32)**, reappearing on 33 and a
+  35-frame reappearance; then the special fall.
+* **Down special, stance** (`down_special`): guard pose 1-70, the counter window 7-34. **Counterattack** (`ext0`): a strike in front on
+  5-7 (boxes 10.5 reference units up, 9 to 20 ahead), FAF 37. **Reflection** (`ext1`): a barrier of light 1.3 world units ahead from
+  0.2 to 2.6 up, frames 1-33 (the push 2-11), FAF 35.
+* **Side special, explosive flame** (`side_special`): a point marked at frame 1 5.6 (9.4 with a flick) world units ahead, 1.25 up; the
+  explosion (a projectile of this move) growing from radius 0.6 to 1.5 on frames 28-55 and bursting to 1.9 on 57; the seer's pose
+  plays to FAF 72.
+* **Neutral special, reticle** (`neutral_special`): the staff raised on 7-14 (the search), a reticle at the lock point while it
+  lasts, three shots from the staff tip (1.0 ahead, 1.3 up) on 23, 29, 35; FAF 68.
+
+## Phase 2 plan: the specials (as written before building)
 
 Slots: the rapid jab holds `ext10` to `ext12`; the claws' placeholders in `ext0` to `ext2` go. The specials need two: the
 counterattack (`ext0`) and the reflection (`ext1`).
@@ -177,10 +351,21 @@ counterattack (`ext0`) and the reflection (`ext1`).
   in front at (1.375, 1.19), x1.4 damage, x1.25 speed, limit 50, with the wind (a push, set weight, FKV 50, on 2-11) and FAF 35.
   **Recorded approximation**: the reference's barrier outlives the FAF by ten frames and stays when she is hit; here it ends with the
   move. Tests: melee countered for 1.3x within 10-50; a shot reflected by the new move and not countered; the two never both.
-* Merge with the Gauntlets' phase 2 first (E1, E3c, E6, E11 additions, E21, E22, the shield-stun fix), then set `clanks = false` on the
-  Staff's no-clank boxes.
+* (Merged: the Gauntlets' phase 2 is in, and the no-clank boxes were set in sim 73.)
 
 ## Questions for the owner
+
+Phase 2 (new):
+
+1. **Footage for the [E] readings**: Warp's ledge windows (front / back, from which frame) and what the travel does against the ground,
+   walls and pass-through platforms; the explosive flame's height; how the reticle's shots fly (straight from the staff, or steering)
+   and its "in front" region; the counter's freeze before the strike (conflict 3). Each is one constant or one line to change.
+2. **Counters and pushes**: any open counter (the Longsword's too) catches a push (windbox) like a hit; the reference's counters
+   ignore flinchless hits. Change it for every counter (it changes the Longsword's corner case), or leave it?
+3. **Counter bubble**: the reference catches on its own bubble (radius 11.5 at 10 up); ours on the body's hurtboxes. Add a bubble
+   (`Counter::bubble`) or leave it?
+
+Phase 1:
 
 1. **Angle type 1 (speed-based)**: the Claws' up special loop is the reference's type 1 (from the direction of travel); its row already
    lists "angles from the facing" as a limit. Add it as a fifth angle type (small: the attacker's velocity sign), or leave it?

@@ -96,6 +96,8 @@ pub const F_STORE: u8 = 41;
 pub const F_AIR_FLAG: u8 = 42;
 pub const F_SET_AIR_FLAG: u8 = 43;
 pub const F_SPAWN_SCALED: u8 = 44;
+pub const F_SPAWN_AT: u8 = 45;
+pub const F_LOCK: u8 = 46;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -124,6 +126,10 @@ pub const R_JUMP: u8 = 18;
 pub const R_PRESSES: u8 = 19;
 pub const R_RELEASES: u8 = 20;
 pub const R_WALL: u8 = 21;
+pub const R_FLICK: u8 = 22;
+pub const R_LOCKED: u8 = 23;
+pub const R_LOCK_X: u8 = 24;
+pub const R_LOCK_Y: u8 = 25;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -198,6 +204,26 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         R_WALL,
         "1 if the fighter's last movement step was stopped by a wall, else 0",
     ),
+    reg(
+        "flick",
+        R_FLICK,
+        "1 if the current special was started with a flick of the stick (a smash-style input) or the strong button",
+    ),
+    reg(
+        "locked",
+        R_LOCKED,
+        "1 once lock found a target in this attack, else 0",
+    ),
+    reg(
+        "lock_x",
+        R_LOCK_X,
+        "where the lock was made: the target's chest then, absolute (0 without a lock)",
+    ),
+    reg(
+        "lock_y",
+        R_LOCK_Y,
+        "where the lock was made: the target's chest then, absolute (0 without a lock)",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[
@@ -261,7 +287,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 13] = [
+    const OWN: [Func; 15] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -330,8 +356,20 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             6,
             "spawn_scaled(forward, up, speed_forward, speed_up, knockback, size): spawn with extra base knockback (0 to 255) and a size in percent (10 to 400)",
         ),
+        func(
+            "spawn_at",
+            F_SPAWN_AT,
+            4,
+            "spawn_at(x, y, speed_forward, speed_up): fire the move's projectile at this absolute point, however the fighter moves this frame",
+        ),
+        func(
+            "lock",
+            F_LOCK,
+            1,
+            "lock(range): 1 if this attack has a lock; else looks for the nearest opponent in front that can be hit, chest within range of the chest, nothing solid between, and locks onto its chest there (it stays put)",
+        ),
     ];
-    concat::<9, 13, 22>(MATH, OWN)
+    concat::<9, 15, 24>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

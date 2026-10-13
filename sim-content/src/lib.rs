@@ -230,6 +230,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             ("air_version", mv.air_version),
             ("catch_move", mv.catch_move),
             ("off_edge", mv.off_edge),
+            ("detect_then", mv.reflector.and_then(|r| r.detect_then)),
         ] {
             if let Some(l) = slot {
                 if usize::from(l) >= MoveId::COUNT
@@ -301,6 +302,11 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             {
                 errors.push(format!(
                     "weapon {i} {name}: the counter's answer is not a move this weapon has"
+                ));
+            }
+            if c.max_damage != Fx::ZERO && c.max_damage < c.min_damage {
+                errors.push(format!(
+                    "weapon {i} {name}: the counter's max_damage is below its min_damage"
                 ));
             }
             if c.start == 0 || c.start > c.end || c.end > mv.total_frames {

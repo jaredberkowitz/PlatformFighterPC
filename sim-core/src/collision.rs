@@ -178,6 +178,30 @@ pub fn find_ledge(stage: &Stage, pos: Vec2, facing: i8, params: &FighterParams) 
     })
 }
 
+/// Whether a solid platform (a block, not a pass-through platform) lies across the segment from `a` to `b` (its inside, not
+/// merely touching an edge): a line of sight. Worked in fixed point by clipping the segment to each block (slab method).
+pub fn segment_blocked(stage: &Stage, a: Vec2, b: Vec2) -> bool {
+    let d = b - a;
+    stage.platforms.iter().filter(|p| !p.pass_through).any(|p| {
+        let (mut t0, mut t1) = (Fx::ZERO, Fx::ONE);
+        for (start, delta, low, high) in [(a.x, d.x, p.left, p.right), (a.y, d.y, p.bottom, p.y)] {
+            if delta == Fx::ZERO {
+                if start <= low || start >= high {
+                    return false;
+                }
+                continue;
+            }
+            let (mut ta, mut tb) = ((low - start) / delta, (high - start) / delta);
+            if ta > tb {
+                core::mem::swap(&mut ta, &mut tb);
+            }
+            t0 = t0.max(ta);
+            t1 = t1.min(tb);
+        }
+        t0 < t1
+    })
+}
+
 /// Which side (-1 or +1) the given ledge index hangs on; 0 if the index is invalid.
 pub fn ledge_side(stage: &Stage, index: i8) -> i8 {
     usize::try_from(index)

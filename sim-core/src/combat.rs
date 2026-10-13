@@ -17,8 +17,8 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB,
-    HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC,
+    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -78,6 +78,11 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
         }
     }
     [(at(6), radius), (middle, radius), (at(16), radius), limb]
+}
+
+/// How high above the feet a standing fighter's chest is: the centre of its middle hurtbox circle (see [`hurtboxes`]).
+pub fn chest_height(p: &FighterParams) -> Fx {
+    p.ecb_height * Fx::from_ratio(11, 20)
 }
 
 /// The hurtbox circles (bit `i` for circle `i` of [`hurtboxes`]) that the fighter's current move makes intangible this frame
@@ -250,11 +255,20 @@ pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, 
 
 /// The side (1 right, -1 left) a hit launches toward at 0 degrees, from its angle type (the reference's): `by_box` is the default
 /// (the side of the attacker the hitbox is on, or a projectile's direction of travel), `forward` the way the attacker faces (a
-/// projectile's travel), and `source_x` / `victim_x` where the attacker (or projectile) and the victim are, for "by position".
-pub fn launch_side(angle_type: u8, by_box: i8, forward: i8, source_x: Fx, victim_x: Fx) -> i8 {
+/// projectile's travel), `travel` the way the attacker is moving (the sign of its horizontal speed; for a projectile its travel), for
+/// "by travel", and `source_x` / `victim_x` where the attacker (or projectile) and the victim are, for "by position".
+pub fn launch_side(
+    angle_type: u8,
+    by_box: i8,
+    forward: i8,
+    travel: i8,
+    source_x: Fx,
+    victim_x: Fx,
+) -> i8 {
     match angle_type {
         ANGLE_FORWARD => forward,
         ANGLE_BACKWARD => -forward,
+        ANGLE_BY_TRAVEL => travel,
         ANGLE_BY_POSITION => {
             if victim_x > source_x {
                 1
@@ -320,7 +334,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 continue;
             }
             let fd = &state.fighters[d];
-            if is_intangible(fd) {
+            if is_intangible(fd) && !counter_open(content, fd, true) {
                 continue;
             }
             let pd = params_of(content, fd);
@@ -374,10 +388,16 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     } else {
                         attacker.facing
                     };
+                    // The way the attacker is moving (the reference's speed-based type 1); not moving sideways, its facing [E].
+                    let travel = match attacker.vel.x.raw().signum() {
+                        0 => attacker.facing,
+                        s => s as i8,
+                    };
                     let facing = launch_side(
                         hb.angle_type,
                         by_box,
                         attacker.facing,
+                        travel,
                         attacker.pos.x,
                         state.fighters[d].pos.x,
                     );
@@ -642,6 +662,22 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     held.hitlag = hitlag;
 }
 
+/// Whether `f` is in a counter stance whose window is open for a hit of this kind (`melee`, or a projectile's): such a hit reaches
+/// the counter even while the stance is intangible (the reference's counters catch through their own intangibility).
+fn counter_open(content: &Content, f: &Fighter, melee: bool) -> bool {
+    if !f.active || f.state != S::Attack {
+        return false;
+    }
+    weapon_of(content, params_of(content, f))
+        .get(f.move_id)
+        .counter
+        .is_some_and(|c| {
+            u16::from(c.start) <= f.state_frame
+                && f.state_frame <= u16::from(c.end)
+                && (melee || !c.melee_only)
+        })
+}
+
 /// If fighter `d` is in a counter stance whose window is open, cancels the hit and switches `d` to its answer.
 fn catch_with_counter(
     state: &mut GameState,
@@ -650,6 +686,7 @@ fn catch_with_counter(
     d: usize,
     damage: Fx,
     hitlag: u8,
+    melee: bool,
 ) -> bool {
     let def = &state.fighters[d];
     if def.state != S::Attack {
@@ -662,10 +699,17 @@ fn catch_with_counter(
     if def.state_frame < u16::from(c.start) || def.state_frame > u16::from(c.end) {
         return false;
     }
+    // A melee-only counter leaves projectiles alone (they are a reflector's business).
+    if c.melee_only && !melee {
+        return false;
+    }
     let answer_id = MoveId::from_index(c.then);
     let intangible = weapon.get(c.then).intangible;
-    let caught =
+    let mut caught =
         (damage * Fx::from_int(i32::from(c.percent)) / Fx::from_int(100)).max(c.min_damage);
+    if c.max_damage > Fx::ZERO {
+        caught = caught.min(c.max_damage);
+    }
     let attacker_x = state.fighters[source].pos.x;
     let def = &mut state.fighters[d];
     // The answer is swung at whoever struck.
@@ -740,7 +784,7 @@ fn apply_hit(
         hitlag_frames(hb.damage, rules, shielding, crouching, scale)
     };
     // A fighter in a counter stance catches the hit instead of taking it.
-    if catch_with_counter(state, content, source, d, hb.damage, hitlag) {
+    if catch_with_counter(state, content, source, d, hb.damage, hitlag, freeze_source) {
         if freeze_source {
             state.fighters[source].hitlag = hitlag;
         }
@@ -1005,6 +1049,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
         state.fighters[i].spawn_custom = false;
+        state.fighters[i].spawn_fixed = false;
         state.fighters[i].spawn_kb_add = 0;
         state.fighters[i].spawn_size = 100;
         // A move that already connected in melee does not also fire, unless its script asked for the shot.
@@ -1026,7 +1071,9 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 origin: i as u8,
                 power: 100,
                 move_id: f.move_id,
-                pos: if f.spawn_custom {
+                pos: if f.spawn_fixed {
+                    f.spawn_pos
+                } else if f.spawn_custom {
                     f.pos + f.spawn_pos
                 } else {
                     Vec2::new(
@@ -1051,6 +1098,9 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
                 size: if f.spawn_custom { f.spawn_size } else { 100 },
                 vars: [0; crate::PROJECTILE_VARS],
+                hit_mask: 0,
+                hit_age: [0; MAX_FIGHTERS],
+                facing: f.facing,
             };
         }
     }
@@ -1141,6 +1191,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             );
             p.pos = pos;
             p.age = 0;
+            // (Its hits start again for its new owner, and it faces the other way.)
+            p.hit_mask = 0;
+            p.hit_age = [0; MAX_FIGHTERS];
+            p.facing = -p.facing;
             p.life = ((u16::from(pr.life) * u16::from(rf.life_percent)) / 100).clamp(1, 255) as u8;
             continue;
         }
@@ -1163,18 +1217,38 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
         }
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        // (A phase of radius 0 is a gap: no hit this frame.)
+        if hb.radius <= Fx::ZERO {
+            continue;
+        }
 
         for d in 0..MAX_FIGHTERS {
-            if d == owner || is_intangible(&state.fighters[d]) {
+            let fd = &state.fighters[d];
+            if d == owner || (is_intangible(fd) && !counter_open(content, fd, false)) {
                 continue;
             }
-            let fd = &state.fighters[d];
+            // A fighter already hit by this group waits for the rehit interval (the reference's per-target rehit), or for ever.
+            let bit = hit_bit(d, hb.group);
+            let seen = state.projectiles[n].hit_mask & bit != 0;
+            if seen
+                && (spec.rehit == 0
+                    || age.saturating_sub(state.projectiles[n].hit_age[d]) < spec.rehit)
+            {
+                continue;
+            }
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
             let hurt = hurtboxes(fd, pd, wd);
             if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
-                let travel = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
-                let facing = launch_side(hb.angle_type, travel, travel, pos.x, fd.pos.x);
+                // Forward is the way it travels; a projectile standing still faces the way its owner did when it was made.
+                let travel = if pr.vel.x < Fx::ZERO {
+                    -1
+                } else if pr.vel.x > Fx::ZERO || pr.facing == 0 {
+                    1
+                } else {
+                    pr.facing
+                };
+                let facing = launch_side(hb.angle_type, travel, travel, travel, pos.x, fd.pos.x);
                 // Projectiles stun a shield much less.
                 let mult = STUN_PROJECTILE;
                 apply_hit(
@@ -1190,8 +1264,13 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     pr.move_id,
                     (pos, pr.vel),
                 );
-                state.projectiles[n].active = false;
-                break;
+                let p = &mut state.projectiles[n];
+                p.hit_mask |= bit;
+                p.hit_age[d] = age;
+                if !spec.pierce {
+                    p.active = false;
+                    break;
+                }
             }
         }
     }
@@ -1234,19 +1313,44 @@ fn reflector_touching(
             continue;
         };
         let frame = u8::try_from(f.state_frame).unwrap_or(u8::MAX);
-        if frame < rf.start || frame > rf.end {
-            continue;
-        }
         let scale = params_of(content, f).hitbox_scale;
-        let centre = Vec2::new(
-            f.pos.x + (rf.x * scale).mul_int(i32::from(f.facing)),
-            f.pos.y + rf.y * scale,
-        );
-        if overlaps(pos, radius, centre, rf.radius * scale) {
+        let at = |x: Fx, y: Fx| {
+            Vec2::new(
+                f.pos.x + (x * scale).mul_int(i32::from(f.facing)),
+                f.pos.y + y * scale,
+            )
+        };
+        // The field (a circle, or a standing capsule), and the body field beside it on its own frames.
+        let field = frame >= rf.start
+            && frame <= rf.end
+            && overlaps_upright(
+                pos,
+                radius,
+                at(rf.x, rf.y),
+                rf.half_height * scale,
+                rf.radius * scale,
+            );
+        let body = rf.body_radius > Fx::ZERO
+            && frame >= rf.body_start
+            && frame <= rf.body_end
+            && overlaps(
+                pos,
+                radius,
+                at(rf.body_x, rf.body_y),
+                rf.body_radius * scale,
+            );
+        if field || body {
             return Some((i, rf));
         }
     }
     None
+}
+
+/// Whether a circle at `c1` of `r1` touches a vertical capsule centred on `c2`, from `half_height` below it to `half_height` above,
+/// of radius `r2` (a circle when `half_height` is 0).
+fn overlaps_upright(c1: Vec2, r1: Fx, c2: Vec2, half_height: Fx, r2: Fx) -> bool {
+    let nearest = Vec2::new(c2.x, c1.y.clamp(c2.y - half_height, c2.y + half_height));
+    overlaps(c1, r1, nearest, r2)
 }
 
 /// A reflector's projectile detector (the reference's): a projectile touching it while it is out, before the reflector is up, skips
@@ -1273,7 +1377,7 @@ fn reflector_detects(
         if rf.detect_end == 255
             || frame < u16::from(rf.detect_start)
             || frame > u16::from(rf.detect_end)
-            || frame + 1 >= u16::from(rf.start)
+            || (rf.detect_then.is_none() && frame + 1 >= u16::from(rf.start))
         {
             continue;
         }
@@ -1283,8 +1387,23 @@ fn reflector_detects(
             f.pos.y + rf.detect_y * scale,
         );
         if overlaps(pos, radius, centre, rf.detect_radius * scale) {
-            // (The next frame's update adds one.)
-            state.fighters[i].state_frame = u16::from(rf.start) - 1;
+            match rf.detect_then {
+                // The reflection move starts now (its frame 0 is this frame), so its reflector meets this shot at once.
+                Some(next) => {
+                    let w = weapon_of(content, params_of(content, f));
+                    let then = w.get(next);
+                    let invuln = if then.intangible_start(f.move_air) == 0 {
+                        then.intangible
+                    } else {
+                        0
+                    };
+                    let f = &mut state.fighters[i];
+                    fighter::begin_attack(f, MoveId::from_index(next));
+                    f.invuln = f.invuln.max(invuln);
+                }
+                // (The next frame's update adds one.)
+                None => state.fighters[i].state_frame = u16::from(rf.start) - 1,
+            }
         }
     }
 }

@@ -350,6 +350,15 @@ shot (horizontal only, or vertical too), what happens to the barrier if Palutena
     2026-10-13 that those two differ).
 13. What happens to the barrier when Palutena is hit or KO'd.
 
+**Readings used while the gaps stay open (phase 2, sims 74-77; each [E], the details in `IMPLEMENTATION_REPORT.md`)**: gap 1, the
+shots fly straight from the staff (1.0 ahead, 1.3 up) at the fixed point and carry on past it; gap 2, "in front" is a half-plane, the
+nearest wins, chest to chest, pass-through platforms do not block; gap 3, no descent stall; gap 4, every aerial special carries on
+along the ground when it touches down (the warp only before its frame 33); gap 5, the flame's point 10 reference units up; gap 6, the
+body's air physics; gap 7, a hit before frame 27 leaves no flame; gap 8, ledges from frame 33 front and back; gap 9, the travel
+follows the ground and stops at walls and ceilings; gap 10, the body's physics after the reappearance; gap 11, the body reflector
+(frames 1-4) catches shots from behind, the barrier only in front; gap 12, horizontal speed only; gap 13, the barrier ends with the
+move (owner decision 20).
+
 Footage that would settle most of them (training mode, frame-stepped, hitbox view): Autoreticle at several distances and heights, with a
 platform between; Explosive Flame from a short hop and while falling; Warp into the stage at 45 degrees down, into a wall, down through a
 platform, and at the ledge; the counter against a melee hit (count the frames from the catch to the strike) and against a projectile from
