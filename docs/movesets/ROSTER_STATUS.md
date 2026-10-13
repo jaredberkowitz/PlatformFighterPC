@@ -16,9 +16,9 @@ Status words: **verified** (every move on [R] data, tested, no approximations le
 | In game (class, weapon, body) | Reference | Status | Tests | Known limits (from `docs/COMBAT.md`, `docs/sheik/`) |
 | --- | --- | --- | --- | --- |
 | 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs` | Normals on [R] frames and damage. **Up special on the reference's numbers since sim 58** (hits, grounded / aerial intangibility, 39-frame animation, front ledge from 8, special fall x0.4 and 24 frames of landing lag, x1.1 aerial rise, 20-degree angling, 0.06 gravity after the rise); its rise itself is still [E] (about 44 reference units: no published height). Pummel on [R] timing (sim 63). Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Shield Breaker's shield multiplier is [E]. Counter's answer uses our `percent` model (check the reference's 1.2x and minimum). |
-| 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Up special on the reference's numbers since sim 58** (hits, the dash from its published parameters, the grounded / aerial endings, the ground bounce, ledge windows, special fall x0.65 and 36 frames of landing lag); its looping hits angle from the facing, not the direction of travel [E]. Wall jump (sim 64). Pummel on [R] timing (sim 63). **Still [E]**: the flash dash's distance and end hit, the reflector's frames, size and reflected speed (and it turns only the horizontal speed). Throw angles partly [E]. |
+| 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Up special on the reference's numbers since sim 58** (hits, the dash from its published parameters, the grounded / aerial endings, the ground bounce, ledge windows, special fall x0.65 and 36 frames of landing lag); its looping hits angle from the facing, not the direction of travel [E]. Wall jump (sim 64). Pummel on [R] timing (sim 63). **Still [E]**: the flash dash's distance and end hit, the reflector's frames, size and reflected speed (it turns only the horizontal speed: owner decision 2026-10-13, keep it unlike the cape's). Wall jump also from the jump button (sim 65). Throw angles partly [E]. |
 | 2 Needles, rogue body | Sheik | playable | `needles.rs`, `multihit.rs` | Body, normals, Needle Storm, Vanish, Bouncing Fish on [R] data (`docs/sheik/REFERENCE_DATA.md`). **The side special is our own pulling line, not the reference's grenade** (owner's decision 6: it stays). Wall jump since sim 64 (1.4 / 2.8). Pummel on [R] timing (sim 63). Vanish: no reappearance wind box (the push hit, E2, now exists to build it), explosion moves with the fighter; its special fall uses the shared drift and landing lag (not re-researched). Bouncing Fish: no consecutive kicks, no wall bounce. Up smash arm intangibility not modelled. Rapid jab cannot see presses in hitlag. |
-| 3 Embers, tumbler body | Mario | **playable** (phases 1 and 2 done, sims 57 to 64) | `embers.rs` | Body, every normal and every special on [R] data (`docs/movesets/mario/`): the rising punch, the bouncing fireball, the cape (reverse, reflector with its detector, once-per-airtime lift), the water pump (charge, store, pushing pumps), and the wall jump. **Not verified**: the rising punch's rise is [E] (no published height), and a few readings are [E] (a full pump keeps itself, the cape's lift frame, a reflected shot's vertical reversal). Up smash head intangibility not modelled (E19). One get-up attack slot (face up). Positions on non-root bones [E]. |
+| 3 Embers, tumbler body | Mario | **playable** (phases 1 and 2 done, sims 57 to 64) | `embers.rs` | Body, every normal and every special on [R] data (`docs/movesets/mario/`): the rising punch, the bouncing fireball, the cape (reverse, reflector with its detector, once-per-airtime lift), the water pump (charge, store, pushing pumps), and the wall jump. **Not verified**: the rising punch's rise is [E] (no published height; re-searched 2026-10-13), and a few readings are [E] (the cape's lift frame, a reflected shot's vertical reversal). **Owner decisions 2026-10-13 (sim 65)**: a full pump holds its stance until special or shield; the cape's reflector turns vertical speed round and the Claws' stays horizontal-only (meant to differ); jump pressed against a wall (stick neutral or toward it) also wall-jumps, for every wall-jumping body, without spending a midair jump. Up smash head intangibility not modelled (E19). One get-up attack slot (face up). Positions on non-root bones [E]. |
 
 Top-fidelity priorities for the existing ports (to revisit once the shared extensions below exist):
 
@@ -26,7 +26,7 @@ Top-fidelity priorities for the existing ports (to revisit once the shared exten
   special-fall drift and landing lag, angling (done, sim 58); rise height (**[E]**, no published figure); Counter's window and answer
   (check against [R]).
 * **Claws**: the fire flight's travel and hit sequence (done, sim 58, from the published parameters); the reflector (frames, field
-  size, reflected speed and angle: still [E]; E10b's vertical reversal now exists, not switched on until the reference is confirmed);
+  size, reflected speed and angle: still [E]; E10b's vertical reversal exists but stays off: owner decision 2026-10-13, the Claws' reflector stays horizontal-only);
   the flash dash's distance and end hit ([E]).
 * **Needles**: up air drag-down (done, [R]); Bouncing Fish (done except consecutive kicks and wall bounce); Vanish (done except wind box,
   which E2's push hit can now build); the grenade (our own line stays, owner's decision 6); wall jump (done, sim 64).
@@ -283,9 +283,11 @@ These override anything above that disagrees.
 
 ## Still open
 
-From the Embers' phase 2 (details in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`, "Questions for the owner"):
+From the Embers' phase 2 (details in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):
 
-1. Up-special rise heights (the rising punch, the cape's lift, the Longsword's): no published figure found; footage would settle them.
-2. A full water-pump charge: keeps itself at once (built) or holds the stance?
-3. Reflected shots' vertical speed: turned round for the cape (built [E]); the Claws' reflector still turns only the horizontal speed.
-4. Wall jump input: a stick flick away from the wall (built); also the jump button?
+1. Up-special rise heights (the rising punch, the cape's lift, the Longsword's): re-searched 2026-10-13, still no published figure in
+   units (list of sources in `docs/movesets/mario/REFERENCE_DATA.md`); footage would settle them.
+
+Answered by the owner on 2026-10-13 (sim 65): a full water-pump charge holds the stance until special or shield (built); reflectors
+stay as they are, the cape turning a shot's vertical speed round and the Claws' not (meant to differ); the jump button against a
+wall also wall-jumps, stick neutral or toward the wall, for every wall-jumping body, without spending a midair jump (built).

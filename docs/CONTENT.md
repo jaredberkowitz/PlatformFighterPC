@@ -216,7 +216,7 @@ Line numbers inside a script count from its first non-blank line.
   if not) and `wall_jump_vx` / `wall_jump_vy` (the speeds of that jump and of every wall-tech jump); an old fighter gets no wall jump
   and its air speed and midair jump speed for the wall-tech jump, as before
   (`a_schema_3_file_from_before_wall_jumps_still_loads_and_wall_techs_as_before`).
-  Schema 4 to 5 (sim v65): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44 after
+  Schema 4 to 5 (sim v66): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44 after
   `pivot_grab`, so no older slot or `goto` number moves). An older file has nothing to rewrite (its weapons simply leave the new
   slots empty), but a file that uses them cannot be read by an older build, hence the bump
   (`a_schema_4_file_from_before_sixteen_ext_slots_still_loads_unchanged`).

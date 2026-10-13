@@ -459,7 +459,7 @@ fn a_schema_3_file_from_before_wall_jumps_still_loads_and_wall_techs_as_before()
 
 #[test]
 fn a_schema_4_file_from_before_sixteen_ext_slots_still_loads_unchanged() {
-    // Written before sim v65: schema 4, weapons using no slot past `pivot_grab` (the built-in roster with `ext10` to `ext15`
+    // Written before sim v66: schema 4, weapons using no slot past `pivot_grab` (the built-in roster with `ext10` to `ext15`
     // emptied).
     let mut c = Content::placeholder();
     for w in &mut c.weapons {

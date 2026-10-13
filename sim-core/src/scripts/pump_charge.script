@@ -1,6 +1,7 @@
 // Down special, charging (ext1): a frame of charge each frame, 80 in all. Special shoots (30 = ext2); shield or jump keeps the charge
-// for later and ends the move with no lag (so the shield, roll, air dodge or jump comes out at once); a full charge keeps itself.
-// Being hit loses what was being charged (it is only kept by `store`).
+// for later and ends the move with no lag (so the shield, roll, air dodge or jump comes out at once). A full charge does not keep
+// itself: the stance holds at full until special or shield (or jump), as the reference; the move restarts itself (29 = ext1) before
+// its length runs out. Being hit loses what was being charged (it is only kept by `store`).
 var c;
 var quick;
 var aim;
@@ -10,7 +11,6 @@ if special_tap {
 } else if shield || jump {
     store(c);
     end();
-} else if c >= 80 {
-    store(80);
-    end();
+} else if frame >= 90 {
+    goto(29);
 }

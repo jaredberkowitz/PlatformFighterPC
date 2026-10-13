@@ -42,7 +42,7 @@ pub const MIGRATIONS: &[Migration] = &[
     (4, weapons_get_sixteen_ext_slots),
 ];
 
-/// Schema 4 to 5 (sim v65): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44, after
+/// Schema 4 to 5 (sim v66): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44, after
 /// `pivot_grab`, so no older slot or script `goto` number moves). A weapon written before them leaves the new slots empty, which is
 /// what an omitted move means anyway, so there is nothing to rewrite; the bump is there so an older build refuses a file that uses
 /// the new slots with a clear message instead of failing on an unknown move name.

@@ -1096,7 +1096,7 @@ pub fn longsword() -> Weapon {
     w
 }
 
-/// The longsword's up special, a rising slash (the reference swordfighter's up special: SmashWiki, 13.0.1).
+/// The longsword's up special, a rising slash (the reference swordfighter's up special: ssbwiki.com, 13.0.1).
 ///
 /// Hits [R]: frame 5 the clean hit at the hand (top bone, 0 / 8 / 8 and 0 / 8 / 4 reference units: 11%, 361 and 74 degrees, BK 70,
 /// KS 74, radius 4); frame 6 the same plus the blade (7%, 361 and 74, BK 20, KS 90, radius 5, hitlag 0.9), which wins where both
@@ -2195,7 +2195,7 @@ pub fn needles() -> Weapon {
         ref_move(40, 0, 0, 255, &[r(11, 12, 16, 11, 10, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
-    // Pummel: a knee, 1%, set knockback 30 (KS 100), hitlag x1.7. The reference's hit is on frame 1 and its FAF 6 (SmashWiki); ours
+    // Pummel: a knee, 1%, set knockback 30 (KS 100), hitlag x1.7. The reference's hit is on frame 1 and its FAF 6 (ssbwiki.com); ours
     // is on frame 2 (a pummel's hit cannot start on its first frame) with the same 5 frames after it, FAF 7 [D]. (Its hitlag freezes
     // the move, so it is not counted in the FAF: the earlier FAF 16 counted it twice.)
     let mut pummel = with_kind(
@@ -2772,7 +2772,7 @@ pub fn embers() -> Weapon {
     w
 }
 
-/// The Embers' special moves (the reference's: SmashWiki, 13.0.1; `docs/movesets/mario/REFERENCE_DATA.md`).
+/// The Embers' special moves (the reference's: ssbwiki.com, 13.0.1; `docs/movesets/mario/REFERENCE_DATA.md`).
 fn embers_specials(w: &mut Weapon) {
     // Nothing of the claws' follow-up slots belongs to the Embers (ext0 is its down air's landing hit, set above).
     for id in [
@@ -2797,9 +2797,9 @@ fn embers_specials(w: &mut Weapon) {
 /// Down special, a charged water pump (the reference's): a wind-up (the down special), the charge (ext1) and the shot
 /// (ext2), scripted in `pump_start`, `pump_charge` and `pump_shot`.
 ///
-/// * Wind-up 19 frames, then charging; 80 frames of charge in all (SmashWiki's parameter, counted from the charge's start: with the
-///   wind-up that is the 100 frames UFD and dragdown give [D]). Shield or jump keeps the charge (no lag); special shoots; a full
-///   charge keeps itself [E]; a stored charge carries into the next use.
+/// * Wind-up 19 frames, then charging; 80 frames of charge in all (ssbwiki.com's parameter, counted from the charge's start: with the
+///   wind-up that is the 100 frames UFD and dragdown give [D]). Shield or jump keeps the charge (no lag); special shoots; at full
+///   charge the stance holds until special or shield (the owner's call, as the reference); a stored charge carries into the next use.
 /// * The shot: from its frame 1, the fighter pushed back 0.02 a charge frame; 7 pumps every 5 frames (each out for 12 frames:
 ///   2-13, 7-18, ... 32-43), FAF 49. A pump: 0% at 55 degrees, set knockback 70, KS 100, radius 4, a push (the reference's
 ///   flinchless hit: no hitstun), 4.3 to 8.6 a frame with the charge, gravity 0.17, fall 3, size x0.8 to x1.2 and up to 55 more
@@ -2815,7 +2815,7 @@ fn water_pump(w: &mut Weapon) {
     start.land_continue = true;
     w.moves[MoveId::DownSpecial as usize] = start;
 
-    // (Longer than a full charge: the script ends it.)
+    // (Longer than a full charge: the script restarts it while the stance holds.)
     let mut charge = ref_move(100, 0, 0, 255, &[]);
     charge.script = Some(script(
         Kind::Fighter,
@@ -3032,7 +3032,7 @@ fn rising_punch() -> Move {
     up
 }
 
-/// The pummel the longsword and the claws share with the reference's (SmashWiki, the reference swordfighter's and brawler's, 13.0.1): 1.3%,
+/// The pummel the longsword and the claws share with the reference's (ssbwiki.com, the reference swordfighter's and brawler's, 13.0.1): 1.3%,
 /// set knockback 30 (KS 100), hitlag x2.1, the hit on frame 1 and FAF 7. Ours hits on frame 2 (a pummel's hit cannot start on its
 /// first frame) with the same 6 frames after it, FAF 8 [D]; its hitlag freezes the move, so it is not in the FAF.
 fn reference_pummel(damage: i32, x: i32, y: i32, radius: i32) -> Move {
@@ -3059,7 +3059,7 @@ fn chain(mv: &mut Move, next: MoveId, from: u8) {
     mv.next_from = from - 1;
 }
 
-/// The claws' up special, a flaming dash kick (the reference brawler's up special: SmashWiki, 13.0.1): the hit
+/// The claws' up special, a flaming dash kick (the reference brawler's up special: ssbwiki.com, 13.0.1): the hit
 /// data, timing and movement parameters are [R]; the movement is the script `fire_aim.script` built from the parameters, and the
 /// hitbox positions on the hip and legs are [E].
 ///

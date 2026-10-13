@@ -156,7 +156,7 @@ frame numbers are the reference's.
 | Angling | sensitivity 0.5, at most 12 degrees; read on frame 3 here, evenly from 0.5 of the stick to the rim | [R]; the frame and the reading [E] |
 | Height multipliers | x1.1 from the ground, x1.08 from the air | [R] |
 | Startup momentum | x0.67 in the air | [R] (read as the horizontal speed kept) |
-| Rise | **not published** (the animation's root motion): 40 reference units before the multipliers (44 from the ground), about 11 forward, over frames 3-20 | **[E]** (no published height or recovery-distance figure was found: open) |
+| Rise | **not published** (the animation's root motion): 40 reference units before the multipliers (44 from the ground), about 11 forward, over frames 3-20 | **[E]** (no published height or recovery-distance figure was found; re-searched 2026-10-13, see "Defaults chosen" 2: open) |
 
 The reference rule that set-knockback hits keep traditional launch physics (SmashWiki, Knockback: "Moves with set knockback retain
 traditional knockback physics") is what lets the loop carry its target: without it the launch speed-up sent the target out of the next
@@ -181,7 +181,7 @@ hit. It applies to every set-knockback hit in the game (sim 59).
 | Swing | frames 12-14, 7%, 110 degrees, set knockback 80, KS 100, BK 0, radius 7.5 / 5.0 at top (0, 6.7, 9.7 / 5.0), shield damage +4, the "Reverse" effect, no clank | [R]; positions [D]; shield damage as 157 percent [D] |
 | Reflector | frames 9-20, offsets (0, 6.5, 8), size 6.5, damage x1.5, speed x1, lifetime x0.75, damage threshold 50% | [R]; the threshold read as "shots above 50% pass" [E] |
 | Detector | frames 6-8, radius 8 along 2.5 to 8 ahead at 6.5 up; skips the move to frame 9 | [R]; one circle covering the capsule [D] |
-| Reflected shot's vertical speed | turned round | **[E]** (not stated by the sources) |
+| Reflected shot's vertical speed | turned round | **[E]** (not stated by the sources); **owner decision 2026-10-13: keep it**, and keep the Claws' reflector horizontal-only (the two should not match) |
 | Aerial | horizontal speed / 2.5, air friction 0.0025, +0.3 vertical speed, gravity 0.031, fall speed 1 | [R] |
 | The lift | once per airtime, on frame 2, from a stopped fall (`max(vy, 0) + 0.3`) | the once-per-airtime rule [R] (the player guides); the frame and the stopped fall [E] |
 | Ledges | in front from frame 2, behind from 16 | [R] |
@@ -194,7 +194,7 @@ hit. It applies to every set-knockback hit in the game (sim 59).
 | Wind-up | 19 frames, then charging (charges between 19-20) | [R] |
 | Full charge | **80 frames of charge** (SmashWiki's parameter "total charge time"), counted from the charge's start: with the wind-up that is the 100 frames UFD and dragdown.wiki ("100F to fully charge") give | [R] SmashWiki + [D] reconciliation; **default chosen** (owner's rule: a third source was found and agrees once the wind-up is counted) |
 | Cancels | shield or jump keeps the charge with no lag; special shoots | [R] |
-| At full charge | keeps itself (stored) and the move ends | **[E]** (the sources say a fully charged pump fires on the next use, not whether the stance holds) |
+| At full charge | the charging stance holds at full until special (shoots) or shield / jump (stores); it does not store itself (sim 65) | **owner-confirmed, 2026-10-13** (as the reference; the sources only say a fully charged pump fires on the next use) |
 | Shot | recoil 0.02 a charge frame; 7 pumps every 5 frames (2-13, 7-18, ... 32-43 from the release); FAF 49 from the release | [R] |
 | Pump | 0%, 55 degrees, set knockback 70, KS 100, radius 4, flinchless (a push here); life 12; speed 4.3 + up to 4.3; gravity 0.17, fall 3; size x0.8 to x1.2; base knockback up to +55 with the charge | [R]; the push as an added velocity [E] |
 | Aim | default 12 degrees, up to +50 / -18, 1.9 degrees a frame | [R]; the stick threshold (0.3) [E] |
@@ -208,13 +208,18 @@ From the parameter file (dragdown.wiki): `wall_jump_type` true, `passive_wall_ju
 wall jump without touching the ground keeps 0.96 of the last (SmashWiki, Wall jump) [R]. `wall_jump_enable_x_speed` 0.2 is not
 modelled (its meaning is not published). The wall-contact range (1/8 unit) is [E].
 
+**Input** (sim 65): the stick flicked away from the wall, as the reference (ssbwiki.com `Wall_jump`: touching a wall, the stick
+pressed away from it) [R]; **and** the jump button pressed while touching the wall with the stick neutral or toward it (owner's
+decision, 2026-10-13). The page publishes the jump-button input only for an older game, not for 13.0.1, so this half is the owner's
+rule, not [R]. With the stick held away (no flick) a jump press is a midair jump. A wall jump never spends a midair jump.
+
 ## Defaults chosen for the phase-1 questions (owner's defaults, 2026-10-13)
 
 1. **F.L.U.D.D.'s full charge**: resolved as above (80 frames of charge, 100 from the input) [R + D]. Not open any more.
 2. **Rise heights** (the rising punch, the cape's lift, the Longsword's and Claws' up specials): no published height or recovery
    distance was found (searched SmashWiki, dragdown, UFD and the web; the owner records no footage for now). The rising punch's rise
    is [E] (above); the Longsword keeps its earlier estimate (about 44 reference units); the Claws' flight is built from its published
-   dash parameters, so it is [D]. **Open**.
+   dash parameters, so it is [D]. **Re-searched 2026-10-13, still open**: searched ssbwiki.com `Mario_(SSBU)/Up_special`, `Marth_(SSBU)/Up_special`, `Mario_(SSBU)/Side_special`, `Recovery` (whole page) and `Wall_jump`; dragdown.wiki `SSBU/Mario` and `SSBU/Mario/Data`; ultimateframedata.com (rate-limited, HTTP 429, this time; no recovery-height category was found on earlier visits); web searches for up-special height or recovery-distance charts in units. The pages give only the multipliers already used (x1.1 / x1.08, x1.1 aerial for the Longsword) and qualitative comparisons; the community comparisons found are rankings or videos without units; the per-frame rise lives in the animation's translation bone, which is only published by dumping game files (not allowed). The estimates stay.
 3. **Angle threshold** for the angled forward tilt and smash: kept at 0.25 [E].
 4. **Pummels**: re-checked (SmashWiki): the Needles' (1%, hitlag x1.7, FAF 6) and the Claws' and Longsword's (1.3%, set knockback 30,
    hitlag x2.1, FAF 7) were too long by their hitlag; fixed (sim 63), and a pummel now uses its own hitlag multiplier.
@@ -233,5 +238,5 @@ modelled (its meaning is not published). The wall-contact range (1/8 unit) is [E
    multipliers on it. No published height or recovery distance was found; footage (frame-stepped in training mode) would settle them.
 2. The angled forward tilt / smash stick threshold is not published: ours is 0.25 of the stick, short of the up / down tilt line [E].
 3. Throw intangibility for the thrower ("Invincibility 1-13" etc.): which fighter it applies to is not stated on the pages read.
-4. Whether a fully charged pump holds its stance or keeps itself at once [E: keeps itself]; whether a reflector turns a shot's
-   vertical speed round [E: the cape does].
+4. Settled by the owner (2026-10-13): a full pump holds its stance (sim 65); the cape turns a reflected shot's vertical speed round
+   and the Claws' reflector does not (kept different on purpose).

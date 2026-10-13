@@ -766,7 +766,7 @@ impl FighterParams {
 
 impl FighterParams {
     /// A short middleweight all-rounder with a fast air speed and high, floaty jumps: the "tumbler" body of the Embers moveset. The
-    /// reference character's (SmashWiki attributes, the parameter file via dragdown.wiki, ultimateframedata.com,
+    /// reference character's (ssbwiki.com attributes, the parameter file via dragdown.wiki, ultimateframedata.com,
     /// `docs/movesets/mario/REFERENCE_DATA.md`): weight 98, walk 1.155, initial dash 1.936, run 1.76, traction 0.102, air speed 1.208,
     /// air acceleration 0.01 + 0.07, air friction 0.015, gravity 0.087, fall 1.5 (fast 2.4), full hop 36.33, short hop 17.54, double
     /// jump 36.33, ledge jump 38.165. On the ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, an initial dash

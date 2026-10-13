@@ -33,10 +33,12 @@ const ADJUST := {
 	"mouth_y": 15, "mouth_size": 13, "mouth_squash": 11,
 }
 
-## The concept art's face: where each part sits with every adjustment in the middle (in the face square, 0..1).
-const EYE_GAP := 0.1875
-const EYE_Y := 0.418
-const EYE_SIZE := 0.38
+## The concept art's face: where each part sits with every adjustment in the middle (in the face square, 0..1). Measured off the concept
+## sheet's front view in head radii (eyes 0.41 out and 0.185 up, 0.25 across; the mouth 0.16 down, 0.36 wide; cheeks 0.51 out and 0.2
+## down) and turned into the square: the head shows the square 1.75 radii across, the drawing 1.15 times larger (face.gdshader).
+const EYE_GAP := 0.2017
+const EYE_Y := 0.408
+const EYE_SIZE := 0.315
 const BROW_GAP := 0.17
 const BROW_Y := 0.258
 const BROW_SIZE := 0.36
@@ -46,9 +48,9 @@ const MOUTH_Y := 0.582
 const MOUTH_SIZE := 0.22
 const PUPIL := 0.257
 const LOOK := Vector2(0.051, 0.01)
-## Cheeks sit out from and below the eyes and grow with them (the concept's: 0.12 out, 0.15 down, 0.2 across for the standard eye).
-const CHEEK_OUT := 0.1215
-const CHEEK_DOWN := 0.148
+## Cheeks sit out from and below the eyes and grow with them (the concept's: just outside the eyes and well below them, 0.2 across).
+const CHEEK_OUT := 0.053
+const CHEEK_DOWN := 0.194
 const CHEEK_SIZE := 0.2
 
 ## Expressions: the player's face with its lids, brows, pupils and mouth changed. `lids` is (top, slope, lower) as in the shader;

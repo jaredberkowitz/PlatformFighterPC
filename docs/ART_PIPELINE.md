@@ -781,3 +781,46 @@ the clarity of a cel-shaded adventure. Before / after: `docs/screenshots/undersi
   should look in the game (it converts them to the linear values glTF keeps; before, every prop came out paler). Treetop Isle's hills
   are deeper greens and blues; Flat Island's stone front warmer stones in slate mortar. Flat Island 377 draw calls (476 before: the
   crowns replace seven shapes each), Triple Tier 417.
+
+## A cuter body (thirty-first pass)
+
+The owner asked for the base body to read cuter: rounder, shorter, stubbier. Before and after: `docs/screenshots/cute_body_front_before.png`,
+`cute_body_front.png`; in play `cute_body_match.png`.
+
+- **Proportions** (`art/blender/make_base_body.py`), still 2.2 tall so hats, camera and hurtboxes keep their fit: the head from about 35%
+  of the height to about 43% (radius 0.4 to 0.475), a shorter, plumper trunk with a rounder belly, the hips from 0.82 down to 0.57,
+  thicker short legs, chunkier arms held a little further out, bigger puffy feet. Joints refitted, rig and every clip rebuilt
+  (`--neck-drop 0`, as always). The face drawing, hats, neckwear and clothes follow on their own from `base_rig.json`.
+- **Glasses on the face**: each lens, rim and bridge is seated on the head's curve over the drawn eye and turned with it
+  (`FighterView._on_face`), instead of on a flat plane in front of it, so on a fighter turned three-quarters the far lens stays on the
+  face.
+- **Re-posed for the big head**: no clip tips the head back past 8 degrees (`HEAD_BACK_LIMIT` in `make_rigged_blob.py`; lying down and
+  ledge clips excepted); an overhead kick arches the body at most 26 degrees and the head counter-tilts against an arch, so the face stays
+  toward the camera. Kicking legs stretch further than fists on the strike (`MotionDeform.LEG_STRETCH_FACTOR`) so the short legs reach.
+- **Short legs scurry**: the run and dash take 1.4 times the steps (`STEP_CADENCE`), the walk is quicker (`WALK_TEMPO` 0.055). Planted
+  foot slide (`tests/motion_probe.gd`): run about 0.09 and dash about 0.13 of ground speed (they had risen to about 0.36 and 0.2 with the
+  shorter legs); walk 0.42 to 0.45.
+- **Pale bodies get a darker line** (`OUTLINE_TINT_DARKEN_PALE`). The look bench now ignores backdrop-coloured pixels the fighter
+  encloses (a pale belly lit the colour of a pale sky is not a lost silhouette; the misses sheet showed them as red lines inside the
+  body); worst silhouette 0.87 (passes at 0.85).
+- The body script also closes any slit left after removing decimation fins (`mend_folds`; none were found this time).
+- Checks: art pipeline, match flow, fighter view, loadout, replay, motion, anim library, creator flow, content, controls and online flow
+  tests passed.
+
+## Faces after the concept, with depth (thirty-second pass)
+
+Compared straight on with the concept's front view (`godot/tests/face_sheet.gd`, framed like the concept's crop): `docs/screenshots/
+face_concept.png`, `face_before.png`, `face_after.png`.
+
+- **Centred on the head**: the rig laid the drawing out about the middle of the head's points counted from the neck up, well above the
+  round head's middle, so every face sat high. It is now centred on the ball's middle (its crown less its radius, `make_rigged_blob.py`).
+- **The concept's layout** (`FaceLook`, measured in head radii off the sheet): eyes 0.41 out and 0.185 up, 0.25 across (they were 20%
+  bigger and closer together); the smile 0.36 wide (it was two thirds that; only the resting smile is wider, the expressions' mouths keep
+  their size); the blush 0.51 out and 0.2 down (it was further out and higher); a finer eye line (11 of 256, was 16). Lenses are sized to
+  the eyes and kept round.
+- **Depth in the drawing** (`face_common.gdshaderinc`, so the face on the head and the creator's pictures agree): the eye's white is
+  shaded as a dome (cooler toward its rim, shadowed under the upper lid); the iris has a darker rim, a deep core, a warm glow welling up
+  in its lower half, a main catchlight and a small second one opposite; lids are lit from above and cast a soft shadow on the eye; an
+  open mouth is in shadow under the upper lip; the blush softens toward its edge. Expressions: `face_attack.png`, `face_shock.png`.
+- Checks: creator flow, fighter view, loadout, art pipeline and match flow tests passed; look bench 0.87.
+
