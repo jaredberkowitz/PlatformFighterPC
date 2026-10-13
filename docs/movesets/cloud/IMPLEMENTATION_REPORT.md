@@ -221,22 +221,113 @@ x 1.2); whiffed, slash 1 only; (3) the rising slash from the ground with special
 slash's meteor box under the feet from 31, the landing hit on 45; (4) the charge: the HUD's gauge (once drawn) filling in about 5.6
 seconds; hit while charging, it drops.
 
-## Phase 3 plan (the powered versions)
+## Phase 3 (sim 87, content schema 6 unchanged): the powered versions
 
-1. **E3e, burst on contact**: `ProjectileSpawn::burst: Option<Burst { life, rehit, on_wall, phases }>` and a hashed
-   `Projectile::bursting`; the first fighter (or a wall with `on_wall`) stops the projectile, which turns piercing and runs the burst's
-   phases (E3a's machinery). Tests: 19% on the first target, 13% behind it, the wall burst, reflection, a checksum case.
-2. **E28, angle 366**: `ANGLE_VORTEX` with a hashed `Fighter::link_kind` and a 5-frame pull count beside the autolink fields; then the
-   combo slash's 367 box becomes 366.
-3. **The powered versions** on `limit_version` (slots `ext6` to `ext15`): the powered wave (ground / air: intangible 10-17, a no-clank
-   capsule beam from 16, 6% / 4.8%, 0.369 / 0.3 a frame, life 47, the burst of five 2% hits every 6 frames at 366 and a 3% finisher at
-   48 BK 50 KS 226), the powered combo slash (all five hits by themselves, UFD's frames and 5 / 5 / 3 / 3 / 10 [E: conflict 1],
-   intangible 6-11, autolink 367 on the first two, FAF 61, in the air `start_speed` 0, `start_speed_y` 0, gravity 0), the powered rise
-   (6% then 7%, KS 142 / 110, intangible 5-12, x1.6 / x1.85 height, x0.67 horizontal, second press 33-39 into the same falling slash,
-   ledges throughout, special fall x0.8 with 20 frames of lag), the finisher (the down special's powered version, ground / air: 1% hits
-   at 80, KS 431 / 406 and 371 / 349, H 2.0, the both-sides windbox, FAF 85 / 88, the air hover, `on_land` into the grounded one).
-   With these the gauge is spent by any special in the mode; the shipped default changes from "keep" to "spend" then.
-4. The iconic-move re-check in the hitbox view and against footage for the open gaps (1-14).
+Branch `greatsword-phase3`, from `movesets` at f2b69b8 (sim 85); sim 86 is Donkey Kong's phase 1. Merged to main (5b2bb84). Commits: the
+fuzz coverage (a8a1527), then the engine and the powered versions (c50c173); docs on `greatsword-phase3-docs`.
+
+### Fuzz coverage first (tools only, no sim change)
+
+`pftool fuzz-rollback` used `[0, 1, 0, 1]` for every run and `pftool net-fuzz` `[0, 1]` on its even runs, so classes 2 and up were never
+fuzzed by the first and only through random recipes by the second. Both now draw fighters from every class in the content, from the
+run's seed: `fuzz-rollback`'s four fighters are each a built-in fighter a quarter of the time, otherwise a recipe of a random class with
+random stats (`tools/src/main.rs::random_spec`, built on `recipe::match_content`); `net-fuzz` picks two random built-ins on even runs and
+a random built-in or made fighter per player on odd runs, on its own generator so a seed's network schedule is unchanged. The result
+line prints `fighters per class [...]`; `fuzz-rollback` gained `--only <seed>`. The CLI is otherwise the same. Runs: `fuzz-rollback
+20000` and `net-fuzz 2000` at sim 85, then `fuzz-rollback 1000` and `net-fuzz 500` at sim 87, every class covered (about 11,300 to
+11,600 fighters per class in the 20000 run), **0 mismatches: no desync was found**, so no sim fix was needed.
+
+### Built: the engine (each general, off by default, hashed)
+
+* **E3e, bursting projectiles**: `ProjectileSpawn::burst: Option<Burst { life, rehit, on_wall, y, phases }>` (content: a `burst { life
+  [rehit] [on_wall] [y] phase { ... } }` block in the projectile; validated: a lifetime, at least one phase, in order within its life)
+  and the hashed `Projectile::bursting`. In `combat::update_projectiles` the first fighter a bursting projectile touches (shielding or
+  not) takes its own hit; then `start_burst` stops it `y` higher where it touched, restarts its age, gives it the burst's life, clears its
+  hit mask and from then on it pierces with the burst's `rehit` and hits from the burst's phases. With `on_wall` a solid wall bursts it
+  just short of the wall instead of removing it. A burst is never reflected and never clanks; it does not move. No existing projectile
+  has a burst.
+* **E28, the vortex angle 366**: `moves::ANGLE_VORTEX`; `combat::apply_hit` marks the pending link as a vortex (hashed
+  `Fighter::link_kind`, `LINK_AUTOLINK` / `LINK_VORTEX`), grounded or not; at the end of hitlag `fighter::vortex_launch` sends the
+  victim along the attacker's movement (`link_vel`) at the knockback's launch speed and sets the hashed `Fighter::vortex` to 5
+  (`state::VORTEX_FRAMES`); each knockback frame `vortex_pull` adds a `1 / frames left` share of the way from the victim's middle to the
+  hitbox centre and holds its fall, so it is there on the fifth frame. A burst (standing still) gives the pull alone.
+* **E11 `Move::motion_drift`** (percent, 0 default): during the move's motion in the air the horizontal speed is the fighter's own air
+  control at that share of the body's air speed and acceleration (`fighter::air_steer_x`, split out of `air_move_with`), the vertical
+  the motion's.
+* Docs: `docs/CONTENT.md` (the burst block, `motion_drift`, angle 366, the schema note), `SHARED_MECHANICS.md`.
+
+### Built: the powered versions (`sim-core/src/moves_greatsword.rs`, slots in `moves::greatsword_slots`)
+
+Each special's `limit_version` is set, so **any special used in the powered mode is its powered version and empties the gauge at
+once, hit or miss** (the reference's rule; the phase-2 default "keep" is gone). Follow-ups by `goto` never spend.
+
+* **Powered wave** (`ext6` ground, `ext7` air, the neutral special's): intangible 10-17; the beam out on 15, hitting 16-62, 6% / 4.8%
+  at 0.369 / 0.3 world a frame, 55 by travel, BK 38, KS 60, never clanking, a standing capsule (0.7 radius, 6.75 reference units above
+  and below its centre); on its first fighter or a wall it bursts: five 2% / 1.6% vortex hits (set knockback 40, hitlag x0.5) on its
+  frames 1, 7, 13, 19, 25, then a 3% / 2.4% hit (48, BK 50, KS 226) on 29-30, radius 1.8: **19% on the first fighter, 13% behind it**
+  (15.2% / 10.4% aerial). FAF 61; the air version's fall break and land switch as the normal wave's.
+* **Powered combo slash** (`ext8`): all five hits by themselves on 10-11, 15-16, 21-22, 28, 38-39 (5 / 5 / 3 / 3 / 10 = 26% [E:
+  conflict 1]); the first two the 367 autolink at set knockback 80; 280 / 70 at 14 / 21, 95 / 110 at 26, then 50 BK 30 KS 147; each its
+  own hit group; intangible 6-11; FAF 61; in the air no fall and no drift for the whole move.
+* **Powered rise** (`ext9`): the stab on 7-9 (6%, set knockback 80, hitlag x2.5, normal SDI), the rising slash 7% at 88 (KS 142 on 10,
+  110 on 11-16; the box behind 90, BK 98, KS 40); intangible 5-12; the fitted rise at x1.6 / x1.85; 0.67 of the speed on starting; air
+  control while rising (`motion_drift` 100); ledges in front and behind throughout; the second press on 33-39 into the ordinary
+  falling slash (`ext3`); animation 69, then the special fall at x0.8 with 20 frames of landing lag.
+* **Finisher** (`ext10` ground, `ext11` air, the down special's): 1% hits at 80, BK 60, by position, hitlag x2, clanking, one hit group:
+  ground 12 (KS 431, in front), 13 and 14 (KS 406, behind); air 14 and 15 (KS 371), 17 (KS 349); the both-sides push windbox (set
+  knockback 80, KS 100 / 86) on 22-26 / 25-29; FAF 85 / 88; the air version hovers (x0.4 both speeds on starting, gravity 0.03, top fall
+  1.0) and lands into the grounded one keeping its frame.
+* The normal combo slash's nearest box is now the 366 vortex (it was 367 until E28).
+
+### Verified against [R] / [D] (by tests that ran)
+
+`sim-core/tests/greatsword_powered.rs` (27 tests): every special in the mode is its powered version (ground and air) and spends the gauge,
+the same input out of the mode is the normal one; the powered wave's data (frames, lifetime, speeds, damages, capsule, no clank, the
+burst's life, rehit, phases, angles and knockback); **19% on the first fighter in exactly 6 / 2 / 2 / 2 / 2 / 2 / 3 on the burst's
+frames 0, 1, 7, 13, 19, 25, 29, and 13% on a fighter just behind**; the aerial version's 15.2% (within fixed-point rounding); the burst
+standing still and holding its victim at its centre; the burst on the stage's side wall hitting a fighter by it, the normal wave still
+vanishing there; the burst resimulated exactly from a snapshot, and changed when `bursting` is dropped; the burst in the content hash;
+a 366 hit sending a grounded fighter along the attacker's movement (not at 80) at the knockback's speed; the powered combo slash's
+windows and groups, all five hits by themselves for 26%, intangible exactly 6-11, free on 61, no movement at all in the air; the powered
+rise's peak at x1.6 / x1.85 of the fitted 66 (within 0.3 world), its data and hits, intangible exactly 5-12, the second press only on
+33-39, steering both ways while rising (and the normal rise not), helpless on 69, catching a ledge while rising; the finisher's frames,
+KS and windboxes, its hit on 12 for exactly 1% and a launch above 200 knockback at 100%, free on 85 / 88, the hover's speeds, the windbox
+pushing both sides without hitstun; the powered wave intangible exactly 10-17. `netplay/tests/powered_rollback.rs`: four champions
+whose gauge fills on any damage (so the powered versions keep coming), 40 seeds of random play with random input delays, every rollback
+resimulating exactly, with bursts seen. `state::checksum_sees_every_field` has `projectile_bursting`, `link_kind`, `vortex`;
+`move_rules::the_new_fields_are_in_the_content_hash` has `motion_drift`; sim-content `a_burst_and_motion_drift_round_trip_and_are_checked`.
+Updated: `gauge.rs` (the shipped Greatsword now spends; a special without a powered version still keeps the gauge),
+`greatsword_specials.rs` (the 366 box; every slot used, `ext12`-`ext15` spare).
+
+### Estimated or limited [E]
+
+* The powered combo slash's total (26%, conflict 1), its boxes (gap 1) and shield damage (gap 4).
+* The powered rise's air control (full air speed while rising, gap 8), the late hit's hitlag, its box positions; the rise's shape (owner
+  decision 42).
+* The vortex's pull curve (even over 5 frames) and no DI on it; the burst not reflectable; the beam's and final hit's unlisted hitlag and
+  shield multipliers taken as x1.
+* The aerial finisher landing into the grounded one at the same frame.
+* Owner decisions 43 and 44 (the charge's start and full-gauge end, the timer during hitlag) stay [E].
+
+### Tests and checks run
+
+`cargo fmt --all`; `cargo test --workspace` (1015 passed, 0 failed, at the merge-ready commit); `cargo clippy --workspace --all-targets
+-- -D warnings` (clean); `pftool fuzz-rollback 1000` and `pftool net-fuzz 500` (0 mismatches, every class); `pftool content-check
+content/base.pfc` (ok); `base.pfc` re-exported (sim 87). Not run: the Godot tests (no GDScript changed). Other fighters: their kit tests
+are green; only the Greatsword's moves and the new optional fields change `base.pfc`.
+
+### Training-mode check (hitbox view)
+
+Champion with a full gauge vs two duelists 4 and 4.9 units away: (1) the neutral special: the tall beam from 1.5 ahead, stopping on the
+first duelist and turning into a 1.8-radius burst just below the beam's middle, ticking every 6 frames and finishing on 29; the HUD
+shows 19% and 13% (x1.2 in a one-on-one); the gauge empty at once. (2) Under the ledge facing the stage, the aerial one bursting on the
+wall. (3) The side special: five hits with no presses, the champion frozen in the air if started there. (4) The up special: a much
+higher rise that drifts with the stick and snaps to a ledge at any point. (5) The down special: the whirl on 12, then the windbox pushing
+both sides on 22-26.
+
+### Phase 3 follow-ups
+
+The iconic-move re-check in the hitbox view and against footage for the open gaps (`REFERENCE_DATA.md` gaps 1-14).
 
 ## For the art agent
 
@@ -266,6 +357,15 @@ seconds; hit while charging, it drops.
   straight up in front, rising 7.5 units by frame 19 and 8.25 at the peak on 24); the falling slash (the sword pointed down below the
   feet from its frame 12, dropping fast; the landing hit's burst 1 unit round on landing); the charge (a crouched power-up stance held
   as long as it lasts, a 7-frame recovery when cancelled).
+* Phase 3 moves that want their own clip (slots from `moves::greatsword_slots`; first active frame, span, pose): the **powered wave**
+  (`ext6` ground, `ext7` air: a faster rising slash, intangible 10-17, the beam out on 15, FAF 61; the beam itself is taller than the
+  normal one, about 1.7 units, and on contact or on a wall it becomes a spinning burst 1.8 units round that lasts 30 frames: an effect
+  to draw from `Projectile::bursting`, which the bridge does not expose yet: a read-only projectile accessor is a small follow-up); the **powered combo slash** (`ext8`: the five slashes in one flow on 10-11, 15-16,
+  21-22, 28 and 38-39, the last a big forward finisher, boxes 0.9 to 2.4 ahead at 1 to 1.75 up; frozen in place in the air); the
+  **powered rise** (`ext9`: the same stab and rising slash, stab on 7-9, slash 10-16, rising about 13 units from the ground and 15 from
+  the air, drifting with the stick; animation 69); the **finisher** (`ext10` ground: a full whirlwind turn, in front on 12, behind on 13-14,
+  the wind burst both sides on 22-26, out to 3.6 units at 1.9 up, FAF 85; `ext11` air: the same hovering, 14 / 15 / 17, wind 25-29,
+  FAF 88). The powered mode's look (the gauge full) is `fighter_gauge_full(i)`.
 
 ## Phase 2 and 3 plan
 
@@ -348,14 +448,16 @@ own test. One `SIM_VERSION` bump per phase.
 
 ## Questions for the owner
 
-Phase 2 (new):
+Phase 3 (new):
 
-1. **The rise's height** is fitted [E] so that the quickest rise-and-fall lands its hit on frame 45 and is free on 71, as the reference's
-   frame table says (60 units by frame 19, 66 at the peak). Footage of the rise next to a platform would confirm the shape.
-2. **The combo slash's boxes and windows** (gaps 1-3): built [E]; footage of it whiffed, on hit and on shield, from a short hop, would
-   settle them.
-3. **The charge**: starts filling on its second frame and ends itself on a full gauge [E] (gaps 9-10). Keep?
-4. **The gauge's timer during hitlag** (gap 12): counts now. Keep?
+1. **The powered combo slash's damage** (conflict 1): built as UFD's 5 / 5 / 3 / 3 / 10 = 26%; the reference's own pages say 24% and
+   27%. A training-mode recording with the damage shown per hit settles it.
+2. **The powered rise's air control** (gap 8): built as full air speed while rising [E]. Footage of it drifting would set the share.
+3. **Reflecting a burst**: a bursting powered wave is never reflected here [E]; the reference's beam is reflectable before it bursts
+   (built). Keep?
+
+Phase 2 questions 1, 3 and 4 are answered (owner decisions 42-44: keep the fitted rise, the charge's start and full-gauge end, the timer
+during hitlag, all [E]). Phase 2 question 2 (the combo slash's boxes and windows, gaps 1-3) stays open until footage.
 
 Phase 1 questions 1-4 are answered (owner defaults, decisions 34-36 in `ROSTER_STATUS.md`; the phase-2 spend rule: keep the gauge
 until the powered versions exist). Question 5 (the gauge's final name) stays open: rename `content::GAUGE_NAME` and the three script

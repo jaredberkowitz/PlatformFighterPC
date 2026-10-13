@@ -15,7 +15,7 @@ Tools (`cargo run -p tools -- ...`, or `target/release/pftool`):
 | `content-check <file.pfc>` | Load and validate; prints a summary or every problem with line numbers |
 | `content-pack <in.pfc> <out.pfc>` | Validate, then write canonical text with a fresh hash and this build's sim version |
 | `content-export <out.pfc> [name]` | Write the built-in roster (this is how `content/base.pfc` was made) |
-| any command with env `PF_CONTENT=<file>` | Run the fuzzers, `net-host`/`net-join`, replays against that bundle instead |
+| any command with env `PF_CONTENT=<file>` | Run the fuzzers, `net-host`/`net-join`, replays against that bundle instead (the fuzzers draw their fighters from every class the bundle has a weapon for, built-in or made, and print a per-class count) |
 
 ## Exit criterion: data plays identically to code
 
@@ -273,6 +273,8 @@ Line numbers inside a script count from its first non-blank line.
   Still schema 6 (sim v86, before schema 6 was released): hitboxes may have `trip` and `rebounds`, the ruleset `trip_lag`,
   `trip_max` and `trip_invuln`; every one defaults to the old behaviour. (If schema 6 has shipped by the time this merges, these
   belong in a schema 7 with a migration that rewrites nothing.)
+  Still schema 6 (sim v87): a projectile may have a `burst { ... }` block (E3e), a move `motion_drift`, and a hitbox angle may be 366
+  (the vortex, E28); every one defaults to the old behaviour, so an older file loads unchanged (the same note about schema 7 applies).
 * `sim_version` is the simulation's behaviour version (`SIM_VERSION`). Content packed for another version is
   refused: the same numbers can play differently.
 * `hash` fingerprints everything the simulation reads (sim version, parameters, movesets including script

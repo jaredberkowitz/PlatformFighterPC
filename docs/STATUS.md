@@ -95,6 +95,16 @@ direction key pressed during grab, throw or landing lag as a flick (a first pres
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
 **Sim 86** (branch `bracers-phase1`, on `movesets` at f2b69b8, content schema 6; the number is a placeholder the owner renumbers at the merge): the eighth class, Bracers on the hauler body (built-in fighter Hauler, modelled on the reference game's Donkey Kong, owner decision 37), phase 1: the body (weight 127, the reference's ground, air, jump and dodge numbers, a bigger body [E]) and every normal on the raw hitbox tables' data, with two small general extensions: E20 trips (`Hitbox::trip`, a percent rolled on the game's own hashed generator only for a hit that can trip; the tripped fighter sits with the reference's hard-trip timings: `Fighter::tripped`, `Ruleset::trip_lag` / `trip_max` / `trip_invuln`) and E3g hits that clank without rebounding (`Hitbox::rebounds`). Older fighters changed by the reference data: the Gauntlets' forward air late hit now trips (20%), the Longsword's down tilt carries its 35% (it lifts, so it never trips on a flat stage), and the Claws' up smash and the Staff's forward, up and down tilts and neutral air clank without rebounding. The specials are still the claws' placeholders and the forward throw a placeholder throw. Report and the phase 2 / 3 plans: `docs/movesets/donkey_kong/IMPLEMENTATION_REPORT.md`. Tests `sim-core/tests/bracers.rs`, `trips.rs`.
 
+**Sim 87** (branch `greatsword-phase3`, on `movesets` after f2b69b8, merged to main; content schema 6, no schema change: the new fields
+are optional): the Greatsword's phase 3, its four powered versions (the bursting wave on the ground and in the air, the self-running
+combo slash, the higher rise with air control, the finisher on the ground and in the air), and every special in the powered mode now
+spends the gauge. Engine, each general and off by default: E3e bursting projectiles (`ProjectileSpawn::burst`, hashed
+`Projectile::bursting`), E28 the vortex angle 366 (hashed `Fighter::link_kind` and `vortex`; the combo slash's nearest box uses it),
+E11 `Move::motion_drift`. The fuzzers (`pftool fuzz-rollback`, `pftool net-fuzz`) now draw fighters from every class in the content,
+built-in or made, and print a per-class count (before, only classes 0 and 1 ran): `fuzz-rollback 20000` and `net-fuzz 2000`, 0
+mismatches over all seven classes; no desync was found. Tests `sim-core/tests/greatsword_powered.rs` and `netplay/tests/powered_rollback.rs`;
+report `docs/movesets/cloud/IMPLEMENTATION_REPORT.md`.
+
 **Sim 85** (branch `greatsword-phase2`, on `movesets` at a88c09f, content schema 6; sim 84 is reserved for the engine session): the Greatsword's phase 2, its four normal specials (the wave, the combo slash, the rising and falling slash, the gauge charge) and the engine they need: E9, a body gauge with a timed powered mode that multiplies the body's movement (the champion's Boost gauge; gain from damage dealt and taken, drain while charging, reset on a KO), E16 `boost` / `boosting` / `grab` / `boost_add`, E11 `start_speed_y` and `ledge_drop`, E22b `on_land`, E3f standing capsule hitboxes. Read-only bridge accessors for the HUD: `fighter_gauge`, `fighter_gauge_max`, `fighter_gauge_full`, `fighter_gauge_frames`. Every other fighter unchanged. Report: `docs/movesets/cloud/IMPLEMENTATION_REPORT.md`; phase 3 (the powered versions, E3e, E28) next.
 
 **Sim 83** (branch `greatsword-phase1`, on `movesets` at sim 82; no schema change): the seventh class, Greatsword on the champion body
@@ -132,7 +142,7 @@ E3e, E3f, E11 and E16 additions, E22b, E28: plan in `docs/movesets/cloud/IMPLEME
 ## What "done" is verified by
 
 `cargo test --workspace` (about 480 tests), `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all`,
-`pftool fuzz-rollback 1000` and `pftool net-fuzz 2000` (both 0 mismatches), and the headless Godot tests
+`pftool fuzz-rollback 1000` and `pftool net-fuzz 2000` (both 0 mismatches, fighters drawn from every class since sim 87), and the headless Godot tests
 (`godot/tests/*.gd`, run with `Godot --headless --path godot --script res://tests/<name>.gd`):
 `input_e2e`, `net_e2e`, `content_e2e`, `loadout_test`, `editor_api_test`, `editor_ui_test`, `creator_flow_test`, `replay_test`, `controls_test`, `sfx_test`, `fighter_view_test`, `policy_test`,
 `online_fighters_test`, `match_flow_test`, `online_flow_test`, `cpu_test`. All of them pass at the last commit. Godot is expected at `tools/godot/Godot_v4.7.1-stable_win64_console.exe`
