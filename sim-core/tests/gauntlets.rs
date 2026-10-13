@@ -980,6 +980,14 @@ fn the_new_fields_are_in_the_content_hash() {
     let mut c = base.clone();
     c.weapons[w].moves[MoveId::UTilt as usize].part_intangible[0].end = 15;
     assert_ne!(h, c.hash(), "part intangible");
+    let mut c = base.clone();
+    c.weapons[w].moves[MoveId::Jab as usize].armor = Some(sim_core::moves::Armor {
+        start: 0,
+        end: 3,
+        kind: sim_core::moves::ARMOR_SUPER,
+        threshold: Fx::ZERO,
+    });
+    assert_ne!(h, c.hash(), "armor");
     let mut c = base;
     c.weapons[w].moves[MoveId::Ext15 as usize] = c.weapons[w].moves[MoveId::Jab as usize].clone();
     assert_ne!(h, c.hash(), "the new slots");

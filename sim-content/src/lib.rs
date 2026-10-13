@@ -317,6 +317,24 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 ));
             }
         }
+        if let Some(a) = &mv.armor {
+            if a.start > a.end || a.end > mv.total_frames {
+                errors.push(format!(
+                    "weapon {i} {name}: armor {}..{} must lie inside the move",
+                    a.start, a.end
+                ));
+            }
+            if a.kind == sim_core::moves::ARMOR_KNOCKBACK {
+                errors.push(format!(
+                    "weapon {i} {name}: knockback armor is not built yet (use super or damage)"
+                ));
+            }
+            if a.kind == sim_core::moves::ARMOR_DAMAGE && a.threshold <= Fx::ZERO {
+                errors.push(format!(
+                    "weapon {i} {name}: damage armor needs a threshold above 0"
+                ));
+            }
+        }
         if mv.steer_degrees > 90 || mv.steer_stick > 99 {
             errors.push(format!(
                 "weapon {i} {name}: steer_degrees is at most 90 and steer_stick at most 99"

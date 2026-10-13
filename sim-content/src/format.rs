@@ -8,10 +8,10 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
-    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
-    TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Armor, Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
+    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ARMOR_DAMAGE, ARMOR_KNOCKBACK,
+    ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
+    PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -766,10 +766,36 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "script",
             "projectile_script",
             "part_intangible",
+            "armor",
         ],
         context,
         errors,
     );
+    if let Some(b) = at_most_one(children(block, "armor"), "armor", context, errors) {
+        let ctx = format!("the armor of {context}");
+        let mut f = Fields::new(b, &ctx, errors);
+        let kind = match f.raw("kind") {
+            None | Some(("damage", _)) => ARMOR_DAMAGE,
+            Some(("super", _)) => ARMOR_SUPER,
+            Some(("knockback", _)) => ARMOR_KNOCKBACK,
+            Some((other, line)) => {
+                err(
+                    errors,
+                    line,
+                    format!("armor kind must be super, damage or knockback, not `{other}`"),
+                );
+                ARMOR_DAMAGE
+            }
+        };
+        let a = Armor {
+            start: f.need("start", None, errors),
+            end: f.need("end", None, errors),
+            kind,
+            threshold: f.or("threshold", Fx::ZERO, errors),
+        };
+        f.finish(errors);
+        m.armor = Some(a);
+    }
     m.part_intangible = children(block, "part_intangible")
         .into_iter()
         .map(|b| {
@@ -1062,6 +1088,23 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             if w.parts & bit != 0 {
                 c.field(name, "true");
             }
+        }
+        b.push(c);
+    }
+    if let Some(a) = &m.armor {
+        let mut c = Block::new("armor", None);
+        c.field("start", a.start.to_string());
+        c.field("end", a.end.to_string());
+        c.field(
+            "kind",
+            match a.kind {
+                ARMOR_SUPER => "super",
+                ARMOR_KNOCKBACK => "knockback",
+                _ => "damage",
+            },
+        );
+        if a.threshold != Fx::ZERO {
+            c.field("threshold", a.threshold.show());
         }
         b.push(c);
     }

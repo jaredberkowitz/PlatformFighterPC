@@ -520,6 +520,36 @@ pub struct PartIntangible {
     pub parts: u8,
 }
 
+/// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
+/// move. `kind` says which hits it withstands: [`ARMOR_SUPER`] every hit, [`ARMOR_DAMAGE`] a hit dealing at most `threshold` percent
+/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] (the reference's knockback-subtracting
+/// armor: not built yet, refused by validation). Grabs ignore armor; a push still pushes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Armor {
+    pub start: u8,
+    pub end: u8,
+    pub kind: u8,
+    pub threshold: Fx,
+}
+
+/// `Armor::kind` values.
+pub const ARMOR_SUPER: u8 = 0;
+pub const ARMOR_DAMAGE: u8 = 1;
+pub const ARMOR_KNOCKBACK: u8 = 2;
+
+impl Armor {
+    /// Whether this armor, on move frame `frame`, withstands a hit dealing `damage` percent (before the damage multiplier).
+    pub fn withstands(&self, frame: u16, damage: Fx) -> bool {
+        let inside = u16::from(self.start) <= frame && frame <= u16::from(self.end);
+        inside
+            && match self.kind {
+                ARMOR_SUPER => true,
+                ARMOR_DAMAGE => damage <= self.threshold,
+                _ => false,
+            }
+    }
+}
+
 /// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
 /// attack throws out (the arm or leg reaching toward the move's hitboxes).
 pub const PART_LOW: u8 = 1;
@@ -584,6 +614,8 @@ pub struct Move {
     pub land_continue: bool,
     /// Windows in which part of the body cannot be hit (a kicking leg, a headbutting head); empty for none.
     pub part_intangible: Vec<PartIntangible>,
+    /// Armor while the move runs (see [`Armor`]); `None` for none.
+    pub armor: Option<Armor>,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -645,6 +677,7 @@ impl Move {
             intangible_from_air: 255,
             land_continue: false,
             part_intangible: Vec::new(),
+            armor: None,
             charge_at: None,
             next: None,
             next_window: 0,
@@ -824,6 +857,16 @@ impl StateHash for Weapon {
                 h.write_u8(w.start);
                 h.write_u8(w.end);
                 h.write_u8(w.parts);
+            }
+            match &m.armor {
+                Some(a) => {
+                    h.write_bool(true);
+                    h.write_u8(a.start);
+                    h.write_u8(a.end);
+                    h.write_u8(a.kind);
+                    a.threshold.hash_into(h);
+                }
+                None => h.write_bool(false),
             }
             match m.charge_at {
                 Some(f) => {

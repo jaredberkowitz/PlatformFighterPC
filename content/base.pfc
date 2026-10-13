@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 67
-    hash 8b359230c6962975
+    hash 39aa09b6f3030b2f
 }
 
 ruleset {

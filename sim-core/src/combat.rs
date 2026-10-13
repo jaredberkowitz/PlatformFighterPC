@@ -766,6 +766,17 @@ fn apply_hit(
         }
         return;
     }
+    // Armor (the move's window, for the hit's damage before the multiplier): the damage and hitlag stand, nothing else happens.
+    if def.state == S::Attack
+        && weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .armor
+            .is_some_and(|a| a.withstands(def.state_frame, hb.damage))
+    {
+        def.hitlag = hitlag;
+        def.sdi_wait = 0;
+        return;
+    }
     let mut stun = hitstun_frames(kb, rules.hitstun_mult);
     if stun > 0 {
         stun = stun.saturating_add(u16::from(hb.hitstun_add));

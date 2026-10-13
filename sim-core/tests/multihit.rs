@@ -456,3 +456,66 @@ fn a_push_shoves_without_hitlag_or_hitstun() {
         sim.fighter(1).vel.x
     );
 }
+
+// ---- Armor (E1) ------------------------------------------------------------------------------------------------------------------
+
+/// Player 1 in a 60-frame move with `armor`, struck on frame 3 of player 0's hit of `damage` percent (BK 80: it would launch).
+fn armored(armor: Option<sim_core::moves::Armor>, damage: i32, kind: u8) -> Sim {
+    let mut h = hb(2, 4, damage, 45, 80, 100, 0);
+    h.kind = kind;
+    let mut sim = setup(mv(30, vec![h]));
+    let mut stance = mv(60, Vec::new());
+    stance.armor = armor;
+    sim.content.weapons[1].moves[MoveId::NSpecial as usize] = stance;
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[1], MoveId::NSpecial);
+    start(&mut sim);
+    sim.ticks(4, inp(0, 0, 0));
+    sim
+}
+
+#[test]
+fn damage_armor_withstands_hits_up_to_its_threshold_and_super_armor_every_hit() {
+    use sim_core::moves::{Armor, ARMOR_DAMAGE, ARMOR_SUPER, HIT_GRAB};
+    let damage = |start: u8, threshold: i32| {
+        Some(Armor {
+            start,
+            end: 30,
+            kind: ARMOR_DAMAGE,
+            threshold: Fx::from_int(threshold),
+        })
+    };
+    // 9% and 10% against a 10% threshold: the damage and hitlag are taken, the move goes on.
+    for d in [9, 10] {
+        let sim = armored(damage(0, 10), d, HIT_NORMAL);
+        let f = sim.fighter(1);
+        assert_eq!(
+            (f.state, f.move_id),
+            (S::Attack, MoveId::NSpecial as u8),
+            "{d}%"
+        );
+        assert_eq!(f.percent, dealt(&sim, d));
+        assert!(f.hitlag > 0, "an armored hit still freezes");
+        assert!(!f.launch_pending);
+    }
+    // 11% breaks it: hitstun.
+    assert_eq!(
+        armored(damage(0, 10), 11, HIT_NORMAL).fighter(1).state,
+        S::Hitstun
+    );
+    // Outside the window the armor is gone, and without armor the 9% hit launches.
+    assert_eq!(
+        armored(damage(10, 10), 9, HIT_NORMAL).fighter(1).state,
+        S::Hitstun
+    );
+    assert_eq!(armored(None, 9, HIT_NORMAL).fighter(1).state, S::Hitstun);
+    // Super armor takes anything.
+    let sup = Some(Armor {
+        start: 0,
+        end: 30,
+        kind: ARMOR_SUPER,
+        threshold: Fx::ZERO,
+    });
+    assert_eq!(armored(sup, 30, HIT_NORMAL).fighter(1).state, S::Attack);
+    // A grab ignores armor.
+    assert_eq!(armored(sup, 0, HIT_GRAB).fighter(1).state, S::Grabbed);
+}
