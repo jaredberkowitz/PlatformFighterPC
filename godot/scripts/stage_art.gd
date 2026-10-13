@@ -51,7 +51,7 @@ const THEMES := {
 	"ocean": {
 		"sky_top": Color(0.12, 0.44, 0.94), "sky_mid": Color(0.36, 0.68, 1.0), "sky_horizon": Color(0.7, 0.9, 1.0),
 		"sky_glow": [Color(1.0, 0.86, 0.64), 0.45], "sky_wisps": [Color(1.0, 0.95, 0.92), 0.4],
-		"soil": Color(0.6, 0.56, 0.5), "soil_dark": Color(0.42, 0.42, 0.48), "grass": Color(0.98, 0.88, 0.62),
+		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
 		"pattern": "cobble", "cap": "sand", "platform": "wood",
 	},
@@ -897,7 +897,7 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 
 ## The fog layers of each theme: [z, bottom y, height, strength].
 const MIST := {
-	"meadow": [[-56.0, -24.0, 14.0, 0.3], [-86.0, -26.0, 18.0, 0.38]],
+	"meadow": [[-56.0, -24.0, 12.0, 0.16], [-86.0, -26.0, 16.0, 0.24]],
 	"grove": [[-60.0, -24.0, 12.0, 0.18], [-90.0, -26.0, 16.0, 0.26]],
 	"sunset": [[-60.0, -26.0, 18.0, 0.35], [-95.0, -24.0, 24.0, 0.45]],
 	"ocean": [[-130.0, -10.0, 8.0, 0.2]],

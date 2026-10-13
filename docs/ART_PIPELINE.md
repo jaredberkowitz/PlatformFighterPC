@@ -824,3 +824,14 @@ face_concept.png`, `face_before.png`, `face_after.png`.
   open mouth is in shadow under the upper lip; the blush softens toward its edge. Expressions: `face_attack.png`, `face_shock.png`.
 - Checks: creator flow, fighter view, loadout, art pipeline and match flow tests passed; look bench 0.87.
 
+## Clear Meadow, warm Flat Island (thirty-third pass)
+
+An audit of every stage in a four-player match (`docs/screenshots/clear_meadow.png`, `warm_flat_island.png`):
+
+- **Meadow was fogged**: its distance haze (`lighting.gd` STYLES meadow `haze_max` 0.18) washed the trees behind the fence, the hills and the
+  windmill toward pink. It is now 0.08 (no desaturation, lift 0.02, a little more s-curve), and its mist banks are as light as Treetop
+  Isle's. The trees and hills read green, the windmill crisp, the hay golden; the painted violet-and-peach sky keeps the mood.
+- **Flat Island's front was cold**: grey cobbles in slate mortar under warm sand. The stones are now warm sandstone (soil 0.82, 0.66, 0.5;
+  dark 0.6, 0.48, 0.46) and the sand top golden (0.96, 0.8, 0.5) instead of bleached near-white.
+- Look bench 0.87 (passes at 0.85).
+
