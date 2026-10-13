@@ -1256,3 +1256,163 @@ fn a_shield_takes_half_the_fireballs_damage() {
         "{lost:?} vs {half:?}"
     );
 }
+
+// ---- Side special: the cape (phase 2) ------------------------------------------------------------------------------------------
+
+#[test]
+fn the_cape_hits_on_frame_12_with_set_knockback_and_turns_the_victim_round() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(10, 10), -1);
+    sim.tick(inp(127, 0, sim_core::input::buttons::SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::SideSpecial as u8);
+    let mut hit = None;
+    for t in 2..=20 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > Fx::ZERO {
+            hit = Some(t);
+            break;
+        }
+    }
+    assert_eq!(hit, Some(12));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 70));
+    // Set knockback 80 (KS 100, BK 0) at 110 degrees, and it faces away from the tumbler now.
+    let kb = sim_core::combat::fixed_knockback(80, sim.content.fighters[0].weight, 0, 100);
+    assert_eq!(sim.fighter(1).launch_kb, kb);
+    assert_eq!(sim.fighter(1).facing, 1, "turned round");
+    let mv = embers(&sim).get(MoveId::SideSpecial as u8);
+    assert!(mv
+        .hitboxes
+        .iter()
+        .all(|h| h.angle == 110 && h.reverse && h.shield_damage == 157));
+}
+
+/// A shot of player 1's neutral special (whatever its kind) placed at `pos` moving at `vel`, as if just fired.
+fn shot_from_player_1(sim: &mut Sim, pos: Vec2, vel: Vec2) {
+    sim.state.projectiles[0] = sim_core::Projectile {
+        active: true,
+        owner: 1,
+        origin: 1,
+        power: 100,
+        move_id: MoveId::NSpecial as u8,
+        pos,
+        vel,
+        age: 0,
+        life: 40,
+        bounces: 0,
+        vars: [0; sim_core::PROJECTILE_VARS],
+    };
+}
+
+#[test]
+fn the_cape_reflects_a_shot_back_for_one_and_a_half_times_its_damage_and_three_quarters_of_its_life(
+) {
+    // A tumbler fireball (player 1, far right) coming at the tumbler (player 0), which capes it on frames 9-20.
+    let mut sim = Sim::with_chars([TUMBLER, TUMBLER, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(9), -1);
+    sim.tick(inp(127, 0, sim_core::input::buttons::SPECIAL));
+    sim.ticks(8, inp(0, 0, 0));
+    // Frame 10: a shot level with the field, coming left, falling a little.
+    let units = |n: i32| Fx::from_ratio(n, 8000);
+    shot_from_player_1(
+        &mut sim,
+        Vec2::new(fx(22, 10), fx(8, 10)),
+        Vec2::new(-units(1400), -units(200)),
+    );
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    let p = sim.state.projectiles[0];
+    assert!(p.active);
+    assert_eq!(p.owner, 0, "it is the tumbler's now");
+    assert_eq!(p.power, 150);
+    assert!(p.vel.x > Fx::ZERO, "going back: {:?}", p.vel);
+    assert_eq!(
+        p.vel.y,
+        units(200),
+        "its vertical speed turned round too [E]"
+    );
+    assert_eq!(p.life, 30, "0.75 of its 40 frames");
+}
+
+#[test]
+fn a_shot_touching_the_capes_detector_brings_the_reflector_up_early() {
+    let mut sim = Sim::with_chars([TUMBLER, TUMBLER, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(9), -1);
+    sim.tick(inp(127, 0, sim_core::input::buttons::SPECIAL));
+    sim.ticks(5, inp(0, 0, 0));
+    assert_eq!(sim.f().state_frame, 5, "frame 6: the detector is out");
+    // A slow shot just inside the detector, outside the reflector.
+    shot_from_player_1(
+        &mut sim,
+        Vec2::new(fx(19, 10), fx(8, 10)),
+        Vec2::new(-fx(1, 100), Fx::ZERO),
+    );
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.f().state_frame,
+        8,
+        "skipped to frame 9 (the reflector's first)"
+    );
+}
+
+#[test]
+fn the_capes_lift_in_the_air_happens_once_until_the_tumbler_lands() {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(9), -1);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), fx(1, 10), -fx(1, 10));
+    sim.tick(inp(127, 0, sim_core::input::buttons::SPECIAL));
+    // Started in the air: 1 / 2.5 of the horizontal speed kept.
+    assert_eq!(sim.f().vel.x, fx(1, 10) * Fx::from_ratio(40, 100));
+    sim.tick(inp(0, 0, 0));
+    let units = |n: i32| Fx::from_ratio(n, 8000);
+    // The fall stopped and 0.3 up, less one frame of the cape's gravity (0.031).
+    assert!((sim.f().vel.y - (units(300) - units(31))).abs() <= Fx::from_raw(2));
+    sim.ticks(40, inp(0, 0, 0));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, -fx(1, 10));
+    sim.tick(inp(127, 0, sim_core::input::buttons::SPECIAL));
+    sim.tick(inp(0, 0, 0));
+    assert!(
+        sim.f().vel.y < Fx::ZERO,
+        "no second lift: {:?}",
+        sim.f().vel.y
+    );
+    // It falls at most 1 (reference units a frame) during the cape.
+    sim.ticks(20, inp(0, 0, 0));
+    assert!(sim.f().vel.y >= -units(1000));
+}
+
+/// The tick the tumbler, held in reach of the left ledge, catches it with its cape, facing `facing`.
+fn cape_ledge_tick(facing: i8) -> Option<usize> {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(9), -1);
+    let hold = |sim: &mut Sim| {
+        sim.state.fighters[0].pos = Vec2::new(fx(-122, 10), fx(-18, 10));
+        sim.state.fighters[0].vel = Vec2::ZERO;
+        sim.state.fighters[0].platform = sim_core::state::NONE;
+    };
+    hold(&mut sim);
+    sim.state.fighters[0].state = S::Airborne;
+    sim.state.fighters[0].facing = facing;
+    sim.tick(inp(facing * 127, 0, sim_core::input::buttons::SPECIAL));
+    if sim.f().state == S::LedgeHang {
+        return Some(1);
+    }
+    (2..=36).find(|_| {
+        hold(&mut sim);
+        sim.tick(inp(0, 0, 0));
+        sim.f().state == S::LedgeHang
+    })
+}
+
+#[test]
+fn the_cape_catches_a_ledge_in_front_from_frame_2_and_behind_from_16() {
+    assert_eq!(cape_ledge_tick(1), Some(2));
+    assert_eq!(cape_ledge_tick(-1), Some(16));
+}

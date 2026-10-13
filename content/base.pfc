@@ -5,8 +5,8 @@ bundle {
     schema 3
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 60
-    hash 44fb506404f6a5eb
+    sim_version 61
+    hash 8693b7abeb99e7a5
 }
 
 ruleset {
@@ -1457,21 +1457,40 @@ weapon embers {
         }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
+        total_frames 34
+        ledge_front_from 1
+        ledge_back_from 15
+        start_speed 40
+        air_gravity 0.00386
+        air_max_fall 0.125
+        air_friction 0.0003
+        hitbox { start 11 end 13 x 1.2 y 0.79999 radius 0.9 damage 7 angle 110 bkb 0 kbg 100 shield_damage 157 fixed_kb 80 reverse true }
+        hitbox { start 11 end 13 x 0.59999 y 0.79999 radius 0.59999 damage 7 angle 110 bkb 0 kbg 100 priority 1 shield_damage 157 fixed_kb 80 reverse true }
+        reflector {
+            start 8
+            end 19
+            x 1
+            y 0.81
+            radius 0.81
+            damage_percent 150
+            speed_percent 100
+            reverse_vertical true
+            life_percent 75
+            max_damage 50
+            detect_start 5
+            detect_end 7
+            detect_x 0.65999
+            detect_y 0.81
+            detect_radius 1.34
+        }
         script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
+            // Side special (the reference's cape): in the air, the first use since the fighter was last on the ground, caught a ledge or was
+            // hit stops its fall and lifts it by 0.3 reference units a frame (once per airtime: flag 0). Later uses keep their fall, slowed by
+            // the move's own light gravity.
+            if frame == 1 && grounded == 0 && air_flag(0) == 0 {
+                set_air_flag(0);
+                add_vel(0, 0.0375 - min(vy, 0));
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
         }
     }
     move up_special {

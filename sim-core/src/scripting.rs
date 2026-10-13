@@ -121,6 +121,13 @@ impl Host for FighterHost<'_> {
             api::F_STORE => {
                 self.f.stored = arg(0).floor_int().clamp(0, 255) as u8;
             }
+            api::F_AIR_FLAG => {
+                let bit = 1u8 << arg(0).floor_int().clamp(0, 7);
+                return flag(self.f.air_flags & bit != 0);
+            }
+            api::F_SET_AIR_FLAG => {
+                self.f.air_flags |= 1u8 << arg(0).floor_int().clamp(0, 7);
+            }
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);

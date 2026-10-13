@@ -430,3 +430,36 @@ fn wild_scripts_cannot_push_fighters_into_the_stage() {
         }
     }
 }
+
+#[test]
+fn a_once_per_airtime_flag_lasts_until_the_fighter_lands() {
+    // Each use in the air adds a lift only while flag 2 is clear, and sets it.
+    let mut sim = with_special(scripted(
+        12,
+        "if frame == 1 && air_flag(2) == 0 { set_air_flag(2); add_vel(0, 0.5); }",
+    ));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    let lift = |sim: &mut Sim| {
+        sim.tick(inp(0, 0, SPECIAL));
+        let before = sim.f().vel.y;
+        sim.tick(inp(0, 0, 0));
+        let after = sim.f().vel.y;
+        sim.ticks(14, inp(0, 0, 0));
+        after > before
+    };
+    assert!(lift(&mut sim), "the first use lifts");
+    assert_eq!(sim.f().air_flags, 0b100);
+    assert!(!lift(&mut sim), "the second in the same airtime does not");
+    // Landing clears it.
+    sim.stand(0, Fx::ZERO, 1);
+    sim.tick(inp(0, 0, 0));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].air_flags = 0b100;
+    sim.state.fighters[0].pos.y = fx(1, 100);
+    sim.state.fighters[0].vel.y = -Fx::ONE;
+    sim.ticks(3, inp(0, 0, 0));
+    assert!(sim.f().grounded());
+    assert_eq!(sim.f().air_flags, 0, "landing clears the flags");
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    assert!(lift(&mut sim), "so the next airtime lifts again");
+}

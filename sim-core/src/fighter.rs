@@ -661,6 +661,7 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.fast_fall = false;
     f.short_hop = false;
     f.ledge_grab_count = 0;
+    f.air_flags = 0;
 }
 
 fn enter_landing(f: &mut Fighter, lag: u8) {
@@ -1260,8 +1261,9 @@ pub fn grab_ledge(f: &mut Fighter, p: &FighterParams, stage: &Stage, ledge: usiz
     f.pos = collision::ledge_hang_pos(l, p);
     f.vel = Vec2::ZERO;
     f.facing = -l.side;
-    // Grabbing a ledge refreshes airborne options.
+    // Grabbing a ledge refreshes airborne options (and the once-per-airtime flags).
     f.air_jumps_left = p.air_jumps;
+    f.air_flags = 0;
     f.air_dodge_used = false;
     f.fast_fall = false;
     enter(f, S::LedgeHang);

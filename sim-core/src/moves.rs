@@ -289,6 +289,13 @@ pub struct Hitbox {
     /// The reference's "set weight": the knockback is worked out as if the victim weighed 100, whatever its weight, so a multi-hit
     /// holds light and heavy fighters alike.
     pub set_weight: bool,
+    /// The reference's "reverse" effect: the hit turns the victim round (it ends up facing away from the attacker, its horizontal
+    /// speed reversed), as well as launching it.
+    pub reverse: bool,
+    /// A push (the reference's flinchless, windbox-like hit): the knockback becomes a shove added to the victim's speed (only its
+    /// horizontal part on the ground) with no hitlag, no hitstun and no change of state: the victim keeps control. A shield takes it
+    /// as pushback.
+    pub push: bool,
 }
 
 /// `Hitbox::aim` values.
@@ -321,6 +328,8 @@ impl Hitbox {
         self.link_ahead = Fx::ZERO;
         self.aim = AIM_ANY;
         self.set_weight = false;
+        self.reverse = false;
+        self.push = false;
         self
     }
 }
@@ -427,6 +436,34 @@ pub struct Reflector {
     pub radius: Fx,
     pub damage_percent: u8,
     pub speed_percent: u8,
+    /// The reflected shot's vertical speed is turned round too (it goes back the way it came), not only its horizontal speed.
+    pub reverse_vertical: bool,
+    /// Percent of its lifetime a reflected shot gets (its age starts again).
+    pub life_percent: u8,
+    /// A shot whose damage is above this is not reflected (0: no limit).
+    pub max_damage: Fx,
+    /// A projectile detector: a shot touching the circle at (`detect_x`, `detect_y`) of `detect_radius` on move frames
+    /// `detect_start..=detect_end` skips the move ahead so the reflector is up on the next frame. `detect_end` 255: none.
+    pub detect_start: u8,
+    pub detect_end: u8,
+    pub detect_x: Fx,
+    pub detect_y: Fx,
+    pub detect_radius: Fx,
+}
+
+impl Reflector {
+    /// The fields added after the first reflectors, at their defaults (what older content means).
+    pub const fn extras(mut self) -> Reflector {
+        self.reverse_vertical = false;
+        self.life_percent = 100;
+        self.max_damage = Fx::ZERO;
+        self.detect_start = 0;
+        self.detect_end = 255;
+        self.detect_x = Fx::ZERO;
+        self.detect_y = Fx::ZERO;
+        self.detect_radius = Fx::ZERO;
+        self
+    }
 }
 
 /// A counter stance: a hit that lands while it is active is cancelled, and the fighter answers with another move
@@ -644,6 +681,8 @@ impl StateHash for Hitbox {
         self.link_ahead.hash_into(h);
         h.write_u8(self.aim);
         h.write_bool(self.set_weight);
+        h.write_bool(self.reverse);
+        h.write_bool(self.push);
     }
 }
 
@@ -771,6 +810,14 @@ impl StateHash for Weapon {
                     r.radius.hash_into(h);
                     h.write_u8(r.damage_percent);
                     h.write_u8(r.speed_percent);
+                    h.write_bool(r.reverse_vertical);
+                    h.write_u8(r.life_percent);
+                    r.max_damage.hash_into(h);
+                    h.write_u8(r.detect_start);
+                    h.write_u8(r.detect_end);
+                    r.detect_x.hash_into(h);
+                    r.detect_y.hash_into(h);
+                    r.detect_radius.hash_into(h);
                 }
                 None => h.write_bool(false),
             }
@@ -844,6 +891,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 link_ahead: Fx::ZERO,
                 aim: AIM_ANY,
                 set_weight: false,
+                reverse: false,
+                push: false,
             })
             .collect(),
         ..Move::empty()
@@ -891,6 +940,8 @@ fn row(r: &R) -> Hitbox {
         link_ahead: Fx::ZERO,
         aim: AIM_ANY,
         set_weight: false,
+        reverse: false,
+        push: false,
     }
 }
 
@@ -2681,6 +2732,62 @@ fn embers_specials(w: &mut Weapon) {
     }
     w.moves[MoveId::UpSpecial as usize] = rising_punch();
     w.moves[MoveId::NSpecial as usize] = fireball();
+    w.moves[MoveId::SideSpecial as usize] = cape();
+}
+
+/// Side special, a cape swing (the reference's Cape).
+///
+/// * The swing, frames 12-14: 7%, 110 degrees, set knockback 80 (KS 100), shield damage +4 (157 percent, [D]), and the reference's
+///   reverse effect: the victim is turned round. Radius 7.5 and 5.0 on the root, converted [D].
+/// * The reflector, frames 9-20: centred 8 ahead and 6.5 up, 6.5 across (reference units); 1.5 times the damage, the same speed,
+///   0.75 of the lifetime; shots of more than 50% go through. Its projectile detector, frames 6-8 (8 across, along 2.5 to 8 ahead:
+///   one circle covering it here, [D]), skips the move to frame 9.
+/// * In the air: 1 / 2.5 of the horizontal speed kept, air friction 0.0025, gravity 0.031, fall speed 1; the first use per airtime
+///   adds 0.3 of vertical speed (`cape.script`; that it starts from a stopped fall is [E]). Ledges in front from frame 2, behind
+///   from 16.
+/// * FAF 36. (The reflected shot also turns its vertical speed round: [E], the reference's pages do not say.)
+fn cape() -> Move {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let mut mv = ref_move(
+        36,
+        0,
+        0,
+        255,
+        &[
+            r(12, 14, 12, 8, 9, 70, 110, 0, 100, 0, 0),
+            r(12, 14, 6, 8, 6, 70, 110, 0, 100, 1, 0),
+        ],
+    );
+    set_rows(&mut mv, &[0, 1], |h| {
+        h.fixed_kb = 80;
+        h.reverse = true;
+        h.shield_damage = 157;
+    });
+    mv.reflector = Some(Reflector {
+        start: 8,
+        end: 19,
+        x: Fx::ONE,
+        y: Fx::from_ratio(81, 100),
+        radius: Fx::from_ratio(81, 100),
+        damage_percent: 150,
+        speed_percent: 100,
+        reverse_vertical: true,
+        life_percent: 75,
+        max_damage: Fx::from_int(50),
+        detect_start: 5,
+        detect_end: 7,
+        detect_x: Fx::from_ratio(66, 100),
+        detect_y: Fx::from_ratio(81, 100),
+        detect_radius: Fx::from_ratio(134, 100),
+    });
+    mv.script = Some(script(Kind::Fighter, include_str!("scripts/cape.script")));
+    mv.start_speed = 40;
+    mv.air_friction = Some(Fx::from_ratio(25, 80_000));
+    mv.air_gravity = Some(su(31));
+    mv.air_max_fall = Some(su(1000));
+    mv.ledge_front_from = 1;
+    mv.ledge_back_from = 15;
+    mv
 }
 
 /// Neutral special, a bouncing fireball (the reference's Fireball). Thrown on frame 17, FAF 50; in the air the fighter keeps its air
@@ -3053,6 +3160,8 @@ pub fn claws() -> Weapon {
             link_ahead: Fx::ZERO,
             aim: AIM_ANY,
             set_weight: false,
+            reverse: false,
+            push: false,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3239,6 +3348,14 @@ pub fn claws() -> Weapon {
         radius: Fx::from_ratio(17, 10),
         damage_percent: 150,
         speed_percent: 130,
+        reverse_vertical: false,
+        life_percent: 100,
+        max_damage: Fx::ZERO,
+        detect_start: 0,
+        detect_end: 255,
+        detect_x: Fx::ZERO,
+        detect_y: Fx::ZERO,
+        detect_radius: Fx::ZERO,
     });
     reflector.script = Some(script(
         Kind::Fighter,

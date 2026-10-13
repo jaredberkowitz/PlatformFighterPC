@@ -90,6 +90,8 @@ pub const F_REHIT: u8 = 38;
 pub const F_STALL: u8 = 39;
 pub const F_GOTO: u8 = 40;
 pub const F_STORE: u8 = 41;
+pub const F_AIR_FLAG: u8 = 42;
+pub const F_SET_AIR_FLAG: u8 = 43;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -237,7 +239,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 10] = [
+    const OWN: [Func; 12] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -288,8 +290,20 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "store(n): keep a charge of n (0 to 255) for the next use, read back as stored; lost on a KO",
         ),
+        func(
+            "air_flag",
+            F_AIR_FLAG,
+            1,
+            "air_flag(n): 1 if once-per-airtime flag n (0 to 7) is set, else 0",
+        ),
+        func(
+            "set_air_flag",
+            F_SET_AIR_FLAG,
+            1,
+            "set_air_flag(n): set once-per-airtime flag n (0 to 7); landing, a ledge or being hit clears them all",
+        ),
     ];
-    concat::<9, 10, 19>(MATH, OWN)
+    concat::<9, 12, 21>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

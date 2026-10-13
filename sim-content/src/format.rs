@@ -583,6 +583,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         link_ahead: f.or("link_ahead", Fx::ZERO, errors),
         aim,
         set_weight: f.or("set_weight", false, errors),
+        reverse: f.or("reverse", false, errors),
+        push: f.or("push", false, errors),
     };
     f.finish(errors);
     hb
@@ -642,6 +644,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.set_weight {
         b.field("set_weight", "true");
+    }
+    if hb.reverse {
+        b.field("reverse", "true");
+    }
+    if hb.push {
+        b.field("push", "true");
     }
     b
 }
@@ -802,6 +810,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     link_ahead: Fx::ZERO,
                     aim: AIM_ANY,
                     set_weight: false,
+                    reverse: false,
+                    push: false,
                 }
             }
         };
@@ -856,6 +866,14 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             radius: f.need("radius", None, errors),
             damage_percent: f.need("damage_percent", None, errors),
             speed_percent: f.need("speed_percent", None, errors),
+            reverse_vertical: f.or("reverse_vertical", false, errors),
+            life_percent: f.or("life_percent", 100, errors),
+            max_damage: f.or("max_damage", Fx::ZERO, errors),
+            detect_start: f.or("detect_start", 0, errors),
+            detect_end: f.or("detect_end", 255, errors),
+            detect_x: f.or("detect_x", Fx::ZERO, errors),
+            detect_y: f.or("detect_y", Fx::ZERO, errors),
+            detect_radius: f.or("detect_radius", Fx::ZERO, errors),
         };
         f.finish(errors);
         m.reflector = Some(r);
@@ -1059,6 +1077,22 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         c.field("radius", r.radius.show());
         c.field("damage_percent", r.damage_percent.to_string());
         c.field("speed_percent", r.speed_percent.to_string());
+        if r.reverse_vertical {
+            c.field("reverse_vertical", "true");
+        }
+        if r.life_percent != 100 {
+            c.field("life_percent", r.life_percent.to_string());
+        }
+        if r.max_damage != Fx::ZERO {
+            c.field("max_damage", r.max_damage.show());
+        }
+        if r.detect_end != 255 {
+            c.field("detect_start", r.detect_start.to_string());
+            c.field("detect_end", r.detect_end.to_string());
+            c.field("detect_x", r.detect_x.show());
+            c.field("detect_y", r.detect_y.show());
+            c.field("detect_radius", r.detect_radius.show());
+        }
         b.push(c);
     }
     for (kind, script) in [

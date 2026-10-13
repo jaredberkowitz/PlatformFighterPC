@@ -38,6 +38,8 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         link_ahead: Fx::ZERO,
         aim: AIM_ANY,
         set_weight: false,
+        reverse: false,
+        push: false,
     }
 }
 
@@ -388,4 +390,68 @@ fn a_set_knockback_launch_keeps_the_plain_launch_physics() {
     let (_, stun, balloon, set) = launch(0);
     assert!(!set && stun > 32);
     assert!(balloon > 0, "a normal launch of that strength is sped up");
+}
+
+#[test]
+fn a_reversing_hit_turns_the_victim_round() {
+    // The victim faces the attacker; a reversing hit leaves it facing away, a plain one facing it. (Sim 61.)
+    for (reverse, facing) in [(false, -1), (true, 1)] {
+        let mut h = hb(2, 2, 5, 80, 30, 50, 0);
+        h.reverse = reverse;
+        let mut sim = setup(mv(30, vec![h]));
+        start(&mut sim);
+        sim.ticks(3, inp(0, 0, 0));
+        assert!(sim.fighter(1).percent > Fx::ZERO);
+        assert_eq!(sim.fighter(1).facing, facing, "reverse {reverse}");
+    }
+    // Even a flinch (no hitstun) turns it round.
+    let mut h = hb(2, 2, 1, 80, 0, 0, 0);
+    h.reverse = true;
+    let mut sim = setup(mv(30, vec![h]));
+    start(&mut sim);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).hitstun, 0);
+    assert_eq!(sim.fighter(1).facing, 1);
+}
+
+#[test]
+fn a_push_shoves_without_hitlag_or_hitstun() {
+    // A 0% push at 0 degrees with set knockback 70: the victim keeps its state and is moving away; nobody is frozen. (Sim 61.)
+    let mut h = hb(2, 2, 0, 0, 0, 100, 0);
+    h.push = true;
+    h.fixed_kb = 70;
+    let mut sim = setup(mv(30, vec![h]));
+    sim.put_airborne(1, Fx::ONE, fx(5, 10), Fx::ZERO, Fx::ZERO);
+    start(&mut sim);
+    sim.ticks(1, inp(0, 0, 0));
+    let before = sim.fighter(1).vel.x;
+    sim.tick(inp(0, 0, 0));
+    let v = sim.fighter(1);
+    assert_eq!(v.state, S::Airborne, "no hitstun");
+    assert_eq!((v.hitlag, sim.fighter(0).hitlag), (0, 0), "no hitlag");
+    let kb = sim_core::combat::fixed_knockback(70, sim.content.fighters[0].weight, 0, 100);
+    let shove = kb * Fx::from_ratio(3, 800);
+    assert!(
+        (v.vel.x - before - shove).abs() < Fx::from_ratio(1, 50),
+        "pushed by the knockback's speed: {:?} vs {:?}",
+        v.vel.x - before,
+        shove
+    );
+    // On the ground only its sideways part applies, and a shield is pushed back too.
+    let mut h = hb(2, 2, 0, 45, 0, 100, 0);
+    h.push = true;
+    h.fixed_kb = 70;
+    let mut sim = setup(mv(30, vec![h]));
+    start(&mut sim);
+    sim.ticks(3, inp(0, 0, 0));
+    assert!(sim.fighter(1).grounded() && sim.fighter(1).vel.x > Fx::ZERO);
+    let mut sim = setup(mv(30, vec![h]));
+    sim.state.fighters[1].state = S::Shield;
+    start(&mut sim);
+    sim.ticks(3, inp(0, 0, 0));
+    assert!(
+        sim.fighter(1).vel.x > fx(1, 10),
+        "{:?}",
+        sim.fighter(1).vel.x
+    );
 }
