@@ -331,6 +331,12 @@ pub struct Hitbox {
     /// [`ANGLE_BACKWARD`] (always the other way) or [`ANGLE_BY_POSITION`] (away from the attacker, from the side the victim is on).
     /// For a projectile the attacker is the projectile: its direction of travel, and its own position.
     pub angle_type: u8,
+    /// A command grab (on a [`HIT_GRAB`] box): it catches fighters in the air too, shielding or in hitstun (`grab::catchable`), and
+    /// the holder goes on with its move's `Move::catch_move` instead of the ordinary hold.
+    pub command: bool,
+    /// The hit can clank with other attacks and projectiles (the reference's `clang`). False: it never clanks (the reference's
+    /// no-clank hits, and a projectile's transcendent priority): it trades instead.
+    pub clanks: bool,
 }
 
 /// `Hitbox::angle_type` values.
@@ -373,6 +379,8 @@ impl Hitbox {
         self.push = false;
         self.shieldstun = 100;
         self.angle_type = ANGLE_BY_BOX;
+        self.command = false;
+        self.clanks = true;
         self
     }
 }
@@ -389,6 +397,9 @@ pub const HIT_GRAB: u8 = 1;
 pub const HIT_THROW: u8 = 2;
 /// Damages the fighter being held without releasing it.
 pub const HIT_PUMMEL: u8 = 3;
+/// A search box (the reference's "search" collision): touching a fighter's hurtbox does nothing to it (no damage, hitlag or clank;
+/// shields do not matter), but switches the attacker's move to its `Move::on_search` on the next frame, keeping its speed.
+pub const HIT_SEARCH: u8 = 4;
 
 /// Scripted movement during a move (for example a rising special). While active it overrides
 /// the fighter's velocity; `vx` is relative to facing.
@@ -533,6 +544,50 @@ pub struct PartIntangible {
     pub parts: u8,
 }
 
+/// Air physics for move frames `from..=to` of a move that runs without a motion: gravity, top fall speed and air friction
+/// (`None`: the move's flat value, else the body's), the percent of the body's air speed and acceleration kept (`drift`), and a further
+/// percent on the acceleration alone (`accel`: the reference's horizontal acceleration multiplier, x6 is 600).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AirBlock {
+    pub from: u8,
+    pub to: u8,
+    pub gravity: Option<Fx>,
+    pub max_fall: Option<Fx>,
+    pub friction: Option<Fx>,
+    pub drift: u8,
+    pub accel: u16,
+}
+
+/// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
+/// move. `kind` says which hits it withstands: [`ARMOR_SUPER`] every hit, [`ARMOR_DAMAGE`] a hit dealing at most `threshold` percent
+/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] (the reference's knockback-subtracting
+/// armor: not built yet, refused by validation). Grabs ignore armor; a push still pushes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Armor {
+    pub start: u8,
+    pub end: u8,
+    pub kind: u8,
+    pub threshold: Fx,
+}
+
+/// `Armor::kind` values.
+pub const ARMOR_SUPER: u8 = 0;
+pub const ARMOR_DAMAGE: u8 = 1;
+pub const ARMOR_KNOCKBACK: u8 = 2;
+
+impl Armor {
+    /// Whether this armor, on move frame `frame`, withstands a hit dealing `damage` percent (before the damage multiplier).
+    pub fn withstands(&self, frame: u16, damage: Fx) -> bool {
+        let inside = u16::from(self.start) <= frame && frame <= u16::from(self.end);
+        inside
+            && match self.kind {
+                ARMOR_SUPER => true,
+                ARMOR_DAMAGE => damage <= self.threshold,
+                _ => false,
+            }
+    }
+}
+
 /// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
 /// attack throws out (the arm or leg reaching toward the move's hitboxes).
 pub const PART_LOW: u8 = 1;
@@ -595,8 +650,36 @@ pub struct Move {
     pub intangible_from_air: u8,
     /// Touching down during the move does not end it: the fighter lands and the move carries on along the ground.
     pub land_continue: bool,
+    /// Frame-ranged air physics (the reference's per-frame move parameters): on move frames `from..=to` of a block, its values replace
+    /// the flat `air_*` ones above (the first block that covers the frame; empty for none). See [`AirBlock`].
+    pub air_blocks: Vec<AirBlock>,
+    /// A fast fall is only possible from this move frame on (0: any frame, as before).
+    pub fast_fall_from: u8,
+    /// The move's own turnaround (the reference's per-move B-reverse frame): on move frame `.0` the stick held backward past `.1`
+    /// percent turns the fighter round (in the air its horizontal speed too). It replaces the shared up-special turn window, the
+    /// up-and-back start and the B-reverse window for this move. `None`: the shared rules.
+    pub turn_at: Option<(u8, u8)>,
+    /// Touching down before this move frame does not end the move (it lands and carries on, as `land_continue`); 0: no such window.
+    pub lands_from: u8,
     /// Windows in which part of the body cannot be hit (a kicking leg, a headbutting head); empty for none.
     pub part_intangible: Vec<PartIntangible>,
+    /// Armor while the move runs (see [`Armor`]); `None` for none.
+    pub armor: Option<Armor>,
+    /// The move (usually an `ext` slot) a search box of this move switches to when it touches someone (see [`HIT_SEARCH`]): it starts
+    /// on the next frame, with the speed the fighter had.
+    pub on_search: Option<u8>,
+    /// A special started in the air uses this slot instead (its aerial version, with its own frames and hits); `None`: the same move.
+    pub air_version: Option<u8>,
+    /// The move a command grab of this move goes on with when it catches someone (see `Hitbox::command`): it starts on the next frame,
+    /// the holder keeping its speed and staying in the air if it is there.
+    pub catch_move: Option<u8>,
+    /// A ground move that goes over an edge goes on as this move instead (usually an `ext` slot: the reference's version for leaving
+    /// the ground, with its own FAF), on the same frame, keeping its hits so far. `None`: it goes on as itself (a motion) or ends
+    /// (no motion), as before.
+    pub off_edge: Option<u8>,
+    /// Where a fighter held during this move is pinned: (forward, up) from the holder's feet. `None`: the ordinary hold, the ruleset's
+    /// `grab_distance` in front on the holder's platform.
+    pub hold_at: Option<(Fx, Fx)>,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -657,7 +740,17 @@ impl Move {
             intangible_from: 0,
             intangible_from_air: 255,
             land_continue: false,
+            air_blocks: Vec::new(),
+            fast_fall_from: 0,
+            turn_at: None,
+            lands_from: 0,
             part_intangible: Vec::new(),
+            armor: None,
+            on_search: None,
+            air_version: None,
+            catch_move: None,
+            off_edge: None,
+            hold_at: None,
             charge_at: None,
             next: None,
             next_window: 0,
@@ -748,6 +841,8 @@ impl StateHash for Hitbox {
         h.write_bool(self.push);
         h.write_u16(self.shieldstun);
         h.write_u8(self.angle_type);
+        h.write_bool(self.command);
+        h.write_bool(self.clanks);
     }
 }
 
@@ -833,11 +928,64 @@ impl StateHash for Weapon {
                 }
             }
             h.write_bool(m.land_continue);
+            h.write_u32(m.air_blocks.len() as u32);
+            for b in &m.air_blocks {
+                h.write_u8(b.from);
+                h.write_u8(b.to);
+                for v in [b.gravity, b.max_fall, b.friction] {
+                    match v {
+                        Some(x) => {
+                            h.write_bool(true);
+                            x.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                }
+                h.write_u8(b.drift);
+                h.write_u16(b.accel);
+            }
+            h.write_u8(m.fast_fall_from);
+            match m.turn_at {
+                Some((frame, stick)) => {
+                    h.write_bool(true);
+                    h.write_u8(frame);
+                    h.write_u8(stick);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.lands_from);
             h.write_u32(m.part_intangible.len() as u32);
             for w in &m.part_intangible {
                 h.write_u8(w.start);
                 h.write_u8(w.end);
                 h.write_u8(w.parts);
+            }
+            match &m.armor {
+                Some(a) => {
+                    h.write_bool(true);
+                    h.write_u8(a.start);
+                    h.write_u8(a.end);
+                    h.write_u8(a.kind);
+                    a.threshold.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            match m.hold_at {
+                Some((x, y)) => {
+                    h.write_bool(true);
+                    x.hash_into(h);
+                    y.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            for slot in [m.on_search, m.air_version, m.catch_move, m.off_edge] {
+                match slot {
+                    Some(id) => {
+                        h.write_bool(true);
+                        h.write_u8(id);
+                    }
+                    None => h.write_bool(false),
+                }
             }
             match m.charge_at {
                 Some(f) => {
@@ -966,6 +1114,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 push: false,
                 shieldstun: 100,
                 angle_type: ANGLE_BY_BOX,
+                command: false,
+                clanks: true,
             })
             .collect(),
         ..Move::empty()
@@ -1017,6 +1167,8 @@ fn row(r: &R) -> Hitbox {
         push: false,
         shieldstun: 100,
         angle_type: ANGLE_BY_BOX,
+        command: false,
+        clanks: true,
     }
 }
 
@@ -3405,6 +3557,8 @@ pub fn claws() -> Weapon {
             push: false,
             shieldstun: 100,
             angle_type: ANGLE_BY_BOX,
+            command: false,
+            clanks: true,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3732,7 +3886,10 @@ mod tests {
                         "{}",
                         MoveId::from_index(i as u8).name()
                     );
-                    assert!((hb.damage > Fx::ZERO || hb.kind == HIT_GRAB) && hb.radius > Fx::ZERO);
+                    assert!(
+                        (hb.damage > Fx::ZERO || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
+                            && hb.radius > Fx::ZERO
+                    );
                 }
             }
         }

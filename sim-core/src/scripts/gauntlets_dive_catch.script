@@ -1,0 +1,4 @@
+// Gauntlets up special, the catch: held still in the air through the explosion and the throw (frame 17 here is the reference's
+// 17: the throw row's frame), then a backflip, back and up, before falling free [E: the reference's animation, not published].
+if frame <= 16 { set_vel(0, 0); }
+if frame >= 17 && frame <= 24 { set_vel(-0.1, 0.1875 - 0.02 * (frame - 17)); }

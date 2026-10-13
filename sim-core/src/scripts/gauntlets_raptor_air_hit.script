@@ -1,0 +1,3 @@
+// Gauntlets side special in the air, the overhand after the dash's search box touched someone: on its frame 6, hit or not, a set
+// momentum of 1.5 reference units a frame backward and 2.5 upward (world units: / 8), then the body's air physics.
+if frame == 5 { set_vel(-0.1875, 0.3125); }

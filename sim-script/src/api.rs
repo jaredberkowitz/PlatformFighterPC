@@ -123,6 +123,7 @@ pub const R_STORED: u8 = 17;
 pub const R_JUMP: u8 = 18;
 pub const R_PRESSES: u8 = 19;
 pub const R_RELEASES: u8 = 20;
+pub const R_WALL: u8 = 21;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -191,6 +192,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "releases",
         R_RELEASES,
         "attack releases since the attack began, hitlag included",
+    ),
+    reg(
+        "wall",
+        R_WALL,
+        "1 if the fighter's last movement step was stopped by a wall, else 0",
     ),
 ];
 

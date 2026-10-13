@@ -1,0 +1,13 @@
+// Gauntlets down special on the ground, the slide (world units: reference / 8). A slow start, the slide at 2.4 reference units a
+// frame through the kick's frames (13-33 here, the reference's 13 on is 12 on), easing to a stop by frame 45 [E: the reference's
+// animation, not published]; once it has hit, 0.8 of that speed (the reference's on-hit multiplier). Running into a wall on the
+// reference's frames 14-36 crashes it (42 = ext13; `wall` is last frame's step, so frames 14-36 here).
+var k;
+if frame == 1 { k = 1; }
+if hit { k = 0.8; }
+if frame >= 14 && frame <= 36 && wall { goto(42); }
+let s = 0.05;
+if frame >= 12 && frame <= 32 { s = 0.3; }
+if frame > 32 && frame <= 44 { s = 0.25 - 0.02 * (frame - 33); }
+if frame > 44 { s = 0; }
+set_vel(s * k, 0);

@@ -463,6 +463,35 @@ fn presses_and_releases_count_the_attack_button_since_the_attack_began_hitlag_in
 }
 
 #[test]
+fn the_wall_register_says_the_last_step_was_stopped_by_a_wall() {
+    // A slide to the left along the stage floor into nothing: wall stays 0. In the air beside the stage's side wall (x = -11),
+    // moving into it: wall turns 1 (kept as the stored charge where the test can read it).
+    let mut sim = with_special(scripted(
+        40,
+        "if frame >= 1 { set_vel(0.3, 0); } if wall { store(1); }",
+    ));
+    start(&mut sim);
+    sim.ticks(5, inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 0, "nothing in the way");
+    let mut sim = with_special(scripted(
+        40,
+        "if frame >= 1 { set_vel(0.3, -0.01); } if wall { store(1); }",
+    ));
+    let half = sim.content.fighters[0].ecb_half_width;
+    sim.put_airborne(
+        0,
+        Fx::from_int(-11) - half - fx(5, 10),
+        Fx::from_int(-3),
+        Fx::ZERO,
+        Fx::ZERO,
+    );
+    sim.state.fighters[0].facing = 1;
+    start(&mut sim);
+    sim.ticks(6, inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 1, "ran into the wall");
+}
+
+#[test]
 fn a_once_per_airtime_flag_lasts_until_the_fighter_lands() {
     // Each use in the air adds a lift only while flag 2 is clear, and sets it.
     let mut sim = with_special(scripted(

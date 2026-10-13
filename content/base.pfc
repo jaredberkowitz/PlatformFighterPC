@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 68
-    hash 2aa8d5b188d3ed5e
+    sim_version 72
+    hash 3f63f161941af7a5
 }
 
 ruleset {
@@ -1877,105 +1877,82 @@ weapon gauntlets {
         hitbox { start 15 end 17 x 0.09999 y 0.09999 radius 0.79999 damage 14 angle 361 bkb 40 kbg 100 priority 1 angle_type position }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
-        projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+        total_frames 102
+        air_version ext1
+        hitbox { start 52 end 56 x 1.29999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 hitlag 150 clanks false }
+        hitbox { start 52 end 56 x 0.79999 y 1.4 radius 0.29999 damage 25 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false }
+        hitbox { start 52 end 56 x 1.79999 y 1.29999 radius 0.5 damage 25 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false }
+        script {
+            // Gauntlets neutral special on the ground. On the reference's frame 15 (14 here) the stick held back [E: past 0.25 of its travel]
+            // switches to the reversed punch (28 = ext0), which starts there and turns round later.
+            if frame == 14 && stick_x < -0.25 { goto(28); }
         }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
-        script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
-            }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
-        }
+        total_frames 70
+        on_search ext3
+        air_version ext4
+        hitbox { start 9 end 24 x 1.09999 y 1.09999 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets grounded }
+        hitbox { start 9 end 24 x 1.09999 y 0.59999 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets grounded }
+        hitbox { start 9 end 24 x 1.09999 y 1.5 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets aerial }
+        hitbox { start 9 end 24 x 1.09999 y 0.59999 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets aerial }
+        motion { start 0 end 8 vx 0.09999 vy 0 }
+        motion { start 9 end 24 vx 0.25 vy 0 }
+        motion { start 25 end 29 vx 0.075 vy 0 }
     }
     move up_special {
-        total_frames 70
-        landing_lag 36
+        total_frames 65
         helpless_after true
-        land_continue true
-        ledge_front_from 26
-        ledge_back_from 25
-        fall_drift 65
-        fall_landing_lag 36
-        rehit_start 26
-        rehit_every 2
-        rehit_groups 2
-        hitbox { start 17 end 20 x 0.09999 y 1 radius 0.9 damage 4 angle 93 bkb 50 kbg 10 set_weight true angle_type position }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 60 kbg 20 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.79999 damage 2.5 angle 367 bkb 35 kbg 20 priority 1 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 26 end 28 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 40 bkb 60 kbg 20 priority 2 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 26 end 28 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 367 bkb 40 kbg 20 priority 3 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 70 kbg 20 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.79999 damage 2.5 angle 367 bkb 35 kbg 20 priority 1 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 29 end 31 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 40 bkb 70 kbg 20 priority 2 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 29 end 31 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 367 bkb 40 kbg 20 priority 3 group 1 hitlag 50 targets aerial sdi 0 }
+        ledge_front_from 19
+        ledge_back_from 36
+        fall_drift 70
+        fall_landing_lag 24
+        fast_fall_from 49
+        turn_frame 13
+        turn_stick 25
+        catch_move ext6
+        hitbox { start 13 end 13 x 0.9 y 1.59999 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab command true }
+        hitbox { start 13 end 13 x 1.7 y 1.09999 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
+        hitbox { start 14 end 29 x 0.79999 y 1.9 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab command true }
+        hitbox { start 14 end 29 x 0.79999 y 1.4 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true }
+        air { from 0 to 12 drift 95 accel 600 }
+        air { from 31 to 255 gravity 0.01286 drift 95 }
         script {
-            // Up special (the reference's parameters, in world units: reference / 8). In the air the startup keeps 0.67 of the horizontal
-            // speed and stops the fall, then sinks at 0.02 with friction 0.01. The stick on frame 16 aims the dash (neutral: straight up;
-            // backward turns the brawler round; on the ground it cannot aim below level). The dash is frames 26-32: 3.8 a frame, less 0.2 a
-            // frame after its first 4. Touching down while dashing more than 20 degrees below level bounces off (30 = ext2); less, it carries on
-            // along the ground. Frame 33 keeps 0.7 of the speed on the ground, 0.8 in the air, and the move goes on as its ending: on the ground
-            // (28 = ext0) or in the air (29 = ext1), with the ending's friction and gravity.
-            var dx;
-            var dy;
-            if frame == 1 && grounded == 0 { set_vel(vx * 0.67, 0); }
-            if frame >= 2 && frame <= 24 && grounded == 0 {
-                set_vel(sign(vx) * max(abs(vx) - 0.00125, 0), vy - 0.0025);
-            }
-            if frame == 15 {
-                let sx = stick_x;
-                let sy = stick_y;
-                if grounded && sy < 0 { sy = 0; }
-                let len = sqrt(sx * sx + sy * sy);
-                if len < 0.25 {
-                    dx = 0;
-                    dy = 1;
-                } else {
-                    if sx < 0 { turn(); sx = -sx; }
-                    dx = sx / len;
-                    dy = sy / len;
-                }
-            }
-            if frame >= 25 && frame <= 31 {
-                if grounded && dy < -0.342 { goto(30); }
-                let speed = 0.475;
-                if frame > 28 { speed = 0.475 - 0.025 * (frame - 28); }
-                set_vel(dx * speed, dy * speed);
-            }
-            if frame == 32 {
-                if grounded { set_vel(vx * 0.7, 0); } else { set_vel(vx * 0.8, vy * 0.8); }
-            }
-            if frame == 33 {
-                if grounded { goto(28); } else { goto(29); }
+            // Gauntlets up special, the leap (reference frame 14 is frame 13 here). Before it the move's air block gives the x6 acceleration, so
+            // the stick builds up horizontal speed ("Tokyo drift"); from frame 13 to 30 the rise carries that speed on, plus a little forward
+            // drive of its own, rising at 3.4 reference units a frame and slowing evenly to 0.4 (about 34 units up and 11 forward) [E: the
+            // reference's rise is its animation, not published]. After it, the move's second air block (gravity 0.103).
+            var base;
+            if frame == 13 { base = vx; }
+            if frame >= 13 && frame <= 30 {
+                set_vel(base + 0.075, 0.425 - 0.022 * (frame - 13));
             }
         }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 angle_type position }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        total_frames 67
+        air_version ext7
+        off_edge ext9
+        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
         script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
+            // Gauntlets down special on the ground, the slide (world units: reference / 8). A slow start, the slide at 2.4 reference units a
+            // frame through the kick's frames (13-33 here, the reference's 13 on is 12 on), easing to a stop by frame 45 [E: the reference's
+            // animation, not published]; once it has hit, 0.8 of that speed (the reference's on-hit multiplier). Running into a wall on the
+            // reference's frames 14-36 crashes it (42 = ext13; `wall` is last frame's step, so frames 14-36 here).
+            var k;
+            if frame == 1 { k = 1; }
+            if hit { k = 0.8; }
+            if frame >= 14 && frame <= 36 && wall { goto(42); }
+            let s = 0.05;
+            if frame >= 12 && frame <= 32 { s = 0.3; }
+            if frame > 32 && frame <= 44 { s = 0.25 - 0.02 * (frame - 33); }
+            if frame > 44 { s = 0; }
+            set_vel(s * k, 0);
         }
     }
     move jab2 {
@@ -2057,61 +2034,147 @@ weapon gauntlets {
         hitbox { start 19 end 20 x -1.5 y 1.09999 radius 0.59999 damage 6 angle 48 bkb 80 kbg 48 group 1 shield_damage 233 angle_type position }
     }
     move ext0 {
-        total_frames 32
-        landing_lag 36
-        helpless_after true
-        ledge_front_from 0
-        ledge_back_from 0
-        fall_drift 65
-        fall_landing_lag 36
-        hitbox { start 2 end 3 x 0.59999 y 0.79999 radius 0.79999 damage 5 angle 361 bkb 60 kbg 148 group 2 hitlag 250 angle_type forward }
-        hitbox { start 2 end 3 x 0.4 y 0.79999 radius 1 damage 5 angle 361 bkb 60 kbg 148 priority 1 group 2 hitlag 250 angle_type forward }
-        hitbox { start 2 end 3 x 0.2 y 0.9 radius 0.59999 damage 5 angle 361 bkb 60 kbg 148 priority 2 group 2 hitlag 250 angle_type forward }
+        total_frames 102
+        hitbox { start 47 end 51 x 1.29999 y 1.29999 radius 0.59999 damage 28 angle 361 bkb 85 kbg 65 hitlag 150 clanks false }
+        hitbox { start 47 end 51 x 0.79999 y 1.4 radius 0.29999 damage 28 angle 361 bkb 85 kbg 65 priority 1 hitlag 150 clanks false }
+        hitbox { start 47 end 51 x 1.79999 y 1.29999 radius 0.5 damage 28 angle 361 bkb 85 kbg 65 priority 2 hitlag 150 clanks false }
         script {
-            // Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
-            // gravity: 0.1 (the reference's numbers, in world units: reference / 8).
-            if grounded {
-                set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
-            }
+            // Gauntlets neutral special, reversed on the ground: this move starts on the reference's frame 15, so its frame 20 is the
+            // reference's 35, where the fighter turns round.
+            if frame == 20 { turn(); }
         }
     }
     move ext1 {
-        total_frames 37
-        landing_lag 36
-        helpless_after true
-        ledge_front_from 0
-        ledge_back_from 0
-        fall_drift 65
-        fall_landing_lag 36
-        hitbox { start 3 end 4 x 0.59999 y 0.9 radius 0.79999 damage 6 angle 361 bkb 60 kbg 136 group 2 hitlag 250 angle_type forward }
-        hitbox { start 3 end 4 x 0.09999 y 0.9 radius 0.79999 damage 6 angle 361 bkb 60 kbg 136 priority 1 group 2 hitlag 250 angle_type forward }
+        total_frames 102
+        land_continue true
+        hitbox { start 52 end 56 x 1.29999 y 1.29999 radius 0.59999 damage 22 angle 361 bkb 93 kbg 59 hitlag 150 clanks false }
+        hitbox { start 52 end 56 x 0.79999 y 1.4 radius 0.4 damage 22 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false }
+        hitbox { start 52 end 56 x 1.79999 y 1.29999 radius 0.59999 damage 22 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false }
+        air { from 0 to 18 friction 0 drift 0 }
         script {
-            // Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
-            // gravity: 0.1 (the reference's numbers, in world units: reference / 8).
-            if grounded {
-                set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
+            // Gauntlets neutral special in the air (world units: reference / 8). On starting a set upward speed of 0.2 (0.025); the
+            // horizontal speed x0.92 a frame on the reference's frames 1-19 (frame 1 here takes frames 1 and 2: the move's first frame runs no
+            // script), with no air control meanwhile (the move's air block). The stick held back on frame 15 (14 here) switches to the reversed
+            // punch (30 = ext2). On frame 51 (50 here) the stick held up or down between 0.25 and 0.65 boosts the fighter along 35 degrees up
+            // or down [E: 1.0 reference units a frame, the speed is not published].
+            if frame == 1 { add_vel(-vx * 0.1536, 0.025 - vy); }
+            if frame >= 2 && frame <= 18 { add_vel(-vx * 0.08, 0); }
+            if frame == 14 && stick_x < -0.25 { goto(30); }
+            if frame == 50 {
+                let s = abs(stick_y);
+                if s >= 0.25 && s <= 0.65 { set_vel(0.1024, 0.0717 * sign(stick_y)); }
             }
         }
     }
     move ext2 {
-        total_frames 21
-        landing_lag 36
-        helpless_after true
-        fall_drift 65
-        fall_landing_lag 36
+        total_frames 102
+        land_continue true
+        hitbox { start 47 end 51 x 1.29999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 hitlag 150 clanks false }
+        hitbox { start 47 end 51 x 0.79999 y 1.4 radius 0.4 damage 25 angle 361 bkb 93 kbg 59 priority 1 hitlag 150 clanks false }
+        hitbox { start 47 end 51 x 1.79999 y 1.29999 radius 0.59999 damage 25 angle 361 bkb 93 kbg 59 priority 2 hitlag 150 clanks false }
+        air { from 0 to 4 friction 0 drift 0 }
         script {
-            // Up special, bouncing off the ground (ext2): 0.4 of the horizontal speed and 3 up, then friction 0.16 and gravity: 0.2 (the
-            // reference's numbers, in world units: reference / 8).
-            if frame == 1 {
-                set_vel(vx * 0.4, 0.375);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
+            // Gauntlets neutral special in the air, reversed: this move starts on the reference's frame 15 (its frame 0), so the x0.92 a frame
+            // goes on through its frame 4 (the reference's 19), the turn is on its frame 20 (35) and the stick's 35-degree boost is read on its
+            // frame 45 (60) [E: 1.0 reference units a frame].
+            if frame >= 1 && frame <= 4 { add_vel(-vx * 0.08, 0); }
+            if frame == 20 { turn(); }
+            if frame == 45 {
+                let s = abs(stick_y);
+                if s >= 0.25 && s <= 0.65 { set_vel(0.1024, 0.0717 * sign(stick_y)); }
             }
         }
+    }
+    move ext3 {
+        total_frames 26
+        hitbox { start 4 end 4 x 1 y 1.29999 radius 0.79999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 clanks false }
+        hitbox { start 4 end 4 x 0.7 y 1.09999 radius 0.7 damage 10 angle 85 bkb 82 kbg 30 priority 1 shield_damage 140 hitlag 150 hitstun_add 3 clanks false }
+        hitbox { start 4 end 4 x 1.59999 y 1.09999 radius 0.7 damage 10 angle 85 bkb 82 kbg 30 priority 2 shield_damage 140 hitlag 150 hitstun_add 3 clanks false }
+        hitbox { start 5 end 6 x 1 y 1.59999 radius 0.59999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 }
+        armor { start 0 end 3 kind damage threshold 10 }
+        script {
+            // Gauntlets side special, the uppercut after the dash's search box touched someone: the dash's speed is cut to 0.18 of itself on
+            // switching (the reference's "speed multiplier upon activation, ground"), then the move slides to a stop on traction.
+            if frame == 1 { add_vel(-vx * 0.82, 0); }
+        }
+    }
+    move ext4 {
+        total_frames 78
+        landing_lag 22
+        helpless_after true
+        ledge_front_from 25
+        ledge_back_from 25
+        fall_drift 70
+        fall_landing_lag 22
+        on_search ext5
+        hitbox { start 18 end 34 x 1.4 y 1.5 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search }
+        hitbox { start 18 end 34 x 1.4 y 1 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search }
+        hitbox { start 18 end 34 x 1.4 y 0.4 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search }
+        motion { start 0 end 8 vx 0.0625 vy 0 }
+        motion { start 9 end 34 vx 0.22499 vy -0.03749 }
+    }
+    move ext5 {
+        total_frames 43
+        landing_lag 21
+        ledge_front_from 7
+        ledge_back_from 7
+        lands_from 7
+        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial }
+        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded }
+        hitbox { start 4 end 4 x 0.5 y 1.29999 radius 0.29999 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 }
+        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial }
+        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded }
+        hitbox { start 5 end 5 x 0.7 y 1 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 }
+        hitbox { start 5 end 5 x 0.4 y 0.09999 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 3 shield_damage 120 hitlag 200 }
+        script {
+            // Gauntlets side special in the air, the overhand after the dash's search box touched someone: on its frame 6, hit or not, a set
+            // momentum of 1.5 reference units a frame backward and 2.5 upward (world units: / 8), then the body's air physics.
+            if frame == 5 { set_vel(-0.1875, 0.3125); }
+        }
+    }
+    move ext6 {
+        total_frames 38
+        land_continue true
+        hold_x 0.9
+        hold_y 0.5
+        hitbox { start 1 end 2 x 0 y 1 radius 1.2 damage 5 angle 361 bkb 50 kbg 100 kind pummel }
+        hitbox { start 1 end 2 x 0 y 1 radius 1.2 damage 5 angle 361 bkb 50 kbg 100 }
+        hitbox { start 16 end 16 x 0.9 y 1 radius 1 damage 13 angle 50 bkb 85 kbg 62 group 1 kind throw }
+        script {
+            // Gauntlets up special, the catch: held still in the air through the explosion and the throw (frame 17 here is the reference's
+            // 17: the throw row's frame), then a backflip, back and up, before falling free [E: the reference's animation, not published].
+            if frame <= 16 { set_vel(0, 0); }
+            if frame >= 17 && frame <= 24 { set_vel(-0.1, 0.1875 - 0.02 * (frame - 17)); }
+        }
+    }
+    move ext7 {
+        total_frames 55
+        landing_move ext8
+        hitbox { start 13 end 17 x 0.79999 y 0.4 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 hitlag 120 }
+        hitbox { start 13 end 17 x 0.4 y 0.7 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 priority 1 hitlag 120 }
+        hitbox { start 18 end 23 x 0.79999 y 0.4 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 }
+        hitbox { start 18 end 23 x 0.4 y 0.7 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 priority 1 }
+        hitbox { start 24 end 26 x 0.79999 y 0.4 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 }
+        hitbox { start 24 end 26 x 0.4 y 0.7 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 priority 1 }
+        motion { start 0 end 12 vx 0.03749 vy 0 }
+        motion { start 13 end 26 vx 0.2625 vy -0.2625 }
+    }
+    move ext8 {
+        total_frames 34
+        hitbox { start 0 end 1 x 0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x 0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x -0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x -0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+    }
+    move ext9 {
+        total_frames 64
+        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        air { from 0 to 32 friction 0 drift 0 }
     }
     move pivot_grab {
         total_frames 37
@@ -2207,6 +2270,14 @@ weapon gauntlets {
         hitbox { start 5 end 6 x 0.9 y 0.7 radius 0.59999 damage 3 angle 45 bkb 110 kbg 55 hitlag 200 }
         hitbox { start 5 end 6 x 1.7 y 1.59999 radius 0.59999 damage 3 angle 45 bkb 110 kbg 55 priority 1 hitlag 200 }
         hitbox { start 5 end 6 x 1.7 y 0.7 radius 0.59999 damage 3 angle 45 bkb 110 kbg 55 priority 1 hitlag 200 }
+    }
+    move ext13 {
+        total_frames 52
+        script {
+            // Gauntlets down special, crashed into a wall: knocked back off it a little, then the rest of the 53-frame crash standing [E].
+            if frame <= 6 { set_vel(-0.05, 0); }
+            if frame > 6 { set_vel(0, 0); }
+        }
     }
 }
 

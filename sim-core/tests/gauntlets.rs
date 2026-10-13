@@ -751,16 +751,9 @@ fn shield_stun(id: MoveId, frame: u16, shieldstun: Option<u16>) -> u8 {
 
 #[test]
 fn the_dash_attack_and_rapid_jab_stun_a_shield_longer() {
-    // floor(damage x 0.8 x multiplier + 2), in the engine's fixed point (its 0.8 is a hair under, so a whole result comes out one
-    // frame short, for every hit alike): the dash attack 10% x1.5, a rapid jab hit 0.6% x9.
-    let stun = |tenths: i32, percent: i32| {
-        (Fx::from_ratio(tenths, 10)
-            * Fx::from_ratio(8, 10)
-            * Fx::ONE
-            * Fx::from_ratio(percent, 100)
-            + Fx::from_int(2))
-        .floor_int() as u8
-    };
+    // floor(damage x 0.8 x multiplier + 2), exact (sim 67): the dash attack 10% x1.5 = 14, a rapid jab hit 0.6% x9 = 6.
+    let stun = |tenths: i32, percent: i32| (tenths * 8 * percent / 10_000 + 2) as u8;
+    assert_eq!((stun(100, 150), stun(100, 100)), (14, 10));
     assert_eq!(shield_stun(MoveId::DashAttack, 6, None), stun(100, 150));
     assert_eq!(
         shield_stun(MoveId::DashAttack, 6, Some(100)),
@@ -987,6 +980,44 @@ fn the_new_fields_are_in_the_content_hash() {
     let mut c = base.clone();
     c.weapons[w].moves[MoveId::UTilt as usize].part_intangible[0].end = 15;
     assert_ne!(h, c.hash(), "part intangible");
+    let mut c = base.clone();
+    c.weapons[w].moves[MoveId::Jab as usize].armor = Some(sim_core::moves::Armor {
+        start: 0,
+        end: 3,
+        kind: sim_core::moves::ARMOR_SUPER,
+        threshold: Fx::ZERO,
+    });
+    assert_ne!(h, c.hash(), "armor");
+    for (name, edit) in [
+        (
+            "fast_fall_from",
+            (|m| m.fast_fall_from = 9) as fn(&mut sim_core::moves::Move),
+        ),
+        ("lands_from", |m| m.lands_from = 9),
+        ("on_search", |m| m.on_search = Some(30)),
+        ("air_version", |m| m.air_version = Some(30)),
+        ("catch_move", |m| m.catch_move = Some(30)),
+        ("hold_at", |m| m.hold_at = Some((Fx::ONE, Fx::ONE))),
+        ("command", |m| m.hitboxes[0].command = true),
+        ("clanks", |m| m.hitboxes[0].clanks = false),
+        ("off_edge", |m| m.off_edge = Some(30)),
+        ("turn_at", |m| m.turn_at = Some((13, 25))),
+        ("air_blocks", |m| {
+            m.air_blocks = vec![sim_core::moves::AirBlock {
+                from: 0,
+                to: 3,
+                gravity: None,
+                max_fall: None,
+                friction: None,
+                drift: 100,
+                accel: 600,
+            }]
+        }),
+    ] {
+        let mut c = base.clone();
+        edit(&mut c.weapons[w].moves[MoveId::NAir as usize]);
+        assert_ne!(h, c.hash(), "{name}");
+    }
     let mut c = base;
     c.weapons[w].moves[MoveId::Ext15 as usize] = c.weapons[w].moves[MoveId::Jab as usize].clone();
     assert_ne!(h, c.hash(), "the new slots");

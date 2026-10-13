@@ -1,0 +1,12 @@
+// Gauntlets neutral special in the air (world units: reference / 8). On starting a set upward speed of 0.2 (0.025); the
+// horizontal speed x0.92 a frame on the reference's frames 1-19 (frame 1 here takes frames 1 and 2: the move's first frame runs no
+// script), with no air control meanwhile (the move's air block). The stick held back on frame 15 (14 here) switches to the reversed
+// punch (30 = ext2). On frame 51 (50 here) the stick held up or down between 0.25 and 0.65 boosts the fighter along 35 degrees up
+// or down [E: 1.0 reference units a frame, the speed is not published].
+if frame == 1 { add_vel(-vx * 0.1536, 0.025 - vy); }
+if frame >= 2 && frame <= 18 { add_vel(-vx * 0.08, 0); }
+if frame == 14 && stick_x < -0.25 { goto(30); }
+if frame == 50 {
+    let s = abs(stick_y);
+    if s >= 0.25 && s <= 0.65 { set_vel(0.1024, 0.0717 * sign(stick_y)); }
+}

@@ -5,6 +5,7 @@
 //! resolved in `combat::resolve_hits`; this module keeps the pair consistent and pinned together every frame.
 
 use crate::collision;
+use crate::combat;
 use crate::content::Content;
 use crate::fighter;
 use crate::fixed::Fx;
@@ -25,6 +26,26 @@ pub fn grabbable(f: &Fighter) -> bool {
         )
 }
 
+/// True if a command grab (`Hitbox::command`) can catch this fighter: on the ground or in the air, shielding or in hitstun, as long
+/// as it is not already tangled up in a grab, not just released from one, and not hanging from (or climbing up) a ledge.
+pub fn catchable(f: &Fighter) -> bool {
+    f.grab_immune == 0
+        && f.grab_with == NONE
+        && !matches!(
+            f.state,
+            S::LedgeHang | S::LedgeGetUp | S::LedgeAttack | S::Grabbed | S::Grabbing | S::Respawn
+        )
+}
+
+/// Whether hitbox `hb` can catch `f` (an ordinary grab or a command grab).
+pub fn can_catch(hb: &crate::moves::Hitbox, f: &Fighter) -> bool {
+    if hb.command {
+        catchable(f)
+    } else {
+        grabbable(f)
+    }
+}
+
 /// Frames a fighter at `percent` stays held before breaking free on its own.
 fn hold_time(content: &Content, percent: Fx) -> u16 {
     let r = &content.rules;
@@ -36,10 +57,23 @@ fn hold_time(content: &Content, percent: Fx) -> u16 {
 pub fn connect(state: &mut GameState, content: &Content, a: usize, d: usize) {
     // A fighter that was itself holding someone lets go first.
     drop_grab(state, content, d);
-    let timer = hold_time(content, state.fighters[d].percent);
     let facing = -state.fighters[a].facing;
-    fighter::become_holder(&mut state.fighters[a], d);
-    fighter::become_held(&mut state.fighters[d], a, facing, timer);
+    let holder = &state.fighters[a];
+    let catch = combat::weapon_of(content, combat::params_of(content, holder))
+        .get(holder.move_id)
+        .catch_move;
+    if let Some(next) = catch {
+        // A command grab: the holder goes on with its catch move (next frame), keeping its speed, in the air if it is there; the
+        // held fighter has no hold clock (the clock only runs while the holder simply holds).
+        let h = &mut state.fighters[a];
+        h.grab_with = d as i8;
+        h.next_move = next.saturating_add(1);
+        fighter::become_held(&mut state.fighters[d], a, facing, 0);
+    } else {
+        let timer = hold_time(content, state.fighters[d].percent);
+        fighter::become_holder(&mut state.fighters[a], d);
+        fighter::become_held(&mut state.fighters[d], a, facing, timer);
+    }
     pin(state, content, a, d);
 }
 
@@ -112,9 +146,33 @@ pub fn update(state: &mut GameState, content: &Content) {
     }
 }
 
-/// Stands the held fighter `grab_distance` in front of the holder, on the same surface, facing it.
+/// Stands the held fighter `grab_distance` in front of the holder, on the same surface, facing it; or, when the holder's move (or
+/// the catch move it is about to start) has a `hold_at`, holds it there (in the air if the holder is, or if it is held up).
 fn pin(state: &mut GameState, content: &Content, h: usize, v: usize) {
     let holder = state.fighters[h];
+    let weapon = combat::weapon_of(content, combat::params_of(content, &holder));
+    let current = if holder.next_move != 0 {
+        holder.next_move - 1
+    } else {
+        holder.move_id
+    };
+    let hold_at = if holder.state == S::Attack {
+        weapon.get(current).hold_at
+    } else {
+        None
+    };
+    if let Some((dx, dy)) = hold_at {
+        let held = &mut state.fighters[v];
+        held.pos = holder.pos + Vec2::new(dx.mul_int(i32::from(holder.facing)), dy);
+        held.vel = Vec2::ZERO;
+        held.platform = if holder.platform != NONE && dy <= Fx::ZERO {
+            holder.platform
+        } else {
+            NONE
+        };
+        held.facing = -holder.facing;
+        return;
+    }
     let mut x = holder.pos.x
         + content
             .rules

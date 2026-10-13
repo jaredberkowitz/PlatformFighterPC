@@ -1,0 +1,9 @@
+// Gauntlets neutral special in the air, reversed: this move starts on the reference's frame 15 (its frame 0), so the x0.92 a frame
+// goes on through its frame 4 (the reference's 19), the turn is on its frame 20 (35) and the stick's 35-degree boost is read on its
+// frame 45 (60) [E: 1.0 reference units a frame].
+if frame >= 1 && frame <= 4 { add_vel(-vx * 0.08, 0); }
+if frame == 20 { turn(); }
+if frame == 45 {
+    let s = abs(stick_y);
+    if s >= 0.25 && s <= 0.65 { set_vel(0.1024, 0.0717 * sign(stick_y)); }
+}

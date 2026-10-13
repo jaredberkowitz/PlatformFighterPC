@@ -1,0 +1,3 @@
+// Gauntlets neutral special on the ground. On the reference's frame 15 (14 here) the stick held back [E: past 0.25 of its travel]
+// switches to the reversed punch (28 = ext0), which starts there and turns round later.
+if frame == 14 && stick_x < -0.25 { goto(28); }

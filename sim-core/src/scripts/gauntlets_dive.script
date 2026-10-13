@@ -1,0 +1,9 @@
+// Gauntlets up special, the leap (reference frame 14 is frame 13 here). Before it the move's air block gives the x6 acceleration, so
+// the stick builds up horizontal speed ("Tokyo drift"); from frame 13 to 30 the rise carries that speed on, plus a little forward
+// drive of its own, rising at 3.4 reference units a frame and slowing evenly to 0.4 (about 34 units up and 11 forward) [E: the
+// reference's rise is its animation, not published]. After it, the move's second air block (gravity 0.103).
+var base;
+if frame == 13 { base = vx; }
+if frame >= 13 && frame <= 30 {
+    set_vel(base + 0.075, 0.425 - 0.022 * (frame - 13));
+}
