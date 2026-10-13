@@ -917,3 +917,17 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   and a box that stopped short of the ground. `canyon_arch.png`.
 - **Painted swings**: the weapon arcs use the painted effect material, so a swing's crescent breaks up in ragged chunks as it fades,
   like a drawn smear. `fx_painted_arc.png`.
+
+## A painted sun, finer sky islands, a farm, a city street with life (thirty-eighth pass)
+
+- **Triple Tier's sun** (`_painted_sun`): flat painted rings (a deep orange rim, a gold body, a pale hot core set up and left) in two
+  soft glows, with thin bands of lilac and rose cloud across its lower half, in place of a plain disc in a see-through ball.
+  `canyon_painted_sun.png`.
+- **Sky islands** (`_island_detail`, its own random numbers so the sky's layout is unchanged): a pale strata band under the turf, stones
+  set in the keel, turf hanging over the lip in rounded drips, roots trailing below, and a bright line where the grass meets the light.
+- **The fields**: crop rows across every other field (a shade darker, closer together further off), and a small farm, a red barn and a
+  farmhouse, among them. `meadow_farm_islands.png`.
+- **The street** (`_street_furniture`, deterministic): zebra crossings with traffic lights, manholes, benches, bins, hydrants, a bus stop
+  with a lit advert, trees in planters, and a row of shops along the foot of the nearest buildings (lit windows, striped awnings, a sign
+  band and a glow each). The cars have a stepped body, wheel arches, hubs, split side windows, bumpers, head and tail light glows, and
+  one is a cab with a roof sign and a chequer stripe. `city_street_life.png`. City: GPU about 1.4 ms, 578 draw calls.

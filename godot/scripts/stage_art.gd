@@ -1228,6 +1228,11 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		tools.append(st)
 	var hedge_st: SurfaceTool = tools[colours.size()]
 	var lane_st: SurfaceTool = tools[colours.size() + 1]
+	# Furrows: rows of crop drawn across some fields, a shade darker than the field (green crops, then the wheat).
+	var furrow_green := SurfaceTool.new()
+	furrow_green.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var furrow_gold := SurfaceTool.new()
+	furrow_gold.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var quad := func(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
 		# (Wound to face the camera: given bottom-left, bottom-right, top-right, top-left.)
 		for v in [a, c, b, a, d, c]:
@@ -1250,6 +1255,20 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 				var xb := minf(xa + step, x + w)
 				quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
 				xa = xb
+			# Crop rows across every other field, closer together further down (further off).
+			if (row + k) % 2 == 0:
+				var fst := furrow_gold if pick == colours.size() - 1 else furrow_green
+				var gap := 1.3 + 0.05 * d0
+				var dr := d0 + gap
+				while dr < d1 - gap * 0.5:
+					var xa2 := x + 0.6
+					while xa2 < x + w - 0.6:
+						var xb2 := minf(xa2 + 3.0, x + w - 0.6)
+						var lift := Vector3(0, 0.16, 0.2)
+						var drop := Vector3(0, -0.16, 0.2)
+						quad.call(fst, at.call(xa2, dr) + drop, at.call(xb2, dr) + drop, at.call(xb2, dr) + lift, at.call(xa2, dr) + lift)
+						xa2 = xb2
+					dr += gap
 			# A hedge down the side between this field and the next.
 			var side := Vector3(0.3, 0, 0)
 			var hz := Vector3(0, 0, 0.08)
@@ -1288,6 +1307,16 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	materials.append(_soft(Color(0.9, 0.8, 0.58)))
 	for i in tools.size():
 		_mesh(root, (tools[i] as SurfaceTool).commit(), materials[i], Vector3.ZERO)
+	_mesh(root, furrow_green.commit(), _soft((colours[0] as Color).darkened(0.16)), Vector3.ZERO)
+	_mesh(root, furrow_gold.commit(), _soft((colours[colours.size() - 1] as Color).darkened(0.14)), Vector3.ZERO)
+	# A farm beside the lane: a red barn and a white farmhouse, a little in front of the face.
+	# (Smaller than the cottages on the hills: they are nearer, but the farm should read as far below the stage.)
+	var farm := Node3D.new()
+	farm.position = at.call(-30.0, 5.0) + Vector3(0, 0, 0.6)
+	farm.scale = Vector3.ONE * 0.6
+	root.add_child(farm)
+	_barn(farm, Vector3.ZERO)
+	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
 	# Round bushes dotted along the top hedges.
 	var bush := _soft(hedge_colour.lightened(0.08))
 	for j in 14:
@@ -1661,12 +1690,42 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# The grassy top: a thick squashed disc, its rim rolling down over the earth.
 		_mesh(island, _cylinder(hw * 0.98, hw * 1.02, 0.7, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.62))
 		_mesh(island, _cylinder(hw * 1.04, hw * 0.96, 0.4, 20), lip, Vector3(0, -0.05, 0), Vector3(1.0, 1.0, 0.64))
+		_island_detail(island, hw, size, t, k)
 		var on_top := rng.randf()
 		if on_top < 0.45:
 			_round_tree(island, Vector3(rng.randf_range(-0.4, 0.4) * hw, 0.6, 0), clampf(size / 6.0, 0.7, 1.4), rng)
 		elif on_top < 0.75:
 			var bush := Materials.foliage(Materials.greens(grass)[1], Vector2(2, 2), false)
 			_mesh(island, _sphere(1.0, 12), bush, Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.9, 0), Vector3(1.6, 1.1, 1.2) * size / 6.0)
+
+
+## The finer parts of a sky island `hw` across (in `island`'s space; its own numbers, from `k`, so the sky's layout is unchanged): a pale
+## band of strata under the turf, a few stones set in the keel, turf hanging over the lip in rounded drips at the front, roots trailing
+## below, and a bright crisp line where the grass top meets the light.
+static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary, k: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 900 + k
+	var grass: Color = t.grass
+	var band := Materials.stone((t.soil as Color).lightened(0.12), Vector2(6, 1))
+	_mesh(island, _cylinder(hw * 0.94, hw * 0.86, size * 0.18, 18), band, Vector3(0, -0.45, 0), Vector3(1.0, 1.0, 0.6))
+	var stone := Materials.stone((t.soil_dark as Color).lerp(Color(0.6, 0.58, 0.62), 0.5))
+	for j in 3:
+		var a := rng.randf_range(-0.7, 0.7)
+		var down := rng.randf_range(0.25, 0.55) * size
+		_mesh(island, _sphere(1.0, 8), stone, Vector3(sin(a) * hw * 0.6 * (1.0 - down / size), -0.6 - down, cos(a) * hw * 0.32),
+			Vector3.ONE * rng.randf_range(0.1, 0.18) * size, Vector3(rng.randf_range(0, 60), rng.randf_range(0, 90), 0))
+	var drip := FighterView.toon(grass.darkened(0.08))
+	for j in 7:
+		var u := (float(j) + rng.randf_range(0.2, 0.8)) / 7.0 * 2.0 - 1.0
+		var r := rng.randf_range(0.18, 0.32) * size * 0.5
+		_mesh(island, _sphere(1.0, 8), drip, Vector3(u * hw * 0.92, -0.2 - r * 0.6, sqrt(maxf(0.0, 1.0 - u * u)) * hw * 0.62), Vector3(r * 1.4, r * 1.6, r))
+	var root_m := FighterView.toon((t.soil_dark as Color).darkened(0.35), false)
+	for j in 4:
+		var u := rng.randf_range(-0.6, 0.6)
+		var len := rng.randf_range(0.5, 1.1) * size * 0.6
+		_mesh(island, _cylinder(0.02 * size, 0.05 * size, len, 4), root_m, Vector3(u * hw * 0.7, -0.5 - len * 0.5 - size * 0.2, hw * 0.3),
+			Vector3.ONE, Vector3(0, 0, rng.randf_range(-15, 15)))
+	_mesh(island, _cylinder(hw * 1.0, hw * 1.0, 0.06, 24), FighterView.toon(grass.lightened(0.25), false), Vector3(0, 0.72, 0), Vector3(1.0, 1.0, 0.63))
 
 
 ## A windmill (`at` is the foot of its tower): a footing of rough stones, a tapered whitewashed tower with a plank door, two small
@@ -1712,6 +1771,22 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		for j in 7:
 			_mesh(arm, _box(Vector3(1.9, 0.08, 0.1)), wood, Vector3(0.95, 1.9 + j * 0.9, 0.05))
 		_mesh(arm, _box(Vector3(1.6, 4.4, 0.05)), sail, Vector3(0.95, 5.2, 0.14))
+
+
+## A red barn (`at` its foot): plank walls under a steep roof, white trim round the big doors with a cross brace, and a hay loft door.
+static func _barn(root: Node3D, at: Vector3) -> void:
+	var red := Materials.wood(Color(0.78, 0.26, 0.22), Vector2(4, 2))
+	var trim := FighterView.toon(Color(0.98, 0.95, 0.9))
+	var roof := Materials.wood(Color(0.36, 0.3, 0.32), Vector2(5, 2))
+	_mesh(root, _box(Vector3(5.6, 3.6, 4.0)), red, at + Vector3(0, 1.8, 0))
+	for sgn in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(6.2, 0.3, 3.0)), roof, at + Vector3(0, 4.45, sgn * 1.05), Vector3.ONE, Vector3(sgn * 45.0, 0, 0))
+	_mesh(root, _box(Vector3(2.4, 2.6, 0.1)), trim, at + Vector3(0, 1.3, 2.02))
+	_mesh(root, _box(Vector3(2.0, 2.3, 0.12)), red, at + Vector3(0, 1.2, 2.04))
+	for sgn in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(0.16, 2.9, 0.06)), trim, at + Vector3(0, 1.2, 2.12), Vector3.ONE, Vector3(0, 0, sgn * 40.0))
+	_mesh(root, _box(Vector3(1.0, 0.9, 0.1)), trim, at + Vector3(0, 3.2, 2.02))
+	_mesh(root, _box(Vector3(0.8, 0.7, 0.12)), _unshaded(Color(0.24, 0.16, 0.14)), at + Vector3(0, 3.2, 2.04))
 
 
 ## A cottage (`at` its foot): whitewashed walls, a steep gabled roof in `roof`, a plank door and a lit window, and a stone chimney at one
@@ -1773,8 +1848,7 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var e := _ext(stage)
-	_mesh(root, _sphere(14.0, 32), _unshaded(Color(1.0, 0.86, 0.55)), Vector3(18, 2, -140))
-	_mesh(root, _sphere(18.0, 32), _unshaded(Color(1.0, 0.75, 0.5, 1.0)).duplicate(), Vector3(18, 2, -142)).transparency = 0.7
+	_painted_sun(root, Vector3(18, 2, -140), 14.0)
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
@@ -1845,6 +1919,23 @@ static func _rock_arch(root: Node3D, at: Vector3, span: float, height: float) ->
 	for b in [[-span * 0.5 - 3.2, 1.1], [-span * 0.5 + 2.6, 0.7], [span * 0.5 + 3.0, 1.3], [span * 0.5 - 2.4, 0.6]]:
 		_mesh(root, _box(Vector3(1.6, 1.2, 1.4) * float(b[1])), strata[2], at + Vector3(float(b[0]), 0.5 * float(b[1]), 1.0), Vector3.ONE,
 			Vector3(0, float(b[0]) * 17.0, float(b[0]) * 3.0))
+
+
+## A setting sun painted in rings (`at` its middle, `r` its radius): a wide warm glow round it, a deep orange rim, a gold body and a pale
+## hot core set a little up and left, flat discs facing the camera like a painted flat; and long thin bands of lilac and rose cloud drawn
+## across its lower half, the way evening cloud lies over a low sun.
+static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
+	_halo(root, at + Vector3(0, 0, -3.0), Color(1.0, 0.7, 0.42), r * 5.0)
+	_halo(root, at + Vector3(0, 0, -2.0), Color(1.0, 0.86, 0.6), r * 2.6)
+	var flat := Vector3(1.0, 1.0, 0.04)
+	_mesh(root, _sphere(r, 40), _unshaded(Color(1.0, 0.62, 0.36)), at, flat)
+	_mesh(root, _sphere(r * 0.9, 40), _unshaded(Color(1.0, 0.8, 0.46)), at + Vector3(0, 0, 0.6), flat)
+	_mesh(root, _sphere(r * 0.62, 32), _unshaded(Color(1.0, 0.92, 0.66)), at + Vector3(-r * 0.12, r * 0.1, 1.2), flat)
+	_mesh(root, _sphere(r * 0.3, 24), _unshaded(Color(1.0, 0.98, 0.86)), at + Vector3(-r * 0.2, r * 0.18, 1.8), flat)
+	var bands := [[-0.38, 2.2, 0.035, Color(0.9, 0.52, 0.6)], [-0.6, 1.6, 0.028, Color(0.8, 0.46, 0.62)], [-0.16, 1.3, 0.022, Color(1.0, 0.7, 0.64)]]
+	for b in bands:
+		var w := r * float(b[1])
+		_mesh(root, _sphere(1.0, 24), _unshaded(b[3]), at + Vector3(r * 0.2 * float(b[0]) * 3.0, r * float(b[0]), 4.0), Vector3(w, r * float(b[2]) * 2.0, 0.2))
 
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
@@ -2104,8 +2195,9 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		_mesh(root, _sphere(0.32, 10), lamp, at + Vector3(0, 5.7, 1.4), Vector3(1.0, 0.7, 1.0))
 		_halo(root, at + Vector3(0, 5.6, 1.6), Color(1.0, 0.8, 0.5), 4.2)
 		x += 16.5
-	# Cars: two lanes, one each way.
-	var colours := [Color(0.92, 0.36, 0.4), Color(0.36, 0.7, 0.86), Color(0.98, 0.8, 0.36), Color(0.62, 0.48, 0.9), Color(0.9, 0.9, 0.94)]
+	# Cars: two lanes, one each way, a cab among them.
+	var colours := [Color(0.92, 0.36, 0.4), Color(0.36, 0.7, 0.86), Color(0.98, 0.8, 0.3), Color(0.62, 0.48, 0.9), Color(0.9, 0.9, 0.94),
+		Color(0.4, 0.78, 0.6)]
 	for k in 6:
 		var dir := 1.0 if k % 2 == 0 else -1.0
 		var car := Drift.new()
@@ -2113,25 +2205,133 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 		car.span = 140.0
 		car.position = Vector3(-130.0 + k * 47.0, y, front - (13.5 if dir > 0.0 else 22.5))
 		root.add_child(car)
-		_car(car, colours[k % colours.size()], dir)
+		_car(car, colours[k % colours.size()], dir, k == 2)
+	_street_furniture(root, y, front)
 
 
-## A little rounded car pointing along `dir` (+1 right, -1 left): a body, a cabin with dark glass, four wheels, headlights with a glow
-## in front and red tail lights.
-static func _car(parent: Node3D, colour: Color, dir: float) -> void:
+## A little car pointing along `dir` (+1 right, -1 left), `taxi` for a cab: a body with a bonnet and a boot stepping down from the cabin,
+## dark wheel arches over chunky tyres with pale hubs, a windscreen and side windows split by pillars, a door line, grey bumpers,
+## headlights with a glow ahead of them and red tail lights; a cab has a lit sign on its roof and a chequer stripe.
+static func _car(parent: Node3D, colour: Color, dir: float, taxi := false) -> void:
 	var body := FighterView.toon(colour)
-	var glass := _unshaded(Color(0.24, 0.26, 0.42))
+	var dark := FighterView.toon(colour.darkened(0.45))
+	var glass := _unshaded(Color(0.3, 0.34, 0.52))
+	var glint := _unshaded(Color(0.62, 0.7, 0.9))
 	var tyre := FighterView.toon(Color(0.12, 0.1, 0.16))
-	_mesh(parent, _box(Vector3(4.0, 1.0, 1.9)), body, Vector3(0, 0.9, 0))
-	_mesh(parent, _box(Vector3(2.2, 0.85, 1.7)), body, Vector3(-0.2 * dir, 1.8, 0))
-	_mesh(parent, _box(Vector3(2.0, 0.6, 1.74)), glass, Vector3(-0.2 * dir, 1.8, 0))
-	for wx in [-1.3, 1.3]:
+	var hub := FighterView.toon(Color(0.8, 0.8, 0.86))
+	var chrome := FighterView.toon(Color(0.66, 0.66, 0.74))
+	# Body: the lower shell, the bonnet and boot (a little lower, rounded off at the ends) and the cabin.
+	_mesh(parent, _box(Vector3(3.6, 0.8, 1.9)), body, Vector3(0, 0.85, 0))
+	for e in [1.0, -1.0]:
+		_mesh(parent, _sphere(1.0, 12), body, Vector3(1.75 * e * dir, 0.95, 0), Vector3(0.5, 0.45, 0.95))
+	_mesh(parent, _box(Vector3(2.1, 0.85, 1.72)), body, Vector3(-0.2 * dir, 1.65, 0))
+	# Glass: the windscreen and rear window as dark panels on the cabin's ends, the side windows split by a pillar, a glint on each.
+	_mesh(parent, _box(Vector3(0.08, 0.62, 1.5)), glass, Vector3(0.87 * dir, 1.68, 0))
+	_mesh(parent, _box(Vector3(0.08, 0.55, 1.5)), glass, Vector3(-1.27 * dir, 1.68, 0))
+	for wx in [-0.62, 0.32]:
+		_mesh(parent, _box(Vector3(0.82, 0.55, 0.04)), glass, Vector3((wx - 0.2) * dir, 1.7, 0.87))
+		_mesh(parent, _box(Vector3(0.18, 0.4, 0.05)), glint, Vector3((wx - 0.42) * dir, 1.74, 0.88), Vector3.ONE, Vector3(0, 0, 30))
+	_mesh(parent, _box(Vector3(0.04, 0.7, 0.03)), dark, Vector3(-0.2 * dir, 0.9, 0.96))
+	# Wheel arches, tyres and hubs.
+	for wx in [-1.25, 1.25]:
+		_mesh(parent, _cylinder(0.56, 0.56, 1.96, 14), dark, Vector3(wx, 0.55, 0), Vector3(1.0, 1.0, 1.0), Vector3(90, 0, 0))
 		for wz in [-0.85, 0.85]:
-			_mesh(parent, _cylinder(0.42, 0.42, 0.3, 12), tyre, Vector3(wx, 0.42, wz), Vector3.ONE, Vector3(90, 0, 0))
-	for lz in [-0.6, 0.6]:
-		_mesh(parent, _box(Vector3(0.1, 0.25, 0.4)), _unshaded(Color(1.0, 0.95, 0.75)), Vector3(2.0 * dir, 1.0, lz))
-		_mesh(parent, _box(Vector3(0.1, 0.22, 0.36)), _unshaded(Color(1.0, 0.25, 0.3)), Vector3(-2.0 * dir, 1.0, lz))
-	_halo(parent, Vector3(2.6 * dir, 1.0, 0.95), Color(1.0, 0.92, 0.7), 2.4)
+			_mesh(parent, _cylinder(0.44, 0.44, 0.34, 14), tyre, Vector3(wx, 0.44, wz), Vector3.ONE, Vector3(90, 0, 0))
+			_mesh(parent, _cylinder(0.2, 0.2, 0.36, 10), hub, Vector3(wx, 0.44, wz), Vector3.ONE, Vector3(90, 0, 0))
+	# Bumpers, lights.
+	for e in [1.0, -1.0]:
+		_mesh(parent, _box(Vector3(0.22, 0.24, 1.96)), chrome, Vector3(2.15 * e * dir, 0.62, 0))
+	for lz in [-0.62, 0.62]:
+		_mesh(parent, _sphere(0.17, 8), _unshaded(Color(1.0, 0.96, 0.78)), Vector3(2.12 * dir, 0.98, lz), Vector3(0.5, 1.0, 1.0))
+		_mesh(parent, _box(Vector3(0.1, 0.2, 0.34)), _unshaded(Color(1.0, 0.24, 0.3)), Vector3(-2.18 * dir, 0.98, lz))
+	_halo(parent, Vector3(2.7 * dir, 1.0, 0.95), Color(1.0, 0.92, 0.7), 2.4)
+	_halo(parent, Vector3(-2.4 * dir, 1.0, 0.95), Color(1.0, 0.3, 0.3), 1.0)
+	if taxi:
+		_mesh(parent, _box(Vector3(0.9, 0.32, 0.5)), _unshaded(Color(1.0, 0.94, 0.7)), Vector3(-0.2 * dir, 2.25, 0))
+		for k in 8:
+			_mesh(parent, _box(Vector3(0.2, 0.12, 0.03)), dark if k % 2 == 0 else _unshaded(Color(0.98, 0.96, 0.9)), Vector3((-1.3 + k * 0.32) * dir, 1.05, 0.96))
+
+
+## What makes the street a street (all at street height `y`, the stage building's front at `front`; deterministic): zebra crossings
+## at two corners with traffic lights on the far kerb, manhole covers and drains in the road, and along the far pavement benches, bins,
+## fire hydrants, a bus stop with a lit advert, and small trees in square planters; then the shops along the foot of the nearest row of
+## buildings, lit windows under striped awnings with a band of sign over each.
+static func _street_furniture(root: Node3D, y: float, front: float) -> void:
+	var white := _unshaded(Color(0.92, 0.9, 0.96))
+	var iron := FighterView.toon(Color(0.2, 0.18, 0.28))
+	var walk := front - 31.5
+	for cx in [-46.0, 46.0]:
+		for k in 7:
+			_mesh(root, _box(Vector3(0.9, 0.04, 18.0)), white, Vector3(cx - 4.5 + k * 1.5, y + 0.01, front - 18.0))
+		# A traffic light on the far kerb: a post, a housing, three lamps (green lit).
+		var post := Vector3(cx + 6.0, y + 0.25, front - 29.5)
+		_mesh(root, _cylinder(0.12, 0.14, 4.4, 8), iron, post + Vector3(0, 2.2, 0))
+		_mesh(root, _box(Vector3(0.7, 1.9, 0.6)), iron, post + Vector3(0, 5.0, 0.2))
+		for j in 3:
+			var lit: Color = [Color(0.4, 0.14, 0.16), Color(0.4, 0.32, 0.12), Color(0.4, 1.0, 0.6)][j]
+			_mesh(root, _sphere(0.2, 8), _unshaded(lit), post + Vector3(0, 5.6 - j * 0.6, 0.52))
+		_halo(root, post + Vector3(0, 4.4, 0.8), Color(0.4, 1.0, 0.6), 1.4)
+	var cover := FighterView.toon(Color(0.16, 0.14, 0.22))
+	for mx in [-80.0, -22.0, 18.0, 70.0]:
+		_mesh(root, _cylinder(0.7, 0.7, 0.04, 14), cover, Vector3(mx, y + 0.01, front - 15.0 - fmod(absf(mx), 7.0)))
+	# Along the far pavement, spaced by a fixed pattern.
+	var wood := Materials.wood(Color(0.62, 0.44, 0.3), Vector2(3, 1))
+	var leaf := _soft(Color(0.34, 0.62, 0.4))
+	var x := -120.0
+	var k := 0
+	while x < 120.0:
+		var at := Vector3(x, y + 0.25, walk)
+		match k % 5:
+			0:
+				# A tree in a planter.
+				_mesh(root, _box(Vector3(1.6, 0.6, 1.6)), FighterView.toon(Color(0.5, 0.46, 0.6)), at + Vector3(0, 0.3, 0))
+				_mesh(root, _cylinder(0.14, 0.2, 2.6, 6), Materials.bark(Color(0.5, 0.36, 0.28)), at + Vector3(0, 1.6, 0))
+				_mesh(root, _sphere(1.0, 12), leaf, at + Vector3(0, 3.4, 0), Vector3(1.4, 1.2, 1.3))
+			1:
+				# A bench.
+				_mesh(root, _box(Vector3(2.4, 0.14, 0.7)), wood, at + Vector3(0, 0.75, 0))
+				_mesh(root, _box(Vector3(2.4, 0.6, 0.12)), wood, at + Vector3(0, 1.15, -0.32))
+				for lx in [-1.0, 1.0]:
+					_mesh(root, _box(Vector3(0.1, 0.75, 0.6)), iron, at + Vector3(lx, 0.38, 0))
+			2:
+				# A bin and a hydrant.
+				_mesh(root, _cylinder(0.45, 0.4, 1.1, 10), FighterView.toon(Color(0.3, 0.5, 0.42)), at + Vector3(-0.8, 0.55, 0))
+				_mesh(root, _cylinder(0.5, 0.5, 0.1, 10), iron, at + Vector3(-0.8, 1.12, 0))
+				_mesh(root, _cylinder(0.22, 0.26, 0.9, 8), FighterView.toon(Color(0.9, 0.24, 0.26)), at + Vector3(0.9, 0.45, 0.6))
+				_mesh(root, _sphere(0.24, 8), FighterView.toon(Color(0.9, 0.24, 0.26)), at + Vector3(0.9, 0.92, 0.6))
+				_mesh(root, _cylinder(0.08, 0.08, 0.7, 6), FighterView.toon(Color(0.9, 0.24, 0.26)), at + Vector3(0.9, 0.6, 0.6), Vector3.ONE, Vector3(0, 0, 90))
+			3:
+				# A bus stop: a roof on two posts, a lit advert at one end.
+				for lx in [-1.6, 1.6]:
+					_mesh(root, _box(Vector3(0.1, 2.8, 0.1)), iron, at + Vector3(lx, 1.4, -0.4))
+				_mesh(root, _box(Vector3(3.6, 0.12, 1.4)), iron, at + Vector3(0, 2.85, 0))
+				_mesh(root, _box(Vector3(1.0, 1.8, 0.1)), _unshaded(Color(0.98, 0.6, 0.8)), at + Vector3(1.6, 1.3, -0.4))
+				_halo(root, at + Vector3(1.6, 1.3, 0.0), Color(1.0, 0.6, 0.85), 2.2)
+				_mesh(root, _box(Vector3(2.4, 0.12, 0.5)), wood, at + Vector3(-0.3, 0.7, -0.3))
+		x += 13.0 + 3.0 * float(k % 3)
+		k += 1
+	# Shops along the foot of the nearest row of buildings (its front is 37.5 back).
+	var shop_z := -37.4
+	var awnings := [[Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9)], [Color(0.3, 0.6, 0.6), Color(0.94, 0.92, 0.84)],
+		[Color(0.96, 0.7, 0.3), Color(0.98, 0.94, 0.86)], [Color(0.5, 0.4, 0.8), Color(0.92, 0.9, 0.98)]]
+	var glows := [Color(1.0, 0.86, 0.58), Color(0.7, 0.9, 1.0), Color(1.0, 0.72, 0.84), Color(0.86, 1.0, 0.76)]
+	x = -126.0
+	k = 0
+	while x < 126.0:
+		var w := 7.0 + 2.0 * float(k % 3)
+		var cx := x + w * 0.5
+		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(Color(0.26, 0.2, 0.34)), Vector3(cx, y + 1.85, shop_z))
+		_mesh(root, _box(Vector3(w * 0.62, 2.0, 0.1)), _unshaded(glows[k % glows.size()]), Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.12))
+		_mesh(root, _box(Vector3(1.1, 2.4, 0.1)), _unshaded(Color(0.5, 0.36, 0.3)), Vector3(cx + w * 0.32, y + 1.45, shop_z + 0.12))
+		var pair: Array = awnings[k % awnings.size()]
+		var n := int(w / 0.8)
+		for j in n:
+			_mesh(root, _box(Vector3((w - 0.4) / n, 0.1, 1.3)), FighterView.toon(pair[j % 2]), Vector3(x + 0.2 + (j + 0.5) * (w - 0.4) / n, y + 3.5, shop_z + 0.55),
+				Vector3.ONE, Vector3(24, 0, 0))
+		_mesh(root, _box(Vector3(w * 0.5, 0.6, 0.1)), _unshaded((glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)), Vector3(cx, y + 4.3, shop_z + 0.12))
+		_halo(root, Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.7), glows[k % glows.size()], w * 0.8)
+		x += w
+		k += 1
 
 
 ## The ground floor of the stage building where it meets the street (`width` wide, centred on `cx`, its front at `front`): a lit shop
