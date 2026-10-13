@@ -218,7 +218,6 @@ const CLASS_MOVES := {
 		"nair": "attack_swing",
 		"fair": "attack_smash",
 		"bair": "kick_bair",
-		"uair": "attack_uair",
 		"dair": "gaunt_stomp",
 	},
 }
