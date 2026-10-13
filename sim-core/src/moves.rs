@@ -2739,8 +2739,8 @@ fn embers_specials(w: &mut Weapon) {
 /// (ext2), scripted in `pump_start`, `pump_charge` and `pump_shot`.
 ///
 /// * Wind-up 19 frames, then charging; 80 frames of charge in all (ssbwiki.com's parameter, counted from the charge's start: with the
-///   wind-up that is the 100 frames UFD and dragdown give [D]). Shield or jump keeps the charge (no lag); special shoots; a full
-///   charge keeps itself [E]; a stored charge carries into the next use.
+///   wind-up that is the 100 frames UFD and dragdown give [D]). Shield or jump keeps the charge (no lag); special shoots; at full
+///   charge the stance holds until special or shield (the owner's call, as the reference); a stored charge carries into the next use.
 /// * The shot: from its frame 1, the fighter pushed back 0.02 a charge frame; 7 pumps every 5 frames (each out for 12 frames:
 ///   2-13, 7-18, ... 32-43), FAF 49. A pump: 0% at 55 degrees, set knockback 70, KS 100, radius 4, a push (the reference's
 ///   flinchless hit: no hitstun), 4.3 to 8.6 a frame with the charge, gravity 0.17, fall 3, size x0.8 to x1.2 and up to 55 more
@@ -2756,7 +2756,7 @@ fn water_pump(w: &mut Weapon) {
     start.land_continue = true;
     w.moves[MoveId::DownSpecial as usize] = start;
 
-    // (Longer than a full charge: the script ends it.)
+    // (Longer than a full charge: the script restarts it while the stance holds.)
     let mut charge = ref_move(100, 0, 0, 255, &[]);
     charge.script = Some(script(
         Kind::Fighter,

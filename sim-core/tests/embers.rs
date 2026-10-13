@@ -1446,8 +1446,8 @@ fn pumps(sim: &Sim) -> Vec<sim_core::Projectile> {
 const SPECIAL_DOWN: (i8, i8) = (0, -127);
 
 #[test]
-fn the_pump_winds_up_for_19_frames_then_charges_for_80_and_keeps_a_full_charge() {
-    use sim_core::input::buttons::SPECIAL;
+fn the_pump_winds_up_for_19_frames_then_charges_for_80_and_holds_the_full_charge() {
+    use sim_core::input::buttons::{SHIELD, SPECIAL};
     let mut sim = pump_sim(Fx::from_int(-3));
     sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
     sim.ticks(17, inp(0, 0, 0));
@@ -1462,17 +1462,51 @@ fn the_pump_winds_up_for_19_frames_then_charges_for_80_and_keeps_a_full_charge()
         MoveId::Ext1 as u8,
         "charging after frame 19"
     );
-    sim.ticks(79, inp(0, 0, 0));
-    assert_eq!(sim.f().state, S::Attack, "79 frames of charge");
-    sim.tick(inp(0, 0, 0));
-    assert_ne!(sim.f().state, S::Attack, "the full charge keeps itself");
-    assert_eq!(sim.f().stored, 80);
+    // A full charge does not keep itself (owner, 2026-10-13, as the reference): the stance holds at full, long past the move's
+    // length, until shield or special.
+    sim.ticks(80 + 400, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "still in the charging stance");
+    assert_eq!(sim.f().move_id, MoveId::Ext1 as u8);
+    assert_eq!(sim.f().stored, 0, "nothing stored while holding");
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().stored, 80, "shield keeps the full charge");
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().state, S::Shield, "shielding at once");
     // The next use shoots at once after the wind-up.
-    sim.ticks(5, inp(0, 0, 0));
+    sim.ticks(20, inp(0, 0, 0));
     sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
     sim.ticks(18, inp(0, 0, 0));
     assert_eq!(sim.f().move_id, MoveId::Ext2 as u8, "shooting");
     assert_eq!(sim.f().stored, 0, "spent");
+}
+
+#[test]
+fn special_shoots_a_held_full_charge_at_full_strength() {
+    use sim_core::input::buttons::SPECIAL;
+    let mut sim = pump_sim(Fx::from_int(-3));
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.ticks(18 + 200, inp(0, 0, 0));
+    assert_eq!(sim.f().move_id, MoveId::Ext1 as u8, "holding at full");
+    let x0 = sim.f().pos.x;
+    sim.tick(inp(0, 0, SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::Ext2 as u8, "special shoots");
+    sim.ticks(2, inp(0, 0, 0));
+    // The full charge's recoil: 0.02 x 80 reference units a frame backwards (facing right).
+    assert!(sim.f().pos.x < x0, "pushed back by a full charge");
+}
+
+#[test]
+fn a_held_full_charge_in_the_air_keeps_falling() {
+    use sim_core::input::buttons::SPECIAL;
+    let mut sim = pump_sim(Fx::from_int(-3));
+    sim.put_airborne(0, Fx::from_int(-3), Fx::from_int(60), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.ticks(18 + 100, inp(0, 0, 0));
+    assert_eq!(sim.f().move_id, MoveId::Ext1 as u8);
+    let y0 = sim.f().pos.y;
+    sim.ticks(20, inp(0, 0, 0));
+    assert!(sim.f().pos.y < y0, "falling while it holds");
+    assert_eq!(sim.f().state, S::Attack);
 }
 
 #[test]
@@ -1489,8 +1523,8 @@ fn shield_keeps_a_part_charge_with_no_lag_and_the_next_use_charges_on_from_it() 
     sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
     sim.ticks(18 + 48, inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Attack, "31 + 48 frames: still charging");
-    sim.tick(inp(0, 0, 0));
-    assert_eq!(sim.f().stored, 80, "full at 80");
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().stored, 80, "31 + 49: full at 80");
 }
 
 /// Uses the pump with `charge` frames of charge stored, the duelist `gap` ahead (in the air if `air`); returns the sim after

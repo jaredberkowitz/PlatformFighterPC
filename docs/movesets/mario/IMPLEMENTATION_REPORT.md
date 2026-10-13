@@ -177,7 +177,7 @@ Every number and its label is in `REFERENCE_DATA.md` ("Specials", "Wall jump", "
 * **Side, the cape**: the swing (7%, 110 degrees, set knockback 80, reverse, shield +4) on 12-14; the reflector on 9-20 (x1.5 damage,
   x0.75 life, 50% limit) with its detector on 6-8; aerial physics (1 / 2.5 of the momentum, gravity 0.031, fall 1, friction 0.0025) and
   the once-per-airtime lift; ledges in front from 2, behind from 16; FAF 36.
-* **Down, the water pump**: wind-up 19, 80 frames of charge (shield or jump keep it with no lag; a full charge keeps itself [E]; a
+* **Down, the water pump**: wind-up 19, 80 frames of charge (shield or jump keep it with no lag; a full charge holds the stance, sim 65; a
   stored charge carries on), the shot: recoil 0.02 a charge frame, seven pushing pumps every 5 frames growing with the charge, aimed
   12 degrees and turned by the stick to +50 / -18; FAF 49 from the shot.
 * **Wall jump**: 1.3 away, 2.3 up (the parameter file), x0.96 each further one.
@@ -230,7 +230,7 @@ wall-tech jump at the same speeds. The test that moved: `needles::the_rest_of_th
   appearing a frame early (a projectile hits from the next frame), the detector capsule as one circle, the bounce-speed band and count
   readings, the Claws' dash distance from its parameters.
 * **[E]**: the rising punch's rise; the Longsword's rise; the frames the stick angle is read on and the reading of "sensitivity"; the
-  cape's lift frame and stopped fall; a reflected shot's vertical reversal; the 50% limit's reading; a full pump keeping itself; the
+  cape's lift frame and stopped fall; a reflected shot's vertical reversal; the 50% limit's reading; the
   pump's aim threshold, nozzle and its push as an added velocity; pumps removed by their first hit; the Claws' neutral aim straight up,
   its bounce ending in the special fall, positions on bones; the wall-contact range; the wall-tech jump speeds used for the wall jump.
 
@@ -256,8 +256,10 @@ Training, hitbox view (F3), Tumbler at stage centre:
 1. Up special next to an airborne opponent: seven hits, 11% (the first hit misses a grounded opponent at the body; the others reach).
 2. Neutral special on the flat stage: the ball dips, bounces two or three times along the stage and is gone after 70 frames.
 3. Side special against an opponent's projectile: it flies back; against a melee opponent: they end up facing away.
-4. Down special, wait about 1.7 seconds: the charge keeps itself; down special again: the pumps push the opponent without damage.
-5. Against the stage's side below the ledge, flick the stick away: a wall jump; the third in a row is visibly lower.
+4. Down special, wait about 1.7 seconds or longer: the stance holds at full; shield stores it, special shoots; down special again
+   with a stored full charge: the pumps push the opponent without damage.
+5. Against the stage's side below the ledge, flick the stick away: a wall jump; the third in a row is visibly lower. Pressing jump
+   there (stick neutral or toward the wall) wall-jumps too, and the midair jump is still there afterwards.
 
 ### Limits (phase 2)
 
@@ -285,7 +287,7 @@ New moves and slots (all fall back to the shared archetypes in `anim_library.gd`
 The Claws' up special's last hit moved to its ending slots (`ext0` / `ext1`), so `godot-bridge`'s per-move hit windows show four strikes
 on the main move and one on the ending.
 
-### Questions for the owner
+### Questions for the owner (answered 2026-10-13: see "Owner follow-up" at the end)
 
 1. **Rises**: no published height or recovery distance was found for the rising punch, the cape's lift or the Longsword's rise. Keep
    the estimates until footage, or do you know a source?
@@ -295,3 +297,30 @@ on the main move and one on the ending.
    turns only the horizontal speed: make both the same once confirmed?
 4. **Wall jump input**: built as a flick of the stick away from the wall (the reference's). Also allow the jump button against a
    wall (an older game's option)?
+
+## Owner follow-up (sim 65, 2026-10-13)
+
+The owner answered the four phase-2 questions.
+
+1. **A full pump charge holds the stance** (as the reference). `pump_charge.script` no longer stores a full charge by itself: the
+   charging stance stays at 80 until special (the shot) or shield / jump (stored, no lag). The move restarts itself (`goto` to its
+   own slot on frame 90) so it can hold indefinitely, as the Needles' Needle Storm does. Shield / jump storing and a stored charge
+   carrying into the next use are unchanged.
+2. **Reflectors stay as they are** (owner decision): the cape turns a reflected shot's vertical speed round; the Claws' reflector
+   turns only the horizontal speed. They are meant to differ.
+3. **Wall jump from the jump button** (shared, every body with `wall_jump` set: tumbler, brawler, rogue): touching a wall in the air,
+   jump pressed with the stick neutral or toward the wall kicks off it, at the same speeds and decay as the flick. It is checked
+   before the midair jump in `fighter.rs` `airborne` and uses the press up, so it never spends a midair jump. With the stick held away
+   (not flicked) the press is a midair jump. ssbwiki.com `Wall_jump` publishes the jump-button input only for an older game, so this
+   is the owner's rule; the flick stays the reference's.
+4. **Rise heights**: re-searched, nothing credible in units was found (the list of what was searched is in `REFERENCE_DATA.md`,
+   "Defaults chosen", item 2). The rising punch's rise, the Longsword's rise and the cape's lift frame stay [E]; tests unchanged.
+
+Tests (sim 65): `embers::the_pump_winds_up_for_19_frames_then_charges_for_80_and_holds_the_full_charge` (replaces `..._keeps_a_full_charge`:
+holds 480 frames, nothing stored until shield), `special_shoots_a_held_full_charge_at_full_strength`,
+`a_held_full_charge_in_the_air_keeps_falling`, `shield_keeps_a_part_charge_*` (now ends with a shield press that stores 31 + 49 = 80);
+`edges_and_recovery::jump_against_a_wall_with_the_stick_neutral_is_a_wall_jump_and_keeps_the_midair_jump`,
+`jump_against_a_wall_with_the_stick_toward_it_is_a_wall_jump_too`, `jump_against_a_wall_with_the_stick_held_away_is_a_midair_jump`,
+`every_wall_jumping_body_takes_the_jump_button` (bodies without a wall jump get their midair jump).
+
+Limit: a held full charge in the air has one frame without movement each 90 frames, where the move restarts (the known `goto` limit).

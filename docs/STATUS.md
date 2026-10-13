@@ -49,7 +49,9 @@ physics, later or air-only intangibility, carrying on after touching down), set-
 projectile arcs, ground bounces and hits by age, reversing hits, push hits, fuller reflectors (vertical reversal, lifetime, damage limit,
 projectile detector), once-per-airtime script flags, charged scaled shots, a 16-slot projectile pool, pummels with their own hitlag on
 the reference's timing, and wall jumps (content schema 4). The Longsword's and the Claws' up specials were re-fitted to their
-references with the new rules. Details and what is still estimated: `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
+references with the new rules. **Sim 65** (owner's follow-up): a full water-pump charge holds its stance until special or shield, and
+jump pressed against a wall (stick neutral or toward it) also wall-jumps without spending a midair jump. Details and what is still
+estimated: `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
 
 ## Roadmap progress
 
