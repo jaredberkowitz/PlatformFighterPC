@@ -1162,7 +1162,7 @@ static func _land_top(bumps: Array, floor_y: float, x: float) -> float:
 ## A band of land facing the camera at depth `z`: its top follows `_land_top` across x from -240 to 240, and it runs down 180 units below
 ## that, so it is ground all the way out of view. Its normals tip up toward the top edge (lit like the round of a hill) and face the camera
 ## further down, where the haze takes it; one mesh, toon-shaded in `colour`.
-static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color) -> void:
+static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var drops := [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]
@@ -1178,7 +1178,7 @@ static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, col
 			var n := (crest * w + Vector3(0.0, 0.2, 1.0).normalized() * (1.0 - w)).normalized()
 			col.append([Vector3(x, top - float(d), z), n])
 		cols.append(col)
-		x += 2.0
+		x += step
 	for i in cols.size() - 1:
 		for j in drops.size() - 1:
 			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
@@ -1203,6 +1203,32 @@ static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
 
 
 static var _fore_bumps: Array = []
+
+
+## A forest seen from above, filling the low land in front of `z` from about `y` down: rows of round crowns (balls of painted leaf
+## clumps, every third a little lighter) over a dark band of shade between them, each row a little lower, nearer and larger than the one
+## behind it so the rows overlap like a canopy falling away down a valley, in `colours` (one per row, cycling). Deterministic.
+static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
+	var rows := 6
+	var fill := (colours[0] as Color).darkened(0.35)
+	for r in rows:
+		var row_y := y - 1.0 - float(r * r) * 0.9 - float(r) * 2.6
+		var size := 1.8 + float(r) * 0.7
+		var rz := z + float(r) * 1.4
+		# The shade between the crowns: a band behind them, from just under their tops on down.
+		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill)
+		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), false)
+		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), false)
+		var x := -150.0 + float(r) * 1.3
+		var k := 0
+		while x <= 150.0:
+			var w := size * (0.7 + 0.6 * absf(sin(k * 2.3 + r)))
+			var h := w * (0.85 + 0.3 * absf(sin(k * 1.7 + r * 0.6)))
+			var jy := size * 0.45 * sin(k * 1.37 + r * 2.1)
+			var jz := 0.8 * sin(k * 3.1 + r)
+			_mesh(root, _sphere(1.0, 12), leaf_lit if (k + r) % 3 == 0 else leaf, Vector3(x, row_y + jy, rz + jz), Vector3(w, h, w * 0.7))
+			x += w * (1.0 + 0.4 * absf(sin(k * 0.71 + r * 1.3)))
+			k += 1
 
 
 ## Patchwork farmland painted down the face of the near band (`_fore_band`, at depth `z` with its top round `y`), as the low land below a
@@ -1317,6 +1343,7 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	root.add_child(farm)
 	_barn(farm, Vector3.ZERO)
 	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
+	merge_static(farm)
 	# Round bushes dotted along the top hedges.
 	var bush := _soft(hedge_colour.lightened(0.08))
 	for j in 14:
@@ -1697,6 +1724,8 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		elif on_top < 0.75:
 			var bush := Materials.foliage(Materials.greens(grass)[1], Vector2(2, 2), false)
 			_mesh(island, _sphere(1.0, 12), bush, Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.9, 0), Vector3(1.6, 1.1, 1.2) * size / 6.0)
+		# (Its still parts merged by material, as the root's are: an island is a couple of dozen small shapes.)
+		merge_static(island)
 
 
 ## The finer parts of a sky island `hw` across (in `island`'s space; its own numbers, from `k`, so the sky's layout is unchanged): a pale
@@ -1973,6 +2002,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42))
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
+	# Below it, the treetops of a forest falling away down the valley.
+	_canopy(root, -49.0, top - 12.5, [Color(0.3, 0.6, 0.42), Color(0.46, 0.76, 0.48), Color(0.26, 0.54, 0.42), Color(0.52, 0.8, 0.52)])
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := Materials.foliage(bush_greens[1])
@@ -2016,6 +2047,7 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_mesh(root, _sphere(1.0, 16), _soft(Color(0.98, 0.88, 0.62)), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
 		_mesh(root, _sphere(1.0, 16), _soft(Color(0.3, 0.62, 0.42)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
+		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
 	var lh := Vector3(52, float(e[3]) - 2.4, -80)
 	_place_prop(root, "lighthouse", lh, 2.3, -20.0)
@@ -2037,6 +2069,28 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)
 	_contact(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), Vector2(0.4, 0.35))
 	_contact(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), Vector2(0.45, 0.38))
+
+
+## The finer parts of a distant island at `isle` (its own numbers, from `k`, so the sea's layout is unchanged): a ring of white surf
+## where the beach meets the water, a second, smaller palm leaning the other way, grey rocks at one end with surf round them, and on one
+## island a little hut with a red roof among the greenery.
+static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 500 + k
+	var foam := _unshaded(Color(0.96, 0.99, 1.0))
+	_mesh(root, _cylinder(1.0, 1.0, 0.08, 28), foam, isle + Vector3(0, 0.15, 0), Vector3(17.5, 1.0, 7.0))
+	_mesh(root, _sphere(1.0, 12), _soft(Color(0.36, 0.68, 0.46)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
+	_palm(root, isle + Vector3(rng.randf_range(3.0, 6.0), 2.8, 2.6), 1.0, rng)
+	var rock := Materials.stone(Color(0.62, 0.6, 0.66))
+	var end := -1.0 if k % 2 == 0 else 1.0
+	for j in 3:
+		var r := rng.randf_range(1.0, 1.8)
+		_mesh(root, _sphere(1.0, 8), rock, isle + Vector3(end * (12.0 + j * 1.8), 0.4, 2.0 - j), Vector3(r * 1.2, r, r), Vector3(0, rng.randf_range(0, 90), 0))
+		_mesh(root, _cylinder(1.0, 1.0, 0.06, 14), foam, isle + Vector3(end * (12.0 + j * 1.8), 0.12, 2.0 - j), Vector3(r * 1.6, 1.0, r * 1.3))
+	if k == 1:
+		var hut := isle + Vector3(-1.5, 3.2, 2.2)
+		_mesh(root, _box(Vector3(2.4, 1.6, 1.8)), FighterView.toon(Color(0.96, 0.92, 0.84)), hut + Vector3(0, 0.8, 0))
+		_mesh(root, _cylinder(0.0, 2.0, 1.2, 4), FighterView.toon(Color(0.86, 0.36, 0.3)), hut + Vector3(0, 2.2, 0), Vector3.ONE, Vector3(0, 45, 0))
 
 
 ## A hut on stilts over the sea (`at` on the water under its middle): posts down into the water, a plank deck, walls of weathered boards

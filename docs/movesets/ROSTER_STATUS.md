@@ -364,6 +364,15 @@ These override anything above that disagrees.
 35. **Greatsword down tilt**: the 12-unit slide stays [E] and the back-leg intangibility stays a listed limit.
 36. **Get-up attacks**: no second get-up slot for now (one get-up attack per weapon, as today).
 (Also, phase 2 default: until phase 3 builds the powered versions, a Greatsword special used on a full gauge keeps the gauge: nothing spends without a `limit_version`.)
+37. **Donkey Kong names**: class/weapon **Bracers**, body and built-in fighter **Hauler**.
+38. **Bury (E5) and cargo carry (E7)**: both approved as designed in docs/movesets/donkey_kong/PROJECT_AUDIT.md, built general. The bury
+    includes the reference's stock-difference terms.
+39. **Trips (E20)**: build them (deterministic, from the sim's RNG); also the Longsword's down tilt and the Sprinter's forward-air late hit.
+40. **No-rebound hits (E3g)**: build `Hitbox::rebounds` for the moves that clank without rebounding.
+41. **Defaults for the other Donkey Kong questions**: phases as the audit suggests (normals; specials with E5 and E29; carry with E7);
+    Spinning Kong's windbox immunity is modelled; the aerial spin's "gravity 0.07" is read as the gravity itself [E]; conflicts (cargo
+    armor 16 vs 80, carry walk) resolved by the porter with the reasoning recorded; E28 for the spin's first hit once Cloud phase 3 builds
+    it (367 until then, labelled).
 
 ## Still open
 
