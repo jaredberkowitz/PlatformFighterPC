@@ -124,6 +124,16 @@ func _initialize() -> void:
 		if f == 20 or f == 119:
 			head_at.append(sword_guard.skeleton.get_bone_pose_rotation(sword_guard.head_bone))
 	check((head_at[0] as Quaternion).angle_to(head_at[1]) < deg_to_rad(8.0), "the head holds still behind a long shield")
+	# A wall jump (the sim's wall-jump count goes up in the air) is a back flip; landing ends it.
+	var wj := snap(1, "Airborne", "", 4000, 3)
+	wj.platform = -1
+	wj.wall_jumps = 0
+	view.apply(Vector3(0, 3, 0), wj, 1.0 / 60.0)
+	wj.frame = 4001
+	wj.wall_jumps = 1
+	wj.vel = Vector2(-0.2, 0.4)
+	view.apply(Vector3(0, 3, 0), wj, 1.0 / 60.0)
+	check(view.flip_left > 0.0 and view.flip_back, "a wall jump starts a back flip")
 	# The sword's moves have authored arcs and draw no smear.
 	var sword := FighterView.new()
 	root.add_child(sword)

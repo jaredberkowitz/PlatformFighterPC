@@ -1751,6 +1751,9 @@ const FLIP_TIME := 0.38
 var flip_left := 0.0
 var flip_offset := Vector3.ZERO
 var prev_jumps := -1
+## A wall jump flips the other way (backward, off the wall); the count of wall jumps seen last frame.
+var flip_back := false
+var prev_wall_jumps := -1
 ## The attack lunge: the body is thrown forward through the strike and drawn back in the wind-up (model space, along the facing).
 var lunge := 0.0
 var lunge_vel := 0.0
@@ -1919,14 +1922,23 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# A ledge jump flips too.
 	if state == "LedgeJump" and last_state != "LedgeJump":
 		flip_left = FLIP_TIME
+	# Kicking off a wall (the sim counts wall jumps; a wall-tech jump leaves the tech going up): a back flip away from the wall.
+	var wall_jumps := int(s.get("wall_jumps", 0))
+	var kicked_off: bool = (wall_jumps > prev_wall_jumps and prev_wall_jumps >= 0) or (last_state == "WallTech" and state == "Airborne" and vy > 0.0)
+	if kicked_off:
+		flip_left = FLIP_TIME
+		flip_back = true
+	prev_wall_jumps = wall_jumps
 	prev_jumps = jumps
 	if grounded or not (state == "Airborne" or state == "LedgeJump"):
 		flip_left = 0.0
+	if flip_left <= 0.0:
+		flip_back = false
 	flip_left = maxf(0.0, flip_left - delta)
 	var flip := 0.0
 	if flip_left > 0.0:
 		var k := 1.0 - flip_left / FLIP_TIME
-		flip = TAU * k * k * (3.0 - 2.0 * k)
+		flip = TAU * k * k * (3.0 - 2.0 * k) * (-1.0 if flip_back else 1.0)
 	# The ledge: a swing on the arms when it is caught, a forward roll for a ledge roll (the clip curls the body up).
 	var pivot := Vector3(0, 1.1, 0)
 	if ledge_swing_t >= 0.0 and state == "LedgeHang":
