@@ -88,7 +88,10 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 * **Top-fidelity priorities**:
   * **Limit gauge and Limit Break**: gain rates from damage dealt and taken and from charging, the full-gauge stat multipliers, the 15-second
     expiry, emptying on use, being hit while charging. Needs **E9** (persistent gauge with gain hooks, a timed mode, runtime stat
-    multipliers). Open question: whether Limit is kept across stocks in Ultimate (the sources read do not say; research before building).
+    multipliers). **On stock loss the gauge and any Limit Break reset to empty** (owner decision 9, below). Evidence: the earlier
+    game's Limit Break ended on a KO, and ssbwiki.com/Limit_Break says the 13.0.1 game *also* (in addition) added the 15-second expiry; a
+    player guide (gameshedge.com Cloud guide) says the gauge resets on a KO. No source gives it as a table value, so it is the owner's
+    call backed by these sources [R, owner]. Confirm in footage if a recording is available.
   * **Cross Slash**: per-hit continuation only on hit, input windows, damages, the Limit auto-sequence. Exists (Dancing Blade pattern,
     `hit` register), but the move count needs **E17**.
   * **Climhazzard**: rise height and drift, the second press, the descending meteor's sweetspot only after a fall distance, ledge windows,
@@ -261,7 +264,8 @@ These override anything above that disagrees.
    Claws special should be made as close to 1:1 with its reference as the engine allows (re-research the [E] values, then match them).
 7. **Up specials and E11**: when E11 lands, re-fit both the Claws' and the Longsword's up specials to their reference numbers.
 8. **Naming cleanup**: reference character names in code and test names are being removed as a separate change.
+9. **Cloud's Limit on stock loss**: the gauge (any partial charge too) and an active Limit Break reset to empty when he loses a stock.
 
 ## Still open
 
-1. Whether Cloud's Limit gauge carries across stocks in the reference: research before Cloud.
+Nothing at the moment.
