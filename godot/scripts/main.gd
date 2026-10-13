@@ -1116,7 +1116,17 @@ func _update_hud(delta: float) -> void:
 	var in_match := []
 	var classes := []
 	var looks := []
+	# The Boost gauge where a fighter has one (the Champion): [fill 0..1, the powered mode running, its time left 0..1], or [] for
+	# none. (Read only when the bridge has it.)
+	var gauges := []
+	var has_gauge: bool = sim.has_method("fighter_gauge_max")
 	for i in PLAYERS:
+		var g := []
+		if has_gauge:
+			var top := float(sim.fighter_gauge_max(i))
+			if top > 0.0:
+				g = [clampf(float(sim.fighter_gauge(i)) / top, 0.0, 1.0), bool(sim.fighter_gauge_full(i)), clampf(float(sim.fighter_gauge_frames(i)) / 900.0, 0.0, 1.0)]
+		gauges.append(g)
 		classes.append(int(snaps[i].get("class", snaps[i].get("char", 0))))
 		looks.append(views[i].loadout if i < views.size() else null)
 		percent.append(snaps[i].get("percent", 0.0))
@@ -1126,7 +1136,7 @@ func _update_hud(delta: float) -> void:
 	hud.show_state({
 		"names": names.slice(0, PLAYERS), "percent": percent, "stocks": stocks, "alive": alive, "in_match": in_match,
 		"unlimited": rules[0] == 0, "clock": clock, "urgent": urgent, "banner": banner, "banner_alpha": alpha,
-		"counting_down": rules[1] > 0, "classes": classes, "looks": looks,
+		"counting_down": rules[1] > 0, "classes": classes, "looks": looks, "gauges": gauges,
 		"status": _net_status_text(),
 		"offscreen": _offscreen_markers(),
 	})

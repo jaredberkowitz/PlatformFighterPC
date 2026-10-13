@@ -984,3 +984,8 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   that steps up in two crisp bands to a dark line at the edge, a white highlight crescent on the upper left and a thin bounce of light on
   the lower right (from the world-space normal: the camera looks down the stage's depth). Its tint still follows its health, now a deeper
   blue when full (`0.24, 0.56, 1.0`) through to red. `shield_before.png` / `shield_painted.png`.
+- **The Boost meter** (`match_hud.gd` `_boost`, for a fighter with a gauge: the Champion): a slanted, ink-outlined bar above the card in
+  four notches, filling in amber with a lit top edge; while the powered mode runs it glows gold and white, pulsing, drains with the
+  time left, and reads "BOOST!". The match reads it from the bridge's `fighter_gauge`, `fighter_gauge_max`, `fighter_gauge_full` and
+  `fighter_gauge_frames` when they exist (`main.gd`, "gauges"), and draws nothing for a fighter without one. `hud_boost_meter.png`
+  (left: filling; right: powered).
