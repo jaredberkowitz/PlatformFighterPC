@@ -272,6 +272,12 @@ These override anything above that disagrees.
 7. **Up specials and E11**: when E11 lands, re-fit both the Claws' and the Longsword's up specials to their reference numbers.
 8. **Naming cleanup**: reference character names in code and test names are being removed as a separate change.
 9. **Cloud's Limit on stock loss**: the gauge (any partial charge too) and an active Limit Break reset to empty when he loses a stock.
+10. **Captain Falcon names**: class **Gauntlets**, body and built-in fighter **Sprinter**.
+11. **Move slots (E17)**: add 16 `ext` slots now, with Falcon (a schema change with a migration); Cloud and DK reuse it.
+12. **Root-motion distances** (Falcon Dive rise, Raptor Boost dash, Falcon Kick slide, Super Jump Punch rise and the like): fit them to
+    published recovery-distance or height figures, labelled [D]/[E] with the source. No footage for now.
+13. **Per-limb intangibility (E19)**: build it with Falcon (his up tilt and up smash legs); DK, Yoshi and the Needles' up smash reuse it.
+14. **Armor (E1)**: build the damage-threshold kind with Falcon, with the `kind` field in place for the later kinds (DK, Yoshi).
 
 ## Still open
 
