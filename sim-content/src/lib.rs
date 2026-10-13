@@ -468,6 +468,11 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             if hb.group > 7 {
                 errors.push(format!("weapon {i} {name}: hitbox group must be 0 to 7"));
             }
+            if hb.trip > 100 {
+                errors.push(format!(
+                    "weapon {i} {name}: a hitbox's trip chance is a percent (0 to 100)"
+                ));
+            }
         }
         for hb in &mv.hitboxes {
             let first = if landing_moves.contains(&(m as u8)) {

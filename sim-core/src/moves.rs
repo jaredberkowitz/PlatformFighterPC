@@ -338,6 +338,12 @@ pub struct Hitbox {
     /// The hit can clank with other attacks and projectiles (the reference's `clang`). False: it never clanks (the reference's
     /// no-clank hits, and a projectile's transcendent priority): it trades instead.
     pub clanks: bool,
+    /// When this hit clanks, its owner rebounds out of the move as usual (the reference's `rebound`). False: the hit is cancelled by
+    /// the clank but its owner carries on with the move (the reference's "cannot rebound": `rebound=f` without `clang=f`).
+    pub rebounds: bool,
+    /// Percent chance (0 to 100) that the hit trips a fighter on the ground instead of launching it, when its launch would not lift
+    /// it off the ground (the reference's `trip`). Rolled on the game's own random generator, so it is the same on every machine.
+    pub trip: u8,
     /// Half the height of the box: above 0 it is a standing capsule from `y - half_height` to `y + half_height` (a tall wall of a
     /// projectile, the reference's stacked circles) instead of a circle. Scaled like the radius.
     pub half_height: Fx,
@@ -387,6 +393,8 @@ impl Hitbox {
         self.angle_type = ANGLE_BY_BOX;
         self.command = false;
         self.clanks = true;
+        self.rebounds = true;
+        self.trip = 0;
         self.half_height = Fx::ZERO;
         self
     }
@@ -955,6 +963,8 @@ impl StateHash for Hitbox {
         h.write_u8(self.angle_type);
         h.write_bool(self.command);
         h.write_bool(self.clanks);
+        h.write_bool(self.rebounds);
+        h.write_u8(self.trip);
         self.half_height.hash_into(h);
     }
 }
@@ -1280,6 +1290,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 angle_type: ANGLE_BY_BOX,
                 command: false,
                 clanks: true,
+                rebounds: true,
+                trip: 0,
                 half_height: Fx::ZERO,
             })
             .collect(),
@@ -1334,6 +1346,8 @@ fn row(r: &R) -> Hitbox {
         angle_type: ANGLE_BY_BOX,
         command: false,
         clanks: true,
+        rebounds: true,
+        trip: 0,
         half_height: Fx::ZERO,
     }
 }
@@ -1427,6 +1441,11 @@ pub fn longsword() -> Weapon {
     );
     w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
     tipper_last(&mut w);
+    // The down tilt's 35% trip chance (ssbwiki.com raw table, 13.0.1; E20, sim 86). At its 30-degree angle it lifts a grounded
+    // target, so it can only trip on a slope (as the reference says): never on the flat stages here.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 35;
+    }
     // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
     // centre or behind it, the only ones where the type can change where a hit sends: by position (type 0) for the up tilt, up and
     // down smash, neutral, up and down air and the get-up attack; forward (3) for the forward smash and forward air. The back air
@@ -3744,6 +3763,8 @@ pub fn claws() -> Weapon {
             angle_type: ANGLE_BY_BOX,
             command: false,
             clanks: true,
+            rebounds: true,
+            trip: 0,
             half_height: Fx::ZERO,
         },
         end_damage: Fx::from_int(6),
@@ -3880,6 +3901,11 @@ pub fn claws() -> Weapon {
         ],
     );
     usmash.charge_at = Some(2);
+    // Every box clanks but cannot rebound (the reference's `rebound=f` without `clang=f`, ssbwiki.com raw table; E3g, sim 86): a clank
+    // stops its hit for that frame and the smash carries on.
+    for h in &mut usmash.hitboxes {
+        h.rebounds = false;
+    }
     w.moves[MoveId::USmash as usize] = usmash;
     // Down smash: a front hit on frames 14-15 (16% at the claw, 14% closer in, angle 30-35) and a back hit on frames
     // 21-22 (14% / 12%), FAF 44. Charges on frame 2.
@@ -4063,6 +4089,10 @@ pub mod greatsword_slots {
     };
 }
 
+#[path = "moves_bracers.rs"]
+mod bracers;
+pub use bracers::bracers;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4076,6 +4106,7 @@ mod tests {
             embers(),
             gauntlets(),
             greatsword(),
+            bracers(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {

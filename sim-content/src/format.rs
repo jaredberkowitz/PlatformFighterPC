@@ -499,6 +499,9 @@ rules_io! {
     ground_bounce_speed: Fx,
     respawn_height: Fx,
     respawn_platform_frames: u8,
+    trip_lag: u8,
+    trip_max: u8,
+    trip_invuln: u8,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -616,6 +619,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         angle_type,
         command: f.or("command", false, errors),
         clanks: f.or("clanks", true, errors),
+        rebounds: f.or("rebounds", true, errors),
+        trip: f.or("trip", 0, errors),
         half_height: f.or("half_height", Fx::ZERO, errors),
     };
     f.finish(errors);
@@ -685,6 +690,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if !hb.clanks {
         b.field("clanks", "false");
+    }
+    if !hb.rebounds {
+        b.field("rebounds", "false");
+    }
+    if hb.trip != 0 {
+        b.field("trip", hb.trip.to_string());
     }
     if hb.command {
         b.field("command", "true");
@@ -978,6 +989,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     angle_type: ANGLE_BY_BOX,
                     command: false,
                     clanks: true,
+                    rebounds: true,
+                    trip: 0,
                     half_height: Fx::ZERO,
                 }
             }

@@ -1165,6 +1165,81 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A huge super-heavyweight with long arms: the "hauler" body of the Bracers moveset. The reference character's attributes
+    /// (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the eighth moveset's `REFERENCE_DATA.md` in
+    /// `docs/movesets/`): weight 127, walk 1.365, initial dash 2.09, run 1.873, traction 0.123, air speed 1.208, air acceleration
+    /// 0.01 + 0.05, air friction 0.015, gravity 0.085, fall 1.63 (fast 2.608), full hop 34, short hop 17.3, double jump 35.5, ledge jump
+    /// 37 (drift 0.6, the shared value). On the ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.07337, an initial
+    /// dash of 15 frames, a heavy landing of 4 (3 of lag: the parameter file's `landing_heavy_frame`). Air dodges 48 (neutral,
+    /// intangible 4-32) and 66 / 82 / 109 (directional, intangible 4-22); rolls 30 forward (intangible 4-15) and 35 back, spot dodge 26
+    /// (3-17); the ledge options' intangibility cut to 80% and 48% on the second and third grab. No wall jump (the parameter file); the
+    /// wall-tech jump 1.3 away, 2.7 up. A bigger body than the shared one [E: the reference's "one of the largest hurtboxes", fitted to
+    /// the heights and reaches of its attacks].
+    pub fn hauler() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let r = Fx::from_ratio;
+        let gravity = su(85);
+        let (burst, arc) = Self::full_hop(gravity, su(34000));
+        FighterParams {
+            walk_speed: gu(1365),
+            run_speed: gu(1873),
+            dash_speed: gu(2090),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(105),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(7337),
+            dash_frames: 15,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 8,
+            heavy_landing_lag: 3,
+            air_speed: su(1208),
+            air_accel: su(10),
+            air_accel_stick: su(50),
+            air_friction: su(15),
+            gravity,
+            max_fall_speed: su(1630),
+            fast_fall_speed: su(2608),
+            air_dodge_frames: 48,
+            air_dodge_dir_down_frames: 66,
+            air_dodge_dir_side_frames: 82,
+            air_dodge_dir_up_frames: 109,
+            air_dodge_intangible_start: 4,
+            air_dodge_intangible_end: 32,
+            air_dodge_dir_intangible_end: 22,
+            // Traction 0.123 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(246),
+            dash_attack_friction: gu(123),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(17300)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(35500)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(37000)),
+            weight: Fx::from_int(127),
+            weapon: 7,
+            // Dodges (the reference's): a forward roll of 30 frames, a backward one of 35, intangible 4-15 (the back roll's 5-16 is
+            // not separate here [D]); a spot dodge of 26, intangible 3-17 (the shared windows).
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            ledge_option_decay_3: 48,
+            // No wall jump; the reference's wall-tech jump (the parameter file): 1.3 away, 2.7 up.
+            wall_jump: 0,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2700),
+            // Bigger than the shared body: its up smash reaches 28 reference units up and its forward smash 24 ahead [E].
+            ecb_half_width: Fx::ONE,
+            ecb_height: r(14, 5),
+            ecb_side_height: r(7, 5),
+            // (It hangs a little further out from the wall, as its body is wider [E].)
+            ledge_hang_dx: r(11, 10),
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1459,6 +1534,12 @@ pub struct Ruleset {
     /// A knocked-out fighter comes back this far above its spawn point, standing on a revival platform for up to `respawn_platform_frames` frames (or until it moves), invincible.
     pub respawn_height: Fx,
     pub respawn_platform_frames: u8,
+    /// A trip (a hit's `Hitbox::trip` chance coming up, sim 86): the fighter sits on the ground, intangible for its first
+    /// `trip_invuln` frames, can choose a get-up (stand, roll or the get-up attack) from frame `trip_lag`, and stands up by itself
+    /// on frame `trip_max` (the reference's "hard trip": options from frame 40, a neutral get-up on frame 100, 5 intangible frames).
+    pub trip_lag: u8,
+    pub trip_max: u8,
+    pub trip_invuln: u8,
 }
 
 impl Ruleset {
@@ -1560,6 +1641,9 @@ impl Ruleset {
             ground_bounce_speed: Fx::from_ratio(1, 4),
             respawn_height: Fx::from_int(7),
             respawn_platform_frames: 150,
+            trip_lag: 40,
+            trip_max: 100,
+            trip_invuln: 5,
         }
     }
 }
@@ -1662,6 +1746,9 @@ impl StateHash for Ruleset {
         self.ground_bounce_speed.hash_into(h);
         self.respawn_height.hash_into(h);
         h.write_u8(self.respawn_platform_frames);
+        h.write_u8(self.trip_lag);
+        h.write_u8(self.trip_max);
+        h.write_u8(self.trip_invuln);
     }
 }
 
@@ -1724,7 +1811,7 @@ impl Content {
     }
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
-    /// tall caster and a champion with a greatsword) on a main stage with platforms.
+    /// tall caster, a champion with a greatsword and a huge hauler with bracers) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1735,6 +1822,7 @@ impl Content {
                 FighterParams::sprinter(),
                 FighterParams::seer(),
                 FighterParams::champion(),
+                FighterParams::hauler(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -1744,6 +1832,7 @@ impl Content {
                 crate::moves::gauntlets(),
                 crate::moves::staff(),
                 crate::moves::greatsword(),
+                crate::moves::bracers(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1757,6 +1846,7 @@ impl Content {
                     "sprinter".to_string(),
                     "seer".to_string(),
                     "champion".to_string(),
+                    "hauler".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -1766,6 +1856,7 @@ impl Content {
                     "gauntlets".to_string(),
                     "staff".to_string(),
                     "greatsword".to_string(),
+                    "bracers".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

@@ -241,7 +241,7 @@ fn a_spec_that_is_wrong_is_refused_by_both_sides() {
             fine.encode(),
             vec![1, 0, 10, 5, 5, 5],
         ),
-        ("an unknown class", fine.encode(), vec![1, 7, 5, 5, 5, 5]),
+        ("an unknown class", fine.encode(), vec![1, 8, 5, 5, 5, 5]),
         ("an unknown built-in fighter", fine.encode(), vec![0, 77]),
         ("the host's is garbage", vec![1, 2, 3], fine.encode()),
         ("only the host brings one", fine.encode(), vec![]),

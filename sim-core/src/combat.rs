@@ -551,14 +551,15 @@ fn clanks(f: &Fighter) -> bool {
     f.state == S::Attack && f.grounded() && f.hitlag == 0
 }
 
-/// The strongest damaging hitbox of `a` that touches one of `b`'s, and `b`'s strongest that touches one of `a`'s, if any do.
-fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx)> {
+/// Where two attacks meet: the strongest damaging hitbox of `a` that touches one of `b`'s, and `b`'s strongest that touches one of
+/// `a`'s, and whether each side has a box among them that rebounds (`Hitbox::rebounds`), if any touch.
+fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx, bool, bool)> {
     let (pa, pb) = (params_of(content, a), params_of(content, b));
     let (ma, mb) = (
         weapon_of(content, pa).get(a.move_id),
         weapon_of(content, pb).get(b.move_id),
     );
-    let mut best: Option<(Fx, Fx)> = None;
+    let mut best: Option<(Fx, Fx, bool, bool)> = None;
     for (_, ha, ca) in active_hitboxes(a, ma, pa.hitbox_scale) {
         if ha.kind != HIT_NORMAL || !ha.clanks {
             continue;
@@ -567,8 +568,13 @@ fn clash(content: &Content, a: &Fighter, b: &Fighter) -> Option<(Fx, Fx)> {
             if hb.kind != HIT_NORMAL || !hb.clanks || !overlaps(ca, ha.radius, cb, hb.radius) {
                 continue;
             }
-            let (da, db) = best.unwrap_or((Fx::ZERO, Fx::ZERO));
-            best = Some((da.max(ha.damage), db.max(hb.damage)));
+            let (da, db, ra, rb) = best.unwrap_or((Fx::ZERO, Fx::ZERO, false, false));
+            best = Some((
+                da.max(ha.damage),
+                db.max(hb.damage),
+                ra || ha.rebounds,
+                rb || hb.rebounds,
+            ));
         }
     }
     best
@@ -607,7 +613,7 @@ fn clank_attacks(
             if !fa.active || !fb.active || !clanks(&fa) || !clanks(&fb) {
                 continue;
             }
-            let Some((da, db)) = clash(content, &fa, &fb) else {
+            let Some((da, db, rebound_a, rebound_b)) = clash(content, &fa, &fb) else {
                 continue;
             };
             chosen[a][b] = None;
@@ -616,10 +622,11 @@ fn clank_attacks(
             let lag = rebound_frames(stronger, rules);
             let freeze = hitlag_frames(stronger, rules, false, false, Fx::ONE);
             let both = (da - db).abs() <= rules.clank_range;
-            if both || da < db {
+            // (A side whose clanking hits all cannot rebound is only stopped from hitting this frame: it carries on with its move.)
+            if (both || da < db) && rebound_a {
                 start_rebound(&mut state.fighters[a], lag, freeze);
             }
-            if both || db < da {
+            if (both || db < da) && rebound_b {
                 start_rebound(&mut state.fighters[b], lag, freeze);
             }
         }
@@ -650,9 +657,11 @@ fn clank_projectile(
         let p = params_of(content, &f);
         let mv = weapon_of(content, p).get(f.move_id);
         let mut touching: Option<Fx> = None;
+        let mut rebounds = false;
         for (_, hb, c) in active_hitboxes(&f, mv, p.hitbox_scale) {
             if hb.kind == HIT_NORMAL && hb.clanks && overlaps(c, hb.radius, pos, radius) {
                 touching = Some(touching.map_or(hb.damage, |d: Fx| d.max(hb.damage)));
+                rebounds |= hb.rebounds;
             }
         }
         let Some(attack) = touching else {
@@ -667,6 +676,10 @@ fn clank_projectile(
         }
         if attack - damage > rules.clank_range {
             return true;
+        }
+        if !rebounds {
+            // An attack that cannot rebound is not knocked out of its move by the projectile (the reference's `rebound=f`).
+            return !projectile_wins;
         }
         start_rebound(
             &mut state.fighters[i],
@@ -954,6 +967,25 @@ fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
+    // A trip (the reference's trip chance, sim 86): a fighter on the ground whose launch would not lift it off the ground (sent
+    // sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of being launched, if the game's
+    // own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use up the generator.
+    if hb.trip > 0
+        && def.grounded()
+        && !matches!(def.state, S::Knockdown | S::GetUp)
+        && crate::trig::sin(angle) <= Fx::ZERO
+        && state.rng.range(100) < u32::from(hb.trip)
+    {
+        fighter::trip(def, rules);
+        def.hitlag = if crouching {
+            hitlag.min(rules.crouch_cancel_hitlag_cap)
+        } else {
+            hitlag
+        };
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
+        return;
+    }
     let mut stun = hitstun_frames(kb, rules.hitstun_mult);
     if stun > 0 {
         // (A negative modifier shortens it, but a launched victim keeps at least one frame [E: the reference floors it at 0 and
@@ -997,6 +1029,7 @@ fn apply_hit(
     }
     def.state = S::Hitstun;
     def.state_frame = 0;
+    def.tripped = false;
     // Being hit gives back the air dodge and a fresh set of ledge grabs, and ends a short hop.
     def.air_dodge_used = false;
     def.ledge_grab_count = 0;

@@ -248,6 +248,9 @@ pub struct Fighter {
     /// The current attack's target lock (`lock` in a move script): where the target's chest was when it was found, and whether one was.
     pub lock: Vec2,
     pub locked: bool,
+    /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 86), with the ruleset's trip
+    /// timings instead of a missed tech's.
+    pub tripped: bool,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -464,6 +467,7 @@ impl Fighter {
             special_flick: false,
             lock: Vec2::ZERO,
             locked: false,
+            tripped: false,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -623,6 +627,7 @@ impl StateHash for Fighter {
         h.write_bool(self.special_flick);
         self.lock.hash_into(h);
         h.write_bool(self.locked);
+        h.write_bool(self.tripped);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
         self.spawn_pos.hash_into(h);
@@ -1157,6 +1162,11 @@ mod tests {
             ("special_flick", {
                 let mut s = state;
                 s.fighters[2].special_flick = true;
+                s
+            }),
+            ("tripped", {
+                let mut s = state;
+                s.fighters[1].tripped = true;
                 s
             }),
             ("projectile_hit_mask", {
