@@ -2007,6 +2007,41 @@ mod tests {
         c.fighters[0].crouch_height += Fx::from_raw(1);
         assert_ne!(h, c.hash());
 
+        // The air jump's armor and turnaround (E33), every field of the armor.
+        let mut c = base.clone();
+        c.fighters[0].air_jump_turns = true;
+        assert_ne!(h, c.hash());
+        let armor = FighterParams::bounder_air_jump_armor();
+        let mut with = base.clone();
+        with.fighters[0].air_jump_armor = Some(armor);
+        assert_ne!(h, with.hash());
+        let hw = with.hash();
+        for change in [
+            |a: &mut crate::moves::Armor| a.start += 1,
+            |a: &mut crate::moves::Armor| a.end += 1,
+            |a: &mut crate::moves::Armor| a.kind = crate::moves::ARMOR_SUPER,
+            |a: &mut crate::moves::Armor| a.threshold += Fx::from_raw(1),
+            |a: &mut crate::moves::Armor| a.subtract = false,
+            |a: &mut crate::moves::Armor| a.min_kb += Fx::from_raw(1),
+        ] {
+            let mut c = with.clone();
+            let mut a = armor;
+            change(&mut a);
+            c.fighters[0].air_jump_armor = Some(a);
+            assert_ne!(hw, c.hash());
+        }
+        // A move armor's new fields too.
+        let mut c = with.clone();
+        let gauntlet_armor = c.weapons[4]
+            .moves
+            .iter()
+            .position(|m| m.armor.is_some())
+            .expect("a move with armor");
+        if let Some(a) = c.weapons[4].moves[gauntlet_armor].armor.as_mut() {
+            a.min_kb += Fx::from_raw(1);
+        }
+        assert_ne!(hw, c.hash());
+
         for change in [
             |r: &mut Ruleset| r.lsi_up += Fx::from_raw(1),
             |r: &mut Ruleset| r.lsi_down += Fx::from_raw(1),

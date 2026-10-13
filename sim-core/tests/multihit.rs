@@ -620,6 +620,55 @@ fn damage_armor_withstands_hits_up_to_its_threshold_and_super_armor_every_hit() 
     assert_eq!(armored(sup, 0, HIT_GRAB).fighter(1).state, S::Grabbed);
 }
 
+#[test]
+fn knockback_armor_withstands_up_to_its_threshold_and_a_subtractive_one_takes_it_off() {
+    use sim_core::moves::{Armor, ARMOR_KNOCKBACK, HIT_GRAB};
+    let kind = |threshold: Fx, subtract: bool, min_kb: Fx| {
+        Some(Armor {
+            start: 0,
+            end: 30,
+            kind: ARMOR_KNOCKBACK,
+            threshold,
+            subtract,
+            min_kb,
+        })
+    };
+    // The hit's knockback without armor.
+    let plain = armored(None, 12, HIT_NORMAL);
+    assert!(plain.fighter(1).launch_pending);
+    let k = plain.fighter(1).launch_kb;
+    assert!(k > Fx::from_int(20));
+    // At most the threshold: damage and hitlag only, the move goes on.
+    let held = armored(kind(k, false, Fx::ZERO), 12, HIT_NORMAL);
+    let f = held.fighter(1);
+    assert_eq!((f.state, f.move_id), (S::Attack, MoveId::NSpecial as u8));
+    assert_eq!(f.percent, plain.fighter(1).percent);
+    assert!(f.hitlag > 0 && !f.launch_pending);
+    // Above it, not subtractive: the whole knockback.
+    let t = k - Fx::from_int(10);
+    let broken = armored(kind(t, false, Fx::ZERO), 12, HIT_NORMAL);
+    assert_eq!(broken.fighter(1).state, S::Hitstun);
+    assert_eq!(broken.fighter(1).launch_kb, k);
+    // Subtractive: the knockback less the threshold, and at least the minimum.
+    let sub = armored(kind(t, true, Fx::ZERO), 12, HIT_NORMAL);
+    assert_eq!(sub.fighter(1).launch_kb, Fx::from_int(10));
+    let floor = armored(kind(t, true, Fx::from_int(15)), 12, HIT_NORMAL);
+    assert_eq!(floor.fighter(1).launch_kb, Fx::from_int(15));
+    // Outside its window it does nothing.
+    let mut late = kind(t, true, Fx::ZERO);
+    if let Some(a) = late.as_mut() {
+        a.start = 10;
+    }
+    assert_eq!(armored(late, 12, HIT_NORMAL).fighter(1).launch_kb, k);
+    // A grab ignores it.
+    assert_eq!(
+        armored(kind(Fx::from_int(500), true, Fx::ZERO), 0, HIT_GRAB)
+            .fighter(1)
+            .state,
+        S::Grabbed
+    );
+}
+
 // ---- Search boxes (E21) ----------------------------------------------------------------------------------------------------------
 
 #[test]
