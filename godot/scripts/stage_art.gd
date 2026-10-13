@@ -16,6 +16,7 @@ const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
 const FOLIAGE_SHADER := preload("res://shaders/toon_foliage.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
 const Toonify := preload("res://scripts/toonify.gd")
+const Particles := preload("res://scripts/particles.gd")
 
 ## The look of one theme: sky colours (top, horizon), block colours and pattern (`diamonds`, `strata`, `cobble` or `facade`), what tops a
 ## block (`grass`, `sand` or `roof`), and the platforms (`wood` planks or steel `girder`s) and their colours.
@@ -1119,13 +1120,93 @@ static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> v
 		flock.build(rng.randi_range(3, 5), colour, rng)
 
 
+## Rolling hills in two rows (a nearer one at z -72 and a farther one at -100), each one continuous piece of land: round hilltops (each
+## the top of an ellipse, as wide as `w` and as tall as `h`, over a base at y -22) melted together where they meet, over a lower valley
+## floor between them, and the land running on down out of sight below, so however far the camera pulls back the hills are ground, not
+## shapes hanging in the sky. `hill_top` gives a row's height at any x (to stand things on it).
 static func _hills(root: Node3D, rng: RandomNumberGenerator, near: Color, far: Color) -> void:
+	_hill_bumps = [[], []]
 	for k in 8:
 		var is_far := k % 2 == 1
 		var w := rng.randf_range(26.0, 44.0)
-		_mesh(root, _sphere(1.0, 24), _soft(far if is_far else near),
-			Vector3(-105.0 + k * 30.0 + rng.randf_range(-8, 8), -22.0, -100.0 if is_far else -72.0),
-			Vector3(w, rng.randf_range(10.0, 18.0), 6.0))
+		var x := -105.0 + k * 30.0 + rng.randf_range(-8, 8)
+		var h := rng.randf_range(10.0, 18.0)
+		(_hill_bumps[1 if is_far else 0] as Array).append([x, w, h, -22.0])
+	_land_band(root, _hill_bumps[1], -17.0, -100.0, far)
+	_land_band(root, _hill_bumps[0], -17.0, -72.0, near)
+
+
+## The bumps of the two rows of hills ([centre x, half width, height, base y]; near row first), set by `_hills`.
+static var _hill_bumps: Array = [[], []]
+
+
+## The height of the land in hill row `row` (0 near, 1 far) at `x`.
+static func hill_top(x: float, row := 0) -> float:
+	return _land_top(_hill_bumps[row], -17.0, x)
+
+
+## The top of a band of land with `bumps` ([centre x, half width, height, base y]: an elliptical hilltop each) over a floor at `floor_y`,
+## each bump blended into the floor and its neighbours with a smooth maximum (so the valleys are rounded, not creased).
+static func _land_top(bumps: Array, floor_y: float, x: float) -> float:
+	var y := floor_y
+	for b in bumps:
+		var dx := (x - float(b[0])) / float(b[1])
+		if absf(dx) < 1.0:
+			var top := float(b[3]) + float(b[2]) * sqrt(1.0 - dx * dx)
+			var k := 3.0
+			var m := clampf(0.5 + 0.5 * (top - y) / k, 0.0, 1.0)
+			y = lerpf(y, top, m) + k * m * (1.0 - m)
+	return y
+
+
+## A band of land facing the camera at depth `z`: its top follows `_land_top` across x from -240 to 240, and it runs down 180 units below
+## that, so it is ground all the way out of view. Its normals tip up toward the top edge (lit like the round of a hill) and face the camera
+## further down, where the haze takes it; one mesh, toon-shaded in `colour`.
+static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var drops := [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]
+	var cols: Array = []
+	var x := -240.0
+	while x <= 240.0:
+		var top := _land_top(bumps, floor_y, x)
+		var slope := (_land_top(bumps, floor_y, x + 0.5) - _land_top(bumps, floor_y, x - 0.5))
+		var crest := Vector3(-slope, 1.0, 0.0).normalized()
+		var col: Array = []
+		for d in drops:
+			var w := exp(-float(d) / 3.5)
+			var n := (crest * w + Vector3(0.0, 0.2, 1.0).normalized() * (1.0 - w)).normalized()
+			col.append([Vector3(x, top - float(d), z), n])
+		cols.append(col)
+		x += 2.0
+	for i in cols.size() - 1:
+		for j in drops.size() - 1:
+			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
+				var v: Array = cols[c[0]][c[1]]
+				st.set_normal(v[1])
+				st.add_vertex(v[0])
+	_mesh(root, st.commit(), _soft(colour), Vector3.ZERO)
+
+
+## A low band of land nearer the stage (at depth `z`, its top rolling gently round `y`), that the nearer trees stand on; deterministic
+## (no random draws), so adding it leaves the rest of a theme's layout where it was. `fore_top` gives its height at x.
+static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
+	var bumps: Array = []
+	var x := -230.0
+	var k := 0
+	while x <= 230.0:
+		bumps.append([x, 16.0 + 6.0 * absf(sin(k * 1.7)), 2.2 + 1.6 * absf(sin(k * 2.3 + 0.5)), y - 1.0])
+		x += 22.0 + 8.0 * absf(sin(k * 0.9))
+		k += 1
+	_fore_bumps = bumps
+	_land_band(root, bumps, y - 1.0, z, colour)
+
+
+static var _fore_bumps: Array = []
+
+
+static func fore_top(x: float, y: float) -> float:
+	return _land_top(_fore_bumps, y - 1.0, x)
 
 
 ## A trunk as one mesh: rings up a gentle bow (`bend` sideways at most), tapering from `r_bottom` to `r_top` and flaring by `flare` at the
@@ -1226,7 +1307,16 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
 			col.name = "Underside"
 			col.set_instance_shader_parameter("front_top", e[2])
-			_under_haze(root, t, bottom - 1.0, 6.0, 0.95)
+			_under_haze(root, t, bottom - 1.0, 6.0, 0.5)
+			# The desert floor the mesa stands in (level with the far buttes' feet) and fallen rock heaped round its foot.
+			var floor_y := DESERT_FLOOR
+			_mesh(root, _box(Vector3(400.0, 1.0, 180.0)), FighterView.toon(Color(0.9, 0.62, 0.44)), Vector3(0, floor_y - 0.5, -80.0))
+			var rubble := Materials.stone((t.soil_dark as Color).lerp(Color(0.9, 0.62, 0.44), 0.45))
+			for k in 9:
+				var x := lerpf(l - 2.5, r + 2.5, (k + rng.randf_range(0.2, 0.8)) / 9.0)
+				var size := rng.randf_range(0.6, 1.2) * (1.5 if k == 0 or k == 8 else 1.0)
+				_mesh(root, _sphere(1.0, 8), rubble, Vector3(x, floor_y + size * 0.2, front - 2.0 + rng.randf_range(-1.5, 0.5)),
+					Vector3(size * 1.3, size, size), Vector3(0, rng.randf_range(0, 90), rng.randf_range(-12, 12)))
 		"ocean":
 			# A rock shelf the island stands on, a little wider at the waterline, with boulders where the sea meets it.
 			var shelf := _hanging_mass(bottom, 3.0, l, r, front, 3.4, 0.14, 3, func(s: float) -> float: return 1.0 + 0.06 * s,
@@ -1243,12 +1333,15 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			# The rooftop is a building: its facade carries on down to the street, lost in the glow of the city below. A cornice marks
 			# the floor the roof sits on.
 			var cx := (l + r) / 2.0
-			var tower := _mesh(root, _box(Vector3(r - l - 0.4, 40.0, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, bottom + 0.3 - 20.0, front - 3.5))
+			var street := bottom - CITY_STREET_DROP
+			var tall := bottom + 0.3 - street
+			var tower := _mesh(root, _box(Vector3(r - l - 0.4, tall, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, street + tall / 2.0, front - 3.5))
 			tower.name = "Underside"
 			tower.set_instance_shader_parameter("front_top", e[2])
 			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2))
 			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01))
-			_under_haze(root, t, bottom - 1.2, 6.0, 0.95)
+			_shopfront(root, cx, r - l - 0.4, street, front + 0.02)
+			_street(root, street, front)
 		_:
 			# A floating island: a keel of earth tapering to a point a little off-centre, rocks set in it, roots hanging from the rim.
 			var length := clampf((r - l) * 0.42, 4.0, 8.0)
@@ -1415,11 +1508,19 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Islands floating in the sky beyond the stage, at several depths (smaller and paler with distance).
 	_sky_islands(root, t, rng, 9)
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
-	# A windmill on a far hill, its sails turning slowly.
-	_windmill(root, Vector3(-34, -6, -70))
-	# Round trees dotted over the nearer hills.
+	# A windmill on the crest of a near hill (just behind the land's edge, so it stands in it), its sails turning slowly.
+	_windmill(root, Vector3(-34, hill_top(-34.0) - 0.8, -73))
+	# A few cottages on the near hills (just behind the land's edge), smoke rising from their chimneys: someone lives here.
+	for c in [[18.0, Color(0.78, 0.34, 0.3)], [44.0, Color(0.36, 0.5, 0.72)], [-66.0, Color(0.74, 0.5, 0.3)]]:
+		var cx: float = c[0]
+		_cottage(root, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
+	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
+	_fore_band(root, -46.0, -10.0, Color(0.4, 0.76, 0.32))
 	for k in 6:
-		_round_tree(root, Vector3(rng.randf_range(-70, 70), rng.randf_range(-12, -6), rng.randf_range(-62, -48)), rng.randf_range(0.7, 1.2), rng)
+		var tx := rng.randf_range(-70, 70)
+		rng.randf_range(-12, -6)
+		rng.randf_range(-62, -48)
+		_round_tree(root, Vector3(tx, fore_top(tx, -10.0) - 0.5, -47.0), rng.randf_range(0.7, 1.2), rng)
 	# A wooden fence along the back of the stage, and flowers: pale posts with rounded caps, each in its own contact shade, and darker
 	# rails, so the fence reads as built (posts and rails) under the key light rather than one flat colour.
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))
@@ -1473,21 +1574,71 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 			_mesh(island, _sphere(1.0, 12), bush, Vector3(rng.randf_range(-0.5, 0.5) * hw, 0.9, 0), Vector3(1.6, 1.1, 1.2) * size / 6.0)
 
 
-## A windmill: a tapered white tower with a cone roof, and four sails that turn.
+## A windmill (`at` is the foot of its tower): a footing of rough stones, a tapered whitewashed tower with a plank door, two small
+## shuttered windows and a wooden gallery round it, a shingled cap with a trim ring and a finial, and four lattice sails, each a stock
+## carrying a frame of rails and slats with canvas over most of it, that turn.
 static func _windmill(root: Node3D, at: Vector3) -> void:
-	_mesh(root, _cylinder(1.8, 3.0, 12.0, 12), FighterView.toon(Color(0.96, 0.94, 0.9)), at + Vector3(0, 6, 0))
-	_mesh(root, _cylinder(0.0, 2.6, 3.0, 12), FighterView.toon(Color(0.78, 0.36, 0.3)), at + Vector3(0, 13.5, 0))
+	var plaster := FighterView.toon(Color(0.96, 0.94, 0.88))
+	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
+	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
+	_mesh(root, _cylinder(3.3, 3.6, 2.0, 14), Materials.stone(Color(0.66, 0.62, 0.58), Vector2(4, 1)), at + Vector3(0, 1.0, 0))
+	_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
+	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
+	_mesh(root, _box(Vector3(1.6, 2.6, 0.3)), wood_dark, at + Vector3(0, 3.2, 2.85))
+	_mesh(root, _cylinder(0.8, 0.8, 0.3, 12), wood_dark, at + Vector3(0, 4.5, 2.85), Vector3.ONE, Vector3(90, 0, 0))
+	for wy in [7.2, 10.2]:
+		var r := lerpf(3.0, 1.8, (wy - 1.0) / 12.0)
+		_mesh(root, _box(Vector3(1.0, 1.1, 0.2)), wood, at + Vector3(0, wy, r + 0.05))
+		_mesh(root, _box(Vector3(0.7, 0.8, 0.22)), _unshaded(Color(0.2, 0.16, 0.22)), at + Vector3(0, wy, r + 0.08))
+		_mesh(root, _box(Vector3(0.5, 1.1, 0.12)), Materials.wood(Color(0.36, 0.56, 0.62)), at + Vector3(0.8, wy, r + 0.1), Vector3.ONE, Vector3(0, -25, 0))
+	# The gallery: a wooden deck round the tower and a rail over it.
+	_mesh(root, _cylinder(3.0, 3.0, 0.25, 18), wood, at + Vector3(0, 8.6, 0))
+	_mesh(root, _cylinder(3.0, 3.0, 0.12, 18), wood_dark, at + Vector3(0, 9.5, 0))
+	for k in 12:
+		var ang := TAU * k / 12.0
+		_mesh(root, _box(Vector3(0.12, 0.9, 0.12)), wood_dark, at + Vector3(sin(ang) * 2.9, 9.05, cos(ang) * 2.9))
+	# The cap: a trim ring, a shingled cone and a knob on top.
+	_mesh(root, _cylinder(2.1, 2.1, 0.4, 16), wood_dark, at + Vector3(0, 13.2, 0))
+	_mesh(root, _cylinder(0.0, 2.6, 3.2, 16), Materials.wood(Color(0.74, 0.34, 0.28), Vector2(6, 3)), at + Vector3(0, 15.0, 0))
+	_mesh(root, _sphere(0.3, 10), wood_dark, at + Vector3(0, 16.7, 0))
 	var hub := Spinner.new()
 	hub.speed = 0.6
-	hub.position = at + Vector3(0, 11.5, 2.2)
+	hub.position = at + Vector3(0, 12.5, 2.4)
 	root.add_child(hub)
-	var sail := FighterView.toon(Color(0.92, 0.88, 0.8))
+	_mesh(hub, _cylinder(0.45, 0.45, 0.6, 12), wood_dark, Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
+	var sail := FighterView.toon(Color(0.95, 0.91, 0.82))
 	for k in 4:
 		var arm := Node3D.new()
 		arm.rotation.z = TAU * k / 4.0
 		hub.add_child(arm)
-		_mesh(arm, _box(Vector3(0.3, 7.0, 0.2)), Materials.wood(Color(0.55, 0.38, 0.26)), Vector3(0, 3.5, 0))
-		_mesh(arm, _box(Vector3(1.6, 5.4, 0.1)), sail, Vector3(0.9, 4.2, 0.1))
+		# The stock, then the frame on one side of it: two rails, slats across, and canvas over the outer three quarters.
+		_mesh(arm, _box(Vector3(0.3, 7.6, 0.24)), wood, Vector3(0, 3.8, 0))
+		_mesh(arm, _box(Vector3(0.1, 5.8, 0.14)), wood, Vector3(1.8, 4.6, 0.05))
+		for j in 7:
+			_mesh(arm, _box(Vector3(1.9, 0.08, 0.1)), wood, Vector3(0.95, 1.9 + j * 0.9, 0.05))
+		_mesh(arm, _box(Vector3(1.6, 4.4, 0.05)), sail, Vector3(0.95, 5.2, 0.14))
+
+
+## A cottage (`at` its foot): whitewashed walls, a steep gabled roof in `roof`, a plank door and a lit window, and a stone chimney at one
+## end (`side`) with smoke curling up from it (cel-shaded puffs, `Particles.chimney_smoke`).
+static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
+	var wall := FighterView.toon(Color(0.97, 0.93, 0.84))
+	var roof_m := Materials.wood(roof, Vector2(4, 2))
+	_mesh(root, _box(Vector3(5.0, 3.2, 3.6)), wall, at + Vector3(0, 1.6, 0))
+	for sgn in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(5.6, 0.3, 2.7)), roof_m, at + Vector3(0, 4.0, sgn * 0.95), Vector3.ONE, Vector3(sgn * 42.0, 0, 0))
+	# The gable ends under the roof: a wedge of wall each end.
+	for ex in [-2.45, 2.45]:
+		_mesh(root, _cylinder(0.0, 2.0, 1.6, 4), wall, at + Vector3(ex, 3.9, 0), Vector3(0.08, 1.0, 1.0), Vector3(0, 45, 0))
+	_mesh(root, _box(Vector3(0.9, 1.7, 0.1)), Materials.wood(Color(0.5, 0.32, 0.22)), at + Vector3(-0.9 * side, 0.85, 1.82))
+	_mesh(root, _box(Vector3(0.9, 0.8, 0.1)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(0.9 * side, 1.7, 1.82))
+	var chimney := at + Vector3(1.7 * side, 4.6, -0.6)
+	_mesh(root, _box(Vector3(0.7, 2.0, 0.7)), Materials.stone(Color(0.62, 0.58, 0.56), Vector2(1, 2)), chimney)
+	var top := Node3D.new()
+	top.position = chimney + Vector3(0, 1.2, 0)
+	root.add_child(top)
+	# (Under the chimney top, not the root: the root's own meshes are merged when the backdrop is built.)
+	Particles.chimney_smoke(top, top)
 
 
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
@@ -1519,6 +1670,10 @@ static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors:
 
 
 ## A canyon at dusk: a big low sun, striped mesas and buttes, a rock arch, and cacti on the rim behind the stage.
+## The canyon's desert floor: the height the far buttes stand at, the stage's mesa and the floor itself.
+const DESERT_FLOOR := -16.0
+
+
 static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
@@ -1540,6 +1695,24 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
 		_contact(root, Vector3(x, e[2], -6.5), Vector2(0.45, 0.38))
 	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
+	# A line of telegraph poles running off across the desert floor, wires sagging between them: a road out there somewhere.
+	var pole := Materials.wood(Color(0.5, 0.34, 0.26))
+	var wire := FighterView.toon(Color(0.3, 0.2, 0.22), false)
+	var prev := Vector3.INF
+	for k in 9:
+		var at := Vector3(-120.0 + k * 30.0, DESERT_FLOOR, -40.0 - 4.0 * absf(sin(k * 1.3)))
+		_mesh(root, _cylinder(0.22, 0.28, 9.0, 6), pole, at + Vector3(0, 4.5, 0))
+		_mesh(root, _box(Vector3(2.6, 0.22, 0.22)), pole, at + Vector3(0, 8.4, 0))
+		var hook := at + Vector3(0, 8.6, 0)
+		if prev != Vector3.INF:
+			var last := prev
+			for j in range(1, 9):
+				var f := float(j) / 8.0
+				var q := prev.lerp(hook, f) + Vector3(0, -1.4 * sin(f * PI), 0)
+				var seg := _mesh(root, _box(Vector3(0.06, 0.06, last.distance_to(q))), wire, (last + q) / 2.0)
+				seg.basis = Basis.looking_at(q - last, Vector3.UP)
+				last = q
+		prev = hook
 
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
@@ -1573,9 +1746,10 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_tree_line(root, rng, top - 16.0, -78.0, Color(0.5, 0.72, 0.56))
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
-	# Two smaller trees further back, either side.
-	_tree(root, Vector3(-30, top - 12.0, -55.0), 0.6, rng)
-	_tree(root, Vector3(32, top - 13.0, -60.0), 0.55, rng)
+	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
+	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42))
+	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
+	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := Materials.foliage(bush_greens[1])
@@ -1587,6 +1761,9 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
+	# Strings of lanterns hung from the great tree out to the smaller ones, under the canopy: the grove is looked after.
+	_string_lights(root, Vector3(-4.0, top + 12.0, -17.0), Vector3(-22.0, top + 8.0, -30.0))
+	_string_lights(root, Vector3(4.0, top + 12.0, -17.0), Vector3(22.0, top + 8.0, -30.0))
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	_light_shafts(root, Color(1.0, 0.84, 0.9), [left, right, top, top - 10.0])
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
@@ -1630,11 +1807,49 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		dinghy.position = Vector3(0, -0.9, 0)
 		dinghy.rotation_degrees = Vector3(0, 160, 0)
 		boat.add_child(dinghy)
+	# A fisherman's hut on stilts out over the water, a jetty of planks running to it, and floats bobbing off the end: people live here.
+	_stilt_hut(root, Vector3(30.0, float(e[3]) - 1.0, -46.0))
 	# Palms at the ends of the island, behind the fighters.
 	_palm(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), 1.0, rng)
 	_palm(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), 1.15, rng)
 	_contact(root, Vector3(float(e[0]) + 1.8, float(e[2]), -5.5), Vector2(0.4, 0.35))
 	_contact(root, Vector3(float(e[1]) - 1.6, float(e[2]), -6.0), Vector2(0.45, 0.38))
+
+
+## A hut on stilts over the sea (`at` on the water under its middle): posts down into the water, a plank deck, walls of weathered boards
+## with a lit window, a shaggy thatched roof, a jetty running off to the right (toward the lighthouse) on its own posts, a net hung over the rail and two red and
+## white floats bobbing beside it.
+static func _stilt_hut(root: Node3D, at: Vector3) -> void:
+	var post := Materials.wood(Color(0.46, 0.34, 0.26))
+	var plank := Materials.wood(Color(0.74, 0.58, 0.4), Vector2(6, 1))
+	var boards := Materials.wood(Color(0.62, 0.5, 0.4), Vector2(3, 2))
+	var thatch := Materials.wood(Color(0.86, 0.7, 0.42), Vector2(5, 3))
+	for px in [-2.6, 2.6]:
+		for pz in [-1.8, 1.8]:
+			_mesh(root, _cylinder(0.2, 0.24, 4.6, 6), post, at + Vector3(px, 1.8, pz))
+	_mesh(root, _box(Vector3(6.4, 0.3, 4.6)), plank, at + Vector3(0, 4.1, 0))
+	_mesh(root, _box(Vector3(4.6, 3.0, 3.4)), boards, at + Vector3(0.4, 5.75, -0.2))
+	_mesh(root, _box(Vector3(1.0, 0.9, 0.1)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(1.4, 6.0, 1.52))
+	_mesh(root, _box(Vector3(0.9, 1.9, 0.1)), post, at + Vector3(-0.8, 5.2, 1.52))
+	# The roof: a low cone of thatch with a ragged lower lip.
+	_mesh(root, _cylinder(0.0, 4.4, 2.6, 10), thatch, at + Vector3(0.4, 8.5, -0.2), Vector3(1.0, 1.0, 0.85))
+	_mesh(root, _cylinder(4.4, 4.6, 0.35, 10), Materials.wood(Color(0.76, 0.6, 0.34), Vector2(8, 1)), at + Vector3(0.4, 7.1, -0.2), Vector3(1.0, 1.0, 0.85))
+	# The jetty: a walk of planks off to the right on pairs of posts.
+	_mesh(root, _box(Vector3(22.0, 0.22, 1.6)), plank, at + Vector3(14.0, 4.0, 1.2))
+	var x := 5.0
+	while x < 25.0:
+		for pz in [0.5, 1.9]:
+			_mesh(root, _cylinder(0.14, 0.16, 4.4, 6), post, at + Vector3(x, 1.9, pz))
+		x += 4.0
+	# A rail along the deck's front with a net slung over it.
+	_mesh(root, _box(Vector3(6.4, 0.12, 0.12)), post, at + Vector3(0, 5.0, 2.25))
+	_mesh(root, _box(Vector3(2.4, 0.9, 0.06)), FighterView.toon(Color(0.36, 0.52, 0.5)), at + Vector3(-1.6, 4.6, 2.3))
+	for k in 2:
+		var buoy := Bob.new()
+		buoy.position = at + Vector3(-4.2 - k * 2.2, 0.1, 2.6 - k * 1.4)
+		root.add_child(buoy)
+		_mesh(buoy, _sphere(0.5, 10), FighterView.toon(Color(0.95, 0.3, 0.3)), Vector3.ZERO, Vector3(1.0, 0.8, 1.0))
+		_mesh(buoy, _cylinder(0.52, 0.52, 0.22, 10), FighterView.toon(Color(0.98, 0.96, 0.92)), Vector3(0, 0.05, 0))
 
 
 ## A palm: a curving trunk of stacked rings under a fan of long leaves and a few coconuts.
@@ -1676,7 +1891,7 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for layer in 3:
 		var z := -40.0 - layer * 28.0
 		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
-		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - 6.0)
+		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
 	var tower := Vector3(float(e[0]) + 3.0, roof, -6.0)
@@ -1720,6 +1935,90 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_contact(root, tower, Vector2(1.2, 1.1))
 	_contact(root, mast, Vector2(0.2, 0.18))
 	_roof_marks(root, e, rng)
+
+
+## How far below the stage's lowest block the street is (the buildings of the skyline stand on it too).
+const CITY_STREET_DROP := 6.0
+
+
+## The street the city stands on, at height `y` (the stage building's front at `front`): a pavement along the foot of the stage building,
+## the road in front of the nearest row of buildings with a dashed line down it, a pavement under that row with a kerb, street lamps along
+## it with warm pools of light, and a few cars driving both ways with their lights on. One flat stretch from far left to far right, so a
+## camera pulled right back sees a city that stands on the ground.
+static func _street(root: Node3D, y: float, front: float) -> void:
+	var asphalt := FighterView.toon(Color(0.24, 0.21, 0.32))
+	var pave := Materials.stone(Color(0.46, 0.42, 0.56), Vector2(40, 2))
+	var kerb := FighterView.toon(Color(0.6, 0.56, 0.7))
+	# The pavement round the stage building, the road, the far pavement and its kerb.
+	_mesh(root, _box(Vector3(300.0, 0.5, 6.0)), pave, Vector3(0, y, front + 1.0))
+	_mesh(root, _box(Vector3(300.0, 0.5, 22.0)), asphalt, Vector3(0, y - 0.25, front - 18.0))
+	_mesh(root, _box(Vector3(300.0, 0.5, 7.0)), pave, Vector3(0, y, front - 32.5))
+	for kz in [front + 4.0, front - 7.0, front - 29.0]:
+		_mesh(root, _box(Vector3(300.0, 0.18, 0.4)), kerb, Vector3(0, y + 0.2, kz))
+	# The line down the middle of the road.
+	var paint := _unshaded(Color(0.95, 0.82, 0.46))
+	var x := -150.0
+	while x < 150.0:
+		_mesh(root, _box(Vector3(2.4, 0.04, 0.3)), paint, Vector3(x, y + 0.01, front - 18.0))
+		x += 5.0
+	# Street lamps along the far pavement: a post, an arm out over the road, a lamp and a warm halo.
+	var iron := FighterView.toon(Color(0.2, 0.18, 0.28))
+	var lamp := _unshaded(Color(1.0, 0.9, 0.62))
+	x = -132.0
+	while x <= 132.0:
+		var at := Vector3(x, y + 0.25, front - 29.6)
+		_mesh(root, _cylinder(0.14, 0.2, 6.0, 8), iron, at + Vector3(0, 3.0, 0))
+		_mesh(root, _box(Vector3(0.12, 0.12, 1.6)), iron, at + Vector3(0, 5.9, 0.7))
+		_mesh(root, _sphere(0.32, 10), lamp, at + Vector3(0, 5.7, 1.4), Vector3(1.0, 0.7, 1.0))
+		_halo(root, at + Vector3(0, 5.6, 1.6), Color(1.0, 0.8, 0.5), 4.2)
+		x += 16.5
+	# Cars: two lanes, one each way.
+	var colours := [Color(0.92, 0.36, 0.4), Color(0.36, 0.7, 0.86), Color(0.98, 0.8, 0.36), Color(0.62, 0.48, 0.9), Color(0.9, 0.9, 0.94)]
+	for k in 6:
+		var dir := 1.0 if k % 2 == 0 else -1.0
+		var car := Drift.new()
+		car.speed = dir * (7.0 + 2.0 * float(k % 3))
+		car.span = 140.0
+		car.position = Vector3(-130.0 + k * 47.0, y, front - (13.5 if dir > 0.0 else 22.5))
+		root.add_child(car)
+		_car(car, colours[k % colours.size()], dir)
+
+
+## A little rounded car pointing along `dir` (+1 right, -1 left): a body, a cabin with dark glass, four wheels, headlights with a glow
+## in front and red tail lights.
+static func _car(parent: Node3D, colour: Color, dir: float) -> void:
+	var body := FighterView.toon(colour)
+	var glass := _unshaded(Color(0.24, 0.26, 0.42))
+	var tyre := FighterView.toon(Color(0.12, 0.1, 0.16))
+	_mesh(parent, _box(Vector3(4.0, 1.0, 1.9)), body, Vector3(0, 0.9, 0))
+	_mesh(parent, _box(Vector3(2.2, 0.85, 1.7)), body, Vector3(-0.2 * dir, 1.8, 0))
+	_mesh(parent, _box(Vector3(2.0, 0.6, 1.74)), glass, Vector3(-0.2 * dir, 1.8, 0))
+	for wx in [-1.3, 1.3]:
+		for wz in [-0.85, 0.85]:
+			_mesh(parent, _cylinder(0.42, 0.42, 0.3, 12), tyre, Vector3(wx, 0.42, wz), Vector3.ONE, Vector3(90, 0, 0))
+	for lz in [-0.6, 0.6]:
+		_mesh(parent, _box(Vector3(0.1, 0.25, 0.4)), _unshaded(Color(1.0, 0.95, 0.75)), Vector3(2.0 * dir, 1.0, lz))
+		_mesh(parent, _box(Vector3(0.1, 0.22, 0.36)), _unshaded(Color(1.0, 0.25, 0.3)), Vector3(-2.0 * dir, 1.0, lz))
+	_halo(parent, Vector3(2.6 * dir, 1.0, 0.95), Color(1.0, 0.92, 0.7), 2.4)
+
+
+## The ground floor of the stage building where it meets the street (`width` wide, centred on `cx`, its front at `front`): a lit shop
+## window either side of a door, under a striped awning, and a sign over it.
+static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: float) -> void:
+	var frame := FighterView.toon(Color(0.3, 0.22, 0.34))
+	var lit := _unshaded(Color(1.0, 0.86, 0.6))
+	_mesh(root, _box(Vector3(width, 3.4, 0.2)), frame, Vector3(cx, y + 1.95, front))
+	for side in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(width * 0.32, 2.2, 0.1)), lit, Vector3(cx + side * width * 0.27, y + 1.75, front + 0.12))
+	_mesh(root, _box(Vector3(1.4, 2.6, 0.1)), _unshaded(Color(0.62, 0.42, 0.3)), Vector3(cx, y + 1.55, front + 0.12))
+	# The awning: alternating stripes, tipped out over the pavement.
+	var stripes := [FighterView.toon(Color(0.92, 0.34, 0.42)), FighterView.toon(Color(0.98, 0.94, 0.9))]
+	var n := int(width / 0.9)
+	for k in n:
+		var sx := cx - width / 2.0 + (k + 0.5) * width / n
+		_mesh(root, _box(Vector3(width / n, 0.12, 1.4)), stripes[k % 2], Vector3(sx, y + 3.55, front + 0.6), Vector3.ONE, Vector3(22, 0, 0))
+	_mesh(root, _box(Vector3(width * 0.4, 0.8, 0.12)), _unshaded(Color(0.98, 0.5, 0.74)), Vector3(cx, y + 4.4, front + 0.14))
+	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.7)
 
 
 ## Weathering on the rooftop behind the fighters: a water stain, a puddle with the sky in it, a tar patch and some grime
@@ -1969,6 +2268,8 @@ class Drift extends Node3D:
 		position.x += speed * delta
 		if position.x > span:
 			position.x -= span * 2.0
+		elif position.x < -span:
+			position.x += span * 2.0
 
 
 ## Rocks gently to and fro about its own place (tree crowns, palm heads). `amount` in degrees.
