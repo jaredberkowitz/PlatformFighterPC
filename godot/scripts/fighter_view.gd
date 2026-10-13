@@ -586,6 +586,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 	_rest_unkeyed(clip)
 	_body_follow(s, delta)
 	_lag_bones(s)
+	_face_camera(int(s.facing))
 	_follow_bones()
 
 
@@ -713,6 +714,26 @@ func _lag_bones(s: Dictionary) -> void:
 		_bend_bone(head_bone, springs.value("head"), facing)
 	if absf(springs.value("head_turn")) > 0.05:
 		_turn_bone(head_bone, springs.value("head_turn"))
+
+
+## The base body's big head carries the drawn face, half of every read: however a clip and the layers on it twist the chest (a strike
+## turns it into the swing), the head never turns more than this far from the camera; past it, it is turned back.
+const FACE_AWAY_MAX := 32.0
+## Nor does it look down further than this (a pitched-down head shows its crown, and the hat).
+const FACE_DOWN_MAX := 18.0
+
+
+func _face_camera(facing: int) -> void:
+	if not use_base_body or skeleton == null or head_bone < 0 or not skeleton.is_inside_tree():
+		return
+	var head_delta: Transform3D = skeleton.get_bone_global_pose(head_bone) * head_rest_inv
+	var ahead: Vector3 = (_skeleton_to_frame().basis * head_delta.basis * Vector3(0, 0, 1)).normalized()
+	var away := rad_to_deg(atan2(ahead.x, ahead.z))
+	if absf(away) > FACE_AWAY_MAX:
+		_turn_bone(head_bone, -signf(away) * (absf(away) - FACE_AWAY_MAX))
+	var down := -rad_to_deg(asin(clampf(ahead.y, -1.0, 1.0)))
+	if down > FACE_DOWN_MAX:
+		_bend_bone(head_bone, -(down - FACE_DOWN_MAX), facing)
 
 
 ## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top

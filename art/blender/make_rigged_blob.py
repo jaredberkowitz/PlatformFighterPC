@@ -484,7 +484,7 @@ BODY = "--body" in sys.argv
 # tall brawler, a fencer, a wolfish striker): the shoulders and hips wind back, then turn through into the strike as the weight steps onto
 # the front foot, the back leg straightening behind and the free arm pulled back for balance. Each entry is (wind-up, strike, rest) in the
 # `pose_spec` short form, on the shared move timeline.
-BODY_AMP = 0.3
+BODY_AMP = 0.65
 
 BODY_MOVES = {
     # A straight punch (or a quick slash): the guard hand stays up at the chin, the shoulders snap round and the front foot steps in.
