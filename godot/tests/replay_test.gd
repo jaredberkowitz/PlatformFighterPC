@@ -236,7 +236,7 @@ func _list(bytes: PackedByteArray) -> void:
 	check(screen.buttons.size() >= 1, "the Replays screen lists it")
 	var found := false
 	for b in screen.buttons:
-		if b.text.contains("Big Test") and b.text.contains("Duelist"):
+		if b.headline.contains("Big Test") and b.headline.contains("Duelist"):
 			found = true
 	check(found, "with the players' names")
 	screen.queue_free()

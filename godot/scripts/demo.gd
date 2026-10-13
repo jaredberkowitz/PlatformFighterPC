@@ -169,6 +169,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
 			d.shots = [[38, "a_hit"], [44, "b_hitlag_zoom"], [56, "c_launch_smoke"], [60, "d_flying"], [64, "e_offscreen"], [68, "f_blast"], [76, "g_blast_later"]]
 			d.end_frame = 130
+		"results":
+			# The results screen after a one-stock match won by a finishing forward smash (run with --stocks=1 --match).
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.2, -1], [1, "percent", 1, 170.0]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
+			d.shots = [[330, "results"]]
+			d.end_frame = 340
 		"stage":
 			# A still of the stage with both fighters standing (for checking stage art; add --stage=N).
 			d.timeline = [[0, 0, 0, 0]]

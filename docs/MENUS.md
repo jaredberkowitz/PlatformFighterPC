@@ -172,3 +172,7 @@ The screens:
 - **Results**: the winner standing large on their colour, a card for each fighter in finishing order with knock-outs, falls, damage dealt
   and taken and stocks left (tracked by the match scene from hits and knock-outs; with more than two fighters the attacker is the one frozen
   in an attack on the same frame), and the choices.
+- **Replays**: one card per saved match: the match-up in large type, the date, length and rules under it, the result on a ribbon in the
+  winner's player colour; a replay this version cannot play is dimmed and tagged OLD VERSION.
+- **Painted skies** (`MenuArt.palette`): the warm mood (player 1's panel, the Play tile, results) is the concept art's evening, a violet
+  top over pink and a peach horizon; it does not mix blue straight toward coral, which goes grey on the way.

@@ -194,16 +194,17 @@ static func key_cap(c: CanvasItem, rect: Rect2, label: String) -> void:
 
 # ---- The fantasy sky -------------------------------------------------------------------------------------------------------------------
 
-## The sky's colours for a `mood`: 0 the clear day, 1 warm (a coral and gold evening), -1 cool (a deeper blue).
+## The sky's colours for a `mood`: 0 the clear day, 1 warm (the concept art's evening: a violet top over pink and a peach horizon), -1
+## cool (a deeper blue). Warm goes toward violet rather than straight to coral: blue mixed with coral passes through grey on the way.
 static func palette(mood: float) -> Dictionary:
 	var warm := clampf(mood, 0.0, 1.0)
 	var cool := clampf(-mood, 0.0, 1.0)
 	var rock := Color("8a7ea6").lerp(Color("b06a5c"), warm * 0.5).lerp(Color("5f6ea8"), cool * 0.4)
 	return {
-		"top": SKY_TOP.lerp(Color("e8604f"), warm * 0.85).lerp(Color("1f5bbf"), cool * 0.6),
-		"mid": SKY.lerp(Color("f6a35f"), warm * 0.8).lerp(Color("3f8fe8"), cool * 0.5),
-		"low": HORIZON.lerp(Color("ffe0a8"), warm * 0.85).lerp(Color("a9dcf6"), cool * 0.5),
-		"far": Color("a9bfe8").lerp(Color("e9a99a"), warm * 0.7),
+		"top": SKY_TOP.lerp(Color("6a46d8"), warm * 0.9).lerp(Color("1f5bbf"), cool * 0.6),
+		"mid": SKY.lerp(Color("b46fe0"), warm * 0.55).lerp(Color("f28aa6"), warm * warm * 0.5).lerp(Color("3f8fe8"), cool * 0.5),
+		"low": HORIZON.lerp(Color("ffcf9a"), warm * 0.85).lerp(Color("a9dcf6"), cool * 0.5),
+		"far": Color("a9bfe8").lerp(Color("c99ad8"), warm * 0.7),
 		"grass": Color("57c26a").lerp(Color("c9a64b"), warm * 0.4),
 		"rock": rock,
 		"rock_light": rock.lightened(0.2),
@@ -233,9 +234,9 @@ static func sky_base(c: CanvasItem, rect: Rect2, mood: float) -> void:
 	var hz := o.y + h * 0.66
 	var hc := low.lerp(Color.WHITE, 0.35)
 	c.draw_polygon(PackedVector2Array([Vector2(o.x, hz - h * 0.12), Vector2(o.x + w, hz - h * 0.12), Vector2(o.x + w, hz), Vector2(o.x, hz)]),
-		PackedColorArray([Color(hc, 0.0), Color(hc, 0.0), Color(hc, 0.35), Color(hc, 0.35)]))
+		PackedColorArray([Color(hc, 0.0), Color(hc, 0.0), Color(hc, 0.2), Color(hc, 0.2)]))
 	c.draw_polygon(PackedVector2Array([Vector2(o.x, hz), Vector2(o.x + w, hz), Vector2(o.x + w, hz + h * 0.14), Vector2(o.x, hz + h * 0.14)]),
-		PackedColorArray([Color(hc, 0.35), Color(hc, 0.35), Color(hc, 0.0), Color(hc, 0.0)]))
+		PackedColorArray([Color(hc, 0.2), Color(hc, 0.2), Color(hc, 0.0), Color(hc, 0.0)]))
 
 
 class Piece extends Control:

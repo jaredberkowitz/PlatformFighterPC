@@ -113,6 +113,10 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		add_child(stage)
 		preview = Preview.new(Vector2i(530, 438), false, 9.4)
 		stage.add_fighter(preview)
+		# The stage's framing scaled up about the feet (so they stay on the painted platform): room over the head for the cheering hop
+		# (a sword held straight up may still break the top edge, as a hero shot does).
+		preview.body_from *= RESULTS_FRAME
+		preview.body_at *= RESULTS_FRAME
 		preview.facing_bias = -0.5
 		preview.set_loadout(cards[winner].look)
 	var row := HBoxContainer.new()
@@ -129,6 +133,9 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 		actions.append(action)
 	_select(0)
 	add_child(UI.Reveal.new())
+
+
+const RESULTS_FRAME := 1.15
 
 
 func _process(delta: float) -> void:
