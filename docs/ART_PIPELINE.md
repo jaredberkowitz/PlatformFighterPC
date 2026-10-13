@@ -850,9 +850,14 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   canyon its sunset, so the stages stay distinct.
 - **Floating sky islands** (`StageArt._sky_islands`): earth keels with grassy caps and a lip of turf, some with a round tree or a bush,
   at depths from 70 to 140 units, smaller and higher with distance, framing the stage without crossing the middle of the sky.
-- **A real lawn** (`StageArt._lawn`, meadow and grove): a dense band of tall tufts behind the fighters, a lighter scatter in the middle
-  of the lawn and a low fringe along the front edge that keeps feet in view. Standing tufts shade dark at the roots to sunlit tips
-  (`toon_foliage.gdshader`), so a lawn of cards reads as thick grass with depth. The lawn tile is repainted as blade strokes over
-  broad drifts (`tools/art/make_tiles.py` `grass`).
+- **The lawn as the reference paints it** (the owner's Wind Waker HD reference; a first try with dense blade cards read as scattered
+  wisps, not grass, and was dropped): one clean, vivid lime sheet (meadow grass 0.46, 0.82, 0.16) with its variation in long soft
+  sweeps and broad hollows on a large tile (`tools/art/make_tiles.py` `grass`, 9 units a repeat), no blades on the meadow or grove, so
+  the platforms' and props' cast shadows read as crisp shapes on it. (`StageArt._lawn` and the root-to-tip tuft shading stay available
+  for a stage that wants standing grass.)
+- **Dressed stone under moss** (meadow): the front is big rounded stone blocks in rough courses (`masonry` pattern, 7 units a repeat,
+  lit tops, shaded feet, a few cracks) in warm sandstone, with moss hanging over the top of the wall in clumpy tongues
+  (`moss_color`/`moss_amount` in `toon_common.gdshaderinc`: lit top, shaded hanging edge, a darker rim and a soft cast shadow on the
+  stone), in place of the cobbles and the green bubbles. `meadow_lawn_close.png`.
 - Costs (Meadow, stage demo): GPU about 1.8 to 1.9 ms, Treetop Isle 2.1 ms; look bench 0.87.
 

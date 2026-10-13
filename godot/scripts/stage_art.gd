@@ -23,9 +23,9 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.62, 0.46, 0.32), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.42, 0.76, 0.36),
-		"grass_light": Color(0.62, 0.88, 0.46), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "cobble", "cap": "grass", "platform": "wood", "grass_vary": 0.17,
+		"soil": Color(0.84, 0.68, 0.44), "soil_dark": Color(0.6, 0.47, 0.32), "grass": Color(0.46, 0.82, 0.16),
+		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
+		"pattern": "masonry", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "moss": Color(0.4, 0.66, 0.14),
 	},
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
@@ -138,7 +138,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	var a: Color = t.soil
 	var b: Color = t.soil_dark
 	var pattern: String = t.get("pattern", "diamonds")
-	var key := "%s%s%s" % [pattern, a.to_html(), b.to_html()]
+	var key := "%s%s%s%s" % [pattern, a.to_html(), b.to_html(), str(t.get("moss", ""))]
 	if _soil_cache.has(key):
 		return _soil_cache[key]
 	var rng := RandomNumberGenerator.new()
@@ -159,6 +159,32 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 					d += "L%d,%.1f " % [x, y0 + sin(float(x) / 256.0 * TAU + k) * 9.0]
 				d += "L256,%.1f L0,%.1f Z" % [y0 + 64.0 + 12.0, y0 + 64.0 + 12.0]
 				body += '<path d="%s" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5" stroke-linejoin="round"/>' % [d, shades[k], ink]
+		"masonry":
+			# Big rounded stone blocks laid in rough courses (as a cliff of dressed stone in the reference's style): each a soft-cornered
+			# slab a little irregular, its top edge lit, its lower edge and the gaps between in shade, a few cracks and chips. Large, so a
+			# wall is a handful of readable shapes, not a busy pattern. Two courses a tile; their joints step, so it tiles.
+			body += '<rect width="256" height="256" fill="#%s"/>' % b.darkened(0.18).to_html(false)
+			var course := 0
+			for y0 in [0.0, 128.0]:
+				var x0 := -40.0 if course % 2 == 0 else 24.0
+				var x := x0
+				while x < 256.0 + 40.0:
+					var w := rng.randf_range(78.0, 118.0)
+					var h := rng.randf_range(112.0, 122.0)
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.45))
+					for ox in [-256.0, 0.0, 256.0]:
+						var bx: float = x + ox + 4.0
+						var by: float = y0 + 4.0
+						var r := rng.randf_range(16.0, 26.0)
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.45"/>' % [bx, by, w - 8.0, h - 8.0, r, shade.to_html(false), ink]
+						# Lit top, shaded foot.
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" opacity="0.28"/>' % [bx + 8.0, by + 6.0, w - 24.0, (h - 8.0) * 0.28, r * 0.6, shade.lightened(0.22).to_html(false)]
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" opacity="0.22"/>' % [bx + 6.0, by + (h - 8.0) * 0.7, w - 20.0, (h - 8.0) * 0.26, r * 0.6, shade.darkened(0.3).to_html(false)]
+						if rng.randf() < 0.45:
+							var cx: float = bx + rng.randf_range(16.0, w - 30.0)
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.4"/>' % [cx, by + 14.0, rng.randf_range(-8, 8), rng.randf_range(16, 30), rng.randf_range(-10, 10), rng.randf_range(10, 22), ink]
+					x += w
+				course += 1
 		"cobble":
 			# Rounded stones over dark mortar, each with a lighter top; stones at an edge are drawn again across it, so it tiles.
 			# (Mortar only a step darker than the stones and a soft ink, so the wall is one calm mass under the fighters, not a busy pattern
@@ -205,18 +231,24 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 3.0 if pattern != "facade" else 6.6)
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
 	m.set_shader_parameter("front_fall", 0.52)
 	m.set_shader_parameter("front_span", 6.5)
+	# Moss draping over the top of the wall where the theme has it (`moss`: colour), in a wavy band under the lip.
+	if t.has("moss"):
+		m.set_shader_parameter("moss_color", t.moss)
+		m.set_shader_parameter("moss_amount", 1.0)
 	# Painted wear over the pattern, so a block's front reads as one weathered mass rather than a stamped tile.
 	match pattern:
 		"facade":
 			Materials.set_detail(m, "concrete", 0.45, 3.0)
 		"cobble":
 			Materials.set_detail(m, "stone", 0.4, 3.5)
+		"masonry":
+			Materials.set_detail(m, "stone", 0.3, 4.0)
 		_:
 			Materials.set_detail(m, "soil", 0.35, 3.0)
 	_soil_cache[key] = m
@@ -302,7 +334,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				x += rng.randf_range(1.2, 2.6)
 		_:
 			# A thick grass cap that rolls over the front edge, with tufts hanging over.
-			var grass := _surface(t.grass, "grass", 3.5)
+			var grass := _surface(t.grass, "grass", 9.0)
 			# Broad sunlit and shaded patches across the lawn where the theme asks for them (`grass_vary`), so the top is not one sheet.
 			if t.has("grass_vary"):
 				grass = grass.duplicate()
@@ -312,8 +344,8 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var lip := _mesh(parent, _cylinder(cap_h * 0.6, cap_h * 0.6, w + 0.25), grass, Vector3(cx, top - cap_h * 0.55, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			lip.name = "lip"
 			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.06, front_z + 0.3))
-			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them.
-			var x := left + rng.randf_range(0.4, 0.9)
+			# Tufts hanging over at uneven gaps and sizes, now and then a small stone among them (not where moss drapes the wall instead).
+			var x := left + rng.randf_range(0.4, 0.9) if not t.has("moss") else right
 			var tuft_mesh := _sphere(0.32, 12)
 			var stone := Materials.stone((t.soil as Color).lightened(0.25))
 			while x < right - 0.4:
@@ -1383,7 +1415,6 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for h in [0.35, 0.75]:
 		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), rail, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
-	_lawn(root, e, rng, Materials.greens(Color(0.4, 0.74, 0.34)))
 	# A bright day: a few motes of pollen in the air, no shafts of light.
 	_motes(root, Color(1.0, 0.98, 0.8), e)
 
@@ -1535,7 +1566,6 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
-	_lawn(root, [left, right, top], rng, Materials.greens(Color(0.44, 0.8, 0.4)))
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	_light_shafts(root, Color(1.0, 0.84, 0.9), [left, right, top, top - 10.0])
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])

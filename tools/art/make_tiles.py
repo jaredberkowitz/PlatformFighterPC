@@ -74,34 +74,29 @@ def foliage():
 
 
 def grass():
-    """A lawn painted by hand: broad sunlit and shaded drifts, then a dense field of short blade strokes leaning one way (dark gaps and
-    light tips, a little warmth in the lights), so at play distance it reads as thick grass with a painted texture, not a flat green, while
-    staying soft enough to sit behind the fighters."""
+    """A lawn as the reference paints it: one clean, vivid sheet of green, its variation in long soft sweeps (as wind or a mower lays
+    grass), a few broad cooler hollows and warmer rises, no blades or speckle. Low contrast and large in scale, so at play distance it is
+    a calm, saturated surface the fighters stand out on."""
     rng = random.Random(11)
     s = HEAD
-    # Broad drifts of light and shade.
-    for _ in range(18):
+    # Broad cool hollows and warm rises.
+    for _ in range(9):
         x, y = rng.uniform(0, 256), rng.uniform(0, 256)
-        rx, ry = rng.uniform(26, 52), rng.uniform(18, 34)
-        col, op = ('#ffffff', 0.08) if rng.random() < 0.5 else ('#000000', 0.09)
+        rx, ry = rng.uniform(50, 90), rng.uniform(26, 44)
+        col, op = ('#fff8d0', 0.07) if rng.random() < 0.5 else ('#002a30', 0.07)
         s += wrap(lambda a, b: f'  <ellipse cx="{a:.1f}" cy="{b:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" fill="{col}" opacity="{op}"/>\n', x, y, rx)
-    # Blades: a dark stroke for the shadow between blades, then a lighter one beside it for the lit blade, leaning to the right.
-    for _ in range(520):
+    # Long soft sweeps across the lawn, a little curved, lighter and darker in turn.
+    for k in range(26):
         x, y = rng.uniform(0, 256), rng.uniform(0, 256)
-        h = rng.uniform(7, 14)
-        lean = rng.uniform(1.5, 5.0)
+        length = rng.uniform(70, 150)
+        bend = rng.uniform(-10, 10)
+        width = rng.uniform(5, 12)
+        col, op = ('#ffffff', 0.06) if k % 2 == 0 else ('#00262a', 0.06)
 
-        def blade(a, b, h=h, lean=lean):
-            out = (f'  <path d="M{a:.1f},{b:.1f} q{lean * 0.4:.1f},{-h * 0.6:.1f} {lean:.1f},{-h:.1f}" fill="none" stroke="#000000" '
-                   f'stroke-width="2.2" stroke-linecap="round" opacity="0.13"/>\n')
-            out += (f'  <path d="M{a + 1.6:.1f},{b:.1f} q{lean * 0.4:.1f},{-h * 0.6:.1f} {lean:.1f},{-h * 0.9:.1f}" fill="none" '
-                    f'stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.14"/>\n')
-            return out
-        s += wrap(blade, x, y, 16)
-    # A few bright tips catching the sun.
-    for _ in range(90):
-        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
-        s += wrap(lambda a, b: f'  <path d="M{a:.1f},{b:.1f} l2.5,-6" fill="none" stroke="#fff6cc" stroke-width="1.3" stroke-linecap="round" opacity="0.22"/>\n', x, y, 8)
+        def sweep(a, b, length=length, bend=bend, width=width, col=col, op=op):
+            return (f'  <path d="M{a - length / 2:.1f},{b:.1f} q{length / 2:.1f},{bend:.1f} {length:.1f},0" fill="none" stroke="{col}" '
+                    f'stroke-width="{width:.1f}" stroke-linecap="round" opacity="{op}"/>\n')
+        s += wrap(sweep, x, y, length / 2 + width)
     return s + '</svg>\n'
 
 
