@@ -302,6 +302,13 @@ These override anything above that disagrees.
 16. **Command grabs and search boxes (E6, E21)**: build them as new hit kinds in `combat::resolve_hits`.
 17. **Shield stun rounding**: fix it so whole-number shield stun matches the reference for every fighter (it came out one frame short).
 18. **Sprinter neutral air dodge (42 frames, one source)**: keep it unless a second source shows otherwise; check it against the reference.
+19. **Palutena names**: class/weapon **Staff** (the owner allowed Beacon or Staff; Staff fits the other weapon names), body and built-in
+    fighter **Seer**.
+20. **Reflect Barrier**: keep it on the reflection move (no E25 stage object). Recorded as an owner-chosen approximation: the 10 frames
+    after FAF 35 and "stays when she is hit" are not modelled.
+21. **Angle types (E26)**: build them for Palutena and also re-check the existing fighters' angle types (back airs and others) against
+    the reference.
+22. **Palutena data conflicts**: counterattack hitbox on frames 5-7; heavy landing lag from the parameter file (6 here).
 
 ## Still open
 
