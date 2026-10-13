@@ -190,6 +190,36 @@ const CLASS_MOVES := {
 		"extra move 11": "attack_jab",
 		"extra move 12": "attack_smash",
 	},
+	# Greatsword (the Champion): the longsword's cuts for its sword moves (the blade follows its hits), front kicks for the first two
+	# jabs, a sliding low kick for the down tilt, kicks for the throws (the throw clip, the blade at rest).
+	6: {
+		"jab": "kick_dash",
+		"jab 2": "kick_up",
+		"jab 3": "sword_ftilt",
+		"ftilt": "sword_ftilt",
+		"utilt": "sword_utilt",
+		"dtilt": "kick_low",
+		"fsmash": "sword_fsmash",
+		"usmash": "sword_usmash",
+		"dsmash": "sword_dsmash",
+		"dair": "sword_dair",
+		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
+		"down special": "crouch",
+	},
+	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
+	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up
+	# smashes, both fists slammed down either side, a heavy overhead hammer for the forward air, a back kick, a stomp. (Placeholders
+	# from the shared clips until its own are made; the arms reach the hitboxes either way.)
+	# (The hook, the swipe, the overhead sweep, the low slap, the lunge and the forward smash keep the shared clips.)
+	7: {
+		"jab 2": "attack_uair",
+		"usmash": "attack_uair",
+		"dsmash": "sword_dsmash",
+		"nair": "attack_swing",
+		"fair": "attack_smash",
+		"bair": "kick_bair",
+		"dair": "gaunt_stomp",
+	},
 }
 
 ## The clip every move falls back to when nothing maps it (with a warning, once per move).

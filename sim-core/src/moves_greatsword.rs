@@ -787,6 +787,14 @@ pub const FALL: MoveId = MoveId::Ext3;
 pub const FALL_LANDING: MoveId = MoveId::Ext4;
 /// The down special's cancel (the charge itself loops on the down special).
 pub const CHARGE_CANCEL: MoveId = MoveId::Ext5;
+/// The powered versions (phase 3, used while the gauge's powered mode runs: `Move::limit_version`): the wave on the ground and in the
+/// air, the combo slash, the rise, and the down special's finisher on the ground and in the air.
+pub const POWER_WAVE: MoveId = MoveId::Ext6;
+pub const POWER_WAVE_AIR: MoveId = MoveId::Ext7;
+pub const POWER_COMBO: MoveId = MoveId::Ext8;
+pub const POWER_RISE: MoveId = MoveId::Ext9;
+pub const FINISHER: MoveId = MoveId::Ext10;
+pub const FINISHER_AIR: MoveId = MoveId::Ext11;
 
 /// The four specials, normal versions (the reference's, 13.0.1; `REFERENCE_DATA.md` "Specials"). Every `ext` slot the claws'
 /// placeholders used is emptied first; slots `ext6` to `ext15` stay empty for phase 3's powered versions.
@@ -800,6 +808,16 @@ fn specials(w: &mut Weapon) {
     combo_slash(w);
     rising_slash(w);
     charge(w);
+    power_wave(w);
+    power_combo(w);
+    power_rise(w);
+    finisher(w);
+    // While the powered mode runs, each special is its powered version and spends the gauge (the reference: any special used in it
+    // empties the gauge, hit or miss).
+    w.moves[MoveId::NSpecial as usize].limit_version = Some(POWER_WAVE as u8);
+    w.moves[MoveId::SideSpecial as usize].limit_version = Some(POWER_COMBO as u8);
+    w.moves[MoveId::UpSpecial as usize].limit_version = Some(POWER_RISE as u8);
+    w.moves[MoveId::DownSpecial as usize].limit_version = Some(FINISHER as u8);
 }
 
 /// The grounded-only body windbox of both waves on frames 16-17: 0%, 361 forward, set knockback 40, BK 0, KS 100, radius 3.0 at 6.5
@@ -865,6 +883,7 @@ fn wave(w: &mut Weapon) {
             phases: phase_list(&[(19, wave_hit(late, 27))]),
             pierce: false,
             rehit: 0,
+            burst: None,
         });
         m
     };
@@ -887,8 +906,8 @@ fn wave(w: &mut Weapon) {
 /// The side special, a combo of slashes that only goes on when each part lands (the reference's).
 ///
 /// * Slash 1 (side special): frames 10-11, 4%: three boxes along the blade in front [E: no published table, gap 1], 75 degrees BK 30
-///   KS 35 at the tip, 112 degrees BK 32 KS 40 in the middle, the autolink 367 (BK 32, KS 40) nearest the body (the reference's 366,
-///   the vortex, comes with E28 in phase 3: conflict 2). FAF 41. A step forward on the ground [E].
+///   KS 35 at the tip, 112 degrees BK 32 KS 40 in the middle, the vortex 366 (BK 32, KS 40, E28 since sim 87) nearest the body
+///   [E: which box carries the 366 is not published, conflict 2]. FAF 41. A step forward on the ground [E].
 /// * Special pressed during it, once it has connected (a shield counts, as the reference's), from frame 10: slash 2 (`ext1`), its
 ///   frames 2-3, 3%, 95 degrees BK 33 and 60 degrees BK 43, KS 25; FAF 32.
 /// * Pressed again during slash 2, once it has connected, from its frame 14: the last three (`ext2`), on its frames 2-3 (3%, 280 and
@@ -906,7 +925,7 @@ fn combo_slash(w: &mut Weapon) {
         &[
             ru(10, 11, 190, 120, 45, 40, 75, 30, 35, 0, 0),
             ru(10, 11, 130, 100, 45, 40, 112, 32, 40, 1, 0),
-            ru(10, 11, 70, 90, 40, 40, ANGLE_AUTOLINK, 32, 40, 2, 0),
+            ru(10, 11, 70, 90, 40, 40, ANGLE_VORTEX, 32, 40, 2, 0),
         ],
     );
     set_all(&mut one, |h| h.angle_type = ANGLE_FORWARD);
@@ -1170,4 +1189,365 @@ fn charge(w: &mut Weapon) {
         include_str!("scripts/greatsword_charge_cancel.script"),
     ));
     w.moves[CHARGE_CANCEL as usize] = cancel;
+}
+
+// ---- The powered versions (phase 3, sim 87) ------------------------------------------------------------------------------------------
+
+/// The powered wave's beam (`damage` in tenths of a percent): 55 degrees by its travel, BK 38, KS 60, never clanks (the reference's
+/// transcendent beam), radius 5.5 of the reference's units (0.7 world); its two stacked circles, 0 to 13.5 up on the beam, are one
+/// standing capsule 6.75 above and below its centre [D].
+fn power_beam(damage: i32) -> Hitbox {
+    let mut h = row(&r(1, 1, 0, 0, u(55), damage, 55, 38, 60, 0, 0));
+    h.angle_type = ANGLE_BY_TRAVEL;
+    h.half_height = Fx::from_ratio(675, 800);
+    h.clanks = false;
+    h
+}
+
+/// The powered wave's burst (`loop_damage` / `final_damage` in tenths): the loop on its frames 1-28, rehit every 6 (hits on 1, 7, 13,
+/// 19 and 25): 366 (the vortex, E28), set knockback 40, BK 0, KS 100, hitlag x0.5; the final hit on 29-30, a hit group of its own: 48
+/// degrees, BK 50, KS 226. Both radius 14.0 (1.8 world), 6.0 up on the beam (0.75 of the reference's units below the capsule's
+/// centre), forward (the beam's way), never clank [R / D].
+fn power_burst(loop_damage: i32, final_damage: i32) -> Burst {
+    let mut spin = row(&r(
+        1,
+        1,
+        0,
+        0,
+        u(140),
+        loop_damage,
+        ANGLE_VORTEX,
+        0,
+        100,
+        0,
+        1,
+    ));
+    spin.fixed_kb = 40;
+    spin.hitlag = 50;
+    let mut last = row(&r(1, 1, 0, 0, u(140), final_damage, 48, 50, 226, 0, 2));
+    for h in [&mut spin, &mut last] {
+        h.clanks = false;
+        h.angle_type = ANGLE_FORWARD;
+    }
+    Burst {
+        // Ages 1 to 30 (the loop 1-28, the final hit 29-30).
+        life: 31,
+        rehit: 6,
+        on_wall: true,
+        y: Fx::from_ratio(-750, 8000),
+        phases: phase_list(&[(1, spin), (29, last)]),
+    }
+}
+
+/// The neutral special's powered version (the reference's).
+///
+/// * On the ground (`ext6`): intangible on 10-17 [R]; the beam out on frame 15 and hitting from 16 to 62 (lifetime 47 [R], conflict 4:
+///   UFD's 62), 6% at 2.95 of the reference's units a frame (0.369 world) [R], never clanking; it stops on the first fighter it
+///   touches (shielding or not) or on a wall and bursts there (E3e): five 2% hits of the vortex and a 3% finisher, so 6 + 5 x 2 + 3 =
+///   19% on the first fighter and 13% on one just behind it [R]. FAF 61 [R]. No windbox (the reference lists none). The fighter keeps
+///   a fifth of its ground speed on startup, as the normal wave (the same parameters [R]).
+/// * In the air (`ext7`): 4.8% / 1.6% / 2.4%, 2.4 a frame (0.3), FAF 61; the normal aerial wave's fall break (x0.4, x0.65, gravity
+///   0.06) [R]; landing goes on as the grounded one (E22b).
+///
+/// Spawned 12 ahead and 8.75 up (2 + 6.75) of the reference's units [D, as the normal wave], straight on.
+fn power_wave(w: &mut Weapon) {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let build = |speed: i32, beam: i32, spin: i32, last: i32| {
+        let mut m = ref_move(61, 0, 0, 255, &[]);
+        m.intangible_from = 9;
+        m.intangible = 17;
+        m.projectile = Some(ProjectileSpawn {
+            // Out on frame 15 (move frame 14), hitting from 16 to 62.
+            frame: 14,
+            x: su(12_000),
+            y: su(8750),
+            speed: su(speed),
+            life: 48,
+            hitbox: power_beam(beam),
+            end_damage: Fx::from_ratio(beam, 10),
+            arc: ProjectileArc::NONE,
+            phases: [None; MAX_PHASES],
+            pierce: false,
+            rehit: 0,
+            burst: Some(power_burst(spin, last)),
+        });
+        m
+    };
+    let mut ground = build(2950, 60, 20, 30);
+    ground.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/greatsword_wave.script"),
+    ));
+    ground.air_version = Some(POWER_WAVE_AIR as u8);
+    w.moves[POWER_WAVE as usize] = ground;
+
+    let mut air = build(2400, 48, 16, 24);
+    air.start_speed = 40;
+    air.start_speed_y = 65;
+    air.air_gravity = Some(su(60));
+    air.on_land = Some(POWER_WAVE as u8);
+    w.moves[POWER_WAVE_AIR as usize] = air;
+}
+
+/// The side special's powered version (`ext8`, the reference's): all five slashes by themselves, hit or miss, with no more input [R].
+/// Frames and damage ultimateframedata.com's (10-11, 15-16, 21-22, 28, 38-39; 5 / 5 / 3 / 3 / 10, 26% in all) [R, conflict 1: the
+/// reference's own pages say 24 and 27%]. The first two the autolink 367 at set knockback 80 (KS 100); the third 280 / 70 degrees
+/// at set knockback 14 / 21; the fourth 95 / 110 at 26; the last 50 degrees, BK 30, KS 147 [R]; each its own hit group. Intangible
+/// on 6-11 [R]; FAF 61 [R]. In the air every bit of momentum stops for the whole move (no fall, no drift) [R]. The boxes are the
+/// normal combo slash's [E: gap 1], the last a little larger ("slightly larger" [R, no number]); angle type forward [E].
+fn power_combo(w: &mut Weapon) {
+    let mut m = ref_move(
+        61,
+        0,
+        0,
+        255,
+        &[
+            ru(10, 11, 190, 120, 45, 50, ANGLE_AUTOLINK, 0, 100, 0, 0),
+            ru(10, 11, 130, 100, 45, 50, ANGLE_AUTOLINK, 0, 100, 1, 0),
+            ru(15, 16, 190, 120, 45, 50, ANGLE_AUTOLINK, 0, 100, 0, 1),
+            ru(15, 16, 130, 100, 45, 50, ANGLE_AUTOLINK, 0, 100, 1, 1),
+            ru(21, 22, 140, 80, 50, 30, 280, 0, 100, 0, 2),
+            ru(21, 22, 80, 120, 45, 30, 70, 0, 100, 1, 2),
+            ru(28, 28, 120, 100, 50, 30, 95, 0, 100, 0, 3),
+            ru(28, 28, 70, 140, 45, 30, 110, 0, 100, 1, 3),
+            ru(38, 39, 160, 100, 70, 100, 50, 30, 147, 0, 4),
+            ru(38, 39, 90, 100, 60, 100, 50, 30, 147, 1, 4),
+        ],
+    );
+    set_all(&mut m, |h| {
+        h.angle_type = ANGLE_FORWARD;
+        h.fixed_kb = match (h.group, h.angle) {
+            (0 | 1, _) => 80,
+            (2, 280) => 14,
+            (2, _) => 21,
+            (3, _) => 26,
+            _ => 0,
+        };
+    });
+    m.intangible_from = 5;
+    m.intangible = 11;
+    m.start_speed = 0;
+    m.start_speed_y = 0;
+    m.air_gravity = Some(Fx::ZERO);
+    m.air_drift = 0;
+    w.moves[POWER_COMBO as usize] = m;
+}
+
+/// The up special's powered version (`ext9`, the reference's).
+///
+/// * The stab on 7-9 (6%, set knockback 80 at 40 / 78 / 102 degrees, KS 100, hitlag x2.5, the normal SDI: "notably susceptible") and
+///   the rising slash, 7% at 88 degrees, BK 50: KS 142 on frame 10, then KS 110 on 11-16 (the box behind 90 degrees, BK 98, KS 40),
+///   hitlag x2.5 (stated for the clean hit; the late one's [E] the same), one hit (its own group) [R]. No set weight [R: none listed].
+/// * Intangible on 5-12 [R]. The rise is the normal one's fitted shape [E, owner decision 42] at 1.6 times its height from the ground
+///   and 1.85 from the air [R]; 0.67 of the horizontal speed on starting [R]; while it rises, full air control (E11 `motion_drift`
+///   [E: "significant horizontal manoeuvrability", gap 8]). Ledges in front and behind from its first frame [R / E both sides].
+/// * Special pressed on 33-39 starts the ordinary falling slash (`ext3`) [R]. Animation 69, then the special fall at x0.8 air speed,
+///   landing lag 20 [R].
+fn power_rise(w: &mut Weapon) {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let up = (50, 100, 0, 1000);
+    let mut rows = vec![
+        ru(7, 9, 30, 70, 20, 60, 40, 0, 100, 0, 0),
+        ru(7, 9, 50, 70, 50, 60, 78, 0, 100, 1, 0),
+        ru(7, 9, 65, 70, 50, 60, 78, 0, 100, 1, 0),
+        ru(7, 9, 150, 70, 35, 60, 102, 0, 100, 2, 0),
+        ru(7, 9, 65, 70, 35, 60, 102, 0, 100, 2, 0),
+    ];
+    rows.extend(on_blade(
+        10,
+        10,
+        up,
+        &[(60, 50, 0), (145, 50, 1)],
+        70,
+        88,
+        50,
+        142,
+        1,
+    ));
+    rows.extend(on_blade(
+        10,
+        10,
+        (-80, 100, 0, 1000),
+        &[(145, 35, 2), (60, 35, 2)],
+        70,
+        88,
+        50,
+        142,
+        1,
+    ));
+    rows.extend(on_blade(
+        11,
+        16,
+        up,
+        &[(60, 50, 0), (145, 35, 1)],
+        70,
+        88,
+        50,
+        110,
+        1,
+    ));
+    rows.extend(on_blade(
+        11,
+        16,
+        (-100, 100, 0, 1000),
+        &[(145, 35, 2), (60, 35, 2)],
+        70,
+        90,
+        98,
+        40,
+        1,
+    ));
+    let mut rise = ref_move(70, 20, 0, 255, &rows);
+    set_all(&mut rise, |h| {
+        h.angle_type = ANGLE_FORWARD;
+        h.hitlag = 250;
+        if h.group == 0 {
+            h.fixed_kb = 80;
+        }
+    });
+    rise.motion = RISE
+        .iter()
+        .map(|&(first, last, up)| Motion {
+            start: first - 1,
+            end: last - 1,
+            vx: Fx::ZERO,
+            vy: su(up),
+        })
+        .collect();
+    rise.rise_ground = 160;
+    rise.rise_air = 185;
+    rise.start_speed = 67;
+    rise.motion_drift = 100;
+    rise.intangible_from = 4;
+    rise.intangible = 12;
+    rise.ledge_front_from = 0;
+    rise.ledge_back_from = 0;
+    rise.helpless_after = true;
+    rise.fall_drift = 80;
+    rise.fall_landing_lag = 20;
+    rise.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/greatsword_power_rise.script"),
+    ));
+    w.moves[POWER_RISE as usize] = rise;
+}
+
+/// Rows along a reference capsule: from (`y0` up, `z0` ahead) to (`y1`, `z1`), in tenths of its units, points about 4 apart [D].
+#[allow(clippy::too_many_arguments)]
+fn capsule(
+    first: u8,
+    last: u8,
+    (y0, z0): (i32, i32),
+    (y1, z1): (i32, i32),
+    radius: i32,
+    damage: i32,
+    angle: i16,
+    bkb: i16,
+    kbg: i16,
+    group: u8,
+) -> Vec<R> {
+    let n = ((y1 - y0).abs().max((z1 - z0).abs()) / 40).max(1);
+    (0..=n)
+        .map(|i| {
+            let (y, z) = (y0 + (y1 - y0) * i / n, z0 + (z1 - z0) * i / n);
+            ru(first, last, z, y, radius, damage, angle, bkb, kbg, 0, group)
+        })
+        .collect()
+}
+
+/// The down special's powered version, the finisher (the reference's; 13.0.1).
+///
+/// * On the ground (`ext10`): 1% hits at 80 degrees, BK 60, by position, hitlag x2: in front on 12 (KS 431, radius 8.0, 20.0 to 11.0
+///   up at 9.0 to 10.0 ahead), behind on 13 (KS 406, radius 7.0, 22.0 up, 2.0 to 8.0 behind) and 14 (KS 406, radius 8.0, 16.0 to
+///   10.0 up, 11.5 to 11.0 behind); the early hit never comes out on the ground [R]. One hit group (a target is hit once) [D]. They
+///   clank [R]. The windbox on 22-26 both sides (361 by position, set knockback 80, KS 100, radius 13.0, 15.0 up, 16.0 ahead to 16.0
+///   behind), a push [R]. FAF 85 [R].
+/// * In the air (`ext11`): 14 (KS 371, radius 10.0, 10.0 up, 13.0 to 9.0 ahead), 15 (KS 371, the ground's front box) and 17 (KS 349,
+///   radius 8.0, 16.0 to 10.0 up, 11.5 to 11.0 behind); the windbox on 25-29 (KS 86); FAF 88 [R]. It hovers: x0.4 of the horizontal
+///   and vertical speed on starting, gravity 0.03, top fall speed 1.0 [R]. Landing goes on as the grounded one, keeping its frame (E22b
+///   [E]).
+///
+/// Every position is on the root bone [D]; no set weight in 13.0.1 [R].
+fn finisher(w: &mut Weapon) {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let wind = |first: u8, last: u8, kbg: i16| {
+        capsule(first, last, (150, 160), (150, -160), 130, 0, 361, 0, kbg, 1)
+    };
+    let mut rows = capsule(12, 12, (200, 90), (110, 100), 80, 10, 80, 60, 431, 0);
+    rows.extend(capsule(
+        13,
+        13,
+        (220, -20),
+        (220, -80),
+        70,
+        10,
+        80,
+        60,
+        406,
+        0,
+    ));
+    rows.extend(capsule(
+        14,
+        14,
+        (160, -115),
+        (100, -110),
+        80,
+        10,
+        80,
+        60,
+        406,
+        0,
+    ));
+    rows.extend(wind(22, 26, 100));
+    let mut ground = ref_move(85, 0, 0, 255, &rows);
+
+    let mut rows = capsule(14, 14, (100, 130), (100, 90), 100, 10, 80, 60, 371, 0);
+    rows.extend(capsule(
+        15,
+        15,
+        (200, 90),
+        (110, 100),
+        80,
+        10,
+        80,
+        60,
+        371,
+        0,
+    ));
+    rows.extend(capsule(
+        17,
+        17,
+        (160, -115),
+        (100, -110),
+        80,
+        10,
+        80,
+        60,
+        349,
+        0,
+    ));
+    rows.extend(wind(25, 29, 86));
+    let mut air = ref_move(88, 0, 0, 255, &rows);
+    for m in [&mut ground, &mut air] {
+        set_all(m, |h| {
+            h.angle_type = ANGLE_BY_POSITION;
+            if h.group == 1 {
+                h.fixed_kb = 80;
+                h.push = true;
+                h.hitlag = 0;
+                h.sdi = 0;
+                h.clanks = false;
+            } else {
+                h.hitlag = 200;
+            }
+        });
+    }
+    ground.air_version = Some(FINISHER_AIR as u8);
+    w.moves[FINISHER as usize] = ground;
+    air.start_speed = 40;
+    air.start_speed_y = 40;
+    air.air_gravity = Some(su(30));
+    air.air_max_fall = Some(su(1000));
+    air.on_land = Some(FINISHER as u8);
+    w.moves[FINISHER_AIR as usize] = air;
 }

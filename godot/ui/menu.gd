@@ -23,13 +23,13 @@ var logo: Control
 
 ## [title, subtitle, scene, colour, icon, rect (x, y, w, h) on a 1280x720 screen]
 const ITEMS := [
-	["Play", "Battle on the couch", "res://select.tscn", Color(0.9, 0.3, 0.26), "play", Rect2(50, 150, 520, 500)],
-	["Online", "Duels, groups, quick match", "res://online.tscn", Color(0.22, 0.48, 0.92), "online", Rect2(590, 150, 330, 240)],
-	["Replays", "Watch saved matches", "res://replays.tscn", Color(0.55, 0.32, 0.82), "replays", Rect2(940, 150, 290, 240)],
-	["Character Creator", "Make your own fighter", "res://creator.tscn", Color(0.24, 0.66, 0.38), "creator", Rect2(590, 410, 330, 240)],
-	["Controls", "Keys, pads", "res://controls.tscn", Color(0.16, 0.6, 0.64), "controls", Rect2(940, 410, 140, 140)],
-	["Editors", "Content", "res://editor.tscn", Color(0.4, 0.44, 0.54), "editors", Rect2(1090, 410, 140, 140)],
-	["Quit", "", "", Color(0.32, 0.22, 0.3), "quit", Rect2(940, 565, 290, 85)],
+	["Play", "Battle on the couch", "res://select.tscn", Color(0.98, 0.74, 0.26), "play", Rect2(50, 150, 520, 500)],
+	["Online", "Duels, groups, quick match", "res://online.tscn", Color(0.24, 0.5, 0.86), "online", Rect2(590, 150, 330, 240)],
+	["Replays", "Watch saved matches", "res://replays.tscn", Color(0.5, 0.36, 0.76), "replays", Rect2(940, 150, 290, 240)],
+	["Character Creator", "Make your own fighter", "res://creator.tscn", Color(0.3, 0.64, 0.36), "creator", Rect2(590, 410, 330, 240)],
+	["Controls", "Keys, pads", "res://controls.tscn", Color(0.25, 0.27, 0.46), "controls", Rect2(940, 410, 135, 135)],
+	["Editors", "Content", "res://editor.tscn", Color(0.25, 0.27, 0.46), "editors", Rect2(1095, 410, 135, 135)],
+	["Quit", "", "", Color(0.21, 0.22, 0.38), "quit", Rect2(940, 565, 290, 85)],
 ]
 
 ## Where left and right go from each tile (index into ITEMS).
@@ -63,18 +63,20 @@ func _ready() -> void:
 	add_child(UI.Backdrop.new(false))
 
 	logo = Logo.new()
-	logo.position = Vector2(56, 16)
+	logo.position = Vector2(50, 16)
 	logo.size = Vector2(600, 120)
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(logo)
 
 	for item in ITEMS:
 		var tile := UI.Tile.new(item[0], item[1], item[3], item[4])
+		# (The utility tiles are quieter: a thinner line, a shallower body and smaller type.)
+		tile.tier = 1 if item[4] in ["controls", "editors", "quit"] else 0
 		var r: Rect2 = item[5]
 		tile.position = r.position
 		tile.size = r.size
 		var target: String = item[2]
-		tile.activated.connect(_choose.bind(target))
+		tile.activated.connect(_choose.bind(target, tile))
 		tile.mouse_entered.connect(func(): _select(buttons.find(tile)))
 		add_child(tile)
 		buttons.append(tile)
@@ -89,9 +91,9 @@ func _ready() -> void:
 			tile.add_layer(preview)
 	_select(0)
 
-	var keys := UI.KeyBar.new([["W S", "Next tile"], ["A D", "Across"], ["Enter", "Pick"], ["Esc", "Quit"]])
-	keys.position = Vector2(50, 672)
-	keys.size = Vector2(620, 30)
+	var keys := UI.KeyBar.new([["W A S D", "Navigate"], ["Enter", "Select"], ["Esc", "Quit"]])
+	keys.position = Vector2(50, 668)
+	keys.size = Vector2(520, 32)
 	add_child(keys)
 	PadNav.attach(self)
 	Music.of(self).play("menu")
@@ -109,8 +111,14 @@ func _select(i: int) -> void:
 		buttons[k].selected = k == index
 
 
-func _choose(target: String) -> void:
+func _choose(target: String, tile: Control = null) -> void:
 	Sfx.of(self).play("confirm")
+	if tile == null and index < buttons.size():
+		tile = buttons[index]
+	# The card sinks into its body for a moment before the screen changes (short: it never holds up navigation).
+	if tile != null and tile.has_method("pressed"):
+		tile.pressed()
+		await get_tree().create_timer(0.09).timeout
 	if target == "":
 		get_tree().quit()
 	else:

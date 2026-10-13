@@ -219,7 +219,7 @@ pub struct FighterParams {
     pub weight: Fx,
     /// The body's gauge and its powered mode (see [`Gauge`]); [`Gauge::NONE`] for a body without one.
     pub gauge: Gauge,
-    /// Armor on the body's midair jump (sim 95, E33; `None` for none). Its window counts the frames of the jump (1 is the jump's own
+    /// Armor on the body's midair jump (sim 89, E33; `None` for none). Its window counts the frames of the jump (1 is the jump's own
     /// frame: `Fighter::air_jump_frame`), and it lasts only while the fighter stays in the jump: an attack, a special, an air dodge, a
     /// landing, a ledge or a launch ends it. Read in `combat::apply_hit` as a move's armor is; grabs ignore it. The reference's
     /// double-jump armor is the subtractive knockback kind (`Armor::subtract`).

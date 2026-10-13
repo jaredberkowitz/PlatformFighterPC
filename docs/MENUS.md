@@ -182,3 +182,22 @@ The screens:
   refuses a new fighter (a rename of a saved one still saves). Checked by
   `tests/select_grid_test.gd` for every roster size up to the cap. Screenshots: `docs/screenshots/menu_select_30.png`, `menu_select_100.png`.
 
+
+## Main menu design system (2026-10-13)
+
+Adapted from an outside UI plan, keeping what improves the menu and skipping what it already had (the layout, the Play showcase,
+colour-coded destinations).
+
+- **Two tiers** (`UI.Tile.tier`): primary destinations (Play, Online, Replays, Character Creator) and quiet utilities (Controls,
+  Editors, Quit: one deep indigo, a thinner line, a shallower body, smaller type and icons).
+- **One construction language** (`MenuArt.card` `line` and `slab`): each card's outline is a deep shade of its own colour rather than
+  black ink on every card (less of a sticker look), and it stands on a body (its thickness, a darker shade of its fill), so the menu
+  reads as solid tiles. Play keeps the ink line with a sun-gold rim: the one hero.
+- **Grid**: 20 px gaps everywhere (the utility tiles were 10 and 15), the logo aligned to the cards' left edge.
+- **States**: idle is still; focused lifts, brightens, glows and gets a lit top-and-left edge (readable without colour); pressed sinks
+  into its body for 0.09 s before the screen changes (`Tile.pressed`), with the existing confirm sound.
+- **Icons**: one family, the stroke scaling with the icon's size so small and large ones keep the same optical weight.
+- **Hints**: short labels (Navigate, Select, Quit) on a slim indigo backing with a lit top edge (`UI.KeyBar`, every screen).
+- Not taken up: a second typeface (the display and text faces already split headings from body), constant motion on the cards (the plan
+  advises against it too), and controller glyphs that change with the input device (a later pass).
+- `docs/screenshots/menu_redesign_before.png` / `menu_redesign_after.png`, `menu_utility_tiles.png`.

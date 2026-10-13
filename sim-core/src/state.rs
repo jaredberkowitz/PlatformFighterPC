@@ -21,6 +21,12 @@ pub const PLAYING: i8 = -1;
 pub const DRAW: i8 = -2;
 /// Fixed capacity of the projectile pool.
 pub const MAX_PROJECTILES: usize = 16;
+/// `Fighter::link_kind`: the autolink (angle 367).
+pub const LINK_AUTOLINK: u8 = 0;
+/// `Fighter::link_kind`: the vortex (angle 366, E28).
+pub const LINK_VORTEX: u8 = 1;
+/// Frames a vortex hit (366) pulls its victim toward the hitbox centre (the reference's 5).
+pub const VORTEX_FRAMES: u8 = 5;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -173,6 +179,11 @@ pub struct Fighter {
     pub link: bool,
     pub link_vel: Vec2,
     pub link_point: Vec2,
+    /// Which link the pending `link` launch is: [`LINK_AUTOLINK`] (367) or [`LINK_VORTEX`] (366, E28: sent the way the attacker
+    /// moved at the knockback's speed, plus a pull to `link_point` spread over `vortex` frames).
+    pub link_kind: u8,
+    /// Frames of a vortex pull left (366): each knockback frame moves the fighter a `1 / vortex` share of the way to `link_point`.
+    pub vortex: u8,
     /// Being pulled (the pull angle): while hitstun lasts the fighter is drawn toward `link_point` (just in front of whoever pulled
     /// it), see `fighter::pull_frame`.
     pub pull: bool,
@@ -251,7 +262,7 @@ pub struct Fighter {
     /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 86), with the ruleset's trip
     /// timings instead of a missed tech's.
     pub tripped: bool,
-    /// Frames of the midair jump the fighter is in (sim 95, E33): 1 on the jump's own frame, one more each frame it stays in it (hitlag
+    /// Frames of the midair jump the fighter is in (sim 89, E33): 1 on the jump's own frame, one more each frame it stays in it (hitlag
     /// excluded, saturating); 0 when it is not in one (anything but `Airborne` clears it). The body's `air_jump_armor` reads it.
     pub air_jump_frame: u8,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
@@ -298,6 +309,8 @@ pub struct Projectile {
     pub hit_age: [u8; MAX_FIGHTERS],
     /// The way its owner faced when it was made (-1 or 1; turned round by a reflection): "forward" for a projectile standing still.
     pub facing: i8,
+    /// It has burst (`moves::Burst`): it stands still and hits with the burst's phases; its age counts from the burst.
+    pub bursting: bool,
 }
 
 impl StateHash for Projectile {
@@ -322,6 +335,7 @@ impl StateHash for Projectile {
             h.write_u8(*a);
         }
         h.write_i8(self.facing);
+        h.write_bool(self.bursting);
     }
 }
 
@@ -432,6 +446,8 @@ impl Fighter {
             link: false,
             link_vel: Vec2::ZERO,
             link_point: Vec2::ZERO,
+            link_kind: LINK_AUTOLINK,
+            vortex: 0,
             shield_hp,
             shield_stun: 0,
             sdi_wait: 0,
@@ -597,6 +613,8 @@ impl StateHash for Fighter {
         h.write_bool(self.link);
         self.link_vel.hash_into(h);
         self.link_point.hash_into(h);
+        h.write_u8(self.link_kind);
+        h.write_u8(self.vortex);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
         h.write_u8(self.sdi_wait);
@@ -1192,6 +1210,21 @@ mod tests {
             ("projectile_facing", {
                 let mut s = state;
                 s.projectiles[3].facing = -1;
+                s
+            }),
+            ("projectile_bursting", {
+                let mut s = state;
+                s.projectiles[2].bursting = true;
+                s
+            }),
+            ("link_kind", {
+                let mut s = state;
+                s.fighters[2].link_kind = LINK_VORTEX;
+                s
+            }),
+            ("vortex", {
+                let mut s = state;
+                s.fighters[1].vortex = 5;
                 s
             }),
             ("fighter_vars", {

@@ -779,7 +779,7 @@ func _bend_bone(bone: int, degrees: float, facing: int) -> void:
 func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if anim == null:
 		return
-	var clip := "victory_c" if cheer else ("victory_b" if cls != 0 else "victory_a")
+	var clip := "victory_c" if cheer else ("victory_b" if not bladed(cls) else "victory_a")
 	set_expression(Loadout.HAPPY_FACE)
 	_blink(delta)
 	if current_clip != clip and anim.has_animation(clip):
@@ -789,8 +789,14 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	anim.advance(delta)
 	_follow_bones()
 	# The sword, gripped in the raised hand and pointing up.
-	var armed := cls == 0 and not cheer
+	var armed := bladed(cls) and not cheer
 	blade_pivot.visible = armed
+	for p in blade_parts:
+		p.visible = cls == 0
+	for p in great_parts:
+		p.visible = cls == GREATSWORD_CLASS
+	for p in staff_parts:
+		p.visible = false
 	if armed:
 		var hand := skeleton.find_bone("hand.R")
 		var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hand).origin
@@ -956,6 +962,34 @@ func build(p: int, l: RefCounted = null) -> void:
 	head.radius = 0.26
 	head.height = 0.52
 	staff_parts.append(_part(blade_pivot, head, toon(Color(0.78, 0.96, 1.0)), Vector3(MESH_LENGTH - 0.22, 0, 0)))
+
+	# The Champion's greatsword (class GREATSWORD_CLASS), on the same pivot: a broad single-edged blade with a dark fuller and a chisel
+	# point, a heavy bronze guard, a long leather-wrapped grip for two hands and a round pommel.
+	great_parts.clear()
+	great_parts.append(_part(blade_pivot, _greatsword_shape(), respond(toon(Color(0.78, 0.82, 0.9)), "metal"), Vector3(1.55, 0, 0)))
+	var fuller := BoxMesh.new()
+	fuller.size = Vector3(1.9, 0.07, 0.13)
+	great_parts.append(_part(blade_pivot, fuller, respond(toon(Color(0.42, 0.46, 0.58)), "metal"), Vector3(1.3, 0.1, 0)))
+	var g_guard := BoxMesh.new()
+	g_guard.size = Vector3(0.2, 0.86, 0.24)
+	great_parts.append(_part(blade_pivot, g_guard, respond(toon(Color(0.78, 0.56, 0.3)), "gold"), Vector3(0.12, 0, 0)))
+	var g_grip := CylinderMesh.new()
+	g_grip.top_radius = 0.07
+	g_grip.bottom_radius = 0.07
+	g_grip.height = 0.62
+	g_grip.radial_segments = 8
+	great_parts.append(_part(blade_pivot, g_grip, toon(Color(0.36, 0.24, 0.2)), Vector3(-0.28, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	for wx in [-0.48, -0.32, -0.16]:
+		var wrap := CylinderMesh.new()
+		wrap.top_radius = 0.08
+		wrap.bottom_radius = 0.08
+		wrap.height = 0.04
+		wrap.radial_segments = 8
+		great_parts.append(_part(blade_pivot, wrap, toon(Color(0.24, 0.16, 0.14)), Vector3(wx, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	var pommel := SphereMesh.new()
+	pommel.radius = 0.11
+	pommel.height = 0.22
+	great_parts.append(_part(blade_pivot, pommel, respond(toon(Color(0.78, 0.56, 0.3)), "gold"), Vector3(-0.64, 0, 0)))
 
 	# Impact spark, shown during hitlag.
 	spark = MeshInstance3D.new()
@@ -1354,6 +1388,51 @@ static func _blade_shape() -> ArrayMesh:
 	st.generate_normals()
 	_blade_cache = st.commit()
 	return _blade_cache
+
+
+## The greatsword's blade, laid out like `_blade_shape` (along x, -1.35 to 1.35, so the pivot's scale fits it to the reach): broad (0.5
+## across) and flat, single-edged, with the back straight and the edge cut in a long chisel to the point, thick at the spine and thin at
+## the edge.
+static func _greatsword_shape() -> ArrayMesh:
+	if _great_cache != null:
+		return _great_cache
+	var half := 1.35
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(-1)
+	# The outline (x, y) round the blade, spine at y +0.25 and edge at -0.25, and the thickness at each point (spine thick, edge thin).
+	var top_tip := Vector2(half, 0.25)
+	var chisel := Vector2(half - 0.5, -0.25)
+	var outline := [Vector2(-half, 0.25), top_tip, chisel, Vector2(-half, -0.25)]
+	var thick := func(p: Vector2) -> float:
+		return lerpf(0.012, 0.07, clampf((p.y + 0.25) / 0.5, 0.0, 1.0))
+	# Front and back faces as two triangles each (the outline is convex), then the rim between them.
+	for side in [1.0, -1.0]:
+		var v: Array = []
+		for p in outline:
+			v.append(Vector3(p.x, p.y, side * thick.call(p)))
+		# (Clockwise seen from outside, Godot's front face.)
+		if side > 0.0:
+			st.add_vertex(v[0]); st.add_vertex(v[1]); st.add_vertex(v[2])
+			st.add_vertex(v[0]); st.add_vertex(v[2]); st.add_vertex(v[3])
+		else:
+			st.add_vertex(v[0]); st.add_vertex(v[2]); st.add_vertex(v[1])
+			st.add_vertex(v[0]); st.add_vertex(v[3]); st.add_vertex(v[2])
+	for i in outline.size():
+		var a: Vector2 = outline[i]
+		var b: Vector2 = outline[(i + 1) % outline.size()]
+		var a1 := Vector3(a.x, a.y, thick.call(a))
+		var a2 := Vector3(a.x, a.y, -thick.call(a))
+		var b1 := Vector3(b.x, b.y, thick.call(b))
+		var b2 := Vector3(b.x, b.y, -thick.call(b))
+		st.add_vertex(a1); st.add_vertex(b2); st.add_vertex(b1)
+		st.add_vertex(a1); st.add_vertex(a2); st.add_vertex(b2)
+	st.generate_normals()
+	_great_cache = st.commit()
+	return _great_cache
+
+
+static var _great_cache: ArrayMesh
 
 
 ## How each kind of stuff on a fighter takes the light (shaders/toon_light.gdshaderinc), so skin, cloth, rubber and metal read apart while
@@ -2018,7 +2097,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		# The bubble shrinks and turns from blue through yellow to red as its health runs out.
 		var hp: float = clampf(s.shield, 0.0, 1.0)
 		shield.scale = Vector3.ONE * (0.45 + 0.55 * hp)
-		var col := Color(0.4, 0.7, 1.0, 0.35).lerp(Color(1.0, 0.35, 0.25, 0.45), 1.0 - hp)
+		var col := Color(0.24, 0.56, 1.0, 0.35).lerp(Color(1.0, 0.3, 0.22, 0.45), 1.0 - hp)
 		(shield.material_override as ShaderMaterial).set_shader_parameter("tint", Color(col.r, col.g, col.b, 1.0))
 	speed_lines.visible = fast_falling
 	_animate(s, delta)
@@ -2138,6 +2217,17 @@ var blade_parts: Array[MeshInstance3D] = []
 var staff_parts: Array[MeshInstance3D] = []
 ## The class that fights with a staff (the Seer): posed like the sword, drawn as a staff.
 const STAFF_CLASS := 5
+## The class that fights with a greatsword (the Champion): posed like the sword (its blade follows the hits), drawn as a broad two-handed
+## blade with the other hand on the grip; its kicks (the first two jabs, the sliding down tilt) and its throws keep the blade at rest.
+const GREATSWORD_CLASS := 6
+var great_parts: Array[MeshInstance3D] = []
+## The greatsword's thrusts (the blade points at the hit throughout): the down air, driven straight down.
+const GREAT_THRUSTS := ["dair"]
+
+
+## Whether a class swings a sword whose blade follows its hits (the Duelist's longsword, the Champion's greatsword).
+static func bladed(cls: int) -> bool:
+	return cls == 0 or cls == GREATSWORD_CLASS
 ## How many times the Seer's neutral air whirls the staff round.
 const STAFF_NAIR_TURNS := 2.0
 
@@ -2198,19 +2288,36 @@ var blade_angle := REST_ANGLE
 var blade_length := 2.0
 
 
+## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword carried over the
+## shoulder, its blade lying back across the back (pointing up and behind), so it never hides the fighter or the stage in front.
+func _rest_angle(s: Dictionary) -> float:
+	return GREAT_REST_ANGLE if _cls(s) == GREATSWORD_CLASS else REST_ANGLE
+
+
+const GREAT_REST_ANGLE := 152.0
+## Where the hand holds the greatsword at rest (forward space): up by the shoulder, a little in front of it.
+const GREAT_REST_HAND := Vector2(0.3, 1.25)
+## How far in front of (positive) or behind the body the greatsword's hand is, eased between the two.
+var great_z := -0.45
+## The greatsword's length (hand to point), whatever the hit: the blade reaches about 2 units past the grip.
+const GREAT_LENGTH := 2.45
+
+
 func _rest_length(s: Dictionary) -> float:
 	# Swords are long; claws and bare hands are short.
 	if _cls(s) == STAFF_CLASS:
 		return 2.0
-	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if _cls(s) == 0 else 1.0
+	if _cls(s) == GREATSWORD_CLASS:
+		return GREAT_LENGTH
+	return clampf(float(s.reach) - HAND.x - 0.65, 0.7, 3.4) if bladed(_cls(s)) else 1.0
 
 
 ## Where the blade should point, in degrees in forward space, and how long it should be, for this frame.
 func _blade_target(s: Dictionary) -> Array:
 	var rest_len := _rest_length(s)
 	var name: String = s.move_name
-	if name == "" or (_cls(s) == STAFF_CLASS and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), name, anim))):
-		return [REST_ANGLE, rest_len, HAND.x]
+	if name == "" or ((_cls(s) == STAFF_CLASS or _cls(s) == GREATSWORD_CLASS) and _body_clip(_cls(s), name)):
+		return [_rest_angle(s), rest_len, GREAT_REST_HAND.x if _cls(s) == GREATSWORD_CLASS else HAND.x]
 	# The Seer's neutral air: the staff whirled round the body, held at its middle, turning from the wind-up through the last hit.
 	if _cls(s) == STAFF_CLASS and name == "nair":
 		var tt: PackedInt32Array = s.move_timing
@@ -2224,9 +2331,11 @@ func _blade_target(s: Dictionary) -> Array:
 	var to_tip := Vector2(tip.x - hand_x, tip.y - HAND.y)
 	var swing := rad_to_deg(atan2(to_tip.y, to_tip.x))
 	var length := clampf(to_tip.length() + tip.z * 0.7, 0.7, 3.6)
-	if _cls(s) == STAFF_CLASS:
-		length = clampf(length, 1.6, 2.6)
-	elif _cls(s) != 0:
+	if bladed(_cls(s)) or _cls(s) == STAFF_CLASS:
+		# (A real weapon does not stretch to the hit: the longsword, the greatsword and the staff are always their own length, pointed at
+		# the hit.)
+		length = rest_len
+	elif not bladed(_cls(s)):
 		length = clampf(length, 0.7, 1.4)
 	# Never point into the floor while standing on it.
 	if s.platform >= 0:
@@ -2241,7 +2350,7 @@ func _blade_target(s: Dictionary) -> Array:
 	if SWING_FROM.has(name):
 		wind = swing + float(SWING_FROM[name])
 	# A thrust does not swing: the blade points at the hit from the start and the arm drives it in (see `_pose_blade`).
-	if _cls(s) == 0 and SWORD_THRUSTS.has(name):
+	if (_cls(s) == 0 and SWORD_THRUSTS.has(name)) or (_cls(s) == GREATSWORD_CLASS and GREAT_THRUSTS.has(name)):
 		wind = swing
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
@@ -2251,7 +2360,7 @@ func _blade_target(s: Dictionary) -> Array:
 	var len := length
 	if f < swing_from:
 		var k := clampf(f / maxf(1.0, swing_from), 0.0, 1.0)
-		angle = lerpf(REST_ANGLE, wind, k)
+		angle = lerpf(_rest_angle(s), wind, k)
 		len = lerpf(rest_len, length, k)
 	elif f < start:
 		var k := clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0)
@@ -2259,7 +2368,7 @@ func _blade_target(s: Dictionary) -> Array:
 	elif f > t[2]:
 		# The blade holds its follow-through and comes back late in the end lag.
 		var k := pow(clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0), 1.8)
-		angle = lerpf(swing, REST_ANGLE, k)
+		angle = lerpf(swing, _rest_angle(s), k)
 		len = lerpf(length, rest_len, k)
 	return [angle, len, hand_x]
 
@@ -2269,6 +2378,8 @@ const SHOULDER := Vector2(0.5, 1.15)
 const ARM_REACH := 0.5
 var arm_k := 0.0
 var hand_target := Vector3.ZERO
+## Where the greatsword's other hand holds the grip (model space), set with `hand_target`.
+var off_hand_target := Vector3.ZERO
 ## The sword's thrusts: the blade points at the hit throughout and the arm drives it in, rather than swinging round to it.
 const SWORD_THRUSTS := ["usmash", "dtilt"]
 ## Neutral airs whose second hit circles the body (the sword's): the whole body flips over backward once while the arm holds the blade
@@ -2302,14 +2413,16 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	blade_length = lerpf(blade_length, float(target[1]), follow)
 	var facing: int = s.facing
 	# Where the blade's tip is (forward space). It is fixed by the move's hitboxes and never moves because of the arm.
-	var old_hand := Vector2(float(target[2]), HAND.y)
+	var great_rest: bool = _cls(s) == GREATSWORD_CLASS and float(target[2]) == GREAT_REST_HAND.x
+	var old_hand := Vector2(float(target[2]), GREAT_REST_HAND.y if great_rest else HAND.y)
 	var tip := old_hand + Vector2.from_angle(deg_to_rad(blade_angle)) * blade_length
 	# In a swing the hand leaves its resting spot and sweeps round the shoulder, so the arm throws the blade through its arc; the blade
 	# then runs from the hand to the same tip.
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
-	if attacking and (_cls(s) != 0 or SWORD_THRUSTS.has(String(s.move_name))):
+	if attacking and (not bladed(_cls(s)) or (_cls(s) == 0 and SWORD_THRUSTS.has(String(s.move_name)))
+			or (_cls(s) == GREATSWORD_CLASS and GREAT_THRUSTS.has(String(s.move_name)))):
 		arm_k = _reach_weight(s)
 	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
 	# holds the blade out and the spin carries it round the circle the hits make.
@@ -2319,14 +2432,14 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# The swing's arc (see ARCS): the sword's follows where its tip is; a claw is swept along its arc (its hitbox holds still while the
 	# hand rakes through it, as the reference's do).
 	var now := _arc_now(s, tip)
-	if _cls(s) != 0 and not now.is_empty():
+	if not bladed(_cls(s)) and not now.is_empty():
 		tip = _arc_point(now)
 	var hand := old_hand
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
 		# (A fist reaches further by the strike's stretch, `strike_e`, so the stretched arm is straight on the hit.)
-		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) == 0 else arm_reach * (1.0 + strike_e)
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if bladed(_cls(s)) else arm_reach * (1.0 + strike_e)
 		var goal := shoulder + to_tip / dist * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
@@ -2337,18 +2450,26 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 		else:
 			hand = old_hand.lerp(goal, arm_k)
 	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
-	if _cls(s) != 0 and absf(springs.value("hand")) > 0.001:
+	if not bladed(_cls(s)) and absf(springs.value("hand")) > 0.001:
 		hand += (hand - shoulder).normalized() * springs.value("hand")
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())
 	# Forward space to model space: facing left mirrors the pose about the vertical axis.
 	var angle := swing if facing > 0 else 180.0 - swing
-	hand_target = Vector3(hand.x * facing, hand.y, 0.35)
+	# (The greatsword at rest lies behind the body, its blade across the back; swinging, it comes round in front.)
+	var hand_z := 0.35
+	if _cls(s) == GREATSWORD_CLASS:
+		great_z = move_toward(great_z, -0.45 if great_rest else 0.35, delta * 8.0)
+		hand_z = great_z
+	hand_target = Vector3(hand.x * facing, hand.y, hand_z)
+	# The greatsword is held in both hands: the other one a little further down the grip (toward the pommel), just behind the blade.
+	var back_along := Vector2.from_angle(deg_to_rad(angle)) * -0.3
+	off_hand_target = hand_target + Vector3(back_along.x, back_along.y, -0.15)
 	_update_arc(now, delta)
 	blade_pivot.position = hand_target
 	blade_pivot.rotation = Vector3(0, 0, deg_to_rad(angle))
-	var thick := 1.0 if _cls(s) == 0 or _cls(s) == STAFF_CLASS else 1.7
+	var thick := 1.0 if bladed(_cls(s)) or _cls(s) == STAFF_CLASS else 1.7
 	blade_pivot.scale = Vector3(length / MESH_LENGTH, thick, thick)
 
 
@@ -2410,7 +2531,7 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		prev_hitlag = int(s.hitlag)
 	# A strike's follow-through: as a fist's hit ends the hand carries on past it and settles back.
 	var f := int(s.state_frame)
-	if String(s.state) == "Attack" and _cls(s) != 0 and prev_state_frame >= 0:
+	if String(s.state) == "Attack" and not bladed(_cls(s)) and prev_state_frame >= 0:
 		var last := int(s.move_timing[2])
 		if prev_state_frame <= last and f > last:
 			springs.kick("hand", 1.9)
@@ -2427,8 +2548,15 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
 
 
-## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
-func _aim_arm(facing: int, holding: bool) -> void:
+## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.
+func _body_clip(cls: int, move: String) -> bool:
+	var clip := AnimLibrary.attack_clip(cls, move, anim)
+	return AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land", "crouch"]
+
+
+## Two-bone arm IK: the weapon arm reaches `hand_target` (model space), and with `two_hands` the other arm reaches `off_hand_target` (the
+## greatsword's grip). Returns nothing; with `holding` false the arms go back to the clip.
+func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 	if skeleton == null:
 		return
 	for side in ["L", "R"]:
@@ -2436,7 +2564,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var iu := skeleton.find_bone("armU." + side)
 		var il := skeleton.find_bone("armL." + side)
 		var ih := skeleton.find_bone("hand." + side)
-		if not (mine and holding):
+		if not holding or not (mine or two_hands):
 			skeleton.set_bone_global_pose_override(iu, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(il, Transform3D(), 0.0, false)
 			skeleton.set_bone_global_pose_override(ih, Transform3D(), 0.0, false)
@@ -2447,7 +2575,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var elbow0 := rest_l.origin
 		var wrist0 := rest_h.origin
 		# On a strike the arm stretches (`strike_e`, the fists only: a blade's reach is the blade), and reaches that much further.
-		var e := strike_e if _cls_now != 0 else 0.0
+		var e := strike_e if not bladed(_cls_now) else 0.0
 		var upper := (elbow0 - rest_u.origin).length() * (1.0 + e)
 		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
 		var shoulder := rest_u.origin
@@ -2457,7 +2585,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var fore_len := (wrist0 - elbow0).length() * (1.0 + e)
 		var lower := fore_len + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
-		var goal: Vector3 = to_skel * hand_target
+		var goal: Vector3 = to_skel * (hand_target if mine else off_hand_target)
 		var d := goal - shoulder
 		var dist := clampf(d.length(), 0.05, upper + lower - 0.002)
 		var dir := d.normalized()
@@ -2474,7 +2602,7 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
 		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch, elbow), 1.0, true)
 		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * fore_len), 1.0, true)
-		if _cls_now != 0:
+		if not bladed(_cls_now) and mine:
 			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
 			strike_tip_ok = true
 
@@ -2594,6 +2722,23 @@ const ARCS := {
 		"uair": [[0.0, 0.0, 0.0, 15, 165, 7, 9, "arm"]],
 		"dair": [[0.0, 0.0, 0.0, 20, -110, 16, 17, "arm"]],
 	},
+	# Champion (greatsword): fitted to the moveset's timings (docs/movesets/cloud/IMPLEMENTATION_REPORT.md), circles about the shoulder
+	# a little wider than the longsword's for the longer blade. Its kicks (jabs 1 and 2, the down tilt) and the driven-down down air
+	# draw none.
+	6: {
+		"jab 3": [[0.5, 1.15, 2.4, 70, -25, 6, 7]],
+		"ftilt": [[0.45, 1.1, 2.45, 95, -35, 9, 10]],
+		"utilt": [[0.0, 1.2, 2.3, 200, 10, 6, 9]],
+		"dash attack": [[0.55, 1.1, 2.5, -60, 45, 9, 12]],
+		"fsmash": [[0.7, 1.15, 2.4, 120, -15, 18, 19], [0.7, 1.15, 2.4, -40, 35, 23, 24], [0.7, 1.15, 2.5, 140, -25, 27, 28]],
+		"usmash": [[0.0, 1.2, 2.4, 15, 195, 12, 16]],
+		"dsmash": [[0.0, 2.7, 2.7, -100, -35, 8, 9], [0.0, 2.7, 2.7, -80, -145, 21, 23]],
+		"nair": [[0.2, 1.1, 2.35, 10, 370, 5, 15]],
+		"fair": [[0.5, 1.05, 2.4, 125, -60, 17, 20]],
+		"bair": [[0.0, 1.1, 2.3, 215, 140, 11, 12]],
+		"uair": [[0.1, 1.3, 2.3, 175, 60, 7, 10]],
+		"ledge attack": [[0.3, 0.8, 2.3, 120, -20, 20, 22]],
+	},
 	# Needles: fitted to its hitboxes (moves.rs `needles`), circles about the hip for the kicks and the shoulder for the hand strikes.
 	# The up air draws one arc a kick: its three looping kicks and the final one.
 	2: {
@@ -2652,7 +2797,7 @@ func _arc_now(s: Dictionary, tip: Vector2) -> Dictionary:
 		if f < first - 2.0:
 			continue
 		var k := clampf((f - first + 2.0) / (last - first + 2.0), 0.0, 1.0)
-		if _cls(s) == 0:
+		if bladed(_cls(s)):
 			var from := deg_to_rad(float(w[3]))
 			var span := deg_to_rad(float(w[4])) - from
 			var ang := (tip - (_arc_circle(w)[0] as Vector2)).angle()
@@ -3039,12 +3184,14 @@ func _launch_smoke(s: Dictionary) -> void:
 		im.surface_end()
 
 
-## A class's trail colours: [the trail, its bright core] (claws violet, needles teal, sword blue).
+## A class's trail colours: [the trail, its bright core] (claws violet, needles teal, greatsword amber, sword blue).
 static func trail_colours_of(cls: int) -> Array:
 	if cls == 1:
 		return [Color(0.78, 0.3, 1.0), Color(1.0, 0.9, 1.0)]
 	if cls == 2:
 		return [Color(0.25, 0.85, 0.75), Color(0.9, 1.0, 0.97)]
+	if cls == GREATSWORD_CLASS:
+		return [Color(1.0, 0.62, 0.22), Color(1.0, 0.96, 0.82)]
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
@@ -3116,27 +3263,38 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# The claws and needles fighters' kicks and rushes use the body, not a blade (the needles' stand-in specials are the claws', so they
 	# burn and spin the same way).
 	var staff: bool = _cls(s) == STAFF_CLASS
-	var brawler: bool = _cls(s) != 0 and not staff
+	var great: bool = _cls(s) == GREATSWORD_CLASS
+	var brawler: bool = not bladed(_cls(s)) and not staff
 	for p in blade_parts:
-		p.visible = not staff
+		p.visible = not staff and not great
 	for p in staff_parts:
 		p.visible = staff
+	for p in great_parts:
+		p.visible = great
 	# Only the body moves leave the arms alone (the claws' listed ones; the needles' kicks, grabs and throws); the sword fighter always
 	# has its blade.
 	var body_move := false
 	if _cls(s) == 1:
 		body_move = BRAWLER_NO_BLADE.has(s.move_name)
-	elif (_cls(s) == 2 or staff) and s.move_name != "":
-		var clip := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
-		body_move = AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land"]
-	var swinging_arm: bool = not ((brawler or staff) and body_move)
-	# (The Seer keeps its staff in hand through a kick, held at rest.)
-	blade_pivot.visible = (not brawler and swinging_arm) or staff
+	elif (_cls(s) == 2 or staff or great) and s.move_name != "":
+		body_move = _body_clip(_cls(s), s.move_name)
+	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
+	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
+	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
-		_aim_arm(int(s.facing), holding and not carrying)
+		# (The Champion swings two-handed; a kick or a throw lets go with the other hand.)
+		_aim_arm(int(s.facing), holding and not carrying, great and swinging_arm and state == "Attack")
+		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
+		# always in the hand, never floating in front of it.
+		if holding and not carrying and skeleton != null:
+			var hb := skeleton.find_bone("hand.R" if int(s.facing) > 0 else "hand.L")
+			if hb >= 0:
+				var held: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
+				var along := Vector3(cos(blade_pivot.rotation.z), sin(blade_pivot.rotation.z), 0.0)
+				blade_pivot.position = Vector3(held.x, held.y, blade_pivot.position.z) + along * 0.08
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)

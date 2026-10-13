@@ -387,6 +387,11 @@ These override anything above that disagrees.
 48. **Small pieces**: build E30 (Yoshi Bomb drops through platforms) and E3h (both landing stars on the same frame).
 49. **Egg Roll is the lowest priority and will likely be replaced**: build it last and simply, from data and existing features only;
     E31 (no hitbox in the air / while turning) and E32 (the ledge stall) are deferred as listed limits, since they serve only Egg Roll.
+50. **Base trip chance**: build the reference's base 7% trip for every fighter (a low, non-lifting hit over 55 knockback), rolled from the
+    sim's RNG.
+51. **Older kits' trip chances**: add them as data from the reference (Claws down tilt 40%, and the slope-only ones).
+52. **Small extras**: an `aim` script register (the Bracers' angled forward tilt ends on the reference's FAF 36) and a read-only bridge
+    accessor for `Fighter::tripped` (the view shows a trip as sitting).
 
 ## Still open
 
