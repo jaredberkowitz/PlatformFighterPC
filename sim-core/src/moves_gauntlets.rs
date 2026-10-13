@@ -25,7 +25,165 @@ pub fn gauntlets() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    raptor_boost(&mut w);
     w
+}
+
+/// Reference units (thousandths) to world units: 1 world unit is 8 reference units.
+fn su(thousandths: i32) -> Fx {
+    Fx::from_ratio(thousandths, 8000)
+}
+
+/// Slots of the specials' follow-ups (the rapid jab holds ext10 to ext12).
+const RAPTOR_GROUND_HIT: MoveId = MoveId::Ext3;
+const RAPTOR_AIR: MoveId = MoveId::Ext4;
+const RAPTOR_AIR_HIT: MoveId = MoveId::Ext5;
+
+/// Side special, a dash into an uppercut (on the ground) or an overhand (in the air): the reference's, ssbwiki.com 13.0.1.
+///
+/// * On the ground (side special): search boxes on frames 10-25 (radius 4.0 reference units, at 8.8 ahead: on grounded fighters from
+///   9.0 to 5.0 up, on airborne ones from 12.0 to 5.0 up [D]); touching anyone, shields included, switches to the uppercut. Missed,
+///   FAF 72.
+/// * The uppercut (ext3): damage-based armor on frames 1-4 against hits of up to 10% (conflict 2 of the reference data: 1-4 by two
+///   sources to one); the clean hit on frame 5, late on 6-7; 10%, 85 degrees, BK 82, KS 30, +3 hitstun, hitlag x1.5, shield damage +4
+///   (140 percent [D]). The dash's speed is cut to 0.18 on switching. FAF 28.
+/// * In the air (ext4): search on frames 19-35 (radius 4.1, 11.0 ahead, 12.0 to 3.0 up [D]); ledges from frame 26 on either side; landing
+///   during it costs 22 frames; at its end (frame 79) the special fall (air speed x0.7, landing lag 22).
+/// * The overhand (ext5): clean on frame 5, late on 6; 10%: on airborne fighters a meteor (270, BK 60, KS 70), on grounded ones 60
+///   degrees (BK 60, KS 80), the arm's box behind 60 degrees on anyone; hitlag x2, shield damage +2 (120 [D]). On frame 6, whether it
+///   hits or not, the fighter is set moving 1.5 back and 2.5 up (reference units a frame); no landing and no ledge before frame 8. FAF
+///   45, then free (not helpless). Landing lag 21 (dragdown only: conflict 7).
+///
+/// The dash's speed and distance are the reference's animation, not published: [E] (see the reference data's "Fitted distances").
+fn raptor_boost(w: &mut Weapon) {
+    let search = |first: u8, last: u8, x: i32, y: i32, radius: i32| {
+        let mut h = row(&r(first, last, x, y, radius, 0, 0, 0, 0, 0, 0));
+        h.kind = HIT_SEARCH;
+        h
+    };
+    // The grounded dash.
+    let mut dash = ref_move(72, 0, 0, 255, &[]);
+    for (y, targets) in [
+        (11, TARGETS_GROUNDED),
+        (6, TARGETS_GROUNDED),
+        (15, TARGETS_AERIAL),
+        (6, TARGETS_AERIAL),
+    ] {
+        let mut h = search(10, 25, 11, y, 5);
+        h.targets = targets;
+        dash.hitboxes.push(h);
+    }
+    dash.motion = vec![
+        Motion {
+            start: 0,
+            end: 8,
+            vx: su(800),
+            vy: Fx::ZERO,
+        },
+        Motion {
+            start: 9,
+            end: 24,
+            vx: su(2000),
+            vy: Fx::ZERO,
+        },
+        Motion {
+            start: 25,
+            end: 29,
+            vx: su(600),
+            vy: Fx::ZERO,
+        },
+    ];
+    dash.on_search = Some(RAPTOR_GROUND_HIT as u8);
+    dash.air_version = Some(RAPTOR_AIR as u8);
+    w.moves[MoveId::SideSpecial as usize] = dash;
+
+    // The uppercut.
+    let mut hit = ref_move(
+        28,
+        0,
+        0,
+        255,
+        &[
+            r(5, 5, 10, 13, 8, 100, 85, 82, 30, 0, 0),
+            r(5, 5, 7, 11, 7, 100, 85, 82, 30, 1, 0),
+            r(5, 5, 16, 11, 7, 100, 85, 82, 30, 2, 0),
+            r(6, 7, 10, 16, 6, 100, 85, 82, 30, 0, 0),
+        ],
+    );
+    set_rows(&mut hit, &[0, 1, 2, 3], |h| {
+        h.hitstun_add = 3;
+        h.hitlag = 150;
+        h.shield_damage = 140;
+    });
+    hit.armor = Some(Armor {
+        start: 0,
+        end: 3,
+        kind: ARMOR_DAMAGE,
+        threshold: Fx::from_int(10),
+    });
+    hit.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_raptor_hit.script"),
+    ));
+    w.moves[RAPTOR_GROUND_HIT as usize] = hit;
+
+    // The aerial dash.
+    let mut air = ref_move(80, 22, 0, 255, &[]);
+    for y in [15, 10, 4] {
+        air.hitboxes.push(search(19, 35, 14, y, 5));
+    }
+    air.motion = vec![
+        Motion {
+            start: 0,
+            end: 8,
+            vx: su(500),
+            vy: Fx::ZERO,
+        },
+        Motion {
+            start: 9,
+            end: 34,
+            vx: su(1800),
+            vy: -su(300),
+        },
+    ];
+    air.on_search = Some(RAPTOR_AIR_HIT as u8);
+    air.helpless_after = true;
+    air.fall_drift = 70;
+    air.fall_landing_lag = 22;
+    air.ledge_front_from = 25;
+    air.ledge_back_from = 25;
+    w.moves[RAPTOR_AIR as usize] = air;
+
+    // The overhand.
+    let mut over = ref_move(
+        45,
+        21,
+        0,
+        255,
+        &[
+            r(5, 5, 12, 10, 10, 100, 270, 60, 70, 0, 0),
+            r(5, 5, 12, 10, 10, 100, 60, 60, 80, 1, 0),
+            r(5, 5, 5, 13, 3, 100, 60, 60, 80, 2, 0),
+            r(6, 6, 12, 10, 10, 100, 270, 60, 70, 0, 0),
+            r(6, 6, 12, 10, 10, 100, 60, 60, 80, 1, 0),
+            r(6, 6, 7, 10, 5, 100, 60, 60, 80, 2, 0),
+            r(6, 6, 4, 1, 5, 100, 60, 60, 80, 3, 0),
+        ],
+    );
+    set_rows(&mut over, &[0, 3], |h| h.targets = TARGETS_AERIAL);
+    set_rows(&mut over, &[1, 4], |h| h.targets = TARGETS_GROUNDED);
+    set_rows(&mut over, &[0, 1, 2, 3, 4, 5, 6], |h| {
+        h.hitlag = 200;
+        h.shield_damage = 120;
+    });
+    over.lands_from = 7;
+    over.ledge_front_from = 7;
+    over.ledge_back_from = 7;
+    over.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_raptor_air_hit.script"),
+    ));
+    w.moves[RAPTOR_AIR_HIT as usize] = over;
 }
 
 fn jabs(w: &mut Weapon) {

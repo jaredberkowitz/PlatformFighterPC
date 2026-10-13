@@ -17,8 +17,8 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL,
-    TARGETS_GROUNDED,
+    ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW,
+    TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -287,6 +287,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
     // Where each chosen hitbox was (for an autolink's pull).
     let mut chosen_at = [[Vec2::ZERO; MAX_FIGHTERS]; MAX_FIGHTERS];
+    // Attackers whose search box touched someone this frame (see `HIT_SEARCH`).
+    let mut searched = [false; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
         if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
@@ -308,6 +310,13 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             let mut best: Option<Hitbox> = None;
             for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
                 if fa.hit_mask & hit_bit(d, hb.group) != 0 || !hits_target(&hb, fd) {
+                    continue;
+                }
+                if hb.kind == HIT_SEARCH {
+                    // A search box only notices (shields do not matter); it never competes with the move's hits.
+                    if fa.grab_with != d as i8 && touches(&hurt, shut, center, hb.radius) {
+                        searched[a] = true;
+                    }
                     continue;
                 }
                 let touching = match hb.kind {
@@ -442,6 +451,21 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             state.fighters[a].hit_mask |= hit_bit(d, hb.group);
             struck[d] = true;
             grab::connect(state, content, a, d);
+        }
+    }
+
+    // Search boxes last: an attacker that touched someone with one (and was not hit or knocked out of its move meanwhile) switches
+    // to the move's `on_search` at the start of the next frame.
+    for a in 0..MAX_FIGHTERS {
+        let f = &state.fighters[a];
+        if !searched[a] || struck[a] || f.state != S::Attack || f.next_move != 0 {
+            continue;
+        }
+        if let Some(next) = weapon_of(content, params_of(content, f))
+            .get(f.move_id)
+            .on_search
+        {
+            state.fighters[a].next_move = next.saturating_add(1);
         }
     }
 }

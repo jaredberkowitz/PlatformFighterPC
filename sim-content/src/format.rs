@@ -11,8 +11,8 @@ use sim_core::moves::{
     AirBlock, Armor, Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc,
     ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ARMOR_DAMAGE,
     ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL,
-    TARGETS_GROUNDED,
+    HIT_SEARCH, HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
+    TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -506,6 +506,7 @@ fn kind_name(kind: u8) -> &'static str {
         HIT_GRAB => "grab",
         HIT_THROW => "throw",
         HIT_PUMMEL => "pummel",
+        HIT_SEARCH => "search",
         _ => "normal",
     }
 }
@@ -518,11 +519,12 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         Some(("grab", _)) => HIT_GRAB,
         Some(("throw", _)) => HIT_THROW,
         Some(("pummel", _)) => HIT_PUMMEL,
+        Some(("search", _)) => HIT_SEARCH,
         Some((other, line)) => {
             err(
                 errors,
                 line,
-                format!("hitbox kind must be normal, grab, throw or pummel, not `{other}`"),
+                format!("hitbox kind must be normal, grab, throw, pummel or search, not `{other}`"),
             );
             HIT_NORMAL
         }
@@ -738,14 +740,20 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         }
     }
     m.rehit_groups = f.or("rehit_groups", 0xff, errors);
-    if let Some((key, line)) = f.raw("landing_move") {
-        match MoveId::from_key(key) {
-            Some(id) => m.landing_move = Some(id as u8),
-            None => err(
-                errors,
-                line,
-                format!("`landing_move` must be a move name, not `{key}`"),
-            ),
+    for (name, slot) in [
+        ("landing_move", &mut m.landing_move),
+        ("on_search", &mut m.on_search),
+        ("air_version", &mut m.air_version),
+    ] {
+        if let Some((key, line)) = f.raw(name) {
+            match MoveId::from_key(key) {
+                Some(id) => *slot = Some(id as u8),
+                None => err(
+                    errors,
+                    line,
+                    format!("`{name}` must be a move name, not `{key}`"),
+                ),
+            }
         }
     }
     let rehit_start: Option<u8> = f.parsed("rehit_start", errors);
@@ -1094,8 +1102,14 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if m.rehit_groups != 0xff {
         b.field("rehit_groups", m.rehit_groups.to_string());
     }
-    if let Some(id) = m.landing_move {
-        b.field("landing_move", MoveId::from_index(id).key());
+    for (name, slot) in [
+        ("landing_move", m.landing_move),
+        ("on_search", m.on_search),
+        ("air_version", m.air_version),
+    ] {
+        if let Some(id) = slot {
+            b.field(name, MoveId::from_index(id).key());
+        }
     }
     if m.counter_strike {
         b.field("counter_strike", "true");

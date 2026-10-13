@@ -376,6 +376,9 @@ pub const HIT_GRAB: u8 = 1;
 pub const HIT_THROW: u8 = 2;
 /// Damages the fighter being held without releasing it.
 pub const HIT_PUMMEL: u8 = 3;
+/// A search box (the reference's "search" collision): touching a fighter's hurtbox does nothing to it (no damage, hitlag or clank;
+/// shields do not matter), but switches the attacker's move to its `Move::on_search` on the next frame, keeping its speed.
+pub const HIT_SEARCH: u8 = 4;
 
 /// Scripted movement during a move (for example a rising special). While active it overrides
 /// the fighter's velocity; `vx` is relative to facing.
@@ -641,6 +644,11 @@ pub struct Move {
     pub part_intangible: Vec<PartIntangible>,
     /// Armor while the move runs (see [`Armor`]); `None` for none.
     pub armor: Option<Armor>,
+    /// The move (usually an `ext` slot) a search box of this move switches to when it touches someone (see [`HIT_SEARCH`]): it starts
+    /// on the next frame, with the speed the fighter had.
+    pub on_search: Option<u8>,
+    /// A special started in the air uses this slot instead (its aerial version, with its own frames and hits); `None`: the same move.
+    pub air_version: Option<u8>,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -707,6 +715,8 @@ impl Move {
             lands_from: 0,
             part_intangible: Vec::new(),
             armor: None,
+            on_search: None,
+            air_version: None,
             charge_at: None,
             next: None,
             next_window: 0,
@@ -922,6 +932,15 @@ impl StateHash for Weapon {
                     a.threshold.hash_into(h);
                 }
                 None => h.write_bool(false),
+            }
+            for slot in [m.on_search, m.air_version] {
+                match slot {
+                    Some(id) => {
+                        h.write_bool(true);
+                        h.write_u8(id);
+                    }
+                    None => h.write_bool(false),
+                }
             }
             match m.charge_at {
                 Some(f) => {
@@ -3698,7 +3717,10 @@ mod tests {
                         "{}",
                         MoveId::from_index(i as u8).name()
                     );
-                    assert!((hb.damage > Fx::ZERO || hb.kind == HIT_GRAB) && hb.radius > Fx::ZERO);
+                    assert!(
+                        (hb.damage > Fx::ZERO || matches!(hb.kind, HIT_GRAB | HIT_SEARCH))
+                            && hb.radius > Fx::ZERO
+                    );
                 }
             }
         }

@@ -519,3 +519,48 @@ fn damage_armor_withstands_hits_up_to_its_threshold_and_super_armor_every_hit() 
     // A grab ignores armor.
     assert_eq!(armored(sup, 0, HIT_GRAB).fighter(1).state, S::Grabbed);
 }
+
+// ---- Search boxes (E21) ----------------------------------------------------------------------------------------------------------
+
+#[test]
+fn a_search_box_touches_without_hitting_or_clanking_and_switches_the_move_next_frame() {
+    use sim_core::moves::HIT_SEARCH;
+    let mut probe = hb(2, 10, 0, 0, 0, 0, 0);
+    probe.kind = HIT_SEARCH;
+    let mut seek = mv(30, vec![probe]);
+    seek.on_search = Some(MoveId::Ext9 as u8);
+    let build = |opponent_attacks: bool| {
+        let mut sim = setup(seek.clone());
+        sim.content.weapons[0].moves[MoveId::Ext9 as usize] = mv(20, vec![hb(3, 3, 5, 0, 0, 0, 0)]);
+        if opponent_attacks {
+            // The opponent's own attack overlaps the search box: a normal hit would clank, a search box never does.
+            sim.content.weapons[1].moves[MoveId::NSpecial as usize] =
+                mv(30, vec![hb(1, 20, 0, 0, 0, 0, 0)]);
+            sim_core::fighter::begin_attack(&mut sim.state.fighters[1], MoveId::NSpecial);
+        }
+        sim.state.fighters[0].vel.x = Fx::from_ratio(1, 10);
+        start(&mut sim);
+        sim
+    };
+    for opponent_attacks in [false, true] {
+        let mut sim = build(opponent_attacks);
+        sim.ticks(2, inp(0, 0, 0));
+        // Frame 2: the search box touches; nothing happens to anyone this frame.
+        assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
+        assert_eq!(sim.f().next_move, MoveId::Ext9 as u8 + 1);
+        assert_eq!((sim.f().hitlag, sim.fighter(1).hitlag), (0, 0));
+        assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+        assert_ne!(sim.f().state, S::Rebound, "no clank");
+        // Next frame: the new move, on its first frame.
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(
+            (sim.f().move_id, sim.f().state_frame),
+            (MoveId::Ext9 as u8, 0)
+        );
+        // Without on_search nothing switches.
+    }
+    let mut sim = build(false);
+    sim.content.weapons[0].moves[MoveId::NSpecial as usize].on_search = None;
+    sim.ticks(4, inp(0, 0, 0));
+    assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
+}

@@ -290,6 +290,10 @@ pub fn update(
         }
         return None;
     }
+    // A move switch decided after last frame's update (a search box, a command grab) only waits for an attack that is still going.
+    if f.state != S::Attack {
+        f.next_move = 0;
+    }
 
     f.airtime = if f.platform == NONE {
         f.airtime.saturating_add(1)
@@ -1754,6 +1758,14 @@ fn attack(
     stage: &Stage,
     rules: &Ruleset,
 ) -> Option<u8> {
+    // A switch decided last frame after the fighter moved (a search box's contact, a command grab's catch): the new move's first
+    // frame is this one, keeping the speed (as a `goto`).
+    if f.next_move != 0 {
+        let next = f.next_move - 1;
+        f.next_move = 0;
+        begin_attack(f, MoveId::from_index(next));
+        return None;
+    }
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
 
@@ -2076,6 +2088,11 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     {
         f.facing = -f.facing;
     }
+    // Started in the air, a special with an aerial version uses it (its own slot).
+    let (id, mv) = match mv.air_version {
+        Some(v) if !f.grounded() => (MoveId::from_index(v), weapon.get(v)),
+        _ => (id, mv),
+    };
     begin_attack(f, id);
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);

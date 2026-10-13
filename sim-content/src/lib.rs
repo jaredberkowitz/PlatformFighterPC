@@ -224,11 +224,17 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
     for (m, mv) in w.moves.iter().enumerate() {
         let id = MoveId::from_index(m as u8);
         let name = id.name();
-        if let Some(l) = mv.landing_move {
-            if usize::from(l) >= MoveId::COUNT
-                || w.moves.get(usize::from(l)).is_none_or(Move::is_empty)
-            {
-                errors.push(format!("weapon {i} {name}: landing_move needs a real move"));
+        for (field, slot) in [
+            ("landing_move", mv.landing_move),
+            ("on_search", mv.on_search),
+            ("air_version", mv.air_version),
+        ] {
+            if let Some(l) = slot {
+                if usize::from(l) >= MoveId::COUNT
+                    || w.moves.get(usize::from(l)).is_none_or(Move::is_empty)
+                {
+                    errors.push(format!("weapon {i} {name}: {field} needs a real move"));
+                }
             }
         }
         if mv.is_empty() {

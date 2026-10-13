@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 67
-    hash ccf761ccc94619ba
+    sim_version 68
+    hash e59214c635312873
 }
 
 ruleset {
@@ -1826,22 +1826,16 @@ weapon gauntlets {
         }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
-        script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
-            }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
-        }
+        total_frames 70
+        on_search ext3
+        air_version ext4
+        hitbox { start 9 end 24 x 1.09999 y 1.09999 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets grounded }
+        hitbox { start 9 end 24 x 1.09999 y 0.59999 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets grounded }
+        hitbox { start 9 end 24 x 1.09999 y 1.5 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets aerial }
+        hitbox { start 9 end 24 x 1.09999 y 0.59999 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search targets aerial }
+        motion { start 0 end 8 vx 0.09999 vy 0 }
+        motion { start 9 end 24 vx 0.25 vy 0 }
+        motion { start 25 end 29 vx 0.075 vy 0 }
     }
     move up_special {
         total_frames 70
@@ -2047,6 +2041,53 @@ weapon gauntlets {
             } else {
                 set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
             }
+        }
+    }
+    move ext3 {
+        total_frames 26
+        hitbox { start 4 end 4 x 1 y 1.29999 radius 0.79999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 }
+        hitbox { start 4 end 4 x 0.7 y 1.09999 radius 0.7 damage 10 angle 85 bkb 82 kbg 30 priority 1 shield_damage 140 hitlag 150 hitstun_add 3 }
+        hitbox { start 4 end 4 x 1.59999 y 1.09999 radius 0.7 damage 10 angle 85 bkb 82 kbg 30 priority 2 shield_damage 140 hitlag 150 hitstun_add 3 }
+        hitbox { start 5 end 6 x 1 y 1.59999 radius 0.59999 damage 10 angle 85 bkb 82 kbg 30 shield_damage 140 hitlag 150 hitstun_add 3 }
+        armor { start 0 end 3 kind damage threshold 10 }
+        script {
+            // Gauntlets side special, the uppercut after the dash's search box touched someone: the dash's speed is cut to 0.18 of itself on
+            // switching (the reference's "speed multiplier upon activation, ground"), then the move slides to a stop on traction.
+            if frame == 1 { add_vel(-vx * 0.82, 0); }
+        }
+    }
+    move ext4 {
+        total_frames 78
+        landing_lag 22
+        helpless_after true
+        ledge_front_from 25
+        ledge_back_from 25
+        fall_drift 70
+        fall_landing_lag 22
+        on_search ext5
+        hitbox { start 18 end 34 x 1.4 y 1.5 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search }
+        hitbox { start 18 end 34 x 1.4 y 1 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search }
+        hitbox { start 18 end 34 x 1.4 y 0.4 radius 0.5 damage 0 angle 0 bkb 0 kbg 0 kind search }
+        motion { start 0 end 8 vx 0.0625 vy 0 }
+        motion { start 9 end 34 vx 0.22499 vy -0.03749 }
+    }
+    move ext5 {
+        total_frames 43
+        landing_lag 21
+        ledge_front_from 7
+        ledge_back_from 7
+        lands_from 7
+        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial }
+        hitbox { start 4 end 4 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded }
+        hitbox { start 4 end 4 x 0.5 y 1.29999 radius 0.29999 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 }
+        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 270 bkb 60 kbg 70 shield_damage 120 hitlag 200 targets aerial }
+        hitbox { start 5 end 5 x 1.2 y 1 radius 1 damage 10 angle 60 bkb 60 kbg 80 priority 1 shield_damage 120 hitlag 200 targets grounded }
+        hitbox { start 5 end 5 x 0.7 y 1 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 2 shield_damage 120 hitlag 200 }
+        hitbox { start 5 end 5 x 0.4 y 0.09999 radius 0.5 damage 10 angle 60 bkb 60 kbg 80 priority 3 shield_damage 120 hitlag 200 }
+        script {
+            // Gauntlets side special in the air, the overhand after the dash's search box touched someone: on its frame 6, hit or not, a set
+            // momentum of 1.5 reference units a frame backward and 2.5 upward (world units: / 8), then the body's air physics.
+            if frame == 5 { set_vel(-0.1875, 0.3125); }
         }
     }
     move pivot_grab {
