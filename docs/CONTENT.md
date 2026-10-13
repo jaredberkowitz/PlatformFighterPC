@@ -144,7 +144,11 @@ Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `faci
 `hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
-`intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`, `air_flag(n)`, `set_air_flag(n)`.
+`intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`, `air_flag(n)`, `set_air_flag(n)`,
+`spawn_scaled(forward, up, speed_forward, speed_up, knockback, size)`.
+
+* `spawn_scaled` is `spawn` for a charged shot: the projectile also gets `knockback` (0 to 255) more base knockback and `size`
+  percent (10 to 400) of its hitbox's radius (the reference's water pump grows with its charge).
 
 * `air_flag(n)` is 1 if once-per-airtime flag `n` (0 to 7) is set; `set_air_flag(n)` sets it. Landing, catching a ledge or being
   hit clears all eight, so a boost guarded by a flag happens once until the fighter is back on the ground (the reference's cape

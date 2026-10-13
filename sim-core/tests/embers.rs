@@ -1099,21 +1099,22 @@ fn the_ball(sim: &Sim) -> Option<sim_core::Projectile> {
 }
 
 #[test]
-fn the_fireball_appears_on_frame_17_and_the_move_ends_on_frame_50() {
+fn the_fireball_hits_from_frame_17_and_the_move_ends_on_frame_50() {
     let mut sim = duel();
     sim.stand(0, Fx::from_int(-10), 1);
     sim.stand(1, Fx::from_int(10), -1);
     sim.state.fighters[1].invuln = 255;
-    assert_eq!(throw_fireball(&mut sim), 17);
-    // (Tick 17 done: 32 more to the end of tick 49, the move's last.)
-    sim.ticks(31, inp(0, 0, 0));
+    // It appears at the end of frame 16, so its hit is out from frame 17 (a projectile hits from the frame after it appears).
+    assert_eq!(throw_fireball(&mut sim), 16);
+    // (Tick 16 done: 33 more to the end of tick 49, the move's last.)
+    sim.ticks(32, inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Attack);
     sim.tick(inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Idle, "actionable on frame 50");
 }
 
 #[test]
-fn the_fireball_falls_bounces_off_the_ground_and_lasts_70_frames() {
+fn the_fireball_falls_bounces_off_the_ground_and_hits_for_70_frames() {
     let mut sim = duel();
     sim.stand(0, Fx::from_int(-10), 1);
     sim.stand(1, Fx::from_int(10), -1);
@@ -1154,7 +1155,10 @@ fn the_fireball_falls_bounces_off_the_ground_and_lasts_70_frames() {
         sim.tick(inp(0, 0, 0));
         frames += 1;
     }
-    assert_eq!(frames, 70, "its lifetime");
+    assert_eq!(
+        frames, 71,
+        "out for 71 frames, hitting on 70 of them (17-86)"
+    );
     assert!(bounces >= 2, "{bounces}");
     // A bounce at 1.4 to 1.6 under gravity 0.1 rises 9.8 to 12.8 reference units.
     assert!(
@@ -1300,6 +1304,8 @@ fn shot_from_player_1(sim: &mut Sim, pos: Vec2, vel: Vec2) {
         age: 0,
         life: 40,
         bounces: 0,
+        kb_add: 0,
+        size: 100,
         vars: [0; sim_core::PROJECTILE_VARS],
     };
 }
@@ -1415,4 +1421,180 @@ fn cape_ledge_tick(facing: i8) -> Option<usize> {
 fn the_cape_catches_a_ledge_in_front_from_frame_2_and_behind_from_16() {
     assert_eq!(cape_ledge_tick(1), Some(2));
     assert_eq!(cape_ledge_tick(-1), Some(16));
+}
+
+// ---- Down special: the water pump (phase 2) -------------------------------------------------------------------------------------
+
+/// The tumbler standing at `x` facing right, the duelist parked far off (or placed by the caller).
+fn pump_sim(x: Fx) -> Sim {
+    let mut sim = duel();
+    sim.stand(0, x, 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.state.fighters[1].invuln = 255;
+    sim
+}
+
+fn pumps(sim: &Sim) -> Vec<sim_core::Projectile> {
+    sim.state
+        .projectiles
+        .iter()
+        .copied()
+        .filter(|p| p.active)
+        .collect()
+}
+
+const SPECIAL_DOWN: (i8, i8) = (0, -127);
+
+#[test]
+fn the_pump_winds_up_for_19_frames_then_charges_for_80_and_keeps_a_full_charge() {
+    use sim_core::input::buttons::SPECIAL;
+    let mut sim = pump_sim(Fx::from_int(-3));
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.ticks(17, inp(0, 0, 0));
+    assert_eq!(
+        sim.f().move_id,
+        MoveId::DownSpecial as u8,
+        "frame 18: winding up"
+    );
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        sim.f().move_id,
+        MoveId::Ext1 as u8,
+        "charging after frame 19"
+    );
+    sim.ticks(79, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "79 frames of charge");
+    sim.tick(inp(0, 0, 0));
+    assert_ne!(sim.f().state, S::Attack, "the full charge keeps itself");
+    assert_eq!(sim.f().stored, 80);
+    // The next use shoots at once after the wind-up.
+    sim.ticks(5, inp(0, 0, 0));
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.ticks(18, inp(0, 0, 0));
+    assert_eq!(sim.f().move_id, MoveId::Ext2 as u8, "shooting");
+    assert_eq!(sim.f().stored, 0, "spent");
+}
+
+#[test]
+fn shield_keeps_a_part_charge_with_no_lag_and_the_next_use_charges_on_from_it() {
+    use sim_core::input::buttons::{SHIELD, SPECIAL};
+    let mut sim = pump_sim(Fx::from_int(-3));
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.ticks(18 + 30, inp(0, 0, 0));
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().stored, 31);
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().state, S::Shield, "shielding at once");
+    sim.ticks(20, inp(0, 0, 0));
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.ticks(18 + 48, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack, "31 + 48 frames: still charging");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 80, "full at 80");
+}
+
+/// Uses the pump with `charge` frames of charge stored, the duelist `gap` ahead (in the air if `air`); returns the sim after
+/// `ticks` frames of the shot.
+fn pump_shot(charge: u8, gap: Fx, air: bool, ticks: usize, stick: i8) -> Sim {
+    use sim_core::input::buttons::SPECIAL;
+    let mut sim = pump_sim(Fx::from_int(-6));
+    sim.state.fighters[0].stored = charge;
+    if air {
+        sim.put_airborne(0, Fx::from_int(-6), Fx::from_int(15), Fx::ZERO, Fx::ZERO);
+    }
+    sim.state.fighters[1].invuln = 0;
+    sim.put_airborne(
+        1,
+        Fx::from_int(-6) + gap,
+        fx(8, 10) + if air { Fx::from_int(15) } else { Fx::ZERO },
+        Fx::ZERO,
+        Fx::ZERO,
+    );
+    // Special, then special again in the wind-up: the shot at once.
+    sim.tick(inp(SPECIAL_DOWN.0, SPECIAL_DOWN.1, SPECIAL));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.ticks(16, inp(0, stick, 0));
+    assert_eq!(sim.f().move_id, MoveId::Ext2 as u8);
+    sim.ticks(ticks, inp(0, stick, 0));
+    sim
+}
+
+#[test]
+fn the_shot_sends_seven_pumps_every_5_frames_and_ends_on_frame_49() {
+    let mut sim = pump_shot(0, Fx::from_int(20), false, 0, 0);
+    let mut spawned = Vec::new();
+    let mut seen = 0usize;
+    for t in 1..=60 {
+        sim.tick(inp(0, 0, 0));
+        let n = sim
+            .state
+            .projectiles
+            .iter()
+            .filter(|p| p.active && p.age == 0)
+            .count();
+        if n > 0 {
+            spawned.push(t);
+        }
+        seen = seen.max(pumps(&sim).len());
+        if sim.f().state != S::Attack {
+            assert_eq!(t, 48, "actionable on frame 49 of the shot");
+            break;
+        }
+    }
+    assert_eq!(spawned, vec![1, 6, 11, 16, 21, 26, 31]);
+    assert!(seen <= 3, "at most three out at once: {seen}");
+}
+
+#[test]
+fn a_pump_pushes_without_damage_or_hitstun_and_harder_with_the_charge() {
+    let shove = |charge: u8| {
+        let sim = pump_shot(charge, fx(25, 10), true, 6, 0);
+        let v = sim.fighter(1);
+        assert_eq!(v.percent, Fx::ZERO, "no damage");
+        assert_eq!(v.state, S::Airborne, "no hitstun");
+        v.vel.x
+    };
+    let weak = shove(0);
+    let strong = shove(80);
+    assert!(weak > Fx::ZERO, "pushed away: {weak:?}");
+    assert!(
+        strong > weak,
+        "a full charge pushes harder: {strong:?} vs {weak:?}"
+    );
+}
+
+#[test]
+fn a_charged_shot_pushes_the_tumbler_back_and_flies_faster_and_bigger() {
+    let units = |n: i32| Fx::from_ratio(n, 8000);
+    let sim = pump_shot(80, Fx::from_int(30), true, 1, 0);
+    // 0.02 reference units a frame for each of the 80 charge frames: 1.6, backward.
+    assert!(
+        (sim.f().vel.x + units(1600)).abs() < units(40),
+        "{:?}",
+        sim.f().vel
+    );
+    let p = pumps(&sim)[0];
+    assert_eq!(p.size, 120);
+    assert_eq!(p.kb_add, 55);
+    // 8.6 a frame at 12 degrees up (less a frame of gravity).
+    assert!((p.vel.x - units(8412)).abs() < units(30), "{:?}", p.vel);
+    let p0 = pumps(&pump_shot(0, Fx::from_int(30), true, 1, 0))[0];
+    assert_eq!((p0.size, p0.kb_add), (80, 0));
+    assert!((p0.vel.x - units(4206)).abs() < units(30), "{:?}", p0.vel);
+}
+
+#[test]
+fn the_stick_turns_the_shot_up_to_62_degrees_and_down_to_minus_6() {
+    let angle_of = |stick: i8| {
+        let sim = pump_shot(0, Fx::from_int(30), true, 31, stick);
+        // (The last pump, just out on frame 31: its rise against its run.)
+        let p = pumps(&sim).into_iter().find(|p| p.age == 0).unwrap();
+        (p.vel.y / p.vel.x).mul_int(100).floor_int()
+    };
+    // tan 62 = 1.88, tan -6 = -0.105.
+    let up = angle_of(127);
+    let down = angle_of(-127);
+    assert!((185..=188).contains(&up), "{up}");
+    assert!((-12..=-10).contains(&down), "{down}");
 }

@@ -896,6 +896,8 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
         state.fighters[i].spawn_custom = false;
+        state.fighters[i].spawn_kb_add = 0;
+        state.fighters[i].spawn_size = 100;
         // A move that already connected in melee does not also fire, unless its script asked for the shot.
         if f.hit_mask != 0 && !f.spawn_custom {
             continue;
@@ -937,6 +939,8 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 age: 0,
                 life: spec.life,
                 bounces: 0,
+                kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
+                size: if f.spawn_custom { f.spawn_size } else { 100 },
                 vars: [0; crate::PROJECTILE_VARS],
             };
         }
@@ -1006,7 +1010,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         }
         // A reflector in the way turns it around: it now belongs to the reflector and hits harder. (One stronger than the
         // reflector's damage limit goes through.)
-        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale;
+        let size = Fx::from_ratio(i32::from(pr.size), 100);
+        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale * size;
         let shot_damage =
             spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
         reflector_detects(state, content, owner, pos, shot_radius);
@@ -1041,7 +1046,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
         let (mut hb, phased) = spec.hit_at(age);
-        hb.radius = hb.radius * origin_params.hitbox_scale;
+        hb.radius = hb.radius * origin_params.hitbox_scale * size;
+        hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
         if !phased && !spec.any_phase() {
             hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
         }

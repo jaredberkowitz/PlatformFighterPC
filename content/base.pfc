@@ -5,8 +5,8 @@ bundle {
     schema 3
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 61
-    hash 8693b7abeb99e7a5
+    sim_version 62
+    hash 4d506db5854aa501
 }
 
 ruleset {
@@ -1433,11 +1433,11 @@ weapon embers {
     move neutral_special {
         total_frames 48
         projectile {
-            frame 16
+            frame 15
             x 0.79999
             y 0.9
             speed 0.17499
-            life 70
+            life 71
             end_damage 5
             angle -10
             gravity 0.0125
@@ -1447,11 +1447,11 @@ weapon embers {
             bounce_keep 97
             hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 5 angle 361 bkb 35 kbg 20 shield_damage 50 hitlag 60 }
             phase {
-                from 5
+                from 6
                 hitbox { start 0 end 0 x 0 y 0 radius 0.275 damage 5 angle 361 bkb 28 kbg 15 shield_damage 50 hitlag 60 }
             }
             phase {
-                from 30
+                from 31
                 hitbox { start 0 end 0 x 0 y 0 radius 0.25 damage 4 angle 361 bkb 22 kbg 10 shield_damage 50 hitlag 60 }
             }
         }
@@ -1525,12 +1525,21 @@ weapon embers {
         motion { start 14 end 19 vx 0.04999 vy 0.125 }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        total_frames 19
+        land_continue true
         script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
+            // Down special (the reference's water pump), the wind-up: 19 frames, then the charge (29 = ext1) from whatever was stored, or the
+            // shot (30 = ext2) at once with a full charge stored or special pressed again during the wind-up. The shot starts aimed 12 degrees up.
+            var c;
+            var quick;
+            var aim;
+            if frame >= 1 && special_tap { quick = 1; }
+            if frame == 18 {
+                c = stored;
+                store(0);
+                aim = 12;
+                if quick || c >= 80 { goto(30); } else { goto(29); }
+            }
         }
     }
     move jab2 {
@@ -1604,6 +1613,60 @@ weapon embers {
         total_frames 14
         hitbox { start 0 end 1 x 0.5 y 0.4 radius 0.5 damage 2 angle 361 bkb 0 kbg 100 fixed_kb 60 }
         hitbox { start 0 end 1 x -0.5 y 0.4 radius 0.5 damage 2 angle 361 bkb 0 kbg 100 priority 1 fixed_kb 60 }
+    }
+    move ext1 {
+        total_frames 98
+        land_continue true
+        script {
+            // Down special, charging (ext1): a frame of charge each frame, 80 in all. Special shoots (30 = ext2); shield or jump keeps the charge
+            // for later and ends the move with no lag (so the shield, roll, air dodge or jump comes out at once); a full charge keeps itself.
+            // Being hit loses what was being charged (it is only kept by `store`).
+            var c;
+            var quick;
+            var aim;
+            c = min(c + 1, 80);
+            if special_tap {
+                goto(30);
+            } else if shield || jump {
+                store(c);
+                end();
+            } else if c >= 80 {
+                store(80);
+                end();
+            }
+        }
+    }
+    move ext2 {
+        total_frames 48
+        land_continue true
+        projectile {
+            frame 255
+            x 1
+            y 0.79999
+            speed 0
+            life 13
+            end_damage 0
+            gravity 0.02124
+            max_fall 0.375
+            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 0 angle 55 bkb 0 kbg 100 fixed_kb 70 push true }
+        }
+        script {
+            // Down special, the shot (ext2), as the reference: the charge (c of 80 frames) is spent at once and pushes the fighter back 0.02
+            // reference units a frame per charge frame; seven pumps, one every 5 frames from frame 1, each 4.3 to 8.6 reference units a frame
+            // (world units: reference / 8), 0.8 to 1.2 times the size and up to 55 more base knockback with the charge. The stick turns the
+            // aim 1.9 degrees a frame, from 12 up to 62 degrees or down to -6.
+            var c;
+            var quick;
+            var aim;
+            if frame == 1 { add_vel(-0.0025 * c, 0); }
+            if stick_y > 0.3 { aim = min(aim + 1.9, 62); }
+            if stick_y < -0.3 { aim = max(aim - 1.9, -6); }
+            if frame >= 1 && frame <= 31 && frame - 1 == floor((frame - 1) / 5) * 5 {
+                let k = c / 80;
+                let speed = (4.3 + 4.3 * k) / 8;
+                spawn_scaled(1.0, 0.8, speed * cos(aim), speed * sin(aim), 55 * k, 80 + 40 * k);
+            }
+        }
     }
     move pivot_grab {
         total_frames 35

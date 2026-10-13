@@ -463,3 +463,27 @@ fn a_once_per_airtime_flag_lasts_until_the_fighter_lands() {
     sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
     assert!(lift(&mut sim), "so the next airtime lifts again");
 }
+
+#[test]
+fn a_script_can_fire_a_bigger_harder_hitting_projectile() {
+    // The same shot fired plain and scaled (30 more base knockback, 150% size): the scaled one carries both. (Sim 62.)
+    let fire = |src: &str| {
+        let mut sim = with_special(scripted(30, src));
+        sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
+            sim.content.weapons[1].moves[MoveId::NSpecial as usize].projectile;
+        start(&mut sim);
+        sim.ticks(4, inp(0, 0, 0));
+        sim.state
+            .projectiles
+            .iter()
+            .copied()
+            .find(|p| p.active)
+            .unwrap()
+    };
+    let plain = fire("if frame == 3 { spawn(1, 1, 0.4, 0); }");
+    let scaled = fire("if frame == 3 { spawn_scaled(1, 1, 0.4, 0, 30, 150); }");
+    assert_eq!((plain.kb_add, plain.size), (0, 100));
+    assert_eq!((scaled.kb_add, scaled.size), (30, 150));
+    assert_eq!(plain.pos, scaled.pos);
+    assert_eq!(plain.vel, scaled.vel);
+}

@@ -20,7 +20,7 @@ pub const PLAYING: i8 = -1;
 /// [`GameState::winner`] when nobody won (the last fighters were knocked out together, or the time ran out level).
 pub const DRAW: i8 = -2;
 /// Fixed capacity of the projectile pool.
-pub const MAX_PROJECTILES: usize = 8;
+pub const MAX_PROJECTILES: usize = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -220,6 +220,9 @@ pub struct Fighter {
     pub spawn_custom: bool,
     pub spawn_pos: Vec2,
     pub spawn_vel: Vec2,
+    /// ...with this much extra base knockback and this size (percent), from `spawn_scaled` (a charged shot).
+    pub spawn_kb_add: u8,
+    pub spawn_size: u16,
     /// Damage the fighter's counter stance caught; its counter-strike move deals this.
     pub counter_damage: Fx,
     /// Persistent script variables of the move being performed.
@@ -246,6 +249,9 @@ pub struct Projectile {
     pub life: u8,
     /// Times it has bounced off the ground (see `ProjectileArc::bounces`).
     pub bounces: u8,
+    /// Extra base knockback and size (percent of its hitbox's radius) it was fired with (a charged shot; 0 and 100 otherwise).
+    pub kb_add: u8,
+    pub size: u16,
     /// Persistent variables of the projectile's script.
     pub vars: [i32; PROJECTILE_VARS],
 }
@@ -262,6 +268,8 @@ impl StateHash for Projectile {
         h.write_u8(self.age);
         h.write_u8(self.life);
         h.write_u8(self.bounces);
+        h.write_u8(self.kb_add);
+        h.write_u16(self.size);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -397,6 +405,8 @@ impl Fighter {
             spawn_custom: false,
             spawn_pos: Vec2::ZERO,
             spawn_vel: Vec2::ZERO,
+            spawn_kb_add: 0,
+            spawn_size: 100,
             counter_damage: Fx::ZERO,
             pull: false,
             stored: 0,
@@ -550,6 +560,8 @@ impl StateHash for Fighter {
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
+        h.write_u8(self.spawn_kb_add);
+        h.write_u16(self.spawn_size);
         for v in &self.vars {
             h.write_i32(*v);
         }
@@ -1034,6 +1046,26 @@ mod tests {
             ("projectile_power", {
                 let mut s = state;
                 s.projectiles[0].power = 150;
+                s
+            }),
+            ("projectile_kb_add", {
+                let mut s = state;
+                s.projectiles[2].kb_add = 1;
+                s
+            }),
+            ("projectile_size", {
+                let mut s = state;
+                s.projectiles[2].size = 120;
+                s
+            }),
+            ("spawn_kb_add", {
+                let mut s = state;
+                s.fighters[1].spawn_kb_add = 1;
+                s
+            }),
+            ("spawn_size", {
+                let mut s = state;
+                s.fighters[1].spawn_size = 80;
                 s
             }),
             ("projectile_bounces", {

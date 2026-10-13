@@ -2733,6 +2733,65 @@ fn embers_specials(w: &mut Weapon) {
     w.moves[MoveId::UpSpecial as usize] = rising_punch();
     w.moves[MoveId::NSpecial as usize] = fireball();
     w.moves[MoveId::SideSpecial as usize] = cape();
+    water_pump(w);
+}
+
+/// Down special, a charged water pump (the reference's F.L.U.D.D.): a wind-up (the down special), the charge (ext1) and the shot
+/// (ext2), scripted in `pump_start`, `pump_charge` and `pump_shot`.
+///
+/// * Wind-up 19 frames, then charging; 80 frames of charge in all (SmashWiki's parameter, counted from the charge's start: with the
+///   wind-up that is the 100 frames UFD and dragdown give [D]). Shield or jump keeps the charge (no lag); special shoots; a full
+///   charge keeps itself [E]; a stored charge carries into the next use.
+/// * The shot: from its frame 1, the fighter pushed back 0.02 a charge frame; 7 pumps every 5 frames (each out for 12 frames:
+///   2-13, 7-18, ... 32-43), FAF 49. A pump: 0% at 55 degrees, set knockback 70, KS 100, radius 4, a push (the reference's
+///   flinchless hit: no hitstun), 4.3 to 8.6 a frame with the charge, gravity 0.17, fall 3, size x0.8 to x1.2 and up to 55 more
+///   base knockback. Aimed from 12 degrees, turned by the stick 1.9 degrees a frame to +50 / -18. Where the pumps leave the
+///   nozzle is [E]. Touching down carries the move on.
+fn water_pump(w: &mut Weapon) {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    let mut start = ref_move(21, 0, 0, 255, &[]);
+    start.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pump_start.script"),
+    ));
+    start.land_continue = true;
+    w.moves[MoveId::DownSpecial as usize] = start;
+
+    // (Longer than a full charge: the script ends it.)
+    let mut charge = ref_move(100, 0, 0, 255, &[]);
+    charge.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pump_charge.script"),
+    ));
+    charge.land_continue = true;
+    w.moves[MoveId::Ext1 as usize] = charge;
+
+    let mut pump = row(&r(1, 1, 0, 0, 5, 0, 55, 0, 100, 0, 0));
+    pump.fixed_kb = 70;
+    pump.push = true;
+    let mut shot = ref_move(50, 0, 0, 255, &[]);
+    shot.projectile = Some(ProjectileSpawn {
+        // (Only the script fires them; a pump hits from the frame after it leaves, for 12 frames.)
+        frame: 255,
+        x: Fx::ONE,
+        y: Fx::from_ratio(8, 10),
+        speed: Fx::ZERO,
+        life: 13,
+        hitbox: pump,
+        end_damage: Fx::ZERO,
+        arc: ProjectileArc {
+            gravity: su(170),
+            max_fall: su(3000),
+            ..ProjectileArc::NONE
+        },
+        phases: [None; 2],
+    });
+    shot.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pump_shot.script"),
+    ));
+    shot.land_continue = true;
+    w.moves[MoveId::Ext2 as usize] = shot;
 }
 
 /// Side special, a cape swing (the reference's Cape).
@@ -2790,7 +2849,7 @@ fn cape() -> Move {
     mv
 }
 
-/// Neutral special, a bouncing fireball (the reference's Fireball). Thrown on frame 17, FAF 50; in the air the fighter keeps its air
+/// Neutral special, a bouncing fireball (the reference's Fireball). Out on frame 17, FAF 50; in the air the fighter keeps its air
 /// control (no motion). The ball [R]: 70 frames of life, 1.4 reference units a frame at 10 degrees down, gravity 0.1; off the ground
 /// it bounces back up at 1.4 to 1.6 keeping 0.97 of its speed, 7 times (the next touch removes it); it does not pierce. Its hits by
 /// age (frames 17-21, 22-46, 47-86 of the move): 5% BK 35 KS 20 radius 2.4, 5% BK 28 KS 15 radius 2.2, 4% BK 22 KS 10 radius 2.0;
@@ -2807,11 +2866,12 @@ fn fireball() -> Move {
     };
     let mut mv = ref_move(50, 0, 0, 255, &[]);
     mv.projectile = Some(ProjectileSpawn {
-        frame: 16,
+        // (A projectile first hits on the frame after it appears: out on frame 16, it hits from 17 to 86, as the reference.)
+        frame: 15,
         x: Fx::from_ratio(8, 10),
         y: Fx::from_ratio(9, 10),
         speed: su(1400),
-        life: 70,
+        life: 71,
         hitbox: hit(50, 35, 20, 300),
         end_damage: Fx::from_int(5),
         arc: ProjectileArc {
@@ -2823,10 +2883,10 @@ fn fireball() -> Move {
             bounce_max: su(1600),
             bounce_keep: 97,
         },
-        // Its age counts from the frame after it appears (move frame 17): the late hit from frame 22, the latest from 47.
+        // Its age is 1 on frame 17: the late hit from frame 22, the latest from 47.
         phases: [
-            Some((5, hit(50, 28, 15, 275))),
-            Some((30, hit(40, 22, 10, 250))),
+            Some((6, hit(50, 28, 15, 275))),
+            Some((31, hit(40, 22, 10, 250))),
         ],
     });
     mv

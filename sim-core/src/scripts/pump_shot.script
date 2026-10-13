@@ -1,0 +1,15 @@
+// Down special, the shot (ext2), as the reference: the charge (c of 80 frames) is spent at once and pushes the fighter back 0.02
+// reference units a frame per charge frame; seven pumps, one every 5 frames from frame 1, each 4.3 to 8.6 reference units a frame
+// (world units: reference / 8), 0.8 to 1.2 times the size and up to 55 more base knockback with the charge. The stick turns the
+// aim 1.9 degrees a frame, from 12 up to 62 degrees or down to -6.
+var c;
+var quick;
+var aim;
+if frame == 1 { add_vel(-0.0025 * c, 0); }
+if stick_y > 0.3 { aim = min(aim + 1.9, 62); }
+if stick_y < -0.3 { aim = max(aim - 1.9, -6); }
+if frame >= 1 && frame <= 31 && frame - 1 == floor((frame - 1) / 5) * 5 {
+    let k = c / 80;
+    let speed = (4.3 + 4.3 * k) / 8;
+    spawn_scaled(1.0, 0.8, speed * cos(aim), speed * sin(aim), 55 * k, 80 + 40 * k);
+}
