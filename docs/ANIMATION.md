@@ -31,8 +31,20 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
   hit gets the full follow-through.
 - **Layers on top of the clip** (code, `fighter_view.gd`): the 3/4 body turn and chest-to-camera twist, the weapon arm's IK onto the live
   hitbox (`_aim_arm`), the kicking leg's IK (`_aim_leg`, kick clips only), the body bending to let a limb reach (`_body_follow`), squash and
-  lean springs per state, the midair flip, tumble and launch poses, the flinch, ledge travel, the hat's lag. These never touch hitboxes,
-  hurtboxes or collision: those live in the sim.
+  lean springs per state, the midair flip, tumble and launch poses, the flinch, ledge travel. These never touch hitboxes, hurtboxes or
+  collision: those live in the sim.
+- **Motion polish layers** (`docs/MOTION_POLISH_PLAN.md`), each in its own module:
+  - *Deformation* (`motion_deform.gd`): the striking fist or leg stretches on the strike (volume kept; the IK reaches that much further,
+    so the tip still lands on the hitbox); the victim is squashed through the freeze of a launching hit and released into a stretch along
+    its flight. All of it is worked out from the move's frames, hitlag and velocity.
+  - *Smears* (`smear.gd`): a punch or kick with no authored arc leaves a ribbon from its wind-up to the hit, in the class's trail colour,
+    drawn into the swing arc's mesh.
+  - *Springs* (`motion_springs.gd`): the hat, the chest and head lagging the hips, the head lagging a turn, a fist's follow-through, the
+    neckerchief, and cloth tails on spring chains (`tail_rig.gd`: the scarf's end and the sash's end). Stepped with the sim frame: frozen in
+    hitlag and while paused, at rest at once after a rollback or a replay seek (a backward jump, or one of more than two frames).
+    `reset_motion()` puts everything back to rest on a rebuild.
+  - Bones a clip leaves unkeyed (the exporter drops a track whose bone stays at rest) are put back to rest each frame before the turns and
+    bends go on top (`_rest_unkeyed`); without it a long shield hold spun the head round.
 
 ## 2. Inventory
 
@@ -41,11 +53,12 @@ the simulation (the sim's frame data is the only clock). Sister documents: `ART_
 | A. Shared, ready | `walk`, `run`, `dash`, `skid`, `fall`, `air_jump`, `crouch`, `shield`, `ledge`, `ledge_climb`, `grab`, `throw`, `victory_a/b/c` |
 | B. Shared, polished in the first slice | `idle`, `jump`, `hurt` (now `jumpsquat` and `land` too) |
 | B. Shared, polished in the second slice | `roll` (crouch, somersault, open out), `spot_dodge` (new: duck and tuck, stepped back into the stage), `air_dodge` (new: curl, then open into the fall), `knockdown` (slam, then flat), `getup` (new: push-up, crouch, stand) |
-| B. Shared, still to polish | `shield` (static) |
+| B. Shared, polished in the motion pass | `shield` (a breath and a knock-back when hit, code layers), `run` and `dash` (a short-contact stance that does not skate) |
+| B. New in the motion pass | `tech` (an intangible landing: a slap and a pop up), `platform_drop` (the first frames after dropping through a platform), `run_stop` (still sliding as a run stops), `hurt_heavy` and `hurt_up` (a fast launch that does not tumble, sideways or upward), `idle_look` (a fidget in a long idle) |
 | C. Archetypes used by several moves | `attack_jab`, `attack_fair`, `attack_uair`, `attack_swing`, `attack_lunge`, `attack_smash`, `attack_low`, `attack_nair`, `attack_bair`, `attack_dair`, `attack_kick`, `grab`, `throw`, `sword_dsmash` |
 | D. Specialised, keep unique | `sword_ftilt`, `sword_utilt`, `sword_dtilt`, `sword_fsmash`, `sword_usmash`, `sword_dair`, `kick_up`, `kick_low`, `kick_dash`, `kick_uair`, `kick_nair`, `kick_bair`, `attack_claws`, `blaster` |
 | E. Unused | none (the claws' down air now plays its stomp, `kick_dair`) |
-| F. Missing | a tech; a platform drop; a stronger hitstun for heavy hits (code poses cover tumble and launch); a run stop |
+| F. Missing | none from the earlier list. Still rough: the clips were re-keyed on the base body's joints but not re-posed for its proportions |
 | G. Not reusable as is | the `BODY_MOVES` poses are for the base body only; the old blob rigs have no `jumpsquat` or `land` (stand-ins play `crouch`) |
 
 ## 3. Which moves use which clip
@@ -83,6 +96,9 @@ The look is physical and loose between actions and decisive in them.
 - **The body drives the hit**: shoulders and hips wind back, then turn through as the weight steps onto the front foot; the free arm
   counterbalances.
 - **Restraint at rest**: the idle bounces and breathes (a slower breath under the bob, the head settling a beat late) but never wobbles.
+  Springs, tails and smears all settle to nothing standing still.
+- **Stretch and smear**: only on the frames that are fast: the strike (a fist or leg up to 22% longer), the launch, the throw of a punch or
+  kick. Never across the face, never on a pose that is held.
 - **Hit reactions**: snap (chest thrown back off the blow, arms flung out as the body leaves them, one knee jerked up), then slacken over
   the stun. Strength and direction come from code on top: a flinch for hits too weak to launch, tumble and a head-first launch along the
   real trajectory.
@@ -103,9 +119,10 @@ The look is physical and loose between actions and decisive in them.
 
 Done (first slice): the library and its test, per-hit strikes for multihit moves, the idle, the jump's take-off and rise, the landing, the
 jab, the forward air and the hit reaction. Done (second slice): roll, spot dodge and air dodge as their own clips played on the sim's
-frames, knockdown and get-up, and the claws' down air on its stomp. Next, by how often each is seen:
+frames, knockdown and get-up, and the claws' down air on its stomp. Done (motion polish, `MOTION_POLISH_PLAN.md`): deformation, smears,
+springs and tails, the missing clips, the shield, locomotion slide. Checks: `tests/motion_test.gd` (rollback, hitlag and rest behaviour of
+every layer) and `tests/motion_probe.gd` (foot slide). Next:
 
-1. A heavy hitstun pose for hits that launch but do not tumble.
-2. Shield: a small breathing hold, and a flinch on shield hits.
-3. Secondary motion: hand follow-through on the fists after strikes; head lag on dashes.
-4. A tech (a quick roll up off the floor) and a platform drop.
+1. Re-pose the clips for the base body's proportions (they were re-keyed on its joints, not re-posed), together with any change to the
+   proportions themselves.
+2. The walk still slides about a third of its ground speed; a longer stride needs longer legs, so it waits on (1).

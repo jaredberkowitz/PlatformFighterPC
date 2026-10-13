@@ -190,6 +190,30 @@ Phase 0 (small), 1 (medium, biggest feel win), 2a (small to medium), 3 (medium t
 the spike), 4 (small to medium), 5 (only if needed), 6 (small). Commit per phase with its captures. Phases 1 and 2a can be started in
 parallel by separate agents if their module files stay separate.
 
+## Results
+
+All on branch `motion-polish`, presentation only (no sim, content or bridge change). Captures in `docs/screenshots/motion_*`.
+
+| Phase | Shipped | Frame-time delta (4 computer fighters, `--demo=cpu4 --players=4 --perf`, interleaved runs) |
+| --- | --- | --- |
+| 1 | strike stretch (fists and kicking legs; the sword's arm is left to its blade), impact squash into an eased launch stretch, smear ribbons for strikes without an arc, a take-off kick | frame scripts 2.03 to 2.03 ms and 2.51 to 2.25 ms: within noise |
+| 2a | `motion_springs.gd`: hat, chest and head lag, head turn lag, fist follow-through, neckerchief swing | +0.07 ms (one clean pair; the other was polluted) |
+| 2b | `tail_rig.gd`: the scarf's end and a new sash end as spring chains | not separately measurable (a few node transforms) |
+| 3 | `tech`, `platform_drop`, `run_stop`, `hurt_heavy`, `hurt_up`, `idle_look` clips, chosen from the existing snapshot (an intangible landing, the platform-ignore counter, a sliding idle, knockback speed and direction); shield breath and knock-back; the shield head spin fixed | none (clip choice) |
+| 4 | a short-contact run and dash stance; a quicker walk tempo (`WALK_TEMPO`) | none |
+| 5 | skipped: the pose-override API is fine in 4.7.1 | |
+
+Foot slide after phase 4 (`tests/motion_probe.gd`, drift while planted over ground speed): walk 0.38, 0.39, 0.33 (was 0.51, 0.49, 0.49);
+run 0.08, 0.12, 0.11 (was 0.45, 0.46, 0.43); dash 0.10, 0.12, 0.12 (was 0.36, 0.36, 0.37). The plan's "a few percent" is not reachable
+for the walk on these short legs without a scurrying tempo; the run and dash meet it closely enough to read as planted.
+
+Not done or deferred, honestly:
+- The heavy hitstun's directions are sideways and upward only (no separate low pose): the snapshot has no hit height before the launch.
+- The impact squash is across the stage, not along the launch angle: the launch angle is not in the snapshot until the launch.
+- The tech pop is short (the tech's landing lag is 4 frames); the intangibility ghosting is the same as before.
+- Smears on punches are small, as the fists only travel about half a unit; the kicks' are larger.
+- The clips are still not re-posed for the base body's proportions (see `ANIMATION.md` section 6).
+
 ## Spike results
 
 Phase 0, 2026-10-13 (branch `motion-polish`).
