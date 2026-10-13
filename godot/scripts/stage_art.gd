@@ -33,7 +33,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
 		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.36, 0.76, 0.36),
 		"grass_light": Color(0.58, 0.9, 0.45), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
-		"pattern": "diamonds", "cap": "grass", "platform": "wood",
+		"pattern": "roots", "cap": "grass", "platform": "wood",
 	},
 	"sunset": {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
@@ -224,6 +224,37 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.4"/>' % [cx, by + 14.0, rng.randf_range(-8, 8), rng.randf_range(16, 30), rng.randf_range(-10, 10), rng.randf_range(10, 22), ink]
 					x += w
 				course += 1
+		"roots":
+			# Packed earth under a great tree, painted: soft layers of warm soil, roots winding through it (thick and thin, each a rounded
+			# stroke with a lit upper edge and a dark under edge, tapering as they go), a few rounded stones bedded in it and specks of
+			# grit. Anything crossing an edge is drawn again across it, so it tiles.
+			body += '<rect width="256" height="256" fill="#%s"/>' % B
+			for k in 4:
+				var y0 := 18.0 + k * 64.0
+				var band := a.lerp(b, [0.15, 0.55, 0.3, 0.7][k])
+				body += '<path d="M0,%.1f C64,%.1f 128,%.1f 192,%.1f S256,%.1f 256,%.1f L256,%.1f L0,%.1f Z" fill="#%s" opacity="0.7"/>' % [y0, y0 - 8.0,
+					y0 + 8.0, y0 - 4.0, y0 + 2.0, y0, y0 + 40.0, y0 + 40.0, band.to_html(false)]
+			var root_col := Color(0.56, 0.37, 0.24)
+			var roots := [[20.0, -10.0, 90.0, 120.0, 30.0, 270.0, 16.0], [150.0, -10.0, 230.0, 70.0, 120.0, 270.0, 11.0],
+				[-20.0, 120.0, 90.0, 170.0, 200.0, 140.0, 8.0], [200.0, 150.0, 140.0, 220.0, 250.0, 270.0, 9.0], [90.0, 30.0, 60.0, 90.0, 110.0, 150.0, 6.0]]
+			for r in roots:
+				var w: float = r[6]
+				for ox in [-256.0, 0.0, 256.0]:
+					for oy in [-256.0, 0.0, 256.0]:
+						var d := "M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f" % [r[0] + ox, r[1] + oy, r[2] + ox, r[3] + oy, r[4] + ox, r[5] + oy]
+						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" stroke-opacity="0.6"/>' % [d, ink, w + 4.0]
+						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round"/>' % [d, root_col.to_html(false), w]
+						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.5" transform="translate(-1,-%.1f)"/>' % [d, root_col.lightened(0.3).to_html(false), w * 0.3, w * 0.25]
+			for j in 6:
+				var cx := fmod(float(j) * 83.0 + 40.0, 256.0)
+				var cy := fmod(float(j) * 131.0 + 60.0, 256.0)
+				var rx := 9.0 + float(j % 3) * 5.0
+				var stone := Color(0.74, 0.7, 0.72).lerp(a, 0.55)
+				for ox in [-256.0, 0.0, 256.0]:
+					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [cx + ox, cy, rx, rx * 0.72, stone.to_html(false), ink]
+					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.45"/>' % [cx + ox - rx * 0.2, cy - rx * 0.25, rx * 0.5, rx * 0.3, stone.lightened(0.25).to_html(false)]
+			for j in 24:
+				body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.35"/>' % [fmod(float(j) * 53.0, 256.0), fmod(float(j) * 97.0 + 13.0, 256.0), 1.5 + float(j % 2), b.darkened(0.35).to_html(false)]
 		"cobble":
 			# Rounded stones over dark mortar, each with a lighter top; stones at an edge are drawn again across it, so it tiles.
 			# (Mortar only a step darker than the stones and a soft ink, so the wall is one calm mass under the fighters, not a busy pattern
@@ -270,7 +301,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0}.get(pattern, 3.0))
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -360,6 +391,15 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(t.grass, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			_mesh(parent, _box(Vector3(w + 0.34, 0.1, 0.12)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.18))
 			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.12)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.42, front_z + 0.16))
+			# The roofing laid in sheets: seams running back from the front a little darker than the roof, each with a lighter lap beside it
+			# (low in contrast: the fighters stand on it).
+			var seam := _soft((t.grass as Color).darkened(0.14))
+			var lap := _soft((t.grass as Color).lightened(0.08))
+			var sx := left + 1.3
+			while sx < right - 0.6:
+				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.2)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0))
+				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.2)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0))
+				sx += 2.6
 		"sand":
 			var sand := _surface(t.grass, "sand", 5.0)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))

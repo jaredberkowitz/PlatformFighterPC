@@ -969,3 +969,11 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
 - **Flat Island's horizon**: a low bank of piled cumulus far out behind the far coast (a `shape 3` painted ridge). `beach_cloud_bank.png`.
 - The Champion's gauge charge (down special) holds the crouched stance with the blade at rest (`CLASS_MOVES[6]`), as the moveset session
   asked; its other specials pose the blade from their hits.
+
+## Earth and roots under the grove, a laid roof (forty-second pass)
+
+- **Treetop Isle's front** (`roots` pattern, 8 units a repeat): packed earth under the great tree in place of the quilted diamonds: soft
+  layers of warm soil, roots winding through it (rounded strokes with a lit upper edge and an ink under edge), a few bedded stones and
+  grit, low in contrast. `grove_roots_front.png`.
+- **The Skyline roof**: the roofing laid in sheets, seams running back from the front with a lighter lap beside each, low in contrast
+  under the fighters. `city_roof_seams.png`.
