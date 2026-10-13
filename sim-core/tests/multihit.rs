@@ -6,8 +6,9 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::moves::{
-    Hitbox, Move, MoveId, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK, EFFECT_NORMAL,
-    HIT_NORMAL, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Hitbox, Move, MoveId, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK, ANGLE_BACKWARD,
+    ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_FORWARD, EFFECT_NORMAL, HIT_NORMAL, TARGETS_AERIAL,
+    TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, Vec2};
@@ -41,6 +42,7 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         reverse: false,
         push: false,
         shieldstun: 100,
+        angle_type: ANGLE_BY_BOX,
     }
 }
 
@@ -163,7 +165,7 @@ fn set_knockback_is_the_same_at_any_percent() {
 
 #[test]
 fn a_hitstun_modifier_adds_frames() {
-    let stun = |add: u8| {
+    let stun = |add: i16| {
         let mut h = hb(2, 2, 5, 45, 40, 100, 0);
         h.hitstun_add = add;
         let mut sim = setup(mv(30, vec![h]));
@@ -172,6 +174,60 @@ fn a_hitstun_modifier_adds_frames() {
         sim.fighter(1).hitstun
     };
     assert_eq!(stun(2), stun(0) + 2);
+    // A negative modifier takes frames away (E27, sim 67: the reference's -13 on a late multi-hit), and a launch keeps one frame.
+    assert_eq!(stun(-13), stun(0) - 13);
+    assert!(stun(0) > 13);
+    assert_eq!(stun(-500), 1);
+}
+
+/// Where player 1 ends up being sent (the sign of its launch speed) when player 0's one hitbox at `x` (relative to its facing) with
+/// `angle_type` hits it standing at `victim_x`; player 0 faces right at 0. The angle is 0 degrees (straight along "forward").
+fn sent_by(angle_type: u8, x: i32, victim_x: i32) -> i32 {
+    let mut h = hb(2, 2, 10, 45, 80, 100, 0);
+    h.x = fx(x, 10);
+    h.radius = fx(15, 10);
+    h.angle_type = angle_type;
+    let mut sim = setup(mv(30, vec![h]));
+    sim.stand(1, fx(victim_x, 10), -1);
+    start(&mut sim);
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).state == S::Hitstun && !sim.fighter(1).launch_pending {
+            break;
+        }
+    }
+    assert_eq!(sim.fighter(1).state, S::Hitstun, "hit");
+    let v = sim.fighter(1).kb_vel.x;
+    if v > Fx::ZERO {
+        1
+    } else if v < Fx::ZERO {
+        -1
+    } else {
+        0
+    }
+}
+
+#[test]
+fn angle_types_choose_which_way_forward_is() {
+    // (E26, sim 67.) A box reaching both sides of the attacker, the victim in front (x 0.5) or behind (x -0.5).
+    // By box (the default, as every move before sim 67): the box's own side decides, whoever it hits.
+    assert_eq!(sent_by(ANGLE_BY_BOX, 2, 5), 1);
+    assert_eq!(sent_by(ANGLE_BY_BOX, 2, -5), 1, "a front box sends forward");
+    assert_eq!(
+        sent_by(ANGLE_BY_BOX, -2, 5),
+        -1,
+        "a back box sends backward"
+    );
+    // Forward and backward ignore where the victim is.
+    assert_eq!(sent_by(ANGLE_FORWARD, -2, -5), 1);
+    assert_eq!(sent_by(ANGLE_FORWARD, 2, 5), 1);
+    assert_eq!(sent_by(ANGLE_BACKWARD, 2, 5), -1);
+    assert_eq!(sent_by(ANGLE_BACKWARD, -2, -5), -1);
+    // By position: away from the attacker, whatever the box.
+    assert_eq!(sent_by(ANGLE_BY_POSITION, 2, -5), -1);
+    assert_eq!(sent_by(ANGLE_BY_POSITION, -2, 5), 1);
+    assert_eq!(sent_by(ANGLE_BY_POSITION, 0, 5), 1);
+    assert_eq!(sent_by(ANGLE_BY_POSITION, 0, -5), -1);
 }
 
 #[test]

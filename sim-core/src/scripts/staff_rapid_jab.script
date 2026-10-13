@@ -1,0 +1,10 @@
+// Staff rapid jab, first cycle (ext10, slot 39). The first cycle always plays out. At its loop point (frame 24) it loops on (40 =
+// ext11, whose first frame is this cycle's frame 2) while attack is held or was pressed in the last 8 frames, else it ends in the
+// finisher (41 = ext12).
+var seen;
+var quiet;
+if attack || presses > seen { quiet = 0; } else { quiet = quiet + 1; }
+seen = presses;
+if frame >= 23 {
+    if quiet < 8 { goto(40); } else { goto(41); }
+}

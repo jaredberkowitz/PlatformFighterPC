@@ -25,6 +25,28 @@ pub fn gauntlets() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every normal with a box reaching the fighter's
+    // centre or behind it: forward (type 3) for the forward tilt, neutral and forward air and the ledge attack; backward (4) for
+    // the back air; by position (0) for the down tilt (its box at the body sends a target behind the other way), down smash, up and
+    // down air and the get-up attack; the up smash's first-hit boxes by position except the one behind the head (forward), its
+    // second hit forward.
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::FTilt, ANGLE_FORWARD),
+            (MoveId::DTilt, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_FORWARD),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::LedgeAttack, ANGLE_FORWARD),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
+    angle_type_rows(&mut w, MoveId::USmash, &[0, 1, 2], ANGLE_BY_POSITION);
+    angle_type_rows(&mut w, MoveId::USmash, &[3, 4, 5, 6], ANGLE_FORWARD);
     w
 }
 

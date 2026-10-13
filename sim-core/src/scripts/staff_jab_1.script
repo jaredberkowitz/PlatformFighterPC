@@ -1,0 +1,5 @@
+// Staff jab 1 (slot 0). There is no jab 2: on frames 10-24 it goes on into the rapid jab (39 = ext10) once attack has been pressed
+// and let go at least twice since jab 1 began (`presses` counts the press that started it, and presses during hitlag too); or on
+// frame 13 when attack is held and jab 1 has hit.
+if frame >= 9 && frame <= 23 && presses >= 2 && releases >= 2 { goto(39); }
+if frame == 12 && hit && attack { goto(39); }

@@ -17,8 +17,8 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL,
-    TARGETS_GROUNDED,
+    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB,
+    HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -248,6 +248,26 @@ pub fn launch_angle(degrees: i16, attacker_facing: i8, defender_grounded: bool, 
     Angle::from_degrees(d)
 }
 
+/// The side (1 right, -1 left) a hit launches toward at 0 degrees, from its angle type (the reference's): `by_box` is the default
+/// (the side of the attacker the hitbox is on, or a projectile's direction of travel), `forward` the way the attacker faces (a
+/// projectile's travel), and `source_x` / `victim_x` where the attacker (or projectile) and the victim are, for "by position".
+pub fn launch_side(angle_type: u8, by_box: i8, forward: i8, source_x: Fx, victim_x: Fx) -> i8 {
+    match angle_type {
+        ANGLE_FORWARD => forward,
+        ANGLE_BACKWARD => -forward,
+        ANGLE_BY_POSITION => {
+            if victim_x > source_x {
+                1
+            } else if victim_x < source_x {
+                -1
+            } else {
+                forward
+            }
+        }
+        _ => by_box,
+    }
+}
+
 /// The bit that records "this attacker already hit fighter `d` with hitbox group `g`" (eight groups).
 pub fn hit_bit(d: usize, group: u8) -> u32 {
     1 << (d + MAX_FIGHTERS * usize::from(group.min(7)))
@@ -338,12 +358,20 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     struck[d] = true;
                     let attacker = state.fighters[a];
                     state.fighters[a].hit_mask |= hit_bit(d, hb.group);
-                    // A hitbox behind the attacker (back air) sends the victim backward, away from it.
-                    let facing = if hb.x < Fx::ZERO {
+                    // Which way "forward" is for the launch: by default a hitbox behind the attacker (back air) sends the victim
+                    // backward, away from it; the hit's angle type can say otherwise.
+                    let by_box = if hb.x < Fx::ZERO {
                         -attacker.facing
                     } else {
                         attacker.facing
                     };
+                    let facing = launch_side(
+                        hb.angle_type,
+                        by_box,
+                        attacker.facing,
+                        attacker.pos.x,
+                        state.fighters[d].pos.x,
+                    );
                     // A charged smash attack hits harder; the damage also feeds the knockback.
                     let mut hb = hb;
                     let attack =
@@ -768,7 +796,9 @@ fn apply_hit(
     }
     let mut stun = hitstun_frames(kb, rules.hitstun_mult);
     if stun > 0 {
-        stun = stun.saturating_add(u16::from(hb.hitstun_add));
+        // (A negative modifier shortens it, but a launched victim keeps at least one frame [E: the reference floors it at 0 and
+        // still launches; here 0 would mean a flinch].)
+        stun = (i32::from(stun) + i32::from(hb.hitstun_add)).clamp(1, i32::from(u16::MAX)) as u16;
     }
 
     def.hitlag = if crouching {
@@ -1079,7 +1109,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             let wd = weapon_of(content, pd);
             let hurt = hurtboxes(fd, pd, wd);
             if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
-                let facing = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
+                let travel = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
+                let facing = launch_side(hb.angle_type, travel, travel, pos.x, fd.pos.x);
                 // Projectiles stun a shield much less.
                 let mult = Fx::from_ratio(29, 100);
                 apply_hit(

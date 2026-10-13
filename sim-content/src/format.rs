@@ -9,9 +9,10 @@ use sim_core::content::{
 };
 use sim_core::moves::{
     Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
-    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
-    TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
+    ANGLE_BY_POSITION, ANGLE_FORWARD, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
+    HIT_PUMMEL, HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
+    TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -565,6 +566,22 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             AIM_ANY
         }
     };
+    let angle_type = match f.raw("angle_type") {
+        None | Some(("box", _)) => ANGLE_BY_BOX,
+        Some(("forward", _)) => ANGLE_FORWARD,
+        Some(("backward", _)) => ANGLE_BACKWARD,
+        Some(("position", _)) => ANGLE_BY_POSITION,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!(
+                    "hitbox angle_type must be box, forward, backward or position, not `{other}`"
+                ),
+            );
+            ANGLE_BY_BOX
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -591,6 +608,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         reverse: f.or("reverse", false, errors),
         push: f.or("push", false, errors),
         shieldstun: f.or("shieldstun", 100, errors),
+        angle_type,
     };
     f.finish(errors);
     hb
@@ -659,6 +677,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.shieldstun != 100 {
         b.field("shieldstun", hb.shieldstun.to_string());
+    }
+    match hb.angle_type {
+        ANGLE_FORWARD => b.field("angle_type", "forward"),
+        ANGLE_BACKWARD => b.field("angle_type", "backward"),
+        ANGLE_BY_POSITION => b.field("angle_type", "position"),
+        _ => {}
     }
     b
 }
@@ -848,6 +872,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     reverse: false,
                     push: false,
                     shieldstun: 100,
+                    angle_type: ANGLE_BY_BOX,
                 }
             }
         };

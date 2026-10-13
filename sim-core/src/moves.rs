@@ -301,8 +301,9 @@ pub struct Hitbox {
     /// Set knockback (the reference's "fixed knockback value"): when above 0 the knockback is worked out as if the victim's percent
     /// were this, whatever it really is, so the hit sends the same distance at any percent. 0 for normal knockback.
     pub fixed_kb: u16,
-    /// Extra hitstun frames this hit adds (the reference's hitstun modifier).
-    pub hitstun_add: u8,
+    /// Hitstun frames this hit adds, or takes away when negative (the reference's hitstun modifier). A launched victim keeps at
+    /// least one frame of hitstun.
+    pub hitstun_add: i16,
     /// Percent of the normal survival-DI distance the victim gets during this hit's hitlag (100 is normal).
     pub sdi: u16,
     /// For the autolink angle: the pull aims this far in front of the hitbox (world units, the way the hit sends), so a carried victim
@@ -325,7 +326,18 @@ pub struct Hitbox {
     /// Percent of the normal shield stun this hit causes on a shield (the reference's per-hitbox shieldstun multiplier; 100 is
     /// normal). It scales the damage part of the stun, before the cap.
     pub shieldstun: u16,
+    /// Which way "forward" (0 degrees) is for this hit's launch (the reference's angle type): [`ANGLE_BY_BOX`] (the default: a box
+    /// behind the attacker sends backward, any other forward), [`ANGLE_FORWARD`] (always the way the attacker faces),
+    /// [`ANGLE_BACKWARD`] (always the other way) or [`ANGLE_BY_POSITION`] (away from the attacker, from the side the victim is on).
+    /// For a projectile the attacker is the projectile: its direction of travel, and its own position.
+    pub angle_type: u8,
 }
+
+/// `Hitbox::angle_type` values.
+pub const ANGLE_BY_BOX: u8 = 0;
+pub const ANGLE_FORWARD: u8 = 1;
+pub const ANGLE_BACKWARD: u8 = 2;
+pub const ANGLE_BY_POSITION: u8 = 3;
 
 /// `Hitbox::aim` values.
 pub const AIM_ANY: u8 = 0;
@@ -360,6 +372,7 @@ impl Hitbox {
         self.reverse = false;
         self.push = false;
         self.shieldstun = 100;
+        self.angle_type = ANGLE_BY_BOX;
         self
     }
 }
@@ -726,7 +739,7 @@ impl StateHash for Hitbox {
         h.write_u8(self.effect);
         h.write_u8(self.targets);
         h.write_u16(self.fixed_kb);
-        h.write_u8(self.hitstun_add);
+        h.write_u16(self.hitstun_add as u16);
         h.write_u16(self.sdi);
         self.link_ahead.hash_into(h);
         h.write_u8(self.aim);
@@ -734,6 +747,7 @@ impl StateHash for Hitbox {
         h.write_bool(self.reverse);
         h.write_bool(self.push);
         h.write_u16(self.shieldstun);
+        h.write_u8(self.angle_type);
     }
 }
 
@@ -951,6 +965,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 reverse: false,
                 push: false,
                 shieldstun: 100,
+                angle_type: ANGLE_BY_BOX,
             })
             .collect(),
         ..Move::empty()
@@ -1001,6 +1016,7 @@ fn row(r: &R) -> Hitbox {
         reverse: false,
         push: false,
         shieldstun: 100,
+        angle_type: ANGLE_BY_BOX,
     }
 }
 
@@ -1093,6 +1109,25 @@ pub fn longsword() -> Weapon {
     );
     w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
     tipper_last(&mut w);
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it, the only ones where the type can change where a hit sends: by position (type 0) for the up tilt, up and
+    // down smash, neutral, up and down air and the get-up attack; forward (3) for the forward smash and forward air. The back air
+    // is type 3 too, but the reference fighter has turned round when it hits, so from its starting facing it sends backward.
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::UTilt, ANGLE_BY_POSITION),
+            (MoveId::FSmash, ANGLE_FORWARD),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
     w
 }
 
@@ -1834,6 +1869,22 @@ fn set_rows(mv: &mut Move, rows: &[usize], f: impl Fn(&mut Hitbox)) {
     }
 }
 
+/// Gives every damaging hitbox of each move its reference angle type (`Hitbox::angle_type`): `(move, type)` pairs.
+fn angle_types(w: &mut Weapon, moves: &[(MoveId, u8)]) {
+    for &(id, t) in moves {
+        for hb in &mut w.moves[id as usize].hitboxes {
+            if hb.kind == HIT_NORMAL {
+                hb.angle_type = t;
+            }
+        }
+    }
+}
+
+/// Gives the hitboxes `rows` of move `id` the angle type `t`.
+fn angle_type_rows(w: &mut Weapon, id: MoveId, rows: &[usize], t: u8) {
+    set_rows(&mut w.moves[id as usize], rows, |h| h.angle_type = t);
+}
+
 /// The Needles moveset (the rogue body): quick kicks and chops, modelled mechanically on the reference rogue. The priority
 /// moves (forward, up and down tilt; neutral, forward, back, up and down air) follow the reference frame for frame: frames, damage,
 /// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
@@ -2349,6 +2400,34 @@ pub fn needles() -> Weapon {
     bounce.grabs_ledge = true;
     w.moves[MoveId::Ext5 as usize] = bounce;
 
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it: forward (type 3) for the forward tilt, the up tilt's first hit, the forward air, the down air's landing
+    // hit and both down-special kicks; by position (0) for the up tilt's second hit, the down tilt, up smash, neutral air, down air
+    // and the up special; backward (4) for the back air and the down smash's boxes behind (its front ones forward); the up air's
+    // grounded loop box forward, its aerial loop box and final hit by position. (The dash attack is the earlier game's, kept at the
+    // default; the get-up attack is the claws'.)
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::FTilt, ANGLE_FORWARD),
+            (MoveId::DTilt, ANGLE_BY_POSITION),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::Ext0, ANGLE_FORWARD),
+            (MoveId::UpSpecial, ANGLE_BY_POSITION),
+            (MoveId::DownSpecial, ANGLE_FORWARD),
+            (MoveId::Ext6, ANGLE_FORWARD),
+        ],
+    );
+    angle_type_rows(&mut w, MoveId::UTilt, &[0, 1, 2], ANGLE_FORWARD);
+    angle_type_rows(&mut w, MoveId::UTilt, &[3, 4, 5], ANGLE_BY_POSITION);
+    angle_type_rows(&mut w, MoveId::DSmash, &[0, 1, 4], ANGLE_FORWARD);
+    angle_type_rows(&mut w, MoveId::DSmash, &[2, 3, 5], ANGLE_BACKWARD);
+    angle_type_rows(&mut w, MoveId::UAir, &[0], ANGLE_FORWARD);
+    angle_type_rows(&mut w, MoveId::UAir, &[1, 2], ANGLE_BY_POSITION);
     w
 }
 
@@ -2769,6 +2848,31 @@ pub fn embers() -> Weapon {
     w.moves[MoveId::GetUpAttack as usize] = getup;
 
     embers_specials(&mut w);
+
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it: forward (type 3) for jab 2, the forward tilt, forward air and up special; backward (4) for the back air;
+    // by position (0) for the up tilt, up and down smash, neutral, up and down air, the down air's landing hit, the back throw's
+    // hits on bystanders, the ledge attack and the get-up attack.
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::Jab2, ANGLE_FORWARD),
+            (MoveId::FTilt, ANGLE_FORWARD),
+            (MoveId::UTilt, ANGLE_BY_POSITION),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::FAir, ANGLE_FORWARD),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::Ext0, ANGLE_BY_POSITION),
+            (MoveId::UpSpecial, ANGLE_FORWARD),
+            (MoveId::BThrow, ANGLE_BY_POSITION),
+            (MoveId::LedgeAttack, ANGLE_BY_POSITION),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
     w
 }
 
@@ -3300,6 +3404,7 @@ pub fn claws() -> Weapon {
             reverse: false,
             push: false,
             shieldstun: 100,
+            angle_type: ANGLE_BY_BOX,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3565,12 +3670,39 @@ pub fn claws() -> Weapon {
         ),
         HIT_THROW,
     );
+    // The reference's angle types (ssbwiki.com hitbox tables, 13.0.1; sim 67), on every move with a box reaching the fighter's
+    // centre or behind it: by position (type 0) for the up and down tilt, up and down smash, neutral, up and down air, the up
+    // special's wind-up hit, the reflector's hit and the get-up attack; backward (4) for the back air; forward (3) for the up
+    // special's last hits. (The up special's looping hits are the reference's type 1, from the direction of travel, which is not
+    // built: they keep the default, from the facing.)
+    angle_types(
+        &mut w,
+        &[
+            (MoveId::UTilt, ANGLE_BY_POSITION),
+            (MoveId::DTilt, ANGLE_BY_POSITION),
+            (MoveId::USmash, ANGLE_BY_POSITION),
+            (MoveId::DSmash, ANGLE_BY_POSITION),
+            (MoveId::NAir, ANGLE_BY_POSITION),
+            (MoveId::BAir, ANGLE_BACKWARD),
+            (MoveId::UAir, ANGLE_BY_POSITION),
+            (MoveId::DAir, ANGLE_BY_POSITION),
+            (MoveId::DownSpecial, ANGLE_BY_POSITION),
+            (MoveId::Ext0, ANGLE_FORWARD),
+            (MoveId::Ext1, ANGLE_FORWARD),
+            (MoveId::GetUpAttack, ANGLE_BY_POSITION),
+        ],
+    );
+    angle_type_rows(&mut w, MoveId::UpSpecial, &[0], ANGLE_BY_POSITION);
     w
 }
 
 #[path = "moves_gauntlets.rs"]
 mod gauntlets;
 pub use gauntlets::gauntlets;
+
+#[path = "moves_staff.rs"]
+mod staff;
+pub use staff::staff;
 
 #[cfg(test)]
 mod tests {

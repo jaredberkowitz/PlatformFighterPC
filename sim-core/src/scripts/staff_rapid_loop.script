@@ -1,0 +1,9 @@
+// Staff rapid jab, later cycles (ext11, slot 40; its frame 0 is the cycle's frame 2, so frame 22 is the loop point, frame 24). After
+// the first cycle, letting go of attack ends it in the finisher (41 = ext12) at any point: once attack has been neither held nor
+// pressed for 8 frames (so mashing keeps it going). Otherwise it loops at the loop point.
+var seen;
+var quiet;
+if attack || presses > seen { quiet = 0; } else { quiet = quiet + 1; }
+seen = presses;
+if quiet >= 8 { goto(41); }
+if frame >= 22 { goto(40); }
