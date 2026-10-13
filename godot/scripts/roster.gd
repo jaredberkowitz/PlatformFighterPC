@@ -186,7 +186,14 @@ static func builtins() -> Array:
 	var tumbler := neutral_entry("Tumbler", 3, Loadout.default_for(3))
 	tumbler.builtin = true
 	tumbler.base_index = 3
-	var sprinter := neutral_entry("Sprinter", 4, Loadout.default_for(4))
+	# (Its own look, not player one's: a cherry racer in an aviator cap and goggles, a scarf to trail behind it, gloves for the fists.)
+	var racer: RefCounted = Loadout.default_for(4)
+	racer.color = 6
+	racer.hat = 2
+	racer.glasses = 2
+	racer.neck = 3
+	racer.gear = 2
+	var sprinter := neutral_entry("Sprinter", 4, racer)
 	sprinter.builtin = true
 	sprinter.base_index = 4
 	return [duelist, brawler, rogue, tumbler, sprinter]
