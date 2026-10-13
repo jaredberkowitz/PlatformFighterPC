@@ -1532,10 +1532,7 @@ fn sword_kit() -> Weapon {
         ref_move(38, 0, 0, 255, &[r(10, 11, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
-    moves[MoveId::Pummel as usize] = with_kind(
-        ref_move(20, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
-        HIT_PUMMEL,
-    );
+    moves[MoveId::Pummel as usize] = reference_pummel(13, 13, 11, 10);
     moves[MoveId::FThrow as usize] = with_kind(
         ref_move(
             35,
@@ -2139,13 +2136,15 @@ pub fn needles() -> Weapon {
         ref_move(40, 0, 0, 255, &[r(11, 12, 16, 11, 10, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
-    // Pummel: a knee, 1% (on frame 2: a hit cannot start on a move's first frame), hitlag x1.7. FAF 16 (the reference's 15 frames
-    // include its hitlag [D]).
+    // Pummel: a knee, 1%, set knockback 30 (KS 100), hitlag x1.7. The reference's hit is on frame 1 and its FAF 6 (SmashWiki); ours
+    // is on frame 2 (a pummel's hit cannot start on its first frame) with the same 5 frames after it, FAF 7 [D]. (Its hitlag freezes
+    // the move, so it is not counted in the FAF: the earlier FAF 16 counted it twice.)
     let mut pummel = with_kind(
-        ref_move(16, 0, 0, 255, &[r(2, 2, 6, 10, 6, 10, 361, 0, 100, 0, 0)]),
+        ref_move(7, 0, 0, 255, &[r(2, 2, 6, 10, 6, 10, 361, 0, 100, 0, 0)]),
         HIT_PUMMEL,
     );
     pummel.hitboxes[0].hitlag = 170;
+    pummel.hitboxes[0].fixed_kb = 30;
     w.moves[MoveId::Pummel as usize] = pummel;
     // Throws: a hit on the held fighter, then the throw. Forward: 5% on frame 20, released on 22 (2%, 72 degrees, BK 80, KS 79), FAF 40.
     // Back: 5% on 15, released on 17 (2%, BK 90, KS 50; the reference's 120 degrees from the front is 60 behind), FAF 36. Up: 3% on 19,
@@ -2974,6 +2973,25 @@ fn rising_punch() -> Move {
     up
 }
 
+/// The pummel the longsword and the claws share with the reference's (SmashWiki, the reference game's Marth and Wolf, 13.0.1): 1.3%,
+/// set knockback 30 (KS 100), hitlag x2.1, the hit on frame 1 and FAF 7. Ours hits on frame 2 (a pummel's hit cannot start on its
+/// first frame) with the same 6 frames after it, FAF 8 [D]; its hitlag freezes the move, so it is not in the FAF.
+fn reference_pummel(damage: i32, x: i32, y: i32, radius: i32) -> Move {
+    let mut pummel = with_kind(
+        ref_move(
+            8,
+            0,
+            0,
+            255,
+            &[r(2, 2, x, y, radius, damage, 361, 0, 100, 0, 0)],
+        ),
+        HIT_PUMMEL,
+    );
+    pummel.hitboxes[0].fixed_kb = 30;
+    pummel.hitboxes[0].hitlag = 210;
+    pummel
+}
+
 /// A jab that carries on into `next` when attack is pressed from reference frame `from` on (its continuable window), with the input
 /// buffer's 9 frames for the press.
 fn chain(mv: &mut Move, next: MoveId, from: u8) {
@@ -3439,10 +3457,7 @@ pub fn claws() -> Weapon {
         ref_move(45, 0, 0, 255, &[r(8, 9, 19, 11, 11, 0, 361, 0, 0, 0, 0)]),
         HIT_GRAB,
     );
-    w.moves[MoveId::Pummel as usize] = with_kind(
-        ref_move(20, 0, 0, 255, &[r(2, 2, 13, 11, 10, 13, 361, 0, 0, 0, 0)]),
-        HIT_PUMMEL,
-    );
+    w.moves[MoveId::Pummel as usize] = reference_pummel(13, 13, 11, 10);
     // The throws are the reference game's two parts: a hit that damages the held fighter without launching it, then the throw,
     // whose own (smaller) damage is all the launch is worked out from. So forward, up and down throws lead into combos at low
     // percents and never kill; the back throw is the kill throw (base 40, growth 150).

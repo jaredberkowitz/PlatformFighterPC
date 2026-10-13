@@ -567,7 +567,9 @@ fn clank_projectile(
 
 /// A pummel: damage to the held fighter, a little hitlag for both, and it stays held.
 fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hitbox) {
-    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, Fx::ONE);
+    // (With the hit's own hitlag multiplier, as any hit.)
+    let scale = Fx::from_ratio(i32::from(hb.hitlag), 100);
+    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, scale);
     state.fighters[a].hitlag = hitlag;
     let held = &mut state.fighters[d];
     held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));

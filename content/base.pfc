@@ -5,8 +5,8 @@ bundle {
     schema 3
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 62
-    hash 4d506db5854aa501
+    sim_version 63
+    hash 8d17dc649713abfd
 }
 
 ruleset {
@@ -355,8 +355,8 @@ weapon longsword {
         hitbox { start 8 end 9 x 2.09999 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 18
-        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
+        total_frames 6
+        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 100 kind pummel hitlag 210 fixed_kb 30 }
     }
     move fthrow {
         total_frames 33
@@ -773,8 +773,8 @@ weapon claws {
         hitbox { start 7 end 8 x 1.9 y 1.09999 radius 1.09999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 18
-        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 0 kind pummel }
+        total_frames 6
+        hitbox { start 1 end 1 x 1.29999 y 1.09999 radius 1 damage 1.29999 angle 361 bkb 0 kbg 100 kind pummel hitlag 210 fixed_kb 30 }
     }
     move fthrow {
         total_frames 31
@@ -1139,8 +1139,8 @@ weapon needles {
         hitbox { start 8 end 9 x 1.79999 y 1.09999 radius 1 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
     move pummel {
-        total_frames 14
-        hitbox { start 1 end 1 x 0.59999 y 1 radius 0.59999 damage 1 angle 361 bkb 0 kbg 100 kind pummel hitlag 170 }
+        total_frames 5
+        hitbox { start 1 end 1 x 0.59999 y 1 radius 0.59999 damage 1 angle 361 bkb 0 kbg 100 kind pummel hitlag 170 fixed_kb 30 }
     }
     move fthrow {
         total_frames 38
