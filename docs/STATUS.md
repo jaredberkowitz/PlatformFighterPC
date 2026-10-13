@@ -90,6 +90,9 @@ radius 10.5 at 10 up, the Staff's radius 11.5 at 10 up and 1.5 ahead [R]. The Lo
 **Sim 79** (branch `grab-dash`; 78 is the moveset session's counter fix): a dash flicked at any point of a grab, pummel or throw
 comes out on the first frame the fighter can act if the stick is still held (`Fighter::dash_buffer`), so throws can be chased; the
 reference buffers a dash only in the last 6 or 7 frames (owner's call to be more lenient). Tests `sim-core/tests/grab_dash.rs`.
+**Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
+direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
+buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
 
 ## Roadmap progress
 

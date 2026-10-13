@@ -96,17 +96,42 @@ fn a_dash_flicked_on_the_first_frame_of_a_short_landing_comes_out() {
 }
 
 #[test]
-fn a_held_stick_with_no_recent_flick_still_walks() {
-    // Outside the buffer, a stick pushed long ago and still held is a walk, not a dash: the window only reaches back the input buffer.
-    let mut sim = long_landing(13);
-    for _ in 0..usize::from(sim.f().lag) + 3 {
-        sim.tick(inp(127, 0, 0));
+fn a_stick_already_held_in_the_air_walks_out_of_the_landing() {
+    // A dash flicked at any point of the landing lag is kept (sim v82, `grab_dash.rs`), but a stick that was pushed before the
+    // landing, in the air, and held through it is a walk, not a dash: the flick was not made during the lag.
+    for tenths in 2..80 {
+        let mut sim = Sim::alone();
+        let ground = sim.f().pos.y;
+        let x = sim.f().pos.x;
+        sim.put_airborne(
+            0,
+            x,
+            ground + Fx::from_ratio(tenths, 10),
+            Fx::ZERO,
+            Fx::ZERO,
+        );
+        sim.tick(inp(0, -127, ATTACK));
+        // The flick, in the air, then held.
+        sim.tick(inp(0, 0, 0));
+        let mut n = 0;
+        while sim.f().state != S::Landing && n < 120 {
+            sim.tick(inp(127, 0, 0));
+            n += 1;
+        }
+        if sim.f().state != S::Landing || sim.f().lag < 13 {
+            continue;
+        }
+        for _ in 0..usize::from(sim.f().lag) + 3 {
+            sim.tick(inp(127, 0, 0));
+        }
+        assert!(
+            matches!(sim.f().state, S::Walk | S::Idle),
+            "dashed from a flick made in the air: {:?}",
+            sim.f().state
+        );
+        return;
     }
-    assert!(
-        matches!(sim.f().state, S::Walk | S::Idle),
-        "dashed from an old flick: {:?}",
-        sim.f().state
-    );
+    panic!("no drop height lands a long landing");
 }
 
 /// Player 0 where it spawns, as the movement tests start (room to run right).

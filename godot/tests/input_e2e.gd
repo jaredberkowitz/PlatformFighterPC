@@ -81,6 +81,52 @@ func _run_walk_pattern(label: String, pattern: Array, must_see: Array, must_not_
 	print("%s  %-34s states=%s top speed %.3f" % ["PASS" if ok else "FAIL", label, seen.keys(), top_speed])
 
 
+## Grabs (U), down throws (S), then presses D once during the throw and holds it, reading keys as the game does (with the sim's
+## `fighter_keeps_dash`): a single press is a flick there, so the fighter dashes the moment the throw ends.
+func _run_throw_dash(label: String, keeps_dash: bool, expect_dash: bool) -> void:
+	InputReader._x_state.clear()
+	InputReader._down_state.clear()
+	sim.start(1, PackedInt32Array([0, 0, 0, 0]))
+	sim.debug_stand(0, 0.0, 1)
+	sim.debug_stand(1, 1.4, -1)
+	var states := []
+	var phase := 0
+	var t := 0
+	while t < 200:
+		t += 1
+		var st: String = sim.fighter_state(0)
+		if phase == 0:
+			_key(KEY_U, t <= 2)
+			if st == "Grabbing":
+				_key(KEY_U, false)
+				phase = 1
+		elif phase == 1:
+			_key(KEY_S, true)
+			if st == "Attack":
+				_key(KEY_S, false)
+				phase = 2
+		elif phase == 2:
+			_key(KEY_D, t > 0)
+			if st != "Attack" and st != "Grabbing":
+				phase = 3
+		await physics_frame
+		var r: Dictionary = InputReader.read(0, masks, keeps_dash and sim.fighter_keeps_dash(0))
+		sim.set_input(0, r.x, r.y, r.buttons)
+		sim.tick()
+		if phase >= 2:
+			states.append(sim.fighter_state(0))
+		if phase == 3 and states.size() > 0 and states[-1] != "Idle":
+			break
+	_key(KEY_D, false)
+	_key(KEY_S, false)
+	_key(KEY_U, false)
+	var dashed := states.has("Dash")
+	var ok := phase == 3 and dashed == expect_dash
+	if not ok:
+		failures += 1
+	print("%s  %-34s phase %d, after the throw: %s" % ["PASS" if ok else "FAIL", label, phase, states.slice(maxi(states.size() - 4, 0))])
+
+
 ## Jumps with `key` held for `hold` frames, returns the apex height.
 func _hop_apex(key: Key, hold: int) -> float:
 	InputReader._hop_state.clear()
@@ -121,6 +167,8 @@ func _initialize() -> void:
 	await _run_walk_pattern("double tap D dashes", [[3, true], [4, false], [3, true], [10, false]], ["Dash"], [])
 	await _run_walk_pattern("double tap, held, runs", [[3, true], [4, false], [40, true]], ["Dash", "Run"], [])
 	await _run_walk_pattern("taps 30f apart just walk", [[3, true], [30, false], [3, true], [20, false]], ["Walk"], ["Dash", "Run"])
+	await _run_throw_dash("one press during a throw dashes", true, true)
+	await _run_throw_dash("(without the flag it walks)", false, false)
 	var full := await _hop_apex(KEY_SPACE, 40)
 	var short := await _hop_apex(KEY_SPACE, 1)
 	var short_key := await _hop_apex(KEY_N, 40)

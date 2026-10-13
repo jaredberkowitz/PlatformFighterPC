@@ -188,3 +188,44 @@ fn the_rogues_down_throw_can_be_chased_with_a_dash_into_a_forward_air() {
         "the forward air connects before the opponent can act"
     );
 }
+
+/// The duelist's down air (14 frames of landing lag in the reference) landing on the stage, with a dash flicked `early` frames into the landing lag
+/// (or `None` for none) and held: the state on the first frame it can act.
+fn out_of_a_landing(flick_into_lag: Option<usize>) -> S {
+    let mut sim = Sim::with_chars([0, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(1, Fx::from_int(14), -1);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_ratio(3, 2), Fx::ZERO, Fx::ZERO);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DAir);
+    let mut n = 0;
+    while !sim.f().grounded() && n < 120 {
+        sim.tick(inp(0, 0, 0));
+        n += 1;
+    }
+    assert_eq!(
+        sim.f().state,
+        S::Landing,
+        "landed mid-attack, into its landing lag"
+    );
+    let mut lag_frames = 0;
+    while sim.f().state != S::Idle && n < 240 {
+        let x = match flick_into_lag {
+            Some(k) if lag_frames > k => 127,
+            _ => 0,
+        };
+        sim.tick(inp(x, 0, 0));
+        lag_frames += 1;
+        n += 1;
+    }
+    assert!(lag_frames > 10, "a long landing: {lag_frames}");
+    sim.tick(inp(if flick_into_lag.is_some() { 127 } else { 0 }, 0, 0));
+    sim.f().state
+}
+
+#[test]
+fn a_dash_flicked_early_in_a_landing_lag_comes_out_the_moment_it_ends() {
+    // Flicked a couple of frames into the landing lag (before its last 10) and held.
+    assert_eq!(out_of_a_landing(Some(0)), S::Dash);
+    assert_ne!(out_of_a_landing(None), S::Dash);
+}

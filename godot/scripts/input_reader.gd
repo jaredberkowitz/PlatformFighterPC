@@ -140,8 +140,11 @@ static func _held(player: int, action: String) -> bool:
 	return Input.is_physical_key_pressed(Bindings.key(player, action) as Key)
 
 
-## Returns {x, y, buttons}. `masks` maps button names to the sim's bit values.
-static func read(player: int, masks: Dictionary) -> Dictionary:
+## Returns {x, y, buttons}. `masks` maps button names to the sim's bit values. `keeps_dash`: the fighter is in lag that keeps a dash
+## flicked during it (a grab, a throw or a landing; the bridge's `fighter_keeps_dash`), so a direction key pressed now is sent at full
+## strength, a flick, and the dash comes out the moment the lag ends. (A key's first press otherwise starts a walk, which the sim never
+## reads as a dash.)
+static func read(player: int, masks: Dictionary, keeps_dash := false) -> Dictionary:
 	var sx := 0.0
 	var sy := 0.0
 	var b := 0
@@ -149,7 +152,7 @@ static func read(player: int, masks: Dictionary) -> Dictionary:
 		var id := "p%d" % player
 		# With the shield up, a direction press is a flick (roll) and a down press is hard (spot dodge).
 		var shielding := _held(player, "shield") or (player == 0 and Input.is_physical_key_pressed(KEY_SHIFT))
-		sx = _x_key(id + "x", _held(player, "left"), _held(player, "right"), shielding)
+		sx = _x_key(id + "x", _held(player, "left"), _held(player, "right"), shielding or keeps_dash)
 		sy = 1.0 if _held(player, "up") else -_down_key(id, _held(player, "down"), shielding)
 		if _held(player, "tilt"):
 			sx = signf(sx) * TILT

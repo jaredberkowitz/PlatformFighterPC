@@ -240,21 +240,24 @@ fn rolling(f: &Fighter) -> bool {
             .any(|&i| x_active(i))
 }
 
-/// A grab, a pummel or a throw is under way (command grabs too: a move that catches, or anything done while holding someone).
-fn grab_lag(f: &Fighter, weapon: &Weapon) -> bool {
-    f.state == S::Attack
-        && (matches!(
-            MoveId::from_index(f.move_id),
-            MoveId::Grab
-                | MoveId::DashGrab
-                | MoveId::PivotGrab
-                | MoveId::Pummel
-                | MoveId::FThrow
-                | MoveId::BThrow
-                | MoveId::UThrow
-                | MoveId::DThrow
-        ) || f.grab_with != NONE
-            || weapon.get(f.move_id).catch_move.is_some())
+/// Lag a dash flicked during is kept for (`Fighter::dash_buffer`): a grab, a pummel or a throw (command grabs too: a move that
+/// catches, or anything done while holding someone), or a landing's lag (sim v82). Public for the keyboard reader, which sends a
+/// direction key pressed during it at full strength, a flick (`godot/scripts/input_reader.gd`).
+pub fn keeps_dash(f: &Fighter, weapon: &Weapon) -> bool {
+    (f.state == S::Landing && f.grounded())
+        || f.state == S::Attack
+            && (matches!(
+                MoveId::from_index(f.move_id),
+                MoveId::Grab
+                    | MoveId::DashGrab
+                    | MoveId::PivotGrab
+                    | MoveId::Pummel
+                    | MoveId::FThrow
+                    | MoveId::BThrow
+                    | MoveId::UThrow
+                    | MoveId::DThrow
+            ) || f.grab_with != NONE
+                || weapon.get(f.move_id).catch_move.is_some())
 }
 
 fn on_pass_through(f: &Fighter, stage: &Stage) -> bool {
@@ -292,10 +295,11 @@ pub fn update(
         f.tech_timer = 0;
     }
 
-    // A dash flicked at any point of a grab, a pummel or a throw is kept for the first frame the fighter can act, as long as the stick
-    // stays pushed that way (hitlag included): more lenient than the reference's 6 or 7 frames, so a throw can be chased (owner's
-    // call). The flick that picked the throw is not one (it was made while holding, before the throw began).
-    if grab_lag(f, weapon) {
+    // A dash flicked at any point of a grab, a pummel, a throw or a landing's lag is kept for the first frame the fighter can act, as
+    // long as the stick stays pushed that way (hitlag included): more lenient than the reference's 6 or 7 frames, so a throw or an
+    // aerial can be chased (owner's call). The flick that picked the throw is not one (it was made while holding, before the throw
+    // began), nor one made in the air before landing.
+    if keeps_dash(f, weapon) {
         let flick = f.dash_flick(1);
         if flick != 0 {
             f.dash_buffer = flick;

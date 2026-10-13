@@ -802,7 +802,7 @@ func _replay_text() -> String:
 
 func _net_step() -> void:
 	var local: int = maxi(sim.net_local_player(), 0)
-	var r: Dictionary = InputReader.read(0, masks)
+	var r: Dictionary = InputReader.read(0, masks, sim.fighter_keeps_dash(local))
 	inputs[local] = r
 	net_status = sim.net_update(r.x, r.y, r.buttons)
 	# Once the handshake is done the other player's look arrives (or is missing, and they keep the default look).
@@ -930,7 +930,7 @@ func _rebuild_paths() -> void:
 func _gather() -> void:
 	for i in PLAYERS:
 		if demo != null and demo.real_keys and i == 0:
-			inputs[i] = InputReader.read(0, masks)
+			inputs[i] = InputReader.read(0, masks, sim.fighter_keeps_dash(0))
 		elif cpu_levels[i] > 0 and (demo == null or not demo.cpu_levels.is_empty()) and not replay_mode:
 			var c: PackedInt32Array = sim.cpu_input(i, cpu_levels[i])
 			inputs[i] = {"x": c[0], "y": c[1], "buttons": c[2]}
@@ -942,7 +942,7 @@ func _gather() -> void:
 			else:
 				inputs[i] = {"x": 0, "y": 0, "buttons": 0}
 		else:
-			inputs[i] = InputReader.read(i, masks)
+			inputs[i] = InputReader.read(i, masks, sim.fighter_keeps_dash(i))
 		sim.set_input(i, inputs[i].x, inputs[i].y, inputs[i].buttons)
 
 

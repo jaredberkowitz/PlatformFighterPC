@@ -940,6 +940,16 @@ impl SimRunner {
         self.fighter(i).map_or(0, |fi| i32::from(fi.wall_jumps))
     }
 
+    /// Whether the fighter is in lag that keeps a dash flicked during it (a grab, a throw or a landing), so the keyboard reader can
+    /// send a direction key pressed now as a flick (`sim_core::fighter::keeps_dash`).
+    #[func]
+    fn fighter_keeps_dash(&self, i: i32) -> bool {
+        self.fighter(i).is_some_and(|fi| {
+            let p = sim_core::combat::params_of(&self.content, fi);
+            sim_core::fighter::keeps_dash(fi, sim_core::combat::weapon_of(&self.content, p))
+        })
+    }
+
     #[func]
     fn fighter_facing(&self, i: i32) -> i32 {
         self.fighter(i).map_or(1, |fi| i32::from(fi.facing))
