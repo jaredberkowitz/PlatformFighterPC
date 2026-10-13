@@ -753,3 +753,20 @@ before / after: `docs/screenshots/ethereal_meadow_before.png`, `_after.png`; all
 - Not done: Godot 4 has no per-light contact shadows, and screen-space ambient occlusion cannot be used (the object id lives in the
   roughness channel), so grounding stays painted (contact patches, the fighters' drop shadow).
 
+
+## Ship polish: stage undersides, clear vivid colour, mitten hands, the chin speck (thirtieth pass)
+
+Aim (branch `ship-polish`): a sellable look, with the readability of a modern platform fighter, the painted style of the concept art and
+the clarity of a cel-shaded adventure. Before / after: `docs/screenshots/underside_*`, `vivid_meadow_*`.
+
+- **Under the stage** (`StageArt.underside`): what each place is made of hangs under its lowest block, set back behind the fighters and
+  fading into a haze bank; block fronts calmer. See `ART_DIRECTION.md`.
+- **Clear, not milky** (`VISUAL_STYLE.md` section 4): far scenery hazes toward each stage's own saturated colour instead of white,
+  lighter paper tint, no default desaturation, thinner mist, richer skies placed where the camera sees them, cel-lit cumulus clouds.
+- **Bare hands are mittens** (`make_rigged_blob.py` `mitten`, parts `Mitt.L/R`): a soft rounded paddle with a stubby thumb, shown in the
+  body's colour when the loadout has no gloves (`FighterView`); the glove fists (`Hand`) stay for gloves. A rig without mittens falls
+  back to the fists in the body's colour.
+- **The chin speck**: the symmetric decimation in `make_base_body.py` left a two-sided fin on the mirror line under the chin (and one at
+  the back of the hips); `mend_folds` joins copied points, triangulates and deletes any point with only two edges, so the skin is
+  closed (every edge two faces). Body rebuilt (6,496 triangles), joints refitted (changes under 0.002), rig rebuilt.
+- Checks: fighter view, loadout, art pipeline, match flow and creator flow tests passed; look bench PASSED (worst 0.90).

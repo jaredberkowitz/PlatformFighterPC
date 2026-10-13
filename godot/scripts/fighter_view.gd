@@ -260,6 +260,10 @@ func _build_rig(skin: Material) -> bool:
 	var leg := _limb_material(skin_colour, shorts_colour, 0.3, Color.WHITE, 0.62)
 	# The base body wears modelled clothes (art/blender/make_rigged_blob.py's `build_garments`): a shirt and shorts, coloured here.
 	var garments := rig.find_child("Shirt", true, false) != null
+	# Bare hands are modelled mittens (`Mitt`, art/blender/make_rigged_blob.py's `mitten`); a rig made before them has none, and its glove
+	# fists stand in, in the body's colour.
+	var bare: bool = use_base_body and not loadout.has_gloves()
+	var mittens := rig.find_child("Mitt*", true, false) != null
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
 		# Full detail always: Godot simplifies meshes that look small on screen (its automatic LOD), which chewed thin cloth's hems into
@@ -269,9 +273,13 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = arm
 		elif part.begins_with("Leg"):
 			mi.material_override = leg
-		elif part.begins_with("Hand") and use_base_body and not loadout.has_gloves():
+		elif part.begins_with("Mitt"):
+			mi.material_override = respond(toon(skin_colour), "skin")
+			mi.visible = bare
+		elif part.begins_with("Hand") and bare:
 			# Bare hands (the concept's mittens): the body's own colour and skin.
 			mi.material_override = respond(toon(skin_colour), "skin")
+			mi.visible = not mittens
 		elif part.begins_with("Hand") or part.begins_with("Sole"):
 			mi.material_override = glove
 		elif part.begins_with("Collar") or part.begins_with("Cuff"):

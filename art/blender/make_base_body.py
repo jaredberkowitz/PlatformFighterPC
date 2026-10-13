@@ -121,6 +121,23 @@ def build(mirror_x):
     return obj
 
 
+def mend_folds(obj):
+    """The symmetric decimation can leave a fin on the mirror line: a point joined to only two others by a thin triangle and its back,
+    on copies of its corners (one under the chin faced inward and showed as a speck of ink). Here copies are joined, the skin is cut into
+    triangles, and any point with only two edges (in a closed skin of triangles every point has three or more) is deleted with its fin,
+    so every edge has two faces."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
+    fins = [v for v in bm.verts if len(v.link_edges) <= 2]
+    if fins:
+        bmesh.ops.delete(bm, geom=fins, context="VERTS")
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
 def finish(obj):
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
@@ -142,6 +159,7 @@ def finish(obj):
     dec.use_symmetry = True
     dec.symmetry_axis = "X"
     bpy.ops.object.modifier_apply(modifier=dec.name)
+    mend_folds(obj)
     # Soles flat on the ground.
     for v in obj.data.vertices:
         if v.co.z < 0.012:

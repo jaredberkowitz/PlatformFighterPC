@@ -294,6 +294,14 @@ def fist(bm, x):
          per_span=4)
 
 
+def mitten(bm, x):
+    """A bare hand on the `x` side, built round the same wrist as `fist`: the concept's mitten, a soft rounded paddle a little flatter
+    side to side than deep, closed into a loose curl, with a stubby thumb in front. No knuckle row: that is the glove's clench, and on a
+    bare hand it read as a glove in the body's colour."""
+    ball(bm, 0.19, (x * 0.78, -0.05, 0.63), (0.8, 1.0, 1.12), segments=32, rings=20)
+    tube(bm, [(x * 0.745, -0.12, 0.7), (x * 0.765, -0.2, 0.62)], [0.066, 0.056], segments=14, per_span=4)
+
+
 ## The blob's wrist, which `fist` and `cuff` are built round.
 BLOB_WRIST = (0.74, -0.04, 0.78)
 
@@ -1052,6 +1060,12 @@ def build_body_meshes(rig):
         for v in bm.verts:
             v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
+        # The bare hand (no gloves in the loadout): the game shows this one instead, in the body's colour.
+        bm = bmesh.new()
+        mitten(bm, x)
+        for v in bm.verts:
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE
+        parts["Mitt." + side] = to_object("Mitt." + side, bm, "hand." + side, rig)
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
