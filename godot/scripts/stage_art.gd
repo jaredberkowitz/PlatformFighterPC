@@ -1247,35 +1247,60 @@ static func _land_top(bumps: Array, floor_y: float, x: float) -> float:
 ## A band of land facing the camera at depth `z`: its top follows `_land_top` across x from -240 to 240, and it runs down 180 units below
 ## that, so it is ground all the way out of view. Its normals tip up toward the top edge (lit like the round of a hill) and face the camera
 ## further down, where the haze takes it; one mesh, toon-shaded in `colour`.
-static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0) -> void:
+static func _land_band(root: Node3D, bumps: Array, floor_y: float, z: float, colour: Color, step := 2.0, roll := 1.0, profile: Array = ROLL_PROFILE) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var drops := [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]
+	# The cross-section, back to front: [drop below the crest, depth from z]. With `roll` the land is a rounded ridge: it rolls away
+	# behind the crest and over toward the camera in front, then falls away (`ROLL_PROFILE`, scaled), so the key light gives it a lit
+	# top, a cel-shaded front and a real silhouette in depth; without, it is a flat front (the canopy's shade band).
+	var rows: Array = []
+	if roll > 0.0:
+		for r in profile:
+			rows.append([float(r[0]), float(r[1]) * roll])
+	else:
+		for d in [0.0, 0.4, 1.2, 2.6, 5.0, 9.0, 18.0, 40.0, 90.0, 180.0]:
+			rows.append([d, 0.0])
 	var cols: Array = []
 	var x := -240.0
 	while x <= 240.0:
 		var top := _land_top(bumps, floor_y, x)
-		var slope := (_land_top(bumps, floor_y, x + 0.5) - _land_top(bumps, floor_y, x - 0.5))
-		var crest := Vector3(-slope, 1.0, 0.0).normalized()
 		var col: Array = []
-		for d in drops:
-			var w := exp(-float(d) / 3.5)
-			var n := (crest * w + Vector3(0.0, 0.2, 1.0).normalized() * (1.0 - w)).normalized()
-			col.append([Vector3(x, top - float(d), z), n])
+		for r in rows:
+			col.append(Vector3(x, top - float(r[0]), z + float(r[1])))
 		cols.append(col)
 		x += step
 	for i in cols.size() - 1:
-		for j in drops.size() - 1:
+		for j in rows.size() - 1:
 			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
-				var v: Array = cols[c[0]][c[1]]
-				st.set_normal(v[1])
-				st.add_vertex(v[0])
+				st.add_vertex(cols[c[0]][c[1]])
+	st.generate_normals()
 	_mesh(root, st.commit(), _soft(colour), Vector3.ZERO)
+
+
+## A rolled band's cross-section (see `_land_band`): [drop below the crest, depth from the band's z], from behind the crest to the foot.
+const ROLL_PROFILE := [[3.0, -6.0], [1.0, -3.6], [0.2, -1.6], [0.0, 0.0], [0.25, 1.3], [0.9, 2.5], [1.9, 3.4], [3.3, 4.0], [5.2, 4.35],
+	[9.0, 4.5], [18.0, 4.55], [40.0, 4.6], [90.0, 4.6], [180.0, 4.6]]
+
+
+## The near land's cross-section: the same roll over the crest, then a valley floor sloping down toward the camera (as a hillside seen
+## from above), flattening out far below, so what is laid on it (fields, hedges, a farm) recedes in real perspective.
+const VALLEY_PROFILE := [[3.0, -6.0], [1.0, -3.6], [0.2, -1.6], [0.0, 0.0], [0.25, 1.3], [0.9, 2.5], [1.9, 3.6], [3.3, 5.0], [5.2, 7.2],
+	[9.0, 11.5], [18.0, 21.0], [32.0, 33.0], [50.0, 40.0], [90.0, 42.0], [180.0, 42.0]]
+
+
+## How far in front of a rolled band's z its face is, `d` below the crest (to lay things on the face), for `profile`.
+static func roll_z(d: float, profile: Array = ROLL_PROFILE) -> float:
+	for k in range(1, profile.size()):
+		var a: Array = profile[k - 1]
+		var b: Array = profile[k]
+		if d <= float(b[0]) and float(b[0]) > float(a[0]):
+			return lerpf(float(a[1]), float(b[1]), (d - float(a[0])) / (float(b[0]) - float(a[0])))
+	return float(profile[-1][1])
 
 
 ## A low band of land nearer the stage (at depth `z`, its top rolling gently round `y`), that the nearer trees stand on; deterministic
 ## (no random draws), so adding it leaves the rest of a theme's layout where it was. `fore_top` gives its height at x.
-static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
+static func _fore_band(root: Node3D, z: float, y: float, colour: Color, profile: Array = VALLEY_PROFILE) -> void:
 	var bumps: Array = []
 	var x := -230.0
 	var k := 0
@@ -1284,7 +1309,7 @@ static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
 		x += 22.0 + 8.0 * absf(sin(k * 0.9))
 		k += 1
 	_fore_bumps = bumps
-	_land_band(root, bumps, y - 1.0, z, colour)
+	_land_band(root, bumps, y - 1.0, z, colour, 2.0, 1.0, profile)
 
 
 static var _fore_bumps: Array = []
@@ -1301,7 +1326,7 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		var size := 1.8 + float(r) * 0.7
 		var rz := z + float(r) * 1.4
 		# The shade between the crowns: a band behind them, from just under their tops on down.
-		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill)
+		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill, 2.0, 0.0)
 		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), false)
 		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), false)
 		var x := -150.0 + float(r) * 1.3
@@ -1322,6 +1347,7 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 ## through them. Deterministic (no random draws). One mesh per colour, each a hair in front of the band.
 static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colour: Color) -> void:
 	var hedges := [2.2, 5.4, 9.6, 15.0, 22.0, 31.0, 43.0]
+	var y_ref := y
 	var mean := y + 0.5
 	# Each hedge follows the land's roll near the top and a slower swell of its own further down; and the fields fan out from a point
 	# above the middle as they come down (`at`: from across `u` and down `d` to a point on the face), as rows of fields do in perspective.
@@ -1330,7 +1356,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		return lerpf(mean, fore_top(x, y), k) - d + sin(x * 0.045 + d * 0.7) * d * 0.07
 	var at := func(u: float, d: float) -> Vector3:
 		var x := u * (1.0 + d * 0.03)
-		return Vector3(x, line.call(x, d), z)
+		var ly: float = line.call(x, d)
+		return Vector3(x, ly, z + roll_z(fore_top(x, y_ref) - ly, VALLEY_PROFILE) + 0.12)
 	var tools: Array = []
 	for c in colours.size() + 2:
 		var st := SurfaceTool.new()
@@ -2084,7 +2111,8 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# The great tree, set back behind the island's middle.
 	_tree(root, Vector3(0, top - 2.0, -19.0), 1.0, rng)
 	# A low rise of land in front of the hills, and two smaller trees standing on it either side (feet just behind its edge).
-	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42))
+	# (A rounded ridge, not the meadow's valley floor: the forest canopy fills the valley below it.)
+	_fore_band(root, -52.0, top - 11.0, Color(0.34, 0.66, 0.42), ROLL_PROFILE)
 	_tree(root, Vector3(-30, fore_top(-30.0, top - 11.0) - 0.6, -55.0), 0.6, rng)
 	_tree(root, Vector3(32, fore_top(32.0, top - 11.0) - 0.6, -55.0), 0.55, rng)
 	# Below it, the treetops of a forest falling away down the valley.

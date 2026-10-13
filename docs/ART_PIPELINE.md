@@ -1003,3 +1003,14 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   Replays, leaf Creator); Controls, Editors and Quit share one deep indigo so they recede behind them, rather than six unrelated
   saturated colours side by side. Every card (`MenuArt.card`) has a few long brushed strokes in a shade of its own colour and a warm bounce
   of light along its bottom edge. `menu_main_before.png` / `menu_main_after.png`.
+
+## Depth in the backdrop land (forty-fifth pass)
+
+- The owner: the painted look is good, but the backgrounds should still feel 3D. The bands of land were flat sheets facing the camera
+  (shaded by a painted gradient only); now they are real ground:
+  - **Rolled ridges** (`_land_band` with `ROLL_PROFILE`): each hill row's crest rolls away behind and over toward the camera, then falls
+    away, so the key light gives it a lit top, a cel-shaded front and a silhouette in depth (normals from the geometry).
+  - **The meadow's valley floor** (`VALLEY_PROFILE` on the near band): below the crest the land slopes down toward the camera and
+    flattens far below, and the fields, hedges, lane and farm are laid on it (`roll_z`), so they recede in real perspective (near fields
+    big, far ones compressed) instead of being painted on a wall. `meadow_valley_depth.png`.
+  - Treetop Isle keeps a rolled ridge (its forest canopy fills the valley below).
