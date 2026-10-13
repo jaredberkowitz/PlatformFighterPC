@@ -3,6 +3,7 @@ extends SceneTree
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
 ##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | shield | flinch | launch | tumble | roll | backroll | spotdodge | airdodge | knockdown | getup |
 ##   <move name> (an attack such as fsmash, nair, jab)
+##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N to wear neckwear N (loadout.gd)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -22,6 +23,7 @@ func _initialize() -> void:
 	var zoom := 1.0
 	var facing := 1
 	var timing := PackedInt32Array([40, 12, 16])
+	var neck := -1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
 			what = a.substr(7)
@@ -31,6 +33,8 @@ func _initialize() -> void:
 			out = a.substr(6)
 		elif a.begins_with("--facing="):
 			facing = int(a.substr(9))
+		elif a.begins_with("--neck="):
+			neck = int(a.substr(7))
 		elif a.begins_with("--zoom="):
 			zoom = float(a.substr(7))
 		elif a.begins_with("--tip="):
@@ -67,7 +71,10 @@ func _initialize() -> void:
 	world.add_child(floor_mesh)
 	var view := FighterView.new()
 	world.add_child(view)
-	view.build(cls, Loadout.default_for(cls))
+	var look: RefCounted = Loadout.default_for(cls)
+	if neck >= 0:
+		look.neck = neck
+	view.build(cls, look)
 
 	var frames: Array = []
 	match what:
@@ -81,6 +88,9 @@ func _initialize() -> void:
 			for f in range(0, 24 if what == "idle" else 20, 2):
 				frames.append(f)
 		"jump", "fall", "airjump", "hurt", "shield", "launch", "tumble":
+			for f in range(0, 30, 2):
+				frames.append(f)
+		"dashstop":
 			for f in range(0, 30, 2):
 				frames.append(f)
 		"jumpsquat", "land", "flinch":
@@ -136,6 +146,11 @@ func _initialize() -> void:
 			"shield":
 				state = "Shield"
 				move = ""
+			"dashstop":
+				# Standing, a dash from frame 4, stopped dead at frame 16.
+				move = ""
+				state = "Dash" if f >= 4 and f < 16 else "Idle"
+				vel = Vector2(0.28, 0) if state == "Dash" else Vector2.ZERO
 			"flinch":
 				# A hit too weak to launch: the percent goes up on the second frame while standing.
 				state = "Idle"

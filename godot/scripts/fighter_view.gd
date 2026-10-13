@@ -41,6 +41,7 @@ const FxMaterial := preload("res://scripts/fx_material.gd")
 const AnimLibrary := preload("res://scripts/anim_library.gd")
 const MotionDeform := preload("res://scripts/motion_deform.gd")
 const Smear := preload("res://scripts/smear.gd")
+const MotionSprings := preload("res://scripts/motion_springs.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -88,6 +89,8 @@ func rebuild(l: RefCounted) -> void:
 	last_expression = {}
 	shown_face = ""
 	last_ghost = 0.0
+	neck_pivot = null
+	reset_motion()
 	build(player, l)
 
 
@@ -537,6 +540,7 @@ func _animate(s: Dictionary, delta: float) -> void:
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
 	_body_follow(s, delta)
+	_lag_bones(int(s.facing))
 	_follow_bones()
 
 
@@ -610,6 +614,18 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN).
 	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
+
+
+## The chest and head lagging the hips (the `spine`, `head` and `head_turn` springs), on top of the clip and the body follow.
+func _lag_bones(facing: int) -> void:
+	if skeleton == null or spine_bone < 0:
+		return
+	if absf(springs.value("spine")) > 0.05:
+		_bend_bone(spine_bone, springs.value("spine"), facing)
+	if absf(springs.value("head")) > 0.05:
+		_bend_bone(head_bone, springs.value("head"), facing)
+	if absf(springs.value("head_turn")) > 0.05:
+		_turn_bone(head_bone, springs.value("head_turn"))
 
 
 ## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top
@@ -1328,13 +1344,25 @@ func _neck_on_rig(accent: Color) -> void:
 			var at := _collar(accent)
 			var bib := BoxMesh.new()
 			bib.size = Vector3(0.34, 0.34, 0.06)
-			_part(torso_rig, bib, toon(accent), Vector3(0, at - 0.16, 0.5), Vector3.ONE, Vector3(0, 0, 45))
+			# (On a pivot at the knot, so it swings with the body: the `neck` spring.)
+			neck_pivot = Node3D.new()
+			neck_pivot.position = Vector3(0, at - 0.02, 0.5)
+			torso_rig.add_child(neck_pivot)
+			_part(neck_pivot, bib, toon(accent), Vector3(0, -0.14, 0), Vector3.ONE, Vector3(0, 0, 45))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
 			var at := _collar(accent)
 			var tail := BoxMesh.new()
 			tail.size = Vector3(0.2, 0.5, 0.06)
-			_part(torso_rig, tail, toon(accent), Vector3(0.26, at - 0.28, 0.46), Vector3.ONE, Vector3(0, 0, 6))
+			# (Hung from its top on a pivot, so it swings with the body: the `neck` spring.)
+			neck_pivot = Node3D.new()
+			neck_pivot.position = Vector3(0.23, at - 0.03, 0.46)
+			torso_rig.add_child(neck_pivot)
+			_part(neck_pivot, tail, toon(accent), Vector3(0.03, -0.25, 0), Vector3.ONE, Vector3(0, 0, 6))
+
+
+## The pivot the neckerchief's point or the scarf's tail hangs from (none for the other neckwear).
+var neck_pivot: Node3D
 
 
 ## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).
@@ -1357,7 +1385,7 @@ func _collar(accent: Color) -> float:
 const COLLAR_BELOW_NECK := 0.1
 
 
-## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (see `_hat_spring`).
+## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (the `hat_roll` and `hat_drop` springs, see `_secondary`).
 const HAT_PIVOT := Vector3(0, 1.95, 0)
 var hat_pivot: Node3D
 
@@ -1580,12 +1608,39 @@ var prev_jumps := -1
 var lunge := 0.0
 var lunge_vel := 0.0
 ## The hat's lag (a roll, radians) and bounce (a drop below its place, units), and the velocity they react to.
-var hat_roll := 0.0
-var hat_roll_vel := 0.0
-var hat_drop := 0.0
-var hat_drop_vel := 0.0
+## Secondary motion (`MotionSprings`, all stepped with the sim: frozen in hitlag and while paused, at rest after a rollback or seek):
+## `hat_roll` the hat's lag (radians) and `hat_drop` its bounce (units below its place); `spine` and `head` the chest and head lagging the
+## hips (degrees, forward positive) when the body speeds up, stops or lands; `head_turn` the head looking back the old way for a moment on
+## a turn (degrees); `hand` a fist's follow-through past its strike (units); `neck` the neckwear swinging (radians).
+var springs := _make_springs()
 var prev_vel := Vector2.ZERO
-var prev_frame := -1
+var prev_facing := 0
+var prev_state_frame := -1
+
+
+static func _make_springs() -> RefCounted:
+	var m := MotionSprings.new()
+	m.add("hat_roll", 300.0, 14.0, -0.5, 0.5)
+	m.add("hat_drop", 500.0, 18.0, -0.12, 0.15)
+	m.add("spine", 240.0, 15.0, -8.0, 8.0)
+	m.add("head", 170.0, 11.0, -12.0, 12.0)
+	m.add("head_turn", 160.0, 13.0, -16.0, 16.0)
+	m.add("hand", 260.0, 12.0, -0.06, 0.16)
+	m.add("neck", 110.0, 6.5, -0.6, 0.6)
+	return m
+
+
+## Puts every piece of secondary motion back to rest: on a rebuild, and for whoever drives the view across a discontinuity it cannot see
+## in the frame numbers (the frame jumps already rest the springs and smears on their own).
+func reset_motion() -> void:
+	springs.reset()
+	prev_facing = 0
+	prev_state_frame = -1
+	body_k = 0.0
+	body_frame = -1
+	smear_pts.clear()
+	smear_frame = -1
+	flinch_left = 0.0
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -1697,7 +1752,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Volume-preserving: squashing down widens the body.
 	var total := squash + step_squash
 	model.scale = Vector3(1.0 + 0.5 * total, 1.0 - total, 1.0 + 0.5 * total)
-	_hat_spring(s, delta)
+	_secondary(s, delta)
 	# Skidding out of a run, the fighter still faces the way it was running (the simulation has already turned it), leaning back
 	# against the slide; it swings round as the skid ends.
 	var look := facing
@@ -2068,6 +2123,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
 		else:
 			hand = old_hand.lerp(goal, arm_k)
+	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
+	if _cls(s) != 0 and absf(springs.value("hand")) > 0.001:
+		hand += (hand - shoulder).normalized() * springs.value("hand")
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())
@@ -2112,29 +2170,40 @@ func _carry_weapon(facing: int) -> void:
 
 
 ## The hat's secondary motion: it lags behind a sudden change of speed sideways and dips and springs back on a landing or a jump.
-func _hat_spring(s: Dictionary, delta: float) -> void:
-	if hat_pivot == null:
-		return
+## Kicks the secondary-motion springs from what the fighter did this sim frame, moves them on, and places the hat and the neckwear (the
+## head and spine are bent in `_animate`, after the clip; the hand in `_pose_blade`).
+func _secondary(s: Dictionary, delta: float) -> void:
 	var vel := Vector2(float(s.vel.x), float(s.vel.y))
-	var frame: int = s.frame
-	if frame != prev_frame:
-		if prev_frame >= 0 and frame - prev_frame <= 2:
-			var dv := vel - prev_vel
-			hat_roll_vel += clampf(dv.x, -0.5, 0.5) * 60.0
-			hat_drop_vel += clampf(dv.y, -1.0, 1.0) * 6.0
-		prev_frame = frame
-		prev_vel = vel
-	var steps := ceili(delta / 0.008)
-	var h := delta / maxi(steps, 1)
-	for _i in steps:
-		hat_roll_vel += (-300.0 * hat_roll - 14.0 * hat_roll_vel) * h
-		hat_roll += hat_roll_vel * h
-		hat_drop_vel += (-500.0 * hat_drop - 18.0 * hat_drop_vel) * h
-		hat_drop += hat_drop_vel * h
-	hat_roll = clampf(hat_roll, -0.5, 0.5)
-	hat_drop = clampf(hat_drop, -0.12, 0.15)
-	hat_pivot.rotation = Vector3(0, 0, hat_roll)
-	hat_pivot.position = HAT_PIVOT + Vector3(0, -hat_drop, 0)
+	var facing := int(s.facing)
+	springs.begin(int(s.frame), int(s.hitlag), delta)
+	var dv := vel - prev_vel
+	# (A change bigger than any move makes is a teleport, a respawn or a correction: not something to swing from.)
+	if springs.new_frames > 0 and dv.length() < 0.7:
+		springs.kick("hat_roll", clampf(dv.x, -0.5, 0.5) * 60.0)
+		springs.kick("hat_drop", clampf(dv.y, -1.0, 1.0) * 6.0)
+		# Speeding up the way it faces leaves the chest and head behind (bent back); stopping throws them forward; landing nods them.
+		var ahead := dv.x * float(facing)
+		var landing := maxf(dv.y, 0.0) if int(s.platform) >= 0 else 0.0
+		springs.kick("spine", -ahead * 320.0 + landing * 90.0)
+		springs.kick("head", -ahead * 480.0 + landing * 160.0)
+		springs.kick("neck", -dv.x * 40.0)
+		if prev_facing != 0 and facing != prev_facing:
+			springs.kick("head_turn", float(prev_facing) * 420.0)
+	# A strike's follow-through: as a fist's hit ends the hand carries on past it and settles back.
+	var f := int(s.state_frame)
+	if String(s.state) == "Attack" and _cls(s) != 0 and prev_state_frame >= 0:
+		var last := int(s.move_timing[2])
+		if prev_state_frame <= last and f > last:
+			springs.kick("hand", 1.9)
+	prev_state_frame = f if String(s.state) == "Attack" else -1
+	prev_vel = vel
+	prev_facing = facing
+	springs.step(delta)
+	if hat_pivot != null:
+		hat_pivot.rotation = Vector3(0, 0, springs.value("hat_roll"))
+		hat_pivot.position = HAT_PIVOT + Vector3(0, -springs.value("hat_drop"), 0)
+	if neck_pivot != null:
+		neck_pivot.rotation = Vector3(0, 0, springs.value("neck"))
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.

@@ -65,6 +65,31 @@ func _initialize() -> void:
 	check(view.smear_pts == held and view.smear_q == 0.0, "hitlag holds the smear")
 	view.apply(Vector3.ZERO, snap(1, "Attack", "jab", 900, 5), 1.0 / 60.0)
 	check(view.smear_pts.size() <= 1, "a seek drops the smear")
+	# Secondary motion: a dash start leaves the chest and head behind; hitlag holds them; a rollback puts them back to rest at once; at
+	# rest they settle to nothing.
+	var run := snap(1, "Idle", "", 1000, 0)
+	view.apply(Vector3.ZERO, run, 1.0 / 60.0)
+	run = snap(1, "Dash", "", 1001, 1)
+	run.vel = Vector2(0.28, 0.0)
+	view.apply(Vector3.ZERO, run, 1.0 / 60.0)
+	for f in 3:
+		run.frame = 1002 + f
+		view.apply(Vector3.ZERO, run, 1.0 / 60.0)
+	var head: float = view.springs.value("head")
+	check(head < -1.0, "a dash start leaves the head behind (%.2f degrees)" % head)
+	var stuck := run.duplicate()
+	stuck.hitlag = 5
+	for i in 5:
+		view.apply(Vector3.ZERO, stuck, 1.0 / 60.0)
+	check(view.springs.value("head") == head, "hitlag holds the springs")
+	run.frame = 500
+	view.apply(Vector3.ZERO, run, 1.0 / 60.0)
+	check(view.springs.value("head") == 0.0 and view.springs.value("spine") == 0.0, "a rollback puts the springs at rest")
+	var idle := snap(1, "Idle", "", 600, 0)
+	for f in 90:
+		idle.frame = 600 + f
+		view.apply(Vector3.ZERO, idle, 1.0 / 60.0)
+	check(absf(view.springs.value("head")) < 0.05 and absf(view.springs.value("hat_roll")) < 0.01, "standing still, the springs settle")
 	# The sword's moves have authored arcs and draw no smear.
 	var sword := FighterView.new()
 	root.add_child(sword)
