@@ -988,6 +988,29 @@ fn the_new_fields_are_in_the_content_hash() {
         threshold: Fx::ZERO,
     });
     assert_ne!(h, c.hash(), "armor");
+    for (name, edit) in [
+        (
+            "fast_fall_from",
+            (|m| m.fast_fall_from = 9) as fn(&mut sim_core::moves::Move),
+        ),
+        ("lands_from", |m| m.lands_from = 9),
+        ("turn_at", |m| m.turn_at = Some((13, 25))),
+        ("air_blocks", |m| {
+            m.air_blocks = vec![sim_core::moves::AirBlock {
+                from: 0,
+                to: 3,
+                gravity: None,
+                max_fall: None,
+                friction: None,
+                drift: 100,
+                accel: 600,
+            }]
+        }),
+    ] {
+        let mut c = base.clone();
+        edit(&mut c.weapons[w].moves[MoveId::NAir as usize]);
+        assert_ne!(h, c.hash(), "{name}");
+    }
     let mut c = base;
     c.weapons[w].moves[MoveId::Ext15 as usize] = c.weapons[w].moves[MoveId::Jab as usize].clone();
     assert_ne!(h, c.hash(), "the new slots");

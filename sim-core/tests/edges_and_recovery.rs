@@ -242,6 +242,106 @@ fn a_move_can_have_its_own_gravity_and_fall_speed_while_it_runs() {
 }
 
 #[test]
+fn an_air_block_changes_the_air_physics_only_on_its_frames_and_can_multiply_the_acceleration() {
+    use sim_core::moves::AirBlock;
+    let g = Fx::from_ratio(1, 200);
+    let block = |m: &mut sim_core::moves::Move| {
+        m.air_blocks = vec![AirBlock {
+            from: 0,
+            to: 5,
+            gravity: Some(g),
+            max_fall: None,
+            friction: None,
+            drift: 100,
+            accel: 600,
+        }];
+    };
+    // Gravity: the block's for frames 1-5, the body's from frame 6.
+    let mut sim = custom_air_special(block, Fx::ZERO);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vel.y, -g);
+    sim.ticks(4, inp(0, 0, 0));
+    assert_eq!(sim.f().vel.y, -g.mul_int(5));
+    let body = sim.content.fighters[1].gravity;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vel.y, -g.mul_int(5) - body);
+    // Acceleration x6 on the block's frames: the stick held forward from a standstill.
+    let mut fast = custom_air_special(block, Fx::ZERO);
+    let mut plain = custom_air_special(|_| {}, Fx::ZERO);
+    fast.tick(inp(127, 0, 0));
+    plain.tick(inp(127, 0, 0));
+    let p = &plain.content.fighters[1];
+    assert_eq!(plain.f().vel.x, p.air_accel + p.air_accel_stick);
+    let six = Fx::from_int(6);
+    assert_eq!(fast.f().vel.x, p.air_accel * six + p.air_accel_stick * six);
+}
+
+#[test]
+fn fast_fall_from_holds_the_fast_fall_back_until_its_frame() {
+    // Falling, the stick flicked down on the move's frame 3: with fast_fall_from 10 nothing happens; without it the fall speeds up.
+    let fall = |from: u8| {
+        let mut sim = custom_air_special(|m| m.fast_fall_from = from, Fx::ZERO);
+        sim.state.fighters[0].vel.y = -Fx::from_ratio(1, 10);
+        sim.tick(inp(0, 0, 0));
+        sim.tick(inp(0, -127, 0));
+        sim.f().fast_fall
+    };
+    assert!(fall(0));
+    assert!(!fall(10));
+}
+
+#[test]
+fn a_move_can_turn_only_on_its_own_frame() {
+    use sim_core::input::buttons::SPECIAL;
+    use sim_core::moves::MoveId;
+    // The claws' up special with `turn_at` (frame 5, stick past 25%): the stick held back from the start turns nothing until frame 5,
+    // and its speed turns with it in the air.
+    let run = |turn_at: Option<(u8, u8)>| {
+        let mut sim = Sim::with_chars([1, 0, 0, 0]);
+        let w = usize::from(sim.content.fighters[1].weapon);
+        let up = &mut sim.content.weapons[w].moves[MoveId::UpSpecial as usize];
+        up.turn_at = turn_at;
+        up.motion.clear();
+        up.script = None;
+        sim.stand(1, Fx::from_int(9), -1);
+        sim.put_airborne(
+            0,
+            Fx::ZERO,
+            Fx::from_int(30),
+            Fx::from_ratio(1, 2),
+            Fx::ZERO,
+        );
+        sim.state.fighters[0].facing = 1;
+        sim.tick(inp(-127, 127, SPECIAL));
+        let at_start = sim.f().facing;
+        sim.ticks(3, inp(-127, 0, 0));
+        let before = sim.f().facing;
+        sim.tick(inp(-127, 0, 0));
+        sim.tick(inp(-127, 0, 0));
+        (at_start, before, sim.f().facing, sim.f().vel.x)
+    };
+    // The shared rules: up and back reverses it at once.
+    assert_eq!(run(None).0, -1);
+    let (start, before, after, vx) = run(Some((5, 25)));
+    assert_eq!((start, before, after), (1, 1, -1));
+    assert!(vx < Fx::ZERO, "the momentum turns too: {vx:?}");
+}
+
+#[test]
+fn lands_from_lets_the_move_touch_down_early_and_carry_on() {
+    // Falling onto the stage on the move's frame 2: with lands_from 10 the move goes on (on the ground); without it, it ends.
+    let land = |from: u8| {
+        let mut sim = custom_air_special(|m| m.lands_from = from, Fx::ZERO);
+        sim.state.fighters[0].pos.y = Fx::from_ratio(1, 10);
+        sim.state.fighters[0].vel.y = -Fx::from_ratio(5, 10);
+        sim.tick(inp(0, 0, 0));
+        (sim.f().state, sim.f().grounded())
+    };
+    assert_eq!(land(10), (S::Attack, true));
+    assert_ne!(land(0).0, S::Attack);
+}
+
+#[test]
 fn a_move_with_no_recovery_rules_behaves_as_before() {
     // Every rule left at its default: the plain move, unchanged (the same velocity and position frame by frame).
     let defaults = sim_core::moves::Move::empty();

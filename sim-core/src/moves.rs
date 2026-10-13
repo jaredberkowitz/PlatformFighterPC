@@ -520,6 +520,20 @@ pub struct PartIntangible {
     pub parts: u8,
 }
 
+/// Air physics for move frames `from..=to` of a move that runs without a motion: gravity, top fall speed and air friction
+/// (`None`: the move's flat value, else the body's), the percent of the body's air speed and acceleration kept (`drift`), and a further
+/// percent on the acceleration alone (`accel`: the reference's horizontal acceleration multiplier, x6 is 600).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AirBlock {
+    pub from: u8,
+    pub to: u8,
+    pub gravity: Option<Fx>,
+    pub max_fall: Option<Fx>,
+    pub friction: Option<Fx>,
+    pub drift: u8,
+    pub accel: u16,
+}
+
 /// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
 /// move. `kind` says which hits it withstands: [`ARMOR_SUPER`] every hit, [`ARMOR_DAMAGE`] a hit dealing at most `threshold` percent
 /// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] (the reference's knockback-subtracting
@@ -612,6 +626,17 @@ pub struct Move {
     pub intangible_from_air: u8,
     /// Touching down during the move does not end it: the fighter lands and the move carries on along the ground.
     pub land_continue: bool,
+    /// Frame-ranged air physics (the reference's per-frame move parameters): on move frames `from..=to` of a block, its values replace
+    /// the flat `air_*` ones above (the first block that covers the frame; empty for none). See [`AirBlock`].
+    pub air_blocks: Vec<AirBlock>,
+    /// A fast fall is only possible from this move frame on (0: any frame, as before).
+    pub fast_fall_from: u8,
+    /// The move's own turnaround (the reference's per-move B-reverse frame): on move frame `.0` the stick held backward past `.1`
+    /// percent turns the fighter round (in the air its horizontal speed too). It replaces the shared up-special turn window, the
+    /// up-and-back start and the B-reverse window for this move. `None`: the shared rules.
+    pub turn_at: Option<(u8, u8)>,
+    /// Touching down before this move frame does not end the move (it lands and carries on, as `land_continue`); 0: no such window.
+    pub lands_from: u8,
     /// Windows in which part of the body cannot be hit (a kicking leg, a headbutting head); empty for none.
     pub part_intangible: Vec<PartIntangible>,
     /// Armor while the move runs (see [`Armor`]); `None` for none.
@@ -676,6 +701,10 @@ impl Move {
             intangible_from: 0,
             intangible_from_air: 255,
             land_continue: false,
+            air_blocks: Vec::new(),
+            fast_fall_from: 0,
+            turn_at: None,
+            lands_from: 0,
             part_intangible: Vec::new(),
             armor: None,
             charge_at: None,
@@ -852,6 +881,32 @@ impl StateHash for Weapon {
                 }
             }
             h.write_bool(m.land_continue);
+            h.write_u32(m.air_blocks.len() as u32);
+            for b in &m.air_blocks {
+                h.write_u8(b.from);
+                h.write_u8(b.to);
+                for v in [b.gravity, b.max_fall, b.friction] {
+                    match v {
+                        Some(x) => {
+                            h.write_bool(true);
+                            x.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                }
+                h.write_u8(b.drift);
+                h.write_u16(b.accel);
+            }
+            h.write_u8(m.fast_fall_from);
+            match m.turn_at {
+                Some((frame, stick)) => {
+                    h.write_bool(true);
+                    h.write_u8(frame);
+                    h.write_u8(stick);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.lands_from);
             h.write_u32(m.part_intangible.len() as u32);
             for w in &m.part_intangible {
                 h.write_u8(w.start);

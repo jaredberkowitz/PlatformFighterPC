@@ -8,10 +8,11 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Armor, Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
-    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ARMOR_DAMAGE, ARMOR_KNOCKBACK,
-    ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW,
-    PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    AirBlock, Armor, Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc,
+    ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ARMOR_DAMAGE,
+    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL,
+    TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -716,6 +717,11 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.intangible_from = f.or("intangible_from", 0, errors);
     m.intangible_from_air = f.or("intangible_from_air", 255, errors);
     m.land_continue = f.or("land_continue", false, errors);
+    m.fast_fall_from = f.or("fast_fall_from", 0, errors);
+    m.lands_from = f.or("lands_from", 0, errors);
+    let turn_frame: Option<u8> = f.parsed("turn_frame", errors);
+    let turn_stick: u8 = f.or("turn_stick", 0, errors);
+    m.turn_at = turn_frame.map(|frame| (frame, turn_stick));
     m.counter_strike = f.or("counter_strike", false, errors);
     m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
@@ -767,10 +773,29 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "projectile_script",
             "part_intangible",
             "armor",
+            "air",
         ],
         context,
         errors,
     );
+    m.air_blocks = children(block, "air")
+        .into_iter()
+        .map(|b| {
+            let ctx = format!("an air block of {context}");
+            let mut f = Fields::new(b, &ctx, errors);
+            let a = AirBlock {
+                from: f.need("from", None, errors),
+                to: f.need("to", None, errors),
+                gravity: f.parsed("gravity", errors),
+                max_fall: f.parsed("max_fall", errors),
+                friction: f.parsed("friction", errors),
+                drift: f.or("drift", 100, errors),
+                accel: f.or("accel", 100, errors),
+            };
+            f.finish(errors);
+            a
+        })
+        .collect();
     if let Some(b) = at_most_one(children(block, "armor"), "armor", context, errors) {
         let ctx = format!("the armor of {context}");
         let mut f = Fields::new(b, &ctx, errors);
@@ -1032,10 +1057,16 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             m.intangible_from_air,
             empty.intangible_from_air,
         ),
+        ("fast_fall_from", m.fast_fall_from, empty.fast_fall_from),
+        ("lands_from", m.lands_from, empty.lands_from),
     ] {
         if value != default {
             b.field(name, value.to_string());
         }
+    }
+    if let Some((frame, stick)) = m.turn_at {
+        b.field("turn_frame", frame.to_string());
+        b.field("turn_stick", stick.to_string());
     }
     for (name, value) in [
         ("air_gravity", m.air_gravity),
@@ -1088,6 +1119,27 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             if w.parts & bit != 0 {
                 c.field(name, "true");
             }
+        }
+        b.push(c);
+    }
+    for a in &m.air_blocks {
+        let mut c = Block::new("air", None);
+        c.field("from", a.from.to_string());
+        c.field("to", a.to.to_string());
+        for (name, v) in [
+            ("gravity", a.gravity),
+            ("max_fall", a.max_fall),
+            ("friction", a.friction),
+        ] {
+            if let Some(v) = v {
+                c.field(name, v.show());
+            }
+        }
+        if a.drift != 100 {
+            c.field("drift", a.drift.to_string());
+        }
+        if a.accel != 100 {
+            c.field("accel", a.accel.to_string());
         }
         b.push(c);
     }

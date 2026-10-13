@@ -317,6 +317,23 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 ));
             }
         }
+        for a in &mv.air_blocks {
+            if a.from > a.to
+                || a.drift > 100
+                || a.accel == 0
+                || a.accel > 1000
+                || a.gravity.is_some_and(|g| g < Fx::ZERO)
+                || a.max_fall.is_some_and(|v| v <= Fx::ZERO)
+                || a.friction.is_some_and(|v| v < Fx::ZERO)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: an air block needs from <= to, drift up to 100, accel 1 to 1000, no negative gravity or friction and max_fall above 0"
+                ));
+            }
+        }
+        if mv.turn_at.is_some_and(|(_, stick)| stick > 99) {
+            errors.push(format!("weapon {i} {name}: turn_stick is at most 99"));
+        }
         if let Some(a) = &mv.armor {
             if a.start > a.end || a.end > mv.total_frames {
                 errors.push(format!(
