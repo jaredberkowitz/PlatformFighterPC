@@ -629,10 +629,19 @@ func _connect_pair(cfg: Dictionary, me: Dictionary) -> void:
 	print("network mode: ", "host" if cfg.host else "joiner")
 
 
-## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat).
+## Every fighter is drawn at its body size (the simulation's `hitbox_scale`, which comes from its size stat), and a fighter whose body is
+## broader than the standard one (the Hauler's: its ECB half width against `STANDARD_HALF_WIDTH`) that much bigger again, so the big
+## fighter looks as big as it is to hit. (Taller-but-standard-width bodies keep their drawn size.)
+const STANDARD_HALF_WIDTH := 0.8
+
+
 func _apply_scales() -> void:
 	for i in PLAYERS:
-		views[i].scale = Vector3.ONE * sim.fighter_scale(i)
+		var broad := 1.0
+		var body: PackedFloat32Array = sim.fighter_body(i)
+		if body.size() > 0 and body[0] > STANDARD_HALF_WIDTH + 0.01:
+			broad = body[0] / STANDARD_HALF_WIDTH
+		views[i].scale = Vector3.ONE * sim.fighter_scale(i) * broad
 
 
 ## One frame of networked play: read the local keyboard, let the rollback session simulate (or wait), then draw.

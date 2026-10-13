@@ -220,7 +220,15 @@ static func builtins() -> Array:
 	var champion := neutral_entry("Champion", 6, hero)
 	champion.builtin = true
 	champion.base_index = 6
-	var hauler := neutral_entry("Hauler", 7, Loadout.default_for(7))
+	# (Its own look: a big biscuit-brown bruiser, bareheaded, a neckerchief, shorts and gloves for the fists.)
+	var bruiser: RefCounted = Loadout.default_for(7)
+	bruiser.color = 10
+	bruiser.hat = 0
+	bruiser.glasses = 0
+	bruiser.neck = 2
+	bruiser.gear = 2
+	bruiser.face = 2
+	var hauler := neutral_entry("Hauler", 7, bruiser)
 	hauler.builtin = true
 	hauler.base_index = 7
 	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler]

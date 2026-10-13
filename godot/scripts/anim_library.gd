@@ -206,6 +206,26 @@ const CLASS_MOVES := {
 		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
 		"down special": "crouch",
 	},
+	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
+	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up
+	# smashes, both fists slammed down either side, a heavy overhead hammer for the forward air, a back kick, a stomp. (Placeholders
+	# from the shared clips until its own are made; the arms reach the hitboxes either way.)
+	7: {
+		"jab": "attack_jab",
+		"jab 2": "attack_uair",
+		"ftilt": "attack_swing",
+		"utilt": "attack_uair",
+		"dtilt": "attack_low",
+		"dash attack": "attack_lunge",
+		"fsmash": "attack_smash",
+		"usmash": "attack_uair",
+		"dsmash": "sword_dsmash",
+		"nair": "attack_swing",
+		"fair": "attack_smash",
+		"bair": "kick_bair",
+		"uair": "attack_uair",
+		"dair": "gaunt_stomp",
+	},
 }
 
 ## The clip every move falls back to when nothing maps it (with a warning, once per move).

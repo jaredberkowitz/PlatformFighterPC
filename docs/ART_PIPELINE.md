@@ -1040,3 +1040,14 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
 - **The roof's weathering marks** are quads that multiply the roof by the mark (`_stain_shader`), not decals.
 - Look bench 0.89. Performance: the machine was throttling for this pass (the meadow, untouched, measured the same 47 fps as the city);
   no measurable cost from the four shadowless lights.
+
+## The Hauler (class 7), live Boost (forty-seventh pass)
+
+- **The Hauler** (Bracers, unarmed): drawn as big as its body (`main.gd` `_apply_scales`: a body broader than the standard 0.8 half
+  width scales the drawn fighter by the ratio, 1.25 for the Hauler, whose height then matches its 2.8 ECB; taller standard-width bodies,
+  the Sprinter's and the Seer's, keep their drawn size); its look (biscuit brown, bareheaded, a neckerchief, shorts and gloves); its
+  emblem (a big fist with a wrist band); its moves on the shared clips (`CLASS_MOVES[7]`: hook and uppercut jabs, swings, a low slap, a
+  rolling lunge, heavy claps, both fists down either side, a back kick, a stomp) until its own are made. `hauler_size.png`.
+- **The Boost meter is live** now that the gauge accessors are on main (the Champion's card shows the bar). `hud_boost_live.png`.
+- Still open for the Hauler: the huge forearms and short legs (a rig change), and the trip sit pose (waits on the bridge's
+  `fighter_tripped`).

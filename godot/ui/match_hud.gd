@@ -303,6 +303,16 @@ class Board extends Control:
 					pts.append(c + (q as Vector2) * r)
 				pts.append(pts[0])
 				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 7:
+			# Bracers: a big fist seen from the front, four knuckles over a thumb, with a band round the wrist.
+			for k in 4:
+				var kx := -0.6 + 0.4 * k
+				draw_arc(c + Vector2(kx, -0.35) * r, r * 0.2, PI, TAU, 10, color, width, true)
+			var palm := PackedVector2Array([c + Vector2(-0.8, -0.35) * r, c + Vector2(-0.8, 0.35) * r, c + Vector2(-0.45, 0.6) * r,
+				c + Vector2(0.45, 0.6) * r, c + Vector2(0.8, 0.35) * r, c + Vector2(0.8, -0.35) * r])
+			draw_polyline(palm, color, width, true)
+			draw_line(c + Vector2(-0.55, 0.05) * r, c + Vector2(0.1, 0.05) * r, color, width * 0.8, true)
+			draw_line(c + Vector2(-0.5, 0.75) * r, c + Vector2(0.5, 0.75) * r, color, width, true)
 		elif cls == 6:
 			# Greatsword: a broad blade on the diagonal (spine straight, the edge cut to a chisel point), a heavy guard and a long grip.
 			var d := Vector2(0.7071, -0.7071)
