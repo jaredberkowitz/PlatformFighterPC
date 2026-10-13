@@ -2236,7 +2236,9 @@ var hand_target := Vector3.ZERO
 const SWORD_THRUSTS := ["usmash", "dtilt"]
 ## Neutral airs whose second hit circles the body (the sword's): the whole body flips over backward once while the arm holds the blade
 ## out, between these frames, so the blade follows the hits round. By class.
-const NAIR_SPIN := {0: [14, 21]}
+## (None now: the sword's neutral air no longer turns the body upside down. Ours is a windmill slash: the body stays upright and the arm
+## sweeps the blade round the whole circle its hits make, following the live hitbox.)
+const NAIR_SPIN := {}
 const SPIN_PIVOT := Vector2(0.0, 1.1)
 const SPIN_PIVOT_3D := Vector3(0.0, 1.1, 0.0)
 
@@ -3077,8 +3079,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
+	# The flame rush up: a corkscrew about the body's own upright axis (our take; the head stays up, the face comes round every turn).
 	if _cls(s) == 1 and state == "Attack" and s.move_name == "up special" and s.state_frame >= 17:
-		model.rotation.x = float(s.frame) * 0.6
+		model.rotation.y = yaw + float(s.state_frame - 17) * 0.75
 
 	var hitlag: int = s.hitlag
 	# The face follows what the fighter is doing (cosmetic): hurt when hit, a yell in an attack, and so on, then its own face again.
