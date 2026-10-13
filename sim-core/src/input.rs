@@ -33,6 +33,10 @@ pub const STICK_DEADZONE: i8 = 22;
 /// Lower than `STICK_THRESHOLD` so a keyboard's softer first down press still counts, while a
 /// fast fall needs the full hard press (see `Fighter::hard_down`).
 pub const STICK_DOWN: i8 = 64;
+/// A forward tilt or smash is aimed up or down (an angled one, see `Fighter::aim`) with the stick tilted at least this far up or down
+/// (about 0.25), short of `STICK_DOWN` (which makes it an up or down attack instead). An estimate: the reference's threshold is not
+/// published.
+pub const STICK_AIM: i8 = 32;
 /// A dash flick must start from below this magnitude (or the opposite side), so slowly rolling the
 /// stick up to full tilt walks instead of dashing.
 pub const STICK_FLICK_FROM: i8 = 38;

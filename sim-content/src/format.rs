@@ -8,9 +8,9 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, EFFECT_ELECTRIC,
-    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_ALL,
-    TARGETS_GROUNDED,
+    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
+    AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_THROW, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -546,6 +546,20 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             TARGETS_ALL
         }
     };
+    let aim = match f.raw("aim") {
+        None | Some(("any", _)) => AIM_ANY,
+        Some(("up", _)) => AIM_UP,
+        Some(("straight", _)) => AIM_STRAIGHT,
+        Some(("down", _)) => AIM_DOWN,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox aim must be any, up, straight or down, not `{other}`"),
+            );
+            AIM_ANY
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -567,6 +581,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         hitstun_add: f.or("hitstun_add", 0, errors),
         sdi: f.or("sdi", 100, errors),
         link_ahead: f.or("link_ahead", Fx::ZERO, errors),
+        aim,
+        set_weight: f.or("set_weight", false, errors),
     };
     f.finish(errors);
     hb
@@ -618,6 +634,15 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     if hb.link_ahead != Fx::ZERO {
         b.field("link_ahead", hb.link_ahead.show());
     }
+    match hb.aim {
+        AIM_UP => b.field("aim", "up"),
+        AIM_STRAIGHT => b.field("aim", "straight"),
+        AIM_DOWN => b.field("aim", "down"),
+        _ => {}
+    }
+    if hb.set_weight {
+        b.field("set_weight", "true");
+    }
     b
 }
 
@@ -661,6 +686,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
     m.next_window = f.or("next_window", 0, errors);
+    m.next_from = f.or("next_from", 255, errors);
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -757,6 +783,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     hitstun_add: 0,
                     sdi: 100,
                     link_ahead: Fx::ZERO,
+                    aim: AIM_ANY,
+                    set_weight: false,
                 }
             }
         };
@@ -857,6 +885,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if let Some(n) = m.next {
         b.field("next", MoveId::from_index(n).key());
         b.field("next_window", m.next_window.to_string());
+        if m.next_from != 255 {
+            b.field("next_from", m.next_from.to_string());
+        }
     }
     if let Some((start, every)) = m.rehit {
         b.field("rehit_start", start.to_string());

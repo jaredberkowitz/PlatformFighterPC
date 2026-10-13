@@ -18,6 +18,7 @@ Status words: **verified** (every move on [R] data, tested, no approximations le
 | 0 Longsword, duelist body | Marth | playable | `reference_moves.rs`, `kits.rs`, `combat.rs` | Normals on [R] frames and damage. Up special's travel is [E] (about 1.3 full hops, not a published curve); its special-fall landing lag and drift are the shared body/global values. Down tilt's trip chance and the up smash's launcher hit are not modelled. Hitbox positions [E] (blade shortened to 72% on purpose). Shield Breaker's shield multiplier is [E]. Counter's answer uses our `percent` model (check the reference's 1.2x and minimum). |
 | 1 Claws, brawler body | Wolf | playable | `reference_moves.rs`, `kits.rs`, `throw_combos.rs` | Normals on [R] data. **Specials are largely [E]**: the flash dash distance and its end hit, the fire flight's travel and drag hits, the reflector's frames, size and reflected speed. Throw angles partly [E]. |
 | 2 Needles, rogue body | Sheik | playable | `needles.rs`, `multihit.rs` | Body, normals, Needle Storm, Vanish, Bouncing Fish on [R] data (`docs/sheik/REFERENCE_DATA.md`). **The side special is our own pulling line, not the reference's grenade** (owner's earlier request); under the 1:1 rule this is a known divergence. No wall jump (the reference character has one). Vanish: no reappearance wind box, explosion moves with the fighter. Bouncing Fish: no consecutive kicks, no wall bounce. Up smash arm intangibility not modelled. Rapid jab cannot see presses in hitlag. |
+| 3 Embers, tumbler body | Mario | **in progress** (phase 1 of 2: body and every normal) | `embers.rs` | Body and every normal on [R] frame data and hit data (`docs/movesets/mario/`), the angled forward tilt and smash, the jab's continuable windows and held repeat, the down air's set-weight loop and landing hit, the back throw's spin hitting bystanders. **Specials are still the claws' placeholders** (phase 2). Up smash head intangibility not modelled (E19). One get-up attack slot (face up). No wall jump (E15). Positions on non-root bones [E]. |
 
 Top-fidelity priorities for the existing ports (to revisit once the shared extensions below exist):
 
@@ -35,6 +36,9 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Mario
 
+* **Status (2026-10-13)**: phase 1 done on branch `worktree-agent-a555f451ab3174bb4` (sim 57): the tumbler body and every normal,
+  with three general extensions (`Move::next_from`, `Hitbox::aim` with `Fighter::aim`, `Hitbox::set_weight`). The phase-2 plan for the
+  specials (E11 first, re-fitting the Longsword's and the Claws' up specials) is in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
 * **Kit mechanics**: three-hit jab (exists: `Move::next`); Fireball (gravity, bounces along the ground several times); Cape (reflects at
   1.5x, **turns opponents around and reverses their control**, a fall break in the air; no armor since an update); Super Jump Punch
   (seven hits 5 / 0.6 x5 / 3, intangible startup, angled 12 degrees by the stick, ledge sweetspot from frame 14, helpless); F.L.U.D.D.

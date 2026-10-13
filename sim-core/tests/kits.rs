@@ -9,7 +9,7 @@ mod common;
 use common::{fx, inp, Sim};
 use sim_core::combat::is_intangible;
 use sim_core::input::buttons::{ATTACK, GRAB, SPECIAL};
-use sim_core::moves::MoveId;
+use sim_core::moves::{Move, MoveId};
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, GameState, Vec2};
 
@@ -926,4 +926,31 @@ fn dancing_blade_steps_leave_the_air_alone() {
         "still falling: {:?}",
         sim.f().pos
     );
+}
+
+#[test]
+fn a_jab_with_an_early_continuable_window_carries_on_as_soon_as_attack_is_pressed_in_it() {
+    // A long jab whose next hit may start from move frame 4: a press on frame 2 (buffered) carries on at frame 4, not at the end.
+    let mut sim = Sim::new();
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(8), -1);
+    let w = &mut sim.content.weapons[0];
+    w.moves[MoveId::Jab as usize].next = Some(MoveId::Jab2 as u8);
+    w.moves[MoveId::Jab as usize].next_window = 9;
+    w.moves[MoveId::Jab as usize].next_from = 4;
+    sim.tick(inp(0, 0, ATTACK));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, ATTACK));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().move_id, MoveId::Jab as u8, "frame 3");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        (sim.f().move_id, sim.f().state_frame),
+        (MoveId::Jab2 as u8, 0),
+        "frame 4: the next hit starts"
+    );
+    // Without the window (the default), the same presses wait for the end of the move.
+    assert_eq!(Move::empty().next_from, 255);
 }

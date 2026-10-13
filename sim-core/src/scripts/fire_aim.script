@@ -1,5 +1,5 @@
 // Up special: the stick at the end of the wind-up aims the flight in any direction (up and a little forward
-// if it is neutral). Pushing backward turns Wolf around first. The flight ends with a last small push.
+// if it is neutral). Pushing backward turns the brawler around first. The flight ends with a last small push.
 var dx;
 var dy;
 if frame == 16 {

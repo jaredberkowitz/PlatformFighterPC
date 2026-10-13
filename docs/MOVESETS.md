@@ -54,6 +54,14 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   the stick, a reappearance hit, then helpless) and Bouncing Fish (a flip into a heel kick that bounces back off a hit). The up air's
   drag now lands its target in front of the fighter.
 
+### 4. Embers tumbler (the reference all-rounder's role)
+- A short middleweight (98) with fast air speed, high floaty jumps and quick fists and feet: up-air juggles, a spinning multi-hit
+  down air, a meteor overhand, angled forward tilt and smash, and (phase 2) a bouncing fireball, a turning cloak that reflects, a rising
+  multi-hit punch and a pushing water pack.
+- **As built (phase 1, sim 57):** the body (`FighterParams::tumbler`) and every normal on the reference's published data
+  (`docs/movesets/mario/`), with three general extensions: early jab continuation (`Move::next_from`), angled moves (`Hitbox::aim`) and
+  set weight (`Hitbox::set_weight`). The specials are still the claws' until phase 2.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

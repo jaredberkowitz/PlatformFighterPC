@@ -9,8 +9,8 @@ use crate::collision;
 use crate::content::{FighterParams, Ledge, Ruleset, Stage};
 use crate::fixed::Fx;
 use crate::input::{
-    buttons, Input, STICK_DASH, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES, STICK_FLICK_FROM,
-    STICK_THRESHOLD,
+    buttons, Input, STICK_AIM, STICK_DASH, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES,
+    STICK_FLICK_FROM, STICK_THRESHOLD,
 };
 use crate::moves::{Motion, Move, MoveId, Weapon};
 use crate::scripting;
@@ -1549,6 +1549,7 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.move_id = id as u8;
     f.hit_mask = 0;
     f.b_reversed = false;
+    f.aim = 0;
     enter(f, S::Attack);
     f.charge = 0;
 }
@@ -1641,6 +1642,16 @@ fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
         MoveId::Jab
     };
     begin_attack(f, id);
+    // A forward tilt or smash with the stick tilted up or down (short of an up or down attack) is aimed that way.
+    if matches!(id, MoveId::FTilt | MoveId::FSmash) {
+        f.aim = if input.stick_y >= STICK_AIM {
+            1
+        } else if input.stick_y <= -STICK_AIM {
+            -1
+        } else {
+            0
+        };
+    }
 }
 
 /// An aerial. As in the reference it ends a fast fall: the fighter falls at its normal top speed again until it fast falls anew.
@@ -1721,6 +1732,17 @@ fn attack(
     if let Some(spec) = mv.projectile {
         if f.state_frame == u16::from(spec.frame) {
             f.spawn_request = true;
+        }
+    }
+
+    // A jab with an early continuable window carries on into its next hit as soon as attack is pressed in it.
+    if let Some(next) = mv.next {
+        if f.state_frame >= u16::from(mv.next_from)
+            && f.grounded()
+            && f.take(buttons::ATTACK, mv.next_window)
+        {
+            begin_attack(f, MoveId::from_index(next));
+            return None;
         }
     }
 

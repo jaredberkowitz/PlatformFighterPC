@@ -282,7 +282,20 @@ pub struct Hitbox {
     /// For the autolink angle: the pull aims this far in front of the hitbox (world units, the way the hit sends), so a carried victim
     /// drifts in front of the attacker instead of staying where the hitbox is. 0 aims at the hitbox itself (the reference).
     pub link_ahead: Fx,
+    /// Which way the move must be aimed for this hitbox to be out: [`AIM_ANY`] (always), or only when the move was aimed up
+    /// ([`AIM_UP`]), straight ([`AIM_STRAIGHT`]) or down ([`AIM_DOWN`]) as it started (the reference's angled forward tilts and
+    /// smashes: see `Fighter::aim`).
+    pub aim: u8,
+    /// The reference's "set weight": the knockback is worked out as if the victim weighed 100, whatever its weight, so a multi-hit
+    /// holds light and heavy fighters alike.
+    pub set_weight: bool,
 }
+
+/// `Hitbox::aim` values.
+pub const AIM_ANY: u8 = 0;
+pub const AIM_UP: u8 = 1;
+pub const AIM_STRAIGHT: u8 = 2;
+pub const AIM_DOWN: u8 = 3;
 
 /// `Hitbox::targets` values.
 pub const TARGETS_ALL: u8 = 0;
@@ -306,6 +319,8 @@ impl Hitbox {
         self.hitstun_add = 0;
         self.sdi = 100;
         self.link_ahead = Fx::ZERO;
+        self.aim = AIM_ANY;
+        self.set_weight = false;
         self
     }
 }
@@ -404,6 +419,9 @@ pub struct Move {
     /// A jab: pressing attack within `next_window` frames of the move's end continues into this move.
     pub next: Option<u8>,
     pub next_window: u8,
+    /// A jab whose next hit can start before its end (the reference's continuable window): from this move frame on, a press of attack
+    /// (within `next_window` frames) carries on into `next` at once. 255 (the default) only continues at the end.
+    pub next_from: u8,
     /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
     pub rehit: Option<(u8, u8)>,
     /// The hit groups the rehit rhythm re-arms (bit `g` for group `g`); others hit once per move (a multi-hit's final hit). All by default.
@@ -441,6 +459,7 @@ impl Move {
             charge_at: None,
             next: None,
             next_window: 0,
+            next_from: 255,
             rehit: None,
             rehit_groups: 0xff,
             landing_move: None,
@@ -496,6 +515,8 @@ impl StateHash for Hitbox {
         h.write_u8(self.hitstun_add);
         h.write_u16(self.sdi);
         self.link_ahead.hash_into(h);
+        h.write_u8(self.aim);
+        h.write_bool(self.set_weight);
     }
 }
 
@@ -548,6 +569,7 @@ impl StateHash for Weapon {
                     h.write_bool(true);
                     h.write_u8(n);
                     h.write_u8(m.next_window);
+                    h.write_u8(m.next_from);
                 }
                 None => h.write_bool(false),
             }
@@ -648,6 +670,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 hitstun_add: 0,
                 sdi: 100,
                 link_ahead: Fx::ZERO,
+                aim: AIM_ANY,
+                set_weight: false,
             })
             .collect(),
         ..Move::empty()
@@ -693,6 +717,8 @@ fn row(r: &R) -> Hitbox {
         hitstun_add: 0,
         sdi: 100,
         link_ahead: Fx::ZERO,
+        aim: AIM_ANY,
+        set_weight: false,
     }
 }
 
@@ -2013,6 +2039,433 @@ pub fn needles() -> Weapon {
     w
 }
 
+/// The Embers moveset (the tumbler body): quick punches and kicks, modelled mechanically on a reference character. Every normal
+/// follows the reference frame for frame (`docs/movesets/mario/REFERENCE_DATA.md`): active frames, FAF, landing lag and autocancel
+/// windows; damage, angles, base and growth knockback, set knockback and set weight, hitlag multipliers, shield damage; the jab's
+/// continuable windows and the held jab's repeat; the angled forward tilt and smash; the down air's five looping hits, final hit and
+/// landing hit. Radii are the reference's converted (x 1.25, rounded to a tenth); positions on the reference's root bone (`top`) are
+/// its offsets converted [D], the others are estimates on our body [E]. The specials are still the claws' (phase 2 builds the
+/// reference's).
+pub fn embers() -> Weapon {
+    let mut w = claws();
+    // Fists and feet: the limb throwing a hit can be hit.
+    w.limbs = true;
+
+    // ---- Jab ----
+    // Jab 1: a punch on frames 2-3, 2.2%, hitlag x1.8. The two close boxes use angle 361 (BK 20, KS 30), the tip pulls a
+    // fighter in (180 degrees, BK 15, KS 20). FAF 20. Pressing attack again carries on into jab 2 from frame 5; holding attack
+    // throws jab 1 again from frame 7 (a script).
+    let mut jab1 = ref_move(
+        20,
+        0,
+        0,
+        255,
+        &[
+            r(2, 3, 8, 8, 2, 22, 361, 20, 30, 0, 0),
+            r(2, 3, 11, 8, 2, 22, 361, 20, 30, 1, 0),
+            r(2, 3, 15, 8, 2, 22, 180, 15, 20, 2, 0),
+        ],
+    );
+    set_rows(&mut jab1, &[0, 1, 2], |h| h.hitlag = 180);
+    chain(&mut jab1, MoveId::Jab2, 5);
+    jab1.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/embers_jab_1.script"),
+    ));
+    w.moves[MoveId::Jab as usize] = jab1;
+    // Jab 2: a straight on frames 2-3, 1.7%, hitlag x1.2; angle 361, BK 20 / 20 / 15, KS 30 / 30 / 15. FAF 22. Attack again carries
+    // on into jab 3 from frame 6.
+    let mut jab2 = ref_move(
+        22,
+        0,
+        0,
+        255,
+        &[
+            r(2, 3, 4, 9, 4, 17, 361, 20, 30, 0, 0),
+            r(2, 3, 1, 9, 2, 17, 361, 20, 30, 1, 0),
+            r(2, 3, 8, 9, 5, 17, 361, 15, 15, 2, 0),
+        ],
+    );
+    set_rows(&mut jab2, &[0, 1, 2], |h| h.hitlag = 120);
+    chain(&mut jab2, MoveId::Jab3, 6);
+    w.moves[MoveId::Jab2 as usize] = jab2;
+    // Jab 3: a rising kick on frames 3-4, 4%, angle 361, BK 60, KS 80, hitlag x2. FAF 34. The swept box (the reference's runs from
+    // 9.0 / 13.0 down to 6.0 / 11.0 of its units) is two circles at its ends.
+    let mut jab3 = ref_move(
+        34,
+        0,
+        0,
+        255,
+        &[
+            r(3, 4, 16, 11, 5, 40, 361, 60, 80, 0, 0),
+            r(3, 4, 14, 8, 5, 40, 361, 60, 80, 0, 0),
+            r(3, 4, 9, 10, 3, 40, 361, 60, 80, 1, 0),
+            r(3, 4, 14, 10, 3, 40, 361, 60, 80, 2, 0),
+        ],
+    );
+    set_rows(&mut jab3, &[0, 1, 2, 3], |h| h.hitlag = 200);
+    w.moves[MoveId::Jab3 as usize] = jab3;
+
+    // ---- Tilts ----
+    // Forward tilt: a lunging kick on frames 5-7, 7%, angle 361, BK 55, KS 70 (foot, thigh, hip). FAF 26. Aimed up or down (the
+    // stick tilted that way) the kick goes up or down; the hit is the same.
+    let mut ftilt = ref_move(26, 0, 0, 255, &[]);
+    for (aim, foot, thigh, hip) in [
+        (AIM_STRAIGHT, (11, 8), (6, 8), (2, 8)),
+        (AIM_UP, (10, 13), (6, 10), (2, 9)),
+        (AIM_DOWN, (11, 3), (6, 6), (2, 8)),
+    ] {
+        let mut rows = ref_move(
+            26,
+            0,
+            0,
+            255,
+            &[
+                r(5, 7, foot.0, foot.1, 5, 70, 361, 55, 70, 0, 0),
+                r(5, 7, thigh.0, thigh.1, 4, 70, 361, 55, 70, 1, 0),
+                r(5, 7, hip.0, hip.1, 3, 70, 361, 55, 70, 2, 0),
+            ],
+        );
+        set_rows(&mut rows, &[0, 1, 2], |h| h.aim = aim);
+        ftilt.hitboxes.extend(rows.hitboxes);
+    }
+    w.moves[MoveId::FTilt as usize] = ftilt;
+
+    // Up tilt: a spinning uppercut on frames 5-11, 5.5%, 96 degrees, BK 28, KS 130 (head, arm, fist). The fist sweeps from in front, over
+    // the head, to behind. FAF 30.
+    w.moves[MoveId::UTilt as usize] = ref_move(
+        30,
+        0,
+        0,
+        255,
+        &[
+            r(5, 11, -1, 17, 4, 55, 96, 28, 130, 0, 0),
+            r(5, 6, 4, 16, 5, 55, 96, 28, 130, 1, 0),
+            r(5, 6, 6, 19, 6, 55, 96, 28, 130, 2, 0),
+            r(7, 9, 2, 19, 5, 55, 96, 28, 130, 1, 0),
+            r(7, 9, 1, 23, 6, 55, 96, 28, 130, 2, 0),
+            r(10, 11, -2, 18, 5, 55, 96, 28, 130, 1, 0),
+            r(10, 11, -5, 20, 6, 55, 96, 28, 130, 2, 0),
+        ],
+    );
+
+    // Down tilt: a leg sweep on frames 5-7: the leg 7%, the toe 5%, 80 degrees, BK 35, KS 80 (its trip chance can never trip: the
+    // angle is too high). FAF 28.
+    w.moves[MoveId::DTilt as usize] = ref_move(
+        28,
+        0,
+        0,
+        255,
+        &[
+            r(5, 7, 5, 2, 4, 70, 80, 35, 80, 0, 0),
+            r(5, 7, 10, 2, 5, 50, 80, 35, 80, 1, 0),
+        ],
+    );
+
+    // Dash attack: a sliding kick. Clean on frames 6-9: 8%, 50 degrees, BK 100, KS 43; late 10-25: 6%, 48 degrees, BK 100, KS 30; hitlag
+    // x1.25, shield damage +1 (as a percent of its damage). FAF 38.
+    let mut dash = ref_move(
+        38,
+        0,
+        0,
+        255,
+        &[
+            r(6, 9, 7, 2, 4, 80, 50, 100, 43, 0, 0),
+            r(10, 25, 6, 2, 3, 60, 48, 100, 30, 0, 0),
+        ],
+    );
+    set_rows(&mut dash, &[0, 1], |h| h.hitlag = 125);
+    set_rows(&mut dash, &[0], |h| h.shield_damage = 113);
+    set_rows(&mut dash, &[1], |h| h.shield_damage = 117);
+    w.moves[MoveId::DashAttack as usize] = dash;
+
+    // ---- Smashes ----
+    // Forward smash: a palm thrust with an explosion, frames 15-17. The arm 14.7% (KS 105) wins over the explosion 17.8% (KS 99 straight,
+    // 101 aimed up, 100 aimed down) where both reach, so the explosion has to be spaced; angle 361, BK 25. Charges on frame 5.
+    // FAF 48.
+    let mut fsmash = ref_move(48, 0, 0, 255, &[]);
+    for (aim, ks, arm, fire) in [
+        (AIM_STRAIGHT, 99, (5, 9), (13, 9)),
+        (AIM_UP, 101, (5, 11), (12, 14)),
+        (AIM_DOWN, 100, (5, 7), (12, 4)),
+    ] {
+        let mut rows = ref_move(
+            48,
+            0,
+            0,
+            255,
+            &[
+                r(15, 17, arm.0, arm.1, 3, 147, 361, 25, 105, 0, 0),
+                r(15, 17, fire.0, fire.1, 6, 178, 361, 25, ks, 1, 0),
+            ],
+        );
+        set_rows(&mut rows, &[0, 1], |h| h.aim = aim);
+        fsmash.hitboxes.extend(rows.hitboxes);
+    }
+    fsmash.charge_at = Some(4);
+    w.moves[MoveId::FSmash as usize] = fsmash;
+
+    // Up smash: a headbutt from back to front, frames 9-12, 14%, 83 degrees, BK 32, KS 94 (head and body). Charges on frame 6. FAF 40.
+    // (The reference's head is intangible on frames 9-12; partial intangibility is not modelled [E].)
+    let mut usmash = ref_move(
+        40,
+        0,
+        0,
+        255,
+        &[
+            r(9, 10, -2, 20, 6, 140, 83, 32, 94, 0, 0),
+            r(9, 10, -1, 14, 5, 140, 83, 32, 94, 1, 0),
+            r(11, 12, 3, 20, 6, 140, 83, 32, 94, 0, 0),
+            r(11, 12, 1, 14, 5, 140, 83, 32, 94, 1, 0),
+        ],
+    );
+    usmash.charge_at = Some(5);
+    w.moves[MoveId::USmash as usize] = usmash;
+
+    // Down smash: a breakdance kick, in front on frames 5-6 (10%, 32 degrees), then behind on frame 14 (12%, 30 degrees); BK 30, KS 100,
+    // both low (semi-spikes). Charges on frame 2. FAF 44.
+    let mut dsmash = ref_move(
+        44,
+        0,
+        0,
+        255,
+        &[
+            r(5, 6, 16, 5, 5, 100, 32, 30, 100, 0, 0),
+            r(5, 6, 9, 5, 4, 100, 32, 30, 100, 1, 0),
+            r(14, 14, -14, 5, 5, 120, 30, 30, 100, 0, 1),
+            r(14, 14, -8, 5, 4, 120, 30, 30, 100, 1, 1),
+        ],
+    );
+    dsmash.charge_at = Some(1);
+    w.moves[MoveId::DSmash as usize] = dsmash;
+
+    // ---- Aerials ----
+    // Neutral air: a held flying kick. Clean on frames 3-5 (8%, BK 20, KS 100), late 6-27 (5%, BK 13, KS 90); angle 361. Landing
+    // lag 6, autocancels on frames 1-2 and from 39, FAF 46.
+    w.moves[MoveId::NAir as usize] = ref_move(
+        46,
+        6,
+        2,
+        39,
+        &[
+            r(3, 5, 5, 8, 5, 80, 361, 20, 100, 0, 0),
+            r(3, 5, 1, 10, 5, 80, 361, 20, 100, 1, 0),
+            r(6, 27, 4, 8, 4, 50, 361, 13, 90, 0, 0),
+            r(6, 27, 1, 10, 4, 50, 361, 13, 90, 1, 0),
+        ],
+    );
+
+    // Forward air: an overhand. Early on frame 16 (12%, angle 361, BK 30, KS 80), clean 17-20 (14%, 280 degrees: a meteor, BK 32,
+    // KS 78), late 21 (10%, angle 361, BK 20, KS 80). Landing lag 17, autocancels on frames 1-2 and from 43, FAF 60.
+    w.moves[MoveId::FAir as usize] = ref_move(
+        60,
+        17,
+        2,
+        43,
+        &[
+            r(16, 16, 7, 15, 4, 120, 361, 30, 80, 0, 0),
+            r(17, 20, 3, 12, 5, 140, 280, 32, 78, 0, 0),
+            r(17, 20, 8, 8, 6, 140, 280, 32, 78, 1, 0),
+            r(21, 21, 3, 11, 5, 100, 361, 20, 80, 0, 0),
+            r(21, 21, 6, 3, 6, 100, 361, 20, 80, 1, 0),
+        ],
+    );
+
+    // Back air: a dropkick behind. Clean 6-7: 10.5%, BK 12, KS 106; late 8-10: 7%, BK 7, KS 90; angle 361, sent away behind.
+    // Landing lag 6, autocancels on frames 1-5 and from 19, FAF 34.
+    w.moves[MoveId::BAir as usize] = ref_move(
+        34,
+        6,
+        5,
+        19,
+        &[
+            r(6, 7, -11, 8, 6, 105, 361, 12, 106, 0, 0),
+            r(6, 7, -5, 8, 7, 105, 361, 12, 106, 1, 0),
+            r(8, 10, -11, 8, 6, 70, 361, 7, 90, 0, 0),
+            r(8, 10, -5, 8, 7, 70, 361, 7, 90, 1, 0),
+        ],
+    );
+
+    // Up air: an overhead kick sweeping front to back on frames 4-7, 7%, 75 degrees, BK 10, KS 135 (no sourspot). Landing lag 6,
+    // autocancels on frame 1 and from 17, FAF 31.
+    w.moves[MoveId::UAir as usize] = ref_move(
+        31,
+        6,
+        1,
+        17,
+        &[
+            r(4, 5, 6, 18, 7, 70, 75, 10, 135, 0, 0),
+            r(4, 5, 2, 15, 6, 70, 75, 10, 135, 1, 0),
+            r(6, 7, -4, 19, 7, 70, 75, 10, 135, 0, 0),
+            r(6, 7, -1, 15, 6, 70, 75, 10, 135, 1, 0),
+        ],
+    );
+
+    // Down air: a spin. Five looping hits on frames 5, 7, 9, 11 and 13 (re-armed every 2 frames): 1.4%, 94 degrees, BK 50 (low) / 25
+    // (high), KS 15, set weight, SDI x0.8; the final hit on frame 23 (its own group): 5.5%, 75 degrees, BK 80, KS 100, SDI x0.8. Landing
+    // lag 15, autocancels on frames 1-4 and from 33, FAF 38. Landing outside the autocancel windows is the landing hit (ext0, 15 frames
+    // of lag): 2% on its frames 1-2, angle 361, set knockback 60 (KS 100), on both sides.
+    let mut dair_rows = Vec::new();
+    for f in [5u8, 7, 9, 11, 13] {
+        dair_rows.push(r(f, f, 0, -1, 5, 14, 94, 50, 15, 0, 0));
+        dair_rows.push(r(f, f, 0, 8, 9, 14, 94, 25, 15, 1, 0));
+    }
+    dair_rows.push(r(23, 23, 0, 9, 14, 55, 75, 80, 100, 0, 1));
+    let mut dair = ref_move(38, 15, 4, 33, &dair_rows);
+    let loops: Vec<usize> = (0..10).collect();
+    set_rows(&mut dair, &loops, |h| h.set_weight = true);
+    let all: Vec<usize> = (0..11).collect();
+    set_rows(&mut dair, &all, |h| h.sdi = 80);
+    // (Reference frame 5 is move frame 4.)
+    dair.rehit = Some((4, 2));
+    dair.rehit_groups = 0b1;
+    dair.landing_move = Some(MoveId::Ext0 as u8);
+    w.moves[MoveId::DAir as usize] = dair;
+    let mut dair_landing = ref_move(
+        16,
+        0,
+        0,
+        255,
+        &[
+            r(1, 2, 5, 4, 5, 20, 361, 0, 100, 0, 0),
+            r(1, 2, -5, 4, 5, 20, 361, 0, 100, 1, 0),
+        ],
+    );
+    set_rows(&mut dair_landing, &[0, 1], |h| h.fixed_kb = 60);
+    w.moves[MoveId::Ext0 as usize] = dair_landing;
+
+    // ---- Grabs and throws ----
+    // Grabs: standing on frames 6-7 (FAF 35), dash 9-10 (FAF 43), pivot 10-11 (FAF 37). Each reach is the reference's grab box (a
+    // swept circle along the arm at 6.6 of its units up) as circles along it.
+    let grab_line = |first: u8, last: u8, radius: i32, xs: &[i32]| -> Vec<R> {
+        xs.iter()
+            .map(|&x| r(first, last, x, 8, radius, 0, 361, 0, 0, 0, 0))
+            .collect()
+    };
+    w.moves[MoveId::Grab as usize] = with_kind(
+        ref_move(35, 0, 0, 255, &grab_line(6, 7, 4, &[5, 11])),
+        HIT_GRAB,
+    );
+    w.moves[MoveId::DashGrab as usize] = with_kind(
+        ref_move(43, 0, 0, 255, &grab_line(9, 10, 3, &[5, 9, 13])),
+        HIT_GRAB,
+    );
+    w.moves[MoveId::PivotGrab as usize] = with_kind(
+        ref_move(37, 0, 0, 255, &grab_line(10, 11, 4, &[5, 12, 18])),
+        HIT_GRAB,
+    );
+    // Pummel: a headbutt, 1.3%, set knockback 30 (KS 100), hitlag x2.1. The reference's hit is on frame 1 and its FAF 7; ours is on
+    // frame 2 (a pummel's hit cannot start on its first frame) with the same 6 frames after it, FAF 8 [D].
+    let mut pummel = with_kind(
+        ref_move(8, 0, 0, 255, &[r(2, 2, 13, 13, 6, 13, 361, 0, 100, 0, 0)]),
+        HIT_PUMMEL,
+    );
+    pummel.hitboxes[0].fixed_kb = 30;
+    pummel.hitboxes[0].hitlag = 210;
+    w.moves[MoveId::Pummel as usize] = pummel;
+    // Throws, each a single release: forward on frame 13 (8%, 45 degrees, BK 60, KS 65), FAF 28; back on 44 after three spins (11%,
+    // 45 degrees, BK 70, KS 66, behind; the fighter ends facing the way it threw), FAF 60; up on 18 (7%, 90 degrees, BK 70, KS 72), FAF
+    // 40; down on 18 (5%, 68 degrees, BK 40, KS 90), FAF 40.
+    w.moves[MoveId::FThrow as usize] = with_kind(
+        ref_move(
+            28,
+            0,
+            0,
+            255,
+            &[r(13, 13, 13, 11, 10, 80, 45, 60, 65, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    let mut bthrow = with_kind(
+        ref_move(
+            60,
+            0,
+            0,
+            255,
+            &[r(44, 44, -13, 11, 10, 110, 45, 70, 66, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    // While it spins (frames 13-39) the held fighter hits anyone else close by: 8%, 50 degrees, BK 100, KS 70 (a normal hit, which
+    // never touches the fighter being held). Positions [E]: around the thrower at the swung fighter's height.
+    bthrow
+        .hitboxes
+        .push(row(&r(13, 39, -4, 9, 5, 80, 50, 100, 70, 0, 1)));
+    bthrow
+        .hitboxes
+        .push(row(&r(13, 39, 4, 9, 5, 80, 50, 100, 70, 0, 1)));
+    bthrow.turns_around = true;
+    w.moves[MoveId::BThrow as usize] = bthrow;
+    w.moves[MoveId::UThrow as usize] = with_kind(
+        ref_move(
+            40,
+            0,
+            0,
+            255,
+            &[r(18, 18, 13, 11, 10, 70, 90, 70, 72, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+    w.moves[MoveId::DThrow as usize] = with_kind(
+        ref_move(
+            40,
+            0,
+            0,
+            255,
+            &[r(18, 18, 13, 11, 10, 50, 68, 40, 90, 0, 0)],
+        ),
+        HIT_THROW,
+    );
+
+    // ---- Ledge and floor ----
+    // Ledge attack: a dropkick climbing up, frames 24-26, 9%, 45 degrees, BK 90, KS 20, shield damage +1; intangible through frame 26,
+    // FAF 56. Its swept box (12.0 to 2.0 of the reference's units ahead, 5.0 up) is three circles.
+    let mut ledge = ref_move(
+        56,
+        0,
+        0,
+        255,
+        &[
+            r(24, 26, 15, 6, 6, 90, 45, 90, 20, 0, 0),
+            r(24, 26, 9, 6, 6, 90, 45, 90, 20, 0, 0),
+            r(24, 26, 3, 6, 6, 90, 45, 90, 20, 0, 0),
+        ],
+    );
+    set_rows(&mut ledge, &[0, 1, 2], |h| h.shield_damage = 111);
+    ledge.intangible = 26;
+    w.moves[MoveId::LedgeAttack as usize] = ledge;
+    // Get-up attack (lying face up): a punch behind on frames 16-17, then in front on 21-22; 7%, 48 degrees, BK 80, KS 48, shield damage
+    // +8; intangible through frame 22, FAF 46. (The reference's face-down and trip get-up attacks are not separate here.)
+    let mut getup = ref_move(
+        46,
+        0,
+        0,
+        255,
+        &[
+            r(16, 17, -15, 6, 6, 70, 48, 80, 48, 0, 0),
+            r(16, 17, -10, 6, 6, 70, 48, 80, 48, 0, 0),
+            r(16, 17, -6, 6, 6, 70, 48, 80, 48, 0, 0),
+            r(21, 22, 15, 6, 6, 70, 48, 80, 48, 0, 1),
+            r(21, 22, 10, 6, 6, 70, 48, 80, 48, 0, 1),
+            r(21, 22, 6, 6, 6, 70, 48, 80, 48, 0, 1),
+        ],
+    );
+    let all: Vec<usize> = (0..6).collect();
+    set_rows(&mut getup, &all, |h| h.shield_damage = 214);
+    getup.intangible = 22;
+    w.moves[MoveId::GetUpAttack as usize] = getup;
+
+    w
+}
+
+/// A jab that carries on into `next` when attack is pressed from reference frame `from` on (its continuable window), with the input
+/// buffer's 9 frames for the press.
+fn chain(mv: &mut Move, next: MoveId, from: u8) {
+    mv.next = Some(next as u8);
+    mv.next_window = 9;
+    mv.next_from = from - 1;
+}
+
 /// Short-reach, quick and heavy hitting: the longsword's moves pulled in close and sped up, with the
 /// forward tilt, neutral air, forward air and blaster built from reference frame data (a blaster-wielding
 /// brawler archetype).
@@ -2140,6 +2593,8 @@ pub fn claws() -> Weapon {
             hitstun_add: 0,
             sdi: 100,
             link_ahead: Fx::ZERO,
+            aim: AIM_ANY,
+            set_weight: false,
         },
         end_damage: Fx::from_int(6),
     });

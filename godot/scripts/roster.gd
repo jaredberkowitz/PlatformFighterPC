@@ -12,11 +12,12 @@ static var session := {}
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 
-const CLASS_NAMES := ["Longsword", "Claws", "Needles"]
+const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers"]
 const CLASS_BLURBS := [
 	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
 	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
 	"Quick kicks and hidden needles: fast, light and slippery, strings hits together and drags foes along with a flurry of kicks.",
+	"Fast fists and feet: an all-rounder with high jumps, up-air juggles, a spinning down air and a meteor overhand.",
 ]
 
 
@@ -181,7 +182,10 @@ static func builtins() -> Array:
 	var rogue := neutral_entry("Rogue", 2, Loadout.default_for(2))
 	rogue.builtin = true
 	rogue.base_index = 2
-	return [duelist, brawler, rogue]
+	var tumbler := neutral_entry("Tumbler", 3, Loadout.default_for(3))
+	tumbler.builtin = true
+	tumbler.base_index = 3
+	return [duelist, brawler, rogue, tumbler]
 
 
 static func slug_of(name: String) -> String:
