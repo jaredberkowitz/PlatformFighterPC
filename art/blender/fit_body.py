@@ -144,6 +144,16 @@ def fit(pts):
         line, _ = follow(below, start_cl, merged)
         arms[side] = [(t[0], t[1], t[2]) for t in line]
 
+    # The body is symmetric (it is modelled mirrored), but following an arm down can stop early where it passes close to the belly (it did
+    # on the cuter body's left arm, which then bent at its shoulder): the arm that reaches further down is the true one, and the other is
+    # its mirror image.
+    reach = {side: arms[side][-1][0] for side in ("L", "R")}
+    good = "L" if reach["L"] <= reach["R"] else "R"
+    bad = "R" if good == "L" else "L"
+    if abs(reach["L"] - reach["R"]) > height * 0.02:
+        print("FIT arm.%s stopped at %.3f, the other reaches %.3f: mirrored from arm.%s" % (bad, reach[bad], reach[good], good))
+        arms[bad] = [(t[0], -t[1], t[2]) for t in arms[good]]
+
     def at(line, frac):
         """The point `frac` of the way down a line of slices (0 its top, 1 its bottom)."""
         top_z, bottom_z = line[0][0], line[-1][0]

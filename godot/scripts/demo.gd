@@ -246,6 +246,34 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				t += 80
 				n += 1
 			d.end_frame = t
+		"gallery":
+			# Every normal of one class (`--gallery-class=N`, default 0) in turn, photographed every few frames from its start, for the
+			# pose-by-pose animation review (montage the shots with tests/montage.gd).
+			var cls := 0
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--gallery-class="):
+					cls = int(arg.substr(16))
+			d.chars = [cls, 0, 0, 0]
+			d.cam_dist = 9.0
+			d.cam_focus = 0
+			d.events = [[1, "stand", 1, 7.0, -1]]
+			var moves := [["jab", 0, 0, attack, false], ["ftilt", 40, 0, attack, false], ["utilt", 0, 70, attack, false],
+				["dtilt", 0, -70, attack, false], ["fsmash", 60, 0, attack | strong, false], ["usmash", 0, 70, attack | strong, false],
+				["dsmash", 0, -70, attack | strong, false], ["nair", 0, 0, attack, true], ["fair", 127, 0, attack, true],
+				["bair", -127, 0, attack, true], ["uair", 0, 100, attack, true], ["dair", 0, -70, attack, true],
+				["nspecial", 0, 0, special, false], ["sspecial", 127, 0, special, false], ["uspecial", 0, 100, special, false],
+				["dspecial", 0, -100, special, false]]
+			var t := 20
+			var n := 0
+			for g in moves:
+				d.events.append([t - 4, "place", 0, 0.0, 6.0] if g[4] else [t - 4, "stand", 0, 0.0, 1])
+				d.timeline.append([t, g[1], g[2], g[3]])
+				d.timeline.append([t + 1, 0, 0, 0])
+				for f in range(1, 41, 3):
+					d.shots.append([t + f, "m%02d_%s_f%02d" % [n, g[0], f]])
+				t += 70
+				n += 1
+			d.end_frame = t
 		"sword_bair":
 			d.chars = [0, 0, 0, 0]
 			d.cam_dist = 22.0
