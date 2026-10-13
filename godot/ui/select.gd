@@ -18,8 +18,32 @@ const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
-const COLUMNS := 9
-const TOKEN := 118
+## The roster grid fits its cards into the band under the header (GRID_AREA): as many fighters are saved, it starts new rows and makes
+## every card smaller (from TOKEN_MAX down to TOKEN_MIN), so a long roster still shows whole at once; past what fits at the smallest
+## size (the roster holds up to Roster.MAX_FIGHTERS) it scrolls. `grid_layout` picks the columns and the card size.
+const GRID_AREA := Vector2(1180, 236)
+const TOKEN_MAX := 132
+const TOKEN_MIN := 52
+const GRID_GAP := Vector2(10, 12)
+## The card size and columns in use (set by `grid_layout` when the screen is built).
+var token := 118
+var columns := 9
+
+
+## [columns, card size] for `n` cards: the largest card that fits them all in GRID_AREA (cards are square, plus 12 for the lift), or the
+## smallest size filling the width when even that does not fit (then the grid scrolls).
+static func grid_layout(n: int) -> Array:
+	var best := [maxi(1, n), 0]
+	for cols in range(1, maxi(1, n) + 1):
+		var rows := ceili(float(n) / float(cols))
+		var by_width := floori((GRID_AREA.x - GRID_GAP.x) / float(cols) - GRID_GAP.x)
+		var by_height := floori(GRID_AREA.y / float(rows) - GRID_GAP.y - 12.0)
+		var t := mini(TOKEN_MAX, mini(by_width, by_height))
+		if t > int(best[1]):
+			best = [cols, t]
+	if int(best[1]) < TOKEN_MIN:
+		return [floori((GRID_AREA.x - GRID_GAP.x) / (TOKEN_MIN + GRID_GAP.x)), TOKEN_MIN]
+	return best
 ## The roster cards' colours, in turn (the built-in fighters first), and the random and new-fighter cards'.
 const CARD_COLORS := [Art.CORAL, Art.BLUE, Art.SUN, Art.VIOLET, Art.GREEN, Art.TEAL]
 const RANDOM_COLOR := Color("252a52")
@@ -70,10 +94,13 @@ class Card extends Control:
 	var hover := false
 	var seed := 1
 	var lift := 0.0
+	## Its size (the grid's card size): text and glyph scale with it.
+	var token := 118
 	signal clicked(button: int)
 
-	func _init() -> void:
-		custom_minimum_size = Vector2(TOKEN, TOKEN + 12)
+	func _init(t := 118) -> void:
+		token = t
+		custom_minimum_size = Vector2(token, token + 12)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		mouse_entered.connect(func():
 			hover = true
@@ -106,16 +133,17 @@ class Card extends Control:
 		r.position.y -= lift
 		draw_circle(r.get_center() + Vector2(0, -10), r.size.x * 0.34, Color(1, 1, 1, 0.14))
 		if glyph != "":
-			Art.title_centered(self, glyph, Rect2(r.position, r.size - Vector2(0, 26)), 70, Art.SUN, 0.12)
+			Art.title_centered(self, glyph, Rect2(r.position, r.size - Vector2(0, 26)), int(70.0 * token / 118.0), Art.SUN, 0.12)
 
 	## Drawn over the portrait: the name on its brush stroke, the player outlines and the casual tag.
 	func paint_over(over: Control) -> void:
 		var r := _rect()
 		r.position.y -= lift
-		var band := Rect2(Vector2(r.position.x + 2, r.end.y - 30), Vector2(r.size.x - 6, 28))
-		Art.brush_band(over, band, Color(Art.INK, 0.92), seed + 5, 8.0, false, 0.4)
+		var scale_k := clampf(token / 118.0, 0.55, 1.1)
+		var band := Rect2(Vector2(r.position.x + 2, r.end.y - 30.0 * scale_k), Vector2(r.size.x - 6, 28.0 * scale_k))
+		Art.brush_band(over, band, Color(Art.INK, 0.92), seed + 5, 8.0 * scale_k, false, 0.4)
 		if name_text != "":
-			Art.title_centered(over, name_text.to_upper(), band.grow_individual(-6, 0, -10, 0), 17, Color.WHITE, 0.14)
+			Art.title_centered(over, name_text.to_upper(), band.grow_individual(-6, 0, -10, 0), maxi(9, int(17.0 * scale_k)), Color.WHITE, 0.14)
 		for k in rings.size():
 			var g := r.grow(3.0 + k * 6.0)
 			var pts := PackedVector2Array([g.position + Vector2(12, 0), Vector2(g.end.x, g.position.y), Vector2(g.end.x, g.end.y - 12),
@@ -327,26 +355,32 @@ func _ready() -> void:
 
 	entries = Roster.all()
 	scroll = ScrollContainer.new()
-	var columns := mini(COLUMNS, entries.size() + specials.size())
-	var grid_w := columns * (TOKEN + 10) + 10
+	# (No "new fighter" card once the roster is full.)
+	if Roster.saved().size() >= Roster.MAX_FIGHTERS:
+		specials = ["random"]
+	var fit := grid_layout(entries.size() + specials.size())
+	columns = fit[0]
+	token = fit[1]
+	var shown := mini(columns, entries.size() + specials.size())
+	var grid_w := shown * (token + int(GRID_GAP.x)) + int(GRID_GAP.x)
 	scroll.position = Vector2(640 - grid_w * 0.5, 92)
-	scroll.size = Vector2(grid_w + 16, 236)
+	scroll.size = Vector2(grid_w + 16, GRID_AREA.y)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	var grid := GridContainer.new()
-	grid.columns = COLUMNS
+	grid.columns = columns
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(grid)
 	for i in entries.size() + specials.size():
-		var card := Card.new()
+		var card := Card.new(token)
 		card.seed = 100 + i * 13
 		if i < entries.size():
 			card.fill = CARD_COLORS[i % CARD_COLORS.size()]
 			card.name_text = entries[i].name
 			card.casual = not Roster.ranked_legal(entries[i])
 			# The fighter's own 3D portrait, rendered once (see `_process`).
-			var thumb := Preview.new(Vector2i(TOKEN - 24, TOKEN - 30), false, 4.6)
+			var thumb := Preview.new(Vector2i(maxi(24, token - 24), maxi(24, token - 30)), false, 4.6)
 			thumb.position = Vector2(10, 12)
 			thumb.spin = false
 			thumb.facing_bias = 0.35
@@ -367,7 +401,7 @@ func _ready() -> void:
 		for p in 4:
 			var flag := PTab.new("P%d" % (p + 1), P_COLORS[p], 60 + p)
 			flag.size = Vector2(50, 28)
-			flag.position = [Vector2(-6, -1), Vector2(TOKEN - 46, -1), Vector2(-6, TOKEN - 24), Vector2(TOKEN - 46, TOKEN - 24)][p]
+			flag.position = [Vector2(-6, -1), Vector2(token - 46, -1), Vector2(-6, token - 24), Vector2(token - 46, token - 24)][p]
 			flag.visible = false
 			card.add_child(flag)
 			tags.append(flag)
@@ -527,7 +561,7 @@ func _move(p: int, dx: int, dy: int) -> void:
 		return
 	var n := tokens.size()
 	var i: int = cursor[p]
-	i = clampi(i + dx + dy * COLUMNS, 0, n - 1)
+	i = clampi(i + dx + dy * columns, 0, n - 1)
 	cursor[p] = i
 	_refresh()
 	scroll.ensure_control_visible(tokens[i].node)

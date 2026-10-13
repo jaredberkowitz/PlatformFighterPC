@@ -176,3 +176,8 @@ The screens:
   winner's player colour; a replay this version cannot play is dimmed and tagged OLD VERSION.
 - **Painted skies** (`MenuArt.palette`): the warm mood (player 1's panel, the Play tile, results) is the concept art's evening, a violet
   top over pink and a peach horizon; it does not mix blue straight toward coral, which goes grey on the way.
+- **Fighter select grows with the roster** (`select.gd` `grid_layout`): the cards fit the band under the header, one row while they can,
+  then new rows with smaller cards (132 down to 52 across), names and glyphs scaled with them; past what fits at the smallest size the
+  grid scrolls. Players can save up to `Roster.MAX_FIGHTERS` (100); at that many the "New fighter" card is not offered. Checked by
+  `tests/select_grid_test.gd` for every roster size up to the cap. Screenshots: `docs/screenshots/menu_select_30.png`, `menu_select_100.png`.
+

@@ -278,6 +278,10 @@ static func from_json(text: String) -> Dictionary:
 	return e
 
 
+## The most fighters a player can save (the select screen fits them all; the creator stops offering a new one at this many).
+const MAX_FIGHTERS := 100
+
+
 static func save(e: Dictionary) -> String:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
 	var f := FileAccess.open(path_of(e.slug), FileAccess.WRITE)
