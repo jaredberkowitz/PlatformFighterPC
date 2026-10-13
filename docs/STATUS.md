@@ -87,6 +87,10 @@ radius 10.5 at 10 up, the Staff's radius 11.5 at 10 up and 1.5 ahead [R]. The Lo
 50%, and a grab or a push no longer reaches through a counter stance's intangibility (only the hits the counter catches do). Tests in
 `sim-core/tests/kits.rs` and `staff_specials.rs`; details in `docs/movesets/SHARED_MECHANICS.md` ("Counter").
 
+**Sim 79** (branch `grab-dash`; 78 is the moveset session's counter fix): a dash flicked at any point of a grab, pummel or throw
+comes out on the first frame the fighter can act if the stick is still held (`Fighter::dash_buffer`), so throws can be chased; the
+reference buffers a dash only in the last 6 or 7 frames (owner's call to be more lenient). Tests `sim-core/tests/grab_dash.rs`.
+
 ## Roadmap progress
 
 | Phase | State | Where to read |
