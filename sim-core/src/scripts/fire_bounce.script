@@ -1,0 +1,7 @@
+// Up special, bouncing off the ground (ext2): 0.4 of the horizontal speed and 3 up, then friction 0.16 and gravity: 0.2 (the
+// reference's numbers, in world units: reference / 8).
+if frame == 1 {
+    set_vel(vx * 0.4, 0.375);
+} else {
+    set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
+}

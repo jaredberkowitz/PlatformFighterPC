@@ -411,8 +411,42 @@ pub struct Move {
     pub helpless_after: bool,
     /// The fighter ends the move facing the other way.
     pub turns_around: bool,
-    /// The fighter can grab a ledge while the move is in progress, even while rising (an up special).
+    /// The fighter can grab a ledge while the move is in progress, even while rising (an up special), from either side and from
+    /// its first frame. (The same as `ledge_front_from` and `ledge_back_from` 0; older content's way of saying it.)
     pub grabs_ledge: bool,
+    // ---- Per-move recovery rules (the reference sets these per move; every default is the old shared behaviour) ----
+    /// From this move frame a ledge in front of the fighter can be caught during the move (rising or not); 255 never.
+    pub ledge_front_from: u8,
+    /// ...and a ledge behind it (its back to the stage; the body's shorter back reach applies).
+    pub ledge_back_from: u8,
+    /// The special fall after this move keeps this percent of the body's air speed and acceleration; 0 uses
+    /// `Ruleset::helpless_drift`.
+    pub fall_drift: u8,
+    /// Landing lag of the special fall after this move; 0 uses the body's `helpless_landing_lag`.
+    pub fall_landing_lag: u8,
+    /// Percent of the motion's vertical speed when the move started on the ground (`rise_ground`) or in the air (`rise_air`): the
+    /// reference's grounded and aerial height multipliers on an up special's rise. 100 is the motion as written.
+    pub rise_ground: u8,
+    pub rise_air: u8,
+    /// Started in the air, the fighter keeps this percent of its horizontal speed (the reference's "speed multiplier on startup").
+    pub start_speed: u8,
+    /// Angling by the stick: on move frame `steer_frame` (255 never) the stick's forward or backward tilt beyond `steer_stick`
+    /// percent turns the move's motion by up to `steer_degrees` (toward forward or backward), growing evenly to the rim.
+    pub steer_frame: u8,
+    pub steer_stick: u8,
+    pub steer_degrees: u8,
+    /// The move's own air physics while it runs without a motion (`None`: the body's): gravity, top fall speed, air friction,
+    /// and the percent of the body's air speed and acceleration it keeps (`air_drift`, 100 = all).
+    pub air_gravity: Option<Fx>,
+    pub air_max_fall: Option<Fx>,
+    pub air_friction: Option<Fx>,
+    pub air_drift: u8,
+    /// Intangibility (`intangible` frames from the start) begins on this move frame instead of the first, when the move started
+    /// on the ground (`intangible_from`) or in the air (`intangible_from_air`, 255 = the same as on the ground).
+    pub intangible_from: u8,
+    pub intangible_from_air: u8,
+    /// Touching down during the move does not end it: the fighter lands and the move carries on along the ground.
+    pub land_continue: bool,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -456,6 +490,23 @@ impl Move {
             helpless_after: false,
             turns_around: false,
             grabs_ledge: false,
+            ledge_front_from: 255,
+            ledge_back_from: 255,
+            fall_drift: 0,
+            fall_landing_lag: 0,
+            rise_ground: 100,
+            rise_air: 100,
+            start_speed: 100,
+            steer_frame: 255,
+            steer_stick: 0,
+            steer_degrees: 0,
+            air_gravity: None,
+            air_max_fall: None,
+            air_friction: None,
+            air_drift: 100,
+            intangible_from: 0,
+            intangible_from_air: 255,
+            land_continue: false,
             charge_at: None,
             next: None,
             next_window: 0,
@@ -474,6 +525,31 @@ impl Move {
 
     pub fn is_empty(&self) -> bool {
         self.total_frames == 0
+    }
+
+    /// The move frame from which a ledge in front (`behind` false) or behind can be caught during the move; 255 never.
+    pub fn ledge_from(&self, behind: bool) -> u8 {
+        if self.grabs_ledge {
+            0
+        } else if behind {
+            self.ledge_back_from
+        } else {
+            self.ledge_front_from
+        }
+    }
+
+    /// Whether the move can catch a ledge at some point.
+    pub fn catches_ledges(&self) -> bool {
+        self.ledge_from(false) != 255 || self.ledge_from(true) != 255
+    }
+
+    /// The move frame its intangibility starts on, for a move started in the air or not.
+    pub fn intangible_start(&self, air: bool) -> u8 {
+        if air && self.intangible_from_air != 255 {
+            self.intangible_from_air
+        } else {
+            self.intangible_from
+        }
     }
 }
 
@@ -557,6 +633,33 @@ impl StateHash for Weapon {
             h.write_bool(m.helpless_after);
             h.write_bool(m.turns_around);
             h.write_bool(m.grabs_ledge);
+            for b in [
+                m.ledge_front_from,
+                m.ledge_back_from,
+                m.fall_drift,
+                m.fall_landing_lag,
+                m.rise_ground,
+                m.rise_air,
+                m.start_speed,
+                m.steer_frame,
+                m.steer_stick,
+                m.steer_degrees,
+                m.air_drift,
+                m.intangible_from,
+                m.intangible_from_air,
+            ] {
+                h.write_u8(b);
+            }
+            for v in [m.air_gravity, m.air_max_fall, m.air_friction] {
+                match v {
+                    Some(x) => {
+                        h.write_bool(true);
+                        x.hash_into(h);
+                    }
+                    None => h.write_bool(false),
+                }
+            }
+            h.write_bool(m.land_continue);
             match m.charge_at {
                 Some(f) => {
                     h.write_bool(true);
@@ -809,8 +912,67 @@ pub fn longsword() -> Weapon {
         Vec2::new(Fx::from_ratio(2, 5), Fx::from_ratio(11, 10)),
         Fx::from_ratio(72, 100),
     );
+    w.moves[MoveId::UpSpecial as usize] = longsword_up_special();
     tipper_last(&mut w);
     w
+}
+
+/// The longsword's up special, a rising slash (the reference: SmashWiki, the reference game's Marth, up special, 13.0.1).
+///
+/// Hits [R]: frame 5 the clean hit at the hand (top bone, 0 / 8 / 8 and 0 / 8 / 4 reference units: 11%, 361 and 74 degrees, BK 70,
+/// KS 74, radius 4); frame 6 the same plus the blade (7%, 361 and 74, BK 20, KS 90, radius 5, hitlag 0.9), which wins where both
+/// reach (its ids are lower); frames 7-11 the blade alone. Intangible on frames 4-5 from the ground, 1-5 in the air. Animation 39
+/// frames, then the special fall: air speed x0.4, landing lag 24. Ledges in front from frame 8, never behind during the move. The
+/// stick angles it (sensitivity 0.5, up to 20 degrees); started in the air it keeps 0.66 of its horizontal speed and rises 1.1 times
+/// as high; once the rise is over its gravity is 0.06. The rise itself is the reference's animation, not a published number: it is
+/// kept at the earlier estimate (about 44 reference units from the ground) [E], and the hitbox positions on the blade are [E].
+fn longsword_up_special() -> Move {
+    let su = |n: i32| Fx::from_ratio(n, 8000);
+    // `tipper_last` turns the written priorities 1, 2, 0, 4 into the reference's ids 0, 1, 2, 3.
+    let mut up = with_hitlag(
+        ref_move(
+            40,
+            0,
+            0,
+            255,
+            &[
+                r(6, 11, 12, 26, 6, 70, 361, 20, 90, 1, 0),
+                r(6, 11, 8, 18, 6, 70, 74, 20, 90, 2, 0),
+                r(5, 6, 10, 10, 5, 110, 361, 70, 74, 0, 0),
+                r(5, 6, 5, 10, 5, 110, 74, 70, 74, 4, 0),
+            ],
+        ),
+        &[90, 90, 100, 100],
+    );
+    up.motion = vec![
+        Motion {
+            start: 4,
+            end: 12,
+            vx: su(1000),
+            vy: su(4400),
+        },
+        Motion {
+            start: 13,
+            end: 18,
+            vx: su(500),
+            vy: su(500),
+        },
+    ];
+    up.intangible = 5;
+    up.intangible_from = 3;
+    up.intangible_from_air = 0;
+    up.helpless_after = true;
+    up.ledge_front_from = 7;
+    up.fall_drift = 40;
+    up.fall_landing_lag = 24;
+    up.rise_air = 110;
+    up.start_speed = 66;
+    // The angle is read as the rise begins [E: the frame is not published].
+    up.steer_frame = 3;
+    up.steer_stick = 50;
+    up.steer_degrees = 20;
+    up.air_gravity = Some(su(60));
+    up
 }
 
 /// The reference game's order among a sword's hitboxes: where several overlap a target, the blade's sourspot wins, then the arm, and
@@ -1146,38 +1308,7 @@ fn sword_kit() -> Weapon {
     bair.turns_around = true;
     moves[MoveId::BAir as usize] = bair;
 
-    // Up special: a rising slash. Intangible for the first 5 frames, hits on frames 5-11 (11% early tip,
-    // 7% after), then helpless. The sources do not give its travel distance, so the rise (about 44
-    // reference units) is an estimate.
-    let su = |n: i32| Fx::from_ratio(n, 8000);
-    let mut up_special = ref_move(
-        50,
-        24,
-        0,
-        255,
-        &[
-            r(5, 6, 18, 22, 9, 110, 74, 70, 74, 0, 0),
-            r(6, 11, 18, 22, 11, 70, 74, 20, 90, 1, 0),
-        ],
-    );
-    up_special.motion = vec![
-        Motion {
-            start: 4,
-            end: 12,
-            vx: su(1000),
-            vy: su(4400),
-        },
-        Motion {
-            start: 13,
-            end: 18,
-            vx: su(500),
-            vy: su(500),
-        },
-    ];
-    up_special.intangible = 5;
-    up_special.helpless_after = true;
-    up_special.grabs_ledge = true;
-    moves[MoveId::UpSpecial as usize] = up_special;
+    // (The up special is the longsword's own, built after the blade is shortened: see `longsword_up_special`.)
 
     // ---- The rest of the sword kit ----
     // Positions and sizes are estimates throughout; the frames, damage and (where known) knockback follow the
@@ -2466,6 +2597,115 @@ fn chain(mv: &mut Move, next: MoveId, from: u8) {
     mv.next_from = from - 1;
 }
 
+/// The claws' up special, a flaming dash kick (the reference: SmashWiki, the reference game's Wolf, up special, 13.0.1): the hit
+/// data, timing and movement parameters are [R]; the movement is the script `fire_aim.script` built from the parameters, and the
+/// hitbox positions on the hip and legs are [E].
+///
+/// Frames 18-21 the wind-up hit (4%, 93 degrees, BK 50, KS 10, set weight, radius 7). Frames 27-32 the dash's looping hits, every
+/// 2 frames (2.5%, hitlag x0.5, no SDI): on grounded targets 40 degrees (BK 60, then 70 from frame 30), on airborne ones the
+/// autolink angle (BK 35 / 40). Then the last hit: on the ground frames 36-37 (5%, 361, BK 60, KS 148, hitlag x2.5) and the move ends
+/// on frame 67; in the air frames 37-38 (6%, 361, BK 60, KS 136, hitlag x2.5), the animation lasts 71 frames, then the special
+/// fall (air speed x0.65, landing lag 36). Ledges behind from frame 26, in front from 27. A steep dash into the ground bounces off
+/// (22 frames). (The reference's looping hits angle from the brawler's direction of travel; here they angle from its facing.)
+fn claws_up_special(w: &mut Weapon) {
+    let set_weight = |mut mv: Move, rows: &[usize]| {
+        for &i in rows {
+            mv.hitboxes[i].set_weight = true;
+        }
+        mv
+    };
+    let loop_hit = |first: u8, last: u8, x: i32, y: i32, radius: i32, angle: i16, bkb: i16| {
+        r(first, last, x, y, radius, 25, angle, bkb, 20, 0, 1)
+    };
+    let mut fire = set_weight(
+        ref_move(
+            72,
+            36,
+            0,
+            255,
+            &[
+                r(18, 21, 1, 10, 9, 40, 93, 50, 10, 0, 0),
+                // The hip (the reference's ids 0 and 1) and the knee (2 and 3), early then late.
+                loop_hit(27, 29, 0, 10, 6, 40, 60),
+                loop_hit(27, 29, 0, 10, 8, ANGLE_AUTOLINK, 35),
+                loop_hit(27, 29, 5, 8, 4, 40, 60),
+                loop_hit(27, 29, 5, 8, 4, ANGLE_AUTOLINK, 40),
+                loop_hit(30, 32, 0, 10, 6, 40, 70),
+                loop_hit(30, 32, 0, 10, 8, ANGLE_AUTOLINK, 35),
+                loop_hit(30, 32, 5, 8, 4, 40, 70),
+                loop_hit(30, 32, 5, 8, 4, ANGLE_AUTOLINK, 40),
+            ],
+        ),
+        &[0],
+    );
+    for (i, hb) in fire.hitboxes.iter_mut().enumerate().skip(1) {
+        hb.priority = ((i - 1) % 4) as u8;
+        hb.hitlag = 50;
+        hb.sdi = 0;
+        hb.targets = if hb.angle == ANGLE_AUTOLINK {
+            TARGETS_AERIAL
+        } else {
+            TARGETS_GROUNDED
+        };
+    }
+    fire.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/fire_aim.script"),
+    ));
+    // The loop (group 1) lands again every 2 frames from frame 27; the wind-up hit does not.
+    fire.rehit = Some((26, 2));
+    fire.rehit_groups = 0b10;
+    fire.helpless_after = true;
+    fire.land_continue = true;
+    fire.ledge_back_from = 25;
+    fire.ledge_front_from = 26;
+    fire.fall_drift = 65;
+    fire.fall_landing_lag = 36;
+    w.moves[MoveId::UpSpecial as usize] = fire;
+
+    // The ending, reached on frame 33 (so its frame 1 is the reference's 35): on the ground its last hit is on frames 36-37 and it
+    // ends on 67; in the air the last hit is on 37-38 and the special fall follows the 71-frame animation.
+    let ending = |faf: u8, rows: &[R]| {
+        let mut m = with_hitlag(ref_move(faf, 36, 0, 255, rows), &[250, 250, 250]);
+        m.script = Some(script(
+            Kind::Fighter,
+            include_str!("scripts/fire_end.script"),
+        ));
+        m.helpless_after = true;
+        m.ledge_front_from = 0;
+        m.ledge_back_from = 0;
+        m.fall_drift = 65;
+        m.fall_landing_lag = 36;
+        m
+    };
+    w.moves[MoveId::Ext0 as usize] = ending(
+        34,
+        &[
+            r(3, 4, 6, 8, 8, 50, 361, 60, 148, 0, 2),
+            r(3, 4, 4, 8, 10, 50, 361, 60, 148, 1, 2),
+            r(3, 4, 2, 9, 6, 50, 361, 60, 148, 2, 2),
+        ],
+    );
+    w.moves[MoveId::Ext1 as usize] = ending(
+        39,
+        &[
+            r(4, 5, 6, 9, 8, 60, 361, 60, 136, 0, 2),
+            r(4, 5, 1, 9, 8, 60, 361, 60, 136, 1, 2),
+        ],
+    );
+    // The bounce off the ground: 22 frames, then the special fall [E: the reference's page gives the bounce's length, not what
+    // follows it].
+    let mut bounce = ref_move(23, 36, 0, 255, &[]);
+    bounce.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/fire_bounce.script"),
+    ));
+    bounce.helpless_after = true;
+    bounce.fall_drift = 65;
+    bounce.fall_landing_lag = 36;
+    w.moves[MoveId::Ext2 as usize] = bounce;
+}
+
 /// Short-reach, quick and heavy hitting: the longsword's moves pulled in close and sped up, with the
 /// forward tilt, neutral air, forward air and blaster built from reference frame data (a blaster-wielding
 /// brawler archetype).
@@ -2765,29 +3005,7 @@ pub fn claws() -> Weapon {
     flash.helpless_after = true;
     w.moves[MoveId::SideSpecial as usize] = flash;
 
-    // Flame kick (up special): after an 18 frame wind-up a rising flame kick that hits five times (4%, 2.5% x 3, then
-    // 6%; the last hit launches) and then leaves the brawler helpless. It can grab the ledge mid-move. The travel
-    // (about 6 world units) and the knockback values are estimates. The stick at the end of the wind-up aims the
-    // flight in any direction (a script); neutral aims up and a little forward.
-    let mut fire = ref_move(
-        55,
-        0,
-        0,
-        255,
-        &[
-            r(18, 18, 9, 13, 13, 40, 65, 100, 0, 0, 0),
-            r(19, 28, 9, 13, 13, 25, 65, 100, 0, 0, 0),
-            r(29, 31, 9, 13, 14, 60, 45, 60, 136, 0, 0),
-        ],
-    );
-    fire.script = Some(script(
-        Kind::Fighter,
-        include_str!("scripts/fire_aim.script"),
-    ));
-    fire.rehit = Some((17, 3));
-    fire.helpless_after = true;
-    fire.grabs_ledge = true;
-    w.moves[MoveId::UpSpecial as usize] = fire;
+    claws_up_special(&mut w);
 
     // Reflector (down special): a reflecting field in front of the brawler from frame 9 to 21 that turns projectiles
     // around (1.5 times the damage), plus a 4% hit on anyone touching it. The reflector frames, size and
@@ -2894,7 +3112,12 @@ mod tests {
                     );
                     continue;
                 }
-                assert!(!m.hitboxes.is_empty() || m.projectile.is_some() || m.counter.is_some());
+                assert!(
+                    !m.hitboxes.is_empty()
+                        || m.projectile.is_some()
+                        || m.counter.is_some()
+                        || m.script.is_some()
+                );
                 for hb in &m.hitboxes {
                     assert!(
                         hb.start <= hb.end && hb.end <= m.total_frames,

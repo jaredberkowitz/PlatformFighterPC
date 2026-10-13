@@ -137,7 +137,7 @@ fn every_problem_in_a_file_is_reported_at_once() {
         .replacen("walk_speed ", "walk_spead ", 1)
         .replacen("move jab {", "move jabb {", 1)
         .replacen("weapon claws", "weapon clawz", 1)
-        .replacen("gravity ", "# gravity ", 1);
+        .replacen(" gravity ", " # gravity ", 1);
     let e = errors(&t);
     assert!(has(&e, "unknown field `walk_spead`"), "{e:?}");
     assert!(has(&e, "missing `walk_speed`"), "{e:?}");
@@ -257,7 +257,7 @@ fn old_files_are_migrated_on_load() {
         .chain([(now, rename_grav as fn(&mut Block))])
         .collect();
     // A file of the current schema that still says `grav`.
-    let old = text(&Content::placeholder(), false).replace("gravity ", "grav ");
+    let old = text(&Content::placeholder(), false).replace(" gravity ", " grav ");
     assert!(has(
         &load_with(&old, MIGRATIONS, now + 1).unwrap_err(),
         &format!("no migration from schema {now} to {}", now + 1)
@@ -298,7 +298,7 @@ fn migrations_chain_in_order() {
             (now + 1, add_note as fn(&mut Block)),
         ])
         .collect();
-    let old = text(&Content::placeholder(), false).replace("gravity ", "grav ");
+    let old = text(&Content::placeholder(), false).replace(" gravity ", " grav ");
     let bundle = load_with(&old, &migrations, now + 2).unwrap();
     assert_eq!(bundle.manifest.schema, now + 2);
     assert!(bundle.manifest.description.contains("migrated twice"));

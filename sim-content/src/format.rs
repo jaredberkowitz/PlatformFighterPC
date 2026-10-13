@@ -682,6 +682,23 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.helpless_after = f.or("helpless_after", false, errors);
     m.turns_around = f.or("turns_around", false, errors);
     m.grabs_ledge = f.or("grabs_ledge", false, errors);
+    m.ledge_front_from = f.or("ledge_front_from", 255, errors);
+    m.ledge_back_from = f.or("ledge_back_from", 255, errors);
+    m.fall_drift = f.or("fall_drift", 0, errors);
+    m.fall_landing_lag = f.or("fall_landing_lag", 0, errors);
+    m.rise_ground = f.or("rise_ground", 100, errors);
+    m.rise_air = f.or("rise_air", 100, errors);
+    m.start_speed = f.or("start_speed", 100, errors);
+    m.steer_frame = f.or("steer_frame", 255, errors);
+    m.steer_stick = f.or("steer_stick", 0, errors);
+    m.steer_degrees = f.or("steer_degrees", 0, errors);
+    m.air_gravity = f.parsed("air_gravity", errors);
+    m.air_max_fall = f.parsed("air_max_fall", errors);
+    m.air_friction = f.parsed("air_friction", errors);
+    m.air_drift = f.or("air_drift", 100, errors);
+    m.intangible_from = f.or("intangible_from", 0, errors);
+    m.intangible_from_air = f.or("intangible_from_air", 255, errors);
+    m.land_continue = f.or("land_continue", false, errors);
     m.counter_strike = f.or("counter_strike", false, errors);
     m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
@@ -874,9 +891,51 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("helpless_after", m.helpless_after),
         ("turns_around", m.turns_around),
         ("grabs_ledge", m.grabs_ledge),
+        ("land_continue", m.land_continue),
     ] {
         if on {
             b.field(name, "true");
+        }
+    }
+    // The per-move recovery rules, each only when it differs from the default.
+    for (name, value, default) in [
+        (
+            "ledge_front_from",
+            m.ledge_front_from,
+            empty.ledge_front_from,
+        ),
+        ("ledge_back_from", m.ledge_back_from, empty.ledge_back_from),
+        ("fall_drift", m.fall_drift, empty.fall_drift),
+        (
+            "fall_landing_lag",
+            m.fall_landing_lag,
+            empty.fall_landing_lag,
+        ),
+        ("rise_ground", m.rise_ground, empty.rise_ground),
+        ("rise_air", m.rise_air, empty.rise_air),
+        ("start_speed", m.start_speed, empty.start_speed),
+        ("steer_frame", m.steer_frame, empty.steer_frame),
+        ("steer_stick", m.steer_stick, empty.steer_stick),
+        ("steer_degrees", m.steer_degrees, empty.steer_degrees),
+        ("air_drift", m.air_drift, empty.air_drift),
+        ("intangible_from", m.intangible_from, empty.intangible_from),
+        (
+            "intangible_from_air",
+            m.intangible_from_air,
+            empty.intangible_from_air,
+        ),
+    ] {
+        if value != default {
+            b.field(name, value.to_string());
+        }
+    }
+    for (name, value) in [
+        ("air_gravity", m.air_gravity),
+        ("air_max_fall", m.air_max_fall),
+        ("air_friction", m.air_friction),
+    ] {
+        if let Some(v) = value {
+            b.field(name, v.show());
         }
     }
     if let Some(c) = m.charge_at {

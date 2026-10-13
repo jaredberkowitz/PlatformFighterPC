@@ -309,7 +309,7 @@ pub fn update(
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
         S::JumpSquat => jump_squat(f, p, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage, rules),
-        S::Helpless => return helpless(f, p, stage, rules),
+        S::Helpless => return helpless(f, p, weapon, stage, rules),
         S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
@@ -876,13 +876,33 @@ fn airborne(
 /// Special fall: drift and ledge grabs only. Landing costs extra lag.
 /// The special fall after an up special (or another move that leaves the fighter helpless): it can only drift a little (a share of
 /// its air speed and acceleration, `helpless_drift`), fast fall, and catch a ledge, until it lands.
-fn helpless(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> Option<u8> {
+///
+/// The move that caused it (still `move_id`) can set its own drift (`Move::fall_drift`) and landing lag (`Move::fall_landing_lag`),
+/// as the reference does per move; otherwise they are the ruleset's and the body's.
+fn helpless(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+) -> Option<u8> {
+    let mv = weapon.get(f.move_id);
+    let drift = if mv.fall_drift > 0 {
+        Fx::from_ratio(i32::from(mv.fall_drift), 100)
+    } else {
+        rules.helpless_drift
+    };
+    let lag = if mv.fall_landing_lag > 0 {
+        mv.fall_landing_lag
+    } else {
+        p.helpless_landing_lag
+    };
     let mut q = *p;
-    q.air_speed = p.air_speed * rules.helpless_drift;
-    q.air_accel = p.air_accel * rules.helpless_drift;
-    q.air_accel_stick = p.air_accel_stick * rules.helpless_drift;
+    q.air_speed = p.air_speed * drift;
+    q.air_accel = p.air_accel * drift;
+    q.air_accel_stick = p.air_accel_stick * drift;
     if air_move(f, &q, stage) {
-        enter_landing(f, p.helpless_landing_lag);
+        enter_landing(f, lag);
         return None;
     }
     ledge_request(f, p, stage)
@@ -1546,6 +1566,11 @@ pub fn free_held(f: &mut Fighter, immunity: u8) {
 }
 
 pub fn begin_attack(f: &mut Fighter, id: MoveId) {
+    // A new attack (not a move switching to its next part) remembers whether it began in the air and forgets the last one's angle.
+    if f.state != S::Attack {
+        f.move_air = !f.grounded();
+        f.steer = 0;
+    }
     f.move_id = id as u8;
     f.hit_mask = 0;
     f.b_reversed = false;
@@ -1711,6 +1736,16 @@ fn attack(
         }
     }
 
+    // Intangibility that starts later in the move (the frames still count from the move's first: `intangible` is the last one).
+    let from = mv.intangible_start(f.move_air);
+    if from > 0 && f.state_frame == u16::from(from) {
+        f.invuln = f.invuln.max(mv.intangible.saturating_sub(from));
+    }
+    // Angling by the stick, read once.
+    if f.state_frame == u16::from(mv.steer_frame) {
+        f.steer = steer_degrees(f.history[0], f.facing, mv);
+    }
+
     // A smash attack holds on its charge frame while the button stays held.
     let charging = mv.charge_at.is_some_and(|c| u16::from(c) == f.state_frame)
         && f.charge < rules.charge_frames
@@ -1778,7 +1813,7 @@ fn attack(
             mv.motion
                 .iter()
                 .find(|m| frame >= u16::from(m.start) && frame <= u16::from(m.end))
-                .copied()
+                .map(|m| shaped_motion(*m, mv, f.move_air, f.steer))
         });
     if let Some(m) = motion {
         // A motion along the ground follows the ground: it can leave it by going up, but never sinks into it.
@@ -1803,13 +1838,16 @@ fn attack(
         }
         if let (Some(platform), false) = (moved.landing, on_ground) {
             land(f, p, stage, platform);
-            if mv.landing_move.is_some() {
+            if mv.land_continue {
+                // (The move goes on along the ground.)
+            } else if mv.landing_move.is_some() {
                 // (A dive with a landing hit, such as a down air: the same rule as any aerial landing.)
                 land_out_of_move(f, mv, frame, plain_landing_lag(f, p));
+                return None;
             } else {
                 enter_landing(f, mv.landing_lag);
+                return None;
             }
-            return None;
         }
         // A dash along the ground that carries the fighter past the edge leaves the ground.
         if let Some(plat) = collision::platform(stage, f.platform) {
@@ -1819,7 +1857,8 @@ fn attack(
         }
     } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
         let plain = plain_landing_lag(f, p);
-        if air_move(f, p, stage) {
+        let q = move_air_physics(p, mv);
+        if air_move(f, &q, stage) && !mv.land_continue {
             // Landing early or late in the move autocancels: only the normal landing lag.
             land_out_of_move(f, mv, frame, plain);
             return None;
@@ -1862,11 +1901,73 @@ fn attack(
         }
     }
 
-    // Up specials can grab a ledge in mid-move, rising or not, so a recovery that reaches it is forgiving.
-    if mv.grabs_ledge {
-        return ledge_in_reach(f, p, stage);
+    // Up specials can grab a ledge in mid-move, rising or not, from the frames their rules allow (in front and behind separately).
+    if mv.catches_ledges() {
+        let ledge = ledge_in_reach(f, p, stage)?;
+        let behind = stage
+            .ledges
+            .get(usize::from(ledge))
+            .is_some_and(|l| l.side == f.facing);
+        if f.state_frame >= u16::from(mv.ledge_from(behind)) {
+            return Some(ledge);
+        }
     }
     None
+}
+
+/// How far the stick angles a move with `steer_frame` (see `Move::steer_degrees`): nothing within `steer_stick` percent of the
+/// centre, then evenly more up to `steer_degrees` at the rim; positive toward the way the fighter faces.
+fn steer_degrees(input: Input, facing: i8, mv: &Move) -> i8 {
+    let sx = input.stick_x_fx().mul_int(i32::from(facing));
+    let dead = Fx::from_ratio(i32::from(mv.steer_stick.min(99)), 100);
+    let over = sx.abs() - dead;
+    if over <= Fx::ZERO {
+        return 0;
+    }
+    let share = (over / (Fx::ONE - dead)).min(Fx::ONE);
+    let deg = share
+        .mul_int(i32::from(mv.steer_degrees))
+        .floor_int()
+        .clamp(0, 90);
+    (deg * sx.signum_int()) as i8
+}
+
+/// A data motion row as this use of the move runs it: its rise scaled by the grounded or aerial height multiplier, then turned by
+/// the stick's angle (positive degrees lean it toward the front).
+fn shaped_motion(m: Motion, mv: &Move, air: bool, steer: i8) -> Motion {
+    let rise = if air { mv.rise_air } else { mv.rise_ground };
+    let vy = m.vy * Fx::from_ratio(i32::from(rise), 100);
+    let (vx, vy) = if steer != 0 {
+        // (forward, up) turned clockwise by `steer` degrees.
+        let a = Angle::from_degrees(i32::from(steer));
+        let (c, s) = (trig::cos(a), trig::sin(a));
+        (m.vx * c + vy * s, vy * c - m.vx * s)
+    } else {
+        (m.vx, vy)
+    };
+    Motion { vx, vy, ..m }
+}
+
+/// The body's air physics with a move's own overrides (`Move::air_gravity` and the rest), for a move running without a motion.
+fn move_air_physics(p: &FighterParams, mv: &Move) -> FighterParams {
+    let mut q = *p;
+    if let Some(g) = mv.air_gravity {
+        q.gravity = g;
+    }
+    if let Some(v) = mv.air_max_fall {
+        q.max_fall_speed = v;
+        q.fast_fall_speed = q.fast_fall_speed.max(v);
+    }
+    if let Some(fr) = mv.air_friction {
+        q.air_friction = fr;
+    }
+    if mv.air_drift != 100 {
+        let k = Fx::from_ratio(i32::from(mv.air_drift), 100);
+        q.air_speed = p.air_speed * k;
+        q.air_accel = p.air_accel * k;
+        q.air_accel_stick = p.air_accel_stick * k;
+    }
+    q
 }
 
 /// Starts a special move chosen by the stick, if the weapon has one there. Returns whether it started.
@@ -1896,7 +1997,13 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
         f.facing = -f.facing;
     }
     begin_attack(f, id);
-    f.invuln = f.invuln.max(mv.intangible);
+    if mv.intangible_start(f.move_air) == 0 {
+        f.invuln = f.invuln.max(mv.intangible);
+    }
+    // Started in the air, a special may keep only part of the fighter's momentum.
+    if !f.grounded() && mv.start_speed != 100 {
+        f.vel.x = f.vel.x * Fx::from_ratio(i32::from(mv.start_speed), 100);
+    }
     true
 }
 

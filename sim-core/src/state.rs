@@ -187,6 +187,10 @@ pub struct Fighter {
     /// How the current attack was aimed as it started: 1 up, -1 down, 0 straight (the reference's angled forward tilts and smashes;
     /// see `Hitbox::aim`).
     pub aim: i8,
+    /// The current attack started in the air (it picks the move's aerial height multiplier and intangibility; see `Move::rise_air`).
+    pub move_air: bool,
+    /// Degrees the current move's motion was angled by the stick (positive toward forward; see `Move::steer_frame`).
+    pub steer: i8,
     /// Hits taken in the current combo (it ends when the fighter is free again); survival DI grows with it.
     pub hits_taken: u8,
     /// Frames since the last tech press that counted (255: long ago).
@@ -369,6 +373,8 @@ impl Fighter {
             damage_fall: false,
             b_reversed: false,
             aim: 0,
+            move_air: false,
+            steer: 0,
             hits_taken: 0,
             tech_timer: 255,
             asdi: 0,
@@ -512,6 +518,8 @@ impl StateHash for Fighter {
         h.write_bool(self.damage_fall);
         h.write_bool(self.b_reversed);
         h.write_u8(self.aim as u8);
+        h.write_bool(self.move_air);
+        h.write_i8(self.steer);
         h.write_u8(self.hits_taken);
         h.write_u8(self.tech_timer);
         h.write_u8(self.asdi);
@@ -868,6 +876,16 @@ mod tests {
             ("aim", {
                 let mut s = state;
                 s.fighters[0].aim = 1;
+                s
+            }),
+            ("move_air", {
+                let mut s = state;
+                s.fighters[0].move_air = true;
+                s
+            }),
+            ("steer", {
+                let mut s = state;
+                s.fighters[0].steer = 3;
                 s
             }),
             ("balloon_left", {

@@ -66,7 +66,15 @@ A move block (omitted fields take the default shown):
 | `total_frames` | length; required | |
 | `landing_lag`, `autocancel_before`, `autocancel_after` | aerial landing rules | 0, 0, 255 |
 | `intangible` | intangible frames from the start | 0 |
-| `helpless_after`, `turns_around`, `grabs_ledge` | flags | false |
+| `helpless_after`, `turns_around`, `grabs_ledge` | flags (`grabs_ledge`: either side, any frame of the move) | false |
+| `intangible_from`, `intangible_from_air` | the move frame the intangibility starts on (on the ground; in the air, 255 = as on the ground); `intangible` stays the last frame counted from the start | 0, 255 |
+| `ledge_front_from`, `ledge_back_from` | per-move ledge windows: from this move frame a ledge in front / behind can be caught during the move (255 never) | 255, 255 |
+| `fall_drift`, `fall_landing_lag` | the special fall after this move: percent of the body's air speed and acceleration kept (0 = the ruleset's `helpless_drift`), and its landing lag (0 = the body's `helpless_landing_lag`) | 0, 0 |
+| `rise_ground`, `rise_air` | percent of the motion's vertical speed for a move started on the ground / in the air (the reference's height multipliers) | 100, 100 |
+| `start_speed` | started in the air, percent of the horizontal speed kept | 100 |
+| `steer_frame`, `steer_stick`, `steer_degrees` | angling by the stick: on that move frame, a forward or backward tilt past `steer_stick` percent turns the motion by up to `steer_degrees`, evenly to the rim (255 = no angling) | 255, 0, 0 |
+| `air_gravity`, `air_max_fall`, `air_friction`, `air_drift` | the move's own air physics while it runs without a motion (world units; `air_drift` a percent of the body's air speed and acceleration) | the body's; `air_drift` 100 |
+| `land_continue` | touching down does not end the move: it carries on along the ground | false |
 | `charge_at` | smash attack hold frame | none |
 | `next`, `next_window`, `next_from` | jab chain: move to continue into, and the press window; with `next_from` (a move frame) a press from that frame on carries on at once (the reference's continuable window), otherwise only at the end | none; `next_from` 255 |
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |

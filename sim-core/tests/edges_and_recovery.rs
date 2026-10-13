@@ -194,3 +194,80 @@ fn a_neutral_or_side_special_b_reverses_with_the_stick_the_other_way() {
         }
     }
 }
+
+// ---- Per-move recovery rules (sim 58) -------------------------------------------------------------------------------------------
+
+/// The claws' blaster (a neutral special with no motion) with `edit` applied, used by player 0 high in the air moving at `vx`.
+fn custom_air_special(edit: impl Fn(&mut sim_core::moves::Move), vx: Fx) -> Sim {
+    use sim_core::input::buttons::SPECIAL;
+    use sim_core::moves::MoveId;
+    let mut sim = Sim::with_chars([1, 0, 0, 0]);
+    let w = usize::from(sim.content.fighters[1].weapon);
+    edit(&mut sim.content.weapons[w].moves[MoveId::NSpecial as usize]);
+    sim.stand(1, Fx::from_int(9), -1);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), vx, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(0, 0, SPECIAL));
+    sim
+}
+
+#[test]
+fn a_move_can_keep_only_part_of_the_momentum_it_starts_with() {
+    let half = Fx::from_ratio(1, 2);
+    let plain = custom_air_special(|_| {}, half);
+    let slowed = custom_air_special(|m| m.start_speed = 40, half);
+    assert_eq!(plain.f().vel.x, half);
+    assert_eq!(slowed.f().vel.x, half * Fx::from_ratio(40, 100));
+}
+
+#[test]
+fn a_move_can_have_its_own_gravity_and_fall_speed_while_it_runs() {
+    let g = Fx::from_ratio(1, 200);
+    let cap = Fx::from_ratio(1, 20);
+    let mut sim = custom_air_special(
+        |m| {
+            m.air_gravity = Some(g);
+            m.air_max_fall = Some(cap);
+        },
+        Fx::ZERO,
+    );
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vel.y, -g, "one frame of the move's own gravity");
+    sim.ticks(20, inp(0, 0, 0));
+    assert_eq!(sim.f().vel.y, -cap, "and its own top fall speed");
+    // The body's own gravity is far stronger.
+    let mut plain = custom_air_special(|_| {}, Fx::ZERO);
+    plain.tick(inp(0, 0, 0));
+    assert!(plain.f().vel.y < -g);
+}
+
+#[test]
+fn a_move_with_no_recovery_rules_behaves_as_before() {
+    // Every rule left at its default: the plain move, unchanged (the same velocity and position frame by frame).
+    let defaults = sim_core::moves::Move::empty();
+    assert_eq!(defaults.ledge_from(false), 255);
+    assert_eq!(defaults.ledge_from(true), 255);
+    assert!(!defaults.catches_ledges());
+    let mut grabs = defaults.clone();
+    grabs.grabs_ledge = true;
+    assert_eq!(
+        (grabs.ledge_from(false), grabs.ledge_from(true)),
+        (0, 0),
+        "older content's grabs_ledge is both sides from the first frame"
+    );
+    let mut a = custom_air_special(|_| {}, Fx::ONE);
+    let mut b = custom_air_special(
+        |m| {
+            m.rise_ground = 100;
+            m.rise_air = 100;
+            m.air_drift = 100;
+        },
+        Fx::ONE,
+    );
+    for _ in 0..30 {
+        a.tick(inp(60, 0, 0));
+        b.tick(inp(60, 0, 0));
+        assert_eq!(a.f().pos, b.f().pos);
+        assert_eq!(a.f().vel, b.f().vel);
+    }
+}

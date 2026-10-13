@@ -287,6 +287,24 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 ));
             }
         }
+        if mv.steer_degrees > 90 || mv.steer_stick > 99 {
+            errors.push(format!(
+                "weapon {i} {name}: steer_degrees is at most 90 and steer_stick at most 99"
+            ));
+        }
+        if mv.fall_drift > 100 || mv.air_drift > 100 || mv.start_speed > 100 {
+            errors.push(format!(
+                "weapon {i} {name}: fall_drift, air_drift and start_speed are percents up to 100"
+            ));
+        }
+        if mv.air_gravity.is_some_and(|g| g < Fx::ZERO)
+            || mv.air_max_fall.is_some_and(|v| v <= Fx::ZERO)
+            || mv.air_friction.is_some_and(|v| v < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: air_gravity and air_friction cannot be negative, air_max_fall must be above 0"
+            ));
+        }
         if let Some((_, every)) = mv.rehit {
             if every == 0 {
                 errors.push(format!("weapon {i} {name}: rehit interval cannot be zero"));
