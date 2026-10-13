@@ -1037,7 +1037,7 @@ pub fn longsword() -> Weapon {
     w
 }
 
-/// The longsword's up special, a rising slash (the reference: SmashWiki, the reference game's Marth, up special, 13.0.1).
+/// The longsword's up special, a rising slash (the reference swordfighter's up special: SmashWiki, 13.0.1).
 ///
 /// Hits [R]: frame 5 the clean hit at the hand (top bone, 0 / 8 / 8 and 0 / 8 / 4 reference units: 11%, 361 and 74 degrees, BK 70,
 /// KS 74, radius 4); frame 6 the same plus the blade (7%, 361 and 74, BK 20, KS 90, radius 5, hitlag 0.9), which wins where both
@@ -2713,7 +2713,7 @@ pub fn embers() -> Weapon {
     w
 }
 
-/// The Embers' special moves (the reference: SmashWiki, the reference game's Mario, specials, 13.0.1; `docs/movesets/mario/`).
+/// The Embers' special moves (the reference's: SmashWiki, 13.0.1; `docs/movesets/mario/REFERENCE_DATA.md`).
 fn embers_specials(w: &mut Weapon) {
     // Nothing of the claws' follow-up slots belongs to the Embers (ext0 is its down air's landing hit, set above).
     for id in [
@@ -2735,7 +2735,7 @@ fn embers_specials(w: &mut Weapon) {
     water_pump(w);
 }
 
-/// Down special, a charged water pump (the reference's F.L.U.D.D.): a wind-up (the down special), the charge (ext1) and the shot
+/// Down special, a charged water pump (the reference's): a wind-up (the down special), the charge (ext1) and the shot
 /// (ext2), scripted in `pump_start`, `pump_charge` and `pump_shot`.
 ///
 /// * Wind-up 19 frames, then charging; 80 frames of charge in all (SmashWiki's parameter, counted from the charge's start: with the
@@ -2793,7 +2793,7 @@ fn water_pump(w: &mut Weapon) {
     w.moves[MoveId::Ext2 as usize] = shot;
 }
 
-/// Side special, a cape swing (the reference's Cape).
+/// Side special, a cape swing (the reference's).
 ///
 /// * The swing, frames 12-14: 7%, 110 degrees, set knockback 80 (KS 100), shield damage +4 (157 percent, [D]), and the reference's
 ///   reverse effect: the victim is turned round. Radius 7.5 and 5.0 on the root, converted [D].
@@ -2848,7 +2848,7 @@ fn cape() -> Move {
     mv
 }
 
-/// Neutral special, a bouncing fireball (the reference's Fireball). Out on frame 17, FAF 50; in the air the fighter keeps its air
+/// Neutral special, a bouncing fireball (the reference's). Out on frame 17, FAF 50; in the air the fighter keeps its air
 /// control (no motion). The ball [R]: 70 frames of life, 1.4 reference units a frame at 10 degrees down, gravity 0.1; off the ground
 /// it bounces back up at 1.4 to 1.6 keeping 0.97 of its speed, 7 times (the next touch removes it); it does not pierce. Its hits by
 /// age (frames 17-21, 22-46, 47-86 of the move): 5% BK 35 KS 20 radius 2.4, 5% BK 28 KS 15 radius 2.2, 4% BK 22 KS 10 radius 2.0;
@@ -2891,7 +2891,7 @@ fn fireball() -> Move {
     mv
 }
 
-/// Up special, a rising multi-hit punch (the reference's Super Jump Punch). Every hit is on the root (`top`), so the positions are
+/// Up special, a rising multi-hit punch (the reference's). Every hit is on the root (`top`), so the positions are
 /// converted directly [D].
 ///
 /// * Hit 1, frames 3-6: 5%, set knockback 160 / 150 / 150 at 60 / 86 / 100 degrees (KS 100, set weight, no SDI); the box at the
@@ -2973,7 +2973,7 @@ fn rising_punch() -> Move {
     up
 }
 
-/// The pummel the longsword and the claws share with the reference's (SmashWiki, the reference game's Marth and Wolf, 13.0.1): 1.3%,
+/// The pummel the longsword and the claws share with the reference's (SmashWiki, the reference swordfighter's and brawler's, 13.0.1): 1.3%,
 /// set knockback 30 (KS 100), hitlag x2.1, the hit on frame 1 and FAF 7. Ours hits on frame 2 (a pummel's hit cannot start on its
 /// first frame) with the same 6 frames after it, FAF 8 [D]; its hitlag freezes the move, so it is not in the FAF.
 fn reference_pummel(damage: i32, x: i32, y: i32, radius: i32) -> Move {
@@ -3000,7 +3000,7 @@ fn chain(mv: &mut Move, next: MoveId, from: u8) {
     mv.next_from = from - 1;
 }
 
-/// The claws' up special, a flaming dash kick (the reference: SmashWiki, the reference game's Wolf, up special, 13.0.1): the hit
+/// The claws' up special, a flaming dash kick (the reference brawler's up special: SmashWiki, 13.0.1): the hit
 /// data, timing and movement parameters are [R]; the movement is the script `fire_aim.script` built from the parameters, and the
 /// hitbox positions on the hip and legs are [E].
 ///

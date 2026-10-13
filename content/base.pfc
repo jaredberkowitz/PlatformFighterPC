@@ -1485,7 +1485,7 @@ weapon embers {
             detect_radius 1.34
         }
         script {
-            // Side special (the reference's cape): in the air, the first use since the fighter was last on the ground, caught a ledge or was
+            // Side special (the reference's): in the air, the first use since the fighter was last on the ground, caught a ledge or was
             // hit stops its fall and lifts it by 0.3 reference units a frame (once per airtime: flag 0). Later uses keep their fall, slowed by
             // the move's own light gravity.
             if frame == 1 && grounded == 0 && air_flag(0) == 0 {
