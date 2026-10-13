@@ -134,6 +134,7 @@ pub const R_LOCK_Y: u8 = 25;
 pub const R_BOOST: u8 = 26;
 pub const R_BOOSTING: u8 = 27;
 pub const R_GRAB: u8 = 28;
+pub const R_AIM: u8 = 29;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -239,6 +240,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "1 while the gauge's powered mode runs, else 0",
     ),
     reg("grab", R_GRAB, "grab button held"),
+    reg(
+        "aimed",
+        R_AIM,
+        "how the attack was aimed as it started: 1 up, -1 down, 0 straight (an angled forward tilt or smash)",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[

@@ -5,8 +5,8 @@ bundle {
     schema 6
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 86
-    hash c231b27cf7082735
+    sim_version 100
+    hash a594414c898d7f51
 }
 
 ruleset {
@@ -109,6 +109,8 @@ ruleset {
     trip_lag 40
     trip_max 100
     trip_invuln 5
+    trip_base 7
+    trip_base_kb 55
 }
 
 weapon longsword {
@@ -574,9 +576,9 @@ weapon claws {
     }
     move dtilt {
         total_frames 26
-        hitbox { start 4 end 5 x 1.7 y 0.4 radius 0.9 damage 6 angle 361 bkb 25 kbg 100 angle_type position }
-        hitbox { start 4 end 5 x 1.09999 y 0.5 radius 0.9 damage 6 angle 361 bkb 25 kbg 100 angle_type position }
-        hitbox { start 4 end 5 x 0.59999 y 0.4 radius 0.9 damage 6 angle 361 bkb 25 kbg 100 angle_type position }
+        hitbox { start 4 end 5 x 1.7 y 0.4 radius 0.9 damage 6 angle 361 bkb 25 kbg 100 trip 40 angle_type position }
+        hitbox { start 4 end 5 x 1.09999 y 0.5 radius 0.9 damage 6 angle 361 bkb 25 kbg 100 trip 40 angle_type position }
+        hitbox { start 4 end 5 x 0.59999 y 0.4 radius 0.9 damage 6 angle 361 bkb 25 kbg 100 trip 40 angle_type position }
     }
     move dash_attack {
         total_frames 36
@@ -605,10 +607,10 @@ weapon claws {
     move dsmash {
         total_frames 42
         charge_at 1
-        hitbox { start 13 end 14 x 1.2 y 0.79999 radius 0.9 damage 14 angle 35 bkb 50 kbg 80 priority 1 angle_type position }
-        hitbox { start 13 end 14 x 2 y 0.59999 radius 1.09999 damage 16 angle 30 bkb 37 kbg 93 angle_type position }
-        hitbox { start 20 end 21 x -1.2 y 0.79999 radius 0.9 damage 12 angle 35 bkb 50 kbg 80 priority 1 group 1 angle_type position }
-        hitbox { start 20 end 21 x -2 y 0.59999 radius 1.09999 damage 14 angle 30 bkb 50 kbg 90 group 1 angle_type position }
+        hitbox { start 13 end 14 x 1.2 y 0.79999 radius 0.9 damage 14 angle 35 bkb 50 kbg 80 priority 1 trip 35 angle_type position }
+        hitbox { start 13 end 14 x 2 y 0.59999 radius 1.09999 damage 16 angle 30 bkb 37 kbg 93 trip 35 angle_type position }
+        hitbox { start 20 end 21 x -1.2 y 0.79999 radius 0.9 damage 12 angle 35 bkb 50 kbg 80 priority 1 group 1 trip 35 angle_type position }
+        hitbox { start 20 end 21 x -2 y 0.59999 radius 1.09999 damage 14 angle 30 bkb 50 kbg 90 group 1 trip 35 angle_type position }
     }
     move nair {
         total_frames 41
@@ -1007,9 +1009,9 @@ weapon needles {
     }
     move dtilt {
         total_frames 25
-        hitbox { start 4 end 5 x 0.29999 y 0.2 radius 0.4 damage 4.5 angle 70 bkb 37 kbg 100 angle_type position }
-        hitbox { start 4 end 5 x 0.7 y 0.2 radius 0.4 damage 4.5 angle 70 bkb 37 kbg 100 priority 1 angle_type position }
-        hitbox { start 4 end 5 x 1.09999 y 0.2 radius 0.5 damage 4.5 angle 90 bkb 37 kbg 100 priority 2 angle_type position }
+        hitbox { start 4 end 5 x 0.29999 y 0.2 radius 0.4 damage 4.5 angle 70 bkb 37 kbg 100 trip 40 angle_type position }
+        hitbox { start 4 end 5 x 0.7 y 0.2 radius 0.4 damage 4.5 angle 70 bkb 37 kbg 100 priority 1 trip 40 angle_type position }
+        hitbox { start 4 end 5 x 1.09999 y 0.2 radius 0.5 damage 4.5 angle 90 bkb 37 kbg 100 priority 2 trip 40 angle_type position }
     }
     move dash_attack {
         total_frames 34
@@ -1042,8 +1044,8 @@ weapon needles {
         hitbox { start 7 end 8 x 0.5 y 0.79999 radius 0.5 damage 4 angle 140 bkb 0 kbg 100 priority 1 fixed_kb 35 angle_type forward }
         hitbox { start 7 end 8 x -0.5 y 0.5 radius 0.5 damage 4 angle 165 bkb 0 kbg 100 priority 2 fixed_kb 35 angle_type backward }
         hitbox { start 7 end 8 x -1.09999 y 0.5 radius 0.5 damage 4 angle 165 bkb 0 kbg 100 priority 3 fixed_kb 35 angle_type backward }
-        hitbox { start 14 end 15 x 0.7 y 0.59999 radius 0.59999 damage 6 angle 43 bkb 35 kbg 165 group 1 angle_type forward }
-        hitbox { start 14 end 15 x -0.7 y 0.79999 radius 0.59999 damage 6 angle 43 bkb 35 kbg 165 priority 1 group 1 angle_type backward }
+        hitbox { start 14 end 15 x 0.7 y 0.59999 radius 0.59999 damage 6 angle 43 bkb 35 kbg 165 group 1 trip 30 angle_type forward }
+        hitbox { start 14 end 15 x -0.7 y 0.79999 radius 0.59999 damage 6 angle 43 bkb 35 kbg 165 priority 1 group 1 trip 30 angle_type backward }
     }
     move nair {
         total_frames 48
@@ -1450,8 +1452,8 @@ weapon embers {
     }
     move dtilt {
         total_frames 26
-        hitbox { start 4 end 6 x 0.5 y 0.2 radius 0.4 damage 7 angle 80 bkb 35 kbg 80 }
-        hitbox { start 4 end 6 x 1 y 0.2 radius 0.5 damage 5 angle 80 bkb 35 kbg 80 priority 1 }
+        hitbox { start 4 end 6 x 0.5 y 0.2 radius 0.4 damage 7 angle 80 bkb 35 kbg 80 trip 40 }
+        hitbox { start 4 end 6 x 1 y 0.2 radius 0.5 damage 5 angle 80 bkb 35 kbg 80 priority 1 trip 40 }
     }
     move dash_attack {
         total_frames 36
@@ -1878,9 +1880,9 @@ weapon gauntlets {
     }
     move dtilt {
         total_frames 33
-        hitbox { start 10 end 11 x 1.5 y 0.29999 radius 0.59999 damage 10 angle 25 bkb 38 kbg 86 angle_type position }
-        hitbox { start 10 end 11 x 0.9 y 0.4 radius 0.59999 damage 10 angle 25 bkb 38 kbg 86 priority 1 angle_type position }
-        hitbox { start 10 end 11 x -0.09999 y 0.4 radius 0.4 damage 10 angle 155 bkb 38 kbg 86 priority 2 angle_type position }
+        hitbox { start 10 end 11 x 1.5 y 0.29999 radius 0.59999 damage 10 angle 25 bkb 38 kbg 86 trip 50 angle_type position }
+        hitbox { start 10 end 11 x 0.9 y 0.4 radius 0.59999 damage 10 angle 25 bkb 38 kbg 86 priority 1 trip 50 angle_type position }
+        hitbox { start 10 end 11 x -0.09999 y 0.4 radius 0.4 damage 10 angle 155 bkb 38 kbg 86 priority 2 trip 50 angle_type position }
     }
     move dash_attack {
         total_frames 33
@@ -3649,11 +3651,11 @@ weapon greatsword {
     }
     move dtilt {
         total_frames 39
-        hitbox { start 6 end 7 x 1.09999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 angle_type forward }
-        hitbox { start 6 end 7 x 0.79999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 angle_type forward }
-        hitbox { start 6 end 7 x -0.29999 y 0.29999 radius 0.29999 damage 6 angle 80 bkb 80 kbg 75 priority 1 angle_type forward }
-        hitbox { start 8 end 16 x 1.09999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 angle_type forward }
-        hitbox { start 8 end 16 x 0.79999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 angle_type forward }
+        hitbox { start 6 end 7 x 1.09999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 trip 20 angle_type forward }
+        hitbox { start 6 end 7 x 0.79999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 trip 20 angle_type forward }
+        hitbox { start 6 end 7 x -0.29999 y 0.29999 radius 0.29999 damage 6 angle 80 bkb 80 kbg 75 priority 1 trip 20 angle_type forward }
+        hitbox { start 8 end 16 x 1.09999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 trip 20 angle_type forward }
+        hitbox { start 8 end 16 x 0.79999 y 0.29999 radius 0.5 damage 7 angle 80 bkb 80 kbg 75 trip 20 angle_type forward }
         part_intangible { start 6 end 16 limb true }
         motion { start 5 end 16 vx 0.125 vy 0 }
     }
@@ -4731,7 +4733,7 @@ weapon bracers {
         hitbox { start 4 end 5 x 1.7 y 1.4 radius 0.59999 damage 4 angle 180 bkb 20 kbg 20 priority 2 hitlag 150 angle_type forward }
     }
     move ftilt {
-        total_frames 33
+        total_frames 34
         hitbox { start 6 end 8 x 2.09999 y 2.59999 radius 0.7 damage 9 angle 361 bkb 50 kbg 78 aim up angle_type forward }
         hitbox { start 6 end 8 x 1.2 y 2.09999 radius 0.59999 damage 9 angle 361 bkb 50 kbg 78 priority 1 aim up angle_type forward }
         hitbox { start 6 end 8 x 0.29999 y 1.59999 radius 0.4 damage 9 angle 361 bkb 50 kbg 78 priority 2 aim up angle_type forward }
@@ -4742,6 +4744,11 @@ weapon bracers {
         hitbox { start 6 end 8 x 1.2 y 1.2 radius 0.59999 damage 9 angle 361 bkb 50 kbg 78 priority 1 aim down trip 15 angle_type forward }
         hitbox { start 6 end 8 x 0.29999 y 1.7 radius 0.4 damage 9 angle 361 bkb 50 kbg 78 priority 2 aim down trip 15 angle_type forward }
         part_intangible { start 5 end 8 limb true }
+        script {
+            // Bracers forward tilt: aimed up or down it lasts one frame longer than straight (FAF 36 against 35, the reference's "oversight").
+            // The move is 36 frames long; straight, it ends on the straight version's last frame.
+            if aimed == 0 && frame >= 33 { end(); }
+        }
     }
     move utilt {
         total_frames 37

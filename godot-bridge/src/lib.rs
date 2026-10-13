@@ -928,6 +928,13 @@ impl SimRunner {
         GString::from(name.as_str())
     }
 
+    /// Whether the fighter's knockdown (state `Knockdown`) is a trip (`Fighter::tripped`): the view sits it up instead of laying it
+    /// flat (owner decision 52). Read-only; false in any other state.
+    #[func]
+    fn fighter_tripped(&self, i: i32) -> bool {
+        self.fighter(i).is_some_and(|fi| fi.tripped)
+    }
+
     #[func]
     fn fighter_state_frame(&self, i: i32) -> i32 {
         self.fighter(i).map_or(0, |fi| i32::from(fi.state_frame))

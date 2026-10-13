@@ -695,6 +695,11 @@ fn tilts(w: &mut Weapon) {
             r(11, 12, -1, 4, 4, 100, 155, 38, 86, 2, 0),
         ],
     );
+    // The 50% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 25 and 155 degrees it lifts, so it never trips
+    // on the flat stages.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 50;
+    }
 
     // Dash attack: a shoulder charge. Clean on frames 7-9: 10%, radius 8; late 10-16: 6%, radius 6; 65 degrees, BK 90, KS 67, hitlag
     // x1.25, shield damage +1 (110 / 117 percent [D]), shieldstun x1.5. The swept boxes (10.0 down to 8.0 and to 6.0 of the

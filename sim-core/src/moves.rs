@@ -2301,6 +2301,11 @@ pub fn needles() -> Weapon {
             r(5, 6, 11, 2, 5, 45, 90, 37, 100, 2, 0),
         ],
     );
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51): at 70 and 90 degrees it lifts, so it never
+    // trips on the flat stages (ssbwiki.com: "can never occur").
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
 
     // Neutral air: a held flying kick. Clean on frames 3-6 (6 / 6 / 5%), late 7-30 (4 / 4 / 3%), angle 361, BK 30, KS 100.
     // Landing lag 6, autocancels on frames 1-2 and from 31, FAF 50. One hit per target (clean and late are one group).
@@ -2580,6 +2585,9 @@ pub fn needles() -> Weapon {
     );
     set_rows(&mut dsmash, &[0, 1, 2, 3], |h| h.fixed_kb = 35);
     set_rows(&mut dsmash, &[0], |h| h.targets = TARGETS_AERIAL);
+    // The second hit's 30% trip chance (ssbwiki.com raw table, 13.0.1; owner decision 51): at 43 degrees it lifts, so it never trips
+    // on the flat stages.
+    set_rows(&mut dsmash, &[4, 5], |h| h.trip = 30);
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 
@@ -2907,6 +2915,10 @@ pub fn embers() -> Weapon {
             r(5, 7, 10, 2, 5, 50, 80, 35, 80, 1, 0),
         ],
     );
+    // The 40% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 80 degrees it lifts, so it never trips here.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
 
     // Dash attack: a sliding kick. Clean on frames 6-9: 8%, 50 degrees, BK 100, KS 43; late 10-25: 6%, 48 degrees, BK 100, KS 30; hitlag
     // x1.25, shield damage +1 (as a percent of its damage). FAF 38.
@@ -3702,6 +3714,11 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51, sim 100): at the 361 angle's low knockback
+    // it sends along the ground, so it can trip.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
     // Neutral air (the reference's): a split kick held out, both legs and the hips hitting. Clean on frames 7-9: 12%, angle 361, BKB
     // 30, KBG 75; late on frames 10-26: 8%, BKB 0, KBG 100 (a lingering hit). Landing lag 9, autocancels on frames 1-6 and from 39, FAF 43.
     w.moves[MoveId::NAir as usize] = ref_move(
@@ -3921,6 +3938,11 @@ pub fn claws() -> Weapon {
             r(21, 22, -20, 6, 11, 140, 30, 50, 90, 0, 1),
         ],
     );
+    // Its 35% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51): at 30 and 35 degrees it lifts, so it never
+    // trips on the flat stages.
+    for h in &mut dsmash.hitboxes {
+        h.trip = 35;
+    }
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 

@@ -1540,6 +1540,11 @@ pub struct Ruleset {
     pub trip_lag: u8,
     pub trip_max: u8,
     pub trip_invuln: u8,
+    /// The reference's base trip chance (owner decision 50): a hit of more than `trip_base_kb` knockback that would not lift a
+    /// grounded fighter trips it `trip_base` percent of the time, and a hit with a trip chance of its own adds this to it (7 and 55).
+    /// 0 turns the base chance off.
+    pub trip_base: u8,
+    pub trip_base_kb: Fx,
 }
 
 impl Ruleset {
@@ -1644,6 +1649,8 @@ impl Ruleset {
             trip_lag: 40,
             trip_max: 100,
             trip_invuln: 5,
+            trip_base: 7,
+            trip_base_kb: Fx::from_int(55),
         }
     }
 }
@@ -1749,6 +1756,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.trip_lag);
         h.write_u8(self.trip_max);
         h.write_u8(self.trip_invuln);
+        h.write_u8(self.trip_base);
+        self.trip_base_kb.hash_into(h);
     }
 }
 

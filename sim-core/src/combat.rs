@@ -967,14 +967,16 @@ fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
-    // A trip (the reference's trip chance, sim 86): a fighter on the ground whose launch would not lift it off the ground (sent
-    // sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of being launched, if the game's
-    // own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use up the generator.
-    if hb.trip > 0
+    // A trip (the reference's trip chance, sim 86; the base chance, owner decision 50): a fighter on the ground whose launch would not
+    // lift it off the ground (sent sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of
+    // being launched, if the game's own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use
+    // up the generator.
+    let chance = trip_chance(&hb, kb, rules);
+    if chance > 0
         && def.grounded()
         && !matches!(def.state, S::Knockdown | S::GetUp)
         && crate::trig::sin(angle) <= Fx::ZERO
-        && state.rng.range(100) < u32::from(hb.trip)
+        && state.rng.range(100) < u32::from(chance)
     {
         fighter::trip(def, rules);
         def.hitlag = if crouching {
@@ -1052,6 +1054,22 @@ fn apply_hit(
     def.fast_fall = false;
     def.tumble = false;
     def.hit_mask = 0;
+}
+
+/// The percent chance that a hit trips a grounded fighter it would not lift (see `apply_hit`): the reference's base chance
+/// (`Ruleset::trip_base`, 7) for a hit of more than `trip_base_kb` (55) knockback, and a hit with a chance of its own (`Hitbox::trip`)
+/// always adds the base chance to it, whatever its knockback (ssbwiki.com, Tripping: a 40% move trips 47% of the time). A throw never
+/// trips [E: the reference's thrown fighters are launched]. At most 100.
+pub fn trip_chance(hb: &Hitbox, kb: Fx, rules: &Ruleset) -> u8 {
+    if hb.kind == HIT_THROW {
+        0
+    } else if hb.trip > 0 {
+        hb.trip.saturating_add(rules.trip_base).min(100)
+    } else if kb > rules.trip_base_kb {
+        rules.trip_base.min(100)
+    } else {
+        0
+    }
 }
 
 /// The knockback a hit gives (set knockback, or the formula with rage), before crouch cancelling.

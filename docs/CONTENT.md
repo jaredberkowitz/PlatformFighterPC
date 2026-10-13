@@ -169,7 +169,7 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`, `locked`, `lock_x`, `lock_y`, `boost`, `boosting`, `grab`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`, `locked`, `lock_x`, `lock_y`, `boost`, `boosting`, `grab`, `aimed`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap` and `special_tap` are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
 `hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
 `presses` and `releases` count the attack button's presses and releases since the attack began (the move a button started;
@@ -177,7 +177,9 @@ moves reached from it by `next`, `goto` or a counter keep counting), **hitlag in
 that started an attack is 1 (and a release of it already made counts 1; an attack started by another button starts at 0). A rapid jab's entry rule reads them (the reference's "pressed
 3 times and released twice since jab 1"). `wall` is 1 when the fighter's last movement step (last frame's, as the script runs before the move moves) was stopped by a wall: what a slide that crashes into walls reads.
 `boost` is the fighter's gauge (the body's Boost gauge, 0 to its `max`; 0 for a body without one), `boosting` 1 while its powered
-mode runs, `grab` 1 while the grab button is held.
+mode runs, `grab` 1 while the grab button is held. `aimed` is how the attack was aimed as it started: 1 up, -1 down, 0 straight (a
+forward tilt or smash with the stick tilted up or down; the same as `hitbox aim`), so an angled version can last longer than the
+straight one (the hauler's forward tilt: sim 100).
 `flick` is 1 when the current special was started like a smash attack (the stick flicked its way, within the smash-flick buffer, or the strong button held): what a special with a farther smash-input version reads.
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
@@ -272,6 +274,11 @@ Line numbers inside a script count from its first non-blank line.
   Still schema 6 (sim v86, before schema 6 was released): hitboxes may have `trip` and `rebounds`, the ruleset `trip_lag`,
   `trip_max` and `trip_invuln`; every one defaults to the old behaviour. (If schema 6 has shipped by the time this merges, these
   belong in a schema 7 with a migration that rewrites nothing.)
+  Still schema 6 (sim v100, a placeholder number, the hauler's phase 2): the ruleset's `trip_base` (7) and `trip_base_kb` (55), the
+  reference's base trip chance (owner decision 50): any hit of more than `trip_base_kb` knockback that would not lift a grounded
+  fighter trips it `trip_base` percent of the time, and a hit with its own `trip` adds `trip_base` to it (a 40% hit trips 47% of the
+  time); throws never trip. **This one changes older content** (a file without the field gets the standard 7, as the owner asked:
+  every fighter trips as the reference's do); `trip_base 0` turns it off.
 * `sim_version` is the simulation's behaviour version (`SIM_VERSION`). Content packed for another version is
   refused: the same numbers can play differently.
 * `hash` fingerprints everything the simulation reads (sim version, parameters, movesets including script

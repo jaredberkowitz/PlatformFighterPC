@@ -734,3 +734,21 @@ fn the_grab_register_reads_the_grab_button() {
     sim.tick(inp(0, 0, GRAB));
     assert_eq!(sim.f().vars[0], Fx::ONE.raw());
 }
+
+// ---- `aimed` (owner decision 52, sim 100) ---------------------------------------------------------------------------------------
+
+#[test]
+fn the_aimed_register_reads_how_the_attack_was_aimed_as_it_started() {
+    // A forward tilt tilted up, straight or down: the script keeps what `aimed` read (1, 0, -1).
+    for (stick_y, want) in [(50i8, 1), (0, 0), (-50, -1)] {
+        let mut sim = Sim::with_chars([0, 1, 0, 1]);
+        sim.content.weapons[0].moves[MoveId::FTilt as usize].script =
+            Some(fighter_script("var a; a = aimed;"));
+        sim.stand(0, Fx::from_int(-7), 1);
+        sim.stand(1, Fx::from_int(7), -1);
+        sim.tick(inp(60, stick_y, sim_core::input::buttons::ATTACK));
+        assert_eq!(MoveId::from_index(sim.f().move_id), MoveId::FTilt);
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(sim.f().vars[0], Fx::from_int(want).raw(), "stick {stick_y}");
+    }
+}

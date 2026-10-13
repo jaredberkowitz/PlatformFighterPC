@@ -140,9 +140,13 @@ fn tilts(w: &mut Weapon) {
     // Forward tilt: a backhand swipe on frames 7-9, angle 361 (type 3), BK 50, KS 78 (6.0.0). Straight 8%; aimed up or down 9%, and
     // the down one has a 15% trip chance. The fist (radius 5.5, 10.0 along the forearm), the elbow (5.0, 1.5 along it) and the
     // shoulder (3.5) [R], the arm straight out from the shoulder (3.0 ahead, 13.0 up) level, 30 degrees up or 30 down [E]. The lower
-    // arm is intangible on frames 6-9. FAF 35. (The reference's angled versions last one frame longer, FAF 36, "an oversight": one
-    // move has one length here, so they end on 35 too.)
-    let mut ftilt = ref_move(35, 0, 0, 255, &[]);
+    // arm is intangible on frames 6-9. FAF 35 straight; the reference's angled versions last one frame longer, FAF 36 ("an oversight"):
+    // the move is the angled length and its script ends it a frame sooner when it was not aimed (the `aimed` register, owner decision 52).
+    let mut ftilt = ref_move(36, 0, 0, 255, &[]);
+    ftilt.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_ftilt.script"),
+    ));
     for (aim, damage, dir) in [
         (AIM_UP, 90, (866, 500)),
         (AIM_STRAIGHT, 80, (1000, 0)),

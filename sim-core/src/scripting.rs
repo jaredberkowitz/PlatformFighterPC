@@ -139,6 +139,7 @@ impl Host for FighterHost<'_> {
             api::R_BOOST => f.gauge.raw(),
             api::R_BOOSTING => flag(f.gauge_mode > 0),
             api::R_GRAB => flag(f.held(buttons::GRAB)),
+            api::R_AIM => Fx::from_int(i32::from(f.aim)).raw(),
             _ => 0,
         }
     }
