@@ -75,7 +75,57 @@ pub fn staff() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    // Phase 2: the specials (none of the claws' follow-up slots belong to the staff).
+    for id in [MoveId::Ext0, MoveId::Ext1, MoveId::Ext2] {
+        w.moves[id as usize] = Move::empty();
+    }
+    warp(&mut w);
     w
+}
+
+/// A reference speed or acceleration in thousandths of its units a frame, as world units a frame (1 world unit = 8) [D].
+const fn su(thousandths: i32) -> Fx {
+    Fx::from_ratio(thousandths, 8000)
+}
+
+/// Up special, the warp (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Warp").
+///
+/// * Startup on frames 1-15 with gravity 0.03 and a top fall speed of 0.75 (reference units a frame) [R].
+/// * On frame 16 the stick picks the direction (straight up when near neutral, and how far it is pushed does not matter [E]); 17
+///   frames of travel (16-32) at 3.5 reference units a frame (59.5 in all, 7.44 world units) [R], intangible on 16-32 [R], no hitbox.
+///   The travel follows the ground if it meets it (it never sinks in, and glides on to the edge) and stops at walls and ceilings [E:
+///   gap 9]; touching down during it does not end the move (`lands_from`, the reference's frame 33).
+/// * The reappearance on frame 33 at half the speed [R], then the body's own air physics [E: gap 10] or the ground's friction; FAF 68
+///   [R]. Ending in the air leaves the fighter helpless with 22 frames of landing lag [R]; landing during the reappearance costs the
+///   same 22 [R]. Sliding off an edge during a grounded reappearance cancels it into an ordinary fall (the shared special-move edge
+///   cancel) [R].
+/// * Ledges can be caught from the reappearance on, in front and behind [E: gap 8; "grabs ledges more easily" since 2.0.0, no
+///   numbers published].
+fn warp(w: &mut Weapon) {
+    let mut warp = ref_move(68, 22, 0, 255, &[]);
+    warp.air_blocks = vec![AirBlock {
+        from: 0,
+        to: 14,
+        gravity: Some(su(30)),
+        max_fall: Some(su(750)),
+        friction: None,
+        drift: 100,
+        accel: 100,
+    }];
+    // Intangible on the reference's frames 16-32 (move frames 15-31).
+    warp.intangible_from = 15;
+    warp.intangible = 32;
+    // Touching down before the reappearance carries the warp on along the ground.
+    warp.lands_from = 32;
+    warp.ledge_front_from = 32;
+    warp.ledge_back_from = 32;
+    warp.helpless_after = true;
+    warp.fall_landing_lag = 22;
+    warp.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/staff_warp.script"),
+    ));
+    w.moves[MoveId::UpSpecial as usize] = warp;
 }
 
 fn jabs(w: &mut Weapon) {

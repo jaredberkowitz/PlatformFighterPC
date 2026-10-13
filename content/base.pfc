@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 72
-    hash 3f63f161941af7a5
+    sim_version 74
+    hash 82cfe219e1b8368d
 }
 
 ruleset {
@@ -3037,65 +3037,35 @@ weapon staff {
         }
     }
     move up_special {
-        total_frames 70
-        landing_lag 36
+        total_frames 66
+        landing_lag 22
+        intangible 32
         helpless_after true
-        land_continue true
-        ledge_front_from 26
-        ledge_back_from 25
-        fall_drift 65
-        fall_landing_lag 36
-        rehit_start 26
-        rehit_every 2
-        rehit_groups 2
-        hitbox { start 17 end 20 x 0.09999 y 1 radius 0.9 damage 4 angle 93 bkb 50 kbg 10 set_weight true angle_type position }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 60 kbg 20 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.79999 damage 2.5 angle 367 bkb 35 kbg 20 priority 1 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 26 end 28 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 40 bkb 60 kbg 20 priority 2 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 26 end 28 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 367 bkb 40 kbg 20 priority 3 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 70 kbg 20 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.79999 damage 2.5 angle 367 bkb 35 kbg 20 priority 1 group 1 hitlag 50 targets aerial sdi 0 }
-        hitbox { start 29 end 31 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 40 bkb 70 kbg 20 priority 2 group 1 hitlag 50 targets grounded sdi 0 }
-        hitbox { start 29 end 31 x 0.5 y 0.79999 radius 0.4 damage 2.5 angle 367 bkb 40 kbg 20 priority 3 group 1 hitlag 50 targets aerial sdi 0 }
+        ledge_front_from 32
+        ledge_back_from 32
+        fall_landing_lag 22
+        intangible_from 15
+        lands_from 32
+        air { from 0 to 14 gravity 0.00374 max_fall 0.09375 }
         script {
-            // Up special (the reference's parameters, in world units: reference / 8). In the air the startup keeps 0.67 of the horizontal
-            // speed and stops the fall, then sinks at 0.02 with friction 0.01. The stick on frame 16 aims the dash (neutral: straight up;
-            // backward turns the brawler round; on the ground it cannot aim below level). The dash is frames 26-32: 3.8 a frame, less 0.2 a
-            // frame after its first 4. Touching down while dashing more than 20 degrees below level bounces off (30 = ext2); less, it carries on
-            // along the ground. Frame 33 keeps 0.7 of the speed on the ground, 0.8 in the air, and the move goes on as its ending: on the ground
-            // (28 = ext0) or in the air (29 = ext1), with the ending's friction and gravity.
+            // Staff up special (the warp): on frame 15 (the reference's 16) the stick picks the direction (straight up when it is near neutral;
+            // how far it is pushed does not matter), then 17 frames of travel at 3.5 reference units a frame (0.4375 world units) along it, and
+            // on frame 32 (the reference's 33, the reappearance) half that speed once, after which the move's own air physics (or the ground's
+            // friction) take over. The intangibility (16-32) is the move's data.
             var dx;
             var dy;
-            if frame == 1 && grounded == 0 { set_vel(vx * 0.67, 0); }
-            if frame >= 2 && frame <= 24 && grounded == 0 {
-                set_vel(sign(vx) * max(abs(vx) - 0.00125, 0), vy - 0.0025);
-            }
             if frame == 15 {
-                let sx = stick_x;
-                let sy = stick_y;
-                if grounded && sy < 0 { sy = 0; }
-                let len = sqrt(sx * sx + sy * sy);
-                if len < 0.25 {
+                let len = sqrt(stick_x * stick_x + stick_y * stick_y);
+                if len < 0.2 {
                     dx = 0;
                     dy = 1;
                 } else {
-                    if sx < 0 { turn(); sx = -sx; }
-                    dx = sx / len;
-                    dy = sy / len;
+                    dx = stick_x / len;
+                    dy = stick_y / len;
                 }
             }
-            if frame >= 25 && frame <= 31 {
-                if grounded && dy < -0.342 { goto(30); }
-                let speed = 0.475;
-                if frame > 28 { speed = 0.475 - 0.025 * (frame - 28); }
-                set_vel(dx * speed, dy * speed);
-            }
-            if frame == 32 {
-                if grounded { set_vel(vx * 0.7, 0); } else { set_vel(vx * 0.8, vy * 0.8); }
-            }
-            if frame == 33 {
-                if grounded { goto(28); } else { goto(29); }
-            }
+            if frame >= 15 && frame <= 31 { set_vel(dx * 0.4375, dy * 0.4375); }
+            if frame == 32 { set_vel(dx * 0.21875, dy * 0.21875); }
         }
     }
     move down_special {
@@ -3156,63 +3126,6 @@ weapon staff {
         hitbox { start 24 end 25 x 1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
         hitbox { start 24 end 25 x 1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
         hitbox { start 24 end 25 x 0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 angle_type position }
-    }
-    move ext0 {
-        total_frames 32
-        landing_lag 36
-        helpless_after true
-        ledge_front_from 0
-        ledge_back_from 0
-        fall_drift 65
-        fall_landing_lag 36
-        hitbox { start 2 end 3 x 0.59999 y 0.79999 radius 0.79999 damage 5 angle 361 bkb 60 kbg 148 group 2 hitlag 250 angle_type forward }
-        hitbox { start 2 end 3 x 0.4 y 0.79999 radius 1 damage 5 angle 361 bkb 60 kbg 148 priority 1 group 2 hitlag 250 angle_type forward }
-        hitbox { start 2 end 3 x 0.2 y 0.9 radius 0.59999 damage 5 angle 361 bkb 60 kbg 148 priority 2 group 2 hitlag 250 angle_type forward }
-        script {
-            // Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
-            // gravity: 0.1 (the reference's numbers, in world units: reference / 8).
-            if grounded {
-                set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
-            }
-        }
-    }
-    move ext1 {
-        total_frames 37
-        landing_lag 36
-        helpless_after true
-        ledge_front_from 0
-        ledge_back_from 0
-        fall_drift 65
-        fall_landing_lag 36
-        hitbox { start 3 end 4 x 0.59999 y 0.9 radius 0.79999 damage 6 angle 361 bkb 60 kbg 136 group 2 hitlag 250 angle_type forward }
-        hitbox { start 3 end 4 x 0.09999 y 0.9 radius 0.79999 damage 6 angle 361 bkb 60 kbg 136 priority 1 group 2 hitlag 250 angle_type forward }
-        script {
-            // Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
-            // gravity: 0.1 (the reference's numbers, in world units: reference / 8).
-            if grounded {
-                set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
-            }
-        }
-    }
-    move ext2 {
-        total_frames 21
-        landing_lag 36
-        helpless_after true
-        fall_drift 65
-        fall_landing_lag 36
-        script {
-            // Up special, bouncing off the ground (ext2): 0.4 of the horizontal speed and 3 up, then friction 0.16 and gravity: 0.2 (the
-            // reference's numbers, in world units: reference / 8).
-            if frame == 1 {
-                set_vel(vx * 0.4, 0.375);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
-            }
-        }
     }
     move pivot_grab {
         total_frames 41

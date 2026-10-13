@@ -1,0 +1,18 @@
+// Staff up special (the warp): on frame 15 (the reference's 16) the stick picks the direction (straight up when it is near neutral;
+// how far it is pushed does not matter), then 17 frames of travel at 3.5 reference units a frame (0.4375 world units) along it, and
+// on frame 32 (the reference's 33, the reappearance) half that speed once, after which the move's own air physics (or the ground's
+// friction) take over. The intangibility (16-32) is the move's data.
+var dx;
+var dy;
+if frame == 15 {
+    let len = sqrt(stick_x * stick_x + stick_y * stick_y);
+    if len < 0.2 {
+        dx = 0;
+        dy = 1;
+    } else {
+        dx = stick_x / len;
+        dy = stick_y / len;
+    }
+}
+if frame >= 15 && frame <= 31 { set_vel(dx * 0.4375, dy * 0.4375); }
+if frame == 32 { set_vel(dx * 0.21875, dy * 0.21875); }

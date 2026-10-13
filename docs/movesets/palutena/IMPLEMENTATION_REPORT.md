@@ -141,7 +141,39 @@ the Godot tests (`godot/tests/*.gd`): updated for the sixth class, but they need
   the forward air (a palm pulse, 9-11); the back air (shield bash behind, 8-10); the down air (staff driven down, 10-11); the back throw
   (turns round on 20).
 
-## Phase 2 plan: the specials
+## Phase 2 (sims 74 onward, branch `seer-phase2`): the specials
+
+Branch `seer-phase2` from `movesets` at `17e91f7` (sim 72, after the Gauntlets' phase 2). A parallel cleanup branch takes sim 73; this
+one starts at 74 and the two are reconciled at merge. Built in the owner's order, each milestone tested and committed before the next.
+Tests: `sim-core/tests/staff_specials.rs`.
+
+### Milestone 1 (sim 74): Warp (up special)
+
+`moves_staff.rs` `warp`, script `scripts/staff_warp.script`. No new engine field: the E11 addition the plan called
+`land_continue_to` already exists as **`Move::lands_from`** (built with the Gauntlets' E11 additions: "touching down before this move
+frame does not end the move"), which is exactly that frame. The claws' follow-up slots `ext0` to `ext2` are cleared.
+
+| Part | Built | Label |
+| --- | --- | --- |
+| Startup 1-15 | an air block on move frames 0-14: gravity 0.03, top fall 0.75 (reference units) | [R] |
+| Direction | read on frame 16 (move 15) from the stick, normalised; under 0.2 of its travel it is straight up; the tilt does not change the distance | [R] frame; [E] neutral = up, magnitude ignored, any angle (not snapped), facing unchanged |
+| Travel | 17 frames (16-32) at 3.5 reference units (0.4375 world) along it: 7.4375 world units | [R] / [D] |
+| Intangible | 16-32 (`intangible_from` 15, `intangible` 32) | [R] |
+| Against the stage | a motion: it follows the ground if it meets it (never sinks in; glides on, leaves at an edge), stops at walls and ceilings; touching down before frame 33 carries on (`lands_from` 32) | [E] gap 9 |
+| Reappearance | frame 33 at half speed once, then the body's own air physics (in the air) or the ground's friction | [R] x0.5; [E] gap 10 for the physics |
+| End | FAF 68; ending in the air: helpless, landing lag 22; landing during the reappearance: 22 | [R] |
+| Edge-cancel | a grounded reappearance sliding off an edge ends in an ordinary fall (the shared rule in `slide_on_platform`) | [R] behaviour |
+| Ledges | front and back from frame 33 (`ledge_front_from` / `ledge_back_from` 32) | [E] gap 8 ("more easily" since 2.0.0, no numbers) |
+
+Tests (all run): `the_warps_data_is_the_references`, `the_warp_travels_59_5_reference_units_straight_up_intangible_on_16_to_32` (the
+exact distance, the half-speed frame, intangibility frame by frame), `the_stick_on_frame_16_aims_the_warp_and_later_changes_do_not`
+(45 degrees, neutral, a light tilt the full distance), `an_aerial_warp_ends_helpless_and_lands_with_22_frames`,
+`landing_during_the_reappearance_costs_22_frames`, `a_warp_into_the_ground_glides_along_it_and_reappears_standing`,
+`a_grounded_warp_along_the_stage_ends_standing_and_one_sliding_off_an_edge_is_cancelled`,
+`the_warp_catches_a_ledge_from_the_reappearance_on`. Workspace tests, clippy, fmt, `fuzz-rollback 1000` and `net-fuzz 200` at 0
+mismatches.
+
+## Phase 2 plan: the specials (as written before building)
 
 Slots: the rapid jab holds `ext10` to `ext12`; the claws' placeholders in `ext0` to `ext2` go. The specials need two: the
 counterattack (`ext0`) and the reflection (`ext1`).
