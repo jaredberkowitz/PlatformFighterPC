@@ -6,8 +6,8 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::moves::{
-    Hitbox, Move, MoveId, ANGLE_AUTOLINK, EFFECT_NORMAL, HIT_NORMAL, TARGETS_AERIAL, TARGETS_ALL,
-    TARGETS_GROUNDED,
+    Hitbox, Move, MoveId, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK, EFFECT_NORMAL,
+    HIT_NORMAL, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, Vec2};
@@ -36,6 +36,8 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         hitstun_add: 0,
         sdi: 100,
         link_ahead: Fx::ZERO,
+        aim: AIM_ANY,
+        set_weight: false,
     }
 }
 
@@ -291,4 +293,64 @@ fn a_landing_hit_comes_out_on_a_real_landing_and_only_once() {
     sim.ticks(60, inp(0, 0, 0));
     assert_eq!(sim.fighter(1).percent, Fx::ZERO);
     let _ = Vec2::ZERO;
+}
+
+#[test]
+fn an_aimed_hitbox_is_out_only_when_the_move_was_aimed_its_way() {
+    // One 1% box for each aim and one for any aim: aimed up, the up box and the any box land (2%), and so on.
+    let build = || {
+        let mut m = mv(
+            30,
+            vec![
+                hb(2, 2, 1, 0, 0, 0, 0),
+                hb(2, 2, 1, 0, 0, 0, 1),
+                hb(2, 2, 1, 0, 0, 0, 2),
+                hb(2, 2, 1, 0, 0, 0, 3),
+            ],
+        );
+        m.hitboxes[1].aim = AIM_UP;
+        m.hitboxes[2].aim = AIM_STRAIGHT;
+        m.hitboxes[3].aim = AIM_DOWN;
+        assert_eq!(m.hitboxes[0].aim, AIM_ANY);
+        m
+    };
+    for aim in [1i8, 0, -1] {
+        let mut sim = setup(build());
+        start(&mut sim);
+        sim.state.fighters[0].aim = aim;
+        sim.ticks(40, inp(0, 0, 0));
+        assert_eq!(sim.fighter(1).percent, dealt(&sim, 2), "aim {aim}");
+    }
+    // A move started any other way is straight (the aim is reset as an attack begins).
+    let mut sim = setup(build());
+    sim.state.fighters[0].aim = 1;
+    start(&mut sim);
+    assert_eq!(sim.f().aim, 0);
+}
+
+#[test]
+fn a_set_weight_hit_launches_light_and_heavy_fighters_alike() {
+    // The same hit on a light and a heavy target: normally the light one goes further; with set weight both go the same.
+    let launch = |victim: u8, set_weight: bool| {
+        let mut sim = Sim::with_chars([0, victim, 0, 0]);
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
+        let mut m = mv(30, vec![hb(2, 2, 5, 80, 40, 100, 0)]);
+        m.hitboxes[0].set_weight = set_weight;
+        sim.content.weapons[0].moves[MoveId::NSpecial as usize] = m;
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, Fx::ONE, -1);
+        sim.state.fighters[1].percent = Fx::from_int(60);
+        start(&mut sim);
+        for _ in 0..30 {
+            sim.tick(inp(0, 0, 0));
+            if sim.fighter(1).percent > Fx::from_int(60) && !sim.fighter(1).launch_pending {
+                return sim.fighter(1).kb_vel.length();
+            }
+        }
+        panic!("no hit");
+    };
+    // (The rogue weighs 78, the brawler 92.)
+    assert!(launch(2, false) > launch(1, false));
+    assert!((launch(2, true) - launch(1, true)).abs() <= Fx::from_raw(64));
 }

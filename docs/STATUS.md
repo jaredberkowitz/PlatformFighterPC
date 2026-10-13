@@ -37,6 +37,11 @@ outline; it replaces the Tripo model, whose licence was unclear. Then magic-hour
 violet shadows on Meadow, straw hay bales and a built fence, and drifting motes and light shafts (`docs/ART_PIPELINE.md` twenty-ninth pass). Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on
 hold.
 
+Moveset ports from the reference game (`docs/movesets/ROSTER_STATUS.md`): **sim 57**, the fourth class, Embers on the tumbler body
+(modelled on the reference game's Mario), phase 1: the body and every normal on reference data (`docs/movesets/mario/`), with early jab
+continuation (`Move::next_from`), angled forward tilts and smashes (`Hitbox::aim`) and set-weight hits (`Hitbox::set_weight`); its
+specials are still the claws' until phase 2.
+
 ## Roadmap progress
 
 | Phase | State | Where to read |

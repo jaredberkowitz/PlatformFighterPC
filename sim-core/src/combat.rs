@@ -16,8 +16,9 @@ use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
-    Hitbox, Move, MoveId, Reflector, Weapon, ANGLE_AUTOLINK, ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB,
-    HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
+    ANGLE_PULL, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL,
+    TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -97,7 +98,7 @@ pub fn active_hitboxes<'a>(
     mv.hitboxes
         .iter()
         .enumerate()
-        .filter(move |(_, hb)| hb.start <= frame && frame <= hb.end)
+        .filter(move |(_, hb)| hb.start <= frame && frame <= hb.end && aimed(hb.aim, f.aim))
         .map(move |(i, hb)| {
             let mut hb = *hb;
             hb.x = hb.x * scale;
@@ -106,6 +107,16 @@ pub fn active_hitboxes<'a>(
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
             (i, hb, center)
         })
+}
+
+/// Whether a hitbox with `aim` is out for an attack aimed `aim_of_move` (`Fighter::aim`: 1 up, -1 down, 0 straight).
+fn aimed(aim: u8, aim_of_move: i8) -> bool {
+    match aim {
+        AIM_UP => aim_of_move > 0,
+        AIM_DOWN => aim_of_move < 0,
+        AIM_STRAIGHT => aim_of_move == 0,
+        _ => true,
+    }
 }
 
 fn overlaps(c1: Vec2, r1: Fx, c2: Vec2, r2: Fx) -> bool {
@@ -686,18 +697,19 @@ fn apply_hit(
     }
 
     def.percent = (def.percent + hb.damage * rules.damage_mult).min(Fx::from_int(999));
+    // (A set-weight hit treats every victim as weighing 100.)
+    let weight = if hb.set_weight {
+        Fx::from_int(100)
+    } else {
+        defender_params.weight
+    };
     let mut kb = if hb.fixed_kb > 0 {
-        fixed_knockback(
-            hb.fixed_kb,
-            defender_params.weight,
-            hb.base_knockback,
-            hb.knockback_growth,
-        )
+        fixed_knockback(hb.fixed_kb, weight, hb.base_knockback, hb.knockback_growth)
     } else {
         knockback(
             def.percent,
             kb_damage,
-            defender_params.weight,
+            weight,
             hb.base_knockback,
             hb.knockback_growth,
         ) * rage

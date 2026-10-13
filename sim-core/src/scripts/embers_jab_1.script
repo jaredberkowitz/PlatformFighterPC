@@ -1,0 +1,3 @@
+// Embers jab 1. Holding attack (no new press) throws jab 1 again from frame 7, the reference's repeated jab: the move restarts on its
+// own slot (0). A new press carries on into jab 2 instead, from frame 5 (the move's `next_from`, not this script).
+if attack && frame == 6 { goto(0); }

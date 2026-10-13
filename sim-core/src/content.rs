@@ -740,6 +740,61 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A short middleweight all-rounder with a fast air speed and high, floaty jumps: the "tumbler" body of the Embers moveset. The
+    /// reference character's (SmashWiki attributes, the parameter file via dragdown.wiki, ultimateframedata.com,
+    /// `docs/movesets/mario/REFERENCE_DATA.md`): weight 98, walk 1.155, initial dash 1.936, run 1.76, traction 0.102, air speed 1.208,
+    /// air acceleration 0.01 + 0.07, air friction 0.015, gravity 0.087, fall 1.5 (fast 2.4), full hop 36.33, short hop 17.54, double
+    /// jump 36.33, ledge jump 38.165. On the ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, an initial dash
+    /// of 10 frames, a heavy landing of 4 (3 of lag). Air dodges 52 (neutral, intangible 3-29) and 71 / 87 / 116 (directional,
+    /// intangible 3-21); rolls 29 forward (intangible 4-15) and 34 back (5-16, not separate here); spot dodge 25 (3-17).
+    pub fn tumbler() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(87);
+        let (burst, arc) = Self::full_hop(gravity, su(36330));
+        FighterParams {
+            walk_speed: gu(1155),
+            run_speed: gu(1760),
+            dash_speed: gu(1936),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(105),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(10978),
+            dash_frames: 10,
+            heavy_landing_lag: 3,
+            air_speed: su(1208),
+            air_accel: su(10),
+            air_accel_stick: su(70),
+            air_friction: su(15),
+            gravity,
+            max_fall_speed: su(1500),
+            fast_fall_speed: su(2400),
+            air_dodge_frames: 52,
+            air_dodge_dir_down_frames: 71,
+            air_dodge_dir_side_frames: 87,
+            air_dodge_dir_up_frames: 116,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 29,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.102 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(204),
+            dash_attack_friction: gu(102),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(17540)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(36330)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(38165)),
+            weight: Fx::from_int(98),
+            weapon: 3,
+            // Rolls and spot dodge are the shared ones, which are the reference's (forward 29, intangible 4-15; back 34; spot dodge
+            // 25, intangible 3-17), apart from the back roll's own window (5-16), which is not separate here [D].
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1292,18 +1347,20 @@ impl Content {
         h.finish()
     }
 
-    /// The built-in fighters (a swordfighter, a close-range brawler and a quick rogue) on a main stage with platforms.
+    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue and an all-round tumbler) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
                 FighterParams::duelist(),
                 FighterParams::brawler(),
                 FighterParams::rogue(),
+                FighterParams::tumbler(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
                 crate::moves::claws(),
                 crate::moves::needles(),
+                crate::moves::embers(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1313,11 +1370,13 @@ impl Content {
                     "duelist".to_string(),
                     "brawler".to_string(),
                     "rogue".to_string(),
+                    "tumbler".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
                     "claws".to_string(),
                     "needles".to_string(),
+                    "embers".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

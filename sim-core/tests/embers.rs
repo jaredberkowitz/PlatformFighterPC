@@ -1,0 +1,865 @@
+//! The Embers moveset on the tumbler body (class 3), modelled mechanically on a reference character (phase 1: the body and every
+//! normal; the specials are still the claws'). Frame data against the reference for every normal, checked in the data and by running
+//! the moves; hit properties; the jab's continuable windows and repeated jab; the angled forward tilt and smash; the down air's loop,
+//! final hit and landing hit; landing lag and autocancels; grabs, pummel and throws; the body's jump air times; and determinism.
+//! Reference data and sources: `docs/movesets/mario/REFERENCE_DATA.md`.
+
+mod common;
+
+use common::{fx, inp, Sim};
+use sim_core::input::buttons::{ATTACK, GRAB, JUMP};
+use sim_core::moves::{MoveId, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, HIT_GRAB};
+use sim_core::state::FighterState as S;
+use sim_core::{step, Content, Fx, GameState, Rng, Vec2, MAX_FIGHTERS};
+
+const TUMBLER: u8 = 3;
+
+/// The tumbler (player 0) and a duelist (player 1), the others out of the match.
+fn duel() -> Sim {
+    let mut sim = Sim::with_chars([TUMBLER, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim
+}
+
+fn embers(sim: &Sim) -> &Weapon {
+    &sim.content.weapons[usize::from(sim.content.fighters[usize::from(TUMBLER)].weapon)]
+}
+
+fn dealt(sim: &Sim, tenths: i32) -> Fx {
+    Fx::from_ratio(tenths, 10) * sim.content.rules.damage_mult
+}
+
+/// A move's reference frame data: the move, its active windows [first, last], FAF, landing lag, autocancel before / from.
+type FrameData = (MoveId, &'static [(u8, u8)], u8, u8, u8, u8);
+
+/// Every normal, from `REFERENCE_DATA.md` (all [R] except the pummel's frame and FAF, [D]: see there).
+const FRAME_DATA: [FrameData; 26] = [
+    (MoveId::Jab, &[(2, 3)], 20, 0, 0, 255),
+    (MoveId::Jab2, &[(2, 3)], 22, 0, 0, 255),
+    (MoveId::Jab3, &[(3, 4)], 34, 0, 0, 255),
+    (MoveId::FTilt, &[(5, 7)], 26, 0, 0, 255),
+    (
+        MoveId::UTilt,
+        &[(5, 11), (5, 6), (7, 9), (10, 11)],
+        30,
+        0,
+        0,
+        255,
+    ),
+    (MoveId::DTilt, &[(5, 7)], 28, 0, 0, 255),
+    (MoveId::DashAttack, &[(6, 9), (10, 25)], 38, 0, 0, 255),
+    (MoveId::FSmash, &[(15, 17)], 48, 0, 0, 255),
+    (MoveId::USmash, &[(9, 10), (11, 12)], 40, 0, 0, 255),
+    (MoveId::DSmash, &[(5, 6), (14, 14)], 44, 0, 0, 255),
+    (MoveId::NAir, &[(3, 5), (6, 27)], 46, 6, 2, 39),
+    (MoveId::FAir, &[(16, 16), (17, 20), (21, 21)], 60, 17, 2, 43),
+    (MoveId::BAir, &[(6, 7), (8, 10)], 34, 6, 5, 19),
+    (MoveId::UAir, &[(4, 5), (6, 7)], 31, 6, 1, 17),
+    (
+        MoveId::DAir,
+        &[(5, 5), (7, 7), (9, 9), (11, 11), (13, 13), (23, 23)],
+        38,
+        15,
+        4,
+        33,
+    ),
+    (MoveId::Ext0, &[(1, 2)], 16, 0, 0, 255),
+    (MoveId::Grab, &[(6, 7)], 35, 0, 0, 255),
+    (MoveId::DashGrab, &[(9, 10)], 43, 0, 0, 255),
+    (MoveId::PivotGrab, &[(10, 11)], 37, 0, 0, 255),
+    // (The pummel: the reference's hit on frame 1 and FAF 7, one frame later here [D].)
+    (MoveId::Pummel, &[(2, 2)], 8, 0, 0, 255),
+    (MoveId::FThrow, &[(13, 13)], 28, 0, 0, 255),
+    (MoveId::BThrow, &[(44, 44), (13, 39)], 60, 0, 0, 255),
+    (MoveId::UThrow, &[(18, 18)], 40, 0, 0, 255),
+    (MoveId::DThrow, &[(18, 18)], 40, 0, 0, 255),
+    (MoveId::LedgeAttack, &[(24, 26)], 56, 0, 0, 255),
+    (MoveId::GetUpAttack, &[(16, 17), (21, 22)], 46, 0, 0, 255),
+];
+
+#[test]
+fn every_normal_has_the_references_frame_data() {
+    let sim = duel();
+    let w = embers(&sim);
+    for (id, windows, faf, landing, ac_before, ac_from) in FRAME_DATA {
+        let mv = w.get(id as u8);
+        // Every hitbox lies in one of the reference's windows, and every window has hitboxes (move frames are the reference's
+        // minus one).
+        for hb in &mv.hitboxes {
+            assert!(
+                windows
+                    .iter()
+                    .any(|&(a, b)| hb.start + 1 == a && hb.end + 1 == b),
+                "{id:?}: hitbox {}..{} (reference {}..{}) is in no window of {windows:?}",
+                hb.start,
+                hb.end,
+                hb.start + 1,
+                hb.end + 1
+            );
+        }
+        for &(a, b) in windows {
+            assert!(
+                mv.hitboxes
+                    .iter()
+                    .any(|hb| hb.start + 1 == a && hb.end + 1 == b),
+                "{id:?}: window {a}..{b} has no hitbox"
+            );
+        }
+        assert_eq!(u16::from(mv.total_frames) + 2, u16::from(faf), "{id:?} FAF");
+        assert_eq!(mv.landing_lag, landing, "{id:?} landing lag");
+        assert_eq!(mv.autocancel_before, ac_before, "{id:?} autocancel before");
+        let from = if ac_from == 255 { 255 } else { ac_from - 1 };
+        assert_eq!(mv.autocancel_after, from, "{id:?} autocancel from");
+    }
+    // The ledge attack's length is the body's (the state it runs in), the reference's FAF 56 too.
+    assert_eq!(
+        sim.content.fighters[usize::from(TUMBLER)].ledge_attack_frames,
+        55
+    );
+    // Intangibility: the ledge attack through frame 26, the get-up attack through 22.
+    assert_eq!(w.get(MoveId::LedgeAttack as u8).intangible, 26);
+    assert_eq!(w.get(MoveId::GetUpAttack as u8).intangible, 22);
+    // Smash charge frames: forward on 5, up on 6, down on 2 (move frames one less).
+    assert_eq!(w.get(MoveId::FSmash as u8).charge_at, Some(4));
+    assert_eq!(w.get(MoveId::USmash as u8).charge_at, Some(5));
+    assert_eq!(w.get(MoveId::DSmash as u8).charge_at, Some(1));
+}
+
+// ---- Running the moves -------------------------------------------------------------------------------------------------------
+
+/// Starts `id` for player 0 (in the air high up for an aerial, else standing; aimed `aim`), with player 1 pinned where the move's
+/// first hitbox of window `first` will be, and runs until player 1 is hit. Returns the reference frame of the hit.
+fn first_hit_frame(id: MoveId, first: u8, aim: i8) -> Option<u8> {
+    let mut sim = duel();
+    if id.is_aerial() {
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    } else {
+        sim.stand(0, Fx::ZERO, 1);
+    }
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], id);
+    sim.state.fighters[0].aim = aim;
+    let wanted = match aim {
+        1 => AIM_UP,
+        -1 => AIM_DOWN,
+        _ => AIM_STRAIGHT,
+    };
+    let hb = *embers(&sim)
+        .get(id as u8)
+        .hitboxes
+        .iter()
+        .find(|h| h.start + 1 == first && (h.aim == AIM_ANY || h.aim == wanted))
+        .expect("a hitbox in that window");
+    let before = sim.fighter(1).percent;
+    // (Move frame k is reached on tick k: the move began before tick 1.)
+    for tick in 1..=80u8 {
+        let me = sim.state.fighters[0].pos;
+        // The target's middle hurtbox on the hitbox's centre, held there (no fall, no launch) until it is hit.
+        let middle = sim.content.fighters[0].ecb_height * Fx::from_ratio(11, 20);
+        let at = Vec2::new(me.x + hb.x, (me.y + hb.y - middle).max(Fx::ZERO));
+        sim.put_airborne(1, at.x, at.y, Fx::ZERO, Fx::ZERO);
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > before {
+            return Some(tick + 1);
+        }
+        if sim.f().state != S::Attack {
+            return None;
+        }
+    }
+    None
+}
+
+#[test]
+fn every_attack_first_hits_on_its_reference_frame() {
+    // (move, the first frame of its first window, aim)
+    for (id, first, aim) in [
+        (MoveId::Jab, 2u8, 0i8),
+        (MoveId::Jab2, 2, 0),
+        (MoveId::Jab3, 3, 0),
+        (MoveId::FTilt, 5, 0),
+        (MoveId::FTilt, 5, 1),
+        (MoveId::FTilt, 5, -1),
+        (MoveId::UTilt, 5, 0),
+        (MoveId::DTilt, 5, 0),
+        (MoveId::DashAttack, 6, 0),
+        (MoveId::FSmash, 15, 0),
+        (MoveId::FSmash, 15, 1),
+        (MoveId::FSmash, 15, -1),
+        (MoveId::USmash, 9, 0),
+        (MoveId::DSmash, 5, 0),
+        (MoveId::DSmash, 14, 0),
+        (MoveId::NAir, 3, 0),
+        (MoveId::FAir, 16, 0),
+        (MoveId::BAir, 6, 0),
+        (MoveId::UAir, 4, 0),
+        (MoveId::DAir, 5, 0),
+    ] {
+        // (A later window is checked only where a target there is out of the earlier windows' reach.)
+        let got = first_hit_frame(id, first, aim);
+        assert_eq!(got, Some(first), "{id:?} window from {first}, aim {aim}");
+    }
+}
+
+/// Ticks from starting `id` (by `begin_attack`) until the fighter leaves the move, plus the frames that maps to: the reference's FAF.
+fn faf_of(id: MoveId, aerial: bool) -> u16 {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    if aerial {
+        sim.put_airborne(0, Fx::from_int(-9), Fx::from_int(60), Fx::ZERO, Fx::ZERO);
+    } else {
+        sim.stand(0, Fx::from_int(-9), 1);
+    }
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], id);
+    for tick in 1..=120u16 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state != S::Attack {
+            // Out of the move at the end of move frame FAF - 2; the next frame (FAF) acts.
+            return tick + 2;
+        }
+    }
+    panic!("{id:?} never finished");
+}
+
+#[test]
+fn every_attack_returns_control_on_its_reference_faf() {
+    for (id, _, faf, _, _, _) in FRAME_DATA {
+        if matches!(
+            id,
+            MoveId::Ext0
+                | MoveId::Pummel
+                | MoveId::FThrow
+                | MoveId::BThrow
+                | MoveId::UThrow
+                | MoveId::DThrow
+                | MoveId::LedgeAttack
+        ) {
+            continue;
+        }
+        let aerial = id.is_aerial();
+        assert_eq!(faf_of(id, aerial), u16::from(faf), "{id:?}");
+    }
+}
+
+// ---- Hit properties ----------------------------------------------------------------------------------------------------------
+
+#[test]
+fn every_hit_has_the_references_damage_angle_and_knockback() {
+    // (move, reference first frame, priority, damage in tenths, angle, BK, KS) for the main box of each phase.
+    let table: [(MoveId, u8, u8, i32, i16, i16, i16); 33] = [
+        (MoveId::Jab, 2, 0, 22, 361, 20, 30),
+        (MoveId::Jab, 2, 2, 22, 180, 15, 20),
+        (MoveId::Jab2, 2, 0, 17, 361, 20, 30),
+        (MoveId::Jab2, 2, 2, 17, 361, 15, 15),
+        (MoveId::Jab3, 3, 0, 40, 361, 60, 80),
+        (MoveId::FTilt, 5, 0, 70, 361, 55, 70),
+        (MoveId::UTilt, 5, 0, 55, 96, 28, 130),
+        (MoveId::DTilt, 5, 0, 70, 80, 35, 80),
+        (MoveId::DTilt, 5, 1, 50, 80, 35, 80),
+        (MoveId::DashAttack, 6, 0, 80, 50, 100, 43),
+        (MoveId::DashAttack, 10, 0, 60, 48, 100, 30),
+        (MoveId::FSmash, 15, 0, 147, 361, 25, 105),
+        (MoveId::FSmash, 15, 1, 178, 361, 25, 99),
+        (MoveId::USmash, 9, 0, 140, 83, 32, 94),
+        (MoveId::DSmash, 5, 0, 100, 32, 30, 100),
+        (MoveId::DSmash, 14, 0, 120, 30, 30, 100),
+        (MoveId::NAir, 3, 0, 80, 361, 20, 100),
+        (MoveId::NAir, 6, 0, 50, 361, 13, 90),
+        (MoveId::FAir, 16, 0, 120, 361, 30, 80),
+        (MoveId::FAir, 17, 0, 140, 280, 32, 78),
+        (MoveId::FAir, 21, 0, 100, 361, 20, 80),
+        (MoveId::BAir, 6, 0, 105, 361, 12, 106),
+        (MoveId::BAir, 8, 0, 70, 361, 7, 90),
+        (MoveId::UAir, 4, 0, 70, 75, 10, 135),
+        (MoveId::DAir, 5, 0, 14, 94, 50, 15),
+        (MoveId::DAir, 5, 1, 14, 94, 25, 15),
+        (MoveId::DAir, 23, 0, 55, 75, 80, 100),
+        (MoveId::Ext0, 1, 0, 20, 361, 0, 100),
+        (MoveId::FThrow, 13, 0, 80, 45, 60, 65),
+        (MoveId::BThrow, 44, 0, 110, 45, 70, 66),
+        (MoveId::UThrow, 18, 0, 70, 90, 70, 72),
+        (MoveId::DThrow, 18, 0, 50, 68, 40, 90),
+        (MoveId::LedgeAttack, 24, 0, 90, 45, 90, 20),
+    ];
+    let sim = duel();
+    let w = embers(&sim);
+    for (id, first, priority, damage, angle, bk, ks) in table {
+        let hb = w
+            .get(id as u8)
+            .hitboxes
+            .iter()
+            .find(|h| {
+                h.start + 1 == first
+                    && h.priority == priority
+                    && h.aim != AIM_UP
+                    && h.aim != AIM_DOWN
+            })
+            .unwrap_or_else(|| panic!("{id:?} {first} {priority}"));
+        assert_eq!(
+            (hb.damage, hb.angle, hb.base_knockback, hb.knockback_growth),
+            (Fx::from_ratio(damage, 10), angle, bk, ks),
+            "{id:?} from {first}, box {priority}"
+        );
+    }
+    // The other multipliers: hitlag, set knockback and set weight, SDI, shield damage.
+    let get = |id: MoveId| w.get(id as u8);
+    assert!(get(MoveId::Jab).hitboxes.iter().all(|h| h.hitlag == 180));
+    assert!(get(MoveId::Jab2).hitboxes.iter().all(|h| h.hitlag == 120));
+    assert!(get(MoveId::Jab3).hitboxes.iter().all(|h| h.hitlag == 200));
+    assert!(get(MoveId::DashAttack)
+        .hitboxes
+        .iter()
+        .all(|h| h.hitlag == 125));
+    let pummel = get(MoveId::Pummel).hitboxes[0];
+    assert_eq!(
+        (pummel.damage, pummel.fixed_kb, pummel.hitlag),
+        (fx(13, 10), 30, 210)
+    );
+    let dair = get(MoveId::DAir);
+    assert!(dair.hitboxes.iter().all(|h| h.sdi == 80));
+    assert!(dair.hitboxes.iter().all(|h| h.set_weight == (h.group == 0)));
+    assert!(get(MoveId::Ext0).hitboxes.iter().all(|h| h.fixed_kb == 60));
+    assert!(get(MoveId::GetUpAttack)
+        .hitboxes
+        .iter()
+        .all(|h| h.shield_damage == 214 && h.angle == 48));
+    // The angled forward smash: the explosion's growth is 101 aimed up and 100 aimed down.
+    let fire = |aim: u8| {
+        get(MoveId::FSmash)
+            .hitboxes
+            .iter()
+            .find(|h| h.aim == aim && h.priority == 1)
+            .unwrap()
+            .knockback_growth
+    };
+    assert_eq!(
+        (fire(AIM_STRAIGHT), fire(AIM_UP), fire(AIM_DOWN)),
+        (99, 101, 100)
+    );
+}
+
+#[test]
+fn the_forward_smash_arm_wins_over_the_explosion_where_both_reach() {
+    // Close in, both boxes overlap the target: the arm (14.7%) is the hit, so the explosion (17.8%) has to be spaced.
+    let damage_at = |gap: Fx| {
+        let mut sim = duel();
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, gap, -1);
+        sim.state.fighters[1].percent = Fx::ZERO;
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::FSmash);
+        for _ in 0..20 {
+            sim.tick(inp(0, 0, 0));
+        }
+        sim.fighter(1).percent
+    };
+    let sim = duel();
+    assert_eq!(damage_at(fx(8, 10)), dealt(&sim, 147), "close: the arm");
+    assert_eq!(
+        damage_at(fx(20, 10)),
+        dealt(&sim, 178),
+        "spaced: the explosion"
+    );
+}
+
+// ---- Jab ---------------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn pressing_attack_again_goes_jab_jab_kick_on_the_continuable_frames() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    sim.state.fighters[1].invuln = 255;
+    // Tick t is jab 1's reference frame t. A second press early (frame 3) waits for frame 5.
+    sim.tick(inp(0, 0, ATTACK));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, ATTACK));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().move_id, MoveId::Jab as u8, "frame 4: still jab 1");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        (sim.f().move_id, sim.f().state_frame),
+        (MoveId::Jab2 as u8, 0),
+        "jab 2's first frame is jab 1's frame 5"
+    );
+    // A press in jab 2 carries on into the kick on jab 2's frame 6.
+    sim.tick(inp(0, 0, ATTACK));
+    for _ in 0..3 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(sim.f().move_id, MoveId::Jab2 as u8, "jab 2 frame 5");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(
+        (sim.f().move_id, sim.f().state_frame),
+        (MoveId::Jab3 as u8, 0),
+        "the kick starts on jab 2's frame 6"
+    );
+    // The kick ends the chain.
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, ATTACK));
+        sim.tick(inp(0, 0, 0));
+        if sim.f().move_id != MoveId::Jab3 as u8 {
+            break;
+        }
+    }
+    assert_ne!(sim.f().move_id, MoveId::Jab2 as u8);
+}
+
+#[test]
+fn holding_attack_throws_jab_1_again_from_frame_7() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    sim.state.fighters[1].invuln = 255;
+    sim.tick(inp(0, 0, ATTACK));
+    for _ in 0..5 {
+        sim.tick(inp(0, 0, ATTACK));
+    }
+    assert_eq!(
+        (sim.f().move_id, sim.f().state_frame),
+        (MoveId::Jab as u8, 5)
+    );
+    sim.tick(inp(0, 0, ATTACK));
+    assert_eq!(
+        (sim.f().move_id, sim.f().state_frame),
+        (MoveId::Jab as u8, 0),
+        "held, jab 1 starts over on its frame 7"
+    );
+    // Held on, it keeps repeating jab 1 and never goes on to jab 2.
+    for _ in 0..40 {
+        sim.tick(inp(0, 0, ATTACK));
+        assert_eq!(sim.f().move_id, MoveId::Jab as u8);
+    }
+    // Let go, it ends on its FAF.
+    sim.ticks(25, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle);
+}
+
+#[test]
+fn a_single_jab_hits_for_2_2_percent_and_ends_on_frame_20() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    sim.tick(inp(0, 0, ATTACK));
+    sim.ticks(40, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 22));
+    assert_eq!(faf_of(MoveId::Jab, false), 20);
+}
+
+// ---- Angled forward tilt and smash -------------------------------------------------------------------------------------------
+
+#[test]
+fn the_stick_tilted_up_or_down_aims_the_forward_tilt_and_smash() {
+    // (stick, the move, the aim)
+    for (x, y, id, aim) in [
+        (60i8, 0i8, MoveId::FTilt, 0i8),
+        (60, 40, MoveId::FTilt, 1),
+        (60, -40, MoveId::FTilt, -1),
+        (127, 0, MoveId::FSmash, 0),
+        (127, 50, MoveId::FSmash, 1),
+        (127, -50, MoveId::FSmash, -1),
+    ] {
+        let mut sim = duel();
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.tick(inp(x, y, ATTACK));
+        assert_eq!(
+            (MoveId::from_index(sim.f().move_id), sim.f().aim),
+            (id, aim),
+            "stick ({x}, {y})"
+        );
+        // Only that aim's boxes come out.
+        let active = if id == MoveId::FTilt { 4 } else { 14 };
+        while sim.f().state_frame < active {
+            sim.tick(inp(0, 0, 0));
+        }
+        let wanted = match aim {
+            1 => AIM_UP,
+            -1 => AIM_DOWN,
+            _ => AIM_STRAIGHT,
+        };
+        let w = embers(&sim);
+        let live: Vec<_> =
+            sim_core::combat::active_hitboxes(sim.f(), w.get(sim.f().move_id), Fx::ONE)
+                .map(|(_, h, _)| h.aim)
+                .collect();
+        assert!(!live.is_empty(), "stick ({x}, {y}): boxes out");
+        assert!(
+            live.iter().all(|&a| a == wanted),
+            "stick ({x}, {y}): {live:?}"
+        );
+    }
+    // Another fighter's moves (no aimed boxes) are the same whatever the aim.
+    let sim = duel();
+    let longsword = &sim.content.weapons[0];
+    assert!(longsword
+        .moves
+        .iter()
+        .all(|m| m.hitboxes.iter().all(|h| h.aim == AIM_ANY)));
+}
+
+#[test]
+fn an_upward_forward_tilt_hits_a_target_above_the_straight_one() {
+    // A target standing on a ledge of air above the straight kick: only the kick aimed up reaches it.
+    let hit = |aim: i8| {
+        let mut sim = duel();
+        sim.stand(0, Fx::ZERO, 1);
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::FTilt);
+        sim.state.fighters[0].aim = aim;
+        let before = sim.fighter(1).percent;
+        for _ in 0..10 {
+            sim.put_airborne(1, fx(11, 10), fx(11, 10), Fx::ZERO, Fx::ZERO);
+            sim.tick(inp(0, 0, 0));
+        }
+        sim.fighter(1).percent > before
+    };
+    assert!(hit(1), "aimed up, the kick reaches it");
+    assert!(!hit(-1), "aimed down, it does not");
+}
+
+// ---- Down air ----------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn down_air_lands_five_looping_hits_and_its_final_hit_once() {
+    let mut sim = duel();
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DAir);
+    let mut hits = Vec::new();
+    let mut last = sim.fighter(1).percent;
+    // The target pinned on the spinner's body all through the move (out of hitlag the sim may move it; it is put back).
+    for tick in 1..=120u8 {
+        if sim.fighter(1).hitlag == 0 {
+            let me = sim.f().pos;
+            sim.put_airborne(1, me.x, me.y, Fx::ZERO, Fx::ZERO);
+        }
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > last {
+            last = sim.fighter(1).percent;
+            hits.push(sim.f().state_frame + 1);
+        }
+        if sim.f().state != S::Attack {
+            let _ = tick;
+            break;
+        }
+    }
+    assert_eq!(
+        hits,
+        vec![5, 7, 9, 11, 13, 23],
+        "the hits' reference frames"
+    );
+    assert_eq!(
+        sim.fighter(1).percent,
+        dealt(&sim, 14).mul_int(5) + dealt(&sim, 55)
+    );
+}
+
+#[test]
+fn the_down_air_loop_is_set_weight_and_its_final_hit_is_not() {
+    // The same loop hit on a light (the rogue, 78) and a heavy (the tumbler itself, 98) target launches both the same; the final hit
+    // sends the light one further.
+    let launch = |victim: u8, id_frame: u8| {
+        let mut sim = Sim::with_chars([TUMBLER, victim, 0, 0]);
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
+        sim.state.fighters[1].percent = Fx::from_int(50);
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DAir);
+        sim.state.fighters[0].state_frame = u16::from(id_frame - 2);
+        sim.state.fighters[0].hit_mask = 0;
+        for _ in 0..30 {
+            if sim.fighter(1).hitlag == 0 && sim.fighter(1).percent == Fx::from_int(50) {
+                let me = sim.f().pos;
+                sim.put_airborne(1, me.x, me.y, Fx::ZERO, Fx::ZERO);
+            }
+            sim.tick(inp(0, 0, 0));
+            if sim.fighter(1).percent > Fx::from_int(50) && !sim.fighter(1).launch_pending {
+                return sim.fighter(1).kb_vel.length();
+            }
+        }
+        panic!("no hit");
+    };
+    let (light, heavy) = (launch(2, 5), launch(TUMBLER, 5));
+    assert!(
+        (light - heavy).abs() <= Fx::from_raw(64),
+        "loop: {light:?} vs {heavy:?}"
+    );
+    let (light, heavy) = (launch(2, 23), launch(TUMBLER, 23));
+    assert!(light > heavy, "final: {light:?} vs {heavy:?}");
+}
+
+/// Lands player 0 in the middle of `id` on the tick that takes it to move frame `frame_before_tick + 1`; returns its state, lag and
+/// move after landing.
+fn land_during(id: MoveId, frame_before_tick: u16) -> (S, u8, u8) {
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.put_airborne(0, Fx::from_int(-9), fx(2, 100), Fx::ZERO, fx(-1, 10));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = id as u8;
+    f.state_frame = frame_before_tick;
+    f.hit_mask = 0;
+    sim.tick(inp(0, 0, 0));
+    (sim.f().state, sim.f().lag, sim.f().move_id)
+}
+
+#[test]
+fn aerials_cost_their_landing_lag_and_autocancel_in_their_windows() {
+    let plain = duel().content.fighters[usize::from(TUMBLER)].landing_lag;
+    // (aerial, a move frame inside the move, its landing lag, a move frame in the late autocancel window)
+    for (id, mid, lag, late) in [
+        (MoveId::NAir, 10u16, 6u8, 40u16),
+        (MoveId::FAir, 20, 17, 44),
+        (MoveId::BAir, 10, 6, 20),
+        (MoveId::UAir, 8, 6, 18),
+    ] {
+        assert_eq!(
+            land_during(id, mid),
+            (S::Landing, lag, id as u8),
+            "{id:?} mid-move"
+        );
+        let (state, got, _) = land_during(id, late);
+        assert_eq!(
+            (state, got),
+            (S::Landing, plain),
+            "{id:?} autocancelled late"
+        );
+    }
+    // The early windows: the neutral air's frames 1-2 and the back air's 1-5 autocancel; the up air's only frame 1.
+    assert_eq!(land_during(MoveId::BAir, 3).1, plain);
+    assert_eq!(land_during(MoveId::UAir, 2).1, 6);
+}
+
+#[test]
+fn a_down_air_landing_is_the_landing_hit_unless_it_autocancels() {
+    // Mid-move (frame 10): the landing hit, its own 15-frame move with a 2% hit on its frames 1-2.
+    let (state, _, mv) = land_during(MoveId::DAir, 10);
+    assert_eq!((state, mv), (S::Attack, MoveId::Ext0 as u8));
+    // In the late autocancel window (from frame 33): a plain landing.
+    let (state, _, _) = land_during(MoveId::DAir, 34);
+    assert_eq!(state, S::Landing);
+    // The landing hit hits a fighter standing next to it.
+    let mut sim = duel();
+    sim.stand(1, fx(-85, 10), -1);
+    sim.put_airborne(0, Fx::from_int(-9), fx(2, 100), Fx::ZERO, fx(-1, 10));
+    let f = &mut sim.state.fighters[0];
+    f.state = S::Attack;
+    f.move_id = MoveId::DAir as u8;
+    f.state_frame = 10;
+    f.hit_mask = 0;
+    sim.ticks(4, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 20));
+}
+
+// ---- Grabs and throws --------------------------------------------------------------------------------------------------------
+
+fn grab_now(sim: &mut Sim) -> u8 {
+    sim.tick(inp(0, 0, GRAB));
+    for t in 2..=40u8 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Grabbing {
+            return t;
+        }
+    }
+    panic!("the grab never connected");
+}
+
+#[test]
+fn the_standing_grab_catches_on_frame_6() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    assert_eq!(grab_now(&mut sim), 6);
+    let w = embers(&sim);
+    assert!(w
+        .get(MoveId::Grab as u8)
+        .hitboxes
+        .iter()
+        .all(|h| h.kind == HIT_GRAB));
+}
+
+#[test]
+fn the_throws_release_on_their_frames_for_their_damage() {
+    // (stick, release frame, damage in tenths)
+    for (stick, frame, damage) in [
+        ((127i8, 0i8), 13u8, 80),
+        ((-127, 0), 44, 110),
+        ((0, 127), 18, 70),
+        ((0, -127), 18, 50),
+    ] {
+        let mut sim = duel();
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, fx(12, 10), -1);
+        grab_now(&mut sim);
+        let before = sim.fighter(1).percent;
+        sim.tick(inp(stick.0, stick.1, 0));
+        let mut hit = None;
+        for t in 2..=110u8 {
+            sim.tick(inp(0, 0, 0));
+            if hit.is_none() && sim.fighter(1).percent > before {
+                hit = Some(t);
+            }
+        }
+        assert_eq!(hit, Some(frame), "throw {stick:?}");
+        assert_eq!(
+            sim.fighter(1).percent - before,
+            dealt(&sim, damage),
+            "throw {stick:?}"
+        );
+        if stick.0 < 0 {
+            // The back throw: thrown away behind, and the thrower ends facing the way it threw.
+            assert!(sim.fighter(1).pos.x < Fx::ZERO, "thrown behind");
+            assert_eq!(sim.f().facing, -1, "facing the throw");
+        }
+    }
+}
+
+#[test]
+fn the_back_throw_hits_a_bystander_while_it_spins_but_not_the_held_fighter() {
+    let mut sim = Sim::with_chars([TUMBLER, 0, 0, 0]);
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    sim.stand(2, fx(-9, 10), 1);
+    grab_now(&mut sim);
+    let held = sim.fighter(1).percent;
+    sim.tick(inp(-127, 0, 0));
+    for _ in 0..12 {
+        sim.tick(inp(0, 0, 0));
+        // (The bystander is held in place until the spin reaches it.)
+        sim.stand(2, fx(-9, 10), 1);
+    }
+    sim.ticks(100, inp(0, 0, 0));
+    assert_eq!(
+        sim.fighter(2).percent,
+        dealt(&sim, 80),
+        "the bystander takes the spin's 8%"
+    );
+    assert_eq!(
+        sim.fighter(1).percent - held,
+        dealt(&sim, 110),
+        "the held fighter only the throw's 11%"
+    );
+}
+
+#[test]
+fn the_pummel_does_1_3_percent() {
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(12, 10), -1);
+    grab_now(&mut sim);
+    let before = sim.fighter(1).percent;
+    sim.tick(inp(0, 0, ATTACK));
+    assert_eq!(sim.f().move_id, MoveId::Pummel as u8);
+    sim.ticks(3, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent - before, dealt(&sim, 13));
+}
+
+// ---- Body ----------------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_tumblers_jumps_have_the_references_air_times() {
+    // Short hop 40, full hop 56, short hop fast fall 28, full hop fast fall 39 (ultimateframedata.com); within one frame.
+    let air_time = |full: bool, ff: bool| {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.stand(0, Fx::ZERO, 1);
+        sim.tick(inp(0, 0, JUMP));
+        while sim.f().grounded() {
+            sim.tick(inp(0, 0, if full { JUMP } else { 0 }));
+        }
+        let mut n = 0u32;
+        let mut flicked = false;
+        while !sim.f().grounded() && n < 200 {
+            let down = ff && !flicked && sim.f().vel.y <= Fx::ZERO;
+            flicked |= down;
+            let held = if full { JUMP } else { 0 };
+            sim.tick(inp(0, if down { -127 } else { 0 }, held));
+            n += 1;
+        }
+        n
+    };
+    for (full, ff, reference) in [
+        (false, false, 40u32),
+        (true, false, 56),
+        (false, true, 28),
+        (true, true, 39),
+    ] {
+        let t = air_time(full, ff);
+        assert!(
+            t.abs_diff(reference) <= 1,
+            "full {full} fast fall {ff}: {t} frames, reference {reference}"
+        );
+    }
+}
+
+#[test]
+fn the_tumbler_is_the_references_middleweight() {
+    let p = duel().content.fighters[usize::from(TUMBLER)];
+    let su = sim_core::FighterParams::su;
+    assert_eq!(p.weight, Fx::from_int(98));
+    assert_eq!(
+        (p.air_speed, p.gravity, p.max_fall_speed, p.fast_fall_speed),
+        (su(1208), su(87), su(1500), su(2400))
+    );
+    assert_eq!(
+        (p.air_accel, p.air_accel_stick, p.air_friction),
+        (su(10), su(70), su(15))
+    );
+    assert_eq!(
+        (
+            p.air_dodge_frames,
+            p.air_dodge_dir_down_frames,
+            p.air_dodge_dir_side_frames,
+            p.air_dodge_dir_up_frames
+        ),
+        (52, 71, 87, 116)
+    );
+    assert_eq!(
+        (p.roll_frames, p.roll_back_frames, p.spot_dodge_frames),
+        (29, 34, 25)
+    );
+    assert_eq!(p.weapon, TUMBLER);
+}
+
+// ---- Determinism ---------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_new_hitbox_fields_are_in_the_content_hash() {
+    let base = Content::placeholder();
+    let h = base.hash();
+    let mut c = base.clone();
+    c.weapons[3].moves[MoveId::FTilt as usize].hitboxes[0].aim = AIM_ANY;
+    assert_ne!(h, c.hash(), "aim");
+    let mut c = base.clone();
+    c.weapons[3].moves[MoveId::DAir as usize].hitboxes[0].set_weight = false;
+    assert_ne!(h, c.hash(), "set weight");
+    let mut c = base;
+    c.weapons[3].moves[MoveId::Jab as usize].next_from = 255;
+    assert_ne!(h, c.hash(), "next from");
+}
+
+#[test]
+fn random_play_with_the_tumbler_is_deterministic_and_rolls_back() {
+    let content = Content::placeholder();
+    let chars = [TUMBLER, 0, TUMBLER, 2];
+    for seed in 0..6u64 {
+        let inputs = sim_core::fuzz::random_inputs(&mut Rng::new(seed), 900);
+        let play = |frames: &[[sim_core::Input; MAX_FIGHTERS]]| {
+            let mut s = GameState::new(&content, seed, chars);
+            for i in frames {
+                step(&mut s, &content, i);
+            }
+            s
+        };
+        let straight = play(&inputs);
+        assert_eq!(straight.checksum(), play(&inputs).checksum());
+        // Snapshot in the middle, finish from the copy: identical to the straight run.
+        let mut s = GameState::new(&content, seed, chars);
+        for i in &inputs[..400] {
+            step(&mut s, &content, i);
+        }
+        let mut r = s;
+        for i in &inputs[400..] {
+            step(&mut r, &content, i);
+        }
+        assert_eq!(r.checksum(), straight.checksum(), "seed {seed}");
+    }
+}
