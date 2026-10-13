@@ -1,11 +1,12 @@
 //! Buffered dashes out of landing lag: a dash flicked while the fighter is still in a landing (an aerial's landing lag included) comes
 //! out on the first frame it can act, as the reference game's input buffer allows, as long as the stick is still held past the dash
 //! threshold. Aerials landing inside their autocancel windows take only the plain landing lag (tested with the move data elsewhere).
+//! And a jump out of a run lands back into the run while the stick is still held the run's way.
 
 mod common;
 
 use common::{inp, Sim};
-use sim_core::input::buttons::ATTACK;
+use sim_core::input::buttons::{ATTACK, JUMP};
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
 
@@ -106,4 +107,51 @@ fn a_held_stick_with_no_recent_flick_still_walks() {
         "dashed from an old flick: {:?}",
         sim.f().state
     );
+}
+
+/// Player 0 where it spawns, as the movement tests start (room to run right).
+fn open_stage() -> Sim {
+    Sim::new()
+}
+
+/// A jump taken `jump_from` (a run when true, standing otherwise), with `stick` held through the air and the landing, then a few frames
+/// after: the state the fighter is in once it has landed and its landing has ended.
+fn jump_and_land(jump_from_run: bool, stick: i8) -> S {
+    let mut sim = open_stage();
+    if jump_from_run {
+        sim.tick(inp(0, 0, 0));
+        for _ in 0..24 {
+            sim.tick(inp(127, 0, 0));
+        }
+        assert_eq!(sim.f().state, S::Run, "running before the jump");
+        sim.tick(inp(127, 0, JUMP));
+    } else {
+        sim.tick(inp(0, 0, JUMP));
+    }
+    let mut was_airborne = false;
+    for _ in 0..120 {
+        sim.tick(inp(stick, 0, 0));
+        let s = sim.f().state;
+        if !sim.f().grounded() {
+            was_airborne = true;
+        } else if was_airborne && !matches!(s, S::Landing | S::JumpSquat) {
+            return s;
+        }
+    }
+    panic!("never landed: {:?}", sim.f().state);
+}
+
+#[test]
+fn a_running_jump_lands_back_into_the_run_while_the_stick_is_held() {
+    assert_eq!(jump_and_land(true, 127), S::Run);
+}
+
+#[test]
+fn a_running_jump_landed_with_the_stick_let_go_stands() {
+    assert_eq!(jump_and_land(true, 0), S::Idle);
+}
+
+#[test]
+fn a_standing_jump_landed_holding_the_stick_walks_not_runs() {
+    assert!(matches!(jump_and_land(false, 127), S::Walk | S::Idle));
 }

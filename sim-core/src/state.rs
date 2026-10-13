@@ -127,6 +127,10 @@ pub struct Fighter {
     pub buffer_used: u16,
     /// In the air from a short hop (cleared by landing, a midair jump, a ledge or a hit): aerials hit for `Ruleset::short_hop_damage`.
     pub short_hop: bool,
+    /// The direction (-1 or 1) of the run or dash a jump was taken out of, 0 for any other jump: landing from it with the stick still
+    /// held that way goes straight back into the run (`exit_landing`). Kept through the air and the landing, cleared by anything else
+    /// done on the ground, a hit or a ledge.
+    pub run_jump: i8,
     pub ledge_cooldown: u8,
     // ---- Combat ----
     /// Damage taken, in percent.
@@ -335,6 +339,7 @@ impl Fighter {
             airtime: 0,
             buffer_used: 0,
             short_hop: false,
+            run_jump: 0,
             ledge_cooldown: 0,
             active: true,
             percent: Fx::ZERO,
@@ -476,6 +481,7 @@ impl StateHash for Fighter {
         h.write_u16(self.airtime);
         h.write_u16(self.buffer_used);
         h.write_bool(self.short_hop);
+        h.write_i8(self.run_jump);
         h.write_u8(self.ledge_cooldown);
         h.write_bool(self.active);
         self.percent.hash_into(h);
@@ -682,6 +688,11 @@ mod tests {
             ("short_hop", {
                 let mut s = state;
                 s.fighters[0].short_hop = true;
+                s
+            }),
+            ("run_jump", {
+                let mut s = state;
+                s.fighters[0].run_jump = 1;
                 s
             }),
             ("dash_age", {

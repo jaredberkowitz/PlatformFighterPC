@@ -284,6 +284,10 @@ or not, the end of an attack), a dash flicked during that lag still comes out, i
 window reaches back the input buffer (9 frames, plus the current one). A stick pushed longer ago than that is a walk, as before. Tests:
 `sim-core/tests/landing_buffer.rs`. (Aerials already autocancel in their reference windows, landing with only the plain 2-frame landing
 lag; `reference_moves.rs` checks the windows.)
+**Running jumps land running** (sim 56): a jump taken out of a run or dash remembers the run's direction (`Fighter::run_jump`, hashed); landing
+from it with the stick still held that way goes straight back into the run when the landing ends (`exit_landing`), instead of standing.
+Let go, or a jump from standing, and the landing ends standing (or walking, stick held) as before. A hit, a ledge or anything else done on
+the ground forgets it. Tests: `sim-core/tests/landing_buffer.rs`.
 
 **Short hops**
 - An attack pressed with the jump or during the jump squat makes the jump a **short hop**, even with jump held, and the aerial comes out on

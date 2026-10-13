@@ -160,6 +160,34 @@ fn enter(f: &mut Fighter, state: S) {
     if state != S::Airborne {
         f.damage_fall = false;
     }
+    // A jump out of a run or dash remembers the run's direction (the way the fighter is moving: a reverse aerial rush has already turned
+    // it to face back) until it lands; anything else on the ground, a hit or a ledge forgets it.
+    if state == S::JumpSquat {
+        f.run_jump = if matches!(f.state, S::Run | S::Dash) {
+            if f.vel.x > Fx::ZERO {
+                1
+            } else if f.vel.x < Fx::ZERO {
+                -1
+            } else {
+                f.facing
+            }
+        } else {
+            0
+        };
+    } else if matches!(
+        state,
+        S::Hitstun
+            | S::LedgeHang
+            | S::Grabbed
+            | S::Knockdown
+            | S::Respawn
+            | S::ShieldBreak
+            | S::Rebound
+            | S::WallTech
+    ) || (f.platform != NONE && state != S::Landing)
+    {
+        f.run_jump = 0;
+    }
     f.state = state;
     f.state_frame = 0;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
@@ -644,11 +672,19 @@ fn enter_landing(f: &mut Fighter, lag: u8) {
     }
 }
 
-/// Leaves a landing. Holding the stick the way you are moving continues straight into a run,
-/// so a jump keeps its momentum all the way through the landing.
-/// Out of a landing the fighter stands, and walks on if the stick is held (as in the reference game, a run needs a new dash: holding
-/// the stick does not land into one). Speed above walking speed comes off at traction.
+/// Leaves a landing. A jump taken out of a run lands back into the run if the stick is still held the run's way (`run_jump`), so a
+/// running jump keeps going; otherwise the fighter stands, and walks on if the stick is held (a run then needs a new dash). Speed above
+/// walking speed comes off at traction.
 fn exit_landing(f: &mut Fighter) {
+    let input = f.history[0];
+    let held = if input.stick_x > 0 { 1 } else { -1 };
+    if f.run_jump != 0 && x_active(input) && held == f.run_jump {
+        f.facing = f.run_jump;
+        // (A run, not a dash: turning back is a skid, not a dash dance.)
+        f.dash_age = 255;
+        enter(f, S::Run);
+        return;
+    }
     enter(f, S::Idle);
 }
 
