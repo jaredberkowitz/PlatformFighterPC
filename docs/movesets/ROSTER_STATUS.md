@@ -285,6 +285,11 @@ These override anything above that disagrees.
     published recovery-distance or height figures, labelled [D]/[E] with the source. No footage for now.
 13. **Per-limb intangibility (E19)**: build it with Falcon (his up tilt and up smash legs); DK, Yoshi and the Needles' up smash reuse it.
 14. **Armor (E1)**: build the damage-threshold kind with Falcon, with the `kind` field in place for the later kinds (DK, Yoshi).
+15. **Sprinter rapid jab**: the press that starts jab 1 counts toward the three presses, and mashing keeps the rapid jab going (both as
+    built in sim 66).
+16. **Command grabs and search boxes (E6, E21)**: build them as new hit kinds in `combat::resolve_hits`.
+17. **Shield stun rounding**: fix it so whole-number shield stun matches the reference for every fighter (it came out one frame short).
+18. **Sprinter neutral air dodge (42 frames, one source)**: keep it unless a second source shows otherwise; check it against the reference.
 
 ## Still open
 
