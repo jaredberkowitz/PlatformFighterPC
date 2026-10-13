@@ -102,7 +102,10 @@ const SHADOW := Vector2(6, 8)
 ## ink outline. `cut` and `outline` below zero pick the standard ones for the card's size (corners 13% of its short side, 8 to 20; a 4
 ## outline, 3 on small cards), so every card shares one shape language. `border` adds a painted rim inside the outline: kept for the
 ## few cards that should lead (the Play tile, the roster cards).
-static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0, outline := -1.0, border := Color(0, 0, 0, 0), lift := 0.0) -> PackedVector2Array:
+## `line` colours the outline (clear: the ink); `slab` draws the card's thickness under it, that many pixels of a darker shade of its
+## own colour (a tile with a body, rather than a flat sticker).
+static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0, outline := -1.0, border := Color(0, 0, 0, 0), lift := 0.0,
+		line := Color(0, 0, 0, 0), slab := 0.0) -> PackedVector2Array:
 	var r := rect
 	r.position.y -= lift
 	var short := minf(r.size.x, r.size.y)
@@ -114,7 +117,18 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 	var sh := PackedVector2Array()
 	for q in shape:
 		sh.append(q + SHADOW + Vector2(0, lift * 0.6))
-	c.draw_colored_polygon(sh, Color(INK, 0.32 * fill.a))
+	c.draw_colored_polygon(sh, Color(INK, (0.22 if slab > 0.0 else 0.32) * fill.a))
+	var edge := line if line.a > 0.0 else INK
+	if slab > 0.0:
+		# The body under the face: the same shape dropped by `slab` (more as the card lifts toward the viewer), in a deep shade of the fill.
+		var drop := slab + lift * 0.5
+		var body := PackedVector2Array()
+		for q in shape:
+			body.append(q + Vector2(0, drop))
+		c.draw_colored_polygon(body, fill.darkened(0.42))
+		var body_closed := body.duplicate()
+		body_closed.append(body[0])
+		c.draw_polyline(body_closed, edge, outline, true)
 	var top := fill.lightened(0.12)
 	var bottom := fill.darkened(0.14)
 	var cols := PackedColorArray()
@@ -144,7 +158,7 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 		Color(1, 1, 1, 0.3 * fill.a), 2.5, true)
 	var closed := shape.duplicate()
 	closed.append(shape[0])
-	c.draw_polyline(closed, INK, outline, true)
+	c.draw_polyline(closed, edge, outline, true)
 	return shape
 
 
