@@ -866,3 +866,13 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   `meadow_trees.png`, `grove_trees.png`.
 - Costs (Meadow, stage demo): GPU about 1.8 to 1.9 ms, Treetop Isle 2.1 ms; look bench 0.87.
 
+## Beach and canyon after the reference (thirty-fifth pass)
+
+- **Flat Island**: the repeating pebble front (the owner's plan named it) is dressed sandstone blocks (`masonry`); the sea is vivid
+  turquoise to deep blue (`water.gdshader` shallow, deep, streak, haze) under a stronger blue sky, with far less distance haze (STYLES
+  ocean `haze_max` 0.07, a lighter mist). `docs/screenshots/beach_vivid.png`.
+- **Triple Tier**: its sunset kept, the fog lifted (STYLES sunset `haze_max` 0.1, mists about half), so the mesas keep their strata
+  colours against the sky. `canyon_clear.png`.
+- **Skyline** left as it is: a dark, moody stage where the fighters already stand out (the plan: keep a dark stage's mood).
+- Look bench 0.87.
+
