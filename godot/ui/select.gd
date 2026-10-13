@@ -123,11 +123,15 @@ class Card extends Control:
 					ch.position.y = 12.0 - lift
 				ch.queue_redraw()
 
+	## The card's body under it (its thickness, as the main menu's tiles have), smaller on a small card.
+	func _slab() -> float:
+		return clampf(token * 0.04, 2.5, 5.0)
+
 	func _rect() -> Rect2:
-		return Rect2(Vector2(6, 8), size - Vector2(14, 18))
+		return Rect2(Vector2(6, 8), size - Vector2(14, 18 + _slab()))
 
 	func _draw() -> void:
-		Art.card(self, _rect(), fill, seed, 12.0, 4.0, fill.lightened(0.35), lift)
+		Art.card(self, _rect(), fill, seed, 12.0, 3.0, fill.lightened(0.35), lift, Color(0, 0, 0, 0), _slab())
 		# A soft burst behind the portrait, and the glyph cards' sign.
 		var r := _rect()
 		r.position.y -= lift
