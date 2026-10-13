@@ -161,28 +161,74 @@ fn cmd_selftest() -> Result<(), String> {
     Ok(())
 }
 
+/// A random fighter for the fuzzers: one of the content's built-in fighters a quarter of the time, otherwise a recipe of a
+/// random class (every class the content has a weapon for) with random stats.
+pub(crate) fn random_spec(rng: &mut Rng, content: &Content) -> sim_content::recipe::FighterSpec {
+    use sim_content::recipe::{FighterSpec, Recipe, CLASSES};
+    let fighters = content.fighters.len().clamp(1, 256) as u32;
+    let classes = content.weapons.len().clamp(1, usize::from(CLASSES)) as u32;
+    if rng.range(4) == 0 {
+        FighterSpec::Builtin(rng.range(fighters) as u8)
+    } else {
+        FighterSpec::Made(Recipe {
+            class: rng.range(classes) as u8,
+            size: 1 + rng.range(9) as u8,
+            speed: 1 + rng.range(9) as u8,
+            jump: 1 + rng.range(9) as u8,
+            weight: 1 + rng.range(9) as u8,
+        })
+    }
+}
+
+/// The weapon (class) a fighter index of `content` plays, for the fuzzers' coverage line.
+pub(crate) fn class_of(content: &Content, char_id: u8) -> usize {
+    let i = usize::from(char_id).min(content.fighters.len().saturating_sub(1));
+    content.fighters.get(i).map_or(0, |p| usize::from(p.weapon))
+}
+
 fn cmd_fuzz(args: &[String]) -> Result<(), String> {
     let runs: u64 = match args.first() {
         Some(s) => s.parse().map_err(|_| "runs must be a number")?,
         None => 1000,
     };
-    let content = content()?;
+    // `--only <seed>` replays a single run (to investigate a failure).
+    let only: Option<u64> = args
+        .iter()
+        .position(|a| a == "--only")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|v| v.parse().ok());
+    let base = content()?;
     let mut rollbacks = 0u64;
     let mut resimulated = 0u64;
     let mut longest = 0u32;
+    let mut per_class = vec![0u64; base.weapons.len()];
     for seed in 0..runs {
-        let initial = GameState::new(&content, seed, CHAR_IDS);
+        if only.is_some_and(|o| o != seed) {
+            continue;
+        }
+        // Four fighters from the whole roster (every class, built-in or made from random stats), drawn from the run's seed.
+        let mut pick = Rng::new(seed ^ 0x00c1_a55e);
+        let specs: Vec<_> = (0..4).map(|_| random_spec(&mut pick, &base)).collect();
+        let (content, chars) = sim_content::recipe::match_content(&base, &specs, false)
+            .map_err(|e| format!("seed {seed}: specs rejected: {e:?}"))?;
+        let chars = [chars[0], chars[1], chars[2], chars[3]];
+        for &c in &chars {
+            if let Some(n) = per_class.get_mut(class_of(&content, c)) {
+                *n += 1;
+            }
+        }
+        let initial = GameState::new(&content, seed, chars);
         let inputs = random_inputs(&mut Rng::new(seed), 600);
         let max_delay = 1 + (seed % 10) as u32;
         let delays = random_delays(&mut Rng::new(seed ^ 0x5eed), inputs.len(), max_delay);
         let stats = verify(&content, &initial, &inputs, &delays)
-            .map_err(|e| format!("seed {seed}: {e}"))?;
+            .map_err(|e| format!("seed {seed} (fighters {specs:?}): {e}"))?;
         rollbacks += u64::from(stats.rollbacks);
         resimulated += u64::from(stats.resimulated_frames);
         longest = longest.max(stats.longest_rollback);
     }
     println!(
-        "{runs} runs, 0 mismatches ({rollbacks} rollbacks, {resimulated} frames resimulated, longest {longest})"
+        "{runs} runs, 0 mismatches ({rollbacks} rollbacks, {resimulated} frames resimulated, longest {longest}); fighters per class {per_class:?}"
     );
     Ok(())
 }

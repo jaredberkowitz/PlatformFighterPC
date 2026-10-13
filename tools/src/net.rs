@@ -258,22 +258,6 @@ pub fn cmd_relay(args: &[String]) -> Result<(), String> {
     }
 }
 
-/// A random fighter for the fuzzer: a built-in one a quarter of the time, otherwise a recipe with random stats.
-fn random_spec(rng: &mut Rng) -> sim_content::recipe::FighterSpec {
-    use sim_content::recipe::{FighterSpec, Recipe, CLASSES};
-    if rng.range(4) == 0 {
-        FighterSpec::Builtin(rng.range(u32::from(CLASSES)) as u8)
-    } else {
-        FighterSpec::Made(Recipe {
-            class: rng.range(u32::from(CLASSES)) as u8,
-            size: 1 + rng.range(9) as u8,
-            speed: 1 + rng.range(9) as u8,
-            jump: 1 + rng.range(9) as u8,
-            weight: 1 + rng.range(9) as u8,
-        })
-    }
-}
-
 /// Randomised sessions over a simulated lossy network. Every confirmed frame of both peers must equal a
 /// single-machine run of the same inputs, and neither side may report a desync.
 pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
@@ -287,6 +271,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
     let mut rollbacks = 0u64;
     let mut stalls = 0u64;
     let mut bad = 0;
+    let mut per_class = vec![0u64; content.weapons.len()];
     for seed in 0..runs {
         if only.is_some_and(|o| o != seed) {
             continue;
@@ -302,9 +287,20 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         let mut setup = match_setup(seed);
         setup.input_delay = delay;
         let inputs = script(seed, frames as usize + 80);
-        // Every other run, each player brings a random fighter: a built-in one or one made from random stats (casual
-        // rules, so any stats are fine). Then the truth is a single-machine run on the content they build together.
-        let specs = (seed % 2 == 1).then(|| (random_spec(&mut rng), random_spec(&mut rng)));
+        // The fighters come from their own generator, so the network schedule of a seed does not depend on them. Even
+        // runs: the host picks two built-in fighters from the whole roster. Odd runs: each player brings a random fighter,
+        // a built-in one or one made from random stats of any class (casual rules, so any stats are fine); the truth is
+        // then a single-machine run on the content they build together.
+        let mut pick = Rng::new(seed ^ 0x00f1_9e75);
+        let builtins = content.fighters.len().clamp(1, 256) as u32;
+        setup.chars[0] = pick.range(builtins) as u8;
+        setup.chars[1] = pick.range(builtins) as u8;
+        let specs = (seed % 2 == 1).then(|| {
+            (
+                crate::random_spec(&mut pick, &content),
+                crate::random_spec(&mut pick, &content),
+            )
+        });
         let mut truth_content = content.clone();
         let mut truth_chars = setup.chars;
         if let Some((h, j)) = specs {
@@ -314,6 +310,11 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             truth_content = c;
             truth_chars[0] = chars[0];
             truth_chars[1] = chars[1];
+        }
+        for &c in &truth_chars[..2] {
+            if let Some(n) = per_class.get_mut(crate::class_of(&truth_content, c)) {
+                *n += 1;
+            }
         }
 
         let (la, lb, clock) = pair(params, seed);
@@ -469,7 +470,9 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             );
         }
     }
-    println!("{runs} runs, {bad} mismatches ({rollbacks} rollbacks, {stalls} stalls)");
+    println!(
+        "{runs} runs, {bad} mismatches ({rollbacks} rollbacks, {stalls} stalls); fighters per class {per_class:?}"
+    );
     if bad == 0 {
         Ok(())
     } else {
