@@ -839,3 +839,20 @@ An audit of every stage in a four-player match (`docs/screenshots/clear_meadow.p
   mapped to the sword's cuts for the staff spins and sweeps (`AnimLibrary.CLASS_MOVES[5]`). The Gauntlets' specials are mapped too
   (charged punch, uppercut and overhand, the leaping grab's catch, the slide and dive kicks). `docs/screenshots/seer_staff_jab.png`.
 
+## A day in the meadow, sky islands and a real lawn (thirty-fourth pass)
+
+Toward the owner's reference (a bright stylised 3D game: deep blue sky, white clouds, islands floating in the sky, thick painted grass,
+vivid greens) and the plan in their `game_wide_visual_fidelity_art_direction_plan.md` (hand-painted realism inside the cel style, every
+stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_lawn.png`, `grove_lawn.png`.
+
+- **Meadow is midday**, not magic hour: a deep blue sky to a pale horizon with white wisps, white cumulus, a neutral sun from higher up,
+  blue shade (`lighting.gd` MOODS meadow), saturated hills and blue mountains, no shafts of light. Treetop Isle keeps its pink dusk, the
+  canyon its sunset, so the stages stay distinct.
+- **Floating sky islands** (`StageArt._sky_islands`): earth keels with grassy caps and a lip of turf, some with a round tree or a bush,
+  at depths from 70 to 140 units, smaller and higher with distance, framing the stage without crossing the middle of the sky.
+- **A real lawn** (`StageArt._lawn`, meadow and grove): a dense band of tall tufts behind the fighters, a lighter scatter in the middle
+  of the lawn and a low fringe along the front edge that keeps feet in view. Standing tufts shade dark at the roots to sunlit tips
+  (`toon_foliage.gdshader`), so a lawn of cards reads as thick grass with depth. The lawn tile is repainted as blade strokes over
+  broad drifts (`tools/art/make_tiles.py` `grass`).
+- Costs (Meadow, stage demo): GPU about 1.8 to 1.9 ms, Treetop Isle 2.1 ms; look bench 0.87.
+

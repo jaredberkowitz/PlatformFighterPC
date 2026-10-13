@@ -1,4 +1,4 @@
-"""Generates the bark, foliage and stone tiles (godot/art/stage/*.svg): 256x256, tileable, on the placeholder colour #ff00ff (which the
+"""Generates the bark, foliage, stone and grass tiles (godot/art/stage/*.svg): 256x256, tileable, on the placeholder colour #ff00ff (which the
 game swaps for the surface's own colour), with only translucent black and white over it, so each stays low-contrast and takes any hue."""
 import math
 import random
@@ -73,6 +73,38 @@ def foliage():
     return s + '</svg>\n'
 
 
+def grass():
+    """A lawn painted by hand: broad sunlit and shaded drifts, then a dense field of short blade strokes leaning one way (dark gaps and
+    light tips, a little warmth in the lights), so at play distance it reads as thick grass with a painted texture, not a flat green, while
+    staying soft enough to sit behind the fighters."""
+    rng = random.Random(11)
+    s = HEAD
+    # Broad drifts of light and shade.
+    for _ in range(18):
+        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
+        rx, ry = rng.uniform(26, 52), rng.uniform(18, 34)
+        col, op = ('#ffffff', 0.08) if rng.random() < 0.5 else ('#000000', 0.09)
+        s += wrap(lambda a, b: f'  <ellipse cx="{a:.1f}" cy="{b:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" fill="{col}" opacity="{op}"/>\n', x, y, rx)
+    # Blades: a dark stroke for the shadow between blades, then a lighter one beside it for the lit blade, leaning to the right.
+    for _ in range(520):
+        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
+        h = rng.uniform(7, 14)
+        lean = rng.uniform(1.5, 5.0)
+
+        def blade(a, b, h=h, lean=lean):
+            out = (f'  <path d="M{a:.1f},{b:.1f} q{lean * 0.4:.1f},{-h * 0.6:.1f} {lean:.1f},{-h:.1f}" fill="none" stroke="#000000" '
+                   f'stroke-width="2.2" stroke-linecap="round" opacity="0.13"/>\n')
+            out += (f'  <path d="M{a + 1.6:.1f},{b:.1f} q{lean * 0.4:.1f},{-h * 0.6:.1f} {lean:.1f},{-h * 0.9:.1f}" fill="none" '
+                    f'stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.14"/>\n')
+            return out
+        s += wrap(blade, x, y, 16)
+    # A few bright tips catching the sun.
+    for _ in range(90):
+        x, y = rng.uniform(0, 256), rng.uniform(0, 256)
+        s += wrap(lambda a, b: f'  <path d="M{a:.1f},{b:.1f} l2.5,-6" fill="none" stroke="#fff6cc" stroke-width="1.3" stroke-linecap="round" opacity="0.22"/>\n', x, y, 8)
+    return s + '</svg>\n'
+
+
 def stone():
     rng = random.Random(11)
     s = HEAD
@@ -105,7 +137,7 @@ def stone():
     return s + '</svg>\n'
 
 
-for name, make in [('bark', bark), ('foliage', foliage), ('stone', stone)]:
+for name, make in [('bark', bark), ('foliage', foliage), ('stone', stone), ('grass', grass)]:
     open(OUT + name + '.svg', 'w', newline='\n').write(make())
     open(OUT + name + '.svg.import', 'w', newline='\n').write('[remap]\n\nimporter="keep"\n')
     print(name, 'ok')

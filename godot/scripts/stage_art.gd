@@ -768,18 +768,27 @@ static func _foliage_material(tile: String, rooted: bool) -> ShaderMaterial:
 ## Grass and flower tufts along the back of a grassy stage top (from `left` to `right` at height `top`, between `z_front` and
 ## `z_back`), stirring in the wind: on the Balanced and Best tiers only.
 static func _tufts(root: Node3D, left: float, right: float, top: float, z_front: float, z_back: float, rng: RandomNumberGenerator,
-		greens: Array) -> void:
+		greens: Array, gap := Vector2(0.5, 1.1), size := 1.0) -> void:
 	if VisualSettings.get_index("quality") == 0:
 		return
 	var spots := []
 	# (Its own random numbers, so the stage's layout stays as it was.)
 	var r := RandomNumberGenerator.new()
-	r.seed = int(left * 31.0 + top * 7.0) + 5
+	r.seed = int(left * 31.0 + top * 7.0 + z_front * 13.0) + 5
 	var x := left + 0.4
 	while x < right - 0.4:
 		spots.append([Vector3(x, top, r.randf_range(z_back, z_front)), 0.0, 1])
-		x += r.randf_range(0.5, 1.1)
-	_leaf_cards(root, spots, greens, 1.0, rng, "grass_tuft", true)
+		x += r.randf_range(gap.x, gap.y)
+	_leaf_cards(root, spots, greens, size, rng, "grass_tuft", true)
+
+
+## A lawn's grass in depth (the meadow's and the grove's): a thick band of tall tufts behind the fighters, a lighter scatter of shorter
+## ones across the middle of the lawn behind them, and a fringe of small tufts along the front edge, low enough that feet stay in view.
+static func _lawn(root: Node3D, e: Array, rng: RandomNumberGenerator, greens: Array) -> void:
+	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -2.6, -5.8, rng, greens, Vector2(0.14, 0.32), 1.55)
+	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -3.4, -5.8, rng, greens, Vector2(0.2, 0.4), 1.2)
+	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -0.9, -2.6, rng, greens, Vector2(0.25, 0.55), 0.85)
+	_tufts(root, float(e[0]), float(e[1]), float(e[2]), 0.35, 0.05, rng, greens, Vector2(0.3, 0.7), 0.42)
 
 
 ## A soft glow round a light (a lamp, a bulb): a see-through card facing the camera, its colour fading out from a near-white middle
@@ -1374,7 +1383,7 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for h in [0.35, 0.75]:
 		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), rail, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
-	_tufts(root, float(e[0]), float(e[1]), float(e[2]), -2.4, -5.8, rng, Materials.greens(Color(0.42, 0.74, 0.38)))
+	_lawn(root, e, rng, Materials.greens(Color(0.4, 0.74, 0.34)))
 	# A bright day: a few motes of pollen in the air, no shafts of light.
 	_motes(root, Color(1.0, 0.98, 0.8), e)
 
@@ -1526,7 +1535,7 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
-	_tufts(root, left, right, top, -2.4, -5.8, rng, Materials.greens(Color(0.46, 0.8, 0.42)))
+	_lawn(root, [left, right, top], rng, Materials.greens(Color(0.44, 0.8, 0.4)))
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	_light_shafts(root, Color(1.0, 0.84, 0.9), [left, right, top, top - 10.0])
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
