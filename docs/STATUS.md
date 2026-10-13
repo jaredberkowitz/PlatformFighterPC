@@ -52,6 +52,13 @@ the reference's timing, and wall jumps (content schema 4). The Longsword's and t
 references with the new rules. **Sim 65** (owner's follow-up): a full water-pump charge holds its stance until special or shield, and
 jump pressed against a wall (stick neutral or toward it) also wall-jumps without spending a midair jump. Details and what is still
 estimated: `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
+**Sim 66** (content schema 5): the fifth class, Gauntlets on the sprinter body (built-in fighter Sprinter, modelled on the reference
+game's Captain Falcon), phase 1: the body (15-frame initial dash, wall jump 1.4 / 3.1) and every normal on reference data
+(`docs/movesets/captain_falcon/`): the jab chain with the rapid jab's entry rule (three presses and two releases since jab 1, presses in
+hitlag counted), its loop and finisher, the one-frame knee, the down air meteor, angled forward tilt and smash. General pieces: sixteen
+`ext` slots (E17, schema 5), per-limb intangibility (E19, `Move::part_intangible`), per-hitbox shieldstun (E24, `Hitbox::shieldstun`)
+and the `presses` / `releases` script registers. Its specials are still the claws' until phase 2 (plan in
+`docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`).
 
 ## Roadmap progress
 
