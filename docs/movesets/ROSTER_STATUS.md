@@ -373,6 +373,14 @@ These override anything above that disagrees.
     Spinning Kong's windbox immunity is modelled; the aerial spin's "gravity 0.07" is read as the gravity itself [E]; conflicts (cargo
     armor 16 vs 80, carry walk) resolved by the porter with the reasoning recorded; E28 for the spin's first hit once Cloud phase 3 builds
     it (367 until then, labelled).
+45. **Yoshi names**: class/weapon **Clutch**, body and built-in fighter **Bounder**.
+46. **The egg (E8)**: approved as designed in docs/movesets/yoshi/PROJECT_AUDIT.md (separate from the bury, sharing only the mash helper);
+    its unpublished parts (launch direction, fall, the break-out jump) are labelled [E] until footage.
+47. **Double-jump armor**: each hit is compared with the 120-knockback threshold on its own (ssbwiki.com's reading). E33 replaces E12
+    (the 13.0.1 double jump is an ordinary jump).
+48. **Small pieces**: build E30 (Yoshi Bomb drops through platforms) and E3h (both landing stars on the same frame).
+49. **Egg Roll is the lowest priority and will likely be replaced**: build it last and simply, from data and existing features only;
+    E31 (no hitbox in the air / while turning) and E32 (the ledge stall) are deferred as listed limits, since they serve only Egg Roll.
 
 ## Still open
 
