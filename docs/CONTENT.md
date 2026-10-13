@@ -118,6 +118,7 @@ A move block (omitted fields take the default shown):
 | `counter { start end then percent min_damage [max_damage] [melee_only] [bubble_x bubble_y [bubble_half_height] bubble_radius] }` | a counter stance: a hit landing in move frames `start..=end` is cancelled and the fighter switches to the move `then` (an `ext` slot), turned toward the attacker. It catches even while the stance is intangible (only the hits it catches: a grab or a push does not reach an intangible stance). `melee_only` leaves projectile hits alone (they land as usual). A push (`push` hitbox, a windbox) is never caught: it lands on the body as usual (since sim 78). The `bubble_*` fields (sim 78) give the area that catches, the reference's counter bubble: a circle of `bubble_radius` centred `bubble_x` ahead (mirrored by facing) and `bubble_y` up from the feet, or a standing capsule reaching `bubble_half_height` above and below that centre, scaled by the body's `hitbox_scale`. A hit touching the bubble is caught; one that reaches only the body is taken. Without `bubble_radius` (or 0) the body's hurtboxes catch, as before | no cap, false, no bubble |
 | `counter_strike` | this move's hitboxes deal what the stance caught: `percent` of the caught hit's damage, at least `min_damage` and (above 0) at most `max_damage` | false |
 | `charge_bonus` | extra damage at full charge for this move, in percent (0 uses the ruleset's `charge_bonus_percent`) | 0 |
+| `charge_add { full add [floor] }` | additive charge damage (E29, sim 90): each hit deals its damage plus `add` times the share of `full` frames the move's charge reached (at most all of it; a script sets the charge with `set_charge`), rounded down to a whole percent with `floor true`, instead of the multiplicative `charge_bonus`; `full` above 0 | none |
 | `script { ... }`, `projectile_script { ... }` | see below | none |
 
 Errors are collected, not stopped at the first: a file with a mistyped field, a missing value and an unknown move
@@ -186,7 +187,10 @@ straight one (the hauler's forward tilt: sim 90).
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
 `intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`, `air_flag(n)`, `set_air_flag(n)`,
 `spawn_scaled(forward, up, speed_forward, speed_up, knockback, size)`, `spawn_at(x, y, speed_forward, speed_up)`, `lock(range)`,
-`boost_add(n)`.
+`boost_add(n)`, `set_charge(n)`.
+
+* `set_charge(n)` sets the move's charge (the `charge` register, 0 to 255 frames): a move with a `charge_add` block deals its damage
+  plus the share of `full` the charge reached (the hauler's charged punch carries the wind-up's count into the punch with it: sim 90).
 
 * `boost_add(n)` adds `n` units to the fighter's gauge (a negative `n` drains), kept between 0 and the body's `max`; filling it
   starts the powered mode; while the mode runs (or for a body without a gauge) it does nothing. A charge that fills the gauge calls it

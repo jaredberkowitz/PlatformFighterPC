@@ -736,6 +736,30 @@ impl Armor {
     }
 }
 
+/// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
+/// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
+/// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChargeAdd {
+    pub full: u8,
+    pub add: Fx,
+    pub floor: bool,
+}
+
+impl ChargeAdd {
+    /// The damage a hit of `base` deals at `charge` frames.
+    pub fn damage(&self, base: Fx, charge: u8) -> Fx {
+        let full = i32::from(self.full.max(1));
+        let share = i32::from(charge).min(full);
+        let d = base + self.add.mul_int(share) / Fx::from_int(full);
+        if self.floor {
+            Fx::from_int(d.floor_int())
+        } else {
+            d
+        }
+    }
+}
+
 /// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
 /// attack throws out (the arm or leg reaching toward the move's hitboxes).
 pub const PART_LOW: u8 = 1;
@@ -853,6 +877,8 @@ pub struct Move {
     pub counter_strike: bool,
     /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
     pub charge_bonus: u8,
+    /// Damage added by the charge instead of the multiplicative bonus (see [`ChargeAdd`]); `None`: the bonus.
+    pub charge_add: Option<ChargeAdd>,
     /// A special used while the fighter's gauge's powered mode runs uses this slot instead (its powered version) and spends the gauge
     /// at once (see `content::Gauge`); `None`: the move is the same in the mode and spends nothing.
     pub limit_version: Option<u8>,
@@ -933,6 +959,7 @@ impl Move {
             counter: None,
             counter_strike: false,
             charge_bonus: 0,
+            charge_add: None,
             limit_version: None,
             gauge_drain: false,
             start_speed_y: 100,
@@ -1272,6 +1299,15 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.counter_strike);
             h.write_u8(m.charge_bonus);
+            match m.charge_add {
+                Some(c) => {
+                    h.write_bool(true);
+                    h.write_u8(c.full);
+                    c.add.hash_into(h);
+                    h.write_bool(c.floor);
+                }
+                None => h.write_bool(false),
+            }
             for slot in [m.limit_version, m.on_land] {
                 match slot {
                     Some(id) => {

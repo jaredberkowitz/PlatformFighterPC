@@ -77,8 +77,8 @@ fn set_all(mv: &mut Move, f: impl Fn(&mut Hitbox)) {
 /// base and growth knockback, set knockback, hitlag multipliers, shield damage, hitstun modifiers, trip chances, grounded-only boxes,
 /// hit groups, sweet and sour phases, no-clank boxes and boxes that clank without rebounding; the arm and head intangibility windows.
 /// Radii and offsets on the reference's root bone (`top`) are its values converted (x 1.25, rounded half up to a tenth) [D]; boxes on
-/// the arm, leg and head bones are placed on our body where that bone is in the move's pose [E]. The specials are still the claws'
-/// (phase 2 builds the reference's; phase 3 the carry).
+/// the arm, leg and head bones are placed on our body where that bone is in the move's pose [E]. The specials (phase 2) follow the
+/// reference too (see `specials`); the carry is phase 3.
 pub fn bracers() -> Weapon {
     let mut w = claws();
     // Fists and feet: the arm or leg throwing a hit can be hit (and its intangibility windows act on that circle).
@@ -89,7 +89,136 @@ pub fn bracers() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    specials(&mut w);
     w
+}
+
+// ---- Specials (phase 2) -------------------------------------------------------------------------------------------------------
+
+/// The `ext` slots the specials use (`goto` numbers in the scripts: ext0 is 28 ... ext9 is 37).
+pub const PUNCH_RELEASE: MoveId = MoveId::Ext0;
+pub const PUNCH_RELEASE_AIR: MoveId = MoveId::Ext1;
+pub const PUNCH_FULL: MoveId = MoveId::Ext2;
+pub const PUNCH_FULL_AIR: MoveId = MoveId::Ext3;
+pub const PUNCH_CANCEL: MoveId = MoveId::Ext4;
+
+fn specials(w: &mut Weapon) {
+    // The claws' specials and their follow-up slots go: every special slot is the reference's or empty.
+    for id in MoveId::all() {
+        if id.is_special() || id.is_ext() {
+            w.moves[id as usize] = Move::empty();
+        }
+    }
+    punch(w);
+}
+
+/// The arm thrown straight forward at chest height for the punches [E]: a point `at` reference tenths along it from the shoulder.
+const fn punch_arm(at: i32) -> (i32, i32) {
+    limb(30, 120, 1000, 0, at)
+}
+
+fn punch(w: &mut Weapon) {
+    // The wind-up and charge (the neutral special, on the ground and in the air alike): the script (`bracers_punch_charge`) counts the
+    // charge from frame 8 to 110 [R: 110 frames; the frame mapping is gap 1, E], releases on special, keeps the charge on a shield,
+    // dodge or jump cancel, and stores a full charge by itself; a hit loses what was charged (the charge is only in the script's
+    // variable until stored). It lands and carries on, and goes over an edge and carries on (the reference keeps charging) [E: gap 6].
+    // The move is long enough to reach full from nothing (FAF 132); it never ends on its own before that.
+    let mut charge = ref_move(132, 0, 0, 255, &[]);
+    charge.land_continue = true;
+    charge.off_edge = Some(MoveId::NSpecial as u8);
+    charge.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_punch_charge.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = charge;
+
+    // The release (the uncharged punch, its damage raised by the charge: 10 + 18 x charge / 110 rounded down on the ground, 6 + the
+    // same in the air: E29 `charge_add`), hitbox on the release's frames 19-20, FAF 63, the lower arm intangible on 4-20; the fist
+    // (radius 5.5, 8.0 along the forearm), the forearm (4.0, -1.0) and the shoulder (3.0, -1.5) [R], the arm straight out at chest
+    // height [E]; 361 by position (type 0), BK 45 KS 70 on the ground, BK 60 KS 65 in the air; it cannot rebound. The release's frame 1
+    // is the frame special is pressed [E: gap 1]. The aerial one lands as the grounded one (E22b), the grounded one goes over an edge
+    // as the aerial one; no special fall.
+    let release = |damage: i32, bkb: i16, kbg: i16| -> Move {
+        let rows: Vec<R> = [(140, 55, 0u8), (50, 40, 1), (-15, 30, 2)]
+            .into_iter()
+            .map(|(at, radius, id)| {
+                let (x, y) = punch_arm(at);
+                ru(19, 20, x, y, radius, damage, 361, bkb, kbg, id, 0)
+            })
+            .collect();
+        let mut mv = ref_move(63, 0, 0, 255, &rows);
+        set_all(&mut mv, |h| {
+            h.angle_type = ANGLE_BY_POSITION;
+            h.rebounds = false;
+        });
+        mv.part_intangible = vec![PartIntangible {
+            start: 3,
+            end: 19,
+            parts: PART_LIMB,
+        }];
+        mv.charge_add = Some(ChargeAdd {
+            full: 110,
+            add: Fx::from_int(18),
+            floor: true,
+        });
+        mv.script = Some(script(
+            Kind::Fighter,
+            include_str!("scripts/bracers_punch_release.script"),
+        ));
+        mv
+    };
+    let mut ground = release(100, 45, 70);
+    ground.off_edge = Some(PUNCH_RELEASE_AIR as u8);
+    let mut air = release(60, 60, 65);
+    air.on_land = Some(PUNCH_RELEASE as u8);
+    w.moves[PUNCH_RELEASE as usize] = ground;
+    w.moves[PUNCH_RELEASE_AIR as usize] = air;
+
+    // The full punch (its own, faster animation): hitbox 19-20, FAF 48, super armor 9-20 on the ground and 15-20 in the air (13.0.1);
+    // the fist, forearm and shoulder 28% and the waist 18% (BK 35, KS 73) on the ground, every box 25% (BK 40, KS 72) in the air;
+    // radii 5.0 / 6.5 / 4.0 / 3.0 [R]; 361 by position; it cannot rebound. It starts from the wind-up's frame 1 (the wind-up sees the
+    // stored full charge on its first run), so every frame here is the reference's minus one more: counted from the press, the hit is on
+    // 19-20 and the FAF 48 [D]. The aerial one lands as the grounded one keeping its frame, so landing in it moves to the grounded
+    // armor window (the reference since 3.1.0); no special fall.
+    let full = |damages: [i32; 4], bkb: i16, kbg: i16, armor_from: u8| -> Move {
+        let waist = (10, 90);
+        let mut rows = Vec::new();
+        for (i, (at, radius)) in [(140, 50), (50, 65), (-15, 40)].into_iter().enumerate() {
+            let (x, y) = punch_arm(at);
+            rows.push(ru(
+                18, 19, x, y, radius, damages[i], 361, bkb, kbg, i as u8, 0,
+            ));
+        }
+        rows.push(ru(
+            18, 19, waist.0, waist.1, 30, damages[3], 361, bkb, kbg, 3, 0,
+        ));
+        let mut mv = ref_move(47, 0, 0, 255, &rows);
+        set_all(&mut mv, |h| {
+            h.angle_type = ANGLE_BY_POSITION;
+            h.rebounds = false;
+        });
+        mv.armor = Some(Armor {
+            start: armor_from - 2,
+            end: 18,
+            kind: ARMOR_SUPER,
+            threshold: Fx::ZERO,
+        });
+        mv
+    };
+    let mut ground = full([280, 280, 280, 180], 35, 73, 9);
+    ground.off_edge = Some(PUNCH_FULL_AIR as u8);
+    let mut air = full([250; 4], 40, 72, 15);
+    air.on_land = Some(PUNCH_FULL as u8);
+    w.moves[PUNCH_FULL as usize] = ground;
+    w.moves[PUNCH_FULL_AIR as usize] = air;
+
+    // The cancel: 4 frames of lag (FAF 5) [R], then the held shield, the buffered jump or the dodge comes out.
+    let mut cancel = ref_move(5, 0, 0, 255, &[]);
+    cancel.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_punch_cancel.script"),
+    ));
+    w.moves[PUNCH_CANCEL as usize] = cancel;
 }
 
 fn jabs(w: &mut Weapon) {

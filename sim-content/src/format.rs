@@ -8,12 +8,12 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Burst, Counter, CounterBubble, Hitbox, Motion, Move, MoveId, PartIntangible,
-    ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
-    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
-    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
-    TARGETS_ALL, TARGETS_GROUNDED,
+    AirBlock, Armor, Burst, ChargeAdd, Counter, CounterBubble, Hitbox, Motion, Move, MoveId,
+    PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
+    AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL,
+    ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL,
+    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB,
+    PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -903,10 +903,21 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "part_intangible",
             "armor",
             "air",
+            "charge_add",
         ],
         context,
         errors,
     );
+    if let Some(b) = at_most_one(children(block, "charge_add"), "charge_add", context, errors) {
+        let ctx = format!("the charge_add of {context}");
+        let mut f = Fields::new(b, &ctx, errors);
+        m.charge_add = Some(ChargeAdd {
+            full: f.need("full", None, errors),
+            add: f.need("add", None, errors),
+            floor: f.or("floor", false, errors),
+        });
+        f.finish(errors);
+    }
     m.air_blocks = children(block, "air")
         .into_iter()
         .map(|b| {
@@ -1333,6 +1344,15 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         }
         if a.accel != 100 {
             c.field("accel", a.accel.to_string());
+        }
+        b.push(c);
+    }
+    if let Some(a) = &m.charge_add {
+        let mut c = Block::new("charge_add", None);
+        c.field("full", a.full.to_string());
+        c.field("add", a.add.show());
+        if a.floor {
+            c.field("floor", "true");
         }
         b.push(c);
     }

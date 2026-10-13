@@ -793,14 +793,14 @@ fn the_bracers_are_registered_as_class_7() {
     assert_eq!(c.names.weapons[7], "bracers");
     assert_eq!(c.fighters[7], FighterParams::hauler());
     assert_eq!(c.weapons[7], sim_core::moves::bracers());
-    // The specials are still the claws' placeholders (phase 2).
+    // The specials are the reference's own since phase 2 (`bracers_specials.rs`): none is the claws' any more.
     for id in [
         MoveId::NSpecial,
         MoveId::SideSpecial,
         MoveId::UpSpecial,
         MoveId::DownSpecial,
     ] {
-        assert_eq!(
+        assert_ne!(
             c.weapons[7].moves[id as usize], c.weapons[1].moves[id as usize],
             "{id:?}"
         );

@@ -735,6 +735,45 @@ fn the_grab_register_reads_the_grab_button() {
     assert_eq!(sim.f().vars[0], Fx::ONE.raw());
 }
 
+// ---- `set_charge` and `charge_add` (E29, sim 90) ---------------------------------------------------------------------------------
+
+#[test]
+fn set_charge_sets_the_moves_charge_which_charge_add_turns_into_damage() {
+    // A neutral special with a 10% hit on frame 5 and an additive charge of 18 over 110 frames: the script sets 55 frames of charge,
+    // read back by `charge`, and the hit deals 19%.
+    let mut mv = scripted(30, "var seen; set_charge(55); seen = charge;");
+    mv.hitboxes = sim_core::moves::claws().moves[MoveId::Jab as usize]
+        .hitboxes
+        .clone();
+    mv.hitboxes.truncate(1);
+    for h in &mut mv.hitboxes {
+        h.start = 5;
+        h.end = 5;
+        h.x = Fx::ONE;
+        h.y = Fx::ONE;
+        h.radius = Fx::from_int(2);
+        h.damage = Fx::from_int(10);
+    }
+    mv.charge_add = Some(sim_core::moves::ChargeAdd {
+        full: 110,
+        add: Fx::from_int(18),
+        floor: true,
+    });
+    let mut sim = with_special(mv);
+    sim.stand(1, fx(-58, 10), -1);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().charge, 55);
+    assert_eq!(sim.f().vars[0], Fx::from_int(55).raw());
+    for _ in 0..10 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(
+        sim.fighter(1).percent,
+        Fx::from_int(19) * sim.content.rules.damage_mult
+    );
+}
+
 // ---- `aimed` (owner decision 52, sim 90) ---------------------------------------------------------------------------------------
 
 #[test]

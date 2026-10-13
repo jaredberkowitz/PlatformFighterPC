@@ -428,7 +428,10 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     let mut hb = hb;
                     let attack =
                         weapon_of(content, params_of(content, &attacker)).get(attacker.move_id);
-                    if attacker.charge > 0 {
+                    if let Some(add) = attack.charge_add {
+                        // Additive charge damage (E29): the reference's charged punch.
+                        hb.damage = add.damage(hb.damage, attacker.charge);
+                    } else if attacker.charge > 0 {
                         let rules = &content.rules;
                         let full = if attack.charge_bonus > 0 {
                             attack.charge_bonus

@@ -401,6 +401,14 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         if mv.turn_at.is_some_and(|(_, stick)| stick > 99) {
             errors.push(format!("weapon {i} {name}: turn_stick is at most 99"));
         }
+        if mv
+            .charge_add
+            .is_some_and(|c| c.full == 0 || c.add < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: charge_add needs full above 0 and add of at least 0"
+            ));
+        }
         if let Some(a) = &mv.armor {
             if a.start > a.end || a.end > mv.total_frames {
                 errors.push(format!(

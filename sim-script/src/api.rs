@@ -99,6 +99,7 @@ pub const F_SPAWN_SCALED: u8 = 44;
 pub const F_SPAWN_AT: u8 = 45;
 pub const F_LOCK: u8 = 46;
 pub const F_BOOST_ADD: u8 = 47;
+pub const F_SET_CHARGE: u8 = 50;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -308,7 +309,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 16] = [
+    const OWN: [Func; 17] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -395,8 +396,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "boost_add(n): add n units to the fighter's gauge (negative drains), between 0 and its max; filling it starts the powered mode; nothing while the mode runs",
         ),
+        func(
+            "set_charge",
+            F_SET_CHARGE,
+            1,
+            "set_charge(n): set this move's charge to n frames (0 to 255), read back as charge; a move with charge_add deals more with it",
+        ),
     ];
-    concat::<9, 16, 25>(MATH, OWN)
+    concat::<9, 17, 26>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

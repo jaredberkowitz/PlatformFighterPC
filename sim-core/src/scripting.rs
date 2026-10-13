@@ -201,6 +201,7 @@ impl Host for FighterHost<'_> {
             }
             api::F_LOCK => return flag(self.lock(arg(0))),
             api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),
+            api::F_SET_CHARGE => self.f.charge = arg(0).floor_int().clamp(0, 255) as u8,
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);
