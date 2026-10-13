@@ -76,6 +76,35 @@ func _part(with: Color, without: Color) -> bool:
 	return absf(with.r - without.r) + absf(with.g - without.g) + absf(with.b - without.b) > 0.06
 
 
+## The pixels of a fighter's cell that look like the backdrop but are enclosed by the fighter (a pale belly lit the colour of a pale sky):
+## they are not backdrop the silhouette borders, so no rim is measured against them. Only backdrop reachable from the cell's border is.
+func _enclosed(img: Image, bare: Image, x0: int) -> Dictionary:
+	var outside := {}
+	var todo: Array[Vector2i] = []
+	for x in range(x0, x0 + CELL.x):
+		todo.append(Vector2i(x, 0))
+		todo.append(Vector2i(x, CELL.y - 1))
+	for y in CELL.y:
+		todo.append(Vector2i(x0, y))
+		todo.append(Vector2i(x0 + CELL.x - 1, y))
+	while not todo.is_empty():
+		var p: Vector2i = todo.pop_back()
+		if p.x < x0 or p.x >= x0 + CELL.x or p.y < 0 or p.y >= CELL.y or outside.has(p):
+			continue
+		if _part(img.get_pixelv(p), bare.get_pixelv(p)):
+			continue
+		outside[p] = true
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			todo.append(p + d)
+	var inside := {}
+	for y in CELL.y:
+		for x in range(x0, x0 + CELL.x):
+			var q := Vector2i(x, y)
+			if not outside.has(q) and not _part(img.get_pixelv(q), bare.get_pixelv(q)):
+				inside[q] = true
+	return inside
+
+
 func _luma(c: Color) -> float:
 	return c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722
 
@@ -111,19 +140,21 @@ func _initialize() -> void:
 		var line := "%-7s %-6s" % [moods[i / 2], "dark" if i % 2 == 1 else "bright"]
 		for k in BODIES.size():
 			var x0 := k * CELL.x
+			var inside := _enclosed(img, bare, x0)
 			var edge_n := 0
 			var edge_ok := 0
 			var body_sum := 0.0
 			var body_n := 0
 			for y in range(1, CELL.y - 1):
 				for x in range(x0 + 1, x0 + CELL.x - 1):
-					if not _part(img.get_pixel(x, y), bare.get_pixel(x, y)):
+					if not _part(img.get_pixel(x, y), bare.get_pixel(x, y)) and not inside.has(Vector2i(x, y)):
 						continue
 					var back := _luma(bare.get_pixel(x, y))
 					# A rim pixel: part of the fighter with backdrop next to it.
 					var rim := false
 					for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-						if not _part(img.get_pixel(x + d.x, y + d.y), bare.get_pixel(x + d.x, y + d.y)):
+						var n := Vector2i(x + d.x, y + d.y)
+						if not _part(img.get_pixel(n.x, n.y), bare.get_pixel(n.x, n.y)) and not inside.has(n):
 							rim = true
 					var l := _luma(img.get_pixel(x, y))
 					if rim:

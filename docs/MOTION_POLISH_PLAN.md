@@ -36,8 +36,8 @@ head follow-through, a tech, a platform drop, a run stop.
 
 ## Hard constraints
 
-- Read `CLAUDE.md` and `docs/STATUS.md` first. The working tree on `phase7-match-rules` may hold unrelated uncommitted sim and moveset
-  changes. Branch from `main` (own branch or worktree) and never commit files from other work.
+- Read `CLAUDE.md` and `docs/STATUS.md` first. Moveset work happens in its own worktree (`.claude/worktrees/movesets`); this plan runs
+  on its own branch (`motion-polish`) and never commits files from other work.
 - No sim-crate edits. The view reads the snapshot dictionary `s` (built in `main.gd` `_refresh`). If a state cannot be told apart from
   the snapshot (for example a tech), add a **read-only bridge accessor** over existing state; that is not a sim change, but confirm it with
   the user before touching `pf_bridge`.
@@ -66,7 +66,7 @@ tools/godot/Godot_v4.7.1-stable_win64_console.exe --path godot --script res://te
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path godot --script res://tests/anim_library_test.gd
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path godot --script res://tests/fighter_view_test.gd
 # Rig rebuild after pose changes (about 20 s)
-"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json --neck-drop 0
 ```
 
 Also run the demo stills (`--demo=...` in `demo.gd`) at several frames around each change, plus `match_flow_test` and, once at the end,
@@ -190,6 +190,66 @@ Phase 0 (small), 1 (medium, biggest feel win), 2a (small to medium), 3 (medium t
 the spike), 4 (small to medium), 5 (only if needed), 6 (small). Commit per phase with its captures. Phases 1 and 2a can be started in
 parallel by separate agents if their module files stay separate.
 
+## Results
+
+All on branch `motion-polish`, presentation only (no sim, content or bridge change). Captures in `docs/screenshots/motion_*`.
+
+| Phase | Shipped | Frame-time delta (4 computer fighters, `--demo=cpu4 --players=4 --perf`, interleaved runs) |
+| --- | --- | --- |
+| 1 | strike stretch (fists and kicking legs; the sword's arm is left to its blade), impact squash into an eased launch stretch, smear ribbons for strikes without an arc, a take-off kick | frame scripts 2.03 to 2.03 ms and 2.51 to 2.25 ms: within noise |
+| 2a | `motion_springs.gd`: hat, chest and head lag, head turn lag, fist follow-through, neckerchief swing | +0.07 ms (one clean pair; the other was polluted) |
+| 2b | `tail_rig.gd`: the scarf's end and a new sash end as spring chains | not separately measurable (a few node transforms) |
+| 3 | `tech`, `platform_drop`, `run_stop`, `hurt_heavy`, `hurt_up`, `idle_look` clips, chosen from the existing snapshot (an intangible landing, the platform-ignore counter, a sliding idle, knockback speed and direction); shield breath and knock-back; the shield head spin fixed | none (clip choice) |
+| 4 | a short-contact run and dash stance; a quicker walk tempo (`WALK_TEMPO`) | none |
+| 5 | skipped: the pose-override API is fine in 4.7.1 | |
+
+Foot slide after phase 4 (`tests/motion_probe.gd`, drift while planted over ground speed): walk 0.38, 0.39, 0.33 (was 0.51, 0.49, 0.49);
+run 0.08, 0.12, 0.11 (was 0.45, 0.46, 0.43); dash 0.10, 0.12, 0.12 (was 0.36, 0.36, 0.37). The plan's "a few percent" is not reachable
+for the walk on these short legs without a scurrying tempo; the run and dash meet it closely enough to read as planted. After the cuter, shorter body
+(`ART_PIPELINE.md` thirty-first pass) the run and dash take 1.4 times the steps and the walk is quicker: run about 0.09, dash about 0.13,
+walk 0.42 to 0.45.
+
+Not done or deferred, honestly:
+- The heavy hitstun's directions are sideways and upward only (no separate low pose): the snapshot has no hit height before the launch.
+- The impact squash is across the stage, not along the launch angle: the launch angle is not in the snapshot until the launch.
+- The tech pop is short (the tech's landing lag is 4 frames); the intangibility ghosting is the same as before.
+- Smears on punches are small, as the fists only travel about half a unit; the kicks' are larger.
+- The clips were re-posed for the cuter body only where it showed (the head's back tilt, overhead kicks); a full pose-by-pose pass is
+  still open (see `ANIMATION.md` section 6).
+
 ## Spike results
 
-*(To be filled in by phase 0.)*
+Phase 0, 2026-10-13 (branch `motion-polish`).
+
+**Baselines.** Contact sheets `docs/screenshots/motion_0_*.png` (idle, walk, run, dash, jumpsquat, jump, land, jab, ftilt, fair, fsmash,
+hurt, flinch, launch, tumble, knockdown, getup, shield; `tests/anim_sheet.gd` gained `shield`, `flinch`, `launch` and `tumble`). What
+they show:
+
+- **Shield turns the face away**: over the hold the head and chest turn until the back of the head faces the camera (frames 10 to 24),
+  breaking the "face is half of every read" rule. Phase 3 item 2 fixes it with the new hold.
+- **Flinch barely reads**: the snap back is a few degrees for a fraction of a second; at match distance it is invisible. Phase 1 item 3
+  (impact squash) and a stronger flinch carry it.
+- **Hurt is one held pose** (the same frame for the whole stun): phase 3 item 1.
+- **Strikes are not stretched**: the forward smash's arm reaches the blade out, but nothing in the body says speed on the strike frame.
+  Phase 1.
+- **The launch** reads (head first along the path, limbs trailing) but the body keeps its standing proportions: phase 1 item 2.
+
+**Foot slide** (`tests/motion_probe.gd`, headless; the same for every class, since they share the clips and the stride code):
+
+| State | Speeds (units/frame) | Drift while planted / ground speed |
+| --- | --- | --- |
+| Walk | 0.08, 0.14, 0.19 | 0.51, 0.49, 0.49 |
+| Run | 0.19, 0.24, 0.30 | 0.45, 0.46, 0.43 |
+| Dash | 0.24, 0.27, 0.28 | 0.36, 0.36, 0.37 |
+
+The ratio is flat across speeds, so the clip rates already scale with speed correctly; what is wrong is the **stride**: a planted foot
+sweeps back at about half the ground speed, so feet skate forward. Phase 4 lengthens the stance sweep (or rates the clip to it).
+
+**Spring bones (item 3): no-go.** `SpringBoneSimulator3D` does run with the `AnimationPlayer` in manual mode (a chain on `armU.L` to
+`hand.L` visibly changed the pose), but: a teleport of the fighter (a rollback correction, a respawn) swings the chain about 1 unit, a
+visible explosion, every time; setting `active = false` for hitlag does not freeze it, it snaps the chain back to the clip pose; and at
+rest gravity pulls the chain off the clip's pose. Phase 2b therefore uses hand-written chains of code springs (`motion_springs.gd`), which
+follow the `prev_frame` guard and freeze in hitlag.
+
+**Pose overrides (item 4): fine.** `set_bone_global_pose_override` gives no deprecation warning in 4.7.1 and still composes (the arm IK
+read back correctly with and without a modifier on the skeleton). Phase 5 is skipped.

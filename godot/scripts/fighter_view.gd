@@ -39,6 +39,10 @@ const FaceLook := preload("res://scripts/face_look.gd")
 const Particles := preload("res://scripts/particles.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
 const AnimLibrary := preload("res://scripts/anim_library.gd")
+const MotionDeform := preload("res://scripts/motion_deform.gd")
+const Smear := preload("res://scripts/smear.gd")
+const MotionSprings := preload("res://scripts/motion_springs.gd")
+const TailRig := preload("res://scripts/tail_rig.gd")
 
 
 ## The soft cel material (`shaders/toon.gdshader`) in colour `c`, with the ink outline unless `outline` is false. Cached per colour.
@@ -86,6 +90,10 @@ func rebuild(l: RefCounted) -> void:
 	last_expression = {}
 	shown_face = ""
 	last_ghost = 0.0
+	unkeyed = {}
+	neck_pivot = null
+	tails = []
+	reset_motion()
 	build(player, l)
 
 
@@ -182,7 +190,7 @@ var current_clip := ""
 ## The dash and run share one stride, set by this fighter's initial dash: a dash is one bounding step (from the push-off at
 ## `DASH_STEP_FROM` to the other foot landing half a cycle later) that lands as the dash ends, and the run goes on at two dash lengths
 ## a cycle, its legs turning over with the speed.
-const DASH_STEP_FROM := 0.12
+const DASH_STEP_FROM := 0.06
 var gait_frame := -1
 ## Parents of the face / hat / glasses (they follow the head bone) and of the neckwear (it follows the torso). Without a rig both are
 ## simply the model.
@@ -361,6 +369,25 @@ func _build_rig(skin: Material) -> bool:
 	return true
 
 
+## When the polish clips play (motion plan phase 3): a stop out of a run while still sliding faster than this (units a frame), over this
+## many frames; a fidget after this many frames standing still, for its length, every so often; a platform drop's hop over its first
+## frames; the heavy hitstun pose for knockback faster than this.
+const RUN_STOP_SPEED := 0.04
+## The walk clip plays once a cycle at this ground speed (units a frame), faster or slower with the speed: quick enough that the planted
+## foot slides only about a third of the ground speed on the short legs (motion plan phase 4), not so quick that the walk scurries.
+const WALK_TEMPO := 0.055
+## The run and dash take this many more steps than one stride a dash length: the cute body's short legs cover less ground a step, so
+## they scurry (motion plan phase 4, measured by tests/motion_probe.gd).
+const STEP_CADENCE := 1.4
+const RUN_STOP_FRAMES := 20.0
+const FIDGET_AFTER := 300
+const FIDGET_EVERY := 420
+const FIDGET_FRAMES := 72.0
+const DROP_FRAMES := 20.0
+const HEAVY_HITSTUN_SPEED := 0.15
+const TECH_INVULN_AT_MOST := 24
+
+
 ## Which clip suits this state of the simulation: [clip name, speed, progress]. Progress is -1 for a clip that simply plays, or 0..1 for
 ## one that follows the move (an attack's swing lands on the move's own frames).
 func _choose_clip(s: Dictionary) -> Array:
@@ -369,13 +396,13 @@ func _choose_clip(s: Dictionary) -> Array:
 	var speed := absf(float(s.vel.x))
 	match state:
 		"Walk":
-			return ["walk", clampf(speed / 0.09, 0.5, 2.4), -1.0]
+			return ["walk", clampf(speed / WALK_TEMPO, 0.5, 3.6), -1.0]
 		"Run", "Dash":
 			# Cycles a second (two dash lengths each) times the clip's length in seconds.
 			var stride := 2.0 * maxf(0.5, float(s.get("dash_length", 2.4)))
 			var clip := "dash" if state == "Dash" else "run"
 			var length := anim.get_animation(clip).length if anim != null and anim.has_animation(clip) else 0.3
-			return [clip, minf(2.5, speed * 60.0 / stride * length), -1.0]
+			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
 			return _attack_clip(s)
 		"Turn":
@@ -385,6 +412,28 @@ func _choose_clip(s: Dictionary) -> Array:
 			if ledge_rolling:
 				return ["roll", 1.0, ledge_k]
 			return ["ledge_climb", 1.0, ledge_k]
+		"Landing":
+			# A tech in place is a landing with a tech's intangibility (a plain landing has none; a fighter still invincible from its
+			# respawn has far more): a slap on the floor and a pop up, over its lag.
+			if int(s.get("invuln", 0)) > 0 and int(s.get("invuln", 0)) <= TECH_INVULN_AT_MOST:
+				return [AnimLibrary.or_stand_in("tech", anim), 1.0, clampf(float(s.state_frame) / maxf(1.0, float(s.get("lag", 4))), 0.0, 1.0)]
+		"Idle":
+			# Still sliding as it stops out of a run: braced against the slide, then settled.
+			if grounded and speed > RUN_STOP_SPEED and int(s.state_frame) < RUN_STOP_FRAMES:
+				return [AnimLibrary.or_stand_in("run_stop", anim), 1.0, float(s.state_frame) / RUN_STOP_FRAMES]
+			# Standing still for a long time, a fidget now and then.
+			var still := int(s.state_frame) - FIDGET_AFTER
+			if grounded and still >= 0 and still % FIDGET_EVERY < FIDGET_FRAMES:
+				return [AnimLibrary.or_stand_in("idle_look", anim), 1.0, float(still % FIDGET_EVERY) / FIDGET_FRAMES]
+		"Airborne":
+			# Just dropped through a platform (the sim ignores platforms for a few frames after it): a hop down out of a crouch.
+			if int(s.get("ignore", 0)) > 0 and int(s.state_frame) < DROP_FRAMES and flip_left <= 0.0:
+				return [AnimLibrary.or_stand_in("platform_drop", anim), 1.0, float(s.state_frame) / DROP_FRAMES]
+		"Hitstun":
+			# Sent flying by a hit that does not tumble: folded round the blow, or arched up off it when sent upward.
+			var kb: Vector2 = s.get("kb_vel", Vector2.ZERO)
+			if not s.tumble and kb.length() > HEAVY_HITSTUN_SPEED:
+				return [AnimLibrary.or_stand_in("hurt_up" if kb.y > absf(kb.x) else "hurt_heavy", anim), 1.0, -1.0]
 		"LedgeAttack":
 			# Up onto the edge, then the sweep (its hit on frames 24-26 of 55 lands on the clip's strike).
 			var f: float = s.state_frame
@@ -534,8 +583,36 @@ func _animate(s: Dictionary, delta: float) -> void:
 		# (Hitlag freezes the pose along with everything else.)
 		anim.speed_scale = float(pick[1])
 		anim.advance(delta)
+	_rest_unkeyed(clip)
 	_body_follow(s, delta)
+	_lag_bones(s)
 	_follow_bones()
+
+
+## The chest and head get turns and bends added on top of the clip every frame (`_body_follow`, `_lag_bones`), which only works if the
+## clip sets them every frame. A clip that leaves one at rest has no track for it (the exporter drops it), so nothing would put it back
+## and the additions would pile up (the head spun round in a long shield hold): such a bone is put back to rest first.
+var unkeyed := {}
+
+
+func _rest_unkeyed(clip: String) -> void:
+	if not unkeyed.has(clip):
+		var missing: Array[int] = []
+		var a := anim.get_animation(clip) if anim.has_animation(clip) else null
+		for bone in [spine_bone, head_bone]:
+			if bone < 0 or a == null:
+				continue
+			var name := skeleton.get_bone_name(bone)
+			var found := false
+			for t in a.get_track_count():
+				if String(a.track_get_path(t)).get_slice(":", 1) == name:
+					found = true
+					break
+			if not found:
+				missing.append(bone)
+		unkeyed[clip] = missing
+	for bone in unkeyed[clip]:
+		skeleton.reset_bone_pose(bone)
 
 
 ## Moves the head's and the torso's pieces (hats, glasses, neckwear) with the head and chest bones as they are posed now.
@@ -554,6 +631,7 @@ func _follow_bones() -> void:
 ## It grows with the move's wind-up and fades in its recovery, and it is added on top of the move's clip, so every move gets it.
 var body_bend := 0.0
 var head_look := 0.0
+const HEAD_COUNTER_ARCH := 0.75
 
 
 func _body_follow(s: Dictionary, delta: float) -> void:
@@ -572,7 +650,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		if kicking:
 			# A leg swings comfortably from about 40 degrees behind to 100 in front; past that the body has to make room.
 			if phi > 100.0:
-				target_bend = -minf((phi - 100.0) * 0.85, 50.0)
+				# (Not too far: the base body's big head arched back past this shows its chin, not its face.)
+				target_bend = -minf((phi - 100.0) * 0.85, 26.0 if use_base_body else 50.0)
 			elif phi < -40.0:
 				# (Less: kicks behind already lean the body forward in their clips.)
 				target_bend = minf((-40.0 - phi) * 0.4, 24.0)
@@ -586,7 +665,8 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 				target_bend = (-60.0 - phi) * 0.3
 		# Look at the hit: up for a hit overhead, down for a low one, by how high it is (about half of the angle to it).
 		var rise := rad_to_deg(atan2(to.y, absf(to.x)))
-		target_look = clampf(rise * 0.5, -20.0, 30.0)
+		# (Less far up for a kick: the body already leans back under a high one, and the face must stay toward the camera.)
+		target_look = clampf(rise * 0.5, -20.0, 12.0 if kicking else 30.0)
 		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
 		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
 		var k := (leg_k if kicking else arm_k) * (0.5 if use_base_body else 1.0)
@@ -597,8 +677,11 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	head_look = lerpf(head_look, target_look, follow)
 	if absf(body_bend) > 0.05:
 		_bend_bone(spine_bone, body_bend, int(s.facing))
-	if absf(head_look) > 0.05:
-		_bend_bone(head_bone, -head_look, int(s.facing))
+	# (When the body arches back, the head tips forward against most of it, so the face stays toward the camera: the big head tipped back
+	# showed only its chin.)
+	var head_bend := -head_look - minf(body_bend, 0.0) * HEAD_COUNTER_ARCH
+	if absf(head_bend) > 0.05:
+		_bend_bone(head_bone, head_bend, int(s.facing))
 	# A flinch: the chest and head snap back from the hit and come forward again.
 	if flinch_left > 0.0:
 		flinch_left = maxf(0.0, flinch_left - delta)
@@ -608,6 +691,28 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 	# Open the chest to the camera and turn the head back toward the opponent (see BODY_TURN).
 	_turn_bone(spine_bone, -CHEST_TO_CAMERA * float(s.facing))
 	_turn_bone(head_bone, HEAD_TOWARD_FOE * float(s.facing))
+
+
+## The chest and head lagging the hips (the `spine`, `head` and `head_turn` springs), on top of the clip and the body follow; and behind a
+## shield, a slow breath (by the sim frame, so a freeze holds it) that moves the chest and head but never the bubble.
+const SHIELD_BREATH := 2.5
+const SHIELD_BREATH_FRAMES := 80.0
+
+
+func _lag_bones(s: Dictionary) -> void:
+	if skeleton == null or spine_bone < 0:
+		return
+	var facing := int(s.facing)
+	if String(s.state) == "Shield":
+		var b := sin(float(s.frame) * TAU / SHIELD_BREATH_FRAMES)
+		_bend_bone(spine_bone, SHIELD_BREATH * b, facing)
+		_bend_bone(head_bone, -SHIELD_BREATH * 0.6 * b, facing)
+	if absf(springs.value("spine")) > 0.05:
+		_bend_bone(spine_bone, springs.value("spine"), facing)
+	if absf(springs.value("head")) > 0.05:
+		_bend_bone(head_bone, springs.value("head"), facing)
+	if absf(springs.value("head_turn")) > 0.05:
+		_turn_bone(head_bone, springs.value("head_turn"))
 
 
 ## Turns a bone about the vertical by `degrees` (positive is counter-clockwise seen from above), on top
@@ -852,7 +957,10 @@ func _tag_object(node: Node) -> void:
 				(node as GeometryInstance3D).set_instance_shader_parameter("rim_boost", 1.0 if cloth else FIGHTER_RIM_BOOST)
 				(node as GeometryInstance3D).set_instance_shader_parameter("fighter", 1.0)
 				# The line art in the fighter's own colour, much darkened (see `outline_tint` in shaders/outline.gdshader).
-				var line_c: Color = loadout.body_color().darkened(OUTLINE_TINT_DARKEN) if loadout != null else INK
+				# (A pale body gets a darker line, so its outline still parts it from a pale sky.)
+				var body_c: Color = loadout.body_color() if loadout != null else INK
+				var darken := lerpf(OUTLINE_TINT_DARKEN, OUTLINE_TINT_DARKEN_PALE, smoothstep(0.55, 0.9, body_c.get_luminance()))
+				var line_c: Color = body_c.darkened(darken) if loadout != null else INK
 				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
 				break
 	for c in node.get_children():
@@ -1084,6 +1192,7 @@ const OUTLINE_TINT := 0.75
 ## like the concept art's, not a heavy black one.
 const FIGHTER_OUTLINE_WEIGHT := 0.82
 const OUTLINE_TINT_DARKEN := 0.64
+const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
@@ -1321,18 +1430,38 @@ func _neck_on_rig(accent: Color) -> void:
 				var out := Vector3(0.88 * cos(t), 0.0, sin(t)).normalized()
 				var b := _part(sash, badge, toon(colours[k]), Vector3(0.88 * 0.655 * cos(t), 0.0, 0.655 * sin(t)))
 				b.basis = Basis(Quaternion(Vector3.UP, out))
+			# The sash's knotted end hanging at the hip, swinging with the body (`TailRig`).
+			_tail(centre + Vector3(0.3, -0.36, 0.4), toon(SASH, false), 0.36, 0.13, 0.05, 3)
 		2:
 			# Neckerchief: a collar ring round the top of the torso with a point hanging in front.
 			var at := _collar(accent)
 			var bib := BoxMesh.new()
 			bib.size = Vector3(0.34, 0.34, 0.06)
-			_part(torso_rig, bib, toon(accent), Vector3(0, at - 0.16, 0.5), Vector3.ONE, Vector3(0, 0, 45))
+			# (On a pivot at the knot, so it swings with the body: the `neck` spring.)
+			neck_pivot = Node3D.new()
+			neck_pivot.position = Vector3(0, at - 0.02, 0.5)
+			torso_rig.add_child(neck_pivot)
+			_part(neck_pivot, bib, toon(accent), Vector3(0, -0.14, 0), Vector3.ONE, Vector3(0, 0, 45))
 		3:
 			# Scarf: the collar ring and a tail hanging down the front on one side.
 			var at := _collar(accent)
-			var tail := BoxMesh.new()
-			tail.size = Vector3(0.2, 0.5, 0.06)
-			_part(torso_rig, tail, toon(accent), Vector3(0.26, at - 0.28, 0.46), Vector3.ONE, Vector3(0, 0, 6))
+			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
+			_tail(Vector3(0.26, at - 0.03, 0.46), toon(accent), 0.5, 0.2, 0.06, 4)
+
+
+## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
+## sash's end).
+var neck_pivot: Node3D
+var tails: Array = []
+
+
+func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: float, segments: int) -> void:
+	var t := TailRig.new()
+	t.position = at
+	torso_rig.add_child(t)
+	t.build(mat, length, width, thickness, segments)
+	meshes.append_array(t.meshes())
+	tails.append(t)
 
 
 ## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).
@@ -1355,7 +1484,7 @@ func _collar(accent: Color) -> float:
 const COLLAR_BELOW_NECK := 0.1
 
 
-## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (see `_hat_spring`).
+## The hat sits on a pivot at the crown of the head that lags behind sudden moves and bounces on landings (the `hat_roll` and `hat_drop` springs, see `_secondary`).
 const HAT_PIVOT := Vector3(0, 1.95, 0)
 var hat_pivot: Node3D
 
@@ -1416,6 +1545,7 @@ func _glasses() -> void:
 	var glasses_rig := Node3D.new()
 	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
 	head_rig.add_child(glasses_rig)
+	var to_head: Transform3D = glasses_rig.transform
 	match loadout.glasses:
 		1:
 			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
@@ -1428,17 +1558,18 @@ func _glasses() -> void:
 			rim.inner_radius = 0.95
 			rim.outer_radius = 1.05
 			for sx in [-1.0, 1.0]:
-				_part(glasses_rig, _sphere(1.0), lens, Vector3(sx * 0.32, 1.52, 0.84), Vector3(0.25, 0.18, 0.03))
-				_part(glasses_rig, rim, frame, Vector3(sx * 0.32, 1.52, 0.845), Vector3(0.25, 0.04, 0.18), Vector3(90, 0, 0))
-			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.56, 0.86), Vector3(0.1, 0.025, 0.025))
+				_on_face(_part(glasses_rig, _sphere(1.0), lens, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.04, Vector3(0.25, 0.18, 0.03))
+				_on_face(_part(glasses_rig, rim, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.045, Vector3(0.25, 0.04, 0.18), true)
+			_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.56, 0.06, Vector3(0.1, 0.025, 0.025))
 		2:
 			# Goggles: chunky rings with a strap round the head.
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.14
 			ring.outer_radius = 0.28
 			for sx in [-1.0, 1.0]:
-				_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-				_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3(sx * 0.32, 1.52, 0.82), Vector3(0.14, 0.14, 0.02))
+				_on_face(_part(glasses_rig, ring, toon(Color(0.45, 0.28, 0.12)), Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
+				_on_face(_part(glasses_rig, _sphere(1.0), toon(Color(0.7, 0.9, 1.0, 1.0), false), Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.02,
+					Vector3(0.14, 0.14, 0.02))
 			var strap := TorusMesh.new()
 			strap.inner_radius = 0.78
 			strap.outer_radius = 0.84
@@ -1449,8 +1580,26 @@ func _glasses() -> void:
 			thin.inner_radius = 0.17
 			thin.outer_radius = 0.21
 			for sx in [-1.0, 1.0]:
-				_part(glasses_rig, thin, frame, Vector3(sx * 0.32, 1.52, 0.8), Vector3.ONE, Vector3(90, 0, 0))
-			_part(glasses_rig, _sphere(1.0), frame, Vector3(0, 1.54, 0.82), Vector3(0.1, 0.02, 0.02))
+				_on_face(_part(glasses_rig, thin, frame, Vector3.ZERO), to_head, sx * 0.32, 1.52, 0.0, Vector3.ONE, true)
+			_on_face(_part(glasses_rig, _sphere(1.0), frame, Vector3.ZERO), to_head, 0.0, 1.54, 0.02, Vector3(0.1, 0.02, 0.02))
+
+
+## Seats a piece of the glasses on the face: over the drawn eye at (`x`, `y`) in the glasses' design space, on the head's surface
+## (`lift` out from it, in the head's design units) and turned to face out from it, so on a fighter turned three-quarters to the camera the
+## far lens stays on the face instead of floating past the head's edge. `to_head` takes the glasses' space to the head's design space (a
+## sphere of radius 0.8 about 1.42 up, see `head_fit`). `ring` turns a torus to lie flat on the face.
+func _on_face(mi: MeshInstance3D, to_head: Transform3D, x: float, y: float, lift: float, scl: Vector3, ring := false) -> void:
+	var d := to_head * Vector3(x, y, 0.0)
+	var up := d.y - 1.42
+	var z := sqrt(maxf(0.0, 0.64 - d.x * d.x - up * up))
+	var normal := Vector3(d.x, up, z).normalized()
+	var on := Vector3(d.x, d.y, 0.0) + Vector3(0.0, 0.0, z) + normal * lift
+	var back := to_head.affine_inverse()
+	mi.position = back * on
+	# The surface's outward direction in the glasses' space (their space is only scaled and moved from the head's).
+	var out := (back.basis * normal).normalized()
+	var turn := Basis(Quaternion(Vector3(0, 0, 1), out))
+	mi.basis = turn * (Basis.from_euler(Vector3(PI / 2.0, 0, 0)) if ring else Basis.IDENTITY) * Basis.from_scale(scl)
 
 
 ## The expression for this moment (see Loadout's action faces).
@@ -1505,6 +1654,8 @@ const LEAN := {"Dash": 18.0, "Run": 14.0, "WaveLand": 28.0, "Walk": 4.0, "LedgeA
 # Damped springs make landings and takeoffs read as soft and elastic instead of linear and stiff.
 const SPRING_K := 420.0
 const SPRING_DAMP := 22.0  # a bit under critical (2*sqrt(K) = 41), so there is a small rebound
+## How hard the take-off throws the squash spring into a stretch (its velocity, per second).
+const TAKE_OFF_KICK := 9.0
 
 var squash := 0.0
 var squash_vel := 0.0
@@ -1576,12 +1727,42 @@ var prev_jumps := -1
 var lunge := 0.0
 var lunge_vel := 0.0
 ## The hat's lag (a roll, radians) and bounce (a drop below its place, units), and the velocity they react to.
-var hat_roll := 0.0
-var hat_roll_vel := 0.0
-var hat_drop := 0.0
-var hat_drop_vel := 0.0
+## Secondary motion (`MotionSprings`, all stepped with the sim: frozen in hitlag and while paused, at rest after a rollback or seek):
+## `hat_roll` the hat's lag (radians) and `hat_drop` its bounce (units below its place); `spine` and `head` the chest and head lagging the
+## hips (degrees, forward positive) when the body speeds up, stops or lands; `head_turn` the head looking back the old way for a moment on
+## a turn (degrees); `hand` a fist's follow-through past its strike (units); `neck` the neckwear swinging (radians).
+var springs := _make_springs()
 var prev_vel := Vector2.ZERO
-var prev_frame := -1
+var prev_facing := 0
+var prev_state_frame := -1
+var prev_hitlag := 0
+
+
+static func _make_springs() -> RefCounted:
+	var m := MotionSprings.new()
+	m.add("hat_roll", 300.0, 14.0, -0.5, 0.5)
+	m.add("hat_drop", 500.0, 18.0, -0.12, 0.15)
+	m.add("spine", 240.0, 15.0, -8.0, 8.0)
+	m.add("head", 170.0, 11.0, -12.0, 12.0)
+	m.add("head_turn", 160.0, 13.0, -16.0, 16.0)
+	m.add("hand", 260.0, 12.0, -0.06, 0.16)
+	m.add("neck", 110.0, 6.5, -0.6, 0.6)
+	return m
+
+
+## Puts every piece of secondary motion back to rest: on a rebuild, and for whoever drives the view across a discontinuity it cannot see
+## in the frame numbers (the frame jumps already rest the springs and smears on their own).
+func reset_motion() -> void:
+	springs.reset()
+	prev_facing = 0
+	prev_state_frame = -1
+	body_k = 0.0
+	body_frame = -1
+	smear_pts.clear()
+	smear_frame = -1
+	flinch_left = 0.0
+	for t in tails:
+		t.reset()
 ## Where the run cycle was last frame, for the footfalls.
 var last_step_phase := 0.0
 
@@ -1611,6 +1792,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	was_grounded = grounded
 	if not grounded:
 		last_vy = vy
+	# Leaving the jump squat: a kick into a tall stretch, so the take-off springs up out of the crouch rather than only rebounding.
+	if last_state == "JumpSquat" and state != "JumpSquat" and not grounded:
+		squash_vel -= TAKE_OFF_KICK
 
 	var target_squash: float = SQUASH.get(state, 0.0)
 	# Landing out of an aerial or a fast fall stumbles: deeper, and pitched forward, for its whole landing lag.
@@ -1680,9 +1864,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	if (state == "Run" or state == "Dash") and anim != null and (current_clip == "run" or current_clip == "dash"):
 		var length := anim.get_animation(current_clip).length
 		var phase := fmod(anim.current_animation_position / maxf(length, 0.001), 1.0)
-		step_squash = 0.07 * cos((phase - 0.12) * 4.0 * PI)
-		# A puff of dust behind each foot as it lands (at 0.12 and 0.62 of the cycle).
-		for land_at in [0.12, 0.62]:
+		step_squash = 0.07 * cos((phase - 0.06) * 4.0 * PI)
+		# A puff of dust behind each foot as it lands (at 0.06 and 0.56 of the cycle).
+		for land_at in [0.06, 0.56]:
 			var crossed: bool = (last_step_phase < land_at and phase >= land_at) or (last_step_phase > phase and (phase >= land_at or last_step_phase < land_at))
 			if crossed and grounded and not dusts.is_empty():
 				_puff(-float(facing), 1)
@@ -1690,7 +1874,7 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	# Volume-preserving: squashing down widens the body.
 	var total := squash + step_squash
 	model.scale = Vector3(1.0 + 0.5 * total, 1.0 - total, 1.0 + 0.5 * total)
-	_hat_spring(s, delta)
+	_secondary(s, delta)
 	# Skidding out of a run, the fighter still faces the way it was running (the simulation has already turned it), leaning back
 	# against the slide; it swings round as the skid ends.
 	var look := facing
@@ -2050,7 +2234,8 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	if rig != null and arm_k > 0.0:
 		var to_tip := tip - shoulder
 		var dist := maxf(to_tip.length(), 0.001)
-		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) == 0 else arm_reach
+		# (A fist reaches further by the strike's stretch, `strike_e`, so the stretched arm is straight on the hit.)
+		var reach := minf(arm_reach, maxf(dist - 0.3, 0.1)) if _cls(s) == 0 else arm_reach * (1.0 + strike_e)
 		var goal := shoulder + to_tip / dist * reach
 		if use_base_body:
 			# With a real arm the hand travels round the shoulder, in an arc (a hook, a swing), not along a straight line.
@@ -2060,6 +2245,9 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 			hand = shoulder + Vector2.from_angle(angle) * lerpf(from_v.length(), to_v.length(), arm_k)
 		else:
 			hand = old_hand.lerp(goal, arm_k)
+	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
+	if _cls(s) != 0 and absf(springs.value("hand")) > 0.001:
+		hand += (hand - shoulder).normalized() * springs.value("hand")
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())
@@ -2104,29 +2292,48 @@ func _carry_weapon(facing: int) -> void:
 
 
 ## The hat's secondary motion: it lags behind a sudden change of speed sideways and dips and springs back on a landing or a jump.
-func _hat_spring(s: Dictionary, delta: float) -> void:
-	if hat_pivot == null:
-		return
+## Kicks the secondary-motion springs from what the fighter did this sim frame, moves them on, and places the hat and the neckwear (the
+## head and spine are bent in `_animate`, after the clip; the hand in `_pose_blade`).
+func _secondary(s: Dictionary, delta: float) -> void:
 	var vel := Vector2(float(s.vel.x), float(s.vel.y))
-	var frame: int = s.frame
-	if frame != prev_frame:
-		if prev_frame >= 0 and frame - prev_frame <= 2:
-			var dv := vel - prev_vel
-			hat_roll_vel += clampf(dv.x, -0.5, 0.5) * 60.0
-			hat_drop_vel += clampf(dv.y, -1.0, 1.0) * 6.0
-		prev_frame = frame
-		prev_vel = vel
-	var steps := ceili(delta / 0.008)
-	var h := delta / maxi(steps, 1)
-	for _i in steps:
-		hat_roll_vel += (-300.0 * hat_roll - 14.0 * hat_roll_vel) * h
-		hat_roll += hat_roll_vel * h
-		hat_drop_vel += (-500.0 * hat_drop - 18.0 * hat_drop_vel) * h
-		hat_drop += hat_drop_vel * h
-	hat_roll = clampf(hat_roll, -0.5, 0.5)
-	hat_drop = clampf(hat_drop, -0.12, 0.15)
-	hat_pivot.rotation = Vector3(0, 0, hat_roll)
-	hat_pivot.position = HAT_PIVOT + Vector3(0, -hat_drop, 0)
+	var facing := int(s.facing)
+	springs.begin(int(s.frame), int(s.hitlag), delta)
+	var dv := vel - prev_vel
+	# (A change bigger than any move makes is a teleport, a respawn or a correction: not something to swing from.)
+	if springs.new_frames > 0 and dv.length() < 0.7:
+		springs.kick("hat_roll", clampf(dv.x, -0.5, 0.5) * 60.0)
+		springs.kick("hat_drop", clampf(dv.y, -1.0, 1.0) * 6.0)
+		# Speeding up the way it faces leaves the chest and head behind (bent back); stopping throws them forward; landing nods them.
+		var ahead := dv.x * float(facing)
+		var landing := maxf(dv.y, 0.0) if int(s.platform) >= 0 else 0.0
+		springs.kick("spine", -ahead * 320.0 + landing * 90.0)
+		springs.kick("head", -ahead * 480.0 + landing * 160.0)
+		springs.kick("neck", -dv.x * 40.0)
+		if prev_facing != 0 and facing != prev_facing:
+			springs.kick("head_turn", float(prev_facing) * 420.0)
+	# A hit on the shield: as its freeze ends the chest and head are knocked back behind it and come forward again.
+	if springs.new_frames > 0 and prev_hitlag > 0 and int(s.hitlag) == 0 and String(s.state) == "Shield":
+		springs.kick("spine", -90.0 - 6.0 * float(prev_hitlag))
+		springs.kick("head", -110.0 - 8.0 * float(prev_hitlag))
+	if springs.new_frames > 0 or int(s.hitlag) > 0:
+		prev_hitlag = int(s.hitlag)
+	# A strike's follow-through: as a fist's hit ends the hand carries on past it and settles back.
+	var f := int(s.state_frame)
+	if String(s.state) == "Attack" and _cls(s) != 0 and prev_state_frame >= 0:
+		var last := int(s.move_timing[2])
+		if prev_state_frame <= last and f > last:
+			springs.kick("hand", 1.9)
+	prev_state_frame = f if String(s.state) == "Attack" else -1
+	prev_vel = vel
+	prev_facing = facing
+	springs.step(delta)
+	if hat_pivot != null:
+		hat_pivot.rotation = Vector3(0, 0, springs.value("hat_roll"))
+		hat_pivot.position = HAT_PIVOT + Vector3(0, -springs.value("hat_drop"), 0)
+	if neck_pivot != null:
+		neck_pivot.rotation = Vector3(0, 0, springs.value("neck"))
+	for t in tails:
+		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space). Returns nothing; with `holding` false the arm goes back to the clip.
@@ -2148,13 +2355,16 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var rest_h := skeleton.get_bone_global_rest(ih)
 		var elbow0 := rest_l.origin
 		var wrist0 := rest_h.origin
-		var upper := (elbow0 - rest_u.origin).length()
+		# On a strike the arm stretches (`strike_e`, the fists only: a blade's reach is the blade), and reaches that much further.
+		var e := strike_e if _cls_now != 0 else 0.0
+		var upper := (elbow0 - rest_u.origin).length() * (1.0 + e)
 		# The shoulder where the animated chest has it now, so the arm stays on the body as it bends and turns.
 		var shoulder := rest_u.origin
 		var parent := skeleton.get_bone_parent(iu)
 		if parent >= 0:
 			shoulder = skeleton.get_bone_global_pose(parent) * skeleton.get_bone_rest(iu).origin
-		var lower := (wrist0 - elbow0).length() + 0.07
+		var fore_len := (wrist0 - elbow0).length() * (1.0 + e)
+		var lower := fore_len + 0.07
 		var to_skel := _skeleton_to_frame().affine_inverse()
 		var goal: Vector3 = to_skel * hand_target
 		var d := goal - shoulder
@@ -2169,9 +2379,13 @@ func _aim_arm(facing: int, holding: bool) -> void:
 		var fore := (goal - elbow).normalized()
 		var q_upper := Quaternion((elbow0 - shoulder).normalized(), (elbow - shoulder).normalized())
 		var q_lower := Quaternion((wrist0 - elbow0).normalized(), fore)
-		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis, shoulder), 1.0, true)
-		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis, elbow), 1.0, true)
-		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * (wrist0 - elbow0).length()), 1.0, true)
+		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
+		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
+		skeleton.set_bone_global_pose_override(il, Transform3D(Basis(q_lower) * rest_l.basis * stretch, elbow), 1.0, true)
+		skeleton.set_bone_global_pose_override(ih, Transform3D(Basis(q_lower) * rest_h.basis, elbow + fore * fore_len), 1.0, true)
+		if _cls_now != 0:
+			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
+			strike_tip_ok = true
 
 
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
@@ -2208,8 +2422,11 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var rest_f := skeleton.get_bone_global_rest(ift)
 		var knee0 := rest_s.origin
 		var ankle0 := rest_f.origin
-		var upper := (knee0 - rest_t.origin).length()
-		var lower := (ankle0 - knee0).length() + 0.08
+		# On the strike the kicking leg stretches and reaches that much further (`strike_e`).
+		var e := strike_e * MotionDeform.LEG_STRETCH_FACTOR * leg_k
+		var upper := (knee0 - rest_t.origin).length() * (1.0 + e)
+		var shin_len := (ankle0 - knee0).length() * (1.0 + e)
+		var lower := shin_len + 0.08
 		# The hip joint where the animated pelvis has it now (not where it rests), so the leg stays on the body as it moves.
 		var hips := skeleton.find_bone("hips")
 		var hip := rest_t.origin
@@ -2237,9 +2454,13 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 		var shin_dir := (goal - knee).normalized()
 		var q_upper := Quaternion((knee0 - hip).normalized(), (knee - hip).normalized())
 		var q_lower := Quaternion((ankle0 - knee0).normalized(), shin_dir)
-		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis, hip), leg_k, true)
-		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis, knee), leg_k, true)
-		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * (ankle0 - knee0).length()), leg_k, true)
+		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
+		skeleton.set_bone_global_pose_override(it, Transform3D(Basis(q_upper) * rest_t.basis * stretch, hip), leg_k, true)
+		skeleton.set_bone_global_pose_override(ish, Transform3D(Basis(q_lower) * rest_s.basis * stretch, knee), leg_k, true)
+		skeleton.set_bone_global_pose_override(ift, Transform3D(Basis(q_lower) * rest_f.basis, knee + shin_dir * shin_len), leg_k, true)
+		if side == kicker:
+			strike_tip = to_local(skeleton.global_transform * (knee + shin_dir * shin_len))
+			strike_tip_ok = true
 
 
 # ---- Swing arcs --------------------------------------------------------------------------------------------------------------------
@@ -2429,7 +2650,6 @@ var dizzy: Node3D
 ## A strong launch: the body stretched along the way it flies, and streaks trailing behind it.
 var launch_frame: Node3D
 var launch_lines: Node3D
-const LAUNCH_STRETCH_FROM := 0.35   # world units a frame: slower launches are not stretched
 const LAUNCH_LINES_FROM := 0.5
 
 
@@ -2483,21 +2703,33 @@ func _dizzy(s: Dictionary) -> void:
 		star_node.rotation.z = t * 2.0 + float(k)
 
 
-## A strong launch reads in the body and the air round it: the body is stretched along its flight (up to 45% longer, as thin as it is
-## long, about its middle) and streaks trail behind it, on twos. Back to normal the moment the flight slows.
+## A strong hit reads in the body (`MotionDeform.body_target`): squashed along the blow through the victim's freeze, released into a
+## stretch along its flight (up to 42% longer, thinner across, about its middle) while it flies fast, relaxing as it slows; streaks trail
+## behind it, on twos. The deformation eases in and out (`body_k`), and jumps straight to where it should be after a rollback or seek.
+var body_k := 0.0
+var body_dir := Vector2.UP
+var body_frame := -1
+
+
 func _launch_look(s: Dictionary) -> void:
 	var vel := Vector2(float(s.vel.x), float(s.vel.y))
 	var speed := vel.length()
 	var flying: bool = String(s.state) == "Hitstun" and int(s.hitlag) == 0
-	var k := clampf((speed - LAUNCH_STRETCH_FROM) / 0.8, 0.0, 0.45) if flying else 0.0
-	if k <= 0.0:
-		launch_frame.transform = Transform3D.IDENTITY
-	else:
-		var along := Vector3(vel.x, vel.y, 0).normalized()
-		var across := Vector3(-along.y, along.x, 0)
-		var stretch := Basis(along, across, Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1.0 + k, 1.0 / sqrt(1.0 + k), 1.0)) 				* Basis(along, across, Vector3(0, 0, 1)).inverse()
-		var middle := Vector3(0, 1.1, 0)
-		launch_frame.transform = Transform3D(stretch, middle - stretch * middle)
+	var flight: Vector2 = vel + s.get("kb_vel", Vector2.ZERO)
+	var target: Array = MotionDeform.body_target(String(s.state), int(s.hitlag), bool(s.launch_pending), flight)
+	var frame := int(s.frame)
+	var steps := frame - body_frame
+	if body_frame < 0 or steps < 0 or steps > 2:
+		body_k = float(target[0])
+		steps = 0
+	# Per sim frame (so hitlag and a paused game hold it): into the squash fast, out into the stretch fast, relaxing slower.
+	for _i in steps:
+		var rate := 0.6 if float(target[0]) < 0.0 or float(target[0]) > body_k else 0.25
+		body_k = lerpf(body_k, float(target[0]), rate)
+	body_frame = frame
+	if absf(float(target[0])) > 0.001:
+		body_dir = target[1]
+	launch_frame.transform = MotionDeform.along(body_k, body_dir, Vector3(0, 1.1, 0))
 	var lines_on := flying and speed > LAUNCH_LINES_FROM
 	if launch_lines == null and lines_on:
 		launch_lines = Node3D.new()
@@ -2703,6 +2935,54 @@ static func trail_colours_of(cls: int) -> Array:
 	return [Color(0.3, 0.66, 1.0), Color(0.92, 0.98, 1.0)]
 
 
+## How stretched the striking limb is this frame (`MotionDeform.strike_stretch`), and the fighter's class, for the arm and leg IK.
+var strike_e := 0.0
+var _cls_now := 0
+## Where the striking fist or foot is this frame (local), when the arm or leg IK placed one.
+var strike_tip := Vector3.ZERO
+var strike_tip_ok := false
+## The smear ribbon behind a fist or foot (`Smear`): its recent points (local, oldest first), how far it has faded, the class it is coloured
+## for, and the sim frame it last moved on.
+var smear_pts: Array = []
+var smear_q := 1.0
+var smear_cls := 0
+var smear_frame := -1
+
+
+## A strike with no authored arc (a punch or a kick of the classes without a blade) leaves a smear behind the striking fist or foot: drawn
+## out a point a sim frame from `Smear.LEAD` frames before its hit (so it runs from the wind-up) to the hit, held while the hit is live,
+## then faded over `ARC_FADE` frames. Nothing moves in hitlag, so a freeze holds it; a rollback or seek drops it.
+func _update_smear(s: Dictionary) -> void:
+	var frame := int(s.frame)
+	if smear_frame >= 0 and (frame < smear_frame or frame - smear_frame > 2):
+		smear_pts.clear()
+	var advanced := frame != smear_frame
+	smear_frame = frame
+	# Drawn out over the throw (from the wind-up to the hit's first frame), held while the hit is live, then faded.
+	var throwing := false
+	var holding := false
+	if String(s.state) == "Attack" and _cls(s) != 0 and strike_tip_ok and not (ARCS.get(_cls(s), {}) as Dictionary).has(String(s.move_name)):
+		var f := float(s.state_frame)
+		var first := float(s.move_timing[1])
+		var last := float(s.move_timing[2])
+		throwing = first > 0.0 and f >= first - Smear.LEAD and f <= first
+		holding = first > 0.0 and f > first and f <= last + 1.0
+	if advanced and int(s.hitlag) == 0 and not holding:
+		if throwing:
+			smear_pts.append(Vector3(strike_tip.x, strike_tip.y, ARC_Z))
+			if smear_pts.size() > Smear.POINTS:
+				smear_pts.pop_front()
+			smear_q = 0.0
+			smear_cls = _cls(s)
+		elif not smear_pts.is_empty():
+			smear_q += 1.0 / ARC_FADE
+			if smear_q >= 1.0:
+				smear_pts.clear()
+	if smear_pts.size() >= 2 and arc != null:
+		var colours := trail_colours_of(smear_cls)
+		Smear.draw(arc.mesh, smear_pts, smear_q, colours[0], colours[1], to_global)
+
+
 func _apply_combat(s: Dictionary, delta: float) -> void:
 	var state: String = s.state
 	var pct := int(s.percent)
@@ -2714,6 +2994,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		percent_label.text = "%d%%" % pct
 		var heat := clampf(pct / 150.0, 0.0, 1.0)
 		percent_label.modulate = Color(1.0, 1.0 - 0.75 * heat, 1.0 - 0.95 * heat)
+	strike_e = 0.0
+	strike_tip_ok = false
+	_cls_now = _cls(s)
+	if state == "Attack" and s.move_timing[1] > 0:
+		strike_e = MotionDeform.strike_stretch(float(s.state_frame), float(s.move_timing[1]), float(s.move_timing[2]))
 	_pose_blade(s, delta)
 	# The claws and needles fighters' kicks and rushes use the body, not a blade (the needles' stand-in specials are the claws', so they
 	# burn and spin the same way).
@@ -2736,6 +3021,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		if carrying:
 			_carry_weapon(int(s.facing))
 		_aim_leg(s, state == "Attack" and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), s.move_name, anim)), delta)
+		_update_smear(s)
 	# (The claws' flame rushes only: the Needles' specials are their own.)
 	var rushing: bool = _cls(s) == 1 and state == "Attack" and BRAWLER_FLAME.has(s.move_name) and s.state_frame >= 12
 	flame.emitting = rushing
@@ -2795,7 +3081,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 			model.rotation.x = tumble_angle
 			# About the middle of the body, not the feet (which would swing the body down through the floor).
 			model.position += SPIN_PIVOT_3D - Basis.from_euler(model.rotation) * SPIN_PIVOT_3D
-		else:
+		elif current_clip == "hurt":
 			model.rotation.x = -deg_to_rad(26.0)
 	else:
 		tumble_angle = 0.0

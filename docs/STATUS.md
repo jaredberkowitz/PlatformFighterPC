@@ -34,8 +34,10 @@ girders, skyline buildings in varied muted hues with clustered windows and broke
 said once on the HUD. Then a new base body modelled by script after the concept sheet (`art/blender/make_base_body.py`,
 `docs/ART_PIPELINE.md` twenty-eighth pass): the concept's proportions, bare by default (a new Gear slot), matte skin and a warmer, thinner
 outline; it replaces the Tripo model, whose licence was unclear. Then magic-hour painted skies per stage, a golden raking key and
-violet shadows on Meadow, straw hay bales and a built fence, and drifting motes and light shafts (`docs/ART_PIPELINE.md` twenty-ninth pass). Fighter motion polish is planned (`docs/MOTION_POLISH_PLAN.md`) but on
-hold.
+violet shadows on Meadow, straw hay bales and a built fence, and drifting motes and light shafts (`docs/ART_PIPELINE.md` twenty-ninth pass). Then the fighter motion polish (`docs/MOTION_POLISH_PLAN.md`, results in
+its "Results" section; branch `motion-polish`): strike stretch, impact squash into an eased launch stretch, smear ribbons on punches and
+kicks, a spring set for the chest, head, hat, fist and neckwear, cloth tails on spring chains, new clips (tech, platform drop, run stop,
+heavy hitstun, an idle fidget), a fix for the head spinning in a long shield hold, and a short-contact run that no longer skates.
 
 Moveset ports from the reference game (`docs/movesets/ROSTER_STATUS.md`): **sim 57**, the fourth class, Embers on the tumbler body
 (modelled on the reference game's Mario), phase 1: the body and every normal on reference data (`docs/movesets/mario/`), with early jab

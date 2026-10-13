@@ -1,8 +1,10 @@
 extends SceneTree
 ## Renders a contact sheet of one animation, frame by frame, for judging motion (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
-##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | roll | backroll | spotdodge | airdodge | knockdown | getup |
+##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | shield | flinch | launch | tumble | roll | backroll | spotdodge | airdodge | knockdown | getup |
 ##   <move name> (an attack such as fsmash, nair, jab)
+##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N to wear that neckwear, those glasses or that gear (loadout.gd),
+##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
 
@@ -22,6 +24,9 @@ func _initialize() -> void:
 	var zoom := 1.0
 	var facing := 1
 	var timing := PackedInt32Array([40, 12, 16])
+	var neck := -1
+	var glasses := -1
+	var gear := -1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
 			what = a.substr(7)
@@ -31,6 +36,12 @@ func _initialize() -> void:
 			out = a.substr(6)
 		elif a.begins_with("--facing="):
 			facing = int(a.substr(9))
+		elif a.begins_with("--gear="):
+			gear = int(a.substr(7))
+		elif a.begins_with("--glasses="):
+			glasses = int(a.substr(10))
+		elif a.begins_with("--neck="):
+			neck = int(a.substr(7))
 		elif a.begins_with("--zoom="):
 			zoom = float(a.substr(7))
 		elif a.begins_with("--tip="):
@@ -67,7 +78,14 @@ func _initialize() -> void:
 	world.add_child(floor_mesh)
 	var view := FighterView.new()
 	world.add_child(view)
-	view.build(cls, Loadout.default_for(cls))
+	var look: RefCounted = Loadout.default_for(cls)
+	if neck >= 0:
+		look.neck = neck
+	if glasses >= 0:
+		look.glasses = glasses
+	if gear >= 0:
+		look.gear = gear
+	view.build(cls, look)
 
 	var frames: Array = []
 	match what:
@@ -80,10 +98,19 @@ func _initialize() -> void:
 		"idle", "walk":
 			for f in range(0, 24 if what == "idle" else 20, 2):
 				frames.append(f)
-		"jump", "fall", "airjump", "hurt":
+		"jump", "fall", "airjump", "hurt", "shield", "launch", "tumble":
 			for f in range(0, 30, 2):
 				frames.append(f)
-		"jumpsquat", "land":
+		"dashstop", "runstop", "drop", "heavy", "heavyup":
+			for f in range(0, 30, 2):
+				frames.append(f)
+		"tech":
+			for f in range(0, 12, 1):
+				frames.append(f)
+		"fidget":
+			for f in range(300, 376, 5):
+				frames.append(f)
+		"jumpsquat", "land", "flinch":
 			for f in range(0, 16, 1 if what == "jumpsquat" else 2):
 				frames.append(f)
 		"roll", "backroll", "spotdodge", "airdodge", "knockdown", "getup":
@@ -99,8 +126,12 @@ func _initialize() -> void:
 		var state := "Attack"
 		var vel := Vector2.ZERO
 		var move := what
-		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge"].has(what)
+		var grounded := not ["nair", "fair", "bair", "uair", "dair", "jump", "fall", "airjump", "airdodge", "launch", "tumble", "drop", "heavy",
+			"heavyup"].has(what)
 		var jumps := 1
+		var tumble := false
+		var percent := 0.0
+		var extra := {}
 		# (Idle is shown at half speed so its bounce spreads over the sheet.)
 		match what:
 			"run":
@@ -131,6 +162,44 @@ func _initialize() -> void:
 			"hurt":
 				state = "Hitstun"
 				move = ""
+			"shield":
+				state = "Shield"
+				move = ""
+			"tech":
+				state = "Landing"
+				move = ""
+				extra = {"invuln": 18, "lag": 12}
+			"runstop":
+				state = "Idle"
+				move = ""
+				vel = Vector2(maxf(0.0, 0.2 - 0.012 * f), 0)
+			"drop":
+				state = "Airborne"
+				move = ""
+				vel = Vector2(0, -0.1)
+				extra = {"ignore": maxi(0, 8 - f)}
+			"heavy", "heavyup":
+				state = "Hitstun"
+				move = ""
+				extra = {"kb_vel": Vector2(0.45, 0.1) if what == "heavy" else Vector2(0.1, 0.5)}
+			"fidget":
+				state = "Idle"
+				move = ""
+			"dashstop":
+				# Standing, a dash from frame 4, stopped dead at frame 16.
+				move = ""
+				state = "Dash" if f >= 4 and f < 16 else "Idle"
+				vel = Vector2(0.28, 0) if state == "Dash" else Vector2.ZERO
+			"flinch":
+				# A hit too weak to launch: the percent goes up on the second frame while standing.
+				state = "Idle"
+				move = ""
+				percent = 0.0 if f == 0 else 9.0
+			"launch", "tumble":
+				state = "Hitstun"
+				move = ""
+				tumble = true
+				vel = Vector2(0.55, 0.35) if what == "launch" else Vector2(0.08, 0.04)
 			"roll", "backroll":
 				state = "Roll"
 				move = ""
@@ -156,10 +225,11 @@ func _initialize() -> void:
 		for i in steps:
 			sim_frame += 1
 			var s := {"state": state, "facing": facing, "vel": vel, "platform": 0 if grounded else -1, "fast_fall": false, "invuln": 0,
-				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": 0.0, "move_name": move,
+				"ledge_invuln": 0, "frame": sim_frame, "shield": 1.0, "percent": percent, "move_name": move,
 				"move_tip": tip if move != "" else Vector3.ZERO, "move_timing": timing, "charge": 0, "hitlag": 0,
-				"tumble": false, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3,
+				"tumble": tumble, "launch_pending": false, "char": cls, "class": cls, "reach": 3.0, "state_frame": f, "jumps": jumps, "stocks": 3,
 				"dodge": PackedInt32Array([30, -1 if what == "backroll" else (0 if what == "spotdodge" else 1)])}
+			s.merge(extra, true)
 			view.apply(Vector3(0, 0 if grounded else 0.6, 0), s, 1.0 / 60.0)
 		await process_frame
 		await process_frame
