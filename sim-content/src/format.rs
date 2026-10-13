@@ -257,6 +257,8 @@ macro_rules! params_io {
             FighterParams {
                 $($name: fields.need::<$ty>(stringify!($name), base.map(|b| b.$name), errors),)*
                 gauge: base.map_or(Gauge::NONE, |b| b.gauge),
+                air_jump_armor: base.and_then(|b| b.air_jump_armor),
+                air_jump_turns: false,
                 weapon,
             }
         }
@@ -924,29 +926,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         })
         .collect();
     if let Some(b) = at_most_one(children(block, "armor"), "armor", context, errors) {
-        let ctx = format!("the armor of {context}");
-        let mut f = Fields::new(b, &ctx, errors);
-        let kind = match f.raw("kind") {
-            None | Some(("damage", _)) => ARMOR_DAMAGE,
-            Some(("super", _)) => ARMOR_SUPER,
-            Some(("knockback", _)) => ARMOR_KNOCKBACK,
-            Some((other, line)) => {
-                err(
-                    errors,
-                    line,
-                    format!("armor kind must be super, damage or knockback, not `{other}`"),
-                );
-                ARMOR_DAMAGE
-            }
-        };
-        let a = Armor {
-            start: f.need("start", None, errors),
-            end: f.need("end", None, errors),
-            kind,
-            threshold: f.or("threshold", Fx::ZERO, errors),
-        };
-        f.finish(errors);
-        m.armor = Some(a);
+        m.armor = Some(read_armor(b, &format!("the armor of {context}"), errors));
     }
     m.part_intangible = children(block, "part_intangible")
         .into_iter()
@@ -1335,21 +1315,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         b.push(c);
     }
     if let Some(a) = &m.armor {
-        let mut c = Block::new("armor", None);
-        c.field("start", a.start.to_string());
-        c.field("end", a.end.to_string());
-        c.field(
-            "kind",
-            match a.kind {
-                ARMOR_SUPER => "super",
-                ARMOR_KNOCKBACK => "knockback",
-                _ => "damage",
-            },
-        );
-        if a.threshold != Fx::ZERO {
-            c.field("threshold", a.threshold.show());
-        }
-        b.push(c);
+        b.push(write_armor("armor", a));
     }
     if let Some(c) = &m.counter {
         let mut cb = Block::new("counter", None);
@@ -1727,7 +1693,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             continue;
         }
         let context = format!("fighter `{name}`");
-        only_known(b, &["gauge"], &context, errors);
+        only_known(b, &["gauge", "air_jump_armor"], &context, errors);
         let mut f = Fields::new(b, &context, errors);
         let mut base: Option<FighterParams> = None;
         if let Some((from, line)) = f.raw("inherit") {
@@ -1761,10 +1727,29 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             },
         };
         let mut params = read_params(&mut f, base.as_ref(), weapon, errors);
+        // The air jump's turnaround (sim 89): optional, the inherited fighter's or false.
+        params.air_jump_turns = f.or(
+            "air_jump_turns",
+            base.is_some_and(|p| p.air_jump_turns),
+            errors,
+        );
         f.finish(errors);
         // The gauge (schema 6): a `gauge { ... }` block, or the inherited fighter's, or none.
         if let Some(g) = at_most_one(children(b, "gauge"), "gauge", &context, errors) {
             params.gauge = read_gauge(g, &format!("the gauge of {context}"), errors);
+        }
+        // The air jump's armor (sim 89): an `air_jump_armor { ... }` block, or the inherited fighter's, or none.
+        if let Some(a) = at_most_one(
+            children(b, "air_jump_armor"),
+            "air_jump_armor",
+            &context,
+            errors,
+        ) {
+            params.air_jump_armor = Some(read_armor(
+                a,
+                &format!("the air-jump armor of {context}"),
+                errors,
+            ));
         }
         fighters.push((name.to_string(), params));
     }
@@ -1789,6 +1774,59 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         rules,
         look: stage.2,
     }
+}
+
+/// An `armor { ... }` block (a move's, or a body's `air_jump_armor`): `start end` required; `kind` super, damage (the default) or
+/// knockback; `threshold`, `subtract` and `min_kb` optional.
+fn read_armor(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Armor {
+    let mut f = Fields::new(b, ctx, errors);
+    let kind = match f.raw("kind") {
+        None | Some(("damage", _)) => ARMOR_DAMAGE,
+        Some(("super", _)) => ARMOR_SUPER,
+        Some(("knockback", _)) => ARMOR_KNOCKBACK,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("armor kind must be super, damage or knockback, not `{other}`"),
+            );
+            ARMOR_DAMAGE
+        }
+    };
+    let a = Armor {
+        start: f.need("start", None, errors),
+        end: f.need("end", None, errors),
+        kind,
+        threshold: f.or("threshold", Fx::ZERO, errors),
+        subtract: f.or("subtract", false, errors),
+        min_kb: f.or("min_kb", Fx::ZERO, errors),
+    };
+    f.finish(errors);
+    a
+}
+
+fn write_armor(name: &str, a: &Armor) -> Block {
+    let mut c = Block::new(name, None);
+    c.field("start", a.start.to_string());
+    c.field("end", a.end.to_string());
+    c.field(
+        "kind",
+        match a.kind {
+            ARMOR_SUPER => "super",
+            ARMOR_KNOCKBACK => "knockback",
+            _ => "damage",
+        },
+    );
+    if a.threshold != Fx::ZERO {
+        c.field("threshold", a.threshold.show());
+    }
+    if a.subtract {
+        c.field("subtract", "true");
+    }
+    if a.min_kb != Fx::ZERO {
+        c.field("min_kb", a.min_kb.show());
+    }
+    c
 }
 
 /// A fighter's `gauge { ... }` block: `max per_dealt per_taken mode_frames` are required, the multipliers (percents) default to 100.
@@ -1833,8 +1871,14 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
     let mut b = Block::new("fighter", Some(name));
     b.field("weapon", weapon_name);
     write_params(p, &mut b);
+    if p.air_jump_turns {
+        b.field("air_jump_turns", "true");
+    }
     if p.gauge != Gauge::NONE {
         b.push(write_gauge(&p.gauge));
+    }
+    if let Some(a) = &p.air_jump_armor {
+        b.push(write_armor("air_jump_armor", a));
     }
     b
 }

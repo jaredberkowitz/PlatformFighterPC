@@ -159,6 +159,8 @@ fn enter(f: &mut Fighter, state: S) {
     // Doing anything at all (or landing, or being hit again) ends a damage fall.
     if state != S::Airborne {
         f.damage_fall = false;
+        // ...and leaves a midair jump (its armor goes with it).
+        f.air_jump_frame = 0;
     }
     // A jump out of a run or dash remembers the run's direction (the way the fighter is moving: a reverse aerial rush has already turned
     // it to face back) until it lands; anything else on the ground, a hit or a ledge forgets it.
@@ -341,6 +343,10 @@ pub fn update(
     // A move switch decided after last frame's update (a search box, a command grab) only waits for an attack that is still going.
     if f.state != S::Attack {
         f.next_move = 0;
+    }
+    // A midair jump is only one while the fighter is still in it (a state set outside `enter`, a launch, ends it too).
+    if f.state != S::Airborne {
+        f.air_jump_frame = 0;
     }
 
     f.airtime = if f.platform == NONE {
@@ -933,6 +939,10 @@ fn airborne(
             wall_jump(f, p, rules, -side);
         }
     }
+    // The midair jump's frame count (its armor's clock): one more each frame the fighter stays in it.
+    if f.air_jump_frame > 0 {
+        f.air_jump_frame = f.air_jump_frame.saturating_add(1);
+    }
     if f.air_jumps_left > 0 && f.take(buttons::JUMP, buffer) {
         f.vel.y = p.air_jump_velocity;
         // A midair jump sets the drift from the stick: it can change direction at once, and with the stick neutral it goes
@@ -943,6 +953,11 @@ fn airborne(
         } else {
             Fx::ZERO
         };
+        // A body that turns with its midair jump faces the way the stick is held back (E33).
+        if p.air_jump_turns && x_active(input) && input.stick_x.signum() == -f.facing {
+            f.facing = -f.facing;
+        }
+        f.air_jump_frame = 1;
         f.hop_boost = 0;
         f.air_jumps_left -= 1;
         f.fast_fall = false;
@@ -2348,6 +2363,8 @@ fn wall_jump(f: &mut Fighter, p: &FighterParams, rules: &Ruleset, away: i8) {
     );
     f.facing = away;
     f.hop_boost = 0;
+    // (A wall jump is not the midair jump: its armor, if any, ends.)
+    f.air_jump_frame = 0;
     f.fast_fall = false;
     f.damage_fall = false;
 }

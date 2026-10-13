@@ -12,7 +12,7 @@ static var session := {}
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 
-const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers"]
+const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch"]
 const CLASS_BLURBS := [
 	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
 	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
@@ -22,6 +22,7 @@ const CLASS_BLURBS := [
 	"Light from a distance: a tall caster with a staff who sets off blasts where it points, locks on and fires, blinks across the stage and answers a strike or a shot in kind.",
 	"A huge blade and a rising boost: long reach, a slow wave that crosses the stage, a combo slash that only carries on when it lands, and a boost that turns every special into a finisher.",
 	"Huge arms and a heavy frame: a wind-up punch you can save for later, a headbutt that plants foes in the ground, a spinning clothesline, ground slaps, and a throw that carries the catch anywhere, even off the stage.",
+	"Light on its feet and hard to launch, with a towering second jump that shrugs off blows: a long tongue that seals foes in shells, a rolling shell, lobbed shells that lift it higher, a crashing drop that scatters stars, and a flurry of kicks.",
 ]
 
 
@@ -231,7 +232,10 @@ static func builtins() -> Array:
 	var hauler := neutral_entry("Hauler", 7, bruiser)
 	hauler.builtin = true
 	hauler.base_index = 7
-	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler]
+	var bounder := neutral_entry("Bounder", 8, Loadout.default_for(8))
+	bounder.builtin = true
+	bounder.base_index = 8
+	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder]
 
 
 static func slug_of(name: String) -> String:

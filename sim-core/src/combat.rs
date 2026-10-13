@@ -935,6 +935,27 @@ fn apply_hit(
         // Crouch cancelling: holding down on the ground takes some of the knockback off.
         kb = kb * rules.crouch_cancel_kb;
     }
+    // Armor: the move's window (in an attack), or the body's air-jump armor (in a midair jump, its frames counted from 0 as a move's
+    // are). It sees the hit's damage before the multiplier and its knockback (a crouching fighter has neither). A hit it withstands
+    // only freezes (below, after a push has pushed); one that breaks a subtractive knockback armor launches with what is left.
+    let armor = if def.state == S::Attack {
+        weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .armor
+            .map(|a| (a, def.state_frame))
+    } else if def.state == S::Airborne && def.air_jump_frame > 0 {
+        defender_params
+            .air_jump_armor
+            .map(|a| (a, u16::from(def.air_jump_frame - 1)))
+    } else {
+        None
+    };
+    let armored = armor.is_some_and(|(a, frame)| a.withstands(frame, hb.damage, kb));
+    if !armored && !hb.push {
+        if let Some((a, frame)) = armor {
+            kb = a.broken_knockback(frame, kb);
+        }
+    }
     // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
     // The vortex angle (E28): grounded or not, the launch follows the attacker's movement plus a pull (see `fighter::vortex_launch`).
     let vortex_hit = hb.angle == ANGLE_VORTEX;
@@ -962,13 +983,8 @@ fn apply_hit(
         }
         return;
     }
-    // Armor (the move's window, for the hit's damage before the multiplier): the damage and hitlag stand, nothing else happens.
-    if def.state == S::Attack
-        && weapon_of(content, &defender_params)
-            .get(def.move_id)
-            .armor
-            .is_some_and(|a| a.withstands(def.state_frame, hb.damage))
-    {
+    // An armored hit: the damage and hitlag stand, nothing else happens.
+    if armored {
         def.hitlag = hitlag;
         def.sdi_wait = 0;
         return;
@@ -1036,6 +1052,7 @@ fn apply_hit(
     def.state = S::Hitstun;
     def.state_frame = 0;
     def.tripped = false;
+    def.air_jump_frame = 0;
     // Being hit gives back the air dodge and a fresh set of ledge grabs, and ends a short hop.
     def.air_dodge_used = false;
     def.ledge_grab_count = 0;

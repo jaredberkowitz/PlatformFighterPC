@@ -222,6 +222,30 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             }
         }
     }
+    if let Some(a) = &f.air_jump_armor {
+        if a.start > a.end {
+            errors.push(format!(
+                "fighter {i}: the air-jump armor's start must not be after its end"
+            ));
+        }
+        if let Some(e) = armor_error(a) {
+            errors.push(format!("fighter {i}: the air-jump armor: {e}"));
+        }
+    }
+}
+
+/// What is wrong with an armor's kind and numbers (a move's or a body's), if anything.
+fn armor_error(a: &sim_core::moves::Armor) -> Option<&'static str> {
+    use sim_core::moves::{ARMOR_DAMAGE, ARMOR_KNOCKBACK};
+    if (a.kind == ARMOR_DAMAGE || a.kind == ARMOR_KNOCKBACK) && a.threshold <= Fx::ZERO {
+        Some("damage and knockback armor need a threshold above 0")
+    } else if (a.subtract || a.min_kb != Fx::ZERO) && a.kind != ARMOR_KNOCKBACK {
+        Some("subtract and min_kb are for knockback armor only")
+    } else if a.min_kb < Fx::ZERO || (a.min_kb > Fx::ZERO && !a.subtract) {
+        Some("min_kb is the least launch of a subtractive armor (subtract true), 0 or more")
+    } else {
+        None
+    }
 }
 
 /// Peak height of a hop that leaves the ground at `v` (gravity acts before each move).
@@ -408,15 +432,8 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                     a.start, a.end
                 ));
             }
-            if a.kind == sim_core::moves::ARMOR_KNOCKBACK {
-                errors.push(format!(
-                    "weapon {i} {name}: knockback armor is not built yet (use super or damage)"
-                ));
-            }
-            if a.kind == sim_core::moves::ARMOR_DAMAGE && a.threshold <= Fx::ZERO {
-                errors.push(format!(
-                    "weapon {i} {name}: damage armor needs a threshold above 0"
-                ));
+            if let Some(e) = armor_error(a) {
+                errors.push(format!("weapon {i} {name}: {e}"));
             }
         }
         if mv.steer_degrees > 90 || mv.steer_stick > 99 {

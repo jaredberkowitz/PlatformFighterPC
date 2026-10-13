@@ -708,14 +708,22 @@ pub struct AirBlock {
 
 /// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
 /// move. `kind` says which hits it withstands: [`ARMOR_SUPER`] every hit, [`ARMOR_DAMAGE`] a hit dealing at most `threshold` percent
-/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] (the reference's knockback-subtracting
-/// armor: not built yet, refused by validation). Grabs ignore armor; a push still pushes.
+/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] a hit whose knockback is at most
+/// `threshold` units (the reference's knockback-based "heavy" armor, sim 89: the knockback `combat::apply_hit` works out, rage, staleness
+/// and set knockback included, before crouch cancelling; the one-on-one multiplier never touches it). Grabs ignore armor; a push still
+/// pushes.
+///
+/// `subtract` (knockback kind only): a hit that breaks the armor launches with its knockback less `threshold`, and at least `min_kb`
+/// (the reference's subtractive armor and its minimum launch); without it a breaking hit takes its whole knockback. The knockback kind
+/// is also used outside moves: a body's air-jump armor (`FighterParams::air_jump_armor`), and later a held state's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Armor {
     pub start: u8,
     pub end: u8,
     pub kind: u8,
     pub threshold: Fx,
+    pub subtract: bool,
+    pub min_kb: Fx,
 }
 
 /// `Armor::kind` values.
@@ -724,15 +732,31 @@ pub const ARMOR_DAMAGE: u8 = 1;
 pub const ARMOR_KNOCKBACK: u8 = 2;
 
 impl Armor {
-    /// Whether this armor, on move frame `frame`, withstands a hit dealing `damage` percent (before the damage multiplier).
-    pub fn withstands(&self, frame: u16, damage: Fx) -> bool {
-        let inside = u16::from(self.start) <= frame && frame <= u16::from(self.end);
-        inside
+    /// Whether this armor, on frame `frame` of its window, withstands a hit dealing `damage` percent (before the damage multiplier)
+    /// with `knockback` units of knockback.
+    pub fn withstands(&self, frame: u16, damage: Fx, knockback: Fx) -> bool {
+        self.covers(frame)
             && match self.kind {
                 ARMOR_SUPER => true,
                 ARMOR_DAMAGE => damage <= self.threshold,
+                ARMOR_KNOCKBACK => knockback <= self.threshold,
                 _ => false,
             }
+    }
+
+    /// Whether `frame` is inside the window.
+    pub fn covers(&self, frame: u16) -> bool {
+        u16::from(self.start) <= frame && frame <= u16::from(self.end)
+    }
+
+    /// The knockback a hit that broke this armor on `frame` launches with: less `threshold` and at least `min_kb` for a subtractive
+    /// knockback armor inside its window, else `knockback` as it is.
+    pub fn broken_knockback(&self, frame: u16, knockback: Fx) -> Fx {
+        if self.kind == ARMOR_KNOCKBACK && self.subtract && self.covers(frame) {
+            (knockback - self.threshold).max(self.min_kb)
+        } else {
+            knockback
+        }
     }
 }
 
@@ -1161,6 +1185,8 @@ impl StateHash for Weapon {
                     h.write_u8(a.end);
                     h.write_u8(a.kind);
                     a.threshold.hash_into(h);
+                    h.write_bool(a.subtract);
+                    a.min_kb.hash_into(h);
                 }
                 None => h.write_bool(false),
             }
@@ -4164,6 +4190,14 @@ pub mod greatsword_slots {
 mod bracers;
 pub use bracers::bracers;
 
+#[path = "moves_clutch.rs"]
+mod clutch;
+pub use clutch::clutch;
+/// The Clutch's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod clutch_slots {
+    pub use super::clutch::DAIR_LANDING;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4178,6 +4212,7 @@ mod tests {
             gauntlets(),
             greatsword(),
             bracers(),
+            clutch(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
