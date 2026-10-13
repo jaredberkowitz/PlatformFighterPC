@@ -157,20 +157,22 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 				for x in range(0, 257, 32):
 					d += "L%d,%.1f " % [x, y0 + sin(float(x) / 256.0 * TAU + k) * 9.0]
 				d += "L256,%.1f L0,%.1f Z" % [y0 + 64.0 + 12.0, y0 + 64.0 + 12.0]
-				body += '<path d="%s" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-linejoin="round"/>' % [d, shades[k], ink]
+				body += '<path d="%s" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5" stroke-linejoin="round"/>' % [d, shades[k], ink]
 		"cobble":
 			# Rounded stones over dark mortar, each with a lighter top; stones at an edge are drawn again across it, so it tiles.
-			body += '<rect width="256" height="256" fill="#%s"/>' % b.darkened(0.25).to_html(false)
+			# (Mortar only a step darker than the stones and a soft ink, so the wall is one calm mass under the fighters, not a busy pattern
+			# that outshouts them.)
+			body += '<rect width="256" height="256" fill="#%s"/>' % b.darkened(0.1).to_html(false)
 			for k in 16:
 				var cx := rng.randf_range(0.0, 256.0)
 				var cy := rng.randf_range(0.0, 256.0)
 				var rx := rng.randf_range(30.0, 44.0)
 				var ry := rx * rng.randf_range(0.7, 0.9)
-				var shade := a.lerp(b, rng.randf_range(0.0, 0.5))
+				var shade := a.lerp(b, rng.randf_range(0.1, 0.4))
 				for ox in [-256.0, 0.0, 256.0]:
 					for oy in [-256.0, 0.0, 256.0]:
-						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="3"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
-						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.55"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.15).to_html(false)]
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.55"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.15).to_html(false)]
 		"facade":
 			# Concrete panels with rounded windows, some lit warm, each with a sill. Twice the size of the other patterns (sixteen windows
 			# a repeat, about a third lit, in a softer warm), so the wall under the fighters is not a busy grid stamped every few units.
@@ -192,7 +194,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 					for c in [[cx, cy], [cx - 64, cy - 64]]:
 						var x: float = c[0]
 						var y: float = c[1]
-						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
+						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.5" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f" stroke="#%s" stroke-width="5" stroke-linecap="round" opacity="0.6"/>' % [x - 40, y - 8, x - 8, y - 40, hi]
 	var px := 512 if pattern == "facade" else 256
 	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg>' % [px, px, px, px, body]
@@ -200,8 +202,13 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
-	# On the stage's cel shading, laid in world space (one repeat every 2.2 units, a facade's every 6.6: twice the pixels, same scale).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 2.2 if pattern != "facade" else 6.6)
+	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, 3.0 if pattern != "facade" else 6.6)
+	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
+	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
+	m = m.duplicate()
+	m.set_shader_parameter("front_fall", 0.52)
+	m.set_shader_parameter("front_span", 6.5)
 	# Painted wear over the pattern, so a block's front reads as one weathered mass rather than a stamped tile.
 	match pattern:
 		"facade":
@@ -413,6 +420,9 @@ static func backdrop(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for layer in MIST.get(t.name, []):
 		_mist(root, haze, layer[0], layer[1], layer[2], layer[3])
 	painted_layers(root, t.name)
+	# What hangs under the stage, fitted to its lowest block (the extent's last two numbers) where it has one.
+	var e := _ext(stage)
+	underside(root, t, [stage[4], stage[5], e[2], e[3]] if stage.size() >= 6 else e)
 	_props(root, t.name, _ext(stage))
 	merge_static(root)
 
@@ -1118,34 +1128,177 @@ static func _flower_clusters(root: Node3D, e: Array, rng: RandomNumberGenerator,
 				_mesh(root, _sphere(1.0, 6), tuft, p, Vector3(0.22, 0.3, 0.18) * rng.randf_range(0.8, 1.3))
 
 
-## The underside of a floating island below its lowest block `e` = [left, right, top, bottom]: a tapering mass of earth
-## (its face in the theme's soil, the stone tile drawn on), a few rocks jutting from it and roots hanging from its rim.
-static func _island_underside(root: Node3D, t: Dictionary, e: Array) -> void:
+## What hangs under the stage, below its lowest block `e` = [left, right, top, bottom], so the stage reads as a place (an island, a mesa,
+## a rock in the sea, a building) rather than a brick floating in the air. All of it is set back `UNDER_RECESS` behind the blocks' front:
+## a fighter under the stage passes in front of it, it never reads as ground to stand on or bump into, and the step in depth draws an
+## ink line along the block's bottom, which stays the true edge of the solid ground. Its lower part fades into a bank of haze in the sky's
+## horizon colour (`_under_haze`), so it sinks into the air below the stage the way far things do.
+const UNDER_RECESS := 0.9
+
+
+static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 	var l: float = e[0]
 	var r: float = e[1]
 	var bottom: float = e[3]
-	var w := r - l
-	var cx := (l + r) / 2.0
-	var earth := Materials.stone((t.soil_dark as Color).darkened(0.1), Vector2(4, 2))
-	var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.5))
-	# The mass: a cone hanging under the block, no wider than it (so nothing sticks out past it), squashed front to back to the block's
-	# depth, and a smaller tip below it, off-centre.
-	_mesh(root, _cylinder(w * 0.48, w * 0.1, 6.0, 10), earth, Vector3(cx, bottom - 3.0, -3.7), Vector3(1.0, 1.0, 7.4 / w))
-	_mesh(root, _cylinder(w * 0.14, 0.0, 3.5, 8), earth, Vector3(cx + w * 0.06, bottom - 7.6, -3.7), Vector3(1.0, 1.0, 0.6))
+	var front := 0.3 - UNDER_RECESS
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 13
-	for k in 5:
-		var x := cx + rng.randf_range(-w * 0.35, w * 0.35)
-		var depth := absf(x - cx) / (w * 0.5)
-		_mesh(root, _sphere(1.0, 6), rock, Vector3(x * 0.85 + cx * 0.15, bottom - 1.2 - (1.0 - depth) * rng.randf_range(1.0, 3.5), -0.6),
-			Vector3(1.4, 1.0, 1.1) * rng.randf_range(0.6, 1.1), Vector3(0, rng.randf_range(0, 60), rng.randf_range(-15, 15)))
-	# Roots hanging from the rim, thin and few.
-	var root_mat := Materials.bark(Color(0.55, 0.36, 0.24), Vector2(1, 2))
-	for k in 6:
-		var x := l + 1.0 + rng.randf_range(0.0, w - 2.0)
-		var len := rng.randf_range(1.5, 3.5)
-		_mesh(root, _cylinder(0.07, 0.14, len, 5), root_mat, Vector3(x, bottom - len * 0.5, 0.1), Vector3.ONE,
-			Vector3(0, 0, rng.randf_range(-12, 12)))
+	match t.name:
+		"sunset":
+			# The stage is the top of a mesa: the column carries on down in the same strata, a little wider at its foot, into the haze.
+			# (Narrower than the block at first, so the block reads as the mesa's cap; in shade, below the light.)
+			var mesa := _hanging_mass(bottom, 34.0, l, r, front, 3.6, 0.06, 7, func(s: float) -> float: return 0.9 + 0.14 * s,
+				func(_s: float) -> float: return 0.0)
+			var col := _mesh(root, mesa, _under_material(_soil_material(t), 0.62), Vector3.ZERO)
+			col.name = "Underside"
+			col.set_instance_shader_parameter("front_top", e[2])
+			_under_haze(root, t, bottom - 1.0, 6.0, 0.95)
+		"ocean":
+			# A rock shelf the island stands on, a little wider at the waterline, with boulders where the sea meets it.
+			var shelf := _hanging_mass(bottom, 3.0, l, r, front, 3.4, 0.14, 3, func(s: float) -> float: return 1.0 + 0.06 * s,
+				func(_s: float) -> float: return 0.0)
+			var rock := Materials.stone((t.soil_dark as Color).darkened(0.15), Vector2(5, 1))
+			_mesh(root, shelf, rock, Vector3.ZERO).name = "Underside"
+			# (The sea is a unit below the block: the boulders rise from it to the block's foot, so it stands on rock, foam round them.)
+			var boulder := Materials.stone((t.soil as Color).darkened(0.12))
+			for k in 8:
+				var x := lerpf(l - 0.4, r + 0.4, (k + rng.randf_range(0.25, 0.75)) / 8.0)
+				_mesh(root, _sphere(1.0, 9), boulder, Vector3(x, bottom - 1.0, front - 0.6),
+					Vector3(rng.randf_range(1.5, 2.1), rng.randf_range(1.0, 1.35), 1.2), Vector3(0, rng.randf_range(0, 60), rng.randf_range(-10, 10)))
+		"city":
+			# The rooftop is a building: its facade carries on down to the street, lost in the glow of the city below. A cornice marks
+			# the floor the roof sits on.
+			var cx := (l + r) / 2.0
+			var tower := _mesh(root, _box(Vector3(r - l - 0.4, 40.0, 7.0)), _under_material(_soil_material(t), 0.55), Vector3(cx, bottom + 0.3 - 20.0, front - 3.5))
+			tower.name = "Underside"
+			tower.set_instance_shader_parameter("front_top", e[2])
+			_mesh(root, _box(Vector3(r - l + 0.1, 0.32, 0.5)), _soft((t.soil as Color).lightened(0.1)), Vector3(cx, bottom - 0.12, front + 0.2))
+			_mesh(root, _shade_band(r - l - 0.4, 1.2), _band_material(), Vector3(cx, bottom - 0.9, front + 0.01))
+			_under_haze(root, t, bottom - 1.2, 6.0, 0.95)
+		_:
+			# A floating island: a keel of earth tapering to a point a little off-centre, rocks set in it, roots hanging from the rim.
+			var length := clampf((r - l) * 0.42, 4.0, 8.0)
+			var keel := _hanging_mass(bottom, length, l, r, front, 3.2, 0.12, 9,
+				func(s: float) -> float: return (1.0 - 0.18 * s) * (1.0 - pow(s, 2.4)),
+				func(s: float) -> float: return 0.09 * s * s)
+			var earth := Materials.stone((t.soil_dark as Color).darkened(0.12), Vector2(6, 2))
+			_mesh(root, keel, earth, Vector3.ZERO).name = "Underside"
+			var w := r - l
+			var cx := (l + r) / 2.0
+			var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.45))
+			for k in 6:
+				var u := rng.randf_range(-0.36, 0.36)
+				var down := (1.0 - absf(u) * 2.0) * rng.randf_range(0.25, 0.6) * length
+				_mesh(root, _sphere(1.0, 7), rock, Vector3(cx + u * w, bottom - 0.9 - down, front - 0.25),
+					Vector3(1.3, 0.9, 1.0) * rng.randf_range(0.45, 0.85),
+					Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 60), rng.randf_range(-15, 15)))
+			var root_mat := Materials.bark(Color(0.5, 0.33, 0.22), Vector2(1, 2))
+			for k in 7:
+				var x := l + 0.8 + rng.randf_range(0.0, w - 1.6)
+				var len := rng.randf_range(1.2, 3.2) * (1.0 - absf(x - cx) / w)
+				_mesh(root, _cylinder(0.05, 0.12, len, 5), root_mat, Vector3(x, bottom - len * 0.5 + 0.1, front + 0.15), Vector3.ONE,
+					Vector3(rng.randf_range(-8, 8), 0, rng.randf_range(-14, 14)))
+			_under_haze(root, t, bottom - length * 0.5, 9.0, 0.6)
+
+
+## A copy of a block's world-laid material `m` for what carries on below it, out of the light: its front falls `fall` of the way into
+## the cool front shade at once (`front_fall` in shaders/toon_common.gdshaderinc).
+static func _under_material(m: ShaderMaterial, fall: float) -> ShaderMaterial:
+	var key := "%d,%.2f" % [m.get_instance_id(), fall]
+	if not _under_cache.has(key):
+		var u := m.duplicate() as ShaderMaterial
+		u.set_shader_parameter("front_fall", fall)
+		_under_cache[key] = u
+	return _under_cache[key]
+
+
+static var _under_cache := {}
+
+
+## A rough mass hanging from a block's bottom `top` for `length` units: `rings` rings of 14 points each, from the block's width
+## [`l`, `r`] (a little inside it) down, `width.call(s)` times that half-width at each step `s` (0 at the top, 1 at the bottom),
+## shifted sideways by `shift.call(s)` of the width, `half_depth` deep front to back with its front at `front`, every point pushed in or
+## out by up to `rough` (the same every time). The top ring is tucked inside the block; the bottom is closed. Smooth normals, so the cel
+## ramp shades it as one mass; UVs run round (u, in units) and down (v).
+static func _hanging_mass(top: float, length: float, l: float, r: float, front: float, half_depth: float, rough: float, rings: int,
+		width: Callable, shift: Callable) -> ArrayMesh:
+	const SIDES := 14
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(l * 31.0 + r * 17.0 + length * 7.0)
+	var hw0 := (r - l) * 0.5 - 0.2
+	var cx0 := (l + r) * 0.5
+	var zc := front - half_depth * (1.0 + rough)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in rings:
+		var s := float(k) / float(rings - 1)
+		var y := top + 0.3 - (length + 0.3) * s
+		var hw := maxf(hw0 * float(width.call(s)), 0.02)
+		var hd := half_depth if k == 0 else minf(half_depth, maxf(hw, 0.02))
+		var cx := cx0 + float(shift.call(s)) * (r - l)
+		var row := []
+		for i in SIDES:
+			row.append(rng.randf_range(-rough, rough) if k > 0 else 0.0)
+		for i in SIDES + 1:
+			# The seam (i = 0 and SIDES) at the back, where nobody sees it.
+			var a := -PI * 0.5 + TAU * float(i) / SIDES
+			var j: float = row[i % SIDES]
+			st.set_uv(Vector2(float(i) / SIDES * (hw + hd) * 1.6, (top - y) * 0.5))
+			st.add_vertex(Vector3(cx + cos(a) * hw * (1.0 + j), y, zc + sin(a) * hd * (1.0 + j)))
+	for k in rings - 1:
+		for i in SIDES:
+			var a0 := k * (SIDES + 1) + i
+			var b0 := a0 + SIDES + 1
+			for v in [a0, b0, a0 + 1, a0 + 1, b0, b0 + 1]:
+				st.add_index(v)
+	# Close the bottom on one point under the last ring.
+	var last := (rings - 1) * (SIDES + 1)
+	var tip := rings * (SIDES + 1)
+	st.set_uv(Vector2(0.0, (length + 0.3) * 0.5 + 0.2))
+	st.add_vertex(Vector3(cx0 + float(shift.call(1.0)) * (r - l), top + 0.3 - (length + 0.3) - 0.05, zc))
+	for i in SIDES:
+		for v in [last + i, tip, last + i + 1]:
+			st.add_index(v)
+	st.generate_normals()
+	return st.commit()
+
+
+## A bank of haze under the stage, in front of what hangs there but behind the fighters: clear at `from_y`, thickening downward over
+## `depth` units to `strength`, in the sky's horizon colour; wide enough to cover the view, so the scenery below the stage sinks into it
+## too.
+static func _under_haze(root: Node3D, t: Dictionary, from_y: float, depth: float, strength: float) -> void:
+	var colour: Color = (t.sky_horizon as Color).lerp(Color.WHITE, 0.2)
+	var g := Gradient.new()
+	g.set_color(0, Color(colour, strength))
+	g.set_color(1, Color(colour, 0.0))
+	g.add_point(0.45, Color(colour, strength * 0.55))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill_from = Vector2(0.5, 1.0)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 4
+	tex.height = 128
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_texture = tex
+	# (Clamped, or the bank's thick bottom bleeds into its clear top edge as a line.)
+	m.texture_repeat = false
+	m.disable_fog = true
+	var q := QuadMesh.new()
+	q.size = Vector2(400.0, depth)
+	var z := 0.3 - UNDER_RECESS + 0.4
+	var mi := _mesh(root, q, m, Vector3(0, from_y - depth * 0.5, z))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.name = "UnderHaze"
+	# Below the bank the haze stays at its full strength, so a far zoom never shows where it ends.
+	var solid := m.duplicate() as StandardMaterial3D
+	solid.albedo_texture = null
+	solid.albedo_color = Color(colour, strength)
+	var fill := QuadMesh.new()
+	fill.size = Vector2(400.0, 80.0)
+	var below := _mesh(root, fill, solid, Vector3(0, from_y - depth - 40.0 + 0.02, z))
+	below.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Stage extent helpers: [left, right, top, bottom] of the solid ground, with defaults.
@@ -1318,9 +1471,6 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Pale pink motes drifting under the great tree, and light falling through its canopy.
 	_light_shafts(root, Color(1.0, 0.84, 0.9), [left, right, top, top - 10.0])
 	_motes(root, Color(1.0, 0.86, 0.94), [left, right, top, top - 10.0])
-	# Under the island: tapered earth and rock with roots hanging from it, so it reads as a floating island.
-	if stage.size() >= 6:
-		_island_underside(root, t, [stage[4], stage[5], top, stage[3]])
 	# Sparkles in the canopy: four-pointed glints that twinkle (see `Twinkle`).
 	var tw := Twinkle.new()
 	root.add_child(tw)

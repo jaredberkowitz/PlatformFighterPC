@@ -122,6 +122,7 @@ var perf_tick := 0.0
 var perf_frame := 0.0
 var flag_noui := false
 var flag_noecb := false
+var cam_override := 0.0  # `--cam=N`: a fixed camera distance for demo shots
 
 
 func _ready() -> void:
@@ -275,6 +276,9 @@ func _parse_demo_args() -> void:
 			name = a.substr(7)
 		elif a.begins_with("--shots="):
 			dir = a.substr(8)
+		elif a.begins_with("--cam="):
+			# (A fixed camera distance for any demo, e.g. `--demo=stage --cam=60` to see a whole stage and what hangs under it.)
+			cam_override = float(a.substr(6))
 	var user_args := OS.get_cmdline_user_args()
 	flag_noui = user_args.has("--noui")
 	flag_noecb = user_args.has("--noecb")
@@ -293,6 +297,8 @@ func _parse_demo_args() -> void:
 		if dir != "":
 			DirAccess.make_dir_recursive_absolute(dir)
 		demo = Demo.make(name, masks, dir)
+		if cam_override > 0.0:
+			demo.cam_dist = cam_override
 		if perf:
 			demo.shots = []
 			demo.end_frame = 600

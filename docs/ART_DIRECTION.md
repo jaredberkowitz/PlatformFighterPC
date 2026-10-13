@@ -52,6 +52,12 @@ not in the content hash), in `godot/scripts/stage_art.gd`:
   pattern (quilted diamonds, sandstone strata, cobbles, or a building facade with lit windows), what tops a block (grass, sand or a rooftop
   ledge) and the platforms (wooden planks or riveted steel girders). The built-in stages use: Meadow *meadow*, Triple Tier *sunset*, Flat
   Island *ocean*, Skyline *city*, Treetop Isle *grove*.
+- **Under the stage** (`StageArt.underside`): no stage is a brick floating in the air. Under the lowest block hangs what the place is
+  made of: an earth keel with rocks and roots (meadow, grove), the mesa's column (sunset), a rock shelf in the sea (ocean), the building
+  carrying on down to the street (city). It is set back `UNDER_RECESS` behind the blocks' front, so fighters pass in front of it and the
+  block's bottom edge (inked by the depth step) stays the true edge of the solid ground. A bank of haze in the horizon's colour
+  (`_under_haze`, behind the fighters) swallows its lower part. Block fronts are calm (soft mortar and ink, large repeats) and fall
+  further into cool shade below the lit rim, so the wall never outshouts the fighters.
 - Treetop Isle is our take on the classic "floating island under a big tree" stage: original shapes, no face on the tree, no borrowed
   characters or names.
 - Surfaces and scenery since the graphics fidelity pass (`docs/GRAPHICS_FIDELITY_PLAN.md`, results in `docs/GRAPHICS_FIDELITY_LOG.md`): the
