@@ -188,6 +188,12 @@ class Board extends Control:
 		draw_string(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
 
 	const CARD_GAP := 14.0
+	## The Embers emblem's outline and inner tongue, in units of the emblem's radius (y down).
+	const FLAME_OUTER := [Vector2(0.12, -1.0), Vector2(0.3, -0.6), Vector2(0.52, -0.22), Vector2(0.58, 0.2), Vector2(0.42, 0.56),
+		Vector2(0.0, 0.76), Vector2(-0.42, 0.56), Vector2(-0.58, 0.18), Vector2(-0.48, -0.18), Vector2(-0.46, -0.62),
+		Vector2(-0.22, -0.32), Vector2(-0.08, -0.6)]
+	const FLAME_INNER := [Vector2(0.06, -0.3), Vector2(0.26, 0.02), Vector2(0.24, 0.36), Vector2(0.0, 0.5), Vector2(-0.24, 0.36),
+		Vector2(-0.2, 0.06)]
 	## The card being drawn's scale to fit (see `_card`).
 	var card_xf := Transform2D.IDENTITY
 	const POP_KICK := 9.0
@@ -243,7 +249,15 @@ class Board extends Control:
 	## The fighter's weapon as a mark of radius `r` in one colour: a sword (class 0), three claw marks (class 1) or three thin needles
 	## fanned out (class 2).
 	func _emblem_mark(cls: int, c: Vector2, r: float, color: Color, width: float) -> void:
-		if cls == 2:
+		if cls == 3:
+			# Embers: a flame, a round base drawn up to a tall leaning tip with a smaller flick to one side, and a tongue inside.
+			for shape in [FLAME_OUTER, FLAME_INNER]:
+				var pts := PackedVector2Array()
+				for q in shape:
+					pts.append(c + (q as Vector2) * r)
+				pts.append(pts[0])
+				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 2:
 			for k in 3:
 				var a := deg_to_rad(-62.0 + 14.0 * (k - 1))
 				var dir := Vector2(cos(a), sin(a))
