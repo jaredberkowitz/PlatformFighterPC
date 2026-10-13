@@ -93,6 +93,14 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
 
 ### Cloud
 
+* **Research (2026-10-13)**: `docs/movesets/cloud/REFERENCE_DATA.md` (the full kit at 13.0.1, labelled, 11 conflicts and 14 gaps) and
+  `PROJECT_AUDIT.md` (what exists; the exact shape of E9; new E3e burst-on-contact projectiles, E3f tall projectile hitboxes, E22b
+  on-land switch, E28 angle 366; two E11 additions; 12 of 16 `ext` slots; proposed names Greatsword / vanguard / Vanguard, gauge
+  "Surge"). Nothing registered. **Corrections to the notes below from that research**: the up air is a single hit in three phases (no
+  multi-hit); Climhazzard's meteor box is out from part 2's frame 12, and what waits for a fall distance is the **ledge grab**; "tech at
+  the peak" was the earlier game's only; landing lag 26 is part 2's landing (part 1's special fall lands with 20); Limit Climhazzard's
+  height multipliers are x1.6 grounded / x1.85 aerial (the "1.5x" is a rounded description); ssbwiki.com has **no Cross Slash hitbox
+  table** (dragdown and UFD only), and the Limit Cross Slash's total is a three-way conflict (24 / 26 / 27%).
 * **Kit mechanics**: Blade Beam (slow, long, disappears on contact; stronger early and on the ground; aerial version slower with a fall
   break); Cross Slash (five hits 4 / 3 / 3 / 3 / 6, **each follow-up only if the previous hit connected**, by pressing special again);
   Climhazzard (rise with set-knockback rising hit, press special again for the descending slash whose centre meteors, ledge snap from
