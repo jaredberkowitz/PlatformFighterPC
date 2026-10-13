@@ -18,8 +18,8 @@ const Roster := preload("res://scripts/roster.gd")
 const Shot := preload("res://ui/shot.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
-const COLUMNS := 7
-const TOKEN := 132
+const COLUMNS := 9
+const TOKEN := 118
 ## The roster cards' colours, in turn (the built-in fighters first), and the random and new-fighter cards'.
 const CARD_COLORS := [Art.CORAL, Art.BLUE, Art.SUN, Art.VIOLET, Art.GREEN, Art.TEAL]
 const RANDOM_COLOR := Color("252a52")
