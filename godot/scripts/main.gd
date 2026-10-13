@@ -1326,7 +1326,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 			var tip_at := Vector2(cur_pos[by].x + tip.x * facing, cur_pos[by].y + tip.y)
 			# (A little toward the hitter, so even a big burst leaves the struck fighter's face in view.)
 			contact = middle + (tip_at - middle).limit_length(1.0)
-		if cls == 0 and _weapon_move(move):
+		if FighterView.bladed(cls) and _weapon_move(move) and not (cls == FighterView.GREATSWORD_CLASS and move in ["jab", "jab 2", "dtilt"]):
 			kind = Effects.Kind.BLADE
 		elif cls == 1 and FighterView.BRAWLER_FLAME.has(move):
 			kind = Effects.Kind.FIRE

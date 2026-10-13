@@ -260,6 +260,18 @@ class Board extends Control:
 					pts.append(c + (q as Vector2) * r)
 				pts.append(pts[0])
 				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 6:
+			# Greatsword: a broad blade on the diagonal (spine straight, the edge cut to a chisel point), a heavy guard and a long grip.
+			var d := Vector2(0.7071, -0.7071)
+			var n := Vector2(0.7071, 0.7071)
+			var base := c - d * r * 0.35
+			var blade := PackedVector2Array([base + n * r * 0.26, base + d * r * 1.25 + n * r * 0.26, base + d * r * 0.95 - n * r * 0.26,
+				base - n * r * 0.26])
+			blade.append(blade[0])
+			draw_polyline(blade, color, width, true)
+			draw_line(base + n * r * 0.5, base - n * r * 0.5, color, width * 1.3, true)
+			draw_line(base, base - d * r * 0.6, color, width * 1.1, true)
+			draw_circle(base - d * r * 0.68, width * 0.75, color)
 		elif cls == 5:
 			# Staff: an eye of light (an almond with a round pupil) with three rays above it.
 			var lid := PackedVector2Array()

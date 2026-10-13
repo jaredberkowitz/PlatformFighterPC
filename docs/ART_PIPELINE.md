@@ -942,3 +942,20 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
 - Draw calls: each sky island's and the farm's still parts are merged by material (`merge_static` on their nodes): the meadow went
   from 714 to 600 draw calls. GPU about 1.6 ms on the meadow and the grove when the machine is not throttling (this machine's timings
   swing by up to six times between runs; compare runs side by side).
+
+## The Champion's greatsword; every weapon its own length and in the hand (fortieth pass)
+
+- **The Champion (class 6, `GREATSWORD_CLASS` in `fighter_view.gd`)** swings a greatsword posed like the longsword (its blade follows
+  the move's hitboxes, `bladed(cls)`): a broad single-edged blade with a dark fuller and a chisel point (`_greatsword_shape`), a heavy
+  bronze guard, a long wrapped grip and a pommel, held in both hands (`_aim_arm(..., two_hands)`, the other hand lower on the grip at
+  `off_hand_target`). It hangs low in front at rest (`GREAT_REST_ANGLE`), is always `GREAT_LENGTH` long, and draws amber arcs fitted to
+  the moveset report's timings (`ARCS[6]`); the down air is a thrust (`GREAT_THRUSTS`). Its kicks keep the blade at rest in the hand:
+  jabs 1 and 2 (`kick_dash`, `kick_up`), the sliding down tilt (`kick_low`) and the throws (`AnimLibrary.CLASS_MOVES[6]`). Its cuts count
+  as blade hits for the hit effect and sound. `champion_ftilt.png`, `champion_fsmash.png`, `champion_nair.png`, `champion_dtilt_kick.png`.
+- **Its look** (built-in Champion): a stern slate swordsman, bareheaded, with a scarf and the full kit; **its emblem** on the HUD: a
+  broad blade on the diagonal with a heavy guard and a long grip.
+- **For every weapon** (the owner: a fix that suits all weapons goes to all of them):
+  - The longsword, the greatsword and the staff are always their own length, pointed at the hit, rather than stretching and shrinking
+    to reach each hitbox.
+  - The hilt is placed where the hand actually is after the arm is posed: the shorter, cuter arms could not reach the swing's target,
+    so the sword floated in front of the fist through a swing's end lag. `sword_in_hand_before.png` / `sword_in_hand_after.png`.
