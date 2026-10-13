@@ -1205,6 +1205,99 @@ static func _fore_band(root: Node3D, z: float, y: float, colour: Color) -> void:
 static var _fore_bumps: Array = []
 
 
+## Patchwork farmland painted down the face of the near band (`_fore_band`, at depth `z` with its top round `y`), as the low land below a
+## hill looks from up on it: rows of fields in a few greens and a ripe wheat gold, divided by dark rounded hedgerows that follow the land's
+## roll near the top and flatten further down (further away), a few round bushes along the hedges, and a pale dirt lane winding down
+## through them. Deterministic (no random draws). One mesh per colour, each a hair in front of the band.
+static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colour: Color) -> void:
+	var hedges := [2.2, 5.4, 9.6, 15.0, 22.0, 31.0, 43.0]
+	var mean := y + 0.5
+	# Each hedge follows the land's roll near the top and a slower swell of its own further down; and the fields fan out from a point
+	# above the middle as they come down (`at`: from across `u` and down `d` to a point on the face), as rows of fields do in perspective.
+	var line := func(x: float, d: float) -> float:
+		var k := exp(-d / 12.0)
+		return lerpf(mean, fore_top(x, y), k) - d + sin(x * 0.045 + d * 0.7) * d * 0.07
+	var at := func(u: float, d: float) -> Vector3:
+		var x := u * (1.0 + d * 0.03)
+		return Vector3(x, line.call(x, d), z)
+	var tools: Array = []
+	for c in colours.size() + 2:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
+		tools.append(st)
+	var hedge_st: SurfaceTool = tools[colours.size()]
+	var lane_st: SurfaceTool = tools[colours.size() + 1]
+	var quad := func(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+		# (Wound to face the camera: given bottom-left, bottom-right, top-right, top-left.)
+		for v in [a, c, b, a, d, c]:
+			st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
+			st.add_vertex(v)
+	# The fields: between each pair of hedges, patches of a few to a few tens of units, their colours picked by a hash.
+	for row in hedges.size() - 1:
+		var d0: float = hedges[row]
+		var d1: float = hedges[row + 1]
+		var x := -240.0 + 9.0 * row
+		var k := 0
+		while x < 240.0:
+			var w := 12.0 + 18.0 * absf(sin(row * 3.1 + k * 1.93)) + d0 * 0.4
+			var pick := int(absf(sin(row * 7.7 + k * 4.1)) * 1000.0) % colours.size()
+			var st: SurfaceTool = tools[pick]
+			var step := 3.0
+			var front := Vector3(0, 0, 0.05)
+			var xa := x
+			while xa < x + w:
+				var xb := minf(xa + step, x + w)
+				quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
+				xa = xb
+			# A hedge down the side between this field and the next.
+			var side := Vector3(0.3, 0, 0)
+			var hz := Vector3(0, 0, 0.08)
+			quad.call(hedge_st, at.call(x + w, d1) - side + hz, at.call(x + w, d1) + side + hz, at.call(x + w, d0) + side + hz, at.call(x + w, d0) - side + hz)
+			x += w
+			k += 1
+	# The hedgerows across: a dark band along each line, thicker nearer (higher up the face).
+	for d in hedges:
+		var thick := lerpf(0.9, 0.35, float(d) / 43.0)
+		var xa := -240.0
+		while xa < 240.0:
+			var xb := xa + 3.0
+			var up := Vector3(0, thick * 0.5, 0.09)
+			var down := Vector3(0, -thick * 0.5, 0.09)
+			quad.call(hedge_st, at.call(xa, d) + down, at.call(xb, d) + down, at.call(xb, d) + up, at.call(xa, d) + up)
+			xa = xb
+	# A lane winding down from the top through the fields, narrowing as it goes.
+	var prev := Vector2.INF
+	var dd := 0.0
+	while dd < 43.0:
+		var cx := 30.0 + 7.0 * sin(dd * 0.16) + 3.0 * sin(dd * 0.41)
+		var half := lerpf(1.3, 0.35, dd / 43.0)
+		var p3: Vector3 = at.call(cx, dd)
+		cx = p3.x
+		var here := Vector2(cx, p3.y)
+		if prev != Vector2.INF:
+			var ph := lerpf(1.3, 0.35, (dd - 1.0) / 43.0)
+			quad.call(lane_st, Vector3(cx - half, here.y, z + 0.12), Vector3(cx + half, here.y, z + 0.12), Vector3(prev.x + ph, prev.y, z + 0.12),
+				Vector3(prev.x - ph, prev.y, z + 0.12))
+		prev = here
+		dd += 1.0
+	var materials: Array = []
+	for c in colours:
+		materials.append(_soft(c))
+	materials.append(_soft(hedge_colour))
+	materials.append(_soft(Color(0.9, 0.8, 0.58)))
+	for i in tools.size():
+		_mesh(root, (tools[i] as SurfaceTool).commit(), materials[i], Vector3.ZERO)
+	# Round bushes dotted along the top hedges.
+	var bush := _soft(hedge_colour.lightened(0.08))
+	for j in 14:
+		var bx := -150.0 + j * 23.0 + 6.0 * sin(j * 2.7)
+		var bd: float = hedges[j % 3]
+		var r := lerpf(1.3, 0.8, bd / 10.0)
+		var b3: Vector3 = at.call(bx, bd)
+		_mesh(root, _sphere(1.0, 10), bush, b3 + Vector3(0, r * 0.4, 0.3), Vector3(r * 1.3, r, 0.6))
+
+
 static func fore_top(x: float, y: float) -> float:
 	return _land_top(_fore_bumps, y - 1.0, x)
 
@@ -1516,6 +1609,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_cottage(root, Vector3(cx, hill_top(cx) - 0.6, -74.0), c[1], 1.0 if cx > 0.0 else -1.0)
 	# A low rise of meadow in front of the hills, and round trees standing along it (their feet just behind its edge).
 	_fore_band(root, -46.0, -10.0, Color(0.4, 0.76, 0.32))
+	_fields(root, -46.0, -10.0, [Color(0.42, 0.78, 0.3), Color(0.52, 0.8, 0.3), Color(0.38, 0.7, 0.3), Color(0.44, 0.76, 0.34), Color(0.78, 0.8, 0.42)],
+		Color(0.28, 0.56, 0.24))
 	for k in 6:
 		var tx := rng.randf_range(-70, 70)
 		rng.randf_range(-12, -6)
@@ -1685,11 +1780,8 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 		var far := k % 2 == 1
 		var at := Vector3(-110.0 + k * 30.0 + rng.randf_range(-6, 6), -16.0, -110.0 if far else -78.0)
 		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, rng.randf_range(0.7, 1.05), rng.randf_range(0.0, 360.0))
-	# A rock arch on the left.
-	var arch := _soft(Color(0.78, 0.42, 0.3))
-	_mesh(root, _cylinder(1.6, 2.2, 14.0, 10), arch, Vector3(-40, -6, -48))
-	_mesh(root, _cylinder(1.6, 2.2, 14.0, 10), arch, Vector3(-28, -6, -48))
-	_mesh(root, _box(Vector3(16.0, 3.0, 4.0)), arch, Vector3(-34, 2.5, -48))
+	# A rock arch on the left, standing on the desert floor.
+	_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
 	# Cacti behind the stage.
 	for x in [e[0] + 1.5, e[1] - 2.0]:
 		_cactus(root, Vector3(x, e[2], -6.5), rng.randf_range(0.65, 0.85))
@@ -1713,6 +1805,46 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 				seg.basis = Basis.looking_at(q - last, Vector3.UP)
 				last = q
 		prev = hook
+
+
+## A natural arch of layered sandstone (`at` the middle of its foot on the ground, legs `span` apart, `height` to the top of the span):
+## two legs of stacked, slightly uneven slabs in the canyon's strata colours, wider and rubbly at the foot, joined by a thick span that
+## bows up between them, banded the same way, and a few fallen blocks at its feet. Deterministic (no random draws).
+static func _rock_arch(root: Node3D, at: Vector3, span: float, height: float) -> void:
+	# Close reds with a pale band now and then, as the mesas' strata (not stripes).
+	var strata := [_soft(Color(0.84, 0.46, 0.34)), _soft(Color(0.8, 0.42, 0.32)), _soft(Color(0.88, 0.52, 0.38)), _soft(Color(0.94, 0.68, 0.5))]
+	var slab := 2.4
+	for side in [-1.0, 1.0]:
+		var y := 0.0
+		var k := 0
+		while y < height - 2.0:
+			var u := y / height
+			var r := lerpf(3.2, 2.1, u) * (1.0 + 0.1 * sin(k * 2.7 + side))
+			var h := slab * (0.8 + 0.4 * absf(sin(k * 1.9)))
+			_mesh(root, _cylinder(r * 0.94, r, h, 9), strata[3 if k % 4 == 3 else k % 3], at + Vector3(side * span * 0.5 + 0.2 * sin(k * 1.3), y + h * 0.5, 0),
+				Vector3(1.0, 1.0, 0.8), Vector3(0, k * 23.0, 0))
+			y += h
+			k += 1
+	# The span: thick bands following a shallow bow from leg to leg, each band a run of boxes turned along it.
+	var bands := [[0.0, 2.2, strata[1]], [2.2, 0.8, strata[3]], [3.0, 1.4, strata[0]]]
+	for band in bands:
+		var lift: float = band[0]
+		var thick: float = band[1]
+		var n := 10
+		for j in n:
+			var t0 := float(j) / n
+			var t1 := float(j + 1) / n
+			var x0 := lerpf(-span * 0.5 - 1.8, span * 0.5 + 1.8, t0)
+			var x1 := lerpf(-span * 0.5 - 1.8, span * 0.5 + 1.8, t1)
+			var y0 := height - 2.0 + lift + 1.6 * sin(t0 * PI)
+			var y1 := height - 2.0 + lift + 1.6 * sin(t1 * PI)
+			var mid := Vector3((x0 + x1) * 0.5, (y0 + y1) * 0.5 + thick * 0.5, 0)
+			var len := Vector2(x1 - x0, y1 - y0).length()
+			_mesh(root, _box(Vector3(len + 0.3, thick, 3.4 - lift * 0.3)), band[2], at + mid, Vector3.ONE, Vector3(0, 0, rad_to_deg(atan2(y1 - y0, x1 - x0))))
+	# Fallen blocks at its feet.
+	for b in [[-span * 0.5 - 3.2, 1.1], [-span * 0.5 + 2.6, 0.7], [span * 0.5 + 3.0, 1.3], [span * 0.5 - 2.4, 0.6]]:
+		_mesh(root, _box(Vector3(1.6, 1.2, 1.4) * float(b[1])), strata[2], at + Vector3(float(b[0]), 0.5 * float(b[1]), 1.0), Vector3.ONE,
+			Vector3(0, float(b[0]) * 17.0, float(b[0]) * 3.0))
 
 
 ## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.

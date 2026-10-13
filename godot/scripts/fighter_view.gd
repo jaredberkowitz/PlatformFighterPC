@@ -2688,7 +2688,8 @@ func _draw_arc() -> void:
 		arc.top_level = true
 		arc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		arc.extra_cull_margin = 16384.0
-		arc.material_override = FxMaterial.get_material(false, 5)
+		# (Painted: as it fades it breaks up in ragged chunks, like a drawn smear wiped off a frame at a time.)
+		arc.material_override = FxMaterial.get_material(false, 5, null, 1.0, 1.0)
 		add_child(arc)
 	var im: ImmediateMesh = arc.mesh
 	if im.get_surface_count() > 0:

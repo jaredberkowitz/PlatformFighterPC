@@ -906,3 +906,14 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
 - **Signs of life**: cottages with smoking chimneys on the meadow hills, telegraph poles and sagging wires across the desert, strings
   of lanterns under the great tree, and a fisherman's hut on stilts with a jetty and floats off Flat Island (`beach_stilt_hut.png`).
 - Layouts kept: the hills draw the same random numbers as before, and the new pieces draw none, so nothing else moved. Look bench passes.
+
+## Fields, a sandstone arch, painted swings (thirty-seventh pass)
+
+- **Patchwork farmland** below the meadow (`StageArt._fields`, on the face of the near band): rows of fields in close greens and a
+  little wheat gold, fanning out in perspective as they come down, divided by hedgerows that follow the land's roll near the top and
+  swell gently further down, bushes along the hedges and a pale lane winding down through them. Deterministic. `meadow_fields.png`.
+- **Triple Tier's arch** (`_rock_arch`): two legs of stacked, slightly uneven sandstone slabs in the mesas' strata (close reds with a
+  pale band now and then) standing on the desert floor, a bowed, banded span and fallen blocks at its feet, in place of two cylinders
+  and a box that stopped short of the ground. `canyon_arch.png`.
+- **Painted swings**: the weapon arcs use the painted effect material, so a swing's crescent breaks up in ragged chunks as it fades,
+  like a drawn smear. `fx_painted_arc.png`.
