@@ -933,6 +933,13 @@ impl SimRunner {
         self.fighter(i).map_or(0, |fi| i32::from(fi.state_frame))
     }
 
+    /// Wall jumps made since the fighter last stood on the ground or held a ledge (read only, for the view: it goes up on the
+    /// frame of a kick-off). A wall-tech jump does not count; it is the wall tech state ending with an upward launch.
+    #[func]
+    fn fighter_wall_jumps(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(0, |fi| i32::from(fi.wall_jumps))
+    }
+
     #[func]
     fn fighter_facing(&self, i: i32) -> i32 {
         self.fighter(i).map_or(1, |fi| i32::from(fi.facing))
