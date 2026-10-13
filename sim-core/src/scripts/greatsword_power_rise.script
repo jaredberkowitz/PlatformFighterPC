@@ -1,0 +1,3 @@
+// Greatsword powered rise (ext9). Special pressed again on frames 33-39 (move frames 32-38) [R] starts the ordinary falling slash
+// (31 = ext3: the reference's "it does not have any enhancements").
+if special_tap && frame >= 32 && frame <= 38 { goto(31); }

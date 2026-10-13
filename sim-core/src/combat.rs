@@ -17,8 +17,9 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, EFFECT_ELECTRIC,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
+    EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL,
+    TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -935,11 +936,16 @@ fn apply_hit(
         kb = kb * rules.crouch_cancel_kb;
     }
     // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
-    let link_hit = hb.angle == ANGLE_AUTOLINK && !def.grounded();
+    // The vortex angle (E28): grounded or not, the launch follows the attacker's movement plus a pull (see `fighter::vortex_launch`).
+    let vortex_hit = hb.angle == ANGLE_VORTEX;
+    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit;
     // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
     let pull_hit = hb.angle == ANGLE_PULL;
     let degrees = if hb.angle == ANGLE_AUTOLINK {
         80
+    } else if vortex_hit {
+        // (A vortex launch is along the attacker's movement, not an angle: this is only for what reads the launch angle in hitlag.)
+        90
     } else if pull_hit {
         0
     } else {
@@ -1040,6 +1046,12 @@ fn apply_hit(
     def.launch_set = hb.fixed_kb > 0;
     def.launch_angle = angle.raw();
     def.link = link_hit;
+    def.link_kind = if vortex_hit {
+        crate::state::LINK_VORTEX
+    } else {
+        crate::state::LINK_AUTOLINK
+    };
+    def.vortex = 0;
     def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
     def.link_vel = link.1;
     def.pull = pull_hit;
@@ -1214,6 +1226,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 hit_mask: 0,
                 hit_age: [0; MAX_FIGHTERS],
                 facing: f.facing,
+                bursting: false,
             };
         }
     }
@@ -1248,7 +1261,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         let age = pr.age.saturating_add(1);
         // Gravity (an arcing projectile), then the move; a bouncing one comes back up off the top of a platform it falls onto.
         let arc = spec.arc;
-        if arc.gravity != Fx::ZERO {
+        // A projectile that has burst stands still (E3e).
+        let burst = spec.burst.filter(|_| pr.bursting);
+        if arc.gravity != Fx::ZERO && burst.is_none() {
             pr.vel.y -= arc.gravity;
             if arc.max_fall > Fx::ZERO {
                 pr.vel.y = pr.vel.y.max(-arc.max_fall);
@@ -1276,21 +1291,32 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             || pos.x > stage.blast_right
             || pos.y < stage.blast_bottom
             || pos.y > stage.blast_top;
+        let scale = origin_params.hitbox_scale;
+        // A projectile that bursts on a wall (E3e) bursts just short of it (where it was), instead of being removed.
+        if let Some(b) = spec.burst.filter(|b| b.on_wall && !pr.bursting) {
+            if in_wall && age < pr.life && !outside {
+                start_burst(&mut state.projectiles[n], &b, pr.pos, scale);
+                continue;
+            }
+        }
         if age >= pr.life || in_wall || outside {
             state.projectiles[n].active = false;
             continue;
         }
         // A reflector in the way turns it around: it now belongs to the reflector and hits harder. (One stronger than the
-        // reflector's damage limit goes through.)
+        // reflector's damage limit goes through; a burst is not reflected.)
         let size = Fx::from_ratio(i32::from(pr.size), 100);
         let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale * size;
         let shot_half = spec.hitbox.half_height * origin_params.hitbox_scale * size;
         let shot_damage =
             spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
-        reflector_detects(state, content, owner, pos, shot_half, shot_radius);
+        if burst.is_none() {
+            reflector_detects(state, content, owner, pos, shot_half, shot_radius);
+        }
         if let Some((r, rf)) =
             reflector_touching(state, content, owner, pos, shot_half, shot_radius)
                 .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
+                .filter(|_| burst.is_none())
         {
             let speed = Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100);
             let p = &mut state.projectiles[n];
@@ -1315,6 +1341,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         }
         // An attack in the way may clank with it.
         if spec.hitbox.clanks
+            && burst.is_none()
             && clank_projectile(state, content, owner, pos, shot_radius, shot_damage)
         {
             state.projectiles[n].active = false;
@@ -1325,7 +1352,17 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
 
         // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
-        let (mut hb, phased) = spec.hit_at(age);
+        let (mut hb, phased) = match burst {
+            Some(b) => match b.hit_at(age) {
+                Some(h) => (h, true),
+                None => continue,
+            },
+            None => spec.hit_at(age),
+        };
+        let (pierce, rehit) = match burst {
+            Some(b) => (true, b.rehit),
+            None => (spec.pierce, spec.rehit),
+        };
         hb.radius = hb.radius * origin_params.hitbox_scale * size;
         hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
         hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
@@ -1348,10 +1385,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             // A fighter already hit by this group waits for the rehit interval (the reference's per-target rehit), or for ever.
             let bit = hit_bit(d, hb.group);
             let seen = state.projectiles[n].hit_mask & bit != 0;
-            if seen
-                && (spec.rehit == 0
-                    || age.saturating_sub(state.projectiles[n].hit_age[d]) < spec.rehit)
-            {
+            if seen && (rehit == 0 || age.saturating_sub(state.projectiles[n].hit_age[d]) < rehit) {
                 continue;
             }
             let pd = params_of(content, fd);
@@ -1394,13 +1428,32 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 let p = &mut state.projectiles[n];
                 p.hit_mask |= bit;
                 p.hit_age[d] = age;
-                if !spec.pierce {
+                if burst.is_none() {
+                    // The first fighter it touches makes a bursting projectile burst there (E3e).
+                    if let Some(b) = spec.burst {
+                        start_burst(p, &b, pos, scale);
+                        break;
+                    }
+                }
+                if !pierce {
                     p.active = false;
                     break;
                 }
             }
         }
     }
+}
+
+/// A projectile becomes its burst (E3e) at `at`: it stops, its age and life start again as the burst's, and its hits start afresh
+/// (the fighter that stopped it is hit again).
+fn start_burst(p: &mut Projectile, b: &crate::moves::Burst, at: Vec2, scale: Fx) {
+    p.bursting = true;
+    p.pos = at + Vec2::new(Fx::ZERO, b.y * scale);
+    p.vel = Vec2::ZERO;
+    p.age = 0;
+    p.life = b.life;
+    p.hit_mask = 0;
+    p.hit_age = [0; MAX_FIGHTERS];
 }
 
 /// What a projectile script can see: its owner and the nearest other fighter that is still in the match.
