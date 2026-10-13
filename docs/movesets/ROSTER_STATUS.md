@@ -397,6 +397,13 @@ These override anything above that disagrees.
 51. **Older kits' trip chances**: add them as data from the reference (Claws down tilt 40%, and the slope-only ones).
 52. **Small extras**: an `aim` script register (the Bracers' angled forward tilt ends on the reference's FAF 36) and a read-only bridge
     accessor for `Fighter::tripped` (the view shows a trip as sitting).
+53. **Link names**: class/weapon **Buckler**, body and built-in fighter **Wanderer**.
+54. **Items (decision 3 settled)**: anyone can pick up Link's lodged arrows and his Remote Bomb and throw them, as in the reference (an
+    opponent holding the bomb stops him detonating it).
+55. **Position vectors (E34)**: build them, so the aerial Spin Attack carries a target hit from behind into the next front hit.
+56. **Up special / up smash out of shield (E37)**: add it for every fighter, as in the reference.
+57. **Forward air drag (decision 4)**: the reference already drags on hit 1 (the outer and middle boxes against airborne targets are 367
+    with set weight); build it as the reference data, no owner change. Link's data conflicts take the research's proposed values.
 
 ## Still open
 
