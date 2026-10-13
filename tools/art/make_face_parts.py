@@ -27,7 +27,7 @@ MOUTH_IN = '#6b2234'
 TONGUE = '#ef7f8e'
 TEETH = '#ffffff'
 MASK = '#ffffff'
-LINE = 16          # the eye outline's width (the old face's 9 of 512, at this scale)
+LINE = 11          # the eye outline's width: a fine line, as the concept's
 MOUTH_LINE = 21
 
 
@@ -145,7 +145,8 @@ def teeth(path, rows=False):
 
 MOUTHS = {
     # Resting mouths a player can choose (the concept's small smile first).
-    'smile': stroke('M60,116 Q128,164 196,116', MOUTH_LINE, INK),
+    # (As wide as the concept's: about 0.36 of the head's radius on the game's face, a gentle curve.)
+    'smile': stroke('M24,110 Q128,182 232,110', MOUTH_LINE, INK),
     'grin': open_mouth('M50,104 Q128,110 206,104 Q198,186 128,190 Q58,186 50,104 Z'),
     'flat': stroke('M78,128 L178,128', MOUTH_LINE, INK),
     'oh': open_mouth(ellipse_d(128, 130, 34, 38), tongue=False),

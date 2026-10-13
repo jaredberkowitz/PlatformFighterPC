@@ -1123,7 +1123,10 @@ def build_body_meshes(rig):
                 v.co = centre + out.normalized() * (skin_at + FACE_CLEARANCE)
     skin_bm.free()
     face_size = 1.75 * radii.x
-    face_centre = centre.z + 0.04 * radii.z
+    # The drawing is laid out about the middle of the round head, as on the concept sheet (eyes above it, the mouth below). The head's
+    # points are only counted from just above the neck, so the middle of their span is well above the ball's: the ball's middle is its
+    # crown less its radius.
+    face_centre = hi.z - radii.x
     uv = bm.loops.layers.uv.verify()
     for f in bm.faces:
         for loop in f.loops:

@@ -1395,7 +1395,8 @@ func _glasses_fit(face_centre: float, face_size: float, depth_scale: float, dept
 	# Design units to face units: the design eyes 0.32 out are the face's eyes, `out` columns (of 512) out.
 	var out := FaceLook.eye_out(loadout)
 	var kx := face_size * (out / 512.0) / 0.32
-	var ky := face_size * (110.0 / 512.0) / 0.32 * (1.0 + FaceLook.offset(loadout, "eye_size") * 0.06)
+	# (The lenses' height follows the eyes' size: the design lens fits the old 0.38 eye.)
+	var ky := face_size * (110.0 / 512.0) / 0.32 * (1.0 + FaceLook.offset(loadout, "eye_size") * 0.06) * FaceLook.EYE_SIZE / 0.38
 	var eye_y := face_centre + (0.5 - FaceLook.eye_row(loadout) / 512.0) * face_size
 	return Transform3D(Basis.from_scale(Vector3(kx, ky, depth_scale)), Vector3(0.0, eye_y - 1.52 * ky, depth))
 
@@ -1546,6 +1547,8 @@ func _glasses() -> void:
 	glasses_rig.transform = head_fit.affine_inverse() * glasses_fit
 	head_rig.add_child(glasses_rig)
 	var to_head: Transform3D = glasses_rig.transform
+	# The glasses' space is stretched across by the eyes' spacing and up by their size: a lens is made round again by this.
+	lens_aspect = glasses_fit.basis.get_scale().y / maxf(0.001, glasses_fit.basis.get_scale().x)
 	match loadout.glasses:
 		1:
 			# Shades: tinted glass the eyes show through, in thin dark rims, with a bridge.
@@ -1588,6 +1591,9 @@ func _glasses() -> void:
 ## (`lift` out from it, in the head's design units) and turned to face out from it, so on a fighter turned three-quarters to the camera the
 ## far lens stays on the face instead of floating past the head's edge. `to_head` takes the glasses' space to the head's design space (a
 ## sphere of radius 0.8 about 1.42 up, see `head_fit`). `ring` turns a torus to lie flat on the face.
+var lens_aspect := 1.0
+
+
 func _on_face(mi: MeshInstance3D, to_head: Transform3D, x: float, y: float, lift: float, scl: Vector3, ring := false) -> void:
 	var d := to_head * Vector3(x, y, 0.0)
 	var up := d.y - 1.42
@@ -1599,7 +1605,8 @@ func _on_face(mi: MeshInstance3D, to_head: Transform3D, x: float, y: float, lift
 	# The surface's outward direction in the glasses' space (their space is only scaled and moved from the head's).
 	var out := (back.basis * normal).normalized()
 	var turn := Basis(Quaternion(Vector3(0, 0, 1), out))
-	mi.basis = turn * (Basis.from_euler(Vector3(PI / 2.0, 0, 0)) if ring else Basis.IDENTITY) * Basis.from_scale(scl)
+	var round_scl := scl * Vector3(lens_aspect if x != 0.0 else 1.0, 1.0, 1.0)
+	mi.basis = turn * (Basis.from_euler(Vector3(PI / 2.0, 0, 0)) if ring else Basis.IDENTITY) * Basis.from_scale(round_scl)
 
 
 ## The expression for this moment (see Loadout's action faces).
