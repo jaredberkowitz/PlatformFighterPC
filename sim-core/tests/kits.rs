@@ -653,6 +653,141 @@ fn an_unused_counter_stance_costs_62_frames() {
     assert_eq!(free, Some(64));
 }
 
+/// Two duelists 4 apart; player 1's jab is replaced by a small hit (radius 0.3, 1.3 up) centred 1.5 in front of player 0: inside
+/// the Counter's bubble (radius 1.3 at 1.3 up, so it reaches 1.6) but past the body's hurtboxes (they reach about 1.0). `edit`
+/// changes the content further; player 0 starts Counter on tick 1 when `counter`, and player 1 jabs on tick 10 (it lands on the
+/// stance's frame 14). Returns the sim and whether player 0 answered.
+fn bubble_duel(counter: bool, edit: impl Fn(&mut sim_core::Content)) -> (Sim, bool) {
+    let mut sim = duel(SWORD, Fx::from_int(4));
+    let w = usize::from(sim.content.fighters[0].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+        h.x = fx(25, 10);
+        h.y = fx(13, 10);
+        h.radius = fx(3, 10);
+    }
+    edit(&mut sim.content);
+    let p0 = if counter {
+        inp(0, -100, SPECIAL)
+    } else {
+        inp(0, 0, 0)
+    };
+    sim.tick2(p0, inp(0, 0, 0));
+    let mut answered = false;
+    for t in 2..60 {
+        let p1 = if t == 10 {
+            inp(0, 0, ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+        answered |= sim.f().state == S::Attack && sim.f().move_id == MoveId::Ext0 as u8;
+    }
+    (sim, answered)
+}
+
+#[test]
+fn the_counter_catches_a_hit_that_touches_its_bubble_but_not_the_body() {
+    // The bubble (the reference's radius 10.5 at 10 up) catches the hit.
+    let (sim, answered) = bubble_duel(true, |_| {});
+    assert!(answered, "caught on the bubble");
+    assert_eq!(sim.fighter(0).percent, Fx::ZERO);
+    assert!(sim.fighter(1).percent > Fx::ZERO, "the answer landed");
+    // Without the stance the same hit misses the body.
+    let (sim, answered) = bubble_duel(false, |_| {});
+    assert!(!answered);
+    assert_eq!(sim.fighter(0).percent, Fx::ZERO, "out of reach of the body");
+    assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+    // A counter without a bubble catches on the body's hurtboxes (older content): the hit misses the stance too.
+    let (sim, answered) = bubble_duel(true, |c| {
+        let w = usize::from(c.fighters[0].weapon);
+        c.weapons[w].moves[MoveId::DownSpecial as usize]
+            .counter
+            .as_mut()
+            .unwrap()
+            .bubble = None;
+    });
+    assert!(!answered, "no bubble: nothing to catch on");
+    assert_eq!(sim.fighter(0).percent, Fx::ZERO);
+}
+
+#[test]
+fn the_counter_ignores_a_push_and_is_pushed() {
+    // The jab turned into a push (a windbox): it reaches the body, is not caught, and shoves the duelist without hitstun.
+    let mut sim = duel([0, 1, 0, 1], fx(20, 10));
+    for h in &mut sim.content.weapons[1].moves[MoveId::Jab as usize].hitboxes {
+        h.push = true;
+    }
+    sim.tick2(inp(0, -100, SPECIAL), inp(0, 0, 0));
+    let x0 = sim.f().pos.x;
+    let mut answered = false;
+    for t in 2..40 {
+        let p1 = if t == 10 {
+            inp(0, 0, ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+        answered |= sim.f().move_id == MoveId::Ext0 as u8;
+        assert_ne!(sim.f().state, S::Hitstun);
+    }
+    assert!(!answered, "a push is never countered");
+    assert!(sim.f().pos.x < x0, "pushed away from the brawler");
+    assert!(sim.f().percent > Fx::ZERO, "the push's damage is taken");
+    // The same jab as an ordinary hit is caught (the window and spacing are right).
+    let sim = counter_duel(10);
+    assert_eq!(sim.fighter(0).percent, Fx::ZERO);
+}
+
+#[test]
+fn the_counters_answer_is_capped_at_50_percent() {
+    let mut sim = duel([0, 1, 0, 1], fx(20, 10));
+    for h in &mut sim.content.weapons[1].moves[MoveId::Jab as usize].hitboxes {
+        h.damage = Fx::from_int(60);
+    }
+    sim.tick2(inp(0, -100, SPECIAL), inp(0, 0, 0));
+    for t in 2..20 {
+        let p1 = if t == 10 {
+            inp(0, 0, ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+    }
+    assert_eq!(sim.f().move_id, MoveId::Ext0 as u8);
+    assert_eq!(
+        sim.f().counter_damage,
+        Fx::from_int(50),
+        "min(1.2 x 60, 50)"
+    );
+}
+
+#[test]
+fn the_counter_bubble_is_in_the_content_hash() {
+    let base = sim_core::Content::placeholder();
+    let w = usize::from(base.fighters[0].weapon);
+    let edit = |f: &dyn Fn(&mut sim_core::moves::CounterBubble)| {
+        let mut c = base.clone();
+        let counter = c.weapons[w].moves[MoveId::DownSpecial as usize]
+            .counter
+            .as_mut()
+            .unwrap();
+        f(counter.bubble.as_mut().unwrap());
+        c.hash()
+    };
+    let h = base.hash();
+    assert_ne!(h, edit(&|b| b.x = Fx::ONE), "x");
+    assert_ne!(h, edit(&|b| b.y = Fx::ONE), "y");
+    assert_ne!(h, edit(&|b| b.half_height = Fx::ONE), "half_height");
+    assert_ne!(h, edit(&|b| b.radius = Fx::ONE), "radius");
+    let mut none = base.clone();
+    none.weapons[w].moves[MoveId::DownSpecial as usize]
+        .counter
+        .as_mut()
+        .unwrap()
+        .bubble = None;
+    assert_ne!(h, none.hash(), "present or not");
+}
+
 // ---- Claws: aimed specials and guard frames -----------------------------------------------------------------
 
 #[test]

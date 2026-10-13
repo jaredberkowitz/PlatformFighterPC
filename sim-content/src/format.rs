@@ -8,11 +8,11 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc,
-    ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD,
-    ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK,
-    ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
-    HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
+    AirBlock, Armor, Counter, CounterBubble, Hitbox, Motion, Move, MoveId, PartIntangible,
+    ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
+    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
+    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
     TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
@@ -1076,6 +1076,18 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             min_damage: f.need("min_damage", None, errors),
             max_damage: f.or("max_damage", Fx::ZERO, errors),
             melee_only: f.or("melee_only", false, errors),
+            bubble: None,
+        };
+        // The counter bubble: present when it has a radius (none: the body's hurtboxes catch, as older content means).
+        let bubble = CounterBubble {
+            x: f.or("bubble_x", Fx::ZERO, errors),
+            y: f.or("bubble_y", Fx::ZERO, errors),
+            half_height: f.or("bubble_half_height", Fx::ZERO, errors),
+            radius: f.or("bubble_radius", Fx::ZERO, errors),
+        };
+        let c = Counter {
+            bubble: (bubble.radius != Fx::ZERO).then_some(bubble),
+            ..c
         };
         f.finish(errors);
         m.counter = Some(c);
@@ -1270,6 +1282,14 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         }
         if c.melee_only {
             cb.field("melee_only", "true");
+        }
+        if let Some(bb) = &c.bubble {
+            cb.field("bubble_x", bb.x.show());
+            cb.field("bubble_y", bb.y.show());
+            if bb.half_height != Fx::ZERO {
+                cb.field("bubble_half_height", bb.half_height.show());
+            }
+            cb.field("bubble_radius", bb.radius.show());
         }
         b.push(cb);
     }

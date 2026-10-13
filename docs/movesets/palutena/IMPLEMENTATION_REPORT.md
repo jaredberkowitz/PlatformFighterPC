@@ -200,7 +200,7 @@ Content: `counter { max_damage melee_only }`, `reflector { detect_then half_heig
 | Reflection | FAF 35; body reflector 1-4 (r 11.5 at 10 up, 1.5 ahead); the barrier a capsule r 3.8 from 2 to 21 up, 10 ahead, to the end of the move; x1.4 damage, x1.25 speed, x1 life, limit 50; the push on 2-11 (set knockback 50, set weight, 361 forward, re-applied every frame as the smashes' wind) | [R]; positions [D]; **barrier ending with the move: owner-chosen approximation (decision 20)** |
 | Both answers' air | the stance's numbers | [E] |
 | Reflected shot | horizontal speed turned round only | [E] gap 12 |
-| Counter bubble | the reference catches on its own bubble (r 11.5 at 10 up); here the body's hurtboxes | [E] |
+| Counter bubble | since sim 78 (owner decision 29) the stance catches on its own bubble: radius 11.5 on the root bone at offset [0, 10, 1.5] (10 up, 1.5 ahead), here radius 1.4 at 1.3 up and 0.2 ahead (`Counter::bubble`); a hit reaching only the body is taken; a push is never caught (decision 28) | [R: ssbwiki.com raw parameters]; world units [D] |
 
 Tests (all run): `the_counter_and_barriers_data_is_the_references`, `a_melee_hit_in_the_window_is_countered_for_1_3_times_between_10_and_50`
 (a jab answered with the 10% floor and the counterattack dealing it; a 45% hit answered with 50), `the_counter_catches_through_its_own_intangibility`,
@@ -290,14 +290,13 @@ timing, rhythm per target, piercing, growth and pull toward the centre, the reti
 determinism and rollback of all of it.
 
 **Estimated [E] (listed per milestone above)**: the warp's neutral direction, ledge windows, stage contact and reappearance physics;
-the counter's catch on the hurtboxes (not the bubble) and its freeze (conflict 3); both answers' air physics; the reflected shot's
+the counter's freeze (conflict 3); both answers' air physics; the reflected shot's
 vertical speed; the flame's height and its B-reverse; the reticle's "in front", muzzle and path; every aerial special's landing
 (gap 4) and the reticle's descent stall (gap 3).
 
 **Owner-chosen approximation**: the barrier ends with the reflection move (decision 20; no E25).
 
-**Remaining limits**: the barrier's ten frames past FAF 35 and staying when the seer is hit; a push (windbox) is caught by any open
-counter like a hit (shared, unchanged); `pftool`'s fuzzers play classes 0 and 1 only (the seer's rollback is covered by its own tests);
+**Remaining limits**: the barrier's ten frames past FAF 35 and staying when the seer is hit; `pftool`'s fuzzers play classes 0 and 1 only (the seer's rollback is covered by its own tests);
 the Godot tests were not run (no editor here).
 
 ### For the art agent (phase 2)
@@ -360,10 +359,10 @@ Phase 2 (new):
 1. **Footage for the [E] readings**: Warp's ledge windows (front / back, from which frame) and what the travel does against the ground,
    walls and pass-through platforms; the explosive flame's height; how the reticle's shots fly (straight from the staff, or steering)
    and its "in front" region; the counter's freeze before the strike (conflict 3). Each is one constant or one line to change.
-2. **Counters and pushes**: any open counter (the Longsword's too) catches a push (windbox) like a hit; the reference's counters
-   ignore flinchless hits. Change it for every counter (it changes the Longsword's corner case), or leave it?
-3. **Counter bubble**: the reference catches on its own bubble (radius 11.5 at 10 up); ours on the body's hurtboxes. Add a bubble
-   (`Counter::bubble`) or leave it?
+2. **Counters and pushes**: decided (28) and done in sim 78: no counter catches a push.
+3. **Counter bubble**: decided (29) and done in sim 78: `Counter::bubble`, radius 11.5 at 10 up and 1.5 ahead [R]. Tests:
+   `staff_specials::the_counter_catches_on_its_bubble_not_the_body`, `the_counter_ignores_a_push`,
+   `a_push_or_a_grab_does_not_reach_through_the_stances_intangibility` (a grab no longer reaches an intangible stance either).
 
 Phase 1:
 

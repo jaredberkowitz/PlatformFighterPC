@@ -234,8 +234,8 @@ fn stance_air(m: &mut Move) {
 /// Down special: the counter and the reflect barrier, one stance with two separate answers (the reference's, ssbwiki.com 13.0.1;
 /// `REFERENCE_DATA.md` "Down special"). A melee hit is countered; a projectile is reflected; never both.
 ///
-/// * The stance (down special): FAF 71; intangible 6-12. It **counters melee hits only** on frames 7-34 (E10c `melee_only`): the
-///   counterattack deals 1.3 times the caught damage, at least 10% and at most 50% (E10c `max_damage`). On the same frames a
+/// * The stance (down special): FAF 71; intangible 6-12. It **counters melee hits only** on frames 7-34 (E10c `melee_only`), caught
+///   on its counter bubble (radius 1.4 at 1.3 up, 0.2 ahead [R/D], sim 78) and never a push: the counterattack deals 1.3 times the caught damage, at least 10% and at most 50% (E10c `max_damage`). On the same frames a
 ///   **projectile search box** (radius 12.3 reference units on the chest: 1.5 world units at 0.2 ahead, 1.3 up [D]) starts the
 ///   reflection the moment a shot touches it (E10c `detect_then`).
 /// * The counterattack (ext0, decision 22): the hit on frames 5-7 [R: ssbwiki.com, dragdown; UFD and kuroganehammer.com say 4-6],
@@ -253,6 +253,7 @@ fn counter_and_barrier(w: &mut Weapon) {
     let mut stance = ref_move(71, 0, 0, 255, &[]);
     stance.intangible_from = 5;
     stance.intangible = 12;
+    let tenths = |n: i32| Fx::from_ratio(n, 10);
     stance.counter = Some(Counter {
         start: 6,
         end: 33,
@@ -261,8 +262,15 @@ fn counter_and_barrier(w: &mut Weapon) {
         min_damage: Fx::from_int(10),
         max_damage: Fx::from_int(50),
         melee_only: true,
+        // The counter bubble (ssbwiki.com 13.0.1, the parameters): radius 11.5 on the root bone at offset [0, 10, 1.5], so 10 up
+        // and 1.5 ahead [R]; radius 1.4 at 1.3 up, 0.2 ahead [D] (the body reflector's circle).
+        bubble: Some(CounterBubble {
+            x: tenths(u(15)),
+            y: tenths(u(100)),
+            half_height: Fx::ZERO,
+            radius: tenths(u(115)),
+        }),
     });
-    let tenths = |n: i32| Fx::from_ratio(n, 10);
     stance.reflector = Some(Reflector {
         damage_percent: 140,
         speed_percent: 125,

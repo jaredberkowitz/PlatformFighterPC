@@ -321,6 +321,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
     // Where each chosen hitbox was (for an autolink's pull).
     let mut chosen_at = [[Vec2::ZERO; MAX_FIGHTERS]; MAX_FIGHTERS];
+    // Whether each chosen hit reached the defender's open counter (its bubble, or its body when it has none).
+    let mut caught = [[false; MAX_FIGHTERS]; MAX_FIGHTERS];
     // Attackers whose search box touched someone this frame (see `HIT_SEARCH`).
     let mut searched = [false; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
@@ -334,7 +336,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 continue;
             }
             let fd = &state.fighters[d];
-            if is_intangible(fd) && !counter_open(content, fd, true) {
+            let counter = counter_open(content, fd, true);
+            let intangible = is_intangible(fd);
+            if intangible && counter.is_none() {
                 continue;
             }
             let pd = params_of(content, fd);
@@ -353,15 +357,23 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     }
                     continue;
                 }
-                let touching = match hb.kind {
+                let (touching, catches) = match hb.kind {
                     // Throws and pummels act on the fighter being held, wherever the hitbox is.
-                    HIT_THROW | HIT_PUMMEL => fa.grab_with == d as i8,
-                    HIT_GRAB => grab::can_catch(&hb, fd) && touches(&hurt, shut, center, hb.radius),
-                    _ => fa.grab_with != d as i8 && touches(&hurt, shut, center, hb.radius),
+                    HIT_THROW | HIT_PUMMEL => (fa.grab_with == d as i8, false),
+                    // (Only hits reach through a counter's intangibility; a grab does not.)
+                    HIT_GRAB => (
+                        !intangible
+                            && grab::can_catch(&hb, fd)
+                            && touches(&hurt, shut, center, hb.radius),
+                        false,
+                    ),
+                    _ if fa.grab_with == d as i8 => (false, false),
+                    _ => reach(counter, intangible, &hb, &hurt, shut, center),
                 };
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
                     best = Some(hb);
                     chosen_at[a][d] = center;
+                    caught[a][d] = catches;
                 }
             }
             chosen[a][d] = best;
@@ -440,6 +452,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 STUN_NORMAL,
                                 attacker.move_id,
                                 (chosen_at[a][d], attacker.vel),
+                                false,
                             );
                         }
                         _ => {
@@ -456,6 +469,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 mult,
                                 attacker.move_id,
                                 (chosen_at[a][d], attacker.vel),
+                                caught[a][d],
                             );
                         }
                     }
@@ -662,20 +676,60 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     held.hitlag = hitlag;
 }
 
-/// Whether `f` is in a counter stance whose window is open for a hit of this kind (`melee`, or a projectile's): such a hit reaches
-/// the counter even while the stance is intangible (the reference's counters catch through their own intangibility).
-fn counter_open(content: &Content, f: &Fighter, melee: bool) -> bool {
+/// Where an open counter catches: on the body's hurtboxes (a counter without a bubble), or on its bubble, a standing capsule
+/// (centre, half height, radius) in world space.
+#[derive(Clone, Copy)]
+enum CatchArea {
+    Body,
+    Bubble(Vec2, Fx, Fx),
+}
+
+/// If `f` is in a counter stance whose window is open for a hit of this kind (`melee`, or a projectile's), where it catches. Such a
+/// hit reaches the counter even while the stance is intangible (the reference's counters catch through their own intangibility).
+fn counter_open(content: &Content, f: &Fighter, melee: bool) -> Option<CatchArea> {
     if !f.active || f.state != S::Attack {
-        return false;
+        return None;
     }
-    weapon_of(content, params_of(content, f))
-        .get(f.move_id)
-        .counter
-        .is_some_and(|c| {
-            u16::from(c.start) <= f.state_frame
-                && f.state_frame <= u16::from(c.end)
-                && (melee || !c.melee_only)
-        })
+    let p = params_of(content, f);
+    let c = weapon_of(content, p).get(f.move_id).counter?;
+    let open = u16::from(c.start) <= f.state_frame
+        && f.state_frame <= u16::from(c.end)
+        && (melee || !c.melee_only);
+    if !open {
+        return None;
+    }
+    Some(match c.bubble {
+        None => CatchArea::Body,
+        Some(b) => {
+            let scale = p.hitbox_scale;
+            let centre = Vec2::new(
+                f.pos.x + (b.x * scale).mul_int(i32::from(f.facing)),
+                f.pos.y + b.y * scale,
+            );
+            CatchArea::Bubble(centre, b.half_height * scale, b.radius * scale)
+        }
+    })
+}
+
+/// Whether hit `hb` at `center` reaches a fighter (`hurt` and `shut` its hurtboxes, `counter` its open counter if any), and whether
+/// the counter catches it. A hit touching the bubble (or, for a counter without one, the body) is caught; a push never is (the
+/// reference's counters ignore windboxes) and, like any hit the counter does not catch, needs a tangible body to land.
+fn reach(
+    counter: Option<CatchArea>,
+    intangible: bool,
+    hb: &Hitbox,
+    hurt: &[(Vec2, Fx); HURT_CIRCLES],
+    shut: u8,
+    center: Vec2,
+) -> (bool, bool) {
+    let body = || touches(hurt, shut, center, hb.radius);
+    let caught = match counter {
+        _ if hb.push => false,
+        None => false,
+        Some(CatchArea::Body) => body(),
+        Some(CatchArea::Bubble(c, half, r)) => overlaps_upright(center, hb.radius, c, half, r),
+    };
+    (caught || (!intangible && body()), caught)
 }
 
 /// If fighter `d` is in a counter stance whose window is open, cancels the hit and switches `d` to its answer.
@@ -726,6 +780,7 @@ fn catch_with_counter(
 /// Applies one hit: damage, knockback, hitlag and the victim's state change. `source` is the fighter
 /// responsible (the attacker, or a projectile's owner). Only a melee attacker is frozen by hitlag. `move_id` is the source's move
 /// that hit, for stale-move negation. `link` is where the hitbox was and how fast its owner was moving (for an autolink angle).
+/// `caught`: the hit reached the defender's open counter (see [`reach`]), which takes it instead.
 #[allow(clippy::too_many_arguments)]
 fn apply_hit(
     state: &mut GameState,
@@ -739,6 +794,7 @@ fn apply_hit(
     stun_mult: u16,
     move_id: u8,
     link: (Vec2, Vec2),
+    caught: bool,
 ) {
     let rules = &content.rules;
     // Stale-move negation: a move used again and again deals less damage (and a little less knockback); a fresh one a little more.
@@ -784,7 +840,7 @@ fn apply_hit(
         hitlag_frames(hb.damage, rules, shielding, crouching, scale)
     };
     // A fighter in a counter stance catches the hit instead of taking it.
-    if catch_with_counter(state, content, source, d, hb.damage, hitlag, freeze_source) {
+    if caught && catch_with_counter(state, content, source, d, hb.damage, hitlag, freeze_source) {
         if freeze_source {
             state.fighters[source].hitlag = hitlag;
         }
@@ -1224,7 +1280,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
 
         for d in 0..MAX_FIGHTERS {
             let fd = &state.fighters[d];
-            if d == owner || (is_intangible(fd) && !counter_open(content, fd, false)) {
+            let counter = counter_open(content, fd, false);
+            let intangible = is_intangible(fd);
+            if d == owner || (intangible && counter.is_none()) {
                 continue;
             }
             // A fighter already hit by this group waits for the rehit interval (the reference's per-target rehit), or for ever.
@@ -1239,7 +1297,15 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
             let hurt = hurtboxes(fd, pd, wd);
-            if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
+            let (touching, caught) = reach(
+                counter,
+                intangible,
+                &hb,
+                &hurt,
+                intangible_parts(fd, wd),
+                pos,
+            );
+            if touching {
                 // Forward is the way it travels; a projectile standing still faces the way its owner did when it was made.
                 let travel = if pr.vel.x < Fx::ZERO {
                     -1
@@ -1263,6 +1329,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     mult,
                     pr.move_id,
                     (pos, pr.vel),
+                    caught,
                 );
                 let p = &mut state.projectiles[n];
                 p.hit_mask |= bit;

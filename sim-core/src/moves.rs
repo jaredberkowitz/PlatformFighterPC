@@ -603,6 +603,19 @@ pub struct Counter {
     /// Only melee hits are caught: a projectile's hit is taken as usual (the reference's counters that leave projectiles to a
     /// reflector).
     pub melee_only: bool,
+    /// Where the stance catches (the reference's counter bubble): a hit that touches it while the window is open is caught. `None`:
+    /// the body's hurtboxes catch (older content). A push (`Hitbox::push`) is never caught either way.
+    pub bubble: Option<CounterBubble>,
+}
+
+/// A counter's catching area, relative to the fighter's feet: a circle of `radius` centred `x` ahead (mirrored by facing) and `y` up,
+/// or a standing capsule reaching `half_height` above and below that centre. Scaled by the body's `hitbox_scale`, as hitboxes are.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CounterBubble {
+    pub x: Fx,
+    pub y: Fx,
+    pub half_height: Fx,
+    pub radius: Fx,
 }
 
 /// Intangibility of part of the body (the reference's per-bone intangibility): during move frames `start..=end` the hurtbox
@@ -1145,6 +1158,16 @@ impl StateHash for Weapon {
                     c.min_damage.hash_into(h);
                     c.max_damage.hash_into(h);
                     h.write_bool(c.melee_only);
+                    match &c.bubble {
+                        Some(b) => {
+                            h.write_bool(true);
+                            b.x.hash_into(h);
+                            b.y.hash_into(h);
+                            b.half_height.hash_into(h);
+                            b.radius.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
                 }
                 None => h.write_bool(false),
             }
@@ -2083,6 +2106,10 @@ fn sword_kit() -> Weapon {
     // answers with the counter-attack (`ext0`), which deals 1.2 times the caught damage (at least 8%). Without a
     // hit the stance lasts 64 frames. The counter-attack comes out on frame 4 and lasts to FAF 40; its
     // position, size and knockback are estimates.
+    //
+    // It catches on its counter bubble (ssbwiki.com 13.0.1, the parameters): radius 10.5 on the root bone, offset [0, 10, 0], so
+    // 10 up and centred on the body [R]; in world units radius 1.3 at 1.3 up [D: x 1/8, to the tenth]. The answer is capped at 50%
+    // [R]. A push (a windbox) is never caught.
     let mut counter = ref_move(64, 0, 0, 255, &[]);
     counter.counter = Some(Counter {
         start: 5,
@@ -2090,8 +2117,14 @@ fn sword_kit() -> Weapon {
         then: MoveId::Ext0 as u8,
         percent: 120,
         min_damage: Fx::from_int(8),
-        max_damage: Fx::ZERO,
+        max_damage: Fx::from_int(50),
         melee_only: false,
+        bubble: Some(CounterBubble {
+            x: Fx::ZERO,
+            y: Fx::from_ratio(13, 10),
+            half_height: Fx::ZERO,
+            radius: Fx::from_ratio(13, 10),
+        }),
     });
     moves[MoveId::DownSpecial as usize] = counter;
     let mut answer = ref_move(

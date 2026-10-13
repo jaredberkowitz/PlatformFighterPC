@@ -257,7 +257,9 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
   `goto` or a counter does. Used for Dancing Blade's later hits and Counter's answer.
 - **Counter stance** (`Move::counter`, `counter_strike`): while the stance's window is open a hit that lands (melee or projectile) is
   cancelled, both fighters freeze for its hitlag, the countering fighter turns toward the attacker and switches to the `then` move,
-  whose hitboxes deal `max(min_damage, percent / 100 x caught damage)`. Tests: `sim-core/tests/kits.rs`.
+  whose hitboxes deal `max(min_damage, percent / 100 x caught damage)` (at most `max_damage` when set). Since sim 78 a push (a
+  windbox) is never caught, and a counter with a `bubble` catches hits touching that bubble (the reference's counter bubble) rather
+  than the body's hurtboxes. Tests: `sim-core/tests/kits.rs`.
 - **Per-move charge bonus** (`Move::charge_bonus`): a move can scale more than the ruleset's smash-attack 40% at full charge.
 - **Ledge attack intangibility**: the ledge attack is intangible for the move's `intangible` frames; `ledge_attack_frames` is now 54.
 - Ext slots use air physics when airborne like specials; ground motion that points down no longer sinks into the floor.
@@ -274,7 +276,7 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 | Get-up attack (from the floor) | 7% in front on frames 16-17 then 7% behind on 22-23 (the brawler 21-22), angle 48 (the reference's; 361 before sim 73), base 80 / growth 48, intangible to 23 (22), FAF 46 (sim v44; it had growth 80 and sent far at high percents) |
 | Shield Breaker | neutral special: hold special from frame 19 (at most 60 frames), thrust 8 frames after release, 8% (9% tip) to about 24% charged, 39 frames from release |
 | Dancing Blade | side special: hit 1 on frame 9 (FAF 39, ends at 29 in the air); each press of special before the end continues; stick up gives the rising hits; hits 2.5-3%, 3-4%; finishers 4-6% (straight), 5-7% (rising), 2% x4 then 4-5% (low) |
-| Counter | down special: window frames 6-27, answer 1.2x (at least 8%), counter-attack on frame 4, FAF 64 unused |
+| Counter | down special: window frames 6-27, answer 1.2x (at least 8%, at most 50% since sim 78), counter-attack on frame 4, FAF 64 unused; catches on the counter bubble, radius 10.5 reference units on the root bone at offset [0, 10, 0] [R: ssbwiki.com raw parameters], here radius 1.3 at 1.3 up [D]; a push is never caught (sim 78) |
 
 **Claws character**
 - The flash dash and the fire rush are aimed with the stick (scripts): the dash up or down a little at its start; the rush in any

@@ -81,6 +81,11 @@ the reflection move, a standing-capsule reflector with a body field, `air_max_ri
 intangibility), the explosive flame (76, with E3a: piercing, per-target rehit and eight phases for projectiles, the `flick` register
 and `spawn_at`), and the reticle (77, the `lock(range)` target lock with a line-of-sight test, `collision::segment_blocked`). The
 Staff is now **playable**; the open [E] readings are listed in its report.
+**Sim 78** (branch `counter-fix`, owner decisions 28 and 29; no schema change): counters never catch a push (a windbox hit), and a
+counter catches on its own bubble (`Counter::bubble`, the reference's counter bubble) instead of the body's hurtboxes: the Longsword's
+radius 10.5 at 10 up, the Staff's radius 11.5 at 10 up and 1.5 ahead [R]. The Longsword's answer is also capped at the reference's
+50%, and a grab or a push no longer reaches through a counter stance's intangibility (only the hits the counter catches do). Tests in
+`sim-core/tests/kits.rs` and `staff_specials.rs`; details in `docs/movesets/SHARED_MECHANICS.md` ("Counter").
 
 ## Roadmap progress
 

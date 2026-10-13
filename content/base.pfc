@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 77
-    hash ec953d7ca6e2dfb7
+    sim_version 78
+    hash a86c06a88c8142b2
 }
 
 ruleset {
@@ -338,7 +338,7 @@ weapon longsword {
     }
     move down_special {
         total_frames 62
-        counter { start 5 end 26 then ext0 percent 120 min_damage 8 }
+        counter { start 5 end 26 then ext0 percent 120 min_damage 8 max_damage 50 bubble_x 0 bubble_y 1.29999 bubble_radius 1.29999 }
     }
     move jab2 {
         total_frames 27
@@ -3286,7 +3286,7 @@ weapon staff {
         air_max_fall 0.15
         air_friction 0.0003
         air_max_rise 0.09999
-        counter { start 6 end 33 then ext0 percent 130 min_damage 10 max_damage 50 melee_only true }
+        counter { start 6 end 33 then ext0 percent 130 min_damage 10 max_damage 50 melee_only true bubble_x 0.2 bubble_y 1.29999 bubble_radius 1.4 }
         reflector { start 255 end 0 x 0 y 0 radius 0 damage_percent 140 speed_percent 125 max_damage 50 detect_start 6 detect_end 33 detect_x 0.2 detect_y 1.29999 detect_radius 1.5 detect_then ext1 }
     }
     move grab {

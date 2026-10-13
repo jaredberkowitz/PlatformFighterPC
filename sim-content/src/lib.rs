@@ -309,6 +309,13 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                     "weapon {i} {name}: the counter's max_damage is below its min_damage"
                 ));
             }
+            if c.bubble
+                .is_some_and(|b| b.radius <= Fx::ZERO || b.half_height < Fx::ZERO)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: the counter's bubble needs a positive radius and no negative half height"
+                ));
+            }
             if c.start == 0 || c.start > c.end || c.end > mv.total_frames {
                 errors.push(format!(
                     "weapon {i} {name}: counter window {}..{} is outside the move",
@@ -607,6 +614,35 @@ mod combat_tests {
             errors.iter().any(|e| e.contains("counter window")),
             "{errors:?}"
         );
+    }
+
+    #[test]
+    fn rejects_a_counter_bubble_without_a_radius_and_reads_one_back() {
+        let mut c = Content::placeholder();
+        let counter = c.weapons[0].moves[MoveId::DownSpecial as usize]
+            .counter
+            .as_mut()
+            .unwrap();
+        let bubble = counter.bubble.as_mut().expect("the Longsword's bubble");
+        bubble.radius = Fx::ZERO;
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("counter's bubble")),
+            "{errors:?}"
+        );
+        // A bubble written to a file and read back is the same (absent stays absent: the body's hurtboxes).
+        let mut c = Content::placeholder();
+        c.weapons[0].moves[MoveId::DownSpecial as usize]
+            .counter
+            .as_mut()
+            .unwrap()
+            .bubble
+            .as_mut()
+            .unwrap()
+            .half_height = Fx::from_int(1);
+        let text = crate::bundle::to_text(&c, "test", "", "", false);
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back.hash(), c.hash());
     }
 
     #[test]

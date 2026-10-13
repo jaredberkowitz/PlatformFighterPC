@@ -562,6 +562,142 @@ fn the_counter_catches_through_its_own_intangibility() {
     assert!(caught_while_intangible);
 }
 
+/// The seer's stance against a duelist 4 away whose jab is replaced by a small hit (radius 0.3, 1.3 up) centred 1.75 in front of
+/// the seer: inside the counter bubble (radius 1.4 at 1.3 up and 0.2 ahead, so it reaches 1.9 ahead) but past the body's hurtboxes
+/// (about 1.0). `edit` changes the content further. The stance starts on tick 1 when `stance`; the duelist jabs from tick 10 on.
+/// Returns the sim and whether the seer counterattacked.
+fn bubble_stance(stance: bool, edit: impl Fn(&mut sim_core::Content)) -> (Sim, bool) {
+    use sim_core::input::buttons::ATTACK;
+    let mut sim = stance_against(0, Fx::from_int(4));
+    let w = usize::from(sim.content.fighters[0].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+        h.x = fx(225, 100);
+        h.y = fx(13, 10);
+        h.radius = fx(3, 10);
+    }
+    edit(&mut sim.content);
+    let p0 = if stance {
+        inp(0, -127, SPECIAL)
+    } else {
+        inp(0, 0, 0)
+    };
+    sim.tick2(p0, inp(0, 0, 0));
+    let mut answered = false;
+    for t in 2..40 {
+        let p1 = if t == 10 {
+            inp(0, 0, ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+        answered |= sim.f().move_id == COUNTERATTACK as u8;
+    }
+    (sim, answered)
+}
+
+#[test]
+fn the_counter_catches_on_its_bubble_not_the_body() {
+    let (sim, answered) = bubble_stance(true, |_| {});
+    assert!(answered, "caught on the bubble");
+    assert_eq!(sim.f().percent, Fx::ZERO);
+    let (sim, answered) = bubble_stance(false, |_| {});
+    assert!(!answered);
+    assert_eq!(sim.f().percent, Fx::ZERO, "the body is out of reach");
+    // Without a bubble (older content) the stance catches on the body, which the hit does not reach.
+    let (sim, answered) = bubble_stance(true, |c| {
+        let w = usize::from(c.fighters[usize::from(SEER)].weapon);
+        c.weapons[w].moves[MoveId::DownSpecial as usize]
+            .counter
+            .as_mut()
+            .unwrap()
+            .bubble = None;
+    });
+    assert!(!answered);
+    assert_eq!(sim.f().percent, Fx::ZERO);
+    // The bubble sits ahead of the seer: turned round, the same hit (now 1.75 behind) falls 0.25 short of it.
+    let mut sim = stance_against(0, Fx::from_int(4));
+    let w = usize::from(sim.content.fighters[0].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+        h.x = fx(225, 100);
+        h.y = fx(13, 10);
+        h.radius = fx(3, 10);
+    }
+    sim.state.fighters[0].facing = -1;
+    sim.tick2(inp(0, -127, SPECIAL), inp(0, 0, 0));
+    let mut answered = false;
+    for t in 2..40 {
+        let p1 = if t == 10 {
+            inp(0, 0, sim_core::input::buttons::ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+        answered |= sim.f().move_id == COUNTERATTACK as u8;
+    }
+    assert!(
+        !answered,
+        "the bubble is 0.2 ahead, so it reaches only 1.5 behind"
+    );
+}
+
+#[test]
+fn the_counter_ignores_a_push() {
+    use sim_core::input::buttons::ATTACK;
+    // The duelist's jab turned into a push (a windbox): never countered, it shoves the seer (once the stance's intangibility on
+    // 6-12 is over) without hitstun.
+    let mut sim = stance_against(0, fx(15, 10));
+    let w = usize::from(sim.content.fighters[0].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+        h.push = true;
+    }
+    sim.tick2(inp(0, -127, SPECIAL), inp(0, 0, 0));
+    let x0 = sim.f().pos.x;
+    let mut answered = false;
+    for t in 2..34 {
+        let p1 = if t == 16 {
+            inp(0, 0, ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        sim.tick2(inp(0, 0, 0), p1);
+        answered |= sim.f().move_id == COUNTERATTACK as u8;
+        assert_ne!(sim.f().state, S::Hitstun);
+    }
+    assert!(!answered, "a push is never countered");
+    assert!(sim.f().pos.x < x0, "pushed away");
+    assert!(sim.f().percent > Fx::ZERO);
+}
+
+#[test]
+fn a_push_or_a_grab_does_not_reach_through_the_stances_intangibility() {
+    use sim_core::input::buttons::{ATTACK, GRAB};
+    // Hits reach the counter through its intangibility; a push and a grab do not (they are not caught).
+    for (button, push) in [(ATTACK, true), (GRAB, false)] {
+        let mut sim = stance_against(0, fx(12, 10));
+        let w = usize::from(sim.content.fighters[0].weapon);
+        for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+            h.push = push;
+        }
+        let f = &mut sim.state.fighters[0];
+        f.state = S::Attack;
+        f.move_id = MoveId::DownSpecial as u8;
+        f.state_frame = 6;
+        f.invuln = 25;
+        for t in 0..20 {
+            let p1 = if t == 0 {
+                inp(0, 0, button)
+            } else {
+                inp(0, 0, 0)
+            };
+            sim.tick2(inp(0, 0, 0), p1);
+            assert!(is_intangible(sim.f()));
+            assert_eq!(sim.f().move_id, MoveId::DownSpecial as u8, "not caught");
+            assert_ne!(sim.f().state, S::Grabbed, "not grabbed");
+        }
+        assert_eq!(sim.f().percent, Fx::ZERO);
+    }
+}
+
 #[test]
 fn the_down_specials_new_fields_are_in_the_content_hash() {
     use sim_core::Content;
