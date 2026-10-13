@@ -2137,6 +2137,8 @@ var blade_parts: Array[MeshInstance3D] = []
 var staff_parts: Array[MeshInstance3D] = []
 ## The class that fights with a staff (the Seer): posed like the sword, drawn as a staff.
 const STAFF_CLASS := 5
+## How many times the Seer's neutral air whirls the staff round.
+const STAFF_NAIR_TURNS := 2.0
 
 
 ## The fighter's class (which moveset it has): 0 longsword, 1 claws. Snapshots made before classes existed only have `char`.
@@ -2206,8 +2208,16 @@ func _rest_length(s: Dictionary) -> float:
 func _blade_target(s: Dictionary) -> Array:
 	var rest_len := _rest_length(s)
 	var name: String = s.move_name
-	if name == "":
+	if name == "" or (_cls(s) == STAFF_CLASS and AnimLibrary.is_kick(AnimLibrary.attack_clip(_cls(s), name, anim))):
 		return [REST_ANGLE, rest_len, HAND.x]
+	# The Seer's neutral air: the staff whirled round the body, held at its middle, turning from the wind-up through the last hit.
+	if _cls(s) == STAFF_CLASS and name == "nair":
+		var tt: PackedInt32Array = s.move_timing
+		var from := maxf(1.0, float(tt[1]) * 0.5)
+		var to := maxf(from + 1.0, float(tt[2]) + 2.0)
+		var k := clampf((float(s.state_frame) - from) / (to - from), 0.0, 1.0)
+		var turns := STAFF_NAIR_TURNS * (k * k * (3.0 - 2.0 * k))
+		return [REST_ANGLE + 360.0 * turns, rest_len, HAND.x - rest_len * 0.5 * cos(deg_to_rad(REST_ANGLE + 360.0 * turns))]
 	var tip: Vector3 = s.move_tip
 	var hand_x := HAND.x if tip.x >= 0.0 else -0.35
 	var to_tip := Vector2(tip.x - hand_x, tip.y - HAND.y)
@@ -3093,11 +3103,12 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var body_move := false
 	if _cls(s) == 1:
 		body_move = BRAWLER_NO_BLADE.has(s.move_name)
-	elif _cls(s) == 2 and s.move_name != "":
-		var clip := AnimLibrary.attack_clip(2, s.move_name, anim)
+	elif (_cls(s) == 2 or staff) and s.move_name != "":
+		var clip := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
 		body_move = AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land"]
-	var swinging_arm: bool = not (brawler and body_move)
-	blade_pivot.visible = not brawler and swinging_arm
+	var swinging_arm: bool = not ((brawler or staff) and body_move)
+	# (The Seer keeps its staff in hand through a kick, held at rest.)
+	blade_pivot.visible = (not brawler and swinging_arm) or staff
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
