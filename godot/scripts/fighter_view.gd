@@ -2139,7 +2139,8 @@ var leg_k := 0.0
 const SWING_FROM := {"jab": 70.0, "jab 2": -60.0, "ftilt": -70.0, "dash attack": -70.0, "fsmash": 80.0, "fair": 75.0, "dair": 75.0,
 	"nair": -60.0, "uair": -60.0, "bair": 60.0}
 ## Kicks that send both legs out (front and back), each aimed by the game.
-const SPLIT_KICKS := ["nair"]
+## (None now: the neutral air is a held kick with the other leg tucked, as the reference's are, which the clip poses.)
+const SPLIT_KICKS: Array[String] = []
 ## (Its up air and down air are claw slashes, overhead and down below, so they swing the arm.)
 const BRAWLER_NO_BLADE := ["utilt", "dtilt", "dash attack", "nair", "bair", "dair", "usmash", "side special", "up special", "down special", "grab", "dash grab", "pummel", "forward throw", "back throw", "up throw", "down throw"]
 ## Moves that rush the whole body forward in a flame.

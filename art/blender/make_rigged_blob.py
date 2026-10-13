@@ -2165,10 +2165,14 @@ def main() -> None:
     # Neutral air: a spinning kick, tucked, then opened out and turning.
     # Neutral air: a split kick held out (the game aims both legs, one ahead and one behind). Gather tucked, then open the hips wide,
     # the torso upright and leaning back a touch over the split, arms flung out for balance; it holds through the long late hit.
+    # (After the reference's neutral airs: a held kung-fu kick, not a split. The front leg (thigh.L, the near leg facing right) shoots out
+    # straight ahead, the other knee stays drawn up with its foot tucked under the seat, the body leans back a touch against the kick
+    # and the arms are flung out wide for balance; the wind-up curls both knees up.)
     move_of("kick_nair",
-            {"spine": (18.0, 0.0), "head": (6.0, 0.0), "stance": (60.0, 60.0), "shin.L": (-100.0,), "shin.R": (-100.0,), "arms": (30.0, 26.0)},
-            {"spine": (-8.0, 0.0), "head": (-6.0, 0.0), "arms": (-12.0, 70.0)},
-            {"spine": (-4.0, 0.0), "arms": (-6.0, 50.0)})
+            {"spine": (18.0, 0.0), "head": (6.0, 0.0), "stance": (64.0, 60.0), "shin.L": (-110.0,), "shin.R": (-104.0,), "arms": (34.0, 22.0)},
+            {"spine": (-10.0, 0.0), "head": (2.0, 0.0), "stance": (84.0, 58.0), "shin.L": (-4.0,), "shin.R": (-122.0,),
+             "foot.L": (-30.0,), "foot.R": (34.0,), "arms": (-18.0, 76.0)},
+            {"spine": (-4.0, 0.0), "stance": (70.0, 56.0), "shin.L": (-20.0,), "shin.R": (-116.0,), "arms": (-8.0, 60.0)})
     # Back air: lean forward and drive the heel back.
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},
