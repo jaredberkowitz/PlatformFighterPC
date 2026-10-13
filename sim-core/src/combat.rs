@@ -80,6 +80,27 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
     [(at(6), radius), (middle, radius), (at(16), radius), limb]
 }
 
+/// The hurtbox circles (bit `i` for circle `i` of [`hurtboxes`]) that the fighter's current move makes intangible this frame
+/// (`Move::part_intangible`); 0 when the whole body can be hit.
+pub fn intangible_parts(f: &Fighter, w: &Weapon) -> u8 {
+    if !matches!(f.state, S::Attack | S::LedgeAttack) {
+        return 0;
+    }
+    let frame = f.state_frame;
+    w.get(f.move_id)
+        .part_intangible
+        .iter()
+        .filter(|p| u16::from(p.start) <= frame && frame <= u16::from(p.end))
+        .fold(0, |bits, p| bits | p.parts)
+}
+
+/// Whether a hitbox at `center` of `radius` touches one of the hurtbox circles that can be hit (`shut` from [`intangible_parts`]).
+fn touches(hurt: &[(Vec2, Fx); HURT_CIRCLES], shut: u8, center: Vec2, radius: Fx) -> bool {
+    hurt.iter()
+        .enumerate()
+        .any(|(i, (hc, hr))| shut & (1 << i) == 0 && overlaps(center, radius, *hc, *hr))
+}
+
 /// True while a fighter cannot be hit.
 pub fn is_intangible(f: &Fighter) -> bool {
     !f.active || f.invuln > 0 || f.ledge_invuln > 0
@@ -281,7 +302,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 continue;
             }
             let pd = params_of(content, fd);
-            let hurt = hurtboxes(fd, pd, weapon_of(content, pd));
+            let wd = weapon_of(content, pd);
+            let hurt = hurtboxes(fd, pd, wd);
+            let shut = intangible_parts(fd, wd);
             let mut best: Option<Hitbox> = None;
             for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
                 if fa.hit_mask & hit_bit(d, hb.group) != 0 || !hits_target(&hb, fd) {
@@ -290,18 +313,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 let touching = match hb.kind {
                     // Throws and pummels act on the fighter being held, wherever the hitbox is.
                     HIT_THROW | HIT_PUMMEL => fa.grab_with == d as i8,
-                    HIT_GRAB => {
-                        grab::grabbable(fd)
-                            && hurt
-                                .iter()
-                                .any(|(hc, hr)| overlaps(center, hb.radius, *hc, *hr))
-                    }
-                    _ => {
-                        fa.grab_with != d as i8
-                            && hurt
-                                .iter()
-                                .any(|(hc, hr)| overlaps(center, hb.radius, *hc, *hr))
-                    }
+                    HIT_GRAB => grab::grabbable(fd) && touches(&hurt, shut, center, hb.radius),
+                    _ => fa.grab_with != d as i8 && touches(&hurt, shut, center, hb.radius),
                 };
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
                     best = Some(hb);
@@ -849,7 +862,9 @@ fn reverse(def: &mut Fighter, source_pos: Vec2) {
 /// the blocker is stunned for `0.8 * damage * type + 2` frames and slides back. If the shield runs out it breaks.
 fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8, stun_mult: Fx) {
     let perfect = def.state_frame <= u16::from(rules.perfect_shield_window);
-    let raw = (hb.damage * Fx::from_ratio(8, 10) * stun_mult + Fx::from_int(2)).floor_int();
+    // (The hitbox's own shieldstun multiplier scales the damage part.)
+    let own = Fx::from_ratio(i32::from(hb.shieldstun), 100);
+    let raw = (hb.damage * Fx::from_ratio(8, 10) * stun_mult * own + Fx::from_int(2)).floor_int();
     let mut stun = raw.clamp(0, i32::from(rules.shield_stun_cap));
     // A perfect shield freezes only the attacker.
     def.hitlag = if perfect { 0 } else { hitlag };
@@ -1061,11 +1076,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
             let fd = &state.fighters[d];
             let pd = params_of(content, fd);
-            let hurt = hurtboxes(fd, pd, weapon_of(content, pd));
-            if hurt
-                .iter()
-                .any(|(hc, hr)| overlaps(pos, hb.radius, *hc, *hr))
-            {
+            let wd = weapon_of(content, pd);
+            let hurt = hurtboxes(fd, pd, wd);
+            if touches(&hurt, intangible_parts(fd, wd), pos, hb.radius) {
                 let facing = if pr.vel.x < Fx::ZERO { -1 } else { 1 };
                 // Projectiles stun a shield much less.
                 let mult = Fx::from_ratio(29, 100);

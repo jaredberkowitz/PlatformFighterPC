@@ -154,14 +154,14 @@ mod tests {
             sim_core::Fx::from_int(95)
         );
         // A brand-new fighter that inherits.
-        let mut n = Block::new("fighter", Some("sprinter"));
+        let mut n = Block::new("fighter", Some("racer"));
         n.field("inherit", "brawler");
         n.field("walk_speed", "3");
         assert!(!d.put(n));
+        assert_eq!(d.build().unwrap().content.fighters.len(), 6);
+        assert!(d.remove("fighter", "racer"));
         assert_eq!(d.build().unwrap().content.fighters.len(), 5);
-        assert!(d.remove("fighter", "sprinter"));
-        assert_eq!(d.build().unwrap().content.fighters.len(), 4);
-        assert!(!d.remove("fighter", "sprinter"));
+        assert!(!d.remove("fighter", "racer"));
     }
 
     #[test]

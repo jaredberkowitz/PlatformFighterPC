@@ -29,7 +29,7 @@ still exist the two must agree; if you change a number in code, re-export the fi
 ```text
 # comment to end of line
 bundle {                         # the manifest, required
-    schema 4
+    schema 5
     name "Base Roster"
     sim_version 19
     hash af788ccc46c9f9e2
@@ -54,8 +54,9 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   attacks are the body's own (claws, fists, feet): while a hit is out, the limb throwing it can be hit (a held weapon cannot).
 * **Moves** are named by slot: `jab ftilt utilt dtilt dash_attack fsmash usmash dsmash nair fair bair uair dair
   neutral_special side_special up_special down_special jab2 jab3 grab dash_grab pummel fthrow bthrow uthrow dthrow
-  ledge_attack get_up_attack ext0 ext1 ext2 ext3 ext4 ext5 ext6 ext7 ext8 ext9 pivot_grab`. Frames count from the move's first frame
-  (see `docs/COMBAT.md`). The ten `ext` slots are never started by a button: a script reaches them with `goto`, or a
+  ledge_attack get_up_attack ext0 ext1 ext2 ext3 ext4 ext5 ext6 ext7 ext8 ext9 pivot_grab ext10 ext11 ext12 ext13 ext14 ext15`.
+  Frames count from the move's first frame (see `docs/COMBAT.md`). The sixteen `ext` slots (`ext10` to `ext15` since schema 5,
+  after `pivot_grab` so every older slot keeps its number) are never started by a button: a script reaches them with `goto`, or a
   counter stance answers with one. They are for the later hits of a multi-hit special, a counter-attack, and so on.
   `pivot_grab` is started by grabbing while turning around out of a dash or run; a weapon that leaves it empty uses its dash grab.
 
@@ -75,12 +76,13 @@ A move block (omitted fields take the default shown):
 | `steer_frame`, `steer_stick`, `steer_degrees` | angling by the stick: on that move frame, a forward or backward tilt past `steer_stick` percent turns the motion by up to `steer_degrees`, evenly to the rim (255 = no angling) | 255, 0, 0 |
 | `air_gravity`, `air_max_fall`, `air_friction`, `air_drift` | the move's own air physics while it runs without a motion (world units; `air_drift` a percent of the body's air speed and acceleration) | the body's; `air_drift` 100 |
 | `land_continue` | touching down does not end the move: it carries on along the ground | false |
+| `part_intangible { start end [low] [middle] [high] [limb] }` | any number: on move frames `start..=end` the named hurtbox circles cannot be hit (`true` each; the body's low, middle and high circles, and `limb`, the arm or leg an attack throws out), while the rest of the body can: the reference's per-limb intangibility (a kicking leg, a headbutting head) | none |
 | `charge_at` | smash attack hold frame | none |
 | `next`, `next_window`, `next_from` | jab chain: move to continue into, and the press window; with `next_from` (a move frame) a press from that frame on carries on at once (the reference's continuable window), otherwise only at the end | none; `next_from` 255 |
 | `rehit_start`, `rehit_every` | multi-hit: when hits may land again | none |
 | `rehit_groups` | the hit groups the rehit rhythm re-arms, a bit per group (a looping phase is re-armed, its final hit is not) | 255 (all) |
 | `landing_move` | a move (usually an `ext` slot) started when this aerial lands outside its autocancel windows: a landing hit; its length is the landing lag | none |
-| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] [targets] [fixed_kb] [hitstun_add] [sdi] [link_ahead] [aim] [set_weight] [reverse] [push] }` | any number; `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric`; `group` 0 to 7 (each group hits a target once per move, or once per rehit); `targets` is `all`, `grounded` or `aerial`; `fixed_kb` set knockback (the same at any percent; 0 = normal); `hitstun_add` extra hitstun frames; `sdi` the percent of the normal survival-DI distance (default 100). `link_ahead` moves an autolink's pull point that far in front of the hitbox (world units). `aim` is `any` (default), `up`, `straight` or `down`: the hitbox is only out when the move was aimed that way as it started (a forward tilt or smash with the stick tilted up or down, as the reference's angled moves). `set_weight` (`true`/`false`, default false) works the knockback out as if the victim weighed 100 (the reference's set weight). `reverse` (default false) turns the victim round (facing away from the attacker, horizontal speed reversed: the reference's reverse effect). `push` (default false) makes the hit a shove (the reference's flinchless hit): its knockback is added to the victim's speed (only sideways on the ground) with no hitlag, no hitstun and no change of state; a shield takes it as pushback. `angle` 361 is the reference's 361 angle (set by the knockback and by whether the victim is on the ground), 367 the autolink angle (an airborne victim is carried along at the attacker's velocity and pulled toward the hitbox; a grounded one goes up at 80) and 368 the pull angle (ours: no launch; the victim is drawn to just in front of the attacker, or a projectile's owner, while its hitstun lasts) | |
+| `hitbox { start end x y radius damage angle bkb kbg [priority] [group] [kind] [shield_damage] [hitlag] [effect] [targets] [fixed_kb] [hitstun_add] [sdi] [link_ahead] [aim] [set_weight] [reverse] [push] [shieldstun] }` | any number; `shieldstun` is the percent of the normal shield stun the hit causes (the reference's per-hitbox shieldstun multiplier, applied to the stun's damage part; default 100); `kind` is `normal grab throw pummel`; `shield_damage` is the percent of its damage a shield takes (default 100); `hitlag` the percent of the normal hitlag (default 100); `effect` is `normal` or `electric`; `group` 0 to 7 (each group hits a target once per move, or once per rehit); `targets` is `all`, `grounded` or `aerial`; `fixed_kb` set knockback (the same at any percent; 0 = normal); `hitstun_add` extra hitstun frames; `sdi` the percent of the normal survival-DI distance (default 100). `link_ahead` moves an autolink's pull point that far in front of the hitbox (world units). `aim` is `any` (default), `up`, `straight` or `down`: the hitbox is only out when the move was aimed that way as it started (a forward tilt or smash with the stick tilted up or down, as the reference's angled moves). `set_weight` (`true`/`false`, default false) works the knockback out as if the victim weighed 100 (the reference's set weight). `reverse` (default false) turns the victim round (facing away from the attacker, horizontal speed reversed: the reference's reverse effect). `push` (default false) makes the hit a shove (the reference's flinchless hit): its knockback is added to the victim's speed (only sideways on the ground) with no hitlag, no hitstun and no change of state; a shield takes it as pushback. `angle` 361 is the reference's 361 angle (set by the knockback and by whether the victim is on the ground), 367 the autolink angle (an airborne victim is carried along at the attacker's velocity and pulled toward the hitbox; a grounded one goes up at 80) and 368 the pull angle (ours: no launch; the victim is drawn to just in front of the attacker, or a projectile's owner, while its hitstun lasts) | |
 | `motion { start end vx vy }` | scripted-motion segments (`vx` forward-relative) | |
 | `projectile { frame x y speed life end_damage [angle] [gravity] [max_fall] [bounces] [bounce_min] [bounce_max] [bounce_keep] hitbox { ... } [phase { from hitbox { ... } }] }` | at most one. Its flight: fired `angle` degrees above its facing (negative is down), pulled down by `gravity` to at most `max_fall` (0: no limit); with `bounces` above 0 it bounces off the top of any platform that many times (the next touch removes it), coming off at its falling speed held between `bounce_min` and `bounce_max`, keeping `bounce_keep` percent of its forward speed. Up to two `phase` blocks replace its hit from age `from` on (in order; a phased projectile's damage does not fall off) | angle 0, gravity 0, max_fall 0, bounces 0, bounce_keep 100 |
 | `reflector { start end x y radius damage_percent speed_percent [reverse_vertical] [life_percent] [max_damage] [detect_start detect_end detect_x detect_y detect_radius] }` | at most one. `reverse_vertical` turns the shot's vertical speed round too; a reflected shot gets `life_percent` of its lifetime; a shot of more than `max_damage` (0: no limit) goes through; a shot touching the detector circle on `detect_start..=detect_end` skips the move ahead so the reflector is up the next frame | false, 100, 0, no detector |
@@ -139,9 +141,13 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`, `stored`, `jump`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`, `jump`, `presses`, `releases`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap` and `special_tap` are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
 `hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
+`presses` and `releases` count the attack button's presses and releases since the attack began (the move a button started;
+moves reached from it by `next`, `goto` or a counter keep counting), **hitlag included**, which no `attack_tap` can see; the press
+that started an attack is 1 (and a release of it already made counts 1; an attack started by another button starts at 0). A rapid jab's entry rule reads them (the reference's "pressed
+3 times and released twice since jab 1").
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,
 `intangible(frames)`, `end()`, `turn()`, `rehit()`, `stall()`, `goto(move)`, `store(n)`, `air_flag(n)`, `set_air_flag(n)`,
@@ -166,7 +172,7 @@ Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, s
 * `goto(n)` switches to move slot `n` (0 `jab`, 1 `ftilt`, 2 `utilt`, 3 `dtilt`, 4 `dash_attack`, 5 `fsmash`, 6 `usmash`,
   7 `dsmash`, 8 `nair`, 9 `fair`, 10 `bair`, 11 `uair`, 12 `dair`, 13 `neutral_special`, 14 `side_special`, 15 `up_special`,
   16 `down_special`, 17 `jab2`, 18 `jab3`, 19 `grab`, 20 `dash_grab`, 21 `pummel`, 22 `fthrow`, 23 `bthrow`, 24 `uthrow`,
-  25 `dthrow`, 26 `ledge_attack`, 27 `get_up_attack`, 28 to 37 `ext0` to `ext9`, 38 `pivot_grab`). This is how a script makes a combo or a follow-up variant:
+  25 `dthrow`, 26 `ledge_attack`, 27 `get_up_attack`, 28 to 37 `ext0` to `ext9`, 38 `pivot_grab`, 39 to 44 `ext10` to `ext15`). This is how a script makes a combo or a follow-up variant:
   hitboxes belong to moves, so a script chooses *which* move, it does not edit hitboxes. A move that sends itself
   to itself every frame stays in place until it is hit; that is the author's loop to avoid.
 * `stall()` holds the move on its current frame this frame (a charge). The total is capped by the ruleset's
@@ -210,6 +216,10 @@ Line numbers inside a script count from its first non-blank line.
   if not) and `wall_jump_vx` / `wall_jump_vy` (the speeds of that jump and of every wall-tech jump); an old fighter gets no wall jump
   and its air speed and midair jump speed for the wall-tech jump, as before
   (`a_schema_3_file_from_before_wall_jumps_still_loads_and_wall_techs_as_before`).
+  Schema 4 to 5 (sim v65): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44 after
+  `pivot_grab`, so no older slot or `goto` number moves). An older file has nothing to rewrite (its weapons simply leave the new
+  slots empty), but a file that uses them cannot be read by an older build, hence the bump
+  (`a_schema_4_file_from_before_sixteen_ext_slots_still_loads_unchanged`).
 * `sim_version` is the simulation's behaviour version (`SIM_VERSION`). Content packed for another version is
   refused: the same numbers can play differently.
 * `hash` fingerprints everything the simulation reads (sim version, parameters, movesets including script
@@ -224,7 +234,7 @@ Line numbers inside a script count from its first non-blank line.
 ## Making a custom fighter
 
 1. `pftool content-export mine.pfc "My Pack"`, then open `mine.pfc`.
-2. Add a fighter that inherits and overrides: `fighter sprinter { inherit brawler  walk_speed 3 }`.
+2. Add a fighter that inherits and overrides: `fighter racer { inherit brawler  walk_speed 3 }`.
 3. Add a moveset: `weapon quickclaws { inherit claws  move jab { total_frames 10  hitbox { start 2 end 3 x 1 y 1 radius 1 damage 2 angle 361 bkb 10 kbg 10 } } }`, then `weapon quickclaws` in the fighter.
 4. `pftool content-check mine.pfc`, fix what it lists, play with `--content=mine.pfc`.
 5. When it is final, `content-pack mine.pfc mine_packed.pfc`.

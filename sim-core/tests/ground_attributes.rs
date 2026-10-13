@@ -50,6 +50,13 @@ fn every_fighter_has_its_reference_characters_ground_numbers() {
             [g(105), g(105), g(44), fine(10978)],
             (10, 3),
         ),
+        (
+            "sprinter",
+            FighterParams::sprinter(),
+            [g(987), g(1980), g(2552), g(105)],
+            [g(105), g(158), g(110), fine(6600)],
+            (15, 3),
+        ),
     ];
     for (name, p, speeds, accels, (dash, heavy)) in expected {
         assert_eq!(
@@ -94,6 +101,7 @@ fn no_two_fighters_move_the_same_on_the_ground() {
         FighterParams::brawler(),
         FighterParams::rogue(),
         FighterParams::tumbler(),
+        FighterParams::sprinter(),
     ];
     let ground = |p: &FighterParams| {
         (

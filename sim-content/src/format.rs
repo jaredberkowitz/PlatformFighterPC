@@ -8,9 +8,10 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, Reflector, Weapon,
-    AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
-    HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Counter, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
+    Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL,
+    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_THROW, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
+    TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -589,6 +590,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         set_weight: f.or("set_weight", false, errors),
         reverse: f.or("reverse", false, errors),
         push: f.or("push", false, errors),
+        shieldstun: f.or("shieldstun", 100, errors),
     };
     f.finish(errors);
     hb
@@ -654,6 +656,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.push {
         b.field("push", "true");
+    }
+    if hb.shieldstun != 100 {
+        b.field("shieldstun", hb.shieldstun.to_string());
     }
     b
 }
@@ -760,10 +765,36 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "counter",
             "script",
             "projectile_script",
+            "part_intangible",
         ],
         context,
         errors,
     );
+    m.part_intangible = children(block, "part_intangible")
+        .into_iter()
+        .map(|b| {
+            let ctx = format!("a part_intangible of {context}");
+            let mut f = Fields::new(b, &ctx, errors);
+            let mut parts = 0;
+            for (name, bit) in [
+                ("low", PART_LOW),
+                ("middle", PART_MIDDLE),
+                ("high", PART_HIGH),
+                ("limb", PART_LIMB),
+            ] {
+                if f.or(name, false, errors) {
+                    parts |= bit;
+                }
+            }
+            let w = PartIntangible {
+                start: f.need("start", None, errors),
+                end: f.need("end", None, errors),
+                parts,
+            };
+            f.finish(errors);
+            w
+        })
+        .collect();
     m.hitboxes = children(block, "hitbox")
         .into_iter()
         .map(|b| read_hitbox(b, &format!("a hitbox of {context}"), errors))
@@ -816,6 +847,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     set_weight: false,
                     reverse: false,
                     push: false,
+                    shieldstun: 100,
                 }
             }
         };
@@ -1016,6 +1048,22 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     }
     for hb in &m.hitboxes {
         b.push(write_hitbox(hb));
+    }
+    for w in &m.part_intangible {
+        let mut c = Block::new("part_intangible", None);
+        c.field("start", w.start.to_string());
+        c.field("end", w.end.to_string());
+        for (name, bit) in [
+            ("low", PART_LOW),
+            ("middle", PART_MIDDLE),
+            ("high", PART_HIGH),
+            ("limb", PART_LIMB),
+        ] {
+            if w.parts & bit != 0 {
+                c.field(name, "true");
+            }
+        }
+        b.push(c);
     }
     if let Some(c) = &m.counter {
         let mut cb = Block::new("counter", None);

@@ -823,6 +823,77 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A tall, heavy and very fast runner with a strong fall: the "sprinter" body of the Gauntlets moveset. The reference
+    /// character's attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com,
+    /// `docs/movesets/captain_falcon/REFERENCE_DATA.md`): weight 104, walk 0.987, initial dash 1.98, run 2.552, traction 0.105, air
+    /// speed 1.218, air acceleration 0.01 + 0.065, air friction 0.0075, gravity 0.12, fall 1.865 (fast 2.984), full hop 37.31, short
+    /// hop 17.98, double jump 37.31, ledge jump 38.655. On the ground: walk acceleration 0.105 + 0.158, run acceleration 0.11 +
+    /// 0.066, an initial dash of 15 frames, a heavy landing of 4 (3 of lag). Air dodges 42 (neutral, intangible 3-30) and 62 / 72 /
+    /// 94 (directional, intangible 3-21); rolls 30 forward and 35 back (intangible 4-15), spot dodge 26 (3-17). A wall jump (1.4
+    /// away, 3.1 up). The body is taller than the shared one [E: fitted to the heights its attacks reach].
+    pub fn sprinter() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let r = Fx::from_ratio;
+        let gravity = su(120);
+        let (burst, arc) = Self::full_hop(gravity, su(37310));
+        FighterParams {
+            walk_speed: gu(987),
+            run_speed: gu(2552),
+            dash_speed: gu(1980),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(158),
+            run_accel: gu(110),
+            run_accel_stick: FighterParams::gu_fine(6600),
+            dash_frames: 15,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 8,
+            heavy_landing_lag: 3,
+            air_speed: su(1218),
+            air_accel: su(10),
+            air_accel_stick: su(65),
+            air_friction: FighterParams::su_fine(750),
+            gravity,
+            max_fall_speed: su(1865),
+            fast_fall_speed: su(2984),
+            air_dodge_frames: 42,
+            air_dodge_dir_down_frames: 62,
+            air_dodge_dir_side_frames: 72,
+            air_dodge_dir_up_frames: 94,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.105 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(210),
+            dash_attack_friction: gu(105),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(17980)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(37310)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(38655)),
+            weight: Fx::from_int(104),
+            weapon: 4,
+            // Dodges (the reference's): a forward roll of 30 frames, a backward one of 35, intangible 4-15 (the back roll's 5-16 is
+            // not separate here [D]); a spot dodge of 26, intangible 3-17 (the shared windows).
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            // The reference's wall jump and wall-tech jump (dragdown, the parameter file): 1.4 away, 3.1 up. (Its 0.2 "enable" speed
+            // and 0.5 passive wall speed are not modelled for anyone.)
+            wall_jump: 1,
+            wall_jump_vx: su(1400),
+            wall_jump_vy: su(3100),
+            // Taller than the shared body: its attacks reach 10-11 reference units up for a punch at the chest and 29 above the head
+            // [E].
+            ecb_height: r(13, 5),
+            ecb_side_height: r(13, 10),
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1380,7 +1451,8 @@ impl Content {
         h.finish()
     }
 
-    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue and an all-round tumbler) on a main stage with platforms.
+    /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler and a fast, heavy sprinter) on
+    /// a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1388,12 +1460,14 @@ impl Content {
                 FighterParams::brawler(),
                 FighterParams::rogue(),
                 FighterParams::tumbler(),
+                FighterParams::sprinter(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
                 crate::moves::claws(),
                 crate::moves::needles(),
                 crate::moves::embers(),
+                crate::moves::gauntlets(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1404,12 +1478,14 @@ impl Content {
                     "brawler".to_string(),
                     "rogue".to_string(),
                     "tumbler".to_string(),
+                    "sprinter".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
                     "claws".to_string(),
                     "needles".to_string(),
                     "embers".to_string(),
+                    "gauntlets".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

@@ -121,6 +121,8 @@ pub const R_CHARGE: u8 = 15;
 pub const R_HIT: u8 = 16;
 pub const R_STORED: u8 = 17;
 pub const R_JUMP: u8 = 18;
+pub const R_PRESSES: u8 = 19;
+pub const R_RELEASES: u8 = 20;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -180,6 +182,16 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "a charge kept from an earlier use (see store), 0 to 255",
     ),
     reg("jump", R_JUMP, "jump button held"),
+    reg(
+        "presses",
+        R_PRESSES,
+        "attack presses since the attack began (its own press is 1), hitlag included",
+    ),
+    reg(
+        "releases",
+        R_RELEASES,
+        "attack releases since the attack began, hitlag included",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[

@@ -258,6 +258,16 @@ pub fn update(
     f.history[0] = input;
     // A new press of a button can start a new action.
     f.buffer_used &= !(input.buttons & !f.history[1].buttons);
+    // Attack presses and releases since the attack began, hitlag included (a rapid jab's entry rule).
+    let (now, before) = (
+        input.buttons & buttons::ATTACK != 0,
+        f.history[1].buttons & buttons::ATTACK != 0,
+    );
+    if now && !before {
+        f.presses = f.presses.saturating_add(1);
+    } else if before && !now {
+        f.releases = f.releases.saturating_add(1);
+    }
     // A tech press opens a short window; another press only counts once `tech_lockout` frames have passed (no mashing).
     f.tech_timer = f.tech_timer.saturating_add(1);
     if f.pressed_within(buttons::SHIELD, 1) && f.tech_timer > rules.tech_lockout {
@@ -1581,6 +1591,12 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     if f.state != S::Attack {
         f.move_air = !f.grounded();
         f.steer = 0;
+        // The count of attack presses starts again with this attack: the press that started it, if attack started it (it may have
+        // waited in the input buffer, and been let go already).
+        let held = f.held(buttons::ATTACK);
+        let by_attack = held || f.pressed_within(buttons::ATTACK, 10);
+        f.presses = u8::from(by_attack);
+        f.releases = u8::from(by_attack && !held);
     }
     f.move_id = id as u8;
     f.hit_mask = 0;

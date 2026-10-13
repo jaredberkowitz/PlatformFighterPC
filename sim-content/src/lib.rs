@@ -309,6 +309,14 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 ));
             }
         }
+        for p in &mv.part_intangible {
+            if p.start > p.end || p.end > mv.total_frames || p.parts == 0 || p.parts > 15 {
+                errors.push(format!(
+                    "weapon {i} {name}: part_intangible {}..{} must lie inside the move and name at least one part",
+                    p.start, p.end
+                ));
+            }
+        }
         if mv.steer_degrees > 90 || mv.steer_stick > 99 {
             errors.push(format!(
                 "weapon {i} {name}: steer_degrees is at most 90 and steer_stick at most 99"

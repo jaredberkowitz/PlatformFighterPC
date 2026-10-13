@@ -432,6 +432,37 @@ fn wild_scripts_cannot_push_fighters_into_the_stage() {
 }
 
 #[test]
+fn presses_and_releases_count_the_attack_button_since_the_attack_began_hitlag_included() {
+    // The script keeps 10 x presses + releases where a test can read it.
+    let mut sim = with_special(scripted(60, "store(presses * 10 + releases);"));
+    start(&mut sim);
+    // Started by special: nothing counted yet.
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 0);
+    // Press, let go, press (held).
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    assert_eq!(sim.f().stored, 21);
+    // During hitlag the script does not run, but the counts go on: let go and press again while frozen.
+    sim.state.fighters[0].hitlag = 4;
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, sim_core::input::buttons::ATTACK));
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 21, "frozen");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 33, "the presses in hitlag counted");
+    // A new attack starts counting again.
+    sim.ticks(60, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 0);
+}
+
+#[test]
 fn a_once_per_airtime_flag_lasts_until_the_fighter_lands() {
     // Each use in the air adds a lift only while flag 2 is clear, and sets it.
     let mut sim = with_special(scripted(

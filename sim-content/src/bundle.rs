@@ -29,7 +29,7 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
@@ -39,7 +39,14 @@ pub const MIGRATIONS: &[Migration] = &[
     (1, fighters_get_crouch_and_dash_attack_friction),
     (2, ground_accel_splits_into_walk_and_run),
     (3, fighters_get_wall_jumps),
+    (4, weapons_get_sixteen_ext_slots),
 ];
+
+/// Schema 4 to 5 (sim v65): a weapon's moveset grew from ten `ext` slots to sixteen (`ext10` to `ext15`, numbered 39 to 44, after
+/// `pivot_grab`, so no older slot or script `goto` number moves). A weapon written before them leaves the new slots empty, which is
+/// what an omitted move means anyway, so there is nothing to rewrite; the bump is there so an older build refuses a file that uses
+/// the new slots with a clear message instead of failing on an unknown move name.
+fn weapons_get_sixteen_ext_slots(_root: &mut Block) {}
 
 /// Schema 3 to 4 (sim v64): fighters gained a wall jump (`wall_jump` 0 or 1) and the speeds of it and of the wall-tech jump
 /// (`wall_jump_vx`, `wall_jump_vy`). A fighter written before them gets no wall jump, and a wall-tech jump as it was: its air speed

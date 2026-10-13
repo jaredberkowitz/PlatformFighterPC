@@ -183,6 +183,11 @@ pub struct Fighter {
     pub air_flags: u8,
     /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
     pub wall_jumps: u8,
+    /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
+    /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
+    /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
+    pub presses: u8,
+    pub releases: u8,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
@@ -414,6 +419,8 @@ impl Fighter {
             stored: 0,
             air_flags: 0,
             wall_jumps: 0,
+            presses: 0,
+            releases: 0,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -561,6 +568,8 @@ impl StateHash for Fighter {
         h.write_u8(self.stored);
         h.write_u8(self.air_flags);
         h.write_u8(self.wall_jumps);
+        h.write_u8(self.presses);
+        h.write_u8(self.releases);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
@@ -1025,6 +1034,16 @@ mod tests {
             ("air_flags", {
                 let mut s = state;
                 s.fighters[1].air_flags = 1;
+                s
+            }),
+            ("presses", {
+                let mut s = state;
+                s.fighters[1].presses = 1;
+                s
+            }),
+            ("releases", {
+                let mut s = state;
+                s.fighters[2].releases = 1;
                 s
             }),
             ("fighter_vars", {

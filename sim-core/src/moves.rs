@@ -51,7 +51,7 @@ pub enum MoveId {
     /// Attack out of a ledge hang, and attack out of a knockdown.
     LedgeAttack,
     GetUpAttack,
-    /// Ten free slots for follow-up moves that only a script (`goto`) or a counter reaches: the later hits of a
+    /// Free slots for follow-up moves (ten here and six more after the pivot grab) that only a script (`goto`) or a counter reaches: the later hits of a
     /// multi-hit special, the counter-attack, and so on. They are never started by a button.
     Ext0,
     Ext1,
@@ -65,10 +65,17 @@ pub enum MoveId {
     Ext9,
     /// A grab out of a dash or run turned around: the grab comes out behind the direction of travel.
     PivotGrab,
+    /// Six more follow-up slots (sixteen in all), after the pivot grab so that every older slot keeps its index.
+    Ext10,
+    Ext11,
+    Ext12,
+    Ext13,
+    Ext14,
+    Ext15,
 }
 
 impl MoveId {
-    pub const COUNT: usize = 39;
+    pub const COUNT: usize = 45;
     /// Index of the first special move.
     pub const FIRST_SPECIAL: u8 = 13;
 
@@ -87,7 +94,8 @@ impl MoveId {
     }
 
     pub const fn is_ext(self) -> bool {
-        (self as u8) >= 28 && (self as u8) <= 37
+        let i = self as u8;
+        (i >= 28 && i <= 37) || (i >= 39 && i <= 44)
     }
 
     /// Slots a weapon may leave empty: specials it does not have, jab hits it does not chain into, and the
@@ -138,6 +146,12 @@ impl MoveId {
             36 => MoveId::Ext8,
             37 => MoveId::Ext9,
             38 => MoveId::PivotGrab,
+            39 => MoveId::Ext10,
+            40 => MoveId::Ext11,
+            41 => MoveId::Ext12,
+            42 => MoveId::Ext13,
+            43 => MoveId::Ext14,
+            44 => MoveId::Ext15,
             _ => MoveId::DownSpecial,
         }
     }
@@ -189,6 +203,12 @@ impl MoveId {
             MoveId::Ext8 => "ext8",
             MoveId::Ext9 => "ext9",
             MoveId::PivotGrab => "pivot_grab",
+            MoveId::Ext10 => "ext10",
+            MoveId::Ext11 => "ext11",
+            MoveId::Ext12 => "ext12",
+            MoveId::Ext13 => "ext13",
+            MoveId::Ext14 => "ext14",
+            MoveId::Ext15 => "ext15",
         }
     }
 
@@ -237,6 +257,12 @@ impl MoveId {
             MoveId::Ext8 => "extra move 8",
             MoveId::Ext9 => "extra move 9",
             MoveId::PivotGrab => "pivot grab",
+            MoveId::Ext10 => "extra move 10",
+            MoveId::Ext11 => "extra move 11",
+            MoveId::Ext12 => "extra move 12",
+            MoveId::Ext13 => "extra move 13",
+            MoveId::Ext14 => "extra move 14",
+            MoveId::Ext15 => "extra move 15",
         }
     }
 }
@@ -296,6 +322,9 @@ pub struct Hitbox {
     /// horizontal part on the ground) with no hitlag, no hitstun and no change of state: the victim keeps control. A shield takes it
     /// as pushback.
     pub push: bool,
+    /// Percent of the normal shield stun this hit causes on a shield (the reference's per-hitbox shieldstun multiplier; 100 is
+    /// normal). It scales the damage part of the stun, before the cap.
+    pub shieldstun: u16,
 }
 
 /// `Hitbox::aim` values.
@@ -330,6 +359,7 @@ impl Hitbox {
         self.set_weight = false;
         self.reverse = false;
         self.push = false;
+        self.shieldstun = 100;
         self
     }
 }
@@ -480,6 +510,23 @@ pub struct Counter {
     pub min_damage: Fx,
 }
 
+/// Intangibility of part of the body (the reference's per-bone intangibility): during move frames `start..=end` the hurtbox
+/// circles in `parts` cannot be hit, while the rest of the body still can. See `combat::hurtboxes` for the circles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PartIntangible {
+    pub start: u8,
+    pub end: u8,
+    /// Bits: [`PART_LOW`], [`PART_MIDDLE`], [`PART_HIGH`], [`PART_LIMB`].
+    pub parts: u8,
+}
+
+/// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
+/// attack throws out (the arm or leg reaching toward the move's hitboxes).
+pub const PART_LOW: u8 = 1;
+pub const PART_MIDDLE: u8 = 2;
+pub const PART_HIGH: u8 = 4;
+pub const PART_LIMB: u8 = 8;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Move {
     /// The move ends when the move frame reaches this.
@@ -535,6 +582,8 @@ pub struct Move {
     pub intangible_from_air: u8,
     /// Touching down during the move does not end it: the fighter lands and the move carries on along the ground.
     pub land_continue: bool,
+    /// Windows in which part of the body cannot be hit (a kicking leg, a headbutting head); empty for none.
+    pub part_intangible: Vec<PartIntangible>,
     /// A smash attack holds on this move frame while the attack button stays held, up to the
     /// ruleset's charge limit, and then deals more damage the longer it was held.
     pub charge_at: Option<u8>,
@@ -595,6 +644,7 @@ impl Move {
             intangible_from: 0,
             intangible_from_air: 255,
             land_continue: false,
+            part_intangible: Vec::new(),
             charge_at: None,
             next: None,
             next_window: 0,
@@ -683,6 +733,7 @@ impl StateHash for Hitbox {
         h.write_bool(self.set_weight);
         h.write_bool(self.reverse);
         h.write_bool(self.push);
+        h.write_u16(self.shieldstun);
     }
 }
 
@@ -768,6 +819,12 @@ impl StateHash for Weapon {
                 }
             }
             h.write_bool(m.land_continue);
+            h.write_u32(m.part_intangible.len() as u32);
+            for w in &m.part_intangible {
+                h.write_u8(w.start);
+                h.write_u8(w.end);
+                h.write_u8(w.parts);
+            }
             match m.charge_at {
                 Some(f) => {
                     h.write_bool(true);
@@ -893,6 +950,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 set_weight: false,
                 reverse: false,
                 push: false,
+                shieldstun: 100,
             })
             .collect(),
         ..Move::empty()
@@ -942,6 +1000,7 @@ fn row(r: &R) -> Hitbox {
         set_weight: false,
         reverse: false,
         push: false,
+        shieldstun: 100,
     }
 }
 
@@ -3240,6 +3299,7 @@ pub fn claws() -> Weapon {
             set_weight: false,
             reverse: false,
             push: false,
+            shieldstun: 100,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3508,13 +3568,17 @@ pub fn claws() -> Weapon {
     w
 }
 
+#[path = "moves_gauntlets.rs"]
+mod gauntlets;
+pub use gauntlets::gauntlets;
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn every_weapon_has_every_move_slot() {
-        for w in [longsword(), claws()] {
+        for w in [longsword(), claws(), needles(), embers(), gauntlets()] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
                 if m.is_empty() {

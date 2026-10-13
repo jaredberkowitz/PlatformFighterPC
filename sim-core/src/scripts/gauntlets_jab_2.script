@@ -1,0 +1,8 @@
+// Gauntlets jab 2 (slot 17). On frames 7-9 it goes on into the rapid jab (39 = ext10) once attack has been pressed at least 3
+// times and let go at least twice since jab 1 began (`presses` and `releases` count every press and release, those during hitlag
+// too). Otherwise a press made since jab 2 began carries on into jab 3 (slot 18) from frame 8. Where both are open the rapid jab
+// wins: it is checked first.
+var base;
+if frame == 1 { base = presses - attack_tap; }
+if frame >= 6 && frame <= 8 && presses >= 3 && releases >= 2 { goto(39); }
+if frame >= 7 && presses > base { goto(18); }

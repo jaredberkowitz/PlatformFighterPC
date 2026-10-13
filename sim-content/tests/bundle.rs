@@ -309,24 +309,24 @@ fn migrations_chain_in_order() {
 #[test]
 fn a_custom_fighter_can_inherit_and_override() {
     let base = text(&Content::placeholder(), false);
-    let extra = "\nfighter sprinter {\n    inherit brawler\n    walk_speed 3\n}\nweapon quickclaws {\n    inherit claws\n    move jab {\n        total_frames 10\n        hitbox { start 2 end 3 x 1 y 1 radius 1 damage 2 angle 361 bkb 10 kbg 10 }\n    }\n}\n";
+    let extra = "\nfighter racer {\n    inherit brawler\n    walk_speed 3\n}\nweapon quickclaws {\n    inherit claws\n    move jab {\n        total_frames 10\n        hitbox { start 2 end 3 x 1 y 1 radius 1 damage 2 angle 361 bkb 10 kbg 10 }\n    }\n}\n";
     let c = load(&format!("{base}{extra}"))
         .unwrap_or_else(|e| panic!("{}", e.join("\n")))
         .content;
-    assert_eq!(c.fighters.len(), 5);
-    assert_eq!(c.names.fighters[4], "sprinter");
+    assert_eq!(c.fighters.len(), 6);
+    assert_eq!(c.names.fighters[5], "racer");
     let brawler = c.fighters[1];
-    let sprinter = c.fighters[4];
-    assert_eq!(sprinter.walk_speed, Fx::from_int(3));
+    let racer = c.fighters[5];
+    assert_eq!(racer.walk_speed, Fx::from_int(3));
     assert_eq!(
-        sprinter.gravity, brawler.gravity,
+        racer.gravity, brawler.gravity,
         "unlisted values come from the inherited fighter"
     );
-    assert_eq!(sprinter.weapon, brawler.weapon);
-    assert_eq!(c.weapons.len(), 5);
-    assert_eq!(c.weapons[4].moves[MoveId::Jab as usize].total_frames, 10);
+    assert_eq!(racer.weapon, brawler.weapon);
+    assert_eq!(c.weapons.len(), 6);
+    assert_eq!(c.weapons[5].moves[MoveId::Jab as usize].total_frames, 10);
     assert_eq!(
-        c.weapons[4].moves[MoveId::FTilt as usize],
+        c.weapons[5].moves[MoveId::FTilt as usize],
         c.weapons[1].moves[MoveId::FTilt as usize],
         "moves not mentioned are inherited"
     );
@@ -386,14 +386,14 @@ fn a_schema_1_file_from_before_crouch_height_and_dash_attack_friction_still_load
         if t.starts_with("crouch_height ") || t.starts_with("dash_attack_friction ") {
             continue;
         }
-        old.push_str(&line.replace("schema 4", "schema 1"));
+        old.push_str(&line.replace(&format!("schema {SCHEMA_VERSION}"), "schema 1"));
         old.push('\n');
     }
     assert!(old.contains("schema 1") && !old.contains("crouch_height"));
     let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
     // The shipped fighters' values are exactly what the migration fills in.
     assert_eq!(bundle.content, Content::placeholder());
-    assert_eq!(bundle.manifest.schema, 4);
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
 }
 
 #[test]
@@ -414,12 +414,12 @@ fn a_schema_2_file_with_one_ground_accel_still_loads_and_moves_as_before() {
             old.push_str(&format!("{indent}ground_accel 0.025\n"));
             continue;
         }
-        old.push_str(&line.replace("schema 4", "schema 2"));
+        old.push_str(&line.replace(&format!("schema {SCHEMA_VERSION}"), "schema 2"));
         old.push('\n');
     }
     assert!(old.contains("schema 2") && old.contains("ground_accel") && !old.contains("run_accel"));
     let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
-    assert_eq!(bundle.manifest.schema, 4);
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
     // The old value is both bases, with no stick share: every push of the stick accelerates as the one value did.
     for p in &bundle.content.fighters {
         let g = sim_core::Fx::from_ratio(1, 40);
@@ -441,12 +441,12 @@ fn a_schema_3_file_from_before_wall_jumps_still_loads_and_wall_techs_as_before()
         {
             continue;
         }
-        old.push_str(&line.replace("schema 4", "schema 3"));
+        old.push_str(&line.replace(&format!("schema {SCHEMA_VERSION}"), "schema 3"));
         old.push('\n');
     }
     assert!(old.contains("schema 3") && !old.contains("wall_jump_vx"));
     let bundle = sim_content::load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
-    assert_eq!(bundle.manifest.schema, 4);
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
     // No wall jump, and the wall-tech jump it had: its air speed away from the wall, its midair jump up.
     for p in &bundle.content.fighters {
         assert_eq!(p.wall_jump, 0);
@@ -455,4 +455,36 @@ fn a_schema_3_file_from_before_wall_jumps_still_loads_and_wall_techs_as_before()
             (p.air_speed, p.air_jump_velocity)
         );
     }
+}
+
+#[test]
+fn a_schema_4_file_from_before_sixteen_ext_slots_still_loads_unchanged() {
+    // Written before sim v65: schema 4, weapons using no slot past `pivot_grab` (the built-in roster with `ext10` to `ext15`
+    // emptied).
+    let mut c = Content::placeholder();
+    for w in &mut c.weapons {
+        for id in [
+            MoveId::Ext10,
+            MoveId::Ext11,
+            MoveId::Ext12,
+            MoveId::Ext13,
+            MoveId::Ext14,
+            MoveId::Ext15,
+        ] {
+            w.moves[id as usize] = sim_core::moves::Move::empty();
+        }
+    }
+    let old = text(&c, false).replace(&format!("schema {SCHEMA_VERSION}"), "schema 4");
+    assert!(old.contains("schema 4") && !old.contains("move ext10"));
+    let bundle = load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
+    assert_eq!(
+        bundle.content, c,
+        "nothing is rewritten: the new slots stay empty"
+    );
+    assert!(bundle
+        .content
+        .weapons
+        .iter()
+        .all(|w| w.moves.len() == MoveId::COUNT));
 }
