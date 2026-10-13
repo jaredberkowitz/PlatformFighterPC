@@ -19,7 +19,8 @@ from mathutils import Matrix, Vector
 
 OUT = "godot/models/props"
 
-# The palette (linear-ish sRGB as the exporter writes base colours; the game's cel material and stage light do the rest).
+# The palette, as the colours should look in the game (sRGB); `material` turns them into the linear values Blender and glTF keep, so the
+# game reads back exactly these. The game's cel material and stage light do the rest.
 WHITE = (0.95, 0.93, 0.88)
 RED = (0.82, 0.26, 0.22)
 SLATE = (0.28, 0.3, 0.38)
@@ -32,10 +33,15 @@ SAIL = (0.97, 0.95, 0.9)
 SAND_A = (0.78, 0.4, 0.3)
 SAND_B = (0.86, 0.52, 0.36)
 SAND_C = (0.7, 0.33, 0.28)
+CACTUS = (0.3, 0.6, 0.36)
+PINK = (0.98, 0.55, 0.7)
+PALM = (0.22, 0.6, 0.3)
+COCONUT = (0.45, 0.3, 0.2)
 
 
 def material(name, colour):
     m = bpy.data.materials.get(name)
+    colour = tuple(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in colour)
     if m is None:
         m = bpy.data.materials.new(name)
         m.use_nodes = True
@@ -117,6 +123,114 @@ def empty(name):
     e = bpy.data.objects.new(name, None)
     bpy.context.scene.collection.objects.link(e)
     return e
+
+
+def ribbed_tube(bm, points, radius, ribs=8, rib_depth=0.12, sides=16, per_span=4):
+    """A ribbed stem along `points` (a cactus trunk or arm): its cross-section a circle with `ribs` soft ridges, the radius easing to a
+    rounded dome at the top end. Returns nothing; the faces are added to `bm`."""
+    pts = [Vector(q) for q in points]
+    path = []
+    for i in range(len(pts) - 1):
+        for k in range(per_span):
+            t = k / per_span
+            # A gentle curve through the points (Catmull-Rom).
+            p0 = pts[max(i - 1, 0)]
+            p1, p2 = pts[i], pts[i + 1]
+            p3 = pts[min(i + 2, len(pts) - 1)]
+            path.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t))
+    path.append(pts[-1])
+    n = len(path)
+    dome = 4
+    rings = []
+    # The cross-section's frame is carried along the path (each step's side turned only as much as the path turns), so the ribs run
+    # straight round a bend instead of twisting.
+    side = (path[1] - path[0]).normalized().orthogonal().normalized()
+    for i in range(n + dome):
+        if i < n:
+            c = path[i]
+            d = (path[min(i + 1, n - 1)] - path[max(i - 1, 0)]).normalized()
+            r = radius
+        else:
+            k = (i - n + 1) / dome
+            d = (path[-1] - path[-2]).normalized()
+            c = path[-1] + d * radius * math.sin(k * math.pi / 2) * 0.9
+            r = radius * math.cos(k * math.pi / 2 * 0.92)
+        side = (side - d * side.dot(d)).normalized()
+        up = d.cross(side).normalized()
+        ring_v = []
+        for j in range(sides):
+            a = math.tau * j / sides
+            rr = r * (1.0 + rib_depth * math.cos(a * ribs))
+            ring_v.append(bm.verts.new(c + (side * math.cos(a) + up * math.sin(a)) * rr))
+        rings.append(ring_v)
+    for i in range(len(rings) - 1):
+        for j in range(sides):
+            bm.faces.new((rings[i][j], rings[i][(j + 1) % sides], rings[i + 1][(j + 1) % sides], rings[i + 1][j]))
+    bm.faces.new(list(reversed(rings[0])))
+    tip = bm.verts.new(path[-1] + (path[-1] - path[-2]).normalized() * radius * 0.95)
+    for j in range(sides):
+        bm.faces.new((rings[-1][j], rings[-1][(j + 1) % sides], tip))
+
+
+def frond(bm, angle, droop, length, width, rng):
+    """One palm frond from the crown: a midrib arching out and down at `angle` about the vertical, its leaf a strip on either side cut
+    into leaflets (a zigzag edge), widest a third of the way out, slightly folded along the rib."""
+    steps = 12
+    out = Vector((math.cos(angle), math.sin(angle), 0.0))
+    side = Vector((-out.y, out.x, 0.0))
+    rib = []
+    for i in range(steps + 1):
+        t = i / steps
+        rib.append(out * length * t + Vector((0, 0, length * (0.75 * t - droop * t * t))))
+    for sgn in (-1.0, 1.0):
+        prev_in = None
+        prev_out = None
+        for i in range(steps + 1):
+            t = i / steps
+            w = width * math.sin(math.pi * min(1.0, t * 1.3)) * (1.0 - 0.3 * t)
+            notch = 0.72 if i % 2 else 1.0
+            vin = bm.verts.new(rib[i])
+            vout = bm.verts.new(rib[i] + side * sgn * w * notch + Vector((0, 0, -0.12 * w)))
+            if prev_in is not None:
+                f = (prev_in, vin, vout, prev_out) if sgn > 0 else (prev_in, prev_out, vout, vin)
+                bm.faces.new(f)
+            prev_in, prev_out = vin, vout
+
+
+def cactus():
+    """A saguaro: a ribbed trunk with two arms curving up from it at different heights, rounded tops, a pink flower on the crown.
+    About 4.5 tall."""
+    root = empty("cactus")
+    bm = bmesh.new()
+    ribbed_tube(bm, [(0, 0, -0.2), (0, 0, 1.6), (0.02, 0, 3.2), (0, 0, 4.1)], 0.48)
+    ribbed_tube(bm, [(-0.3, 0, 1.4), (-0.95, 0, 1.55), (-1.2, 0, 2.1), (-1.2, 0, 2.9)], 0.3)
+    ribbed_tube(bm, [(0.3, 0, 2.1), (0.85, 0, 2.2), (1.05, 0, 2.7), (1.08, 0, 3.4)], 0.27)
+    to_object("Cactus", bm, CACTUS, parent=root)
+    bm = bmesh.new()
+    for k in range(5):
+        a = math.tau * k / 5
+        blob(bm, 0.11, (math.cos(a) * 0.13, math.sin(a) * 0.13, 4.6), (1.0, 1.0, 0.55), 1)
+    to_object("Flower", bm, PINK, parent=root)
+    return root
+
+
+def palm_crown():
+    """A palm's crown (the trunk is built in the game, so the crown can sway on it): eight arching fronds cut into leaflets round a few
+    coconuts. About 5 across."""
+    rng = random.Random(4)
+    root = empty("palm_crown")
+    bm = bmesh.new()
+    for k in range(8):
+        a = math.tau * k / 8 + rng.uniform(-0.15, 0.15)
+        frond(bm, a, rng.uniform(1.0, 1.25), rng.uniform(2.4, 2.9), rng.uniform(0.8, 0.95), rng)
+    bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.03)
+    to_object("Fronds", bm, PALM, parent=root)
+    bm = bmesh.new()
+    for k in range(3):
+        a = math.tau * k / 3 + 0.4
+        blob(bm, 0.2, (math.cos(a) * 0.22, math.sin(a) * 0.22, -0.22), (1.0, 1.0, 1.1), 2)
+    to_object("Coconuts", bm, COCONUT, parent=root)
+    return root
 
 
 # ---- The props ----------------------------------------------------------------------------------------------------------------------
@@ -278,6 +392,8 @@ PROPS = {
     "sailboat": sailboat,
     "mesa_a": lambda: mesa("mesa_a", 3, 24.0, 15.0, 4),
     "mesa_b": lambda: mesa("mesa_b", 8, 13.0, 22.0, 5),
+    "cactus": lambda: cactus(),
+    "palm_crown": lambda: palm_crown(),
 }
 
 

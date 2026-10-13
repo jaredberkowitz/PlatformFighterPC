@@ -51,7 +51,7 @@ const THEMES := {
 	"ocean": {
 		"sky_top": Color(0.12, 0.44, 0.94), "sky_mid": Color(0.36, 0.68, 1.0), "sky_horizon": Color(0.7, 0.9, 1.0),
 		"sky_glow": [Color(1.0, 0.86, 0.64), 0.45], "sky_wisps": [Color(1.0, 0.95, 0.92), 0.4],
-		"soil": Color(0.62, 0.58, 0.54), "soil_dark": Color(0.5, 0.46, 0.44), "grass": Color(0.98, 0.88, 0.62),
+		"soil": Color(0.6, 0.56, 0.5), "soil_dark": Color(0.42, 0.42, 0.48), "grass": Color(0.98, 0.88, 0.62),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
 		"pattern": "cobble", "cap": "sand", "platform": "wood",
 	},
@@ -1444,15 +1444,9 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_clouds(root, rng, 6, Color(1.0, 0.78, 0.7), Vector2(18, 30))
 
 
+## A ribbed saguaro with curving arms and a flower on top (art/blender/make_props.py), `size` about 4 units tall at 1.
 static func _cactus(root: Node3D, at: Vector3, size: float) -> void:
-	var green := FighterView.toon(Color(0.36, 0.62, 0.38))
-	_mesh(root, _cylinder(0.45 * size, 0.5 * size, 3.6 * size, 12), green, at + Vector3(0, 1.8 * size, 0))
-	_mesh(root, _sphere(0.45 * size, 12), green, at + Vector3(0, 3.6 * size, 0))
-	for side in [-1.0, 1.0]:
-		var h := (1.6 if side < 0 else 2.2) * size
-		_mesh(root, _cylinder(0.28 * size, 0.28 * size, 1.0 * size, 10), green, at + Vector3(side * 0.7 * size, h, 0), Vector3.ONE, Vector3(0, 0, 90))
-		_mesh(root, _cylinder(0.28 * size, 0.28 * size, 1.4 * size, 10), green, at + Vector3(side * 1.15 * size, h + 0.6 * size, 0))
-		_mesh(root, _sphere(0.28 * size, 10), green, at + Vector3(side * 1.15 * size, h + 1.3 * size, 0))
+	_place_prop(root, "cactus", at, size * 0.88)
 
 
 static func _night(root: Node3D, t: Dictionary) -> void:
@@ -1471,7 +1465,7 @@ static func _night(root: Node3D, t: Dictionary) -> void:
 static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
-	_hills(root, rng, Color(0.46, 0.8, 0.52), Color(0.58, 0.72, 0.92))
+	_hills(root, rng, Color(0.3, 0.66, 0.4), Color(0.4, 0.54, 0.84))
 	_clouds(root, rng, 8, Color(1, 0.97, 1), Vector2(10, 36))
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	var top: float = stage[2] if stage.size() == 4 else 0.0
@@ -1555,21 +1549,18 @@ static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 		var seg := base + Vector3(lean * k * k * 0.12 * size, k * 0.75 * size, 0)
 		_mesh(root, _cylinder(0.24 * size, 0.3 * size, 0.8 * size, 10), bark, seg + Vector3(0, 0.4 * size, 0))
 		top = seg + Vector3(0, 0.8 * size, 0)
-	var leaf := Materials.foliage(Color(0.24, 0.6, 0.3), Vector2(2, 1))
 	var head := Sway.new()
 	head.position = top
 	head.amount = 5.0
 	head.speed = 1.3
 	head.phase = rng.randf() * TAU
 	root.add_child(head)
-	for k in 7:
-		var a := TAU * k / 7.0
-		var frond := Node3D.new()
-		frond.rotation = Vector3(0, a, 0)
-		head.add_child(frond)
-		_mesh(frond, _sphere(1.0, 10), leaf, Vector3(1.6 * size, -0.3 * size, 0), Vector3(1.9 * size, 0.18 * size, 0.55 * size), Vector3(0, 0, -18))
-	for k in 3:
-		_mesh(head, _sphere(0.22 * size, 8), FighterView.toon(Color(0.45, 0.32, 0.2)), Vector3(cos(k * 2.1) * 0.35, -0.3, sin(k * 2.1) * 0.35) * size)
+	# The crown of arching, leafleted fronds and coconuts (art/blender/make_props.py), swaying on the trunk.
+	var crown := Toonify.load_prop("palm_crown")
+	if crown != null:
+		crown.scale = Vector3.ONE * size * 1.4
+		crown.rotation_degrees = Vector3(0, rng.randf_range(0.0, 360.0), 0)
+		head.add_child(crown)
 
 
 ## The city at night: rooftops in the foreground, a lit skyline in layers behind, a big moon, stars, a water tower and an antenna with a

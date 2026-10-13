@@ -776,3 +776,8 @@ the clarity of a cel-shaded adventure. Before / after: `docs/screenshots/undersi
   railing, glowing lantern, a halo), a sailing dinghy, and two sandstone buttes in strata on rubble slopes, one flat colour per part so
   `Toonify` makes each part cel. Placed by `StageArt._place_prop`, whose parts `merge_static` batches. Flat Island 476 draw calls (463
   before), Triple Tier 413 (427 before); GPU time unchanged within noise (about 1.4 ms on the developer's laptop).
+- **More scripted props and colour fixes**: a ribbed saguaro with curving arms and a flower (`cactus`) and a palm crown of arching,
+  leafleted fronds with coconuts (`palm_crown`, swaying on the game-built trunk). `make_props.py` now writes its palette as the colours
+  should look in the game (it converts them to the linear values glTF keeps; before, every prop came out paler). Treetop Isle's hills
+  are deeper greens and blues; Flat Island's stone front warmer stones in slate mortar. Flat Island 377 draw calls (476 before: the
+  crowns replace seven shapes each), Triple Tier 417.
