@@ -64,6 +64,9 @@ pub struct Func {
 }
 
 /// Function ids at or above this are performed by the host.
+/// The most arguments a function takes (the VM passes them in a buffer this long).
+pub const MAX_ARITY: usize = 8;
+
 pub const FIRST_HOST_FUNC: u8 = 16;
 
 // ---- Native math (done inside the VM) ----
@@ -90,6 +93,9 @@ pub const F_REHIT: u8 = 38;
 pub const F_STALL: u8 = 39;
 pub const F_GOTO: u8 = 40;
 pub const F_STORE: u8 = 41;
+pub const F_AIR_FLAG: u8 = 42;
+pub const F_SET_AIR_FLAG: u8 = 43;
+pub const F_SPAWN_SCALED: u8 = 44;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -237,7 +243,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 10] = [
+    const OWN: [Func; 13] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -288,8 +294,26 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "store(n): keep a charge of n (0 to 255) for the next use, read back as stored; lost on a KO",
         ),
+        func(
+            "air_flag",
+            F_AIR_FLAG,
+            1,
+            "air_flag(n): 1 if once-per-airtime flag n (0 to 7) is set, else 0",
+        ),
+        func(
+            "set_air_flag",
+            F_SET_AIR_FLAG,
+            1,
+            "set_air_flag(n): set once-per-airtime flag n (0 to 7); landing, a ledge or being hit clears them all",
+        ),
+        func(
+            "spawn_scaled",
+            F_SPAWN_SCALED,
+            6,
+            "spawn_scaled(forward, up, speed_forward, speed_up, knockback, size): spawn with extra base knockback (0 to 255) and a size in percent (10 to 400)",
+        ),
     ];
-    concat::<9, 10, 19>(MATH, OWN)
+    concat::<9, 13, 22>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{
@@ -303,4 +327,18 @@ pub const PROJECTILE_FUNCTIONS: &[Func] = &{
         func("kill", F_P_KILL, 0, "remove the projectile"),
     ];
     concat::<9, 2, 11>(MATH, OWN)
+};
+
+// Every function's arguments fit the VM's buffer.
+const _: () = {
+    let mut i = 0;
+    while i < FIGHTER_FUNCTIONS.len() {
+        assert!(FIGHTER_FUNCTIONS[i].arity as usize <= MAX_ARITY);
+        i += 1;
+    }
+    let mut j = 0;
+    while j < PROJECTILE_FUNCTIONS.len() {
+        assert!(PROJECTILE_FUNCTIONS[j].arity as usize <= MAX_ARITY);
+        j += 1;
+    }
 };

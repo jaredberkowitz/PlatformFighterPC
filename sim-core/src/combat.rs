@@ -567,7 +567,9 @@ fn clank_projectile(
 
 /// A pummel: damage to the held fighter, a little hitlag for both, and it stays held.
 fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hitbox) {
-    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, Fx::ONE);
+    // (With the hit's own hitlag multiplier, as any hit.)
+    let scale = Fx::from_ratio(i32::from(hb.hitlag), 100);
+    let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, scale);
     state.fighters[a].hitlag = hitlag;
     let held = &mut state.fighters[d];
     held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
@@ -665,7 +667,12 @@ fn apply_hit(
     if electric {
         scale = scale * rules.electric_hitlag_mult;
     }
-    let hitlag = hitlag_frames(hb.damage, rules, shielding, crouching, scale);
+    // (A push freezes nobody.)
+    let hitlag = if hb.push {
+        0
+    } else {
+        hitlag_frames(hb.damage, rules, shielding, crouching, scale)
+    };
     // A fighter in a counter stance catches the hit instead of taking it.
     if catch_with_counter(state, content, source, d, hb.damage, hitlag) {
         if freeze_source {
@@ -689,6 +696,12 @@ fn apply_hit(
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
         block(def, rules, &hb, facing, hitlag, stun_mult);
+        if hb.push {
+            // A push shoves the shield back (its horizontal part).
+            let kb = fixed_or_plain_kb(&hb, def.percent, kb_damage, defender_params.weight, rage);
+            let angle = launch_angle(hb.angle, facing, true, kb);
+            def.vel.x += crate::trig::cos(angle) * kb * Fx::from_ratio(3, 800);
+        }
         return;
     }
     if def.state == S::ShieldBreak {
@@ -730,6 +743,16 @@ fn apply_hit(
         hb.angle
     };
     let angle = launch_angle(degrees, facing, def.grounded(), kb);
+    if hb.push {
+        // No hitstun and no change of state: the knockback is a shove on top of the fighter's own speed (along the ground if it
+        // stands on it).
+        let speed = kb * Fx::from_ratio(3, 800);
+        def.vel.x += crate::trig::cos(angle) * speed;
+        if !def.grounded() {
+            def.vel.y += crate::trig::sin(angle) * speed;
+        }
+        return;
+    }
     let mut stun = hitstun_frames(kb, rules.hitstun_mult);
     if stun > 0 {
         stun = stun.saturating_add(u16::from(hb.hitstun_add));
@@ -751,11 +774,20 @@ fn apply_hit(
         1
     };
     if stun == 0 {
-        return; // a flinch: hitlag only
+        // A flinch: hitlag only (a reversing hit still turns the fighter round).
+        if hb.reverse {
+            reverse(def, source_pos);
+        }
+        return;
     }
     if source_pos.x != def.pos.x {
         def.facing = if source_pos.x > def.pos.x { 1 } else { -1 };
     }
+    if hb.reverse {
+        reverse(def, source_pos);
+    }
+    // Being hit clears the once-per-airtime flags.
+    def.air_flags = 0;
     if def.ledge != NONE {
         def.ledge = NONE;
         def.ledge_cooldown = defender_params.ledge_regrab_cooldown;
@@ -769,6 +801,7 @@ fn apply_hit(
     def.hitstun = stun;
     def.launch_pending = true;
     def.launch_kb = kb;
+    def.launch_set = hb.fixed_kb > 0;
     def.launch_angle = angle.raw();
     def.link = link_hit;
     def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
@@ -783,6 +816,33 @@ fn apply_hit(
     def.fast_fall = false;
     def.tumble = false;
     def.hit_mask = 0;
+}
+
+/// The knockback a hit gives (set knockback, or the formula with rage), before crouch cancelling.
+fn fixed_or_plain_kb(hb: &Hitbox, percent: Fx, kb_damage: Fx, weight: Fx, rage: Fx) -> Fx {
+    if hb.fixed_kb > 0 {
+        fixed_knockback(hb.fixed_kb, weight, hb.base_knockback, hb.knockback_growth)
+    } else {
+        knockback(
+            percent,
+            kb_damage,
+            weight,
+            hb.base_knockback,
+            hb.knockback_growth,
+        ) * rage
+    }
+}
+
+/// The reference's reverse effect: the victim ends up facing away from whoever hit it, with its horizontal speed reversed.
+fn reverse(def: &mut Fighter, source_pos: Vec2) {
+    def.facing = if source_pos.x > def.pos.x {
+        -1
+    } else if source_pos.x < def.pos.x {
+        1
+    } else {
+        -def.facing
+    };
+    def.vel.x = -def.vel.x;
 }
 
 /// A hit on a raised shield: no damage or launch. The shield loses health (unless it was a perfect shield),
@@ -838,6 +898,8 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
         state.fighters[i].spawn_custom = false;
+        state.fighters[i].spawn_kb_add = 0;
+        state.fighters[i].spawn_size = 100;
         // A move that already connected in melee does not also fire, unless its script asked for the shot.
         if f.hit_mask != 0 && !f.spawn_custom {
             continue;
@@ -867,11 +929,20 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 },
                 vel: if f.spawn_custom {
                     f.spawn_vel
+                } else if spec.arc.angle != 0 {
+                    let a = Angle::from_degrees(i32::from(spec.arc.angle));
+                    Vec2::new(
+                        (spec.speed * crate::trig::cos(a)).mul_int(dir),
+                        spec.speed * crate::trig::sin(a),
+                    )
                 } else {
                     Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
                 },
                 age: 0,
                 life: spec.life,
+                bounces: 0,
+                kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
+                size: if f.spawn_custom { f.spawn_size } else { 100 },
                 vars: [0; crate::PROJECTILE_VARS],
             };
         }
@@ -902,10 +973,32 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 continue;
             }
         }
-        let pr = state.projectiles[n];
+        let mut pr = state.projectiles[n];
 
         let age = pr.age.saturating_add(1);
-        let pos = pr.pos + pr.vel;
+        // Gravity (an arcing projectile), then the move; a bouncing one comes back up off the top of a platform it falls onto.
+        let arc = spec.arc;
+        if arc.gravity != Fx::ZERO {
+            pr.vel.y -= arc.gravity;
+            if arc.max_fall > Fx::ZERO {
+                pr.vel.y = pr.vel.y.max(-arc.max_fall);
+            }
+        }
+        let mut pos = pr.pos + pr.vel;
+        if arc.bounces > 0 && pr.vel.y < Fx::ZERO {
+            if let Some(i) = collision::find_landing(stage, pr.pos, pos, false) {
+                if pr.bounces >= arc.bounces {
+                    state.projectiles[n].active = false;
+                    continue;
+                }
+                pos.y = stage.platforms[i].y;
+                pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max);
+                pr.vel.x = pr.vel.x * Fx::from_ratio(i32::from(arc.bounce_keep), 100);
+                pr.bounces += 1;
+            }
+        }
+        state.projectiles[n].vel = pr.vel;
+        state.projectiles[n].bounces = pr.bounces;
         let in_wall = stage.platforms.iter().any(|b| {
             !b.pass_through && pos.x > b.left && pos.x < b.right && pos.y > b.bottom && pos.y < b.y
         });
@@ -917,24 +1010,34 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             state.projectiles[n].active = false;
             continue;
         }
-        // A reflector in the way turns it around: it now belongs to the reflector and hits harder.
-        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale;
-        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, shot_radius) {
+        // A reflector in the way turns it around: it now belongs to the reflector and hits harder. (One stronger than the
+        // reflector's damage limit goes through.)
+        let size = Fx::from_ratio(i32::from(pr.size), 100);
+        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale * size;
+        let shot_damage =
+            spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        reflector_detects(state, content, owner, pos, shot_radius);
+        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, shot_radius)
+            .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
+        {
+            let speed = Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100);
             let p = &mut state.projectiles[n];
             p.owner = r as u8;
             p.power = rf.damage_percent;
             p.vel = Vec2::new(
-                -(pr.vel.x * Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100)),
-                pr.vel.y,
+                -(pr.vel.x * speed),
+                if rf.reverse_vertical {
+                    -(pr.vel.y * speed)
+                } else {
+                    pr.vel.y
+                },
             );
             p.pos = pos;
             p.age = 0;
+            p.life = ((u16::from(pr.life) * u16::from(rf.life_percent)) / 100).clamp(1, 255) as u8;
             continue;
         }
         // An attack in the way may clank with it.
-        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale;
-        let shot_damage =
-            spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
         if clank_projectile(state, content, owner, pos, shot_radius, shot_damage) {
             state.projectiles[n].active = false;
             continue;
@@ -942,11 +1045,14 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         state.projectiles[n].pos = pos;
         state.projectiles[n].age = age;
 
-        // Damage falls off with distance travelled.
+        // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
-        let mut hb = spec.hitbox;
-        hb.radius = hb.radius * origin_params.hitbox_scale;
-        hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+        let (mut hb, phased) = spec.hit_at(age);
+        hb.radius = hb.radius * origin_params.hitbox_scale * size;
+        hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
+        if !phased && !spec.any_phase() {
+            hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+        }
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
 
         for d in 0..MAX_FIGHTERS {
@@ -1033,6 +1139,46 @@ fn reflector_touching(
         }
     }
     None
+}
+
+/// A reflector's projectile detector (the reference's): a projectile touching it while it is out, before the reflector is up, skips
+/// that fighter's move ahead so the reflector is up on the next frame.
+fn reflector_detects(
+    state: &mut GameState,
+    content: &Content,
+    owner: usize,
+    pos: Vec2,
+    radius: Fx,
+) {
+    for i in 0..MAX_FIGHTERS {
+        let f = &state.fighters[i];
+        if i == owner || f.state != S::Attack || f.hitlag > 0 {
+            continue;
+        }
+        let Some(rf) = weapon_of(content, params_of(content, f))
+            .get(f.move_id)
+            .reflector
+        else {
+            continue;
+        };
+        let frame = f.state_frame;
+        if rf.detect_end == 255
+            || frame < u16::from(rf.detect_start)
+            || frame > u16::from(rf.detect_end)
+            || frame + 1 >= u16::from(rf.start)
+        {
+            continue;
+        }
+        let scale = params_of(content, f).hitbox_scale;
+        let centre = Vec2::new(
+            f.pos.x + (rf.detect_x * scale).mul_int(i32::from(f.facing)),
+            f.pos.y + rf.detect_y * scale,
+        );
+        if overlaps(pos, radius, centre, rf.detect_radius * scale) {
+            // (The next frame's update adds one.)
+            state.fighters[i].state_frame = u16::from(rf.start) - 1;
+        }
+    }
 }
 
 /// Sends fighters that have left the blast zone back to their spawn point, minus a stock. A fighter that loses its

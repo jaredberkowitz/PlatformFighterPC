@@ -104,11 +104,18 @@ impl Host for FighterHost<'_> {
                 self.f.vel.x += self.forward(arg(0));
                 self.f.vel.y += arg(1);
             }
-            api::F_SPAWN => {
+            api::F_SPAWN | api::F_SPAWN_SCALED => {
                 self.f.spawn_request = true;
                 self.f.spawn_custom = true;
                 self.f.spawn_pos = Vec2::new(self.forward(arg(0)), arg(1));
                 self.f.spawn_vel = Vec2::new(self.forward(arg(2)), arg(3));
+                if id == api::F_SPAWN_SCALED {
+                    self.f.spawn_kb_add = arg(4).floor_int().clamp(0, 255) as u8;
+                    self.f.spawn_size = arg(5).floor_int().clamp(10, 400) as u16;
+                } else {
+                    self.f.spawn_kb_add = 0;
+                    self.f.spawn_size = 100;
+                }
             }
             api::F_INTANGIBLE => {
                 let frames = arg(0).floor_int().clamp(0, 255) as u8;
@@ -120,6 +127,13 @@ impl Host for FighterHost<'_> {
             api::F_STALL => self.effects.stall = true,
             api::F_STORE => {
                 self.f.stored = arg(0).floor_int().clamp(0, 255) as u8;
+            }
+            api::F_AIR_FLAG => {
+                let bit = 1u8 << arg(0).floor_int().clamp(0, 7);
+                return flag(self.f.air_flags & bit != 0);
+            }
+            api::F_SET_AIR_FLAG => {
+                self.f.air_flags |= 1u8 << arg(0).floor_int().clamp(0, 7);
             }
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;

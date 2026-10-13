@@ -29,7 +29,7 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
@@ -38,7 +38,33 @@ pub type Migration = (u32, fn(&mut Block));
 pub const MIGRATIONS: &[Migration] = &[
     (1, fighters_get_crouch_and_dash_attack_friction),
     (2, ground_accel_splits_into_walk_and_run),
+    (3, fighters_get_wall_jumps),
 ];
+
+/// Schema 3 to 4 (sim v64): fighters gained a wall jump (`wall_jump` 0 or 1) and the speeds of it and of the wall-tech jump
+/// (`wall_jump_vx`, `wall_jump_vy`). A fighter written before them gets no wall jump, and a wall-tech jump as it was: its air speed
+/// away from the wall and its midair jump's speed up. A fighter that inherits gets them from the one it inherits from.
+fn fighters_get_wall_jumps(root: &mut Block) {
+    for item in &mut root.items {
+        let Item::Block(b) = item else { continue };
+        if b.kind != "fighter" || field(b, "inherit").is_some() {
+            continue;
+        }
+        if field(b, "wall_jump").is_none() {
+            b.field("wall_jump", "0");
+        }
+        for (new, old) in [
+            ("wall_jump_vx", "air_speed"),
+            ("wall_jump_vy", "air_jump_velocity"),
+        ] {
+            if field(b, new).is_none() {
+                if let Some(v) = field(b, old).map(|(v, _)| v.to_string()) {
+                    b.field(new, v);
+                }
+            }
+        }
+    }
+}
 
 /// Schema 2 to 3 (sim v54): a fighter's one `ground_accel` became the reference game's walk and run accelerations, each a base and
 /// a share scaled by the stick (`walk_accel`, `walk_accel_stick`, `run_accel`, `run_accel_stick`). An old value becomes both bases,

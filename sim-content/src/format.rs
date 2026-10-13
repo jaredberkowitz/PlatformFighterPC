@@ -8,9 +8,9 @@ use sim_core::content::{
     Content, FighterParams, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    Counter, Hitbox, Motion, Move, MoveId, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
-    AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_THROW, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Counter, Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, Reflector, Weapon,
+    AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
+    HIT_PUMMEL, HIT_THROW, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -384,6 +384,9 @@ params_io! {
     ledge_jump_dx: Fx,
     ledge_trump_vx: Fx,
     ledge_trump_vy: Fx,
+    wall_jump: u8,
+    wall_jump_vx: Fx,
+    wall_jump_vy: Fx,
     ecb_half_width: Fx,
     ecb_height: Fx,
     ecb_side_height: Fx,
@@ -486,6 +489,7 @@ rules_io! {
     grab_parry_lag: u8,
     tech_lockout: u8,
     wall_tech_frames: u8,
+    wall_jump_decay: Fx,
     wall_tech_invuln: u8,
     bounce_keep: Fx,
     ground_bounce_speed: Fx,
@@ -583,6 +587,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         link_ahead: f.or("link_ahead", Fx::ZERO, errors),
         aim,
         set_weight: f.or("set_weight", false, errors),
+        reverse: f.or("reverse", false, errors),
+        push: f.or("push", false, errors),
     };
     f.finish(errors);
     hb
@@ -643,6 +649,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     if hb.set_weight {
         b.field("set_weight", "true");
     }
+    if hb.reverse {
+        b.field("reverse", "true");
+    }
+    if hb.push {
+        b.field("push", "true");
+    }
     b
 }
 
@@ -682,6 +694,23 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.helpless_after = f.or("helpless_after", false, errors);
     m.turns_around = f.or("turns_around", false, errors);
     m.grabs_ledge = f.or("grabs_ledge", false, errors);
+    m.ledge_front_from = f.or("ledge_front_from", 255, errors);
+    m.ledge_back_from = f.or("ledge_back_from", 255, errors);
+    m.fall_drift = f.or("fall_drift", 0, errors);
+    m.fall_landing_lag = f.or("fall_landing_lag", 0, errors);
+    m.rise_ground = f.or("rise_ground", 100, errors);
+    m.rise_air = f.or("rise_air", 100, errors);
+    m.start_speed = f.or("start_speed", 100, errors);
+    m.steer_frame = f.or("steer_frame", 255, errors);
+    m.steer_stick = f.or("steer_stick", 0, errors);
+    m.steer_degrees = f.or("steer_degrees", 0, errors);
+    m.air_gravity = f.parsed("air_gravity", errors);
+    m.air_max_fall = f.parsed("air_max_fall", errors);
+    m.air_friction = f.parsed("air_friction", errors);
+    m.air_drift = f.or("air_drift", 100, errors);
+    m.intangible_from = f.or("intangible_from", 0, errors);
+    m.intangible_from_air = f.or("intangible_from_air", 255, errors);
+    m.land_continue = f.or("land_continue", false, errors);
     m.counter_strike = f.or("counter_strike", false, errors);
     m.charge_bonus = f.or("charge_bonus", 0, errors);
     m.charge_at = f.parsed("charge_at", errors);
@@ -756,7 +785,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         .collect();
     if let Some(b) = at_most_one(children(block, "projectile"), "projectile", context, errors) {
         let ctx = format!("the projectile of {context}");
-        only_known(b, &["hitbox"], &ctx, errors);
+        only_known(b, &["hitbox", "phase"], &ctx, errors);
         let mut f = Fields::new(b, &ctx, errors);
         let hitbox = match at_most_one(children(b, "hitbox"), "hitbox", &ctx, errors) {
             Some(h) => read_hitbox(h, &ctx, errors),
@@ -785,9 +814,37 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     link_ahead: Fx::ZERO,
                     aim: AIM_ANY,
                     set_weight: false,
+                    reverse: false,
+                    push: false,
                 }
             }
         };
+        let none = ProjectileArc::NONE;
+        let arc = ProjectileArc {
+            angle: f.or("angle", none.angle, errors),
+            gravity: f.or("gravity", none.gravity, errors),
+            max_fall: f.or("max_fall", none.max_fall, errors),
+            bounces: f.or("bounces", none.bounces, errors),
+            bounce_min: f.or("bounce_min", none.bounce_min, errors),
+            bounce_max: f.or("bounce_max", none.bounce_max, errors),
+            bounce_keep: f.or("bounce_keep", none.bounce_keep, errors),
+        };
+        let mut phases = [None; 2];
+        let blocks = children(b, "phase");
+        if blocks.len() > 2 {
+            err(errors, b.line, format!("{ctx} has at most two phases"));
+        }
+        for (slot, pb) in phases.iter_mut().zip(blocks) {
+            let pctx = format!("a phase of {ctx}");
+            only_known(pb, &["hitbox"], &pctx, errors);
+            let mut pf = Fields::new(pb, &pctx, errors);
+            let from: u8 = pf.need("from", None, errors);
+            pf.finish(errors);
+            match at_most_one(children(pb, "hitbox"), "hitbox", &pctx, errors) {
+                Some(h) => *slot = Some((from, read_hitbox(h, &pctx, errors))),
+                None => err(errors, pb.line, format!("{pctx} needs a hitbox")),
+            }
+        }
         let spawn = ProjectileSpawn {
             frame: f.need("frame", None, errors),
             x: f.need("x", None, errors),
@@ -796,6 +853,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             life: f.need("life", None, errors),
             hitbox,
             end_damage: f.need("end_damage", None, errors),
+            arc,
+            phases,
         };
         f.finish(errors);
         m.projectile = Some(spawn);
@@ -811,6 +870,14 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             radius: f.need("radius", None, errors),
             damage_percent: f.need("damage_percent", None, errors),
             speed_percent: f.need("speed_percent", None, errors),
+            reverse_vertical: f.or("reverse_vertical", false, errors),
+            life_percent: f.or("life_percent", 100, errors),
+            max_damage: f.or("max_damage", Fx::ZERO, errors),
+            detect_start: f.or("detect_start", 0, errors),
+            detect_end: f.or("detect_end", 255, errors),
+            detect_x: f.or("detect_x", Fx::ZERO, errors),
+            detect_y: f.or("detect_y", Fx::ZERO, errors),
+            detect_radius: f.or("detect_radius", Fx::ZERO, errors),
         };
         f.finish(errors);
         m.reflector = Some(r);
@@ -874,9 +941,51 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("helpless_after", m.helpless_after),
         ("turns_around", m.turns_around),
         ("grabs_ledge", m.grabs_ledge),
+        ("land_continue", m.land_continue),
     ] {
         if on {
             b.field(name, "true");
+        }
+    }
+    // The per-move recovery rules, each only when it differs from the default.
+    for (name, value, default) in [
+        (
+            "ledge_front_from",
+            m.ledge_front_from,
+            empty.ledge_front_from,
+        ),
+        ("ledge_back_from", m.ledge_back_from, empty.ledge_back_from),
+        ("fall_drift", m.fall_drift, empty.fall_drift),
+        (
+            "fall_landing_lag",
+            m.fall_landing_lag,
+            empty.fall_landing_lag,
+        ),
+        ("rise_ground", m.rise_ground, empty.rise_ground),
+        ("rise_air", m.rise_air, empty.rise_air),
+        ("start_speed", m.start_speed, empty.start_speed),
+        ("steer_frame", m.steer_frame, empty.steer_frame),
+        ("steer_stick", m.steer_stick, empty.steer_stick),
+        ("steer_degrees", m.steer_degrees, empty.steer_degrees),
+        ("air_drift", m.air_drift, empty.air_drift),
+        ("intangible_from", m.intangible_from, empty.intangible_from),
+        (
+            "intangible_from_air",
+            m.intangible_from_air,
+            empty.intangible_from_air,
+        ),
+    ] {
+        if value != default {
+            b.field(name, value.to_string());
+        }
+    }
+    for (name, value) in [
+        ("air_gravity", m.air_gravity),
+        ("air_max_fall", m.air_max_fall),
+        ("air_friction", m.air_friction),
+    ] {
+        if let Some(v) = value {
+            b.field(name, v.show());
         }
     }
     if let Some(c) = m.charge_at {
@@ -933,7 +1042,34 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         c.field("speed", p.speed.show());
         c.field("life", p.life.to_string());
         c.field("end_damage", p.end_damage.show());
+        let none = ProjectileArc::NONE;
+        let a = &p.arc;
+        if a.angle != none.angle {
+            c.field("angle", a.angle.to_string());
+        }
+        for (name, v, d) in [
+            ("gravity", a.gravity, none.gravity),
+            ("max_fall", a.max_fall, none.max_fall),
+            ("bounce_min", a.bounce_min, none.bounce_min),
+            ("bounce_max", a.bounce_max, none.bounce_max),
+        ] {
+            if v != d {
+                c.field(name, v.show());
+            }
+        }
+        if a.bounces != none.bounces {
+            c.field("bounces", a.bounces.to_string());
+        }
+        if a.bounce_keep != none.bounce_keep {
+            c.field("bounce_keep", a.bounce_keep.to_string());
+        }
         c.push(write_hitbox(&p.hitbox));
+        for (from, hb) in p.phases.iter().flatten() {
+            let mut pb = Block::new("phase", None);
+            pb.field("from", from.to_string());
+            pb.push(write_hitbox(hb));
+            c.push(pb);
+        }
         b.push(c);
     }
     if let Some(r) = &m.reflector {
@@ -945,6 +1081,22 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         c.field("radius", r.radius.show());
         c.field("damage_percent", r.damage_percent.to_string());
         c.field("speed_percent", r.speed_percent.to_string());
+        if r.reverse_vertical {
+            c.field("reverse_vertical", "true");
+        }
+        if r.life_percent != 100 {
+            c.field("life_percent", r.life_percent.to_string());
+        }
+        if r.max_damage != Fx::ZERO {
+            c.field("max_damage", r.max_damage.show());
+        }
+        if r.detect_end != 255 {
+            c.field("detect_start", r.detect_start.to_string());
+            c.field("detect_end", r.detect_end.to_string());
+            c.field("detect_x", r.detect_x.show());
+            c.field("detect_y", r.detect_y.show());
+            c.field("detect_radius", r.detect_radius.show());
+        }
         b.push(c);
     }
     for (kind, script) in [

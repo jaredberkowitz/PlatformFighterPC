@@ -40,7 +40,14 @@ hold.
 Moveset ports from the reference game (`docs/movesets/ROSTER_STATUS.md`): **sim 57**, the fourth class, Embers on the tumbler body
 (modelled on the reference game's Mario), phase 1: the body and every normal on reference data (`docs/movesets/mario/`), with early jab
 continuation (`Move::next_from`), angled forward tilts and smashes (`Hitbox::aim`) and set-weight hits (`Hitbox::set_weight`); its
-specials are still the claws' until phase 2.
+specials are still the claws' until phase 2. **Sims 58 to 64** (phase 2, branch `movesets`): its four specials on reference data
+(the rising punch, the bouncing fireball, the cape, the water pump) and the general pieces they needed: per-move recovery rules (ledge
+windows by side and frame, the special fall's drift and landing lag per move, height multipliers, stick angling, a move's own air
+physics, later or air-only intangibility, carrying on after touching down), set-knockback launches keeping plain launch physics,
+projectile arcs, ground bounces and hits by age, reversing hits, push hits, fuller reflectors (vertical reversal, lifetime, damage limit,
+projectile detector), once-per-airtime script flags, charged scaled shots, a 16-slot projectile pool, pummels with their own hitlag on
+the reference's timing, and wall jumps (content schema 4). The Longsword's and the Claws' up specials were re-fitted to their
+references with the new rules. Details and what is still estimated: `docs/movesets/mario/IMPLEMENTATION_REPORT.md`.
 
 ## Roadmap progress
 

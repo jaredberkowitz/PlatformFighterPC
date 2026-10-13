@@ -195,6 +195,12 @@ pub struct FighterParams {
     pub ledge_jump_dx: Fx,
     pub ledge_trump_vx: Fx,
     pub ledge_trump_vy: Fx,
+    /// Kicking off a wall: 1 if the body can wall jump (touching a wall in the air, the stick flicked away from it), 0 if not; and
+    /// the speeds of that jump and of every body's wall-tech jump, away from the wall and up (the reference's
+    /// `passive_wall_jump_x_speed` and `_y_speed`).
+    pub wall_jump: u8,
+    pub wall_jump_vx: Fx,
+    pub wall_jump_vy: Fx,
     // Body (feet-origin ECB; used for hurtbox defaults later)
     pub ecb_half_width: Fx,
     pub ecb_height: Fx,
@@ -233,7 +239,7 @@ impl FighterParams {
     }
 
     /// Every fixed-point field with its name.
-    pub fn fx_fields(&self) -> [(&'static str, Fx); 53] {
+    pub fn fx_fields(&self) -> [(&'static str, Fx); 55] {
         [
             ("walk_speed", self.walk_speed),
             ("run_speed", self.run_speed),
@@ -281,6 +287,8 @@ impl FighterParams {
             ("ledge_jump_dx", self.ledge_jump_dx),
             ("ledge_trump_vx", self.ledge_trump_vx),
             ("ledge_trump_vy", self.ledge_trump_vy),
+            ("wall_jump_vx", self.wall_jump_vx),
+            ("wall_jump_vy", self.wall_jump_vy),
             ("ecb_half_width", self.ecb_half_width),
             ("ecb_height", self.ecb_height),
             ("ecb_side_height", self.ecb_side_height),
@@ -292,7 +300,7 @@ impl FighterParams {
     }
 
     /// Every integer (frame-count) field with its name.
-    pub fn int_fields(&self) -> [(&'static str, u32); 58] {
+    pub fn int_fields(&self) -> [(&'static str, u32); 59] {
         [
             ("jump_squat_frames", u32::from(self.jump_squat_frames)),
             ("dash_reverse_frames", u32::from(self.dash_reverse_frames)),
@@ -404,6 +412,7 @@ impl FighterParams {
             ("turn_frames", u32::from(self.turn_frames)),
             ("run_turn_frames", u32::from(self.run_turn_frames)),
             ("helpless_landing_lag", u32::from(self.helpless_landing_lag)),
+            ("wall_jump", u32::from(self.wall_jump)),
             ("ledge_attack_frames", u32::from(self.ledge_attack_frames)),
             ("weapon", u32::from(self.weapon)),
         ]
@@ -575,6 +584,10 @@ impl FighterParams {
             ledge_jump_dx: su(600),
             ledge_trump_vx: r(1, 8),
             ledge_trump_vy: r(1, 15),
+            // The reference's common wall-tech jump (1.3 away, 2.3 up); no wall jump of its own.
+            wall_jump: 0,
+            wall_jump_vx: Fx::from_ratio(1300, 8000),
+            wall_jump_vy: Fx::from_ratio(2300, 8000),
             ecb_half_width: r(4, 5),
             ecb_height: r(11, 5),
             ecb_side_height: r(11, 10),
@@ -622,6 +635,9 @@ impl FighterParams {
             short_hop_velocity: Self::hop_velocity(gravity, su(16260)),
             air_jump_velocity: Self::hop_velocity(gravity, su(33660)),
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36830)),
+            // No wall jump; the reference's wall-tech jump (dragdown, the parameter file): 1.3 away, 2.4 up.
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2400),
             ..FighterParams::base()
         }
     }
@@ -670,6 +686,10 @@ impl FighterParams {
             ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36010)),
             weight: Fx::from_int(92),
             weapon: 1,
+            // The reference's wall jump and wall-tech jump (dragdown, the parameter file): 1.3 away, 2.3 up.
+            wall_jump: 1,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2300),
             ..FighterParams::base()
         }
     }
@@ -735,6 +755,10 @@ impl FighterParams {
             spot_dodge_frames: 23,
             spot_intangible_start: 3,
             spot_intangible_end: 14,
+            // The reference's wall jump and wall-tech jump (dragdown, the parameter file): 1.4 away, 2.8 up.
+            wall_jump: 1,
+            wall_jump_vx: su(1400),
+            wall_jump_vy: su(2800),
             ..FighterParams::base()
         }
     }
@@ -790,6 +814,10 @@ impl FighterParams {
             weapon: 3,
             // Rolls and spot dodge are the shared ones, which are the reference's (forward 29, intangible 4-15; back 34; spot dodge
             // 25, intangible 3-17), apart from the back roll's own window (5-16), which is not separate here [D].
+            // The reference's wall jump and wall-tech jump (dragdown, the parameter file): 1.3 away, 2.3 up.
+            wall_jump: 1,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2300),
             ..FighterParams::base()
         }
     }
@@ -1078,6 +1106,9 @@ pub struct Ruleset {
     pub tech_lockout: u8,
     /// A wall or ceiling tech holds the fighter against the surface this long, intangible for `wall_tech_invuln` frames.
     pub wall_tech_frames: u8,
+    /// Each wall jump since the fighter last stood on the ground or held a ledge keeps this share of the one before (the
+    /// reference's 0.96, compounding), so walls cannot be climbed forever.
+    pub wall_jump_decay: Fx,
     pub wall_tech_invuln: u8,
     /// A tumbling fighter that hits a wall, ceiling or (fast enough) the floor without teching bounces off with this share of its speed.
     pub bounce_keep: Fx,
@@ -1180,6 +1211,7 @@ impl Ruleset {
             grab_parry_lag: 30,
             tech_lockout: 40,
             wall_tech_frames: 18,
+            wall_jump_decay: Fx::from_ratio(96, 100),
             wall_tech_invuln: 14,
             bounce_keep: Fx::from_ratio(95, 100),
             ground_bounce_speed: Fx::from_ratio(1, 4),
@@ -1281,6 +1313,7 @@ impl StateHash for Ruleset {
         h.write_u8(self.grab_parry_lag);
         h.write_u8(self.tech_lockout);
         h.write_u8(self.wall_tech_frames);
+        self.wall_jump_decay.hash_into(h);
         h.write_u8(self.wall_tech_invuln);
         self.bounce_keep.hash_into(h);
         self.ground_bounce_speed.hash_into(h);

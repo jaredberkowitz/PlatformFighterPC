@@ -60,7 +60,12 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   multi-hit punch and a pushing water pack.
 - **As built (phase 1, sim 57):** the body (`FighterParams::tumbler`) and every normal on the reference's published data
   (`docs/movesets/mario/`), with three general extensions: early jab continuation (`Move::next_from`), angled moves (`Hitbox::aim`) and
-  set weight (`Hitbox::set_weight`). The specials are still the claws' until phase 2.
+  set weight (`Hitbox::set_weight`).
+- **Phase 2 (sims 58 to 64):** the specials on the reference's data: a rising multi-hit punch (up), a bouncing fireball (neutral), a
+  cape that turns its victim round and reflects (side), and a charged water pump that pushes without damage (down); and a wall jump.
+  The general pieces they needed (per-move recovery rules, projectile arcs and bounces, reversing and push hits, fuller reflectors,
+  once-per-airtime flags, scaled shots) are listed in `docs/movesets/SHARED_MECHANICS.md`. The longsword's and the claws' up specials
+  were re-fitted to their references with the same rules.
 
 ## What this needs from the engine (Phase 3 list)
 
