@@ -63,7 +63,8 @@ for a deep night. `glow` sets the bloom (0.75 by default, 0.95 night, 1.1 city).
 
 ### Characters and stage refinements (visual overhaul, `docs/VISUAL_OVERHAUL_LOG.md`)
 
-- **Material responses** (`FighterView.RESPONSES`, `respond()`): skin a softer ramp, gloves and shoes rubbery (a firmer step, a soft
+- **Material responses** (`FighterView.RESPONSES`, `respond()`): skin the stage's own crisp step (a clear lit side and a cool shaded side, as
+  a cel-shaded adventure draws bodies; it was a softer, airbrushed ramp before the ship-polish pass), gloves and shoes rubbery (a firmer step, a soft
   sheen), cloth matte, the blade and guard metal (`metal` in `toon_light.gdshaderinc`: a crisp glint band and a stronger rim). The sword's
   blade is a bevelled, pointed shape (`_blade_shape`), so its two-tone bevels read as steel.
 - **Skyline buildings**: each has its own pattern (bay, pane, lit share, shade; one in five office strips); a few windows switch on and
@@ -71,6 +72,8 @@ for a deep night. `glow` sets the bloom (0.75 by default, 0.95 night, 1.1 city).
 - **Stage detail**: legible roof pavers, three-part girders with a lit top edge, built props (the water tower's hoops and ladder, framed
   crates, the air conditioner's grille).
 - **Hits**: three tiers (a spark; a spark and a short dart; a burst, ring and long spear), the strongest kept from covering its target.
+- **Player tags**: in a match, "P1" over a pointer in the player's colour, one size on screen at any zoom (`FighterView.TAG_PIXEL`), so a
+  fighter far off is still easy to find.
 - **HUD**: cards 4% above the bottom, a white flash on the damage number when hit, scaled to fit four players.
 
 Shader inventory, stage side: `toon.gdshader` / `toon_common` / `toon_light` / `brush` / `stage_ao` (surfaces), `facade.gdshader`,

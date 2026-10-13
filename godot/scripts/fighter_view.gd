@@ -1202,7 +1202,7 @@ static func _blade_shape() -> ArrayMesh:
 ## sharing one cel look: [parameter: value].
 const RESPONSES := {
 	# (Skin is matte and soft-stepped, as the concept art's bodies: flat colour that turns gently into shade, no glossy bands.)
-	"skin": {"ramp_softness": 0.3, "sheen": 0.0},
+	"skin": {"ramp_softness": 0.16, "sheen": 0.0},
 	"rubber": {"ramp_softness": 0.12, "sheen": 0.16},
 	"metal": {"ramp_softness": 0.08, "sheen": 0.0, "metal": 1.0, "rim_strength": 0.55},
 	"gold": {"ramp_softness": 0.1, "sheen": 0.0, "metal": 0.75, "rim_strength": 0.5},
@@ -1815,9 +1815,14 @@ func set_name_tag(text: String) -> void:
 		name_label.visible = text != ""
 
 
-## What floats over the head. In a match only a small player tag in the player's colour ("P1"): the damage is on the match display, and
-## the tag says who is who without relying on colour alone. In training, the damage and the fighter's name, as before.
+## What floats over the head. In a match only a player tag in the player's colour ("P1") over a pointer: the damage is on the match
+## display, and the tag says who is who without relying on colour alone. It keeps one size on screen however far the camera pulls back
+## (`TAG_PIXEL`), as a platform fighter's tags do, so a fighter far off is still easy to find. In training, the damage and the fighter's
+## name, as before.
 var match_tag := false
+var tag_arrow: Sprite3D
+const TAG_PIXEL := 0.0007
+const TAG_HEIGHT := 2.6   # world units above the feet: just over the head, the tag and pointer stacked up from there on screen
 
 
 func set_overhead(training: bool, tag: String, colour: Color) -> void:
@@ -1830,11 +1835,49 @@ func set_overhead(training: bool, tag: String, colour: Color) -> void:
 		name_label.visible = name_text != ""
 		name_label.modulate = Color.WHITE
 		name_label.position.y = 3.55
+		name_label.fixed_size = false
+		name_label.pixel_size = 0.0075
+		name_label.offset = Vector2.ZERO
+		name_label.outline_modulate = Color.BLACK
+		if tag_arrow != null:
+			tag_arrow.visible = false
 	else:
 		name_label.text = tag
 		name_label.visible = true
-		name_label.modulate = colour.lightened(0.15)
-		name_label.position.y = 3.35
+		name_label.modulate = colour.lightened(0.1)
+		name_label.outline_modulate = INK
+		name_label.outline_size = 18
+		name_label.position.y = TAG_HEIGHT
+		name_label.fixed_size = true
+		name_label.pixel_size = TAG_PIXEL
+		name_label.offset = Vector2(0, 46)
+		if tag_arrow == null:
+			tag_arrow = Sprite3D.new()
+			tag_arrow.texture = _tag_arrow_texture()
+			tag_arrow.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			tag_arrow.no_depth_test = true
+			tag_arrow.fixed_size = true
+			tag_arrow.pixel_size = TAG_PIXEL
+			tag_arrow.offset = Vector2(0, 8)
+			tag_arrow.render_priority = name_label.render_priority
+			add_child(tag_arrow)
+		tag_arrow.position.y = TAG_HEIGHT
+		tag_arrow.modulate = colour.lightened(0.1)
+		tag_arrow.visible = true
+
+
+## The tag's pointer: a white downward triangle with a dark ink rim (tinted the player's colour by `modulate`; the rim stays dark).
+static func _tag_arrow_texture() -> ImageTexture:
+	if _tag_arrow_cache != null:
+		return _tag_arrow_cache
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="28"><path d="M5,5 L35,5 L20,23 Z" fill="#ffffff" stroke="#%s" stroke-width="5" stroke-linejoin="round"/></svg>' % INK.to_html(false)
+	var img := Image.new()
+	img.load_svg_from_string(svg, 1.0)
+	_tag_arrow_cache = ImageTexture.create_from_image(img)
+	return _tag_arrow_cache
+
+
+static var _tag_arrow_cache: ImageTexture
 var blade_pivot: Node3D
 var blade_parts: Array[MeshInstance3D] = []
 
