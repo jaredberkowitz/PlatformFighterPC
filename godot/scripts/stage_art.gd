@@ -724,7 +724,7 @@ static func _string_lights(root: Node3D, a: Vector3, b: Vector3) -> void:
 ## shaders/toon_foliage.gdshader: each card knows its mass's middle, so its normals bend away from it and the mass shades as one round
 ## volume; it flutters in the wind.
 ## A crown's leaf cards: what share of the listed count is made, and how much larger each is (see `_leaf_cards`).
-const CROWN_CARD_SHARE := 0.3
+const CROWN_CARD_SHARE := 0.0
 const CROWN_CARD_GROWTH := 1.35
 
 
@@ -740,12 +740,13 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	mm.mesh = quad
-	# (A crown is mostly its solid lobes, as a painted tree's masses are; cards only break its edge into a gentle scallop: a third as many,
-	# larger, kept to the upper and outer surface, in the body and lit greens. A tuft is all cards.)
+	# (A crown is its solid lobes, painted with round leaf clumps (the `foliage` tile), as a painted tree's masses are: an artistic choice
+	# over pointed leaf cards, which read as noise at play distance. `CROWN_CARD_SHARE` brings cards back if a stage wants them. A tuft is
+	# all cards.)
 	var share := 1.0 if rooted else CROWN_CARD_SHARE
 	var total := 0
 	for m in masses:
-		total += maxi(1, int(float(m[2]) * share))
+		total += int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))
 	mm.instance_count = total
 	var i := 0
 	# A solid core inside each mass (a little smaller than it), so the cards over its surface give the crown a leafy edge and texture
@@ -758,8 +759,8 @@ static func _leaf_cards(parent: Node3D, masses: Array, greens: Array, card: floa
 		var centre: Vector3 = m[0]
 		var radius: float = m[1]
 		if cores != null:
-			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * (0.82 if rooted else 0.95)), centre))
-		for k in maxi(1, int(float(m[2]) * share)):
+			cores.append_from(ball, 0, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * radius * (0.82 if rooted else 1.0)), centre))
+		for k in (int(float(m[2]) * share) if not rooted else maxi(1, int(m[2]))):
 			# A direction out from the middle, mostly toward the front (the back of a crown is never seen), placed about its surface.
 			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.8, 1), rng.randf_range(-0.2, 1)).normalized()
 			if not rooted:
