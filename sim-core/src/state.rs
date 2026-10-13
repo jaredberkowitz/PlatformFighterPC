@@ -191,6 +191,8 @@ pub struct Fighter {
     /// A move switch decided after the fighter's own update (a search box's contact, a command grab's catch): `move id + 1`, started
     /// at the beginning of the next frame's update; 0 for none.
     pub next_move: u8,
+    /// The fighter's last movement step was stopped by a wall (or pushed out of one): what the `wall` script register reads.
+    pub touched_wall: bool,
     /// The hitstun's first actionable frame used for the launch speed-up (0: no speed-up).
     pub balloon_faf: u8,
     /// Knockback frames of a sped-up launch still to play.
@@ -425,6 +427,7 @@ impl Fighter {
             presses: 0,
             releases: 0,
             next_move: 0,
+            touched_wall: false,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -575,6 +578,7 @@ impl StateHash for Fighter {
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
+        h.write_bool(self.touched_wall);
         h.write_bool(self.spawn_custom);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
@@ -1049,6 +1053,11 @@ mod tests {
             ("releases", {
                 let mut s = state;
                 s.fighters[2].releases = 1;
+                s
+            }),
+            ("touched_wall", {
+                let mut s = state;
+                s.fighters[2].touched_wall = true;
                 s
             }),
             ("next_move", {

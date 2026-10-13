@@ -28,7 +28,119 @@ pub fn gauntlets() -> Weapon {
     raptor_boost(&mut w);
     falcon_dive(&mut w);
     falcon_punch(&mut w);
+    falcon_kick(&mut w);
     w
+}
+
+const KICK_AIR: MoveId = MoveId::Ext7;
+const KICK_LANDING: MoveId = MoveId::Ext8;
+const KICK_OFF_EDGE: MoveId = MoveId::Ext9;
+const KICK_CRASH: MoveId = MoveId::Ext13;
+
+/// Down special, a flaming slide kick on the ground and a diving kick in the air (the reference's, ssbwiki.com 13.0.1).
+///
+/// * On the ground (down special): one hit in three phases, weaker as it goes: clean 13-16 (15%, 52 degrees, BK 60, KS 88), mid
+///   17-23 (11%, 52, BK 90, KS 60), late 24-33 (7%, 46, BK 80, KS 65); FAF 69. Running into a wall on frames 14-36 crashes it (ext13, a
+///   53-frame crash). Going over an edge it goes on as ext9, the same kick with FAF 66, keeping its speed in the air. A hit slows the
+///   slide to 0.8.
+/// * In the air (ext7): a diagonal dive, clean 14-18 (15%, 361, BK 80, KS 57, hitlag x1.2), mid 19-24 (12%, KS 46), late 25-27 (9%,
+///   KS 46); FAF 57, not helpless. Touching down during it is the landing hit (ext8): 9% at 60 degrees (BK 80, KS 35) on both sides,
+///   on its first two frames, then 35 frames of landing lag in all (FAF 36).
+///
+/// Positions on the leg [E]; the slide's and the dive's speeds are the reference's animation, not published: [E] (see "Fitted
+/// distances" in the reference data).
+fn falcon_kick(w: &mut Weapon) {
+    let slide_rows = |shift: u8| -> Vec<R> {
+        let mut rows = Vec::new();
+        for (first, last, damage, angle, bkb, kbg, radius) in [
+            (13, 16, 150, 52, 60, 88, 5),
+            (17, 23, 110, 52, 90, 60, 4),
+            (24, 33, 70, 46, 80, 65, 4),
+        ] {
+            for x in [12, 6] {
+                rows.push(r(
+                    first - shift,
+                    last - shift,
+                    x,
+                    4,
+                    radius,
+                    damage,
+                    angle,
+                    bkb,
+                    kbg,
+                    0,
+                    0,
+                ));
+            }
+        }
+        rows
+    };
+    let mut slide = ref_move(69, 0, 0, 255, &slide_rows(0));
+    slide.air_version = Some(KICK_AIR as u8);
+    slide.off_edge = Some(KICK_OFF_EDGE as u8);
+    slide.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_kick.script"),
+    ));
+    w.moves[MoveId::DownSpecial as usize] = slide;
+
+    // Over an edge: the same kick (its hits so far kept), FAF 66; the slide's speed carries on through its frames, then the air.
+    let mut edge = ref_move(66, 0, 0, 255, &slide_rows(0));
+    edge.air_blocks = vec![AirBlock {
+        from: 0,
+        to: 32,
+        gravity: None,
+        max_fall: None,
+        friction: Some(Fx::ZERO),
+        drift: 0,
+        accel: 100,
+    }];
+    w.moves[KICK_OFF_EDGE as usize] = edge;
+
+    let mut crash = ref_move(54, 0, 0, 255, &[]);
+    crash.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/gauntlets_kick_crash.script"),
+    ));
+    w.moves[KICK_CRASH as usize] = crash;
+
+    let mut dive = ref_move(
+        57,
+        0,
+        0,
+        255,
+        &[
+            r(14, 18, 8, 4, 7, 150, 361, 80, 57, 0, 0),
+            r(14, 18, 4, 7, 7, 150, 361, 80, 57, 1, 0),
+            r(19, 24, 8, 4, 6, 120, 361, 80, 46, 0, 0),
+            r(19, 24, 4, 7, 6, 120, 361, 80, 46, 1, 0),
+            r(25, 27, 8, 4, 6, 90, 361, 80, 46, 0, 0),
+            r(25, 27, 4, 7, 6, 90, 361, 80, 46, 1, 0),
+        ],
+    );
+    set_rows(&mut dive, &[0, 1], |h| h.hitlag = 120);
+    dive.motion = vec![
+        Motion {
+            start: 0,
+            end: 12,
+            vx: su(300),
+            vy: Fx::ZERO,
+        },
+        Motion {
+            start: 13,
+            end: 26,
+            vx: su(2100),
+            vy: -su(2100),
+        },
+    ];
+    dive.landing_move = Some(KICK_LANDING as u8);
+    w.moves[KICK_AIR as usize] = dive;
+
+    let landing_rows: Vec<R> = [9, 3, -3, -9]
+        .iter()
+        .map(|&x| r(1, 2, x, 3, 6, 90, 60, 80, 35, 0, 0))
+        .collect();
+    w.moves[KICK_LANDING as usize] = ref_move(36, 0, 0, 255, &landing_rows);
 }
 
 const PUNCH_REVERSED: MoveId = MoveId::Ext0;

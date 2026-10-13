@@ -5,8 +5,8 @@ bundle {
     schema 5
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 70
-    hash 514177823e4ba25b
+    sim_version 71
+    hash c6f7799a5fd82a65
 }
 
 ruleset {
@@ -1866,12 +1866,29 @@ weapon gauntlets {
         }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        total_frames 67
+        air_version ext7
+        off_edge ext9
+        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
         script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
+            // Gauntlets down special on the ground, the slide (world units: reference / 8). A slow start, the slide at 2.4 reference units a
+            // frame through the kick's frames (13-33 here, the reference's 13 on is 12 on), easing to a stop by frame 45 [E: the reference's
+            // animation, not published]; once it has hit, 0.8 of that speed (the reference's on-hit multiplier). Running into a wall on the
+            // reference's frames 14-36 crashes it (42 = ext13; `wall` is last frame's step, so frames 14-36 here).
+            var k;
+            if frame == 1 { k = 1; }
+            if hit { k = 0.8; }
+            if frame >= 14 && frame <= 36 && wall { goto(42); }
+            let s = 0.05;
+            if frame >= 12 && frame <= 32 { s = 0.3; }
+            if frame > 32 && frame <= 44 { s = 0.25 - 0.02 * (frame - 33); }
+            if frame > 44 { s = 0; }
+            set_vel(s * k, 0);
         }
     }
     move jab2 {
@@ -2066,6 +2083,35 @@ weapon gauntlets {
             if frame >= 17 && frame <= 24 { set_vel(-0.1, 0.1875 - 0.02 * (frame - 17)); }
         }
     }
+    move ext7 {
+        total_frames 55
+        landing_move ext8
+        hitbox { start 13 end 17 x 0.79999 y 0.4 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 hitlag 120 }
+        hitbox { start 13 end 17 x 0.4 y 0.7 radius 0.7 damage 15 angle 361 bkb 80 kbg 57 priority 1 hitlag 120 }
+        hitbox { start 18 end 23 x 0.79999 y 0.4 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 }
+        hitbox { start 18 end 23 x 0.4 y 0.7 radius 0.59999 damage 12 angle 361 bkb 80 kbg 46 priority 1 }
+        hitbox { start 24 end 26 x 0.79999 y 0.4 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 }
+        hitbox { start 24 end 26 x 0.4 y 0.7 radius 0.59999 damage 9 angle 361 bkb 80 kbg 46 priority 1 }
+        motion { start 0 end 12 vx 0.03749 vy 0 }
+        motion { start 13 end 26 vx 0.2625 vy -0.2625 }
+    }
+    move ext8 {
+        total_frames 34
+        hitbox { start 0 end 1 x 0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x 0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x -0.29999 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+        hitbox { start 0 end 1 x -0.9 y 0.29999 radius 0.59999 damage 9 angle 60 bkb 80 kbg 35 }
+    }
+    move ext9 {
+        total_frames 64
+        hitbox { start 12 end 15 x 1.2 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 12 end 15 x 0.59999 y 0.4 radius 0.5 damage 15 angle 52 bkb 60 kbg 88 }
+        hitbox { start 16 end 22 x 1.2 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 16 end 22 x 0.59999 y 0.4 radius 0.4 damage 11 angle 52 bkb 90 kbg 60 }
+        hitbox { start 23 end 32 x 1.2 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        hitbox { start 23 end 32 x 0.59999 y 0.4 radius 0.4 damage 7 angle 46 bkb 80 kbg 65 }
+        air { from 0 to 32 friction 0 drift 0 }
+    }
     move pivot_grab {
         total_frames 37
         hitbox { start 9 end 10 x 0.5 y 1 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
@@ -2160,6 +2206,14 @@ weapon gauntlets {
         hitbox { start 5 end 6 x 0.9 y 0.7 radius 0.59999 damage 3 angle 45 bkb 110 kbg 55 hitlag 200 }
         hitbox { start 5 end 6 x 1.7 y 1.59999 radius 0.59999 damage 3 angle 45 bkb 110 kbg 55 priority 1 hitlag 200 }
         hitbox { start 5 end 6 x 1.7 y 0.7 radius 0.59999 damage 3 angle 45 bkb 110 kbg 55 priority 1 hitlag 200 }
+    }
+    move ext13 {
+        total_frames 52
+        script {
+            // Gauntlets down special, crashed into a wall: knocked back off it a little, then the rest of the 53-frame crash standing [E].
+            if frame <= 6 { set_vel(-0.05, 0); }
+            if frame > 6 { set_vel(0, 0); }
+        }
     }
 }
 

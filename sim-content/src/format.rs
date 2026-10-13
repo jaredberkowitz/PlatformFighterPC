@@ -764,6 +764,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         ("on_search", &mut m.on_search),
         ("air_version", &mut m.air_version),
         ("catch_move", &mut m.catch_move),
+        ("off_edge", &mut m.off_edge),
     ] {
         if let Some((key, line)) = f.raw(name) {
             match MoveId::from_key(key) {
@@ -1133,6 +1134,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("on_search", m.on_search),
         ("air_version", m.air_version),
         ("catch_move", m.catch_move),
+        ("off_edge", m.off_edge),
     ] {
         if let Some(id) = slot {
             b.field(name, MoveId::from_index(id).key());

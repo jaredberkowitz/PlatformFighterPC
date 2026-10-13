@@ -369,7 +369,8 @@ pub fn enter_helpless(f: &mut Fighter) {
 /// Moves along the ground, stopping at walls and stepping off into the air if the platform ends.
 /// Returns false if the fighter left the ground.
 fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
-    if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+    f.touched_wall = collision::move_x(stage, p, &mut f.pos, f.vel.x);
+    if f.touched_wall {
         f.vel.x = Fx::ZERO;
     }
     let Some(plat) = collision::platform(stage, f.platform) else {
@@ -738,6 +739,7 @@ fn move_by(f: &mut Fighter, p: &FighterParams, stage: &Stage, v: Vec2) -> Moved 
     if landing.is_none() && collision::push_out(stage, p, &mut f.pos) {
         wall = true;
     }
+    f.touched_wall = wall;
     Moved {
         landing,
         wall,
@@ -1924,10 +1926,14 @@ fn attack(
                 return None;
             }
         }
-        // A dash along the ground that carries the fighter past the edge leaves the ground.
+        // A dash along the ground that carries the fighter past the edge leaves the ground (and a move with an `off_edge` version
+        // goes on as it, on the same frame).
         if let Some(plat) = collision::platform(stage, f.platform) {
             if f.pos.x < plat.left || f.pos.x > plat.right {
                 f.platform = NONE;
+                if let Some(other) = mv.off_edge {
+                    f.move_id = other;
+                }
             }
         }
     } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
@@ -1950,8 +1956,14 @@ fn attack(
             p.ground_friction
         };
         f.vel.x = approach(f.vel.x, Fx::ZERO, friction);
+        let (kept_frame, kept_charge) = (f.state_frame, f.charge);
         if !slide_on_platform(f, p, stage) {
-            return None;
+            // Off the edge: a move with an `off_edge` version goes on as it, on the same frame; any other ends.
+            let other = mv.off_edge?;
+            f.state = S::Attack;
+            f.state_frame = kept_frame;
+            f.charge = kept_charge;
+            f.move_id = other;
         }
     }
 

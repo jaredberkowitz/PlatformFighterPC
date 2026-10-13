@@ -660,6 +660,10 @@ pub struct Move {
     /// The move a command grab of this move goes on with when it catches someone (see `Hitbox::command`): it starts on the next frame,
     /// the holder keeping its speed and staying in the air if it is there.
     pub catch_move: Option<u8>,
+    /// A ground move that goes over an edge goes on as this move instead (usually an `ext` slot: the reference's version for leaving
+    /// the ground, with its own FAF), on the same frame, keeping its hits so far. `None`: it goes on as itself (a motion) or ends
+    /// (no motion), as before.
+    pub off_edge: Option<u8>,
     /// Where a fighter held during this move is pinned: (forward, up) from the holder's feet. `None`: the ordinary hold, the ruleset's
     /// `grab_distance` in front on the holder's platform.
     pub hold_at: Option<(Fx, Fx)>,
@@ -732,6 +736,7 @@ impl Move {
             on_search: None,
             air_version: None,
             catch_move: None,
+            off_edge: None,
             hold_at: None,
             charge_at: None,
             next: None,
@@ -959,7 +964,7 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
-            for slot in [m.on_search, m.air_version, m.catch_move] {
+            for slot in [m.on_search, m.air_version, m.catch_move, m.off_edge] {
                 match slot {
                     Some(id) => {
                         h.write_bool(true);

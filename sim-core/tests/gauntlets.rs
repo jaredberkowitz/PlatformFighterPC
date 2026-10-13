@@ -1000,6 +1000,7 @@ fn the_new_fields_are_in_the_content_hash() {
         ("hold_at", |m| m.hold_at = Some((Fx::ONE, Fx::ONE))),
         ("command", |m| m.hitboxes[0].command = true),
         ("clanks", |m| m.hitboxes[0].clanks = false),
+        ("off_edge", |m| m.off_edge = Some(30)),
         ("turn_at", |m| m.turn_at = Some((13, 25))),
         ("air_blocks", |m| {
             m.air_blocks = vec![sim_core::moves::AirBlock {

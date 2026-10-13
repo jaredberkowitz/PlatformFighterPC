@@ -809,3 +809,187 @@ fn the_punch_never_clanks_with_a_grounded_attack() {
         assert_ne!(sim.f().state, S::Rebound, "frame {tick}");
     }
 }
+
+// ---- Down special: the slide kick and the dive ---------------------------------------------------------------------------
+
+const KICK_AIR: MoveId = MoveId::Ext7;
+const KICK_LANDING: MoveId = MoveId::Ext8;
+const KICK_OFF_EDGE: MoveId = MoveId::Ext9;
+const KICK_CRASH: MoveId = MoveId::Ext13;
+
+#[test]
+fn the_down_specials_frame_data_is_the_references() {
+    let sim = duel();
+    let w = gauntlets(&sim);
+    for id in [MoveId::DownSpecial, KICK_OFF_EDGE] {
+        assert_eq!(
+            windows(w, id, 0),
+            vec![(13, 16), (17, 23), (24, 33)],
+            "{id:?}"
+        );
+        let phases: Vec<_> = w
+            .get(id as u8)
+            .hitboxes
+            .iter()
+            .map(|h| {
+                (
+                    h.damage.floor_int(),
+                    h.angle,
+                    h.base_knockback,
+                    h.knockback_growth,
+                    h.group,
+                )
+            })
+            .collect();
+        for p in [(15, 52, 60, 88, 0), (11, 52, 90, 60, 0), (7, 46, 80, 65, 0)] {
+            assert!(phases.contains(&p), "{id:?} {p:?}");
+        }
+    }
+    assert_eq!(faf(w, MoveId::DownSpecial), 69);
+    assert_eq!(faf(w, KICK_OFF_EDGE), 66);
+    assert_eq!(faf(w, KICK_CRASH), 54, "a 53-frame crash");
+    let ground = w.get(MoveId::DownSpecial as u8);
+    assert_eq!(
+        (ground.off_edge, ground.air_version),
+        (Some(KICK_OFF_EDGE as u8), Some(KICK_AIR as u8))
+    );
+    assert_eq!(windows(w, KICK_AIR, 0), vec![(14, 18), (19, 24), (25, 27)]);
+    assert_eq!(faf(w, KICK_AIR), 57);
+    assert!(!w.get(KICK_AIR as u8).helpless_after);
+    assert_eq!(w.get(KICK_AIR as u8).landing_move, Some(KICK_LANDING as u8));
+    assert_eq!(windows(w, KICK_LANDING, 0), vec![(1, 2)]);
+    assert_eq!(faf(w, KICK_LANDING), 36, "35 frames of landing lag");
+    let landing = w.get(KICK_LANDING as u8);
+    assert!(
+        landing.hitboxes.iter().any(|h| h.x < Fx::ZERO)
+            && landing.hitboxes.iter().any(|h| h.x > Fx::ZERO)
+    );
+    assert!(landing.hitboxes.iter().all(|h| (
+        h.damage,
+        h.angle,
+        h.base_knockback,
+        h.knockback_growth
+    ) == (Fx::from_int(9), 60, 80, 35)));
+}
+
+/// The ground kick from x (facing right), the duelist standing at `target` or far away; returns the first reference frame player 1
+/// was hit on and the sim after `ticks`.
+fn kick(x: Fx, target: Option<Fx>, ticks: u16) -> (Option<u16>, Sim) {
+    let mut sim = duel();
+    sim.stand(0, x, 1);
+    sim.stand(1, target.unwrap_or(Fx::from_int(-10)), -1);
+    sim.tick(inp(0, -127, SPECIAL));
+    assert_eq!(sim.f().move_id, MoveId::DownSpecial as u8);
+    let mut hit = None;
+    for tick in 2..=ticks {
+        sim.tick(inp(0, 0, 0));
+        if hit.is_none() && sim.fighter(1).percent > Fx::ZERO {
+            hit = Some(tick);
+        }
+    }
+    (hit, sim)
+}
+
+#[test]
+fn the_slide_kick_hits_cleanly_early_and_ends_on_69() {
+    // A target close in front: the clean hit (frame 13 at the earliest).
+    let (hit, sim) = kick(Fx::from_int(-6), Some(Fx::from_int(-4)), 40);
+    let at = hit.expect("hit");
+    assert!((13..=16).contains(&at), "frame {at}");
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 150));
+    // Nobody: actionable on 69, still on the ground.
+    let (_, sim) = kick(Fx::from_int(-6), None, 67);
+    assert_eq!(sim.f().state, S::Attack);
+    let (_, sim) = kick(Fx::from_int(-6), None, 68);
+    assert_eq!(sim.f().state, S::Idle);
+}
+
+#[test]
+fn the_slide_kick_off_an_edge_goes_on_as_its_off_edge_version_and_ends_on_66() {
+    let edge = Fx::from_int(11);
+    let (_, sim) = kick(edge - Fx::from_int(2), None, 30);
+    assert_eq!(sim.f().move_id, KICK_OFF_EDGE as u8);
+    assert!(!sim.f().grounded());
+    // The switch keeps the frame and the hits so far.
+    let (_, mut sim) = kick(edge - Fx::from_int(2), None, 3);
+    sim.state.fighters[0].hit_mask = 1 << 1;
+    let mut switched = false;
+    for _ in 0..30 {
+        let frame = sim.f().state_frame;
+        sim.tick(inp(0, 0, 0));
+        if !switched && sim.f().move_id == KICK_OFF_EDGE as u8 {
+            switched = true;
+            assert_eq!(sim.f().state_frame, frame + 1);
+            assert_eq!(sim.f().hit_mask, 1 << 1);
+        }
+    }
+    assert!(switched);
+    let (_, sim) = kick(edge - Fx::from_int(2), None, 64);
+    assert_eq!(sim.f().state, S::Attack);
+    let (_, sim) = kick(edge - Fx::from_int(2), None, 65);
+    assert_eq!(sim.f().state, S::Airborne, "free on 66, not helpless");
+}
+
+#[test]
+fn the_slide_kick_crashes_into_a_wall_on_frames_14_to_36() {
+    let mut sim = duel();
+    sim.content
+        .stage
+        .platforms
+        .push(sim_core::content::Platform {
+            left: Fx::from_int(0),
+            right: Fx::from_int(2),
+            y: Fx::from_int(3),
+            bottom: Fx::ZERO,
+            pass_through: false,
+        });
+    sim.stand(0, Fx::from_int(-3), 1);
+    sim.stand(1, Fx::from_int(-10), -1);
+    sim.tick(inp(0, -127, SPECIAL));
+    let mut crashed = None;
+    for tick in 2..=40u16 {
+        sim.tick(inp(0, 0, 0));
+        if crashed.is_none() && sim.f().move_id == KICK_CRASH as u8 {
+            crashed = Some(tick);
+        }
+    }
+    let at = crashed.expect("crashed");
+    assert!((15..=37).contains(&at), "frame {at}");
+}
+
+#[test]
+fn the_dive_kick_lands_into_its_landing_hit_on_both_sides() {
+    // The dive from low over the stage (nobody near) touches down mid-move: the landing hit, 35 frames in all.
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(-10), -1);
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(3), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(0, -127, SPECIAL));
+    assert_eq!(sim.f().move_id, KICK_AIR as u8);
+    let mut landed_at = None;
+    for tick in 2..=60u16 {
+        sim.tick(inp(0, 0, 0));
+        if landed_at.is_none() && sim.f().move_id == KICK_LANDING as u8 {
+            landed_at = Some(tick);
+            assert!(sim.f().grounded());
+        }
+        if let Some(t) = landed_at {
+            if tick == t + 34 {
+                assert_eq!(sim.f().state, S::Idle, "35 frames of lag");
+            } else if tick < t + 34 {
+                assert_eq!(sim.f().state, S::Attack);
+            }
+        }
+    }
+    assert!(landed_at.is_some());
+    // The landing hit itself reaches both sides.
+    let mut sim = Sim::with_chars([SPRINTER, 0, 0, 0]);
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(9, 10), -1);
+    sim.stand(2, -fx(9, 10), 1);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], KICK_LANDING);
+    sim_core::combat::resolve_hits(&mut sim.state, &sim.content);
+    assert_eq!(sim.fighter(1).percent, dealt(&sim, 90));
+    assert_eq!(sim.fighter(2).percent, dealt(&sim, 90));
+}
