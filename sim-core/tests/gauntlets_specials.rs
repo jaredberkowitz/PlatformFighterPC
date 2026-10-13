@@ -275,6 +275,8 @@ fn the_uppercut_withstands_a_hit_of_up_to_10_percent_on_frames_1_to_4() {
         angle_type: ANGLE_BY_BOX,
         command: false,
         clanks: true,
+        rebounds: true,
+        trip: 0,
     };
     for (damage, holds) in [(10, true), (11, false)] {
         let mut sim = duel();

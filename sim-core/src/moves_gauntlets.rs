@@ -833,8 +833,7 @@ fn aerials(w: &mut Weapon) {
 
     // Forward air, the flying knee. Clean on frame 14 only: the knee 22% at 32 degrees (BK 30, KS 81, radius 3.75 reference units,
     // electric: 1.5x hitlag) and the hip 6% at the 361 angle (BK 35, KS 80), both hitlag x1.2; late on frames 15-30: 3%, angle 361,
-    // BK 35, KS 80. The knee wins where both reach. Landing lag 18, autocancels on frames 1-4 and from 42, FAF 46. (The late hit's 20%
-    // trip chance on grounded targets is not modelled: no trips yet.)
+    // BK 35, KS 80. The knee wins where both reach. Landing lag 18, autocancels on frames 1-4 and from 42, FAF 46.
     let mut fair = ref_move(
         46,
         18,
@@ -848,6 +847,9 @@ fn aerials(w: &mut Weapon) {
         ],
     );
     set_rows(&mut fair, &[0, 1], |h| h.hitlag = 120);
+    // The late hit's 20% trip chance on a grounded target (E20, sim 90): at the 361 angle its low knockback sends a grounded target
+    // straight along the ground, so it can trip.
+    set_rows(&mut fair, &[2, 3], |h| h.trip = 20);
     fair.hitboxes[0].effect = EFFECT_ELECTRIC;
     w.moves[MoveId::FAir as usize] = fair;
 

@@ -22,8 +22,8 @@ pub const MAX_STAT: u8 = 9;
 /// The stat value that leaves the archetype unchanged.
 pub const NEUTRAL: u8 = 5;
 /// How many classes there are (index into the roster's movesets: 0 longsword, 1 claws, 2 needles, 3 embers, 4 gauntlets, 5 staff,
-/// 6 greatsword).
-pub const CLASSES: u8 = 7;
+/// 6 greatsword, 7 bracers).
+pub const CLASSES: u8 = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Recipe {
@@ -79,7 +79,8 @@ impl Recipe {
             3 => FighterParams::tumbler(),
             4 => FighterParams::sprinter(),
             5 => FighterParams::seer(),
-            _ => FighterParams::champion(),
+            6 => FighterParams::champion(),
+            _ => FighterParams::hauler(),
         };
         let size = r.size_percent();
         let speed = i32::from(r.speed);
@@ -391,7 +392,7 @@ mod tests {
             vec![1, 0, 5, 5, 5, 5, 5],
             vec![1, 0, 0, 5, 5, 5],
             vec![1, 0, 10, 5, 5, 5],
-            vec![1, 7, 5, 5, 5, 5],
+            vec![1, 8, 5, 5, 5, 5],
             vec![2, 0, 0],
         ] {
             assert_eq!(FighterSpec::decode(&bad), None, "{bad:?}");

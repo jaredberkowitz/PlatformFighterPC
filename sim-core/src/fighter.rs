@@ -190,6 +190,8 @@ fn enter(f: &mut Fighter, state: S) {
     }
     f.state = state;
     f.state_frame = 0;
+    // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
+    f.tripped = false;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
     if !matches!(state, S::Airborne | S::Attack) {
         f.hop_boost = 0;
@@ -1507,14 +1509,31 @@ fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S, frames: u
     enter(f, state);
 }
 
-/// Lying on the ground after a hard landing. After a short while the fighter chooses a get-up: attack, roll
-/// sideways, or stand (stick up, jump, or just waiting).
+/// A trip (`Hitbox::trip`): the fighter sits down where it stands, intangible for `trip_invuln` frames, and gets up as from a
+/// knockdown on the ruleset's trip timings (see [`knockdown`]).
+pub fn trip(f: &mut Fighter, rules: &Ruleset) {
+    enter(f, S::Knockdown);
+    f.tripped = true;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.hitstun = 0;
+    f.invuln = f.invuln.max(rules.trip_invuln);
+}
+
+/// Lying on the ground after a hard landing (or sitting after a trip). After a short while the fighter chooses a get-up: attack,
+/// roll sideways, or stand (stick up, jump, or just waiting).
 fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     if !slide_on_platform(f, p, stage) {
         return;
     }
-    if f.state_frame < u16::from(rules.knockdown_lag) {
+    let (lag, max) = if f.tripped {
+        (rules.trip_lag, rules.trip_max)
+    } else {
+        (rules.knockdown_lag, rules.knockdown_max)
+    };
+    if f.state_frame < u16::from(lag) {
         return;
     }
     let flick = f.flick_x(TAP_BUFFER);
@@ -1528,7 +1547,7 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
         enter(f, S::Roll);
     } else if f.history[0].stick_y >= STICK_DOWN
         || f.take(buttons::JUMP, p.input_buffer)
-        || f.state_frame >= u16::from(rules.knockdown_max)
+        || f.state_frame >= u16::from(max)
     {
         enter(f, S::GetUp);
     }
