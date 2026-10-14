@@ -1,0 +1,3 @@
+// Bracers forward tilt: aimed up or down it lasts one frame longer than straight (FAF 36 against 35, the reference's "oversight").
+// The move is 36 frames long; straight, it ends on the straight version's last frame.
+if aimed == 0 && frame >= 33 { end(); }

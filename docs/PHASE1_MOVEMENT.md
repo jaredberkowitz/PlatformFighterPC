@@ -293,6 +293,13 @@ each other on the ground (`push.rs`): bodies that overlap in height as well as s
 An air dodge passes through, as do an aerial attack (multi-hit aerials and drag-downs need the overlap), anyone hanging on a ledge, and the
 ground's exemptions (intangible, hit, held, rolling). Tests: `sim-core/tests/air_bodies.rs`.
 
+**Dashes buffered from the air and out of throws** (sims 79, 82 and 93; `keeps_dash` and `Fighter::dash_buffer` in `fighter.rs`): a dash
+flicked during lag is kept, as long as the stick stays pushed that way, and comes out on the first frame the fighter can act. That lag is a
+throw's animation (grab whiffs and command grabs too; never while holding, so the flick that picks the throw direction is not one), a
+landing's lag, and, since sim 93, the falling half of a jump (from the apex down, in the air or in an aerial), so a dash flicked as the
+jump comes down comes out on landing. A flick made while the jump still rises is not kept. Tests: `grab_dash.rs`, `landing_buffer.rs`.
+The combo loop that needs it (the staff seer's neutral air three times, then a reverse aerial rush back air) is pinned in `combos.rs`.
+
 **Short hops**
 - An attack pressed with the jump or during the jump squat makes the jump a **short hop**, even with jump held, and the aerial comes out on
   the first airborne frame (the reference game's short-hop aerial; on a keyboard, Space and J together).

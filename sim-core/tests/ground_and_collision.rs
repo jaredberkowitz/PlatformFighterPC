@@ -376,10 +376,11 @@ fn dash_speed_eases_down_into_run_speed() {
 
 #[test]
 fn landing_while_holding_the_stick_walks_on_instead_of_running() {
-    // As in the reference game: holding the stick through a landing walks; a run needs a new dash.
+    // As in the reference game: holding the stick through a landing walks; a run needs a new dash. (The stick is pushed while the
+    // fighter still rises: a flick once it falls is kept for a dash on landing, sim v93.)
     let mut sim = Sim::new();
     let p = sim.content.fighters[0];
-    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), p.air_speed, Fx::ZERO);
+    sim.put_airborne(0, Fx::from_int(-8), Fx::from_int(2), p.air_speed, fx(1, 10));
     let mut landed = false;
     for _ in 0..40 {
         sim.tick(inp(127, 0, 0));

@@ -79,6 +79,9 @@ pub enum FighterState {
     LedgeJump,
     /// Letting go of the shield: no action for `shield_release_frames`.
     ShieldRelease,
+    /// Buried in the ground by a bury hit (E5): no action until `Fighter::bury_timer` runs out (mashing shortens it), then out with a
+    /// little lag, or launched by a knockback kept from a weaker hit taken meanwhile.
+    Buried,
 }
 
 impl StateHash for FighterState {
@@ -274,6 +277,13 @@ pub struct Fighter {
     /// Frames of the midair jump the fighter is in (sim 89, E33): 1 on the jump's own frame, one more each frame it stays in it (hitlag
     /// excluded, saturating); 0 when it is not in one (anything but `Airborne` clears it). The body's `air_jump_armor` reads it.
     pub air_jump_frame: u8,
+    /// Frames left buried (`FighterState::Buried`, E5); mashing takes more off.
+    pub bury_timer: u16,
+    /// A launch kept for the end of the bury: a hit too weak to free the buried fighter (under `Ruleset::bury_break_kb`) leaves its
+    /// knockback and world launch angle here (the last such hit's [E: gap 10]), `bury_set` saying there is one.
+    pub bury_kb: Fx,
+    pub bury_angle: u16,
+    pub bury_set: bool,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -499,6 +509,10 @@ impl Fighter {
             locked: false,
             tripped: false,
             air_jump_frame: 0,
+            bury_timer: 0,
+            bury_kb: Fx::ZERO,
+            bury_angle: 0,
+            bury_set: false,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -663,6 +677,10 @@ impl StateHash for Fighter {
         self.lock.hash_into(h);
         h.write_bool(self.locked);
         h.write_bool(self.tripped);
+        h.write_u16(self.bury_timer);
+        self.bury_kb.hash_into(h);
+        h.write_u16(self.bury_angle);
+        h.write_bool(self.bury_set);
         h.write_u8(self.air_jump_frame);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
@@ -1203,6 +1221,31 @@ mod tests {
             ("tripped", {
                 let mut s = state;
                 s.fighters[1].tripped = true;
+                s
+            }),
+            ("bury_timer", {
+                let mut s = state;
+                s.fighters[1].bury_timer = 1;
+                s
+            }),
+            ("bury_kb", {
+                let mut s = state;
+                s.fighters[2].bury_kb = Fx::from_raw(1);
+                s
+            }),
+            ("bury_angle", {
+                let mut s = state;
+                s.fighters[2].bury_angle = 1;
+                s
+            }),
+            ("bury_set", {
+                let mut s = state;
+                s.fighters[3].bury_set = true;
+                s
+            }),
+            ("state buried", {
+                let mut s = state;
+                s.fighters[3].state = FighterState::Buried;
                 s
             }),
             ("air_jump_frame", {

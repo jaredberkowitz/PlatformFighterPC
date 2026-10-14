@@ -1,0 +1,3 @@
+// Bracers charged punch's cancel (ext4): 4 frames of lag (FAF 5) [R], then whatever was pressed or held (the shield, a dodge, a jump,
+// an air dodge in the air) comes out. Nothing to steer: the move only has to exist.
+let lag = frame;

@@ -139,6 +139,7 @@ impl Host for FighterHost<'_> {
             api::R_BOOST => f.gauge.raw(),
             api::R_BOOSTING => flag(f.gauge_mode > 0),
             api::R_GRAB => flag(f.held(buttons::GRAB)),
+            api::R_AIM => Fx::from_int(i32::from(f.aim)).raw(),
             api::R_FAST_FALL => flag(f.fast_fall),
             _ => 0,
         }
@@ -201,6 +202,7 @@ impl Host for FighterHost<'_> {
             }
             api::F_LOCK => return flag(self.lock(arg(0))),
             api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),
+            api::F_SET_CHARGE => self.f.charge = arg(0).floor_int().clamp(0, 255) as u8,
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);

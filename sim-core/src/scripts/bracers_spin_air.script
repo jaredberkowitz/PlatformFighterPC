@@ -1,0 +1,10 @@
+// Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame, falls at
+// 0.07 a frame per frame (decision 41: read as the fall rate itself, not a multiplier [E]) down to the body's fall speed (1.63 [E]), and drifts with the
+// stick at 0.05 a frame up to 1.7 [R] (world units: / 8). Its twelve 1% hits are each a fresh hit at the start of its span (13, 15,
+// 18, 20, 22, 25, 27, 30, 32, 34 and 37; move frames one less), re-armed then.
+var h;
+var u;
+if frame == 1 { h = vx; u = 0.1125; } else { u = max(u - 0.00875, -0.20375); }
+h = clamp(h + 0.00625 * stick_x, -0.2125, 0.2125);
+set_vel(h, u);
+if frame == 12 || frame == 14 || frame == 17 || frame == 19 || frame == 21 || frame == 24 || frame == 26 || frame == 29 || frame == 31 || frame == 33 || frame == 36 { rehit(); }

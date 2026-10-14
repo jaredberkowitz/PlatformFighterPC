@@ -245,10 +245,12 @@ fn rolling(f: &Fighter) -> bool {
 }
 
 /// Lag a dash flicked during is kept for (`Fighter::dash_buffer`): a grab, a pummel or a throw (command grabs too: a move that
-/// catches, or anything done while holding someone), or a landing's lag (sim v82). Public for the keyboard reader, which sends a
-/// direction key pressed during it at full strength, a flick (`godot/scripts/input_reader.gd`).
+/// catches, or anything done while holding someone), a landing's lag (sim v82), or the falling half of a jump (sim v93: from the apex
+/// down, in the air or in an aerial, so the dash comes out on landing). Public for the keyboard reader, which sends a direction key
+/// pressed during it at full strength, a flick (`godot/scripts/input_reader.gd`).
 pub fn keeps_dash(f: &Fighter, weapon: &Weapon) -> bool {
     (f.state == S::Landing && f.grounded())
+        || (!f.grounded() && f.vel.y <= Fx::ZERO && matches!(f.state, S::Airborne | S::Attack))
         || f.state == S::Attack
             && (matches!(
                 MoveId::from_index(f.move_id),
@@ -302,7 +304,7 @@ pub fn update(
     // A dash flicked at any point of a grab, a pummel, a throw or a landing's lag is kept for the first frame the fighter can act, as
     // long as the stick stays pushed that way (hitlag included): more lenient than the reference's 6 or 7 frames, so a throw or an
     // aerial can be chased (owner's call). The flick that picked the throw is not one (it was made while holding, before the throw
-    // began), nor one made in the air before landing.
+    // began), nor one made while a jump is still rising; one made once it falls is (sim v93).
     if keeps_dash(f, weapon) {
         let flick = f.dash_flick(1);
         if flick != 0 {
@@ -379,7 +381,7 @@ pub fn update(
         S::Attack => return attack(f, p, weapon, stage, rules, world),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
-        S::JumpSquat => jump_squat(f, p, stage, rules),
+        S::JumpSquat => jump_squat(f, p, weapon, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage, rules),
         S::Helpless => return helpless(f, p, weapon, stage, rules),
         S::AirDodge => return air_dodge(f, p, stage),
@@ -398,6 +400,7 @@ pub fn update(
         S::LedgeHang => ledge_hang(f, p, weapon, stage),
         S::LedgeJump => ledge_jump(f, p, stage),
         S::ShieldRelease => shield_release(f, p, stage),
+        S::Buried => buried(f, p, rules),
         S::Rebound => rebound(f, p, stage),
         S::WallTech => wall_tech(f, p, rules),
         S::Respawn => revival(f, p, rules),
@@ -691,9 +694,21 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     slide_on_platform(f, p, stage);
 }
 
-fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+fn jump_squat(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+) {
     // No friction here: a run or dash jump keeps its momentum into the air.
     if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    // The jump squat can be cancelled (E37, the reference's, owner decision 62), for every fighter: special with the stick up is the
+    // grounded up special, and an up smash input (attack with the stick flicked up, the strong button with the stick up, or the
+    // attack stick up) the up smash, still on the ground. Attack with the stick merely held up stays the short-hop up air.
+    if up_out_of_ground(f, p, weapon, true) {
         return;
     }
     if f.state_frame >= u16::from(p.jump_squat_frames) {
@@ -1235,14 +1250,7 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     // Straight out of the shield (E37, the reference's, owner decision 56): special with the stick up is the grounded up special, and
     // attack with the stick (or the attack stick) up the up smash, with no jump first and no shield drop. They come before the jump,
     // so a jump pressed with them does not take the press.
-    let up = f.history[0].stick_y >= STICK_DOWN;
-    if up && f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
-        f.buffer_used |= buttons::SPECIAL;
-        return;
-    }
-    if f.buffered(buttons::ATTACK, buffer) && attack_aim(f, p).0.stick_y >= STICK_DOWN {
-        f.buffer_used |= buttons::ATTACK;
-        begin_attack(f, MoveId::USmash);
+    if up_out_of_ground(f, p, weapon, false) {
         return;
     }
     // Pressing down wins over jumping when standing on a pass-through platform.
@@ -1580,6 +1588,51 @@ pub fn trip(f: &mut Fighter, rules: &Ruleset) {
     f.invuln = f.invuln.max(rules.trip_invuln.saturating_add(1));
 }
 
+/// Buries a fighter (a bury hit, E5) for `frames` frames: no action, no speed, nothing kept yet.
+pub fn bury(f: &mut Fighter, frames: u16) {
+    enter(f, S::Buried);
+    f.bury_timer = frames.max(1);
+    f.bury_set = false;
+    f.bury_kb = Fx::ZERO;
+    f.bury_angle = 0;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.hitstun = 0;
+    f.fast_fall = false;
+}
+
+/// Buried: the timer runs down a frame at a time plus what mashing takes off (the shared mash, as a hold's). At 0 the fighter comes
+/// out: launched by a kept knockback if a weaker hit left one, else up with `bury_exit_lag` frames of lag (a rebound, on the spot:
+/// the pop-out's height is not published, gap 9 [E]). No invincibility either way (the reference's).
+fn buried(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    f.vel = Vec2::ZERO;
+    let cut = crate::grab::mash_cut(f, rules);
+    f.bury_timer = f.bury_timer.saturating_sub(1 + cut);
+    if f.bury_timer > 0 {
+        return;
+    }
+    if f.bury_set {
+        let kb = f.bury_kb;
+        f.bury_set = false;
+        f.bury_kb = Fx::ZERO;
+        enter(f, S::Hitstun);
+        f.hitstun = crate::combat::hitstun_frames(kb, rules.hitstun_mult).max(1);
+        f.launch_kb = kb;
+        f.launch_angle = f.bury_angle;
+        f.launch_set = false;
+        f.link = false;
+        f.pull = false;
+        f.kb_vel = Vec2::ZERO;
+        f.tumble = false;
+        f.hits_taken = 1;
+        apply_launch(f, p, rules);
+    } else {
+        enter(f, S::Rebound);
+        f.lag = rules.bury_exit_lag;
+    }
+}
+
 /// Lying on the ground after a hard landing (or sitting after a trip). After a short while the fighter chooses a get-up: attack,
 /// roll sideways, or stand (stick up, jump, or just waiting).
 fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
@@ -1754,6 +1807,29 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.aim = 0;
     enter(f, S::Attack);
     f.charge = 0;
+}
+
+/// E37: special with the stick up starts the grounded up special, and attack aimed up the up smash, straight out of a shield or a
+/// jump squat (for every fighter, the reference's). Out of a shield attack with the stick or the attack stick up is enough (attack
+/// alone there is the shield grab); out of a jump squat (`smash_only`) it takes an up smash input (a flick up, the strong button or
+/// the attack stick), since attack with the stick held up is the short-hop up air. Returns whether one started.
+fn up_out_of_ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, smash_only: bool) -> bool {
+    let buffer = p.input_buffer;
+    let up = f.history[0].stick_y >= STICK_DOWN;
+    if up && f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+        f.buffer_used |= buttons::SPECIAL;
+        return true;
+    }
+    if f.buffered(buttons::ATTACK, buffer) {
+        let (aim, strong) = attack_aim(f, p);
+        let smash = strong || f.hard_up(SMASH_FLICK_BUFFER);
+        if aim.stick_y >= STICK_DOWN && (smash || !smash_only) {
+            f.buffer_used |= buttons::ATTACK;
+            begin_attack(f, MoveId::USmash);
+            return true;
+        }
+    }
+    false
 }
 
 /// Starts a move's follow-up (its `next`, or a script's `goto`); one with `Move::keep_charge` keeps the charge its first part had (E36).

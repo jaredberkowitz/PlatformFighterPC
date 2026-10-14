@@ -294,7 +294,8 @@ pub struct Hitbox {
     pub shield_damage: u16,
     /// Percent of the normal hitlag this hit causes (100 is normal; 0 gives none).
     pub hitlag: u16,
-    /// What the hit is made of: [`EFFECT_NORMAL`] or [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick).
+    /// What the hit is made of: [`EFFECT_NORMAL`], [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick) or
+    /// [`EFFECT_BURY`] (a grounded victim is buried).
     pub effect: u8,
     /// Who it can hit: [`TARGETS_ALL`], or only fighters on the ground ([`TARGETS_GROUNDED`]) or in the air ([`TARGETS_AERIAL`]).
     pub targets: u8,
@@ -419,6 +420,10 @@ impl Hitbox {
 /// `Hitbox::effect` values.
 pub const EFFECT_NORMAL: u8 = 0;
 pub const EFFECT_ELECTRIC: u8 = 1;
+/// The reference's bury effect (E5, sim 90): a fighter on the ground (not lying down) is buried instead of launched
+/// (`FighterState::Buried`, see `combat::bury_frames`); an airborne one takes the hit as usual. Its knockback is worked out at weight
+/// 100 and it ignores subtractive knockback armor.
+pub const EFFECT_BURY: u8 = 2;
 
 /// `Hitbox::kind` values.
 pub const HIT_NORMAL: u8 = 0;
@@ -778,6 +783,30 @@ impl Armor {
     }
 }
 
+/// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
+/// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
+/// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChargeAdd {
+    pub full: u8,
+    pub add: Fx,
+    pub floor: bool,
+}
+
+impl ChargeAdd {
+    /// The damage a hit of `base` deals at `charge` frames.
+    pub fn damage(&self, base: Fx, charge: u8) -> Fx {
+        let full = i32::from(self.full.max(1));
+        let share = i32::from(charge).min(full);
+        let d = base + self.add.mul_int(share) / Fx::from_int(full);
+        if self.floor {
+            Fx::from_int(d.floor_int())
+        } else {
+            d
+        }
+    }
+}
+
 /// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
 /// attack throws out (the arm or leg reaching toward the move's hitboxes).
 pub const PART_LOW: u8 = 1;
@@ -903,6 +932,8 @@ pub struct Move {
     pub counter_strike: bool,
     /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
     pub charge_bonus: u8,
+    /// Damage added by the charge instead of the multiplicative bonus (see [`ChargeAdd`]); `None`: the bonus.
+    pub charge_add: Option<ChargeAdd>,
     /// A special used while the fighter's gauge's powered mode runs uses this slot instead (its powered version) and spends the gauge
     /// at once (see `content::Gauge`); `None`: the move is the same in the mode and spends nothing.
     pub limit_version: Option<u8>,
@@ -922,6 +953,10 @@ pub struct Move {
     /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
     /// control. 0 (the default): the motion's `vx`, as before.
     pub motion_drift: u8,
+    /// On move frames `push_immune_from..=push_immune_to` a push (`Hitbox::push`, the reference's windbox) does not move the fighter
+    /// (the reference's windbox immunity, sim 90). 255 / 0 (the default): never.
+    pub push_immune_from: u8,
+    pub push_immune_to: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -986,12 +1021,15 @@ impl Move {
             counter: None,
             counter_strike: false,
             charge_bonus: 0,
+            charge_add: None,
             limit_version: None,
             gauge_drain: false,
             start_speed_y: 100,
             ledge_drop: None,
             on_land: None,
             motion_drift: 0,
+            push_immune_from: 255,
+            push_immune_to: 0,
             script: None,
             projectile_script: None,
         }
@@ -1339,6 +1377,15 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.counter_strike);
             h.write_u8(m.charge_bonus);
+            match m.charge_add {
+                Some(c) => {
+                    h.write_bool(true);
+                    h.write_u8(c.full);
+                    c.add.hash_into(h);
+                    h.write_bool(c.floor);
+                }
+                None => h.write_bool(false),
+            }
             for slot in [m.limit_version, m.on_land] {
                 match slot {
                     Some(id) => {
@@ -1361,6 +1408,8 @@ impl StateHash for Weapon {
                 }
             }
             h.write_bool(m.keep_charge);
+            h.write_u8(m.push_immune_from);
+            h.write_u8(m.push_immune_to);
             match m.ledge_drop {
                 Some((front, back)) => {
                     h.write_bool(true);
@@ -2449,6 +2498,11 @@ pub fn needles() -> Weapon {
             r(5, 6, 11, 2, 5, 45, 90, 37, 100, 2, 0),
         ],
     );
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51): at 70 and 90 degrees it lifts, so it never
+    // trips on the flat stages (ssbwiki.com: "can never occur").
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
 
     // Neutral air: a held flying kick. Clean on frames 3-6 (6 / 6 / 5%), late 7-30 (4 / 4 / 3%), angle 361, BK 30, KS 100.
     // Landing lag 6, autocancels on frames 1-2 and from 31, FAF 50. One hit per target (clean and late are one group).
@@ -2728,6 +2782,9 @@ pub fn needles() -> Weapon {
     );
     set_rows(&mut dsmash, &[0, 1, 2, 3], |h| h.fixed_kb = 35);
     set_rows(&mut dsmash, &[0], |h| h.targets = TARGETS_AERIAL);
+    // The second hit's 30% trip chance (ssbwiki.com raw table, 13.0.1; owner decision 51): at 43 degrees it lifts, so it never trips
+    // on the flat stages.
+    set_rows(&mut dsmash, &[4, 5], |h| h.trip = 30);
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 
@@ -3057,6 +3114,10 @@ pub fn embers() -> Weapon {
             r(5, 7, 10, 2, 5, 50, 80, 35, 80, 1, 0),
         ],
     );
+    // The 40% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 80 degrees it lifts, so it never trips here.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
 
     // Dash attack: a sliding kick. Clean on frames 6-9: 8%, 50 degrees, BK 100, KS 43; late 10-25: 6%, 48 degrees, BK 100, KS 30; hitlag
     // x1.25, shield damage +1 (as a percent of its damage). FAF 38.
@@ -3854,6 +3915,11 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51, sim 90): at the 361 angle's low knockback
+    // it sends along the ground, so it can trip.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
     // Neutral air (the reference's): a split kick held out, both legs and the hips hitting. Clean on frames 7-9: 12%, angle 361, BKB
     // 30, KBG 75; late on frames 10-26: 8%, BKB 0, KBG 100 (a lingering hit). Landing lag 9, autocancels on frames 1-6 and from 39, FAF 43.
     w.moves[MoveId::NAir as usize] = ref_move(
@@ -3871,9 +3937,9 @@ pub fn claws() -> Weapon {
             r(10, 26, -7, 8, 6, 80, 361, 0, 100, 2, 0),
         ],
     );
-    // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 29, FAF 41.
+    // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 30 (UFD ">29", ssbwiki.com), FAF 41.
     w.moves[MoveId::FAir as usize] =
-        ref_move(41, 10, 0, 29, &[r(7, 9, 23, 10, 9, 90, 60, 45, 85, 0, 0)]);
+        ref_move(41, 10, 0, 30, &[r(7, 9, 23, 10, 9, 90, 60, 45, 85, 0, 0)]);
 
     // Blaster: a bayonet hit on frames 15-19 (7%, angle 60, strong knockback) if something is in front of the
     // muzzle, otherwise a shot fires on frame 16. The shot does 8% falling to 6% over its range (about two
@@ -4077,6 +4143,11 @@ pub fn claws() -> Weapon {
             r(21, 22, -20, 6, 11, 140, 30, 50, 90, 0, 1),
         ],
     );
+    // Its 35% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51): at 30 and 35 degrees it lifts, so it never
+    // trips on the flat stages.
+    for h in &mut dsmash.hitboxes {
+        h.trip = 35;
+    }
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 

@@ -8,12 +8,12 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Burst, Counter, CounterBubble, Hitbox, Motion, Move, MoveId, PartIntangible,
-    ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
-    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
-    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
-    TARGETS_ALL, TARGETS_GROUNDED,
+    AirBlock, Armor, Burst, ChargeAdd, Counter, CounterBubble, Hitbox, Motion, Move, MoveId,
+    PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
+    AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL,
+    ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH,
+    PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -505,6 +505,18 @@ rules_io! {
     trip_lag: u8,
     trip_max: u8,
     trip_invuln: u8,
+    trip_base: u8,
+    trip_base_kb: Fx,
+    bury_base: Fx,
+    bury_percent: Fx,
+    bury_kb: Fx,
+    bury_behind_1: u8,
+    bury_behind_2: u8,
+    bury_ahead_1: u8,
+    bury_ahead_2: u8,
+    bury_break_kb: Fx,
+    bury_exit_lag: u8,
+    bury_depth: Fx,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -579,11 +591,12 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
     let effect = match f.raw("effect") {
         None | Some(("normal", _)) => EFFECT_NORMAL,
         Some(("electric", _)) => EFFECT_ELECTRIC,
+        Some(("bury", _)) => EFFECT_BURY,
         Some((other, line)) => {
             err(
                 errors,
                 line,
-                format!("hitbox effect must be normal or electric, not `{other}`"),
+                format!("hitbox effect must be normal, electric or bury, not `{other}`"),
             );
             EFFECT_NORMAL
         }
@@ -700,6 +713,8 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.effect == EFFECT_ELECTRIC {
         b.field("effect", "electric");
+    } else if hb.effect == EFFECT_BURY {
+        b.field("effect", "bury");
     }
     match hb.targets {
         TARGETS_GROUNDED => b.field("targets", "grounded"),
@@ -858,6 +873,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.fall_speed = f.parsed("fall_speed", errors);
     m.fall_accel = f.parsed("fall_accel", errors);
     m.keep_charge = f.or("keep_charge", false, errors);
+    m.push_immune_from = f.or("push_immune_from", 255, errors);
+    m.push_immune_to = f.or("push_immune_to", 0, errors);
     let drop_front: Option<Fx> = f.parsed("ledge_drop_front", errors);
     let drop_back: Option<Fx> = f.parsed("ledge_drop_back", errors);
     match (drop_front, drop_back) {
@@ -915,10 +932,21 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "part_intangible",
             "armor",
             "air",
+            "charge_add",
         ],
         context,
         errors,
     );
+    if let Some(b) = at_most_one(children(block, "charge_add"), "charge_add", context, errors) {
+        let ctx = format!("the charge_add of {context}");
+        let mut f = Fields::new(b, &ctx, errors);
+        m.charge_add = Some(ChargeAdd {
+            full: f.need("full", None, errors),
+            add: f.need("add", None, errors),
+            floor: f.or("floor", false, errors),
+        });
+        f.finish(errors);
+    }
     m.air_blocks = children(block, "air")
         .into_iter()
         .map(|b| {
@@ -1225,6 +1253,12 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("lands_from", m.lands_from, empty.lands_from),
         ("start_speed_y", m.start_speed_y, empty.start_speed_y),
         ("motion_drift", m.motion_drift, empty.motion_drift),
+        (
+            "push_immune_from",
+            m.push_immune_from,
+            empty.push_immune_from,
+        ),
+        ("push_immune_to", m.push_immune_to, empty.push_immune_to),
     ] {
         if value != default {
             b.field(name, value.to_string());
@@ -1338,6 +1372,15 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             if let Some(v) = v {
                 c.field(name, v.show());
             }
+        }
+        b.push(c);
+    }
+    if let Some(a) = &m.charge_add {
+        let mut c = Block::new("charge_add", None);
+        c.field("full", a.full.to_string());
+        c.field("add", a.add.show());
+        if a.floor {
+            c.field("floor", "true");
         }
         b.push(c);
     }

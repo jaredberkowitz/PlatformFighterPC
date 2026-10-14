@@ -1758,6 +1758,28 @@ pub struct Ruleset {
     pub trip_lag: u8,
     pub trip_max: u8,
     pub trip_invuln: u8,
+    /// The reference's base trip chance (owner decision 50): a hit of more than `trip_base_kb` knockback that would not lift a
+    /// grounded fighter trips it `trip_base` percent of the time, and a hit with a trip chance of its own adds this to it (7 and 55).
+    /// 0 turns the base chance off.
+    pub trip_base: u8,
+    pub trip_base_kb: Fx,
+    /// The bury (E5, a hit's `EFFECT_BURY`; the reference's rules, ssbwiki.com "Buried", 13.0.1): a grounded fighter is buried for
+    /// `bury_base + bury_percent x p + bury_kb x k` frames rounded up (p its percent after the hit, k the hit's knockback at weight
+    /// 100: 55, 0.5, 1.5), `bury_behind_1` / `bury_behind_2` more when the attacker is one / two or more stocks behind (8, 12) and
+    /// `bury_ahead_1` / `bury_ahead_2` fewer when it is ahead (18, 22). Mashing cuts it as a grab's hold. A hit of at least
+    /// `bury_break_kb` knockback (90) frees and launches it; a weaker one's knockback is kept for when the bury ends. Out of a bury
+    /// with nothing kept, the fighter has `bury_exit_lag` frames (12) of lag. While buried its hurtboxes are `bury_depth` of its
+    /// height lower [E].
+    pub bury_base: Fx,
+    pub bury_percent: Fx,
+    pub bury_kb: Fx,
+    pub bury_behind_1: u8,
+    pub bury_behind_2: u8,
+    pub bury_ahead_1: u8,
+    pub bury_ahead_2: u8,
+    pub bury_break_kb: Fx,
+    pub bury_exit_lag: u8,
+    pub bury_depth: Fx,
 }
 
 impl Ruleset {
@@ -1862,6 +1884,18 @@ impl Ruleset {
             trip_lag: 40,
             trip_max: 100,
             trip_invuln: 5,
+            trip_base: 7,
+            trip_base_kb: Fx::from_int(55),
+            bury_base: Fx::from_int(55),
+            bury_percent: Fx::from_ratio(1, 2),
+            bury_kb: Fx::from_ratio(3, 2),
+            bury_behind_1: 8,
+            bury_behind_2: 12,
+            bury_ahead_1: 18,
+            bury_ahead_2: 22,
+            bury_break_kb: Fx::from_int(90),
+            bury_exit_lag: 12,
+            bury_depth: Fx::from_ratio(1, 2),
         }
     }
 }
@@ -1967,6 +2001,18 @@ impl StateHash for Ruleset {
         h.write_u8(self.trip_lag);
         h.write_u8(self.trip_max);
         h.write_u8(self.trip_invuln);
+        h.write_u8(self.trip_base);
+        self.trip_base_kb.hash_into(h);
+        self.bury_base.hash_into(h);
+        self.bury_percent.hash_into(h);
+        self.bury_kb.hash_into(h);
+        h.write_u8(self.bury_behind_1);
+        h.write_u8(self.bury_behind_2);
+        h.write_u8(self.bury_ahead_1);
+        h.write_u8(self.bury_ahead_2);
+        self.bury_break_kb.hash_into(h);
+        h.write_u8(self.bury_exit_lag);
+        self.bury_depth.hash_into(h);
     }
 }
 

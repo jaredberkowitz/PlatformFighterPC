@@ -97,7 +97,13 @@ fn every_normal_has_the_references_frame_data() {
                 "{id:?}: window {a}..{b} has no hitbox"
             );
         }
-        assert_eq!(u16::from(mv.total_frames) + 2, u16::from(faf), "{id:?} FAF");
+        // (The forward tilt is as long as its angled versions, FAF 36; its script ends the straight one on 35: see below.)
+        let data_faf = if id == MoveId::FTilt { 36 } else { faf };
+        assert_eq!(
+            u16::from(mv.total_frames) + 2,
+            u16::from(data_faf),
+            "{id:?} FAF"
+        );
         assert_eq!(mv.landing_lag, landing, "{id:?} landing lag");
         assert_eq!(mv.autocancel_before, ac_before, "{id:?} autocancel before");
         let from = if ac_from == 255 { 255 } else { ac_from - 1 };
@@ -254,6 +260,36 @@ fn every_attack_returns_control_on_its_reference_faf() {
         }
         assert_eq!(faf_of(id, id.is_aerial()), u16::from(faf), "{id:?}");
     }
+}
+
+#[test]
+fn the_angled_forward_tilts_end_a_frame_later_than_the_straight_one() {
+    // The reference's FAF 36 aimed up or down, 35 straight (ssbwiki.com: "an oversight"), through the `aimed` register.
+    for (aim, faf) in [(1i8, 36u16), (0, 35), (-1, 36)] {
+        let mut sim = duel();
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.stand(0, Fx::from_int(-9), 1);
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::FTilt);
+        sim.state.fighters[0].aim = aim;
+        let mut out = 0;
+        for tick in 1..=60u16 {
+            sim.tick(inp(0, 0, 0));
+            if sim.f().state != S::Attack {
+                out = tick + 2;
+                break;
+            }
+        }
+        assert_eq!(out, faf, "aimed {aim}");
+    }
+    // Started by the stick, the aim is read as it starts: tilted down past the aim threshold, the forward tilt is the down one.
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(10), -1);
+    sim.stand(0, Fx::from_int(-9), 1);
+    sim.tick(inp(60, -50, ATTACK));
+    assert_eq!(
+        (MoveId::from_index(sim.f().move_id), sim.f().aim),
+        (MoveId::FTilt, -1)
+    );
 }
 
 // ---- Hit properties ----------------------------------------------------------------------------------------------------------
@@ -757,14 +793,14 @@ fn the_bracers_are_registered_as_class_7() {
     assert_eq!(c.names.weapons[7], "bracers");
     assert_eq!(c.fighters[7], FighterParams::hauler());
     assert_eq!(c.weapons[7], sim_core::moves::bracers());
-    // The specials are still the claws' placeholders (phase 2).
+    // The specials are the reference's own since phase 2 (`bracers_specials.rs`): none is the claws' any more.
     for id in [
         MoveId::NSpecial,
         MoveId::SideSpecial,
         MoveId::UpSpecial,
         MoveId::DownSpecial,
     ] {
-        assert_eq!(
+        assert_ne!(
             c.weapons[7].moves[id as usize], c.weapons[1].moves[id as usize],
             "{id:?}"
         );

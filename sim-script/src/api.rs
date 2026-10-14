@@ -99,6 +99,7 @@ pub const F_SPAWN_SCALED: u8 = 44;
 pub const F_SPAWN_AT: u8 = 45;
 pub const F_LOCK: u8 = 46;
 pub const F_BOOST_ADD: u8 = 47;
+pub const F_SET_CHARGE: u8 = 50;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -134,7 +135,7 @@ pub const R_LOCK_Y: u8 = 25;
 pub const R_BOOST: u8 = 26;
 pub const R_BOOSTING: u8 = 27;
 pub const R_GRAB: u8 = 28;
-// (29 is kept for the Bracers' `aimed`, on another branch.)
+pub const R_AIM: u8 = 29;
 pub const R_FAST_FALL: u8 = 30;
 
 // ---- Registers: projectile ----
@@ -242,6 +243,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
     ),
     reg("grab", R_GRAB, "grab button held"),
     reg(
+        "aimed",
+        R_AIM,
+        "how the attack was aimed as it started: 1 up, -1 down, 0 straight (an angled forward tilt or smash)",
+    ),
+    reg(
         "fast_fall",
         R_FAST_FALL,
         "1 while the fighter is fast falling (since its last jump, landing or hit), else 0",
@@ -309,7 +315,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 16] = [
+    const OWN: [Func; 17] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -396,8 +402,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "boost_add(n): add n units to the fighter's gauge (negative drains), between 0 and its max; filling it starts the powered mode; nothing while the mode runs",
         ),
+        func(
+            "set_charge",
+            F_SET_CHARGE,
+            1,
+            "set_charge(n): set this move's charge to n frames (0 to 255), read back as charge; a move with charge_add deals more with it",
+        ),
     ];
-    concat::<9, 16, 25>(MATH, OWN)
+    concat::<9, 17, 26>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

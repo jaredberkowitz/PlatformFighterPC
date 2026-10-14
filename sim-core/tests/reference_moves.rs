@@ -728,9 +728,9 @@ fn aerials_autocancel_in_their_reference_windows_and_otherwise_cost_their_landin
     assert_eq!(landing_lag(BRAWLER, MoveId::NAir, 5), 9);
     assert_eq!(landing_lag(BRAWLER, MoveId::NAir, 37), normal_brawler);
     assert_eq!(landing_lag(BRAWLER, MoveId::NAir, 36), 9);
-    // Brawler forward air: lag 10, autocancels from frame 29.
-    assert_eq!(landing_lag(BRAWLER, MoveId::FAir, 26), 10);
-    assert_eq!(landing_lag(BRAWLER, MoveId::FAir, 27), normal_brawler);
+    // Brawler forward air: lag 10, autocancels from frame 30.
+    assert_eq!(landing_lag(BRAWLER, MoveId::FAir, 27), 10);
+    assert_eq!(landing_lag(BRAWLER, MoveId::FAir, 28), normal_brawler);
 }
 
 // ---- Move data tables ------------------------------------------------------------------------------------
