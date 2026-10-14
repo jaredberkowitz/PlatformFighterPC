@@ -97,10 +97,17 @@ To play online with a made fighter, make it in the creator, then either play one
   Left/Right switch player, **Enter** then the new key rebinds, **Delete** resets that player's keys, Esc goes back. A key already used
   by the same player's other action swaps with it, so no key is ever on two actions; Esc and the F-keys the game uses stay reserved.
   Saved in `user://controls.json` (`godot/scripts/bindings.gd`); a damaged or hand-edited file is repaired. The sim never sees keys.
-* **Controllers** play with: left stick or D-pad to move, A or Y jump, B attack, X special, bumpers and triggers shield, right-stick
-  click grab, and the **right stick attacks** (the reference's C-stick: a smash in the direction pushed on the ground, an aerial in the
-  air; it only aims the attack, so the left stick keeps drifting and fast falling through it). Controller 1 is player 1, controller 2 player 2,
-  alongside the keyboards. (Not tested with real hardware: no controller was available.)
+* **Controllers** play with: left stick to move, A or Y jump, B attack, X special, **triggers shield, bumpers (and a right-stick click)
+  grab** (the reference's shoulder layout, since the controller pass, 14 October 2026), and the **right stick attacks** (the reference's
+  C-stick: a smash in the direction pushed on the ground, an aerial in the air; it only aims the attack, so the left stick keeps drifting
+  and fast falling through it). Controller 1 is player 1, controller 2 player 2, alongside the keyboards. (Not tested with real hardware.)
+* **The Controller page** of the Controls screen (`godot/scripts/pad_bindings.gd`, saved in `user://pad.json`): for each of the four
+  controllers, any action (jump, short hop, attack, strong attack, special, shield, grab) can be rebound to a button or a trigger
+  (Enter, then the button; a button bound to one action leaves the others; Start, Back and Guide stay the menus'), and three options:
+  **tap jump** (an up flick of the left stick jumps, held while it stays up; **off by default**, owner decision), **the right stick**
+  (smash attacks, tilt attacks, specials or off; tilt and special act on the push's first frame) and **rumble** (on by default: the
+  controller of a fighter that is hit rumbles with the hit's weight, lighter for whoever landed it, and on shield hits, shield breaks
+  and knock-outs). The match code is `input_reader.gd`'s `from_pad`, which `controls_test.gd` drives without a controller.
 * **Controllers in the menus** (`godot/scripts/pad_nav.gd`): D-pad or left stick moves (with key repeat), A confirms, B goes back,
   Start starts, Back/Select leaves; it works by pressing the keys the screens already understand. In character select controller 1 plays
   the player 1 keys and controller 2 the player 2 keys. During a match the controller plays, so it only navigates the results screen and

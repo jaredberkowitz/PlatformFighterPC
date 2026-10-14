@@ -4,12 +4,15 @@ extends SceneTree
 ## Run: Godot --headless --path godot --script res://tests/controls_test.gd
 
 const Bindings := preload("res://scripts/bindings.gd")
+const PadBindings := preload("res://scripts/pad_bindings.gd")
 const InputReader := preload("res://scripts/input_reader.gd")
 const PadNav := preload("res://scripts/pad_nav.gd")
 
 var failed := false
 var backup := ""
 var had_file := false
+var pad_backup := ""
+var had_pad_file := false
 
 
 func check(ok: bool, what: String) -> void:
@@ -32,6 +35,13 @@ func _initialize() -> void:
 		backup = FileAccess.get_file_as_string(Bindings.PATH)
 	Bindings.unload()
 	DirAccess.remove_absolute(Bindings.PATH)
+	had_pad_file = FileAccess.file_exists(PadBindings.PATH)
+	if had_pad_file:
+		pad_backup = FileAccess.get_file_as_string(PadBindings.PATH)
+	PadBindings.unload()
+	DirAccess.remove_absolute(PadBindings.PATH)
+	_pad_table()
+	_pad_reader()
 	_table()
 	_files()
 	_reader()
@@ -44,6 +54,12 @@ func _initialize() -> void:
 		f.store_string(backup)
 	else:
 		DirAccess.remove_absolute(Bindings.PATH)
+	PadBindings.unload()
+	if had_pad_file:
+		var pf := FileAccess.open(PadBindings.PATH, FileAccess.WRITE)
+		pf.store_string(pad_backup)
+	else:
+		DirAccess.remove_absolute(PadBindings.PATH)
 	print("controls test ", "FAILED" if failed else "PASSED")
 	quit(1 if failed else 0)
 
@@ -145,14 +161,31 @@ func _screen() -> void:
 	# The display page: E turns to it, Up/Down choose a setting, Left/Right change it (saved), Q turns back.
 	var VisualSettings: Script = load("res://scripts/visual_settings.gd")
 	var shake_before: int = VisualSettings.get_index("shake")
+	# The controller page: E turns to it; Down to the tap jump row, Enter turns it on; Right picks controller 2; Delete resets it.
 	screen._unhandled_key_input(key_event(KEY_E))
-	check(screen.page == 1 and screen.display_page.visible and not screen.key_page[0].visible, "E turns to the display page")
+	check(screen.page == 1 and screen.pad_page.visible and not screen.key_page[0].visible, "E turns to the controller page")
+	for k in PadBindings.ACTIONS.size():
+		screen._unhandled_key_input(key_event(KEY_DOWN))
+	check(screen.pad_row == PadBindings.ACTIONS.size(), "the first option row is tap jump")
+	screen._unhandled_key_input(key_event(KEY_ENTER))
+	check(PadBindings.tap_jump(0), "Enter turns tap jump on for controller 1")
+	screen._unhandled_key_input(key_event(KEY_RIGHT))
+	check(screen.pad == 1 and not PadBindings.tap_jump(1), "Right picks controller 2, still off")
+	screen._unhandled_key_input(key_event(KEY_LEFT))
+	screen._unhandled_key_input(key_event(KEY_DELETE))
+	check(not PadBindings.tap_jump(0), "Delete resets the controller")
+	screen._unhandled_key_input(key_event(KEY_UP))
+	screen._unhandled_key_input(key_event(KEY_ENTER))
+	check(not screen.pad_capturing and "not connected" in screen.status.text, "rebinding needs the controller connected")
+	screen._unhandled_key_input(key_event(KEY_E))
+	check(screen.page == 2 and screen.display_page.visible and not screen.pad_page.visible, "E again turns to the display page")
 	screen._unhandled_key_input(key_event(KEY_LEFT))
 	check(VisualSettings.get_index("shake") == maxi(shake_before - 1, 0), "Left lowers the screen shake")
 	check(VisualSettings.shake() <= 1.0, "and the match reads it")
 	screen._unhandled_key_input(key_event(KEY_DOWN))
 	check(screen.setting == 1, "Down chooses the next setting")
 	VisualSettings.set_index("shake", shake_before)
+	screen._unhandled_key_input(key_event(KEY_Q))
 	screen._unhandled_key_input(key_event(KEY_Q))
 	check(screen.page == 0, "Q turns back to the keys")
 	screen.queue_free()
@@ -188,3 +221,84 @@ func _pads() -> void:
 	nav._process(0.016)
 	check(nav.held.is_empty(), "with no controller connected, nothing is pressed")
 	nav.queue_free()
+
+
+func _pad_table() -> void:
+	check(PadBindings.inputs(0, "shield") == [PadBindings.TRIGGER_LEFT, PadBindings.TRIGGER_RIGHT], "the triggers shield by default")
+	check(JOY_BUTTON_LEFT_SHOULDER in PadBindings.inputs(0, "grab") and JOY_BUTTON_RIGHT_SHOULDER in PadBindings.inputs(0, "grab"),
+		"the bumpers grab by default")
+	check(PadBindings.inputs(0, "jump") == [JOY_BUTTON_A, JOY_BUTTON_Y], "A and Y jump")
+	check(not PadBindings.tap_jump(0), "tap jump is off by default (owner decision)")
+	check(PadBindings.right_stick(0) == PadBindings.RIGHT_SMASH and PadBindings.rumble(0), "right stick smashes, rumble on")
+	check(PadBindings.set_input(0, "special", JOY_BUTTON_A), "a button can be rebound")
+	check(PadBindings.inputs(0, "special") == [JOY_BUTTON_A] and PadBindings.inputs(0, "jump") == [JOY_BUTTON_Y],
+		"and comes off the action that had it")
+	check(PadBindings.inputs(1, "jump") == [JOY_BUTTON_A, JOY_BUTTON_Y], "other controllers are unaffected")
+	check(not PadBindings.set_input(0, "attack", JOY_BUTTON_START), "Start is kept for the menus")
+	PadBindings.set_option(0, "right_stick", PadBindings.RIGHT_TILT)
+	PadBindings.unload()
+	check(PadBindings.inputs(0, "special") == [JOY_BUTTON_A] and PadBindings.right_stick(0) == PadBindings.RIGHT_TILT,
+		"the settings are saved and read back")
+	var f := FileAccess.open(PadBindings.PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify([{"map": {"jump": [0, 0, 99999], "attack": [0]}, "tap_jump": 7}]))
+	f = null
+	PadBindings.unload()
+	check(PadBindings.inputs(0, "jump") == [0] and PadBindings.inputs(0, "attack").is_empty() and PadBindings.option(0, "tap_jump") == 1,
+		"a damaged file keeps one copy of each input and clamps the options")
+	PadBindings.reset()
+	check(PadBindings.inputs(0, "special") == [JOY_BUTTON_X], "reset brings the defaults back")
+
+
+func _pad_reader() -> void:
+	var masks := {"jump": 1, "attack": 2, "special": 4, "shield": 8, "grab": 16, "strong": 32, "c_up": 64, "c_down": 128,
+		"c_left": 256, "c_right": 512}
+	PadBindings.reset()
+	InputReader.reset_pads()
+	var idle := {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "buttons": {}, "triggers": Vector2.ZERO}
+	var r: Dictionary = InputReader.from_pad(0, {"buttons": {JOY_BUTTON_LEFT_SHOULDER: true}, "triggers": Vector2(0.9, 0.0)}, masks)
+	check(r.buttons & masks.grab != 0 and r.buttons & masks.shield != 0, "a bumper grabs and a trigger shields")
+	# Tap jump: off, an up flick only moves the stick; on, it jumps and holds the jump while the stick stays up.
+	InputReader.from_pad(0, idle, masks)
+	var up := idle.duplicate()
+	up.ly = 1.0
+	r = InputReader.from_pad(0, up, masks)
+	check(r.buttons & masks.jump == 0 and r.y > 0.9, "tap jump off: up is just up")
+	PadBindings.set_option(0, "tap_jump", 1)
+	InputReader.reset_pads()
+	InputReader.from_pad(0, idle, masks)
+	r = InputReader.from_pad(0, up, masks)
+	check(r.buttons & masks.jump != 0, "tap jump on: an up flick jumps")
+	r = InputReader.from_pad(0, up, masks)
+	check(r.buttons & masks.jump != 0, "and the jump is held while the stick stays up")
+	InputReader.reset_pads()
+	var slow := idle.duplicate()
+	for y in [0.35, 0.5, 0.6, 0.7, 0.9]:
+		slow.ly = y
+		r = InputReader.from_pad(0, slow, masks)
+	check(r.buttons & masks.jump == 0, "a slow push up does not jump (an up tilt)")
+	PadBindings.set_option(0, "tap_jump", 0)
+	# The right stick: smash bits by default; tilt mode points the stick gently with attack on the push's first frame only.
+	InputReader.reset_pads()
+	var right := idle.duplicate()
+	right.rx = 1.0
+	r = InputReader.from_pad(0, right, masks)
+	check(r.buttons & masks.c_right != 0 and r.buttons & masks.attack != 0 and r.x == 0.0, "smash mode: the attack stick's bits")
+	PadBindings.set_option(0, "right_stick", PadBindings.RIGHT_TILT)
+	InputReader.reset_pads()
+	r = InputReader.from_pad(0, right, masks)
+	check(r.buttons & masks.attack != 0 and r.buttons & masks.c_right == 0 and absf(r.x - InputReader.TILT) < 0.01,
+		"tilt mode: a gentle push with attack")
+	r = InputReader.from_pad(0, right, masks)
+	check(r.buttons & masks.attack == 0 and r.x == 0.0, "only on the first frame")
+	PadBindings.set_option(0, "right_stick", PadBindings.RIGHT_SPECIAL)
+	InputReader.reset_pads()
+	var down := idle.duplicate()
+	down.ry = -1.0
+	r = InputReader.from_pad(0, down, masks)
+	check(r.buttons & masks.special != 0 and r.y < -0.9, "special mode: a down special")
+	PadBindings.set_option(0, "right_stick", PadBindings.RIGHT_OFF)
+	InputReader.reset_pads()
+	r = InputReader.from_pad(0, right, masks)
+	check(r.buttons == 0 and r.x == 0.0, "off: the right stick does nothing")
+	PadBindings.reset()
+	InputReader.reset_pads()
