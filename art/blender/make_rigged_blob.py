@@ -309,9 +309,18 @@ def mitten(bm, x):
     """A bare hand on the `x` side, built round the same wrist as `fist`: the concept's mitten, a soft rounded paddle a little flatter
     side to side than deep, closed into a loose curl, with a stubby thumb in front. No knuckle row: that is the glove's clench, and on a
     bare hand it read as a glove in the body's colour."""
+    # (After the owner's PEAK references, 2026-10-14: a hand with fingers. A broad palm a little flatter side to side than deep, four
+    # stubby fingers hanging from it side by side (the middle two longest), each curled gently in toward the palm, and a thumb standing
+    # out in front: it reads as a hand at play size, where a ball or a paddle read as a knob.)
     k = HAND_SCALE
-    ball(bm, 0.19 * k, _hand(x, (x * 0.78, -0.05, 0.63)), (0.8, 1.0, 1.12), segments=32, rings=20)
-    tube(bm, [_hand(x, (x * 0.745, -0.12, 0.7)), _hand(x, (x * 0.765, -0.2, 0.62))], [0.066 * k, 0.056 * k], segments=14, per_span=4)
+    ball(bm, 0.165 * k, _hand(x, (x * 0.78, -0.05, 0.655)), (0.74, 1.0, 0.92), segments=32, rings=20)
+    for fy, length in ((-0.115, 0.1), (-0.04, 0.12), (0.035, 0.115), (0.105, 0.09)):
+        top = _hand(x, (x * 0.785, -0.05 + fy, 0.56))
+        mid = _hand(x, (x * 0.78, -0.05 + fy * 1.05, 0.56 - length * 0.6))
+        tip = _hand(x, (x * 0.745, -0.05 + fy * 1.08, 0.56 - length))
+        tube(bm, [top, mid, tip], [0.056 * k, 0.052 * k, 0.047 * k], segments=12, per_span=4)
+    tube(bm, [_hand(x, (x * 0.75, -0.15, 0.7)), _hand(x, (x * 0.735, -0.235, 0.645)), _hand(x, (x * 0.74, -0.255, 0.575))],
+         [0.064 * k, 0.058 * k, 0.05 * k], segments=14, per_span=5)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1032,7 +1041,8 @@ def run_pose(phase, lean=24.0, stride=1.0, arms=1.0, bounce=0.085):
             other = leg + 0.5
             swing = math.cos(other * 2.0 * math.pi)  # +1 when the other leg lands in front
             forward = max(0.0, swing)
-            pose(rig, "armU." + side, fwd=arms * (-58.0 * swing + 8.0), out=16.0 + 10.0 * forward)
+            # (Held further out from the body, after the owner's PEAK reference: the chunky arms pump clear of the trunk and read.)
+            pose(rig, "armU." + side, fwd=arms * (-62.0 * swing + 8.0), out=28.0 + 10.0 * forward)
             pose(rig, "armL." + side, fwd=arms * (62.0 + 46.0 * forward))
             pose(rig, "hand." + side, fwd=10.0 * swing)
         # Two steps a cycle: lowest just after each landing (0.06, 0.56), highest in the flight between them.
@@ -1070,7 +1080,7 @@ if BODY:
             JOINTS[_name] = (tuple(_pos), JOINTS[_name][1])
     OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
 ## How big the fists are against the blob's (the concept's mitten hands are small: about a quarter of the head across).
-FIST_SCALE = 0.82
+FIST_SCALE = 0.9
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
@@ -1254,7 +1264,22 @@ def build_body_meshes(rig):
     bpy.ops.object.parent_set(type="ARMATURE_AUTO")
     # Softer elbows and shoulders: the automatic weights change over from one arm bone to the next in too short a stretch, which pinches
     # the arm where it bends; spread out, it bends round.
-    smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")])
+    # (Spread further, and the chest with them, so the armpit and the shoulder bend round with the arm and the elbow does not twist into a
+    # pinch: the owner saw the arms twist strangely in play.)
+    smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")], 0.5, 12)
+    # The ball of the head belongs wholly to the head bone (the owner saw the head melt into the chest, a gourd): the automatic weights
+    # gave its underside partly to the spine, which the game twists toward the camera apart from the head, so the chin stretched into the
+    # shoulders. Everything inside the head's ball, down to a little above the neck, takes the head's weight alone.
+    hc = Vector(FIT["head_centre"])
+    hr = float(FIT["head_radius"])
+    hg = skin.vertex_groups.get("head")
+    if hg is not None:
+        for v in skin.data.vertices:
+            if (v.co - hc).length < hr * 1.04 and v.co.z > FIT["neck"] + 0.02:
+                for g in v.groups:
+                    if g.group != hg.index:
+                        skin.vertex_groups[g.group].remove([v.index])
+                hg.add([v.index], 1.0, "REPLACE")
 
     # The face shell bends and shades with the skin it lies on: it takes the skin's own weights (the jaw and cheeks partly follow the
     # chest, which the game twists toward the camera) and its normals. Bound rigidly to the head bone, it slid into the skin on one side
@@ -1295,7 +1320,8 @@ def build_body_meshes(rig):
              "radii": [round(abs(J["armU.R"].x) * 0.75, 4), round((neck - hips) / 2.0, 4), round(depths[int(len(depths) * 0.9)], 4)]}
     # Where the face drawing is on the head (the middle of its square, as a height, and the square's size), for fitting glasses to its
     # eyes.
-    info = {"head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)], "torso": torso,
+    info = {"head_ball": [round(FIT["head_centre"][2], 4), round(FIT["head_centre"][1], 4), round(FIT["head_radius"], 4)],
+            "head_centre": godot(centre), "head_radii": [round(radii.x, 4), round(radii.z, 4), round(radii.y, 4)], "torso": torso,
             "face": [round(face_centre, 4), round(face_size, 4)],
             "neck": round(neck, 4), "shoulder": godot(J["armU.R"]), "wrist": godot(J["hand.R"]), "hips": round(J["hips"].z, 4),
             "height": round(FIT["height"], 4), "clothes": clothes}

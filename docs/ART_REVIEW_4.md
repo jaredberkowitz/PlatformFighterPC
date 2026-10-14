@@ -77,4 +77,22 @@ a close third-person 3D game; ours is a side-on 2.5D view, so only the proportio
 - Checks: the art, fighter view, motion, animation and creator tests pass; the look bench 0.87 (needs 0.85).
 - Images: `review4_chunky_before_after.png` (before above), `review4_chunky_lineup.png`.
 
+## Pass 69: the body rebuilt to the owner's PEAK references
+
+Feedback across several looks: the arms read as sleeves, the body as tubes or a gourd, the head melting into the chest, little torso. The
+proportions were changed rather than the old ones forced into the style (`make_base_body.py`, then `fit_body.py`, `make_rigged_blob.py`):
+
+- **Head and torso**: the head a 0.44 ball centred 1.78 up on a short narrow neck (was 0.475, 1.725 and no neck), over a real boxy torso
+  as wide as the head and about as tall, square high shoulders, a squarer cross-section (`TRUNK_SQUARE`). Height kept at 2.2.
+- **Anatomy as soft forms on one skin** (`ANATOMY`, `SHOULDER_CAP`): deltoids rounding the box into the arm (no sleeve seam), the point
+  of the elbow and the forearm's swell, kneecaps and calves, ankles narrowing into a foot with a heel and a toe box; arms and legs shaped
+  along their length (full, a joint, filling out again).
+- **Hands with fingers** (`mitten`): a palm, four stubby fingers curling in (the middle two longest), a thumb in front.
+- **One continuous skin**: QuadriFlow is retried on a coarser voxel skin when it refuses (it had silently left 237,000 triangles, which
+  shaded lumpy); the head's ball is weighted wholly to the head bone (the chest's twist stretched its underside); the arms' weights are
+  spread further so elbows and armpits bend round. A thin chin line is painted where the ball of the head sits on the body
+  (`skin.gdshader` `head_ball`, from `base_rig.json`): the two-tone light draws no line at a soft crease.
+- Checks: all the art, fighter, motion, animation, creator, online and content tests pass; the look bench 0.91 (was 0.87).
+  `review4_peak_body.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.

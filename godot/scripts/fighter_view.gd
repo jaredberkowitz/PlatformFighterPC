@@ -604,6 +604,9 @@ func _skeleton_to_frame() -> Transform3D:
 ## chest twisted back so it mostly faces the camera (35 degrees off); and the head turned again a little toward the way it faces (45
 ## degrees off: a three-quarter face), so the two fighters look at each other while the drawn face keeps both eyes in view.
 const BODY_TURN := 60.0
+## How far off straight-on the body turns in the big moments (see `face_cam`), and how far into that turn it is.
+const FRONTAL_TURN := 28.0
+var face_cam := 0.0
 const CHEST_TO_CAMERA := 24.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
@@ -1482,6 +1485,10 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 	for name in ["neck", "waist", "shorts_end", "sock_top", "shoe_top", "sole_top"]:
 		if regions.has(name):
 			m.set_shader_parameter(name + "_z", float(regions[name]))
+	# (The head's ball in the rest pose, for the chin line: height, depth, radius.)
+	var ball: Array = _base_rig_info().get("head_ball", [])
+	if ball.size() == 3:
+		m.set_shader_parameter("head_ball", Vector3(float(ball[0]), float(ball[1]), float(ball[2])))
 	if regions.has("torso_half_width"):
 		m.set_shader_parameter("torso_half_width", float(regions.torso_half_width))
 	for name in ["shoulder_l", "elbow_l", "shoulder_r", "elbow_r"]:
@@ -2243,7 +2250,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		look = -facing
 	var into := 1.0 if state == "Attack" or state == "Grabbing" else 0.0
 	attack_turn = move_toward(attack_turn, into, delta * (12.0 if into > attack_turn else 5.0))
-	yaw = lerp_angle(yaw, float(look) * deg_to_rad(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn), clampf(delta * 14.0, 0.0, 1.0))
+	# In the big moments (hit, a broken shield, the respawn) the body swings round toward the camera, so the face and the reaction read
+	# (the owner's direction, 2026-10-14: turned more frontal at times, as PEAK's characters are).
+	var showy := 1.0 if state == "Hitstun" or state == "ShieldBreak" or state == "Respawn" else 0.0
+	face_cam = move_toward(face_cam, showy, delta * (8.0 if showy > face_cam else 3.0))
+	var turn_deg := lerpf(BODY_TURN + BODY_TURN_IN_ATTACK * attack_turn, FRONTAL_TURN, face_cam)
+	yaw = lerp_angle(yaw, float(look) * deg_to_rad(turn_deg), clampf(delta * 14.0, 0.0, 1.0))
 	# The eyes switch sides as the body swings past facing the camera.
 	set_gaze(1 if yaw >= 0.0 else -1)
 	# Leaning is a pitch toward the fighter's front (which, turned, is mostly along the stage).
