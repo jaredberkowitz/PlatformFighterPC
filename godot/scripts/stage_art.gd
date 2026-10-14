@@ -488,7 +488,13 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			var stone := Materials.stone((t.soil as Color).lightened(0.25))
 			while x < right - 0.4:
 				var k := rng.randf_range(0.75, 1.3)
-				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h - 0.12 * k, front_z + 0.2), Vector3(1.2, 0.8, 0.6) * k)
+				# Each tongue its own width and length (from its own place, so the stage's sequence is unchanged), hanging from inside the lip,
+				# so the edge reads as one scalloped skirt of turf rather than a row of equal beads.
+				var own := RandomNumberGenerator.new()
+				own.seed = hash(roundi(x * 100.0))
+				var hang := own.randf_range(0.6, 1.5)
+				var wide := own.randf_range(0.9, 1.6)
+				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.05 - 0.17 * k * hang, front_z + 0.2), Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6)
@@ -2186,17 +2192,27 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 		var down := rng.randf_range(0.25, 0.55) * size
 		_mesh(island, _sphere(1.0, 8), stone, Vector3(sin(a) * hw * 0.6 * (1.0 - down / size), -0.6 - down, cos(a) * hw * 0.32),
 			Vector3.ONE * rng.randf_range(0.1, 0.18) * size, Vector3(rng.randf_range(0, 60), rng.randf_range(0, 90), 0))
-	var drip := FighterView.toon(grass.darkened(0.08))
-	for j in 7:
-		var u := (float(j) + rng.randf_range(0.2, 0.8)) / 7.0 * 2.0 - 1.0
-		var r := rng.randf_range(0.18, 0.32) * size * 0.5
-		_mesh(island, _sphere(1.0, 8), drip, Vector3(u * hw * 0.92, -0.2 - r * 0.6, sqrt(maxf(0.0, 1.0 - u * u)) * hw * 0.62), Vector3(r * 1.4, r * 1.6, r))
-	var root_m := FighterView.toon((t.soil_dark as Color).darkened(0.35), false)
+	# Turf rolling over the front edge: tongues of different widths and lengths, overlapping and sunk into the lip so they read as one
+	# scalloped skirt of grass, not a row of equal beads.
+	var drip := FighterView.toon(grass.darkened(0.12))
+	var n := 9
+	for j in n:
+		var u := (float(j) + rng.randf_range(0.0, 1.0)) / float(n) * 2.0 - 1.0
+		var r := rng.randf_range(0.1, 0.3) * size * 0.5
+		var hang := rng.randf_range(1.0, 2.6)
+		_mesh(island, _sphere(1.0, 8), drip, Vector3(u * hw * 0.92, -0.12 - r * hang * 0.55, sqrt(maxf(0.0, 1.0 - u * u)) * hw * 0.6),
+			Vector3(r * rng.randf_range(1.6, 2.4), r * hang, r))
+	# Roots trailing from the keel: thin, tapering to a point, in two bent lengths each, close to the earth's own colour (dark sticks read
+	# as posts).
+	var root_m := FighterView.toon((t.soil_dark as Color).darkened(0.28), false)
 	for j in 4:
 		var u := rng.randf_range(-0.6, 0.6)
 		var len := rng.randf_range(0.5, 1.1) * size * 0.6
-		_mesh(island, _cylinder(0.02 * size, 0.05 * size, len, 4), root_m, Vector3(u * hw * 0.7, -0.5 - len * 0.5 - size * 0.2, hw * 0.3),
-			Vector3.ONE, Vector3(0, 0, rng.randf_range(-15, 15)))
+		var bend := rng.randf_range(-25.0, 25.0)
+		var top := Vector3(u * hw * 0.7, -0.5 - size * 0.2, hw * 0.3)
+		_mesh(island, _cylinder(0.035 * size, 0.022 * size, len * 0.55, 5), root_m, top + Vector3(0, -len * 0.27, 0), Vector3.ONE, Vector3(0, 0, bend * 0.4))
+		var mid := top + Vector3(sin(deg_to_rad(bend * 0.4)) * len * 0.55, -len * 0.53, 0)
+		_mesh(island, _cylinder(0.022 * size, 0.004 * size, len * 0.5, 5), root_m, mid + Vector3(-sin(deg_to_rad(bend)) * len * 0.25, -len * 0.24, 0), Vector3.ONE, Vector3(0, 0, bend))
 	_mesh(island, _cylinder(hw * 1.0, hw * 1.0, 0.06, 24), FighterView.toon(grass.lightened(0.25), false), Vector3(0, 0.72, 0), Vector3(1.0, 1.0, 0.63))
 
 
@@ -2301,9 +2317,23 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 	crown.amount = 2.5
 	crown.phase = rng.randf() * TAU
 	root.add_child(crown)
-	# Two masses of leaf cards (a big one and a smaller one to its side), shading as rounded volumes (`_leaf_cards`).
-	_leaf_cards(crown, [[Vector3(0, 1.4, 0) * size, 2.4 * size, 64], [Vector3(1.4, 0.7, 0.5) * size, 1.4 * size, 26]], greens,
-		1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true))
+	# Masses of leaf cards shading as rounded volumes (`_leaf_cards`), in one of three crown shapes so a row of trees is not one tree
+	# repeated: a big mass with a smaller one to one side, a tall crown of a mass stacked on a mass, or a wide one with two shoulders.
+	# (The shape comes from the tree's own position, not the stage's sequence, so nothing else in the layout moves.)
+	var own := RandomNumberGenerator.new()
+	own.seed = hash(Vector2i(roundi(at.x * 10.0), roundi(at.z * 10.0)))
+	var big := own.randf_range(2.15, 2.55)
+	var masses: Array
+	match own.randi_range(0, 2):
+		0:
+			var lean := 1.0 if own.randf() < 0.5 else -1.0
+			masses = [[Vector3(0, 1.4, 0) * size, big * size, 64], [Vector3(1.4 * lean, 0.7, 0.5) * size, 1.4 * size, 26]]
+		1:
+			masses = [[Vector3(0, 1.1, 0) * size, big * 0.92 * size, 54], [Vector3(0.25, 2.6, 0.2) * size, 1.45 * size, 28]]
+		_:
+			masses = [[Vector3(0, 1.5, 0) * size, big * 0.95 * size, 56], [Vector3(1.5, 0.6, 0.3) * size, 1.15 * size, 18],
+				[Vector3(-1.4, 0.75, 0.3) * size, 1.05 * size, 16]]
+	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true))
 
 
 static func _flowers(root: Node3D, e: Array, rng: RandomNumberGenerator, colors: Array) -> void:
