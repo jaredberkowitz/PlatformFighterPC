@@ -81,6 +81,8 @@ var countdown := 0.0
 var countdown_shown := -1
 ## A knock-out slows a local match down for a moment (real seconds left, since the engine's time is slowed).
 var slowmo_until := 0
+## The match frame sudden death began on (-1: not in sudden death), for its banner.
+var sudden_from := -1
 const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 ## Effects in the world that fade by themselves: [node, age, life].
 var effects: Array = []
@@ -1126,7 +1128,16 @@ func _update_hud(delta: float) -> void:
 	var playing: bool = not net_mode or net_status == 1
 	var clock := ""
 	var urgent := false
-	if rules[1] > 0:
+	var sudden: bool = sim.has_method("sudden_death") and sim.sudden_death()
+	if sudden and sudden_from < 0:
+		sudden_from = frame
+		sfx.play("whoosh", 0.6)
+		cam_shake = maxf(cam_shake, 0.4)
+	elif not sudden:
+		sudden_from = -1
+	if sudden:
+		pass
+	elif rules[1] > 0:
 		var left: int = ceili(maxi(0, rules[1] * 60 - frame) / 60.0)
 		clock = "%02d:%02d" % [left / 60, left % 60]
 		urgent = left <= 10 and winner == -1
@@ -1138,7 +1149,11 @@ func _update_hud(delta: float) -> void:
 		banner = "%d" % ceili(countdown)
 		alpha = clampf(1.0 - (float(ceili(countdown)) - countdown) * 0.35, 0.65, 1.0)
 	elif winner != -1:
-		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
+		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60 and not sudden) else "GAME!"
+	elif sudden and frame - sudden_from < 150:
+		# Sudden death: the time ran out level on stocks; the leaders play on at 300% with one stock each.
+		banner = "SUDDEN DEATH!"
+		alpha = clampf(float(150 - (frame - sudden_from)) / 40.0, 0.0, 1.0)
 	elif playing and frame < 75 and (rules[0] > 0 or rules[1] > 0):
 		banner = "GO!"
 		alpha = clampf(float(75 - frame) / 30.0, 0.0, 1.0)

@@ -99,7 +99,7 @@ func _match() -> void:
 	var join = ClassDB.instantiate("SimRunner")
 	root.add_child(host)
 	root.add_child(join)
-	host.set_match_rules(3, 3)
+	host.set_match_rules(0, 3)
 	var err: String = host.net_host(47131, PackedInt32Array([0, 1, 0, 1]), 2)
 	check(err == "", "host: " + err)
 	err = join.net_join("127.0.0.1:47131")
@@ -125,7 +125,7 @@ func _match() -> void:
 		if not asked and ended_at >= 0 and ticks > ended_at + 200:
 			# Both sides saw the end of the first match, with the same result.
 			check(host.winner() == join.winner(), "same result on both sides: %d vs %d" % [host.winner(), join.winner()])
-			check(join.match_rules() == PackedInt32Array([3, 3]), "the joiner plays under the host's rules: " + str(join.match_rules()))
+			check(join.match_rules() == PackedInt32Array([0, 3]), "the joiner plays under the host's rules: " + str(join.match_rules()))
 			_records(host, join)
 			host.net_request_rematch()
 			check(host.net_rematch_state() == PackedInt32Array([1, 0]), "asking is visible")
@@ -173,7 +173,7 @@ func _spectate() -> void:
 	var watcher = ClassDB.instantiate("SimRunner")
 	for n in [host, join, watcher]:
 		root.add_child(n)
-	host.set_match_rules(3, 3)
+	host.set_match_rules(0, 3)
 	check(host.net_host(47161, PackedInt32Array([0, 1, 0, 1]), 2) == "", "host for the spectator test")
 	check(join.net_join("127.0.0.1:47161") == "", "join for the spectator test")
 	var ran := [0, 0]
@@ -225,7 +225,7 @@ func _group() -> void:
 	for i in 3:
 		nodes[i].set_fighter(specs[i])
 		nodes[i].set_cosmetics(PackedByteArray([0, 65 + i]))
-	host.set_match_rules(3, 3)
+	host.set_match_rules(0, 3)
 	check(host.group_host_start(47181, 2) == "", "the group host listens")
 	check(nodes[1].group_join("127.0.0.1:47181") == "" and nodes[2].group_join("127.0.0.1:47181") == "", "two guests join")
 	var started := false
