@@ -176,7 +176,7 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`, `locked`, `lock_x`, `lock_y`, `boost`, `boosting`, `grab`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`, `locked`, `lock_x`, `lock_y`, `boost`, `boosting`, `grab`, `fast_fall`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap` and `special_tap` are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
 `hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
 `presses` and `releases` count the attack button's presses and releases since the attack began (the move a button started;
@@ -184,7 +184,8 @@ moves reached from it by `next`, `goto` or a counter keep counting), **hitlag in
 that started an attack is 1 (and a release of it already made counts 1; an attack started by another button starts at 0). A rapid jab's entry rule reads them (the reference's "pressed
 3 times and released twice since jab 1"). `wall` is 1 when the fighter's last movement step (last frame's, as the script runs before the move moves) was stopped by a wall: what a slide that crashes into walls reads.
 `boost` is the fighter's gauge (the body's Boost gauge, 0 to its `max`; 0 for a body without one), `boosting` 1 while its powered
-mode runs, `grab` 1 while the grab button is held.
+mode runs, `grab` 1 while the grab button is held. `fast_fall` is 1 while the fighter is fast falling (a fast fall lasts until
+the next jump, landing, hit or aerial start: what a dive that only bounces off a target when it was not fast falling reads; sim 91).
 `flick` is 1 when the current special was started like a smash attack (the stick flicked its way, within the smash-flick buffer, or the strong button held): what a special with a farther smash-input version reads.
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,

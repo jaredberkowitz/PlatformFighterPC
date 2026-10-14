@@ -139,6 +139,8 @@ pub fn active_hitboxes<'a>(
             hb.y = hb.y * scale;
             hb.radius = hb.radius * scale;
             hb.half_height = hb.half_height * scale;
+            hb.posvec_x = hb.posvec_x * scale;
+            hb.posvec_y = hb.posvec_y * scale;
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
             (i, hb, center)
         })
@@ -890,6 +892,13 @@ fn apply_hit(
 
     let rage = rage_multiplier(state.fighters[source].percent, rules);
     let puller = state.fighters[source].pos;
+    // A position vector's point (E34): ahead of and above the attacker's feet, by its facing, where it hit.
+    let posvec_point = puller
+        + Vec2::new(
+            hb.posvec_x
+                .mul_int(i32::from(state.fighters[source].facing)),
+            hb.posvec_y,
+        );
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
@@ -959,7 +968,8 @@ fn apply_hit(
     // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
     // The vortex angle (E28): grounded or not, the launch follows the attacker's movement plus a pull (see `fighter::vortex_launch`).
     let vortex_hit = hb.angle == ANGLE_VORTEX;
-    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit;
+    let posvec_hit = hb.posvec_frames > 0;
+    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit || posvec_hit;
     // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
     let pull_hit = hb.angle == ANGLE_PULL;
     let degrees = if hb.angle == ANGLE_AUTOLINK {
@@ -1063,13 +1073,20 @@ fn apply_hit(
     def.launch_set = hb.fixed_kb > 0;
     def.launch_angle = angle.raw();
     def.link = link_hit;
-    def.link_kind = if vortex_hit {
+    def.link_kind = if posvec_hit {
+        crate::state::LINK_POSVEC
+    } else if vortex_hit {
         crate::state::LINK_VORTEX
     } else {
         crate::state::LINK_AUTOLINK
     };
     def.vortex = 0;
-    def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
+    def.posvec = hb.posvec_frames;
+    def.link_point = if posvec_hit {
+        posvec_point
+    } else {
+        link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO)
+    };
     def.link_vel = link.1;
     def.pull = pull_hit;
     if pull_hit {
@@ -1133,13 +1150,68 @@ fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8
         }
     }
     def.shield_stun = stun as u8;
-    // Pushback: (stun + 1) * 0.09 reference units a frame, at most 1.3 (less for a perfect shield).
-    let mut push = (Fx::from_int(stun + 1) * Fx::from_ratio(9, 100)).min(Fx::from_ratio(13, 10))
-        / Fx::from_int(8);
+    let mut push = shield_pushback(stun);
     if perfect {
         push = push * Fx::from_ratio(2, 5);
     }
     def.vel.x += push.mul_int(i32::from(facing));
+}
+
+/// A shield's pushback for `stun` frames of shield stun: (stun + 1) * 0.09 reference units a frame, at most 1.3 (world units).
+fn shield_pushback(stun: i32) -> Fx {
+    (Fx::from_int(stun + 1) * Fx::from_ratio(9, 100)).min(Fx::from_ratio(13, 10)) / Fx::from_int(8)
+}
+
+/// Whether fighter `fd`'s passive shield (E14, `FighterParams::passive_shield`) stops a projectile box at `at` (`half` and `radius`
+/// already scaled) moving at `vel`: the fighter stands, walks or crouches on the ground, the shot is in front of it and not moving
+/// away from its front, and the box touches the shield's capsule.
+fn passive_shield_blocks(
+    fd: &Fighter,
+    pd: &FighterParams,
+    at: Vec2,
+    half: Fx,
+    radius: Fx,
+    vel: Vec2,
+) -> bool {
+    let Some(sh) = pd.passive_shield else {
+        return false;
+    };
+    if !fd.grounded() || !matches!(fd.state, S::Idle | S::Walk | S::Crouch) {
+        return false;
+    }
+    let facing = i32::from(fd.facing);
+    let ahead = (at.x - fd.pos.x).mul_int(facing);
+    if ahead <= Fx::ZERO || vel.x.mul_int(facing) > Fx::ZERO {
+        return false;
+    }
+    let scale = pd.hitbox_scale;
+    let y = if fd.state == S::Crouch {
+        sh.crouch_y
+    } else {
+        sh.y
+    };
+    let centre = fd.pos + Vec2::new((sh.x * scale).mul_int(facing), y * scale);
+    capsules_touch(
+        at,
+        half,
+        radius,
+        centre,
+        sh.half_height * scale,
+        sh.radius * scale,
+    )
+}
+
+/// A projectile's hit stopped by a passive shield (E14): no damage or launch; the fighter freezes for the hit's hitlag on a shield
+/// (with shield SDI, `Fighter::shield_sdi`) and is pushed back, away from its front, as a raised shield would be by the hit (no shield
+/// damage, no shield stun) [E: the reference's push is "dependent on the damage and knockback", its formula unpublished].
+fn passive_block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox) {
+    let scale = Fx::from_ratio(i32::from(hb.hitlag), 100).max(Fx::ONE);
+    def.hitlag = hitlag_frames(hb.damage, rules, true, false, scale);
+    def.sdi_wait = 0;
+    def.shield_sdi = def.hitlag > 0;
+    let stun = shield_stun_frames(hb.damage, STUN_PROJECTILE, hb.shieldstun)
+        .clamp(0, i32::from(rules.shield_stun_cap));
+    def.vel.x -= shield_pushback(stun).mul_int(i32::from(def.facing));
 }
 
 /// Shield stun type multipliers (the reference's), in thousandths: most hits 1, aerials 0.33, smash attacks 0.725, projectiles 0.29.
@@ -1406,6 +1478,21 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 continue;
             }
             let pd = params_of(content, fd);
+            // A passive shield in the way stops the shot (E14): a burst is not stopped.
+            if burst.is_none()
+                && !intangible
+                && passive_shield_blocks(fd, pd, pos, hb.half_height, hb.radius, pr.vel)
+            {
+                passive_block(&mut state.fighters[d], &content.rules, &hb);
+                let p = &mut state.projectiles[n];
+                p.hit_mask |= bit;
+                p.hit_age[d] = age;
+                if !pierce {
+                    p.active = false;
+                    break;
+                }
+                continue;
+            }
             let wd = weapon_of(content, pd);
             let hurt = hurtboxes(fd, pd, wd);
             let (touching, caught) = reach(

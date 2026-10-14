@@ -227,8 +227,27 @@ pub struct FighterParams {
     /// The midair jump turns the fighter round when the stick is held back (past the deadzone) as it jumps: the reference's
     /// double-jump turnaround, a trait of a few bodies. False: the facing stays.
     pub air_jump_turns: bool,
+    /// A shield carried in front that stops projectiles while the fighter stands, walks or crouches (E14, the reference's passive
+    /// shield; see [`PassiveShield`]). `None` for none.
+    pub passive_shield: Option<PassiveShield>,
     /// Index into `Content::weapons`.
     pub weapon: u8,
+}
+
+/// A passive shield (E14, the reference's): while the fighter is standing (`Idle`), walking or crouching on the ground, a projectile
+/// whose box touches this standing capsule (centred `x` ahead of the feet, the way it faces, and `y` up, or `crouch_y` up while
+/// crouching; `half_height` above and below the centre, of `radius`), coming from in front, is blocked: no damage and no launch; the
+/// fighter freezes for the shield's hitlag (shield SDI allowed) and is pushed back as a shield is by that hit (`combat::block`'s
+/// pushback, with no shield damage or stun); the projectile ends as on a shield (a piercing one goes on). It never breaks and blocks any
+/// number of shots. Melee hits are never blocked (the reference blocks only reflectable hitboxes: every projectile here, no melee hit).
+/// Scaled by the body's `hitbox_scale`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PassiveShield {
+    pub x: Fx,
+    pub y: Fx,
+    pub crouch_y: Fx,
+    pub half_height: Fx,
+    pub radius: Fx,
 }
 
 /// A gauge that fills from damage dealt and taken (and from moves that charge it), and a powered mode while it is full: the
@@ -607,6 +626,7 @@ impl FighterParams {
             gauge: Gauge::NONE,
             air_jump_armor: None,
             air_jump_turns: false,
+            passive_shield: None,
             walk_speed: gu(1400),
             run_speed: gu(1800),
             dash_speed: gu(2200),
@@ -1357,6 +1377,15 @@ impl StateHash for FighterParams {
             None => h.write_bool(false),
         }
         h.write_bool(self.air_jump_turns);
+        match &self.passive_shield {
+            Some(s) => {
+                h.write_bool(true);
+                for v in [s.x, s.y, s.crouch_y, s.half_height, s.radius] {
+                    v.hash_into(h);
+                }
+            }
+            None => h.write_bool(false),
+        }
     }
 }
 

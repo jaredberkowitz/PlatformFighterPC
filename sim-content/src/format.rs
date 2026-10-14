@@ -259,6 +259,7 @@ macro_rules! params_io {
                 gauge: base.map_or(Gauge::NONE, |b| b.gauge),
                 air_jump_armor: base.and_then(|b| b.air_jump_armor),
                 air_jump_turns: false,
+                passive_shield: base.and_then(|b| b.passive_shield),
                 weapon,
             }
         }
@@ -663,6 +664,9 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         rebounds: f.or("rebounds", true, errors),
         trip: f.or("trip", 0, errors),
         half_height: f.or("half_height", Fx::ZERO, errors),
+        posvec_x: f.or("posvec_x", Fx::ZERO, errors),
+        posvec_y: f.or("posvec_y", Fx::ZERO, errors),
+        posvec_frames: f.or("posvec_frames", 0, errors),
     };
     f.finish(errors);
     hb
@@ -746,6 +750,11 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.half_height != Fx::ZERO {
         b.field("half_height", hb.half_height.show());
+    }
+    if hb.posvec_frames != 0 {
+        b.field("posvec_x", hb.posvec_x.show());
+        b.field("posvec_y", hb.posvec_y.show());
+        b.field("posvec_frames", hb.posvec_frames.to_string());
     }
     match hb.angle_type {
         ANGLE_FORWARD => b.field("angle_type", "forward"),
@@ -846,6 +855,9 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.gauge_drain = f.or("gauge_drain", false, errors);
     m.start_speed_y = f.or("start_speed_y", 100, errors);
     m.motion_drift = f.or("motion_drift", 0, errors);
+    m.fall_speed = f.parsed("fall_speed", errors);
+    m.fall_accel = f.parsed("fall_accel", errors);
+    m.keep_charge = f.or("keep_charge", false, errors);
     let drop_front: Option<Fx> = f.parsed("ledge_drop_front", errors);
     let drop_back: Option<Fx> = f.parsed("ledge_drop_back", errors);
     match (drop_front, drop_back) {
@@ -920,6 +932,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 friction: f.parsed("friction", errors),
                 drift: f.or("drift", 100, errors),
                 accel: f.or("accel", 100, errors),
+                speed: f.parsed("speed", errors),
+                accel_stick: f.parsed("accel_stick", errors),
             };
             f.finish(errors);
             a
@@ -1012,6 +1026,9 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     rebounds: true,
                     trip: 0,
                     half_height: Fx::ZERO,
+                    posvec_x: Fx::ZERO,
+                    posvec_y: Fx::ZERO,
+                    posvec_frames: 0,
                 }
             }
         };
@@ -1226,10 +1243,15 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("air_max_fall", m.air_max_fall),
         ("air_friction", m.air_friction),
         ("air_max_rise", m.air_max_rise),
+        ("fall_speed", m.fall_speed),
+        ("fall_accel", m.fall_accel),
     ] {
         if let Some(v) = value {
             b.field(name, v.show());
         }
+    }
+    if m.keep_charge {
+        b.field("keep_charge", "true");
     }
     if let Some(c) = m.charge_at {
         b.field("charge_at", c.to_string());
@@ -1311,6 +1333,11 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         }
         if a.accel != 100 {
             c.field("accel", a.accel.to_string());
+        }
+        for (name, v) in [("speed", a.speed), ("accel_stick", a.accel_stick)] {
+            if let Some(v) = v {
+                c.field(name, v.show());
+            }
         }
         b.push(c);
     }
@@ -1693,7 +1720,12 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             continue;
         }
         let context = format!("fighter `{name}`");
-        only_known(b, &["gauge", "air_jump_armor"], &context, errors);
+        only_known(
+            b,
+            &["gauge", "air_jump_armor", "passive_shield"],
+            &context,
+            errors,
+        );
         let mut f = Fields::new(b, &context, errors);
         let mut base: Option<FighterParams> = None;
         if let Some((from, line)) = f.raw("inherit") {
@@ -1750,6 +1782,24 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
                 &format!("the air-jump armor of {context}"),
                 errors,
             ));
+        }
+        // The passive shield (sim 91, E14): a `passive_shield { ... }` block, or the inherited fighter's, or none.
+        if let Some(s) = at_most_one(
+            children(b, "passive_shield"),
+            "passive_shield",
+            &context,
+            errors,
+        ) {
+            let ctx = format!("the passive shield of {context}");
+            let mut f = Fields::new(s, &ctx, errors);
+            params.passive_shield = Some(sim_core::content::PassiveShield {
+                x: f.need("x", None, errors),
+                y: f.need("y", None, errors),
+                crouch_y: f.need("crouch_y", None, errors),
+                half_height: f.or("half_height", Fx::ZERO, errors),
+                radius: f.need("radius", None, errors),
+            });
+            f.finish(errors);
         }
         fighters.push((name.to_string(), params));
     }
@@ -1879,6 +1929,17 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
     }
     if let Some(a) = &p.air_jump_armor {
         b.push(write_armor("air_jump_armor", a));
+    }
+    if let Some(s) = &p.passive_shield {
+        let mut c = Block::new("passive_shield", None);
+        c.field("x", s.x.show());
+        c.field("y", s.y.show());
+        c.field("crouch_y", s.crouch_y.show());
+        if s.half_height != Fx::ZERO {
+            c.field("half_height", s.half_height.show());
+        }
+        c.field("radius", s.radius.show());
+        b.push(c);
     }
     b
 }

@@ -134,6 +134,8 @@ pub const R_LOCK_Y: u8 = 25;
 pub const R_BOOST: u8 = 26;
 pub const R_BOOSTING: u8 = 27;
 pub const R_GRAB: u8 = 28;
+// (29 is kept for the Bracers' `aimed`, on another branch.)
+pub const R_FAST_FALL: u8 = 30;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -239,6 +241,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "1 while the gauge's powered mode runs, else 0",
     ),
     reg("grab", R_GRAB, "grab button held"),
+    reg(
+        "fast_fall",
+        R_FAST_FALL,
+        "1 while the fighter is fast falling (since its last jump, landing or hit), else 0",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[

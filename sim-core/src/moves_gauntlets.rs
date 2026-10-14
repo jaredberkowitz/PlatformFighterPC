@@ -136,6 +136,8 @@ fn slide_kick(w: &mut Weapon) {
         friction: Some(Fx::ZERO),
         drift: 0,
         accel: 100,
+        speed: None,
+        accel_stick: None,
     }];
     w.moves[KICK_OFF_EDGE as usize] = edge;
 
@@ -245,6 +247,8 @@ fn charged_punch(w: &mut Weapon) {
         friction: Some(Fx::ZERO),
         drift: 0,
         accel: 100,
+        speed: None,
+        accel_stick: None,
     };
     let mut air = finish(ref_move(104, 0, 0, 255, &punch(53, 57, 220, 93, 59, true)));
     air.air_blocks = vec![still(18)];
@@ -306,6 +310,8 @@ fn leaping_grab(w: &mut Weapon) {
             friction: None,
             drift: 95,
             accel: 600,
+            speed: None,
+            accel_stick: None,
         },
         AirBlock {
             from: 31,
@@ -315,6 +321,8 @@ fn leaping_grab(w: &mut Weapon) {
             friction: None,
             drift: 95,
             accel: 100,
+            speed: None,
+            accel_stick: None,
         },
     ];
     dive.fast_fall_from = 49;
