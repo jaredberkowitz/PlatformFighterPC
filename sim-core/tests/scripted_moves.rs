@@ -968,3 +968,24 @@ fn detonate_bursts_the_fighters_items_after_their_delay_but_not_one_another_figh
     assert_eq!(sim.state.items[taken].rest, sim_core::state::ITEM_HELD);
     assert_eq!(sim.state.items[taken].fuse, 0);
 }
+
+#[test]
+fn the_balloons_register_reads_the_balloons_carried_in_a_balloon_move() {
+    // Sim 113 (E41): `balloons` is how many balloons the fighter carries in its balloon move: two from a full tank, one from a low
+    // one, and none in a move without a `balloons` block.
+    for (block, used, want) in [(true, 0u16, 2), (true, 200 * 16, 1), (false, 0, 0)] {
+        let mut mv = scripted(20, "var b; b = balloons;");
+        if block {
+            mv.balloons = Some(sim_core::moves::pockets_slots::balloon_block());
+        }
+        let mut sim = with_special(mv);
+        sim.state.fighters[0].helium_used = used;
+        start(&mut sim);
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(
+            sim.f().vars[0],
+            Fx::from_int(want).raw(),
+            "block {block}, used {used}"
+        );
+    }
+}

@@ -81,6 +81,26 @@ pub fn cos(a: Angle) -> Fx {
     sin(a.wrapping_add(Angle::QUARTER_TURN))
 }
 
+/// The direction of `(x, y)` in whole degrees, counter-clockwise from +x, from -179 to 180 (0 for a zero vector): the whole degree
+/// whose direction lies closest to it (an integer search over the table, so it is the same on every machine).
+pub fn degrees_of(x: Fx, y: Fx) -> i16 {
+    if x == Fx::ZERO && y == Fx::ZERO {
+        return 0;
+    }
+    let mut best = 0i32;
+    let mut best_score = Fx::from_int(-4);
+    for d in 0..360 {
+        let a = Angle::from_degrees(d);
+        // The cosine of the gap times the length: largest for the closest direction.
+        let score = cos(a) * x + sin(a) * y;
+        if score > best_score {
+            best_score = score;
+            best = d;
+        }
+    }
+    (if best > 180 { best - 360 } else { best }) as i16
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,6 +142,20 @@ mod tests {
             let sum = (s * s + c * c).raw();
             assert!((sum - Fx::ONE.raw()).abs() <= 8, "angle {raw}: {sum}");
         }
+    }
+
+    #[test]
+    fn degrees_of_finds_the_direction() {
+        let one = Fx::ONE;
+        assert_eq!(degrees_of(one, Fx::ZERO), 0);
+        assert_eq!(degrees_of(Fx::ZERO, one), 90);
+        assert_eq!(degrees_of(-one, Fx::ZERO), 180);
+        assert_eq!(degrees_of(Fx::ZERO, -one), -90);
+        assert_eq!(degrees_of(one, -one), -45);
+        assert_eq!(degrees_of(-one, -one), -135);
+        // tan(30) = 0.57735
+        assert_eq!(degrees_of(one, Fx::from_ratio(57735, 100_000)), 30);
+        assert_eq!(degrees_of(Fx::ZERO, Fx::ZERO), 0);
     }
 
     #[test]

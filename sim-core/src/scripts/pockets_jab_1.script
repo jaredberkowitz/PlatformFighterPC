@@ -1,0 +1,3 @@
+// Settler jab 1 (the previous reference version's, owner decision 66). Attack held (no new press) carries on into jab 2 (slot 17) at the
+// move's end [E: that version's held rule is not published]. A new press from frame 7 carries on through the move's `next_from`.
+if attack && frame == 19 { goto(17); }

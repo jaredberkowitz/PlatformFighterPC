@@ -19,7 +19,7 @@ use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
     ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
     ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    HIT_SEARCH, HIT_THROW, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{
@@ -218,10 +218,30 @@ pub fn fixed_knockback(fkv: u16, weight: Fx, base: i16, growth: i16) -> Fx {
 /// (its hitlag multiplier, and 1.5 for an electric hit), times 0.67 on a shield, times 0.67 again against a crouch, at most
 /// `hitlag_cap`. A hit that deals no damage has none.
 pub fn hitlag_frames(damage: Fx, rules: &Ruleset, shield: bool, crouch: bool, scale: Fx) -> u8 {
+    hitlag_frames_by(
+        damage,
+        (rules.hitlag_per_damage, rules.hitlag_base),
+        rules,
+        shield,
+        crouch,
+        scale,
+    )
+}
+
+/// [`hitlag_frames`] with the formula's two numbers given (`per_damage`, `base`): the previous reference version's for a hit on its
+/// rules (E40: `Ruleset::prev_hitlag_per_damage` and `prev_hitlag_base`).
+pub fn hitlag_frames_by(
+    damage: Fx,
+    (per_damage, base): (Fx, Fx),
+    rules: &Ruleset,
+    shield: bool,
+    crouch: bool,
+    scale: Fx,
+) -> u8 {
     if damage <= Fx::ZERO {
         return 0;
     }
-    let mut lag = (damage * rules.hitlag_per_damage + rules.hitlag_base) * scale;
+    let mut lag = (damage * per_damage + base) * scale;
     if shield {
         lag = lag * rules.shield_hitlag_mult;
     }
@@ -269,12 +289,18 @@ fn push_stale(queue: &mut [u8; STALE_QUEUE], move_key: u8, shielded: bool) {
 
 /// Rage: the attacker's percent raises knockback linearly from `rage_start` to `rage_full`, by up to `rage_max`.
 pub fn rage_multiplier(attacker_percent: Fx, rules: &Ruleset) -> Fx {
+    rage_multiplier_up_to(attacker_percent, rules, rules.rage_max)
+}
+
+/// [`rage_multiplier`] reaching `max` instead of the ruleset's `rage_max` (the previous reference version's 0.15 for a hit on its
+/// rules: E40).
+pub fn rage_multiplier_up_to(attacker_percent: Fx, rules: &Ruleset, max: Fx) -> Fx {
     let span = rules.rage_full - rules.rage_start;
     if span <= Fx::ZERO {
         return Fx::ONE;
     }
     let t = ((attacker_percent - rules.rage_start) / span).clamp(Fx::ZERO, Fx::ONE);
-    Fx::ONE + t * rules.rage_max
+    Fx::ONE + t * max
 }
 
 /// World launch angle: mirrored when the attacker faces left, with the 361 angle resolved.
@@ -371,6 +397,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     let mut caught = [[false; MAX_FIGHTERS]; MAX_FIGHTERS];
     // Attackers whose search box touched someone this frame (see `HIT_SEARCH`).
     let mut searched = [false; MAX_FIGHTERS];
+    // Hits that reached a defender's balloons but not its body (E41, sim 113).
+    let mut on_balloons: [[Option<Hitbox>; MAX_FIGHTERS]; MAX_FIGHTERS] =
+        [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
         if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
@@ -437,12 +466,40 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     chosen_at[a][d] = center;
                     caught[a][d] = catches;
                 }
+                // (A hit that misses the body may still reach its balloons: E41.)
+                if !touching
+                    && hb.kind == HIT_NORMAL
+                    && !hb.push
+                    && fd.balloons > 0
+                    && on_balloons[a][d].is_none_or(|b| hb.priority < b.priority)
+                    && crate::balloons::touches(
+                        content,
+                        fd,
+                        center,
+                        hb.half_width,
+                        hb.half_height,
+                        hb.radius,
+                    )
+                {
+                    on_balloons[a][d] = Some(hb);
+                }
             }
             chosen[a][d] = best;
         }
     }
 
     clank_attacks(state, content, &mut chosen);
+
+    // Balloons (E41): a hit that reached only a defender's balloons is used up on them (the move does not hit that fighter again),
+    // unless the move also hit the body this frame.
+    for a in 0..MAX_FIGHTERS {
+        for d in 0..MAX_FIGHTERS {
+            if let (None, Some(hb)) = (chosen[a][d], on_balloons[a][d]) {
+                state.fighters[a].hit_mask |= hit_bit(d, hb.group);
+                crate::balloons::hit(state, content, d, hb.damage);
+            }
+        }
+    }
 
     let mut struck = [false; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
@@ -920,6 +977,19 @@ pub(crate) fn apply_hit(
 
     let shielding = state.fighters[d].state == S::Shield;
     let crouching = state.fighters[d].state == S::Crouch && state.fighters[d].grounded();
+    // A hit on the previous reference version's rules (E40, owner decisions 66-67): its damage multiplier, hitlag, rage, hitstun and
+    // launch (below).
+    let older = hb.rules == RULES_PREVIOUS;
+    let damage_mult = if older {
+        rules.prev_damage_mult
+    } else {
+        rules.damage_mult
+    };
+    let lag_formula = if older {
+        (rules.prev_hitlag_per_damage, rules.prev_hitlag_base)
+    } else {
+        (rules.hitlag_per_damage, rules.hitlag_base)
+    };
     // The hitbox's own hitlag factor (ignored on a shield when it would shorten it) and the electric effect.
     let mut scale = Fx::from_ratio(i32::from(hb.hitlag), 100);
     if shielding && scale < Fx::ONE {
@@ -933,7 +1003,13 @@ pub(crate) fn apply_hit(
     let hitlag = if hb.push {
         0
     } else {
-        hitlag_frames(hb.damage, rules, shielding, crouching, scale)
+        hitlag_frames_by(hb.damage, lag_formula, rules, shielding, crouching, scale)
+    };
+    // (The previous version shortened only the victim's hitlag against a crouch; the attacker's is the uncrouched one.)
+    let source_hitlag = if older && crouching && !hb.push {
+        hitlag_frames_by(hb.damage, lag_formula, rules, shielding, false, scale)
+    } else {
+        hitlag
     };
     // A fighter in a counter stance catches the hit instead of taking it.
     if caught && catch_with_counter(state, content, source, d, hb.damage, hitlag, freeze_source) {
@@ -950,13 +1026,21 @@ pub(crate) fn apply_hit(
     }
     if freeze_source {
         // Hitting several fighters on one frame freezes the attacker for the longest of their hitlags.
-        state.fighters[source].hitlag = state.fighters[source].hitlag.max(hitlag);
+        state.fighters[source].hitlag = state.fighters[source].hitlag.max(source_hitlag);
     }
     if rules.stale_moves != 0 && hb.damage > Fx::ZERO {
         push_stale(&mut state.fighters[source].stale, move_key, shielding);
     }
 
-    let rage = rage_multiplier(state.fighters[source].percent, rules);
+    let rage = rage_multiplier_up_to(
+        state.fighters[source].percent,
+        rules,
+        if older {
+            rules.prev_rage_max
+        } else {
+            rules.rage_max
+        },
+    );
     let puller = state.fighters[source].pos;
     // A position vector's point (E34): ahead of and above the attacker's feet, by its facing, where it hit.
     let posvec_point = puller
@@ -985,7 +1069,7 @@ pub(crate) fn apply_hit(
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
-        block(def, rules, &hb, facing, hitlag, stun_mult);
+        block(def, rules, &hb, facing, hitlag, stun_mult, damage_mult);
         if hb.push {
             // A push shoves the shield back (its horizontal part).
             let kb = fixed_or_plain_kb(&hb, def.percent, kb_damage, defender_params.weight, rage);
@@ -1000,7 +1084,7 @@ pub(crate) fn apply_hit(
     }
 
     let before = def.percent;
-    def.percent = (def.percent + hb.damage * rules.damage_mult).min(Fx::from_int(999));
+    def.percent = (def.percent + hb.damage * damage_mult).min(Fx::from_int(999));
     let added = def.percent - before;
     // The gauges (the damage actually added: owner decision 32). The victim is still in the move it was hit in, so a hit during a
     // draining move drains.
@@ -1176,6 +1260,10 @@ pub(crate) fn apply_hit(
         return;
     }
     let mut stun = hitstun_frames(kb, rules.hitstun_mult);
+    // (The previous reference version added a frame to a tumbling launch's hitstun: ssbwiki.com `Hitstun`.)
+    if older && stun > 0 && kb >= rules.tumble_knockback {
+        stun += u16::from(rules.prev_tumble_hitstun);
+    }
     if stun > 0 {
         // (A negative modifier shortens it, but a launched victim keeps at least one frame [E: the reference floors it at 0 and
         // still launches; here 0 would mean a flinch].)
@@ -1228,6 +1316,7 @@ pub(crate) fn apply_hit(
     def.launch_pending = true;
     def.launch_kb = kb;
     def.launch_set = hb.fixed_kb > 0;
+    def.launch_older = older;
     def.launch_angle = angle.raw();
     def.link = link_hit;
     def.link_kind = if posvec_hit {
@@ -1334,7 +1423,15 @@ fn reverse(def: &mut Fighter, source_pos: Vec2) {
 /// A hit on a raised shield: no damage or launch. The shield loses health (unless it was a perfect shield),
 /// the blocker is stunned for `floor(0.8 * damage * type * multiplier + 2)` frames (the reference's formula, see
 /// [`shield_stun_frames`]) and slides back. If the shield runs out it breaks.
-fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8, stun_mult: u16) {
+fn block(
+    def: &mut Fighter,
+    rules: &Ruleset,
+    hb: &Hitbox,
+    facing: i8,
+    hitlag: u8,
+    stun_mult: u16,
+    damage_mult: Fx,
+) {
     let perfect = def.state_frame <= u16::from(rules.perfect_shield_window);
     let raw = shield_stun_frames(hb.damage, stun_mult, hb.shieldstun);
     let mut stun = raw.clamp(0, i32::from(rules.shield_stun_cap));
@@ -1345,8 +1442,7 @@ fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8
         stun = (stun - i32::from(rules.perfect_shield_stun_cut)).max(0);
     } else {
         let shield_damage =
-            hb.damage * rules.damage_mult * Fx::from_int(i32::from(hb.shield_damage))
-                / Fx::from_int(100);
+            hb.damage * damage_mult * Fx::from_int(i32::from(hb.shield_damage)) / Fx::from_int(100);
         def.shield_hp -= shield_damage;
         if def.shield_hp <= Fx::ZERO {
             fighter::break_shield(def, rules);
@@ -1556,7 +1652,17 @@ fn add_projectile(
         return;
     }
     let (mut vel, mut life, mut size, mut damage) = (shot.vel, spec.life, shot.size, Fx::ZERO);
+    let mut power = 100u8;
     if let Some(c) = spec.charged {
+        // (Every hit of the shot, its phases too, by the charge: `ChargedShot::power_to`, sim 113.)
+        power = c
+            .lerp(
+                Fx::from_int(100),
+                Fx::from_int(i32::from(c.power_to)),
+                c.level(f.charge),
+            )
+            .floor_int()
+            .clamp(1, 255) as u8;
         let level = c.level(f.charge);
         // (The speed is a ratio of the uncharged one, so a script's own direction and speed are scaled alike.)
         if spec.speed != Fx::ZERO {
@@ -1599,7 +1705,7 @@ fn add_projectile(
             active: true,
             owner: i as u8,
             origin: i as u8,
-            power: 100,
+            power,
             move_id: f.move_id,
             pos: shot.pos,
             vel,
@@ -1712,6 +1818,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                         item.life = u16::from(arc.lodge);
                         item.owner = pr.owner;
                         item.facing = pr.facing;
+                        // (The way it was flying as it stuck, for the view to point it: sim 113.)
+                        item.angle = crate::trig::degrees_of(pr.vel.x, pr.vel.y);
                     }
                     continue;
                 }
@@ -1895,6 +2003,31 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 intangible_parts(fd, wd),
                 pos,
             );
+            if !touching
+                && !intangible
+                && hb.kind == HIT_NORMAL
+                && !hb.push
+                && fd.balloons > 0
+                && crate::balloons::touches(
+                    content,
+                    fd,
+                    pos,
+                    hit_shape.half_w,
+                    hit_shape.half_h,
+                    hit_shape.radius,
+                )
+            {
+                // (A shot that reaches only the balloons is used up on them, as on a fighter: E41.)
+                crate::balloons::hit(state, content, d, hb.damage);
+                let p = &mut state.projectiles[n];
+                p.hit_mask |= bit;
+                p.hit_age[d] = age;
+                if !pierce {
+                    p.active = false;
+                    break;
+                }
+                continue;
+            }
             if touching {
                 // Forward is the way it travels; a projectile standing still faces the way its owner did when it was made.
                 let travel = if pr.vel.x < Fx::ZERO {
@@ -1925,8 +2058,9 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 p.hit_mask |= bit;
                 p.hit_age[d] = age;
                 if burst.is_none() {
-                    // The first fighter it touches makes a bursting projectile burst there (E3e).
-                    if let Some(b) = spec.burst {
+                    // The first fighter it touches makes a bursting projectile burst there (E3e), unless it bursts only on walls, the
+                    // ground or its life's end (`Burst::on_hit` false, sim 113): then it is used up on the fighter as any shot.
+                    if let Some(b) = spec.burst.filter(|b| b.on_hit) {
                         start_burst(p, &b, pos, scale);
                         break;
                     }

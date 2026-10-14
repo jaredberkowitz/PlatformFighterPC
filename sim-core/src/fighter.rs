@@ -462,6 +462,33 @@ fn air_momentum(vx: Fx, p: &FighterParams, rules: &Ruleset) -> Fx {
     (vx * rules.jump_momentum).clamp(-cap, cap)
 }
 
+/// Ends whatever the fighter is doing: standing if it is on the ground, else falling (sim 113: balloons that let go on the ground).
+pub fn stand_or_fall(f: &mut Fighter) {
+    enter(f, if f.grounded() { S::Idle } else { S::Airborne });
+}
+
+/// Random versions (E39, sim 113: `Move::versions`): a move that has just begun (on its first frame) draws its version from the
+/// game's random generator: `(chance, slot)` with `chance` percent each, else the move itself. A version has no versions of its own,
+/// so the draw happens once.
+pub fn draw_version(f: &mut Fighter, weapon: &Weapon, rng: &mut crate::rng::Rng) {
+    if f.state != S::Attack || f.state_frame != 0 || f.hitlag > 0 {
+        return;
+    }
+    let versions = &weapon.get(f.move_id).versions;
+    if versions.is_empty() {
+        return;
+    }
+    let roll = rng.range(100);
+    let mut upto = 0u32;
+    for (chance, slot) in versions {
+        upto += u32::from(*chance);
+        if roll < upto {
+            f.move_id = *slot;
+            return;
+        }
+    }
+}
+
 /// Puts a fighter into the special fall (what an up-special will do when it ends).
 pub fn enter_helpless(f: &mut Fighter) {
     f.fast_fall = false;
@@ -1850,6 +1877,7 @@ fn buried(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
         f.launch_kb = kb;
         f.launch_angle = f.bury_angle;
         f.launch_set = false;
+        f.launch_older = false;
         f.link = false;
         f.pull = false;
         f.kb_vel = Vec2::ZERO;
@@ -3072,7 +3100,9 @@ fn launch_speedup(f: &Fighter, rules: &Ruleset) -> Fx {
 /// weak to tumble: the fixed fall belongs to the reference's upward tumble (its "fly top" animation; sim 97).
 fn launch_fall(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> (Fx, Fx) {
     let degrees = i32::from(f.launch_angle) * 360 / 4096;
+    // (Nor does a launch on the previous reference version's rules, E40: that version had no shared fall speed.)
     if !f.launch_set
+        && !f.launch_older
         && f.tumble
         && (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
             .contains(&degrees)
@@ -3549,7 +3579,8 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     let degrees = i32::from(f.launch_angle) * 360 / 4096;
     let vertical = (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
         .contains(&degrees);
-    if f.tumble && !vertical {
+    // (The previous reference version's rules, E40, boost every tumbling launch: it had no vertical band.)
+    if f.tumble && (!vertical || f.launch_older) {
         f.kb_vel.y += rules.gravity_boost * (p.gravity - rules.gravity_boost_from);
     }
     f.vel = Vec2::ZERO;
@@ -3559,6 +3590,7 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     let faf = f.hitstun + 1;
     if f.tumble
         && !f.launch_set
+        && !f.launch_older
         && faf > u16::from(rules.balloon_min_faf)
         && rules.balloon_max > Fx::ONE
     {

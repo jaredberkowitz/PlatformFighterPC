@@ -179,6 +179,7 @@ impl Host for FighterHost<'_> {
             api::R_HOLDING => {
                 Fx::from_int(i32::from(crate::items::held_kind(self.world.items, f))).raw()
             }
+            api::R_BALLOONS => Fx::from_int(i32::from(f.balloons)).raw(),
             _ => 0,
         }
     }

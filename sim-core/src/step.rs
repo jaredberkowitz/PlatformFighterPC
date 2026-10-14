@@ -104,6 +104,16 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         wants[i] = fighter::update(f, &params, weapon, stage, &content.rules, *input, &world);
     }
 
+    // A move that has just begun draws its random version (E39), and balloons come out, use helium and go (E41).
+    for i in 0..MAX_FIGHTERS {
+        if state.fighters[i].active {
+            let params = params_of(content, &state.fighters[i]);
+            let weapon = combat::weapon_of(content, params);
+            fighter::draw_version(&mut state.fighters[i], weapon, &mut state.rng);
+        }
+    }
+    crate::balloons::update(state, content);
+
     // Bodies on the ground cannot pass through each other (see `push`).
     crate::push::separate(state, content, &before);
 

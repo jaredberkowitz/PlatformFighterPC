@@ -1,0 +1,18 @@
+// Riding the rocket (ext4; frame 0 is the reference's frame 16). A hit on anyone while it flies bounces off (ext5, slot 33), a wall
+// crashes (ext6, 34), a jump press hops off (ext7, 35). Still until frame 36 (the reference's 52), flying to 100 (116) at 1.7 of the
+// reference's units a frame (0.2125) plus up to 0.6 (0.075) by the stick, slowing by 1.7 / 60 (0.003542) a frame and dropping under
+// 0.04 (0.005) to at most 1.0 (0.125) to 160 (176); the burst on 161-163 (177-179) [E: the speeds].
+var j;
+if hit == 1 && frame <= 160 { goto(33); }
+if frame > 36 && wall == 1 { goto(34); }
+if jump && j == 0 && frame > 0 { goto(35); }
+j = jump;
+if frame < 36 {
+    set_vel(0, 0);
+} else if frame <= 100 {
+    set_vel(0.2125 + stick_x * 0.075, 0);
+} else if frame <= 160 {
+    set_vel(max(0.2125 - (frame - 100) * 0.003542, 0), max(0 - (frame - 100) * 0.005, -0.125));
+} else {
+    set_vel(0, 0);
+}

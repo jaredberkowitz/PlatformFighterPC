@@ -360,7 +360,17 @@ pub struct Hitbox {
     /// far ahead of and behind its centre as well (with `half_height`, a rounded rectangle). Scaled by the body's `hitbox_scale`
     /// but not by a projectile's own size (the reference scales a shot's radius, not its capsule's ends). 0: as before.
     pub half_width: Fx,
+    /// Which version of the reference's hit rules this hit follows (E40, sim 113, owner decisions 66-67): [`RULES_CURRENT`] (the
+    /// default: 13.0.1's, as every other hit) or [`RULES_PREVIOUS`] (the previous reference version's, 1.1.x: no one-on-one damage
+    /// multiplier, its hitlag formula with a crouch shortening only the victim's, its rage, one more hitstun frame on a tumbling
+    /// launch, and its launch physics: no launch speed-up, the gravity boost on every tumbling launch and no shared fall speed for a
+    /// vertical one). The numbers are the ruleset's `prev_*`. Only moves the owner names use it (the Settler's jab).
+    pub rules: u8,
 }
+
+/// `Hitbox::rules` values (E40, sim 113).
+pub const RULES_CURRENT: u8 = 0;
+pub const RULES_PREVIOUS: u8 = 1;
 
 /// `Hitbox::angle_type` values.
 pub const ANGLE_BY_BOX: u8 = 0;
@@ -418,6 +428,7 @@ impl Hitbox {
         self.posvec_y = Fx::ZERO;
         self.posvec_frames = 0;
         self.half_width = Fx::ZERO;
+        self.rules = RULES_CURRENT;
         self
     }
 }
@@ -511,6 +522,10 @@ pub struct ChargedShot {
     /// Sim 111: percent of that damage the shot deals (100: all), applied after the floor and rounded down again with `floor` (the
     /// reference's double arrow: each arrow deals floor(0.8 x the single arrow's damage)).
     pub times: u8,
+    /// Sim 113: every hit of the shot, its later hits by age too, deals from 100 percent at no charge to `power_to` percent at `full`
+    /// (in proportion: the reference's smash-attack charge carried by a shot a smash attack makes, such as the settler's bowling
+    /// ball, 1.2x at full). 100 (the default): no change.
+    pub power_to: u16,
 }
 
 impl ChargedShot {
@@ -616,6 +631,10 @@ pub struct Burst {
     pub on_ground: bool,
     pub on_expire: bool,
     pub keep_hits: bool,
+    /// Sim 113: touching a fighter bursts it (the default, as before). False: a fighter it touches takes the projectile's own hit and
+    /// the projectile is used up there with no burst (the reference's rocket, which bursts only against a wall or when its flight
+    /// runs out); `on_wall`, `on_ground` and `on_expire` still burst it.
+    pub on_hit: bool,
 }
 
 impl Burst {
@@ -637,6 +656,7 @@ impl Burst {
         h.write_bool(self.on_ground);
         h.write_bool(self.on_expire);
         h.write_bool(self.keep_hits);
+        h.write_bool(self.on_hit);
         self.y.hash_into(h);
         for phase in &self.phases {
             match phase {
@@ -1283,6 +1303,46 @@ impl Encase {
     }
 }
 
+/// Balloons (E41, sim 113: the reference's balloon flight, owner decision 68). A move with this block flies on balloons: while the
+/// fighter is in a move with one, it carries `count` balloons (one if its helium is below `one_below`), each popped by hits on the
+/// balloons' hurt circle that do not also touch the body (a hit that touches the body is an ordinary hit, which ends the flight):
+///
+/// * the helium (`Fighter::helium_used`, sixteenths of a frame of flight used) is a tank of `fuel` frames: every frame of a balloon
+///   move outside hitlag uses one; when it runs out the balloons let go and the fighter falls helpless; out of a balloon move it
+///   refills `refill` sixteenths a frame (the reference's slow recharge), and a KO fills it;
+/// * the balloons' circle is `radius` around the point `x` ahead of and `y` above the feet (scaled by the body's `hitbox_scale`);
+///   each balloon takes `hp` percent of damage (before the one-on-one multiplier) and pops, a hit popping at most one;
+/// * when the last balloon pops the fighter falls helpless with `pop_vy` upward speed (the reference's little hop);
+/// * a script reads the count as the `balloons` register (its flaps are weaker on one balloon).
+///
+/// Leaving a balloon move for one without the block (the move's end, `end()`, a hit) lets the balloons go.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Balloons {
+    pub count: u8,
+    pub hp: Fx,
+    pub x: Fx,
+    pub y: Fx,
+    pub radius: Fx,
+    pub fuel: u16,
+    pub refill: u16,
+    pub one_below: u16,
+    pub pop_vy: Fx,
+}
+
+impl Balloons {
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_u8(self.count);
+        self.hp.hash_into(h);
+        self.x.hash_into(h);
+        self.y.hash_into(h);
+        self.radius.hash_into(h);
+        h.write_u16(self.fuel);
+        h.write_u16(self.refill);
+        h.write_u16(self.one_below);
+        self.pop_vy.hash_into(h);
+    }
+}
+
 /// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
 /// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
 /// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
@@ -1479,6 +1539,12 @@ pub struct Move {
     pub pull: Option<(u8, u8)>,
     /// Sim 111 (E4): on this move frame the item in the fighter's hand is used up (the double arrow fires the arrow held); 255 never.
     pub spend_item: u8,
+    /// Random versions (E39, sim 113: the reference's moves whose version is drawn when they start, such as the settler's turnips): on
+    /// the move's first frame the game's random generator picks `(chance, slot)` with `chance` percent each, the move switching to
+    /// that slot (an `ext` slot with the version's frames and hits), and the move itself with what is left of 100. Empty: no draw.
+    pub versions: Vec<(u8, u8)>,
+    /// The move flies on balloons (E41, sim 113): see [`Balloons`]. `None` (the default): no balloons.
+    pub balloons: Option<Balloons>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1560,6 +1626,8 @@ impl Move {
             encase: None,
             pull: None,
             spend_item: 255,
+            versions: Vec::new(),
+            balloons: None,
             script: None,
             projectile_script: None,
         }
@@ -1651,6 +1719,7 @@ impl StateHash for Hitbox {
         self.posvec_y.hash_into(h);
         h.write_u8(self.posvec_frames);
         self.half_width.hash_into(h);
+        h.write_u8(self.rules);
     }
 }
 
@@ -1739,6 +1808,7 @@ impl StateHash for Weapon {
                             h.write_u16(c.size_to);
                             h.write_bool(c.floor);
                             h.write_u8(c.times);
+                            h.write_u16(c.power_to);
                         }
                         None => h.write_bool(false),
                     }
@@ -2052,6 +2122,18 @@ impl StateHash for Weapon {
                 None => h.write_bool(false),
             }
             h.write_u8(m.spend_item);
+            h.write_u32(m.versions.len() as u32);
+            for (chance, slot) in &m.versions {
+                h.write_u8(*chance);
+                h.write_u8(*slot);
+            }
+            match &m.balloons {
+                Some(b) => {
+                    h.write_bool(true);
+                    b.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -2122,6 +2204,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 posvec_y: Fx::ZERO,
                 posvec_frames: 0,
                 half_width: Fx::ZERO,
+                rules: RULES_CURRENT,
             })
             .collect(),
         ..Move::empty()
@@ -2182,6 +2265,7 @@ fn row(r: &R) -> Hitbox {
         posvec_y: Fx::ZERO,
         posvec_frames: 0,
         half_width: Fx::ZERO,
+        rules: RULES_CURRENT,
     }
 }
 
@@ -4643,6 +4727,7 @@ pub fn claws() -> Weapon {
             posvec_y: Fx::ZERO,
             posvec_frames: 0,
             half_width: Fx::ZERO,
+            rules: RULES_CURRENT,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -5004,6 +5089,17 @@ pub mod buckler_slots {
     };
 }
 
+#[path = "moves_pockets.rs"]
+mod pockets;
+pub use pockets::pockets;
+/// The Pockets' follow-up slots (which `ext` slot holds which part), and its balloons, for tests and tools.
+pub mod pockets_slots {
+    pub use super::pockets::{
+        balloon_block, DAIR_ONE, DAIR_TWO, FLIGHT, RIDE, RIDE_BOUNCE, RIDE_CRASH, RIDE_HOP,
+        ROCKET_KIND, UAIR_ONE, UAIR_TWO,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5020,6 +5116,7 @@ mod tests {
             bracers(),
             clutch(),
             buckler(),
+            pockets(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
@@ -5040,6 +5137,7 @@ mod tests {
                         || m.projectile.is_some()
                         || m.counter.is_some()
                         || m.script.is_some()
+                        || !m.motion.is_empty()
                         || catch
                         || m.carry.is_some()
                 );

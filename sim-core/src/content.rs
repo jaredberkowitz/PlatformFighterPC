@@ -1542,6 +1542,79 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A small, floaty middleweight with a pocketful of tools: the "settler" body of the Pockets moveset. The reference character's
+    /// 13.0.1 attributes (owner decision 68; the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and `Item_throw` tables,
+    /// ultimateframedata.com; the eleventh moveset's `REFERENCE_DATA.md` in `docs/movesets/`): weight 92, walk 1.092, initial
+    /// dash 1.815 for 13 frames, run 1.397, traction 0.131, air speed 0.987, air acceleration 0.01 + 0.05, air friction 0.01, gravity
+    /// 0.078, fall 1.32 (fast 2.112), full hop 32.5, short hop 15.69, double jump 32.5, ledge jump 36.25 (drift 0.6, the shared value).
+    /// On the ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, a heavy landing of 8 (7 of lag: the parameter
+    /// file's `landing_heavy_frame`). Air dodges 58 (neutral, intangible 3-30) and 81 / 97 / 129 (directional down / sideways / up,
+    /// intangible 3-21); rolls 30 forward (intangible 4-15) and 35 back, spot dodge 26 (3-17). A wall jump (the parameter file's
+    /// `wall_jump_type`) at 1.3 away, 2.3 up. Item throws let go on 11, 11, 10, 10, 5, 6. The shared body size [E].
+    pub fn settler() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(78);
+        let (burst, arc) = Self::full_hop(gravity, su(32500));
+        FighterParams {
+            walk_speed: gu(1092),
+            run_speed: gu(1397),
+            dash_speed: gu(1815),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(105),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(10978),
+            dash_frames: 13,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 7,
+            heavy_landing_lag: 7,
+            air_speed: su(987),
+            air_accel: su(10),
+            air_accel_stick: su(50),
+            air_friction: su(10),
+            gravity,
+            max_fall_speed: su(1320),
+            fast_fall_speed: su(2112),
+            air_dodge_frames: 58,
+            air_dodge_dir_down_frames: 81,
+            air_dodge_dir_side_frames: 97,
+            air_dodge_dir_up_frames: 129,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.131 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(262),
+            dash_attack_friction: gu(131),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(15690)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(32500)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36250)),
+            weight: Fx::from_int(92),
+            weapon: 10,
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            // A wall jump (the parameter file: 1.3 away, 2.3 up).
+            wall_jump: 1,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2300),
+            // Item throws let go on 11, 11, 10, 10, 5, 6 (ssbwiki.com `Item_throw`, the grounded ones) [R].
+            item_throws: ItemThrows {
+                forward: 11,
+                back: 11,
+                up: 10,
+                down: 10,
+                dash: 5,
+                drop: 6,
+            },
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1955,6 +2028,16 @@ pub struct Ruleset {
     pub item_reach_up: Fx,
     pub item_hand_x: Fx,
     pub item_hand_y: Fx,
+    /// The previous reference version's (1.1.x) numbers for a hit with `Hitbox::rules` `RULES_PREVIOUS` (E40, sim 113, owner decisions
+    /// 66-67; ssbwiki.com `Hitlag`, `Hitstun`, `Knockback` and `Rage`): it multiplies damage by `prev_damage_mult` (1: that version had no
+    /// one-on-one multiplier), its hitlag is `floor(d x prev_hitlag_per_damage + prev_hitlag_base)` times the hit's factors (0.3846154
+    /// and 5), a crouch shortening only the victim's; rage reaches `prev_rage_max` (0.15) over the same percents; a tumbling launch
+    /// (`tumble_knockback` and more) gets `prev_tumble_hitstun` (1) more frame of hitstun.
+    pub prev_damage_mult: Fx,
+    pub prev_hitlag_per_damage: Fx,
+    pub prev_hitlag_base: Fx,
+    pub prev_rage_max: Fx,
+    pub prev_tumble_hitstun: u8,
 }
 
 impl Ruleset {
@@ -2108,6 +2191,11 @@ impl Ruleset {
             item_reach_up: Fx::from_ratio(1275, 800),
             item_hand_x: Fx::from_ratio(1, 2),
             item_hand_y: Fx::from_ratio(9, 10),
+            prev_damage_mult: Fx::ONE,
+            prev_hitlag_per_damage: Fx::from_ratio(3_846_154, 10_000_000),
+            prev_hitlag_base: Fx::from_int(5),
+            prev_rage_max: Fx::from_ratio(15, 100),
+            prev_tumble_hitstun: 1,
         }
     }
 }
@@ -2262,6 +2350,11 @@ impl StateHash for Ruleset {
         self.item_reach_up.hash_into(h);
         self.item_hand_x.hash_into(h);
         self.item_hand_y.hash_into(h);
+        self.prev_damage_mult.hash_into(h);
+        self.prev_hitlag_per_damage.hash_into(h);
+        self.prev_hitlag_base.hash_into(h);
+        self.prev_rage_max.hash_into(h);
+        h.write_u8(self.prev_tumble_hitstun);
     }
 }
 
@@ -2325,7 +2418,7 @@ impl Content {
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
     /// tall caster, a champion with a greatsword, a huge hauler with bracers, a floaty, high-jumping bounder with a long tongue and a
-    /// wanderer with a sword and a buckler) on a main stage with platforms.
+    /// wanderer with a sword and a buckler, and a settler with pockets full of tools) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -2339,6 +2432,7 @@ impl Content {
                 FighterParams::hauler(),
                 FighterParams::bounder(),
                 FighterParams::wanderer(),
+                FighterParams::settler(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -2351,6 +2445,7 @@ impl Content {
                 crate::moves::bracers(),
                 crate::moves::clutch(),
                 crate::moves::buckler(),
+                crate::moves::pockets(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -2367,6 +2462,7 @@ impl Content {
                     "hauler".to_string(),
                     "bounder".to_string(),
                     "wanderer".to_string(),
+                    "settler".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -2379,6 +2475,7 @@ impl Content {
                     "bracers".to_string(),
                     "clutch".to_string(),
                     "buckler".to_string(),
+                    "pockets".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

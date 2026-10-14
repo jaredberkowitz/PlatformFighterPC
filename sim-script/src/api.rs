@@ -140,6 +140,7 @@ pub const R_AIM: u8 = 29;
 pub const R_FAST_FALL: u8 = 30;
 pub const R_OWNED: u8 = 31;
 pub const R_HOLDING: u8 = 32;
+pub const R_BALLOONS: u8 = 33;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -264,6 +265,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "holding",
         R_HOLDING,
         "the kind of the item in the fighter's hand (its item's kind number), 0 for none, as the frame began",
+    ),
+    reg(
+        "balloons",
+        R_BALLOONS,
+        "how many balloons the fighter carries in its balloon move (a move with balloons), 0 out of one",
     ),
 ];
 

@@ -92,6 +92,13 @@ fn every_fighter_has_its_reference_characters_ground_numbers() {
             [g(105), g(210), g(44), fine(13167)],
             (12, 3),
         ),
+        (
+            "settler",
+            FighterParams::settler(),
+            [g(1092), g(1815), g(1397), g(131)],
+            [g(105), g(105), g(44), fine(10978)],
+            (13, 7),
+        ),
     ];
     for (name, p, speeds, accels, (dash, heavy)) in expected {
         assert_eq!(
@@ -142,6 +149,7 @@ fn no_two_fighters_move_the_same_on_the_ground() {
         FighterParams::hauler(),
         FighterParams::bounder(),
         FighterParams::wanderer(),
+        FighterParams::settler(),
     ];
     let ground = |p: &FighterParams| {
         (
