@@ -78,10 +78,13 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         chest: [Fx::ZERO; MAX_FIGHTERS],
         me: 0,
         projectiles: &state.projectiles,
+        encase: [None; MAX_FIGHTERS],
     };
     for (i, f) in state.fighters.iter().enumerate() {
         let height = combat::chest_height(params_of(content, f));
         world.chest[i] = height;
+        // (An egged fighter reads its egg's numbers from the move that laid it: E8.)
+        world.encase[i] = combat::encase_of(content, f);
         if f.active && f.stocks > 0 && !combat::is_intangible(f) {
             world.targets[i] = Some(f.pos + crate::vec2::Vec2::new(Fx::ZERO, height));
         }
@@ -289,6 +292,7 @@ mod tests {
                                 | FighterState::ShieldBreak
                                 | FighterState::Rebound
                                 | FighterState::Carrying
+                                | FighterState::Encased
                         )
                     {
                         assert_eq!(

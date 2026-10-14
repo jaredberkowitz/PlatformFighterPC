@@ -9,11 +9,11 @@ use sim_core::content::{
 };
 use sim_core::moves::{
     AirBlock, Armor, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, DropThrough,
-    Fall, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn, Reflector,
-    Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
+    Encase, Fall, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
+    Reflector, Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
     ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
-    EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
-    HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
+    EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
     TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
@@ -598,11 +598,12 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         None | Some(("normal", _)) => EFFECT_NORMAL,
         Some(("electric", _)) => EFFECT_ELECTRIC,
         Some(("bury", _)) => EFFECT_BURY,
+        Some(("encase", _)) => EFFECT_ENCASE,
         Some((other, line)) => {
             err(
                 errors,
                 line,
-                format!("hitbox effect must be normal, electric or bury, not `{other}`"),
+                format!("hitbox effect must be normal, electric, bury or encase, not `{other}`"),
             );
             EFFECT_NORMAL
         }
@@ -722,6 +723,8 @@ fn write_hitbox(hb: &Hitbox) -> Block {
         b.field("effect", "electric");
     } else if hb.effect == EFFECT_BURY {
         b.field("effect", "bury");
+    } else if hb.effect == EFFECT_ENCASE {
+        b.field("effect", "encase");
     }
     match hb.targets {
         TARGETS_GROUNDED => b.field("targets", "grounded"),
@@ -984,10 +987,14 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "air",
             "charge_add",
             "carry",
+            "encase",
         ],
         context,
         errors,
     );
+    if let Some(b) = at_most_one(children(block, "encase"), "encase", context, errors) {
+        m.encase = Some(read_encase(b, &format!("the encase of {context}"), errors));
+    }
     if let Some(b) = at_most_one(children(block, "carry"), "carry", context, errors) {
         m.carry = Some(read_carry(b, &format!("the carry of {context}"), errors));
     }
@@ -1522,6 +1529,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     }
     if let Some(c) = &m.carry {
         b.push(write_carry(c));
+    }
+    if let Some(e) = &m.encase {
+        b.push(write_encase(e));
     }
     if let Some(c) = &m.counter {
         let mut cb = Block::new("counter", None);
@@ -2137,6 +2147,63 @@ fn read_carry(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Carry {
     let armor = at_most_one(children(b, "armor"), "armor", ctx, errors)
         .map(|a| read_armor(a, &format!("the armor of {ctx}"), errors));
     Carry { armor, ..c }
+}
+
+/// A move's `encase { ... }` block (E8, sim 107): every field is required (see `moves::Encase`).
+fn read_encase(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Encase {
+    only_known(b, &[], ctx, errors);
+    let mut f = Fields::new(b, ctx, errors);
+    let e = Encase {
+        base: f.need("base", None, errors),
+        per_percent: f.need("per_percent", None, errors),
+        percent_cap: f.need("percent_cap", None, errors),
+        mash_stick: f.need("mash_stick", None, errors),
+        mash_button: f.need("mash_button", None, errors),
+        hit_cut: f.need("hit_cut", None, errors),
+        damage_taken: f.need("damage_taken", None, errors),
+        launch: (
+            f.need("launch_x", None, errors),
+            f.need("launch_y", None, errors),
+        ),
+        grow_from: f.need("grow_from", None, errors),
+        grow_frames: f.need("grow_frames", None, errors),
+        size: f.need("size", None, errors),
+        shift: (
+            f.need("shift_x", None, errors),
+            f.need("shift_y", None, errors),
+        ),
+        air_shift: (
+            f.need("air_shift_x", None, errors),
+            f.need("air_shift_y", None, errors),
+        ),
+        exit_vy: f.need("exit_vy", None, errors),
+        exit_intangible: f.need("exit_intangible", None, errors),
+    };
+    f.finish(errors);
+    e
+}
+
+fn write_encase(e: &Encase) -> Block {
+    let mut b = Block::new("encase", None);
+    b.field("base", e.base.show());
+    b.field("per_percent", e.per_percent.show());
+    b.field("percent_cap", e.percent_cap.show());
+    b.field("mash_stick", e.mash_stick.show());
+    b.field("mash_button", e.mash_button.show());
+    b.field("hit_cut", e.hit_cut.show());
+    b.field("damage_taken", e.damage_taken.to_string());
+    b.field("launch_x", e.launch.0.show());
+    b.field("launch_y", e.launch.1.show());
+    b.field("grow_from", e.grow_from.to_string());
+    b.field("grow_frames", e.grow_frames.to_string());
+    b.field("size", e.size.to_string());
+    b.field("shift_x", e.shift.0.show());
+    b.field("shift_y", e.shift.1.show());
+    b.field("air_shift_x", e.air_shift.0.show());
+    b.field("air_shift_y", e.air_shift.1.show());
+    b.field("exit_vy", e.exit_vy.show());
+    b.field("exit_intangible", e.exit_intangible.to_string());
+    b
 }
 
 fn write_carry(c: &Carry) -> Block {

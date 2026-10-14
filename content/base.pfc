@@ -5,8 +5,8 @@ bundle {
     schema 6
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 109
-    hash b3b881eb1cf665cc
+    sim_version 110
+    hash 3d57c77867c3410e
 }
 
 ruleset {
@@ -6234,34 +6234,85 @@ weapon clutch {
         hitbox { start 40 end 40 x -0.29999 y 0.2 radius 0.59999 damage 2.79999 angle 40 bkb 55 kbg 179 priority 2 group 1 hitlag 150 angle_type position }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
-        projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
-        }
+        total_frames 40
+        land_continue true
+        catch_move ext0
+        hitbox { start 18 end 18 x 1.09999 y 0.9 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 priority 2 kind grab command true }
+        hitbox { start 18 end 21 x 1 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab targets aerial command true }
+        hitbox { start 18 end 21 x 1.4 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab targets aerial command true }
+        hitbox { start 18 end 21 x 1.9 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab targets aerial command true }
+        hitbox { start 18 end 21 x 2.29999 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab targets aerial command true }
+        hitbox { start 18 end 21 x 2.79999 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab targets aerial command true }
+        hitbox { start 18 end 21 x 1 y 0.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
+        hitbox { start 18 end 21 x 1.4 y 0.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
+        hitbox { start 18 end 21 x 1.9 y 0.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
+        hitbox { start 18 end 21 x 2.29999 y 0.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
+        hitbox { start 18 end 21 x 2.79999 y 0.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab targets grounded command true }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
+        total_frames 253
+        land_continue true
+        ledge_front_from 20
+        rehit_start 31
+        rehit_every 32
+        ledge_falling_only true
+        hitbox { start 31 end 253 x 0 y 0.7 radius 0.29999 damage 10 angle 80 bkb 70 kbg 50 targets aerial angle_type position }
+        hitbox { start 31 end 253 x 0 y 0.7 radius 0.4 damage 10 angle 80 bkb 70 kbg 50 priority 1 targets grounded angle_type position }
+        charge_add { full 40 add 4 }
         script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
+            // Clutch side special, the rolling shell (owner decision 49: simple, from existing features; estimates where the reference publishes
+            // nothing [E]). Reference numbers in world units (/8). Frame 1 (a script's first, the reference's 2) the hop at 0.25 [R]; the roll's fall acceleration 0.01625 and fall 0.24375 [R]
+            // throughout. From frame 20 (the reference's 21) the roll: it starts at the landing speed 0.1125 [R]; on the ground the stick held
+            // forward speeds it up by 0.00625 a frame [R] toward 0.175 + 0.305 x the stick (0.175 to 0.48: the reference's 1.4 base and 3.2 x 1.2
+            // by the stick [R]; the law between is E), neutral brings it to 0.175, back brakes it by 0.015 a frame (friction and acceleration
+            // [R]) and turns it round at 0 [E]; in the air it keeps its speed [E]. A hit takes 0.125 off the speed and 40 frames off the roll
+            // [R]. Jump once on the ground: up at 0.3 [E: gap 11]. A wall turns it with 0.4 of its speed and 0.2125 up [R]. The damage is 10 plus
+            // the speed in the reference's units (`set_charge` and the move's `charge_add` [R]). Special on the ground from 25 frames into the roll
+            // [R], or the end of its 180 frames [R], goes on into the ending (slot 29).
+            var speed;
+            var left;
+            var jumped;
+            var was;
+            let fall = max(vy - 0.01625, -0.24375);
+            if frame == 1 {
+                left = 180;
+                fall = 0.25;
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
+            if frame >= 20 {
+                if frame == 20 { speed = 0.1125; }
+                let s = stick_x;
+                if grounded {
+                    if s < -0.2 {
+                        speed = speed - 0.015;
+                        if speed <= 0 {
+                            turn();
+                            speed = 0;
+                        }
+                    } else {
+                        let target = 0.175;
+                        if s > 0.2 { target = 0.175 + 0.305 * s; }
+                        if speed < target { speed = min(speed + 0.00625, target); } else { speed = max(speed - 0.00875, target); }
+                    }
+                    if jump && jumped == 0 {
+                        jumped = 1;
+                        fall = 0.3;
+                    }
+                }
+                if wall {
+                    turn();
+                    speed = speed * 0.4;
+                    fall = 0.2125;
+                }
+                if hit && was == 0 {
+                    speed = max(speed - 0.125, 0);
+                    left = left - 40;
+                }
+                was = hit;
+                if left <= 0 || (frame >= 45 && grounded && special_tap) { goto(29); }
+                left = left - 1;
+            }
+            set_charge(speed * 80);
+            set_vel(speed, fall);
         }
     }
     move up_special {
@@ -6421,6 +6472,56 @@ weapon clutch {
         hitbox { start 19 end 20 x -1.4 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false angle_type position }
         hitbox { start 19 end 20 x -1 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false angle_type position }
         hitbox { start 19 end 20 x -0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false angle_type position }
+    }
+    move ext0 {
+        total_frames 42
+        intangible 35
+        land_continue true
+        intangible_from 12
+        hold_x 0
+        hold_y 0
+        hitbox { start 26 end 26 x 0 y 0.79999 radius 1 damage 7 angle 361 bkb 0 kbg 100 kind throw hitlag 0 effect encase }
+        encase {
+            base 100
+            per_percent 1.79999
+            percent_cap 100
+            mash_stick 7
+            mash_button 12.59999
+            hit_cut 2
+            damage_taken 66
+            launch_x -0.0875
+            launch_y 0.25
+            grow_from 45
+            grow_frames 20
+            size 100
+            shift_x 0.03749
+            shift_y 0.125
+            air_shift_x 0.00124
+            air_shift_y 0.0125
+            exit_vy 0.3125
+            exit_intangible 7
+        }
+        script {
+            // Clutch neutral special's catch, the swallow and the lay: when the shell is laid (the laying throw's release, this move's frame 27,
+            // 26 counted from 0) in the air, the vertical speed becomes 0.125 (the reference's 1 [R]).
+            if frame == 26 && grounded == 0 { add_vel(0, 0.125 - vy); }
+        }
+    }
+    move ext1 {
+        total_frames 38
+        land_continue true
+        script {
+            // Clutch side special's ending: the roll's speed x0.7 and its vertical speed x0.5 on its first scripted frame [R], then slowing by 0.00625 a
+            // frame (the reference's ground friction 0.05 [R]) under the roll's fall acceleration, to the FAF 40 frames on [R].
+            var speed;
+            let fall = max(vy - 0.01625, -0.24375);
+            if frame == 1 {
+                speed = speed * 0.7;
+                fall = vy * 0.5;
+            }
+            speed = max(speed - 0.00625, 0);
+            set_vel(speed, fall);
+        }
     }
     move ext3 {
         total_frames 16

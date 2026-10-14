@@ -622,3 +622,63 @@ fn the_new_move_and_hitbox_fields_round_trip() {
         "go together"
     ));
 }
+
+#[test]
+fn an_encase_block_round_trips_and_is_checked() {
+    // The egg (E8, sim 107): the Clutch's lay carries one, with a throw row of effect encase.
+    let c = Content::placeholder();
+    let t = text(&c, false);
+    assert!(t.contains("encase {") && t.contains("effect encase"));
+    for field in [
+        "base 100",
+        "mash_button 12.5",
+        "damage_taken 66",
+        "grow_from 45",
+        "exit_intangible 7",
+    ] {
+        assert!(t.contains(field), "{field}");
+    }
+    assert_eq!(load(&t).unwrap().content, c);
+    let (w, m) = c
+        .weapons
+        .iter()
+        .enumerate()
+        .find_map(|(w, wp)| {
+            wp.moves
+                .iter()
+                .position(|m| m.encase.is_some())
+                .map(|m| (w, m))
+        })
+        .expect("a move with an egg");
+    // A throw row of effect encase without the block, the block without such a row, the effect on a hit that is not a throw, and
+    // out-of-range numbers are refused.
+    let mut bad = c.clone();
+    bad.weapons[w].moves[m].encase = None;
+    assert!(has(
+        &validate(&bad).unwrap_err(),
+        "needs the move's encase block"
+    ));
+    let mut bad = c.clone();
+    for h in &mut bad.weapons[w].moves[m].hitboxes {
+        h.effect = sim_core::moves::EFFECT_NORMAL;
+    }
+    assert!(has(&validate(&bad).unwrap_err(), "an encase block needs"));
+    let mut bad = c.clone();
+    bad.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].effect = sim_core::moves::EFFECT_ENCASE;
+    assert!(has(&validate(&bad).unwrap_err(), "only a throw hitbox"));
+    let mut bad = c.clone();
+    if let Some(e) = &mut bad.weapons[w].moves[m].encase {
+        e.grow_from = 0;
+    }
+    assert!(has(&validate(&bad).unwrap_err(), "grow_from 1 to 100"));
+    let mut bad = c;
+    if let Some(e) = &mut bad.weapons[w].moves[m].encase {
+        e.base = Fx::ZERO;
+    }
+    assert!(has(&validate(&bad).unwrap_err(), "base above 0"));
+    // A missing field is an error.
+    assert!(has(
+        &errors(&t.replace("damage_taken 66", "")),
+        "damage_taken"
+    ));
+}

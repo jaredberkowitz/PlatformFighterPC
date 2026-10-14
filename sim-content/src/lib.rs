@@ -357,6 +357,57 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 }
             }
         }
+        // An egg (E8): its throw rows and its numbers go together, and its numbers make sense.
+        let encase_rows = mv
+            .hitboxes
+            .iter()
+            .filter(|h| h.effect == sim_core::moves::EFFECT_ENCASE)
+            .collect::<Vec<_>>();
+        if encase_rows
+            .iter()
+            .any(|h| h.kind != sim_core::moves::HIT_THROW)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: only a throw hitbox can have effect encase"
+            ));
+        }
+        match &mv.encase {
+            Some(e) => {
+                if encase_rows.is_empty() {
+                    errors.push(format!(
+                        "weapon {i} {name}: an encase block needs a throw hitbox with effect encase"
+                    ));
+                }
+                if e.base <= sim_core::Fx::ZERO
+                    || e.per_percent < sim_core::Fx::ZERO
+                    || e.percent_cap < sim_core::Fx::ZERO
+                    || e.mash_stick < sim_core::Fx::ZERO
+                    || e.mash_button < sim_core::Fx::ZERO
+                    || e.hit_cut < sim_core::Fx::ZERO
+                {
+                    errors.push(format!(
+                        "weapon {i} {name}: an encase needs base above 0 and per_percent, percent_cap, mash_stick, mash_button and hit_cut not below 0"
+                    ));
+                }
+                if e.damage_taken > 200
+                    || e.grow_from == 0
+                    || e.grow_from > 100
+                    || e.size == 0
+                    || e.size > 200
+                {
+                    errors.push(format!(
+                        "weapon {i} {name}: an encase needs damage_taken 0 to 200, grow_from 1 to 100 and size 1 to 200"
+                    ));
+                }
+            }
+            None => {
+                if !encase_rows.is_empty() {
+                    errors.push(format!(
+                        "weapon {i} {name}: a throw hitbox with effect encase needs the move's encase block"
+                    ));
+                }
+            }
+        }
         if mv.hitboxes.is_empty()
             && mv.projectile.is_none()
             && mv.script.is_none()

@@ -935,6 +935,18 @@ impl SimRunner {
         self.fighter(i).is_some_and(|fi| fi.tripped)
     }
 
+    /// The radius (world units) of the egg the fighter is shut in (state `Encased`, E8), grown as it was laid; 0 when not in one.
+    /// Read-only, for the view: the egg is drawn round the fighter, standing on its feet.
+    #[func]
+    fn fighter_egg_radius(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| {
+            sim_core::combat::encase_of(&self.content, fi).map_or(0.0, |e| {
+                let p = sim_core::combat::params_of(&self.content, fi);
+                f(e.radius(p.ecb_height, fi.encase_age))
+            })
+        })
+    }
+
     /// The fighter this one is holding (in `Grabbing`, a throw or `Carrying`) or held by (in `Grabbed`), or -1. Read-only, for the view:
     /// a carried fighter (its holder `Carrying`, E7) is drawn lifted overhead.
     #[func]

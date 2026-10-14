@@ -85,6 +85,9 @@ pub enum FighterState {
     /// Carrying a held fighter (E7, sim 98: the reference's cargo hold; see `moves::Carry`): walking, jumping (`Fighter::carry_jumps`)
     /// and falling with it, on the ground or in the air, until a throw, the hold's clock or a hit ends it.
     Carrying,
+    /// Shut in an egg (E8, sim 107: see `moves::Encase`): no action until `Fighter::encase_timer` runs out (mashing shortens it, hits
+    /// shorten it); it falls, lands and is hit as an egg, then breaks out into the air.
+    Encased,
 }
 
 impl StateHash for FighterState {
@@ -308,6 +311,13 @@ pub struct Fighter {
     /// The hold's clock as it was set when this fighter was caught (`grab::connect`): what a carry measures the hold time already
     /// used from (`grab_start - grab_timer`, mashing included). 0 when not held by an ordinary grab, and once a carry has used it.
     pub grab_start: u16,
+    /// Frames left in the egg (`FighterState::Encased`, E8), fixed point: mashing takes 12.6 and the like off. 0 when not in one.
+    pub encase_timer: Fx,
+    /// Frames since the egg was laid (its growth), saturating.
+    pub encase_age: u8,
+    /// Which body laid the egg (an index into `Content::fighters`) and with which move: where its `moves::Encase` numbers are read.
+    pub encase_char: u8,
+    pub encase_move: u8,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -562,6 +572,10 @@ impl Fighter {
             bury_set: false,
             carry_jumps: 0,
             grab_start: 0,
+            encase_timer: Fx::ZERO,
+            encase_age: 0,
+            encase_char: 0,
+            encase_move: 0,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -734,6 +748,10 @@ impl StateHash for Fighter {
         h.write_bool(self.bury_set);
         h.write_u8(self.carry_jumps);
         h.write_u16(self.grab_start);
+        self.encase_timer.hash_into(h);
+        h.write_u8(self.encase_age);
+        h.write_u8(self.encase_char);
+        h.write_u8(self.encase_move);
         h.write_u8(self.air_jump_frame);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
@@ -1330,6 +1348,31 @@ mod tests {
             ("state carrying", {
                 let mut s = state;
                 s.fighters[0].state = FighterState::Carrying;
+                s
+            }),
+            ("state encased", {
+                let mut s = state;
+                s.fighters[1].state = FighterState::Encased;
+                s
+            }),
+            ("encase_timer", {
+                let mut s = state;
+                s.fighters[1].encase_timer = Fx::from_ratio(126, 10);
+                s
+            }),
+            ("encase_age", {
+                let mut s = state;
+                s.fighters[0].encase_age = 3;
+                s
+            }),
+            ("encase_char", {
+                let mut s = state;
+                s.fighters[2].encase_char = 8;
+                s
+            }),
+            ("encase_move", {
+                let mut s = state;
+                s.fighters[3].encase_move = 30;
                 s
             }),
             ("air_jump_frame", {
