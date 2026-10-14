@@ -149,6 +149,24 @@ Every stage checked in greyscale at play distance.
 - **Images**: `docs/screenshots/polish7_drop_shadow.png` (a neutral air, before left).
 - **Checks run**: the motion demos; the fighter view test.
 
+### Pass 59: effects to the knock-out blast's standard
+
+The owner's call: the knock-out blast (layered painted smoke with an ink silhouette, a deep body, a lit top and a white-hot core) is the
+standard for every effect.
+
+- **Swing arcs** (`fighter_view.gd` `_draw_arc`, `_arc_band`): were a soft gradient crescent fading to nothing on the inside, hard to see
+  on pale skies and over a fighter of the trail's colour. Now painted bands side by side: an ink edge, a lit band, the body in a
+  deeper version of the class colour, an ink edge along a scalloped (brushed) inside, and a hot core near the head. They are
+  see-through (`ARC_OPACITY` 0.82, a new `opacity` on the effect shader: painted effects spend their alpha on the ragged breakup) and
+  still break up in painted chunks as they fade. Tried and dropped: paint flecks off the tail (they read as a chain of beads), and
+  fully solid (it read as a shape, not a trail).
+- **Punch and kick smears** (`smear.gd`): the same bands, with a rounded head at the fist or foot.
+- **Hit bursts** (`effects.gd`): their body colours sat above the effects' glow threshold, so the whole burst bloomed to white and its
+  ink and colour were lost. The flare and body are under it now, and only the core glows. The strong hit's speed lines (white slivers)
+  are inked and in the hit's colour, so a hit reads as the kind that landed it (a blue blade, violet claws, a warm blow).
+- **Images**: `docs/screenshots/polish8_trails.png` (a sword arc and a claw hit, before left).
+- **Checks run**: sword, claw and maul effect demos on the meadow and the city; the fighter view test.
+
 ### Performance after passes 52 to 56 and character pass 1
 
 The KO demo at 1280x720, warm cache: GPU 1.89 ms against 1.66 to 1.71 ms before (soft shadows, lathe props, the earth tile), about 255

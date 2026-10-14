@@ -2906,6 +2906,8 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 # none.
 
 const ARC_FADE := 5
+## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
+const ARC_OPACITY := 0.82
 const ARC_STEPS := 36
 const ARC_Z := 0.6
 const ARC_PAST_HAND := 0.8
@@ -3048,7 +3050,10 @@ func _draw_arc() -> void:
 		arc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		arc.extra_cull_margin = 16384.0
 		# (Painted: as it fades it breaks up in ragged chunks, like a drawn smear wiped off a frame at a time.)
-		arc.material_override = FxMaterial.get_material(false, 5, null, 1.0, 1.0)
+		# (See-through as a trail of light is, `ARC_OPACITY`, but painted: its own copy of the material.)
+		var m := (FxMaterial.get_material(false, 5, null, 1.0, 1.0) as ShaderMaterial).duplicate() as ShaderMaterial
+		m.set_shader_parameter("opacity", ARC_OPACITY)
+		arc.material_override = m
 		add_child(arc)
 	var im: ImmediateMesh = arc.mesh
 	if im.get_surface_count() > 0:
@@ -3065,35 +3070,59 @@ func _draw_arc() -> void:
 	var circle := _arc_circle(w)
 	var centre: Vector2 = circle[0]
 	var r: float = circle[1]
-	var width := r * 0.3 * (1.0 - 0.4 * q)
+	var width := r * 0.34 * (1.0 - 0.35 * q)
 	var alpha := 1.0 - q
 	var colours := trail_colours_of(int(arc_shown.cls))
+	# Painted as the knock-out blast is (effects.gd `Beam`): layers of solid paint back to front, an ink silhouette round the whole
+	# crescent, the body in a deeper, purer version of the class colour, a lit band along the outside edge, and a white-hot core near the
+	# head. The inside edge is scalloped like a brushstroke's. (Flecks thrown off the tail read as a chain of beads, so there are none.) Solid, not a soft
+	# gradient, so it reads on a pale sky and over a fighter of the same colour (the ink rim parts it from anything).
 	var main: Color = colours[0]
+	var body := Color.from_hsv(main.h, minf(1.0, main.s * 1.35), main.v * 0.82)
+	var lit := body.lerp(Color.WHITE, 0.35)
 	var core: Color = colours[1]
-	# Across the arc from the outside in (fractions of its thickness there): the bright core, the core blending into the trail colour,
-	# the trail colour, and nothing.
-	var bands := [0.0, 0.22, 0.55, 1.0]
-	var cols := [Color(core, alpha), Color(core.lerp(main, 0.5), alpha), Color(main, 0.8 * alpha), Color(main, 0.0)]
+	var ink := Color(INK.r, INK.g, INK.b)
 	var facing := float(arc_shown.facing)
-	var prev: Array = []
+	var seed := float(w[3]) * 0.37 + float(w[5])
+	var span := head - tail
+	var ink_w := clampf(r * 0.035, 0.05, 0.1)
+	# Bands across the crescent from the outside in, side by side rather than stacked (so the trail can be see-through without the ink
+	# showing through it): the ink edge, the lit band, the body, the ink edge along the scalloped inside. Each [from, to] is [offset out
+	# (world units), share of the thickness in, scalloped]. The hot core is laid over the lit band near the head.
+	var lit_in := 0.3
+	var bands := [[[ink_w, 0.0, false], [0.0, 0.0, false], Color(ink, alpha)], [[0.0, 0.0, false], [0.0, lit_in, false], Color(lit, alpha)],
+		[[0.0, lit_in, false], [0.0, 1.0, true], Color(body, alpha)], [[0.0, 1.0, true], [-ink_w, 1.0, true], Color(ink, alpha)]]
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in ARC_STEPS + 1:
-		var u := float(i) / ARC_STEPS
-		var dir := Vector2.from_angle(lerpf(tail, head, u))
-		# Pointed at both ends, thickest a little behind the head.
-		var thick := width * pow(sin(PI * pow(u, 1.4)), 0.8)
-		var column: Array = []
-		for b in bands:
-			var p := centre + dir * (r - thick * float(b))
-			column.append(to_global(Vector3(p.x * facing, p.y, ARC_Z)))
-		if i > 0:
-			for b in bands.size() - 1:
-				var quad := [[prev[b], cols[b]], [prev[b + 1], cols[b + 1]], [column[b + 1], cols[b + 1]], [column[b], cols[b]]]
-				for idx in [0, 1, 2, 0, 2, 3]:
-					im.surface_set_color(quad[idx][1])
-					im.surface_add_vertex(quad[idx][0])
-		prev = column
+	for band in bands:
+		_arc_band(im, centre, r, width, tail, span, 0.0, band[0], band[1], band[2], facing, seed)
+	_arc_band(im, centre, r, width, tail, span, 0.45, [-0.07 * width, 0.0, false], [0.0, 0.14, false], Color(core, alpha), facing, seed)
 	im.surface_end()
+
+
+## One band of a swing arc, between two edges across it (each [offset out in world units, share of the thickness in, scalloped]), from
+## `u0` along the arc to its head.
+func _arc_band(im: ImmediateMesh, centre: Vector2, r: float, width: float, tail: float, span: float, u0: float, a: Array, b: Array,
+		col: Color, facing: float, seed: float) -> void:
+	var prev_a := Vector3.ZERO
+	var prev_b := Vector3.ZERO
+	for i in ARC_STEPS + 1:
+		var u := lerpf(u0, 1.0, float(i) / ARC_STEPS)
+		var dir := Vector2.from_angle(tail + span * u)
+		# Pointed at both ends, thickest a little behind the head; the inside edge scalloped like a brushstroke's.
+		var thick := width * pow(sin(PI * pow(u, 1.4)), 0.8)
+		var scallop := 1.0 + 0.16 * sin(u * 23.0 + seed) * sin(u * 7.0 + seed * 1.7)
+		var ra := r + float(a[0]) - thick * float(a[1]) * (scallop if a[2] else 1.0)
+		var rb := r + float(b[0]) - thick * float(b[1]) * (scallop if b[2] else 1.0)
+		var pa := centre + dir * ra
+		var pb := centre + dir * rb
+		var va := to_global(Vector3(pa.x * facing, pa.y, ARC_Z))
+		var vb := to_global(Vector3(pb.x * facing, pb.y, ARC_Z))
+		if i > 0:
+			for v in [prev_a, prev_b, vb, prev_a, vb, va]:
+				im.surface_set_color(col)
+				im.surface_add_vertex(v)
+		prev_a = va
+		prev_b = vb
 
 
 # ---- Big moments: dizzy stars, the launch stretch and speed lines --------------------------------------------------------------------
