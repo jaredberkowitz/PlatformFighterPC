@@ -895,8 +895,12 @@ fn apply_hit(
         }
         return;
     }
-    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by.
-    grab::drop_grab(state, content, d);
+    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by. (A carrying fighter only once its carry's
+    // armor has been seen not to withstand the hit, below.)
+    let carrying = state.fighters[d].state == S::Carrying;
+    if !carrying {
+        grab::drop_grab(state, content, d);
+    }
     if freeze_source {
         // Hitting several fighters on one frame freezes the attacker for the longest of their hitlags.
         state.fighters[source].hitlag = state.fighters[source].hitlag.max(hitlag);
@@ -968,6 +972,13 @@ fn apply_hit(
         defender_params
             .air_jump_armor
             .map(|a| (a, u16::from(def.air_jump_frame - 1)))
+    } else if carrying {
+        // A carry's armor (E7), its frames counted from the carry's first (255 and on as 255).
+        weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .carry
+            .and_then(|c| c.armor)
+            .map(|a| (a, def.state_frame.min(255)))
     } else {
         None
     };
@@ -1020,6 +1031,11 @@ fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
+    // A carry the hit breaks through lets go of its fighter (E7).
+    if carrying {
+        grab::drop_grab(state, content, d);
+    }
+    let def = &mut state.fighters[d];
     // The bury (E5). A buried fighter is freed only by a hit of at least `bury_break_kb` (it is launched in full, below); a weaker
     // hit's damage and hitlag stand and its launch is kept for when the bury ends (the last one kept [E: gap 10]). A grounded fighter
     // not lying down hit by a bury hit is buried; an airborne one takes the hit as usual (a meteor, for a downward bury hit).

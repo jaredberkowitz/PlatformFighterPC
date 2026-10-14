@@ -39,7 +39,7 @@ fn dealt(sim: &Sim, tenths: i32) -> Fx {
 /// A move's reference frame data: the move, its active windows [first, last], FAF, landing lag, autocancel before / from.
 type FrameData = (MoveId, &'static [(u8, u8)], u8, u8, u8, u8);
 
-/// Every normal, from `REFERENCE_DATA.md` (all [R]; the forward throw is a placeholder until the carry, [E]; the up tilt's one window
+/// Every normal, from `REFERENCE_DATA.md` (all [R]; the forward throw is the carry's lift; the up tilt's one window
 /// 5-11 is split into the parts of its sweep, [E] positions).
 const FRAME_DATA: [FrameData; 25] = [
     (MoveId::Jab, &[(5, 6)], 25, 0, 0, 255),
@@ -60,7 +60,8 @@ const FRAME_DATA: [FrameData; 25] = [
     (MoveId::DashGrab, &[(11, 13)], 47, 0, 0, 255),
     (MoveId::PivotGrab, &[(12, 14)], 42, 0, 0, 255),
     (MoveId::Pummel, &[(2, 2)], 8, 0, 0, 255),
-    (MoveId::FThrow, &[(15, 15)], 46, 0, 0, 255),
+    // (The forward throw is the carry's 15-frame lift, no hit: the carry and its throws are in `carry.rs`.)
+    (MoveId::FThrow, &[], 16, 0, 0, 255),
     (MoveId::BThrow, &[(15, 15)], 40, 0, 0, 255),
     (MoveId::UThrow, &[(14, 14)], 44, 0, 0, 255),
     (MoveId::DThrow, &[(19, 19)], 55, 0, 0, 255),
@@ -603,10 +604,9 @@ fn the_standing_grab_catches_on_frame_8() {
 #[test]
 fn the_throws_release_on_their_frames_for_their_damage() {
     // (stick, the frame the held fighter's percent rises on, damage in tenths); no throw has a pre-hit. The forward throw is the
-    // carry's placeholder (the forward cargo throw's numbers [E]).
+    // carry (`carry.rs`).
     for (stick, frame, damage) in [
-        ((127i8, 0i8), 15u8, 120),
-        ((-127, 0), 15, 110),
+        ((-127i8, 0i8), 15u8, 110),
         ((0, 127), 14, 90),
         ((0, -127), 19, 70),
     ] {
@@ -638,14 +638,10 @@ fn the_throws_release_on_their_frames_for_their_damage() {
     }
     let sim = duel();
     let w = arms(&sim);
-    for id in [
-        MoveId::FThrow,
-        MoveId::BThrow,
-        MoveId::UThrow,
-        MoveId::DThrow,
-    ] {
+    for id in [MoveId::BThrow, MoveId::UThrow, MoveId::DThrow] {
         assert!(w.get(id as u8).hitboxes.iter().all(|h| h.kind == HIT_THROW));
     }
+    assert!(w.get(MoveId::FThrow as u8).carry.is_some());
 }
 
 #[test]

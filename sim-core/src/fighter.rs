@@ -401,7 +401,8 @@ pub fn update(
         S::ShieldBreak => shield_break(f, p, stage, rules),
         S::Knockdown => knockdown(f, p, weapon, stage, rules),
         S::GetUp => get_up_stand(f, p, stage, rules),
-        S::Grabbing => grabbing(f),
+        S::Grabbing => grabbing(f, weapon),
+        S::Carrying => return carrying(f, p, weapon, stage, rules),
         // Being held: the holder pins this fighter in place (see `grab::update`).
         S::Grabbed => {}
         S::ShieldDrop => shield_drop(f, p, stage),
@@ -1707,8 +1708,9 @@ impl Fighter {
     }
 }
 
-/// Holding a fighter: a stick direction throws it that way, attack pummels it.
-fn grabbing(f: &mut Fighter) {
+/// Holding a fighter: a stick direction throws it that way, attack pummels it. (A throw with `intangible` frames is intangible from
+/// its first frame: a carry's lift, E7.)
+fn grabbing(f: &mut Fighter, weapon: &Weapon) {
     let input = f.history[0];
     let t = STICK_THRESHOLD;
     let throw = if input.stick_y >= t {
@@ -1726,9 +1728,134 @@ fn grabbing(f: &mut Fighter) {
     };
     if let Some(id) = throw {
         begin_attack(f, id);
+        let mv = weapon.get(id as u8);
+        if mv.intangible > 0 && mv.intangible_start(false) == 0 {
+            f.invuln = f.invuln.max(mv.intangible);
+        }
     } else if f.take(buttons::ATTACK, ATTACK_BUFFER) {
         begin_attack(f, MoveId::Pummel);
     }
+}
+
+/// Carrying a held fighter (E7, see `moves::Carry`; the move that lifted it is still `move_id`): walking only, at the carry's share of
+/// the walk; `carry_jumps` jumps in all (on the ground the body's jump squat, counted in `lag`, then a full or short hop as the button
+/// is held; in the air a midair jump); off an edge or after a jump it falls with the body's air physics, landing straight back into the
+/// carry [E: the reference's carry landing is not published]; attack throws (by the stick); a ledge only if the carry allows it. The
+/// held fighter is pinned and its clock runs in `grab::update`.
+fn carrying(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+) -> Option<u8> {
+    let Some(carry) = weapon.get(f.move_id).carry else {
+        // (Not a carry's move: let go, as any hold that is out of step; `grab::update` frees the pair.)
+        enter(f, if f.grounded() { S::Idle } else { S::Airborne });
+        return None;
+    };
+    let buffer = p.input_buffer;
+    if f.take(buttons::ATTACK, buffer) {
+        let (aim, _) = attack_aim(f, p);
+        let back = x_active(aim) && (aim.stick_x > 0) != (f.facing > 0);
+        let slot = carry.throw_for(aim.stick_y >= STICK_DOWN, aim.stick_y <= -STICK_DOWN, back);
+        f.lag = 0;
+        begin_attack(f, MoveId::from_index(slot));
+        return None;
+    }
+    let input = f.history[0];
+    if !f.grounded() {
+        if f.carry_jumps > 0 && f.take(buttons::JUMP, buffer) {
+            // A midair jump (the carry's only one, if it has not jumped from the ground).
+            f.carry_jumps -= 1;
+            f.vel.y = p.air_jump_velocity;
+            f.vel.x = if x_active(input) {
+                input.stick_x_fx() * p.air_speed * Fx::from_ratio(i32::from(p.air_jump_drift), 100)
+            } else {
+                Fx::ZERO
+            };
+            f.hop_boost = 0;
+            f.fast_fall = false;
+        }
+        if air_move(f, p, stage) {
+            f.lag = 0;
+            return None;
+        }
+        return if carry.ledge {
+            ledge_request(f, p, stage)
+        } else {
+            None
+        };
+    }
+    if f.lag > 0 {
+        // The jump squat: no friction (the walk's speed goes into the jump), then off the ground.
+        f.lag -= 1;
+        if carry_on_ground(f, p, stage, rules) && f.lag == 0 {
+            f.platform = NONE;
+            f.fast_fall = false;
+            f.vel.x = air_momentum(f.vel.x, p, rules);
+            let full = f.held(buttons::JUMP);
+            f.short_hop = !full;
+            if full && p.hop_burst_frames > 0 {
+                f.vel.y = p.hop_burst_velocity;
+                f.hop_boost = p.hop_burst_frames;
+            } else {
+                f.vel.y = if full {
+                    p.full_hop_velocity
+                } else {
+                    p.short_hop_velocity
+                };
+            }
+        }
+        return None;
+    }
+    if f.carry_jumps > 0 && f.take(buttons::JUMP, buffer) {
+        f.carry_jumps -= 1;
+        f.lag = p.jump_squat_frames.max(1);
+        carry_on_ground(f, p, stage, rules);
+        return None;
+    }
+    // The walk at `walk` percent of the body's (speed and both accelerations), turning at once with the stick [E].
+    let k = Fx::from_ratio(i32::from(carry.walk), 100);
+    let mut q = *p;
+    q.walk_speed = p.walk_speed * k;
+    q.walk_accel = p.walk_accel * k;
+    q.walk_accel_stick = p.walk_accel_stick * k;
+    if x_active(input) {
+        let dir: i8 = if input.stick_x > 0 { 1 } else { -1 };
+        f.facing = dir;
+        let tilt = i32::from(
+            input
+                .stick_x
+                .unsigned_abs()
+                .min(STICK_THRESHOLD.unsigned_abs()),
+        );
+        let target = (Fx::from_ratio(tilt, i32::from(STICK_THRESHOLD)) * q.walk_speed)
+            .mul_int(i32::from(dir));
+        f.vel.x = approach(f.vel.x, target, ease_rate(f.vel.x, target, &q, input));
+    } else {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    }
+    carry_on_ground(f, p, stage, rules);
+    None
+}
+
+/// Moves a carrying fighter along its platform; walking off the end takes it (and the held fighter) into the air, still carrying,
+/// with the ground speed reduced as a jump's. Returns false if it left the ground.
+fn carry_on_ground(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> bool {
+    f.touched_wall = collision::move_x(stage, p, &mut f.pos, f.vel.x);
+    if f.touched_wall {
+        f.vel.x = Fx::ZERO;
+    }
+    let on = collision::platform(stage, f.platform)
+        .is_some_and(|plat| f.pos.x >= plat.left && f.pos.x <= plat.right);
+    if !on {
+        f.platform = NONE;
+        f.vel.y = Fx::ZERO;
+        f.vel.x = air_momentum(f.vel.x, p, rules);
+        f.lag = 0;
+    }
+    on
 }
 
 /// The fighter has caught `victim`.
@@ -1763,6 +1890,7 @@ pub fn free_holder(f: &mut Fighter, lag: u8) {
 pub fn free_held(f: &mut Fighter, immunity: u8) {
     f.grab_with = NONE;
     f.grab_timer = 0;
+    f.grab_start = 0;
     f.grab_immune = immunity;
     if f.grounded() {
         enter(f, S::Idle);
@@ -2182,6 +2310,15 @@ fn attack(
         if MoveId::from_index(f.move_id) == MoveId::Pummel && f.grab_with != NONE {
             enter(f, S::Grabbing);
             return None;
+        }
+        // A carry's lift goes on into the carry, if the fighter is still held (E7).
+        if let Some(carry) = mv.carry {
+            if f.grab_with != NONE {
+                enter(f, S::Carrying);
+                f.carry_jumps = carry.jumps;
+                f.lag = 0;
+                return None;
+            }
         }
         // A jab continues into its next hit if attack was pressed shortly before the end.
         if let Some(next) = mv.next {

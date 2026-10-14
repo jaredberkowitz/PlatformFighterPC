@@ -794,6 +794,49 @@ pub struct DropThrough {
     pub while_down: bool,
 }
 
+/// A carry (E7, sim 98: the reference's cargo hold). A move with this (a throw slot) is the lift: while it runs, the held fighter is
+/// pinned at the move's `hold_at`; when it ends with the fighter still held, the holder goes into [`crate::state::FighterState::Carrying`]
+/// instead of standing (the move stays its `move_id`, so this block is read from it all through the carry). While carrying:
+///
+/// * the hold's clock is set when the lift starts to `hold time(percent now) x clock_num / clock_den - g`, `g` the hold time already
+///   used (`Fighter::grab_start - grab_timer`, mashing included: the reference's `((90 + 1.7p) x 11 / 6) - g`), at least 1, and runs
+///   on with the same mash cuts as an ordinary hold;
+/// * the holder walks only, at `walk` percent of its walk speed and both walk accelerations, turning with the stick; it has `jumps`
+///   jumps in all (`Fighter::carry_jumps`: the ground's jump squat and jump, or a midair jump once off the ground); it walks off edges
+///   and falls with the body's air physics (drift and fast fall), keeping the held fighter; it can catch a ledge only if `ledge`
+///   (which lets go of the held fighter);
+/// * the held fighter is pinned at `hold_at` (forward, up) from the holder's feet, mirrored by its facing;
+/// * attack starts a throw by the stick (the attack stick too): `throws` are the move slots of the forward (also the stick in the
+///   middle), back, up and down throws, ordinary moves with a `HIT_THROW` row;
+/// * `armor` (usually the knockback kind) covers the carry, its frames counted from the carry's first (255 and on count as 255): a
+///   hit it withstands does not end the carry; any other hit does, as for any hold.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Carry {
+    pub walk: u16,
+    pub clock_num: u8,
+    pub clock_den: u8,
+    pub jumps: u8,
+    pub hold_at: (Fx, Fx),
+    pub armor: Option<Armor>,
+    pub throws: [u8; 4],
+    pub ledge: bool,
+}
+
+impl Carry {
+    /// The throw slot for the stick held up, down or back (in that order of precedence), else the forward throw.
+    pub fn throw_for(&self, up: bool, down: bool, back: bool) -> u8 {
+        if up {
+            self.throws[2]
+        } else if down {
+            self.throws[3]
+        } else if back {
+            self.throws[1]
+        } else {
+            self.throws[0]
+        }
+    }
+}
+
 /// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
 /// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
 /// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
@@ -969,6 +1012,8 @@ pub struct Move {
     /// (the reference's windbox immunity, sim 90). 255 / 0 (the default): never.
     pub push_immune_from: u8,
     pub push_immune_to: u8,
+    /// The move is a carry's lift (E7, sim 98): see [`Carry`]. `None` (the default): an ordinary move.
+    pub carry: Option<Carry>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1042,6 +1087,7 @@ impl Move {
             drop_through: None,
             push_immune_from: 255,
             push_immune_to: 0,
+            carry: None,
             script: None,
             projectile_script: None,
         }
@@ -1425,6 +1471,34 @@ impl StateHash for Weapon {
                     h.write_bool(true);
                     front.hash_into(h);
                     back.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            match &m.carry {
+                Some(c) => {
+                    h.write_bool(true);
+                    h.write_u16(c.walk);
+                    h.write_u8(c.clock_num);
+                    h.write_u8(c.clock_den);
+                    h.write_u8(c.jumps);
+                    c.hold_at.0.hash_into(h);
+                    c.hold_at.1.hash_into(h);
+                    match &c.armor {
+                        Some(a) => {
+                            h.write_bool(true);
+                            h.write_u8(a.start);
+                            h.write_u8(a.end);
+                            h.write_u8(a.kind);
+                            a.threshold.hash_into(h);
+                            h.write_bool(a.subtract);
+                            a.min_kb.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                    for t in c.throws {
+                        h.write_u8(t);
+                    }
+                    h.write_bool(c.ledge);
                 }
                 None => h.write_bool(false),
             }
@@ -4331,6 +4405,10 @@ pub mod greatsword_slots {
 #[path = "moves_bracers.rs"]
 mod bracers;
 pub use bracers::bracers;
+/// The Bracers' carry slots (the cargo throws' `ext` slots) and armor threshold, for tests and tools.
+pub mod bracers_slots {
+    pub use super::bracers::{CARGO_ARMOR_KB, CARGO_BACK, CARGO_DOWN, CARGO_FORWARD, CARGO_UP};
+}
 
 #[path = "moves_clutch.rs"]
 mod clutch;
@@ -4370,6 +4448,7 @@ mod tests {
                         || m.projectile.is_some()
                         || m.counter.is_some()
                         || m.script.is_some()
+                        || m.carry.is_some()
                 );
                 for hb in &m.hitboxes {
                     assert!(
