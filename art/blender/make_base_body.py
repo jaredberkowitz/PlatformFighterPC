@@ -57,11 +57,13 @@ TRUNK_SQUARE = 3.2
 # clear of the belly. Was 0.117 / 0.103 / 0.088, ending at 0.585, 0.885.)
 # (A shaped arm, not a sausage: full at the shoulder, a slight narrowing at the elbow, the forearm filling out again before the wrist,
 # so the joint reads; it starts inside the trunk's top corner, where a shoulder cap (`SHOULDER_CAP`) rounds the box into it.)
-ARM = [((0.31, 0.0, 1.25), 0.168), ((0.46, 0.006, 1.12), 0.164), ((0.58, 0.012, 1.0), 0.146), ((0.66, 0.018, 0.9), 0.152),
-       ((0.73, 0.025, 0.79), 0.14)]
+ARM = [((0.31, 0.0, 1.25), 0.17), ((0.46, 0.006, 1.12), 0.164), ((0.58, 0.012, 1.0), 0.157), ((0.66, 0.018, 0.9), 0.152),
+       ((0.73, 0.025, 0.79), 0.142)]
 # The shoulder cap: a soft ball over each top corner of the trunk, where the arm comes out, so trunk and arm are one rounded mass, not a
 # tube pushed into a box (it read as a sleeve). Centre (x, y, z) and radii.
-SHOULDER_CAP = ((0.35, 0.0, 1.2), (0.19, 0.19, 0.14))
+# (Laid along the arm's first stretch, so the shoulder's top line runs on into the arm without a bulge: a deltoid ball and a narrowing
+# below it read as a sleeve's cuff.)
+SHOULDER_CAP = ((0.37, 0.003, 1.2), (0.2, 0.18, 0.15))
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
 HAND_LENGTH = 0.2
 HAND_RADII = (0.062, 0.1)   # thickness, width
@@ -71,11 +73,8 @@ HAND_RADII = (0.062, 0.1)   # thickness, width
 LEG = [((0.2, 0.0, 0.57), 0.172), ((0.2, 0.0, 0.45), 0.168), ((0.2, 0.0, 0.34), 0.15), ((0.2, 0.01, 0.26), 0.156), ((0.2, 0.0, 0.15), 0.128)]
 # Anatomy laid on the limbs as soft forms (the owner, 2026-10-14: "a body, not tubes"): (centre, radii) per side, x mirrored.
 ANATOMY = [
-    # Deltoids: the round of the shoulder over the top of the arm.
-    ((0.44, 0.0, 1.18), (0.17, 0.17, 0.15)),
-    # The point of the elbow behind, and the forearm's swell below it.
+    # The point of the elbow behind.
     ((0.585, 0.075, 1.0), (0.085, 0.07, 0.08)),
-    ((0.64, -0.01, 0.93), (0.15, 0.145, 0.12)),
     # Kneecaps in front, calves behind.
     ((0.2, -0.105, 0.34), (0.1, 0.08, 0.09)),
     ((0.2, 0.06, 0.25), (0.13, 0.12, 0.11)),

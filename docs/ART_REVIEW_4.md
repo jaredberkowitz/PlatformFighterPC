@@ -95,4 +95,8 @@ proportions were changed rather than the old ones forced into the style (`make_b
 - Checks: all the art, fighter, motion, animation, creator, online and content tests pass; the look bench 0.91 (was 0.87).
   `review4_peak_body.png`.
 
+- **The arm's join** (follow-up, the owner: "the arms look like sleeves"): the deltoid ball and the forearm swell are gone (each step in
+  width read as a cuff); the shoulder cap lies along the arm's first stretch so the shoulder's top line runs on into the arm, and the arm
+  tapers evenly from shoulder to wrist with only the point of the elbow behind. `review4_peak_body_arms.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.
