@@ -1,6 +1,6 @@
 //! The Pockets' phase-1 specials (class 10, the settler): the rocket (side special: let go, ridden, one at a time) and the balloon
 //! flight (up special, E41: the balloons, their pop, the helium, the rise, drift and fall). Reference data and the [E] readings:
-//! `docs/movesets/villager/REFERENCE_DATA.md`.
+//! the eleventh moveset's `REFERENCE_DATA.md` (`docs/movesets/`).
 
 mod common;
 

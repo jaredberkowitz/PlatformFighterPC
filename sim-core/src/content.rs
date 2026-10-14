@@ -1545,7 +1545,7 @@ impl FighterParams {
 impl FighterParams {
     /// A small, floaty middleweight with a pocketful of tools: the "settler" body of the Pockets moveset. The reference character's
     /// 13.0.1 attributes (owner decision 68; the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and `Item_throw` tables,
-    /// ultimateframedata.com; the eleventh moveset's `REFERENCE_DATA.md` in `docs/movesets/villager/`): weight 92, walk 1.092, initial
+    /// ultimateframedata.com; the eleventh moveset's `REFERENCE_DATA.md` in `docs/movesets/`): weight 92, walk 1.092, initial
     /// dash 1.815 for 13 frames, run 1.397, traction 0.131, air speed 0.987, air acceleration 0.01 + 0.05, air friction 0.01, gravity
     /// 0.078, fall 1.32 (fast 2.112), full hop 32.5, short hop 15.69, double jump 32.5, ledge jump 36.25 (drift 0.6, the shared value).
     /// On the ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, a heavy landing of 8 (7 of lag: the parameter

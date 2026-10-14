@@ -1,6 +1,6 @@
 //! E40 (sim 113, owner decisions 66-67): a hit on the previous reference version's rules (1.1.x, `Hitbox::rules` `RULES_PREVIOUS`),
 //! and the Settler's jab, the only move that uses them. The rules, each against the same hit on 13.0.1's (sources in
-//! `docs/movesets/villager/REFERENCE_DATA.md`): no one-on-one damage multiplier; that version's hitlag formula, a crouch shortening only
+//! the eleventh moveset's `REFERENCE_DATA.md` (`docs/movesets/`)): no one-on-one damage multiplier; that version's hitlag formula, a crouch shortening only
 //! the victim's; one more frame of hitstun on a tumbling launch; no launch speed-up; the gravity boost on every tumbling launch and no
 //! shared fall speed for a vertical one; its rage. Then the jab: it pops the foe up and away, and what follows it as a true combo.
 
@@ -260,7 +260,7 @@ fn advantage(victim: u8, percent: i32, both: bool) -> i32 {
 
 #[test]
 fn jab_1_into_jab_2_leaves_time_for_a_frame_6_move_from_130_percent() {
-    // The source (a Smashboards analysis of the previous version with the Kurogane calculator): "at 130% a frame-perfect jab 1 > jab 2
+    // The source (a forum analysis of the previous version with the Kurogane calculator): "at 130% a frame-perfect jab 1 > jab 2
     // > axe is guaranteed against any character" (the axe comes out on frame 6). Here: on the duelist and on the settler, from 130%
     // the victim is still in hitstun for at least 6 frames when the settler can act after jab 2.
     for victim in [0u8, SETTLER] {

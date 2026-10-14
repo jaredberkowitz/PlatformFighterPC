@@ -4,7 +4,7 @@
 //! properties (damage, angles and angle types, knockback, set knockback and set weight, hitlag and SDI multipliers, trip chances,
 //! shield damage, grounded- and aerial-only boxes, no-clank boxes, the bury); the up tilt's head intangibility and hitstun modifier;
 //! the turnips' random counts (E39); grabs, pummel and throws; landing lag and autocancels; the body's attributes and jump air times;
-//! registration; determinism. Reference data and sources: `docs/movesets/villager/REFERENCE_DATA.md`.
+//! registration; determinism. Reference data and sources: the eleventh moveset's `REFERENCE_DATA.md` (`docs/movesets/`).
 
 mod common;
 

@@ -941,6 +941,13 @@ impl SimRunner {
         self.fighter(i).map_or(-1, |fi| i32::from(fi.holding))
     }
 
+    /// How many balloons the fighter carries in its balloon move (E41, sim 113: the Settler's up special), 0 out of one. Read-only, for
+    /// the view.
+    #[func]
+    fn fighter_balloons(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(0, |fi| i32::from(fi.balloons))
+    }
+
     /// The radius (world units) of the egg the fighter is shut in (state `Encased`, E8), grown as it was laid; 0 when not in one.
     /// Read-only, for the view: the egg is drawn round the fighter, standing on its feet.
     #[func]

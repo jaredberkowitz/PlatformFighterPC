@@ -1,6 +1,6 @@
 //! The Pockets moveset (the settler body), modelled mechanically on a reference character: phase 1, the body's normals and two
 //! specials (the balloon flight and the rocket). A child module of `moves` (it uses that file's private row builders). Data and
-//! sources: the eleventh moveset's `REFERENCE_DATA.md` (`docs/movesets/villager/`), read from ssbwiki.com's raw hitbox tables
+//! sources: the eleventh moveset's `REFERENCE_DATA.md` (`docs/movesets/`), read from ssbwiki.com's raw hitbox tables
 //! (13.0.1); the jab is the previous reference version's (1.1.x, owner decision 66) on that version's hit rules (E40, decision 67).
 
 use super::*;
@@ -123,7 +123,7 @@ pub const ROCKET_KIND: u8 = 4;
 
 /// The Pockets moveset (the settler body): boxing gloves, an umbrella, a stick, a weed, a flowerpot, a bowling ball, a firework, a
 /// shovel, a slingshot, turnips, a rocket and balloons. Every normal follows the reference frame for frame (the eleventh moveset's
-/// `REFERENCE_DATA.md` in `docs/movesets/villager/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables): active frames, FAF,
+/// `REFERENCE_DATA.md` in `docs/movesets/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables): active frames, FAF,
 /// landing lag and autocancel windows, smash charge frames and the forward smash's own 1.2x charge; damage, angles and angle types,
 /// base and growth knockback, set knockback and set weight, hitlag and SDI multipliers, shield damage, trip chances, grounded- and
 /// aerial-only boxes, hit groups, the hitstun modifier, bury, the up tilt's head intangibility, the random turnip counts (E39). Its
@@ -150,8 +150,8 @@ pub fn pockets() -> Weapon {
     w
 }
 
-/// The previous reference version's (1.1.x) jab hit (owner decision 66; ssbwiki.com `Villager_(SSB4)/Neutral_attack/Hit_1` and
-/// `Hit_2`, kuroganehammer.com's 1.1.6 table): 3%, BK `bkb`, KS `kbg`, the near box (the reference's id 0, the glove's -1.2 along the
+/// The previous reference version's (1.1.x) jab hit (owner decision 66; ssbwiki.com's previous-version jab pages, hits 1 and 2,
+/// kuroganehammer.com's 1.1.6 table): 3%, BK `bkb`, KS `kbg`, the near box (the reference's id 0, the glove's -1.2 along the
 /// hand bone) at 60 degrees with radius 3.0 and the far one (id 1, 4.2 along it) at 80 degrees with radius 3.6, hitlag and SDI x1, on
 /// that version's hit rules (E40) [R]. Where the hand is in the punch is ours: 5.5 of the reference's units up, the near box 6.8 ahead
 /// and the far one 12.2 [E] (13.0.1's jab boxes reach 6.5 to 11.0 ahead at 5.5 up).
