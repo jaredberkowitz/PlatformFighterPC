@@ -103,6 +103,9 @@ pub const PUNCH_FULL_AIR: MoveId = MoveId::Ext3;
 pub const PUNCH_CANCEL: MoveId = MoveId::Ext4;
 pub const HEADBUTT_AIR: MoveId = MoveId::Ext5;
 pub const SPIN_AIR: MoveId = MoveId::Ext6;
+pub const SLAP_LOOP: MoveId = MoveId::Ext7;
+pub const SLAP_END: MoveId = MoveId::Ext8;
+pub const SLAP_AIR: MoveId = MoveId::Ext9;
 
 /// Super armor (every hit withstood: the reference's) on move frames `start..=end`.
 fn super_armor(start: u8, end: u8) -> Option<Armor> {
@@ -126,6 +129,81 @@ fn specials(w: &mut Weapon) {
     punch(w);
     headbutt(w);
     spin(w);
+    slap(w);
+}
+
+fn slap(w: &mut Weapon) {
+    // The hand slap on the ground (the down special), every number [R] from ssbwiki.com's raw tables and move page (13.0.1): both hands
+    // slap the ground on both sides on the loop's frames 12-13 and 23-24 (two separate hits), four boxes on the root, 14%, the outer
+    // pair at 78 degrees and the inner at 84 (by position), BK 85, KS 30, radius 10.3, at 5.0 of the reference's units up, 6.1 and 21.1
+    // either side ("15u apart, offset [0, 5, 6.1]": a reading [D]); grounded targets only; hitlag x0.5, shieldstun x0.58, shield +1
+    // (107 [D]); no clank. The start (1-8) and the first loop (9-34) are the down special; each further loop of 26 frames is ext7, the
+    // ending (35 on, FAF 47) ext8; presses bank loops (the scripts). It does not bury (13.0.1).
+    let slaps = |first: u8, second: u8| -> Vec<R> {
+        let mut rows = Vec::new();
+        for (n, at) in [first, second].into_iter().enumerate() {
+            for (x, angle) in [(211, 78i16), (61, 84), (-61, 84), (-211, 78)] {
+                rows.push(ru(at, at + 1, x, 50, 103, 140, angle, 85, 30, 0, n as u8));
+            }
+        }
+        rows
+    };
+    let dress = |mv: &mut Move| {
+        set_all(mv, |h| {
+            h.targets = TARGETS_GROUNDED;
+            h.angle_type = ANGLE_BY_POSITION;
+            h.hitlag = 50;
+            h.shieldstun = 58;
+            h.shield_damage = shield(140, 10);
+            h.clanks = false;
+            h.rebounds = false;
+        });
+    };
+    let mut first = ref_move(40, 0, 0, 255, &slaps(12, 23));
+    dress(&mut first);
+    first.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_slap.script"),
+    ));
+    first.air_version = Some(SLAP_AIR as u8);
+    w.moves[MoveId::DownSpecial as usize] = first;
+    // (A loop's frame 0 is the reference's 9: the slaps on its 4-5 and 15-16.)
+    let mut again = ref_move(30, 0, 0, 255, &slaps(4, 15));
+    dress(&mut again);
+    again.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_slap_loop.script"),
+    ));
+    w.moves[SLAP_LOOP as usize] = again;
+    // The ending: free on the reference's 47, its 13th frame.
+    let mut end = ref_move(13, 0, 0, 255, &[]);
+    end.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_slap_end.script"),
+    ));
+    w.moves[SLAP_END as usize] = end;
+
+    // In the air: two claps, the first 5% at 90 degrees (set knockback 36, KS 100, radius 7.0) on 19-21, the second the meteor (6% at
+    // 270, BK 30, KS 100, radius 8.0) on 28-30, both with a 20% trip chance (a grounded target: only if the first missed) and no clank;
+    // the hands in front, the first high and the second swung down low [E]; FAF 50, landing lag 10. Air physics: the body's [E: gap 8].
+    let mut air = ref_move(
+        50,
+        10,
+        0,
+        255,
+        &[
+            ru(19, 21, 80, 180, 70, 50, 90, 0, 100, 0, 0),
+            ru(28, 30, 80, 40, 80, 60, 270, 30, 100, 0, 1),
+        ],
+    );
+    set_all(&mut air, |h| {
+        h.angle_type = ANGLE_BY_POSITION;
+        h.trip = 20;
+        h.clanks = false;
+        h.rebounds = false;
+    });
+    air.hitboxes[0].fixed_kb = 36;
+    w.moves[SLAP_AIR as usize] = air;
 }
 
 fn spin(w: &mut Weapon) {

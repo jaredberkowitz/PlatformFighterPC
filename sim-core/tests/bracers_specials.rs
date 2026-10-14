@@ -650,3 +650,106 @@ fn the_grounded_spin_slides_with_the_stick_up_to_1_1_and_ignores_pushes() {
     assert_eq!(sim.f().state, S::Attack);
     assert!((sim.f().pos.x - x0).abs() < fx(5, 100), "not pushed");
 }
+
+// ---- The hand slap -----------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_hand_slap_has_the_references_data() {
+    use sim_core::moves::{ANGLE_BY_POSITION, TARGETS_GROUNDED};
+    let sim = duel(Fx::from_int(12));
+    let w = arms(&sim);
+    let first = w.get(MoveId::DownSpecial as u8);
+    let again = w.get(MoveId::Ext7 as u8);
+    assert_eq!(first.air_version, Some(MoveId::Ext9 as u8));
+    // The slaps on 12-13 and 23-24 (the loop's 4-5 and 15-16, its frame 1 the reference's 9): four boxes each, two hits.
+    for (mv, frames) in [
+        (first, [(12u8, 13u8), (23, 24)]),
+        (again, [(4, 5), (15, 16)]),
+    ] {
+        assert_eq!(mv.hitboxes.len(), 8);
+        for h in &mv.hitboxes {
+            assert_eq!((h.start + 1, h.end + 1), frames[usize::from(h.group)]);
+            assert_eq!(
+                (h.damage, h.base_knockback, h.knockback_growth, h.targets),
+                (Fx::from_int(14), 85, 30, TARGETS_GROUNDED)
+            );
+            assert!(matches!(h.angle, 78 | 84));
+            assert_eq!((h.hitlag, h.shieldstun, h.shield_damage), (50, 58, 107));
+            assert!(!h.clanks && h.angle_type == ANGLE_BY_POSITION);
+        }
+    }
+    let air = w.get(MoveId::Ext9 as u8);
+    assert_eq!((air.total_frames + 2, air.landing_lag), (50, 10));
+    let (a, b) = (air.hitboxes[0], air.hitboxes[1]);
+    assert_eq!(
+        (a.start + 1, a.end + 1, a.angle, a.fixed_kb, a.trip),
+        (19, 21, 90, 36, 20)
+    );
+    assert_eq!(
+        (b.start + 1, b.end + 1, b.angle, b.base_knockback, b.trip),
+        (28, 30, 270, 30, 20)
+    );
+    assert_eq!((a.damage, b.damage), (Fx::from_int(5), Fx::from_int(6)));
+    assert!(!a.clanks && !b.clanks);
+}
+
+/// The hand slap started on tick 1 with special pressed again on the ticks in `presses`: the reference's frame it ends on (FAF).
+fn slap_faf(presses: &[u32]) -> u32 {
+    let mut sim = duel(Fx::from_int(12));
+    for t in 1..=200u32 {
+        let special = t == 1 || presses.contains(&t);
+        sim.tick(inp(
+            0,
+            if t == 1 { -100 } else { 0 },
+            if special { SPECIAL } else { 0 },
+        ));
+        if t > 1 && sim.f().state != S::Attack {
+            return t + 1;
+        }
+    }
+    panic!("the slap never ended");
+}
+
+#[test]
+fn the_slap_loops_26_frames_for_each_press_and_twice_for_a_late_one() {
+    // No more presses: the ending after the first loop, free on 47.
+    assert_eq!(slap_faf(&[]), 47);
+    // One press early in the loop: one more loop of 26.
+    assert_eq!(slap_faf(&[15]), 73);
+    // One press on the loop's frames 20-26 (here 28-34): two more.
+    assert_eq!(slap_faf(&[30]), 99);
+    // A late press in the second loop banks two again (not added to the one still banked [E: a reading]): three loops in all.
+    assert_eq!(slap_faf(&[30, 35 + 22]), 125);
+}
+
+#[test]
+fn the_first_slap_lands_on_12_on_a_grounded_target_only() {
+    let mut sim = duel(fx(25, 10));
+    let tick = until_p1_hit(&mut sim, 30, |t| {
+        inp(
+            0,
+            if t == 1 { -100 } else { 0 },
+            if t == 1 { SPECIAL } else { 0 },
+        )
+    });
+    assert_eq!(tick, Some(12));
+    assert_eq!(
+        sim.fighter(1).percent,
+        Fx::from_int(14) * sim.content.rules.damage_mult
+    );
+    // A target just off the ground is never touched.
+    let mut sim = duel(fx(25, 10));
+    sim.put_airborne(1, fx(25, 10), fx(3, 10), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[1].invuln = 0;
+    let mut hit = false;
+    for t in 1..=30u32 {
+        sim.put_airborne(1, fx(25, 10), fx(3, 10), Fx::ZERO, Fx::ZERO);
+        sim.tick(inp(
+            0,
+            if t == 1 { -100 } else { 0 },
+            if t == 1 { SPECIAL } else { 0 },
+        ));
+        hit |= sim.fighter(1).percent > Fx::ZERO;
+    }
+    assert!(!hit);
+}

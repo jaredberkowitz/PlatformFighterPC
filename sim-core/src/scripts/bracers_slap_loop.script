@@ -1,0 +1,10 @@
+// Bracers hand slap, a further loop (ext7, 26 frames: its frame 0 is the reference's loop frame 9). Presses bank more loops as in the
+// first (two for a press on the loop's frames 20-26: move frames 19-25); on its frame 26 (the reference's 35) it loops again (35 =
+// ext7) or ends (36 = ext8).
+var more;
+if special_tap {
+    if frame >= 19 { more = max(more, 2); } else { more = max(more, 1); }
+}
+if frame >= 26 {
+    if more > 0 { more = more - 1; goto(35); } else { goto(36); }
+}
