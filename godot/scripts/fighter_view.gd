@@ -963,7 +963,12 @@ static func blob_parts() -> Dictionary:
 
 ## States where the hands open (see `_clench`).
 const OPEN_HAND_STATES := ["Grabbing", "Grabbed", "Hitstun", "Tumble", "LedgeHang", "LedgeGetUp", "Knockdown", "GetUp", "ShieldBreak",
-	"Respawn", "Helpless"]
+	"Respawn", "Helpless", "ItemPickup", "ItemThrow"]
+## Moves whose reference opens the hand (from the moveset reports' art notes): by class, the sim's move names. A hand holding a weapon
+## stays closed on it. Embers' cape, the Staff's warp and reflector, the Pockets' catch and release, the Popgun's banana and latch, the
+## Dagger's guard and counter stance (an open palm), the Nodachi's flare.
+const OPEN_HAND_MOVES := {3: ["side special"], 5: ["up special", "down special"], 10: ["neutral special"],
+	11: ["side special", "down special"], 12: ["down special"], 13: ["neutral special"]}
 
 
 ## The base body's closed fists and the open hands they stand in for, by side ("L", "R"): see `_clench`.
@@ -3874,7 +3879,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
 	# Fists closed through the fight (the owner, art review 5: open, extended hands do not read as combat). A hand opens only where a hand
 	# would: grabbing and holding, caught or hit (flailing), hanging from a ledge.
-	var open_hands: bool = OPEN_HAND_STATES.has(state)
+	var open_hands: bool = OPEN_HAND_STATES.has(state) or (s.move_name != "" and OPEN_HAND_MOVES.get(_cls(s), []).has(String(s.move_name)))
 	_clench(not open_hands, not open_hands or blade_pivot.visible)
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")

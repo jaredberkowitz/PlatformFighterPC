@@ -182,6 +182,8 @@ down tilt.
 - **The code's lean toward a low hit** is lighter for a sword on the base body (its clips already lean): it was folding low cuts over.
 - **Fists through the fight** (`OPEN_HAND_STATES`): hands open only grabbing, held, hit, tumbling, hanging from a ledge. **Wrists**
   keep 30% of any clip's bend (`WRIST_KEEP`), so a fist stays in line with the forearm.
+- **Open-hand moves** (`OPEN_HAND_MOVES`, from the moveset reports' art notes): the cape, the warp and reflector, the pocket catch and
+  release, the banana and the latch, the guard and counter stance, the flare charge; and picking up or throwing an item.
 - **Down tilt**: the torso folded so far the camera saw the top of the head; the spine leans 18 not 34.
 - **A raised blade** is held out in front of the face (`HIGH_BLADE_ARM`), not over it, where the short arm left the hilt at the mouth.
 - **Still open, next**: the sword hand stays near the chin through a strike instead of reaching out to an extended arm (the arm is
