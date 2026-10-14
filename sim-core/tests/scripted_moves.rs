@@ -861,7 +861,7 @@ fn the_aimed_register_reads_how_the_attack_was_aimed_as_it_started() {
     }
 }
 
-// ---- `owned` and the tool limit (E3d, sim 99) -------------------------------------------------------------------------------------
+// ---- `owned` and the tool limit (E3d, sim 102) -------------------------------------------------------------------------------------
 
 #[test]
 fn the_owned_register_counts_the_fighters_shots_out_and_a_limit_stops_more() {

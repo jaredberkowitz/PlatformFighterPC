@@ -59,7 +59,7 @@ const STYLE_DEFAULT := {
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
 	# lifted toward the haze (`lift`), the vignette, how far the far scenery fades into the haze at most (`haze_max`) and a gentle
 	# S-curve on the values (`s_curve`, 0 none). The fighters take half of the pastel and the curve.
-	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22},
+	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.5},
 }
 const STYLES := {
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55],
@@ -82,8 +82,14 @@ const STYLES := {
 
 ## The shading profile for theme `name` (its own values over the defaults).
 static func style(name: String) -> Dictionary:
+	var own: Dictionary = STYLES.get(name, {})
 	var out := STYLE_DEFAULT.duplicate()
-	out.merge(STYLES.get(name, {}), true)
+	out.merge(own, true)
+	# (The finish merges value by value: a stage that sets its own haze keeps the default's value hierarchy and vignette. A whole-dictionary
+	# merge dropped them, so `quiet` was off on every stage.)
+	var finish: Dictionary = (STYLE_DEFAULT.finish as Dictionary).duplicate()
+	finish.merge(own.get("finish", {}), true)
+	out.finish = finish
 	return out
 
 
@@ -149,7 +155,7 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	# keep the edge clean; the shadow range only as far
 	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
 	key.shadow_blur = 0.3
-	key.light_angular_distance = 0.35
+	key.light_angular_distance = 5.0
 	key.directional_shadow_max_distance = 70.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	key.directional_shadow_split_1 = 0.35
@@ -199,6 +205,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("pastel_lift", finish.lift)
 		post.set_shader_parameter("vignette", finish.vignette)
 		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
 		post.set_shader_parameter("s_curve", finish.s_curve)
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):

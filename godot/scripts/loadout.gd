@@ -10,15 +10,17 @@ const VERSION := 1
 ## Budget: a loadout is at most this many bytes (was 16 before the face was made of parts; it is about 30 now).
 const MAX_BYTES := 48
 
+## (The bright colours lean a little pastel, as the concept art's warm orange does: each keeps its hue with a touch more cream in it, so
+## under the stage's warm key and the fighters' saturation lift it reads soft rather than candy-bright.)
 const PALETTE := [
-	Color(1.0, 0.85, 0.2),    # sunny
-	Color(0.98, 0.58, 0.18),  # tangerine
-	Color(0.25, 0.45, 0.92),  # cobalt
-	Color(0.95, 0.5, 0.72),   # bubblegum
-	Color(0.4, 0.78, 0.4),    # meadow
-	Color(0.62, 0.42, 0.88),  # plum
-	Color(0.9, 0.3, 0.3),     # cherry
-	Color(0.35, 0.8, 0.82),   # lagoon
+	Color(1.0, 0.86, 0.32),   # sunny
+	Color(0.97, 0.62, 0.26),  # tangerine
+	Color(0.33, 0.52, 0.92),  # cobalt
+	Color(0.96, 0.56, 0.74),  # bubblegum
+	Color(0.48, 0.8, 0.46),   # meadow
+	Color(0.66, 0.5, 0.88),   # plum
+	Color(0.92, 0.38, 0.38),  # cherry
+	Color(0.42, 0.82, 0.82),  # lagoon
 	Color(0.92, 0.92, 0.88),  # cloud
 	Color(0.35, 0.35, 0.42),  # slate
 	Color(0.75, 0.55, 0.35),  # biscuit

@@ -8,9 +8,9 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Burst, ChargeAdd, ChargedShot, Counter, CounterBubble, DropThrough, Fall,
-    Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Tool,
-    Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
+    AirBlock, Armor, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, DropThrough,
+    Fall, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn, Reflector,
+    Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
     ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
     EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
     HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
@@ -474,6 +474,7 @@ rules_io! {
     helpless_drift: Fx,
     special_turn_window: u8,
     special_reverse_window: u8,
+    platform_drop_frames: u8,
     autolink_max_speed: Fx,
     autolink_max_fall: Fx,
     pull_rate: Fx,
@@ -979,10 +980,14 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "armor",
             "air",
             "charge_add",
+            "carry",
         ],
         context,
         errors,
     );
+    if let Some(b) = at_most_one(children(block, "carry"), "carry", context, errors) {
+        m.carry = Some(read_carry(b, &format!("the carry of {context}"), errors));
+    }
     if let Some(b) = at_most_one(children(block, "charge_add"), "charge_add", context, errors) {
         let ctx = format!("the charge_add of {context}");
         let mut f = Fields::new(b, &ctx, errors);
@@ -1511,6 +1516,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     }
     if let Some(a) = &m.armor {
         b.push(write_armor("armor", a));
+    }
+    if let Some(c) = &m.carry {
+        b.push(write_carry(c));
     }
     if let Some(c) = &m.counter {
         let mut cb = Block::new("counter", None);
@@ -2088,6 +2096,64 @@ fn read_armor(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Armor {
     };
     f.finish(errors);
     a
+}
+
+/// A move's `carry { ... }` block (E7, sim 98): `walk clock_num clock_den jumps hold_x hold_y` and the four throw slots `forward back
+/// up down` are required; `ledge` defaults to false; an `armor { ... }` child is optional.
+fn read_carry(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Carry {
+    only_known(b, &["armor"], ctx, errors);
+    let mut f = Fields::new(b, ctx, errors);
+    let mut throws = [0u8; 4];
+    for (slot, name) in throws.iter_mut().zip(["forward", "back", "up", "down"]) {
+        match f.raw(name) {
+            Some((key, line)) => match MoveId::from_key(key) {
+                Some(id) => *slot = id as u8,
+                None => err(
+                    errors,
+                    line,
+                    format!("{ctx}: `{name}` must be a move name, not `{key}`"),
+                ),
+            },
+            None => err(errors, b.line, format!("{ctx}: needs `{name}`")),
+        }
+    }
+    let c = Carry {
+        walk: f.need("walk", None, errors),
+        clock_num: f.need("clock_num", None, errors),
+        clock_den: f.need("clock_den", None, errors),
+        jumps: f.need("jumps", None, errors),
+        hold_at: (
+            f.need("hold_x", None, errors),
+            f.need("hold_y", None, errors),
+        ),
+        armor: None,
+        throws,
+        ledge: f.or("ledge", false, errors),
+    };
+    f.finish(errors);
+    let armor = at_most_one(children(b, "armor"), "armor", ctx, errors)
+        .map(|a| read_armor(a, &format!("the armor of {ctx}"), errors));
+    Carry { armor, ..c }
+}
+
+fn write_carry(c: &Carry) -> Block {
+    let mut b = Block::new("carry", None);
+    b.field("walk", c.walk.to_string());
+    b.field("clock_num", c.clock_num.to_string());
+    b.field("clock_den", c.clock_den.to_string());
+    b.field("jumps", c.jumps.to_string());
+    b.field("hold_x", c.hold_at.0.show());
+    b.field("hold_y", c.hold_at.1.show());
+    for (name, slot) in ["forward", "back", "up", "down"].iter().zip(c.throws) {
+        b.field(name, MoveId::from_index(slot).key());
+    }
+    if c.ledge {
+        b.field("ledge", "true");
+    }
+    if let Some(a) = &c.armor {
+        b.push(write_armor("armor", a));
+    }
+    b
 }
 
 fn write_armor(name: &str, a: &Armor) -> Block {

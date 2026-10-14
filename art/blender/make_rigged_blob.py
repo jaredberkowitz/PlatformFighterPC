@@ -283,23 +283,35 @@ def waist_weights(co):
 LIMB = 1.32
 
 
+## How big the hands are against the first model's, grown round the wrist (so the grip and anything held stay where they were): the
+## concept's hands are broad, soft mittens, and at play size a small fist read as a knob on the end of the arm.
+HAND_SCALE = 1.12
+
+
+def _hand(x, p):
+    """Point `p` of a hand built at the first model's size, on the `x` side, grown by HAND_SCALE round that side's wrist."""
+    w = Vector((x * BLOB_WRIST[0], BLOB_WRIST[1], BLOB_WRIST[2]))
+    return w + (Vector(p) - w) * HAND_SCALE
+
+
 def fist(bm, x):
     """A fist on the `x` side (-1 left, 1 right) at the blob's wrist: a round glove clenched, the four curled fingers a row of knuckle
     bumps underneath, the thumb wrapped across the front."""
-    palm = Vector((x * 0.775, -0.04, 0.66))
-    ball(bm, 0.205, palm, (0.9, 1.0, 0.92), segments=32, rings=20)
+    k = HAND_SCALE
+    ball(bm, 0.205 * k, _hand(x, (x * 0.775, -0.04, 0.66)), (0.9, 1.0, 0.92), segments=32, rings=20)
     for fy in (-0.135, -0.045, 0.045, 0.135):
-        ball(bm, 0.082, (x * 0.8, -0.04 + fy, 0.53), (1.0, 0.95, 0.9), segments=16, rings=10)
-    tube(bm, [(x * 0.69, -0.17, 0.68), (x * 0.72, -0.24, 0.6), (x * 0.8, -0.22, 0.55)], [0.07, 0.066, 0.06], segments=14,
-         per_span=4)
+        ball(bm, 0.082 * k, _hand(x, (x * 0.8, -0.04 + fy, 0.53)), (1.0, 0.95, 0.9), segments=16, rings=10)
+    tube(bm, [_hand(x, (x * 0.69, -0.17, 0.68)), _hand(x, (x * 0.72, -0.24, 0.6)), _hand(x, (x * 0.8, -0.22, 0.55))],
+         [0.07 * k, 0.066 * k, 0.06 * k], segments=14, per_span=4)
 
 
 def mitten(bm, x):
     """A bare hand on the `x` side, built round the same wrist as `fist`: the concept's mitten, a soft rounded paddle a little flatter
     side to side than deep, closed into a loose curl, with a stubby thumb in front. No knuckle row: that is the glove's clench, and on a
     bare hand it read as a glove in the body's colour."""
-    ball(bm, 0.19, (x * 0.78, -0.05, 0.63), (0.8, 1.0, 1.12), segments=32, rings=20)
-    tube(bm, [(x * 0.745, -0.12, 0.7), (x * 0.765, -0.2, 0.62)], [0.066, 0.056], segments=14, per_span=4)
+    k = HAND_SCALE
+    ball(bm, 0.19 * k, _hand(x, (x * 0.78, -0.05, 0.63)), (0.8, 1.0, 1.12), segments=32, rings=20)
+    tube(bm, [_hand(x, (x * 0.745, -0.12, 0.7)), _hand(x, (x * 0.765, -0.2, 0.62))], [0.066 * k, 0.056 * k], segments=14, per_span=4)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.

@@ -244,10 +244,24 @@ static func builtins() -> Array:
 	var hauler := neutral_entry("Hauler", 7, bruiser)
 	hauler.builtin = true
 	hauler.base_index = 7
-	var bounder := neutral_entry("Bounder", 8, Loadout.default_for(8))
+	# (Its own look: a meadow-green hopper in a beanie with a neckerchief, gloves and boots for its kicks.)
+	var hopper: RefCounted = Loadout.default_for(8)
+	hopper.color = 4
+	hopper.hat = 4
+	hopper.glasses = 0
+	hopper.neck = 2
+	hopper.gear = 3
+	var bounder := neutral_entry("Bounder", 8, hopper)
 	bounder.builtin = true
 	bounder.base_index = 8
-	var wanderer := neutral_entry("Wanderer", 9, Loadout.default_for(9))
+	# (Its own look: a lagoon-blue traveller in a straw hat and a streaming scarf, sword in hand and a round shield on its arm.)
+	var traveller: RefCounted = Loadout.default_for(9)
+	traveller.color = 7
+	traveller.hat = 3
+	traveller.glasses = 0
+	traveller.neck = 3
+	traveller.gear = 3
+	var wanderer := neutral_entry("Wanderer", 9, traveller)
 	wanderer.builtin = true
 	wanderer.base_index = 9
 	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer]

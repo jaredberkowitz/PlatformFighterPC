@@ -315,11 +315,54 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             }
             continue;
         }
+        if let Some(c) = &mv.carry {
+            // A carry (E7): its lift is a throw slot, its throws real throws, its clock a fraction with a denominator.
+            if !matches!(
+                id,
+                MoveId::FThrow | MoveId::BThrow | MoveId::UThrow | MoveId::DThrow
+            ) {
+                errors.push(format!(
+                    "weapon {i} {name}: a carry belongs on a throw (the lift)"
+                ));
+            }
+            if c.clock_num == 0 || c.clock_den == 0 || c.walk == 0 || c.walk > 1000 {
+                errors.push(format!(
+                    "weapon {i} {name}: a carry needs clock_num and clock_den above 0 and walk 1 to 1000"
+                ));
+            }
+            for t in c.throws {
+                let throw = w.moves.get(usize::from(t));
+                let real = usize::from(t) < MoveId::COUNT
+                    && throw.is_some_and(|m| {
+                        !m.is_empty()
+                            && m.carry.is_none()
+                            && m.hitboxes
+                                .iter()
+                                .any(|h| h.kind == sim_core::moves::HIT_THROW)
+                    });
+                if !real {
+                    errors.push(format!(
+                        "weapon {i} {name}: each of a carry's throws needs a real move with a throw hit (and no carry of its own)"
+                    ));
+                }
+            }
+            if let Some(a) = &c.armor {
+                if a.start > a.end {
+                    errors.push(format!(
+                        "weapon {i} {name}: the carry's armor start must not be after its end"
+                    ));
+                }
+                if let Some(e) = armor_error(a) {
+                    errors.push(format!("weapon {i} {name}: the carry's armor: {e}"));
+                }
+            }
+        }
         if mv.hitboxes.is_empty()
             && mv.projectile.is_none()
             && mv.script.is_none()
             && mv.counter.is_none()
             && !catch_moves.contains(&(m as u8))
+            && mv.carry.is_none()
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }

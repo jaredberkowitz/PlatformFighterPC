@@ -66,11 +66,14 @@ move selection. The rollback fuzzer now includes random attacks and hits.
 
 ## Reference-based moves
 
-These moves follow published Smash Ultimate frame data for two archetypes. Names and visuals stay original; only the
+These moves follow the reference platform fighter's published frame data for two archetypes. Names and visuals stay original; only the
 numbers (a game's mechanics) are matched. Frame numbering matches the reference: the tick the button is pressed is
 frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable frame 38 returns control on tick 38
 (`move frame = frame - 1` internally). Damage is shown with the 1.2 multiplier the reference applies in one-on-one rules
-(`Ruleset::damage_mult`).
+(`Ruleset::damage_mult`). As in the reference, that multiplier only scales the damage taken: the knockback formula reads the
+victim's percent before the hit plus the hit's damage without it, so a move launches the same at the same shown percent. A short
+hop's 0.85 (`short_hop_damage`) is a damage-dealt multiplier: it lowers the damage and that percent, not the formula's damage term
+(sim 97; `tests/knockback_reference.rs`).
 
 | Move | Source data (reference numbering) |
 | --- | --- |
@@ -353,7 +356,7 @@ reference-move tests check listed damage; the staling test turns it on.
 | Mechanic | Behaviour | Fields |
 | --- | --- | --- |
 | Launch speed-up ("balloon") | A tumbling launch whose hitstun ends on frame F plays `1 + (F - 30) / 10` knockback frames per frame at first (F at most 80, at most 6x), easing back to one: `m = m0 * (0.3F - left) / (0.3F - F)`. Strong hits cross the screen fast and their real hitstun is shorter (145 knockback: about 42 frames against 57 on paper; the wiki says 41). The speed-up's exact curve is inferred from the wiki's one worked example | `balloon_*` |
-| Launch gravity | For the first 10 frames of a launch everyone falls with gravity 0.087 and fall speed 1.5 (reference units); a launch between 70 and 110 degrees falls at 1.8 for its whole hitstun | `launch_fall_accel`, `launch_fall`, `launch_fall_frames`, `vertical_launch_*` |
+| Launch gravity | For the first 10 frames of a launch everyone falls with gravity 0.087 and fall speed 1.5 (reference units); a tumbling launch between 70 and 110 degrees falls at 1.8 for its whole hitstun (a launch too weak to tumble keeps its own fall: sim 97) | `launch_fall_accel`, `launch_fall`, `launch_fall_frames`, `vertical_launch_*` |
 | Hitbox hitlag factor | `hitlag 50` in a hitbox gives half the hitlag, `0` none (a factor under 1 is ignored on a shield) | `Hitbox::hitlag` |
 | Electric hits | `effect electric`: 1.5x hitlag for both fighters, and the victim drifts toward the held stick twice as hitlag ends (automatic SDI, 1.33 reference units each; not for near-vertical launches). No move in the base roster is electric yet | `Hitbox::effect`, `electric_hitlag_mult`, `asdi_distance` |
 | SDI over a combo | Every 5 hits of one combo, survival DI goes 1.15x further | `sdi_combo_*`, `Fighter::hits_taken` |
@@ -418,7 +421,7 @@ Checked against the reference game's own formula (the open SSBU calculator ports
 | --- | --- | --- |
 | Launch speed-up ("balloon") | Same curve as before (it already matched: `1 + (F - 30) / 10` at first, at most 6x, easing to one after 70% of the launch), but now it **skips whole knockback frames, gravity included**, as the reference does: the fighter follows the same path as an unhurried launch, only sooner. The real hitstun now equals the reference's to the frame (60 knockback: free on frame 24; 90: 34; 100: 36; 120: 39; 140: 41; 160: 44; 200: 50). (It had been one frame long on sped-up launches.) | `balloon_*` |
 | Gravity boost | A tumbling launch outside the 70 to 110 degree band gains `5 * (gravity - 0.075)` (reference units) of upward speed, so a fighter that falls faster is launched a little higher | `gravity_boost`, `gravity_boost_from` |
-| Launch gravity | A launched fighter falls by its own gravity from the start. (The reference's "everyone falls alike for 10 frames" is only for hits of fixed knockback, which no move here has; it had been applied to every launch and made light hits float everyone the same, which kept victims in the air longer than the reference at combo percents.) A launch between 70 and 110 degrees still falls at 1.8 for its whole hitstun | `launch_fall_frames` (now 0) |
+| Launch gravity | A launched fighter falls by its own gravity from the start. (The reference's "everyone falls alike for 10 frames" is only for hits of fixed knockback, which no move here has; it had been applied to every launch and made light hits float everyone the same, which kept victims in the air longer than the reference at combo percents.) A tumbling launch between 70 and 110 degrees still falls at 1.8 for its whole hitstun | `launch_fall_frames` (now 0) |
 | Hitstun cancel | An air dodge from frame 40, an aerial from frame 45, as before, **and only once the launch has slowed below 2.5 (air dodge) or 2.0 (aerial) reference units a frame** | `hitstun_*_cancel`, `hitstun_*_cancel_speed` |
 | Fast fall | A hard press down counts up to 3 frames before the apex, and only if the stick is still held when falling starts (it had been 10 frames, held or not, which let a fast fall come out on every jump almost by itself). **An aerial ends a fast fall**: the fighter falls at its normal top speed again until it presses down anew during the move. **A tumbling fighter cannot fast fall** after its hitstun until it acts (any action, a midair jump, a landing): `Fighter::damage_fall` | `FAST_FALL_BUFFER` |
 

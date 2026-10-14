@@ -99,8 +99,9 @@ fn forward_air_launches_at_the_361_angle_with_base_knockback_40_and_growth_80() 
     let mut sim = air_duel(DUELIST, fx(34, 10));
     hit_tick(&mut sim, inp(127, 0, ATTACK)).unwrap();
     let kb = sim.fighter(1).launch_kb;
+    // (The formula's percent leaves out the one-on-one multiplier: sim 97.)
     let expected = sim_core::combat::knockback(
-        pct(&sim, 115),
+        Fx::from_ratio(115, 10),
         Fx::from_ratio(115, 10),
         sim.content.fighters[0].weight,
         40,

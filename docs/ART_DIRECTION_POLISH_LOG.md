@@ -1,6 +1,6 @@
 # Art-direction polish: results log
 
-A pass against an outside plan ("cohesive stylized art-direction polish": Wind Waker shading, PEAK characters, Valheim colour). Most of
+A pass against an outside plan ("cohesive stylized art-direction polish": The reference adventure shading, PEAK characters, Valheim colour). Most of
 that plan had already been done by the graphics fidelity pass (`GRAPHICS_FIDELITY_LOG.md`) and the visual overhaul
 (`VISUAL_OVERHAUL_LOG.md`), so this pass only did what was still missing. Stills: `docs/screenshots/polish_*_{before,after}.png`
 (Skyline with the match HUD, two players and four).

@@ -18,7 +18,10 @@ uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
 uniform float scenery_lines = 0.72;       // how strong the screen-space ink is on the stage and scenery (the fighters get it all)
-uniform float inner_lines = 0.6;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
+uniform float inner_lines = 0.3;
+// The inverted-hull outlines' object id (shaders/outline.gdshader): where a silhouette has one, it is the line, and this pass adds none
+// beside it (a second line just inside doubled it into a thick, wavering stroke); where it has none (blades), this pass draws the line.
+const float HULL_ID = 0.7;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
 uniform float grain = 0.045;
 uniform float paper = 0.03;
 uniform float vignette = 0.16;          // kept light: dark corners make a fighter near the edge hard to read
@@ -44,6 +47,10 @@ uniform float haze_max = 0.36;
 // A gentle S-curve on the values (0 none): darker darks and brighter lights for more depth in the picture. Only the 0..1 range is curved
 // (lit windows above white keep their brightness); fighters take half.
 uniform float s_curve = 0.0;
+// The value hierarchy: the stage and scenery a step quieter than the fighters (less saturation, values drawn toward their middle), and
+// the fighters a step crisper (more saturation, a little more contrast), so the fighters are the most vivid, most contrasty thing on
+// screen on every stage, as in the genre's leaders. 0 is off.
+uniform float stage_quiet = 0.0;
 // Far scenery goes a little soft in play (a depth of field done here rather than by the camera, so the effects, name tags and halos drawn
 // after this pass stay sharp): `far_blur` pixels (at 1080 lines) at most, from `far_blur_start` world units behind the stage plane over
 // `far_blur_ramp`. Only pixels that are far themselves are gathered, so nothing near bleeds into the blur. 0 turns it off (Fast, Balanced).
@@ -120,6 +127,7 @@ void fragment() {
 	// Ink: compare this pixel with its four neighbours.
 	vec3 n0 = texture(normal_tex, uv).xyz * 2.0 - 1.0;
 	float id0 = object_at(uv);
+	bool on_hull = abs(id0 - HULL_ID) < 0.03;
 	float edge = 0.0;
 	vec2 offs[4] = vec2[](vec2(px.x, 0.0), vec2(-px.x, 0.0), vec2(0.0, px.y), vec2(0.0, -px.y));
 	for (int k = 0; k < 4; k++) {
@@ -128,6 +136,9 @@ void fragment() {
 		// Only the nearer side draws the line, so it sits on the edge of the object in front.
 		float jump = (d - d0) / max(d0, 0.001);
 		float id = object_at(q);
+		if (on_hull || abs(id - HULL_ID) < 0.03) {
+			continue;
+		}
 		// Silhouettes are the strongest lines; a fold inside one fighter is lighter, so forms read without a tangle of black.
 		float inner = abs(id - id0) <= 0.03 && id0 < 0.6 ? inner_lines : 1.0;
 		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump) * inner);
@@ -151,6 +162,17 @@ void fragment() {
 		// (Toward the stage's own haze colour, not toward white: coloured air, as in a painted landscape, rather than a milky veil.)
 		col = mix(col, pastel_haze.rgb, far_k);
 		edge *= 1.0 - far_k;
+	}
+	// The value hierarchy (see `stage_quiet`).
+	if (stage_quiet > 0.0 && d0 < 400.0) {
+		float yq = dot(col, vec3(0.3, 0.59, 0.11));
+		if (id0 < 0.6) {
+			col = mix(vec3(yq), col, 1.0 + 0.35 * stage_quiet);
+			col = (col - 0.5) * (1.0 + 0.12 * stage_quiet) + 0.5;
+		} else {
+			col = mix(col, vec3(yq), 0.45 * stage_quiet);
+			col = mix(col, vec3(mix(yq, 0.58, 0.5)), 0.1 * stage_quiet);
+		}
 	}
 	// The pastel finish (fighters, ids below 0.6, get half).
 	float soften = id0 < 0.6 && d0 < 400.0 ? 0.5 : 1.0;

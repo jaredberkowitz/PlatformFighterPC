@@ -850,7 +850,7 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   canyon its sunset, so the stages stay distinct.
 - **Floating sky islands** (`StageArt._sky_islands`): earth keels with grassy caps and a lip of turf, some with a round tree or a bush,
   at depths from 70 to 140 units, smaller and higher with distance, framing the stage without crossing the middle of the sky.
-- **The lawn as the reference paints it** (the owner's Wind Waker HD reference; a first try with dense blade cards read as scattered
+- **The lawn as the reference paints it** (the owner's the reference cel-shaded adventure reference; a first try with dense blade cards read as scattered
   wisps, not grass, and was dropped): one clean, vivid lime sheet (meadow grass 0.46, 0.82, 0.16) with its variation in long soft
   sweeps and broad hollows on a large tile (`tools/art/make_tiles.py` `grass`, 9 units a repeat), no blades on the meadow or grove, so
   the platforms' and props' cast shadows read as crisp shapes on it. (`StageArt._lawn` and the root-to-tip tuft shading stay available
@@ -1085,7 +1085,7 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   darkest a cast shadow can go is the stage's painted shadow colour, which is a per-stage mood choice. Fighters still take a quarter.
   `cast_shadow_before.png` / `cast_shadow_after.png`.
 - **Crisper distance** (item 6): the far scenery's blur on the Best tier is 1.0 pixel, down from 2.6 (`PLAY_BLUR`): the review found it
-  muddied the backdrops (Wind Waker keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
+  muddied the backdrops (The reference adventure keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
   down from the default 0.22) and thinner mists, the canyon thinner mists. `grove_crisper.png` (against `review_grove.png`).
 - **Built stage corners** (item 3, first step: `_ledges_and_buttresses`): down each end of a stage's front a column of bigger stones
   standing proud of the wall (quoins, narrowing toward the foot, every third a darker one), and a corner stone under each ledge; on the
@@ -1117,3 +1117,34 @@ only; every created fighter can wear them too).
   the Hauler a topknot, so the two bareheaded built-ins have outlines of their own too. `champion_spikes.png`, `silhouettes_select_2.png`.
 - **Flat Island's shore** (item 3): sand banked up against each end of the wall, spilling from about half its height down into the sea,
   so the island's ends slope like a shore instead of stopping in square corners. `beach_sand_banks.png`.
+
+## The value hierarchy (fiftieth pass, step 1 of docs/ART_REVIEW_2.md)
+
+- **The stage a step quieter than the fighters** (`stage_quiet` in `post.gdshader`, `quiet` in a style's finish, 0.5 by default): stage
+  and scenery pixels lose some saturation and are drawn a little toward their middle values; fighter pixels (object ids below 0.6) gain a
+  little saturation and contrast. On the canyon the orange and yellow fighters no longer melt into the orange sand, and the meadow's lime
+  lawn no longer competes with them. `value_hierarchy_canyon.png` (against `review2_stage1.png`), `value_hierarchy_meadow.png`.
+- The screen-space lines inside one fighter are at 0.3 (was 0.6), so fewer stray strokes cross the body (step 3, first part).
+- Reference names in the art docs replaced with "the reference platform fighter" and "the reference cel-shaded adventure" (the
+  repo rule: no Nintendo names).
+
+## The Bounder, the Wanderer, the bury and the trip (fifty-first pass)
+
+The moveset session's new fighters and states (sim 96 to 97), presentation only:
+- **The Bounder** (class 8, Clutch): a meadow-green hopper in a beanie and a neckerchief, with gloves and boots; an egg emblem with a
+  zigzag crack; its jabs, tail swipes and airs on the kick clips (the leg aimed at each hit), a flip kick for the up smash
+  (`CLASS_MOVES[8]`). Its own clips (flutter jump, tongue grab, the egg) come with the animation pass.
+- **The Wanderer** (class 9, Buckler): a lagoon-blue traveller in a straw hat and a streaming scarf; a bladed class (`BUCKLER_CLASS`,
+  the longsword's blade posed from its hits); a **round shield** on the other forearm (`_place_buckler`: a wooden disc, a steel rim, a
+  boss in the accent colour, faced to the camera); a shield-and-sword emblem; the longsword's cuts (`CLASS_MOVES[9]`). Its swing arcs
+  wait for its own clips (the longsword's are timed to the Duelist's frames).
+- **Buried** (the Hauler's headbutt): the fighter sinks to its shoulders and shakes as it struggles. `--demo=bury`, `bury_pose.png`.
+- **Tripped** (`fighter_tripped`, read when the bridge has it): a trip sits the fighter down in a low crouch instead of laying it flat.
+- **Carrying** (the Hauler's carry, sim 98 on the moveset branch): the holder keeps its arms raised under the fighter it holds overhead
+  (the up air's pose held at its top); the held fighter is placed by the game. Ready before the state reaches main.
+
+## Two-tone fighters, the body's topology (fifty-second pass, step 2 of docs/ART_REVIEW_2.md)
+
+The first pass of the visual polish plan; the audit, the ranking and the full change report are in `docs/VISUAL_POLISH.md`. Fighters
+are shaded in two flat tones split by a hard step, with one clean shadow colour each, and the base body is re-laid as even quads
+(`make_base_body.py`, `REDUCE`) so that step draws a smooth edge. The collision-box outlines no longer show in `--noecb` shots.

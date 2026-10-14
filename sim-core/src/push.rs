@@ -46,6 +46,7 @@ fn body(f: &Fighter) -> Body {
         | S::Hitstun
         | S::Grabbing
         | S::Grabbed
+        | S::Carrying
         | S::ShieldBreak
         | S::Respawn
         | S::LedgeGetUp

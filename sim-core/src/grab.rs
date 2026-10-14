@@ -1,6 +1,7 @@
 //! Grabs: catching a fighter, holding it (with a time limit that mashing shortens), and letting it go.
 //!
-//! The holder is in [`FighterState::Grabbing`] (or in a pummel or throw, which are ordinary moves), the held
+//! The holder is in [`FighterState::Grabbing`] (or in a pummel or throw, which are ordinary moves, or carrying the held fighter:
+//! [`FighterState::Carrying`], E7), the held
 //! fighter in [`FighterState::Grabbed`]; both point at each other with `grab_with`. The throw and pummel hits are
 //! resolved in `combat::resolve_hits`; this module keeps the pair consistent and pinned together every frame.
 
@@ -28,6 +29,7 @@ pub fn grabbable(f: &Fighter) -> bool {
                 | S::LedgeAttack
                 | S::Grabbed
                 | S::Grabbing
+                | S::Carrying
                 | S::Buried
         )
 }
@@ -44,6 +46,7 @@ pub fn catchable(f: &Fighter) -> bool {
                 | S::LedgeAttack
                 | S::Grabbed
                 | S::Grabbing
+                | S::Carrying
                 | S::Respawn
                 | S::Buried
         )
@@ -93,6 +96,8 @@ pub fn connect(state: &mut GameState, content: &Content, a: usize, d: usize) {
         fighter::become_holder(&mut state.fighters[a], d);
         fighter::become_held(&mut state.fighters[d], a, facing, timer);
         state.fighters[d].gauge_drain = drain;
+        // (Kept for a carry, which measures the hold time already used from it.)
+        state.fighters[d].grab_start = timer;
     }
     pin(state, content, a, d);
 }
@@ -110,9 +115,10 @@ pub fn drop_grab(state: &mut GameState, content: &Content, i: usize) {
         let was_held = f.state == S::Grabbed;
         f.grab_with = NONE;
         f.grab_timer = 0;
+        f.grab_start = 0;
         if was_held {
             fighter::free_held(f, content.rules.grab_immunity);
-        } else if matches!(f.state, S::Grabbing | S::Attack) {
+        } else if matches!(f.state, S::Grabbing | S::Attack | S::Carrying) {
             fighter::free_holder(f, content.rules.grab_release_lag);
         }
     }
@@ -131,14 +137,20 @@ pub fn update(state: &mut GameState, content: &Content) {
         let consistent = v < MAX_FIGHTERS
             && state.fighters[v].grab_with == h as i8
             && state.fighters[v].state == S::Grabbed
-            && matches!(state.fighters[h].state, S::Grabbing | S::Attack);
+            && matches!(
+                state.fighters[h].state,
+                S::Grabbing | S::Attack | S::Carrying
+            );
         if !consistent {
             drop_grab(state, content, h);
             continue;
         }
+        start_carry_clock(state, content, h, v);
         pin(state, content, h, v);
-        // The clock only runs while the holder is simply holding (not mid-pummel or mid-throw).
-        if state.fighters[h].state != S::Grabbing || state.fighters[v].hitlag > 0 {
+        // The clock only runs while the holder is simply holding or carrying (not mid-pummel or mid-throw).
+        if !matches!(state.fighters[h].state, S::Grabbing | S::Carrying)
+            || state.fighters[v].hitlag > 0
+        {
             continue;
         }
         let cut = mash_cut(&state.fighters[v], &content.rules);
@@ -148,6 +160,27 @@ pub fn update(state: &mut GameState, content: &Content) {
             drop_grab(state, content, h);
         }
     }
+}
+
+/// A carry's clock (E7, see `moves::Carry`), set on the first frame of its lift: the hold time at the held fighter's percent now, times
+/// `clock_num / clock_den`, less the hold time already used (`g`: from the clock as it was set on the catch, mashing included), at
+/// least one frame. The catch's clock (`grab_start`) is cleared once used, so this happens once per hold. (The clock stands still during the lift,
+/// as in any move made while holding, so setting it at the lift's start or end is the same.)
+fn start_carry_clock(state: &mut GameState, content: &Content, h: usize, v: usize) {
+    let holder = &state.fighters[h];
+    if holder.state != S::Attack || holder.state_frame != 0 || state.fighters[v].grab_start == 0 {
+        return;
+    }
+    let weapon = combat::weapon_of(content, combat::params_of(content, holder));
+    let Some(carry) = weapon.get(holder.move_id).carry else {
+        return;
+    };
+    let held = &mut state.fighters[v];
+    let used = i32::from(held.grab_start.saturating_sub(held.grab_timer));
+    let full = i32::from(hold_time(content, held.percent)) * i32::from(carry.clock_num)
+        / i32::from(carry.clock_den.max(1));
+    held.grab_timer = (full - used).clamp(1, i32::from(u16::MAX)) as u16;
+    held.grab_start = 0;
 }
 
 /// The frames this frame's mashing takes off a struggle (a hold, a bury: the shared mash): `grab_mash_button` for a new press of any
@@ -182,10 +215,11 @@ fn pin(state: &mut GameState, content: &Content, h: usize, v: usize) {
     } else {
         holder.move_id
     };
-    let hold_at = if holder.state == S::Attack {
-        weapon.get(current).hold_at
-    } else {
-        None
+    let hold_at = match holder.state {
+        S::Attack => weapon.get(current).hold_at,
+        // (A carry holds its fighter where its lift's `Carry::hold_at` says.)
+        S::Carrying => weapon.get(holder.move_id).carry.map(|c| c.hold_at),
+        _ => None,
     };
     if let Some((dx, dy)) = hold_at {
         let held = &mut state.fighters[v];

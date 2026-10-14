@@ -73,7 +73,7 @@ func build(sim) -> void:
 			StageArt.solid_block(self, theme, left, right, top, bottom, FRONT_Z, exposed)
 
 	# The soft shading under platforms and at the foot of walls, baked once for this stage.
-	StageLight.bake(rects)
+	StageLight.bake(rects, Vector2(FRONT_Z - StageArt.PLATFORM_DEPTH, FRONT_Z))
 
 	var scenery := Node3D.new()
 	scenery.name = "Backdrop"

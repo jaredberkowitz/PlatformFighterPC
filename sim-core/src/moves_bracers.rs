@@ -90,7 +90,104 @@ pub fn bracers() -> Weapon {
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
     specials(&mut w);
+    carry(&mut w);
     w
+}
+
+// ---- The carry (phase 3) ------------------------------------------------------------------------------------------------------
+
+/// The `ext` slots of the four cargo throws (`goto` numbers 38-41, unused by scripts).
+pub const CARGO_FORWARD: MoveId = MoveId::Ext10;
+pub const CARGO_BACK: MoveId = MoveId::Ext11;
+pub const CARGO_UP: MoveId = MoveId::Ext12;
+pub const CARGO_DOWN: MoveId = MoveId::Ext13;
+
+/// The carry's knockback armor threshold (80 units, non-subtractive [E]: `REFERENCE_DATA.md` conflict 2, owner decision 41).
+pub const CARGO_ARMOR_KB: i32 = 80;
+
+/// The forward throw is the reference's cargo hold (E7; the eighth moveset's `REFERENCE_DATA.md`, "The cargo hold", ssbwiki.com and
+/// dragdown, 13.0.1): a 15-frame lift, intangible on frames 1-15 [R], the held fighter lifted overhead [E: our body's height, the
+/// reference's hold bone not published]; then the carry from frame 16:
+///
+/// * the clock `(90 + 1.7p) x 11 / 6 - g` [R] (the shared hold time x 11 / 6, less the hold time already used, mashing included);
+/// * walking at x1.1 the walk speed and both walk accelerations [R: the move page; conflict 5 resolved to it, decision 41];
+/// * one jump in all [R: "only one jump"; which jump and its height are gap 3, the body's own jumps here [E]];
+/// * off the stage with the held fighter [R]; no ledge [E: gap 4];
+/// * knockback armor of 80 units, not subtractive, until a throw starts [E: conflict 2, gap 11];
+/// * attack (with the stick) throws: forward / back / up / down cargo throws [R], none with invincibility [R].
+///
+/// The cargo throws [R] (ssbwiki.com's forward throw page; UFD, dragdown and kuroganehammer agree on every release and FAF): forward on
+/// 15 (FAF 46), 12% at 60, BK 90, KS 46; back turning round and throwing behind on 16 (FAF 43), 13% at 72, BK 85, KS 52; up on 15 (FAF
+/// 30), 12% at 92, BK 65, KS 53; down on 17 (FAF 45), 11% at 46, BK 70, KS 45, where the horizontal speed stops and in the air the
+/// vertical becomes 1.5 (the script). Each keeps the held fighter overhead until it lets go; landing mid-throw it goes on along the
+/// ground, and a grounded one that slides over an edge goes on in the air [E: neither published]. The "interrupted" rows (the carry's
+/// 4% FKV 30, each throw's 3%) are not modelled (house limit).
+fn carry(w: &mut Weapon) {
+    let hold = (Fx::ZERO, Fx::from_ratio(14, 5));
+    let throw = |id: MoveId, faf: u8, row: R, back: bool| -> Move {
+        let mut m = with_kind(ref_move(faf, 0, 0, 255, &[row]), HIT_THROW);
+        m.turns_around = back;
+        m.hold_at = Some(hold);
+        m.land_continue = true;
+        m.off_edge = Some(id as u8);
+        m
+    };
+    w.moves[CARGO_FORWARD as usize] = throw(
+        CARGO_FORWARD,
+        46,
+        r(15, 15, 13, 11, 10, 120, 60, 90, 46, 0, 0),
+        false,
+    );
+    w.moves[CARGO_BACK as usize] = throw(
+        CARGO_BACK,
+        43,
+        r(16, 16, -13, 11, 10, 130, 72, 85, 52, 0, 0),
+        true,
+    );
+    w.moves[CARGO_UP as usize] = throw(
+        CARGO_UP,
+        30,
+        r(15, 15, 13, 11, 10, 120, 92, 65, 53, 0, 0),
+        false,
+    );
+    let mut down = throw(
+        CARGO_DOWN,
+        45,
+        r(17, 17, 13, 11, 10, 110, 46, 70, 45, 0, 0),
+        false,
+    );
+    down.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_cargo_down.script"),
+    ));
+    w.moves[CARGO_DOWN as usize] = down;
+    // The lift: 15 frames (the carry's first actionable frame is 16), intangible 1-15, no hit.
+    let mut lift = ref_move(16, 0, 0, 255, &[]);
+    lift.intangible = 15;
+    lift.hold_at = Some(hold);
+    lift.carry = Some(Carry {
+        walk: 110,
+        clock_num: 11,
+        clock_den: 6,
+        jumps: 1,
+        hold_at: hold,
+        armor: Some(Armor {
+            start: 0,
+            end: 255,
+            kind: ARMOR_KNOCKBACK,
+            threshold: Fx::from_int(CARGO_ARMOR_KB),
+            subtract: false,
+            min_kb: Fx::ZERO,
+        }),
+        throws: [
+            CARGO_FORWARD as u8,
+            CARGO_BACK as u8,
+            CARGO_UP as u8,
+            CARGO_DOWN as u8,
+        ],
+        ledge: false,
+    });
+    w.moves[MoveId::FThrow as usize] = lift;
 }
 
 // ---- Specials (phase 2) -------------------------------------------------------------------------------------------------------
@@ -901,18 +998,8 @@ fn grabs_and_throws(w: &mut Weapon) {
     w.moves[MoveId::Pummel as usize] = pummel;
     // Throws (no pre-hits; the "interrupted" rows and the thrower's invincibility are not modelled: house limits). Back: turns round
     // and throws behind on frame 15, 11% at 40 degrees, BK 60, KS 65, FAF 40. Up: on 14, 9% at 90, BK 70, KS 50, FAF 44. Down: on 19,
-    // 7% at the 361 angle (along the ground), BK 60, KS 50, FAF 55. Forward: the reference's forward throw is the carry (phase 3);
-    // until then a placeholder plain throw with the forward cargo throw's numbers (on 15, 12% at 60, BK 90, KS 46, FAF 46) [E].
-    w.moves[MoveId::FThrow as usize] = with_kind(
-        ref_move(
-            46,
-            0,
-            0,
-            255,
-            &[r(15, 15, 13, 11, 10, 120, 60, 90, 46, 0, 0)],
-        ),
-        HIT_THROW,
-    );
+    // 7% at the 361 angle (along the ground), BK 60, KS 50, FAF 55. Forward: the reference's forward throw is the carry (phase 3, see
+    // `carry`, built after the specials, which clear the `ext` slots the cargo throws use).
     let mut bthrow = with_kind(
         ref_move(
             40,

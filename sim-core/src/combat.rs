@@ -885,6 +885,7 @@ fn apply_hit(
     } else {
         Fx::ONE
     };
+    let hb_in = *hb;
     let mut hb = *hb;
     // An aerial made during a short hop hits a little softer.
     let attacker = &state.fighters[source];
@@ -898,7 +899,9 @@ fn apply_hit(
         hb.damage
     };
     hb.damage = base_damage * stale;
-    let kb_damage = base_damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
+    // The knockback formula's damage term is the move's own damage, staleness counted at 0.3: the short hop's 0.85 is a damage
+    // dealt multiplier and leaves it alone (the reference; rubendal's SSBU-Calculator, sim 97).
+    let kb_damage = hb_in.damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
 
     let shielding = state.fighters[d].state == S::Shield;
     let crouching = state.fighters[d].state == S::Crouch && state.fighters[d].grounded();
@@ -924,8 +927,12 @@ fn apply_hit(
         }
         return;
     }
-    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by.
-    grab::drop_grab(state, content, d);
+    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by. (A carrying fighter only once its carry's
+    // armor has been seen not to withstand the hit, below.)
+    let carrying = state.fighters[d].state == S::Carrying;
+    if !carrying {
+        grab::drop_grab(state, content, d);
+    }
     if freeze_source {
         // Hitting several fighters on one frame freezes the attacker for the longest of their hitlags.
         state.fighters[source].hitlag = state.fighters[source].hitlag.max(hitlag);
@@ -969,6 +976,9 @@ fn apply_hit(
     // draining move drains.
     crate::gauge::on_damage(state, content, source, d, added);
     let def = &mut state.fighters[d];
+    // The percent the knockback formula reads: the percent before the hit plus the hit's damage *without* the one-on-one
+    // multiplier, which only scales the damage taken (the reference: it never moves the percent a move KOs at; sim 97).
+    let kb_percent = (before + hb.damage).min(Fx::from_int(999));
     // (A set-weight hit treats every victim as weighing 100, and so does a bury hit: the reference's bury is weight-independent.)
     let weight = if hb.set_weight || bury_hit {
         Fx::from_int(100)
@@ -979,7 +989,7 @@ fn apply_hit(
         fixed_knockback(hb.fixed_kb, weight, hb.base_knockback, hb.knockback_growth)
     } else {
         knockback(
-            def.percent,
+            kb_percent,
             kb_damage,
             weight,
             hb.base_knockback,
@@ -1004,6 +1014,13 @@ fn apply_hit(
         defender_params
             .air_jump_armor
             .map(|a| (a, u16::from(def.air_jump_frame - 1)))
+    } else if carrying {
+        // A carry's armor (E7), its frames counted from the carry's first (255 and on as 255).
+        weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .carry
+            .and_then(|c| c.armor)
+            .map(|a| (a, def.state_frame.min(255)))
     } else {
         None
     };
@@ -1057,6 +1074,11 @@ fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
+    // A carry the hit breaks through lets go of its fighter (E7).
+    if carrying {
+        grab::drop_grab(state, content, d);
+    }
+    let def = &mut state.fighters[d];
     // The bury (E5). A buried fighter is freed only by a hit of at least `bury_break_kb` (it is launched in full, below); a weaker
     // hit's damage and hitlag stand and its launch is kept for when the bury ends (the last one kept [E: gap 10]). A grounded fighter
     // not lying down hit by a bury hit is buried; an airborne one takes the hit as usual (a meteor, for a downward bury hit).
