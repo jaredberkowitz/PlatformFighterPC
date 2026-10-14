@@ -860,6 +860,68 @@ impl SimRunner {
         }
     }
 
+    /// Debug (tests and screenshots of the run): puts the fighter in the air over the next room, just past its entry, as if it had
+    /// walked there (the camera on it), clears the mobs, and steps one frame so it is entered. Returns whether it was.
+    #[func]
+    fn run_debug_next_room(&mut self) -> bool {
+        let Some((rc, _)) = &self.run else {
+            return false;
+        };
+        let run = &mut self.state.run;
+        let Some(next) = run.slot_of(run.room + 1).copied() else {
+            return false;
+        };
+        let target = next.seq;
+        run.cam_x = (next.x - rc.rules.view_width * rc.rules.follow).max(run.wall_x);
+        for m in run.mobs.iter_mut() {
+            m.active = false;
+        }
+        run.gate_closed = false;
+        let f = &mut self.state.fighters[0];
+        f.pos = Vec2::new(next.x + rc.rules.enter_depth + Fx::ONE, next.y + Fx::from_int(6));
+        f.vel = Vec2::ZERO;
+        f.platform = sim_core::state::NONE;
+        f.state = sim_core::state::FighterState::Airborne;
+        f.state_frame = 0;
+        f.invuln = f.invuln.max(30);
+        self.recorder = None;
+        let inputs = [Input::default(); MAX_FIGHTERS];
+        step_run(&mut self.state, &mut self.content, rc, &inputs);
+        self.state.run.room == target
+    }
+
+    /// Debug (tests and screenshots): if a shop is in play, stands the fighter at its door and presses up, so it walks in. Returns
+    /// whether it is inside.
+    #[func]
+    fn run_debug_enter_shop(&mut self) -> bool {
+        let Some((rc, _)) = &self.run else {
+            return false;
+        };
+        let Some(door) = self
+            .state
+            .run
+            .slots
+            .iter()
+            .filter(|s| s.live)
+            .find_map(|s| door_of(rc, s))
+        else {
+            return false;
+        };
+        sim_core::run::build_stage(&self.state.run, rc, &mut self.content.stage);
+        let f = &mut self.state.fighters[0];
+        f.pos = door;
+        f.vel = Vec2::ZERO;
+        f.platform = sim_core::collision::standing_on(&self.content.stage, door);
+        f.state = sim_core::state::FighterState::Idle;
+        f.state_frame = 0;
+        self.state.run.prev_stick_y = 0;
+        self.recorder = None;
+        let mut inputs = [Input::default(); MAX_FIGHTERS];
+        inputs[0].stick_y = 127;
+        step_run(&mut self.state, &mut self.content, rc, &inputs);
+        self.state.run.inside
+    }
+
     /// Debug: put a fighter into the special fall.
     #[func]
     fn debug_helpless(&mut self, player: i32) {
