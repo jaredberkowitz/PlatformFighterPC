@@ -1127,3 +1127,16 @@ only; every created fighter can wear them too).
 - The screen-space lines inside one fighter are at 0.3 (was 0.6), so fewer stray strokes cross the body (step 3, first part).
 - Reference names in the art docs replaced with "the reference platform fighter" and "the reference cel-shaded adventure" (the
   repo rule: no Nintendo names).
+
+## The Bounder, the Wanderer, the bury and the trip (fifty-first pass)
+
+The moveset session's new fighters and states (sim 96 to 97), presentation only:
+- **The Bounder** (class 8, Clutch): a meadow-green hopper in a beanie and a neckerchief, with gloves and boots; an egg emblem with a
+  zigzag crack; its jabs, tail swipes and airs on the kick clips (the leg aimed at each hit), a flip kick for the up smash
+  (`CLASS_MOVES[8]`). Its own clips (flutter jump, tongue grab, the egg) come with the animation pass.
+- **The Wanderer** (class 9, Buckler): a lagoon-blue traveller in a straw hat and a streaming scarf; a bladed class (`BUCKLER_CLASS`,
+  the longsword's blade posed from its hits); a **round shield** on the other forearm (`_place_buckler`: a wooden disc, a steel rim, a
+  boss in the accent colour, faced to the camera); a shield-and-sword emblem; the longsword's cuts (`CLASS_MOVES[9]`). Its swing arcs
+  wait for its own clips (the longsword's are timed to the Duelist's frames).
+- **Buried** (the Hauler's headbutt): the fighter sinks to its shoulders and shakes as it struggles. `--demo=bury`, `bury_pose.png`.
+- **Tripped** (`fighter_tripped`, read when the bridge has it): a trip sits the fighter down in a low crouch instead of laying it flat.

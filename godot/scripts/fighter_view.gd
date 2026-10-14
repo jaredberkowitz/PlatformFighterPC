@@ -405,6 +405,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
 			return _attack_clip(s)
+		"Knockdown":
+			# A trip is a fall onto the seat, not onto the back: crouched low, held, rather than laid flat (`tripped` from the bridge).
+			if s.get("tripped", false):
+				return ["crouch", 1.0, 1.0]
 		"Turn":
 			# Turning out of a run skids; a turn from standing just turns.
 			return ["skid", 1.0, -1.0] if speed > 0.08 else ["idle", 1.0, -1.0]
@@ -2326,7 +2330,12 @@ const GREAT_THRUSTS := ["dair"]
 
 ## Whether a class swings a sword whose blade follows its hits (the Duelist's longsword, the Champion's greatsword).
 static func bladed(cls: int) -> bool:
-	return cls == 0 or cls == GREATSWORD_CLASS
+	return cls == 0 or cls == GREATSWORD_CLASS or cls == BUCKLER_CLASS
+
+
+## The class that fights with a sword and a round shield (the Wanderer): the longsword's blade, and the shield on the other arm.
+const BUCKLER_CLASS := 9
+var shield_disc: Node3D
 ## How many times the Seer's neutral air whirls the staff round.
 const STAFF_NAIR_TURNS := 2.0
 
@@ -2645,6 +2654,38 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		neck_pivot.rotation = Vector3(0, 0, springs.value("neck"))
 	for t in tails:
 		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
+
+
+## The Wanderer's round shield (made the first time it is needed): a wooden disc with a steel rim and boss in the accent colour, held on
+## the forearm of the arm that does not hold the sword, faced toward the camera. Hidden for every other class. Presentation only.
+func _place_buckler(s: Dictionary) -> void:
+	var mine := _cls(s) == BUCKLER_CLASS
+	if shield_disc == null:
+		if not mine:
+			return
+		shield_disc = Node3D.new()
+		model.add_child(shield_disc)
+		var face := CylinderMesh.new()
+		face.top_radius = 0.42
+		face.bottom_radius = 0.42
+		face.height = 0.08
+		face.radial_segments = 20
+		_part(shield_disc, face, toon(Color(0.62, 0.42, 0.28)), Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
+		var rim := TorusMesh.new()
+		rim.inner_radius = 0.38
+		rim.outer_radius = 0.46
+		rim.rings = 24
+		_part(shield_disc, rim, respond(toon(Color(0.7, 0.72, 0.8)), "metal"), Vector3(0, 0, 0.03), Vector3.ONE, Vector3(90, 0, 0))
+		_part(shield_disc, _sphere(0.12), respond(toon(loadout.accent_color()), "gold"), Vector3(0, 0, 0.07), Vector3(1, 1, 0.6))
+	shield_disc.visible = mine
+	if not mine or skeleton == null:
+		return
+	var facing := int(s.facing)
+	var hb := skeleton.find_bone("armL.L" if facing > 0 else "armL.R")
+	if hb < 0:
+		return
+	var at: Vector3 = _skeleton_to_frame() * skeleton.get_bone_global_pose(hb).origin
+	shield_disc.position = stage_frame.transform * at + Vector3(0.12 * facing, -0.05, 0.25)
 
 
 ## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.
@@ -3386,6 +3427,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:
 		var holding: bool = swinging_arm if not brawler else (swinging_arm and state == "Attack")
+		# The Wanderer's round shield, on the other forearm, faced outward toward the camera, a little in front of the body.
+		_place_buckler(s)
 		# (The Champion swings two-handed; a kick or a throw lets go with the other hand.)
 		_aim_arm(int(s.facing), holding and not carrying, great and swinging_arm and state == "Attack")
 		# The hilt goes where the hand actually got to (an arm shorter than the swing wants stops short of its target): the weapon is
@@ -3439,6 +3482,9 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
+	# Buried: sunk to about half its height in the ground (the bridge's `Buried`), shaking a little as it struggles.
+	if state == "Buried":
+		model.position = Vector3(0.05 * sin(float(s.frame) * 2.1), -1.0, 0)
 	# Charging a smash attack: the glow grows and the body trembles harder the longer it is held.
 	var charge: int = s.charge
 	if charge > 0 and state == "Attack":

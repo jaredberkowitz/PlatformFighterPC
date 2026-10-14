@@ -206,6 +206,32 @@ const CLASS_MOVES := {
 		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
 		"down special": "crouch",
 	},
+	# Clutch (the Bounder): kicks for its jabs, dash attack and airs, its tail swipes as low and high kicks, a flip kick overhead for the up
+	# smash, the headbutts as heavy strikes. (Placeholders until its own clips; the leg is aimed at each hit.)
+	8: {
+		"jab": "kick_low",
+		"jab 2": "kick_low",
+		"ftilt": "kick_low",
+		"utilt": "kick_up",
+		"dtilt": "kick_low",
+		"dash attack": "kick_dash",
+		"usmash": "kick_uair",
+		"dsmash": "sword_dsmash",
+		"nair": "kick_nair",
+		"bair": "kick_bair",
+		"uair": "kick_uair",
+		"dair": "kick_dair",
+	},
+	# Buckler (the Wanderer): the longsword's cuts (its blade follows its hits).
+	9: {
+		"ftilt": "sword_ftilt",
+		"utilt": "sword_utilt",
+		"dtilt": "sword_dtilt",
+		"fsmash": "sword_fsmash",
+		"usmash": "sword_usmash",
+		"dsmash": "sword_dsmash",
+		"dair": "sword_dair",
+	},
 	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
 	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up
 	# smashes, both fists slammed down either side, a heavy overhead hammer for the forward air, a back kick, a stomp. (Placeholders

@@ -161,6 +161,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack], [23, 0, 0, 0]]
 			d.shots = [[30, "a_windup"], [40, "b_hit"], [48, "c_launch"], [62, "d_flying"], [90, "e_far"]]
 			d.end_frame = 120
+		"bury":
+			# The Hauler's headbutt (side special) buries a standing fighter: the buried pose, then the pop-up out of it.
+			d.chars = [7, 0, 0, 0]
+			d.cam_dist = 14.0
+			d.events = [[1, "stand", 0, -1.4, 1], [1, "stand", 1, 1.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, special], [22, 0, 0, 0]]
+			d.shots = [[44, "a_headbutt"], [60, "b_buried"], [100, "c_buried_later"]]
+			d.end_frame = 110
 		"ko":
 			# A forward smash on a fighter at 170%: the hit shakes the camera, which closes in because the launch will KO, and the
 			# launch leaves a smoke trail.

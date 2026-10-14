@@ -363,6 +363,7 @@ func _refresh(i: int) -> void:
 		"charge": sim.fighter_charge(i), "shield": sim.fighter_shield(i) / sim.shield_max(), "move_name": sim.fighter_move_name(i), "move_timing": sim.fighter_move_timing(i),
 		"move_windows": sim.fighter_move_windows(i), "dodge": sim.fighter_dodge(i),
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i), "wall_jumps": sim.fighter_wall_jumps(i),
+		"tripped": sim.has_method("fighter_tripped") and bool(sim.fighter_tripped(i)),
 	}
 
 
