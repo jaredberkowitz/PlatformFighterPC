@@ -1683,6 +1683,7 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 		for v in [a, c, b, a, d, c]:
 			st.set_normal(Vector3(0.0, 0.25, 1.0).normalized())
 			st.add_vertex(v)
+	var side_hedges: Array = []
 	# The fields: between each pair of hedges, patches of a few to a few tens of units, their colours picked by a hash.
 	for row in hedges.size() - 1:
 		var d0: float = hedges[row]
@@ -1700,8 +1701,8 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 				var xb := minf(xa + step, x + w)
 				quad.call(st, at.call(xa, d1) + front, at.call(xb, d1) + front, at.call(xb, d0) + front, at.call(xa, d0) + front)
 				xa = xb
-			# Crop rows across every other field, closer together further down (further off).
-			if (row + k) % 2 == 0:
+			# (Crop rows are in the field tile now.)
+			if false:
 				var fst := furrow_gold if pick == colours.size() - 1 else furrow_green
 				var gap := 1.3 + 0.05 * d0
 				var dr := d0 + gap
@@ -1714,10 +1715,11 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 						quad.call(fst, at.call(xa2, dr) + drop, at.call(xb2, dr) + drop, at.call(xb2, dr) + lift, at.call(xa2, dr) + lift)
 						xa2 = xb2
 					dr += gap
-			# A hedge down the side between this field and the next.
-			var side := Vector3(0.3, 0, 0)
+			# A hedge down the side between this field and the next: a thin shade line under a few bushes along it.
+			var side := Vector3(0.18, 0, 0)
 			var hz := Vector3(0, 0, 0.08)
 			quad.call(hedge_st, at.call(x + w, d1) - side + hz, at.call(x + w, d1) + side + hz, at.call(x + w, d0) + side + hz, at.call(x + w, d0) - side + hz)
+			side_hedges.append([x + w, d0, d1])
 			x += w
 			k += 1
 	# The hedgerows across: a dark band along each line, thicker nearer (higher up the face).
@@ -1745,10 +1747,18 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 				Vector3(prev.x - ph, prev.y, z + 0.12))
 		prev = here
 		dd += 1.0
+	# The fields painted as the stage's own ground is (the grass tile with its detail, laid in world space), not flat fills, so the valley
+	# reads at the stage's finish; the hedgerow bands under the bushes stay plain, as their shade.
 	var materials: Array = []
 	for c in colours:
-		materials.append(_soft(c))
-	materials.append(_soft(hedge_colour))
+		# (Laid big and light: the tile only breaks up the fill, each field keeps its own colour.)
+		# (A painted field of crop rows (godot/art/stage/field.svg) in the field's own colour, laid in world space at the size of the farm,
+		# with the soil detail over it.)
+		var fm := Materials.world("field", c, 6.0, false).duplicate() as ShaderMaterial
+		fm.set_shader_parameter("world_vary", 0.05)
+		Materials.set_detail(fm, "soil", 0.25, 5.0)
+		materials.append(fm)
+	materials.append(_soft(hedge_colour.darkened(0.12)))
 	materials.append(_soft(Color(0.9, 0.8, 0.58)))
 	for i in tools.size():
 		_mesh(root, (tools[i] as SurfaceTool).commit(), materials[i], Vector3.ZERO)
@@ -1763,8 +1773,32 @@ static func _fields(root: Node3D, z: float, y: float, colours: Array, hedge_colo
 	_barn(farm, Vector3.ZERO)
 	_cottage(farm, Vector3(8.0, 0.4, -0.3), Color(0.4, 0.46, 0.6), 1.0)
 	merge_static(farm)
+	# The hedgerows across: a row of round, leafy bushes along each line (smaller and closer set further down), on the dark band as their
+	# shade, so a hedge has volume like the trees by the stage rather than being a drawn line.
+	var leaf := Materials.foliage(hedge_colour, Vector2(2, 2), true)
+	var leaf_lit := Materials.foliage(hedge_colour.lightened(0.1), Vector2(2, 2), true)
+	for hi in hedges.size():
+		var d: float = hedges[hi]
+		var hr := lerpf(0.95, 0.4, d / 43.0)
+		var bx := -130.0 + float(hi) * 1.7
+		var j := 0
+		while bx < 130.0:
+			# Bushes of very different sizes, overlapping into one lumpy row, with now and then a gap or a tree standing out of it.
+			var n := absf(sin(bx * 0.37 + d * 1.3)) * absf(sin(bx * 0.11 + d))
+			var rr := hr * (0.6 + 0.9 * n)
+			var b3: Vector3 = at.call(bx, d)
+			if n > 0.08:
+				_mesh(root, _sphere(1.0, 8), leaf if j % 4 != 0 else leaf_lit, b3 + Vector3(0, rr * 0.4, 0.25), Vector3(rr * 1.5, rr, 0.6))
+			bx += rr * (1.1 + 0.6 * absf(sin(bx * 2.3)))
+			j += 1
+	for sh in side_hedges:
+		var sd: float = sh[1]
+		while sd < float(sh[2]):
+			var rr := lerpf(0.75, 0.35, sd / 43.0) * (0.8 + 0.4 * absf(sin(sd * 1.9 + float(sh[0]))))
+			_mesh(root, _sphere(1.0, 8), leaf, at.call(float(sh[0]), sd) + Vector3(0, rr * 0.4, 0.25), Vector3(rr * 1.2, rr, 0.6))
+			sd += rr * 2.4
 	# Round bushes dotted along the top hedges.
-	var bush := _soft(hedge_colour.lightened(0.08))
+	var bush := Materials.foliage(hedge_colour.lightened(0.08), Vector2(2, 2), true)
 	for j in 14:
 		var bx := -150.0 + j * 23.0 + 6.0 * sin(j * 2.7)
 		var bd: float = hedges[j % 3]
@@ -2221,7 +2255,7 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 ## shuttered windows and a wooden gallery round it, a shingled cap with a trim ring and a finial, and four lattice sails, each a stock
 ## carrying a frame of rails and slats with canvas over most of it, that turn.
 static func _windmill(root: Node3D, at: Vector3) -> void:
-	var plaster := FighterView.toon(Color(0.96, 0.94, 0.88))
+	var plaster := Materials.plaster(Color(0.96, 0.94, 0.88), Vector2(3, 3))
 	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
 	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
 	_mesh(root, _cylinder(3.3, 3.6, 2.0, 14), Materials.stone(Color(0.66, 0.62, 0.58), Vector2(4, 1)), at + Vector3(0, 1.0, 0))
@@ -2242,7 +2276,7 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 		_mesh(root, _box(Vector3(0.12, 0.9, 0.12)), wood_dark, at + Vector3(sin(ang) * 2.9, 9.05, cos(ang) * 2.9))
 	# The cap: a trim ring, a shingled cone and a knob on top.
 	_mesh(root, _cylinder(2.1, 2.1, 0.4, 16), wood_dark, at + Vector3(0, 13.2, 0))
-	_mesh(root, _cylinder(0.0, 2.6, 3.2, 16), Materials.wood(Color(0.74, 0.34, 0.28), Vector2(6, 3)), at + Vector3(0, 15.0, 0))
+	_mesh(root, _cylinder(0.0, 2.6, 3.2, 16), Materials.shingles(Color(0.74, 0.34, 0.28), Vector2(6, 2)), at + Vector3(0, 15.0, 0))
 	_mesh(root, _sphere(0.3, 10), wood_dark, at + Vector3(0, 16.7, 0))
 	# The windshaft comes out of the cap through a wooden housing on the tower's face, tilted up a little as a real one is, into the hub.
 	_mesh(root, _box(Vector3(1.3, 1.1, 1.0)), wood_dark, at + Vector3(0, 12.5, 1.75))
@@ -2273,8 +2307,12 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 static func _barn(root: Node3D, at: Vector3) -> void:
 	var red := Materials.wood(Color(0.78, 0.26, 0.22), Vector2(4, 2))
 	var trim := FighterView.toon(Color(0.98, 0.95, 0.9))
-	var roof := Materials.wood(Color(0.36, 0.3, 0.32), Vector2(5, 2))
+	var roof := Materials.shingles(Color(0.4, 0.34, 0.36), Vector2(4, 2))
 	_mesh(root, _box(Vector3(5.6, 3.6, 4.0)), red, at + Vector3(0, 1.8, 0))
+	# A stone footing, and white boards up the corners (built, not a red box).
+	_mesh(root, _box(Vector3(5.8, 0.4, 4.2)), Materials.stone(Color(0.6, 0.57, 0.56), Vector2(4, 1)), at + Vector3(0, 0.2, 0))
+	for cx in [-2.75, 2.75]:
+		_mesh(root, _box(Vector3(0.22, 3.4, 0.22)), trim, at + Vector3(cx, 1.9, 1.95))
 	for sgn in [-1.0, 1.0]:
 		_mesh(root, _box(Vector3(6.2, 0.3, 3.0)), roof, at + Vector3(0, 4.45, sgn * 1.05), Vector3.ONE, Vector3(sgn * 45.0, 0, 0))
 	_mesh(root, _box(Vector3(2.4, 2.6, 0.1)), trim, at + Vector3(0, 1.3, 2.02))
@@ -2288,16 +2326,27 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 ## A cottage (`at` its foot): whitewashed walls, a steep gabled roof in `roof`, a plank door and a lit window, and a stone chimney at one
 ## end (`side`) with smoke curling up from it (cel-shaded puffs, `Particles.chimney_smoke`).
 static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
-	var wall := FighterView.toon(Color(0.97, 0.93, 0.84))
-	var roof_m := Materials.wood(roof, Vector2(4, 2))
+	# Plastered walls on a stone footing, a shingled roof with a board along each eave, the door and window framed in wood (the window
+	# with shutters), so a cottage reads as built at the same finish as the props by the stage.
+	var wall := Materials.plaster(Color(0.97, 0.93, 0.84), Vector2(2, 2))
+	var roof_m := Materials.shingles(roof, Vector2(3, 2))
+	var frame := Materials.wood(Color(0.56, 0.38, 0.26))
 	_mesh(root, _box(Vector3(5.0, 3.2, 3.6)), wall, at + Vector3(0, 1.6, 0))
+	_mesh(root, _box(Vector3(5.2, 0.4, 3.8)), Materials.stone(Color(0.64, 0.6, 0.58), Vector2(4, 1)), at + Vector3(0, 0.2, 0))
+	for sgn in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(5.7, 0.16, 0.14)), frame, at + Vector3(0, 3.0, sgn * 1.92))
 	for sgn in [-1.0, 1.0]:
 		_mesh(root, _box(Vector3(5.6, 0.3, 2.7)), roof_m, at + Vector3(0, 4.0, sgn * 0.95), Vector3.ONE, Vector3(sgn * 42.0, 0, 0))
 	# The gable ends under the roof: a wedge of wall each end.
 	for ex in [-2.45, 2.45]:
 		_mesh(root, _cylinder(0.0, 2.0, 1.6, 4), wall, at + Vector3(ex, 3.9, 0), Vector3(0.08, 1.0, 1.0), Vector3(0, 45, 0))
-	_mesh(root, _box(Vector3(0.9, 1.7, 0.1)), Materials.wood(Color(0.5, 0.32, 0.22)), at + Vector3(-0.9 * side, 0.85, 1.82))
-	_mesh(root, _box(Vector3(0.9, 0.8, 0.1)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(0.9 * side, 1.7, 1.82))
+	_mesh(root, _box(Vector3(1.1, 1.95, 0.08)), frame, at + Vector3(-0.9 * side, 0.98, 1.81))
+	_mesh(root, _box(Vector3(0.9, 1.75, 0.1)), Materials.wood(Color(0.5, 0.32, 0.22)), at + Vector3(-0.9 * side, 0.9, 1.84))
+	_mesh(root, _box(Vector3(1.1, 1.0, 0.08)), frame, at + Vector3(0.9 * side, 1.7, 1.81))
+	_mesh(root, _box(Vector3(0.86, 0.76, 0.1)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(0.9 * side, 1.7, 1.84))
+	_mesh(root, _box(Vector3(0.06, 0.76, 0.12)), frame, at + Vector3(0.9 * side, 1.7, 1.86))
+	for sx in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(0.42, 0.95, 0.08)), Materials.wood(roof.lightened(0.1)), at + Vector3(0.9 * side + sx * 0.8, 1.7, 1.83))
 	var chimney := at + Vector3(1.7 * side, 4.6, -0.6)
 	_mesh(root, _box(Vector3(0.7, 2.0, 0.7)), Materials.stone(Color(0.62, 0.58, 0.56), Vector2(1, 2)), chimney)
 	var top := Node3D.new()
@@ -2526,8 +2575,9 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Distant islands.
 	for k in 3:
 		var isle := Vector3(-70.0 + k * 65.0 + rng.randf_range(-10, 10), float(e[3]) - 3.0, -110.0 + rng.randf_range(-10, 10))
-		_mesh(root, _sphere(1.0, 16), _soft(Color(0.98, 0.88, 0.62)), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
-		_mesh(root, _sphere(1.0, 16), _soft(Color(0.3, 0.62, 0.42)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
+		# (The sand painted as the stage's own beach is, the green a leafy foliage mound, both inked: the same finish as the props by the stage.)
+		_mesh(root, _sphere(1.0, 16), Materials.world("sand", Color(0.98, 0.88, 0.62), 6.0), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
+		_mesh(root, _sphere(1.0, 16), Materials.foliage(Color(0.3, 0.62, 0.42), Vector2(4, 2)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
@@ -2561,7 +2611,7 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 	rng.seed = 500 + k
 	var foam := _unshaded(Color(0.96, 0.99, 1.0))
 	_mesh(root, _cylinder(1.0, 1.0, 0.08, 28), foam, isle + Vector3(0, 0.15, 0), Vector3(17.5, 1.0, 7.0))
-	_mesh(root, _sphere(1.0, 12), _soft(Color(0.36, 0.68, 0.46)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
+	_mesh(root, _sphere(1.0, 12), Materials.foliage(Color(0.36, 0.68, 0.46), Vector2(3, 2)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
 	_palm(root, isle + Vector3(rng.randf_range(3.0, 6.0), 2.8, 2.6), 1.0, rng)
 	var rock := Materials.stone(Color(0.62, 0.6, 0.66))
 	var end := -1.0 if k % 2 == 0 else 1.0
@@ -2571,8 +2621,8 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 		_mesh(root, _cylinder(1.0, 1.0, 0.06, 14), foam, isle + Vector3(end * (12.0 + j * 1.8), 0.12, 2.0 - j), Vector3(r * 1.6, 1.0, r * 1.3))
 	if k == 1:
 		var hut := isle + Vector3(-1.5, 3.2, 2.2)
-		_mesh(root, _box(Vector3(2.4, 1.6, 1.8)), FighterView.toon(Color(0.96, 0.92, 0.84)), hut + Vector3(0, 0.8, 0))
-		_mesh(root, _cylinder(0.0, 2.0, 1.2, 4), FighterView.toon(Color(0.86, 0.36, 0.3)), hut + Vector3(0, 2.2, 0), Vector3.ONE, Vector3(0, 45, 0))
+		_mesh(root, _box(Vector3(2.4, 1.6, 1.8)), Materials.plaster(Color(0.96, 0.92, 0.84)), hut + Vector3(0, 0.8, 0))
+		_mesh(root, _cylinder(0.0, 2.0, 1.2, 4), Materials.shingles(Color(0.86, 0.36, 0.3), Vector2(4, 2)), hut + Vector3(0, 2.2, 0), Vector3.ONE, Vector3(0, 45, 0))
 
 
 ## A hut on stilts over the sea (`at` on the water under its middle): posts down into the water, a plank deck, walls of weathered boards
