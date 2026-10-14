@@ -261,10 +261,13 @@ rebinding and controller input/menus (`docs/MENUS.md`; the controller part is un
 * Rules for agents and contributors: `CLAUDE.md` (determinism rules, bump `SIM_VERSION` on any behaviour change, the content/script
   conventions, the editors and menus rules).
 
-## Single-player run (R1, sim 120; rooms R1b, sim 122, branch `runner-r1b`)
+## Single-player run (R1, sim 120; rooms R1b, sim 122; the world R2a, sim 124 and schema 8, branch `runner-r2`)
 
-The endless run: `docs/modes/RUNNER_PLAN.md` ("R1 progress" and "R1b progress" have what is built, how to play it, the tunables and the
-known limits). Since R1b the world is a chain of rooms (streets, arenas, shops, rest stops) with two rooms of backtracking behind a
+The endless run: `docs/modes/RUNNER_PLAN.md` ("R1 progress", "R1b progress" and "R2a progress" have what is built, how to play it, the
+tunables and the known limits; `docs/modes/RUNNER_WORLD.md` is R2's direction). R2a added slopes (a ground feature any stage could use,
+`Platform::rise`, schema 8; versus stages stay flat), rooms laid as variants (mirrored, optional parts, obstacle pieces, elevation
+lines), the fork (a high road and a low road in one room), coins along the way, mobs coming out of doors, every footing tagged with a
+`look`, the walk-in shop with its shopkeeper, and visuals rebuilt from the city stage's own art. Since R1b the world is a chain of rooms (streets, arenas, shops, rest stops) with two rooms of backtracking behind a
 wall, a two-way camera and a map strip; the creeping camera is gone (an A/B tunable at 0). Sim: `sim-core/src/run/` (the run's state is `GameState::run`; inactive and untouched in versus), tests in
 `sim-core/tests/runner.rs`, content checks in `sim-content/src/run.rs`, `pftool run-bot` / `run-bench`. Game: the menu's Run tile,
 `godot/runner.tscn` (`scripts/runner.gd` extends the match scene), `ui/run_hud.gd`, `ui/run_results.gd`, `tests/runner_test.gd`.

@@ -3,7 +3,7 @@ extends "res://scripts/main.gd"
 ## and physics, on the sim's streamed chain of rooms (`sim_core::run`). This script only changes what the run presents differently: the
 ## camera (the sim's view, following the player both ways inside the rooms in play, and height), the stage (built room by room as the
 ## sim streams it, with its walls and gates), the mobs, the run's display (the map, the shop) and its results. Gameplay all lives in the
-## sim, the shop included: its menu is driven by the same inputs the fighter gets.
+## sim, the shop included: it is a room the fighter walks into (R2a), and the same inputs that move the fighter buy the wares.
 ##
 ## From the menus: `Roster.session.run_entry` is the fighter. Launched directly: `--run` (the last fighter played, or `--fighter=<name>`),
 ## `--seed=N` for a fixed run.
@@ -33,9 +33,13 @@ var flash_text := ""
 var flash_until := 0.0
 var combo_flash := 0.0
 var rng_seed := RandomNumberGenerator.new()
+var shop := PackedInt32Array()
+var shop_before := PackedInt32Array()
 
 const MOB_STRIDE := 12
 const ROOM_REST := 3
+const INFO_SIZE := 17
+const NOTES := ["", "THANK YOU!", "NOT ENOUGH COINS", "SOLD OUT", "NOT NEEDED"]
 ## Seconds after the last life goes before the results come up.
 const RESULTS_AFTER := 1.6
 
@@ -128,6 +132,8 @@ func _restart() -> void:
 	cam_base = Vector3.INF
 	mobs_cur = sim.run_mobs()
 	mobs_prev = mobs_cur
+	shop = sim.run_shop()
+	shop_before = shop
 	flash_text = ""
 	run_hud.visible = not OS.get_cmdline_user_args().has("--noui")
 	if run_stage != null:
@@ -138,9 +144,11 @@ func _tick_once_inner(advance := true) -> void:
 	edge_prev = edge_cur
 	mobs_prev = mobs_cur
 	info_before = info
+	shop_before = shop
 	super._tick_once_inner(advance)
 	view = sim.run_view()
 	info = sim.run_info()
+	shop = sim.run_shop()
 	mobs_cur = sim.run_mobs()
 	if view.size() > 0:
 		edge_cur = view[0]
@@ -150,7 +158,7 @@ func _tick_once_inner(advance := true) -> void:
 ## Presentation cues from what changed this tick: hits on mobs, mobs beaten, coins, a lost or bought life, an arena shutting and
 ## opening, a rest stop.
 func _run_events() -> void:
-	if info.size() < 15 or info_before.size() < 15:
+	if info.size() < INFO_SIZE or info_before.size() < INFO_SIZE:
 		return
 	for n in mobs_cur.size() / MOB_STRIDE:
 		var o := n * MOB_STRIDE
@@ -180,6 +188,16 @@ func _run_events() -> void:
 		_flash("REST STOP", 1.2)
 	if info[0] == 1 and info_before[0] == 0:
 		_flash("RUN OVER", 3.0)
+	if info[15] > info_before[15]:
+		sfx.play("blip", 2.4, -8.0)
+	if info[13] == 1 and info_before[13] == 0:
+		sfx.play("blip", 1.1, -4.0)
+	if shop.size() >= 10 and shop_before.size() >= 10:
+		if shop[3] > shop_before[3] and shop[2] > 0 and shop[2] < NOTES.size():
+			_flash(NOTES[shop[2]], 1.0)
+			sfx.play("blip", 1.8 if shop[2] == 1 else 0.6, -3.0)
+		if shop[9] > shop_before[9]:
+			sfx.play_group("punch", 1.4)
 
 
 func _flash(text: String, seconds: float) -> void:
@@ -193,8 +211,11 @@ func _process_inner(delta: float) -> void:
 	if run_stage != null and info.size() >= 10:
 		run_stage.sync(sim, info[9])
 		run_stage.animate(delta)
-		if view.size() > 1:
-			run_stage.follow(lerpf(edge_prev, edge_cur, a) + view[1] * 0.5)
+		if view.size() >= 12 and view[9] > 0.5:
+			run_stage.build_interior(sim)
+			run_stage.animate_interior(shop, delta)
+		elif view.size() > 1:
+			run_stage.follow(lerpf(edge_prev, edge_cur, a) + view[1] * 0.5, cam_y)
 	var count := mini(mob_views.size(), mobs_cur.size() / MOB_STRIDE)
 	for n in count:
 		var o := n * MOB_STRIDE
@@ -231,14 +252,13 @@ func _update_hud(delta: float) -> void:
 	elif sim.frame() < 75:
 		banner = "RUN!"
 		alpha = clampf(float(75 - sim.frame()) / 30.0, 0.0, 1.0)
-	var shop: PackedInt32Array = sim.run_shop()
-	var shop_open := info.size() >= 15 and info[13] == 1
+	var inside := info.size() >= INFO_SIZE and info[13] == 1
 	run_hud.show_state({
 		"metres": info[1], "coins": info[2], "kills": info[3], "combo": info[4], "best": info[5], "mult": info[6],
 		"step": 5, "max_mult": 5, "lives": info[7], "max_lives": maxi(3, info[7]), "percent": snaps[0].get("percent", 0.0),
-		"name": run_name, "banner": "" if shop_open else banner, "banner_alpha": alpha, "combo_flash": combo_flash,
-		"map": sim.run_map(4), "door": info.size() >= 15 and info[14] == 1 and not shop_open,
-		"gate": info.size() >= 15 and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
+		"name": run_name, "banner": banner, "banner_alpha": alpha, "combo_flash": combo_flash,
+		"map": sim.run_map(4), "door": info.size() >= INFO_SIZE and info[14] == 1 and not inside,
+		"gate": info.size() >= INFO_SIZE and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
 	})
 	if info[0] == 1 and results == null:
 		end_timer += delta
@@ -251,11 +271,17 @@ func _update_camera(a: float, delta: float) -> void:
 		return
 	var width: float = view[1]
 	var edge := lerpf(edge_prev, edge_cur, a)
+	if view.size() >= 12 and view[9] > 0.5:
+		# Inside the shop: the camera on its middle (the street outside stands still meanwhile).
+		edge = view[10] + view[11] * 0.5 - width * 0.5
 	# (At 30 degrees of view, 16:9, the visible width is about 0.95 of the distance: the screen's edges are the sim's.)
 	var dist := width / 0.95
 	var p: Vector2 = prev_pos[0].lerp(cur_pos[0], a)
 	# Height follows the fighter outside a dead zone, gently, and never below the street.
 	var want := clampf(p.y + 2.0, view[3] + 9.0, view[4] - 8.0)
+	if view.size() >= 12 and view[9] > 0.5:
+		want = 4.0
+		cam_y = want
 	if absf(want - cam_y) > 2.0:
 		cam_y = lerpf(cam_y, want - signf(want - cam_y) * 2.0, clampf(delta * 3.0, 0.0, 1.0))
 	var target := Vector3(edge + width * 0.5, cam_y + 1.6 - dist * HUD_LIFT, dist)

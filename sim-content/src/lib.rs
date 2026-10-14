@@ -1172,6 +1172,32 @@ fn validate_look(look: &sim_core::content::StageLook, errors: &mut Vec<String>) 
     }
 }
 
+/// A slope's limits (sim 124): at most 1 in 2 (about 26.6 degrees: the brief's gentle ramps up to about 25), and a solid sloped
+/// block's underside below its whole top.
+pub fn slope_problem(p: &sim_core::content::Platform) -> Option<String> {
+    if !p.sloped() {
+        return None;
+    }
+    let width = p.right - p.left;
+    if p.rise.abs().mul_int(2) > width {
+        return Some("slopes more than 1 in 2 (about 26.6 degrees)".to_string());
+    }
+    if !p.pass_through && p.bottom >= p.y.min(p.top_right()) {
+        return Some("is a sloped block whose bottom is not below its whole top".to_string());
+    }
+    None
+}
+
+/// Whether a ledge sits at a sloped platform's corner (ledges hang only from flat corners).
+pub fn ledge_on_slope(
+    l: &sim_core::content::Ledge,
+    platforms: &[sim_core::content::Platform],
+) -> bool {
+    platforms.iter().any(|p| {
+        p.sloped() && ((l.x == p.left && l.y == p.y) || (l.x == p.right && l.y == p.top_right()))
+    })
+}
+
 fn validate_stage(s: &Stage, errors: &mut Vec<String>) {
     if s.platforms.is_empty() {
         errors.push("stage: needs at least one platform".to_string());
@@ -1195,6 +1221,18 @@ fn validate_stage(s: &Stage, errors: &mut Vec<String>) {
     for (i, l) in s.ledges.iter().enumerate() {
         if l.side != -1 && l.side != 1 {
             errors.push(format!("stage: ledge {i} side must be -1 or 1"));
+        }
+    }
+    for (i, p) in s.platforms.iter().enumerate() {
+        if let Some(e) = slope_problem(p) {
+            errors.push(format!("stage: platform {i} {e}"));
+        }
+    }
+    for (i, l) in s.ledges.iter().enumerate() {
+        if ledge_on_slope(l, &s.platforms) {
+            errors.push(format!(
+                "stage: ledge {i} hangs from a sloped platform's corner (ledges only at flat corners)"
+            ));
         }
     }
     if s.blast_left >= s.blast_right {

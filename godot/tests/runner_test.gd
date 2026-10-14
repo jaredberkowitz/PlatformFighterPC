@@ -1,7 +1,8 @@
 extends SceneTree
-## The single-player run (docs/modes/RUNNER_PLAN.md, R1 and R1b) through the bridge and the real run scene: a run starts, rooms
-## stream in and are entered, the map and the shop read the run, the walls are drawn, the display reads the run, a lost last life
-## brings up the results, and "Run again" starts a new one.
+## The single-player run (docs/modes/RUNNER_PLAN.md, R1, R1b and R2a) through the bridge and the real run scene: a run starts, rooms
+## stream in (laid as variants, with slopes, pieces, looks and coins) and are entered, the map (forks too) and the shop read the run,
+## the walk-in shop's interior and shopkeeper are drawn, the walls are drawn, the display reads the run, a lost last life brings up
+## the results, and "Run again" starts a new one.
 ## Run: Godot --headless --path godot --script res://tests/runner_test.gd
 
 const Roster := preload("res://scripts/roster.gd")
@@ -45,18 +46,51 @@ func _bridge() -> void:
 	check(sim.run_start(5), "a run starts")
 	check(sim.run_active(), "and is on")
 	var info: PackedInt32Array = sim.run_info()
-	check(info.size() == 15 and info[0] == 0 and info[7] == 3, "three lives, not over: " + str(info))
+	check(info.size() == 17 and info[0] == 0 and info[7] == 3, "three lives, not over: " + str(info))
 	check(info[8] == 0 and info[10] == 0 and info[11] == 0 and info[13] == 0, "in the first room, a street, no gate, no shop: " + str(info))
 	var view: PackedFloat32Array = sim.run_view()
-	check(view.size() == 9 and view[1] > 20.0, "the view: " + str(view))
+	check(view.size() == 12 and view[1] > 20.0 and view[9] == 0.0, "the view, outside: " + str(view))
 	check(view[6] == 0.0 and view[7] > view[1], "the wall at the first room's edge, the rooms beyond the view: " + str(view))
 	check(sim.run_pieces().size() > 0 and sim.run_platforms().size() > 0, "the first rooms are laid")
 	check(sim.run_rooms().size() == 2, "the first room and the next: %d" % sim.run_rooms().size())
 	var map: PackedInt32Array = sim.run_map(4)
-	check(map.size() == 6 and map[2] == 2 and map[5] == 3, "the map: here, then the next room: " + str(map))
+	check(map.size() == 8 and map[2] == 2 and map[6] == 3, "the map: here, then the next room: " + str(map))
 	var shop: PackedInt32Array = sim.run_shop()
-	check(shop.size() == 6 + 2 * 4 and shop[0] == 0 and shop[5] == 2, "the shop's two wares, shut: " + str(shop))
+	check(shop.size() == 10 + 2 * 4 and shop[0] == 0 and shop[5] == 2, "the shop's two wares, outside: " + str(shop))
 	check(sim.run_shop_names().size() == 2, "and their names")
+	# What the rooms are made of: every footing has a look, the pieces' rows have ten numbers, the rooms their heights.
+	var looks: PackedStringArray = sim.run_looks()
+	check(looks.size() > 20 and looks[0] == "none", "the looks: %d" % looks.size())
+	var all_looked := true
+	for row in sim.run_pieces():
+		if row.size() != 10 or int(row[8]) <= 0 or int(row[8]) >= looks.size():
+			all_looked = false
+	check(all_looked, "every footing has a look")
+	check(sim.run_rooms()[0].size() == 11, "the rooms' rows: " + str(sim.run_rooms()[0]))
+	check(sim.run_coins().size() % 4 == 0, "the coins")
+	var interior: Array = sim.run_interior()
+	check(interior.size() >= 4, "the shop's interior: %d rows" % interior.size())
+	# Walking through rooms until a shop is in play, then into it.
+	var found := false
+	for n in 12:
+		check(sim.run_debug_next_room(), "into the next room")
+		if sim.run_debug_enter_shop():
+			found = true
+			break
+	check(found, "a shop came, and it was walked into")
+	check(sim.run_info()[13] == 1 and sim.run_view()[9] == 1.0, "inside: " + str(sim.run_info()))
+	var inside: PackedInt32Array = sim.run_shop()
+	check(inside[0] == 1 and inside[6] == 1, "the shopkeeper waves: " + str(inside))
+	check(sim.run_shop()[1] == -1, "standing at the way out")
+	# Up again at the door: out.
+	sim.set_input(0, 0, 0, 0)
+	sim.tick()
+	sim.set_input(0, 0, 127, 0)
+	sim.tick()
+	sim.set_input(0, 0, 0, 0)
+	sim.tick()
+	check(sim.run_info()[13] == 0, "back outside")
+	sim.run_start(5)
 	check(sim.run_mobs().size() == 16 * 12, "sixteen mob slots")
 	# Running right: the camera follows and the stage streams on.
 	var layout := info[9]
@@ -102,18 +136,39 @@ func _scene() -> void:
 	check(main.run_stage.wall_node != null and main.run_stage.wall_node.position.x == main.sim.run_view()[6], "the left wall is drawn")
 	check(data.has("map") and (data["map"] as PackedInt32Array).size() >= 6, "the display has the map")
 	check(data.has("shop") and data.has("door") and data.has("gate"), "and the shop, the door and the gate")
-	# The shop's panel draws (a shop open, as the sim would give it).
-	var fake := data.duplicate()
-	fake["shop"] = PackedInt32Array([1, 1, 2, 3, 40, 2, 0, 30, 0, 1, 1, 150, 1, 1])
-	fake["shop_names"] = PackedStringArray(["Heal 30%", "Extra life"])
-	main.run_hud.show_state(fake)
-	await process_frame
-	check(main.run_hud.board.data.get("shop", PackedInt32Array()).size() == 14, "the shop panel takes the shop")
+	# The rooms are drawn by their looks, with their building fronts; the coins spin; the skyline scrolls in parallax.
+	check(main.run_stage.looks.size() > 20, "the stage knows the looks")
+	check(main.run_stage.skylines.size() == 3 and not main.run_stage.skylines.has(null), "the city's three skyline layers, in parallax")
+	check(main.run_stage.coins.size() >= 0, "the coins")
+	var far_x: float = main.run_stage.far_layer.position.x
+	var mid_x: float = main.run_stage.mid_layer.position.x
+	check(not is_equal_approx(far_x, mid_x) or main.sim.run_view()[0] < 1.0, "the layers scroll at their own speeds")
+	# Into a shop: the interior and its shopkeeper are drawn, the camera goes inside, the display prompts at the door.
+	var found := false
+	for n in 12:
+		main.sim.run_debug_next_room()
+		if main.sim.run_debug_enter_shop():
+			found = true
+			break
+	check(found, "a shop came and was walked into")
+	for i in 6:
+		await process_frame
+	check(main.run_stage.interior != null and main.run_stage.keeper != null, "the shop's interior and its shopkeeper")
+	check(main.run_stage.ware_nodes.size() == 2 and main.run_stage.price_labels.size() == 2, "the two wares and their prices")
+	check(main.cam.position.x < -10000.0, "the camera is inside: %.0f" % main.cam.position.x)
+	check(main.run_hud.board.shop_hint() == "UP: LEAVE THE SHOP", "the way out: " + main.run_hud.board.shop_hint())
+	check(main.run_stage.keeper_bubble.visible and main.run_stage.keeper_bubble.text == "Welcome!", "the shopkeeper waves hello")
+	# (Back out, for the rest.)
+	main._send_key(KEY_W, true)
+	await create_timer(0.1).timeout
+	main._send_key(KEY_W, false)
+	await create_timer(0.2).timeout
+	check(main.sim.run_info()[13] == 0, "out again with up at the door")
 	check(not main.hud.visible, "the versus display is hidden")
 	check(main.results == null, "no results while running")
 	# Losing every life ends the run.
 	for life in 3:
-		main.sim.debug_place_airborne(0, main.sim.run_view()[0] - 20.0, 5.0)
+		main.sim.debug_place_airborne(0, main.sim.run_view()[0] + 10.0, main.sim.run_view()[3] - 4.0)
 		await create_timer(0.25).timeout
 	check(main.sim.run_info()[0] == 1, "out of lives: the run is over")
 	await create_timer(2.2).timeout

@@ -822,3 +822,50 @@ fn item_blocks_round_trip_are_inherited_and_are_checked() {
         "pull_frame and pull_item go together"
     ));
 }
+
+#[test]
+fn a_schema_7_file_from_before_slopes_loads_flat() {
+    // Written before sim 124: schema 7, no `rise` anywhere. Every platform reads as flat (slope 0); nothing is rewritten.
+    let c = Content::placeholder();
+    assert!(c.stage.platforms.iter().all(|p| p.rise == Fx::ZERO));
+    let old = text(&c, false).replace(&format!("schema {SCHEMA_VERSION}"), "schema 7");
+    let sloped = |t: &str| {
+        t.lines()
+            .any(|l| l.trim_start().starts_with("platform {") && l.contains(" rise "))
+    };
+    assert!(old.contains("schema 7") && !sloped(&old));
+    let bundle = load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
+    assert_eq!(SCHEMA_VERSION, 8);
+    assert_eq!(bundle.content, c, "flat reads as slope 0");
+}
+
+#[test]
+fn a_sloped_platform_round_trips_and_is_checked() {
+    let mut c = Content::placeholder();
+    // The main stage's left platform tilted 1 in 2 (the steepest allowed).
+    let width = c.stage.platforms[1].right - c.stage.platforms[1].left;
+    c.stage.platforms[1].rise = width / Fx::from_int(2);
+    let t = text(&c, false);
+    assert!(
+        t.lines()
+            .any(|l| l.trim_start().starts_with("platform {") && l.contains(" rise ")),
+        "a slope is written"
+    );
+    assert_eq!(load(&t).unwrap().content, c, "and read back");
+    assert!(validate(&c).is_ok());
+    // Steeper than 1 in 2: refused.
+    let mut steep = c.clone();
+    steep.stage.platforms[1].rise = width;
+    assert!(has(
+        &validate(&steep).unwrap_err(),
+        "slopes more than 1 in 2"
+    ));
+    // A ledge at a slope's corner: refused (ledges only at flat corners).
+    let mut corner = Content::placeholder();
+    corner.stage.platforms[0].rise = Fx::ONE;
+    let errors = validate(&corner).unwrap_err();
+    assert!(has(&errors, "flat corners"), "{errors:?}");
+    // The content hash sees the slope.
+    assert_ne!(c.hash(), Content::placeholder().hash());
+}

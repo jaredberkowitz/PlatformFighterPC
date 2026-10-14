@@ -1,7 +1,8 @@
 # Single-player mode: the endless run (plan, draft 3; R1 and R1b built)
 
 Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
-slice) is built (sim 120, section 7); R1b (rooms) is built on branch `runner-r1b`, sim 122: see section 8.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+slice) is built (sim 120, section 7); R1b (rooms) is built (sim 122, section 8); R2a (the world: slopes, room variants, the fork, the
+walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -69,7 +70,7 @@ Enemy density, enemy toughness and the rooms' mix rise with distance (a difficul
      the rooms behind costly, without a hard scroll.
   6. **The owner's R1 question 2** ("knocked past the left edge?") is answered by the gate: the left boundary is a wall. A launch
      into it is a wall hit (bounce, tech or wall jump), never a knock-out.
-- **A fork, later (not built):** a room could have two exits, a rooftop exit high on its right wall and a street exit at ground
+- **A fork (built in R2a as one room with two roads, section 9; this two-exit version was not built):** a room could have two exits, a rooftop exit high on its right wall and a street exit at ground
   level, each leading to its own next room. The window would then lay two rooms ahead (one per exit, both drawn on the map one above
   the other), and the exit the player takes decides which becomes the current room; the other is dropped at once, its gate shut.
   This keeps the window small (behind + 1 + 2 ahead), keeps the map a strip with one short split at its right end, and gives the
@@ -204,7 +205,8 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | R0 | This plan, refined with the owner; enemy and item lists agreed | owner sign-off |
 | R1 | Vertical slice: the forward-only creeping camera, 5 hand-made chunks on a loop, 2 enemy kinds, coins and the combo meter, lives, the run HUD, a results screen, the menu entry | a 2-minute run is fun to play with placeholder art (built, sim 120) |
 | R1b | Rooms (owner's change after R1): the room window with a wall behind, the two-way camera, streets, arenas, a placeholder shop (heal, extra life), rest stops, seeded room types, the map strip | backtracking feels fair and the rooms read clearly (built, sim 122) |
-| R2 | The generator: room pools by difficulty, the two routes (the fork in 3.1), the difficulty curve, 6 enemy kinds | runs differ and get harder smoothly |
+| R2a | The world (owner, 14 Oct; see `RUNNER_WORLD.md`): slopes, room variants with optional parts, mirroring and obstacle pieces, the high/low fork, elevation lines, footing objects with `look` tags, the walk-in shop with a shopkeeper | rooms feel varied and believable; you can tell footing from decoration (built, sim 124) |
+| R2b | Enemies and the curve: four new enemy kinds with wind-ups, budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event | runs differ and get harder smoothly |
 | R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls | a run's build changes how it plays |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
@@ -462,6 +464,160 @@ Heal 30% (30 coins, no limit), Extra life (150 coins, one per shop).
 - Shop prices (heal 30, extra life 150) and the arena bonus (25) are first guesses: worth a look after a few runs.
 - Should the shop be its own small room you walk into (art and a camera cut) rather than the panel over the street? The panel is
   simpler and replays exactly; an interior can come with R3's shop art.
+
+## 9. R2a progress (the world, sim 124, content schema 8, branch `runner-r2`)
+
+Spec: `RUNNER_WORLD.md` sections 2, 3 and 6. Enemies and rare events (its sections 4 and 5) are R2b.
+
+### What can be played
+- **Slopes.** Ramps up to a bridge, stairs down to the street, tin roofs dipping into a valley, fire-escape flights. The fighter walks,
+  dashes and runs along them at its ground speed with its feet on the surface, lands on them, jumps off them, wavedashes and techs
+  along them; walking across the joint between a ramp and the roof beyond never trips it into the air. Ledges hang only at flat
+  corners. A low hit into a rising slope can trip: the Gauntlets' 25-degree down tilt trips on the steepest slope, as the reference
+  notes ("trips only on a slope"); the 30-degree Longsword down tilt still lifts.
+- **Rooms that vary.** Every room can come mirrored (a rising room then falls), with its optional parts on or off (a second awning, a
+  crate stack, a chimney, a balcony, a bus shelter, a raised planter, "the gap or no gap"), and an obstacle piece (or none) in each of
+  its slots: a dumpster with a crate on its lid, a parked van, an AC unit with its vent stack, a water tower, a scaffold, a billboard's
+  catwalk, a fire escape's two landings. Each room has an elevation line (flat, rising, falling, a valley), and the run's ground drifts
+  up and down within 8 units of where it began.
+- **The fork.** A wide street room with two roads: a coin trail climbs a fire escape from the street to a high road of catwalks and
+  scaffolds (gaps, coins, one flyer); the low road is the street (more walkers). Falling from the high road lands on the street, never
+  in a pit, and both roads meet at the room's end. One fork variant holds the shop on its low road. The map strip marks a fork with a
+  split over its icon.
+- **Coins along the way** (2 each), tracing the good line: up stairs, over gaps, on top of pieces. Picking one up does not count
+  toward the combo.
+- **Mobs come out of doors**: a mob appears in a dark doorway and grows out of it for 24 frames (it can neither hit nor be hit
+  meanwhile), then wakes.
+- **The walk-in shop.** Press up at a storefront's door and you are inside a small shop of its own: the door you came in by, four
+  pedestals with the wares and their prices floating over them, shelves on the back wall, a counter, and the shopkeeper behind it. It
+  waves when you come in, looks at the ware you stand by, cheers when you buy, grumbles cheerfully when you can't, and gets dizzy
+  ("Hey!") if you hit it, never hurt. Walk up to a ware and press up to buy it ("UP: BUY HEAL 30% (30)" at the bottom of the screen);
+  up at the door takes you back out to the street, at the storefront. The world outside stands still meanwhile. R1b's menu panel is
+  gone. Wares and prices are as before (heal 30, extra life 150, one per shop).
+- **The look**, rebuilt from the city stage's own art on the owner's direction: its blocks with their facade fronts and roof caps, its
+  girder platforms, its striped awnings and shopfront, its crates, its car as the parked van, its street lamps, its rooftop AC unit and
+  water tower recipes, building fronts behind each room painted by its facade shader, and its three skyline layers scrolling in
+  parallax. Footing has a lighter top edge; decoration (lamp posts, billboards' boards, the water tower's legs and tank) has none.
+- Debug for tests and photographs: `SimRunner.run_debug_next_room()` and `run_debug_enter_shop()`.
+
+### How it is built (and why)
+- **Slopes are a ground feature, not a run feature** (`sim_core::content::Platform::rise`, the top's height at the right end minus at
+  the left). Every query reads the top where it is asked (`Platform::top_at`), which on a flat platform is its `y`, so **every flat
+  stage behaves exactly as before** and every versus test passes unchanged. A grounded fighter's sideways move is followed by
+  `fighter::keep_on_ground` (feet on the surface, horizontal speed kept, the reference's handling), and once more after the bodies
+  push apart (`step`). Where a slope meets other ground at the same height, walking past the end carries on onto the next surface
+  (`collision::continuation`) and the block's face there is no wall (`collision::face_is_joint`); both apply only where a slope is
+  involved. Landing is judged from where the fighter was before its sideways move too, so drifting into a rising slope lands on it.
+  The trip rule reads the slope (`combat::lifts_off`): a launch trips only if it does not rise above the ground the way it sends.
+- **Schema 8**: a platform may carry `rise` (written only when not 0); the migration from 7 rewrites nothing (flat reads as slope 0).
+  `sim_content` refuses slopes steeper than 1 in 2 and ledges at a slope's corner. `content/base.pfc` is re-exported (sim 124).
+- **Variants are drawn as a room is laid** and kept in its `RoomSlot` (`mirror`, `parts`, `pieces`, and its ground's heights `y` and
+  `y_end`), all from the run's own generator, so a seed is still a run. The layout functions (`run::for_each_footing`,
+  `for_each_coin`, `for_each_ledge`, `door_of`) turn a slot back into its world geometry, coins and doors; the pools, the mobs, the
+  bridge and the passability proof all read the same functions. A room's ground leaves at `exit_y` (mirrored, at minus that); a room
+  that would take the ground beyond `drift` is mirrored the other way. Solid ground reaching a room's bottom is laid down to
+  `run::DEEP` (-80), and the blast lines follow the ground (`Run::blast_y`: below the lowest ground of the rooms in play, above the
+  highest).
+- **The fork is one room with two roads** rather than R1b's sketched two-exit split: the high road is pass-through catwalks and
+  stairs over the street, so the room window, the gate and the map need nothing new (a test enters an arena right after a fork). The
+  two-exit version stays possible later if the roads should lead to different rooms.
+- **Passability is proven, not hoped for** (`sim_content::run::check_passable`, part of `check_run`): every room in every variant
+  (mirrored or not, every combination of parts, every piece or none in every slot: 4 to 128 variants a room) is a graph of standing
+  surfaces (cut where a solid object stands on them, so a van on the street must be jumped), joined where a jump of at most
+  `max_step` up and `max_gap` across (more when falling) has a clear path with a fighter's height of room. The exit must be reached
+  from the entry, and the exit must be reachable from every surface the entry reaches (no traps). A test checks the rules' numbers
+  against the worst jumper in the cast, every built-in fighter and every class made with the lowest jump, biggest body and most
+  weight: the worst reaches 4.98 up and 5.30 across; the rules ask 4.0 and 4.5. Another test proves every room the generator really
+  laid over 40 seeds.
+- **The shop's interior is its own little stage** (`RunContent::interior`), placed at `INTERIOR_X` (-20000) while you are inside: the
+  run swaps `build_stage` to it and runs only the fighter's step and the shop (mobs, camera, rooms and coins outside stand still). The
+  shopkeeper is state in the run (`keeper_mood`, `keeper_timer`, `keeper_look`, `keeper_bonks`), all hashed. A hit on it is detected
+  like a hit on a mob (the player's live hitboxes or a shot touching its body) and only sets it dizzy: no hitlag, no damage, nothing
+  paid.
+- **Mob emergence** is a mode (`MODE_EMERGE`, `emerge_frames`); in an arena that is shut on it, a mob wakes straight into its chase.
+- **Pools**: a room may have 14 platforms with its pieces (was 6), so the pool is 56; ledges stay 2 a room (the versus ledge table is
+  8). **GameState is 5,536 bytes** (was about 4.4 KB); the run's part is 2,768. `pftool run-bench`: 0.0024 ms a frame on average with
+  16 mobs, worst 0.07 ms.
+
+### Tunables added (`RunRules::standard`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `fork_chance` | 25 | percent of streets that are a fork |
+| `piece_chance` | 70 | percent of slots that get a piece |
+| `drift` | 8 | how far the ground may drift up or down from where the run began |
+| `coin_value` / `coin_reach` | 2 / 0.9 | a coin's worth, and how near the body's middle picks it up |
+| `emerge_frames` | 24 | frames a mob takes to come out of its door (0: it pops in) |
+| `max_step` / `max_gap` | 4.0 / 4.5 | the passability guarantee (see above) |
+
+The shop interior's own numbers (`Interior`): 24 wide; the shopkeeper waves 90 frames, cheers 70, grumbles 60, stays dizzy 100.
+
+**Rooms** (`RunContent::placeholder`): start, street, gap, step, escapes, drop, avenue, ramp (rising), tin_roofs (valley), stairs
+(falling), fork, the arenas yard and roofs, shop, fork_shop (the shop on a fork's low road), garden. **Pieces:** dumpster, ac_vent,
+water_tower, billboard, van, scaffold, fire_escape.
+
+### Tests and numbers
+- `sim-core/tests/slopes.rs` (10): reading a slope; running up a ramp onto the roof and back down, grounded and on the surface every
+  frame, the ground speed horizontal; walking and dashing on it; landing on a ramp, drifting into one, landing on a flight and dropping
+  through it; jumping off; wavedashing along it both ways; teching and lying on it; trips on a slope (and not on flat ground, nor at 30
+  degrees); the joint is not a wall; flat platforms never join.
+- `sim-core/tests/runner.rs` (41, 11 new): the walk-in shop (going in, the world outside standing still), buying by walking up (the
+  shopkeeper's looks, cheers and grumbles; sold out remembered; nothing paid for a heal not needed; leaving by the door), hitting the
+  shopkeeper (dizzy, nothing harmful); rooms laid as variants over 24 seeds (mirroring, parts, every piece, joined heights, the drift,
+  the pools); a mirrored room is its reflection; parts and pieces lay what they say; the fork's two roads; a fork with the window and
+  the gate; coins picked up once; mobs coming out of doors; walkers on slopes; GameState's size; the checksum sees every new field; the
+  run content's hash sees pieces, parts, exits and the interior.
+- `sim-content`: the passability proof and its refusals (an unclimbable wall, a too-wide gap, a trap), slopes, looks, parts and pieces
+  checked, every variant enumerated, the worst jumper in the cast; `tests/bundle.rs`: a schema 7 file loads flat, a slope round-trips
+  and is checked; `tests/run_world.rs`: rooms laid over 40 seeds are passable.
+- `cargo test --workspace` (1,552 tests), clippy with `-D warnings`, `cargo fmt`, `pftool net-fuzz` (200 runs, 0 mismatches). Godot,
+  headless: runner_test (now also the looks, the coins, the interior, walking into the shop and out, the shopkeeper's wave, the
+  parallax layers), match_flow_test, input_e2e, controls_test, replay_test, online_flow_test, net_e2e, creator_flow_test, content_e2e,
+  editor_api_test: all pass. `tests/run_shot.gd` photographs a slope, a fork, the shop's interior and a ware.
+- The bot (`pftool run-bot 8 7200`): rooms 2 to 20 in two minutes, none lost all its lives. (It only runs, hops and jabs; one seed got
+  stuck early, likely at a climb it does not know to jump.)
+
+### Known limits (R2a)
+- Mob behaviour on slopes is simple: walkers follow a slope and look a little ahead for ground; flyers ignore the ground as before.
+- Items lying on a slope slide along it but do not roll down it; a projectile that rests on a slope rests at the surface.
+- A shot or a thrown item in flight when you walk into the shop flies on in the frozen street and leaves the blast zone (it is lost).
+- Only flat ground joins across room seams into one platform; a slope at a seam joins through `continuation` instead (the same feel).
+- The shop's four pedestals show two wares; R3 fills them.
+- Pigeons that scatter, swaying laundry and a cat on a ledge (the cheap life of `RUNNER_WORLD.md` section 3) are not built: the lit
+  windows of the building fronts and the skyline are. They are on the art list.
+- R1's and R1b's other limits still hold.
+
+### For the art director (R2a; **reused** = built from the city stage's art now, **new** = needs a design)
+1. **The shopkeeper** (new): a cute original character in the house style (round blob body, 2D face, an apron or a cap), with a wave,
+   a look toward a ware, a cheer, a cheerful grumble and a dizzy spin with stars and a "hey!". Placeholder: a peach blob with an
+   apron and two eyes.
+2. **The shop interior** (new): about one screen; the door (with an EXIT mark), four pedestals for the wares with the price over each,
+   a counter, shelves of goods on the back wall, a window, warm light. Placeholder: plain boxes and girders in the city palette.
+3. **Ware icons** (new): heal and extra life (R3 adds more). Placeholder: a green sphere with a cross, a red sphere.
+4. **Footing by look tag** (the sim's names in brackets):
+   - reused as they are: street and roof blocks (`street`, `roof`: the city block with its facade front and cap), the girder platform
+     for `balcony`, `fire_escape`, `scaffold`, `billboard` (the catwalk), `water_tower` (the deck), `bus_shelter`, `pedestal`,
+     `shelf`; the striped `awning` (the city shops' stripes); `crate` (the city crate); `van` (the city car, stretched); `ac_unit` and
+     `vent_pipe` (the city rooftop's recipe); the water tower's tank and legs (the city's recipe); `planter` (the city's potted plant);
+   - new: `dumpster` (a green box with a lid), `chimney`, `roof_shed`, `parapet`, `counter` (boxes in the city palette);
+   - each needs the light top edge on what holds you, and none on what doesn't.
+5. **Slopes** (new shapes, reused materials): `ramp` (a loading ramp), `tin_roof` (corrugated), `stairs` (solid steps) are drawn now as
+   prisms in the city block's material with treads; fire-escape flights in the girders' steel with treads and a railing.
+6. **The fork's two roads** (reused): the high road is the girder catwalks, scaffolds and fire-escape flights over the street; a sign
+   or a lit fire escape that says "up here" would help the telegraph beyond the coin trail.
+7. **Background** (reused): the city stage's three skyline layers, now in parallax, and its facade shader for a building front behind
+   each room. New if wanted: a different front per building (brick, concrete, glass) beyond the shade changes they have now.
+8. **Life** (new, cheap): pigeons that scatter, laundry on lines, a cat on a ledge; a doorway or stairwell for mobs to come out of
+   (placeholder: a dark opening).
+9. **Coins** (new): a coin with a spin and a pickup sparkle (placeholder: a gold disc).
+10. **The storefront** (reused): the city shopfront with a SHOP sign.
+
+### Decisions wanted from the owner
+- **Coins along the way** pay 2 each (kills pay 5 to 8 times the combo). Enough of a reward for the high road?
+- **The fork** is one room with two roads that meet at its end. Should a fork sometimes lead to different rooms (the two-exit version
+  in 3.1), say a treasure alley only from the high road?
+- **Slopes** top out at about 26.6 degrees (1 in 2). The steepest ones are where the Gauntlets' down tilt trips; gentler rooms can come
+  if the steep ones feel slippery.
+- **Hitting the shopkeeper** only makes it dizzy. Fine as a joke, or should it also refuse to sell for a moment?
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),

@@ -2502,6 +2502,8 @@ fn read_stage(block: &Block, errors: &mut Vec<String>) -> (String, Stage, StageL
                 y: f.need("y", None, errors),
                 bottom: f.need("bottom", None, errors),
                 pass_through: f.or("pass_through", false, errors),
+                // (Schema 8, sim 124: a slope; absent is flat.)
+                rise: f.or("rise", Fx::ZERO, errors),
             };
             f.finish(errors);
             p
@@ -2574,6 +2576,9 @@ fn write_stage(name: &str, s: &Stage, look: &StageLook) -> Block {
         c.field("y", p.y.show());
         c.field("bottom", p.bottom.show());
         c.field("pass_through", p.pass_through.to_string());
+        if p.rise != Fx::ZERO {
+            c.field("rise", p.rise.show());
+        }
         b.push(c);
     }
     for l in &s.ledges {

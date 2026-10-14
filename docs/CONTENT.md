@@ -29,7 +29,7 @@ still exist the two must agree; if you change a number in code, re-export the fi
 ```text
 # comment to end of line
 bundle {                         # the manifest, required
-    schema 7
+    schema 8
     name "Base Roster"
     sim_version 19
     hash af788ccc46c9f9e2
@@ -49,6 +49,11 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   labels only: they are not part of the content hash.
 * **Fighters** need every value in `FighterParams` (including `hitbox_scale`, the size of the fighter's attacks: 1 is the moveset as written) (`sim-core/src/content.rs`), or `inherit other_fighter` to copy
   an earlier fighter and override a few. `weapon <name>` picks the moveset.
+* **A stage platform's slope** (schema 8, sim 124): `platform { left right y bottom pass_through [rise] }`, `rise` the top's height at
+  `right` minus at `left` (`y` is the top at `left`); absent is flat (0), which is how every older file reads (the migration rewrites
+  nothing). At most 1 in 2 (about 26.6 degrees); a solid sloped block's `bottom` must be below its whole top; a ledge may not hang from
+  a sloped platform's corner. Fighters walk, run and land along a slope at their ground speed with their feet on it (see
+  `sim-core/tests/slopes.rs`). The versus stages are all flat; the run's rooms use slopes.
 * **A fighter's passive shield** (sim 91, E14; optional, no schema change): `passive_shield { x y crouch_y [half_height] radius }`, a
   standing capsule centred `x` ahead of the feet (the way the fighter faces) and `y` up (`crouch_y` up while crouching), reaching
   `half_height` above and below its centre, of `radius`, scaled by `hitbox_scale`. While the fighter stands, walks or crouches on the

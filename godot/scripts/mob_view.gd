@@ -7,6 +7,9 @@ extends Node3D
 const MODE_WINDUP := 2
 const MODE_ATTACK := 3
 const MODE_BURST := 5
+## Coming out of its door or stairwell (R2a): `hitstun` holds the frames left.
+const MODE_EMERGE := 6
+const EMERGE_FRAMES := 24.0
 
 const COLOURS := [Color(0.78, 0.33, 0.27), Color(0.55, 0.4, 0.85)]
 
@@ -14,6 +17,8 @@ var body: MeshInstance3D
 var body_mat: StandardMaterial3D
 var eyes: Array = []
 var wings: Array = []
+## The doorway it comes out of (a dark opening behind it, shown while it emerges).
+var door: MeshInstance3D
 var behavior := -1
 var radius := 0.5
 var t := 0.0
@@ -60,6 +65,16 @@ func build(kind_behavior: int, r: float) -> void:
 		white.add_child(pupil)
 		pupil.position = Vector3(0, 0, r * 0.14)
 		eyes.append([white, side])
+	door = MeshInstance3D.new()
+	var db := BoxMesh.new()
+	db.size = Vector3(r * 2.6, r * 3.4, 0.1)
+	door.mesh = db
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.08, 0.07, 0.1)
+	door.material_override = dm
+	door.position = Vector3(0, r * 1.7, -0.6)
+	door.visible = false
+	add_child(door)
 	if behavior == 1:
 		for side in [-1.0, 1.0]:
 			var wing := MeshInstance3D.new()
@@ -112,4 +127,12 @@ func apply(pos: Vector2, m: Array, delta: float) -> void:
 		var flap := sin(t * (26.0 if mode == MODE_ATTACK else 14.0)) * 0.6
 		wing.position = Vector3(side * radius * 0.2, radius * 1.3 + bob, -radius * 0.2 * side)
 		wing.rotation = Vector3(0, 0, flap * side)
+	# Coming out of its doorway: the opening behind it, the body growing out of it.
+	var emerging := mode == MODE_EMERGE
+	door.visible = emerging
+	if emerging:
+		var grown := clampf(1.0 - float(hitstun) / EMERGE_FRAMES, 0.15, 1.0)
+		body.scale = Vector3(grown, grown, grown)
+		body.position.y = radius * grown
+		body_mat.albedo_color = base.darkened(0.5 * (1.0 - grown))
 	visible = mode != MODE_BURST

@@ -1400,7 +1400,7 @@ pub(crate) fn apply_hit(
         && !was_buried
         && def.grounded()
         && !matches!(def.state, S::Knockdown | S::GetUp)
-        && crate::trig::sin(angle) <= Fx::ZERO
+        && !lifts_off(&content.stage, def, angle)
         && state.rng.range(100) < u32::from(chance)
     {
         fighter::trip(def, rules, false);
@@ -1544,6 +1544,19 @@ pub fn bury_frames(
         frames -= i32::from(ahead);
     }
     frames.clamp(1, i32::from(u16::MAX)) as u16
+}
+
+/// Whether a launch at `angle` lifts a grounded fighter off its ground: on flat ground any upward angle; on a slope (sim 124) only
+/// an angle above the surface's own slope the way it sends (a low launch into a rising slope runs along it, so such a hit can trip:
+/// the reference's "trips only on a slope"). Flat ground reads exactly as before.
+pub fn lifts_off(stage: &crate::content::Stage, f: &crate::state::Fighter, angle: Angle) -> bool {
+    let (sin, cos) = (crate::trig::sin(angle), crate::trig::cos(angle));
+    let Some(p) = collision::platform(stage, f.platform).filter(|p| p.sloped()) else {
+        return sin > Fx::ZERO;
+    };
+    // (The slope's rise the way the launch goes: positive when it climbs that way.)
+    let rise = if cos < Fx::ZERO { -p.rise } else { p.rise };
+    (p.right - p.left) * sin > rise * cos.abs()
 }
 
 /// The percent chance that a hit trips a grounded fighter it would not lift (see `apply_hit`): the reference's base chance
@@ -2052,14 +2065,14 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 if pr.bounces >= arc.bounces || too_fast {
                     // A projectile that bursts on the ground (sim 95) bursts where it touched instead of vanishing.
                     if let Some(b) = spec.burst.filter(|b| b.on_ground) {
-                        let at = Vec2::new(pos.x, stage.platforms[i].y);
+                        let at = Vec2::new(pos.x, stage.platforms[i].top_at(pos.x));
                         start_burst(&mut state.projectiles[n], &b, at, scale);
                         continue;
                     }
                     state.projectiles[n].active = false;
                     continue;
                 }
-                pos.y = stage.platforms[i].y;
+                pos.y = stage.platforms[i].top_at(pos.x);
                 pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max)
                     * Fx::from_ratio(i32::from(arc.bounce_keep_y), 100);
                 pr.vel.x = pr.vel.x * Fx::from_ratio(i32::from(arc.bounce_keep), 100);
@@ -2069,7 +2082,11 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         state.projectiles[n].vel = pr.vel;
         state.projectiles[n].bounces = pr.bounces;
         let in_wall = stage.platforms.iter().any(|b| {
-            !b.pass_through && pos.x > b.left && pos.x < b.right && pos.y > b.bottom && pos.y < b.y
+            !b.pass_through
+                && pos.x > b.left
+                && pos.x < b.right
+                && pos.y > b.bottom
+                && pos.y < b.top_at(pos.x)
         });
         let outside = pos.x < stage.blast_left
             || pos.x > stage.blast_right
@@ -2451,12 +2468,16 @@ fn lodge_point(
     let steep = |across: Fx, along: Fx| min_angle == 0 || across.abs() * cos >= along.abs() * sin;
     if vel.y < Fx::ZERO {
         if let Some(i) = collision::find_landing(stage, from, to, false) {
-            let at = Vec2::new(to.x, stage.platforms[i].y);
+            let at = Vec2::new(to.x, stage.platforms[i].top_at(to.x));
             return Some((at, steep(vel.y, vel.x)));
         }
     }
     let block = stage.platforms.iter().find(|b| {
-        !b.pass_through && to.x > b.left && to.x < b.right && to.y > b.bottom && to.y < b.y
+        !b.pass_through
+            && to.x > b.left
+            && to.x < b.right
+            && to.y > b.bottom
+            && to.y < b.top_at(to.x)
     })?;
     let side = from.x <= block.left || from.x >= block.right;
     let ok = if side {
@@ -2488,7 +2509,7 @@ fn rest_frame(
     let to = p.pos + p.vel;
     if p.vel.y < Fx::ZERO {
         if let Some(i) = collision::find_landing(stage, p.pos, to, false) {
-            p.pos = Vec2::new(to.x, stage.platforms[i].y);
+            p.pos = Vec2::new(to.x, stage.platforms[i].top_at(to.x));
             p.vel = Vec2::ZERO;
             return;
         }
