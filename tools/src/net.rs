@@ -287,7 +287,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         };
         let mut setup = match_setup(seed);
         setup.input_delay = delay;
-        let inputs = script(seed, frames as usize + 80);
+        let mut inputs = script(seed, frames as usize + 80);
         // The fighters come from their own generator, so the network schedule of a seed does not depend on them. Even
         // runs: the host picks two built-in fighters from the whole roster. Odd runs: each player brings a random fighter,
         // a built-in one or one made from random stats of any class (casual rules, so any stats are fine); the truth is
@@ -299,6 +299,12 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         // Every fourth run the host plays the first body that makes items (E4), so items cross the network.
         if let (0, Some(b)) = (seed % 4, crate::item_body(&content)) {
             setup.chars[0] = b;
+        }
+        // Every fourth run from 2 (sim 115) the joiner plays the first body with placed pieces (the settler), drilling its pocket and its
+        // tree, so they cross the network too.
+        if let (2, Some(b)) = (seed % 4, crate::placed_body(&content)) {
+            setup.chars[1] = b;
+            crate::drill_specials(&mut inputs, 1);
         }
         let specs = (seed % 2 == 1).then(|| {
             (
@@ -477,8 +483,8 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         }
     }
     println!(
-        "{runs} runs, {bad} mismatches ({rollbacks} rollbacks, {stalls} stalls); fighters per class {per_class:?}; items: {} made, {} picked up, {} thrown or dropped, {} burst",
-        items.made, items.picked, items.thrown, items.bursts
+        "{runs} runs, {bad} mismatches ({rollbacks} rollbacks, {stalls} stalls); fighters per class {per_class:?}; {}",
+        items.line()
     );
     if bad == 0 {
         Ok(())

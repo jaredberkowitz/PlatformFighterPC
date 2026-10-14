@@ -180,6 +180,15 @@ impl Host for FighterHost<'_> {
                 Fx::from_int(i32::from(crate::items::held_kind(self.world.items, f))).raw()
             }
             api::R_BALLOONS => Fx::from_int(i32::from(f.balloons)).raw(),
+            // (E42: 0 nothing, 1 a projectile, 2 an item.)
+            api::R_POCKETED => {
+                Fx::from_int(match (f.pocket != crate::state::NONE, f.pocket_item) {
+                    (false, _) => 0,
+                    (true, false) => 1,
+                    (true, true) => 2,
+                })
+                .raw()
+            }
             _ => 0,
         }
     }
@@ -256,6 +265,16 @@ impl Host for FighterHost<'_> {
             api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),
             api::F_SET_CHARGE => self.f.charge = arg(0).floor_int().clamp(0, 255) as u8,
             api::F_DETONATE => self.f.item_order |= crate::items::ORDER_DETONATE,
+            api::F_OWNS => {
+                let kind = arg(0).floor_int().clamp(0, 255) as u8;
+                let n = crate::items::owns(
+                    self.world.items,
+                    self.world.projectiles,
+                    self.world.me,
+                    kind,
+                );
+                return Fx::from_int(i32::from(n)).raw();
+            }
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);

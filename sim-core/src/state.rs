@@ -357,6 +357,10 @@ pub struct Fighter {
     pub balloons: u8,
     pub balloon_hp: Fx,
     pub helium_used: u16,
+    /// The pocket (E42, sim 115: `moves::PocketCatch`): the slot of the projectile (or, with `pocket_item`, the item) the fighter has
+    /// put away, or [`NONE`]. The thing waits in its pool as `REST_POCKETED` / `ITEM_POCKETED` until it is taken out; a KO loses it.
+    pub pocket: i8,
+    pub pocket_item: bool,
     /// Where the fighter's feet were (height) when its current move began (also on a switch by `goto`): what `Move::ledge_drop`
     /// measures the fall from.
     pub move_y0: Fx,
@@ -401,9 +405,13 @@ pub struct Projectile {
     pub damage: Fx,
     /// Its tool kind (`moves::Tool::kind`, E3d), copied at the spawn: what the per-fighter limit and the `owned` register count.
     pub kind: u8,
-    /// [`REST_FLYING`], [`REST_LODGED`] (stuck in a surface: `ProjectileArc::lodge`) or [`REST_FALLEN`] (knocked down by a clank:
-    /// `Tool::on_clank`). Lodged or fallen, it neither hits nor is steered by its script; its age counts from then.
+    /// [`REST_FLYING`], [`REST_LODGED`] (stuck in a surface: `ProjectileArc::lodge`), [`REST_FALLEN`] (knocked down by a clank:
+    /// `Tool::on_clank`) or [`REST_POCKETED`] (put away by a fighter's pocket, E42: it waits, unseen and frozen, until taken out).
+    /// Lodged or fallen, it neither hits nor is steered by its script; its age counts from then.
     pub rest: u8,
+    /// Sim 115: the stale-move key its hits count under in its owner's queue: the move that fired it, or the pocket that let it out
+    /// (E42).
+    pub stale: u8,
 }
 
 /// An item (E4, sim 111; see `moves::ItemSpec`): held, thrown, lying, stuck or bursting. Slots are reused; `active` marks a live one.
@@ -453,6 +461,11 @@ pub struct Item {
     /// Sim 113: the direction it was flying when it lodged (an arrow stuck in the ground or a wall), in whole degrees counter-clockwise
     /// from +x (-179 to 180); 0 for an item that never lodged. Read only by the view (`item_angle`), to point the stuck arrow.
     pub angle: i16,
+    /// A placed piece (E43, sim 115: `moves::Placed`): the water it has had, the frames left before it grows (0: not growing), and its
+    /// cuts (the chopping hits taken from the left in the low nibble, from the right in the high one).
+    pub water: u8,
+    pub grow_in: u8,
+    pub cuts: u8,
 }
 
 /// `Item::rest` values.
@@ -461,6 +474,8 @@ pub const ITEM_THROWN: u8 = 1;
 pub const ITEM_FREE: u8 = 2;
 pub const ITEM_LODGED: u8 = 3;
 pub const ITEM_BLAST: u8 = 4;
+/// Put away in a fighter's pocket (E42): unseen, frozen, untouchable, still in play (it counts for its maker's limits).
+pub const ITEM_POCKETED: u8 = 5;
 
 impl StateHash for Item {
     fn hash_into(&self, h: &mut StateHasher) {
@@ -489,6 +504,9 @@ impl StateHash for Item {
         }
         h.write_i8(self.facing);
         h.write_u16(self.angle as u16);
+        h.write_u8(self.water);
+        h.write_u8(self.grow_in);
+        h.write_u8(self.cuts);
     }
 }
 
@@ -496,6 +514,7 @@ impl StateHash for Item {
 pub const REST_FLYING: u8 = 0;
 pub const REST_LODGED: u8 = 1;
 pub const REST_FALLEN: u8 = 2;
+pub const REST_POCKETED: u8 = 3;
 
 impl StateHash for Projectile {
     fn hash_into(&self, h: &mut StateHasher) {
@@ -523,6 +542,7 @@ impl StateHash for Projectile {
         self.damage.hash_into(h);
         h.write_u8(self.kind);
         h.write_u8(self.rest);
+        h.write_u8(self.stale);
     }
 }
 
@@ -711,6 +731,8 @@ impl Fighter {
             balloons: 0,
             balloon_hp: Fx::ZERO,
             helium_used: 0,
+            pocket: NONE,
+            pocket_item: false,
             move_y0: Fx::ZERO,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
@@ -912,6 +934,8 @@ impl StateHash for Fighter {
         h.write_u8(self.balloons);
         self.balloon_hp.hash_into(h);
         h.write_u16(self.helium_used);
+        h.write_i8(self.pocket);
+        h.write_bool(self.pocket_item);
         self.move_y0.hash_into(h);
         for v in &self.vars {
             h.write_i32(*v);
@@ -1407,6 +1431,16 @@ mod tests {
                 s.fighters[3].helium_used = 16;
                 s
             }),
+            ("pocket", {
+                let mut s = state;
+                s.fighters[2].pocket = 3;
+                s
+            }),
+            ("pocket_item", {
+                let mut s = state;
+                s.fighters[2].pocket_item = true;
+                s
+            }),
             ("gauge_drain", {
                 let mut s = state;
                 s.fighters[2].gauge_drain = true;
@@ -1697,6 +1731,16 @@ mod tests {
                 s.projectiles[1].rest = REST_LODGED;
                 s
             }),
+            ("projectile_pocketed", {
+                let mut s = state;
+                s.projectiles[1].rest = REST_POCKETED;
+                s
+            }),
+            ("projectile_stale", {
+                let mut s = state;
+                s.projectiles[1].stale = 9;
+                s
+            }),
             ("projectile_bounces", {
                 let mut s = state;
                 s.projectiles[1].bounces = 1;
@@ -1850,6 +1894,26 @@ mod tests {
             ("item_angle", {
                 let mut s = state;
                 s.items[6].angle = -60;
+                s
+            }),
+            ("item_pocketed", {
+                let mut s = state;
+                s.items[6].rest = ITEM_POCKETED;
+                s
+            }),
+            ("item_water", {
+                let mut s = state;
+                s.items[6].water = 3;
+                s
+            }),
+            ("item_grow_in", {
+                let mut s = state;
+                s.items[6].grow_in = 5;
+                s
+            }),
+            ("item_cuts", {
+                let mut s = state;
+                s.items[6].cuts = 0x10;
                 s
             }),
             ("history", {

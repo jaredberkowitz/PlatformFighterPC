@@ -2700,6 +2700,18 @@ fn attack(
     if mv.spend_item != 255 && f.state_frame == u16::from(mv.spend_item) {
         f.item_order |= crate::items::ORDER_SPEND;
     }
+    // A pocket (E42) started with an item in the hand puts that item away on its first catching frame; a release takes out what was
+    // put away on its frame.
+    if let Some(pc) = mv.pocket {
+        if f.state_frame == u16::from(pc.start) && f.holding != NONE {
+            f.item_order |= crate::items::ORDER_STOW;
+        }
+    }
+    if let Some(rel) = mv.unpocket {
+        if f.state_frame == u16::from(rel.frame) {
+            f.item_order |= crate::items::ORDER_UNPOCKET;
+        }
+    }
 
     // A cancellable jab (`Move::cancel_from`, sim 115): from that frame, on the ground, any action the fighter could start standing
     // ends the move and starts now (the previous reference version's jab cancel). A walk does not, and neither does the jab itself

@@ -948,6 +948,18 @@ impl SimRunner {
         self.fighter(i).map_or(0, |fi| i32::from(fi.balloons))
     }
 
+    /// What the fighter has put away in its pocket (E42, sim 115: the Settler's neutral special): 0 nothing, 1 a projectile, 2 an item.
+    /// Read-only, for the view (the reference shows it over the damage meter).
+    #[func]
+    fn fighter_pocketed(&self, i: i32) -> i32 {
+        self.fighter(i)
+            .map_or(0, |fi| match (fi.pocket, fi.pocket_item) {
+                (sim_core::state::NONE, _) => 0,
+                (_, false) => 1,
+                (_, true) => 2,
+            })
+    }
+
     /// The radius (world units) of the egg the fighter is shut in (state `Encased`, E8), grown as it was laid; 0 when not in one.
     /// Read-only, for the view: the egg is drawn round the fighter, standing on its feet.
     #[func]
@@ -1329,8 +1341,10 @@ impl SimRunner {
         for p in &self.state.projectiles {
             let origin = &self.state.fighters[usize::from(p.origin).min(MAX_FIGHTERS - 1)];
             let class = sim_core::combat::params_of(&self.content, origin).weapon;
+            // (A shot put away in a pocket, E42, is not drawn.)
+            let shown = p.active && p.rest != sim_core::state::REST_POCKETED;
             v.extend([
-                if p.active { 1.0 } else { 0.0 },
+                if shown { 1.0 } else { 0.0 },
                 f(p.pos.x),
                 f(p.pos.y),
                 if p.vel.x < Fx::ZERO { -1.0 } else { 1.0 },
@@ -1359,11 +1373,12 @@ impl SimRunner {
         usize::try_from(i)
             .ok()
             .and_then(|i| self.state.items.get(i))
-            .filter(|it| it.active)
+            .filter(|it| it.active && it.rest != sim_core::state::ITEM_POCKETED)
     }
 
     /// How projectile slot `i` rests (sim 99, read only, for the view): 0 flying, 1 stuck in a surface (a lodged arrow: it lies still
-    /// and hits nothing), 2 knocked down by a clank (a falling boomerang: it hits nothing); -1 for an empty slot.
+    /// and hits nothing), 2 knocked down by a clank (a falling boomerang: it hits nothing), 3 put away in a pocket (E42: not drawn); -1 for
+    /// an empty slot.
     #[func]
     fn projectile_rest(&self, i: i32) -> i32 {
         usize::try_from(i)

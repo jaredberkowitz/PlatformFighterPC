@@ -989,3 +989,54 @@ fn the_balloons_register_reads_the_balloons_carried_in_a_balloon_move() {
         );
     }
 }
+
+#[test]
+fn the_pocketed_register_reads_what_the_pocket_holds() {
+    // Sim 115 (E42): `pocketed` is 0 with an empty pocket, 1 with a projectile put away, 2 with an item.
+    for (pocket, item, want) in [
+        (sim_core::state::NONE, false, 0),
+        (3, false, 1),
+        (2, true, 2),
+    ] {
+        let mut sim = with_special(scripted(20, "var p; p = pocketed;"));
+        sim.state.fighters[0].pocket = pocket;
+        sim.state.fighters[0].pocket_item = item;
+        start(&mut sim);
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(sim.f().vars[0], Fx::from_int(want).raw(), "{pocket} {item}");
+    }
+}
+
+#[test]
+fn owns_counts_the_fighters_items_and_projectiles_of_a_kind() {
+    // Sim 115 (E43): `owns(kind)` counts the live items and projectiles of that kind the fighter made, wherever they are (a pocketed
+    // shot too); another fighter's do not count, nor kind 0.
+    let mut sim = with_special(scripted(
+        20,
+        "var a; var b; var c; a = owns(7); b = owns(9); c = owns(0);",
+    ));
+    let mut spec = bomb_spec();
+    spec.kind = 7;
+    sim.content.weapons[0].items = vec![spec];
+    item_at(&mut sim, 0, 0, Fx::from_int(-3));
+    let theirs = item_at(&mut sim, 0, 0, Fx::from_int(-5));
+    sim.state.items[theirs].origin = 1;
+    for (n, kind) in [(0usize, 7u8), (1, 9), (2, 9)] {
+        sim.state.projectiles[n] = sim_core::Projectile {
+            active: true,
+            kind,
+            pos: sim_core::Vec2::new(Fx::from_int(-20), Fx::from_int(20)),
+            life: 200,
+            size: 100,
+            rest: sim_core::state::REST_POCKETED,
+            ..sim_core::Projectile::default()
+        };
+    }
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    let v = sim.f().vars;
+    assert_eq!(
+        (v[0], v[1], v[2]),
+        (Fx::from_int(2).raw(), Fx::from_int(2).raw(), 0)
+    );
+}

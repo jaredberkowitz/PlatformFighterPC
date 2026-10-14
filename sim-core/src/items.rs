@@ -13,7 +13,7 @@ use crate::fixed::Fx;
 use crate::moves::{Hitbox, ItemSpec, HIT_NORMAL};
 use crate::state::{
     Fighter, FighterState as S, GameState, Item, ITEM_BLAST, ITEM_FREE, ITEM_HELD, ITEM_LODGED,
-    ITEM_THROWN, MAX_ITEMS, NONE,
+    ITEM_POCKETED, ITEM_THROWN, MAX_ITEMS, NONE, REST_FLYING, REST_POCKETED,
 };
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
@@ -25,6 +25,10 @@ pub const ORDER_RELEASE: u8 = 2;
 pub const ORDER_SPEND: u8 = 4;
 pub const ORDER_PULL: u8 = 8;
 pub const ORDER_DETONATE: u8 = 16;
+/// Take out what the pocket holds (E42: `Move::unpocket`).
+pub const ORDER_UNPOCKET: u8 = 32;
+/// Put the item in the hand away in the pocket, swapping with an item already there (E42: a pocket started holding an item).
+pub const ORDER_STOW: u8 = 64;
 
 /// `Fighter::item_throw` values (the low bits), with [`THROW_SMASH`] for a smash throw.
 pub const THROW_FORWARD: u8 = 0;
@@ -114,7 +118,8 @@ fn pick_target(state: &GameState, content: &Content, i: usize) -> Option<usize> 
         let Some(spec) = spec_of(content, it) else {
             continue;
         };
-        if !in_reach(f, rules, it, spec) {
+        // (A placed piece, E43, is never picked up.)
+        if spec.placed.is_some() || !in_reach(f, rules, it, spec) {
             continue;
         }
         let d = (it.pos.x - f.pos.x).abs();
@@ -331,14 +336,21 @@ pub fn make_as(
         struck: [0; MAX_FIGHTERS],
         facing: f.facing,
         angle: 0,
+        water: 0,
+        grow_in: 0,
+        cuts: 0,
     };
     Some(n)
 }
 
-/// One frame of every item: the fighters' orders, then each item's clock and movement, its hits and the attacks that knock it about.
+/// One frame of every item: the fighters' orders, open pockets catching items, then each item's clock and movement, its hits and the
+/// attacks that knock it about.
 pub fn update(state: &mut GameState, content: &Content) {
     for i in 0..MAX_FIGHTERS {
         serve(state, content, i);
+    }
+    for i in 0..MAX_FIGHTERS {
+        pocket_items(state, content, i);
     }
     for n in 0..MAX_ITEMS {
         if state.items[n].active {
@@ -393,7 +405,14 @@ fn serve(state: &mut GameState, content: &Content, i: usize) {
         }
     }
     let f = state.fighters[i];
-    if order & ORDER_PULL != 0 && f.holding == NONE && f.state == S::Attack {
+    // A placed piece (E43) is set down in front instead of in the hand.
+    let placed = combat::weapon_of(content, combat::params_of(content, &f))
+        .items
+        .get(usize::from(f.item_spec))
+        .and_then(|s| s.placed);
+    if let (true, Some(pl)) = (order & ORDER_PULL != 0 && f.state == S::Attack, placed) {
+        place(state, content, i, f.item_spec, &pl);
+    } else if order & ORDER_PULL != 0 && f.holding == NONE && f.state == S::Attack {
         if let Some(n) = make(state, content, i, f.item_spec, hand(&f, rules), f.move_id) {
             let it = &mut state.items[n];
             it.holder = i as i8;
@@ -401,15 +420,22 @@ fn serve(state: &mut GameState, content: &Content, i: usize) {
             state.fighters[i].holding = n as i8;
         }
     }
+    if order & ORDER_STOW != 0 {
+        stow(state, content, i);
+    }
+    if order & ORDER_UNPOCKET != 0 {
+        unpocket(state, content, i);
+    }
     if order & ORDER_DETONATE != 0 {
         for n in 0..MAX_ITEMS {
             let it = state.items[n];
-            // (Not one another fighter holds, nor one already bursting or about to.)
+            // (Not one another fighter holds, nor one already bursting or about to, nor one put away in a pocket: frozen, E42.)
             let held_by_other = it.holder != NONE && it.holder != i as i8;
             if !it.active
                 || usize::from(it.origin) != i
                 || held_by_other
                 || it.rest == ITEM_BLAST
+                || it.rest == ITEM_POCKETED
                 || it.fuse > 0
             {
                 continue;
@@ -480,6 +506,10 @@ fn tick(state: &mut GameState, content: &Content, n: usize) {
         blast_frame(state, content, n, &spec);
         return;
     }
+    // Put away in a pocket (E42): frozen, its clock stopped.
+    if state.items[n].rest == ITEM_POCKETED {
+        return;
+    }
     {
         let it = &mut state.items[n];
         it.age = it.age.saturating_add(1);
@@ -498,6 +528,20 @@ fn tick(state: &mut GameState, content: &Content, n: usize) {
             burst(state, content, n);
             blast_frame(state, content, n, &spec);
             return;
+        }
+    }
+    // A placed piece that has its water grows after its delay (E43).
+    if let Some(pl) = spec.placed.filter(|pl| pl.water > 0) {
+        let item = &mut state.items[n];
+        if item.grow_in == 0 && item.water >= pl.water {
+            item.grow_in = pl.grow_delay.saturating_add(1);
+        }
+        if item.grow_in > 0 {
+            item.grow_in -= 1;
+            if item.grow_in == 0 {
+                grow(state, content, n, &pl);
+                return;
+            }
         }
     }
     match it.rest {
@@ -797,6 +841,7 @@ fn knock_about(state: &mut GameState, content: &Content) {
             if !it.active
                 || it.holder != NONE
                 || it.rest == ITEM_BLAST
+                || it.rest == ITEM_POCKETED
                 || it.struck[a] == fa.move_id.saturating_add(1)
             {
                 continue;
@@ -808,9 +853,11 @@ fn knock_about(state: &mut GameState, content: &Content) {
                 continue;
             }
             let at = middle(&it, &spec);
+            let tall = spec.placed.map_or(Fx::ZERO, |pl| pl.hurt_half_height);
             let hit = combat::active_hitboxes(&fa, mv, pa.hitbox_scale)
                 .filter(|(_, hb, c)| {
                     hb.kind == HIT_NORMAL
+                        && !hb.push
                         && combat::shapes_touch(
                             *c,
                             hb.half_width,
@@ -818,7 +865,7 @@ fn knock_about(state: &mut GameState, content: &Content) {
                             hb.radius,
                             at,
                             Fx::ZERO,
-                            Fx::ZERO,
+                            tall,
                             spec.hurt_radius,
                         )
                 })
@@ -827,6 +874,11 @@ fn knock_about(state: &mut GameState, content: &Content) {
             let Some(hb) = hit else {
                 continue;
             };
+            // A placed piece (E43) only loses hit points, freezes its attacker, and is cut by a chopping move.
+            if let Some(pl) = spec.placed {
+                strike_placed(state, content, a, n, &pl, hb.damage, mv.chops);
+                continue;
+            }
             let rules = &content.rules;
             let (d0, d1) = spec.knock_damage;
             let (s0, s1) = spec.knock_speed;
@@ -862,7 +914,430 @@ fn knock_about(state: &mut GameState, content: &Content) {
     }
 }
 
-/// For the view: the item in slot `n` if it is live.
+/// For the view: the item in slot `n` if it is live (and not put away in a pocket: E42).
 pub fn view(state: &GameState, n: usize) -> Option<&Item> {
-    state.items.get(n).filter(|it| it.active)
+    state
+        .items
+        .get(n)
+        .filter(|it| it.active && it.rest != ITEM_POCKETED)
+}
+
+// ---- E42: the pocket -------------------------------------------------------------------------------------------------------------
+
+/// Fighter `i`'s open, empty pocket puts away the first item it touches (lowest slot): not held, not bursting, not placed, and
+/// `pocketable`. The item is frozen where it was.
+fn pocket_items(state: &mut GameState, content: &Content, i: usize) {
+    let Some((c, r)) = combat::pocket_circle(state, content, i) else {
+        return;
+    };
+    for n in 0..MAX_ITEMS {
+        let it = state.items[n];
+        if !it.active
+            || it.holder != NONE
+            || !matches!(it.rest, ITEM_FREE | ITEM_THROWN | ITEM_LODGED)
+            || it.fuse > 0
+        {
+            continue;
+        }
+        let Some(spec) = spec_of(content, &it) else {
+            continue;
+        };
+        if !spec.pocketable || spec.placed.is_some() {
+            continue;
+        }
+        let m = middle(&it, spec);
+        if !combat::shapes_touch(
+            c,
+            Fx::ZERO,
+            Fx::ZERO,
+            r,
+            m,
+            spec.half_width,
+            spec.half_height,
+            Fx::ZERO,
+        ) {
+            continue;
+        }
+        let item = &mut state.items[n];
+        item.rest = ITEM_POCKETED;
+        item.vel = Vec2::ZERO;
+        item.platform = NONE;
+        let f = &mut state.fighters[i];
+        f.pocket = n as i8;
+        f.pocket_item = true;
+        return;
+    }
+}
+
+/// A pocket started with an item in the hand (E42): that item is put away, and an item already in the pocket comes into the hand.
+fn stow(state: &mut GameState, content: &Content, i: usize) {
+    let f = state.fighters[i];
+    let Ok(held) = usize::try_from(f.holding) else {
+        return;
+    };
+    if f.pocket != NONE && !f.pocket_item {
+        return;
+    }
+    let pocketable = state
+        .items
+        .get(held)
+        .and_then(|it| spec_of(content, it))
+        .is_some_and(|s| s.pocketable);
+    if !pocketable {
+        return;
+    }
+    let old = f.pocket;
+    {
+        let it = &mut state.items[held];
+        it.holder = NONE;
+        it.rest = ITEM_POCKETED;
+        it.vel = Vec2::ZERO;
+        it.platform = NONE;
+    }
+    let g = &mut state.fighters[i];
+    g.holding = NONE;
+    g.pocket = held as i8;
+    g.pocket_item = true;
+    if let Ok(o) = usize::try_from(old) {
+        to_hand(state, content, i, o);
+    }
+}
+
+/// Item `n` (out of fighter `i`'s pocket) into its empty hand, its clock starting again.
+fn to_hand(state: &mut GameState, content: &Content, i: usize, n: usize) {
+    let f = state.fighters[i];
+    let life = spec_of(content, &state.items[n]).map_or(0, |s| s.life);
+    let it = &mut state.items[n];
+    it.holder = i as i8;
+    it.owner = i as u8;
+    it.rest = ITEM_HELD;
+    it.age = 0;
+    it.life = life;
+    it.fuse = 0;
+    it.flight = 0;
+    it.hit_mask = 0;
+    it.vel = Vec2::ZERO;
+    it.pos = hand(&f, &content.rules);
+    it.facing = f.facing;
+    state.fighters[i].holding = n as i8;
+}
+
+/// Takes out what fighter `i` put away (E42, `Move::unpocket`): an item into the empty hand, a projectile flying out in front at the
+/// speed it was caught with, turned the way the fighter faces, at the release's power, now the fighter's.
+fn unpocket(state: &mut GameState, content: &Content, i: usize) {
+    let f = state.fighters[i];
+    let Ok(n) = usize::try_from(f.pocket) else {
+        return;
+    };
+    let p = combat::params_of(content, &f);
+    let Some(rel) = combat::weapon_of(content, p).get(f.move_id).unpocket else {
+        return;
+    };
+    if f.pocket_item {
+        let live = state
+            .items
+            .get(n)
+            .is_some_and(|it| it.active && it.rest == ITEM_POCKETED);
+        if live && f.holding == NONE {
+            state.fighters[i].pocket = NONE;
+            state.fighters[i].pocket_item = false;
+            to_hand(state, content, i, n);
+        } else if !live {
+            state.fighters[i].pocket = NONE;
+            state.fighters[i].pocket_item = false;
+        }
+        return;
+    }
+    state.fighters[i].pocket = NONE;
+    let Some(pr) = state.projectiles.get_mut(n) else {
+        return;
+    };
+    if !pr.active || pr.rest != REST_POCKETED {
+        return;
+    }
+    let s = p.hitbox_scale;
+    let dir = i32::from(f.facing);
+    pr.rest = REST_FLYING;
+    pr.owner = i as u8;
+    pr.facing = f.facing;
+    pr.pos = f.pos + Vec2::new((rel.x * s).mul_int(dir), rel.y * s);
+    pr.vel = Vec2::new(pr.vel.x.abs().mul_int(dir), pr.vel.y);
+    pr.age = 0;
+    pr.hit_mask = 0;
+    pr.hit_age = [0; MAX_FIGHTERS];
+    pr.vars = [0; crate::PROJECTILE_VARS];
+    pr.bursting = false;
+    pr.power = rel.power.clamp(1, 255) as u8;
+    pr.stale = f.move_id;
+}
+
+/// A knock-out loses what the fighter had put away (E42): it is gone.
+pub fn lose_pocket(state: &mut GameState, i: usize) {
+    let f = state.fighters[i];
+    if let Ok(n) = usize::try_from(f.pocket) {
+        if f.pocket_item {
+            if let Some(it) = state.items.get_mut(n) {
+                if it.rest == ITEM_POCKETED {
+                    it.active = false;
+                }
+            }
+        } else if let Some(p) = state.projectiles.get_mut(n) {
+            if p.rest == REST_POCKETED {
+                p.active = false;
+            }
+        }
+    }
+    state.fighters[i].pocket = NONE;
+    state.fighters[i].pocket_item = false;
+}
+
+// ---- E43: placed pieces ----------------------------------------------------------------------------------------------------------
+
+/// Fighter `i` sets down item `spec_index` of its weapon (placed): `pl.x` ahead of its feet on the platform it stands on (kept on the
+/// platform), pulling up the placed pieces of its kind it overlaps and its own older one of that kind.
+fn place(
+    state: &mut GameState,
+    content: &Content,
+    i: usize,
+    spec_index: u8,
+    pl: &crate::moves::Placed,
+) {
+    let f = state.fighters[i];
+    let Some(plat) = collision::platform(&content.stage, f.platform) else {
+        return;
+    };
+    let Some(spec) = combat::weapon_of(content, combat::params_of(content, &f))
+        .items
+        .get(usize::from(spec_index))
+        .copied()
+    else {
+        return;
+    };
+    let s = combat::params_of(content, &f).hitbox_scale;
+    let x = (f.pos.x + (pl.x * s).mul_int(i32::from(f.facing))).clamp(plat.left, plat.right);
+    let at = Vec2::new(x, plat.y);
+    for n in 0..MAX_ITEMS {
+        let it = state.items[n];
+        if !it.active || it.kind != spec.kind || it.kind == 0 {
+            continue;
+        }
+        let Some(other) = spec_of(content, &it) else {
+            continue;
+        };
+        let mine = usize::from(it.origin) == i;
+        let under = (it.pos.x - at.x).abs() < other.half_width + spec.half_width;
+        if other.placed.is_some() && (mine || under) {
+            remove(state, n);
+        }
+    }
+    if let Some(n) = make(state, content, i, spec_index, at, f.move_id) {
+        let it = &mut state.items[n];
+        it.platform = f.platform;
+        it.facing = f.facing;
+    }
+}
+
+/// A placed piece that has had its water grows (E43): it becomes its `grow_into` item where it stands, and its growth's hit comes
+/// out there, credited to the last fighter whose water touched it.
+fn grow(state: &mut GameState, content: &Content, n: usize, pl: &crate::moves::Placed) {
+    let it = state.items[n];
+    remove(state, n);
+    if let Some(m) = make_as(
+        state,
+        content,
+        usize::from(it.origin),
+        it.maker,
+        pl.grow_into,
+        it.pos,
+        it.move_id,
+    ) {
+        let t = &mut state.items[m];
+        t.platform = it.platform;
+        t.facing = it.facing;
+    }
+    if pl.grow_move != 255 {
+        combat::fire(
+            state,
+            content,
+            usize::from(it.owner),
+            usize::from(it.origin),
+            pl.grow_move,
+            it.pos,
+            it.facing,
+        );
+    }
+}
+
+/// The attack of fighter `a` hits placed piece `n` (E43): its hit points, the attacker's freeze, and a chop.
+fn strike_placed(
+    state: &mut GameState,
+    content: &Content,
+    a: usize,
+    n: usize,
+    pl: &crate::moves::Placed,
+    damage: Fx,
+    chops: bool,
+) {
+    let fa = state.fighters[a];
+    let lag = combat::hitlag_frames(damage, &content.rules, false, false, Fx::ONE);
+    let frozen = (u16::from(lag) * u16::from(pl.hitter_lag) / 100) as u8;
+    state.fighters[a].hitlag = state.fighters[a].hitlag.max(frozen);
+    let item = &mut state.items[n];
+    item.struck[a] = fa.move_id.saturating_add(1);
+    item.hp -= damage;
+    if chops && pl.cuts > 0 {
+        // (From the left, the low nibble; from the right, the high one.)
+        let right = fa.pos.x > item.pos.x;
+        let shift = if right { 4 } else { 0 };
+        let side = ((item.cuts >> shift) & 0xf).saturating_add(1).min(15);
+        item.cuts = (item.cuts & !(0xf << shift)) | (side << shift);
+        if side >= pl.cuts {
+            fell(state, content, a, n, pl);
+            return;
+        }
+    }
+    if state.items[n].hp <= Fx::ZERO {
+        burst(state, content, n);
+    }
+}
+
+/// A placed piece felled by fighter `a` (E43): gone, its falling hit fired the way away from `a`, credited to `a`, and maybe a chip.
+fn fell(state: &mut GameState, content: &Content, a: usize, n: usize, pl: &crate::moves::Placed) {
+    let it = state.items[n];
+    remove(state, n);
+    let fa = state.fighters[a];
+    let away: i8 = if fa.pos.x < it.pos.x {
+        1
+    } else if fa.pos.x > it.pos.x {
+        -1
+    } else {
+        fa.facing
+    };
+    if pl.fall_move != 255 {
+        combat::fire(
+            state,
+            content,
+            a,
+            usize::from(it.origin),
+            pl.fall_move,
+            it.pos,
+            away,
+        );
+    }
+    if pl.chip != 255 && pl.chip_chance > 0 && state.rng.range(1000) < u32::from(pl.chip_chance) {
+        if let Some(m) = make_as(state, content, a, it.maker, pl.chip, it.pos, it.move_id) {
+            let c = &mut state.items[m];
+            c.platform = it.platform;
+            c.facing = away;
+        }
+    }
+}
+
+/// Water from a shot of `owner` at `pos` (E43, `Tool::water`): each placed piece that grows with water and touches it takes `amount`.
+pub(crate) fn water(
+    state: &mut GameState,
+    content: &Content,
+    pos: Vec2,
+    shape: combat::Shape,
+    amount: u8,
+    owner: usize,
+) {
+    for n in 0..MAX_ITEMS {
+        let it = state.items[n];
+        if !it.active || it.rest == ITEM_POCKETED {
+            continue;
+        }
+        let Some(spec) = spec_of(content, &it) else {
+            continue;
+        };
+        let Some(pl) = spec.placed.filter(|pl| pl.water > 0) else {
+            continue;
+        };
+        let m = middle(&it, spec);
+        let touching = combat::shapes_touch(
+            pos,
+            shape.half_w,
+            shape.half_h,
+            shape.radius,
+            m,
+            spec.half_width,
+            spec.half_height.max(pl.hurt_half_height),
+            spec.hurt_radius,
+        );
+        if touching {
+            let item = &mut state.items[n];
+            item.water = item.water.saturating_add(amount);
+            item.owner = owner.min(MAX_FIGHTERS - 1) as u8;
+        }
+    }
+}
+
+/// A shot with a hit of `damage` at `pos` meets a placed piece with hit points (E43): the lowest slot it touches takes the damage (at
+/// 0 it is gone); returns whether the shot was used up on one.
+pub(crate) fn shot_on_placed(
+    state: &mut GameState,
+    content: &Content,
+    pos: Vec2,
+    shape: combat::Shape,
+    damage: Fx,
+) -> bool {
+    for n in 0..MAX_ITEMS {
+        let it = state.items[n];
+        if !it.active || it.rest == ITEM_POCKETED || it.rest == ITEM_BLAST {
+            continue;
+        }
+        let Some(spec) = spec_of(content, &it).copied() else {
+            continue;
+        };
+        let Some(pl) = spec.placed else {
+            continue;
+        };
+        if spec.hp <= Fx::ZERO {
+            continue;
+        }
+        let m = middle(&it, &spec);
+        if combat::shapes_touch(
+            pos,
+            shape.half_w,
+            shape.half_h,
+            shape.radius,
+            m,
+            Fx::ZERO,
+            pl.hurt_half_height,
+            spec.hurt_radius,
+        ) {
+            state.items[n].hp -= damage;
+            if state.items[n].hp <= Fx::ZERO {
+                burst(state, content, n);
+            }
+            return true;
+        }
+    }
+    false
+}
+
+/// How many live items and projectiles fighter `me` made of kind `kind` (0: none): the `owns(kind)` script function (E43).
+pub fn owns(
+    state_items: &[Item],
+    projectiles: &[crate::state::Projectile],
+    me: usize,
+    kind: u8,
+) -> u8 {
+    if kind == 0 {
+        return 0;
+    }
+    let shots = projectiles
+        .iter()
+        .filter(|p| p.active && usize::from(p.origin) == me && p.kind == kind)
+        .count();
+    let n = owned(state_items, me, kind) as usize + shots;
+    u8::try_from(n).unwrap_or(u8::MAX)
+}
+
+/// For the view: the projectile in slot `n` if it is live and not put away in a pocket (E42).
+pub fn projectile_shown(state: &GameState, n: usize) -> bool {
+    state
+        .projectiles
+        .get(n)
+        .is_some_and(|p| p.active && p.rest != REST_POCKETED)
 }

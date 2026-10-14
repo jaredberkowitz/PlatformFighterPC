@@ -115,28 +115,114 @@ resimulation. `older_rules.rs` (11, above). `scripted_moves::the_balloons_regist
   radius 0.55 world units, 3.0 above the feet, in the sim).
 * **The arrow's lodge angle**: `item_angle(i)` (degrees counter-clockwise from the right, world axes; 0 if never lodged).
 
-## Phase 2 plan: Pocket and Timber's planting
+## Phase 2 (sim 115, content schema 7 unchanged; branch `pockets-phase2` from `movesets` at cb89aa5, sim 113)
 
-* **Pocket** (neutral special; intangible 5-23, catches 8-23, FAF 51; the throw: item out on 9, FAF 31 [R]): catch any projectile (and
-  item) touching a box in front, keep it (hashed `Fighter::pocket`: the projectile's spec, owner's weapon and move, its power), show it,
-  and fire it back on the next press (the move's own throw with the stored shot at x1.5? the multiplier and speed to research). Needs a
-  "catch" detector like the reflector's (E10) and a stored-projectile state: a broad change (explain first). Items: pocket a held / lying
-  item (E4).
-* **Timber**, part 1: plant (FAF 38), water (the 0% push, FKV 25, `flinchless`: E2), the tree growing (18% clean 14-19, 13% 20-40 [R]),
-  needs a stage object with hp (a new "placed article" with a hurtbox; Pocket and the tree both need articles: one extension).
-* Tests: the axe follow-up of the older jab at 130% (the claim above).
+Owner decisions 69-71 (2026-10-14, recorded in `../ROSTER_STATUS.md`): keep the balloon and ride estimates; rework the older jab; no
+other previous-version rules. Phase 2 also built what was planned as phase 3 (the axe, the falling tree, the wood chip): the moveset is
+complete.
 
-## Phase 3 plan: the axe and the falling tree
+### Milestone 1: the older jab reworked (owner decision 70)
 
-* The axe (6-7 early, 8, FAF 48; 14%, 361, BK 36, KS 100 [R]), chopping the tree (hits on the tree's hp), the falling tree (25%, 60,
-  14-313 [R]), the wood chip (an item).
+* **Engine**: `Move::cancel_from` (content `cancel_from`, default never): from that move frame, on the ground and out of hitlag, any
+  action the fighter could start standing (`fighter::ground` run on a copy: a jump, a dash, a crouch, a shield, a grab, another attack, a
+  special; not a walk, not the jab itself) ends the move and starts on the same frame. General: any move can use it.
+* **Data**: jab 1 cancellable from its frame 7, jab 2 from 8 (their continuable frames: the previous version's jab cancel by a crouch
+  or shield, ssbwiki.com `Jab_cancel`); jab 1's far glove takes 13.0.1's far-box pull (180 degrees forward, BK 15, KS 10); jab 2 stays
+  the up-and-out launcher (BK 20, KS 120).
+* **What the research found** (sources and the table in `REFERENCE_DATA.md`, "The rework"): the cancel is real and well sourced; **the
+  pull is not in the 1.1.x tables** (ssbwiki.com and kuroganehammer.com's 1.1.6 page agree: jab 1 is 60 / 80 degrees, BK 10, KS 80,
+  sent away). The pull the owner remembers is 13.0.1's own jab 1 (its 180-degree far boxes, in 13.0.1 since its first versions). It is
+  built as asked, as a labelled blend (question 4). At our placement it acts only at the tip: the duelist's body reaches the near
+  glove up to about 2.1 units out; between 2.2 and 2.5 only the far glove lands, and draws the foe in under 0.1 a frame.
+
+### Milestone 2: the pocket (E42) and the tree (E43)
+
+* **E42, the pocket** (general): `Move::pocket` (`PocketCatch { start end x y radius }`) and `Move::unpocket` (`PocketRelease { frame x
+  y power }`), `Tool::pocket` (`yes` / `never` / `frees`), `ItemSpec::pocketable`; hashed `Fighter::pocket` / `pocket_item`,
+  `Projectile::stale` (a shot's stale-move key: the release's for a released one), the rests `REST_POCKETED` / `ITEM_POCKETED`; the
+  `pocketed` register (whitelist, `scripted_moves` test, `CONTENT.md`); the bridge's read-only `fighter_pocketed(i)`; pocketed shots and
+  items are hidden from `projectile_slots` and the `item_*` accessors.
+* **E43, placed pieces** (general): `ItemSpec::placed` (`Placed { x hurt_half_height hitter_lag water grow_delay grow_into grow_move
+  cuts fall_move chip chip_chance }`), `Tool::water`, `Move::chops`; hashed `Item::water` / `grow_in` / `cuts`; `combat::fire` (a
+  weapon move's projectile fired for anyone, anywhere); the `owns(kind)` function (whitelist, `scripted_moves` test, `CONTENT.md`).
+* **The neutral special** (`pocket` in `moves_pockets.rs`, `pockets_pocket.script`): the reach (intangible 5-23, catching 8-23, FAF 51)
+  and the release (`POCKET_OUT` = ext9: out on 9, FAF 31, x1.9) [R]; which projectiles: every one in the roster but the needles' line
+  and the seer's explosive flame (`never`) and bursts; the rocket `frees` its maker [R]; items: every one but placed pieces.
+* **The down special** (`tree`, `pockets_tree.script`, `pockets_shrug.script`): the router by `owns(kind)` (axe with a tree or a
+  falling tree out, water with a sapling, else planting, or the failed planting in the air); `PLANT` (ext10, FAF 39), `WATER` (ext11,
+  FAF 50, water 5-20), `AXE` (ext12, 6-8, FAF 48, `chops`), `PLANT_FAILS` (ext13); the growth's and the falling tree's shots on ext14 and
+  ext15; items 0 sapling (kind 5), 1 tree (6), 2 wood chip (8); the falling tree's tool kind 7. All 16 `ext` slots are now in use.
+* `base.pfc` re-exported; `docs/CONTENT.md` lines for every new field; validation for each; round trips
+  (`the_pocket_and_tree_fields_round_trip_and_are_checked`) and content-hash cases (`move_rules::the_pocket_and_tree_fields_are_in_the_content_hash`).
+
+### The combo test: the jab into the axe
+
+`older_rules.rs` (`the_axe_after_jab_1_is_a_true_combo_and_after_jab_2_it_has_the_time_but_not_the_reach`, the printed tables), the
+settler's tree standing far behind it so the down special is the axe (out on its frame 6), each follow-up pressed on the first frame
+the settler can act (the cancel, after any hitlag):
+
+| Percent | Advantage after jab 1 | after jab 1 > 2 | jab 1 > axe | jab 1 > 2 > axe (cancel) | jab 1 > axe, no cancel | jab 1 > 2 > axe, no cancel |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 / 10 / 20 | 6 / 7 / 8 | 12 / 14 / 16 | true | true | lands late | lands late |
+| 30-100 | 9-17 | 18-31 | true | **misses** | lands late | misses |
+| 110-150 | 19-23 | 33-40 | true | **misses** | misses | misses |
+
+(The duelist, weight 90; the settler, 92, gives the same pattern.) **Jab 1 > axe is a true combo at every percent 0-150** (the previous
+version's moveset notes' claim, "at kill percents", holds). **Jab 1 > jab 2 > axe has the time from 0%** (36 frames of advantage at
+130% against the axe's 6: the forum's frame claim holds and more) **but connects only at 0-20%**: from 30% jab 2 has sent the foe up and
+out of the axe's reach. The axe's boxes on the held axe are [E] (the reference attaches them to its axe bone); a higher early swing would
+reach further up: question 5. Without the cancel (waiting for each jab's FAF, as the forum's calculator assumed), no axe follow-up is a
+true combo. Other strings (`the_cancelled_jab_strings_into_its_next_hit_a_down_tilt_and_a_rising_neutral_air`): jab 1 > jab 2 true at
+0-150%; jab 1 > down tilt at 30-100%; jab 1 > jump > neutral air at 10-60%; jab 1 > 2 > jab 1 at 0-20%, > down tilt at 0-10%. The grab
+never catches the popped-up foe out of jab 1 > 2, and out of jab 1 only after the hitstun.
+
+### Verified against [R] / [D] (phase 2, by tests that ran)
+
+`pockets_pocket.rs` (11): intangible exactly 5-23 and FAF 51; a shot met on 8 and 23 is put away and not on 7 or 24; it waits frozen and
+unseen 600 frames; the release on frame 9, FAF 31, the shot turned forward at its caught speed, power 190, now the settler's, staled as
+the release; its hit 1.9x the shot's damage at that age (x1.2 one-on-one); own shots, the line and bursts are not taken; the pocketed
+rocket frees its maker, the pocketed boomerang still counts as its maker's; an item put away frozen, still its maker's, out into the
+hand on 9 with its clock restarted; the held-item swap; a KO loses either; rollback. `pockets_tree.rs` (14): the planting (the stage
+on frame 2, the sapling on 20 at 10 ahead, FAF 39), the failed planting in the air, the sapling's 840 frames and the pull-up by another
+settler's planting, the water (0%, a push, no hitstun, FAF 50), **the growth's clean hit 46 frames after the first drop [R: UFD]** for
+18%, the late 13%, half a watering kept, the tree's 30 hp and 600 frames, shots used up on it, the axe on 6 for 14% and FAF 48, two cuts
+on a side fell (a 7-frame freeze, 16 hp left after one), one a side does not, the falling tree's 25% no sooner than its frame 14 and
+gone after its bounce, the wood chip and its 48.5%, the stage staying the axe until the falling tree is gone, rollback with trees
+growing. `older_rules.rs` (15). `scripted_moves` (`pocketed`, `owns`), `move_rules`, the sim-content round trip, the checksum cases
+(`pocket`, `pocket_item`, `projectile_pocketed`, `projectile_stale`, `item_pocketed`, `item_water`, `item_grow_in`, `item_cuts`).
+
+### Estimated or limited [E] (phase 2)
+
+* The pocket's reach (9.0 / 7.0, r6.0) and release point (7.0 / 6.0); no speed change on release (none published); a pocketed shot holds
+  a slot of the shared pool; the release's staleness counts as the release move (ext9); a teammate's shot (x0.25) is not modelled (no
+  teams); the reference's heavy items and items that act when picked up do not exist here.
+* Which shots are pocketable: the explosive flame `never` is a reading of the reference's rule (it is reflectable in the raw table).
+* The sapling's place (10.0 ahead) and frame (20); it cannot be hit; the water needed (8 frames) and the delay (26, fitted to UFD's 46);
+  the water's shape and path (one falling shot, pushing every frame); the tree's hurtbox; the axe's boxes on the held axe; the chop's
+  freeze (7, conflict 4); the falling tree's path, single box and 255-frame life (313 in the reference), no 15% landing sourspot; the
+  wood chip's numbers; no fruit (1.5% of fells in the reference).
+* `Move::cancel_from` does not spend the reference's crouch or shield frame before the next action.
+
+### For the art agent (phase 2)
+
+* **Clips needed**: the pocket reach (hand out in front on 8-23; the shrug when nothing was caught: compare `fighter_pocketed(i)` before
+  and after), the pocket release (item or shot out on 9); the planting (shovel, the sapling set down on 20, 10.0 reference units ahead),
+  the failed planting (a shrug in the air), the watering can (water poured 5-20 from about 11 ahead, 9 up), the axe swing (overhead down
+  in front: early 6-7 high, late 8 low at 5.5-11.5 ahead).
+* **Props**: the sapling and the tree are items (`item_kind` 5 and 6, `item_pos` the base); the tree grows over its first 13 frames (its
+  growth hit is from frame 14); the falling tree is a projectile (move ext15 in `projectile_slots`) toppling away from the chopper; the
+  water a projectile (move ext11); the wood chip an item (kind 8). The pocket's contents: `fighter_pocketed(i)` (0 / 1 / 2) for an icon
+  over the damage meter. Cut marks on the tree (`Item::cuts`) are not exposed: ask if wanted.
 
 ## Questions for the owner
 
-1. **The balloons and the rocket's ride have almost no published numbers** (flight time, flap, sink and steer speeds, the balloons' size
-   and hit points, the recharge; the rocket's speeds and the ride). They are labelled [E]. Footage of the reference (a recording of a full
-   balloon flight from the ground, one with a popped balloon, a ridden rocket across a stage) would let me fit them. Keep the estimates
-   until then?
+1. ~~The balloons and the ride's estimates~~: answered, keep them (decision 69).
 2. The older jab's **held** rule (does holding attack repeat at the end of each punch, or sooner?): estimate kept.
-3. E40 changes only per-hit rules. Should the older rules also bring the previous version's shield hitlag (x0.8 above 1) and its
-   electric hitstun frame? (Neither matters for the jab.)
+3. ~~Other previous-version rules~~: answered, no (decision 71).
+4. **The jab 1 pull** (phase 2): the 1.1.x data has no pull; the pull is 13.0.1's far boxes, now on the 1.1.x jab as asked. Keep the
+   blend, or drop the pull for the pure 1.1.x jab (both hits sent away, jab 2 still combos at every percent either way)?
+5. **Jab 1 > jab 2 > axe** connects only at 0-20% here (the time is there from 0%, the reach is not: jab 2 pops the foe above the axe).
+   The axe's boxes on the held axe are estimates; footage of the reference's axe swing (or of the old combo landing) would place them.
+   Raise the early swing to make the old combo reach, or keep the estimate?
+6. The pocket's **reach and release point** and the tree's sizes are estimates (the hitbox footage would settle them); the explosive flame
+   is not pocketable (a reading of the reference's rule): right?

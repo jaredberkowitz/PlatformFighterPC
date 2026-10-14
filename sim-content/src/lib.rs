@@ -381,15 +381,14 @@ fn validate_item(i: usize, n: usize, it: &sim_core::moves::ItemSpec, errors: &mu
     let ok = it.kind > 0
         && keeps_ok
         && ordered
-        && it.pick_width > Fx::ZERO
-        && it.pick_height > Fx::ZERO
+        && ((it.pick_width > Fx::ZERO && it.pick_height > Fx::ZERO) || it.placed.is_some())
         && it.throw_mul > Fx::ZERO
         && it.hit.radius > Fx::ZERO
         && (it.gravity == Fx::ZERO || it.max_fall > Fx::ZERO)
         && (it.hp == Fx::ZERO || it.hurt_radius > Fx::ZERO);
     if !ok {
         errors.push(format!(
-            "weapon {i} item {n}: needs a kind from 1 to 255, a pick-up box, a throw_mul and a hit radius above 0, a max_fall with \
+            "weapon {i} item {n}: needs a kind from 1 to 255, a pick-up box (unless placed), a throw_mul and a hit radius above 0, a max_fall with \
              gravity, a hurt_radius with hp, percents of at most 200 and its ranges low to high"
         ));
     }
@@ -408,6 +407,30 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
     }
     for (n, it) in w.items.iter().enumerate() {
         validate_item(i, n, it, errors);
+        // A placed piece (E43, sim 115): what it grows into and drops is one of the weapon's items, its shots real moves with a
+        // projectile, its numbers in range.
+        if let Some(pl) = &it.placed {
+            let item_ok = |k: u8| usize::from(k) < w.items.len();
+            let shot_ok = |s: u8| {
+                s == 255
+                    || (usize::from(s) < MoveId::COUNT
+                        && w.moves
+                            .get(usize::from(s))
+                            .is_some_and(|m| !m.is_empty() && m.projectile.is_some()))
+            };
+            if (pl.water > 0 && !item_ok(pl.grow_into))
+                || (pl.chip != 255 && !item_ok(pl.chip))
+                || !shot_ok(pl.grow_move)
+                || !shot_ok(pl.fall_move)
+                || pl.hitter_lag > 200
+                || pl.chip_chance > 1000
+                || pl.hurt_half_height < Fx::ZERO
+            {
+                errors.push(format!(
+                    "weapon {i} item {n}: a placed piece's grow_into and chip must be the weapon's items, grow_move and fall_move moves with a projectile, hitter_lag at most 200, chip_chance at most 1000 and hurt_half_height not negative"
+                ));
+            }
+        }
     }
     if w.moves.len() != MoveId::COUNT {
         errors.push(format!(
@@ -480,6 +503,21 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             errors.push(format!(
                 "weapon {i} {name}: cancel_from must be a frame of the move (below its total frames) or absent"
             ));
+        }
+        // The pocket and its release (E42, sim 115): frames inside the move, a real circle, a power of 1 to 1000 percent.
+        if let Some(pc) = &mv.pocket {
+            if pc.start > pc.end || pc.end >= mv.total_frames || pc.radius <= Fx::ZERO {
+                errors.push(format!(
+                    "weapon {i} {name}: a pocket needs start at most end, end inside the move and a radius above 0"
+                ));
+            }
+        }
+        if let Some(r) = &mv.unpocket {
+            if r.frame >= mv.total_frames || r.power == 0 || r.power > 1000 {
+                errors.push(format!(
+                    "weapon {i} {name}: an unpocket needs its frame inside the move and a power of 1 to 1000"
+                ));
+            }
         }
         // Balloons (E41, sim 113).
         if let Some(b) = &mv.balloons {
@@ -597,6 +635,9 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             && !catch_moves.contains(&(m as u8))
             && mv.carry.is_none()
             && mv.motion.is_empty()
+            && mv.pull.is_none()
+            && mv.pocket.is_none()
+            && mv.unpocket.is_none()
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
@@ -1174,6 +1215,100 @@ mod combat_tests {
             errors.iter().any(|e| e.contains("motion_drift")),
             "{errors:?}"
         );
+    }
+
+    #[test]
+    fn the_pocket_and_tree_fields_round_trip_and_are_checked() {
+        // Sim 115: the settler's pocket and release (E42), its chopping axe, the rocket's and the line's pocket rules, the water, the
+        // sapling's and tree's placed blocks and pocketability (E43) come back from a file unchanged; a file without them keeps
+        // today's behaviour; bad values are refused.
+        use sim_core::moves::{POCKET_FREES, POCKET_NEVER, POCKET_YES};
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[10].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "pocket {",
+            "unpocket {",
+            "chops true",
+            "pocket frees",
+            "pocket never",
+            "water 1",
+            "pocketable false",
+            "placed {",
+            "grow_move ext14",
+            "fall_move ext15",
+            "chip_chance 485",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no pocket, every shot pocketable by a pocket that exists, no placed pieces, nothing chops.
+        let stripped = text
+            .lines()
+            .filter(|l| {
+                !l.contains("pocket frees") && !l.contains("pocket never") && !l.contains("chops")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped).expect("reads").content;
+        let rocket = older.weapons[w].moves[MoveId::SideSpecial as usize]
+            .projectile
+            .expect("the rocket");
+        assert_eq!(rocket.tool.pocket, POCKET_YES);
+        assert!(!older.weapons[w].moves[MoveId::Ext12 as usize].chops);
+        assert_eq!(
+            base.weapons[w].moves[MoveId::SideSpecial as usize]
+                .projectile
+                .map(|p| p.tool.pocket),
+            Some(POCKET_FREES)
+        );
+        assert_eq!(
+            base.weapons[2].moves[MoveId::SideSpecial as usize]
+                .projectile
+                .map(|p| p.tool.pocket),
+            Some(POCKET_NEVER)
+        );
+        // A word that is not a pocket rule.
+        let bad = text.replacen("pocket frees", "pocket maybe", 1);
+        assert!(crate::bundle::load(&bad).is_err());
+        // Bad values: a pocket past the move, a release of power 0, a placed piece growing into an item the weapon has not, a chance
+        // over 1000.
+        let mut c = base.clone();
+        if let Some(p) = c.weapons[w].moves[MoveId::NSpecial as usize]
+            .pocket
+            .as_mut()
+        {
+            p.end = 250;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("pocket")));
+        let mut c = base.clone();
+        if let Some(p) = c.weapons[w].moves[MoveId::Ext9 as usize].unpocket.as_mut() {
+            p.power = 0;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("unpocket")));
+        let mut c = base.clone();
+        if let Some(p) = c.weapons[w].items[0].placed.as_mut() {
+            p.grow_into = 7;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("placed")));
+        let mut c = base.clone();
+        if let Some(p) = c.weapons[w].items[1].placed.as_mut() {
+            p.chip_chance = 1001;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("placed")));
     }
 
     #[test]

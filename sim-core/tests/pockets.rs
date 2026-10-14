@@ -911,12 +911,12 @@ fn the_pockets_is_registered_as_class_10() {
     assert_eq!(c.names.weapons[10], "pockets");
     assert_eq!(c.fighters[10], FighterParams::settler());
     assert_eq!(c.weapons[10], sim_core::moves::pockets());
-    // Phase 1: the side and up specials are the Pockets' own; the neutral and down specials are still the claws' (phase 2).
+    // Every special is the Pockets' own (the side and up specials since phase 1, the neutral and down since phase 2, sim 115).
     for (id, own) in [
-        (MoveId::NSpecial, false),
+        (MoveId::NSpecial, true),
         (MoveId::SideSpecial, true),
         (MoveId::UpSpecial, true),
-        (MoveId::DownSpecial, false),
+        (MoveId::DownSpecial, true),
     ] {
         assert_eq!(
             c.weapons[10].moves[id as usize] != c.weapons[1].moves[id as usize],

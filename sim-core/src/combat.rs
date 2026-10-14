@@ -24,7 +24,7 @@ use crate::moves::{
 use crate::scripting;
 use crate::state::{
     Fighter, FighterState as S, GameState, Projectile, NONE, REST_FALLEN, REST_FLYING, REST_LODGED,
-    STALE_QUEUE,
+    REST_POCKETED, STALE_QUEUE,
 };
 use crate::trig::Angle;
 use crate::vec2::Vec2;
@@ -1722,8 +1722,106 @@ fn add_projectile(
             damage,
             kind: tool.kind,
             rest: REST_FLYING,
+            stale: f.move_id,
         };
     }
+}
+
+/// Fires the projectile of fighter `origin`'s move `move_id` (its weapon's spec) at `at` (the spec's offset from there, by `facing`),
+/// along the spec's speed and angle the way `facing` points, credited to `owner`: a shot made by something other than the fighter's
+/// own move frame (E43: a growing or falling placed piece). No limit is checked and no charge applies. Returns its slot.
+pub(crate) fn fire(
+    state: &mut GameState,
+    content: &Content,
+    owner: usize,
+    origin: usize,
+    move_id: u8,
+    at: Vec2,
+    facing: i8,
+) -> Option<usize> {
+    let f = state.fighters.get(origin)?;
+    let p = params_of(content, f);
+    let spec = weapon_of(content, p).get(move_id).projectile?;
+    let scale = p.hitbox_scale;
+    let dir = i32::from(facing);
+    let vel = if spec.arc.angle != 0 {
+        let a = Angle::from_degrees(i32::from(spec.arc.angle));
+        Vec2::new(
+            (spec.speed * crate::trig::cos(a)).mul_int(dir),
+            spec.speed * crate::trig::sin(a),
+        )
+    } else {
+        Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
+    };
+    let n = state.projectiles.iter().position(|q| !q.active)?;
+    state.projectiles[n] = Projectile {
+        active: true,
+        owner: owner.min(MAX_FIGHTERS - 1) as u8,
+        origin: origin as u8,
+        power: 100,
+        move_id,
+        pos: at + Vec2::new((spec.x * scale).mul_int(dir), spec.y * scale),
+        vel,
+        age: 0,
+        life: spec.life,
+        bounces: 0,
+        kb_add: 0,
+        size: 100,
+        vars: [0; crate::PROJECTILE_VARS],
+        hit_mask: 0,
+        hit_age: [0; MAX_FIGHTERS],
+        facing,
+        bursting: false,
+        damage: Fx::ZERO,
+        kind: spec.tool.kind,
+        rest: REST_FLYING,
+        stale: move_id,
+    };
+    Some(n)
+}
+
+/// The fighter (other than `owner`) whose pocket (E42, `Move::pocket`) is open and empty and touches a projectile shape at `pos`: the
+/// lowest index wins.
+fn pocket_touching(
+    state: &GameState,
+    content: &Content,
+    owner: usize,
+    pos: Vec2,
+    shape: Shape,
+) -> Option<usize> {
+    (0..MAX_FIGHTERS).find(|&d| {
+        d != owner
+            && pocket_circle(state, content, d).is_some_and(|(c, r)| {
+                shapes_touch(
+                    pos,
+                    shape.half_w,
+                    shape.half_h,
+                    shape.radius,
+                    c,
+                    Fx::ZERO,
+                    Fx::ZERO,
+                    r,
+                )
+            })
+    })
+}
+
+/// Fighter `d`'s open pocket (E42) if it can put something away now: in a move with a `pocket` on its window's frames, its pocket
+/// empty and nothing in its hand (a held item is put away instead: `items`). Returns its circle (centre, radius), scaled.
+pub(crate) fn pocket_circle(state: &GameState, content: &Content, d: usize) -> Option<(Vec2, Fx)> {
+    let f = &state.fighters[d];
+    if !f.active || f.state != S::Attack || f.pocket != NONE || f.holding != NONE {
+        return None;
+    }
+    let p = params_of(content, f);
+    let pc = weapon_of(content, p).get(f.move_id).pocket?;
+    let frame = f.state_frame;
+    if frame < u16::from(pc.start) || frame > u16::from(pc.end) {
+        return None;
+    }
+    let s = p.hitbox_scale;
+    let c = f.pos + Vec2::new((pc.x * s).mul_int(i32::from(f.facing)), pc.y * s);
+    Some((c, pc.radius * s))
 }
 
 /// Moves projectiles, despawns them (lifetime, walls, blast zone), lodges, drops and catches them (E3b, E3d) and applies their hits.
@@ -1732,6 +1830,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
     for n in 0..state.projectiles.len() {
         let pr = state.projectiles[n];
         if !pr.active {
+            continue;
+        }
+        // A pocketed one (E42) waits, frozen, until it is taken out.
+        if pr.rest == REST_POCKETED {
             continue;
         }
         let owner = usize::from(pr.owner).min(MAX_FIGHTERS - 1);
@@ -1869,6 +1971,21 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             spec.hitbox.damage
         };
         let shot_damage = base_damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        // An open pocket in the way puts it away (E42): it stops where it was caught, keeping the speed it had.
+        if burst.is_none() && spec.tool.pocket != crate::moves::POCKET_NEVER {
+            if let Some(d) = pocket_touching(state, content, owner, pos, shape) {
+                let p = &mut state.projectiles[n];
+                p.rest = REST_POCKETED;
+                p.pos = pos;
+                // (A tool that frees its maker once pocketed no longer counts as its maker's: the reference's rocket.)
+                if spec.tool.pocket == crate::moves::POCKET_FREES {
+                    p.kind = 0;
+                }
+                state.fighters[d].pocket = n as i8;
+                state.fighters[d].pocket_item = false;
+                continue;
+            }
+        }
         if burst.is_none() {
             reflector_detects(state, content, owner, pos, shape);
         }
@@ -1963,6 +2080,21 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             half_h: hb.half_height,
             radius: hb.radius,
         };
+        // Placed pieces (E43): water touching one that grows waters it (the shot goes on); a shot with a hit is used up on one with hit
+        // points (a piercing one passes).
+        if burst.is_none() && spec.tool.water > 0 {
+            crate::items::water(state, content, pos, hit_shape, spec.tool.water, owner);
+        }
+        if burst.is_none()
+            && !pierce
+            && hb.kind == HIT_NORMAL
+            && !hb.push
+            && hb.damage > Fx::ZERO
+            && crate::items::shot_on_placed(state, content, pos, hit_shape, hb.damage)
+        {
+            state.projectiles[n].active = false;
+            continue;
+        }
 
         for d in 0..MAX_FIGHTERS {
             let fd = &state.fighters[d];
@@ -2050,7 +2182,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     pos,
                     false,
                     mult,
-                    pr.move_id,
+                    pr.stale,
                     (pos, pr.vel),
                     caught,
                 );
@@ -2387,8 +2519,9 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
         let p = state.fighters[i].pos;
         if p.x < s.blast_left || p.x > s.blast_right || p.y < s.blast_bottom || p.y > s.blast_top {
             grab::drop_grab(state, content, i);
-            // (An item in the hand is let go where the fighter left: E4.)
+            // (An item in the hand is let go where the fighter left: E4; what it had put away is lost: E42.)
             crate::items::let_go(state, content, i);
+            crate::items::lose_pocket(state, i);
             let counted = state.rules.stocks > 0;
             let f = &mut state.fighters[i];
             respawn(f, content, i, counted);
