@@ -118,7 +118,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   that scatters stars, a tongue that seals foes in a shell, and a rolling shell.
 - **As built (phase 1, sim 89):** the body (`FighterParams::bounder`, no wall jump, heavy landing 6, the double jump's subtractive
   knockback armor on its frames 1-44 and its turnaround: E33 and the E1 knockback kind) and every normal on the reference's published
-  data (`docs/movesets/yoshi/`, code in `sim-core/src/moves_clutch.rs`). **Phase 2 (sim 94):** the lobbed shell (up special: held
+  data (`docs/movesets/yoshi/`, code in `sim-core/src/moves_clutch.rs`). **Phase 2 (sim 95):** the lobbed shell (up special: held
   speed, stick aim, three air hops, bounces and a one-hit burst) and the drop (down special: the hop hit, the stall, the 0.6 fall
   through soft platforms, ledges both sides, two landing stars on one frame). The neutral and side specials are the claws' until
   phase 3.

@@ -110,10 +110,10 @@ Bounder vs a standing duelist: (1) double jump and have a duelist forward-tilt i
 150% the jab sends it with the reduced launch; (2) hold attack on a whiff: jab 2 on frame 16; on a hit, on 6; (3) the down air over a
 standing target: twelve flashes two frames apart from 16, the finisher on 41; (4) the tongue grab's reach at 2.5-2.8 units.
 
-## Phase 2 (sim 94, content schema 6 unchanged): the lobbed shell, the drop, decisions 58-59
+## Phase 2 (sim 95, content schema 6 unchanged): the lobbed shell, the drop, decisions 58-59
 
 Branch `clutch-phase2`, from `movesets` at 457731b (sim 89). Commits: 2a9b6ef (engine: decisions 58-59 and the general pieces), c0e7698
-(the two specials and their tests), 473f0a3 (merge of `movesets` at sim 93; this branch takes **94**), then the docs commit. Owner
+(the two specials and their tests), 473f0a3 (merge of `movesets` at sim 93), the docs commit, then a second merge of `movesets` at sim 94 (the Bracers' phase 2): this branch takes **95**. Owner
 decision 60 applies: where the reference publishes nothing, the value is our best reading, labelled [E], with no footage asked for.
 
 ### Engine (general; every default is the old behaviour)
@@ -182,7 +182,7 @@ new cases), `content::tests::hash_changes_with_any_field` (`air_jump_drift`).
 
 Checks: `cargo fmt --all`; `cargo test --workspace` (all passed); `cargo clippy --workspace --all-targets -- -D warnings` (clean);
 `pftool fuzz-rollback 500` (0 mismatches; 243 bounders); `pftool net-fuzz 200` (0 mismatches; 51 bounders); `content/base.pfc`
-re-exported (sim 94) and equal to the builders. **Not run**: the Godot tests.
+re-exported (sim 95) and equal to the builders. **Not run**: the Godot tests.
 
 ### Estimated or limited [E] (decision 60: estimates, no footage needed)
 

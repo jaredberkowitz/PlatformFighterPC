@@ -253,7 +253,7 @@ fn the_new_fields_are_in_the_content_hash() {
     }
 }
 
-// ---- Sim 94: ledges only while not rising, a move's own platform drop (E30) ----------------------------------------------------
+// ---- Sim 95: ledges only while not rising, a move's own platform drop (E30) ----------------------------------------------------
 
 /// Player 0 beside the right ledge (as `falls_past_the_ledge`), starting 2.4 units below it and rising at 1/8 a frame for `rise` frames,
 /// then falling at 1/8, during a move that catches ledges from its first frame (`falling_only` or not); returns the move frame the

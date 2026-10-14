@@ -408,6 +408,7 @@ pub fn update(
         S::LedgeHang => ledge_hang(f, p, weapon, stage),
         S::LedgeJump => ledge_jump(f, p, stage),
         S::ShieldRelease => shield_release(f, p, stage),
+        S::Buried => buried(f, p, rules),
         S::Rebound => rebound(f, p, stage),
         S::WallTech => wall_tech(f, p, rules),
         S::Respawn => revival(f, p, rules),
@@ -1571,6 +1572,51 @@ pub fn trip(f: &mut Fighter, rules: &Ruleset) {
     f.hitstun = 0;
     // (Through the hit's hitlag, then `trip_invuln` frames: the count goes down at the start of each frame, before its hits.)
     f.invuln = f.invuln.max(rules.trip_invuln.saturating_add(1));
+}
+
+/// Buries a fighter (a bury hit, E5) for `frames` frames: no action, no speed, nothing kept yet.
+pub fn bury(f: &mut Fighter, frames: u16) {
+    enter(f, S::Buried);
+    f.bury_timer = frames.max(1);
+    f.bury_set = false;
+    f.bury_kb = Fx::ZERO;
+    f.bury_angle = 0;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.hitstun = 0;
+    f.fast_fall = false;
+}
+
+/// Buried: the timer runs down a frame at a time plus what mashing takes off (the shared mash, as a hold's). At 0 the fighter comes
+/// out: launched by a kept knockback if a weaker hit left one, else up with `bury_exit_lag` frames of lag (a rebound, on the spot:
+/// the pop-out's height is not published, gap 9 [E]). No invincibility either way (the reference's).
+fn buried(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
+    f.vel = Vec2::ZERO;
+    let cut = crate::grab::mash_cut(f, rules);
+    f.bury_timer = f.bury_timer.saturating_sub(1 + cut);
+    if f.bury_timer > 0 {
+        return;
+    }
+    if f.bury_set {
+        let kb = f.bury_kb;
+        f.bury_set = false;
+        f.bury_kb = Fx::ZERO;
+        enter(f, S::Hitstun);
+        f.hitstun = crate::combat::hitstun_frames(kb, rules.hitstun_mult).max(1);
+        f.launch_kb = kb;
+        f.launch_angle = f.bury_angle;
+        f.launch_set = false;
+        f.link = false;
+        f.pull = false;
+        f.kb_vel = Vec2::ZERO;
+        f.tumble = false;
+        f.hits_taken = 1;
+        apply_launch(f, p, rules);
+    } else {
+        enter(f, S::Rebound);
+        f.lag = rules.bury_exit_lag;
+    }
 }
 
 /// Lying on the ground after a hard landing (or sitting after a trip). After a short while the fighter chooses a get-up: attack,

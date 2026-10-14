@@ -1,0 +1,4 @@
+// Bracers charged punch, the release (ext0 on the ground, ext1 in the air): the charge the wind-up counted (its `c`, kept through
+// the switch) becomes this move's charge, which its `charge_add` turns into damage (10 + 18 x c / 110, rounded down, on the ground).
+var c;
+set_charge(c);

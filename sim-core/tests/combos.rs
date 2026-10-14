@@ -1,6 +1,8 @@
 //! Combos: a bot plays an aerial loop the way the reference players do (a short-hop aerial played out, land, dash after the target,
 //! short hop again) and reports, hit by hit, whether the target was still trapped (in hitstun or hitlag) when the next hit landed: a
-//! true combo. The test pins the loop the owner asked for (the staff seer's neutral air three times in a row, from their reference
+//! true combo. `search_carry_chains` (`--ignored --nocapture`, best in `--release`) goes further: after each hit it tries a grid of
+//! follow-ups (fast-fall timing, no jump / short hop / full hop / double jump, waiting, aerial timing, drift) and looks a few links
+//! ahead, so a chain it reports is one the engine allows, whatever a bot would play. The test pins the loop the owner asked for (the staff seer's neutral air three times in a row, from their reference
 //! clip); `probe_*` (run with `--ignored --nocapture`) print tables for checking other classes' chains.
 
 mod common;
@@ -306,4 +308,274 @@ fn the_staff_neutral_air_loop_finishes_with_a_back_air() {
         r.combo,
         r.hits
     );
+}
+
+// ---- Search: does a true-combo follow-up exist at all? -------------------------------------------------------------------------------
+//
+// A bot plays one routine; a chain it misses may still exist. Here, after each hit, every follow-up from a small set of plans is tried
+// (fast fall timing, no jump / short hop / full hop / double jump, how long to wait first, when to press the aerial, where to drift
+// relative to the target) and the earliest one that lands while the target is still trapped is taken. A carry chain (an aerial
+// repeated while the target is carried across the stage) is as long as these links go.
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Hop {
+    None,
+    Short,
+    Full,
+    Double,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Plan {
+    /// Frames after the plan starts at which to fast fall (if falling), or never.
+    fast_fall_at: Option<u16>,
+    hop: Hop,
+    /// Frames to wait once free before hopping (moving toward the target meanwhile).
+    wait: u16,
+    /// Frames after the hop (or after being free, with no hop) at which to press the aerial.
+    aerial_at: u16,
+    /// Where to drift: this far behind the target (negative: in front).
+    offset: Fx,
+}
+
+fn plans() -> Vec<Plan> {
+    let mut out = vec![];
+    for fast_fall_at in [None, Some(0), Some(4), Some(9)] {
+        for hop in [Hop::None, Hop::Short, Hop::Full, Hop::Double] {
+            for wait in [0u16, 3, 7] {
+                for aerial_at in [0u16, 3, 6, 9, 12, 16, 21] {
+                    for offset in [-6, 0, 8] {
+                        out.push(Plan {
+                            fast_fall_at,
+                            hop,
+                            wait,
+                            aerial_at,
+                            offset: Fx::from_ratio(offset, 10),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+fn is_trapped(f: &sim_core::Fighter) -> bool {
+    f.hitlag > 0 || f.state == S::Hitstun || f.hitstun > 0
+}
+
+/// Plays `plan` from `state` for the attacker (player 0), the aerial picked by `stick` (forward, up). Returns the state on the frame
+/// the next hit lands and how many frames that took, or None (no hit, or with `need_trap` a hit on a target that was already free).
+fn rollout(
+    content: &sim_core::Content,
+    mut state: sim_core::GameState,
+    plan: Plan,
+    stick: (i8, i8),
+    need_trap: bool,
+) -> Option<(sim_core::GameState, u32)> {
+    let mut free_at: Option<u16> = None;
+    let mut hopped_at: Option<u16> = None;
+    let mut pressed = false;
+    let start_pct = state.fighters[1].percent;
+    let mut was_trapped = is_trapped(&state.fighters[1]);
+    let step = Fx::from_ratio(1, 10);
+    for t in 0..90u16 {
+        let me = state.fighters[0];
+        let tg = state.fighters[1];
+        let side = if tg.pos.x >= me.pos.x { 1 } else { -1 };
+        let dx = tg.pos.x - plan.offset.mul_int(side) - me.pos.x;
+        let drift: i8 = if dx > step {
+            127
+        } else if dx < -step {
+            -127
+        } else {
+            0
+        };
+        let free_air = !me.grounded() && me.state == S::Airborne;
+        let free_ground =
+            me.grounded() && matches!(me.state, S::Idle | S::Walk | S::Run | S::Dash | S::Turn);
+        if free_at.is_none() && (free_air || free_ground) {
+            free_at = Some(t);
+        }
+        let fall = match plan.fast_fall_at {
+            Some(ff) if t >= ff && !me.grounded() && me.vel.y < Fx::ZERO && !me.fast_fall => -127,
+            _ => 0,
+        };
+        let mut input = inp(drift, fall, 0);
+        if let (false, Some(f)) = (pressed, free_at) {
+            let hop_needed = plan.hop != Hop::None;
+            if hop_needed && hopped_at.is_none() {
+                let can = if plan.hop == Hop::Double {
+                    free_air
+                } else {
+                    free_ground
+                };
+                if t >= f + plan.wait && can {
+                    input = inp(drift, 0, JUMP);
+                    hopped_at = Some(t);
+                }
+            } else {
+                let from = hopped_at.unwrap_or(f + plan.wait);
+                if t >= from + plan.aerial_at && free_air {
+                    input = inp(stick.0 * me.facing, stick.1, ATTACK);
+                    pressed = true;
+                } else if plan.hop == Hop::Full && me.state == S::JumpSquat {
+                    input = inp(drift, 0, JUMP);
+                }
+            }
+        }
+        let mut inputs = [sim_core::Input::default(); sim_core::MAX_FIGHTERS];
+        inputs[0] = input;
+        sim_core::step(&mut state, content, &inputs);
+        if state.fighters[1].percent > start_pct {
+            if need_trap && !was_trapped {
+                return None;
+            }
+            return Some((state, u32::from(t) + 1));
+        }
+        was_trapped = is_trapped(&state.fighters[1]);
+        if need_trap && !was_trapped {
+            // The target is free: no follow-up from here can be a true combo.
+            return None;
+        }
+    }
+    None
+}
+
+/// The longest carry chain the search finds for class `cls` repeating the aerial picked by `stick`, opening on a target at `percent`
+/// standing 1.2 units ahead. Returns (true-combo links after the opener, the target's damage at the end, how far it was carried).
+fn search_chain(cls: u8, stick: (i8, i8), percent: i32, opener: Option<(i8, i8)>) -> (u32, Fx, Fx) {
+    let mut sim = Sim::with_chars([cls, 0, 0, 1]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::from_int(-8), 1);
+    sim.stand(1, Fx::from_ratio(-68, 10), -1);
+    sim.state.fighters[1].percent = Fx::from_int(percent);
+    let start_x = sim.state.fighters[1].pos.x;
+    let plans = plans();
+    // The openers: a ground move (an up tilt, held a few frames first: the same stick pushed in one frame is a flick, a smash), or
+    // short-hop versions of the aerial itself; each is followed as far as it chains and the longest chain counts.
+    let mut openers: Vec<sim_core::GameState> = vec![];
+    if let Some(tilt) = opener {
+        let mut state = sim.state;
+        let start = state.fighters[1].percent;
+        for t in 0..40u32 {
+            let mut inputs = [sim_core::Input::default(); sim_core::MAX_FIGHTERS];
+            if t < 5 {
+                inputs[0] = inp(tilt.0, tilt.1, 0);
+            } else if t == 5 {
+                inputs[0] = inp(tilt.0, tilt.1, ATTACK);
+            }
+            sim_core::step(&mut state, &sim.content, &inputs);
+            if state.fighters[1].percent > start {
+                openers.push(state);
+                break;
+            }
+        }
+    }
+    for &p in plans.iter().filter(|p| {
+        p.hop == Hop::Short
+            && p.wait == 0
+            && p.offset == Fx::ZERO
+            && matches!(p.fast_fall_at, None | Some(0))
+    }) {
+        if let Some((s, _)) = rollout(&sim.content, sim.state, p, stick, false) {
+            openers.push(s);
+        }
+    }
+    let mut best = (0u32, Fx::ZERO, Fx::ZERO);
+    for opened in openers {
+        let (links, end) = longest(&sim.content, opened, &plans, stick, LOOK_AHEAD_DEPTH);
+        if links > best.0 || best.1 == Fx::ZERO {
+            let t = end.fighters[1];
+            best = (links, t.percent, (t.pos.x - start_x).abs());
+        }
+        if best.0 >= LOOK_AHEAD_DEPTH {
+            break;
+        }
+    }
+    best
+}
+
+/// How many links ahead the search looks, and how many follow-ups it keeps at each link (the earliest, plus later ones spread over
+/// the timings that worked, which can leave the target better placed for the next link).
+const LOOK_AHEAD_DEPTH: u32 = 6;
+const LOOK_AHEAD_WIDTH: usize = 3;
+
+/// The longest run of true-combo links from `state` (at most `depth`), and the state at its end.
+fn longest(
+    content: &sim_core::Content,
+    state: sim_core::GameState,
+    plans: &[Plan],
+    stick: (i8, i8),
+    depth: u32,
+) -> (u32, sim_core::GameState) {
+    if depth == 0 {
+        return (0, state);
+    }
+    let mut hits: Vec<(u32, sim_core::GameState)> = plans
+        .iter()
+        .filter_map(|&p| rollout(content, state, p, stick, true).map(|(s, t)| (t, s)))
+        .collect();
+    if hits.is_empty() {
+        return (0, state);
+    }
+    hits.sort_by_key(|h| h.0);
+    hits.dedup_by_key(|h| h.0);
+    // The earliest, the latest and one in the middle.
+    let n = hits.len();
+    let mut picks = vec![0, n - 1, n / 2];
+    picks.dedup();
+    let mut best = (0, state);
+    for &i in picks.iter().take(LOOK_AHEAD_WIDTH) {
+        let (more, end) = longest(content, hits[i].1, plans, stick, depth - 1);
+        if more + 1 > best.0 {
+            best = (more + 1, end);
+        }
+        if best.0 == depth {
+            break;
+        }
+    }
+    best
+}
+
+#[test]
+#[ignore]
+fn search_carry_chains() {
+    let names = [
+        "Longsword",
+        "Claws",
+        "Needles",
+        "Embers",
+        "Gauntlets",
+        "Staff",
+        "Greatsword",
+        "Bracers",
+    ];
+    let aerials = [
+        ("nair", (0i8, 0i8)),
+        ("fair", (100, 0)),
+        ("uair", (0, 100)),
+        ("bair", (-100, 0)),
+    ];
+    // (Up-air chains open with an up tilt, as in the reference; the rest with the aerial itself.)
+    let only: Option<usize> = std::env::var("CLASS").ok().and_then(|s| s.parse().ok());
+    for (cls, name) in names.iter().enumerate() {
+        if only.is_some_and(|o| o != cls) {
+            continue;
+        }
+        for (aerial, stick) in aerials {
+            let mut row = format!("{name:<11} {aerial}:");
+            for percent in [0, 20, 40, 60, 80] {
+                let opener = if aerial == "uair" {
+                    Some((0, 90))
+                } else {
+                    None
+                };
+                let (links, _, _) = search_chain(cls as u8, stick, percent, opener);
+                row += &format!("  {percent:>2}%: {links}");
+            }
+            println!("{row}");
+        }
+    }
 }

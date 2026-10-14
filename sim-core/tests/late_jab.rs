@@ -1,4 +1,4 @@
-//! A jab's continuable window past its FAF (owner decision 58, sim 94: `Move::late_next`): once the jab has ended, a jab press up to
+//! A jab's continuable window past its FAF (owner decision 58, sim 95: `Move::late_next`): once the jab has ended, a jab press up to
 //! the window's last reference frame starts the next hit, not a new jab; after it, or once the fighter does anything else, a press is a
 //! new jab again. Every jab whose reference window runs past its FAF carries it (the Embers' jabs 1 and 2, the Gauntlets' jabs 1 and 2,
 //! the Greatsword's jab 1, the Bracers' jab 1, the Clutch's jab 1); the others do not.

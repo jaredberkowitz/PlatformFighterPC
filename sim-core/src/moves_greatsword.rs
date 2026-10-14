@@ -229,7 +229,7 @@ fn tilts(w: &mut Weapon) {
 
     // Down tilt: a sliding kick. Early on frames 7-8, late on 9-17: the leg (radius 3.6, low in front [E]: the reference's knee bone)
     // 7%; early only, the body box (radius 2.5, 2.5 of the reference's units up, 2.6 behind [D]) 6%; 80 degrees (type 3), BK 80, KS
-    // 75. The reference's 20% trip chance can never happen at that angle (ssbwiki.com), so it is not modelled. FAF 41. The slide
+    // 75. The reference's 20% trip chance can never happen at that angle (ssbwiki.com); it is data all the same. FAF 41. The slide
     // forward on frames 6-17 [E: the distance is not published; 12 of the reference's units]. The back leg is intangible on 7-17
     // (recorded: with a held sword the fourth hurtbox circle is the middle one, so it acts on nothing, a listed limit as the Staff's
     // arms; the lower body circle covers the whole lower body, not one leg).
@@ -255,6 +255,9 @@ fn tilts(w: &mut Weapon) {
         end: 16,
         parts: PART_LIMB,
     }];
+    // The reference's 20% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 80 degrees it lifts, so it never
+    // trips on the flat stages.
+    set_all(&mut dtilt, |h| h.trip = 20);
     w.moves[MoveId::DTilt as usize] = dtilt;
 
     // Dash attack: a lunging slash. Clean on frames 9-13: 11%, 60 degrees, BK 100, KS 70 (7.0.0); late on 14-18: 8%, 65 degrees, BK
