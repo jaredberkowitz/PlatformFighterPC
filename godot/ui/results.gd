@@ -57,9 +57,10 @@ class Board extends Control:
 			var i: int = r.order[place]
 			var c: Dictionary = r.card_data[i]
 			var first: bool = c.winner
-			var rect := Rect2(Vector2(w * 0.5 + 10.0 - place * 8.0, top + place * (card_h + 14.0)), Vector2(w * 0.5 - 40.0, card_h))
+			var rect := Rect2(Vector2(w * 0.5 + 10.0 - place * 8.0, top + place * (card_h + 14.0)), Vector2(w * 0.5 - 40.0, card_h - 6.0))
+			# (Cards with a body, as the main menu's tiles: the winner's deeper, and rimmed in gold.)
 			Art.card(self, rect, Art.CREAM if first else Art.CREAM.darkened(0.12), 90 + i, -1.0, -1.0,
-				Art.SUN if first else Color(0, 0, 0, 0))
+				Art.SUN if first else Color(0, 0, 0, 0), 0.0, Color(0, 0, 0, 0), 7.0 if first else 4.0)
 			# The place on a brush tab in the player's colour.
 			var tab := Rect2(rect.position + Vector2(-14, 10), Vector2(92, rect.size.y - 30))
 			Art.brush_band(self, tab, PLAYER_COLORS[i % 4], 100 + i, 10.0, true, 0.4)
@@ -109,6 +110,8 @@ func build(heading: String, cards: Array, choices: Array) -> void:
 	# The winner on a painted stage of its own (a warm one), standing on its platform.
 	if winner >= 0 and cards[winner].has("look"):
 		var stage := UI.Stage.new(Vector2(560, 470), 0.6, 13 + winner)
+		# (Its frame rimmed in the winner's colour.)
+		stage.rim = Color(PLAYER_COLORS[winner % 4], 0.9)
 		stage.position = Vector2(40, 140)
 		add_child(stage)
 		preview = Preview.new(Vector2i(530, 438), false, 9.4)

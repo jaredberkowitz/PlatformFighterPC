@@ -706,7 +706,7 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 	_mesh(root, _cylinder(0.42 * size, 0.38 * size, 1.1 * size, 10), Materials.wood(Color(0.78, 0.52, 0.34), Vector2(2, 1)), at + Vector3(0, 0.55 * size, 0))
-	var hoop := FighterView.toon(Color(0.42, 0.4, 0.5), false)
+	var hoop := FighterView.respond(FighterView.toon(Color(0.42, 0.4, 0.5), false), "metal")
 	for h in [0.22, 0.88]:
 		_mesh(root, _cylinder(0.43 * size, 0.43 * size, 0.07 * size, 10), hoop, at + Vector3(0, h * size, 0))
 	# The lid: a darker inset disc, so the top reads apart from the side.
@@ -725,6 +725,13 @@ static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
 		_mesh(root, _box(e2[1]), plank, face + basis * (e2[0] as Vector3), Vector3.ONE, Vector3(0, turn, 0))
 	for diag in [45.0, -45.0]:
 		_mesh(root, _box(Vector3(size * 1.15, b * 0.9, 0.035)), plank, face + basis * Vector3(0, 0, 0.005), Vector3.ONE, Vector3(0, turn, diag))
+	# Corner battens up the four vertical edges, standing proud of the sides: they break the block's hard edges into planes that catch
+	# the light (a lit batten on the key side, a shaded one opposite), as a real crate's corner posts do.
+	var post := Materials.wood(Color(0.74, 0.54, 0.34), Vector2(1, 2))
+	for cx in [-1.0, 1.0]:
+		for cz in [-1.0, 1.0]:
+			_mesh(root, _box(Vector3(b * 0.9, size * 1.02, b * 0.9)), post, at + basis * Vector3(cx * (size / 2.0 - b * 0.3), size / 2.0, cz * (size / 2.0 - b * 0.3)),
+				Vector3.ONE, Vector3(0, turn, 0))
 
 
 static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
@@ -2314,7 +2321,7 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_mesh(root, _cylinder(1.3, 1.3, 2.2, 14), wood, tower + Vector3(0, 3.5, 0))
 	_mesh(root, _cylinder(0.0, 1.5, 1.0, 14), FighterView.toon(Color(0.4, 0.28, 0.22)), tower + Vector3(0, 5.1, 0))
 	# Iron hoops round the staves, a hatch on the roof and a ladder up the side: they say what it is made of and how big it is.
-	var iron := FighterView.toon(Color(0.3, 0.26, 0.32))
+	var iron := FighterView.respond(FighterView.toon(Color(0.3, 0.26, 0.32)), "metal")
 	for hy in [2.6, 3.5, 4.4]:
 		_mesh(root, _cylinder(1.34, 1.34, 0.08, 14), iron, tower + Vector3(0, hy, 0))
 	_mesh(root, _box(Vector3(0.5, 0.12, 0.5)), iron, tower + Vector3(0.3, 5.45, 0.55), Vector3.ONE, Vector3(-30, 0, 0))
@@ -2323,15 +2330,19 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for ly in range(5):
 		_mesh(root, _box(Vector3(0.4, 0.04, 0.04)), iron, tower + Vector3(1.0, 0.8 + ly * 0.7, 0.95))
 	var mast := Vector3(float(e[1]) - 2.5, roof, -6.5)
-	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.toon(Color(0.6, 0.62, 0.7)), mast + Vector3(0, 3, 0))
+	_mesh(root, _cylinder(0.08, 0.15, 6.0, 6), FighterView.respond(FighterView.toon(Color(0.6, 0.62, 0.7)), "metal"), mast + Vector3(0, 3, 0))
 	var blink := Blinker.new()
 	blink.position = mast + Vector3(0, 6.1, 0)
 	root.add_child(blink)
 	blink.build(Color(1.0, 0.25, 0.25))
 	# Vents and an air conditioner.
-	var metal := FighterView.toon(Color(0.66, 0.68, 0.76))
+	var metal := FighterView.respond(FighterView.toon(Color(0.66, 0.68, 0.76)), "paint")
 	var unit := Vector3(float(e[0]) + 6.5, roof, -4.5)
 	_mesh(root, _box(Vector3(1.6, 1.0, 1.2)), metal, unit + Vector3(0, 0.5, 0))
+	# A lip round its top and a plinth under it: the box gets a lit top edge and sits on something, not straight on the roof.
+	var trim := FighterView.respond(FighterView.toon(Color(0.56, 0.58, 0.66)), "metal")
+	_mesh(root, _box(Vector3(1.7, 0.08, 1.3)), trim, unit + Vector3(0, 1.0, 0))
+	_mesh(root, _box(Vector3(1.8, 0.12, 1.4)), FighterView.toon(Color(0.5, 0.48, 0.58)), unit + Vector3(0, 0.06, 0))
 	# Its grille (slats across the front) and a fan on top.
 	var slat := FighterView.toon(Color(0.42, 0.42, 0.52), false)
 	for k in 5:
@@ -2403,7 +2414,7 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 ## dark wheel arches over chunky tyres with pale hubs, a windscreen and side windows split by pillars, a door line, grey bumpers,
 ## headlights with a glow ahead of them and red tail lights; a cab has a lit sign on its roof and a chequer stripe.
 static func _car(parent: Node3D, colour: Color, dir: float, taxi := false) -> void:
-	var body := FighterView.toon(colour)
+	var body := FighterView.respond(FighterView.toon(colour), "paint")
 	var dark := FighterView.toon(colour.darkened(0.45))
 	var glass := _unshaded(Color(0.3, 0.34, 0.52))
 	var glint := _unshaded(Color(0.62, 0.7, 0.9))
