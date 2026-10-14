@@ -247,7 +247,7 @@ is 48%); fast fall is 1.6 times the fall speed and snaps to that speed the momen
 **Dash dance** (`dash_frames`, `dash_reverse_frames`, `dash_turn_delay`, `Fighter::dash_age` and `dash_wait`):
 * The initial dash is 10 frames (was 12; the reference has 10 for the sword and blaster characters).
 * A flick the other way **up to 15 frames after the dash began** is a new dash, even once the run has started (the reference's "interrupt frame 15
-  for all characters"). After that a flick is a skid-turn, as before.
+  for all characters"). After that a flick is a skid-turn, as before. *(Replaced in sim 103: see "Dash turnaround and foxtrot" below.)*
 * A reversed dash **stands for 2 frames** before the first step (the reference's turnaround takes 3 frames to start accelerating, against 1 for a plain
   dash), so a dash dance has the reference game's short stutter instead of an instant flip. The fighter still faces the new way on the flick frame.
 
@@ -391,3 +391,25 @@ The controller's right stick is the **attack stick** (the reference's C-stick): 
 (`buttons::C_*`), which only aim the attack (a smash on the ground, an aerial in the air; out of a run, up or down is a smash and
 sideways the dash attack). Before, the right stick replaced the left stick while held, so a fast-fall flick made during a
 right-stick aerial was lost.
+
+## Dash turnaround and foxtrot (sim 103)
+
+Sources, read 14 October 2026: ultimateframedata.com's stats page (dash frames, pivot dash frames and the dash turnaround table: "fast" 1-5,
+"normal (buffer window)" 6 to the dash's length, "slow (full dash)" after it) and SmashWiki (Dash, Dash-dance, Fox-trotting: the initial
+dash's interrupt frame is 15 for all characters; a dash back needs no skid until the run begins; a turnaround dash takes 3 frames to start
+accelerating against 1 for a dash).
+
+* **A flick back in the first 5 frames** of an initial dash (`dash_reverse_frames`, was 15) turns at once, with the usual turnaround stand.
+* **A flick back later in the initial dash** is held while the stick stays there (`Fighter::dash_buffer`) and the dash turns as it ends
+  (`dash_frames`): the fighter covers the whole dash first, as in the reference.
+* **Once the dash is a run** (the stick still held forward when it ended), a flick back is the run's skid. Before, a dash back reached
+  into the first frames of the run (to frame 15).
+* **A dash back lasts its turnaround longer than a dash**: the standing frames no longer use up the dash, so it is `dash_frames +
+  dash_turn_delay` frames long (the reference's pivot dash, dash frames + 2).
+* **Foxtrot cadence**: a dash let go of ends standing as before (tilts, crouch, jab, shield all free), but the *next* dash, either way,
+  waits for the first dash's frame 15 (`Ruleset::dash_interrupt_frame`); a flick made in between and still held comes out on that frame,
+  and the fighter stands meanwhile. A flick back in a jump out of a held turn is still a reverse aerial rush.
+
+Not changed: dash speeds and acceleration (each port's own data), the committed initial dash, shield from `dash_shield_frame`, and the
+run's skid. Tests: `sim-core/tests/feel.rs` (the turnaround windows, the dash back's length, the foxtrot's interrupt frame, the stand
+after a dash).
