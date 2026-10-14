@@ -1084,3 +1084,6 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   the ground reaches nearly the stage's full painted shade) with a crisper edge (key `shadow_blur` 0.5 to 0.3). A modest step: the
   darkest a cast shadow can go is the stage's painted shadow colour, which is a per-stage mood choice. Fighters still take a quarter.
   `cast_shadow_before.png` / `cast_shadow_after.png`.
+- **Crisper distance** (item 6): the far scenery's blur on the Best tier is 1.0 pixel, down from 2.6 (`PLAY_BLUR`): the review found it
+  muddied the backdrops (Wind Waker keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
+  down from the default 0.22) and thinner mists, the canyon thinner mists. `grove_crisper.png` (against `review_grove.png`).
