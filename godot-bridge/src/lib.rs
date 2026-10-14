@@ -935,6 +935,12 @@ impl SimRunner {
         self.fighter(i).is_some_and(|fi| fi.tripped)
     }
 
+    /// The item slot in the fighter's hand (E4, sim 111; `item_*` read it), -1 for none. Read-only, for the view.
+    #[func]
+    fn fighter_holding(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(-1, |fi| i32::from(fi.holding))
+    }
+
     /// The radius (world units) of the egg the fighter is shut in (state `Encased`, E8), grown as it was laid; 0 when not in one.
     /// Read-only, for the view: the egg is drawn round the fighter, standing on its feet.
     #[func]
@@ -1341,6 +1347,14 @@ impl SimRunner {
             .is_some_and(|p| p.active && p.bursting)
     }
 
+    /// Item slot `i` if it is live (not exposed to the view).
+    fn live_item(&self, i: i32) -> Option<&sim_core::Item> {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| self.state.items.get(i))
+            .filter(|it| it.active)
+    }
+
     /// How projectile slot `i` rests (sim 99, read only, for the view): 0 flying, 1 stuck in a surface (a lodged arrow: it lies still
     /// and hits nothing), 2 knocked down by a clank (a falling boomerang: it hits nothing); -1 for an empty slot.
     #[func]
@@ -1361,6 +1375,49 @@ impl SimRunner {
             .and_then(|i| self.state.projectiles.get(i))
             .filter(|p| p.active)
             .map_or(0, |p| i32::from(p.size))
+    }
+
+    // ---- Items (E4, sim 111; read only, for the view) ----
+
+    /// How many item slots there are (`item_*` take a slot from 0 to this, less 1).
+    #[func]
+    fn item_count(&self) -> i32 {
+        sim_core::state::MAX_ITEMS as i32
+    }
+
+    /// Where item slot `i` is: the middle of its bottom edge (zero for an empty slot).
+    #[func]
+    fn item_pos(&self, i: i32) -> Vector2 {
+        self.live_item(i)
+            .map_or(Vector2::ZERO, |it| Vector2::new(f(it.pos.x), f(it.pos.y)))
+    }
+
+    /// The kind of item slot `i` (its weapon item's `kind`: the wanderer's bomb 2, arrow 3), 0 for an empty slot.
+    #[func]
+    fn item_kind(&self, i: i32) -> i32 {
+        self.live_item(i).map_or(0, |it| i32::from(it.kind))
+    }
+
+    /// The fighter holding item slot `i`, -1 for none (or an empty slot).
+    #[func]
+    fn item_holder(&self, i: i32) -> i32 {
+        self.live_item(i).map_or(-1, |it| i32::from(it.holder))
+    }
+
+    /// How item slot `i` is: 0 held, 1 thrown (its hit live), 2 free (falling or lying), 3 stuck where it lodged, 4 bursting; -1 for an
+    /// empty slot.
+    #[func]
+    fn item_rest(&self, i: i32) -> i32 {
+        self.live_item(i).map_or(-1, |it| i32::from(it.rest))
+    }
+
+    /// The frames item slot `i` has left before its life runs out (its fuse: the bomb flashes for the last 45), -1 for none or an empty
+    /// slot.
+    #[func]
+    fn item_life_left(&self, i: i32) -> i32 {
+        self.live_item(i)
+            .filter(|it| it.life > 0)
+            .map_or(-1, |it| i32::from(it.life.saturating_sub(it.age)))
     }
 
     // ---- Network play ----

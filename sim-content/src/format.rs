@@ -9,12 +9,12 @@ use sim_core::content::{
 };
 use sim_core::moves::{
     AirBlock, Armor, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, DropThrough,
-    Encase, Fall, Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn,
-    Reflector, Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
-    ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
-    EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
-    TARGETS_ALL, TARGETS_GROUNDED,
+    Encase, Fall, Hitbox, ItemBlast, ItemSpec, Motion, Move, MoveId, PartIntangible, ProjectileArc,
+    ProjectileSpawn, Reflector, Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
+    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
+    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL,
+    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB,
+    PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -262,6 +262,7 @@ macro_rules! params_io {
                 air_jump_turns: false,
                 passive_shield: base.and_then(|b| b.passive_shield),
                 air_jump_drift: 100,
+                item_throws: base.map_or(sim_core::content::ItemThrows::STANDARD, |b| b.item_throws),
                 weapon,
             }
         }
@@ -523,6 +524,29 @@ rules_io! {
     bury_break_kb: Fx,
     bury_exit_lag: u8,
     bury_depth: Fx,
+    item_pick_frames: u8,
+    item_side_frames: u8,
+    item_up_frames: u8,
+    item_down_frames: u8,
+    item_dash_frames: u8,
+    item_drop_frames: u8,
+    item_side_speed: Fx,
+    item_side_smash: Fx,
+    item_side_angle: i16,
+    item_side_smash_angle: i16,
+    item_up_speed: Fx,
+    item_up_smash: Fx,
+    item_down_speed: Fx,
+    item_down_smash: Fx,
+    item_dash_speed: Fx,
+    item_dash_angle: i16,
+    item_drop_speed: Fx,
+    item_drop_angle: i16,
+    item_reach_front: Fx,
+    item_reach_back: Fx,
+    item_reach_up: Fx,
+    item_hand_x: Fx,
+    item_hand_y: Fx,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -573,6 +597,47 @@ fn write_phases(c: &mut Block, phases: &[Option<(u8, Hitbox)>; MAX_PHASES]) {
         pb.field("from", from.to_string());
         pb.push(write_hitbox(hb));
         c.push(pb);
+    }
+}
+
+/// A stand-in for a hitbox that is missing (an error has been reported).
+fn missing_hitbox() -> Hitbox {
+    Hitbox {
+        start: 0,
+        end: 0,
+        x: Fx::ZERO,
+        y: Fx::ZERO,
+        radius: Fx::ONE,
+        damage: Fx::ZERO,
+        angle: 0,
+        base_knockback: 0,
+        knockback_growth: 0,
+        priority: 0,
+        group: 0,
+        kind: HIT_NORMAL,
+        shield_damage: 100,
+        hitlag: 100,
+        effect: EFFECT_NORMAL,
+        targets: TARGETS_ALL,
+        fixed_kb: 0,
+        hitstun_add: 0,
+        sdi: 100,
+        link_ahead: Fx::ZERO,
+        aim: AIM_ANY,
+        set_weight: false,
+        reverse: false,
+        push: false,
+        shieldstun: 100,
+        angle_type: ANGLE_BY_BOX,
+        command: false,
+        clanks: true,
+        rebounds: true,
+        trip: 0,
+        half_height: Fx::ZERO,
+        posvec_x: Fx::ZERO,
+        posvec_y: Fx::ZERO,
+        posvec_frames: 0,
+        half_width: Fx::ZERO,
     }
 }
 
@@ -886,6 +951,19 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.fall_speed = f.parsed("fall_speed", errors);
     m.fall_accel = f.parsed("fall_accel", errors);
     m.keep_charge = f.or("keep_charge", false, errors);
+    // Sim 111 (E4): an item made in the hand, an item used up.
+    let pull_frame: Option<u8> = f.parsed("pull_frame", errors);
+    let pull_item: Option<u8> = f.parsed("pull_item", errors);
+    match (pull_frame, pull_item) {
+        (Some(frame), Some(item)) => m.pull = Some((frame, item)),
+        (None, None) => {}
+        _ => err(
+            errors,
+            block.line,
+            format!("{context}: pull_frame and pull_item go together"),
+        ),
+    }
+    m.spend_item = f.or("spend_item", 255, errors);
     m.push_immune_from = f.or("push_immune_from", 255, errors);
     m.push_immune_to = f.or("push_immune_to", 0, errors);
     let drop_front: Option<Fx> = f.parsed("ledge_drop_front", errors);
@@ -1088,43 +1166,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             Some(h) => read_hitbox(h, &ctx, errors),
             None => {
                 err(errors, b.line, format!("{ctx} needs a hitbox"));
-                Hitbox {
-                    start: 0,
-                    end: 0,
-                    x: Fx::ZERO,
-                    y: Fx::ZERO,
-                    radius: Fx::ONE,
-                    damage: Fx::ZERO,
-                    angle: 0,
-                    base_knockback: 0,
-                    knockback_growth: 0,
-                    priority: 0,
-                    group: 0,
-                    kind: HIT_NORMAL,
-                    shield_damage: 100,
-                    hitlag: 100,
-                    effect: EFFECT_NORMAL,
-                    targets: TARGETS_ALL,
-                    fixed_kb: 0,
-                    hitstun_add: 0,
-                    sdi: 100,
-                    link_ahead: Fx::ZERO,
-                    aim: AIM_ANY,
-                    set_weight: false,
-                    reverse: false,
-                    push: false,
-                    shieldstun: 100,
-                    angle_type: ANGLE_BY_BOX,
-                    command: false,
-                    clanks: true,
-                    rebounds: true,
-                    trip: 0,
-                    half_height: Fx::ZERO,
-                    posvec_x: Fx::ZERO,
-                    posvec_y: Fx::ZERO,
-                    posvec_frames: 0,
-                    half_width: Fx::ZERO,
-                }
+                missing_hitbox()
             }
         };
         let none = ProjectileArc::NONE;
@@ -1141,6 +1183,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             drag: f.or("drag", none.drag, errors),
             lodge: f.or("lodge", none.lodge, errors),
             lodge_angle: f.or("lodge_angle", none.lodge_angle, errors),
+            // (Sim 111, E4: a lodged shot becomes this item of the weapon.)
+            lodge_item: f.parsed("lodge_item", errors),
         };
         // Sim 99: a charge-scaled shot (E35) and a thrown tool's rules (E3d).
         let charged = at_most_one(children(b, "charged"), "charged", &ctx, errors).map(|cb| {
@@ -1155,6 +1199,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 size_from: cf.or("size_from", 100, errors),
                 size_to: cf.or("size_to", 100, errors),
                 floor: cf.or("floor", false, errors),
+                times: cf.or("times", 100, errors),
             };
             cf.finish(errors);
             c
@@ -1533,6 +1578,13 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if let Some(e) = &m.encase {
         b.push(write_encase(e));
     }
+    if let Some((frame, item)) = m.pull {
+        b.field("pull_frame", frame.to_string());
+        b.field("pull_item", item.to_string());
+    }
+    if m.spend_item != 255 {
+        b.field("spend_item", m.spend_item.to_string());
+    }
     if let Some(c) = &m.counter {
         let mut cb = Block::new("counter", None);
         cb.field("start", c.start.to_string());
@@ -1603,6 +1655,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         if let Some(id) = p.tool.catch_move {
             c.field("catch_move", MoveId::from_index(id).key());
         }
+        if let Some(i) = a.lodge_item {
+            c.field("lodge_item", i.to_string());
+        }
         if a.bounces != none.bounces {
             c.field("bounces", a.bounces.to_string());
         }
@@ -1659,6 +1714,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             }
             if ch.floor {
                 cb.field("floor", "true");
+            }
+            if ch.times != 100 {
+                cb.field("times", ch.times.to_string());
             }
             c.push(cb);
         }
@@ -1740,11 +1798,13 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
     let mut f = Fields::new(block, &context, errors);
     let mut moves: Vec<Move> = (0..MoveId::COUNT).map(|_| Move::empty()).collect();
     let mut limbs = false;
+    let mut items: Vec<ItemSpec> = Vec::new();
     if let Some((base, line)) = f.raw("inherit") {
         match earlier.iter().find(|(n, _)| n == base) {
             Some((_, w)) => {
                 moves = w.moves.clone();
                 limbs = w.limbs;
+                items = w.items.clone();
             }
             None => err(
                 errors,
@@ -1755,7 +1815,16 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
     }
     let limbs = f.or("limbs", limbs, errors);
     f.finish(errors);
-    only_known(block, &["move"], &context, errors);
+    only_known(block, &["move", "item"], &context, errors);
+    // Its items (sim 111, E4), in order (their numbers are their places): written ones replace inherited ones.
+    let own: Vec<ItemSpec> = children(block, "item")
+        .into_iter()
+        .enumerate()
+        .map(|(i, ib)| read_item(ib, &format!("item {i} of {context}"), errors))
+        .collect();
+    if !own.is_empty() {
+        items = own;
+    }
     let mut seen: Vec<MoveId> = Vec::new();
     for mb in children(block, "move") {
         let Some(key) = mb.name.as_deref() else {
@@ -1781,13 +1850,104 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
         seen.push(id);
         moves[id as usize] = read_move(mb, &format!("{key} of {context}"), errors);
     }
-    Weapon { moves, limbs }
+    Weapon {
+        moves,
+        limbs,
+        items,
+    }
+}
+
+/// An `item { ... }` block of a weapon (E4, sim 111; see `sim_core::moves::ItemSpec`): `kind` and a `hitbox` (its thrown hit) required,
+/// every other value optional (default 0, the keeps 100, `throw_mul` 1, `knock_hitlag` 100), and an optional `blast { frames [delay]
+/// [hits_owner] hitbox { ... } }`.
+fn read_item(b: &Block, ctx: &str, errors: &mut Vec<String>) -> ItemSpec {
+    only_known(b, &["hitbox", "blast"], ctx, errors);
+    let mut f = Fields::new(b, ctx, errors);
+    let hit = match at_most_one(children(b, "hitbox"), "hitbox", ctx, errors) {
+        Some(h) => read_hitbox(h, ctx, errors),
+        None => {
+            err(errors, b.line, format!("{ctx} needs a hitbox"));
+            missing_hitbox()
+        }
+    };
+    let mut it = ItemSpec::with_hit(hit);
+    it.kind = f.need("kind", None, errors);
+    for (name, v) in it.fx_fields_mut() {
+        if let Some(x) = f.parsed::<Fx>(name, errors) {
+            *v = x;
+        }
+    }
+    for (name, v) in it.u8_fields_mut() {
+        if let Some(x) = f.parsed::<u8>(name, errors) {
+            *v = x;
+        }
+    }
+    it.thrown_life = f.or("thrown_life", 0, errors);
+    it.life = f.or("life", 0, errors);
+    it.vanish = f.or("vanish", false, errors);
+    f.finish(errors);
+    it.blast = at_most_one(children(b, "blast"), "blast", ctx, errors).map(|bb| {
+        let bctx = format!("the blast of {ctx}");
+        only_known(bb, &["hitbox"], &bctx, errors);
+        let mut bf = Fields::new(bb, &bctx, errors);
+        let hit = match at_most_one(children(bb, "hitbox"), "hitbox", &bctx, errors) {
+            Some(h) => read_hitbox(h, &bctx, errors),
+            None => {
+                err(errors, bb.line, format!("{bctx} needs a hitbox"));
+                missing_hitbox()
+            }
+        };
+        let blast = ItemBlast {
+            hit,
+            frames: bf.need("frames", None, errors),
+            delay: bf.or("delay", 0, errors),
+            hits_owner: bf.or("hits_owner", false, errors),
+        };
+        bf.finish(errors);
+        blast
+    });
+    it
+}
+
+/// Writes an item as an `item { ... }` block (every value, so the file says what the item does).
+fn write_item(it: &ItemSpec) -> Block {
+    let mut b = Block::new("item", None);
+    b.field("kind", it.kind.to_string());
+    let mut copy = *it;
+    for (name, v) in copy.fx_fields_mut() {
+        b.field(name, v.show());
+    }
+    for (name, v) in copy.u8_fields_mut() {
+        b.field(name, v.to_string());
+    }
+    b.field("thrown_life", it.thrown_life.to_string());
+    b.field("life", it.life.to_string());
+    if it.vanish {
+        b.field("vanish", "true");
+    }
+    b.push(write_hitbox(&it.hit));
+    if let Some(bl) = &it.blast {
+        let mut c = Block::new("blast", None);
+        c.field("frames", bl.frames.to_string());
+        if bl.delay != 0 {
+            c.field("delay", bl.delay.to_string());
+        }
+        if bl.hits_owner {
+            c.field("hits_owner", "true");
+        }
+        c.push(write_hitbox(&bl.hit));
+        b.push(c);
+    }
+    b
 }
 
 fn write_weapon(name: &str, w: &Weapon) -> Block {
     let mut b = Block::new("weapon", Some(name));
     if w.limbs {
         b.field("limbs", "true");
+    }
+    for it in &w.items {
+        b.push(write_item(it));
     }
     for (i, m) in w.moves.iter().enumerate() {
         if !m.is_empty() {
@@ -1972,7 +2132,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         let context = format!("fighter `{name}`");
         only_known(
             b,
-            &["gauge", "air_jump_armor", "passive_shield"],
+            &["gauge", "air_jump_armor", "passive_shield", "item_throws"],
             &context,
             errors,
         );
@@ -2055,6 +2215,20 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
                 half_height: f.or("half_height", Fx::ZERO, errors),
                 radius: f.need("radius", None, errors),
             });
+            f.finish(errors);
+        }
+        // The item throws' release frames (sim 111, E4): an `item_throws { ... }` block, or the inherited fighter's, or the standard.
+        if let Some(t) = at_most_one(children(b, "item_throws"), "item_throws", &context, errors) {
+            let ctx = format!("the item throws of {context}");
+            let mut f = Fields::new(t, &ctx, errors);
+            params.item_throws = sim_core::content::ItemThrows {
+                forward: f.need("forward", None, errors),
+                back: f.need("back", None, errors),
+                up: f.need("up", None, errors),
+                down: f.need("down", None, errors),
+                dash: f.need("dash", None, errors),
+                drop: f.need("drop", None, errors),
+            };
             f.finish(errors);
         }
         fighters.push((name.to_string(), params));
@@ -2313,6 +2487,13 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
             c.field("half_height", s.half_height.show());
         }
         c.field("radius", s.radius.show());
+        b.push(c);
+    }
+    if p.item_throws != sim_core::content::ItemThrows::STANDARD {
+        let mut c = Block::new("item_throws", None);
+        for (name, v) in p.item_throws.frames() {
+            c.field(name, v.to_string());
+        }
         b.push(c);
     }
     b

@@ -1,0 +1,7 @@
+// Buckler double arrow, its first part (ext9, reached from the bow's release with an arrow in hand, which keeps the charge): the first
+// arrow left with the release. Three frames later the second arrow leaves, 0.9 times as fast and 2.3 degrees up (the shot's spawn
+// scales it by the charge, E35), and the move goes on as the second part (39 = ext10, its own shot: it lodges for 30 frames).
+if frame >= 3 {
+    spawn(0.8, 1.2, 0.9 * 0.325 * cos(2.3), 0.9 * 0.325 * sin(2.3));
+    goto(39);
+}

@@ -2,11 +2,11 @@
 # `pftool content-pack` to stamp it with a fresh hash.
 
 bundle {
-    schema 6
+    schema 7
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 110
-    hash 3d57c77867c3410e
+    sim_version 111
+    hash c34bf3be67d9d13d
 }
 
 ruleset {
@@ -125,6 +125,29 @@ ruleset {
     bury_break_kb 90
     bury_exit_lag 12
     bury_depth 0.5
+    item_pick_frames 8
+    item_side_frames 24
+    item_up_frames 23
+    item_down_frames 19
+    item_dash_frames 29
+    item_drop_frames 23
+    item_side_speed 0.325
+    item_side_smash 0.45499
+    item_side_angle 17
+    item_side_smash_angle 11
+    item_up_speed 0.3875
+    item_up_smash 0.5125
+    item_down_speed 0.41249
+    item_down_smash 0.5775
+    item_dash_speed 0.42499
+    item_dash_angle 12
+    item_drop_speed 0.2625
+    item_drop_angle 100
+    item_reach_front 1.6875
+    item_reach_back 0.8482
+    item_reach_up 1.59375
+    item_hand_x 0.5
+    item_hand_y 0.9
 }
 
 weapon longsword {
@@ -6583,6 +6606,91 @@ weapon clutch {
 }
 
 weapon buckler {
+    item {
+        kind 2
+        gravity 0.00874
+        max_fall 0.28749
+        air_friction 0
+        friction 0.00124
+        max_speed 0.5
+        half_width 0.25
+        half_height 0.25
+        wall_lift 0.125
+        bounce_min 0.04999
+        bounce_x_min 0.00624
+        bounce_x_max 0.375
+        bounce_y_min 0.0125
+        bounce_y_max 0.28749
+        pick_width 0.5
+        pick_height 0.5
+        throw_mul 0.62639
+        damage_per_speed 0
+        fighter_lift 0.125
+        hp 50
+        hurt_radius 0.5
+        knock_speed_min 0.125
+        knock_speed_max 0.4
+        knock_damage_min 1
+        knock_damage_max 15
+        floor_keep_x 90
+        floor_keep_y 70
+        wall_keep_x 70
+        wall_keep_y 60
+        ceiling_keep_x 90
+        ceiling_keep_y 60
+        fighter_keep_x 20
+        fighter_keep_y 20
+        knock_hitlag 50
+        thrown_life 0
+        life 1800
+        hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 1 angle 361 bkb 10 kbg 100 hitlag 60 angle_type travel }
+        blast {
+            frames 2
+            delay 11
+            hits_owner true
+            hitbox { start 0 end 0 x 0 y 0 radius 1.79999 damage 7 angle 52 bkb 60 kbg 115 hitlag 80 clanks false rebounds false angle_type position }
+        }
+    }
+    item {
+        kind 3
+        gravity 0.00662
+        max_fall 0.28749
+        air_friction 0.0003
+        friction 0.00374
+        max_speed 0
+        half_width 0.4375
+        half_height 0.375
+        wall_lift 0
+        bounce_min 8
+        bounce_x_min 0
+        bounce_x_max 8
+        bounce_y_min 0
+        bounce_y_max 8
+        pick_width 0.875
+        pick_height 0.75
+        throw_mul 1
+        damage_per_speed 6.4
+        fighter_lift 0
+        hp 0
+        hurt_radius 0
+        knock_speed_min 0
+        knock_speed_max 0
+        knock_damage_min 0
+        knock_damage_max 0
+        floor_keep_x 100
+        floor_keep_y 100
+        wall_keep_x 100
+        wall_keep_y 100
+        ceiling_keep_x 100
+        ceiling_keep_y 100
+        fighter_keep_x 100
+        fighter_keep_y 100
+        knock_hitlag 100
+        thrown_life 40
+        life 0
+        vanish true
+        hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 0.59999 angle 361 bkb 10 kbg 66 hitlag 80 angle_type forward }
+    }
     move jab {
         total_frames 22
         next jab2
@@ -7336,13 +7444,18 @@ weapon buckler {
             // Buckler neutral special (the bow). Move frames 0-14 (the reference's 1-15) draw it; from move frame 15 (its 16) it holds while
             // special is held. On the first frame special is up, or after 180 held frames, the charge is the frames held, the arrow leaves 0.8
             // ahead and 1.2 up [E], 2.5 degrees above forward at the uncharged speed (2.6 / 8: the shot's spawn scales it by the charge, E35),
-            // and the move goes on as the release (32 = ext4, which keeps the charge).
+            // and the move goes on as the release (32 = ext4, which keeps the charge). With an arrow in hand (`holding` 3, the arrow item's kind:
+            // E4) it is the double arrow instead (37 = ext9, which fires the arrow in hand three frames later).
             if frame >= 15 {
                 let c = frame - 15;
                 if special == 0 || c >= 180 {
                     set_charge(c);
                     spawn(0.8, 1.2, 0.325 * cos(2.5), 0.325 * sin(2.5));
-                    goto(32);
+                    if holding == 3 {
+                        goto(37);
+                    } else {
+                        goto(32);
+                    }
                 }
             }
         }
@@ -7533,12 +7646,20 @@ weapon buckler {
         }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 angle_type position }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        total_frames 38
+        land_continue true
+        pull_frame 16
+        pull_item 0
         script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
+            // Buckler down special (the bomb). With one of the wanderer's bombs out (in his hand, lying, flying or held by someone else: `owned`
+            // counts the bombs he made), the press is the detonation: on the move's frame 1 (the first a script sees) every one no other fighter
+            // holds is set to burst 11 frames later, 12 after the press (`detonate()`), and the move goes on as the detonation (36 = ext8, FAF 39
+            // from here). Otherwise it is the pull: the bomb appears in the hand on move frame 16 (the move's `pull`), unless the hand already holds
+            // an item.
+            if frame == 1 && owned > 0 {
+                detonate();
+                goto(36);
+            }
         }
     }
     move jab2 {
@@ -8062,7 +8183,8 @@ weapon buckler {
             gravity 0.00674
             lodge 180
             lodge_angle 9
-            hitbox { start 0 end 0 x 0 y 0 radius 1.7 damage 4 angle 361 bkb 10 kbg 71 hitlag 80 angle_type forward }
+            lodge_item 1
+            hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 4 angle 361 bkb 10 kbg 71 hitlag 80 angle_type forward }
             charged { full 60 snap 36 damage_to 12 speed_to 1.25 life_to 46 floor true }
         }
     }
@@ -8148,6 +8270,47 @@ weapon buckler {
         }
     }
     move ext7 { total_frames 8 land_continue true }
+    move ext8 {
+        total_frames 37
+        land_continue true
+        script {
+            // Buckler bomb detonation (ext8): frames only (a move with neither hits nor a shot needs a script to be valid content, and this one
+            // does nothing). The down special's own script calls detonate() on its frame 1 and goes on as this move, so the bomb bursts 12 frames
+            // after the press (its blast's delay, 11, from that frame), on the press's frames 12-13 [R].
+            if frame < 0 {
+                end();
+            }
+        }
+    }
+    move ext9 {
+        total_frames 28
+        land_continue true
+        keep_charge true
+        spend_item 1
+        projectile {
+            frame 255
+            x 0.79999
+            y 1.2
+            speed 0.325
+            life 46
+            end_damage 4
+            gravity 0.00674
+            lodge 120
+            lodge_angle 9
+            lodge_item 1
+            hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 4 angle 361 bkb 25 kbg 110 hitlag 80 angle_type forward }
+            charged { full 60 snap 36 damage_to 12 speed_to 1.25 life_to 46 floor true times 80 }
+        }
+        script {
+            // Buckler double arrow, its first part (ext9, reached from the bow's release with an arrow in hand, which keeps the charge): the first
+            // arrow left with the release. Three frames later the second arrow leaves, 0.9 times as fast and 2.3 degrees up (the shot's spawn
+            // scales it by the charge, E35), and the move goes on as the second part (39 = ext10, its own shot: it lodges for 30 frames).
+            if frame >= 3 {
+                spawn(0.8, 1.2, 0.9 * 0.325 * cos(2.3), 0.9 * 0.325 * sin(2.3));
+                goto(39);
+            }
+        }
+    }
     move pivot_grab {
         total_frames 36
         hitbox { start 9 end 10 x 0.5 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
@@ -8156,6 +8319,25 @@ weapon buckler {
         hitbox { start 9 end 10 x 1.2 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 9 end 10 x 1.4 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 9 end 10 x 1.7 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+    move ext10 {
+        total_frames 25
+        land_continue true
+        keep_charge true
+        projectile {
+            frame 255
+            x 0.79999
+            y 1.2
+            speed 0.325
+            life 46
+            end_damage 4
+            gravity 0.00674
+            lodge 30
+            lodge_angle 9
+            lodge_item 1
+            hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 4 angle 361 bkb 25 kbg 110 hitlag 80 angle_type forward }
+            charged { full 60 snap 36 damage_to 12 speed_to 1.25 life_to 46 floor true times 80 }
+        }
     }
 }
 
@@ -8274,6 +8456,7 @@ fighter duelist {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 90
+    item_throws { forward 10 back 14 up 15 down 8 dash 6 drop 7 }
 }
 
 fighter brawler {
@@ -8508,6 +8691,7 @@ fighter rogue {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 78
+    item_throws { forward 8 back 11 up 11 down 8 dash 6 drop 6 }
 }
 
 fighter tumbler {
@@ -8859,6 +9043,7 @@ fighter seer {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 91
+    item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
 
 fighter champion {
@@ -9094,6 +9279,7 @@ fighter hauler {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 127
+    item_throws { forward 10 back 14 up 15 down 8 dash 6 drop 7 }
 }
 
 fighter bounder {
@@ -9214,6 +9400,7 @@ fighter bounder {
     air_jump_turns true
     air_jump_drift 120
     air_jump_armor { start 0 end 43 kind knockback threshold 120 subtract true min_kb 60 }
+    item_throws { forward 8 back 7 up 8 down 7 dash 7 drop 6 }
 }
 
 fighter wanderer {
@@ -9332,6 +9519,7 @@ fighter wanderer {
     ledge_attack_dx 1.5
     weight 104
     passive_shield { x 0.59999 y 1 crouch_y 0.4 half_height 0.34999 radius 0.45 }
+    item_throws { forward 7 back 9 up 11 down 6 dash 4 drop 5 }
 }
 
 stage proving_grounds {

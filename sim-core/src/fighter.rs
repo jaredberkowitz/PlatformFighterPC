@@ -405,10 +405,12 @@ pub fn update(
         S::Attack => return attack(f, p, weapon, stage, rules, world),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => {
-            ground(f, p, weapon, stage, rules)
+            ground(f, p, weapon, stage, rules, world.pickable[world.me])
         }
         S::JumpSquat => jump_squat(f, p, weapon, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage, rules),
+        S::ItemPickup => item_pickup(f, p, stage, rules),
+        S::ItemThrow => return item_throw(f, p, stage, rules),
         S::Helpless => return helpless(f, p, weapon, stage, rules),
         S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
@@ -520,7 +522,14 @@ fn start_platform_drop(f: &mut Fighter, p: &FighterParams) {
     enter(f, S::Airborne);
 }
 
-fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
+fn ground(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    rules: &Ruleset,
+    pick: bool,
+) {
     let input = f.history[0];
     // (Set again below while a platform drop is still waiting; any other way out of the ground states ends it.)
     let drop_pending = core::mem::take(&mut f.drop_pending);
@@ -587,6 +596,18 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
             return;
         }
     }
+    // Items (E4, the reference's): holding one, grab throws it the way the stick is held, or drops it with the stick in the middle;
+    // with an item in reach, grab (or attack below) picks it up instead of grabbing.
+    if f.holding != NONE && f.take(buttons::GRAB, buffer) {
+        let running = matches!(f.state, S::Dash | S::Run);
+        let throw = item_throw_by_stick(f, p, true, running, true);
+        start_item_throw(f, p, rules, throw);
+        return;
+    }
+    if pick && f.holding == NONE && f.take(buttons::GRAB, buffer) {
+        start_item_pickup(f);
+        return;
+    }
     if f.take(buttons::GRAB, buffer) {
         // Grabbing while turning around out of a dash or run is a pivot grab: it comes out toward the way the
         // fighter is turning, while it keeps sliding. A weapon without one just uses its normal grab.
@@ -609,6 +630,19 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     }
     if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
         f.buffer_used |= buttons::SPECIAL;
+        return;
+    }
+    // Holding an item, attack throws it by the stick (out of a dash or run, the dash throw); an item in reach is picked up by an attack
+    // that is not a smash input (E4).
+    if f.holding != NONE && f.take(buttons::ATTACK, buffer) {
+        let running = matches!(f.state, S::Dash | S::Run);
+        let throw = item_throw_by_stick(f, p, false, running, true);
+        start_item_throw(f, p, rules, throw);
+        return;
+    }
+    if pick && f.holding == NONE && f.buffered(buttons::ATTACK, buffer) && !smash_input(f, p) {
+        f.buffer_used |= buttons::ATTACK;
+        start_item_pickup(f);
         return;
     }
     if f.take(buttons::ATTACK, buffer) {
@@ -1070,6 +1104,23 @@ fn airborne(
         f.buffer_used |= buttons::SPECIAL;
         return None;
     }
+    // Holding an item (E4): attack is the aerial throw by the stick, grab with the stick in the middle lets go of it at once (the
+    // reference's aerial drop, no lag), or throws it the way the stick is held.
+    if f.holding != NONE && f.take(buttons::ATTACK, buffer) {
+        let throw = item_throw_by_stick(f, p, false, false, false);
+        start_item_throw(f, p, rules, throw);
+        return None;
+    }
+    if f.holding != NONE && f.take(buttons::GRAB, buffer) {
+        let throw = item_throw_by_stick(f, p, true, false, false);
+        if throw == crate::items::THROW_LET_GO {
+            f.item_throw = throw;
+            f.item_order |= crate::items::ORDER_RELEASE;
+        } else {
+            start_item_throw(f, p, rules, throw);
+            return None;
+        }
+    }
     if f.take(buttons::ATTACK, buffer) {
         start_air_attack(f, p);
         return None;
@@ -1339,6 +1390,13 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     // Let go of: the shield drops, once it has been up `shield_min_frames`.
     if !f.held(buttons::SHIELD) && f.state_frame >= u16::from(rules.shield_min_frames) {
         enter(f, S::ShieldRelease);
+        return;
+    }
+    // Holding an item (E4): attack or grab out of the shield throws it by the stick (the reference's shield toss), forward with the
+    // stick in the middle.
+    if f.holding != NONE && (f.take(buttons::ATTACK, buffer) || f.take(buttons::GRAB, buffer)) {
+        let throw = item_throw_by_stick(f, p, false, false, true);
+        start_item_throw(f, p, rules, throw);
         return;
     }
     // Straight out of the shield (E37, the reference's, owner decision 56): special with the stick up is the grounded up special, and
@@ -2165,7 +2223,11 @@ fn up_out_of_ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, smash_o
         f.buffer_used |= buttons::SPECIAL;
         return true;
     }
-    if fresh(f, buttons::ATTACK) && f.buffered(buttons::ATTACK, buffer) {
+    // (Holding an item, attack throws it instead: E4.)
+    if f.holding == crate::state::NONE
+        && fresh(f, buttons::ATTACK)
+        && f.buffered(buttons::ATTACK, buffer)
+    {
         let (aim, strong) = attack_aim(f, p);
         let smash = strong || f.hard_up(SMASH_FLICK_BUFFER);
         if aim.stick_y >= STICK_DOWN && (smash || !smash_only) {
@@ -2312,6 +2374,131 @@ fn start_air_attack(f: &mut Fighter, p: &FighterParams) {
     begin_attack(f, id);
 }
 
+/// Whether the attack being pressed is a smash input (a flick of the stick its way, the strong button or the attack stick): such an
+/// attack is the smash attack, not an item pick-up (E4) [E: the reference picks items up with a tilt or jab input].
+fn smash_input(f: &Fighter, p: &FighterParams) -> bool {
+    let (input, strong) = attack_aim(f, p);
+    strong
+        || (input.stick_y >= STICK_DOWN && f.hard_up(SMASH_FLICK_BUFFER))
+        || (input.stick_y <= -STICK_DOWN && f.hard_down(SMASH_FLICK_BUFFER))
+        || (x_active(input) && f.flick_x(SMASH_FLICK_BUFFER) != 0)
+}
+
+/// The item throw (`items::THROW_*`) the stick asks for (E4): up, down, forward or back by the stick (the attack stick too for an attack),
+/// a smash throw with a smash input; out of a dash or run (`running`) the dash throw unless up or down; with the stick in the middle a
+/// forward throw, or for the grab button (`grab`) the drop (`ground`) or the aerial let-go.
+fn item_throw_by_stick(
+    f: &Fighter,
+    p: &FighterParams,
+    grab: bool,
+    running: bool,
+    ground: bool,
+) -> u8 {
+    use crate::items::*;
+    let (input, strong) = if grab {
+        (f.history[0], f.held(buttons::STRONG))
+    } else {
+        attack_aim(f, p)
+    };
+    let up = input.stick_y >= STICK_DOWN;
+    let down = input.stick_y <= -STICK_DOWN;
+    let side = x_active(input);
+    let throw = if up {
+        THROW_UP
+    } else if down {
+        THROW_DOWN
+    } else if running && !grab {
+        return THROW_DASH;
+    } else if side {
+        if (input.stick_x > 0) == (f.facing > 0) {
+            THROW_FORWARD
+        } else {
+            THROW_BACK
+        }
+    } else if grab {
+        return if ground { THROW_DROP } else { THROW_LET_GO };
+    } else {
+        THROW_FORWARD
+    };
+    let smash = strong
+        || (up && f.hard_up(SMASH_FLICK_BUFFER))
+        || (down && f.hard_down(SMASH_FLICK_BUFFER))
+        || (side && f.flick_x(SMASH_FLICK_BUFFER) != 0);
+    if smash {
+        throw | THROW_SMASH
+    } else {
+        throw
+    }
+}
+
+/// Starts an item throw (E4, `FighterState::ItemThrow`): a back throw turns the fighter round first (it throws the way it then faces)
+/// [E: the reference turns with it]; the item leaves on the body's release frame.
+fn start_item_throw(f: &mut Fighter, p: &FighterParams, rules: &Ruleset, throw: u8) {
+    if throw & !crate::items::THROW_SMASH == crate::items::THROW_BACK {
+        f.facing = -f.facing;
+    }
+    if f.fast_fall {
+        f.fast_fall = false;
+        f.vel.y = f.vel.y.max(-p.max_fall_speed);
+    }
+    f.item_throw = throw;
+    enter(f, S::ItemThrow);
+    let (release, _) = crate::items::throw_frames(p, rules, throw);
+    if release <= 1 {
+        f.item_order |= crate::items::ORDER_RELEASE;
+    }
+}
+
+/// Starts picking up the item in reach (E4, `FighterState::ItemPickup`): the item system puts the nearest one in the hand this frame.
+fn start_item_pickup(f: &mut Fighter) {
+    enter(f, S::ItemPickup);
+    f.item_order |= crate::items::ORDER_PICK;
+}
+
+/// Picking an item up: sliding to a stop on the ground for the ruleset's `item_pick_frames` [E].
+fn item_pickup(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if f.state_frame + 1 >= u16::from(rules.item_pick_frames.max(1)) {
+        enter(f, S::Idle);
+    }
+}
+
+/// An item throw, on the ground or in the air (E4): the item leaves on the body's release frame (`FighterParams::item_throws`) and
+/// the throw lasts the ruleset's length for it (the reference's totals: control back on the frame after). On the ground the fighter
+/// slides to a stop (over an edge it goes on in the air); in the air it drifts as usual and touching down ends it with the plain
+/// landing lag [E].
+fn item_throw(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> Option<u8> {
+    let (release, total) = crate::items::throw_frames(p, rules, f.item_throw);
+    if f.state_frame + 1 == u16::from(release) {
+        f.item_order |= crate::items::ORDER_RELEASE;
+    }
+    let done = f.state_frame + 1 >= u16::from(total.max(1));
+    if f.grounded() {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+        let frame = f.state_frame;
+        if !slide_on_platform(f, p, stage) {
+            // (Over the edge: the throw goes on in the air.)
+            f.state = S::ItemThrow;
+            f.state_frame = frame;
+        } else if done {
+            enter(f, S::Idle);
+        }
+        return None;
+    }
+    let lag = plain_landing_lag(f, p);
+    if air_move(f, p, stage) {
+        enter_landing(f, lag);
+        return None;
+    }
+    if done {
+        enter(f, S::Airborne);
+    }
+    None
+}
+
 /// Advances a move one frame. Returns the ledge it wants to grab, if the move can grab ledges.
 fn attack(
     f: &mut Fighter,
@@ -2410,6 +2597,16 @@ fn attack(
             f.spawn_request = true;
         }
     }
+    // ...and make an item in the hand, or use up the one there, on one frame (E4: the item system serves the order).
+    if let Some((frame, item)) = mv.pull {
+        if f.state_frame == u16::from(frame) {
+            f.item_order |= crate::items::ORDER_PULL;
+            f.item_spec = item;
+        }
+    }
+    if mv.spend_item != 255 && f.state_frame == u16::from(mv.spend_item) {
+        f.item_order |= crate::items::ORDER_SPEND;
+    }
 
     // A jab with an early continuable window carries on into its next hit as soon as attack is pressed in it.
     if let Some(next) = mv.next {
@@ -2425,7 +2622,14 @@ fn attack(
     // The move's script steers the move: motion, branching into another move, projectiles, ending early.
     let mut script_motion = None;
     if let Some(program) = &mv.script {
-        let kind = mv.projectile.map_or(0, |s| s.tool.kind);
+        // (The kind `owned` counts: the projectile's tool, else the item the move pulls: E4.)
+        let kind = match mv.projectile.map_or(0, |s| s.tool.kind) {
+            0 => mv
+                .pull
+                .and_then(|(_, i)| weapon.items.get(usize::from(i)))
+                .map_or(0, |it| it.kind),
+            k => k,
+        };
         let effects = scripting::run_fighter(program, f, world, &p.gauge, kind);
         if let Some(next) = effects.goto {
             follow_up(f, weapon, next);

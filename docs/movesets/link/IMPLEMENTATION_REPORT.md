@@ -333,9 +333,152 @@ flat arrow); (2) tilt and smash boomerangs, aimed up and down, standing still to
   apart, x0.8 damage floored, BK 25 KS 110, lodging 120 / 30), and the passive shield off while holding an item.
 * Then the re-check of every iconic move in the hitbox view.
 
+## Phase 3 (sim 111, content schema 7): items (E4), the bomb, the arrow items and the double arrow
+
+Branch `buckler-phase3`, from `movesets` at 85d352a (sim 110). Owner decision 64 (2026-10-14): E4 built exactly as planned above;
+decision 54: anyone can pick up the bomb and the lodged arrows. Sim **111**, content schema **7** (a migration that rewrites nothing).
+
+### Milestone 1: the engine (E4, general; every fighter gets the universal actions, nothing changes for one holding nothing)
+
+* **State** (`sim-core/src/state.rs`): the hashed pool `GameState::items` (`MAX_ITEMS` 8 slots of `Item { active, origin, maker, spec,
+  kind, owner, holder, rest, move_id, pos, vel, platform, age, life, flight, hp, damage, fuse, hitlag, hit_mask, struck, facing }`,
+  `rest` one of `ITEM_HELD`, `ITEM_THROWN`, `ITEM_FREE`, `ITEM_LODGED`, `ITEM_BLAST`), and on the fighter `holding` (the slot in hand),
+  `item_order` (what it asks the item system to do this frame), `item_spec` (the item a pull makes), `item_throw` (the throw being
+  made). Two new fighter states, `ItemPickup` and `ItemThrow`. Every field is in `hash_into`, with a checksum case each (34 cases).
+* **Content**: `ItemSpec` per weapon item (`Weapon::items`, `sim-core/src/moves.rs`): kind, gravity, fall, air and ground friction,
+  top sideways speed, box, the reference's floor / wall / ceiling bounces with their minimum and clamps, the pick-up box, the throw
+  speed multiplier, the thrown hit and its damage formula (`hit.damage + damage_per_speed x speed`), `thrown_life`, `vanish` (gone on a
+  fighter, a shield or a surface) or the bounce off a fighter or shield, life (the fuse), hp, hurt radius, the knock-about speeds,
+  damages and hitlag, and an optional `ItemBlast` (hit, frames, delay, `hits_owner`). `Move::pull` (an item in the hand on a frame),
+  `Move::spend_item` (the item in hand used up on a frame), `ProjectileArc::lodge_item` (a lodged shot becomes that item),
+  `ChargedShot::times` (a share of the charged damage, floored again). `FighterParams::item_throws` (each body's release frames, the
+  reference's per-character table) and the ruleset's universal `item_*` rules (pick-up length, the 13.0.1 throw totals, the throw
+  speeds and angles, the reach, the hand). Read and written by `sim-content/src/format.rs`, validated (`sim-content/src/lib.rs`:
+  `validate_item`, `validate_item_rules`, the pull, spend, lodge item and times checks), documented in `docs/CONTENT.md`, schema 7
+  with the migration `weapons_get_items` (`sim-content/src/bundle.rs`).
+* **The actions** (`sim-core/src/fighter.rs`, served in `sim-core/src/items.rs` after the hits): on the ground with a lying or stuck
+  item in reach (the ruleset's reach box overlapping the item's pick-up box, worked from the frame's start: `scripting::World::pickable`)
+  grab, or an attack that is not a smash input, picks it up (`ItemPickup`, in hand at once); holding one, attack throws it by the stick
+  (forward with the stick forward or in the middle, back (turning round), up, down; a smash input is the smash throw; out of a dash or
+  run the dash throw), grab throws it by the stick or, with the stick in the middle, drops it (the grounded drop) or, in the air, lets go
+  of it at once (no speed, no lag: the reference's aerial drop); attack or grab out of a shield throws it; an aerial attack is the aerial
+  throw. Specials, jumps, dodges and the shield keep it; a hit, a grab, a ledge, a bury, an egg or a knock-out lets go of it. The item
+  leaves on the body's release frame and the throw ends on the ruleset's total (control back on the frame after).
+* **Throws** (`items::release`): speed = the ruleset's for the throw x the thrower's toss strength `1 + (weight - 100) / 300` x
+  `throw_mul`, the sideways part x `throw_mul` once more; the thrown hit deals `hit.damage` (halved for a grounded drop) +
+  `damage_per_speed` x (speed before `throw_mul`), credited to the thrower (an item's thrower is never hit by its own throw).
+* **Items in the world** (`items::tick`, `fly`, `thrown_hits`, `blast_frame`, `knock_about`): held items ride the hand; free and thrown
+  ones fall, slide, bounce off floors, walls and ceilings as their spec says and lie on platform tops; a thrown hit goes through
+  counters, shields (a shield blocks it as any hit) and passive shields; bursts hit every fighter once (the maker too with
+  `hits_owner`); an attack's normal hitbox touching an item with hp knocks it about once per move (damage off the hp, launched along the
+  attack's angle at the speed for that damage, frozen for a share of the hitlag); at 0 hp it bursts. An item's life (its fuse) runs held
+  or not; at its end it bursts or goes.
+* **Script surface** (`sim-script/src/api.rs`, `sim-core/src/scripting.rs`): the register `holding` (the kind in hand as the frame
+  began) and the function `detonate()` (every item the fighter made that can burst, and that no other fighter holds, bursts after its
+  blast's delay); `owned` now also counts the fighter's items of the move's kind (the projectile's tool kind, or the kind it pulls).
+  Tests `scripted_moves::the_holding_register_reads_the_kind_of_the_item_in_hand`,
+  `detonate_bursts_the_fighters_items_after_their_delay_but_not_one_another_fighter_holds`; doc lines in `docs/CONTENT.md`.
+* **The passive shield** (E14) is off while the fighter holds an item [R].
+* **View** (read-only bridge accessors, `godot-bridge/src/lib.rs`): `item_count`, `item_pos(i)`, `item_kind(i)`, `item_holder(i)`,
+  `item_rest(i)` (0 held, 1 thrown, 2 free, 3 stuck, 4 bursting, -1 empty), `item_life_left(i)` (the bomb's fuse), `fighter_holding(i)`.
+* **Tools**: `pftool fuzz-rollback` puts two items on the stage at the start of every run and a wanderer in every other run;
+  `pftool net-fuzz` gives the host the wanderer every fourth run; both print how many items were made, picked up, thrown or dropped and
+  burst.
+
+### Milestone 2: the moves (`sim-core/src/moves_buckler.rs` `tools`; scripts `buckler_bomb`, `buckler_detonate`, `buckler_double_arrow`, `buckler_bow`)
+
+* **The bomb item** (`bomb_item`, item 0, kind 2) [R unless marked]: gravity 0.07, fall 2.3, friction 0.01 (on the ground; none in the
+  air [E]), sideways speed at most 4; bounces off a floor x0.9 / x0.7, a wall x0.7 / x0.6 and +1 up, a ceiling x0.9 / x0.6, only above
+  0.4, then held within 0.05-3 sideways and 0.1-2.3 up; a 2 x 2 box, picked up within 4 x 4 [E: half lengths]; thrown at x0.6264; its
+  thrown hit 1% flat, angle 361 by travel, BK 10, KS 100, radius 2.0, hitlag x0.6, bouncing off a fighter or shield at x0.2 / x0.2 and
+  +1 up; an 1800-frame fuse; 50 hp, hurtbox 4, knocked about at 1 to 3.2 for 1% to 15%, frozen x0.5. Its blast: 7%, angle 52 by
+  position, BK 60, KS 115, radius 14.0 (1.8 world), hitlag x0.8, no clank, 2 frames, `hits_owner` (reference units, over 8 in world
+  units [D]).
+* **The down special** (`bomb`): the pull, FAF 40, the bomb in hand on frame 17 (move frame 16; none while an item is held) [R]. With one
+  of his bombs out (`owned` > 0) the press detonates instead: `detonate()` on the move's frame 1 (the first frame a script sees) with the
+  blast's delay 11, so the blast is out on the press's frames 12-13 [R: "explosion delay when detonated 12 frames"; the 11 is D], and the
+  move goes on as the detonation (`ext8`, FAF 39 from there = 40 from the press [D]). A bomb in his own hand bursts there and hits him.
+* **The arrow item** (`arrow_item`, item 1, kind 3) [R]: gravity 0.053, fall 2.3, friction 0.0025 air / 0.03 ground, a 3.5 x 3 box, picked
+  up within 7 x 6, thrown at x1; its thrown hit 0.6 + 0.8 x speed (reference units; 6.4 per world unit [D]), angle 361 forward, BK 10,
+  KS 66, radius 1.35, gone on a fighter, a shield, a surface or after 40 frames. A lodged arrow (the single's 180 frames) is this item;
+  picked up it lasts until used.
+* **The double arrow** (`double_arrow`, `ext9` + `ext10`): the bow's release with an arrow in hand (`holding == 3`) fires the first arrow
+  with the release and goes on as `ext9`, whose script fires the second on its frame 3 at x0.9 the speed and 2.3 degrees up, going on as
+  `ext10` (FAF 27, so 30 from the release as the single's); the arrow in hand is used up on `ext9`'s frame 1 [E]. Each arrow: floor(0.8 x
+  the single's floored damage) (`times 80`: 6% to 18% for the pair), BK 25, KS 110, lodging 120 / 30 [R].
+* **Fixed**: the single arrow's radius was written as 135 reference tenths (1.7 world units) in phase 2; it is the reference's 1.35
+  (2 world tenths) [R]. Every phase-2 arrow test still passes.
+* Slots: `ext8` detonation, `ext9` / `ext10` the double arrow (11 of 16 used).
+
+### Verified against [R] / [D] (by tests that ran)
+
+`sim-core/tests/items.rs` (23): picking up with attack and with grab (in hand at once, the pick-up's length), a jab out of reach, a smash
+input near an item is the smash attack, the reach (13.5 ahead, 6.79 behind, reference units); the wanderer's throws letting go on
+7 / 9 / 11 / 6 / 5 and ending on 24 / 24 / 23 / 19 / 23, the dash throw on 4 / 29 out of a run; another body's own release frame (the
+duelist's forward throw on 10); the thrown bomb's speed (forward and smash: 2.6 / 3.64 x 1.01333 at 17 / 11 degrees, sideways x0.6264
+twice, upward once); the grounded drop and the aerial drop (no speed, no lag); the aerial up throw; a thrown bomb hitting for 1% and
+bouncing off, a thrown arrow hitting for 0.6 + 0.8 x 2.635 and vanishing; a hit dropping the item; the shield and a jump keeping it; the
+passive shield off while holding; a dropped bomb bouncing off the floor within its clamps and coming to rest; the bomb pulled on frame
+17 with its 1800-frame fuse and 50 hp, control back on 40; no pull while holding an arrow; the detonation's blast on the press's frames
+12-13 for 7% on the wanderer (self damage) and a duelist beside him; a lying bomb detonated from afar, and one the duelist holds not
+detonated; the fuse's end bursting it; a down smash knocking it about and taking its hp, and the last hp bursting it; an opponent
+picking the bomb up and hitting the wanderer with it; a lodged arrow picked up and the bow then firing the double arrow (3 frames apart,
+x0.9, 3% each, BK 25 / KS 110, lodging 120 / 30, the arrow used up, control back as a single arrow's); the double arrow's floor(0.8 x)
+damage at six charges; resimulation from a snapshot with items about. Also `buckler_specials.rs` (the arrow lodging as an item for 180
+frames; the shallow arrow gone), `scripted_moves.rs` (2), `move_rules::the_item_fields_are_in_the_content_hash`, `state.rs` checksum
+cases, sim-content `a_schema_6_file_from_before_items_still_loads_unchanged` and `item_blocks_round_trip_are_inherited_and_are_checked`.
+
+### Estimated or limited [E]
+
+* **The pick-up** (gap 14, not published): 8 frames, the item in hand from the first; an attack that is not a smash input, or grab
+  (the dash pick-up is the same action, sliding to a stop); the reach is the wanderer's reference values for every body; the pick-up
+  boxes are read as half lengths; catching an item in the air is not built.
+* **The throws**: aerial throws use the grounded release frames and totals (the reference's table has a few aerial differences: they
+  are not modelled); landing during an aerial throw ends it with the plain landing lag; a back throw turns the fighter round; the
+  hand's place (0.5 ahead, 0.9 up) is presentation only. The bodies' release frames other than the wanderer's are from the same table [R]
+  (the duelist 10 / 14 / 15 / 8 / 6 / 7, the rogue 8 / 11 / 11 / 8 / 6 / 6, the seer 7 / 9 / 11 / 6 / 4 / 5, the hauler 10 / 14 / 15 / 8 /
+  6 / 7, the bounder 8 / 7 / 8 / 7 / 7 / 6, the rest the standard 8 / 11 / 12 / 7 / 5 / 6), grounded values where ground and air differ.
+* **Thrown hits**: live until the item lands, hits or is shielded [E]; a bomb bouncing off a fighter goes back the other way [E]; the
+  reference's x0.8 knockback for items using the speed formula, the thrower's `throw_item_power_mul` and reflecting or clanking a thrown
+  item are not modelled; a thrown item's hit stales under one shared key.
+* **Knocked about**: the attacker is not frozen; a knocked item has no hit of its own; the angle 361 resolves as at 100 knockback; only
+  fighters' melee hits knock items (projectiles and fire do not: the reference's "explodes at once if hit by fire" is not modelled).
+* **The bomb**: no air friction; the fuse runs while held; at 0 hp it bursts (gap 11); with the only bomb held by an opponent the
+  press is still the detonation move, and nothing bursts; the pull and detonation in the air use the body's air physics and carry on
+  landing (gap 10); `hitbits=No floor` (gap 12) is read as nothing for fighters.
+* **The double arrow**: the arrow in hand leaves on the first part's frame 1; the whole release lasts as the single's.
+
+### Tests and checks run
+
+`cargo fmt --all`, `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, the content re-export,
+`pftool fuzz-rollback 300` and `pftool net-fuzz 100` (both at zero mismatches; their item counts are in the last commit message and the
+porter's report). **Not run**: the Godot tests (they need the editor and a built bridge).
+
+### Training-mode checks (hitbox view)
+
+Wanderer vs a standing duelist: (1) down special (a bomb in hand on frame 17), walk, throw it forward / up / down, smash-throw it, drop
+it, short hop and let go of it in the air; (2) down special again with the bomb lying near the duelist (it bursts 12 frames after the
+press) and with it in hand (it bursts in hand and hurts the wanderer); (3) the duelist picks the bomb up (attack or grab next to it), the
+wanderer presses down special (nothing bursts while the duelist holds it), the duelist throws it back; (4) tap the bow into the floor,
+walk to the lodged arrow and pick it up (attack), tap the bow again (two arrows, the second three frames later); (5) hit a lying bomb
+with smash attacks until it bursts (50 hp).
+
+### For the art agent
+
+* **Every body** (new states `ItemPickup` and `ItemThrow` in `fighter_state`; `fighter_holding(i)` says which item is in hand): a pick-up
+  (8 frames, the item in hand from the first), a hold pose for walking, running, jumping and shielding with an item (it sits 0.5 ahead
+  and 0.9 up of the feet), item throws forward, back (turning round), up and down (the body's release frame: `FighterParams::item_throws`,
+  7 / 9 / 11 / 6 for the wanderer), the dash throw (release 4, 29 frames), the grounded drop (release 5, 23 frames), the same throws in
+  the air, and smash throws (a stronger wind-up on the same frames).
+* **The bomb** (`item_kind` 2): a round bomb with a fuse that flashes for its last 45 frames (`item_life_left`), held, thrown (spinning),
+  bouncing and lying (`item_rest` 2), and its blast (`item_rest` 4: a burst of radius 1.8 for 2 frames, then smoke). The pull (FAF 40,
+  in hand on 17) and the detonation gesture (FAF 40).
+* **The arrow item** (`item_kind` 3): a lodged arrow sticking out of the floor or a wall at its angle (`item_rest` 3, up to 3 seconds),
+  an arrow held in the hand, a thrown arrow. The double arrow: the bow nocked with the held arrow, two arrows leaving 3 frames apart.
+
 ## Questions for the owner
 
-(Questions 1 and 2 were answered by owner decisions 61 and 62; question 3 stays open.)
+(Questions 1 and 2 were answered by owner decisions 61 and 62; question 6 by 64; questions 3 to 5 and 7 stay open.)
 
 1. **The aerial spin and a target in front**: with the reference's boxes (front hits in front, back hits behind), a target in front
    takes the four front hits and the finisher (14%); a target caught behind is carried round to the front. If footage shows a target
@@ -350,5 +493,7 @@ flat arrow); (2) tilt and smash boomerangs, aimed up and down, standing still to
    still) would confirm the turn's shape and timing.
 5. **Arrows lodging** (gap 8): built on every platform top (soft ones too) and every solid face, at 9 degrees or steeper; a shallower
    arrow vanishes. Footage of a full-charge arrow skimming the stage would settle the shallow case.
-6. **E4** (phase 3): the shape above (an item pool, `ItemSpec`, universal pick-up / throw / drop actions for every fighter, a schema
-   bump). Build it this way?
+6. **E4** (phase 3): answered by owner decision 64 (built as planned, sim 111).
+7. **Items, the unpublished parts** (phase 3): the pick-up's length (8 frames) and input (an attack that is not a smash input, or grab),
+   the reach used for every body (the wanderer's), aerial throws on the grounded frames, the bomb bursting at 0 hp, and the thrown hit
+   ending on landing are [E]. Footage of the reference's item pick-up and of a bomb taking 50% would settle them.

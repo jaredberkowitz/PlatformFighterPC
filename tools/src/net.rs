@@ -272,6 +272,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
     let mut stalls = 0u64;
     let mut bad = 0;
     let mut per_class = vec![0u64; content.weapons.len()];
+    let mut items = crate::ItemTally::default();
     for seed in 0..runs {
         if only.is_some_and(|o| o != seed) {
             continue;
@@ -295,6 +296,10 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         let builtins = content.fighters.len().clamp(1, 256) as u32;
         setup.chars[0] = pick.range(builtins) as u8;
         setup.chars[1] = pick.range(builtins) as u8;
+        // Every fourth run the host plays the first body that makes items (E4), so items cross the network.
+        if let (0, Some(b)) = (seed % 4, crate::item_body(&content)) {
+            setup.chars[0] = b;
+        }
         let specs = (seed % 2 == 1).then(|| {
             (
                 crate::random_spec(&mut pick, &content),
@@ -378,6 +383,7 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             })
             .collect();
         let truth = reference_checksums(&truth_content, &initial, &truth_inputs);
+        items.add(crate::tally_items(&truth_content, &initial, &truth_inputs));
         let mut problem = None;
         for (name, peer) in [("host", &mut a), ("joiner", &mut b)] {
             if peer.session().is_none() {
@@ -471,7 +477,8 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         }
     }
     println!(
-        "{runs} runs, {bad} mismatches ({rollbacks} rollbacks, {stalls} stalls); fighters per class {per_class:?}"
+        "{runs} runs, {bad} mismatches ({rollbacks} rollbacks, {stalls} stalls); fighters per class {per_class:?}; items: {} made, {} picked up, {} thrown or dropped, {} burst",
+        items.made, items.picked, items.thrown, items.bursts
     );
     if bad == 0 {
         Ok(())

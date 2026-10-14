@@ -1,12 +1,17 @@
 // Buckler neutral special (the bow). Move frames 0-14 (the reference's 1-15) draw it; from move frame 15 (its 16) it holds while
 // special is held. On the first frame special is up, or after 180 held frames, the charge is the frames held, the arrow leaves 0.8
 // ahead and 1.2 up [E], 2.5 degrees above forward at the uncharged speed (2.6 / 8: the shot's spawn scales it by the charge, E35),
-// and the move goes on as the release (32 = ext4, which keeps the charge).
+// and the move goes on as the release (32 = ext4, which keeps the charge). With an arrow in hand (`holding` 3, the arrow item's kind:
+// E4) it is the double arrow instead (37 = ext9, which fires the arrow in hand three frames later).
 if frame >= 15 {
     let c = frame - 15;
     if special == 0 || c >= 180 {
         set_charge(c);
         spawn(0.8, 1.2, 0.325 * cos(2.5), 0.325 * sin(2.5));
-        goto(32);
+        if holding == 3 {
+            goto(37);
+        } else {
+            goto(32);
+        }
     }
 }

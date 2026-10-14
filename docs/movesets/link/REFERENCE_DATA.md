@@ -368,6 +368,18 @@ charging).
 The bomb is an **item**, not a projectile, for its whole life (pulled, held, thrown, lying on the stage, knocked about, picked up), and
 only its explosion is an attack.
 
+### The universal item rules (built in sim 111, E4) [R unless marked]
+
+| Rule | Value | Source / label |
+| --- | --- | --- |
+| Inputs | items are thrown by tilting the stick and pressing grab (or attack, for throwable items); a flick makes a smash throw; out of a dash the dash throw; grab with no direction on the ground is the drop (lightly tossed behind, 100 degrees), in the air the aerial drop (straight down, no ending lag); smash throws can be made in the air | ssbwiki.com `Item_throw` [R]; attack or grab out of a shield throws ("shield and attack") [R reading] |
+| Toss strength | `1 + (weight - 100) / 300` (the wanderer 1.01333) | ssbwiki.com `Item_throw` [R] |
+| Throw speeds (light item) | forward / back 2.6 (smash 3.64) at 17 (11); up 3.1 (4.1); down 3.3 (4.62); dash 3.4 at 12; drop 2.1 at 100 | ssbwiki.com `Item_throw` [R] |
+| Item damage | `d - 0.4 + speed x k` (the arrow's k 0.8, the bomb's 0); a grounded drop halves the base | ssbwiki.com `Item_throw` [R]; the items' x0.8 knockback is **not modelled** |
+| Totals (13.0.1) | 24 forward and back, 23 up and the grounded drop, 19 down, 29 the dash throw, every character alike | ssbwiki.com `Item_throw` [R] (conflict 9) |
+| Release frames by body | the reference characters behind the duelist 10 / 14 / 15 / 8 / 6 / 7, the brawler, tumbler, sprinter and champion 8 / 11 / 12 / 7 / 5 / 6, the rogue 8 / 11 / 11 / 8 / 6 / 6 (grounded; air up 12, down 7), the seer 7 / 9 / 11 / 6 / 4 / 5, the hauler 10 / 14 / 15 / 8 / 6 / 7, the bounder 8 / 7 / 8 / 7 / 7 / 6 (grounded down; air 8), the wanderer 7 / 9 / 11 / 6 / 4 / 5 (forward, back, up, down, dash, drop) | ssbwiki.com `Item_throw` table [R]; aerial differences not modelled [E] |
+| Pick-up | not published (gap 14): 8 frames, in hand at once, by grab or an attack that is not a smash input, the wanderer's reach for every body | [E] |
+
 ### Spin Attack (up special) [R]
 
 The kit's iconic move: two different moves on the ground and in the air (owner decision 2: match the reference).
@@ -470,9 +482,10 @@ no longer use set weight, and the spin's autolink knockback is reduced (it used 
    it; whether lodged arrows can be picked up in the air.
 9. **The Sword Beam's falloff**: whether its damage changes over its flight (none is listed).
 10. **The bomb's pull and detonation in the air**: air physics during the two moves.
-11. **The bomb at 0 HP**: whether a bomb whose 50 HP is used up explodes or breaks.
+11. **The bomb at 0 HP**: whether a bomb whose 50 HP is used up explodes or breaks. Built (sim 111): it explodes [E].
 12. **`hitbits=No floor`** on the thrown bomb: its meaning (presumably it does not hit floor-type objects; no effect on fighters [E]).
+    Built (sim 111) as no effect.
 13. **The double arrow's lodging**: why the first lodges for 120 and the second for 30 frames (both published; only the reason is
     missing).
 14. **The item pick-up rules** (attack near an item on the ground, catching an item in the air): universal rules, not this
-    character's; needed when E4 is built.
+    character's. Built (sim 111) as [E]: 8 frames, in hand at once, grab or a non-smash attack on the ground; no aerial catch.

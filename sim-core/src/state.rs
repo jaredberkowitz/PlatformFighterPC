@@ -21,6 +21,8 @@ pub const PLAYING: i8 = -1;
 pub const DRAW: i8 = -2;
 /// Fixed capacity of the projectile pool.
 pub const MAX_PROJECTILES: usize = 16;
+/// Fixed capacity of the item pool (E4, sim 111).
+pub const MAX_ITEMS: usize = 8;
 /// `Fighter::link_kind`: the autolink (angle 367).
 pub const LINK_AUTOLINK: u8 = 0;
 /// `Fighter::link_kind`: the vortex (angle 366, E28).
@@ -88,6 +90,12 @@ pub enum FighterState {
     /// Shut in an egg (E8, sim 107: see `moves::Encase`): no action until `Fighter::encase_timer` runs out (mashing shortens it, hits
     /// shorten it); it falls, lands and is hit as an egg, then breaks out into the air.
     Encased,
+    /// Picking an item up from the ground (E4, sim 111): no action for the ruleset's `item_pick_frames`; the item is in hand from the
+    /// first.
+    ItemPickup,
+    /// Throwing or dropping the item in hand (E4): `Fighter::item_throw` says which throw; the item leaves on the body's release frame
+    /// for it and the action ends on the ruleset's total for it, on the ground or in the air.
+    ItemThrow,
 }
 
 impl StateHash for FighterState {
@@ -318,6 +326,15 @@ pub struct Fighter {
     /// Which body laid the egg (an index into `Content::fighters`) and with which move: where its `moves::Encase` numbers are read.
     pub encase_char: u8,
     pub encase_move: u8,
+    /// The item slot in this fighter's hand (E4, sim 111: `GameState::items`), or [`NONE`]. Kept equal to the item's `holder`.
+    pub holding: i8,
+    /// What the fighter asks the item system to do this frame (`ORDER_*` bits, set during its update and served after the hits, in
+    /// `items::update`); 0 for nothing.
+    pub item_order: u8,
+    /// The weapon item an `ORDER_PULL` makes (`Move::pull`'s index).
+    pub item_spec: u8,
+    /// The item throw being made (`THROW_*`, in `FighterState::ItemThrow`), with `THROW_SMASH` for a smash throw.
+    pub item_throw: u8,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -371,6 +388,88 @@ pub struct Projectile {
     /// [`REST_FLYING`], [`REST_LODGED`] (stuck in a surface: `ProjectileArc::lodge`) or [`REST_FALLEN`] (knocked down by a clank:
     /// `Tool::on_clank`). Lodged or fallen, it neither hits nor is steered by its script; its age counts from then.
     pub rest: u8,
+}
+
+/// An item (E4, sim 111; see `moves::ItemSpec`): held, thrown, lying, stuck or bursting. Slots are reused; `active` marks a live one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Item {
+    pub active: bool,
+    /// The fighter whose weapon holds its numbers (`Weapon::items[spec]`): who made it, credited for its burst.
+    pub origin: u8,
+    /// The body of its maker (an index into `Content::fighters`) and its index in that body's weapon's `items`.
+    pub maker: u8,
+    pub spec: u8,
+    /// Its `ItemSpec::kind`, copied when it was made (what `holding` and `owned` read).
+    pub kind: u8,
+    /// Who its thrown hit is credited to (the last fighter to throw it, or its maker).
+    pub owner: u8,
+    /// The fighter holding it, or [`NONE`].
+    pub holder: i8,
+    /// `ITEM_HELD`, `ITEM_THROWN`, `ITEM_FREE`, `ITEM_LODGED` or `ITEM_BLAST`.
+    pub rest: u8,
+    /// The move that made it (its burst's stale-move key).
+    pub move_id: u8,
+    /// The middle of its bottom edge.
+    pub pos: Vec2,
+    pub vel: Vec2,
+    /// The platform it lies on, or [`NONE`].
+    pub platform: i8,
+    /// Frames since it was made, and its life (0: no end); a burst counts its own frames in `age` against its `frames`.
+    pub age: u16,
+    pub life: u16,
+    /// Frames since it was thrown (its `thrown_life`).
+    pub flight: u16,
+    /// Hit points left (`ItemSpec::hp`).
+    pub hp: Fx,
+    /// The damage its thrown hit deals (set by the throw).
+    pub damage: Fx,
+    /// Frames until a commanded burst (`detonate()`), 0 for none.
+    pub fuse: u8,
+    /// Frozen by a hit it took.
+    pub hitlag: u8,
+    /// Bit per fighter its thrown hit or burst has hit.
+    pub hit_mask: u8,
+    /// For each fighter, the move (`move id + 1`) that last knocked it about (one knock a move; cleared once that fighter is not
+    /// attacking).
+    pub struck: [u8; MAX_FIGHTERS],
+    /// -1 or 1: the way its thrower faced (forward for its hit).
+    pub facing: i8,
+}
+
+/// `Item::rest` values.
+pub const ITEM_HELD: u8 = 0;
+pub const ITEM_THROWN: u8 = 1;
+pub const ITEM_FREE: u8 = 2;
+pub const ITEM_LODGED: u8 = 3;
+pub const ITEM_BLAST: u8 = 4;
+
+impl StateHash for Item {
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_bool(self.active);
+        h.write_u8(self.origin);
+        h.write_u8(self.maker);
+        h.write_u8(self.spec);
+        h.write_u8(self.kind);
+        h.write_u8(self.owner);
+        h.write_i8(self.holder);
+        h.write_u8(self.rest);
+        h.write_u8(self.move_id);
+        self.pos.hash_into(h);
+        self.vel.hash_into(h);
+        h.write_i8(self.platform);
+        h.write_u16(self.age);
+        h.write_u16(self.life);
+        h.write_u16(self.flight);
+        self.hp.hash_into(h);
+        self.damage.hash_into(h);
+        h.write_u8(self.fuse);
+        h.write_u8(self.hitlag);
+        h.write_u8(self.hit_mask);
+        for s in &self.struck {
+            h.write_u8(*s);
+        }
+        h.write_i8(self.facing);
+    }
 }
 
 /// `Projectile::rest` values.
@@ -454,6 +553,8 @@ pub struct GameState {
     /// Which fighter holds each ledge, or [`NONE`].
     pub ledge_owner: [i8; MAX_LEDGES],
     pub projectiles: [Projectile; MAX_PROJECTILES],
+    /// The item pool (E4, sim 111).
+    pub items: [Item; MAX_ITEMS],
     pub script_vars: [i32; MAX_SCRIPT_VARS],
 }
 
@@ -576,6 +677,10 @@ impl Fighter {
             encase_age: 0,
             encase_char: 0,
             encase_move: 0,
+            holding: NONE,
+            item_order: 0,
+            item_spec: 0,
+            item_throw: 0,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -644,6 +749,7 @@ impl GameState {
             fighters,
             ledge_owner: [NONE; MAX_LEDGES],
             projectiles: [Projectile::default(); MAX_PROJECTILES],
+            items: [Item::default(); MAX_ITEMS],
             script_vars: [0; MAX_SCRIPT_VARS],
         }
     }
@@ -765,6 +871,10 @@ impl StateHash for Fighter {
         self.spawn2_vel.hash_into(h);
         h.write_u8(self.late_next);
         h.write_u8(self.late_left);
+        h.write_i8(self.holding);
+        h.write_u8(self.item_order);
+        h.write_u8(self.item_spec);
+        h.write_u8(self.item_throw);
         self.gauge.hash_into(h);
         h.write_u16(self.gauge_mode);
         h.write_bool(self.gauge_drain);
@@ -794,6 +904,9 @@ impl StateHash for GameState {
         }
         for p in &self.projectiles {
             p.hash_into(h);
+        }
+        for it in &self.items {
+            it.hash_into(h);
         }
         for v in &self.script_vars {
             h.write_i32(*v);
@@ -1523,6 +1636,146 @@ mod tests {
             ("projectile_pos", {
                 let mut s = state;
                 s.projectiles[0].pos.x = Fx::from_raw(1);
+                s
+            }),
+            ("holding", {
+                let mut s = state;
+                s.fighters[1].holding = 2;
+                s
+            }),
+            ("item_order", {
+                let mut s = state;
+                s.fighters[2].item_order = 1;
+                s
+            }),
+            ("item_spec", {
+                let mut s = state;
+                s.fighters[3].item_spec = 1;
+                s
+            }),
+            ("item_throw", {
+                let mut s = state;
+                s.fighters[0].item_throw = 3;
+                s
+            }),
+            ("state item_pickup", {
+                let mut s = state;
+                s.fighters[1].state = FighterState::ItemPickup;
+                s
+            }),
+            ("state item_throw", {
+                let mut s = state;
+                s.fighters[1].state = FighterState::ItemThrow;
+                s
+            }),
+            ("item", {
+                let mut s = state;
+                s.items[MAX_ITEMS - 1].active = true;
+                s
+            }),
+            ("item_origin", {
+                let mut s = state;
+                s.items[0].origin = 1;
+                s
+            }),
+            ("item_maker", {
+                let mut s = state;
+                s.items[0].maker = 9;
+                s
+            }),
+            ("item_spec_index", {
+                let mut s = state;
+                s.items[0].spec = 1;
+                s
+            }),
+            ("item_kind", {
+                let mut s = state;
+                s.items[0].kind = 2;
+                s
+            }),
+            ("item_owner", {
+                let mut s = state;
+                s.items[1].owner = 3;
+                s
+            }),
+            ("item_holder", {
+                let mut s = state;
+                s.items[1].holder = NONE;
+                s
+            }),
+            ("item_rest", {
+                let mut s = state;
+                s.items[1].rest = ITEM_LODGED;
+                s
+            }),
+            ("item_move_id", {
+                let mut s = state;
+                s.items[2].move_id = 16;
+                s
+            }),
+            ("item_pos", {
+                let mut s = state;
+                s.items[2].pos.x = Fx::from_raw(1);
+                s
+            }),
+            ("item_vel", {
+                let mut s = state;
+                s.items[2].vel.y = Fx::from_raw(-1);
+                s
+            }),
+            ("item_platform", {
+                let mut s = state;
+                s.items[3].platform = NONE;
+                s
+            }),
+            ("item_age", {
+                let mut s = state;
+                s.items[3].age = 1;
+                s
+            }),
+            ("item_life", {
+                let mut s = state;
+                s.items[3].life = 1800;
+                s
+            }),
+            ("item_flight", {
+                let mut s = state;
+                s.items[4].flight = 1;
+                s
+            }),
+            ("item_hp", {
+                let mut s = state;
+                s.items[4].hp = Fx::from_int(50);
+                s
+            }),
+            ("item_damage", {
+                let mut s = state;
+                s.items[4].damage = Fx::ONE;
+                s
+            }),
+            ("item_fuse", {
+                let mut s = state;
+                s.items[5].fuse = 12;
+                s
+            }),
+            ("item_hitlag", {
+                let mut s = state;
+                s.items[5].hitlag = 1;
+                s
+            }),
+            ("item_hit_mask", {
+                let mut s = state;
+                s.items[5].hit_mask = 1;
+                s
+            }),
+            ("item_struck", {
+                let mut s = state;
+                s.items[6].struck[MAX_FIGHTERS - 1] = 1;
+                s
+            }),
+            ("item_facing", {
+                let mut s = state;
+                s.items[6].facing = -1;
                 s
             }),
             ("history", {

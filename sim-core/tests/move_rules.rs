@@ -491,6 +491,7 @@ fn the_tool_fields_are_in_the_content_hash() {
                 size_from: 100,
                 size_to: 100,
                 floor: false,
+                times: 100,
             })
         },
     ] {
@@ -634,4 +635,105 @@ fn the_egg_is_in_the_content_hash() {
     let mut c = base.clone();
     c.weapons[w].moves[lay].encase = None;
     assert_ne!(h, c.hash(), "the block");
+}
+
+#[test]
+fn the_item_fields_are_in_the_content_hash() {
+    // Sim 111 (E4): every number of an item, its blast, a move's pull and spend, a shot's lodge item and charged share, a body's item
+    // throws and the ruleset's item rules change the hash.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[9].weapon);
+    assert!(!base.weapons[w].items.is_empty(), "the wanderer's items");
+    let changed = |edit: &dyn Fn(&mut sim_core::Content)| {
+        let mut c = base.clone();
+        edit(&mut c);
+        c.hash()
+    };
+    for k in 0..24 {
+        assert_ne!(
+            h,
+            changed(&|c| {
+                let mut it = c.weapons[w].items[0];
+                *it.fx_fields_mut()[k].1 += Fx::from_raw(1);
+                c.weapons[w].items[0] = it;
+            }),
+            "item value {k}"
+        );
+    }
+    for k in 0..9 {
+        assert_ne!(
+            h,
+            changed(&|c| {
+                let mut it = c.weapons[w].items[0];
+                *it.u8_fields_mut()[k].1 += 1;
+                c.weapons[w].items[0] = it;
+            }),
+            "item percent {k}"
+        );
+    }
+    type Edit = (&'static str, fn(&mut sim_core::Content, usize));
+    let edits: [Edit; 13] = [
+        ("kind", |c, w| c.weapons[w].items[0].kind += 1),
+        ("thrown_life", |c, w| c.weapons[w].items[0].thrown_life += 1),
+        ("vanish", |c, w| c.weapons[w].items[0].vanish ^= true),
+        ("life", |c, w| c.weapons[w].items[0].life += 1),
+        ("hit", |c, w| c.weapons[w].items[0].hit.base_knockback += 1),
+        ("blast", |c, w| c.weapons[w].items[0].blast = None),
+        ("blast delay", |c, w| {
+            if let Some(b) = c.weapons[w].items[0].blast.as_mut() {
+                b.delay += 1;
+            }
+        }),
+        ("blast hits_owner", |c, w| {
+            if let Some(b) = c.weapons[w].items[0].blast.as_mut() {
+                b.hits_owner ^= true;
+            }
+        }),
+        ("items", |c, w| c.weapons[w].items.truncate(1)),
+        ("pull", |c, w| {
+            c.weapons[w].moves[MoveId::DownSpecial as usize].pull = None
+        }),
+        ("spend_item", |c, w| {
+            c.weapons[w].moves[MoveId::Jab as usize].spend_item = 3;
+        }),
+        ("lodge_item", |c, w| {
+            if let Some(p) = c.weapons[w].moves[sim_core::moves::buckler_slots::BOW_FIRE as usize]
+                .projectile
+                .as_mut()
+            {
+                p.arc.lodge_item = None;
+            }
+        }),
+        ("times", |c, w| {
+            if let Some(ch) = c.weapons[w].moves[sim_core::moves::buckler_slots::BOW_FIRE as usize]
+                .projectile
+                .as_mut()
+                .and_then(|p| p.charged.as_mut())
+            {
+                ch.times = 90;
+            }
+        }),
+    ];
+    for (name, edit) in edits {
+        let mut c = base.clone();
+        edit(&mut c, w);
+        assert_ne!(h, c.hash(), "{name}");
+    }
+    let mut c = base.clone();
+    c.fighters[0].item_throws.drop += 1;
+    assert_ne!(h, c.hash(), "item_throws");
+    let rules: [fn(&mut sim_core::content::Ruleset); 6] = [
+        |r| r.item_pick_frames += 1,
+        |r| r.item_side_frames += 1,
+        |r| r.item_side_speed += Fx::from_raw(1),
+        |r| r.item_drop_angle += 1,
+        |r| r.item_reach_back += Fx::from_raw(1),
+        |r| r.item_hand_y += Fx::from_raw(1),
+    ];
+    for edit in rules {
+        let mut c = base.clone();
+        edit(&mut c.rules);
+        assert_ne!(h, c.hash(), "a ruleset item rule");
+    }
 }

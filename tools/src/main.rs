@@ -180,6 +180,72 @@ pub(crate) fn random_spec(rng: &mut Rng, content: &Content) -> sim_content::reci
     }
 }
 
+/// What items did in a run (E4), for the fuzzers' coverage line: made (pulled, or a lodged arrow), picked up, thrown or dropped, burst.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ItemTally {
+    pub made: u64,
+    pub picked: u64,
+    pub thrown: u64,
+    pub bursts: u64,
+}
+
+impl ItemTally {
+    pub(crate) fn add(&mut self, o: ItemTally) {
+        self.made += o.made;
+        self.picked += o.picked;
+        self.thrown += o.thrown;
+        self.bursts += o.bursts;
+    }
+}
+
+/// Counts what the items did over a single-machine run from `initial` with `inputs`.
+pub(crate) fn tally_items(
+    content: &Content,
+    initial: &GameState,
+    inputs: &[[sim_core::Input; sim_core::MAX_FIGHTERS]],
+) -> ItemTally {
+    use sim_core::state::{ITEM_BLAST, ITEM_FREE, ITEM_HELD, ITEM_LODGED, ITEM_THROWN};
+    let mut t = ItemTally::default();
+    let mut state = *initial;
+    for i in inputs {
+        let before = state.items;
+        step(&mut state, content, i);
+        for (a, b) in before.iter().zip(state.items.iter()) {
+            if !b.active {
+                continue;
+            }
+            if !a.active {
+                t.made += 1;
+                continue;
+            }
+            if b.rest == ITEM_HELD && (a.rest == ITEM_FREE || a.rest == ITEM_LODGED) {
+                t.picked += 1;
+            }
+            if a.rest == ITEM_HELD && b.rest == ITEM_THROWN {
+                t.thrown += 1;
+            }
+            if a.rest != ITEM_BLAST && b.rest == ITEM_BLAST {
+                t.bursts += 1;
+            }
+        }
+    }
+    t
+}
+
+/// The first body of `content` whose weapon makes items (the wanderer), if any.
+pub(crate) fn item_body(content: &Content) -> Option<u8> {
+    content
+        .fighters
+        .iter()
+        .position(|p| {
+            content
+                .weapons
+                .get(usize::from(p.weapon))
+                .is_some_and(|w| !w.items.is_empty())
+        })
+        .map(|i| i as u8)
+}
+
 /// The weapon (class) a fighter index of `content` plays, for the fuzzers' coverage line.
 pub(crate) fn class_of(content: &Content, char_id: u8) -> usize {
     let i = usize::from(char_id).min(content.fighters.len().saturating_sub(1));
@@ -202,13 +268,18 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
     let mut resimulated = 0u64;
     let mut longest = 0u32;
     let mut per_class = vec![0u64; base.weapons.len()];
+    let mut items = ItemTally::default();
     for seed in 0..runs {
         if only.is_some_and(|o| o != seed) {
             continue;
         }
         // Four fighters from the whole roster (every class, built-in or made from random stats), drawn from the run's seed.
         let mut pick = Rng::new(seed ^ 0x00c1_a55e);
-        let specs: Vec<_> = (0..4).map(|_| random_spec(&mut pick, &base)).collect();
+        let mut specs: Vec<_> = (0..4).map(|_| random_spec(&mut pick, &base)).collect();
+        // Every other run one fighter is the first body that makes items (E4: its bombs, its arrows), so items are played with.
+        if let (0, Some(b)) = (seed % 2, item_body(&base)) {
+            specs[(seed / 2 % 4) as usize] = sim_content::recipe::FighterSpec::Builtin(b);
+        }
         let (content, chars) = sim_content::recipe::match_content(&base, &specs, false)
             .map_err(|e| format!("seed {seed}: specs rejected: {e:?}"))?;
         let chars = [chars[0], chars[1], chars[2], chars[3]];
@@ -217,8 +288,24 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
                 *n += 1;
             }
         }
-        let initial = GameState::new(&content, seed, chars);
+        let mut initial = GameState::new(&content, seed, chars);
+        // Two items lying on the stage from the start (E4), credited to fighter 0, so pick-ups and throws happen in every run.
+        if let Some(b) = item_body(&content) {
+            let kinds = content.weapons[usize::from(content.fighters[usize::from(b)].weapon)]
+                .items
+                .len();
+            for (k, x) in [(0u8, -2), (1u8, 2)] {
+                let spec = k.min(kinds.saturating_sub(1) as u8);
+                let at = sim_core::Vec2::new(sim_core::Fx::from_int(x), sim_core::Fx::ZERO);
+                if let Some(n) = sim_core::items::make_as(&mut initial, &content, 0, b, spec, at, 0)
+                {
+                    initial.items[n].platform =
+                        sim_core::collision::standing_on(&content.stage, at);
+                }
+            }
+        }
         let inputs = random_inputs(&mut Rng::new(seed), 600);
+        items.add(tally_items(&content, &initial, &inputs));
         let max_delay = 1 + (seed % 10) as u32;
         let delays = random_delays(&mut Rng::new(seed ^ 0x5eed), inputs.len(), max_delay);
         let stats = verify(&content, &initial, &inputs, &delays)
@@ -228,7 +315,8 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         longest = longest.max(stats.longest_rollback);
     }
     println!(
-        "{runs} runs, 0 mismatches ({rollbacks} rollbacks, {resimulated} frames resimulated, longest {longest}); fighters per class {per_class:?}"
+        "{runs} runs, 0 mismatches ({rollbacks} rollbacks, {resimulated} frames resimulated, longest {longest}); fighters per class {per_class:?}; items: {} made, {} picked up, {} thrown or dropped, {} burst",
+        items.made, items.picked, items.thrown, items.bursts
     );
     Ok(())
 }

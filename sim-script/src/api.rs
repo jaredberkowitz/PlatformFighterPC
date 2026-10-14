@@ -100,6 +100,7 @@ pub const F_SPAWN_AT: u8 = 45;
 pub const F_LOCK: u8 = 46;
 pub const F_BOOST_ADD: u8 = 47;
 pub const F_SET_CHARGE: u8 = 50;
+pub const F_DETONATE: u8 = 51;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -138,6 +139,7 @@ pub const R_GRAB: u8 = 28;
 pub const R_AIM: u8 = 29;
 pub const R_FAST_FALL: u8 = 30;
 pub const R_OWNED: u8 = 31;
+pub const R_HOLDING: u8 = 32;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -256,7 +258,12 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
     reg(
         "owned",
         R_OWNED,
-        "how many of this move's projectiles (or tools of its kind) the fighter has out, as the frame began",
+        "how many of this move's projectiles (or tools of its kind) the fighter has out, and its items of that kind, as the frame began",
+    ),
+    reg(
+        "holding",
+        R_HOLDING,
+        "the kind of the item in the fighter's hand (its item's kind number), 0 for none, as the frame began",
     ),
 ];
 
@@ -321,7 +328,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 17] = [
+    const OWN: [Func; 18] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -414,8 +421,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "set_charge(n): set this move's charge to n frames (0 to 255), read back as charge; a move with charge_add deals more with it",
         ),
+        func(
+            "detonate",
+            F_DETONATE,
+            0,
+            "detonate(): every item the fighter made that can burst, and that no other fighter holds, bursts after its blast's delay",
+        ),
     ];
-    concat::<9, 17, 26>(MATH, OWN)
+    concat::<9, 18, 27>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{
