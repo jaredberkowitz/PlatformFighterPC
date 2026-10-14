@@ -2584,11 +2584,16 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := Materials.foliage(bush_greens[1])
-	var bush_light := Materials.foliage(bush_greens[3], Vector2(2, 1), false)
+	# (A clump of overlapping lobes in two greens, inked and lit like the crowns: a pale ball stuck on the front read as a flat sticker.)
+	var bush_light := Materials.foliage(bush_greens[2])
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
 		_mesh(root, _sphere(1.0, 16), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
-		_mesh(root, _sphere(0.55, 12), bush_light, Vector3(x - 0.3, top + 1.2, -5.6))
+		for j in 3:
+			var side := float(j - 1)
+			var lr := s * rng.randf_range(0.5, 0.65)
+			_mesh(root, _sphere(1.0, 12), bush_light if j != 1 else bush, Vector3(x + side * s * 0.75, top + 0.4 + lr * 0.6 + (0.35 * s if j == 1 else 0.0),
+				-6.2 + absf(side) * 0.2), Vector3(lr * 1.15, lr, lr))
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
@@ -3089,6 +3094,17 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var lo := Vector3(x, street, z - depth / 2.0)
 		var hi := Vector3(x + w, street + h, z + depth / 2.0)
 		_facade_box(st, lo, hi, seed, false, h)
+		# The roofline: a cornice lip a little proud all round, and on some taller buildings a narrower setback storey or two above it,
+		# so the skyline's silhouette steps instead of being a row of plain boxes. (Its own random numbers, so the layout is unchanged.)
+		var shape := RandomNumberGenerator.new()
+		shape.seed = hash(Vector2i(roundi(x * 10.0), layer))
+		_facade_box(st, Vector3(lo.x - 0.25, hi.y - 0.35, lo.z - 0.25), Vector3(hi.x + 0.25, hi.y + 0.1, hi.z + 0.25), seed, true, 0.45)
+		var set_top := hi.y + 0.1
+		if h > 16.0 and layer < 2 and shape.randf() < 0.5:
+			var inset := w * shape.randf_range(0.18, 0.3)
+			var sh := shape.randf_range(2.6, 5.5)
+			_facade_box(st, Vector3(lo.x + inset, set_top, lo.z + 0.6), Vector3(hi.x - inset, set_top + sh, hi.z - 0.6), seed, false, sh)
+			_facade_box(st, Vector3(lo.x + inset - 0.2, set_top + sh - 0.3, lo.z + 0.4), Vector3(hi.x - inset + 0.2, set_top + sh + 0.1, hi.z - 0.4), seed, true, 0.4)
 		if layer < 2 and signs.randf() < 0.34:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
 			var front := hi.z + 0.08
