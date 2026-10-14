@@ -247,6 +247,12 @@ Extensions are named E1 to E20 here and described once, in "Infrastructure" belo
   time, failed throw, smash-input version, catch, clank fall; its flight as a projectile script) and the sword wave (E35 with drag, E38's
   lying capsule). Tests `sim-core/tests/buckler_specials.rs` (20). The bomb is the claws' placeholder until phase 3 (E4 items). Report
   and the phase-3 plan: `docs/movesets/link/IMPLEMENTATION_REPORT.md`.
+  **Phase 3 built (sim 111, content schema 7, branch `buckler-phase3`, owner decision 64)**: **E4 items** for every fighter (a hashed
+  item pool, `ItemSpec` per weapon item, the universal pick-up, throws, smash throws, dash throw, drops and aerial throws, each body's
+  release frames, the `holding` register and `detonate()`), the **bomb** (pull, 1800-frame fuse, detonation 12 frames after the press,
+  self damage, 50 hp, bounces, anyone can pick it up), **lodged arrows as items** and the **double arrow**; the passive shield off while
+  holding. Tests `sim-core/tests/items.rs` (23). Every move of the kit is now built; the iconic-move re-check in the hitbox view is
+  next.
 * **Kit mechanics**: **Hylian Shield** (standing, walking or crouching, it blocks any projectile from the front with a small push; shield
   SDI since 4.0.0); Hero's Bow (charges to frame 52, arrow speed, range and damage 4 to 12 by charge, fires by itself at full after three
   seconds; arrows lodge in the ground or walls for 3 seconds and **can be picked up and thrown as items by anyone**, or fired as a double
@@ -288,10 +294,10 @@ architectural changes (E4, E7, E9, E13, E17) are explained to the owner before t
 | E3a | Multi-hit / piercing projectiles (**built, sim 76**: `ProjectileSpawn::pierce`, `rehit`, eight phases; hashed `Projectile::hit_mask`, `hit_age`, `facing`) | a per-projectile hit memory (who it hit, like `hit_mask`), a rehit interval and a final-hit phase, and a flag for "survives a hit" | Cloud, Palutena, Link, Mario |
 | E3b | Projectile ground contact | per-spec ground behaviour: bounce (with restitution and a count: built sim 60), stop and lie (**lodge: built sim 102**, `ProjectileArc::lodge` / `lodge_angle`, hashed `Projectile::rest`), or die | Mario, Yoshi, Link |
 | E3c | Transcendent priority / no-clank hits | **built (sim 70)**: `Hitbox::clanks` (false: never clanks with attacks or projectiles), also read for projectiles | Cloud; Gauntlets (punch, uppercut), Staff (sim 73) |
-| E3d | Projectile lifecycle | **first part built (sim 102)**: `ProjectileSpawn::tool` (kind and per-owner `limit`, the `owned` register, the owner's catch from an age with its catch move, `on_clank` fall), `Move::smash_version`. **Left for phase 3**: `life` past 255 frames, `detonate()`, self damage (`hits_owner`; a reflected shot already hits its thrower) | Link |
+| E3d | Projectile lifecycle | **built (sims 102 and 111)**: `ProjectileSpawn::tool` (kind and per-owner `limit`, the `owned` register, the owner's catch from an age with its catch move, `on_clank` fall), `Move::smash_version`; the bomb's long fuse, `detonate()` and self damage (`ItemBlast::hits_owner`) are on the item (E4, sim 111) | Link |
 | E35 | Charge-scaled shots | **built (sim 102)**: `ProjectileSpawn::charged` (damage, speed, life, size by the firing charge, snap, floor), hashed `Projectile::damage`, `ProjectileArc::drag` | Link (the arrows, the sword wave) |
 | E38 | Lying capsules | **built (sim 102)**: `Hitbox::half_width`, `combat::shapes_touch` (rounded rectangles) | Link (the sword wave) |
-| E4 | Held items | a small item pool in `GameState`: pick up, hold, throw (directions and smash throws), drop, catch, usable by any fighter. Only if the owner wants Link's bombs and arrows 1:1 | Link |
+| E4 | Held items (**built, sim 111, schema 7**, owner decision 64: `GameState::items`, `Fighter::holding`, `moves::ItemSpec` on `Weapon::items`, `Move::pull` / `spend_item`, `ProjectileArc::lodge_item`, `FighterParams::item_throws`, the ruleset's `item_*`, `sim-core/src/items.rs`, the `holding` register and `detonate()`) | a small item pool in `GameState`: pick up, hold, throw (directions and smash throws), drop, usable by any fighter; catching a thrown item in the air is not built | Link |
 | E5 | Bury | a victim state: stuck in the ground for a time from percent, mash to escape, any hit pops it out with the reference's rules | DK |
 | E6 | Command grabs (**built, sim 69**: `Hitbox::command`, `grab::catchable`, `Move::catch_move`, `Move::hold_at`) | a grab hitbox that can catch airborne (and, if the reference allows, shielding) targets, holds the victim at a move-defined point instead of the global `grab_distance`, and hands to the move's own sequence (`ext` slots) instead of `Grabbing` | Falcon, Yoshi |
 | E7 | Carry | the holder walks, jumps and falls with the held fighter (cargo), with its own speed multipliers, throw slots and the victim's mash escape; walking off stage takes the victim along | DK |
@@ -456,6 +462,14 @@ Owner defaults for the Link phase-1 questions (recorded at sim 96):
     up, the strong button with the stick up, or the attack stick up) the up smash. Built in sim 96 with the shield version (E37); a press
     made with the jump itself stays the short-hop aerial (the house's short-hop input), and attack with the stick merely held up stays
     the short-hop up air.
+64. **Items (E4), 2026-10-14**: approved exactly as planned in `docs/movesets/link/IMPLEMENTATION_REPORT.md` ("Phase 3 plan"): a
+    hashed item pool and `Fighter::holding`; an `ItemSpec` per item kind in content (physics, bounces, pick-up box, throw-speed
+    multiplier, the thrown hit and its damage formula, shield behaviour, fuse / life and hp) with a schema bump and migration; the
+    universal actions for every fighter on the 13.0.1 rules (pick up; throws in four directions, smash throws and a dash throw, released
+    on the body's frames, the wanderer's 7 / 9 / 11 / 6 / 4 / 5, totals 24 / 24 / 23 / 19 / 29 / 23; drops); inputs unchanged for a
+    fighter holding nothing; the `holding` register and `detonate()`; read-only bridge accessors. The bomb (1800-frame fuse, detonation
+    on command and its 12 frames, self damage, 50 hp, bounces, no pull while holding an item) and the arrows (a lodged arrow is an item;
+    holding one the bow fires the double arrow; the passive shield off while holding). Built in sim 111 (schema 7).
 63. **Down special on a soft platform, for everyone** (sim 100): as in the reference, a quick down then special on a pass-through
     platform is the grounded down special, not a drop then an aerial special. A down flick keeps the fighter on the platform for
     `Ruleset::platform_drop_frames` (2) before it falls. The 2 frames are derived from the published drop-cancel notes on ssbwiki:
