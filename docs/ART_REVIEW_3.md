@@ -35,8 +35,8 @@ The combined order, to bridge the style across backgrounds, foreground, UI, figh
 2. Done: **the ocean**: painted wave crests with troughs (fading with distance), crisper streaks, lighter shallows.
 3. **The beach's assets**: the islands are done (pass 60); the palm crowns, lighthouse and boat are modelled props, so they wait for the props pass (a foliage material on the fronds was tried: no visible change).
 4. ~~Foreground framing~~: tried, dropped (see weak point 4).
-5. **Effects consistency**: dust, landing, dash and launch effects in the painted, inked standard (the trails and bursts are done); a
-   short effect style guide.
+5. **Effects consistency**: rings (jump, shockwave, shield hits) now carry the standard's fine ink edges (`Ring.inked`,
+   `review3_rings.png`); dust and smoke were already painted puffs. Next: a short effect style guide.
 6. **UI**: a written design system (type, spacing, panels, states, player colours), the in-match tags (weak point 5), the HUD hierarchy.
 7. **The blue KO blast's contrast** (weak point 6).
 8. Regression: performance, aspect ratios, controller navigation, every stage.

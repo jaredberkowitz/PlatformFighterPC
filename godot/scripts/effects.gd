@@ -24,6 +24,7 @@ class Ring extends MeshInstance3D:
 	var to := 1.6
 	var thickness := 0.25
 	var colour := Color.WHITE
+	var inked := true
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
@@ -41,18 +42,27 @@ class Ring extends MeshInstance3D:
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		var c := Color(colour.r, colour.g, colour.b, colour.a * (1.0 - t * t))
+		var fade := colour.a * (1.0 - t * t)
+		var c := Color(colour.r, colour.g, colour.b, fade)
+		# Painted as the other effects are: a thin ink line along the outer and inner edges with the colour between (`inked`), side by side
+		# so a see-through ring does not show ink through its colour.
+		var ink_w := minf(0.04 + w * 0.12, w * 0.3) if inked else 0.0
+		var ink := Color(INK, fade)
+		var bands := [[r + ink_w, r, ink], [r, maxf(r - w, 0.0), c], [maxf(r - w, 0.0), maxf(r - w - ink_w, 0.0), ink]] if inked else [[r, maxf(r - w, 0.0), c]]
 		var n := 40
-		for k in n:
-			var a0 := TAU * k / n
-			var a1 := TAU * (k + 1) / n
-			var o0 := Vector3(cos(a0), sin(a0), 0) * r
-			var o1 := Vector3(cos(a1), sin(a1), 0) * r
-			var i0 := Vector3(cos(a0), sin(a0), 0) * maxf(r - w, 0.0)
-			var i1 := Vector3(cos(a1), sin(a1), 0) * maxf(r - w, 0.0)
-			for v in [o0, o1, i1, o0, i1, i0]:
-				im.surface_set_color(c)
-				im.surface_add_vertex(v)
+		for band in bands:
+			var ro: float = band[0]
+			var ri: float = band[1]
+			if ro - ri < 0.001:
+				continue
+			for k in n:
+				var a0 := TAU * k / n
+				var a1 := TAU * (k + 1) / n
+				var d0 := Vector3(cos(a0), sin(a0), 0)
+				var d1 := Vector3(cos(a1), sin(a1), 0)
+				for v in [d0 * ro, d1 * ro, d1 * ri, d0 * ro, d1 * ri, d0 * ri]:
+					im.surface_set_color(band[2])
+					im.surface_add_vertex(v)
 		im.surface_end()
 
 
