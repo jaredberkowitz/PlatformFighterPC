@@ -303,6 +303,22 @@ class Board extends Control:
 					pts.append(c + (q as Vector2) * r)
 				pts.append(pts[0])
 				draw_polyline(pts, color, width * (1.0 if shape == FLAME_OUTER else 0.7), true)
+		elif cls == 8:
+			# Clutch: an egg with a zigzag crack across it.
+			var egg := PackedVector2Array()
+			for t in 25:
+				var u := TAU * float(t) / 24.0
+				egg.append(c + Vector2(cos(u) * r * 0.62, sin(u) * r * (0.82 if sin(u) < 0.0 else 0.7) + r * 0.08))
+			draw_polyline(egg, color, width, true)
+			draw_polyline(PackedVector2Array([c + Vector2(-0.6, 0.0) * r, c + Vector2(-0.3, -0.2) * r, c + Vector2(0.0, 0.05) * r,
+				c + Vector2(0.3, -0.2) * r, c + Vector2(0.6, 0.0) * r]), color, width * 0.8, true)
+		elif cls == 9:
+			# Buckler: a round shield with a boss and a rim, a sword behind it on the diagonal.
+			draw_line(c + Vector2(-0.85, 0.85) * r, c + Vector2(0.85, -0.85) * r, color, width * 0.8, true)
+			draw_circle(c, r * 0.62, Color(color, 0.0))
+			draw_arc(c, r * 0.6, 0, TAU, 28, color, width, true)
+			draw_arc(c, r * 0.4, 0, TAU, 22, color, width * 0.6, true)
+			draw_circle(c, r * 0.14, color)
 		elif cls == 7:
 			# Bracers: a big fist seen from the front, four knuckles over a thumb, with a band round the wrist.
 			for k in 4:
