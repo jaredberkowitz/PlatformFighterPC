@@ -146,3 +146,22 @@ Each step: a matched before/after, a check in motion, the tests and the look ben
   the look bench 0.87.
 - **Still to do here** (the owner: "all of them need work"): each class its own stance where its moveset calls for one (a low, wide
   stance for the heavy fighters, a light bounce for the quick ones), the walk and the jump re-posed for the body, then the Phantom.
+
+### Step 4b follow-up: arms that bend as one piece (the owner: "disjointed", "bend unnaturally and break")
+
+Posed geometry rendered straight from Blender (grey, no outline or shading to hide behind), `review5_arm_skinning.png`
+(top: the guard's elbow before | after; bottom: a run frame's back-swinging arm before | after):
+- **Spikes under the elbow**: pass 70 kept the arm's pull off the trunk by x alone (inside the shoulder joint = trunk), so the inside of
+  the upper arm counted as trunk, stayed behind when the arm moved, and crumpled into spikes in any bend. Now a point within the arm's
+  radius of the shoulder-to-wrist line is the arm's (`near_arm`), wherever it is.
+- **The shoulder pivot** sat halfway down the upper arm (the base body's armpit is low): raised to the top of the arm
+  (`fit_body.py --shoulder-lift 0.11`), so the arm swings from the shoulder and the elbow bends at the modelled elbow.
+- **The armpit** blends by distance from the arm (`ARM_BLEND`, `ARM_BLEND_FADE`): a back swing pulled a sheet of skin from the
+  torso's side; now the stretch spreads over a hand's width.
+- **The guard** re-posed: elbows down and out to the side, about a right-angle bend (pointed forward, the upper arm vanished
+  toward the camera and the fist looked stuck to the shoulder).
+- Tried and dropped: a crease outline mask, a wider elbow weight blend (no effect on the spikes), and a denser body mesh (13,000
+  triangles: it showed lumps in the base surface itself, not smoother bends).
+- Still visible up close: soft folds on the upper chest beside the neck when the arms are raised, and the base surface's slight
+  unevenness. Next: a reference study of limb shape and extension (the owner asked for the reference fighters' and PEAK's
+  body composition, limb bending and extension in swings and kicks).
