@@ -124,6 +124,20 @@ read well; the faces, wardrobe and moves depend on them, so they stay. Hands are
 - **Images**: `docs/screenshots/polish5_islands.png`, `polish5_grove_lip.png` (before left).
 - **Checks run**: the meadow and the grove at 1080p, match flow test.
 
+### Pass 57: background hierarchy (phase 7)
+
+Every stage checked in greyscale at play distance.
+
+- **The value hierarchy was off in every match** (found here): `Lighting.style()` merged a stage's profile over the default one key at a
+  time, so a stage with its own `finish` (all five do) replaced the whole finish and lost the default's `quiet` (pass 50's quieter
+  stage) and its vignette. The finish now merges value by value. With it on, the fighters are the brightest, crispest thing on every
+  stage and each stage keeps its mood.
+- **The city's skyline** was a field of bright windows right behind the fighters. Lit windows are fewer on the near layers
+  (`FACADE_LIT_SHARE` 0.24, 0.28, 0.36 from 0.42) and a little dimmer (`FACADE_LIT` 2.4, 1.9, 1.5 from 3.0, 2.3, 1.7).
+- **The canyon**: its centre butte matched the stage top in value. With the hierarchy back on it settles back, so nothing else changed.
+- **Images**: `docs/screenshots/polish6_value_hierarchy.png` (meadow, beach, city; before left).
+- **Checks run**: all five stages before and after; the look bench; match flow.
+
 ### Performance after passes 52 to 56 and character pass 1
 
 The KO demo at 1280x720, warm cache: GPU 1.89 ms against 1.66 to 1.71 ms before (soft shadows, lathe props, the earth tile), about 255

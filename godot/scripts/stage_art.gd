@@ -2957,7 +2957,10 @@ static func _roof_mark_textures() -> Array:
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 ## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms softly, the others do not
 ## (emissive, not bloomed: the background should not outshine the fighters).
-const FACADE_LIT := [3.0, 2.3, 1.7]
+const FACADE_LIT := [2.4, 1.9, 1.5]
+## The share of a skyline layer's windows that are lit (nearest first): a scattered glow behind the fighters, not a field of lights that
+## outshines them (the near layers stand right behind the play area).
+const FACADE_LIT_SHARE := [0.24, 0.28, 0.36]
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
@@ -3027,6 +3030,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
+	m.set_shader_parameter("lit_share", FACADE_LIT_SHARE[layer])
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	m.set_shader_parameter("detail", 0.0 if layer == 2 else 1.0)
 	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
