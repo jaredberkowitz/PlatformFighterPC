@@ -502,7 +502,8 @@ fn walk(m: &mut Mob, k: &MobKind, stage: &Stage, player: Option<Vec2>) {
                 // Never off an edge on purpose.
                 let ahead = Vec2::new(
                     m.pos.x + (k.radius + Fx::from_ratio(3, 10)).mul_int(i32::from(m.facing)),
-                    m.pos.y + Fx::from_ratio(1, 10),
+                    // (A little above the feet, so ground rising up a slope ahead counts as floor.)
+                    m.pos.y + Fx::from_ratio(6, 10),
                 );
                 let floor = collision::surface_below(stage, ahead, false);
                 if floor.is_none_or(|(_, d)| d > Fx::from_ratio(3, 2)) {

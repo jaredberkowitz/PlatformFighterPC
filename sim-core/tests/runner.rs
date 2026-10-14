@@ -1386,6 +1386,31 @@ fn versus_has_no_run_and_run_content_hashes() {
             o.items[0].price += 1;
             o
         }),
+        ("piece", {
+            let mut o = rc.clone();
+            o.pieces[0].platforms[0].platform.y += Fx::ONE;
+            o
+        }),
+        ("part chance", {
+            let mut o = rc.clone();
+            o.rooms[1].parts[0] += 1;
+            o
+        }),
+        ("exit height", {
+            let mut o = rc.clone();
+            o.rooms[1].exit_y += Fx::ONE;
+            o
+        }),
+        ("interior", {
+            let mut o = rc.clone();
+            o.interior.pedestals[0].x += Fx::ONE;
+            o
+        }),
+        ("keeper", {
+            let mut o = rc.clone();
+            o.interior.dizzy_frames += 1;
+            o
+        }),
         ("mob", {
             let mut o = rc.clone();
             o.mobs[0] = MobKind {
@@ -1401,5 +1426,407 @@ fn versus_has_no_run_and_run_content_hashes() {
     let mut renamed = rc.clone();
     renamed.rooms[0].name = "elsewhere".to_string();
     renamed.items[0].name = "Soup".to_string();
+    renamed.pieces[0].name = "skip".to_string();
+    renamed.rooms[1].platforms[0].look = 9;
     assert_eq!(rc.hash(), renamed.hash(), "names are labels only");
+}
+
+// ---- R2a: the world (sim 124) -------------------------------------------------------------------------------------------------
+
+/// A room of the content by its name.
+fn room_named(rc: &RunContent, name: &str) -> usize {
+    rc.rooms.iter().position(|r| r.name == name).unwrap()
+}
+
+/// A slot laying room `index` at the origin as this variant.
+fn variant(
+    rc: &RunContent,
+    index: usize,
+    mirror: bool,
+    parts: u8,
+    pieces: [u8; 3],
+) -> run::RoomSlot {
+    let room = &rc.rooms[index];
+    run::RoomSlot {
+        live: true,
+        room: index as u8,
+        seq: 0,
+        x: Fx::ZERO,
+        end: room.width,
+        y: Fx::ZERO,
+        y_end: run::room_exit(room, mirror),
+        mirror,
+        parts,
+        pieces,
+        spawned: 0,
+        coins: 0,
+    }
+}
+
+fn footings(rc: &RunContent, slot: &run::RoomSlot) -> Vec<sim_core::content::Platform> {
+    let mut out = Vec::new();
+    run::for_each_footing(rc, slot, |p| out.push(p.platform));
+    out
+}
+
+/// Over many runs every room is laid as a variant: mirrored and not, optional parts on and off, every piece in some slot, the ground
+/// joining room to room at one height and drifting no further than the rules allow; and the pools hold exactly what the variants lay.
+#[test]
+fn rooms_are_laid_as_variants() {
+    let rc = RunContent::placeholder();
+    let mut mirrored = [false; 2];
+    let mut parts_seen = [0u8; 2];
+    let mut pieces_seen = vec![false; rc.pieces.len()];
+    let mut heights = std::collections::BTreeSet::new();
+    for seed in 0..24u64 {
+        let mut sim = RunSim::with(quiet(), seed);
+        for _ in 0..40 {
+            sim.next_room();
+            let run = &sim.state.run;
+            let mut live: Vec<_> = run.slots.iter().filter(|s| s.live).copied().collect();
+            live.sort_by_key(|s| s.seq);
+            for w in live.windows(2) {
+                assert_eq!(
+                    w[0].y_end, w[1].y,
+                    "seed {seed}: the ground joins at one height"
+                );
+            }
+            for s in &live {
+                let room = &sim.rc.rooms[usize::from(s.room)];
+                assert_eq!(s.y_end - s.y, run::room_exit(room, s.mirror));
+                let drift = sim.rc.rules.drift;
+                assert!(
+                    s.y.abs() <= drift && s.y_end.abs() <= drift,
+                    "seed {seed}: drifted too far"
+                );
+                assert!(
+                    room.mirror || !s.mirror,
+                    "only mirrorable rooms are mirrored"
+                );
+                heights.insert(s.y_end.raw());
+                mirrored[usize::from(s.mirror)] = true;
+                if room.name == "street" {
+                    parts_seen[usize::from(s.parts & 1)] += 1;
+                }
+                for p in s.pieces.iter().filter(|&&p| p > 0) {
+                    pieces_seen[usize::from(*p) - 1] = true;
+                }
+            }
+            // Every laid footing is in the pool (ground joined across seams is one longer entry, trimmed at the wall).
+            for s in &live {
+                for p in footings(&sim.rc, s) {
+                    let found = run.platforms.iter().any(|e| {
+                        e.live
+                            && e.pass_through == p.pass_through
+                            && e.rise == p.rise
+                            && e.left <= p.left.max(run.wall_x)
+                            && e.right >= p.right
+                            && (e.y == p.y || e.left == run.wall_x)
+                    });
+                    let name = &sim.rc.rooms[usize::from(s.room)].name;
+                    assert!(found, "seed {seed}: a footing of {name} is not in the pool");
+                }
+            }
+        }
+    }
+    assert_eq!(mirrored, [true, true], "mirrored and not");
+    assert!(
+        parts_seen[0] > 0 && parts_seen[1] > 0,
+        "a part on and off: {parts_seen:?}"
+    );
+    assert!(
+        pieces_seen.iter().all(|&p| p),
+        "every piece came: {pieces_seen:?}"
+    );
+    assert!(heights.len() >= 4, "the ground rose and fell: {heights:?}");
+}
+
+/// A mirrored room is its reflection: a rising ramp falls, its platforms' ends swap, its slope turns, its ledges hang the other
+/// way, and a shop's door stays at the same distance from the other edge.
+#[test]
+fn a_mirrored_room_is_its_reflection() {
+    let rc = RunContent::placeholder();
+    let ramp = room_named(&rc, "ramp");
+    let w = rc.rooms[ramp].width;
+    let plain = footings(&rc, &variant(&rc, ramp, false, 0, [0; 3]));
+    let flipped = footings(&rc, &variant(&rc, ramp, true, 0, [0; 3]));
+    assert_eq!(plain.len(), flipped.len());
+    let exit = rc.rooms[ramp].exit_y;
+    for (a, b) in plain.iter().zip(&flipped) {
+        assert_eq!((b.left, b.right), (w - a.right, w - a.left));
+        assert_eq!(b.rise, -a.rise, "the slope turns");
+        assert_eq!(b.y, a.top_right() - exit, "heights from the new entry");
+    }
+    let slope = flipped.iter().find(|p| p.sloped()).unwrap();
+    assert!(slope.rise < Fx::ZERO, "mirrored, the ramp falls");
+    // Ledges.
+    let gap = room_named(&rc, "gap");
+    let mut sides = [Vec::new(), Vec::new()];
+    for (k, m) in [false, true].into_iter().enumerate() {
+        run::for_each_ledge(&rc, &variant(&rc, gap, m, 0, [0; 3]), |l| {
+            sides[k].push((l.x, l.side))
+        });
+    }
+    let gw = rc.rooms[gap].width;
+    assert_eq!(sides[0].len(), 2);
+    for ((x, s), (mx, ms)) in sides[0].iter().zip(&sides[1]) {
+        assert_eq!((*mx, *ms), (gw - *x, -*s));
+    }
+    // The shop's door.
+    let shop = room_named(&rc, "shop");
+    let d0 = run::door_of(&rc, &variant(&rc, shop, false, 0, [0; 3])).unwrap();
+    let d1 = run::door_of(&rc, &variant(&rc, shop, true, 0, [0; 3])).unwrap();
+    assert_eq!(d1.x, rc.rooms[shop].width - d0.x);
+}
+
+/// Optional parts swap what is there: the drop's "no gap" part lays one long roof and no ledges; without it, the gap, its balcony and
+/// both ledges. A piece in a slot lays its footings and coins on the slot's ground.
+#[test]
+fn optional_parts_and_pieces_lay_what_they_say() {
+    let rc = RunContent::placeholder();
+    let drop = room_named(&rc, "drop");
+    let count_ledges = |parts| {
+        let mut n = 0;
+        run::for_each_ledge(&rc, &variant(&rc, drop, false, parts, [0; 3]), |_| n += 1);
+        n
+    };
+    assert_eq!(count_ledges(0), 2, "the gap has its ledges");
+    assert_eq!(count_ledges(1), 0, "no gap, no ledges");
+    let width = rc.rooms[drop].width;
+    let gapless = footings(&rc, &variant(&rc, drop, false, 1, [0; 3]));
+    assert!(gapless
+        .iter()
+        .any(|p| !p.pass_through && p.left == Fx::ZERO && p.right == width));
+    let gapped = footings(&rc, &variant(&rc, drop, false, 0, [0; 3]));
+    assert!(gapped
+        .iter()
+        .all(|p| p.pass_through || p.left > Fx::ZERO || p.right < width));
+    // A dumpster in the street's slot: its two blocks stand on the street at the slot, with its coin.
+    let street = room_named(&rc, "street");
+    let slot = rc.rooms[street].slots[0];
+    let dumpster = rc.pieces.iter().position(|p| p.name == "dumpster").unwrap() as u8 + 1;
+    let none = footings(&rc, &variant(&rc, street, false, 0, [0; 3]));
+    let with = footings(&rc, &variant(&rc, street, false, 0, [dumpster, 0, 0]));
+    assert_eq!(with.len(), none.len() + 2);
+    let lid = with
+        .iter()
+        .find(|p| p.left == slot.x - Fx::from_ratio(12, 10))
+        .expect("the dumpster");
+    assert_eq!(lid.y, slot.y + Fx::from_ratio(12, 10));
+    let mut coins = 0;
+    run::for_each_coin(
+        &rc,
+        &variant(&rc, street, false, 0, [dumpster, 0, 0]),
+        |_, _| coins += 1,
+    );
+    assert_eq!(coins, rc.rooms[street].coins.len() + 1, "and its coin");
+}
+
+/// The fork: one room, two roads. The high road (fire escape, catwalks and scaffolds) is reached up the stairs a coin trail climbs;
+/// falling from it lands on the low road (the street, never a pit); the high road's end comes down to the street and both roads
+/// lead into the next room. The map knows it is a fork.
+#[test]
+fn the_fork_has_two_roads_that_meet_again() {
+    let mut rc = only(&["fork", "shop"], (1, 0, 0));
+    rc.rules.fork_chance = 100;
+    rc.rules.shop_min = 7;
+    rc.rules.shop_max = 7;
+    let fork = room_named(&rc, "fork");
+    assert!(rc.rooms[fork].fork);
+    let mut sim = RunSim::with(rc, 2);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    assert_eq!(usize::from(slot.room), fork);
+    assert_eq!(sim.state.run.fork_of(1), Some(true), "the map's split icon");
+    assert_eq!(sim.state.run.fork_of(0), Some(false));
+    // The coin trail climbs the fire escape.
+    let mut trail = Vec::new();
+    run::for_each_coin(&sim.rc, &slot, |_, at| trail.push(at));
+    assert!(
+        trail
+            .windows(2)
+            .take(4)
+            .all(|w| w[1].x > w[0].x && w[1].y > w[0].y),
+        "{trail:?}"
+    );
+    // Falling from the high road's gap: onto the street, safe.
+    sim.next_room();
+    sim.clear_mobs();
+    let stocks = sim.player().stocks;
+    sim.place(Vec2::new(slot.x + Fx::from_ratio(285, 10), slot.y + fx(7)));
+    for _ in 0..90 {
+        sim.tick(Input::default());
+        if sim.player().grounded() {
+            break;
+        }
+    }
+    assert!(sim.player().grounded(), "landed");
+    assert_eq!(sim.player().pos.y, slot.y, "on the low road");
+    assert_eq!(sim.player().stocks, stocks);
+    // Along the high road's last catwalk and down its stairs: into the next room, no life lost.
+    sim.place(Vec2::new(slot.x + fx(43), slot.y + fx(7)));
+    for _ in 0..400 {
+        sim.tick(inp(127, 0, 0));
+        sim.clear_mobs();
+        if sim.state.run.room == 2 {
+            break;
+        }
+    }
+    assert_eq!(sim.state.run.room, 2, "the roads meet in the next room");
+    assert_eq!(sim.player().stocks, stocks);
+}
+
+/// The fork's two roads and the window: entering an arena after a fork shuts its gate as ever, and the window drops the fork
+/// behind like any room.
+#[test]
+fn a_fork_works_with_the_window_and_the_gate() {
+    let mut rc = only(&["fork", "yard", "shop"], (1, 1, 0));
+    rc.rules.fork_chance = 100;
+    rc.rules.arena_weight = 50;
+    let mut sim = RunSim::with(rc, 5);
+    let mut forks = 0;
+    let mut gated_after_fork = false;
+    for _ in 0..30 {
+        let was_fork = sim.state.run.fork_of(sim.state.run.room).unwrap_or(false);
+        let target = sim.state.run.room + 1;
+        let slot = *sim.state.run.slot_of(target).unwrap();
+        sim.place(Vec2::new(
+            slot.x + sim.rc.rules.enter_depth + Fx::ONE,
+            slot.y + fx(12),
+        ));
+        sim.state.fighters[PLAYER].invuln = 30;
+        sim.tick(Input::default());
+        assert_eq!(sim.state.run.room, target);
+        forks += usize::from(sim.state.run.fork_of(target).unwrap_or(false));
+        if sim.state.run.gate_closed {
+            gated_after_fork |= was_fork;
+            assert_eq!(sim.state.run.gate_x, slot.end);
+            sim.clear_mobs();
+            sim.tick(Input::default());
+            assert!(!sim.state.run.gate_closed);
+        }
+        assert!(sim.state.run.slots.iter().filter(|s| s.live).count() <= RING);
+    }
+    assert!(forks > 5, "forks came: {forks}");
+    assert!(gated_after_fork, "an arena came right after a fork");
+}
+
+/// Coins on the way are picked up by walking (or jumping) through them: each once, paying its value, not counting toward the
+/// combo.
+#[test]
+fn coins_are_picked_up_once() {
+    let mut sim = RunSim::with(only(&["street", "shop"], (1, 0, 0)), 3);
+    sim.clear_mobs();
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    let mut first = None;
+    run::for_each_coin(&sim.rc, &slot, |n, at| {
+        first.get_or_insert((n, at));
+    });
+    let (n, at) = first.expect("the street has coins");
+    let before = sim.state.run.coins;
+    // (The body's middle is a unit above the feet.)
+    sim.place(at - Vec2::new(Fx::ZERO, Fx::ONE));
+    sim.tick(Input::default());
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    assert!(slot.coins & (1 << n) != 0, "taken");
+    let value = u32::from(sim.rc.rules.coin_value);
+    assert_eq!(sim.state.run.coins, before + value);
+    assert_eq!(sim.state.run.coins_picked, 1);
+    assert_eq!(sim.state.run.combo, 0);
+    sim.place(at - Vec2::new(Fx::ZERO, Fx::ONE));
+    sim.tick(Input::default());
+    assert_eq!(sim.state.run.coins, before + value, "only once");
+}
+
+/// A mob comes out of its door or stairwell before it acts: for `emerge_frames` it neither moves nor can be hit, then it wakes.
+#[test]
+fn mobs_come_out_of_their_doors() {
+    let mut rc = only(&["street", "shop"], (1, 0, 0));
+    let street = room_named(&rc, "street");
+    rc.rooms[street].spawns = vec![run::MobSpawn {
+        kind: 0,
+        x: fx(20),
+        y: Fx::ZERO,
+        part: 0,
+    }];
+    let mut sim = RunSim::with(rc, 1);
+    let mut n = None;
+    for _ in 0..600 {
+        sim.tick(inp(60, 0, 0));
+        n = sim.state.run.mobs.iter().position(|m| m.active);
+        if n.is_some() {
+            break;
+        }
+    }
+    let n = n.expect("the mob came");
+    let m = sim.state.run.mobs[n];
+    assert_eq!(m.mode, run::MODE_EMERGE);
+    assert!(m.timer <= u16::from(sim.rc.rules.emerge_frames));
+    let at = m.pos;
+    for _ in 1..m.timer {
+        sim.tick(Input::default());
+        assert_eq!(sim.state.run.mobs[n].mode, run::MODE_EMERGE);
+        assert_eq!(sim.state.run.mobs[n].pos, at, "it stands in its doorway");
+    }
+    sim.tick(Input::default());
+    assert!(
+        matches!(sim.state.run.mobs[n].mode, MODE_IDLE | MODE_MOVE),
+        "awake"
+    );
+    // Emerging is off with the rule at 0: mobs pop in at once.
+    let mut rc = quiet();
+    rc.rules.emerge_frames = 0;
+    let mut sim = RunSim::with(rc, 1);
+    sim.next_room();
+    assert!(sim
+        .state
+        .run
+        .mobs
+        .iter()
+        .all(|m| m.mode != run::MODE_EMERGE));
+}
+
+/// A walker walks along a slope (its feet on it) up to the high ground.
+#[test]
+fn walkers_follow_slopes() {
+    let rc = only(&["ramp", "shop"], (1, 0, 0));
+    let mut sim = RunSim::with(rc, 4);
+    sim.clear_mobs();
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    // The ramp, wherever the room's mirroring put it: the walker stands on its middle and walks to the player on its high side.
+    let ramp = footings(&sim.rc, &slot)
+        .into_iter()
+        .find(|p| p.sloped())
+        .unwrap();
+    let mid = (ramp.left + ramp.right) / fx(2);
+    let high_x = if ramp.rise > Fx::ZERO {
+        ramp.right + fx(4)
+    } else {
+        ramp.left - fx(4)
+    };
+    sim.stand(Vec2::new(high_x, ramp.top_max()));
+    let n = sim.add_mob(0, Vec2::new(mid, ramp.top_at(mid)));
+    assert_ne!(sim.state.run.mobs[n].platform, NONE, "on the ramp");
+    let mut climbed = false;
+    for _ in 0..240 {
+        sim.tick(Input::default());
+        let m = sim.state.run.mobs[n];
+        if let Ok(i) = usize::try_from(m.platform) {
+            let p = sim.world.stage.platforms[i];
+            assert_eq!(m.pos.y, p.top_at(m.pos.x), "its feet on its ground");
+            climbed |= m.pos.y == ramp.top_max();
+        }
+        if m.mode == MODE_WINDUP {
+            break;
+        }
+    }
+    assert!(climbed, "it walked up onto the high ground");
+}
+
+/// The run's state stays small enough to save and restore every frame for rollback.
+#[test]
+fn the_game_state_stays_small() {
+    let size = std::mem::size_of::<GameState>();
+    let run = std::mem::size_of::<run::Run>();
+    println!("GameState: {size} bytes (the run: {run} bytes)");
+    assert!(size <= 8 * 1024, "GameState is {size} bytes");
 }
