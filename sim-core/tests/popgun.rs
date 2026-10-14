@@ -1,5 +1,5 @@
 //! The Popgun moveset on the scamp body (class 11), modelled mechanically on a reference character (phase 1: the body and every
-//! normal here; the specials in `popgun_specials.rs`). Frame data against the reference for every normal, checked in the data and by
+//! normal here; the specials in `popgun_peel.rs`, `popgun_peanut.rs` and `popgun_rocket.rs`). Frame data against the reference for every normal, checked in the data and by
 //! running the moves; hit properties (damage, angles and angle types, knockback, set knockback and set weight, hitlag and SDI
 //! multipliers, trip chances, shield damage, grounded- and aerial-only boxes, no-clank boxes); the jab chain, its held repeat and its
 //! window past the FAF; grabs, pummel and throws; landing lag and autocancels; the body's attributes and jump air times; registration;
@@ -800,6 +800,20 @@ fn the_popgun_is_registered_as_class_11() {
     assert_eq!(c.fighters[11], FighterParams::scamp());
     assert_eq!(c.weapons[11], sim_core::moves::popgun());
     assert_eq!(c.fighters[11].weapon, 11);
+    // The neutral, up and down specials are the Popgun's own (phase 1); the side special (the monkey flip) is still the claws' until
+    // phase 2.
+    for (id, own) in [
+        (MoveId::NSpecial, true),
+        (MoveId::SideSpecial, false),
+        (MoveId::UpSpecial, true),
+        (MoveId::DownSpecial, true),
+    ] {
+        assert_eq!(
+            c.weapons[11].moves[id as usize] != c.weapons[1].moves[id as usize],
+            own,
+            "{id:?}"
+        );
+    }
 }
 
 #[test]

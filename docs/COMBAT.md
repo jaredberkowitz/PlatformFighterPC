@@ -247,6 +247,10 @@ strong-attack buttons too. Demos: `grab`, `shield_grab`.
   by itself on frame 100 (the reference's hard trip). The get-ups are the knockdown's (the trip get-up attack has no slot of its own).
   `Ruleset`: `trip_lag`, `trip_max`, `trip_invuln`. Not modelled: the reference's base 7% trip on any hit over 55 knockback that does
   not lift, and slopes (every stage is flat, so a trip at an upward angle never happens).
+- **Slips** (sim v117, E44): a hit with `Hitbox::slip` trips a fighter on the ground (not lying or sitting) every time, whatever its
+  launch, with no roll: `hard` keeps the hit's damage and hitlag and the trip's timings (a thrown banana peel), `soft` has no hitlag
+  and the ruleset's `slip_lag` / `slip_max` (30 / 90: walking into a lying peel, the reference's soft trip; `Fighter::trip_soft`).
+  A lying item with a `trap` (E45) trips the fighters that walk into it that way.
 - **Hits that cannot rebound** (sim v86, E3g): `Hitbox::rebounds` false (the reference's `rebound=f` without `clang=f`): the hit
   clanks as usual (it does not land that frame) but its owner carries on with the move instead of rebounding.
 - **Ledge attack** now has hitboxes (`MoveId::LedgeAttack`) and the get-up attack is `MoveId::GetUpAttack`; both have placeholder numbers
