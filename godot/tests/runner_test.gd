@@ -138,7 +138,7 @@ func _scene() -> void:
 	check(data.has("shop") and data.has("door") and data.has("gate"), "and the shop, the door and the gate")
 	# The rooms are drawn by their looks, with their building fronts; the coins spin; the skyline scrolls in parallax.
 	check(main.run_stage.looks.size() > 20, "the stage knows the looks")
-	check(main.run_stage.far_layer != null and main.run_stage.mid_layer != null, "two parallax layers")
+	check(main.run_stage.skylines.size() == 3 and not main.run_stage.skylines.has(null), "the city's three skyline layers, in parallax")
 	check(main.run_stage.coins.size() >= 0, "the coins")
 	var far_x: float = main.run_stage.far_layer.position.x
 	var mid_x: float = main.run_stage.mid_layer.position.x
