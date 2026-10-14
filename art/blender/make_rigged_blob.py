@@ -547,9 +547,11 @@ BODY_MOVES = {
     # front knee well bent, the back leg straight, the free arm thrown back.
     "sword_fsmash": (
         {"hips": -0.02, "spine": (-16.0, -40.0), "head": (10.0, 20.0), "stance": (24.0, 18.0), "shin.R": (-40.0,), "armU.L": (20.0, 40.0)},
-        {"spine": (22.0, 30.0), "head": (-6.0, -14.0), "stance": (48.0, -34.0), "shin.L": (-44.0,), "shin.R": (-2.0,),
+        # (As the reference's: a lunge so deep the back leg lies nearly flat behind and the body drops low over the bent front knee, the
+        # head kept up to the camera.)
+        {"hips": -0.24, "spine": (30.0, 30.0), "head": (-14.0, -14.0), "stance": (70.0, -60.0), "shin.L": (-76.0,), "shin.R": (-2.0,),
          "armU.L": (-50.0, 40.0), "armL.L": (10.0,)},
-        {"hips": -0.08, "spine": (14.0, 12.0), "stance": (34.0, -28.0), "shin.L": (-36.0,)}),
+        {"hips": -0.14, "spine": (18.0, 12.0), "stance": (48.0, -40.0), "shin.L": (-56.0,)}),
     # Fencer's down tilt: a low lunging thrust, down on the bent front leg with the back leg stretched long behind.
     "sword_dtilt": (
         {"hips": -0.2, "spine": (20.0, -10.0), "head": (-10.0, 0.0), "stance": (50.0, 26.0), "shin.L": (-90.0,), "shin.R": (-100.0,)},
@@ -560,9 +562,10 @@ BODY_MOVES = {
     # two-handed outward slash; the game aims the weapon hand, this the other).
     "attack_claws": (
         {"spine": (8.0, -10.0), "head": (0.0, 6.0), "stance": (16.0, -16.0), "armU.L": (60.0, -24.0), "armL.L": (100.0,)},
-        {"spine": (18.0, 8.0), "head": (-6.0, -4.0), "stance": (40.0, -30.0), "shin.L": (-36.0,), "shin.R": (-2.0,),
-         "armU.L": (78.0, 34.0), "armL.L": (8.0,)},
-        {"spine": (6.0, 2.0), "stance": (16.0, -12.0)}),
+        # (The reference's is a low lunge, the body nearly level over the bent front leg, one claw thrust far out ahead.)
+        {"hips": -0.2, "spine": (44.0, 12.0), "head": (-18.0, -4.0), "stance": (62.0, -50.0), "shin.L": (-72.0,), "shin.R": (-2.0,),
+         "armU.L": (-40.0, 34.0), "armL.L": (20.0,)},
+        {"hips": -0.08, "spine": (14.0, 4.0), "stance": (30.0, -24.0), "shin.L": (-30.0,)}),
     # Forward air (a crescent cut, or a claw raked, down through the space in front): the weapon raised with the shoulders turned back and
     # the knees drawn up, then the torso leans over the swing and turns into it, the front knee up and the back leg trailing, the free arm
     # flung back. Upright enough that the face stays toward the hit.
@@ -2204,6 +2207,13 @@ def main() -> None:
             {"spine": (-10.0, 0.0), "head": (2.0, 0.0), "stance": (84.0, 58.0), "shin.L": (-4.0,), "shin.R": (-122.0,),
              "foot.L": (-30.0,), "foot.R": (34.0,), "arms": (-18.0, 76.0)},
             {"spine": (-4.0, 0.0), "stance": (70.0, 56.0), "shin.L": (-20.0,), "shin.R": (-116.0,), "arms": (-8.0, 60.0)})
+    # The claws fighter's neutral air, after its reference: a held double kick, the body leaned far back and both legs shot out straight
+    # ahead together, the arms flung back for balance; the wind-up curls both knees up to the chest.
+    move_of("kick_double",
+            {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (70.0, 66.0), "shin.L": (-116.0,), "shin.R": (-110.0,), "arms": (30.0, 22.0)},
+            {"spine": (-34.0, 0.0), "head": (12.0, 0.0), "stance": (96.0, 80.0), "shin.L": (-4.0,), "shin.R": (-16.0,),
+             "foot.L": (-30.0,), "foot.R": (-24.0,), "arms": (-40.0, 64.0)},
+            {"spine": (-14.0, 0.0), "stance": (76.0, 66.0), "shin.L": (-30.0,), "shin.R": (-40.0,), "arms": (-16.0, 50.0)})
     # Back air: lean forward and drive the heel back (not so far forward, nor twisted, that the big head shows its crown).
     move_of("kick_bair",
             {"spine": (24.0, 10.0), "head": (10.0, 20.0), "stance": (60.0, 50.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (40.0, 20.0)},

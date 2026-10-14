@@ -97,7 +97,8 @@ const CLASS_MOVES := {
 		"dash attack": "kick_dash",
 		"usmash": "kick_uair",
 		"dsmash": "sword_dsmash",
-		"nair": "kick_nair",
+		# (Its reference's: a held double kick, leaning back.)
+		"nair": "kick_double",
 		"bair": "kick_bair",
 		# (A flip kick overhead, as its reference's.)
 		"uair": "kick_uair",

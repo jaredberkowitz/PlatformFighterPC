@@ -155,4 +155,9 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   Settler's slingshot forward air and shovel down smash.
 - Images: `docs/screenshots/anim_fsmash_before_after.png` (the sword's forward smash, before above: it now carries through and eases
   home), `anim_reference_moves.png` (the headbutt up smash, the flip kick up air, the lunging headbutt).
+- **Checked against the reference's hitbox animations** (ultimateframedata.com, decoded frame by frame): the sword's forward smash now
+  ends in the reference's very deep lunge (back leg nearly flat, body low over the bent front knee); the claws fighter's forward tilt
+  is its low, level lunge with one claw thrust ahead (was an upright step); its neutral air is the reference's held double kick,
+  leaned far back with both legs out (new `kick_double`; was a one-leg sitting kick). The sword's airs (tucked knees, the back air
+  turning the body round) and tilts already matched. `docs/screenshots/anim_reference_pass2.png`.
 - Next: the Settler's own clips (pocket, shovel planting, watering can, axe) and its props; a pose-by-pose pass per moveset.

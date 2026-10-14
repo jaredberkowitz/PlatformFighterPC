@@ -54,7 +54,7 @@ func _initialize() -> void:
 		var clip: String = sword._choose_clip(snap(0, "Attack", m, 10))[0]
 		check(sword.anim != null and sword.anim.has_animation(clip), "the rig has the clip %s for %s" % [clip, m])
 	# The claws fighter: its kicks, its claw slashes and its blaster have their own clips.
-	var kicks := {"nair": "kick_nair", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
+	var kicks := {"nair": "kick_double", "bair": "kick_bair", "utilt": "kick_up", "dtilt": "kick_low", "dash attack": "kick_dash",
 		"usmash": "kick_uair", "neutral special": "blaster", "ftilt": "attack_claws", "uair": "kick_uair", "dair": "kick_dair",
 		"dsmash": "sword_dsmash", "fair": "attack_fair"}
 	for m in kicks:
