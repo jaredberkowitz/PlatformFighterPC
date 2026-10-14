@@ -110,5 +110,15 @@ Each step: a matched before/after, a check in motion, the tests and the look ben
   retaken. Two runs of the same build give pixel-identical frames, so before/after pairs are exact. (A crop tool that kept the alpha
   channel made one copy look washed out; the tools in use now drop it.)
 
-**Next in this step**: the beach's props (the lighthouse's light and shadow, the jetty's supports and contact shadows, the palms'
-fronds, the islands' layers), then the sea wall's front receding (step 7).
+**Second change (landed): grounding and the beach's props**, `review5_beach_wide.png` (a wide view, before | after),
+`review5_fronts.png` (beach and desert at match scale, before | after). A wide camera showed what match scale hid:
+- **Fighters' drop shadows on the sea**: the contact shadow (`fighter_view.gd`, a decal reaching 14 units down) also printed on the
+  rocks under the stage, two dark ovals on the water whenever the camera pulled out. Standing, it now reaches 2.4 units, just past the
+  floor; in the air the full depth, so the landing spot stays marked.
+- **The lighthouse floated**: its rocks were modelled but set under the sea. Raised so they stand out of the water, the tower on them.
+- **Foam**: a fuller band where anything meets the water (`foam_width` 1.4 → 2.0) and a fainter broken ring of wash further out.
+- **Glints** were whole cells, hard little rectangles near the stage; each is now a small soft four-point sparkle.
+- **Busy fronts recede** (from step 7, as it was in view): the beach's bricks and the desert's strata fall faster and further into the
+  cool front shade (`front_fall` 0.52 → 0.64, `front_span` 6.5 → 4.5), so the fighting surface leads.
+- Palms, the jetty and the islands were looked at and left: at match scale they hold up; nothing there beats the next steps.
+- **Checked**: the look bench 0.87; the art, fighter, match and motion tests pass.
