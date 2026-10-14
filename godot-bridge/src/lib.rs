@@ -878,7 +878,10 @@ impl SimRunner {
         }
         run.gate_closed = false;
         let f = &mut self.state.fighters[0];
-        f.pos = Vec2::new(next.x + rc.rules.enter_depth + Fx::ONE, next.y + Fx::from_int(6));
+        f.pos = Vec2::new(
+            next.x + rc.rules.enter_depth + Fx::ONE,
+            next.y + Fx::from_int(6),
+        );
         f.vel = Vec2::ZERO;
         f.platform = sim_core::state::NONE;
         f.state = sim_core::state::FighterState::Airborne;
