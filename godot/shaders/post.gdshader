@@ -17,7 +17,10 @@ uniform float normal_edge = 0.6;         // 1 - cosine between neighbouring surf
 uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
-uniform float scenery_lines = 0.72;       // how strong the screen-space ink is on the stage and scenery (the fighters get it all)
+// How strong the screen-space ink is on the stage and scenery (the fighters get it all): about half, so the world reads as painted, its
+// forms told by light and colour, and only the fighters are inked in full (one even black stroke round everything is the look of vector
+// art, not of a cel-shaded world).
+uniform float scenery_lines = 0.4;
 uniform float inner_lines = 0.3;
 // The inverted-hull outlines' object id (shaders/outline.gdshader): where a silhouette has one, it is the line, and this pass adds none
 // beside it (a second line just inside doubled it into a thick, wavering stroke); where it has none (blades), this pass draws the line.
@@ -59,6 +62,13 @@ uniform float far_blur_start = 14.0;
 uniform float far_blur_ramp = 30.0;
 // A finishing hit: for a moment the picture goes to two tones, the fighters pale against a dark frame (the hit's effects, drawn after
 // this, stay in colour on top).
+// The soft glow of a bright day (the high-definition cel look): everything brighter than `bloom_threshold` (the sky, clouds, sunlit
+// walls, a white hat in the sun) bleeds a wide, soft light over its neighbours, screened on at `bloom` (0 off). Gathered from the screen's
+// small mip levels, so it costs a dozen lookups. The fighters take `bloom_fighter` of it, so their own colours stay crisp; the effects
+// bloom on their own, after this pass.
+uniform float bloom = 0.0;
+uniform float bloom_threshold = 0.62;
+uniform float bloom_fighter = 0.5;
 uniform float impact = 0.0;
 uniform vec4 impact_dark : source_color = vec4(0.1, 0.05, 0.13, 1.0);
 uniform vec4 impact_light : source_color = vec4(1.0, 0.97, 0.9, 1.0);
@@ -199,6 +209,22 @@ void fragment() {
 	float luma = dot(col, vec3(0.3, 0.59, 0.11));
 	float grade_k = id0 < 0.6 && d0 < 400.0 ? 0.33 : 1.0;
 	col = mix(col, col * mix(grade_shadows.rgb, grade_lights.rgb, smoothstep(0.1, 0.85, luma)), grade_amount * grade_k);
+
+	if (bloom > 0.0) {
+		vec2 t4 = 1.5 / (VIEWPORT_SIZE / 16.0);
+		vec3 g = textureLod(screen_tex, uv, 4.0).rgb * 0.2;
+		g += (textureLod(screen_tex, uv + vec2(t4.x, t4.y), 4.0).rgb + textureLod(screen_tex, uv + vec2(-t4.x, t4.y), 4.0).rgb
+			+ textureLod(screen_tex, uv + vec2(t4.x, -t4.y), 4.0).rgb + textureLod(screen_tex, uv + vec2(-t4.x, -t4.y), 4.0).rgb) * 0.1;
+		vec2 t6 = 1.2 / (VIEWPORT_SIZE / 64.0);
+		g += (textureLod(screen_tex, uv + vec2(t6.x, 0.0), 6.0).rgb + textureLod(screen_tex, uv - vec2(t6.x, 0.0), 6.0).rgb
+			+ textureLod(screen_tex, uv + vec2(0.0, t6.y), 6.0).rgb + textureLod(screen_tex, uv - vec2(0.0, t6.y), 6.0).rgb) * 0.1;
+		float gy = dot(g, vec3(0.3, 0.59, 0.11));
+		// A soft knee, so the glow eases in rather than switching on at the threshold.
+		float over = smoothstep(bloom_threshold, 1.0, gy) * min(gy, 1.6);
+		vec3 glow = g / max(gy, 0.001) * over;
+		float bk = bloom * (id0 < 0.6 && d0 < 400.0 ? bloom_fighter : 1.0);
+		col = col + clamp(glow, 0.0, 1.0) * bk * (1.0 - clamp(col, 0.0, 1.0));
+	}
 
 	// The finishing hit's two tones: fighters (ids below 0.6) pale, everything else dark, the ink lines kept.
 	if (impact > 0.0) {

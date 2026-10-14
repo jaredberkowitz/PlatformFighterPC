@@ -40,6 +40,7 @@ instance uniform float object_id : instance_index(1) = 0.95;
 // The top of the block this front belongs to (see `front_fall`); far below anything for everything else, which leaves it untouched.
 instance uniform float front_top : instance_index(6) = -100000.0;
 
+#define PF_CLOUDS
 #include "res://shaders/toon_light.gdshaderinc"
 #include "res://shaders/brush.gdshaderinc"
 #include "res://shaders/stage_ao.gdshaderinc"
@@ -118,6 +119,9 @@ void fragment() {
 		c *= 0.8;
 	}
 #endif
+	// (On what faces up: on a wall the drifting field showed as long slanted stripes. Not on fighters: a passing shade over one read as
+	// it dimming, and every fighter keeps the same value on any spot of the stage.)
+	pf_sun = mix(1.0, pf_cloud_sun(world_pos, TIME), smoothstep(0.1, 0.6, world_normal.y) * (1.0 - fighter));
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = object_id;
