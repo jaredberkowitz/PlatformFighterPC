@@ -240,8 +240,149 @@ pub struct FighterParams {
     pub air_jump_drift: u8,
     /// The frames on which the body lets go of an item it throws (E4, sim 111; see [`ItemThrows`]).
     pub item_throws: ItemThrows,
+    /// A comeback form that comes when the fighter is in danger (E57, sim 125: the reference's one wing; see [`Wing`]). `None` (the
+    /// default) for a body without one.
+    pub wing: Option<Wing>,
     /// Index into `Content::weapons`.
     pub weapon: u8,
+}
+
+/// The most points a [`WingRow`] holds.
+pub const WING_POINTS: usize = 8;
+
+/// One row of a [`Wing`]'s start table (one stock difference): the percent the fighter must have reached for the wing to come, as a
+/// function of the percent difference (its own percent before the hit less the opponent's). The points run from the highest
+/// difference down (`diff` descending); between two points the percent is a straight line, two points at the same difference make a
+/// jump (a difference exactly there takes the first sloping or level line, from the top, that reaches it), and past the ends it stays
+/// at the end's value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WingRow {
+    pub count: u8,
+    pub diff: [i16; WING_POINTS],
+    pub percent: [Fx; WING_POINTS],
+}
+
+impl WingRow {
+    pub const EMPTY: WingRow = WingRow {
+        count: 0,
+        diff: [0; WING_POINTS],
+        percent: [Fx::ZERO; WING_POINTS],
+    };
+
+    /// A row from `(difference, percent)` points (at most [`WING_POINTS`]; percents in tenths).
+    pub fn from_points(points: &[(i16, i32)]) -> WingRow {
+        let mut r = WingRow::EMPTY;
+        for (i, &(d, p)) in points.iter().take(WING_POINTS).enumerate() {
+            r.diff[i] = d;
+            r.percent[i] = Fx::from_ratio(p, 10);
+            r.count = i as u8 + 1;
+        }
+        r
+    }
+
+    /// The percent the wing comes at for a percent difference `diff` (see the type). An empty row never starts it (999).
+    pub fn threshold(&self, diff: Fx) -> Fx {
+        let n = usize::from(self.count).min(WING_POINTS);
+        if n == 0 {
+            return Fx::from_int(999);
+        }
+        let d = |i: usize| Fx::from_int(i32::from(self.diff[i]));
+        if diff > d(0) {
+            return self.percent[0];
+        }
+        for i in 0..n - 1 {
+            let (hi, lo) = (d(i), d(i + 1));
+            if hi == lo {
+                continue;
+            }
+            if diff <= hi && diff >= lo {
+                let (a, b) = (self.percent[i], self.percent[i + 1]);
+                return a + (b - a) * (hi - diff) / (hi - lo);
+            }
+        }
+        self.percent[n - 1]
+    }
+}
+
+/// A comeback form (E57, sim 125: the reference's one wing, ssbwiki.com's article on it, 13.0.1). After any hit that raises the
+/// fighter's percent, if it has no wing and has not lost one since its last KO, the row of `rows` for its stock difference with the
+/// leading opponent (-2 to +2, clamped; 0 when stocks are not counted) gives the percent it must have reached for the percent
+/// difference before the hit; reaching it, the wing comes with `points[stock difference + 2]` points. While it has the wing the body's
+/// numbers are multiplied by the percents below (100 = unchanged: `walk` the walk speed and both walk accelerations, `dash` both dash
+/// speeds, `run` the run speed, `run_accel` both run accelerations, `traction` both frictions, `air_speed`, `air_accel` the base air
+/// acceleration, `air_accel_stick` the stick's share, `air_friction`, `gravity`, `fall` both fall speeds), it has `jumps` more
+/// midair jumps, its hits (melee and projectiles, not items) deal `power` percent of their damage (the knockback formula's damage term
+/// unchanged, so a move KOs earlier by the extra damage only), and its moves begin powered (`Fighter::move_powered`: a move's
+/// `armor_mode` powered armor, its powered boxes). Its hits on fighters take `per_dealt[0]` points a percent of their base damage
+/// (`per_dealt[1]` with more than two fighters in the match); knocking a fighter out takes `ko_points`, and then the points move by
+/// the difference between the new stock difference's `points` and the old one's. At 0 points the wing goes and does not come back
+/// until the fighter is knocked out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Wing {
+    pub rows: [WingRow; 5],
+    pub points: [Fx; 5],
+    pub per_dealt: [Fx; 2],
+    pub ko_points: Fx,
+    pub power: u16,
+    pub jumps: u8,
+    pub walk: u16,
+    pub dash: u16,
+    pub run: u16,
+    pub run_accel: u16,
+    pub traction: u16,
+    pub air_speed: u16,
+    pub air_accel: u16,
+    pub air_accel_stick: u16,
+    pub air_friction: u16,
+    pub gravity: u16,
+    pub fall: u16,
+}
+
+impl Wing {
+    /// The stock-difference row names in file order (-2, -1, 0, +1, +2).
+    pub const ROWS: [&'static str; 5] = ["m2", "m1", "0", "p1", "p2"];
+
+    /// The multipliers by name, in file order.
+    pub fn percents(&self) -> [(&'static str, u16); 12] {
+        [
+            ("power", self.power),
+            ("walk", self.walk),
+            ("dash", self.dash),
+            ("run", self.run),
+            ("run_accel", self.run_accel),
+            ("traction", self.traction),
+            ("air_speed", self.air_speed),
+            ("air_accel", self.air_accel),
+            ("air_accel_stick", self.air_accel_stick),
+            ("air_friction", self.air_friction),
+            ("gravity", self.gravity),
+            ("fall", self.fall),
+        ]
+    }
+}
+
+impl StateHash for Wing {
+    fn hash_into(&self, h: &mut StateHasher) {
+        for r in &self.rows {
+            h.write_u8(r.count);
+            for i in 0..WING_POINTS {
+                h.write_u16(r.diff[i] as u16);
+                r.percent[i].hash_into(h);
+            }
+        }
+        for v in self
+            .points
+            .iter()
+            .chain(self.per_dealt.iter())
+            .chain([self.ko_points].iter())
+        {
+            v.hash_into(h);
+        }
+        h.write_u8(self.jumps);
+        for (_, p) in self.percents() {
+            h.write_u16(p);
+        }
+    }
 }
 
 /// The frame of each item throw on which the item leaves the hand (E4, sim 111; the reference's per-body release frames, ssbwiki.com
@@ -449,6 +590,40 @@ impl FighterParams {
         q.max_fall_speed = percent_of(self.max_fall_speed, g.fall);
         q.fast_fall_speed = percent_of(self.fast_fall_speed, g.fall);
         q
+    }
+
+    /// The body as it moves this frame with its wing out (E57, see [`Wing`]): a copy with the wing's multipliers and extra midair
+    /// jumps; itself without the wing (or for a body without one).
+    pub fn winged(&self, winged: bool) -> FighterParams {
+        let Some(w) = self.wing.filter(|_| winged) else {
+            return *self;
+        };
+        let mut q = *self;
+        q.walk_speed = percent_of(self.walk_speed, w.walk);
+        q.walk_accel = percent_of(self.walk_accel, w.walk);
+        q.walk_accel_stick = percent_of(self.walk_accel_stick, w.walk);
+        q.dash_speed = percent_of(self.dash_speed, w.dash);
+        q.dash_initial_speed = percent_of(self.dash_initial_speed, w.dash);
+        q.run_speed = percent_of(self.run_speed, w.run);
+        q.run_accel = percent_of(self.run_accel, w.run_accel);
+        q.run_accel_stick = percent_of(self.run_accel_stick, w.run_accel);
+        q.ground_friction = percent_of(self.ground_friction, w.traction);
+        q.dash_attack_friction = percent_of(self.dash_attack_friction, w.traction);
+        q.air_speed = percent_of(self.air_speed, w.air_speed);
+        q.air_accel = percent_of(self.air_accel, w.air_accel);
+        q.air_accel_stick = percent_of(self.air_accel_stick, w.air_accel_stick);
+        q.air_friction = percent_of(self.air_friction, w.air_friction);
+        q.gravity = percent_of(self.gravity, w.gravity);
+        q.max_fall_speed = percent_of(self.max_fall_speed, w.fall);
+        q.fast_fall_speed = percent_of(self.fast_fall_speed, w.fall);
+        q.air_jumps = self.air_jumps.saturating_add(w.jumps);
+        q
+    }
+
+    /// The body as a fighter moves with it this frame: the gauge's powered mode and the wing applied (see [`FighterParams::powered`]
+    /// and [`FighterParams::winged`]).
+    pub fn moving(&self, gauge_mode: bool, wing: bool) -> FighterParams {
+        self.powered(gauge_mode).winged(wing)
     }
 }
 
@@ -707,6 +882,7 @@ impl FighterParams {
             air_jump_armor: None,
             air_jump_turns: false,
             passive_shield: None,
+            wing: None,
             air_jump_drift: 100,
             item_throws: ItemThrows::STANDARD,
             walk_speed: gu(1400),
@@ -1792,6 +1968,126 @@ impl FighterParams {
         }
     }
 
+    /// A light, fast-falling swordsman with a very long blade and a wing that comes when it is in danger: the "exile" body of the
+    /// Nodachi moveset. The reference character's 13.0.1 attributes (the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and
+    /// `Item_throw` tables, ultimateframedata.com and kuroganehammer.com; `docs/movesets/nodachi/REFERENCE_DATA.md`): weight 79, walk
+    /// 0.9, initial dash 1.92 for 10 frames, run 1.86, traction 0.11, air speed 0.95, air acceleration 0.01 + 0.07, air friction 0.008,
+    /// gravity 0.108, fall 1.84 (fast 2.944), full hop 30.5, short hop 10.0, double jump 34.0 (its sideways speed x1.0, the shared rule),
+    /// ledge jump 35.25 (drift 0.6, the shared value). On the ground: walk acceleration 0.02 + 0.08, run acceleration 0.03 + 0.09, a
+    /// heavy landing of 3 (2 of lag: the parameter file's `landing_heavy_frame`). Air dodges 45 (neutral, intangible 3-30) and 62 / 75 /
+    /// 98 (directional down / sideways / up, intangible 3-21); rolls 30 forward (intangible 4-15) and 35 back, spot dodge 26 (3-17). No
+    /// wall jump (its wall tech jump 1.3 away, 2.4 up). Item throws let go on the common 8, 11, 12, 7, 5, 6. The shared body size [E].
+    /// Its wing is [`FighterParams::exile_wing`].
+    pub fn exile() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(108);
+        let (burst, arc) = Self::full_hop(gravity, su(30500));
+        FighterParams {
+            walk_speed: gu(900),
+            run_speed: gu(1860),
+            dash_speed: gu(1920),
+            walk_accel: gu(20),
+            walk_accel_stick: gu(80),
+            run_accel: gu(30),
+            run_accel_stick: gu(90),
+            dash_frames: 10,
+            heavy_landing_lag: 2,
+            air_speed: su(950),
+            air_accel: su(10),
+            air_accel_stick: su(70),
+            air_friction: su(8),
+            gravity,
+            max_fall_speed: su(1840),
+            fast_fall_speed: su(2944),
+            air_dodge_frames: 45,
+            air_dodge_dir_down_frames: 62,
+            air_dodge_dir_side_frames: 75,
+            air_dodge_dir_up_frames: 98,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.11 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(220),
+            dash_attack_friction: gu(110),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(10000)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(34000)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(35250)),
+            weight: Fx::from_int(79),
+            weapon: 13,
+            roll_frames: 30,
+            roll_back_frames: 35,
+            roll_intangible_start: 4,
+            roll_intangible_end: 15,
+            spot_dodge_frames: 26,
+            spot_intangible_start: 3,
+            spot_intangible_end: 17,
+            // No wall jump (the parameter file's `wall_jump_type` false); the wall tech's jump is 1.3 away, 2.4 up.
+            wall_jump: 0,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2400),
+            wing: Some(Self::exile_wing()),
+            ..FighterParams::base()
+        }
+    }
+
+    /// The exile's wing (E57; the reference's one wing, ssbwiki.com's article on it, 13.0.1, with kuroganehammer.com's winged numbers):
+    /// the start table by stock difference (-2 to +2) and the percent difference before the hit, the points (110, 100, 90, 65, 50 by
+    /// stock difference), 0.3 points a percent of base damage dealt (0.15 with more opponents), 50 for a KO; a third jump, x1.3 damage,
+    /// and walk x1.15, dash x1.2, run x1.25 (its acceleration x1.2), traction x1.3, air speed x1.2, air acceleration x1.15 + x1.1, air
+    /// friction x1.05, gravity x1.03, fall x1.05 [R]. The table's formulas as published contradict their own ranges in two rows; the
+    /// points here follow the ranges and the published examples [D: `REFERENCE_DATA.md`].
+    pub fn exile_wing() -> Wing {
+        Wing {
+            rows: [
+                WingRow::from_points(&[
+                    (-70, 300),
+                    (-120, 450),
+                    (-120, 600),
+                    (-320, 600),
+                    (-320, 700),
+                    (-370, 800),
+                ]),
+                WingRow::from_points(&[
+                    (40, 400),
+                    (-10, 550),
+                    (-10, 700),
+                    (-210, 700),
+                    (-210, 800),
+                    (-310, 900),
+                ]),
+                WingRow::from_points(&[(-100, 800), (-100, 900), (-150, 1000)]),
+                WingRow::from_points(&[(10, 850), (10, 950), (-40, 1050)]),
+                WingRow::from_points(&[(120, 900), (120, 1000), (70, 1100)]),
+            ],
+            points: [
+                Fx::from_int(110),
+                Fx::from_int(100),
+                Fx::from_int(90),
+                Fx::from_int(65),
+                Fx::from_int(50),
+            ],
+            per_dealt: [Fx::from_ratio(3, 10), Fx::from_ratio(15, 100)],
+            ko_points: Fx::from_int(50),
+            power: 130,
+            jumps: 1,
+            walk: 115,
+            dash: 120,
+            run: 125,
+            run_accel: 120,
+            traction: 130,
+            air_speed: 120,
+            air_accel: 115,
+            air_accel_stick: 110,
+            air_friction: 105,
+            gravity: 103,
+            fall: 105,
+        }
+    }
+
     /// The phantom's gauge, its partner's (the reference's, ssbwiki.com's article on the gauge and ultimateframedata.com, 13.0.1; E53):
     /// 100 units; 0.00925 a frame by itself (not on a revival platform); 1.3 a percent of damage taken (with the one-on-one
     /// multiplier: the damage actually added), x1.25 one stock behind the leader and x1.5 two or more (the reference's 1.625 and 1.95),
@@ -1853,6 +2149,11 @@ impl StateHash for FighterParams {
         h.write_u8(self.air_jump_drift);
         for (_, v) in self.item_throws.frames() {
             h.write_u8(v);
+        }
+        // (Sim 125, E57: only a body with a wing writes anything, so every older body's hash is unchanged.)
+        if let Some(w) = &self.wing {
+            h.write_bool(true);
+            w.hash_into(h);
         }
     }
 }
@@ -2687,6 +2988,7 @@ impl Content {
                 FighterParams::settler(),
                 FighterParams::scamp(),
                 FighterParams::phantom(),
+                FighterParams::exile(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -2702,6 +3004,7 @@ impl Content {
                 crate::moves::pockets(),
                 crate::moves::popgun(),
                 crate::moves::dagger(),
+                crate::moves::nodachi(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -2721,6 +3024,7 @@ impl Content {
                     "settler".to_string(),
                     "scamp".to_string(),
                     "phantom".to_string(),
+                    "exile".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -2736,6 +3040,7 @@ impl Content {
                     "pockets".to_string(),
                     "popgun".to_string(),
                     "dagger".to_string(),
+                    "nodachi".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

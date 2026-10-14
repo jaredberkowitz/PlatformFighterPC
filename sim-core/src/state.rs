@@ -252,6 +252,12 @@ pub struct Fighter {
     pub curse_tick: u8,
     pub curse_damage: Fx,
     pub curse_by: u8,
+    /// The wing's points (E57, sim 125: `content::Wing`): above 0 while the fighter has its wing out; the wing goes when they run out.
+    pub wing_points: Fx,
+    /// The fighter has lost its wing since its last KO (E57): it does not come again until the fighter is knocked out.
+    pub wing_spent: bool,
+    /// The last fighter whose hit raised this fighter's percent since it last came back (E57: who a KO is credited to), or [`NONE`].
+    pub hit_by: i8,
     /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
     pub wall_jumps: u8,
     /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
@@ -750,6 +756,9 @@ impl Fighter {
             curse_tick: 0,
             curse_damage: Fx::ZERO,
             curse_by: 0,
+            wing_points: Fx::ZERO,
+            wing_spent: false,
+            hit_by: NONE,
             wall_jumps: 0,
             dash_buffer: 0,
             drop_pending: 0,
@@ -956,6 +965,9 @@ impl StateHash for Fighter {
         h.write_u8(self.curse_tick);
         self.curse_damage.hash_into(h);
         h.write_u8(self.curse_by);
+        self.wing_points.hash_into(h);
+        h.write_bool(self.wing_spent);
+        h.write_i8(self.hit_by);
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
         h.write_u8(self.drop_pending);
@@ -1612,6 +1624,21 @@ mod tests {
             ("curse_damage", {
                 let mut s = state;
                 s.fighters[1].curse_damage = Fx::ONE;
+                s
+            }),
+            ("wing_points", {
+                let mut s = state;
+                s.fighters[1].wing_points = Fx::from_raw(1);
+                s
+            }),
+            ("wing_spent", {
+                let mut s = state;
+                s.fighters[1].wing_spent = true;
+                s
+            }),
+            ("hit_by", {
+                let mut s = state;
+                s.fighters[1].hit_by = 0;
                 s
             }),
             ("curse_by", {

@@ -1214,3 +1214,62 @@ fn a_projectiles_curse_deals_its_damage_every_few_frames_and_ends() {
     sim.ticks(40, inp(0, 0, 0));
     assert_eq!(sim.fighter(1).percent, Fx::from_int(6) * k, "and no more");
 }
+
+#[test]
+fn the_wing_armor_mode_and_edge_stop_are_in_the_content_hash() {
+    // Sim 125: the exile's wing (E57) and each of its numbers, a move's armor mode, a motion that stops at the edge.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let exile = 13;
+    type Edit = Box<dyn Fn(&mut sim_core::Content)>;
+    let wing = |f: fn(&mut sim_core::content::Wing)| -> Edit {
+        Box::new(move |c| f(c.fighters[exile].wing.as_mut().expect("a wing")))
+    };
+    let edits: Vec<Edit> = vec![
+        Box::new(move |c| c.fighters[exile].wing = None),
+        wing(|w| w.points[0] = Fx::ONE),
+        wing(|w| w.per_dealt[1] = Fx::ONE),
+        wing(|w| w.ko_points = Fx::ONE),
+        wing(|w| w.power = 101),
+        wing(|w| w.jumps = 2),
+        wing(|w| w.walk = 101),
+        wing(|w| w.run_accel = 101),
+        wing(|w| w.air_accel_stick = 101),
+        wing(|w| w.fall = 101),
+        wing(|w| w.rows[4].diff[0] = 121),
+        wing(|w| w.rows[2].percent[1] = Fx::ONE),
+        wing(|w| w.rows[3].count = 2),
+        Box::new(|c| c.fighters[0].wing = Some(sim_core::FighterParams::exile_wing())),
+        Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].armor_mode = 2),
+        Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].edge_stop = true),
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}
+
+#[test]
+fn phases_sharing_a_start_are_rings_out_together_and_distinct_starts_one_at_a_time() {
+    // Sim 125 (E58): hits by age with the same start are all out at once, in their order; different starts replace one another as
+    // before (every older projectile).
+    let mut a = hit(Fx::ONE, Fx::ZERO);
+    a.priority = 0;
+    let mut b = hit(Fx::from_int(2), Fx::ZERO);
+    b.priority = 1;
+    let mut c = hit(Fx::from_int(3), Fx::ZERO);
+    c.priority = 2;
+    let phases = sim_core::moves::phase_list(&[(2, a), (5, b), (5, c)]);
+    let at = |age| {
+        sim_core::moves::rings_at(&phases, age)
+            .iter()
+            .flatten()
+            .map(|h| h.radius)
+            .collect::<Vec<_>>()
+    };
+    assert!(at(1).is_empty());
+    assert_eq!(at(3), vec![Fx::ONE]);
+    assert_eq!(at(5), vec![Fx::from_int(2), Fx::from_int(3)]);
+    assert_eq!(MAX_PHASES, 12);
+}

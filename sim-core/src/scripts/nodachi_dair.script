@@ -1,0 +1,5 @@
+// Nodachi down air (the reference's, in world units: reference / 8). Frames 1-18 the sideways speed is stopped and the fall speed
+// set to 1 up (0.125); from 19 the fall is 4.2 down (0.525) to the move's end. The stick's sideways control is off on 1-46.
+if frame < 18 { set_vel(0, 0.125); }
+if frame >= 18 && frame < 46 { set_vel(0, -0.525); }
+if frame >= 46 { set_vel(vx, -0.525); }

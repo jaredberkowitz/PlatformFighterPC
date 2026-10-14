@@ -361,6 +361,42 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             errors.push(format!("fighter {i}: the air-jump armor: {e}"));
         }
     }
+    // Sim 125 (E57): the wing.
+    if let Some(w) = &f.wing {
+        if let Some(e) = wing_error(w) {
+            errors.push(format!("fighter {i}: the wing: {e}"));
+        }
+    }
+}
+
+/// What is wrong with a wing's numbers (E57), if anything.
+fn wing_error(w: &sim_core::content::Wing) -> Option<&'static str> {
+    let in_range = |p: Fx| p >= Fx::ZERO && p <= Fx::from_int(999);
+    if w.points
+        .iter()
+        .any(|&p| p <= Fx::ZERO || p > Fx::from_int(10_000))
+    {
+        Some("its points must be above 0 (at most 10000)")
+    } else if w
+        .per_dealt
+        .iter()
+        .any(|&p| p < Fx::ZERO || p > Fx::from_int(100))
+        || w.ko_points < Fx::ZERO
+        || w.ko_points > Fx::from_int(10_000)
+    {
+        Some("per_dealt must be 0 to 100 and ko_points 0 to 10000")
+    } else if w.percents().iter().any(|&(_, p)| p == 0 || p > 1000) || w.jumps > 5 {
+        Some("its percents must be 1 to 1000 and jumps at most 5")
+    } else if w.rows.iter().any(|r| {
+        let n = usize::from(r.count);
+        n == 0
+            || r.percent[..n].iter().any(|&p| !in_range(p))
+            || r.diff[..n].windows(2).any(|d| d[1] > d[0])
+    }) {
+        Some("each start row needs points (percents 0 to 999) with differences that never rise")
+    } else {
+        None
+    }
 }
 
 /// What is wrong with an armor's kind and numbers (a move's or a body's), if anything.
@@ -702,6 +738,8 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             && mv.unpocket.is_none()
             && mv.toss.is_none()
             && mv.reflector.is_none()
+            // (Sim 125: a follow-up slot may be only time: the blade dash's end in the air, the flare's cancel.)
+            && !MoveId::from_index(m as u8).is_ext()
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
@@ -724,24 +762,35 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                      speed, bounce_min at most bounce_max, bounce_keep and bounce_keep_y at most 100, no negative bounce_max_fall)"
                 ));
             }
+            // (Sim 125, E58: phases with the same start are rings, out together; they share a hit group.)
             let mut last = 0;
-            for (from, _) in p.phases.iter().flatten() {
-                if *from <= last || *from >= p.life {
+            let mut group = 0;
+            for (from, hb) in p.phases.iter().flatten() {
+                if *from == 0
+                    || *from < last
+                    || *from >= p.life
+                    || (*from == last && hb.group != group)
+                {
                     errors.push(format!(
-                        "weapon {i} {name}: projectile phases must start in order, after age 0 and within its life"
+                        "weapon {i} {name}: projectile phases must start in order, after age 0 and within its life (rings sharing a start share a group)"
                     ));
                 }
                 last = *from;
+                group = hb.group;
             }
             if let Some(b) = &p.burst {
                 let mut last = 0;
+                let mut group = 0;
                 let mut ordered = b.life > 0;
                 for (from, hb) in b.phases.iter().flatten() {
-                    ordered &= *from > last
+                    ordered &= *from > 0
+                        && *from >= last
+                        && (*from > last || hb.group == group)
                         && *from < b.life
                         && hb.radius >= Fx::ZERO
                         && hb.half_height >= Fx::ZERO;
                     last = *from;
+                    group = hb.group;
                 }
                 if !ordered || last == 0 {
                     errors.push(format!(
@@ -1048,6 +1097,14 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         {
             errors.push(format!(
                 "weapon {i} {name}: a hitbox's mode must be any, plain or powered and its part 0 or 1"
+            ));
+        }
+        // Sim 125 (E57): an armor mode names when an armor works, so it needs an armor.
+        if mv.armor_mode > sim_core::moves::MODE_POWERED
+            || (mv.armor_mode != sim_core::moves::MODE_ANY && mv.armor.is_none())
+        {
+            errors.push(format!(
+                "weapon {i} {name}: armor_mode must be any, plain or powered, and needs an armor"
             ));
         }
         // Sim 123: a blockable box is a grab box (E56); a tether's frames lie inside the move, its reach is not negative (at most 64
@@ -1804,6 +1861,80 @@ mod combat_tests {
     }
 
     #[test]
+    fn the_nodachi_fields_round_trip_and_are_checked() {
+        // Sim 125: the exile's wing (E57), a move's armor mode and a motion that stops at the edge come back from a file unchanged; a
+        // file without them keeps today's behaviour; bad values are refused.
+        let base = Content::placeholder();
+        let exile = 13;
+        let w = usize::from(base.fighters[exile].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "wing {",
+            "points_m2 110",
+            "per_dealt 0.29999",
+            "per_dealt_crowd 0.15",
+            "ko_points 50",
+            "jumps 1",
+            "power 130",
+            "run_accel 120",
+            "point { stocks -2 diff -70 percent 30 }",
+            "armor_mode powered",
+            "edge_stop true",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no wing, armor always, motions leave edges.
+        let stripped = text
+            .replace(" armor_mode powered", "")
+            .replace("armor_mode powered", "")
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("edge_stop"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut out = String::new();
+        let mut skip = 0usize;
+        for l in stripped.lines() {
+            let t = l.trim_start();
+            if skip > 0 || t.starts_with("wing {") {
+                skip += l.matches('{').count();
+                skip -= l.matches('}').count();
+                continue;
+            }
+            out.push_str(l);
+            out.push('\n');
+        }
+        let older = crate::bundle::load(&out)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert!(older.fighters.iter().all(|f| f.wing.is_none()));
+        assert!(older.weapons[w]
+            .moves
+            .iter()
+            .all(|m| !m.edge_stop && m.armor_mode == sim_core::moves::MODE_ANY));
+        // Bad values.
+        let mut c = base.clone();
+        if let Some(wing) = c.fighters[exile].wing.as_mut() {
+            wing.points[2] = Fx::ZERO;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("wing")));
+        let mut c = base.clone();
+        if let Some(wing) = c.fighters[exile].wing.as_mut() {
+            wing.rows[0].diff[1] = 100;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("wing")));
+        let mut c = base.clone();
+        c.weapons[0].moves[sim_core::moves::MoveId::Jab as usize].armor_mode =
+            sim_core::moves::MODE_POWERED;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("armor_mode")));
+        let bad = text.replacen("point { stocks -2", "point { stocks -3", 1);
+        assert!(crate::bundle::load(&bad).is_err());
+    }
+    #[test]
     fn the_dagger_phase_2_fields_round_trip_and_are_checked() {
         // Sim 123: a move's tether (E56), a blockable grab box, a dodge that stales like a roll, a part intangibility window's mode, and
         // the phantom's gauge gain from damage dealt (owner decision 80) come back from a file unchanged; a file without them keeps
@@ -2059,11 +2190,11 @@ mod combat_tests {
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {
         let mut c = Content::placeholder();
-        c.fighters[0].weapon = 13;
+        c.fighters[0].weapon = 14;
         c.weapons[0].moves[0].hitboxes[0].end = 200;
         c.weapons[1].moves.pop();
         let errors = validate(&c).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("weapon 13")), "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("weapon 14")), "{errors:?}");
         assert!(
             errors.iter().any(|e| e.contains("outside the move")),
             "{errors:?}"

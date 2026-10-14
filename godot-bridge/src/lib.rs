@@ -1057,6 +1057,13 @@ impl SimRunner {
             .map_or(-1, |fi| i32::from(fi.tether_ledge))
     }
 
+    /// The fighter's wing points (E57, sim 125: the Exile's comeback wing), above 0 while the wing is out; 0 otherwise.
+    /// Read-only, for the view to show the wing.
+    #[func]
+    fn fighter_wing(&self, i: i32) -> f32 {
+        self.fighter(i).map_or(0.0, |fi| f(fi.wing_points).max(0.0))
+    }
+
     /// The radius (world units) of the egg the fighter is shut in (state `Encased`, E8), grown as it was laid; 0 when not in one.
     /// Read-only, for the view: the egg is drawn round the fighter, standing on its feet.
     #[func]
