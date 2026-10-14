@@ -1677,6 +1677,18 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				func(s: float) -> float: return 0.09 * s * s)
 			var earth := Materials.stone((t.soil_dark as Color).darkened(0.12), Vector2(6, 2))
 			_mesh(root, keel, earth, Vector3.ZERO).name = "Underside"
+			# A ragged skirt of rounded rocks along the foot of the wall, half above and half below its bottom edge, so the built wall
+			# grows out of the island's earth instead of sitting on it along a ruled line. Deterministic.
+			var skirt := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.35), Vector2(1, 1))
+			var sx := l - 0.2
+			var j := 0
+			while sx < r + 0.2:
+				var sr := 0.6 + 0.4 * absf(sin(float(j) * 2.3 + 0.7))
+				# (Standing a little proud of the wall's face, 0.3 out, so the whole stone shows.)
+				_mesh(root, _sphere(1.0, 9), skirt, Vector3(sx, bottom - 0.1 + 0.3 * sin(float(j) * 2.9), 0.3 + sr * 0.2),
+					Vector3(sr * 1.35, sr, sr * 0.8), Vector3(0, float(j) * 37.0, float(j) * 11.0))
+				sx += sr * 1.7
+				j += 1
 			var w := r - l
 			var cx := (l + r) / 2.0
 			var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.45))

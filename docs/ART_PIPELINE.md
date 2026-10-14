@@ -1106,3 +1106,7 @@ only; every created fighter can wear them too).
 - (Demos use per-slot default looks, so the match screenshots don't show these; menu matches do.)
 - Still open for item 2: hair shapes and bigger silhouette pieces (pauldrons, packs), and the animation that would carry identity, at the
   end-of-development pass.
+- **A rock skirt under the floating-island stages** (item 3, second step; the meadow and the grove): rounded stones along the foot of the
+  wall, half above and half below its bottom edge and standing a little proud of it, varied in size and height, so the built wall grows
+  out of the island's earth instead of ending on a ruled line above the keel. `stage_rock_skirt.png`.
+- Modelled props, weapons and animation are deferred to near the end (owner's call).
