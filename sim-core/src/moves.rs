@@ -3880,9 +3880,9 @@ pub fn claws() -> Weapon {
             r(10, 26, -7, 8, 6, 80, 361, 0, 100, 2, 0),
         ],
     );
-    // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 29, FAF 41.
+    // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 30 (UFD ">29", ssbwiki.com), FAF 41.
     w.moves[MoveId::FAir as usize] =
-        ref_move(41, 10, 0, 29, &[r(7, 9, 23, 10, 9, 90, 60, 45, 85, 0, 0)]);
+        ref_move(41, 10, 0, 30, &[r(7, 9, 23, 10, 9, 90, 60, 45, 85, 0, 0)]);
 
     // Blaster: a bayonet hit on frames 15-19 (7%, angle 60, strong knockback) if something is in front of the
     // muzzle, otherwise a shot fires on frame 16. The shot does 8% falling to 6% over its range (about two

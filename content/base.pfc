@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 94
-    hash 3277c1e39f615daa
+    hash 551008e2af59d374
 }
 
 ruleset {
@@ -637,7 +637,7 @@ weapon claws {
     move fair {
         total_frames 39
         landing_lag 10
-        autocancel_after 28
+        autocancel_after 29
         hitbox { start 6 end 8 x 2.29999 y 1 radius 0.9 damage 9 angle 60 bkb 45 kbg 85 }
     }
     move bair {
