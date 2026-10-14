@@ -50,3 +50,9 @@ grading (each stage keeps its own finish).
   detail over it, laid in world space). The roof tile was tried first: its slab grid read as plaza paving, not road.
 - The kerbs are inked painted stone; two worn zebra crossings either side of the building give the street a reason to be a street.
 - **Images**: `docs/screenshots/stage4_city_street.png` (before left).
+
+## Pass 5: the grove's turf edge
+
+The turf hanging over the stage's front edge still read as a row of beads (each tuft varied, but spaced apart at one height). Tufts
+now overlap (spacing about 0.6 of before), and about one in six is a long drip, so the edge is one ragged skirt.
+`docs/screenshots/stage5_grove_lip.png` (before left).

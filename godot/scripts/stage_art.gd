@@ -492,12 +492,15 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				# so the edge reads as one scalloped skirt of turf rather than a row of equal beads.
 				var own := RandomNumberGenerator.new()
 				own.seed = hash(roundi(x * 100.0))
-				var hang := own.randf_range(0.6, 1.5)
-				var wide := own.randf_range(0.9, 1.6)
-				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.05 - 0.17 * k * hang, front_z + 0.2), Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
+				# (Every few a long drip of turf, and neighbours overlapping, so the edge is one ragged skirt, not a row of beads.)
+				var long_drip := own.randf() < 0.18
+				var hang := own.randf_range(1.6, 2.4) if long_drip else own.randf_range(0.5, 1.3)
+				var wide := own.randf_range(0.7, 1.0) if long_drip else own.randf_range(1.0, 1.7)
+				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
+					Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
-				x += rng.randf_range(0.8, 1.6)
+				x += rng.randf_range(0.8, 1.6) * 0.62
 
 
 ## What makes a stage's block a built shape rather than a box with a tiled front: at each top corner (the ledges, gameplay landmarks) a
