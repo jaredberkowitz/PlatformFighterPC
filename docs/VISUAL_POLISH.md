@@ -138,6 +138,17 @@ Every stage checked in greyscale at play distance.
 - **Images**: `docs/screenshots/polish6_value_hierarchy.png` (meadow, beach, city; before left).
 - **Checks run**: all five stages before and after; the look bench; match flow.
 
+### Pass 58: material standards (phase 6) and motion (phase 8)
+
+- **Material standards** are written down in `docs/VISUAL_STYLE.md` ("Material standards"): which family each kind of surface uses,
+  its light response, colour variation and line, the same on bright and dark stages. The new hay bales and barrel had bypassed the
+  families; they now take the straw (grass) and wood responses (`Materials.as_family`).
+- **Motion** (the combat, smash and kicks demos): hits, launches, trails and feet on the ground read. The gap: a jumping fighter's drop
+  shadow had faded to nothing a few units up (it faded over half its 10-unit reach), so where it would land was not marked. It reaches
+  14 units now and fades only over the last fifth (`SHADOW_DEPTH`, `SHADOW_FADE`).
+- **Images**: `docs/screenshots/polish7_drop_shadow.png` (a neutral air, before left).
+- **Checks run**: the motion demos; the fighter view test.
+
 ### Performance after passes 52 to 56 and character pass 1
 
 The KO demo at 1280x720, warm cache: GPU 1.89 ms against 1.66 to 1.71 ms before (soft shadows, lathe props, the earth tile), about 255

@@ -1197,7 +1197,10 @@ func _flash(s: Dictionary, delta: float) -> void:
 ## at a glance, in the air too. A decal reaching down from the feet; it fades with height.
 var contact_shadow: Decal
 static var _shadow_tex: GradientTexture2D
-const SHADOW_DEPTH := 10.0
+## How far down the drop shadow reaches (a full jump and more), and the share of that depth over which it fades at the far end: it stays
+## readable through a jump, so where a fighter will land is always marked, and fades only well above a platform's reach.
+const SHADOW_DEPTH := 14.0
+const SHADOW_FADE := 0.22
 
 
 ## Puts every mesh under `node` on render layer 2 (seen and lit as usual), so the contact shadow, which only projects on layer 1, skips them.
@@ -1230,7 +1233,7 @@ func _contact_shadow() -> void:
 	# Only the stage takes it: the fighter's own meshes are on layer 2 (see `build`).
 	contact_shadow.cull_mask = 1
 	contact_shadow.upper_fade = 0.0  # (no fade toward the feet; the floor is at the top of the box)
-	contact_shadow.lower_fade = 0.5
+	contact_shadow.lower_fade = SHADOW_FADE
 	add_child(contact_shadow)
 
 
