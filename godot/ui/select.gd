@@ -51,6 +51,7 @@ const NEW_COLOR := Color("1f7a5a")
 ## The keys along the bottom.
 const KEYS := [["WASD", "P1 move   J lock   K back"], ["\u2190\u2192", "P2 move   Enter lock   Bksp back"], ["C", "Computer"],
 	["E", "Edit"], ["T", "Stocks"], ["Y", "Time"], ["G", "Stage"], ["Esc", "Menu"]]
+const RUN_KEYS := [["WASD", "Move   J lock   K back"], ["Enter", "Run"], ["E", "Edit"], ["Esc", "Menu"]]
 const P_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 const P_DISC := [Color(0.98, 0.72, 0.72), Color(0.74, 0.8, 0.98), Color(0.99, 0.9, 0.62), Color(0.76, 0.94, 0.8)]
 
@@ -65,6 +66,9 @@ var cpu := [false, false, false, false]
 const CPU_LEVEL := 5
 ## How many players are in this match (2 to 4). Players 3 and 4 play on controllers 3 and 4.
 var count := 2
+## Choosing the fighter for the single-player run (`Roster.session.mode == "run"`, from the main menu's Run tile): one player, no
+## match rules, and the choice starts a run (`runner.tscn`).
+var run_mode := false
 var players_button: Control
 var panels: Array = []
 var status: Control
@@ -308,7 +312,9 @@ class PanelsOverlay extends Control:
 
 
 class Header extends Control:
-	## The screen's title: "VERSUS" on a gold brush stroke and "CHOOSE YOUR FIGHTER" on a dark one.
+	## The screen's title: "VERSUS" (or "RUN") on a gold brush stroke and "CHOOSE YOUR FIGHTER" on a dark one.
+	var mode_text := "VERSUS"
+
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -318,7 +324,7 @@ class Header extends Control:
 		Art.title(self, "CHOOSE YOUR FIGHTER", Vector2(big.position.x + 32, big.end.y - 18), 54, Color.WHITE, 0.0)
 		var small := Rect2(Vector2(22, 14), Vector2(210, 62))
 		Art.brush_band(self, small, Art.SUN, 5, 18.0, true, 0.8)
-		Art.title_centered(self, "VERSUS", small.grow_individual(-8, 0, -14, 0), 40, Art.INK, 0.0)
+		Art.title_centered(self, mode_text, small.grow_individual(-8, 0, -14, 0), 40, Art.INK, 0.0)
 
 
 class Ribbon extends Control:
@@ -355,7 +361,10 @@ func _ready() -> void:
 	editor.new_from_builtin("preview")
 	add_child(UI.Backdrop.new(true))
 
+	run_mode = Roster.session.get("mode", "") == "run"
 	var header := Header.new()
+	if run_mode:
+		header.mode_text = "RUN"
 	header.size = Vector2(800, 100)
 	add_child(header)
 
@@ -421,7 +430,7 @@ func _ready() -> void:
 	panels_overlay.panels = panels
 	add_child(panels_overlay)
 
-	var footer := UI.KeyBar.new(KEYS)
+	var footer := UI.KeyBar.new(RUN_KEYS if run_mode else KEYS)
 	footer.position = Vector2(60, 686)
 	footer.size = Vector2(1160, 30)
 	add_child(footer)
@@ -470,6 +479,12 @@ func _ready() -> void:
 	start_button.activated.connect(_start)
 	start_button.visible = false
 	add_child(start_button)
+
+	if run_mode:
+		count = 1
+		for b in [players_button, rules_button, stocks_button, time_button, stage_button]:
+			b.visible = false
+		status.set_text("Single player run: choose your fighter.")
 
 	# Where the cursors begin: on the fighter just made in the creator if there is one.
 	var pre: String = Roster.session.get("preselect", "")
@@ -529,26 +544,32 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if _all_locked():
 				_start()
 			else:
-				_lock(1)
+				_lock(0 if run_mode else 1)
 		KEY_BACKSPACE, KEY_DELETE:
 			_unlock(1)
 		KEY_SPACE:
 			if _all_locked():
 				_start()
 		KEY_N:
-			_cycle_players()
+			if not run_mode:
+				_cycle_players()
 		KEY_C:
-			_toggle_cpu()
+			if not run_mode:
+				_toggle_cpu()
 		KEY_E:
 			_edit()
 		KEY_R:
-			_toggle_ranked()
+			if not run_mode:
+				_toggle_ranked()
 		KEY_T:
-			_cycle_rules(true)
+			if not run_mode:
+				_cycle_rules(true)
 		KEY_Y:
-			_cycle_rules(false)
+			if not run_mode:
+				_cycle_rules(false)
 		KEY_G:
-			_cycle_stage()
+			if not run_mode:
+				_cycle_stage()
 		KEY_ESCAPE:
 			get_tree().change_scene_to_file("res://menu.tscn")
 
@@ -762,6 +783,11 @@ func pad_action(pad: int, action: String) -> void:
 
 func _start() -> void:
 	if not _all_locked():
+		return
+	if run_mode:
+		Roster.save_last(picked[0].slug)
+		Roster.session = {"run_entry": picked[0], "from_menu": true}
+		get_tree().change_scene_to_file("res://runner.tscn")
 		return
 	var chosen := []
 	for p in count:

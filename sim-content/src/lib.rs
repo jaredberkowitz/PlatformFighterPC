@@ -9,10 +9,12 @@ pub mod doc;
 pub mod format;
 pub mod policy;
 pub mod recipe;
+pub mod run;
 pub mod stages;
 pub mod tree;
 
 pub use bundle::{load, to_text, Bundle, Manifest, SCHEMA_VERSION};
+pub use run::check_run;
 
 use sim_core::content::{MAX_LEDGES, MAX_PLATFORMS};
 use sim_core::moves::{Move, MoveId, Weapon};

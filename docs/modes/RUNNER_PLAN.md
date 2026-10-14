@@ -1,6 +1,6 @@
-# Single-player mode: the endless run (plan, draft 1)
+# Single-player mode: the endless run (plan, draft 2; R1 built)
 
-Status: **draft 2, owner's answers in (14 October 2026); nothing built yet.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+Status: **draft 2, owner's answers in (14 October 2026); R1 (the vertical slice) built on branch `runner-r1`, sim 120: see section 7.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -192,6 +192,118 @@ Still open, for later phases:
 - the full item list and prices (in R3);
 - the boss modifier list (in R4);
 - whether the transit legs ever have enemies (a train-roof fight could be a highlight).
+
+## 7. R1 progress (vertical slice, sim 120, branch `runner-r1`)
+
+### What can be played
+- **Main menu, Run** (the tile under Play) opens the fighter choice in its run mode: one player, any built-in or made fighter. J or Enter
+  locks in, Enter starts. In the run, the city's rooftops and street stream past. The camera only goes forward: it creeps on and follows
+  you right. Walkers rush you and flyers dive at you. Beat them for coins, multiplied by your combo. You have three lives: a launch off
+  the screen, a fall into a gap, or being crushed against a wall by the screen's left edge each costs one. The results show distance,
+  coins, mobs beaten, the best combo and the seed. **Run again** starts a new seed; **Change fighter** goes back to the choice.
+- The controls are the versus game's in every way: same input reader, bindings, controllers and physics. Esc returns to the fighter
+  choice, P pauses, F1 shows the debug overlay.
+- Launched directly: `Godot --path godot -- --run [--fighter=<name>] [--seed=N]`.
+- Headless: `pftool run-bot [seeds] [frames]` plays runs with a simple bot (it runs right, jumps at walls and gaps, and jabs what is in
+  front). `pftool run-bench [frames]` times the step with all 16 mob slots full.
+
+### How it is built (and why)
+- **The run lives in the sim**, deterministic and hashed: `GameState::run` (`sim-core/src/run/`). In versus it is inactive and nothing
+  reads it. `step` is unchanged; a run is `run::step_run`, which is the versus `step` on the streamed stage followed by the run's own
+  rules. Versus, netplay (`pftool net-fuzz`: 0 mismatches), replays and the editors behave as before, and every existing test passes
+  unchanged.
+- **The camera (the scroll) is in the sim**, as the brief asked me to decide. Its left edge pushes the fighter and can crush it, and the
+  blast zone and mob spawning follow it, so it must replay exactly and be in the checksum. Godot only draws it: the screen's edges are the
+  sim's, and the camera follows height with a dead zone. The creep pauses while the fighter is on its revival platform.
+- **The streamed stage** is a ring of 4 chunk slots plus fixed pools of 24 platforms and 8 ledges (the versus ledge table) in the run
+  state. A pool entry keeps its index while it lives, so a fighter's `platform` and `ledge` indices stay valid as chunks come and go.
+  Ground that continues across a seam at one height is one platform, extended, so dashing, rolling and wavedashing across a seam work
+  exactly as on one floor (a test checks this). Each frame, the pools are written into the run's working copy of the content's `Stage`
+  (free entries become unreachable padding), with the blast zone and respawn point placed around the view. All of the versus collision,
+  landing, ledge and knock-out code then works unchanged.
+- **Mobs** are a fixed pool of 16 in the run state. Hits on them use the versus formulas (knockback, hitstun, hitlag, launch angles,
+  charge, rage). Their hits on the fighter go through the versus `combat::apply_hit`, with the mob standing in on an unplayed fighter slot
+  for that one call, so shields, DI, crouch cancelling, armor and counters work against them. Behaviour is a minimal Rust state machine
+  per kind. The walker approaches, stops at edges, hops up steps, winds up and lunges. The flyer hovers beside and above you, winds up and
+  dives. **R2 should move this behaviour into scripts** (`sim-script`), so that new enemies are data.
+- **Run content** (rules, chunks and mob kinds: `sim-core/src/run/data.rs`, `RunContent::placeholder`) is Rust data, like the stage
+  library, checked by `sim_content::check_run`. The `.pfc` format is unchanged (no schema bump). Authoring chunks in the stage editor is
+  for R2.
+- **Godot**: `runner.tscn` / `scripts/runner.gd` extends the match scene (`main.gd`) and overrides only what a run presents differently
+  (camera, stage, mobs, display, results and keys). `scripts/run_stage.gd` builds each chunk once from the stage art's blocks in the city
+  look, `scripts/mob_view.gd` draws the placeholder mobs, and `ui/run_hud.gd` and `ui/run_results.gd` follow the menus' painted style.
+
+### Tunables (`RunRules::standard`, world units and frames)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `lives` | 3 | lives at the start |
+| `view_width` | 30 | the view's width (the versus camera's nearest shows about 25) |
+| `follow` | 0.4 | the camera holds the fighter 40% across when following |
+| `creep` / `creep_growth` / `creep_max` | 0.02 / +0.0025 per 100 m / 0.0625 | the camera's own forward speed (running is about 0.25); **0 makes it a pure follow camera** |
+| `cam_max_speed` | 0.5 | the camera's top speed |
+| `push_margin` / `push_speed` | 0.8 / 0.35 | the left edge keeps the fighter 0.8 inside the view, pushing at up to 0.35 a frame (not while launched) |
+| `crush_depth` | 1 | a fighter pinned against a wall is crushed once the edge is 1 past it |
+| `blast_margin` / `blast_top` / `blast_bottom` | 6 / 22 / -14 | blast zone: 6 beyond the view's sides, and these heights |
+| `spawn_ahead` | 2 | mobs appear 2 beyond the view's right edge |
+| `respawn_at` | 0.35 | a lost life comes back 35% across the view |
+| `combo_step` / `combo_max` | 5 / 5 | coins are multiplied by 1 + combo / 5, at most 5; a hit taken or a life lost resets the combo |
+| `credit_frames` | 180 | a mob you hit that leaves the screen within 3 s counts as your kill |
+| `burst_frames` | 20 | how long a beaten mob takes to pop |
+
+**Mobs** (`MobKind::walker`, `flyer`):
+- Walker: 12 stamina, weight 80, speed 0.12. It lunges at 0.3 after an 18-frame windup; its hit is 6% at 45 degrees (base 30, growth 60).
+  It pays 5 coins.
+- Flyer: 8 stamina, weight 60. It hovers 5 above you and dives at 0.35 after a 24-frame windup; its hit is 8% at 60 degrees (35 / 70). It
+  pays 8 coins.
+
+**Chunks**: street (where every run starts), gap (with a stepping stone), step (a taller building), escapes (stacked fire escapes) and drop
+(a wide gap with a ledge under its near edge). Every chunk comes once a lap in a seeded order, never the same one twice running.
+
+### Tests and numbers
+- `sim-core/tests/runner.rs` (23 tests):
+  - streaming: the chunks always cover the view and never lose a platform; the chunk order is seeded; ground joins across a seam; ledges
+    and platforms work in a later chunk;
+  - camera and lives: the camera creeps, follows and never goes back; the edge pushes; being crushed against a wall, falling into a pit,
+    or leaving the screen each cost a life, and the last life ends the run;
+  - mobs: knockback grows with percent; a mob out of stamina bursts and pays; an off-screen mob is a kill only with credit; a walker hits
+    and breaks the combo; a shield blocks a mob; a flyer dives; one swing hits a mob once per hit group;
+  - economy: the combo multiplier and distance;
+  - determinism and the checksum: same seed and inputs give the same run, a restored state replays the same, random play with 16 mobs
+    keeps the invariants, the checksum sees every run and mob field, and the run content hashes.
+- `sim-content` `run::tests`: the built-in run is valid, and bad chunks are refused.
+- Godot: `tests/runner_test.gd` covers the bridge, the scene, the display, the results, Run again, the menu tile and the run-mode fighter
+  choice. `tests/run_shot.gd` photographs a run.
+- Cost: about 0.002 ms a frame on average with 16 mobs (release build, `pftool run-bench`); the worst frame was under 0.1 ms.
+- The bot (`pftool run-bot 8 7200`, two minutes each): 6 of 8 runs survived, covering 590 to 800 m and beating 5 to 16 mobs, with best
+  combos of 8 to 30. The other two lost all three lives (to gaps) at about 57 and 78 seconds. (The bot only runs, hops and jabs; a
+  player fights far better.)
+
+### Known limits (R1)
+- **Distance limit:** positions are 16.16 fixed point, good to about 32,000 units (roughly 40 minutes of non-stop running). R6's transit
+  legs are the natural place to shift the world back to the origin.
+- Mobs and fighter moves:
+  - grabs, throws and pushes (wind boxes) do not affect mobs;
+  - a multi-hit's rehit does not hit a mob again within one swing;
+  - a hitbox's grounded-only or air-only targeting is ignored on mobs;
+  - shots hit mobs in a simple way (no reflecting, clanking or pocketing them);
+  - a mob's hit on the fighter counts as a "fresh" move (the 1.05 damage bonus).
+- Runs are not recorded as replays yet. They are deterministic, so this is part of the R7 leaderboard work.
+- Coins come only from kills (no pickups yet). There are no shops, items, bosses or difficulty curve yet (R2 to R4).
+- The look is placeholder: chunk pieces are drawn separately, so a seam shows where ground continues from one chunk to the next; the city
+  skyline is fixed to the camera (no parallax); the mobs are plain blobs.
+
+### For the art director (placeholders to replace)
+1. **A city kit** for chunks: rooftop and street modules that join seamlessly across chunk seams, gaps, steps (taller buildings), fire
+   escapes, awnings, water towers and billboards; a storefront for shops (R3).
+2. **Enemies** in the house style (round blob bodies, 2D faces): the walker (a street tough or a rushing critter) and the flyer (a pigeon
+   or a drone), each with idle, move, windup (a clear tell), attack, hit and burst. Later: the guard, thrower, heavy and bomber (3.3).
+3. **A coin** and a pop for a beaten mob, a **combo** flourish for the HUD, and a city skyline that can scroll in parallax.
+4. **Shop** art for R3.
+
+### Decisions wanted
+- Does the creeping camera feel right at 0.02 (about a twelfth of running speed)? It is one number, and 0 makes it a pure follow camera.
+- At the screen's left edge, a launched fighter can now fly past it and be knocked out; once its hitstun ends, the edge pushes it back in.
+  Should the edge stop launches instead?
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),
