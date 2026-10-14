@@ -2575,8 +2575,9 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Distant islands.
 	for k in 3:
 		var isle := Vector3(-70.0 + k * 65.0 + rng.randf_range(-10, 10), float(e[3]) - 3.0, -110.0 + rng.randf_range(-10, 10))
-		_mesh(root, _sphere(1.0, 16), _soft(Color(0.98, 0.88, 0.62)), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
-		_mesh(root, _sphere(1.0, 16), _soft(Color(0.3, 0.62, 0.42)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
+		# (The sand painted as the stage's own beach is, the green a leafy foliage mound, both inked: the same finish as the props by the stage.)
+		_mesh(root, _sphere(1.0, 16), Materials.world("sand", Color(0.98, 0.88, 0.62), 6.0), isle, Vector3(rng.randf_range(10, 16), 3.5, 6.0))
+		_mesh(root, _sphere(1.0, 16), Materials.foliage(Color(0.3, 0.62, 0.42), Vector2(4, 2)), isle + Vector3(0, 2.0, 0), Vector3(rng.randf_range(6, 9), 3.5, 4.0))
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
@@ -2610,7 +2611,7 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 	rng.seed = 500 + k
 	var foam := _unshaded(Color(0.96, 0.99, 1.0))
 	_mesh(root, _cylinder(1.0, 1.0, 0.08, 28), foam, isle + Vector3(0, 0.15, 0), Vector3(17.5, 1.0, 7.0))
-	_mesh(root, _sphere(1.0, 12), _soft(Color(0.36, 0.68, 0.46)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
+	_mesh(root, _sphere(1.0, 12), Materials.foliage(Color(0.36, 0.68, 0.46), Vector2(3, 2)), isle + Vector3(rng.randf_range(-6.0, -3.0), 1.8, 1.0), Vector3(4.0, 2.6, 3.0))
 	_palm(root, isle + Vector3(rng.randf_range(3.0, 6.0), 2.8, 2.6), 1.0, rng)
 	var rock := Materials.stone(Color(0.62, 0.6, 0.66))
 	var end := -1.0 if k % 2 == 0 else 1.0
@@ -2620,8 +2621,8 @@ static func _isle_detail(root: Node3D, isle: Vector3, k: int) -> void:
 		_mesh(root, _cylinder(1.0, 1.0, 0.06, 14), foam, isle + Vector3(end * (12.0 + j * 1.8), 0.12, 2.0 - j), Vector3(r * 1.6, 1.0, r * 1.3))
 	if k == 1:
 		var hut := isle + Vector3(-1.5, 3.2, 2.2)
-		_mesh(root, _box(Vector3(2.4, 1.6, 1.8)), FighterView.toon(Color(0.96, 0.92, 0.84)), hut + Vector3(0, 0.8, 0))
-		_mesh(root, _cylinder(0.0, 2.0, 1.2, 4), FighterView.toon(Color(0.86, 0.36, 0.3)), hut + Vector3(0, 2.2, 0), Vector3.ONE, Vector3(0, 45, 0))
+		_mesh(root, _box(Vector3(2.4, 1.6, 1.8)), Materials.plaster(Color(0.96, 0.92, 0.84)), hut + Vector3(0, 0.8, 0))
+		_mesh(root, _cylinder(0.0, 2.0, 1.2, 4), Materials.shingles(Color(0.86, 0.36, 0.3), Vector2(4, 2)), hut + Vector3(0, 2.2, 0), Vector3.ONE, Vector3(0, 45, 0))
 
 
 ## A hut on stilts over the sea (`at` on the water under its middle): posts down into the water, a plank deck, walls of weathered boards

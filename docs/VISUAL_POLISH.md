@@ -183,6 +183,8 @@ backdrop is brought to the same finish: painted surfaces (tiles with detail, as 
   (crop rows with tufts, soil detail over it) in its own colour, and the hedgerows are rows of leafy bushes of different sizes
   (foliage material, inked), along and between the fields, over a thin shade line. Tried and dropped: the grass tile on the fields
   (its big soft blobs read as smudges at that size) and evenly spaced bushes (a bead chain).
+- **The beach**: the distant isles were flat-colour ellipsoids. Their sand is the stage's sand, their green leafy foliage, the hut on the
+  middle one plastered and shingled. (The haze softens all of it at that distance; the ink and the materials now match the stage.)
 - **Images**: `docs/screenshots/polish9_meadow_backdrop.png` (the whole meadow from wide, before top).
 - **Checks run**: the meadow wide and at play distance; art pipeline and match flow tests.
 
