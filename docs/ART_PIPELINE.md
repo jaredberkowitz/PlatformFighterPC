@@ -1087,3 +1087,7 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
 - **Crisper distance** (item 6): the far scenery's blur on the Best tier is 1.0 pixel, down from 2.6 (`PLAY_BLUR`): the review found it
   muddied the backdrops (Wind Waker keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
   down from the default 0.22) and thinner mists, the canyon thinner mists. `grove_crisper.png` (against `review_grove.png`).
+- **Built stage corners** (item 3, first step: `_ledges_and_buttresses`): down each end of a stage's front a column of bigger stones
+  standing proud of the wall (quoins, narrowing toward the foot, every third a darker one), and a corner stone under each ledge; on the
+  rooftop, metal corner caps. The wall now reads as a built mass framed at its ends rather than one tiled sheet. `stage_quoins.png`.
+  Still open: sculpted undersides and silhouettes that are not rectangles.

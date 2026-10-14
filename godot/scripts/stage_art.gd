@@ -384,6 +384,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# read at a glance.
 	var cap_depth := {"roof": 0.42, "sand": 0.5}.get(t.get("cap", "grass"), 0.62) as float
 	_mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
+	_ledges_and_buttresses(parent, t, left, right, top, bottom, front_z, cap_depth)
 	match t.get("cap", "grass"):
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
@@ -433,6 +434,41 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6)
+
+
+## What makes a stage's block a built shape rather than a box with a tiled front: at each top corner (the ledges, gameplay landmarks) a
+## chunky corner stone standing proud of the corner, lit on top, under the cap (on a rooftop a metal corner cap instead), and down each
+## end of the front a buttress, a column of bigger stones a little proud of the wall, narrowing toward the foot, so the wall is framed and
+## the tiled pattern is not the whole face. Deterministic.
+static func _ledges_and_buttresses(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front_z: float,
+		cap_depth: float) -> void:
+	var city: bool = t.get("cap", "grass") == "roof"
+	var stone_c := (t.soil as Color).lightened(0.12)
+	var stone := Materials.stone(stone_c, Vector2(1, 1))
+	var dark := Materials.stone((t.soil_dark as Color).darkened(0.05), Vector2(1, 2))
+	var h := top - bottom
+	for side in [-1.0, 1.0]:
+		var edge_x: float = right if side > 0.0 else left
+		if city:
+			# A metal corner cap over the ledge: a bracket down the corner and a bright cap on top.
+			var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.74)), "metal")
+			_mesh(parent, _box(Vector3(0.34, 0.9, 0.34)), steel, Vector3(edge_x - side * 0.08, top - 0.55, front_z + 0.1))
+			_mesh(parent, _box(Vector3(0.44, 0.14, 0.44)), steel, Vector3(edge_x - side * 0.08, top - 0.1, front_z + 0.12))
+			continue
+		# The corner stone: a squat, slightly turned block, a hair proud of the front and the side.
+		var cs := _mesh(parent, _box(Vector3(0.95, 0.7, 0.95)), stone, Vector3(edge_x - side * 0.36, top - cap_depth - 0.3, front_z + 0.08),
+			Vector3.ONE, Vector3(0, side * 4.0, side * -3.0))
+		cs.name = "ledge_stone"
+		# The buttress: stacked stones down the front, each a little narrower and darker toward the foot.
+		var y := top - cap_depth - 0.7
+		var k := 0
+		while y > bottom + 0.6 and k < 12:
+			var sh := 0.9 + 0.25 * absf(sin(float(k) * 1.9 + side))
+			var sw := lerpf(0.9, 0.7, clampf((top - y) / maxf(h, 0.1), 0.0, 1.0))
+			_mesh(parent, _box(Vector3(sw, sh - 0.06, 0.4)), stone if k % 3 != 2 else dark,
+				Vector3(edge_x - side * (0.4 + 0.03 * sin(float(k) * 2.7)), y - sh / 2.0, front_z + 0.14))
+			y -= sh
+			k += 1
 
 
 ## A strip `w` wide and `h` tall, dark at its top edge fading to nothing at the bottom (vertex colours), for a soft shadow under an edge.
