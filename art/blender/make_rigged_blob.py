@@ -496,7 +496,7 @@ BODY = "--body" in sys.argv
 # tall brawler, a fencer, a wolfish striker): the shoulders and hips wind back, then turn through into the strike as the weight steps onto
 # the front foot, the back leg straightening behind and the free arm pulled back for balance. Each entry is (wind-up, strike, rest) in the
 # `pose_spec` short form, on the shared move timeline.
-BODY_AMP = 0.65
+BODY_AMP = 0.85
 
 BODY_MOVES = {
     # A straight punch (or a quick slash): the guard hand stays up at the chin, the shoulders snap round and the front foot steps in.
@@ -621,6 +621,22 @@ BODY_MOVES = {
         {"spine": (10.0, 0.0), "head": (4.0, 0.0), "stance": (10.0, 6.0), "shin.L": (-50.0,), "shin.R": (-20.0,), "armU.L": (20.0, 20.0)},
         {"spine": (-8.0, 0.0), "head": (-12.0, 0.0), "stance": (0.0, 4.0), "shin.R": (-4.0,), "armU.L": (-20.0, 50.0)},
         {"spine": (-2.0, 0.0), "stance": (4.0, 4.0)}),
+    # A headbutt straight up (the all-rounder's and the dinosaur's up smash, the ape's up air): crouched low with the head ducked and the
+    # arms drawn down and back, then the whole body springs up through the legs and arches back, the arms flung down behind, so the head
+    # leads the hit. (`body_` clips: no arm reaches for the hitbox; the body is the weapon.)
+    "body_headbutt": (
+        {"hips": -0.16, "spine": (34.0, 0.0), "head": (14.0, 0.0), "stance": (30.0, 26.0), "shin.L": (-70.0,), "shin.R": (-66.0,),
+         "arms": (-30.0, 26.0)},
+        {"hips": 0.1, "spine": (-20.0, 4.0), "head": (-8.0, 0.0), "stance": (6.0, -4.0), "shin.L": (-6.0,), "shin.R": (-4.0,),
+         "arms": (-54.0, 34.0)},
+        {"spine": (-6.0, 0.0), "stance": (8.0, -4.0)}),
+    # A headbutt thrown forward (the dinosaur's forward smash and forward air): rocked back with the head drawn up, then the body lunges
+    # head first over the bent front leg, the back leg long behind and both arms swept back.
+    "body_headbutt_fwd": (
+        {"hips": -0.06, "spine": (-14.0, -18.0), "head": (6.0, 10.0), "stance": (14.0, 26.0), "shin.R": (-44.0,), "arms": (-24.0, 24.0)},
+        {"hips": -0.1, "spine": (44.0, 10.0), "head": (8.0, -6.0), "stance": (50.0, -34.0), "shin.L": (-46.0,), "shin.R": (-2.0,),
+         "arms": (-62.0, 30.0)},
+        {"spine": (14.0, 4.0), "stance": (26.0, -18.0), "shin.L": (-28.0,)}),
     # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall and arches back a little under it.
     "sword_utilt": (
         {"hips": -0.06, "spine": (14.0, 10.0), "head": (6.0, 0.0), "stance": (12.0, -10.0), "shin.L": (-20.0,)},
@@ -1918,6 +1934,9 @@ def main() -> None:
     move("attack_fair", fair_wind, fair_strike, fair_hold)
     # The claws' forward tilt, a two-handed lunging slash (posed in BODY_MOVES).
     clip(rig, "attack_claws", 60, {})
+    # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
+    clip(rig, "body_headbutt", 60, {})
+    clip(rig, "body_headbutt_fwd", 60, {})
 
     # Back air: the body turns away and the sweep goes behind.
     def bair_wind(rig):

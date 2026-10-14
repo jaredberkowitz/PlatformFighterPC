@@ -99,6 +99,8 @@ const CLASS_MOVES := {
 		"dsmash": "sword_dsmash",
 		"nair": "kick_nair",
 		"bair": "kick_bair",
+		# (A flip kick overhead, as its reference's.)
+		"uair": "kick_uair",
 		# (A stomp in the simulation: the hit is at the foot.)
 		"dair": "kick_dair",
 		"neutral special": "blaster",
@@ -121,9 +123,10 @@ const CLASS_MOVES := {
 		"extra move 0": "land",
 		"extra move 1": "attack_jab",
 		"extra move 2": "attack_smash",
-		"fsmash": "attack_kick",
+		# (Its forward smash is two kicks and its down smash a low spinning kick, as its reference's: the leg aimed at each hit.)
+		"fsmash": "kick_up",
 		"usmash": "attack_uair",
-		"dsmash": "sword_dsmash",
+		"dsmash": "kick_low",
 		"neutral special": "blaster",
 		"extra move 3": "blaster",
 		"extra move 4": "attack_jab",
@@ -135,6 +138,17 @@ const CLASS_MOVES := {
 	# Embers (the tumbler body): the fireball is thrown with a straight arm, the cape swept across (the rising punch keeps the shared uppercut),
 	# the water pump braced with both hands forward (wind-up, charge held, the shots); the down air's landing hit is a landing.
 	3: {
+		# After the reference all-rounder: two punches and a kick for the jab, a side kick, a sweep kick, a slide, the headbutt up smash,
+		# a breakdance sweep in front and behind, the held flying kick, a drop kick behind and a flip kick overhead (the leg aimed at each).
+		"jab 3": "kick_up",
+		"ftilt": "kick_up",
+		"dtilt": "kick_low",
+		"dash attack": "kick_dash",
+		"usmash": "body_headbutt",
+		"dsmash": "kick_low",
+		"nair": "kick_nair",
+		"bair": "kick_bair",
+		"uair": "kick_uair",
 		"neutral special": "attack_jab",
 		"side special": "attack_swing",
 		"down special": "blaster",
@@ -153,7 +167,11 @@ const CLASS_MOVES := {
 		"fsmash": "gaunt_elbow",
 		"usmash": "kick_uair",
 		"nair": "kick_nair",
-		"bair": "kick_bair",
+		# (Its reference's back air is a backhand, the shared back air; its forward tilt a side kick, its down smash a kick in front then
+		# behind and its up air a flip kick overhead.)
+		"ftilt": "kick_up",
+		"dsmash": "kick_low",
+		"uair": "kick_uair",
 		"dtilt": "kick_low",
 		"extra move 10": "attack_jab",
 		"extra move 11": "attack_jab",
@@ -215,8 +233,11 @@ const CLASS_MOVES := {
 		"utilt": "kick_up",
 		"dtilt": "kick_low",
 		"dash attack": "kick_dash",
-		"usmash": "kick_uair",
-		"dsmash": "sword_dsmash",
+		# (Its reference headbutts up and forward for its smashes and its forward air; its tail sweeps low both ways.)
+		"usmash": "body_headbutt",
+		"fsmash": "body_headbutt_fwd",
+		"fair": "body_headbutt_fwd",
+		"dsmash": "kick_low",
 		"nair": "kick_nair",
 		"bair": "kick_bair",
 		"uair": "kick_uair",
@@ -224,6 +245,9 @@ const CLASS_MOVES := {
 	},
 	# Buckler (the Wanderer): the longsword's cuts (its blade follows its hits).
 	9: {
+		# (Its reference's neutral and back airs are kicks.)
+		"nair": "kick_nair",
+		"bair": "kick_bair",
 		"ftilt": "sword_ftilt",
 		"utilt": "sword_utilt",
 		"dtilt": "sword_dtilt",
@@ -231,6 +255,12 @@ const CLASS_MOVES := {
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
 		"dair": "sword_dair",
+	},
+	# Pockets (the Settler, after the reference villager): the shovel dug in front and behind, the slingshot drawn and loosed forward
+	# (aimed like the blaster); its back air keeps the shared turn to face behind.
+	10: {
+		"dsmash": "sword_dsmash",
+		"fair": "blaster",
 	},
 	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
 	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up
@@ -242,8 +272,10 @@ const CLASS_MOVES := {
 		"usmash": "attack_uair",
 		"dsmash": "sword_dsmash",
 		"nair": "attack_swing",
-		"fair": "attack_smash",
+		# (Both fists raised overhead and hammered down in front: the shared down air's two-handed sweep.)
+		"fair": "attack_dair",
 		"bair": "kick_bair",
+		"uair": "body_headbutt",
 		"dair": "gaunt_stomp",
 	},
 }
@@ -257,6 +289,11 @@ const EXTRA_PREFIX := "extra move"
 ## generic kick but rush the whole body, so their leg is not aimed.)
 static func is_kick(clip: String) -> bool:
 	return clip.begins_with("kick_")
+
+
+## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.
+static func is_body(clip: String) -> bool:
+	return clip.begins_with("body_")
 
 
 static var _warned := {}

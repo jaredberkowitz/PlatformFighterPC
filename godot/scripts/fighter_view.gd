@@ -574,8 +574,9 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 		start = float(windows[windows.size() - 2])
 	if f <= last:
 		return 0.55 + (f - start) / maxf(1.0, last - start) * 0.08
+	# (The body carries through the follow-through and settles over the end lag, easing in and out, rather than holding the strike.)
 	var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
-	return 0.63 + 0.37 * pow(k, 1.8)
+	return 0.63 + 0.37 * k * k * (3.0 - 2.0 * k)
 
 
 ## Between two hits of a multihit move the clip draws back to here (0.35 is the full wind-up, 0.55 the strike): enough to read as a new
@@ -2560,18 +2561,35 @@ func _blade_target(s: Dictionary) -> Array:
 	var angle := swing
 	var len := length
 	if f < swing_from:
+		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils)...
 		var k := clampf(f / maxf(1.0, swing_from), 0.0, 1.0)
+		k = 1.0 - (1.0 - k) * (1.0 - k)
 		angle = lerpf(_rest_angle(s), wind, k)
 		len = lerpf(rest_len, length, k)
 	elif f < start:
+		# ...and the strike accelerates into the hit, so the blade whips through rather than gliding at one speed.
 		var k := clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0)
-		angle = lerpf(wind, swing, k)
+		angle = lerpf(wind, swing, k * k)
 	elif f > t[2]:
-		# The blade holds its follow-through and comes back late in the end lag.
-		var k := pow(clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0), 1.8)
-		angle = lerpf(swing, _rest_angle(s), k)
-		len = lerpf(length, rest_len, k)
+		# The follow-through: the blade carries on past its last hit the way it was travelling (FOLLOW_THROUGH degrees over the first part
+		# of the end lag, slowing), then eases home through the rest of it, as the reference's swordsmen finish a cut, rather than holding
+		# still at the hit and snapping back late.
+		var k := clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0)
+		var travel := signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing)))
+		var past := swing + travel * FOLLOW_THROUGH
+		if k < FOLLOW_SHARE:
+			var u := k / FOLLOW_SHARE
+			angle = lerpf(swing, past, 1.0 - (1.0 - u) * (1.0 - u))
+		else:
+			var u := (k - FOLLOW_SHARE) / (1.0 - FOLLOW_SHARE)
+			angle = lerpf(past, _rest_angle(s), u * u * (3.0 - 2.0 * u))
+			len = lerpf(length, rest_len, u * u * (3.0 - 2.0 * u))
 	return [angle, len, hand_x]
+
+
+## How far (degrees) a swing carries on past its last hit, and over what share of the end lag, before the blade eases home.
+const FOLLOW_THROUGH := 38.0
+const FOLLOW_SHARE := 0.28
 
 
 ## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
@@ -2686,8 +2704,8 @@ func _reach_weight(s: Dictionary) -> float:
 	if f < first:
 		k = clampf((f - first * 0.35) / maxf(1.0, first * 0.65), 0.0, 1.0)
 	elif f > last:
-		# (It stays out through most of the end lag, coming home late.)
-		k = 1.0 - pow(clampf((f - last) / maxf(1.0, (total - last) * 0.85), 0.0, 1.0), 1.6)
+		# (It stays out a moment past the hit, then eases home over the rest of the end lag, never frozen out.)
+		k = 1.0 - smoothstep(0.15, 1.0, clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0))
 	return k * k * (3.0 - 2.0 * k)
 
 
@@ -2836,7 +2854,7 @@ func _place_buckler(s: Dictionary) -> void:
 ## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.
 func _body_clip(cls: int, move: String) -> bool:
 	var clip := AnimLibrary.attack_clip(cls, move, anim)
-	return AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land", "crouch"]
+	return AnimLibrary.is_kick(clip) or AnimLibrary.is_body(clip) or clip in ["grab", "throw", "land", "crouch"]
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space), and with `two_hands` the other arm reaches `off_hand_target` (the
