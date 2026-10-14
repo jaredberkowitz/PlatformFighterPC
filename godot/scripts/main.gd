@@ -2070,7 +2070,8 @@ func _update_projectiles(a: float) -> void:
 		if wave:
 			var bursting: bool = sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
 			if blade_wave:
-				_draw_blade_wave(proj_waves[k], at, float(proj_cur[i + 3]))
+				var scale_pct: float = float(sim.projectile_scale(k)) if sim.has_method("projectile_scale") else 100.0
+				_draw_blade_wave(proj_waves[k], at, float(proj_cur[i + 3]), clampf(scale_pct / 100.0, 0.5, 1.5) if scale_pct > 0.0 else 1.0)
 			else:
 				_draw_wave(proj_waves[k], at, float(proj_cur[i + 3]), WAVE_POWERED.has(int(from[1])), bursting)
 		elif needle:
@@ -2088,6 +2089,7 @@ func _update_projectiles(a: float) -> void:
 ## twos; `powered` makes it about 1.7 tall (else 1.1). Bursting, it is a spinning ring of three amber blades 1.8 round instead.
 func _draw_wave(node: MeshInstance3D, at: Vector3, dir: float, powered: bool, bursting: bool) -> void:
 	node.position = at
+	node.scale = Vector3.ONE
 	var im: ImmediateMesh = node.mesh
 	var step := int(Time.get_ticks_msec() / 33)
 	if node.has_meta("step") and int(node.get_meta("step")) == step and node.get_meta("burst", false) == bursting 			and node.get_meta("kind", "") == "wave":
@@ -2140,9 +2142,10 @@ func _draw_wave(node: MeshInstance3D, at: Vector3, dir: float, powered: bool, bu
 ## The Wanderer's sword wave at `at` flying toward `dir`: a horizontal blade of light `BLADE_WAVE_LENGTH` long, pointed at the front and
 ## swept back to a forked tail, painted in layers as the knock-out blast and the swing arcs are (an ink silhouette, the longsword's blue,
 ## a pale band along its top edge, a white-hot core toward the point), its edges flickering on twos. (The sim's charge scaling of its
-## size, x0.8 to x1.1, is not exposed to the view yet; it is drawn at x1.)
-func _draw_blade_wave(node: MeshInstance3D, at: Vector3, dir: float) -> void:
+## size, x0.8 to x1.1, is the bridge's `projectile_scale`, passed as `size`.)
+func _draw_blade_wave(node: MeshInstance3D, at: Vector3, dir: float, size := 1.0) -> void:
 	node.position = at
+	node.scale = Vector3.ONE * size
 	var im: ImmediateMesh = node.mesh
 	var step := int(Time.get_ticks_msec() / 33)
 	if node.has_meta("step") and int(node.get_meta("step")) == step and node.get_meta("kind", "") == "blade":
