@@ -1076,6 +1076,102 @@ fn the_partner_guard_and_curse_fields_are_in_the_content_hash() {
 }
 
 #[test]
+fn the_tether_and_dagger_phase_2_fields_are_in_the_content_hash() {
+    // Sim 123: a move's tether (E56) and each of its numbers, a dodge that stales like a roll, a blockable grab box, a part
+    // intangibility window's mode.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[12].weapon);
+    let air = sim_core::moves::dagger_slots::HOOK_AIR as usize;
+    type Edit = Box<dyn Fn(&mut sim_core::Content)>;
+    let tether = |f: fn(&mut sim_core::moves::Tether)| -> Edit {
+        Box::new(move |c| f(c.weapons[w].moves[air].tether.as_mut().expect("a tether")))
+    };
+    let edits: Vec<Edit> = vec![
+        Box::new(move |c| c.weapons[w].moves[air].tether = None),
+        tether(|t| t.from = 1),
+        tether(|t| t.to = 30),
+        tether(|t| t.ahead = Fx::ONE),
+        tether(|t| t.behind = Fx::ONE),
+        tether(|t| t.up = Fx::ONE),
+        tether(|t| t.down = Fx::ONE),
+        tether(|t| t.hang = 1),
+        tether(|t| t.reel = 1),
+        tether(|t| t.drag = 1),
+        tether(|t| t.limit = 1),
+        Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].dodge_stale = true),
+        Box::new(|c| c.weapons[0].moves[MoveId::Grab as usize].hitboxes[0].blockable = true),
+        Box::new(move |c| c.weapons[w].moves[MoveId::USmash as usize].part_intangible[0].mode = 0),
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}
+
+#[test]
+fn a_blockable_grab_box_is_stopped_by_a_reflector_field() {
+    // Sim 123 (E56): the phantom's grounded hook against a reflector field held at the hook's head: nothing is caught.
+    let mut sim = common::Sim::with_chars([12, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    let w = usize::from(sim.content.fighters[12].weapon);
+    // A reflector made for the test on the duelist's neutral air: a big field round its body, up for the whole move.
+    let dw = usize::from(sim.content.fighters[0].weapon);
+    sim.content.weapons[dw].moves[MoveId::NAir as usize].reflector =
+        Some(sim_core::moves::Reflector {
+            start: 0,
+            end: 60,
+            radius: Fx::from_int(3),
+            y: Fx::from_int(1),
+            ..sim_core::moves::Reflector::NONE
+        });
+    sim.content.weapons[dw].moves[MoveId::NAir as usize].total_frames = 60;
+    sim.content.weapons[dw].moves[MoveId::NAir as usize]
+        .hitboxes
+        .clear();
+    sim.content.weapons[dw].moves[MoveId::NAir as usize].next = None;
+    let head = sim.content.weapons[w].moves[MoveId::UpSpecial as usize]
+        .hitboxes
+        .iter()
+        .map(|h| h.y)
+        .max()
+        .expect("boxes");
+    for reflecting in [true, false] {
+        let mut s = sim.state;
+        let at = sim_core::Vec2::new(common::fx(13, 10), head - Fx::from_int(1));
+        s.fighters[0].pos = sim_core::Vec2::ZERO;
+        s.fighters[0].facing = 1;
+        s.fighters[0].platform = 0;
+        sim_core::fighter::begin_attack(&mut s.fighters[0], MoveId::UpSpecial);
+        let mut caught = false;
+        for _ in 0..30 {
+            let f = &mut s.fighters[1];
+            f.pos = at;
+            f.vel = sim_core::Vec2::ZERO;
+            f.platform = sim_core::state::NONE;
+            if reflecting {
+                if f.state != sim_core::state::FighterState::Attack
+                    && f.state != sim_core::state::FighterState::Grabbed
+                {
+                    sim_core::fighter::begin_attack(f, MoveId::NAir);
+                }
+            } else if f.state != sim_core::state::FighterState::Grabbed {
+                f.state = sim_core::state::FighterState::Airborne;
+            }
+            sim_core::step(
+                &mut s,
+                &sim.content,
+                &[sim_core::Input::default(); sim_core::MAX_FIGHTERS],
+            );
+            caught |= s.fighters[1].state == sim_core::state::FighterState::Grabbed;
+        }
+        assert_eq!(caught, !reflecting, "reflecting {reflecting}");
+    }
+}
+
+#[test]
 fn a_powered_box_is_out_only_in_an_attack_begun_with_the_mode_and_a_plain_one_only_without() {
     // Sim 121 (E52): `Hitbox::mode`. The duelist's jab with its first box made plain and a copy of it (9%) made powered.
     let mut jab = sim_core::Content::placeholder().weapons[0].moves[MoveId::Jab as usize].clone();

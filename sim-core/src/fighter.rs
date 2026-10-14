@@ -310,7 +310,10 @@ pub fn update(
     // The wait before a move can make another tossed item (E47, sim 117) counts down every frame, hitlag included [E].
     f.pull_wait = f.pull_wait.saturating_sub(1);
     // Dodge staleness wears off: a level `dodge_stale_first` frames after the last dodge ended, then one every `dodge_stale_every`.
-    if !matches!(f.state, S::Roll | S::SpotDodge | S::AirDodge) {
+    // (A move that stales like a roll is a dodge here too: sim 123, the gun's dodges.)
+    let dodging = matches!(f.state, S::Roll | S::SpotDodge | S::AirDodge)
+        || (f.state == S::Attack && weapon.get(f.move_id).dodge_stale);
+    if !dodging {
         f.dodge_clock = f.dodge_clock.saturating_add(1);
         let first = u16::from(rules.dodge_stale_first);
         let every = u16::from(rules.dodge_stale_every.max(1));
@@ -451,6 +454,7 @@ pub fn update(
         S::WallTech => wall_tech(f, p, rules),
         S::Respawn => revival(f, p, rules),
         S::LedgeGetUp | S::LedgeAttack => ledge_recover(f),
+        S::Tether => return tether(f, p, weapon, stage, world),
     }
     if on_foot && !f.grounded() && f.state == S::Airborne {
         f.vel.x = air_momentum(f.vel.x, p, rules);
@@ -910,6 +914,7 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.fast_fall = false;
     f.short_hop = false;
     f.ledge_grab_count = 0;
+    f.tether_count = 0;
     f.air_flags = 0;
     f.air_marks = 0;
     f.wall_jumps = 0;
@@ -1659,12 +1664,114 @@ fn shield_drop(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 // ---- Ledges ----------------------------------------------------------------------------------
 
+/// The ledge a tether (E56) catches now, if any: the first of the stage's free ledges (no one hanging from it as the frame began)
+/// whose corner lies in the tether's reach of the fighter's feet (`behind` to `ahead` by its facing, `down` to `up`), with the fighter
+/// outside that ledge's edge, not just let go of a ledge, not holding the stick down, within the tether's and the body's ledge limits.
+fn tether_catch(
+    f: &Fighter,
+    p: &FighterParams,
+    stage: &Stage,
+    t: &crate::moves::Tether,
+    world: &scripting::World,
+) -> Option<usize> {
+    if f.ledge_cooldown > 0
+        || declines_ledge(f)
+        || f.tether_count >= t.limit
+        || f.ledge_grab_count >= p.ledge_grab_limit
+    {
+        return None;
+    }
+    stage.ledges.iter().enumerate().position(|(i, l)| {
+        let free = world.ledges.get(i).is_none_or(|o| *o == NONE);
+        let outside = (f.pos.x - l.x).mul_int(i32::from(l.side));
+        let ahead = (l.x - f.pos.x).mul_int(i32::from(f.facing));
+        let above = l.y - f.pos.y;
+        free && outside >= p.ecb_half_width
+            && ahead >= -t.behind
+            && ahead <= t.ahead
+            && above >= -t.down
+            && above <= t.up
+    })
+}
+
+/// Hanging from a tether (E56, `FighterState::Tether`): `hang` frames swinging to a stop (the speed cut by the tether's `drag`, no
+/// gravity), then reeled straight to the ledge's hanging point over `reel` frames, where it asks for the ledge (`step` grants it as any
+/// grab). The stick held down lets go; a ledge someone else holds when the reel ends throws the fighter off in the knocked-off hop.
+fn tether(
+    f: &mut Fighter,
+    p: &FighterParams,
+    weapon: &Weapon,
+    stage: &Stage,
+    world: &scripting::World,
+) -> Option<u8> {
+    let tether = weapon.get(f.move_id).tether;
+    let ledge = usize::try_from(f.tether_ledge)
+        .ok()
+        .and_then(|i| stage.ledges.get(i).map(|l| (i, *l)));
+    let (Some(t), Some((i, l))) = (tether, ledge) else {
+        f.tether_ledge = NONE;
+        enter(f, S::Airborne);
+        return None;
+    };
+    if declines_ledge(f) {
+        // Letting go: into the air, the ledge out of reach for its regrab wait.
+        f.tether_ledge = NONE;
+        f.ledge_cooldown = p.ledge_regrab_cooldown;
+        enter(f, S::Airborne);
+        return None;
+    }
+    let frame = f.state_frame;
+    let hang = u16::from(t.hang);
+    if frame <= hang {
+        let keep = Fx::from_ratio(1000 - i32::from(t.drag.min(1000)), 1000);
+        f.vel = f.vel * keep;
+        let v = f.vel;
+        let moved = move_by(f, p, stage, v);
+        if moved.wall {
+            f.vel.x = Fx::ZERO;
+        }
+        if moved.ceiling {
+            f.vel.y = Fx::ZERO;
+        }
+        if let Some(platform) = moved.landing {
+            f.tether_ledge = NONE;
+            land(f, p, stage, platform);
+            enter(f, S::Idle);
+        }
+        return None;
+    }
+    if frame == hang + 1 {
+        f.tether_from = f.pos;
+    }
+    f.vel = Vec2::ZERO;
+    let to = collision::ledge_hang_pos(&l, p);
+    let k = (frame - hang).min(u16::from(t.reel.max(1)));
+    let share = Fx::from_ratio(i32::from(k), i32::from(t.reel.max(1)));
+    f.pos = f.tether_from + (to - f.tether_from) * share;
+    if k < u16::from(t.reel.max(1)) {
+        return None;
+    }
+    if world.ledges.get(i).is_some_and(|o| *o != NONE) {
+        // Someone holds the ledge: thrown off as a fighter knocked off one is [E: the reference's forced hop].
+        f.tether_ledge = NONE;
+        f.ledge_cooldown = p.ledge_regrab_cooldown;
+        f.vel = Vec2::new(
+            p.ledge_trump_vx.mul_int(i32::from(l.side)),
+            p.ledge_trump_vy,
+        );
+        enter(f, S::Airborne);
+        return None;
+    }
+    Some(i as u8)
+}
+
 /// Puts a fighter on a ledge. Called by `step` after it has decided who wins a contested grab.
 pub fn grab_ledge(f: &mut Fighter, p: &FighterParams, stage: &Stage, ledge: usize) {
     let Some(l) = stage.ledges.get(ledge) else {
         return;
     };
     f.ledge = ledge as i8;
+    f.tether_ledge = NONE;
     f.ledge_grab_count = f.ledge_grab_count.saturating_add(1);
     f.ledge_invuln = if f.ledge_grab_count == 1 {
         first_grab_invuln(f, p)
@@ -2051,8 +2158,9 @@ fn get_up_stand(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Rules
 fn ledge_recover(f: &mut Fighter) {
     // The option's length was set when it began (`get_up`); its intangibility runs on `invuln`.
     if f.state_frame >= u16::from(f.lag) {
-        // Stable ground again: the next ledge grab gets full invincibility.
+        // Stable ground again: the next ledge grab gets full invincibility (and the tethers start counting again: E56).
         f.ledge_grab_count = 0;
+        f.tether_count = 0;
         enter(f, S::Idle);
     }
 }
@@ -2690,8 +2798,18 @@ fn attack(
         }
     }
 
+    // A move that stales like a roll (sim 123: the gun's dodges) is made with the staleness so far and adds a level; its
+    // intangibility starts later the staler it is.
+    if mv.dodge_stale && f.state_frame == 1 {
+        stale_dodge(f, rules);
+    }
+    let shift = if mv.dodge_stale {
+        stale_shift(rules.dodge_stale_roll_shift, f.dodge_level, rules)
+    } else {
+        0
+    };
     // Intangibility that starts later in the move (the frames still count from the move's first: `intangible` is the last one).
-    let from = mv.intangible_start(f.move_air);
+    let from = mv.intangible_start(f.move_air).saturating_add(shift);
     if from > 0 && f.state_frame == u16::from(from) {
         f.invuln = f.invuln.max(mv.intangible.saturating_sub(from));
     }
@@ -2982,6 +3100,23 @@ fn attack(
             enter_helpless(f);
         } else {
             enter(f, S::Airborne);
+        }
+    }
+
+    // A tether (E56) catches a free ledge in its reach on its frames, in the air: the fighter hangs from it.
+    if let Some(t) = mv.tether {
+        if f.state == S::Attack
+            && f.move_id == current
+            && !f.grounded()
+            && within(f.state_frame, t.from, t.to)
+        {
+            if let Some(l) = tether_catch(f, p, stage, &t, world) {
+                f.tether_ledge = l as i8;
+                f.tether_count = f.tether_count.saturating_add(1);
+                f.fast_fall = false;
+                enter(f, S::Tether);
+                return None;
+            }
         }
     }
 
@@ -3603,6 +3738,26 @@ fn posvec_launch(f: &mut Fighter) {
     }
 }
 
+/// A half-momentum launch (angle 365, sim 123, ssbwiki.com `Autolink_angle`: "the opponent's launch speed [is] 50% of the attacker's
+/// momentum"): the fighter is sent at half the attacker's velocity when it hit (`link_vel`), whatever the knockback; not a tumble, DI
+/// has no angle to bend. On the ground a launch that does not rise leaves it standing.
+fn half_launch(f: &mut Fighter) {
+    f.kb_vel = f.link_vel * Fx::HALF;
+    f.tumble = false;
+    f.link = false;
+    f.vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.balloon_faf = 0;
+    f.balloon_left = Fx::ZERO;
+    if f.grounded() {
+        if f.kb_vel.y > Fx::ZERO {
+            f.platform = NONE;
+        } else {
+            f.kb_vel.y = Fx::ZERO;
+        }
+    }
+}
+
 /// One frame of a vortex pull: the share (`1 / frames left`) of the way from the fighter's middle to the hitbox centre it covers
 /// this frame, on top of its launch, so it is there when the count runs out (with no launch of its own). Its own fall is held
 /// while it is pulled.
@@ -3647,6 +3802,10 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
     }
     if f.link && f.link_kind == crate::state::LINK_POSVEC {
         posvec_launch(f);
+        return;
+    }
+    if f.link && f.link_kind == crate::state::LINK_HALF {
+        half_launch(f);
         return;
     }
     if f.link {

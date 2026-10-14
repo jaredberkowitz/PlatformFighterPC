@@ -386,6 +386,11 @@ pub struct Hitbox {
     /// second attacker moving with it (the reference's summoned partner). Each part hits a target on its own: on one frame a target can
     /// take the best box of each part, the fighter's first, then the partner's (both damages; the partner's launch, applied last [E]).
     pub part: u8,
+    /// A grab box a raised shield or a reflector stops, which also misses a fighter in hitstun (E56, sim 123: the reference's hook, a
+    /// special's grab box that "can be shielded despite its grab properties"): touching a shielding fighter or a reflector's field, the
+    /// move's boxes of that group catch no one for the rest of the move (the move goes on to its end; nothing lands). False (the
+    /// default): an ordinary or command grab, which shields do not stop.
+    pub blockable: bool,
 }
 
 /// `Hitbox::mode` values (E52, sim 121).
@@ -429,6 +434,11 @@ pub const ANGLE_AUTOLINK: i16 = 367;
 /// own launch speed (no cap, no cut, grounded victims too), and for its first [`crate::state::VORTEX_FRAMES`] frames it is also
 /// drawn to the hitbox's centre (see `fighter::vortex_pull`). An attacker standing still (a burst) gives the pull alone.
 pub const ANGLE_VORTEX: i16 = 366;
+
+/// The half-momentum angle (the reference's 365, sim 123, ssbwiki.com `Autolink_angle`): the victim is launched at half the
+/// attacker's velocity when it hit, whatever the knockback and wherever it was against the hitbox, on the ground or in the air (the
+/// knockback still gives the hitstun); not a tumble. [E: the reference's grounded rule for 365 is not published.]
+pub const ANGLE_HALF_LINK: i16 = 365;
 
 /// The pull angle (ours, not the reference's): instead of a launch, the victim is drawn to just in front of the attacker (a
 /// projectile's owner) while its hitstun lasts, `pull_gap` from it (see `fighter::pull_frame`). Its hitstun comes from the
@@ -1332,6 +1342,33 @@ pub struct PartIntangible {
     pub end: u8,
     /// Bits: [`PART_LOW`], [`PART_MIDDLE`], [`PART_HIGH`], [`PART_LIMB`].
     pub parts: u8,
+    /// When the window applies, by the gauge's powered mode as the attack began (sim 123, as [`Hitbox::mode`]: the reference's arm
+    /// intangibility that comes only with the summoned partner): [`MODE_ANY`] (the default: always), [`MODE_PLAIN`] or
+    /// [`MODE_POWERED`].
+    pub mode: u8,
+}
+
+/// A tether (E56, sim 123: the reference's tether recovery, its hook up special). On move frames `from..=to`, in the air, a free ledge
+/// (no one hanging from it) whose corner lies `behind` behind to `ahead` in front of the fighter's feet (by its facing) and `down` below
+/// to `up` above them, with the fighter outside the stage's edge, is caught: the fighter leaves the move and hangs from the tether
+/// (`FighterState::Tether`) for `hang` frames, its speed cut by `drag` per mille each frame (the reference's hang air resistance),
+/// then is reeled straight to the ledge's hanging point over `reel` frames and grabs the ledge (an ordinary grab: it counts toward the
+/// body's ledge grab limit and its intangibility rules). The stick held down lets go (into the air, with the ledge's regrab wait). A
+/// ledge taken by someone else when the reel ends throws the fighter off in the knocked-off hop (`ledge_trump_*`). At most `limit`
+/// catches until the fighter lands or gets up onto the stage (the reference's three tethers); a hit does not reset them. Tethers do
+/// not latch onto walls (the reference's rule since its fourth game).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tether {
+    pub from: u8,
+    pub to: u8,
+    pub ahead: Fx,
+    pub behind: Fx,
+    pub up: Fx,
+    pub down: Fx,
+    pub hang: u8,
+    pub reel: u8,
+    pub drag: u16,
+    pub limit: u8,
 }
 
 /// Air physics for move frames `from..=to` of a move that runs without a motion: gravity, top fall speed and air friction
@@ -1834,6 +1871,13 @@ pub struct Move {
     /// Per mille of the gauge's gain from damage taken while the fighter is in this move (E53, sim 121: the reference's guard, 6.7368
     /// times). 1000 (the default): the body's own rate.
     pub gauge_gain: u16,
+    /// The move's tether (E56, sim 123): see [`Tether`]. `None` (the default): none.
+    pub tether: Option<Tether>,
+    /// The move is a dodge that stales like a roll (sim 123: the reference's gun dodges): starting it makes it with the dodge
+    /// staleness so far and adds a level (`Fighter::dodge_stale`, the ruleset's `dodge_stale_*`), and its intangibility starts
+    /// `dodge_stale_roll_shift` frames later when fully stale (in between by level). False (the default): not a dodge. (Its length
+    /// is not stretched: a limit.)
+    pub dodge_stale: bool,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1930,6 +1974,8 @@ impl Move {
             curse: None,
             armor_hitlag: 100,
             gauge_gain: 1000,
+            tether: None,
+            dodge_stale: false,
             script: None,
             projectile_script: None,
         }
@@ -2027,6 +2073,7 @@ impl StateHash for Hitbox {
         h.write_bool(self.unblockable);
         h.write_u8(self.mode);
         h.write_u8(self.part);
+        h.write_bool(self.blockable);
     }
 }
 
@@ -2199,6 +2246,7 @@ impl StateHash for Weapon {
                 h.write_u8(w.start);
                 h.write_u8(w.end);
                 h.write_u8(w.parts);
+                h.write_u8(w.mode);
             }
             match &m.armor {
                 Some(a) => {
@@ -2512,6 +2560,23 @@ impl StateHash for Weapon {
             }
             h.write_u16(m.armor_hitlag);
             h.write_u16(m.gauge_gain);
+            match &m.tether {
+                Some(t) => {
+                    h.write_bool(true);
+                    h.write_u8(t.from);
+                    h.write_u8(t.to);
+                    t.ahead.hash_into(h);
+                    t.behind.hash_into(h);
+                    t.up.hash_into(h);
+                    t.down.hash_into(h);
+                    h.write_u8(t.hang);
+                    h.write_u8(t.reel);
+                    h.write_u16(t.drag);
+                    h.write_u8(t.limit);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_bool(m.dodge_stale);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -2588,6 +2653,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 unblockable: false,
                 mode: MODE_ANY,
                 part: 0,
+                blockable: false,
             })
             .collect(),
         ..Move::empty()
@@ -2654,6 +2720,7 @@ fn row(r: &R) -> Hitbox {
         unblockable: false,
         mode: MODE_ANY,
         part: 0,
+        blockable: false,
     }
 }
 
@@ -5125,6 +5192,7 @@ pub fn claws() -> Weapon {
             unblockable: false,
             mode: MODE_ANY,
             part: 0,
+            blockable: false,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,

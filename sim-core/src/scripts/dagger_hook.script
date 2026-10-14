@@ -1,0 +1,5 @@
+// Dagger up special in the air, the hook (ext0): its first use in an air time marks it (mark 0: landing or a ledge clears it, a hit
+// does not), so a later one is the hook without the rise (ext2, the up special's flag version reads the mark).
+if frame == 1 {
+    set_air_mark(0);
+}

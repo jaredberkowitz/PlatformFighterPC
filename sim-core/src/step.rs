@@ -139,6 +139,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         encase: [None; MAX_FIGHTERS],
         items: &state.items,
         pickable,
+        ledges: state.ledge_owner,
     };
     for (i, f) in state.fighters.iter().enumerate() {
         let height = combat::chest_height(params_of(content, f));

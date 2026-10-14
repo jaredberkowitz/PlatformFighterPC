@@ -17,10 +17,10 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
-    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
-    ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, MODE_PLAIN, MODE_POWERED, RULES_PREVIOUS, TARGETS_AERIAL,
-    TARGETS_GROUNDED,
+    ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_HALF_LINK, ANGLE_PULL,
+    ANGLE_VORTEX, ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, HIT_GRAB,
+    HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MODE_PLAIN, MODE_POWERED, RULES_PREVIOUS,
+    TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{
@@ -129,7 +129,11 @@ pub fn intangible_parts(f: &Fighter, w: &Weapon) -> u8 {
     w.get(f.move_id)
         .part_intangible
         .iter()
-        .filter(|p| u16::from(p.start) <= frame && frame <= u16::from(p.end))
+        .filter(|p| {
+            u16::from(p.start) <= frame
+                && frame <= u16::from(p.end)
+                && moded(p.mode, f.move_powered)
+        })
         .fold(0, |bits, p| bits | p.parts)
 }
 
@@ -418,12 +422,27 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     // The best box of each attacker's partner (part 1, E52) on each defender: the box, where it was, whether a counter catches it.
     let mut partner: [[Option<(Hitbox, Vec2, bool)>; MAX_FIGHTERS]; MAX_FIGHTERS] =
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
+    // The groups of each attacker's blockable grab boxes (E56) a shield or a reflector stopped this frame.
+    let mut stopped = [0u8; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
         if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
             continue;
         }
         let mv = weapon_of(content, params_of(content, fa)).get(fa.move_id);
+        // (A blockable grab box touching someone's reflector field is stopped by it: E56.)
+        for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
+            if hb.kind == HIT_GRAB && hb.blockable {
+                let shape = Shape {
+                    half_w: hb.half_width,
+                    half_h: hb.half_height,
+                    radius: hb.radius,
+                };
+                if reflector_touching(state, content, a, center, shape).is_some() {
+                    stopped[a] |= 1 << hb.group;
+                }
+            }
+        }
         for d in 0..MAX_FIGHTERS {
             if a == d {
                 continue;
@@ -462,10 +481,10 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 let (touching, catches) = match hb.kind {
                     // Throws and pummels act on the fighter being held, wherever the hitbox is.
                     HIT_THROW | HIT_PUMMEL => (fa.grab_with == d as i8, false),
-                    // (Only hits reach through a counter's intangibility; a grab does not.)
-                    HIT_GRAB => (
-                        !intangible
-                            && grab::can_catch(&hb, fd)
+                    // (Only hits reach through a counter's intangibility; a grab does not. A blockable grab box touching a raised
+                    // shield is stopped by it: E56.)
+                    HIT_GRAB => {
+                        let touch = !intangible
                             && touches(
                                 &hurt,
                                 shut,
@@ -473,9 +492,14 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                                 hb.half_width,
                                 hb.half_height,
                                 hb.radius,
-                            ),
-                        false,
-                    ),
+                            );
+                        if touch && hb.blockable && fd.state == S::Shield {
+                            stopped[a] |= 1 << hb.group;
+                            (false, false)
+                        } else {
+                            (touch && grab::can_catch(&hb, fd), false)
+                        }
+                    }
                     _ if fa.grab_with == d as i8 => (false, false),
                     _ => reach(counter, intangible, &hb, &hurt, shut, center),
                 };
@@ -513,6 +537,19 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 }
             }
             chosen[a][d] = best;
+        }
+    }
+
+    // A stopped blockable grab (E56) catches no one with those groups for the rest of the move.
+    for a in 0..MAX_FIGHTERS {
+        if stopped[a] == 0 {
+            continue;
+        }
+        state.fighters[a].hit_mask |= group_bits(stopped[a]);
+        for c in chosen[a].iter_mut() {
+            if c.is_some_and(|h| h.kind == HIT_GRAB && stopped[a] & (1 << h.group) != 0) {
+                *c = None;
+            }
         }
     }
 
@@ -1226,12 +1263,14 @@ pub(crate) fn apply_hit(
     // The vortex angle (E28): grounded or not, the launch follows the attacker's movement plus a pull (see `fighter::vortex_launch`).
     let vortex_hit = hb.angle == ANGLE_VORTEX;
     let posvec_hit = hb.posvec_frames > 0;
-    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit || posvec_hit;
+    let half_hit = hb.angle == ANGLE_HALF_LINK;
+    let link_hit =
+        (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit || posvec_hit || half_hit;
     // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
     let pull_hit = hb.angle == ANGLE_PULL;
     let degrees = if hb.angle == ANGLE_AUTOLINK {
         80
-    } else if vortex_hit {
+    } else if vortex_hit || half_hit {
         // (A vortex launch is along the attacker's movement, not an angle: this is only for what reads the launch angle in hitlag.)
         90
     } else if pull_hit {
@@ -1451,6 +1490,8 @@ pub(crate) fn apply_hit(
         crate::state::LINK_POSVEC
     } else if vortex_hit {
         crate::state::LINK_VORTEX
+    } else if half_hit {
+        crate::state::LINK_HALF
     } else {
         crate::state::LINK_AUTOLINK
     };
@@ -2372,7 +2413,7 @@ pub fn curse_tick(state: &mut GameState, content: &Content) {
         f.percent = (f.percent + f.curse_damage * content.rules.damage_mult).min(Fx::from_int(999));
         let added = f.percent - before;
         let by = usize::from(f.curse_by).min(MAX_FIGHTERS - 1);
-        crate::gauge::on_damage(state, content, by, i, added);
+        crate::gauge::on_damage_over_time(state, content, by, i, added);
     }
 }
 
