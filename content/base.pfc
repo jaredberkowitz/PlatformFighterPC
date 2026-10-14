@@ -5,8 +5,8 @@ bundle {
     schema 7
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 113
-    hash ff0ed4ba702e9053
+    sim_version 115
+    hash 8dcb873ff5f41ae2
 }
 
 ruleset {
@@ -8362,8 +8362,9 @@ weapon pockets {
         next jab2
         next_window 9
         next_from 6
+        cancel_from 6
         hitbox { start 2 end 3 x 0.9 y 0.7 radius 0.4 damage 3 angle 60 bkb 10 kbg 80 angle_type position rules previous }
-        hitbox { start 2 end 3 x 1.5 y 0.7 radius 0.5 damage 3 angle 80 bkb 10 kbg 80 priority 1 angle_type position rules previous }
+        hitbox { start 2 end 3 x 1.5 y 0.7 radius 0.5 damage 3 angle 180 bkb 15 kbg 10 priority 1 angle_type forward rules previous }
         script {
             // Settler jab 1 (the previous reference version's, owner decision 66). Attack held (no new press) carries on into jab 2 (slot 17) at the
             // move's end [E: that version's held rule is not published]. A new press from frame 7 carries on through the move's `next_from`.
@@ -8851,6 +8852,7 @@ weapon pockets {
         next jab
         next_window 9
         next_from 7
+        cancel_from 7
         hitbox { start 2 end 3 x 0.9 y 0.7 radius 0.4 damage 3 angle 60 bkb 20 kbg 120 angle_type position rules previous }
         hitbox { start 2 end 3 x 1.5 y 0.7 radius 0.5 damage 3 angle 80 bkb 20 kbg 120 priority 1 angle_type position rules previous }
         script {

@@ -504,6 +504,19 @@ Owner decisions 2026-10-14 (recorded at sim 113, the Pockets' phase 1):
     Villager's jab now, the Longsword's jab and others later on the owner's say. Its goal: it pops the foe up and outwards so it combos.
 68. **Everything else on the Settler is 1:1 with 13.0.1.**
 
+Owner decisions 2026-10-14 (recorded at sim 115, the Pockets' phase 2):
+
+69. **Keep the balloon and rocket-ride estimates** for now (the phase 1 question 1).
+70. **Rework the older jab** (the owner's account: two punches that repeat, any action right after either, jab 2 the launcher up and out,
+    a slight pull on jab 1 that lets jab 2 combo). Built (sim 115): `Move::cancel_from` (general, default never) lets jab 1 from
+    its frame 7 and jab 2 from its frame 8 be cancelled into any standing action at once, the previous version's jab cancel (a crouch
+    or shield in the continuable window: ssbwiki.com `Jab_cancel`); jab 1's far glove pulls toward the settler with 13.0.1's own
+    far boxes (180 degrees, forward, BK 15, KS 10). **Research finding**: the 1.1.x tables (ssbwiki.com's previous-version pages and
+    kuroganehammer.com's 1.1.6 page) have no pull on jab 1 (60 / 80 degrees, BK 10, KS 80): the pull is 13.0.1's jab 1 (and
+    13.0.1's earlier versions'), so this is a deliberate blend; see the report's owner questions.
+71. **No other 1.1.x rules**: no previous-version shield hitlag, no electric hitstun frame; everything but the jab's own hits stays on
+    13.0.1's numbers (as built: E40 is per hit and only the jab sets it).
+
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):

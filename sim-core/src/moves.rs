@@ -1483,6 +1483,11 @@ pub struct Move {
     /// A jab whose next hit can start before its end (the reference's continuable window): from this move frame on, a press of attack
     /// (within `next_window` frames) carries on into `next` at once. 255 (the default) only continues at the end.
     pub next_from: u8,
+    /// A jab that can be cancelled (sim 115, owner decision 70: the previous reference version's jab cancel, a crouch or shield from
+    /// the continuable frame on): from this move frame on, on the ground, any action the fighter could start standing (a jump, a dash,
+    /// a crouch, a shield, a grab, another attack or a special; not a walk, and not the jab itself, which `next` carries on) ends the
+    /// move and starts on the same frame. 255 (the default): never.
+    pub cancel_from: u8,
     /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
     pub rehit: Option<(u8, u8)>,
     /// The hit groups the rehit rhythm re-arms (bit `g` for group `g`); others hit once per move (a multi-hit's final hit). All by default.
@@ -1603,6 +1608,7 @@ impl Move {
             next: None,
             next_window: 0,
             next_from: 255,
+            cancel_from: 255,
             rehit: None,
             rehit_groups: 0xff,
             landing_move: None,
@@ -2134,6 +2140,7 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            h.write_u8(m.cancel_from);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {

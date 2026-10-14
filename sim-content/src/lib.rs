@@ -475,6 +475,12 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 }
             }
         }
+        // A jab cancel (sim 115): a frame inside the move.
+        if mv.cancel_from != 255 && mv.cancel_from >= mv.total_frames {
+            errors.push(format!(
+                "weapon {i} {name}: cancel_from must be a frame of the move (below its total frames) or absent"
+            ));
+        }
         // Balloons (E41, sim 113).
         if let Some(b) = &mv.balloons {
             if b.count == 0
@@ -1186,6 +1192,7 @@ mod combat_tests {
             "on_hit false",
             "prev_hitlag_per_damage",
             "prev_tumble_hitstun",
+            "cancel_from 6",
         ] {
             assert!(text.contains(field), "{field}");
         }
@@ -1205,6 +1212,13 @@ mod combat_tests {
         assert_eq!(older.rules, base.rules, "the standard numbers when absent");
         // Bad values are refused: a third rules version, chances over 100, a version that is not a move of its own, balloons with no
         // helium, a charge power of 0.
+        // (Sim 115: a jab cancel past the move's end.)
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::Jab as usize].cancel_from = 200;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("cancel_from")));
         let mut c = base.clone();
         c.weapons[w].moves[MoveId::Jab as usize].hitboxes[0].rules = 2;
         assert!(validate(&c)

@@ -967,6 +967,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.charge_at = f.parsed("charge_at", errors);
     m.next_window = f.or("next_window", 0, errors);
     m.next_from = f.or("next_from", 255, errors);
+    m.cancel_from = f.or("cancel_from", 255, errors);
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -1533,6 +1534,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         if m.next_from != 255 {
             b.field("next_from", m.next_from.to_string());
         }
+    }
+    if m.cancel_from != 255 {
+        b.field("cancel_from", m.cancel_from.to_string());
     }
     if let Some((start, every)) = m.rehit {
         b.field("rehit_start", start.to_string());

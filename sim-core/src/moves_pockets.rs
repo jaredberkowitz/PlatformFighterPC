@@ -165,26 +165,40 @@ fn older_jab_rows(bkb: i16, kbg: i16) -> Vec<R> {
 fn jabs(w: &mut Weapon) {
     // Jab 1 (1.1.x): hits on frames 3-4, earliest continuable frame 7, FAF 22 [R]. A press from frame 7 carries on into jab 2 at once
     // (`next_from`); attack held carries on at the end of the move (the script) [E: the version's held rule is not published].
+    // From frame 7 it can also be cancelled into any other action (`cancel_from`: that version's jab cancel by a crouch or a shield
+    // in the continuable window, ssbwiki.com `Jab_cancel` [R]; acting on the same frame is [E], owner decision 70).
+    // **The pull** (owner decision 70): the far glove box sends toward the settler as 13.0.1's own far jab 1 boxes do (180 degrees,
+    // forward type, BK 15, KS 10: ssbwiki.com raw `Villager_(SSBU)/Neutral_attack/Hit_1` ids 1-2 [R]); the 1.1.x tables (ssbwiki.com
+    // and kuroganehammer.com 1.1.6) give that box 80 degrees, BK 10, KS 80, with no pull. The near box keeps the 1.1.x 60 degrees.
     let mut jab1 = ref_move(22, 0, 0, 255, &older_jab_rows(10, 80));
     set_all(&mut jab1, |h| {
         h.rules = RULES_PREVIOUS;
         h.angle_type = ANGLE_BY_POSITION;
     });
+    if let Some(far) = jab1.hitboxes.iter_mut().find(|h| h.priority == 1) {
+        far.angle = 180;
+        far.angle_type = ANGLE_FORWARD;
+        far.base_knockback = 15;
+        far.knockback_growth = 10;
+    }
     chain(&mut jab1, MoveId::Jab2, 7);
+    jab1.cancel_from = 7 - 1;
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/pockets_jab_1.script"),
     ));
     w.moves[MoveId::Jab as usize] = jab1;
 
-    // Jab 2 (1.1.x): the other glove, the same boxes with BK 20, KS 120; hits on 3-4, earliest continuable frame 8, FAF 24 [R]. It
-    // carries on into jab 1 again (the version's endless jab, no finisher [R]): pressed from frame 8, or held at the end [E].
+    // Jab 2 (1.1.x): the other glove, the same boxes with BK 20, KS 120 (the launcher: up and out); hits on 3-4, earliest continuable
+    // frame 8, FAF 24 [R]. It carries on into jab 1 again (the version's endless jab, no finisher [R]): pressed from frame 8, or held
+    // at the end [E]; cancellable from frame 8 as jab 1 from 7.
     let mut jab2 = ref_move(24, 0, 0, 255, &older_jab_rows(20, 120));
     set_all(&mut jab2, |h| {
         h.rules = RULES_PREVIOUS;
         h.angle_type = ANGLE_BY_POSITION;
     });
     chain(&mut jab2, MoveId::Jab, 8);
+    jab2.cancel_from = 8 - 1;
     jab2.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/pockets_jab_2.script"),

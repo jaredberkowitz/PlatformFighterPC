@@ -141,6 +141,8 @@ fn every_normal_has_the_references_frame_data() {
     assert_eq!((jab1.next, jab1.next_from), (Some(MoveId::Jab2 as u8), 6));
     let jab2 = w.get(MoveId::Jab2 as u8);
     assert_eq!((jab2.next, jab2.next_from), (Some(MoveId::Jab as u8), 7));
+    // (Both cancellable from their continuable frames 7 and 8: owner decision 70.)
+    assert_eq!((jab1.cancel_from, jab2.cancel_from), (6, 7));
     assert!(w.get(MoveId::Jab3 as u8).is_empty());
 }
 
@@ -302,7 +304,8 @@ fn every_hit_has_the_references_damage_angle_and_knockback() {
     // (move, reference first frame, priority (the reference's id), damage in tenths, angle, BK, KS) for the boxes of each phase.
     let table: [(MoveId, u8, u8, i32, i16, i16, i16); 44] = [
         (MoveId::Jab, 3, 0, 30, 60, 10, 80),
-        (MoveId::Jab, 3, 1, 30, 80, 10, 80),
+        // (The far box: 13.0.1's pull, owner decision 70: 180 degrees, BK 15, KS 10.)
+        (MoveId::Jab, 3, 1, 30, 180, 15, 10),
         (MoveId::Jab2, 3, 0, 30, 60, 20, 120),
         (MoveId::Jab2, 3, 1, 30, 80, 20, 120),
         (MoveId::FTilt, 8, 0, 90, 45, 80, 50),
