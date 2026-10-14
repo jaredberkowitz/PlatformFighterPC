@@ -109,29 +109,133 @@ fn a_reversed_dash_stands_for_the_turnaround_before_it_moves() {
     );
 }
 
-#[test]
-fn the_dash_dance_window_is_fifteen_frames_from_the_start_of_the_dash_even_after_the_run_begins() {
-    let p = Sim::new().content.fighters[0];
-    assert_eq!(p.dash_reverse_frames, 15);
-    assert!(p.dash_frames < p.dash_reverse_frames);
-    // A flick the other way on any of the first fifteen frames is a new dash, in the run too.
-    for frame in [3usize, 9, 12, 14] {
-        let mut sim = Sim::new();
-        sim.ticks(frame, inp(127, 0, 0));
+// ---- Dash turnaround and foxtrot (sim 103: the reference's dash turnaround table and interrupt frame) ------------------------
+// A flick back on the first 5 frames of an initial dash turns at once; later in the initial dash it is held and the dash turns as
+// it ends; once it is a run, a flick back skids. A dash that ends with the stick let go stays in the dash until frame 15
+// (`Ruleset::dash_interrupt_frame`), when the next dash (a foxtrot, or a late dash back) starts.
+
+/// The frame of an initial dash (counted from the dash's first frame) on which a flick back made on `flick_on` turns the fighter, and
+/// the state it is in then.
+fn turn_after_flick_on(flick_on: usize) -> (usize, S) {
+    let mut sim = Sim::new();
+    sim.tick(inp(0, 0, 0));
+    sim.ticks(flick_on - 1, inp(127, 0, 0));
+    for frame in flick_on..flick_on + 30 {
         sim.tick(inp(-127, 0, 0));
+        if sim.f().facing == -1 {
+            return (frame, sim.f().state);
+        }
+    }
+    panic!("never turned");
+}
+
+#[test]
+fn a_flick_back_early_in_the_dash_turns_at_once() {
+    let p = Sim::new().content.fighters[0];
+    assert_eq!(p.dash_reverse_frames, 5);
+    for frame in 2..=5 {
         assert_eq!(
-            (sim.f().state, sim.f().facing),
-            (S::Dash, -1),
+            turn_after_flick_on(frame),
+            (frame, S::Dash),
             "flick on frame {frame}"
         );
     }
-    // Later it is a committed run: a skid-turn instead.
-    for frame in [20usize, 30] {
-        let mut sim = Sim::new();
-        sim.ticks(frame, inp(127, 0, 0));
-        sim.tick(inp(-127, 0, 0));
-        assert_eq!(sim.f().state, S::Turn, "flick on frame {frame}");
+}
+
+#[test]
+fn a_flick_back_later_in_the_dash_turns_as_the_dash_ends() {
+    let dash = usize::from(Sim::new().content.fighters[0].dash_frames);
+    for frame in 6..=dash {
+        assert_eq!(
+            turn_after_flick_on(frame),
+            (dash + 1, S::Dash),
+            "flick on frame {frame}: a dash back once the dash ends"
+        );
     }
+}
+
+#[test]
+fn once_the_dash_is_a_run_a_flick_back_skids() {
+    let dash = usize::from(Sim::new().content.fighters[0].dash_frames);
+    for frame in [dash + 2, dash + 4, 20, 30] {
+        assert_eq!(
+            turn_after_flick_on(frame),
+            (frame, S::Turn),
+            "flick on frame {frame}"
+        );
+    }
+}
+
+#[test]
+fn a_dash_back_lasts_its_turnaround_longer_than_a_dash() {
+    // The reference's pivot dash is two frames longer than its dash: the turnaround's standing frames do not use up the dash.
+    let p = Sim::new().content.fighters[0];
+    let mut sim = Sim::new();
+    sim.ticks(3, inp(127, 0, 0));
+    let mut frames = 0;
+    sim.tick(inp(-127, 0, 0));
+    while sim.f().state == S::Dash {
+        frames += 1;
+        sim.tick(inp(-127, 0, 0));
+    }
+    assert_eq!(sim.f().state, S::Run);
+    assert_eq!(
+        frames,
+        usize::from(p.dash_frames) + usize::from(p.dash_turn_delay)
+    );
+}
+
+/// Taps a dash on tick 2 (its frame 1), lets go, and from tick `flick_tick` holds the stick at `stick_x`: the tick on which a new dash
+/// starts, if one does within 25 ticks.
+fn next_dash_tick(flick_tick: usize, stick_x: i8) -> Option<usize> {
+    let mut sim = Sim::new();
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(127, 0, 0));
+    for tick in 3..flick_tick {
+        sim.tick(inp(0, 0, 0));
+        assert!(
+            sim.f().state != S::Dash || sim.f().state_frame == u16::try_from(tick - 2).unwrap()
+        );
+    }
+    for tick in flick_tick..flick_tick + 25 {
+        sim.tick(inp(stick_x, 0, 0));
+        if sim.f().state == S::Dash && sim.f().dash_age == 0 {
+            return Some(tick);
+        }
+    }
+    None
+}
+
+#[test]
+fn a_foxtrot_waits_for_the_dash_interrupt_frame() {
+    let rules = Sim::new().content.rules;
+    assert_eq!(rules.dash_interrupt_frame, 15);
+    // The first dash's frame 15 is tick 16: a flick made after the dash ended (frame 11) but before that is held until then, either
+    // way; one made on or after it dashes at once.
+    for flick_tick in [13, 14, 15, 16] {
+        assert_eq!(
+            next_dash_tick(flick_tick, 127),
+            Some(16),
+            "foxtrot flicked on tick {flick_tick}"
+        );
+        assert_eq!(
+            next_dash_tick(flick_tick, -127),
+            Some(16),
+            "dash back flicked on tick {flick_tick}"
+        );
+    }
+    assert_eq!(next_dash_tick(18, 127), Some(18));
+}
+
+#[test]
+fn the_stand_after_a_dash_still_tilts_and_crouches_before_the_interrupt_frame() {
+    // Only the next dash waits: the fighter that let go of its dash is standing, as before.
+    let mut sim = brawler();
+    sim.tick(inp(127, 0, 0));
+    sim.ticks(10, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Idle);
+    sim.tick(inp(0, -127, 0));
+    assert_eq!(sim.f().state, S::Crouch);
 }
 
 // ---- Full hop shape ------------------------------------------------------------------------------

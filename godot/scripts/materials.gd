@@ -28,7 +28,7 @@ const FAMILIES := {
 }
 
 ## Which family each stage tile is.
-const TILE_FAMILY := {"wood": "wood", "grass": "grass", "sand": "grass", "roof": "stone", "steel": "plain", "bark": "bark",
+const TILE_FAMILY := {"wood": "wood", "grass": "grass", "field": "grass", "sand": "grass", "roof": "stone", "steel": "plain", "bark": "bark",
 	"foliage": "foliage", "stone": "stone"}
 
 ## The painted detail laid over each world-laid stage tile (shaders/toon_common.gdshaderinc `detail_*`): [detail tile, amount, world units
@@ -90,6 +90,16 @@ static func world(tile_name: String, c: Color, size: float, outline := true) -> 
 ## Planks or carved wood on a prop (a barrel, a crate, a post, a sign), the grain repeated `tile` times across its UVs.
 static func wood(c: Color, tile := Vector2.ONE, outline := true) -> ShaderMaterial:
 	return _make("wood", c, "wood", tile, 0.0, outline)
+
+
+## Whitewash or plaster on a wall (a cottage, a windmill's tower): soft patches, a few hairline cracks and chips, repeated `tile` times.
+static func plaster(c: Color, tile := Vector2(2, 2), outline := true) -> ShaderMaterial:
+	return _make("plain", c, "plaster", tile, 0.0, outline)
+
+
+## A roof of rounded shingles in overlapping rows, a dark gap and a lit edge on each, repeated `tile` times.
+static func shingles(c: Color, tile := Vector2(3, 2), outline := true) -> ShaderMaterial:
+	return _make("wood", c, "shingles", tile, 0.0, outline)
 
 
 ## Bark: vertical grooves and a few dark knots, repeated `tile` times round and up a trunk.

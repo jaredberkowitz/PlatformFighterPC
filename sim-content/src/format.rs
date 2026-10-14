@@ -500,6 +500,7 @@ rules_io! {
     tech_lockout: u8,
     wall_tech_frames: u8,
     wall_jump_decay: Fx,
+    dash_interrupt_frame: u8,
     wall_tech_invuln: u8,
     bounce_keep: Fx,
     ground_bounce_speed: Fx,

@@ -313,7 +313,10 @@ pub fn update(
         if flick != 0 {
             f.dash_buffer = flick;
         }
-    } else if !(f.state == S::Idle && f.state_frame == 0) {
+    } else if !(f.state == S::Idle && (f.state_frame == 0 || f.dash_age != 255))
+        && f.state != S::Dash
+    {
+        // (In an initial dash, and standing out of one, it holds a flick for the dash's end or interrupt frame: see `ground`.)
         f.dash_buffer = 0;
     }
     if f.dash_buffer != 0
@@ -519,8 +522,9 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     let input = f.history[0];
     // (Set again below while a platform drop is still waiting; any other way out of the ground states ends it.)
     let drop_pending = core::mem::take(&mut f.drop_pending);
-    if matches!(f.state, S::Dash | S::Run) {
-        f.dash_age = f.dash_age.saturating_add(1);
+    // Frames since the last dash began: through the dash, the run, and the stand a dash ends in (for its interrupt frame).
+    if matches!(f.state, S::Dash | S::Run) || (f.state == S::Idle && f.dash_age != 255) {
+        f.dash_age = f.dash_age.saturating_add(1).min(254);
     } else {
         f.dash_age = 255;
     }
@@ -531,12 +535,15 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     if f.take(buttons::JUMP, buffer) {
         // A reverse aerial rush: back with the jump (or just before it) out of a dash or run, or a jump in the first frames of a dash
         // turnaround, jumps facing back but still moving the way the fighter was going, so a back aerial leads.
-        // (Out of a run any push back past the dead zone turns it, as it does without the jump; out of a dash it takes a flick.)
+        // (Out of a run any push back past the dead zone turns it, as it does without the jump; out of a dash it takes a flick, or
+        // one held for the dash's end.)
         let back_in_run =
             f.state == S::Run && x_active(input) && (input.stick_x > 0) != (f.facing > 0);
         if matches!(f.state, S::Dash | S::Run)
             && f.dash_wait == 0
-            && (f.dash_flick(FLICK_BUFFER) == -f.facing || back_in_run)
+            && (f.dash_flick(FLICK_BUFFER) == -f.facing
+                || back_in_run
+                || (f.state == S::Dash && f.dash_buffer == -f.facing))
         {
             f.facing = -f.facing;
         } else if f.state == S::Dash && f.dash_wait > 0 {
@@ -607,9 +614,11 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         return;
     }
 
-    // A flick starts a dash (and turns around instantly if it is against the facing). A run is
-    // committed: flicking the other way skids to a stop and turns instead of dash dancing, and a
-    // flick the same way changes nothing.
+    // A flick starts a dash. A run is committed: flicking the other way skids to a stop and turns, and a flick the same way changes
+    // nothing. In an initial dash (sim 103, the reference's dash turnaround): a flick back in its first `dash_reverse_frames` frames
+    // turns at once (a dash dance); later it is held (`dash_buffer`, while the stick stays there) and the dash turns as it ends; and
+    // once the dash has ended with the stick let go, the next dash (a foxtrot, or a dash back) waits for its interrupt frame
+    // (`Ruleset::dash_interrupt_frame`), held in `dash_buffer` as long as the stick stays there; meanwhile the fighter stands.
     // On the first frame the fighter can act after lag (a landing, an aerial's landing lag, the end of an attack), a dash flicked during
     // that lag still comes out, as long as the stick is still held past the dash threshold: the input buffer, for the stick. Otherwise
     // only a fresh flick dashes.
@@ -623,23 +632,37 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     if flick == 0 && f.state == S::Idle && f.state_frame <= 1 {
         flick = f.dash_buffer;
     }
-    f.dash_buffer = 0;
+    // (Frames are counted from 1: the dash's first frame has `dash_age` 0.)
+    let interrupted =
+        f.state == S::Idle && f.dash_age.saturating_add(1) < rules.dash_interrupt_frame;
+    if f.state != S::Dash && !interrupted {
+        if flick == 0 && f.state == S::Idle {
+            // A dash held for the interrupt frame comes out now.
+            flick = f.dash_buffer;
+        }
+        f.dash_buffer = 0;
+    }
     if flick != 0 {
         if f.state == S::Run {
             if flick != f.facing {
-                if f.dash_age < p.dash_reverse_frames {
-                    // Still inside the dash-dance window: a new dash the other way.
+                // A run's turnaround: it skids to a stop facing the new way (a jump in it keeps the run's speed).
+                f.facing = flick;
+                f.turn_speed = f.vel.x;
+                enter(f, S::Turn);
+            }
+        } else if f.state == S::Dash {
+            if flick != f.facing {
+                if f.state_frame < u16::from(p.dash_reverse_frames) {
                     start_dash(f, p, flick);
                 } else {
-                    // A run's turnaround: it skids to a stop facing the new way (a jump in it keeps the run's speed).
-                    f.facing = flick;
-                    f.turn_speed = f.vel.x;
-                    enter(f, S::Turn);
+                    // Held for the dash's end, where it turns.
+                    f.dash_buffer = flick;
                 }
             }
-        } else if !(f.state == S::Dash && flick == f.facing)
-            && !(f.state == S::Turn && f.turn_speed != Fx::ZERO)
-        {
+        } else if interrupted {
+            // Held for the interrupt frame.
+            f.dash_buffer = flick;
+        } else if !(f.state == S::Turn && f.turn_speed != Fx::ZERO) {
             // (A run's skid is committed: the flick that turned it, still in the buffer, or a new one, does not dash out of it.)
             start_dash(f, p, flick);
         }
@@ -650,8 +673,10 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         S::Dash => {
             // Letting go of the stick does not stop the dash: it runs its full `dash_frames` either way.
             if f.dash_wait > 0 {
-                // The turnaround of a reversed dash: standing, then the first step.
+                // The turnaround of a reversed dash: standing, then the first step. Its standing frames do not count toward the dash,
+                // so a dash back lasts `dash_turn_delay` frames longer (the reference's pivot dash: two frames longer than a dash).
                 f.dash_wait -= 1;
+                f.state_frame = 0;
                 f.vel.x = Fx::ZERO;
                 if f.dash_wait == 0 {
                     f.vel.x = p.dash_initial_speed.mul_int(i32::from(f.facing));
@@ -660,15 +685,23 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
                 let target = p.dash_speed.mul_int(i32::from(f.facing));
                 f.vel.x = approach(f.vel.x, target, p.dash_accel);
                 if f.state_frame >= u16::from(p.dash_frames) {
-                    if (x_active(input) && dir == f.facing) || rolling(f) {
+                    if core::mem::take(&mut f.dash_buffer) == -f.facing {
+                        // A flick back held from later in the dash: it turns now.
+                        start_dash(f, p, -f.facing);
+                    } else if (x_active(input) && dir == f.facing) || rolling(f) {
                         f.state = S::Run;
                     } else {
-                        // The stick was let go: the speed bleeds off quickly on braking (`dash_brake`).
+                        // The stick was let go: the speed bleeds off quickly on braking (`dash_brake`). The next dash waits for
+                        // the interrupt frame (above).
                         f.vel.x = approach(f.vel.x, Fx::ZERO, p.dash_brake);
                         f.state = S::Idle;
                     }
                 }
             }
+        }
+        // Standing out of a dash, holding a dash for its interrupt frame: it neither walks nor turns meanwhile.
+        S::Idle if interrupted && f.dash_buffer != 0 => {
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
         }
         S::Turn => {
             f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);

@@ -44,7 +44,9 @@ pub struct FighterParams {
     /// The initial dash can be cut short by the shield from this frame on (about half of `dash_frames`); a shield held earlier comes
     /// out then.
     pub dash_shield_frame: u8,
-    /// A flick the other way this many frames after a dash started reverses it (a dash dance), even once the run has begun.
+    /// A flick the other way within this many frames of an initial dash's start reverses it at once (the reference's 5: its "fast"
+    /// turnaround). Later in the initial dash the flick is held, and the dash turns when it ends (`dash_frames`); once it is a run,
+    /// a flick back is the run's skid (sim 103; until then this was 15 and reached into the run).
     pub dash_reverse_frames: u8,
     /// A reversed dash stands still this many frames before it starts accelerating (the turnaround).
     pub dash_turn_delay: u8,
@@ -638,7 +640,7 @@ impl FighterParams {
             dash_accel: gu(300),
             dash_brake: gu(520),
             dash_frames: 10,
-            dash_reverse_frames: 15,
+            dash_reverse_frames: 5,
             dash_turn_delay: 2,
             dash_shield_frame: 5,
             turn_frames: 6,
@@ -1757,6 +1759,10 @@ pub struct Ruleset {
     /// Each wall jump since the fighter last stood on the ground or held a ledge keeps this share of the one before (the
     /// reference's 0.96, compounding), so walls cannot be climbed forever.
     pub wall_jump_decay: Fx,
+    /// An initial dash's interrupt frame, the same for every fighter (the reference's 15): a dash that ends without becoming a run
+    /// (the stick let go) stays in the dash, slowing, until this many frames after it began; only then can a new dash start, either
+    /// way (a foxtrot, or a late dash back). A flick made meanwhile and still held comes out on that frame (sim 103).
+    pub dash_interrupt_frame: u8,
     pub wall_tech_invuln: u8,
     /// A tumbling fighter that hits a wall, ceiling or (fast enough) the floor without teching bounces off with this share of its speed.
     pub bounce_keep: Fx,
@@ -1889,6 +1895,7 @@ impl Ruleset {
             tech_lockout: 40,
             wall_tech_frames: 18,
             wall_jump_decay: Fx::from_ratio(96, 100),
+            dash_interrupt_frame: 15,
             wall_tech_invuln: 14,
             bounce_keep: Fx::from_ratio(95, 100),
             ground_bounce_speed: Fx::from_ratio(1, 4),
@@ -2007,6 +2014,7 @@ impl StateHash for Ruleset {
         h.write_u8(self.tech_lockout);
         h.write_u8(self.wall_tech_frames);
         self.wall_jump_decay.hash_into(h);
+        h.write_u8(self.dash_interrupt_frame);
         h.write_u8(self.wall_tech_invuln);
         self.bounce_keep.hash_into(h);
         self.ground_bounce_speed.hash_into(h);

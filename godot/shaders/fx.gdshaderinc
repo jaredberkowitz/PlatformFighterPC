@@ -15,6 +15,9 @@ uniform bool use_tex = false;
 uniform float glow_scale = 1.0;
 uniform float paint = 0.0;
 uniform bool puff = false;
+// How see-through the whole effect is, on top of the breakup (1 opaque). Painted effects use their alpha for the ragged breakup, so a
+// translucent trail asks for it here instead.
+uniform float opacity = 1.0;
 // The puff's shade (multiplied into its colour): a cool lilac-blue, as painted shadow on white smoke.
 uniform vec3 puff_shade = vec3(0.84, 0.86, 0.97);
 global uniform float pf_fx_glow;
@@ -85,5 +88,5 @@ void fragment() {
 	float luma = dot(c.rgb, vec3(0.3, 0.59, 0.11));
 	float boost = 1.0 + (pf_fx_glow - 1.0) * glow_scale * smoothstep(0.72, 0.97, luma);
 	ALBEDO = c.rgb * boost;
-	ALPHA = c.a;
+	ALPHA = c.a * opacity;
 }

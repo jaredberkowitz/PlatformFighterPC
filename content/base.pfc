@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 104
-    hash e640309b24c08fdc
+    hash 97021afb90cca638
 }
 
 ruleset {
@@ -102,6 +102,7 @@ ruleset {
     tech_lockout 40
     wall_tech_frames 18
     wall_jump_decay 0.95999
+    dash_interrupt_frame 15
     wall_tech_invuln 14
     bounce_keep 0.95
     ground_bounce_speed 0.25
@@ -8165,7 +8166,7 @@ fighter duelist {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 10
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
@@ -8282,7 +8283,7 @@ fighter brawler {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 10
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
@@ -8399,7 +8400,7 @@ fighter rogue {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 7
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 4
     turn_frames 6
@@ -8516,7 +8517,7 @@ fighter tumbler {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 10
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
@@ -8633,7 +8634,7 @@ fighter sprinter {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 15
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 8
     turn_frames 6
@@ -8750,7 +8751,7 @@ fighter seer {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 10
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
@@ -8867,7 +8868,7 @@ fighter champion {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 10
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 5
     turn_frames 6
@@ -8985,7 +8986,7 @@ fighter hauler {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 15
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 8
     turn_frames 6
@@ -9102,7 +9103,7 @@ fighter bounder {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 14
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 7
     turn_frames 6
@@ -9222,7 +9223,7 @@ fighter wanderer {
     dash_accel 0.03749
     dash_brake 0.06499
     dash_frames 12
-    dash_reverse_frames 15
+    dash_reverse_frames 5
     dash_turn_delay 2
     dash_shield_frame 6
     turn_frames 6

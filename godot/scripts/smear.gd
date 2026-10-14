@@ -9,7 +9,7 @@ extends RefCounted
 const POINTS := 5
 ## How many frames before the hit the ribbon starts (from the wind-up, so it shows the whole throw).
 const LEAD := 4.0
-const WIDTH := 0.26
+const WIDTH := 0.32
 const SUBDIVIDE := 4
 
 
@@ -25,28 +25,67 @@ static func draw(im: ImmediateMesh, points: Array, q: float, main: Color, core: 
 		return
 	var alpha := 1.0 - q
 	var width := WIDTH * (1.0 - 0.5 * q)
-	# Across the ribbon from one edge to the other: clear, the trail colour, the bright core along the middle, the trail colour, clear.
-	var across := [-1.0, -0.55, 0.0, 0.55, 1.0]
-	var cols := [Color(main, 0.0), Color(main, 0.85 * alpha), Color(core, alpha), Color(main, 0.85 * alpha), Color(main, 0.0)]
-	var prev: Array = []
+	# Painted as the swing arcs and the knock-out blast are: layers of solid paint back to front, an ink silhouette, the body in a deeper
+	# version of the trail colour, a lit stripe along it and a white-hot core near the limb; blunt and rounded at the limb, pointed at the
+	# tail. Solid, so it reads on any background and over a fighter of the same colour.
+	var body := Color.from_hsv(main.h, minf(1.0, main.s * 1.35), main.v * 0.82)
+	var lit := body.lerp(Color.WHITE, 0.35)
+	var ink := Color(0.1, 0.07, 0.12)
+	var ink_w := 0.05
+	# Bands across the ribbon side by side (not stacked, so the see-through trail does not show its ink through the body), each [from, to]
+	# as shares of the half width (+-1 the edges) plus an ink edge beyond them: ink, body, the lit stripe, body, ink. The hot core is laid
+	# over the lit stripe near the limb.
+	var bands := [[-1.0, -1.0, -ink_w, 0.0, Color(ink, alpha), 0.0], [-1.0, 0.05, 0.0, 0.0, Color(body, alpha), 0.0],
+		[0.05, 0.6, 0.0, 0.0, Color(lit, alpha), 0.0], [0.6, 1.0, 0.0, 0.0, Color(body, alpha), 0.0],
+		[1.0, 1.0, 0.0, ink_w, Color(ink, alpha), 0.0], [0.2, 0.45, 0.0, 0.0, Color(core, alpha), 0.5]]
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in path.size():
-		var u := float(i) / float(path.size() - 1)
-		var p: Vector3 = path[i]
-		var ahead: Vector3 = path[mini(i + 1, path.size() - 1)] - path[maxi(i - 1, 0)]
-		var side := Vector3(-ahead.y, ahead.x, 0.0).normalized()
-		# Pointed at the tail, full at the limb.
-		var half := 0.5 * width * pow(u, 0.6)
-		var column: Array = []
-		for a in across:
-			column.append(to_world.call(p + side * half * float(a)))
-		if i > 0:
-			for b in across.size() - 1:
-				var quad := [[prev[b], cols[b]], [prev[b + 1], cols[b + 1]], [column[b + 1], cols[b + 1]], [column[b], cols[b]]]
-				for idx in [0, 1, 2, 0, 2, 3]:
-					im.surface_set_color(quad[idx][1])
-					im.surface_add_vertex(quad[idx][0])
-		prev = column
+	var last := Vector3.ZERO
+	var last_side := Vector3.ZERO
+	var last_half := 0.0
+	for band in bands:
+		var prev_a := Vector3.ZERO
+		var prev_b := Vector3.ZERO
+		var started := false
+		for i in path.size():
+			var u := float(i) / float(path.size() - 1)
+			if u < float(band[5]):
+				continue
+			var p: Vector3 = path[i]
+			var ahead: Vector3 = path[mini(i + 1, path.size() - 1)] - path[maxi(i - 1, 0)]
+			var side := Vector3(-ahead.y, ahead.x, 0.0).normalized()
+			# Pointed at the tail, full at the limb.
+			var half := 0.5 * width * pow(u, 0.6)
+			var a: Vector3 = to_world.call(p + side * (half * float(band[0]) + float(band[2])))
+			var b: Vector3 = to_world.call(p + side * (half * float(band[1]) + float(band[3])))
+			if started:
+				for v in [prev_a, prev_b, b, prev_a, b, a]:
+					im.surface_set_color(band[4])
+					im.surface_add_vertex(v)
+			prev_a = a
+			prev_b = b
+			started = true
+			last = p
+			last_side = side
+			last_half = half
+	# A rounded head at the limb: the body as a half disc, and its ink as a ring round it.
+	if last_half > 0.0:
+		var fwd := Vector3(last_side.y, -last_side.x, 0.0)
+		var seg := 8
+		for k in seg:
+			var a0 := PI * float(k) / seg
+			var a1 := PI * float(k + 1) / seg
+			var d0 := last_side * cos(a0) + fwd * sin(a0)
+			var d1 := last_side * cos(a1) + fwd * sin(a1)
+			for v in [last, last + d0 * last_half, last + d1 * last_half]:
+				im.surface_set_color(Color(body, alpha))
+				im.surface_add_vertex(to_world.call(v))
+			var o0 := last + d0 * (last_half + ink_w)
+			var o1 := last + d1 * (last_half + ink_w)
+			var i0 := last + d0 * last_half
+			var i1 := last + d1 * last_half
+			for v in [i0, o0, o1, i0, o1, i1]:
+				im.surface_set_color(Color(ink, alpha))
+				im.surface_add_vertex(to_world.call(v))
 	im.surface_end()
 
 
