@@ -1,6 +1,7 @@
 extends RefCounted
 
 const Bindings := preload("res://scripts/bindings.gd")
+const PadBindings := preload("res://scripts/pad_bindings.gd")
 ## Turns keyboard and gamepad state into the sim's input: stick (-127..127 each axis) plus a
 ## button mask. Bindings live here, not in the sim.
 ##
@@ -17,9 +18,11 @@ const Bindings := preload("res://scripts/bindings.gd")
 ##   - A second press within DASH_TAP_FRAMES of the previous press (double tap, or tapping the other
 ##     direction while dash dancing) is full strength at once, which is a flick: it dashes.
 ##   - Down: tap = soft (crouch, drop through), double tap = hard (fast fall).
-## Gamepads: left stick as is (analog); a hard flick down fast falls; A/Y jump, B attack, X special,
-## bumpers/triggers shield, right stick click grab, right stick = the attack stick (the reference's C-stick): a smash in its direction
-## on the ground, an aerial in the air. It only aims the attack; the left stick keeps moving the fighter (drift, fast fall).
+## Gamepads: left stick as is (analog); a hard flick down fast falls. Buttons come from `pad_bindings.gd` (the Controls screen's
+## Controller page changes them). Defaults: A/Y jump, B attack, X special, triggers shield, bumpers (and a right-stick click) grab.
+## The right stick is by default the attack stick (the reference's C-stick): a smash in its direction on the ground, an aerial in the
+## air; it only aims the attack, and the left stick keeps moving the fighter (drift, fast fall). It can instead give tilt attacks or
+## specials, or do nothing. Tap jump (an up flick of the left stick jumps) is an option, off by default.
 
 const TILT := 0.45  # stick magnitude while the tilt key is held
 ## A connected controller only overrides the keyboard once its stick is pushed past this, so a
@@ -166,31 +169,20 @@ static func read(player: int, masks: Dictionary, keeps_dash := false) -> Diction
 
 	var pad := player
 	if pad in Input.get_connected_joypads():
-		var px := Input.get_joy_axis(pad, JOY_AXIS_LEFT_X)
-		var py := -Input.get_joy_axis(pad, JOY_AXIS_LEFT_Y)
-		if absf(px) > PAD_OVERRIDE or absf(py) > PAD_OVERRIDE:
-			sx = px
-			sy = py
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_A) or Input.is_joy_button_pressed(pad, JOY_BUTTON_Y):
-			b |= masks.jump
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_B): b |= masks.attack
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_X): b |= masks.special
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_LEFT_SHOULDER) or Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_SHOULDER):
-			b |= masks.shield
-		if Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.5 or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.5:
-			b |= masks.shield
-		if Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_STICK): b |= masks.grab
-		# The right stick is the attack stick: pushed, it attacks in its direction (the nearer of the four), sent as its own bits so
-		# the left stick's drift and fast fall carry on through the attack. (It once replaced the left stick while held, which ate a
-		# fast-fall flick made during a right-stick aerial.)
-		var rx := Input.get_joy_axis(pad, JOY_AXIS_RIGHT_X)
-		var ry := -Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y)
-		if Vector2(rx, ry).length() > 0.65 and masks.has("c_up"):
-			b |= masks.attack
-			if absf(rx) >= absf(ry):
-				b |= masks.c_right if rx > 0.0 else masks.c_left
-			else:
-				b |= masks.c_up if ry > 0.0 else masks.c_down
+		var buttons := {}
+		for c in JOY_BUTTON_MAX:
+			if Input.is_joy_button_pressed(pad, c):
+				buttons[c] = true
+		var raw := {
+			"lx": Input.get_joy_axis(pad, JOY_AXIS_LEFT_X), "ly": -Input.get_joy_axis(pad, JOY_AXIS_LEFT_Y),
+			"rx": Input.get_joy_axis(pad, JOY_AXIS_RIGHT_X), "ry": -Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y),
+			"buttons": buttons,
+			"triggers": Vector2(Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT), Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT)),
+		}
+		var r := from_pad(pad, raw, masks, Vector2(sx, sy))
+		sx = r.x
+		sy = r.y
+		b |= r.buttons
 
 	# Digital diagonals would be a longer vector than a physical stick can make; clamp to the unit circle.
 	var len := Vector2(sx, sy).length()
@@ -198,3 +190,85 @@ static func read(player: int, masks: Dictionary, keeps_dash := false) -> Diction
 		sx /= len
 		sy /= len
 	return {"x": roundi(sx * 127.0), "y": roundi(sy * 127.0), "buttons": b}
+
+
+## Per-controller memory for tap jump and the right stick's press.
+static var _pad_state := {}
+## The left stick counts as up past this; an up push counts as a flick (tap jump) if the stick was below `TAP_FROM` within the last
+## `TAP_FRAMES` frames; the jump is held while the stick stays above `TAP_HOLD` (so holding up is a full hop, a quick flick a short one).
+const TAP_UP := 0.66
+const TAP_FROM := 0.3
+const TAP_FRAMES := 3
+const TAP_HOLD := 0.5
+## The right stick counts as pushed past this.
+const RIGHT_PUSH := 0.65
+
+
+## A controller's state turned into the sim's input. `raw` holds the sticks (`lx`, `ly`, `rx`, `ry`, up positive), `buttons` (button
+## number -> held) and `triggers` (left, right). `kb` is the keyboard's stick, which the left stick replaces once pushed past
+## `PAD_OVERRIDE`. Returns {x, y (-1..1), buttons}. Pure apart from the per-controller memory, so tests can drive it.
+static func from_pad(pad: int, raw: Dictionary, masks: Dictionary, kb := Vector2.ZERO) -> Dictionary:
+	var s: Dictionary = _pad_state.get(pad, {"ys": [], "tap": false, "right": false})
+	var sx := kb.x
+	var sy := kb.y
+	var lx: float = raw.get("lx", 0.0)
+	var ly: float = raw.get("ly", 0.0)
+	if absf(lx) > PAD_OVERRIDE or absf(ly) > PAD_OVERRIDE:
+		sx = lx
+		sy = ly
+	var held: Dictionary = raw.get("buttons", {})
+	var trig: Vector2 = raw.get("triggers", Vector2.ZERO)
+	var b := 0
+	if PadBindings.held_in(pad, "jump", held, trig): b |= masks.jump
+	if _short_hop("pad%dh" % pad, PadBindings.held_in(pad, "hop", held, trig)): b |= masks.jump
+	if PadBindings.held_in(pad, "attack", held, trig): b |= masks.attack
+	if PadBindings.held_in(pad, "strong", held, trig): b |= masks.attack | masks.strong
+	if PadBindings.held_in(pad, "special", held, trig): b |= masks.special
+	if PadBindings.held_in(pad, "shield", held, trig): b |= masks.shield
+	if PadBindings.held_in(pad, "grab", held, trig): b |= masks.grab
+	# Tap jump: an up flick of the left stick jumps, held while the stick stays up.
+	var ys: Array = s.ys
+	if PadBindings.tap_jump(pad):
+		if ly >= TAP_UP and not s.tap and ys.any(func(y): return y < TAP_FROM):
+			s.tap = true
+		if ly < TAP_HOLD:
+			s.tap = false
+		if s.tap:
+			b |= masks.jump
+	else:
+		s.tap = false
+	ys.push_back(ly)
+	while ys.size() > TAP_FRAMES:
+		ys.pop_front()
+	# The right stick: pushed past `RIGHT_PUSH`, toward the nearer of its four directions.
+	var rx: float = raw.get("rx", 0.0)
+	var ry: float = raw.get("ry", 0.0)
+	var pushed := Vector2(rx, ry).length() > RIGHT_PUSH
+	var dir := Vector2.ZERO
+	if pushed:
+		dir = Vector2(signf(rx), 0.0) if absf(rx) >= absf(ry) else Vector2(0.0, signf(ry))
+	match PadBindings.right_stick(pad):
+		PadBindings.RIGHT_SMASH:
+			# Sent as its own bits so the left stick's drift and fast fall carry on through the attack. (It once replaced the left
+			# stick while held, which ate a fast-fall flick made during a right-stick aerial.)
+			if pushed and masks.has("c_up"):
+				b |= masks.attack
+				if dir.x != 0.0:
+					b |= masks.c_right if dir.x > 0.0 else masks.c_left
+				else:
+					b |= masks.c_up if dir.y > 0.0 else masks.c_down
+		PadBindings.RIGHT_TILT, PadBindings.RIGHT_SPECIAL:
+			# On the push's first frame only: the stick points that way (gently for a tilt, fully for a special) with the button.
+			if pushed and not s.right:
+				var tilt: bool = PadBindings.right_stick(pad) == PadBindings.RIGHT_TILT
+				sx = dir.x * (TILT if tilt else 1.0)
+				sy = dir.y * (TILT if tilt else 1.0)
+				b |= masks.attack if tilt else masks.special
+	s.right = pushed
+	_pad_state[pad] = s
+	return {"x": sx, "y": sy, "buttons": b}
+
+
+## Forget the controllers' memory (tests).
+static func reset_pads() -> void:
+	_pad_state = {}

@@ -448,10 +448,15 @@ mod tests {
             time_limit: 3,
         };
         let mut r = MatchRecord::begin(&base, &base, 5, [0, 1, 0, 1], 0b0011, rules, 0, vec![]);
-        r.inputs = random_inputs(&mut Rng::new(5), 1500);
+        r.inputs = random_inputs(&mut Rng::new(5), 6000);
         r.seal(&base).unwrap();
-        // The clock ends the match on frame 180 (it is decided after that frame's step).
-        assert_eq!(r.inputs.len(), 180);
+        // The match is decided at the clock (frame 180, after that frame's step) or, level on stocks, in the sudden death after it
+        // (sim 114): either way the frames after the decision are dropped.
+        assert!(
+            r.inputs.len() >= 180 && r.inputs.len() < 6000,
+            "{}",
+            r.inputs.len()
+        );
         assert_ne!(r.winner, sim_core::state::PLAYING);
         assert!(r.verify(&base).is_ok());
         // A record that never ends keeps every frame.

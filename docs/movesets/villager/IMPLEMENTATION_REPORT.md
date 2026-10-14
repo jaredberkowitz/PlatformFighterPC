@@ -203,6 +203,22 @@ growing. `older_rules.rs` (15). `scripted_moves` (`pocketed`, `owns`), `move_rul
   wood chip's numbers; no fruit (1.5% of fells in the reference).
 * `Move::cancel_from` does not spend the reference's crouch or shield frame before the next action.
 
+### Tests and checks run (phase 2, after merging `movesets` 8759129, sim 114)
+
+`cargo fmt --all`; `cargo test --workspace` (all green: 1,363 passed, 0 failed); `cargo clippy --workspace --all-targets -- -D
+warnings`; `pftool fuzz-rollback 300`: 0 mismatches, class 10 drawn 207 times, pockets 113 put away / 84 taken out, placed pieces 294
+made / 73 felled (every third run the settler drills its specials); `pftool net-fuzz 100`: 0 mismatches, class 10 drawn 38 times,
+pockets 3 put away, placed pieces 47 made / 15 felled. Godot tests not run (no GDScript changed; the bridge gained `fighter_pocketed`
+and hides pocketed things).
+
+### Training-mode checks (phase 2, hitbox view)
+
+1. The pocket: a claws' blaster at the settler, neutral special on its frame 8: the shot vanishes, the settler takes nothing; neutral
+   special again: out on frame 9, forward, 1.9x.
+2. The tree: down special (plant), down special (water) from the same spot, wait: the tree on 46 frames from the first drop; two axes
+   from one side: the tree falls away and bounces once.
+3. The jab: at 0%, jab 1 then down special with the tree out: the axe lands in jab 1's hitstun.
+
 ### For the art agent (phase 2)
 
 * **Clips needed**: the pocket reach (hand out in front on 8-23; the shrug when nothing was caught: compare `fighter_pocketed(i)` before

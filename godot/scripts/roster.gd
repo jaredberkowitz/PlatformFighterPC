@@ -92,11 +92,15 @@ static func parse_profile(bytes: PackedByteArray, player := 0) -> Dictionary:
 
 
 ## How the next match is won, kept between runs: stocks each (0 = unlimited, free play) and a time limit in seconds (0 = none).
+## The default is the reference's standard 1v1: 3 stocks and 7 minutes, a tie on stocks at time going to sudden death (owner,
+## 14 October 2026). A rules file saved before then (no "v") is moved to the 7-minute default once.
 const MATCH_PATH := "user://match_rules.json"
 const STOCK_CHOICES := [1, 2, 3, 4, 5, 6, 9, 0]
-const TIME_CHOICES := [0, 180, 300, 480, 600]
+const TIME_CHOICES := [0, 180, 300, 420, 480, 600]
+const DEFAULT_TIME := 420
+const RULES_VERSION := 2
 static var match_stocks := 3
-static var match_time := 0
+static var match_time := DEFAULT_TIME
 ## Index of the stage (see `sim_content::stages`; the names come from the bridge).
 static var match_stage := 0
 static var _stage_names: Array = []
@@ -117,15 +121,17 @@ static func load_match_rules() -> void:
 	if parsed is Dictionary:
 		if STOCK_CHOICES.has(int(parsed.get("stocks", 3))):
 			match_stocks = int(parsed.get("stocks", 3))
-		if TIME_CHOICES.has(int(parsed.get("time", 0))):
-			match_time = int(parsed.get("time", 0))
+		if int(parsed.get("v", 1)) < RULES_VERSION:
+			match_time = DEFAULT_TIME
+		elif TIME_CHOICES.has(int(parsed.get("time", DEFAULT_TIME))):
+			match_time = int(parsed.get("time", DEFAULT_TIME))
 		match_stage = clampi(int(parsed.get("stage", 0)), 0, maxi(0, stage_names().size() - 1))
 
 
 static func save_match_rules() -> void:
 	var f := FileAccess.open(MATCH_PATH, FileAccess.WRITE)
 	if f != null:
-		f.store_string(JSON.stringify({"stocks": match_stocks, "time": match_time, "stage": match_stage}))
+		f.store_string(JSON.stringify({"v": RULES_VERSION, "stocks": match_stocks, "time": match_time, "stage": match_stage}))
 
 
 ## The stages a match can be played on, from Rust (asked once).

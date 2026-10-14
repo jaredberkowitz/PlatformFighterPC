@@ -14,6 +14,7 @@ const Loadout := preload("res://scripts/loadout.gd")
 const Roster := preload("res://scripts/roster.gd")
 const StageView := preload("res://scripts/stage_view.gd")
 const InputReader := preload("res://scripts/input_reader.gd")
+const PadBindings := preload("res://scripts/pad_bindings.gd")
 const DebugOverlay := preload("res://scripts/debug_overlay.gd")
 const Demo := preload("res://scripts/demo.gd")
 const MatchHud := preload("res://ui/match_hud.gd")
@@ -80,6 +81,8 @@ var countdown := 0.0
 var countdown_shown := -1
 ## A knock-out slows a local match down for a moment (real seconds left, since the engine's time is slowed).
 var slowmo_until := 0
+## The match frame sudden death began on (-1: not in sudden death), for its banner.
+var sudden_from := -1
 const PLAYER_COLORS := [Color(0.92, 0.36, 0.36), Color(0.36, 0.52, 0.95), Color(0.95, 0.78, 0.3), Color(0.4, 0.8, 0.5)]
 ## Effects in the world that fade by themselves: [node, age, life].
 var effects: Array = []
@@ -1125,7 +1128,16 @@ func _update_hud(delta: float) -> void:
 	var playing: bool = not net_mode or net_status == 1
 	var clock := ""
 	var urgent := false
-	if rules[1] > 0:
+	var sudden: bool = sim.has_method("sudden_death") and sim.sudden_death()
+	if sudden and sudden_from < 0:
+		sudden_from = frame
+		sfx.play("whoosh", 0.6)
+		cam_shake = maxf(cam_shake, 0.4)
+	elif not sudden:
+		sudden_from = -1
+	if sudden:
+		pass
+	elif rules[1] > 0:
 		var left: int = ceili(maxi(0, rules[1] * 60 - frame) / 60.0)
 		clock = "%02d:%02d" % [left / 60, left % 60]
 		urgent = left <= 10 and winner == -1
@@ -1137,7 +1149,11 @@ func _update_hud(delta: float) -> void:
 		banner = "%d" % ceili(countdown)
 		alpha = clampf(1.0 - (float(ceili(countdown)) - countdown) * 0.35, 0.65, 1.0)
 	elif winner != -1:
-		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60) else "GAME!"
+		banner = "TIME!" if (rules[1] > 0 and frame >= rules[1] * 60 and not sudden) else "GAME!"
+	elif sudden and frame - sudden_from < 150:
+		# Sudden death: the time ran out level on stocks; the leaders play on at 300% with one stock each.
+		banner = "SUDDEN DEATH!"
+		alpha = clampf(float(150 - (frame - sudden_from)) / 40.0, 0.0, 1.0)
 	elif playing and frame < 75 and (rules[0] > 0 or rules[1] > 0):
 		banner = "GO!"
 		alpha = clampf(float(75 - frame) / 30.0, 0.0, 1.0)
@@ -1340,9 +1356,33 @@ const PLAY_BLUR := 1.0
 const HIT_SHAKE_FROM := 9.0
 
 
+## The controller that plays fighter `i` on this machine, or -1 (a computer player, a replay, someone online).
+func _pad_of(i: int) -> int:
+	if replay_mode or spectate_mode or demo != null:
+		return -1
+	var pad := -1
+	if _local_match():
+		if cpu_levels[i] == 0:
+			pad = i
+	elif i == local_slot:
+		pad = 0
+	return pad if pad >= 0 and pad in Input.get_connected_joypads() else -1
+
+
+## Rumbles the controller playing fighter `i` (if it has rumble on): `weak` and `strong` motors 0..1 for `seconds`.
+func _rumble(i: int, weak: float, strong: float, seconds: float) -> void:
+	if i < 0:
+		return
+	var pad := _pad_of(i)
+	if pad >= 0 and PadBindings.rumble(pad):
+		Input.start_joy_vibration(pad, clampf(weak, 0.0, 1.0), clampf(strong, 0.0, 1.0), seconds)
+
+
 func _on_hit(i: int, befores: Array = []) -> void:
 	var lag: int = snaps[i].hitlag
 	var strength := clampf((float(lag) - 4.0) / 14.0, 0.0, 1.0)
+	# Rumble: the fighter hit feels it with the hit's weight, through its hit freeze. (Who landed it gets a lighter one, below.)
+	_rumble(i, 0.35 + 0.4 * strength, 0.15 + 0.85 * strength, maxf(0.08, float(lag) / 60.0))
 	# The camera shakes only for a hit that matters (more than a jab's or a tilt's hitlag), harder the stronger it is.
 	cam_shake = maxf(cam_shake, clampf((float(lag) - HIT_SHAKE_FROM) * 0.045, 0.0, 0.9))
 	if not _in_play(i):
@@ -1355,6 +1395,7 @@ func _on_hit(i: int, befores: Array = []) -> void:
 	if by < 0 and i < stats.size():
 		by = stats[i].last_hitter
 	var colour: Color = PLAYER_COLORS[by % PLAYER_COLORS.size()] if by >= 0 else Color(1.0, 0.85, 0.4)
+	_rumble(by, 0.2 + 0.3 * strength, 0.4 * strength, maxf(0.06, float(lag) / 90.0))
 	# Where the hit met the fighter: toward the hitter's live hitbox from the middle of the body, no further than its edge. What landed
 	# it (a blade, a blow, fire, claws) picks the effect and the sound.
 	var middle := Vector2(cur_pos[i].x, cur_pos[i].y + 1.1)
@@ -1417,6 +1458,7 @@ static func _weapon_move(name: String) -> bool:
 ## A hit on a raised shield: a ring of light on the bubble, the camera nudged a little.
 func _on_block(i: int) -> void:
 	var lag: int = snaps[i].hitlag
+	_rumble(i, 0.3, 0.1, 0.07)
 	cam_shake = maxf(cam_shake, minf(0.35, float(lag) * 0.015))
 	Effects.shield_hit(self, Vector3(cur_pos[i].x, cur_pos[i].y + 1.1, 0.9), clampf((float(lag) - 4.0) / 12.0, 0.0, 1.0))
 	sfx.play_group("glass", 1.0, -2.0)
@@ -1488,6 +1530,8 @@ func _knocked_out(before: Dictionary, now: Dictionary) -> bool:
 func _on_events(i: int, before: Dictionary, now: Dictionary) -> void:
 	if before.is_empty():
 		return
+	if now.state == "ShieldBreak" and before.state != "ShieldBreak":
+		_rumble(i, 0.8, 1.0, 0.6)
 	if now.state == "Rebound" and before.state != "Rebound":
 		sfx.play_group("metal_heavy", 1.1, 0.0)
 		cam_shake = maxf(cam_shake, 0.25)
@@ -1542,6 +1586,7 @@ func _deciding(i: int, stocks: int) -> bool:
 ## shakes, and (offline) the match slows for a moment; longer, with a brighter flash, for the knock-out that ends the match.
 func _ko_blast(i: int, at: Vector2) -> void:
 	var deciding := _deciding(i, 0)
+	_rumble(i, 1.0, 1.0, 0.5 if deciding else 0.35)
 	var color: Color = PLAYER_COLORS[i % PLAYER_COLORS.size()]
 	# The beam, pointed back toward the middle of the stage.
 	var inward := (Vector2(0, 4) - at).normalized()
@@ -1998,7 +2043,7 @@ var item_nodes: Array = []
 var item_burst_shown: Array = []
 ## Per slot: which way the item last moved (x sign), so a lodged arrow keeps pointing the way it flew.
 var item_last_dir: Array = []
-## A lodged arrow's tilt (degrees below level): the sim keeps no angle once it lodges, so a fixed one in the way it flew.
+## A lodged arrow's tilt (degrees below level) when the sim gives no angle (`item_angle`, sim 113, is 0 for one it has none for).
 const ITEM_LODGED_TILT := 35.0
 ## How fast a thrown bomb turns (degrees a frame since it was thrown).
 const ITEM_BOMB_SPIN := 18.0
@@ -2124,12 +2169,16 @@ func _update_items() -> void:
 		if holder >= 0:
 			item_last_dir[k] = facing
 		var way: float = item_last_dir[k]
-		# The arrow: held level in the hand; in flight along its velocity; lodged at a fixed tilt the way it flew.
+		# The arrow: held level in the hand; in flight along its velocity; lodged at the angle it flew in at (the sim's).
 		arrow.scale = Vector3.ONE
 		if holder >= 0 or (rest != 3 and vel.length() < 0.001):
 			arrow.rotation.z = 0.0 if way > 0.0 else PI
 		elif rest == 3:
-			arrow.rotation.z = deg_to_rad(-ITEM_LODGED_TILT) if way > 0.0 else deg_to_rad(180.0 + ITEM_LODGED_TILT)
+			var lodged: int = int(sim.item_angle(k)) if sim.has_method("item_angle") else 0
+			if lodged != 0:
+				arrow.rotation.z = deg_to_rad(float(lodged))
+			else:
+				arrow.rotation.z = deg_to_rad(-ITEM_LODGED_TILT) if way > 0.0 else deg_to_rad(180.0 + ITEM_LODGED_TILT)
 		else:
 			arrow.rotation.z = vel.angle()
 		# The bomb spins while it flies after a throw, the way it was thrown.

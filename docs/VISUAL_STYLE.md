@@ -53,6 +53,12 @@ Dark stages: the same families. The mood changes the light, ramp and edge light 
   where cloth covers skin and round the armpits.
 - **Stage and scenery**: the screen-space pass (`shaders/post.gdshader`) draws lines where objects meet (object id) and where depth jumps,
   creases on scenery only, thinner and fainter with distance. Lines inside one fighter are lighter than its silhouette (`inner_lines`).
+- **The line hierarchy** (pass 62): only fighters get full dark ink. Scenery is drawn in a soft violet-grey hull line (`scenery_color`)
+  and the screen-space ink at 0.4 on it (`scenery_lines`), so the world reads as painted, its forms told by light and colour: one even
+  black stroke round everything is the look of vector art. Don't raise the scenery's line back to the fighters' weight.
+- **Light**: the key comes from the side and a little behind (`Lighting.KEY_SIDE`), so cast shadows fall across the stage where they
+  can be seen and walls facing the camera sit in shade; a stage with a visible sun lights from it. Daytime stages have drifting cloud
+  shadows on what faces up (`pf_clouds`), never on fighters.
 - Effects, the shield and numbers are drawn after the outline pass, so they stay clean.
 
 ## 3. Stage profiles

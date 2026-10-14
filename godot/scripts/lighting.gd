@@ -59,21 +59,26 @@ const STYLE_DEFAULT := {
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
 	# lifted toward the haze (`lift`), the vignette, how far the far scenery fades into the haze at most (`haze_max`) and a gentle
 	# S-curve on the values (`s_curve`, 0 none). The fighters take half of the pastel and the curve.
-	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.5},
+	# `bloom`: the soft glow of everything bright (the sky, clouds, sunlit walls), and the luma it starts from (`bloom_from`).
+	# Cloud shadows drifting over the stage (`pf_clouds` in shaders/toon_light.gdshaderinc): [how deep, units across, sky covered, drift].
+	"clouds": [0.0, 24.0, 0.4, 0.5],
+	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.5, "bloom": 0.4,
+		"bloom_from": 0.6},
 }
 const STYLES := {
-	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55],
+	# Dappled light under the great tree: small patches swaying slowly.
+	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.5, 3.2, 0.42, 0.25],
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.26}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
-		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74,
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.08, "s_curve": 0.3}},
-	"sunset": {"edge": Color(1.0, 0.86, 0.74, 0.34), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
+		"paint": [Color(1.1, 1.02, 0.88), Color(0.88, 0.88, 1.1), 0.65], "deep": 0.74, "clouds": [0.5, 14.0, 0.4, 0.7],
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.3}},
+	"sunset": {"clouds": [0.35, 30.0, 0.3, 0.4], "edge": Color(1.0, 0.86, 0.74, 0.44), "paint": [Color(1.1, 0.98, 0.86), Color(0.86, 0.86, 1.08), 0.7], "deep": 0.72,
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.1, "s_curve": 0.3}},
 	"night": {"edge": Color(0.78, 0.86, 1.0, 0.62), "paint": [Color(0.98, 1.0, 1.08), Color(0.86, 0.9, 1.1), 0.5], "deep": 0.74, "glow": 0.95,
 		"ramp": [[0.0, 0.0], [0.36, 0.0], [0.44, 0.5], [0.56, 0.5], [0.64, 1.0], [1.0, 1.0]]},
-	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5],
+	"ocean": {"paint": [Color(1.05, 1.02, 0.94), Color(0.9, 0.97, 1.06), 0.5], "clouds": [0.55, 26.0, 0.36, 0.9],
 		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.07, "s_curve": 0.28}},
 	"city": {"edge": Color(1.0, 0.82, 0.92, 0.55), "paint": [Color(1.06, 0.96, 0.96), Color(0.9, 0.88, 1.1), 0.6], "deep": 0.72, "glow": 1.1,
 		"finish": {"lift": 0.02, "s_curve": 0.48}},
@@ -175,9 +180,11 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 ## its colour grade on `post` (the match's finishing material, shaders/post.gdshader) if there is one. `root` holds the lights made by
 ## `apply`.
 ## How much further round to the side every stage's key light comes (degrees of yaw on top of the mood's): from nearly behind the camera
-## the light left round forms (heads, bodies, barrels) one flat value; from further to the side each has a lit side and a shadow side,
-## and cast shadows fall across the stage rather than straight back.
-const KEY_SIDE := -28.0
+## the light left round forms (heads, bodies, barrels) one flat value and cast every shadow straight back, out of sight. From the side and
+## a little behind, as the sun in a cel-shaded adventure, every prop has a lit side and a shaded side, cast shadows fall across the
+## fighting surface where they can be seen, and the stage's front wall turns from the light into its painted shade, so the lit lawn leads
+## and the mass under it settles back. (The sunset's own yaw points its light back from its visible sun.)
+const KEY_SIDE := -80.0
 
 
 static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: ShaderMaterial = null) -> void:
@@ -187,6 +194,9 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		key.light_color = mood.key[0]
 		key.light_energy = mood.key[1]
 		key.rotation_degrees = Vector3(mood.key[2], float(mood.key[3]) + KEY_SIDE, 0)
+		# Toward the sun (the light shines down its -Z), for the sky's pieces lit by hand: clouds, ridges (shaders/cloud.gdshader,
+		# painted_ridge.gdshader).
+		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
 	var fill := root.get_node_or_null("FillLight") as DirectionalLight3D
 	if fill != null:
 		fill.light_color = mood.fill[0]
@@ -207,6 +217,8 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("haze_max", finish.haze_max)
 		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
 		post.set_shader_parameter("s_curve", finish.s_curve)
+		post.set_shader_parameter("bloom", finish.bloom)
+		post.set_shader_parameter("bloom_threshold", finish.bloom_from)
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):
 		m.rim = (mood.rim as Color).lerp(theme.sky_horizon, 0.3)
@@ -225,3 +237,5 @@ static func _set_globals(mood: Dictionary, look: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("pf_shadow_value", mood.shadow_value)
 	RenderingServer.global_shader_parameter_set("pf_shadow_tint", mood.shadow_tint)
 	RenderingServer.global_shader_parameter_set("pf_rim_color", mood.rim)
+	var cl: Array = look.clouds
+	RenderingServer.global_shader_parameter_set("pf_clouds", Vector4(cl[0], cl[1], cl[2], cl[3]))

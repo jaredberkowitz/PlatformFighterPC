@@ -658,6 +658,12 @@ impl SimRunner {
         )
     }
 
+    /// Whether the match has gone to sudden death (the time ran out with the leaders level on stocks).
+    #[func]
+    fn sudden_death(&self) -> bool {
+        self.state.sudden_death
+    }
+
     /// -1 while the match is on, a fighter's index when that fighter has won, -2 for a draw.
     #[func]
     fn winner(&self) -> i32 {

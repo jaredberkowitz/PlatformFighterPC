@@ -58,13 +58,29 @@ func _bridge() -> void:
 	sim.start(3, PackedInt32Array([0, 1]))
 	check(sim.match_rules()[0] == 9 and sim.match_rules()[1] == 3600, "wild rules are clamped: " + str(sim.match_rules()))
 
-	# The clock decides a match nobody finishes.
+	# The clock decides a stock match nobody finishes: most stocks wins; level on stocks is sudden death (sim 114).
+	sim.set_match_rules(3, 2)
+	sim.start(3, PackedInt32Array([0, 1]))
+	for n in 2:
+		sim.debug_place_airborne(0, 500.0, 0.0)
+		sim.tick()
+	for t in 130:
+		sim.tick()
+	check(sim.winner() == 1, "time up: the fighter with more stocks wins: %d" % sim.winner())
 	sim.set_match_rules(3, 2)
 	sim.start(3, PackedInt32Array([0, 1]))
 	sim.debug_set_percent(0, 80.0)
 	for t in 130:
 		sim.tick()
-	check(sim.winner() == 1, "time up: the fighter with less damage wins: %d" % sim.winner())
+	check(sim.winner() == -1 and sim.sudden_death(), "level on stocks at time: sudden death, not the damage")
+	check(sim.fighter_combat(0)[0] == 1 and sim.fighter_combat(1)[0] == 1, "with one stock each")
+	# Free play against the clock: the least damage wins.
+	sim.set_match_rules(0, 2)
+	sim.start(3, PackedInt32Array([0, 1]))
+	sim.debug_set_percent(0, 80.0)
+	for t in 130:
+		sim.tick()
+	check(sim.winner() == 1, "free play at time: the fighter with less damage wins: %d" % sim.winner())
 	sim.queue_free()
 
 

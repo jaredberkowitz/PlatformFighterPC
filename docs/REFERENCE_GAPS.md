@@ -31,9 +31,9 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
-| C1 | Tap jump | A quick upward flick jumps (on by default, can be turned off) | Jump only from a button | High | S |
-| C2 | Controller layout | Grab on a shoulder button, every button remappable, the right stick selectable as smash, tilt, special or off | Grab on the right-stick click, no controller remapping, the right stick is smash/aerial only | High | M |
-| C3 | Rumble | Controller rumble on hits, shield breaks and KOs (an option) | None | Low-Med | S |
+| C1 | Tap jump (**done**: an option, off by default) | A quick upward flick jumps (on by default, can be turned off) | Jump only from a button | High | S |
+| C2 | Controller layout (**done**: bumpers grab, triggers shield, remapping, right-stick modes) | Grab on a shoulder button, every button remappable, the right stick selectable as smash, tilt, special or off | Grab on the right-stick click, no controller remapping, the right stick is smash/aerial only | High | M |
+| C3 | Rumble (**done**) | Controller rumble on hits, shield breaks and KOs (an option) | None | Low-Med | S |
 | C4 | Hardware | Tested on real pads | Controllers never tried on hardware (known gap) | High risk | S (a playtest) |
 
 ### Defence
@@ -58,7 +58,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
-| R1 | Standard ruleset | 3 stocks, 7 minutes; a tie on stocks and damage goes to sudden death | 3 stocks, no time limit by default; no sudden death | Med | S (timer default), M (sudden death) |
+| R1 | Standard ruleset (**done**: 7 minutes by default, sudden death, sim 114) | 3 stocks, 7 minutes; a tie on stocks and damage goes to sudden death | 3 stocks, no time limit by default; no sudden death | Med | S (timer default), M (sudden death) |
 | R2 | Moving platforms | The usual 1v1 stage list includes stages with moving and transforming platforms | Four stages, every platform fixed; the sim has no moving platforms | Med (stage variety) | M-L |
 
 ### Owner decisions where we differ on purpose (keep)

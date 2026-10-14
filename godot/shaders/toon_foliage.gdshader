@@ -15,6 +15,7 @@ uniform float translucency = 0.35;
 uniform bool rooted = false;
 
 #define PF_TRANSLUCENT
+#define PF_CLOUDS
 #include "res://shaders/toon_light.gdshaderinc"
 
 void vertex() {
@@ -28,6 +29,7 @@ void vertex() {
 }
 
 void fragment() {
+	pf_sun = pf_cloud_sun((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, TIME);
 	vec4 t = texture(leaf_tex, UV);
 	ALBEDO = albedo.rgb * COLOR.rgb * t.rgb;
 	// A tuft is dark down among its roots and bright at its tips (UV.y is 1 at its foot), deeper and a touch cooler low down, so a lawn

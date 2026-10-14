@@ -16,7 +16,8 @@ uniform float push_back = 0.6;   // how far back the line sits, as a share of it
 // The outline hierarchy: fighters get the full line (their meshes set this to 1, see `_tag_object` in fighter_view.gd); everything
 // else keeps this default, a thinner line in a softer ink, so the fighters are the clearest things on screen.
 instance uniform float outline_weight : instance_index(4) = 0.6;
-uniform vec4 scenery_color : source_color = vec4(0.2, 0.15, 0.24, 1.0);
+// (A soft violet-grey rather than ink, so props are drawn in a line that sits in the painting.)
+uniform vec4 scenery_color : source_color = vec4(0.34, 0.3, 0.4, 1.0);
 // The base body's skin under modelled clothes: its vertex colour's green (under the shirt) and blue (under the shorts) say how much line
 // it gets there, so the body's outline does not poke through the cloth. Off for everything else.
 uniform bool hide_under_shirt = false;

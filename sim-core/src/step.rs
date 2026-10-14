@@ -1,12 +1,12 @@
 //! The one entry point that advances the simulation by exactly one 60 Hz frame.
 
 use crate::combat;
-use crate::content::{Content, FighterParams};
+use crate::content::{Content, FighterParams, MAX_LEDGES};
 use crate::fighter;
 use crate::fixed::Fx;
 use crate::grab;
 use crate::input::Input;
-use crate::state::{Fighter, FighterState, GameState, DRAW, NONE, PLAYING};
+use crate::state::{Fighter, FighterState, GameState, Item, Projectile, DRAW, NONE, PLAYING};
 use crate::MAX_FIGHTERS;
 
 fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
@@ -17,8 +17,12 @@ fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
 /// Frames per second of the simulation, for the match time limit.
 const FPS: u32 = 60;
 
-/// Decides whether the match is over: one fighter (or none) left standing, or the time ran out.
-fn settle(state: &mut GameState) {
+/// Damage every fighter starts sudden death with (the reference's).
+const SUDDEN_DEATH_PERCENT: i32 = 300;
+
+/// Decides whether the match is over: one fighter (or none) left standing, or the time ran out. When the time runs out with the
+/// leaders level on stocks, the match goes to sudden death instead (`start_sudden_death`) and only a knock-out ends it.
+fn settle(state: &mut GameState, content: &Content) {
     if state.winner != PLAYING || state.roster.count_ones() < 2 {
         return;
     }
@@ -29,32 +33,84 @@ fn settle(state: &mut GameState) {
         (None, _) => DRAW,
         (Some(only), None) => only as i8,
         (Some(_), Some(_))
-            if state.rules.time_limit > 0
+            if !state.sudden_death
+                && state.rules.time_limit > 0
                 && state.frame >= u32::from(state.rules.time_limit) * FPS =>
         {
-            // Most stocks, then least damage; level on both is a draw.
-            let key = |i: usize| (state.fighters[i].stocks, state.fighters[i].percent);
-            let beats = |a: usize, b: usize| {
-                let (sa, pa) = key(a);
-                let (sb, pb) = key(b);
-                sa > sb || (sa == sb && pa < pb)
-            };
-            let mut best = 0;
-            for i in (0..MAX_FIGHTERS).filter(|&i| state.fighters[i].active) {
-                if beats(i, best) || !state.fighters[best].active {
-                    best = i;
+            if state.rules.stocks > 0 {
+                // A stock match: most stocks wins; the leaders level on stocks go to sudden death.
+                let most = (0..MAX_FIGHTERS)
+                    .filter(|&i| state.fighters[i].active)
+                    .map(|i| state.fighters[i].stocks)
+                    .max()
+                    .unwrap_or(0);
+                let mut leaders = (0..MAX_FIGHTERS)
+                    .filter(|&i| state.fighters[i].active && state.fighters[i].stocks == most);
+                match (leaders.next(), leaders.next()) {
+                    (Some(one), None) => one as i8,
+                    _ => {
+                        start_sudden_death(state, content, most);
+                        PLAYING
+                    }
                 }
-            }
-            let tied = (0..MAX_FIGHTERS)
-                .any(|i| i != best && state.fighters[i].active && key(i) == key(best));
-            if tied {
-                DRAW
             } else {
-                best as i8
+                // Free play against the clock: the least damage wins; level is a draw.
+                let mut best = 0;
+                for i in (0..MAX_FIGHTERS).filter(|&i| state.fighters[i].active) {
+                    if !state.fighters[best].active
+                        || state.fighters[i].percent < state.fighters[best].percent
+                    {
+                        best = i;
+                    }
+                }
+                let tied = (0..MAX_FIGHTERS).any(|i| {
+                    i != best
+                        && state.fighters[i].active
+                        && state.fighters[i].percent == state.fighters[best].percent
+                });
+                if tied {
+                    DRAW
+                } else {
+                    best as i8
+                }
             }
         }
         _ => PLAYING,
     };
+}
+
+/// Sudden death: the fighters with `most` stocks start again from their spawn points with one stock at 300%; everyone else is out.
+/// The stage is cleared of projectiles, items and ledge holds. The clock no longer runs out.
+fn start_sudden_death(state: &mut GameState, content: &Content, most: u8) {
+    state.sudden_death = true;
+    for i in 0..MAX_FIGHTERS {
+        let old = state.fighters[i];
+        if !old.active {
+            continue;
+        }
+        if old.stocks != most {
+            state.fighters[i].active = false;
+            state.fighters[i].stocks = 0;
+            continue;
+        }
+        let pos = content.stage.spawns[i];
+        let params = params_of(content, &old);
+        let mut f = Fighter::spawn(
+            pos,
+            old.char_id,
+            if i % 2 == 0 { 1 } else { -1 },
+            crate::collision::standing_on(&content.stage, pos),
+            params.air_jumps,
+            content.rules.shield_max,
+        );
+        f.active = true;
+        f.stocks = 1;
+        f.percent = Fx::from_int(SUDDEN_DEATH_PERCENT);
+        state.fighters[i] = f;
+    }
+    state.projectiles = [Projectile::default(); crate::state::MAX_PROJECTILES];
+    state.items = [Item::default(); crate::state::MAX_ITEMS];
+    state.ledge_owner = [NONE; MAX_LEDGES];
 }
 
 pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHTERS]) {
@@ -158,7 +214,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     combat::check_ko(state, content);
 
     state.frame = state.frame.wrapping_add(1);
-    settle(state);
+    settle(state, content);
 }
 
 #[cfg(test)]

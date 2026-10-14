@@ -13,6 +13,39 @@ global uniform vec4 pf_rim_color;
 global uniform sampler2D pf_ramp : filter_linear, repeat_disable;
 global uniform float pf_deep_shade;
 global uniform vec4 pf_edge_light;
+// Cloud shadows (scripts/lighting.gd, per mood): broad soft patches of shade drifting slowly across the stage and the scenery near it,
+// so a sunny day has light and shade moving over it rather than one even wash (the grove's are small, a canopy's dappled light). x how
+// deep (0 none), y world units across a cloud, z how much of the sky is cloud (0..1), w drift speed. A surface that writes `pf_sun` in
+// its fragment (PF_CLOUDS) takes them as a cast shadow, in its painted shadow colour.
+global uniform vec4 pf_clouds;
+#ifdef PF_CLOUDS
+varying float pf_sun;
+#endif
+
+float pf_cloud_hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float pf_cloud_noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(pf_cloud_hash(i), pf_cloud_hash(i + vec2(1.0, 0.0)), f.x),
+		mix(pf_cloud_hash(i + vec2(0.0, 1.0)), pf_cloud_hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// How much sun reaches world point `p` at time `t` (1 full sun): the cloud field laid on the ground and carried up the walls along the
+// light, drifting with the wind.
+float pf_cloud_sun(vec3 p, float t) {
+	if (pf_clouds.x <= 0.0) {
+		return 1.0;
+	}
+	vec2 q = vec2(p.x + p.y * 0.6, p.z * 2.2 + p.y * 0.4) / pf_clouds.y + vec2(t * pf_clouds.w / pf_clouds.y, t * 0.013);
+	float n = pf_cloud_noise(q) * 0.65 + pf_cloud_noise(q * 2.3 + vec2(5.2, 1.3)) * 0.35;
+	float cloud = smoothstep(1.0 - pf_clouds.z - 0.07, 1.0 - pf_clouds.z + 0.07, n);
+	return 1.0 - cloud * pf_clouds.x;
+}
+
 uniform float ramp_center : hint_range(0.0, 1.0) = 0.45;
 uniform float ramp_softness : hint_range(0.0, 0.5) = 0.16;
 // How dark cast shadows (a hat's shadow on the face, a fighter's on the stage) are, 0 to 1: kept light so they read as soft shade.
@@ -100,6 +133,9 @@ void light() {
 	// landed on the face as blotchy pink patches with wavering edges. The form light shades the body instead.)
 	float cast = shadow_amount * mix(1.0, PF_FIGHTER_CAST, fighter);
 	float lit = band * mix(1.0, ATTENUATION, cast);
+#ifdef PF_CLOUDS
+	lit *= LIGHT_IS_DIRECTIONAL ? pf_sun : 1.0;
+#endif
 	// (The diffuse light is multiplied by the albedo afterwards, so the shadow colour is given as a ratio to it.)
 	vec3 shade = pf_painted_shadow(ALBEDO, pf_shadow_shift * mix(1.0, PF_FIGHTER_HUE, fighter)) / max(ALBEDO, vec3(0.004));
 	// Deep shade: a cast shadow falling on the side already turned from the light.
