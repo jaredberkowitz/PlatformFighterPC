@@ -17,6 +17,7 @@ use netplay::spectate::{SpectatorClient, SpectatorServer};
 use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
+use sim_core::run::{new_run, step_run, RunContent, MAX_MOBS};
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
@@ -193,6 +194,9 @@ pub struct SimRunner {
     group_log: Vec<String>,
     /// Looking for an opponent through a relay's queue.
     quick: Option<QuickMatch>,
+    /// The single-player run (sim 120), while one is set up: its content, and the fighter (in `content`) that plays it. `tick` steps
+    /// the run then, and `content.stage` is the run's streamed stage.
+    run: Option<(RunContent, u8)>,
 }
 
 impl SimRunner {
@@ -237,6 +241,7 @@ impl SimRunner {
                 self.match_specs = raw;
                 self.recorder = None;
                 self.playback = None;
+                self.run = None;
                 let mut ids = [0u8, 1, 0, 1];
                 for (slot, c) in ids.iter_mut().zip(chars.iter()) {
                     *slot = *c;
@@ -421,6 +426,7 @@ impl INode for SimRunner {
             group_guest: None,
             group_log: Vec::new(),
             quick: None,
+            run: None,
         }
     }
 }
@@ -453,6 +459,7 @@ impl SimRunner {
         self.match_specs.clear();
         self.recorder = None;
         self.playback = None;
+        self.run = None;
         self.state = GameState::new_with_rules(
             &self.content,
             1,
@@ -585,6 +592,7 @@ impl SimRunner {
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
         self.playback = Some(Playback { record, initial });
+        self.run = None;
         GString::new()
     }
 
@@ -732,6 +740,7 @@ impl SimRunner {
         self.match_specs.clear();
         self.recorder = None;
         self.playback = None;
+        self.run = None;
         self.state = GameState::new_with_rules(
             &self.content,
             1,
@@ -780,6 +789,7 @@ impl SimRunner {
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
         self.playback = None;
+        self.run = None;
         self.recorder = self.new_local_recorder(seed as u64, ids);
     }
 
@@ -808,6 +818,10 @@ impl SimRunner {
             if let Some(rec) = self.recorder.as_mut() {
                 rec.push(self.state.frame, self.inputs);
             }
+        }
+        if let Some((rc, _)) = &self.run {
+            step_run(&mut self.state, &mut self.content, rc, &self.inputs);
+            return;
         }
         step(&mut self.state, &self.content, &self.inputs);
     }
@@ -2381,6 +2395,177 @@ impl SimRunner {
             f(s.blast_bottom),
             f(s.blast_top),
         ];
+        PackedFloat32Array::from(v.as_slice())
+    }
+
+    // ---- The single-player run (sim 120, `sim_core::run`) ----
+
+    /// Sets up a run with one fighter (`FighterSpec` bytes: built-in or made), on the built-in run content. Returns an empty string,
+    /// or what is wrong. Then `run_start` begins a run.
+    #[func]
+    fn run_begin(&mut self, spec: PackedByteArray) -> GString {
+        let Some(parsed) = FighterSpec::decode(spec.as_slice()) else {
+            return GString::from("the fighter could not be read");
+        };
+        let rc = RunContent::placeholder();
+        let problems = sim_content::check_run(&rc);
+        if !problems.is_empty() {
+            return GString::from(problems.join("; ").as_str());
+        }
+        match match_content_on(&Content::placeholder(), &[parsed], false, 0) {
+            Ok((content, chars)) => {
+                self.content = content;
+                self.content_name = String::new();
+                self.net = None;
+                self.base_content = None;
+                self.match_specs.clear();
+                self.recorder = None;
+                self.playback = None;
+                self.players = 0b0001;
+                self.run = Some((rc, chars.first().copied().unwrap_or(0)));
+                GString::new()
+            }
+            Err(e) => GString::from(format!("the fighter is not valid: {e:?}").as_str()),
+        }
+    }
+
+    /// Starts a fresh run with this seed (after `run_begin`). Returns false if no run is set up.
+    #[func]
+    fn run_start(&mut self, seed: i64) -> bool {
+        let Some((rc, char_id)) = &self.run else {
+            return false;
+        };
+        self.state = new_run(&mut self.content, rc, seed as u64, *char_id);
+        self.inputs = [Input::default(); MAX_FIGHTERS];
+        self.history.clear();
+        self.recorder = None;
+        true
+    }
+
+    #[func]
+    fn run_active(&self) -> bool {
+        self.run.is_some() && self.state.run.active
+    }
+
+    /// `[over, metres, coins, kills, combo, best combo, coin multiplier, lives, crushes, layout]` (layout changes whenever the stage
+    /// does).
+    #[func]
+    fn run_info(&self) -> PackedInt32Array {
+        let r = &self.state.run;
+        let mult = self
+            .run
+            .as_ref()
+            .map_or(1, |(rc, _)| r.multiplier(&rc.rules) as i32);
+        let v = [
+            i32::from(r.over),
+            r.distance(),
+            r.coins.min(i32::MAX as u32) as i32,
+            i32::from(r.kills),
+            i32::from(r.combo),
+            i32::from(r.best_combo),
+            mult,
+            i32::from(self.state.fighters[0].stocks),
+            i32::from(r.crushes),
+            r.layout as i32,
+        ];
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// `[left edge, view width, follow (0..1), blast bottom, blast top, creep a frame]`.
+    #[func]
+    fn run_view(&self) -> PackedFloat32Array {
+        let Some((rc, _)) = &self.run else {
+            return PackedFloat32Array::new();
+        };
+        let r = &rc.rules;
+        let v = [
+            f(self.state.run.cam_x),
+            f(r.view_width),
+            f(r.follow),
+            f(r.blast_bottom),
+            f(r.blast_top),
+            f(self.state.run.creep(r)),
+        ];
+        PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// The live platforms of the streamed stage: `[pool index, left, right, top, bottom, pass_through]` each.
+    #[func]
+    fn run_platforms(&self) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        for (i, p) in self.state.run.platforms.iter().enumerate() {
+            if p.live {
+                let v = [
+                    i as f32,
+                    f(p.left),
+                    f(p.right),
+                    f(p.y),
+                    f(p.bottom),
+                    if p.pass_through { 1.0 } else { 0.0 },
+                ];
+                out.push(&PackedFloat32Array::from(v.as_slice()));
+            }
+        }
+        out
+    }
+
+    /// The chunks in play, for drawing: every platform of each, placed, as `[chunk's left edge, chunk, left, right, top, bottom,
+    /// pass_through]` (the chunk's left edge names the piece: it never changes while the chunk is in play).
+    #[func]
+    fn run_pieces(&self) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        let Some((rc, _)) = &self.run else {
+            return out;
+        };
+        for s in self.state.run.slots.iter().filter(|s| s.live) {
+            let Some(c) = rc.chunks.get(usize::from(s.chunk)) else {
+                continue;
+            };
+            for p in &c.platforms {
+                let v = [
+                    f(s.x),
+                    f32::from(s.chunk),
+                    f(s.x + p.left),
+                    f(s.x + p.right),
+                    f(p.y),
+                    f(p.bottom),
+                    if p.pass_through { 1.0 } else { 0.0 },
+                ];
+                out.push(&PackedFloat32Array::from(v.as_slice()));
+            }
+        }
+        out
+    }
+
+    /// Every mob slot, 12 numbers each: `[active, kind, behavior (0 walker, 1 flyer), x, y, facing, mode, hitlag, hitstun, stamina
+    /// left (0..1), percent, radius]`. Modes: 0 idle, 1 moving, 2 winding up, 3 attacking, 4 cooling down, 5 bursting.
+    #[func]
+    fn run_mobs(&self) -> PackedFloat32Array {
+        let mut v = Vec::with_capacity(MAX_MOBS * 12);
+        let kinds = self.run.as_ref().map(|(rc, _)| &rc.mobs);
+        for m in &self.state.run.mobs {
+            let k = kinds.and_then(|k| k.get(usize::from(m.kind)));
+            let full = k.map_or(Fx::ONE, |k| k.stamina);
+            let left = if full > Fx::ZERO {
+                f(m.stamina.max(Fx::ZERO) / full)
+            } else {
+                1.0
+            };
+            v.extend_from_slice(&[
+                if m.active { 1.0 } else { 0.0 },
+                f32::from(m.kind),
+                f32::from(k.map_or(0, |k| k.behavior)),
+                f(m.pos.x),
+                f(m.pos.y),
+                f32::from(m.facing),
+                f32::from(m.mode),
+                f32::from(m.hitlag),
+                f32::from(m.hitstun.min(999)),
+                left,
+                f(m.percent),
+                f(k.map_or(Fx::HALF, |k| k.radius)),
+            ]);
+        }
         PackedFloat32Array::from(v.as_slice())
     }
 

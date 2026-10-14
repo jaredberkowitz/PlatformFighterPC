@@ -234,3 +234,10 @@ rebinding and controller input/menus (`docs/MENUS.md`; the controller part is un
   (must equal the built-in roster in code; a test enforces it; re-export with `pftool content-export`).
 * Rules for agents and contributors: `CLAUDE.md` (determinism rules, bump `SIM_VERSION` on any behaviour change, the content/script
   conventions, the editors and menus rules).
+
+## Single-player run (R1, sim 120; branch `runner-r1`)
+
+The endless run's vertical slice: `docs/modes/RUNNER_PLAN.md` ("R1 progress" has what is built, how to play it, the tunables and the
+known limits). Sim: `sim-core/src/run/` (the run's state is `GameState::run`; inactive and untouched in versus), tests in
+`sim-core/tests/runner.rs`, content checks in `sim-content/src/run.rs`, `pftool run-bot` / `run-bench`. Game: the menu's Run tile,
+`godot/runner.tscn` (`scripts/runner.gd` extends the match scene), `ui/run_hud.gd`, `ui/run_results.gd`, `tests/runner_test.gd`.

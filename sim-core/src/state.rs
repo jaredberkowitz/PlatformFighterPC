@@ -626,6 +626,8 @@ pub struct GameState {
     /// Sudden death (sim 114, the reference's): the time ran out with the leaders level on stocks, so they play on with one stock
     /// each at 300%, with no clock, until a knock-out decides it.
     pub sudden_death: bool,
+    /// The single-player run (sim 120, `crate::run`): its camera, streamed stage, mobs, coins and combo. Inactive in versus.
+    pub run: crate::run::Run,
 }
 
 impl Fighter {
@@ -841,6 +843,7 @@ impl GameState {
             items: [Item::default(); MAX_ITEMS],
             script_vars: [0; MAX_SCRIPT_VARS],
             sudden_death: false,
+            run: crate::run::Run::INACTIVE,
         }
     }
 
@@ -1021,6 +1024,7 @@ impl StateHash for GameState {
         for v in &self.script_vars {
             h.write_i32(*v);
         }
+        self.run.hash_into(h);
     }
 }
 

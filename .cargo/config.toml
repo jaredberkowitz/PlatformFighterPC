@@ -1,0 +1,5 @@
+# Test threads get a bigger stack: `state::tests::checksum_sees_every_field` builds well over a hundred whole `GameState`s in one
+# function, and an unoptimised build gives each its own stack slot (2 MB, the default, ran out when the run's state joined
+# `GameState` in sim 120).
+[env]
+RUST_MIN_STACK = "33554432"

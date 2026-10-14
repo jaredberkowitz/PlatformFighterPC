@@ -348,6 +348,9 @@ fn bodies_without_a_gauge_have_none() {
     for (i, p) in c.fighters.iter().enumerate() {
         if i == usize::from(CHAMPION) {
             assert_eq!(p.gauge, FighterParams::champion_gauge());
+        } else if i == 12 {
+            // (Sim 121: the phantom's partner gauge.)
+            assert_eq!(p.gauge, FighterParams::phantom_gauge());
         } else {
             assert_eq!(p.gauge, Gauge::NONE, "fighter {i}");
         }

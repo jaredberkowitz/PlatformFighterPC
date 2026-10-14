@@ -218,10 +218,10 @@ func _screens() -> void:
 	var menu: Control = load("res://menu.tscn").instantiate()
 	root.add_child(menu)
 	await process_frame
-	check(menu.buttons.size() == 7 and menu.index == 0, "the menu starts on Play")
+	check(menu.buttons.size() == 8 and menu.index == 0, "the menu starts on Play")
 	menu._unhandled_key_input(key(KEY_DOWN))
-	check(menu.index == 1, "down moves to Online")
+	check(menu.index == 1, "down moves to Run, under Play")
 	menu._unhandled_key_input(key(KEY_UP))
 	menu._unhandled_key_input(key(KEY_UP))
-	check(menu.index == 6, "and it wraps")
+	check(menu.index == 7, "and it wraps")
 	menu.queue_free()

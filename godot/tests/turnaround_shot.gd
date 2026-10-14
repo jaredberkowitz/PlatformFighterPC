@@ -5,7 +5,7 @@ extends SceneTree
 ##   --look=N    the default look of fighter N (0 by default)
 ##   --neutral   every surface in one plain grey cel material and no face: shape only, with the shading taken out of the comparison
 ##   --bare      no hat, glasses, neckwear or shirt: the body alone, as on the sheet
-##   --hat=N, --neck=N, --glasses=N   wear that piece (loadout.gd's lists)
+##   --hat=N, --neck=N, --glasses=N, --shirt=N, --gear=N   wear that piece (loadout.gd's lists)
 
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -28,7 +28,7 @@ func _initialize() -> void:
 		elif a == "--bare":
 			bare = true
 		else:
-			for slot in ["hat", "neck", "glasses"]:
+			for slot in ["hat", "neck", "glasses", "shirt", "gear"]:
 				if a.begins_with("--%s=" % slot):
 					wear[slot] = int(a.substr(slot.length() + 3))
 	var bg := ColorRect.new()
