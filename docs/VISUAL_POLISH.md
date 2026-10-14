@@ -1,0 +1,65 @@
+# Visual polish: audit, plan and change report (2026-10-14)
+
+The owner's visual polish iteration plan, merged with the open steps of `docs/ART_REVIEW_2.md`. The rule is to **iterate on what exists**:
+fix a parameter, then a shader, then geometry, and remodel or replace only what smaller changes cannot fix. Each change is one variable,
+compared before and after from the same camera, and kept only if it helps. Animation, weapon models and modelled props stay deferred to
+the end (the owner's call); everything else in the plan is in scope, and anything skipped is listed under "Skipped, and why".
+
+## Baseline (phase 1)
+
+- **Renderer**: Godot 4.7.1, Vulkan Forward+, MSAA. One shared cel light (`shaders/toon_light.gdshaderinc`) for fighters and the stage, a
+  post pass for ink, haze, the value hierarchy and paper (`shaders/post.gdshader`), per-stage moods and shading profiles
+  (`scripts/lighting.gd`).
+- **Lights**: a key with soft-edged cast shadows (two splits, 70 m), a cool fill from behind, flat ambient. No SSAO or SSIL; contact
+  darkening comes from `stage_ao.gdshaderinc` and painted contact patches.
+- **Fighters**: one skinned base body on a shared skeleton (`art/blender/make_base_body.py` builds it, `fit_body.py` measures it,
+  `make_rigged_blob.py` rigs it into `godot/models/base_rig.glb`), clothes painted on by region (`shaders/skin.gdshader`), a 2D face,
+  wardrobe pieces from `Loadout`, an inverted-hull outline plus the post pass's ink.
+- **Stages**: built in code (`scripts/stage_art.gd`): blocks with a patterned front, grass or sand caps, props, backdrop layers.
+- **Captures**: 1280x720. `--demo=stage --stage=N --match --noecb --chars=0,6` (play distance with the HUD) and
+  `--demo=stage --stage=N --noui --noecb --chars=2,9 --cam=7` (close-up), every stage, plus `tests/lineup_shot.gd`.
+
+### Found while capturing
+
+- **The collision-box outlines were in every review shot.** With `--noecb`, the outlines were never updated, so all four stood visible
+  at the stage's origin (the gold diamond beside the second fighter in earlier reviews). They are hidden until shown now. Shots only;
+  play was never affected.
+
+## Ranked opportunities
+
+| # | Opportunity | Responsible files | Without remodelling? |
+|---|---|---|---|
+| 1 | **Fighter shading** is a soft three-band ramp with strong hue rotation: orange fighters showed orange, salmon and pink streaks. | `toon_light.gdshaderinc` | Yes (done, pass 52) |
+| 2 | **The light/shadow edge on fighters is ragged**: the base body's decimation left long thin triangles whose normals jag the edge. | `make_base_body.py` | Needs a topology change (done, pass 52) |
+| 3 | **The meadow platform**: lawn patches read as overlaid rectangles, the earth front repeats the same rounded panels, the lip is a hard line. | `stage_art.gd`, `toon_common.gdshaderinc` | Yes |
+| 4 | **Hero props are flat**: the hay bales' checker reads as a decal, the barrel has no rim or bands, the fence is thin, bright and busy behind fighters, the windmill's sails are paper-thin. | `stage_art.gd` | Yes (geometry built in code) |
+| 5 | **Ink line noise** inside fighters (doubled strokes, dashes between the legs) and contact/grounding of feet. | `post.gdshader`, `outline.gdshader`, `fighter_view.gd` | Yes |
+
+After these: material families written down as standards (phase 6), the backdrop hierarchy and the floating islands (phase 7), motion
+checks (phase 8), and a final grading and performance pass (phase 9).
+
+**Is a character model change warranted?** Yes, one: the topology (item 2). The proportions and silhouette follow the concept sheet and
+read well; the faces, wardrobe and moves depend on them, so they stay. Hands are the next candidate (mitten shapes read lumpy close up).
+
+## Change report
+
+### Pass 52: two-tone fighters and a clean body surface
+
+- **Shading** (`toon_light.gdshaderinc`): fighters drop the stage's three-band ramp for a hard step between two flat tones
+  (`PF_FIGHTER_STEP` 0.62, anti-aliased over `PF_FIGHTER_EDGE` 0.02). Their shadow takes a third of the stage's hue turn
+  (`PF_FIGHTER_HUE`), so an orange shades deeper orange, not pink. The shadow tone is a step deeper (`PF_FIGHTER_SHADE` 0.8, which
+  replaces `PF_FIGHTER_LIFT`), because the two tones need a clear value step to read as shapes at play size. The stage keeps its ramp.
+  Tried and rejected: the step at 0.5 (the shadow was a sliver) and at 0.8 (too much of the face in shade).
+- **Body topology** (`make_base_body.py`, `REDUCE = "quad"`): the body is reduced with a QuadriFlow quad remesh plus four smoothing
+  steps instead of edge-collapse decimation. Same budget (6,386 triangles against 6,498), joints within a millimetre (refitted, rigged
+  again; hats, glasses and weapons fit as before). Under the hard step the light/shadow edge is now one smooth curve.
+- **Images**: `docs/screenshots/polish1_twotone_city.png`, `polish1_twotone_meadow.png` (before left, after right),
+  `polish1_body_terminator.png` (step only on the left, step plus the new topology on the right), `polish1_lineup.png`.
+- **Checks run**: fighter view, animation library and art pipeline tests pass; the look bench's worst silhouette holds at 0.89 (needs
+  0.85); close-ups on the meadow and the night city, and the lineup.
+- **Still open**: on the meadow, the key sits near the camera, so fighters show only a narrow shadow side there (per-stage mood, left
+  as is for now); the fists' shading shows their own facets.
+
+## Skipped, and why
+
+Nothing yet.

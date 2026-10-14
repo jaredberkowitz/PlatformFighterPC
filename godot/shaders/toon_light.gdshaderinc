@@ -27,8 +27,9 @@ uniform float metal : hint_range(0.0, 1.0) = 0.0;
 instance uniform float rim_boost : instance_index(2) = 1.0;
 // 1 on a fighter (set by fighter_view.gd): it gets the edge light, and its shadow side is kept a little lighter so it reads anywhere.
 instance uniform float fighter : instance_index(3) = 0.0;
-// How much lighter a fighter's shadow side is kept (a share of the way to lit).
-const float PF_FIGHTER_LIFT = 0.07;
+// How deep a fighter's shadow tone is against the stage's (below 1 deeper): the two tones need a clear value step between them to read as
+// a light shape and a shadow shape at play size (the edge light and the stage's quieting keep the shadow side off the background).
+const float PF_FIGHTER_SHADE = 0.8;
 
 vec3 pf_rgb2hsv(vec3 c) {
 	vec4 k = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -43,12 +44,12 @@ vec3 pf_hsv2rgb(vec3 c) {
 	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
 }
 
-// The colour a surface of colour `a` takes in full shadow.
-vec3 pf_painted_shadow(vec3 a) {
+// The colour a surface of colour `a` takes in full shadow, its hue turned at most `shift` toward the stage's shadow hue.
+vec3 pf_painted_shadow(vec3 a, float shift) {
 	vec3 hsv = pf_rgb2hsv(a);
 	float d = pf_shadow_hue - hsv.x;
 	d -= round(d);  // the short way round the colour wheel
-	vec3 shaded = vec3(fract(hsv.x + clamp(d, -pf_shadow_shift, pf_shadow_shift)), min(1.0, hsv.y * 1.12 + 0.04), hsv.z * pf_shadow_value);
+	vec3 shaded = vec3(fract(hsv.x + clamp(d, -shift, shift)), min(1.0, hsv.y * 1.12 + 0.04), hsv.z * pf_shadow_value);
 	vec3 rich = pf_hsv2rgb(shaded);
 	vec3 pale = a * pf_shadow_tint.rgb;
 	return mix(pale, rich, smoothstep(0.1, 0.35, hsv.y));
@@ -73,6 +74,12 @@ float pf_band(float wrap) {
 const float PF_FIGHTER_FORM = 0.85;
 // How much of a cast shadow lands on a fighter (a share of a stage surface's).
 const float PF_FIGHTER_CAST = 0.25;
+// A fighter is shaded in two flat tones, lit and shadow, split by a hard step (the stage's ramp, with its midtone band, is for the
+// scenery): where on the wrap the step falls, and how wide its edge is (just enough to anti-alias it).
+const float PF_FIGHTER_STEP = 0.62;
+const float PF_FIGHTER_EDGE = 0.02;
+// How much of the stage's shadow hue turn a fighter's shadow takes: a little, so an orange shades a deeper orange, not salmon and pink.
+const float PF_FIGHTER_HUE = 0.35;
 
 void light() {
 	vec3 L = LIGHT;
@@ -81,16 +88,20 @@ void light() {
 	}
 	float wrap = dot(NORMAL, L) * 0.5 + 0.5;
 	float band = pf_band(wrap);
+	if (fighter > 0.0) {
+		float x = clamp(wrap + (0.45 - ramp_center), 0.0, 1.0);
+		band = mix(band, smoothstep(PF_FIGHTER_STEP - PF_FIGHTER_EDGE, PF_FIGHTER_STEP + PF_FIGHTER_EDGE, x), fighter);
+	}
 	// (On a fighter, cast shadows count for much less: the shadow map is too coarse for a small round body, so a hat's or hair's shadow
 	// landed on the face as blotchy pink patches with wavering edges. The form light shades the body instead.)
 	float cast = shadow_amount * mix(1.0, PF_FIGHTER_CAST, fighter);
 	float lit = band * mix(1.0, ATTENUATION, cast);
 	// (The diffuse light is multiplied by the albedo afterwards, so the shadow colour is given as a ratio to it.)
-	vec3 shade = pf_painted_shadow(ALBEDO) / max(ALBEDO, vec3(0.004));
+	vec3 shade = pf_painted_shadow(ALBEDO, pf_shadow_shift * mix(1.0, PF_FIGHTER_HUE, fighter)) / max(ALBEDO, vec3(0.004));
 	// Deep shade: a cast shadow falling on the side already turned from the light.
 	float deep = (1.0 - ATTENUATION) * (1.0 - band) * cast;
 	shade = mix(shade, shade * pf_deep_shade, deep);
-	shade = mix(shade, vec3(1.0), fighter * PF_FIGHTER_LIFT);
+	shade *= mix(1.0, PF_FIGHTER_SHADE, fighter);
 	vec3 tone = mix(shade, vec3(1.0), lit);
 	// A point or spot light (a practical lamp in the scenery) fades with distance: ATTENUATION carries its falloff, and the cel ramp would
 	// otherwise light everything inside its range evenly and stop dead at the edge.
