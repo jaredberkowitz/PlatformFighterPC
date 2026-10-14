@@ -326,6 +326,8 @@ func _build_rig(skin: Material) -> bool:
 	# fists stand in, in the body's colour.
 	var bare: bool = use_base_body and not loadout.has_gloves()
 	var mittens := rig.find_child("Mitt*", true, false) != null
+	fists = {}
+	open_hands = {}
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
 		# Full detail always: Godot simplifies meshes that look small on screen (its automatic LOD), which chewed thin cloth's hems into
@@ -335,15 +337,26 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = arm
 		elif part.begins_with("Leg"):
 			mi.material_override = leg
+		elif part.begins_with("FistBare") or part.begins_with("FistGlove"):
+			# The closed fists (`_clench` shows them in place of the open hand).
+			var gloved := part.begins_with("FistGlove")
+			mi.material_override = glove if gloved else respond(toon(skin_colour), "skin")
+			mi.visible = false
+			if use_base_body and gloved != bare:
+				fists[part.right(1)] = mi
 		elif part.begins_with("Mitt"):
 			mi.material_override = respond(toon(skin_colour), "skin")
 			mi.visible = bare
+			if bare:
+				open_hands[part.right(1)] = mi
 		elif part.begins_with("Hand") and bare:
 			# Bare hands (the concept's mittens): the body's own colour and skin.
 			mi.material_override = respond(toon(skin_colour), "skin")
 			mi.visible = not mittens
 		elif part.begins_with("Hand") or part.begins_with("Sole"):
 			mi.material_override = glove
+			if use_base_body and part.begins_with("Hand"):
+				open_hands[part.right(1)] = mi
 		elif part.begins_with("Collar") or part.begins_with("Cuff"):
 			mi.material_override = white
 			# (The glove's cuff: none on a bare hand.)
@@ -353,6 +366,21 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Shorts"):
 			mi.material_override = _cloth(shorts)
 			mi.visible = loadout.has_shorts()
+		elif part.begins_with("Belt"):
+			# The belt the shirt is tucked under (the owner saw PEAK's figures have a waistline): leather, with a brass buckle.
+			mi.material_override = _cloth(toon(BELT_LEATHER))
+			mi.visible = loadout.has_shorts()
+		elif part.begins_with("Buckle"):
+			mi.material_override = respond(toon(BELT_BRASS), "rubber")
+			mi.visible = loadout.has_shorts()
+		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
+			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
+			# shirt, white on a printed one; the collar hides under a ring of neckwear.
+			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and loadout.neck >= 2)
+			mi.material_override = _cloth(toon(_collar_colour()))
+		elif part.begins_with("Buttons"):
+			mi.visible = loadout.shirt > 0
+			mi.material_override = toon(Color(0.95, 0.9, 0.78))
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
@@ -912,6 +940,21 @@ static func blob_parts() -> Dictionary:
 	return _parts
 
 
+## The base body's closed fists and the open hands they stand in for, by side ("L", "R"): see `_clench`.
+var fists := {}
+var open_hands := {}
+
+
+## Closes a hand into a fist (or opens it): a hand that grips a weapon, and an unarmed fighter's hands while it attacks. (An open hand
+## beside a sword's hilt read as not holding it; a punch with an open hand read as a slap.)
+func _clench(left: bool, right: bool) -> void:
+	for side in fists:
+		var closed: bool = right if side == "R" else left
+		(fists[side] as Node3D).visible = closed
+		if open_hands.has(side):
+			(open_hands[side] as Node3D).visible = not closed
+
+
 ## The shell in front of the head that shows the drawn face, and its material (the expression swaps its texture).
 var face_mesh: MeshInstance3D
 var face_mat: ShaderMaterial
@@ -1434,6 +1477,18 @@ const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
+const BELT_LEATHER := Color(0.4, 0.26, 0.18)
+const BELT_BRASS := Color(0.95, 0.74, 0.32)
+
+
+## The collar's and placket's colour: the shirt's own a shade darker when it is plain, white on a print.
+func _collar_colour() -> Color:
+	match loadout.shirt:
+		1:
+			return SHIRT_WHITE.darkened(0.06)
+		2:
+			return loadout.accent_color().darkened(0.12)
+	return SHIRT_WHITE
 
 
 ## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.
@@ -1495,6 +1550,9 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 		m.set_shader_parameter("head_ball", Vector3(float(ball[0]), float(ball[1]), float(ball[2])))
 	if regions.has("torso_half_width"):
 		m.set_shader_parameter("torso_half_width", float(regions.torso_half_width))
+	for name in ["sleeve", "arm_radius"]:
+		if regions.has(name):
+			m.set_shader_parameter(name, float(regions[name]))
 	for name in ["shoulder_l", "elbow_l", "shoulder_r", "elbow_r"]:
 		if regions.has(name):
 			m.set_shader_parameter(name, Vector2(float(regions[name][0]), float(regions[name][1])))
@@ -1781,21 +1839,33 @@ func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: f
 func _shirt_collar() -> void:
 	if not use_base_body or loadout.shirt <= 0 or loadout.neck >= 2:
 		return
+	if rig != null and rig.find_child("ShirtCollar", true, false) != null:
+		return
 	var info := _base_rig_info()
 	var at := 1.1
 	if info.has("neck") and torso_fit.basis.y.y > 0.001:
 		at = (float(info.neck) - 0.05 - torso_fit.origin.y) / torso_fit.basis.y.y
 	var k := clampf((at - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
 	var front := TORSO_RADII.z * sqrt(1.0 - k * k)
-	var flap_col: Color = SHIRT_WHITE if loadout.shirt != 1 else loadout.accent_color()
-	var flap := BoxMesh.new()
-	flap.size = Vector3(0.24, 0.17, 0.05)
+	# (Was two white boxes turned into diamonds, which met under the chin and read as a bow tie. Now two pointed flaps in the shirt's own
+	# cloth, apart at the throat in a V, each lying down and out over the chest: the collar of PEAK's scout shirts.)
+	var flap_col: Color
+	match loadout.shirt:
+		1:
+			flap_col = SHIRT_WHITE.darkened(0.05)
+		2:
+			flap_col = loadout.accent_color().darkened(0.1)
+		_:
+			flap_col = SHIRT_WHITE
+	var flap := PrismMesh.new()
+	flap.size = Vector3(0.17, 0.2, 0.035)
 	for sx in [-1.0, 1.0]:
-		# Each flap points down and out from the middle of the neck, lying on the chest.
-		# (Set out from the torso at the flap's own height, where the chest is fuller than at the collar's line.)
-		var fk := clampf((at - 0.15 - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
-		var flap_z := TORSO_RADII.z * sqrt(1.0 - fk * fk) * cos(asin(clampf(sx * 0.15 / TORSO_RADII.x, -0.9, 0.9))) + 0.07
-		_part(torso_rig, flap, toon(flap_col), Vector3(sx * 0.15, at - 0.15, flap_z), Vector3.ONE, Vector3(-24, sx * 14.0, sx * 40.0))
+		var fy := at - 0.1
+		var fk := clampf((fy - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
+		var fx: float = sx * 0.12
+		var flap_z := TORSO_RADII.z * sqrt(1.0 - fk * fk) * cos(asin(clampf(fx / TORSO_RADII.x, -0.9, 0.9))) + 0.05
+		# Upside down (pointing at the ground), leaned out from the throat and turned to lie on the curve of the chest.
+		_part(torso_rig, flap, toon(flap_col), Vector3(fx, fy, flap_z), Vector3.ONE, Vector3(-18, sx * 22.0, 180.0 - sx * 28.0))
 	var placket := BoxMesh.new()
 	placket.size = Vector3(0.07, 0.5, 0.03)
 	var below := clampf((at - 0.36 - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
@@ -3757,6 +3827,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
+	var punching: bool = not blade_pivot.visible and state == "Attack" and s.move_name != ""
+	_clench(punching or _cls(s) == BUCKLER_CLASS, blade_pivot.visible or punching)
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:

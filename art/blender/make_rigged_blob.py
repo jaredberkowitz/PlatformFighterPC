@@ -312,15 +312,21 @@ def mitten(bm, x):
     # (After the owner's PEAK references, 2026-10-14: a hand with fingers. A broad palm a little flatter side to side than deep, four
     # stubby fingers hanging from it side by side (the middle two longest), each curled gently in toward the palm, and a thumb standing
     # out in front: it reads as a hand at play size, where a ball or a paddle read as a knob.)
+    # (Pass 71, the owner: the hands still read chunky and odd. They were as wide as the legs and ran straight on from the forearm, a club
+    # at the end of the arm. Now a narrow wrist, a palm flat side to side (the camera sees its back, the fingers hanging from it), four
+    # rounded fingers that part a little toward their tips and curl in toward the body, and a shorter thumb in front.)
     k = HAND_SCALE
-    ball(bm, 0.165 * k, _hand(x, (x * 0.78, -0.05, 0.655)), (0.74, 1.0, 0.92), segments=32, rings=20)
-    for fy, length in ((-0.115, 0.1), (-0.04, 0.12), (0.035, 0.115), (0.105, 0.09)):
-        top = _hand(x, (x * 0.785, -0.05 + fy, 0.56))
-        mid = _hand(x, (x * 0.78, -0.05 + fy * 1.05, 0.56 - length * 0.6))
-        tip = _hand(x, (x * 0.745, -0.05 + fy * 1.08, 0.56 - length))
-        tube(bm, [top, mid, tip], [0.056 * k, 0.052 * k, 0.047 * k], segments=12, per_span=4)
-    tube(bm, [_hand(x, (x * 0.75, -0.15, 0.7)), _hand(x, (x * 0.735, -0.235, 0.645)), _hand(x, (x * 0.74, -0.255, 0.575))],
-         [0.064 * k, 0.058 * k, 0.05 * k], segments=14, per_span=5)
+    tube(bm, [_hand(x, (x * 0.745, -0.04, 0.8)), _hand(x, (x * 0.765, -0.045, 0.715))], [0.072 * k, 0.08 * k], segments=16, per_span=3)
+    ball(bm, 0.128 * k, _hand(x, (x * 0.775, -0.05, 0.645)), (0.64, 1.0, 0.98), segments=32, rings=20)
+    for fy, length in ((-0.092, 0.1), (-0.031, 0.122), (0.031, 0.116), (0.09, 0.094)):
+        top = _hand(x, (x * 0.78, -0.05 + fy, 0.58))
+        mid = _hand(x, (x * 0.775, -0.05 + fy * 1.12, 0.58 - length * 0.6))
+        tip = _hand(x, (x * 0.74, -0.06 + fy * 1.22, 0.58 - length))
+        tube(bm, [top, mid, tip], [0.04 * k, 0.038 * k, 0.033 * k], segments=12, per_span=4)
+        ball(bm, 0.033 * k, tip, segments=12, rings=8)
+    tube(bm, [_hand(x, (x * 0.75, -0.13, 0.68)), _hand(x, (x * 0.74, -0.19, 0.63)), _hand(x, (x * 0.745, -0.205, 0.575))],
+         [0.05 * k, 0.045 * k, 0.04 * k], segments=14, per_span=5)
+    ball(bm, 0.04 * k, _hand(x, (x * 0.745, -0.205, 0.575)), segments=12, rings=8)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1084,14 +1090,43 @@ FIST_SCALE = 0.9
 # The glove's fist (it is built bigger and rounder than the bare hand, with knuckles and a cuff): smaller, or a gloved fighter carried two
 # white balloons.
 GLOVE_SCALE = 0.74
+GLOVE_GROW = 1.1     # the base body's glove against its bare hand
+FIST_CLOSED = 0.66   # the base body's closed fist (the blob's clenched glove) against the blob's
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
 
 
-def smooth_weights(obj, groups, factor=0.5, repeat=6):
+SHOULDER_HOLD = 0.08     # within this distance of the shoulder joint the trunk keeps its arm weights
+SHOULDER_FADE = 0.1     # and over this much further they fade to none
+
+
+def release_trunk(skin, J):
+    """Fades the arm bones' weights out of the trunk (the points inside the shoulder joints' line) with distance from the shoulder joint,
+    giving what they held to the spine, so a raised arm lifts the shoulder's round and not a web of the torso's side."""
+    names = {g.index: g.name for g in skin.vertex_groups}
+    spine = skin.vertex_groups["spine"]
+    for v in skin.data.vertices:
+        side = "R" if v.co.x > 0.0 else "L"
+        joint = J["armU." + side]
+        if abs(v.co.x) >= abs(joint.x) or v.co.z < J["hips"].z:
+            continue
+        d = (v.co - joint).length
+        keep = max(0.0, min(1.0, (SHOULDER_HOLD + SHOULDER_FADE - d) / SHOULDER_FADE))
+        if keep >= 1.0:
+            continue
+        freed = 0.0
+        for g in v.groups:
+            if names[g.group].startswith(("armU", "armL", "hand")):
+                freed += g.weight * (1.0 - keep)
+                g.weight *= keep
+        if freed > 0.0:
+            spine.add([v.index], next((g.weight for g in v.groups if g.group == spine.index), 0.0) + freed, "REPLACE")
+
+
+def smooth_weights(obj, groups, factor=0.5, repeat=6, no_gain=None):
     """Spreads the named vertex groups' weights along the mesh (each point toward its neighbours' average, `repeat` times), then puts
-    every point's weights back to a sum of one."""
+    every point's weights back to a sum of one. Points in `no_gain` (indices) keep at most the weight they had in those groups."""
     me = obj.data
     n = len(me.vertices)
     near = [[] for _ in range(n)]
@@ -1105,8 +1140,11 @@ def smooth_weights(obj, groups, factor=0.5, repeat=6):
             weights[g.group][v.index] = g.weight
     for name in groups:
         w = weights[obj.vertex_groups[name].index]
+        before = list(w)
         for _ in range(repeat):
             w[:] = [w[i] + factor * (sum(w[j] for j in near[i]) / len(near[i]) - w[i]) if near[i] else w[i] for i in range(n)]
+        for i in no_gain or ():
+            w[i] = min(w[i], before[i])
     for i in range(n):
         total = sum(w[i] for w in weights.values())
         if total > 0.0:
@@ -1163,13 +1201,15 @@ def build_body_meshes(rig):
             off = v.co - closest
             if off.length > 0.25:
                 continue
-            if t > 1.03:
-                cut.append(v)
-                break
-            # (How thick the forearm is near the wrist, for the cuffs.)
             e = J["armL." + side]
             fore = J["hand." + side] - e
             tf = (v.co - e).dot(fore) / fore.length_squared
+            # (Square across the forearm, not the shoulder-to-wrist line: the arm bends at the elbow, and a cut across that line reached
+            # up one side of the forearm in a notch whose hole showed the outline's black inside.)
+            if t > 0.9 and tf > 1.0 + 0.03 * length / fore.length:
+                cut.append(v)
+                break
+            # (How thick the forearm is near the wrist, for the cuffs.)
             if 0.7 < tf <= 1.0:
                 wrist_r[side].append((v.co - e - fore * tf).length)
             break
@@ -1196,10 +1236,11 @@ def build_body_meshes(rig):
         fore_blob = (wrist_blob - Vector((x * 0.66, -0.02, 0.95))).normalized()
         fore = (J["hand." + side] - J["armL." + side]).normalized()
         turn = fore_blob.rotation_difference(fore).to_matrix()
+        # (The glove is the bare hand's shape a size up, not the blob's clenched ball: gloved fighters carried two white balloons.)
         bm = bmesh.new()
-        fist(bm, x)
+        mitten(bm, x)
         for v in bm.verts:
-            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * GLOVE_SCALE
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE * GLOVE_GROW
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
         # The bare hand (no gloves in the loadout): the game shows this one instead, in the body's colour.
         bm = bmesh.new()
@@ -1222,6 +1263,23 @@ def build_body_meshes(rig):
             w = min(1.0, max(0.0, (-0.02 - up) / 0.06))
             ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
         mitt.data.color_attributes.active_color = ink
+        # Closed fists to match, bare and gloved (`FistBare`, `FistGlove`): the game shows them on a hand that grips a weapon and on
+        # an unarmed fighter's hands while it attacks (an open hand beside a sword's hilt read as not holding it, a punch as a slap).
+        for name, k in (("FistBare." + side, FIST_CLOSED), ("FistGlove." + side, FIST_CLOSED * GLOVE_GROW)):
+            bm = bmesh.new()
+            fist(bm, x)
+            for v in bm.verts:
+                v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * k
+            if name.startswith("FistBare"):
+                tube(bm, [J["hand." + side] - fore * 0.07, J["hand." + side] + fore * 0.05], [rw * 1.0, rw * 1.04], segments=18, per_span=3)
+            parts[name] = to_object(name, bm, "hand." + side, rig)
+            if name.startswith("FistBare"):
+                f = parts[name]
+                ink = f.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+                for v in f.data.vertices:
+                    up = (v.co - wrist_at).dot(-fore)
+                    ink.data[v.index].color = (min(1.0, max(0.0, (-0.02 - up) / 0.06)), 1.0, 1.0, 1.0)
+                f.data.color_attributes.active_color = ink
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
@@ -1284,7 +1342,13 @@ def build_body_meshes(rig):
     # the arm where it bends; spread out, it bends round.
     # (Spread further, and the chest with them, so the armpit and the shoulder bend round with the arm and the elbow does not twist into a
     # pinch: the owner saw the arms twist strangely in play.)
-    smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")], 0.5, 12)
+    # (But the trunk itself gains none: spread onto the chest and back, the arm's weight dragged the torso's skin up with a raised arm
+    # into a web like a poncho under each arm, all through the run.)
+    trunk_ids = [v.index for v in skin.data.vertices if abs(v.co.x) < abs(J["armU.R"].x) * 0.72 and v.co.z > J["hips"].z]
+    smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")], 0.5, 12, trunk_ids)
+    # And on the trunk the arm's pull fades with distance from the shoulder joint: the round of the shoulder rises with a raised arm, the
+    # chest and the sides under it stay with the spine (the owner, 2026-10-14: the arms stretched the body and did not read as shoulders).
+    release_trunk(skin, J)
     # The ball of the head belongs wholly to the head bone (the owner saw the head melt into the chest, a gourd): the automatic weights
     # gave its underside partly to the spine, which the game twists toward the camera apart from the head, so the chin stretched into the
     # shoulders. Everything inside the head's ball, down to a little above the neck, takes the head's weight alone.
@@ -1320,7 +1384,7 @@ def build_body_meshes(rig):
     ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
     clothes = {
         "neck": round(neck - 0.015, 4),
-        "waist": round(hips + 0.12 * (neck - hips), 4),
+        "waist": round(hips + WAIST_SHARE * (neck - hips), 4),
         "shorts_end": round(crotch - 0.42 * (crotch - knee), 4),
         "sock_top": round(ankle + 0.19, 4),
         "shoe_top": round(ankle + 0.03, 4),
@@ -1328,6 +1392,8 @@ def build_body_meshes(rig):
         "shoulder_l": [round(J["armU.L"].x, 4), round(J["armU.L"].z, 4)], "elbow_l": [round(J["armL.L"].x, 4), round(J["armL.L"].z, 4)],
         "shoulder_r": [round(J["armU.R"].x, 4), round(J["armU.R"].z, 4)], "elbow_r": [round(J["armL.R"].x, 4), round(J["armL.R"].z, 4)],
         "torso_half_width": round(abs(J["armU.R"].x) * 0.72, 4),
+        # (The garments' own measures, so the game's skin shader hides the same skin the sleeves cover.)
+        "sleeve": SLEEVE, "arm_radius": ARM_RADIUS,
     }
     # The torso as the ellipsoid the game's neckwear is made round (fighter_view.gd fits its own design ellipsoid onto this one): from the
     # hips to where the head meets the shoulders, as wide as the trunk under the arms and as deep as its middle.
@@ -1348,14 +1414,136 @@ def build_body_meshes(rig):
     return parts
 
 
+def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
+    """The front of the shirt, laid on its finished surface (so they sit on it in any body): a collar of two pointed flaps folded down
+    from the throat, apart in a V, a button placket from the V to the belt, and three buttons. (The owner's PEAK references, 2026-10-14:
+    their scout shirts have a collar and a placket. The game's boxes for them sat inside the cloth once the shirt changed shape.)"""
+    sbm = bmesh.new()
+    sbm.from_mesh(shirt.data)
+    sbm.normal_update()
+    tree = bvhtree.BVHTree.FromBMesh(sbm)
+    names = [g.name for g in skin.vertex_groups]
+
+    def on_front(x, z, out_by):
+        hit, normal, _, _ = tree.ray_cast(Vector((x, -3.0, z)), Vector((0.0, 1.0, 0.0)))
+        if hit is None:
+            return None
+        if normal.y > 0.0:
+            normal = -normal
+        return hit + normal * out_by
+
+    def finish(name, bm, thickness, smooth=True):
+        obj = shirt.copy()
+        obj.data = bpy.data.meshes.new(name)
+        obj.name = name
+        bpy.context.collection.objects.link(obj)
+        if thickness > 0.0:
+            bm.normal_update()
+            bmesh.ops.solidify(bm, geom=list(bm.faces), thickness=thickness)
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+        bm.to_mesh(obj.data)
+        bm.free()
+        for poly in obj.data.polygons:
+            poly.use_smooth = smooth
+        for layer in list(obj.data.color_attributes):
+            obj.data.color_attributes.remove(layer)
+        for layer, uv_of in (("rest", lambda co: (co.x, co.z)), ("rest_depth", lambda co: (co.y, 0.0))):
+            if layer not in obj.data.uv_layers:
+                obj.data.uv_layers.new(name=layer)
+            data = obj.data.uv_layers[layer].data
+            for loop in obj.data.loops:
+                data[loop.index].uv = uv_of(obj.data.vertices[loop.vertex_index].co)
+        for v in obj.data.vertices:
+            for gi, w in (trunk_weights(v.co.z) or {}).items():
+                group = obj.vertex_groups.get(names[gi]) or obj.vertex_groups.new(name=names[gi])
+                group.add([v.index], w, "REPLACE")
+        return obj
+
+    def patch(corners, n, out_by, lift_edge=0.0):
+        # A triangle (three corners, x and height) or a quad (four), as a grid of points each set on the shirt's front.
+        bm = bmesh.new()
+        grid = {}
+        quad = len(corners) == 4
+        for i in range(n + 1):
+            for j in range(n + 1 - (0 if quad else i)):
+                u, w = i / n, j / n
+                if quad:
+                    a = corners[0].lerp(corners[1], w)
+                    b = corners[3].lerp(corners[2], w)
+                    p = a.lerp(b, u)
+                    edge = 0.0
+                else:
+                    p = corners[0] * (1.0 - u - w) + corners[1] * w + corners[2] * u
+                    edge = max(u, w)
+                co = on_front(p.x, p.y, out_by + lift_edge * edge)
+                if co is not None:
+                    grid[i, j] = bm.verts.new(co)
+        for (i, j), v in list(grid.items()):
+            a, b, c = grid.get((i + 1, j)), grid.get((i, j + 1)), grid.get((i + 1, j + 1))
+            if quad:
+                if a and b and c:
+                    bm.faces.new((v, a, c, b))
+            else:
+                if a and b:
+                    bm.faces.new((v, a, b))
+                if a and b and c:
+                    bm.faces.new((a, c, b))
+        return bm
+
+    def merge(into, part):
+        tmp = bpy.data.meshes.new("tmp")
+        part.to_mesh(tmp)
+        part.free()
+        into.from_mesh(tmp)
+        bpy.data.meshes.remove(tmp)
+
+    out = {}
+    bm = bmesh.new()
+    for sx in (-1.0, 1.0):
+        # Inner corner at the throat, outer corner out along the shoulder line, the point down and out over the chest; the free edges
+        # stand a little further off, as a folded collar does.
+        tri = [Vector((sx * 0.03, neck_line - 0.1)), Vector((sx * 0.24, neck_line - 0.05)), Vector((sx * 0.15, neck_line - 0.3))]
+        merge(bm, patch(tri, 8, 0.014, 0.016))
+    out["ShirtCollar"] = finish("ShirtCollar", bm, 0.014)
+    top, bottom = neck_line - 0.2, waist + BELT_HALF + 0.005
+    plk = patch([Vector((-0.032, top)), Vector((0.032, top)), Vector((0.032, bottom)), Vector((-0.032, bottom))], 12, 0.006)
+    out["ShirtPlacket"] = finish("ShirtPlacket", plk, 0.01)
+    bm = bmesh.new()
+    for k in range(3):
+        z = top - 0.04 - k * (top - bottom - 0.08) / 2.0
+        co = on_front(0.0, z, 0.02)
+        if co is None:
+            continue
+        b = bmesh.new()
+        bmesh.ops.create_uvsphere(b, u_segments=12, v_segments=8, radius=0.028)
+        bmesh.ops.scale(b, vec=(1.0, 0.45, 1.0), verts=b.verts)
+        bmesh.ops.translate(b, vec=co, verts=b.verts)
+        merge(bm, b)
+    out["Buttons"] = finish("Buttons", bm, 0.0)
+    sbm.free()
+    return out
+
+
 # ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
 SHIRT_LIFT = 0.04      # how far off the skin the shirt sits
+# Where the waist is, as a share of the way from the hips up to the neck. (The owner, 2026-10-14: PEAK's figures have a waistline; ours
+# had the shorts' top almost at the crotch, 0.12, so the shirt ran in one straight box to the hips. Now the shorts come up to a belt at the
+# body's narrowest, and the shirt is tucked in under it.)
+WAIST_SHARE = 0.25
+BELT_HALF = 0.045       # half the belt's height
+BELT_LIFT = 0.056       # how far off the skin the belt sits (over the shirt's tucked hem and the shorts' waistband)
+BLOUSE = 0.008          # how far the shirt puffs out just above the belt, where it is tucked in
+TUCK_SPAN = 0.12        # how far above the belt the shirt blends into moving as the belt does
+BLOUSE_SPAN = 0.1      # over how much height above the belt
+SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
-SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
+SLEEVE = 0.85           # how far down the upper arm the sleeves reach (0 at the shoulder joint, 1 at the elbow; the joint sits low in the
+                       # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.02
-ARM_RADIUS = 0.14      # how far from the arm's axis a point still counts as the arm (the upper arm is about 0.09 thick)
+ARM_RADIUS = 0.2       # how far from the arm's axis a point still counts as the arm (the base body's arm is about 0.16 thick; at 0.14 a strip down
+                       # its outer side was taken for the torso's shirt, slivers and a slit by the sleeve)
 HEM_SMOOTH = 30
 TORSO_SLICE = 0.01       # the height of a slice of the torso that shares one blend of the trunk's bones
 TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # how many smoothing steps each hem gets along its loop
@@ -1373,7 +1561,7 @@ def build_garments(skin, J, neck):
     hips = J["hips"].z
     crotch = FIT["crotch"]
     knee = (J["shin.L"].z + J["shin.R"].z) / 2.0
-    waist = hips + 0.12 * (neck - hips)
+    waist = hips + WAIST_SHARE * (neck - hips)
     shorts_end = crotch - 0.42 * (crotch - knee)
     neck_line = neck - 0.015
     half_width = abs(J["armU.R"].x) * 0.72
@@ -1420,12 +1608,19 @@ def build_garments(skin, J, neck):
             d = min(d, abs(sleeve_t(co) - SLEEVE) * (b - a).length)
         return d
 
+    def in_belt(co):
+        return not on_arm(co) and abs(co.z - waist) < BELT_HALF
+
+    def belt_hem(co):
+        return 1.0      # (no flare: a belt is a stiff band)
+
     def shorts_hem(co):
         # Only the leg openings flare: the waistband stays close in, under the shirt's hem.
         return abs(co.z - shorts_end)
 
     cuts = [(Vector((0, 0, waist - 0.012)), Vector((0, 0, 1))), (Vector((0, 0, neck_line)), Vector((0, 0, 1))),
-            (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1)))]
+            (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1))),
+            (Vector((0, 0, waist - BELT_HALF)), Vector((0, 0, 1))), (Vector((0, 0, waist + BELT_HALF)), Vector((0, 0, 1)))]
     for side in "LR":
         a, b = arm[side]
         cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
@@ -1472,7 +1667,8 @@ def build_garments(skin, J, neck):
     skin_bm.normal_update()
     skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
     out = {}
-    for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT)):
+    for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
+                                    ("Belt", in_belt, belt_hem, BELT_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
         obj.name = name
@@ -1506,28 +1702,51 @@ def build_garments(skin, J, neck):
             flare = HEM_FLARE * (1.0 - min(1.0, hem(v.co) / 0.06))
             # The shorts' waistband hugs the body (two thirds of their distance), well inside the shirt's hem over it.
             snug = 0.67 if name == "Shorts" and v.co.z > waist - 0.05 else 1.0
+            if name == "Shirt" and not on_arm(v.co) and v.co.z > neck_line - 0.06:
+                flare = 0.0
+            elif name == "Shirt" and not on_arm(v.co):
+                if v.co.z < waist + BELT_HALF:
+                    # Tucked in under the belt: close in, no flare.
+                    snug, flare = 0.8, 0.0
+                else:
+                    # Puffed a little just above the belt, where the tucked cloth gathers.
+                    t = (v.co.z - waist - BELT_HALF) / BLOUSE_SPAN
+                    if t < 1.0:
+                        flare += BLOUSE * math.sin(math.pi * max(0.0, t))
+            elif name == "Shirt":
+                # The sleeve's opening hugs the arm, a clean band, not a flared cone with the dark inside showing.
+                a, b = arm["L" if v.co.x < 0.0 else "R"]
+                near_end = 1.0 - min(1.0, abs(sleeve_t(v.co) - SLEEVE) * (b - a).length / 0.08)
+                if abs(v.co.z - neck_line) > 0.06:
+                    flare = 0.0
+                    snug = 1.0 - (1.0 - SLEEVE_SNUG) * near_end
             v.co = v.co + v.normal * (lift * snug + flare)
         for v in bm.verts:
             hit = skin_tree.find_nearest(v.co)
             if hit[0] is None:
                 continue
             away = (v.co - hit[0]).dot(hit[1])
-            if away < lift * 0.8:
-                v.co = v.co + hit[1] * (lift * 0.8 - away)
+            least = lift * (0.5 if name == "Shirt" else 0.8)
+            if away < least:
+                v.co = v.co + hit[1] * (least - away)
         # The hems themselves: held still while the cloth was smoothed, they kept every bump of the body's surface, which the flare then
         # turned into a torn-looking edge. Each hem (not the sleeves') is smoothed along its own loop, across but not up or down.
-        loop = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in hems if not on_arm(v.co)}
+        loop = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in hems}
+        sleeve_hem = {v for v in hems if on_arm(v.co)}
         for _ in range(HEM_SMOOTH):
             moved = {}
             for v, nbrs in loop.items():
                 if len(nbrs) == 2:
                     mid = (nbrs[0].co + nbrs[1].co) * 0.5
-                    moved[v] = Vector((v.co.x + (mid.x - v.co.x) * 0.5, v.co.y + (mid.y - v.co.y) * 0.5, v.co.z))
+                    # (A sleeve's hem is smoothed in every direction: it ends square across the arm, and its points stood out as spikes.)
+                    z = v.co.z + (mid.z - v.co.z) * 0.5 if v in sleeve_hem else v.co.z
+                    moved[v] = Vector((v.co.x + (mid.x - v.co.x) * 0.5, v.co.y + (mid.y - v.co.y) * 0.5, z))
             for v, co in moved.items():
                 v.co = co
         # Straight hems: the edges were cut level, but pushing the cloth out along a bumpy surface's normals left them wavy (like torn
         # paper where the shirt meets the shorts). Every edge point near a level cut goes back to its height.
-        levels = [waist - 0.012, neck_line] if name == "Shirt" else [waist + SHORTS_TOP, shorts_end]
+        levels = {"Shirt": [waist - 0.012, neck_line], "Shorts": [waist + SHORTS_TOP, shorts_end],
+                  "Belt": [waist - BELT_HALF, waist + BELT_HALF]}[name]
         for v in hems:
             if on_arm(v.co):
                 continue
@@ -1597,11 +1816,37 @@ def build_garments(skin, J, neck):
             while obj.modifiers.find("Thickness") > 0:
                 bpy.ops.object.modifier_move_up(modifier="Thickness")
             bpy.ops.object.modifier_apply(modifier="Thickness")
+        # The garment's own rest position as its texture maps (the skin's were copied with it, but the cloth has since been pushed out
+        # and smoothed, so a print laid by them wobbled: the stripes came out wavy and torn).
+        for layer, uv_of in (("rest", lambda co: (co.x, co.z)), ("rest_depth", lambda co: (co.y, 0.0))):
+            if layer in obj.data.uv_layers:
+                data = obj.data.uv_layers[layer].data
+                for loop in obj.data.loops:
+                    data[loop.index].uv = uv_of(obj.data.vertices[loop.vertex_index].co)
         # The shirt's arm and spine weights spread smoothly over it, so its sides stretch evenly when the fists come up rather than
         # bunching where the skin's weights change quickly. Its hips weights are left as the skin's, so the hem moves with the shorts'
         # waistband; the shorts keep the skin's own weights, so each leg follows its own thigh.
         if name == "Shirt":
             smooth_weights(obj, [g for g in ("armU.L", "armU.R", "spine") if g in obj.vertex_groups], 0.5, GARMENT_WEIGHT_SMOOTH)
+            release_trunk(obj, J)
+            # The part tucked under the belt, and a little above it, takes the belt's own bones (the trunk's blend at that height): with
+            # the spine's weights spread down to it, the hem swung out from under the belt like a skirt whenever the body leaned.
+            tuck_top = waist + BELT_HALF + TUCK_SPAN
+            names = [g.name for g in obj.vertex_groups]
+            skin_names = [g.name for g in skin.vertex_groups]
+            for v in obj.data.vertices:
+                if v.co.z >= tuck_top or on_arm(v.co):
+                    continue
+                t = min(1.0, (tuck_top - v.co.z) / TUCK_SPAN)
+                belt_w = {skin_names[gi]: w for gi, w in (trunk_weights(min(v.co.z, waist)) or {}).items()}
+                now = {names[g.group]: g.weight for g in v.groups}
+                for n in set(now) | set(belt_w):
+                    w = now.get(n, 0.0) * (1.0 - t) + belt_w.get(n, 0.0) * t
+                    group = obj.vertex_groups.get(n) or obj.vertex_groups.new(name=n)
+                    if w > 1e-4:
+                        group.add([v.index], w, "REPLACE")
+                    elif n in now:
+                        group.remove([v.index])
             # Where the sleeve meets the side the cloth pinches when the elbows come in; the ink outline is left out there (the vertex
             # colour's red is how much outline a point gets: shaders/outline.gdshader), so the folds do not turn into black scratches.
             ink = obj.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
@@ -1613,11 +1858,40 @@ def build_garments(skin, J, neck):
                 ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
             obj.data.color_attributes.active_color = ink
         out[name] = obj
+    # The belt's buckle: a rounded brass plate on the belt's front, moving as the belt does there (the trunk's bones at the waist).
+    belt = out["Belt"]
+    front = min((v.co.y for v in belt.data.vertices if abs(v.co.x) < 0.04), default=-0.25)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, vec=(0.16, 0.035, 0.115), verts=bm.verts)
+    bmesh.ops.bevel(bm, geom=list(bm.edges), offset=0.014, segments=3, affect="EDGES", profile=0.5)
+    bmesh.ops.translate(bm, vec=(0.0, front - 0.006, waist), verts=bm.verts)
+    buckle = belt.copy()
+    buckle.data = bpy.data.meshes.new("Buckle")
+    buckle.name = "Buckle"
+    bpy.context.collection.objects.link(buckle)
+    bm.to_mesh(buckle.data)
+    bm.free()
+    for poly in buckle.data.polygons:
+        poly.use_smooth = False
+    for layer in list(buckle.data.color_attributes):
+        buckle.data.color_attributes.remove(layer)
+    every = list(range(len(buckle.data.vertices)))
+    names = [g.name for g in skin.vertex_groups]
+    for gi, w in (trunk_weights(waist) or {}).items():
+        group = buckle.vertex_groups.get(names[gi]) or buckle.vertex_groups.new(name=names[gi])
+        group.add(every, w, "REPLACE")
+    out["Buckle"] = buckle
+    out.update(shirt_front(out["Shirt"], skin, neck_line, waist, trunk_weights))
     # The skin's marks for the game's outline (shaders/outline.gdshader): green is how much line a point gets under the shirt, blue under
     # the shorts (none deep under a garment, all of it near a hem), red always all.
     cover = skin.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
     for v in skin.data.vertices:
         g = 1.0 - min(1.0, max(0.0, (shirt_hem(v.co) - 0.02) / 0.03)) if in_shirt(v.co) else 1.0
+        if in_shirt(v.co) and on_arm(v.co):
+            # (None under a sleeve, to its very hem: the arm's line showed through the opening as a black wedge; the sleeve's own edge
+            # draws the line there.)
+            g = 0.0
         b = 1.0 - min(1.0, max(0.0, (shorts_hem(v.co) - 0.02) / 0.03)) if in_shorts(v.co) else 1.0
         cover.data[v.index].color = (1.0, g, b, 1.0)
     skin.data.color_attributes.active_color = cover
@@ -1733,10 +2007,12 @@ def main() -> None:
             elbow = 0.72 if BODY else 1.0
             # (After the owner's PEAK reference: the chunky arms held out clear of the body, so both read against the background, not
             # tucked into a guard in front of the belly where the body and the weapon hid them; fists still a little up and forward.)
-            pose(rig, "armU.L", fwd=30.0 + 5.0 * lag * swing, out=34.0)
+            # (Forward more than out, 2026-10-14: held mostly out to the side, the rear arm pointed backward once the chest turns to the
+            # camera, and its forearm folded down behind the body; the owner saw it bend behind him.)
+            pose(rig, "armU.L", fwd=40.0 + 5.0 * lag * swing, out=24.0)
             pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=16.0 + 5.0 * lag * swing, out=36.0)
+            pose(rig, "armU.R", fwd=36.0 + 5.0 * lag * swing, out=22.0)
             pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.R", fwd=-14.0)
         return f

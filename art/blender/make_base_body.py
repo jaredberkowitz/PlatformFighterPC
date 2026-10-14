@@ -35,16 +35,19 @@ HEAD_RADII = Vector((0.44, 0.425, 0.43))
 # outline reads as a whole circle, as on the sheet; the belly is the widest and pushes forward, with a little seat behind.
 # (After the owner's PEAK references, 2026-10-14: a boxy trunk about as wide as the head, square high shoulders right under it, nearly
 # straight sides down to the hips, so the figure reads as head-on-a-box at mobile size. Was a narrow pear, 0.235 at the shoulders.)
+# (And a waistline, 2026-10-14, as the owner saw on PEAK's: the chest narrows a little to the waist, where the belt sits
+# (make_rigged_blob.py's WAIST_SHARE), and the hips fill out again under it.)
 TRUNK = [
     (1.44, 0.09, 0.08, 0.0),
     (1.37, 0.135, 0.115, 0.0),
     (1.32, 0.29, 0.19, 0.01),
     (1.25, 0.37, 0.225, 0.015),
     (1.12, 0.385, 0.24, 0.025),
-    (0.97, 0.38, 0.25, 0.035),
-    (0.82, 0.37, 0.245, 0.03),
-    (0.69, 0.35, 0.23, 0.012),
-    (0.59, 0.3, 0.19, -0.005),
+    (0.98, 0.35, 0.245, 0.035),
+    (0.87, 0.34, 0.228, 0.03),
+    (0.79, 0.33, 0.218, 0.02),
+    (0.7, 0.352, 0.228, 0.01),
+    (0.6, 0.31, 0.192, -0.005),
     (0.505, 0.16, 0.1, 0.0),
 ]
 # How square the trunk's cross-section is (2 an ellipse; higher, a rounded box).
@@ -57,8 +60,10 @@ TRUNK_SQUARE = 3.2
 # clear of the belly. Was 0.117 / 0.103 / 0.088, ending at 0.585, 0.885.)
 # (A shaped arm, not a sausage: full at the shoulder, a slight narrowing at the elbow, the forearm filling out again before the wrist,
 # so the joint reads; it starts inside the trunk's top corner, where a shoulder cap (`SHOULDER_CAP`) rounds the box into it.)
-ARM = [((0.31, 0.0, 1.25), 0.17), ((0.46, 0.006, 1.12), 0.164), ((0.58, 0.012, 1.0), 0.157), ((0.66, 0.018, 0.9), 0.152),
-       ((0.73, 0.025, 0.79), 0.142)]
+# (Hung a little further out from the shoulder, 2026-10-14, with the trunk narrowed under it, so there is a real armpit: the arm had
+# fused to the torso's side down to the elbow, and a swinging arm stretched the side with it like a wing.)
+ARM = [((0.31, 0.0, 1.25), 0.17), ((0.47, 0.006, 1.12), 0.162), ((0.605, 0.012, 1.0), 0.155), ((0.69, 0.018, 0.9), 0.15),
+       ((0.76, 0.025, 0.79), 0.14)]
 # The shoulder cap: a soft ball over each top corner of the trunk, where the arm comes out, so trunk and arm are one rounded mass, not a
 # tube pushed into a box (it read as a sleeve). Centre (x, y, z) and radii.
 # (Laid along the arm's first stretch, so the shoulder's top line runs on into the arm without a bulge: a deltoid ball and a narrowing
@@ -74,7 +79,7 @@ LEG = [((0.2, 0.0, 0.57), 0.172), ((0.2, 0.0, 0.45), 0.168), ((0.2, 0.0, 0.34), 
 # Anatomy laid on the limbs as soft forms (the owner, 2026-10-14: "a body, not tubes"): (centre, radii) per side, x mirrored.
 ANATOMY = [
     # The point of the elbow behind.
-    ((0.585, 0.075, 1.0), (0.085, 0.07, 0.08)),
+    ((0.61, 0.05, 1.0), (0.08, 0.06, 0.075)),
     # Kneecaps in front, calves behind.
     ((0.2, -0.105, 0.34), (0.1, 0.08, 0.09)),
     ((0.2, 0.06, 0.25), (0.13, 0.12, 0.11)),
