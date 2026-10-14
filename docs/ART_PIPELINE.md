@@ -1080,3 +1080,7 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   tapering across the screen, in layers (one ink silhouette round the whole plume, the colour, a lit band along the top, a white-hot core
   at the blast), redrawn on twos so the puffs swell, roll outward, thin and break up. `ko_plume_before.png` / `ko_plume_after.png`.
 - Weapons and animation are left for the end-of-development pass (owner's call: modelled assets may replace the code-built weapons).
+- **Firmer cast shadows** (item 5): stage surfaces take more of a cast shadow (`shadow_amount` 0.62 to 0.8, so a platform's shadow on
+  the ground reaches nearly the stage's full painted shade) with a crisper edge (key `shadow_blur` 0.5 to 0.3). A modest step: the
+  darkest a cast shadow can go is the stage's painted shadow colour, which is a per-stage mood choice. Fighters still take a quarter.
+  `cast_shadow_before.png` / `cast_shadow_after.png`.

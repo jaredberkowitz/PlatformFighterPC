@@ -147,7 +147,7 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	# Crisp, as an illustration's cast shadows are (a soft wide penumbra read as haze on the grass, not shade), with just enough blur to
 	# keep the edge clean; the shadow range only as far
 	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
-	key.shadow_blur = 0.5
+	key.shadow_blur = 0.3
 	key.light_angular_distance = 0.35
 	key.directional_shadow_max_distance = 70.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
