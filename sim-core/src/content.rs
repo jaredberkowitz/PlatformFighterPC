@@ -304,7 +304,7 @@ impl WingRow {
     }
 }
 
-/// A comeback form (E57, sim 125: the reference's one wing, ssbwiki.com `Winged_Form`, 13.0.1). After any hit that raises the
+/// A comeback form (E57, sim 125: the reference's one wing, ssbwiki.com's article on it, 13.0.1). After any hit that raises the
 /// fighter's percent, if it has no wing and has not lost one since its last KO, the row of `rows` for its stock difference with the
 /// leading opponent (-2 to +2, clamped; 0 when stocks are not counted) gives the percent it must have reached for the percent
 /// difference before the hit; reaching it, the wing comes with `points[stock difference + 2]` points. While it has the wing the body's
@@ -2034,7 +2034,7 @@ impl FighterParams {
         }
     }
 
-    /// The exile's wing (E57; the reference's one wing, ssbwiki.com `Winged_Form`, 13.0.1, with kuroganehammer.com's winged numbers):
+    /// The exile's wing (E57; the reference's one wing, ssbwiki.com's article on it, 13.0.1, with kuroganehammer.com's winged numbers):
     /// the start table by stock difference (-2 to +2) and the percent difference before the hit, the points (110, 100, 90, 65, 50 by
     /// stock difference), 0.3 points a percent of base damage dealt (0.15 with more opponents), 50 for a KO; a third jump, x1.3 damage,
     /// and walk x1.15, dash x1.2, run x1.25 (its acceleration x1.2), traction x1.3, air speed x1.2, air acceleration x1.15 + x1.1, air
@@ -2168,6 +2168,40 @@ pub struct Platform {
     pub bottom: Fx,
     /// Can be landed on from above and dropped through (platforms), versus solid ground.
     pub pass_through: bool,
+    /// A slope (sim 124, R2a): the top's height at `right` minus its height at `left` (`y` is the top at `left`); 0 is flat.
+    /// At most half the width (about 26.6 degrees; `sim_content` checks it). A sloped surface carries a grounded fighter along
+    /// it at its ground speed, its feet on the surface ([`Platform::top_at`]); ledges hang only from flat corners. Only the run's
+    /// rooms use slopes for now: every versus stage is flat, and flat surfaces behave exactly as before.
+    pub rise: Fx,
+}
+
+impl Platform {
+    /// The top's height at `x` (held to the platform's span): `y` on a flat platform.
+    pub fn top_at(&self, x: Fx) -> Fx {
+        if self.rise == Fx::ZERO {
+            return self.y;
+        }
+        let width = self.right - self.left;
+        if width <= Fx::ZERO {
+            return self.y;
+        }
+        let t = x.clamp(self.left, self.right) - self.left;
+        self.y + self.rise * t / width
+    }
+
+    /// The top's height at the right end.
+    pub fn top_right(&self) -> Fx {
+        self.y + self.rise
+    }
+
+    /// The highest point of the top.
+    pub fn top_max(&self) -> Fx {
+        self.y.max(self.y + self.rise)
+    }
+
+    pub fn sloped(&self) -> bool {
+        self.rise != Fx::ZERO
+    }
 }
 
 /// A grabbable stage edge. `side` is -1 for the stage's left edge (the fighter hangs to its left)
@@ -2203,6 +2237,7 @@ impl Stage {
                     y: Fx::ZERO,
                     bottom: int(-8),
                     pass_through: false,
+                    rise: Fx::ZERO,
                 },
                 Platform {
                     left: int(-8),
@@ -2210,6 +2245,7 @@ impl Stage {
                     y: Fx::from_ratio(18, 5),
                     bottom: Fx::from_ratio(18, 5),
                     pass_through: true,
+                    rise: Fx::ZERO,
                 },
                 Platform {
                     left: int(3),
@@ -2217,6 +2253,7 @@ impl Stage {
                     y: Fx::from_ratio(18, 5),
                     bottom: Fx::from_ratio(18, 5),
                     pass_through: true,
+                    rise: Fx::ZERO,
                 },
             ],
             ledges: vec![
@@ -2249,6 +2286,7 @@ impl StateHash for Stage {
             p.y.hash_into(h);
             p.bottom.hash_into(h);
             h.write_bool(p.pass_through);
+            p.rise.hash_into(h);
         }
         h.write_u32(self.ledges.len() as u32);
         for l in &self.ledges {

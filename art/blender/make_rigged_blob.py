@@ -1097,8 +1097,23 @@ FIST_CLOSED = 0.66   # the base body's closed fist (the blob's clenched glove) a
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
 
 
+ARM_BLEND = 0.2          # the arm's own radius for this (as near_arm's)
+ARM_BLEND_FADE = 0.14    # beyond it the arm's pull on the trunk fades out over this much
 SHOULDER_HOLD = 0.08     # within this distance of the shoulder joint the trunk keeps its arm weights
 SHOULDER_FADE = 0.1     # and over this much further they fade to none
+
+
+def near_arm(co, J, radius=0.2):
+    """Whether a rest-pose point is on an arm: within `radius` of the line from that side's shoulder joint to its wrist, below the
+    shoulder. (Being inside the shoulder joint's x is not enough to call a point the trunk's: the inside of the upper arm is too, and
+    taken for the trunk it stayed behind when the arm moved, a crumpled web of spikes under the elbow.)"""
+    side = "R" if co.x > 0.0 else "L"
+    a, b = J["armU." + side], J["hand." + side]
+    if co.z > a.z + 0.05:
+        return False
+    ab = b - a
+    t = max(0.0, min(1.0, (co - a).dot(ab) / ab.length_squared))
+    return (co - (a + ab * t)).length < radius
 
 
 def release_trunk(skin, J):
@@ -1109,10 +1124,18 @@ def release_trunk(skin, J):
     for v in skin.data.vertices:
         side = "R" if v.co.x > 0.0 else "L"
         joint = J["armU." + side]
-        if abs(v.co.x) >= abs(joint.x) or v.co.z < J["hips"].z:
+        if abs(v.co.x) >= abs(joint.x) or v.co.z < J["hips"].z or near_arm(v.co, J):
             continue
         d = (v.co - joint).length
         keep = max(0.0, min(1.0, (SHOULDER_HOLD + SHOULDER_FADE - d) / SHOULDER_FADE))
+        # And with distance from the arm itself: the trunk's skin just beside the arm follows it part way, fading out over
+        # ARM_BLEND_FADE, so the armpit stretches evenly over a hand's width, not in a sheet from one ring of points (the owner: the arms
+        # bent and contorted strangely; a swing back pulled a web from the torso's side).
+        a, b = J["armU." + side], J["hand." + side]
+        ab = b - a
+        t = max(0.0, min(1.0, (v.co - a).dot(ab) / ab.length_squared))
+        axis = (v.co - (a + ab * t)).length
+        keep = max(keep, max(0.0, min(1.0, (ARM_BLEND + ARM_BLEND_FADE - axis) / ARM_BLEND_FADE)) * 0.85)
         if keep >= 1.0:
             continue
         freed = 0.0
@@ -1344,7 +1367,9 @@ def build_body_meshes(rig):
     # pinch: the owner saw the arms twist strangely in play.)
     # (But the trunk itself gains none: spread onto the chest and back, the arm's weight dragged the torso's skin up with a raised arm
     # into a web like a poncho under each arm, all through the run.)
-    trunk_ids = [v.index for v in skin.data.vertices if abs(v.co.x) < abs(J["armU.R"].x) * 0.72 and v.co.z > J["hips"].z]
+    trunk_ids = [v.index for v in skin.data.vertices
+                 if abs(v.co.x) < abs(J["armU.R"].x) * 0.72 and v.co.z > J["hips"].z
+                 and not near_arm(v.co, J, ARM_BLEND + ARM_BLEND_FADE)]
     smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")], 0.5, 12, trunk_ids)
     # And on the trunk the arm's pull fades with distance from the shoulder joint: the round of the shoulder rises with a raised arm, the
     # chest and the sides under it stay with the spine (the owner, 2026-10-14: the arms stretched the body and did not read as shoulders).
@@ -2111,12 +2136,26 @@ def main() -> None:
             # tucked into a guard in front of the belly where the body and the weapon hid them; fists still a little up and forward.)
             # (Forward more than out, 2026-10-14: held mostly out to the side, the rear arm pointed backward once the chest turns to the
             # camera, and its forearm folded down behind the body; the owner saw it bend behind him.)
-            pose(rig, "armU.L", fwd=40.0 + 5.0 * lag * swing, out=24.0)
-            pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
-            pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=36.0 + 5.0 * lag * swing, out=22.0)
-            pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
-            pose(rig, "hand.R", fwd=-14.0)
+            # (A guard, art review 5: the owner saw the unarmed fighters' arms extended as if going in for a hug, the elbows barely bent.
+            # The upper arms now hang forward and a little out, the elbows bent hard so the forearms stand up, the fists in front of the
+            # chest, the lead one a little further out and higher: ready to fight, both arms still clear of the body's outline.)
+            if BODY:
+                # (The elbows down and out to the side, so the upper arm shows from the camera: pointed forward it pointed at the camera
+                # with the chest turned, foreshortened to nothing, and the fist looked stuck to the shoulder; the bend about a right angle,
+                # not so tight that the elbow's volume squeezes. The owner: the bend read disjointed.)
+                pose(rig, "armU.L", fwd=28.0 + 4.0 * lag * swing, out=30.0)
+                pose(rig, "armL.L", fwd=104.0 - 6.0 * lag * swing)
+                pose(rig, "hand.L", fwd=-16.0)
+                pose(rig, "armU.R", fwd=24.0 + 4.0 * lag * swing, out=28.0)
+                pose(rig, "armL.R", fwd=110.0 - 6.0 * lag * swing)
+                pose(rig, "hand.R", fwd=-18.0)
+            else:
+                pose(rig, "armU.L", fwd=40.0 + 5.0 * lag * swing, out=24.0)
+                pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
+                pose(rig, "hand.L", fwd=-12.0)
+                pose(rig, "armU.R", fwd=36.0 + 5.0 * lag * swing, out=22.0)
+                pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
+                pose(rig, "hand.R", fwd=-14.0)
         return f
 
     clip(rig, "idle", 48, {i: idle(i / 48.0) for i in range(0, 49, 4)})

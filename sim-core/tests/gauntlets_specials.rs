@@ -959,6 +959,7 @@ fn the_slide_kick_crashes_into_a_wall_on_frames_14_to_36() {
             y: Fx::from_int(3),
             bottom: Fx::ZERO,
             pass_through: false,
+            rise: sim_core::Fx::ZERO,
         });
     sim.stand(0, Fx::from_int(-3), 1);
     sim.stand(1, Fx::from_int(-10), -1);

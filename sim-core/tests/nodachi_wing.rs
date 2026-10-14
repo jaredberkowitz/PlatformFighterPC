@@ -1,4 +1,4 @@
-//! The exile's wing (E57, sim 125: the reference's comeback form, ssbwiki.com `Winged_Form`, 13.0.1): when it comes (the start table
+//! The exile's wing (E57, sim 125: the reference's comeback form, ssbwiki.com's article on it, 13.0.1): when it comes (the start table
 //! by stock and percent difference), what it gives (the body's numbers, a third jump, x1.3 damage that KOs earlier only by the extra
 //! damage, armor on the smash attacks), how its points are spent (damage dealt, KOs) and that it is gone for good until a KO.
 

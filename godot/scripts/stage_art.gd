@@ -461,6 +461,11 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 	m = m.duplicate()
 	m.set_shader_parameter("front_fall", 0.52)
 	m.set_shader_parameter("front_span", 6.5)
+	# (The busiest fronts, the beach's bricks and the desert's strata, fall faster and further: at match scale their strong pattern
+	# filled the bottom third of the screen as brightly as the fighting surface. Art review 5.)
+	if pattern == "seawall" or pattern == "strata":
+		m.set_shader_parameter("front_fall", 0.64)
+		m.set_shader_parameter("front_span", 4.5)
 	# Moss draping over the top of the wall where the theme has it (`moss`: colour), in a wavy band under the lip.
 	if t.has("moss"):
 		m.set_shader_parameter("moss_color", t.moss)
@@ -1487,10 +1492,9 @@ const RIDGES := {
 		"tone": Color(0.55, 0.26, 0.3), "mix": 0.62, "edge": 0.5}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
-	# (The sea's horizon: a bank of piled cumulus far off, then the low hazy line of a far coast in front of it.)
-	# (The bank of cumulus piled on the sea's horizon is modelled, `_ocean`; the card's flat white band read as a strip of paper.)
-	"ocean": [{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
-		"tone": Color(0.3, 0.5, 0.62), "mix": 0.45, "edge": 0.4}],
+	# (The sea's horizon is the bank of piled cumulus modelled in `_ocean`, with the distant islands in front of it. A far coast drawn
+	# here had its foot under the sea, so only a thin faded hump showed, a see-through lens across the clouds: removed, art review 5.)
+	"ocean": [],
 }
 
 
@@ -2913,7 +2917,8 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 		_palm(root, isle + Vector3(rng.randf_range(-4, 4), 4.0, 2.0), 1.4, rng)
 		_isle_detail(root, isle, k)
 	# A lighthouse on its rocks on the right (art/blender/make_props.py), its lantern glowing.
-	var lh := Vector3(52, float(e[3]) - 2.4, -80)
+	# (Its rocks stand out of the sea, with foam round them; set 2.4 down, they were under it and the tower rose from bare water.)
+	var lh := Vector3(52, float(e[3]) - 1.5, -80)
 	_place_prop(root, "lighthouse", lh, 2.3, -20.0)
 	_halo(root, lh + Vector3(0, 8.3 * 2.3, 0), Color(1.0, 0.9, 0.6), 7.0)
 	# A sailboat.

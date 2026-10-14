@@ -1,32 +1,43 @@
-//! The single-player endless run (R1, sim 120; rooms R1b, sim 122; `docs/modes/RUNNER_PLAN.md`).
+//! The single-player endless run (R1, sim 120; rooms R1b, sim 122; the world R2a, sim 124; `docs/modes/RUNNER_PLAN.md` and
+//! `docs/modes/RUNNER_WORLD.md`).
 //!
 //! A run is an ordinary match with one fighter, played by the versus `step` with every versus rule, on a stage that streams. The run's
 //! own state, [`Run`], lives in [`GameState::run`] and is hashed with the rest; in versus it is inactive and nothing here runs.
 //!
-//! * **The world is a chain of rooms**, left to right ([`data::Room`]: streets, arenas, shops, rest stops). The rooms in play are a
-//!   small window ([`RoomSlot`], a ring): the current room (the furthest the player has entered), up to `RunRules::rooms_behind`
-//!   behind it and `rooms_ahead` ahead. Entering a new room lays the next one ahead and drops the oldest behind; the left edge of the
-//!   oldest room kept is a **wall** (a solid block in the stage, so fighters and mobs collide with it and can wall-jump off it). An
-//!   arena closes a second wall, its **gate**, on its right edge until every mob of the room is beaten.
+//! * **The world is a chain of rooms**, left to right ([`data::Room`]: streets, forks, arenas, shops, rest stops). The rooms in play
+//!   are a small window ([`RoomSlot`], a ring): the current room (the furthest the player has entered), up to
+//!   `RunRules::rooms_behind` behind it and `rooms_ahead` ahead. Entering a new room lays the next one ahead and drops the oldest
+//!   behind; the left edge of the oldest room kept is a **wall** (a solid block in the stage, so fighters and mobs collide with it and
+//!   can wall-jump off it). An arena closes a second wall, its **gate**, on its right edge until every mob of the room is beaten.
+//! * **Each room is laid as a variant** (R2a): mirrored or not, its optional parts on or off, an obstacle piece (or none) in each of
+//!   its slots, all drawn from the run's generator as it is laid and kept in its [`RoomSlot`]. Its ground starts at the height the
+//!   last room ended ([`Run::next_y`]) and the run's height drifts within `RunRules::drift`. The layout functions
+//!   ([`for_each_footing`] and friends) turn a slot back into its geometry, coins and mobs, so the sim and the game agree.
 //! * **The camera is in the sim**: the blast zone and mob spawning follow it, so it must replay exactly. It follows the player both
 //!   ways, smoothly, clamped to the window's walls. The game only draws it (and follows height).
 //! * **The stage streams.** The rooms in play lay their platforms and ledges into fixed pools ([`Run::platforms`], [`Run::ledges`]).
 //!   A pool entry keeps its index for as long as it lives, so a fighter's `platform` and `ledge` (indices) stay right as rooms come
-//!   and go; ground that continues across a seam at one height is one entry, extended (and trimmed when the room behind is dropped),
-//!   so walking, dashing, rolling and wavedashing over a seam are what they are on any floor. Each frame [`build_stage`] writes the
-//!   pools and the two walls into the run's working copy of the content's [`Stage`] (free entries as padding that nothing touches),
-//!   with the blast zones and the respawn point, and the versus code collides with that stage as with any other.
+//!   and go; flat solid ground that continues across a seam at one height is one entry, extended (and trimmed when the room behind is
+//!   dropped), so walking, dashing, rolling and wavedashing over a seam are what they are on any floor; a slope meeting other ground
+//!   joins it through `collision::continuation`. Each frame [`build_stage`] writes the pools and the two walls into the run's working
+//!   copy of the content's [`Stage`] (free entries as padding that nothing touches), with the blast zones and the respawn point, and
+//!   the versus code collides with that stage as with any other.
 //! * **Mobs** ([`Mob`], a fixed pool of [`MAX_MOBS`]) take the versus knockback, hitstun and hitlag formulas from `combat`, and hit the
-//!   fighter through `combat::apply_hit` (shields, DI, crouch cancelling, armor, counters: everything a fighter's hit gets).
-//! * **The shop** is a state of the run: standing at a shop's door and pressing up opens it, and while it is open the world stands
-//!   still and the player's input picks and buys wares ([`data::ShopItem`]), all in the sim, so a run with shopping replays exactly.
+//!   fighter through `combat::apply_hit` (shields, DI, crouch cancelling, armor, counters: everything a fighter's hit gets). They come
+//!   out of a door or a stairwell first (`RunRules::emerge_frames`).
+//! * **Coins** lie along the rooms (trails tracing the good line); walking through one picks it up.
+//! * **The shop is a room you walk into** (R2a): pressing up at a storefront's door takes the fighter into the shop's interior
+//!   ([`data::Interior`]), a small stage of its own the run swaps to while the world outside stands still. The wares stand on
+//!   pedestals (walk up to one and press up to buy it), and the shopkeeper reacts ([`Run::keeper_mood`]). Pressing up at the door
+//!   leaves, back to the street. All of it is in the sim, so a run with shopping replays exactly.
 
 pub mod data;
 mod mobs;
 
 pub use data::{
-    MobKind, MobSpawn, Room, RunContent, RunRules, ShopItem, ITEM_HEAL, ITEM_LIFE, MOB_FLYER,
-    MOB_WALKER, ROOM_ARENA, ROOM_REST, ROOM_SHOP, ROOM_STREET,
+    CoinSpot, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, Room, RoomLedge, RunContent,
+    RunRules, ShopItem, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MOB_FLYER, MOB_WALKER, ROOM_ARENA,
+    ROOM_REST, ROOM_SHOP, ROOM_STREET,
 };
 
 use crate::collision;
@@ -34,13 +45,15 @@ use crate::combat::params_of;
 use crate::content::{Content, Ledge, Platform, Stage, MAX_LEDGES};
 use crate::fixed::Fx;
 use crate::hash::{StateHash, StateHasher};
-use crate::input::buttons::{ATTACK, JUMP, SHIELD, SPECIAL};
 use crate::input::{Input, STICK_THRESHOLD};
 use crate::rng::Rng;
 use crate::state::{Fighter, FighterState as S, GameState, MatchRules, DRAW, NONE};
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
-use data::{MAX_SHOP_ITEMS, ROOM_LEDGES, ROOM_PLATFORMS, ROOM_SPAWNS};
+use data::{
+    BLOCK_BOTTOM, MAX_SHOP_ITEMS, ROOM_COINS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_SLOTS,
+    ROOM_SPAWNS,
+};
 
 /// Mobs alive at once.
 pub const MAX_MOBS: usize = 16;
@@ -55,19 +68,37 @@ pub const GATE_INDEX: usize = POOL_PLATFORMS + 1;
 pub const POOL_LEDGES: usize = MAX_LEDGES;
 const _: () = assert!(RING * ROOM_LEDGES <= POOL_LEDGES);
 const _: () = assert!(ROOM_SPAWNS <= 8);
+const _: () = assert!(ROOM_COINS <= 32);
+const _: () = assert!(ROOM_PARTS <= 8);
 const _: () = assert!(POOL_PLATFORMS + 2 <= i8::MAX as usize);
+const _: () = assert!(data::INTERIOR_PLATFORMS <= POOL_PLATFORMS);
 
 /// Where a free pool entry is put in the stage: far away, a platform no point is ever on and a ledge no fighter can reach.
 const FAR: i32 = -30000;
+/// How deep solid ground reaches once laid (world height; far below any blast zone the run's drift allows).
+pub const DEEP: i32 = -80;
 /// How far above the blast zone's top the walls reach (nothing gets over them or stands on them).
 const WALL_ABOVE: i32 = 8;
+/// Where the shop's interior is put while the fighter is inside (world x of its left edge; its floor is at height 0).
+pub const INTERIOR_X: i32 = -20000;
 
-/// `Run::shop_note` values: what the last press in the shop did.
+/// `Run::shop_note` values: what the last buy did.
 pub const NOTE_NONE: u8 = 0;
 pub const NOTE_BOUGHT: u8 = 1;
 pub const NOTE_TOO_POOR: u8 = 2;
 pub const NOTE_SOLD_OUT: u8 = 3;
 pub const NOTE_NOT_NEEDED: u8 = 4;
+
+/// `Run::keeper_mood` values: what the shopkeeper is doing.
+pub const KEEPER_IDLE: u8 = 0;
+/// Waving hello as you come in.
+pub const KEEPER_WAVE: u8 = 1;
+/// Cheering a purchase.
+pub const KEEPER_CHEER: u8 = 2;
+/// Grumbling (cheerfully) at a buy that could not be made.
+pub const KEEPER_GRUMBLE: u8 = 3;
+/// Bonked: seeing stars ("hey!"). Never hurt, it only spins for a moment.
+pub const KEEPER_DIZZY: u8 = 4;
 
 /// One entry of the stage's platform pool.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -78,6 +109,20 @@ pub struct PoolPlatform {
     pub y: Fx,
     pub bottom: Fx,
     pub pass_through: bool,
+    pub rise: Fx,
+}
+
+impl PoolPlatform {
+    fn platform(&self) -> Platform {
+        Platform {
+            left: self.left,
+            right: self.right,
+            y: self.y,
+            bottom: self.bottom,
+            pass_through: self.pass_through,
+            rise: self.rise,
+        }
+    }
 }
 
 /// One entry of the stage's ledge pool.
@@ -89,7 +134,8 @@ pub struct PoolLedge {
     pub side: i8,
 }
 
-/// A room in play: which one, its number in the run, where it is, and which of its spawn markers have made their mob.
+/// A room in play: which one, its number in the run, where it is, the variant it was laid as, which of its spawn markers have made
+/// their mob and which of its coins are taken.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RoomSlot {
     pub live: bool,
@@ -97,10 +143,20 @@ pub struct RoomSlot {
     pub room: u8,
     /// Its number in the run (0 is the first room).
     pub seq: u32,
-    /// Its left and right edges (world x).
+    /// Its left and right edges (world x), and its ground's height where it begins and where it ends.
     pub x: Fx,
     pub end: Fx,
+    pub y: Fx,
+    pub y_end: Fx,
+    /// The variant: mirrored, which optional parts are on (bit `n - 1` for part `n`), and the piece in each slot (0 none, else the
+    /// piece's index plus 1).
+    pub mirror: bool,
+    pub parts: u8,
+    pub pieces: [u8; ROOM_SLOTS],
+    /// Spawn markers that have made their mob (or are not in this variant), by the marker's index.
     pub spawned: u8,
+    /// Coins taken, by the coin's number ([`for_each_coin`]).
+    pub coins: u32,
 }
 
 /// `Mob::mode` values.
@@ -111,6 +167,8 @@ pub const MODE_ATTACK: u8 = 3;
 pub const MODE_COOLDOWN: u8 = 4;
 /// Beaten: it flies off with its last launch for `RunRules::burst_frames`, then is gone. It cannot hit or be hit.
 pub const MODE_BURST: u8 = 5;
+/// Coming out of its door or stairwell for `RunRules::emerge_frames` (R2a): it neither moves, hits nor can be hit.
+pub const MODE_EMERGE: u8 = 6;
 
 /// An enemy (see `run::mobs`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -118,7 +176,7 @@ pub struct Mob {
     pub active: bool,
     /// Index into `RunContent::mobs`.
     pub kind: u8,
-    /// `MODE_*`, and the frames left in it (the windup, attack, cooldown or burst).
+    /// `MODE_*`, and the frames left in it (the windup, attack, cooldown, burst or emergence).
     pub mode: u8,
     pub timer: u16,
     /// Its feet.
@@ -165,13 +223,15 @@ pub struct Run {
     /// Where the fighter started, and the furthest right it has been: the distance travelled.
     pub start_x: Fx,
     pub best_x: Fx,
-    /// Where the next room's left edge goes.
+    /// Where the next room's left edge goes, and the height its ground begins at.
     pub next_x: Fx,
+    pub next_y: Fx,
     /// Rooms laid so far (the next one's number), the last one laid (index into the content) and its type.
     pub placed: u32,
     pub last_room: u8,
     pub last_kind: u8,
-    /// The type of each of the last 16 rooms laid, 4 bits each, newest in the low bits (for the map).
+    /// The type of each of the last 16 rooms laid, 4 bits each, newest in the low bits (for the map): the type in the low 3 bits,
+    /// and 8 for a fork.
     pub kinds_log: u64,
     /// Rooms laid since the last shop, and how many more make the next one.
     pub since_shop: u8,
@@ -192,6 +252,8 @@ pub struct Run {
     pub layout: u32,
     pub mobs: [Mob; MAX_MOBS],
     pub coins: u32,
+    /// Coins picked up along the way (a count, for the game's cues).
+    pub coins_picked: u16,
     pub kills: u16,
     /// Hits and kills in a row without being hit, and the longest such run.
     pub combo: u16,
@@ -199,17 +261,21 @@ pub struct Run {
     /// The fighter's percent and lives at the end of the last frame (a rise, or a lost life, breaks the combo).
     pub last_percent: Fx,
     pub last_stocks: u8,
-    /// The shop: open (the world stands still), the ware picked (one past the last is "leave"), the room whose shop it is, how many
-    /// of each ware that shop has sold, what the last press did (`NOTE_*`) and how many presses it has had (for the game's cues).
-    pub shop_open: bool,
-    pub shop_cursor: u8,
+    /// Inside a shop (the world outside stands still), the room whose shop it is, how many of each ware that shop has sold, what
+    /// the last buy did (`NOTE_*`) and how many buys have been tried (for the game's cues).
+    pub inside: bool,
     pub shop_room: u32,
     pub shop_bought: [u8; MAX_SHOP_ITEMS],
     pub shop_note: u8,
     pub shop_acts: u16,
-    /// The player's stick height and buttons last frame (the shop reads presses, not holds).
+    /// The shopkeeper: what it is doing (`KEEPER_*`) and for how many more frames, the ware the player stands by (it looks at it;
+    /// -1 none), and how many times it has been bonked.
+    pub keeper_mood: u8,
+    pub keeper_timer: u16,
+    pub keeper_look: i8,
+    pub keeper_bonks: u16,
+    /// The player's stick height last frame (the door and the wares read presses, not holds).
     pub prev_stick_y: i8,
-    pub prev_buttons: u16,
 }
 
 impl Run {
@@ -223,6 +289,7 @@ impl Run {
         start_x: Fx::ZERO,
         best_x: Fx::ZERO,
         next_x: Fx::ZERO,
+        next_y: Fx::ZERO,
         placed: 0,
         last_room: 0,
         last_kind: 0,
@@ -240,7 +307,13 @@ impl Run {
             seq: 0,
             x: Fx::ZERO,
             end: Fx::ZERO,
+            y: Fx::ZERO,
+            y_end: Fx::ZERO,
+            mirror: false,
+            parts: 0,
+            pieces: [0; ROOM_SLOTS],
             spawned: 0,
+            coins: 0,
         }; RING],
         platforms: [PoolPlatform {
             live: false,
@@ -249,6 +322,7 @@ impl Run {
             y: Fx::ZERO,
             bottom: Fx::ZERO,
             pass_through: false,
+            rise: Fx::ZERO,
         }; POOL_PLATFORMS],
         ledges: [PoolLedge {
             live: false,
@@ -281,19 +355,22 @@ impl Run {
             room: 0,
         }; MAX_MOBS],
         coins: 0,
+        coins_picked: 0,
         kills: 0,
         combo: 0,
         best_combo: 0,
         last_percent: Fx::ZERO,
         last_stocks: 0,
-        shop_open: false,
-        shop_cursor: 0,
+        inside: false,
         shop_room: 0,
         shop_bought: [0; MAX_SHOP_ITEMS],
         shop_note: NOTE_NONE,
         shop_acts: 0,
+        keeper_mood: KEEPER_IDLE,
+        keeper_timer: 0,
+        keeper_look: -1,
+        keeper_bonks: 0,
         prev_stick_y: 0,
-        prev_buttons: 0,
     };
 
     /// Whole world units travelled (the HUD's metres).
@@ -337,8 +414,25 @@ impl Run {
         }
     }
 
+    /// The blast zone's bottom and top: below the lowest ground line of the rooms in play and above the highest.
+    pub fn blast_y(&self, rules: &RunRules) -> (Fx, Fx) {
+        let live = || self.slots.iter().filter(|s| s.live);
+        let lo = live().map(|s| s.y.min(s.y_end)).min().unwrap_or(Fx::ZERO);
+        let hi = live().map(|s| s.y.max(s.y_end)).max().unwrap_or(Fx::ZERO);
+        (lo + rules.blast_bottom, hi + rules.blast_top)
+    }
+
     /// The type of room `seq` (`ROOM_*`), if it is among the last 16 laid.
     pub fn kind_of(&self, seq: u32) -> Option<u8> {
+        self.log_of(seq).map(|k| k & 7)
+    }
+
+    /// Whether room `seq` is a fork, if it is among the last 16 laid.
+    pub fn fork_of(&self, seq: u32) -> Option<bool> {
+        self.log_of(seq).map(|k| k & 8 != 0)
+    }
+
+    fn log_of(&self, seq: u32) -> Option<u8> {
         let back = self.placed.checked_sub(seq + 1)?;
         (back < 16).then(|| ((self.kinds_log >> (back * 4)) & 0xf) as u8)
     }
@@ -346,6 +440,198 @@ impl Run {
 
 /// The fighter the run is about (the one player).
 pub const PLAYER: usize = 0;
+
+// ---- Laying a room out --------------------------------------------------------------------------------------------------------
+
+/// Whether something of optional part `part` (0 always; `n` with part `n` on; `-n` with it off) is there with these parts on.
+pub fn part_on(parts: u8, part: i8) -> bool {
+    match part {
+        0 => true,
+        n if n > 0 => parts & (1 << (n - 1).min(7)) != 0,
+        n => parts & (1 << (-n - 1).min(7)) == 0,
+    }
+}
+
+/// The ground's height at a room's right edge, mirrored or not.
+pub fn room_exit(room: &Room, mirror: bool) -> Fx {
+    if mirror {
+        -room.exit_y
+    } else {
+        room.exit_y
+    }
+}
+
+/// From a room's own coordinates to the world, for one laid variant.
+#[derive(Clone, Copy)]
+struct Frame {
+    x0: Fx,
+    y0: Fx,
+    width: Fx,
+    exit_y: Fx,
+    mirror: bool,
+}
+
+impl Frame {
+    fn of(slot: &RoomSlot, room: &Room) -> Frame {
+        Frame {
+            x0: slot.x,
+            y0: slot.y,
+            width: room.width,
+            exit_y: room.exit_y,
+            mirror: slot.mirror,
+        }
+    }
+
+    fn x(&self, x: Fx) -> Fx {
+        self.x0 + if self.mirror { self.width - x } else { x }
+    }
+
+    fn y(&self, y: Fx) -> Fx {
+        self.y0 + if self.mirror { y - self.exit_y } else { y }
+    }
+
+    fn point(&self, p: Vec2) -> Vec2 {
+        Vec2::new(self.x(p.x), self.y(p.y))
+    }
+
+    /// A platform of the room, placed (solid ground reaching [`data::BLOCK_BOTTOM`] goes down to [`DEEP`]).
+    fn platform(&self, p: &Platform) -> Platform {
+        let (left, right, y, rise) = if self.mirror {
+            (
+                self.x(p.right),
+                self.x(p.left),
+                self.y(p.top_right()),
+                -p.rise,
+            )
+        } else {
+            (self.x(p.left), self.x(p.right), self.y(p.y), p.rise)
+        };
+        let bottom = if p.pass_through {
+            y
+        } else if p.bottom <= Fx::from_int(BLOCK_BOTTOM) {
+            Fx::from_int(DEEP)
+        } else {
+            self.y(p.bottom)
+        };
+        Platform {
+            left,
+            right,
+            y,
+            bottom,
+            pass_through: p.pass_through,
+            rise,
+        }
+    }
+}
+
+/// A footing as laid in the world: its platform, its look, and the height its art stands on (its base: the ground under a piece,
+/// a block's bottom, a plank's own height).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Placed {
+    pub platform: Platform,
+    pub look: u8,
+    pub base: Fx,
+}
+
+/// A slot's piece, if it has one: the piece and its anchor in the room's own coordinates.
+fn slot_pieces<'a>(
+    rc: &'a RunContent,
+    room: &'a Room,
+    slot: &'a RoomSlot,
+) -> impl Iterator<Item = (&'a Piece, Vec2)> + 'a {
+    room.slots
+        .iter()
+        .zip(slot.pieces.iter())
+        .filter_map(move |(s, &p)| {
+            let piece = rc.pieces.get(usize::from(p).checked_sub(1)?)?;
+            Some((piece, Vec2::new(s.x, s.y)))
+        })
+}
+
+/// Every footing of a laid room (its own, then its pieces'), in the world.
+pub fn for_each_footing(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Placed)) {
+    let Some(room) = rc.rooms.get(usize::from(slot.room)) else {
+        return;
+    };
+    let frame = Frame::of(slot, room);
+    for p in room
+        .platforms
+        .iter()
+        .filter(|p| part_on(slot.parts, p.part))
+    {
+        let platform = frame.platform(&p.platform);
+        f(Placed {
+            platform,
+            look: p.look,
+            base: platform.bottom,
+        });
+    }
+    for (piece, at) in slot_pieces(rc, room, slot) {
+        let base = frame.y(at.y);
+        for p in &piece.platforms {
+            let mut local = p.platform;
+            local.left += at.x;
+            local.right += at.x;
+            local.y += at.y;
+            if local.bottom > Fx::from_int(BLOCK_BOTTOM) {
+                local.bottom += at.y;
+            }
+            f(Placed {
+                platform: frame.platform(&local),
+                look: p.look,
+                base,
+            });
+        }
+    }
+}
+
+/// Every coin of a laid room that is there in its variant: its number (its bit in `RoomSlot::coins`) and where it is.
+pub fn for_each_coin(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(usize, Vec2)) {
+    let Some(room) = rc.rooms.get(usize::from(slot.room)) else {
+        return;
+    };
+    let frame = Frame::of(slot, room);
+    let mut n = 0;
+    for c in &room.coins {
+        if part_on(slot.parts, c.part) && n < ROOM_COINS {
+            f(n, frame.point(Vec2::new(c.x, c.y)));
+        }
+        n += 1;
+    }
+    for (piece, at) in slot_pieces(rc, room, slot) {
+        for c in &piece.coins {
+            if n < ROOM_COINS {
+                f(n, frame.point(Vec2::new(at.x + c.x, at.y + c.y)));
+            }
+            n += 1;
+        }
+    }
+}
+
+/// Every ledge of a laid room that is there in its variant, in the world.
+pub fn for_each_ledge(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Ledge)) {
+    let Some(room) = rc.rooms.get(usize::from(slot.room)) else {
+        return;
+    };
+    let frame = Frame::of(slot, room);
+    for l in room.ledges.iter().filter(|l| part_on(slot.parts, l.part)) {
+        f(Ledge {
+            x: frame.x(l.ledge.x),
+            y: frame.y(l.ledge.y),
+            side: if slot.mirror {
+                -l.ledge.side
+            } else {
+                l.ledge.side
+            },
+        });
+    }
+}
+
+/// A shop room's door (feet), in the world.
+pub fn door_of(rc: &RunContent, slot: &RoomSlot) -> Option<Vec2> {
+    let room = rc.rooms.get(usize::from(slot.room))?;
+    (room.kind == ROOM_SHOP).then(|| Frame::of(slot, room).point(room.door))
+}
 
 /// Starts a run: `world` is the run's working copy of the content (the roster with the fighter; its stage is rewritten from the run
 /// every frame), `char_id` the fighter in it. The first room's left edge is the left wall and the fighter stands in it.
@@ -360,10 +646,6 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     // (Its own stream, so the rooms depend on the seed alone.)
     run.rng = Rng::new(seed ^ 0x5255_4e5f_5345_4544);
     run.shop_due = draw_shop_due(&mut run, &rc.rules);
-    run.next_x = Fx::ZERO;
-    run.wall_x = Fx::ZERO;
-    run.cam_x = Fx::ZERO;
-    run.floor_x = Fx::ZERO;
     run.room = 0;
     while run.placed <= u32::from(rc.rules.rooms_ahead.max(1)) {
         if !place_room(&mut run, rc) {
@@ -374,7 +656,7 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     run.start_x = start.x;
     run.best_x = start.x;
     state.run = run;
-    build_stage(&state.run, &rc.rules, &mut world.stage);
+    build_stage(&state.run, rc, &mut world.stage);
     let f = &state.fighters[PLAYER];
     let params = params_of(world, f);
     let mut spawned = Fighter::spawn(
@@ -394,7 +676,7 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
 }
 
 /// Advances a run one frame: the versus step on the streamed stage, then the mobs, the rooms (entering, laying, dropping, an arena's
-/// gate), the camera, the coins and combo, and the shop's door. While the shop is open only the shop moves. `world` is the run's
+/// gate), the camera, the coins and combo, and the shop's door. While inside a shop only the shop moves. `world` is the run's
 /// working content (see [`new_run`]); only its stage is written.
 pub fn step_run(
     state: &mut GameState,
@@ -406,17 +688,18 @@ pub fn step_run(
         crate::step(state, world, inputs);
         return;
     }
-    build_stage(&state.run, &rc.rules, &mut world.stage);
+    build_stage(&state.run, rc, &mut world.stage);
     let input = inputs[PLAYER];
     if state.run.over {
         remember_input(&mut state.run, input);
         state.frame = state.frame.wrapping_add(1);
         return;
     }
-    if state.run.shop_open {
-        shop_step(state, rc, input);
+    if state.run.inside {
+        crate::step(state, world, inputs);
+        shop_step(state, world, rc, input);
         remember_input(&mut state.run, input);
-        state.frame = state.frame.wrapping_add(1);
+        build_stage(&state.run, rc, &mut world.stage);
         return;
     }
     crate::step(state, world, inputs);
@@ -430,13 +713,14 @@ pub fn step_run(
         push_from_edge(state, world, &rc.rules);
     }
     mobs::leave_screen(state, rc);
+    collect_coins(state, rc);
     settle_combo(state);
     check_arena(state, rc);
     if let Some(seq) = door_here(state, rc).filter(|_| pressed_up(&state.run, input)) {
-        open_shop(&mut state.run, seq);
+        enter_shop(state, world, rc, seq);
     }
     remember_input(&mut state.run, input);
-    build_stage(&state.run, &rc.rules, &mut world.stage);
+    build_stage(&state.run, rc, &mut world.stage);
     spawn_mobs(&mut state.run, rc);
     if !state.fighters[PLAYER].active {
         state.run.over = true;
@@ -444,9 +728,10 @@ pub fn step_run(
     }
 }
 
-/// Writes the run's pools into `out` (free entries as far-away padding), then the left wall and the arena's gate (padding while
-/// open), with the blast zone and the respawn point.
-pub fn build_stage(run: &Run, rules: &RunRules, out: &mut Stage) {
+/// Writes the run's stage into `out`: outside, the pools (free entries as far-away padding), then the left wall and the arena's
+/// gate (padding while open), with the blast zone and the respawn point; inside a shop, the shop's interior instead.
+pub fn build_stage(run: &Run, rc: &RunContent, out: &mut Stage) {
+    let rules = &rc.rules;
     let far = Fx::from_int(FAR);
     // (A pass-through platform whose right is left of its left: nothing ever spans it.)
     let padding = Platform {
@@ -455,29 +740,54 @@ pub fn build_stage(run: &Run, rules: &RunRules, out: &mut Stage) {
         y: far,
         bottom: far,
         pass_through: true,
+        rise: Fx::ZERO,
+    };
+    let far_ledge = Ledge {
+        x: far,
+        y: far,
+        side: -1,
     };
     out.platforms.clear();
-    for p in &run.platforms {
-        out.platforms.push(if p.live {
-            Platform {
-                left: p.left,
-                right: p.right,
-                y: p.y,
-                bottom: p.bottom,
-                pass_through: p.pass_through,
-            }
-        } else {
-            padding
-        });
+    out.ledges.clear();
+    if run.inside {
+        let at = Fx::from_int(INTERIOR_X);
+        for p in &rc.interior.platforms {
+            let mut q = p.platform;
+            q.left += at;
+            q.right += at;
+            out.platforms.push(q);
+        }
+        while out.platforms.len() < POOL_PLATFORMS + 2 {
+            out.platforms.push(padding);
+        }
+        out.ledges.resize(POOL_LEDGES, far_ledge);
+        let w = rc.interior.width;
+        out.blast_left = at - Fx::from_int(10);
+        out.blast_right = at + w + Fx::from_int(10);
+        out.blast_bottom = Fx::from_int(-20);
+        out.blast_top = Fx::from_int(30);
+        out.spawns = [
+            Vec2::new(at + rc.interior.enter, Fx::ZERO),
+            Vec2::new(far, far),
+            Vec2::new(far, far),
+            Vec2::new(far, far),
+        ];
+        return;
     }
-    let wall_top = rules.blast_top + Fx::from_int(WALL_ABOVE);
-    let wall_bottom = Fx::from_int(data::BLOCK_BOTTOM);
+    for p in &run.platforms {
+        out.platforms
+            .push(if p.live { p.platform() } else { padding });
+    }
+    let (blast_bottom, blast_top) = run.blast_y(rules);
+    let wall_top = blast_top + Fx::from_int(WALL_ABOVE);
+    let wall_bottom = Fx::from_int(DEEP);
     out.platforms.push(Platform {
         left: run.wall_x - rules.gate_thickness,
         right: run.wall_x,
         y: wall_top,
         bottom: wall_bottom,
         pass_through: false,
+        rise: Fx::ZERO,
     });
     out.platforms.push(if run.gate_closed {
         Platform {
@@ -486,11 +796,11 @@ pub fn build_stage(run: &Run, rules: &RunRules, out: &mut Stage) {
             y: wall_top,
             bottom: wall_bottom,
             pass_through: false,
+            rise: Fx::ZERO,
         }
     } else {
         padding
     });
-    out.ledges.clear();
     for l in &run.ledges {
         out.ledges.push(if l.live {
             Ledge {
@@ -499,18 +809,14 @@ pub fn build_stage(run: &Run, rules: &RunRules, out: &mut Stage) {
                 side: l.side,
             }
         } else {
-            Ledge {
-                x: far,
-                y: far,
-                side: -1,
-            }
+            far_ledge
         });
     }
     // The left side is the wall: its blast line is behind it, out of reach.
     out.blast_left = run.wall_x - rules.gate_thickness - rules.blast_margin;
     out.blast_right = run.cam_x + rules.view_width + rules.blast_margin;
-    out.blast_bottom = rules.blast_bottom;
-    out.blast_top = rules.blast_top;
+    out.blast_bottom = blast_bottom;
+    out.blast_top = blast_top;
     let back = respawn_point(run, rules);
     out.spawns = [
         back,
@@ -527,23 +833,25 @@ fn respawn_point(run: &Run, rules: &RunRules) -> Vec2 {
     let x0 = (run.cam_x + rules.view_width * rules.respawn_at)
         .max(run.wall_x + Fx::from_int(2))
         .min(right);
+    let (_, top) = run.blast_y(rules);
     let steps = (rules.view_width / Fx::from_int(2)).floor_int().max(1);
     for k in 0..=steps {
         let x = x0 + Fx::from_int(k);
         if x > right {
             break;
         }
-        let top = run
+        let ground = run
             .platforms
             .iter()
-            .filter(|p| p.live && x >= p.left && x <= p.right && p.y < rules.blast_top)
-            .map(|p| p.y)
+            .filter(|p| p.live && x >= p.left && x <= p.right)
+            .map(|p| p.platform().top_at(x))
+            .filter(|&y| y < top)
             .max();
-        if let Some(y) = top {
+        if let Some(y) = ground {
             return Vec2::new(x, y);
         }
     }
-    Vec2::new(x0, Fx::ZERO)
+    Vec2::new(x0, run.next_y)
 }
 
 /// Rooms between shops, drawn from the rules' range.
@@ -596,21 +904,34 @@ fn next_kind(run: &mut Run, rc: &RunContent) -> u8 {
 }
 
 /// The next room: the first one to begin with, then one of the chosen type, never the first room again nor the last room laid
-/// while another of that type will do.
+/// while another of that type will do. A street is a fork `fork_chance` percent of the time (when the content has forks).
 fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
     let kind = next_kind(run, rc);
     if run.placed == 0 {
         return 0;
     }
     let count = rc.rooms.len().min(255);
-    let last = usize::from(run.last_room);
-    let strict = |i: usize| i != 0 && i != last && rc.rooms[i].kind == kind;
-    let loose = |i: usize| rc.rooms[i].kind == kind;
-    let fits: &dyn Fn(usize) -> bool = if (0..count).any(strict) {
-        &strict
-    } else if (0..count).any(loose) {
-        &loose
+    let forks = (1..count).any(|i| rc.rooms[i].kind == kind && rc.rooms[i].fork);
+    let plain = (1..count).any(|i| rc.rooms[i].kind == kind && !rc.rooms[i].fork);
+    // (A street draws whether to fork; other types take any room of theirs.)
+    let want_fork = if kind == ROOM_STREET && forks && plain {
+        Some(run.rng.range(100) < u32::from(rc.rules.fork_chance))
     } else {
+        None
+    };
+    let last = usize::from(run.last_room);
+    let of_kind = |i: usize| i != 0 && rc.rooms[i].kind == kind;
+    let forked = |i: usize| want_fork.is_none_or(|w| rc.rooms[i].fork == w);
+    // (The best choices first: the right type and fork-ness, not the last room laid; then letting go of the last room, then of
+    // the fork-ness; the start room only if nothing else has the type.)
+    let tiers: [&dyn Fn(usize) -> bool; 5] = [
+        &|i| of_kind(i) && forked(i) && i != last,
+        &|i| of_kind(i) && forked(i),
+        &|i| of_kind(i) && i != last,
+        &of_kind,
+        &|i| rc.rooms[i].kind == kind,
+    ];
+    let Some(fits) = tiers.into_iter().find(|t| (0..count).any(t)) else {
         return 0;
     };
     let candidates = (0..count).filter(|&i| fits(i)).count() as u32;
@@ -626,62 +947,123 @@ fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
     0
 }
 
-/// Lays the next room at `next_x` in a free slot (false if the ring is full).
+/// Lays the next room at `next_x` (its ground at `next_y`) in a free slot, drawing its variant (false if the ring is full).
 fn place_room(run: &mut Run, rc: &RunContent) -> bool {
     if rc.rooms.is_empty() {
         return false;
     }
-    let Some(slot) = run.slots.iter().position(|s| !s.live) else {
+    let Some(index) = run.slots.iter().position(|s| !s.live) else {
         return false;
     };
     let id = next_room(run, rc);
     let room = &rc.rooms[usize::from(id)];
+    // The variant: mirrored (never leaving the drift band if the other way keeps inside it), the optional parts, the pieces.
+    let mut mirror = room.mirror && run.rng.range(2) == 1;
+    let drift = rc.rules.drift;
+    if room.mirror && (run.next_y + room_exit(room, mirror)).abs() > drift {
+        mirror = !mirror;
+    }
+    let mut parts = 0u8;
+    for (n, &chance) in room.parts.iter().enumerate().take(ROOM_PARTS) {
+        if run.rng.range(100) < u32::from(chance) {
+            parts |= 1 << n;
+        }
+    }
+    let mut pieces = [0u8; ROOM_SLOTS];
+    for (n, s) in room.slots.iter().enumerate().take(ROOM_SLOTS) {
+        if !part_on(parts, s.part) || run.rng.range(100) >= u32::from(rc.rules.piece_chance) {
+            continue;
+        }
+        let fits = |p: &Piece| p.fits & (1 << s.kind.min(7)) != 0;
+        let count = rc.pieces.iter().filter(|p| fits(p)).count().min(254) as u32;
+        if count == 0 {
+            continue;
+        }
+        let pick = run.rng.range(count) as usize;
+        if let Some(i) = rc
+            .pieces
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| fits(p))
+            .nth(pick)
+            .map(|(i, _)| i)
+        {
+            pieces[n] = (i + 1) as u8;
+        }
+    }
+    // Spawn markers not in this variant count as spawned.
+    let mut spawned = 0u8;
+    for (j, s) in room.spawns.iter().enumerate().take(ROOM_SPAWNS) {
+        if !part_on(parts, s.part) {
+            spawned |= 1 << j;
+        }
+    }
     let x0 = run.next_x;
-    run.slots[slot] = RoomSlot {
+    let y0 = run.next_y;
+    let slot = RoomSlot {
         live: true,
         room: id,
         seq: run.placed,
         x: x0,
         end: x0 + room.width,
-        spawned: 0,
+        y: y0,
+        y_end: y0 + room_exit(room, mirror),
+        mirror,
+        parts,
+        pieces,
+        spawned,
+        coins: 0,
     };
-    for p in &room.platforms {
+    run.slots[index] = slot;
+    let platforms = &mut run.platforms;
+    for_each_footing(rc, &slot, |placed| {
+        let p = placed.platform;
         let w = PoolPlatform {
             live: true,
-            left: x0 + p.left,
-            right: x0 + p.right,
+            left: p.left,
+            right: p.right,
             y: p.y,
             bottom: p.bottom,
             pass_through: p.pass_through,
+            rise: p.rise,
         };
-        // Ground carrying on from the last room at the same height is the same block, longer.
-        let joined = run.platforms.iter_mut().find(|e| {
-            e.live && !w.pass_through && !e.pass_through && e.right == w.left && e.y == w.y
+        // Flat solid ground carrying on from the last room at the same height is the same block, longer.
+        let joined = platforms.iter_mut().find(|e| {
+            e.live
+                && !w.pass_through
+                && !e.pass_through
+                && e.rise == Fx::ZERO
+                && w.rise == Fx::ZERO
+                && e.right == w.left
+                && e.y == w.y
+                && e.left < x0
         });
         if let Some(e) = joined {
             e.right = w.right;
             e.bottom = e.bottom.min(w.bottom);
-            continue;
+            return;
         }
-        if let Some(e) = run.platforms.iter_mut().find(|e| !e.live) {
+        if let Some(e) = platforms.iter_mut().find(|e| !e.live) {
             *e = w;
         }
-    }
-    for l in &room.ledges {
-        if let Some(e) = run.ledges.iter_mut().find(|e| !e.live) {
+    });
+    let ledges = &mut run.ledges;
+    for_each_ledge(rc, &slot, |l| {
+        if let Some(e) = ledges.iter_mut().find(|e| !e.live) {
             *e = PoolLedge {
                 live: true,
-                x: x0 + l.x,
+                x: l.x,
                 y: l.y,
                 side: l.side,
             };
         }
-    }
+    });
     run.last_room = id;
     run.last_kind = room.kind;
-    run.kinds_log = run.kinds_log << 4 | u64::from(room.kind & 0xf);
+    run.kinds_log = run.kinds_log << 4 | u64::from(room.kind & 7 | u8::from(room.fork) << 3);
     run.placed = run.placed.wrapping_add(1);
-    run.next_x = x0 + room.width;
+    run.next_x = slot.end;
+    run.next_y = slot.y_end;
     run.layout = run.layout.wrapping_add(1);
     true
 }
@@ -720,6 +1102,10 @@ fn drop_behind(state: &mut GameState, rules: &RunRules) {
         if p.right <= wall && !stood_on {
             *p = PoolPlatform::default();
         } else if p.right > wall {
+            // (A slope keeps its line: its left end moves along it.)
+            let top_right = p.y + p.rise;
+            p.y = p.platform().top_at(wall);
+            p.rise = top_right - p.y;
             p.left = wall;
         }
     }
@@ -827,39 +1213,53 @@ fn spawn_mobs(run: &mut Run, rc: &RunContent) {
     }
 }
 
-/// Spawns room `seq`'s markers not yet spawned (those left of `reach`, or all).
+/// Spawns room `seq`'s markers not yet spawned (those left of `reach`, or all). A mob comes out of its door or stairwell first
+/// (`emerge_frames`); a walker stands on the ground under its marker.
 fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
     let Some(s) = run.slots.iter().position(|s| s.live && s.seq == seq) else {
         return;
     };
     let slot = run.slots[s];
     let room = &rc.rooms[usize::from(slot.room).min(rc.rooms.len() - 1)];
+    let frame = Frame::of(&slot, room);
     for (j, marker) in room.spawns.iter().enumerate().take(ROOM_SPAWNS) {
         let bit = 1u8 << j;
-        if slot.spawned & bit != 0 || reach.is_some_and(|r| slot.x + marker.x >= r) {
+        let pos = frame.point(Vec2::new(marker.x, marker.y));
+        if slot.spawned & bit != 0 || reach.is_some_and(|r| pos.x >= r) {
             continue;
         }
         run.slots[s].spawned |= bit;
         let Some(kind) = rc.mobs.get(usize::from(marker.kind)) else {
             continue;
         };
-        let Some(m) = run.mobs.iter_mut().find(|m| !m.active) else {
+        let Some(m) = run.mobs.iter().position(|m| !m.active) else {
             continue;
         };
-        let pos = Vec2::new(slot.x + marker.x, marker.y);
-        // (A walker's floor: the pool entry it stands on.)
-        let platform = if kind.behavior == MOB_WALKER {
-            run.platforms
-                .iter()
-                .position(|p| p.live && p.y == pos.y && pos.x >= p.left && pos.x <= p.right)
-                .map_or(NONE, |i| i as i8)
-        } else {
-            NONE
-        };
-        *m = Mob {
+        let mut pos = pos;
+        // (A walker's floor: the highest pool entry under its marker, within half a unit.)
+        let mut platform = NONE;
+        if kind.behavior == MOB_WALKER {
+            let mut best: Option<(usize, Fx)> = None;
+            for (i, p) in run.platforms.iter().enumerate() {
+                if !p.live || pos.x < p.left || pos.x > p.right {
+                    continue;
+                }
+                let top = p.platform().top_at(pos.x);
+                if (top - pos.y).abs() <= Fx::HALF && best.is_none_or(|(_, b)| top > b) {
+                    best = Some((i, top));
+                }
+            }
+            if let Some((i, top)) = best {
+                platform = i as i8;
+                pos.y = top;
+            }
+        }
+        let emerge = rc.rules.emerge_frames;
+        run.mobs[m] = Mob {
             active: true,
             kind: marker.kind,
-            mode: MODE_IDLE,
+            mode: if emerge > 0 { MODE_EMERGE } else { MODE_IDLE },
+            timer: u16::from(emerge),
             pos,
             facing: -1,
             platform,
@@ -867,6 +1267,42 @@ fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
             room: seq,
             ..Mob::default()
         };
+    }
+}
+
+/// Coins the player walks (or flies) through: picked up, paying `coin_value` each.
+fn collect_coins(state: &mut GameState, rc: &RunContent) {
+    let f = state.fighters[PLAYER];
+    if !f.active || f.state == S::Respawn {
+        return;
+    }
+    let body = f.pos + Vec2::new(Fx::ZERO, Fx::ONE);
+    let reach = rc.rules.coin_reach;
+    let run = &mut state.run;
+    for s in 0..RING {
+        let slot = run.slots[s];
+        if !slot.live {
+            continue;
+        }
+        let mut taken = slot.coins;
+        for_each_coin(rc, &slot, |n, at| {
+            let d = at - body;
+            if taken & (1 << n) == 0
+                && d.x.abs() <= reach
+                && d.y.abs() <= reach
+                && d.x * d.x + d.y * d.y <= reach * reach
+            {
+                taken |= 1 << n;
+            }
+        });
+        let new = (taken & !slot.coins).count_ones();
+        if new > 0 {
+            run.slots[s].coins = taken;
+            run.coins = run
+                .coins
+                .saturating_add(u32::from(rc.rules.coin_value) * new);
+            run.coins_picked = run.coins_picked.saturating_add(new as u16);
+        }
     }
 }
 
@@ -932,13 +1368,13 @@ fn push_from_edge(state: &mut GameState, world: &Content, rules: &RunRules) {
         let params = *params_of(world, &f);
         let g = &mut state.fighters[i];
         collision::move_x(&world.stage, &params, &mut g.pos, want);
-        if let Some(p) = collision::platform(&world.stage, g.platform) {
-            if g.pos.x > p.right {
-                // Pushed off the end of its floor: it falls.
-                g.platform = NONE;
-                g.vel.y = Fx::ZERO;
-                crate::fighter::stand_or_fall(g);
-            }
+        if collision::platform(&world.stage, g.platform).is_some()
+            && !crate::fighter::keep_on_ground(g, &world.stage)
+        {
+            // Pushed off the end of its floor: it falls.
+            g.platform = NONE;
+            g.vel.y = Fx::ZERO;
+            crate::fighter::stand_or_fall(g);
         }
     }
 }
@@ -972,28 +1408,58 @@ fn pay_kill(run: &mut Run, rc: &RunContent, kind: u8) {
 
 // ---- The shop -------------------------------------------------------------------------------------------------------------------
 
+/// The fighter stands on the ground, free to act (not attacking, dodging, hurt or hanging).
+fn free_on_ground(f: &Fighter) -> bool {
+    f.active
+        && f.grounded()
+        && matches!(
+            f.state,
+            S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch
+        )
+}
+
 /// The shop whose door the player stands at now, on its feet and free to act: the room's number.
 pub fn door_here(state: &GameState, rc: &RunContent) -> Option<u32> {
     let run = &state.run;
     let f = &state.fighters[PLAYER];
-    if !run.active || run.over || !f.active || !f.grounded() {
-        return None;
-    }
-    let free = matches!(
-        f.state,
-        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch
-    );
-    if !free {
+    if !run.active || run.over || run.inside || !free_on_ground(f) {
         return None;
     }
     run.slots.iter().filter(|s| s.live).find_map(|s| {
-        let room = rc.rooms.get(usize::from(s.room))?;
-        let door = Vec2::new(s.x + room.door.x, room.door.y);
-        (room.kind == ROOM_SHOP
-            && (f.pos.x - door.x).abs() <= rc.rules.door_reach
-            && (f.pos.y - door.y).abs() < Fx::HALF)
+        let door = door_of(rc, s)?;
+        ((f.pos.x - door.x).abs() <= rc.rules.door_reach && (f.pos.y - door.y).abs() < Fx::HALF)
             .then_some(s.seq)
     })
+}
+
+/// Inside the shop, where the player stands: `Some(None)` at the way out, `Some(Some(i))` by ware `i`, `None` elsewhere (or not
+/// free to act). The door wins where both are in reach.
+pub fn shop_spot(state: &GameState, rc: &RunContent) -> Option<Option<usize>> {
+    let run = &state.run;
+    let f = &state.fighters[PLAYER];
+    if !run.active || !run.inside || !free_on_ground(f) {
+        return None;
+    }
+    let x = f.pos.x - Fx::from_int(INTERIOR_X);
+    let reach = rc.rules.door_reach;
+    if (x - rc.interior.door).abs() <= reach {
+        return Some(None);
+    }
+    ware_near(rc, x).map(Some)
+}
+
+/// The ware whose pedestal is nearest `x` (interior coordinates), within reach.
+fn ware_near(rc: &RunContent, x: Fx) -> Option<usize> {
+    let wares = rc.items.len().min(MAX_SHOP_ITEMS);
+    rc.interior
+        .pedestals
+        .iter()
+        .take(wares)
+        .enumerate()
+        .map(|(i, p)| (i, (p.x - x).abs()))
+        .filter(|(_, d)| *d <= rc.rules.door_reach)
+        .min_by_key(|(_, d)| *d)
+        .map(|(i, _)| i)
 }
 
 /// The stick pushed up this frame (it was not last frame).
@@ -1003,46 +1469,98 @@ fn pressed_up(run: &Run, input: Input) -> bool {
 
 fn remember_input(run: &mut Run, input: Input) {
     run.prev_stick_y = input.stick_y;
-    run.prev_buttons = input.buttons;
 }
 
-/// Goes into the shop of room `seq`. A shop keeps what it has sold for as long as its room is in play.
-fn open_shop(run: &mut Run, seq: u32) {
+/// Puts the fighter on its feet at `at` (a door), still, on whatever ground is there.
+fn place_at(f: &mut Fighter, at: Vec2, stage: &Stage) {
+    f.pos = at;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.ledge = NONE;
+    f.platform = collision::standing_on(stage, at);
+    crate::fighter::stand_or_fall(f);
+}
+
+/// Walks in through room `seq`'s door: the interior becomes the stage, the fighter stands inside its door, and the shopkeeper
+/// waves. A shop keeps what it has sold for as long as its room is in play.
+fn enter_shop(state: &mut GameState, world: &mut Content, rc: &RunContent, seq: u32) {
+    let run = &mut state.run;
     if run.shop_room != seq {
         run.shop_room = seq;
         run.shop_bought = [0; MAX_SHOP_ITEMS];
     }
-    run.shop_open = true;
-    run.shop_cursor = 0;
+    run.inside = true;
     run.shop_note = NOTE_NONE;
+    run.keeper_mood = KEEPER_WAVE;
+    run.keeper_timer = rc.interior.wave_frames;
+    run.keeper_look = -1;
+    build_stage(&state.run, rc, &mut world.stage);
+    let at = Vec2::new(Fx::from_int(INTERIOR_X) + rc.interior.enter, Fx::ZERO);
+    let f = &mut state.fighters[PLAYER];
+    place_at(f, at, &world.stage);
+    f.facing = 1;
 }
 
-/// A frame in the shop: up and down pick a ware (the row after the last is "leave"), attack or jump buys it (or leaves), shield or
-/// special leaves.
-fn shop_step(state: &mut GameState, rc: &RunContent, input: Input) {
-    let items = rc.items.len().min(MAX_SHOP_ITEMS);
-    let rows = items as u8 + 1;
+/// Walks out of the shop: the street becomes the stage again and the fighter stands at the storefront's door.
+fn leave_shop(state: &mut GameState, world: &mut Content, rc: &RunContent) {
     let run = &mut state.run;
-    let pressed = input.buttons & !run.prev_buttons;
-    if input.stick_y >= STICK_THRESHOLD && run.prev_stick_y < STICK_THRESHOLD {
-        run.shop_cursor = (run.shop_cursor + rows - 1) % rows;
+    run.inside = false;
+    run.keeper_mood = KEEPER_IDLE;
+    run.keeper_timer = 0;
+    run.keeper_look = -1;
+    let door = run
+        .slot_of(run.shop_room)
+        .and_then(|s| door_of(rc, s))
+        .unwrap_or(Vec2::new(
+            run.cam_x + rc.rules.view_width * rc.rules.follow,
+            run.next_y,
+        ));
+    build_stage(&state.run, rc, &mut world.stage);
+    place_at(&mut state.fighters[PLAYER], door, &world.stage);
+}
+
+/// A frame inside the shop (after the fighter's own step): the shopkeeper's moods and bonks, buying at a pedestal, leaving by the
+/// door.
+fn shop_step(state: &mut GameState, world: &mut Content, rc: &RunContent, input: Input) {
+    let shop = &rc.interior;
+    if mobs::keeper_bonked(state, world, rc) && state.run.keeper_mood != KEEPER_DIZZY {
+        let run = &mut state.run;
+        run.keeper_mood = KEEPER_DIZZY;
+        run.keeper_timer = shop.dizzy_frames;
+        run.keeper_bonks = run.keeper_bonks.saturating_add(1);
     }
-    if input.stick_y <= -STICK_THRESHOLD && run.prev_stick_y > -STICK_THRESHOLD {
-        run.shop_cursor = (run.shop_cursor + 1) % rows;
+    let run = &mut state.run;
+    if run.keeper_timer > 0 {
+        run.keeper_timer -= 1;
+        if run.keeper_timer == 0 {
+            run.keeper_mood = KEEPER_IDLE;
+        }
     }
-    if pressed & (SHIELD | SPECIAL) != 0 {
-        run.shop_open = false;
+    let f = state.fighters[PLAYER];
+    let x = f.pos.x - Fx::from_int(INTERIOR_X);
+    state.run.keeper_look = if f.active {
+        ware_near(rc, x).map_or(-1, |i| i as i8)
+    } else {
+        -1
+    };
+    if !pressed_up(&state.run, input) {
         return;
     }
-    if pressed & (ATTACK | JUMP) == 0 {
-        return;
+    match shop_spot(state, rc) {
+        Some(None) => leave_shop(state, world, rc),
+        Some(Some(i)) => {
+            let note = buy(state, rc, i);
+            let run = &mut state.run;
+            if run.keeper_mood != KEEPER_DIZZY {
+                (run.keeper_mood, run.keeper_timer) = if note == NOTE_BOUGHT {
+                    (KEEPER_CHEER, shop.cheer_frames)
+                } else {
+                    (KEEPER_GRUMBLE, shop.grumble_frames)
+                };
+            }
+        }
+        None => {}
     }
-    let pick = usize::from(run.shop_cursor);
-    if pick >= items {
-        run.shop_open = false;
-        return;
-    }
-    buy(state, rc, pick);
 }
 
 /// Buys ware `i`: refused if that shop has sold its limit, the coins are short, or it would do nothing.
@@ -1124,6 +1642,7 @@ impl StateHash for Run {
         self.start_x.hash_into(h);
         self.best_x.hash_into(h);
         self.next_x.hash_into(h);
+        self.next_y.hash_into(h);
         h.write_u32(self.placed);
         h.write_u8(self.last_room);
         h.write_u8(self.last_kind);
@@ -1141,7 +1660,15 @@ impl StateHash for Run {
             h.write_u32(s.seq);
             s.x.hash_into(h);
             s.end.hash_into(h);
+            s.y.hash_into(h);
+            s.y_end.hash_into(h);
+            h.write_bool(s.mirror);
+            h.write_u8(s.parts);
+            for p in s.pieces {
+                h.write_u8(p);
+            }
             h.write_u8(s.spawned);
+            h.write_u32(s.coins);
         }
         for p in &self.platforms {
             h.write_bool(p.live);
@@ -1150,6 +1677,7 @@ impl StateHash for Run {
             p.y.hash_into(h);
             p.bottom.hash_into(h);
             h.write_bool(p.pass_through);
+            p.rise.hash_into(h);
         }
         for l in &self.ledges {
             h.write_bool(l.live);
@@ -1162,20 +1690,23 @@ impl StateHash for Run {
             m.hash_into(h);
         }
         h.write_u32(self.coins);
+        h.write_u16(self.coins_picked);
         h.write_u16(self.kills);
         h.write_u16(self.combo);
         h.write_u16(self.best_combo);
         self.last_percent.hash_into(h);
         h.write_u8(self.last_stocks);
-        h.write_bool(self.shop_open);
-        h.write_u8(self.shop_cursor);
+        h.write_bool(self.inside);
         h.write_u32(self.shop_room);
         for b in self.shop_bought {
             h.write_u8(b);
         }
         h.write_u8(self.shop_note);
         h.write_u16(self.shop_acts);
+        h.write_u8(self.keeper_mood);
+        h.write_u16(self.keeper_timer);
+        h.write_i8(self.keeper_look);
+        h.write_u16(self.keeper_bonks);
         h.write_i8(self.prev_stick_y);
-        h.write_u16(self.prev_buttons);
     }
 }

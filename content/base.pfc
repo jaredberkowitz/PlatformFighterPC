@@ -2,11 +2,11 @@
 # `pftool content-pack` to stamp it with a fresh hash.
 
 bundle {
-    schema 7
+    schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 125
-    hash 5067e57b3a9cdfc5
+    hash 61ca6a0de043e7b4
 }
 
 ruleset {

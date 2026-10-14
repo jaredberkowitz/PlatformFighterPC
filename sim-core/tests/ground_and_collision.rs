@@ -17,6 +17,7 @@ fn with_block(left: i32, right: i32, bottom: i32, top: i32) -> Sim {
         y: Fx::from_int(top),
         bottom: Fx::from_int(bottom),
         pass_through: false,
+        rise: sim_core::Fx::ZERO,
     });
     sim
 }
