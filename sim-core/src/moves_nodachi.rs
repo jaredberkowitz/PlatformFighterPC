@@ -8,6 +8,7 @@
 //! their charge frame to their hit) is out only then (`Move::armor_mode` powered).
 
 use super::*;
+use crate::content::FighterParams;
 
 /// A reference length in tenths of its units (85 for 8.5) as world tenths: x 1.25, rounded half away from zero to a whole tenth
 /// (the house rule) [D].
@@ -143,6 +144,14 @@ pub mod slots {
     use super::MoveId;
     /// The down air's landing hit.
     pub const DAIR_LANDING: MoveId = MoveId::Ext0;
+    /// The up special held: the eight slashes; the blade dash's end in the air.
+    pub const OCTA: MoveId = MoveId::Ext1;
+    pub const DASH_AIR_END: MoveId = MoveId::Ext2;
+    /// The flare's three releases and its cancel.
+    pub const FLARE: MoveId = MoveId::Ext3;
+    pub const MEGAFLARE: MoveId = MoveId::Ext4;
+    pub const GIGAFLARE: MoveId = MoveId::Ext5;
+    pub const FLARE_CANCEL: MoveId = MoveId::Ext6;
 }
 use slots::*;
 
@@ -165,6 +174,8 @@ pub fn nodachi() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    blade_dash(&mut w);
+    flare(&mut w);
     w
 }
 
@@ -523,7 +534,9 @@ fn smashes(w: &mut Weapon) {
         let (x, y) = blade(hilt, dir, at);
         b.push(bx(24, 25, x, y, 40, damage, 361, bk, ks, id, 0, s(lag)));
     }
-    b.push(bx(24, 25, 215, 85, 58, 135, 361, 54, 81, 1, 0, s(70)));
+    // (The 13.5% root box ranks last [E]: as the reference numbers it (id 1) it would beat the 20% blade where they overlap, against
+    // every published account of the move's middle; REFERENCE_DATA.md.)
+    b.push(bx(24, 25, 215, 85, 58, 135, 361, 54, 81, 6, 0, s(70)));
     b.extend(along(
         24,
         25,
@@ -546,17 +559,17 @@ fn smashes(w: &mut Weapon) {
     // Up smash: an overhead arc of the blade from in front to behind, on the blade (ids 2 hilt, 0 middle, 1 tip at 5.2, 13.8 and 21.0
     // along it; radius 4.5 / 5.7 / 4.3) [R]. Early on 23 92 degrees (type 3) 10.5% / 15.5% / 11.5% (BK 62 / 67 / 67, KS 79, x0.9 / 1.4
     // / 0.9); on 24 97 (type 3) 12% / 17% / 13%; on 25-28 83 (type 4, behind) with the same damage (x0.8 / 1.4 / 0.8); on 26 also two
-    // root boxes 97 (type 3) 17% (radius 5.7, 34.0 up, 5.0 ahead to 5.0 behind) and 13% (radius 4.3, 40.5 up, 8.5 to 8.5) [R]. The
-    // hilt overhead 16 up, 3 ahead, the blade turning from 45 degrees ahead to 45 behind [E]. Charges on frame 13 (between 12 and 13);
-    // with the wing, armor on 14-22 [R]. FAF 64.
-    let hilt = (30, 160);
+    // root boxes 97 (type 3) 17% (radius 5.7, 34.0 up, 5.0 ahead to 5.0 behind) and 13% (radius 4.3, 40.5 up, 8.5 to 8.5) [R]. Where the
+    // blade is on each frame is read from ssbwiki.com's hitbox animation [E]: level ahead at head height on 23 (its boxes swept up from
+    // 10 of the reference's units: the swing rising from in front), 45 degrees on 24, straight up on 25, back over the head on 26-28.
+    // Charges on frame 13 (between 12 and 13); with the wing, armor on 14-22 [R]. FAF 64.
     let mut b = Vec::new();
-    for (first, last, dir, angle, back_side, late) in [
-        (23u8, 23u8, (71, 71), 92i16, false, false),
-        (24, 24, (34, 94), 97, false, true),
-        (25, 25, (0, 100), 83, true, true),
-        (26, 26, (-34, 94), 83, true, true),
-        (27, 28, (-71, 71), 83, true, true),
+    for (first, last, hilt, dir, angle, back_side, late) in [
+        (23u8, 23u8, (11, 250), (100, 0), 92i16, false, false),
+        (24, 24, (-27, 224), (71, 69), 97, false, true),
+        (25, 25, (-52, 202), (0, 100), 83, true, true),
+        (26, 26, (-73, 175), (-66, 75), 83, true, true),
+        (27, 28, (-80, 160), (-87, 50), 83, true, true),
     ] {
         for (id, at, radius, early_dmg, late_dmg, bk, early_lag, late_lag) in [
             (2u8, 52, 45, 105, 120, 62i16, 90u16, 80u16),
@@ -569,11 +582,21 @@ fn smashes(w: &mut Weapon) {
             } else {
                 (early_dmg, early_lag)
             };
-            b.push(bx(
+            let set = move |h: &mut Hitbox| {
+                h.hitlag = lag;
+                if back_side {
+                    back(h);
+                } else {
+                    fwd(h);
+                }
+            };
+            // (Frame 23's boxes are swept up from where the blade rose from.)
+            let from = if first == 23 { (x, 100) } else { (x, y) };
+            b.extend(along(
                 first,
                 last,
-                x,
-                y,
+                from,
+                (x, y),
                 radius,
                 damage,
                 angle,
@@ -581,14 +604,7 @@ fn smashes(w: &mut Weapon) {
                 79,
                 id,
                 0,
-                move |h| {
-                    h.hitlag = lag;
-                    if back_side {
-                        back(h);
-                    } else {
-                        fwd(h);
-                    }
-                },
+                set,
             ));
         }
     }
@@ -1107,4 +1123,440 @@ fn ledge_and_floor(w: &mut Weapon) {
     let mut getup = moved(46, 0, 0, 255, b);
     getup.intangible = 25;
     w.moves[MoveId::GetUpAttack as usize] = getup;
+}
+
+// ---- The blade dash and the eight slashes (up special) -----------------------------------------------------------------------------
+
+/// The up special (the reference's, ssbwiki.com and ultimateframedata.com 13.0.1; `REFERENCE_DATA.md` "Up special").
+///
+/// * The blade dash (special let go by frame 18): aimed on frame 19 (neutral straight up; on the ground not below level), a dash on
+///   25-28 with one hit, 7%, 107 degrees (type 3), BK 70, KS 60, radius 3.0 from 9.0 ahead to 4.0 behind the body's middle, hitlag
+///   x0.5, shieldstun x0.5, shield damage -3, never clanks [R]; the distance and speed are not published (11 of the reference's units a
+///   frame for its 4 frames [E]). On the ground FAF 57; in the air the move lasts to 80, then the special fall, landing lag 27 [R]. It
+///   catches ledges in front and behind from the dash on [E: "snaps to edges during travel"]; on the ground it stops at the edge [R].
+/// * The eight slashes (special still held on frame 18): aimed on 31, travelling on 35-50 (3.3 a frame [E]) [R for the frames]; hit 1
+///   on 36, 2.3%: the middle box at 361 (radius 8.0, BK 0, KS 100) for everyone, then aerial and grounded targets drawn along
+///   (the reference's 368, its drag with the attacker's movement: the autolink angle here [E]) at 1.0 (radius 8.0), 10.0 and 20.5 (6.5)
+///   ahead; hits 2-7 every 2 frames on 38-48 the same drag (radius 5.0, 5.0 and 6.5 at 0, 10 and 20.5) and two boxes at 60 degrees
+///   (BK 90, KS 60, radius 6.5 at 0 and 10.0); hit 8 on 50: 7% at 361 (type 3), BK 68, KS 104, radius 10.0 at 6.0 and 18.0 ahead, hitlag
+///   x2.4, and 2.3% at 60 (BK 90, KS 60, radius 8.5 at 2.0 behind) [R]; hits 1-7 SDI x0.5 and shield damage -1, none clanks [R]. On
+///   the ground FAF 105; in the air the special fall after it, landing lag 56; no ledge until it ends [R]; on the ground it stops at
+///   the edge and slashes in place [R].
+///
+/// The boxes hang on the reference's rotating root (`rot`), which turns with the dash: here they stay as published, ahead of the body's
+/// middle (9 of the reference's units up) whichever way the dash goes [E].
+fn blade_dash(w: &mut Weapon) {
+    // The blade dash.
+    let mut dash = moved(
+        57,
+        27,
+        0,
+        255,
+        along(
+            25,
+            28,
+            (90, 70),
+            (-40, 70),
+            30,
+            70,
+            107,
+            70,
+            60,
+            0,
+            0,
+            |h| {
+                h.hitlag = 50;
+                h.shieldstun = 50;
+                h.shield_damage = shield(70, -30);
+                fwd(h);
+                no_clank(h);
+            },
+        ),
+    );
+    dash.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_dash.script"),
+    ));
+    dash.helpless_after = true;
+    dash.fall_landing_lag = 27;
+    dash.ledge_front_from = 24;
+    dash.ledge_back_from = 24;
+    dash.edge_stop = true;
+    w.moves[MoveId::UpSpecial as usize] = dash;
+
+    // Its end in the air: the reference's frames 55-80 (this move's 1-26), then the special fall.
+    let mut end = moved(27, 27, 0, 255, Vec::new());
+    end.helpless_after = true;
+    end.fall_landing_lag = 27;
+    end.ledge_front_from = 0;
+    end.ledge_back_from = 0;
+    w.moves[DASH_AIR_END as usize] = end;
+
+    // The eight slashes: this move began on the reference's frame 18, so a reference frame `f` is its frame `f - 17`.
+    let o = |f: u8| f - 17;
+    let multi = |h: &mut Hitbox| {
+        h.sdi = 50;
+        h.shield_damage = shield(23, -10);
+        no_clank(h);
+    };
+    let drag = move |targets: u8| {
+        move |h: &mut Hitbox| {
+            multi(h);
+            h.targets = targets;
+        }
+    };
+    let mut b = Vec::new();
+    // Hit 1 (group 0).
+    b.extend(along(
+        o(36),
+        o(36),
+        (10, 115),
+        (10, 65),
+        80,
+        23,
+        361,
+        0,
+        100,
+        0,
+        0,
+        multi,
+    ));
+    for (targets, first_id) in [(TARGETS_AERIAL, 1u8), (TARGETS_GROUNDED, 4)] {
+        b.extend(along(
+            o(36),
+            o(36),
+            (10, 115),
+            (10, 65),
+            80,
+            23,
+            ANGLE_AUTOLINK,
+            0,
+            100,
+            first_id,
+            0,
+            drag(targets),
+        ));
+        b.extend(along(
+            o(36),
+            o(36),
+            (100, 120),
+            (100, 60),
+            65,
+            23,
+            ANGLE_AUTOLINK,
+            0,
+            100,
+            first_id + 1,
+            0,
+            drag(targets),
+        ));
+        b.extend(along(
+            o(36),
+            o(36),
+            (205, 120),
+            (205, 60),
+            65,
+            23,
+            ANGLE_AUTOLINK,
+            0,
+            100,
+            first_id + 2,
+            0,
+            drag(targets),
+        ));
+    }
+    // Hits 2-7 (group 1, re-armed every 2 frames).
+    for (targets, first_id) in [(TARGETS_AERIAL, 0u8), (TARGETS_GROUNDED, 3)] {
+        b.extend(along(
+            o(38),
+            o(48),
+            (0, 115),
+            (0, 65),
+            50,
+            23,
+            ANGLE_AUTOLINK,
+            0,
+            100,
+            first_id,
+            1,
+            drag(targets),
+        ));
+        b.extend(along(
+            o(38),
+            o(48),
+            (100, 120),
+            (100, 60),
+            50,
+            23,
+            ANGLE_AUTOLINK,
+            0,
+            100,
+            first_id + 1,
+            1,
+            drag(targets),
+        ));
+        b.extend(along(
+            o(38),
+            o(48),
+            (205, 120),
+            (205, 60),
+            65,
+            23,
+            ANGLE_AUTOLINK,
+            0,
+            100,
+            first_id + 2,
+            1,
+            drag(targets),
+        ));
+    }
+    b.extend(along(
+        o(38),
+        o(48),
+        (0, 120),
+        (0, 60),
+        65,
+        23,
+        60,
+        90,
+        60,
+        6,
+        1,
+        multi,
+    ));
+    b.extend(along(
+        o(38),
+        o(48),
+        (100, 120),
+        (100, 60),
+        65,
+        23,
+        60,
+        90,
+        60,
+        7,
+        1,
+        multi,
+    ));
+    // Hit 8 (group 2).
+    let last = |h: &mut Hitbox| {
+        h.hitlag = 240;
+        fwd(h);
+        no_clank(h);
+    };
+    b.push(bx(o(50), o(50), 60, 90, 100, 70, 361, 68, 104, 0, 2, last));
+    b.push(bx(o(50), o(50), 180, 90, 100, 70, 361, 68, 104, 1, 2, last));
+    b.push(bx(o(50), o(50), -20, 90, 85, 23, 60, 90, 60, 2, 2, |h| {
+        h.hitlag = 50;
+        fwd(h);
+        no_clank(h);
+    }));
+    // (The hits of 2-7 are only out on their own frames: 38, 40, ..., 48.)
+    let mut b2 = Vec::new();
+    for h in b {
+        if h.group == 1 {
+            for f in (38u8..=48).step_by(2) {
+                let mut one = h;
+                one.start = o(f) - 1;
+                one.end = o(f) - 1;
+                b2.push(one);
+            }
+        } else {
+            b2.push(h);
+        }
+    }
+    // (FAF 105 on the ground: 88 in this move's numbering.)
+    let mut octa = moved(88, 56, 0, 255, b2);
+    octa.rehit = Some((o(38) - 1, 2));
+    octa.rehit_groups = 0b10;
+    octa.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_octa.script"),
+    ));
+    octa.helpless_after = true;
+    octa.fall_landing_lag = 56;
+    octa.edge_stop = true;
+    w.moves[OCTA as usize] = octa;
+}
+
+// ---- The flare (neutral special) ---------------------------------------------------------------------------------------------------
+
+/// The neutral special (the reference's, ssbwiki.com's raw tables, ultimateframedata.com and kuroganehammer.com 13.0.1;
+/// `REFERENCE_DATA.md` "Neutral special"): a charge, released from frame 20 by letting go of special, cancelled by shield or jump (7
+/// frames) [R].
+///
+/// * Released before 31 frames held: the flare. The fireball comes out 22 frames after the release, 3% at 82 degrees (type 3), BK
+///   55, KS 15, set weight, hitlag x0.5, no SDI, shield damage -2, growing from radius 3.0 to 3.5, 4.0 and 4.5 on the release's
+///   frames 28, 35 and 40, to frame 95 [R]; 3 frames after it touches something (or when its flight ends) it bursts: 10.5% at 62 (type
+///   3), BK 77, KS 64, radius 12.5, shield damage -5, never clanks, for 4 frames [R]. FAF 65 from the release [R]. Its speed (1.53 of
+///   the reference's units a frame: two thirds of a big stage over its flight) is [E].
+/// * Held 31 frames or more: the bigger flare. The fireball (3.5%, radius 4.0) on the release's 21-48 [R], faster and shorter [E: 1.86
+///   a frame]; it bursts 10 frames after it touches: two frames of 3.7% at the vortex angle (366), BK 0, KS 100, set knockback 50, set
+///   weight, radius 19.3, no hitlag, every 3 frames; seven more at set knockback 60, hitlag x1.5; then 9% at 58 (type 3), BK 84, KS
+///   96, radius 19.8 on its own (the reference's second part) [R]. FAF 73 from the release [R].
+/// * Held to the end of the charge: the giant flare, past cancelling. The fireball (6%, radius 2.5, hitlag x0.7) on 130-176 of the
+///   move [R], barely past arm's reach [E: 0.43 a frame]; it bursts 7 frames after it touches, in three rings: two frames at 115
+///   degrees, then sixteen at the vortex angle, every 3 frames, 3.7% / 2.7% / 2.0% at radius 12.5 / 22.5 / 30.0 (set knockback 50 /
+///   35 / 35, then 75 / 65 / 65, set weight); then 11% / 8% / 4% (54 / 52 / 52 degrees, BK 105 / 95 / 95, KS 115 / 115 / 95, radius
+///   13.0 / 22.5 / 30.5) on their own [R]. FAF 182 [R]. When the charge is full is not published: the release on frame 108, so the
+///   fireball comes 22 frames after it as the flare's does [E].
+fn flare(w: &mut Weapon) {
+    let mut charge = moved(112, 0, 0, 255, Vec::new());
+    charge.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_flare.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = charge;
+    w.moves[FLARE_CANCEL as usize] = moved(8, 0, 0, 255, Vec::new());
+
+    // The fireball's hit (82 degrees, type 3, BK 55, KS 15, set weight, no SDI).
+    let ball = |damage: i32, radius: i32, lag: u16, sd: i32| {
+        bx(1, 1, 0, 0, radius, damage, 82, 55, 15, 0, 0, move |h| {
+            h.set_weight = true;
+            h.hitlag = lag;
+            h.sdi = 0;
+            h.shield_damage = shield(damage, sd);
+            fwd(h);
+        })
+    };
+    // A burst's hit (never clanking).
+    #[allow(clippy::too_many_arguments)]
+    let blast = |damage: i32,
+                 radius: i32,
+                 angle: i16,
+                 bk: i16,
+                 ks: i16,
+                 fkv: u16,
+                 lag: u16,
+                 sd: i32,
+                 id: u8,
+                 group: u8| {
+        bx(
+            1,
+            1,
+            0,
+            0,
+            radius,
+            damage,
+            angle,
+            bk,
+            ks,
+            id,
+            group,
+            move |h| {
+                h.hitlag = lag;
+                h.fixed_kb = fkv;
+                h.set_weight = fkv > 0;
+                if fkv > 0 {
+                    h.sdi = 0;
+                }
+                h.shield_damage = shield(damage, sd);
+                if angle == ANGLE_VORTEX || angle == 115 {
+                    pos(h);
+                } else {
+                    fwd(h);
+                }
+                no_clank(h);
+            },
+        )
+    };
+    let shot =
+        |frame: u8, speed: i32, life: u8, hit: Hitbox, phases: &[(u8, Hitbox)], burst: Burst| {
+            ProjectileSpawn {
+                frame,
+                x: Fx::from_ratio(u(80), 10),
+                y: Fx::from_ratio(u(120), 10),
+                speed: FighterParams::su(speed),
+                life,
+                hitbox: hit,
+                end_damage: hit.damage,
+                arc: ProjectileArc::NONE,
+                phases: phase_list(phases),
+                pierce: false,
+                rehit: 0,
+                burst: Some(burst),
+                charged: None,
+                tool: Tool::NONE,
+            }
+        };
+    let burst = |life: u8, rehit: u8, phases: &[(u8, Hitbox)]| Burst {
+        life,
+        rehit,
+        on_wall: true,
+        y: Fx::ZERO,
+        phases: phase_list(phases),
+        on_ground: false,
+        on_expire: true,
+        keep_hits: false,
+        on_hit: true,
+        on_shield: true,
+    };
+
+    // The flare: spawned on the release's frame 21, hitting from 22 (age 1) to 95 (age 74); radius 3.5 / 4.0 / 4.5 from 28 / 35 / 40.
+    let mut m = moved(65, 0, 0, 255, Vec::new());
+    m.projectile = Some(shot(
+        20,
+        1530,
+        75,
+        ball(30, 30, 50, -20),
+        &[
+            (7, ball(30, 35, 50, -20)),
+            (14, ball(30, 40, 50, -20)),
+            (19, ball(30, 45, 50, -20)),
+        ],
+        burst(7, 0, &[(3, blast(105, 125, 62, 77, 64, 0, 100, -50, 0, 0))]),
+    ));
+    w.moves[FLARE as usize] = m;
+
+    // The bigger flare: spawned on the release's frame 20, hitting on 21-48.
+    let mut m = moved(73, 0, 0, 255, Vec::new());
+    m.projectile = Some(shot(
+        19,
+        1860,
+        29,
+        ball(35, 40, 50, -20),
+        &[],
+        burst(
+            21,
+            3,
+            &[
+                (10, blast(37, 193, ANGLE_VORTEX, 0, 100, 50, 0, -10, 0, 0)),
+                (12, blast(37, 193, ANGLE_VORTEX, 0, 100, 60, 150, -10, 0, 0)),
+                (19, blast(90, 198, 58, 84, 96, 0, 100, -50, 0, 1)),
+            ],
+        ),
+    ));
+    w.moves[MEGAFLARE as usize] = m;
+
+    // The giant flare: this move began on the charge's frame 108, so a frame `f` of the whole move is its frame `f - 107`.
+    let mut m = moved(182 - 107, 0, 0, 255, Vec::new());
+    let early = |id: u8, damage: i32, radius: i32, fkv: u16, lag: u16| {
+        blast(damage, radius, 115, 0, 100, fkv, lag, 0, id, 0)
+    };
+    let late = |id: u8, damage: i32, radius: i32, fkv: u16, lag: u16| {
+        blast(damage, radius, ANGLE_VORTEX, 0, 100, fkv, lag, 0, id, 0)
+    };
+    m.projectile = Some(shot(
+        129 - 108,
+        430,
+        48,
+        ball(60, 25, 70, -30),
+        &[],
+        burst(
+            27,
+            3,
+            &[
+                (7, early(0, 37, 125, 50, 50)),
+                (7, early(1, 27, 225, 35, 70)),
+                (7, early(2, 20, 300, 35, 70)),
+                (9, late(0, 37, 125, 75, 50)),
+                (9, late(1, 27, 225, 65, 70)),
+                (9, late(2, 20, 300, 65, 70)),
+                (25, blast(110, 130, 54, 105, 115, 0, 120, 0, 0, 1)),
+                (25, blast(80, 225, 52, 95, 115, 0, 100, 0, 1, 1)),
+                (25, blast(40, 305, 52, 95, 95, 0, 100, 0, 2, 1)),
+            ],
+        ),
+    ));
+    w.moves[GIGAFLARE as usize] = m;
 }

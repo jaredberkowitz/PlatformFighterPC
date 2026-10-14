@@ -699,15 +699,9 @@ pub struct Burst {
 }
 
 impl Burst {
-    /// The burst's hit at `age` (`None` before its first phase or in a radius-0 gap).
+    /// The burst's hit at `age` (`None` before its first phase or in a radius-0 gap): the first of its rings (see [`rings_at`]).
     pub fn hit_at(&self, age: u8) -> Option<Hitbox> {
-        let mut out = None;
-        for (from, hb) in self.phases.iter().flatten() {
-            if age >= *from {
-                out = Some(*hb);
-            }
-        }
-        out.filter(|hb| hb.radius > Fx::ZERO)
+        rings_at(&self.phases, age)[0].filter(|hb| hb.radius > Fx::ZERO)
     }
 
     fn hash_into(&self, h: &mut StateHasher) {
@@ -733,8 +727,36 @@ impl Burst {
     }
 }
 
-/// The most later hits by age a projectile can have (`ProjectileSpawn::phases`).
-pub const MAX_PHASES: usize = 8;
+/// The most later hits by age a projectile can have (`ProjectileSpawn::phases`; eight before sim 125, twelve since for the giant
+/// flare's three stages of three rings).
+pub const MAX_PHASES: usize = 12;
+
+/// The hits out at `age` from a list of hits by age (`ProjectileSpawn::phases`, `Burst::phases`): the phase that holds then (the
+/// last in the list whose start `.0` has come) and, as rings around it, every other phase with the same start, in list order (sim 125,
+/// E58: the reference's explosions with several boxes at once, such as the giant flare's three: the first ring that touches a fighter
+/// hits it). Phases with different starts (all content before sim 125) give one hit, as before. All `None` before the first phase.
+pub fn rings_at(
+    phases: &[Option<(u8, Hitbox)>; MAX_PHASES],
+    age: u8,
+) -> [Option<Hitbox>; MAX_PHASES] {
+    let mut out = [None; MAX_PHASES];
+    let Some(start) = phases
+        .iter()
+        .flatten()
+        .filter(|(from, _)| age >= *from)
+        .last()
+        .map(|(from, _)| *from)
+    else {
+        return out;
+    };
+    for (slot, (_, hb)) in out
+        .iter_mut()
+        .zip(phases.iter().flatten().filter(|(from, _)| *from == start))
+    {
+        *slot = Some(*hb);
+    }
+    out
+}
 
 /// A projectile's later hits from a list (the rest `None`).
 pub fn phase_list(list: &[(u8, Hitbox)]) -> [Option<(u8, Hitbox)>; MAX_PHASES] {
@@ -748,13 +770,10 @@ pub fn phase_list(list: &[(u8, Hitbox)]) -> [Option<(u8, Hitbox)>; MAX_PHASES] {
 impl ProjectileSpawn {
     /// The hit a projectile of this kind has at `age`, and whether a phase gave it (a phase has no falloff).
     pub fn hit_at(&self, age: u8) -> (Hitbox, bool) {
-        let mut out = (self.hitbox, false);
-        for (from, hb) in self.phases.iter().flatten() {
-            if age >= *from {
-                out = (*hb, true);
-            }
+        match rings_at(&self.phases, age)[0] {
+            Some(hb) => (hb, true),
+            None => (self.hitbox, false),
         }
-        out
     }
 
     /// Whether it has later hits by age.
@@ -1882,6 +1901,9 @@ pub struct Move {
     /// (the default: always), [`MODE_PLAIN`] or [`MODE_POWERED`] (only in an attack begun powered: `Fighter::move_powered`, the gauge's
     /// mode or a wing out).
     pub armor_mode: u8,
+    /// On the ground, the move's motion stops at its platform's edge instead of carrying the fighter off it (sim 125: the reference's
+    /// grounded up specials that do not leave edges, the blade dash and its eight slashes). False (the default): it carries it off.
+    pub edge_stop: bool,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1981,6 +2003,7 @@ impl Move {
             tether: None,
             dodge_stale: false,
             armor_mode: MODE_ANY,
+            edge_stop: false,
             script: None,
             projectile_script: None,
         }
@@ -2583,6 +2606,7 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.dodge_stale);
             h.write_u8(m.armor_mode);
+            h.write_bool(m.edge_stop);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {

@@ -3014,9 +3014,15 @@ fn attack(
         // goes on as it, on the same frame).
         if let Some(plat) = collision::platform(stage, f.platform) {
             if f.pos.x < plat.left || f.pos.x > plat.right {
-                f.platform = NONE;
-                if let Some(other) = mv.off_edge {
-                    f.move_id = other;
+                if mv.edge_stop {
+                    // (A move that stops at the edge stays on it: sim 125.)
+                    f.pos.x = f.pos.x.clamp(plat.left, plat.right);
+                    f.vel.x = Fx::ZERO;
+                } else {
+                    f.platform = NONE;
+                    if let Some(other) = mv.off_edge {
+                        f.move_id = other;
+                    }
                 }
             }
         }

@@ -1,0 +1,11 @@
+// Nodachi neutral special: the flare's charge. Frame numbers here are the move's (the reference's less 1). From the reference's frame
+// 20 on, letting go of special fires the flare (slot 31) or, after 31 frames held, the bigger flare (slot 32); shield or jump cancels
+// the charge (slot 34, 7 frames) and nothing is kept. Held to the reference's frame 108 [E] it fires the giant flare (slot 33) by
+// itself, past cancelling.
+if frame >= 19 {
+    if special == 0 {
+        if frame >= 31 { goto(32); } else { goto(31); }
+    }
+    if shield || jump_tap { goto(34); }
+}
+if frame >= 107 { goto(33); }

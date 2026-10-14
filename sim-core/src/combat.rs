@@ -2249,28 +2249,46 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
 
         // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
-        let (mut hb, phased) = match burst {
-            Some(b) => match b.hit_at(age) {
-                Some(h) => (h, true),
-                None => continue,
-            },
-            None => spec.hit_at(age),
+        // (Phases sharing a start are rings, all out at once: the first that touches a fighter hits it. E58, sim 125.)
+        let (rings, phased) = match burst {
+            Some(b) => {
+                let r = crate::moves::rings_at(&b.phases, age);
+                if r[0].is_none() {
+                    continue;
+                }
+                (r, true)
+            }
+            None => {
+                let mut r = crate::moves::rings_at(&spec.phases, age);
+                let phased = r[0].is_some();
+                if !phased {
+                    r[0] = Some(spec.hitbox);
+                }
+                (r, phased)
+            }
         };
         let (pierce, rehit) = match burst {
             Some(b) => (true, b.rehit),
             None => (spec.pierce, spec.rehit),
         };
-        hb.radius = hb.radius * origin_params.hitbox_scale * size;
-        hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
-        hb.half_width = hb.half_width * origin_params.hitbox_scale;
-        hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
-        if !phased && spec.charged.is_some() {
-            // (A charge-scaled shot keeps the damage it was fired with: no falloff.)
-            hb.damage = pr.damage;
-        } else if !phased && !spec.any_phase() {
-            hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
-        }
-        hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        let fit = |mut hb: Hitbox| {
+            hb.radius = hb.radius * origin_params.hitbox_scale * size;
+            hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
+            hb.half_width = hb.half_width * origin_params.hitbox_scale;
+            hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
+            if !phased && spec.charged.is_some() {
+                // (A charge-scaled shot keeps the damage it was fired with: no falloff.)
+                hb.damage = pr.damage;
+            } else if !phased && !spec.any_phase() {
+                hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
+            }
+            hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+            hb
+        };
+        let rings = rings.map(|r| r.map(fit));
+        let Some(hb) = rings[0] else {
+            continue;
+        };
         // (A phase of radius 0 is a gap: no hit this frame.)
         if hb.radius <= Fx::ZERO {
             continue;
@@ -2328,14 +2346,23 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
             let wd = weapon_of(content, pd);
             let hurt = body_hurtboxes(content, fd);
-            let (touching, caught) = reach(
-                counter,
-                intangible,
-                &hb,
-                &hurt,
-                intangible_parts(fd, wd),
-                pos,
-            );
+            // The first ring that reaches the fighter is the hit (one ring for a shot without rings).
+            let mut hb = hb;
+            let (mut touching, mut caught) = (false, false);
+            for ring in rings.iter().flatten().filter(|r| r.radius > Fx::ZERO) {
+                let (t, c) = reach(
+                    counter,
+                    intangible,
+                    ring,
+                    &hurt,
+                    intangible_parts(fd, wd),
+                    pos,
+                );
+                if t {
+                    (hb, touching, caught) = (*ring, true, c);
+                    break;
+                }
+            }
             if !touching
                 && !intangible
                 && hb.kind == HIT_NORMAL

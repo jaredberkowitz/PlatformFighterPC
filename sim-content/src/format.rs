@@ -1045,6 +1045,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.armor_hitlag = f.or("armor_hitlag", 100, errors);
     m.gauge_gain = f.or("gauge_gain", 1000, errors);
     m.dodge_stale = f.or("dodge_stale", false, errors);
+    // Sim 125: a motion that stops at the edge (the blade dash).
+    m.edge_stop = f.or("edge_stop", false, errors);
     // Sim 125 (E57): when the move's armor works, by the attack's powered start (the wing's smash armor).
     m.armor_mode = match f.raw("armor_mode") {
         None | Some(("any", _)) => MODE_ANY,
@@ -1939,6 +1941,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     }
     if m.dodge_stale {
         b.field("dodge_stale", "true");
+    }
+    if m.edge_stop {
+        b.field("edge_stop", "true");
     }
     match m.armor_mode {
         MODE_PLAIN => b.field("armor_mode", "plain"),

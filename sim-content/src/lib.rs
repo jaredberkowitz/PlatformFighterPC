@@ -1810,6 +1810,80 @@ mod combat_tests {
     }
 
     #[test]
+    fn the_nodachi_fields_round_trip_and_are_checked() {
+        // Sim 125: the exile's wing (E57), a move's armor mode and a motion that stops at the edge come back from a file unchanged; a
+        // file without them keeps today's behaviour; bad values are refused.
+        let base = Content::placeholder();
+        let exile = 13;
+        let w = usize::from(base.fighters[exile].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "wing {",
+            "points_m2 110",
+            "per_dealt 0.29999",
+            "per_dealt_crowd 0.15",
+            "ko_points 50",
+            "jumps 1",
+            "power 130",
+            "run_accel 120",
+            "point { stocks -2 diff -70 percent 30 }",
+            "armor_mode powered",
+            "edge_stop true",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no wing, armor always, motions leave edges.
+        let stripped = text
+            .replace(" armor_mode powered", "")
+            .replace("armor_mode powered", "")
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("edge_stop"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut out = String::new();
+        let mut skip = 0usize;
+        for l in stripped.lines() {
+            let t = l.trim_start();
+            if skip > 0 || t.starts_with("wing {") {
+                skip += l.matches('{').count();
+                skip -= l.matches('}').count();
+                continue;
+            }
+            out.push_str(l);
+            out.push('\n');
+        }
+        let older = crate::bundle::load(&out)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert!(older.fighters.iter().all(|f| f.wing.is_none()));
+        assert!(older.weapons[w]
+            .moves
+            .iter()
+            .all(|m| !m.edge_stop && m.armor_mode == sim_core::moves::MODE_ANY));
+        // Bad values.
+        let mut c = base.clone();
+        if let Some(wing) = c.fighters[exile].wing.as_mut() {
+            wing.points[2] = Fx::ZERO;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("wing")));
+        let mut c = base.clone();
+        if let Some(wing) = c.fighters[exile].wing.as_mut() {
+            wing.rows[0].diff[1] = 100;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("wing")));
+        let mut c = base.clone();
+        c.weapons[0].moves[sim_core::moves::MoveId::Jab as usize].armor_mode =
+            sim_core::moves::MODE_POWERED;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("armor_mode")));
+        let bad = text.replacen("point { stocks -2", "point { stocks -3", 1);
+        assert!(crate::bundle::load(&bad).is_err());
+    }
+    #[test]
     fn the_dagger_phase_2_fields_round_trip_and_are_checked() {
         // Sim 123: a move's tether (E56), a blockable grab box, a dodge that stales like a roll, a part intangibility window's mode, and
         // the phantom's gauge gain from damage dealt (owner decision 80) come back from a file unchanged; a file without them keeps
