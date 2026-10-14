@@ -62,7 +62,8 @@ const STYLE_DEFAULT := {
 	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22},
 }
 const STYLES := {
-	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55]},
+	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55],
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.26}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],
@@ -147,7 +148,7 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	# Crisp, as an illustration's cast shadows are (a soft wide penumbra read as haze on the grass, not shade), with just enough blur to
 	# keep the edge clean; the shadow range only as far
 	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
-	key.shadow_blur = 0.5
+	key.shadow_blur = 0.3
 	key.light_angular_distance = 0.35
 	key.directional_shadow_max_distance = 70.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS

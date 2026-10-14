@@ -179,13 +179,23 @@ static func net_entry() -> Dictionary:
 
 
 static func builtins() -> Array:
-	var duelist := neutral_entry("Duelist", 0, Loadout.default_for(0))
+	# (Each built-in fighter has a silhouette of its own, not just a colour: the Duelist a plumed helm and a cape, the Brawler its aviator
+	# cap and a streaming scarf, the Rogue a hood.)
+	var knight: RefCounted = Loadout.default_for(0)
+	knight.hat = 7
+	knight.neck = 4
+	var duelist := neutral_entry("Duelist", 0, knight)
 	duelist.builtin = true
 	duelist.base_index = 0
-	var brawler := neutral_entry("Brawler", 1, Loadout.default_for(1))
+	var scrapper: RefCounted = Loadout.default_for(1)
+	scrapper.neck = 3
+	var brawler := neutral_entry("Brawler", 1, scrapper)
 	brawler.builtin = true
 	brawler.base_index = 1
-	var rogue := neutral_entry("Rogue", 2, Loadout.default_for(2))
+	var hooded: RefCounted = Loadout.default_for(2)
+	hooded.hat = 6
+	hooded.glasses = 0
+	var rogue := neutral_entry("Rogue", 2, hooded)
 	rogue.builtin = true
 	rogue.base_index = 2
 	var tumbler := neutral_entry("Tumbler", 3, Loadout.default_for(3))
@@ -206,7 +216,7 @@ static func builtins() -> Array:
 	oracle.color = 5
 	oracle.hat = 5
 	oracle.glasses = 0
-	oracle.neck = 1
+	oracle.neck = 4
 	oracle.gear = 0
 	var seer := neutral_entry("Seer", 5, oracle)
 	seer.builtin = true
@@ -214,7 +224,8 @@ static func builtins() -> Array:
 	# (Its own look: a stern slate swordsman, bareheaded, a scarf to stream behind it, the full kit for the heavy blade.)
 	var hero: RefCounted = Loadout.default_for(6)
 	hero.color = 9
-	hero.hat = 0
+	hero.hat = 8
+	hero.brow_color = 4
 	hero.glasses = 0
 	hero.neck = 3
 	hero.gear = 3
@@ -225,7 +236,7 @@ static func builtins() -> Array:
 	# (Its own look: a big biscuit-brown bruiser, bareheaded, a neckerchief, shorts and gloves for the fists.)
 	var bruiser: RefCounted = Loadout.default_for(7)
 	bruiser.color = 10
-	bruiser.hat = 0
+	bruiser.hat = 9
 	bruiser.glasses = 0
 	bruiser.neck = 2
 	bruiser.gear = 2

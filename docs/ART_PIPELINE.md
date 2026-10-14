@@ -1063,3 +1063,57 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   response for bare iron (the water tower's hoops and ladder, the mast, the unit's trim, barrel hoops), wood and concrete left matte. Geometry
   where a prop read as a flat box: corner battens on every crate (proud planes that catch the key light), a lip and a plinth on the rooftop
   unit. `props_material_before.png` / `props_material_after.png`.
+
+## Fighter surface and weapons (forty-eighth pass, item 1 of docs/ART_REVIEW.md)
+
+- **The blotches on the skin were cast shadows**: a hat's or hair's shadow landed on the face through a shadow map too coarse for a
+  small round body, as pink patches with wavering, faceted edges (ruled out first: the shadow bias, the ramp's softness, the screen's paper
+  grain, the baked stage shading). Fighters now take a quarter of a cast shadow (`PF_FIGHTER_CAST` in `toon_light.gdshaderinc`); the form
+  light shades the body instead, so each form shows one lit side and one shadow shape. `skin_blotch_before.png` / `skin_blotch_after.png`.
+- **The longsword** has a blue fuller down its faces and a bright edge along its top: forged steel, not a white slat.
+  `longsword_fuller.png`.
+- **The Seer's staff** ends in a gold ring with a glowing crystal floating in it, in place of the white ball (it read as a cotton swab).
+  `staff_head.png`.
+- Look bench 0.89.
+- **The knock-out blast** (`Effects.Beam`, item 4 of the review, done early: it was the weakest single moment): the flat striped column,
+  which read as a flag, became a plume of painted smoke in the player's colour: 28 overlapping round puffs, widest at the blast and
+  tapering across the screen, in layers (one ink silhouette round the whole plume, the colour, a lit band along the top, a white-hot core
+  at the blast), redrawn on twos so the puffs swell, roll outward, thin and break up. `ko_plume_before.png` / `ko_plume_after.png`.
+- Weapons and animation are left for the end-of-development pass (owner's call: modelled assets may replace the code-built weapons).
+- **Firmer cast shadows** (item 5): stage surfaces take more of a cast shadow (`shadow_amount` 0.62 to 0.8, so a platform's shadow on
+  the ground reaches nearly the stage's full painted shade) with a crisper edge (key `shadow_blur` 0.5 to 0.3). A modest step: the
+  darkest a cast shadow can go is the stage's painted shadow colour, which is a per-stage mood choice. Fighters still take a quarter.
+  `cast_shadow_before.png` / `cast_shadow_after.png`.
+- **Crisper distance** (item 6): the far scenery's blur on the Best tier is 1.0 pixel, down from 2.6 (`PLAY_BLUR`): the review found it
+  muddied the backdrops (Wind Waker keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
+  down from the default 0.22) and thinner mists, the canyon thinner mists. `grove_crisper.png` (against `review_grove.png`).
+- **Built stage corners** (item 3, first step: `_ledges_and_buttresses`): down each end of a stage's front a column of bigger stones
+  standing proud of the wall (quoins, narrowing toward the foot, every third a darker one), and a corner stone under each ledge; on the
+  rooftop, metal corner caps. The wall now reads as a built mass framed at its ends rather than one tiled sheet. `stage_quoins.png`.
+  Still open: sculpted undersides and silhouettes that are not rectangles.
+
+## Fighter silhouettes through the wardrobe (forty-ninth pass, item 2 of docs/ART_REVIEW.md, first step)
+
+The PEAK route: the shared body stays, and the built-in fighters get outline-changing pieces from the cosmetic catalog (presentation
+only; every created fighter can wear them too).
+- **New pieces** (`Loadout.HATS`, `NECKS`; `fighter_view.gd` `_hat`, `_neck_on_rig`): a **hood** (dark charcoal over the head and down
+  its sides, a cream rolled rim round the face, a drooping point behind; it reads on any body colour); a **plumed helm** (a steel cap with
+  a gold brow band and a tall plume in the accent colour sweeping back off the crest); a **cape** (a broad cloth down the back to the
+  knees on the spring chain the scarf uses, so it streams behind runs and jumps).
+- **Built-in looks** (`roster.gd`): the Duelist in the plumed helm and cape, the Brawler in its aviator cap with a streaming scarf, the
+  Rogue hooded, the Seer in its crown with a cape. With the Sprinter's cap and scarf, the Champion's bare head and scarf and the Hauler's
+  forearms, no two built-ins share an outline. `silhouettes_select.png`, `rogue_hood.png`.
+- (Demos use per-slot default looks, so the match screenshots don't show these; menu matches do.)
+- Still open for item 2: hair shapes and bigger silhouette pieces (pauldrons, packs), and the animation that would carry identity, at the
+  end-of-development pass.
+- **A rock skirt under the floating-island stages** (item 3, second step; the meadow and the grove): rounded stones along the foot of the
+  wall, half above and half below its bottom edge and standing a little proud of it, varied in size and height, so the built wall grows
+  out of the island's earth instead of ending on a ruled line above the keel. `stage_rock_skirt.png`.
+- Modelled props, weapons and animation are deferred to near the end (owner's call).
+- **Bigger light and medium hit bursts** (`Effects.hit`: size 0.5 + 0.6 x strength, was 0.36 + 0.74): a mid-strength hit reads at play
+  distance, as the review asked; the strongest hit is the same size as before.
+- **Hairstyles in the hat slot** (`Loadout.HATS`: "swept spikes", "topknot"; in the look's brow colour): thick blunt spikes fanned across
+  the crown and swept back, and close-cropped hair with a round knot tied in the accent colour. The Champion wears rust-red swept spikes,
+  the Hauler a topknot, so the two bareheaded built-ins have outlines of their own too. `champion_spikes.png`, `silhouettes_select_2.png`.
+- **Flat Island's shore** (item 3): sand banked up against each end of the wall, spilling from about half its height down into the sea,
+  so the island's ends slope like a shore instead of stopping in square corners. `beach_sand_banks.png`.

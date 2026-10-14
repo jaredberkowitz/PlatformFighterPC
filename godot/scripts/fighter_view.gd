@@ -957,6 +957,14 @@ func build(p: int, l: RefCounted = null) -> void:
 	stage_frame.add_child(blade_pivot)
 	var blade_mesh := _blade_shape()
 	blade_parts.append(_part(blade_pivot, blade_mesh, respond(toon(Color(0.82, 0.87, 0.96)), "metal"), Vector3(1.55, 0, 0)))
+	# A blue fuller down the middle of each face and a bright edge along the top: the blade reads as forged steel, not a flat white
+	# slat.
+	var fuller_l := BoxMesh.new()
+	fuller_l.size = Vector3(1.9, 0.045, 0.1)
+	blade_parts.append(_part(blade_pivot, fuller_l, respond(toon(Color(0.36, 0.5, 0.82)), "metal"), Vector3(1.3, 0, 0)))
+	var edge_l := BoxMesh.new()
+	edge_l.size = Vector3(2.5, 0.018, 0.06)
+	blade_parts.append(_part(blade_pivot, edge_l, _unshaded_mat(Color(0.96, 0.99, 1.0)), Vector3(1.5, 0.07, 0)))
 	var guard_mesh := BoxMesh.new()
 	guard_mesh.size = Vector3(0.12, 0.6, 0.12)
 	blade_parts.append(_part(blade_pivot, guard_mesh, respond(toon(Color(0.92, 0.76, 0.3)), "gold"), Vector3(0.18, 0, 0)))
@@ -978,10 +986,20 @@ func build(p: int, l: RefCounted = null) -> void:
 	collar.height = 0.14
 	collar.radial_segments = 12
 	staff_parts.append(_part(blade_pivot, collar, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.42, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	var head := SphereMesh.new()
-	head.radius = 0.26
-	head.height = 0.52
-	staff_parts.append(_part(blade_pivot, head, toon(Color(0.78, 0.96, 1.0)), Vector3(MESH_LENGTH - 0.22, 0, 0)))
+	# The head: a gold ring standing on the shaft's end, and a glowing crystal (a long octahedron) floating in it.
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.2
+	ring.outer_radius = 0.28
+	ring.rings = 20
+	ring.ring_segments = 8
+	staff_parts.append(_part(blade_pivot, ring, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.1, 0, 0), Vector3.ONE,
+		Vector3(90, 0, 0)))
+	var gem := SphereMesh.new()
+	gem.radius = 0.13
+	gem.height = 0.4
+	gem.radial_segments = 4
+	gem.rings = 2
+	staff_parts.append(_part(blade_pivot, gem, _unshaded_mat(Color(0.6, 0.95, 1.0)), Vector3(MESH_LENGTH - 0.1, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
 
 	# The Champion's greatsword (class GREATSWORD_CLASS), on the same pivot: a broad single-edged blade with a dark fuller and a chisel
 	# point, a heavy bronze guard, a long leather-wrapped grip for two hands and a round pommel.
@@ -1455,6 +1473,21 @@ static func _greatsword_shape() -> ArrayMesh:
 static var _great_cache: ArrayMesh
 
 
+## A flat-coloured material that ignores the light (a weapon's lit edge, a staff's glowing crystal), cached by colour.
+static func _unshaded_mat(c: Color) -> StandardMaterial3D:
+	var key := c.to_html()
+	if _unshaded_cache.has(key):
+		return _unshaded_cache[key]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = c
+	_unshaded_cache[key] = m
+	return m
+
+
+static var _unshaded_cache := {}
+
+
 ## How each kind of stuff on a fighter takes the light (shaders/toon_light.gdshaderinc), so skin, cloth, rubber and metal read apart while
 ## sharing one cel look: [parameter: value].
 const RESPONSES := {
@@ -1599,6 +1632,11 @@ func _neck_on_rig(accent: Color) -> void:
 			var at := _collar(accent)
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
 			_tail(Vector3(0.26, at - 0.03, 0.46), toon(accent), 0.5, 0.2, 0.06, 4)
+		4:
+			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
+			# and jumps: the biggest change to the outline the wardrobe has.
+			var at := _collar(accent)
+			_tail(Vector3(0, at - 0.02, -0.42), toon(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
 
 
 ## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
@@ -1681,6 +1719,44 @@ func _hat() -> void:
 			# Beanie with a pompom.
 			_part(hat_pivot, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
 			_part(hat_pivot, _sphere(0.18), white, Vector3(0, 2.38, 0) - HAT_PIVOT)
+		6:
+			# Hood: a soft shell over the head and down its sides in dark charcoal cloth (it reads against any body colour), its rolled rim
+			# round the face in cream, drawn to a point behind that droops.
+			var cloth := toon(Color(0.24, 0.22, 0.32))
+			_part(hat_pivot, _sphere(0.9), cloth, Vector3(0, 1.5, -0.16) - HAT_PIVOT, Vector3(1.1, 1.06, 1.02))
+			var rim := TorusMesh.new()
+			rim.inner_radius = 0.66
+			rim.outer_radius = 0.84
+			rim.rings = 36
+			_part(hat_pivot, rim, toon(Color(0.94, 0.88, 0.74)), Vector3(0, 1.42, 0.36) - HAT_PIVOT, Vector3(1.06, 1.0, 1.24), Vector3(80, 0, 0))
+			_part(hat_pivot, _cyl(0.0, 0.32, 0.9), cloth, Vector3(0, 2.0, -0.82) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
+		7:
+			# Plumed helm: a steel cap with a brow band and a tall plume in the accent colour sweeping back off the crest.
+			var steel := respond(toon(Color(0.74, 0.76, 0.84)), "metal")
+			_part(hat_pivot, _sphere(0.86), steel, Vector3(0, 1.76, -0.04) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
+			_part(hat_pivot, _cyl(0.84, 0.84, 0.1), respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(0, 1.88, -0.04) - HAT_PIVOT, Vector3(1.0, 1.0, 1.02))
+			var plume := toon(accent)
+			for k in 5:
+				var f := float(k) / 4.0
+				_part(hat_pivot, _sphere(1.0), plume, Vector3(0, 2.42 + 0.2 * sin(f * PI) - 0.1 * f, -0.05 - 0.95 * f) - HAT_PIVOT,
+					Vector3(0.16, 0.48 - 0.12 * f, 0.4), Vector3(-25 - 45 * f, 0, 0))
+		8:
+			# Swept spikes: a cap of hair over the crown with thick, blunt spikes swept up and back, in the brow colour (a hairstyle, worn in
+			# the hat slot).
+			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.74, -0.08) - HAT_PIVOT, Vector3(1.02, 0.62, 1.0))
+			# [x, y, z, sideways lean, length]: a fan across the crown and a few swept back, each a thick cone leaning up and back.
+			var spikes := [[-0.55, 2.1, 0.15, 48.0, 1.0], [-0.22, 2.3, 0.1, 20.0, 1.2], [0.18, 2.32, 0.08, -14.0, 1.2], [0.52, 2.12, 0.12, -44.0, 1.0],
+				[-0.35, 2.2, -0.35, 32.0, 1.05], [0.3, 2.2, -0.38, -28.0, 1.05], [0.0, 2.05, -0.62, 0.0, 0.95]]
+			for sp in spikes:
+				_part(hat_pivot, _cyl(0.0, 0.3, float(sp[4])), hair, Vector3(float(sp[0]), float(sp[1]), float(sp[2])) - HAT_PIVOT, Vector3.ONE,
+					Vector3(-34, 0, float(sp[3])))
+		9:
+			# Topknot: close-cropped hair over the crown and a round knot of hair on top, tied with a band in the accent colour.
+			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.72, -0.1) - HAT_PIVOT, Vector3(1.02, 0.6, 1.0))
+			_part(hat_pivot, _sphere(0.32), hair, Vector3(0, 2.36, -0.15) - HAT_PIVOT, Vector3(1.0, 0.9, 1.0))
+			_part(hat_pivot, _cyl(0.2, 0.2, 0.1), toon(accent), Vector3(0, 2.12, -0.13) - HAT_PIVOT)
 		5:
 			# Crown: a gold band with five points.
 			var gold := toon(Color(0.96, 0.8, 0.25))
