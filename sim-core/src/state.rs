@@ -251,6 +251,16 @@ pub struct Fighter {
     /// ...with this much extra base knockback and this size (percent), from `spawn_scaled` (a charged shot).
     pub spawn_kb_add: u8,
     pub spawn_size: u16,
+    /// A second shot asked for on the same frame (E3h, sim 92): a script's second `spawn` / `spawn_at` in one frame fills these instead
+    /// of replacing the first (plain size and knockback; `spawn2_fixed` for an absolute point). Consumed by `step` with the first.
+    pub spawn2_request: bool,
+    pub spawn2_fixed: bool,
+    pub spawn2_pos: Vec2,
+    pub spawn2_vel: Vec2,
+    /// A jab's continuable window past its end (`Move::late_next`, owner decision 58, sim 92): the move a jab press starts instead of a
+    /// new jab (its index plus 1; 0 for none), and the frames it still lasts (counted down each frame; any new state clears it).
+    pub late_next: u8,
+    pub late_left: u8,
     /// Damage the fighter's counter stance caught; its counter-strike move deals this.
     pub counter_damage: Fx,
     /// The current special was started with a flick of the stick (a smash-style input, or the strong button): what the `flick`
@@ -473,6 +483,12 @@ impl Fighter {
             spawn_vel: Vec2::ZERO,
             spawn_kb_add: 0,
             spawn_size: 100,
+            spawn2_request: false,
+            spawn2_fixed: false,
+            spawn2_pos: Vec2::ZERO,
+            spawn2_vel: Vec2::ZERO,
+            late_next: 0,
+            late_left: 0,
             counter_damage: Fx::ZERO,
             pull: false,
             stored: 0,
@@ -657,6 +673,12 @@ impl StateHash for Fighter {
         self.spawn_vel.hash_into(h);
         h.write_u8(self.spawn_kb_add);
         h.write_u16(self.spawn_size);
+        h.write_bool(self.spawn2_request);
+        h.write_bool(self.spawn2_fixed);
+        self.spawn2_pos.hash_into(h);
+        self.spawn2_vel.hash_into(h);
+        h.write_u8(self.late_next);
+        h.write_u8(self.late_left);
         self.gauge.hash_into(h);
         h.write_u16(self.gauge_mode);
         h.write_bool(self.gauge_drain);
@@ -1195,6 +1217,36 @@ mod tests {
             ("air_jump_frame", {
                 let mut s = state;
                 s.fighters[2].air_jump_frame = 7;
+                s
+            }),
+            ("spawn2_request", {
+                let mut s = state;
+                s.fighters[1].spawn2_request = true;
+                s
+            }),
+            ("spawn2_fixed", {
+                let mut s = state;
+                s.fighters[1].spawn2_fixed = true;
+                s
+            }),
+            ("spawn2_pos", {
+                let mut s = state;
+                s.fighters[2].spawn2_pos.y = Fx::from_raw(1);
+                s
+            }),
+            ("spawn2_vel", {
+                let mut s = state;
+                s.fighters[3].spawn2_vel.x = Fx::from_raw(-1);
+                s
+            }),
+            ("late_next", {
+                let mut s = state;
+                s.fighters[0].late_next = 17;
+                s
+            }),
+            ("late_left", {
+                let mut s = state;
+                s.fighters[2].late_left = 3;
                 s
             }),
             ("projectile_hit_mask", {

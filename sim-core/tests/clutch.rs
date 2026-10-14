@@ -922,6 +922,29 @@ fn the_double_jump_turns_round_with_the_stick_held_back() {
     assert_eq!(sim.f().facing, 1);
 }
 
+#[test]
+fn the_double_jump_drifts_1_2_times_the_stick_and_other_bodies_do_not() {
+    // Owner decision 59: the body's `air_jump_drift` (the parameter file's `jump_aerial_speed_x_mul` 1.2 [R]); every other body 100.
+    for (char_id, percent) in [(BOUNDER, 120), (0u8, 100)] {
+        let mut sim = Sim::with_chars([char_id, 0, 0, 0]);
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
+        sim.stand(1, Fx::from_int(10), -1);
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+        sim.state.fighters[0].facing = 1;
+        let p = sim.content.fighters[usize::from(char_id)];
+        assert_eq!(p.air_jump_drift, percent);
+        sim.tick(inp(127, 0, JUMP));
+        let full = p.air_speed * Fx::from_ratio(i32::from(percent), 100);
+        // (The jump's own frame sets the speed; the air control of that frame may already trim it a little.)
+        let vx = sim.f().vel.x;
+        assert!(
+            vx <= full && vx > full - p.air_accel - p.air_accel_stick - p.air_friction,
+            "body {char_id}: {vx:?} against {full:?}"
+        );
+    }
+}
+
 /// The bounder (player 0) in the air, `air_jump_frame` at `frame` when the hit lands (0: not in a double jump), struck by player 1's
 /// move: one box per `(first move frame, base knockback)` (no growth, so its knockback is the base knockback at any percent: the
 /// reference's formula), each its own hit group, 1% each. Runs `ticks` ticks.

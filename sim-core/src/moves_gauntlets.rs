@@ -531,6 +531,8 @@ fn jabs(w: &mut Weapon) {
     );
     set_rows(&mut jab1, &[0, 1, 2], |h| h.hitlag = 160);
     chain(&mut jab1, MoveId::Jab2, 5);
+    // The window runs to frame 30, past the FAF (owner decision 58).
+    late_chain(&mut jab1, MoveId::Jab2, 30);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/gauntlets_jab_1.script"),
@@ -559,6 +561,8 @@ fn jabs(w: &mut Weapon) {
         Kind::Fighter,
         include_str!("scripts/gauntlets_jab_2.script"),
     ));
+    // Jab 3's window runs to frame 30, past the FAF (owner decision 58).
+    late_chain(&mut jab2, MoveId::Jab3, 30);
     w.moves[MoveId::Jab2 as usize] = jab2;
 
     // Jab 3: a knee on frames 6-7, 5%, angle 361, BK 70, KS 100, hitlag x2. FAF 33.

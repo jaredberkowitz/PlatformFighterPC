@@ -139,6 +139,8 @@ fn jabs(w: &mut Weapon) {
         h.angle_type = ANGLE_FORWARD;
     });
     chain(&mut jab1, MoveId::Jab2, 8);
+    // The window's last frame, 30, is the FAF: one frame past the move (owner decision 58).
+    late_chain(&mut jab1, MoveId::Jab2, 30);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/greatsword_jab_1.script"),
@@ -1236,6 +1238,9 @@ fn power_burst(loop_damage: i32, final_damage: i32) -> Burst {
         on_wall: true,
         y: Fx::from_ratio(-750, 8000),
         phases: phase_list(&[(1, spin), (29, last)]),
+        on_ground: false,
+        on_expire: false,
+        keep_hits: false,
     }
 }
 

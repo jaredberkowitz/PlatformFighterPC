@@ -192,6 +192,9 @@ fn enter(f: &mut Fighter, state: S) {
     }
     f.state = state;
     f.state_frame = 0;
+    // A jab's window past its end lasts only while the fighter stays as the jab left it (see `Move::late_next`).
+    f.late_next = 0;
+    f.late_left = 0;
     // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
     f.tripped = false;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
@@ -355,6 +358,15 @@ pub fn update(
         0
     };
     f.platform_ignore = f.platform_ignore.saturating_sub(1);
+    // A jab's window past its end (`Move::late_next`) counts down while the fighter stands idle after it; anything else ends it.
+    if f.state == S::Idle {
+        f.late_left = f.late_left.saturating_sub(1);
+    } else {
+        f.late_left = 0;
+    }
+    if f.late_left == 0 {
+        f.late_next = 0;
+    }
     f.grab_immune = f.grab_immune.saturating_sub(1);
     f.ledge_cooldown = f.ledge_cooldown.saturating_sub(1);
     f.ledge_invuln = f.ledge_invuln.saturating_sub(1);
@@ -948,8 +960,9 @@ fn airborne(
         // A midair jump sets the drift from the stick: it can change direction at once, and with the stick neutral it goes
         // straight up.
         let input = f.history[0];
+        // (A body's own multiplier on that drift: `FighterParams::air_jump_drift`, owner decision 59.)
         f.vel.x = if x_active(input) {
-            input.stick_x_fx() * p.air_speed
+            input.stick_x_fx() * p.air_speed * Fx::from_ratio(i32::from(p.air_jump_drift), 100)
         } else {
             Fx::ZERO
         };
@@ -1818,6 +1831,9 @@ fn start_ground_attack(f: &mut Fighter, p: &FighterParams) {
         } else {
             MoveId::FTilt
         }
+    } else if f.late_left > 0 && f.late_next > 0 {
+        // Inside a jab's continuable window past its end (`Move::late_next`): the jab's next hit, not a new jab.
+        MoveId::from_index(f.late_next - 1)
     } else {
         MoveId::Jab
     };
@@ -1983,6 +1999,17 @@ fn attack(
         script_motion = effects.motion;
     }
 
+    // A move's own soft-platform drop (E30): a few frames from `from`, and with `while_down` any frame from then with the stick down.
+    if let Some(d) = mv.drop_through {
+        let from = u16::from(d.from);
+        if f.state_frame == from {
+            f.platform_ignore = f.platform_ignore.max(d.frames);
+        }
+        if d.while_down && f.state_frame >= from && f.history[0].stick_y <= -STICK_DOWN {
+            f.platform_ignore = f.platform_ignore.max(1);
+        }
+    }
+
     // Scripted motion (a rising special) overrides normal physics while it is active.
     let frame = f.state_frame;
     let motion = script_motion
@@ -2117,6 +2144,14 @@ fn attack(
         }
         if f.grounded() {
             enter(f, S::Idle);
+            // A jab whose continuable window runs past its end keeps it open for a press (owner decision 58).
+            if let Some((next, until)) = mv.late_next {
+                let left = u16::from(until).saturating_sub(u16::from(mv.total_frames));
+                if left > 0 {
+                    f.late_next = next.saturating_add(1);
+                    f.late_left = (left + 1).min(255) as u8;
+                }
+            }
         } else if mv.helpless_after {
             enter_helpless(f);
         } else {
@@ -2136,7 +2171,9 @@ fn attack(
         let deep_enough = mv
             .ledge_drop
             .is_none_or(|(front, back)| fallen >= if behind { back } else { front });
-        if f.state_frame >= u16::from(mv.ledge_from(behind)) && deep_enough {
+        // (A move that catches ledges only while not rising: `Move::ledge_falling_only`.)
+        let falling_ok = !mv.ledge_falling_only || f.vel.y <= Fx::ZERO;
+        if f.state_frame >= u16::from(mv.ledge_from(behind)) && deep_enough && falling_ok {
             return Some(ledge);
         }
     }

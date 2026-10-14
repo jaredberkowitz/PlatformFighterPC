@@ -1181,19 +1181,24 @@ fn stun_multiplier(f: &Fighter) -> u16 {
     }
 }
 
-/// Creates the projectile a move asked for this frame. A move that already connected in melee (a bayonet
-/// hit, for instance) does not also fire.
+/// Creates the projectile a move asked for this frame (and a second one a script asked for on the same frame: E3h). A move that
+/// already connected in melee (a bayonet hit, for instance) does not also fire.
 pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
     for i in 0..MAX_FIGHTERS {
         if !state.fighters[i].spawn_request {
             continue;
         }
-        state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
-        state.fighters[i].spawn_custom = false;
-        state.fighters[i].spawn_fixed = false;
-        state.fighters[i].spawn_kb_add = 0;
-        state.fighters[i].spawn_size = 100;
+        {
+            let g = &mut state.fighters[i];
+            g.spawn_request = false;
+            g.spawn_custom = false;
+            g.spawn_fixed = false;
+            g.spawn_kb_add = 0;
+            g.spawn_size = 100;
+            g.spawn2_request = false;
+            g.spawn2_fixed = false;
+        }
         // A move that already connected in melee does not also fire, unless its script asked for the shot.
         if f.hit_mask != 0 && !f.spawn_custom {
             continue;
@@ -1206,46 +1211,85 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         };
         let dir = i32::from(f.facing);
         let scale = params_of(content, &f).hitbox_scale;
-        if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
-            *slot = Projectile {
-                active: true,
-                owner: i as u8,
-                origin: i as u8,
-                power: 100,
-                move_id: f.move_id,
-                pos: if f.spawn_fixed {
-                    f.spawn_pos
-                } else if f.spawn_custom {
-                    f.pos + f.spawn_pos
+        let first = Shot {
+            pos: if f.spawn_fixed {
+                f.spawn_pos
+            } else if f.spawn_custom {
+                f.pos + f.spawn_pos
+            } else {
+                Vec2::new(
+                    f.pos.x + (spec.x * scale).mul_int(dir),
+                    f.pos.y + spec.y * scale,
+                )
+            },
+            vel: if f.spawn_custom {
+                f.spawn_vel
+            } else if spec.arc.angle != 0 {
+                let a = Angle::from_degrees(i32::from(spec.arc.angle));
+                Vec2::new(
+                    (spec.speed * crate::trig::cos(a)).mul_int(dir),
+                    spec.speed * crate::trig::sin(a),
+                )
+            } else {
+                Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
+            },
+            kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
+            size: if f.spawn_custom { f.spawn_size } else { 100 },
+        };
+        add_projectile(state, i, &f, &spec, first);
+        // A second shot on the same frame (a script's second `spawn`): plain size and knockback.
+        if f.spawn_custom && f.spawn2_request {
+            let second = Shot {
+                pos: if f.spawn2_fixed {
+                    f.spawn2_pos
                 } else {
-                    Vec2::new(
-                        f.pos.x + (spec.x * scale).mul_int(dir),
-                        f.pos.y + spec.y * scale,
-                    )
+                    f.pos + f.spawn2_pos
                 },
-                vel: if f.spawn_custom {
-                    f.spawn_vel
-                } else if spec.arc.angle != 0 {
-                    let a = Angle::from_degrees(i32::from(spec.arc.angle));
-                    Vec2::new(
-                        (spec.speed * crate::trig::cos(a)).mul_int(dir),
-                        spec.speed * crate::trig::sin(a),
-                    )
-                } else {
-                    Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
-                },
-                age: 0,
-                life: spec.life,
-                bounces: 0,
-                kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
-                size: if f.spawn_custom { f.spawn_size } else { 100 },
-                vars: [0; crate::PROJECTILE_VARS],
-                hit_mask: 0,
-                hit_age: [0; MAX_FIGHTERS],
-                facing: f.facing,
-                bursting: false,
+                vel: f.spawn2_vel,
+                kb_add: 0,
+                size: 100,
             };
+            add_projectile(state, i, &f, &spec, second);
         }
+    }
+}
+
+/// Where a new projectile starts and how it goes.
+struct Shot {
+    pos: Vec2,
+    vel: Vec2,
+    kb_add: u8,
+    size: u16,
+}
+
+/// Puts a projectile of `spec` fired by fighter `i` into the first free slot of the pool (none if the pool is full).
+fn add_projectile(
+    state: &mut GameState,
+    i: usize,
+    f: &Fighter,
+    spec: &crate::moves::ProjectileSpawn,
+    shot: Shot,
+) {
+    if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
+        *slot = Projectile {
+            active: true,
+            owner: i as u8,
+            origin: i as u8,
+            power: 100,
+            move_id: f.move_id,
+            pos: shot.pos,
+            vel: shot.vel,
+            age: 0,
+            life: spec.life,
+            bounces: 0,
+            kb_add: shot.kb_add,
+            size: shot.size,
+            vars: [0; crate::PROJECTILE_VARS],
+            hit_mask: 0,
+            hit_age: [0; MAX_FIGHTERS],
+            facing: f.facing,
+            bursting: false,
+        };
     }
 }
 
@@ -1287,14 +1331,24 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
         }
         let mut pos = pr.pos + pr.vel;
-        if arc.bounces > 0 && pr.vel.y < Fx::ZERO {
+        let scale = origin_params.hitbox_scale;
+        if arc.bounces > 0 && pr.vel.y < Fx::ZERO && burst.is_none() {
             if let Some(i) = collision::find_landing(stage, pr.pos, pos, false) {
-                if pr.bounces >= arc.bounces {
+                // (Too fast a landing does not bounce either: `ProjectileArc::bounce_max_fall`.)
+                let too_fast = arc.bounce_max_fall > Fx::ZERO && -pr.vel.y > arc.bounce_max_fall;
+                if pr.bounces >= arc.bounces || too_fast {
+                    // A projectile that bursts on the ground (sim 92) bursts where it touched instead of vanishing.
+                    if let Some(b) = spec.burst.filter(|b| b.on_ground) {
+                        let at = Vec2::new(pos.x, stage.platforms[i].y);
+                        start_burst(&mut state.projectiles[n], &b, at, scale);
+                        continue;
+                    }
                     state.projectiles[n].active = false;
                     continue;
                 }
                 pos.y = stage.platforms[i].y;
-                pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max);
+                pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max)
+                    * Fx::from_ratio(i32::from(arc.bounce_keep_y), 100);
                 pr.vel.x = pr.vel.x * Fx::from_ratio(i32::from(arc.bounce_keep), 100);
                 pr.bounces += 1;
             }
@@ -1308,10 +1362,16 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             || pos.x > stage.blast_right
             || pos.y < stage.blast_bottom
             || pos.y > stage.blast_top;
-        let scale = origin_params.hitbox_scale;
         // A projectile that bursts on a wall (E3e) bursts just short of it (where it was), instead of being removed.
         if let Some(b) = spec.burst.filter(|b| b.on_wall && !pr.bursting) {
             if in_wall && age < pr.life && !outside {
+                start_burst(&mut state.projectiles[n], &b, pr.pos, scale);
+                continue;
+            }
+        }
+        // ...and one that bursts at the end of its life (sim 92) bursts where it is.
+        if let Some(b) = spec.burst.filter(|b| b.on_expire && !pr.bursting) {
+            if age >= pr.life && !in_wall && !outside {
                 start_burst(&mut state.projectiles[n], &b, pr.pos, scale);
                 continue;
             }
@@ -1469,8 +1529,11 @@ fn start_burst(p: &mut Projectile, b: &crate::moves::Burst, at: Vec2, scale: Fx)
     p.vel = Vec2::ZERO;
     p.age = 0;
     p.life = b.life;
-    p.hit_mask = 0;
-    p.hit_age = [0; MAX_FIGHTERS];
+    // (With `keep_hits` the fighters it already hit stay hit: a burst phase of the same group skips them.)
+    if !b.keep_hits {
+        p.hit_mask = 0;
+        p.hit_age = [0; MAX_FIGHTERS];
+    }
 }
 
 /// What a projectile script can see: its owner and the nearest other fighter that is still in the match.

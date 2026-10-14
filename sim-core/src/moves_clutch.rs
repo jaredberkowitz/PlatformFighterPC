@@ -122,8 +122,7 @@ fn jabs(w: &mut Weapon) {
     // KS 30) and 8.5 ahead (BK 35, KS 28), radius 1.8; the far box pulls a fighter in (180 degrees, BK 10, KS 20, radius 2.2, 12.0
     // ahead; the reference's id 2, fighters only; its id 3, the same box for objects, is not modelled) [D]. FAF 18. The continuable
     // window is frames 6-30: attack pressed in it carries on into jab 2 from frame 6 (`next_from`); attack held since jab 1 hit carries
-    // on from 6 too, and held without a hit from frame 16 (the script). (Past FAF 18 a press starts a new jab 1: one move has one length
-    // here, the house limit shared with the Bracers' jab.)
+    // on from 6 too, and held without a hit from frame 16 (the script).
     let mut jab1 = ref_move(
         18,
         0,
@@ -140,6 +139,8 @@ fn jabs(w: &mut Weapon) {
         h.angle_type = ANGLE_FORWARD;
     });
     chain(&mut jab1, MoveId::Jab2, 6);
+    // ...and past the FAF to frame 30 (owner decision 58): a press there is jab 2, not a new jab 1.
+    late_chain(&mut jab1, MoveId::Jab2, 30);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/clutch_jab_1.script"),

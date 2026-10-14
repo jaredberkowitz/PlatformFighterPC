@@ -227,6 +227,9 @@ pub struct FighterParams {
     /// The midair jump turns the fighter round when the stick is held back (past the deadzone) as it jumps: the reference's
     /// double-jump turnaround, a trait of a few bodies. False: the facing stays.
     pub air_jump_turns: bool,
+    /// The midair jump's sideways speed in percent of the stick times the air speed (owner decision 59, sim 92: the reference's per-body
+    /// `jump_aerial_speed_x_mul`); 100 (the default) is the shared rule.
+    pub air_jump_drift: u8,
     /// Index into `Content::weapons`.
     pub weapon: u8,
 }
@@ -607,6 +610,7 @@ impl FighterParams {
             gauge: Gauge::NONE,
             air_jump_armor: None,
             air_jump_turns: false,
+            air_jump_drift: 100,
             walk_speed: gu(1400),
             run_speed: gu(1800),
             dash_speed: gu(2200),
@@ -1317,6 +1321,8 @@ impl FighterParams {
             wall_jump: 0,
             air_jump_armor: Some(Self::bounder_air_jump_armor()),
             air_jump_turns: true,
+            // The double jump's sideways speed x1.2 (the parameter file's `jump_aerial_speed_x_mul`, dragdown.wiki) [R].
+            air_jump_drift: 120,
             ..FighterParams::base()
         }
     }
@@ -1357,6 +1363,7 @@ impl StateHash for FighterParams {
             None => h.write_bool(false),
         }
         h.write_bool(self.air_jump_turns);
+        h.write_u8(self.air_jump_drift);
     }
 }
 
@@ -2010,6 +2017,9 @@ mod tests {
         // The air jump's armor and turnaround (E33), every field of the armor.
         let mut c = base.clone();
         c.fighters[0].air_jump_turns = true;
+        assert_ne!(h, c.hash());
+        let mut c = base.clone();
+        c.fighters[0].air_jump_drift = 120;
         assert_ne!(h, c.hash());
         let armor = FighterParams::bounder_air_jump_armor();
         let mut with = base.clone();

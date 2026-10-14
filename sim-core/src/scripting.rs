@@ -162,6 +162,19 @@ impl Host for FighterHost<'_> {
                 self.f.vel.x += self.forward(arg(0));
                 self.f.vel.y += arg(1);
             }
+            api::F_SPAWN | api::F_SPAWN_AT
+                if self.f.spawn_request && self.f.spawn_custom && !self.f.spawn2_request =>
+            {
+                // A second shot on the same frame (E3h, sim 92): it fills the second request, plain size and knockback.
+                self.f.spawn2_request = true;
+                self.f.spawn2_fixed = id == api::F_SPAWN_AT;
+                self.f.spawn2_pos = if id == api::F_SPAWN_AT {
+                    Vec2::new(arg(0), arg(1))
+                } else {
+                    Vec2::new(self.forward(arg(0)), arg(1))
+                };
+                self.f.spawn2_vel = Vec2::new(self.forward(arg(2)), arg(3));
+            }
             api::F_SPAWN | api::F_SPAWN_SCALED | api::F_SPAWN_AT => {
                 self.f.spawn_request = true;
                 self.f.spawn_custom = true;

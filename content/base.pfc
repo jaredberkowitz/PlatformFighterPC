@@ -5,8 +5,8 @@ bundle {
     schema 6
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 89
-    hash 0b75a2821fef1d24
+    sim_version 92
+    hash 9f76f5dba9a124c7
 }
 
 ruleset {
@@ -1417,6 +1417,8 @@ weapon embers {
         next jab2
         next_window 9
         next_from 4
+        late_next jab2
+        late_until 23
         hitbox { start 1 end 2 x 0.79999 y 0.79999 radius 0.2 damage 2.2 angle 361 bkb 20 kbg 30 hitlag 180 }
         hitbox { start 1 end 2 x 1.09999 y 0.79999 radius 0.2 damage 2.2 angle 361 bkb 20 kbg 30 priority 1 hitlag 180 }
         hitbox { start 1 end 2 x 1.5 y 0.79999 radius 0.2 damage 2.2 angle 180 bkb 15 kbg 20 priority 2 hitlag 180 }
@@ -1711,6 +1713,8 @@ weapon embers {
         next jab3
         next_window 9
         next_from 5
+        late_next jab3
+        late_until 23
         hitbox { start 1 end 2 x 0.4 y 0.9 radius 0.4 damage 1.7 angle 361 bkb 20 kbg 30 hitlag 120 angle_type forward }
         hitbox { start 1 end 2 x 0.09999 y 0.9 radius 0.2 damage 1.7 angle 361 bkb 20 kbg 30 priority 1 hitlag 120 angle_type forward }
         hitbox { start 1 end 2 x 0.79999 y 0.9 radius 0.5 damage 1.7 angle 361 bkb 15 kbg 15 priority 2 hitlag 120 angle_type forward }
@@ -1847,6 +1851,8 @@ weapon gauntlets {
         next jab2
         next_window 9
         next_from 4
+        late_next jab2
+        late_until 29
         hitbox { start 2 end 2 x 0.79999 y 1.29999 radius 0.29999 damage 1.5 angle 361 bkb 20 kbg 25 hitlag 160 }
         hitbox { start 2 end 2 x 1.5 y 1.29999 radius 0.29999 damage 1.5 angle 180 bkb 20 kbg 20 priority 1 hitlag 160 }
         hitbox { start 2 end 2 x 1.09999 y 1.29999 radius 0.29999 damage 1.5 angle 361 bkb 20 kbg 25 priority 2 hitlag 160 }
@@ -2056,6 +2062,8 @@ weapon gauntlets {
     }
     move jab2 {
         total_frames 17
+        late_next jab3
+        late_until 29
         hitbox { start 4 end 4 x 0.79999 y 1.29999 radius 0.29999 damage 1.5 angle 361 bkb 20 kbg 25 hitlag 120 hitstun_add 3 }
         hitbox { start 4 end 4 x 1.29999 y 1.29999 radius 0.4 damage 1.5 angle 361 bkb 20 kbg 25 priority 1 hitlag 120 hitstun_add 3 }
         hitbox { start 4 end 4 x 1.79999 y 1.29999 radius 0.5 damage 1.5 angle 361 bkb 20 kbg 20 priority 2 hitlag 120 hitstun_add 3 }
@@ -3621,6 +3629,8 @@ weapon greatsword {
         next jab2
         next_window 9
         next_from 7
+        late_next jab2
+        late_until 29
         hitbox { start 3 end 4 x 0.9 y 1.29999 radius 0.29999 damage 2.5 angle 361 bkb 35 kbg 25 hitlag 150 angle_type forward }
         hitbox { start 3 end 4 x 1.29999 y 1.29999 radius 0.29999 damage 2.5 angle 361 bkb 35 kbg 25 priority 1 hitlag 150 angle_type forward }
         hitbox { start 3 end 4 x 1.79999 y 1.29999 radius 0.29999 damage 2.5 angle 180 bkb 20 kbg 15 priority 2 hitlag 150 angle_type forward }
@@ -5202,6 +5212,8 @@ weapon bracers {
         next jab2
         next_window 9
         next_from 7
+        late_next jab2
+        late_until 27
         hitbox { start 4 end 5 x 0.59999 y 1.4 radius 0.79999 damage 4 angle 361 bkb 25 kbg 35 hitlag 150 angle_type forward }
         hitbox { start 4 end 5 x 1.4 y 1.29999 radius 0.59999 damage 4 angle 361 bkb 20 kbg 30 priority 1 hitlag 150 angle_type forward }
         hitbox { start 4 end 5 x 1.7 y 1.4 radius 0.59999 damage 4 angle 180 bkb 20 kbg 20 priority 2 hitlag 150 angle_type forward }
@@ -5665,6 +5677,8 @@ weapon clutch {
         next jab2
         next_window 9
         next_from 5
+        late_next jab2
+        late_until 29
         hitbox { start 2 end 2 x 0.7 y 0.9 radius 0.2 damage 3 angle 361 bkb 40 kbg 30 hitlag 150 angle_type forward }
         hitbox { start 2 end 2 x 1.09999 y 0.9 radius 0.2 damage 3 angle 361 bkb 35 kbg 28 priority 1 hitlag 150 angle_type forward }
         hitbox { start 2 end 2 x 1.5 y 0.9 radius 0.29999 damage 3 angle 180 bkb 10 kbg 20 priority 2 hitlag 150 angle_type forward }
@@ -7237,6 +7251,7 @@ fighter bounder {
     ledge_attack_dx 1.5
     weight 104
     air_jump_turns true
+    air_jump_drift 120
     air_jump_armor { start 0 end 43 kind knockback threshold 120 subtract true min_kb 60 }
 }
 

@@ -466,6 +466,11 @@ pub struct ProjectileSpawn {
 /// `ProjectileSpawn::phases`: from age `.0` on, `.1`; radius 0 is a gap; before the first phase there is no hit). It hits the
 /// fighter that stopped it again (its hits start afresh). With `on_wall`, touching a solid wall bursts it there too (just short of
 /// the wall) instead of removing it. A bursting projectile is not reflected and does not clank.
+///
+/// Sim 92 (the lobbed shell's burst, all off by default): with `on_ground`, a landing it does not bounce from (its bounces used up, or
+/// falling faster than `ProjectileArc::bounce_max_fall`) bursts it where it touched, instead of removing it; with `on_expire`, the end
+/// of its life bursts it where it is; with `keep_hits`, the burst keeps the projectile's hits so far, so a fighter the projectile itself
+/// hit is not hit again by a burst phase of the same hit group (the reference's single hit).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Burst {
     pub life: u8,
@@ -473,6 +478,9 @@ pub struct Burst {
     pub on_wall: bool,
     pub y: Fx,
     pub phases: [Option<(u8, Hitbox)>; MAX_PHASES],
+    pub on_ground: bool,
+    pub on_expire: bool,
+    pub keep_hits: bool,
 }
 
 impl Burst {
@@ -491,6 +499,9 @@ impl Burst {
         h.write_u8(self.life);
         h.write_u8(self.rehit);
         h.write_bool(self.on_wall);
+        h.write_bool(self.on_ground);
+        h.write_bool(self.on_expire);
+        h.write_bool(self.keep_hits);
         self.y.hash_into(h);
         for phase in &self.phases {
             match phase {
@@ -539,6 +550,10 @@ impl ProjectileSpawn {
 /// `gravity` to at most `max_fall` (0: no limit). With `bounces` above 0 it bounces off the top of any platform up to that many
 /// times (the next touch removes it): it comes off with its falling speed held between `bounce_min` and `bounce_max` and keeps
 /// `bounce_keep` percent of its horizontal speed. With `bounces` 0 it ignores the ground's top as today (a solid wall removes it).
+///
+/// Sim 92: `bounce_keep_y` (percent, 100 default) multiplies the bounce's vertical speed after the clamp, and `bounce_max_fall` (0
+/// default: no limit) is the fastest fall it still bounces from: a landing faster than that does not bounce (it is removed, or bursts
+/// with `Burst::on_ground`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProjectileArc {
     pub angle: i16,
@@ -548,6 +563,8 @@ pub struct ProjectileArc {
     pub bounce_min: Fx,
     pub bounce_max: Fx,
     pub bounce_keep: u8,
+    pub bounce_keep_y: u8,
+    pub bounce_max_fall: Fx,
 }
 
 impl ProjectileArc {
@@ -560,6 +577,8 @@ impl ProjectileArc {
         bounce_min: Fx::ZERO,
         bounce_max: Fx::ZERO,
         bounce_keep: 100,
+        bounce_keep_y: 100,
+        bounce_max_fall: Fx::ZERO,
     };
 }
 
@@ -760,6 +779,16 @@ impl Armor {
     }
 }
 
+/// A move's own soft-platform drop (E30, sim 92; the reference's ground pound): on move frame `from` the fighter passes through soft
+/// platforms for `frames` frames (its `platform_ignore`), and with `while_down` also on every frame of the move from `from` on that the
+/// stick is held down (past the crouch threshold). Solid ground always stops it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DropThrough {
+    pub from: u8,
+    pub frames: u8,
+    pub while_down: bool,
+}
+
 /// `PartIntangible::parts` bits, one per hurtbox circle: low on the body (legs), the middle, high (the head), and the limb an
 /// attack throws out (the arm or leg reaching toward the move's hitboxes).
 pub const PART_LOW: u8 = 1;
@@ -896,6 +925,15 @@ pub struct Move {
     /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
     /// control. 0 (the default): the motion's `vx`, as before.
     pub motion_drift: u8,
+    /// A jab whose continuable window runs past its end (owner decision 58, sim 92: the reference's window past the FAF): once the move
+    /// has ended on the ground, a press of attack that would start a jab starts `.0` instead, up to move frame `.1` (counted on past the
+    /// move's end; the fighter is idle meanwhile, and any other action ends it). `None`: a press after the end starts a new jab.
+    pub late_next: Option<(u8, u8)>,
+    /// The move's ledge windows (`ledge_front_from` / `ledge_back_from` / `grabs_ledge`) catch a ledge only while the fighter is not
+    /// rising (sim 92: the reference's "as long as it is not moving upward"). False: rising or not, as before.
+    pub ledge_falling_only: bool,
+    /// The move drops through soft platforms by itself (sim 92, E30): see [`DropThrough`]. `None`: only the usual crouch and shield drops.
+    pub drop_through: Option<DropThrough>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -963,6 +1001,9 @@ impl Move {
             ledge_drop: None,
             on_land: None,
             motion_drift: 0,
+            late_next: None,
+            ledge_falling_only: false,
+            drop_through: None,
             script: None,
             projectile_script: None,
         }
@@ -1088,6 +1129,8 @@ impl StateHash for Weapon {
                     a.bounce_min.hash_into(h);
                     a.bounce_max.hash_into(h);
                     h.write_u8(a.bounce_keep);
+                    h.write_u8(a.bounce_keep_y);
+                    a.bounce_max_fall.hash_into(h);
                     h.write_bool(p.pierce);
                     h.write_u8(p.rehit);
                     for phase in &p.phases {
@@ -1310,6 +1353,24 @@ impl StateHash for Weapon {
             h.write_bool(m.gauge_drain);
             h.write_u8(m.start_speed_y);
             h.write_u8(m.motion_drift);
+            match m.late_next {
+                Some((id, until)) => {
+                    h.write_bool(true);
+                    h.write_u8(id);
+                    h.write_u8(until);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_bool(m.ledge_falling_only);
+            match m.drop_through {
+                Some(d) => {
+                    h.write_bool(true);
+                    h.write_u8(d.from);
+                    h.write_u8(d.frames);
+                    h.write_bool(d.while_down);
+                }
+                None => h.write_bool(false),
+            }
             match m.ledge_drop {
                 Some((front, back)) => {
                     h.write_bool(true);
@@ -2907,6 +2968,8 @@ pub fn embers() -> Weapon {
     );
     set_rows(&mut jab1, &[0, 1, 2], |h| h.hitlag = 180);
     chain(&mut jab1, MoveId::Jab2, 5);
+    // The window runs to frame 24, past the FAF (owner decision 58).
+    late_chain(&mut jab1, MoveId::Jab2, 24);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/embers_jab_1.script"),
@@ -2927,6 +2990,7 @@ pub fn embers() -> Weapon {
     );
     set_rows(&mut jab2, &[0, 1, 2], |h| h.hitlag = 120);
     chain(&mut jab2, MoveId::Jab3, 6);
+    late_chain(&mut jab2, MoveId::Jab3, 24);
     w.moves[MoveId::Jab2 as usize] = jab2;
     // Jab 3: a rising kick on frames 3-4, 4%, angle 361, BK 60, KS 80, hitlag x2. FAF 34. The swept box (the reference's runs from
     // 9.0 / 13.0 down to 6.0 / 11.0 of its units) is two circles at its ends.
@@ -3495,6 +3559,7 @@ fn fireball() -> Move {
             bounce_min: su(1400),
             bounce_max: su(1600),
             bounce_keep: 97,
+            ..ProjectileArc::NONE
         },
         // Its age is 1 on frame 17: the late hit from frame 22, the latest from 47.
         phases: phase_list(&[(6, hit(50, 28, 15, 275)), (31, hit(40, 22, 10, 250))]),
@@ -3612,6 +3677,12 @@ fn chain(mv: &mut Move, next: MoveId, from: u8) {
     mv.next = Some(next as u8);
     mv.next_window = 9;
     mv.next_from = from - 1;
+}
+
+/// A jab whose continuable window runs past its FAF (owner decision 58): after the move ends, a jab press up to reference frame
+/// `last` (the window's last frame, counted on from the move's start) starts `next` instead of a new jab.
+fn late_chain(mv: &mut Move, next: MoveId, last: u8) {
+    mv.late_next = Some((next as u8, last - 1));
 }
 
 /// The claws' up special, a flaming dash kick (the reference brawler's up special: ssbwiki.com, 13.0.1): the hit
