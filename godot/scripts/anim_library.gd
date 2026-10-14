@@ -262,8 +262,34 @@ const CLASS_MOVES := {
 	# Pockets (the Settler, after the reference villager): the shovel dug in front and behind, the slingshot drawn and loosed forward
 	# (aimed like the blaster); its back air keeps the shared turn to face behind.
 	10: {
+		# The normals: the umbrella brought down in front, the bowling ball heaved out and dropped, the firework held up overhead, the
+		# trip with the flowerpot, the shovel dug in front and behind, the slingshot loosed forward; the turnips held up and down.
+		"ftilt": "tool_chop",
+		"fsmash": "tool_heave",
+		"usmash": "tool_raise",
+		"dash attack": "tool_trip",
 		"dsmash": "sword_dsmash",
 		"fair": "blaster",
+		"extra move 0": "attack_uair",
+		"extra move 1": "attack_uair",
+		"extra move 2": "attack_dair",
+		"extra move 3": "attack_dair",
+		# The specials: the pocket's reach and toss, the rocket pulled out and ridden (bounced, crashed, hopped off), the balloons, the
+		# planting, the watering can, the axe, the failed planting's shrug.
+		"neutral special": "tool_reach",
+		"extra move 9": "tool_toss",
+		"side special": "tool_raise",
+		"extra move 4": "tool_ride",
+		"extra move 5": "tool_ride",
+		"extra move 6": "hurt",
+		"extra move 7": "jump",
+		"up special": "tool_float",
+		"extra move 8": "tool_float",
+		"down special": "tool_dig",
+		"extra move 10": "tool_dig",
+		"extra move 11": "tool_pour",
+		"extra move 12": "tool_chop",
+		"extra move 13": "tool_shrug",
 	},
 	# Bracers (the Hauler, unarmed and heavy): a hook and an uppercut for the jabs, swings for the swipe and the arms-out spin, the
 	# uppercut for the overhead sweep and the headbutt, a low slap, a rolling lunge, heavy two-handed claps for the forward and up
@@ -292,6 +318,10 @@ const EXTRA_PREFIX := "extra move"
 ## generic kick but rush the whole body, so their leg is not aimed.)
 static func is_kick(clip: String) -> bool:
 	return clip.begins_with("kick_")
+
+
+## Clips that pose both arms themselves: the tool hand is not reached to a hit (fighter_view.gd).
+const OWN_ARMS := ["tool_float", "tool_raise", "tool_shrug", "tool_ride", "tool_reach", "tool_toss"]
 
 
 ## Clips where the whole body is the weapon (a headbutt): no arm or leg reaches for the hitbox, the pose carries the hit.

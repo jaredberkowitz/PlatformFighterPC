@@ -3625,6 +3625,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		body_move = BRAWLER_NO_BLADE.has(s.move_name)
 	elif (_cls(s) == 2 or staff or great) and s.move_name != "":
 		body_move = _body_clip(_cls(s), s.move_name)
+	# (A clip that poses both arms itself, whatever the class: a headbutt, both hands up on the balloon strings or the firework, a shrug,
+	# gripping the rocket. Its tool hand is not pulled to a hit.)
+	if s.move_name != "" and not body_move:
+		var own := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
+		body_move = AnimLibrary.is_body(own) or AnimLibrary.OWN_ARMS.has(own)
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great

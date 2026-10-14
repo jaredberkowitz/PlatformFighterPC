@@ -447,10 +447,20 @@ def build_meshes(rig):
 AMP = 1.0
 
 
+def clampf(v, lo, hi):
+    return max(lo, min(hi, v))
+
+
 def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     """Sets a bone's pose from forward / outward / twist degrees (and an offset for the hips: upward on the base body; on the blob, whose
     clips were tuned with it, along the hip bone's own z, which is backward and forward)."""
     fwd, out, twist, lift = fwd * AMP, out * AMP, twist * AMP, lift * AMP
+    # (Exaggeration multiplies angles, so an arm already raised high would be pushed right round behind the body, and an elbow folded
+    # through itself: the shoulder and the elbow stay within their reach.)
+    if BODY and bone.startswith("armU."):
+        fwd = clampf(fwd, -100.0, 172.0)
+    if BODY and bone.startswith("armL."):
+        fwd = clampf(fwd, -5.0, 145.0)
     # The base body's head is big: tipped back more than a little it shows its chin and hides the drawn face, the half of every read.
     if BODY and bone == "head" and CLIP_NOW not in HEAD_FREE_CLIPS:
         fwd = max(fwd, HEAD_BACK_LIMIT)
@@ -640,6 +650,77 @@ BODY_MOVES = {
         {"hips": -0.1, "spine": (44.0, 10.0), "head": (8.0, -6.0), "stance": (50.0, -34.0), "shin.L": (-46.0,), "shin.R": (-2.0,),
          "arms": (-62.0, 30.0)},
         {"spine": (14.0, 4.0), "stance": (26.0, -18.0), "shin.L": (-28.0,)}),
+    # ---- The Settler's tools (after its reference's moves; the game aims the tool hand at each hit, these set the body and other arm) ----
+    # The pocket: a quick lean in with the hand held open out in front, the other arm back, then straightening as it tucks the catch away.
+    "tool_reach": (
+        {"hips": -0.04, "spine": (-6.0, -14.0), "head": (2.0, 8.0), "stance": (12.0, -8.0), "arms": (10.0, 20.0)},
+        {"hips": -0.1, "spine": (30.0, 16.0), "head": (-14.0, -8.0), "stance": (44.0, -32.0), "shin.L": (-46.0,), "armU.L": (-36.0, 30.0)},
+        {"spine": (6.0, 4.0), "stance": (14.0, -10.0)}),
+    # The pocket's release: an underhand toss, the arm swung from low behind up out in front, the body rising onto the front foot.
+    "tool_toss": (
+        {"hips": -0.1, "spine": (16.0, -26.0), "head": (0.0, 14.0), "stance": (18.0, 10.0), "shin.R": (-40.0,), "arms": (-20.0, 20.0)},
+        {"hips": 0.02, "spine": (-8.0, 22.0), "head": (-8.0, -10.0), "stance": (30.0, -26.0), "shin.R": (-6.0,), "armU.L": (-30.0, 34.0)},
+        {"spine": (0.0, 6.0), "stance": (12.0, -8.0)}),
+    # Digging (the planting): bent right over with both hands low in front driving the shovel in, then levering it back.
+    "tool_dig": (
+        {"hips": -0.06, "spine": (10.0, -10.0), "head": (4.0, 6.0), "stance": (24.0, -14.0), "arms": (36.0, 10.0)},
+        {"hips": -0.16, "spine": (46.0, 6.0), "head": (-22.0, 0.0), "stance": (40.0, -26.0), "shin.L": (-50.0,), "arms": (42.0, 6.0)},
+        {"hips": -0.04, "spine": (14.0, 0.0), "stance": (18.0, -12.0)}),
+    # Pouring (the watering can): the can held out in front, tipped, the body leaning in over it and the free hand steadying it.
+    "tool_pour": (
+        {"spine": (0.0, -8.0), "head": (0.0, 4.0), "stance": (12.0, -10.0), "arms": (40.0, 14.0)},
+        {"hips": -0.06, "spine": (20.0, 6.0), "head": (-10.0, 0.0), "stance": (28.0, -18.0), "armU.L": (44.0, -4.0), "armL.L": (20.0,)},
+        {"spine": (6.0, 0.0), "stance": (14.0, -10.0)}),
+    # A two-handed overhead chop (the axe, the umbrella's swing): both arms raised high with the body arched back on the back foot, then
+    # brought down hard in front as the body folds over the front knee.
+    "tool_chop": (
+        {"hips": -0.02, "spine": (-20.0, -10.0), "head": (6.0, 6.0), "stance": (16.0, 14.0), "shin.R": (-30.0,), "arms": (84.0, 12.0),
+         "armL.L": (30.0,)},
+        {"hips": -0.16, "spine": (40.0, 8.0), "head": (-18.0, -4.0), "stance": (48.0, -32.0), "shin.L": (-56.0,), "arms": (54.0, 10.0),
+         "armL.L": (10.0,)},
+        {"hips": -0.06, "spine": (14.0, 2.0), "stance": (22.0, -14.0)}),
+    # A heavy two-handed heave (the bowling ball): the ball lifted up to the chest with the body leaning back, then pushed out and down in
+    # front as the body pitches forward after it.
+    "tool_heave": (
+        {"hips": -0.08, "spine": (-16.0, 0.0), "head": (6.0, 0.0), "stance": (20.0, 16.0), "shin.L": (-30.0,), "shin.R": (-30.0,),
+         "arms": (46.0, 6.0), "armL.L": (64.0,)},
+        {"hips": -0.16, "spine": (38.0, 4.0), "head": (-18.0, 0.0), "stance": (40.0, -24.0), "shin.L": (-56.0,), "arms": (28.0, 8.0),
+         "armL.L": (12.0,)},
+        {"hips": -0.08, "spine": (16.0, 0.0), "stance": (20.0, -12.0)}),
+    # (The cute body's shoulders sit low and its arms are short against its big head: raised as high as they go, the hands come up beside
+    # the head, which is the most this body can show. Values here are before the clip's exaggeration, about 1.6 times, and the shoulder
+    # is clamped at 172 degrees.)
+    # Both arms raised straight up overhead (the firework, the rocket pulled out): a crouch, then stretched tall on the toes.
+    "tool_raise": (
+        {"hips": -0.12, "spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (26.0, 20.0), "shin.L": (-50.0,), "shin.R": (-50.0,),
+         "arms": (40.0, 16.0)},
+        {"hips": 0.06, "spine": (-10.0, 0.0), "head": (-6.0, 0.0), "stance": (6.0, -6.0), "arms": (110.0, 10.0), "armL.L": (6.0,), "armL.R": (6.0,)},
+        {"spine": (-4.0, 0.0), "stance": (8.0, -4.0)}),
+    # The trip (the dash attack): a stumble, then a flop forward flat out over the front foot, the arms flung out ahead holding the pot.
+    "tool_trip": (
+        {"hips": -0.04, "spine": (14.0, 0.0), "head": (0.0, 0.0), "stance": (30.0, -30.0), "arms": (30.0, 30.0)},
+        {"hips": -0.3, "spine": (60.0, 0.0), "head": (-30.0, 0.0), "stance": (60.0, -56.0), "shin.L": (-80.0,), "shin.R": (-30.0,),
+         "arms": (150.0, 20.0)},
+        {"hips": -0.12, "spine": (24.0, 0.0), "stance": (30.0, -20.0)}),
+    # A shrug (nothing caught, the planting failed): the shoulders up, both forearms turned out palms up, the head tipped to one side.
+    "tool_shrug": (
+        {"spine": (0.0, 0.0), "head": (0.0, 0.0), "stance": (8.0, -4.0), "arms": (10.0, 20.0)},
+        {"hips": 0.02, "spine": (-6.0, 0.0), "head": (-4.0, 16.0), "stance": (8.0, -4.0), "arms": (16.0, 34.0), "armL.L": (60.0,),
+         "armL.R": (60.0,)},
+        {"spine": (-2.0, 0.0), "stance": (8.0, -4.0)}),
+    # Riding the rocket (in the air): crouched forward low over it, both hands gripping it in front, the knees drawn up astride it.
+    "tool_ride": (
+        {"spine": (20.0, 0.0), "head": (-6.0, 0.0), "stance": (60.0, 40.0), "shin.L": (-90.0,), "shin.R": (-90.0,), "arms": (60.0, 10.0)},
+        {"spine": (44.0, 0.0), "head": (-26.0, 0.0), "stance": (80.0, 64.0), "shin.L": (-110.0,), "shin.R": (-104.0,), "arms": (48.0, 8.0),
+         "armL.L": (20.0,)},
+        {"spine": (36.0, 0.0), "head": (-20.0, 0.0), "stance": (74.0, 60.0), "shin.L": (-104.0,), "shin.R": (-100.0,), "arms": (44.0, 8.0)}),
+    # Floating under the balloons: both hands up holding the strings, the legs hanging and paddling a little apart.
+    "tool_float": (
+        {"spine": (-4.0, 0.0), "head": (-6.0, 0.0), "stance": (20.0, -10.0), "shin.L": (-40.0,), "shin.R": (-20.0,), "arms": (104.0, 12.0),
+         "armL.L": (30.0,)},
+        {"spine": (-8.0, 0.0), "head": (-10.0, 0.0), "stance": (-6.0, 24.0), "shin.L": (-20.0,), "shin.R": (-50.0,), "arms": (110.0, 12.0),
+         "armL.L": (24.0,)},
+        {"spine": (-6.0, 0.0), "head": (-8.0, 0.0), "stance": (10.0, 10.0), "shin.L": (-30.0,), "shin.R": (-30.0,), "arms": (106.0, 12.0)}),
     # Fencer's up tilt: the blade sweeps overhead from front to back while the body stands tall and arches back a little under it.
     "sword_utilt": (
         {"hips": -0.06, "spine": (14.0, 10.0), "head": (6.0, 0.0), "stance": (12.0, -10.0), "shin.L": (-20.0,)},
@@ -656,7 +737,7 @@ BODY_MOVES = {
 def grounded(name):
     """Whether a clip is played on the ground (the feet planted), not in the air, hit, rolling, lying down or on a ledge."""
     if name in ("jump", "fall", "air_jump", "air_dodge", "hurt", "roll", "knockdown", "getup", "ledge", "ledge_climb", "kick_dash",
-                "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp"):
+                "hurt_heavy", "hurt_up", "platform_drop", "gaunt_knee", "gaunt_stomp", "tool_ride", "tool_float"):
         return False
     return not name.endswith("air")
 
@@ -856,7 +937,7 @@ def clip(rig, name, frames, poses):
     CLIP_NOW = name
     if name.startswith("attack") or name in ("grab", "throw"):
         AMP = 1.85
-    elif name.startswith(("sword_", "kick_", "gaunt_")) or name == "blaster":
+    elif name.startswith(("sword_", "kick_", "gaunt_", "tool_", "body_")) or name == "blaster":
         AMP = 1.75
     elif name in ("walk", "run", "dash", "skid"):
         AMP = 1.0
@@ -1937,6 +2018,9 @@ def main() -> None:
     move("attack_fair", fair_wind, fair_strike, fair_hold)
     # The claws' forward tilt, a two-handed lunging slash (posed in BODY_MOVES).
     clip(rig, "attack_claws", 60, {})
+    # The Settler's tool clips (posed in BODY_MOVES).
+    for tool in ("tool_reach", "tool_toss", "tool_dig", "tool_pour", "tool_chop", "tool_heave", "tool_raise", "tool_trip", "tool_shrug", "tool_ride", "tool_float"):
+        clip(rig, tool, 60, {})
     # Headbutts, up and forward (posed in BODY_MOVES; the body is the weapon).
     clip(rig, "body_headbutt", 60, {})
     clip(rig, "body_headbutt_fwd", 60, {})
