@@ -29,6 +29,8 @@ pub const LINK_AUTOLINK: u8 = 0;
 pub const LINK_VORTEX: u8 = 1;
 /// `Fighter::link_kind`: a position vector (E34): carried straight to `link_point` over `posvec` frames.
 pub const LINK_POSVEC: u8 = 2;
+/// `Fighter::link_kind`: half the attacker's momentum (angle 365, sim 123).
+pub const LINK_HALF: u8 = 3;
 /// Frames a vortex hit (366) pulls its victim toward the hitbox centre (the reference's 5).
 pub const VORTEX_FRAMES: u8 = 5;
 
@@ -96,6 +98,9 @@ pub enum FighterState {
     /// Throwing or dropping the item in hand (E4): `Fighter::item_throw` says which throw; the item leaves on the body's release frame
     /// for it and the action ends on the ruleset's total for it, on the ground or in the air.
     ItemThrow,
+    /// Hanging from a tether and being reeled to the ledge it caught (E56, sim 123: see `moves::Tether`; `Fighter::tether_ledge`, the
+    /// move that caught it in `move_id`). Does not hold the ledge: someone else can grab it meanwhile.
+    Tether,
 }
 
 impl StateHash for FighterState {
@@ -234,6 +239,12 @@ pub struct Fighter {
     /// Frames since the move's armor last withstood a hit, plus one (E55, sim 121: the guard's release window); 0 if it has not in this
     /// attack (a new attack clears it; a script's `goto` keeps it). The script register `withstood`.
     pub withstood: u8,
+    /// The ledge the fighter's tether holds (E56, sim 123), -1 for none: meaningful in `FighterState::Tether` only.
+    pub tether_ledge: i8,
+    /// Tether catches since the fighter last landed or got up onto the stage (E56: `Tether::limit`; a hit does not reset it).
+    pub tether_count: u8,
+    /// Where the tether's reel began (E56): the fighter goes from here to the ledge's hanging point.
+    pub tether_from: Vec2,
     /// Damage over time on the fighter (E54, sim 121: the reference's curse): frames left (0: none), the frames between its ticks and
     /// since the last one, the damage of each tick and the fighter credited with it.
     pub curse_left: u16,
@@ -731,6 +742,9 @@ impl Fighter {
             air_marks: 0,
             move_powered: false,
             withstood: 0,
+            tether_ledge: NONE,
+            tether_count: 0,
+            tether_from: Vec2::ZERO,
             curse_left: 0,
             curse_every: 0,
             curse_tick: 0,
@@ -934,6 +948,9 @@ impl StateHash for Fighter {
         h.write_u8(self.air_marks);
         h.write_bool(self.move_powered);
         h.write_u8(self.withstood);
+        h.write_i8(self.tether_ledge);
+        h.write_u8(self.tether_count);
+        self.tether_from.hash_into(h);
         h.write_u16(self.curse_left);
         h.write_u8(self.curse_every);
         h.write_u8(self.curse_tick);
@@ -1560,6 +1577,21 @@ mod tests {
             ("withstood", {
                 let mut s = state;
                 s.fighters[1].withstood = 1;
+                s
+            }),
+            ("tether_ledge", {
+                let mut s = state;
+                s.fighters[1].tether_ledge = 0;
+                s
+            }),
+            ("tether_count", {
+                let mut s = state;
+                s.fighters[1].tether_count = 1;
+                s
+            }),
+            ("tether_from", {
+                let mut s = state;
+                s.fighters[1].tether_from = Vec2::new(Fx::ONE, Fx::ZERO);
                 s
             }),
             ("curse_left", {

@@ -985,6 +985,15 @@ impl SimRunner {
             })
     }
 
+    /// The ledge the fighter's tether holds (E56, sim 123: the Phantom's hook), as a `ledge_pos` index; -1 when not hanging on one.
+    /// Read-only, for the view to draw the rope.
+    #[func]
+    fn fighter_tether_ledge(&self, i: i32) -> i32 {
+        self.fighter(i)
+            .filter(|fi| fi.state == sim_core::state::FighterState::Tether)
+            .map_or(-1, |fi| i32::from(fi.tether_ledge))
+    }
+
     /// The radius (world units) of the egg the fighter is shut in (state `Encased`, E8), grown as it was laid; 0 when not in one.
     /// Read-only, for the view: the egg is drawn round the fighter, standing on its feet.
     #[func]

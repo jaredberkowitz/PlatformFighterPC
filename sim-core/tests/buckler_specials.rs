@@ -1,7 +1,7 @@
 //! The Buckler's phase 2 (class 9, the wanderer): the bow (the neutral special, E35 charge-scaled arrows, E3b lodging), the boomerang
 //! (the side special: E3d's one-at-a-time limit, failed throw, smash-input version, catch and clank fall; its out-and-back flight as a
 //! projectile script; its hits by age) and the sword wave (the forward smash at exactly 0%: E35 with drag, E38's lying capsule).
-//! Reference data and sources: the tenth moveset's `REFERENCE_DATA.md` (`docs/movesets/link/`).
+//! Reference data and sources: the tenth moveset's `REFERENCE_DATA.md` (`docs/movesets/buckler/`).
 
 mod common;
 

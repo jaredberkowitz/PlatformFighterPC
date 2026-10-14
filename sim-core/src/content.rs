@@ -943,7 +943,7 @@ impl FighterParams {
 
 impl FighterParams {
     /// Light, fast on the ground, a high gravity and fast fall: the "rogue" body type of the Needles moveset. The reference rogue's
-    /// attributes (ssbwiki.com / ultimateframedata.com, `docs/sheik/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
+    /// attributes (ssbwiki.com / ultimateframedata.com, `docs/movesets/needles/REFERENCE_DATA.md`): weight 78, walk 1.47, initial dash 2.178,
     /// run 2.42, traction 0.106, air speed 1.155, air acceleration 0.01 + 0.08, air friction 0.015, gravity 0.15, fall 1.75 (fast
     /// 2.8), full hop 39, short hop 18.75, double jump 40; air dodges 44 (neutral, intangible 2-26) and 63 / 74 / 93 (directional,
     /// intangible 2-19). On the ground: walk acceleration 0.105 + 0.21, run acceleration 0.044 + 0.121, an initial dash of 7 frames
@@ -1022,7 +1022,7 @@ impl FighterParams {
 impl FighterParams {
     /// A short middleweight all-rounder with a fast air speed and high, floaty jumps: the "tumbler" body of the Embers moveset. The
     /// reference character's (ssbwiki.com attributes, the parameter file via dragdown.wiki, ultimateframedata.com,
-    /// `docs/movesets/mario/REFERENCE_DATA.md`): weight 98, walk 1.155, initial dash 1.936, run 1.76, traction 0.102, air speed 1.208,
+    /// `docs/movesets/embers/REFERENCE_DATA.md`): weight 98, walk 1.155, initial dash 1.936, run 1.76, traction 0.102, air speed 1.208,
     /// air acceleration 0.01 + 0.07, air friction 0.015, gravity 0.087, fall 1.5 (fast 2.4), full hop 36.33, short hop 17.54, double
     /// jump 36.33, ledge jump 38.165. On the ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.10978, an initial dash
     /// of 10 frames, a heavy landing of 4 (3 of lag). Air dodges 52 (neutral, intangible 3-29) and 71 / 87 / 116 (directional,
@@ -1081,7 +1081,7 @@ impl FighterParams {
 impl FighterParams {
     /// A tall, heavy and very fast runner with a strong fall: the "sprinter" body of the Gauntlets moveset. The reference
     /// character's attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com,
-    /// `docs/movesets/captain_falcon/REFERENCE_DATA.md`): weight 104, walk 0.987, initial dash 1.98, run 2.552, traction 0.105, air
+    /// `docs/movesets/gauntlets/REFERENCE_DATA.md`): weight 104, walk 0.987, initial dash 1.98, run 2.552, traction 0.105, air
     /// speed 1.218, air acceleration 0.01 + 0.065, air friction 0.0075, gravity 0.12, fall 1.865 (fast 2.984), full hop 37.31, short
     /// hop 17.98, double jump 37.31, ledge jump 38.655. On the ground: walk acceleration 0.105 + 0.158, run acceleration 0.11 +
     /// 0.066, an initial dash of 15 frames, a heavy landing of 4 (3 of lag). Air dodges 42 (neutral, intangible 3-30) and 62 / 72 /
@@ -1152,7 +1152,7 @@ impl FighterParams {
 impl FighterParams {
     /// A tall middleweight caster with a slow air speed and quick acceleration in the air: the "seer" body of the Staff moveset. The
     /// reference character's attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com,
-    /// `docs/movesets/palutena/REFERENCE_DATA.md`): weight 91, walk 1.271, initial dash 2.035, run 2.077, traction 0.106, air speed
+    /// `docs/movesets/staff/REFERENCE_DATA.md`): weight 91, walk 1.271, initial dash 2.035, run 2.077, traction 0.106, air speed
     /// 1.0, air acceleration 0.01 + 0.105, air friction 0.01, gravity 0.12, fall 1.55 (fast 2.48), full hop 35.9, short hop 17.3,
     /// double jump 35.9, ledge jump 37.95. On the ground: walk acceleration 0.105 + 0.21, run acceleration 0.044 + 0.12991, an initial
     /// dash of 10 frames, a heavy landing of 7 (6 of lag: the parameter file, owner decision 22). Air dodges 49 (neutral, intangible
@@ -1651,7 +1651,7 @@ impl FighterParams {
 impl FighterParams {
     /// A small, quick middleweight that falls fast and drifts little: the "scamp" body of the Popgun moveset. The reference character's
     /// 13.0.1 attributes (the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and `Item_throw` tables, ultimateframedata.com; the
-    /// twelfth moveset's `REFERENCE_DATA.md` in `docs/movesets/diddy_kong/`): weight 90, walk 1.313, initial dash 2.09 for 10 frames, run
+    /// twelfth moveset's `REFERENCE_DATA.md` in `docs/movesets/popgun/`): weight 90, walk 1.313, initial dash 2.09 for 10 frames, run
     /// 2.006, traction 0.093, air speed 0.924, air acceleration 0 + 0.05, air friction 0.008, gravity 0.125, fall 1.75 (fast 2.8), full
     /// hop 41.21, short hop 19.9, double jump 41.21 (its sideways speed x0.9), ledge jump 40.605 (drift 0.6, the shared value). On the
     /// ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.165, a heavy landing of 7 (6 of lag: the parameter file's
@@ -1727,7 +1727,7 @@ impl FighterParams {
 impl FighterParams {
     /// A quick, slender middleweight that falls fast, with a partner that comes when its gauge fills: the "phantom" body of the Dagger
     /// moveset. The reference character's 13.0.1 attributes (the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and
-    /// `Item_throw` tables, ultimateframedata.com; the thirteenth moveset's `REFERENCE_DATA.md` in `docs/movesets/joker/`): weight 93,
+    /// `Item_throw` tables, ultimateframedata.com; the thirteenth moveset's `REFERENCE_DATA.md` in `docs/movesets/dagger/`): weight 93,
     /// walk 1.12, initial dash 1.9 for 10 frames, run 2.06, traction 0.13, air speed 1.1, air acceleration 0.01 + 0.07, air friction
     /// 0.01, gravity 0.127, fall 1.63 (fast 3.097), full hop 32.5, short hop 14.2, double jump 34 (its sideways speed x0.9), ledge jump
     /// 36.25 (drift 0.6, the shared value). On the ground: walk acceleration 0.2 + 0.11, run acceleration 0.04 + 0.11, a heavy landing
@@ -1795,14 +1795,16 @@ impl FighterParams {
     /// The phantom's gauge, its partner's (the reference's, ssbwiki.com's article on the gauge and ultimateframedata.com, 13.0.1; E53):
     /// 100 units; 0.00925 a frame by itself (not on a revival platform); 1.3 a percent of damage taken (with the one-on-one
     /// multiplier: the damage actually added), x1.25 one stock behind the leader and x1.5 two or more (the reference's 1.625 and 1.95),
-    /// x(1.1, 1.1667) with three fighters and x(1.2, 1.3333) with four when behind; nothing from damage dealt. Full, the partner comes for
+    /// x(1.1, 1.1667) with three fighters and x(1.2, 1.3333) with four when behind. Damage dealt (the phantom's and its partner's hits on
+    /// fighters, not shields or the curse's ticks) fills it 1.3 a percent too, with no stock-gap or crowd multiplier: a house rule (owner
+    /// decision 80, sim 123), not the reference's [E]. Full, the partner comes for
     /// 1800 frames; while it is out nothing fills the gauge, and each percent taken cuts 16 frames (10.2 with four fighters); a stun (a
     /// broken shield) stops the clock. Its specials do not spend it. A KO leaves 20 units (25 two stocks behind, 30 three or more). The
     /// body's own numbers do not change with it (no multipliers) [R]. The guard's gain is its move's (`Move::gauge_gain`).
     pub fn phantom_gauge() -> Gauge {
         Gauge {
             max: Fx::from_int(100),
-            per_dealt: Fx::ZERO,
+            per_dealt: Fx::from_ratio(13, 10),
             per_taken: Fx::from_ratio(13, 10),
             mode_frames: 1800,
             per_frame: Fx::from_ratio(925, 100_000),

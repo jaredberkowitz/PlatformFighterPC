@@ -5,8 +5,8 @@ bundle {
     schema 7
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 122
-    hash 2d1ba9746ae003a9
+    sim_version 123
+    hash afd09fa57b2a682e
 }
 
 ruleset {
@@ -344,7 +344,7 @@ weapon longsword {
         hitbox { start 26 end 28 x 2.34395 y 1.17198 radius 0.9 damage 8 angle 361 bkb 55 kbg 60 shield_damage 200 }
         motion { start 25 end 30 vx 0.45 vy 0 }
         script {
-            // Neutral special (Shield Breaker): keep the special button down on frame 19 to charge, for as long as the
+            // Neutral special (Charged Thrust): keep the special button down on frame 19 to charge, for as long as the
             // charge limit allows. The thrust comes out when the button is let go.
             if frame == 19 && special { stall(); }
         }
@@ -354,7 +354,7 @@ weapon longsword {
         hitbox { start 8 end 9 x 2.34395 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 8 end 9 x 1.40796 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 }
         script {
-            // Side special (Dancing Blade), hit 1. Steps forward as it winds up (on the ground). Press special again before the
+            // Side special (Blade Flurry), hit 1. Steps forward as it winds up (on the ground). Press special again before the
             // end to carry on into hit 2; holding the stick up makes the second hit the rising slash. Slot numbers: 29 = ext1,
             // 30 = ext2.
             var queued;
@@ -458,7 +458,7 @@ weapon longsword {
         hitbox { start 4 end 5 x 2.34395 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 4 end 5 x 1.40796 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
+            // Blade Flurry, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
             // for the rising slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
             var queued;
             var dir;
@@ -481,7 +481,7 @@ weapon longsword {
         hitbox { start 3 end 4 x 1.83997 y 1.89197 radius 0.7 damage 3 angle 80 bkb 25 kbg 0 priority 2 }
         hitbox { start 3 end 4 x 1.11998 y 1.53198 radius 0.79999 damage 2.5 angle 80 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
+            // Blade Flurry, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
             // for the rising slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
             var queued;
             var dir;
@@ -504,7 +504,7 @@ weapon longsword {
         hitbox { start 3 end 4 x 2.34395 y 1.09999 radius 0.7 damage 4 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 3 end 4 x 1.40796 y 1.09999 radius 0.79999 damage 3 angle 361 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+            // Blade Flurry, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
             // for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
             var queued;
             var dir;
@@ -527,7 +527,7 @@ weapon longsword {
         hitbox { start 4 end 5 x 2.34395 y 1.89197 radius 0.7 damage 4 angle 80 bkb 25 kbg 0 priority 2 }
         hitbox { start 4 end 5 x 1.40796 y 1.89197 radius 0.79999 damage 3 angle 80 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+            // Blade Flurry, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
             // for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
             var queued;
             var dir;
@@ -550,7 +550,7 @@ weapon longsword {
         hitbox { start 4 end 5 x 2.34395 y 0.596 radius 0.7 damage 4 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 4 end 5 x 1.40796 y 0.596 radius 0.79999 damage 3 angle 361 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+            // Blade Flurry, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
             // for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
             var queued;
             var dir;
@@ -573,7 +573,7 @@ weapon longsword {
         hitbox { start 6 end 7 x 2.63194 y 1.09999 radius 0.79999 damage 6 angle 361 bkb 85 kbg 125 priority 2 }
         hitbox { start 6 end 7 x 1.55197 y 1.09999 radius 0.9 damage 4 angle 361 bkb 74 kbg 103 }
         script {
-            // Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+            // Blade Flurry finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
             if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
             if grounded && frame == 7 { set_vel(0, 0); }
         }
@@ -583,7 +583,7 @@ weapon longsword {
         hitbox { start 5 end 6 x 1.69597 y 2.17996 radius 0.79999 damage 7 angle 80 bkb 85 kbg 40 priority 2 }
         hitbox { start 5 end 6 x 0.97598 y 1.74797 radius 0.9 damage 5 angle 80 bkb 80 kbg 40 }
         script {
-            // Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+            // Blade Flurry finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
             if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
             if grounded && frame == 7 { set_vel(0, 0); }
         }
@@ -596,7 +596,7 @@ weapon longsword {
         hitbox { start 25 end 26 x 2.48795 y 0.668 radius 0.79999 damage 5 angle 361 bkb 40 kbg 20 priority 2 group 1 }
         hitbox { start 25 end 26 x 1.55197 y 0.668 radius 0.9 damage 4 angle 361 bkb 40 kbg 20 group 1 }
         script {
-            // Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+            // Blade Flurry finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
             if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
             if grounded && frame == 7 { set_vel(0, 0); }
         }
@@ -1190,7 +1190,7 @@ weapon needles {
     move neutral_special {
         total_frames 8
         script {
-            // Needle Storm, the wind-up (neutral special). With a full charge stored it throws at once (32 = ext4); with some stored it charges on
+            // Needle Volley, the wind-up (neutral special). With a full charge stored it throws at once (32 = ext4); with some stored it charges on
             // from there, otherwise from none, after the wind-up (frame 7; 31 = ext3). Special pressed again during the wind-up is kept (`quick`):
             // the charge throws on its first frame.
             var needles;
@@ -1228,7 +1228,7 @@ weapon needles {
         hitbox { start 35 end 37 x 0 y 0.59999 radius 1.59999 damage 12 angle 55 bkb 50 kbg 112 angle_type position }
         hitbox { start 54 end 55 x 0 y 1.2 radius 1.09999 damage 5 angle 45 bkb 0 kbg 100 group 1 fixed_kb 80 sdi 0 angle_type position }
         script {
-            // Vanish (up special): a small hop in the air (on the ground it stays put), the explosion where the fighter stands (frames 36-38), then 20 frames of teleport in the
+            // Flash Step (up special): a small hop in the air (on the ground it stays put), the explosion where the fighter stands (frames 36-38), then 20 frames of teleport in the
             // direction the stick holds on frame 36 (straight up when it is near neutral), faster the further it is pushed (1.5 reference units a
             // frame plus up to 1 more); it reappears with a hit (frames 55-56) keeping 0.3 of the speed. Intangible from frame 14 (19 in the
             // air) to 54.
@@ -1266,7 +1266,7 @@ weapon needles {
         hitbox { start 22 end 28 x 0.7 y 0.29999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 hitlag 170 angle_type forward }
         hitbox { start 22 end 28 x 0.09999 y 0.59999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 priority 1 hitlag 170 angle_type forward }
         script {
-            // Bouncing Fish (down special): a flip forward into a heel kick coming down (frames 23-29). It leaves at 1.6 reference units a frame
+            // Flip Kick (down special): a flip forward into a heel kick coming down (frames 23-29). It leaves at 1.6 reference units a frame
             // forward (1.5 in the air) and 3 up and falls at 1.5 times the rogue's gravity; from frame 30 the stick steers it (0 to 2.4 forward).
             // A hit bounces it back off the target (33 = ext5). Pressing special again before frame 16 kicks early: on frame 16 it carries on as
             // the early kick (34 = ext6), whose kick lands on frames 18-24 instead.
@@ -1380,7 +1380,7 @@ weapon needles {
         total_frames 16
         landing_move ext3
         script {
-            // Needle Storm, charging (ext3, slot 31), as the reference: the charge carries on by itself, a needle on the first frame (the
+            // Needle Volley, charging (ext3, slot 31), as the reference: the charge carries on by itself, a needle on the first frame (the
             // reference's frame 8) and one more every 15 frames, six at most. Pressing special again throws them (32 = ext4); shield (and so a
             // spot dodge or roll) or jump stores them for later and ends the move; a full charge stores itself 4 frames after the sixth needle.
             // Landing carries the charge on (the move is its own landing move). The move restarts itself every 15 frames to keep going.
@@ -1416,7 +1416,7 @@ weapon needles {
             hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 1.5 angle 60 bkb 0 kbg 167 hitlag 80 }
         }
         script {
-            // Needle Storm, the throw (ext4, slot 32): the charged needles, one every 3 frames from frame 11; straight ahead on the ground
+            // Needle Volley, the throw (ext4, slot 32): the charged needles, one every 3 frames from frame 11; straight ahead on the ground
             // (1.25 units a frame), 35 degrees down from the air. In the air the move ends at frame 43 instead of 49.
             var needles;
             var thrown;
@@ -1432,7 +1432,7 @@ weapon needles {
         landing_lag 20
         grabs_ledge true
         script {
-            // Bouncing Fish, the bounce off a target (ext5, slot 33): back 1.8 reference units a frame and up 3.5, still falling at 1.5 times
+            // Flip Kick, the bounce off a target (ext5, slot 33): back 1.8 reference units a frame and up 3.5, still falling at 1.5 times
             // gravity.
             var sx;
             var sy;
@@ -1451,8 +1451,8 @@ weapon needles {
         hitbox { start 2 end 8 x 0.7 y 0.29999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 hitlag 170 angle_type forward }
         hitbox { start 2 end 8 x 0.09999 y 0.59999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 priority 1 hitlag 170 angle_type forward }
         script {
-            // Bouncing Fish, the early kick (ext6, slot 34), entered on the fish's frame 16: the same flight carried on (its speeds are the
-            // fish's variables), the kick on its frames 3-9 (the fish's 18-24). The stick steers from the fish's frame 30 (this move's 15).
+            // Flip Kick, the early kick (ext6, slot 34), entered on the flip kick's frame 16: the same flight carried on (its speeds are the
+            // flip kick's variables), the kick on its frames 3-9 (the flip kick's 18-24). The stick steers from the flip kick's frame 30 (this move's 15).
             var sx;
             var sy;
             if hit { goto(33); }
@@ -11699,6 +11699,7 @@ weapon dagger {
             mode powered
             part 1
         }
+        part_intangible { start 9 end 13 limb true mode powered }
     }
     move dsmash {
         total_frames 50
@@ -12869,9 +12870,12 @@ weapon dagger {
             // `dodges`), on the ground jump or the stick up jumps while firing below (33 = ext5), and a kept press fires again (the move starts
             // over: the next shot 25 frames after the last). In the air from 13 (its 14; 14 with the partner, its 15) the stick down with special
             // fires below (35 = ext7) and up spins (34 = ext6). Let go by its last frame (its 36; 41 with the partner) it ends there (FAF 37 / 42);
-            // still held, it fires again from the frame after, as a new press would.
+            // still held, it fires again from the frame after, as a new press would. A dodge or the jump whose input was already in on the frame
+            // before `ready` (buffered: special held with the stick sideways, or the jump input) comes 4 frames later (`early`, sim 123: the
+            // reference's "buffered maneuvers"); a kept press to fire again is not a maneuver and is not delayed.
             var pressed;
             var dodges;
+            var early;
             let ready = 25 + 8 * powered;
             let aerial = 13 + powered;
             let last = 35 + 5 * powered;
@@ -12886,6 +12890,15 @@ weapon dagger {
             if grounded == 0 && frame >= aerial && special && stick_y >= 0.5 {
                 pressed = 0;
                 goto(34);
+                return;
+            }
+            if frame == ready - 1 {
+                early = 0;
+                if (abs(stick_x) >= 0.7 && special && dodges < 4) || (grounded && (jump || stick_y >= 0.7)) {
+                    early = 1;
+                }
+            }
+            if frame >= ready && frame < ready + 4 * early {
                 return;
             }
             if frame >= ready {
@@ -12955,163 +12968,17 @@ weapon dagger {
         }
     }
     move up_special {
-        total_frames 70
-        landing_lag 36
-        helpless_after true
-        land_continue true
-        ledge_front_from 26
-        ledge_back_from 25
-        fall_drift 65
-        fall_landing_lag 36
-        rehit_start 26
-        rehit_every 2
-        rehit_groups 2
+        total_frames 58
+        air_version ext0
+        catch_move ext1
         limit_version ext15
-        hitbox { start 17 end 20 x 0.09999 y 1 radius 0.9 damage 4 angle 93 bkb 50 kbg 10 set_weight true angle_type position }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 60 kbg 20 group 1 hitlag 50 targets grounded sdi 0 angle_type travel }
-        hitbox {
-            start 26
-            end 28
-            x 0
-            y 1
-            radius 0.79999
-            damage 2.5
-            angle 367
-            bkb 35
-            kbg 20
-            priority 1
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 26
-            end 28
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 40
-            bkb 60
-            kbg 20
-            priority 2
-            group 1
-            hitlag 50
-            targets grounded
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 26
-            end 28
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 367
-            bkb 40
-            kbg 20
-            priority 3
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 70 kbg 20 group 1 hitlag 50 targets grounded sdi 0 angle_type travel }
-        hitbox {
-            start 29
-            end 31
-            x 0
-            y 1
-            radius 0.79999
-            damage 2.5
-            angle 367
-            bkb 35
-            kbg 20
-            priority 1
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 29
-            end 31
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 40
-            bkb 70
-            kbg 20
-            priority 2
-            group 1
-            hitlag 50
-            targets grounded
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 29
-            end 31
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 367
-            bkb 40
-            kbg 20
-            priority 3
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        script {
-            // Up special (the reference's parameters, in world units: reference / 8). In the air the startup keeps 0.67 of the horizontal
-            // speed and stops the fall, then sinks at 0.02 with friction 0.01. The stick on frame 16 aims the dash (neutral: straight up;
-            // backward turns the brawler round; on the ground it cannot aim below level). The dash is frames 26-32: 3.8 a frame, less 0.2 a
-            // frame after its first 4. Touching down while dashing more than 20 degrees below level bounces off (30 = ext2); less, it carries on
-            // along the ground. Frame 33 keeps 0.7 of the speed on the ground, 0.8 in the air, and the move goes on as its ending: on the ground
-            // (28 = ext0) or in the air (29 = ext1), with the ending's friction and gravity.
-            var dx;
-            var dy;
-            if frame == 1 && grounded == 0 { set_vel(vx * 0.67, 0); }
-            if frame >= 2 && frame <= 24 && grounded == 0 {
-                set_vel(sign(vx) * max(abs(vx) - 0.00125, 0), vy - 0.0025);
-            }
-            if frame == 15 {
-                let sx = stick_x;
-                let sy = stick_y;
-                if grounded && sy < 0 { sy = 0; }
-                let len = sqrt(sx * sx + sy * sy);
-                if len < 0.25 {
-                    dx = 0;
-                    dy = 1;
-                } else {
-                    if sx < 0 { turn(); sx = -sx; }
-                    dx = sx / len;
-                    dy = sy / len;
-                }
-            }
-            if frame >= 25 && frame <= 31 {
-                if grounded && dy < -0.342 { goto(30); }
-                let speed = 0.475;
-                if frame > 28 { speed = 0.475 - 0.025 * (frame - 28); }
-                set_vel(dx * speed, dy * speed);
-            }
-            if frame == 32 {
-                if grounded { set_vel(vx * 0.7, 0); } else { set_vel(vx * 0.8, vy * 0.8); }
-            }
-            if frame == 33 {
-                if grounded { goto(28); } else { goto(29); }
-            }
-        }
+        hitbox { start 19 end 19 x 0.4 y 2.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
+        hitbox { start 19 end 19 x 0.59999 y 3.2 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
+        hitbox { start 19 end 19 x 0.79999 y 3.59999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
+        hitbox { start 19 end 19 x 1 y 4 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
+        hitbox { start 19 end 19 x 1.09999 y 4.4 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
+        hitbox { start 19 end 19 x 1.29999 y 4.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
+        hitbox { start 19 end 25 x 1.29999 y 4.79999 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 kind grab command true blockable true }
     }
     move down_special {
         total_frames 51
@@ -13385,61 +13252,44 @@ weapon dagger {
         hitbox { start 23 end 24 x 1.09999 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
     }
     move ext0 {
-        total_frames 32
-        landing_lag 36
-        helpless_after true
-        ledge_front_from 0
-        ledge_back_from 0
-        fall_drift 65
-        fall_landing_lag 36
-        hitbox { start 2 end 3 x 0.59999 y 0.79999 radius 0.79999 damage 5 angle 361 bkb 60 kbg 148 group 2 hitlag 250 angle_type forward }
-        hitbox { start 2 end 3 x 0.4 y 0.79999 radius 1 damage 5 angle 361 bkb 60 kbg 148 priority 1 group 2 hitlag 250 angle_type forward }
-        hitbox { start 2 end 3 x 0.2 y 0.9 radius 0.59999 damage 5 angle 361 bkb 60 kbg 148 priority 2 group 2 hitlag 250 angle_type forward }
+        total_frames 43
+        autocancel_before 255
+        motion_drift 100
+        hitbox { start 19 end 19 x 0.4 y 2.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 0.59999 y 3.2 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 0.79999 y 3.59999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 1 y 4 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 1.09999 y 4.4 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 24 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 shield_damage 120 hitlag 120 rebounds false }
+        tether { from 11 to 24 ahead 2 up 5 hang 8 reel 12 drag 240 limit 3 }
+        flag_version { marks 1 move ext2 }
+        motion { start 4 end 4 vx 0 vy 0.1875 }
         script {
-            // Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
-            // gravity: 0.1 (the reference's numbers, in world units: reference / 8).
-            if grounded {
-                set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
+            // Dagger up special in the air, the hook (ext0): its first use in an air time marks it (mark 0: landing or a ledge clears it, a hit
+            // does not), so a later one is the hook without the rise (ext2, the up special's flag version reads the mark).
+            if frame == 1 {
+                set_air_mark(0);
             }
         }
     }
     move ext1 {
-        total_frames 37
-        landing_lag 36
-        helpless_after true
-        ledge_front_from 0
-        ledge_back_from 0
-        fall_drift 65
-        fall_landing_lag 36
-        hitbox { start 3 end 4 x 0.59999 y 0.9 radius 0.79999 damage 6 angle 361 bkb 60 kbg 136 group 2 hitlag 250 angle_type forward }
-        hitbox { start 3 end 4 x 0.09999 y 0.9 radius 0.79999 damage 6 angle 361 bkb 60 kbg 136 priority 1 group 2 hitlag 250 angle_type forward }
-        script {
-            // Up special, the ending after the dash (ext0 on the ground, ext1 in the air): friction 0.1 on the ground, 0.04 in the air, and
-            // gravity: 0.1 (the reference's numbers, in world units: reference / 8).
-            if grounded {
-                set_vel(sign(vx) * max(abs(vx) - 0.0125, 0), 0);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.005, 0), vy - 0.0125);
-            }
-        }
+        total_frames 28
+        hold_x 1.125
+        hold_y 0
+        hitbox { start 5 end 5 x 1.29999 y 1.09999 radius 1 damage 11 angle 78 bkb 75 kbg 40 kind throw }
     }
     move ext2 {
-        total_frames 21
-        landing_lag 36
-        helpless_after true
-        fall_drift 65
-        fall_landing_lag 36
-        script {
-            // Up special, bouncing off the ground (ext2): 0.4 of the horizontal speed and 3 up, then friction 0.16 and gravity: 0.2 (the
-            // reference's numbers, in world units: reference / 8).
-            if frame == 1 {
-                set_vel(vx * 0.4, 0.375);
-            } else {
-                set_vel(sign(vx) * max(abs(vx) - 0.02, 0), vy - 0.025);
-            }
-        }
+        total_frames 43
+        autocancel_before 255
+        hitbox { start 19 end 19 x 0.4 y 2.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 0.59999 y 3.2 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 0.79999 y 3.59999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 1 y 4 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 1.09999 y 4.4 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 19 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
+        hitbox { start 19 end 24 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 shield_damage 120 hitlag 120 rebounds false }
+        tether { from 11 to 24 ahead 2 up 5 hang 8 reel 12 drag 240 limit 3 }
     }
     move ext3 {
         total_frames 44
@@ -13538,6 +13388,7 @@ weapon dagger {
         hitbox { start 31 end 31 x 8.2 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         hitbox { start 31 end 31 x 8.59999 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         hitbox { start 31 end 31 x 9 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
+        dodge_stale true
         motion { start 2 end 15 vx 0.18999 vy 0 }
         script {
             // Dagger gun, the dodge forward (ext3, slot 31): the shot on 19 (its 20). On its last frame (38: FAF 40; 44 with the partner, FAF 46)
@@ -13664,6 +13515,7 @@ weapon dagger {
         hitbox { start 33 end 33 x 8.2 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         hitbox { start 33 end 33 x 8.59999 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         hitbox { start 33 end 33 x 9 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
+        dodge_stale true
         motion { start 3 end 16 vx -0.152 vy 0 }
         script {
             // Dagger gun, the dodge back (ext4, slot 32): the shot on 21 (its 22). On its last frame (44: FAF 46; 48 with the partner, FAF 50)
@@ -13697,75 +13549,75 @@ weapon dagger {
         total_frames 58
         landing_lag 14
         intangible 6
-        hitbox { start 9 end 9 x 0 y 0 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 angle_type forward }
-        hitbox { start 9 end 9 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 angle_type forward }
-        hitbox { start 9 end 9 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 angle_type forward }
-        hitbox { start 9 end 9 x 0.29999 y -1.2 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 angle_type forward }
-        hitbox { start 9 end 9 x 0.4 y -1.59999 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 angle_type forward }
-        hitbox { start 9 end 9 x 0.5 y -2 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 angle_type forward }
-        hitbox { start 9 end 9 x 0.59999 y -2.4 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 0.7 y -2.79999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 0.79999 y -3.09999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 0.9 y -3.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1 y -3.9 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.09999 y -4.29999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.2 y -4.59999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.29999 y -5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.29999 y -5.4 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.4 y -5.79999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.5 y -6.2 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.59999 y -6.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.7 y -6.9 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.79999 y -7.29999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 9 end 9 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 0 y 0 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 1 angle_type forward }
-        hitbox { start 16 end 16 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 1 angle_type forward }
-        hitbox { start 16 end 16 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 1 angle_type forward }
-        hitbox { start 16 end 16 x 0.29999 y -1.2 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 1 angle_type forward }
-        hitbox { start 16 end 16 x 0.4 y -1.59999 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 1 angle_type forward }
-        hitbox { start 16 end 16 x 0.5 y -2 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 1 angle_type forward }
-        hitbox { start 16 end 16 x 0.59999 y -2.4 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 0.7 y -2.79999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 0.79999 y -3.09999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 0.9 y -3.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1 y -3.9 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.09999 y -4.29999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.2 y -4.59999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.29999 y -5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.29999 y -5.4 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.4 y -5.79999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.5 y -6.2 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.59999 y -6.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.7 y -6.9 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.79999 y -7.29999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 16 end 16 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 0 y 0 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 2 angle_type forward }
-        hitbox { start 23 end 23 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 2 angle_type forward }
-        hitbox { start 23 end 23 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 2 angle_type forward }
-        hitbox { start 23 end 23 x 0.29999 y -1.2 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 2 angle_type forward }
-        hitbox { start 23 end 23 x 0.4 y -1.59999 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 2 angle_type forward }
-        hitbox { start 23 end 23 x 0.5 y -2 radius 0.29999 damage 3 angle 367 bkb 10 kbg 70 group 2 angle_type forward }
-        hitbox { start 23 end 23 x 0.59999 y -2.4 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 0.7 y -2.79999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 0.79999 y -3.09999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 0.9 y -3.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1 y -3.9 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.09999 y -4.29999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.2 y -4.59999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.29999 y -5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.29999 y -5.4 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.4 y -5.79999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.5 y -6.2 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.59999 y -6.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.7 y -6.9 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.79999 y -7.29999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
-        hitbox { start 23 end 23 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 367 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 0 y 0 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 angle_type forward }
+        hitbox { start 9 end 9 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 angle_type forward }
+        hitbox { start 9 end 9 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 angle_type forward }
+        hitbox { start 9 end 9 x 0.29999 y -1.2 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 angle_type forward }
+        hitbox { start 9 end 9 x 0.4 y -1.59999 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 angle_type forward }
+        hitbox { start 9 end 9 x 0.5 y -2 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 angle_type forward }
+        hitbox { start 9 end 9 x 0.59999 y -2.4 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 0.7 y -2.79999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 0.79999 y -3.09999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 0.9 y -3.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1 y -3.9 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.09999 y -4.29999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.2 y -4.59999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.29999 y -5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.29999 y -5.4 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.4 y -5.79999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.5 y -6.2 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.59999 y -6.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.7 y -6.9 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.79999 y -7.29999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 9 end 9 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 0 y 0 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 1 angle_type forward }
+        hitbox { start 16 end 16 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 1 angle_type forward }
+        hitbox { start 16 end 16 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 1 angle_type forward }
+        hitbox { start 16 end 16 x 0.29999 y -1.2 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 1 angle_type forward }
+        hitbox { start 16 end 16 x 0.4 y -1.59999 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 1 angle_type forward }
+        hitbox { start 16 end 16 x 0.5 y -2 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 1 angle_type forward }
+        hitbox { start 16 end 16 x 0.59999 y -2.4 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 0.7 y -2.79999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 0.79999 y -3.09999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 0.9 y -3.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1 y -3.9 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.09999 y -4.29999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.2 y -4.59999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.29999 y -5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.29999 y -5.4 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.4 y -5.79999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.5 y -6.2 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.59999 y -6.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.7 y -6.9 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.79999 y -7.29999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 16 end 16 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 1 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 0 y 0 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 2 angle_type forward }
+        hitbox { start 23 end 23 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 2 angle_type forward }
+        hitbox { start 23 end 23 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 2 angle_type forward }
+        hitbox { start 23 end 23 x 0.29999 y -1.2 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 2 angle_type forward }
+        hitbox { start 23 end 23 x 0.4 y -1.59999 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 2 angle_type forward }
+        hitbox { start 23 end 23 x 0.5 y -2 radius 0.29999 damage 3 angle 365 bkb 10 kbg 70 group 2 angle_type forward }
+        hitbox { start 23 end 23 x 0.59999 y -2.4 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 0.7 y -2.79999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 0.79999 y -3.09999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 0.9 y -3.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1 y -3.9 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.09999 y -4.29999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.2 y -4.59999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.29999 y -5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 1 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.29999 y -5.4 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.4 y -5.79999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.5 y -6.2 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.59999 y -6.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.7 y -6.9 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.79999 y -7.29999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
+        hitbox { start 23 end 23 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 365 bkb 20 kbg 120 priority 2 group 2 hitlag 0 angle_type forward }
         hitbox { start 30 end 30 x 0 y 0 radius 0.29999 damage 3 angle 90 bkb 10 kbg 70 group 3 angle_type forward }
         hitbox { start 30 end 30 x 0.09999 y -0.4 radius 0.29999 damage 3 angle 90 bkb 10 kbg 70 group 3 angle_type forward }
         hitbox { start 30 end 30 x 0.2 y -0.79999 radius 0.29999 damage 3 angle 90 bkb 10 kbg 70 group 3 angle_type forward }
@@ -13789,75 +13641,75 @@ weapon dagger {
         hitbox { start 30 end 30 x 1.9 y -7.7 radius 0.29999 damage 0.79999 angle 90 bkb 20 kbg 120 priority 2 group 3 hitlag 0 angle_type forward }
         hitbox { start 30 end 30 x 2 y -8.09999 radius 0.29999 damage 0.79999 angle 90 bkb 20 kbg 120 priority 2 group 3 hitlag 0 angle_type forward }
         hitbox { start 30 end 30 x 2.09999 y -8.5 radius 0.29999 damage 0.79999 angle 90 bkb 20 kbg 120 priority 2 group 3 hitlag 0 angle_type forward }
-        hitbox { start 12 end 12 x 0 y 0 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 4 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.09999 y -0.4 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 4 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.2 y -0.79999 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 4 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.29999 y -1.2 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 4 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.4 y -1.59999 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 4 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.5 y -2 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 4 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.59999 y -2.4 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.7 y -2.79999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.79999 y -3.09999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 0.9 y -3.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1 y -3.9 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.09999 y -4.29999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.2 y -4.59999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.29999 y -5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.29999 y -5.4 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.4 y -5.79999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.5 y -6.2 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.59999 y -6.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.7 y -6.9 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.79999 y -7.29999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 1.9 y -7.7 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 2 y -8.09999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 12 end 12 x 2.09999 y -8.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0 y 0 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 5 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.09999 y -0.4 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 5 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.2 y -0.79999 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 5 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.29999 y -1.2 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 5 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.4 y -1.59999 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 5 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.5 y -2 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 5 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.59999 y -2.4 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.7 y -2.79999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.79999 y -3.09999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 0.9 y -3.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1 y -3.9 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.09999 y -4.29999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.2 y -4.59999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.29999 y -5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.29999 y -5.4 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.4 y -5.79999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.5 y -6.2 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.59999 y -6.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.7 y -6.9 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.79999 y -7.29999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 1.9 y -7.7 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 2 y -8.09999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 19 end 19 x 2.09999 y -8.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0 y 0 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 6 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.09999 y -0.4 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 6 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.2 y -0.79999 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 6 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.29999 y -1.2 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 6 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.4 y -1.59999 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 6 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.5 y -2 radius 0.29999 damage 1 angle 367 bkb 0 kbg 50 group 6 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.59999 y -2.4 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.7 y -2.79999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.79999 y -3.09999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 0.9 y -3.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1 y -3.9 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.09999 y -4.29999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.2 y -4.59999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.29999 y -5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.29999 y -5.4 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.4 y -5.79999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.5 y -6.2 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.59999 y -6.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.7 y -6.9 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.79999 y -7.29999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 1.9 y -7.7 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 2 y -8.09999 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
-        hitbox { start 26 end 26 x 2.09999 y -8.5 radius 0.29999 damage 0.5 angle 367 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0 y 0 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 4 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.09999 y -0.4 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 4 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.2 y -0.79999 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 4 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.29999 y -1.2 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 4 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.4 y -1.59999 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 4 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.5 y -2 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 4 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.59999 y -2.4 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.7 y -2.79999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.79999 y -3.09999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 0.9 y -3.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1 y -3.9 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.09999 y -4.29999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.2 y -4.59999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.29999 y -5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.29999 y -5.4 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.4 y -5.79999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.5 y -6.2 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.59999 y -6.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.7 y -6.9 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.79999 y -7.29999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 1.9 y -7.7 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 2 y -8.09999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 12 end 12 x 2.09999 y -8.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 4 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0 y 0 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 5 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.09999 y -0.4 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 5 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.2 y -0.79999 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 5 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.29999 y -1.2 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 5 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.4 y -1.59999 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 5 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.5 y -2 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 5 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.59999 y -2.4 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.7 y -2.79999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.79999 y -3.09999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 0.9 y -3.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1 y -3.9 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.09999 y -4.29999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.2 y -4.59999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.29999 y -5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.29999 y -5.4 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.4 y -5.79999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.5 y -6.2 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.59999 y -6.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.7 y -6.9 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.79999 y -7.29999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 1.9 y -7.7 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 2 y -8.09999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 19 end 19 x 2.09999 y -8.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 5 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0 y 0 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 6 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.09999 y -0.4 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 6 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.2 y -0.79999 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 6 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.29999 y -1.2 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 6 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.4 y -1.59999 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 6 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.5 y -2 radius 0.29999 damage 1 angle 365 bkb 0 kbg 50 group 6 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.59999 y -2.4 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.7 y -2.79999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.79999 y -3.09999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 0.9 y -3.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1 y -3.9 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.09999 y -4.29999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.2 y -4.59999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.29999 y -5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 1 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.29999 y -5.4 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.4 y -5.79999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.5 y -6.2 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.59999 y -6.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.7 y -6.9 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.79999 y -7.29999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 1.9 y -7.7 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 2 y -8.09999 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
+        hitbox { start 26 end 26 x 2.09999 y -8.5 radius 0.29999 damage 0.5 angle 365 bkb 0 kbg 50 priority 2 group 6 hitlag 0 angle_type forward mode powered }
         motion { start 0 end 11 vx 0.0625 vy 0.275 }
         script {
             // Dagger gun, the jump (ext5, slot 33; from the ground only): intangible on its frames 1-6 (a move reached by `goto` starts its
@@ -15996,7 +15848,7 @@ fighter phantom {
     air_jump_drift 90
     gauge {
         max 100
-        per_dealt 0
+        per_dealt 1.29999
         per_taken 1.29999
         mode_frames 1800
         per_frame 0.00925

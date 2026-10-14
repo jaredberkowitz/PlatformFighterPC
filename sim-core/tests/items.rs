@@ -1,6 +1,6 @@
 //! Items (E4, sim 111; owner decisions 54 and 64): the universal pick-up, throws and drops every fighter has, the thrown hits, the
 //! physics and bounces, knocking an item about, bursts, and the Buckler's bomb (the down special: pull, detonation, fuse, hit points,
-//! self damage), its arrow items and its double arrow. Reference data: `docs/movesets/link/REFERENCE_DATA.md` ("Remote Bomb", "Bow and
+//! self damage), its arrow items and its double arrow. Reference data: `docs/movesets/buckler/REFERENCE_DATA.md` ("Remote Bomb", "Bow and
 //! Arrows", the item throw rows) and ssbwiki.com `Item_throw` (13.0.1).
 
 mod common;

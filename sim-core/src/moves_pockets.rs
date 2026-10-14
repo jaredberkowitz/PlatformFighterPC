@@ -263,6 +263,7 @@ fn tilts(w: &mut Weapon) {
         start: 6,
         end: 24,
         parts: PART_HIGH | PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::UTilt as usize] = utilt;
 

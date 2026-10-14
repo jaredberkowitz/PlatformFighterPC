@@ -866,9 +866,14 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             }
         }
         for p in &mv.part_intangible {
-            if p.start > p.end || p.end > mv.total_frames || p.parts == 0 || p.parts > 15 {
+            if p.start > p.end
+                || p.end > mv.total_frames
+                || p.parts == 0
+                || p.parts > 15
+                || p.mode > sim_core::moves::MODE_POWERED
+            {
                 errors.push(format!(
-                    "weapon {i} {name}: part_intangible {}..{} must lie inside the move and name at least one part",
+                    "weapon {i} {name}: part_intangible {}..{} must lie inside the move, name at least one part and a mode any, plain or powered",
                     p.start, p.end
                 ));
             }
@@ -1044,6 +1049,31 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             errors.push(format!(
                 "weapon {i} {name}: a hitbox's mode must be any, plain or powered and its part 0 or 1"
             ));
+        }
+        // Sim 123: a blockable box is a grab box (E56); a tether's frames lie inside the move, its reach is not negative (at most 64
+        // world units), it reels in at least one frame, its drag is at most 1000 per mille and it allows at least one catch.
+        if mv
+            .hitboxes
+            .iter()
+            .any(|hb| hb.blockable && hb.kind != sim_core::moves::HIT_GRAB)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: only a grab hitbox can be blockable"
+            ));
+        }
+        if let Some(t) = &mv.tether {
+            let reach = [t.ahead, t.behind, t.up, t.down];
+            if t.from > t.to
+                || t.to >= mv.total_frames
+                || reach.iter().any(|v| *v < Fx::ZERO || *v > MAX_VALUE)
+                || t.reel == 0
+                || t.drag > 1000
+                || t.limit == 0
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: a tether needs from..to inside the move, a reach from 0 to 64, a reel of at least 1 frame, a drag of at most 1000 and a limit of at least 1"
+                ));
+            }
         }
         // A move's toss (E47, sim 117): its frames inside the move, its speeds not negative, its angle a real one.
         if let Some(t) = &mv.toss {
@@ -1769,6 +1799,85 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("behind")));
+    }
+
+    #[test]
+    fn the_dagger_phase_2_fields_round_trip_and_are_checked() {
+        // Sim 123: a move's tether (E56), a blockable grab box, a dodge that stales like a roll, a part intangibility window's mode, and
+        // the phantom's gauge gain from damage dealt (owner decision 80) come back from a file unchanged; a file without them keeps
+        // today's behaviour; bad values are refused.
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[12].weapon);
+        let air = sim_core::moves::dagger_slots::HOOK_AIR as usize;
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "tether {",
+            "reel 12",
+            "drag 240",
+            "limit 3",
+            "blockable true",
+            "dodge_stale true",
+            "mode powered",
+            "per_dealt 1.29999",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no tether, no blockable box, no staling dodge, every window always.
+        let stripped = text
+            .replace(" blockable true", "")
+            .lines()
+            .filter(|l| {
+                let t = l.trim_start();
+                !t.starts_with("tether {")
+                    && !t.starts_with("dodge_stale")
+                    && !(t.starts_with("part_intangible") && t.contains("mode"))
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        let ow = &older.weapons[w];
+        assert!(ow
+            .moves
+            .iter()
+            .all(|m| m.tether.is_none() && !m.dodge_stale));
+        assert!(ow
+            .moves
+            .iter()
+            .flat_map(|m| m.hitboxes.iter())
+            .all(|h| !h.blockable));
+        // Bad values.
+        let mut c = base.clone();
+        if let Some(t) = c.weapons[w].moves[air].tether.as_mut() {
+            t.reel = 0;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("tether")));
+        let mut c = base.clone();
+        if let Some(t) = c.weapons[w].moves[air].tether.as_mut() {
+            t.to = 200;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("tether")));
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::Jab as usize].hitboxes[0].blockable = true;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("blockable")));
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::USmash as usize].part_intangible[0].mode = 3;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("part_intangible")));
     }
 
     #[test]

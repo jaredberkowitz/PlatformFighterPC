@@ -2,7 +2,7 @@
 //! gain from damage dealt and taken (the damage actually added), nothing from shields; draining during a `gauge_drain` move and while
 //! held out of one; the mode starting on a full gauge, its multipliers (and the jump speeds left alone), its 900-frame expiry; a KO
 //! emptying it; a powered version spending it, and no spending without one; bodies without a gauge unchanged; the state in the
-//! checksum and rolling back. Reference values: the seventh moveset's `REFERENCE_DATA.md` (`docs/movesets/cloud/`).
+//! checksum and rolling back. Reference values: the seventh moveset's `REFERENCE_DATA.md` (`docs/movesets/greatsword/`).
 
 mod common;
 
@@ -242,7 +242,7 @@ fn the_powered_mode_multiplies_the_bodys_movement_but_not_its_jumps() {
             "{name}"
         );
     }
-    // The reference's Limit Break walk acceleration 0.181125 and air speed 1.386, to the last fixed-point step.
+    // The reference's full-gauge walk acceleration 0.181125 and air speed 1.386, to the last fixed-point step.
     assert!((q.walk_accel_stick - FighterParams::gu_fine(18112)).abs() <= Fx::from_raw(2));
     assert!((q.air_speed - FighterParams::su(1386)).abs() <= Fx::from_raw(1));
     for (a, b) in [

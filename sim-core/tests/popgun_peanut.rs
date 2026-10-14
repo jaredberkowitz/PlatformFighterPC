@@ -1,6 +1,6 @@
 //! The Popgun's neutral special, the peanut popgun (class 11, the scamp body), modelled mechanically on a reference character: the
 //! uncharged shot on frame 16, the charge to frame 94 fired on release, the overcharge going off on frame 97, the shield cancel, the
-//! peanut's hit by the charge. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/diddy_kong/`).
+//! peanut's hit by the charge. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/popgun/`).
 
 mod common;
 

@@ -1,6 +1,6 @@
-//! The Dagger moveset (the phantom body), modelled mechanically on a reference character: phase 1, the body's normals with its
-//! partner's boxes, the gun, the curse bolt, the guard and the partner's specials. A child module of `moves` (it uses that file's private
-//! row builders). Data and sources: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/joker/`), read from ssbwiki.com's raw
+//! The Dagger moveset (the phantom body), modelled mechanically on a reference character: the body's normals with its partner's
+//! boxes, the gun, the curse bolt, the guard and the partner's specials (phase 1), the hook and its tether (phase 2, sim 123). A child module of `moves` (it uses that file's private
+//! row builders). Data and sources: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/dagger/`), read from ssbwiki.com's raw
 //! hitbox tables (13.0.1), ultimateframedata.com and dragdown.wiki.
 //!
 //! **The partner** (E52, E53): the phantom's gauge (`FighterParams::phantom_gauge`) fills by itself, from damage taken and from hits on
@@ -154,9 +154,13 @@ fn partner(h: &mut Hitbox) {
     h.rebounds = false;
 }
 
-/// The follow-up slots of the Dagger (`Ext3`..`Ext15`; `Ext0`-`Ext2` hold the placeholder up special until phase 2's hook).
+/// The follow-up slots of the Dagger (all sixteen used).
 pub mod slots {
     use super::MoveId;
+    /// The hook in the air (with its once-per-air-time boost), the hook's pull and throw, the hook in the air without the boost.
+    pub const HOOK_AIR: MoveId = MoveId::Ext0;
+    pub const HOOK_PULL: MoveId = MoveId::Ext1;
+    pub const HOOK_AIR_SPENT: MoveId = MoveId::Ext2;
     /// The gun's sideways dodges, forward and back.
     pub const GUN_DASH: MoveId = MoveId::Ext3;
     pub const GUN_BACK: MoveId = MoveId::Ext4;
@@ -182,7 +186,7 @@ use slots::*;
 
 /// The Dagger moveset (the phantom body): a short knife, kicks, a gun, a curse bolt, a guard that fills its gauge and the partner
 /// that comes when the gauge is full. Every normal follows the reference frame for frame (the thirteenth moveset's `REFERENCE_DATA.md`
-/// in `docs/movesets/joker/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables), with and without the partner: active frames,
+/// in `docs/movesets/dagger/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables), with and without the partner: active frames,
 /// FAF, landing lag and autocancel windows, smash charge frames; damage, angles and angle types, base and growth knockback, set
 /// knockback and set weight, hitlag, SDI and shieldstun multipliers, shield damage, grounded- and aerial-only boxes, no-clank boxes, hit
 /// groups, the partner's own boxes. Radii and offsets on the reference's root bone (`top`) are its values converted (x 1.25, rounded
@@ -202,6 +206,7 @@ pub fn dagger() -> Weapon {
     curse_bolt(&mut w);
     guard(&mut w);
     stance(&mut w);
+    hook(&mut w);
     wings(&mut w);
     w
 }
@@ -1182,6 +1187,13 @@ fn smashes(w: &mut Weapon) {
     }
     let mut usmash = moved(52, 0, 0, 255, b);
     usmash.charge_at = Some(3);
+    // With the partner the arm is intangible on 10-14 [R] (sim 123: a window for the powered mode only).
+    usmash.part_intangible = vec![PartIntangible {
+        start: 9,
+        end: 13,
+        parts: PART_LIMB,
+        mode: MODE_POWERED,
+    }];
     w.moves[MoveId::USmash as usize] = usmash;
 
     // Down smash: the knife swept low in front then behind, type 0 [R]. Charges on frame 5. Hit 1 on 12-13: 12%, 32 degrees, BK 30, KS
@@ -1924,6 +1936,8 @@ fn gun(w: &mut Weapon) {
     dash.intangible_from = 3;
     dash.intangible_from_air = 3;
     dash.intangible = 13;
+    // (Staled like a roll: sim 123.)
+    dash.dodge_stale = true;
     dash.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/dagger_gun_dash.script"),
@@ -1944,6 +1958,7 @@ fn gun(w: &mut Weapon) {
     back.intangible_from = 4;
     back.intangible_from_air = 4;
     back.intangible = 14;
+    back.dodge_stale = true;
     back.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/dagger_gun_back.script"),
@@ -1952,8 +1967,8 @@ fn gun(w: &mut Weapon) {
 
     // The jump (ext5, from the ground only): a jump up and forward while firing below on frames 10, 17, 24 and 31 (3% close, 0.8% far;
     // BK 10 / 20, KS 70 / 120), intangible 1-6, FAF 60, landing lag 14 [R]; with the partner shots on 13, 20 and 27 too (1% / 0.5%) [R].
-    // The reference's angle for the first three is 365 (not built here: the autolink 367 stands in [E]), the fourth 90 [E: its several
-    // angles]. The jump: 2.2 up a frame for 12 frames, 0.5 forward, then the body's fall [E: not published].
+    // The reference's angle for the first three is 365 (sim 123: half the phantom's momentum, `ANGLE_HALF_LINK`), the fourth 90 [E: its
+    // several angles]; the partner's three follow-ups 365 too [E]. The jump: 2.2 up a frame for 12 frames, 0.5 forward, then the body's fall [E: not published].
     let below = (0, 0);
     let down = (25, -100);
     let jump_bands = |angle_hit: bool| {
@@ -1965,7 +1980,7 @@ fn gun(w: &mut Weapon) {
     };
     let mut b = Vec::new();
     for (k, frame) in [10u8, 17, 24, 31].into_iter().enumerate() {
-        let angle = if k == 3 { 90 } else { ANGLE_AUTOLINK };
+        let angle = if k == 3 { 90 } else { ANGLE_HALF_LINK };
         b.extend(shot(
             frame,
             below,
@@ -1982,7 +1997,7 @@ fn gun(w: &mut Weapon) {
             below,
             down,
             jump_bands(false),
-            ANGLE_AUTOLINK,
+            ANGLE_HALF_LINK,
             4 + k as u8,
             awake,
         ));
@@ -2397,10 +2412,114 @@ fn stance(w: &mut Weapon) {
     w.moves[REFLECTION as usize] = reflection;
 }
 
+// ---- The hook (the plain up special) -----------------------------------------------------------------------------------------------
+
+/// The hook's line, in the reference's tenths: from 3.2 ahead and 22.0 up to 10.6 ahead and 38.0 up (the aerial box id 1 on `top`, the
+/// root at the feet) [R]; the hook's head (the reference's `throw` bone, the far end of its id 0 capsule, 16.4 long) at its far end [E].
+const HOOK_NEAR: (i32, i32) = (32, 220);
+const HOOK_FAR: (i32, i32) = (106, 380);
+
+/// The plain up special, the hook (the reference's, ssbwiki.com 13.0.1 raw hitbox tables and ultimateframedata.com) [R unless marked]:
+///
+/// * **On the ground** (the up special): a grab box on frame 20 (the rope, radius 3.0, along the hook's line, and the head, radius 5.5)
+///   and 21-26 (the head), FAF 60. It catches fighters in the air or on the ground (a command grab: the reference's "can grab
+///   opponents, dragging them towards" the fighter) but not one in hitstun, and a raised shield or a reflector stops it (`blockable`,
+///   E56: "can be shielded despite its grab properties"; the move goes on to its end [E: what the stop leaves is not published]). A
+///   catch goes on as the pull (ext1): the caught fighter held just in front [E] and thrown on frame 6, 11% at 78 degrees, BK 75, KS
+///   40, FAF 30.
+/// * **In the air** (ext0, its `air_version`): no grab; a hit on 20 (the head, radius 2.7, and the line, radius 2.7) and 21-25 (the
+///   head): 5%, 55 degrees, BK 76, KS 56, shield damage +1, hitlag x1.2, clanks but does not rebound; FAF 45; no special fall ("does
+///   not induce special fall"). The first in an air time gives a small rise (the reference's "slight vertical boost": 1.5 of its units
+///   a frame on frame 5 [E: not published]) and marks the air time (mark 0); a later one (ext2, by the flag version) has none.
+/// * **The tether** (E56, the air versions): from frame 12 ("tethers on frame 12", ultimateframedata.com) to the head's last frame 25
+///   [E], a free ledge in reach is caught: up to 40.0 of the reference's units above the feet (the line's far end and its radius) and
+///   16.0 in front [E: "a large ledge grab range", "very high vertical reach", "low horizontal range"]; the fighter hangs 8 frames
+///   (losing 0.24 of its speed a frame: the reference's hang air resistance, `air_resist_hang` 0.24 since 4.0.0 [R; its reading E]),
+///   then is reeled to the ledge in 12 [E]; three catches before landing [R]; the stick down lets go [R].
+fn hook(w: &mut Weapon) {
+    let line =
+        |radius: i32, damage: i32, angle: i16, bkb: i16, kbg: i16, f: &dyn Fn(&mut Hitbox)| {
+            along(
+                20, 20, HOOK_NEAR, HOOK_FAR, radius, damage, angle, bkb, kbg, 1, 0, f,
+            )
+        };
+    // On the ground: the grab.
+    let grab = |h: &mut Hitbox| {
+        h.kind = HIT_GRAB;
+        h.command = true;
+        h.blockable = true;
+    };
+    let mut b = line(30, 0, 361, 0, 0, &grab);
+    b.push(bx(
+        20, 26, HOOK_FAR.0, HOOK_FAR.1, 55, 0, 361, 0, 0, 0, 0, grab,
+    ));
+    let mut ground = moved(60, 0, 0, 255, b);
+    ground.catch_move = Some(HOOK_PULL as u8);
+    ground.air_version = Some(HOOK_AIR as u8);
+    ground.limit_version = w.moves[MoveId::UpSpecial as usize].limit_version;
+    w.moves[MoveId::UpSpecial as usize] = ground;
+
+    // The pull and throw.
+    let mut pull = with_kind(
+        ref_move(30, 0, 0, 255, &[r(6, 6, 13, 11, 10, 110, 78, 75, 40, 0, 0)]),
+        HIT_THROW,
+    );
+    pull.hold_at = Some((FighterParams::su(9000), Fx::ZERO));
+    w.moves[HOOK_PULL as usize] = pull;
+
+    // In the air: the hit and the tether.
+    let hit = |h: &mut Hitbox| {
+        h.shield_damage = shield(50, 10);
+        h.hitlag = 120;
+        h.rebounds = false;
+    };
+    let air = |boost: bool| {
+        let mut b = line(27, 50, 55, 76, 56, &hit);
+        b.push(bx(
+            20, 25, HOOK_FAR.0, HOOK_FAR.1, 27, 50, 55, 76, 56, 0, 0, hit,
+        ));
+        // (Every frame lands with the body's own landing lag [E: none published].)
+        let mut m = moved(45, 0, 255, 255, b);
+        m.tether = Some(crate::moves::Tether {
+            from: 11,
+            to: 24,
+            ahead: FighterParams::su(16_000),
+            behind: Fx::ZERO,
+            up: FighterParams::su(40_000),
+            down: Fx::ZERO,
+            hang: 8,
+            reel: 12,
+            drag: 240,
+            limit: 3,
+        });
+        if boost {
+            m.motion = vec![Motion {
+                start: 4,
+                end: 4,
+                vx: Fx::ZERO,
+                vy: FighterParams::su(1500),
+            }];
+            m.motion_drift = 100;
+            m.script = Some(script(
+                Kind::Fighter,
+                include_str!("scripts/dagger_hook.script"),
+            ));
+            m.flag_versions = vec![FlagVersion {
+                flags: 0,
+                marks: 1,
+                slot: Some(HOOK_AIR_SPENT as u8),
+            }];
+        }
+        m
+    };
+    w.moves[HOOK_AIR as usize] = air(true);
+    w.moves[HOOK_AIR_SPENT as usize] = air(false);
+}
+
 /// The powered up special, the wings (ext15; the reference's, ssbwiki.com 13.0.1): a flight up with no hitbox, intangible 1-25 from the
 /// ground and 3-25 from the air, 98 frames, then the special fall with 30 frames of landing lag [R]; the stick angles it a little before
 /// it rises [R]. The rise: 2.0 of the reference's units a frame for frames 6-45, gently slowing [E: not published; "higher than most up
-/// specials"]; ledges in front from frame 10 [E]. (The plain up special, the hook, is phase 2: the placeholder stays until then.)
+/// specials"]; ledges in front from frame 10 [E].
 fn wings(w: &mut Weapon) {
     let mut m = ref_move(99, 30, 0, 255, &[]);
     m.intangible = 25;

@@ -1,6 +1,6 @@
 //! The Popgun moveset (the scamp body), modelled mechanically on a reference character: phase 1, the body's normals and the
 //! specials. A child module of `moves` (it uses that file's private row builders). Data and sources: the twelfth moveset's
-//! `REFERENCE_DATA.md` (`docs/movesets/diddy_kong/`), read from ssbwiki.com's raw hitbox tables (13.0.1), ultimateframedata.com and
+//! `REFERENCE_DATA.md` (`docs/movesets/popgun/`), read from ssbwiki.com's raw hitbox tables (13.0.1), ultimateframedata.com and
 //! the parameter file via dragdown.wiki.
 
 use super::*;
@@ -95,7 +95,7 @@ fn set_all(mv: &mut Move, f: impl Fn(&mut Hitbox)) {
 
 /// The Popgun moveset (the scamp body): quick slaps and flips, a peanut popgun, a banana peel anyone can pick up, a leaping latch and
 /// rocket barrels. Every normal follows the reference frame for frame (the twelfth moveset's `REFERENCE_DATA.md` in
-/// `docs/movesets/diddy_kong/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables): active frames, FAF, landing lag and
+/// `docs/movesets/popgun/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables): active frames, FAF, landing lag and
 /// autocancel windows, smash charge frames; damage, angles and angle types, base and growth knockback, set knockback and set weight,
 /// hitlag and SDI multipliers, shield damage, trip chances, grounded- and aerial-only boxes, no-clank boxes, hit groups. Radii and
 /// offsets on the reference's root bone (`top`) are its values converted (x 1.25, rounded half up to a tenth) [D]; boxes on other

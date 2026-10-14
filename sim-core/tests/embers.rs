@@ -2,7 +2,7 @@
 //! normal; the specials are still the claws'). Frame data against the reference for every normal, checked in the data and by running
 //! the moves; hit properties; the jab's continuable windows and repeated jab; the angled forward tilt and smash; the down air's loop,
 //! final hit and landing hit; landing lag and autocancels; grabs, pummel and throws; the body's jump air times; and determinism.
-//! Reference data and sources: `docs/movesets/mario/REFERENCE_DATA.md`.
+//! Reference data and sources: `docs/movesets/embers/REFERENCE_DATA.md`.
 
 mod common;
 

@@ -1,5 +1,5 @@
 //! The Gauntlets' specials (class 4, the sprinter body; phase 2), modelled mechanically on a reference character: frame data, hits
-//! and the behaviour of each special against `docs/movesets/captain_falcon/REFERENCE_DATA.md`, and the extensions they brought
+//! and the behaviour of each special against `docs/movesets/gauntlets/REFERENCE_DATA.md`, and the extensions they brought
 //! (search boxes, command grabs, no-clank melee hits, situation changes that keep the frame, the wall register).
 
 mod common;
@@ -288,6 +288,7 @@ fn the_uppercut_withstands_a_hit_of_up_to_10_percent_on_frames_1_to_4() {
         unblockable: false,
         mode: 0,
         part: 0,
+        blockable: false,
     };
     for (damage, holds) in [(10, true), (11, false)] {
         let mut sim = duel();

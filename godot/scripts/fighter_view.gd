@@ -363,6 +363,20 @@ func _build_rig(skin: Material) -> bool:
 			mi.visible = not (use_base_body and part.begins_with("Cuff") and not loadout.has_gloves())
 		elif part.begins_with("Strap"):
 			mi.material_override = toon(loadout.accent_color())
+		elif part.begins_with("ShortsCuff") or part.begins_with("ShortsPocket"):
+			# The shorts' rolled cuffs and pocket flaps (make_rigged_blob.py), a shade darker than the shorts.
+			mi.material_override = _cloth(toon(shorts_colour.darkened(0.12)))
+			mi.visible = loadout.has_shorts()
+		elif part.begins_with("BootCuff"):
+			mi.material_override = toon(BOOT_LEATHER.darkened(0.3))
+			mi.visible = loadout.has_shoes()
+		elif part.begins_with("BootSole"):
+			mi.material_override = respond(toon(BOOT_SOLE), "rubber")
+			mi.visible = loadout.has_shoes()
+		elif part.begins_with("Boot"):
+			# Hiking boots over the painted shoes (the owner's PEAK references): leather on a thick pale sole.
+			mi.material_override = toon(BOOT_LEATHER)
+			mi.visible = loadout.has_shoes()
 		elif part.begins_with("Shorts"):
 			mi.material_override = _cloth(shorts)
 			mi.visible = loadout.has_shorts()
@@ -1478,6 +1492,8 @@ const CLOTH_RAMP_SOFTNESS := 0.32
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
 const BELT_LEATHER := Color(0.4, 0.26, 0.18)
+const BOOT_LEATHER := Color(0.4, 0.25, 0.17)
+const BOOT_SOLE := Color(0.94, 0.88, 0.76)
 const BELT_BRASS := Color(0.95, 0.74, 0.32)
 
 
@@ -2249,9 +2265,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		rebuild(loadout)
 	position = pos
 	var state: String = s.state
-	# Vanish: nothing to see while it teleports.
+	# Flash Step: nothing to see while it teleports.
 	if model != null:
-		var gone: Array = VANISH_GONE if _cls(s) == 2 else WARP_GONE
+		var gone: Array = FLASH_STEP_GONE if _cls(s) == 2 else WARP_GONE
 		model.visible = not ((_cls(s) == 2 or _cls(s) == STAFF_CLASS) and state == "Attack" and s.move_name == "up special"
 			and int(s.state_frame) >= gone[0] and int(s.state_frame) <= gone[1])
 	_ledge_motion(s, pos)
@@ -3236,7 +3252,7 @@ const ARCS := {
 		"uair": [[0.0, 0.0, 0.0, 15, 165, 7, 9, "arm"]],
 		"dair": [[0.0, 0.0, 0.0, 20, -110, 16, 17, "arm"]],
 	},
-	# Champion (greatsword): fitted to the moveset's timings (docs/movesets/cloud/IMPLEMENTATION_REPORT.md), circles about the shoulder
+	# Champion (greatsword): fitted to the moveset's timings (docs/movesets/greatsword/IMPLEMENTATION_REPORT.md), circles about the shoulder
 	# a little wider than the longsword's for the longer blade. Its kicks (jabs 1 and 2, the down tilt) and the driven-down down air
 	# draw none.
 	6: {
@@ -3276,8 +3292,8 @@ const ARCS := {
 	},
 }
 
-## The Needles' Vanish: the fighter is gone (move frames, from 0) while it teleports, between the explosion and the reappearance.
-const VANISH_GONE := [36, 54]
+## The Needles' Flash Step: the fighter is gone (move frames, from 0) while it teleports, between the explosion and the reappearance.
+const FLASH_STEP_GONE := [36, 54]
 ## The Seer's Warp: gone (move frames) while it travels, back on the next.
 const WARP_GONE := [16, 32]
 var arc: MeshInstance3D

@@ -1,7 +1,7 @@
 //! The phantom's gauge and its partner (E53, sim 121; the reference's, ssbwiki.com's article on the gauge and ultimateframedata.com,
-//! 13.0.1): the fill by itself, from damage taken (and not dealt), the stock-gap and crowd multipliers, the guard's gain, the partner's
+//! 13.0.1): the fill by itself, from damage taken (and, since sim 123, dealt: owner decision 80, a house rule), the stock-gap and crowd multipliers, the guard's gain, the partner's
 //! 1800 frames, the time each percent taken cuts, the stun that stops the clock, specials that do not spend it, and what a KO leaves.
-//! Reference data: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/joker/`).
+//! Reference data: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/dagger/`).
 
 mod common;
 
@@ -51,26 +51,13 @@ fn the_gauge_fills_by_itself_0_00925_a_frame_and_not_on_the_revival_platform() {
 }
 
 #[test]
-fn damage_taken_fills_it_1_3_a_percent_and_damage_dealt_does_not() {
+fn damage_taken_fills_it_1_3_a_percent() {
     let mut sim = duel();
     take(&mut sim, Fx::from_int(3));
     // (3% taken: 3.9 units, the reference's example.)
     assert!(
         (sim.f().gauge - fx(39, 10)).abs() <= fx(1, 10_000),
         "{:?}",
-        sim.f().gauge
-    );
-    // A hit the phantom deals adds nothing to its gauge.
-    let mut sim = duel();
-    sim.stand(1, Fx::from_ratio(13, 10), -1);
-    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::Jab);
-    for _ in 0..10 {
-        sim.tick(inp(0, 0, 0));
-    }
-    assert!(sim.fighter(1).percent > Fx::ZERO);
-    assert!(
-        sim.f().gauge < fx(1, 10),
-        "only the fill by itself: {:?}",
         sim.f().gauge
     );
     // A real hit taken: the damage actually added (the one-on-one 1.2 counted) times 1.3.
@@ -272,4 +259,91 @@ fn the_gauge_and_the_partner_are_in_the_checksum_and_resimulate_exactly() {
         sim_core::step(&mut c, &content, &inputs);
         assert_eq!(c.checksum(), s);
     }
+}
+
+/// The phantom's jab 1 on the duelist standing 1.3 away: the frame its percent rose, the gauge's rise that frame and the percent added.
+fn jab_gain(sim: &mut Sim) -> (Fx, Fx) {
+    sim.stand(1, Fx::from_ratio(13, 10), -1);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::Jab);
+    for _ in 0..10 {
+        let (gauge, percent) = (sim.f().gauge, sim.fighter(1).percent);
+        sim.tick(inp(0, 0, 0));
+        if sim.fighter(1).percent > percent {
+            return (sim.f().gauge - gauge, sim.fighter(1).percent - percent);
+        }
+    }
+    panic!("the jab did not hit");
+}
+
+#[test]
+fn damage_the_phantom_deals_fills_it_1_3_a_percent_without_the_stock_gap() {
+    // Owner decision 80 (sim 123, a house rule [E]): the same 1.3 a percent as damage taken, the damage actually added.
+    let mut sim = duel();
+    let (gain, added) = jab_gain(&mut sim);
+    assert!(added > Fx::ZERO);
+    assert_eq!(gain, added * fx(13, 10) + fx(925, 100_000));
+    // A stock behind the leader changes nothing (no stock-gap or crowd multiplier on it).
+    let mut sim = duel();
+    sim.state.rules.stocks = 3;
+    sim.state.fighters[0].stocks = 2;
+    sim.state.fighters[1].stocks = 3;
+    let (behind, added_behind) = jab_gain(&mut sim);
+    assert_eq!(behind, added_behind * fx(13, 10) + fx(925, 100_000));
+    // While the partner is out nothing fills it (and the mode's clock is not cut by dealing damage).
+    let mut sim = duel();
+    sim.state.fighters[0].gauge = Fx::from_int(100);
+    sim.state.fighters[0].gauge_mode = 1800;
+    let _ = jab_gain(&mut sim);
+    assert_eq!(sim.f().gauge, Fx::from_int(100));
+    assert!(sim.f().gauge_mode >= 1790);
+}
+
+#[test]
+fn a_shield_and_the_curses_ticks_fill_nothing_for_the_phantom() {
+    // A shielded jab: no damage added, so nothing but the fill by itself.
+    let mut sim = duel();
+    sim.stand(1, Fx::from_ratio(13, 10), -1);
+    sim.state.fighters[1].state = S::Shield;
+    sim.state.fighters[1].state_frame = 20;
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::Jab);
+    for _ in 0..10 {
+        sim.tick2(inp(0, 0, 0), inp(0, 0, sim_core::input::buttons::SHIELD));
+    }
+    assert_eq!(sim.fighter(1).percent, Fx::ZERO);
+    assert_eq!(sim.f().gauge, fx(925, 100_000) * Fx::from_int(10));
+    // A curse's tick credited to the phantom raises the victim's percent but not the phantom's gauge.
+    let mut sim = duel();
+    sim.stand(1, Fx::from_int(8), -1);
+    let f = &mut sim.state.fighters[1];
+    f.curse_left = 50;
+    f.curse_every = 45;
+    f.curse_tick = 44;
+    f.curse_damage = Fx::ONE;
+    f.curse_by = 0;
+    sim.tick(inp(0, 0, 0));
+    assert!(sim.fighter(1).percent > Fx::ZERO);
+    assert_eq!(sim.f().gauge, fx(925, 100_000));
+}
+
+#[test]
+fn another_gauge_user_is_unchanged_by_the_phantoms_dealt_rate() {
+    // The champion's gauge (class 6) still gains 0.667 a percent dealt; the shared default is still nothing.
+    let champion = sim_core::FighterParams::champion();
+    assert_eq!(champion.gauge.per_dealt, fx(667, 1000));
+    assert_eq!(sim_core::content::Gauge::NONE.per_dealt, Fx::ZERO);
+    let mut sim = Sim::with_chars([6, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.state.roster = 0b11;
+    sim.stand(0, Fx::ZERO, 1);
+    let (gain, added) = jab_gain(&mut sim);
+    assert!(added > Fx::ZERO);
+    assert_eq!(gain, added * fx(667, 1000));
+    // (A body with no gauge gains nothing.)
+    let mut sim = Sim::with_chars([0, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    let (gain, _) = jab_gain(&mut sim);
+    assert_eq!(gain, Fx::ZERO);
 }

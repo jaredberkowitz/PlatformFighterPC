@@ -16,7 +16,7 @@ determinism, maintainability and compatibility with what already exists.
 1. `CLAUDE.md` (hard rules; they override anything below).
 2. `docs/STATUS.md` (roadmap, what is verified, current SIM_VERSION and gaps).
 3. `docs/movesets/ROSTER_STATUS.md` and `docs/movesets/SHARED_MECHANICS.md` if they exist (create them on your first run).
-4. The finished precedent port, which defines the house method: `docs/sheik/PROJECT_AUDIT.md`, `REFERENCE_DATA.md`,
+4. The finished precedent port, which defines the house method: `docs/movesets/needles/PROJECT_AUDIT.md`, `REFERENCE_DATA.md`,
    `IMPLEMENTATION_REPORT.md`, plus `docs/MOVESETS.md`, `docs/COMBAT.md` and `docs/CONTENT.md`.
 5. `git status`: never overwrite someone else's uncommitted work (a teammate works on this repo too).
 
@@ -37,8 +37,8 @@ determinism, maintainability and compatibility with what already exists.
   `sim-core/tests/scripted_moves.rs` + the doc line (a test checks it).
 - **Already built and reusable** (check `SHARED_MECHANICS.md` and grep before building anything): hit groups (8 per move) and selective
   rehit, autolink, set knockback, extra hitstun, per-hitbox SDI, sweet/sour spots, landing hits, autocancel windows, landing lag,
-  projectile pool, counters and reflectors, charge and store (Shield Breaker, Needle Storm), multi-hit jabs, grabs/pummels/throws,
-  teleport (Vanish), bounce-off-hit (Bouncing Fish), per-fighter ground params from the reference parameter file (sim 54).
+  projectile pool, counters and reflectors, charge and store (Charged Thrust, Needle Volley), multi-hit jabs, grabs/pummels/throws,
+  teleport (Flash Step), bounce-off-hit (Flip Kick), per-fighter ground params from the reference parameter file (sim 54).
 
 ### Hard rules (from `CLAUDE.md`, enforced by lints and tests)
 
@@ -115,7 +115,7 @@ recipe must stay valid content (a test checks it).
 
 ## 4. Workflow per fighter
 
-1. **Audit** (`docs/movesets/<fighter>/PROJECT_AUDIT.md`): trace the systems the kit needs from input to recovery
+1. **Audit** (`docs/movesets/<class>/PROJECT_AUDIT.md`): trace the systems the kit needs from input to recovery
    (`fighter.rs` `ground`/`start_ground_attack`/`start_special` → `begin_attack` → `attack()` → `combat::resolve_hits`). Don't assume
    something is missing until you've searched; don't replace a working subsystem because another design looks cleaner.
 2. **Research** (`REFERENCE_DATA.md`): full move inventory and attributes, every number labelled, sources and unresolved conflicts listed.
@@ -159,8 +159,8 @@ Per fighter, a test file in `sim-core/tests/` (model: `needles.rs`, `reference_m
 - `docs/movesets/SHARED_MECHANICS.md`: each shared mechanic, where it lives, who uses it, its parameters, limits and protecting tests. Read
   it before building anything; update it when you extend something.
 - `docs/movesets/TESTING_STANDARDS.md`: the section 5 rules as they are actually applied.
-- `docs/movesets/<fighter>/` with `PROJECT_AUDIT.md`, `REFERENCE_DATA.md`, `IMPLEMENTATION_REPORT.md`. Leave `docs/sheik/` where it is
-  and link to it.
+- `docs/movesets/<class>/` with `PROJECT_AUDIT.md`, `REFERENCE_DATA.md`, `IMPLEMENTATION_REPORT.md`. Name the folder by the in-game class (lowercase, e.g. `docs/movesets/dagger/`), never the reference character
+  (the Needles port lives in `docs/movesets/needles/`).
 
 Write the docs plainly: a teammate who is new to the project reads them.
 

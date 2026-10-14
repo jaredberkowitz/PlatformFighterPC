@@ -101,6 +101,29 @@ pub fn on_damage(
     victim: usize,
     damage: Fx,
 ) {
+    gain(state, content, source, victim, damage, true);
+}
+
+/// Damage over time (E54) was just added to `victim`'s percent, credited to `source`: the victim's gauge sees it as damage taken,
+/// but the source gains nothing for it (sim 123, owner decision 80: damage dealt counts hits only).
+pub fn on_damage_over_time(
+    state: &mut GameState,
+    content: &Content,
+    source: usize,
+    victim: usize,
+    damage: Fx,
+) {
+    gain(state, content, source, victim, damage, false);
+}
+
+fn gain(
+    state: &mut GameState,
+    content: &Content,
+    source: usize,
+    victim: usize,
+    damage: Fx,
+    dealt: bool,
+) {
     if damage <= Fx::ZERO {
         return;
     }
@@ -146,7 +169,7 @@ pub fn on_damage(
             if drain { -taken } else { taken },
         );
     }
-    if source != victim {
+    if dealt && source != victim {
         let ps = *crate::combat::params_of(content, &state.fighters[source]);
         add(
             &mut state.fighters[source],

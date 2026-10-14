@@ -254,6 +254,7 @@ fn tilts(w: &mut Weapon) {
         start: 6,
         end: 16,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     // The reference's 20% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 80 degrees it lifts, so it never
     // trips on the flat stages.

@@ -1,7 +1,7 @@
 //! The Popgun's up special, the rocket barrels (class 11, the scamp body), modelled mechanically on a reference character: the charge
 //! (frames 7 to 67, launching on 8 to 68), the launch speed by the charge and the air multiplier, the angle tilted while charging and
 //! steered while flying, the flight's hits, the special fall and its landing lag, the crash into a wall, and the barrels flying off a
-//! hit wearer (E48) to burst on the stage. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/diddy_kong/`).
+//! hit wearer (E48) to burst on the stage. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/popgun/`).
 
 mod common;
 

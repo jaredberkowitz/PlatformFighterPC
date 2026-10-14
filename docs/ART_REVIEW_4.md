@@ -154,3 +154,15 @@ The owner after a playtest: the hands still look chunky and odd.
 - The forearm is cut square across itself at the wrist (it was cut across the shoulder-to-wrist line, a notch up one side).
 - Checks: the fighter, art, loadout, motion, animation, creator, online and match tests pass; the look bench 0.87.
   `review4_hands.png` (before: rows 1-2; after: rows 3-4), `review4_sleeves.png`, `review4_fists.png` (a jab).
+
+## Pass 72: boots and cargo shorts
+
+After the PEAK references (scouts in hiking boots and cargo shorts; ours had shoes painted on the feet and plain tube shorts):
+
+- **Boots** (`Boot`, `BootSole`, `BootCuff`, cut from the foot like the other garments): a leather upper a little past the ankle, a
+  thick pale sole standing out round it like a rim (`SOLE_HEIGHT` 0.08, `SOLE_LIFT` 0.062) and a darker padded collar round the top;
+  nothing goes below the ground. Matte leather (the rubber sheen read as blotches). Shown with the full kit (`has_shoes`).
+- **Shorts**: a rolled cuff round each leg opening (`ShortsCuff`) and a pocket flap on each side under the belt (`ShortsPocket`, laid on
+  the shorts' surface, moving with the shorts' weights), a shade darker than the shorts.
+- Checks: the fighter, art, loadout, motion, animation, creator, online, match and content tests pass; the look bench 0.87.
+  `review4_boots_shorts.png`.

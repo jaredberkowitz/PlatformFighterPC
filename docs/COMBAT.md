@@ -139,7 +139,7 @@ own windows, in front and behind separately (`ledge_front_from`, `ledge_back_fro
 ### Up specials on the reference's numbers (sim 58)
 
 The per-move recovery rules (`docs/CONTENT.md`, the move fields from `intangible_from` to `land_continue`) brought both up specials to
-their references (SmashWiki, 13.0.1; the full list is in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`):
+their references (SmashWiki, 13.0.1; the full list is in `docs/movesets/embers/IMPLEMENTATION_REPORT.md`):
 
 - **Longsword**: the clean hit on frame 5 (11%, 361 / 74 degrees, BK 70, KS 74), the blade 6-11 (7%, BK 20, KS 90, hitlag x0.9) winning
   where both reach on 6; intangible 4-5 from the ground, 1-5 in the air; a 39-frame animation, then the special fall at x0.4 air speed
@@ -271,7 +271,7 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 
 **New engine features**
 - **Ten script follow-up slots** `ext0` to `ext9` (`MoveId::Ext0..Ext9`, indices 28 to 37). A button never starts one; a script's
-  `goto` or a counter does. Used for Dancing Blade's later hits and Counter's answer.
+  `goto` or a counter does. Used for Blade Flurry's later hits and Counter's answer.
 - **Counter stance** (`Move::counter`, `counter_strike`): while the stance's window is open a hit that lands (melee or projectile) is
   cancelled, both fighters freeze for its hitlag, the countering fighter turns toward the attacker and switches to the `then` move,
   whose hitboxes deal `max(min_damage, percent / 100 x caught damage)` (at most `max_damage` when set). Since sim 78 a push (a
@@ -291,8 +291,8 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 | Throws | forward 4% (release 18, FAF 34), back 4% (19, 44), up 5% (13, 44), down 4% (20, 46) |
 | Ledge attack | 9%, angle 45, base 90 / growth 20, frames 23-25, intangible to 25, FAF 56 (the brawler: 24-26, to 26) |
 | Get-up attack (from the floor) | 7% in front on frames 16-17 then 7% behind on 22-23 (the brawler 21-22), angle 48 (the reference's; 361 before sim 73), base 80 / growth 48, intangible to 23 (22), FAF 46 (sim v44; it had growth 80 and sent far at high percents) |
-| Shield Breaker | neutral special: hold special from frame 19 (at most 60 frames), thrust 8 frames after release, 8% (9% tip) to about 24% charged, 39 frames from release |
-| Dancing Blade | side special: hit 1 on frame 9 (FAF 39, ends at 29 in the air); each press of special before the end continues; stick up gives the rising hits; hits 2.5-3%, 3-4%; finishers 4-6% (straight), 5-7% (rising), 2% x4 then 4-5% (low) |
+| Charged Thrust | neutral special: hold special from frame 19 (at most 60 frames), thrust 8 frames after release, 8% (9% tip) to about 24% charged, 39 frames from release |
+| Blade Flurry | side special: hit 1 on frame 9 (FAF 39, ends at 29 in the air); each press of special before the end continues; stick up gives the rising hits; hits 2.5-3%, 3-4%; finishers 4-6% (straight), 5-7% (rising), 2% x4 then 4-5% (low) |
 | Counter | down special: window frames 6-27, answer 1.2x (at least 8%, at most 50% since sim 78), counter-attack on frame 4, FAF 64 unused; catches on the counter bubble, radius 10.5 reference units on the root bone at offset [0, 10, 0] [R: ssbwiki.com raw parameters], here radius 1.3 at 1.3 up [D]; a push is never caught (sim 78) |
 
 **Claws character**
@@ -301,22 +301,22 @@ had already cross-checked. Hitbox positions, sizes, most throw and early-hit kno
 - The reflector is intangible on frames 5-8 (a script).
 - Ledge attack as above. Everything else was already built from the earlier cross-checked data.
 
-**On the keyboard (K is special):** Shield Breaker is K alone (hold it, release to thrust); Dancing Blade is D + K, then tap K again for
+**On the keyboard (K is special):** Charged Thrust is K alone (hold it, release to thrust); Blade Flurry is D + K, then tap K again for
 each further hit (hold W before a tap for the rising hits, S for the low ones); Counter is S + K and then the other fighter has to hit
 you; the fire rush is W + K and the direction you hold when the wind-up ends is the direction he flies; the flash dash is D + K, with
 W or S held at the start of the dash to angle it.
 
 **Follow-up (sim v21): steps, shield damage, pivot grabs**
-- **Dancing Blade steps forward** on the ground: about a unit on hit 1 (frames 3-8) and a short step into each later hit, then it stops. In
+- **Blade Flurry steps forward** on the ground: about a unit on hit 1 (frames 3-8) and a short step into each later hit, then it stops. In
   the air the script leaves physics alone so the fall is not frozen. The distances are estimates.
-- **Shield Breaker does double damage to shields** (`Hitbox::shield_damage`, a percent, default 100; Shield Breaker's hits use 200). An
+- **Charged Thrust does double damage to shields** (`Hitbox::shield_damage`, a percent, default 100; Charged Thrust's hits use 200). An
   uncharged one takes about 19-22 off a 50 point shield and a full charge breaks it. The multiplier is an estimate: the sources used give none.
 - **Pivot grab** (`MoveId::PivotGrab`): grab while turning around out of a dash or run, either by flicking the other way together with grab
   or by pressing grab during the skid while still sliding. The fighter ends up facing the new way and keeps sliding. Sword: hits on frames
   10-11, FAF 37 (reference). Claws: frames 11-12, FAF 33 (an estimate, four frames after the standing grab as the sword's is). A weapon
   without one falls back to its dash grab, and turning from a standstill is an ordinary grab. Keyboard: dash with D, then A and the grab key.
 
-**Not done:** real animations (they wait for real models), and Shield Breaker's armour-free but otherwise unmodelled shield properties.
+**Not done:** real animations (they wait for real models), and Charged Thrust's armour-free but otherwise unmodelled shield properties.
 
 ## Hitbox scale (sim v22)
 

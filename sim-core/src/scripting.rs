@@ -65,6 +65,8 @@ pub struct World<'a> {
     pub items: &'a [crate::state::Item],
     /// For each fighter, whether an item lay in its reach as the frame began (an attack or grab press picks it up).
     pub pickable: [bool; MAX_FIGHTERS],
+    /// Who holds each ledge as the frame began (`GameState::ledge_owner`; -1 free): a tether catches only a free one (E56, sim 123).
+    pub ledges: [i8; crate::content::MAX_LEDGES],
 }
 
 /// How many live projectiles fighter `me` fired (reflected or not) of tool kind `kind` (`moves::Tool::kind`), or, with kind 0, of

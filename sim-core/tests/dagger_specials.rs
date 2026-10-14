@@ -1,6 +1,6 @@
 //! The Dagger's specials (phase 1, sim 121): the gun and its partner's bullets, the curse bolt (E54) and its powered version, the
 //! guard (E55) with its gauge gain and backhand, the partner's counter and reflector stance, the partner's wings. Reference data: the
-//! thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/joker/`).
+//! thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/dagger/`).
 
 mod common;
 

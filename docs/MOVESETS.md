@@ -26,10 +26,10 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 - Light and fast on the ground, good aerial mobility, strong edge-guarding, weaker when cornered up close.
 - Specials sketch: a dash slash (side), a rising slash (up, then helpless), a counter that reflects an incoming hit
   (down), a charged lunge (neutral).
-- **Specials as built (kit completion, sim v20):** neutral is **Shield Breaker** (hold special to charge, let go to thrust: 8-9%
-  uncharged, about 24% fully charged), side is **Dancing Blade** (up to four hits, each started by pressing special again; the stick
+- **Specials as built (kit completion, sim v20):** neutral is **Charged Thrust** (hold special to charge, let go to thrust: 8-9%
+  uncharged, about 24% fully charged), side is **Blade Flurry** (up to four hits, each started by pressing special again; the stick
   picks the rising or low variants), up is the rising slash, and down is **Counter** (a 22-frame window that catches a hit and answers
-  with 1.2 times its damage, at least 8%). Shield Breaker and Dancing Blade are scripts (`sim-core/src/scripts/`), Counter is a data
+  with 1.2 times its damage, at least 8%). Charged Thrust and Blade Flurry are scripts (`sim-core/src/scripts/`), Counter is a data
   feature. See `docs/COMBAT.md`, "Kit completion".
 - Wants from the sim: hitboxes with a **sweet spot / sour spot** by region of the blade, per-hitbox damage and knockback,
   hitbox priority (disjointed vs hurtbox), a counter state that reacts to hits.
@@ -42,16 +42,16 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
 
 ### 3. Needles rogue (the Sheik-like role)
 - A light, fast fighter (weight 78) that strings hits together: quick kicks, a multi-hit up air that drags an airborne foe down with it,
-  a stalling, plunging down air, and (planned) thrown needles, a pulling grenade, a vanish recovery and a flip-kick.
+  a stalling, plunging down air, and (planned) thrown needles, a pulling grenade, a flash-step recovery and a flip kick.
 - Built to exercise the multi-hit engine (sim 49): up to eight hit groups, a rehit that clears only chosen groups, the autolink angle
   (367: the hit carries the foe along with the attacker instead of launching), set knockback, extra hitstun, per-hitbox SDI and landing hits.
 - **As built (phase 1, sim 49):** the body (`FighterParams::rogue`) and the forward, up and down tilts and all five aerials on the
-  reference's published data (`docs/sheik/REFERENCE_DATA.md`, which labels each number verified, derived or estimated).
+  reference's published data (`docs/movesets/needles/REFERENCE_DATA.md`, which labels each number verified, derived or estimated).
 - **Phase 2 (sim 50):** the jabs with the rapid jab and its finisher (scripts), the earlier game's dash attack (a pop-up), the two-hit
   forward and down smashes and the up smash, grabs, pummel and throws, and the reference's rolls and spot dodge.
-- **Phase 3 (sim 51):** the specials: Needle Storm (charge, store with shield, throw up to six needles), our own pulling line in place
-  of the reference's grenade (a hit reels the target in to just in front, for a follow-up), Vanish (an explosion, a teleport along
-  the stick, a reappearance hit, then helpless) and Bouncing Fish (a flip into a heel kick that bounces back off a hit). The up air's
+- **Phase 3 (sim 51):** the specials: Needle Volley (charge, store with shield, throw up to six needles), our own pulling line in place
+  of the reference's grenade (a hit reels the target in to just in front, for a follow-up), Flash Step (an explosion, a teleport along
+  the stick, a reappearance hit, then helpless) and Flip Kick (a flip into a heel kick that bounces back off a hit). The up air's
   drag now lands its target in front of the fighter.
 
 ### 4. Embers tumbler (the reference all-rounder's role)
@@ -59,7 +59,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   down air, a meteor overhand, angled forward tilt and smash, and (phase 2) a bouncing fireball, a turning cloak that reflects, a rising
   multi-hit punch and a pushing water pack.
 - **As built (phase 1, sim 57):** the body (`FighterParams::tumbler`) and every normal on the reference's published data
-  (`docs/movesets/mario/`), with three general extensions: early jab continuation (`Move::next_from`), angled moves (`Hitbox::aim`) and
+  (`docs/movesets/embers/`), with three general extensions: early jab continuation (`Move::next_from`), angled moves (`Hitbox::aim`) and
   set weight (`Hitbox::set_weight`).
 - **Phase 2 (sims 58 to 64):** the specials on the reference's data: a rising multi-hit punch (up), a bouncing fireball (neutral), a
   cape that turns its victim round and reflects (side), and a charged water pump that pushes without damage (down); and a wall jump.
@@ -72,7 +72,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   a jab flurry, a one-frame flying knee, a meteor stomp, and (phase 2) a wound-up punch that turns round, a dash that searches for its
   target, a leaping command grab that explodes and a diving kick.
 - **As built (phase 1, sim 66, content schema 5):** the body (`FighterParams::sprinter`) and every normal on the reference's
-  published data (`docs/movesets/captain_falcon/`, code in `sim-core/src/moves_gauntlets.rs`), with general extensions: sixteen `ext`
+  published data (`docs/movesets/gauntlets/`, code in `sim-core/src/moves_gauntlets.rs`), with general extensions: sixteen `ext`
   slots, per-limb intangibility (`Move::part_intangible`), per-hitbox shieldstun (`Hitbox::shieldstun`) and the `presses` / `releases`
   script registers.
 - **As built (phase 2, sims 67 to 71, merged at 72; sim 73):** the four specials on the reference's data: the punch (reversed by the
@@ -81,14 +81,14 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   an edge) and the dive kick with its landing hit. General pieces: armor (`Move::armor`), frame-ranged air physics and per-move fast-fall
   and turn frames, search boxes (`HIT_SEARCH`, `Move::on_search`), command grabs (`Hitbox::command`, `Move::catch_move`), no-clank hits
   (`Hitbox::clanks`), off-edge versions (`Move::off_edge`), the `wall` script register, and the reference's exact shield stun for
-  everyone. Travel distances are estimates (not published). Report: `docs/movesets/captain_falcon/IMPLEMENTATION_REPORT.md`.
+  everyone. Travel distances are estimates (not published). Report: `docs/movesets/gauntlets/IMPLEMENTATION_REPORT.md`.
 
 ### 6. Staff seer (the reference ranged caster's role)
 - A tall middleweight (91) with a slow air speed (1.0) but quick air acceleration, a long-reaching staff and shield: spinning multi-hit
   tilts and aerials that carry a target, wings and a pillar of light for smashes with a wind that pushes, a shield-bash back air, and
   (phase 2) a blast set off where it points, a lock-on volley, a teleport and a counter that also reflects shots.
 - **As built (phase 1, sim 67):** the body (`FighterParams::seer`, no wall jump, heavy landing 6) and every normal on the reference's
-  published data (`docs/movesets/palutena/`, code in `sim-core/src/moves_staff.rs`), with two general extensions: angle types
+  published data (`docs/movesets/staff/`, code in `sim-core/src/moves_staff.rs`), with two general extensions: angle types
   (`Hitbox::angle_type`: by box, forward, backward, by position; the older classes now carry their reference types too) and a signed
   hitstun modifier (`Hitbox::hitstun_add`). Since sim 73 its reference no-clank moves never clank (`Hitbox::clanks`). The specials
   are the claws' until phase 2.
@@ -99,7 +99,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   sword wave, a combo slash that only carries on when it lands, a rising slash with a falling follow-up, and a gauge ("Boost" for now)
   that charges from damage and turns the next special into a finisher.
 - **As built (phase 1, sim 83):** the body (`FighterParams::champion`, wall jump 1.3 / 2.4, heavy landing 3) and every normal on the
-  reference's published data (`docs/movesets/cloud/`, code in `sim-core/src/moves_greatsword.rs`), on existing mechanics only. The
+  reference's published data (`docs/movesets/greatsword/`, code in `sim-core/src/moves_greatsword.rs`), on existing mechanics only. The
   specials are the claws' until phase 2.
 
 ### 8. Bracers hauler (the reference super-heavyweight brawler's role)
@@ -108,7 +108,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   rebounding, and trips on the down tilt and the down-aimed forward tilt; (phases 2 and 3) a wind-up punch that charges and stores, a
   headbutt that buries, a spinning clothesline, ground slaps and a throw that carries the catch anywhere.
 - **As built (phase 1, sim 86):** the body (`FighterParams::hauler`, no wall jump, heavy landing 3, a bigger body [E]) and every
-  normal on the reference's published data (`docs/movesets/donkey_kong/`, code in `sim-core/src/moves_bracers.rs`), with E20 trips and
+  normal on the reference's published data (`docs/movesets/bracers/`, code in `sim-core/src/moves_bracers.rs`), with E20 trips and
   E3g no-rebound hits. The specials are the claws' until phase 2; the forward throw is a plain placeholder until the carry (phase 3).
 
 ### 9. Clutch bounder (the reference floaty heavyweight's role)
@@ -118,7 +118,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   that scatters stars, a tongue that seals foes in a shell, and a rolling shell.
 - **As built (phase 1, sim 89):** the body (`FighterParams::bounder`, no wall jump, heavy landing 6, the double jump's subtractive
   knockback armor on its frames 1-44 and its turnaround: E33 and the E1 knockback kind) and every normal on the reference's published
-  data (`docs/movesets/yoshi/`, code in `sim-core/src/moves_clutch.rs`). **Phase 2 (sim 95):** the lobbed shell (up special: held
+  data (`docs/movesets/clutch/`, code in `sim-core/src/moves_clutch.rs`). **Phase 2 (sim 95):** the lobbed shell (up special: held
   speed, stick aim, three air hops, bounces and a one-hit burst) and the drop (down special: the hop hit, the stall, the 0.6 fall
   through soft platforms, ledges both sides, two landing stars on one frame). The neutral and side specials are the claws' until
   phase 3.
@@ -129,7 +129,7 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   spin: a charged single slash on the ground, a rising multi-hit whirl in the air that carries a target round; (phases 2 and 3) a
   bow whose arrows lodge and can be picked up, a boomerang that comes back, a bomb set off from afar, and the sword wave at 0%.
 - **As built (phase 1, sim 91):** the body (`FighterParams::wanderer`, the passive shield E14, no wall jump, heavy landing 3), every
-  sword normal and both spins on the reference's published data (`docs/movesets/link/`, code in `sim-core/src/moves_buckler.rs`), with
+  sword normal and both spins on the reference's published data (`docs/movesets/buckler/`, code in `sim-core/src/moves_buckler.rs`), with
   E34 position vectors, E36 (a follow-up keeps its charge), the E11 special-fall speed and acceleration, and E37 (up special and up
   smash straight out of a shield, for every class). The bow, boomerang and bomb are the claws' placeholders until phases 2 and 3.
 

@@ -57,7 +57,8 @@ pub fn catchable(f: &Fighter) -> bool {
 /// Whether hitbox `hb` can catch `f` (an ordinary grab or a command grab).
 pub fn can_catch(hb: &crate::moves::Hitbox, f: &Fighter) -> bool {
     if hb.command {
-        catchable(f)
+        // (A blockable grab box, E56, misses a fighter in hitstun: the reference's special grab boxes.)
+        catchable(f) && !(hb.blockable && f.state == S::Hitstun)
     } else {
         grabbable(f)
     }

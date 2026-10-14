@@ -1414,6 +1414,71 @@ def build_body_meshes(rig):
     return parts
 
 
+def shorts_pockets(shorts, skin, waist, crotch):
+    """A pocket flap on each side of the shorts, under the belt, laid on their finished surface and moving as the thigh under it does:
+    cargo shorts, as PEAK's scouts wear, where ours were a plain tube."""
+    sbm = bmesh.new()
+    sbm.from_mesh(shorts.data)
+    sbm.normal_update()
+    tree = bvhtree.BVHTree.FromBMesh(sbm)
+    out_bm = bmesh.new()
+    top = waist - BELT_HALF - 0.025
+    bottom = top - POCKET_HEIGHT
+    for sx in (-1.0, 1.0):
+        grid = {}
+        n = 8
+        for i in range(n + 1):
+            for j in range(n + 1):
+                z = top + (bottom - top) * i / n
+                y = POCKET_FRONT + (POCKET_BACK - POCKET_FRONT) * j / n
+                # (The flap's bottom corners rounded off.)
+                u = abs(j / n - 0.5) * 2.0
+                if i == n and u > 0.6:
+                    z += 0.02 * (u - 0.6) / 0.4
+                hit, normal, _, _ = tree.ray_cast(Vector((sx * 2.0, y, z)), Vector((-sx, 0.0, 0.0)))
+                if hit is None:
+                    continue
+                if normal.x * sx < 0.0:
+                    normal = -normal
+                grid[i, j] = out_bm.verts.new(hit + normal * POCKET_LIFT)
+        for (i, j), v in list(grid.items()):
+            a, b, c = grid.get((i + 1, j)), grid.get((i, j + 1)), grid.get((i + 1, j + 1))
+            if a and b and c:
+                out_bm.faces.new((v, a, c, b) if sx > 0 else (v, b, c, a))
+    out_bm.normal_update()
+    bmesh.ops.solidify(out_bm, geom=list(out_bm.faces), thickness=0.012)
+    bmesh.ops.recalc_face_normals(out_bm, faces=list(out_bm.faces))
+    obj = shorts.copy()
+    obj.data = bpy.data.meshes.new("ShortsPocket")
+    obj.name = "ShortsPocket"
+    bpy.context.collection.objects.link(obj)
+    out_bm.to_mesh(obj.data)
+    out_bm.free()
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    for layer in list(obj.data.color_attributes):
+        obj.data.color_attributes.remove(layer)
+    # Each point takes the shorts' own weights at the nearest point of the shorts (the thigh below the crotch, the hips above).
+    names = [g.name for g in shorts.vertex_groups]
+    near = kdtree.KDTree(len(shorts.data.vertices))
+    for v in shorts.data.vertices:
+        near.insert(v.co, v.index)
+    near.balance()
+    for v in obj.data.vertices:
+        _, i, _ = near.find(v.co)
+        for g in shorts.data.vertices[i].groups:
+            group = obj.vertex_groups.get(names[g.group]) or obj.vertex_groups.new(name=names[g.group])
+            group.add([v.index], g.weight, "REPLACE")
+    sbm.free()
+    return {"ShortsPocket": obj}
+
+
+POCKET_HEIGHT = 0.13
+POCKET_FRONT = -0.1
+POCKET_BACK = 0.07
+POCKET_LIFT = 0.006
+
+
 def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
     """The front of the shirt, laid on its finished surface (so they sit on it in any body): a collar of two pointed flaps folded down
     from the throat, apart in a V, a button placket from the V to the belt, and three buttons. (The owner's PEAK references, 2026-10-14:
@@ -1535,6 +1600,17 @@ BELT_LIFT = 0.056       # how far off the skin the belt sits (over the shirt's t
 BLOUSE = 0.008          # how far the shirt puffs out just above the belt, where it is tucked in
 TUCK_SPAN = 0.12        # how far above the belt the shirt blends into moving as the belt does
 BLOUSE_SPAN = 0.1      # over how much height above the belt
+# Boots (the owner's PEAK references: chunky hiking boots on thick soles, where ours had shoes painted on the feet): an upper cut from the
+# foot up a little past the ankle, and a sole that stands out round it like a rim.
+BOOT_ABOVE_ANKLE = 0.1
+BOOT_LIFT = 0.03
+SOLE_HEIGHT = 0.08
+SOLE_LIFT = 0.062
+BOOT_CUFF = 0.04        # a padded collar round the boot's top
+BOOT_CUFF_LIFT = 0.046
+# The shorts' rolled cuffs, a band round each leg opening standing a little proud of the cloth.
+CUFF_HEIGHT = 0.06
+CUFF_LIFT = 0.034
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
@@ -1564,6 +1640,9 @@ def build_garments(skin, J, neck):
     waist = hips + WAIST_SHARE * (neck - hips)
     shorts_end = crotch - 0.42 * (crotch - knee)
     neck_line = neck - 0.015
+    ankle = (J["foot.L"].z + J["foot.R"].z) / 2.0
+    boot_top = ankle + BOOT_ABOVE_ANKLE
+    cuff_top = shorts_end + CUFF_HEIGHT
     half_width = abs(J["armU.R"].x) * 0.72
     arm = {}
     for side in "LR":
@@ -1608,6 +1687,21 @@ def build_garments(skin, J, neck):
             d = min(d, abs(sleeve_t(co) - SLEEVE) * (b - a).length)
         return d
 
+    def in_boot(co):
+        return co.z < boot_top
+
+    def in_boot_cuff(co):
+        return boot_top - BOOT_CUFF < co.z < boot_top
+
+    def in_sole(co):
+        return co.z < SOLE_HEIGHT
+
+    def in_cuff(co):
+        return not on_arm(co) and shorts_end < co.z < cuff_top and co.z < crotch
+
+    def boot_hem(co):
+        return abs(co.z - boot_top)
+
     def in_belt(co):
         return not on_arm(co) and abs(co.z - waist) < BELT_HALF
 
@@ -1620,7 +1714,9 @@ def build_garments(skin, J, neck):
 
     cuts = [(Vector((0, 0, waist - 0.012)), Vector((0, 0, 1))), (Vector((0, 0, neck_line)), Vector((0, 0, 1))),
             (Vector((0, 0, shorts_end)), Vector((0, 0, 1))), (Vector((0, 0, waist + SHORTS_TOP)), Vector((0, 0, 1))),
-            (Vector((0, 0, waist - BELT_HALF)), Vector((0, 0, 1))), (Vector((0, 0, waist + BELT_HALF)), Vector((0, 0, 1)))]
+            (Vector((0, 0, waist - BELT_HALF)), Vector((0, 0, 1))), (Vector((0, 0, waist + BELT_HALF)), Vector((0, 0, 1))),
+            (Vector((0, 0, boot_top)), Vector((0, 0, 1))), (Vector((0, 0, SOLE_HEIGHT)), Vector((0, 0, 1))),
+            (Vector((0, 0, cuff_top)), Vector((0, 0, 1))), (Vector((0, 0, boot_top - BOOT_CUFF)), Vector((0, 0, 1)))]
     for side in "LR":
         a, b = arm[side]
         cuts.append((a + (b - a) * SLEEVE, (b - a).normalized()))
@@ -1668,7 +1764,8 @@ def build_garments(skin, J, neck):
     skin_tree = bvhtree.BVHTree.FromBMesh(skin_bm)
     out = {}
     for name, inside, hem, lift in (("Shirt", in_shirt, shirt_hem, SHIRT_LIFT), ("Shorts", in_shorts, shorts_hem, SHORTS_LIFT),
-                                    ("Belt", in_belt, belt_hem, BELT_LIFT)):
+                                    ("Belt", in_belt, belt_hem, BELT_LIFT), ("Boot", in_boot, boot_hem, BOOT_LIFT),
+                                    ("BootSole", in_sole, belt_hem, SOLE_LIFT), ("BootCuff", in_boot_cuff, belt_hem, BOOT_CUFF_LIFT), ("ShortsCuff", in_cuff, belt_hem, CUFF_LIFT)):
         obj = skin.copy()
         obj.data = skin.data.copy()
         obj.name = name
@@ -1721,6 +1818,8 @@ def build_garments(skin, J, neck):
                     flare = 0.0
                     snug = 1.0 - (1.0 - SLEEVE_SNUG) * near_end
             v.co = v.co + v.normal * (lift * snug + flare)
+            if name in ("Boot", "BootSole"):
+                v.co.z = max(v.co.z, -0.004 if name == "BootSole" else 0.0)
         for v in bm.verts:
             hit = skin_tree.find_nearest(v.co)
             if hit[0] is None:
@@ -1746,7 +1845,9 @@ def build_garments(skin, J, neck):
         # Straight hems: the edges were cut level, but pushing the cloth out along a bumpy surface's normals left them wavy (like torn
         # paper where the shirt meets the shorts). Every edge point near a level cut goes back to its height.
         levels = {"Shirt": [waist - 0.012, neck_line], "Shorts": [waist + SHORTS_TOP, shorts_end],
-                  "Belt": [waist - BELT_HALF, waist + BELT_HALF]}[name]
+                  "Belt": [waist - BELT_HALF, waist + BELT_HALF], "Boot": [boot_top], "BootSole": [SOLE_HEIGHT],
+                  "BootCuff": [boot_top - BOOT_CUFF, boot_top],
+                  "ShortsCuff": [shorts_end, cuff_top]}[name]
         for v in hems:
             if on_arm(v.co):
                 continue
@@ -1792,7 +1893,7 @@ def build_garments(skin, J, neck):
                     swapped = n[:-2] + (".L" if n.endswith(".R") else ".R") if n.endswith((".L", ".R")) else n
                     group = index.get(swapped, gi)
                 v[deform][group] = w / whole
-            if name == "Shorts" and v.co.z < crotch:
+            if name in ("Shorts", "ShortsCuff") and v.co.z < crotch:
                 # Below the crotch each leg of the shorts follows its own thigh, fully at the hem: the leg openings keep their place on
                 # the thighs in any pose rather than riding up or standing off like a skirt.
                 t = min(1.0, (crotch - v.co.z) / max(crotch - shorts_end, 0.01) * 1.4)
@@ -1883,6 +1984,7 @@ def build_garments(skin, J, neck):
         group.add(every, w, "REPLACE")
     out["Buckle"] = buckle
     out.update(shirt_front(out["Shirt"], skin, neck_line, waist, trunk_weights))
+    out.update(shorts_pockets(out["Shorts"], skin, waist, crotch))
     # The skin's marks for the game's outline (shaders/outline.gdshader): green is how much line a point gets under the shirt, blue under
     # the shorts (none deep under a garment, all of it near a hem), red always all.
     cover = skin.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")

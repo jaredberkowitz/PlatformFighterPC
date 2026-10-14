@@ -9,7 +9,7 @@ const RAPID_LOOP: MoveId = MoveId::Ext11;
 const RAPID_END: MoveId = MoveId::Ext12;
 
 /// The Gauntlets moveset (the sprinter body): punches, kicks and a flying knee. Every normal follows the reference frame for frame
-/// (`docs/movesets/captain_falcon/REFERENCE_DATA.md`, version 13.0.1): active frames, FAF, landing lag and autocancel windows; damage,
+/// (`docs/movesets/gauntlets/REFERENCE_DATA.md`, version 13.0.1): active frames, FAF, landing lag and autocancel windows; damage,
 /// angles, base and growth knockback, set knockback and set weight, hitlag, SDI and shieldstun multipliers, hitstun modifiers, shield
 /// damage, grounded- and aerial-only boxes; the jab's continuable windows, the held repeat and the rapid jab's entry rule; the angled
 /// forward tilt and smash; the up tilt's and up smash's intangible legs. Radii and offsets on the reference's root bone (`top`) are
@@ -693,6 +693,7 @@ fn tilts(w: &mut Weapon) {
         start: 13,
         end: 16,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::UTilt as usize] = utilt;
 
@@ -793,11 +794,13 @@ fn smashes(w: &mut Weapon) {
             start: 21,
             end: 22,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         },
         PartIntangible {
             start: 27,
             end: 28,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         },
     ];
     w.moves[MoveId::USmash as usize] = usmash;
