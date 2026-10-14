@@ -132,3 +132,17 @@ Each step: a matched before/after, a check in motion, the tests and the look ben
   shadows of any stage, so its fighters had the least form. Still the brightest, sunniest stage.
 - **Checked**: every stage and body colour in the look bench (edges 0.87 to 1.00, unchanged; body contrast unchanged within 0.01);
   the art and fighter tests pass. Close-ups of the meadow and the city compared too: crisper edges, colours unchanged.
+
+## Step 4b: stances (opportunity 2), first change
+
+**Landed**, `review5_guard.png` (the meadow close up: the old stance | the guard), `review5_guard_all.png` (twelve classes):
+- Every class shares one idle clip (`make_rigged_blob.py` `idle`); the weapon classes' weapon arm is posed over it by code, so the
+  unarmed classes showed the clip as it is: upper arms forward, elbows bent about 45°, open hands held out at chest height (the owner:
+  "extending for a hug"). Now a **guard**: the upper arms hang forward and a little out, the elbows bend hard so the forearms stand up,
+  the fists in front of the chest (the lead one further out and higher), clear of the body's outline from the gameplay camera.
+- **Unarmed, the fists stay closed in the guard** (`fighter_view.gd` `_clench`, `Idle` added), not only in attacks.
+- The weapon classes keep their weapon arm as it was; their free arm takes the guard (fist up), which reads better than before too.
+- **Checked**: twelve classes standing on the meadow; the fighter, art, motion, animation, creator, online, match and loadout tests;
+  the look bench 0.87.
+- **Still to do here** (the owner: "all of them need work"): each class its own stance where its moveset calls for one (a low, wide
+  stance for the heavy fighters, a light bounce for the quick ones), the walk and the jump re-posed for the body, then the Phantom.

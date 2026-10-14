@@ -2111,12 +2111,23 @@ def main() -> None:
             # tucked into a guard in front of the belly where the body and the weapon hid them; fists still a little up and forward.)
             # (Forward more than out, 2026-10-14: held mostly out to the side, the rear arm pointed backward once the chest turns to the
             # camera, and its forearm folded down behind the body; the owner saw it bend behind him.)
-            pose(rig, "armU.L", fwd=40.0 + 5.0 * lag * swing, out=24.0)
-            pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
-            pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=36.0 + 5.0 * lag * swing, out=22.0)
-            pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
-            pose(rig, "hand.R", fwd=-14.0)
+            # (A guard, art review 5: the owner saw the unarmed fighters' arms extended as if going in for a hug, the elbows barely bent.
+            # The upper arms now hang forward and a little out, the elbows bent hard so the forearms stand up, the fists in front of the
+            # chest, the lead one a little further out and higher: ready to fight, both arms still clear of the body's outline.)
+            if BODY:
+                pose(rig, "armU.L", fwd=34.0 + 4.0 * lag * swing, out=18.0)
+                pose(rig, "armL.L", fwd=118.0 - 6.0 * lag * swing)
+                pose(rig, "hand.L", fwd=-18.0)
+                pose(rig, "armU.R", fwd=30.0 + 4.0 * lag * swing, out=16.0)
+                pose(rig, "armL.R", fwd=128.0 - 6.0 * lag * swing)
+                pose(rig, "hand.R", fwd=-20.0)
+            else:
+                pose(rig, "armU.L", fwd=40.0 + 5.0 * lag * swing, out=24.0)
+                pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
+                pose(rig, "hand.L", fwd=-12.0)
+                pose(rig, "armU.R", fwd=36.0 + 5.0 * lag * swing, out=22.0)
+                pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
+                pose(rig, "hand.R", fwd=-14.0)
         return f
 
     clip(rig, "idle", 48, {i: idle(i / 48.0) for i in range(0, 49, 4)})

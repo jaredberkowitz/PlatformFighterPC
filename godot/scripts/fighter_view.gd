@@ -3851,7 +3851,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
-	var punching: bool = not blade_pivot.visible and state == "Attack" and s.move_name != ""
+	# (Unarmed, the fists stay closed in the guard too: open hands held up read as reaching for a hug.)
+	var punching: bool = not blade_pivot.visible and ((state == "Attack" and s.move_name != "") or state == "Idle")
 	_clench(punching or _cls(s) == BUCKLER_CLASS, blade_pivot.visible or punching)
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
