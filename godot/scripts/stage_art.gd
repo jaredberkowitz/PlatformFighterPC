@@ -54,7 +54,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
-		"pattern": "masonry", "cap": "sand", "platform": "wood",
+		"pattern": "seawall", "cap": "sand", "platform": "wood",
 	},
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
@@ -224,6 +224,41 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.4"/>' % [cx, by + 14.0, rng.randf_range(-8, 8), rng.randf_range(16, 30), rng.randf_range(-10, 10), rng.randf_range(10, 22), ink]
 					x += w
 				course += 1
+		"seawall":
+			# A sea wall of big dressed stones laid irregularly (the beach's own; random bond, each stone its own width and height, so no
+			# course runs the length of the wall), deep mortar shade, a lit top on each stone, a crack now and then. Drawn at 512 px, laid
+			# every 14. (A tide line was tried in the tile: it repeats with it and could fall mid-wall; the wall's own cool fall toward its
+			# foot does that job.)
+			var S := 512.0
+			body += '<rect width="512" height="512" fill="#%s"/>' % b.darkened(0.28).to_html(false)
+			var y := 0.0
+			var row := 0
+			while y < S - 1.0:
+				var rh := rng.randf_range(70.0, 110.0)
+				if y + rh > S - 40.0:
+					rh = S - y
+				# (Widths fitted so the row spans the tile exactly, and so wraps without stones overlapping.)
+				var widths: Array = []
+				var total := 0.0
+				while total < S - 60.0:
+					var ww := rng.randf_range(80.0, 170.0)
+					widths.append(ww)
+					total += ww
+				var x := -rng.randf_range(0.0, 80.0)
+				for wi in widths.size():
+					var w: float = float(widths[wi]) * S / total
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.5))
+					var rad := rng.randf_range(10.0, 22.0)
+					for ox in [-S, 0.0, S]:
+						var bx: float = x + ox + 5.0
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.4"/>' % [bx, y + 5.0, w - 10.0, rh - 10.0, rad, shade.to_html(false), ink]
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" opacity="0.25"/>' % [bx + 8.0, y + 10.0, w - 26.0, (rh - 10.0) * 0.25, rad * 0.6, shade.lightened(0.22).to_html(false)]
+						if rng.randf() < 0.3:
+							var cx: float = bx + rng.randf_range(14.0, w - 30.0)
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.2" stroke-linecap="round" opacity="0.35"/>' % [cx, y + 14.0, rng.randf_range(-8, 8), rng.randf_range(14, 26), rng.randf_range(-8, 8), rng.randf_range(10, 18), ink]
+					x += w
+				y += rh
+				row += 1
 		"earth":
 			# A bank of farm soil, painted (the meadow's own; the beach keeps the masonry): broad beds of warm earth with soft, gently waving
 			# boundaries, stones of very different sizes half buried in it (a few big boulders, more middling ones, many pebbles; each with a
@@ -352,14 +387,14 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						var y: float = c[1]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.5" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f" stroke="#%s" stroke-width="5" stroke-linecap="round" opacity="0.6"/>' % [x - 40, y - 8, x - 8, y - 40, hi]
-	var px := 512 if pattern == "facade" or pattern == "earth" else 256
+	var px := 512 if pattern == "facade" or pattern == "earth" or pattern == "seawall" else 256
 	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg>' % [px, px, px, px, body]
 	var img := Image.new()
 	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0}.get(pattern, 3.0))
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 14.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -375,7 +410,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			Materials.set_detail(m, "concrete", 0.45, 3.0)
 		"cobble":
 			Materials.set_detail(m, "stone", 0.4, 3.5)
-		"masonry":
+		"masonry", "seawall":
 			Materials.set_detail(m, "stone", 0.3, 4.0)
 		_:
 			Materials.set_detail(m, "soil", 0.35, 3.0)
@@ -492,12 +527,15 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				# so the edge reads as one scalloped skirt of turf rather than a row of equal beads.
 				var own := RandomNumberGenerator.new()
 				own.seed = hash(roundi(x * 100.0))
-				var hang := own.randf_range(0.6, 1.5)
-				var wide := own.randf_range(0.9, 1.6)
-				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.05 - 0.17 * k * hang, front_z + 0.2), Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
+				# (Every few a long drip of turf, and neighbours overlapping, so the edge is one ragged skirt, not a row of beads.)
+				var long_drip := own.randf() < 0.18
+				var hang := own.randf_range(1.6, 2.4) if long_drip else own.randf_range(0.5, 1.3)
+				var wide := own.randf_range(0.7, 1.0) if long_drip else own.randf_range(1.0, 1.7)
+				_mesh(parent, tuft_mesh, grass, Vector3(x, top - cap_h + 0.1 - 0.17 * k * hang, front_z + 0.2 + own.randf_range(-0.04, 0.04)),
+					Vector3(1.2 * wide, 0.8 * hang, 0.6) * k)
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
-				x += rng.randf_range(0.8, 1.6)
+				x += rng.randf_range(0.8, 1.6) * 0.62
 
 
 ## What makes a stage's block a built shape rather than a box with a tiled front: at each top corner (the ledges, gameplay landmarks) a
@@ -607,6 +645,55 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	var n := maxi(1, int(w / 1.6))
 	for k in range(1, n):
 		_mesh(parent, _box(Vector3(0.05, 0.26, 0.05)), seam, Vector3(left + w * k / n, top - 0.13, front_z + 0.01))
+	_platform_dressing(parent, t, left, right, top, front_z, depth)
+
+
+## Dresses a wooden platform for its stage, so it belongs to the place rather than being the same plank everywhere: rope lashings near
+## each end on the beach and in the canyon; moss over the front edge and a vine or two hanging below in the grove; a tuft of hay and a
+## flower at the ends on the meadow. Only at the ends and below the top, so the play surface and fighters' feet stay clear.
+## Deterministic (from the platform's place).
+static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right: float, top: float, front_z: float, depth: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(roundi(left * 10.0), roundi(top * 10.0)))
+	var cx := (left + right) / 2.0
+	var w := right - left
+	match t.get("name", ""):
+		"ocean", "sunset":
+			var rope := Materials.wood(Color(0.86, 0.74, 0.52) if t.name == "ocean" else Color(0.78, 0.62, 0.42), Vector2(1, 6))
+			for ex in [left + 0.6, right - 0.6]:
+				for j in 3:
+					var ring := TorusMesh.new()
+					ring.inner_radius = 0.3
+					ring.outer_radius = 0.36
+					ring.rings = 14
+					ring.ring_segments = 6
+					# (Turned so the ring's plane is across the plank, squashed to wrap its board and beam: 0.27 up and down, the depth front to
+					# back.)
+					_mesh(parent, ring, rope, Vector3(ex + (j - 1) * 0.12, top - 0.24, front_z - depth / 2.0),
+						Vector3(0.27 / 0.33, 1.0, (depth * 0.5 + 0.04) / 0.33), Vector3(0, 0, 90))
+		"grove":
+			var moss := Materials.foliage(Color(0.36, 0.64, 0.36), Vector2(2, 2), true)
+			# (Overlapping clumps of very different sizes, gaps now and then: an even row read as beads.)
+			var x := left + 0.3
+			while x < right - 0.2:
+				var r := rng.randf_range(0.1, 0.3)
+				if rng.randf() > 0.2:
+					_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, top - 0.26 - r * rng.randf_range(0.2, 1.0), front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
+				x += r * rng.randf_range(1.2, 2.2)
+			var vine := Materials.foliage(Color(0.3, 0.58, 0.32), Vector2(1, 3), true)
+			for k in 2:
+				var vx := lerpf(left + 0.8, right - 0.8, rng.randf())
+				var vl := rng.randf_range(0.8, 1.6)
+				_mesh(parent, _cylinder(0.05, 0.07, vl, 6), vine, Vector3(vx, top - 0.45 - vl * 0.5, front_z - 0.1), Vector3.ONE, Vector3(0, 0, rng.randf_range(-8, 8)))
+				_mesh(parent, _sphere(0.13, 8), vine, Vector3(vx, top - 0.45 - vl, front_z - 0.1), Vector3(1.2, 0.8, 1.0))
+		"meadow":
+			var hay := Materials.as_family(FighterView.toon(Color(0.96, 0.82, 0.48)), "grass")
+			for ex in [left + 0.35, right - 0.35]:
+				_mesh(parent, _sphere(1.0, 8), hay, Vector3(ex, top - 0.42, front_z - 0.05), Vector3(0.28, 0.2, 0.3))
+			if w > 3.0:
+				var petal := _soft(Color(1.0, 0.62, 0.66))
+				_mesh(parent, _cylinder(0.02, 0.02, 0.4, 4), _soft(Color(0.36, 0.6, 0.3)), Vector3(right - 0.55, top - 0.55, front_z + 0.02))
+				_mesh(parent, _sphere(0.1, 8), petal, Vector3(right - 0.55, top - 0.75, front_z + 0.05))
 
 
 # ---- Backdrops ------------------------------------------------------------------------------------------------------------------------
@@ -2581,11 +2668,16 @@ static func _grove(root: Node3D, t: Dictionary, stage: Array) -> void:
 	# Round bushes along the back of the island.
 	var bush_greens := Materials.greens(Color(0.3, 0.66, 0.34))
 	var bush := Materials.foliage(bush_greens[1])
-	var bush_light := Materials.foliage(bush_greens[3], Vector2(2, 1), false)
+	# (A clump of overlapping lobes in two greens, inked and lit like the crowns: a pale ball stuck on the front read as a flat sticker.)
+	var bush_light := Materials.foliage(bush_greens[2])
 	for x in [left + 1.4, left + 3.2, right - 3.2, right - 1.4]:
 		var s := rng.randf_range(1.1, 1.5)
 		_mesh(root, _sphere(1.0, 16), bush, Vector3(x, top + 0.6, -6.5), Vector3(s * 1.3, s, s))
-		_mesh(root, _sphere(0.55, 12), bush_light, Vector3(x - 0.3, top + 1.2, -5.6))
+		for j in 3:
+			var side := float(j - 1)
+			var lr := s * rng.randf_range(0.5, 0.65)
+			_mesh(root, _sphere(1.0, 12), bush_light if j != 1 else bush, Vector3(x + side * s * 0.75, top + 0.4 + lr * 0.6 + (0.35 * s if j == 1 else 0.0),
+				-6.2 + absf(side) * 0.2), Vector3(lr * 1.15, lr, lr))
 		_contact(root, Vector3(x, top, -6.5), Vector2(s * 1.15, s * 0.8))
 	# Little flowers and tufts on the grass behind the fighters, gathered toward the ends so the middle of the stage stays clean.
 	_flower_clusters(root, [left, right, top], rng, [Color(1, 1, 1), Color(1, 0.8, 0.9)], Color(0.46, 0.84, 0.42))
@@ -3086,6 +3178,17 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		var lo := Vector3(x, street, z - depth / 2.0)
 		var hi := Vector3(x + w, street + h, z + depth / 2.0)
 		_facade_box(st, lo, hi, seed, false, h)
+		# The roofline: a cornice lip a little proud all round, and on some taller buildings a narrower setback storey or two above it,
+		# so the skyline's silhouette steps instead of being a row of plain boxes. (Its own random numbers, so the layout is unchanged.)
+		var shape := RandomNumberGenerator.new()
+		shape.seed = hash(Vector2i(roundi(x * 10.0), layer))
+		_facade_box(st, Vector3(lo.x - 0.25, hi.y - 0.35, lo.z - 0.25), Vector3(hi.x + 0.25, hi.y + 0.1, hi.z + 0.25), seed, true, 0.45)
+		var set_top := hi.y + 0.1
+		if h > 16.0 and layer < 2 and shape.randf() < 0.5:
+			var inset := w * shape.randf_range(0.18, 0.3)
+			var sh := shape.randf_range(2.6, 5.5)
+			_facade_box(st, Vector3(lo.x + inset, set_top, lo.z + 0.6), Vector3(hi.x - inset, set_top + sh, hi.z - 0.6), seed, false, sh)
+			_facade_box(st, Vector3(lo.x + inset - 0.2, set_top + sh - 0.3, lo.z + 0.4), Vector3(hi.x - inset + 0.2, set_top + sh + 0.1, hi.z - 0.4), seed, true, 0.4)
 		if layer < 2 and signs.randf() < 0.34:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
 			var front := hi.z + 0.08

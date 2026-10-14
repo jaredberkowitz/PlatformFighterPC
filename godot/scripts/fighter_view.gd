@@ -1160,9 +1160,18 @@ var last_flash := -1.0
 var flash_hit_frame := -1
 
 
+var ghost_now := 0.0
+## Invincibility's pale flicker: how strong, at most, and its colour (a cool white, so it reads as "can't be hit", not as a hit flash).
+const GHOST_FLASH := 0.5
+const GHOST_COLOUR := Color(0.82, 0.92, 1.0)
+
+
 func _flash(s: Dictionary, delta: float) -> void:
 	var target := 0.0
 	var colour := Color.WHITE
+	if ghost_now > 0.0:
+		colour = GHOST_COLOUR
+		target = ghost_now * GHOST_FLASH
 	var struck: bool = int(s.hitlag) > 0 and s.launch_pending
 	if not struck:
 		flash_hit_frame = -1
@@ -2263,10 +2272,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		ghost = 0.5 if (s.frame / 4) % 2 == 0 else 0.15
 	elif s.ledge_invuln > 0:
 		ghost = 0.45 if (s.frame / 3) % 2 == 0 else 0.1
-	if ghost != last_ghost:
-		last_ghost = ghost
-		for m in meshes:
-			m.transparency = ghost
+	# (Shown as a pale flicker over the fighter (`_flash`), not see-through: transparency let the dark outline shell behind the body
+	# show through it, and over a sky the fighter turned a muddy brown.)
+	ghost_now = ghost
 	shield.visible = state == "Shield" or state == "ShieldDrop"
 	if shield.visible:
 		# The bubble shrinks and turns from blue through yellow to red as its health runs out.

@@ -1895,6 +1895,24 @@ pub struct Ruleset {
     /// instead (the down special, with the stick down). The reference's drop is 2 frames (derived from a fighter of its whose
     /// drop is 11 with 9 extra frames added for command specials; owner decision 63, `docs/movesets/ROSTER_STATUS.md`).
     pub platform_drop_frames: u8,
+    /// Whether a down flick on a pass-through platform drops through it (1) or not (0). Owner decision 2026-10-14 (sim 112): 0, the
+    /// drop is shield + special instead, so down tilts, down smashes, crouches and spot dodges work on platforms.
+    pub stick_platform_drop: u8,
+    /// Dodge staling (sim 112, SmashWiki "Dodge staling", 13.0.1): each roll or spot dodge out of a shield and each air dodge makes
+    /// dodges one level staler, up to `dodge_stale_max`. A level comes off `dodge_stale_first` frames after the last dodge ended and
+    /// another every `dodge_stale_every` frames after that (fresh again from full in about 8 seconds). Per level: spot dodges and
+    /// forward rolls last `dodge_stale_spot` / `dodge_stale_roll` percent longer, back rolls `dodge_stale_back_roll` percent; fully
+    /// stale, their intangibility starts `dodge_stale_spot_shift` / `dodge_stale_roll_shift` frames later (in between, by level);
+    /// a directional air dodge travels `dodge_stale_air_cut` less (as a share) per level.
+    pub dodge_stale_max: u8,
+    pub dodge_stale_first: u8,
+    pub dodge_stale_every: u8,
+    pub dodge_stale_spot: u8,
+    pub dodge_stale_roll: u8,
+    pub dodge_stale_back_roll: u8,
+    pub dodge_stale_spot_shift: u8,
+    pub dodge_stale_roll_shift: u8,
+    pub dodge_stale_air_cut: Fx,
     /// The autolink angle's caps (world units a frame): the launch speed at most `autolink_max_speed` (the reference's 3, the speed
     /// of 100 knockback) and the fall no faster than `autolink_max_fall` (the reference's 1).
     pub autolink_max_speed: Fx,
@@ -2094,6 +2112,16 @@ impl Ruleset {
             special_turn_window: 3,
             special_reverse_window: 4,
             platform_drop_frames: 2,
+            stick_platform_drop: 0,
+            dodge_stale_max: 5,
+            dodge_stale_first: 60,
+            dodge_stale_every: 120,
+            dodge_stale_spot: 6,
+            dodge_stale_roll: 6,
+            dodge_stale_back_roll: 10,
+            dodge_stale_spot_shift: 3,
+            dodge_stale_roll_shift: 4,
+            dodge_stale_air_cut: Fx::from_ratio(1, 15),
             autolink_max_speed: Fx::from_ratio(3, 8),
             autolink_max_fall: Fx::from_ratio(1, 8),
             pull_rate: Fx::from_ratio(1, 3),
@@ -2243,6 +2271,16 @@ impl StateHash for Ruleset {
         h.write_u8(self.special_turn_window);
         h.write_u8(self.special_reverse_window);
         h.write_u8(self.platform_drop_frames);
+        h.write_u8(self.stick_platform_drop);
+        h.write_u8(self.dodge_stale_max);
+        h.write_u8(self.dodge_stale_first);
+        h.write_u8(self.dodge_stale_every);
+        h.write_u8(self.dodge_stale_spot);
+        h.write_u8(self.dodge_stale_roll);
+        h.write_u8(self.dodge_stale_back_roll);
+        h.write_u8(self.dodge_stale_spot_shift);
+        h.write_u8(self.dodge_stale_roll_shift);
+        self.dodge_stale_air_cut.hash_into(h);
         self.autolink_max_speed.hash_into(h);
         self.autolink_max_fall.hash_into(h);
         self.pull_rate.hash_into(h);
