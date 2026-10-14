@@ -1357,7 +1357,7 @@ static func _cloth(m: Material) -> Material:
 				now = RenderingServer.shader_get_parameter_default(_cloth_outline.shader.get_rid(), w)
 			if now == null:
 				# (Without a renderer, as in the headless tests: outline.gdshader's own defaults.)
-				now = {"width": 0.0022, "min_width": 0.028, "max_width": 0.11}[w]
+				now = {"width": 0.0022, "min_width": 0.028, "max_width": 0.2}[w]
 			_cloth_outline.set_shader_parameter(w, float(now) * CLOTH_OUTLINE_THIN)
 	var c: ShaderMaterial = (m as ShaderMaterial).duplicate()
 	c.shader = TOON_CLOTH_SHADER

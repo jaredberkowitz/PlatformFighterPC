@@ -167,6 +167,25 @@ standard for every effect.
 - **Images**: `docs/screenshots/polish8_trails.png` (a sword arc and a claw hit, before left).
 - **Checks run**: sword, claw and maul effect demos on the meadow and the city; the fighter view test.
 
+### Pass 60: the backdrop to the stage's finish (the meadow first)
+
+The owner's note: the stage and the props by it now look clearly higher quality than the scenery behind, and the styles differ. The
+backdrop is brought to the same finish: painted surfaces (tiles with detail, as on the stage), built construction, ink lines that hold.
+
+- **Ink on far scenery**: the outline's width was capped at 0.11 world units, so beyond about 50 units every backdrop object lost its
+  line and read as a different, line-less style. The cap is 0.2 (`max_width`), so the line keeps a steady weight on screen out to the
+  hills.
+- **Two new painted tiles**: `plaster.svg` (soft patches, hairline cracks, chips: whitewashed walls) and `shingles.svg` (rounded
+  shingles in rows, a dark gap and a lit edge on each), as `Materials.plaster` and `Materials.shingles`.
+- **Cottages, the barn, the windmill**: plastered walls, shingled roofs, stone footings, eave boards, framed doors and windows with
+  shutters, the barn's corner boards. Built like the props by the stage instead of boxes in flat colour.
+- **The valley's fields**: were flat colour quads ruled off by hard green lines. Now each field is painted with a new `field.svg` tile
+  (crop rows with tufts, soil detail over it) in its own colour, and the hedgerows are rows of leafy bushes of different sizes
+  (foliage material, inked), along and between the fields, over a thin shade line. Tried and dropped: the grass tile on the fields
+  (its big soft blobs read as smudges at that size) and evenly spaced bushes (a bead chain).
+- **Images**: `docs/screenshots/polish9_meadow_backdrop.png` (the whole meadow from wide, before top).
+- **Checks run**: the meadow wide and at play distance; art pipeline and match flow tests.
+
 ### Performance after passes 52 to 56 and character pass 1
 
 The KO demo at 1280x720, warm cache: GPU 1.89 ms against 1.66 to 1.71 ms before (soft shadows, lathe props, the earth tile), about 255
