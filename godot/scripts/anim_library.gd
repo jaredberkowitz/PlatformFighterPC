@@ -111,8 +111,8 @@ const CLASS_MOVES := {
 	},
 	# Needles: kicks for the kicks (the leg is aimed at the hit), the shared chop for the forward air and lunge for the dash attack's
 	# hand strike, hands overhead for the up smash, its down air's landing hit as a landing, the rapid jab's stabs as jabs and its
-	# finisher as a heavy strike; Needle Storm aims (wind-up and charge) and flicks (the throw), the line is swung out, Vanish crouches
-	# into its explosion, Bouncing Fish is a heel kick and its bounce a jump. (Placeholders until the Needles clips are made.)
+	# finisher as a heavy strike; Needle Volley aims (wind-up and charge) and flicks (the throw), the line is swung out, Flash Step crouches
+	# into its explosion, Flip Kick is a heel kick and its bounce a jump. (Placeholders until the Needles clips are made.)
 	2: {
 		"ftilt": "kick_up",
 		"utilt": "kick_up",

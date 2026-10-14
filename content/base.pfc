@@ -344,7 +344,7 @@ weapon longsword {
         hitbox { start 26 end 28 x 2.34395 y 1.17198 radius 0.9 damage 8 angle 361 bkb 55 kbg 60 shield_damage 200 }
         motion { start 25 end 30 vx 0.45 vy 0 }
         script {
-            // Neutral special (Shield Breaker): keep the special button down on frame 19 to charge, for as long as the
+            // Neutral special (Charged Thrust): keep the special button down on frame 19 to charge, for as long as the
             // charge limit allows. The thrust comes out when the button is let go.
             if frame == 19 && special { stall(); }
         }
@@ -354,7 +354,7 @@ weapon longsword {
         hitbox { start 8 end 9 x 2.34395 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 8 end 9 x 1.40796 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 }
         script {
-            // Side special (Dancing Blade), hit 1. Steps forward as it winds up (on the ground). Press special again before the
+            // Side special (Blade Flurry), hit 1. Steps forward as it winds up (on the ground). Press special again before the
             // end to carry on into hit 2; holding the stick up makes the second hit the rising slash. Slot numbers: 29 = ext1,
             // 30 = ext2.
             var queued;
@@ -458,7 +458,7 @@ weapon longsword {
         hitbox { start 4 end 5 x 2.34395 y 1.09999 radius 0.7 damage 3 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 4 end 5 x 1.40796 y 1.09999 radius 0.79999 damage 2.5 angle 361 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
+            // Blade Flurry, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
             // for the rising slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
             var queued;
             var dir;
@@ -481,7 +481,7 @@ weapon longsword {
         hitbox { start 3 end 4 x 1.83997 y 1.89197 radius 0.7 damage 3 angle 80 bkb 25 kbg 0 priority 2 }
         hitbox { start 3 end 4 x 1.11998 y 1.53198 radius 0.79999 damage 2.5 angle 80 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
+            // Blade Flurry, hit 2 (ext1 or ext2): a short step forward. Press special again to continue into hit 3: stick up
             // for the rising slash (32 = ext4), down for the low one (33 = ext5), otherwise straight (31 = ext3).
             var queued;
             var dir;
@@ -504,7 +504,7 @@ weapon longsword {
         hitbox { start 3 end 4 x 2.34395 y 1.09999 radius 0.7 damage 4 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 3 end 4 x 1.40796 y 1.09999 radius 0.79999 damage 3 angle 361 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+            // Blade Flurry, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
             // for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
             var queued;
             var dir;
@@ -527,7 +527,7 @@ weapon longsword {
         hitbox { start 4 end 5 x 2.34395 y 1.89197 radius 0.7 damage 4 angle 80 bkb 25 kbg 0 priority 2 }
         hitbox { start 4 end 5 x 1.40796 y 1.89197 radius 0.79999 damage 3 angle 80 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+            // Blade Flurry, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
             // for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
             var queued;
             var dir;
@@ -550,7 +550,7 @@ weapon longsword {
         hitbox { start 4 end 5 x 2.34395 y 0.596 radius 0.7 damage 4 angle 361 bkb 25 kbg 0 priority 2 }
         hitbox { start 4 end 5 x 1.40796 y 0.596 radius 0.79999 damage 3 angle 361 bkb 25 kbg 0 }
         script {
-            // Dancing Blade, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
+            // Blade Flurry, hit 3 (ext3, ext4 or ext5): a short step forward. Press special again for the finisher: stick up
             // for the rising one (35 = ext7), down for the low multi-hit one (36 = ext8), otherwise straight (34 = ext6).
             var queued;
             var dir;
@@ -573,7 +573,7 @@ weapon longsword {
         hitbox { start 6 end 7 x 2.63194 y 1.09999 radius 0.79999 damage 6 angle 361 bkb 85 kbg 125 priority 2 }
         hitbox { start 6 end 7 x 1.55197 y 1.09999 radius 0.9 damage 4 angle 361 bkb 74 kbg 103 }
         script {
-            // Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+            // Blade Flurry finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
             if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
             if grounded && frame == 7 { set_vel(0, 0); }
         }
@@ -583,7 +583,7 @@ weapon longsword {
         hitbox { start 5 end 6 x 1.69597 y 2.17996 radius 0.79999 damage 7 angle 80 bkb 85 kbg 40 priority 2 }
         hitbox { start 5 end 6 x 0.97598 y 1.74797 radius 0.9 damage 5 angle 80 bkb 80 kbg 40 }
         script {
-            // Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+            // Blade Flurry finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
             if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
             if grounded && frame == 7 { set_vel(0, 0); }
         }
@@ -596,7 +596,7 @@ weapon longsword {
         hitbox { start 25 end 26 x 2.48795 y 0.668 radius 0.79999 damage 5 angle 361 bkb 40 kbg 20 priority 2 group 1 }
         hitbox { start 25 end 26 x 1.55197 y 0.668 radius 0.9 damage 4 angle 361 bkb 40 kbg 20 group 1 }
         script {
-            // Dancing Blade finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
+            // Blade Flurry finishers (ext6, ext7 or ext8): a step forward into the last hit, on the ground.
             if grounded && frame >= 2 && frame <= 6 { set_vel(0.16, 0); }
             if grounded && frame == 7 { set_vel(0, 0); }
         }
@@ -1190,7 +1190,7 @@ weapon needles {
     move neutral_special {
         total_frames 8
         script {
-            // Needle Storm, the wind-up (neutral special). With a full charge stored it throws at once (32 = ext4); with some stored it charges on
+            // Needle Volley, the wind-up (neutral special). With a full charge stored it throws at once (32 = ext4); with some stored it charges on
             // from there, otherwise from none, after the wind-up (frame 7; 31 = ext3). Special pressed again during the wind-up is kept (`quick`):
             // the charge throws on its first frame.
             var needles;
@@ -1228,7 +1228,7 @@ weapon needles {
         hitbox { start 35 end 37 x 0 y 0.59999 radius 1.59999 damage 12 angle 55 bkb 50 kbg 112 angle_type position }
         hitbox { start 54 end 55 x 0 y 1.2 radius 1.09999 damage 5 angle 45 bkb 0 kbg 100 group 1 fixed_kb 80 sdi 0 angle_type position }
         script {
-            // Vanish (up special): a small hop in the air (on the ground it stays put), the explosion where the fighter stands (frames 36-38), then 20 frames of teleport in the
+            // Flash Step (up special): a small hop in the air (on the ground it stays put), the explosion where the fighter stands (frames 36-38), then 20 frames of teleport in the
             // direction the stick holds on frame 36 (straight up when it is near neutral), faster the further it is pushed (1.5 reference units a
             // frame plus up to 1 more); it reappears with a hit (frames 55-56) keeping 0.3 of the speed. Intangible from frame 14 (19 in the
             // air) to 54.
@@ -1266,7 +1266,7 @@ weapon needles {
         hitbox { start 22 end 28 x 0.7 y 0.29999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 hitlag 170 angle_type forward }
         hitbox { start 22 end 28 x 0.09999 y 0.59999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 priority 1 hitlag 170 angle_type forward }
         script {
-            // Bouncing Fish (down special): a flip forward into a heel kick coming down (frames 23-29). It leaves at 1.6 reference units a frame
+            // Flip Kick (down special): a flip forward into a heel kick coming down (frames 23-29). It leaves at 1.6 reference units a frame
             // forward (1.5 in the air) and 3 up and falls at 1.5 times the rogue's gravity; from frame 30 the stick steers it (0 to 2.4 forward).
             // A hit bounces it back off the target (33 = ext5). Pressing special again before frame 16 kicks early: on frame 16 it carries on as
             // the early kick (34 = ext6), whose kick lands on frames 18-24 instead.
@@ -1380,7 +1380,7 @@ weapon needles {
         total_frames 16
         landing_move ext3
         script {
-            // Needle Storm, charging (ext3, slot 31), as the reference: the charge carries on by itself, a needle on the first frame (the
+            // Needle Volley, charging (ext3, slot 31), as the reference: the charge carries on by itself, a needle on the first frame (the
             // reference's frame 8) and one more every 15 frames, six at most. Pressing special again throws them (32 = ext4); shield (and so a
             // spot dodge or roll) or jump stores them for later and ends the move; a full charge stores itself 4 frames after the sixth needle.
             // Landing carries the charge on (the move is its own landing move). The move restarts itself every 15 frames to keep going.
@@ -1416,7 +1416,7 @@ weapon needles {
             hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 1.5 angle 60 bkb 0 kbg 167 hitlag 80 }
         }
         script {
-            // Needle Storm, the throw (ext4, slot 32): the charged needles, one every 3 frames from frame 11; straight ahead on the ground
+            // Needle Volley, the throw (ext4, slot 32): the charged needles, one every 3 frames from frame 11; straight ahead on the ground
             // (1.25 units a frame), 35 degrees down from the air. In the air the move ends at frame 43 instead of 49.
             var needles;
             var thrown;
@@ -1432,7 +1432,7 @@ weapon needles {
         landing_lag 20
         grabs_ledge true
         script {
-            // Bouncing Fish, the bounce off a target (ext5, slot 33): back 1.8 reference units a frame and up 3.5, still falling at 1.5 times
+            // Flip Kick, the bounce off a target (ext5, slot 33): back 1.8 reference units a frame and up 3.5, still falling at 1.5 times
             // gravity.
             var sx;
             var sy;
@@ -1451,8 +1451,8 @@ weapon needles {
         hitbox { start 2 end 8 x 0.7 y 0.29999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 hitlag 170 angle_type forward }
         hitbox { start 2 end 8 x 0.09999 y 0.59999 radius 0.4 damage 11 angle 361 bkb 26 kbg 97 priority 1 hitlag 170 angle_type forward }
         script {
-            // Bouncing Fish, the early kick (ext6, slot 34), entered on the fish's frame 16: the same flight carried on (its speeds are the
-            // fish's variables), the kick on its frames 3-9 (the fish's 18-24). The stick steers from the fish's frame 30 (this move's 15).
+            // Flip Kick, the early kick (ext6, slot 34), entered on the flip kick's frame 16: the same flight carried on (its speeds are the
+            // flip kick's variables), the kick on its frames 3-9 (the flip kick's 18-24). The stick steers from the flip kick's frame 30 (this move's 15).
             var sx;
             var sy;
             if hit { goto(33); }

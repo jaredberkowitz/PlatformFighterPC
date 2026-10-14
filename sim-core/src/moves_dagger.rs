@@ -1,6 +1,6 @@
 //! The Dagger moveset (the phantom body), modelled mechanically on a reference character: the body's normals with its partner's
 //! boxes, the gun, the curse bolt, the guard and the partner's specials (phase 1), the hook and its tether (phase 2, sim 123). A child module of `moves` (it uses that file's private
-//! row builders). Data and sources: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/joker/`), read from ssbwiki.com's raw
+//! row builders). Data and sources: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/dagger/`), read from ssbwiki.com's raw
 //! hitbox tables (13.0.1), ultimateframedata.com and dragdown.wiki.
 //!
 //! **The partner** (E52, E53): the phantom's gauge (`FighterParams::phantom_gauge`) fills by itself, from damage taken and from hits on
@@ -186,7 +186,7 @@ use slots::*;
 
 /// The Dagger moveset (the phantom body): a short knife, kicks, a gun, a curse bolt, a guard that fills its gauge and the partner
 /// that comes when the gauge is full. Every normal follows the reference frame for frame (the thirteenth moveset's `REFERENCE_DATA.md`
-/// in `docs/movesets/joker/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables), with and without the partner: active frames,
+/// in `docs/movesets/dagger/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables), with and without the partner: active frames,
 /// FAF, landing lag and autocancel windows, smash charge frames; damage, angles and angle types, base and growth knockback, set
 /// knockback and set weight, hitlag, SDI and shieldstun multipliers, shield damage, grounded- and aerial-only boxes, no-clank boxes, hit
 /// groups, the partner's own boxes. Radii and offsets on the reference's root bone (`top`) are its values converted (x 1.25, rounded

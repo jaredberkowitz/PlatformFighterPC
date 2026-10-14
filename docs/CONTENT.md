@@ -233,7 +233,7 @@ hitboxes outside the move, an endless script, ...). `content-check` runs both.
 
 A script is attached to a move (`script`, runs every frame the move is active, not during hitlag) or to the
 projectile the move fires (`projectile_script`, runs every frame the projectile exists). Example, the shipped first hit
-of the sword character's Dancing Blade (`sim-core/src/scripts/dancing_blade_1.script`); it remembers a press of the special
+of the sword character's Blade Flurry (`sim-core/src/scripts/blade_flurry_1.script`); it remembers a press of the special
 button and carries on into the next hit:
 
 ```text
@@ -251,7 +251,7 @@ if queued && frame >= 18 {
 }
 ```
 
-No shipped move uses a projectile script now (the first placeholder, a homing bolt, was replaced by Shield Breaker); they are
+No shipped move uses a projectile script now (the first placeholder, a homing bolt, was replaced by Charged Thrust); they are
 covered by `sim-core/tests/scripted_moves.rs`.
 
 ### Language

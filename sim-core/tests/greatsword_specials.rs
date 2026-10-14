@@ -1,7 +1,7 @@
 //! The Greatsword's specials, phase 2 (the normal versions; sim 85): the wave (ground and air, its tall hit, its fall break, the land
 //! switch), the combo slash (each part only on a hit, shields included, and only with a new press), the rising slash (the rise, the
 //! second press in 20-26, the falling slash's speed, meteor and landing hit, the ledge rules, the special fall) and the charge (0.3 a
-//! frame, its cancels, a hit draining it). Reference data: `docs/movesets/cloud/REFERENCE_DATA.md`; [E] fits are noted per test.
+//! frame, its cancels, a hit draining it). Reference data: `docs/movesets/greatsword/REFERENCE_DATA.md`; [E] fits are noted per test.
 
 mod common;
 

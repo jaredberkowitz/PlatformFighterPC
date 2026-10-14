@@ -1,7 +1,7 @@
 //! The Needles moveset on the rogue body (class 2), modelled mechanically on the reference rogue: frame data against the
 //! reference, the up air's looping autolink hits and final hit (and its drag-down), the down air's dive and landing hit, the up tilt's
 //! two hits, and the body's jump air times; then the rest of the kit (the jabs and rapid jab, the earlier game's dash attack, the two-hit
-//! smashes, grabs and throws) and light hits landing on their feet. Reference data and sources: `docs/sheik/REFERENCE_DATA.md`.
+//! smashes, grabs and throws) and light hits landing on their feet. Reference data and sources: `docs/movesets/needles/REFERENCE_DATA.md`.
 
 mod common;
 
@@ -663,7 +663,7 @@ fn needle_range() -> Sim {
 }
 
 #[test]
-fn needle_storm_charges_by_itself_and_a_second_press_throws() {
+fn needle_volley_charges_by_itself_and_a_second_press_throws() {
     // As the reference: one press starts the charge, which carries on with the button let go (a needle on frame 8, then every 15
     // frames); pressing again throws what has built up. A second press during the wind-up throws the first needle at once.
     for (second, needles) in [(3usize, 1usize), (15, 1), (30, 2), (45, 3), (75, 5)] {
@@ -806,7 +806,7 @@ fn a_fighter_reeled_in_from_the_air_lands_on_its_feet() {
 }
 
 #[test]
-fn vanish_teleports_the_way_the_stick_points_and_leaves_the_fighter_helpless() {
+fn flash_step_teleports_the_way_the_stick_points_and_leaves_the_fighter_helpless() {
     // Neutral: straight up, 20 frames at 1.5 reference units; pushed sideways: 2.5 units a frame along the stick.
     for (stick, dx_min, dy_min) in [(0i8, -1, 3), (127, 5, -1)] {
         let mut sim = duel();
@@ -841,7 +841,7 @@ fn vanish_teleports_the_way_the_stick_points_and_leaves_the_fighter_helpless() {
 }
 
 #[test]
-fn vanish_explodes_where_it_starts() {
+fn flash_step_explodes_where_it_starts() {
     let mut sim = duel();
     sim.stand(0, Fx::ZERO, 1);
     sim.stand(1, fx(12, 10), -1);
@@ -851,7 +851,7 @@ fn vanish_explodes_where_it_starts() {
 }
 
 #[test]
-fn bouncing_fish_kicks_down_on_a_fighter_ahead_and_bounces_back_off_it() {
+fn flip_kick_kicks_down_on_a_fighter_ahead_and_bounces_back_off_it() {
     let mut sim = duel();
     sim.stand(0, Fx::ZERO, 1);
     sim.stand(1, fx(46, 10), -1);
@@ -869,7 +869,7 @@ fn bouncing_fish_kicks_down_on_a_fighter_ahead_and_bounces_back_off_it() {
 }
 
 #[test]
-fn a_missed_bouncing_fish_lands_with_its_lag() {
+fn a_missed_flip_kick_lands_with_its_lag() {
     let mut sim = duel();
     sim.stand(0, Fx::ZERO, 1);
     sim.stand(1, Fx::from_int(-10), 1);
@@ -914,7 +914,7 @@ fn a_drag_down_up_air_lands_its_target_in_front() {
 }
 
 #[test]
-fn pressing_special_again_kicks_the_bouncing_fish_early() {
+fn pressing_special_again_kicks_the_flip_kick_early() {
     // Pressed again before frame 16, the kick comes out on frame 18 instead of 23 (the early kick, ext6), so it lands shorter.
     let first_hit = |press: bool| {
         let mut sim = duel();

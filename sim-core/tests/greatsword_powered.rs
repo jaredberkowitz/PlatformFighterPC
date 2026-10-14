@@ -1,7 +1,7 @@
 //! The Greatsword's powered versions, phase 3 (sim 87), and the general pieces they brought: E3e (a projectile that bursts on its
 //! first fighter or a wall, `ProjectileSpawn::burst`, hashed `Projectile::bursting`), E28 (the vortex angle 366, hashed
 //! `Fighter::link_kind` and `vortex`), E11's `motion_drift`; the powered wave, combo slash, rise and the finisher; any special in the
-//! powered mode spending the gauge. Reference data: `docs/movesets/cloud/REFERENCE_DATA.md`; [E] fits are noted per test.
+//! powered mode spending the gauge. Reference data: `docs/movesets/greatsword/REFERENCE_DATA.md`; [E] fits are noted per test.
 
 mod common;
 

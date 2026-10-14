@@ -3,7 +3,7 @@
 //! running the moves; hit properties (damage, angles and angle types, knockback, set knockback and set weight, hitlag and SDI
 //! multipliers, trip chances, shield damage, grounded- and aerial-only boxes, no-clank boxes); the jab chain, its held repeat and its
 //! window past the FAF; grabs, pummel and throws; landing lag and autocancels; the body's attributes and jump air times; registration;
-//! determinism. Reference data and sources: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/diddy_kong/`).
+//! determinism. Reference data and sources: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/popgun/`).
 
 mod common;
 

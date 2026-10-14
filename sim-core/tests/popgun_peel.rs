@@ -1,6 +1,6 @@
 //! The Popgun's down special, the banana peel (class 11, the scamp body), modelled mechanically on a reference character: E44 slip hits,
 //! E45 traps, E47 a move's toss, the item's uses and the wait between peels. The neutral special is in `popgun_peanut.rs`, the up special
-//! in `popgun_rocket.rs`. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/diddy_kong/`).
+//! in `popgun_rocket.rs`. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/popgun/`).
 
 mod common;
 

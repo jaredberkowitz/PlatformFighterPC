@@ -1,5 +1,5 @@
 //! The completed kits: the sword character's jab chain, dash attack, down air, grabs and throws, ledge attack,
-//! Shield Breaker, Dancing Blade and Counter; and the claws character's aimed specials, reflector guard frames and
+//! Charged Thrust, Blade Flurry and Counter; and the claws character's aimed specials, reflector guard frames and
 //! ledge attack.
 //!
 //! Frame numbering matches the reference: the tick the button goes down is frame 1.
@@ -352,11 +352,11 @@ fn the_ledge_attack_hits_on_frame_24_for_9_percent_and_is_intangible_until_frame
     }
 }
 
-// ---- Sword: Shield Breaker ---------------------------------------------------------------------------------
+// ---- Sword: Charged Thrust ---------------------------------------------------------------------------------
 
 /// Presses special on tick 1 and keeps it down through tick `hold`, then lets go. Returns the damage dealt and
 /// the tick (counted from the press) on which it hit.
-fn shield_breaker(hold: usize) -> (Fx, usize) {
+fn sword_thrust(hold: usize) -> (Fx, usize) {
     let mut sim = duel(SWORD, fx(40, 10));
     sim.tick(inp(0, 0, SPECIAL));
     assert_eq!(sim.f().move_id, MoveId::NSpecial as u8);
@@ -370,11 +370,11 @@ fn shield_breaker(hold: usize) -> (Fx, usize) {
 }
 
 #[test]
-fn shield_breaker_uncharged_does_8_percent_and_charging_raises_it_to_about_24() {
+fn sword_thrust_uncharged_does_8_percent_and_charging_raises_it_to_about_24() {
     let sim = duel(SWORD, fx(40, 10));
-    let (quick, _) = shield_breaker(1);
-    let (some, _) = shield_breaker(30);
-    let (full, _) = shield_breaker(100);
+    let (quick, _) = sword_thrust(1);
+    let (some, _) = sword_thrust(30);
+    let (full, _) = sword_thrust(100);
     assert!(
         quick >= pct(&sim, 80) && quick <= pct(&sim, 90),
         "uncharged {quick:?}"
@@ -390,7 +390,7 @@ fn shield_breaker_uncharged_does_8_percent_and_charging_raises_it_to_about_24() 
 }
 
 #[test]
-fn shield_breaker_holds_the_charge_pose_only_while_special_is_down_and_never_forever() {
+fn sword_thrust_holds_the_charge_pose_only_while_special_is_down_and_never_forever() {
     let mut sim = duel(SWORD, fx(100, 10));
     sim.tick(inp(0, 0, SPECIAL));
     sim.ticks(40, inp(0, 0, SPECIAL));
@@ -416,13 +416,13 @@ fn shield_breaker_holds_the_charge_pose_only_while_special_is_down_and_never_for
 }
 
 #[test]
-fn shield_breaker_thrust_comes_out_about_8_frames_after_the_button_is_let_go() {
+fn sword_thrust_thrust_comes_out_about_8_frames_after_the_button_is_let_go() {
     // Held past the charge frame, then released on tick 30: the thrust lands 7-8 ticks later.
-    let (_, hit) = shield_breaker(30);
+    let (_, hit) = sword_thrust(30);
     assert!((37..=39).contains(&hit), "hit on tick {hit}");
 }
 
-// ---- Sword: Dancing Blade ----------------------------------------------------------------------------------
+// ---- Sword: Blade Flurry ----------------------------------------------------------------------------------
 
 fn db_sim() -> Sim {
     let mut sim = duel(SWORD, fx(30, 10));
@@ -457,7 +457,7 @@ fn ext(n: u8) -> u8 {
 }
 
 #[test]
-fn dancing_blade_without_more_presses_is_a_single_hit() {
+fn blade_flurry_without_more_presses_is_a_single_hit() {
     let mut sim = db_sim();
     sim.tick(inp(100, 0, SPECIAL));
     for _ in 0..60 {
@@ -467,7 +467,7 @@ fn dancing_blade_without_more_presses_is_a_single_hit() {
 }
 
 #[test]
-fn dancing_blade_continues_straight_on_each_press() {
+fn blade_flurry_continues_straight_on_each_press() {
     let moves = run_blade(220, |_| 0);
     assert_eq!(
         moves[..4],
@@ -477,7 +477,7 @@ fn dancing_blade_continues_straight_on_each_press() {
 }
 
 #[test]
-fn dancing_blade_stick_up_picks_the_rising_hits_and_down_the_low_ones() {
+fn blade_flurry_stick_up_picks_the_rising_hits_and_down_the_low_ones() {
     let up = run_blade(220, |_| 100);
     assert_eq!(up[..4], [MoveId::SideSpecial as u8, ext(2), ext(4), ext(7)]);
     let down = run_blade(260, |m| {
@@ -494,7 +494,7 @@ fn dancing_blade_stick_up_picks_the_rising_hits_and_down_the_low_ones() {
 }
 
 #[test]
-fn dancing_blade_hits_are_2_5_to_3_percent_each() {
+fn blade_flurry_hits_are_2_5_to_3_percent_each() {
     let mut sim = db_sim();
     sim.tick(inp(100, 0, SPECIAL));
     let mut hits = Vec::new();
@@ -513,7 +513,7 @@ fn dancing_blade_hits_are_2_5_to_3_percent_each() {
 }
 
 #[test]
-fn dancing_blade_in_the_air_ends_sooner() {
+fn blade_flurry_in_the_air_ends_sooner() {
     let mut sim = Sim::with_chars(SWORD);
     sim.state = GameState::new_with_active(&sim.content, 1, SWORD, 0b0011);
     sim.put_airborne(0, Fx::ZERO, Fx::from_int(40), Fx::ZERO, Fx::ZERO);
@@ -933,9 +933,9 @@ fn a_weapon_without_a_pivot_grab_falls_back_to_its_dash_grab() {
     assert_eq!(sim.f().move_id, MoveId::DashGrab as u8);
 }
 
-// ---- Shield Breaker vs shields ----------------------------------------------------------------------------
+// ---- Charged Thrust vs shields ----------------------------------------------------------------------------
 
-/// How much shield health Shield Breaker takes off a held shield (charged for `hold` ticks), with the move's shield
+/// How much shield health Charged Thrust takes off a held shield (charged for `hold` ticks), with the move's shield
 /// damage set to `percent`, and the shield's state at the end.
 fn shield_loss(hold: usize, percent: u16) -> (Fx, S) {
     use sim_core::input::buttons::SHIELD;
@@ -961,7 +961,7 @@ fn shield_loss(hold: usize, percent: u16) -> (Fx, S) {
 }
 
 #[test]
-fn shield_breaker_does_double_damage_to_a_shield_and_a_full_charge_breaks_it() {
+fn sword_thrust_does_double_damage_to_a_shield_and_a_full_charge_breaks_it() {
     let (normal, _) = shield_loss(1, 100);
     let (doubled, state) = shield_loss(1, 200);
     // The shield also drains a little each frame; the extra from doubling is one more hit's worth of damage.
@@ -984,7 +984,7 @@ fn shield_breaker_does_double_damage_to_a_shield_and_a_full_charge_breaks_it() {
 }
 
 #[test]
-fn only_shield_breaker_has_extra_shield_damage() {
+fn only_sword_thrust_has_extra_shield_damage() {
     let sim = duel(SWORD, fx(40, 10));
     let w = &sim.content.weapons[0];
     assert!(w.moves[MoveId::NSpecial as usize]
@@ -1008,10 +1008,10 @@ fn only_shield_breaker_has_extra_shield_damage() {
     }
 }
 
-// ---- Dancing Blade steps ------------------------------------------------------------------------------------
+// ---- Blade Flurry steps ------------------------------------------------------------------------------------
 
 #[test]
-fn dancing_blade_steps_forward_on_the_ground_hit_by_hit() {
+fn blade_flurry_steps_forward_on_the_ground_hit_by_hit() {
     let mut sim = duel(SWORD, fx(300, 10));
     let start = sim.f().pos.x;
     sim.tick(inp(100, 0, SPECIAL));
@@ -1044,7 +1044,7 @@ fn dancing_blade_steps_forward_on_the_ground_hit_by_hit() {
 }
 
 #[test]
-fn dancing_blade_steps_leave_the_air_alone() {
+fn blade_flurry_steps_leave_the_air_alone() {
     // In the air a step would freeze the fall; the script leaves air physics alone.
     let mut sim = Sim::with_chars(SWORD);
     sim.state = GameState::new_with_active(&sim.content, 1, SWORD, 0b0011);

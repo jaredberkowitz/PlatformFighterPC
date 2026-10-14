@@ -4,7 +4,7 @@
 //! and finisher; the angled forward tilt and smash; the knee's one-frame sweetspot; the down air's meteor; per-limb intangibility
 //! (the up tilt's and up smash's legs) and per-hitbox shieldstun (the dash attack and rapid jab); grabs, pummel and throws; landing
 //! lag and autocancels; the body's attributes and jump air times; and determinism. Reference data and sources:
-//! `docs/movesets/captain_falcon/REFERENCE_DATA.md`.
+//! `docs/movesets/gauntlets/REFERENCE_DATA.md`.
 
 mod common;
 

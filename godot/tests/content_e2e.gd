@@ -40,7 +40,7 @@ func _initialize() -> void:
 	err = sim.load_content("C:/definitely/not/here.pfc")
 	check(err.contains("cannot read"), "a missing file is explained: " + err)
 
-	# Play the sword character's specials: neutral (Shield Breaker) and side (Dancing Blade).
+	# Play the sword character's specials: neutral (Charged Thrust) and side (Blade Flurry).
 	sim.start(7, PackedInt32Array([0, 1, 0, 1]))
 	var special: int = sim.button_mask("special")
 	var moved := false

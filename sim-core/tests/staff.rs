@@ -4,7 +4,7 @@
 //! the multi-hit loops (up tilt, neutral air, up air) with their last hits; the neutral air's negative hitstun modifier (E27) and the
 //! angle types of its last hit and of the up air (E26); the smashes' wind (pushes re-applied every frame); the dash attack's and back
 //! air's partial intangibility; grabs, pummel and throws; landing lag and autocancels; the body's attributes and jump air times; and
-//! determinism. Reference data and sources: `docs/movesets/palutena/REFERENCE_DATA.md`.
+//! determinism. Reference data and sources: `docs/movesets/staff/REFERENCE_DATA.md`.
 
 mod common;
 

@@ -2194,7 +2194,7 @@ func _update_items() -> void:
 
 
 # ---- Projectiles ------------------------------------------------------------------------------------
-# Each slot can show a bolt (the claws' blaster and anything else), a needle (the Needles moveset's Needle Storm: thin, teal, pointing
+# Each slot can show a bolt (the claws' blaster and anything else), a needle (the Needles moveset's Needle Volley: thin, teal, pointing
 # where it flies) or the Needles' pulling line (a small weight with a cord back to the thrower's hand).
 
 ## Numbers per slot in `projectile_slots` (see the bridge).

@@ -2,7 +2,7 @@
 //! with and without the partner, and the partner's boxes (E52). Frame data against the reference for every normal, checked in the data
 //! and by running the moves; hit properties; the partner's boxes hitting with the phantom's own on one frame; the awakened boxes
 //! chosen as the attack begins. The gauge is `dagger_gauge.rs`, the specials `dagger_specials.rs`. Reference data and sources: the
-//! thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/joker/`).
+//! thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/dagger/`).
 
 mod common;
 

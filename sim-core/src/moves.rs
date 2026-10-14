@@ -3407,7 +3407,7 @@ fn sword_kit() -> Weapon {
     getup_attack.intangible = 23;
     moves[MoveId::GetUpAttack as usize] = getup_attack;
 
-    // Neutral special, Shield Breaker: hold special to charge (from frame 19, at most the charge limit), let go to
+    // Neutral special, Charged Thrust: hold special to charge (from frame 19, at most the charge limit), let go to
     // thrust. The thrust hits on frame 27: 8% (9% at the tip) uncharged, up to about 24% fully charged. Release to
     // end is 39 frames. Knockback is an estimate.
     let mut breaker = ref_move(
@@ -3433,11 +3433,11 @@ fn sword_kit() -> Weapon {
     }];
     breaker.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/shield_breaker.script"),
+        include_str!("scripts/sword_thrust.script"),
     ));
     moves[MoveId::NSpecial as usize] = breaker;
 
-    // Side special, Dancing Blade: up to four hits, each started by pressing special again (the stick chooses the
+    // Side special, Blade Flurry: up to four hits, each started by pressing special again (the stick chooses the
     // rising or low variants). Hit 1 starts on frame 9 (FAF 39 on the ground, ends after 29 in the air). Hits 2-4
     // are `ext` slots: startup / FAF 5/38 (straight) and 4/38 (rising); 4/43, 5/43 and 5/43 for hit 3; 7/55,
     // 6/44 and 7/74 for hit 4. Damage is 2.5% (3% at the tip) for hits 1-2, 3% (4%) for hit 3, and 4% (6%),
@@ -3455,7 +3455,7 @@ fn sword_kit() -> Weapon {
             r(9, 10, 18, 11, 8, 25, 361, 25, 0, 1, 0),
         ],
     );
-    db1.script = db_script(include_str!("scripts/dancing_blade_1.script"));
+    db1.script = db_script(include_str!("scripts/blade_flurry_1.script"));
     moves[MoveId::SideSpecial as usize] = db1;
     let mut db2n = ref_move(
         38,
@@ -3467,7 +3467,7 @@ fn sword_kit() -> Weapon {
             r(5, 6, 18, 11, 8, 25, 361, 25, 0, 1, 0),
         ],
     );
-    db2n.script = db_script(include_str!("scripts/dancing_blade_2.script"));
+    db2n.script = db_script(include_str!("scripts/blade_flurry_2.script"));
     moves[ext(1)] = db2n;
     let mut db2u = ref_move(
         38,
@@ -3479,7 +3479,7 @@ fn sword_kit() -> Weapon {
             r(4, 5, 14, 17, 8, 25, 80, 25, 0, 1, 0),
         ],
     );
-    db2u.script = db_script(include_str!("scripts/dancing_blade_2.script"));
+    db2u.script = db_script(include_str!("scripts/blade_flurry_2.script"));
     moves[ext(2)] = db2u;
     for (slot, startup, y, angle, tip_dmg, body_dmg) in [
         (3u8, 4u8, 11, 361, 40, 30),
@@ -3496,7 +3496,7 @@ fn sword_kit() -> Weapon {
                 r(startup, startup + 1, 18, y, 8, body_dmg, angle, 25, 0, 1, 0),
             ],
         );
-        m.script = db_script(include_str!("scripts/dancing_blade_3.script"));
+        m.script = db_script(include_str!("scripts/blade_flurry_3.script"));
         moves[ext(slot)] = m;
     }
     // Finishers: straight, rising, and the low multi-hit one.
@@ -3510,7 +3510,7 @@ fn sword_kit() -> Weapon {
             r(7, 8, 20, 11, 9, 40, 361, 74, 103, 1, 0),
         ],
     );
-    finisher_straight.script = db_script(include_str!("scripts/dancing_blade_4.script"));
+    finisher_straight.script = db_script(include_str!("scripts/blade_flurry_4.script"));
     moves[ext(6)] = finisher_straight;
     let mut finisher_rising = ref_move(
         44,
@@ -3522,7 +3522,7 @@ fn sword_kit() -> Weapon {
             r(6, 7, 12, 20, 9, 50, 80, 80, 40, 1, 0),
         ],
     );
-    finisher_rising.script = db_script(include_str!("scripts/dancing_blade_4.script"));
+    finisher_rising.script = db_script(include_str!("scripts/blade_flurry_4.script"));
     moves[ext(7)] = finisher_rising;
     let mut low = ref_move(
         74,
@@ -3536,7 +3536,7 @@ fn sword_kit() -> Weapon {
         ],
     );
     low.rehit = Some((6, 4));
-    low.script = db_script(include_str!("scripts/dancing_blade_4.script"));
+    low.script = db_script(include_str!("scripts/blade_flurry_4.script"));
     moves[ext(8)] = low;
 
     // Down special, Counter: for 22 frames starting on frame 6 a hit is caught instead of taken, and the duelist
@@ -3613,7 +3613,7 @@ fn angle_type_rows(w: &mut Weapon, id: MoveId, rows: &[usize], t: u8) {
 /// angles, base and growth knockback, set knockback, hitlag and SDI multipliers, grounded / aerial targets, hitstun modifiers, landing
 /// lag and autocancel windows, the up air's looping autolink hits and final hit, the down air's dive and landing hit. Radii are the
 /// reference's converted; positions are estimates on our body (the reference attaches its hitboxes to bones of its own skeleton). The
-/// data and its sources: `docs/sheik/REFERENCE_DATA.md`. The jabs and rapid jab, smashes, grabs, throws and the needle, vanish and
+/// data and its sources: `docs/movesets/needles/REFERENCE_DATA.md`. The jabs and rapid jab, smashes, grabs, throws and the needle, flash step and
 /// bouncing specials follow the reference too; the dash attack is the earlier game's, and the side special is our own pulling line.
 pub fn needles() -> Weapon {
     let mut w = claws();
@@ -3795,7 +3795,7 @@ pub fn needles() -> Weapon {
     w.moves[MoveId::Ext0 as usize] =
         ref_move(23, 0, 0, 255, &[r(1, 2, 0, 8, 8, 20, 48, 77, 50, 0, 0)]);
 
-    // ---- The rest of the kit (docs/sheik/REFERENCE_DATA.md, "The rest of the kit") ----
+    // ---- The rest of the kit (docs/movesets/needles/REFERENCE_DATA.md, "The rest of the kit") ----
     // Frames, damage, angles, knockback, hitlag and SDI multipliers are the reference's; positions are estimates on our body.
 
     // Jab 1: a hand swipe on frame 2, 2%, FAF 18; hitlag x1.6. The close hits use the 361 angle (BK 35 / 30, KS 30); the tip
@@ -4002,7 +4002,7 @@ pub fn needles() -> Weapon {
     // estimate [E].
 
     // ---- Specials ----
-    // Needle Storm (neutral special), charged and stored as the reference's: a wind-up to frame 7, then charging (ext3), which carries
+    // Needle Volley (neutral special), charged and stored as the reference's: a wind-up to frame 7, then charging (ext3), which carries
     // on by itself, a needle on its first frame and another every 15 up to 6; pressing special again throws them (ext4), one every 3
     // frames from frame 11; shield or jump stores them, and a full charge stores itself. A full store is thrown at once next time; a
     // part charge carries on charging from where it was (all scripts). Each needle: 1.5% falling to 0.8% over its 9 frames, 60 degrees, BK 0, KS 167, hitlag x0.8, 10 reference units a frame
@@ -4010,13 +4010,13 @@ pub fn needles() -> Weapon {
     let mut storm = ref_move(10, 0, 0, 255, &[]);
     storm.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/needle_storm_start.script"),
+        include_str!("scripts/needle_volley_start.script"),
     ));
     w.moves[MoveId::NSpecial as usize] = storm;
     let mut charge = ref_move(18, 0, 0, 255, &[]);
     charge.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/needle_storm_charge.script"),
+        include_str!("scripts/needle_volley_charge.script"),
     ));
     // Landing carries the charge on.
     charge.landing_move = Some(MoveId::Ext3 as u8);
@@ -4043,7 +4043,7 @@ pub fn needles() -> Weapon {
     });
     throw.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/needle_storm_throw.script"),
+        include_str!("scripts/needle_volley_throw.script"),
     ));
     w.moves[MoveId::Ext4 as usize] = throw;
 
@@ -4076,11 +4076,11 @@ pub fn needles() -> Weapon {
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
-    // Vanish (up special): a small hop [E], the explosion on frames 36-38 (12%, 55 degrees, BK 50, KS 112, radius 13), then 20 frames of
+    // Flash Step (up special): a small hop [E], the explosion on frames 36-38 (12%, 55 degrees, BK 50, KS 112, radius 13), then 20 frames of
     // teleport the way the stick points on frame 36 (1.5 reference units a frame, up to 2.5 with the stick pushed all the way), and the
     // reappearance hit on frames 55-56 (5%, 45 degrees, set knockback 80, SDI x0). Intangible 14-54 (19-54 in the air). FAF 95, then
     // helpless; landing lag 20. Its 0% wind box on reappearing is not modelled [E].
-    let mut vanish = ref_move(
+    let mut flash_step = ref_move(
         95,
         20,
         0,
@@ -4090,19 +4090,22 @@ pub fn needles() -> Weapon {
             r(55, 56, 0, 12, 11, 50, 45, 0, 100, 0, 1),
         ],
     );
-    set_rows(&mut vanish, &[1], |h| {
+    set_rows(&mut flash_step, &[1], |h| {
         h.fixed_kb = 80;
         h.sdi = 0;
     });
-    vanish.script = Some(script(Kind::Fighter, include_str!("scripts/vanish.script")));
-    vanish.helpless_after = true;
-    vanish.grabs_ledge = true;
-    w.moves[MoveId::UpSpecial as usize] = vanish;
+    flash_step.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/flash_step.script"),
+    ));
+    flash_step.helpless_after = true;
+    flash_step.grabs_ledge = true;
+    w.moves[MoveId::UpSpecial as usize] = flash_step;
 
-    // Bouncing Fish (down special): a flip forward into a heel kick (frames 23-29): 11%, angle 361, BK 26, KS 97, hitlag x1.7. A hit
+    // Flip Kick (down special): a flip forward into a heel kick (frames 23-29): 11%, angle 361, BK 26, KS 97, hitlag x1.7. A hit
     // bounces the fighter back off the target (ext5; FAF 80, landing lag 20). FAF 51; landing during it, 36 frames (the reference's kick
     // landing; landing before the kick is 22 there [D]). Consecutive kicks after a bounce and wall bounces are not modelled [E].
-    let mut fish = ref_move(
+    let mut flip_kick = ref_move(
         51,
         36,
         0,
@@ -4112,13 +4115,13 @@ pub fn needles() -> Weapon {
             r(23, 29, 1, 6, 4, 110, 361, 26, 97, 1, 0),
         ],
     );
-    set_rows(&mut fish, &[0, 1], |h| h.hitlag = 170);
-    fish.script = Some(script(
+    set_rows(&mut flip_kick, &[0, 1], |h| h.hitlag = 170);
+    flip_kick.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/bouncing_fish.script"),
+        include_str!("scripts/flip_kick.script"),
     ));
-    fish.grabs_ledge = true;
-    w.moves[MoveId::DownSpecial as usize] = fish;
+    flip_kick.grabs_ledge = true;
+    w.moves[MoveId::DownSpecial as usize] = flip_kick;
     // The early kick (ext6): pressing special again before frame 16 carries on into it there, kicking on frames 18-24 (its 3-9), FAF 46.
     let mut early = ref_move(
         31,
@@ -4133,14 +4136,14 @@ pub fn needles() -> Weapon {
     set_rows(&mut early, &[0, 1], |h| h.hitlag = 170);
     early.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/bouncing_fish_early.script"),
+        include_str!("scripts/flip_kick_early.script"),
     ));
     early.grabs_ledge = true;
     w.moves[MoveId::Ext6 as usize] = early;
     let mut bounce = ref_move(80, 20, 0, 255, &[]);
     bounce.script = Some(script(
         Kind::Fighter,
-        include_str!("scripts/bouncing_fish_bounce.script"),
+        include_str!("scripts/flip_kick_bounce.script"),
     ));
     bounce.grabs_ledge = true;
     w.moves[MoveId::Ext5 as usize] = bounce;
@@ -4177,7 +4180,7 @@ pub fn needles() -> Weapon {
 }
 
 /// The Embers moveset (the tumbler body): quick punches and kicks, modelled mechanically on a reference character. Every normal
-/// follows the reference frame for frame (`docs/movesets/mario/REFERENCE_DATA.md`): active frames, FAF, landing lag and autocancel
+/// follows the reference frame for frame (`docs/movesets/embers/REFERENCE_DATA.md`): active frames, FAF, landing lag and autocancel
 /// windows; damage, angles, base and growth knockback, set knockback and set weight, hitlag multipliers, shield damage; the jab's
 /// continuable windows and the held jab's repeat; the angled forward tilt and smash; the down air's five looping hits, final hit and
 /// landing hit. Radii are the reference's converted (x 1.25, rounded to a tenth); positions on the reference's root bone (`top`) are
@@ -4628,7 +4631,7 @@ pub fn embers() -> Weapon {
     w
 }
 
-/// The Embers' special moves (the reference's: ssbwiki.com, 13.0.1; `docs/movesets/mario/REFERENCE_DATA.md`).
+/// The Embers' special moves (the reference's: ssbwiki.com, 13.0.1; `docs/movesets/embers/REFERENCE_DATA.md`).
 fn embers_specials(w: &mut Weapon) {
     // Nothing of the claws' follow-up slots belongs to the Embers (ext0 is its down air's landing hit, set above).
     for id in [

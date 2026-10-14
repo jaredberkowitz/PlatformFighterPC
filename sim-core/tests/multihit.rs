@@ -1,6 +1,6 @@
 //! The generic multi-hit and hit-property machinery (any moveset can use it): up to eight hit groups, a rehit rhythm that re-arms only
 //! some groups (a looping phase and a final hit), grounded-only and aerial-only hitboxes, set knockback, hitstun modifiers, per-hit
-//! SDI multipliers, the autolink angle (367) and landing hits. The reference's rules are in `docs/sheik/REFERENCE_DATA.md`.
+//! SDI multipliers, the autolink angle (367) and landing hits. The reference's rules are in `docs/movesets/needles/REFERENCE_DATA.md`.
 
 mod common;
 

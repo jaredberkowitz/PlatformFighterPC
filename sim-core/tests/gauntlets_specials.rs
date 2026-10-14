@@ -1,5 +1,5 @@
 //! The Gauntlets' specials (class 4, the sprinter body; phase 2), modelled mechanically on a reference character: frame data, hits
-//! and the behaviour of each special against `docs/movesets/captain_falcon/REFERENCE_DATA.md`, and the extensions they brought
+//! and the behaviour of each special against `docs/movesets/gauntlets/REFERENCE_DATA.md`, and the extensions they brought
 //! (search boxes, command grabs, no-clank melee hits, situation changes that keep the frame, the wall register).
 
 mod common;

@@ -3,7 +3,7 @@
 //! the hang, the reel to the ledge, letting go, three catches before landing, a held ledge, the checksum and a resimulation. Also the
 //! phase-1 limits closed here: the up smash's arm intangible only with the partner, angle 365 on the gun's jump, the gun's dodges staled
 //! like rolls and the buffered dodge 4 frames later. Reference data: the thirteenth moveset's `REFERENCE_DATA.md`
-//! (`docs/movesets/joker/`).
+//! (`docs/movesets/dagger/`).
 
 mod common;
 

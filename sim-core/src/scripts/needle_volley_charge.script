@@ -1,0 +1,21 @@
+// Needle Volley, charging (ext3, slot 31), as the reference: the charge carries on by itself, a needle on the first frame (the
+// reference's frame 8) and one more every 15 frames, six at most. Pressing special again throws them (32 = ext4); shield (and so a
+// spot dodge or roll) or jump stores them for later and ends the move; a full charge stores itself 4 frames after the sixth needle.
+// Landing carries the charge on (the move is its own landing move). The move restarts itself every 15 frames to keep going.
+var needles;
+var thrown;
+var t;
+var quick;
+t = t + 1;
+if needles == 0 || (t >= 15 && needles < 6) {
+    needles = needles + 1;
+    t = 0;
+}
+if special_tap || quick {
+    goto(32);
+} else if shield || jump || (needles >= 6 && t >= 4) {
+    store(needles);
+    end();
+} else if frame >= 15 {
+    goto(31);
+}

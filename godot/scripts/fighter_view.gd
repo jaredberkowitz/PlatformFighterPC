@@ -2265,9 +2265,9 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		rebuild(loadout)
 	position = pos
 	var state: String = s.state
-	# Vanish: nothing to see while it teleports.
+	# Flash Step: nothing to see while it teleports.
 	if model != null:
-		var gone: Array = VANISH_GONE if _cls(s) == 2 else WARP_GONE
+		var gone: Array = FLASH_STEP_GONE if _cls(s) == 2 else WARP_GONE
 		model.visible = not ((_cls(s) == 2 or _cls(s) == STAFF_CLASS) and state == "Attack" and s.move_name == "up special"
 			and int(s.state_frame) >= gone[0] and int(s.state_frame) <= gone[1])
 	_ledge_motion(s, pos)
@@ -3252,7 +3252,7 @@ const ARCS := {
 		"uair": [[0.0, 0.0, 0.0, 15, 165, 7, 9, "arm"]],
 		"dair": [[0.0, 0.0, 0.0, 20, -110, 16, 17, "arm"]],
 	},
-	# Champion (greatsword): fitted to the moveset's timings (docs/movesets/cloud/IMPLEMENTATION_REPORT.md), circles about the shoulder
+	# Champion (greatsword): fitted to the moveset's timings (docs/movesets/greatsword/IMPLEMENTATION_REPORT.md), circles about the shoulder
 	# a little wider than the longsword's for the longer blade. Its kicks (jabs 1 and 2, the down tilt) and the driven-down down air
 	# draw none.
 	6: {
@@ -3292,8 +3292,8 @@ const ARCS := {
 	},
 }
 
-## The Needles' Vanish: the fighter is gone (move frames, from 0) while it teleports, between the explosion and the reappearance.
-const VANISH_GONE := [36, 54]
+## The Needles' Flash Step: the fighter is gone (move frames, from 0) while it teleports, between the explosion and the reappearance.
+const FLASH_STEP_GONE := [36, 54]
 ## The Seer's Warp: gone (move frames) while it travels, back on the next.
 const WARP_GONE := [16, 32]
 var arc: MeshInstance3D

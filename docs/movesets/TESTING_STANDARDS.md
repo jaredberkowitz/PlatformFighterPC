@@ -1,6 +1,6 @@
 # Testing standards for moveset ports
 
-How a ported fighter is tested before it is called done. These are the rules the Needles port (`docs/sheik/`) already follows, written
+How a ported fighter is tested before it is called done. These are the rules the Needles port (`docs/movesets/needles/`) already follows, written
 down so every port is held to the same bar. Unit tests prove behaviour; animations never do.
 
 ## Where tests live

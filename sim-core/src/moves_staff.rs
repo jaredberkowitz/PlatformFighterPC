@@ -58,7 +58,7 @@ fn along(x0: i32, x1: i32, step: i32) -> Vec<i32> {
 }
 
 /// The Staff moveset (the seer body): a staff, a shield and light. Every normal follows the reference frame for frame
-/// (`docs/movesets/palutena/REFERENCE_DATA.md`, version 13.0.1): active frames, FAF, landing lag and autocancel windows; damage,
+/// (`docs/movesets/staff/REFERENCE_DATA.md`, version 13.0.1): active frames, FAF, landing lag and autocancel windows; damage,
 /// angles and angle types, base and growth knockback, set knockback and set weight, hitlag, SDI and shieldstun multipliers, hitstun
 /// modifiers (the neutral air's late loop takes 13 frames off), shield damage, grounded- and aerial-only boxes, push hits (the
 /// smashes' wind); the jab's entry rule into the rapid jab; the multi-hit loops of the up tilt, neutral air and up air with their last
@@ -101,11 +101,11 @@ pub fn staff() -> Weapon {
     warp(&mut w);
     counter_and_barrier(&mut w);
     explosive_flame(&mut w);
-    autoreticle(&mut w);
+    reticle(&mut w);
     w
 }
 
-/// Neutral special, the reticle and its three shots (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "Autoreticle").
+/// Neutral special, the reticle and its three shots (the reference's, ssbwiki.com 13.0.1; `REFERENCE_DATA.md` "the reticle").
 ///
 /// * The search on frames 7-14 (the `lock` register): the nearest opponent that can be hit, in front, chest within 120 reference
 ///   units (15 world) of the seer's chest, with nothing solid between [R rules; E: the exact "in front" region, chest to chest
@@ -117,7 +117,7 @@ pub fn staff() -> Weapon {
 ///   Without a lock nothing comes out [R].
 /// * FAF 68 [R]; x0.6 horizontal speed in the air [R]; the aerial descent stall is not published (the body's physics) [E: gap 3];
 ///   touching down carries the move on [E: gap 4].
-fn autoreticle(w: &mut Weapon) {
+fn reticle(w: &mut Weapon) {
     let tenths = |n: i32| Fx::from_ratio(n, 10);
     let mut shot = row(&r(1, 1, 0, 0, u(23), 35, 361, 40, 41, 0, 0));
     shot.shield_damage = 51;
