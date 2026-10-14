@@ -93,6 +93,20 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 123** (branch `dagger-phase2`, from `movesets` at 0d6cfe0, sim 121, merged with `origin/movesets` 858cbdd, sim 122's run-mode
+rooms; content schema 7 unchanged): the Dagger's phase 2, **every move of the phantom now built**. The plain up special, **the hook**
+(the iconic recovery): on the ground a grab on 20-26 (FAF 60) that catches in the air too, misses fighters in hitstun and is stopped by a
+shield or a reflector, then the pull and its 11% throw; in the air a 5% hit on 20-25 (FAF 45, no special fall) with a small rise once per
+air time; and **the tether** (E56, general: `Move::tether`, `FighterState::Tether`, hashed `Fighter::tether_ledge` / `tether_count` /
+`tether_from`): a free ledge in reach from frame 12 is caught, the fighter hangs, is reeled in and grabs it as any grab; three catches
+before landing; the stick down lets go; a ledge taken meanwhile throws it off. Also general: `Hitbox::blockable` (a grab box shields and
+reflectors stop), angle **365** (`ANGLE_HALF_LINK`: half the attacker's momentum), `Move::dodge_stale` (a move that stales like a roll:
+the gun's dodges), a `part_intangible` window's `mode` (the up smash's arm with the partner), and `scripting::World::ledges`. Owner
+decisions 80-82: damage dealt fills the phantom's gauge 1.3 a percent (a house rule; the existing `per_dealt`; a curse's ticks no longer
+count as dealt for anyone), the partner's arrival and leaving stay instant, the gun's distances stay estimates. The gun's buffered dodge
+or jump out of a shot comes 4 frames later. Changed for other fighters: nothing (no other content uses the new fields or angle 365; no
+other curse). Tests `dagger_hook.rs` (11), new cases in `dagger_gauge.rs`, `move_rules.rs`, `state.rs`, sim-content; fuzz-rollback 300 and
+net-fuzz 100 at zero. Report: `docs/movesets/joker/IMPLEMENTATION_REPORT.md`.
 **Sim 121** (branch `dagger-phase1`, from `movesets` at 10e2df5, sim 119, merged with `origin/movesets` 6a7a3a4; content schema 7
 unchanged; sim 120 is the run mode's): the thirteenth class, **Dagger** on the **phantom** body (built-in fighter **Phantom**), phase 1:
 the body and every normal on 13.0.1 data **with and without its summoned partner**, the **gauge and partner** (the iconic mechanic: the

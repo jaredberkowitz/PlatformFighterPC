@@ -101,7 +101,7 @@ New moves fall back to the shared archetypes. Clips wanted (first active frame /
 * Wings: a flight up on the partner's wings (98 frames).
 * The partner itself: a figure behind the phantom while the mode runs (the view can read `gauge_mode`).
 
-### Phase 2 plan
+### Phase 2 plan (done in sim 123, below)
 
 1. **The hook** (up special, the three placeholder slots): the grounded grab box on 20-26 that catches a fighter not in hitstun, is
    stopped by shields and reflectors, pulls it in and throws it (11%, 78 degrees, release 6, FAF 30); the aerial hit (5%, 20-25 along a
@@ -110,12 +110,95 @@ New moves fall back to the shared archetypes. Clips wanted (first active frame /
 2. The partner's arrival and leaving (if the owner wants them modelled with estimated lengths), its longer rolls (if numbers appear).
 3. The gun's dodge staling and buffered delay; angle 365 (general) for the jump's shots.
 
-## Questions for the owner
+### Phase 1 questions (answered 2026-10-14: decisions 80-82 in `../ROSTER_STATUS.md`)
 
-1. **"Filled by damage dealt"**: every source says the gauge fills from damage taken (and time, the guard and team events), not dealt.
-   Built as the sources (nothing for damage dealt). Change it?
-2. **The partner's arrival and leaving animations** (an intangible summon when standing; a mostly invincible, uncancellable exit that
-   stops the fall): no frame counts are published. Model them with estimated lengths, or leave them out (as now)?
-3. **The gun's distances**: no published band distances (here 20 / 44 / 72 reference units). Footage would settle them; keep the
-   estimates?
-4. **The phase-2 tether**: build a general tether (a ledge-catch box that reels the fighter in), as the hook needs, for the hook first?
+1. "Filled by damage dealt": yes, as a house rule (decision 80): built in phase 2.
+2. The partner's arrival and leaving: close to instant, not modelled (decision 81).
+3. The gun's distances: kept as estimates (decision 82).
+4. The tether: built general (E56) in phase 2.
+
+## Phase 2 (sim 123, content schema 7 unchanged; branch `dagger-phase2` from `movesets` at 0d6cfe0, sim 121; merged `origin/movesets` at 858cbdd, sim 122's run-mode rooms)
+
+Sim 122 belongs to another session (the run mode's rooms); this phase took 123.
+
+### Built
+
+* **The hook** (the plain up special; `sim-core/src/moves_dagger.rs` `hook`): on the ground a command grab on 20 (the rope, r 3.0, along
+  the reference's hook line, and the head, r 5.5) and 21-26 (the head), FAF 60, that catches in the air or on the ground, misses fighters
+  in hitstun and is stopped by a raised shield or a reflector (`Hitbox::blockable`); a catch goes on as the pull (ext1): the caught fighter
+  held in front, thrown on frame 6 for 11% at 78 (BK 75, KS 40), FAF 30. In the air (ext0) a 5% hit at 55 (BK 76, KS 56, sd +1, hitlag
+  x1.2, clanks without rebounding) on 20 (head and line) and 21-25 (head), FAF 45, no special fall; the first in an air time rises a
+  little and marks the air time (`dagger_hook.script`, mark 0); a later one is ext2, the same hook without the rise (a flag version).
+* **The tether** (E56, general): `Move::tether` on both air hooks: from frame 12 to 25, a free ledge up to 40 of the reference's units
+  above the feet and 16 in front is caught; the fighter hangs 8 frames (losing 0.24 of its speed a frame), is reeled to the ledge in 12
+  and grabs it as any grab; three catches before landing or getting up; the stick down lets go; a ledge taken meanwhile throws it off.
+  New state `FighterState::Tether`, hashed `Fighter::tether_ledge` / `tether_count` / `tether_from`; `scripting::World::ledges`.
+* **Phase 1 limits closed**: the gun's dodges staled like rolls (`Move::dodge_stale`: counted, intangibility later when stale); a dodge or
+  jump buffered before frame 26 of a shot comes 4 frames later (the gun's script, `early`); **angle 365** (`ANGLE_HALF_LINK`: half the
+  attacker's momentum) on the gun jump's shots; the up smash's arm intangible 10-14 only with the partner (`PartIntangible::mode`).
+* **Owner decisions 80-82**: damage dealt fills the gauge 1.3 a percent (the existing `Gauge::per_dealt`; a house rule [E]; the curse's
+  ticks no longer count as dealt, `gauge::on_damage_over_time`); the partner's arrival and leaving stay instant (not modelled, a
+  decision); the gun's band distances stay estimates.
+
+### Verified against [R] / [D] (by tests that ran)
+
+* `sim-core/tests/dagger_hook.rs` (11): the grounded hook's boxes (grab, command, blockable; 20 / 20-26), FAF 60, the catch of a
+  fighter in the air on frame 20 and the throw's 11% on 26 (the pull's frame 6), into hitstun; a shield on the head stops it for the rest
+  of the move (and the same fighter not shielding is caught); a fighter in hitstun is not caught; the air hook's 5% on frame 20, FAF 45,
+  no special fall, the rise once per air time (the second is ext2 and falls); the tether's numbers, its catch on frame 12, 8 frames
+  hanging and the ledge on the 20th frame after the catch, no catch out of reach (too low, too far out, facing away), the ledge not held
+  meanwhile; the stick down lets go, three catches and no fourth, landing resets the count; a held ledge is not caught, one taken during
+  the reel throws the phantom off with the hop; a hit ends the tether (the count kept); the tether fields in the checksum and a
+  resimulation onto the ledge; the up smash's limb window only with the partner; 365 on the gun jump and a 365 launch at half speed (no
+  tumble); the gun's dodges stale (intangible from 3 fresh, 3 + 4 fully stale) and a buffered dodge or jump 4 frames later.
+* `dagger_gauge.rs` (12, three new): a jab's damage fills 1.3 a percent dealt (with the fill by itself), the same a stock behind,
+  nothing with the partner out; a shielded jab and a curse's tick fill nothing for the phantom; the champion's gauge still 0.667 a
+  percent dealt and a body without a gauge nothing.
+* `move_rules.rs`: every tether number, `dodge_stale`, `blockable` and a window's `mode` in the content hash; a reflector field stops a
+  blockable grab. `state.rs`: checksum cases `tether_ledge`, `tether_count`, `tether_from`. sim-content:
+  `the_dagger_phase_2_fields_round_trip_and_are_checked` (round trip, old files, bad values).
+
+### Estimated or limited [E]
+
+From `REFERENCE_DATA.md` estimates 12-17: 365's grounded rule and the partner's follow-ups at 365; the tether's reach, catch window end,
+hang and reel lengths, the reading of the hang resistance, the hop off a taken ledge, the wait before another tether; the grounded hook's
+head held at the line's end, what a shield stop leaves, where the pull holds its catch; the air hook's rise and landing lag; the gun
+dodges' length not stretched, the buffered delay only out of a shot. Limits: no swing on the tether and no reel by a button; the stick's
+tilt of the hook's rise; the partner's longer rolls (unpublished); the house limits (one get-up attack, the grabs' aerial boxes, the
+throws' bystander hit and invincibility).
+
+### Tests and checks run
+
+`cargo fmt --all`; `cargo clippy --workspace --all-targets -- -D warnings` (clean); `cargo test --workspace` (1524 passed, 0 failed, after
+merging `origin/movesets` 858cbdd); `pftool fuzz-rollback 300` (0 mismatches; the phantom in 144 of 1200 fighter slots); `pftool net-fuzz
+100` (0 mismatches). The Godot tests were not run (no Godot change; no fighter count change).
+
+### Training-mode checks (hitbox view)
+
+1. Hold a dummy in the air above and in front (the hook line's far end, about 1.3 ahead and 4.75 up): the grounded hook catches it on
+   frame 20 and throws it for 13.2% (11 x 1.2).
+2. Let the dummy shield on the right platform at the hook's head: the hook passes, nothing caught for the rest of the move.
+3. Jump off the right edge, fall to about 3 below and 1 outside it, face the stage and use the up special: the tether catches on frame 12,
+   hangs 8 frames, reels in 12 and the phantom hangs from the ledge. Hold down while hanging: it lets go.
+4. Tether three times (letting go each time): the fourth hook catches nothing until landing.
+5. Use the up special twice in one air time: only the first rises.
+
+### For the art agent
+
+* The grounded hook (first active 20, out 20-26): a hook shot up and forward on a line from 3.2 ahead / 22 up to 10.6 ahead / 38 up of the
+  reference's units (0.4 / 2.75 to 1.3 / 4.75 world units), the head at its far end; the pull (6 frames to the throw) dragging the caught
+  fighter down in front, the throw up at 78 degrees.
+* The air hook (20-25): the same line from the air, with a small rise on frame 5 the first time.
+* **The tether** (`FighterState::Tether`, a new state the view receives as "Tether"): hanging below and outside the ledge on the hook
+  line for 8 frames, then reeled straight to the ledge in 12. The ledge index is the sim's `Fighter::tether_ledge` (not yet exposed by the
+  bridge: a read-only accessor would let the view draw the rope to the ledge).
+
+## Questions for the owner (phase 2)
+
+1. **The tether's estimates**: the reach (40 up, 16 in front, in the reference's units), 8 frames hanging and 12 reeling in are not
+   published. Footage of a few frame-counted tethers would settle them; keep them meanwhile?
+2. **A shield stopping the grounded hook**: the sources say contact with a shield or reflector "cancels" it; here the hook simply catches
+   no one and the move runs to its FAF 60. If footage shows it ending sooner, that is a small change.
+3. **The gun's dodge staling in length**: staleness delays the dodge's intangibility and counts with rolls, but does not lengthen the dodge
+   (a scripted move's timeline cannot be stretched yet). Build that stretch, or leave it?
+4. **Reel in by a button**: older games of the series let a button reel in early; here the reel is automatic only. Wanted?

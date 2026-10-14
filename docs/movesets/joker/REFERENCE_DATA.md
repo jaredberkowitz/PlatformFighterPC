@@ -60,7 +60,7 @@ the partner's own box; shield damage `sd` (additive) as `100 x (damage + sd) / d
 | Capacity | 100 units | `max` 100 |
 | By itself | 0.00925 a frame (10,810 frames from empty); not on a revival platform | `per_frame` 0.00925 (606 / 65536 in the fixed point: 10,815 frames [D]) |
 | Damage taken | 1.3 a percent actually taken (the 1v1 multiplier counted: 76.92% fills it) | `per_taken` 1.3 |
-| Damage dealt | nothing (the sources list only time, damage taken, the guard and team events) | `per_dealt` 0 (the owner's brief said "taken and dealt": question 1) |
+| Damage dealt | nothing (the sources list only time, damage taken, the guard and team events) | **owner decision 80 (sim 123)**: `per_dealt` 1.3, a house rule [E], not the reference's: the phantom's and its partner's hits on fighters, no stock-gap or crowd multiplier, not shields, not the curse's ticks, nothing while the partner is out |
 | Stock gap | x1.625 one stock behind first place, x1.95 two or more (of 1.3) | `behind` 1250 / 1500 per mille |
 | Players | 2: 1.0; 3: 1.0 / 1.1 / 1.1667; 4: 1.0 / 1.2 / 1.3333 by the gap (5-8 players not possible here) | `crowd` rows |
 | The guard | `m x 0.4 x 6.7368 x damage` (the guard takes 0.4 of the hit): 28.6% fills it | `Move::gauge_gain` 6737 per mille on the guard's moves, `armor_damage` 400 |
@@ -71,7 +71,7 @@ the partner's own box; shield damage `sd` (additive) as `100 x (damage + sd) / d
 | KO | the gauge restarts at 20 units, 25 two stocks behind, 30 three or more (times the player row); the last stock empties it | `ko_keep` 20 / 25 / 30 |
 | Specials | each changes while the partner is out; using them does not end it | `limit_version` on each special, `keeps` |
 | Body | no stat changes (the partner adds boxes; "longer rolls" with it: gap 4) | no multipliers |
-| Arrival / leaving | arrival can wait up to 31 frames for an uninterruptible animation; standing, an intangible summon animation; leaving, an uncancellable animation, invincible for most of it, the fall stopped | **not modelled** (gaps 2-3) |
+| Arrival / leaving | arrival can wait up to 31 frames for an uninterruptible animation; standing, an intangible summon animation; leaving, an uncancellable animation, invincible for most of it, the fall stopped | **not modelled: owner decision 81** (close to instant; a decision, not an estimate) |
 | The partner's moves | its boxes (`part=1`) hit alongside the fighter's own (the total is the sum); the fighter's own boxes may change ("awakened": size, knockback, angle, hitlag), kept to the attack's end if the partner leaves during it; no partner on the pummel, throws, floor and edge attacks | `Hitbox::part`, `Hitbox::mode`, `Fighter::move_powered` |
 
 ## Normals [R unless marked]
@@ -117,8 +117,9 @@ no published distances (gap 1).
 | Below (air) | 7 / 21 / 35 / 44, FAF 49, LL 10, extendable | 4.0 / 1.2, 50 / 45, BK 25 / 29, KS 80 / 0 | + 14 / 28 at 1.6 / 0.8 (dragdown: 1 / 8 / 15 / 22 / 29: conflict 4) |
 | Spiral (air) | 12, 15, 18, 24, 27, 30, 36, 39, 42, 48, 51, 54; FAF 70; LL 20 | 3.0 each, BK 5 KS 75 | 4.5 each |
 
-Up to four dodges in a string; the dodges are staled like rolls (not modelled: limit); buffered maneuvers come 4 frames later (not
-modelled); the gun stalls the fighter in the air (stall numbers [E]).
+Up to four dodges in a string; the dodges are staled like rolls [R] (sim 123: counted and their intangibility delayed as a roll's, not
+stretched in length: estimate 17); buffered maneuvers come 4 frames later [R] (sim 123: a dodge or jump out of a shot); the gun stalls the
+fighter in the air (stall numbers [E]).
 
 ### Side special: the curse bolt
 
@@ -140,12 +141,17 @@ modelled); the gun stalls the fighter in the air (stall numbers [E]).
 | Counterattack | 12.0 (the caught damage x1.6), 361 BK 80 KS 51, r 20.0 at 10.5 up, 5.0 behind to 10.0 ahead, hitlag x0.75, no clank; hit 5-7, intangible 1-8, FAF 39 |
 | Reflection | reflects 1-29 at x1.6 damage, x1.9 speed, shots up to 50%; arm intangible 1-29; FAF 42 |
 
-### Up special (phase 2 except the wings)
+### Up special: the hook (phase 2, sim 123) and the wings
+
+Sources (2026-10-14): ssbwiki.com's 13.0.1 up special page (raw hitbox and timing tables), its articles on the hook move and on tether
+recoveries, the character page's update history (a cited post on the 4.0.0 change), ultimateframedata.com, dragdown.wiki.
 
 | | Values |
 | --- | --- |
-| The hook (ground) | a grab box (blocked by shields and reflectors, not on fighters in hitstun) 20, 21-26; FAF 60; the pull and throw: 11.0 78 BK 75 KS 40, release 6, FAF 30 |
-| The hook (air) | 5.0 55 BK 76 KS 56 (sd +1, no clank) 20-25 on the line to 38 up; FAF 45; a tether to the ledge; a small boost once per air time |
+| The hook (ground) | a grab box [R]: early (frame 20) id 0 r 3.0 on the `throw` bone, a capsule from (1.5, 1.5, 0.7) to (1.5, -15.0, -6.4) (16.4 long: the rope); ids 1 / 2 r 5.5 at (1.5, 1.5, 0.7) (the head); late (21-26) the head; FAF 60 (UFD 59 total) [R]. It grabs fighters in the air ("can grab opponents, dragging them towards" the fighter) and items [R]; "can be shielded despite its grab properties", shields or reflectors cancel it [R]; not on fighters in hitstun (phase 1 reading [R]) |
+| The pull and throw | throw id 0: 11.0%, 78 degrees, BK 75, KS 40, FKV 0, release frame 6, FAF 30 (animation 41) [R] |
+| The hook (air) | no grab ("the air version cannot grab") [R]; early (20) id 0 r 2.7 on `throw` (1.5, 2.0, 2.0) and id 1 r 2.7 on `top` from 22.0 to 38.0 up, 3.2 to 10.6 ahead; late (21-25) id 0; each 5.0%, sd +1.0, 55 degrees, BK 76, KS 56, hitlag x1.2, clang on, rebound off [R]; FAF 45 (UFD 44 total) [R]; "does not induce special fall" (UFD) [R]; a slight vertical boost on the first use in an air time, none on a second (ssbwiki, dragdown) [R]; the stick tilts the rise a little [R, not modelled: limit] |
+| The tether | "tethers on frame 12" (UFD) [R]; automatically connects to an open edge in reach, "a large ledge grab range", "very high vertical reach", "low horizontal range" [R, no numbers]; three tethers before landing, then no catch [R]; down cancels the grapple [R]; a short wait before tethering again [R, no number]; tethers count toward the ledge grab limit and do not occupy the edge (several can hang) [R]; no wall latching (tethers "can only grab onto unoccupied edges as opposed to any wall") [R]; 4.0.0: `air_resist_hang` 0.27 to 0.24, `fighter_offset` 6 to 8 (an undocumented change cited on the character page) [R] |
 | The wings (with the partner) | no hitbox; intangible 1-25 from the ground, 3-25 from the air; 98 frames; the special fall, landing lag 30; angled a little by the stick; "higher than most up specials" (distance: gap 6) |
 
 ## Conflicts (resolved as listed)
@@ -157,10 +163,13 @@ modelled); the gun stalls the fighter in the air (stall numbers [E]).
 4. The partner's shots below: UFD 7 / 14 / 21 / 28 / 35 / 44 against dragdown 1 / 8 / 15 / 22 / 29: UFD's frames, the follow-ups on 14
    and 28 [E: which of UFD's are follow-ups].
 5. The guard's FAF: ssbwiki "FAF 31 normally" against UFD / dragdown 52 minimum: **53** (31 is the backhand's FAF).
+6. The hook's pull: UFD lists an air row "grappling attack" with startup 5, total 28 and 11.0 damage, mixing the throw (11%) with the air
+   hit (5%): ssbwiki's throw (release 6, FAF 30) and air hit (5%) are used.
+7. The hook's air hit clanking: phase 1 wrote "no clank"; the raw table reads clang on, rebound off: **clanks, does not rebound**.
 
 ## Estimates [E] and gaps
 
-1. **The gun's band distances**: close to 20 reference units, middle to 44, far to 72 from the muzzle at 4 ahead, 9.5 up, radius 2.5
+1. **The gun's band distances** (kept as estimates: owner decision 82): close to 20 reference units, middle to 44, far to 72 from the muzzle at 4 ahead, 9.5 up, radius 2.5
    (only "about half the stage" is published). The held fire's rhythm (a shot each 36 frames) and the follow-up bullets' knockback.
 2. **The partner's arrival**: the reference waits up to 31 frames for an uninterruptible animation and plays an intangible summon when
    standing; here the partner is there the frame the gauge fills (no animation, no intangibility).
@@ -175,4 +184,19 @@ modelled); the gun stalls the fighter in the air (stall numbers [E]).
 9. **The guard's held limit**: 120 frames counted from the guard's start; the release window counted outside hitlag.
 10. **The stance's bubbles**: the counter bubble r 10 at 10 up, the reflector search r 12 at 11 up, the reflection's field r 12 at 10 up.
 11. **The gun's air stall**: vertical speed stopped, gravity 0.03, top fall 0.8.
-12. **Angle 365** on the gun jump's first three shots is not built: the autolink 367 stands in.
+12. **Angle 365** (built in sim 123: half the attacker's momentum, ssbwiki.com `Autolink_angle`): its grounded rule is not published (a
+    grounded victim is launched the same, a launch that does not rise leaves it standing) [E]; the partner's three follow-up shots on the
+    jump use it too [E: their angle is not published].
+13. **The tether's reach** (sim 123): the ledge's corner up to 40.0 of the reference's units above the feet (the hook line's far end 38.0
+    plus its 2.7 radius) and 0 to 16.0 in front [E]; the catch window to frame 25 (the head's last frame) [E].
+14. **The tether's hang and reel**: hanging 8 frames, reeled to the ledge in 12 [E: no published frame counts]; the hang's speed loss
+    0.24 a frame is the reference's `air_resist_hang` read as a drag [E: the reading]; its `fighter_offset` 8 is not used (the hang
+    point is where the fighter caught the ledge). A ledge taken during the reel throws the fighter off in the knocked-off hop [E: an
+    older game's "forced hop"]. The wait before another tether is the body's ledge regrab wait (30) [E].
+15. **The hook's grab boxes** (ground): the head held at the line's far end on 21-26 [E: the reference's `throw` bone moves]; a shield or
+    reflector stop lets the move run to its end [E]; the caught fighter held just in front (9.0 of the reference's units) during the pull
+    [E: the reference drags it in].
+16. **The air hook's rise**: 1.5 of the reference's units a frame set on frame 5 [E]; a landing during the hook has the body's normal
+    landing lag [E: none published].
+17. **The gun's dodge staling**: counted and its intangibility delayed as a roll's, its length not stretched (limit); the buffered
+    delay (4 frames, [R]) applies out of a shot only, not between dodges (limit).
