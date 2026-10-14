@@ -1,0 +1,6 @@
+// Clutch down special's landing (ext5): on its frame 2 two stars leave on the same frame, one each way, 1 unit to the side and 0.125
+// up, at 0.075 sideways and 0.25 up (the reference's 0.6 / 2 [R]); they hit on the landing's frames 3-12.
+if frame == 1 {
+    spawn(1, 0.125, 0.075, 0.25);
+    spawn(-1, 0.125, -0.075, 0.25);
+}

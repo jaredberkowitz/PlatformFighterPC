@@ -1,0 +1,26 @@
+// Clutch up special, the lobbed shell (the reference's parameters in world units: reference / 8). Frames 1-15: count the frames
+// special is held (at most 15). In the air, on frame 1 the vertical speed becomes min(0.3125 x 0.8^n + vy, 0.325), vy the speed
+// the move kept on starting (x0.8, `start_speed_y`) and n the hops already used since the fighter last landed, caught a ledge or was
+// hit (flags 0-2: three hops an air time) [R formula; the frame is E]. Frame 15 (the reference's 16): the stick aims it between 18
+// and 90 degrees above forward, 58 with the stick neutral (forward tilts it down to 18, back up to 90, in proportion [E]), and the
+// shell leaves 0.625 ahead and 1.625 up at 0.1875 + 0.01025 x held (the reference's 1.5 + 0.082 f), its vertical part x1.25.
+var held;
+if frame <= 15 && special { held = held + 1; }
+if frame == 1 && grounded == 0 {
+    let n = air_flag(0) + air_flag(1) + air_flag(2);
+    if n < 3 {
+        set_air_flag(n);
+        let lift = 0.3125;
+        if n == 1 { lift = 0.25; }
+        if n == 2 { lift = 0.2; }
+        add_vel(0, min(lift + vy, 0.325) - vy);
+    }
+}
+if frame == 15 {
+    let sx = stick_x;
+    let a = 58;
+    if sx > 0.2 { a = 58 - 40 * sx; }
+    if sx < -0.2 { a = 58 - 32 * sx; }
+    let speed = 0.1875 + 0.01025 * held;
+    spawn(0.625, 1.625, speed * cos(a), speed * sin(a) * 1.25);
+}

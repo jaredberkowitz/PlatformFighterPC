@@ -1,0 +1,5 @@
+// Buckler up special in the air (the rising spin): the rise starts at 2.4 of the reference's units a frame (0.3) on the first frame
+// the script runs [E: frame], keeping the horizontal speed; the spin hits share one hit group, re-armed just before each (reference
+// frames 12, 16, 19, 22, 26, 31 and 38).
+if frame == 1 { set_vel(vx, 0.3); }
+if frame == 11 || frame == 15 || frame == 18 || frame == 21 || frame == 25 || frame == 30 || frame == 37 { rehit(); }

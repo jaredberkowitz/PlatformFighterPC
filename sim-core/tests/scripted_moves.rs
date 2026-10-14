@@ -208,6 +208,58 @@ fn a_script_can_fire_a_projectile_with_its_own_velocity() {
 }
 
 #[test]
+fn two_spawns_on_one_frame_fire_two_shots_and_a_third_replaces_the_first() {
+    // E3h (sim 95): the second `spawn` (or `spawn_at`) of a frame fills a second request instead of replacing the first.
+    let fire = |src: &str| {
+        let mut sim = with_special(scripted(30, src));
+        sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
+            sim.content.weapons[1].moves[MoveId::NSpecial as usize].projectile;
+        start(&mut sim);
+        let mut from = sim.f().pos;
+        for _ in 0..12 {
+            if sim.state.projectiles.iter().any(|p| p.active) {
+                break;
+            }
+            from = sim.f().pos;
+            sim.tick(inp(0, 0, 0));
+        }
+        let mut shots: Vec<_> = sim
+            .state
+            .projectiles
+            .iter()
+            .filter(|p| p.active)
+            .map(|p| (p.pos - from, p.vel))
+            .collect();
+        shots.sort_by_key(|(_, v)| v.x);
+        shots
+    };
+    let two = fire("if frame == 4 { spawn(1, 2, 0.4, 0.2); spawn(-1, 2, -0.4, 0.2); }");
+    assert_eq!(two.len(), 2, "both on the same frame");
+    assert_eq!(
+        two[0],
+        (
+            sim_core::Vec2::new(Fx::from_int(-1), Fx::from_int(2)),
+            sim_core::Vec2::new(fx(-4, 10), fx(2, 10))
+        )
+    );
+    assert_eq!(
+        two[1],
+        (
+            sim_core::Vec2::new(Fx::ONE, Fx::from_int(2)),
+            sim_core::Vec2::new(fx(4, 10), fx(2, 10))
+        )
+    );
+    let three = fire(
+        "if frame == 4 { spawn(1, 2, 0.4, 0.2); spawn(-1, 2, -0.4, 0.2); spawn(0, 1, 0.1, 0); }",
+    );
+    assert_eq!(three.len(), 2);
+    assert!(
+        three[1].1.y == Fx::ZERO && three[1].1.x < fx(2, 10),
+        "the third replaced the first"
+    );
+}
+
+#[test]
 fn a_facing_left_fighter_fires_the_other_way() {
     let mut sim = with_special(scripted(30, "if frame == 4 { spawn(1.5, 2, 0.4, 0.2); }"));
     sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
@@ -733,4 +785,78 @@ fn the_grab_register_reads_the_grab_button() {
     assert_eq!(sim.f().vars[0], 0);
     sim.tick(inp(0, 0, GRAB));
     assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+}
+
+#[test]
+fn the_fast_fall_register_reads_a_fast_fall_during_the_move() {
+    // An aerial-style special high up: falling with the stick snapped down fast falls, which the script sees (sim 91).
+    let mut sim = with_special(scripted(60, "var ff; ff = fast_fall;"));
+    sim.put_airborne(0, Fx::from_int(-7), Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0, "not fast falling");
+    for _ in 0..4 {
+        sim.tick(inp(0, 0, 0));
+    }
+    sim.tick(inp(0, -127, 0));
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall, "the snap down fast falls");
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+}
+
+// ---- `set_charge` and `charge_add` (E29, sim 90) ---------------------------------------------------------------------------------
+
+#[test]
+fn set_charge_sets_the_moves_charge_which_charge_add_turns_into_damage() {
+    // A neutral special with a 10% hit on frame 5 and an additive charge of 18 over 110 frames: the script sets 55 frames of charge,
+    // read back by `charge`, and the hit deals 19%.
+    let mut mv = scripted(30, "var seen; set_charge(55); seen = charge;");
+    mv.hitboxes = sim_core::moves::claws().moves[MoveId::Jab as usize]
+        .hitboxes
+        .clone();
+    mv.hitboxes.truncate(1);
+    for h in &mut mv.hitboxes {
+        h.start = 5;
+        h.end = 5;
+        h.x = Fx::ONE;
+        h.y = Fx::ONE;
+        h.radius = Fx::from_int(2);
+        h.damage = Fx::from_int(10);
+    }
+    mv.charge_add = Some(sim_core::moves::ChargeAdd {
+        full: 110,
+        add: Fx::from_int(18),
+        floor: true,
+    });
+    let mut sim = with_special(mv);
+    sim.stand(1, fx(-58, 10), -1);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().charge, 55);
+    assert_eq!(sim.f().vars[0], Fx::from_int(55).raw());
+    for _ in 0..10 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(
+        sim.fighter(1).percent,
+        Fx::from_int(19) * sim.content.rules.damage_mult
+    );
+}
+
+// ---- `aimed` (owner decision 52, sim 90) ---------------------------------------------------------------------------------------
+
+#[test]
+fn the_aimed_register_reads_how_the_attack_was_aimed_as_it_started() {
+    // A forward tilt tilted up, straight or down: the script keeps what `aimed` read (1, 0, -1).
+    for (stick_y, want) in [(50i8, 1), (0, 0), (-50, -1)] {
+        let mut sim = Sim::with_chars([0, 1, 0, 1]);
+        sim.content.weapons[0].moves[MoveId::FTilt as usize].script =
+            Some(fighter_script("var a; a = aimed;"));
+        sim.stand(0, Fx::from_int(-7), 1);
+        sim.stand(1, Fx::from_int(7), -1);
+        sim.tick(inp(60, stick_y, sim_core::input::buttons::ATTACK));
+        assert_eq!(MoveId::from_index(sim.f().move_id), MoveId::FTilt);
+        sim.tick(inp(0, 0, 0));
+        assert_eq!(sim.f().vars[0], Fx::from_int(want).raw(), "stick {stick_y}");
+    }
 }

@@ -1,0 +1,6 @@
+// Buckler forward smash, hit 1. Attack pressed on frames 23-36 (move frames 22-35) starts hit 2 (29 = ext1), which keeps this hit's
+// charge (its `keep_charge`). A press from frame 14 on (the input buffer's 9 frames before the window) waits for it, hitlag included
+// (`presses` counts presses made in hitlag; the count at move frame 12 is the base).
+var seen;
+if frame == 12 { seen = presses; }
+if frame >= 22 && frame <= 35 && presses > seen { goto(29); }

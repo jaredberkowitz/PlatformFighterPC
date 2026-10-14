@@ -222,6 +222,37 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             }
         }
     }
+    if let Some(s) = &f.passive_shield {
+        if s.radius <= Fx::ZERO || s.half_height < Fx::ZERO {
+            errors.push(format!(
+                "fighter {i}: the passive shield needs a radius above 0 and no negative half_height"
+            ));
+        }
+    }
+    if let Some(a) = &f.air_jump_armor {
+        if a.start > a.end {
+            errors.push(format!(
+                "fighter {i}: the air-jump armor's start must not be after its end"
+            ));
+        }
+        if let Some(e) = armor_error(a) {
+            errors.push(format!("fighter {i}: the air-jump armor: {e}"));
+        }
+    }
+}
+
+/// What is wrong with an armor's kind and numbers (a move's or a body's), if anything.
+fn armor_error(a: &sim_core::moves::Armor) -> Option<&'static str> {
+    use sim_core::moves::{ARMOR_DAMAGE, ARMOR_KNOCKBACK};
+    if (a.kind == ARMOR_DAMAGE || a.kind == ARMOR_KNOCKBACK) && a.threshold <= Fx::ZERO {
+        Some("damage and knockback armor need a threshold above 0")
+    } else if (a.subtract || a.min_kb != Fx::ZERO) && a.kind != ARMOR_KNOCKBACK {
+        Some("subtract and min_kb are for knockback armor only")
+    } else if a.min_kb < Fx::ZERO || (a.min_kb > Fx::ZERO && !a.subtract) {
+        Some("min_kb is the least launch of a subtractive armor (subtract true), 0 or more")
+    } else {
+        None
+    }
 }
 
 /// Peak height of a hop that leaves the ground at `v` (gravity acts before each move).
@@ -293,11 +324,13 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 || a.bounce_min < Fx::ZERO
                 || a.bounce_min > a.bounce_max
                 || a.bounce_keep > 100
+                || a.bounce_keep_y > 100
+                || a.bounce_max_fall < Fx::ZERO
                 || !(-90..=90).contains(&a.angle)
             {
                 errors.push(format!(
                     "weapon {i} {name}: projectile flight out of range (angle -90 to 90, no negative gravity, fall or bounce \
-                     speed, bounce_min at most bounce_max, bounce_keep at most 100)"
+                     speed, bounce_min at most bounce_max, bounce_keep and bounce_keep_y at most 100, no negative bounce_max_fall)"
                 ));
             }
             let mut last = 0;
@@ -392,14 +425,38 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 || a.gravity.is_some_and(|g| g < Fx::ZERO)
                 || a.max_fall.is_some_and(|v| v <= Fx::ZERO)
                 || a.friction.is_some_and(|v| v < Fx::ZERO)
+                || a.speed.is_some_and(|v| v < Fx::ZERO)
+                || a.accel_stick.is_some_and(|v| v < Fx::ZERO)
             {
                 errors.push(format!(
-                    "weapon {i} {name}: an air block needs from <= to, drift up to 100, accel 1 to 1000, no negative gravity or friction and max_fall above 0"
+                    "weapon {i} {name}: an air block needs from <= to, drift up to 100, accel 1 to 1000, no negative gravity, friction, speed or accel_stick and max_fall above 0"
+                ));
+            }
+        }
+        if mv.fall_speed.is_some_and(|v| v < Fx::ZERO)
+            || mv.fall_accel.is_some_and(|v| v < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: fall_speed and fall_accel cannot be negative"
+            ));
+        }
+        for hb in &mv.hitboxes {
+            if hb.posvec_frames == 0 && (hb.posvec_x != Fx::ZERO || hb.posvec_y != Fx::ZERO) {
+                errors.push(format!(
+                    "weapon {i} {name}: a position vector (posvec_x, posvec_y) needs posvec_frames above 0"
                 ));
             }
         }
         if mv.turn_at.is_some_and(|(_, stick)| stick > 99) {
             errors.push(format!("weapon {i} {name}: turn_stick is at most 99"));
+        }
+        if mv
+            .charge_add
+            .is_some_and(|c| c.full == 0 || c.add < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: charge_add needs full above 0 and add of at least 0"
+            ));
         }
         if let Some(a) = &mv.armor {
             if a.start > a.end || a.end > mv.total_frames {
@@ -408,15 +465,8 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                     a.start, a.end
                 ));
             }
-            if a.kind == sim_core::moves::ARMOR_KNOCKBACK {
-                errors.push(format!(
-                    "weapon {i} {name}: knockback armor is not built yet (use super or damage)"
-                ));
-            }
-            if a.kind == sim_core::moves::ARMOR_DAMAGE && a.threshold <= Fx::ZERO {
-                errors.push(format!(
-                    "weapon {i} {name}: damage armor needs a threshold above 0"
-                ));
+            if let Some(e) = armor_error(a) {
+                errors.push(format!("weapon {i} {name}: {e}"));
             }
         }
         if mv.steer_degrees > 90 || mv.steer_stick > 99 {
@@ -796,11 +846,11 @@ mod combat_tests {
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {
         let mut c = Content::placeholder();
-        c.fighters[0].weapon = 9;
+        c.fighters[0].weapon = 10;
         c.weapons[0].moves[0].hitboxes[0].end = 200;
         c.weapons[1].moves.pop();
         let errors = validate(&c).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("weapon 9")), "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("weapon 10")), "{errors:?}");
         assert!(
             errors.iter().any(|e| e.contains("outside the move")),
             "{errors:?}"

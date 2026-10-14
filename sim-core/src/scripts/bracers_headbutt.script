@@ -1,0 +1,3 @@
+// Bracers side special on the ground (the reference's headbutt): on starting, the horizontal speed is halved and the vertical one
+// stopped (the reference's x0.5 / x0 on the ground). (The script first runs on the move's frame 1 [E: one frame of traction late].)
+if frame == 1 { add_vel(-0.5 * vx, 0); }

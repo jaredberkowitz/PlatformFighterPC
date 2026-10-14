@@ -313,20 +313,20 @@ fn a_custom_fighter_can_inherit_and_override() {
     let c = load(&format!("{base}{extra}"))
         .unwrap_or_else(|e| panic!("{}", e.join("\n")))
         .content;
-    assert_eq!(c.fighters.len(), 9);
-    assert_eq!(c.names.fighters[8], "racer");
+    assert_eq!(c.fighters.len(), 11);
+    assert_eq!(c.names.fighters[10], "racer");
     let brawler = c.fighters[1];
-    let racer = c.fighters[8];
+    let racer = c.fighters[10];
     assert_eq!(racer.walk_speed, Fx::from_int(3));
     assert_eq!(
         racer.gravity, brawler.gravity,
         "unlisted values come from the inherited fighter"
     );
     assert_eq!(racer.weapon, brawler.weapon);
-    assert_eq!(c.weapons.len(), 9);
-    assert_eq!(c.weapons[8].moves[MoveId::Jab as usize].total_frames, 10);
+    assert_eq!(c.weapons.len(), 11);
+    assert_eq!(c.weapons[10].moves[MoveId::Jab as usize].total_frames, 10);
     assert_eq!(
-        c.weapons[8].moves[MoveId::FTilt as usize],
+        c.weapons[10].moves[MoveId::FTilt as usize],
         c.weapons[1].moves[MoveId::FTilt as usize],
         "moves not mentioned are inherited"
     );
@@ -540,6 +540,57 @@ fn a_gauge_block_round_trips_is_inherited_and_is_checked() {
     assert!(has(&invalid(&bad), "mode_frames must be at least 1"));
     let bad = with.replace("walk 130", "walk 0");
     assert!(has(&invalid(&bad), "walk must be a percent"));
+}
+
+#[test]
+fn an_air_jump_armor_block_round_trips_is_inherited_and_is_checked() {
+    let c = Content::placeholder();
+    let bounder = c
+        .fighters
+        .iter()
+        .position(|p| p.air_jump_armor.is_some())
+        .expect("the bounder has an air-jump armor");
+    let t = text(&c, false);
+    assert!(t.contains("air_jump_armor {") && t.contains("air_jump_turns true"));
+    assert!(t.contains("subtract true") && t.contains("min_kb 60"));
+    assert_eq!(load(&t).unwrap().content, c);
+    // An inheriting fighter keeps both unless it says otherwise; another body can have its own, or a move its knockback armor.
+    let name = c.names.fighters[bounder].clone();
+    let extra = format!(
+        "fighter heir {{ inherit {name} walk_speed 1 }}\nfighter other {{ inherit brawler air_jump_armor {{ start 2 end 9 kind knockback threshold 80 }} }}\n"
+    );
+    let at = t.find("stage ").unwrap();
+    let with = format!("{}{}{}", &t[..at], extra, &t[at..]);
+    let loaded = load(&with)
+        .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+        .content;
+    assert_eq!(validate(&loaded), Ok(()));
+    let n = loaded.fighters.len();
+    let heir = loaded.fighters[n - 2];
+    assert_eq!(
+        (heir.air_jump_armor, heir.air_jump_turns),
+        (c.fighters[bounder].air_jump_armor, true)
+    );
+    let other = loaded.fighters[n - 1];
+    let a = other.air_jump_armor.expect("its own");
+    assert_eq!(
+        (
+            a.start,
+            a.end,
+            a.threshold,
+            a.subtract,
+            other.air_jump_turns
+        ),
+        (2, 9, Fx::from_int(80), false, false)
+    );
+    // Checks: a threshold above 0, `min_kb` only with `subtract`, `subtract` only on knockback armor.
+    let invalid = |t: &str| validate(&load(t).unwrap().content).unwrap_err();
+    let bad = with.replace("kind knockback threshold 80", "kind knockback");
+    assert!(has(&invalid(&bad), "need a threshold above 0"));
+    let bad = with.replace("threshold 80 }", "threshold 80 min_kb 5 }");
+    assert!(has(&invalid(&bad), "min_kb is the least launch"));
+    let bad = with.replace("kind knockback threshold 80", "kind super subtract true");
+    assert!(has(&invalid(&bad), "for knockback armor only"));
 }
 
 #[test]

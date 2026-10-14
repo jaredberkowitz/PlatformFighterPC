@@ -150,7 +150,142 @@ target; (5) the down air's box under the feet on 14-16; (6) the up smash clap 3.
   14-16, the feet under the body); the throws (a heave behind, a toss up, a slam down); ledge attack (a sweep climbing up, 23-25);
   get-up attack (behind 18-19, in front 23-24).
 
-## Phase 2 plan: the specials (decision 41: E5 and E29; E22b `on_land` and E11 `start_speed_y` now exist from Cloud's phase 2)
+## Phase 2 (sim 90, a placeholder number to renumber at the merge; content schema 6): the specials
+
+Branch `bracers-phase2`, from `movesets` at 17de032, with `origin/main` (sim 87: E28, E3e) and `movesets` (sim 89: the Clutch's
+phase 1, knockback armor; then sim 93) merged in. Commits: 4e24f65 (trip follow-ups), eaa84e0 (E29 and the charged punch), badc0d8 (E5
+bury and the headbutt), 536837f (the spin, push immunity), bbde085 (the hand slap), plus the merges 50e8af4, 556d486, fddff5e. The
+owner asked for SIM_VERSION 90 on this branch; `movesets` is at 93 now, so the number must be renumbered (above 93) at the merge.
+
+### Engine (every piece general, defaulting to the old behaviour unless the data uses it)
+
+| What | Where | Default / who changed |
+| --- | --- | --- |
+| **Base trip chance** (decision 50): a hit of more than 55 knockback that would not lift a grounded fighter trips 7% of the time, and a hit with its own `trip` adds 7 to it (ssbwiki.com "Tripping": 40% becomes 47%); throws never trip [E]; one roll only when eligible | `combat::trip_chance`, `Ruleset::trip_base` (7) / `trip_base_kb` (55) | **every fighter** (owner's request): any low sideways / downward hit over 55 knockback on a grounded target can trip; `trip_base 0` turns it off |
+| **Older kits' trip chances** (decision 51, ssbwiki.com raw tables re-read 2026-10-13) | `moves.rs`, `moves_gauntlets.rs`, `moves_greatsword.rs` | Claws down tilt 40% (361: **it can trip**, a behaviour change); Claws down smash 35%, Needles down tilt 40% and down smash second hit 30%, Embers down tilt 40%, Gauntlets down tilt 50%, Greatsword down tilt 20%: data only (they lift, so never trip on a flat stage) |
+| **`aimed` script register** (decision 52; `aim` was taken by the water pump's `var aim`, which would no longer compile) | `sim-script/src/api.rs` `R_AIM` 29, `scripting.rs` | none; the Bracers' forward tilt reads it to end the straight one on 35 and the angled ones on 36 |
+| **`fighter_tripped(i)`** bridge accessor (decision 52), read-only | `godot-bridge/src/lib.rs` | view only |
+| **E29 additive charge damage**: `Move::charge_add { full, add, floor }` (damage + add x min(charge, full) / full, floored) and the script function `set_charge(n)` | `moves.rs` `ChargeAdd`, `combat::resolve_hits`, `api.rs` `F_SET_CHARGE` 50; content `charge_add { full add floor }`, validated | none |
+| **E5 bury** (decision 38, with the stock terms): `EFFECT_BURY` (content `effect bury`), `FighterState::Buried`, hashed `Fighter::bury_timer` / `bury_kb` / `bury_angle` / `bury_set` (checksum cases); the length `ceil(55 + 0.5p + 1.5k)` +8 / +12 / -18 / -22 by the stock difference; the shared mash helper `grab::mash_cut` (the grab's 14 a press, 8 a flick; the egg can reuse it); out after the timer with 12 frames of lag (a `Rebound`, no invincibility) or launched by a kept knockback; a hit of 90 knockback frees and launches in full; a weaker one's launch is kept (the last one [E: gap 10]); bury hits weight-independent and **ignore subtractive knockback armor** (the reference's rule); no grabs (ordinary or command) on a buried fighter; a lying fighter is not buried, a tripped (sitting) one is; hurtboxes `bury_depth` (half the height) lower [E] (`combat::body_hurtboxes`, used by hit detection and the bridge's hurtbox view) | `combat.rs`, `fighter::bury` / `buried`, `grab.rs`, `state.rs`, `Ruleset::bury_*` | nothing buries without `effect bury` |
+| **Push immunity**: `Move::push_immune_from` / `_to` (decision 41: "immune to most windboxes") | `combat::apply_hit`, content fields | 255 / 0 (never) |
+
+### Built (`sim-core/src/moves_bracers.rs` `specials`; slots: ext0-ext9, 10 of 16 used; the cargo throws take ext10-13 in phase 3)
+
+* **Charged punch** (neutral special; scripts `bracers_punch_charge`, `_release`, `_cancel`): the wind-up charges from frame 8 to 110 frames
+  [R: 110; the frame mapping E, gap 1]; special at any point is kept and releases from frame 8 (the shortest release hits on 26-27 for
+  10%); shield / dodge / air dodge / jump store the charge and go to the 4-frame cancel; a hit loses it (it lives in the script's
+  variable until stored); at 110 it stores itself and the stance ends (on frame 117 [E]); it lands and goes over edges charging. The
+  release (ext0 / ext1): 10% / 6% + 18 x charge / 110 rounded down (E29), BK 45 KS 70 / BK 60 KS 65, hit on the release's 19-20, FAF 63,
+  lower arm intangible 4-20, no rebound; the aerial lands as the grounded one (E22b) and the grounded one goes over an edge as the
+  aerial. The full punch (ext2 / ext3): 28 / 28 / 28 / 18% BK 35 KS 73 and 25% x4 BK 40 KS 72, super armor 9-20 / 15-20, hit 19-20, FAF
+  48, counted from the press (its data is one frame earlier because it starts on the wind-up's frame 1 [D]); landing in the aerial one
+  switches to the grounded one on the same frame (so to the grounded armor window). No special fall.
+* **Headbutt** (side special, ext5 in the air): super armor 5-14, hit 20-21, FAF 63, the two grounded-only bury boxes (10% at 270, BK 40
+  KS 40; 9.0.0's higher box), the aerial-only 8% box at 70 (BK 15 KS 40), the aerial version's bury box for anyone (BK 30: buries a
+  grounded target, meteors an airborne one), shield +25 (350 / 413 [D]); on the ground the speed x0.5 / x0 by a script on frame 1 (one
+  frame of traction late [E]); in the air `start_speed` 67, `start_speed_y` 50, gravity 0.0425 of the reference's units; ledges from
+  frame 2 [E: conflict 4]; the aerial one lands as the grounded one [E: not published].
+* **Spinning clothesline** (up special, ext6 in the air; scripts `bracers_spin`, `_air`): grounded super armor 5-17, lower arm 19-24, hit
+  1 on 19 (grounded targets 95 / 80, aerial targets **366** (E28), set knockback 90), the loop's five hits on 25-27, 32-33, 40-42, 49-50,
+  55-58 (re-armed by the script; 367 forward / 20 forward / 60 backward, H 0.8), the final 4% on 62 (BK 60 KS 157, H 2.0), FAF 105, the
+  stick-steered slide (0.034 / 0.015 / 1.1, 0.04 after the last hit; order of accel and friction [E]), push-immune for the whole move
+  [E: frames not published]; over an edge it goes on as the aerial one [E: gap 7]. Aerial: hit 1 on 4-6, twelve 1% hits on their spans
+  (each re-armed), the 2% final on 39-43, lower arms 10-38, the rise (0.9 up, 0.07 a frame down as the gravity itself (decision 41)
+  [E: conflict 6], to the body's fall speed [E]; stick drift 0.05 up to 1.7), ledges from 14 both sides, 70 frames then the special fall
+  (landing lag 38), an early landing 42 frames (the grounded version's 63-105) [D].
+* **Hand slap** (down special, ext7 loop, ext8 ending, ext9 aerial; scripts `bracers_slap`, `_loop`, `_end`): slaps on 12-13 and 23-24
+  (two hits each pass), four 14% grounded-only boxes (78 outer / 84 inner, BK 85 KS 30, r 10.3 at ±6.1 / ±21.1, 5 up [D reading]),
+  H 0.5, shieldstun x0.58, shield 107, no clank; the 26-frame loop banked by special presses (a press in the loop's 20-26 banks two,
+  not added to one already banked [E: a reading]); the ending free on 47. Aerial: the 5% clap at 90 (FKV 36) on 19-21 and the 6% meteor
+  at 270 (BK 30) on 28-30, 20% trips, no clank, FAF 50, landing lag 10; box places [E].
+
+### Older fighters whose behaviour changed (list for the owner)
+
+* **Every fighter**: the base 7% trip (any hit of more than 55 knockback that sends a grounded target sideways or down; a hit with its
+  own trip chance gains 7 more: the Hauler's down tilt 47%, its down forward tilt 22%, the Gauntlets' late forward air 27%, the Claws'
+  down tilt 47%). Throws are excluded.
+* **Claws**: the down tilt trips (40% + 7). The other new chances (Claws down smash, Needles down tilt and down smash, Embers, Gauntlets,
+  Greatsword down tilts) are data only on flat stages.
+* Nothing else: E29, E5, push immunity and `aimed` are used only by the Bracers. `base.pfc` re-exported (it carries the new ruleset
+  fields and the new trip data).
+
+### Verified against [R] / [D] (tests that ran)
+
+`sim-core/tests/bracers_specials.rs` (19): E29's formula (10 / 19 / 27 / 28 at 0 / 55 / 109 / 110, aerial 23); the shortest release
+on 26 for 10%; releases at 0 / 55 / 100 / 109 frames of charge hitting 18 frames later for 10 / 19 / 26 / 27; the full charge storing
+itself and the full punch hitting on 19 for 28%, FAF 48; the data of the releases, full punches and cancel; shield and jump cancels
+keeping the charge, the shield up after 4 frames, a stored 23 released for 13%; a hit losing the charge; the full punch's armor holding
+on 9, 14 and 20 and not on 8 or 21 (a jab on each frame); the aerial full punch landing into the grounded one on the same frame, the
+aerial release ending free; the headbutt's data, its bury on frame 20 from the stick and special, the aerial start speeds, shield +25;
+the spin's data (366 on aerial targets, the loop spans, the final hit, 19% aerial total), its hits only on the reference's frames (move
+frames, hitlag aside), the aerial hit 1 on 4, the rise of about 6 reference units, the fall after 70 frames and its 38 frames of landing
+lag, the slide with the stick to the 1.1 cap, push immunity; the slap's data, 47 / 73 / 99 / 125 FAF for 0, 1 early, 1 late and 2
+presses, the first slap on 12 for 14% and no hit on an airborne target.
+`sim-core/tests/bury.rs` (11): the length (138 at 0%, +8 / +12 / -18 / -22 by stocks, longer at 100%), weight independence, 138 frames
+buried then 12 of lag and no invincibility, mashing (17 frames with a press every other frame), no grab or command grab, lying not
+buried and tripped buried, the aerial headbutt's straight-down meteor, a 95-knockback hit freeing and launching, a 60-knockback hit kept
+and launching at the end, the hurtboxes half the height lower, subtractive knockback armor ignored and non-subtractive armor holding,
+a rollback replay through a bury with random mashing. `trips.rs` (10): the base chance's numbers, 7% over 300 seeds with one roll each
+and none when off, the 47% combined chance over 60 seeds, every older kit's trip data, the Claws' down tilt tripping. `bracers.rs`: the
+angled forward tilts end on 36 and the straight one on 35, the stick's aim read as it starts. `scripted_moves.rs`: `set_charge` with
+`charge_add` (19%), `aimed` (1 / 0 / -1). `state::tests::checksum_sees_every_field` (the four bury fields and the state).
+
+### Estimated or limited [E]
+
+* The charge's frame mapping (gap 1) and the turnaround (shared B-reverse windows, gap 2); the punches' air physics (gap 6).
+* The bury: the pop-out's height (none: an on-the-spot 12-frame rebound, gap 9), which weak hit's launch is kept (the last, gap 10), the
+  buried hurtboxes' depth (half the height), the stock terms as ssbwiki.com's summary in frames (+8 / +12 / -18 / -22) rather than its
+  printed formula, which does not give those numbers (15 x 1.5 = 22.5, not 18: conflict 12 below).
+* The headbutt's ledge window (conflict 4) and landing; the spin's off-edge version (gap 7), push-immune frames (gap 14), the aerial
+  gravity reading (conflict 6) and fall cap, its special-fall drift (gap 12); the slap's air physics (gap 8) and its "twice" rule's
+  reading; positions on arm, hand and head bones throughout.
+* Not modelled: the hit-while-carrying rows (phase 3), the slap's `direct=f` counter oddity, the headbutt's "hit while grabbing the
+  ledge cuts its lag" (a ledge grab already ends the move).
+
+### Tests and checks run
+
+`cargo fmt --all`; `cargo test --workspace --no-fail-fast` (all green); `cargo clippy --workspace --all-targets -- -D warnings`
+(clean); `pftool fuzz-rollback 500` (0 mismatches, every class); `pftool net-fuzz 200` (0 mismatches, every class); `content/base.pfc`
+re-exported (the equality test passes). **Not run**: the Godot tests.
+
+### Training-mode checks (hitbox view)
+
+Hauler vs a duelist at 0%: (1) the punch charged to full (the stance ends by itself about 2 seconds in), then a press: the fist out on
+19-20, a jab on frame 12 not flinching it; (2) the headbutt on a standing duelist: buried (half sunk) for 138 frames, out with a short
+lag; jabbed while buried it stays; smashed it flies; (3) the aerial headbutt on a duelist in the air: straight down; (4) the grounded
+spin held forward slides to about 1.1 reference units a frame and its first hit sends an airborne duelist along with the spin (366);
+(5) the slap pressed once more late in the loop: two more loops.
+
+## For the art agent (phase 2)
+
+* **Buried** (`FighterState::Buried`, the bridge's state name `Buried`): the fighter sunk to about half its height, arms up, struggling
+  (a shake on mash inputs would read well); out of it the state is `Rebound` for 12 frames (a pop-up). Its hurtboxes are already lowered
+  in `fighter_hurtboxes`.
+* **The trip pose**: `fighter_tripped(i)` is true while a `Knockdown` is a trip: sit the fighter up instead of laying it flat.
+* Specials' slots and poses (they fall back to shared clips now): neutral special = the wind-up (an arm swinging round and round, faster
+  as it charges; the stance ends by itself at full), ext0 / ext1 the charged punch (hit 19-20, the fist straight out at chest height),
+  ext2 / ext3 the full punch (the same, bigger, hit 19-20 counted from the press), ext4 the 4-frame cancel; side special / ext5 the
+  headbutt (a big overhead head slam, hit 20-21, low in front); up special the grounded spin (arms out level, spinning, sliding; hits
+  19-62), ext6 the aerial spin (rising a little, arms out, 70 frames, then the special fall); down special / ext7 the hand slap (both
+  palms slamming the ground either side on 12-13 and 23-24 of each 26-frame loop), ext8 its ending (13 frames), ext9 the aerial clap
+  (a clap high in front on 19-21, then both hands swung down on 28-30).
+
+## Phase 3 plan (unchanged): the carry (E7)
+
+As below ("Phase 3 plan"), with the cargo throws in ext10-ext13. The knockback armor kind it needs now exists (the Clutch's phase 1:
+`ARMOR_KNOCKBACK` with `subtract`); the carry reads it outside `S::Attack`. The shared mash helper `grab::mash_cut` is in place.
+
+## Questions for the owner (phase 2)
+
+1. **SIM_VERSION**: this branch carries 90 as asked, but `movesets` is at 93; renumber above 93 at the merge.
+2. **The `aimed` register name**: `aim` would have broken the water pump's scripts (`var aim`), so the register is `aimed`. Keep?
+3. **The bury's stock terms**: the frames ssbwiki.com summarises (+8 / +12 / -18 / -22) are built; its printed formula gives +7.5 /
+   +11.25 / -22.5 / -27. Keep the summary (as approved in the audit) or switch to the formula?
+4. **Throws and the base trip**: excluded [E]. Should a thrown fighter be able to trip (a throw that sends low sideways)?
+5. The footage requests in `REFERENCE_DATA.md` stand (the charge's frame mapping, the bury pop-out, the spin's off-edge and gravity, the
+   slap's late press).
+
+## Phase 2 plan as written before the build (kept for the record): the specials (decision 41: E5 and E29; E22b `on_land` and E11 `start_speed_y` now exist from Cloud's phase 2)
 
 Every piece defaults to today's behaviour for every other fighter, is hashed (content through `Weapon::hash_into` /
 `Ruleset::hash_into`, state through `GameState::hash_into` with a checksum case each), appears in `docs/CONTENT.md`, and gets its own

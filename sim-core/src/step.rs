@@ -257,6 +257,7 @@ mod tests {
                             | FighterState::WaveLand
                             | FighterState::Shield
                             | FighterState::ShieldRelease
+                            | FighterState::Buried
                             | FighterState::Roll
                             | FighterState::SpotDodge
                             | FighterState::Grabbing

@@ -18,8 +18,8 @@ use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
     ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
-    EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL,
-    TARGETS_GROUNDED,
+    ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
+    HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -81,6 +81,20 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
     [(at(6), radius), (middle, radius), (at(16), radius), limb]
 }
 
+/// [`hurtboxes`] as the match sees them: a buried fighter's (E5) sit `Ruleset::bury_depth` of its height lower, only its upper body
+/// out of the ground [E].
+pub fn body_hurtboxes(content: &Content, f: &Fighter) -> [(Vec2, Fx); HURT_CIRCLES] {
+    let p = params_of(content, f);
+    let mut hurt = hurtboxes(f, p, weapon_of(content, p));
+    if f.state == S::Buried {
+        let sunk = p.ecb_height * content.rules.bury_depth;
+        for (c, _) in &mut hurt {
+            c.y -= sunk;
+        }
+    }
+    hurt
+}
+
 /// How high above the feet a standing fighter's chest is: the centre of its middle hurtbox circle (see [`hurtboxes`]).
 pub fn chest_height(p: &FighterParams) -> Fx {
     p.ecb_height * Fx::from_ratio(11, 20)
@@ -139,6 +153,8 @@ pub fn active_hitboxes<'a>(
             hb.y = hb.y * scale;
             hb.radius = hb.radius * scale;
             hb.half_height = hb.half_height * scale;
+            hb.posvec_x = hb.posvec_x * scale;
+            hb.posvec_y = hb.posvec_y * scale;
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
             (i, hb, center)
         })
@@ -352,7 +368,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             }
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
-            let hurt = hurtboxes(fd, pd, wd);
+            let hurt = body_hurtboxes(content, fd);
             let shut = intangible_parts(fd, wd);
             let mut best: Option<Hitbox> = None;
             for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
@@ -428,7 +444,10 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     let mut hb = hb;
                     let attack =
                         weapon_of(content, params_of(content, &attacker)).get(attacker.move_id);
-                    if attacker.charge > 0 {
+                    if let Some(add) = attack.charge_add {
+                        // Additive charge damage (E29): the reference's charged punch.
+                        hb.damage = add.damage(hb.damage, attacker.charge);
+                    } else if attacker.charge > 0 {
                         let rules = &content.rules;
                         let full = if attack.charge_bonus > 0 {
                             attack.charge_bonus
@@ -890,6 +909,15 @@ fn apply_hit(
 
     let rage = rage_multiplier(state.fighters[source].percent, rules);
     let puller = state.fighters[source].pos;
+    // A position vector's point (E34): ahead of and above the attacker's feet, by its facing, where it hit.
+    let posvec_point = puller
+        + Vec2::new(
+            hb.posvec_x
+                .mul_int(i32::from(state.fighters[source].facing)),
+            hb.posvec_y,
+        );
+    let source_stocks = state.fighters[source].stocks;
+    let bury_hit = hb.effect == EFFECT_BURY;
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
@@ -914,8 +942,8 @@ fn apply_hit(
     // draining move drains.
     crate::gauge::on_damage(state, content, source, d, added);
     let def = &mut state.fighters[d];
-    // (A set-weight hit treats every victim as weighing 100.)
-    let weight = if hb.set_weight {
+    // (A set-weight hit treats every victim as weighing 100, and so does a bury hit: the reference's bury is weight-independent.)
+    let weight = if hb.set_weight || bury_hit {
         Fx::from_int(100)
     } else {
         defender_params.weight
@@ -931,14 +959,40 @@ fn apply_hit(
             hb.knockback_growth,
         ) * rage
     };
+    // (The bury's own length reads the knockback before crouch cancelling.)
+    let full_kb = kb;
     if crouching {
         // Crouch cancelling: holding down on the ground takes some of the knockback off.
         kb = kb * rules.crouch_cancel_kb;
     }
+    // Armor: the move's window (in an attack), or the body's air-jump armor (in a midair jump, its frames counted from 0 as a move's
+    // are). It sees the hit's damage before the multiplier and its knockback (a crouching fighter has neither). A hit it withstands
+    // only freezes (below, after a push has pushed); one that breaks a subtractive knockback armor launches with what is left.
+    let armor = if def.state == S::Attack {
+        weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .armor
+            .map(|a| (a, def.state_frame))
+    } else if def.state == S::Airborne && def.air_jump_frame > 0 {
+        defender_params
+            .air_jump_armor
+            .map(|a| (a, u16::from(def.air_jump_frame - 1)))
+    } else {
+        None
+    };
+    // (A bury hit ignores subtractive knockback armor: the reference's rule.)
+    let armor = armor.filter(|(a, _)| !(bury_hit && a.kind == ARMOR_KNOCKBACK && a.subtract));
+    let armored = armor.is_some_and(|(a, frame)| a.withstands(frame, hb.damage, kb));
+    if !armored && !hb.push {
+        if let Some((a, frame)) = armor {
+            kb = a.broken_knockback(frame, kb);
+        }
+    }
     // The autolink angle: a grounded victim is sent at 80 degrees; an airborne one is carried along (see `autolink`).
     // The vortex angle (E28): grounded or not, the launch follows the attacker's movement plus a pull (see `fighter::vortex_launch`).
     let vortex_hit = hb.angle == ANGLE_VORTEX;
-    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit;
+    let posvec_hit = hb.posvec_frames > 0;
+    let link_hit = (hb.angle == ANGLE_AUTOLINK && !def.grounded()) || vortex_hit || posvec_hit;
     // The pull angle: no launch; the victim is drawn in (see `fighter::pull_frame`).
     let pull_hit = hb.angle == ANGLE_PULL;
     let degrees = if hb.angle == ANGLE_AUTOLINK {
@@ -953,6 +1007,14 @@ fn apply_hit(
     };
     let angle = launch_angle(degrees, facing, def.grounded(), kb);
     if hb.push {
+        // A move immune to pushes in this window (the reference's windbox immunity) is not moved at all.
+        if def.state == S::Attack {
+            let mv = weapon_of(content, &defender_params).get(def.move_id);
+            let frame = def.state_frame;
+            if u16::from(mv.push_immune_from) <= frame && frame <= u16::from(mv.push_immune_to) {
+                return;
+            }
+        }
         // No hitstun and no change of state: the knockback is a shove on top of the fighter's own speed (along the ground if it
         // stands on it).
         let speed = kb * Fx::from_ratio(3, 800);
@@ -962,25 +1024,53 @@ fn apply_hit(
         }
         return;
     }
-    // Armor (the move's window, for the hit's damage before the multiplier): the damage and hitlag stand, nothing else happens.
-    if def.state == S::Attack
-        && weapon_of(content, &defender_params)
-            .get(def.move_id)
-            .armor
-            .is_some_and(|a| a.withstands(def.state_frame, hb.damage))
-    {
+    // An armored hit: the damage and hitlag stand, nothing else happens.
+    if armored {
         def.hitlag = hitlag;
         def.sdi_wait = 0;
         return;
     }
-    // A trip (the reference's trip chance, sim 86): a fighter on the ground whose launch would not lift it off the ground (sent
-    // sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of being launched, if the game's
-    // own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use up the generator.
-    if hb.trip > 0
+    // The bury (E5). A buried fighter is freed only by a hit of at least `bury_break_kb` (it is launched in full, below); a weaker
+    // hit's damage and hitlag stand and its launch is kept for when the bury ends (the last one kept [E: gap 10]). A grounded fighter
+    // not lying down hit by a bury hit is buried; an airborne one takes the hit as usual (a meteor, for a downward bury hit).
+    let was_buried = def.state == S::Buried;
+    if was_buried {
+        if kb < rules.bury_break_kb {
+            def.hitlag = hitlag;
+            def.sdi_wait = 0;
+            def.sdi_mult = hb.sdi;
+            def.bury_kb = kb;
+            def.bury_angle = angle.raw();
+            def.bury_set = true;
+            return;
+        }
+        def.bury_timer = 0;
+        def.bury_set = false;
+    } else if bury_hit
+        && def.grounded()
+        && !(matches!(def.state, S::Knockdown | S::GetUp) && !def.tripped)
+    {
+        // (Lying down is safe from a bury; sitting after a trip is not: the reference's rule.)
+        let victim_stocks = def.stocks;
+        let frames = bury_frames(rules, def.percent, full_kb, source_stocks, victim_stocks);
+        fighter::bury(def, frames);
+        def.hitlag = hitlag;
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
+        def.hits_taken = 1;
+        return;
+    }
+    // A trip (the reference's trip chance, sim 86; the base chance, owner decision 50): a fighter on the ground whose launch would not
+    // lift it off the ground (sent sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of
+    // being launched, if the game's own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use
+    // up the generator.
+    let chance = trip_chance(&hb, kb, rules);
+    if chance > 0
+        && !was_buried
         && def.grounded()
         && !matches!(def.state, S::Knockdown | S::GetUp)
         && crate::trig::sin(angle) <= Fx::ZERO
-        && state.rng.range(100) < u32::from(hb.trip)
+        && state.rng.range(100) < u32::from(chance)
     {
         fighter::trip(def, rules);
         def.hitlag = if crouching {
@@ -1036,6 +1126,7 @@ fn apply_hit(
     def.state = S::Hitstun;
     def.state_frame = 0;
     def.tripped = false;
+    def.air_jump_frame = 0;
     // Being hit gives back the air dodge and a fresh set of ledge grabs, and ends a short hop.
     def.air_dodge_used = false;
     def.ledge_grab_count = 0;
@@ -1046,13 +1137,20 @@ fn apply_hit(
     def.launch_set = hb.fixed_kb > 0;
     def.launch_angle = angle.raw();
     def.link = link_hit;
-    def.link_kind = if vortex_hit {
+    def.link_kind = if posvec_hit {
+        crate::state::LINK_POSVEC
+    } else if vortex_hit {
         crate::state::LINK_VORTEX
     } else {
         crate::state::LINK_AUTOLINK
     };
     def.vortex = 0;
-    def.link_point = link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO);
+    def.posvec = hb.posvec_frames;
+    def.link_point = if posvec_hit {
+        posvec_point
+    } else {
+        link.0 + Vec2::new(hb.link_ahead.mul_int(i32::from(facing)), Fx::ZERO)
+    };
     def.link_vel = link.1;
     def.pull = pull_hit;
     if pull_hit {
@@ -1064,6 +1162,53 @@ fn apply_hit(
     def.fast_fall = false;
     def.tumble = false;
     def.hit_mask = 0;
+}
+
+/// How long a bury lasts (the reference's, ssbwiki.com "Buried", 13.0.1): `bury_base + bury_percent x percent + bury_kb x kb` rounded
+/// up (`percent` the victim's after the hit, `kb` the hit's knockback at weight 100), plus `bury_behind_1` / `_2` frames when the
+/// attacker has one / two or more stocks fewer than the victim, minus `bury_ahead_1` / `_2` when it has more (the page's summary of
+/// its stock terms: 8, 12, 18, 22). At least 1.
+pub fn bury_frames(
+    rules: &Ruleset,
+    percent: Fx,
+    kb: Fx,
+    attacker_stocks: u8,
+    victim_stocks: u8,
+) -> u16 {
+    let t = rules.bury_base + percent * rules.bury_percent + kb * rules.bury_kb;
+    let mut frames = (t + Fx::from_raw(65535)).floor_int();
+    if attacker_stocks < victim_stocks {
+        let behind = if victim_stocks - attacker_stocks >= 2 {
+            rules.bury_behind_2
+        } else {
+            rules.bury_behind_1
+        };
+        frames += i32::from(behind);
+    } else if attacker_stocks > victim_stocks {
+        let ahead = if attacker_stocks - victim_stocks >= 2 {
+            rules.bury_ahead_2
+        } else {
+            rules.bury_ahead_1
+        };
+        frames -= i32::from(ahead);
+    }
+    frames.clamp(1, i32::from(u16::MAX)) as u16
+}
+
+/// The percent chance that a hit trips a grounded fighter it would not lift (see `apply_hit`): the reference's base chance
+/// (`Ruleset::trip_base`, 7) for a hit of more than `trip_base_kb` (55) knockback, and a hit with a chance of its own (`Hitbox::trip`)
+/// always adds the base chance to it, whatever its knockback (ssbwiki.com, Tripping: a 40% move trips 47% of the time). A throw never
+/// trips [E: the reference's thrown fighters are launched]. At most 100.
+pub fn trip_chance(hb: &Hitbox, kb: Fx, rules: &Ruleset) -> u8 {
+    if hb.kind == HIT_THROW {
+        0
+    } else if hb.trip > 0 {
+        hb.trip.saturating_add(rules.trip_base).min(100)
+    } else if kb > rules.trip_base_kb {
+        rules.trip_base.min(100)
+    } else {
+        0
+    }
 }
 
 /// The knockback a hit gives (set knockback, or the formula with rage), before crouch cancelling.
@@ -1116,13 +1261,68 @@ fn block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox, facing: i8, hitlag: u8
         }
     }
     def.shield_stun = stun as u8;
-    // Pushback: (stun + 1) * 0.09 reference units a frame, at most 1.3 (less for a perfect shield).
-    let mut push = (Fx::from_int(stun + 1) * Fx::from_ratio(9, 100)).min(Fx::from_ratio(13, 10))
-        / Fx::from_int(8);
+    let mut push = shield_pushback(stun);
     if perfect {
         push = push * Fx::from_ratio(2, 5);
     }
     def.vel.x += push.mul_int(i32::from(facing));
+}
+
+/// A shield's pushback for `stun` frames of shield stun: (stun + 1) * 0.09 reference units a frame, at most 1.3 (world units).
+fn shield_pushback(stun: i32) -> Fx {
+    (Fx::from_int(stun + 1) * Fx::from_ratio(9, 100)).min(Fx::from_ratio(13, 10)) / Fx::from_int(8)
+}
+
+/// Whether fighter `fd`'s passive shield (E14, `FighterParams::passive_shield`) stops a projectile box at `at` (`half` and `radius`
+/// already scaled) moving at `vel`: the fighter stands, walks or crouches on the ground, the shot is in front of it and not moving
+/// away from its front, and the box touches the shield's capsule.
+fn passive_shield_blocks(
+    fd: &Fighter,
+    pd: &FighterParams,
+    at: Vec2,
+    half: Fx,
+    radius: Fx,
+    vel: Vec2,
+) -> bool {
+    let Some(sh) = pd.passive_shield else {
+        return false;
+    };
+    if !fd.grounded() || !matches!(fd.state, S::Idle | S::Walk | S::Crouch) {
+        return false;
+    }
+    let facing = i32::from(fd.facing);
+    let ahead = (at.x - fd.pos.x).mul_int(facing);
+    if ahead <= Fx::ZERO || vel.x.mul_int(facing) > Fx::ZERO {
+        return false;
+    }
+    let scale = pd.hitbox_scale;
+    let y = if fd.state == S::Crouch {
+        sh.crouch_y
+    } else {
+        sh.y
+    };
+    let centre = fd.pos + Vec2::new((sh.x * scale).mul_int(facing), y * scale);
+    capsules_touch(
+        at,
+        half,
+        radius,
+        centre,
+        sh.half_height * scale,
+        sh.radius * scale,
+    )
+}
+
+/// A projectile's hit stopped by a passive shield (E14): no damage or launch; the fighter freezes for the hit's hitlag on a shield
+/// (with shield SDI, `Fighter::shield_sdi`) and is pushed back, away from its front, as a raised shield would be by the hit (no shield
+/// damage, no shield stun) [E: the reference's push is "dependent on the damage and knockback", its formula unpublished].
+fn passive_block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox) {
+    let scale = Fx::from_ratio(i32::from(hb.hitlag), 100).max(Fx::ONE);
+    def.hitlag = hitlag_frames(hb.damage, rules, true, false, scale);
+    def.sdi_wait = 0;
+    def.shield_sdi = def.hitlag > 0;
+    let stun = shield_stun_frames(hb.damage, STUN_PROJECTILE, hb.shieldstun)
+        .clamp(0, i32::from(rules.shield_stun_cap));
+    def.vel.x -= shield_pushback(stun).mul_int(i32::from(def.facing));
 }
 
 /// Shield stun type multipliers (the reference's), in thousandths: most hits 1, aerials 0.33, smash attacks 0.725, projectiles 0.29.
@@ -1164,19 +1364,24 @@ fn stun_multiplier(f: &Fighter) -> u16 {
     }
 }
 
-/// Creates the projectile a move asked for this frame. A move that already connected in melee (a bayonet
-/// hit, for instance) does not also fire.
+/// Creates the projectile a move asked for this frame (and a second one a script asked for on the same frame: E3h). A move that
+/// already connected in melee (a bayonet hit, for instance) does not also fire.
 pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
     for i in 0..MAX_FIGHTERS {
         if !state.fighters[i].spawn_request {
             continue;
         }
-        state.fighters[i].spawn_request = false;
         let f = state.fighters[i];
-        state.fighters[i].spawn_custom = false;
-        state.fighters[i].spawn_fixed = false;
-        state.fighters[i].spawn_kb_add = 0;
-        state.fighters[i].spawn_size = 100;
+        {
+            let g = &mut state.fighters[i];
+            g.spawn_request = false;
+            g.spawn_custom = false;
+            g.spawn_fixed = false;
+            g.spawn_kb_add = 0;
+            g.spawn_size = 100;
+            g.spawn2_request = false;
+            g.spawn2_fixed = false;
+        }
         // A move that already connected in melee does not also fire, unless its script asked for the shot.
         if f.hit_mask != 0 && !f.spawn_custom {
             continue;
@@ -1189,46 +1394,85 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         };
         let dir = i32::from(f.facing);
         let scale = params_of(content, &f).hitbox_scale;
-        if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
-            *slot = Projectile {
-                active: true,
-                owner: i as u8,
-                origin: i as u8,
-                power: 100,
-                move_id: f.move_id,
-                pos: if f.spawn_fixed {
-                    f.spawn_pos
-                } else if f.spawn_custom {
-                    f.pos + f.spawn_pos
+        let first = Shot {
+            pos: if f.spawn_fixed {
+                f.spawn_pos
+            } else if f.spawn_custom {
+                f.pos + f.spawn_pos
+            } else {
+                Vec2::new(
+                    f.pos.x + (spec.x * scale).mul_int(dir),
+                    f.pos.y + spec.y * scale,
+                )
+            },
+            vel: if f.spawn_custom {
+                f.spawn_vel
+            } else if spec.arc.angle != 0 {
+                let a = Angle::from_degrees(i32::from(spec.arc.angle));
+                Vec2::new(
+                    (spec.speed * crate::trig::cos(a)).mul_int(dir),
+                    spec.speed * crate::trig::sin(a),
+                )
+            } else {
+                Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
+            },
+            kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
+            size: if f.spawn_custom { f.spawn_size } else { 100 },
+        };
+        add_projectile(state, i, &f, &spec, first);
+        // A second shot on the same frame (a script's second `spawn`): plain size and knockback.
+        if f.spawn_custom && f.spawn2_request {
+            let second = Shot {
+                pos: if f.spawn2_fixed {
+                    f.spawn2_pos
                 } else {
-                    Vec2::new(
-                        f.pos.x + (spec.x * scale).mul_int(dir),
-                        f.pos.y + spec.y * scale,
-                    )
+                    f.pos + f.spawn2_pos
                 },
-                vel: if f.spawn_custom {
-                    f.spawn_vel
-                } else if spec.arc.angle != 0 {
-                    let a = Angle::from_degrees(i32::from(spec.arc.angle));
-                    Vec2::new(
-                        (spec.speed * crate::trig::cos(a)).mul_int(dir),
-                        spec.speed * crate::trig::sin(a),
-                    )
-                } else {
-                    Vec2::new(spec.speed.mul_int(dir), Fx::ZERO)
-                },
-                age: 0,
-                life: spec.life,
-                bounces: 0,
-                kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
-                size: if f.spawn_custom { f.spawn_size } else { 100 },
-                vars: [0; crate::PROJECTILE_VARS],
-                hit_mask: 0,
-                hit_age: [0; MAX_FIGHTERS],
-                facing: f.facing,
-                bursting: false,
+                vel: f.spawn2_vel,
+                kb_add: 0,
+                size: 100,
             };
+            add_projectile(state, i, &f, &spec, second);
         }
+    }
+}
+
+/// Where a new projectile starts and how it goes.
+struct Shot {
+    pos: Vec2,
+    vel: Vec2,
+    kb_add: u8,
+    size: u16,
+}
+
+/// Puts a projectile of `spec` fired by fighter `i` into the first free slot of the pool (none if the pool is full).
+fn add_projectile(
+    state: &mut GameState,
+    i: usize,
+    f: &Fighter,
+    spec: &crate::moves::ProjectileSpawn,
+    shot: Shot,
+) {
+    if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
+        *slot = Projectile {
+            active: true,
+            owner: i as u8,
+            origin: i as u8,
+            power: 100,
+            move_id: f.move_id,
+            pos: shot.pos,
+            vel: shot.vel,
+            age: 0,
+            life: spec.life,
+            bounces: 0,
+            kb_add: shot.kb_add,
+            size: shot.size,
+            vars: [0; crate::PROJECTILE_VARS],
+            hit_mask: 0,
+            hit_age: [0; MAX_FIGHTERS],
+            facing: f.facing,
+            bursting: false,
+        };
     }
 }
 
@@ -1270,14 +1514,24 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
         }
         let mut pos = pr.pos + pr.vel;
-        if arc.bounces > 0 && pr.vel.y < Fx::ZERO {
+        let scale = origin_params.hitbox_scale;
+        if arc.bounces > 0 && pr.vel.y < Fx::ZERO && burst.is_none() {
             if let Some(i) = collision::find_landing(stage, pr.pos, pos, false) {
-                if pr.bounces >= arc.bounces {
+                // (Too fast a landing does not bounce either: `ProjectileArc::bounce_max_fall`.)
+                let too_fast = arc.bounce_max_fall > Fx::ZERO && -pr.vel.y > arc.bounce_max_fall;
+                if pr.bounces >= arc.bounces || too_fast {
+                    // A projectile that bursts on the ground (sim 95) bursts where it touched instead of vanishing.
+                    if let Some(b) = spec.burst.filter(|b| b.on_ground) {
+                        let at = Vec2::new(pos.x, stage.platforms[i].y);
+                        start_burst(&mut state.projectiles[n], &b, at, scale);
+                        continue;
+                    }
                     state.projectiles[n].active = false;
                     continue;
                 }
                 pos.y = stage.platforms[i].y;
-                pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max);
+                pr.vel.y = (-pr.vel.y).clamp(arc.bounce_min, arc.bounce_max)
+                    * Fx::from_ratio(i32::from(arc.bounce_keep_y), 100);
                 pr.vel.x = pr.vel.x * Fx::from_ratio(i32::from(arc.bounce_keep), 100);
                 pr.bounces += 1;
             }
@@ -1291,10 +1545,16 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             || pos.x > stage.blast_right
             || pos.y < stage.blast_bottom
             || pos.y > stage.blast_top;
-        let scale = origin_params.hitbox_scale;
         // A projectile that bursts on a wall (E3e) bursts just short of it (where it was), instead of being removed.
         if let Some(b) = spec.burst.filter(|b| b.on_wall && !pr.bursting) {
             if in_wall && age < pr.life && !outside {
+                start_burst(&mut state.projectiles[n], &b, pr.pos, scale);
+                continue;
+            }
+        }
+        // ...and one that bursts at the end of its life (sim 95) bursts where it is.
+        if let Some(b) = spec.burst.filter(|b| b.on_expire && !pr.bursting) {
+            if age >= pr.life && !in_wall && !outside {
                 start_burst(&mut state.projectiles[n], &b, pr.pos, scale);
                 continue;
             }
@@ -1389,8 +1649,23 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 continue;
             }
             let pd = params_of(content, fd);
+            // A passive shield in the way stops the shot (E14): a burst is not stopped.
+            if burst.is_none()
+                && !intangible
+                && passive_shield_blocks(fd, pd, pos, hb.half_height, hb.radius, pr.vel)
+            {
+                passive_block(&mut state.fighters[d], &content.rules, &hb);
+                let p = &mut state.projectiles[n];
+                p.hit_mask |= bit;
+                p.hit_age[d] = age;
+                if !pierce {
+                    p.active = false;
+                    break;
+                }
+                continue;
+            }
             let wd = weapon_of(content, pd);
-            let hurt = hurtboxes(fd, pd, wd);
+            let hurt = body_hurtboxes(content, fd);
             let (touching, caught) = reach(
                 counter,
                 intangible,
@@ -1452,8 +1727,11 @@ fn start_burst(p: &mut Projectile, b: &crate::moves::Burst, at: Vec2, scale: Fx)
     p.vel = Vec2::ZERO;
     p.age = 0;
     p.life = b.life;
-    p.hit_mask = 0;
-    p.hit_age = [0; MAX_FIGHTERS];
+    // (With `keep_hits` the fighters it already hit stay hit: a burst phase of the same group skips them.)
+    if !b.keep_hits {
+        p.hit_mask = 0;
+        p.hit_age = [0; MAX_FIGHTERS];
+    }
 }
 
 /// What a projectile script can see: its owner and the nearest other fighter that is still in the match.

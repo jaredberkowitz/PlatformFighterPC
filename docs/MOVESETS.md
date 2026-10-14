@@ -111,6 +111,28 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   normal on the reference's published data (`docs/movesets/donkey_kong/`, code in `sim-core/src/moves_bracers.rs`), with E20 trips and
   E3g no-rebound hits. The specials are the claws' until phase 2; the forward throw is a plain placeholder until the carry (phase 3).
 
+### 9. Clutch bounder (the reference floaty heavyweight's role)
+- A floaty heavyweight (104, the fastest air speed) with a towering second jump that shrugs off blows (it turns round with the stick
+  held back): quick kicks, a tail, a headbutt forward smash with an intangible head, a bicycle-kick up smash, a flurry of twelve
+  down-air kicks, a set-weight back air, and a long, slow tongue grab; (phases 2 and 3) lobbed shells that lift it, a crashing drop
+  that scatters stars, a tongue that seals foes in a shell, and a rolling shell.
+- **As built (phase 1, sim 89):** the body (`FighterParams::bounder`, no wall jump, heavy landing 6, the double jump's subtractive
+  knockback armor on its frames 1-44 and its turnaround: E33 and the E1 knockback kind) and every normal on the reference's published
+  data (`docs/movesets/yoshi/`, code in `sim-core/src/moves_clutch.rs`). **Phase 2 (sim 95):** the lobbed shell (up special: held
+  speed, stick aim, three air hops, bounces and a one-hit burst) and the drop (down special: the hop hit, the stall, the 0.6 fall
+  through soft platforms, ledges both sides, two landing stars on one frame). The neutral and side specials are the claws' until
+  phase 3.
+
+### 10. Buckler wanderer (the reference sword-and-shield adventurer's role)
+- A heavy swordsman (104) with low jumps and a small shield that stops shots while he stands, walks or crouches: a long-reaching sword
+  with its own tip, blade, arm and hilt boxes on every move, a two-part forward smash, a pogo down air, a dragging forward air, and the
+  spin: a charged single slash on the ground, a rising multi-hit whirl in the air that carries a target round; (phases 2 and 3) a
+  bow whose arrows lodge and can be picked up, a boomerang that comes back, a bomb set off from afar, and the sword wave at 0%.
+- **As built (phase 1, sim 91):** the body (`FighterParams::wanderer`, the passive shield E14, no wall jump, heavy landing 3), every
+  sword normal and both spins on the reference's published data (`docs/movesets/link/`, code in `sim-core/src/moves_buckler.rs`), with
+  E34 position vectors, E36 (a follow-up keeps its charge), the E11 special-fall speed and acceleration, and E37 (up special and up
+  smash straight out of a shield, for every class). The bow, boomerang and bomb are the claws' placeholders until phases 2 and 3.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

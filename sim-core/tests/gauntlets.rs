@@ -986,6 +986,8 @@ fn the_new_fields_are_in_the_content_hash() {
         end: 3,
         kind: sim_core::moves::ARMOR_SUPER,
         threshold: Fx::ZERO,
+        subtract: false,
+        min_kb: Fx::ZERO,
     });
     assert_ne!(h, c.hash(), "armor");
     for (name, edit) in [
@@ -1011,6 +1013,8 @@ fn the_new_fields_are_in_the_content_hash() {
                 friction: None,
                 drift: 100,
                 accel: 600,
+                speed: None,
+                accel_stick: None,
             }]
         }),
     ] {

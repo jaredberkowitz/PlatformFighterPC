@@ -1,0 +1,33 @@
+// Bracers neutral special, the wind-up and charge (the reference's charged punch). On its first run the stored charge is taken out
+// of store (so a hit now loses it: being hit ends the move and its variables). A full stored charge (110) goes straight to the full
+// punch (30 = ext2 on the ground, 31 = ext3 in the air). Otherwise, from frame 7 (the reference's 8: the loop's start), the charge
+// grows by one a frame up to 110; special (pressed at any point, kept) releases it into the punch (28 = ext0 on the ground, 29 = ext1
+// in the air), whose damage the charge raises; shield (a roll or spot dodge with the stick, an air dodge in the air) or jump keeps
+// the charge and goes to the cancel's 4 frames of lag (32 = ext4); at 110 the charge stores itself and the move ends.
+var c;
+var on;
+var quick;
+if on == 0 {
+    on = 1;
+    c = stored;
+    store(0);
+}
+if c >= 110 {
+    if grounded { goto(30); } else { goto(31); }
+} else {
+    if special_tap { quick = 1; }
+    if frame >= 7 {
+        if quick {
+            if grounded { goto(28); } else { goto(29); }
+        } else if shield || jump {
+            store(c);
+            goto(32);
+        } else {
+            c = min(c + 1, 110);
+            if c >= 110 {
+                store(110);
+                end();
+            }
+        }
+    }
+}

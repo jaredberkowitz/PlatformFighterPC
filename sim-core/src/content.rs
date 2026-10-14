@@ -219,8 +219,38 @@ pub struct FighterParams {
     pub weight: Fx,
     /// The body's gauge and its powered mode (see [`Gauge`]); [`Gauge::NONE`] for a body without one.
     pub gauge: Gauge,
+    /// Armor on the body's midair jump (sim 89, E33; `None` for none). Its window counts the frames of the jump (1 is the jump's own
+    /// frame: `Fighter::air_jump_frame`), and it lasts only while the fighter stays in the jump: an attack, a special, an air dodge, a
+    /// landing, a ledge or a launch ends it. Read in `combat::apply_hit` as a move's armor is; grabs ignore it. The reference's
+    /// double-jump armor is the subtractive knockback kind (`Armor::subtract`).
+    pub air_jump_armor: Option<crate::moves::Armor>,
+    /// The midair jump turns the fighter round when the stick is held back (past the deadzone) as it jumps: the reference's
+    /// double-jump turnaround, a trait of a few bodies. False: the facing stays.
+    pub air_jump_turns: bool,
+    /// A shield carried in front that stops projectiles while the fighter stands, walks or crouches (E14, the reference's passive
+    /// shield; see [`PassiveShield`]). `None` for none.
+    pub passive_shield: Option<PassiveShield>,
+    /// The midair jump's sideways speed in percent of the stick times the air speed (owner decision 59, sim 95: the reference's per-body
+    /// `jump_aerial_speed_x_mul`); 100 (the default) is the shared rule.
+    pub air_jump_drift: u8,
     /// Index into `Content::weapons`.
     pub weapon: u8,
+}
+
+/// A passive shield (E14, the reference's): while the fighter is standing (`Idle`), walking or crouching on the ground, a projectile
+/// whose box touches this standing capsule (centred `x` ahead of the feet, the way it faces, and `y` up, or `crouch_y` up while
+/// crouching; `half_height` above and below the centre, of `radius`), coming from in front, is blocked: no damage and no launch; the
+/// fighter freezes for the shield's hitlag (shield SDI allowed) and is pushed back as a shield is by that hit (`combat::block`'s
+/// pushback, with no shield damage or stun); the projectile ends as on a shield (a piercing one goes on). It never breaks and blocks any
+/// number of shots. Melee hits are never blocked (the reference blocks only reflectable hitboxes: every projectile here, no melee hit).
+/// Scaled by the body's `hitbox_scale`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PassiveShield {
+    pub x: Fx,
+    pub y: Fx,
+    pub crouch_y: Fx,
+    pub half_height: Fx,
+    pub radius: Fx,
 }
 
 /// A gauge that fills from damage dealt and taken (and from moves that charge it), and a powered mode while it is full: the
@@ -597,6 +627,10 @@ impl FighterParams {
         let gu = FighterParams::gu;
         FighterParams {
             gauge: Gauge::NONE,
+            air_jump_armor: None,
+            air_jump_turns: false,
+            passive_shield: None,
+            air_jump_drift: 100,
             walk_speed: gu(1400),
             run_speed: gu(1800),
             dash_speed: gu(2200),
@@ -1240,6 +1274,174 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A floaty heavyweight with a towering second jump: the "bounder" body of the Clutch moveset. The reference character's attributes
+    /// (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the ninth moveset's `REFERENCE_DATA.md` in
+    /// `docs/movesets/`): weight 104, walk 1.208, initial dash 1.98, run 2.046, traction 0.095, air speed 1.344, air acceleration 0.03 +
+    /// 0.068, air friction 0.005, gravity 0.08, fall 1.29 (fast 2.064), full hop 36.09, short hop 14.43, **double jump 51.56**, ledge jump
+    /// 38.045 (drift 0.6, the shared value). On the ground: walk acceleration 0.105 + 0.168, run acceleration 0.044 + 0.1056, an initial
+    /// dash of 14 frames, a heavy landing of 7 (6 of lag: the parameter file's `landing_heavy_frame`). Air dodges 58 (neutral,
+    /// intangible 3-30) and 79 / 107 / 130 (directional down / sideways / up, intangible 3-21); rolls 30 forward (intangible 4-15) and 35
+    /// back, spot dodge 26 (3-17); the ledge options' intangibility cut to 82% and 50% on the second and third grab. No wall jump; the
+    /// wall-tech jump 1.3 away, 2.3 up (the shared one). The shared body size [E].
+    ///
+    /// **The double jump** (E33): an ordinary jump to 51.56 (not a delayed one in 13.0.1), turning round with the stick held back, and
+    /// **subtractive knockback armor on its frames 1-44**: a hit of at most 120 units of knockback only damages and freezes; a stronger
+    /// one launches with its knockback less 120, at least 60 (each hit compared on its own: owner decision 47). An attack, a special or
+    /// an air dodge ends it; grabs ignore it.
+    pub fn bounder() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(80);
+        let (burst, arc) = Self::full_hop(gravity, su(36090));
+        FighterParams {
+            walk_speed: gu(1208),
+            run_speed: gu(2046),
+            dash_speed: gu(1980),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(168),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(10560),
+            dash_frames: 14,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 7,
+            heavy_landing_lag: 6,
+            air_speed: su(1344),
+            air_accel: su(30),
+            air_accel_stick: su(68),
+            air_friction: su(5),
+            gravity,
+            max_fall_speed: su(1290),
+            fast_fall_speed: su(2064),
+            air_dodge_frames: 58,
+            air_dodge_dir_down_frames: 79,
+            air_dodge_dir_side_frames: 107,
+            air_dodge_dir_up_frames: 130,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.095 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(190),
+            dash_attack_friction: gu(95),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(14430)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(51560)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(38045)),
+            weight: Fx::from_int(104),
+            weapon: 8,
+            // Dodges (the reference's): a forward roll of 30 frames, a backward one of 35, intangible 4-15 (the back roll's 5-16 is
+            // not separate here [D]); a spot dodge of 26, intangible 3-17 (the shared windows).
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            ledge_option_decay_2: 82,
+            // No wall jump; the reference's wall-tech jump (1.3 away, 2.3 up) is the shared one.
+            wall_jump: 0,
+            air_jump_armor: Some(Self::bounder_air_jump_armor()),
+            air_jump_turns: true,
+            // The double jump's sideways speed x1.2 (the parameter file's `jump_aerial_speed_x_mul`, dragdown.wiki) [R].
+            air_jump_drift: 120,
+            ..FighterParams::base()
+        }
+    }
+
+    /// The bounder's double-jump armor (ssbwiki.com's list of armored attacks and the move notes, dragdown.wiki, 13.0.1): frames 1-44
+    /// of the jump (move frames 0-43), knockback-based, 120 units, subtractive, a breaking hit launching with at least 60 units [R].
+    pub fn bounder_air_jump_armor() -> crate::moves::Armor {
+        crate::moves::Armor {
+            start: 0,
+            end: 43,
+            kind: crate::moves::ARMOR_KNOCKBACK,
+            threshold: Fx::from_int(120),
+            subtract: true,
+            min_kb: Fx::from_int(60),
+        }
+    }
+}
+
+impl FighterParams {
+    /// A heavy swordsman with low jumps and a shield on his arm: the "wanderer" body of the Buckler moveset. The reference character's
+    /// attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the tenth moveset's `REFERENCE_DATA.md` in
+    /// `docs/movesets/`; conflict 1 resolved to the parameter file): weight 104, walk 1.247, initial dash 1.98, run 1.534,
+    /// traction 0.113, air speed 0.924, air acceleration 0.01 + 0.04, air friction 0.0038, gravity 0.096, fall 1.6 (fast 3.04), full hop
+    /// 27.8, short hop 13.38, double jump 29.0, ledge jump 33.9 (drift 0.6, the shared value). On the ground: walk acceleration 0.105 +
+    /// 0.21, run acceleration 0.044 + 0.13167, an initial dash of 12 frames, a heavy landing of 4 (3 of lag: the parameter file's
+    /// `landing_heavy_frame`). Air dodges 49 (neutral, intangible 3-30) and 69 / 82 / 108 (directional, intangible 3-21); rolls 30
+    /// forward (intangible 4-15) and 35 back, spot dodge 26 (3-17). No wall jump (the parameter file); the wall-tech jump 1.3 away, 2.6
+    /// up. The shared body size (the reference's medium size, scale 1.0) [E]. The passive shield (E14): see
+    /// [`FighterParams::wanderer_shield`].
+    pub fn wanderer() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(96);
+        let (burst, arc) = Self::full_hop(gravity, su(27800));
+        FighterParams {
+            walk_speed: gu(1247),
+            run_speed: gu(1534),
+            dash_speed: gu(1980),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(210),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(13167),
+            dash_frames: 12,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 6,
+            heavy_landing_lag: 3,
+            air_speed: su(924),
+            air_accel: su(10),
+            air_accel_stick: su(40),
+            air_friction: FighterParams::su_fine(380),
+            gravity,
+            max_fall_speed: su(1600),
+            fast_fall_speed: su(3040),
+            air_dodge_frames: 49,
+            air_dodge_dir_down_frames: 69,
+            air_dodge_dir_side_frames: 82,
+            air_dodge_dir_up_frames: 108,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.113 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(226),
+            dash_attack_friction: gu(113),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(13380)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(29000)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(33900)),
+            weight: Fx::from_int(104),
+            weapon: 9,
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            // No wall jump; the reference's wall-tech jump (the parameter file): 1.3 away, 2.6 up.
+            wall_jump: 0,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2600),
+            passive_shield: Some(Self::wanderer_shield()),
+            ..FighterParams::base()
+        }
+    }
+
+    /// The wanderer's shield (E14, the reference's passive shield: ssbwiki.com `Passive_shield` and the character's moveset notes,
+    /// 13.0.1): it stops projectiles from in front while standing, walking or crouching [R]. Its place and size are not published
+    /// (gap 2) [E]: a capsule 0.6 ahead of the feet with a radius of 0.45 (its front reaches as far as the guard held out in front, so
+    /// a shot meets it no later than the body), centred 1.0 up standing (from 0.65 to 1.35: the chest and waist, below the head and
+    /// above the feet) and 0.4 up crouching (the shield brought down to the legs, so a shot at face height reaches the head).
+    pub fn wanderer_shield() -> PassiveShield {
+        PassiveShield {
+            x: Fx::from_ratio(6, 10),
+            y: Fx::ONE,
+            crouch_y: Fx::from_ratio(2, 5),
+            half_height: Fx::from_ratio(35, 100),
+            radius: Fx::from_ratio(45, 100),
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1249,6 +1451,29 @@ impl StateHash for FighterParams {
             h.write_u32(v);
         }
         self.gauge.hash_into(h);
+        match &self.air_jump_armor {
+            Some(a) => {
+                h.write_bool(true);
+                h.write_u8(a.start);
+                h.write_u8(a.end);
+                h.write_u8(a.kind);
+                a.threshold.hash_into(h);
+                h.write_bool(a.subtract);
+                a.min_kb.hash_into(h);
+            }
+            None => h.write_bool(false),
+        }
+        h.write_bool(self.air_jump_turns);
+        match &self.passive_shield {
+            Some(s) => {
+                h.write_bool(true);
+                for v in [s.x, s.y, s.crouch_y, s.half_height, s.radius] {
+                    v.hash_into(h);
+                }
+            }
+            None => h.write_bool(false),
+        }
+        h.write_u8(self.air_jump_drift);
     }
 }
 
@@ -1540,6 +1765,28 @@ pub struct Ruleset {
     pub trip_lag: u8,
     pub trip_max: u8,
     pub trip_invuln: u8,
+    /// The reference's base trip chance (owner decision 50): a hit of more than `trip_base_kb` knockback that would not lift a
+    /// grounded fighter trips it `trip_base` percent of the time, and a hit with a trip chance of its own adds this to it (7 and 55).
+    /// 0 turns the base chance off.
+    pub trip_base: u8,
+    pub trip_base_kb: Fx,
+    /// The bury (E5, a hit's `EFFECT_BURY`; the reference's rules, ssbwiki.com "Buried", 13.0.1): a grounded fighter is buried for
+    /// `bury_base + bury_percent x p + bury_kb x k` frames rounded up (p its percent after the hit, k the hit's knockback at weight
+    /// 100: 55, 0.5, 1.5), `bury_behind_1` / `bury_behind_2` more when the attacker is one / two or more stocks behind (8, 12) and
+    /// `bury_ahead_1` / `bury_ahead_2` fewer when it is ahead (18, 22). Mashing cuts it as a grab's hold. A hit of at least
+    /// `bury_break_kb` knockback (90) frees and launches it; a weaker one's knockback is kept for when the bury ends. Out of a bury
+    /// with nothing kept, the fighter has `bury_exit_lag` frames (12) of lag. While buried its hurtboxes are `bury_depth` of its
+    /// height lower [E].
+    pub bury_base: Fx,
+    pub bury_percent: Fx,
+    pub bury_kb: Fx,
+    pub bury_behind_1: u8,
+    pub bury_behind_2: u8,
+    pub bury_ahead_1: u8,
+    pub bury_ahead_2: u8,
+    pub bury_break_kb: Fx,
+    pub bury_exit_lag: u8,
+    pub bury_depth: Fx,
 }
 
 impl Ruleset {
@@ -1644,6 +1891,18 @@ impl Ruleset {
             trip_lag: 40,
             trip_max: 100,
             trip_invuln: 5,
+            trip_base: 7,
+            trip_base_kb: Fx::from_int(55),
+            bury_base: Fx::from_int(55),
+            bury_percent: Fx::from_ratio(1, 2),
+            bury_kb: Fx::from_ratio(3, 2),
+            bury_behind_1: 8,
+            bury_behind_2: 12,
+            bury_ahead_1: 18,
+            bury_ahead_2: 22,
+            bury_break_kb: Fx::from_int(90),
+            bury_exit_lag: 12,
+            bury_depth: Fx::from_ratio(1, 2),
         }
     }
 }
@@ -1749,6 +2008,18 @@ impl StateHash for Ruleset {
         h.write_u8(self.trip_lag);
         h.write_u8(self.trip_max);
         h.write_u8(self.trip_invuln);
+        h.write_u8(self.trip_base);
+        self.trip_base_kb.hash_into(h);
+        self.bury_base.hash_into(h);
+        self.bury_percent.hash_into(h);
+        self.bury_kb.hash_into(h);
+        h.write_u8(self.bury_behind_1);
+        h.write_u8(self.bury_behind_2);
+        h.write_u8(self.bury_ahead_1);
+        h.write_u8(self.bury_ahead_2);
+        self.bury_break_kb.hash_into(h);
+        h.write_u8(self.bury_exit_lag);
+        self.bury_depth.hash_into(h);
     }
 }
 
@@ -1811,7 +2082,8 @@ impl Content {
     }
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
-    /// tall caster, a champion with a greatsword and a huge hauler with bracers) on a main stage with platforms.
+    /// tall caster, a champion with a greatsword, a huge hauler with bracers, a floaty, high-jumping bounder with a long tongue and a
+    /// wanderer with a sword and a buckler) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1823,6 +2095,8 @@ impl Content {
                 FighterParams::seer(),
                 FighterParams::champion(),
                 FighterParams::hauler(),
+                FighterParams::bounder(),
+                FighterParams::wanderer(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -1833,6 +2107,8 @@ impl Content {
                 crate::moves::staff(),
                 crate::moves::greatsword(),
                 crate::moves::bracers(),
+                crate::moves::clutch(),
+                crate::moves::buckler(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1847,6 +2123,8 @@ impl Content {
                     "seer".to_string(),
                     "champion".to_string(),
                     "hauler".to_string(),
+                    "bounder".to_string(),
+                    "wanderer".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -1857,6 +2135,8 @@ impl Content {
                     "staff".to_string(),
                     "greatsword".to_string(),
                     "bracers".to_string(),
+                    "clutch".to_string(),
+                    "buckler".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },
@@ -1893,6 +2173,44 @@ mod tests {
         let mut c = base.clone();
         c.fighters[0].crouch_height += Fx::from_raw(1);
         assert_ne!(h, c.hash());
+
+        // The air jump's armor and turnaround (E33), every field of the armor.
+        let mut c = base.clone();
+        c.fighters[0].air_jump_turns = true;
+        assert_ne!(h, c.hash());
+        let mut c = base.clone();
+        c.fighters[0].air_jump_drift = 120;
+        assert_ne!(h, c.hash());
+        let armor = FighterParams::bounder_air_jump_armor();
+        let mut with = base.clone();
+        with.fighters[0].air_jump_armor = Some(armor);
+        assert_ne!(h, with.hash());
+        let hw = with.hash();
+        for change in [
+            |a: &mut crate::moves::Armor| a.start += 1,
+            |a: &mut crate::moves::Armor| a.end += 1,
+            |a: &mut crate::moves::Armor| a.kind = crate::moves::ARMOR_SUPER,
+            |a: &mut crate::moves::Armor| a.threshold += Fx::from_raw(1),
+            |a: &mut crate::moves::Armor| a.subtract = false,
+            |a: &mut crate::moves::Armor| a.min_kb += Fx::from_raw(1),
+        ] {
+            let mut c = with.clone();
+            let mut a = armor;
+            change(&mut a);
+            c.fighters[0].air_jump_armor = Some(a);
+            assert_ne!(hw, c.hash());
+        }
+        // A move armor's new fields too.
+        let mut c = with.clone();
+        let gauntlet_armor = c.weapons[4]
+            .moves
+            .iter()
+            .position(|m| m.armor.is_some())
+            .expect("a move with armor");
+        if let Some(a) = c.weapons[4].moves[gauntlet_armor].armor.as_mut() {
+            a.min_kb += Fx::from_raw(1);
+        }
+        assert_ne!(hw, c.hash());
 
         for change in [
             |r: &mut Ruleset| r.lsi_up += Fx::from_raw(1),

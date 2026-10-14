@@ -447,6 +447,31 @@ armoured [R]. UFD: "12 (13-14) / 22-26 // 14-15 (17) / 25-29", FAF 85 / 88 (tota
 * **The gauge** [R / E]: gain from the damage actually added (owner decision 32); the 900-frame timer counts during hitlag (gap 12 [E]);
   a reflected projectile's damage is credited to the reflector (its new owner).
 
+## As built in phase 3 (sim 87): fits and readings
+
+* **Limit Blade Beam** [R / D]: the beam spawns on frame 15 (move frame 14) 12 ahead and 8.75 up (2 + the capsule's centre) [D, as the
+  normal beam], lifetime 48 here for the reference's 47 (hits 16-62, the house projectile rule); its two circles (0 to 13.5 up on the
+  beam) are one standing capsule, centre 6.75, 6.75 above and below [D]; hitlag x1 and shield damage x1 (no multiplier is listed for
+  the Limit beam [R: absent]). The burst stands 0.75 below the capsule's centre (the reference's 6.0 up on the beam) [D]; its age
+  restarts at 0, so the loop hits on its frames 1, 7, 13, 19, 25 and the final hit on 29 [D]; the final hit's hitlag x1 (only the loop's
+  0.5 is listed). It bursts on a **shield** too (it "acts as if hitting a player") [R reading]; a burst is **not reflected** [E: whether
+  the reference's is, unpublished]. No windbox on the Limit beam (none listed) [R: absent].
+* **The vortex 366** [R / E]: launch along the attacker's movement at the knockback's speed, no cap, no grounded rule [R]; the 5-frame
+  pull is spread evenly so the victim's middle reaches the hitbox centre on the fifth frame, its own fall held meanwhile [E: the
+  reference's pull curve is not published]; DI does not bend it [E]. The normal Cross Slash's nearest box is the 366 one [E: conflict 2].
+* **Limit Cross Slash** [E: conflict 1]: UFD's frames and damages (26% in all); boxes are the normal Cross Slash's, the last two a little
+  larger (radius 7.0 / 6.0 for 6.0 / 5.0) ["slightly larger" R, no number]; set knockback per the dragdown rows; no shield-damage
+  multiplier (gap 4); in the air `start_speed` 0, `start_speed_y` 0, gravity 0 and no drift for the whole move [R reading]; no ground
+  step [E].
+* **Limit Climhazzard** [R / E]: the fitted rise (owner decision 42) at x1.6 / x1.85 [R multipliers]; air control while rising at the
+  body's full air speed (`motion_drift` 100) [E: gap 8]; the late rising hit's hitlag x2.5 like the clean one [E: only the clean one's is
+  listed]; no set weight [R: none listed]; the box positions are the normal rise's [E].
+* **Finishing Touch** [R / D]: positions on the root bone as capsules of circles about 4 reference units apart [D]; one hit group [D];
+  landing during the aerial one switches to the grounded one keeping its frame (E22b) [E].
+* **Spending**: every special has a powered version, so any special used in Limit Break empties the gauge at once, hit or miss [R].
+* Owner decisions 42-44 (recorded in `ROSTER_STATUS.md`): the fitted rise stays [E]; Limit Charge fills from its second frame and ends
+  itself on a full gauge [E]; the 900-frame timer counts during hitlag [E].
+
 ## Conflicts and how they are resolved
 
 1. **Limit Cross Slash damage and frames**: ssbwiki.com's articles say 27% in total; its moveset summary lists 5 / 3 / 3 / 3 / 10 (24);
@@ -454,7 +479,7 @@ armoured [R]. UFD: "12 (13-14) / 22-26 // 14-15 (17) / 25-29", FAF 85 / 88 (tota
    **Unresolved**: no hitbox table exists. Proposed: UFD's frames and damages (it lists two separate hits 1-2 with their own frames,
    which matches "five strikes"), 26% [E]; footage (training mode, a damage readout per hit) settles it.
 2. **Cross Slash hit 1's "366"**: dragdown lists three angles 75 / 112 / 366 but two BK and two KS values; which box carries 366 is not
-   given. **Unresolved**; proposed: the box nearest the body pulls in (366 → the E28 vortex, or 367 if E28 is not built) [E].
+   given. **Unresolved**; built (sim 87): the box nearest the body carries 366, the E28 vortex [E].
 3. **Up smash charge hold**: ssbwiki.com "charges between 6-7", UFD "charge hold is frame 5" (UFD gives 5 for the forward smash too,
    where ssbwiki.com says 5-6). Resolved to **ssbwiki.com's first frame** (5 / 6 / 2), as the earlier ports took ssbwiki.com's.
 4. **Beam active frames**: ssbwiki.com 18-35 / 36-68 (normal) and 16-63 (Limit); UFD 18-35 / 36-67 and 16-62. The lifetimes 50 and 47

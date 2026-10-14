@@ -25,6 +25,8 @@ pub const MAX_PROJECTILES: usize = 16;
 pub const LINK_AUTOLINK: u8 = 0;
 /// `Fighter::link_kind`: the vortex (angle 366, E28).
 pub const LINK_VORTEX: u8 = 1;
+/// `Fighter::link_kind`: a position vector (E34): carried straight to `link_point` over `posvec` frames.
+pub const LINK_POSVEC: u8 = 2;
 /// Frames a vortex hit (366) pulls its victim toward the hitbox centre (the reference's 5).
 pub const VORTEX_FRAMES: u8 = 5;
 
@@ -77,6 +79,9 @@ pub enum FighterState {
     LedgeJump,
     /// Letting go of the shield: no action for `shield_release_frames`.
     ShieldRelease,
+    /// Buried in the ground by a bury hit (E5): no action until `Fighter::bury_timer` runs out (mashing shortens it), then out with a
+    /// little lag, or launched by a knockback kept from a weaker hit taken meanwhile.
+    Buried,
 }
 
 impl StateHash for FighterState {
@@ -184,6 +189,13 @@ pub struct Fighter {
     pub link_kind: u8,
     /// Frames of a vortex pull left (366): each knockback frame moves the fighter a `1 / vortex` share of the way to `link_point`.
     pub vortex: u8,
+    /// Frames of a position vector's carry left (E34, `Hitbox::posvec_frames`): set when such a hit lands, then each knockback frame
+    /// moves the fighter a fixed step toward `link_point` (worked out at the launch), with no gravity or knockback decay, and the
+    /// step stops when the count runs out.
+    pub posvec: u8,
+    /// The fighter is frozen by a projectile its body's passive shield blocked (E14, `FighterParams::passive_shield`): its hitlag
+    /// allows shield SDI, as a raised shield's does. Cleared when the hitlag ends.
+    pub shield_sdi: bool,
     /// Being pulled (the pull angle): while hitstun lasts the fighter is drawn toward `link_point` (just in front of whoever pulled
     /// it), see `fighter::pull_frame`.
     pub pull: bool,
@@ -251,6 +263,16 @@ pub struct Fighter {
     /// ...with this much extra base knockback and this size (percent), from `spawn_scaled` (a charged shot).
     pub spawn_kb_add: u8,
     pub spawn_size: u16,
+    /// A second shot asked for on the same frame (E3h, sim 95): a script's second `spawn` / `spawn_at` in one frame fills these instead
+    /// of replacing the first (plain size and knockback; `spawn2_fixed` for an absolute point). Consumed by `step` with the first.
+    pub spawn2_request: bool,
+    pub spawn2_fixed: bool,
+    pub spawn2_pos: Vec2,
+    pub spawn2_vel: Vec2,
+    /// A jab's continuable window past its end (`Move::late_next`, owner decision 58, sim 95): the move a jab press starts instead of a
+    /// new jab (its index plus 1; 0 for none), and the frames it still lasts (counted down each frame; any new state clears it).
+    pub late_next: u8,
+    pub late_left: u8,
     /// Damage the fighter's counter stance caught; its counter-strike move deals this.
     pub counter_damage: Fx,
     /// The current special was started with a flick of the stick (a smash-style input, or the strong button): what the `flick`
@@ -262,6 +284,16 @@ pub struct Fighter {
     /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 86), with the ruleset's trip
     /// timings instead of a missed tech's.
     pub tripped: bool,
+    /// Frames of the midair jump the fighter is in (sim 89, E33): 1 on the jump's own frame, one more each frame it stays in it (hitlag
+    /// excluded, saturating); 0 when it is not in one (anything but `Airborne` clears it). The body's `air_jump_armor` reads it.
+    pub air_jump_frame: u8,
+    /// Frames left buried (`FighterState::Buried`, E5); mashing takes more off.
+    pub bury_timer: u16,
+    /// A launch kept for the end of the bury: a hit too weak to free the buried fighter (under `Ruleset::bury_break_kb`) leaves its
+    /// knockback and world launch angle here (the last such hit's [E: gap 10]), `bury_set` saying there is one.
+    pub bury_kb: Fx,
+    pub bury_angle: u16,
+    pub bury_set: bool,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -445,6 +477,8 @@ impl Fighter {
             link_point: Vec2::ZERO,
             link_kind: LINK_AUTOLINK,
             vortex: 0,
+            posvec: 0,
+            shield_sdi: false,
             shield_hp,
             shield_stun: 0,
             sdi_wait: 0,
@@ -470,6 +504,12 @@ impl Fighter {
             spawn_vel: Vec2::ZERO,
             spawn_kb_add: 0,
             spawn_size: 100,
+            spawn2_request: false,
+            spawn2_fixed: false,
+            spawn2_pos: Vec2::ZERO,
+            spawn2_vel: Vec2::ZERO,
+            late_next: 0,
+            late_left: 0,
             counter_damage: Fx::ZERO,
             pull: false,
             stored: 0,
@@ -484,6 +524,11 @@ impl Fighter {
             lock: Vec2::ZERO,
             locked: false,
             tripped: false,
+            air_jump_frame: 0,
+            bury_timer: 0,
+            bury_kb: Fx::ZERO,
+            bury_angle: 0,
+            bury_set: false,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -611,6 +656,8 @@ impl StateHash for Fighter {
         self.link_point.hash_into(h);
         h.write_u8(self.link_kind);
         h.write_u8(self.vortex);
+        h.write_u8(self.posvec);
+        h.write_bool(self.shield_sdi);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
         h.write_u8(self.sdi_wait);
@@ -646,12 +693,23 @@ impl StateHash for Fighter {
         self.lock.hash_into(h);
         h.write_bool(self.locked);
         h.write_bool(self.tripped);
+        h.write_u16(self.bury_timer);
+        self.bury_kb.hash_into(h);
+        h.write_u16(self.bury_angle);
+        h.write_bool(self.bury_set);
+        h.write_u8(self.air_jump_frame);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
         self.spawn_pos.hash_into(h);
         self.spawn_vel.hash_into(h);
         h.write_u8(self.spawn_kb_add);
         h.write_u16(self.spawn_size);
+        h.write_bool(self.spawn2_request);
+        h.write_bool(self.spawn2_fixed);
+        self.spawn2_pos.hash_into(h);
+        self.spawn2_vel.hash_into(h);
+        h.write_u8(self.late_next);
+        h.write_u8(self.late_left);
         self.gauge.hash_into(h);
         h.write_u16(self.gauge_mode);
         h.write_bool(self.gauge_drain);
@@ -1187,6 +1245,66 @@ mod tests {
                 s.fighters[1].tripped = true;
                 s
             }),
+            ("bury_timer", {
+                let mut s = state;
+                s.fighters[1].bury_timer = 1;
+                s
+            }),
+            ("bury_kb", {
+                let mut s = state;
+                s.fighters[2].bury_kb = Fx::from_raw(1);
+                s
+            }),
+            ("bury_angle", {
+                let mut s = state;
+                s.fighters[2].bury_angle = 1;
+                s
+            }),
+            ("bury_set", {
+                let mut s = state;
+                s.fighters[3].bury_set = true;
+                s
+            }),
+            ("state buried", {
+                let mut s = state;
+                s.fighters[3].state = FighterState::Buried;
+                s
+            }),
+            ("air_jump_frame", {
+                let mut s = state;
+                s.fighters[2].air_jump_frame = 7;
+                s
+            }),
+            ("spawn2_request", {
+                let mut s = state;
+                s.fighters[1].spawn2_request = true;
+                s
+            }),
+            ("spawn2_fixed", {
+                let mut s = state;
+                s.fighters[1].spawn2_fixed = true;
+                s
+            }),
+            ("spawn2_pos", {
+                let mut s = state;
+                s.fighters[2].spawn2_pos.y = Fx::from_raw(1);
+                s
+            }),
+            ("spawn2_vel", {
+                let mut s = state;
+                s.fighters[3].spawn2_vel.x = Fx::from_raw(-1);
+                s
+            }),
+            ("late_next", {
+                let mut s = state;
+                s.fighters[0].late_next = 17;
+                s
+            }),
+            ("late_left", {
+                let mut s = state;
+                s.fighters[2].late_left = 3;
+                s
+            }),
             ("projectile_hit_mask", {
                 let mut s = state;
                 s.projectiles[3].hit_mask = 1 << 30;
@@ -1215,6 +1333,16 @@ mod tests {
             ("vortex", {
                 let mut s = state;
                 s.fighters[1].vortex = 5;
+                s
+            }),
+            ("posvec", {
+                let mut s = state;
+                s.fighters[2].posvec = 10;
+                s
+            }),
+            ("shield_sdi", {
+                let mut s = state;
+                s.fighters[3].shield_sdi = true;
                 s
             }),
             ("fighter_vars", {

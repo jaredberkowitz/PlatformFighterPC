@@ -104,7 +104,7 @@ fn a_tripped_fighter_is_intangible_for_5_frames_and_gets_up_from_frame_40_or_by_
 
 #[test]
 fn the_chance_is_rolled_on_the_games_generator_once_per_hit_that_can_trip() {
-    // A 40% trip over many seeds: some trip, some do not, and each seed always does the same.
+    // A 40% trip (47% with the base chance) over many seeds: some trip, some do not, and each seed always does the same.
     let mut tripped = 0;
     for seed in 0..60u64 {
         let outcome = |seed: u64| {
@@ -120,7 +120,7 @@ fn the_chance_is_rolled_on_the_games_generator_once_per_hit_that_can_trip() {
         assert_eq!(a.1, unrolled, "one roll, seed {seed}");
         tripped += u32::from(a.0);
     }
-    assert!((12..=36).contains(&tripped), "{tripped} of 60 tripped");
+    assert!((16..=42).contains(&tripped), "{tripped} of 60 tripped");
     // A hit with no trip chance never touches the generator.
     let mut sim = down_tilt(0);
     let before = sim.state.rng;
@@ -159,29 +159,113 @@ fn a_hit_that_lifts_its_target_never_trips() {
 
 #[test]
 fn the_older_kits_carry_their_reference_trip_chances() {
+    // ssbwiki.com's raw tables (13.0.1; owner decisions 39 and 51): (weapon, move, the boxes' trip chances in order).
     let c = sim_core::Content::placeholder();
-    // The Gauntlets' (weapon 4) forward air: the late hit's two boxes 20%, the clean ones none.
-    let fair = &c.weapons[4].moves[MoveId::FAir as usize].hitboxes;
-    let trips: Vec<u8> = fair.iter().map(|h| h.trip).collect();
-    assert_eq!(trips, vec![0, 0, 20, 20]);
-    // The Longsword's (weapon 0) down tilt 35%.
-    assert!(c.weapons[0].moves[MoveId::DTilt as usize]
-        .hitboxes
-        .iter()
-        .all(|h| h.trip == 35));
-    // Nothing else in the older kits trips (yet: see the eighth moveset's report for the other reference trip chances).
+    let listed: [(usize, MoveId, &[u8]); 9] = [
+        // The Gauntlets' forward air: the late hit's two boxes.
+        (4, MoveId::FAir, &[0, 0, 20, 20]),
+        // The Longsword's down tilt (lifts at 30 degrees: never trips on the flat stages).
+        (0, MoveId::DTilt, &[35, 35]),
+        // The Claws' down tilt (361: it can trip) and down smash (30-35 degrees: never on the flat).
+        (1, MoveId::DTilt, &[40, 40, 40]),
+        (1, MoveId::DSmash, &[35, 35, 35, 35]),
+        // The Needles' down tilt (70 / 90) and the down smash's second hit (43): never on the flat.
+        (2, MoveId::DTilt, &[40, 40, 40]),
+        (2, MoveId::DSmash, &[0, 0, 0, 0, 30, 30]),
+        // The Embers' down tilt (80), the Gauntlets' (25 / 155), the Greatsword's (80): never on the flat.
+        (3, MoveId::DTilt, &[40, 40]),
+        (4, MoveId::DTilt, &[50, 50, 50]),
+        (6, MoveId::DTilt, &[20, 20, 20, 20, 20]),
+    ];
     for (w, weapon) in c.weapons.iter().enumerate().take(7) {
         for (m, mv) in weapon.moves.iter().enumerate() {
-            let listed =
-                (w == 4 && m == MoveId::FAir as usize) || (w == 0 && m == MoveId::DTilt as usize);
-            if !listed {
-                assert!(
-                    mv.hitboxes.iter().all(|h| h.trip == 0),
-                    "weapon {w} move {m}"
-                );
+            let trips: Vec<u8> = mv.hitboxes.iter().map(|h| h.trip).collect();
+            match listed
+                .iter()
+                .find(|&&(lw, id, _)| lw == w && id as usize == m)
+            {
+                Some((_, _, want)) => assert_eq!(trips, want.to_vec(), "weapon {w} move {m}"),
+                None => assert!(trips.iter().all(|&t| t == 0), "weapon {w} move {m}"),
             }
         }
     }
+}
+
+#[test]
+fn the_claws_down_tilt_trips_a_standing_target() {
+    // The Claws' down tilt (361 at low knockback, along the ground): at a sure chance it always trips.
+    let mut sim = Sim::with_chars([1, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    for h in &mut sim.content.weapons[1].moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 100;
+    }
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, fx(15, 10), -1);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DTilt);
+    until_hit(&mut sim, inp(0, 0, 0));
+    assert!(sim.fighter(1).tripped);
+}
+
+// ---- The base chance (owner decision 50) ----------------------------------------------------------------------------------------
+
+#[test]
+fn the_base_chance_is_7_percent_over_55_knockback_and_adds_to_a_moves_own_chance() {
+    use sim_core::combat::trip_chance;
+    let c = sim_core::Content::placeholder();
+    let rules = &c.rules;
+    assert_eq!((rules.trip_base, rules.trip_base_kb), (7, Fx::from_int(55)));
+    let mut hb = c.weapons[7].moves[MoveId::DTilt as usize].hitboxes[0];
+    // A move's own 40% trips 47% of the time, whatever the knockback (ssbwiki.com, Tripping).
+    assert_eq!(trip_chance(&hb, Fx::from_int(20), rules), 47);
+    assert_eq!(trip_chance(&hb, Fx::from_int(70), rules), 47);
+    // No chance of its own: 7% only over 55 knockback.
+    hb.trip = 0;
+    assert_eq!(trip_chance(&hb, Fx::from_int(55), rules), 0);
+    assert_eq!(
+        trip_chance(&hb, Fx::from_int(55) + Fx::from_raw(1), rules),
+        7
+    );
+    // Capped at 100; a throw never trips.
+    hb.trip = 99;
+    assert_eq!(trip_chance(&hb, Fx::ZERO, rules), 100);
+    hb.kind = sim_core::moves::HIT_THROW;
+    assert_eq!(trip_chance(&hb, Fx::from_int(70), rules), 0);
+}
+
+/// The hauler's down tilt with no trip chance of its own, made to send straight sideways (angle 0) at 57 knockback (base 57, no
+/// growth), into a standing duelist, rolling the generator from `seed`; `base` is the ruleset's base chance. Returns (tripped, the
+/// generator after the hit).
+fn sideways(seed: u64, base: u8) -> (bool, sim_core::Rng) {
+    let mut sim = down_tilt(0);
+    sim.content.rules.trip_base = base;
+    let w = usize::from(sim.content.fighters[usize::from(HAULER)].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::DTilt as usize].hitboxes {
+        h.angle = 0;
+        h.base_knockback = 57;
+        h.knockback_growth = 0;
+    }
+    sim.state.rng = sim_core::Rng::new(seed);
+    until_hit(&mut sim, inp(0, 0, 0));
+    (sim.fighter(1).tripped, sim.state.rng)
+}
+
+#[test]
+fn any_low_hit_over_55_knockback_trips_7_percent_of_the_time() {
+    let mut tripped = 0;
+    for seed in 0..300u64 {
+        let (t, rng) = sideways(seed, 7);
+        let mut once = sim_core::Rng::new(seed);
+        once.next_u64();
+        assert_eq!(rng, once, "one roll, seed {seed}");
+        tripped += u32::from(t);
+        // With the base chance off, the same hit never trips and rolls nothing.
+        let (t0, rng0) = sideways(seed, 0);
+        assert!(!t0);
+        assert_eq!(rng0, sim_core::Rng::new(seed));
+    }
+    // 7% of 300 is 21.
+    assert!((8..=36).contains(&tripped), "{tripped} of 300 tripped");
 }
 
 // ---- No rebound ------------------------------------------------------------------------------------------------------------------

@@ -294,7 +294,8 @@ pub struct Hitbox {
     pub shield_damage: u16,
     /// Percent of the normal hitlag this hit causes (100 is normal; 0 gives none).
     pub hitlag: u16,
-    /// What the hit is made of: [`EFFECT_NORMAL`] or [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick).
+    /// What the hit is made of: [`EFFECT_NORMAL`], [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick) or
+    /// [`EFFECT_BURY`] (a grounded victim is buried).
     pub effect: u8,
     /// Who it can hit: [`TARGETS_ALL`], or only fighters on the ground ([`TARGETS_GROUNDED`]) or in the air ([`TARGETS_AERIAL`]).
     pub targets: u8,
@@ -347,6 +348,14 @@ pub struct Hitbox {
     /// Half the height of the box: above 0 it is a standing capsule from `y - half_height` to `y + half_height` (a tall wall of a
     /// projectile, the reference's stacked circles) instead of a circle. Scaled like the radius.
     pub half_height: Fx,
+    /// A position vector (E34, the reference's): with `posvec_frames` above 0, the hit sends its victim's feet to the point
+    /// `posvec_x` ahead of (the attacker's facing) and `posvec_y` above the attacker's feet where it hit, straight there at the speed
+    /// that covers the distance in `posvec_frames` frames, with no gravity of its own on the way; there it stops and its hitstun
+    /// runs out as a fall (see `fighter::posvec_launch`). The angle and knockback still give the hitstun. Scaled like the position.
+    /// 0 frames: an ordinary launch. (On a projectile the attacker is its owner.)
+    pub posvec_x: Fx,
+    pub posvec_y: Fx,
+    pub posvec_frames: u8,
 }
 
 /// `Hitbox::angle_type` values.
@@ -401,6 +410,9 @@ impl Hitbox {
         self.rebounds = true;
         self.trip = 0;
         self.half_height = Fx::ZERO;
+        self.posvec_x = Fx::ZERO;
+        self.posvec_y = Fx::ZERO;
+        self.posvec_frames = 0;
         self
     }
 }
@@ -408,6 +420,10 @@ impl Hitbox {
 /// `Hitbox::effect` values.
 pub const EFFECT_NORMAL: u8 = 0;
 pub const EFFECT_ELECTRIC: u8 = 1;
+/// The reference's bury effect (E5, sim 90): a fighter on the ground (not lying down) is buried instead of launched
+/// (`FighterState::Buried`, see `combat::bury_frames`); an airborne one takes the hit as usual. Its knockback is worked out at weight
+/// 100 and it ignores subtractive knockback armor.
+pub const EFFECT_BURY: u8 = 2;
 
 /// `Hitbox::kind` values.
 pub const HIT_NORMAL: u8 = 0;
@@ -466,6 +482,11 @@ pub struct ProjectileSpawn {
 /// `ProjectileSpawn::phases`: from age `.0` on, `.1`; radius 0 is a gap; before the first phase there is no hit). It hits the
 /// fighter that stopped it again (its hits start afresh). With `on_wall`, touching a solid wall bursts it there too (just short of
 /// the wall) instead of removing it. A bursting projectile is not reflected and does not clank.
+///
+/// Sim 95 (the lobbed shell's burst, all off by default): with `on_ground`, a landing it does not bounce from (its bounces used up, or
+/// falling faster than `ProjectileArc::bounce_max_fall`) bursts it where it touched, instead of removing it; with `on_expire`, the end
+/// of its life bursts it where it is; with `keep_hits`, the burst keeps the projectile's hits so far, so a fighter the projectile itself
+/// hit is not hit again by a burst phase of the same hit group (the reference's single hit).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Burst {
     pub life: u8,
@@ -473,6 +494,9 @@ pub struct Burst {
     pub on_wall: bool,
     pub y: Fx,
     pub phases: [Option<(u8, Hitbox)>; MAX_PHASES],
+    pub on_ground: bool,
+    pub on_expire: bool,
+    pub keep_hits: bool,
 }
 
 impl Burst {
@@ -491,6 +515,9 @@ impl Burst {
         h.write_u8(self.life);
         h.write_u8(self.rehit);
         h.write_bool(self.on_wall);
+        h.write_bool(self.on_ground);
+        h.write_bool(self.on_expire);
+        h.write_bool(self.keep_hits);
         self.y.hash_into(h);
         for phase in &self.phases {
             match phase {
@@ -539,6 +566,10 @@ impl ProjectileSpawn {
 /// `gravity` to at most `max_fall` (0: no limit). With `bounces` above 0 it bounces off the top of any platform up to that many
 /// times (the next touch removes it): it comes off with its falling speed held between `bounce_min` and `bounce_max` and keeps
 /// `bounce_keep` percent of its horizontal speed. With `bounces` 0 it ignores the ground's top as today (a solid wall removes it).
+///
+/// Sim 95: `bounce_keep_y` (percent, 100 default) multiplies the bounce's vertical speed after the clamp, and `bounce_max_fall` (0
+/// default: no limit) is the fastest fall it still bounces from: a landing faster than that does not bounce (it is removed, or bursts
+/// with `Burst::on_ground`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProjectileArc {
     pub angle: i16,
@@ -548,6 +579,8 @@ pub struct ProjectileArc {
     pub bounce_min: Fx,
     pub bounce_max: Fx,
     pub bounce_keep: u8,
+    pub bounce_keep_y: u8,
+    pub bounce_max_fall: Fx,
 }
 
 impl ProjectileArc {
@@ -560,6 +593,8 @@ impl ProjectileArc {
         bounce_min: Fx::ZERO,
         bounce_max: Fx::ZERO,
         bounce_keep: 100,
+        bounce_keep_y: 100,
+        bounce_max_fall: Fx::ZERO,
     };
 }
 
@@ -704,18 +739,33 @@ pub struct AirBlock {
     pub friction: Option<Fx>,
     pub drift: u8,
     pub accel: u16,
+    /// The air speed in these frames, in world units, replacing the drift's share (the reference's own air speed for a stretch of a
+    /// move); `None`: the drift's.
+    pub speed: Option<Fx>,
+    /// The stick's share of the air acceleration in these frames (world units a frame at a full tilt), replacing the body's
+    /// `air_accel_stick` after the drift and `accel` percents (the reference's "additional air acceleration" of a move); the base
+    /// acceleration stays the drift's. `None`: the body's, scaled as above.
+    pub accel_stick: Option<Fx>,
 }
 
 /// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
 /// move. `kind` says which hits it withstands: [`ARMOR_SUPER`] every hit, [`ARMOR_DAMAGE`] a hit dealing at most `threshold` percent
-/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] (the reference's knockback-subtracting
-/// armor: not built yet, refused by validation). Grabs ignore armor; a push still pushes.
+/// (compared before the one-on-one damage multiplier, as the reference does), [`ARMOR_KNOCKBACK`] a hit whose knockback is at most
+/// `threshold` units (the reference's knockback-based "heavy" armor, sim 89: the knockback `combat::apply_hit` works out, rage, staleness
+/// and set knockback included, before crouch cancelling; the one-on-one multiplier never touches it). Grabs ignore armor; a push still
+/// pushes.
+///
+/// `subtract` (knockback kind only): a hit that breaks the armor launches with its knockback less `threshold`, and at least `min_kb`
+/// (the reference's subtractive armor and its minimum launch); without it a breaking hit takes its whole knockback. The knockback kind
+/// is also used outside moves: a body's air-jump armor (`FighterParams::air_jump_armor`), and later a held state's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Armor {
     pub start: u8,
     pub end: u8,
     pub kind: u8,
     pub threshold: Fx,
+    pub subtract: bool,
+    pub min_kb: Fx,
 }
 
 /// `Armor::kind` values.
@@ -724,15 +774,65 @@ pub const ARMOR_DAMAGE: u8 = 1;
 pub const ARMOR_KNOCKBACK: u8 = 2;
 
 impl Armor {
-    /// Whether this armor, on move frame `frame`, withstands a hit dealing `damage` percent (before the damage multiplier).
-    pub fn withstands(&self, frame: u16, damage: Fx) -> bool {
-        let inside = u16::from(self.start) <= frame && frame <= u16::from(self.end);
-        inside
+    /// Whether this armor, on frame `frame` of its window, withstands a hit dealing `damage` percent (before the damage multiplier)
+    /// with `knockback` units of knockback.
+    pub fn withstands(&self, frame: u16, damage: Fx, knockback: Fx) -> bool {
+        self.covers(frame)
             && match self.kind {
                 ARMOR_SUPER => true,
                 ARMOR_DAMAGE => damage <= self.threshold,
+                ARMOR_KNOCKBACK => knockback <= self.threshold,
                 _ => false,
             }
+    }
+
+    /// Whether `frame` is inside the window.
+    pub fn covers(&self, frame: u16) -> bool {
+        u16::from(self.start) <= frame && frame <= u16::from(self.end)
+    }
+
+    /// The knockback a hit that broke this armor on `frame` launches with: less `threshold` and at least `min_kb` for a subtractive
+    /// knockback armor inside its window, else `knockback` as it is.
+    pub fn broken_knockback(&self, frame: u16, knockback: Fx) -> Fx {
+        if self.kind == ARMOR_KNOCKBACK && self.subtract && self.covers(frame) {
+            (knockback - self.threshold).max(self.min_kb)
+        } else {
+            knockback
+        }
+    }
+}
+
+/// A move's own soft-platform drop (E30, sim 95; the reference's ground pound): on move frame `from` the fighter passes through soft
+/// platforms for `frames` frames (its `platform_ignore`), and with `while_down` also on every frame of the move from `from` on that the
+/// stick is held down (past the crouch threshold). Solid ground always stops it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DropThrough {
+    pub from: u8,
+    pub frames: u8,
+    pub while_down: bool,
+}
+
+/// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
+/// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
+/// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChargeAdd {
+    pub full: u8,
+    pub add: Fx,
+    pub floor: bool,
+}
+
+impl ChargeAdd {
+    /// The damage a hit of `base` deals at `charge` frames.
+    pub fn damage(&self, base: Fx, charge: u8) -> Fx {
+        let full = i32::from(self.full.max(1));
+        let share = i32::from(charge).min(full);
+        let d = base + self.add.mul_int(share) / Fx::from_int(full);
+        if self.floor {
+            Fx::from_int(d.floor_int())
+        } else {
+            d
+        }
     }
 }
 
@@ -775,6 +875,14 @@ pub struct Move {
     pub fall_drift: u8,
     /// Landing lag of the special fall after this move; 0 uses the body's `helpless_landing_lag`.
     pub fall_landing_lag: u8,
+    /// The special fall's own air speed and stick acceleration after this move (world units; E11, the reference's separate air speed
+    /// and "additional acceleration" of a special fall): `fall_speed` replaces the air speed `fall_drift` gives, `fall_accel` the
+    /// stick's share of the acceleration (the base acceleration is then the body's own). `None`: `fall_drift` scales both.
+    pub fall_speed: Option<Fx>,
+    pub fall_accel: Option<Fx>,
+    /// A follow-up (a move reached by `next` or a script's `goto`: the reference's two-part smash attack) keeps the charge the move
+    /// before it was given, so its hits are charged too (E36). False: it starts uncharged, as every move.
+    pub keep_charge: bool,
     /// Percent of the motion's vertical speed when the move started on the ground (`rise_ground`) or in the air (`rise_air`): the
     /// reference's grounded and aerial height multipliers on an up special's rise. 100 is the motion as written.
     pub rise_ground: u8,
@@ -853,6 +961,8 @@ pub struct Move {
     pub counter_strike: bool,
     /// Extra damage at full charge for this move, in percent; 0 uses the ruleset's `charge_bonus_percent`.
     pub charge_bonus: u8,
+    /// Damage added by the charge instead of the multiplicative bonus (see [`ChargeAdd`]); `None`: the bonus.
+    pub charge_add: Option<ChargeAdd>,
     /// A special used while the fighter's gauge's powered mode runs uses this slot instead (its powered version) and spends the gauge
     /// at once (see `content::Gauge`); `None`: the move is the same in the mode and spends nothing.
     pub limit_version: Option<u8>,
@@ -872,6 +982,19 @@ pub struct Move {
     /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
     /// control. 0 (the default): the motion's `vx`, as before.
     pub motion_drift: u8,
+    /// A jab whose continuable window runs past its end (owner decision 58, sim 95: the reference's window past the FAF): once the move
+    /// has ended on the ground, a press of attack that would start a jab starts `.0` instead, up to move frame `.1` (counted on past the
+    /// move's end; the fighter is idle meanwhile, and any other action ends it). `None`: a press after the end starts a new jab.
+    pub late_next: Option<(u8, u8)>,
+    /// The move's ledge windows (`ledge_front_from` / `ledge_back_from` / `grabs_ledge`) catch a ledge only while the fighter is not
+    /// rising (sim 95: the reference's "as long as it is not moving upward"). False: rising or not, as before.
+    pub ledge_falling_only: bool,
+    /// The move drops through soft platforms by itself (sim 95, E30): see [`DropThrough`]. `None`: only the usual crouch and shield drops.
+    pub drop_through: Option<DropThrough>,
+    /// On move frames `push_immune_from..=push_immune_to` a push (`Hitbox::push`, the reference's windbox) does not move the fighter
+    /// (the reference's windbox immunity, sim 90). 255 / 0 (the default): never.
+    pub push_immune_from: u8,
+    pub push_immune_to: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -897,6 +1020,9 @@ impl Move {
             ledge_back_from: 255,
             fall_drift: 0,
             fall_landing_lag: 0,
+            fall_speed: None,
+            fall_accel: None,
+            keep_charge: false,
             rise_ground: 100,
             rise_air: 100,
             start_speed: 100,
@@ -933,12 +1059,18 @@ impl Move {
             counter: None,
             counter_strike: false,
             charge_bonus: 0,
+            charge_add: None,
             limit_version: None,
             gauge_drain: false,
             start_speed_y: 100,
             ledge_drop: None,
             on_land: None,
             motion_drift: 0,
+            late_next: None,
+            ledge_falling_only: false,
+            drop_through: None,
+            push_immune_from: 255,
+            push_immune_to: 0,
             script: None,
             projectile_script: None,
         }
@@ -1023,6 +1155,9 @@ impl StateHash for Hitbox {
         h.write_bool(self.rebounds);
         h.write_u8(self.trip);
         self.half_height.hash_into(h);
+        self.posvec_x.hash_into(h);
+        self.posvec_y.hash_into(h);
+        h.write_u8(self.posvec_frames);
     }
 }
 
@@ -1064,6 +1199,8 @@ impl StateHash for Weapon {
                     a.bounce_min.hash_into(h);
                     a.bounce_max.hash_into(h);
                     h.write_u8(a.bounce_keep);
+                    h.write_u8(a.bounce_keep_y);
+                    a.bounce_max_fall.hash_into(h);
                     h.write_bool(p.pierce);
                     h.write_u8(p.rehit);
                     for phase in &p.phases {
@@ -1137,6 +1274,15 @@ impl StateHash for Weapon {
                 }
                 h.write_u8(b.drift);
                 h.write_u16(b.accel);
+                for v in [b.speed, b.accel_stick] {
+                    match v {
+                        Some(x) => {
+                            h.write_bool(true);
+                            x.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                }
             }
             h.write_u8(m.fast_fall_from);
             match m.turn_at {
@@ -1161,6 +1307,8 @@ impl StateHash for Weapon {
                     h.write_u8(a.end);
                     h.write_u8(a.kind);
                     a.threshold.hash_into(h);
+                    h.write_bool(a.subtract);
+                    a.min_kb.hash_into(h);
                 }
                 None => h.write_bool(false),
             }
@@ -1272,6 +1420,15 @@ impl StateHash for Weapon {
             }
             h.write_bool(m.counter_strike);
             h.write_u8(m.charge_bonus);
+            match m.charge_add {
+                Some(c) => {
+                    h.write_bool(true);
+                    h.write_u8(c.full);
+                    c.add.hash_into(h);
+                    h.write_bool(c.floor);
+                }
+                None => h.write_bool(false),
+            }
             for slot in [m.limit_version, m.on_land] {
                 match slot {
                     Some(id) => {
@@ -1284,6 +1441,36 @@ impl StateHash for Weapon {
             h.write_bool(m.gauge_drain);
             h.write_u8(m.start_speed_y);
             h.write_u8(m.motion_drift);
+            for v in [m.fall_speed, m.fall_accel] {
+                match v {
+                    Some(x) => {
+                        h.write_bool(true);
+                        x.hash_into(h);
+                    }
+                    None => h.write_bool(false),
+                }
+            }
+            h.write_bool(m.keep_charge);
+            match m.late_next {
+                Some((id, until)) => {
+                    h.write_bool(true);
+                    h.write_u8(id);
+                    h.write_u8(until);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_bool(m.ledge_falling_only);
+            match m.drop_through {
+                Some(d) => {
+                    h.write_bool(true);
+                    h.write_u8(d.from);
+                    h.write_u8(d.frames);
+                    h.write_bool(d.while_down);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.push_immune_from);
+            h.write_u8(m.push_immune_to);
             match m.ledge_drop {
                 Some((front, back)) => {
                     h.write_bool(true);
@@ -1358,6 +1545,9 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 rebounds: true,
                 trip: 0,
                 half_height: Fx::ZERO,
+                posvec_x: Fx::ZERO,
+                posvec_y: Fx::ZERO,
+                posvec_frames: 0,
             })
             .collect(),
         ..Move::empty()
@@ -1414,6 +1604,9 @@ fn row(r: &R) -> Hitbox {
         rebounds: true,
         trip: 0,
         half_height: Fx::ZERO,
+        posvec_x: Fx::ZERO,
+        posvec_y: Fx::ZERO,
+        posvec_frames: 0,
     }
 }
 
@@ -2366,6 +2559,11 @@ pub fn needles() -> Weapon {
             r(5, 6, 11, 2, 5, 45, 90, 37, 100, 2, 0),
         ],
     );
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51): at 70 and 90 degrees it lifts, so it never
+    // trips on the flat stages (ssbwiki.com: "can never occur").
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
 
     // Neutral air: a held flying kick. Clean on frames 3-6 (6 / 6 / 5%), late 7-30 (4 / 4 / 3%), angle 361, BK 30, KS 100.
     // Landing lag 6, autocancels on frames 1-2 and from 31, FAF 50. One hit per target (clean and late are one group).
@@ -2645,6 +2843,9 @@ pub fn needles() -> Weapon {
     );
     set_rows(&mut dsmash, &[0, 1, 2, 3], |h| h.fixed_kb = 35);
     set_rows(&mut dsmash, &[0], |h| h.targets = TARGETS_AERIAL);
+    // The second hit's 30% trip chance (ssbwiki.com raw table, 13.0.1; owner decision 51): at 43 degrees it lifts, so it never trips
+    // on the flat stages.
+    set_rows(&mut dsmash, &[4, 5], |h| h.trip = 30);
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 
@@ -2881,6 +3082,8 @@ pub fn embers() -> Weapon {
     );
     set_rows(&mut jab1, &[0, 1, 2], |h| h.hitlag = 180);
     chain(&mut jab1, MoveId::Jab2, 5);
+    // The window runs to frame 24, past the FAF (owner decision 58).
+    late_chain(&mut jab1, MoveId::Jab2, 24);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/embers_jab_1.script"),
@@ -2901,6 +3104,7 @@ pub fn embers() -> Weapon {
     );
     set_rows(&mut jab2, &[0, 1, 2], |h| h.hitlag = 120);
     chain(&mut jab2, MoveId::Jab3, 6);
+    late_chain(&mut jab2, MoveId::Jab3, 24);
     w.moves[MoveId::Jab2 as usize] = jab2;
     // Jab 3: a rising kick on frames 3-4, 4%, angle 361, BK 60, KS 80, hitlag x2. FAF 34. The swept box (the reference's runs from
     // 9.0 / 13.0 down to 6.0 / 11.0 of its units) is two circles at its ends.
@@ -2974,6 +3178,10 @@ pub fn embers() -> Weapon {
             r(5, 7, 10, 2, 5, 50, 80, 35, 80, 1, 0),
         ],
     );
+    // The 40% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 80 degrees it lifts, so it never trips here.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
 
     // Dash attack: a sliding kick. Clean on frames 6-9: 8%, 50 degrees, BK 100, KS 43; late 10-25: 6%, 48 degrees, BK 100, KS 30; hitlag
     // x1.25, shield damage +1 (as a percent of its damage). FAF 38.
@@ -3469,6 +3677,7 @@ fn fireball() -> Move {
             bounce_min: su(1400),
             bounce_max: su(1600),
             bounce_keep: 97,
+            ..ProjectileArc::NONE
         },
         // Its age is 1 on frame 17: the late hit from frame 22, the latest from 47.
         phases: phase_list(&[(6, hit(50, 28, 15, 275)), (31, hit(40, 22, 10, 250))]),
@@ -3586,6 +3795,12 @@ fn chain(mv: &mut Move, next: MoveId, from: u8) {
     mv.next = Some(next as u8);
     mv.next_window = 9;
     mv.next_from = from - 1;
+}
+
+/// A jab whose continuable window runs past its FAF (owner decision 58): after the move ends, a jab press up to reference frame
+/// `last` (the window's last frame, counted on from the move's start) starts `next` instead of a new jab.
+fn late_chain(mv: &mut Move, next: MoveId, last: u8) {
+    mv.late_next = Some((next as u8, last - 1));
 }
 
 /// The claws' up special, a flaming dash kick (the reference brawler's up special: ssbwiki.com, 13.0.1): the hit
@@ -3771,6 +3986,11 @@ pub fn claws() -> Weapon {
             r(5, 6, 6, 4, 9, 60, 361, 25, 100, 0, 0),
         ],
     );
+    // Its 40% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51, sim 90): at the 361 angle's low knockback
+    // it sends along the ground, so it can trip.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 40;
+    }
     // Neutral air (the reference's): a split kick held out, both legs and the hips hitting. Clean on frames 7-9: 12%, angle 361, BKB
     // 30, KBG 75; late on frames 10-26: 8%, BKB 0, KBG 100 (a lingering hit). Landing lag 9, autocancels on frames 1-6 and from 39, FAF 43.
     w.moves[MoveId::NAir as usize] = ref_move(
@@ -3788,9 +4008,9 @@ pub fn claws() -> Weapon {
             r(10, 26, -7, 8, 6, 80, 361, 0, 100, 2, 0),
         ],
     );
-    // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 29, FAF 41.
+    // Forward air: frames 7-9, 9%, angle 60, landing lag 10, autocancels from 30 (UFD ">29", ssbwiki.com), FAF 41.
     w.moves[MoveId::FAir as usize] =
-        ref_move(41, 10, 0, 29, &[r(7, 9, 23, 10, 9, 90, 60, 45, 85, 0, 0)]);
+        ref_move(41, 10, 0, 30, &[r(7, 9, 23, 10, 9, 90, 60, 45, 85, 0, 0)]);
 
     // Blaster: a bayonet hit on frames 15-19 (7%, angle 60, strong knockback) if something is in front of the
     // muzzle, otherwise a shot fires on frame 16. The shot does 8% falling to 6% over its range (about two
@@ -3835,6 +4055,9 @@ pub fn claws() -> Weapon {
             rebounds: true,
             trip: 0,
             half_height: Fx::ZERO,
+            posvec_x: Fx::ZERO,
+            posvec_y: Fx::ZERO,
+            posvec_frames: 0,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -3991,6 +4214,11 @@ pub fn claws() -> Weapon {
             r(21, 22, -20, 6, 11, 140, 30, 50, 90, 0, 1),
         ],
     );
+    // Its 35% trip chance on every box (ssbwiki.com raw table, 13.0.1; owner decision 51): at 30 and 35 degrees it lifts, so it never
+    // trips on the flat stages.
+    for h in &mut dsmash.hitboxes {
+        h.trip = 35;
+    }
     dsmash.charge_at = Some(1);
     w.moves[MoveId::DSmash as usize] = dsmash;
 
@@ -4164,6 +4392,25 @@ pub mod greatsword_slots {
 mod bracers;
 pub use bracers::bracers;
 
+#[path = "moves_clutch.rs"]
+mod clutch;
+pub use clutch::clutch;
+/// The Clutch's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod clutch_slots {
+    pub use super::clutch::{DAIR_LANDING, DROP_AIR, DROP_LANDING};
+}
+
+#[path = "moves_buckler.rs"]
+mod buckler;
+pub use buckler::buckler;
+/// The Buckler's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod buckler_slots {
+    pub use super::buckler::{
+        AIR_SPIN_HITS, DAIR_BOUNCE, DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR,
+        SPIN_GRAVITY, SPIN_RISE_SPEED,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4178,6 +4425,8 @@ mod tests {
             gauntlets(),
             greatsword(),
             bracers(),
+            clutch(),
+            buckler(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {

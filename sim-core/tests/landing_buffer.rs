@@ -1,7 +1,8 @@
 //! Buffered dashes out of landing lag: a dash flicked while the fighter is still in a landing (an aerial's landing lag included) comes
 //! out on the first frame it can act, as the reference game's input buffer allows, as long as the stick is still held past the dash
 //! threshold. Aerials landing inside their autocancel windows take only the plain landing lag (tested with the move data elsewhere).
-//! And a jump out of a run lands back into the run while the stick is still held the run's way.
+//! A dash flicked while a jump falls (from the apex down) comes out on landing too, but not one flicked on the way up. And a jump out
+//! of a run lands back into the run while the stick is still held the run's way.
 
 mod common;
 
@@ -95,43 +96,55 @@ fn a_dash_flicked_on_the_first_frame_of_a_short_landing_comes_out() {
     assert!(dashed, "no dash out of the plain {lag}-frame landing");
 }
 
-#[test]
-fn a_stick_already_held_in_the_air_walks_out_of_the_landing() {
-    // A dash flicked at any point of the landing lag is kept (sim v82, `grab_dash.rs`), but a stick that was pushed before the
-    // landing, in the air, and held through it is a walk, not a dash: the flick was not made during the lag.
-    for tenths in 2..80 {
-        let mut sim = Sim::alone();
-        let ground = sim.f().pos.y;
-        let x = sim.f().pos.x;
-        sim.put_airborne(
-            0,
-            x,
-            ground + Fx::from_ratio(tenths, 10),
-            Fx::ZERO,
-            Fx::ZERO,
-        );
-        sim.tick(inp(0, -127, ATTACK));
-        // The flick, in the air, then held.
-        sim.tick(inp(0, 0, 0));
-        let mut n = 0;
-        while sim.f().state != S::Landing && n < 120 {
-            sim.tick(inp(127, 0, 0));
-            n += 1;
+/// A jump from standing: `rise` frames after the take-off a flick to `dir`, then held through the landing. Returns the state once the
+/// landing has ended.
+fn flick_in_a_jump(rise_or_fall: bool, dir: i8) -> S {
+    let mut sim = Sim::new();
+    sim.tick(inp(0, 0, 0));
+    sim.tick(inp(0, 0, JUMP));
+    let mut flicked = false;
+    for _ in 0..160 {
+        let f = *sim.f();
+        let rising = !f.grounded() && f.vel.y > Fx::ZERO && f.state == S::Airborne;
+        let falling = !f.grounded() && f.vel.y < Fx::ZERO && f.state == S::Airborne;
+        let flick_now = !flicked && if rise_or_fall { rising } else { falling };
+        if flick_now {
+            // Neutral the frame before, then pushed past the dash threshold: a flick.
+            sim.tick(inp(0, 0, 0));
+            flicked = true;
         }
-        if sim.f().state != S::Landing || sim.f().lag < 13 {
-            continue;
+        sim.tick(inp(if flicked { 127 * dir } else { 0 }, 0, 0));
+        let s = sim.f().state;
+        if flicked && sim.f().grounded() && !matches!(s, S::Landing | S::JumpSquat | S::Idle) {
+            return s;
         }
-        for _ in 0..usize::from(sim.f().lag) + 3 {
-            sim.tick(inp(127, 0, 0));
-        }
-        assert!(
-            matches!(sim.f().state, S::Walk | S::Idle),
-            "dashed from a flick made in the air: {:?}",
-            sim.f().state
-        );
-        return;
     }
-    panic!("no drop height lands a long landing");
+    sim.f().state
+}
+
+#[test]
+fn a_dash_flicked_while_a_jump_falls_comes_out_on_landing() {
+    // (Sim v93, the owner's call: from the apex down, a flick is kept through the landing.)
+    for dir in [1i8, -1] {
+        assert_eq!(
+            flick_in_a_jump(false, dir),
+            S::Dash,
+            "flick {dir} while falling"
+        );
+    }
+}
+
+#[test]
+fn a_stick_flicked_while_a_jump_still_rises_walks_out_of_the_landing() {
+    // A flick made on the way up and held through the landing is a walk, not a dash: only the falling half keeps a dash.
+    for dir in [1i8, -1] {
+        let s = flick_in_a_jump(true, dir);
+        // (Held the other way from the facing it lands into a turn; either way it is not a dash.)
+        assert!(
+            matches!(s, S::Walk | S::Turn),
+            "flick {dir} while rising: {s:?}"
+        );
+    }
 }
 
 /// Player 0 where it spawns, as the movement tests start (room to run right).

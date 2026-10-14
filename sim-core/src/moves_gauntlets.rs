@@ -136,6 +136,8 @@ fn slide_kick(w: &mut Weapon) {
         friction: Some(Fx::ZERO),
         drift: 0,
         accel: 100,
+        speed: None,
+        accel_stick: None,
     }];
     w.moves[KICK_OFF_EDGE as usize] = edge;
 
@@ -245,6 +247,8 @@ fn charged_punch(w: &mut Weapon) {
         friction: Some(Fx::ZERO),
         drift: 0,
         accel: 100,
+        speed: None,
+        accel_stick: None,
     };
     let mut air = finish(ref_move(104, 0, 0, 255, &punch(53, 57, 220, 93, 59, true)));
     air.air_blocks = vec![still(18)];
@@ -306,6 +310,8 @@ fn leaping_grab(w: &mut Weapon) {
             friction: None,
             drift: 95,
             accel: 600,
+            speed: None,
+            accel_stick: None,
         },
         AirBlock {
             from: 31,
@@ -315,6 +321,8 @@ fn leaping_grab(w: &mut Weapon) {
             friction: None,
             drift: 95,
             accel: 100,
+            speed: None,
+            accel_stick: None,
         },
     ];
     dive.fast_fall_from = 49;
@@ -445,6 +453,8 @@ fn raptor_boost(w: &mut Weapon) {
         end: 3,
         kind: ARMOR_DAMAGE,
         threshold: Fx::from_int(10),
+        subtract: false,
+        min_kb: Fx::ZERO,
     });
     hit.script = Some(script(
         Kind::Fighter,
@@ -529,6 +539,8 @@ fn jabs(w: &mut Weapon) {
     );
     set_rows(&mut jab1, &[0, 1, 2], |h| h.hitlag = 160);
     chain(&mut jab1, MoveId::Jab2, 5);
+    // The window runs to frame 30, past the FAF (owner decision 58).
+    late_chain(&mut jab1, MoveId::Jab2, 30);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/gauntlets_jab_1.script"),
@@ -557,6 +569,8 @@ fn jabs(w: &mut Weapon) {
         Kind::Fighter,
         include_str!("scripts/gauntlets_jab_2.script"),
     ));
+    // Jab 3's window runs to frame 30, past the FAF (owner decision 58).
+    late_chain(&mut jab2, MoveId::Jab3, 30);
     w.moves[MoveId::Jab2 as usize] = jab2;
 
     // Jab 3: a knee on frames 6-7, 5%, angle 361, BK 70, KS 100, hitlag x2. FAF 33.
@@ -695,6 +709,11 @@ fn tilts(w: &mut Weapon) {
             r(11, 12, -1, 4, 4, 100, 155, 38, 86, 2, 0),
         ],
     );
+    // The 50% trip chance as data (ssbwiki.com raw table, 13.0.1; owner decision 51): at 25 and 155 degrees it lifts, so it never trips
+    // on the flat stages.
+    for h in &mut w.moves[MoveId::DTilt as usize].hitboxes {
+        h.trip = 50;
+    }
 
     // Dash attack: a shoulder charge. Clean on frames 7-9: 10%, radius 8; late 10-16: 6%, radius 6; 65 degrees, BK 90, KS 67, hitlag
     // x1.25, shield damage +1 (110 / 117 percent [D]), shieldstun x1.5. The swept boxes (10.0 down to 8.0 and to 6.0 of the

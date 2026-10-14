@@ -1,0 +1,2 @@
+// Bracers hand slap's ending (ext8: its frame 0 is the reference's 35): free on the reference's 47. Nothing to steer.
+let lag = frame;

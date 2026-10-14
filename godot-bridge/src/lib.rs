@@ -928,6 +928,13 @@ impl SimRunner {
         GString::from(name.as_str())
     }
 
+    /// Whether the fighter's knockdown (state `Knockdown`) is a trip (`Fighter::tripped`): the view sits it up instead of laying it
+    /// flat (owner decision 52). Read-only; false in any other state.
+    #[func]
+    fn fighter_tripped(&self, i: i32) -> bool {
+        self.fighter(i).is_some_and(|fi| fi.tripped)
+    }
+
     #[func]
     fn fighter_state_frame(&self, i: i32) -> i32 {
         self.fighter(i).map_or(0, |fi| i32::from(fi.state_frame))
@@ -1194,9 +1201,8 @@ impl SimRunner {
     fn fighter_hurtboxes(&self, i: i32) -> PackedFloat32Array {
         let mut v: Vec<f32> = Vec::new();
         if let Some(fi) = self.fighter(i) {
-            let params = sim_core::combat::params_of(&self.content, fi);
-            let weapon = sim_core::combat::weapon_of(&self.content, params);
-            for (c, r) in sim_core::combat::hurtboxes(fi, params, weapon) {
+            // (As the match sees them: a buried fighter's sit lower.)
+            for (c, r) in sim_core::combat::body_hurtboxes(&self.content, fi) {
                 v.extend([f(c.x), f(c.y), f(r)]);
             }
         }
@@ -1304,6 +1310,16 @@ impl SimRunner {
             ]);
         }
         PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// Whether projectile slot `i` (the order of `projectile_slots`) has burst: it stopped on a fighter or a wall and is running its
+    /// burst's hits (read only, for the view's burst effect).
+    #[func]
+    fn projectile_bursting(&self, i: i32) -> bool {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| self.state.projectiles.get(i))
+            .is_some_and(|p| p.active && p.bursting)
     }
 
     // ---- Network play ----
