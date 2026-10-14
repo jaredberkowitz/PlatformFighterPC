@@ -1977,6 +1977,12 @@ const ITEM_ARROW := 3
 const ITEM_FLASH := 45
 var item_nodes: Array = []
 var item_burst_shown: Array = []
+## Per slot: which way the item last moved (x sign), so a lodged arrow keeps pointing the way it flew.
+var item_last_dir: Array = []
+## A lodged arrow's tilt (degrees below level): the sim keeps no angle once it lodges, so a fixed one in the way it flew.
+const ITEM_LODGED_TILT := 35.0
+## How fast a thrown bomb turns (degrees a frame since it was thrown).
+const ITEM_BOMB_SPIN := 18.0
 
 
 func _build_items() -> void:
@@ -1986,8 +1992,10 @@ func _build_items() -> void:
 		var n := Node3D.new()
 		n.visible = false
 		add_child(n)
+		# (The bomb's node at the ball's middle, so it spins about it.)
 		var bomb := Node3D.new()
 		bomb.name = "bomb"
+		bomb.position = Vector3(0, 0.36, 0)
 		n.add_child(bomb)
 		var ball := MeshInstance3D.new()
 		var sm := SphereMesh.new()
@@ -1995,7 +2003,7 @@ func _build_items() -> void:
 		sm.height = 0.72
 		ball.mesh = sm
 		ball.material_override = FighterView.toon(Color(0.2, 0.22, 0.36))
-		ball.position = Vector3(0, 0.36, 0)
+		ball.position = Vector3.ZERO
 		bomb.add_child(ball)
 		var cap := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
@@ -2004,7 +2012,7 @@ func _build_items() -> void:
 		cm.height = 0.12
 		cap.mesh = cm
 		cap.material_override = FighterView.toon(Color(0.7, 0.72, 0.8))
-		cap.position = Vector3(0, 0.74, 0)
+		cap.position = Vector3(0, 0.38, 0)
 		bomb.add_child(cap)
 		var fuse := MeshInstance3D.new()
 		var fm := CylinderMesh.new()
@@ -2013,7 +2021,7 @@ func _build_items() -> void:
 		fm.height = 0.22
 		fuse.mesh = fm
 		fuse.material_override = FighterView.toon(Color(0.86, 0.78, 0.6), false)
-		fuse.position = Vector3(0.04, 0.88, 0)
+		fuse.position = Vector3(0.04, 0.52, 0)
 		fuse.rotation_degrees = Vector3(0, 0, -20)
 		bomb.add_child(fuse)
 		var spark := MeshInstance3D.new()
@@ -2025,7 +2033,7 @@ func _build_items() -> void:
 		spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		spark_mat.albedo_color = Color(1.0, 0.85, 0.3)
 		spark.material_override = spark_mat
-		spark.position = Vector3(0.08, 1.0, 0)
+		spark.position = Vector3(0.08, 0.64, 0)
 		spark.name = "spark"
 		bomb.add_child(spark)
 		var arrow := Node3D.new()
@@ -2059,6 +2067,7 @@ func _build_items() -> void:
 			arrow.add_child(fl)
 		item_nodes.append(n)
 		item_burst_shown.append(false)
+		item_last_dir.append(1.0)
 
 
 func _update_items() -> void:
@@ -2089,7 +2098,23 @@ func _update_items() -> void:
 		var arrow: Node3D = n.get_node("arrow")
 		bomb.visible = kind == ITEM_BOMB
 		arrow.visible = kind == ITEM_ARROW
-		arrow.scale = Vector3(facing, 1, 1)
+		var vel: Vector2 = sim.item_vel(k) if sim.has_method("item_vel") else Vector2.ZERO
+		if absf(vel.x) > 0.001:
+			item_last_dir[k] = signf(vel.x)
+		if holder >= 0:
+			item_last_dir[k] = facing
+		var way: float = item_last_dir[k]
+		# The arrow: held level in the hand; in flight along its velocity; lodged at a fixed tilt the way it flew.
+		arrow.scale = Vector3.ONE
+		if holder >= 0 or (rest != 3 and vel.length() < 0.001):
+			arrow.rotation.z = 0.0 if way > 0.0 else PI
+		elif rest == 3:
+			arrow.rotation.z = deg_to_rad(-ITEM_LODGED_TILT) if way > 0.0 else deg_to_rad(180.0 + ITEM_LODGED_TILT)
+		else:
+			arrow.rotation.z = vel.angle()
+		# The bomb spins while it flies after a throw, the way it was thrown.
+		var flight: int = int(sim.item_flight(k)) if sim.has_method("item_flight") else 0
+		bomb.rotation.z = 0.0 if holder >= 0 or flight <= 0 or vel.length() < 0.001 else deg_to_rad(-ITEM_BOMB_SPIN * float(flight) * way)
 		if kind == ITEM_BOMB:
 			var left := int(sim.item_life_left(k))
 			var flash := left >= 0 and left <= ITEM_FLASH and (int(sim.frame()) / 4) % 2 == 0

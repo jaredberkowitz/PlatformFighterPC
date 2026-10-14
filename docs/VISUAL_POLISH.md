@@ -211,4 +211,4 @@ other tiles (the art pipeline test asks for it).
 Until the modelled items (scheduled near the end), every item slot is drawn so players can see it: the bomb a dark navy ball with a
 steel cap, a fuse and a spark that flashes red for its last 45 frames, bursting in the painted fire burst; the arrow a shaft with a
 steel head and red fletching. Held items sit at the holder's hand side. `main.gd` `_build_items`, `_update_items`; `--demo=bomb`.
-(No angle or velocity is exposed, so a lodged arrow lies level and a thrown bomb does not spin yet.)
+A flying arrow points along its velocity (`item_vel`), a lodged one tilts 35 degrees down the way it flew (the sim keeps no angle once it lodges), and a thrown bomb spins about its middle by the frames since the throw (`item_flight`).
