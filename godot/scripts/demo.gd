@@ -169,6 +169,23 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, special], [22, 0, 0, 0]]
 			d.shots = [[44, "a_headbutt"], [60, "b_buried"], [100, "c_buried_later"]]
 			d.end_frame = 110
+		"ball":
+			# The Bounder's tongue (neutral special) catches the fighter in front, which is shut in its ball (the sim's Encased), then breaks
+			# out (for the ball's look).
+			d.chars = [8, 0, 0, 0]
+			d.cam_dist = 13.0
+			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 0.8, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 0, 0, special], [22, 0, 0, 0]]
+			d.shots = [[40, "a_tongue"], [60, "b_lay"], [80, "c_ball"], [110, "d_ball_later"], [150, "e_out"], [200, "f_after"]]
+			d.end_frame = 210
+		"basketball":
+			# The Bounder's up special throw, drawn as a basketball: thrown forward at the fighter across the stage (for its look).
+			d.chars = [8, 0, 0, 0]
+			d.cam_dist = 16.0
+			d.events = [[1, "stand", 0, -4.0, 1], [1, "stand", 1, 3.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 0, 127, special], [36, 0, 0, 0], [37, 90, 0, 0], [40, 0, 0, 0]]
+			d.shots = [[38, "a_throw"], [46, "b_flying"], [54, "c_flying"], [62, "d_land"], [70, "e_after"]]
+			d.end_frame = 80
 		"bomb":
 			# The Wanderer pulls a bomb (down special), holds it, then throws it forward (attack with the stick forward), for the items'
 			# placeholder look.

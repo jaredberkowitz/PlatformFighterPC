@@ -212,3 +212,14 @@ Until the modelled items (scheduled near the end), every item slot is drawn so p
 steel cap, a fuse and a spark that flashes red for its last 45 frames, bursting in the painted fire burst; the arrow a shaft with a
 steel head and red fletching. Held items sit at the holder's hand side. `main.gd` `_build_items`, `_update_items`; `--demo=bomb`.
 A flying arrow points along its velocity (`item_vel`), a lodged one tilts 35 degrees down the way it flew (the sim keeps no angle once it lodges), and a thrown bomb spins about its middle by the frames since the throw (`item_flight`).
+
+### The Bounder's egg and thrown ball
+
+- **The egg** (the tongue and lay, the sim's `Encased`; `fighter_view.gd` `_egg`, radius from `fighter_egg_radius`): a cream egg with
+  green spots standing on the fighter's feet, the fighter hidden inside, rocking as it struggles, breaking into shell pieces
+  (`Particles.shell_pieces`) as it jumps out. `--demo=ball`.
+- **The up special's thrown egg is a basketball** (the owner's call; `main.gd` `_basketball`): orange rubber, inked, with its seams,
+  spinning the way it flies, popping in a warm painted burst. `--demo=basketball`.
+- Thrown things and items now carry an object id in the fighters' range (`PLAY_OBJECT_ID`), so the stage's quieting no longer washes
+  their colour out.
+- Image: `docs/screenshots/polish11_ball_and_egg.png`.

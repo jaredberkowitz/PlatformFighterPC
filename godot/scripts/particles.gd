@@ -205,6 +205,27 @@ static func sparks(parent: Node, at: Vector3, colour: Color, strength: float, di
 		b.add(at, vel, randf_range(0.2, 0.34 + 0.18 * s), randf_range(0.34, 0.6 + 0.3 * s))
 
 
+## Something breaking open round `at` (its middle, radius `r`): pieces of it in `body` and a few in `seam` (an egg's shell and its spots,
+## as a fighter breaks out of the Bounder's egg), thrown out and falling.
+static func shell_pieces(parent: Node, at: Vector3, r: float, seam: Color, body: Color) -> void:
+	var b := _burst(parent, false, false, 0.0, 1.0, false, true)
+	b.damping = 2.5
+	b.gravity = Vector3(0, -14, 0)
+	b.colours = [Color(body, 1), Color(body.darkened(0.1), 1), Color(body, 0)]
+	for k in 14:
+		var a := TAU * (float(k) + randf_range(-0.3, 0.3)) / 14.0
+		var d := Vector3(cos(a), sin(a) * 0.9 + 0.35, 0).normalized()
+		b.add(at + d * r * 0.8, d * randf_range(5.0, 9.0), randf_range(0.5, 0.75), randf_range(0.18, 0.32) * (1.0 + r * 0.3))
+	var s := _burst(parent, false, false, 0.0, 1.0, false, true)
+	s.damping = 2.5
+	s.gravity = Vector3(0, -14, 0)
+	s.colours = [Color(seam, 1), Color(seam, 1), Color(seam, 0)]
+	for k in 5:
+		var a := randf_range(0.0, TAU)
+		var d := Vector3(cos(a), sin(a) * 0.9 + 0.35, 0).normalized()
+		s.add(at + d * r * 0.8, d * randf_range(5.0, 8.0), randf_range(0.5, 0.7), randf_range(0.14, 0.22))
+
+
 ## A strong hit's smoke: a ring of cel-shaded smoke balls bursting out round the point of impact, swelling as they slow and breaking up.
 static func impact_smoke(parent: Node, at: Vector3, strength: float) -> void:
 	var s := clampf(strength, 0.0, 1.0)
