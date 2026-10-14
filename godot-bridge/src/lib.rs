@@ -1352,6 +1352,17 @@ impl SimRunner {
             .map_or(-1, |p| i32::from(p.rest))
     }
 
+    /// The size projectile `i` was fired with, as a percent of its hitbox's radius (100 unless a charged shot scaled it, e.g.
+    /// the sword wave's 80 to 110); 0 for an empty slot. Read-only, for the view.
+    #[func]
+    fn projectile_scale(&self, i: i32) -> i32 {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| self.state.projectiles.get(i))
+            .filter(|p| p.active)
+            .map_or(0, |p| i32::from(p.size))
+    }
+
     // ---- Network play ----
     //
     // Call one of the `net_host*` / `net_join*` functions, then `net_update` once per frame with the local
