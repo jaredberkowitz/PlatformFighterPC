@@ -2152,9 +2152,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
-		# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it on
-		# its feet, so the base body keeps only a little of this.)
-		target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
+		if not grounded and use_base_body:
+			target_lean += _air_counter(s, phi) * _reach_weight(s)
+		else:
+			# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it
+			# on its feet, so the base body keeps only a little of this on the ground.)
+			target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
@@ -2259,7 +2262,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		pivot = SPIN_PIVOT_3D
 	# Spin about the middle of the body (or the hands, or the curled-up roll) rather than the feet.
 	flip_offset = Vector3.ZERO
-	if flip != 0.0 or spin != 0.0:
+	# (In the air the whole body turns about its middle when it leans (see `_air_counter`), as a body with nothing under it does; on the
+	# ground it leans over its feet.)
+	if flip == 0.0 and spin == 0.0 and not grounded and absf(lean) > 0.3:
+		pivot = AIR_PIVOT
+	if flip != 0.0 or spin != 0.0 or (not grounded and absf(lean) > 0.3):
 		flip_offset = pivot - Basis(model.quaternion) * pivot
 	flip_offset += ledge_offset
 	last_state = state
@@ -2720,6 +2727,39 @@ func _reach_weight(s: Dictionary) -> float:
 		# (It stays out a moment past the hit, then eases home over the rest of the end lag, never frozen out.)
 		k = 1.0 - smoothstep(0.15, 1.0, clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0))
 	return k * k * (3.0 - 2.0 * k)
+
+
+## The whole body answering a limb thrown out in the air (degrees of forward pitch, about the body's middle; the reference's aerials,
+## exaggerated): an up air tips the body right back so the kick or the slash goes up and over (`AIR_BACK` at most), a back air pitches it
+## forward, head down, so the leg drives out behind (`AIR_FORWARD`), a kick out in front leans the body back against the leg
+## (`AIR_KICK_BACK`), a swing in front and below curls the body over it. `phi` is the hit's direction from the body (0 straight down, 90
+## ahead, 180 overhead, negative behind). Weighted by the move's reach, so it eases in with the wind-up and out in the recovery, and
+## sprung (`lean`), so it overshoots a little and settles.
+const AIR_BACK := 36.0
+const AIR_FORWARD := 50.0
+const AIR_KICK_BACK := 18.0
+const AIR_PIVOT := Vector3(0, 1.0, 0)
+
+
+func _air_counter(s: Dictionary, phi: float) -> float:
+	var clip := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
+	var kick := AnimLibrary.is_kick(clip)
+	# (An overhead arc carried on past the top and round behind is still overhead: an up air keeps tipping back as it finishes.)
+	if phi < -125.0:
+		phi += 360.0
+	if phi < 0.0:
+		# Behind: pitch forward, more the further round behind it is.
+		return clampf(-phi * 0.42, 0.0, AIR_FORWARD)
+	if phi > 200.0:
+		return -AIR_BACK
+	if phi > 120.0:
+		# Overhead: tip back.
+		return -clampf((phi - 105.0) * 0.62, 0.0, AIR_BACK)
+	if kick and phi > 45.0:
+		# A kick out in front: the body leans back against the leg (a jackknife).
+		return -AIR_KICK_BACK
+	# A swing in front: curl over it a little; straight below (a stomp, a drill) the body stays nearly upright over its legs.
+	return clampf((110.0 - phi) * 0.24, 0.0, 18.0) * smoothstep(20.0, 60.0, phi) + 6.0 * (1.0 - smoothstep(20.0, 60.0, phi))
 
 
 ## Puts the weapon in the weapon hand as the clip moves it, swept back and up behind the runner (carried in a run).

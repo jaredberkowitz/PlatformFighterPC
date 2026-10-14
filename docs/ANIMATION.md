@@ -174,4 +174,11 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   exaggeration, and the shoulder and elbow are clamped after it (172 and 145 degrees): a raised arm amplified past vertical swung round
   behind the body (the Hauler's two-fisted hammer read only after this). On this body, arms raised as high as they go put the hands
   beside the head (its arms are short against the head). `docs/screenshots/anim_settler_tools.png`.
+- **Pass 5, the whole body answers an aerial** (the owner: "the entire body compensates for the leg sticking out", as the reference's up
+  airs turn the body; `fighter_view.gd` `_air_counter`): in the air the whole fighter pitches about its middle (`AIR_PIVOT`) with the
+  move's reach: an up air tips it back under the kick or slash (up to `AIR_BACK` 36 degrees, held as the arc carries on past the top),
+  a back air pitches it forward, head down, as the leg drives out behind (`AIR_FORWARD` 50), a kick out in front leans the body back
+  against the leg (`AIR_KICK_BACK` 18, a jackknife), a swing in front curls the body over it, and a stomp below stays nearly upright.
+  On the lean spring, so it overshoots a little and settles; on the ground the old lean over the feet is unchanged.
+  `docs/screenshots/anim_air_counter.png` (the all-rounder's up, back and neutral airs, the sword's up air).
 - Next: the Settler's props (pocket, shovel planting, watering can, axe) and its props; a pose-by-pose pass per moveset.
