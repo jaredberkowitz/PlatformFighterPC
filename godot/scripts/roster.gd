@@ -12,7 +12,7 @@ static var session := {}
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 
-const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch"]
+const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch", "Buckler"]
 const CLASS_BLURBS := [
 	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
 	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
@@ -23,6 +23,7 @@ const CLASS_BLURBS := [
 	"A huge blade and a rising boost: long reach, a slow wave that crosses the stage, a combo slash that only carries on when it lands, and a boost that turns every special into a finisher.",
 	"Huge arms and a heavy frame: a wind-up punch you can save for later, a headbutt that plants foes in the ground, a spinning clothesline, ground slaps, and a throw that carries the catch anywhere, even off the stage.",
 	"Light on its feet and hard to launch, with a towering second jump that shrugs off blows: a long tongue that seals foes in shells, a rolling shell, lobbed shells that lift it higher, a crashing drop that scatters stars, and a flurry of kicks.",
+	"A sword, a shield and a pack of tools: a blade with a long reach, a shield that stops shots while standing, a bow that leaves arrows to pick up, a boomerang that comes back, a bomb set off from afar, and a whirling spin that lifts it home.",
 ]
 
 
@@ -178,13 +179,23 @@ static func net_entry() -> Dictionary:
 
 
 static func builtins() -> Array:
-	var duelist := neutral_entry("Duelist", 0, Loadout.default_for(0))
+	# (Each built-in fighter has a silhouette of its own, not just a colour: the Duelist a plumed helm and a cape, the Brawler its aviator
+	# cap and a streaming scarf, the Rogue a hood.)
+	var knight: RefCounted = Loadout.default_for(0)
+	knight.hat = 7
+	knight.neck = 4
+	var duelist := neutral_entry("Duelist", 0, knight)
 	duelist.builtin = true
 	duelist.base_index = 0
-	var brawler := neutral_entry("Brawler", 1, Loadout.default_for(1))
+	var scrapper: RefCounted = Loadout.default_for(1)
+	scrapper.neck = 3
+	var brawler := neutral_entry("Brawler", 1, scrapper)
 	brawler.builtin = true
 	brawler.base_index = 1
-	var rogue := neutral_entry("Rogue", 2, Loadout.default_for(2))
+	var hooded: RefCounted = Loadout.default_for(2)
+	hooded.hat = 6
+	hooded.glasses = 0
+	var rogue := neutral_entry("Rogue", 2, hooded)
 	rogue.builtin = true
 	rogue.base_index = 2
 	var tumbler := neutral_entry("Tumbler", 3, Loadout.default_for(3))
@@ -205,7 +216,7 @@ static func builtins() -> Array:
 	oracle.color = 5
 	oracle.hat = 5
 	oracle.glasses = 0
-	oracle.neck = 1
+	oracle.neck = 4
 	oracle.gear = 0
 	var seer := neutral_entry("Seer", 5, oracle)
 	seer.builtin = true
@@ -213,7 +224,8 @@ static func builtins() -> Array:
 	# (Its own look: a stern slate swordsman, bareheaded, a scarf to stream behind it, the full kit for the heavy blade.)
 	var hero: RefCounted = Loadout.default_for(6)
 	hero.color = 9
-	hero.hat = 0
+	hero.hat = 8
+	hero.brow_color = 4
 	hero.glasses = 0
 	hero.neck = 3
 	hero.gear = 3
@@ -224,7 +236,7 @@ static func builtins() -> Array:
 	# (Its own look: a big biscuit-brown bruiser, bareheaded, a neckerchief, shorts and gloves for the fists.)
 	var bruiser: RefCounted = Loadout.default_for(7)
 	bruiser.color = 10
-	bruiser.hat = 0
+	bruiser.hat = 9
 	bruiser.glasses = 0
 	bruiser.neck = 2
 	bruiser.gear = 2
@@ -235,7 +247,10 @@ static func builtins() -> Array:
 	var bounder := neutral_entry("Bounder", 8, Loadout.default_for(8))
 	bounder.builtin = true
 	bounder.base_index = 8
-	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder]
+	var wanderer := neutral_entry("Wanderer", 9, Loadout.default_for(9))
+	wanderer.builtin = true
+	wanderer.base_index = 9
+	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer]
 
 
 static func slug_of(name: String) -> String:

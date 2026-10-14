@@ -222,6 +222,13 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             }
         }
     }
+    if let Some(s) = &f.passive_shield {
+        if s.radius <= Fx::ZERO || s.half_height < Fx::ZERO {
+            errors.push(format!(
+                "fighter {i}: the passive shield needs a radius above 0 and no negative half_height"
+            ));
+        }
+    }
     if let Some(a) = &f.air_jump_armor {
         if a.start > a.end {
             errors.push(format!(
@@ -418,9 +425,25 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 || a.gravity.is_some_and(|g| g < Fx::ZERO)
                 || a.max_fall.is_some_and(|v| v <= Fx::ZERO)
                 || a.friction.is_some_and(|v| v < Fx::ZERO)
+                || a.speed.is_some_and(|v| v < Fx::ZERO)
+                || a.accel_stick.is_some_and(|v| v < Fx::ZERO)
             {
                 errors.push(format!(
-                    "weapon {i} {name}: an air block needs from <= to, drift up to 100, accel 1 to 1000, no negative gravity or friction and max_fall above 0"
+                    "weapon {i} {name}: an air block needs from <= to, drift up to 100, accel 1 to 1000, no negative gravity, friction, speed or accel_stick and max_fall above 0"
+                ));
+            }
+        }
+        if mv.fall_speed.is_some_and(|v| v < Fx::ZERO)
+            || mv.fall_accel.is_some_and(|v| v < Fx::ZERO)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: fall_speed and fall_accel cannot be negative"
+            ));
+        }
+        for hb in &mv.hitboxes {
+            if hb.posvec_frames == 0 && (hb.posvec_x != Fx::ZERO || hb.posvec_y != Fx::ZERO) {
+                errors.push(format!(
+                    "weapon {i} {name}: a position vector (posvec_x, posvec_y) needs posvec_frames above 0"
                 ));
             }
         }
@@ -823,11 +846,11 @@ mod combat_tests {
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {
         let mut c = Content::placeholder();
-        c.fighters[0].weapon = 9;
+        c.fighters[0].weapon = 10;
         c.weapons[0].moves[0].hitboxes[0].end = 200;
         c.weapons[1].moves.pop();
         let errors = validate(&c).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("weapon 9")), "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("weapon 10")), "{errors:?}");
         assert!(
             errors.iter().any(|e| e.contains("outside the move")),
             "{errors:?}"

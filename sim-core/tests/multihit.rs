@@ -48,6 +48,9 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         rebounds: true,
         trip: 0,
         half_height: Fx::ZERO,
+        posvec_x: Fx::ZERO,
+        posvec_y: Fx::ZERO,
+        posvec_frames: 0,
     }
 }
 

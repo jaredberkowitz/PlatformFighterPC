@@ -384,6 +384,7 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 	# read at a glance.
 	var cap_depth := {"roof": 0.42, "sand": 0.5}.get(t.get("cap", "grass"), 0.62) as float
 	_mesh(parent, _shade_band(w + 0.2, 0.9), _band_material(), Vector3(cx, top - cap_depth - 0.45, front_z + 0.012))
+	_ledges_and_buttresses(parent, t, left, right, top, bottom, front_z, cap_depth)
 	match t.get("cap", "grass"):
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
@@ -433,6 +434,41 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				if rng.randf() < 0.22:
 					_mesh(parent, _sphere(0.16, 6), stone, Vector3(x + 0.5, top - cap_h - 0.3, front_z + 0.12), Vector3(1.3, 0.8, 0.7))
 				x += rng.randf_range(0.8, 1.6)
+
+
+## What makes a stage's block a built shape rather than a box with a tiled front: at each top corner (the ledges, gameplay landmarks) a
+## chunky corner stone standing proud of the corner, lit on top, under the cap (on a rooftop a metal corner cap instead), and down each
+## end of the front a buttress, a column of bigger stones a little proud of the wall, narrowing toward the foot, so the wall is framed and
+## the tiled pattern is not the whole face. Deterministic.
+static func _ledges_and_buttresses(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front_z: float,
+		cap_depth: float) -> void:
+	var city: bool = t.get("cap", "grass") == "roof"
+	var stone_c := (t.soil as Color).lightened(0.12)
+	var stone := Materials.stone(stone_c, Vector2(1, 1))
+	var dark := Materials.stone((t.soil_dark as Color).darkened(0.05), Vector2(1, 2))
+	var h := top - bottom
+	for side in [-1.0, 1.0]:
+		var edge_x: float = right if side > 0.0 else left
+		if city:
+			# A metal corner cap over the ledge: a bracket down the corner and a bright cap on top.
+			var steel := FighterView.respond(FighterView.toon(Color(0.62, 0.64, 0.74)), "metal")
+			_mesh(parent, _box(Vector3(0.34, 0.9, 0.34)), steel, Vector3(edge_x - side * 0.08, top - 0.55, front_z + 0.1))
+			_mesh(parent, _box(Vector3(0.44, 0.14, 0.44)), steel, Vector3(edge_x - side * 0.08, top - 0.1, front_z + 0.12))
+			continue
+		# The corner stone: a squat, slightly turned block, a hair proud of the front and the side.
+		var cs := _mesh(parent, _box(Vector3(0.95, 0.7, 0.95)), stone, Vector3(edge_x - side * 0.36, top - cap_depth - 0.3, front_z + 0.08),
+			Vector3.ONE, Vector3(0, side * 4.0, side * -3.0))
+		cs.name = "ledge_stone"
+		# The buttress: stacked stones down the front, each a little narrower and darker toward the foot.
+		var y := top - cap_depth - 0.7
+		var k := 0
+		while y > bottom + 0.6 and k < 12:
+			var sh := 0.9 + 0.25 * absf(sin(float(k) * 1.9 + side))
+			var sw := lerpf(0.9, 0.7, clampf((top - y) / maxf(h, 0.1), 0.0, 1.0))
+			_mesh(parent, _box(Vector3(sw, sh - 0.06, 0.4)), stone if k % 3 != 2 else dark,
+				Vector3(edge_x - side * (0.4 + 0.03 * sin(float(k) * 2.7)), y - sh / 2.0, front_z + 0.14))
+			y -= sh
+			k += 1
 
 
 ## A strip `w` wide and `h` tall, dark at its top edge fading to nothing at the bottom (vertex colours), for a soft shadow under an edge.
@@ -1071,8 +1107,8 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 ## The fog layers of each theme: [z, bottom y, height, strength].
 const MIST := {
 	"meadow": [[-56.0, -24.0, 12.0, 0.16], [-86.0, -26.0, 16.0, 0.24]],
-	"grove": [[-60.0, -24.0, 12.0, 0.18], [-90.0, -26.0, 16.0, 0.26]],
-	"sunset": [[-60.0, -26.0, 14.0, 0.16], [-95.0, -24.0, 20.0, 0.26]],
+	"grove": [[-60.0, -24.0, 12.0, 0.08], [-90.0, -26.0, 16.0, 0.14]],
+	"sunset": [[-60.0, -26.0, 10.0, 0.07], [-95.0, -24.0, 16.0, 0.13]],
 	"ocean": [[-130.0, -10.0, 6.0, 0.08]],
 	"night": [[-70.0, -26.0, 18.0, 0.4]],
 	"city": [[-80.0, -30.0, 24.0, 0.35]],
@@ -1615,6 +1651,14 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var rock := Materials.stone((t.soil_dark as Color).darkened(0.15), Vector2(5, 1))
 			_mesh(root, shelf, rock, Vector3.ZERO).name = "Underside"
 			# (The sea is a unit below the block: the boulders rise from it to the block's foot, so it stands on rock, foam round them.)
+			# Sand banked up against each end of the wall, spilling from about half its height down into the sea: the ends slope rather
+			# than stop in square corners, so the island's outline is a shore, not a box.
+			var sand_bank := _surface(t.grass, "sand", 5.0)
+			var bh := (e[2] as float) - bottom
+			for side in [-1.0, 1.0]:
+				var ex: float = r if side > 0.0 else l
+				_mesh(root, _sphere(1.0, 16), sand_bank, Vector3(ex + side * 0.4, bottom - 0.6, front - 1.0), Vector3(2.6, bh * 0.55, 2.4))
+				_mesh(root, _sphere(1.0, 12), sand_bank, Vector3(ex + side * 1.8, bottom - 0.9, front - 0.6), Vector3(1.6, bh * 0.25, 1.8))
 			var boulder := Materials.stone((t.soil as Color).darkened(0.12))
 			for k in 8:
 				var x := lerpf(l - 0.4, r + 0.4, (k + rng.randf_range(0.25, 0.75)) / 8.0)
@@ -1641,6 +1685,18 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				func(s: float) -> float: return 0.09 * s * s)
 			var earth := Materials.stone((t.soil_dark as Color).darkened(0.12), Vector2(6, 2))
 			_mesh(root, keel, earth, Vector3.ZERO).name = "Underside"
+			# A ragged skirt of rounded rocks along the foot of the wall, half above and half below its bottom edge, so the built wall
+			# grows out of the island's earth instead of sitting on it along a ruled line. Deterministic.
+			var skirt := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.35), Vector2(1, 1))
+			var sx := l - 0.2
+			var j := 0
+			while sx < r + 0.2:
+				var sr := 0.6 + 0.4 * absf(sin(float(j) * 2.3 + 0.7))
+				# (Standing a little proud of the wall's face, 0.3 out, so the whole stone shows.)
+				_mesh(root, _sphere(1.0, 9), skirt, Vector3(sx, bottom - 0.1 + 0.3 * sin(float(j) * 2.9), 0.3 + sr * 0.2),
+					Vector3(sr * 1.35, sr, sr * 0.8), Vector3(0, float(j) * 37.0, float(j) * 11.0))
+				sx += sr * 1.7
+				j += 1
 			var w := r - l
 			var cx := (l + r) / 2.0
 			var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.45))

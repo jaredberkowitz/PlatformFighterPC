@@ -176,6 +176,30 @@ fn expected() -> Vec<(usize, MoveId, Vec<u8>)> {
         (8, Ext3, all(P)),
         (8, LedgeAttack, all(F)),
         (8, GetUpAttack, all(P)),
+        // Buckler (weapon 9, phase 1, sim 91: ssbwiki.com raw tables, 13.0.1): the jabs, forward and down tilts, dash attack, both
+        // forward smash hits (ext1 the second), forward air and ledge attack forward (3); the up tilt, both smashes but the forward one,
+        // neutral, up and down airs (and the after-bounce down air, ext2), the get-up attack and the grounded spin by position (no
+        // `af`: 0); the back air backward (4). (The aerial spin's mixed types are checked in `buckler.rs`.)
+        (9, Jab, all(F)),
+        (9, Jab2, all(F)),
+        (9, Jab3, all(F)),
+        (9, FTilt, all(F)),
+        (9, UTilt, all(P)),
+        (9, DTilt, all(F)),
+        (9, DashAttack, all(F)),
+        (9, FSmash, all(F)),
+        (9, Ext1, all(F)),
+        (9, USmash, all(P)),
+        (9, DSmash, all(P)),
+        (9, NAir, all(P)),
+        (9, FAir, all(F)),
+        (9, BAir, all(B)),
+        (9, UAir, all(P)),
+        (9, DAir, all(P)),
+        (9, Ext2, all(P)),
+        (9, LedgeAttack, all(F)),
+        (9, GetUpAttack, all(P)),
+        (9, UpSpecial, all(P)),
     ]
 }
 
@@ -201,7 +225,7 @@ fn the_older_movesets_carry_their_reference_angle_types() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 125);
+    assert_eq!(checked, 145);
     // Every move not in the list keeps the default (boxes wholly in front, where it cannot change anything; and the moves whose
     // reference type is not built, like the claws' up special loop).
     for w in 0..5 {

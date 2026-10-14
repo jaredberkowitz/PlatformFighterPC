@@ -1013,6 +1013,8 @@ fn the_new_fields_are_in_the_content_hash() {
                 friction: None,
                 drift: 100,
                 accel: 600,
+                speed: None,
+                accel_stick: None,
             }]
         }),
     ] {

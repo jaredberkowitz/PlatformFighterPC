@@ -25,6 +25,8 @@ pub const MAX_PROJECTILES: usize = 16;
 pub const LINK_AUTOLINK: u8 = 0;
 /// `Fighter::link_kind`: the vortex (angle 366, E28).
 pub const LINK_VORTEX: u8 = 1;
+/// `Fighter::link_kind`: a position vector (E34): carried straight to `link_point` over `posvec` frames.
+pub const LINK_POSVEC: u8 = 2;
 /// Frames a vortex hit (366) pulls its victim toward the hitbox centre (the reference's 5).
 pub const VORTEX_FRAMES: u8 = 5;
 
@@ -187,6 +189,13 @@ pub struct Fighter {
     pub link_kind: u8,
     /// Frames of a vortex pull left (366): each knockback frame moves the fighter a `1 / vortex` share of the way to `link_point`.
     pub vortex: u8,
+    /// Frames of a position vector's carry left (E34, `Hitbox::posvec_frames`): set when such a hit lands, then each knockback frame
+    /// moves the fighter a fixed step toward `link_point` (worked out at the launch), with no gravity or knockback decay, and the
+    /// step stops when the count runs out.
+    pub posvec: u8,
+    /// The fighter is frozen by a projectile its body's passive shield blocked (E14, `FighterParams::passive_shield`): its hitlag
+    /// allows shield SDI, as a raised shield's does. Cleared when the hitlag ends.
+    pub shield_sdi: bool,
     /// Being pulled (the pull angle): while hitstun lasts the fighter is drawn toward `link_point` (just in front of whoever pulled
     /// it), see `fighter::pull_frame`.
     pub pull: bool,
@@ -468,6 +477,8 @@ impl Fighter {
             link_point: Vec2::ZERO,
             link_kind: LINK_AUTOLINK,
             vortex: 0,
+            posvec: 0,
+            shield_sdi: false,
             shield_hp,
             shield_stun: 0,
             sdi_wait: 0,
@@ -645,6 +656,8 @@ impl StateHash for Fighter {
         self.link_point.hash_into(h);
         h.write_u8(self.link_kind);
         h.write_u8(self.vortex);
+        h.write_u8(self.posvec);
+        h.write_bool(self.shield_sdi);
         self.shield_hp.hash_into(h);
         h.write_u8(self.shield_stun);
         h.write_u8(self.sdi_wait);
@@ -1320,6 +1333,16 @@ mod tests {
             ("vortex", {
                 let mut s = state;
                 s.fighters[1].vortex = 5;
+                s
+            }),
+            ("posvec", {
+                let mut s = state;
+                s.fighters[2].posvec = 10;
+                s
+            }),
+            ("shield_sdi", {
+                let mut s = state;
+                s.fighters[3].shield_sdi = true;
                 s
             }),
             ("fighter_vars", {

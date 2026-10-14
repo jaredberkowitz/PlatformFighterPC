@@ -348,6 +348,14 @@ pub struct Hitbox {
     /// Half the height of the box: above 0 it is a standing capsule from `y - half_height` to `y + half_height` (a tall wall of a
     /// projectile, the reference's stacked circles) instead of a circle. Scaled like the radius.
     pub half_height: Fx,
+    /// A position vector (E34, the reference's): with `posvec_frames` above 0, the hit sends its victim's feet to the point
+    /// `posvec_x` ahead of (the attacker's facing) and `posvec_y` above the attacker's feet where it hit, straight there at the speed
+    /// that covers the distance in `posvec_frames` frames, with no gravity of its own on the way; there it stops and its hitstun
+    /// runs out as a fall (see `fighter::posvec_launch`). The angle and knockback still give the hitstun. Scaled like the position.
+    /// 0 frames: an ordinary launch. (On a projectile the attacker is its owner.)
+    pub posvec_x: Fx,
+    pub posvec_y: Fx,
+    pub posvec_frames: u8,
 }
 
 /// `Hitbox::angle_type` values.
@@ -402,6 +410,9 @@ impl Hitbox {
         self.rebounds = true;
         self.trip = 0;
         self.half_height = Fx::ZERO;
+        self.posvec_x = Fx::ZERO;
+        self.posvec_y = Fx::ZERO;
+        self.posvec_frames = 0;
         self
     }
 }
@@ -728,6 +739,13 @@ pub struct AirBlock {
     pub friction: Option<Fx>,
     pub drift: u8,
     pub accel: u16,
+    /// The air speed in these frames, in world units, replacing the drift's share (the reference's own air speed for a stretch of a
+    /// move); `None`: the drift's.
+    pub speed: Option<Fx>,
+    /// The stick's share of the air acceleration in these frames (world units a frame at a full tilt), replacing the body's
+    /// `air_accel_stick` after the drift and `accel` percents (the reference's "additional air acceleration" of a move); the base
+    /// acceleration stays the drift's. `None`: the body's, scaled as above.
+    pub accel_stick: Option<Fx>,
 }
 
 /// Armor during move frames `start..=end` (the reference's): the fighter takes a hit's damage and hitlag but is not knocked out of the
@@ -857,6 +875,14 @@ pub struct Move {
     pub fall_drift: u8,
     /// Landing lag of the special fall after this move; 0 uses the body's `helpless_landing_lag`.
     pub fall_landing_lag: u8,
+    /// The special fall's own air speed and stick acceleration after this move (world units; E11, the reference's separate air speed
+    /// and "additional acceleration" of a special fall): `fall_speed` replaces the air speed `fall_drift` gives, `fall_accel` the
+    /// stick's share of the acceleration (the base acceleration is then the body's own). `None`: `fall_drift` scales both.
+    pub fall_speed: Option<Fx>,
+    pub fall_accel: Option<Fx>,
+    /// A follow-up (a move reached by `next` or a script's `goto`: the reference's two-part smash attack) keeps the charge the move
+    /// before it was given, so its hits are charged too (E36). False: it starts uncharged, as every move.
+    pub keep_charge: bool,
     /// Percent of the motion's vertical speed when the move started on the ground (`rise_ground`) or in the air (`rise_air`): the
     /// reference's grounded and aerial height multipliers on an up special's rise. 100 is the motion as written.
     pub rise_ground: u8,
@@ -994,6 +1020,9 @@ impl Move {
             ledge_back_from: 255,
             fall_drift: 0,
             fall_landing_lag: 0,
+            fall_speed: None,
+            fall_accel: None,
+            keep_charge: false,
             rise_ground: 100,
             rise_air: 100,
             start_speed: 100,
@@ -1126,6 +1155,9 @@ impl StateHash for Hitbox {
         h.write_bool(self.rebounds);
         h.write_u8(self.trip);
         self.half_height.hash_into(h);
+        self.posvec_x.hash_into(h);
+        self.posvec_y.hash_into(h);
+        h.write_u8(self.posvec_frames);
     }
 }
 
@@ -1242,6 +1274,15 @@ impl StateHash for Weapon {
                 }
                 h.write_u8(b.drift);
                 h.write_u16(b.accel);
+                for v in [b.speed, b.accel_stick] {
+                    match v {
+                        Some(x) => {
+                            h.write_bool(true);
+                            x.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                }
             }
             h.write_u8(m.fast_fall_from);
             match m.turn_at {
@@ -1400,6 +1441,16 @@ impl StateHash for Weapon {
             h.write_bool(m.gauge_drain);
             h.write_u8(m.start_speed_y);
             h.write_u8(m.motion_drift);
+            for v in [m.fall_speed, m.fall_accel] {
+                match v {
+                    Some(x) => {
+                        h.write_bool(true);
+                        x.hash_into(h);
+                    }
+                    None => h.write_bool(false),
+                }
+            }
+            h.write_bool(m.keep_charge);
             match m.late_next {
                 Some((id, until)) => {
                     h.write_bool(true);
@@ -1494,6 +1545,9 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 rebounds: true,
                 trip: 0,
                 half_height: Fx::ZERO,
+                posvec_x: Fx::ZERO,
+                posvec_y: Fx::ZERO,
+                posvec_frames: 0,
             })
             .collect(),
         ..Move::empty()
@@ -1550,6 +1604,9 @@ fn row(r: &R) -> Hitbox {
         rebounds: true,
         trip: 0,
         half_height: Fx::ZERO,
+        posvec_x: Fx::ZERO,
+        posvec_y: Fx::ZERO,
+        posvec_frames: 0,
     }
 }
 
@@ -3998,6 +4055,9 @@ pub fn claws() -> Weapon {
             rebounds: true,
             trip: 0,
             half_height: Fx::ZERO,
+            posvec_x: Fx::ZERO,
+            posvec_y: Fx::ZERO,
+            posvec_frames: 0,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -4340,6 +4400,17 @@ pub mod clutch_slots {
     pub use super::clutch::{DAIR_LANDING, DROP_AIR, DROP_LANDING};
 }
 
+#[path = "moves_buckler.rs"]
+mod buckler;
+pub use buckler::buckler;
+/// The Buckler's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod buckler_slots {
+    pub use super::buckler::{
+        AIR_SPIN_HITS, DAIR_BOUNCE, DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR,
+        SPIN_GRAVITY, SPIN_RISE_SPEED,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4355,6 +4426,7 @@ mod tests {
             greatsword(),
             bracers(),
             clutch(),
+            buckler(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
