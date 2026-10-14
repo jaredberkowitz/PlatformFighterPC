@@ -803,9 +803,9 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 	# stage's light like any surface, not a flat decal.
 	var centre := at + Vector3(0, 0.55, 0)
 	var rot := Vector3(90, turn, 0)
-	var body_mat := FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE)
+	var body_mat := Materials.as_family(FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE), "grass")
 	_mesh(root, _lathe(HAY_PROFILE, 22, 3.0), body_mat, centre, Vector3.ONE, rot)
-	var end_mat := FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE)
+	var end_mat := Materials.as_family(FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE), "grass")
 	var axis := Basis.from_euler(rot * PI / 180.0) * Vector3.UP
 	for side in [-1.0, 1.0]:
 		_mesh(root, _disc(0.47, 22), end_mat, centre + axis * side * 0.645, Vector3.ONE, rot + Vector3(0.0 if side > 0.0 else 180.0, 0, 0))
@@ -916,7 +916,7 @@ static var _straw_cache := {}
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 	# A cooper's barrel: a bulging body of staves (a lathe, the staves painted on so they run up it), two iron hoops that sit on the bulge,
 	# a rim where the staves stand above the lid, and the lid inset below it. Each part a different value, so it reads as built.
-	var body := FighterView.toon(Color.WHITE, true, _stave_texture(), Vector2.ONE)
+	var body := Materials.as_family(FighterView.toon(Color.WHITE, true, _stave_texture(), Vector2.ONE), "wood")
 	var prof := []
 	for p in BARREL_PROFILE:
 		prof.append([float(p[0]) * size, float(p[1]) * size])
@@ -932,7 +932,8 @@ static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 		_mesh(root, ring, hoop, at + Vector3(0, h * 1.1 * size, 0), Vector3(1, 0.9, 1))
 	# The lid, a step down inside the rim, darker (it is in the rim's shade), with the rim's inner wall round it.
 	_mesh(root, _cylinder(0.35 * size, 0.35 * size, 0.06 * size, 18), FighterView.toon(Color(0.5, 0.32, 0.22), false), at + Vector3(0, 1.04 * size, 0))
-	_mesh(root, _disc(0.35 * size, 18), FighterView.toon(Color.WHITE, false, _stave_texture(true), Vector2.ONE), at + Vector3(0, 1.071 * size, 0))
+	_mesh(root, _disc(0.35 * size, 18), Materials.as_family(FighterView.toon(Color.WHITE, false, _stave_texture(true), Vector2.ONE), "wood"),
+		at + Vector3(0, 1.071 * size, 0))
 
 
 ## A barrel's outline from foot to top as [radius, height] (size 1): narrow at the ends, bulging in the middle, the top a rim of staves

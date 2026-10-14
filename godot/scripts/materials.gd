@@ -67,6 +67,20 @@ static func _make(family: String, colour: Color, tile_name: String, tile: Vector
 	return m
 
 
+## A copy of cel material `m` (one with its own texture, drawn in code) taking family `family`'s response to the light, so a prop with a
+## painted surface of its own (a barrel's staves, a bale's straw) still reads as wood or straw like the rest of the stage. Cached.
+static func as_family(m: ShaderMaterial, family: String) -> ShaderMaterial:
+	var key := "as|%d|%s" % [m.get_instance_id(), family]
+	if _cache.has(key):
+		return _cache[key]
+	var c := m.duplicate() as ShaderMaterial
+	for p in FAMILIES[family]:
+		if p != "world_vary":
+			c.set_shader_parameter(p, FAMILIES[family][p])
+	_cache[key] = c
+	return c
+
+
 ## A stage surface laid in world space: the tile `tile_name` (grass, wood, sand, roof, steel...) in colour `c`, one repeat every `size`
 ## world units.
 static func world(tile_name: String, c: Color, size: float, outline := true) -> ShaderMaterial:
