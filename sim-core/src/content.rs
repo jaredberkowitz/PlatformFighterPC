@@ -238,8 +238,48 @@ pub struct FighterParams {
     /// The midair jump's sideways speed in percent of the stick times the air speed (owner decision 59, sim 95: the reference's per-body
     /// `jump_aerial_speed_x_mul`); 100 (the default) is the shared rule.
     pub air_jump_drift: u8,
+    /// The frames on which the body lets go of an item it throws (E4, sim 111; see [`ItemThrows`]).
+    pub item_throws: ItemThrows,
     /// Index into `Content::weapons`.
     pub weapon: u8,
+}
+
+/// The frame of each item throw on which the item leaves the hand (E4, sim 111; the reference's per-body release frames, ssbwiki.com
+/// `Item_throw`, 13.0.1): forward, back, up and down throws (smash throws alike, on the ground or in the air), the dash throw and the
+/// grounded drop. Frame 1 is the throw's first. The lengths are every body's alike (the ruleset's `item_*_frames`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemThrows {
+    pub forward: u8,
+    pub back: u8,
+    pub up: u8,
+    pub down: u8,
+    pub dash: u8,
+    pub drop: u8,
+}
+
+impl ItemThrows {
+    /// The reference's most common release frames (8, 11, 12, 7, 5, 6, shared by the reference characters behind the tumbler, sprinter, champion and brawler [R]): every body
+    /// without its own.
+    pub const STANDARD: ItemThrows = ItemThrows {
+        forward: 8,
+        back: 11,
+        up: 12,
+        down: 7,
+        dash: 5,
+        drop: 6,
+    };
+
+    /// The frames by name, in file order.
+    pub fn frames(&self) -> [(&'static str, u8); 6] {
+        [
+            ("forward", self.forward),
+            ("back", self.back),
+            ("up", self.up),
+            ("down", self.down),
+            ("dash", self.dash),
+            ("drop", self.drop),
+        ]
+    }
 }
 
 /// A passive shield (E14, the reference's): while the fighter is standing (`Idle`), walking or crouching on the ground, a projectile
@@ -636,6 +676,7 @@ impl FighterParams {
             air_jump_turns: false,
             passive_shield: None,
             air_jump_drift: 100,
+            item_throws: ItemThrows::STANDARD,
             walk_speed: gu(1400),
             run_speed: gu(1800),
             dash_speed: gu(2200),
@@ -802,6 +843,15 @@ impl FighterParams {
             // No wall jump; the reference's wall-tech jump (dragdown, the parameter file): 1.3 away, 2.4 up.
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2400),
+            // Item throws let go on 10, 14, 15, 8, 6, 7 (the reference character's: ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 10,
+                back: 14,
+                up: 15,
+                down: 8,
+                dash: 6,
+                drop: 7,
+            },
             ..FighterParams::base()
         }
     }
@@ -923,6 +973,15 @@ impl FighterParams {
             wall_jump: 1,
             wall_jump_vx: su(1400),
             wall_jump_vy: su(2800),
+            // Item throws let go on 8, 11, 11, 8, 6, 6 (the reference character's (its grounded up and down: 11, 8): ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 8,
+                back: 11,
+                up: 11,
+                down: 8,
+                dash: 6,
+                drop: 6,
+            },
             ..FighterParams::base()
         }
     }
@@ -1117,6 +1176,15 @@ impl FighterParams {
             // centred 10 up [E].
             ecb_height: r(13, 5),
             ecb_side_height: r(13, 10),
+            // Item throws let go on 7, 9, 11, 6, 4, 5 (the reference character's: ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 7,
+                back: 9,
+                up: 11,
+                down: 6,
+                dash: 4,
+                drop: 5,
+            },
             ..FighterParams::base()
         }
     }
@@ -1274,6 +1342,15 @@ impl FighterParams {
             ecb_side_height: r(7, 5),
             // (It hangs a little further out from the wall, as its body is wider [E].)
             ledge_hang_dx: r(11, 10),
+            // Item throws let go on 10, 14, 15, 8, 6, 7 (the reference character's: ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 10,
+                back: 14,
+                up: 15,
+                down: 8,
+                dash: 6,
+                drop: 7,
+            },
             ..FighterParams::base()
         }
     }
@@ -1348,6 +1425,15 @@ impl FighterParams {
             air_jump_turns: true,
             // The double jump's sideways speed x1.2 (the parameter file's `jump_aerial_speed_x_mul`, dragdown.wiki) [R].
             air_jump_drift: 120,
+            // Item throws let go on 8, 7, 8, 7, 7, 6 (the reference character's (its grounded down: 7): ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 8,
+                back: 7,
+                up: 8,
+                down: 7,
+                dash: 7,
+                drop: 6,
+            },
             ..FighterParams::base()
         }
     }
@@ -1427,6 +1513,15 @@ impl FighterParams {
             wall_jump_vx: su(1300),
             wall_jump_vy: su(2600),
             passive_shield: Some(Self::wanderer_shield()),
+            // Item throws let go on 7, 9, 11, 6, 4, 5 (ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 7,
+                back: 9,
+                up: 11,
+                down: 6,
+                dash: 4,
+                drop: 5,
+            },
             ..FighterParams::base()
         }
     }
@@ -1479,6 +1574,9 @@ impl StateHash for FighterParams {
             None => h.write_bool(false),
         }
         h.write_u8(self.air_jump_drift);
+        for (_, v) in self.item_throws.frames() {
+            h.write_u8(v);
+        }
     }
 }
 
@@ -1805,6 +1903,40 @@ pub struct Ruleset {
     pub bury_break_kb: Fx,
     pub bury_exit_lag: u8,
     pub bury_depth: Fx,
+    /// Items (E4, sim 111; the reference's universal item rules, ssbwiki.com `Item_throw`, 13.0.1). Picking an item up from the ground
+    /// takes `item_pick_frames` frames, the item in hand from the first [E: not published]. The throws last `item_side_frames` (forward
+    /// and back, smash or not, 24), `item_up_frames` (23), `item_down_frames` (19), `item_dash_frames` (the dash throw, 29) and
+    /// `item_drop_frames` (the grounded drop, 23) [R: the 13.0.1 rule, every fighter alike], the item leaving on the body's
+    /// `FighterParams::item_throws` frame. Speeds (world units a frame, the reference's over 8) and angles (degrees above forward): the
+    /// forward and back throws `item_side_speed` (2.6) at `item_side_angle` (17), smash `item_side_smash` (3.64) at
+    /// `item_side_smash_angle` (11); up `item_up_speed` / `item_up_smash` (3.1 / 4.1) straight up; down `item_down_speed` /
+    /// `item_down_smash` (3.3 / 4.62) straight down; the dash throw `item_dash_speed` (3.4) at `item_dash_angle` (12); the grounded drop
+    /// `item_drop_speed` (2.1) at `item_drop_angle` (100: up and a little behind) [R]. Reach to pick up: `item_reach_front` ahead of the
+    /// feet (13.5), `item_reach_back` behind (6.79) and `item_reach_up` up (12.75) [R: the wanderer's reference values, used for every
+    /// body: E]. A held item sits `item_hand_x` ahead of the feet and `item_hand_y` up [E: presentation only].
+    pub item_pick_frames: u8,
+    pub item_side_frames: u8,
+    pub item_up_frames: u8,
+    pub item_down_frames: u8,
+    pub item_dash_frames: u8,
+    pub item_drop_frames: u8,
+    pub item_side_speed: Fx,
+    pub item_side_smash: Fx,
+    pub item_side_angle: i16,
+    pub item_side_smash_angle: i16,
+    pub item_up_speed: Fx,
+    pub item_up_smash: Fx,
+    pub item_down_speed: Fx,
+    pub item_down_smash: Fx,
+    pub item_dash_speed: Fx,
+    pub item_dash_angle: i16,
+    pub item_drop_speed: Fx,
+    pub item_drop_angle: i16,
+    pub item_reach_front: Fx,
+    pub item_reach_back: Fx,
+    pub item_reach_up: Fx,
+    pub item_hand_x: Fx,
+    pub item_hand_y: Fx,
 }
 
 impl Ruleset {
@@ -1925,6 +2057,29 @@ impl Ruleset {
             bury_break_kb: Fx::from_int(90),
             bury_exit_lag: 12,
             bury_depth: Fx::from_ratio(1, 2),
+            item_pick_frames: 8,
+            item_side_frames: 24,
+            item_up_frames: 23,
+            item_down_frames: 19,
+            item_dash_frames: 29,
+            item_drop_frames: 23,
+            item_side_speed: Fx::from_ratio(26, 80),
+            item_side_smash: Fx::from_ratio(364, 800),
+            item_side_angle: 17,
+            item_side_smash_angle: 11,
+            item_up_speed: Fx::from_ratio(31, 80),
+            item_up_smash: Fx::from_ratio(41, 80),
+            item_down_speed: Fx::from_ratio(33, 80),
+            item_down_smash: Fx::from_ratio(462, 800),
+            item_dash_speed: Fx::from_ratio(34, 80),
+            item_dash_angle: 12,
+            item_drop_speed: Fx::from_ratio(21, 80),
+            item_drop_angle: 100,
+            item_reach_front: Fx::from_ratio(135, 80),
+            item_reach_back: Fx::from_ratio(95, 112),
+            item_reach_up: Fx::from_ratio(1275, 800),
+            item_hand_x: Fx::from_ratio(1, 2),
+            item_hand_y: Fx::from_ratio(9, 10),
         }
     }
 }
@@ -2046,6 +2201,29 @@ impl StateHash for Ruleset {
         self.bury_break_kb.hash_into(h);
         h.write_u8(self.bury_exit_lag);
         self.bury_depth.hash_into(h);
+        h.write_u8(self.item_pick_frames);
+        h.write_u8(self.item_side_frames);
+        h.write_u8(self.item_up_frames);
+        h.write_u8(self.item_down_frames);
+        h.write_u8(self.item_dash_frames);
+        h.write_u8(self.item_drop_frames);
+        self.item_side_speed.hash_into(h);
+        self.item_side_smash.hash_into(h);
+        h.write_u16(self.item_side_angle as u16);
+        h.write_u16(self.item_side_smash_angle as u16);
+        self.item_up_speed.hash_into(h);
+        self.item_up_smash.hash_into(h);
+        self.item_down_speed.hash_into(h);
+        self.item_down_smash.hash_into(h);
+        self.item_dash_speed.hash_into(h);
+        h.write_u16(self.item_dash_angle as u16);
+        self.item_drop_speed.hash_into(h);
+        h.write_u16(self.item_drop_angle as u16);
+        self.item_reach_front.hash_into(h);
+        self.item_reach_back.hash_into(h);
+        self.item_reach_up.hash_into(h);
+        self.item_hand_x.hash_into(h);
+        self.item_hand_y.hash_into(h);
     }
 }
 

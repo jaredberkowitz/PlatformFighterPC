@@ -130,11 +130,15 @@ fn every_normal_has_the_references_frame_data() {
     let jab2 = w.get(MoveId::Jab2 as u8);
     assert_eq!((jab2.next, jab2.next_from), (Some(MoveId::Jab3 as u8), 7));
     assert_eq!(w.get(MoveId::Jab3 as u8).next, None);
-    // The forward smash's second hit keeps the first's charge (E36), and the bow's release the draw's (phase 2); nothing else does.
+    // The forward smash's second hit keeps the first's charge (E36), and the bow's releases the draw's (phase 2; the double arrow's two
+    // parts in phase 3); nothing else does.
+    use sim_core::moves::buckler_slots::{DOUBLE_FIRE, DOUBLE_SECOND};
     for (i, m) in w.moves.iter().enumerate() {
         assert_eq!(
             m.keep_charge,
-            i == FSMASH_2 as usize || i == BOW_FIRE as usize,
+            [FSMASH_2, BOW_FIRE, DOUBLE_FIRE, DOUBLE_SECOND]
+                .iter()
+                .any(|s| i == *s as usize),
             "slot {i}"
         );
     }
@@ -1466,13 +1470,9 @@ fn the_buckler_is_registered_as_class_9() {
     assert_eq!(c.fighters[9], FighterParams::wanderer());
     assert_eq!(c.weapons[9], sim_core::moves::buckler());
     assert!(!c.weapons[9].limbs, "a held sword");
-    // The down special is still the claws' placeholder (phase 3); the neutral and side specials are the bow and the boomerang (phase
-    // 2), the up special the spin.
-    assert_eq!(
-        c.weapons[9].moves[MoveId::DownSpecial as usize],
-        c.weapons[1].moves[MoveId::DownSpecial as usize]
-    );
-    for id in [MoveId::NSpecial, MoveId::SideSpecial] {
+    // The neutral and side specials are the bow and the boomerang (phase 2), the down special the bomb (phase 3), the up special the
+    // spin: none is the claws' placeholder any more.
+    for id in [MoveId::NSpecial, MoveId::SideSpecial, MoveId::DownSpecial] {
         assert_ne!(
             c.weapons[9].moves[id as usize], c.weapons[1].moves[id as usize],
             "{id:?}"
@@ -1482,7 +1482,7 @@ fn the_buckler_is_registered_as_class_9() {
         c.weapons[9].moves[MoveId::UpSpecial as usize],
         c.weapons[1].moves[MoveId::UpSpecial as usize]
     );
-    // Only the eight follow-up slots are used.
+    // Only the eleven follow-up slots are used.
     for i in 0..MoveId::COUNT as u8 {
         let id = MoveId::from_index(i);
         if id.is_ext() {
@@ -1495,6 +1495,9 @@ fn the_buckler_is_registered_as_class_9() {
                 BOOMERANG_FAR,
                 BOOMERANG_FAILED,
                 BOOMERANG_CATCH,
+                sim_core::moves::buckler_slots::BOMB_DETONATE,
+                sim_core::moves::buckler_slots::DOUBLE_FIRE,
+                sim_core::moves::buckler_slots::DOUBLE_SECOND,
             ]
             .contains(&id);
             assert_eq!(

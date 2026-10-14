@@ -29,7 +29,7 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 7;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
@@ -41,7 +41,15 @@ pub const MIGRATIONS: &[Migration] = &[
     (3, fighters_get_wall_jumps),
     (4, weapons_get_sixteen_ext_slots),
     (5, fighters_get_gauges),
+    (6, weapons_get_items),
 ];
+
+/// Schema 6 to 7 (sim v111, E4, owner decision 64): weapons may make items (`item { ... }` blocks), moves pull and spend them
+/// (`pull_frame` / `pull_item`, `spend_item`), a projectile may lodge as one (`lodge_item`) and scale its charged damage (`times`),
+/// fighters have their item throws' release frames (`item_throws { ... }`, the standard 8 / 11 / 12 / 7 / 5 / 6 when absent) and the
+/// ruleset the universal item rules (`item_*`, the standard values when absent). An older file has no items, so nothing in it can
+/// make one: nothing to rewrite. The bump makes an older build refuse a file with items clearly.
+fn weapons_get_items(_root: &mut Block) {}
 
 /// Schema 5 to 6 (sim v85): a fighter may have a gauge and its powered mode (a `gauge { ... }` block, `sim_core::content::Gauge`), and
 /// a move its powered version and the gauge rules (`limit_version`, `gauge_drain`) and three more rules (`start_speed_y`,

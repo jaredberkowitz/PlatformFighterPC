@@ -17,6 +17,7 @@ pub mod gauge;
 pub mod grab;
 pub mod hash;
 pub mod input;
+pub mod items;
 pub mod moves;
 pub mod push;
 pub mod rng;
@@ -30,12 +31,12 @@ pub use content::{Content, FighterParams, Stage};
 pub use fixed::Fx;
 pub use input::Input;
 pub use rng::Rng;
-pub use state::{Fighter, GameState, MatchRules, Projectile};
+pub use state::{Fighter, GameState, Item, MatchRules, Projectile};
 pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 110;
+pub const SIM_VERSION: u16 = 111;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;
 /// Persistent script variables each fighter and each projectile carries (see `sim-script`).

@@ -763,14 +763,14 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
 /// Where an open counter catches: on the body's hurtboxes (a counter without a bubble), or on its bubble, a standing capsule
 /// (centre, half height, radius) in world space.
 #[derive(Clone, Copy)]
-enum CatchArea {
+pub(crate) enum CatchArea {
     Body,
     Bubble(Vec2, Fx, Fx),
 }
 
 /// If `f` is in a counter stance whose window is open for a hit of this kind (`melee`, or a projectile's), where it catches. Such a
 /// hit reaches the counter even while the stance is intangible (the reference's counters catch through their own intangibility).
-fn counter_open(content: &Content, f: &Fighter, melee: bool) -> Option<CatchArea> {
+pub(crate) fn counter_open(content: &Content, f: &Fighter, melee: bool) -> Option<CatchArea> {
     if !f.active || f.state != S::Attack {
         return None;
     }
@@ -798,7 +798,7 @@ fn counter_open(content: &Content, f: &Fighter, melee: bool) -> Option<CatchArea
 /// Whether hit `hb` at `center` reaches a fighter (`hurt` and `shut` its hurtboxes, `counter` its open counter if any), and whether
 /// the counter catches it. A hit touching the bubble (or, for a counter without one, the body) is caught; a push never is (the
 /// reference's counters ignore windboxes) and, like any hit the counter does not catch, needs a tangible body to land.
-fn reach(
+pub(crate) fn reach(
     counter: Option<CatchArea>,
     intangible: bool,
     hb: &Hitbox,
@@ -875,7 +875,7 @@ fn catch_with_counter(
 /// that hit, for stale-move negation. `link` is where the hitbox was and how fast its owner was moving (for an autolink angle).
 /// `caught`: the hit reached the defender's open counter (see [`reach`]), which takes it instead.
 #[allow(clippy::too_many_arguments)]
-fn apply_hit(
+pub(crate) fn apply_hit(
     state: &mut GameState,
     content: &Content,
     source: usize,
@@ -1369,7 +1369,7 @@ fn shield_pushback(stun: i32) -> Fx {
 /// Whether fighter `fd`'s passive shield (E14, `FighterParams::passive_shield`) stops a projectile box at `at` (`half` and `radius`
 /// already scaled) moving at `vel`: the fighter stands, walks or crouches on the ground, the shot is in front of it and not moving
 /// away from its front, and the box touches the shield's capsule.
-fn passive_shield_blocks(
+pub(crate) fn passive_shield_blocks(
     fd: &Fighter,
     pd: &FighterParams,
     at: Vec2,
@@ -1379,7 +1379,8 @@ fn passive_shield_blocks(
     let Some(sh) = pd.passive_shield else {
         return false;
     };
-    if !fd.grounded() || !matches!(fd.state, S::Idle | S::Walk | S::Crouch) {
+    // (Holding an item turns it off: the reference moves the shield to the back, E4.)
+    if !fd.grounded() || !matches!(fd.state, S::Idle | S::Walk | S::Crouch) || fd.holding != NONE {
         return false;
     }
     let facing = i32::from(fd.facing);
@@ -1409,7 +1410,7 @@ fn passive_shield_blocks(
 /// A projectile's hit stopped by a passive shield (E14): no damage or launch; the fighter freezes for the hit's hitlag on a shield
 /// (with shield SDI, `Fighter::shield_sdi`) and is pushed back, away from its front, as a raised shield would be by the hit (no shield
 /// damage, no shield stun) [E: the reference's push is "dependent on the damage and knockback", its formula unpublished].
-fn passive_block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox) {
+pub(crate) fn passive_block(def: &mut Fighter, rules: &Ruleset, hb: &Hitbox) {
     let scale = Fx::from_ratio(i32::from(hb.hitlag), 100).max(Fx::ONE);
     def.hitlag = hitlag_frames(hb.damage, rules, true, false, scale);
     def.sdi_wait = 0;
@@ -1583,6 +1584,15 @@ fn add_projectile(
         if c.floor {
             damage = Fx::from_int(damage.floor_int());
         }
+        // (A share of that damage, rounded down again with `floor`: the double arrow's x0.8, sim 111.)
+        // (Worked in whole numbers when floored: 0.8 is not exact in fixed point, and 5 x 0.8 must give 4.)
+        if c.times != 100 {
+            damage = if c.floor {
+                Fx::from_int(damage.floor_int() * i32::from(c.times) / 100)
+            } else {
+                damage * Fx::from_ratio(i32::from(c.times), 100)
+            };
+        }
     }
     if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
         *slot = Projectile {
@@ -1691,6 +1701,20 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         // A lodging projectile (E3b) sticks where it meets a platform top or a solid wall, at a steep enough angle (else it is gone).
         if arc.lodge > 0 && arc.bounces == 0 && burst.is_none() && !outside && age < pr.life {
             if let Some((at, angle_ok)) = lodge_point(stage, pr.pos, pos, pr.vel, arc.lodge_angle) {
+                // (A shot that lodges as an item, E4, becomes the item there: the reference's arrows anyone can pick up.)
+                if let (true, Some(spec)) = (angle_ok, arc.lodge_item) {
+                    state.projectiles[n].active = false;
+                    if let Some(i) =
+                        crate::items::make(state, content, origin, spec, at, pr.move_id)
+                    {
+                        let item = &mut state.items[i];
+                        item.rest = crate::state::ITEM_LODGED;
+                        item.life = u16::from(arc.lodge);
+                        item.owner = pr.owner;
+                        item.facing = pr.facing;
+                    }
+                    continue;
+                }
                 let p = &mut state.projectiles[n];
                 if angle_ok {
                     p.rest = REST_LODGED;
@@ -1918,10 +1942,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
 
 /// A projectile's shape for touching things: a rounded rectangle (`shapes_touch`), already scaled.
 #[derive(Clone, Copy)]
-struct Shape {
-    half_w: Fx,
-    half_h: Fx,
-    radius: Fx,
+pub(crate) struct Shape {
+    pub(crate) half_w: Fx,
+    pub(crate) half_h: Fx,
+    pub(crate) radius: Fx,
 }
 
 /// `v` slowed by `drag` along its own direction, down to a stop (E35).
@@ -2137,7 +2161,16 @@ fn reflector_touching(
 /// radius `r` (a standing capsule when `w` is 0, a lying one when `h` is 0, a circle when both are). Their nearest points are the
 /// gaps between the cores' spans on each axis (0 where they overlap): exact for these shapes.
 #[allow(clippy::too_many_arguments)]
-fn shapes_touch(c1: Vec2, w1: Fx, h1: Fx, r1: Fx, c2: Vec2, w2: Fx, h2: Fx, r2: Fx) -> bool {
+pub(crate) fn shapes_touch(
+    c1: Vec2,
+    w1: Fx,
+    h1: Fx,
+    r1: Fx,
+    c2: Vec2,
+    w2: Fx,
+    h2: Fx,
+    r2: Fx,
+) -> bool {
     let dx = ((c1.x - c2.x).abs() - w1 - w2).max(Fx::ZERO);
     let dy = ((c1.y - c2.y).abs() - h1 - h2).max(Fx::ZERO);
     let gap = Vec2::new(dx, dy);
@@ -2220,6 +2253,8 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
         let p = state.fighters[i].pos;
         if p.x < s.blast_left || p.x > s.blast_right || p.y < s.blast_bottom || p.y > s.blast_top {
             grab::drop_grab(state, content, i);
+            // (An item in the hand is let go where the fighter left: E4.)
+            crate::items::let_go(state, content, i);
             let counted = state.rules.stocks > 0;
             let f = &mut state.fighters[i];
             respawn(f, content, i, counted);

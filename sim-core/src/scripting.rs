@@ -61,6 +61,10 @@ pub struct World<'a> {
     pub projectiles: &'a [Projectile],
     /// For each fighter in an egg (E8), the numbers of the egg (`combat::encase_of`), read as the frame began.
     pub encase: [Option<crate::moves::Encase>; MAX_FIGHTERS],
+    /// Every item as the frame began (E4: `holding`, and the items `owned` counts).
+    pub items: &'a [crate::state::Item],
+    /// For each fighter, whether an item lay in its reach as the frame began (an attack or grab press picks it up).
+    pub pickable: [bool; MAX_FIGHTERS],
 }
 
 /// How many live projectiles fighter `me` fired (reflected or not) of tool kind `kind` (`moves::Tool::kind`), or, with kind 0, of
@@ -165,13 +169,16 @@ impl Host for FighterHost<'_> {
             api::R_GRAB => flag(f.held(buttons::GRAB)),
             api::R_AIM => Fx::from_int(i32::from(f.aim)).raw(),
             api::R_FAST_FALL => flag(f.fast_fall),
-            api::R_OWNED => Fx::from_int(i32::from(owned(
-                self.world.projectiles,
-                self.world.me,
-                self.kind,
-                f.move_id,
-            )))
+            // (Its projectiles, and since sim 111 its items of the move's kind: E4.)
+            api::R_OWNED => Fx::from_int(i32::from(
+                owned(self.world.projectiles, self.world.me, self.kind, f.move_id).saturating_add(
+                    crate::items::owned(self.world.items, self.world.me, self.kind),
+                ),
+            ))
             .raw(),
+            api::R_HOLDING => {
+                Fx::from_int(i32::from(crate::items::held_kind(self.world.items, f))).raw()
+            }
             _ => 0,
         }
     }
@@ -247,6 +254,7 @@ impl Host for FighterHost<'_> {
             api::F_LOCK => return flag(self.lock(arg(0))),
             api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),
             api::F_SET_CHARGE => self.f.charge = arg(0).floor_int().clamp(0, 255) as u8,
+            api::F_DETONATE => self.f.item_order |= crate::items::ORDER_DETONATE,
             api::F_GOTO => {
                 let last = MoveId::COUNT as i32 - 1;
                 self.effects.goto = Some(arg(0).floor_int().clamp(0, last) as u8);

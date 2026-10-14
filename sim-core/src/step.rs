@@ -71,6 +71,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     for (b, f) in before.iter_mut().zip(state.fighters.iter()) {
         *b = f.pos.x;
     }
+    // Which fighters have an item in reach as the frame begins (E4: an attack or grab press picks it up).
+    let pickable = crate::items::pickable(state, content);
     // What move scripts see of the others this frame (a target lock): every chest, and which fighters can be targeted.
     let mut world = crate::scripting::World {
         stage,
@@ -79,6 +81,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         me: 0,
         projectiles: &state.projectiles,
         encase: [None; MAX_FIGHTERS],
+        items: &state.items,
+        pickable,
     };
     for (i, f) in state.fighters.iter().enumerate() {
         let height = combat::chest_height(params_of(content, f));
@@ -110,6 +114,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     // Existing projectiles move first, so a new one stays at the muzzle on the frame it appears.
     combat::update_projectiles(state, content);
     combat::spawn_projectiles(state, content);
+    // Items last (E4): the fighters' orders (pick up, throw, pull, detonate), their flight, hits and bursts.
+    crate::items::update(state, content);
 
     // Phase 2: ledge ownership.
     // Free ledges whose occupant left them (dropped, got up, jumped, or was hit).
@@ -251,6 +257,14 @@ mod tests {
                     if on_ledge {
                         assert_eq!(s.ledge_owner[f.ledge as usize], n as i8);
                     }
+                    // A hand and its item always agree (E4).
+                    if let Ok(h) = usize::try_from(f.holding) {
+                        let it = &s.items[h];
+                        assert!(
+                            it.active && it.holder == n as i8,
+                            "seed {seed} fighter {n}: holding a stray item"
+                        );
+                    }
                     let grounded_state = matches!(
                         f.state,
                         FighterState::Idle
@@ -273,6 +287,7 @@ mod tests {
                             | FighterState::GetUp
                             | FighterState::LedgeGetUp
                             | FighterState::LedgeAttack
+                            | FighterState::ItemPickup
                     );
                     // Attacks and hitstun can happen on the ground or in the air, and so can being held by a command grab (the
                     // holder in its catch move).

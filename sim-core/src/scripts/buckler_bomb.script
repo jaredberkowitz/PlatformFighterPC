@@ -1,0 +1,8 @@
+// Buckler down special (the bomb). With one of the wanderer's bombs out (in his hand, lying, flying or held by someone else: `owned`
+// counts the bombs he made), the press is the detonation: every one no other fighter holds bursts 12 frames later (`detonate()`), and
+// the move goes on as the detonation (36 = ext8). Otherwise it is the pull: the bomb appears in the hand on move frame 16 (the move's
+// `pull`), unless the hand already holds an item.
+if frame == 0 && owned > 0 {
+    detonate();
+    goto(36);
+}

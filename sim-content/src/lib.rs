@@ -72,12 +72,73 @@ pub fn validate(content: &Content) -> Result<(), Vec<String>> {
         validate_weapon(i, w, &mut errors);
     }
     validate_stage(&content.stage, &mut errors);
+    validate_item_rules(&content.rules, &content.fighters, &mut errors);
     validate_look(&content.look, &mut errors);
 
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// The ruleset's item rules (E4, sim 111): every length at least 1 and every body's release frame inside its throw, the speeds and
+/// the reach not negative, the angles within a turn.
+fn validate_item_rules(
+    r: &sim_core::content::Ruleset,
+    fighters: &[FighterParams],
+    errors: &mut Vec<String>,
+) {
+    let lengths = [
+        r.item_pick_frames,
+        r.item_side_frames,
+        r.item_up_frames,
+        r.item_down_frames,
+        r.item_dash_frames,
+        r.item_drop_frames,
+    ];
+    if lengths.contains(&0) {
+        errors.push("ruleset: the item actions' lengths must be at least 1".to_string());
+    }
+    let values = [
+        r.item_side_speed,
+        r.item_side_smash,
+        r.item_up_speed,
+        r.item_up_smash,
+        r.item_down_speed,
+        r.item_down_smash,
+        r.item_dash_speed,
+        r.item_drop_speed,
+        r.item_reach_front,
+        r.item_reach_back,
+        r.item_reach_up,
+    ];
+    if values.iter().any(|v| *v < Fx::ZERO || *v > MAX_VALUE) {
+        errors
+            .push("ruleset: the item speeds and reach cannot be negative or too large".to_string());
+    }
+    let angles = [
+        r.item_side_angle,
+        r.item_side_smash_angle,
+        r.item_dash_angle,
+        r.item_drop_angle,
+    ];
+    if angles.iter().any(|a| !(-180..=180).contains(a)) {
+        errors.push("ruleset: the item throw angles must be from -180 to 180".to_string());
+    }
+    for (i, f) in fighters.iter().enumerate() {
+        let t = &f.item_throws;
+        let late = t.forward > r.item_side_frames
+            || t.back > r.item_side_frames
+            || t.up > r.item_up_frames
+            || t.down > r.item_down_frames
+            || t.dash > r.item_dash_frames
+            || t.drop > r.item_drop_frames;
+        if late {
+            errors.push(format!(
+                "fighter {i}: an item throw lets go after the ruleset's length for it"
+            ));
+        }
     }
 }
 
@@ -222,6 +283,16 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             }
         }
     }
+    // Sim 111 (E4): the item throws' release frames.
+    if f.item_throws
+        .frames()
+        .iter()
+        .any(|(_, v)| *v == 0 || *v > 60)
+    {
+        errors.push(format!(
+            "fighter {i}: the item throws' release frames must be from 1 to 60"
+        ));
+    }
     if let Some(s) = &f.passive_shield {
         if s.radius <= Fx::ZERO || s.half_height < Fx::ZERO {
             errors.push(format!(
@@ -269,7 +340,58 @@ pub(crate) fn full_hop_height(f: &FighterParams) -> Fx {
         + f.hop_burst_velocity.mul_int(i32::from(f.hop_burst_frames))
 }
 
+/// The most items one weapon may make (E4, sim 111).
+const MAX_ITEM_SPECS: usize = 8;
+
+/// An item's numbers (E4, sim 111; see `sim_core::moves::ItemSpec`).
+fn validate_item(i: usize, n: usize, it: &sim_core::moves::ItemSpec, errors: &mut Vec<String>) {
+    let mut copy = *it;
+    let negative = copy
+        .fx_fields_mut()
+        .iter()
+        .any(|(_, v)| **v < Fx::ZERO || **v > MAX_VALUE);
+    if negative {
+        errors.push(format!(
+            "weapon {i} item {n}: its values cannot be negative or above {}",
+            MAX_VALUE.floor_int()
+        ));
+    }
+    let keeps_ok = copy.u8_fields_mut().iter().all(|(_, v)| **v <= 200);
+    let ordered = it.bounce_x.0 <= it.bounce_x.1
+        && it.bounce_y.0 <= it.bounce_y.1
+        && it.knock_speed.0 <= it.knock_speed.1
+        && it.knock_damage.0 <= it.knock_damage.1;
+    let ok = it.kind > 0
+        && keeps_ok
+        && ordered
+        && it.pick_width > Fx::ZERO
+        && it.pick_height > Fx::ZERO
+        && it.throw_mul > Fx::ZERO
+        && it.hit.radius > Fx::ZERO
+        && (it.gravity == Fx::ZERO || it.max_fall > Fx::ZERO)
+        && (it.hp == Fx::ZERO || it.hurt_radius > Fx::ZERO);
+    if !ok {
+        errors.push(format!(
+            "weapon {i} item {n}: needs a kind from 1 to 255, a pick-up box, a throw_mul and a hit radius above 0, a max_fall with \
+             gravity, a hurt_radius with hp, percents of at most 200 and its ranges low to high"
+        ));
+    }
+    if let Some(b) = &it.blast {
+        if b.frames == 0 || b.hit.radius <= Fx::ZERO {
+            errors.push(format!(
+                "weapon {i} item {n}: a blast needs frames and a hit radius above 0"
+            ));
+        }
+    }
+}
+
 fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
+    if w.items.len() > MAX_ITEM_SPECS {
+        errors.push(format!("weapon {i}: at most {MAX_ITEM_SPECS} items"));
+    }
+    for (n, it) in w.items.iter().enumerate() {
+        validate_item(i, n, it, errors);
+    }
     if w.moves.len() != MoveId::COUNT {
         errors.push(format!(
             "weapon {i}: needs exactly {} moves, has {}",
@@ -489,11 +611,37 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                     ));
                 }
             }
+            // Sim 111 (E4): the charged share, and a lodge that makes an item.
+            if p.charged.is_some_and(|c| c.times == 0 || c.times > 100) {
+                errors.push(format!(
+                    "weapon {i} {name}: a charged projectile's times is a percent from 1 to 100"
+                ));
+            }
+            if let Some(item) = p.arc.lodge_item {
+                if usize::from(item) >= w.items.len() || p.arc.lodge == 0 || p.arc.bounces > 0 {
+                    errors.push(format!(
+                        "weapon {i} {name}: a projectile's lodge_item must be one of the weapon's items, with a lodge and no bounces"
+                    ));
+                }
+            }
             if p.tool.catch_move.is_some() && p.tool.catch_from == 255 {
                 errors.push(format!(
                     "weapon {i} {name}: a projectile's catch_move needs a catch_from age"
                 ));
             }
+        }
+        // Sim 111 (E4): an item made in the hand and an item used up, inside the move.
+        if let Some((frame, item)) = mv.pull {
+            if usize::from(item) >= w.items.len() || frame >= mv.total_frames {
+                errors.push(format!(
+                    "weapon {i} {name}: pull_item must be one of the weapon's items and pull_frame inside the move"
+                ));
+            }
+        }
+        if mv.spend_item != 255 && mv.spend_item >= mv.total_frames {
+            errors.push(format!(
+                "weapon {i} {name}: spend_item must be a frame inside the move (or 255 for none)"
+            ));
         }
         if mv.projectile_script.is_some() && mv.projectile.is_none() {
             errors.push(format!(

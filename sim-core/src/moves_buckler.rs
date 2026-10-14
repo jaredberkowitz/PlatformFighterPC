@@ -963,6 +963,17 @@ pub const BOOMERANG_FAR: MoveId = MoveId::Ext5;
 pub const BOOMERANG_FAILED: MoveId = MoveId::Ext6;
 /// Catching the boomerang as it comes back.
 pub const BOOMERANG_CATCH: MoveId = MoveId::Ext7;
+/// The bomb's detonation (the down special again with a bomb out).
+pub const BOMB_DETONATE: MoveId = MoveId::Ext8;
+/// The double arrow (the bow released with an arrow in hand): the first arrow and its first three frames, then the second arrow and the
+/// rest.
+pub const DOUBLE_FIRE: MoveId = MoveId::Ext9;
+pub const DOUBLE_SECOND: MoveId = MoveId::Ext10;
+/// The weapon's items (E4): the bomb and the arrow, by their place in `Weapon::items`, and their kinds (what `holding` reads).
+pub const BOMB_ITEM: u8 = 0;
+pub const ARROW_ITEM: u8 = 1;
+pub const BOMB_KIND: u8 = 2;
+pub const ARROW_KIND: u8 = 3;
 
 /// A reference speed (thousandths of its units a frame) in world units a frame (/8) [D].
 fn rs(thousandths: i32) -> Fx {
@@ -976,11 +987,174 @@ fn shot_hit(radius: i32, damage: i32, angle: i16, bkb: i16, kbg: i16, angle_type
     h
 }
 
-/// Phase 2: the bow, the boomerang and the sword wave.
+/// Phase 2: the bow, the boomerang and the sword wave; phase 3: the bomb and the items (E4).
 fn tools(w: &mut Weapon) {
+    w.items = vec![bomb_item(), arrow_item()];
     bow(w);
+    double_arrow(w);
     boomerang(w);
     sword_wave(w);
+    bomb(w);
+}
+
+/// The bomb as an item (E4; `REFERENCE_DATA.md` "Remote Bomb", 13.0.1) [R unless marked]: gravity 0.07, fall 2.3, friction 0.01 (on
+/// the ground; none in the air [E: one friction is published]), sideways speed at most 4; bounces off a floor keeping x0.9 / x0.7, a
+/// wall x0.7 / x0.6 and 1 up, a ceiling x0.9 / x0.6, only above 0.4, then held within 0.05-3 sideways and 0.1-2.3 up; a 2 x 2 box
+/// (half lengths), picked up within 4 x 4 [E: read as half lengths]; thrown at x0.6264 (the item's 0.72 x 0.87). Thrown it hits for
+/// 1% flat (no speed bonus), angle 361 by travel (type 1), BK 10, KS 100, radius 2.0 (→ 3 tenths), hitlag x0.6, and bounces off a
+/// fighter or a shield keeping x0.2 / x0.2 and 1 up. A 1800-frame fuse, 50 hp, a hurtbox of 4 (→ 0.5 [D]); knocked about at 1 to 3.2
+/// for 1% to 15% [R], frozen x0.5 [R]. Its blast (on a detonation, 12 frames later; at the end of the fuse; at 0 hp [E: gap 11]): 7%,
+/// angle 52 by position (type 0), BK 60, KS 115, radius 14.0 (→ 1.8 [D]), hitlag x0.8, never clanks, for 2 frames (the reference's
+/// 12-13), and it hits the wanderer too (the reference's self-damage).
+fn bomb_item() -> ItemSpec {
+    let mut hit = shot_hit(20, 10, 361, 10, 100, ANGLE_BY_TRAVEL);
+    hit.hitlag = 60;
+    let mut blast = shot_hit(140, 70, 52, 60, 115, ANGLE_BY_POSITION);
+    blast.hitlag = 80;
+    blast.clanks = false;
+    blast.rebounds = false;
+    ItemSpec {
+        kind: BOMB_KIND,
+        gravity: rs(70),
+        max_fall: rs(2300),
+        air_friction: Fx::ZERO,
+        friction: rs(10),
+        max_speed: rs(4000),
+        half_width: rs(2000),
+        half_height: rs(2000),
+        floor_keep: (90, 70),
+        wall_keep: (70, 60),
+        wall_lift: rs(1000),
+        ceiling_keep: (90, 60),
+        bounce_min: rs(400),
+        bounce_x: (rs(50), rs(3000)),
+        bounce_y: (rs(100), rs(2300)),
+        pick_width: rs(4000),
+        pick_height: rs(4000),
+        throw_mul: Fx::from_ratio(6264, 10000),
+        damage_per_speed: Fx::ZERO,
+        thrown_life: 0,
+        vanish: false,
+        fighter_keep: (20, 20),
+        fighter_lift: rs(1000),
+        life: 1800,
+        hp: Fx::from_int(50),
+        hurt_radius: rs(4000),
+        knock_speed: (rs(1000), rs(3200)),
+        knock_damage: (Fx::ONE, Fx::from_int(15)),
+        knock_hitlag: 50,
+        hit,
+        blast: Some(ItemBlast {
+            hit: blast,
+            frames: 2,
+            delay: 12,
+            hits_owner: true,
+        }),
+    }
+}
+
+/// A lodged arrow as an item (E4; `REFERENCE_DATA.md` "Bow and Arrows", 13.0.1) [R]: gravity 0.053, fall 2.3, friction 0.0025 in the
+/// air and 0.03 on the ground, a 3.5 x 3 box, picked up within 7 x 6 [E: read as half lengths], thrown at x1. Thrown it hits for 1 -
+/// 0.4 + 0.8 x its throw's speed (reference units; x6.4 in world units [D]), angle 361 forward (type 3), BK 10, KS 66, radius 1.35
+/// (→ 2 tenths), and is gone on a fighter, a shield, a surface or after 40 frames of flight. It cannot be knocked about (no hp). While
+/// it lies stuck it lasts its lodge time; picked up, it lasts until used.
+fn arrow_item() -> ItemSpec {
+    let mut hit = shot_hit(14, 6, 361, 10, 66, ANGLE_FORWARD);
+    hit.hitlag = 80;
+    ItemSpec {
+        kind: ARROW_KIND,
+        gravity: rs(53),
+        max_fall: rs(2300),
+        air_friction: Fx::from_ratio(25, 80_000),
+        friction: rs(30),
+        max_speed: Fx::ZERO,
+        half_width: rs(3500),
+        half_height: rs(3000),
+        floor_keep: (100, 100),
+        wall_keep: (100, 100),
+        wall_lift: Fx::ZERO,
+        ceiling_keep: (100, 100),
+        bounce_min: Fx::from_int(8),
+        bounce_x: (Fx::ZERO, Fx::from_int(8)),
+        bounce_y: (Fx::ZERO, Fx::from_int(8)),
+        pick_width: rs(7000),
+        pick_height: rs(6000),
+        throw_mul: Fx::ONE,
+        damage_per_speed: Fx::from_ratio(64, 10),
+        thrown_life: 40,
+        vanish: true,
+        fighter_keep: (100, 100),
+        fighter_lift: Fx::ZERO,
+        life: 0,
+        hp: Fx::ZERO,
+        hurt_radius: Fx::ZERO,
+        knock_speed: (Fx::ZERO, Fx::ZERO),
+        knock_damage: (Fx::ZERO, Fx::ZERO),
+        knock_hitlag: 100,
+        hit,
+        blast: None,
+    }
+}
+
+/// The bomb (the down special, 13.0.1; `REFERENCE_DATA.md` "Remote Bomb") [R]: pulled, it appears in the hand on frame 17 (move
+/// frame 16; none while an item is held), FAF 40. With one of his bombs out (held, lying or flying), the press detonates it instead
+/// (`buckler_bomb.script`: `detonate()` and the detonation move, FAF 40): it bursts 12 frames later, on the move's frames 12-13 [R
+/// reading], unless another fighter holds it. In the air the same frames with the body's air physics, landing carrying the move on
+/// [E: gap 10].
+fn bomb(w: &mut Weapon) {
+    let mut pull = ref_move(40, 0, 0, 255, &[]);
+    pull.land_continue = true;
+    pull.pull = Some((16, BOMB_ITEM));
+    pull.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/buckler_bomb.script"),
+    ));
+    w.moves[MoveId::DownSpecial as usize] = pull;
+    let mut detonate = ref_move(40, 0, 0, 255, &[]);
+    detonate.land_continue = true;
+    detonate.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/buckler_detonate.script"),
+    ));
+    w.moves[BOMB_DETONATE as usize] = detonate;
+}
+
+/// The double arrow (E4; `REFERENCE_DATA.md` "Bow and Arrows", conflict 8) [R]: the bow released with an arrow in hand fires two
+/// arrows, the second 3 frames after the first at x0.9 the speed and 2.3 degrees up; each deals floor(0.8 x the single arrow's damage)
+/// (6% to 18% for the pair), BK 25, KS 110; they lodge for 120 and 30 frames. The arrow in hand is used up (move frame 1 of the
+/// first part [E: when it leaves the hand is not published]). The release's FAF is the single one's (30 from the release) [E].
+fn double_arrow(w: &mut Weapon) {
+    let single = w.moves[BOW_FIRE as usize]
+        .projectile
+        .expect("the bow's shot is built first");
+    let mut hit = single.hitbox;
+    hit.base_knockback = 25;
+    hit.knockback_growth = 110;
+    let shot = |lodge: u8| ProjectileSpawn {
+        hitbox: hit,
+        end_damage: hit.damage,
+        arc: ProjectileArc {
+            lodge,
+            ..single.arc
+        },
+        charged: single.charged.map(|c| ChargedShot { times: 80, ..c }),
+        ..single
+    };
+    let mut first = ref_move(30, 0, 0, 255, &[]);
+    first.keep_charge = true;
+    first.land_continue = true;
+    first.spend_item = 1;
+    first.projectile = Some(shot(120));
+    first.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/buckler_double_arrow.script"),
+    ));
+    w.moves[DOUBLE_FIRE as usize] = first;
+    let mut second = ref_move(27, 0, 0, 255, &[]);
+    second.keep_charge = true;
+    second.land_continue = true;
+    second.projectile = Some(shot(30));
+    w.moves[DOUBLE_SECOND as usize] = second;
 }
 
 /// The bow (the neutral special, 13.0.1; `REFERENCE_DATA.md` "Bow and Arrows"). Frames 1-15 draw it; from frame 16 it holds while
@@ -1008,7 +1182,8 @@ fn bow(w: &mut Weapon) {
     let mut fire = ref_move(30, 0, 0, 255, &[]);
     fire.keep_charge = true;
     fire.land_continue = true;
-    let mut arrow = shot_hit(135, 40, 361, 10, 71, ANGLE_FORWARD);
+    // (Radius 1.35 reference units: 14 tenths → 2 world tenths [D]; sim 102 wrote 135, a radius of 1.7 world units, fixed in sim 111.)
+    let mut arrow = shot_hit(14, 40, 361, 10, 71, ANGLE_FORWARD);
     arrow.hitlag = 80;
     fire.projectile = Some(ProjectileSpawn {
         // (Only the draw's script fires it, on the release frame.)
@@ -1023,6 +1198,8 @@ fn bow(w: &mut Weapon) {
             gravity: rs(54),
             lodge: 180,
             lodge_angle: 9,
+            // (Lodged, it is an arrow item anyone can pick up: E4.)
+            lodge_item: Some(ARROW_ITEM),
             ..ProjectileArc::NONE
         },
         phases: [None; MAX_PHASES],
@@ -1038,6 +1215,7 @@ fn bow(w: &mut Weapon) {
             size_from: 100,
             size_to: 100,
             floor: true,
+            times: 100,
         }),
         tool: Tool::NONE,
     });
@@ -1188,6 +1366,7 @@ fn sword_wave(w: &mut Weapon) {
             size_from: 80,
             size_to: 110,
             floor: false,
+            times: 100,
         }),
         tool: Tool::NONE,
     });

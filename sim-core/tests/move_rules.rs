@@ -491,6 +491,7 @@ fn the_tool_fields_are_in_the_content_hash() {
                 size_from: 100,
                 size_to: 100,
                 floor: false,
+                times: 100,
             })
         },
     ] {

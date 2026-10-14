@@ -508,6 +508,9 @@ pub struct ChargedShot {
     pub size_from: u16,
     pub size_to: u16,
     pub floor: bool,
+    /// Sim 111: percent of that damage the shot deals (100: all), applied after the floor and rounded down again with `floor` (the
+    /// reference's double arrow: each arrow deals floor(0.8 x the single arrow's damage)).
+    pub times: u8,
 }
 
 impl ChargedShot {
@@ -704,6 +707,10 @@ pub struct ProjectileArc {
     pub drag: Fx,
     pub lodge: u8,
     pub lodge_angle: u8,
+    /// Sim 111 (E4): a lodged shot becomes this item of its weapon (an index into `Weapon::items`) instead of a lodged projectile: it
+    /// lies stuck where it lodged for `lodge` frames, and any fighter can pick it up (the reference's arrows). `None`: it stays a
+    /// lodged projectile.
+    pub lodge_item: Option<u8>,
 }
 
 impl ProjectileArc {
@@ -721,7 +728,223 @@ impl ProjectileArc {
         drag: Fx::ZERO,
         lodge: 0,
         lodge_angle: 0,
+        lodge_item: None,
     };
+}
+
+/// An item a weapon makes (E4, sim 111; the reference's held items: owner decision 64). Items are not projectiles: they can be held,
+/// thrown by anyone (owner decision 54), lie on the stage, be knocked about and burst. The numbers are world units (a reference value
+/// over 8) and frames.
+///
+/// * `kind` (1 to 255) is the number the `holding` and `owned` script registers read for it (shared with `Tool::kind`'s numbers).
+/// * Flight: `gravity` down to `max_fall`; `air_friction` slows its sideways speed in the air and `friction` on the ground; its
+///   sideways speed is held within `max_speed` (0: no limit). It is a box of `half_width` by `half_height` standing on its `pos`.
+/// * Bounces (the reference's): off a floor it keeps `floor_keep` (sideways, upward) percent, off a wall `wall_keep` and gains
+///   `wall_lift` upward, off a ceiling `ceiling_keep`; it only bounces when its speed into the surface is above `bounce_min` (else it
+///   stops against it, or lies on a floor); after a bounce its sideways speed is held within `bounce_x` and its vertical within
+///   `bounce_y` (low, high).
+/// * Picking up: a fighter's reach (the ruleset's `item_reach_*`) must overlap its pick-up box (`pick_width`, `pick_height`, half
+///   lengths around its middle).
+/// * Throwing: thrown at the ruleset's speed for the throw times the thrower's toss strength (`1 + (weight - 100) / 300`, the
+///   reference's) times `throw_mul`, the sideways part times `throw_mul` once more (the reference's); its `hit` is live from the
+///   throw until it lands, hits a fighter or a shield, or `thrown_life` frames pass (0: no limit). The hit deals `hit.damage +
+///   damage_per_speed x the throw's speed` (world units a frame, before `throw_mul`; a grounded drop halves the first part).
+///   `vanish` (the reference's arrow): it disappears on a fighter, a shield, a surface or the end of `thrown_life`; otherwise it bounces
+///   off a fighter or a shield keeping `fighter_keep` (sideways, back the other way; upward) percent and gaining `fighter_lift`.
+/// * Life: it lasts `life` frames from its making (0: until used; held or not), then goes, or bursts with a `blast`.
+/// * Knocked about: with `hp` above 0 an attack touching its `hurt_radius` circle (around its middle) takes the attack's damage off
+///   its `hp` and launches it along the attack's angle at `knock_speed.0` for `knock_damage.0` percent up to `knock_speed.1` for
+///   `knock_damage.1` (in proportion, held within), with `knock_hitlag` percent of the hit's hitlag; at 0 hp it bursts (or goes).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemSpec {
+    pub kind: u8,
+    pub gravity: Fx,
+    pub max_fall: Fx,
+    pub air_friction: Fx,
+    pub friction: Fx,
+    pub max_speed: Fx,
+    pub half_width: Fx,
+    pub half_height: Fx,
+    pub floor_keep: (u8, u8),
+    pub wall_keep: (u8, u8),
+    pub wall_lift: Fx,
+    pub ceiling_keep: (u8, u8),
+    pub bounce_min: Fx,
+    pub bounce_x: (Fx, Fx),
+    pub bounce_y: (Fx, Fx),
+    pub pick_width: Fx,
+    pub pick_height: Fx,
+    pub throw_mul: Fx,
+    pub hit: Hitbox,
+    pub damage_per_speed: Fx,
+    pub thrown_life: u16,
+    pub vanish: bool,
+    pub fighter_keep: (u8, u8),
+    pub fighter_lift: Fx,
+    pub life: u16,
+    pub hp: Fx,
+    pub hurt_radius: Fx,
+    pub knock_speed: (Fx, Fx),
+    pub knock_damage: (Fx, Fx),
+    pub knock_hitlag: u8,
+    pub blast: Option<ItemBlast>,
+}
+
+/// An item's burst (the reference's bomb explosion): it starts `delay` frames after a `detonate()` (or at once at the end of the
+/// item's life or at 0 hp), stands where the item was and hits with `hit` (centred on the item's middle) for `frames` frames, each
+/// fighter once, credited to the fighter whose weapon made the item; with `hits_owner` that fighter too (the reference's self-damage).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemBlast {
+    pub hit: Hitbox,
+    pub frames: u8,
+    pub delay: u8,
+    pub hits_owner: bool,
+}
+
+impl ItemSpec {
+    /// An item with this thrown hit and every other value at its default (0, the keeps 100, `throw_mul` 1, `knock_hitlag` 100): what
+    /// a content file's `item` block starts from.
+    pub fn with_hit(hit: Hitbox) -> ItemSpec {
+        ItemSpec {
+            kind: 0,
+            gravity: Fx::ZERO,
+            max_fall: Fx::ZERO,
+            air_friction: Fx::ZERO,
+            friction: Fx::ZERO,
+            max_speed: Fx::ZERO,
+            half_width: Fx::ZERO,
+            half_height: Fx::ZERO,
+            floor_keep: (100, 100),
+            wall_keep: (100, 100),
+            wall_lift: Fx::ZERO,
+            ceiling_keep: (100, 100),
+            bounce_min: Fx::ZERO,
+            bounce_x: (Fx::ZERO, Fx::ZERO),
+            bounce_y: (Fx::ZERO, Fx::ZERO),
+            pick_width: Fx::ZERO,
+            pick_height: Fx::ZERO,
+            throw_mul: Fx::ONE,
+            hit,
+            damage_per_speed: Fx::ZERO,
+            thrown_life: 0,
+            vanish: false,
+            fighter_keep: (100, 100),
+            fighter_lift: Fx::ZERO,
+            life: 0,
+            hp: Fx::ZERO,
+            hurt_radius: Fx::ZERO,
+            knock_speed: (Fx::ZERO, Fx::ZERO),
+            knock_damage: (Fx::ZERO, Fx::ZERO),
+            knock_hitlag: 100,
+            blast: None,
+        }
+    }
+
+    /// Every fixed-point value with its content name (in file order).
+    pub fn fx_fields_mut(&mut self) -> [(&'static str, &mut Fx); 24] {
+        [
+            ("gravity", &mut self.gravity),
+            ("max_fall", &mut self.max_fall),
+            ("air_friction", &mut self.air_friction),
+            ("friction", &mut self.friction),
+            ("max_speed", &mut self.max_speed),
+            ("half_width", &mut self.half_width),
+            ("half_height", &mut self.half_height),
+            ("wall_lift", &mut self.wall_lift),
+            ("bounce_min", &mut self.bounce_min),
+            ("bounce_x_min", &mut self.bounce_x.0),
+            ("bounce_x_max", &mut self.bounce_x.1),
+            ("bounce_y_min", &mut self.bounce_y.0),
+            ("bounce_y_max", &mut self.bounce_y.1),
+            ("pick_width", &mut self.pick_width),
+            ("pick_height", &mut self.pick_height),
+            ("throw_mul", &mut self.throw_mul),
+            ("damage_per_speed", &mut self.damage_per_speed),
+            ("fighter_lift", &mut self.fighter_lift),
+            ("hp", &mut self.hp),
+            ("hurt_radius", &mut self.hurt_radius),
+            ("knock_speed_min", &mut self.knock_speed.0),
+            ("knock_speed_max", &mut self.knock_speed.1),
+            ("knock_damage_min", &mut self.knock_damage.0),
+            ("knock_damage_max", &mut self.knock_damage.1),
+        ]
+    }
+
+    /// Every percent (and the knock's hitlag percent) with its content name (in file order).
+    pub fn u8_fields_mut(&mut self) -> [(&'static str, &mut u8); 9] {
+        [
+            ("floor_keep_x", &mut self.floor_keep.0),
+            ("floor_keep_y", &mut self.floor_keep.1),
+            ("wall_keep_x", &mut self.wall_keep.0),
+            ("wall_keep_y", &mut self.wall_keep.1),
+            ("ceiling_keep_x", &mut self.ceiling_keep.0),
+            ("ceiling_keep_y", &mut self.ceiling_keep.1),
+            ("fighter_keep_x", &mut self.fighter_keep.0),
+            ("fighter_keep_y", &mut self.fighter_keep.1),
+            ("knock_hitlag", &mut self.knock_hitlag),
+        ]
+    }
+}
+
+impl StateHash for ItemSpec {
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_u8(self.kind);
+        for v in [
+            self.gravity,
+            self.max_fall,
+            self.air_friction,
+            self.friction,
+            self.max_speed,
+            self.half_width,
+            self.half_height,
+            self.wall_lift,
+            self.bounce_min,
+            self.bounce_x.0,
+            self.bounce_x.1,
+            self.bounce_y.0,
+            self.bounce_y.1,
+            self.pick_width,
+            self.pick_height,
+            self.throw_mul,
+            self.damage_per_speed,
+            self.fighter_lift,
+            self.hp,
+            self.hurt_radius,
+            self.knock_speed.0,
+            self.knock_speed.1,
+            self.knock_damage.0,
+            self.knock_damage.1,
+        ] {
+            v.hash_into(h);
+        }
+        for b in [
+            self.floor_keep.0,
+            self.floor_keep.1,
+            self.wall_keep.0,
+            self.wall_keep.1,
+            self.ceiling_keep.0,
+            self.ceiling_keep.1,
+            self.fighter_keep.0,
+            self.fighter_keep.1,
+            self.knock_hitlag,
+        ] {
+            h.write_u8(b);
+        }
+        self.hit.hash_into(h);
+        h.write_u16(self.thrown_life);
+        h.write_bool(self.vanish);
+        h.write_u16(self.life);
+        match &self.blast {
+            Some(b) => {
+                h.write_bool(true);
+                b.hit.hash_into(h);
+                h.write_u8(b.frames);
+                h.write_u8(b.delay);
+                h.write_bool(b.hits_owner);
+            }
+            None => h.write_bool(false),
+        }
+    }
 }
 
 /// A reflecting field in front of the fighter: projectiles that touch it while it is up turn around and
@@ -1251,6 +1474,11 @@ pub struct Move {
     pub carry: Option<Carry>,
     /// The egg its `EFFECT_ENCASE` throw row lays (E8, sim 107): see [`Encase`]. `None` (the default): no egg.
     pub encase: Option<Encase>,
+    /// Sim 111 (E4): on move frame `.0` an item of the weapon's `items[.1]` appears in the fighter's hand, if the hand is empty (the
+    /// reference's bomb pull: none while holding an item). `None`: no item.
+    pub pull: Option<(u8, u8)>,
+    /// Sim 111 (E4): on this move frame the item in the fighter's hand is used up (the double arrow fires the arrow held); 255 never.
+    pub spend_item: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1330,6 +1558,8 @@ impl Move {
             push_immune_to: 0,
             carry: None,
             encase: None,
+            pull: None,
+            spend_item: 255,
             script: None,
             projectile_script: None,
         }
@@ -1372,6 +1602,9 @@ pub struct Weapon {
     /// The attacks are the body's own (fists, claws, feet): while a hit is out, the limb throwing it can be hit too (see
     /// `combat::hurtboxes`). A held weapon (a blade, a hammer) reaches out beyond the body and cannot.
     pub limbs: bool,
+    /// The items the moveset makes (E4, sim 111: see [`ItemSpec`]), indexed by `Move::pull` and `ProjectileArc::lodge_item`; empty
+    /// for none.
+    pub items: Vec<ItemSpec>,
 }
 
 impl Weapon {
@@ -1424,6 +1657,10 @@ impl StateHash for Hitbox {
 impl StateHash for Weapon {
     fn hash_into(&self, h: &mut StateHasher) {
         h.write_u8(u8::from(self.limbs));
+        h.write_u32(self.items.len() as u32);
+        for it in &self.items {
+            it.hash_into(h);
+        }
         h.write_u32(self.moves.len() as u32);
         for m in &self.moves {
             h.write_u8(m.total_frames);
@@ -1483,6 +1720,13 @@ impl StateHash for Weapon {
                     a.drag.hash_into(h);
                     h.write_u8(a.lodge);
                     h.write_u8(a.lodge_angle);
+                    match a.lodge_item {
+                        Some(i) => {
+                            h.write_bool(true);
+                            h.write_u8(i);
+                        }
+                        None => h.write_bool(false),
+                    }
                     match &p.charged {
                         Some(c) => {
                             h.write_bool(true);
@@ -1494,6 +1738,7 @@ impl StateHash for Weapon {
                             h.write_u16(c.size_from);
                             h.write_u16(c.size_to);
                             h.write_bool(c.floor);
+                            h.write_u8(c.times);
                         }
                         None => h.write_bool(false),
                     }
@@ -1798,6 +2043,15 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            match m.pull {
+                Some((frame, item)) => {
+                    h.write_bool(true);
+                    h.write_u8(frame);
+                    h.write_u8(item);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.spend_item);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -2788,6 +3042,7 @@ fn sword_kit() -> Weapon {
     Weapon {
         moves,
         limbs: false,
+        items: Vec::new(),
     }
 }
 
@@ -4742,8 +4997,10 @@ pub use buckler::buckler;
 /// The Buckler's follow-up slots (which `ext` slot holds which part), for tests and tools.
 pub mod buckler_slots {
     pub use super::buckler::{
-        AIR_SPIN_HITS, BOOMERANG_CATCH, BOOMERANG_FAILED, BOOMERANG_FAR, BOW_FIRE, DAIR_BOUNCE,
-        DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR, SPIN_GRAVITY, SPIN_RISE_SPEED,
+        AIR_SPIN_HITS, ARROW_ITEM, ARROW_KIND, BOMB_DETONATE, BOMB_ITEM, BOMB_KIND,
+        BOOMERANG_CATCH, BOOMERANG_FAILED, BOOMERANG_FAR, BOW_FIRE, DAIR_BOUNCE, DAIR_BOUNCE_END,
+        DOUBLE_FIRE, DOUBLE_SECOND, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR, SPIN_GRAVITY,
+        SPIN_RISE_SPEED,
     };
 }
 

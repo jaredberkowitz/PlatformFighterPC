@@ -7,9 +7,10 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::input::buttons::{ATTACK, SPECIAL, STRONG};
+use sim_core::moves::buckler_slots::ARROW_KIND;
 use sim_core::moves::buckler_slots::{BOOMERANG_CATCH, BOOMERANG_FAILED, BOOMERANG_FAR, BOW_FIRE};
 use sim_core::moves::{MoveId, Weapon, ANGLE_BY_TRAVEL, ANGLE_FORWARD};
-use sim_core::state::{FighterState as S, REST_FALLEN, REST_FLYING, REST_LODGED};
+use sim_core::state::{FighterState as S, ITEM_LODGED, REST_FALLEN, REST_FLYING};
 use sim_core::{Fx, Projectile, Vec2};
 
 const WANDERER: u8 = 9;
@@ -149,34 +150,46 @@ fn an_arrow_hits_for_its_charged_damage_at_angle_361_type_forward() {
     }
 }
 
+/// The live items (E4).
+fn items(sim: &Sim) -> Vec<sim_core::Item> {
+    sim.state
+        .items
+        .iter()
+        .copied()
+        .filter(|i| i.active)
+        .collect()
+}
+
 #[test]
-fn an_arrow_lodges_in_the_ground_for_180_frames_and_hits_nobody_there() {
+fn an_arrow_lodges_in_the_ground_as_an_item_for_180_frames_and_hits_nobody_there() {
+    // Since sim 111 (E4) a lodged arrow is an arrow item stuck where it lodged, not a lodged projectile.
     let mut sim = duel();
     bow(&mut sim, 1, 16);
     let mut lodged_at = None;
     for t in 0..60 {
         bow(&mut sim, 0, 1);
-        if let Some(a) = shots(&sim).first() {
-            if a.rest == REST_LODGED {
-                lodged_at = Some(t);
-                assert_eq!(a.pos.y, Fx::ZERO, "on the stage's top");
-                assert_eq!(a.vel, Vec2::ZERO);
-                assert_eq!(a.life, 180);
-                break;
-            }
-            assert_eq!(a.rest, REST_FLYING);
+        if let Some(a) = items(&sim).first() {
+            lodged_at = Some(t);
+            assert!(shots(&sim).is_empty(), "the shot became the item");
+            assert_eq!(a.rest, ITEM_LODGED);
+            assert_eq!(a.kind, ARROW_KIND);
+            assert_eq!(a.pos.y, Fx::ZERO, "on the stage's top");
+            assert_eq!(a.vel, Vec2::ZERO);
+            assert_eq!(a.life, 180);
+            break;
         }
+        assert_eq!(shot(&sim).rest, REST_FLYING);
     }
     let t = lodged_at.expect("the uncharged arrow lodges");
     assert!(t > 10 && t < 46, "lodged after {t} frames");
     // A fighter standing on it is not hit.
-    let x = shot(&sim).pos.x;
+    let x = items(&sim)[0].pos.x;
     sim.stand(1, x, -1);
-    bow(&mut sim, 0, 179);
+    bow(&mut sim, 0, 178);
     assert_eq!(sim.fighter(1).percent, Fx::ZERO);
-    assert_eq!(shot(&sim).rest, REST_LODGED);
+    assert_eq!(items(&sim)[0].rest, ITEM_LODGED);
     bow(&mut sim, 0, 1);
-    assert!(shots(&sim).is_empty(), "gone after 180 frames");
+    assert!(items(&sim).is_empty(), "gone after 180 frames");
 }
 
 #[test]
@@ -199,10 +212,10 @@ fn an_arrow_meeting_the_ground_more_shallowly_than_9_degrees_is_gone() {
             ..Projectile::default()
         };
         sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
-        let p = sim.state.projectiles[0];
-        assert_eq!(p.active, lodges, "vy {vy:?}");
+        assert!(!sim.state.projectiles[0].active, "vy {vy:?}");
+        assert_eq!(items(&sim).len(), usize::from(lodges), "vy {vy:?}");
         if lodges {
-            assert_eq!(p.rest, REST_LODGED);
+            assert_eq!(items(&sim)[0].rest, ITEM_LODGED);
         }
     }
 }
