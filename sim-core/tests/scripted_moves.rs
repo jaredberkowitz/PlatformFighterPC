@@ -1077,3 +1077,59 @@ fn the_pull_wait_register_reads_the_wait_a_toss_started_counting_down() {
     sim.tick(inp(0, 0, 0));
     assert_eq!(sim.f().vars[0], 0);
 }
+
+#[test]
+fn the_jump_tap_register_is_1_only_on_the_frame_jump_went_down() {
+    // Sim 119: what the flip's latch reads to jump off on a new press only.
+    let mut sim = with_special(scripted(
+        20,
+        "var t; var n; t = jump_tap; n = n + jump_tap;",
+    ));
+    start(&mut sim);
+    sim.tick(inp(0, 0, JUMP));
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+    sim.tick(inp(0, 0, JUMP));
+    sim.tick(inp(0, 0, JUMP));
+    assert_eq!(sim.f().vars[0], 0, "held is no tap");
+    assert_eq!(sim.f().vars[1], Fx::ONE.raw());
+}
+
+#[test]
+fn an_air_mark_lasts_through_a_hit_and_clears_on_landing() {
+    // Sim 119 (owner decision 75): `set_air_mark(n)` / `air_mark(n)`, once-per-airtime marks that a hit does not clear (the air flags
+    // it does).
+    let mut sim = with_special(scripted(
+        12,
+        "var seen; if frame == 1 { seen = air_mark(3); set_air_mark(3); set_air_flag(3); }",
+    ));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0);
+    assert_eq!((sim.f().air_marks, sim.f().air_flags), (0b1000, 0b1000));
+    // A jab from the duelist beside it: the flags go, the mark stays.
+    sim.ticks(12, inp(0, 0, 0));
+    sim.stand(1, Fx::from_ratio(1, 2), -1);
+    let at = sim.state.fighters[1].pos + sim_core::Vec2::new(-Fx::from_ratio(1, 2), Fx::ONE);
+    sim.put_airborne(0, at.x, at.y, Fx::ZERO, Fx::ZERO);
+    sim.tick2(inp(0, 0, 0), inp(0, 0, sim_core::input::buttons::ATTACK));
+    for _ in 0..6 {
+        sim.tick(inp(0, 0, 0));
+    }
+    assert_eq!(sim.f().state, S::Hitstun, "it was hit");
+    assert_eq!((sim.f().air_marks, sim.f().air_flags), (0b1000, 0));
+    // The next use in the same air time sees it (the hit's hitlag and launch done with).
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].hitlag = 0;
+    sim.state.fighters[0].launch_pending = false;
+    sim.state.fighters[0].hitstun = 0;
+    sim.tick(inp(0, 0, SPECIAL));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+    // Landing clears it.
+    sim.ticks(12, inp(0, 0, 0));
+    sim.put_airborne(0, Fx::from_int(-7), fx(1, 100), Fx::ZERO, -Fx::ONE);
+    sim.ticks(3, inp(0, 0, 0));
+    assert!(sim.f().grounded());
+    assert_eq!(sim.f().air_marks, 0);
+}

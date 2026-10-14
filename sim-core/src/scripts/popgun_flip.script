@@ -1,0 +1,9 @@
+// Popgun side special, the leap (ground and air). On move frame 12 (the reference's 13) the scamp flips forward: 2.2 of the reference's
+// units a frame ahead (2.8 for a smash input) and 1.7 up [E], then flies on its own gravity. From the launch to the end of the grab
+// (move frame 35), special pressed again is the kick (39 = ext10). (No variables: the latch it may go on as counts its own.)
+if frame == 12 {
+    set_vel((2.2 + 0.6 * flick) / 8, 1.7 / 8);
+}
+if frame >= 13 && frame <= 35 && special_tap {
+    goto(39);
+}

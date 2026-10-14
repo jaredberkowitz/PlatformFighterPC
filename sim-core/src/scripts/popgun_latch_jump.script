@@ -1,0 +1,5 @@
+// Popgun side special, the latch's jump: on move frame 17 (the reference's 18, the kick) the scamp jumps off the head at its full
+// hop's speed (3.2 of the reference's units a frame) [E].
+if frame == 17 {
+    set_vel(0, 3.2 / 8);
+}

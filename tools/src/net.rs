@@ -306,6 +306,12 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             setup.chars[1] = b;
             crate::drill_specials(&mut inputs, 1);
         }
+        // Every eighth run from 4 (sim 119) the host plays the first body with a latch (the scamp) instead, flipping at the joiner
+        // (who spawns to its right) and leaving its latches by attack, jump or the clock in turn, so the latch crosses the network.
+        if let (4, Some(b)) = (seed % 8, crate::latch_body(&content)) {
+            setup.chars[0] = b;
+            crate::drill_latch(&mut inputs, 0, 1, Some(1));
+        }
         let specs = (seed % 2 == 1).then(|| {
             (
                 crate::random_spec(&mut pick, &content),
