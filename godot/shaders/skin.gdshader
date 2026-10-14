@@ -19,6 +19,11 @@ uniform vec4 strap : source_color = vec4(0.4, 0.6, 1.0, 1.0);
 uniform vec4 sole : source_color = vec4(1.0);
 uniform vec4 hem : source_color = vec4(0.1, 0.07, 0.12, 1.0);
 uniform float hem_width = 0.011;
+// The chin line: a thin soft ink round the bottom of the ball of the head, where it sits on the body (the owner, 2026-10-14: the head
+// melted into the chest like a gourd; the two-tone light draws no line at a soft crease, so it is painted). The head's ball in the rest
+// pose (base_rig.json's head_centre and head_radius), and how strong the line is (0 none).
+uniform vec3 head_ball = vec3(1.716, 0.003, 0.47);
+uniform float chin_line = 1.0;
 
 // Where the clothes go, in the rest pose.
 uniform float neck_z = 1.44;
@@ -141,6 +146,15 @@ void fragment() {
 		if (covered) {
 			discard;
 		}
+	}
+	if (chin_line > 0.0 && !arm) {
+		vec3 rest = vec3(p.x, p.y, UV2.x);
+		float dist = length(rest - vec3(0.0, head_ball.x, head_ball.y));
+		// (On the ball's surface, in a thin ring just above where it meets the shoulders: below about 0.72 of the radius down.)
+		float on_ball = 1.0 - smoothstep(0.015, 0.03, abs(dist - head_ball.z));
+		float low = (head_ball.x - p.y) / head_ball.z;
+		float ring = smoothstep(0.7, 0.74, low) * (1.0 - smoothstep(0.8, 0.84, low));
+		c = mix(c, mix(hem.rgb, c, 0.35), on_ball * ring * chin_line);
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;

@@ -77,4 +77,32 @@ a close third-person 3D game; ours is a side-on 2.5D view, so only the proportio
 - Checks: the art, fighter view, motion, animation and creator tests pass; the look bench 0.87 (needs 0.85).
 - Images: `review4_chunky_before_after.png` (before above), `review4_chunky_lineup.png`.
 
+## Pass 69: the body rebuilt to the owner's PEAK references
+
+Feedback across several looks: the arms read as sleeves, the body as tubes or a gourd, the head melting into the chest, little torso. The
+proportions were changed rather than the old ones forced into the style (`make_base_body.py`, then `fit_body.py`, `make_rigged_blob.py`):
+
+- **Head and torso**: the head a 0.44 ball centred 1.78 up on a short narrow neck (was 0.475, 1.725 and no neck), over a real boxy torso
+  as wide as the head and about as tall, square high shoulders, a squarer cross-section (`TRUNK_SQUARE`). Height kept at 2.2.
+- **Anatomy as soft forms on one skin** (`ANATOMY`, `SHOULDER_CAP`): deltoids rounding the box into the arm (no sleeve seam), the point
+  of the elbow and the forearm's swell, kneecaps and calves, ankles narrowing into a foot with a heel and a toe box; arms and legs shaped
+  along their length (full, a joint, filling out again).
+- **Hands with fingers** (`mitten`): a palm, four stubby fingers curling in (the middle two longest), a thumb in front.
+- **One continuous skin**: QuadriFlow is retried on a coarser voxel skin when it refuses (it had silently left 237,000 triangles, which
+  shaded lumpy); the head's ball is weighted wholly to the head bone (the chest's twist stretched its underside); the arms' weights are
+  spread further so elbows and armpits bend round. A thin chin line is painted where the ball of the head sits on the body
+  (`skin.gdshader` `head_ball`, from `base_rig.json`): the two-tone light draws no line at a soft crease.
+- Checks: all the art, fighter, motion, animation, creator, online and content tests pass; the look bench 0.91 (was 0.87).
+  `review4_peak_body.png`.
+
+- **The arm's join** (follow-up, the owner: "the arms look like sleeves"): the deltoid ball and the forearm swell are gone (each step in
+  width read as a cuff); the shoulder cap lies along the arm's first stretch so the shoulder's top line runs on into the arm, and the arm
+  tapers evenly from shoulder to wrist with only the point of the elbow behind. `review4_peak_body_arms.png`.
+
+- **Wrists, gloves, collar, dark bodies**: a wrist plug in the bare hand closes the cut forearm (its inside showed as a dark ring, a
+  bracelet), the hand's outline left out where it enters the forearm; the glove's fist on its own, smaller scale (`GLOVE_SCALE` 0.74:
+  gloved fighters carried two white balloons); a shirt collar with a button placket (`_shirt_collar`, after PEAK's scout shirts); a very
+  dark body (midnight) gets a lighter line in its own hue, so it keeps a silhouette at dusk (look bench 0.87). The review tool takes
+  `--shirt=N --gear=N` (`tests/turnaround_shot.gd`). `review4_outfit_turnaround.png`, `review4_wrists.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.
