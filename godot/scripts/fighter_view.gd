@@ -326,6 +326,8 @@ func _build_rig(skin: Material) -> bool:
 	# fists stand in, in the body's colour.
 	var bare: bool = use_base_body and not loadout.has_gloves()
 	var mittens := rig.find_child("Mitt*", true, false) != null
+	fists = {}
+	open_hands = {}
 	for mi in rig.find_children("*", "MeshInstance3D", true, false):
 		var part := str(mi.name)
 		# Full detail always: Godot simplifies meshes that look small on screen (its automatic LOD), which chewed thin cloth's hems into
@@ -335,15 +337,26 @@ func _build_rig(skin: Material) -> bool:
 			mi.material_override = arm
 		elif part.begins_with("Leg"):
 			mi.material_override = leg
+		elif part.begins_with("FistBare") or part.begins_with("FistGlove"):
+			# The closed fists (`_clench` shows them in place of the open hand).
+			var gloved := part.begins_with("FistGlove")
+			mi.material_override = glove if gloved else respond(toon(skin_colour), "skin")
+			mi.visible = false
+			if use_base_body and gloved != bare:
+				fists[part.right(1)] = mi
 		elif part.begins_with("Mitt"):
 			mi.material_override = respond(toon(skin_colour), "skin")
 			mi.visible = bare
+			if bare:
+				open_hands[part.right(1)] = mi
 		elif part.begins_with("Hand") and bare:
 			# Bare hands (the concept's mittens): the body's own colour and skin.
 			mi.material_override = respond(toon(skin_colour), "skin")
 			mi.visible = not mittens
 		elif part.begins_with("Hand") or part.begins_with("Sole"):
 			mi.material_override = glove
+			if use_base_body and part.begins_with("Hand"):
+				open_hands[part.right(1)] = mi
 		elif part.begins_with("Collar") or part.begins_with("Cuff"):
 			mi.material_override = white
 			# (The glove's cuff: none on a bare hand.)
@@ -925,6 +938,21 @@ static func blob_parts() -> Dictionary:
 			return _parts
 	_parts = found
 	return _parts
+
+
+## The base body's closed fists and the open hands they stand in for, by side ("L", "R"): see `_clench`.
+var fists := {}
+var open_hands := {}
+
+
+## Closes a hand into a fist (or opens it): a hand that grips a weapon, and an unarmed fighter's hands while it attacks. (An open hand
+## beside a sword's hilt read as not holding it; a punch with an open hand read as a slap.)
+func _clench(left: bool, right: bool) -> void:
+	for side in fists:
+		var closed: bool = right if side == "R" else left
+		(fists[side] as Node3D).visible = closed
+		if open_hands.has(side):
+			(open_hands[side] as Node3D).visible = not closed
 
 
 ## The shell in front of the head that shows the drawn face, and its material (the expression swaps its texture).
@@ -1522,6 +1550,9 @@ func _skin_material(skin_c: Color, shorts_c: Color, painted_clothes := true) -> 
 		m.set_shader_parameter("head_ball", Vector3(float(ball[0]), float(ball[1]), float(ball[2])))
 	if regions.has("torso_half_width"):
 		m.set_shader_parameter("torso_half_width", float(regions.torso_half_width))
+	for name in ["sleeve", "arm_radius"]:
+		if regions.has(name):
+			m.set_shader_parameter(name, float(regions[name]))
 	for name in ["shoulder_l", "elbow_l", "shoulder_r", "elbow_r"]:
 		if regions.has(name):
 			m.set_shader_parameter(name, Vector2(float(regions[name][0]), float(regions[name][1])))
@@ -3796,6 +3827,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
+	var punching: bool = not blade_pivot.visible and state == "Attack" and s.move_name != ""
+	_clench(punching or _cls(s) == BUCKLER_CLASS, blade_pivot.visible or punching)
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")
 	if rig != null:

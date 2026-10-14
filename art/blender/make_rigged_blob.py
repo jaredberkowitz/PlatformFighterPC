@@ -312,15 +312,21 @@ def mitten(bm, x):
     # (After the owner's PEAK references, 2026-10-14: a hand with fingers. A broad palm a little flatter side to side than deep, four
     # stubby fingers hanging from it side by side (the middle two longest), each curled gently in toward the palm, and a thumb standing
     # out in front: it reads as a hand at play size, where a ball or a paddle read as a knob.)
+    # (Pass 71, the owner: the hands still read chunky and odd. They were as wide as the legs and ran straight on from the forearm, a club
+    # at the end of the arm. Now a narrow wrist, a palm flat side to side (the camera sees its back, the fingers hanging from it), four
+    # rounded fingers that part a little toward their tips and curl in toward the body, and a shorter thumb in front.)
     k = HAND_SCALE
-    ball(bm, 0.165 * k, _hand(x, (x * 0.78, -0.05, 0.655)), (0.74, 1.0, 0.92), segments=32, rings=20)
-    for fy, length in ((-0.115, 0.1), (-0.04, 0.12), (0.035, 0.115), (0.105, 0.09)):
-        top = _hand(x, (x * 0.785, -0.05 + fy, 0.56))
-        mid = _hand(x, (x * 0.78, -0.05 + fy * 1.05, 0.56 - length * 0.6))
-        tip = _hand(x, (x * 0.745, -0.05 + fy * 1.08, 0.56 - length))
-        tube(bm, [top, mid, tip], [0.056 * k, 0.052 * k, 0.047 * k], segments=12, per_span=4)
-    tube(bm, [_hand(x, (x * 0.75, -0.15, 0.7)), _hand(x, (x * 0.735, -0.235, 0.645)), _hand(x, (x * 0.74, -0.255, 0.575))],
-         [0.064 * k, 0.058 * k, 0.05 * k], segments=14, per_span=5)
+    tube(bm, [_hand(x, (x * 0.745, -0.04, 0.8)), _hand(x, (x * 0.765, -0.045, 0.715))], [0.072 * k, 0.08 * k], segments=16, per_span=3)
+    ball(bm, 0.128 * k, _hand(x, (x * 0.775, -0.05, 0.645)), (0.64, 1.0, 0.98), segments=32, rings=20)
+    for fy, length in ((-0.092, 0.1), (-0.031, 0.122), (0.031, 0.116), (0.09, 0.094)):
+        top = _hand(x, (x * 0.78, -0.05 + fy, 0.58))
+        mid = _hand(x, (x * 0.775, -0.05 + fy * 1.12, 0.58 - length * 0.6))
+        tip = _hand(x, (x * 0.74, -0.06 + fy * 1.22, 0.58 - length))
+        tube(bm, [top, mid, tip], [0.04 * k, 0.038 * k, 0.033 * k], segments=12, per_span=4)
+        ball(bm, 0.033 * k, tip, segments=12, rings=8)
+    tube(bm, [_hand(x, (x * 0.75, -0.13, 0.68)), _hand(x, (x * 0.74, -0.19, 0.63)), _hand(x, (x * 0.745, -0.205, 0.575))],
+         [0.05 * k, 0.045 * k, 0.04 * k], segments=14, per_span=5)
+    ball(bm, 0.04 * k, _hand(x, (x * 0.745, -0.205, 0.575)), segments=12, rings=8)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1084,6 +1090,8 @@ FIST_SCALE = 0.9
 # The glove's fist (it is built bigger and rounder than the bare hand, with knuckles and a cuff): smaller, or a gloved fighter carried two
 # white balloons.
 GLOVE_SCALE = 0.74
+GLOVE_GROW = 1.1     # the base body's glove against its bare hand
+FIST_CLOSED = 0.66   # the base body's closed fist (the blob's clenched glove) against the blob's
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
@@ -1193,13 +1201,15 @@ def build_body_meshes(rig):
             off = v.co - closest
             if off.length > 0.25:
                 continue
-            if t > 1.03:
-                cut.append(v)
-                break
-            # (How thick the forearm is near the wrist, for the cuffs.)
             e = J["armL." + side]
             fore = J["hand." + side] - e
             tf = (v.co - e).dot(fore) / fore.length_squared
+            # (Square across the forearm, not the shoulder-to-wrist line: the arm bends at the elbow, and a cut across that line reached
+            # up one side of the forearm in a notch whose hole showed the outline's black inside.)
+            if t > 0.9 and tf > 1.0 + 0.03 * length / fore.length:
+                cut.append(v)
+                break
+            # (How thick the forearm is near the wrist, for the cuffs.)
             if 0.7 < tf <= 1.0:
                 wrist_r[side].append((v.co - e - fore * tf).length)
             break
@@ -1226,10 +1236,11 @@ def build_body_meshes(rig):
         fore_blob = (wrist_blob - Vector((x * 0.66, -0.02, 0.95))).normalized()
         fore = (J["hand." + side] - J["armL." + side]).normalized()
         turn = fore_blob.rotation_difference(fore).to_matrix()
+        # (The glove is the bare hand's shape a size up, not the blob's clenched ball: gloved fighters carried two white balloons.)
         bm = bmesh.new()
-        fist(bm, x)
+        mitten(bm, x)
         for v in bm.verts:
-            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * GLOVE_SCALE
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE * GLOVE_GROW
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
         # The bare hand (no gloves in the loadout): the game shows this one instead, in the body's colour.
         bm = bmesh.new()
@@ -1252,6 +1263,23 @@ def build_body_meshes(rig):
             w = min(1.0, max(0.0, (-0.02 - up) / 0.06))
             ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
         mitt.data.color_attributes.active_color = ink
+        # Closed fists to match, bare and gloved (`FistBare`, `FistGlove`): the game shows them on a hand that grips a weapon and on
+        # an unarmed fighter's hands while it attacks (an open hand beside a sword's hilt read as not holding it, a punch as a slap).
+        for name, k in (("FistBare." + side, FIST_CLOSED), ("FistGlove." + side, FIST_CLOSED * GLOVE_GROW)):
+            bm = bmesh.new()
+            fist(bm, x)
+            for v in bm.verts:
+                v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * k
+            if name.startswith("FistBare"):
+                tube(bm, [J["hand." + side] - fore * 0.07, J["hand." + side] + fore * 0.05], [rw * 1.0, rw * 1.04], segments=18, per_span=3)
+            parts[name] = to_object(name, bm, "hand." + side, rig)
+            if name.startswith("FistBare"):
+                f = parts[name]
+                ink = f.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+                for v in f.data.vertices:
+                    up = (v.co - wrist_at).dot(-fore)
+                    ink.data[v.index].color = (min(1.0, max(0.0, (-0.02 - up) / 0.06)), 1.0, 1.0, 1.0)
+                f.data.color_attributes.active_color = ink
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()
@@ -1364,6 +1392,8 @@ def build_body_meshes(rig):
         "shoulder_l": [round(J["armU.L"].x, 4), round(J["armU.L"].z, 4)], "elbow_l": [round(J["armL.L"].x, 4), round(J["armL.L"].z, 4)],
         "shoulder_r": [round(J["armU.R"].x, 4), round(J["armU.R"].z, 4)], "elbow_r": [round(J["armL.R"].x, 4), round(J["armL.R"].z, 4)],
         "torso_half_width": round(abs(J["armU.R"].x) * 0.72, 4),
+        # (The garments' own measures, so the game's skin shader hides the same skin the sleeves cover.)
+        "sleeve": SLEEVE, "arm_radius": ARM_RADIUS,
     }
     # The torso as the ellipsoid the game's neckwear is made round (fighter_view.gd fits its own design ellipsoid onto this one): from the
     # hips to where the head meets the shoulders, as wide as the trunk under the arms and as deep as its middle.
@@ -1509,9 +1539,11 @@ SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the s
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
 SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
-SLEEVE = 0.55           # how far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow)
+SLEEVE = 0.85           # how far down the upper arm the sleeves reach (0 at the shoulder joint, 1 at the elbow; the joint sits low in the
+                       # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.02
-ARM_RADIUS = 0.14      # how far from the arm's axis a point still counts as the arm (the upper arm is about 0.09 thick)
+ARM_RADIUS = 0.2       # how far from the arm's axis a point still counts as the arm (the base body's arm is about 0.16 thick; at 0.14 a strip down
+                       # its outer side was taken for the torso's shirt, slivers and a slit by the sleeve)
 HEM_SMOOTH = 30
 TORSO_SLICE = 0.01       # the height of a slice of the torso that shares one blend of the trunk's bones
 TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # how many smoothing steps each hem gets along its loop
@@ -1856,6 +1888,10 @@ def build_garments(skin, J, neck):
     cover = skin.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
     for v in skin.data.vertices:
         g = 1.0 - min(1.0, max(0.0, (shirt_hem(v.co) - 0.02) / 0.03)) if in_shirt(v.co) else 1.0
+        if in_shirt(v.co) and on_arm(v.co):
+            # (None under a sleeve, to its very hem: the arm's line showed through the opening as a black wedge; the sleeve's own edge
+            # draws the line there.)
+            g = 0.0
         b = 1.0 - min(1.0, max(0.0, (shorts_hem(v.co) - 0.02) / 0.03)) if in_shorts(v.co) else 1.0
         cover.data[v.index].color = (1.0, g, b, 1.0)
     skin.data.color_attributes.active_color = cover

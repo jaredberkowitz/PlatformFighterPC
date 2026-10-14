@@ -39,6 +39,8 @@ uniform vec2 shoulder_r = vec2(0.41, 1.19);
 uniform vec2 elbow_r = vec2(0.47, 0.97);
 // How far down the upper arm the sleeves reach (0 at the shoulder, 1 at the elbow).
 uniform float sleeve = 0.55;
+// How far from the arm's axis a point still counts as the arm (rest units).
+uniform float arm_radius = 0.2;
 // False when the body wears modelled clothes (the rig's "Shirt" and "Shorts" meshes): then only the socks and shoes are painted here.
 uniform bool painted_clothes = true;
 // The look's gear (Loadout.GEAR): shorts, and socks and shoes. Without them the legs and feet are the bare body.
@@ -76,7 +78,9 @@ void fragment() {
 	vec2 se = p.x < 0.0 ? elbow_l : elbow_r;
 	vec2 sw = se + (se - sa) * 1.05;
 	float st = clamp(dot(p - sa, sw - sa) / dot(sw - sa, sw - sa), 0.0, 1.0);
-	bool arm = abs(p.x) > 0.15 && p.y < neck_z && length(p - (sa + (sw - sa) * st)) < 0.14;
+	// (As make_rigged_blob.py's ARM_RADIUS: at 0.14 the outer side of the base body's thicker arm counted as the torso, and was hidden
+	// under the shirt below the sleeve, a hole in the arm.)
+	bool arm = abs(p.x) > 0.15 && p.y < neck_z && length(p - (sa + (sw - sa) * st)) < arm_radius;
 	bool has_shirt = painted_clothes && shirt.a > 0.5;
 	vec3 shirt_c = shirt.rgb;
 	if (use_shirt_tex) {

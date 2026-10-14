@@ -66,6 +66,8 @@
    0.6451,
    0.9504
   ],
-  "torso_half_width": 0.4017
+  "torso_half_width": 0.4017,
+  "sleeve": 0.85,
+  "arm_radius": 0.2
  }
 }

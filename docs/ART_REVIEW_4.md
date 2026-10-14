@@ -136,3 +136,21 @@ and do not read as shoulders.
   `review4_clothing_pass.png` (four shirts), `review4_run_shoulders.png` (the run before, after).
 
 Still open: the hands (the owner: still chunky and odd), shorts' detail (pockets, a hem), shoes.
+
+## Pass 71: hands, fists, and sleeves that cover the arm cleanly
+
+The owner after a playtest: the hands still look chunky and odd.
+
+- **The hand** (`mitten`): was as wide as the legs and ran straight on from the forearm, a club. Now a narrow wrist, a palm flat side to
+  side (the camera sees its back), four rounded fingers that part a little toward their tips and curl in toward the body, a shorter
+  thumb in front. **Gloves** are the same hand a size up (`GLOVE_GROW` 1.1), not the clenched ball (white balloons).
+- **Fists** (`FistBare`, `FistGlove`, `fighter_view.gd` `_clench`): a closed fist shows on the hand that grips a weapon (an open hand
+  beside the hilt read as not holding it), on the shield arm, and on an unarmed fighter's hands while it attacks (a punch, not a slap).
+- **Sleeves** reach most of the way to the elbow (`SLEEVE` 0.85; the shoulder joint sits low, so 0.55 was a cap over it).
+- **A hole in the arm under the sleeve**: the skin shader hid skin under the shirt by a 0.14 arm radius, so the outer side of the
+  thicker arm counted as torso and was hidden below the sleeve, the outline's black inside showing (the dark notch on the arm). The arm
+  radius is 0.2 in both (`ARM_RADIUS`; `skin.gdshader` `arm_radius`), and the garments' `sleeve` and `arm_radius` now travel in
+  `base_rig.json`, so the shader hides exactly what the sleeve covers. The slivers of shirt down the arm's outer side went with it.
+- The forearm is cut square across itself at the wrist (it was cut across the shoulder-to-wrist line, a notch up one side).
+- Checks: the fighter, art, loadout, motion, animation, creator, online and match tests pass; the look bench 0.87.
+  `review4_hands.png` (before: rows 1-2; after: rows 3-4), `review4_sleeves.png`, `review4_fists.png` (a jab).
