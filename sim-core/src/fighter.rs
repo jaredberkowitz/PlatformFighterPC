@@ -346,7 +346,7 @@ pub fn update(
 
     // The gauge's powered mode counts down every frame, hitlag included [E: gap 12]; a hold out of a draining move drains only while
     // it lasts (a throw's hit, which lets go on the frame it lands, still drains: it is applied before this runs again).
-    crate::gauge::tick(f);
+    crate::gauge::tick(f, &p.gauge);
     if f.state != S::Grabbed {
         f.gauge_drain = false;
     }
@@ -624,7 +624,7 @@ fn ground(
             left = rules.platform_drop_frames.saturating_add(1);
         }
         if left > 0 {
-            if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+            if f.buffered(buttons::SPECIAL, buffer) && start_special(f, p, weapon) {
                 f.buffer_used |= buttons::SPECIAL;
                 return;
             }
@@ -672,7 +672,7 @@ fn ground(
         begin_attack(f, id);
         return;
     }
-    if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+    if f.buffered(buttons::SPECIAL, buffer) && start_special(f, p, weapon) {
         f.buffer_used |= buttons::SPECIAL;
         return;
     }
@@ -1145,7 +1145,7 @@ fn airborne(
         start_air_dodge(f, p, stage, rules);
         return None;
     }
-    if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+    if f.buffered(buttons::SPECIAL, buffer) && start_special(f, p, weapon) {
         f.buffer_used |= buttons::SPECIAL;
         return None;
     }
@@ -2309,6 +2309,10 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
         // A target lock belongs to one attack.
         f.locked = false;
         f.lock = Vec2::ZERO;
+        // Whether the gauge's powered mode runs as the attack begins picks its `Hitbox::mode` boxes to its end (E52); the armor's
+        // record of a withstood hit starts again (E55).
+        f.move_powered = f.gauge_mode > 0;
+        f.withstood = 0;
     }
     f.move_id = id as u8;
     f.move_y0 = f.pos.y;
@@ -2333,7 +2337,7 @@ fn up_out_of_ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, smash_o
     if up
         && fresh(f, buttons::SPECIAL)
         && f.buffered(buttons::SPECIAL, buffer)
-        && start_special(f, weapon)
+        && start_special(f, p, weapon)
     {
         f.buffer_used |= buttons::SPECIAL;
         return true;
@@ -2633,6 +2637,10 @@ fn attack(
     }
     let mv = weapon.get(f.move_id);
     let id = MoveId::from_index(f.move_id);
+    // The frames since the armor last withstood a hit count on outside hitlag (E55: the guard's release window).
+    if f.withstood > 0 {
+        f.withstood = f.withstood.saturating_add(1);
+    }
 
     // A move with its own turnaround frame (`turn_at`) turns only then, with the stick held back far enough, and in the air its
     // momentum turns with it; the shared windows below do not apply to it.
@@ -3077,7 +3085,7 @@ fn move_air_physics(p: &FighterParams, mv: &Move, frame: u16) -> FighterParams {
 }
 
 /// Starts a special move chosen by the stick, if the weapon has one there. Returns whether it started.
-fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
+fn start_special(f: &mut Fighter, p: &FighterParams, weapon: &Weapon) -> bool {
     let input = f.history[0];
     let id = if input.stick_y >= STICK_DOWN {
         MoveId::UpSpecial
@@ -3120,9 +3128,12 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     }
     // With the gauge's powered mode running, a special with a powered version (`limit_version`) uses it instead and spends the gauge
     // at once, whether it hits or not. (Until a weapon has such a version nothing is spent: phase 2 of the Greatsword.)
+    // (A gauge that `keeps` is not spent by it: E53, sim 121, the reference's partner, whose specials change while it is out.)
     let (id, mv) = match mv.limit_version {
         Some(l) if f.gauge_mode > 0 => {
-            crate::gauge::spend(f);
+            if !p.gauge.keeps {
+                crate::gauge::spend(f);
+            }
             (MoveId::from_index(l), weapon.get(l))
         }
         _ => (id, mv),

@@ -19,7 +19,7 @@ use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
     ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
     ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_GROUNDED,
+    HIT_SEARCH, HIT_THROW, MODE_PLAIN, MODE_POWERED, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{
@@ -166,7 +166,12 @@ pub fn active_hitboxes<'a>(
     mv.hitboxes
         .iter()
         .enumerate()
-        .filter(move |(_, hb)| hb.start <= frame && frame <= hb.end && aimed(hb.aim, f.aim))
+        .filter(move |(_, hb)| {
+            hb.start <= frame
+                && frame <= hb.end
+                && aimed(hb.aim, f.aim)
+                && moded(hb.mode, f.move_powered)
+        })
         .map(move |(i, hb)| {
             let mut hb = *hb;
             hb.x = hb.x * scale;
@@ -187,6 +192,15 @@ fn aimed(aim: u8, aim_of_move: i8) -> bool {
         AIM_UP => aim_of_move > 0,
         AIM_DOWN => aim_of_move < 0,
         AIM_STRAIGHT => aim_of_move == 0,
+        _ => true,
+    }
+}
+
+/// Whether a hitbox with `mode` is out in an attack begun with the gauge's powered mode running or not (E52).
+fn moded(mode: u8, powered: bool) -> bool {
+    match mode {
+        MODE_PLAIN => !powered,
+        MODE_POWERED => powered,
         _ => true,
     }
 }
@@ -400,6 +414,9 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     // Hits that reached a defender's balloons but not its body (E41, sim 113).
     let mut on_balloons: [[Option<Hitbox>; MAX_FIGHTERS]; MAX_FIGHTERS] =
         [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
+    // The best box of each attacker's partner (part 1, E52) on each defender: the box, where it was, whether a counter catches it.
+    let mut partner: [[Option<(Hitbox, Vec2, bool)>; MAX_FIGHTERS]; MAX_FIGHTERS] =
+        [[None; MAX_FIGHTERS]; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         let fa = &state.fighters[a];
         if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
@@ -461,6 +478,16 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     _ if fa.grab_with == d as i8 => (false, false),
                     _ => reach(counter, intangible, &hb, &hurt, shut, center),
                 };
+                // (A partner's box competes only with its partner's other boxes: E52.)
+                if hb.part != 0 {
+                    if touching
+                        && hb.kind == HIT_NORMAL
+                        && partner[a][d].is_none_or(|(b, _, _)| hb.priority < b.priority)
+                    {
+                        partner[a][d] = Some((hb, center, catches));
+                    }
+                    continue;
+                }
                 if touching && best.is_none_or(|b| hb.priority < b.priority) {
                     best = Some(hb);
                     chosen_at[a][d] = center;
@@ -502,6 +529,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     }
 
     let mut struck = [false; MAX_FIGHTERS];
+    // Who struck each fighter this frame (a partner's box may land on top of its own fighter's hit: E52).
+    let mut struck_by = [usize::MAX; MAX_FIGHTERS];
     for a in 0..MAX_FIGHTERS {
         for d in 0..MAX_FIGHTERS {
             if let Some(hb) = chosen[a][d] {
@@ -510,93 +539,30 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 }
                 if !struck[d] {
                     struck[d] = true;
-                    let attacker = state.fighters[a];
-                    state.fighters[a].hit_mask |= hit_bit(d, hb.group);
-                    // Which way "forward" is for the launch: by default a hitbox behind the attacker (back air) sends the victim
-                    // backward, away from it; the hit's angle type can say otherwise.
-                    let by_box = if hb.x < Fx::ZERO {
-                        -attacker.facing
-                    } else {
-                        attacker.facing
-                    };
-                    // The way the attacker is moving (the reference's speed-based type 1); not moving sideways, its facing [E].
-                    let travel = match attacker.vel.x.raw().signum() {
-                        0 => attacker.facing,
-                        s => s as i8,
-                    };
-                    let facing = launch_side(
-                        hb.angle_type,
-                        by_box,
-                        attacker.facing,
-                        travel,
-                        attacker.pos.x,
-                        state.fighters[d].pos.x,
-                    );
-                    // A charged smash attack hits harder; the damage also feeds the knockback.
-                    let mut hb = hb;
-                    let attack =
-                        weapon_of(content, params_of(content, &attacker)).get(attacker.move_id);
-                    if let Some(add) = attack.charge_add {
-                        // Additive charge damage (E29): the reference's charged punch.
-                        hb.damage = add.damage(hb.damage, attacker.charge);
-                    } else if attacker.charge > 0 {
-                        let rules = &content.rules;
-                        let full = if attack.charge_bonus > 0 {
-                            attack.charge_bonus
-                        } else {
-                            rules.charge_bonus_percent
-                        };
-                        let bonus = Fx::from_ratio(
-                            i32::from(attacker.charge) * i32::from(full),
-                            100 * i32::from(rules.charge_frames.max(1)),
-                        );
-                        hb.damage = hb.damage * (Fx::ONE + bonus);
-                    }
-                    // The answer to a caught hit deals what was caught.
-                    if attack.counter_strike {
-                        hb.damage = attacker.counter_damage;
-                    }
-                    match hb.kind {
-                        HIT_PUMMEL => pummel(state, content, a, d, &hb),
-                        HIT_THROW => {
-                            // The throw lets go: the held fighter is launched like any hit victim.
-                            state.fighters[a].grab_with = NONE;
-                            fighter::free_held(&mut state.fighters[d], 0);
-                            apply_hit(
-                                state,
-                                content,
-                                a,
-                                d,
-                                &hb,
-                                facing,
-                                attacker.pos,
-                                true,
-                                STUN_NORMAL,
-                                attacker.move_id,
-                                (chosen_at[a][d], attacker.vel),
-                                false,
-                            );
-                        }
-                        _ => {
-                            let mult = stun_multiplier(&attacker);
-                            apply_hit(
-                                state,
-                                content,
-                                a,
-                                d,
-                                &hb,
-                                facing,
-                                attacker.pos,
-                                true,
-                                mult,
-                                attacker.move_id,
-                                (chosen_at[a][d], attacker.vel),
-                                caught[a][d],
-                            );
-                        }
-                    }
+                    struck_by[d] = a;
+                    strike(state, content, a, d, hb, chosen_at[a][d], caught[a][d]);
                 }
             }
+        }
+    }
+    // The partner's boxes (E52, part 1): a fighter one touches takes its hit as well, after its own fighter's (both damages, the
+    // partner's launch applied last [E]), unless another attacker struck it this frame, its own fighter's hit was caught by a counter
+    // or the attacker is no longer attacking (a clank's rebound).
+    for a in 0..MAX_FIGHTERS {
+        for d in 0..MAX_FIGHTERS {
+            let Some((hb, at, catches)) = partner[a][d] else {
+                continue;
+            };
+            let countered = chosen[a][d].is_some() && caught[a][d];
+            if (struck[d] && struck_by[d] != a)
+                || countered
+                || state.fighters[a].state != S::Attack
+            {
+                continue;
+            }
+            struck[d] = true;
+            struck_by[d] = a;
+            strike(state, content, a, d, hb, at, catches);
         }
     }
 
@@ -654,6 +620,103 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             .on_search
         {
             state.fighters[a].next_move = next.saturating_add(1);
+        }
+    }
+}
+
+/// Lands attacker `a`'s chosen hit `hb` (centred `at`; `caught` by an open counter) on fighter `d`: the launch's side, a charged
+/// smash's or a counter answer's damage, then a pummel, a throw or an ordinary hit.
+fn strike(
+    state: &mut GameState,
+    content: &Content,
+    a: usize,
+    d: usize,
+    hb: Hitbox,
+    at: Vec2,
+    caught: bool,
+) {
+    let attacker = state.fighters[a];
+    state.fighters[a].hit_mask |= hit_bit(d, hb.group);
+    // Which way "forward" is for the launch: by default a hitbox behind the attacker (back air) sends the victim backward, away from
+    // it; the hit's angle type can say otherwise.
+    let by_box = if hb.x < Fx::ZERO {
+        -attacker.facing
+    } else {
+        attacker.facing
+    };
+    // The way the attacker is moving (the reference's speed-based type 1); not moving sideways, its facing [E].
+    let travel = match attacker.vel.x.raw().signum() {
+        0 => attacker.facing,
+        s => s as i8,
+    };
+    let facing = launch_side(
+        hb.angle_type,
+        by_box,
+        attacker.facing,
+        travel,
+        attacker.pos.x,
+        state.fighters[d].pos.x,
+    );
+    // A charged smash attack hits harder; the damage also feeds the knockback.
+    let mut hb = hb;
+    let attack = weapon_of(content, params_of(content, &attacker)).get(attacker.move_id);
+    if let Some(add) = attack.charge_add {
+        // Additive charge damage (E29): the reference's charged punch.
+        hb.damage = add.damage(hb.damage, attacker.charge);
+    } else if attacker.charge > 0 {
+        let rules = &content.rules;
+        let full = if attack.charge_bonus > 0 {
+            attack.charge_bonus
+        } else {
+            rules.charge_bonus_percent
+        };
+        let bonus = Fx::from_ratio(
+            i32::from(attacker.charge) * i32::from(full),
+            100 * i32::from(rules.charge_frames.max(1)),
+        );
+        hb.damage = hb.damage * (Fx::ONE + bonus);
+    }
+    // The answer to a caught hit deals what was caught.
+    if attack.counter_strike {
+        hb.damage = attacker.counter_damage;
+    }
+    match hb.kind {
+        HIT_PUMMEL => pummel(state, content, a, d, &hb),
+        HIT_THROW => {
+            // The throw lets go: the held fighter is launched like any hit victim.
+            state.fighters[a].grab_with = NONE;
+            fighter::free_held(&mut state.fighters[d], 0);
+            apply_hit(
+                state,
+                content,
+                a,
+                d,
+                &hb,
+                facing,
+                attacker.pos,
+                true,
+                STUN_NORMAL,
+                attacker.move_id,
+                (at, attacker.vel),
+                false,
+            );
+        }
+        _ => {
+            let mult = stun_multiplier(&attacker);
+            apply_hit(
+                state,
+                content,
+                a,
+                d,
+                &hb,
+                facing,
+                attacker.pos,
+                true,
+                mult,
+                attacker.move_id,
+                (at, attacker.vel),
+                caught,
+            );
         }
     }
 }
@@ -1083,6 +1146,13 @@ pub(crate) fn apply_hit(
         // Hit while stunned: the stun ends and the shield comes back.
         fighter::restore_shield(def, rules);
     }
+    // A move whose armor covers this frame may take only part of the hit's damage (E55, sim 121: the reference's guard, 0.4).
+    if def.state == S::Attack && !hb.push {
+        let mv = weapon_of(content, &defender_params).get(def.move_id);
+        if mv.armor_damage != 1000 && mv.armor.is_some_and(|a| a.covers(def.state_frame)) {
+            hb.damage = hb.damage * Fx::from_ratio(i32::from(mv.armor_damage), 1000);
+        }
+    }
 
     let before = def.percent;
     def.percent = (def.percent + hb.damage * damage_mult).min(Fx::from_int(999));
@@ -1197,10 +1267,23 @@ pub(crate) fn apply_hit(
         def.encase_timer -= e.hit_cut * added;
         return;
     }
-    // An armored hit: the damage and hitlag stand, nothing else happens.
+    // An armored hit: the damage and hitlag stand, nothing else happens. (A move's armor may lengthen the hitlag for both fighters and
+    // remembers the hit for its script: E55.)
     if armored {
-        def.hitlag = hitlag;
+        let mut lag = hitlag;
+        if def.state == S::Attack {
+            let mv = weapon_of(content, &defender_params).get(def.move_id);
+            if mv.armor_hitlag != 100 {
+                lag = (u32::from(hitlag) * u32::from(mv.armor_hitlag) / 100)
+                    .min(u32::from(rules.hitlag_cap)) as u8;
+            }
+            def.withstood = 1;
+        }
+        def.hitlag = lag;
         def.sdi_wait = 0;
+        if freeze_source && lag > hitlag {
+            state.fighters[source].hitlag = state.fighters[source].hitlag.max(lag);
+        }
         return;
     }
     // A move that sheds a projectile when its user is hit (E48, sim 117: the rocket barrels flying off).
@@ -2219,6 +2302,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 let facing = launch_side(hb.angle_type, travel, travel, travel, pos.x, fd.pos.x);
                 // Projectiles stun a shield much less.
                 let mult = STUN_PROJECTILE;
+                // (Whether a shield took it, and what the fighter's percent was: a curse lands only on a hit that dealt damage, E54;
+                // a burst that a shield does not set off, sim 121.)
+                let shielded = state.fighters[d].state == S::Shield && !hb.unblockable;
+                let percent_before = state.fighters[d].percent;
                 apply_hit(
                     state,
                     content,
@@ -2233,13 +2320,27 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     (pos, pr.vel),
                     caught,
                 );
+                if let Some(c) = fired_by.curse {
+                    if state.fighters[d].percent > percent_before {
+                        let v = &mut state.fighters[d];
+                        v.curse_left = c.frames;
+                        v.curse_every = c.every;
+                        v.curse_tick = 0;
+                        v.curse_damage = c.damage;
+                        v.curse_by = owner as u8;
+                    }
+                }
                 let p = &mut state.projectiles[n];
                 p.hit_mask |= bit;
                 p.hit_age[d] = age;
                 if burst.is_none() {
                     // The first fighter it touches makes a bursting projectile burst there (E3e), unless it bursts only on walls, the
-                    // ground or its life's end (`Burst::on_hit` false, sim 113): then it is used up on the fighter as any shot.
-                    if let Some(b) = spec.burst.filter(|b| b.on_hit) {
+                    // ground or its life's end (`Burst::on_hit` false, sim 113): then it is used up on the fighter as any shot. (Nor on a
+                    // shield, for one that a shield does not set off: `Burst::on_shield`, sim 121.)
+                    if let Some(b) = spec
+                        .burst
+                        .filter(|b| b.on_hit && (b.on_shield || !shielded))
+                    {
                         start_burst(p, &b, pos, scale);
                         break;
                     }
@@ -2250,6 +2351,30 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 }
             }
         }
+    }
+}
+
+/// One frame of every fighter's damage over time (E54, sim 121: the reference's curse): every `curse_every` frames while it lasts the
+/// fighter takes its damage (times the one-on-one multiplier), credited to whoever put it there (the gauges see it as any damage); no
+/// hitlag, no flinch. Counted every frame, hitlag included [E].
+pub fn curse_tick(state: &mut GameState, content: &Content) {
+    for i in 0..MAX_FIGHTERS {
+        let f = &mut state.fighters[i];
+        if f.curse_left == 0 || !f.active {
+            continue;
+        }
+        f.curse_left -= 1;
+        f.curse_tick = f.curse_tick.saturating_add(1);
+        if f.curse_tick < f.curse_every.max(1) {
+            continue;
+        }
+        f.curse_tick = 0;
+        let before = f.percent;
+        f.percent =
+            (f.percent + f.curse_damage * content.rules.damage_mult).min(Fx::from_int(999));
+        let added = f.percent - before;
+        let by = usize::from(f.curse_by).min(MAX_FIGHTERS - 1);
+        crate::gauge::on_damage(state, content, by, i, added);
     }
 }
 
@@ -2576,6 +2701,9 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
             respawn(f, content, i, counted);
             if counted && f.stocks == 0 {
                 f.active = false;
+            } else {
+                // (A gauge that keeps some of itself through a KO, by the stocks now behind: E53.)
+                crate::gauge::after_ko(state, content, i);
             }
         }
     }

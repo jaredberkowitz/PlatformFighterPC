@@ -1,0 +1,5 @@
+// Dagger guard's end lag after a held guard (ext10, slot 39): 33 frames. Special let go within 33 frames of a withstood hit still
+// answers with the backhand (40 = ext11).
+if withstood > 0 && withstood <= 34 && special == 0 {
+    goto(40);
+}

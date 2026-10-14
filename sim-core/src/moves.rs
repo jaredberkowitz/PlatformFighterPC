@@ -378,7 +378,20 @@ pub struct Hitbox {
     /// The hit cannot be shielded (sim 119: the reference's rocket barrels flying off their hit wearer): a raised shield (or a passive
     /// one) does not stop it, and it lands as on a fighter without one. False (the default): shields block it.
     pub unblockable: bool,
+    /// When the box is out, by the gauge's powered mode as the attack began (E52, sim 121: the reference's partner moves, whose boxes
+    /// change while the partner is out; `Fighter::move_powered`): [`MODE_ANY`] (the default: always), [`MODE_PLAIN`] (only in an
+    /// attack begun without the mode) or [`MODE_POWERED`] (only in one begun with it).
+    pub mode: u8,
+    /// Which part of the attack the box belongs to (E52, sim 121: the reference's `part`): 0 (the default) is the fighter's own; 1 a
+    /// second attacker moving with it (the reference's summoned partner). Each part hits a target on its own: on one frame a target can
+    /// take the best box of each part, the fighter's first, then the partner's (both damages; the partner's launch, applied last [E]).
+    pub part: u8,
 }
+
+/// `Hitbox::mode` values (E52, sim 121).
+pub const MODE_ANY: u8 = 0;
+pub const MODE_PLAIN: u8 = 1;
+pub const MODE_POWERED: u8 = 2;
 
 /// `Hitbox::slip` values (E44, sim 117).
 pub const SLIP_NONE: u8 = 0;
@@ -670,6 +683,9 @@ pub struct Burst {
     /// the projectile is used up there with no burst (the reference's rocket, which bursts only against a wall or when its flight
     /// runs out); `on_wall`, `on_ground` and `on_expire` still burst it.
     pub on_hit: bool,
+    /// Sim 121: a fighter shielding it does not set the burst off (the reference's curse bolt, which "won't erupt on shields"): the
+    /// shield takes the projectile's own hit and it is used up there. True (the default, as before): a shield bursts it too.
+    pub on_shield: bool,
 }
 
 impl Burst {
@@ -692,6 +708,7 @@ impl Burst {
         h.write_bool(self.on_expire);
         h.write_bool(self.keep_hits);
         h.write_bool(self.on_hit);
+        h.write_bool(self.on_shield);
         self.y.hash_into(h);
         for phase in &self.phases {
             match phase {
@@ -1392,6 +1409,16 @@ impl Armor {
     }
 }
 
+/// Damage over time (E54, sim 121: the reference's curse): the fighter a move's projectile hits takes `damage` percent (times the
+/// ruleset's one-on-one multiplier, as any damage) every `every` frames for `frames` frames, counted every frame (hitlag included [E]),
+/// credited to the projectile's owner. No hitlag, no flinch. A new curse replaces the one on the fighter; a KO ends it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Curse {
+    pub damage: Fx,
+    pub every: u8,
+    pub frames: u16,
+}
+
 /// A move's own soft-platform drop (E30, sim 95; the reference's ground pound): on move frame `from` the fighter passes through soft
 /// platforms for `frames` frames (its `platform_ignore`), and with `while_down` also on every frame of the move from `from` on that the
 /// stick is held down (past the crouch threshold). Solid ground always stops it.
@@ -1795,6 +1822,18 @@ pub struct Move {
     /// Damage (percent) the fighter takes itself on the move's first frame (sim 119: the reference's rocket barrels crashing). 0 (the
     /// default): none.
     pub self_damage: Fx,
+    /// Per mille of a hit's damage the fighter takes while this move's armor window covers the frame (E55, sim 121: the reference's
+    /// guard stance, which takes 0.4 of a hit). 1000 (the default): all of it.
+    pub armor_damage: u16,
+    /// Damage over time put on a fighter this move's projectile hits (its own hit or its burst's, not a shield) (E54, sim 121: the
+    /// reference's curse): see [`Curse`]. `None` (the default): none.
+    pub curse: Option<Curse>,
+    /// Percent of the hitlag a hit withstood by this move's armor causes, for both fighters (E55, sim 121: the guard's 1.5). 100 (the
+    /// default): the hit's own.
+    pub armor_hitlag: u16,
+    /// Per mille of the gauge's gain from damage taken while the fighter is in this move (E53, sim 121: the reference's guard, 6.7368
+    /// times). 1000 (the default): the body's own rate.
+    pub gauge_gain: u16,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1887,6 +1926,10 @@ impl Move {
             latch: None,
             flag_versions: Vec::new(),
             self_damage: Fx::ZERO,
+            armor_damage: 1000,
+            curse: None,
+            armor_hitlag: 100,
+            gauge_gain: 1000,
             script: None,
             projectile_script: None,
         }
@@ -1982,6 +2025,8 @@ impl StateHash for Hitbox {
         h.write_u8(self.slip);
         h.write_u8(self.fixed_stun);
         h.write_bool(self.unblockable);
+        h.write_u8(self.mode);
+        h.write_u8(self.part);
     }
 }
 
@@ -2455,6 +2500,18 @@ impl StateHash for Weapon {
                 h.write_u8(v.slot.unwrap_or(255));
             }
             m.self_damage.hash_into(h);
+            h.write_u16(m.armor_damage);
+            match &m.curse {
+                Some(c) => {
+                    h.write_bool(true);
+                    c.damage.hash_into(h);
+                    h.write_u8(c.every);
+                    h.write_u16(c.frames);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u16(m.armor_hitlag);
+            h.write_u16(m.gauge_gain);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -2529,6 +2586,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 slip: SLIP_NONE,
                 fixed_stun: 0,
                 unblockable: false,
+                mode: MODE_ANY,
+                part: 0,
             })
             .collect(),
         ..Move::empty()
@@ -2593,6 +2652,8 @@ fn row(r: &R) -> Hitbox {
         slip: SLIP_NONE,
         fixed_stun: 0,
         unblockable: false,
+        mode: MODE_ANY,
+        part: 0,
     }
 }
 
@@ -5062,6 +5123,8 @@ pub fn claws() -> Weapon {
             slip: SLIP_NONE,
             fixed_stun: 0,
             unblockable: false,
+            mode: MODE_ANY,
+            part: 0,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -5449,6 +5512,14 @@ pub mod popgun_slots {
     };
 }
 
+#[path = "moves_dagger.rs"]
+mod dagger;
+pub use dagger::dagger;
+/// The Dagger's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod dagger_slots {
+    pub use super::dagger::slots::*;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5467,6 +5538,7 @@ mod tests {
             buckler(),
             pockets(),
             popgun(),
+            dagger(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {
@@ -5494,6 +5566,7 @@ mod tests {
                         || m.pocket.is_some()
                         || m.unpocket.is_some()
                         || m.toss.is_some()
+                        || m.reflector.is_some()
                 );
                 for hb in &m.hitboxes {
                     assert!(

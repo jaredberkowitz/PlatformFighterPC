@@ -1,0 +1,53 @@
+// Dagger neutral special, the gun (13 = this move). Move frames are the reference's less one: the shot on 11 (its 12), with the
+// partner (`powered`) its follow-ups on 17 and 23. A new press of special is kept (`pressed`). From 25 (its 26; 33 with the partner,
+// its 34) the stick pushed sideways with special dodges while firing (31 = ext3 forward, 32 = ext4 back; four at most in one string:
+// `dodges`), on the ground jump or the stick up jumps while firing below (33 = ext5), and a kept press fires again (the move starts
+// over: the next shot 25 frames after the last). In the air from 13 (its 14; 14 with the partner, its 15) the stick down with special
+// fires below (35 = ext7) and up spins (34 = ext6). Still held on its last frame (its 36; 41 with the partner) it fires again; else
+// it ends there (FAF 37 / 42).
+var pressed;
+var dodges;
+let ready = 25 + 8 * powered;
+let aerial = 13 + powered;
+let last = 35 + 5 * powered;
+if special_tap {
+    pressed = 1;
+}
+if grounded == 0 && frame >= aerial && special && stick_y <= -0.5 {
+    pressed = 0;
+    goto(35);
+    return;
+}
+if grounded == 0 && frame >= aerial && special && stick_y >= 0.5 {
+    pressed = 0;
+    goto(34);
+    return;
+}
+if frame >= ready {
+    if abs(stick_x) >= 0.7 && special && dodges < 4 {
+        dodges = dodges + 1;
+        pressed = 0;
+        if stick_x > 0 {
+            goto(31);
+        } else {
+            goto(32);
+        }
+        return;
+    }
+    if grounded && (jump || stick_y >= 0.7) {
+        goto(33);
+        return;
+    }
+    if pressed == 1 {
+        pressed = 0;
+        goto(13);
+        return;
+    }
+}
+if frame >= last {
+    if special {
+        goto(13);
+    } else {
+        end();
+    }
+}

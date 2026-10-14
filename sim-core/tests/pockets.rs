@@ -924,8 +924,8 @@ fn the_pockets_is_registered_as_class_10() {
             "{id:?}"
         );
     }
-    // (The Pockets is the eleventh class; the Popgun, sim 117, the twelfth.)
-    assert_eq!(sim_content_classes(), 12);
+    // (The Pockets is the eleventh class; the Popgun, sim 117, the twelfth; the Dagger, sim 121, the thirteenth.)
+    assert_eq!(sim_content_classes(), 13);
 }
 
 /// The number of classes a recipe can pick.

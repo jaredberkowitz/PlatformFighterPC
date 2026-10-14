@@ -309,12 +309,28 @@ pub struct PassiveShield {
 /// (`ground_friction` and `dash_attack_friction`), `air_speed`, `air_accel` (both parts), `air_friction`, `gravity`, `fall` (both fall
 /// speeds). The mode ends when its time runs out (the gauge empties) or a special with a `Move::limit_version` spends it. A KO empties
 /// the gauge and ends the mode.
+///
+/// Sim 121 (E53, the reference's second gauge, the partner's): `per_frame` units fill it every frame by themselves (not on a revival
+/// platform, not in the mode); the gain from damage taken is also multiplied by `behind[0]` / `behind[1]` per mille when the fighter
+/// has one / two or more stocks fewer than the leader (a stock match), and, with three or four fighters in the match, by `crowd`'s row
+/// (per mille, by the same stock gap: none, one, two or more); a move's `Move::gauge_gain` multiplies it too. While the mode runs, damage
+/// taken cuts `mode_taken[players - 2]` frames a percent off the mode (2, 3 or 4 fighters). A KO leaves `ko_keep[0]` units in the gauge
+/// (`ko_keep[1]` two stocks behind the leader, `ko_keep[2]` three or more; times the `crowd` row) instead of emptying it. With
+/// `keeps`, a special's powered version (`Move::limit_version`) does not spend the gauge; with `halts`, the mode's clock stands still
+/// while the fighter's shield is broken. The defaults (0, 1000, false) leave the champion's gauge as it was.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Gauge {
     pub max: Fx,
     pub per_dealt: Fx,
     pub per_taken: Fx,
     pub mode_frames: u16,
+    pub per_frame: Fx,
+    pub behind: [u16; 2],
+    pub crowd: [[u16; 3]; 2],
+    pub mode_taken: [Fx; 3],
+    pub ko_keep: [Fx; 3],
+    pub keeps: bool,
+    pub halts: bool,
     pub walk: u16,
     pub dash: u16,
     pub run: u16,
@@ -338,6 +354,13 @@ impl Gauge {
         per_dealt: Fx::ZERO,
         per_taken: Fx::ZERO,
         mode_frames: 0,
+        per_frame: Fx::ZERO,
+        behind: [1000; 2],
+        crowd: [[1000; 3]; 2],
+        mode_taken: [Fx::ZERO; 3],
+        ko_keep: [Fx::ZERO; 3],
+        keeps: false,
+        halts: false,
         walk: 100,
         dash: 100,
         run: 100,
@@ -379,6 +402,15 @@ impl StateHash for Gauge {
         for (_, p) in self.percents() {
             h.write_u16(p);
         }
+        self.per_frame.hash_into(h);
+        for v in self.behind.iter().chain(self.crowd.iter().flatten()) {
+            h.write_u16(*v);
+        }
+        for v in self.mode_taken.iter().chain(self.ko_keep.iter()) {
+            v.hash_into(h);
+        }
+        h.write_bool(self.keeps);
+        h.write_bool(self.halts);
     }
 }
 
@@ -1268,6 +1300,7 @@ impl FighterParams {
             air_friction: 115,
             gravity: 110,
             fall: 110,
+            ..Gauge::NONE
         }
     }
 }
@@ -1687,6 +1720,99 @@ impl FighterParams {
                 drop: 5,
             },
             ..FighterParams::base()
+        }
+    }
+}
+
+impl FighterParams {
+    /// A quick, slender middleweight that falls fast, with a partner that comes when its gauge fills: the "phantom" body of the Dagger
+    /// moveset. The reference character's 13.0.1 attributes (the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and
+    /// `Item_throw` tables, ultimateframedata.com; the thirteenth moveset's `REFERENCE_DATA.md` in `docs/movesets/joker/`): weight 93,
+    /// walk 1.12, initial dash 1.9 for 10 frames, run 2.06, traction 0.13, air speed 1.1, air acceleration 0.01 + 0.07, air friction
+    /// 0.01, gravity 0.127, fall 1.63 (fast 3.097), full hop 32.5, short hop 14.2, double jump 34 (its sideways speed x0.9), ledge jump
+    /// 36.25 (drift 0.6, the shared value). On the ground: walk acceleration 0.2 + 0.11, run acceleration 0.04 + 0.11, a heavy landing
+    /// of 4 (3 of lag: the parameter file's `landing_heavy_frame`). Air dodges 48 (neutral, intangible 3-30) and 68 / 84 / 101
+    /// (directional down / sideways / up, intangible 3-21); rolls 30 forward (intangible 4-15) and 35 back, spot dodge 25 (3-17). A
+    /// wall jump (the parameter file's `wall_jump_type`) at 1.3 away, 2.7 up. Item throws let go on the common 8, 11, 12, 7, 5, 6. The
+    /// shared body size [E]. Its gauge is [`FighterParams::phantom_gauge`].
+    pub fn phantom() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(127);
+        let (burst, arc) = Self::full_hop(gravity, su(32500));
+        FighterParams {
+            walk_speed: gu(1120),
+            run_speed: gu(2060),
+            dash_speed: gu(1900),
+            walk_accel: gu(200),
+            walk_accel_stick: gu(110),
+            run_accel: gu(40),
+            run_accel_stick: gu(110),
+            dash_frames: 10,
+            heavy_landing_lag: 3,
+            air_speed: su(1100),
+            air_accel: su(10),
+            air_accel_stick: su(70),
+            air_friction: su(10),
+            gravity,
+            max_fall_speed: su(1630),
+            fast_fall_speed: su(3097),
+            air_dodge_frames: 48,
+            air_dodge_dir_down_frames: 68,
+            air_dodge_dir_side_frames: 84,
+            air_dodge_dir_up_frames: 101,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.13 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(260),
+            dash_attack_friction: gu(130),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(14200)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(34000)),
+            air_jump_drift: 90,
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(36250)),
+            weight: Fx::from_int(93),
+            weapon: 12,
+            roll_frames: 30,
+            roll_back_frames: 35,
+            roll_intangible_start: 4,
+            roll_intangible_end: 15,
+            spot_dodge_frames: 25,
+            spot_intangible_start: 3,
+            spot_intangible_end: 17,
+            // A wall jump (the parameter file: 1.3 away, 2.7 up).
+            wall_jump: 1,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2700),
+            gauge: Self::phantom_gauge(),
+            ..FighterParams::base()
+        }
+    }
+
+    /// The phantom's gauge, its partner's (the reference's, ssbwiki.com `Rebellion_Gauge` and ultimateframedata.com, 13.0.1; E53):
+    /// 100 units; 0.00925 a frame by itself (not on a revival platform); 1.3 a percent of damage taken (with the one-on-one
+    /// multiplier: the damage actually added), x1.25 one stock behind the leader and x1.5 two or more (the reference's 1.625 and 1.95),
+    /// x(1.1, 1.1667) with three fighters and x(1.2, 1.3333) with four when behind; nothing from damage dealt. Full, the partner comes for
+    /// 1800 frames; while it is out nothing fills the gauge, and each percent taken cuts 16 frames (10.2 with four fighters); a stun (a
+    /// broken shield) stops the clock. Its specials do not spend it. A KO leaves 20 units (25 two stocks behind, 30 three or more). The
+    /// body's own numbers do not change with it (no multipliers) [R]. The guard's gain is its move's (`Move::gauge_gain`).
+    pub fn phantom_gauge() -> Gauge {
+        Gauge {
+            max: Fx::from_int(100),
+            per_dealt: Fx::ZERO,
+            per_taken: Fx::from_ratio(13, 10),
+            mode_frames: 1800,
+            per_frame: Fx::from_ratio(925, 100_000),
+            behind: [1250, 1500],
+            crowd: [[1000, 1100, 1167], [1000, 1200, 1333]],
+            mode_taken: [Fx::from_int(16), Fx::from_int(16), Fx::from_ratio(102, 10)],
+            ko_keep: [Fx::from_int(20), Fx::from_int(25), Fx::from_int(30)],
+            keeps: true,
+            halts: true,
+            ..Gauge::NONE
         }
     }
 }
@@ -2503,7 +2629,7 @@ impl Content {
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
     /// tall caster, a champion with a greatsword, a huge hauler with bracers, a floaty, high-jumping bounder with a long tongue and a
-    /// wanderer with a sword and a buckler, a settler with pockets full of tools, and a scamp with a popgun) on a main stage with
+    /// wanderer with a sword and a buckler, a settler with pockets full of tools, a scamp with a popgun, and a phantom with a dagger) on a main stage with
     /// platforms.
     pub fn placeholder() -> Content {
         Content {
@@ -2520,6 +2646,7 @@ impl Content {
                 FighterParams::wanderer(),
                 FighterParams::settler(),
                 FighterParams::scamp(),
+                FighterParams::phantom(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -2534,6 +2661,7 @@ impl Content {
                 crate::moves::buckler(),
                 crate::moves::pockets(),
                 crate::moves::popgun(),
+                crate::moves::dagger(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -2552,6 +2680,7 @@ impl Content {
                     "wanderer".to_string(),
                     "settler".to_string(),
                     "scamp".to_string(),
+                    "phantom".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -2566,6 +2695,7 @@ impl Content {
                     "buckler".to_string(),
                     "pockets".to_string(),
                     "popgun".to_string(),
+                    "dagger".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

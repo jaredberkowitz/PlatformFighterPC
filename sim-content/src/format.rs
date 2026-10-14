@@ -8,13 +8,13 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble,
+    AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, Curse,
     DropThrough, Encase, Fall, FlagVersion, Hitbox, ItemBlast, ItemSpec, Latch, Motion, Move,
     MoveId, PartIntangible, Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn,
     Reflector, Tool, Toss, Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD,
     ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK,
     ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
-    HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
+    HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, MODE_ANY, MODE_PLAIN, MODE_POWERED, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
     POCKET_FREES, POCKET_NEVER, POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE,
     SLIP_SOFT, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
@@ -661,6 +661,8 @@ fn missing_hitbox() -> Hitbox {
         slip: SLIP_NONE,
         fixed_stun: 0,
         unblockable: false,
+        mode: MODE_ANY,
+        part: 0,
     }
 }
 
@@ -765,6 +767,20 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             SLIP_NONE
         }
     };
+    // Sim 121 (E52): when the box is out, by the gauge's powered mode as the attack began.
+    let mode = match f.raw("mode") {
+        None | Some(("any", _)) => MODE_ANY,
+        Some(("plain", _)) => MODE_PLAIN,
+        Some(("powered", _)) => MODE_POWERED,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox mode must be any, plain or powered, not `{other}`"),
+            );
+            MODE_ANY
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -805,6 +821,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         slip,
         fixed_stun: f.or("fixed_stun", 0, errors),
         unblockable: f.or("unblockable", false, errors),
+        mode,
+        part: f.or("part", 0, errors),
     };
     f.finish(errors);
     hb
@@ -922,6 +940,14 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     if hb.unblockable {
         b.field("unblockable", "true");
     }
+    match hb.mode {
+        MODE_PLAIN => b.field("mode", "plain"),
+        MODE_POWERED => b.field("mode", "powered"),
+        _ => {}
+    }
+    if hb.part != 0 {
+        b.field("part", hb.part.to_string());
+    }
     b
 }
 
@@ -1005,6 +1031,10 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.chops = f.or("chops", false, errors);
     // Sim 119: damage to the move's own user.
     m.self_damage = f.or("self_damage", Fx::ZERO, errors);
+    // Sim 121: the guard's armor (E55) and its gauge gain (E53).
+    m.armor_damage = f.or("armor_damage", 1000, errors);
+    m.armor_hitlag = f.or("armor_hitlag", 100, errors);
+    m.gauge_gain = f.or("gauge_gain", 1000, errors);
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -1145,10 +1175,22 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "toss",
             "latch",
             "flag_version",
+            "curse",
         ],
         context,
         errors,
     );
+    // Sim 121: damage over time put on a fighter by the move's projectile (E54).
+    if let Some(b) = at_most_one(children(block, "curse"), "curse", context, errors) {
+        let ctx = format!("the curse of {context}");
+        let mut cf = Fields::new(b, &ctx, errors);
+        m.curse = Some(Curse {
+            damage: cf.need("damage", None, errors),
+            every: cf.need("every", None, errors),
+            frames: cf.need("frames", None, errors),
+        });
+        cf.finish(errors);
+    }
     // Sim 119: a latch (E49) and the versions picked by the once-per-airtime flags and marks (owner decision 75).
     if let Some(b) = at_most_one(children(block, "latch"), "latch", context, errors) {
         let ctx = format!("the latch of {context}");
@@ -1448,6 +1490,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 on_expire: bf.or("on_expire", false, errors),
                 keep_hits: bf.or("keep_hits", false, errors),
                 on_hit: bf.or("on_hit", true, errors),
+                on_shield: bf.or("on_shield", true, errors),
                 y: bf.or("y", Fx::ZERO, errors),
                 phases: read_phases(bb, &bctx, errors),
             };
@@ -1815,6 +1858,22 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if m.self_damage != Fx::ZERO {
         b.field("self_damage", m.self_damage.show());
     }
+    if m.armor_damage != 1000 {
+        b.field("armor_damage", m.armor_damage.to_string());
+    }
+    if m.armor_hitlag != 100 {
+        b.field("armor_hitlag", m.armor_hitlag.to_string());
+    }
+    if m.gauge_gain != 1000 {
+        b.field("gauge_gain", m.gauge_gain.to_string());
+    }
+    if let Some(c) = &m.curse {
+        let mut cb = Block::new("curse", None);
+        cb.field("damage", c.damage.show());
+        cb.field("every", c.every.to_string());
+        cb.field("frames", c.frames.to_string());
+        b.push(cb);
+    }
     if let Some(l) = &m.latch {
         let mut c = Block::new("latch", None);
         c.field("x", l.x.show());
@@ -1973,6 +2032,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             }
             if !bu.on_hit {
                 bb.field("on_hit", "false");
+            }
+            if !bu.on_shield {
+                bb.field("on_shield", "false");
             }
             if bu.y != Fx::ZERO {
                 bb.field("y", bu.y.show());
@@ -2853,9 +2915,62 @@ fn read_gauge(block: &Block, context: &str, errors: &mut Vec<String>) -> Gauge {
         air_friction: f.or("air_friction", none.air_friction, errors),
         gravity: f.or("gravity", none.gravity, errors),
         fall: f.or("fall", none.fall, errors),
+        // Sim 121 (E53): the partner gauge's rules, all defaulting to the champion's gauge as it was.
+        per_frame: f.or("per_frame", Fx::ZERO, errors),
+        behind: [
+            f.or("behind_1", 1000, errors),
+            f.or("behind_2", 1000, errors),
+        ],
+        crowd: [
+            [
+                f.or("crowd_3_0", 1000, errors),
+                f.or("crowd_3_1", 1000, errors),
+                f.or("crowd_3_2", 1000, errors),
+            ],
+            [
+                f.or("crowd_4_0", 1000, errors),
+                f.or("crowd_4_1", 1000, errors),
+                f.or("crowd_4_2", 1000, errors),
+            ],
+        ],
+        mode_taken: [
+            f.or("mode_taken_2", Fx::ZERO, errors),
+            f.or("mode_taken_3", Fx::ZERO, errors),
+            f.or("mode_taken_4", Fx::ZERO, errors),
+        ],
+        ko_keep: [
+            f.or("ko_keep", Fx::ZERO, errors),
+            f.or("ko_keep_2", Fx::ZERO, errors),
+            f.or("ko_keep_3", Fx::ZERO, errors),
+        ],
+        keeps: f.or("keeps", false, errors),
+        halts: f.or("halts", false, errors),
     };
     f.finish(errors);
     g
+}
+
+/// The partner-gauge fields of a `gauge { ... }` block (sim 121, E53) by name, in file order, with their defaults.
+fn gauge_rule_fields(g: &Gauge) -> [(&'static str, String, &'static str); 17] {
+    [
+        ("per_frame", g.per_frame.show(), "0"),
+        ("behind_1", g.behind[0].to_string(), "1000"),
+        ("behind_2", g.behind[1].to_string(), "1000"),
+        ("crowd_3_0", g.crowd[0][0].to_string(), "1000"),
+        ("crowd_3_1", g.crowd[0][1].to_string(), "1000"),
+        ("crowd_3_2", g.crowd[0][2].to_string(), "1000"),
+        ("crowd_4_0", g.crowd[1][0].to_string(), "1000"),
+        ("crowd_4_1", g.crowd[1][1].to_string(), "1000"),
+        ("crowd_4_2", g.crowd[1][2].to_string(), "1000"),
+        ("mode_taken_2", g.mode_taken[0].show(), "0"),
+        ("mode_taken_3", g.mode_taken[1].show(), "0"),
+        ("mode_taken_4", g.mode_taken[2].show(), "0"),
+        ("ko_keep", g.ko_keep[0].show(), "0"),
+        ("ko_keep_2", g.ko_keep[1].show(), "0"),
+        ("ko_keep_3", g.ko_keep[2].show(), "0"),
+        ("keeps", g.keeps.to_string(), "false"),
+        ("halts", g.halts.to_string(), "false"),
+    ]
 }
 
 fn write_gauge(g: &Gauge) -> Block {
@@ -2867,6 +2982,11 @@ fn write_gauge(g: &Gauge) -> Block {
     for (name, p) in g.percents() {
         if p != 100 {
             b.field(name, p.to_string());
+        }
+    }
+    for (name, value, default) in gauge_rule_fields(g) {
+        if value != default {
+            b.field(name, value);
         }
     }
     b

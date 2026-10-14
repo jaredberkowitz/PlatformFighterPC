@@ -228,6 +228,19 @@ pub struct Fighter {
     /// landing or catching a ledge: unlike `air_flags`, a hit does not clear them (the reference's slower fall for only the first
     /// rocket-barrel charge of an air time). `Move::flag_versions` reads them.
     pub air_marks: u8,
+    /// The gauge's powered mode was running when the current attack began (E52, sim 121): which of its `Hitbox::mode` boxes are out
+    /// until it ends, even if the mode ends first (the reference's partner moves). Set by `fighter::begin_attack` for a new attack.
+    pub move_powered: bool,
+    /// Frames since the move's armor last withstood a hit, plus one (E55, sim 121: the guard's release window); 0 if it has not in this
+    /// attack (a new attack clears it; a script's `goto` keeps it). The script register `withstood`.
+    pub withstood: u8,
+    /// Damage over time on the fighter (E54, sim 121: the reference's curse): frames left (0: none), the frames between its ticks and
+    /// since the last one, the damage of each tick and the fighter credited with it.
+    pub curse_left: u16,
+    pub curse_every: u8,
+    pub curse_tick: u8,
+    pub curse_damage: Fx,
+    pub curse_by: u8,
     /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
     pub wall_jumps: u8,
     /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
@@ -714,6 +727,13 @@ impl Fighter {
             stored: 0,
             air_flags: 0,
             air_marks: 0,
+            move_powered: false,
+            withstood: 0,
+            curse_left: 0,
+            curse_every: 0,
+            curse_tick: 0,
+            curse_damage: Fx::ZERO,
+            curse_by: 0,
             wall_jumps: 0,
             dash_buffer: 0,
             drop_pending: 0,
@@ -909,6 +929,13 @@ impl StateHash for Fighter {
         h.write_u8(self.stored);
         h.write_u8(self.air_flags);
         h.write_u8(self.air_marks);
+        h.write_bool(self.move_powered);
+        h.write_u8(self.withstood);
+        h.write_u16(self.curse_left);
+        h.write_u8(self.curse_every);
+        h.write_u8(self.curse_tick);
+        self.curse_damage.hash_into(h);
+        h.write_u8(self.curse_by);
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
         h.write_u8(self.drop_pending);
@@ -1519,6 +1546,41 @@ mod tests {
             ("air_marks", {
                 let mut s = state;
                 s.fighters[2].air_marks = 1;
+                s
+            }),
+            ("move_powered", {
+                let mut s = state;
+                s.fighters[1].move_powered = true;
+                s
+            }),
+            ("withstood", {
+                let mut s = state;
+                s.fighters[1].withstood = 1;
+                s
+            }),
+            ("curse_left", {
+                let mut s = state;
+                s.fighters[1].curse_left = 1;
+                s
+            }),
+            ("curse_every", {
+                let mut s = state;
+                s.fighters[1].curse_every = 1;
+                s
+            }),
+            ("curse_tick", {
+                let mut s = state;
+                s.fighters[1].curse_tick = 1;
+                s
+            }),
+            ("curse_damage", {
+                let mut s = state;
+                s.fighters[1].curse_damage = Fx::ONE;
+                s
+            }),
+            ("curse_by", {
+                let mut s = state;
+                s.fighters[1].curse_by = 1;
                 s
             }),
             ("presses", {

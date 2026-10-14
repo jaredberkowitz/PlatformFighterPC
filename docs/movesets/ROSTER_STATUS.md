@@ -545,8 +545,13 @@ Owner decisions 2026-10-14 (recorded at sim 119, the Popgun's phase 2):
     clear, general and defaulted. Built (sim 119): `Fighter::air_marks`, `air_mark` / `set_air_mark`, `Move::flag_versions`.
 76. **The Settler's jab > jab > axe stays at 0-60 / 70%.** Nothing built.
 
-Open for the owner from the Popgun's phase 2 (sim 119): see the report's questions (footage for the flip's arc and the latch, the
-kick's trip chance in 13.0.1, whether a hit clears the kick's up-special bar, the crash's 5%).
+Owner decisions 2026-10-14 (recorded at the Dagger's phase 1; each confirms what sim 119 built, so nothing changed):
+
+77. **The Scamp's flip kick has no trip.** As built.
+78. **A hit clears the kick's block on the up special** (the kick's bar is an air flag, which a hit clears). As built.
+79. **Keep the rocket crash's 5% self damage.** As built.
+
+Open for the owner from the Popgun's phase 2 (sim 119): footage for the flip's arc and the latch (decisions 77-79 answered the rest).
 
 Answered (decisions 74-76) from the Popgun's phase 1 (sim 117; details in `docs/movesets/diddy_kong/IMPLEMENTATION_REPORT.md`): the monkey
 flip's latch as a general held state (E49) and footage of it; footage to fit the rocket's flight and the peel's and peanut's arcs; a

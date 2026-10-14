@@ -262,7 +262,7 @@ covered by `sim-core/tests/scripted_moves.rs`.
 
 Registers: `frame` (move frame, the same numbering as `hitbox start/end`), `facing`, `x`, `y`, `vx`, `vy`,
 `percent`, `stick_x`, `stick_y`, `grounded`, `attack`, `attack_tap`, `special`, `special_tap`, `shield`, `charge`,
-`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`, `locked`, `lock_x`, `lock_y`, `boost`, `boosting`, `grab`, `aimed`, `fast_fall`, `owned`, `holding`, `balloons`, `pocketed`, `pull_wait`, `jump_tap`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
+`hit`, `stored`, `jump`, `presses`, `releases`, `wall`, `flick`, `locked`, `lock_x`, `lock_y`, `boost`, `boosting`, `grab`, `aimed`, `fast_fall`, `owned`, `holding`, `balloons`, `pocketed`, `pull_wait`, `jump_tap`, `powered`, `withstood`. Horizontal speed and `stick_x` are **relative to facing** (positive is forward); positions are absolute.
 `attack_tap`, `special_tap` and `jump_tap` (sim 119: what the flip's latch reads to jump off on a new press, not one held
 since before) are 1 only on the frame the button went down; to remember a tap, store it in a `var`.
 `hit` is 1 once the move has connected. `stored` is the charge the fighter kept from an earlier use (see `store`).
@@ -285,6 +285,11 @@ a `balloons` block), 0 out of one: what the settler's flight reads to flap weake
 the fighter has put away in its pocket: 0 nothing, 1 a projectile, 2 an item: what the settler's pocket reads to take it out instead.
 `pull_wait` (sim 117, E47) is the frames left of the wait a move's `toss` started (its `wait`), counting down every frame, 0 when
 there is none: what the scamp's banana peel reads to make no peel while the wait since the last toss is not over.
+`powered` (sim 121, E52) is 1 if the gauge's powered mode was running when the attack began (the move's `mode powered` boxes are
+out to its end, even if the mode ends first): what the phantom's gun reads to fire its partner's extra shots and last its longer
+length. `withstood` (sim 121, E55) is the frames since the move's armor last withstood a hit, plus one (counted outside hitlag), 0 if
+it has not in this attack (a `goto` keeps it): what the phantom's guard reads to answer with its backhand when special is let go within
+33 frames of a hit.
 `flick` is 1 when the current special was started like a smash attack (the stick flicked its way, within the smash-flick buffer, or the strong button held): what a special with a farther smash-input version reads.
 
 Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, speed_forward, speed_up)`,

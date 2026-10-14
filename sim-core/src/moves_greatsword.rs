@@ -1247,6 +1247,7 @@ fn power_burst(loop_damage: i32, final_damage: i32) -> Burst {
         on_expire: false,
         keep_hits: false,
         on_hit: true,
+        on_shield: true,
     }
 }
 

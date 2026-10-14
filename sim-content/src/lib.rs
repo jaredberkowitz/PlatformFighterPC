@@ -303,6 +303,36 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
                 ));
             }
         }
+        // Sim 121 (E53): the partner gauge's rules.
+        if g.per_frame < Fx::ZERO || g.per_frame > Fx::from_int(100) {
+            errors.push(format!(
+                "fighter {i}: the gauge's per_frame must be 0 to 100"
+            ));
+        }
+        if g
+            .behind
+            .iter()
+            .chain(g.crowd.iter().flatten())
+            .any(|&m| m == 0 || m > 4000)
+        {
+            errors.push(format!(
+                "fighter {i}: the gauge's behind and crowd multipliers must be 1 to 4000 (per mille)"
+            ));
+        }
+        if g
+            .mode_taken
+            .iter()
+            .any(|&v| v < Fx::ZERO || v > Fx::from_int(1000))
+        {
+            errors.push(format!(
+                "fighter {i}: the gauge's mode_taken must be 0 to 1000 frames a percent"
+            ));
+        }
+        if g.ko_keep.iter().any(|&v| v < Fx::ZERO || v > g.max) {
+            errors.push(format!(
+                "fighter {i}: the gauge's ko_keep must be 0 to its max"
+            ));
+        }
     }
     // Sim 111 (E4): the item throws' release frames.
     if f.item_throws
@@ -671,6 +701,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             && mv.pocket.is_none()
             && mv.unpocket.is_none()
             && mv.toss.is_none()
+            && mv.reflector.is_none()
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
@@ -979,6 +1010,39 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         if mv.self_damage < Fx::ZERO || mv.self_damage > Fx::from_int(999) {
             errors.push(format!(
                 "weapon {i} {name}: self_damage must be from 0 to 999"
+            ));
+        }
+        // Sim 121: the guard's armor damage and hitlag (E55), its gauge gain (E53), a projectile's curse (E54), the partner's boxes
+        // (E52).
+        if mv.armor_damage > 1000 || mv.armor_hitlag == 0 || mv.armor_hitlag > 400 {
+            errors.push(format!(
+                "weapon {i} {name}: armor_damage must be 0 to 1000 (per mille) and armor_hitlag 1 to 400 (percent)"
+            ));
+        }
+        if mv.gauge_gain > 10_000 {
+            errors.push(format!(
+                "weapon {i} {name}: gauge_gain must be 0 to 10000 (per mille)"
+            ));
+        }
+        if let Some(c) = &mv.curse {
+            if c.damage <= Fx::ZERO
+                || c.damage > Fx::from_int(100)
+                || c.every == 0
+                || c.frames == 0
+                || mv.projectile.is_none()
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: a curse needs a projectile, a damage above 0 (at most 100), every and frames at least 1"
+                ));
+            }
+        }
+        if mv
+            .hitboxes
+            .iter()
+            .any(|hb| hb.mode > sim_core::moves::MODE_POWERED || hb.part > 1)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: a hitbox's mode must be any, plain or powered and its part 0 or 1"
             ));
         }
         // A move's toss (E47, sim 117): its frames inside the move, its speeds not negative, its angle a real one.
@@ -1739,11 +1803,11 @@ mod combat_tests {
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {
         let mut c = Content::placeholder();
-        c.fighters[0].weapon = 12;
+        c.fighters[0].weapon = 13;
         c.weapons[0].moves[0].hitboxes[0].end = 200;
         c.weapons[1].moves.pop();
         let errors = validate(&c).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("weapon 12")), "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("weapon 13")), "{errors:?}");
         assert!(
             errors.iter().any(|e| e.contains("outside the move")),
             "{errors:?}"

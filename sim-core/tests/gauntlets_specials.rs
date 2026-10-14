@@ -286,6 +286,8 @@ fn the_uppercut_withstands_a_hit_of_up_to_10_percent_on_frames_1_to_4() {
         slip: 0,
         fixed_stun: 0,
         unblockable: false,
+        mode: 0,
+        part: 0,
     };
     for (damage, holds) in [(10, true), (11, false)] {
         let mut sim = duel();

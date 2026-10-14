@@ -1,0 +1,12 @@
+// Dagger guard held (ext9, slot 37): armor every frame, the move going round (on its frame 2) while special is held, up to the
+// reference's 120 frames from the guard's start (its 19 plus `held`). Let go within 33 frames of a withstood hit: the backhand
+// (40 = ext11); let go otherwise, or at 120, the guard's end lag (39 = ext10).
+var held;
+held = held + 1;
+if withstood > 0 && withstood <= 34 && special == 0 {
+    goto(40);
+} else if special == 0 || held + 19 >= 120 {
+    goto(39);
+} else if frame >= 2 {
+    goto(37);
+}
