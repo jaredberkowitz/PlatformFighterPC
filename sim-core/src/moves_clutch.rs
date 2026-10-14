@@ -92,8 +92,12 @@ fn set_all(mv: &mut Move, f: impl Fn(&mut Hitbox)) {
     }
 }
 
-/// The down air's landing hit (an `ext` slot; the claws' placeholder specials use `ext0` to `ext2` until phase 2).
+/// The down air's landing hit (an `ext` slot).
 pub const DAIR_LANDING: MoveId = MoveId::Ext3;
+/// The drop (down special) started in the air: the stall then the drop.
+pub const DROP_AIR: MoveId = MoveId::Ext4;
+/// The drop's landing, with its two stars.
+pub const DROP_LANDING: MoveId = MoveId::Ext5;
 
 /// The Clutch moveset (the bounder body): kicks, a tail, a headbutt and a long tongue. Every normal follows the reference frame for
 /// frame (the ninth moveset's `REFERENCE_DATA.md` in `docs/movesets/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables):
@@ -114,6 +118,7 @@ pub fn clutch() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    specials(&mut w);
     w
 }
 
@@ -664,4 +669,201 @@ fn ledge_and_floor(w: &mut Weapon) {
     });
     getup.intangible = 21;
     w.moves[MoveId::GetUpAttack as usize] = getup;
+}
+
+fn specials(w: &mut Weapon) {
+    // The claws' up special (and its three `ext` endings) is replaced: those slots are free again.
+    for id in [MoveId::Ext0, MoveId::Ext1, MoveId::Ext2] {
+        w.moves[id as usize] = Move::empty();
+    }
+    w.moves[MoveId::UpSpecial as usize] = lobbed_shell();
+    let (ground, air, landing) = drop();
+    w.moves[MoveId::DownSpecial as usize] = ground;
+    w.moves[DROP_AIR as usize] = air;
+    w.moves[DROP_LANDING as usize] = landing;
+}
+
+/// The shell's hit, and its burst's: 6%, 70 degrees (type 3), BK 60, KS 50, hitlag x0.6, shield damage -3 (50 [D]), cannot rebound
+/// (`rebound=f`) [R]; `direct=f` (indirect) is not modelled.
+fn shell_hit(radius_reference_tenths: i32) -> Hitbox {
+    let mut h = row(&ru(
+        1,
+        1,
+        0,
+        0,
+        radius_reference_tenths,
+        60,
+        70,
+        60,
+        50,
+        0,
+        0,
+    ));
+    h.angle_type = ANGLE_FORWARD;
+    h.hitlag = 60;
+    h.shield_damage = shield(60, -30);
+    h.rebounds = false;
+    h
+}
+
+/// The up special: an aimed, lobbed shell (the reference's, 13.0.1; `REFERENCE_DATA.md` "Egg Throw"). The shell leaves on frame 16
+/// (the script `clutch_egg_throw.script`: its speed from the frames special is held, its aim from the stick, the air hops); FAF 56.
+/// In the air the move has its own physics: gravity 0.07 and fall 1.29 of the reference's units (0.00875, 0.16125 [D]), air speed
+/// x0.9, vertical speed x0.8 on starting [R]; never helpless; ledges in front only while not rising [R reading of "as long as he is
+/// not moving upward"; front only, E]; touching down carries the throw on along the ground (no landing lag is published) [E].
+///
+/// The shell: radius 2.5 → 3 [D] (its 1-unit capsule's height is not modelled), reflectable [R]; flight gravity 0.09, fall 10
+/// (0.01125, 1.25 [D]); it bounces off the ground at most twice keeping 0.8 of its speed both ways, and only off a landing at most 1.6
+/// a frame (0.2 [D]); a faster landing, a third landing, a wall, a fighter (shielding or not) or the end of its 46-frame life bursts
+/// it (conflict 10: the reading proposed in the audit [E]). The burst: radius 6.5 → 8 [D], the same numbers, on its 3 frames, and
+/// never on the fighter the shell itself hit (one hit: the reference's changelist).
+fn lobbed_shell() -> Move {
+    let mut mv = ref_move(56, 0, 0, 255, &[]);
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/clutch_egg_throw.script"),
+    ));
+    mv.air_gravity = Some(Fx::from_ratio(7, 800));
+    mv.air_max_fall = Some(Fx::from_ratio(129, 800));
+    mv.air_drift = 90;
+    mv.start_speed_y = 80;
+    mv.land_continue = true;
+    mv.ledge_front_from = 0;
+    mv.ledge_falling_only = true;
+    mv.projectile = Some(ProjectileSpawn {
+        // (Only the script fires it.)
+        frame: 255,
+        x: Fx::from_ratio(5, 8),
+        y: Fx::from_ratio(13, 8),
+        speed: Fx::ZERO,
+        life: 46,
+        hitbox: shell_hit(25),
+        end_damage: Fx::from_int(6),
+        arc: ProjectileArc {
+            gravity: Fx::from_ratio(9, 800),
+            max_fall: Fx::from_ratio(10, 8),
+            bounces: 2,
+            bounce_min: Fx::ZERO,
+            bounce_max: Fx::from_int(10),
+            bounce_keep: 80,
+            bounce_keep_y: 80,
+            bounce_max_fall: Fx::from_ratio(16, 80),
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+        burst: Some(Burst {
+            // Ages 1 to 3: the burst's three frames.
+            life: 4,
+            rehit: 0,
+            on_wall: true,
+            y: Fx::ZERO,
+            phases: phase_list(&[(1, shell_hit(65))]),
+            on_ground: true,
+            on_expire: true,
+            keep_hits: true,
+        }),
+    });
+    mv
+}
+
+/// The drop's hits. `ground` true: the grounded version (the hop's 4% on frame 7 against grounded fighters only, FKV 80, KS 100,
+/// radius 7.0, 7.0 up and 10.0 ahead of the reference's root, hitlag x0.5; then the drop from frame 27 until it lands: 15%, BK 60,
+/// KS 72, radius 6.8, 5.5 up, hitlag x0.7, shield damage +10 (167 [D])); false: the aerial version (12%, BK 70, KS 68, radius 6.4,
+/// hitlag x0.7, shield +10 (183 [D]): clean on frame 19 at the root, late from 20 until it lands 5.5 up). Every box 80 degrees (type
+/// 3) [R]; the hop and the drop are separate hits (their own groups).
+fn drop_hits(ground: bool) -> Vec<Hitbox> {
+    let mut rows = Vec::new();
+    if ground {
+        let mut hop = row(&ru(7, 7, 100, 70, 70, 40, 80, 0, 100, 0, 0));
+        hop.fixed_kb = 80;
+        hop.targets = TARGETS_GROUNDED;
+        hop.hitlag = 50;
+        rows.push(hop);
+        let mut fall = row(&ru(27, 254, 0, 55, 68, 150, 80, 60, 72, 0, 1));
+        fall.hitlag = 70;
+        fall.shield_damage = shield(150, 100);
+        rows.push(fall);
+    } else {
+        for (first, last, y) in [(19u8, 19u8, 0), (20, 254, 55)] {
+            let mut h = row(&ru(first, last, 0, y, 64, 120, 80, 70, 68, 0, 0));
+            h.hitlag = 70;
+            h.shield_damage = shield(120, 100);
+            rows.push(h);
+        }
+    }
+    for h in &mut rows {
+        h.angle_type = ANGLE_FORWARD;
+    }
+    rows
+}
+
+/// The down special: a ground pound (the reference's, 13.0.1; `REFERENCE_DATA.md` "Yoshi Bomb"). On the ground (this slot) a hop with
+/// its weak hit, then the drop from frame 27; in the air (`DROP_AIR`) a stall, then the drop from frame 19. The drop falls at 4.8 of
+/// the reference's units a frame (0.6 [D]) until it lands, however long [R] (a move lasts at most 253 frames here: 137 units of
+/// falling, past any blast zone). Both drop through soft platforms for 7 frames from the drop's start and through all of them while
+/// the stick is held down [R] (E30), catch ledges in front and behind from the drop's start [R], are never helpless, and land into
+/// `DROP_LANDING` (39 frames, FAF 40, the two stars). The rise and the stall are estimates (owner decision 60): the scripts
+/// `clutch_drop.script` and `clutch_drop_air.script` [E].
+fn drop() -> (Move, Move, Move) {
+    let build = |ground: bool| {
+        let drop_frame: u8 = if ground { 26 } else { 18 };
+        let mut mv = ref_move(255, 0, 0, 255, &[]);
+        mv.hitboxes = drop_hits(ground);
+        mv.script = Some(if ground {
+            script(Kind::Fighter, include_str!("scripts/clutch_drop.script"))
+        } else {
+            script(
+                Kind::Fighter,
+                include_str!("scripts/clutch_drop_air.script"),
+            )
+        });
+        mv.ledge_front_from = drop_frame;
+        mv.ledge_back_from = drop_frame;
+        mv.drop_through = Some(DropThrough {
+            from: drop_frame,
+            frames: 7,
+            while_down: true,
+        });
+        mv.landing_move = Some(DROP_LANDING as u8);
+        mv
+    };
+    let mut ground = build(true);
+    ground.air_version = Some(DROP_AIR as u8);
+    let air = build(false);
+
+    // The landing: 39 frames (FAF 40) [R]; its script fires the two stars on its frame 2, so they hit on its frames 3-12 [R]. A star:
+    // 4% at 50 degrees (type 3: the way it flies), BK 50, KS 40, radius 4.0 → 5 [D], no hitlag (H 0), shield +6 (250 [D]), cannot
+    // rebound; reflectable [R]; `direct=f` not modelled. Its flight: gravity 0.2 and fall 2 of the reference's units (0.025, 0.25 [D]),
+    // 11 frames (hits on ages 1-10).
+    let mut landing = ref_move(40, 0, 0, 255, &[]);
+    landing.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/clutch_drop_landing.script"),
+    ));
+    let mut star = row(&ru(1, 1, 0, 0, 40, 40, 50, 50, 40, 0, 0));
+    star.angle_type = ANGLE_FORWARD;
+    star.hitlag = 0;
+    star.shield_damage = shield(40, 60);
+    star.rebounds = false;
+    landing.projectile = Some(ProjectileSpawn {
+        frame: 255,
+        x: Fx::ONE,
+        y: Fx::from_ratio(1, 8),
+        speed: Fx::ZERO,
+        life: 11,
+        hitbox: star,
+        end_damage: Fx::from_int(4),
+        arc: ProjectileArc {
+            gravity: Fx::from_ratio(2, 80),
+            max_fall: Fx::from_ratio(2, 8),
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+        burst: None,
+    });
+    (ground, air, landing)
 }

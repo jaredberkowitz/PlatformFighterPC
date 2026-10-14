@@ -1,0 +1,6 @@
+// Clutch down special in the air (ext4), the stall then the drop [E: the reference publishes no rise or stall, owner decision 60]:
+// the rise on frames 2-15 at 0.0510 x (15 - frame) a frame (5.36 units in all: the grounded rise / 1.4), a still top on 16-18, then
+// the drop from frame 19 at 0.6 a frame [R] until it lands. Sideways speed is stopped throughout [E].
+if frame <= 14 { set_vel(0, 0.0510204 * (15 - frame)); }
+if frame >= 15 && frame <= 17 { set_vel(0, 0); }
+if frame >= 18 { set_vel(0, -0.6); }

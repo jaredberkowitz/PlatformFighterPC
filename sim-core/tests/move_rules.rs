@@ -7,7 +7,9 @@ mod common;
 
 use common::{fx, inp, Sim};
 use sim_core::input::buttons::SPECIAL;
-use sim_core::moves::{Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, MAX_PHASES};
+use sim_core::moves::{
+    DropThrough, Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, MAX_PHASES,
+};
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
 
@@ -249,4 +251,198 @@ fn the_new_fields_are_in_the_content_hash() {
         edit(&mut c.fighters[6].gauge);
         assert_ne!(h, c.hash());
     }
+}
+
+// ---- Sim 92: ledges only while not rising, a move's own platform drop (E30) ----------------------------------------------------
+
+/// Player 0 beside the right ledge (as `falls_past_the_ledge`), starting 2.4 units below it and rising at 1/8 a frame for `rise` frames,
+/// then falling at 1/8, during a move that catches ledges from its first frame (`falling_only` or not); returns the move frame the
+/// ledge was caught on (None if never).
+fn rise_by_the_ledge(rise: u8, falling_only: bool) -> Option<u16> {
+    let mut motion = vec![Motion {
+        start: 0,
+        end: rise.saturating_sub(1),
+        vx: Fx::ZERO,
+        vy: fx(1, 8),
+    }];
+    motion.push(Motion {
+        start: rise,
+        end: 79,
+        vx: Fx::ZERO,
+        vy: fx(-1, 8),
+    });
+    let mut sim = with_move(
+        MoveId::UpSpecial,
+        Move {
+            total_frames: 80,
+            motion,
+            ledge_front_from: 0,
+            ledge_falling_only: falling_only,
+            hitboxes: vec![hit(Fx::ONE, Fx::ZERO)],
+            ..Move::empty()
+        },
+    );
+    let ledge = *sim
+        .content
+        .stage
+        .ledges
+        .iter()
+        .find(|l| l.side > 0)
+        .expect("a right ledge");
+    sim.put_airborne(
+        0,
+        ledge.x + fx(12, 10),
+        ledge.y - fx(24, 10),
+        Fx::ZERO,
+        Fx::ZERO,
+    );
+    sim.state.fighters[0].facing = -1;
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::UpSpecial);
+    for _ in 0..80 {
+        let frame = sim.f().state_frame + 1;
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::LedgeHang {
+            return Some(frame);
+        }
+    }
+    None
+}
+
+#[test]
+fn ledge_falling_only_catches_a_ledge_only_once_the_fighter_stops_rising() {
+    // Rising past the ledge the whole time: caught on the way up without the rule, never with it.
+    assert!(rise_by_the_ledge(70, false).is_some());
+    assert_eq!(rise_by_the_ledge(70, true), None);
+    // Rising for 12 frames then falling back: with the rule, caught only after the fall begins.
+    let up = rise_by_the_ledge(12, false).expect("caught rising");
+    let down = rise_by_the_ledge(12, true).expect("caught falling");
+    assert!(up < 12 && down >= 12, "rising {up}, falling {down}");
+}
+
+/// Player 0 starts `above` world units over the left soft platform (x -5.5, y 3.6) and falls at 1/8 a frame during a move with
+/// `drop` (holding the stick down if `down`); returns its height after 60 frames, or where it touched down.
+fn fall_onto_the_soft_platform(above: Fx, drop: Option<DropThrough>, down: bool) -> Fx {
+    let mut sim = with_move(
+        MoveId::DownSpecial,
+        Move {
+            total_frames: 80,
+            motion: vec![Motion {
+                start: 0,
+                end: 79,
+                vx: Fx::ZERO,
+                vy: fx(-1, 8),
+            }],
+            drop_through: drop,
+            hitboxes: vec![hit(Fx::ONE, Fx::ZERO)],
+            ..Move::empty()
+        },
+    );
+    sim.put_airborne(0, fx(-55, 10), fx(36, 10) + above, Fx::ZERO, Fx::ZERO);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::DownSpecial);
+    for _ in 0..60 {
+        sim.tick(inp(0, if down { -127 } else { 0 }, 0));
+        if sim.f().grounded() {
+            break;
+        }
+    }
+    sim.f().pos.y
+}
+
+#[test]
+fn drop_through_passes_soft_platforms_for_its_frames_and_while_down_is_held() {
+    let soft = fx(36, 10);
+    let seven = Some(DropThrough {
+        from: 1,
+        frames: 7,
+        while_down: false,
+    });
+    // Half a unit above: without the rule it lands on the platform; with 7 frames of drop it is through before they run out, and
+    // lands on the stage's floor.
+    assert_eq!(fall_onto_the_soft_platform(fx(1, 2), None, false), soft);
+    assert_eq!(
+        fall_onto_the_soft_platform(fx(1, 2), seven, false),
+        Fx::ZERO
+    );
+    // Two units above: the 7 frames run out first, so it lands on it, unless down is held (with `while_down`).
+    assert_eq!(
+        fall_onto_the_soft_platform(Fx::from_int(2), seven, true),
+        soft
+    );
+    let held = Some(DropThrough {
+        from: 1,
+        frames: 7,
+        while_down: true,
+    });
+    assert_eq!(
+        fall_onto_the_soft_platform(Fx::from_int(2), held, false),
+        soft
+    );
+    assert_eq!(
+        fall_onto_the_soft_platform(Fx::from_int(2), held, true),
+        Fx::ZERO
+    );
+}
+
+#[test]
+fn the_sim_92_fields_are_in_the_content_hash() {
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    for (name, edit) in [
+        (
+            "late_next",
+            (|m| m.late_next = Some((17, 29))) as fn(&mut Move),
+        ),
+        ("ledge_falling_only", |m| m.ledge_falling_only = true),
+        ("drop_through", |m| {
+            m.drop_through = Some(DropThrough {
+                from: 1,
+                frames: 7,
+                while_down: false,
+            })
+        }),
+    ] {
+        let mut c = base.clone();
+        edit(&mut c.weapons[0].moves[MoveId::NAir as usize]);
+        assert_ne!(h, c.hash(), "{name}");
+    }
+    // The drop's frames and its down rule each count.
+    let with_drop = |d: DropThrough| {
+        let mut c = base.clone();
+        c.weapons[0].moves[MoveId::NAir as usize].drop_through = Some(d);
+        c.hash()
+    };
+    let d = DropThrough {
+        from: 1,
+        frames: 7,
+        while_down: false,
+    };
+    assert_ne!(with_drop(d), with_drop(DropThrough { frames: 8, ..d }));
+    assert_ne!(
+        with_drop(d),
+        with_drop(DropThrough {
+            while_down: true,
+            ..d
+        })
+    );
+    // A shell's flight and burst options (the Clutch's up special, class 8's weapon).
+    let shell = |edit: fn(&mut ProjectileSpawn)| {
+        let mut c = base.clone();
+        let w = usize::from(c.fighters[8].weapon);
+        let p = c.weapons[w].moves[MoveId::UpSpecial as usize]
+            .projectile
+            .as_mut()
+            .expect("the shell");
+        edit(p);
+        c.hash()
+    };
+    for edit in [
+        (|p| p.arc.bounce_keep_y = 79) as fn(&mut ProjectileSpawn),
+        |p| p.arc.bounce_max_fall = Fx::ONE,
+        |p| p.burst.as_mut().expect("burst").on_ground = false,
+        |p| p.burst.as_mut().expect("burst").on_expire = false,
+        |p| p.burst.as_mut().expect("burst").keep_hits = false,
+    ] {
+        assert_ne!(h, shell(edit));
+    }
+    let _ = ProjectileArc::NONE;
 }

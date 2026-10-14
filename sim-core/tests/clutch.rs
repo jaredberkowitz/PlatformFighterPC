@@ -1056,13 +1056,18 @@ fn the_clutch_is_registered_as_class_8() {
     assert_eq!(c.names.weapons[8], "clutch");
     assert_eq!(c.fighters[8], FighterParams::bounder());
     assert_eq!(c.weapons[8], sim_core::moves::clutch());
-    // The specials are still the claws' placeholders (phases 2 and 3).
-    for id in [
-        MoveId::NSpecial,
-        MoveId::SideSpecial,
-        MoveId::UpSpecial,
-        MoveId::DownSpecial,
-    ] {
+    // The neutral and side specials are still the claws' placeholders (phase 3); the up and down specials are phase 2's
+    // (`clutch_specials.rs`), and the claws' up special endings (ext0-ext2) are gone with it.
+    for id in [MoveId::UpSpecial, MoveId::DownSpecial] {
+        assert_ne!(
+            c.weapons[8].moves[id as usize], c.weapons[1].moves[id as usize],
+            "{id:?}"
+        );
+    }
+    for id in [MoveId::Ext0, MoveId::Ext1, MoveId::Ext2] {
+        assert!(c.weapons[8].moves[id as usize].is_empty(), "{id:?}");
+    }
+    for id in [MoveId::NSpecial, MoveId::SideSpecial] {
         assert_eq!(
             c.weapons[8].moves[id as usize], c.weapons[1].moves[id as usize],
             "{id:?}"

@@ -4266,7 +4266,7 @@ mod clutch;
 pub use clutch::clutch;
 /// The Clutch's follow-up slots (which `ext` slot holds which part), for tests and tools.
 pub mod clutch_slots {
-    pub use super::clutch::DAIR_LANDING;
+    pub use super::clutch::{DAIR_LANDING, DROP_AIR, DROP_LANDING};
 }
 
 #[cfg(test)]
