@@ -1110,3 +1110,5 @@ only; every created fighter can wear them too).
   wall, half above and half below its bottom edge and standing a little proud of it, varied in size and height, so the built wall grows
   out of the island's earth instead of ending on a ruled line above the keel. `stage_rock_skirt.png`.
 - Modelled props, weapons and animation are deferred to near the end (owner's call).
+- **Bigger light and medium hit bursts** (`Effects.hit`: size 0.5 + 0.6 x strength, was 0.36 + 0.74): a mid-strength hit reads at play
+  distance, as the review asked; the strongest hit is the same size as before.
