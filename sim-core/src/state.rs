@@ -212,6 +212,9 @@ pub struct Fighter {
     /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
     /// the first frame the fighter can act (see `fighter::update`).
     pub dash_buffer: i8,
+    /// A platform drop waiting to happen: frames left (counting the one it falls on) before the fighter leaves the pass-through
+    /// platform it flicked down on, 0 for none (see `Ruleset::platform_drop_frames`). A special on those frames is grounded.
+    pub drop_pending: u8,
     /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
     /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
     /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
@@ -524,6 +527,7 @@ impl Fighter {
             air_flags: 0,
             wall_jumps: 0,
             dash_buffer: 0,
+            drop_pending: 0,
             presses: 0,
             releases: 0,
             next_move: 0,
@@ -695,6 +699,7 @@ impl StateHash for Fighter {
         h.write_u8(self.air_flags);
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
+        h.write_u8(self.drop_pending);
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
@@ -1210,6 +1215,11 @@ mod tests {
             ("dash_buffer", {
                 let mut s = state;
                 s.fighters[1].dash_buffer = 1;
+                s
+            }),
+            ("drop_pending", {
+                let mut s = state;
+                s.fighters[1].drop_pending = 1;
                 s
             }),
             ("air_flags", {

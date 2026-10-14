@@ -474,6 +474,7 @@ rules_io! {
     helpless_drift: Fx,
     special_turn_window: u8,
     special_reverse_window: u8,
+    platform_drop_frames: u8,
     autolink_max_speed: Fx,
     autolink_max_fall: Fx,
     pull_rate: Fx,

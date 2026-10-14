@@ -389,10 +389,19 @@ pub fn update(
             f.state,
             S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch | S::Landing
         );
+    // A pending platform drop belongs to the ground states (see `ground`): anything else (a hit, a grab) ends it.
+    if !matches!(
+        f.state,
+        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch
+    ) {
+        f.drop_pending = 0;
+    }
     match f.state {
         S::Attack => return attack(f, p, weapon, stage, rules, world),
         S::Hitstun => hitstun(f, p, stage, rules),
-        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
+        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => {
+            ground(f, p, weapon, stage, rules)
+        }
         S::JumpSquat => jump_squat(f, p, weapon, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage, rules),
         S::Helpless => return helpless(f, p, weapon, stage, rules),
@@ -505,8 +514,10 @@ fn start_platform_drop(f: &mut Fighter, p: &FighterParams) {
     enter(f, S::Airborne);
 }
 
-fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
+fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
     let input = f.history[0];
+    // (Set again below while a platform drop is still waiting; any other way out of the ground states ends it.)
+    let drop_pending = core::mem::take(&mut f.drop_pending);
     if matches!(f.state, S::Dash | S::Run) {
         f.dash_age = f.dash_age.saturating_add(1);
     } else {
@@ -540,9 +551,31 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
         enter(f, S::Shield);
         return;
     }
-    if !initial_dash && on_pass_through(f, stage) && f.flicked_down(TAP_BUFFER) {
-        start_platform_drop(f, p);
-        return;
+    // A platform drop (owner decision 63, the reference's): the down flick keeps the fighter on the platform for
+    // `platform_drop_frames` more frames, crouching, and it falls on the frame after. A special on the flick's frame, on any of
+    // those, or on the frame it falls comes out on the ground instead: with the stick down, the down special. Nothing else
+    // interrupts it (an attack or grab pressed meanwhile is buffered into the air).
+    if !initial_dash && on_pass_through(f, stage) {
+        let mut left = drop_pending;
+        if left == 0 && f.flicked_down(TAP_BUFFER) {
+            left = rules.platform_drop_frames.saturating_add(1);
+        }
+        if left > 0 {
+            if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
+                f.buffer_used |= buttons::SPECIAL;
+                return;
+            }
+            left -= 1;
+            if left == 0 {
+                start_platform_drop(f, p);
+                return;
+            }
+            f.drop_pending = left;
+            f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+            f.state = S::Crouch;
+            slide_on_platform(f, p, stage);
+            return;
+        }
     }
     if f.take(buttons::GRAB, buffer) {
         // Grabbing while turning around out of a dash or run is a pivot grab: it comes out toward the way the

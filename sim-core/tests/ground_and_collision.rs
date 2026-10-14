@@ -144,7 +144,10 @@ fn tapping_down_on_a_pass_through_platform_drops_through() {
     sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
     sim.state.fighters[0].platform = 1;
     sim.tick(inp(0, 0, 0));
-    sim.tick(inp(0, -127, 0));
+    // The drop waits `platform_drop_frames` on the platform (where a special is still the grounded down special, see
+    // `platform_drop.rs`), then falls.
+    let wait = usize::from(sim.content.rules.platform_drop_frames);
+    sim.ticks(wait + 1, inp(0, -127, 0));
     assert_eq!(sim.f().state, S::Airborne);
     assert!(!sim.f().grounded());
     sim.ticks(80, inp(0, 0, 0));
@@ -876,7 +879,8 @@ fn a_soft_down_tap_still_drops_through_a_platform() {
     sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
     sim.state.fighters[0].platform = 1;
     sim.tick(inp(0, 0, 0));
-    sim.tick(inp(0, -70, 0));
+    let wait = usize::from(sim.content.rules.platform_drop_frames);
+    sim.ticks(wait + 1, inp(0, -70, 0));
     assert_eq!(sim.f().state, S::Airborne);
     assert!(!sim.f().grounded());
 }

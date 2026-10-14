@@ -1710,6 +1710,11 @@ pub struct Ruleset {
     /// A B-reverse: the stick pushed the other way in the first this many frames of a neutral or side special turns the fighter round and
     /// reverses its momentum in the air (the reference game: within 4 frames of the special input).
     pub special_reverse_window: u8,
+    /// A platform drop (a down flick on a pass-through platform) stays on the platform for this many frames after the flick's
+    /// frame before the fighter falls, and a special pressed on any of them, or on the frame it would fall, comes out grounded
+    /// instead (the down special, with the stick down). The reference's drop is 2 frames (derived from a fighter of its whose
+    /// drop is 11 with 9 extra frames added for command specials; owner decision 63, `docs/movesets/ROSTER_STATUS.md`).
+    pub platform_drop_frames: u8,
     /// The autolink angle's caps (world units a frame): the launch speed at most `autolink_max_speed` (the reference's 3, the speed
     /// of 100 knockback) and the fall no faster than `autolink_max_fall` (the reference's 1).
     pub autolink_max_speed: Fx,
@@ -1858,6 +1863,7 @@ impl Ruleset {
             helpless_drift: Fx::from_ratio(1, 2),
             special_turn_window: 3,
             special_reverse_window: 4,
+            platform_drop_frames: 2,
             autolink_max_speed: Fx::from_ratio(3, 8),
             autolink_max_fall: Fx::from_ratio(1, 8),
             pull_rate: Fx::from_ratio(1, 3),
@@ -1975,6 +1981,7 @@ impl StateHash for Ruleset {
         self.helpless_drift.hash_into(h);
         h.write_u8(self.special_turn_window);
         h.write_u8(self.special_reverse_window);
+        h.write_u8(self.platform_drop_frames);
         self.autolink_max_speed.hash_into(h);
         self.autolink_max_fall.hash_into(h);
         self.pull_rate.hash_into(h);
