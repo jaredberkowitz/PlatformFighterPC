@@ -1,0 +1,7 @@
+// The rocket barrels that flew off the scamp: they wobble up and down as they go [R: "irregular"; E: how], and for their first 40
+// frames the scamp's stick pushes them a little its way [R: "a small amount of time"; E: how much].
+if age < 40 {
+    set_vel(pvx + owner_stick_x * 0.01, pvy + owner_stick_y * 0.01 + 0.02 * sin(age * 24));
+} else {
+    set_vel(pvx, pvy + 0.01 * sin(age * 24));
+}

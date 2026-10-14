@@ -312,6 +312,9 @@ pub struct Surroundings {
     pub owner: Vec2,
     /// The nearest fighter that is not the owner (lowest index on a tie).
     pub target: Option<Vec2>,
+    /// The owner's stick this frame (-1..1 each way; x positive right, absolute, not by facing): what `owner_stick_x` /
+    /// `owner_stick_y` read (sim 117: the rocket barrels steered for a while after they fly off).
+    pub owner_stick: Vec2,
 }
 
 struct ProjectileHost<'a> {
@@ -336,6 +339,8 @@ impl Host for ProjectileHost<'_> {
             api::R_TARGET_X => target.x.raw(),
             api::R_TARGET_Y => target.y.raw(),
             api::R_HAS_TARGET => flag(self.around.target.is_some()),
+            api::R_OWNER_STICK_X => self.around.owner_stick.x.raw(),
+            api::R_OWNER_STICK_Y => self.around.owner_stick.y.raw(),
             _ => 0,
         }
     }

@@ -799,12 +799,13 @@ fn the_pocket_and_tree_fields_are_in_the_content_hash() {
 
 #[test]
 fn the_banana_fields_are_in_the_content_hash() {
-    // Sim 117 (E44, E45, E47): a hitbox's slip, a move's toss, an item's damage modifier, uses and trap, and the ruleset's soft-trip
-    // timings each change the hash.
+    // Sim 117 (E44, E45, E47, E48): a move's shed, a hitbox's slip, a move's toss, an item's damage modifier, uses and trap, and the
+    // ruleset's soft-trip timings each change the hash.
     let base = sim_core::Content::placeholder();
     let h = base.hash();
     let w = usize::from(base.fighters[11].weapon);
-    let edits: [fn(&mut sim_core::Content, usize); 10] = [
+    let edits: [fn(&mut sim_core::Content, usize); 11] = [
+        |c, w| c.weapons[w].moves[MoveId::UpSpecial as usize].shed = None,
         |c, _| {
             c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].slip = sim_core::moves::SLIP_SOFT
         },

@@ -1,0 +1,12 @@
+// Popgun up special (the rocket barrels), the charge. From move frame 6 (the reference's 7) special held charges it: the stick tilts
+// the launch angle `a` (degrees from straight up, positive forward) by up to 0.75 a frame, at most 45 either way [E]; let go, or after
+// 60 frames, the charge is the frames held and the move goes on as the flight (34 = ext6), launched on the next frame (the reference's
+// 8 to 68).
+var a;
+if frame >= 6 {
+    a = clamp(a + stick_x * 0.75, -45, 45);
+    if special == 0 || frame >= 66 {
+        set_charge(frame - 6);
+        goto(34);
+    }
+}

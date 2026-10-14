@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 117
-    hash 96d4a6fd8223287b
+    hash 5e726dedb7616e4e
 }
 
 ruleset {
@@ -9718,160 +9718,25 @@ weapon popgun {
         }
     }
     move up_special {
-        total_frames 70
-        landing_lag 36
-        helpless_after true
+        total_frames 80
         land_continue true
-        ledge_front_from 26
-        ledge_back_from 25
-        fall_drift 65
-        fall_landing_lag 36
-        rehit_start 26
-        rehit_every 2
-        rehit_groups 2
-        hitbox { start 17 end 20 x 0.09999 y 1 radius 0.9 damage 4 angle 93 bkb 50 kbg 10 set_weight true angle_type position }
-        hitbox { start 26 end 28 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 60 kbg 20 group 1 hitlag 50 targets grounded sdi 0 angle_type travel }
-        hitbox {
-            start 26
-            end 28
-            x 0
-            y 1
-            radius 0.79999
-            damage 2.5
-            angle 367
-            bkb 35
-            kbg 20
-            priority 1
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 26
-            end 28
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 40
-            bkb 60
-            kbg 20
-            priority 2
-            group 1
-            hitlag 50
-            targets grounded
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 26
-            end 28
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 367
-            bkb 40
-            kbg 20
-            priority 3
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        hitbox { start 29 end 31 x 0 y 1 radius 0.59999 damage 2.5 angle 40 bkb 70 kbg 20 group 1 hitlag 50 targets grounded sdi 0 angle_type travel }
-        hitbox {
-            start 29
-            end 31
-            x 0
-            y 1
-            radius 0.79999
-            damage 2.5
-            angle 367
-            bkb 35
-            kbg 20
-            priority 1
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 29
-            end 31
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 40
-            bkb 70
-            kbg 20
-            priority 2
-            group 1
-            hitlag 50
-            targets grounded
-            sdi 0
-            angle_type travel
-        }
-        hitbox {
-            start 29
-            end 31
-            x 0.5
-            y 0.79999
-            radius 0.4
-            damage 2.5
-            angle 367
-            bkb 40
-            kbg 20
-            priority 3
-            group 1
-            hitlag 50
-            targets aerial
-            sdi 0
-            angle_type travel
-        }
+        start_speed 0
+        start_speed_y 0
+        air_gravity 0.00249
+        air_max_fall 0.0625
+        shed ext8
         script {
-            // Up special (the reference's parameters, in world units: reference / 8). In the air the startup keeps 0.67 of the horizontal
-            // speed and stops the fall, then sinks at 0.02 with friction 0.01. The stick on frame 16 aims the dash (neutral: straight up;
-            // backward turns the brawler round; on the ground it cannot aim below level). The dash is frames 26-32: 3.8 a frame, less 0.2 a
-            // frame after its first 4. Touching down while dashing more than 20 degrees below level bounces off (30 = ext2); less, it carries on
-            // along the ground. Frame 33 keeps 0.7 of the speed on the ground, 0.8 in the air, and the move goes on as its ending: on the ground
-            // (28 = ext0) or in the air (29 = ext1), with the ending's friction and gravity.
-            var dx;
-            var dy;
-            if frame == 1 && grounded == 0 { set_vel(vx * 0.67, 0); }
-            if frame >= 2 && frame <= 24 && grounded == 0 {
-                set_vel(sign(vx) * max(abs(vx) - 0.00125, 0), vy - 0.0025);
-            }
-            if frame == 15 {
-                let sx = stick_x;
-                let sy = stick_y;
-                if grounded && sy < 0 { sy = 0; }
-                let len = sqrt(sx * sx + sy * sy);
-                if len < 0.25 {
-                    dx = 0;
-                    dy = 1;
-                } else {
-                    if sx < 0 { turn(); sx = -sx; }
-                    dx = sx / len;
-                    dy = sy / len;
+            // Popgun up special (the rocket barrels), the charge. From move frame 6 (the reference's 7) special held charges it: the stick tilts
+            // the launch angle `a` (degrees from straight up, positive forward) by up to 0.75 a frame, at most 45 either way [E]; let go, or after
+            // 60 frames, the charge is the frames held and the move goes on as the flight (34 = ext6), launched on the next frame (the reference's
+            // 8 to 68).
+            var a;
+            if frame >= 6 {
+                a = clamp(a + stick_x * 0.75, -45, 45);
+                if special == 0 || frame >= 66 {
+                    set_charge(frame - 6);
+                    goto(34);
                 }
-            }
-            if frame >= 25 && frame <= 31 {
-                if grounded && dy < -0.342 { goto(30); }
-                let speed = 0.475;
-                if frame > 28 { speed = 0.475 - 0.025 * (frame - 28); }
-                set_vel(dx * speed, dy * speed);
-            }
-            if frame == 32 {
-                if grounded { set_vel(vx * 0.7, 0); } else { set_vel(vx * 0.8, vy * 0.8); }
-            }
-            if frame == 33 {
-                if grounded { goto(28); } else { goto(29); }
             }
         }
     }
@@ -10026,6 +9891,89 @@ weapon popgun {
         total_frames 106
         land_continue true
         hitbox { start 1 end 1 x 0.9 y 1.09999 radius 1 damage 23 angle 361 bkb 30 kbg 92 hitlag 150 clanks false rebounds false angle_type position }
+    }
+    move ext6 {
+        total_frames 54
+        helpless_after true
+        land_continue true
+        ledge_front_from 1
+        ledge_back_from 1
+        fall_landing_lag 30
+        fast_fall_from 255
+        keep_charge true
+        shed ext8
+        hitbox { start 1 end 2 x 0.59999 y 0.59999 radius 0.5 damage 10 angle 361 bkb 40 kbg 85 clanks false rebounds false angle_type position }
+        hitbox { start 1 end 2 x -0.59999 y 0.59999 radius 0.5 damage 10 angle 361 bkb 40 kbg 85 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 3 end 9 x 0.59999 y 0.59999 radius 0.4 damage 8 angle 80 bkb 40 kbg 90 clanks false rebounds false angle_type position }
+        hitbox { start 3 end 9 x -0.59999 y 0.59999 radius 0.4 damage 8 angle 80 bkb 40 kbg 90 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 28 x 0.59999 y 0.59999 radius 0.4 damage 6 angle 70 bkb 40 kbg 90 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 28 x -0.59999 y 0.59999 radius 0.4 damage 6 angle 70 bkb 40 kbg 90 priority 1 clanks false rebounds false angle_type position }
+        script {
+            // Popgun up special, the flight. On its first frame the launch speed is set from the charge (the move keeps it): 3.1 + 0.019 a frame
+            // of charge of the reference's units a frame, x1.05 when launched from the air [R]. Every frame the stick steers the angle `a` (from
+            // straight up, positive forward) by up to 1.5 degrees, at most 80 either way [E], and the speed falls off evenly to nothing by the
+            // flight's end [E]. A wall, or the ground after the first frames, sets the barrels off (35 = ext7, the crash).
+            var a;
+            var s;
+            if frame == 1 {
+                s = (3.1 + 0.019 * charge) / 8;
+                if grounded == 0 {
+                    s = s * 1.05;
+                }
+            }
+            a = clamp(a + stick_x * 1.5, -80, 80);
+            let v = s * (55 - frame) / 54;
+            set_vel(v * sin(a), v * cos(a));
+            if wall || (grounded && frame > 3) {
+                goto(35);
+            }
+        }
+    }
+    move ext7 {
+        total_frames 56
+        helpless_after true
+        land_continue true
+        fall_landing_lag 30
+        hitbox { start 1 end 2 x 0 y 0 radius 2.5 damage 18 angle 70 bkb 50 kbg 70 angle_type position }
+    }
+    move ext8 {
+        total_frames 1
+        projectile {
+            frame 255
+            x 0
+            y 1
+            speed 0.1875
+            life 180
+            end_damage 1
+            angle 75
+            gravity 0.00499
+            max_fall 0.1875
+            bounce_max_fall 0.00002
+            kind 10
+            bounces 1
+            pierce true
+            hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 1 angle 361 bkb 10 kbg 100 clanks false rebounds false angle_type position }
+            burst {
+                life 3
+                on_wall true
+                on_ground true
+                on_expire true
+                on_hit false
+                phase {
+                    from 1
+                    hitbox { start 0 end 0 x 0 y 0 radius 2.5 damage 18 angle 70 bkb 50 kbg 70 angle_type position }
+                }
+            }
+        }
+        projectile_script {
+            // The rocket barrels that flew off the scamp: they wobble up and down as they go [R: "irregular"; E: how], and for their first 40
+            // frames the scamp's stick pushes them a little its way [R: "a small amount of time"; E: how much].
+            if age < 40 {
+                set_vel(pvx + owner_stick_x * 0.01, pvy + owner_stick_y * 0.01 + 0.02 * sin(age * 24));
+            } else {
+                set_vel(pvx, pvy + 0.01 * sin(age * 24));
+            }
+        }
     }
     move pivot_grab {
         total_frames 38

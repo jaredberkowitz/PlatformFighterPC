@@ -187,6 +187,7 @@ A move block (omitted fields take the default shown):
 | `ledge_drop_front`, `ledge_drop_back` | together: during the move a ledge in front / behind is caught only once the fighter is at least this far (world units) below where the move began (or where a `goto` switched to it), on top of `ledge_front_from` / `ledge_back_from` | none |
 | `push_immune_from`, `push_immune_to` | on these move frames a push (a `push` hitbox: the reference's windbox) does not move the fighter at all (the reference's windbox immunity; sim 90) | 255, 0 (never) |
 | `on_land` | an aerial move that touches the ground goes on as this move (usually its grounded version) on the same frame, keeping its frame and its hits so far, instead of landing: the mirror of `off_edge` | none |
+| `shed` | a move name (E48, sim 117: the reference's rocket barrels flying off their hit wearer): a hit landing on the fighter during this move (not a push, not one its armor withstands) fires that move's projectile at the fighter's feet (the spec's offset, its facing), credited to the fighter; if the hit leaves the fighter in its move (a flinch), the move ends, into the special fall in the air or standing on the ground. A real move with a projectile | none |
 | `hold_x`, `hold_y` | together: where a fighter held during this move is pinned, forward and up from the holder's feet (in the air if the holder is, or if `hold_y` is above 0); otherwise the ruleset's `grab_distance` in front, on the holder's platform | none |
 | `pull_frame`, `pull_item` | together (schema 7, sim 111, E4): on move frame `pull_frame` the weapon's item number `pull_item` appears in the fighter's hand, if the hand is empty (the reference's bomb pull: none while holding an item); its burst stales as this move. Inside the move, and an item the weapon has | none |
 | `spend_item` | on this move frame the item in the fighter's hand is used up (schema 7, sim 111, E4: the double arrow fires the arrow held); 255 never | 255 |
@@ -342,7 +343,9 @@ Functions: `set_vel(forward, up)`, `add_vel(forward, up)`, `spawn(forward, up, s
 ### Projectile scripts
 
 Registers: `px`, `py`, `pvx`, `pvy` (absolute), `age`, `life`, `owner_x`, `owner_y`, `target_x`, `target_y`,
-`has_target` (the nearest *active* fighter that is not the owner; the lowest index wins a tie).
+`has_target` (the nearest *active* fighter that is not the owner; the lowest index wins a tie), `owner_stick_x`, `owner_stick_y`
+(sim 117: the owner's stick this frame, -1..1, x positive right, absolute: what the scamp's rocket barrels read to be steered for a
+while after they fly off).
 Functions: `set_vel(x, y)` (absolute, takes effect this frame), `kill()`.
 
 ### Both
@@ -418,9 +421,10 @@ Line numbers inside a script count from its first non-blank line.
   the standard values when absent). An older file makes no items, so nothing is rewritten; a fighter without `item_throws` gets the
   standard release frames (the bump makes an older build refuse a file with items clearly:
   `a_schema_6_file_from_before_items_still_loads_unchanged`).
-  Still schema 7 (sim v117, the Popgun): a hitbox may have `slip hard` / `slip soft` (E44), a move a `toss { ... }` block (E47), an
-  item `damage_add`, `uses` and a `trap { ... }` block (E45), and the ruleset `slip_lag` (30) and `slip_max` (90). Each defaults to
-  the old behaviour (no slip, no toss, no modifier, no limit on uses, no trap), so an older file loads unchanged.
+  Still schema 7 (sim v117, the Popgun): a hitbox may have `slip hard` / `slip soft` (E44), a move a `toss { ... }` block (E47) and
+  `shed` (E48), an item `damage_add`, `uses` and a `trap { ... }` block (E45), and the ruleset `slip_lag` (30) and `slip_max` (90).
+  Each defaults to the old behaviour (no slip, no toss, nothing shed, no modifier, no limit on uses, no trap), so an older file loads
+  unchanged.
   Still schema 7 (sim v115): a move may have `cancel_from` (owner decision 70), `pocket { ... }` / `unpocket { ... }` blocks (E42)
   and `chops`; a projectile `pocket` and `water`; an item `pocketable` and a `placed { ... }` block (E43). Each defaults to the old
   behaviour (no cancel, no pocket, every shot and item pocketable only by a pocket that exists, no placed pieces), so an older file

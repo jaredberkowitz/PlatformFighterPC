@@ -1745,6 +1745,12 @@ pub struct Move {
     /// The move throws the item in the fighter's hand at its own speed and angle (E47, sim 117: the reference's banana peel toss; see
     /// [`Toss`]). `None` (the default): no throw.
     pub toss: Option<Toss>,
+    /// A hit landing on the fighter during this move (not a push, not one its armor withstands) sheds this move's projectile (E48, sim
+    /// 117: the reference's rocket barrels flying off when their wearer is hit): the projectile of move `shed` (usually an `ext` slot
+    /// that only holds it) is fired at the fighter's feet (the spec's offset, its facing), credited to the fighter; and if the hit leaves
+    /// the fighter in its move (a flinch, no hitstun), the move ends: into the special fall in the air, standing on the ground. `None`
+    /// (the default): nothing.
+    pub shed: Option<u8>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1833,6 +1839,7 @@ impl Move {
             unpocket: None,
             chops: false,
             toss: None,
+            shed: None,
             script: None,
             projectile_script: None,
         }
@@ -2372,6 +2379,13 @@ impl StateHash for Weapon {
                     t.speed.hash_into(h);
                     t.smash_speed.hash_into(h);
                     h.write_u8(t.wait);
+                }
+                None => h.write_bool(false),
+            }
+            match m.shed {
+                Some(s) => {
+                    h.write_bool(true);
+                    h.write_u8(s);
                 }
                 None => h.write_bool(false),
             }
@@ -5356,8 +5370,9 @@ pub use popgun::popgun;
 /// The Popgun's follow-up slots (which `ext` slot holds which part) and its banana peel, for tests and tools.
 pub mod popgun_slots {
     pub use super::popgun::{
-        banana_item, BANANA_ITEM, BANANA_KIND, PEEL_FAILS, PEEL_FAILS_WITH_ITEM, PEEL_WAIT,
-        PEEL_WITH_ITEM, POPGUN_FIRE, POPGUN_FULL, POPGUN_MISFIRE,
+        banana_item, BANANA_ITEM, BANANA_KIND, BARRELS, BARRELS_KIND, PEEL_FAILS,
+        PEEL_FAILS_WITH_ITEM, PEEL_WAIT, PEEL_WITH_ITEM, POPGUN_FIRE, POPGUN_FULL, POPGUN_MISFIRE,
+        ROCKET_CRASH, ROCKET_FLIGHT,
     };
 }
 

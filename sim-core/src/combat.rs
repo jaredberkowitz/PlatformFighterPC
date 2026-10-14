@@ -1202,9 +1202,21 @@ pub(crate) fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
+    // A move that sheds a projectile when its user is hit (E48, sim 117: the rocket barrels flying off).
+    let shed = if def.state == S::Attack {
+        weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .shed
+            .map(|slot| (slot, def.pos, def.facing))
+    } else {
+        None
+    };
     // A carry the hit breaks through lets go of its fighter (E7).
     if carrying {
         grab::drop_grab(state, content, d);
+    }
+    if let Some((slot, at, facing)) = shed {
+        fire(state, content, d, d, slot, at, facing);
     }
     let def = &mut state.fighters[d];
     // The bury (E5). A buried fighter is freed only by a hit of at least `bury_break_kb` (it is launched in full, below); a weaker
@@ -1309,6 +1321,14 @@ pub(crate) fn apply_hit(
         // A flinch: hitlag only (a reversing hit still turns the fighter round).
         if hb.reverse {
             reverse(def, source_pos);
+        }
+        // ...but a move that shed something when hit (E48) ends: into the special fall in the air, standing on the ground.
+        if shed.is_some() && def.state == S::Attack {
+            if def.grounded() {
+                fighter::stand_or_fall(def);
+            } else {
+                fighter::enter_helpless(def);
+            }
         }
         return;
     }
@@ -2379,9 +2399,11 @@ fn surroundings(state: &GameState, owner: usize, at: Vec2) -> scripting::Surroun
             target = Some((d, f.pos));
         }
     }
+    let stick = state.fighters[owner].history[0];
     scripting::Surroundings {
         owner: state.fighters[owner].pos,
         target: target.map(|(_, p)| p),
+        owner_stick: Vec2::new(stick.stick_x_fx(), stick.stick_y_fx()),
     }
 }
 

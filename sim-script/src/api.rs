@@ -157,6 +157,8 @@ pub const R_OWNER_Y: u8 = 7;
 pub const R_TARGET_X: u8 = 8;
 pub const R_TARGET_Y: u8 = 9;
 pub const R_HAS_TARGET: u8 = 10;
+pub const R_OWNER_STICK_X: u8 = 11;
+pub const R_OWNER_STICK_Y: u8 = 12;
 
 const fn reg(name: &'static str, id: u8, doc: &'static str) -> Entry {
     Entry { name, id, doc }
@@ -314,6 +316,16 @@ pub const PROJECTILE_REGISTERS: &[Entry] = &[
         "position of the nearest fighter that is not its owner",
     ),
     reg("has_target", R_HAS_TARGET, "1 if there is such a fighter"),
+    reg(
+        "owner_stick_x",
+        R_OWNER_STICK_X,
+        "the stick of the fighter it belongs to, -1..1, positive is right (absolute)",
+    ),
+    reg(
+        "owner_stick_y",
+        R_OWNER_STICK_Y,
+        "the stick of the fighter it belongs to, -1..1, positive is up",
+    ),
 ];
 
 const MATH: [Func; 9] = [

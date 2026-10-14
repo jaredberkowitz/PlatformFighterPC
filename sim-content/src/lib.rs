@@ -481,6 +481,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             ("limit_version", mv.limit_version),
             ("on_land", mv.on_land),
             ("detect_then", mv.reflector.and_then(|r| r.detect_then)),
+            ("shed", mv.shed),
         ] {
             if let Some(l) = slot {
                 if usize::from(l) >= MoveId::COUNT
@@ -488,6 +489,17 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 {
                     errors.push(format!("weapon {i} {name}: {field} needs a real move"));
                 }
+            }
+        }
+        // (A shed move must have the projectile it sheds: E48, sim 117.)
+        if let Some(s) = mv.shed {
+            if w.moves
+                .get(usize::from(s))
+                .is_some_and(|sm| sm.projectile.is_none())
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: shed needs a move with a projectile"
+                ));
             }
         }
         if mv.is_empty() {
@@ -1382,6 +1394,7 @@ mod combat_tests {
             "kick_y",
             "slip_lag 30",
             "slip_max 90",
+            "shed ext8",
         ] {
             assert!(text.contains(field), "{field}");
         }
@@ -1436,6 +1449,10 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("slip_lag")));
+        // A move that sheds one with no projectile (E48).
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::UpSpecial as usize].shed = Some(MoveId::Jab as u8);
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("shed")));
     }
 
     #[test]

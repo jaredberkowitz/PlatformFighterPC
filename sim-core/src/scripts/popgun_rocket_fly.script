@@ -1,0 +1,18 @@
+// Popgun up special, the flight. On its first frame the launch speed is set from the charge (the move keeps it): 3.1 + 0.019 a frame
+// of charge of the reference's units a frame, x1.05 when launched from the air [R]. Every frame the stick steers the angle `a` (from
+// straight up, positive forward) by up to 1.5 degrees, at most 80 either way [E], and the speed falls off evenly to nothing by the
+// flight's end [E]. A wall, or the ground after the first frames, sets the barrels off (35 = ext7, the crash).
+var a;
+var s;
+if frame == 1 {
+    s = (3.1 + 0.019 * charge) / 8;
+    if grounded == 0 {
+        s = s * 1.05;
+    }
+}
+a = clamp(a + stick_x * 1.5, -80, 80);
+let v = s * (55 - frame) / 54;
+set_vel(v * sin(a), v * cos(a));
+if wall || (grounded && frame > 3) {
+    goto(35);
+}

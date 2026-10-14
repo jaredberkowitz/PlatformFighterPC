@@ -116,6 +116,7 @@ pub fn popgun() -> Weapon {
     ledge_and_floor(&mut w);
     banana(&mut w);
     popgun_special(&mut w);
+    rocket_barrels(&mut w);
     w
 }
 
@@ -913,4 +914,160 @@ fn popgun_special(w: &mut Weapon) {
     });
     boom.land_continue = true;
     w.moves[POPGUN_MISFIRE as usize] = boom;
+}
+
+// ---- The up special: the rocket barrels --------------------------------------------------------------------------------------------
+
+/// The up special's parts: the flight, the crash, and the holder of the barrels that fly off when the scamp is hit (never started by
+/// a button).
+pub const ROCKET_FLIGHT: MoveId = MoveId::Ext6;
+pub const ROCKET_CRASH: MoveId = MoveId::Ext7;
+pub const BARRELS: MoveId = MoveId::Ext8;
+/// The barrels' tool kind (one set at a time is all there is: the scamp has one pack).
+pub const BARRELS_KIND: u8 = 10;
+
+/// The explosion of the rocket barrels (a crash, or the barrels meeting the stage after flying off): 18%, 70 degrees, BK 50, KS 70,
+/// radius 20.0 round the root (the feet) [R].
+fn barrels_blast() -> Hitbox {
+    let mut h = shot_hit(200, 180, 70, 50, 70, ANGLE_BY_POSITION);
+    h.clanks = true;
+    h
+}
+
+/// The up special's charge. In the air the scamp falls slower while charging [R: 3.1.0; E: gravity 0.02 and fall 0.5 of the
+/// reference's units]. (The reference's slower fall is for the first charge of an air time only; here every charge can only be the
+/// first: a launch or a flinch ends in the special fall, and a hit that launches clears the engine's per-air-time flags, so a charge
+/// after being hit out falls slower too: a limit.)
+fn rocket_charge() -> Move {
+    let mut mv = ref_move(49, 0, 0, 255, &[]);
+    // (The script decides when the charge ends: the move lasts past the longest.)
+    mv.total_frames = 80;
+    mv.land_continue = true;
+    // (Started in the air, the scamp's momentum is stopped [E: "disrupted", the reference's barrel jumping note].)
+    mv.start_speed = 0;
+    mv.start_speed_y = 0;
+    mv.air_gravity = Some(rs(20));
+    mv.air_max_fall = Some(rs(500));
+    mv.shed = Some(BARRELS as u8);
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_rocket.script"),
+    ));
+    mv
+}
+
+/// The up special: the rocket barrels (13.0.1; ssbwiki.com's raw up special page, `Rocketbarrel_Boost`, the SSB4-to-13.0.1 changelist,
+/// the 3.1.0 and 8.0.0 notes, ultimateframedata.com).
+///
+/// * The charge: from frame 7 special held charges it, up to 60 frames [R]; let go (or at 60) the scamp launches on the next frame
+///   (frames 8 to 68 [R]). In the air it falls slower [R; E: how much] (see `rocket_charge`). The stick tilts the launch's angle while
+///   charging, more the longer the charge [R: qualitative; E: 0.75 degrees a frame of the stick, at most 45 either way].
+/// * The flight (`ROCKET_FLIGHT`): launched at 3.1 + 0.019 a frame of charge of the reference's units a frame, x1.05 from the air [R];
+///   steered by the stick while flying [R: qualitative; E: 1.5 degrees a frame, at most 80 either way]; its speed falls off to nothing
+///   over its 54 frames [E: the published speed is the launch's only]. Hits: frames 1-2 of the flight 10% (361, BK 40, KS 85, radius
+///   4.0), 3-9 8% (80 degrees, BK 40, KS 90, radius 3.2), 10-28 6% (70 degrees, BK 40, KS 90, radius 2.8), each a box in front of and
+///   behind the waist, never clanking, one hit [R]. Then the special fall, 30 frames of landing lag [R]; ledges from the launch [E].
+/// * The crash (`ROCKET_CRASH`): touching a wall, or the ground after the flight's first frames, sets the barrels off [R]: 18%, 70
+///   degrees, BK 50, KS 70, radius 20.0 round the scamp on the crash's frames 1-2 [R], FAF 58 [R: 57-59 on level ground]; the scamp's
+///   own damage from it (about 5% in the reference's older games) is not modelled (gap).
+/// * Hit while charging or flying (E48, `shed`): the barrels fly off (`BARRELS`), a flinch ending the move in the special fall [R]; they
+///   wobble along, steered a while by the scamp's stick [R; E: how], hitting for 1% (361, BK 10, KS 100) [R], and burst on the stage
+///   (the 18% explosion) [R]. (The reference's barrels cannot be shielded: here a shield blocks them, a limit.)
+fn rocket_barrels(w: &mut Weapon) {
+    w.moves[MoveId::UpSpecial as usize] = rocket_charge();
+
+    // The flight: its frame k is the k-th of the flight (the move is reached on the charge's last frame).
+    let mut rows = Vec::new();
+    for (first, last, damage, angle, kbg, radius) in [
+        (2u8, 3u8, 100, 361i16, 85i16, 40),
+        (4, 10, 80, 80, 90, 32),
+        (11, 29, 60, 70, 90, 28),
+    ] {
+        rows.push(ru(
+            first, last, 50, 50, radius, damage, angle, 40, kbg, 0, 0,
+        ));
+        rows.push(ru(
+            first, last, -50, 50, radius, damage, angle, 40, kbg, 1, 0,
+        ));
+    }
+    let mut flight = ref_move(56, 0, 0, 255, &rows);
+    set_all(&mut flight, |h| {
+        h.angle_type = ANGLE_BY_POSITION;
+        h.clanks = false;
+        h.rebounds = false;
+    });
+    flight.keep_charge = true;
+    flight.helpless_after = true;
+    flight.fall_landing_lag = 30;
+    flight.land_continue = true;
+    flight.ledge_front_from = 1;
+    flight.ledge_back_from = 1;
+    flight.fast_fall_from = 255;
+    flight.shed = Some(BARRELS as u8);
+    flight.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_rocket_fly.script"),
+    ));
+    w.moves[ROCKET_FLIGHT as usize] = flight;
+
+    // The crash: the explosion on its frames 1-2, FAF 58 counted from the crash [R].
+    let mut crash = ref_move(58, 0, 0, 255, &[]);
+    crash.hitboxes = vec![Hitbox {
+        start: 1,
+        end: 2,
+        ..barrels_blast()
+    }];
+    crash.helpless_after = true;
+    crash.fall_landing_lag = 30;
+    crash.land_continue = true;
+    w.moves[ROCKET_CRASH as usize] = crash;
+
+    // The barrels flying off: a projectile fired at the scamp's feet (1.0 up), up and a little forward [E], its script wobbling and
+    // steering it [E]; 1% to each fighter once [R], bursting on the stage (or after 180 frames [E]) into the 18% explosion [R].
+    let mut barrel = shot_hit(32, 10, 361, 10, 100, ANGLE_BY_POSITION);
+    barrel.clanks = false;
+    barrel.rebounds = false;
+    let mut holder = ref_move(3, 0, 0, 255, &[]);
+    holder.projectile = Some(ProjectileSpawn {
+        frame: 255,
+        x: Fx::ZERO,
+        y: rs(8000),
+        speed: rs(1500),
+        life: 180,
+        hitbox: barrel,
+        end_damage: barrel.damage,
+        arc: ProjectileArc {
+            angle: 75,
+            gravity: rs(40),
+            max_fall: rs(1500),
+            // (Any landing on a platform top bursts it: a bounce allowed only from a fall slower than nothing.)
+            bounces: 1,
+            bounce_max_fall: Fx::from_raw(1),
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: true,
+        rehit: 0,
+        burst: Some(Burst {
+            life: 3,
+            rehit: 0,
+            on_wall: true,
+            y: Fx::ZERO,
+            phases: phase_list(&[(1, barrels_blast())]),
+            on_ground: true,
+            on_expire: true,
+            keep_hits: false,
+            on_hit: false,
+        }),
+        charged: None,
+        tool: Tool {
+            kind: BARRELS_KIND,
+            ..Tool::NONE
+        },
+    });
+    holder.projectile_script = Some(script(
+        Kind::Projectile,
+        include_str!("scripts/popgun_barrels.script"),
+    ));
+    w.moves[BARRELS as usize] = holder;
 }

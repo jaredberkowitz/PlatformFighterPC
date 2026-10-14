@@ -1045,6 +1045,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         ("off_edge", &mut m.off_edge),
         ("limit_version", &mut m.limit_version),
         ("on_land", &mut m.on_land),
+        ("shed", &mut m.shed),
     ] {
         if let Some((key, line)) = f.raw(name) {
             match MoveId::from_key(key) {
@@ -1638,6 +1639,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("off_edge", m.off_edge),
         ("limit_version", m.limit_version),
         ("on_land", m.on_land),
+        ("shed", m.shed),
     ] {
         if let Some(id) = slot {
             b.field(name, MoveId::from_index(id).key());

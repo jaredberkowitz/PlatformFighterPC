@@ -321,6 +321,27 @@ fn a_projectile_script_can_home_in_on_the_nearest_enemy() {
 }
 
 #[test]
+fn a_projectile_reads_its_owners_stick() {
+    // Sim 117: `owner_stick_x` / `owner_stick_y` are the owner's stick this frame (absolute: x positive right), what the scamp's
+    // rocket barrels read to be steered for a while. The shot keeps them in its variables: held right and down, 1 and -1.
+    let mut sim = shooter("var x; var y; x = owner_stick_x; y = owner_stick_y;");
+    start(&mut sim);
+    let mut seen = None;
+    for _ in 0..40 {
+        sim.tick(inp(127, -127, 0));
+        if let Some(p) = sim.state.projectiles.iter().find(|p| p.active) {
+            seen = Some(p.vars);
+        }
+    }
+    let v = seen.expect("a shot");
+    assert_eq!((v[0], v[1]), (Fx::ONE.raw(), (-Fx::ONE).raw()));
+    // Neutral: 0.
+    let mut sim = shooter("var x; x = owner_stick_x + 5;");
+    let shots = fire_and_follow(&mut sim, 40);
+    assert_eq!(shots.last().unwrap().vars[0], Fx::from_int(5).raw());
+}
+
+#[test]
 fn a_projectile_script_can_remove_the_projectile() {
     let mut sim = shooter("if age >= 6 { kill(); }");
     let shots = fire_and_follow(&mut sim, 40);
