@@ -1958,27 +1958,35 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var keel := _hanging_mass(bottom, length, l, r, front, 3.2, 0.12, 9,
 				func(s: float) -> float: return (1.0 - 0.18 * s) * (1.0 - pow(s, 2.4)),
 				func(s: float) -> float: return 0.09 * s * s)
-			var earth := Materials.stone((t.soil_dark as Color).darkened(0.12), Vector2(6, 2))
-			_mesh(root, keel, earth, Vector3.ZERO).name = "Underside"
+			# (The keel is the wall's own earth carried on down, falling into shade below the light, as the canyon's mesa and the city's
+			# tower are, so the platform reads as one body of earth, not a wall set on a separate rock.)
+			var under := _mesh(root, keel, _under_material(_soil_material(t), 0.85), Vector3.ZERO)
+			under.name = "Underside"
+			under.set_instance_shader_parameter("front_top", e[2])
 			# A ragged skirt of rounded rocks along the foot of the wall, half above and half below its bottom edge, so the built wall
 			# grows out of the island's earth instead of sitting on it along a ruled line. Deterministic.
-			var skirt := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.35), Vector2(1, 1))
+			# (In the earth's own darker colour, of very different sizes, in clusters with gaps, sunk into the earth rather than standing
+			# proud in a row: a ring of equal light stones read as a separate layer, a necklace under the wall.)
+			var skirt := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.15), Vector2(1, 1))
+			var skirt_lit := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.4), Vector2(1, 1))
 			var sx := l - 0.2
 			var j := 0
 			while sx < r + 0.2:
-				var sr := 0.6 + 0.4 * absf(sin(float(j) * 2.3 + 0.7))
-				# (Standing a little proud of the wall's face, 0.3 out, so the whole stone shows.)
-				_mesh(root, _sphere(1.0, 9), skirt, Vector3(sx, bottom - 0.1 + 0.3 * sin(float(j) * 2.9), 0.3 + sr * 0.2),
-					Vector3(sr * 1.35, sr, sr * 0.8), Vector3(0, float(j) * 37.0, float(j) * 11.0))
-				sx += sr * 1.7
+				var n := absf(sin(float(j) * 2.3 + 0.7)) * absf(sin(float(j) * 0.9 + 1.3))
+				var sr := 0.35 + 1.0 * n
+				if n > 0.3:
+					_mesh(root, _sphere(1.0, 9), skirt if j % 3 != 0 else skirt_lit, Vector3(sx, bottom - 0.25 - sr * 0.3 + 0.35 * sin(float(j) * 2.9),
+						0.05 + sr * 0.15), Vector3(sr * 1.35, sr, sr * 0.8), Vector3(0, float(j) * 37.0, float(j) * 11.0))
+				sx += sr * (1.2 + 0.7 * absf(sin(float(j) * 1.7)))
 				j += 1
 			var w := r - l
 			var cx := (l + r) / 2.0
-			var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.45))
+			# (Stones bedded in the keel, in the earth's own colours a step lighter, half sunk: pale lavender stones read as stickers.)
+			var rock := Materials.stone((t.soil as Color).lerp(t.soil_dark as Color, 0.35))
 			for k in 6:
 				var u := rng.randf_range(-0.36, 0.36)
 				var down := (1.0 - absf(u) * 2.0) * rng.randf_range(0.25, 0.6) * length
-				_mesh(root, _sphere(1.0, 7), rock, Vector3(cx + u * w, bottom - 0.9 - down, front - 0.25),
+				_mesh(root, _sphere(1.0, 7), rock, Vector3(cx + u * w, bottom - 0.9 - down, front - 0.45),
 					Vector3(1.3, 0.9, 1.0) * rng.randf_range(0.45, 0.85),
 					Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 60), rng.randf_range(-15, 15)))
 			var root_mat := Materials.bark(Color(0.5, 0.33, 0.22), Vector2(1, 2))
@@ -1987,7 +1995,7 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				var len := rng.randf_range(1.2, 3.2) * (1.0 - absf(x - cx) / w)
 				_mesh(root, _cylinder(0.05, 0.12, len, 5), root_mat, Vector3(x, bottom - len * 0.5 + 0.1, front + 0.15), Vector3.ONE,
 					Vector3(rng.randf_range(-8, 8), 0, rng.randf_range(-14, 14)))
-			_under_haze(root, t, bottom - length * 0.5, 9.0, 0.6)
+			_under_haze(root, t, bottom - length * 0.65, 9.0, 0.45)
 
 
 ## A copy of a block's world-laid material `m` for what carries on below it, out of the light: its front falls `fall` of the way into
