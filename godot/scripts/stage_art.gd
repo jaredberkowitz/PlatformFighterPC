@@ -1143,9 +1143,42 @@ static func _lantern_post(root: Node3D, at: Vector3, glow: Color) -> void:
 static func _umbrella(root: Node3D, at: Vector3, colour: Color) -> void:
 	_mesh(root, _cylinder(0.05, 0.05, 2.4, 6), FighterView.toon(Color(0.95, 0.95, 0.95)), at + Vector3(0, 1.2, 0), Vector3.ONE, Vector3(0, 0, 8))
 	var top := at + Vector3(-0.17, 2.4, 0)
-	_mesh(root, _cylinder(0.0, 1.5, 0.5, 8), FighterView.toon(colour), top, Vector3.ONE, Vector3(0, 0, 8))
+	# A striped canopy: the cloth in eight panels alternating its colour and white, a rib along each seam, a scalloped hem and a knob.
+	var canopy := Node3D.new()
+	canopy.position = top
+	canopy.rotation_degrees = Vector3(0, 0, 8)
+	root.add_child(canopy)
+	var white := FighterView.toon(Color(0.98, 0.96, 0.92))
+	var cloth := FighterView.toon(colour)
+	_mesh(canopy, _canopy_mesh(1.5, 0.5, 8, 0), cloth, Vector3.ZERO)
+	_mesh(canopy, _canopy_mesh(1.5, 0.5, 8, 1), white, Vector3.ZERO)
+	for k in 8:
+		var a := TAU * (float(k) + 0.5) / 8.0
+		_mesh(canopy, _sphere(0.2, 8), cloth if k % 2 == 0 else white, Vector3(cos(a) * 1.4, -0.26, sin(a) * 1.4), Vector3(1.0, 0.55, 1.0))
+	_mesh(canopy, _sphere(0.1, 8), white, Vector3(0, 0.28, 0))
 	# A towel on the sand under it.
 	_mesh(root, _box(Vector3(1.6, 0.03, 0.8)), FighterView.toon(Color(0.55, 0.8, 0.95), false), at + Vector3(0.6, 0.02, 0.4))
+
+
+## Every other panel (`parity` 0 or 1) of a cone `radius` wide and `height` tall, its tip at `height` / 2 and its rim at -`height` / 2,
+## cut into `panels` panels round it (a beach umbrella's striped canopy, one mesh per colour).
+static func _canopy_mesh(radius: float, height: float, panels: int, parity: int) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tip := Vector3(0, height / 2.0, 0)
+	for k in panels:
+		if k % 2 != parity:
+			continue
+		for j in 4:
+			var a0 := TAU * (float(k) + float(j) / 4.0) / float(panels)
+			var a1 := TAU * (float(k) + float(j + 1) / 4.0) / float(panels)
+			var p0 := Vector3(cos(a0) * radius, -height / 2.0, sin(a0) * radius)
+			var p1 := Vector3(cos(a1) * radius, -height / 2.0, sin(a1) * radius)
+			for v in [tip, p0, p1]:
+				st.set_uv(Vector2(v.x, v.z))
+				st.add_vertex(v)
+	st.generate_normals()
+	return st.commit()
 
 
 static func _life_ring(root: Node3D, at: Vector3) -> void:
@@ -2906,10 +2939,22 @@ static func _palm(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var bark := Materials.bark(Color(0.66, 0.5, 0.32), Vector2(1, 1))
 	var lean := rng.randf_range(-0.12, 0.12)
 	var top := base
-	for k in 8:
-		var seg := base + Vector3(lean * k * k * 0.12 * size, k * 0.75 * size, 0)
-		_mesh(root, _cylinder(0.24 * size, 0.3 * size, 0.8 * size, 10), bark, seg + Vector3(0, 0.4 * size, 0))
-		top = seg + Vector3(0, 0.8 * size, 0)
+	# (A trunk of overlapping scales, each a ring wider at its top than its foot, turned along the trunk's curve and narrowing toward
+	# the crown, so it reads as one curving palm trunk rather than a stack of drums; a darker ring marks each joint.)
+	var joint := Materials.bark(Color(0.5, 0.36, 0.24), Vector2(1, 1))
+	var n := 10
+	for k in n:
+		var u := float(k) / float(n)
+		var seg := base + Vector3(lean * k * k * 0.08 * size, k * 0.6 * size, 0)
+		var slope := lean * 2.0 * float(k) * 0.08 / 0.6
+		var r := lerpf(0.32, 0.22, u) * size
+		var tilt := Vector3(0, 0, -rad_to_deg(atan(slope)))
+		_mesh(root, _cylinder(r * 1.12, r * 0.86, 0.7 * size, 12), bark, seg + Vector3(0, 0.35 * size, 0), Vector3.ONE, tilt)
+		_mesh(root, _cylinder(r * 1.15, r * 1.15, 0.07 * size, 12), joint, seg + Vector3(slope * 0.66 * size, 0.68 * size, 0), Vector3.ONE, tilt)
+		top = seg + Vector3(slope * 0.7 * size, 0.7 * size, 0)
+	# A flared, rooted foot in the sand.
+	_mesh(root, _cylinder(0.3 * size, 0.5 * size, 0.4 * size, 12), bark, base + Vector3(0, 0.1 * size, 0))
+	_contact(root, base, Vector2(0.7, 0.55) * size)
 	var head := Sway.new()
 	head.position = top
 	head.amount = 5.0

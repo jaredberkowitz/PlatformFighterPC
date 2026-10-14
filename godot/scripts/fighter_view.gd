@@ -1028,12 +1028,34 @@ func build(p: int, l: RefCounted = null) -> void:
 	var edge_l := BoxMesh.new()
 	edge_l.size = Vector3(2.5, 0.018, 0.06)
 	blade_parts.append(_part(blade_pivot, edge_l, _unshaded_mat(Color(0.96, 0.99, 1.0)), Vector3(1.5, 0.07, 0)))
-	var guard_mesh := BoxMesh.new()
-	guard_mesh.size = Vector3(0.12, 0.6, 0.12)
-	blade_parts.append(_part(blade_pivot, guard_mesh, respond(toon(Color(0.92, 0.76, 0.3)), "gold"), Vector3(0.18, 0, 0)))
-	var grip_mesh := BoxMesh.new()
-	grip_mesh.size = Vector3(0.4, 0.12, 0.12)
-	blade_parts.append(_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.02, 0, 0)))
+	# The hilt, built as a sword's is: a round crossguard bar with ball ends and a block where it meets the blade, a round grip wrapped
+	# in three bands, and a gold pommel (it was a box guard on a box grip).
+	var gold := respond(toon(Color(0.92, 0.76, 0.3)), "gold")
+	var bar := CylinderMesh.new()
+	bar.top_radius = 0.05
+	bar.bottom_radius = 0.05
+	bar.height = 0.62
+	bar.radial_segments = 10
+	blade_parts.append(_part(blade_pivot, bar, gold, Vector3(0.18, 0, 0)))
+	for gy in [-0.33, 0.33]:
+		blade_parts.append(_part(blade_pivot, _sphere(0.075), gold, Vector3(0.18, gy, 0)))
+	var block := BoxMesh.new()
+	block.size = Vector3(0.12, 0.2, 0.14)
+	blade_parts.append(_part(blade_pivot, block, gold, Vector3(0.2, 0, 0)))
+	var grip_mesh := CylinderMesh.new()
+	grip_mesh.top_radius = 0.06
+	grip_mesh.bottom_radius = 0.065
+	grip_mesh.height = 0.4
+	grip_mesh.radial_segments = 10
+	blade_parts.append(_part(blade_pivot, grip_mesh, toon(SASH), Vector3(-0.04, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	for wx in [-0.18, -0.04, 0.1]:
+		var band := CylinderMesh.new()
+		band.top_radius = 0.07
+		band.bottom_radius = 0.07
+		band.height = 0.035
+		band.radial_segments = 10
+		blade_parts.append(_part(blade_pivot, band, toon(SASH.darkened(0.35)), Vector3(wx, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
+	blade_parts.append(_part(blade_pivot, _sphere(0.085), gold, Vector3(-0.28, 0, 0)))
 	# The Seer's staff (class STAFF_CLASS), on the same pivot so it is posed as the blade is: a pale wooden shaft held a little from its
 	# foot, a gold collar and a glowing round head.
 	staff_parts.clear()
@@ -1071,6 +1093,17 @@ func build(p: int, l: RefCounted = null) -> void:
 	var fuller := BoxMesh.new()
 	fuller.size = Vector3(1.9, 0.07, 0.13)
 	great_parts.append(_part(blade_pivot, fuller, respond(toon(Color(0.42, 0.46, 0.58)), "metal"), Vector3(1.3, 0.1, 0)))
+	# A bright bevel along the cutting edge and its chisel point, so the broad blade reads as sharpened steel, not a flat slab.
+	var bevel := BoxMesh.new()
+	bevel.size = Vector3(2.2, 0.035, 0.05)
+	great_parts.append(_part(blade_pivot, bevel, _unshaded_mat(Color(0.95, 0.98, 1.0)), Vector3(1.1, -0.23, 0)))
+	var chisel_edge := BoxMesh.new()
+	chisel_edge.size = Vector3(0.62, 0.035, 0.05)
+	great_parts.append(_part(blade_pivot, chisel_edge, _unshaded_mat(Color(0.95, 0.98, 1.0)), Vector3(2.38, -0.02, 0), Vector3.ONE,
+		Vector3(0, 0, 45)))
+	for rx in [0.12]:
+		for ry in [-0.3, 0.3]:
+			great_parts.append(_part(blade_pivot, _sphere(0.05), respond(toon(Color(0.5, 0.36, 0.22)), "gold"), Vector3(rx, ry, 0.13)))
 	var g_guard := BoxMesh.new()
 	g_guard.size = Vector3(0.2, 0.86, 0.24)
 	great_parts.append(_part(blade_pivot, g_guard, respond(toon(Color(0.78, 0.56, 0.3)), "gold"), Vector3(0.12, 0, 0)))

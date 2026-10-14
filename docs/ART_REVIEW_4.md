@@ -33,4 +33,14 @@ foreground, higher-quality rendering, closer to a cel-shaded HD remaster.
 - **Trees** (`_round_tree`, every stage that uses it): four more leaf clumps round each crown and two branches forking into it.
 - Images: `docs/screenshots/review4_*.png`.
 
+## Pass 65: the beach's props and the weapons' hilts
+
+- **Palms** (`StageArt._palm`): a trunk of overlapping scales (each ring wider at its top), turned along the trunk's curve and narrowing
+  to the crown, a darker joint at each, a flared foot and a contact shade (was a stack of equal drums).
+- **The beach umbrella** (`_umbrella`, `_canopy_mesh`): a striped canopy in eight panels, its colour and white, a scalloped hem and a knob
+  (was one flat cone).
+- **The longsword's hilt**: a round crossguard with ball ends and a block, a round grip in three bands, a gold pommel (was a box guard on
+  a box grip). **The greatsword**: a bright bevel along its edge and chisel point, rivets in its guard.
+- Images: `review4_beach_props.png`, `review4_sword_hilt.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.
