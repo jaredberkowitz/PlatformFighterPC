@@ -5263,6 +5263,10 @@ pub mod pockets_slots {
     };
 }
 
+#[path = "moves_popgun.rs"]
+mod popgun;
+pub use popgun::popgun;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5280,6 +5284,7 @@ mod tests {
             clutch(),
             buckler(),
             pockets(),
+            popgun(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {

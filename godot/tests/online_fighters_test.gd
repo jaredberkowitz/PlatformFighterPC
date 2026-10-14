@@ -132,7 +132,7 @@ func _online() -> void:
 	r = play(duelist, small, false)
 	check(r[2][0] == 1 and r[2][1] == 1, "a built-in fighter against a made one plays")
 	r = play(Roster.builtins()[1], duelist, false)
-	check(r[2][0] == 1 and r[2][1] == 1 and Array(r[0].fighter_names()).size() == 11, "two built-in fighters keep the base roster")
+	check(r[2][0] == 1 and r[2][1] == 1 and Array(r[0].fighter_names()).size() == 12, "two built-in fighters keep the base roster")
 
 	# Ranked rules refuse an over-budget fighter, from either side; a casual match accepts it.
 	r = play(big, small, true)

@@ -924,10 +924,11 @@ fn the_pockets_is_registered_as_class_10() {
             "{id:?}"
         );
     }
-    assert_eq!(sim_content_classes(), 11);
+    // (The Pockets is the eleventh class; the Popgun, sim 117, the twelfth.)
+    assert_eq!(sim_content_classes(), 12);
 }
 
-/// The number of classes a recipe can pick (the Pockets is the eleventh).
+/// The number of classes a recipe can pick.
 fn sim_content_classes() -> usize {
     Content::placeholder().weapons.len()
 }

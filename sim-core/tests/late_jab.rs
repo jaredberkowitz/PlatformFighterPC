@@ -1,7 +1,8 @@
 //! A jab's continuable window past its FAF (owner decision 58, sim 95: `Move::late_next`): once the jab has ended, a jab press up to
 //! the window's last reference frame starts the next hit, not a new jab; after it, or once the fighter does anything else, a press is a
 //! new jab again. Every jab whose reference window runs past its FAF carries it (the Embers' jabs 1 and 2, the Gauntlets' jabs 1 and 2,
-//! the Greatsword's jab 1, the Bracers' jab 1, the Clutch's jab 1); the others do not.
+//! the Greatsword's jab 1, the Bracers' jab 1, the Clutch's jab 1, the Buckler's jabs 1 and 2, the Popgun's jabs 1 and 2); the others
+//! do not.
 
 mod common;
 
@@ -12,7 +13,7 @@ use sim_core::state::FighterState as S;
 use sim_core::Fx;
 
 /// (class, the jab, the hit it carries on into, its FAF, the continuable window's last frame), every [R].
-const LATE: [(u8, MoveId, MoveId, u8, u8); 9] = [
+const LATE: [(u8, MoveId, MoveId, u8, u8); 11] = [
     (3, MoveId::Jab, MoveId::Jab2, 20, 24),
     (3, MoveId::Jab2, MoveId::Jab3, 22, 24),
     (4, MoveId::Jab, MoveId::Jab2, 18, 30),
@@ -22,6 +23,9 @@ const LATE: [(u8, MoveId, MoveId, u8, u8); 9] = [
     (8, MoveId::Jab, MoveId::Jab2, 18, 30),
     (9, MoveId::Jab, MoveId::Jab2, 24, 35),
     (9, MoveId::Jab2, MoveId::Jab3, 26, 35),
+    // The Popgun (class 11, sim 117): jab 1 to 30, jab 2 to 30.
+    (11, MoveId::Jab, MoveId::Jab2, 20, 30),
+    (11, MoveId::Jab2, MoveId::Jab3, 21, 30),
 ];
 
 /// Starts `jab` for class `class` standing alone (the move's frame 1 is tick 0), presses attack once on reference frame `press` of the

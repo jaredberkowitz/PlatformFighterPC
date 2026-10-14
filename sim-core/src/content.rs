@@ -1615,6 +1615,82 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A small, quick middleweight that falls fast and drifts little: the "scamp" body of the Popgun moveset. The reference character's
+    /// 13.0.1 attributes (the parameter file via dragdown.wiki, ssbwiki.com's `Dash` and `Item_throw` tables, ultimateframedata.com; the
+    /// twelfth moveset's `REFERENCE_DATA.md` in `docs/movesets/diddy_kong/`): weight 90, walk 1.313, initial dash 2.09 for 10 frames, run
+    /// 2.006, traction 0.093, air speed 0.924, air acceleration 0 + 0.05, air friction 0.008, gravity 0.125, fall 1.75 (fast 2.8), full
+    /// hop 41.21, short hop 19.9, double jump 41.21 (its sideways speed x0.9), ledge jump 40.605 (drift 0.6, the shared value). On the
+    /// ground: walk acceleration 0.105 + 0.105, run acceleration 0.044 + 0.165, a heavy landing of 7 (6 of lag: the parameter file's
+    /// `landing_heavy_frame`). Air dodges 45 (neutral, intangible 2-27) and 63 / 75 / 97 (directional down / sideways / up, intangible
+    /// 2-19); rolls 29 forward (intangible 4-14) and 34 back, spot dodge 24 (3-16). A wall jump (the parameter file's `wall_jump_type`)
+    /// at 1.3 away, 2.3 up. Item throws let go on 7, 9, 11, 6, 4, 5. The shared body size [E].
+    pub fn scamp() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(125);
+        let (burst, arc) = Self::full_hop(gravity, su(41210));
+        FighterParams {
+            walk_speed: gu(1313),
+            run_speed: gu(2006),
+            dash_speed: gu(2090),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(105),
+            run_accel: gu(44),
+            run_accel_stick: gu(165),
+            dash_frames: 10,
+            heavy_landing_lag: 6,
+            air_speed: su(924),
+            air_accel: Fx::ZERO,
+            air_accel_stick: su(50),
+            air_friction: su(8),
+            gravity,
+            max_fall_speed: su(1750),
+            fast_fall_speed: su(2800),
+            air_dodge_frames: 45,
+            air_dodge_dir_down_frames: 63,
+            air_dodge_dir_side_frames: 75,
+            air_dodge_dir_up_frames: 97,
+            air_dodge_intangible_start: 2,
+            air_dodge_intangible_end: 27,
+            air_dodge_dir_intangible_end: 19,
+            // Traction 0.093 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(186),
+            dash_attack_friction: gu(93),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(19900)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(41210)),
+            air_jump_drift: 90,
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(40605)),
+            weight: Fx::from_int(90),
+            weapon: 11,
+            roll_frames: 29,
+            roll_back_frames: 34,
+            roll_intangible_start: 4,
+            roll_intangible_end: 14,
+            spot_dodge_frames: 24,
+            spot_intangible_start: 3,
+            spot_intangible_end: 16,
+            // A wall jump (the parameter file: 1.3 away, 2.3 up).
+            wall_jump: 1,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2300),
+            // Item throws let go on 7, 9, 11, 6, 4, 5 (ssbwiki.com `Item_throw`) [R].
+            item_throws: ItemThrows {
+                forward: 7,
+                back: 9,
+                up: 11,
+                down: 6,
+                dash: 4,
+                drop: 5,
+            },
+            ..FighterParams::base()
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -2418,7 +2494,8 @@ impl Content {
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
     /// tall caster, a champion with a greatsword, a huge hauler with bracers, a floaty, high-jumping bounder with a long tongue and a
-    /// wanderer with a sword and a buckler, and a settler with pockets full of tools) on a main stage with platforms.
+    /// wanderer with a sword and a buckler, a settler with pockets full of tools, and a scamp with a popgun) on a main stage with
+    /// platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -2433,6 +2510,7 @@ impl Content {
                 FighterParams::bounder(),
                 FighterParams::wanderer(),
                 FighterParams::settler(),
+                FighterParams::scamp(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -2446,6 +2524,7 @@ impl Content {
                 crate::moves::clutch(),
                 crate::moves::buckler(),
                 crate::moves::pockets(),
+                crate::moves::popgun(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -2463,6 +2542,7 @@ impl Content {
                     "bounder".to_string(),
                     "wanderer".to_string(),
                     "settler".to_string(),
+                    "scamp".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -2476,6 +2556,7 @@ impl Content {
                     "clutch".to_string(),
                     "buckler".to_string(),
                     "pockets".to_string(),
+                    "popgun".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

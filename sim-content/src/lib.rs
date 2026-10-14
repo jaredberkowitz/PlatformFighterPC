@@ -1488,11 +1488,11 @@ mod combat_tests {
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {
         let mut c = Content::placeholder();
-        c.fighters[0].weapon = 11;
+        c.fighters[0].weapon = 12;
         c.weapons[0].moves[0].hitboxes[0].end = 200;
         c.weapons[1].moves.pop();
         let errors = validate(&c).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("weapon 11")), "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("weapon 12")), "{errors:?}");
         assert!(
             errors.iter().any(|e| e.contains("outside the move")),
             "{errors:?}"

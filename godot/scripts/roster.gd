@@ -12,7 +12,7 @@ static var session := {}
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 
-const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch", "Buckler", "Pockets"]
+const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch", "Buckler", "Pockets", "Popgun"]
 const CLASS_BLURBS := [
 	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
 	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
@@ -25,6 +25,7 @@ const CLASS_BLURBS := [
 	"Light on its feet and hard to launch, with a towering second jump that shrugs off blows: a long tongue that seals foes in shells, a rolling shell, lobbed shells that lift it higher, a crashing drop that scatters stars, and a flurry of kicks.",
 	"A sword, a shield and a pack of tools: a blade with a long reach, a shield that stops shots while standing, a bow that leaves arrows to pick up, a boomerang that comes back, a bomb set off from afar, and a whirling spin that lifts it home.",
 	"Pockets full of tools: quick punches that pop foes up for more, a slingshot both ways, turnips, a bowling ball, a rocket to fire or to ride, and balloons that fly it home until they pop.",
+	"Quick hands and a peel to slip on: fast slaps and flips, a popgun that pops if held too long, a banana anyone can grab and throw, a leap that latches onto a face, and rocket barrels that fly off when hit.",
 ]
 
 
@@ -275,7 +276,11 @@ static func builtins() -> Array:
 	var settler := neutral_entry("Settler", 10, Loadout.default_for(10))
 	settler.builtin = true
 	settler.base_index = 10
-	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler]
+	# (The shared default look until the art agent gives it its own.)
+	var scamp := neutral_entry("Scamp", 11, Loadout.default_for(11))
+	scamp.builtin = true
+	scamp.base_index = 11
+	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp]
 
 
 static func slug_of(name: String) -> String:
