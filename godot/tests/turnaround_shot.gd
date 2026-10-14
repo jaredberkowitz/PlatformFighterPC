@@ -5,6 +5,7 @@ extends SceneTree
 ##   --look=N    the default look of fighter N (0 by default)
 ##   --neutral   every surface in one plain grey cel material and no face: shape only, with the shading taken out of the comparison
 ##   --bare      no hat, glasses, neckwear or shirt: the body alone, as on the sheet
+##   --hat=N, --neck=N, --glasses=N   wear that piece (loadout.gd's lists)
 
 const Preview := preload("res://ui/preview.gd")
 const Loadout := preload("res://scripts/loadout.gd")
@@ -16,6 +17,7 @@ func _initialize() -> void:
 	var look := 0
 	var neutral := false
 	var bare := false
+	var wear := {}
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out = a.substr(6)
@@ -25,6 +27,10 @@ func _initialize() -> void:
 			neutral = true
 		elif a == "--bare":
 			bare = true
+		else:
+			for slot in ["hat", "neck", "glasses"]:
+				if a.begins_with("--%s=" % slot):
+					wear[slot] = int(a.substr(slot.length() + 3))
 	var bg := ColorRect.new()
 	bg.color = Color(0.62, 0.62, 0.64)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -38,6 +44,8 @@ func _initialize() -> void:
 		l.glasses = 0
 		l.neck = 0
 		l.shirt = 0
+	for slot in wear:
+		l.set(slot, wear[slot])
 	for turn in [0.0, 0.8, PI / 2.0, PI]:
 		var pv := Preview.new(Vector2i(400, 720), false, 6.4)
 		pv.spin = false

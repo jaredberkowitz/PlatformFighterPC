@@ -124,6 +124,12 @@ read well; the faces, wardrobe and moves depend on them, so they stay. Hands are
 - **Images**: `docs/screenshots/polish5_islands.png`, `polish5_grove_lip.png` (before left).
 - **Checks run**: the meadow and the grove at 1080p, match flow test.
 
+### Performance after passes 52 to 56 and character pass 1
+
+The KO demo at 1280x720, warm cache: GPU 1.89 ms against 1.66 to 1.71 ms before (soft shadows, lathe props, the earth tile), about 255
+fps. Runs while the machine was busy (OneDrive uploading the build) fell to about 50 fps with the GPU still under 5 ms. That is outside
+contention, not the game.
+
 ## Skipped, and why
 
 Nothing yet.
