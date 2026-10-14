@@ -46,22 +46,35 @@ void fragment() {
 	// The shallows near the stage a lighter turquoise (the water over sand), in one soft step.
 	col = mix(col, mix(shallow.rgb, vec3(0.75, 1.0, 0.95), 0.35), (1.0 - smoothstep(6.0, 22.0, back)) * 0.55);
 	if (!cheap) {
+		// Broad swaths under everything (art review 5: the sea read as one flat cyan with a pattern on it): long, slow patches a little
+		// deeper and a little lighter, stretched along the shore and drifting one way, so the water has large forms before any detail.
+		vec2 q = world_pos.xz;
+		float swath = noise(q * vec2(0.018, 0.07) + vec2(TIME * 0.03, 0.0)) * 0.65 + noise(q * vec2(0.045, 0.16) + vec2(TIME * 0.05, 3.0)) * 0.35;
+		float swath_k = (1.0 - band * 0.7);
+		col = mix(col, deep.rgb * 0.92, smoothstep(0.45, 0.75, swath) * 0.5 * swath_k);
+		col = mix(col, mix(shallow.rgb, vec3(1.0), 0.18), (1.0 - smoothstep(0.22, 0.42, swath)) * 0.32 * swath_k);
 		// Two layers of long streaks drifting at different speeds, stretched along the shore (crisp painted strokes, not soft smudges).
 		vec2 p = world_pos.xz;
 		float s1 = noise(p * vec2(0.06, 0.45) + vec2(TIME * 0.05, 0.0));
 		float s2 = noise(p * vec2(0.1, 0.8) + vec2(-TIME * 0.08, TIME * 0.02) + 17.0);
-		float streaks = smoothstep(0.77, 0.785, s1) * 0.6 + smoothstep(0.81, 0.825, s2) * 0.45;
+		float streaks = smoothstep(0.8, 0.815, s1) * 0.5 + smoothstep(0.85, 0.865, s2) * 0.35;
 		col = mix(col, streak.rgb, streaks * (1.0 - band * 0.6));
 		// Wave crests, painted: rows across the sea (closer together further off), each a wavy line broken into dashes that drift
 		// slowly, a pale crest with a darker trough just behind it, fading with distance.
-		float rowz = -p.y / mix(3.2, 7.0, smoothstep(0.0, 120.0, back));
+		float rowz = -p.y / mix(4.6, 8.0, smoothstep(0.0, 120.0, back));
 		float row = floor(rowz);
 		float wob = 0.18 * sin(p.x * 0.11 + row * 1.7 + TIME * 0.35) + 0.08 * sin(p.x * 0.37 + row * 3.1);
 		float fz = fract(rowz + wob);
-		float dash = smoothstep(0.52, 0.56, noise(vec2(p.x * 0.09 + TIME * 0.04 * (mod(row, 2.0) * 2.0 - 1.0), row * 3.7)));
-		float crest = (1.0 - smoothstep(0.05, 0.08, abs(fz - 0.5))) * dash;
+		// (Fewer and of varied length: a slower noise along each row, cut higher; each crest thicker in its middle than at its ends.)
+		float along = noise(vec2(p.x * mix(0.05, 0.11, hash(vec2(row, 1.3))) + TIME * 0.04 * (mod(row, 2.0) * 2.0 - 1.0), row * 3.7));
+		float dash = smoothstep(0.6, 0.66, along);
+		float thick = mix(0.035, 0.085, smoothstep(0.6, 0.85, along));
+		float crest = (1.0 - smoothstep(thick, thick + 0.03, abs(fz - 0.5))) * dash;
 		float trough = (1.0 - smoothstep(0.06, 0.11, abs(fz - 0.6))) * dash * (1.0 - crest);
 		float near_k = 1.0 - smoothstep(30.0, 150.0, back);
+		// The lit face of each swell, a broad soft band on the far side of its crest, so the rows read as waves rolling in, not lines.
+		float face = smoothstep(0.32, 0.46, fz) * (1.0 - smoothstep(0.5, 0.52, fz)) * smoothstep(0.35, 0.6, along);
+		col = mix(col, mix(col, vec3(1.0), 0.28), face * 0.55 * near_k);
 		col = mix(col, col * vec3(0.78, 0.84, 0.92), trough * 0.6 * near_k);
 		col = mix(col, mix(streak.rgb, vec3(1.0), 0.45), crest * 0.85 * near_k);
 		// Glints: a few cells light up and fade, more of them nearer.
