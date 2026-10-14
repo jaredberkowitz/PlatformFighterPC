@@ -989,14 +989,14 @@ fn airborne(
     rules: &Ruleset,
 ) -> Option<u8> {
     let buffer = p.input_buffer;
-    // A wall jump from the jump button: touching a wall, jump pressed with the stick neutral or toward the wall (with the stick
-    // held away it is a midair jump; a flick away is the stick's wall jump below). It is checked first, so it never spends a
-    // midair jump.
+    // A wall jump: touching a wall, the stick held away from it and jump pressed (owner decision, sim 101: the stick alone, or jump
+    // with the stick neutral or toward the wall, made it too easy to do by accident). It is checked first, so it never spends a
+    // midair jump; jump against a wall without the stick held away is an ordinary midair jump.
     if p.wall_jump != 0 {
         let side = collision::wall_beside(stage, p, f.pos, WALL_JUMP_REACH);
         let input = f.history[0];
         let away = x_active(input) && i32::from(input.stick_x.signum()) == -i32::from(side);
-        if side != 0 && !away && f.take(buttons::JUMP, buffer) {
+        if side != 0 && away && f.take(buttons::JUMP, buffer) {
             wall_jump(f, p, rules, -side);
         }
     }
@@ -1029,13 +1029,6 @@ fn airborne(
     if !f.air_dodge_used && f.take(buttons::SHIELD, buffer) {
         start_air_dodge(f, p, stage);
         return None;
-    }
-    // A wall jump: touching a wall, the stick flicked away from it.
-    if p.wall_jump != 0 {
-        let side = collision::wall_beside(stage, p, f.pos, WALL_JUMP_REACH);
-        if side != 0 && i32::from(f.flick_x(SMASH_FLICK_BUFFER)) == -i32::from(side) {
-            wall_jump(f, p, rules, -side);
-        }
     }
     if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
         f.buffer_used |= buttons::SPECIAL;
