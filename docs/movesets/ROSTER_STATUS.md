@@ -519,6 +519,14 @@ Owner decisions 2026-10-14 (recorded at sim 115, the Pockets' phase 2):
 71. **No other 1.1.x rules**: no previous-version shield hitlag, no electric hitstun frame; everything but the jab's own hits stays on
     13.0.1's numbers (as built: E40 is per hit and only the jab sets it).
 
+Owner decisions 2026-10-14 (recorded at sim 117):
+
+72. **Keep the Settler's jab 1 pull** (the 13.0.1 far-box pull on the 1.1.x jab, decision 70's blend). No change.
+73. **Raise the Settler's axe early swing** so jab 1 > jab 2 > axe connects as players reported, within reason, damage and angles
+    unchanged. Built (sim 117): a second early head box at 12.0 ahead and 17.0 up, radius 6.0 [E]. The string is now a true combo at
+    0-60% on the duelist and 0-70% on the settler (was 0-20%); at 130% the foe is about 32 reference units up on the axe's frames, out
+    of any reasonable reach (an owner question in `villager/IMPLEMENTATION_REPORT.md`).
+
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/mario/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):

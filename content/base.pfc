@@ -5,8 +5,8 @@ bundle {
     schema 7
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 115
-    hash 0d5a746579027b27
+    sim_version 117
+    hash cd5ffeda7d2839f4
 }
 
 ruleset {
@@ -9220,6 +9220,7 @@ weapon pockets {
         total_frames 45
         land_continue true
         hitbox { start 4 end 5 x 1.09999 y 1.5 radius 0.59999 damage 14 angle 361 bkb 36 kbg 100 shield_damage 164 angle_type position }
+        hitbox { start 4 end 5 x 1.5 y 2.09999 radius 0.79999 damage 14 angle 361 bkb 36 kbg 100 shield_damage 164 angle_type position }
         hitbox { start 4 end 5 x 0.79999 y 1.09999 radius 0.4 damage 14 angle 361 bkb 36 kbg 100 priority 1 shield_damage 164 angle_type position }
         hitbox { start 6 end 6 x 1.4 y 0.9 radius 0.59999 damage 14 angle 361 bkb 36 kbg 100 shield_damage 164 angle_type position }
         hitbox { start 6 end 6 x 0.9 y 0.79999 radius 0.4 damage 14 angle 361 bkb 36 kbg 100 priority 1 shield_damage 164 angle_type position }

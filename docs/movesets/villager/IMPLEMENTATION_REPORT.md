@@ -230,15 +230,35 @@ and hides pocketed things).
   water a projectile (move ext11); the wood chip an item (kind 8). The pocket's contents: `fighter_pocketed(i)` (0 / 1 / 2) for an icon
   over the damage meter. Cut marks on the tree (`Item::cuts`) are not exposed: ask if wanted.
 
+## Sim 117: the axe's higher early swing (owner decisions 72-73, 2026-10-14)
+
+* **Decision 72**: keep jab 1's pull (the 13.0.1 blend on the older jab). Nothing changed.
+* **Decision 73**: the axe's early swing (the special's frames 6-7) gains a second head box at 12.0 of the reference's units ahead and
+  17.0 up, radius 6.0 [E] (the axe head at the top of its arc), the same hit (14%, 361, BK 36, KS 100, +9 shield damage); the reference's
+  head and handle boxes stay. Damage and angles unchanged.
+* **Result** (`older_rules::the_axe_after_jab_1_is_a_true_combo_and_after_jab_2_it_reaches_to_60_percent`,
+  `print_the_axe_after_the_jab`): jab 1 > jab 2 > axe (with the cancel) is a true combo at **0-60% on the duelist and 0-70% on the
+  settler** (it was 0-20%); jab 1 > axe stays a true combo at 0-150%. Without the cancel nothing changes (jab 1 > jab 2 > axe lands late
+  at 0-20%, misses above).
+* **Not at 130%**: there jab 2 has the foe's feet about 32 reference units above the settler's on the axe's early frames (traced frame
+  by frame: 30 to 34 up, 19 ahead), nearly two of our body heights; a box reaching that high would sit far over the settler's head, which
+  the decision's "within reason" rules out. The time is there (36 frames of advantage at 130%), the reach is not. If the owner wants the
+  130% string anyway, the choices are a much taller early box (about 25 units up, radius 8), or a lower jab 2 launch (a change to the
+  1.1.x data): an owner question.
+
+| Percent | duelist: jab 1 > 2 > axe | settler: jab 1 > 2 > axe |
+| --- | --- | --- |
+| 0-60 | true combo | true combo |
+| 70 | misses | true combo |
+| 80-150 | misses | misses |
+
 ## Questions for the owner
 
 1. ~~The balloons and the ride's estimates~~: answered, keep them (decision 69).
 2. The older jab's **held** rule (does holding attack repeat at the end of each punch, or sooner?): estimate kept.
 3. ~~Other previous-version rules~~: answered, no (decision 71).
-4. **The jab 1 pull** (phase 2): the 1.1.x data has no pull; the pull is 13.0.1's far boxes, now on the 1.1.x jab as asked. Keep the
-   blend, or drop the pull for the pure 1.1.x jab (both hits sent away, jab 2 still combos at every percent either way)?
-5. **Jab 1 > jab 2 > axe** connects only at 0-20% here (the time is there from 0%, the reach is not: jab 2 pops the foe above the axe).
-   The axe's boxes on the held axe are estimates; footage of the reference's axe swing (or of the old combo landing) would place them.
-   Raise the early swing to make the old combo reach, or keep the estimate?
+4. ~~The jab 1 pull~~: answered, keep the blend (decision 72).
+5. ~~Jab 1 > jab 2 > axe~~: answered, raise the early swing (decision 73, sim 117): it now connects at 0-60% / 0-70%. At 130% the foe is
+   out of any reasonable reach (above): a much taller box, a lower jab 2, or leave it?
 6. The pocket's **reach and release point** and the tree's sizes are estimates (the hitbox footage would settle them); the explosive flame
    is not pocketable (a reading of the reference's rule): right?

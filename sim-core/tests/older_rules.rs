@@ -540,14 +540,16 @@ fn axe_after(victim: u8, percent: i32, both: bool, cancel: bool) -> Option<bool>
 }
 
 #[test]
-fn the_axe_after_jab_1_is_a_true_combo_and_after_jab_2_it_has_the_time_but_not_the_reach() {
+fn the_axe_after_jab_1_is_a_true_combo_and_after_jab_2_it_reaches_to_60_percent() {
     // The previous version's moveset notes: jab 1 combos into the axe (at kill percents, on floaty lightweights). Here jab 1 cancelled
     // into the axe (out on its frame 6) is a true combo at every percent 0-150 on the duelist and the settler.
     // The forum's claim, "from 130% a frame-perfect jab 1 > jab 2 > axe is guaranteed" (a calculator: frame advantage only): with the
-    // cancel the settler has the time from 0% (`jab_1_into_jab_2_leaves_time_for_a_frame_6_move_from_130_percent`), but jab 2 launches
-    // the foe up and out of the axe's reach from 30%: it is a true combo only at 0-20%. (The axe's boxes on the held axe are placed
-    // [E]; a higher early swing would reach further up: an owner question.) Waiting for jab 2's end (no cancel), it lands late at 0-20%.
-    for victim in [0u8, SETTLER] {
+    // cancel the settler has the time from 0% (`jab_1_into_jab_2_leaves_time_for_a_frame_6_move_from_130_percent`). Owner decision 73
+    // raised the early swing (a second head box, 12.0 of the reference's units ahead and 17.0 up, radius 6.0 [E]): jab 1 > jab 2 > axe
+    // is a true combo at 0-60% on the duelist and 0-70% on the settler (it was 0-20%). Past that jab 2 has sent the foe above the swing:
+    // at 130% the foe's feet are about 32 of the reference's units over the settler's on the axe's early frames (nearly two body
+    // heights), so it misses. Waiting for jab 2's end (no cancel), it lands late at 0-20%.
+    for (victim, reach) in [(0u8, 60), (SETTLER, 70)] {
         for percent in (0..=150).step_by(10) {
             assert_eq!(
                 axe_after(victim, percent, false, true),
@@ -555,7 +557,7 @@ fn the_axe_after_jab_1_is_a_true_combo_and_after_jab_2_it_has_the_time_but_not_t
                 "victim {victim} at {percent}%: jab 1 > axe"
             );
             let after_two = axe_after(victim, percent, true, true);
-            if percent <= 20 {
+            if percent <= reach {
                 assert_eq!(after_two, Some(true), "victim {victim} at {percent}%");
             } else {
                 assert_eq!(

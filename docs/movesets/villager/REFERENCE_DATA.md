@@ -119,8 +119,11 @@ both [E: the previous version's shield hitlag rule (multipliers above 1 cut by 0
 - Ours (tests in `sim-core/tests/older_rules.rs`, the duelist at weight 90): jab 1 at 0% leaves 9 frames of hitstun
   (`floor(25.2 x 0.4) - 1`) [D]. With the jab cancel (sim 115) the frame advantage on the first frame the settler can act is 6 after
   jab 1 at 0% (23 at 150%), 12 after jab 1 > jab 2 at 0% (36 at 130%, 40 at 150%): the time for the frame-6 axe is there at every
-  percent. Jab 1 > axe is a true combo at 0-150%; jab 1 > jab 2 > axe only at 0-20%: from 30% jab 2 has sent the foe up and out of the
-  axe's reach (the axe's boxes on the held axe are [E]). The tables are in `IMPLEMENTATION_REPORT.md`.
+  percent. Jab 1 > axe is a true combo at 0-150%; jab 1 > jab 2 > axe was one only at 0-20% (from 30% jab 2 had sent the foe up and
+  out of the axe's reach). **Sim 117 (owner decision 73)**: the early swing has a second, higher head box (12.0 ahead, 17.0 up, radius
+  6.0 [E]), and jab 1 > jab 2 > axe is a true combo at 0-60% on the duelist and 0-70% on the settler. It cannot reach 130% within
+  reason: there the foe's feet are about 32 units above the settler's on the axe's frames 6-7 (nearly two of our body heights), and a
+  box reaching that high would be well over the settler's head. The tables are in `IMPLEMENTATION_REPORT.md`.
 
 ## Normals (13.0.1) [R unless marked]
 
@@ -228,6 +231,8 @@ Landing lag: neutral 8, forward / back 14, up / down 12 (interruptible 9 / 15 / 
 12. The water: one shot from (11.0, 9.0) at 0.35 forward under 0.07 gravity, pushing every frame it touches; 1 water a frame.
 13. The tree's hurtbox: radius 6.0 from 3.0 to 21.0 up; shots used up on it (piercing ones pass); the attacker frozen half the hitlag.
 14. The axe's boxes on the held axe: early (9.0, 12.0) r5.0 and (6.0, 9.0) r3.0, late (11.0, 7.0) and (7.5, 6.0) beside the root boxes.
+    Since sim 117 (owner decision 73) the early swing also has (12.0, 17.0) r6.0, the head at the top of its arc, the same hit: an
+    owner-chosen reach so jab 1 > jab 2 > axe connects (0-60% / 0-70%), not a reference value.
 15. The falling tree: one box (r7.0, 5.5 to either side) from 17.5 up, 0.6 forward, falling under 0.16 to 2.4, one bounce at 2.48 up,
     then gone (about 46 frames on the stage); its life capped at 255 (the reference's 313); the 15% landing sourspot on ssbwiki's
     character page is not in the raw table and is not built.

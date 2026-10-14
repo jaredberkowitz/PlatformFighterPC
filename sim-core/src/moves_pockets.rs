@@ -1076,8 +1076,12 @@ fn tree(w: &mut Weapon) {
     w.moves[WATER as usize] = can;
 
     // The axe: early on the special's 6-7, late on 8 (the child's 5-6 and 7), FAF 48 (the child's 47).
+    // (Owner decision 73: the early swing reaches higher and a little further than the reference's head box alone, the axe head at the
+    // top of its arc, so jab 1 > jab 2 > axe connects where players report it: a second head box at 12.0 ahead and 17.0 up, radius 6.0
+    // [E]; same hit.)
     let axe_rows = [
         ru(5, 6, 90, 120, 50, 140, 361, 36, 100, 0, 0),
+        ru(5, 6, 120, 170, 60, 140, 361, 36, 100, 0, 0),
         ru(5, 6, 60, 90, 30, 140, 361, 36, 100, 1, 0),
         ru(7, 7, 110, 70, 50, 140, 361, 36, 100, 0, 0),
         ru(7, 7, 75, 60, 30, 140, 361, 36, 100, 1, 0),
