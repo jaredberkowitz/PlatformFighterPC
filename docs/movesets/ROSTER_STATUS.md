@@ -410,6 +410,8 @@ These override anything above that disagrees.
 56. **Up special / up smash out of shield (E37)**: add it for every fighter, as in the reference.
 57. **Forward air drag (decision 4)**: the reference already drags on hit 1 (the outer and middle boxes against airborne targets are 367
     with set weight); build it as the reference data, no owner change. Link's data conflicts take the research's proposed values.
+60. **Yoshi estimates**: estimates are fine for the Bounder wherever the reference doesn't publish a value (the tongue's reach, the egg's
+    launch and fall, Egg Throw's arc details, Yoshi Bomb's rise and stall, and the like). Label them [E]; no footage is needed for his gaps.
 
 ## Still open
 
