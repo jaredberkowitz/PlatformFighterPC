@@ -42,17 +42,18 @@ fn land(sim: &mut Sim, p1: Input) {
 #[test]
 fn the_bury_lasts_the_references_formula() {
     let rules = Content::placeholder().rules;
-    // At 0%: the headbutt's 10% (12 after the multiplier), BK 40, KS 40 at weight 100.
-    let k = knockback(fx(12, 1), Fx::from_int(10), Fx::from_int(100), 40, 40);
+    // At 0%: the headbutt's 10% (12 taken after the one-on-one multiplier, which the knockback does not see: sim 97), BK 40, KS 40
+    // at weight 100.
+    let k = knockback(fx(10, 1), Fx::from_int(10), Fx::from_int(100), 40, 40);
     let even = bury_frames(&rules, Fx::from_int(12), k, 3, 3);
-    assert_eq!(even, 138, "ceil(55 + 6 + 1.5 x 51.232)");
+    assert_eq!(even, 137, "ceil(55 + 6 + 1.5 x 50.56)");
     // Stock differences: the attacker behind by one / two (+8 / +12), ahead by one / two (-18 / -22).
-    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 2, 3), 146);
-    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 1, 3), 150);
-    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 3, 2), 120);
-    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 3, 1), 116);
+    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 2, 3), 145);
+    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 1, 3), 149);
+    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 3, 2), 119);
+    assert_eq!(bury_frames(&rules, Fx::from_int(12), k, 3, 1), 115);
     // At 100% it is longer (the percent term and the knockback both grow).
-    let k100 = knockback(fx(112, 1), Fx::from_int(10), Fx::from_int(100), 40, 40);
+    let k100 = knockback(fx(110, 1), Fx::from_int(10), Fx::from_int(100), 40, 40);
     assert!(bury_frames(&rules, Fx::from_int(112), k100, 3, 3) > even + 50);
 }
 
@@ -63,13 +64,13 @@ fn a_grounded_headbutt_buries_for_the_formulas_frames_whatever_the_victims_weigh
     let f = *sim.fighter(1);
     assert_eq!(f.state, S::Buried);
     assert_eq!(f.percent, Fx::from_int(10) * sim.content.rules.damage_mult);
-    assert_eq!(f.bury_timer, 138);
+    assert_eq!(f.bury_timer, 137);
     assert!(!f.launch_pending && f.hitlag > 0);
     // A heavier victim (the hauler itself) is buried exactly as long: the bury is weight-independent.
     let mut sim = headbutt();
     sim.state.fighters[1].char_id = HAULER;
     land(&mut sim, inp(0, 0, 0));
-    assert_eq!(sim.fighter(1).bury_timer, 138);
+    assert_eq!(sim.fighter(1).bury_timer, 137);
 }
 
 /// After the bury hit's hitlag, the frames player 1 (holding `p1(tick)`) spends buried, and what follows: (buried frames, state
@@ -100,7 +101,7 @@ fn the_buried_fighter_comes_out_by_itself_with_12_frames_of_lag() {
     let mut sim = headbutt();
     land(&mut sim, inp(0, 0, 0));
     let (buried, after, lag) = ride_out(&mut sim, |_| inp(0, 0, 0));
-    assert_eq!(buried, 138);
+    assert_eq!(buried, 137);
     assert_eq!(after, S::Rebound);
     assert_eq!(lag, 12);
     assert_eq!(sim.fighter(1).invuln, 0, "no invincibility on the way out");
@@ -122,7 +123,7 @@ fn mashing_shortens_the_bury_as_it_does_a_hold() {
             },
         )
     });
-    // Each pair of frames takes 2 + 14 = 16: 138 frames go in 9 pairs (144 > 138), the last on the 17th frame.
+    // Each pair of frames takes 2 + 14 = 16: 137 frames go in 9 pairs (144 > 137), the last on the 17th frame.
     assert_eq!(buried, 17);
 }
 

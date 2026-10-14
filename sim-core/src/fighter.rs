@@ -2379,13 +2379,15 @@ fn launch_speedup(f: &Fighter, rules: &Ruleset) -> Fx {
     (first * ease).clamp(Fx::ONE, rules.balloon_max)
 }
 
-/// The gravity and fall speed of a launched fighter: for the first frames of a launch every fighter falls alike, and a launch close
-/// to straight up falls at its own fixed speed for the whole hitstun.
+/// The gravity and fall speed of a launched fighter: for the first frames of a launch every fighter falls alike, and a tumbling
+/// launch close to straight up falls at its own fixed speed for the whole hitstun.
 ///
-/// A set-knockback launch keeps the plain physics: no shared vertical fall speed (the reference's rule).
+/// A set-knockback launch keeps the plain physics: no shared vertical fall speed (the reference's rule). So does a launch too
+/// weak to tumble: the fixed fall belongs to the reference's upward tumble (its "fly top" animation; sim 97).
 fn launch_fall(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> (Fx, Fx) {
     let degrees = i32::from(f.launch_angle) * 360 / 4096;
     if !f.launch_set
+        && f.tumble
         && (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
             .contains(&degrees)
     {

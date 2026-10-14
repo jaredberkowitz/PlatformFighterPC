@@ -856,6 +856,7 @@ fn apply_hit(
     } else {
         Fx::ONE
     };
+    let hb_in = *hb;
     let mut hb = *hb;
     // An aerial made during a short hop hits a little softer.
     let attacker = &state.fighters[source];
@@ -869,7 +870,9 @@ fn apply_hit(
         hb.damage
     };
     hb.damage = base_damage * stale;
-    let kb_damage = base_damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
+    // The knockback formula's damage term is the move's own damage, staleness counted at 0.3: the short hop's 0.85 is a damage
+    // dealt multiplier and leaves it alone (the reference; rubendal's SSBU-Calculator, sim 97).
+    let kb_damage = hb_in.damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
 
     let shielding = state.fighters[d].state == S::Shield;
     let crouching = state.fighters[d].state == S::Crouch && state.fighters[d].grounded();
@@ -933,6 +936,9 @@ fn apply_hit(
     // draining move drains.
     crate::gauge::on_damage(state, content, source, d, added);
     let def = &mut state.fighters[d];
+    // The percent the knockback formula reads: the percent before the hit plus the hit's damage *without* the one-on-one
+    // multiplier, which only scales the damage taken (the reference: it never moves the percent a move KOs at; sim 97).
+    let kb_percent = (before + hb.damage).min(Fx::from_int(999));
     // (A set-weight hit treats every victim as weighing 100, and so does a bury hit: the reference's bury is weight-independent.)
     let weight = if hb.set_weight || bury_hit {
         Fx::from_int(100)
@@ -943,7 +949,7 @@ fn apply_hit(
         fixed_knockback(hb.fixed_kb, weight, hb.base_knockback, hb.knockback_growth)
     } else {
         knockback(
-            def.percent,
+            kb_percent,
             kb_damage,
             weight,
             hb.base_knockback,

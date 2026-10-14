@@ -174,8 +174,9 @@ fn launched_victim(setup: impl Fn(&mut Sim)) -> (Sim, Fx) {
 fn the_launch_follows_the_knockback_formula() {
     let (sim, kb) = launched_victim(|_| {});
     let weight = sim.content.fighters[1].weight;
-    // Forward tilt tip: 12% damage, base knockback 55, growth 85; percent includes the damage multiplier.
-    let dealt = Fx::from_int(12) * sim.content.rules.damage_mult;
+    // Forward tilt tip: 12% damage, base knockback 55, growth 85. The formula's percent is the damage without the one-on-one
+    // multiplier, which only scales the damage taken (the reference's; sim 97).
+    let dealt = Fx::from_int(12);
     let expected = knockback(dealt, Fx::from_int(12), weight, 55, 85);
     assert_eq!(kb, expected);
     let victim = sim.fighter(1);
