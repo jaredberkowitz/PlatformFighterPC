@@ -76,6 +76,19 @@ Reference characters (port them in the order the owner gives; if none, recommend
 | Captain Falcon | ultimateframedata.com/captain_falcon | Falcon Punch turnaround and air variant; Raptor Boost ground/air; Falcon Dive grab, hit, rebound; Falcon Kick ground/air phases and recovery |
 | Link (adult, not Young/Toon) | ultimateframedata.com/link | Hero's Bow charge and arrow speed; Boomerang out/return/catch; Remote Bomb manual detonation and lifecycle; Spin Attack ground/air; sword tip/mid/hilt |
 
+Second wave (owner, 2026-10-14; goal a starting roster of 16; the last two are the owner's to name later). Order: Villager, Diddy Kong,
+Joker, Sephiroth. In-game names (weapon class / body): Pockets / Settler, Popgun / Scamp, Dagger / Phantom, Nodachi / Exile.
+
+| Reference | Frame data start point | Defining mechanics to get right |
+| --- | --- | --- |
+| Villager | ultimateframedata.com/villager | **Jab from the previous game (version 1.1.x), not 13.0.1**: the older jab that pops the foe up and out so it combos (research its hitbox data and the older game's rules that made it combo: hitstun, knockback, angles); Pocket (store and release any projectile); Lloid Rocket ride; Balloon Trip (the balloons pop); Timber (sapling, watering, the tree, the axe) |
+| Diddy Kong | ultimateframedata.com/diddy_kong | Banana Peel as an item anyone can pick up, trips; Peanut Popgun charge and overcharge explosion; Monkey Flip (the latch grab and kick); Rocketbarrel Boost charge, steering and the barrels falling off |
+| Joker | ultimateframedata.com/joker | the Rebellion Gauge filling and the summoned second fighter with its stronger moves; Gun (grounded and aerial, the extra shots); Eiha / Eigaon; Grappling Hook (tether, ledge, command grab); Rebel's Guard (the counter that fills the gauge) / Tetrakarn |
+| Sephiroth | ultimateframedata.com/sephiroth | the comeback wing (appears behind on stock, its armor, extra jump and stats); the long sword's tip; Shadow Flare orbiting; Flare / Megaflare / Gigaflare charge (moving while charging, the stages); Blade Dash / Octaslash (the up special's two forms); Scintilla (counter with a charged follow-up) |
+
+The older jab rule is a general content option, but turn it on **only** for the moves the owner names (Villager's jab now, the Longsword's
+later on their say).
+
 **The target is 1:1 with the reference, not "close".** Each fighter's iconic moves (the ones players know on sight, e.g. adult Link's
 Spin Attack: the chargeable grounded spin and the multi-hit aerial rising recovery) are top priority and must match exactly: timing, hit sequence,
 launch, movement and recovery distance, ledge grab, helpless and landing. If the engine can't reproduce one exactly, build the general
