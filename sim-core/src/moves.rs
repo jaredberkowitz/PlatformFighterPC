@@ -467,7 +467,7 @@ pub struct ProjectileSpawn {
 /// fighter that stopped it again (its hits start afresh). With `on_wall`, touching a solid wall bursts it there too (just short of
 /// the wall) instead of removing it. A bursting projectile is not reflected and does not clank.
 ///
-/// Sim 92 (the lobbed shell's burst, all off by default): with `on_ground`, a landing it does not bounce from (its bounces used up, or
+/// Sim 94 (the lobbed shell's burst, all off by default): with `on_ground`, a landing it does not bounce from (its bounces used up, or
 /// falling faster than `ProjectileArc::bounce_max_fall`) bursts it where it touched, instead of removing it; with `on_expire`, the end
 /// of its life bursts it where it is; with `keep_hits`, the burst keeps the projectile's hits so far, so a fighter the projectile itself
 /// hit is not hit again by a burst phase of the same hit group (the reference's single hit).
@@ -551,7 +551,7 @@ impl ProjectileSpawn {
 /// times (the next touch removes it): it comes off with its falling speed held between `bounce_min` and `bounce_max` and keeps
 /// `bounce_keep` percent of its horizontal speed. With `bounces` 0 it ignores the ground's top as today (a solid wall removes it).
 ///
-/// Sim 92: `bounce_keep_y` (percent, 100 default) multiplies the bounce's vertical speed after the clamp, and `bounce_max_fall` (0
+/// Sim 94: `bounce_keep_y` (percent, 100 default) multiplies the bounce's vertical speed after the clamp, and `bounce_max_fall` (0
 /// default: no limit) is the fastest fall it still bounces from: a landing faster than that does not bounce (it is removed, or bursts
 /// with `Burst::on_ground`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -779,7 +779,7 @@ impl Armor {
     }
 }
 
-/// A move's own soft-platform drop (E30, sim 92; the reference's ground pound): on move frame `from` the fighter passes through soft
+/// A move's own soft-platform drop (E30, sim 94; the reference's ground pound): on move frame `from` the fighter passes through soft
 /// platforms for `frames` frames (its `platform_ignore`), and with `while_down` also on every frame of the move from `from` on that the
 /// stick is held down (past the crouch threshold). Solid ground always stops it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -925,14 +925,14 @@ pub struct Move {
     /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
     /// control. 0 (the default): the motion's `vx`, as before.
     pub motion_drift: u8,
-    /// A jab whose continuable window runs past its end (owner decision 58, sim 92: the reference's window past the FAF): once the move
+    /// A jab whose continuable window runs past its end (owner decision 58, sim 94: the reference's window past the FAF): once the move
     /// has ended on the ground, a press of attack that would start a jab starts `.0` instead, up to move frame `.1` (counted on past the
     /// move's end; the fighter is idle meanwhile, and any other action ends it). `None`: a press after the end starts a new jab.
     pub late_next: Option<(u8, u8)>,
     /// The move's ledge windows (`ledge_front_from` / `ledge_back_from` / `grabs_ledge`) catch a ledge only while the fighter is not
-    /// rising (sim 92: the reference's "as long as it is not moving upward"). False: rising or not, as before.
+    /// rising (sim 94: the reference's "as long as it is not moving upward"). False: rising or not, as before.
     pub ledge_falling_only: bool,
-    /// The move drops through soft platforms by itself (sim 92, E30): see [`DropThrough`]. `None`: only the usual crouch and shield drops.
+    /// The move drops through soft platforms by itself (sim 94, E30): see [`DropThrough`]. `None`: only the usual crouch and shield drops.
     pub drop_through: Option<DropThrough>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,

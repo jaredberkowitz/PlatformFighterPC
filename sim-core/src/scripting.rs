@@ -165,7 +165,7 @@ impl Host for FighterHost<'_> {
             api::F_SPAWN | api::F_SPAWN_AT
                 if self.f.spawn_request && self.f.spawn_custom && !self.f.spawn2_request =>
             {
-                // A second shot on the same frame (E3h, sim 92): it fills the second request, plain size and knockback.
+                // A second shot on the same frame (E3h, sim 94): it fills the second request, plain size and knockback.
                 self.f.spawn2_request = true;
                 self.f.spawn2_fixed = id == api::F_SPAWN_AT;
                 self.f.spawn2_pos = if id == api::F_SPAWN_AT {

@@ -1337,7 +1337,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 // (Too fast a landing does not bounce either: `ProjectileArc::bounce_max_fall`.)
                 let too_fast = arc.bounce_max_fall > Fx::ZERO && -pr.vel.y > arc.bounce_max_fall;
                 if pr.bounces >= arc.bounces || too_fast {
-                    // A projectile that bursts on the ground (sim 92) bursts where it touched instead of vanishing.
+                    // A projectile that bursts on the ground (sim 94) bursts where it touched instead of vanishing.
                     if let Some(b) = spec.burst.filter(|b| b.on_ground) {
                         let at = Vec2::new(pos.x, stage.platforms[i].y);
                         start_burst(&mut state.projectiles[n], &b, at, scale);
@@ -1369,7 +1369,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 continue;
             }
         }
-        // ...and one that bursts at the end of its life (sim 92) bursts where it is.
+        // ...and one that bursts at the end of its life (sim 94) bursts where it is.
         if let Some(b) = spec.burst.filter(|b| b.on_expire && !pr.bursting) {
             if age >= pr.life && !in_wall && !outside {
                 start_burst(&mut state.projectiles[n], &b, pr.pos, scale);

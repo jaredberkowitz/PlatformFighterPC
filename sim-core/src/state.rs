@@ -251,13 +251,13 @@ pub struct Fighter {
     /// ...with this much extra base knockback and this size (percent), from `spawn_scaled` (a charged shot).
     pub spawn_kb_add: u8,
     pub spawn_size: u16,
-    /// A second shot asked for on the same frame (E3h, sim 92): a script's second `spawn` / `spawn_at` in one frame fills these instead
+    /// A second shot asked for on the same frame (E3h, sim 94): a script's second `spawn` / `spawn_at` in one frame fills these instead
     /// of replacing the first (plain size and knockback; `spawn2_fixed` for an absolute point). Consumed by `step` with the first.
     pub spawn2_request: bool,
     pub spawn2_fixed: bool,
     pub spawn2_pos: Vec2,
     pub spawn2_vel: Vec2,
-    /// A jab's continuable window past its end (`Move::late_next`, owner decision 58, sim 92): the move a jab press starts instead of a
+    /// A jab's continuable window past its end (`Move::late_next`, owner decision 58, sim 94): the move a jab press starts instead of a
     /// new jab (its index plus 1; 0 for none), and the frames it still lasts (counted down each frame; any new state clears it).
     pub late_next: u8,
     pub late_left: u8,

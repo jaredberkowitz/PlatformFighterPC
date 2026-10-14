@@ -96,11 +96,10 @@ ninth class; they need the editor and a built bridge).
 
 * **Positions on non-root bones** [E]: the tail (tilts, up air), head (forward air, pummel), leg and foot (dash attack, up smash) and
   the tongue's reach (8.0 to 22.0 reference units ahead, 24.0 from a dash; gap 3). Root-bone offsets are [D].
-* **Jab 1's window past its FAF** (6-30 against FAF 18): after frame 18 a press starts a new jab 1, not jab 2 (one move, one length;
-  the same limit as the Bracers' jab).
+* ~~Jab 1's window past its FAF~~: built in phase 2 (decision 58).
 * House limits: the grabs' aerial-target boxes, the throws' interrupted rows and thrower invincibility, the down throw's victim
   invincibility during the folded hitlag, the forward air's "ledges from 68", the face-down and trip get-up attacks, the jab's
-  objects-only box, crawling, the double jump's x1.2 horizontal multiplier (the shared stick drift), the 7.0.0 shield intangibility
+  objects-only box, crawling (the double jump's x1.2 drift: built in phase 2, decision 59), the 7.0.0 shield intangibility
   (decision 5).
 * The down tilt's trips can only happen when the hit does not lift (the tip's 361 at low knockback); the reference says the same.
 * Conflict 4 resolved by decision 47 (each hit alone); conflict 3 read as 60 units of knockback [R reading].
@@ -110,6 +109,91 @@ ninth class; they need the editor and a built bridge).
 Bounder vs a standing duelist: (1) double jump and have a duelist forward-tilt it at 0%: it keeps rising with a flash of hitlag; at
 150% the jab sends it with the reduced launch; (2) hold attack on a whiff: jab 2 on frame 16; on a hit, on 6; (3) the down air over a
 standing target: twelve flashes two frames apart from 16, the finisher on 41; (4) the tongue grab's reach at 2.5-2.8 units.
+
+## Phase 2 (sim 94, content schema 6 unchanged): the lobbed shell, the drop, decisions 58-59
+
+Branch `clutch-phase2`, from `movesets` at 457731b (sim 89). Commits: 2a9b6ef (engine: decisions 58-59 and the general pieces), c0e7698
+(the two specials and their tests), 473f0a3 (merge of `movesets` at sim 93; this branch takes **94**), then the docs commit. Owner
+decision 60 applies: where the reference publishes nothing, the value is our best reading, labelled [E], with no footage asked for.
+
+### Engine (general; every default is the old behaviour)
+
+* **Decision 58, a jab's window past its FAF**: `Move::late_next: Option<(move, last move frame)>` (content `late_next` / `late_until`).
+  When the jab ends on the ground, hashed `Fighter::late_next` / `late_left` keep the window open while the fighter stands idle (any
+  other state closes it); a jab press in it (`fighter::start_ground_attack`) starts the next hit instead of a new jab. **Other fighters
+  changed** (every jab whose reference window runs past its FAF, from each port's `REFERENCE_DATA.md`): the Embers' jab 1 (FAF 20,
+  window to 24) and jab 2 (22, to 24); the Gauntlets' jab 1 (18, to 30) and jab 2 into jab 3 (19, to 30); the Greatsword's jab 1 (30, to
+  30: one frame); the Bracers' jab 1 (25, to 28); the Clutch's jab 1 (18, to 30). Not changed: the Staff (its rapid-jab window ends
+  before its FAF), the Longsword, Claws and Needles (no published window past the FAF).
+* **Decision 59, a body's air-jump drift**: `FighterParams::air_jump_drift` (percent, default 100; content `air_jump_drift`, inherited).
+  The bounder's 120 (`jump_aerial_speed_x_mul` 1.2 [R]); no other body changes.
+* **E11 addition** `Move::ledge_falling_only`: the move's ledge windows catch only while the vertical speed is not positive.
+* **E30** `Move::drop_through { from, frames, while_down }` (decision 48): `platform_ignore` set on move frame `from` for `frames`, and
+  kept on every later frame the stick is held down with `while_down`.
+* **E3h** (decision 48): a script's second `spawn` / `spawn_at` in one frame fills a second request (hashed `Fighter::spawn2_request`,
+  `spawn2_fixed`, `spawn2_pos`, `spawn2_vel`); `combat::spawn_projectiles` serves both (the second with plain size and knockback).
+* **E3b additions**: `ProjectileArc::bounce_keep_y` (percent of the bounce's vertical speed, default 100) and `bounce_max_fall` (the
+  fastest landing that still bounces, default 0: none).
+* **E3e options**: `Burst::on_ground` (a landing it does not bounce from bursts it there), `on_expire` (the end of its life bursts it),
+  `keep_hits` (the burst keeps the projectile's hits: the fighter the shell hit is not hit again).
+
+### Built
+
+* **Up special, the lobbed shell** (`moves_clutch.rs::lobbed_shell`, `scripts/clutch_egg_throw.script`): the shell on frame 16, FAF 56
+  [R]; speed `0.1875 + 0.01025 f` world (`1.5 + 0.082 f` reference) with `f` the frames special is held, at most 15 [R] (counted on the
+  move's frames 2-16 [E: the reference does not say which 15 frames]); the stick on frame 16 aims it 18-90 degrees, 58 neutral [R], in
+  proportion to the stick's sideways tilt past 0.2 (full forward 18, full back 90) [E: how the reference's "sensitivity 0.5" maps];
+  vertical part x1.25 [R]; spawned 5 ahead, 13 up [R]. In the air the vertical speed becomes `min(2.5 x 0.8^n + 0.8 y, 2.6)` reference
+  units for the first three throws an air time [R], on the move's frame 2 [E: gap 13]; the move's gravity 0.07, fall 1.29, air speed
+  x0.9, vertical x0.8 on starting [R]; never helpless [R]; ledges in front only while not rising [R; front only E]; touching down carries
+  it on along the ground [E: no landing lag is published]. The hops come back on landing, a ledge or a hit (the shared once-per-airtime
+  flags) [E: gap 13]. The shell: 6%, 70 (type 3), BK 60, KS 50, H 0.6, shield 50 [D], cannot rebound, reflectable, radius 3 [D];
+  gravity 0.01125, fall 1.25 [D]; bounces at most twice, only off a landing at most 0.2 a frame (the reference's 1.6), keeping 0.8 of its
+  speed both ways [E: conflict 10's reading]; it bursts on a fighter (shielding or not), a wall, a landing it does not bounce from, or
+  at the end of its 46 frames [R]; the burst: the same hit at radius 8 [D] for 3 frames, never on the shell's own victim [R reading].
+* **Down special, the drop** (`drop`, `scripts/clutch_drop*.script`): grounded, the hop's 4% hit on frame 7 (grounded fighters only,
+  FKV 80, KS 100, H 0.5) [R], the rise on 9-22 to 7.5 units and a still top on 23-26 [E], the drop from 27 (15%, BK 60, KS 72, H 0.7,
+  shield 167 [D]) at 0.6 a frame [R]; from level ground it lands on 39 and acts on 78 (the reference's 77 frames in all [R]: the rise
+  height was fitted to it). Aerial (`DROP_AIR`, ext4): the rise on 2-15 to 5.36 units (the grounded one / 1.4, the reference's grounded
+  height multiplier [R]) and a still top on 16-18 [E], the clean 12% on 19 and late from 20 (BK 70, KS 68, H 0.7, shield 183 [D]) [R].
+  Both: sideways speed stopped [E]; through soft platforms for 7 frames from the drop's start and all of them while down is held [R]
+  (E30); ledges in front and behind from the drop's start [R]; never helpless; the landing (`DROP_LANDING`, ext5): 39 frames, FAF 40
+  [R], with the two stars leaving on its frame 2 and hitting on 3-12 [R] (4%, 50 (type 3), BK 50, KS 40, H 0, shield 250 [D], cannot
+  rebound, reflectable; speed 0.075 / 0.25, gravity 0.025, fall 0.25 [D]). The drop lasts at most 253 frames (137 units of falling,
+  past any blast zone).
+* The claws' up special endings (`ext0`-`ext2`) are freed. Slots now: `ext3` down air landing, `ext4` aerial drop, `ext5` the drop's
+  landing; `ext0`-`ext2` and `ext6`-`ext15` free for phase 3. Neutral and side specials: still the claws' (phase 3).
+
+### Verified (tests that ran)
+
+`sim-core/tests/clutch_specials.rs` (14): the shell on frame 16 at its spawn point, FAF 56, the move's air physics; its speed for 0 /
+7 / 15 / 40 frames held; the aim at 18 / 58 / 90 degrees; the three hops from a full-speed fall (1.468 / 0.968 / 0.568 reference units)
+and none on the fourth, never helpless, the hops back on landing; no hop on the ground; one hit on its victim and the burst on the
+fighter beside it (and two hits without `keep_hits`); a slow landing bouncing x0.8 both ways, a fast one and a third one bursting, the
+burst at the end of its life for 3 frames; the shell's and burst's hit data; the grounded drop's timeline (on the ground to 8, the
+drop's 0.6 from 27, the landing on 39, control on 78); the aerial stall and drop from 19, the x1.4 ratio; every drop box; the two stars
+on one frame with their speeds and hit; the soft platform held and passed; a ledge behind caught only once the drop has started.
+`late_jab.rs` (3): every late window's data, a press on the FAF and on the window's last frame starting the next hit, one frame later
+a new jab 1, a crouch closing the window. `clutch.rs` (26): the double jump's x1.2 drift (and x1.0 for the duelist); registration.
+`move_rules.rs`: `ledge_falling_only_catches_a_ledge_only_once_the_fighter_stops_rising`,
+`drop_through_passes_soft_platforms_for_its_frames_and_while_down_is_held`, `the_shell_and_drop_fields_are_in_the_content_hash`.
+`scripted_moves.rs`: `two_spawns_on_one_frame_fire_two_shots_and_a_third_replaces_the_first`. `state::checksum_sees_every_field` (six
+new cases), `content::tests::hash_changes_with_any_field` (`air_jump_drift`).
+
+Checks: `cargo fmt --all`; `cargo test --workspace` (all passed); `cargo clippy --workspace --all-targets -- -D warnings` (clean);
+`pftool fuzz-rollback 500` (0 mismatches; 243 bounders); `pftool net-fuzz 200` (0 mismatches; 51 bounders); `content/base.pfc`
+re-exported (sim 94) and equal to the builders. **Not run**: the Godot tests.
+
+### Estimated or limited [E] (decision 60: estimates, no footage needed)
+
+* The shell's aim curve and its 0.2 deadzone; which 15 frames count as "held"; the hop's frame; the bounce reading (conflict 10:
+  bounce at most 1.6, burst above); the shell's 1-unit capsule height is not modelled; a ledge in front only.
+* The drop's rise (7.5 / 5.36 units, a linear slowing over 14 frames) and still top, fitted to the published 77 frames; sideways speed
+  stopped; the "falls indefinitely" drop is 253 frames at most.
+* A stick flicked down on a soft platform drops through it before a special can start (the shared input order): a quick down + special
+  there gives the platform drop and an aerial neutral special, not the drop. The reference starts the special. (Shared input rule, not
+  changed here.)
+* Still the house limits listed for phase 1.
 
 ## For the art agent
 
@@ -134,9 +218,15 @@ Moves that need their own clip (each falls back to a shared archetype through `a
 | Grabs | 14-21 / 16-23 / 17-24 | the tongue shot out to about 2.75 units at 0.75 up |
 | Pummel, throws | 2; 15 / 20 / 13 / 26 | a chomp; forward and back tosses (back turns on 20), an upward toss, a ground slam |
 
-Animation also needs (phases 2-3, later): the egg, the egg throw, the drop with its stars, the rolling egg.
+| Up special (the lobbed shell) | shell leaves on 16, FAF 56 | a wind-up and an overhand lob from 0.6 ahead, 1.6 up; aimed 18-90 degrees by the stick; in the air a small hop on frame 2 |
+| The shell (projectile) | 46 frames, then a 3-frame burst | a spotted shell (radius 0.3) on an arc that bounces low; the burst a 0.8-radius pop |
+| Down special, grounded | hop hit 7, rise 9-22, top 23-26, drop from 27 | a crouch and hop (hit at the feet 1.25 ahead), a rise to 7.5 units, a curled still top, then a straight drop bottom-first (box 0.7 up) |
+| Down special, aerial (`ext4`) | rise 2-15, top 16-18, drop from 19 | the same at 5.4 units |
+| The drop's landing (`ext5`) | 39 frames; stars out on 2 | a heavy squat landing; two small stars thrown 1 unit to each side, arcing up |
 
-## Phase 2 plan: Egg Throw and Yoshi Bomb
+Animation also needs (phase 3, later): the egg, the rolling egg.
+
+## Phase 2 plan: Egg Throw and Yoshi Bomb (built: see "Phase 2" above; no separate falling slot was needed)
 
 1. **Egg Throw** (up special, one slot; script reads `grounded`): count the frames special is held on 1-15, on 16 read the stick into
    18-90 degrees (default 58), `spawn` at (5, 13)/8 with speed `0.1875 + 0.01025 f` and the vertical part x1.25; in the air the hop
@@ -170,10 +260,8 @@ Animation also needs (phases 2-3, later): the egg, the egg throw, the drop with 
 
 ## Questions for the owner
 
-1. The tongue grab's reach is [E] (22 reference units standing): footage at its furthest reach would make it [R].
-2. Jab 1's continuable window runs past its FAF (6-30 vs 18): build a general "continue window past FAF" (a jab that ends but still
-   takes a press as its next hit for a few frames), shared with the Bracers' jab, or keep the listed limit?
-3. The double jump's x1.2 horizontal multiplier (`jump_aerial_speed_x_mul`): every body's air jump drifts by the stick times its air
-   speed; add a per-body multiplier (small, general) or keep the shared rule?
+1. The tongue grab's reach is [E] (22 reference units standing): kept as the estimate (decision 60).
+2. ~~Jab 1's window past its FAF~~: answered (decision 58), built in phase 2.
+3. ~~The double jump's x1.2 drift~~: answered (decision 59), built in phase 2.
 4. A bury hit should ignore a subtractive knockback armor (the reference's rule): build it with the Bracers' E5 (noted in
    `SHARED_MECHANICS.md`).

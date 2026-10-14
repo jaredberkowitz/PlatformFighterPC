@@ -227,7 +227,7 @@ pub struct FighterParams {
     /// The midair jump turns the fighter round when the stick is held back (past the deadzone) as it jumps: the reference's
     /// double-jump turnaround, a trait of a few bodies. False: the facing stays.
     pub air_jump_turns: bool,
-    /// The midair jump's sideways speed in percent of the stick times the air speed (owner decision 59, sim 92: the reference's per-body
+    /// The midair jump's sideways speed in percent of the stick times the air speed (owner decision 59, sim 94: the reference's per-body
     /// `jump_aerial_speed_x_mul`); 100 (the default) is the shared rule.
     pub air_jump_drift: u8,
     /// Index into `Content::weapons`.

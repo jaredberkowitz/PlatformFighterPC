@@ -878,7 +878,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             }
         }
     }
-    // Sim 92: a jab's window past its end, ledges only while not rising, a move's own platform drop (E30).
+    // Sim 94: a jab's window past its end, ledges only while not rising, a move's own platform drop (E30).
     let late_until: Option<u8> = f.parsed("late_until", errors);
     match (f.raw("late_next"), late_until) {
         (Some((key, line)), Some(until)) => match MoveId::from_key(key) {
@@ -1803,7 +1803,7 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             base.is_some_and(|p| p.air_jump_turns),
             errors,
         );
-        // The air jump's drift multiplier (sim 92): optional, the inherited fighter's or 100.
+        // The air jump's drift multiplier (sim 94): optional, the inherited fighter's or 100.
         params.air_jump_drift = f.or(
             "air_jump_drift",
             base.map_or(100, |p| p.air_jump_drift),

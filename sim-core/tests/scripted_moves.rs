@@ -209,7 +209,7 @@ fn a_script_can_fire_a_projectile_with_its_own_velocity() {
 
 #[test]
 fn two_spawns_on_one_frame_fire_two_shots_and_a_third_replaces_the_first() {
-    // E3h (sim 92): the second `spawn` (or `spawn_at`) of a frame fills a second request instead of replacing the first.
+    // E3h (sim 94): the second `spawn` (or `spawn_at`) of a frame fills a second request instead of replacing the first.
     let fire = |src: &str| {
         let mut sim = with_special(scripted(30, src));
         sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
