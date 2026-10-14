@@ -742,9 +742,9 @@ pub fn rings_at(
     let mut out = [None; MAX_PHASES];
     let Some(start) = phases
         .iter()
+        .rev()
         .flatten()
-        .filter(|(from, _)| age >= *from)
-        .last()
+        .find(|(from, _)| age >= *from)
         .map(|(from, _)| *from)
     else {
         return out;
@@ -5677,6 +5677,8 @@ mod tests {
                         || m.unpocket.is_some()
                         || m.toss.is_some()
                         || m.reflector.is_some()
+                        // (Sim 125: a follow-up slot may be only time, as the validator allows.)
+                        || MoveId::from_index(i as u8).is_ext()
                 );
                 for hb in &m.hitboxes {
                     assert!(

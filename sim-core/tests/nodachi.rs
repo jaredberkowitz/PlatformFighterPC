@@ -255,10 +255,13 @@ fn find(w: &Weapon, id: MoveId, first: u8, priority: u8) -> Hitbox {
         .unwrap_or_else(|| panic!("{id:?} {first} {priority}"))
 }
 
+/// A hit's expected numbers: the move, its first frame, priority, damage in tenths, angle, BK, KS, hitlag percent.
+type HitRow = (MoveId, u8, u8, i32, i16, i16, i16, u16);
+
 #[test]
 fn every_hit_has_the_references_damage_angle_and_knockback() {
     // (move, first frame, priority (the reference's id), damage in tenths, angle, BK, KS, hitlag percent)
-    let table: [(MoveId, u8, u8, i32, i16, i16, i16, u16); 37] = [
+    let table: [HitRow; 37] = [
         (MoveId::Jab, 5, 0, 25, 361, 25, 10, 140),
         (MoveId::Jab, 5, 2, 25, 180, 25, 15, 140),
         (MoveId::Jab2, 5, 0, 20, 361, 35, 20, 130),

@@ -318,6 +318,12 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             setup.chars[1] = b;
             crate::drill_specials(&mut inputs, 1);
         }
+        // Every eighth run from 0 (sim 125) the joiner plays the first body with a wing (the exile), its specials drilled, so its blade
+        // dash, flares and wing cross the network.
+        if let (0, Some(b)) = (seed % 8, crate::wing_body(&content)) {
+            setup.chars[1] = b;
+            crate::drill_specials(&mut inputs, 1);
+        }
         let specs = (seed % 2 == 1).then(|| {
             (
                 crate::random_spec(&mut pick, &content),

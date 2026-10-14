@@ -738,6 +738,8 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             && mv.unpocket.is_none()
             && mv.toss.is_none()
             && mv.reflector.is_none()
+            // (Sim 125: a follow-up slot may be only time: the blade dash's end in the air, the flare's cancel.)
+            && !MoveId::from_index(m as u8).is_ext()
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
@@ -760,24 +762,35 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                      speed, bounce_min at most bounce_max, bounce_keep and bounce_keep_y at most 100, no negative bounce_max_fall)"
                 ));
             }
+            // (Sim 125, E58: phases with the same start are rings, out together; they share a hit group.)
             let mut last = 0;
-            for (from, _) in p.phases.iter().flatten() {
-                if *from <= last || *from >= p.life {
+            let mut group = 0;
+            for (from, hb) in p.phases.iter().flatten() {
+                if *from == 0
+                    || *from < last
+                    || *from >= p.life
+                    || (*from == last && hb.group != group)
+                {
                     errors.push(format!(
-                        "weapon {i} {name}: projectile phases must start in order, after age 0 and within its life"
+                        "weapon {i} {name}: projectile phases must start in order, after age 0 and within its life (rings sharing a start share a group)"
                     ));
                 }
                 last = *from;
+                group = hb.group;
             }
             if let Some(b) = &p.burst {
                 let mut last = 0;
+                let mut group = 0;
                 let mut ordered = b.life > 0;
                 for (from, hb) in b.phases.iter().flatten() {
-                    ordered &= *from > last
+                    ordered &= *from > 0
+                        && *from >= last
+                        && (*from > last || hb.group == group)
                         && *from < b.life
                         && hb.radius >= Fx::ZERO
                         && hb.half_height >= Fx::ZERO;
                     last = *from;
+                    group = hb.group;
                 }
                 if !ordered || last == 0 {
                     errors.push(format!(

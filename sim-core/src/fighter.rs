@@ -2985,6 +2985,13 @@ fn attack(
         if vy > Fx::ZERO {
             f.platform = NONE;
         }
+        // (A move that stops at the edge never steps past it along the ground: sim 125.)
+        if mv.edge_stop && f.grounded() && vy <= Fx::ZERO {
+            if let Some(plat) = collision::platform(stage, f.platform) {
+                let x = (f.pos.x + f.vel.x).clamp(plat.left, plat.right);
+                f.vel.x = x - f.pos.x;
+            }
+        }
         let moved = move_by(f, p, stage, f.vel);
         if moved.wall {
             f.vel.x = Fx::ZERO;
@@ -3057,7 +3064,10 @@ fn attack(
         };
         f.vel.x = approach(f.vel.x, Fx::ZERO, friction);
         let (kept_frame, kept_charge) = (f.state_frame, f.charge);
-        if !slide_on_platform(f, p, stage) {
+        if mv.edge_stop {
+            // (A move that stops at the edge stays on it: sim 125.)
+            slide_kept_on_platform(f, p, stage);
+        } else if !slide_on_platform(f, p, stage) {
             // Off the edge: a move with an `off_edge` version goes on as it, on the same frame; any other ends.
             let other = mv.off_edge?;
             f.state = S::Attack;

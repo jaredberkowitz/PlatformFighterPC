@@ -261,6 +261,15 @@ pub(crate) fn partner_body(content: &Content) -> Option<u8> {
         .map(|i| i as u8)
 }
 
+/// The first body of `content` with a wing (E57: the exile's), if any.
+pub(crate) fn wing_body(content: &Content) -> Option<u8> {
+    content
+        .fighters
+        .iter()
+        .position(|p| p.wing.is_some())
+        .map(|i| i as u8)
+}
+
 /// The first body of `content` whose weapon has a latch (E49: the scamp's flip), if any.
 pub(crate) fn latch_body(content: &Content) -> Option<u8> {
     content
@@ -478,6 +487,12 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         if let (true, Some(b)) = (partnered, partner_body(&base)) {
             specs[3] = sim_content::recipe::FighterSpec::Builtin(b);
         }
+        // Every fourth run from 1 (sim 125) fighter 0 plays the first body with a wing (the exile), its wing out from the start at 70%,
+        // its specials drilled, so the wing's numbers, power, armor, points and loss are played with.
+        let winged = seed % 4 == 1 && wing_body(&base).is_some();
+        if let (true, Some(b)) = (winged, wing_body(&base)) {
+            specs[0] = sim_content::recipe::FighterSpec::Builtin(b);
+        }
         let (content, chars) = sim_content::recipe::match_content(&base, &specs, false)
             .map_err(|e| format!("seed {seed}: specs rejected: {e:?}"))?;
         let chars = [chars[0], chars[1], chars[2], chars[3]];
@@ -508,7 +523,18 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             f.gauge = g.max;
             f.gauge_mode = g.mode_frames;
         }
+        if winged {
+            let f = &mut initial.fighters[0];
+            if let Some(w) = content.fighters[usize::from(f.char_id)].wing {
+                f.wing_points = w.points[2];
+                f.air_jumps_left = f.air_jumps_left.saturating_add(w.jumps);
+                f.percent = sim_core::Fx::from_int(70);
+            }
+        }
         let mut inputs = random_inputs(&mut Rng::new(seed), 600);
+        if winged {
+            drill_specials(&mut inputs, 0);
+        }
         if drilled {
             drill_specials(&mut inputs, 1);
         }
