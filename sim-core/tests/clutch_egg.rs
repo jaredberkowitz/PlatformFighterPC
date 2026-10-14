@@ -600,3 +600,36 @@ fn the_roll_ends_by_itself_after_180_frames_and_jumps_once() {
     assert_eq!(ending, 201);
     assert_eq!(frame + 1, 240);
 }
+
+#[test]
+fn the_roll_hits_for_10_plus_its_speed_and_loses_speed_on_a_hit() {
+    let mut sim = pair(Fx::from_int(6), 0);
+    roll(&mut sim);
+    let mut speed_before = Fx::ZERO;
+    let mut hit = None;
+    for frame in 2..=120u16 {
+        let before = sim.fighter(1).percent;
+        let vx = sim.f().vel.x.abs();
+        sim.tick(inp(127, 0, 0));
+        if sim.fighter(1).percent != before {
+            hit = Some(frame);
+            speed_before = vx;
+            break;
+        }
+    }
+    let frame = hit.expect("the roll hit the duelist");
+    assert!(frame >= 32, "no hit before 32 (hit on {frame})");
+    // 10 plus the speed in the reference's units (world x 8), times the one-on-one 1.2.
+    let want = (Fx::from_int(10) + speed_before * Fx::from_int(8)) * sim.content.rules.damage_mult;
+    assert!(
+        near(sim.fighter(1).percent, want, 60),
+        "{:?} against {want:?}",
+        sim.fighter(1).percent
+    );
+    // Out of the hit's hitlag, the speed is 1 (0.125) less.
+    while sim.f().hitlag > 0 {
+        sim.tick(inp(127, 0, 0));
+    }
+    sim.tick(inp(127, 0, 0));
+    assert!(sim.f().vel.x.abs() < speed_before - fx(1, 10));
+}
