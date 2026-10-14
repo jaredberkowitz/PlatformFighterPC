@@ -253,7 +253,10 @@ fn pin(state: &mut GameState, content: &Content, h: usize, v: usize) {
     if let Some(l) = latch_of(content, &holder) {
         // A latch (E49): the held fighter falls on its own and the holder rides it.
         let p = *combat::params_of(content, &state.fighters[v]);
-        fighter::held_fall(&mut state.fighters[v], &p, &content.stage);
+        // (Hitlag freezes the fall, as it freezes everything else.)
+        if state.fighters[v].hitlag == 0 {
+            fighter::held_fall(&mut state.fighters[v], &p, &content.stage);
+        }
         let held = state.fighters[v];
         let up = p.ecb_height * Fx::from_ratio(i32::from(l.height), 100);
         let rider = &mut state.fighters[h];

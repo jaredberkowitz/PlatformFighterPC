@@ -120,32 +120,97 @@ mismatches, class 11 drawn 10 times. Godot tests were updated (rosters) but not 
   (move ext3); the misfire's explosion a hitbox on ext4; the flying barrels a projectile (move ext8, tool kind 10) and their explosion its
   burst (`projectile_bursting`). A tripped fighter sits (`fighter_tripped`); a soft trip is the same pose.
 
-## Phase 2 plan: the monkey flip (side special), and the gaps
+## Phase 2 (sim 119, content schema 7 unchanged; branch `popgun-phase2` from `movesets` at c0f4e88, sim 117)
 
-* **Research first**: the latch's 13.0.1 numbers are unpublished (its length and escape, the scratch's rhythm, the leap's path and grab
-  radius, the kick's trip chance in 13.0.1). Footage of the reference's hitbox view (the owner's recordings) would settle them; without it
-  they would be labelled [E] from the previous version's page.
-* **E49 latch** (a proposal for the owner: a general held state, broad enough to explain first): a command grab (E6) whose `catch_move` is
-  a hold on the victim's head (`Move::hold_at` above the victim), with the ordinary hold's clock and mash-out (`grab::hold_time`,
-  `mash_cut`), an automatic repeating hit (a `rehit` loop on a pummel-like row), and two exits by button: attack (the 3% scratch on 18-20
-  and the 7% throw on 20, FAF 21 / 36) and jump (the 2% footstool kick with its 20-frame immobilisation when it does not tumble: a
-  general `Hitbox::stun_frames`-like field). Today's command grab holds with no clock or mash-out, so the latch needs at least the clock and
-  the mash on a command hold, which is the general part.
-* **The leap and kick**: two moves (ground 18-36 / air 18-29 grab windows, FAF 62 / 48, landing lag 26), the kick on a second press
-  (6-10 / 11-25, 14 / 12% and 12 / 10%, landing lag 18), the smash-input leap further (`smash_version`), the kick barring the up special
-  until landing (an air flag the up special's script reads).
-* Gaps to close if the owner wants them: the popgun's muzzle hit, catching peanuts (an aerial item catch for everyone), unblockable
-  projectiles (`Hitbox` flag; the barrels and the lying peel), the crash's self damage, the first-charge-only slow fall (a per-air-time
-  flag that a hit does not clear).
+Sim 118 belongs to another session; 119 was taken as asked. Owner decisions 74-76 (2026-10-14): build the latch as a general held
+state (E49); only the first rocket charge of an air time falls slowly; the Settler's jab > jab > axe stays (nothing built).
+
+### Milestone 1: the monkey flip, decision 75 and the cheap gaps (one commit)
+
+* **E49 the latch** (`Move::latch { x height clock_num clock_den }`, `grab::connect` / `update` / `pin`, `fighter::held_fall`): a
+  command grab whose catch move has a latch holds its fighter on the ordinary hold clock (`grab_base_frames + grab_percent_tenths x
+  percent`, times `clock_num / clock_den`) with the shared mash; the held fighter is not pinned in front but falls on its own (gravity
+  to its top fall speed, landing on platforms; frozen in hitlag), and the holder rides it, `x` ahead of its feet and `height` percent
+  of its body height up. The clock running out lets go as an ordinary hold. Exit moves have a latch with no clock (they ride until
+  their throw). The repeating hit is pummel rows, the exits a script: nothing character-specific in the engine.
+* **`Hitbox::fixed_stun`**: a hit that does not tumble holds its victim exactly that many frames (the jump-off's 20).
+* **E50, decision 75**: hashed `Fighter::air_marks` (cleared by landing or a ledge, **not by a hit**), the script functions
+  `air_mark(n)` / `set_air_mark(n)`, and `Move::flag_versions` (`flag_version { flags marks move }`): starting a special, the first
+  version whose air flags or marks are set starts its move instead, or nothing at all when it names none (checked before the fighter
+  turns). The rocket's charge sets mark 0 in the air; a later charge in the same air time is `ROCKET_AGAIN` (ext5) on the body's own
+  fall; the kick sets air flag 1, which bars the up special.
+* **E51**: `Hitbox::unblockable` (the flying barrels: a raised or passive shield does not stop them) and `Move::self_damage` (the
+  crash: 5% to the scamp [E]).
+* The `jump_tap` register (the latch jumps off on a new press only, not one held since before the flip).
+* **The monkey flip** (`monkey_flip` in `moves_popgun.rs`; side special, `FLIP_AIR` ext9, `FLIP_KICK` ext10, `LATCH` ext11,
+  `LATCH_ATTACK` ext12, `LATCH_JUMP` ext13; scripts `popgun_flip`, `popgun_flip_kick`, `popgun_latch`, `popgun_latch_attack`,
+  `popgun_latch_jump`):
+  * the leap: a crouch, launched on 13 (2.2 of the reference's units a frame ahead, 1.7 up; 2.8 ahead for a smash input [E]), no air
+    control [E]; command-grab boxes on 18-36 (ground) / 18-29 (air) [R]; FAF 62 / 48, landing lag 26 [R]; not helpless [R]; the air
+    version stops the scamp's momentum [E]; ledges in front once falling from the launch [E];
+  * the kick on a second press of special from the launch to the end of the grab [E: the window]: 14% / 12% on 6-10, 12% / 10% on
+    11-25, 361, BK 80, KS 50 [R]; FAF 33, landing lag 18 [R]; the up special barred until landing or a ledge [R] (a hit clears it [E]);
+  * the latch: a 1% scratch (361, BK 0, KS 0) on its frames 11 and 29 of every 48 [R damage; E rhythm], on the ordinary hold clock;
+    attack: a 3% scratch on 18 (the held fighter, and others near it, BK 60, KS 150) and the 7% throw (361, BK 50, KS 100) on 20, the
+    scamp flipping off back and up, FAF 37; jump: the 2% kick (361, BK 0, KS 50) on 18 holding the fighter 20 frames when it does not
+    tumble, the scamp jumping off at its full hop's speed [E], FAF 43.
+* The fuzzers drill the latch (fuzz-rollback: every third run fighter 2 is the scamp flipping at fighter 3; net-fuzz: every eighth run
+  from 4 the host is the scamp flipping at the joiner) and count latches begun, exits and broken.
+
+### Verified against [R] / [D] (by tests that ran)
+
+`sim-core/tests/popgun_flip.rs` (15): every part's frames, hits and FAF in the data; a standing fighter caught in the window and ridden
+(0.9 of its height up, straight over its feet); the scratch on the latch's frames 11 and 29 and 48 later (each scratch's hitlag
+counted); the hold clock (90 frames at 0%, the scamp then airborne) and mashing cutting it by more than half; the attack exit's 3% + 7%
+and launch, the scamp free; the jump exit's 2%, the 20-frame hold, the scamp rising, free; a held jump from before the flip not
+jumping off; an airborne fighter caught and falling with the scamp on it; offstage, both falling to their knock-outs; a shielding
+fighter caught; the whiffed flip's FAF 62 (ground) and 48 (air, free after) and the 26 frames of landing lag; the smash input further;
+the kick's clean hit and the up special barred after it (nothing starts, nothing turns) until landing; the kick's flag cleared by
+landing; only the first rocket charge of an air time falling slowly (the mark kept through a real hit, cleared by landing); a ledge
+caught by the leap; resimulation from a snapshot mid-latch. `popgun_rocket.rs`: the crash's 5% to the scamp, the barrels unblockable.
+`move_rules.rs`: the new fields in the content hash; an unblockable hit through a shield; `fixed_stun`; `self_damage`; flag versions
+(pick, bar, flags vs marks). `scripted_moves.rs`: `jump_tap`; `air_mark` kept through a hit and cleared on landing. `state.rs`: the
+checksum case `air_marks`. sim-content: `the_popgun_flip_fields_round_trip_and_are_checked`. `popgun.rs`: the side special is now the
+Popgun's own.
+
+### Estimated or limited [E]
+
+* The leap's launch frame, speeds, arc and smash-input distance; its grab boxes; the kick's input window and positions; the kick's trip
+  chance (none here; the previous version's was 30%).
+* The latch's ride point; the held fighter falling on its own gravity with no drift; the scratch rhythm (our reading of UFD's
+  "11 / 29 / 59..."); the attack exit's backflip and the jump's speed; the latch attack's 5% second throw row (unused).
+* Whether a hit clears the kick's up-special bar (here yes); the crash's 5% (the article's general figure).
+* Still gaps: the popgun's muzzle hit (no angle, knockback or size published: a small data change once known) and its taller later
+  box; catching a peanut (needs an aerial item catch for everyone: E4 has none, a broader change for the owner).
+
+### Tests and checks run (after merging `movesets` c0f4e88, sim 117: already contained, nothing to merge)
+
+`cargo fmt --all`; `cargo test --workspace` (all green: 1,436 passed, 0 failed); `cargo clippy --workspace --all-targets -- -D
+warnings`; `pftool fuzz-rollback 300`: 0 mismatches, class 11 drawn 181 times, latches 164 begun / 123 exits / 41 broken; `pftool
+net-fuzz 100`: 0 mismatches, class 11 drawn 22 times, latches 17 begun / 11 exits / 5 broken. Godot tests: nothing they check changed (roster size,
+names and accessors are as in phase 1).
+
+### Training-mode checks (hitbox view)
+
+1. The flip: side special at a standing computer opponent 6 units away: the scamp lands on its head; mash on the opponent's pad and
+   watch the latch end sooner; press attack (the 3% + 7% throw) or jump (the kick and the 20-frame hold).
+2. Offstage: flip onto an opponent recovering low past the ledge: both fall (jump to escape).
+3. In the air: flip, press special again for the kick, then up special: nothing comes out until the scamp lands.
+4. The rocket: charge in the air (slow fall), get hit out of it, charge again: the second falls at the normal speed.
+
+### For the art agent
+
+* **Clips needed** (they fall back to shared archetypes today): the flip's crouch (1-12) and the forward flip (launched on 13, the grab
+  hands out 18-36 / 18-29); the kick (6-25, the leg straight out); the latch: sitting on the opponent's head, scratching on its frames
+  11 and 29 of every 48; the latch attack (the scratch on 18, the throw on 20, the backflip off); the latch jump (the kick down on 18,
+  the jump up). The held fighter needs a "ridden" pose (it is `Grabbed` with the scamp above it: `fighter_grab_partner` tells the view
+  who rides whom).
 
 ## Questions for the owner
 
-1. **The monkey flip's latch** (phase 2): approve the latch as a general held state (E49: a command hold with the ordinary clock and
-   mash-out, an automatic repeating hit and two button exits), and can footage of the reference's latch be recorded (its length, the
-   scratch rhythm, the leap's arc)?
-2. **The rocket's flight path**: only the launch speed is published; the flight's fall-off (even to nothing over 54 frames), its steering
-   and the charge's slow fall are estimates. Footage of a tap and a full charge from the ground would let them be fitted, as the up
-   specials' rises were.
-3. **The peanut's arc** and the **peel's arc** are estimates (no published speeds beyond the peel's toss): keep, or fit from footage?
-4. **The slow fall for the first charge only**: the engine's once-per-air-time flags are cleared by a hit; make one that is not (so a
-   charge after being hit out falls at the body's speed, as the reference), or keep every charge slow?
+1. **Footage of the monkey flip**: the leap's distance and arc (and whether a smash input goes further in 13.0.1), the latch's
+   scratch rhythm and the exits' paths would replace the estimates above.
+2. **The kick's trip chance**: the previous version's 30% is not confirmed for 13.0.1; keep none, or use 30%?
+3. **The kick's up-special bar**: does a hit clear it (as here) or only landing (switch it from the air flag to an air mark)?
+4. **The crash's 5% self damage**: the figure is the article's general text; keep, or remove until a 13.0.1 source confirms it?
+5. Still open from phase 1: footage for the rocket's flight and the peanut's and peel's arcs.
