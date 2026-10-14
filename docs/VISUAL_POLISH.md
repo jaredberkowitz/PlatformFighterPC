@@ -60,6 +60,19 @@ read well; the faces, wardrobe and moves depend on them, so they stay. Hands are
 - **Still open**: on the meadow, the key sits near the camera, so fighters show only a narrow shadow side there (per-stage mood, left
   as is for now); the fists' shading shows their own facets.
 
+### Pass 53: one clean silhouette line on fighters (step 3 of docs/ART_REVIEW_2.md)
+
+- **Problem**: a fighter's silhouette had two lines, the inverted-hull outline just outside it and the post pass's screen-space ink
+  just inside it. Together they made a thick, dotted, wavering stroke at play size. Dropping the post line on fighters outright left
+  blades and the shield rim with no line, and the hull alone was faint up close.
+- **Fix**: the hull outline writes its own object id (`HULL_ID` 0.7; `outline.gdshader` is now emission over black so it can write
+  one), and the post pass draws no line on or beside a hull line, only where a silhouette has none. The hull's minimum width is a
+  little higher (0.02 to 0.028 world units) so it holds up close.
+- **Images**: `docs/screenshots/polish2_silhouette_line.png` (before left, after right, play distance, 4x).
+- **Checks run**: all five stages at play distance and close up; the look bench's worst silhouette 0.89 to 0.90. Performance (the KO
+  demo, warm shader cache, alternated runs): 383 fps against 391 before, GPU 1.71 ms against 1.66 ms. The first run after a shader
+  change hitches while the cache rebuilds; that is not a cost in play.
+
 ## Skipped, and why
 
 Nothing yet.
