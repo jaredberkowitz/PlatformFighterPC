@@ -102,6 +102,8 @@ pub const F_BOOST_ADD: u8 = 47;
 pub const F_SET_CHARGE: u8 = 50;
 pub const F_DETONATE: u8 = 51;
 pub const F_OWNS: u8 = 52;
+pub const F_AIR_MARK: u8 = 53;
+pub const F_SET_AIR_MARK: u8 = 54;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -144,6 +146,7 @@ pub const R_HOLDING: u8 = 32;
 pub const R_BALLOONS: u8 = 33;
 pub const R_POCKETED: u8 = 34;
 pub const R_PULL_WAIT: u8 = 35;
+pub const R_JUMP_TAP: u8 = 36;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -286,6 +289,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         R_PULL_WAIT,
         "frames before a move's toss lets the fighter make another tossed item (a move's toss wait), 0 when it can",
     ),
+    reg(
+        "jump_tap",
+        R_JUMP_TAP,
+        "1 only on the frame the jump button went down",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[
@@ -359,7 +367,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 19] = [
+    const OWN: [Func; 21] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -464,8 +472,20 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "owns(kind): how many live items and projectiles of this kind the fighter made, as the frame began (pocketed ones too)",
         ),
+        func(
+            "air_mark",
+            F_AIR_MARK,
+            1,
+            "air_mark(n): 1 if once-per-airtime mark n (0 to 7) is set, else 0",
+        ),
+        func(
+            "set_air_mark",
+            F_SET_AIR_MARK,
+            1,
+            "set_air_mark(n): set once-per-airtime mark n (0 to 7); landing or a ledge clears them all, a hit does not",
+        ),
     ];
-    concat::<9, 19, 28>(MATH, OWN)
+    concat::<9, 21, 30>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

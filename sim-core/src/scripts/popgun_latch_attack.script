@@ -1,0 +1,4 @@
+// Popgun side special, the latch's attack: on move frame 19 (the reference's 20, the throw) the scamp flips off back and up [E].
+if frame == 19 {
+    set_vel(-0.125, 0.25);
+}

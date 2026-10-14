@@ -16,7 +16,8 @@ here). Reference data: `REFERENCE_DATA.md`; what was built: `IMPLEMENTATION_REPO
   stick tilting it while charging and steering it while flying, the three hit phases, the special fall and 30 frames of landing lag, the
   crash into a wall, and the barrels flying off a hit wearer to burst on the stage. Needed E48 and two projectile registers.
 * **The monkey flip** (side special): the leap's command grab latching onto the face (scratching, the attack's scratch-and-throw, the jump
-  off the head), the kick on a second press, ground and air versions. Phase 2 (its latch numbers are largely unpublished; see the report).
+  off the head), the kick on a second press, ground and air versions. Built in phase 2 (sim 119, E49; its latch numbers are
+  largely unpublished, so several are [E]: see the report).
 
 ## How the moves flow (traced)
 
@@ -78,13 +79,26 @@ the rocket barrels (flying off the hit wearer). Why a move field: it is what the
 The projectile registers `owner_stick_x` / `owner_stick_y` (the barrels steered by their owner a while), `scripting::Surroundings::
 owner_stick`. Validation accepts a move that only tosses.
 
-## Not built (phase 2, or limits)
+### E49: the latch (sim 119, owner decision 74)
 
-* **The monkey flip** (side special): the leap, the kick and the latch. The latch needs a held state the command grab (E6) does not have
-  (a hold with a mash-out escape, an automatic repeating hit, two releases on the attack and jump buttons, the footstool kick's 20-frame
-  stun) and data the sources do not give (the latch's length and escape, the scratch's rhythm, the leap's path). Plan in the report. Until
-  then the side special is the claws' placeholder, as for every port in its first phase.
-* The popgun's muzzle hit and taller later hit; a peanut caught and thrown back (no aerial catch); the barrels' unblockability; the crash's
-  damage to the scamp; the slower charge-fall limited to the first charge of an air time.
+`Move::latch { x height clock_num clock_den }`. A command grab (E6) catching into a move with a clocked latch sets the ordinary hold
+clock on the held fighter (scaled), `grab::update` runs it (with the shared mash) while the holder is in a clocked latch move, and
+`grab::pin` does not pin the held fighter in front: it falls on its own (`fighter::held_fall`) and the holder rides it. Why a move
+field: the latch is what the holder's move does with its catch, the same shape as `hold_at` and `carry`; its hits and exits stay the
+move's own (pummel rows, a script), so no character code is in the engine. `Hitbox::fixed_stun` gives the jump-off its 20 frames.
+
+### E50: once-per-airtime marks and flag versions (sim 119, owner decision 75)
+
+Hashed `Fighter::air_marks` (cleared by landing or a ledge, not a hit), `air_mark` / `set_air_mark`, `Move::flag_versions`. Why: the
+engine's air flags are cleared by a hit, which the reference's "first charge only" rule does not do; a version picked by flags or
+marks also bars a special outright (the kick's rule), so one field serves both.
+
+### E51: unblockable hits and self damage (sim 119)
+
+`Hitbox::unblockable`, `Move::self_damage`: the flying barrels and the crash, both reference properties of hits and moves.
+
+## Not built (limits)
+
+* The popgun's muzzle hit (unpublished numbers) and taller later hit; a peanut caught and thrown back (no aerial catch).
 * House limits: the grabs' aerial-target boxes; the throws' bystander hits and thrower invincibility; one get-up attack slot (the
   face-down and trip get-up attacks).

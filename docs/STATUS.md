@@ -93,6 +93,19 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 119** (branch `popgun-phase2`, from `movesets` at c0f4e88, sim 117; content schema 7 unchanged; sim 118 belongs to another
+session): the Popgun's phase 2, **every special of the scamp now built**. The **monkey flip** (side special): the ground and air leaps
+(launched on 13, command grabs on 18-36 / 18-29, FAF 62 / 48, landing lag 26, ledges once falling), the **kick** on a second press
+(14% / 12% clean, 12% / 10% late, FAF 33, landing lag 18; it bars the up special until landing) and the **latch** (owner decision 74,
+**E49** `Move::latch`: the ordinary hold clock and mash-out on a command hold, the caught fighter falling on its own with the scamp
+riding its head, a 1% scratch on 11 and 29 of every 48, attack: 3% + a 7% throw, jump: a 2% kick holding the fighter 20 frames,
+`Hitbox::fixed_stun`). **Owner decision 75**: only the first rocket charge of an air time falls slowly (hashed `Fighter::air_marks`,
+cleared by landing or a ledge, not a hit; the script functions `air_mark` / `set_air_mark`; `Move::flag_versions`, which also bars the
+up special after the kick). Gaps closed: the flying barrels are unblockable (`Hitbox::unblockable`), the crash costs the scamp 5%
+(`Move::self_damage`); the `jump_tap` register. All general and defaulted; nothing changes for the older fighters. Decision 76: the
+Settler's jab > jab > axe stays at 0-60 / 70%. Tests `popgun_flip.rs` (15) and cases in `popgun_rocket.rs`, `popgun.rs`,
+`move_rules.rs`, `scripted_moves.rs`, `state.rs`, sim-content; the fuzzers drill the latch. Report:
+`docs/movesets/diddy_kong/IMPLEMENTATION_REPORT.md`.
 **Sim 117** (branch `popgun-phase1`, from `movesets` at faff36e, sim 115; content schema 7 unchanged; sim 116 belongs to another
 session): the twelfth class, **Popgun** on the **scamp** body (built-in fighter **Scamp**, modelled on the reference game's Diddy Kong),
 phase 1: the body and every normal on 13.0.1 data, the **banana peel** (down special: tossed over the shoulder, an item anyone picks up,

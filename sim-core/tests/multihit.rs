@@ -54,6 +54,8 @@ fn hb(start: u8, end: u8, damage: i32, angle: i16, bkb: i16, kbg: i16, group: u8
         half_width: Fx::ZERO,
         rules: 0,
         slip: 0,
+        fixed_stun: 0,
+        unblockable: false,
     }
 }
 
