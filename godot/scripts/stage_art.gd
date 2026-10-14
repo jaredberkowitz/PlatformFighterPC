@@ -645,6 +645,55 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 	var n := maxi(1, int(w / 1.6))
 	for k in range(1, n):
 		_mesh(parent, _box(Vector3(0.05, 0.26, 0.05)), seam, Vector3(left + w * k / n, top - 0.13, front_z + 0.01))
+	_platform_dressing(parent, t, left, right, top, front_z, depth)
+
+
+## Dresses a wooden platform for its stage, so it belongs to the place rather than being the same plank everywhere: rope lashings near
+## each end on the beach and in the canyon; moss over the front edge and a vine or two hanging below in the grove; a tuft of hay and a
+## flower at the ends on the meadow. Only at the ends and below the top, so the play surface and fighters' feet stay clear.
+## Deterministic (from the platform's place).
+static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right: float, top: float, front_z: float, depth: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(roundi(left * 10.0), roundi(top * 10.0)))
+	var cx := (left + right) / 2.0
+	var w := right - left
+	match t.get("name", ""):
+		"ocean", "sunset":
+			var rope := Materials.wood(Color(0.86, 0.74, 0.52) if t.name == "ocean" else Color(0.78, 0.62, 0.42), Vector2(1, 6))
+			for ex in [left + 0.6, right - 0.6]:
+				for j in 3:
+					var ring := TorusMesh.new()
+					ring.inner_radius = 0.3
+					ring.outer_radius = 0.36
+					ring.rings = 14
+					ring.ring_segments = 6
+					# (Turned so the ring's plane is across the plank, squashed to wrap its board and beam: 0.27 up and down, the depth front to
+					# back.)
+					_mesh(parent, ring, rope, Vector3(ex + (j - 1) * 0.12, top - 0.24, front_z - depth / 2.0),
+						Vector3(0.27 / 0.33, 1.0, (depth * 0.5 + 0.04) / 0.33), Vector3(0, 0, 90))
+		"grove":
+			var moss := Materials.foliage(Color(0.36, 0.64, 0.36), Vector2(2, 2), true)
+			# (Overlapping clumps of very different sizes, gaps now and then: an even row read as beads.)
+			var x := left + 0.3
+			while x < right - 0.2:
+				var r := rng.randf_range(0.1, 0.3)
+				if rng.randf() > 0.2:
+					_mesh(parent, _sphere(1.0, 8), moss, Vector3(x, top - 0.26 - r * rng.randf_range(0.2, 1.0), front_z + 0.02), Vector3(r * 1.8, r * 1.2, r))
+				x += r * rng.randf_range(1.2, 2.2)
+			var vine := Materials.foliage(Color(0.3, 0.58, 0.32), Vector2(1, 3), true)
+			for k in 2:
+				var vx := lerpf(left + 0.8, right - 0.8, rng.randf())
+				var vl := rng.randf_range(0.8, 1.6)
+				_mesh(parent, _cylinder(0.05, 0.07, vl, 6), vine, Vector3(vx, top - 0.45 - vl * 0.5, front_z - 0.1), Vector3.ONE, Vector3(0, 0, rng.randf_range(-8, 8)))
+				_mesh(parent, _sphere(0.13, 8), vine, Vector3(vx, top - 0.45 - vl, front_z - 0.1), Vector3(1.2, 0.8, 1.0))
+		"meadow":
+			var hay := Materials.as_family(FighterView.toon(Color(0.96, 0.82, 0.48)), "grass")
+			for ex in [left + 0.35, right - 0.35]:
+				_mesh(parent, _sphere(1.0, 8), hay, Vector3(ex, top - 0.42, front_z - 0.05), Vector3(0.28, 0.2, 0.3))
+			if w > 3.0:
+				var petal := _soft(Color(1.0, 0.62, 0.66))
+				_mesh(parent, _cylinder(0.02, 0.02, 0.4, 4), _soft(Color(0.36, 0.6, 0.3)), Vector3(right - 0.55, top - 0.55, front_z + 0.02))
+				_mesh(parent, _sphere(0.1, 8), petal, Vector3(right - 0.55, top - 0.75, front_z + 0.05))
 
 
 # ---- Backdrops ------------------------------------------------------------------------------------------------------------------------
