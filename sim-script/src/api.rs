@@ -137,6 +137,7 @@ pub const R_BOOSTING: u8 = 27;
 pub const R_GRAB: u8 = 28;
 pub const R_AIM: u8 = 29;
 pub const R_FAST_FALL: u8 = 30;
+pub const R_OWNED: u8 = 31;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -251,6 +252,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "fast_fall",
         R_FAST_FALL,
         "1 while the fighter is fast falling (since its last jump, landing or hit), else 0",
+    ),
+    reg(
+        "owned",
+        R_OWNED,
+        "how many of this move's projectiles (or tools of its kind) the fighter has out, as the frame began",
     ),
 ];
 

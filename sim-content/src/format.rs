@@ -8,12 +8,13 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Burst, ChargeAdd, Counter, CounterBubble, DropThrough, Hitbox, Motion, Move,
-    MoveId, PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
-    AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL,
-    ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC,
-    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH,
-    PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    AirBlock, Armor, Burst, ChargeAdd, ChargedShot, Counter, CounterBubble, DropThrough, Fall,
+    Hitbox, Motion, Move, MoveId, PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Tool,
+    Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
+    ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
+    EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
+    HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL,
+    TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -681,6 +682,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         posvec_x: f.or("posvec_x", Fx::ZERO, errors),
         posvec_y: f.or("posvec_y", Fx::ZERO, errors),
         posvec_frames: f.or("posvec_frames", 0, errors),
+        half_width: f.or("half_width", Fx::ZERO, errors),
     };
     f.finish(errors);
     hb
@@ -766,6 +768,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.half_height != Fx::ZERO {
         b.field("half_height", hb.half_height.show());
+    }
+    if hb.half_width != Fx::ZERO {
+        b.field("half_width", hb.half_width.show());
     }
     if hb.posvec_frames != 0 {
         b.field("posvec_x", hb.posvec_x.show());
@@ -891,6 +896,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         ("landing_move", &mut m.landing_move),
         ("on_search", &mut m.on_search),
         ("air_version", &mut m.air_version),
+        ("smash_version", &mut m.smash_version),
         ("catch_move", &mut m.catch_move),
         ("off_edge", &mut m.off_edge),
         ("limit_version", &mut m.limit_version),
@@ -1056,7 +1062,12 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         .collect();
     if let Some(b) = at_most_one(children(block, "projectile"), "projectile", context, errors) {
         let ctx = format!("the projectile of {context}");
-        only_known(b, &["hitbox", "phase", "burst"], &ctx, errors);
+        only_known(
+            b,
+            &["hitbox", "phase", "burst", "charged", "on_clank"],
+            &ctx,
+            errors,
+        );
         let mut f = Fields::new(b, &ctx, errors);
         let hitbox = match at_most_one(children(b, "hitbox"), "hitbox", &ctx, errors) {
             Some(h) => read_hitbox(h, &ctx, errors),
@@ -1097,6 +1108,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     posvec_x: Fx::ZERO,
                     posvec_y: Fx::ZERO,
                     posvec_frames: 0,
+                    half_width: Fx::ZERO,
                 }
             }
         };
@@ -1111,6 +1123,57 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             bounce_keep: f.or("bounce_keep", none.bounce_keep, errors),
             bounce_keep_y: f.or("bounce_keep_y", none.bounce_keep_y, errors),
             bounce_max_fall: f.or("bounce_max_fall", none.bounce_max_fall, errors),
+            drag: f.or("drag", none.drag, errors),
+            lodge: f.or("lodge", none.lodge, errors),
+            lodge_angle: f.or("lodge_angle", none.lodge_angle, errors),
+        };
+        // Sim 99: a charge-scaled shot (E35) and a thrown tool's rules (E3d).
+        let charged = at_most_one(children(b, "charged"), "charged", &ctx, errors).map(|cb| {
+            let cctx = format!("the charge of {ctx}");
+            let mut cf = Fields::new(cb, &cctx, errors);
+            let c = ChargedShot {
+                full: cf.need("full", None, errors),
+                snap: cf.or("snap", 0, errors),
+                damage_to: cf.need("damage_to", None, errors),
+                speed_to: cf.need("speed_to", None, errors),
+                life_to: cf.need("life_to", None, errors),
+                size_from: cf.or("size_from", 100, errors),
+                size_to: cf.or("size_to", 100, errors),
+                floor: cf.or("floor", false, errors),
+            };
+            cf.finish(errors);
+            c
+        });
+        let on_clank = at_most_one(children(b, "on_clank"), "on_clank", &ctx, errors).map(|cb| {
+            let cctx = format!("the clank fall of {ctx}");
+            let mut cf = Fields::new(cb, &cctx, errors);
+            let fall = Fall {
+                life: cf.need("life", None, errors),
+                vx: cf.or("vx", Fx::ZERO, errors),
+                vy: cf.or("vy", Fx::ZERO, errors),
+                gravity: cf.or("gravity", Fx::ZERO, errors),
+                max_fall: cf.or("max_fall", Fx::ZERO, errors),
+            };
+            cf.finish(errors);
+            fall
+        });
+        let mut catch_move = None;
+        if let Some((key, line)) = f.raw("catch_move") {
+            match MoveId::from_key(key) {
+                Some(id) => catch_move = Some(id as u8),
+                None => err(
+                    errors,
+                    line,
+                    format!("`catch_move` must be a move name, not `{key}`"),
+                ),
+            }
+        }
+        let tool = Tool {
+            kind: f.or("kind", 0, errors),
+            limit: f.or("limit", 0, errors),
+            catch_from: f.or("catch_from", 255, errors),
+            catch_move,
+            on_clank,
         };
         let phases = read_phases(b, &ctx, errors);
         let burst = at_most_one(children(b, "burst"), "burst", &ctx, errors).map(|bb| {
@@ -1143,6 +1206,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             pierce: f.or("pierce", false, errors),
             rehit: f.or("rehit", 0, errors),
             burst,
+            charged,
+            tool,
         };
         f.finish(errors);
         m.projectile = Some(spawn);
@@ -1353,6 +1418,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("landing_move", m.landing_move),
         ("on_search", m.on_search),
         ("air_version", m.air_version),
+        ("smash_version", m.smash_version),
         ("catch_move", m.catch_move),
         ("off_edge", m.off_edge),
         ("limit_version", m.limit_version),
@@ -1496,10 +1562,25 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             ("bounce_min", a.bounce_min, none.bounce_min),
             ("bounce_max", a.bounce_max, none.bounce_max),
             ("bounce_max_fall", a.bounce_max_fall, none.bounce_max_fall),
+            ("drag", a.drag, none.drag),
         ] {
             if v != d {
                 c.field(name, v.show());
             }
+        }
+        for (name, v, d) in [
+            ("lodge", a.lodge, none.lodge),
+            ("lodge_angle", a.lodge_angle, none.lodge_angle),
+            ("kind", p.tool.kind, Tool::NONE.kind),
+            ("limit", p.tool.limit, Tool::NONE.limit),
+            ("catch_from", p.tool.catch_from, Tool::NONE.catch_from),
+        ] {
+            if v != d {
+                c.field(name, v.to_string());
+            }
+        }
+        if let Some(id) = p.tool.catch_move {
+            c.field("catch_move", MoveId::from_index(id).key());
         }
         if a.bounces != none.bounces {
             c.field("bounces", a.bounces.to_string());
@@ -1539,6 +1620,41 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             }
             write_phases(&mut bb, &bu.phases);
             c.push(bb);
+        }
+        if let Some(ch) = &p.charged {
+            let mut cb = Block::new("charged", None);
+            cb.field("full", ch.full.to_string());
+            if ch.snap != 0 {
+                cb.field("snap", ch.snap.to_string());
+            }
+            cb.field("damage_to", ch.damage_to.show());
+            cb.field("speed_to", ch.speed_to.show());
+            cb.field("life_to", ch.life_to.to_string());
+            if ch.size_from != 100 {
+                cb.field("size_from", ch.size_from.to_string());
+            }
+            if ch.size_to != 100 {
+                cb.field("size_to", ch.size_to.to_string());
+            }
+            if ch.floor {
+                cb.field("floor", "true");
+            }
+            c.push(cb);
+        }
+        if let Some(fall) = &p.tool.on_clank {
+            let mut fb = Block::new("on_clank", None);
+            fb.field("life", fall.life.to_string());
+            for (name, v) in [
+                ("vx", fall.vx),
+                ("vy", fall.vy),
+                ("gravity", fall.gravity),
+                ("max_fall", fall.max_fall),
+            ] {
+                if v != Fx::ZERO {
+                    fb.field(name, v.show());
+                }
+            }
+            c.push(fb);
         }
         b.push(c);
     }

@@ -279,6 +279,12 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
     }
     // Moves some aerial lands into (a landing hit): their hitboxes may come out on their first frame, the landing frame.
     let landing_moves: Vec<u8> = w.moves.iter().filter_map(|mv| mv.landing_move).collect();
+    // A thrown tool's catch move (E3d) is an animation only: it may have nothing in it but its frames.
+    let catch_moves: Vec<u8> = w
+        .moves
+        .iter()
+        .filter_map(|mv| mv.projectile.and_then(|p| p.tool.catch_move))
+        .collect();
     for (m, mv) in w.moves.iter().enumerate() {
         let id = MoveId::from_index(m as u8);
         let name = id.name();
@@ -286,6 +292,8 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             ("landing_move", mv.landing_move),
             ("on_search", mv.on_search),
             ("air_version", mv.air_version),
+            ("smash_version", mv.smash_version),
+            ("catch", mv.projectile.and_then(|p| p.tool.catch_move)),
             ("catch_move", mv.catch_move),
             ("off_edge", mv.off_edge),
             ("limit_version", mv.limit_version),
@@ -311,6 +319,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             && mv.projectile.is_none()
             && mv.script.is_none()
             && mv.counter.is_none()
+            && !catch_moves.contains(&(m as u8))
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
@@ -358,6 +367,38 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                          after age 0 and within its life, with no negative radius or half_height"
                     ));
                 }
+            }
+            // Sim 99: drag and lodging (E35, E3b), a charge-scaled shot (E35), a thrown tool (E3d).
+            if p.arc.drag < Fx::ZERO || p.arc.lodge_angle > 90 {
+                errors.push(format!(
+                    "weapon {i} {name}: a projectile's drag cannot be negative and its lodge_angle is at most 90"
+                ));
+            }
+            if let Some(c) = &p.charged {
+                let ok = c.full > 0
+                    && c.damage_to >= Fx::ZERO
+                    && c.speed_to >= Fx::ZERO
+                    && c.life_to > 0
+                    && (10..=1000).contains(&c.size_from)
+                    && (10..=1000).contains(&c.size_to)
+                    && p.end_damage == p.hitbox.damage;
+                if !ok {
+                    errors.push(format!(
+                        "weapon {i} {name}: a charged projectile needs full above 0, no negative damage_to or speed_to, a                          life_to, sizes from 10 to 1000 and no damage falloff (end_damage equal to its damage)"
+                    ));
+                }
+            }
+            if let Some(fall) = &p.tool.on_clank {
+                if fall.life == 0 || fall.gravity < Fx::ZERO || fall.max_fall < Fx::ZERO {
+                    errors.push(format!(
+                        "weapon {i} {name}: a projectile's clank fall needs a life and no negative gravity or max_fall"
+                    ));
+                }
+            }
+            if p.tool.catch_move.is_some() && p.tool.catch_from == 255 {
+                errors.push(format!(
+                    "weapon {i} {name}: a projectile's catch_move needs a catch_from age"
+                ));
             }
         }
         if mv.projectile_script.is_some() && mv.projectile.is_none() {
@@ -500,10 +541,10 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             .iter()
             .copied()
             .chain(projectile_boxes)
-            .any(|hb| hb.half_height < Fx::ZERO)
+            .any(|hb| hb.half_height < Fx::ZERO || hb.half_width < Fx::ZERO)
         {
             errors.push(format!(
-                "weapon {i} {name}: a hitbox's half_height cannot be negative"
+                "weapon {i} {name}: a hitbox's half_height and half_width cannot be negative"
             ));
         }
         if mv.air_gravity.is_some_and(|g| g < Fx::ZERO)
@@ -809,6 +850,57 @@ mod combat_tests {
         let errors = validate(&c).unwrap_err();
         assert!(
             errors.iter().any(|e| e.contains("motion_drift")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn the_tool_fields_round_trip_and_are_checked() {
+        // Sim 99: the Buckler's (class 9) charged arrow and wave (E35), lodging and drag, the boomerang's tool rules (E3d), its
+        // smash-input version and the wave's lying capsule (E38) come back from a file unchanged.
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[9].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "charged {",
+            "on_clank {",
+            "catch_move",
+            "smash_version",
+            "half_width",
+            "lodge 180",
+            "drag",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // A charged shot with falloff, a negative drag, and a catch move without a catch age are refused.
+        let side = MoveId::SideSpecial as usize;
+        let nsp = sim_core::moves::MoveId::Ext4 as usize;
+        let mut c = base.clone();
+        let p = c.weapons[w].moves[nsp].projectile.as_mut().unwrap();
+        p.end_damage = Fx::ZERO;
+        let errors = validate(&c).unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("charged")), "{errors:?}");
+        let mut c = base.clone();
+        c.weapons[w].moves[nsp]
+            .projectile
+            .as_mut()
+            .unwrap()
+            .arc
+            .drag = -Fx::ONE;
+        let errors = validate(&c).unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("drag")), "{errors:?}");
+        let mut c = base.clone();
+        c.weapons[w].moves[side]
+            .projectile
+            .as_mut()
+            .unwrap()
+            .tool
+            .catch_from = 255;
+        let errors = validate(&c).unwrap_err();
+        assert!(
+            errors.iter().any(|e| e.contains("catch_from")),
             "{errors:?}"
         );
     }

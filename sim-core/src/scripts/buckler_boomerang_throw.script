@@ -1,0 +1,9 @@
+// Buckler side special, the tilt throw (the smash input's is `buckler_boomerang_far.script`). With its boomerang already out
+// (`owned`) it goes on as the failed throw (34 = ext6) on its frame 2. On frame 27 (move frame 26) the boomerang leaves 1.0 ahead and
+// 1.1 up [E], aimed by the stick up to 26 degrees up or down in proportion, straight within 0.1 of the centre [E], at 2.4 (0.3 a frame).
+if frame == 1 && owned > 0 { goto(34); }
+if frame == 26 {
+    let a = 0;
+    if abs(stick_y) > 0.1 { a = 26 * stick_y; }
+    spawn(1.0, 1.1, 0.3 * cos(a), 0.3 * sin(a));
+}

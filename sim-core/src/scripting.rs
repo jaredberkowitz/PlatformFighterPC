@@ -57,6 +57,26 @@ pub struct World<'a> {
     pub chest: [Fx; MAX_FIGHTERS],
     /// Which fighter the script belongs to.
     pub me: usize,
+    /// Every projectile as the frame began (the `owned` register counts its fighter's).
+    pub projectiles: &'a [Projectile],
+}
+
+/// How many live projectiles fighter `me` fired (reflected or not) of tool kind `kind` (`moves::Tool::kind`), or, with kind 0, of
+/// the move `move_id` with no kind: what a projectile limit and the `owned` register count (E3d).
+pub fn owned(projectiles: &[Projectile], me: usize, kind: u8, move_id: u8) -> u8 {
+    let n = projectiles
+        .iter()
+        .filter(|p| {
+            p.active
+                && usize::from(p.origin) == me
+                && if kind != 0 {
+                    p.kind == kind
+                } else {
+                    p.kind == 0 && p.move_id == move_id
+                }
+        })
+        .count();
+    u8::try_from(n).unwrap_or(u8::MAX)
 }
 
 struct FighterHost<'a> {
@@ -64,6 +84,8 @@ struct FighterHost<'a> {
     world: &'a World<'a>,
     /// The body's gauge rules (`boost_add`).
     gauge: &'a Gauge,
+    /// The tool kind of the move's projectile (0 for none): what `owned` counts.
+    kind: u8,
     effects: FighterEffects,
 }
 
@@ -141,6 +163,13 @@ impl Host for FighterHost<'_> {
             api::R_GRAB => flag(f.held(buttons::GRAB)),
             api::R_AIM => Fx::from_int(i32::from(f.aim)).raw(),
             api::R_FAST_FALL => flag(f.fast_fall),
+            api::R_OWNED => Fx::from_int(i32::from(owned(
+                self.world.projectiles,
+                self.world.me,
+                self.kind,
+                f.move_id,
+            )))
+            .raw(),
             _ => 0,
         }
     }
@@ -232,11 +261,13 @@ pub fn run_fighter(
     f: &mut Fighter,
     world: &World,
     gauge: &Gauge,
+    kind: u8,
 ) -> FighterEffects {
     let mut host = FighterHost {
         f,
         world,
         gauge,
+        kind,
         effects: FighterEffects::default(),
     };
     run(program, &mut host);

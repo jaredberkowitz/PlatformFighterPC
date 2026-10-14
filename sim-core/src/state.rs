@@ -340,7 +340,19 @@ pub struct Projectile {
     pub facing: i8,
     /// It has burst (`moves::Burst`): it stands still and hits with the burst's phases; its age counts from the burst.
     pub bursting: bool,
+    /// The damage a charge-scaled shot was fired with (E35, `moves::ChargedShot`); 0 for any other (its hit's own damage).
+    pub damage: Fx,
+    /// Its tool kind (`moves::Tool::kind`, E3d), copied at the spawn: what the per-fighter limit and the `owned` register count.
+    pub kind: u8,
+    /// [`REST_FLYING`], [`REST_LODGED`] (stuck in a surface: `ProjectileArc::lodge`) or [`REST_FALLEN`] (knocked down by a clank:
+    /// `Tool::on_clank`). Lodged or fallen, it neither hits nor is steered by its script; its age counts from then.
+    pub rest: u8,
 }
+
+/// `Projectile::rest` values.
+pub const REST_FLYING: u8 = 0;
+pub const REST_LODGED: u8 = 1;
+pub const REST_FALLEN: u8 = 2;
 
 impl StateHash for Projectile {
     fn hash_into(&self, h: &mut StateHasher) {
@@ -365,6 +377,9 @@ impl StateHash for Projectile {
         }
         h.write_i8(self.facing);
         h.write_bool(self.bursting);
+        self.damage.hash_into(h);
+        h.write_u8(self.kind);
+        h.write_u8(self.rest);
     }
 }
 
@@ -1393,6 +1408,21 @@ mod tests {
             ("spawn_size", {
                 let mut s = state;
                 s.fighters[1].spawn_size = 80;
+                s
+            }),
+            ("projectile_damage", {
+                let mut s = state;
+                s.projectiles[1].damage = Fx::from_int(7);
+                s
+            }),
+            ("projectile_kind", {
+                let mut s = state;
+                s.projectiles[1].kind = 3;
+                s
+            }),
+            ("projectile_rest", {
+                let mut s = state;
+                s.projectiles[1].rest = REST_LODGED;
                 s
             }),
             ("projectile_bounces", {

@@ -2017,9 +2017,12 @@ fn attack(
         }
     }
     // In the first frames of an up special, the stick pushed back turns it around (up and back reverses it).
-    // (An aerial version a special started as counts as that special.)
+    // (An aerial or smash-input version a special started as counts as that special.)
     let current = f.move_id;
-    let as_special = |s: MoveId| id == s || weapon.get(s as u8).air_version == Some(current);
+    let as_special = |s: MoveId| {
+        let sp = weapon.get(s as u8);
+        id == s || sp.air_version == Some(current) || sp.smash_version == Some(current)
+    };
     if as_special(MoveId::UpSpecial)
         && mv.turn_at.is_none()
         && f.state_frame <= u16::from(rules.special_turn_window)
@@ -2094,7 +2097,8 @@ fn attack(
     // The move's script steers the move: motion, branching into another move, projectiles, ending early.
     let mut script_motion = None;
     if let Some(program) = &mv.script {
-        let effects = scripting::run_fighter(program, f, world, &p.gauge);
+        let kind = mv.projectile.map_or(0, |s| s.tool.kind);
+        let effects = scripting::run_fighter(program, f, world, &p.gauge, kind);
         if let Some(next) = effects.goto {
             follow_up(f, weapon, next);
             return None;
@@ -2410,13 +2414,18 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
         Some(v) if !f.grounded() => (MoveId::from_index(v), weapon.get(v)),
         _ => (id, mv),
     };
-    begin_attack(f, id);
     // A special input like a smash attack (the stick flicked sideways, up or down, or the strong button) is remembered for its
-    // script (the `flick` register).
-    f.special_flick = f.held(buttons::STRONG)
+    // script (the `flick` register), and picks the move's smash-input version if it has one (`Move::smash_version`, E3d).
+    let flick = f.held(buttons::STRONG)
         || f.flick_x(SMASH_FLICK_BUFFER) != 0
         || f.hard_up(SMASH_FLICK_BUFFER)
         || f.hard_down(SMASH_FLICK_BUFFER);
+    let (id, mv) = match mv.smash_version {
+        Some(v) if flick => (MoveId::from_index(v), weapon.get(v)),
+        _ => (id, mv),
+    };
+    begin_attack(f, id);
+    f.special_flick = flick;
     if mv.intangible_start(f.move_air) == 0 {
         f.invuln = f.invuln.max(mv.intangible);
     }

@@ -8,7 +8,7 @@ mod common;
 use common::{fx, inp, Sim};
 use sim_core::input::buttons::SPECIAL;
 use sim_core::moves::{
-    DropThrough, Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, MAX_PHASES,
+    DropThrough, Hitbox, Motion, Move, MoveId, ProjectileArc, ProjectileSpawn, Tool, MAX_PHASES,
 };
 use sim_core::state::FighterState as S;
 use sim_core::Fx;
@@ -189,6 +189,8 @@ fn a_tall_projectile_hitbox_reaches_above_its_circle() {
                     pierce: false,
                     rehit: 0,
                     burst: None,
+                    charged: None,
+                    tool: Tool::NONE,
                 }),
                 ..Move::empty()
             },
@@ -445,4 +447,57 @@ fn the_shell_and_drop_fields_are_in_the_content_hash() {
         assert_ne!(h, shell(edit));
     }
     let _ = ProjectileArc::NONE;
+}
+
+#[test]
+fn the_tool_fields_are_in_the_content_hash() {
+    // Sim 99 (E35, E3b, E3d, E38): every new field of a projectile, a hitbox and a move changes the hash.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let shot = |edit: fn(&mut ProjectileSpawn)| {
+        let mut c = base.clone();
+        let p = c.weapons[1].moves[MoveId::NSpecial as usize]
+            .projectile
+            .as_mut()
+            .expect("the blaster");
+        edit(p);
+        c.hash()
+    };
+    for edit in [
+        (|p| p.arc.drag = Fx::ONE) as fn(&mut ProjectileSpawn),
+        |p| p.arc.lodge = 1,
+        |p| p.arc.lodge_angle = 9,
+        |p| p.hitbox.half_width = Fx::ONE,
+        |p| p.tool.kind = 1,
+        |p| p.tool.limit = 1,
+        |p| p.tool.catch_from = 4,
+        |p| p.tool.catch_move = Some(0),
+        |p| {
+            p.tool.on_clank = Some(sim_core::moves::Fall {
+                life: 1,
+                vx: Fx::ZERO,
+                vy: Fx::ZERO,
+                gravity: Fx::ZERO,
+                max_fall: Fx::ZERO,
+            })
+        },
+        |p| {
+            p.charged = Some(sim_core::moves::ChargedShot {
+                full: 60,
+                snap: 0,
+                damage_to: Fx::ONE,
+                speed_to: Fx::ONE,
+                life_to: 1,
+                size_from: 100,
+                size_to: 100,
+                floor: false,
+            })
+        },
+    ] {
+        assert_ne!(h, shot(edit));
+    }
+    let mut c = base.clone();
+    c.weapons[1].moves[MoveId::NSpecial as usize].smash_version = Some(0);
+    assert_ne!(h, c.hash(), "smash_version");
+    let _ = Tool::NONE;
 }

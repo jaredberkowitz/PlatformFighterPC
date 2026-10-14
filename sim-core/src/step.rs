@@ -77,6 +77,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         targets: [None; MAX_FIGHTERS],
         chest: [Fx::ZERO; MAX_FIGHTERS],
         me: 0,
+        projectiles: &state.projectiles,
     };
     for (i, f) in state.fighters.iter().enumerate() {
         let height = combat::chest_height(params_of(content, f));

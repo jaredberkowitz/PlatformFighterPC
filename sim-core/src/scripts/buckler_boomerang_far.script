@@ -1,0 +1,8 @@
+// Buckler side special, the smash-input throw (ext5): as the tilt throw, at 3.1 (0.3875 a frame). With its boomerang already out
+// (`owned`) it goes on as the failed throw (34 = ext6) on its frame 2.
+if frame == 1 && owned > 0 { goto(34); }
+if frame == 26 {
+    let a = 0;
+    if abs(stick_y) > 0.1 { a = 26 * stick_y; }
+    spawn(1.0, 1.1, 0.3875 * cos(a), 0.3875 * sin(a));
+}

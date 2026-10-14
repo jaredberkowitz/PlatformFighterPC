@@ -5,8 +5,8 @@ bundle {
     schema 6
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 96
-    hash 29d329b846ae2c07
+    sim_version 99
+    hash faa02756583080fe
 }
 
 ruleset {
@@ -6514,12 +6514,25 @@ weapon buckler {
         hitbox { start 16 end 17 x 2.59999 y 0.7 radius 0.4 damage 14 angle 361 bkb 30 kbg 100 priority 1 angle_type forward }
         hitbox { start 16 end 17 x 0.79999 y 1.09999 radius 0.4 damage 7 angle 60 bkb 45 kbg 12 priority 2 angle_type forward }
         hitbox { start 16 end 17 x 0.4 y 1.09999 radius 0.4 damage 7 angle 60 bkb 45 kbg 12 priority 2 angle_type forward }
+        projectile {
+            frame 255
+            x 1.375
+            y 0.75
+            speed 0.29999
+            life 32
+            end_damage 5
+            drag 0.00124
+            hitbox { start 0 end 0 x 0 y 0 radius 0.2 damage 5 angle 361 bkb 45 kbg 15 half_width 0.875 angle_type forward }
+            charged { full 60 damage_to 13 speed_to 0.42499 life_to 40 size_from 80 size_to 110 }
+        }
         script {
             // Buckler forward smash, hit 1. Attack pressed on frames 23-36 (move frames 22-35) starts hit 2 (29 = ext1), which keeps this hit's
             // charge (its `keep_charge`). A press from frame 14 on (the input buffer's 9 frames before the window) waits for it, hitlag included
-            // (`presses` counts presses made in hitlag; the count at move frame 12 is the base).
+            // (`presses` counts presses made in hitlag; the count at move frame 12 is the base). At exactly 0% the sword wave leaves with hit 1
+            // on frame 17 (move frame 16), 11 ahead and 6 up of the reference's units, at the uncharged 2.4 (its spawn scales it by the charge).
             var seen;
             if frame == 12 { seen = presses; }
+            if frame == 16 && percent == 0 { spawn(1.375, 0.75, 0.3, 0); }
             if frame >= 22 && frame <= 35 && presses > seen { goto(29); }
         }
     }
@@ -7156,34 +7169,97 @@ weapon buckler {
         }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
-        projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+        total_frames 200
+        land_continue true
+        script {
+            // Buckler neutral special (the bow). Move frames 0-14 (the reference's 1-15) draw it; from move frame 15 (its 16) it holds while
+            // special is held. On the first frame special is up, or after 180 held frames, the charge is the frames held, the arrow leaves 0.8
+            // ahead and 1.2 up [E], 2.5 degrees above forward at the uncharged speed (2.6 / 8: the shot's spawn scales it by the charge, E35),
+            // and the move goes on as the release (32 = ext4, which keeps the charge).
+            if frame >= 15 {
+                let c = frame - 15;
+                if special == 0 || c >= 180 {
+                    set_charge(c);
+                    spawn(0.8, 1.2, 0.325 * cos(2.5), 0.325 * sin(2.5));
+                    goto(32);
+                }
+            }
         }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
-        script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
+        total_frames 44
+        land_continue true
+        smash_version ext5
+        projectile {
+            frame 255
+            x 1
+            y 1.09999
+            speed 0.29999
+            life 125
+            end_damage 8
+            bounce_max 4
+            kind 1
+            limit 1
+            catch_from 45
+            catch_move ext7
+            bounces 255
+            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 70 bkb 80 kbg 40 shield_damage 50 angle_type travel }
+            phase {
+                from 10
+                hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 6 angle 65 bkb 60 kbg 40 shield_damage 50 angle_type travel }
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
+            phase {
+                from 45
+                hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 3 angle 70 bkb 50 kbg 40 shield_damage 50 angle_type travel }
+            }
+            on_clank { life 60 vx -0.01874 vy 0.15625 gravity 0.01125 max_fall 0.17499 }
+        }
+        script {
+            // Buckler side special, the tilt throw (the smash input's is `buckler_boomerang_far.script`). With its boomerang already out
+            // (`owned`) it goes on as the failed throw (34 = ext6) on its frame 2. On frame 27 (move frame 26) the boomerang leaves 1.0 ahead and
+            // 1.1 up [E], aimed by the stick up to 26 degrees up or down in proportion, straight within 0.1 of the centre [E], at 2.4 (0.3 a frame).
+            if frame == 1 && owned > 0 { goto(34); }
+            if frame == 26 {
+                let a = 0;
+                if abs(stick_y) > 0.1 { a = 26 * stick_y; }
+                spawn(1.0, 1.1, 0.3 * cos(a), 0.3 * sin(a));
+            }
+        }
+        projectile_script {
+            // The tilt boomerang's flight (world units: reference / 8). Out, it slows 0.047 a frame (0.005875) along its throw down to 0.3
+            // (0.0375). Then it turns to face its thrower's middle (1.1 above the feet [E]) and speeds up by 0.0348 a frame, the rate that takes
+            // it from 0.3 to 3 over the reference's "distance spent turning back" of 16 [E: gap 6, the reading], to 3 (0.375); after the turn it
+            // steers toward its thrower by at most 0.75 degrees a frame [R].
+            var back;
+            let s = sqrt(pvx * pvx + pvy * pvy);
+            if back == 0 && s > 0 {
+                let ns = max(s - 0.005875, 0.0375);
+                if ns <= 0.0375 { back = 1; }
+                set_vel(pvx * ns / s, pvy * ns / s);
+            } else if s > 0 {
+                let tx = owner_x - px;
+                let ty = owner_y + 1.1 - py;
+                let d = sqrt(tx * tx + ty * ty);
+                if d > 0.01 {
+                    tx = tx / d;
+                    ty = ty / d;
+                    let ux = pvx / s;
+                    let uy = pvy / s;
+                    if back == 1 || ux * tx + uy * ty >= cos(0.75) {
+                        back = 2;
+                        ux = tx;
+                        uy = ty;
+                    } else {
+                        let k = 0.75;
+                        if ux * ty - uy * tx < 0 { k = -0.75; }
+                        d = ux * cos(k) - uy * sin(k);
+                        uy = ux * sin(k) + uy * cos(k);
+                        ux = d;
+                    }
+                    d = min(s + 0.0348, 0.375);
+                    set_vel(ux * d, uy * d);
+                }
+            }
         }
     }
     move up_special {
@@ -7811,6 +7887,106 @@ weapon buckler {
             // (no logic: the down air's last frames)
         }
     }
+    move ext4 {
+        total_frames 28
+        land_continue true
+        keep_charge true
+        projectile {
+            frame 255
+            x 0.79999
+            y 1.2
+            speed 0.325
+            life 46
+            end_damage 4
+            gravity 0.00674
+            lodge 180
+            lodge_angle 9
+            hitbox { start 0 end 0 x 0 y 0 radius 1.7 damage 4 angle 361 bkb 10 kbg 71 hitlag 80 angle_type forward }
+            charged { full 60 snap 36 damage_to 12 speed_to 1.25 life_to 46 floor true }
+        }
+    }
+    move ext5 {
+        total_frames 44
+        land_continue true
+        projectile {
+            frame 255
+            x 1
+            y 1.09999
+            speed 0.3875
+            life 167
+            end_damage 9.59999
+            bounce_max 4
+            kind 1
+            limit 1
+            catch_from 60
+            catch_move ext7
+            bounces 255
+            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 9.59999 angle 70 bkb 80 kbg 40 shield_damage 58 angle_type travel }
+            phase {
+                from 10
+                hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 7.2 angle 65 bkb 60 kbg 40 shield_damage 58 angle_type travel }
+            }
+            phase {
+                from 60
+                hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 3 angle 70 bkb 50 kbg 40 shield_damage 50 angle_type travel }
+            }
+            on_clank { life 60 vx -0.01874 vy 0.15625 gravity 0.01125 max_fall 0.17499 }
+        }
+        script {
+            // Buckler side special, the smash-input throw (ext5): as the tilt throw, at 3.1 (0.3875 a frame). With its boomerang already out
+            // (`owned`) it goes on as the failed throw (34 = ext6) on its frame 2.
+            if frame == 1 && owned > 0 { goto(34); }
+            if frame == 26 {
+                let a = 0;
+                if abs(stick_y) > 0.1 { a = 26 * stick_y; }
+                spawn(1.0, 1.1, 0.3875 * cos(a), 0.3875 * sin(a));
+            }
+        }
+        projectile_script {
+            // The smash-input boomerang's flight: as the tilt one's (`buckler_boomerang_flight.script`), but the turn back speeds it up by 0.0232
+            // a frame, the rate that takes it from 0.3 to 3 over the reference's 24 [E: gap 6, the reading].
+            var back;
+            let s = sqrt(pvx * pvx + pvy * pvy);
+            if back == 0 && s > 0 {
+                let ns = max(s - 0.005875, 0.0375);
+                if ns <= 0.0375 { back = 1; }
+                set_vel(pvx * ns / s, pvy * ns / s);
+            } else if s > 0 {
+                let tx = owner_x - px;
+                let ty = owner_y + 1.1 - py;
+                let d = sqrt(tx * tx + ty * ty);
+                if d > 0.01 {
+                    tx = tx / d;
+                    ty = ty / d;
+                    let ux = pvx / s;
+                    let uy = pvy / s;
+                    if back == 1 || ux * tx + uy * ty >= cos(0.75) {
+                        back = 2;
+                        ux = tx;
+                        uy = ty;
+                    } else {
+                        let k = 0.75;
+                        if ux * ty - uy * tx < 0 { k = -0.75; }
+                        d = ux * cos(k) - uy * sin(k);
+                        uy = ux * sin(k) + uy * cos(k);
+                        ux = d;
+                    }
+                    d = min(s + 0.0232, 0.375);
+                    set_vel(ux * d, uy * d);
+                }
+            }
+        }
+    }
+    move ext6 {
+        total_frames 57
+        land_continue true
+        script {
+            // Buckler side special with its boomerang out (ext6, the failed throw): FAF 60 on the ground (the move's own data), 46 in the air:
+            // started on the throw's frame 2, in the air it ends on its own frame 43 [D].
+            if grounded == 0 && frame >= 43 { end(); }
+        }
+    }
+    move ext7 { total_frames 8 land_continue true }
     move pivot_grab {
         total_frames 36
         hitbox { start 9 end 10 x 0.5 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }

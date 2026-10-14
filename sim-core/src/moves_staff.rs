@@ -137,6 +137,8 @@ fn autoreticle(w: &mut Weapon) {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     mv.start_speed = 60;
     mv.land_continue = true;
@@ -207,6 +209,8 @@ fn explosive_flame(w: &mut Weapon) {
         pierce: true,
         rehit: 5,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     mv.start_speed = 80;
     mv.land_continue = true;
