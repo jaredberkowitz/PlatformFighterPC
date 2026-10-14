@@ -17,7 +17,7 @@ props stay deferred, by the owner's call.
 | 1 | **An invincible fighter turned muddy brown** (after a respawn, a dodge, a ledge grab). | The KO capture: the respawning fighter. | It was made 50% see-through, so the dark outline shell behind the body showed through and mixed with the sky. | **Fixed**: invincibility is a pale cool flicker painted on the fighter (`GHOST_FLASH`). |
 | 2 | **The beach's wall is a grid of identical rounded panels**, the biggest surface on that stage, the last obviously tiled one. | `review3`, beach. | The masonry tile: two regular courses, repeated every 7 units. | **Done**: the beach's own `seawall` pattern, big stones in random bond, every row fitted to the tile so it wraps cleanly, laid every 14 (a tide line was tried and dropped: it repeats with the tile). `review3_seawall.png`. |
 | 3 | **Platforms are the same plank on four stages.** | Every stage but the city. | One `platform()` builder for all wood themes. | **Done**: `_platform_dressing`, the same readable plank dressed per stage at its ends and under its top: rope lashings (canyon, beach), moss and hanging vines (grove), hay and a flower (meadow). `review3_platforms.png`. |
-| 4 | **No foreground**: nothing frames the play space in front of the stage. | All stages. | Never built. | A few code-built framing pieces at the bottom corners per stage (grass and flowers, rocks, a railing), kept out of play. |
+| 4 | **No foreground**: nothing frames the play space in front of the stage. | All stages. | Never built. | **Tried and dropped** (a judgement call for the owner): framing pieces were built per stage, but the camera's bottom corners hold the HUD's damage cards (the pieces sat behind them, adding clutter under the numbers) and its sides are where fighters recover to the ledges. The reference fighters keep this space clear for the same reason. The depth comes from the stage's own layers instead. |
 | 5 | **Player tags crowd in close combat**: P1 and P2 overlap the fighters' heads during a hit. | The strong hit. | Fixed offset above each fighter. | Smaller tags that fade a little in close combat, or step aside when they overlap. |
 | 6 | **A blue player's knock-out blast is pale on a blue sky** (the beach). | The KO capture. | The plume uses the player's colour, lightened. | A deeper body, a stronger ink rim, when the sky behind is near the plume's hue. |
 
@@ -32,9 +32,9 @@ standards are already written (`docs/VISUAL_STYLE.md`, "Material standards"); it
 The combined order, to bridge the style across backgrounds, foreground, UI, fighters and effects:
 
 1. Done: the invincibility tint, the beach's sea wall, themed platforms.
-2. **The ocean**: base colour by depth, broad wave bands, painted highlight shapes, sparse glints, calmer far water.
-3. **The beach's assets**: lighthouse, pier, palms, islands at the stage's finish.
-4. **Foreground framing** on every stage.
+2. Done: **the ocean**: painted wave crests with troughs (fading with distance), crisper streaks, lighter shallows.
+3. **The beach's assets**: the islands are done (pass 60); the palm crowns, lighthouse and boat are modelled props, so they wait for the props pass (a foliage material on the fronds was tried: no visible change).
+4. ~~Foreground framing~~: tried, dropped (see weak point 4).
 5. **Effects consistency**: dust, landing, dash and launch effects in the painted, inked standard (the trails and bursts are done); a
    short effect style guide.
 6. **UI**: a written design system (type, spacing, panels, states, player colours), the in-match tags (weak point 5), the HUD hierarchy.
