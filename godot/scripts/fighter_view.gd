@@ -1319,8 +1319,8 @@ const HIT_RIM_FLARE := 2.5
 const OUTLINE_TINT := 0.75
 ## The fighters' line weight against the scenery's 0.6 (outline.gdshader): still the strongest line on screen, but a thinner, warmer line
 ## like the concept art's, not a heavy black one.
-const FIGHTER_OUTLINE_WEIGHT := 0.82
-const OUTLINE_TINT_DARKEN := 0.64
+const FIGHTER_OUTLINE_WEIGHT := 0.76
+const OUTLINE_TINT_DARKEN := 0.56
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).

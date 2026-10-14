@@ -46,7 +46,8 @@ TRUNK = [
 # Arms: shoulder (inside the trunk), elbow, wrist, each with its radius; hanging out at about 20 degrees, the hands ending at the top of
 # the thigh. Parts must stand at least 2% of the height apart below the armpits and the crotch, or fit_body.py cannot tell them from the
 # trunk.
-ARM = [((0.24, 0.0, 1.27), 0.105), ((0.45, 0.012, 1.075), 0.094), ((0.585, 0.025, 0.885), 0.083)]
+# (The upper arm a little fuller than first built, as the concept's soft tube arms are: thin arms read as sticks at play size.)
+ARM = [((0.24, 0.0, 1.27), 0.117), ((0.45, 0.012, 1.075), 0.103), ((0.585, 0.025, 0.885), 0.088)]
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
 HAND_LENGTH = 0.2
 HAND_RADII = (0.062, 0.1)   # thickness, width

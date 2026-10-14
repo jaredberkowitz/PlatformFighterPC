@@ -112,6 +112,18 @@ read well; the faces, wardrobe and moves depend on them, so they stay. Hands are
 - **Images**: `docs/screenshots/polish4_bales.png`, `polish4_windmill.png`, `polish4_meadow_props.png` (before left).
 - **Checks run**: the meadow close up and at play distance (1080p), match flow and art pipeline tests.
 
+### Pass 56: trees, sky islands, turf edges (phase 5, the rest)
+
+- **Trees** (`_round_tree`): every crown was the same big mass with a smaller one to its right. Now one of three shapes (a side lobe
+  either way, a tall stacked crown, a wide crown with two shoulders), chosen from the tree's own position so nothing else moves.
+- **Sky islands** (`_island_detail`): the turf over the edge was seven equal balls in a row (a bead necklace). Now nine tongues of
+  different widths and lengths, overlapping and sunk into the lip. The roots, dark sticks that read as posts, are thin, tapering and
+  bent, in two lengths each, closer to the earth's colour.
+- **The stage's own lip** (grove, and any grass cap without moss): the same bead row, under the fighters. Each tongue now has its own
+  width and hang (seeded from its place, so the layout holds).
+- **Images**: `docs/screenshots/polish5_islands.png`, `polish5_grove_lip.png` (before left).
+- **Checks run**: the meadow and the grove at 1080p, match flow test.
+
 ## Skipped, and why
 
 Nothing yet.
