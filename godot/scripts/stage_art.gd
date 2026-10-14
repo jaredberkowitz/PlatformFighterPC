@@ -54,7 +54,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.96, 0.86), 0.15], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.45],
 		"soil": Color(0.82, 0.66, 0.5), "soil_dark": Color(0.6, 0.48, 0.46), "grass": Color(0.96, 0.8, 0.5),
 		"grass_light": Color(1.0, 0.95, 0.78), "wood": Color(0.8, 0.62, 0.42), "wood_dark": Color(0.58, 0.42, 0.28),
-		"pattern": "masonry", "cap": "sand", "platform": "wood",
+		"pattern": "seawall", "cap": "sand", "platform": "wood",
 	},
 	"city": {
 		"sky_top": Color(0.08, 0.06, 0.22), "sky_mid": Color(0.22, 0.12, 0.36), "sky_horizon": Color(0.42, 0.22, 0.46),
@@ -224,6 +224,41 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.4"/>' % [cx, by + 14.0, rng.randf_range(-8, 8), rng.randf_range(16, 30), rng.randf_range(-10, 10), rng.randf_range(10, 22), ink]
 					x += w
 				course += 1
+		"seawall":
+			# A sea wall of big dressed stones laid irregularly (the beach's own; random bond, each stone its own width and height, so no
+			# course runs the length of the wall), deep mortar shade, a lit top on each stone, a crack now and then. Drawn at 512 px, laid
+			# every 14. (A tide line was tried in the tile: it repeats with it and could fall mid-wall; the wall's own cool fall toward its
+			# foot does that job.)
+			var S := 512.0
+			body += '<rect width="512" height="512" fill="#%s"/>' % b.darkened(0.28).to_html(false)
+			var y := 0.0
+			var row := 0
+			while y < S - 1.0:
+				var rh := rng.randf_range(70.0, 110.0)
+				if y + rh > S - 40.0:
+					rh = S - y
+				# (Widths fitted so the row spans the tile exactly, and so wraps without stones overlapping.)
+				var widths: Array = []
+				var total := 0.0
+				while total < S - 60.0:
+					var ww := rng.randf_range(80.0, 170.0)
+					widths.append(ww)
+					total += ww
+				var x := -rng.randf_range(0.0, 80.0)
+				for wi in widths.size():
+					var w: float = float(widths[wi]) * S / total
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.5))
+					var rad := rng.randf_range(10.0, 22.0)
+					for ox in [-S, 0.0, S]:
+						var bx: float = x + ox + 5.0
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.4"/>' % [bx, y + 5.0, w - 10.0, rh - 10.0, rad, shade.to_html(false), ink]
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" opacity="0.25"/>' % [bx + 8.0, y + 10.0, w - 26.0, (rh - 10.0) * 0.25, rad * 0.6, shade.lightened(0.22).to_html(false)]
+						if rng.randf() < 0.3:
+							var cx: float = bx + rng.randf_range(14.0, w - 30.0)
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.2" stroke-linecap="round" opacity="0.35"/>' % [cx, y + 14.0, rng.randf_range(-8, 8), rng.randf_range(14, 26), rng.randf_range(-8, 8), rng.randf_range(10, 18), ink]
+					x += w
+				y += rh
+				row += 1
 		"earth":
 			# A bank of farm soil, painted (the meadow's own; the beach keeps the masonry): broad beds of warm earth with soft, gently waving
 			# boundaries, stones of very different sizes half buried in it (a few big boulders, more middling ones, many pebbles; each with a
@@ -352,14 +387,14 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						var y: float = c[1]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.5" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f" stroke="#%s" stroke-width="5" stroke-linecap="round" opacity="0.6"/>' % [x - 40, y - 8, x - 8, y - 40, hi]
-	var px := 512 if pattern == "facade" or pattern == "earth" else 256
+	var px := 512 if pattern == "facade" or pattern == "earth" or pattern == "seawall" else 256
 	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg>' % [px, px, px, px, body]
 	var img := Image.new()
 	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0}.get(pattern, 3.0))
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0, "seawall": 14.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -375,7 +410,7 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			Materials.set_detail(m, "concrete", 0.45, 3.0)
 		"cobble":
 			Materials.set_detail(m, "stone", 0.4, 3.5)
-		"masonry":
+		"masonry", "seawall":
 			Materials.set_detail(m, "stone", 0.3, 4.0)
 		_:
 			Materials.set_detail(m, "soil", 0.35, 3.0)
