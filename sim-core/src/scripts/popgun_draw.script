@@ -1,0 +1,21 @@
+// Popgun neutral special (the peanut popgun). Move frames 0-14 (the reference's 1-15) raise the gun. On move frame 15 (its 16) the
+// uncharged peanut leaves if special is no longer held; held, the gun charges, and on the first frame special is up the charge is the
+// frames held since 15 (78 a full charge, its frame 94) and the peanut leaves: faster and flatter with the charge, from 1.6 / 8 a frame
+// 35 degrees up to 3.6 / 8 at 8 degrees [E], 0.75 ahead and 0.875 up [E]; the move goes on as the shot (31 = ext3, which keeps the
+// charge). Still held on move frame 95 (the reference's 96) the move goes on as the misfire (32 = ext4), whose explosion is on its next
+// frame (the reference's 97). From move frame 13 (its 14) the shield cancels the charge.
+if frame >= 13 && shield {
+    end();
+}
+if frame >= 15 {
+    let c = min(frame - 15, 78);
+    if special == 0 {
+        set_charge(c);
+        let s = 0.2 + 0.25 * c / 78;
+        let a = 35 - 27 * c / 78;
+        spawn(0.75, 0.875, s * cos(a), s * sin(a));
+        goto(31);
+    } else if frame >= 95 {
+        goto(32);
+    }
+}

@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 117
-    hash 3b5d359a6d7047b4
+    hash 96d4a6fd8223287b
 }
 
 ruleset {
@@ -9673,16 +9673,30 @@ weapon popgun {
         hitbox { start 14 end 14 x 0 y -0.4 radius 0.79999 damage 10 angle 270 bkb 20 kbg 100 priority 1 angle_type position }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
-        projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+        total_frames 120
+        land_continue true
+        script {
+            // Popgun neutral special (the peanut popgun). Move frames 0-14 (the reference's 1-15) raise the gun. On move frame 15 (its 16) the
+            // uncharged peanut leaves if special is no longer held; held, the gun charges, and on the first frame special is up the charge is the
+            // frames held since 15 (78 a full charge, its frame 94) and the peanut leaves: faster and flatter with the charge, from 1.6 / 8 a frame
+            // 35 degrees up to 3.6 / 8 at 8 degrees [E], 0.75 ahead and 0.875 up [E]; the move goes on as the shot (31 = ext3, which keeps the
+            // charge). Still held on move frame 95 (the reference's 96) the move goes on as the misfire (32 = ext4), whose explosion is on its next
+            // frame (the reference's 97). From move frame 13 (its 14) the shield cancels the charge.
+            if frame >= 13 && shield {
+                end();
+            }
+            if frame >= 15 {
+                let c = min(frame - 15, 78);
+                if special == 0 {
+                    set_charge(c);
+                    let s = 0.2 + 0.25 * c / 78;
+                    let a = 35 - 27 * c / 78;
+                    spawn(0.75, 0.875, s * cos(a), s * sin(a));
+                    goto(31);
+                } else if frame >= 95 {
+                    goto(32);
+                }
+            }
         }
     }
     move side_special {
@@ -9989,6 +10003,29 @@ weapon popgun {
         total_frames 47
         land_continue true
         toss { frame 12 angle 105 speed 0.275 smash_speed 0.37949 }
+    }
+    move ext3 {
+        total_frames 32
+        land_continue true
+        keep_charge true
+        projectile {
+            frame 255
+            x 0.75
+            y 0.875
+            speed 0.2
+            life 80
+            end_damage 4.29999
+            gravity 0.01
+            max_fall 0.25
+            lodge 1
+            hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 4.29999 angle 70 bkb 40 kbg 70 shield_damage 77 hitlag 20 clanks false rebounds false angle_type forward }
+            charged { full 78 damage_to 13.79999 speed_to 0.2 life_to 80 }
+        }
+    }
+    move ext4 {
+        total_frames 106
+        land_continue true
+        hitbox { start 1 end 1 x 0.9 y 1.09999 radius 1 damage 23 angle 361 bkb 30 kbg 92 hitlag 150 clanks false rebounds false angle_type position }
     }
     move pivot_grab {
         total_frames 38

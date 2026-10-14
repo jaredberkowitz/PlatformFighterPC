@@ -115,6 +115,7 @@ pub fn popgun() -> Weapon {
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
     banana(&mut w);
+    popgun_special(&mut w);
     w
 }
 
@@ -802,4 +803,114 @@ pub fn banana_item() -> ItemSpec {
         kick_y: rs(1500),
     });
     it
+}
+
+// ---- The neutral special: the peanut popgun ----------------------------------------------------------------------------------------
+
+/// The popgun's shot (the peanut flies from the move's first frame, on the release) and its overcharge (the explosion).
+pub const POPGUN_FIRE: MoveId = MoveId::Ext3;
+pub const POPGUN_MISFIRE: MoveId = MoveId::Ext4;
+/// Frames of charge for a full charge: from the reference's frame 16 (the uncharged shot) to its 94 (full) [R: 3.1.0].
+pub const POPGUN_FULL: u8 = 78;
+
+/// A projectile's hit from a reference row (radius and damage in tenths; the frames do not matter on a projectile).
+fn shot_hit(radius: i32, damage: i32, angle: i16, bkb: i16, kbg: i16, angle_type: u8) -> Hitbox {
+    let mut h = row(&ru(1, 1, 0, 0, radius, damage, angle, bkb, kbg, 0, 0));
+    h.angle_type = angle_type;
+    h
+}
+
+/// The neutral special: the peanut popgun (13.0.1; ssbwiki.com's raw neutral special page and `Peanut_Popgun`, the 3.1.0 notes,
+/// ultimateframedata.com, dragdown.wiki).
+///
+/// * Special pressed and let go before frame 16: the peanut leaves on frame 16, uncharged [R]. Held at 16 it charges while held, a full
+///   charge on frame 94 [R: 3.1.0, 121 before], and fires on the frame special is let go [R]; still held on frame 97 the gun goes off
+///   in the scamp's hands (`POPGUN_MISFIRE`) [R: 3.1.0, 123 before]. The charge is not kept [R]; shield (or an air dodge) cancels it from
+///   frame 14 [R]. (Held on frame 96 the misfire is certain: the move goes on as it there, its explosion on 97 [D].)
+/// * After the shot, control returns 33 frames after the frame it left (FAF 49 for the uncharged shot) [R: 48 total; D: the charged
+///   shots' FAF by the same 33].
+/// * The peanut: 4.3% uncharged to 13.8% at a full charge [R: 3.1.0], 70 degrees (type 3), BK 40, KS 70, radius 2.4, hitlag x0.2,
+///   shield damage -1 (77% of the uncharged hit [D]; the same percent at every charge [E]), never clanks (transcendent), reflectable
+///   [R]. Faster and flatter with the charge [R: qualitative]: 1.6 of the reference's units a frame 35 degrees up uncharged, to 3.6 at 8
+///   degrees full [E], falling under 0.08 [E] to 2.0 [R: the peanut's falling speed], gone on the ground [R: its bounce is only for show]
+///   or after 80 frames [E]. (The reference's later, taller hit (`-1.1 to 1.9` up) and its melee hit at the muzzle, 2% (3% in the
+///   changelist) with no published knockback, are not modelled; a peanut cannot be caught as an item here: gaps.)
+/// * The misfire: 23%, 361 (type 0), BK 30, KS 92, radius 8.2 at 7.0 ahead / 8.5 up, hitlag x1.5, never clanks, on its first frame
+///   [R]; FAF 105 frames after it [D: ultimateframedata.com's 228 total less its old 123], no damage to the scamp [E].
+/// * In the air the same frames on the body's own air physics [E]; touching down carries the move on [E].
+fn popgun_special(w: &mut Weapon) {
+    let mut draw = ref_move(49, 0, 0, 255, &[]);
+    // (The script decides when the hold ends: the move itself lasts past the overcharge.)
+    draw.total_frames = 120;
+    draw.land_continue = true;
+    draw.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_draw.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = draw;
+
+    // The shot: reached on the frame the peanut leaves (`G`), it ends so control returns on the special's frame G + 33 (the child
+    // starting on the special's G - 1 in the reference's numbering: FAF 34 in its own) [D].
+    let mut fire = ref_move(34, 0, 0, 255, &[]);
+    fire.keep_charge = true;
+    fire.land_continue = true;
+    let mut peanut = shot_hit(24, 43, 70, 40, 70, ANGLE_FORWARD);
+    peanut.hitlag = 20;
+    peanut.shield_damage = shield(43, -10);
+    peanut.clanks = false;
+    peanut.rebounds = false;
+    fire.projectile = Some(ProjectileSpawn {
+        // (Only the draw's script fires it, on the release frame.)
+        frame: 255,
+        x: rs(6000),
+        y: rs(7000),
+        speed: rs(1600),
+        life: 80,
+        hitbox: peanut,
+        end_damage: peanut.damage,
+        arc: ProjectileArc {
+            gravity: rs(80),
+            max_fall: rs(2000),
+            // (A touch of the floor ends it.)
+            lodge: 1,
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+        burst: None,
+        charged: Some(ChargedShot {
+            full: POPGUN_FULL,
+            snap: 0,
+            damage_to: Fx::from_ratio(138, 10),
+            // (The script sets the speed and angle by the charge: the spec's speed is not scaled.)
+            speed_to: rs(1600),
+            life_to: 80,
+            size_from: 100,
+            size_to: 100,
+            floor: false,
+            times: 100,
+            power_to: 100,
+        }),
+        tool: Tool::NONE,
+    });
+    w.moves[POPGUN_FIRE as usize] = fire;
+
+    // The misfire: reached on the special's move frame 95 (the reference's 96, still held), the explosion on its second frame (the
+    // special's 97), FAF 105 frames later (the child's FAF 108: 95 + 106 + 2 is the special's 203) [D].
+    let mut boom = ref_move(
+        108,
+        0,
+        0,
+        255,
+        &[ru(2, 2, 70, 85, 82, 230, 361, 30, 92, 0, 0)],
+    );
+    set_all(&mut boom, |h| {
+        h.hitlag = 150;
+        h.angle_type = ANGLE_BY_POSITION;
+        h.clanks = false;
+        h.rebounds = false;
+    });
+    boom.land_continue = true;
+    w.moves[POPGUN_MISFIRE as usize] = boom;
 }

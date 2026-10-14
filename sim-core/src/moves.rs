@@ -5357,7 +5357,7 @@ pub use popgun::popgun;
 pub mod popgun_slots {
     pub use super::popgun::{
         banana_item, BANANA_ITEM, BANANA_KIND, PEEL_FAILS, PEEL_FAILS_WITH_ITEM, PEEL_WAIT,
-        PEEL_WITH_ITEM,
+        PEEL_WITH_ITEM, POPGUN_FIRE, POPGUN_FULL, POPGUN_MISFIRE,
     };
 }
 
