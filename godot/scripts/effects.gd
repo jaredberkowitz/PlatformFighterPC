@@ -288,10 +288,11 @@ static func launch_line(parent: Node, at: Vector3, dir: Vector2) -> void:
 	parent.add_child(spike)
 
 
-## A knock-out's beam: a column of the player's colour blasting from where the fighter left the stage back across the screen, drawn in
-## its own XY plane pointing up its +Y (turn the node to aim it). Painted in layers (an ink edge, the colour, a lighter band and a
-## white-hot core) whose edges crackle, redrawn on twos with new jags like a hand-drawn flame. It slams out to full width in a few
-## frames, holds, then thins and breaks up.
+## A knock-out's blast: a plume of painted smoke in the player's colour exploding from where the fighter left the stage back across the
+## screen, drawn in its own XY plane along its +Y (turn the node to aim it). A row of overlapping round puffs, widest at the blast and
+## tapering away, each in layers (an ink silhouette round the whole plume, the colour, a lighter top lit from above and a white-hot core
+## near the blast), redrawn on twos so the puffs swell, roll and drift outward. It bursts open in a few frames, holds, then the puffs
+## thin and break up (the painted material's ragged breakup).
 class Beam extends MeshInstance3D:
 	var age := 0.0
 	var life := 0.9
@@ -299,6 +300,7 @@ class Beam extends MeshInstance3D:
 	var width := 2.6
 	var colour := Color.WHITE
 	var _step := -1
+	var _seed := randf() * 100.0
 
 	func _ready() -> void:
 		mesh = ImmediateMesh.new()
@@ -315,40 +317,41 @@ class Beam extends MeshInstance3D:
 			return
 		_step = step
 		var t := float(step) / 30.0 / life
-		var open := minf(1.0, t / 0.08)
-		var thin := 1.0 - smoothstep(0.35, 1.0, t)
-		var fade := 1.0 - smoothstep(0.45, 1.0, t)
+		var open := 1.0 - pow(1.0 - minf(1.0, t / 0.12), 3.0)
+		var fade := 1.0 - smoothstep(0.4, 1.0, t)
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		var n := 16
-		var jag: Array = []
-		for k in n + 1:
-			jag.append(randf_range(-1.0, 1.0))
 		# (The body in a deeper, purer version of the colour, so the white core's glow does not wash it out.)
 		var body := Color.from_hsv(colour.h, minf(1.0, colour.s * 1.35), colour.v * 0.92)
-		var light := colour.lerp(Color.WHITE, 0.3)
-		for layer in [[1.0, INK, 0.0], [0.92, body, 0.05], [0.5, light, 0.15], [0.18, Color(1, 1, 0.97), 0.25]]:
-			var c: Color = layer[1]
-			c.a = clampf(fade * 1.4 - float(layer[2]), 0.0, 1.0)
-			if c.a <= 0.01:
-				continue
-			for k in n:
-				var u0 := float(k) / n
-				var u1 := float(k + 1) / n
-				var w0 := _half(u0, float(layer[0]), float(jag[k])) * open * thin
-				var w1 := _half(u1, float(layer[0]), float(jag[k + 1])) * open * thin
-				var y0 := u0 * length
-				var y1 := u1 * length
-				for v in [Vector3(-w0, y0, 0), Vector3(w0, y0, 0), Vector3(w1, y1, 0), Vector3(-w0, y0, 0), Vector3(w1, y1, 0), Vector3(-w1, y1, 0)]:
-					im.surface_set_color(c)
-					im.surface_add_vertex(v)
+		var light := body.lerp(Color.WHITE, 0.22)
+		var n := 28
+		var puffs: Array = []
+		for k in n:
+			var u := float(k) / float(n - 1)
+			var wob := sin(_seed + k * 2.3)
+			var r := width * lerpf(1.0, 0.3, u) * (0.8 + 0.3 * absf(sin(_seed * 0.7 + k * 1.7))) * open * (1.0 + 0.35 * t)
+			var y := u * length * open + t * 2.0 * (1.0 - u)
+			puffs.append([Vector3(wob * width * 0.22, y, 0), r * lerpf(1.0, 0.6, smoothstep(0.5, 1.0, t)), u])
+		# Layers back to front: the ink round everything, the colour, the lit tops (shifted up), the hot core (near the blast only).
+		var layers := [[1.0, Vector3.ZERO, Color(INK, fade), 1.0], [0.88, Vector3.ZERO, Color(body, fade), 1.0],
+			[0.6, Vector3(-0.1, 0.32, 0), Color(light, fade), 1.0], [0.3, Vector3(0.0, 0.05, 0), Color(1, 1, 0.95, fade), 0.3]]
+		for layer in layers:
+			for p in puffs:
+				if float(p[2]) > float(layer[3]):
+					continue
+				var r: float = float(p[1]) * float(layer[0])
+				_disc(im, (p[0] as Vector3) + (layer[1] as Vector3) * float(p[1]), r, layer[2])
 		im.surface_end()
 
-	## Half the width at `u` (0 at the root, 1 at the far end) for a layer `scale` wide: narrow at the root, flaring out, with a crackle.
-	func _half(u: float, scale: float, jag: float) -> float:
-		var flare := lerpf(0.18, 1.0, sqrt(u))
-		return width * scale * flare * (1.0 + 0.12 * jag * (0.4 + u))
+	func _disc(im: ImmediateMesh, c: Vector3, r: float, col: Color) -> void:
+		var seg := 18
+		for k in seg:
+			var a0 := TAU * k / seg
+			var a1 := TAU * (k + 1) / seg
+			for v in [c, c + Vector3(cos(a0), sin(a0), 0) * r, c + Vector3(cos(a1), sin(a1), 0) * r]:
+				im.surface_set_color(col)
+				im.surface_add_vertex(v)
 
 
 ## A hit on a shield: a bright ring on the bubble and a few sparks.

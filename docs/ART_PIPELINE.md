@@ -1075,3 +1075,8 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
 - **The Seer's staff** ends in a gold ring with a glowing crystal floating in it, in place of the white ball (it read as a cotton swab).
   `staff_head.png`.
 - Look bench 0.89.
+- **The knock-out blast** (`Effects.Beam`, item 4 of the review, done early: it was the weakest single moment): the flat striped column,
+  which read as a flag, became a plume of painted smoke in the player's colour: 28 overlapping round puffs, widest at the blast and
+  tapering across the screen, in layers (one ink silhouette round the whole plume, the colour, a lit band along the top, a white-hot core
+  at the blast), redrawn on twos so the puffs swell, roll outward, thin and break up. `ko_plume_before.png` / `ko_plume_after.png`.
+- Weapons and animation are left for the end-of-development pass (owner's call: modelled assets may replace the code-built weapons).
