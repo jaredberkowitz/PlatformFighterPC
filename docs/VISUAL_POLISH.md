@@ -244,3 +244,17 @@ sight), one even dark stroke round everything, large surfaces in one flat value,
 - Tried and dropped: a stronger value and saturation finish (the lawn went neon: the cheap look, not the rich one), stronger far haze
   (milky, no gain at these distances), a glazed gloss on the fighters (a pale blotch on the hair; not in the style).
 - Images: `docs/screenshots/polish12_light_before_after.png` (the meadow, before above), `polish12_canyon.png`, `polish12_stages.png`.
+
+### Pass 63: the sky to the stage's fidelity (the owner: "the background clouds and sun can look a bit flat")
+
+- **Clouds** (`shaders/cloud.gdshader`, `StageArt._clouds`): lit by hand from the stage's sun (`pf_sun_dir`, set from the key light):
+  three flat tones (sunlit white drawn a little over white so the tone curve leaves it white, a soft mid, a clear lavender-blue shade),
+  a belly darkening to the flat base, a silver lining round the edge (strongest against the light), lumpy edges from a slow noise. Three
+  kinds so the sky is not one stamp repeated: domed heaps with smaller puffs piled on the crown, long low banks, tall towers.
+- **The sun** (`shaders/sun.gdshader`): one card in place of the stepped discs and halos: a hot core that reaches the bloom, a gold disc
+  deepening to an orange rim, a soft corona and faint rays turning slowly. The rose and lilac cloud bands still cross its lower half.
+- **The sea's horizon**: the flat white cloud-bank card is now a bank of modelled cumulus sitting on the horizon behind the far coast.
+- **Ridges** take a lit flank and a shaded flank from the sun (`painted_ridge.gdshader` `flank`), on the canyon's mesas. Tried on the
+  meadow's far range and dropped: on a pale, hazy silhouette it read as a grey band over blue stripes; a flat hazy far range is the
+  convention of the style anyway.
+- Images: `docs/screenshots/polish13_sky_before_after.png` (the meadow wide, before above), `polish13_sun.png`, `polish13_horizon.png`.

@@ -63,6 +63,10 @@ pf_ao_depth={
 "type": "vec2",
 "value": Vector2(-1000, 1000)
 }
+pf_sun_dir={
+"type": "vec3",
+"value": Vector3(-0.5, 0.6, 0.6)
+}
 pf_clouds={
 "type": "vec4",
 "value": Vector4(0, 24, 0.4, 0.5)

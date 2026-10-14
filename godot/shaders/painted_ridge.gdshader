@@ -21,6 +21,13 @@ uniform float brush = 0.06;
 uniform float opacity = 1.0;
 uniform vec4 haze_colour : source_color = vec4(0.8, 0.9, 1.0, 1.0);
 uniform float haze = 0.3;
+// The light on the ridge's slopes (0 none): each peak lit on the side toward the stage's sun (`pf_sun_dir`) and turned into a cool shade
+// on the other, the way a painted range has a lit flank and a shadow flank, fading toward the hazy foot. `aspect` is the card's height
+// over its width, so the slopes are measured as they look.
+global uniform vec3 pf_sun_dir;
+global uniform vec4 pf_shadow_tint;
+uniform float flank = 0.0;
+uniform float aspect = 0.1;
 
 float hash(float n) {
 	return fract(sin(n) * 43758.5453);
@@ -70,6 +77,24 @@ float ridge(float x) {
 	return h;
 }
 
+// The ridge's broad shape only (its first two octaves), for the light on its flanks: one lit side and one shaded side per big peak.
+float ridge_broad(float x) {
+	float h = 0.0;
+	float amp = 0.55;
+	float freq = 1.0;
+	for (int o = 0; o < 2; o++) {
+		float n = noise1(x * freq + seed * 17.0 + float(o) * 31.0);
+		if (shape == 1) {
+			n = 1.0 - abs(n * 2.0 - 1.0);
+			n = n * n;
+		}
+		h += n * amp;
+		amp *= shape == 1 ? 0.5 : 0.42;
+		freq *= 2.1;
+	}
+	return h;
+}
+
 void fragment() {
 	float x = UV.x * frequency;
 	float y = 1.0 - UV.y;
@@ -77,6 +102,18 @@ void fragment() {
 	float cut = 1.0 - smoothstep(h - softness, h + softness, y);
 	float k = clamp(y / max(h, 0.001), 0.0, 1.0);
 	vec3 c = mix(foot_colour.rgb, top_colour.rgb, k);
+	if (flank > 0.0) {
+		// (The slope of the broad shape only: the fine crags flipped it column by column into stripes.)
+		float e = 0.03;
+		float slope = (ridge_broad(x + e) - ridge_broad(x - e)) / (2.0 * e) * amplitude * frequency * aspect;
+		vec2 nrm = normalize(vec2(-slope, 1.0));
+		vec2 sun = normalize(vec2(pf_sun_dir.x, max(pf_sun_dir.y, 0.15) * 0.6));
+		float lit = smoothstep(-0.03, 0.03, dot(nrm, sun) - dot(vec2(0.0, 1.0), sun));
+		vec3 shade = c * mix(vec3(1.0), pf_shadow_tint.rgb, 0.85) * 0.78;
+		// (Down from the ridge line only so far: a flank's shade belongs to the peak, not a column to the foot.)
+		float reach = flank * smoothstep(0.2, 0.7, y / max(h, 0.001));
+		c = mix(c, mix(shade, c * 1.08, lit), reach);
+	}
 	// The light catches the top of the ridge.
 	c = mix(c, edge_colour.rgb, smoothstep(h - 0.045, h - 0.008, y) * edge_amount);
 	// Brush grain along the ridge.
