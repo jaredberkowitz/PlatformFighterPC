@@ -1142,3 +1142,9 @@ The moveset session's new fighters and states (sim 96 to 97), presentation only:
 - **Tripped** (`fighter_tripped`, read when the bridge has it): a trip sits the fighter down in a low crouch instead of laying it flat.
 - **Carrying** (the Hauler's carry, sim 98 on the moveset branch): the holder keeps its arms raised under the fighter it holds overhead
   (the up air's pose held at its top); the held fighter is placed by the game. Ready before the state reaches main.
+
+## Two-tone fighters, the body's topology (fifty-second pass, step 2 of docs/ART_REVIEW_2.md)
+
+The first pass of the visual polish plan; the audit, the ranking and the full change report are in `docs/VISUAL_POLISH.md`. Fighters
+are shaded in two flat tones split by a hard step, with one clean shadow colour each, and the base body is re-laid as even quads
+(`make_base_body.py`, `REDUCE`) so that step draws a smooth edge. The collision-box outlines no longer show in `--noecb` shots.

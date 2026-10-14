@@ -14,8 +14,9 @@ const STRENGTH := 0.85
 const BLOCKING := 0.65
 
 
-## Bakes the map for `rects` (each [left, right, top, bottom, pass_through]) and installs it. Returns the texture.
-static func bake(rects: Array) -> ImageTexture:
+## Bakes the map for `rects` (each [left, right, top, bottom, pass_through]) and installs it, with `depth` the platforms' reach front to
+## back (world z: from, to; the ground takes their shade only under it). Returns the texture.
+static func bake(rects: Array, depth := Vector2(-1000.0, 1000.0)) -> ImageTexture:
 	if rects.is_empty():
 		clear()
 		return null
@@ -39,6 +40,7 @@ static func bake(rects: Array) -> ImageTexture:
 	RenderingServer.global_shader_parameter_set("pf_ao_map", tex)
 	RenderingServer.global_shader_parameter_set("pf_ao_rect", Vector4(lo.x, lo.y, hi.x - lo.x, hi.y - lo.y))
 	RenderingServer.global_shader_parameter_set("pf_ao_strength", STRENGTH)
+	RenderingServer.global_shader_parameter_set("pf_ao_depth", depth)
 	return tex
 
 

@@ -121,7 +121,7 @@ void fragment() {
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;
 	ROUGHNESS = object_id;
-	AO = pf_stage_ao(world_pos);
+	AO = pf_stage_ao_ground(world_pos, world_normal);
 	AO_LIGHT_AFFECT = 0.45;
 	SPECULAR = 0.0;
 }

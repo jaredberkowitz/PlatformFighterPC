@@ -16,7 +16,10 @@ socks and shoes, `limb.gdshader`, `face.gdshader`). Lighting is not physical:
   pale colours take a cool tint instead of going grey (`pf_painted_shadow`).
 - **Deep shade**: where a cast shadow falls on a side already turned from the light, the shade deepens (`pf_deep_shade`).
 - **Rim and edge light**: a rim in the sky's colour on the lit side; fighters also get a pale edge light all round (`pf_edge_light`,
-  strong on dark stages) and keep their shadow side a little lighter (`PF_FIGHTER_LIFT`), so no fighter sinks into a background.
+  strong on dark stages), so no fighter sinks into a background.
+- **Two-tone fighters**: fighters skip the stage's ramp for a hard step between one lit and one shadow tone (`PF_FIGHTER_STEP`), their
+  shadow a step deeper (`PF_FIGHTER_SHADE`) and only a little hue-turned (`PF_FIGHTER_HUE`), so each reads as a light shape and a shadow
+  shape (docs/VISUAL_POLISH.md, pass 52).
 - **Painted variation**: tops lean warm and undersides cool (`pf_paint_*`; fighters take a third), and world-laid stage textures drift
   slowly in lightness and hue so large areas are never one flat tile.
 - **Solid mass**: a stage block's front falls gradually into a cool shade below its top edge (`front_fall`, `front_span`; each block
