@@ -865,6 +865,7 @@ fn thrown_hits(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
                 ITEM_THROW_KEY,
                 (at, it.vel),
                 caught,
+                false,
             );
         }
         let item = &mut state.items[n];
@@ -939,6 +940,7 @@ fn blast_frame(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
             it.move_id,
             (at, Vec2::ZERO),
             caught,
+            false,
         );
         state.items[n].hit_mask |= 1 << d;
     }

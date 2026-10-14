@@ -1,0 +1,23 @@
+// Nodachi up special held: the eight slashes (world units: the reference's / 8). This move began on the reference's frame 18, so its
+// frame numbers here are the reference's less 18. In the air the startup goes on as the blade dash's [E]. The stick on the
+// reference's frame 31 aims it (neutral: straight up; backward turns the exile round; on the ground not below level). It travels on
+// frames 35-50 at 0.4125 a frame (3.3 of the reference's units) [E], dragging what it hits along, then keeps a quarter of the speed.
+var dx;
+var dy;
+if frame <= 16 && grounded == 0 { set_vel(vx * 0.9, vy - 0.0025); }
+if frame == 13 {
+    let sx = stick_x;
+    let sy = stick_y;
+    if grounded && sy < 0 { sy = 0; }
+    let len = sqrt(sx * sx + sy * sy);
+    if len < 0.25 {
+        dx = 0;
+        dy = 1;
+    } else {
+        if sx < 0 { turn(); sx = -sx; }
+        dx = sx / len;
+        dy = sy / len;
+    }
+}
+if frame >= 17 && frame <= 32 { set_vel(dx * 0.4125, dy * 0.4125); }
+if frame == 33 { set_vel(vx * 0.25, vy * 0.25); }

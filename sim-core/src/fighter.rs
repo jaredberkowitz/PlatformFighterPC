@@ -2445,8 +2445,8 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
         f.locked = false;
         f.lock = Vec2::ZERO;
         // Whether the gauge's powered mode runs as the attack begins picks its `Hitbox::mode` boxes to its end (E52); the armor's
-        // record of a withstood hit starts again (E55).
-        f.move_powered = f.gauge_mode > 0;
+        // record of a withstood hit starts again (E55). A wing out (E57) powers the attack too (its `Move::armor_mode` armor).
+        f.move_powered = f.gauge_mode > 0 || crate::wing::out(f);
         f.withstood = 0;
     }
     f.move_id = id as u8;
@@ -3012,6 +3012,13 @@ fn attack(
         if vy > Fx::ZERO {
             f.platform = NONE;
         }
+        // (A move that stops at the edge never steps past it along the ground: sim 125.)
+        if mv.edge_stop && f.grounded() && vy <= Fx::ZERO {
+            if let Some(plat) = collision::platform(stage, f.platform) {
+                let x = (f.pos.x + f.vel.x).clamp(plat.left, plat.right);
+                f.vel.x = x - f.pos.x;
+            }
+        }
         let moved = move_by(f, p, stage, f.vel);
         if moved.wall {
             f.vel.x = Fx::ZERO;
@@ -3039,10 +3046,16 @@ fn attack(
         }
         // A dash along the ground that carries the fighter past the edge leaves the ground (and a move with an `off_edge` version
         // goes on as it, on the same frame).
-        if collision::platform(stage, f.platform).is_some() && !keep_on_ground(f, stage) {
-            f.platform = NONE;
-            if let Some(other) = mv.off_edge {
-                f.move_id = other;
+        if let Some(plat) = collision::platform(stage, f.platform) {
+            if mv.edge_stop && (f.pos.x < plat.left || f.pos.x > plat.right) {
+                // (A move that stops at the edge stays on it: sim 125.)
+                f.pos.x = f.pos.x.clamp(plat.left, plat.right);
+                f.vel.x = Fx::ZERO;
+            } else if !keep_on_ground(f, stage) {
+                f.platform = NONE;
+                if let Some(other) = mv.off_edge {
+                    f.move_id = other;
+                }
             }
         }
     } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
@@ -3076,7 +3089,10 @@ fn attack(
         };
         f.vel.x = approach(f.vel.x, Fx::ZERO, friction);
         let (kept_frame, kept_charge) = (f.state_frame, f.charge);
-        if !slide_on_platform(f, p, stage) {
+        if mv.edge_stop {
+            // (A move that stops at the edge stays on it: sim 125.)
+            slide_kept_on_platform(f, p, stage);
+        } else if !slide_on_platform(f, p, stage) {
             // Off the edge: a move with an `off_edge` version goes on as it, on the same frame; any other ends.
             let other = mv.off_edge?;
             f.state = S::Attack;

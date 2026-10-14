@@ -154,8 +154,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         if !f.active {
             continue;
         }
-        // (While the gauge's powered mode runs, the body moves with its multiplied numbers.)
-        let params = params_of(content, f).powered(f.gauge_mode > 0);
+        // (While the gauge's powered mode runs, or its wing is out (E57), the body moves with its multiplied numbers.)
+        let params = params_of(content, f).moving(f.gauge_mode > 0, crate::wing::out(f));
         let weapon = combat::weapon_of(content, &params);
         world.me = i;
         wants[i] = fighter::update(f, &params, weapon, stage, &content.rules, *input, &world);
@@ -210,11 +210,11 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
         };
         if let Ok(o) = usize::try_from(state.ledge_owner[l]) {
             let f = &state.fighters[o];
-            let params = params_of(content, f).powered(f.gauge_mode > 0);
+            let params = params_of(content, f).moving(f.gauge_mode > 0, crate::wing::out(f));
             fighter::trump(&mut state.fighters[o], &params, stage);
         }
         let f = &state.fighters[winner];
-        let params = params_of(content, f).powered(f.gauge_mode > 0);
+        let params = params_of(content, f).moving(f.gauge_mode > 0, crate::wing::out(f));
         fighter::grab_ledge(&mut state.fighters[winner], &params, stage, l);
         state.ledge_owner[l] = winner as i8;
     }

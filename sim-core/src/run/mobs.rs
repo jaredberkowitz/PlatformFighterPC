@@ -699,6 +699,7 @@ pub(super) fn attacks(state: &mut GameState, content: &Content, rc: &RunContent)
                 0,
                 (at, m.vel),
                 caught,
+                false,
             );
             state.fighters[proxy] = saved;
             let lag = combat::hitlag_frames(

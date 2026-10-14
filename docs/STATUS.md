@@ -93,6 +93,21 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 125** (branch `nodachi-phase1`, from `movesets` at d135bfa, sim 123, merged with `origin/movesets` 042ce42, sim 124's run mode R2a and content schema 8; no schema change of its own): the
+fourteenth class, **Nodachi** on the **exile** body (built-in fighter **Exile**), phase 1 (`docs/movesets/nodachi/`): the body (weight 79,
+fast fall 2.944, no wall jump) and every normal on 13.0.1 data with the very long blade (tilts and smashes reaching 30 of the reference's
+units; the forward and up smashes' blade read from the reference's hitbox animation [E]); **the wing** (E57, general: `FighterParams::wing`,
+`content::Wing`, `sim-core/src/wing.rs`, hashed `Fighter::wing_points` / `wing_spent` / `hit_by`): it comes after a hit by the reference's
+start table (stock and percent difference; every published example reproduced), with x1.3 damage that KOs earlier only by the extra
+damage, the body's multipliers, a third jump and 20% armor on the smash attacks (`Move::armor_mode`), and goes by its points (damage
+dealt, KOs) until the next KO; the **blade dash and the eight slashes** (up special: the hold on 18, the aim on 19 / 31, the eight hits
+on 36-50, edges stopping the grounded versions: `Move::edge_stop`), and **the flare** in three levels (neutral special: the release from
+20, the bigger flare from 31 held, the giant flare at full charge [E: frame 108], each fireball's burst; the giant one's three rings at
+once: E58, phases sharing a start, `moves::rings_at`, `MAX_PHASES` 12). The side special (the shadow orbs) and the down special (the
+barrier) are phase 2. Changed for other fighters: nothing (no other content has a wing, an armor mode, edge stops or phases sharing a
+start; the content hash changed with the new fields). Tests `nodachi.rs` (9), `nodachi_wing.rs` (7), `nodachi_specials.rs` (11), cases in
+`move_rules.rs`, `state.rs` and sim-content; fuzz-rollback 300 and net-fuzz 100 at zero, both playing the exile (fuzz-rollback with its
+wing out). Report: `docs/movesets/nodachi/IMPLEMENTATION_REPORT.md`.
 **Sim 123** (branch `dagger-phase2`, from `movesets` at 0d6cfe0, sim 121, merged with `origin/movesets` 858cbdd, sim 122's run-mode
 rooms; content schema 7 unchanged): the Dagger's phase 2, **every move of the phantom now built**. The plain up special, **the hook**
 (the iconic recovery): on the ground a grab on 20-26 (FAF 60) that catches in the air too, misses fighters in hitstun and is stopped by a
