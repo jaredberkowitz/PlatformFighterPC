@@ -1977,6 +1977,9 @@ const LINE_FROM := [2, 14]
 const WAVE_CLASS := 6
 const WAVE_MOVES := [13, 34, 35]
 const WAVE_POWERED := [34, 35]
+## The Wanderer's (Buckler, class 9) sword wave: fired with its forward smash (5) at 0%, a horizontal blade of light about 1.75 long.
+const BLADE_WAVE_FROM := [9, 5]
+const BLADE_WAVE_LENGTH := 1.75
 
 var proj_nodes: Array = []
 var proj_needles: Array = []
@@ -2051,7 +2054,8 @@ func _update_projectiles(a: float) -> void:
 		var from := [int(proj_cur[i + 6]), int(proj_cur[i + 7])] if active else []
 		var needle: bool = active and from == NEEDLE_FROM
 		var line: bool = active and from == LINE_FROM
-		var wave: bool = active and int(from[0]) == WAVE_CLASS and WAVE_MOVES.has(int(from[1]))
+		var blade_wave: bool = active and int(from[0]) == BLADE_WAVE_FROM[0] and int(from[1]) == BLADE_WAVE_FROM[1]
+		var wave: bool = active and (blade_wave or (int(from[0]) == WAVE_CLASS and WAVE_MOVES.has(int(from[1]))))
 		proj_waves[k].visible = wave
 		proj_nodes[k].visible = active and not needle and not line and not wave
 		proj_needles[k].visible = needle
@@ -2065,7 +2069,10 @@ func _update_projectiles(a: float) -> void:
 		var at := Vector3(pos.x, pos.y, 0.3)
 		if wave:
 			var bursting: bool = sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
-			_draw_wave(proj_waves[k], at, float(proj_cur[i + 3]), WAVE_POWERED.has(int(from[1])), bursting)
+			if blade_wave:
+				_draw_blade_wave(proj_waves[k], at, float(proj_cur[i + 3]))
+			else:
+				_draw_wave(proj_waves[k], at, float(proj_cur[i + 3]), WAVE_POWERED.has(int(from[1])), bursting)
 		elif needle:
 			proj_needles[k].position = at
 			proj_needles[k].rotation.z = Vector2(proj_cur[i + 4], proj_cur[i + 5]).angle()
@@ -2083,10 +2090,11 @@ func _draw_wave(node: MeshInstance3D, at: Vector3, dir: float, powered: bool, bu
 	node.position = at
 	var im: ImmediateMesh = node.mesh
 	var step := int(Time.get_ticks_msec() / 33)
-	if node.has_meta("step") and int(node.get_meta("step")) == step and node.get_meta("burst", false) == bursting:
+	if node.has_meta("step") and int(node.get_meta("step")) == step and node.get_meta("burst", false) == bursting 			and node.get_meta("kind", "") == "wave":
 		return
 	node.set_meta("step", step)
 	node.set_meta("burst", bursting)
+	node.set_meta("kind", "wave")
 	im.clear_surfaces()
 	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	var layers := [[1.0, Color(0.3, 0.06, 0.02, 1.0)], [0.9, Color(1.0, 0.36, 0.02)], [0.66, Color(1.0, 0.66, 0.08)], [0.34, Color(1.0, 0.95, 0.7)]]
@@ -2126,6 +2134,49 @@ func _draw_wave(node: MeshInstance3D, at: Vector3, dir: float, powered: bool, bu
 				for v in [f0, f1, b1, f0, b1, b0]:
 					im.surface_set_color(layer[1])
 					im.surface_add_vertex(v)
+	im.surface_end()
+
+
+## The Wanderer's sword wave at `at` flying toward `dir`: a horizontal blade of light `BLADE_WAVE_LENGTH` long, pointed at the front and
+## swept back to a forked tail, painted in layers as the knock-out blast and the swing arcs are (an ink silhouette, the longsword's blue,
+## a pale band along its top edge, a white-hot core toward the point), its edges flickering on twos. (The sim's charge scaling of its
+## size, x0.8 to x1.1, is not exposed to the view yet; it is drawn at x1.)
+func _draw_blade_wave(node: MeshInstance3D, at: Vector3, dir: float) -> void:
+	node.position = at
+	var im: ImmediateMesh = node.mesh
+	var step := int(Time.get_ticks_msec() / 33)
+	if node.has_meta("step") and int(node.get_meta("step")) == step and node.get_meta("kind", "") == "blade":
+		return
+	node.set_meta("step", step)
+	node.set_meta("kind", "blade")
+	im.clear_surfaces()
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var length := BLADE_WAVE_LENGTH
+	var half_h := 0.38
+	# [scale of the outline, upward shift (share of the height), colour, from (0 tail .. 1 point)]
+	var layers := [[1.0, 0.0, Color(0.1, 0.07, 0.12), 0.0], [0.86, 0.0, Color(0.14, 0.36, 0.86), 0.0],
+		[0.5, 0.3, Color(0.5, 0.76, 1.0), 0.25], [0.26, 0.2, Color(1.0, 1.0, 0.96), 0.5]]
+	var n := 12
+	for layer in layers:
+		var k := float(layer[0])
+		var lift := float(layer[1]) * half_h
+		var col: Color = layer[2]
+		var from := float(layer[3])
+		for j in n:
+			var u0 := lerpf(from, 1.0, float(j) / n)
+			var u1 := lerpf(from, 1.0, float(j + 1) / n)
+			var pts := []
+			for u in [u0, u1]:
+				# Thickest a third of the way back from the point, pointed at both ends, the top edge bowed up a little.
+				# (Each layer tapers to a point at its own start, so the inner bands are slivers inside the blade, not cut off square.)
+				var w: float = (float(u) - from) / (1.0 - from)
+				var thick: float = half_h * k * pow(sin(PI * pow(w, 1.5)), 0.7) * (1.0 + 0.08 * sin(float(step) * 1.9 + float(u) * 9.0))
+				var x: float = dir * (float(u) - 0.55) * length * (0.85 + 0.15 * k)
+				var bow: float = 0.12 * sin(PI * float(u))
+				pts.append([Vector3(x, lift + bow + thick, 0), Vector3(x, lift + bow - thick * 0.75, 0)])
+			for v in [pts[0][0], pts[1][0], pts[1][1], pts[0][0], pts[1][1], pts[0][1]]:
+				im.surface_set_color(col)
+				im.surface_add_vertex(v)
 	im.surface_end()
 
 

@@ -169,6 +169,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, special], [22, 0, 0, 0]]
 			d.shots = [[44, "a_headbutt"], [60, "b_buried"], [100, "c_buried_later"]]
 			d.end_frame = 110
+		"blade_wave":
+			# The Wanderer's sword wave: its forward smash at 0% fires it, the other fighter far off so it flies (for checking its look).
+			d.chars = [9, 0, 0, 0]
+			d.cam_dist = 16.0
+			d.events = [[1, "stand", 0, -6.0, 1], [1, "stand", 1, 8.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 127, 0, attack | strong], [23, 0, 0, 0]]
+			d.shots = [[38, "a_fire"], [42, "b_wave"], [48, "c_wave_far"], [56, "d_wave_further"]]
+			d.end_frame = 70
 		"ko":
 			# A forward smash on a fighter at 170%: the hit shakes the camera, which closes in because the launch will KO, and the
 			# launch leaves a smoke trail.

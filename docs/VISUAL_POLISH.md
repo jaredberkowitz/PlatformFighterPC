@@ -197,3 +197,11 @@ contention, not the game.
 ## Skipped, and why
 
 Nothing yet.
+
+### Pass 61: the Wanderer's sword wave
+
+`main.gd` `_draw_blade_wave` (class 9, forward smash, sim 102): a horizontal blade of light 1.75 long, pointed at both ends and thickest
+toward the front, painted in the effect standard's layers (ink, the longsword's blue, a pale band, a hot core), its edges flickering on
+twos. `--demo=blade_wave`. The sim's x0.8 to x1.1 charge scaling of its size is not exposed to the view yet, so it is drawn at x1.
+Image: `docs/screenshots/polish10_blade_wave.png`. Also: the three new stage tiles' `.import` files use the `keep` importer like the
+other tiles (the art pipeline test asks for it).
