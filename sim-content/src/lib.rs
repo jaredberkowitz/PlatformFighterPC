@@ -1171,6 +1171,91 @@ mod combat_tests {
     }
 
     #[test]
+    fn the_pockets_fields_round_trip_and_are_checked() {
+        // Sim 113: the Pockets' (class 10) previous-rules jab (E40), its random turnip versions (E39), its balloons (E41), the bowling
+        // ball's charge power and the rocket's burst that a fighter does not set off come back from a file unchanged, and so do the
+        // ruleset's previous-version numbers.
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[10].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "rules previous",
+            "version {",
+            "balloons {",
+            "power_to 120",
+            "on_hit false",
+            "prev_hitlag_per_damage",
+            "prev_tumble_hitstun",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // A file without them keeps today's behaviour: no previous rules, no versions, no balloons, full power, a burst on a hit.
+        let stripped = text
+            .lines()
+            .filter(|l| !l.contains("rules previous") && !l.contains("prev_"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped).expect("reads").content;
+        assert!(older.weapons[w].moves[MoveId::Jab as usize]
+            .hitboxes
+            .iter()
+            .all(|h| h.rules == sim_core::moves::RULES_CURRENT));
+        assert_eq!(older.rules, base.rules, "the standard numbers when absent");
+        // Bad values are refused: a third rules version, chances over 100, a version that is not a move of its own, balloons with no
+        // helium, a charge power of 0.
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::Jab as usize].hitboxes[0].rules = 2;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("rules")));
+        let uair = MoveId::UAir as usize;
+        let mut c = base.clone();
+        c.weapons[w].moves[uair].versions[0].0 = 80;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("chances")));
+        let mut c = base.clone();
+        c.weapons[w].moves[uair].versions[0].1 = MoveId::UAir as u8;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("version")));
+        let mut c = base.clone();
+        if let Some(b) = c.weapons[w].moves[MoveId::UpSpecial as usize]
+            .balloons
+            .as_mut()
+        {
+            b.fuel = 0;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("balloons")));
+        let mut c = base.clone();
+        if let Some(ch) = c.weapons[w].moves[MoveId::FSmash as usize]
+            .projectile
+            .as_mut()
+            .and_then(|p| p.charged.as_mut())
+        {
+            ch.power_to = 0;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("power_to")));
+        let mut c = base.clone();
+        c.rules.prev_damage_mult = -Fx::ONE;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("prev_damage_mult")));
+    }
+
+    #[test]
     fn the_tool_fields_round_trip_and_are_checked() {
         // Sim 99: the Buckler's (class 9) charged arrow and wave (E35), lodging and drag, the boomerang's tool rules (E3d), its
         // smash-input version and the wave's lying capsule (E38) come back from a file unchanged.

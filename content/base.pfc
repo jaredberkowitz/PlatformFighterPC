@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 113
-    hash e517335c5e5bfdb4
+    hash ff0ed4ba702e9053
 }
 
 ruleset {
@@ -8813,10 +8813,10 @@ weapon pockets {
         ledge_back_from 2
         fall_landing_lag 30
         fast_fall_from 255
-        air_gravity 0.00499
+        air_gravity 0.00749
         air_max_fall 0.125
         air_max_rise 0.17499
-        balloons { count 2 hp 0.09999 x 0 y 2.7 radius 0.54999 fuel 300 refill 6 one_below 150 pop_vy 0.125 }
+        balloons { count 2 hp 0.09999 x 0 y 3 radius 0.54999 fuel 300 refill 6 one_below 150 pop_vy 0.125 }
         script {
             // The balloon flight (up special) [E: every number]. Take-off: 1.6 of the reference's units a frame up (0.2) for 3 frames. Special
             // pressed flaps at once once 6 frames have passed since the last flap; held, every 12. A flap sets the rising speed to 1.4 (0.175) on
@@ -9028,10 +9028,10 @@ weapon pockets {
         ledge_back_from 2
         fall_landing_lag 30
         fast_fall_from 255
-        air_gravity 0.00499
+        air_gravity 0.00749
         air_max_fall 0.125
         air_max_rise 0.17499
-        balloons { count 2 hp 0.09999 x 0 y 2.7 radius 0.54999 fuel 300 refill 6 one_below 150 pop_vy 0.125 }
+        balloons { count 2 hp 0.09999 x 0 y 3 radius 0.54999 fuel 300 refill 6 one_below 150 pop_vy 0.125 }
         script {
             // The balloon flight's next stretch (ext8): as the up special without the take-off (see `pockets_balloon.script`) [E].
             var since;

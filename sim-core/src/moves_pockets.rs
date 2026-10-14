@@ -848,14 +848,14 @@ fn rocket(w: &mut Weapon) {
 
 /// The balloons (E41) of the up special. The reference publishes none of these numbers (gaps 4-7) [E]: two balloons, one when the
 /// helium is below half; each popped by any hit (0.1%); a tank of 300 frames of flight that refills at 6 / 16 of a frame a frame (a
-/// full refill in about 13 seconds); one circle of radius 0.55 world units over the head, 2.7 up (the balloons on their strings above
+/// full refill in about 13 seconds); one circle of radius 0.55 world units over the head, 3.0 up (the balloons on their strings above
 /// our taller body); a pop of the last balloon sends the settler up at 1.0 of the reference's units a frame.
 pub fn balloon_block() -> Balloons {
     Balloons {
         count: 2,
         hp: Fx::from_ratio(1, 10),
         x: Fx::ZERO,
-        y: Fx::from_ratio(27, 10),
+        y: Fx::from_int(3),
         radius: Fx::from_ratio(55, 100),
         fuel: 300,
         refill: 6,
@@ -867,7 +867,7 @@ pub fn balloon_block() -> Balloons {
 /// The up special: the balloon flight (the reference's, 13.0.1). The settler takes off and flies on balloons (E41): special pressed or
 /// held flaps up, the stick steers, nothing pressed sinks, attack lets the balloons go (helpless) [R]; the flight lasts until the
 /// helium runs out (helpless), or the balloons are popped (helpless, a little hop) [R]. Landing with the balloons: 20 frames of lag;
-/// from the special fall: 30 [R]. Ledges from frame 3 [E]. The flight's physics are ours (gap 5) [E]: gravity 0.04 and fall 1.0 of the
+/// from the special fall: 30 [R]. Ledges from frame 3 [E]. The flight's physics are ours (gap 5) [E]: gravity 0.06 and fall 1.0 of the
 /// reference's units, the body's air speed and acceleration, a flap setting the rising speed to 1.4 (two balloons) or 0.9 (one), every
 /// 6 frames for presses and 12 held, rising at most 1.4; the take-off 1.6 up for its first 3 frames (the script `pockets_balloon.script`).
 /// The move goes on as `FLIGHT` every 248 frames (a move lasts at most 253 here).
@@ -877,7 +877,7 @@ fn balloons(w: &mut Weapon) {
         mv.balloons = Some(balloon_block());
         mv.helpless_after = true;
         mv.fall_landing_lag = 30;
-        mv.air_gravity = Some(rs(40));
+        mv.air_gravity = Some(rs(60));
         mv.air_max_fall = Some(rs(1000));
         mv.air_max_rise = Some(rs(1400));
         mv.ledge_front_from = 2;
