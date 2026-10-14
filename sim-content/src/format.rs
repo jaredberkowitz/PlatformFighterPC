@@ -10,12 +10,13 @@ use sim_core::content::{
 use sim_core::moves::{
     AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble,
     DropThrough, Encase, Fall, Hitbox, ItemBlast, ItemSpec, Motion, Move, MoveId, PartIntangible,
-    Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn, Reflector, Tool, Weapon,
-    AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION,
-    ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY,
-    EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
-    HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES, POCKET_NEVER,
-    POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn, Reflector, Tool, Toss,
+    Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
+    ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
+    EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES,
+    POCKET_NEVER, POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT,
+    TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -525,6 +526,8 @@ rules_io! {
     trip_invuln: u8,
     trip_base: u8,
     trip_base_kb: Fx,
+    slip_lag: u8,
+    slip_max: u8,
     bury_base: Fx,
     bury_percent: Fx,
     bury_kb: Fx,
@@ -655,6 +658,7 @@ fn missing_hitbox() -> Hitbox {
         posvec_frames: 0,
         half_width: Fx::ZERO,
         rules: RULES_CURRENT,
+        slip: SLIP_NONE,
     }
 }
 
@@ -746,6 +750,19 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             RULES_CURRENT
         }
     };
+    let slip = match f.raw("slip") {
+        None | Some(("none", _)) => SLIP_NONE,
+        Some(("hard", _)) => SLIP_HARD,
+        Some(("soft", _)) => SLIP_SOFT,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox slip must be none, hard or soft, not `{other}`"),
+            );
+            SLIP_NONE
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -783,6 +800,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         posvec_frames: f.or("posvec_frames", 0, errors),
         half_width: f.or("half_width", Fx::ZERO, errors),
         rules,
+        slip,
     };
     f.finish(errors);
     hb
@@ -888,6 +906,11 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.rules == RULES_PREVIOUS {
         b.field("rules", "previous");
+    }
+    match hb.slip {
+        SLIP_HARD => b.field("slip", "hard"),
+        SLIP_SOFT => b.field("slip", "soft"),
+        _ => {}
     }
     b
 }
@@ -1106,10 +1129,26 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "balloons",
             "pocket",
             "unpocket",
+            "toss",
         ],
         context,
         errors,
     );
+    // Sim 117: a move's own toss of the item in hand (E47).
+    if let Some(b) = at_most_one(children(block, "toss"), "toss", context, errors) {
+        let ctx = format!("the toss of {context}");
+        let mut tf = Fields::new(b, &ctx, errors);
+        let speed: Fx = tf.need("speed", None, errors);
+        m.toss = Some(Toss {
+            frame: tf.need("frame", None, errors),
+            again: tf.or("again", 255, errors),
+            angle: tf.need("angle", None, errors),
+            speed,
+            smash_speed: tf.or("smash_speed", speed, errors),
+            wait: tf.or("wait", 0, errors),
+        });
+        tf.finish(errors);
+    }
     // Sim 115: the pocket and its release (E42).
     if let Some(b) = at_most_one(children(block, "pocket"), "pocket", context, errors) {
         let ctx = format!("the pocket of {context}");
@@ -1723,6 +1762,20 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if m.chops {
         b.field("chops", "true");
     }
+    if let Some(t) = &m.toss {
+        let mut c = Block::new("toss", None);
+        c.field("frame", t.frame.to_string());
+        if t.again != 255 {
+            c.field("again", t.again.to_string());
+        }
+        c.field("angle", t.angle.to_string());
+        c.field("speed", t.speed.show());
+        c.field("smash_speed", t.smash_speed.show());
+        if t.wait != 0 {
+            c.field("wait", t.wait.to_string());
+        }
+        b.push(c);
+    }
     if let Some((frame, item)) = m.pull {
         b.field("pull_frame", frame.to_string());
         b.field("pull_item", item.to_string());
@@ -2018,7 +2071,7 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
 /// every other value optional (default 0, the keeps 100, `throw_mul` 1, `knock_hitlag` 100), and an optional `blast { frames [delay]
 /// [hits_owner] hitbox { ... } }`.
 fn read_item(b: &Block, ctx: &str, errors: &mut Vec<String>) -> ItemSpec {
-    only_known(b, &["hitbox", "blast", "placed"], ctx, errors);
+    only_known(b, &["hitbox", "blast", "placed", "trap"], ctx, errors);
     let mut f = Fields::new(b, ctx, errors);
     let hit = match at_most_one(children(b, "hitbox"), "hitbox", ctx, errors) {
         Some(h) => read_hitbox(h, ctx, errors),
@@ -2101,6 +2154,26 @@ fn read_item(b: &Block, ctx: &str, errors: &mut Vec<String>) -> ItemSpec {
         bf.finish(errors);
         blast
     });
+    // Sim 117: a lying item's trap (E45).
+    it.trap = at_most_one(children(b, "trap"), "trap", ctx, errors).map(|tb| {
+        let tctx = format!("the trap of {ctx}");
+        only_known(tb, &["hitbox"], &tctx, errors);
+        let mut tf = Fields::new(tb, &tctx, errors);
+        let hit = match at_most_one(children(tb, "hitbox"), "hitbox", &tctx, errors) {
+            Some(h) => read_hitbox(h, &tctx, errors),
+            None => {
+                err(errors, tb.line, format!("{tctx} needs a hitbox"));
+                missing_hitbox()
+            }
+        };
+        let trap = Trap {
+            hit,
+            kick_x: tf.or("kick_x", Fx::ZERO, errors),
+            kick_y: tf.or("kick_y", Fx::ZERO, errors),
+        };
+        tf.finish(errors);
+        trap
+    });
     it
 }
 
@@ -2158,6 +2231,13 @@ fn write_item(it: &ItemSpec) -> Block {
             c.field("hits_owner", "true");
         }
         c.push(write_hitbox(&bl.hit));
+        b.push(c);
+    }
+    if let Some(t) = &it.trap {
+        let mut c = Block::new("trap", None);
+        c.field("kick_x", t.kick_x.show());
+        c.field("kick_y", t.kick_y.show());
+        c.push(write_hitbox(&t.hit));
         b.push(c);
     }
     b

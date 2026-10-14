@@ -315,6 +315,11 @@ pub struct Fighter {
     /// The fighter's knockdown (and the get-up after it) is a trip (a `Hitbox::trip` chance came up, sim 86), with the ruleset's trip
     /// timings instead of a missed tech's.
     pub tripped: bool,
+    /// The trip is a soft one (E44, sim 117: a `Hitbox::slip` soft, walking into a lying banana peel): the ruleset's `slip_*` timings.
+    pub trip_soft: bool,
+    /// Frames before the fighter's move can make another of its tossed items (E47, sim 117: `Toss::wait`, the reference's time before
+    /// the next banana peel); counts down every frame. What the `pull_wait` script register reads.
+    pub pull_wait: u8,
     /// Frames of the midair jump the fighter is in (sim 89, E33): 1 on the jump's own frame, one more each frame it stays in it (hitlag
     /// excluded, saturating); 0 when it is not in one (anything but `Airborne` clears it). The body's `air_jump_armor` reads it.
     pub air_jump_frame: u8,
@@ -466,6 +471,9 @@ pub struct Item {
     pub water: u8,
     pub grow_in: u8,
     pub cuts: u8,
+    /// Sim 117 (`ItemSpec::uses`): the uses it has spent (a fighter hit while thrown, a fighter tripped while lying, a throw by a
+    /// fighter).
+    pub used: u8,
 }
 
 /// `Item::rest` values.
@@ -507,6 +515,7 @@ impl StateHash for Item {
         h.write_u8(self.water);
         h.write_u8(self.grow_in);
         h.write_u8(self.cuts);
+        h.write_u8(self.used);
     }
 }
 
@@ -714,6 +723,8 @@ impl Fighter {
             lock: Vec2::ZERO,
             locked: false,
             tripped: false,
+            trip_soft: false,
+            pull_wait: 0,
             air_jump_frame: 0,
             bury_timer: 0,
             bury_kb: Fx::ZERO,
@@ -906,6 +917,8 @@ impl StateHash for Fighter {
         self.lock.hash_into(h);
         h.write_bool(self.locked);
         h.write_bool(self.tripped);
+        h.write_bool(self.trip_soft);
+        h.write_u8(self.pull_wait);
         h.write_u16(self.bury_timer);
         self.bury_kb.hash_into(h);
         h.write_u16(self.bury_angle);
@@ -1537,6 +1550,16 @@ mod tests {
                 s.fighters[1].tripped = true;
                 s
             }),
+            ("trip_soft", {
+                let mut s = state;
+                s.fighters[2].trip_soft = true;
+                s
+            }),
+            ("pull_wait", {
+                let mut s = state;
+                s.fighters[3].pull_wait = 1;
+                s
+            }),
             ("bury_timer", {
                 let mut s = state;
                 s.fighters[1].bury_timer = 1;
@@ -1925,6 +1948,11 @@ mod tests {
             ("item_cuts", {
                 let mut s = state;
                 s.items[6].cuts = 0x10;
+                s
+            }),
+            ("item_used", {
+                let mut s = state;
+                s.items[5].used = 1;
                 s
             }),
             ("history", {

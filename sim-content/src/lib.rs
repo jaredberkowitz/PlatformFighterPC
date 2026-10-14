@@ -157,6 +157,10 @@ fn validate_previous_rules(r: &sim_core::content::Ruleset, errors: &mut Vec<Stri
                 .to_string(),
         );
     }
+    // (A soft trip's get-up options cannot come after its own get-up: E44, sim 117.)
+    if r.slip_lag > r.slip_max {
+        errors.push("ruleset: slip_lag cannot be above slip_max".to_string());
+    }
 }
 
 /// Names are how content files refer to things, so they must be present, tidy and unique.
@@ -363,15 +367,30 @@ const MAX_ITEM_SPECS: usize = 8;
 /// An item's numbers (E4, sim 111; see `sim_core::moves::ItemSpec`).
 fn validate_item(i: usize, n: usize, it: &sim_core::moves::ItemSpec, errors: &mut Vec<String>) {
     let mut copy = *it;
+    // (The damage modifier, sim 117, may be negative: the reference's modifiers are often -0.4.)
     let negative = copy
         .fx_fields_mut()
         .iter()
-        .any(|(_, v)| **v < Fx::ZERO || **v > MAX_VALUE);
-    if negative {
+        .any(|(name, v)| (**v < Fx::ZERO && *name != "damage_add") || **v > MAX_VALUE);
+    if negative || it.damage_add < -MAX_VALUE {
         errors.push(format!(
-            "weapon {i} item {n}: its values cannot be negative or above {}",
+            "weapon {i} item {n}: its values cannot be negative (damage_add aside) or above {}",
             MAX_VALUE.floor_int()
         ));
+    }
+    // A trap (E45, sim 117): a real circle that trips (a slip, hard or soft), its kick not negative upward.
+    if let Some(t) = &it.trap {
+        if t.hit.radius <= Fx::ZERO
+            || t.hit.slip == sim_core::moves::SLIP_NONE
+            || t.hit.slip > sim_core::moves::SLIP_SOFT
+            || t.kick_x < Fx::ZERO
+            || t.kick_y < Fx::ZERO
+            || t.hit.damage < Fx::ZERO
+        {
+            errors.push(format!(
+                "weapon {i} item {n}: a trap needs a hit radius above 0, a slip (hard or soft), a damage and kicks not negative"
+            ));
+        }
     }
     let keeps_ok = copy.u8_fields_mut().iter().all(|(_, v)| **v <= 200);
     let ordered = it.bounce_x.0 <= it.bounce_x.1
@@ -384,6 +403,7 @@ fn validate_item(i: usize, n: usize, it: &sim_core::moves::ItemSpec, errors: &mu
         && ((it.pick_width > Fx::ZERO && it.pick_height > Fx::ZERO) || it.placed.is_some())
         && it.throw_mul > Fx::ZERO
         && it.hit.radius > Fx::ZERO
+        && it.hit.slip <= sim_core::moves::SLIP_SOFT
         && (it.gravity == Fx::ZERO || it.max_fall > Fx::ZERO)
         && (it.hp == Fx::ZERO || it.hurt_radius > Fx::ZERO);
     if !ok {
@@ -638,6 +658,7 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             && mv.pull.is_none()
             && mv.pocket.is_none()
             && mv.unpocket.is_none()
+            && mv.toss.is_none()
         {
             errors.push(format!("weapon {i} {name}: has no hitboxes"));
         }
@@ -909,6 +930,34 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             errors.push(format!(
                 "weapon {i} {name}: a hitbox's rules must be current or previous"
             ));
+        }
+        if mv
+            .hitboxes
+            .iter()
+            .chain(mv.projectile.iter().flat_map(|p| {
+                std::iter::once(&p.hitbox).chain(p.phases.iter().flatten().map(|(_, hb)| hb))
+            }))
+            .any(|hb| hb.slip > sim_core::moves::SLIP_SOFT)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: a hitbox's slip must be none, hard or soft"
+            ));
+        }
+        // A move's toss (E47, sim 117): its frames inside the move, its speeds not negative, its angle a real one.
+        if let Some(t) = &mv.toss {
+            let inside = |f: u8| f < mv.total_frames;
+            if !inside(t.frame)
+                || (t.again != 255 && !inside(t.again))
+                || t.speed < Fx::ZERO
+                || t.smash_speed < Fx::ZERO
+                || t.speed > MAX_VALUE
+                || t.smash_speed > MAX_VALUE
+                || !(-180..=180).contains(&t.angle)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: a toss needs its frame (and again) inside the move, speeds not negative and an angle from -180 to 180"
+                ));
+            }
         }
         if mv.air_gravity.is_some_and(|g| g < Fx::ZERO)
             || mv.air_max_fall.is_some_and(|v| v <= Fx::ZERO)
@@ -1309,6 +1358,84 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("placed")));
+    }
+
+    #[test]
+    fn the_popgun_banana_fields_round_trip_and_are_checked() {
+        // Sim 117: the Popgun's (class 11) peel: the slip hits (E44), the toss (E47), the item's damage modifier, uses and trap (E45),
+        // and the ruleset's soft-trip timings come back from a file unchanged; a file without them keeps today's behaviour; bad values
+        // are refused.
+        use sim_core::moves::{SLIP_HARD, SLIP_NONE, SLIP_SOFT};
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[11].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "slip hard",
+            "slip soft",
+            "toss {",
+            "smash_speed",
+            "wait 85",
+            "again 12",
+            "uses 2",
+            "damage_add 1",
+            "trap {",
+            "kick_y",
+            "slip_lag 30",
+            "slip_max 90",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no slip, no toss, no modifier, no limit, no trap, the standard soft-trip timings.
+        let stripped = text
+            .replace(" slip hard", "")
+            .lines()
+            .filter(|l| {
+                !l.trim_start().starts_with("uses ")
+                    && !l.contains("damage_add")
+                    && !l.contains("slip_lag")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        let peel = older.weapons[w].items[0];
+        assert_eq!(peel.hit.slip, SLIP_NONE);
+        assert_eq!((peel.uses, peel.damage_add), (0, Fx::ZERO));
+        assert_eq!(older.rules.slip_lag, 30);
+        assert_eq!(base.weapons[w].items[0].hit.slip, SLIP_HARD);
+        assert_eq!(
+            base.weapons[w].items[0].trap.map(|t| t.hit.slip),
+            Some(SLIP_SOFT)
+        );
+        // A word that is not a slip.
+        let bad = text.replacen("slip hard", "slip maybe", 1);
+        assert!(crate::bundle::load(&bad).is_err());
+        // Bad values: a toss past the move, a trap that does not trip, a slip out of range, a soft trip's options after its get-up.
+        let mut c = base.clone();
+        if let Some(t) = c.weapons[w].moves[MoveId::DownSpecial as usize]
+            .toss
+            .as_mut()
+        {
+            t.frame = 250;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("toss")));
+        let mut c = base.clone();
+        if let Some(t) = c.weapons[w].items[0].trap.as_mut() {
+            t.hit.slip = SLIP_NONE;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("trap")));
+        let mut c = base.clone();
+        c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].slip = 3;
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("slip")));
+        let mut c = base.clone();
+        c.rules.slip_lag = 91;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("slip_lag")));
     }
 
     #[test]

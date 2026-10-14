@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 117
-    hash 16584d24d0b3cf6b
+    hash 3b5d359a6d7047b4
 }
 
 ruleset {
@@ -125,6 +125,8 @@ ruleset {
     trip_invuln 5
     trip_base 7
     trip_base_kb 55
+    slip_lag 30
+    slip_max 90
     bury_base 55
     bury_percent 0.5
     bury_kb 1.5
@@ -6649,6 +6651,7 @@ weapon buckler {
         knock_speed_max 0.4
         knock_damage_min 1
         knock_damage_max 15
+        damage_add 0
         floor_keep_x 90
         floor_keep_y 70
         wall_keep_x 70
@@ -6658,6 +6661,7 @@ weapon buckler {
         fighter_keep_x 20
         fighter_keep_y 20
         knock_hitlag 50
+        uses 0
         thrown_life 0
         life 1800
         hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 1 angle 361 bkb 10 kbg 100 hitlag 60 angle_type travel }
@@ -6694,6 +6698,7 @@ weapon buckler {
         knock_speed_max 0
         knock_damage_min 0
         knock_damage_max 0
+        damage_add 0
         floor_keep_x 100
         floor_keep_y 100
         wall_keep_x 100
@@ -6703,6 +6708,7 @@ weapon buckler {
         fighter_keep_x 100
         fighter_keep_y 100
         knock_hitlag 100
+        uses 0
         thrown_life 40
         life 0
         vanish true
@@ -8385,6 +8391,7 @@ weapon pockets {
         knock_speed_max 0
         knock_damage_min 0
         knock_damage_max 0
+        damage_add 0
         floor_keep_x 100
         floor_keep_y 100
         wall_keep_x 100
@@ -8394,6 +8401,7 @@ weapon pockets {
         fighter_keep_x 100
         fighter_keep_y 100
         knock_hitlag 100
+        uses 0
         thrown_life 0
         life 840
         pocketable false
@@ -8426,6 +8434,7 @@ weapon pockets {
         knock_speed_max 0
         knock_damage_min 0
         knock_damage_max 0
+        damage_add 0
         floor_keep_x 100
         floor_keep_y 100
         wall_keep_x 100
@@ -8435,6 +8444,7 @@ weapon pockets {
         fighter_keep_x 100
         fighter_keep_y 100
         knock_hitlag 100
+        uses 0
         thrown_life 0
         life 600
         pocketable false
@@ -8467,6 +8477,7 @@ weapon pockets {
         knock_speed_max 0
         knock_damage_min 0
         knock_damage_max 0
+        damage_add 0
         floor_keep_x 100
         floor_keep_y 100
         wall_keep_x 100
@@ -8476,6 +8487,7 @@ weapon pockets {
         fighter_keep_x 20
         fighter_keep_y 20
         knock_hitlag 100
+        uses 0
         thrown_life 40
         life 0
         hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 3 angle 361 bkb 20 kbg 60 angle_type travel }
@@ -9287,6 +9299,52 @@ weapon pockets {
 
 weapon popgun {
     limbs true
+    item {
+        kind 9
+        gravity 0.0125
+        max_fall 0.275
+        air_friction 0
+        friction 0.00749
+        max_speed 0
+        half_width 0.15625
+        half_height 0.09375
+        wall_lift 0
+        bounce_min 8
+        bounce_x_min 0
+        bounce_x_max 0
+        bounce_y_min 0
+        bounce_y_max 0
+        pick_width 0.5
+        pick_height 0.5
+        throw_mul 0.84999
+        damage_per_speed 13.59999
+        fighter_lift 0.25
+        hp 0
+        hurt_radius 0
+        knock_speed_min 0
+        knock_speed_max 0
+        knock_damage_min 0
+        knock_damage_max 0
+        damage_add 1
+        floor_keep_x 100
+        floor_keep_y 100
+        wall_keep_x 100
+        wall_keep_y 100
+        ceiling_keep_x 100
+        ceiling_keep_y 100
+        fighter_keep_x 10
+        fighter_keep_y 0
+        knock_hitlag 100
+        uses 2
+        thrown_life 0
+        life 0
+        hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 0 angle 361 bkb 50 kbg 0 clanks false rebounds false angle_type travel slip hard }
+        trap {
+            kick_x 0.09999
+            kick_y 0.1875
+            hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 0 angle 361 bkb 50 kbg 0 clanks false rebounds false slip soft }
+        }
+    }
     move jab {
         total_frames 18
         next jab2
@@ -9804,12 +9862,26 @@ weapon popgun {
         }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 angle_type position }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        total_frames 38
+        land_continue true
+        toss { frame 19 angle 105 speed 0.275 smash_speed 0.37949 wait 85 }
+        pull_frame 3
+        pull_item 0
         script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
+            // Popgun down special (the banana peel). On the move's frame 1 (the first a script sees) it picks its version: with a peel (kind 9)
+            // already out or the wait since the last toss not over, the toss that makes no peel (29 = ext1; 30 = ext2 with an item in the hand,
+            // which is still tossed); else with an item in the hand, the version that tosses it first (28 = ext0); else the move goes on as it is.
+            if frame == 1 {
+                if owns(9) > 0 || pull_wait > 0 {
+                    if holding > 0 {
+                        goto(30);
+                    } else {
+                        goto(29);
+                    }
+                } else if holding > 0 {
+                    goto(28);
+                }
+            }
         }
     }
     move jab2 {
@@ -9895,6 +9967,28 @@ weapon popgun {
         hitbox { start 21 end 22 x -1.4 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
         hitbox { start 21 end 22 x -1 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
         hitbox { start 21 end 22 x -0.59999 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+    }
+    move ext0 {
+        total_frames 37
+        land_continue true
+        toss { frame 18 again 12 angle 105 speed 0.275 smash_speed 0.37949 wait 85 }
+        pull_frame 12
+        pull_item 0
+    }
+    move ext1 {
+        total_frames 47
+        land_continue true
+        script {
+            // Settler down special, the planting that fails in the air: a shrug. Nothing comes out; the body's air physics carry on, and it
+            // keeps whatever speed it had (the reference's dud).
+            var shrug;
+            shrug = 1;
+        }
+    }
+    move ext2 {
+        total_frames 47
+        land_continue true
+        toss { frame 12 angle 105 speed 0.275 smash_speed 0.37949 }
     }
     move pivot_grab {
         total_frames 38

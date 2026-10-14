@@ -143,6 +143,7 @@ pub const R_OWNED: u8 = 31;
 pub const R_HOLDING: u8 = 32;
 pub const R_BALLOONS: u8 = 33;
 pub const R_POCKETED: u8 = 34;
+pub const R_PULL_WAIT: u8 = 35;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -277,6 +278,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "pocketed",
         R_POCKETED,
         "what the fighter has put away in its pocket: 0 nothing, 1 a projectile, 2 an item",
+    ),
+    reg(
+        "pull_wait",
+        R_PULL_WAIT,
+        "frames before a move's toss lets the fighter make another tossed item (a move's toss wait), 0 when it can",
     ),
 ];
 

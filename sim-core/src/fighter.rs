@@ -203,6 +203,7 @@ fn enter(f: &mut Fighter, state: S) {
     f.late_left = 0;
     // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
     f.tripped = false;
+    f.trip_soft = false;
     // The fast opening of a full hop only survives while airborne or attacking in the air.
     if !matches!(state, S::Airborne | S::Attack) {
         f.hop_boost = 0;
@@ -306,6 +307,8 @@ pub fn update(
     }
     // A tech press opens a short window; another press only counts once `tech_lockout` frames have passed (no mashing).
     f.tech_timer = f.tech_timer.saturating_add(1);
+    // The wait before a move can make another tossed item (E47, sim 117) counts down every frame, hitlag included [E].
+    f.pull_wait = f.pull_wait.saturating_sub(1);
     // Dodge staleness wears off: a level `dodge_stale_first` frames after the last dodge ended, then one every `dodge_stale_every`.
     if !matches!(f.state, S::Roll | S::SpotDodge | S::AirDodge) {
         f.dodge_clock = f.dodge_clock.saturating_add(1);
@@ -1832,10 +1835,11 @@ fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S, frames: u
 }
 
 /// A trip (`Hitbox::trip`): the fighter sits down where it stands, intangible for `trip_invuln` frames, and gets up as from a
-/// knockdown on the ruleset's trip timings (see [`knockdown`]).
-pub fn trip(f: &mut Fighter, rules: &Ruleset) {
+/// knockdown on the ruleset's trip timings (see [`knockdown`]), or its soft-trip timings with `soft` (E44, sim 117).
+pub fn trip(f: &mut Fighter, rules: &Ruleset, soft: bool) {
     enter(f, S::Knockdown);
     f.tripped = true;
+    f.trip_soft = soft;
     f.vel = Vec2::ZERO;
     f.kb_vel = Vec2::ZERO;
     f.launch_pending = false;
@@ -2001,7 +2005,9 @@ fn knockdown(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage,
     if !slide_on_platform(f, p, stage) {
         return;
     }
-    let (lag, max) = if f.tripped {
+    let (lag, max) = if f.tripped && f.trip_soft {
+        (rules.slip_lag, rules.slip_max)
+    } else if f.tripped {
         (rules.trip_lag, rules.trip_max)
     } else {
         (rules.knockdown_lag, rules.knockdown_max)
@@ -2699,6 +2705,19 @@ fn attack(
     }
     if mv.spend_item != 255 && f.state_frame == u16::from(mv.spend_item) {
         f.item_order |= crate::items::ORDER_SPEND;
+    }
+    // ...or throw the item in hand at the move's own speed and angle (E47, sim 117): on `again` an item held as the move began, on
+    // `frame` the move's own (which starts the wait before the next can be made).
+    if let Some(t) = mv.toss {
+        let main = f.state_frame == u16::from(t.frame);
+        let again = t.again != 255 && f.state_frame == u16::from(t.again);
+        if (main || again) && f.holding != NONE {
+            f.item_throw = crate::items::THROW_MOVE;
+            f.item_order |= crate::items::ORDER_RELEASE;
+            if main && t.wait > 0 {
+                f.pull_wait = t.wait;
+            }
+        }
     }
     // A pocket (E42) started with an item in the hand puts that item away on its first catching frame; a release takes out what was
     // put away on its frame.

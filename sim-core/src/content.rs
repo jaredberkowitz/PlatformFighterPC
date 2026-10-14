@@ -2053,6 +2053,11 @@ pub struct Ruleset {
     /// 0 turns the base chance off.
     pub trip_base: u8,
     pub trip_base_kb: Fx,
+    /// A soft trip (E44, sim 117: the reference's slip effect from walking into a lying banana peel, `Hitbox::slip` soft): as a
+    /// trip, with no hitlag, get-up options from frame `slip_lag` and a get-up by itself on frame `slip_max` (30 and 90: the
+    /// reference's soft trip, options "after 29 frames", the neutral get-up "on the 90th frame", ssbwiki.com's trip pages).
+    pub slip_lag: u8,
+    pub slip_max: u8,
     /// The bury (E5, a hit's `EFFECT_BURY`; the reference's rules, ssbwiki.com "Buried", 13.0.1): a grounded fighter is buried for
     /// `bury_base + bury_percent x p + bury_kb x k` frames rounded up (p its percent after the hit, k the hit's knockback at weight
     /// 100: 55, 0.5, 1.5), `bury_behind_1` / `bury_behind_2` more when the attacker is one / two or more stocks behind (8, 12) and
@@ -2234,6 +2239,8 @@ impl Ruleset {
             trip_invuln: 5,
             trip_base: 7,
             trip_base_kb: Fx::from_int(55),
+            slip_lag: 30,
+            slip_max: 90,
             bury_base: Fx::from_int(55),
             bury_percent: Fx::from_ratio(1, 2),
             bury_kb: Fx::from_ratio(3, 2),
@@ -2393,6 +2400,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.trip_invuln);
         h.write_u8(self.trip_base);
         self.trip_base_kb.hash_into(h);
+        h.write_u8(self.slip_lag);
+        h.write_u8(self.slip_max);
         self.bury_base.hash_into(h);
         self.bury_percent.hash_into(h);
         self.bury_kb.hash_into(h);

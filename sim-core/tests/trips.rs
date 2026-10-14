@@ -59,6 +59,43 @@ fn a_sure_trip_sits_the_target_down_instead_of_launching_it() {
     assert!(!plain.fighter(1).tripped);
 }
 
+#[test]
+fn a_slip_trips_whatever_the_launch_and_a_soft_one_has_no_hitlag() {
+    // E44 (sim 117): a hit with `slip` trips a fighter on the ground every time, even one that would launch it upward (here the down
+    // tilt turned to 90 degrees and strong), with no roll; a hard slip keeps the hitlag and the trip's timings, a soft one has no
+    // hitlag and the ruleset's slip timings. An airborne fighter is launched as usual.
+    for (slip, soft) in [
+        (sim_core::moves::SLIP_HARD, false),
+        (sim_core::moves::SLIP_SOFT, true),
+    ] {
+        let mut sim = down_tilt(0);
+        let w = usize::from(sim.content.fighters[usize::from(HAULER)].weapon);
+        for h in &mut sim.content.weapons[w].moves[MoveId::DTilt as usize].hitboxes {
+            h.slip = slip;
+            h.angle = 90;
+            h.base_knockback = 100;
+        }
+        let rng = sim.state.rng;
+        until_hit(&mut sim, inp(0, 0, 0));
+        let f = *sim.fighter(1);
+        assert_eq!(
+            (f.state, f.tripped, f.trip_soft),
+            (S::Knockdown, true, soft)
+        );
+        assert_eq!(f.hitlag > 0, !soft, "hitlag only on a hard slip");
+        assert_eq!(sim.state.rng, rng, "nothing rolled");
+    }
+    let mut sim = down_tilt(0);
+    let w = usize::from(sim.content.fighters[usize::from(HAULER)].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::DTilt as usize].hitboxes {
+        h.slip = sim_core::moves::SLIP_HARD;
+    }
+    sim.put_airborne(1, fx(17, 10), fx(2, 10), Fx::ZERO, Fx::ZERO);
+    until_hit(&mut sim, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).state, S::Hitstun, "in the air: launched");
+    assert!(!sim.fighter(1).tripped);
+}
+
 /// After the trip's hitlag, (frame of the sit, state, intangible) for each tick while player 1 holds `p1`.
 fn after_trip(p1: sim_core::Input, ticks: u32) -> Vec<(u16, S, bool)> {
     let mut sim = down_tilt(100);

@@ -189,6 +189,8 @@ impl Host for FighterHost<'_> {
                 })
                 .raw()
             }
+            // (E47, sim 117: the wait a move's toss started.)
+            api::R_PULL_WAIT => Fx::from_int(i32::from(f.pull_wait)).raw(),
             _ => 0,
         }
     }

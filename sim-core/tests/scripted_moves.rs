@@ -1040,3 +1040,19 @@ fn owns_counts_the_fighters_items_and_projectiles_of_a_kind() {
         (Fx::from_int(2).raw(), Fx::from_int(2).raw(), 0)
     );
 }
+
+#[test]
+fn the_pull_wait_register_reads_the_wait_a_toss_started_counting_down() {
+    // Sim 117 (E47): `pull_wait` is the frames left of the wait a move's toss started (`Toss::wait`), counting down a frame each frame
+    // from the start of the next; 0 when there is none.
+    let mut sim = with_special(scripted(20, "var w; w = pull_wait;"));
+    sim.state.fighters[0].pull_wait = 10;
+    // (The press's frame counts it down once, the next frame once more before the script reads it.)
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], Fx::from_int(8).raw());
+    let mut sim = with_special(scripted(20, "var w; w = pull_wait;"));
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0);
+}

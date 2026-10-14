@@ -40,6 +40,8 @@ pub const THROW_DASH: u8 = 4;
 pub const THROW_DROP: u8 = 5;
 /// The aerial drop (the grab button in the air, the stick in the middle): let go at once, no speed, no lag.
 pub const THROW_LET_GO: u8 = 6;
+/// A move's own throw of the item in hand (E47, sim 117: `moves::Toss`), at the move's speed and angle, during the move.
+pub const THROW_MOVE: u8 = 7;
 pub const THROW_SMASH: u8 = 0x80;
 
 /// The `moves::ItemSpec` of an item: its maker's weapon's.
@@ -339,6 +341,7 @@ pub fn make_as(
         water: 0,
         grow_in: 0,
         cuts: 0,
+        used: 0,
     };
     Some(n)
 }
@@ -357,7 +360,95 @@ pub fn update(state: &mut GameState, content: &Content) {
             tick(state, content, n);
         }
     }
+    traps(state, content);
     knock_about(state, content);
+}
+
+/// Lying items with a trap (E45, sim 117: `moves::Trap`) trip the fighters on the ground that walk into them: for each such item (in
+/// slot order) the first fighter (in player order) whose legs touch its trap.
+fn traps(state: &mut GameState, content: &Content) {
+    for n in 0..MAX_ITEMS {
+        let it = state.items[n];
+        if !it.active
+            || it.holder != NONE
+            || it.rest != ITEM_FREE
+            || it.platform == NONE
+            || it.hitlag > 0
+        {
+            continue;
+        }
+        let Some(spec) = spec_of(content, &it).copied() else {
+            continue;
+        };
+        let Some(trap) = spec.trap else {
+            continue;
+        };
+        let facing = i32::from(it.facing);
+        let at = it.pos + Vec2::new(trap.hit.x.mul_int(facing), trap.hit.y);
+        for d in 0..MAX_FIGHTERS {
+            let fd = &state.fighters[d];
+            let exempt = matches!(
+                fd.state,
+                S::Knockdown
+                    | S::GetUp
+                    | S::Hitstun
+                    | S::Grabbed
+                    | S::Buried
+                    | S::Encased
+                    | S::Respawn
+                    | S::LedgeHang
+                    | S::LedgeGetUp
+                    | S::LedgeAttack
+                    | S::LedgeJump
+            );
+            if !fd.active
+                || d == usize::from(it.owner)
+                || !fd.grounded()
+                || exempt
+                || combat::is_intangible(fd)
+            {
+                continue;
+            }
+            let pd = combat::params_of(content, fd);
+            // (Only the lowest hurtbox circle, the legs: the reference's "leg and lower body hurtboxes".)
+            let shut = combat::intangible_parts(fd, combat::weapon_of(content, pd));
+            if shut & crate::moves::PART_LOW != 0 {
+                continue;
+            }
+            let (legs, r) = combat::body_hurtboxes(content, fd)[0];
+            let touching = combat::shapes_touch(
+                at,
+                trap.hit.half_width,
+                trap.hit.half_height,
+                trap.hit.radius,
+                legs,
+                Fx::ZERO,
+                Fx::ZERO,
+                r,
+            );
+            if !touching {
+                continue;
+            }
+            let rules = &content.rules;
+            let def = &mut state.fighters[d];
+            def.percent = (def.percent + trap.hit.damage).min(Fx::from_int(999));
+            crate::fighter::trip(def, rules, trap.hit.slip != crate::moves::SLIP_HARD);
+            let away: i32 = match it.pos.x.cmp(&def.pos.x) {
+                core::cmp::Ordering::Less => -1,
+                core::cmp::Ordering::Greater => 1,
+                core::cmp::Ordering::Equal => facing,
+            };
+            let item = &mut state.items[n];
+            item.used = item.used.saturating_add(1);
+            if spent(&spec, item) {
+                item.active = false;
+            } else {
+                item.vel = Vec2::new(trap.kick_x.mul_int(away), trap.kick_y);
+                item.platform = NONE;
+            }
+            break;
+        }
+    }
 }
 
 /// Fighter `i`'s hand and orders: an item it can no longer hold falls; then pick-up, release, use, pull and detonate, in that order.
@@ -394,8 +485,11 @@ fn serve(state: &mut GameState, content: &Content, i: usize) {
             state.fighters[i].holding = n as i8;
         }
     }
-    // (A throw that is still going, or the aerial let-go, which is no action of its own.)
-    if order & ORDER_RELEASE != 0 && (f.state == S::ItemThrow || f.item_throw == THROW_LET_GO) {
+    // (A throw that is still going, or the aerial let-go, which is no action of its own, or a move's own toss: E47.)
+    let move_toss = f.item_throw == THROW_MOVE && f.state == S::Attack;
+    if order & ORDER_RELEASE != 0
+        && (f.state == S::ItemThrow || f.item_throw == THROW_LET_GO || move_toss)
+    {
         release(state, content, i);
     }
     let f = state.fighters[i];
@@ -461,8 +555,18 @@ fn release(state: &mut GameState, content: &Content, i: usize) {
     };
     let rules = &content.rules;
     let throw = f.item_throw;
-    let (speed, angle) = throw_speed(rules, throw);
     let p = combat::params_of(content, &f);
+    // A move's own toss (E47) at its speed and angle (its smash speed for a special input like a smash attack); the others by the
+    // ruleset's universal throws.
+    let (speed, angle) = if throw == THROW_MOVE {
+        match combat::weapon_of(content, p).get(f.move_id).toss {
+            Some(t) if f.special_flick => (t.smash_speed, t.angle),
+            Some(t) => (t.speed, t.angle),
+            None => return,
+        }
+    } else {
+        throw_speed(rules, throw)
+    };
     let t = speed * toss_strength(p);
     let m = spec.throw_mul;
     let a = Angle::from_degrees(i32::from(angle));
@@ -472,12 +576,13 @@ fn release(state: &mut GameState, content: &Content, i: usize) {
         vx = vx.clamp(-spec.max_speed, spec.max_speed);
     }
     let vy = t * trig::sin(a) * m;
-    // The thrown hit's damage: its base (halved for the grounded drop) plus its share of the throw's speed (the reference's).
-    let base = if throw & !THROW_SMASH == THROW_DROP {
+    // The thrown hit's damage: its base (halved for the grounded drop, and for a move's toss: the reference's), the modifier a drop does
+    // not halve (sim 117), plus its share of the throw's speed (the reference's).
+    let base = if throw & !THROW_SMASH == THROW_DROP || throw == THROW_MOVE {
         spec.hit.damage / Fx::from_int(2)
     } else {
         spec.hit.damage
-    };
+    } + spec.damage_add;
     state.fighters[i].holding = NONE;
     let item = &mut state.items[n];
     item.holder = NONE;
@@ -490,6 +595,15 @@ fn release(state: &mut GameState, content: &Content, i: usize) {
     item.damage = base + spec.damage_per_speed * t;
     item.hit_mask = 0;
     item.facing = f.facing;
+    // A fighter's throw spends one of the item's uses (sim 117); a move's toss does not.
+    if spec.uses > 0 && throw != THROW_MOVE {
+        item.used = item.used.saturating_add(1);
+    }
+}
+
+/// Whether an item with limited uses has spent them all (sim 117, `ItemSpec::uses`).
+fn spent(spec: &ItemSpec, it: &Item) -> bool {
+    spec.uses > 0 && it.used >= spec.uses
 }
 
 /// One frame of item `n`: hitlag, life and fuse, then its movement (held, lying, flying) and the hits it makes.
@@ -569,7 +683,8 @@ fn fly(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
     if it.rest == ITEM_THROWN {
         it.flight = it.flight.saturating_add(1);
         if spec.thrown_life > 0 && it.flight >= spec.thrown_life {
-            if spec.vanish {
+            // (Its uses spent by the throw: the end of its flight is its end, sim 117.)
+            if spec.vanish || spent(spec, &it) {
                 state.items[n].active = false;
                 return;
             }
@@ -618,8 +733,12 @@ fn fly(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
                 it.vel.y = Fx::ZERO;
                 it.platform = i as i8;
             }
-            // (The thrown hit ends where it meets the ground [E].)
+            // (The thrown hit ends where it meets the ground [E]; with its uses spent by the throw it is gone there, sim 117.)
             if it.rest == ITEM_THROWN {
+                if spent(spec, &it) {
+                    state.items[n].active = false;
+                    return;
+                }
                 it.rest = ITEM_FREE;
             }
             state.items[n] = it;
@@ -716,6 +835,8 @@ fn thrown_hits(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
         if !touching {
             continue;
         }
+        // (A hit on a fighter, not a shield or a passive shield, spends one of a limited item's uses: sim 117.)
+        let on_body = !blocked && state.fighters[d].state != S::Shield;
         if blocked {
             combat::passive_block(&mut state.fighters[d], &content.rules, &hb);
         } else {
@@ -741,7 +862,10 @@ fn thrown_hits(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
         }
         let item = &mut state.items[n];
         item.hit_mask |= 1 << d;
-        if spec.vanish {
+        if on_body && spec.uses > 0 {
+            item.used = item.used.saturating_add(1);
+        }
+        if spec.vanish || spent(spec, item) {
             item.active = false;
         } else {
             item.vel = Vec2::new(

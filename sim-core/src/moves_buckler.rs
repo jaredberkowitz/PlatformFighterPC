@@ -1016,6 +1016,9 @@ fn bomb_item() -> ItemSpec {
     ItemSpec {
         pocketable: true,
         placed: None,
+        damage_add: Fx::ZERO,
+        uses: 0,
+        trap: None,
         kind: BOMB_KIND,
         gravity: rs(70),
         max_fall: rs(2300),
@@ -1067,6 +1070,9 @@ fn arrow_item() -> ItemSpec {
     ItemSpec {
         pocketable: true,
         placed: None,
+        damage_add: Fx::ZERO,
+        uses: 0,
+        trap: None,
         kind: ARROW_KIND,
         gravity: rs(53),
         max_fall: rs(2300),

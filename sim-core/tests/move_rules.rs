@@ -796,3 +796,56 @@ fn the_pocket_and_tree_fields_are_in_the_content_hash() {
         assert_ne!(c.hash(), h, "edit {k}");
     }
 }
+
+#[test]
+fn the_banana_fields_are_in_the_content_hash() {
+    // Sim 117 (E44, E45, E47): a hitbox's slip, a move's toss, an item's damage modifier, uses and trap, and the ruleset's soft-trip
+    // timings each change the hash.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[11].weapon);
+    let edits: [fn(&mut sim_core::Content, usize); 10] = [
+        |c, _| {
+            c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].slip = sim_core::moves::SLIP_SOFT
+        },
+        |c, w| {
+            if let Some(t) = c.weapons[w].moves[MoveId::DownSpecial as usize]
+                .toss
+                .as_mut()
+            {
+                t.angle = 100;
+            }
+        },
+        |c, w| {
+            if let Some(t) = c.weapons[w].moves[MoveId::DownSpecial as usize]
+                .toss
+                .as_mut()
+            {
+                t.wait = 60;
+            }
+        },
+        |c, w| {
+            if let Some(t) = c.weapons[w].moves[MoveId::DownSpecial as usize]
+                .toss
+                .as_mut()
+            {
+                t.smash_speed = Fx::ONE;
+            }
+        },
+        |c, w| c.weapons[w].items[0].damage_add = Fx::ZERO,
+        |c, w| c.weapons[w].items[0].uses = 3,
+        |c, w| c.weapons[w].items[0].trap = None,
+        |c, w| {
+            if let Some(t) = c.weapons[w].items[0].trap.as_mut() {
+                t.kick_x = Fx::ZERO;
+            }
+        },
+        |c, _| c.rules.slip_lag = 29,
+        |c, _| c.rules.slip_max = 89,
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c, w);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}

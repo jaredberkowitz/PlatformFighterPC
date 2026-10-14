@@ -114,6 +114,7 @@ pub fn popgun() -> Weapon {
     aerials(&mut w);
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
+    banana(&mut w);
     w
 }
 
@@ -675,4 +676,130 @@ fn ledge_and_floor(w: &mut Weapon) {
     });
     getup.intangible = 23;
     w.moves[MoveId::GetUpAttack as usize] = getup;
+}
+
+// ---- The down special: the banana peel ---------------------------------------------------------------------------------------------
+
+/// The down special's versions (the script `popgun_peel.script` goes on as one on frame 1): with an item already in the hand (it is
+/// thrown first), and the toss that makes no peel (one is out, or the wait since the last is not over), with or without an item.
+pub const PEEL_WITH_ITEM: MoveId = MoveId::Ext0;
+pub const PEEL_FAILS: MoveId = MoveId::Ext1;
+pub const PEEL_FAILS_WITH_ITEM: MoveId = MoveId::Ext2;
+/// The weapon's items: the banana peel.
+pub const BANANA_ITEM: u8 = 0;
+/// Its kind (what `owns(kind)` and the `holding` register read).
+pub const BANANA_KIND: u8 = 9;
+/// The wait before the next peel after one is tossed (the reference's 85 frames since 11.0.0: 12, 61 in 8.0.0, + 24) [R].
+pub const PEEL_WAIT: u8 = 85;
+
+/// A reference speed or length (thousandths of its units) in world units: / 8 [D].
+fn rs(thousandths: i32) -> Fx {
+    Fx::from_ratio(thousandths, 8000)
+}
+
+/// The peel's toss (13.0.1, ssbwiki.com `Banana_Peel_(move)`): 105 degrees (up and behind), 2.2 of the reference's units a frame, 3.036
+/// for a smash input, times the toss strength (the scamp's 0.966667) [R]; on `frame`, with an item held before the move on `again`.
+fn peel_toss(frame: u8, again: u8, wait: u8) -> Toss {
+    Toss {
+        frame,
+        again,
+        angle: 105,
+        speed: rs(2200),
+        smash_speed: rs(3036),
+        wait,
+    }
+}
+
+/// The down special: the banana peel (13.0.1; ssbwiki.com's raw down special page, `Banana_Peel_(move)`, `Banana_Peel`, ultimateframedata.com).
+///
+/// * The peel appears in the hand on frame 4 and is tossed over the shoulder on frame 20 (`Toss`, E47); FAF 40 [R]. An item already in
+///   the hand is tossed first, on frame 14, the same way [R] (`PEEL_WITH_ITEM`: the peel then appears as the other is let go [E: one
+///   hand here]).
+/// * One peel out at a time, and the next only 85 frames after the last was tossed [R]: otherwise the toss makes no peel
+///   (`PEEL_FAILS`; with an item held, it is still tossed: `PEEL_FAILS_WITH_ITEM`) and has more ending lag [R], FAF 50 [E: the
+///   animation's 50 frames].
+/// * The peel is an item anyone can pick up and throw (E4, see `banana_item`).
+/// * In the air the same frames, on the body's own air physics [E]; touching down carries the move on [E].
+fn banana(w: &mut Weapon) {
+    let mut peel = ref_move(40, 0, 0, 255, &[]);
+    peel.pull = Some((3, BANANA_ITEM));
+    peel.toss = Some(peel_toss(19, 255, PEEL_WAIT));
+    peel.land_continue = true;
+    peel.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_peel.script"),
+    ));
+    w.moves[MoveId::DownSpecial as usize] = peel;
+
+    // With an item in the hand: it is tossed on the special's frame 14 (the child's move frame 12) and the peel made then, the peel
+    // tossed on 20 (the child's 18); FAF 40 (the child's 39).
+    let mut with_item = ref_move(39, 0, 0, 255, &[]);
+    with_item.pull = Some((12, BANANA_ITEM));
+    with_item.toss = Some(peel_toss(18, 12, PEEL_WAIT));
+    with_item.land_continue = true;
+    w.moves[PEEL_WITH_ITEM as usize] = with_item;
+
+    // No peel: the throwing motion and a shrug, FAF 50 [E] (the child's 49); an item held is still tossed on 14.
+    let mut fails = ref_move(49, 0, 0, 255, &[]);
+    fails.land_continue = true;
+    fails.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pockets_shrug.script"),
+    ));
+    w.moves[PEEL_FAILS as usize] = fails;
+    let mut fails_item = ref_move(49, 0, 0, 255, &[]);
+    fails_item.toss = Some(peel_toss(12, 255, 0));
+    fails_item.land_continue = true;
+    w.moves[PEEL_FAILS_WITH_ITEM as usize] = fails_item;
+
+    w.items = vec![banana_item()];
+}
+
+/// The banana peel (an item: E4, the reference's, 13.0.1).
+///
+/// * Thrown (by its move's toss or by anyone's item throw): 0% base, the base damage modifier +1 and 1.7 per unit of throw speed (the
+///   reference's `1 + 1.7 x toss speed` for the move's toss), the throws 0.85x as fast [R] (ssbwiki.com `Item_throw`); its hit (radius
+///   3.0, 361 degrees, BK 50, KS 0, by travel) trips a fighter on the ground (the slip effect: a hard trip, with hitlag) and hits one in
+///   the air [R]; it never clanks (transcendent) [R]. On a fighter it bounces off high [R: "a high arc"]; its numbers [E].
+/// * Lying on the ground: a fighter (not its last thrower [R]) whose legs touch it (radius 3.0 [R], at its foot [E]) slips (a soft trip:
+///   no hitlag, get-ups from 30, up by itself on 90 [R: ssbwiki.com's trip pages]), whatever it is doing on the ground, shield too
+///   [R: `blockable=no`]; the peel flies up and away [E: the numbers].
+/// * Two uses: a fighter it trips (lying or thrown) and a fighter's throw each spend one, then it is gone [R: "two slips and/or
+///   throws"]; its own move's toss does not count [D]. No time limit [R: none published; the sources describe removal by use only].
+/// * Its fall: 2.2 at most [R], gravity 0.1 [E]; it slides to a stop on landing (friction 0.06 [E]); a box 2.5 wide and 1.5 tall, picked
+///   up within 4.0 [E].
+pub fn banana_item() -> ItemSpec {
+    let mut hit = row(&ru(1, 1, 0, 0, 30, 0, 361, 50, 0, 0, 0));
+    hit.angle_type = ANGLE_BY_TRAVEL;
+    hit.slip = SLIP_HARD;
+    hit.clanks = false;
+    hit.rebounds = false;
+    let mut it = ItemSpec::with_hit(hit);
+    it.kind = BANANA_KIND;
+    it.gravity = rs(100);
+    it.max_fall = rs(2200);
+    it.friction = rs(60);
+    it.half_width = rs(1250);
+    it.half_height = rs(750);
+    it.pick_width = rs(4000);
+    it.pick_height = rs(4000);
+    it.throw_mul = Fx::from_ratio(85, 100);
+    it.damage_add = Fx::ONE;
+    // (1.7 a reference unit a frame is 13.6 a world unit a frame [D].)
+    it.damage_per_speed = Fx::from_ratio(136, 10);
+    // (It never bounces off the floor: it lands and slides [E].)
+    it.bounce_min = Fx::from_int(8);
+    it.fighter_keep = (10, 0);
+    it.fighter_lift = rs(2000);
+    it.uses = 2;
+    let mut trap = row(&ru(1, 1, 0, 0, 30, 0, 361, 50, 0, 0, 0));
+    trap.slip = SLIP_SOFT;
+    trap.clanks = false;
+    trap.rebounds = false;
+    it.trap = Some(Trap {
+        hit: trap,
+        kick_x: rs(800),
+        kick_y: rs(1500),
+    });
+    it
 }

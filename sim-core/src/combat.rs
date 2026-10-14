@@ -1237,6 +1237,26 @@ pub(crate) fn apply_hit(
         def.hits_taken = 1;
         return;
     }
+    // A slip (E44, sim 117: the reference's slip effect): a fighter on the ground, not lying or sitting already, always trips, whatever
+    // the hit's launch; a soft slip with no hitlag. Nothing is rolled.
+    if hb.slip != crate::moves::SLIP_NONE
+        && !was_buried
+        && def.grounded()
+        && !matches!(def.state, S::Knockdown | S::GetUp)
+    {
+        let soft = hb.slip == crate::moves::SLIP_SOFT;
+        fighter::trip(def, rules, soft);
+        def.hitlag = if soft {
+            0
+        } else if crouching {
+            hitlag.min(rules.crouch_cancel_hitlag_cap)
+        } else {
+            hitlag
+        };
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
+        return;
+    }
     // A trip (the reference's trip chance, sim 86; the base chance, owner decision 50): a fighter on the ground whose launch would not
     // lift it off the ground (sent sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of
     // being launched, if the game's own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use
@@ -1249,7 +1269,7 @@ pub(crate) fn apply_hit(
         && crate::trig::sin(angle) <= Fx::ZERO
         && state.rng.range(100) < u32::from(chance)
     {
-        fighter::trip(def, rules);
+        fighter::trip(def, rules, false);
         def.hitlag = if crouching {
             hitlag.min(rules.crouch_cancel_hitlag_cap)
         } else {
@@ -1307,6 +1327,7 @@ pub(crate) fn apply_hit(
     def.state = S::Hitstun;
     def.state_frame = 0;
     def.tripped = false;
+    def.trip_soft = false;
     def.air_jump_frame = 0;
     // Being hit gives back the air dodge and a fresh set of ledge grabs, and ends a short hop.
     def.air_dodge_used = false;

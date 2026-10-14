@@ -366,7 +366,17 @@ pub struct Hitbox {
     /// launch, and its launch physics: no launch speed-up, the gravity boost on every tumbling launch and no shared fall speed for a
     /// vertical one). The numbers are the ruleset's `prev_*`. Only moves the owner names use it (the Settler's jab).
     pub rules: u8,
+    /// The reference's slip effect (E44, sim 117): a fighter on the ground (not already lying or sitting) that this hit reaches always
+    /// trips, whatever the hit's knockback and angle, instead of being launched: [`SLIP_HARD`] (the hit's damage and hitlag stand,
+    /// then the ruleset's trip timings: a thrown banana peel) or [`SLIP_SOFT`] (no hitlag, the ruleset's shorter `slip_*` timings:
+    /// walking into a lying peel). An airborne fighter takes the hit as usual. [`SLIP_NONE`] (the default): no slip.
+    pub slip: u8,
 }
+
+/// `Hitbox::slip` values (E44, sim 117).
+pub const SLIP_NONE: u8 = 0;
+pub const SLIP_HARD: u8 = 1;
+pub const SLIP_SOFT: u8 = 2;
 
 /// `Hitbox::rules` values (E40, sim 113).
 pub const RULES_CURRENT: u8 = 0;
@@ -429,6 +439,7 @@ impl Hitbox {
         self.posvec_frames = 0;
         self.half_width = Fx::ZERO;
         self.rules = RULES_CURRENT;
+        self.slip = SLIP_NONE;
         self
     }
 }
@@ -794,10 +805,18 @@ impl ProjectileArc {
 ///   `knock_damage.1` (in proportion, held within), with `knock_hitlag` percent of the hit's hitlag; at 0 hp it bursts (or goes).
 /// * Pocketing (E42, sim 115): a fighter's pocket can put it away when `pocketable` (the default; the reference: any item but a few).
 /// * Placed (E43, sim 115): see [`Placed`] (`None`: an ordinary item).
+/// * Sim 117 (the reference's banana peel; all off by default): `damage_add` is added to the thrown hit's damage after a drop has
+///   halved its base (the reference's "base damage modifier", which a drop does not halve); `uses` (0: no limit) is how many uses
+///   the item has: a fighter it hits while thrown, a fighter it trips while lying (`trap`) and a throw by a fighter each spend one,
+///   and once they are spent it is gone (at once on a hit or a trip; at the end of its flight after a throw); `trap` makes it trip
+///   fighters that walk into it while it lies on a platform (see [`Trap`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemSpec {
     pub pocketable: bool,
     pub placed: Option<Placed>,
+    pub damage_add: Fx,
+    pub uses: u8,
+    pub trap: Option<Trap>,
     pub kind: u8,
     pub gravity: Fx,
     pub max_fall: Fx,
@@ -831,6 +850,38 @@ pub struct ItemSpec {
     pub blast: Option<ItemBlast>,
 }
 
+/// A move's throw of the item in hand (E47, sim 117: the reference's banana peel, thrown by its move at its own speed and angle, not the
+/// universal item throws'). On move frame `frame` (and on `again`, 255 none: an item already held as the move began is thrown first),
+/// if the fighter holds an item it lets go of it: `angle` degrees above forward (more than 90 is behind), at `speed` (`smash_speed`
+/// when the special was input like a smash attack, the `flick` register) times the fighter's toss strength, with the item's
+/// `throw_mul` as the universal throws apply it. Its thrown hit is a drop's (the base halved, the reference's: the toss "considers
+/// the throw as dropping the item"). A throw on `frame` also starts the fighter's `pull_wait` at `wait` frames (0: none), the
+/// reference's time before the next peel can be made; the `pull_wait` register reads it. A move's toss is not one of the item's
+/// `uses`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Toss {
+    pub frame: u8,
+    pub again: u8,
+    pub angle: i16,
+    pub speed: Fx,
+    pub smash_speed: Fx,
+    pub wait: u8,
+}
+
+/// A lying item's trap (E45, sim 117: the reference's banana peel lying on the ground). While the item lies (or slides) on a platform,
+/// not held, a fighter on the ground whose lowest hurtbox (the legs) touches `hit` (placed `hit.x` ahead of and `hit.y` above the
+/// item's foot, by the item's facing) is tripped by it, unless the fighter is the item's owner (its last thrower), already lying or
+/// sitting, in hitstun, held or intangible. A shield does not stop it (the reference's `blockable=no`). The trip is the hit's `slip`
+/// ([`SLIP_SOFT`] for the peel: no hitlag, the ruleset's `slip_*` timings) with its damage (none for the peel). The trip spends one of
+/// the item's `uses`; if any are left the item is kicked up and away from the fighter it tripped at `kick_x` sideways and `kick_y` up
+/// (world units a frame) [E: the reference's peel flies a short way].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Trap {
+    pub hit: Hitbox,
+    pub kick_x: Fx,
+    pub kick_y: Fx,
+}
+
 /// An item's burst (the reference's bomb explosion): it starts `delay` frames after a `detonate()` (or at once at the end of the
 /// item's life or at 0 hp), stands where the item was and hits with `hit` (centred on the item's middle) for `frames` frames, each
 /// fighter once, credited to the fighter whose weapon made the item; with `hits_owner` that fighter too (the reference's self-damage).
@@ -849,6 +900,9 @@ impl ItemSpec {
         ItemSpec {
             pocketable: true,
             placed: None,
+            damage_add: Fx::ZERO,
+            uses: 0,
+            trap: None,
             kind: 0,
             gravity: Fx::ZERO,
             max_fall: Fx::ZERO,
@@ -884,7 +938,7 @@ impl ItemSpec {
     }
 
     /// Every fixed-point value with its content name (in file order).
-    pub fn fx_fields_mut(&mut self) -> [(&'static str, &mut Fx); 24] {
+    pub fn fx_fields_mut(&mut self) -> [(&'static str, &mut Fx); 25] {
         [
             ("gravity", &mut self.gravity),
             ("max_fall", &mut self.max_fall),
@@ -910,11 +964,12 @@ impl ItemSpec {
             ("knock_speed_max", &mut self.knock_speed.1),
             ("knock_damage_min", &mut self.knock_damage.0),
             ("knock_damage_max", &mut self.knock_damage.1),
+            ("damage_add", &mut self.damage_add),
         ]
     }
 
-    /// Every percent (and the knock's hitlag percent) with its content name (in file order).
-    pub fn u8_fields_mut(&mut self) -> [(&'static str, &mut u8); 9] {
+    /// Every percent (and the knock's hitlag percent, and the number of uses) with its content name (in file order).
+    pub fn u8_fields_mut(&mut self) -> [(&'static str, &mut u8); 10] {
         [
             ("floor_keep_x", &mut self.floor_keep.0),
             ("floor_keep_y", &mut self.floor_keep.1),
@@ -925,6 +980,7 @@ impl ItemSpec {
             ("fighter_keep_x", &mut self.fighter_keep.0),
             ("fighter_keep_y", &mut self.fighter_keep.1),
             ("knock_hitlag", &mut self.knock_hitlag),
+            ("uses", &mut self.uses),
         ]
     }
 }
@@ -1053,6 +1109,17 @@ impl StateHash for ItemSpec {
                 h.write_u8(b.frames);
                 h.write_u8(b.delay);
                 h.write_bool(b.hits_owner);
+            }
+            None => h.write_bool(false),
+        }
+        self.damage_add.hash_into(h);
+        h.write_u8(self.uses);
+        match &self.trap {
+            Some(t) => {
+                h.write_bool(true);
+                t.hit.hash_into(h);
+                t.kick_x.hash_into(h);
+                t.kick_y.hash_into(h);
             }
             None => h.write_bool(false),
         }
@@ -1675,6 +1742,9 @@ pub struct Move {
     pub unpocket: Option<PocketRelease>,
     /// The move's hits cut a placed piece that can be felled (E43, sim 115: the reference's axe; see [`Placed`]).
     pub chops: bool,
+    /// The move throws the item in the fighter's hand at its own speed and angle (E47, sim 117: the reference's banana peel toss; see
+    /// [`Toss`]). `None` (the default): no throw.
+    pub toss: Option<Toss>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1762,6 +1832,7 @@ impl Move {
             pocket: None,
             unpocket: None,
             chops: false,
+            toss: None,
             script: None,
             projectile_script: None,
         }
@@ -1854,6 +1925,7 @@ impl StateHash for Hitbox {
         h.write_u8(self.posvec_frames);
         self.half_width.hash_into(h);
         h.write_u8(self.rules);
+        h.write_u8(self.slip);
     }
 }
 
@@ -2291,6 +2363,18 @@ impl StateHash for Weapon {
                 None => h.write_bool(false),
             }
             h.write_bool(m.chops);
+            match &m.toss {
+                Some(t) => {
+                    h.write_bool(true);
+                    h.write_u8(t.frame);
+                    h.write_u8(t.again);
+                    h.write_u16(t.angle as u16);
+                    t.speed.hash_into(h);
+                    t.smash_speed.hash_into(h);
+                    h.write_u8(t.wait);
+                }
+                None => h.write_bool(false),
+            }
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -2362,6 +2446,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 posvec_frames: 0,
                 half_width: Fx::ZERO,
                 rules: RULES_CURRENT,
+                slip: SLIP_NONE,
             })
             .collect(),
         ..Move::empty()
@@ -2423,6 +2508,7 @@ fn row(r: &R) -> Hitbox {
         posvec_frames: 0,
         half_width: Fx::ZERO,
         rules: RULES_CURRENT,
+        slip: SLIP_NONE,
     }
 }
 
@@ -4889,6 +4975,7 @@ pub fn claws() -> Weapon {
             posvec_frames: 0,
             half_width: Fx::ZERO,
             rules: RULES_CURRENT,
+            slip: SLIP_NONE,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -5266,6 +5353,13 @@ pub mod pockets_slots {
 #[path = "moves_popgun.rs"]
 mod popgun;
 pub use popgun::popgun;
+/// The Popgun's follow-up slots (which `ext` slot holds which part) and its banana peel, for tests and tools.
+pub mod popgun_slots {
+    pub use super::popgun::{
+        banana_item, BANANA_ITEM, BANANA_KIND, PEEL_FAILS, PEEL_FAILS_WITH_ITEM, PEEL_WAIT,
+        PEEL_WITH_ITEM,
+    };
+}
 
 #[cfg(test)]
 mod tests {
@@ -5311,6 +5405,7 @@ mod tests {
                         || m.pull.is_some()
                         || m.pocket.is_some()
                         || m.unpocket.is_some()
+                        || m.toss.is_some()
                 );
                 for hb in &m.hitboxes {
                     assert!(

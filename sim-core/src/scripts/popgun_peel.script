@@ -1,0 +1,14 @@
+// Popgun down special (the banana peel). On the move's frame 1 (the first a script sees) it picks its version: with a peel (kind 9)
+// already out or the wait since the last toss not over, the toss that makes no peel (29 = ext1; 30 = ext2 with an item in the hand,
+// which is still tossed); else with an item in the hand, the version that tosses it first (28 = ext0); else the move goes on as it is.
+if frame == 1 {
+    if owns(9) > 0 || pull_wait > 0 {
+        if holding > 0 {
+            goto(30);
+        } else {
+            goto(29);
+        }
+    } else if holding > 0 {
+        goto(28);
+    }
+}
