@@ -893,3 +893,78 @@ fn the_owned_register_counts_the_fighters_shots_out_and_a_limit_stops_more() {
         }
     }
 }
+
+/// The wanderer's bomb item (E4), as a spec any weapon can carry in a test.
+fn bomb_spec() -> sim_core::moves::ItemSpec {
+    let c = Content::placeholder();
+    c.weapons[usize::from(c.fighters[9].weapon)].items[0]
+}
+
+/// Item `spec` of fighter `maker`'s weapon, lying at `x` on the stage (E4). Returns its slot.
+fn item_at(sim: &mut Sim, maker: usize, spec: u8, x: Fx) -> usize {
+    let n = sim_core::items::make(
+        &mut sim.state,
+        &sim.content,
+        maker,
+        spec,
+        sim_core::Vec2::new(x, Fx::ZERO),
+        MoveId::NSpecial as u8,
+    )
+    .expect("a free slot");
+    sim.state.items[n].platform = 0;
+    n
+}
+
+#[test]
+fn the_holding_register_reads_the_kind_of_the_item_in_hand() {
+    // Sim 111 (E4): `holding` is the kind of the item in the fighter's hand as the frame began (0 empty-handed).
+    for held in [false, true] {
+        let mut sim = with_special(scripted(20, "var h; h = holding;"));
+        let mut spec = bomb_spec();
+        spec.kind = 7;
+        sim.content.weapons[0].items = vec![spec];
+        if held {
+            let n = item_at(&mut sim, 0, 0, Fx::from_int(-7));
+            sim.state.items[n].holder = 0;
+            sim.state.items[n].rest = sim_core::state::ITEM_HELD;
+            sim.state.fighters[0].holding = n as i8;
+        }
+        start(&mut sim);
+        sim.tick(inp(0, 0, 0));
+        let want = if held { 7 } else { 0 };
+        assert_eq!(sim.f().vars[0], Fx::from_int(want).raw(), "held {held}");
+    }
+}
+
+#[test]
+fn detonate_bursts_the_fighters_items_after_their_delay_but_not_one_another_fighter_holds() {
+    // Sim 111 (E4): `detonate()` on frame 1 sets every blast-capable item the fighter made bursting `delay` frames later (counting that
+    // frame as the first), except one another fighter holds; the owner's own `owned` sees both.
+    let mut sim = with_special(scripted(
+        30,
+        "var n; n = owned; if frame == 1 { detonate(); }",
+    ));
+    let mut spec = bomb_spec();
+    spec.kind = 5;
+    if let Some(b) = spec.blast.as_mut() {
+        b.delay = 3;
+    }
+    sim.content.weapons[0].items = vec![spec];
+    // The special pulls the item kind `owned` counts (its pull frame is never reached).
+    sim.content.weapons[0].moves[MoveId::NSpecial as usize].pull = Some((29, 0));
+    let free = item_at(&mut sim, 0, 0, Fx::from_int(-2));
+    let taken = item_at(&mut sim, 0, 0, Fx::from_int(7));
+    sim.state.items[taken].holder = 1;
+    sim.state.items[taken].rest = sim_core::state::ITEM_HELD;
+    sim.state.fighters[1].holding = taken as i8;
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], Fx::from_int(2).raw(), "owned counts both");
+    assert_eq!(sim.state.items[free].fuse, 2);
+    sim.tick(inp(0, 0, 0));
+    assert_ne!(sim.state.items[free].rest, sim_core::state::ITEM_BLAST);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.state.items[free].rest, sim_core::state::ITEM_BLAST);
+    assert_eq!(sim.state.items[taken].rest, sim_core::state::ITEM_HELD);
+    assert_eq!(sim.state.items[taken].fuse, 0);
+}

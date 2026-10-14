@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 111
-    hash 596f8d46ea7bea39
+    hash c34bf3be67d9d13d
 }
 
 ruleset {
@@ -6646,7 +6646,7 @@ weapon buckler {
         hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 1 angle 361 bkb 10 kbg 100 hitlag 60 angle_type travel }
         blast {
             frames 2
-            delay 12
+            delay 11
             hits_owner true
             hitbox { start 0 end 0 x 0 y 0 radius 1.79999 damage 7 angle 52 bkb 60 kbg 115 hitlag 80 clanks false rebounds false angle_type position }
         }
@@ -7652,10 +7652,11 @@ weapon buckler {
         pull_item 0
         script {
             // Buckler down special (the bomb). With one of the wanderer's bombs out (in his hand, lying, flying or held by someone else: `owned`
-            // counts the bombs he made), the press is the detonation: every one no other fighter holds bursts 12 frames later (`detonate()`), and
-            // the move goes on as the detonation (36 = ext8). Otherwise it is the pull: the bomb appears in the hand on move frame 16 (the move's
-            // `pull`), unless the hand already holds an item.
-            if frame == 0 && owned > 0 {
+            // counts the bombs he made), the press is the detonation: on the move's frame 1 (the first a script sees) every one no other fighter
+            // holds is set to burst 11 frames later, 12 after the press (`detonate()`), and the move goes on as the detonation (36 = ext8, FAF 39
+            // from here). Otherwise it is the pull: the bomb appears in the hand on move frame 16 (the move's `pull`), unless the hand already holds
+            // an item.
+            if frame == 1 && owned > 0 {
                 detonate();
                 goto(36);
             }
@@ -8270,12 +8271,12 @@ weapon buckler {
     }
     move ext7 { total_frames 8 land_continue true }
     move ext8 {
-        total_frames 38
+        total_frames 37
         land_continue true
         script {
             // Buckler bomb detonation (ext8): frames only (a move with neither hits nor a shot needs a script to be valid content, and this one
-            // does nothing). The down special's own script calls detonate() on its first frame and goes on as this move, so the bomb bursts 12
-            // frames after the press (its blast's delay), on this move's frames 12-13 [R].
+            // does nothing). The down special's own script calls detonate() on its frame 1 and goes on as this move, so the bomb bursts 12 frames
+            // after the press (its blast's delay, 11, from that frame), on the press's frames 12-13 [R].
             if frame < 0 {
                 end();
             }

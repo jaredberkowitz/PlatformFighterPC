@@ -1003,7 +1003,7 @@ fn tools(w: &mut Weapon) {
 /// (half lengths), picked up within 4 x 4 [E: read as half lengths]; thrown at x0.6264 (the item's 0.72 x 0.87). Thrown it hits for
 /// 1% flat (no speed bonus), angle 361 by travel (type 1), BK 10, KS 100, radius 2.0 (→ 3 tenths), hitlag x0.6, and bounces off a
 /// fighter or a shield keeping x0.2 / x0.2 and 1 up. A 1800-frame fuse, 50 hp, a hurtbox of 4 (→ 0.5 [D]); knocked about at 1 to 3.2
-/// for 1% to 15% [R], frozen x0.5 [R]. Its blast (on a detonation, 12 frames later; at the end of the fuse; at 0 hp [E: gap 11]): 7%,
+/// for 1% to 15% [R], frozen x0.5 [R]. Its blast (on a detonation, 12 frames after the press; at the end of the fuse; at 0 hp [E: gap 11]): 7%,
 /// angle 52 by position (type 0), BK 60, KS 115, radius 14.0 (→ 1.8 [D]), hitlag x0.8, never clanks, for 2 frames (the reference's
 /// 12-13), and it hits the wanderer too (the reference's self-damage).
 fn bomb_item() -> ItemSpec {
@@ -1047,7 +1047,8 @@ fn bomb_item() -> ItemSpec {
         blast: Some(ItemBlast {
             hit: blast,
             frames: 2,
-            delay: 12,
+            // (12 frames from the press [R]; `detonate()` runs on the press's second frame, the first a script sees: 11 more [D].)
+            delay: 11,
             hits_owner: true,
         }),
     }
@@ -1110,7 +1111,8 @@ fn bomb(w: &mut Weapon) {
         include_str!("scripts/buckler_bomb.script"),
     ));
     w.moves[MoveId::DownSpecial as usize] = pull;
-    let mut detonate = ref_move(40, 0, 0, 255, &[]);
+    // (FAF 40 from the press; it starts on the press's second frame, so its own FAF is 39 [D].)
+    let mut detonate = ref_move(39, 0, 0, 255, &[]);
     detonate.land_continue = true;
     detonate.script = Some(script(
         Kind::Fighter,

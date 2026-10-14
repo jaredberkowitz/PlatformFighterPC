@@ -1,6 +1,6 @@
 // Buckler bomb detonation (ext8): frames only (a move with neither hits nor a shot needs a script to be valid content, and this one
-// does nothing). The down special's own script calls detonate() on its first frame and goes on as this move, so the bomb bursts 12
-// frames after the press (its blast's delay), on this move's frames 12-13 [R].
+// does nothing). The down special's own script calls detonate() on its frame 1 and goes on as this move, so the bomb bursts 12 frames
+// after the press (its blast's delay, 11, from that frame), on the press's frames 12-13 [R].
 if frame < 0 {
     end();
 }

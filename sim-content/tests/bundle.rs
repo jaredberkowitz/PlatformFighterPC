@@ -682,3 +682,143 @@ fn an_encase_block_round_trips_and_is_checked() {
         "damage_taken"
     ));
 }
+
+#[test]
+fn a_schema_6_file_from_before_items_still_loads_unchanged() {
+    // Written before sim v111: schema 6, no items, no pulls, no item throws (the built-in roster with them taken off).
+    let mut c = Content::placeholder();
+    for w in &mut c.weapons {
+        w.items.clear();
+        for m in &mut w.moves {
+            m.pull = None;
+            m.spend_item = 255;
+            if let Some(p) = m.projectile.as_mut() {
+                p.arc.lodge_item = None;
+                if let Some(ch) = p.charged.as_mut() {
+                    ch.times = 100;
+                }
+            }
+        }
+    }
+    for p in &mut c.fighters {
+        p.item_throws = sim_core::content::ItemThrows::STANDARD;
+    }
+    let mut old = text(&c, false).replace(&format!("schema {SCHEMA_VERSION}"), "schema 6");
+    // (An old ruleset has no item rules: drop them, the standard ones come back.)
+    old = old
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("item_"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(old.contains("schema 6") && !old.contains("item {") && !old.contains("item_throws"));
+    let bundle = load(&old).unwrap_or_else(|e| panic!("{}", e.join("\n")));
+    assert_eq!(bundle.manifest.schema, SCHEMA_VERSION);
+    assert_eq!(
+        bundle.content, c,
+        "nothing is rewritten: no weapon makes an item"
+    );
+}
+
+#[test]
+fn item_blocks_round_trip_are_inherited_and_are_checked() {
+    // E4 (sim 111): the wanderer's bomb and arrow, its pull and double arrow, the bodies' item throws.
+    let c = Content::placeholder();
+    let t = text(&c, false);
+    for field in [
+        "item {",
+        "blast {",
+        "hits_owner true",
+        "throw_mul 0.626",
+        "life 1800",
+        "vanish true",
+        "pull_frame 16",
+        "pull_item 0",
+        "spend_item 1",
+        "lodge_item 1",
+        "times 80",
+        "item_throws {",
+        "item_side_frames 24",
+    ] {
+        assert!(t.contains(field), "{field}");
+    }
+    assert_eq!(load(&t).unwrap().content, c);
+    let w = usize::from(c.fighters[9].weapon);
+    let wname = c.names.weapons[w].clone();
+    let fname = c.names.fighters[9].clone();
+    // A weapon that inherits keeps the items unless it writes its own; a fighter that inherits keeps the item throws.
+    let extra = format!(
+        "weapon heir {{ inherit {wname} }}\nweapon other {{ inherit {wname} item {{ kind 9 pick_width 1 pick_height 1 hitbox {{ start 0 end 0 x 0 y 0 radius 0.2 damage 1 angle 45 bkb 10 kbg 10 }} }} }}\nfighter heir {{ inherit {fname} weapon heir }}\n"
+    );
+    let at = t.find("stage ").unwrap();
+    let with = format!("{}{}{}", &t[..at], extra, &t[at..]);
+    let loaded = load(&with)
+        .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+        .content;
+    let n = loaded.weapons.len();
+    assert_eq!(loaded.weapons[n - 2].items, c.weapons[w].items);
+    assert_eq!(loaded.weapons[n - 1].items.len(), 1);
+    assert_eq!(loaded.weapons[n - 1].items[0].kind, 9);
+    assert_eq!(
+        loaded.weapons[n - 1].items[0].throw_mul,
+        Fx::ONE,
+        "the default"
+    );
+    let nf = loaded.fighters.len();
+    assert_eq!(
+        loaded.fighters[nf - 1].item_throws,
+        c.fighters[9].item_throws
+    );
+    // Bad numbers are refused.
+    let mut bad = c.clone();
+    bad.weapons[w].items[0].kind = 0;
+    assert!(has(&validate(&bad).unwrap_err(), "item 0: needs a kind"));
+    let mut bad = c.clone();
+    bad.weapons[w].items[1].pick_width = Fx::ZERO;
+    assert!(has(&validate(&bad).unwrap_err(), "item 1: needs a kind"));
+    let mut bad = c.clone();
+    if let Some(b) = bad.weapons[w].items[0].blast.as_mut() {
+        b.frames = 0;
+    }
+    assert!(has(&validate(&bad).unwrap_err(), "a blast needs"));
+    let mut bad = c.clone();
+    bad.weapons[w].moves[MoveId::DownSpecial as usize].pull = Some((16, 5));
+    assert!(has(&validate(&bad).unwrap_err(), "pull_item must be"));
+    let mut bad = c.clone();
+    bad.weapons[w].moves[MoveId::DownSpecial as usize].spend_item = 200;
+    assert!(has(&validate(&bad).unwrap_err(), "spend_item must be"));
+    let mut bad = c.clone();
+    if let Some(p) = bad.weapons[w].moves[sim_core::moves::buckler_slots::BOW_FIRE as usize]
+        .projectile
+        .as_mut()
+    {
+        p.arc.lodge_item = Some(7);
+    }
+    assert!(has(&validate(&bad).unwrap_err(), "lodge_item must be"));
+    let mut bad = c.clone();
+    if let Some(ch) = bad.weapons[w].moves[sim_core::moves::buckler_slots::DOUBLE_FIRE as usize]
+        .projectile
+        .as_mut()
+        .and_then(|p| p.charged.as_mut())
+    {
+        ch.times = 0;
+    }
+    assert!(has(&validate(&bad).unwrap_err(), "times is a percent"));
+    let mut bad = c.clone();
+    bad.fighters[3].item_throws.up = 0;
+    assert!(has(&validate(&bad).unwrap_err(), "release frames"));
+    let mut bad = c.clone();
+    bad.fighters[3].item_throws.down = 30;
+    assert!(has(&validate(&bad).unwrap_err(), "lets go after"));
+    let mut bad = c.clone();
+    bad.rules.item_side_frames = 0;
+    assert!(has(&validate(&bad).unwrap_err(), "lengths must be"));
+    let mut bad = c.clone();
+    bad.rules.item_drop_angle = 270;
+    assert!(has(&validate(&bad).unwrap_err(), "angles must be"));
+    // A pull without its item number is a reading error.
+    let broken = t.replacen("pull_item 0", "", 1);
+    assert!(has(
+        &errors(&broken),
+        "pull_frame and pull_item go together"
+    ));
+}

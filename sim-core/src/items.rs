@@ -286,8 +286,23 @@ pub fn make(
     pos: Vec2,
     move_id: u8,
 ) -> Option<usize> {
+    let body = state.fighters[fighter].char_id;
+    make_as(state, content, fighter, body, spec_index, pos, move_id)
+}
+
+/// [`make`] with the item's numbers read from body `body`'s weapon (an index into `Content::fighters`) while it is credited to
+/// `fighter` (what a tool setting up a match with items lying about uses).
+pub fn make_as(
+    state: &mut GameState,
+    content: &Content,
+    fighter: usize,
+    body: u8,
+    spec_index: u8,
+    pos: Vec2,
+    move_id: u8,
+) -> Option<usize> {
     let f = state.fighters[fighter];
-    let p = combat::params_of(content, &f);
+    let p = content.fighters.get(usize::from(body))?;
     let spec = *combat::weapon_of(content, p)
         .items
         .get(usize::from(spec_index))?;
@@ -295,7 +310,7 @@ pub fn make(
     state.items[n] = Item {
         active: true,
         origin: fighter as u8,
-        maker: f.char_id,
+        maker: body,
         spec: spec_index,
         kind: spec.kind,
         owner: fighter as u8,
