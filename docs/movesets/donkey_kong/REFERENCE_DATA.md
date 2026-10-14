@@ -462,6 +462,9 @@ Source: ssbwiki.com `Armor`, dragdown's notes.
    counts differently (its "soft landing lag 2" is `landing_frame_light` 1 + 1). Resolved to the house rule (3), as for every body.
 10. **Pummel timing**: UFD "2 / 21 including 15 frames of hitlag" vs ssbwiki.com hit 2, FAF 8. The same thing (21 - 15 + 2 = 8 with
     the frame counting) [D].
+12. **The bury's stock terms**: ssbwiki.com's "Buried" prints `10 + 30h + 15(3 - r) + 0.5p + 1.5k` with h 0.25 / 0.375 and r 1.5 / 1.8,
+    which gives +7.5 / +11.25 / -22.5 / -27 frames, while the same page summarises the terms as +8 / +12 / -18 / -22. Built: the
+    summary (the audit's design, approved by decision 38) [R summary]; unresolved (question 3 of phase 2).
 11. **The roster note's "Hand Slap: burying?"**: in 13.0.1 the grounded Hand Slap **does not bury** (no bury effect, 78 / 84 degree
     launches) [R]. Corrected.
 
