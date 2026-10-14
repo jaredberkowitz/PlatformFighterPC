@@ -89,7 +89,20 @@ stage proving_grounds { blast_left -28 ... platform { ... } ledge { ... } spawn 
   (1 for the throw's first) on which each item throw lets go of the item (the reference's per-body release frames: forward, back,
   up and down throws, smash or not, on the ground or in the air; the dash throw; the grounded drop). From 1 to 60, and each inside
   the ruleset's length for that throw. Inherited by `inherit`; without the block, the standard 8 / 11 / 12 / 7 / 5 / 6.
-* **Items** (schema 7, sim 111, E4; owner decisions 54 and 64): a weapon may make items, `item { ... }` blocks numbered by their order
+* **A fighter's wing** (sim 125, E57; optional, no schema change): `wing { points_m2 points_m1 points_0 points_p1 points_p2 per_dealt
+  [per_dealt_crowd] [ko_points] [jumps] [power] [walk] [dash] [run] [run_accel] [traction] [air_speed] [air_accel] [air_accel_stick]
+  [air_friction] [gravity] [fall] point { stocks diff percent } ... }`: a comeback form (the reference's one wing). After a hit that raises
+  the fighter's percent, with no wing out and none lost since its last KO, the start table's row for its stock difference with the
+  leading opponent (`stocks` -2 to 2: the `point` blocks of that row, in order of falling `diff`, a straight line between two points, two
+  points at one `diff` a jump, at most 8 a row, percents 0 to 999) gives the percent it must have reached for the percent difference
+  before the hit (its own less the opponent's); reaching it, the wing comes with `points_*` points (by the stock difference, above 0).
+  While it is out the body's numbers are multiplied by the percents (100 when absent: `walk` the walk speed and accelerations, `dash`
+  both dash speeds, `run` the run speed, `run_accel` both run accelerations, `traction` both frictions, `air_accel` the base air
+  acceleration, `air_accel_stick` the stick's share, `fall` both fall speeds), it has `jumps` more midair jumps, its hits (not items)
+  deal `power` percent (the knockback formula's damage term unchanged) and its attacks begin powered (a move's `armor_mode powered`).
+  Its hits on fighters take `per_dealt` points a percent of base damage (`per_dealt_crowd` with more than two fighters; default
+  `per_dealt`), a KO it is credited with `ko_points`, then the difference of the two stock differences' points; at 0 it is gone until
+  the fighter is knocked out. Inherited by `inherit`; without the block, no wing.* **Items** (schema 7, sim 111, E4; owner decisions 54 and 64): a weapon may make items, `item { ... }` blocks numbered by their order
   (0 first; a weapon that inherits keeps the other's items unless it writes its own). An item is not a projectile: any fighter can
   pick it up, hold it, throw it and drop it; it lies on the stage, can be knocked about and can burst. Fields (world units a frame,
   frames, percents; only `kind` and the `hitbox` required, the rest default to 0, the keeps to 100, `throw_mul` to 1, `knock_hitlag`
@@ -219,7 +232,8 @@ A move block (omitted fields take the default shown):
 | `armor_damage`, `armor_hitlag` | sim 121 (E55, the reference's guard stance): per mille of a hit's damage the fighter takes on a frame the move's `armor` covers (0 to 1000), and percent of the hitlag a hit the armor withstands causes for both fighters (1 to 400); a withstood hit also starts the `withstood` register | 1000, 100 |
 | `gauge_gain` | sim 121 (E53): per mille of the gauge's gain from damage taken while the fighter is in this move (0 to 10000; the reference's guard: 6737) | 1000 |
 | `tether { from to ahead [behind] up [down] [hang] reel [drag] limit }` | at most one (sim 123, E56: the reference's tether recovery): on move frames `from..=to` (inside the move), in the air, a ledge no one holds whose corner lies `behind` behind to `ahead` in front of the fighter's feet and `down` below to `up` above them (world units, 0 to 64), with the fighter outside the ledge's edge, is caught: the fighter hangs from it `hang` frames (its speed cut by `drag` per mille a frame, 0 to 1000, no gravity), is reeled to the ledge's hanging point over `reel` frames (at least 1) and grabs the ledge as any grab (the body's ledge grab limit and intangibility). The stick held down lets go; a ledge someone holds when the reel ends throws the fighter off as a knocked-off fighter; at most `limit` catches (at least 1) until the fighter lands or gets up onto the stage. While hanging it is in `Tether` (and does not hold the ledge) | none |
-| `dodge_stale` | sim 123 (`true`/`false`): the move is a dodge that stales like a roll (the reference's gun dodges): it is made with the dodge staleness so far and adds a level (the ruleset's `dodge_stale_*`), and its intangibility starts up to `dodge_stale_roll_shift` frames later when fully stale; its length is not stretched | false |
+| `armor_mode` | sim 125 (E57; `any`, `plain` or `powered`; needs the move's `armor`): when the move's armor (and its `armor_damage`) works, as a hitbox's `mode`: `powered` only in an attack begun powered (the gauge's mode or a wing out: the reference's wing armor on the smash attacks), `plain` only in one begun without | any |
+| `edge_stop` | sim 125 (`true`/`false`): on the ground, the move's motion (data or script) and its slide stop at the platform's edge instead of carrying the fighter off it (the reference's grounded up specials that do not leave edges) | false || `dodge_stale` | sim 123 (`true`/`false`): the move is a dodge that stales like a roll (the reference's gun dodges): it is made with the dodge staleness so far and adds a level (the ruleset's `dodge_stale_*`), and its intangibility starts up to `dodge_stale_roll_shift` frames later when fully stale; its length is not stretched | false |
 | `curse { damage every frames }` | at most one; needs the move's `projectile` (sim 121, E54: the reference's curse): a fighter the projectile's hit or its burst's damages (not a shield, not a counter) takes `damage` percent (above 0, at most 100; times the one-on-one multiplier) every `every` frames (at least 1) for `frames` frames (at least 1), credited to the projectile's owner, no hitlag and no flinch; a new curse replaces the old one, a KO ends it | none |
 | `chops` | `true`: the move's hits cut a placed piece that can be felled (E43, sim 115: the reference's axe; see the item's `placed` block) | false |
 | `toss { frame [again] angle speed [smash_speed] [wait] }` | at most one (E47, sim 117: the reference's banana peel, thrown by its move): on move frame `frame` (and on `again`, an item held as the move began), if the fighter holds an item it throws it `angle` degrees above forward (more than 90 is behind; -180 to 180) at `speed` (`smash_speed`, default `speed`, for a special input like a smash attack) times its toss strength, with the item's `throw_mul` as the universal throws; its thrown hit is a drop's (its base halved). A toss on `frame` starts the fighter's `pull_wait` at `wait` frames (0 none: the reference's wait before the next peel; the `pull_wait` register reads it). It is not one of the item's `uses`. The frames inside the move, speeds not negative | none |
@@ -447,6 +461,11 @@ Line numbers inside a script count from its first non-blank line.
   the standard values when absent). An older file makes no items, so nothing is rewritten; a fighter without `item_throws` gets the
   standard release frames (the bump makes an older build refuse a file with items clearly:
   `a_schema_6_file_from_before_items_still_loads_unchanged`).
+  Still schema 7 (sim v125, the Nodachi's phase 1): a fighter may have a `wing { ... }` block (E57), a move `armor_mode` and
+  `edge_stop`; a projectile's or burst's `phase` blocks may share a start (E58: rings, all out at once, the first in the file that
+  touches a fighter hitting it; they share a hit group), and a projectile may have up to 12 phases (8 before). A follow-up slot (`ext*`)
+  may be a move with no hitboxes (only time: the blade dash's end in the air, the flare's cancel). Each defaults to the old behaviour (no
+  wing, armor always, motions leave edges, no older file has phases sharing a start), so an older file loads unchanged.
   Still schema 7 (sim v123, the Dagger's phase 2): a move may have a `tether { ... }` block (E56) and `dodge_stale`, a hitbox
   `blockable`, a `part_intangible` block `mode`, and a hitbox's `angle` 365 now means half the attacker's momentum. Each defaults to
   the old behaviour (no tether, not a dodge, shields do not stop grabs, every window always), so an older file loads unchanged (no
