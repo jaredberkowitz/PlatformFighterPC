@@ -63,6 +63,7 @@ class Streaks extends MeshInstance3D:
 	var count := 8
 	var reach := 1.6
 	var colour := Color.WHITE
+	var plain := false
 	var angles: Array = []
 
 	func _ready() -> void:
@@ -80,16 +81,20 @@ class Streaks extends MeshInstance3D:
 		var im: ImmediateMesh = mesh
 		im.clear_surfaces()
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-		var c := Color(colour.r, colour.g, colour.b, colour.a * (1.0 - t))
-		for a in angles:
-			var d := Vector3(cos(a), sin(a), 0)
-			var side := Vector3(-d.y, d.x, 0)
-			var near := d * reach * (0.25 + 0.75 * t)
-			var far := d * reach * (0.6 + 0.6 * t)
-			var w := (0.05 + 0.03 * reach) * (1.0 - t)
-			for v in [near + side * w, far, near - side * w]:
-				im.surface_set_color(c)
-				im.surface_add_vertex(v)
+		var fade := colour.a * (1.0 - t)
+		# Painted in layers as the knock-out blast is (an ink sliver, the colour, a thin white core), unless `plain` (a flat white flash).
+		var layers := [[1.0, 1.0, Color(colour, fade)]] if plain else [[1.9, 1.05, Color(INK, fade)], [1.0, 1.0, Color(colour, fade)],
+			[0.4, 0.86, Color(1.0, 1.0, 0.95, fade)]]
+		for layer in layers:
+			for a in angles:
+				var d := Vector3(cos(a), sin(a), 0)
+				var side := Vector3(-d.y, d.x, 0)
+				var near := d * reach * (0.25 + 0.75 * t)
+				var far := d * reach * (0.6 + 0.6 * t) * float(layer[1])
+				var w := (0.05 + 0.03 * reach) * (1.0 - t) * float(layer[0])
+				for v in [near - d * w * 0.5 + side * w, far, near - d * w * 0.5 - side * w]:
+					im.surface_set_color(layer[2])
+					im.surface_add_vertex(v)
 		im.surface_end()
 
 
@@ -98,10 +103,12 @@ class Streaks extends MeshInstance3D:
 enum Kind { BLADE, BLOW, FIRE, CLAW }
 
 ## Layer colours of a burst by kind, outside in (under an ink outline): the outer flare, the body, the core.
+## (As the knock-out blast: the flare and body stay below the effects' glow threshold (luma 0.72, shaders/fx.gdshaderinc), so they keep
+## their colour and only the white core blooms. Brighter bodies bloomed to white and the burst lost its ink and colour.)
 const BURST_COLOURS := {
-	Kind.BLADE: [Color(0.36, 0.62, 1.0), Color(0.72, 0.9, 1.0), Color(1.0, 1.0, 1.0)],
-	Kind.CLAW: [Color(0.62, 0.32, 1.0), Color(0.9, 0.62, 1.0), Color(1.0, 0.96, 1.0)],
-	Kind.BLOW: [Color(1.0, 0.5, 0.14), Color(1.0, 0.84, 0.28), Color(1.0, 1.0, 0.92)],
+	Kind.BLADE: [Color(0.22, 0.46, 0.95), Color(0.45, 0.72, 1.0), Color(1.0, 1.0, 1.0)],
+	Kind.CLAW: [Color(0.52, 0.22, 0.95), Color(0.78, 0.5, 1.0), Color(1.0, 0.96, 1.0)],
+	Kind.BLOW: [Color(0.96, 0.4, 0.1), Color(1.0, 0.66, 0.16), Color(1.0, 1.0, 0.92)],
 	Kind.FIRE: [Color(0.88, 0.12, 0.06), Color(1.0, 0.5, 0.08), Color(1.0, 0.9, 0.4)],
 }
 
@@ -208,7 +215,7 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	if s > 0.45:
 		var lines := Streaks.new()
 		lines.material_override = _material(true)
-		lines.colour = Color(1, 1, 0.94, 0.95)
+		lines.colour = Color((pow_fx.colours[0] as Color), 0.95)
 		lines.count = 10
 		lines.reach = 1.6 + 1.6 * s
 		lines.life = 0.2
