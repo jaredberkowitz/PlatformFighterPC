@@ -363,6 +363,20 @@ func _build_rig(skin: Material) -> bool:
 			mi.visible = not (use_base_body and part.begins_with("Cuff") and not loadout.has_gloves())
 		elif part.begins_with("Strap"):
 			mi.material_override = toon(loadout.accent_color())
+		elif part.begins_with("ShortsCuff") or part.begins_with("ShortsPocket"):
+			# The shorts' rolled cuffs and pocket flaps (make_rigged_blob.py), a shade darker than the shorts.
+			mi.material_override = _cloth(toon(shorts_colour.darkened(0.12)))
+			mi.visible = loadout.has_shorts()
+		elif part.begins_with("BootCuff"):
+			mi.material_override = toon(BOOT_LEATHER.darkened(0.3))
+			mi.visible = loadout.has_shoes()
+		elif part.begins_with("BootSole"):
+			mi.material_override = respond(toon(BOOT_SOLE), "rubber")
+			mi.visible = loadout.has_shoes()
+		elif part.begins_with("Boot"):
+			# Hiking boots over the painted shoes (the owner's PEAK references): leather on a thick pale sole.
+			mi.material_override = toon(BOOT_LEATHER)
+			mi.visible = loadout.has_shoes()
 		elif part.begins_with("Shorts"):
 			mi.material_override = _cloth(shorts)
 			mi.visible = loadout.has_shorts()
@@ -1478,6 +1492,8 @@ const CLOTH_RAMP_SOFTNESS := 0.32
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
 const BELT_LEATHER := Color(0.4, 0.26, 0.18)
+const BOOT_LEATHER := Color(0.4, 0.25, 0.17)
+const BOOT_SOLE := Color(0.94, 0.88, 0.76)
 const BELT_BRASS := Color(0.95, 0.74, 0.32)
 
 
