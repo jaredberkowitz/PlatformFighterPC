@@ -335,10 +335,14 @@ pub fn update(
         f.sdi_wait = f.sdi_wait.saturating_sub(1);
         if f.launch_pending {
             sdi(f, p, stage, rules, false);
-        } else if f.state == S::Shield {
+        } else if f.state == S::Shield || f.shield_sdi {
+            // (A passive shield's block, E14, allows shield SDI as a raised shield does.)
             sdi(f, p, stage, rules, true);
         }
         f.hitlag -= 1;
+        if f.hitlag == 0 {
+            f.shield_sdi = false;
+        }
         if f.hitlag == 0 && f.launch_pending {
             asdi(f, p, stage, rules);
             apply_launch(f, p, rules);
@@ -389,13 +393,13 @@ pub fn update(
         S::Attack => return attack(f, p, weapon, stage, rules, world),
         S::Hitstun => hitstun(f, p, stage, rules),
         S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch => ground(f, p, weapon, stage),
-        S::JumpSquat => jump_squat(f, p, stage, rules),
+        S::JumpSquat => jump_squat(f, p, weapon, stage, rules),
         S::Airborne => return airborne(f, p, weapon, stage, rules),
         S::Helpless => return helpless(f, p, weapon, stage, rules),
         S::AirDodge => return air_dodge(f, p, stage),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
-        S::Shield => shield(f, p, stage, rules),
+        S::Shield => shield(f, p, weapon, stage, rules),
         S::Roll => roll(f, p, stage),
         S::SpotDodge => spot_dodge(f, p, stage),
         S::ShieldBreak => shield_break(f, p, stage, rules),
@@ -703,9 +707,17 @@ fn ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     slide_on_platform(f, p, stage);
 }
 
-fn jump_squat(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+fn jump_squat(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
     // No friction here: a run or dash jump keeps its momentum into the air.
     if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    // The jump squat can be cancelled (E37, the reference's, owner decision 62), for every fighter: special with the stick up is the
+    // grounded up special, and an up smash input (attack with the stick flicked up, the strong button with the stick up, or the
+    // attack stick up) the up smash, still on the ground. Only a press made after the jump's own: one made with the jump stays the
+    // short-hop aerial or aerial special it always was (the house's short-hop input); attack with the stick merely held up stays the
+    // short-hop up air.
+    if up_out_of_ground(f, p, weapon, true) {
         return;
     }
     if f.state_frame >= u16::from(p.jump_squat_frames) {
@@ -1040,9 +1052,14 @@ fn helpless(
         p.helpless_landing_lag
     };
     let mut q = *p;
-    q.air_speed = p.air_speed * drift;
-    q.air_accel = p.air_accel * drift;
-    q.air_accel_stick = p.air_accel_stick * drift;
+    q.air_speed = mv.fall_speed.unwrap_or(p.air_speed * drift);
+    if let Some(stick) = mv.fall_accel {
+        // (The move's own stick acceleration: the base acceleration is the body's.)
+        q.air_accel_stick = stick;
+    } else {
+        q.air_accel = p.air_accel * drift;
+        q.air_accel_stick = p.air_accel_stick * drift;
+    }
     if air_move(f, &q, stage) {
         enter_landing(f, lag);
         return None;
@@ -1220,7 +1237,7 @@ fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
 
 // ---- Shield ----------------------------------------------------------------------------------
 
-fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, rules: &Ruleset) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     if !slide_on_platform(f, p, stage) {
         return;
@@ -1240,6 +1257,12 @@ fn shield(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
         return;
     }
     let buffer = p.input_buffer;
+    // Straight out of the shield (E37, the reference's, owner decision 56): special with the stick up is the grounded up special, and
+    // attack with the stick (or the attack stick) up the up smash, with no jump first and no shield drop. They come before the jump,
+    // so a jump pressed with them does not take the press.
+    if up_out_of_ground(f, p, weapon, false) {
+        return;
+    }
     // Pressing down wins over jumping when standing on a pass-through platform.
     if on_pass_through(f, stage) && f.down_within(p.shield_drop_buffer) {
         f.platform = NONE;
@@ -1923,6 +1946,46 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.charge = 0;
 }
 
+/// E37: special with the stick up starts the grounded up special, and attack aimed up the up smash, straight out of a shield or a
+/// jump squat (for every fighter, the reference's). Out of a shield attack with the stick or the attack stick up is enough (attack
+/// alone there is the shield grab); out of a jump squat (`smash_only`) it takes an up smash input (a flick up, the strong button or
+/// the attack stick), since attack with the stick held up is the short-hop up air. Returns whether one started.
+fn up_out_of_ground(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, smash_only: bool) -> bool {
+    let buffer = p.input_buffer;
+    let up = f.history[0].stick_y >= STICK_DOWN;
+    // (Out of a jump squat only a press made after the jump's own counts: one made with the jump is the short-hop aerial or aerial
+    // special it always was, the house's short-hop input.)
+    let since_jump = u8::try_from(f.state_frame).unwrap_or(u8::MAX);
+    let fresh = |f: &Fighter, b: u16| !smash_only || f.pressed_within(b, since_jump);
+    if up
+        && fresh(f, buttons::SPECIAL)
+        && f.buffered(buttons::SPECIAL, buffer)
+        && start_special(f, weapon)
+    {
+        f.buffer_used |= buttons::SPECIAL;
+        return true;
+    }
+    if fresh(f, buttons::ATTACK) && f.buffered(buttons::ATTACK, buffer) {
+        let (aim, strong) = attack_aim(f, p);
+        let smash = strong || f.hard_up(SMASH_FLICK_BUFFER);
+        if aim.stick_y >= STICK_DOWN && (smash || !smash_only) {
+            f.buffer_used |= buttons::ATTACK;
+            begin_attack(f, MoveId::USmash);
+            return true;
+        }
+    }
+    false
+}
+
+/// Starts a move's follow-up (its `next`, or a script's `goto`); one with `Move::keep_charge` keeps the charge its first part had (E36).
+fn follow_up(f: &mut Fighter, weapon: &Weapon, next: u8) {
+    let charge = f.charge;
+    begin_attack(f, MoveId::from_index(next));
+    if weapon.get(next).keep_charge {
+        f.charge = charge;
+    }
+}
+
 /// The input an attack is aimed by: the movement stick, or, when the attack came from the attack stick (C-stick), its direction
 /// (the frame the attack was pressed on had a C direction), with the strong flag a C-stick attack carries on the ground. Out of a
 /// run the attack stick up or down is a smash and sideways the dash attack.
@@ -2151,7 +2214,7 @@ fn attack(
             && f.grounded()
             && f.take(buttons::ATTACK, mv.next_window)
         {
-            begin_attack(f, MoveId::from_index(next));
+            follow_up(f, weapon, next);
             return None;
         }
     }
@@ -2161,7 +2224,7 @@ fn attack(
     if let Some(program) = &mv.script {
         let effects = scripting::run_fighter(program, f, world, &p.gauge);
         if let Some(next) = effects.goto {
-            begin_attack(f, MoveId::from_index(next));
+            follow_up(f, weapon, next);
             return None;
         }
         // Holding a frame is capped by the same limit as charging, so a script cannot hold a fighter forever.
@@ -2323,7 +2386,7 @@ fn attack(
         // A jab continues into its next hit if attack was pressed shortly before the end.
         if let Some(next) = mv.next {
             if f.grounded() && f.take(buttons::ATTACK, mv.next_window) {
-                begin_attack(f, MoveId::from_index(next));
+                follow_up(f, weapon, next);
                 return None;
             }
         }
@@ -2432,6 +2495,14 @@ fn move_air_physics(p: &FighterParams, mv: &Move, frame: u16) -> FighterParams {
         q.air_accel = q.air_accel * k;
         q.air_accel_stick = q.air_accel_stick * k;
     }
+    if let Some(b) = block {
+        if let Some(v) = b.speed {
+            q.air_speed = v;
+        }
+        if let Some(v) = b.accel_stick {
+            q.air_accel_stick = v;
+        }
+    }
     q
 }
 
@@ -2516,13 +2587,15 @@ fn launch_speedup(f: &Fighter, rules: &Ruleset) -> Fx {
     (first * ease).clamp(Fx::ONE, rules.balloon_max)
 }
 
-/// The gravity and fall speed of a launched fighter: for the first frames of a launch every fighter falls alike, and a launch close
-/// to straight up falls at its own fixed speed for the whole hitstun.
+/// The gravity and fall speed of a launched fighter: for the first frames of a launch every fighter falls alike, and a tumbling
+/// launch close to straight up falls at its own fixed speed for the whole hitstun.
 ///
-/// A set-knockback launch keeps the plain physics: no shared vertical fall speed (the reference's rule).
+/// A set-knockback launch keeps the plain physics: no shared vertical fall speed (the reference's rule). So does a launch too
+/// weak to tumble: the fixed fall belongs to the reference's upward tumble (its "fly top" animation; sim 97).
 fn launch_fall(f: &Fighter, p: &FighterParams, rules: &Ruleset) -> (Fx, Fx) {
     let degrees = i32::from(f.launch_angle) * 360 / 4096;
     if !f.launch_set
+        && f.tumble
         && (i32::from(rules.vertical_launch_from)..=i32::from(rules.vertical_launch_to))
             .contains(&degrees)
     {
@@ -2691,13 +2764,20 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
 /// One knockback frame: the launch slows, gravity pulls, the fighter moves, and walls, ceilings and the floor do what they do (a
 /// bounce, a tech, a landing). Returns false when the hitstun ended here (a tech or a landing), so no more frames play.
 fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> bool {
-    let decay = rules.knockback_decay;
-    let speed = f.kb_vel.length();
-    f.kb_vel = if speed > decay {
-        f.kb_vel * ((speed - decay) / speed)
+    // A position vector's carry (E34) moves at its fixed step, with no decay and no gravity, until its count runs out.
+    let carried = f.posvec > 0 && !f.launch_pending;
+    if carried {
+        f.posvec -= 1;
+        f.vel = Vec2::ZERO;
     } else {
-        Vec2::ZERO
-    };
+        let decay = rules.knockback_decay;
+        let speed = f.kb_vel.length();
+        f.kb_vel = if speed > decay {
+            f.kb_vel * ((speed - decay) / speed)
+        } else {
+            Vec2::ZERO
+        };
+    }
 
     if f.pull {
         pull_frame(f, rules);
@@ -2723,11 +2803,11 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         }
         // A grounded hit slides the fighter along the floor, and its traction slows the slide too (the reference: low-traction
         // fighters slide farther when hit on the ground), so a jab's push stays short and its next hit reaches. (A pull is not slowed.)
-        if !f.pull {
+        if !f.pull && !carried {
             f.kb_vel.x = approach(f.kb_vel.x, Fx::ZERO, p.ground_friction);
         }
         f.vel = Vec2::new(f.kb_vel.x, Fx::ZERO);
-        if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
+        if collision::move_x(stage, p, &mut f.pos, f.vel.x) || (carried && f.posvec == 0) {
             f.kb_vel.x = Fx::ZERO;
         }
         let still_on = collision::platform(stage, f.platform)
@@ -2737,13 +2817,17 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         }
         return true;
     }
-    if !pulling {
+    if !pulling && !carried {
         let (gravity, max_fall) = launch_fall(f, p, rules);
         f.vel.y = (f.vel.y - gravity).max(-max_fall);
     }
     let falling = f.vel.y + f.kb_vel.y + vortex.y;
     let heading_x = (f.vel.x + f.kb_vel.x + vortex.x).signum_int();
     let moved = move_by(f, p, stage, f.vel + f.kb_vel + vortex);
+    if carried && f.posvec == 0 {
+        // (The carry is over: it stops where it got to.)
+        f.kb_vel = Vec2::ZERO;
+    }
     if moved.wall {
         if tech_ready(f, rules) {
             start_wall_tech(f, rules, (-heading_x) as i8);
@@ -2883,6 +2967,30 @@ fn vortex_launch(f: &mut Fighter, rules: &Ruleset) {
     f.balloon_left = Fx::ZERO;
 }
 
+/// A position-vector launch (E34, the reference's position vectors, ssbwiki.com `Autolink_angle`): the fighter's feet are carried
+/// straight to `link_point` (set by the hit: a point relative to the attacker) at the speed that covers the distance in `posvec`
+/// frames, with no gravity and no knockback decay on the way (`knockback_frame`); when the count runs out the carry stops [E: the
+/// reference's "the launch speed drops off quickly" after the frames is taken as stopping] and the rest of the hitstun is an ordinary
+/// fall. Not a tumble; DI does not bend it.
+fn posvec_launch(f: &mut Fighter) {
+    let n = Fx::from_int(i32::from(f.posvec.max(1)));
+    let to = f.link_point - f.pos;
+    f.kb_vel = Vec2::new(to.x / n, to.y / n);
+    f.tumble = false;
+    f.link = false;
+    f.vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.balloon_faf = 0;
+    f.balloon_left = Fx::ZERO;
+    if f.grounded() {
+        if f.kb_vel.y > Fx::ZERO {
+            f.platform = NONE;
+        } else {
+            f.kb_vel.y = Fx::ZERO;
+        }
+    }
+}
+
 /// One frame of a vortex pull: the share (`1 / frames left`) of the way from the fighter's middle to the hitbox centre it covers
 /// this frame, on top of its launch, so it is there when the count runs out (with no launch of its own). Its own fall is held
 /// while it is pulled.
@@ -2923,6 +3031,10 @@ fn apply_launch(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
 
     if f.link && f.link_kind == crate::state::LINK_VORTEX {
         vortex_launch(f, rules);
+        return;
+    }
+    if f.link && f.link_kind == crate::state::LINK_POSVEC {
+        posvec_launch(f);
         return;
     }
     if f.link {

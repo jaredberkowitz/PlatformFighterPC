@@ -16,7 +16,7 @@ global uniform vec4 pf_edge_light;
 uniform float ramp_center : hint_range(0.0, 1.0) = 0.45;
 uniform float ramp_softness : hint_range(0.0, 0.5) = 0.16;
 // How dark cast shadows (a hat's shadow on the face, a fighter's on the stage) are, 0 to 1: kept light so they read as soft shade.
-uniform float shadow_amount : hint_range(0.0, 1.0) = 0.62;
+uniform float shadow_amount : hint_range(0.0, 1.0) = 0.8;
 uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float rim_width : hint_range(0.0, 1.0) = 0.55;
 uniform float sheen : hint_range(0.0, 1.0) = 0.04;
@@ -71,6 +71,8 @@ float pf_band(float wrap) {
 // limb shows a lit side, a turn into shade and a shadow side facing the camera (a character light rig's usual move). Shading only: cast
 // shadows still come from the stage's light.
 const float PF_FIGHTER_FORM = 0.85;
+// How much of a cast shadow lands on a fighter (a share of a stage surface's).
+const float PF_FIGHTER_CAST = 0.25;
 
 void light() {
 	vec3 L = LIGHT;
@@ -79,11 +81,14 @@ void light() {
 	}
 	float wrap = dot(NORMAL, L) * 0.5 + 0.5;
 	float band = pf_band(wrap);
-	float lit = band * mix(1.0, ATTENUATION, shadow_amount);
+	// (On a fighter, cast shadows count for much less: the shadow map is too coarse for a small round body, so a hat's or hair's shadow
+	// landed on the face as blotchy pink patches with wavering edges. The form light shades the body instead.)
+	float cast = shadow_amount * mix(1.0, PF_FIGHTER_CAST, fighter);
+	float lit = band * mix(1.0, ATTENUATION, cast);
 	// (The diffuse light is multiplied by the albedo afterwards, so the shadow colour is given as a ratio to it.)
 	vec3 shade = pf_painted_shadow(ALBEDO) / max(ALBEDO, vec3(0.004));
 	// Deep shade: a cast shadow falling on the side already turned from the light.
-	float deep = (1.0 - ATTENUATION) * (1.0 - band) * shadow_amount;
+	float deep = (1.0 - ATTENUATION) * (1.0 - band) * cast;
 	shade = mix(shade, shade * pf_deep_shade, deep);
 	shade = mix(shade, vec3(1.0), fighter * PF_FIGHTER_LIFT);
 	vec3 tone = mix(shade, vec3(1.0), lit);

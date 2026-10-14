@@ -376,6 +376,8 @@ fn warp(w: &mut Weapon) {
         friction: None,
         drift: 100,
         accel: 100,
+        speed: None,
+        accel_stick: None,
     }];
     // Intangible on the reference's frames 16-32 (move frames 15-31).
     warp.intangible_from = 15;

@@ -1,0 +1,3 @@
+// Buckler up special on the ground (the spin): held special holds it on frame 3 (move frame 2), up to the charge limit (60); the
+// hit then deals more damage the longer it was held (the move's `charge_bonus`).
+if frame == 2 && special { stall(); }

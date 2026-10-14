@@ -123,6 +123,16 @@ everything else original: names, animations, effects, hitbox shapes, numbers and
   through soft platforms, ledges both sides, two landing stars on one frame). The neutral and side specials are the claws' until
   phase 3.
 
+### 10. Buckler wanderer (the reference sword-and-shield adventurer's role)
+- A heavy swordsman (104) with low jumps and a small shield that stops shots while he stands, walks or crouches: a long-reaching sword
+  with its own tip, blade, arm and hilt boxes on every move, a two-part forward smash, a pogo down air, a dragging forward air, and the
+  spin: a charged single slash on the ground, a rising multi-hit whirl in the air that carries a target round; (phases 2 and 3) a
+  bow whose arrows lodge and can be picked up, a boomerang that comes back, a bomb set off from afar, and the sword wave at 0%.
+- **As built (phase 1, sim 91):** the body (`FighterParams::wanderer`, the passive shield E14, no wall jump, heavy landing 3), every
+  sword normal and both spins on the reference's published data (`docs/movesets/link/`, code in `sim-core/src/moves_buckler.rs`), with
+  E34 position vectors, E36 (a follow-up keeps its charge), the E11 special-fall speed and acceleration, and E37 (up special and up
+  smash straight out of a shield, for every class). The bow, boomerang and bomb are the claws' placeholders until phases 2 and 3.
+
 ## What this needs from the engine (Phase 3 list)
 
 1. Hitboxes and hurtboxes (capsules or circles in fixed point), per-frame active windows, priority and clanking.

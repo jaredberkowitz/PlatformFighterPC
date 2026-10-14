@@ -787,6 +787,23 @@ fn the_grab_register_reads_the_grab_button() {
     assert_eq!(sim.f().vars[0], Fx::ONE.raw());
 }
 
+#[test]
+fn the_fast_fall_register_reads_a_fast_fall_during_the_move() {
+    // An aerial-style special high up: falling with the stick snapped down fast falls, which the script sees (sim 91).
+    let mut sim = with_special(scripted(60, "var ff; ff = fast_fall;"));
+    sim.put_airborne(0, Fx::from_int(-7), Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0, "not fast falling");
+    for _ in 0..4 {
+        sim.tick(inp(0, 0, 0));
+    }
+    sim.tick(inp(0, -127, 0));
+    sim.tick(inp(0, -127, 0));
+    assert!(sim.f().fast_fall, "the snap down fast falls");
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+}
+
 // ---- `set_charge` and `charge_add` (E29, sim 90) ---------------------------------------------------------------------------------
 
 #[test]

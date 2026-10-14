@@ -1313,7 +1313,7 @@ const HUD_LIFT := 0.022
 ## How soft the stage behind the results screen goes.
 const RESULTS_BLUR := 0.09
 ## Far scenery's blur in play (pixels at 1080 lines, `far_blur` in shaders/post.gdshader): the Best tier only.
-const PLAY_BLUR := 2.6
+const PLAY_BLUR := 1.0
 ## Hitlag (frames) above which a hit shakes the camera.
 const HIT_SHAKE_FROM := 9.0
 

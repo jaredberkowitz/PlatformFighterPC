@@ -12,7 +12,7 @@ use sim_core::state::FighterState as S;
 use sim_core::Fx;
 
 /// (class, the jab, the hit it carries on into, its FAF, the continuable window's last frame), every [R].
-const LATE: [(u8, MoveId, MoveId, u8, u8); 7] = [
+const LATE: [(u8, MoveId, MoveId, u8, u8); 9] = [
     (3, MoveId::Jab, MoveId::Jab2, 20, 24),
     (3, MoveId::Jab2, MoveId::Jab3, 22, 24),
     (4, MoveId::Jab, MoveId::Jab2, 18, 30),
@@ -20,6 +20,8 @@ const LATE: [(u8, MoveId, MoveId, u8, u8); 7] = [
     (6, MoveId::Jab, MoveId::Jab2, 30, 30),
     (7, MoveId::Jab, MoveId::Jab2, 25, 28),
     (8, MoveId::Jab, MoveId::Jab2, 18, 30),
+    (9, MoveId::Jab, MoveId::Jab2, 24, 35),
+    (9, MoveId::Jab2, MoveId::Jab3, 26, 35),
 ];
 
 /// Starts `jab` for class `class` standing alone (the move's frame 1 is tick 0), presses attack once on reference frame `press` of the

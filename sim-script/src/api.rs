@@ -136,6 +136,7 @@ pub const R_BOOST: u8 = 26;
 pub const R_BOOSTING: u8 = 27;
 pub const R_GRAB: u8 = 28;
 pub const R_AIM: u8 = 29;
+pub const R_FAST_FALL: u8 = 30;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -245,6 +246,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "aimed",
         R_AIM,
         "how the attack was aimed as it started: 1 up, -1 down, 0 straight (an angled forward tilt or smash)",
+    ),
+    reg(
+        "fast_fall",
+        R_FAST_FALL,
+        "1 while the fighter is fast falling (since its last jump, landing or hit), else 0",
     ),
 ];
 

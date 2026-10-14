@@ -254,6 +254,8 @@ fn an_air_block_changes_the_air_physics_only_on_its_frames_and_can_multiply_the_
             friction: None,
             drift: 100,
             accel: 600,
+            speed: None,
+            accel_stick: None,
         }];
     };
     // Gravity: the block's for frames 1-5, the body's from frame 6.

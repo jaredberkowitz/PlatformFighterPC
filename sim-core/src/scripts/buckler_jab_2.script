@@ -1,0 +1,4 @@
+// Buckler jab 2. Attack held carries on into jab 3 (slot 18): from frame 8 once jab 2 has hit, from frame 13 if it has not. A new
+// press carries on from frame 8 through the move's `next_from`.
+if attack && hit == 1 && frame >= 7 { goto(18); }
+if attack && frame == 12 { goto(18); }
