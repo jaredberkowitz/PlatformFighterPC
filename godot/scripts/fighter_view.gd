@@ -353,6 +353,21 @@ func _build_rig(skin: Material) -> bool:
 		elif part.begins_with("Shorts"):
 			mi.material_override = _cloth(shorts)
 			mi.visible = loadout.has_shorts()
+		elif part.begins_with("Belt"):
+			# The belt the shirt is tucked under (the owner saw PEAK's figures have a waistline): leather, with a brass buckle.
+			mi.material_override = _cloth(toon(BELT_LEATHER))
+			mi.visible = loadout.has_shorts()
+		elif part.begins_with("Buckle"):
+			mi.material_override = respond(toon(BELT_BRASS), "rubber")
+			mi.visible = loadout.has_shorts()
+		elif part.begins_with("ShirtCollar") or part.begins_with("ShirtPlacket"):
+			# The collar and the placket, modelled on the shirt's front (make_rigged_blob.py's `shirt_front`): a shade darker than a plain
+			# shirt, white on a printed one; the collar hides under a ring of neckwear.
+			mi.visible = loadout.shirt > 0 and not (part.begins_with("ShirtCollar") and loadout.neck >= 2)
+			mi.material_override = _cloth(toon(_collar_colour()))
+		elif part.begins_with("Buttons"):
+			mi.visible = loadout.shirt > 0
+			mi.material_override = toon(Color(0.95, 0.9, 0.78))
 		elif part.begins_with("Shirt"):
 			var cloth := _garment_shirt_material()
 			mi.visible = cloth != null
@@ -1434,6 +1449,18 @@ const CLOTH_RAMP_SOFTNESS := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
+const BELT_LEATHER := Color(0.4, 0.26, 0.18)
+const BELT_BRASS := Color(0.95, 0.74, 0.32)
+
+
+## The collar's and placket's colour: the shirt's own a shade darker when it is plain, white on a print.
+func _collar_colour() -> Color:
+	match loadout.shirt:
+		1:
+			return SHIRT_WHITE.darkened(0.06)
+		2:
+			return loadout.accent_color().darkened(0.12)
+	return SHIRT_WHITE
 
 
 ## The sleeve band's colour (the shirt's main colour), or none (a negative alpha) without a shirt.
@@ -1781,21 +1808,33 @@ func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: f
 func _shirt_collar() -> void:
 	if not use_base_body or loadout.shirt <= 0 or loadout.neck >= 2:
 		return
+	if rig != null and rig.find_child("ShirtCollar", true, false) != null:
+		return
 	var info := _base_rig_info()
 	var at := 1.1
 	if info.has("neck") and torso_fit.basis.y.y > 0.001:
 		at = (float(info.neck) - 0.05 - torso_fit.origin.y) / torso_fit.basis.y.y
 	var k := clampf((at - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
 	var front := TORSO_RADII.z * sqrt(1.0 - k * k)
-	var flap_col: Color = SHIRT_WHITE if loadout.shirt != 1 else loadout.accent_color()
-	var flap := BoxMesh.new()
-	flap.size = Vector3(0.24, 0.17, 0.05)
+	# (Was two white boxes turned into diamonds, which met under the chin and read as a bow tie. Now two pointed flaps in the shirt's own
+	# cloth, apart at the throat in a V, each lying down and out over the chest: the collar of PEAK's scout shirts.)
+	var flap_col: Color
+	match loadout.shirt:
+		1:
+			flap_col = SHIRT_WHITE.darkened(0.05)
+		2:
+			flap_col = loadout.accent_color().darkened(0.1)
+		_:
+			flap_col = SHIRT_WHITE
+	var flap := PrismMesh.new()
+	flap.size = Vector3(0.17, 0.2, 0.035)
 	for sx in [-1.0, 1.0]:
-		# Each flap points down and out from the middle of the neck, lying on the chest.
-		# (Set out from the torso at the flap's own height, where the chest is fuller than at the collar's line.)
-		var fk := clampf((at - 0.15 - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
-		var flap_z := TORSO_RADII.z * sqrt(1.0 - fk * fk) * cos(asin(clampf(sx * 0.15 / TORSO_RADII.x, -0.9, 0.9))) + 0.07
-		_part(torso_rig, flap, toon(flap_col), Vector3(sx * 0.15, at - 0.15, flap_z), Vector3.ONE, Vector3(-24, sx * 14.0, sx * 40.0))
+		var fy := at - 0.1
+		var fk := clampf((fy - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
+		var fx: float = sx * 0.12
+		var flap_z := TORSO_RADII.z * sqrt(1.0 - fk * fk) * cos(asin(clampf(fx / TORSO_RADII.x, -0.9, 0.9))) + 0.05
+		# Upside down (pointing at the ground), leaned out from the throat and turned to lie on the curve of the chest.
+		_part(torso_rig, flap, toon(flap_col), Vector3(fx, fy, flap_z), Vector3.ONE, Vector3(-18, sx * 22.0, 180.0 - sx * 28.0))
 	var placket := BoxMesh.new()
 	placket.size = Vector3(0.07, 0.5, 0.03)
 	var below := clampf((at - 0.36 - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)

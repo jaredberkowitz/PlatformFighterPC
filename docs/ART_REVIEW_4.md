@@ -106,3 +106,30 @@ proportions were changed rather than the old ones forced into the style (`make_b
   `--shirt=N --gear=N` (`tests/turnaround_shot.gd`). `review4_outfit_turnaround.png`, `review4_wrists.png`.
 
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.
+
+## Pass 70: the clothing pass, a waistline, and shoulders that hold in motion
+
+The owner: clothing quality uneven, the model still reads amateurish; PEAK's figures have a waistline; after a playtest, the arms stretch
+and do not read as shoulders.
+
+- **A waistline** (`make_rigged_blob.py` `WAIST_SHARE` 0.25, was 0.12; `make_base_body.py` `TRUNK`): the shorts come up to the body's
+  narrowest, where the chest now narrows a little and the hips fill out again under it. A **belt** (`Belt`, a band cut from the skin like
+  the other garments) with a brass **buckle** (`Buckle`), coloured by `fighter_view.gd` (`BELT_LEATHER`, `BELT_BRASS`); the shirt is
+  tucked under it and puffs a little above it (`BLOUSE`).
+- **Prints laid straight**: each garment's texture maps are rewritten from its own finished shape (they were the skin's, from before the
+  cloth was pushed out and smoothed, so the stripes came out wavy and torn).
+- **Collar, placket and buttons modelled on the shirt** (`shirt_front`: `ShirtCollar`, `ShirtPlacket`, `Buttons`), each point set on the
+  shirt's own front, so they sit on it in any body: two pointed flaps apart in a V, a shade darker than a plain shirt, white on a print.
+  The game's boxes (`_shirt_collar`) stand in only on an older rig; theirs read as a bow tie and sank into the new shirt.
+- **Hems**: the sleeves' openings hug the arm (`SLEEVE_SNUG`; no dark inside showing) and are smoothed along their loops (spikes); the
+  neckline does not flare (spikes round the throat).
+- **Shoulders** (the owner's playtest): the arm had fused to the torso's side down to the elbow, and the arm weights reached over the
+  trunk, so a swinging arm dragged the side out in a web like a poncho. The arms hang a little further out over a trunk narrowed under them
+  (a real armpit); the trunk gains no arm weight when it is spread (`smooth_weights` `no_gain`), and the arm's pull on the trunk fades
+  with distance from the shoulder joint (`release_trunk`, `SHOULDER_HOLD` 0.08, `SHOULDER_FADE` 0.1), on the skin and the shirt. The
+  tucked part of the shirt moves with the belt's bones (`TUCK_SPAN`): it swung out under the belt like a skirt in the run's lean.
+- The elbow's point sits closer in (the outline showed in the crease beside it). `tests/anim_sheet.gd` takes `--shirt=N`.
+- Checks: the fighter, art, loadout, motion, animation, creator and online tests pass; the look bench 0.88.
+  `review4_clothing_pass.png` (four shirts), `review4_run_shoulders.png` (the run before, after).
+
+Still open: the hands (the owner: still chunky and odd), shorts' detail (pockets, a hem), shoes.

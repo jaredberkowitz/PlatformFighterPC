@@ -3,7 +3,7 @@ extends SceneTree
 ## Run: Godot --path godot --script res://tests/anim_sheet.gd -- --what=run --class=0 --out=<file.png>
 ##   --what=run | dash | skid | idle | walk | jump | fall | airjump | jumpsquat | land | hurt | shield | flinch | launch | tumble | roll | backroll | spotdodge | airdodge | knockdown | getup |
 ##   <move name> (an attack such as fsmash, nair, jab)
-##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N to wear that neckwear, those glasses or that gear (loadout.gd),
+##   dashstop (stand, dash, stop: the head, hat and neckwear lagging), --neck=N / --glasses=N / --gear=N / --shirt=N to wear that neckwear, those glasses or that gear (loadout.gd),
 ##   tech | runstop | drop | heavy | heavyup | fidget (the motion plan's phase 3 clips)
 ##   --zoom=k       closer in (2 = twice as close), --facing=-1 to face left
 ##   --tip=x,y      where the move's hitbox is (forward space, from the feet), --timing=total,first,last its frames
@@ -27,6 +27,7 @@ func _initialize() -> void:
 	var neck := -1
 	var glasses := -1
 	var gear := -1
+	var shirt := -1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--what="):
 			what = a.substr(7)
@@ -38,6 +39,8 @@ func _initialize() -> void:
 			facing = int(a.substr(9))
 		elif a.begins_with("--gear="):
 			gear = int(a.substr(7))
+		elif a.begins_with("--shirt="):
+			shirt = int(a.substr(8))
 		elif a.begins_with("--glasses="):
 			glasses = int(a.substr(10))
 		elif a.begins_with("--neck="):
@@ -85,6 +88,8 @@ func _initialize() -> void:
 		look.glasses = glasses
 	if gear >= 0:
 		look.gear = gear
+	if shirt >= 0:
+		look.shirt = shirt
 	view.build(cls, look)
 
 	var frames: Array = []
