@@ -419,3 +419,25 @@ after a dash).
 stays (a run skids, the dash back's length, the foxtrot's interrupt frame). **To try the reference's held turn again** (for example with
 more playtesters), set `dash_reverse_frames` back to **5** in `FighterParams::base` (or per body in content) and re-export base.pfc;
 `feel.rs::the_reference_held_turn_still_works_with_dash_reverse_frames_5` keeps that path tested.
+
+## Out of shield (sim 109)
+
+Sources, read 14 October 2026: SmashWiki's Out of shield, Shield and Shield grab pages (Ultimate).
+
+Already matching: an 11-frame shield drop (`shield_release_frames`); jump, up special and up smash straight out of a raised shield (E37,
+decision 56); aerials out of shield through the 3-frame jump squat (and up smash or up special out of that jump squat, decision 62);
+attack or grab in the shield is the shield grab; rolls and spot dodges; shield stun `0.8 x damage x mult + 2`, pushback and its cap.
+
+Changed:
+* **The shield drop can be cut short** by a jump, the up special or the up smash on any of its 11 frames (the reference: "the 11 frames
+  of shield drop may be cancelled at any time by an up special, up smash, or jump"). A grab or any other attack still waits for it to end.
+* **A grab pressed during shield stun waits 4 more frames of shield** before it starts (`Ruleset::shield_grab_delay`; the reference
+  weakens post-shieldstun shield grabs this way). A grab pressed once the stun is over is immediate, as before; attack with the stick up
+  in the stun is still the up smash, not a grab. Pending in `Fighter::shield_grab`.
+* **A shield stays up at least 3 frames** (`Ruleset::shield_min_frames`, the reference's "shield time before drop"), even if the button
+  is let go at once.
+
+Left as it is, for the owner to decide: **dropping through a soft platform from the shield** (down in the shield) is in the game, but the
+reference removed it in this game. The house keeps the Smash 4-style perfect shield (owner's decision), so the reference's parry is not
+in. Tests: `shields.rs` (the last three), with the input-buffer tests in `movement.rs` and `reference_movement.rs` moved to attack presses
+(a jump now cuts the shield release short).

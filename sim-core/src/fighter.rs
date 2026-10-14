@@ -143,6 +143,8 @@ impl Fighter {
 }
 
 fn enter(f: &mut Fighter, state: S) {
+    // A pending post-shieldstun shield grab belongs to the shield it was pressed in.
+    f.shield_grab = 0;
     // A pull lasts only while the fighter is in hitstun.
     if state != S::Hitstun {
         f.pull = false;
@@ -424,7 +426,7 @@ pub fn update(
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, weapon, stage),
         S::LedgeJump => ledge_jump(f, p, stage),
-        S::ShieldRelease => shield_release(f, p, stage),
+        S::ShieldRelease => shield_release(f, p, weapon, stage),
         S::Buried => buried(f, p, rules),
         S::Rebound => rebound(f, p, stage),
         S::WallTech => wall_tech(f, p, rules),
@@ -1306,16 +1308,38 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         break_shield(f, rules);
         return;
     }
-    // After blocking a hit the shield stays up and the fighter cannot act until the stun runs out.
+    let buffer = p.input_buffer;
+    // After blocking a hit the shield stays up and the fighter cannot act until the stun runs out. A grab pressed meanwhile (attack or
+    // grab: both are the shield grab) is the reference's post-shieldstun shield grab: the shield stays up `shield_grab_delay` frames
+    // more before it starts (sim 109).
     if f.shield_stun > 0 {
         f.shield_stun -= 1;
+        // (Attack with the stick up is the up smash out of the shield, not a grab.)
+        let up = f.history[0].stick_y >= STICK_DOWN;
+        if f.shield_grab == 0
+            && (f.pressed_within(buttons::GRAB, 1) || (!up && f.pressed_within(buttons::ATTACK, 1)))
+        {
+            f.shield_grab = 1;
+        }
         return;
     }
-    if !f.held(buttons::SHIELD) {
+    if f.shield_grab == 1 && rules.shield_grab_delay > 0 {
+        // This frame is the first of the extra shield frames.
+        f.shield_grab = 2;
+        f.shield_stun = rules.shield_grab_delay - 1;
+        return;
+    }
+    if f.shield_grab != 0 {
+        f.shield_grab = 0;
+        f.buffer_used |= buttons::ATTACK | buttons::GRAB;
+        begin_attack(f, MoveId::Grab);
+        return;
+    }
+    // Let go of: the shield drops, once it has been up `shield_min_frames`.
+    if !f.held(buttons::SHIELD) && f.state_frame >= u16::from(rules.shield_min_frames) {
         enter(f, S::ShieldRelease);
         return;
     }
-    let buffer = p.input_buffer;
     // Straight out of the shield (E37, the reference's, owner decision 56): special with the stick up is the grounded up special, and
     // attack with the stick (or the attack stick) up the up smash, with no jump first and no shield drop. They come before the jump,
     // so a jump pressed with them does not take the press.
@@ -1342,10 +1366,22 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     }
 }
 
-/// Letting go of the shield: a few frames before anything else can be done.
-fn shield_release(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+/// Letting go of the shield: a few frames (`shield_release_frames`, the reference's 11) before anything else can be done, except a
+/// jump, the up special or the up smash, which cut it short at any time, as they come straight out of the shield (the reference's;
+/// sim 109). A grab cannot: a shield grab has to be made with the shield still up.
+fn shield_release(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(p.shield_release_frames) {
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if up_out_of_ground(f, p, weapon, false) {
+        return;
+    }
+    if f.take(buttons::JUMP, p.input_buffer) {
+        enter(f, S::JumpSquat);
+        return;
+    }
+    if f.state_frame >= u16::from(p.shield_release_frames) {
         enter(f, S::Idle);
     }
 }

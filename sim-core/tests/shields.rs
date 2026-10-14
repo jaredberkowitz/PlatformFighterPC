@@ -364,3 +364,107 @@ fn rolling_and_spot_dodging_are_not_possible_while_stunned_from_a_block() {
     sim.tick2(inp(0, 0, 0), inp(127, 0, SHIELD));
     assert_ne!(sim.fighter(1).state, S::Roll);
 }
+
+// ---- Out of shield (sim 109, the reference's) ------------------------------------------------------------------------------------
+
+/// Blocks a forward tilt, holds the shield through the hitlag and stun, and presses grab (with the shield still held) either during
+/// the stun (`during`) or on the first frame the stun is over. Returns the tick (counted from the first free frame) the grab starts.
+fn shield_grab_after_a_block(during: bool) -> i32 {
+    use sim_core::input::buttons::GRAB;
+    let mut sim = block_a_forward_tilt(1, 12);
+    let mut pressed = false;
+    let mut free_at: Option<i32> = None;
+    for t in 0..80 {
+        let f = *sim.fighter(1);
+        let press = !pressed
+            && if during {
+                f.hitlag == 0 && f.shield_stun > 2
+            } else {
+                free_at.is_some()
+            };
+        pressed |= press;
+        sim.tick2(
+            inp(0, 0, 0),
+            inp(0, 0, SHIELD | if press { GRAB } else { 0 }),
+        );
+        let f = *sim.fighter(1);
+        if free_at.is_none() && f.hitlag == 0 && f.shield_stun == 0 {
+            free_at = Some(t + 1);
+        }
+        if f.state == S::Attack {
+            assert_eq!(f.move_id, sim_core::moves::MoveId::Grab as u8);
+            return t - free_at.expect("free before the grab");
+        }
+    }
+    panic!("no grab");
+}
+
+#[test]
+fn a_grab_pressed_during_shield_stun_waits_four_more_frames_of_shield() {
+    assert_eq!(
+        shield_grab_after_a_block(false),
+        0,
+        "a grab once the stun is over is immediate"
+    );
+    assert_eq!(
+        shield_grab_after_a_block(true),
+        4,
+        "one pressed during the stun: 4 frames later"
+    );
+}
+
+/// Raises the shield for 5 frames, lets go, then on the release's frame `at` (1-based) gives `input`. Returns the state after.
+fn act_in_shield_release(at: usize, x: i8, y: i8, buttons: u16) -> S {
+    let mut sim = Sim::new();
+    sim.ticks(5, inp(0, 0, SHIELD));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::ShieldRelease);
+    sim.ticks(at - 1, inp(0, 0, 0));
+    sim.tick(inp(x, y, buttons));
+    sim.f().state
+}
+
+#[test]
+fn a_jump_up_special_or_up_smash_cuts_the_shield_release_short() {
+    use sim_core::input::buttons::GRAB;
+    for at in [1, 4, 9] {
+        assert_eq!(
+            act_in_shield_release(at, 0, 0, JUMP),
+            S::JumpSquat,
+            "jump on frame {at}"
+        );
+        assert_eq!(
+            act_in_shield_release(at, 0, 127, ATTACK),
+            S::Attack,
+            "up smash on frame {at}"
+        );
+        assert_ne!(
+            act_in_shield_release(at, 0, 127, SPECIAL),
+            S::ShieldRelease,
+            "up special on frame {at}"
+        );
+        // A grab or a jab still waits for the release to end.
+        assert_eq!(
+            act_in_shield_release(at, 0, 0, GRAB),
+            S::ShieldRelease,
+            "grab on frame {at}"
+        );
+        assert_eq!(
+            act_in_shield_release(at, 0, 0, ATTACK),
+            S::ShieldRelease,
+            "jab on frame {at}"
+        );
+    }
+}
+
+#[test]
+fn a_tapped_shield_stays_up_three_frames() {
+    let mut sim = Sim::new();
+    assert_eq!(sim.content.rules.shield_min_frames, 3);
+    sim.tick(inp(0, 0, SHIELD));
+    assert_eq!(sim.f().state, S::Shield);
+    sim.ticks(2, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Shield, "still up on its third frame");
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::ShieldRelease);
+}

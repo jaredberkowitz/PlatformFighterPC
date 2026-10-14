@@ -444,6 +444,8 @@ rules_io! {
     shield_mash_frames: u8,
     shield_stun_cap: u8,
     perfect_shield_window: u8,
+    shield_min_frames: u8,
+    shield_grab_delay: u8,
     perfect_shield_stun_cut: u8,
     grab_base_frames: u16,
     grab_percent_tenths: u16,

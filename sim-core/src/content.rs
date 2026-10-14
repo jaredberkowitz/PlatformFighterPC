@@ -1660,6 +1660,10 @@ pub struct Ruleset {
     pub shield_stun_cap: u8,
     /// A hit landing within this many frames of the shield going up is a perfect shield.
     pub perfect_shield_window: u8,
+    /// A shield stays up at least this many frames, even if the button is let go at once (the reference's 3).
+    pub shield_min_frames: u8,
+    /// A grab pressed during shield stun keeps the shield up this many more frames before the grab starts (the reference's 4).
+    pub shield_grab_delay: u8,
     /// Frames a perfect shield takes off the shield stun.
     pub perfect_shield_stun_cut: u8,
     // ---- Grabs ----
@@ -1842,6 +1846,8 @@ impl Ruleset {
             shield_mash_frames: 4,
             shield_stun_cap: 60,
             perfect_shield_window: 5,
+            shield_min_frames: 3,
+            shield_grab_delay: 4,
             perfect_shield_stun_cut: 3,
             grab_base_frames: 90,
             grab_percent_tenths: 17,
@@ -1961,6 +1967,8 @@ impl StateHash for Ruleset {
         h.write_u8(self.shield_mash_frames);
         h.write_u8(self.shield_stun_cap);
         h.write_u8(self.perfect_shield_window);
+        h.write_u8(self.shield_min_frames);
+        h.write_u8(self.shield_grab_delay);
         h.write_u8(self.perfect_shield_stun_cut);
         h.write_u16(self.grab_base_frames);
         h.write_u16(self.grab_percent_tenths);
