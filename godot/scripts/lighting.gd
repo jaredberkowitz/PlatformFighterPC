@@ -59,7 +59,7 @@ const STYLE_DEFAULT := {
 	# The finishing pass's value range (shaders/post.gdshader): how far colours are eased toward grey (`desat`), how far the darks are
 	# lifted toward the haze (`lift`), the vignette, how far the far scenery fades into the haze at most (`haze_max`) and a gentle
 	# S-curve on the values (`s_curve`, 0 none). The fighters take half of the pastel and the curve.
-	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22},
+	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.5},
 }
 const STYLES := {
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55],
@@ -199,6 +199,7 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		post.set_shader_parameter("pastel_lift", finish.lift)
 		post.set_shader_parameter("vignette", finish.vignette)
 		post.set_shader_parameter("haze_max", finish.haze_max)
+		post.set_shader_parameter("stage_quiet", float(finish.get("quiet", 0.0)))
 		post.set_shader_parameter("s_curve", finish.s_curve)
 	var m := mood.duplicate()
 	if theme.has("sky_horizon"):

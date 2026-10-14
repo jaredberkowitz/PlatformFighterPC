@@ -71,7 +71,7 @@ not in the content hash), in `godot/scripts/stage_art.gd`:
 ## The rules every screen follows
 
 The game should look like one artist drew the fighters, the stage, the light, the effects and the HUD together. The references are for
-qualities, not content: decisive cel shadow shapes and confident silhouettes (*The Wind Waker*), simple playful bodies (*PEAK*), warm
+qualities, not content: decisive cel shadow shapes and confident silhouettes (*the reference cel-shaded adventure*), simple playful bodies (*PEAK*), warm
 light against cool atmospheric shadow (*Valheim*). Never copy their characters, places or designs.
 
 **Attention hierarchy.** Three levels, in this order; a change that lifts a lower level above a higher one is wrong even if it looks good
