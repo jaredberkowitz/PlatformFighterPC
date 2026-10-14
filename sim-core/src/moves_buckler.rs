@@ -1,6 +1,6 @@
 //! The Buckler moveset (the wanderer body), modelled mechanically on a reference character: phase 1, every sword normal and both
 //! versions of the up special (the spin). A child module of `moves` (it uses that file's private row builders). Data and sources: the
-//! tenth moveset's `REFERENCE_DATA.md` (`docs/movesets/link/`), read from ssbwiki.com's raw hitbox tables (13.0.1).
+//! tenth moveset's `REFERENCE_DATA.md` (`docs/movesets/`), read from ssbwiki.com's raw hitbox tables (13.0.1).
 
 use super::*;
 

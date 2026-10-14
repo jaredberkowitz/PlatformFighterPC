@@ -1358,7 +1358,7 @@ impl FighterParams {
 impl FighterParams {
     /// A heavy swordsman with low jumps and a shield on his arm: the "wanderer" body of the Buckler moveset. The reference character's
     /// attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the tenth moveset's `REFERENCE_DATA.md` in
-    /// `docs/movesets/link/`; conflict 1 resolved to the parameter file): weight 104, walk 1.247, initial dash 1.98, run 1.534,
+    /// `docs/movesets/`; conflict 1 resolved to the parameter file): weight 104, walk 1.247, initial dash 1.98, run 1.534,
     /// traction 0.113, air speed 0.924, air acceleration 0.01 + 0.04, air friction 0.0038, gravity 0.096, fall 1.6 (fast 3.04), full hop
     /// 27.8, short hop 13.38, double jump 29.0, ledge jump 33.9 (drift 0.6, the shared value). On the ground: walk acceleration 0.105 +
     /// 0.21, run acceleration 0.044 + 0.13167, an initial dash of 12 frames, a heavy landing of 4 (3 of lag: the parameter file's

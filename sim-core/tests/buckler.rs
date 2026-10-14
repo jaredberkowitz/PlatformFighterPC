@@ -5,7 +5,7 @@
 //! autocancels; the body's attributes and jump air times; the grounded spin (one charged hit in four phases) and the aerial spin (eight
 //! hits, the position vectors (E34), the rise, ledges, the special fall (E11), landing lag); the passive shield (E14); up special and
 //! up smash straight out of a shield for several classes (E37); registration; determinism. Reference data and sources:
-//! `docs/movesets/link/REFERENCE_DATA.md`.
+//! the tenth moveset's `REFERENCE_DATA.md` (`docs/movesets/`).
 
 mod common;
 
