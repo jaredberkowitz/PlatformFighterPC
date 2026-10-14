@@ -29,7 +29,7 @@ instance uniform float rim_boost : instance_index(2) = 1.0;
 instance uniform float fighter : instance_index(3) = 0.0;
 // How deep a fighter's shadow tone is against the stage's (below 1 deeper): the two tones need a clear value step between them to read as
 // a light shape and a shadow shape at play size (the edge light and the stage's quieting keep the shadow side off the background).
-const float PF_FIGHTER_SHADE = 0.8;
+const float PF_FIGHTER_SHADE = 0.88;
 
 vec3 pf_rgb2hsv(vec3 c) {
 	vec4 k = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -77,9 +77,13 @@ const float PF_FIGHTER_CAST = 0.25;
 // A fighter is shaded in two flat tones, lit and shadow, split by a hard step (the stage's ramp, with its midtone band, is for the
 // scenery): where on the wrap the step falls, and how wide its edge is (just enough to anti-alias it).
 const float PF_FIGHTER_STEP = 0.62;
-const float PF_FIGHTER_EDGE = 0.02;
+const float PF_FIGHTER_EDGE = 0.07;
 // How much of the stage's shadow hue turn a fighter's shadow takes: a little, so an orange shades a deeper orange, not salmon and pink.
 const float PF_FIGHTER_HUE = 0.35;
+// A fighter's rim and edge light are kept to a thin line at the very edge (`rim_width` on a fighter) and take the fighter's own colour
+// (`PF_FIGHTER_CREAM` of the way), so they read as a soft creamy light round the form, not white plastic glare across it.
+const float PF_FIGHTER_RIM_WIDTH = 0.3;
+const float PF_FIGHTER_CREAM = 0.55;
 
 void light() {
 	vec3 L = LIGHT;
@@ -108,7 +112,8 @@ void light() {
 	float falloff = LIGHT_IS_DIRECTIONAL ? 1.0 : ATTENUATION;
 	DIFFUSE_LIGHT += tone * LIGHT_COLOR / PI * falloff;
 	float edge = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	float rim = smoothstep(1.0 - rim_width, 1.0, edge) * clamp(wrap + 0.2, 0.0, 1.0);
+	float width = mix(rim_width, PF_FIGHTER_RIM_WIDTH, fighter);
+	float rim = smoothstep(1.0 - width, 1.0, edge) * clamp(wrap + 0.2, 0.0, 1.0);
 	SPECULAR_LIGHT += pf_rim_color.rgb * rim * rim_strength * rim_boost * LIGHT_COLOR / PI * ALBEDO * falloff;
 	vec3 half_dir = normalize(LIGHT + VIEW);
 	float s = pow(clamp(dot(NORMAL, half_dir), 0.0, 1.0), 24.0);
@@ -121,7 +126,8 @@ void light() {
 	}
 	// A fighter's edge light: pale, all round the silhouette whatever the light's direction (half from each of the two lights).
 	float around = smoothstep(0.62, 0.95, edge);
-	SPECULAR_LIGHT += pf_edge_light.rgb * pf_edge_light.a * around * fighter * 0.5;
+	vec3 cream = mix(pf_edge_light.rgb, pf_edge_light.rgb * min(ALBEDO * 1.6 + 0.25, vec3(1.0)), PF_FIGHTER_CREAM);
+	SPECULAR_LIGHT += cream * pf_edge_light.a * around * fighter * 0.5;
 #ifdef PF_TRANSLUCENT
 	// Thin things (leaves) glow a little where the light is behind them (`translucency`, defined by the including shader).
 	float behind = clamp(dot(-LIGHT, VIEW), 0.0, 1.0);
