@@ -1051,3 +1051,15 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
 - **The Boost meter is live** now that the gauge accessors are on main (the Champion's card shows the bar). `hud_boost_live.png`.
 - Still open for the Hauler: the huge forearms and short legs (a rig change), and the trip sit pose (waits on the bridge's
   `fighter_tripped`).
+- **The Hauler's forearms** (`ARM_BULK` in `fighter_view.gd`, by class): forearm bones scaled 1.55 across and 1.08 along, fists
+  1.45 and 1.35, applied to the pose every frame and carried into the arm IK's overrides, so the bulk holds through its swings. Other
+  classes are unchanged. `hauler_forearms.png`.
+- **The Champion's sword wave** (`main.gd` `_draw_wave`): its neutral special and the powered wave (ext6, ext7) drawn as a painted
+  crescent of amber light standing on its edge (an ink rim, amber, gold and a hot core along the leading edge, its edge flickering on
+  twos), 1.1 tall, 1.7 when powered, in place of the generic purple bolt. Where the powered wave bursts (`projectile_bursting`, read
+  when the bridge has it) it becomes a spinning ring of three amber blades 1.8 round. `champion_wave.png`.
+- **Material identity on the props** (the plan's slice (3), handed back by the fidelity session): a `paint` response
+  (`FighterView.RESPONSES`: crisp step, broad sheen, a little metal band) for enamel over steel (the cars, the rooftop unit), the `metal`
+  response for bare iron (the water tower's hoops and ladder, the mast, the unit's trim, barrel hoops), wood and concrete left matte. Geometry
+  where a prop read as a flat box: corner battens on every crate (proud planes that catch the key light), a lip and a plinth on the rooftop
+  unit. `props_material_before.png` / `props_material_after.png`.

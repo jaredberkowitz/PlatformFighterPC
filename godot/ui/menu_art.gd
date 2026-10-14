@@ -118,7 +118,9 @@ static func card(c: CanvasItem, rect: Rect2, fill: Color, seed: int, cut := -1.0
 	for q in shape:
 		sh.append(q + SHADOW + Vector2(0, lift * 0.6))
 	c.draw_colored_polygon(sh, Color(INK, (0.22 if slab > 0.0 else 0.32) * fill.a))
-	var edge := line if line.a > 0.0 else INK
+	# (By default a deep shade of the card's own colour, not black: the menus' one construction language, so cards read as painted tiles
+	# rather than stickers. Dark cards come out near the ink anyway.)
+	var edge := line if line.a > 0.0 else Color(fill.darkened(0.62), 1.0).lerp(INK, 0.25)
 	if slab > 0.0:
 		# The body under the face: the same shape dropped by `slab` (more as the card lifts toward the viewer), in a deep shade of the fill.
 		var drop := slab + lift * 0.5

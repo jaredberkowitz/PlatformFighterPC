@@ -1969,10 +1969,17 @@ const PROJECTILE_STRIDE := 9
 ## The Needles class (2) and the move slots its needles and line come from (ext4 = 32, side special = 14).
 const NEEDLE_FROM := [2, 32]
 const LINE_FROM := [2, 14]
+## The Champion's (class 6) sword wave: its neutral special (13), and the powered wave (ext6 = 34, ext7 = 35), which is taller and turns
+## into a spinning burst where it hits (`projectile_bursting`, when the bridge has it).
+const WAVE_CLASS := 6
+const WAVE_MOVES := [13, 34, 35]
+const WAVE_POWERED := [34, 35]
 
 var proj_nodes: Array = []
 var proj_needles: Array = []
 var proj_lines: Array = []
+## Per slot: the painted wave (an ImmediateMesh redrawn on twos) and its spin for a burst.
+var proj_waves: Array = []
 var proj_prev := PackedFloat32Array()
 var proj_cur := PackedFloat32Array()
 
@@ -2024,6 +2031,13 @@ func _build_projectiles() -> void:
 		cord.visible = false
 		add_child(cord)
 		proj_lines.append([ln, cord])
+		var wv := MeshInstance3D.new()
+		wv.mesh = ImmediateMesh.new()
+		wv.material_override = FxMaterial.get_material(true, 5, null, 1.0, 1.0)
+		wv.extra_cull_margin = 64.0
+		wv.visible = false
+		add_child(wv)
+		proj_waves.append(wv)
 
 
 func _update_projectiles(a: float) -> void:
@@ -2034,7 +2048,9 @@ func _update_projectiles(a: float) -> void:
 		var from := [int(proj_cur[i + 6]), int(proj_cur[i + 7])] if active else []
 		var needle: bool = active and from == NEEDLE_FROM
 		var line: bool = active and from == LINE_FROM
-		proj_nodes[k].visible = active and not needle and not line
+		var wave: bool = active and int(from[0]) == WAVE_CLASS and WAVE_MOVES.has(int(from[1]))
+		proj_waves[k].visible = wave
+		proj_nodes[k].visible = active and not needle and not line and not wave
 		proj_needles[k].visible = needle
 		proj_lines[k][0].visible = line
 		proj_lines[k][1].visible = line
@@ -2044,7 +2060,10 @@ func _update_projectiles(a: float) -> void:
 		if proj_prev.size() > i + n - 1 and proj_prev[i] > 0.5:
 			pos = Vector2(proj_prev[i + 1], proj_prev[i + 2]).lerp(pos, a)
 		var at := Vector3(pos.x, pos.y, 0.3)
-		if needle:
+		if wave:
+			var bursting: bool = sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
+			_draw_wave(proj_waves[k], at, float(proj_cur[i + 3]), WAVE_POWERED.has(int(from[1])), bursting)
+		elif needle:
 			proj_needles[k].position = at
 			proj_needles[k].rotation.z = Vector2(proj_cur[i + 4], proj_cur[i + 5]).angle()
 		elif line:
@@ -2052,6 +2071,59 @@ func _update_projectiles(a: float) -> void:
 			_draw_cord(proj_lines[k][1], int(proj_cur[i + 8]), at, a)
 		else:
 			proj_nodes[k].position = at
+
+
+## The Champion's wave at `at` flying toward `dir` (+1 right): a painted crescent of amber light standing on its edge, its bright
+## edge leading, layered like the hit bursts (an ink rim, amber, gold and a white-hot core along the front), its tips flickering on
+## twos; `powered` makes it about 1.7 tall (else 1.1). Bursting, it is a spinning ring of three amber blades 1.8 round instead.
+func _draw_wave(node: MeshInstance3D, at: Vector3, dir: float, powered: bool, bursting: bool) -> void:
+	node.position = at
+	var im: ImmediateMesh = node.mesh
+	var step := int(Time.get_ticks_msec() / 33)
+	if node.has_meta("step") and int(node.get_meta("step")) == step and node.get_meta("burst", false) == bursting:
+		return
+	node.set_meta("step", step)
+	node.set_meta("burst", bursting)
+	im.clear_surfaces()
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var layers := [[1.0, Color(0.3, 0.06, 0.02, 1.0)], [0.9, Color(1.0, 0.36, 0.02)], [0.66, Color(1.0, 0.66, 0.08)], [0.34, Color(1.0, 0.95, 0.7)]]
+	if bursting:
+		var spin := float(step) * 0.55
+		for layer in layers:
+			var r := 1.8 * float(layer[0])
+			for b in 3:
+				var a0 := spin + TAU * b / 3.0
+				for j in 6:
+					var t0 := float(j) / 6.0
+					var t1 := float(j + 1) / 6.0
+					var w0 := 0.42 * r * (1.0 - t0)
+					var w1 := 0.42 * r * (1.0 - t1)
+					var p0 := Vector3(cos(a0 + t0 * 1.6), sin(a0 + t0 * 1.6), 0) * r
+					var p1 := Vector3(cos(a0 + t1 * 1.6), sin(a0 + t1 * 1.6), 0) * r
+					var q0 := p0 * (1.0 - w0 / r)
+					var q1 := p1 * (1.0 - w1 / r)
+					for v in [p0, p1, q1, p0, q1, q0]:
+						im.surface_set_color(layer[1])
+						im.surface_add_vertex(v)
+	else:
+		var h := 1.7 if powered else 1.1
+		var n := 10
+		for layer in layers:
+			var k := float(layer[0])
+			for j in n:
+				var u0 := float(j) / n * 2.0 - 1.0
+				var u1 := float(j + 1) / n * 2.0 - 1.0
+				# The crescent: its front edge bows forward, its back edge less, so it is thickest in the middle.
+				var jag0 := 0.06 * sin(float(step) * 1.7 + j * 2.1)
+				var jag1 := 0.06 * sin(float(step) * 1.7 + (j + 1) * 2.1)
+				var f0 := Vector3(dir * (0.55 * (1.0 - u0 * u0) * k + jag0), u0 * h * 0.5 * k, 0)
+				var f1 := Vector3(dir * (0.55 * (1.0 - u1 * u1) * k + jag1), u1 * h * 0.5 * k, 0)
+				var b0 := Vector3(dir * (0.55 * (1.0 - u0 * u0) * k - 0.42 * k * (1.0 - u0 * u0)), u0 * h * 0.5 * k, 0)
+				var b1 := Vector3(dir * (0.55 * (1.0 - u1 * u1) * k - 0.42 * k * (1.0 - u1 * u1)), u1 * h * 0.5 * k, 0)
+				for v in [f0, f1, b1, f0, b1, b0]:
+					im.surface_set_color(layer[1])
+					im.surface_add_vertex(v)
+	im.surface_end()
 
 
 ## The pulling line's cord: from the thrower's hand (about chest height, a little in front) to the weight.
