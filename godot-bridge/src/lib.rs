@@ -1392,6 +1392,20 @@ impl SimRunner {
             .map_or(Vector2::ZERO, |it| Vector2::new(f(it.pos.x), f(it.pos.y)))
     }
 
+    /// Item slot `i`'s velocity in world units a frame (zero for an empty slot, or one held, lying or lodged): the view points a
+    /// thrown arrow along it.
+    #[func]
+    fn item_vel(&self, i: i32) -> Vector2 {
+        self.live_item(i)
+            .map_or(Vector2::ZERO, |it| Vector2::new(f(it.vel.x), f(it.vel.y)))
+    }
+
+    /// Frames since item slot `i` was thrown (0 if it never was, or for an empty slot): the view spins a thrown bomb by it.
+    #[func]
+    fn item_flight(&self, i: i32) -> i32 {
+        self.live_item(i).map_or(0, |it| i32::from(it.flight))
+    }
+
     /// The kind of item slot `i` (its weapon item's `kind`: the wanderer's bomb 2, arrow 3), 0 for an empty slot.
     #[func]
     fn item_kind(&self, i: i32) -> i32 {
