@@ -22,8 +22,8 @@ pub const MAX_STAT: u8 = 9;
 /// The stat value that leaves the archetype unchanged.
 pub const NEUTRAL: u8 = 5;
 /// How many classes there are (index into the roster's movesets: 0 longsword, 1 claws, 2 needles, 3 embers, 4 gauntlets, 5 staff,
-/// 6 greatsword, 7 bracers, 8 clutch, 9 buckler, 10 pockets, 11 popgun).
-pub const CLASSES: u8 = 12;
+/// 6 greatsword, 7 bracers, 8 clutch, 9 buckler, 10 pockets, 11 popgun, 12 dagger).
+pub const CLASSES: u8 = 13;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Recipe {
@@ -84,7 +84,8 @@ impl Recipe {
             8 => FighterParams::bounder(),
             9 => FighterParams::wanderer(),
             10 => FighterParams::settler(),
-            _ => FighterParams::scamp(),
+            11 => FighterParams::scamp(),
+            _ => FighterParams::phantom(),
         };
         let size = r.size_percent();
         let speed = i32::from(r.speed);
@@ -396,7 +397,7 @@ mod tests {
             vec![1, 0, 5, 5, 5, 5, 5],
             vec![1, 0, 0, 5, 5, 5],
             vec![1, 0, 10, 5, 5, 5],
-            vec![1, 12, 5, 5, 5, 5],
+            vec![1, 13, 5, 5, 5, 5],
             vec![2, 0, 0],
         ] {
             assert_eq!(FighterSpec::decode(&bad), None, "{bad:?}");
@@ -451,7 +452,7 @@ mod tests {
     fn match_content_refuses_what_it_cannot_make() {
         let base = sim_core::Content::placeholder();
         assert_eq!(
-            match_content(&base, &[FighterSpec::Builtin(12)], false).unwrap_err(),
+            match_content(&base, &[FighterSpec::Builtin(13)], false).unwrap_err(),
             SpecError::UnknownFighter
         );
         let big = Recipe {

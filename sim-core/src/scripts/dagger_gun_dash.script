@@ -1,0 +1,25 @@
+// Dagger gun, the dodge forward (ext3, slot 31): the shot on 19 (its 20). On its last frame (38: FAF 40; 44 with the partner, FAF 46)
+// the string goes on: the stick pushed sideways with special dodges again (four at most: `dodges`), a press of special kept since the
+// dodge began (or special held) fires again (13 = the gun); else it ends. (Variables as the gun's: `pressed`, then `dodges`.)
+var pressed;
+var dodges;
+let last = 38 + 6 * powered;
+if special_tap {
+    pressed = 1;
+}
+if frame >= last {
+    if abs(stick_x) >= 0.7 && special && dodges < 4 {
+        dodges = dodges + 1;
+        pressed = 0;
+        if stick_x > 0 {
+            goto(31);
+        } else {
+            goto(32);
+        }
+    } else if pressed == 1 || special {
+        pressed = 0;
+        goto(13);
+    } else {
+        end();
+    }
+}

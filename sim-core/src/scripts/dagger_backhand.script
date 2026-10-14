@@ -1,0 +1,4 @@
+// Dagger guard's backhand (ext11, slot 40): intangible on its frames 1-14 (a move reached by `goto` starts its intangibility here).
+if frame == 1 {
+    intangible(14);
+}

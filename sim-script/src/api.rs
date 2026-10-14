@@ -147,6 +147,8 @@ pub const R_BALLOONS: u8 = 33;
 pub const R_POCKETED: u8 = 34;
 pub const R_PULL_WAIT: u8 = 35;
 pub const R_JUMP_TAP: u8 = 36;
+pub const R_POWERED: u8 = 37;
+pub const R_WITHSTOOD: u8 = 38;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -293,6 +295,16 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         "jump_tap",
         R_JUMP_TAP,
         "1 only on the frame the jump button went down",
+    ),
+    reg(
+        "powered",
+        R_POWERED,
+        "1 if the gauge's powered mode was running when this attack began (its powered boxes are out), else 0",
+    ),
+    reg(
+        "withstood",
+        R_WITHSTOOD,
+        "frames since the move's armor last withstood a hit, plus one; 0 if it has not in this attack",
     ),
 ];
 

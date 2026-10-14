@@ -1,0 +1,5 @@
+// Dagger gun, the shots below (ext7, slot 35; air, the stick down): held to its last frame (46: FAF 49) it goes on with more shots
+// (the move again).
+if frame >= 46 && special {
+    goto(35);
+}
