@@ -1112,3 +1112,6 @@ only; every created fighter can wear them too).
 - Modelled props, weapons and animation are deferred to near the end (owner's call).
 - **Bigger light and medium hit bursts** (`Effects.hit`: size 0.5 + 0.6 x strength, was 0.36 + 0.74): a mid-strength hit reads at play
   distance, as the review asked; the strongest hit is the same size as before.
+- **Hairstyles in the hat slot** (`Loadout.HATS`: "swept spikes", "topknot"; in the look's brow colour): thick blunt spikes fanned across
+  the crown and swept back, and close-cropped hair with a round knot tied in the accent colour. The Champion wears rust-red swept spikes,
+  the Hauler a topknot, so the two bareheaded built-ins have outlines of their own too. `champion_spikes.png`, `silhouettes_select_2.png`.

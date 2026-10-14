@@ -222,7 +222,8 @@ static func builtins() -> Array:
 	# (Its own look: a stern slate swordsman, bareheaded, a scarf to stream behind it, the full kit for the heavy blade.)
 	var hero: RefCounted = Loadout.default_for(6)
 	hero.color = 9
-	hero.hat = 0
+	hero.hat = 8
+	hero.brow_color = 4
 	hero.glasses = 0
 	hero.neck = 3
 	hero.gear = 3
@@ -233,7 +234,7 @@ static func builtins() -> Array:
 	# (Its own look: a big biscuit-brown bruiser, bareheaded, a neckerchief, shorts and gloves for the fists.)
 	var bruiser: RefCounted = Loadout.default_for(7)
 	bruiser.color = 10
-	bruiser.hat = 0
+	bruiser.hat = 9
 	bruiser.glasses = 0
 	bruiser.neck = 2
 	bruiser.gear = 2

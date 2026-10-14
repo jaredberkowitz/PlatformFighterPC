@@ -1740,6 +1740,23 @@ func _hat() -> void:
 				var f := float(k) / 4.0
 				_part(hat_pivot, _sphere(1.0), plume, Vector3(0, 2.42 + 0.2 * sin(f * PI) - 0.1 * f, -0.05 - 0.95 * f) - HAT_PIVOT,
 					Vector3(0.16, 0.48 - 0.12 * f, 0.4), Vector3(-25 - 45 * f, 0, 0))
+		8:
+			# Swept spikes: a cap of hair over the crown with thick, blunt spikes swept up and back, in the brow colour (a hairstyle, worn in
+			# the hat slot).
+			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.74, -0.08) - HAT_PIVOT, Vector3(1.02, 0.62, 1.0))
+			# [x, y, z, sideways lean, length]: a fan across the crown and a few swept back, each a thick cone leaning up and back.
+			var spikes := [[-0.55, 2.1, 0.15, 48.0, 1.0], [-0.22, 2.3, 0.1, 20.0, 1.2], [0.18, 2.32, 0.08, -14.0, 1.2], [0.52, 2.12, 0.12, -44.0, 1.0],
+				[-0.35, 2.2, -0.35, 32.0, 1.05], [0.3, 2.2, -0.38, -28.0, 1.05], [0.0, 2.05, -0.62, 0.0, 0.95]]
+			for sp in spikes:
+				_part(hat_pivot, _cyl(0.0, 0.3, float(sp[4])), hair, Vector3(float(sp[0]), float(sp[1]), float(sp[2])) - HAT_PIVOT, Vector3.ONE,
+					Vector3(-34, 0, float(sp[3])))
+		9:
+			# Topknot: close-cropped hair over the crown and a round knot of hair on top, tied with a band in the accent colour.
+			var hair := toon(FaceLook.BROW_COLORS[clampi(loadout.brow_color, 0, FaceLook.BROW_COLORS.size() - 1)])
+			_part(hat_pivot, _sphere(0.86), hair, Vector3(0, 1.72, -0.1) - HAT_PIVOT, Vector3(1.02, 0.6, 1.0))
+			_part(hat_pivot, _sphere(0.32), hair, Vector3(0, 2.36, -0.15) - HAT_PIVOT, Vector3(1.0, 0.9, 1.0))
+			_part(hat_pivot, _cyl(0.2, 0.2, 0.1), toon(accent), Vector3(0, 2.12, -0.13) - HAT_PIVOT)
 		5:
 			# Crown: a gold band with five points.
 			var gold := toon(Color(0.96, 0.8, 0.25))

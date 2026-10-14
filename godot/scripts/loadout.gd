@@ -41,7 +41,7 @@ const DAZED_FACE := {"name": "dazed"}
 const SHOCK_FACE := {"name": "shock"}
 const HAPPY_FACE := {"name": "happy"}
 
-const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm"]
+const HATS := ["none", "sailor cap", "aviator cap", "straw hat", "beanie", "crown", "hood", "plumed helm", "swept spikes", "topknot"]
 const GLASSES := ["none", "shades", "goggles", "round specs"]
 const NECKS := ["none", "sash", "neckerchief", "scarf", "cape"]
 ## Shirts: a plain white one, one in the outfit (accent) colour, stripes and a flower print (godot/art/cloth/).
