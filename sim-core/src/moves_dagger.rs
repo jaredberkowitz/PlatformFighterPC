@@ -225,14 +225,53 @@ fn jabs(w: &mut Weapon) {
         bx(4, 5, 70, 75, 20, 20, 361, 32, 30, 0, 0, fwd),
         bx(4, 5, 100, 75, 20, 20, 361, 32, 30, 1, 0, fwd),
     ];
-    b.extend(along(4, 5, (125, 75), (152, 75), 20, 20, 180, 32, 20, 2, 0, fwd));
+    b.extend(along(
+        4,
+        5,
+        (125, 75),
+        (152, 75),
+        20,
+        20,
+        180,
+        32,
+        20,
+        2,
+        0,
+        fwd,
+    ));
     let arsene = |h: &mut Hitbox| {
         partner(h);
         h.hitlag = 180;
         h.angle_type = ANGLE_FORWARD;
     };
-    b.extend(along(4, 5, (75, 75), (108, 75), 25, 7, 361, 33, 30, 4, 1, arsene));
-    b.extend(along(4, 5, (108, 75), (147, 75), 25, 7, 180, 33, 30, 5, 1, arsene));
+    b.extend(along(
+        4,
+        5,
+        (75, 75),
+        (108, 75),
+        25,
+        7,
+        361,
+        33,
+        30,
+        4,
+        1,
+        arsene,
+    ));
+    b.extend(along(
+        4,
+        5,
+        (108, 75),
+        (147, 75),
+        25,
+        7,
+        180,
+        33,
+        30,
+        5,
+        1,
+        arsene,
+    ));
     let mut jab1 = moved(24, 0, 0, 255, b);
     chain(&mut jab1, MoveId::Jab2, 7);
     w.moves[MoveId::Jab as usize] = jab1;
@@ -241,10 +280,49 @@ fn jabs(w: &mut Weapon) {
     // 14.5 ahead; the far box (radius 2.5, 18.0 ahead) at 180, BK 30, KS 30 (fighters only) [R]. The partner (0.7%, BK 25, KS 30, radius
     // 2.5, hitlag x1.8): 361 from 10.5 to 15.0 ahead, 180 from 15.0 to 18.0 [R]. FAF 24; continuable 11-24 into jab 3 [R].
     let mut b = vec![bx(3, 4, 100, 80, 20, 15, 361, 25, 30, 0, 0, fwd)];
-    b.extend(along(3, 4, (130, 80), (145, 80), 20, 15, 361, 25, 30, 1, 0, fwd));
+    b.extend(along(
+        3,
+        4,
+        (130, 80),
+        (145, 80),
+        20,
+        15,
+        361,
+        25,
+        30,
+        1,
+        0,
+        fwd,
+    ));
     b.push(bx(3, 4, 180, 80, 25, 15, 180, 30, 30, 2, 0, fwd));
-    b.extend(along(3, 4, (105, 80), (150, 80), 25, 7, 361, 25, 30, 4, 1, arsene));
-    b.extend(along(3, 4, (150, 80), (180, 80), 25, 7, 180, 25, 30, 5, 1, arsene));
+    b.extend(along(
+        3,
+        4,
+        (105, 80),
+        (150, 80),
+        25,
+        7,
+        361,
+        25,
+        30,
+        4,
+        1,
+        arsene,
+    ));
+    b.extend(along(
+        3,
+        4,
+        (150, 80),
+        (180, 80),
+        25,
+        7,
+        180,
+        25,
+        30,
+        5,
+        1,
+        arsene,
+    ));
     let mut jab2 = moved(24, 0, 0, 255, b);
     chain(&mut jab2, MoveId::Jab3, 11);
     w.moves[MoveId::Jab2 as usize] = jab2;
@@ -261,7 +339,20 @@ fn jabs(w: &mut Weapon) {
             h.angle_type = ANGLE_FORWARD;
         };
         b.push(bx(3, 4, 100, 80, 20, 40, 361, 60, 80, 0, 0, m));
-        b.extend(along(3, 4, (135, 80), (145, 80), 20, 40, 361, 60, 80, 1, 0, m));
+        b.extend(along(
+            3,
+            4,
+            (135, 80),
+            (145, 80),
+            20,
+            40,
+            361,
+            60,
+            80,
+            1,
+            0,
+            m,
+        ));
         b.push(bx(3, 4, 120, 90, 25, 40, 361, 60, 80, 2, 0, m));
         b.push(bx(4, 4, far, 80, 20, 40, 361, 60, 80, 3, 0, move |h| {
             m(h);
@@ -274,7 +365,20 @@ fn jabs(w: &mut Weapon) {
         h.hitlag = 200;
         h.angle_type = ANGLE_FORWARD;
     };
-    b.extend(along(3, 4, (110, 80), (140, 80), 25, 31, 361, 65, 135, 4, 1, arsene3));
+    b.extend(along(
+        3,
+        4,
+        (110, 80),
+        (140, 80),
+        25,
+        31,
+        361,
+        65,
+        135,
+        4,
+        1,
+        arsene3,
+    ));
     b.push(bx(4, 4, 170, 80, 25, 31, 361, 65, 135, 5, 1, arsene3));
     w.moves[MoveId::Jab3 as usize] = moved(35, 0, 0, 255, b);
 }
@@ -290,9 +394,36 @@ fn tilts(w: &mut Weapon) {
     let mut b = Vec::new();
     // (aim, tip, base, hit 1 tip angle / fkv, hit 1 blade angle / fkv, hit 2 angle, hit 2 KS, powered KS)
     for (aim, tip, base, t1, b1, a2, ks2, pks) in [
-        (AIM_UP, (150, 130), (100, 95), (180, 10), (35, 25), 45, 128, 121),
-        (AIM_STRAIGHT, (170, 80), (100, 80), (93, 20), (40, 20), 35, 110, 106),
-        (AIM_DOWN, (160, 40), (100, 65), (93, 10), (40, 20), 25, 105, 106),
+        (
+            AIM_UP,
+            (150, 130),
+            (100, 95),
+            (180, 10),
+            (35, 25),
+            45,
+            128,
+            121,
+        ),
+        (
+            AIM_STRAIGHT,
+            (170, 80),
+            (100, 80),
+            (93, 20),
+            (40, 20),
+            35,
+            110,
+            106,
+        ),
+        (
+            AIM_DOWN,
+            (160, 40),
+            (100, 65),
+            (93, 10),
+            (40, 20),
+            25,
+            105,
+            106,
+        ),
     ] {
         let set = |fkv: u16| {
             move |h: &mut Hitbox| {
@@ -302,29 +433,94 @@ fn tilts(w: &mut Weapon) {
                 h.angle_type = ANGLE_FORWARD;
             }
         };
-        b.push(bx(8, 9, tip.0, tip.1, 25, 30, t1.0, 0, 100, 1, 0, set(t1.1)));
-        b.extend(along(8, 9, base, tip, 25, 30, b1.0, 0, 100, 2, 0, set(b1.1)));
+        b.push(bx(
+            8,
+            9,
+            tip.0,
+            tip.1,
+            25,
+            30,
+            t1.0,
+            0,
+            100,
+            1,
+            0,
+            set(t1.1),
+        ));
+        b.extend(along(
+            8,
+            9,
+            base,
+            tip,
+            25,
+            30,
+            b1.0,
+            0,
+            100,
+            2,
+            0,
+            set(b1.1),
+        ));
         let a = move |h: &mut Hitbox| {
             h.aim = aim;
             h.angle_type = ANGLE_FORWARD;
         };
-        b.extend(along(13, 15, base, tip, 25, 50, a2, 45, ks2, 2, 1, move |h| {
-            a(h);
-            plain(h);
-        }));
+        b.extend(along(
+            13,
+            15,
+            base,
+            tip,
+            25,
+            50,
+            a2,
+            45,
+            ks2,
+            2,
+            1,
+            move |h| {
+                a(h);
+                plain(h);
+            },
+        ));
         let pw = move |h: &mut Hitbox| {
             a(h);
             h.hitlag = 170;
             h.shieldstun = 200;
         };
-        b.extend(along(13, 19, base, tip, 40, 50, a2, 60, pks, 0, 1, move |h| {
-            pw(h);
-            awake(h);
-        }));
-        b.extend(along(13, 19, base, tip, 40, 50, a2, 60, pks, 1, 2, move |h| {
-            pw(h);
-            partner(h);
-        }));
+        b.extend(along(
+            13,
+            19,
+            base,
+            tip,
+            40,
+            50,
+            a2,
+            60,
+            pks,
+            0,
+            1,
+            move |h| {
+                pw(h);
+                awake(h);
+            },
+        ));
+        b.extend(along(
+            13,
+            19,
+            base,
+            tip,
+            40,
+            50,
+            a2,
+            60,
+            pks,
+            1,
+            2,
+            move |h| {
+                pw(h);
+                partner(h);
+            },
+        ));
     }
     w.moves[MoveId::FTilt as usize] = moved(35, 0, 0, 255, b);
 
@@ -347,26 +543,182 @@ fn tilts(w: &mut Weapon) {
             h.angle_type = ANGLE_BY_POSITION;
         }
     };
-    let mut b = along(8, 8, (40, 40), (75, 80), 25, 40, 120, 0, 100, 0, 0, set(150, TARGETS_GROUNDED, true));
-    b.push(bx(8, 8, 50, 110, 25, 40, 105, 0, 100, 1, 0, set(150, TARGETS_GROUNDED, true)));
-    b.push(bx(8, 8, 50, 110, 25, 40, 100, 0, 100, 2, 0, set(60, TARGETS_AERIAL, true)));
-    b.push(bx(8, 8, 60, 140, 20, 40, 110, 0, 100, 3, 0, set(165, TARGETS_GROUNDED, false)));
-    b.push(bx(8, 8, 60, 140, 20, 40, 115, 0, 100, 4, 0, set(60, TARGETS_AERIAL, false)));
-    b.push(bx(8, 8, 65, 165, 20, 40, 123, 0, 100, 5, 0, set(165, TARGETS_GROUNDED, false)));
-    b.push(bx(8, 8, 65, 165, 20, 40, 115, 0, 100, 6, 0, set(60, TARGETS_AERIAL, false)));
-    b.extend(along(9, 9, (10, 230), (50, 200), 30, 40, 130, 0, 100, 3, 0, set(20, TARGETS_ALL, false)));
-    b.push(bx(9, 9, 10, 230, 30, 40, ANGLE_AUTOLINK, 0, 100, 4, 0, set(20, TARGETS_ALL, false)));
-    b.extend(along(9, 9, (75, 130), (70, 180), 30, 40, 133, 0, 100, 5, 0, set(0, TARGETS_ALL, false)));
-    b.push(bx(10, 19, 10, 220, 50, 10, ANGLE_AUTOLINK, 20, 20, 3, 0, |h| {
-        set(0, TARGETS_ALL, false)(h);
-        h.hitlag = 30;
-    }));
-    b.push(bx(11, 19, 0, 250, 60, 7, ANGLE_AUTOLINK, 50, 20, 0, 1, |h| {
-        partner(h);
-        h.hitlag = 30;
-        h.effect = EFFECT_ELECTRIC;
-        h.angle_type = ANGLE_BY_POSITION;
-    }));
+    let mut b = along(
+        8,
+        8,
+        (40, 40),
+        (75, 80),
+        25,
+        40,
+        120,
+        0,
+        100,
+        0,
+        0,
+        set(150, TARGETS_GROUNDED, true),
+    );
+    b.push(bx(
+        8,
+        8,
+        50,
+        110,
+        25,
+        40,
+        105,
+        0,
+        100,
+        1,
+        0,
+        set(150, TARGETS_GROUNDED, true),
+    ));
+    b.push(bx(
+        8,
+        8,
+        50,
+        110,
+        25,
+        40,
+        100,
+        0,
+        100,
+        2,
+        0,
+        set(60, TARGETS_AERIAL, true),
+    ));
+    b.push(bx(
+        8,
+        8,
+        60,
+        140,
+        20,
+        40,
+        110,
+        0,
+        100,
+        3,
+        0,
+        set(165, TARGETS_GROUNDED, false),
+    ));
+    b.push(bx(
+        8,
+        8,
+        60,
+        140,
+        20,
+        40,
+        115,
+        0,
+        100,
+        4,
+        0,
+        set(60, TARGETS_AERIAL, false),
+    ));
+    b.push(bx(
+        8,
+        8,
+        65,
+        165,
+        20,
+        40,
+        123,
+        0,
+        100,
+        5,
+        0,
+        set(165, TARGETS_GROUNDED, false),
+    ));
+    b.push(bx(
+        8,
+        8,
+        65,
+        165,
+        20,
+        40,
+        115,
+        0,
+        100,
+        6,
+        0,
+        set(60, TARGETS_AERIAL, false),
+    ));
+    b.extend(along(
+        9,
+        9,
+        (10, 230),
+        (50, 200),
+        30,
+        40,
+        130,
+        0,
+        100,
+        3,
+        0,
+        set(20, TARGETS_ALL, false),
+    ));
+    b.push(bx(
+        9,
+        9,
+        10,
+        230,
+        30,
+        40,
+        ANGLE_AUTOLINK,
+        0,
+        100,
+        4,
+        0,
+        set(20, TARGETS_ALL, false),
+    ));
+    b.extend(along(
+        9,
+        9,
+        (75, 130),
+        (70, 180),
+        30,
+        40,
+        133,
+        0,
+        100,
+        5,
+        0,
+        set(0, TARGETS_ALL, false),
+    ));
+    b.push(bx(
+        10,
+        19,
+        10,
+        220,
+        50,
+        10,
+        ANGLE_AUTOLINK,
+        20,
+        20,
+        3,
+        0,
+        |h| {
+            set(0, TARGETS_ALL, false)(h);
+            h.hitlag = 30;
+        },
+    ));
+    b.push(bx(
+        11,
+        19,
+        0,
+        250,
+        60,
+        7,
+        ANGLE_AUTOLINK,
+        50,
+        20,
+        0,
+        1,
+        |h| {
+            partner(h);
+            h.hitlag = 30;
+            h.effect = EFFECT_ELECTRIC;
+            h.angle_type = ANGLE_BY_POSITION;
+        },
+    ));
     b.push(bx(20, 23, 10, 220, 50, 10, 90, 35, 270, 3, 2, |h| {
         plain(h);
         h.clanks = false;
@@ -392,22 +744,65 @@ fn tilts(w: &mut Weapon) {
     // x1.5) at 75 / 82 / 85, and the partner slides alongside: 7%, 82 degrees, BK 70, KS 95 / 98 / 99 on the same box [R]. FAF 38. The
     // slide forward on frames 6-14 [E: the distance is not published; 14 of the reference's units]; the knee low in front [E].
     let mut b = Vec::new();
-    for (first, last, angle, ff, pks) in [(8u8, 9u8, 75i16, 75u16, 95i16), (10, 11, 82, 100, 98), (12, 14, 85, 100, 99)] {
-        b.push(bx(first, last, 85, 25, 26, 60, angle, 75, 66, 0, 0, move |h| {
-            plain(h);
-            h.hitlag = ff;
-            h.angle_type = ANGLE_FORWARD;
-        }));
-        b.extend(along(first, last, (0, 32), (85, 32), 35, 60, angle, 55, 66, 0, 0, |h| {
-            awake(h);
-            h.hitlag = 150;
-            h.angle_type = ANGLE_FORWARD;
-        }));
-        b.extend(along(first, last, (0, 32), (85, 32), 35, 70, 82, 70, pks, 1, 1, |h| {
-            partner(h);
-            h.hitlag = 150;
-            h.angle_type = ANGLE_FORWARD;
-        }));
+    for (first, last, angle, ff, pks) in [
+        (8u8, 9u8, 75i16, 75u16, 95i16),
+        (10, 11, 82, 100, 98),
+        (12, 14, 85, 100, 99),
+    ] {
+        b.push(bx(
+            first,
+            last,
+            85,
+            25,
+            26,
+            60,
+            angle,
+            75,
+            66,
+            0,
+            0,
+            move |h| {
+                plain(h);
+                h.hitlag = ff;
+                h.angle_type = ANGLE_FORWARD;
+            },
+        ));
+        b.extend(along(
+            first,
+            last,
+            (0, 32),
+            (85, 32),
+            35,
+            60,
+            angle,
+            55,
+            66,
+            0,
+            0,
+            |h| {
+                awake(h);
+                h.hitlag = 150;
+                h.angle_type = ANGLE_FORWARD;
+            },
+        ));
+        b.extend(along(
+            first,
+            last,
+            (0, 32),
+            (85, 32),
+            35,
+            70,
+            82,
+            70,
+            pks,
+            1,
+            1,
+            |h| {
+                partner(h);
+                h.hitlag = 150;
+                h.angle_type = ANGLE_FORWARD;
+            },
+        ));
     }
     let mut dtilt = moved(38, 0, 0, 255, b);
     dtilt.motion = vec![Motion {
@@ -431,12 +826,90 @@ fn tilts(w: &mut Weapon) {
             h.angle_type = ANGLE_FORWARD;
         }
     };
-    let mut b = along(6, 7, (40, 40), (50, 90), 30, 20, 35, 0, 95, 0, 0, h1(70, TARGETS_GROUNDED));
-    b.push(bx(6, 7, 70, 65, 30, 20, 40, 0, 95, 1, 0, h1(80, TARGETS_GROUNDED)));
-    b.push(bx(6, 7, 100, 70, 30, 20, 50, 0, 95, 2, 0, h1(50, TARGETS_GROUNDED)));
-    b.extend(along(6, 7, (40, 40), (50, 90), 30, 20, 25, 0, 95, 3, 0, h1(40, TARGETS_AERIAL)));
-    b.push(bx(6, 7, 70, 65, 30, 20, 10, 0, 95, 4, 0, h1(30, TARGETS_AERIAL)));
-    b.push(bx(6, 7, 100, 70, 30, 20, 15, 0, 95, 5, 0, h1(25, TARGETS_AERIAL)));
+    let mut b = along(
+        6,
+        7,
+        (40, 40),
+        (50, 90),
+        30,
+        20,
+        35,
+        0,
+        95,
+        0,
+        0,
+        h1(70, TARGETS_GROUNDED),
+    );
+    b.push(bx(
+        6,
+        7,
+        70,
+        65,
+        30,
+        20,
+        40,
+        0,
+        95,
+        1,
+        0,
+        h1(80, TARGETS_GROUNDED),
+    ));
+    b.push(bx(
+        6,
+        7,
+        100,
+        70,
+        30,
+        20,
+        50,
+        0,
+        95,
+        2,
+        0,
+        h1(50, TARGETS_GROUNDED),
+    ));
+    b.extend(along(
+        6,
+        7,
+        (40, 40),
+        (50, 90),
+        30,
+        20,
+        25,
+        0,
+        95,
+        3,
+        0,
+        h1(40, TARGETS_AERIAL),
+    ));
+    b.push(bx(
+        6,
+        7,
+        70,
+        65,
+        30,
+        20,
+        10,
+        0,
+        95,
+        4,
+        0,
+        h1(30, TARGETS_AERIAL),
+    ));
+    b.push(bx(
+        6,
+        7,
+        100,
+        70,
+        30,
+        20,
+        15,
+        0,
+        95,
+        5,
+        0,
+        h1(25, TARGETS_AERIAL),
+    ));
     b.push(bx(15, 21, 70, 70, 28, 60, 361, 60, 85, 0, 1, |h| {
         plain(h);
         h.angle_type = ANGLE_FORWARD;
@@ -445,17 +918,47 @@ fn tilts(w: &mut Weapon) {
         plain(h);
         h.angle_type = ANGLE_FORWARD;
     }));
-    for (first, last, y, to) in [(15u8, 16u8, 80, 120), (17, 18, 100, 130), (19, 21, 110, 110)] {
-        b.extend(along(first, last, (70, y), (to, y), 50, 60, 361, 85, 82, 0, 1, |h| {
-            awake(h);
-            h.hitlag = 170;
-            h.angle_type = ANGLE_FORWARD;
-        }));
-        b.extend(along(first, last, (70, y), (to, y), 50, 60, 361, 85, 82, 1, 2, |h| {
-            partner(h);
-            h.hitlag = 170;
-            h.angle_type = ANGLE_FORWARD;
-        }));
+    for (first, last, y, to) in [
+        (15u8, 16u8, 80, 120),
+        (17, 18, 100, 130),
+        (19, 21, 110, 110),
+    ] {
+        b.extend(along(
+            first,
+            last,
+            (70, y),
+            (to, y),
+            50,
+            60,
+            361,
+            85,
+            82,
+            0,
+            1,
+            |h| {
+                awake(h);
+                h.hitlag = 170;
+                h.angle_type = ANGLE_FORWARD;
+            },
+        ));
+        b.extend(along(
+            first,
+            last,
+            (70, y),
+            (to, y),
+            50,
+            60,
+            361,
+            85,
+            82,
+            1,
+            2,
+            |h| {
+                partner(h);
+                h.hitlag = 170;
+                h.angle_type = ANGLE_FORWARD;
+            },
+        ));
     }
     w.moves[MoveId::DashAttack as usize] = moved(46, 0, 0, 255, b);
 }
@@ -472,12 +975,70 @@ fn smashes(w: &mut Weapon) {
         h.hitlag = 80;
         fwd(h);
     };
-    b.extend(along(16, 16, (120, 100), (120, 60), 20, 140, 361, 40, 98, 0, 0, pl));
-    b.extend(along(16, 16, (90, 95), (90, 80), 40, 140, 361, 40, 98, 1, 0, pl));
-    b.extend(along(17, 18, (120, 80), (120, 60), 20, 140, 361, 40, 98, 0, 0, pl));
-    b.extend(along(17, 18, (90, 95), (90, 60), 40, 140, 361, 40, 98, 1, 0, pl));
+    b.extend(along(
+        16,
+        16,
+        (120, 100),
+        (120, 60),
+        20,
+        140,
+        361,
+        40,
+        98,
+        0,
+        0,
+        pl,
+    ));
+    b.extend(along(
+        16,
+        16,
+        (90, 95),
+        (90, 80),
+        40,
+        140,
+        361,
+        40,
+        98,
+        1,
+        0,
+        pl,
+    ));
+    b.extend(along(
+        17,
+        18,
+        (120, 80),
+        (120, 60),
+        20,
+        140,
+        361,
+        40,
+        98,
+        0,
+        0,
+        pl,
+    ));
+    b.extend(along(
+        17,
+        18,
+        (90, 95),
+        (90, 60),
+        40,
+        140,
+        361,
+        40,
+        98,
+        1,
+        0,
+        pl,
+    ));
     for (first, last, a, b2, bk) in [
-        (16u8, 16u8, ((155, 140), (155, 80)), ((100, 85), (100, 115)), 40i16),
+        (
+            16u8,
+            16u8,
+            ((155, 140), (155, 80)),
+            ((100, 85), (100, 115)),
+            40i16,
+        ),
         (17, 18, ((155, 140), (155, 75)), ((100, 70), (100, 115)), 40),
         (19, 19, ((155, 140), (155, 75)), ((100, 70), (100, 115)), 0),
     ] {
@@ -487,14 +1048,18 @@ fn smashes(w: &mut Weapon) {
             fwd(h);
         };
         b.extend(along(first, last, a.0, a.1, 30, 140, 361, bk, 98, 0, 0, pw));
-        b.extend(along(first, last, b2.0, b2.1, 50, 140, 361, bk, 98, 1, 0, pw));
+        b.extend(along(
+            first, last, b2.0, b2.1, 50, 140, 361, bk, 98, 1, 0, pw,
+        ));
         let ar = |h: &mut Hitbox| {
             partner(h);
             h.hitlag = 120;
             fwd(h);
         };
         b.extend(along(first, last, a.0, a.1, 30, 80, 361, 50, 151, 2, 1, ar));
-        b.extend(along(first, last, b2.0, b2.1, 50, 80, 361, 50, 151, 3, 1, ar));
+        b.extend(along(
+            first, last, b2.0, b2.1, 50, 80, 361, 50, 151, 3, 1, ar,
+        ));
     }
     let mut fsmash = moved(48, 0, 0, 255, b);
     fsmash.charge_at = Some(4);
@@ -516,10 +1081,23 @@ fn smashes(w: &mut Weapon) {
             pos(h);
         }),
     ];
-    b.extend(along(10, 10, (30, 70), (60, 120), 35, 120, 83, 43, 100, 2, 0, |h| {
-        plain(h);
-        pos(h);
-    }));
+    b.extend(along(
+        10,
+        10,
+        (30, 70),
+        (60, 120),
+        35,
+        120,
+        83,
+        43,
+        100,
+        2,
+        0,
+        |h| {
+            plain(h);
+            pos(h);
+        },
+    ));
     let pw = |h: &mut Hitbox| {
         awake(h);
         h.hitlag = 150;
@@ -530,20 +1108,77 @@ fn smashes(w: &mut Weapon) {
         h.hitlag = 150;
         pos(h);
     };
-    for (part, damage, bk, ks, group, priority) in [(pw as fn(&mut Hitbox), 120, 43i16, 100i16, 0u8, 0u8), (ar, 50, 59, 181, 1, 3)] {
-        b.push(bx(10, 14, 40, 190, 35, damage, 83, bk, ks, priority, group, part));
-        b.push(bx(10, 14, 30, 140, 25, damage, 83, bk, ks, priority + 1, group, part));
-        b.extend(along(10, 10, (30, 70), (60, 120), 35, damage, 83, bk, ks, priority + 2, group, part));
-        b.extend(along(12, 13, (10, 280), (95, 160), 50, damage, 83, bk, ks, priority + 2, group, move |h| {
-            part(h);
-            h.clanks = false;
-            h.rebounds = false;
-        }));
-        b.push(bx(14, 14, 10, 280, 50, damage, 83, bk, ks, priority + 2, group, move |h| {
-            part(h);
-            h.clanks = false;
-            h.rebounds = false;
-        }));
+    for (part, damage, bk, ks, group, priority) in [
+        (pw as fn(&mut Hitbox), 120, 43i16, 100i16, 0u8, 0u8),
+        (ar, 50, 59, 181, 1, 3),
+    ] {
+        b.push(bx(
+            10, 14, 40, 190, 35, damage, 83, bk, ks, priority, group, part,
+        ));
+        b.push(bx(
+            10,
+            14,
+            30,
+            140,
+            25,
+            damage,
+            83,
+            bk,
+            ks,
+            priority + 1,
+            group,
+            part,
+        ));
+        b.extend(along(
+            10,
+            10,
+            (30, 70),
+            (60, 120),
+            35,
+            damage,
+            83,
+            bk,
+            ks,
+            priority + 2,
+            group,
+            part,
+        ));
+        b.extend(along(
+            12,
+            13,
+            (10, 280),
+            (95, 160),
+            50,
+            damage,
+            83,
+            bk,
+            ks,
+            priority + 2,
+            group,
+            move |h| {
+                part(h);
+                h.clanks = false;
+                h.rebounds = false;
+            },
+        ));
+        b.push(bx(
+            14,
+            14,
+            10,
+            280,
+            50,
+            damage,
+            83,
+            bk,
+            ks,
+            priority + 2,
+            group,
+            move |h| {
+                part(h);
+                h.clanks = false;
+                h.rebounds = false;
+            },
+        ));
     }
     let mut usmash = moved(52, 0, 0, 255, b);
     usmash.charge_at = Some(3);
@@ -556,7 +1191,10 @@ fn smashes(w: &mut Weapon) {
     // 8.0 to 15.0 behind) and the partner's kick there (6%, 30, BK 40, KS 158) [R]. FAF 52 (ultimateframedata.com, dragdown.wiki;
     // ssbwiki.com reads 46: conflict 2). The knife and arm low in front and behind [E].
     let mut b = Vec::new();
-    for (mode, ff, bk1, ks1) in [(MODE_PLAIN, 80u16, 30i16, 93i16), (MODE_POWERED, 130, 64, 84)] {
+    for (mode, ff, bk1, ks1) in [
+        (MODE_PLAIN, 80u16, 30i16, 93i16),
+        (MODE_POWERED, 130, 64, 84),
+    ] {
         let h1 = move |h: &mut Hitbox| {
             h.mode = mode;
             h.hitlag = ff;
@@ -586,10 +1224,62 @@ fn smashes(w: &mut Weapon) {
         h.hitlag = 130;
         pos(h);
     };
-    b.extend(along(12, 13, (65, 65), (155, 40), 35, 120, 32, 64, 84, 4, 0, pw));
-    b.extend(along(12, 13, (65, 65), (155, 40), 35, 60, 38, 44, 158, 5, 2, ar));
-    b.extend(along(16, 17, (-80, 60), (-150, 30), 35, 120, 30, 35, 93, 4, 1, pw));
-    b.extend(along(16, 17, (-80, 60), (-150, 30), 35, 60, 30, 40, 158, 5, 3, ar));
+    b.extend(along(
+        12,
+        13,
+        (65, 65),
+        (155, 40),
+        35,
+        120,
+        32,
+        64,
+        84,
+        4,
+        0,
+        pw,
+    ));
+    b.extend(along(
+        12,
+        13,
+        (65, 65),
+        (155, 40),
+        35,
+        60,
+        38,
+        44,
+        158,
+        5,
+        2,
+        ar,
+    ));
+    b.extend(along(
+        16,
+        17,
+        (-80, 60),
+        (-150, 30),
+        35,
+        120,
+        30,
+        35,
+        93,
+        4,
+        1,
+        pw,
+    ));
+    b.extend(along(
+        16,
+        17,
+        (-80, 60),
+        (-150, 30),
+        35,
+        60,
+        30,
+        40,
+        158,
+        5,
+        3,
+        ar,
+    ));
     let mut dsmash = moved(52, 0, 0, 255, b);
     dsmash.charge_at = Some(4);
     w.moves[MoveId::DSmash as usize] = dsmash;
@@ -656,18 +1346,57 @@ fn aerials(w: &mut Weapon) {
             fw(h);
         }),
     ];
-    b.extend(along(12, 14, (50, 135), (75, 135), 60, 50, 34, 48, 148, 0, 1, |h| {
-        awake(h);
-        h.hitlag = 190;
-        fw(h);
-    }));
+    b.extend(along(
+        12,
+        14,
+        (50, 135),
+        (75, 135),
+        60,
+        50,
+        34,
+        48,
+        148,
+        0,
+        1,
+        |h| {
+            awake(h);
+            h.hitlag = 190;
+            fw(h);
+        },
+    ));
     let ar = |h: &mut Hitbox| {
         partner(h);
         h.hitlag = 160;
         fw(h);
     };
-    b.extend(along(12, 14, (50, 135), (75, 135), 60, 80, 34, 58, 98, 1, 2, ar));
-    b.extend(along(12, 14, (50, 180), (65, 170), 70, 80, 34, 58, 98, 2, 2, ar));
+    b.extend(along(
+        12,
+        14,
+        (50, 135),
+        (75, 135),
+        60,
+        80,
+        34,
+        58,
+        98,
+        1,
+        2,
+        ar,
+    ));
+    b.extend(along(
+        12,
+        14,
+        (50, 180),
+        (65, 170),
+        70,
+        80,
+        34,
+        58,
+        98,
+        2,
+        2,
+        ar,
+    ));
     w.moves[MoveId::FAir as usize] = moved(48, 12, 3, 42, b);
 
     // Back air: an upward swipe behind, 9%, 43 degrees backward (type 4), BK 54, KS 90, hitlag x0.8 [R]. Early on frame 7: radius 2.5
@@ -683,25 +1412,142 @@ fn aerials(w: &mut Weapon) {
         back(h);
     };
     let mut b = along(7, 7, (-60, 33), (-84, 107), 25, 90, 43, 54, 90, 0, 0, pl);
-    b.extend(along(7, 7, (-111, 47), (-142, 111), 25, 90, 43, 54, 90, 1, 0, pl));
-    b.extend(along(7, 7, (-30, 40), (50, 85), 30, 90, 43, 54, 90, 2, 0, pl));
-    b.extend(along(8, 8, (-100, 100), (-130, 135), 25, 90, 43, 54, 90, 0, 0, pl));
-    b.extend(along(8, 8, (-65, 45), (55, 75), 35, 90, 43, 54, 90, 2, 0, pl));
+    b.extend(along(
+        7,
+        7,
+        (-111, 47),
+        (-142, 111),
+        25,
+        90,
+        43,
+        54,
+        90,
+        1,
+        0,
+        pl,
+    ));
+    b.extend(along(
+        7,
+        7,
+        (-30, 40),
+        (50, 85),
+        30,
+        90,
+        43,
+        54,
+        90,
+        2,
+        0,
+        pl,
+    ));
+    b.extend(along(
+        8,
+        8,
+        (-100, 100),
+        (-130, 135),
+        25,
+        90,
+        43,
+        54,
+        90,
+        0,
+        0,
+        pl,
+    ));
+    b.extend(along(
+        8,
+        8,
+        (-65, 45),
+        (55, 75),
+        35,
+        90,
+        43,
+        54,
+        90,
+        2,
+        0,
+        pl,
+    ));
     let pw = |h: &mut Hitbox| {
         awake(h);
         h.hitlag = 130;
         back(h);
     };
-    b.extend(along(7, 8, (-125, 105), (-125, 150), 50, 90, 35, 51, 102, 0, 0, pw));
-    b.extend(along(7, 8, (-100, 75), (-85, 55), 50, 90, 35, 51, 102, 1, 0, pw));
+    b.extend(along(
+        7,
+        8,
+        (-125, 105),
+        (-125, 150),
+        50,
+        90,
+        35,
+        51,
+        102,
+        0,
+        0,
+        pw,
+    ));
+    b.extend(along(
+        7,
+        8,
+        (-100, 75),
+        (-85, 55),
+        50,
+        90,
+        35,
+        51,
+        102,
+        1,
+        0,
+        pw,
+    ));
     let ar = |h: &mut Hitbox| {
         partner(h);
         h.hitlag = 140;
         back(h);
     };
-    b.extend(along(7, 8, (-100, 75), (-85, 55), 50, 70, 35, 58, 114, 2, 1, ar));
-    b.extend(along(7, 8, (-125, 105), (-125, 150), 50, 70, 35, 58, 114, 3, 1, ar));
-    b.extend(along(7, 8, (-120, 165), (-90, 205), 50, 70, 35, 76, 98, 4, 1, ar));
+    b.extend(along(
+        7,
+        8,
+        (-100, 75),
+        (-85, 55),
+        50,
+        70,
+        35,
+        58,
+        114,
+        2,
+        1,
+        ar,
+    ));
+    b.extend(along(
+        7,
+        8,
+        (-125, 105),
+        (-125, 150),
+        50,
+        70,
+        35,
+        58,
+        114,
+        3,
+        1,
+        ar,
+    ));
+    b.extend(along(
+        7,
+        8,
+        (-120, 165),
+        (-90, 205),
+        50,
+        70,
+        35,
+        76,
+        98,
+        4,
+        1,
+        ar,
+    ));
     w.moves[MoveId::BAir as usize] = moved(32, 9, 3, 30, b);
 
     // Up air: a corkscrew kick overhead, type 3 [R]. Frames 5-18, every 4 frames (hits 1-4): the knee (radius 4.0) 0.75%, hitlag x0.7,
@@ -718,8 +1564,34 @@ fn aerials(w: &mut Weapon) {
         }
     };
     let mut b = vec![
-        bx(5, 18, 15, 170, 40, 7, 80, 20, 80, 0, 0, multi(TARGETS_GROUNDED)),
-        bx(5, 18, 15, 170, 40, 7, ANGLE_AUTOLINK, 30, 100, 1, 0, multi(TARGETS_AERIAL)),
+        bx(
+            5,
+            18,
+            15,
+            170,
+            40,
+            7,
+            80,
+            20,
+            80,
+            0,
+            0,
+            multi(TARGETS_GROUNDED),
+        ),
+        bx(
+            5,
+            18,
+            15,
+            170,
+            40,
+            7,
+            ANGLE_AUTOLINK,
+            30,
+            100,
+            1,
+            0,
+            multi(TARGETS_AERIAL),
+        ),
         bx(20, 21, 15, 170, 45, 30, 80, 50, 155, 0, 1, |h| {
             plain(h);
             pos(h);
@@ -734,11 +1606,24 @@ fn aerials(w: &mut Weapon) {
     for h in b.iter_mut().take(2) {
         h.damage = Fx::from_ratio(3, 4);
     }
-    b.extend(along(20, 21, (15, 200), (0, 240), 50, 70, 80, 50, 126, 1, 2, |h| {
-        partner(h);
-        h.hitlag = 170;
-        pos(h);
-    }));
+    b.extend(along(
+        20,
+        21,
+        (15, 200),
+        (0, 240),
+        50,
+        70,
+        80,
+        50,
+        126,
+        1,
+        2,
+        |h| {
+            partner(h);
+            h.hitlag = 170;
+            pos(h);
+        },
+    ));
     let mut uair = moved(40, 14, 4, 40, b);
     uair.rehit = Some((8, 4));
     uair.rehit_groups = 0b1;
@@ -764,11 +1649,24 @@ fn aerials(w: &mut Weapon) {
         b.push(bx(first, last, 50, -10, 25, 80, 38, bk, ks, 1, 0, set));
         b.push(bx(first, last, 30, 20, 30, 80, 38, bk, ks, 2, 0, set));
     }
-    b.extend(along(15, 16, (10, 20), (10, -40), 50, 80, 270, 35, 96, 3, 1, |h| {
-        partner(h);
-        h.hitlag = 150;
-        fw(h);
-    }));
+    b.extend(along(
+        15,
+        16,
+        (10, 20),
+        (10, -40),
+        50,
+        80,
+        270,
+        35,
+        96,
+        3,
+        1,
+        |h| {
+            partner(h);
+            h.hitlag = 150;
+            fw(h);
+        },
+    ));
     w.moves[MoveId::DAir as usize] = moved(47, 11, 3, 40, b);
 }
 
@@ -783,7 +1681,20 @@ fn grabs_and_throws(w: &mut Weapon) {
                 0,
                 0,
                 255,
-                along(first, last, (from, y), (to, y), radius, 0, 361, 0, 0, 0, 0, |_| {}),
+                along(
+                    first,
+                    last,
+                    (from, y),
+                    (to, y),
+                    radius,
+                    0,
+                    361,
+                    0,
+                    0,
+                    0,
+                    0,
+                    |_| {},
+                ),
             ),
             HIT_GRAB,
         )
@@ -795,13 +1706,19 @@ fn grabs_and_throws(w: &mut Weapon) {
     // Pummel: a knee, 1.5%, set knockback 30 (KS 100), 361 (type 3), hitlag x2.2, radius 5.0 at 10.0 ahead and 10.0 up, never clanks
     // [R]. The reference's hit on frame 1 is frame 2 here with the same 6 frames after it: FAF 8 [D] (the reference's 7).
     let mut pummel = with_kind(
-        moved(8, 0, 0, 255, vec![bx(2, 2, 100, 100, 50, 15, 361, 0, 100, 0, 0, |h| {
-            h.fixed_kb = 30;
-            h.hitlag = 220;
-            h.angle_type = ANGLE_FORWARD;
-            h.clanks = false;
-            h.rebounds = false;
-        })]),
+        moved(
+            8,
+            0,
+            0,
+            255,
+            vec![bx(2, 2, 100, 100, 50, 15, 361, 0, 100, 0, 0, |h| {
+                h.fixed_kb = 30;
+                h.hitlag = 220;
+                h.angle_type = ANGLE_FORWARD;
+                h.clanks = false;
+                h.rebounds = false;
+            })],
+        ),
         HIT_PUMMEL,
     );
     pummel.hitboxes[0].kind = HIT_PUMMEL;
@@ -859,8 +1776,34 @@ fn ledge_and_floor(w: &mut Weapon) {
         h.clanks = false;
         h.rebounds = false;
     };
-    let mut b = along(15, 16, (-150, 50), (-100, 50), 50, 70, 48, 80, 48, 0, 0, set);
-    b.extend(along(24, 25, (140, 50), (90, 50), 50, 70, 48, 80, 48, 0, 1, set));
+    let mut b = along(
+        15,
+        16,
+        (-150, 50),
+        (-100, 50),
+        50,
+        70,
+        48,
+        80,
+        48,
+        0,
+        0,
+        set,
+    );
+    b.extend(along(
+        24,
+        25,
+        (140, 50),
+        (90, 50),
+        50,
+        70,
+        48,
+        80,
+        48,
+        0,
+        1,
+        set,
+    ));
     let mut getup = moved(46, 0, 0, 255, b);
     getup.intangible = 25;
     w.moves[MoveId::GetUpAttack as usize] = getup;
@@ -868,11 +1811,12 @@ fn ledge_and_floor(w: &mut Weapon) {
 
 // ---- The gun (neutral special) ----------------------------------------------------------------------------------------------------
 
-/// The shot's reach in the reference's tenths: close to 20.0 of its units, middle to 44.0, far to 72.0 [E: the reference publishes the
+/// The shot's bands in the reference's tenths from the muzzle (4.0 ahead): close to 20.0 of its units from the feet, middle 23.0 to
+/// 44.0, far 47.0 to 72.0 [E: the reference publishes the
 /// three bands' damages and knockbacks but no distances; "roughly half of the stage's length" overall].
-const CLOSE: (i32, i32) = (40, 200);
-const MID: (i32, i32) = (230, 440);
-const FAR: (i32, i32) = (470, 720);
+const CLOSE: (i32, i32) = (0, 160);
+const MID: (i32, i32) = (190, 400);
+const FAR: (i32, i32) = (430, 680);
 /// The shot's height (chest, 9.5 of the reference's units) and its boxes' radius (2.5) [E].
 const SHOT_Y: i32 = 95;
 const SHOT_R: i32 = 25;
@@ -891,14 +1835,29 @@ fn shot(
     f: impl Fn(&mut Hitbox) + Copy,
 ) -> Vec<Hitbox> {
     let mut out = Vec::new();
-    for (k, ((from, to), (damage, bk, ks, lag))) in [CLOSE, MID, FAR].into_iter().zip(bands).enumerate() {
+    for (k, ((from, to), (damage, bk, ks, lag))) in
+        [CLOSE, MID, FAR].into_iter().zip(bands).enumerate()
+    {
         let a = (ox + dx * from / 100, oy + dy * from / 100);
         let b = (ox + dx * to / 100, oy + dy * to / 100);
-        out.extend(along(frame, frame, a, b, SHOT_R, damage, angle, bk, ks, k as u8, group, move |h| {
-            h.hitlag = lag;
-            h.angle_type = ANGLE_FORWARD;
-            f(h);
-        }));
+        out.extend(along(
+            frame,
+            frame,
+            a,
+            b,
+            SHOT_R,
+            damage,
+            angle,
+            bk,
+            ks,
+            k as u8,
+            group,
+            move |h| {
+                h.hitlag = lag;
+                h.angle_type = ANGLE_FORWARD;
+                f(h);
+            },
+        ));
     }
     out
 }
@@ -938,7 +1897,10 @@ fn gun(w: &mut Weapon) {
     b.extend(shot(24, muzzle, (100, 0), FOLLOW_BANDS, 361, 2, awake));
     let mut nb = moved(42, 0, 0, 255, b);
     gun_air(&mut nb);
-    nb.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_gun.script")));
+    nb.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_gun.script"),
+    ));
     w.moves[MoveId::NSpecial as usize] = nb;
 
     // The dodges (ext3 forward, ext4 back): a roll-like step while firing straight ahead (the reference's "gun dash"), ground or air.
@@ -962,7 +1924,10 @@ fn gun(w: &mut Weapon) {
     dash.intangible_from = 3;
     dash.intangible_from_air = 3;
     dash.intangible = 13;
-    dash.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_gun_dash.script")));
+    dash.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_gun_dash.script"),
+    ));
     w.moves[GUN_DASH as usize] = dash;
 
     let mut b = shot(22, muzzle, (100, 0), PLAIN_BANDS, 361, 0, plain);
@@ -979,7 +1944,10 @@ fn gun(w: &mut Weapon) {
     back.intangible_from = 4;
     back.intangible_from_air = 4;
     back.intangible = 14;
-    back.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_gun_back.script")));
+    back.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_gun_back.script"),
+    ));
     w.moves[GUN_BACK as usize] = back;
 
     // The jump (ext5, from the ground only): a jump up and forward while firing below on frames 10, 17, 24 and 31 (3% close, 0.8% far;
@@ -998,10 +1966,26 @@ fn gun(w: &mut Weapon) {
     let mut b = Vec::new();
     for (k, frame) in [10u8, 17, 24, 31].into_iter().enumerate() {
         let angle = if k == 3 { 90 } else { ANGLE_AUTOLINK };
-        b.extend(shot(frame, below, down, jump_bands(true), angle, k as u8, |_| {}));
+        b.extend(shot(
+            frame,
+            below,
+            down,
+            jump_bands(true),
+            angle,
+            k as u8,
+            |_| {},
+        ));
     }
     for (k, frame) in [13u8, 20, 27].into_iter().enumerate() {
-        b.extend(shot(frame, below, down, jump_bands(false), ANGLE_AUTOLINK, 4 + k as u8, awake));
+        b.extend(shot(
+            frame,
+            below,
+            down,
+            jump_bands(false),
+            ANGLE_AUTOLINK,
+            4 + k as u8,
+            awake,
+        ));
     }
     let mut jump = moved(60, 14, 0, 255, b);
     jump.intangible = 6;
@@ -1011,7 +1995,10 @@ fn gun(w: &mut Weapon) {
         vx: FighterParams::su(500),
         vy: FighterParams::su(2200),
     }];
-    jump.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_gun_jump.script")));
+    jump.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_gun_jump.script"),
+    ));
     w.moves[GUN_JUMP as usize] = jump;
 
     // The spiral (ext6, air, stick up): twelve shots round the body on frames 12, 15, 18, 24, 27, 30, 36, 39, 42, 48, 51, 54, 3% each
@@ -1043,8 +2030,12 @@ fn gun(w: &mut Weapon) {
             let a = (dir.0 * 4 / 100, 80 + dir.1 * 4 / 100);
             let mid = (dir.0 * 120 / 100, 80 + dir.1 * 120 / 100);
             let end = (dir.0 * 300 / 100, 80 + dir.1 * 300 / 100);
-            b.extend(along(frame, frame, a, mid, SHOT_R, damage, 361, 5, 75, 0, 0, set));
-            b.extend(along(frame, frame, mid, end, SHOT_R, damage, 361, 0, 0, 1, 0, set));
+            b.extend(along(
+                frame, frame, a, mid, SHOT_R, damage, 361, 5, 75, 0, 0, set,
+            ));
+            b.extend(along(
+                frame, frame, mid, end, SHOT_R, damage, 361, 0, 0, 1, 0, set,
+            ));
         }
     }
     let mut spiral = moved(70, 20, 0, 255, b);
@@ -1065,14 +2056,33 @@ fn gun(w: &mut Weapon) {
         }
     };
     for (k, frame) in [7u8, 21, 35, 44].into_iter().enumerate() {
-        b.extend(shot(frame, (0, -10), (0, -100), below_bands(true), 50, k as u8, |_| {}));
+        b.extend(shot(
+            frame,
+            (0, -10),
+            (0, -100),
+            below_bands(true),
+            50,
+            k as u8,
+            |_| {},
+        ));
     }
     for (k, frame) in [14u8, 28].into_iter().enumerate() {
-        b.extend(shot(frame, (0, -10), (0, -100), below_bands(false), 50, 4 + k as u8, awake));
+        b.extend(shot(
+            frame,
+            (0, -10),
+            (0, -100),
+            below_bands(false),
+            50,
+            4 + k as u8,
+            awake,
+        ));
     }
     let mut below = moved(49, 10, 0, 255, b);
     gun_air(&mut below);
-    below.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_gun_below.script")));
+    below.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_gun_below.script"),
+    ));
     w.moves[GUN_BELOW as usize] = below;
 }
 
@@ -1139,7 +2149,10 @@ fn curse_bolt(w: &mut Weapon) {
     mv.start_speed_y = 0;
     mv.air_gravity = Some(FighterParams::su(40));
     mv.air_max_fall = Some(FighterParams::su(1000));
-    mv.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_bolt.script")));
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_bolt.script"),
+    ));
     let mut side = mv;
 
     // The powered bolt.
@@ -1176,7 +2189,14 @@ fn curse_bolt(w: &mut Weapon) {
         on_shield: false,
     };
     let mut mv = ref_move(58, 0, 0, 255, &[]);
-    mv.projectile = Some(base(255, 17, bolt, burst));
+    let mut spec = base(255, 17, bolt, burst);
+    // (A landing bursts it: one bounce allowed, but any fall is too fast to bounce, so it bursts where it touched.)
+    spec.arc = ProjectileArc {
+        bounces: 1,
+        bounce_max_fall: Fx::from_raw(1),
+        ..ProjectileArc::NONE
+    };
+    mv.projectile = Some(spec);
     mv.curse = Some(Curse {
         damage: Fx::from_ratio(3, 2),
         every: 40,
@@ -1185,7 +2205,10 @@ fn curse_bolt(w: &mut Weapon) {
     mv.start_speed_y = 0;
     mv.air_gravity = Some(FighterParams::su(40));
     mv.air_max_fall = Some(FighterParams::su(1000));
-    mv.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_bolt_powered.script")));
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_bolt_powered.script"),
+    ));
     w.moves[BOLT_POWERED as usize] = mv;
 
     side.limit_version = Some(BOLT_POWERED as u8);
@@ -1220,7 +2243,10 @@ fn guard(w: &mut Weapon) {
     let mut g = ref_move(53, 0, 0, 255, &[]);
     g.armor = armor(18);
     rules(&mut g);
-    g.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_guard.script")));
+    g.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_guard.script"),
+    ));
     g.limit_version = Some(STANCE as u8);
     w.moves[MoveId::DownSpecial as usize] = g;
 
@@ -1235,11 +2261,17 @@ fn guard(w: &mut Weapon) {
         min_kb: Fx::ZERO,
     });
     rules(&mut hold);
-    hold.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_guard_hold.script")));
+    hold.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_guard_hold.script"),
+    ));
     w.moves[GUARD_HOLD as usize] = hold;
 
     let mut end = ref_move(34, 0, 0, 255, &[]);
-    end.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_guard_end.script")));
+    end.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_guard_end.script"),
+    ));
     w.moves[GUARD_END as usize] = end;
 
     let mut backhand = moved(
@@ -1247,17 +2279,33 @@ fn guard(w: &mut Weapon) {
         0,
         0,
         255,
-        along(8, 9, (-30, 100), (30, 100), 120, 24, 50, 0, 100, 0, 0, |h| {
-            h.fixed_kb = 82;
-            h.hitlag = 125;
-            h.sdi = 0;
-            h.clanks = false;
-            h.rebounds = false;
-            h.angle_type = ANGLE_BY_POSITION;
-        }),
+        along(
+            8,
+            9,
+            (-30, 100),
+            (30, 100),
+            120,
+            24,
+            50,
+            0,
+            100,
+            0,
+            0,
+            |h| {
+                h.fixed_kb = 82;
+                h.hitlag = 125;
+                h.sdi = 0;
+                h.clanks = false;
+                h.rebounds = false;
+                h.angle_type = ANGLE_BY_POSITION;
+            },
+        ),
     );
     backhand.intangible = 14;
-    backhand.script = Some(script(Kind::Fighter, include_str!("scripts/dagger_backhand.script")));
+    backhand.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/dagger_backhand.script"),
+    ));
     w.moves[BACKHAND as usize] = backhand;
 }
 
@@ -1310,12 +2358,25 @@ fn stance(w: &mut Weapon) {
         0,
         0,
         255,
-        along(5, 7, (-50, 105), (100, 105), 200, 120, 361, 80, 51, 0, 0, |h| {
-            h.hitlag = 75;
-            h.clanks = false;
-            h.rebounds = false;
-            h.angle_type = ANGLE_FORWARD;
-        }),
+        along(
+            5,
+            7,
+            (-50, 105),
+            (100, 105),
+            200,
+            120,
+            361,
+            80,
+            51,
+            0,
+            0,
+            |h| {
+                h.hitlag = 75;
+                h.clanks = false;
+                h.rebounds = false;
+                h.angle_type = ANGLE_FORWARD;
+            },
+        ),
     );
     strike.counter_strike = true;
     strike.intangible = 8;

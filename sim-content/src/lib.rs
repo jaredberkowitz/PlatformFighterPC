@@ -311,8 +311,7 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
                 "fighter {i}: the gauge's per_frame must be 0 to 100"
             ));
         }
-        if g
-            .behind
+        if g.behind
             .iter()
             .chain(g.crowd.iter().flatten())
             .any(|&m| m == 0 || m > 4000)
@@ -321,8 +320,7 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
                 "fighter {i}: the gauge's behind and crowd multipliers must be 1 to 4000 (per mille)"
             ));
         }
-        if g
-            .mode_taken
+        if g.mode_taken
             .iter()
             .any(|&v| v < Fx::ZERO || v > Fx::from_int(1000))
         {
@@ -1626,6 +1624,115 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("self_damage")));
+    }
+
+    #[test]
+    fn the_dagger_fields_round_trip_and_are_checked() {
+        // Sim 121: a hitbox's mode and part (E52), a move's armor damage and hitlag (E55), its gauge gain (E53) and curse (E54), a
+        // burst's `on_shield`, and the gauge's partner rules (E53) come back from a file unchanged; a file without them keeps today's
+        // behaviour; bad values are refused.
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[12].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "mode powered",
+            "mode plain",
+            "part 1",
+            "armor_damage 400",
+            "armor_hitlag 150",
+            "gauge_gain 6737",
+            "curse {",
+            "every 45",
+            "on_shield false",
+            "per_frame",
+            "behind_1 1250",
+            "crowd_3_1 1100",
+            "crowd_4_2 1333",
+            "mode_taken_2 16",
+            "ko_keep 20",
+            "ko_keep_3 30",
+            "keeps true",
+            "halts true",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: every box out always and the fighter's own, the whole damage, no curse, bursts on shields, the plain gauge.
+        let stripped = text
+            .replace(" mode powered", "")
+            .replace(" mode plain", "")
+            .replace(" part 1", "")
+            .replace(" on_shield false", "")
+            .lines()
+            .filter(|l| {
+                let t = l.trim_start();
+                ![
+                    "armor_damage",
+                    "armor_hitlag",
+                    "gauge_gain",
+                    "per_frame",
+                    "behind_",
+                    "crowd_",
+                    "mode_taken_",
+                    "ko_keep",
+                    "keeps",
+                    "halts",
+                    "curse {",
+                ]
+                .iter()
+                .any(|k| t.starts_with(k))
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        let ow = &older.weapons[w];
+        assert!(ow
+            .moves
+            .iter()
+            .all(|m| m.armor_damage == 1000 && m.gauge_gain == 1000 && m.curse.is_none()));
+        assert!(ow
+            .moves
+            .iter()
+            .flat_map(|m| m.hitboxes.iter())
+            .all(|h| h.mode == 0 && h.part == 0));
+        let g = older.fighters[12].gauge;
+        assert!(g.per_frame == Fx::ZERO && !g.keeps && !g.halts && g.ko_keep == [Fx::ZERO; 3]);
+        // Bad values.
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::Jab as usize].hitboxes[0].mode = 3;
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("mode")));
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::DownSpecial as usize].armor_damage = 1001;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("armor_damage")));
+        let mut c = base.clone();
+        if let Some(cu) = c.weapons[w].moves[MoveId::SideSpecial as usize]
+            .curse
+            .as_mut()
+        {
+            cu.every = 0;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("curse")));
+        let mut c = base.clone();
+        c.fighters[12].gauge.ko_keep[2] = Fx::from_int(101);
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("ko_keep")));
+        let mut c = base.clone();
+        c.fighters[12].gauge.behind[0] = 0;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("behind")));
     }
 
     #[test]

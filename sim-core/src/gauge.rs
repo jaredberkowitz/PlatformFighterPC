@@ -109,10 +109,14 @@ pub fn on_damage(
     let drain = draining(&state.fighters[victim], wv);
     let g = pv.gauge;
     let (players, behind) = standing(state, victim);
-    // (E53: while the mode runs, damage taken cuts its time instead.)
-    if g.exists() && state.fighters[victim].gauge_mode > 0 {
+    // (E53: while the mode runs, damage taken cuts its time instead: a hit that ends it fills nothing.)
+    let in_mode = state.fighters[victim].gauge_mode > 0;
+    if g.exists() && in_mode {
         let per = g.mode_taken[(players - 2) as usize];
-        let cut = (per * damage).floor_int().clamp(0, i32::from(u16::MAX)) as u16;
+        // (Rounded to the nearest frame [E: the reference's rounding is not published].)
+        let cut = (per * damage + Fx::HALF)
+            .floor_int()
+            .clamp(0, i32::from(u16::MAX)) as u16;
         if cut > 0 {
             let f = &mut state.fighters[victim];
             f.gauge_mode = f.gauge_mode.saturating_sub(cut);
@@ -135,11 +139,13 @@ pub fn on_damage(
         }
     }
     let taken = rate * damage;
-    add(
-        &mut state.fighters[victim],
-        &g,
-        if drain { -taken } else { taken },
-    );
+    if !in_mode {
+        add(
+            &mut state.fighters[victim],
+            &g,
+            if drain { -taken } else { taken },
+        );
+    }
     if source != victim {
         let ps = *crate::combat::params_of(content, &state.fighters[source]);
         add(

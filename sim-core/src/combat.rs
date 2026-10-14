@@ -19,7 +19,8 @@ use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
     ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
     ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, MODE_PLAIN, MODE_POWERED, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_GROUNDED,
+    HIT_SEARCH, HIT_THROW, MODE_PLAIN, MODE_POWERED, RULES_PREVIOUS, TARGETS_AERIAL,
+    TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{
@@ -554,9 +555,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 continue;
             };
             let countered = chosen[a][d].is_some() && caught[a][d];
-            if (struck[d] && struck_by[d] != a)
-                || countered
-                || state.fighters[a].state != S::Attack
+            if (struck[d] && struck_by[d] != a) || countered || state.fighters[a].state != S::Attack
             {
                 continue;
             }
@@ -2370,8 +2369,7 @@ pub fn curse_tick(state: &mut GameState, content: &Content) {
         }
         f.curse_tick = 0;
         let before = f.percent;
-        f.percent =
-            (f.percent + f.curse_damage * content.rules.damage_mult).min(Fx::from_int(999));
+        f.percent = (f.percent + f.curse_damage * content.rules.damage_mult).min(Fx::from_int(999));
         let added = f.percent - before;
         let by = usize::from(f.curse_by).min(MAX_FIGHTERS - 1);
         crate::gauge::on_damage(state, content, by, i, added);

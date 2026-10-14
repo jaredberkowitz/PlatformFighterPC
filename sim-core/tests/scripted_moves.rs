@@ -1133,3 +1133,55 @@ fn an_air_mark_lasts_through_a_hit_and_clears_on_landing() {
     assert!(sim.f().grounded());
     assert_eq!(sim.f().air_marks, 0);
 }
+
+#[test]
+fn the_powered_register_reads_whether_the_gauges_mode_ran_as_the_attack_began() {
+    // Sim 121 (E52): `powered` is 1 for an attack begun with the gauge's powered mode running, and stays so to its end even if the mode
+    // ends first; 0 for one begun without it.
+    let mut sim = with_special(scripted(20, "var p; p = powered;"));
+    sim.state.fighters[0].gauge_mode = 30;
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw());
+    sim.state.fighters[0].gauge_mode = 0;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], Fx::ONE.raw(), "kept to the attack's end");
+    let mut sim = with_special(scripted(20, "var p; p = powered;"));
+    start(&mut sim);
+    sim.state.fighters[0].gauge_mode = 30;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0, "begun without it");
+}
+
+#[test]
+fn the_withstood_register_counts_the_frames_since_the_armor_withstood_a_hit() {
+    // Sim 121 (E55): 0 until the move's armor withstands a hit, then 1 on that frame and one more each frame after (outside hitlag).
+    let mut mv = scripted(40, "var w; w = withstood;");
+    mv.armor = Some(sim_core::moves::Armor {
+        start: 0,
+        end: 40,
+        kind: sim_core::moves::ARMOR_SUPER,
+        threshold: Fx::ZERO,
+        subtract: false,
+        min_kb: Fx::ZERO,
+    });
+    let mut sim = with_special(mv);
+    sim.stand(1, Fx::from_int(-6), -1);
+    start(&mut sim);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().vars[0], 0);
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[1], MoveId::Jab);
+    let mut seen = Vec::new();
+    for _ in 0..30 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().hitlag == 0 {
+            seen.push(sim.f().vars[0]);
+        }
+    }
+    assert_eq!(sim.f().state, S::Attack, "the armor held");
+    let counted: Vec<_> = seen.into_iter().filter(|&v| v > 0).collect();
+    assert!(counted.len() > 5, "{counted:?}");
+    for w in counted.windows(2) {
+        assert_eq!(w[1] - w[0], Fx::ONE.raw());
+    }
+}

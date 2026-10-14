@@ -3,8 +3,8 @@
 // its 34) the stick pushed sideways with special dodges while firing (31 = ext3 forward, 32 = ext4 back; four at most in one string:
 // `dodges`), on the ground jump or the stick up jumps while firing below (33 = ext5), and a kept press fires again (the move starts
 // over: the next shot 25 frames after the last). In the air from 13 (its 14; 14 with the partner, its 15) the stick down with special
-// fires below (35 = ext7) and up spins (34 = ext6). Still held on its last frame (its 36; 41 with the partner) it fires again; else
-// it ends there (FAF 37 / 42).
+// fires below (35 = ext7) and up spins (34 = ext6). Let go by its last frame (its 36; 41 with the partner) it ends there (FAF 37 / 42);
+// still held, it fires again from the frame after, as a new press would.
 var pressed;
 var dodges;
 let ready = 25 + 8 * powered;
@@ -45,9 +45,9 @@ if frame >= ready {
     }
 }
 if frame >= last {
-    if special {
-        goto(13);
-    } else {
+    if special == 0 {
         end();
+    } else if frame > last {
+        goto(13);
     }
 }

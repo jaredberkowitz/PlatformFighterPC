@@ -252,6 +252,15 @@ pub(crate) fn placed_body(content: &Content) -> Option<u8> {
         .map(|i| i as u8)
 }
 
+/// The first body of `content` whose gauge keeps itself through its specials (E53: the phantom's partner), if any.
+pub(crate) fn partner_body(content: &Content) -> Option<u8> {
+    content
+        .fighters
+        .iter()
+        .position(|p| p.gauge.exists() && p.gauge.keeps)
+        .map(|i| i as u8)
+}
+
 /// The first body of `content` whose weapon has a latch (E49: the scamp's flip), if any.
 pub(crate) fn latch_body(content: &Content) -> Option<u8> {
     content
@@ -463,6 +472,12 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         if let (true, Some(b)) = (latching, latch_body(&base)) {
             specs[2] = sim_content::recipe::FighterSpec::Builtin(b);
         }
+        // Every fourth run from 3 (sim 121) fighter 3 plays the first body with a partner gauge (the phantom), its partner out from the
+        // start, so the partner's boxes, its specials, the curse and the guard are played with.
+        let partnered = seed % 4 == 3 && partner_body(&base).is_some();
+        if let (true, Some(b)) = (partnered, partner_body(&base)) {
+            specs[3] = sim_content::recipe::FighterSpec::Builtin(b);
+        }
         let (content, chars) = sim_content::recipe::match_content(&base, &specs, false)
             .map_err(|e| format!("seed {seed}: specs rejected: {e:?}"))?;
         let chars = [chars[0], chars[1], chars[2], chars[3]];
@@ -486,6 +501,12 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
                         sim_core::collision::standing_on(&content.stage, at);
                 }
             }
+        }
+        if partnered {
+            let f = &mut initial.fighters[3];
+            let g = content.fighters[usize::from(f.char_id)].gauge;
+            f.gauge = g.max;
+            f.gauge_mode = g.mode_frames;
         }
         let mut inputs = random_inputs(&mut Rng::new(seed), 600);
         if drilled {
