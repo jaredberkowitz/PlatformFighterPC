@@ -1632,6 +1632,11 @@ func _neck_on_rig(accent: Color) -> void:
 			var at := _collar(accent)
 			# (A chain of pieces on springs, so it swings and whips with the body: `TailRig`.)
 			_tail(Vector3(0.26, at - 0.03, 0.46), toon(accent), 0.5, 0.2, 0.06, 4)
+		4:
+			# Cape: a collar ring and a broad cloth hanging down the back to the knees, on springs, so it streams behind the fighter's runs
+			# and jumps: the biggest change to the outline the wardrobe has.
+			var at := _collar(accent)
+			_tail(Vector3(0, at - 0.02, -0.42), toon(accent.darkened(0.08)), 1.15, 0.92, 0.05, 5)
 
 
 ## The pivot the neckerchief's point hangs from (none for the other neckwear), and the cloth tails on spring chains (the scarf's end, the
@@ -1714,6 +1719,27 @@ func _hat() -> void:
 			# Beanie with a pompom.
 			_part(hat_pivot, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
 			_part(hat_pivot, _sphere(0.18), white, Vector3(0, 2.38, 0) - HAT_PIVOT)
+		6:
+			# Hood: a soft shell over the head and down its sides in dark charcoal cloth (it reads against any body colour), its rolled rim
+			# round the face in cream, drawn to a point behind that droops.
+			var cloth := toon(Color(0.24, 0.22, 0.32))
+			_part(hat_pivot, _sphere(0.9), cloth, Vector3(0, 1.5, -0.16) - HAT_PIVOT, Vector3(1.1, 1.06, 1.02))
+			var rim := TorusMesh.new()
+			rim.inner_radius = 0.66
+			rim.outer_radius = 0.84
+			rim.rings = 36
+			_part(hat_pivot, rim, toon(Color(0.94, 0.88, 0.74)), Vector3(0, 1.42, 0.36) - HAT_PIVOT, Vector3(1.06, 1.0, 1.24), Vector3(80, 0, 0))
+			_part(hat_pivot, _cyl(0.0, 0.32, 0.9), cloth, Vector3(0, 2.0, -0.82) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
+		7:
+			# Plumed helm: a steel cap with a brow band and a tall plume in the accent colour sweeping back off the crest.
+			var steel := respond(toon(Color(0.74, 0.76, 0.84)), "metal")
+			_part(hat_pivot, _sphere(0.86), steel, Vector3(0, 1.76, -0.04) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
+			_part(hat_pivot, _cyl(0.84, 0.84, 0.1), respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(0, 1.88, -0.04) - HAT_PIVOT, Vector3(1.0, 1.0, 1.02))
+			var plume := toon(accent)
+			for k in 5:
+				var f := float(k) / 4.0
+				_part(hat_pivot, _sphere(1.0), plume, Vector3(0, 2.42 + 0.2 * sin(f * PI) - 0.1 * f, -0.05 - 0.95 * f) - HAT_PIVOT,
+					Vector3(0.16, 0.48 - 0.12 * f, 0.4), Vector3(-25 - 45 * f, 0, 0))
 		5:
 			# Crown: a gold band with five points.
 			var gold := toon(Color(0.96, 0.8, 0.25))

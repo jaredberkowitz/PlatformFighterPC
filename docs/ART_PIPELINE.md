@@ -1091,3 +1091,18 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   standing proud of the wall (quoins, narrowing toward the foot, every third a darker one), and a corner stone under each ledge; on the
   rooftop, metal corner caps. The wall now reads as a built mass framed at its ends rather than one tiled sheet. `stage_quoins.png`.
   Still open: sculpted undersides and silhouettes that are not rectangles.
+
+## Fighter silhouettes through the wardrobe (forty-ninth pass, item 2 of docs/ART_REVIEW.md, first step)
+
+The PEAK route: the shared body stays, and the built-in fighters get outline-changing pieces from the cosmetic catalog (presentation
+only; every created fighter can wear them too).
+- **New pieces** (`Loadout.HATS`, `NECKS`; `fighter_view.gd` `_hat`, `_neck_on_rig`): a **hood** (dark charcoal over the head and down
+  its sides, a cream rolled rim round the face, a drooping point behind; it reads on any body colour); a **plumed helm** (a steel cap with
+  a gold brow band and a tall plume in the accent colour sweeping back off the crest); a **cape** (a broad cloth down the back to the
+  knees on the spring chain the scarf uses, so it streams behind runs and jumps).
+- **Built-in looks** (`roster.gd`): the Duelist in the plumed helm and cape, the Brawler in its aviator cap with a streaming scarf, the
+  Rogue hooded, the Seer in its crown with a cape. With the Sprinter's cap and scarf, the Champion's bare head and scarf and the Hauler's
+  forearms, no two built-ins share an outline. `silhouettes_select.png`, `rogue_hood.png`.
+- (Demos use per-slot default looks, so the match screenshots don't show these; menu matches do.)
+- Still open for item 2: hair shapes and bigger silhouette pieces (pauldrons, packs), and the animation that would carry identity, at the
+  end-of-development pass.
