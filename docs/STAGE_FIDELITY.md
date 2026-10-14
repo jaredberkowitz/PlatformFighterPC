@@ -50,3 +50,20 @@ grading (each stage keeps its own finish).
   detail over it, laid in world space). The roof tile was tried first: its slab grid read as plaza paving, not road.
 - The kerbs are inked painted stone; two worn zebra crossings either side of the building give the street a reason to be a street.
 - **Images**: `docs/screenshots/stage4_city_street.png` (before left).
+
+## Pass 5: the grove's turf edge
+
+The turf hanging over the stage's front edge still read as a row of beads (each tuft varied, but spaced apart at one height). Tufts
+now overlap (spacing about 0.6 of before), and about one in six is a long drip, so the edge is one ragged skirt.
+`docs/screenshots/stage5_grove_lip.png` (before left).
+
+## Pass 6: the grove's bushes, the city's roofline
+
+- **Grove bushes**: a pale unlit ball stuck on the front of each bush read as a flat sticker. Each is now a clump of three lit, inked
+  lobes in two greens. `docs/screenshots/stage6_grove_bushes.png`.
+- **City skyline**: every building was a plain box. A cornice lip now runs round each roofline, and about half the taller near
+  buildings carry a narrower setback storey with its own windows and cornice, so the silhouette steps (own random numbers: the
+  layout is unchanged). `docs/screenshots/stage6_skyline.png`.
+- **The grove's roots** (painted on its wall) were checked again: already inked with lit edges, they hold at play distance. No change.
+
+The stage fidelity plan's items are done; a fresh whole-game art review follows (the owner's request).
