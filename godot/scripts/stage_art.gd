@@ -2329,9 +2329,12 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		island.position = Vector3(x, y, z)
 		root.add_child(island)
 		var hw := size
-		var keel := _hanging_mass(0.0, size * rng.randf_range(0.9, 1.4), -hw, hw, size * 0.6, size * 0.6, 0.14, 7,
-			func(u: float) -> float: return (1.0 - 0.2 * u) * (1.0 - pow(u, 2.2)),
-			func(u: float) -> float: return 0.06 * u * u)
+		# (A rocky tuber rather than a cone: full under the turf, bulging and pinching as it narrows to a point, in more rings so its outline
+		# reads as rounded rock, not a faceted pyramid.)
+		var lump := float(k) * 1.7
+		var keel := _hanging_mass(0.0, size * rng.randf_range(1.0, 1.5), -hw, hw, size * 0.6, size * 0.6, 0.1, 13,
+			func(u: float) -> float: return (1.0 - 0.12 * u) * (1.0 - pow(u, 2.8)) * (1.0 + 0.1 * sin(u * 9.0 + lump)),
+			func(u: float) -> float: return 0.06 * u * u + 0.03 * sin(u * 5.0 + lump))
 		_mesh(island, keel, earth, Vector3.ZERO)
 		# The grassy top: a thick squashed disc, its rim rolling down over the earth.
 		_mesh(island, _cylinder(hw * 0.98, hw * 1.02, 0.7, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.62))
@@ -2357,7 +2360,18 @@ static func _island_detail(island: Node3D, hw: float, size: float, t: Dictionary
 	var band := Materials.stone((t.soil as Color).lightened(0.12), Vector2(6, 1))
 	_mesh(island, _cylinder(hw * 0.94, hw * 0.86, size * 0.18, 18), band, Vector3(0, -0.45, 0), Vector3(1.0, 1.0, 0.6))
 	var stone := Materials.stone((t.soil_dark as Color).lerp(Color(0.6, 0.58, 0.62), 0.5))
+	# A second, darker band lower down, so the keel reads as layered rock.
+	_mesh(island, _cylinder(hw * 0.72, hw * 0.6, size * 0.1, 16), Materials.stone((t.soil_dark as Color).darkened(0.12), Vector2(6, 1)),
+		Vector3(0, -0.5 - size * 0.32, 0), Vector3(1.0, 1.0, 0.6))
+	# Vines hanging over the lip at the front, ending in a leafy tuft.
+	var vine := FighterView.toon((t.grass as Color).darkened(0.25), false)
 	for j in 3:
+		var vx := rng.randf_range(-0.7, 0.7) * hw
+		var vl := rng.randf_range(0.5, 1.2) * size * 0.5
+		var vz := sqrt(maxf(0.0, 1.0 - pow(vx / hw, 2.0))) * hw * 0.6
+		_mesh(island, _cylinder(0.03 * size, 0.02 * size, vl, 5), vine, Vector3(vx, -0.2 - vl / 2.0, vz))
+		_mesh(island, _sphere(0.09 * size, 8), vine, Vector3(vx, -0.2 - vl, vz), Vector3(1.0, 1.3, 1.0))
+	for j in 5:
 		var a := rng.randf_range(-0.7, 0.7)
 		var down := rng.randf_range(0.25, 0.55) * size
 		_mesh(island, _sphere(1.0, 8), stone, Vector3(sin(a) * hw * 0.6 * (1.0 - down / size), -0.6 - down, cos(a) * hw * 0.32),
@@ -2394,6 +2408,9 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	var wood := Materials.wood(Color(0.55, 0.38, 0.26))
 	var wood_dark := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(2, 1))
 	_mesh(root, _cylinder(3.3, 3.6, 2.0, 14), Materials.stone(Color(0.66, 0.62, 0.58), Vector2(4, 1)), at + Vector3(0, 1.0, 0))
+	# (A grassy mound it stands in, and its shade, so it is planted on the hill and does not hover over it.)
+	_mesh(root, _sphere(1.0, 16), Materials.foliage(Color(0.4, 0.74, 0.3), Vector2(3, 2), false), at + Vector3(0, 0.1, 0), Vector3(5.6, 1.3, 4.6))
+	_contact(root, at + Vector3(0, 0.4, 0), Vector2(4.2, 3.4))
 	_mesh(root, _cylinder(1.8, 3.0, 12.0, 14), plaster, at + Vector3(0, 7.0, 0))
 	# The door at the foot, and two windows up the front, each a dark opening in a wooden frame with a shutter.
 	_mesh(root, _box(Vector3(1.6, 2.6, 0.3)), wood_dark, at + Vector3(0, 3.2, 2.85))
@@ -2458,37 +2475,97 @@ static func _barn(root: Node3D, at: Vector3) -> void:
 	_mesh(root, _box(Vector3(0.8, 0.7, 0.12)), _unshaded(Color(0.24, 0.16, 0.14)), at + Vector3(0, 3.2, 2.04))
 
 
-## A cottage (`at` its foot): whitewashed walls, a steep gabled roof in `roof`, a plank door and a lit window, and a stone chimney at one
-## end (`side`) with smoke curling up from it (cel-shaded puffs, `Particles.chimney_smoke`).
+## A cottage (`at` its foot), in the manner of a cel-shaded adventure's village houses: whitewashed walls framed in dark timber (corner
+## posts, a beam at the floor line, braces in the end bays), a deep shingled roof in `roof` overhanging the gables and the eaves with a
+## ridge beam along its top, gable ends filled to the roof with a round attic window, a plank door on a stone step with a lantern, a lit
+## window with shutters and a flower box, shrubs at its foot, and a stone chimney at one end (`side`) with smoke curling up from it.
 static func _cottage(root: Node3D, at: Vector3, roof: Color, side: float) -> void:
-	# Plastered walls on a stone footing, a shingled roof with a board along each eave, the door and window framed in wood (the window
-	# with shutters), so a cottage reads as built at the same finish as the props by the stage.
 	var wall := Materials.plaster(Color(0.97, 0.93, 0.84), Vector2(2, 2))
 	var roof_m := Materials.shingles(roof, Vector2(3, 2))
+	var timber := Materials.wood(Color(0.42, 0.28, 0.2), Vector2(1, 3))
 	var frame := Materials.wood(Color(0.56, 0.38, 0.26))
-	_mesh(root, _box(Vector3(5.0, 3.2, 3.6)), wall, at + Vector3(0, 1.6, 0))
-	_mesh(root, _box(Vector3(5.2, 0.4, 3.8)), Materials.stone(Color(0.64, 0.6, 0.58), Vector2(4, 1)), at + Vector3(0, 0.2, 0))
-	for sgn in [-1.0, 1.0]:
-		_mesh(root, _box(Vector3(5.7, 0.16, 0.14)), frame, at + Vector3(0, 3.0, sgn * 1.92))
-	for sgn in [-1.0, 1.0]:
-		_mesh(root, _box(Vector3(5.6, 0.3, 2.7)), roof_m, at + Vector3(0, 4.0, sgn * 0.95), Vector3.ONE, Vector3(sgn * 42.0, 0, 0))
-	# The gable ends under the roof: a wedge of wall each end.
-	for ex in [-2.45, 2.45]:
-		_mesh(root, _cylinder(0.0, 2.0, 1.6, 4), wall, at + Vector3(ex, 3.9, 0), Vector3(0.08, 1.0, 1.0), Vector3(0, 45, 0))
-	_mesh(root, _box(Vector3(1.1, 1.95, 0.08)), frame, at + Vector3(-0.9 * side, 0.98, 1.81))
-	_mesh(root, _box(Vector3(0.9, 1.75, 0.1)), Materials.wood(Color(0.5, 0.32, 0.22)), at + Vector3(-0.9 * side, 0.9, 1.84))
-	_mesh(root, _box(Vector3(1.1, 1.0, 0.08)), frame, at + Vector3(0.9 * side, 1.7, 1.81))
-	_mesh(root, _box(Vector3(0.86, 0.76, 0.1)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(0.9 * side, 1.7, 1.84))
-	_mesh(root, _box(Vector3(0.06, 0.76, 0.12)), frame, at + Vector3(0.9 * side, 1.7, 1.86))
+	var stone := Materials.stone(Color(0.64, 0.6, 0.58), Vector2(4, 1))
+	var W := 5.0
+	var D := 3.6
+	var H := 3.2
+	_mesh(root, _box(Vector3(W, H, D)), wall, at + Vector3(0, H / 2.0, 0))
+	_mesh(root, _box(Vector3(W + 0.3, 0.5, D + 0.3)), stone, at + Vector3(0, 0.25, 0))
+	# The timber frame on the front and the ends.
+	for cx in [-W / 2.0, W / 2.0]:
+		for cz in [-D / 2.0, D / 2.0]:
+			_mesh(root, _box(Vector3(0.26, H, 0.26)), timber, at + Vector3(cx, H / 2.0 + 0.25, cz))
+	_mesh(root, _box(Vector3(W + 0.1, 0.2, 0.1)), timber, at + Vector3(0, 2.25, D / 2.0 + 0.04))
+	_mesh(root, _box(Vector3(W + 0.1, 0.24, 0.1)), timber, at + Vector3(0, H, D / 2.0 + 0.04))
 	for sx in [-1.0, 1.0]:
-		_mesh(root, _box(Vector3(0.42, 0.95, 0.08)), Materials.wood(roof.lightened(0.1)), at + Vector3(0.9 * side + sx * 0.8, 1.7, 1.83))
-	var chimney := at + Vector3(1.7 * side, 4.6, -0.6)
-	_mesh(root, _box(Vector3(0.7, 2.0, 0.7)), Materials.stone(Color(0.62, 0.58, 0.56), Vector2(1, 2)), chimney)
+		_mesh(root, _box(Vector3(0.14, 1.6, 0.08)), timber, at + Vector3(sx * (W / 2.0 - 0.55), 1.35, D / 2.0 + 0.05), Vector3.ONE,
+			Vector3(0, 0, sx * 32.0))
+	# The roof: two deep slabs overhanging every edge, a fascia board under each eave, and a round ridge beam.
+	var pitch := 40.0
+	var run := D / 2.0 + 0.7
+	var slab := run / cos(deg_to_rad(pitch))
+	var rise := run * tan(deg_to_rad(pitch))
+	for sgn in [-1.0, 1.0]:
+		var mid := Vector3(0, H + rise / 2.0 + 0.05, sgn * run / 2.0)
+		_mesh(root, _box(Vector3(W + 1.2, 0.34, slab)), roof_m, at + mid, Vector3.ONE, Vector3(sgn * pitch, 0, 0))
+		_mesh(root, _box(Vector3(W + 1.25, 0.2, 0.16)), frame, at + Vector3(0, H - 0.08, sgn * (run - 0.05)))
+	_mesh(root, _cylinder(0.2, 0.2, W + 1.3, 10), timber, at + Vector3(0, H + rise + 0.12, 0), Vector3.ONE, Vector3(0, 0, 90))
+	# The gable ends, filled to the underside of the roof, each with a round attic window.
+	for ex in [-W / 2.0, W / 2.0]:
+		_mesh(root, _gable(D, rise - 0.05, 0.16), wall, at + Vector3(ex, H, 0))
+		_mesh(root, _cylinder(0.36, 0.36, 0.1, 14), frame, at + Vector3(ex + signf(ex) * 0.06, H + rise * 0.38, 0), Vector3.ONE, Vector3(0, 0, 90))
+		_mesh(root, _cylinder(0.26, 0.26, 0.12, 14), _unshaded(Color(1.0, 0.84, 0.54)), at + Vector3(ex + signf(ex) * 0.08, H + rise * 0.38, 0),
+			Vector3.ONE, Vector3(0, 0, 90))
+	# The door on its step, with a lantern beside it.
+	var dx := -0.95 * side
+	_mesh(root, _box(Vector3(1.2, 2.05, 0.1)), frame, at + Vector3(dx, 1.27, D / 2.0 + 0.02))
+	_mesh(root, _box(Vector3(0.96, 1.85, 0.12)), Materials.wood(Color(0.5, 0.32, 0.22), Vector2(3, 1)), at + Vector3(dx, 1.2, D / 2.0 + 0.05))
+	_mesh(root, _sphere(0.07, 6), Materials.wood(Color(0.86, 0.7, 0.3)), at + Vector3(dx + 0.3 * side, 1.2, D / 2.0 + 0.13))
+	_mesh(root, _box(Vector3(1.5, 0.22, 0.7)), stone, at + Vector3(dx, 0.11, D / 2.0 + 0.4))
+	_mesh(root, _box(Vector3(0.22, 0.3, 0.22)), _unshaded(Color(1.0, 0.82, 0.46)), at + Vector3(dx + 0.85 * side, 2.0, D / 2.0 + 0.16))
+	_mesh(root, _box(Vector3(0.3, 0.06, 0.3)), timber, at + Vector3(dx + 0.85 * side, 2.18, D / 2.0 + 0.16))
+	# The window: framed, lit, shuttered, a flower box under it.
+	var wx := 1.0 * side
+	_mesh(root, _box(Vector3(1.15, 1.05, 0.08)), frame, at + Vector3(wx, 1.6, D / 2.0 + 0.02))
+	_mesh(root, _box(Vector3(0.9, 0.8, 0.1)), _unshaded(Color(1.0, 0.86, 0.56)), at + Vector3(wx, 1.6, D / 2.0 + 0.05))
+	_mesh(root, _box(Vector3(0.06, 0.8, 0.12)), frame, at + Vector3(wx, 1.6, D / 2.0 + 0.07))
+	_mesh(root, _box(Vector3(0.9, 0.06, 0.12)), frame, at + Vector3(wx, 1.6, D / 2.0 + 0.07))
+	for sx in [-1.0, 1.0]:
+		_mesh(root, _box(Vector3(0.44, 1.0, 0.08)), Materials.wood(roof.lightened(0.1), Vector2(1, 3)), at + Vector3(wx + sx * 0.82, 1.6, D / 2.0 + 0.06))
+	_mesh(root, _box(Vector3(1.2, 0.28, 0.34)), frame, at + Vector3(wx, 1.0, D / 2.0 + 0.2))
+	var petals := [Color(0.96, 0.36, 0.42), Color(1.0, 0.84, 0.3), Color(0.98, 0.6, 0.78)]
+	for j in 5:
+		_mesh(root, _sphere(0.13, 8), FighterView.toon(Color(0.36, 0.62, 0.22)), at + Vector3(wx - 0.44 + j * 0.22, 1.2, D / 2.0 + 0.22))
+		_mesh(root, _sphere(0.08, 6), _unshaded(petals[j % 3]), at + Vector3(wx - 0.44 + j * 0.22, 1.3, D / 2.0 + 0.3))
+	# Shrubs at the corners of its foot.
+	var bush := Materials.foliage(Color(0.34, 0.6, 0.24), Vector2(2, 2), false)
+	for sx in [-1.0, 1.0]:
+		_mesh(root, _sphere(1.0, 12), bush, at + Vector3(sx * (W / 2.0 + 0.2), 0.45, D / 2.0 + 0.1), Vector3(0.85, 0.7, 0.7))
+	_contact(root, at, Vector2(W / 2.0 + 0.5, D / 2.0 + 0.4))
+	var chimney := at + Vector3(1.5 * side, H + rise * 0.7, -0.7)
+	_mesh(root, _box(Vector3(0.75, 2.2, 0.75)), Materials.stone(Color(0.62, 0.58, 0.56), Vector2(1, 2)), chimney)
+	_mesh(root, _box(Vector3(0.95, 0.18, 0.95)), stone, chimney + Vector3(0, 1.1, 0))
 	var top := Node3D.new()
-	top.position = chimney + Vector3(0, 1.2, 0)
+	top.position = chimney + Vector3(0, 1.3, 0)
 	root.add_child(top)
 	# (Under the chimney top, not the root: the root's own meshes are merged when the backdrop is built.)
 	Particles.chimney_smoke(top, top)
+
+
+## A gable end: a flat triangle `width` across (along z) and `height` tall, `thick` through (along x), its base at the origin.
+static func _gable(width: float, height: float, thick: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var h := thick / 2.0
+	var w := width / 2.0
+	var a := [Vector3(-h, 0, -w), Vector3(-h, 0, w), Vector3(-h, height, 0)]
+	var b := [Vector3(h, 0, -w), Vector3(h, 0, w), Vector3(h, height, 0)]
+	for tri in [[b[0], b[2], b[1]], [a[0], a[1], a[2]], [a[0], b[0], b[1]], [a[0], b[1], a[1]], [a[1], b[1], b[2]], [a[1], b[2], a[2]],
+			[a[2], b[2], b[0]], [a[2], b[0], a[0]]]:
+		for v in tri:
+			st.set_uv(Vector2(v.z / width + 0.5, v.y / height))
+			st.add_vertex(v)
+	st.generate_normals()
+	return st.commit()
 
 
 ## A small round tree: a short trunk under one big ball and a couple of small ones.
@@ -2518,6 +2595,19 @@ static func _round_tree(root: Node3D, at: Vector3, size: float, rng: RandomNumbe
 		_:
 			masses = [[Vector3(0, 1.5, 0) * size, big * 0.95 * size, 56], [Vector3(1.5, 0.6, 0.3) * size, 1.15 * size, 18],
 				[Vector3(-1.4, 0.75, 0.3) * size, 1.05 * size, 16]]
+	# Smaller clumps round the crown's edge (a crown of clustered leaf masses, as a cel-shaded adventure's trees are, rather than one
+	# round blob), and two branches forking from the top of the trunk up into it, seen in the gaps between the clumps.
+	for j in 4:
+		var ang := own.randf_range(0.0, TAU)
+		var reach := big * own.randf_range(0.75, 0.95)
+		masses.append([Vector3(cos(ang) * reach, 1.4 + sin(ang) * reach * 0.7, own.randf_range(0.2, 0.7)) * size,
+			own.randf_range(0.7, 0.95) * size, 12])
+	var bark := Materials.bark(Color(0.56, 0.37, 0.22), Vector2(1, 2))
+	for sx in [-1.0, 1.0]:
+		var tilt: float = sx * own.randf_range(28.0, 40.0)
+		var length := own.randf_range(1.1, 1.5) * size
+		_mesh(crown, _cylinder(0.08 * size, 0.15 * size, length, 6), bark,
+			Vector3(-sin(deg_to_rad(tilt)) * length * 0.5, length * 0.4, 0.3 * size), Vector3.ONE, Vector3(0, 0, tilt))
 	_leaf_cards(crown, masses, greens, 1.6 * size, rng, "leaf_cluster", false, Materials.foliage(greens[1], Vector2(3, 2), true))
 
 
