@@ -128,6 +128,9 @@ and do not read as shoulders.
   (a real armpit); the trunk gains no arm weight when it is spread (`smooth_weights` `no_gain`), and the arm's pull on the trunk fades
   with distance from the shoulder joint (`release_trunk`, `SHOULDER_HOLD` 0.08, `SHOULDER_FADE` 0.1), on the skin and the shirt. The
   tucked part of the shirt moves with the belt's bones (`TUCK_SPAN`): it swung out under the belt like a skirt in the run's lean.
+- **The idle's arms** (the owner: an arm bends behind the fighter): held mostly out to the side, the rear arm pointed backward once the
+  chest turned to the camera and its forearm folded down behind the body; both now reach forward more than out (`idle`: 40/36 forward,
+  24/22 out, were 30/16 and 34/36).
 - The elbow's point sits closer in (the outline showed in the crease beside it). `tests/anim_sheet.gd` takes `--shirt=N`.
 - Checks: the fighter, art, loadout, motion, animation, creator and online tests pass; the look bench 0.88.
   `review4_clothing_pass.png` (four shirts), `review4_run_shoulders.png` (the run before, after).

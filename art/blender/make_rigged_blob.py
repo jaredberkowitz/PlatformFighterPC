@@ -1971,10 +1971,12 @@ def main() -> None:
             elbow = 0.72 if BODY else 1.0
             # (After the owner's PEAK reference: the chunky arms held out clear of the body, so both read against the background, not
             # tucked into a guard in front of the belly where the body and the weapon hid them; fists still a little up and forward.)
-            pose(rig, "armU.L", fwd=30.0 + 5.0 * lag * swing, out=34.0)
+            # (Forward more than out, 2026-10-14: held mostly out to the side, the rear arm pointed backward once the chest turns to the
+            # camera, and its forearm folded down behind the body; the owner saw it bend behind him.)
+            pose(rig, "armU.L", fwd=40.0 + 5.0 * lag * swing, out=24.0)
             pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=16.0 + 5.0 * lag * swing, out=36.0)
+            pose(rig, "armU.R", fwd=36.0 + 5.0 * lag * swing, out=22.0)
             pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.R", fwd=-14.0)
         return f
