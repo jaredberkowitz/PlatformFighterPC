@@ -799,7 +799,7 @@ fn drop_hits(ground: bool) -> Vec<Hitbox> {
     rows
 }
 
-/// The down special: a ground pound (the reference's, 13.0.1; `REFERENCE_DATA.md` "Yoshi Bomb"). On the ground (this slot) a hop with
+/// The down special: a ground pound (the reference's, 13.0.1; the ninth moveset's `REFERENCE_DATA.md`, the down special). On the ground (this slot) a hop with
 /// its weak hit, then the drop from frame 27; in the air (`DROP_AIR`) a stall, then the drop from frame 19. The drop falls at 4.8 of
 /// the reference's units a frame (0.6 [D]) until it lands, however long [R] (a move lasts at most 253 frames here: 137 units of
 /// falling, past any blast zone). Both drop through soft platforms for 7 frames from the drop's start and through all of them while
