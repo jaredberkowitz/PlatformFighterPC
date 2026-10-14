@@ -248,10 +248,12 @@ fn rolling(f: &Fighter) -> bool {
 }
 
 /// Lag a dash flicked during is kept for (`Fighter::dash_buffer`): a grab, a pummel or a throw (command grabs too: a move that
-/// catches, or anything done while holding someone), or a landing's lag (sim v82). Public for the keyboard reader, which sends a
-/// direction key pressed during it at full strength, a flick (`godot/scripts/input_reader.gd`).
+/// catches, or anything done while holding someone), a landing's lag (sim v82), or the falling half of a jump (sim v93: from the apex
+/// down, in the air or in an aerial, so the dash comes out on landing). Public for the keyboard reader, which sends a direction key
+/// pressed during it at full strength, a flick (`godot/scripts/input_reader.gd`).
 pub fn keeps_dash(f: &Fighter, weapon: &Weapon) -> bool {
     (f.state == S::Landing && f.grounded())
+        || (!f.grounded() && f.vel.y <= Fx::ZERO && matches!(f.state, S::Airborne | S::Attack))
         || f.state == S::Attack
             && (matches!(
                 MoveId::from_index(f.move_id),
@@ -305,7 +307,7 @@ pub fn update(
     // A dash flicked at any point of a grab, a pummel, a throw or a landing's lag is kept for the first frame the fighter can act, as
     // long as the stick stays pushed that way (hitlag included): more lenient than the reference's 6 or 7 frames, so a throw or an
     // aerial can be chased (owner's call). The flick that picked the throw is not one (it was made while holding, before the throw
-    // began), nor one made in the air before landing.
+    // began), nor one made while a jump is still rising; one made once it falls is (sim v93).
     if keeps_dash(f, weapon) {
         let flick = f.dash_flick(1);
         if flick != 0 {
