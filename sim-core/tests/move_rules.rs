@@ -501,3 +501,137 @@ fn the_tool_fields_are_in_the_content_hash() {
     assert_ne!(h, c.hash(), "smash_version");
     let _ = Tool::NONE;
 }
+
+#[test]
+fn the_egg_is_in_the_content_hash() {
+    // E8 (sim 104): the block and every one of its numbers.
+    use sim_core::moves::Encase;
+    let base = sim_core::Content::placeholder();
+    let lay = sim_core::moves::clutch_slots::LAY as usize;
+    let w = base
+        .weapons
+        .iter()
+        .position(|w| w.moves[lay].encase.is_some())
+        .expect("the Clutch's lay");
+    let e = base.weapons[w].moves[lay].encase.unwrap();
+    let h = base.hash();
+    let one = Fx::ONE;
+    let edits: [(&str, Encase); 18] = [
+        (
+            "base",
+            Encase {
+                base: e.base + one,
+                ..e
+            },
+        ),
+        (
+            "per_percent",
+            Encase {
+                per_percent: e.per_percent + one,
+                ..e
+            },
+        ),
+        (
+            "percent_cap",
+            Encase {
+                percent_cap: e.percent_cap + one,
+                ..e
+            },
+        ),
+        (
+            "mash_stick",
+            Encase {
+                mash_stick: e.mash_stick + one,
+                ..e
+            },
+        ),
+        (
+            "mash_button",
+            Encase {
+                mash_button: e.mash_button + one,
+                ..e
+            },
+        ),
+        (
+            "hit_cut",
+            Encase {
+                hit_cut: e.hit_cut + one,
+                ..e
+            },
+        ),
+        (
+            "damage_taken",
+            Encase {
+                damage_taken: 50,
+                ..e
+            },
+        ),
+        (
+            "launch x",
+            Encase {
+                launch: (one, e.launch.1),
+                ..e
+            },
+        ),
+        (
+            "launch y",
+            Encase {
+                launch: (e.launch.0, one),
+                ..e
+            },
+        ),
+        ("grow_from", Encase { grow_from: 50, ..e }),
+        (
+            "grow_frames",
+            Encase {
+                grow_frames: 30,
+                ..e
+            },
+        ),
+        ("size", Encase { size: 90, ..e }),
+        (
+            "shift x",
+            Encase {
+                shift: (one, e.shift.1),
+                ..e
+            },
+        ),
+        (
+            "shift y",
+            Encase {
+                shift: (e.shift.0, one),
+                ..e
+            },
+        ),
+        (
+            "air_shift x",
+            Encase {
+                air_shift: (one, e.air_shift.1),
+                ..e
+            },
+        ),
+        (
+            "air_shift y",
+            Encase {
+                air_shift: (e.air_shift.0, one),
+                ..e
+            },
+        ),
+        ("exit_vy", Encase { exit_vy: one, ..e }),
+        (
+            "exit_intangible",
+            Encase {
+                exit_intangible: 9,
+                ..e
+            },
+        ),
+    ];
+    for (name, edit) in edits {
+        let mut c = base.clone();
+        c.weapons[w].moves[lay].encase = Some(edit);
+        assert_ne!(h, c.hash(), "{name}");
+    }
+    let mut c = base.clone();
+    c.weapons[w].moves[lay].encase = None;
+    assert_ne!(h, c.hash(), "the block");
+}

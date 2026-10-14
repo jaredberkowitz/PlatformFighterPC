@@ -1,0 +1,53 @@
+// Clutch side special, the rolling shell (owner decision 49: simple, from existing features; estimates where the reference publishes
+// nothing [E]). Reference numbers in world units (/8). Frame 1 (a script's first, the reference's 2) the hop at 0.25 [R]; the roll's fall acceleration 0.01625 and fall 0.24375 [R]
+// throughout. From frame 20 (the reference's 21) the roll: it starts at the landing speed 0.1125 [R]; on the ground the stick held
+// forward speeds it up by 0.00625 a frame [R] toward 0.175 + 0.305 x the stick (0.175 to 0.48: the reference's 1.4 base and 3.2 x 1.2
+// by the stick [R]; the law between is E), neutral brings it to 0.175, back brakes it by 0.015 a frame (friction and acceleration
+// [R]) and turns it round at 0 [E]; in the air it keeps its speed [E]. A hit takes 0.125 off the speed and 40 frames off the roll
+// [R]. Jump once on the ground: up at 0.3 [E: gap 11]. A wall turns it with 0.4 of its speed and 0.2125 up [R]. The damage is 10 plus
+// the speed in the reference's units (`set_charge` and the move's `charge_add` [R]). Special on the ground from 25 frames into the roll
+// [R], or the end of its 180 frames [R], goes on into the ending (slot 29).
+var speed;
+var left;
+var jumped;
+var was;
+let fall = max(vy - 0.01625, -0.24375);
+if frame == 1 {
+    left = 180;
+    fall = 0.25;
+}
+if frame >= 20 {
+    if frame == 20 { speed = 0.1125; }
+    let s = stick_x;
+    if grounded {
+        if s < -0.2 {
+            speed = speed - 0.015;
+            if speed <= 0 {
+                turn();
+                speed = 0;
+            }
+        } else {
+            let target = 0.175;
+            if s > 0.2 { target = 0.175 + 0.305 * s; }
+            if speed < target { speed = min(speed + 0.00625, target); } else { speed = max(speed - 0.00875, target); }
+        }
+        if jump && jumped == 0 {
+            jumped = 1;
+            fall = 0.3;
+        }
+    }
+    if wall {
+        turn();
+        speed = speed * 0.4;
+        fall = 0.2125;
+    }
+    if hit && was == 0 {
+        speed = max(speed - 0.125, 0);
+        left = left - 40;
+    }
+    was = hit;
+    if left <= 0 || (frame >= 45 && grounded && special_tap) { goto(29); }
+    left = left - 1;
+}
+set_charge(speed * 80);
+set_vel(speed, fall);

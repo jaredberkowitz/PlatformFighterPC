@@ -429,6 +429,9 @@ pub const EFFECT_ELECTRIC: u8 = 1;
 /// (`FighterState::Buried`, see `combat::bury_frames`); an airborne one takes the hit as usual. Its knockback is worked out at weight
 /// 100 and it ignores subtractive knockback armor.
 pub const EFFECT_BURY: u8 = 2;
+/// The reference's egg (E8, sim 104): on a throw row (`HIT_THROW`) of a move with an [`Encase`] block, the released fighter is shut in
+/// an egg (`FighterState::Encased`) instead of launched; see [`Encase`].
+pub const EFFECT_ENCASE: u8 = 3;
 
 /// `Hitbox::kind` values.
 pub const HIT_NORMAL: u8 = 0;
@@ -978,6 +981,85 @@ impl Carry {
     }
 }
 
+/// An egg (E8, sim 104: the reference's, owner decision 46). A move with this block shuts the fighter its `EFFECT_ENCASE` throw row
+/// releases in an egg ([`crate::state::FighterState::Encased`]) instead of launching it. The numbers are read from the throwing move
+/// all through the egg (the egged fighter remembers the thrower's body and the move):
+///
+/// * the egg lasts `base + per_percent x min(p, percent_cap)` frames, `p` the fighter's percent before the throw, less `hit_cut` frames
+///   for every percent the throw (and later each hit on the egg) actually adds; it counts down a frame at a time outside hitlag, and
+///   `mash_button` more on a frame with a new button press, `mash_stick` more on one with a stick flick (the shared mash reading);
+/// * it is laid at `launch` (forward by the thrower's facing, up: world units a frame) and falls with the fighter's own gravity, fall
+///   speed and friction; it catches no ledge, techs nothing, and lands still an egg;
+/// * on the ground a stick flick sideways adds `shift.0` that way, a flick up hops it at `shift.1`; in the air `air_shift` instead;
+/// * a hit on it adds `damage_taken` percent of its damage, keeps its hitlag, and never launches, stuns or changes its state;
+///   grabs and command grabs cannot catch it; a push still pushes it;
+/// * its hurtbox is one egg, `size` percent of the fighter's height across when grown, growing from `grow_from` percent of that over
+///   `grow_frames` frames;
+/// * at 0 the fighter breaks out: airborne, vertical speed `exit_vy`, intangible for `exit_intangible` frames.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Encase {
+    pub base: Fx,
+    pub per_percent: Fx,
+    pub percent_cap: Fx,
+    pub mash_stick: Fx,
+    pub mash_button: Fx,
+    pub hit_cut: Fx,
+    pub damage_taken: u8,
+    pub launch: (Fx, Fx),
+    pub grow_from: u8,
+    pub grow_frames: u8,
+    pub size: u8,
+    pub shift: (Fx, Fx),
+    pub air_shift: (Fx, Fx),
+    pub exit_vy: Fx,
+    pub exit_intangible: u8,
+}
+
+impl Encase {
+    /// The egg's length in frames (fixed point) for a fighter at `percent` before the throw: `base + per_percent x min(percent, cap)`.
+    pub fn frames(&self, percent: Fx) -> Fx {
+        self.base + self.per_percent * percent.min(self.percent_cap).max(Fx::ZERO)
+    }
+
+    /// The egg's radius for a fighter of body height `height`, `age` frames after it was laid.
+    pub fn radius(&self, height: Fx, age: u8) -> Fx {
+        let full = height * Fx::from_ratio(i32::from(self.size), 200);
+        let span = i32::from(self.grow_frames.max(1));
+        let a = i32::from(age).min(span);
+        let from = i32::from(self.grow_from);
+        full * Fx::from_ratio(from * span + (100 - from) * a, 100 * span)
+    }
+
+    fn hash_into(&self, h: &mut StateHasher) {
+        for v in [
+            self.base,
+            self.per_percent,
+            self.percent_cap,
+            self.mash_stick,
+            self.mash_button,
+            self.hit_cut,
+            self.launch.0,
+            self.launch.1,
+            self.shift.0,
+            self.shift.1,
+            self.air_shift.0,
+            self.air_shift.1,
+            self.exit_vy,
+        ] {
+            v.hash_into(h);
+        }
+        for b in [
+            self.damage_taken,
+            self.grow_from,
+            self.grow_frames,
+            self.size,
+            self.exit_intangible,
+        ] {
+            h.write_u8(b);
+        }
+    }
+}
+
 /// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
 /// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
 /// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
@@ -1167,6 +1249,8 @@ pub struct Move {
     pub push_immune_to: u8,
     /// The move is a carry's lift (E7, sim 98): see [`Carry`]. `None` (the default): an ordinary move.
     pub carry: Option<Carry>,
+    /// The egg its `EFFECT_ENCASE` throw row lays (E8, sim 104): see [`Encase`]. `None` (the default): no egg.
+    pub encase: Option<Encase>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1245,6 +1329,7 @@ impl Move {
             push_immune_from: 255,
             push_immune_to: 0,
             carry: None,
+            encase: None,
             script: None,
             projectile_script: None,
         }
@@ -1703,6 +1788,13 @@ impl StateHash for Weapon {
                         h.write_u8(t);
                     }
                     h.write_bool(c.ledge);
+                }
+                None => h.write_bool(false),
+            }
+            match &m.encase {
+                Some(e) => {
+                    h.write_bool(true);
+                    e.hash_into(h);
                 }
                 None => h.write_bool(false),
             }
@@ -4641,7 +4733,7 @@ mod clutch;
 pub use clutch::clutch;
 /// The Clutch's follow-up slots (which `ext` slot holds which part), for tests and tools.
 pub mod clutch_slots {
-    pub use super::clutch::{DAIR_LANDING, DROP_AIR, DROP_LANDING};
+    pub use super::clutch::{DAIR_LANDING, DROP_AIR, DROP_LANDING, LAY, ROLL_END};
 }
 
 #[path = "moves_buckler.rs"]
