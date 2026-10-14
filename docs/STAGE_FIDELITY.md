@@ -33,3 +33,20 @@ grading (each stage keeps its own finish).
 - A modest gain: the canopy sits deep in the grove's haze, which softens most of the difference. The haze's strength there is the
   next thing to try, keeping the grove's dreamy mood.
 - **Images**: `docs/screenshots/stage2_canopy.png` (before left).
+
+## Pass 3: the canyon's backdrop to the stage's finish
+
+- The buttes (imported props) now wear the stage's own painted strata, laid in world space and falling a little into shade
+  (`_place_prop`'s new `surface`), so they are the same rock as the mesa the fighters stand on, not flat banded cylinders.
+- The rock arch is painted, inked stone instead of flat fills.
+- The desert floor is painted sand (world-laid, with detail) with a scatter of scrub and stones going off into the distance, instead
+  of one flat pink plane.
+- Checked at play distance (the fighters still lead) and with the look bench.
+- **Images**: `docs/screenshots/stage3_canyon.png` (before top).
+
+## Pass 4: the city's street
+
+- The road was a flat purple fill; it is painted asphalt now (a new `asphalt.svg`: grit, a sealed crack, a patch, with the concrete
+  detail over it, laid in world space). The roof tile was tried first: its slab grid read as plaza paving, not road.
+- The kerbs are inked painted stone; two worn zebra crossings either side of the building give the street a reason to be a street.
+- **Images**: `docs/screenshots/stage4_city_street.png` (before left).

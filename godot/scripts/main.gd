@@ -365,6 +365,7 @@ func _refresh(i: int) -> void:
 		"move_windows": sim.fighter_move_windows(i), "dodge": sim.fighter_dodge(i),
 		"move_tip": sim.fighter_move_tip(i), "reach": sim.fighter_weapon_reach(i), "dash_length": sim.fighter_dash_length(i), "wall_jumps": sim.fighter_wall_jumps(i),
 		"tripped": sim.has_method("fighter_tripped") and bool(sim.fighter_tripped(i)),
+		"egg": float(sim.fighter_egg_radius(i)) if sim.has_method("fighter_egg_radius") else 0.0,
 	}
 
 
@@ -1977,6 +1978,12 @@ const ITEM_ARROW := 3
 const ITEM_FLASH := 45
 var item_nodes: Array = []
 var item_burst_shown: Array = []
+## Per slot: which way the item last moved (x sign), so a lodged arrow keeps pointing the way it flew.
+var item_last_dir: Array = []
+## A lodged arrow's tilt (degrees below level): the sim keeps no angle once it lodges, so a fixed one in the way it flew.
+const ITEM_LODGED_TILT := 35.0
+## How fast a thrown bomb turns (degrees a frame since it was thrown).
+const ITEM_BOMB_SPIN := 18.0
 
 
 func _build_items() -> void:
@@ -1986,8 +1993,10 @@ func _build_items() -> void:
 		var n := Node3D.new()
 		n.visible = false
 		add_child(n)
+		# (The bomb's node at the ball's middle, so it spins about it.)
 		var bomb := Node3D.new()
 		bomb.name = "bomb"
+		bomb.position = Vector3(0, 0.36, 0)
 		n.add_child(bomb)
 		var ball := MeshInstance3D.new()
 		var sm := SphereMesh.new()
@@ -1995,7 +2004,7 @@ func _build_items() -> void:
 		sm.height = 0.72
 		ball.mesh = sm
 		ball.material_override = FighterView.toon(Color(0.2, 0.22, 0.36))
-		ball.position = Vector3(0, 0.36, 0)
+		ball.position = Vector3.ZERO
 		bomb.add_child(ball)
 		var cap := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
@@ -2004,7 +2013,7 @@ func _build_items() -> void:
 		cm.height = 0.12
 		cap.mesh = cm
 		cap.material_override = FighterView.toon(Color(0.7, 0.72, 0.8))
-		cap.position = Vector3(0, 0.74, 0)
+		cap.position = Vector3(0, 0.38, 0)
 		bomb.add_child(cap)
 		var fuse := MeshInstance3D.new()
 		var fm := CylinderMesh.new()
@@ -2013,7 +2022,7 @@ func _build_items() -> void:
 		fm.height = 0.22
 		fuse.mesh = fm
 		fuse.material_override = FighterView.toon(Color(0.86, 0.78, 0.6), false)
-		fuse.position = Vector3(0.04, 0.88, 0)
+		fuse.position = Vector3(0.04, 0.52, 0)
 		fuse.rotation_degrees = Vector3(0, 0, -20)
 		bomb.add_child(fuse)
 		var spark := MeshInstance3D.new()
@@ -2025,7 +2034,7 @@ func _build_items() -> void:
 		spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		spark_mat.albedo_color = Color(1.0, 0.85, 0.3)
 		spark.material_override = spark_mat
-		spark.position = Vector3(0.08, 1.0, 0)
+		spark.position = Vector3(0.08, 0.64, 0)
 		spark.name = "spark"
 		bomb.add_child(spark)
 		var arrow := Node3D.new()
@@ -2057,8 +2066,10 @@ func _build_items() -> void:
 			fl.position = Vector3(-0.48, 0.15 + side * 0.06, 0)
 			fl.rotation_degrees = Vector3(0, 0, side * 20.0)
 			arrow.add_child(fl)
+		_as_play_object(n)
 		item_nodes.append(n)
 		item_burst_shown.append(false)
+		item_last_dir.append(1.0)
 
 
 func _update_items() -> void:
@@ -2089,7 +2100,23 @@ func _update_items() -> void:
 		var arrow: Node3D = n.get_node("arrow")
 		bomb.visible = kind == ITEM_BOMB
 		arrow.visible = kind == ITEM_ARROW
-		arrow.scale = Vector3(facing, 1, 1)
+		var vel: Vector2 = sim.item_vel(k) if sim.has_method("item_vel") else Vector2.ZERO
+		if absf(vel.x) > 0.001:
+			item_last_dir[k] = signf(vel.x)
+		if holder >= 0:
+			item_last_dir[k] = facing
+		var way: float = item_last_dir[k]
+		# The arrow: held level in the hand; in flight along its velocity; lodged at a fixed tilt the way it flew.
+		arrow.scale = Vector3.ONE
+		if holder >= 0 or (rest != 3 and vel.length() < 0.001):
+			arrow.rotation.z = 0.0 if way > 0.0 else PI
+		elif rest == 3:
+			arrow.rotation.z = deg_to_rad(-ITEM_LODGED_TILT) if way > 0.0 else deg_to_rad(180.0 + ITEM_LODGED_TILT)
+		else:
+			arrow.rotation.z = vel.angle()
+		# The bomb spins while it flies after a throw, the way it was thrown.
+		var flight: int = int(sim.item_flight(k)) if sim.has_method("item_flight") else 0
+		bomb.rotation.z = 0.0 if holder >= 0 or flight <= 0 or vel.length() < 0.001 else deg_to_rad(-ITEM_BOMB_SPIN * float(flight) * way)
 		if kind == ITEM_BOMB:
 			var left := int(sim.item_life_left(k))
 			var flash := left >= 0 and left <= ITEM_FLASH and (int(sim.frame()) / 4) % 2 == 0
@@ -2116,6 +2143,12 @@ const WAVE_POWERED := [34, 35]
 ## The Wanderer's (Buckler, class 9) sword wave: fired with its forward smash (5) at 0%, a horizontal blade of light about 1.75 long.
 const BLADE_WAVE_FROM := [9, 5]
 const BLADE_WAVE_LENGTH := 1.75
+## The Bounder's (class 8) up special throw (15): drawn as a basketball (the owner's call), its radius about the shot's (3 reference
+## units), spinning the way it flies, popping in a painted burst where it bursts.
+const BALL_FROM := [8, 15]
+const BALL_RADIUS := 0.42
+var proj_balls: Array = []
+var proj_ball_burst: Array = []
 
 var proj_nodes: Array = []
 var proj_needles: Array = []
@@ -2180,6 +2213,8 @@ func _build_projectiles() -> void:
 		wv.visible = false
 		add_child(wv)
 		proj_waves.append(wv)
+		proj_balls.append(_basketball())
+		proj_ball_burst.append(false)
 
 
 func _update_projectiles(a: float) -> void:
@@ -2192,11 +2227,16 @@ func _update_projectiles(a: float) -> void:
 		var line: bool = active and from == LINE_FROM
 		var blade_wave: bool = active and int(from[0]) == BLADE_WAVE_FROM[0] and int(from[1]) == BLADE_WAVE_FROM[1]
 		var wave: bool = active and (blade_wave or (int(from[0]) == WAVE_CLASS and WAVE_MOVES.has(int(from[1]))))
+		var ball: bool = active and from == BALL_FROM
+		var ball_bursting: bool = ball and sim.has_method("projectile_bursting") and bool(sim.projectile_bursting(k))
 		proj_waves[k].visible = wave
-		proj_nodes[k].visible = active and not needle and not line and not wave
+		(proj_balls[k] as Node3D).visible = ball and not ball_bursting
+		proj_nodes[k].visible = active and not needle and not line and not wave and not ball
 		proj_needles[k].visible = needle
 		proj_lines[k][0].visible = line
 		proj_lines[k][1].visible = line
+		if not ball:
+			proj_ball_burst[k] = false
 		if not active:
 			continue
 		var pos := Vector2(proj_cur[i + 1], proj_cur[i + 2])
@@ -2210,6 +2250,14 @@ func _update_projectiles(a: float) -> void:
 				_draw_blade_wave(proj_waves[k], at, float(proj_cur[i + 3]), clampf(scale_pct / 100.0, 0.5, 1.5) if scale_pct > 0.0 else 1.0)
 			else:
 				_draw_wave(proj_waves[k], at, float(proj_cur[i + 3]), WAVE_POWERED.has(int(from[1])), bursting)
+		elif ball:
+			var b: Node3D = proj_balls[k]
+			b.position = at
+			var vx: float = proj_cur[i + 4]
+			b.rotation.z -= vx * 0.9 / BALL_RADIUS * 0.016 * 60.0 * get_process_delta_time() if absf(vx) > 0.0 else 0.0
+			if ball_bursting and not proj_ball_burst[k]:
+				Effects.hit(self, at, Vector2.UP, Color(0.95, 0.5, 0.18), 0.8, Effects.Kind.BLOW)
+			proj_ball_burst[k] = ball_bursting
 		elif needle:
 			proj_needles[k].position = at
 			proj_needles[k].rotation.z = Vector2(proj_cur[i + 4], proj_cur[i + 5]).angle()
@@ -2218,6 +2266,49 @@ func _update_projectiles(a: float) -> void:
 			_draw_cord(proj_lines[k][1], int(proj_cur[i + 8]), at, a)
 		else:
 			proj_nodes[k].position = at
+
+
+## A basketball `BALL_RADIUS` round (the Bounder's thrown ball): orange rubber, inked, its dark seams the two great circles and two
+## curved side seams. Hidden until a slot shows it.
+func _basketball() -> Node3D:
+	var n := Node3D.new()
+	n.visible = false
+	add_child(n)
+	var ball := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = BALL_RADIUS
+	sm.height = BALL_RADIUS * 2.0
+	sm.radial_segments = 28
+	sm.rings = 16
+	ball.mesh = sm
+	ball.material_override = FighterView.respond(FighterView.toon(Color(0.95, 0.5, 0.18)), "rubber")
+	n.add_child(ball)
+	var seam := FighterView.toon(Color(0.18, 0.1, 0.08), false)
+	for sd in [[1.0, Vector3.ZERO, Vector3(90, 0, 0)], [1.0, Vector3.ZERO, Vector3.ZERO],
+			[0.72, Vector3(-0.68, 0, 0), Vector3(0, 0, 90)], [0.72, Vector3(0.68, 0, 0), Vector3(0, 0, 90)]]:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = BALL_RADIUS * float(sd[0]) * 0.985
+		tm.outer_radius = BALL_RADIUS * float(sd[0]) * 1.03
+		tm.rings = 36
+		tm.ring_segments = 5
+		ring.mesh = tm
+		ring.material_override = seam
+		ring.position = (sd[1] as Vector3) * BALL_RADIUS
+		ring.rotation_degrees = sd[2]
+		n.add_child(ring)
+	_as_play_object(n)
+	return n
+
+
+## Things in play (thrown balls, items) take an object id in the fighters' range, so the stage's quieting (`stage_quiet` in
+## shaders/post.gdshader) leaves their colour alone and the ink outlines them like fighters.
+const PLAY_OBJECT_ID := 0.58
+
+
+func _as_play_object(n: Node) -> void:
+	for g in n.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).set_instance_shader_parameter("object_id", PLAY_OBJECT_ID)
 
 
 ## The Champion's wave at `at` flying toward `dir` (+1 right): a painted crescent of amber light standing on its edge, its bright

@@ -1926,7 +1926,22 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			_under_haze(root, t, bottom - 1.0, 6.0, 0.5)
 			# The desert floor the mesa stands in (level with the far buttes' feet) and fallen rock heaped round its foot.
 			var floor_y := DESERT_FLOOR
-			_mesh(root, _box(Vector3(400.0, 1.0, 180.0)), FighterView.toon(Color(0.9, 0.62, 0.44)), Vector3(0, floor_y - 0.5, -80.0))
+			# (Painted sand laid in world space with soil detail, not a flat fill, and a scatter of scrub and stones over it so the floor
+			# reads as ground going off into the distance.)
+			var sand_floor := Materials.world("sand", Color(0.9, 0.62, 0.44), 9.0, false)
+			_mesh(root, _box(Vector3(400.0, 1.0, 180.0)), sand_floor, Vector3(0, floor_y - 0.5, -80.0))
+			var scrub := Materials.foliage(Color(0.56, 0.6, 0.36), Vector2(2, 2), true)
+			var pebble := Materials.stone(Color(0.78, 0.5, 0.4))
+			for k in 40:
+				var sx := rng.randf_range(-120.0, 120.0)
+				var sz := rng.randf_range(-130.0, -14.0)
+				if absf(sx) < r - l and sz > -20.0:
+					continue
+				var sc := rng.randf_range(0.5, 1.3) * lerpf(1.0, 1.8, -sz / 130.0)
+				if k % 3 == 0:
+					_mesh(root, _sphere(1.0, 7), pebble, Vector3(sx, floor_y + sc * 0.25, sz), Vector3(sc * 1.3, sc * 0.7, sc), Vector3(0, rng.randf_range(0, 90), 0))
+				else:
+					_mesh(root, _sphere(1.0, 8), scrub, Vector3(sx, floor_y + sc * 0.35, sz), Vector3(sc * 1.2, sc * 0.7, sc))
 			var rubble := Materials.stone((t.soil_dark as Color).lerp(Color(0.9, 0.62, 0.44), 0.45))
 			for k in 9:
 				var x := lerpf(l - 2.5, r + 2.5, (k + rng.randf_range(0.2, 0.8)) / 9.0)
@@ -2115,7 +2130,7 @@ static func _under_haze(root: Node3D, t: Dictionary, from_y: float, depth: float
 ## An authored prop (godot/models/props/<name>.glb, from art/blender/make_props.py) at `at`, `size` times its modelled size, turned `turn`
 ## degrees about the vertical. Its parts go straight under `root` with their cel materials as overrides, so `merge_static` joins them
 ## with everything else drawn in the same colours (a few draw calls for a whole row of mesas). False if the prop is missing.
-static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn := 0.0) -> bool:
+static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: float, turn := 0.0, surface: Material = null) -> bool:
 	var prop := Toonify.load_prop(prop_name)
 	if prop == null:
 		push_warning("stage prop %s is missing (run art/blender/make_props.py)" % prop_name)
@@ -2129,7 +2144,8 @@ static func _place_prop(root: Node3D, prop_name: String, at: Vector3, size: floa
 			up = up.get_parent() as Node3D
 		var mi := MeshInstance3D.new()
 		mi.mesh = part.mesh
-		mi.material_override = part.get_surface_override_material(0)
+		# (`surface` puts every part in one material instead, e.g. the stage's own painted strata on a butte.)
+		mi.material_override = surface if surface != null else part.get_surface_override_material(0)
 		mi.transform = place * prop.transform * xf
 		mi.name = prop_name
 		mi.set_meta("prop", true)
@@ -2430,11 +2446,14 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	rng.seed = 7
 	var e := _ext(stage)
 	_painted_sun(root, Vector3(18, 2, -140), 14.0)
+	var mesa_rock := _under_material(_soil_material(t), 0.35)
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:
 		var far := k % 2 == 1
 		var at := Vector3(-110.0 + k * 30.0 + rng.randf_range(-6, 6), -16.0, -110.0 if far else -78.0)
-		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, rng.randf_range(0.7, 1.05), rng.randf_range(0.0, 360.0))
+		# (In the stage's own painted strata, laid in world space and falling into shade below the light, so the buttes are the same rock
+		# as the mesa the fighters stand on.)
+		_place_prop(root, "mesa_a" if k % 3 != 1 else "mesa_b", at, rng.randf_range(0.7, 1.05), rng.randf_range(0.0, 360.0), mesa_rock)
 	# A rock arch on the left, standing on the desert floor.
 	_rock_arch(root, Vector3(-34, DESERT_FLOOR, -48), 12.0, 18.5)
 	# Cacti behind the stage.
@@ -2467,7 +2486,9 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 ## bows up between them, banded the same way, and a few fallen blocks at its feet. Deterministic (no random draws).
 static func _rock_arch(root: Node3D, at: Vector3, span: float, height: float) -> void:
 	# Close reds with a pale band now and then, as the mesas' strata (not stripes).
-	var strata := [_soft(Color(0.84, 0.46, 0.34)), _soft(Color(0.8, 0.42, 0.32)), _soft(Color(0.88, 0.52, 0.38)), _soft(Color(0.94, 0.68, 0.5))]
+	# (Painted stone, inked, as the props by the stage are: flat fills read as a different, unfinished style.)
+	var strata := [Materials.stone(Color(0.84, 0.46, 0.34), Vector2(2, 1)), Materials.stone(Color(0.8, 0.42, 0.32), Vector2(2, 1)),
+		Materials.stone(Color(0.88, 0.52, 0.38), Vector2(2, 1)), Materials.stone(Color(0.94, 0.68, 0.5), Vector2(2, 1))]
 	var slab := 2.4
 	for side in [-1.0, 1.0]:
 		var y := 0.0
@@ -2781,9 +2802,11 @@ const CITY_STREET_DROP := 6.0
 ## it with warm pools of light, and a few cars driving both ways with their lights on. One flat stretch from far left to far right, so a
 ## camera pulled right back sees a city that stands on the ground.
 static func _street(root: Node3D, y: float, front: float) -> void:
-	var asphalt := FighterView.toon(Color(0.24, 0.21, 0.32))
+	# (Painted asphalt (godot/art/stage/asphalt.svg: grit, a sealed crack, a patch) laid in world space, and inked stone kerbs: flat fills read as a
+	# different, unfinished style beside the painted rooftop.)
+	var asphalt := Materials.world("asphalt", Color(0.3, 0.27, 0.4), 6.0, false)
 	var pave := Materials.stone(Color(0.46, 0.42, 0.56), Vector2(40, 2))
-	var kerb := FighterView.toon(Color(0.6, 0.56, 0.7))
+	var kerb := Materials.stone(Color(0.6, 0.56, 0.7), Vector2(60, 1))
 	# The pavement round the stage building, the road, the far pavement and its kerb.
 	_mesh(root, _box(Vector3(300.0, 0.5, 6.0)), pave, Vector3(0, y, front + 1.0))
 	_mesh(root, _box(Vector3(300.0, 0.5, 22.0)), asphalt, Vector3(0, y - 0.25, front - 18.0))
@@ -2796,6 +2819,12 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 	while x < 150.0:
 		_mesh(root, _box(Vector3(2.4, 0.04, 0.3)), paint, Vector3(x, y + 0.01, front - 18.0))
 		x += 5.0
+	# Zebra crossings either side of the stage building, worn a little.
+	var zebra := _unshaded(Color(0.86, 0.84, 0.9))
+	for cx in [-34.0, 36.0]:
+		for j in 7:
+			_mesh(root, _box(Vector3(1.0, 0.04, 2.4)), zebra, Vector3(cx + j * 1.7, y + 0.02, front - 11.0 - float(j % 2) * 0.1))
+			_mesh(root, _box(Vector3(1.0, 0.04, 2.4)), zebra, Vector3(cx + j * 1.7, y + 0.02, front - 24.8))
 	# Street lamps along the far pavement: a post, an arm out over the road, a lamp and a warm halo.
 	var iron := FighterView.toon(Color(0.2, 0.18, 0.28))
 	var lamp := _unshaded(Color(1.0, 0.9, 0.62))

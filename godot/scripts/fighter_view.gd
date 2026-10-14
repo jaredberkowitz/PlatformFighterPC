@@ -2728,6 +2728,58 @@ func _secondary(s: Dictionary, delta: float) -> void:
 		t.update(int(s.frame), int(s.hitlag), dv, 1.0, delta)
 
 
+## The Bounder's egg round a fighter shut in it (state `Encased`, the bridge's `fighter_egg_radius`): a cream egg standing on the
+## fighter's feet, inked, with soft spots in green, rocking a little as the fighter struggles; when it goes it breaks into shell pieces.
+## The fighter inside is hidden. Made the first time it is needed. Presentation only.
+var egg_node: Node3D
+var egg_was := 0.0
+const EGG_SHELL := Color(1.0, 0.96, 0.86)
+const EGG_SPOT := Color(0.42, 0.72, 0.36)
+
+
+func _egg(s: Dictionary) -> void:
+	var r := float(s.get("egg", 0.0))
+	if r <= 0.0:
+		if egg_was > 0.0:
+			Particles.shell_pieces(get_parent(), global_position + Vector3(0, egg_was * 1.12, 0.4), egg_was, EGG_SPOT, EGG_SHELL)
+		egg_was = 0.0
+		if egg_node != null:
+			egg_node.visible = false
+		return
+	egg_was = r
+	if egg_node == null:
+		egg_node = Node3D.new()
+		add_child(egg_node)
+		var shell := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radial_segments = 28
+		sm.rings = 16
+		shell.mesh = sm
+		shell.material_override = toon(EGG_SHELL)
+		egg_node.add_child(shell)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 77
+		for k in 7:
+			var a := rng.randf_range(-1.1, 1.1)
+			var e := rng.randf_range(-0.6, 0.8)
+			var dir := Vector3(sin(a) * cos(e), sin(e), cos(a) * cos(e))
+			var spot := MeshInstance3D.new()
+			spot.mesh = SphereMesh.new()
+			spot.material_override = toon(EGG_SPOT, false)
+			var sr := rng.randf_range(0.14, 0.24)
+			spot.look_at_from_position(dir * 0.5 * 0.97, dir * 0.97, Vector3.UP)
+			spot.scale = Vector3(sr, sr, sr * 0.3)
+			shell.add_child(spot)
+	egg_node.visible = true
+	model.visible = false
+	# (The unit sphere is 1 across: an egg a little taller than wide, standing on the feet.)
+	egg_node.position = Vector3(0, r * 1.12, 0)
+	var shell_mesh: MeshInstance3D = egg_node.get_child(0)
+	shell_mesh.scale = Vector3(r * 2.0, r * 2.3, r * 2.0)
+	var t := float(s.frame)
+	egg_node.rotation.z = 0.07 * sin(t * 0.55) + 0.05 * sin(t * 1.7)
+
+
 ## The Wanderer's round shield (made the first time it is needed): a wooden disc with a steel rim and boss in the accent colour, held on
 ## the forearm of the arm that does not hold the sword, faced toward the camera. Hidden for every other class. Presentation only.
 func _place_buckler(s: Dictionary) -> void:
@@ -3583,6 +3635,7 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	_launch_smoke(s)
 	_dust(s)
 	_revival_platform(s)
+	_egg(s)
 	# Buried: sunk to about half its height in the ground (the bridge's `Buried`), shaking a little as it struggles.
 	if state == "Buried":
 		model.position = Vector3(0.05 * sin(float(s.frame) * 2.1), -1.0, 0)
