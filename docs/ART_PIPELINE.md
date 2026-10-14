@@ -1140,3 +1140,5 @@ The moveset session's new fighters and states (sim 96 to 97), presentation only:
   wait for its own clips (the longsword's are timed to the Duelist's frames).
 - **Buried** (the Hauler's headbutt): the fighter sinks to its shoulders and shakes as it struggles. `--demo=bury`, `bury_pose.png`.
 - **Tripped** (`fighter_tripped`, read when the bridge has it): a trip sits the fighter down in a low crouch instead of laying it flat.
+- **Carrying** (the Hauler's carry, sim 98 on the moveset branch): the holder keeps its arms raised under the fighter it holds overhead
+  (the up air's pose held at its top); the held fighter is placed by the game. Ready before the state reaches main.

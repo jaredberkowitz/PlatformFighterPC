@@ -405,6 +405,10 @@ func _choose_clip(s: Dictionary) -> Array:
 			return [clip, minf(3.2, speed * 60.0 / stride * length * STEP_CADENCE), -1.0]
 		"Attack":
 			return _attack_clip(s)
+		"Carrying":
+			# The Hauler's carry: the fighter it holds rides overhead (placed by the game at 2.8 up), so the arms stay raised under it, the
+			# up air's reach held at its top.
+			return [AnimLibrary.or_stand_in("attack_uair", anim), 1.0, 0.45]
 		"Knockdown":
 			# A trip is a fall onto the seat, not onto the back: crouched low, held, rather than laid flat (`tripped` from the bridge).
 			if s.get("tripped", false):
