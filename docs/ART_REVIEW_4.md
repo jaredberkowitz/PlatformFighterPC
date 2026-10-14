@@ -52,4 +52,14 @@ foreground, higher-quality rendering, closer to a cel-shaded HD remaster.
   kit, chosen to its reference (the Tumbler a cap with the full kit, the Settler a straw hat and flower shirt, the Scamp an aviator cap
   and a striped shirt). They were bare colour bodies under their hats. Presentation only; the roster tests pass. `review4_outfits.png`.
 
+## Pass 67: the city's front, the player tags; two review items revisited
+
+- **The city's front** (`facade` in `_soil_material`): a brick apartment wall, four storeys a repeat: brick courses, a stone ledge per
+  floor, four tall framed windows a floor with a cross bar (a third lit, curtains drawn to the sides), flower pots on some sills, an air
+  conditioner, striped awnings, a drainpipe at the seam (was a flat grid of narrow windows on panels). `review4_city_front.png`.
+- **Player tags** a fifth smaller with a thinner outline, so they sit with the rest of the in-match UI instead of shouting over it.
+- **Item 5 (contact)**: on checking, every stage prop already sits in its contact patch (`_props` `patches`); the review overstated it.
+- **Item 6 (shimmer)**: the Best tier already runs 4x MSAA with SMAA; temporal AA would smear the ink lines. Left as is.
+- **The canyon's front** was checked and kept: its broken, waving strata read well at play distance.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.

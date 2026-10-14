@@ -382,18 +382,62 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.55"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.1).to_html(false)]
 		"facade":
-			# Concrete panels with rounded windows, some lit warm, each with a sill. Twice the size of the other patterns (sixteen windows
-			# a repeat, about a third lit, in a softer warm), so the wall under the fighters is not a busy grid stamped every few units.
+			# A brick apartment front, four storeys a repeat: brick courses in a soft stagger, a stone ledge along each floor, four tall
+			# windows a floor each in a pale frame with a cross bar (a third lit warm, with curtains drawn to the sides; a few with a
+			# flower pot on the sill), striped awnings over two, an air conditioner hung under one, and a drainpipe down the seam. (It was
+			# a flat grid of narrow windows on panels; a wall a fighter stands over the whole match needs a building's details.)
 			body += '<rect width="512" height="512" fill="#%s"/>' % A
-			for x in [0, 128, 256, 384]:
-				for y in [0, 128, 256, 384]:
-					body += '<rect x="%d" y="%d" width="128" height="128" fill="none" stroke="#%s" stroke-width="4"/>' % [x, y, B]
-			for wy in [22, 150, 278, 406]:
-				for wx in [18, 74, 146, 202, 274, 330, 402, 458]:
-					var lit := rng.randf() < 0.32
-					var col := "f2d394" if lit else "2a2f45"
-					body += '<rect x="%d" y="%d" width="36" height="56" rx="6" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx, wy, col, ink]
-					body += '<rect x="%d" y="%d" width="44" height="6" rx="3" fill="#%s"/>' % [wx - 4, wy + 58, hi]
+			var brick_line := a.darkened(0.18).to_html(false)
+			for by in range(0, 512, 16):
+				body += '<rect x="0" y="%d" width="512" height="2" fill="#%s" opacity="0.45"/>' % [by, brick_line]
+				var off := 0 if (by / 16) % 2 == 0 else 20
+				for bx in range(off, 512, 40):
+					body += '<rect x="%d" y="%d" width="2" height="16" fill="#%s" opacity="0.35"/>' % [bx, by, brick_line]
+			var frame_col := Color(0.92, 0.88, 0.86).lerp(a, 0.25).to_html(false)
+			var curtain := ["e98a94", "8fb8e8", "e8c070"]
+			var awn := ["e2525a", "3f8f8a"]
+			for floor_k in 4:
+				var fy := floor_k * 128
+				# The ledge at the foot of the floor.
+				body += '<rect x="0" y="%d" width="512" height="12" fill="#%s"/>' % [fy + 116, hi]
+				body += '<rect x="0" y="%d" width="512" height="3" fill="#%s" opacity="0.6"/>' % [fy + 125, ink]
+				for col in 4:
+					var wx := 30 + col * 128
+					var wy := fy + 18
+					var lit := rng.randf() < 0.34
+					body += '<rect x="%d" y="%d" width="68" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, frame_col, ink]
+					body += '<rect x="%d" y="%d" width="56" height="76" fill="#%s"/>' % [wx, wy, "f2d394" if lit else "2a2f45"]
+					if lit:
+						var cc: String = curtain[rng.randi_range(0, 2)]
+						body += '<path d="M%d,%d l16,0 q-6,38 -16,76 Z" fill="#%s" opacity="0.9"/>' % [wx, wy, cc]
+						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + 56, wy, cc]
+					else:
+						body += '<path d="M%d,%d l14,0 l-14,22 Z" fill="#ffffff" opacity="0.12"/>' % [wx + 6, wy + 4]
+					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + 26, wy, frame_col]
+					body += '<rect x="%d" y="%d" width="56" height="4" fill="#%s"/>' % [wx, wy + 34, frame_col]
+					body += '<rect x="%d" y="%d" width="72" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, hi, ink]
+					var extra := rng.randf()
+					if extra < 0.2:
+						# A flower pot on the sill.
+						body += '<rect x="%d" y="%d" width="16" height="12" fill="#c8664c" stroke="#%s" stroke-width="2"/>' % [wx + 8, wy + 68, ink]
+						body += '<circle cx="%d" cy="%d" r="9" fill="#5aa04a"/><circle cx="%d" cy="%d" r="4" fill="#f06a8a"/>' % [wx + 16, wy + 62, wx + 18, wy + 58]
+					elif extra < 0.32:
+						# An air conditioner hung under the window.
+						body += '<rect x="%d" y="%d" width="36" height="22" rx="3" fill="#b9bcc8" stroke="#%s" stroke-width="2.5"/>' % [wx + 10, wy + 88, ink]
+						for g in 3:
+							body += '<rect x="%d" y="%d" width="26" height="2" fill="#%s" opacity="0.6"/>' % [wx + 15, wy + 93 + g * 5, ink]
+					elif extra < 0.44:
+						# A striped awning over it.
+						var ac: String = awn[rng.randi_range(0, 1)]
+						for st_k in 5:
+							body += '<rect x="%d" y="%d" width="15" height="16" fill="#%s"/>' % [wx - 10 + st_k * 15, wy - 22, ac if st_k % 2 == 0 else "f4efe6"]
+						for sc in 5:
+							body += '<circle cx="%d" cy="%d" r="7.5" fill="#%s"/>' % [wx - 2 + sc * 15, wy - 6, ac if sc % 2 == 0 else "f4efe6"]
+						body += '<rect x="%d" y="%d" width="75" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, ink]
+			# A drainpipe down the tile's seam, with brackets.
+			body += '<rect x="2" y="0" width="10" height="512" fill="#7d7f92" stroke="#%s" stroke-width="2" stroke-opacity="0.6"/>' % ink
+			for py in range(40, 512, 128):
+				body += '<rect x="0" y="%d" width="14" height="6" fill="#5c5e70"/>' % py
 		_:
 			# Quilted diamonds with a soft highlight along their upper edges.
 			body += '<rect width="256" height="256" fill="#%s"/>' % B

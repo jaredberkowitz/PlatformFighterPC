@@ -2379,7 +2379,7 @@ func set_name_tag(text: String) -> void:
 ## name, as before.
 var match_tag := false
 var tag_arrow: Sprite3D
-const TAG_PIXEL := 0.0007
+const TAG_PIXEL := 0.00056
 const TAG_HEIGHT := 2.6   # world units above the feet: just over the head, the tag and pointer stacked up from there on screen
 
 
@@ -2404,11 +2404,11 @@ func set_overhead(training: bool, tag: String, colour: Color) -> void:
 		name_label.visible = true
 		name_label.modulate = colour.lightened(0.1)
 		name_label.outline_modulate = INK
-		name_label.outline_size = 18
+		name_label.outline_size = 14
 		name_label.position.y = TAG_HEIGHT
 		name_label.fixed_size = true
 		name_label.pixel_size = TAG_PIXEL
-		name_label.offset = Vector2(0, 46)
+		name_label.offset = Vector2(0, 50)
 		if tag_arrow == null:
 			tag_arrow = Sprite3D.new()
 			tag_arrow.texture = _tag_arrow_texture()
