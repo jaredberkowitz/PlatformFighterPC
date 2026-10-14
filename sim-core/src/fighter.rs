@@ -500,6 +500,28 @@ pub fn enter_helpless(f: &mut Fighter) {
 
 // ---- Ground ----------------------------------------------------------------------------------
 
+/// Keeps a grounded fighter on its ground after a sideways move (sim 124): on a slope its feet follow the surface (its ground speed
+/// stays horizontal, as in the reference), and past an end where a slope joins another surface at the same height it carries on
+/// onto that one. Returns false if it is past its platform's end with nothing to carry on to (the caller steps it off, or stops it
+/// at the edge). On flat ground this is the span check it always was.
+pub fn keep_on_ground(f: &mut Fighter, stage: &Stage) -> bool {
+    let Some(plat) = collision::platform(stage, f.platform) else {
+        return false;
+    };
+    if f.pos.x >= plat.left && f.pos.x <= plat.right {
+        if plat.sloped() {
+            f.pos.y = plat.top_at(f.pos.x);
+        }
+        return true;
+    }
+    if let Some(i) = collision::continuation(stage, f.platform, f.pos.x) {
+        f.platform = i as i8;
+        f.pos.y = stage.platforms[i].top_at(f.pos.x);
+        return true;
+    }
+    false
+}
+
 /// Moves along the ground, stopping at walls and stepping off into the air if the platform ends.
 /// Returns false if the fighter left the ground.
 fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool {
@@ -507,12 +529,12 @@ fn slide_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> bool 
     if f.touched_wall {
         f.vel.x = Fx::ZERO;
     }
-    let Some(plat) = collision::platform(stage, f.platform) else {
+    if collision::platform(stage, f.platform).is_none() {
         f.platform = NONE;
         enter(f, S::Airborne);
         return false;
-    };
-    if f.pos.x < plat.left || f.pos.x > plat.right {
+    }
+    if !keep_on_ground(f, stage) {
         f.platform = NONE;
         f.vel.y = Fx::ZERO;
         enter(f, S::Airborne);
@@ -528,8 +550,11 @@ fn slide_kept_on_platform(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
         f.vel.x = Fx::ZERO;
     }
     if let Some(plat) = collision::platform(stage, f.platform) {
-        if f.pos.x < plat.left || f.pos.x > plat.right {
+        if !keep_on_ground(f, stage) {
             f.pos.x = f.pos.x.clamp(plat.left, plat.right);
+            if plat.sloped() {
+                f.pos.y = plat.top_at(f.pos.x);
+            }
             f.vel.x = Fx::ZERO;
         }
     }
@@ -900,7 +925,7 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage
 
 fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     if let Some(plat) = stage.platforms.get(platform) {
-        f.pos.y = plat.y;
+        f.pos.y = plat.top_at(f.pos.x);
     }
     f.vel.y = Fx::ZERO;
     f.hop_boost = 0;
@@ -962,8 +987,10 @@ struct Moved {
 
 /// Moves the fighter by `v` with wall, ceiling and landing collision, reporting what it touched.
 fn move_by(f: &mut Fighter, p: &FighterParams, stage: &Stage, v: Vec2) -> Moved {
-    let mut wall = collision::move_x(stage, p, &mut f.pos, v.x);
+    // (Landing is judged from where the fighter was before its sideways move too: a slope rising into its path is met as ground.
+    // On flat ground only the heights matter, and the sideways move keeps the height.)
     let prev = f.pos;
+    let mut wall = collision::move_x(stage, p, &mut f.pos, v.x);
     let mut ceiling = false;
     if v.y > Fx::ZERO {
         ceiling = collision::move_up(stage, p, &mut f.pos, v.y);
@@ -1388,7 +1415,10 @@ fn wave_land(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     // A wavedash stops at the edge of the platform instead of sliding off it.
     if let Some(plat) = collision::platform(stage, f.platform) {
         let next = f.pos.x + f.vel.x;
-        if next < plat.left || next > plat.right {
+        // (Unless a slope carries on from that end.)
+        if (next < plat.left || next > plat.right)
+            && collision::continuation(stage, f.platform, next).is_none()
+        {
             f.pos.x = if next < plat.left {
                 plat.left
             } else {
@@ -1974,9 +2004,7 @@ fn encased(f: &mut Fighter, p: &FighterParams, stage: &Stage, e: Option<&Encase>
             f.vel.x = Fx::ZERO;
         }
         // Rolled or shifted off its platform: it falls.
-        if collision::platform(stage, f.platform)
-            .is_none_or(|pl| f.pos.x < pl.left || f.pos.x > pl.right)
-        {
+        if !keep_on_ground(f, stage) {
             f.platform = NONE;
         }
         return;
@@ -2229,8 +2257,7 @@ fn carry_on_ground(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
     if f.touched_wall {
         f.vel.x = Fx::ZERO;
     }
-    let on = collision::platform(stage, f.platform)
-        .is_some_and(|plat| f.pos.x >= plat.left && f.pos.x <= plat.right);
+    let on = keep_on_ground(f, stage);
     if !on {
         f.platform = NONE;
         f.vel.y = Fx::ZERO;
@@ -2894,12 +2921,10 @@ fn attack(
         }
         // A dash along the ground that carries the fighter past the edge leaves the ground (and a move with an `off_edge` version
         // goes on as it, on the same frame).
-        if let Some(plat) = collision::platform(stage, f.platform) {
-            if f.pos.x < plat.left || f.pos.x > plat.right {
-                f.platform = NONE;
-                if let Some(other) = mv.off_edge {
-                    f.move_id = other;
-                }
+        if collision::platform(stage, f.platform).is_some() && !keep_on_ground(f, stage) {
+            f.platform = NONE;
+            if let Some(other) = mv.off_edge {
+                f.move_id = other;
             }
         }
     } else if id.is_aerial() || ((id.is_special() || id.is_ext()) && !f.grounded()) {
@@ -3406,9 +3431,7 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
             if collision::move_x(stage, p, &mut f.pos, f.vel.x) {
                 f.kb_vel.x = Fx::ZERO;
             }
-            let still_on = collision::platform(stage, f.platform)
-                .is_some_and(|plat| f.pos.x >= plat.left && f.pos.x <= plat.right);
-            if !still_on {
+            if !keep_on_ground(f, stage) {
                 f.platform = NONE;
             }
             return true;
@@ -3422,9 +3445,7 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         if collision::move_x(stage, p, &mut f.pos, f.vel.x) || (carried && f.posvec == 0) {
             f.kb_vel.x = Fx::ZERO;
         }
-        let still_on = collision::platform(stage, f.platform)
-            .is_some_and(|plat| f.pos.x >= plat.left && f.pos.x <= plat.right);
-        if !still_on {
+        if !keep_on_ground(f, stage) {
             f.platform = NONE;
         }
         return true;
@@ -3477,7 +3498,7 @@ fn knockback_frame(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ru
         // Spiked into the floor hard enough, a tumbling fighter bounces back up instead of lying down (unless it techs).
         if !teched && f.tumble && f.kb_vel.y < Fx::ZERO && -falling > rules.ground_bounce_speed {
             if let Some(plat) = stage.platforms.get(platform) {
-                f.pos.y = plat.y;
+                f.pos.y = plat.top_at(f.pos.x);
             }
             f.kb_vel.y = -(f.kb_vel.y * rules.bounce_keep);
             f.vel.y = Fx::ZERO;

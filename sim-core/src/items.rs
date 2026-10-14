@@ -702,7 +702,11 @@ fn fly(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
         // Lying (or sliding) on a platform: its friction, and over the end it falls.
         it.vel.y = Fx::ZERO;
         it.vel.x = approach_zero(it.vel.x, spec.friction);
-        let to = Vec2::new(it.pos.x + it.vel.x, it.pos.y);
+        let mut to = Vec2::new(it.pos.x + it.vel.x, it.pos.y);
+        // (On a slope it slides along the surface, sim 124.)
+        if plat.sloped() {
+            to.y = plat.top_at(to.x);
+        }
         if inside_block(stage, to) {
             it.vel.x = Fx::ZERO;
         } else {
@@ -725,7 +729,7 @@ fn fly(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
                 return;
             }
             let into = -it.vel.y;
-            it.pos = Vec2::new(to.x, stage.platforms[i].y);
+            it.pos = Vec2::new(to.x, stage.platforms[i].top_at(to.x));
             if into > spec.bounce_min {
                 it.vel.y = pct(into, spec.floor_keep.1).clamp(spec.bounce_y.0, spec.bounce_y.1);
                 it.vel.x = clamp_mag(pct(it.vel.x, spec.floor_keep.0), spec.bounce_x);
@@ -746,7 +750,7 @@ fn fly(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
         }
     }
     if let Some(block) = stage.platforms.iter().find(|b| {
-        !b.pass_through && to.x > b.left && to.x < b.right && to.y > b.bottom && to.y < b.y
+        !b.pass_through && to.x > b.left && to.x < b.right && to.y > b.bottom && to.y < b.top_at(to.x)
     }) {
         if it.rest == ITEM_THROWN && spec.vanish {
             state.items[n].active = false;
@@ -792,7 +796,7 @@ fn inside_block(stage: &crate::content::Stage, p: Vec2) -> bool {
     stage
         .platforms
         .iter()
-        .any(|b| !b.pass_through && p.x > b.left && p.x < b.right && p.y > b.bottom && p.y < b.y)
+        .any(|b| !b.pass_through && p.x > b.left && p.x < b.right && p.y > b.bottom && p.y < b.top_at(p.x))
 }
 
 /// The item's middle (its hits and hurtbox are centred there).
@@ -1239,7 +1243,7 @@ fn place(
     };
     let s = combat::params_of(content, &f).hitbox_scale;
     let x = (f.pos.x + (pl.x * s).mul_int(i32::from(f.facing))).clamp(plat.left, plat.right);
-    let at = Vec2::new(x, plat.y);
+    let at = Vec2::new(x, plat.top_at(x));
     for n in 0..MAX_ITEMS {
         let it = state.items[n];
         if !it.active || it.kind != spec.kind || it.kind == 0 {

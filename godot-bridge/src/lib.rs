@@ -17,9 +17,14 @@ use netplay::spectate::{SpectatorClient, SpectatorServer};
 use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
-use sim_core::run::{door_here, new_run, step_run, RunContent, MAX_MOBS};
+use sim_core::run::{
+    door_here, door_of, for_each_coin, for_each_footing, new_run, shop_spot, step_run, RunContent,
+    INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE,
+};
 use sim_core::state::PLAYING;
-use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
+use sim_core::{
+    step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION,
+};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use transport::{QuickMatch, RelayLink, SpectatorSocket, UdpLink};
@@ -2448,8 +2453,8 @@ impl SimRunner {
     }
 
     /// `[over, metres, coins, kills, combo, best combo, coin multiplier, lives, current room (its number), layout, current room's
-    /// type, arena gate shut (0/1), arenas cleared, shop open (0/1), at a shop's door (0/1)]` (layout changes whenever the stage or
-    /// its walls do). Room types: 0 street, 1 arena, 2 shop, 3 rest.
+    /// type, arena gate shut (0/1), arenas cleared, inside the shop (0/1), at a shop's door (0/1), coins picked up, current room is a
+    /// fork (0/1)]` (layout changes whenever the stage or its walls do). Room types: 0 street, 1 arena, 2 shop, 3 rest.
     #[func]
     fn run_info(&self) -> PackedInt32Array {
         let r = &self.state.run;
@@ -2471,37 +2476,45 @@ impl SimRunner {
             r.kind_of(r.room).map_or(0, i32::from),
             i32::from(r.gate_closed),
             i32::from(r.cleared),
-            i32::from(r.shop_open),
+            i32::from(r.inside),
             self.run
                 .as_ref()
                 .map_or(0, |(rc, _)| i32::from(door_here(&self.state, rc).is_some())),
+            i32::from(r.coins_picked),
+            i32::from(r.fork_of(r.room).unwrap_or(false)),
         ];
         PackedInt32Array::from(v.as_slice())
     }
 
     /// `[left edge, view width, follow (0..1), blast bottom, blast top, creep a frame, left wall, right limit (the end of the rooms in
-    /// play, or a shut gate), gate thickness]`.
+    /// play, or a shut gate), gate thickness, inside the shop (0/1), the interior's left edge, the interior's width]`. The blast
+    /// lines follow the ground's height (below the lowest ground of the rooms in play, above the highest).
     #[func]
     fn run_view(&self) -> PackedFloat32Array {
         let Some((rc, _)) = &self.run else {
             return PackedFloat32Array::new();
         };
         let r = &rc.rules;
+        let run = &self.state.run;
+        let (bottom, top) = run.blast_y(r);
         let v = [
-            f(self.state.run.cam_x),
+            f(run.cam_x),
             f(r.view_width),
             f(r.follow),
-            f(r.blast_bottom),
-            f(r.blast_top),
-            f(self.state.run.creep(r)),
-            f(self.state.run.wall_x),
-            f(self.state.run.right_limit()),
+            f(bottom),
+            f(top),
+            f(run.creep(r)),
+            f(run.wall_x),
+            f(run.right_limit()),
             f(r.gate_thickness),
+            if run.inside { 1.0 } else { 0.0 },
+            INTERIOR_X as f32,
+            f(rc.interior.width),
         ];
         PackedFloat32Array::from(v.as_slice())
     }
 
-    /// The live platforms of the streamed stage: `[pool index, left, right, top, bottom, pass_through]` each.
+    /// The live platforms of the streamed stage: `[pool index, left, right, top (at its left), bottom, pass_through, rise]` each.
     #[func]
     fn run_platforms(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -2514,6 +2527,7 @@ impl SimRunner {
                     f(p.y),
                     f(p.bottom),
                     if p.pass_through { 1.0 } else { 0.0 },
+                    f(p.rise),
                 ];
                 out.push(&PackedFloat32Array::from(v.as_slice()));
             }
@@ -2521,8 +2535,9 @@ impl SimRunner {
         out
     }
 
-    /// The rooms in play, for drawing: every platform of each, placed, as `[room's left edge, room, left, right, top, bottom,
-    /// pass_through]` (the room's left edge names the piece: it never changes while the room is in play).
+    /// The rooms in play, for drawing: every footing of each as laid (its variant: mirrored, its parts, its pieces), as `[room's left
+    /// edge, room, left, right, top at its left, bottom, pass_through, rise, look, base]` (the room's left edge names the room: it
+    /// never changes while the room is in play; `look` is an index into `run_looks`; `base` is the height its art stands on).
     #[func]
     fn run_pieces(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -2530,27 +2545,58 @@ impl SimRunner {
             return out;
         };
         for s in self.state.run.slots.iter().filter(|s| s.live) {
-            let Some(c) = rc.rooms.get(usize::from(s.room)) else {
-                continue;
-            };
-            for p in &c.platforms {
+            for_each_footing(rc, s, |placed| {
+                let p = placed.platform;
                 let v = [
                     f(s.x),
                     f32::from(s.room),
-                    f(s.x + p.left),
-                    f(s.x + p.right),
+                    f(p.left),
+                    f(p.right),
                     f(p.y),
                     f(p.bottom),
                     if p.pass_through { 1.0 } else { 0.0 },
+                    f(p.rise),
+                    f32::from(placed.look),
+                    f(placed.base),
                 ];
                 out.push(&PackedFloat32Array::from(v.as_slice()));
-            }
+            });
         }
         out
     }
 
+    /// Every look's name, by its number (`run_pieces`' and `run_interior`'s `look`).
+    #[func]
+    fn run_looks(&self) -> PackedStringArray {
+        let mut out = PackedStringArray::new();
+        for name in LOOK_NAMES {
+            out.push(name);
+        }
+        out
+    }
+
+    /// The coins of the rooms in play: `[x, y, taken (0/1), room's left edge]` each.
+    #[func]
+    fn run_coins(&self) -> PackedFloat32Array {
+        let mut v = Vec::new();
+        if let Some((rc, _)) = &self.run {
+            for s in self.state.run.slots.iter().filter(|s| s.live) {
+                for_each_coin(rc, s, |n, at| {
+                    v.extend_from_slice(&[
+                        f(at.x),
+                        f(at.y),
+                        if s.coins & (1 << n) != 0 { 1.0 } else { 0.0 },
+                        f(s.x),
+                    ]);
+                });
+            }
+        }
+        PackedFloat32Array::from(v.as_slice())
+    }
+
     /// Every mob slot, 12 numbers each: `[active, kind, behavior (0 walker, 1 flyer), x, y, facing, mode, hitlag, hitstun, stamina
-    /// left (0..1), percent, radius]`. Modes: 0 idle, 1 moving, 2 winding up, 3 attacking, 4 cooling down, 5 bursting.
+    /// left (0..1), percent, radius]`. Modes: 0 idle, 1 moving, 2 winding up, 3 attacking, 4 cooling down, 5 bursting, 6 coming out
+    /// of its door (`hitstun` then holds the frames of it left).
     #[func]
     fn run_mobs(&self) -> PackedFloat32Array {
         let mut v = Vec::with_capacity(MAX_MOBS * 12);
@@ -2563,6 +2609,11 @@ impl SimRunner {
             } else {
                 1.0
             };
+            let stun = if m.mode == MODE_EMERGE {
+                m.timer
+            } else {
+                m.hitstun
+            };
             v.extend_from_slice(&[
                 if m.active { 1.0 } else { 0.0 },
                 f32::from(m.kind),
@@ -2572,7 +2623,7 @@ impl SimRunner {
                 f32::from(m.facing),
                 f32::from(m.mode),
                 f32::from(m.hitlag),
-                f32::from(m.hitstun.min(999)),
+                f32::from(stun.min(999)),
                 left,
                 f(m.percent),
                 f(k.map_or(Fx::HALF, |k| k.radius)),
@@ -2581,7 +2632,8 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
-    /// The rooms in play, one row each: `[left edge, right edge, type, door x, door y, number]` (the door is a shop's; 0 elsewhere).
+    /// The rooms in play, one row each: `[left edge, right edge, type, door x, door y, number, ground height where it begins, where it
+    /// ends, fork (0/1), mirrored (0/1), elevation (0 flat, 1 rising, 2 falling, 3 valley)]` (the door is a shop's; 0 elsewhere).
     #[func]
     fn run_rooms(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -2592,21 +2644,27 @@ impl SimRunner {
             let Some(c) = rc.rooms.get(usize::from(s.room)) else {
                 continue;
             };
+            let door = door_of(rc, s).unwrap_or(Vec2::ZERO);
             let v = [
                 f(s.x),
                 f(s.end),
                 f32::from(c.kind),
-                f(s.x + c.door.x),
-                f(c.door.y),
+                f(door.x),
+                f(door.y),
                 s.seq as f32,
+                f(s.y),
+                f(s.y_end),
+                if c.fork { 1.0 } else { 0.0 },
+                if s.mirror { 1.0 } else { 0.0 },
+                f32::from(c.elevation(s.mirror)),
             ];
             out.push(&PackedFloat32Array::from(v.as_slice()));
         }
         out
     }
 
-    /// The map: the last rooms up to the one ahead, oldest first, three numbers each: `[number, type, status]`. Status: 0 dropped
-    /// (closed behind the wall), 1 kept behind, 2 current, 3 ahead.
+    /// The map: the last rooms up to the one ahead, oldest first, four numbers each: `[number, type, status, fork (0/1)]`. Status: 0
+    /// dropped (closed behind the wall), 1 kept behind, 2 current, 3 ahead.
     #[func]
     fn run_map(&self, behind: i32) -> PackedInt32Array {
         let r = &self.state.run;
@@ -2628,27 +2686,38 @@ impl SimRunner {
             } else {
                 0
             };
-            v.extend_from_slice(&[seq as i32, i32::from(kind), status]);
+            let fork = i32::from(r.fork_of(seq).unwrap_or(false));
+            v.extend_from_slice(&[seq as i32, i32::from(kind), status, fork]);
         }
         PackedInt32Array::from(v.as_slice())
     }
 
-    /// The shop: `[open (0/1), the row picked, what the last press did (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not
-    /// needed), presses so far, coins, wares]`, then per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`. The row
-    /// after the last ware is "leave".
+    /// The shop: `[inside (0/1), where the player stands (-2 nowhere, -1 the way out, else the ware's number), what the last buy did
+    /// (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not needed), buys tried so far, coins, wares, the shopkeeper's mood (0
+    /// idle, 1 waving, 2 cheering, 3 grumbling, 4 dizzy), the frames of it left, the ware it looks at (-1 none), times bonked]`, then
+    /// per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`.
     #[func]
     fn run_shop(&self) -> PackedInt32Array {
         let Some((rc, _)) = &self.run else {
             return PackedInt32Array::new();
         };
         let r = &self.state.run;
+        let spot = match shop_spot(&self.state, rc) {
+            None => -2,
+            Some(None) => -1,
+            Some(Some(i)) => i as i32,
+        };
         let mut v = vec![
-            i32::from(r.shop_open),
-            i32::from(r.shop_cursor),
+            i32::from(r.inside),
+            spot,
             i32::from(r.shop_note),
             i32::from(r.shop_acts),
             r.coins.min(i32::MAX as u32) as i32,
             rc.items.len() as i32,
+            i32::from(r.keeper_mood),
+            i32::from(r.keeper_timer),
+            i32::from(r.keeper_look),
+            i32::from(r.keeper_bonks),
         ];
         for (i, item) in rc.items.iter().enumerate() {
             v.extend_from_slice(&[
@@ -2670,6 +2739,44 @@ impl SimRunner {
                 out.push(item.name.as_str());
             }
         }
+        out
+    }
+
+    /// The shop's interior, placed where the sim puts it (`INTERIOR_X`): its footings as `[left, right, top, bottom, pass_through,
+    /// rise, look]`, then one last row `[door x, enter x, shopkeeper x, shopkeeper y, shopkeeper radius, pedestal 1 x, y, pedestal 2
+    /// x, y, ...]`.
+    #[func]
+    fn run_interior(&self) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        let Some((rc, _)) = &self.run else {
+            return out;
+        };
+        let s = &rc.interior;
+        let at = Fx::from_int(INTERIOR_X);
+        for p in &s.platforms {
+            let q = p.platform;
+            let v = [
+                f(at + q.left),
+                f(at + q.right),
+                f(q.y),
+                f(q.bottom),
+                if q.pass_through { 1.0 } else { 0.0 },
+                f(q.rise),
+                f32::from(p.look),
+            ];
+            out.push(&PackedFloat32Array::from(v.as_slice()));
+        }
+        let mut last = vec![
+            f(at + s.door),
+            f(at + s.enter),
+            f(at + s.keeper.x),
+            f(s.keeper.y),
+            f(s.keeper_radius),
+        ];
+        for p in &s.pedestals {
+            last.extend_from_slice(&[f(at + p.x), f(p.y)]);
+        }
+        out.push(&PackedFloat32Array::from(last.as_slice()));
         out
     }
 

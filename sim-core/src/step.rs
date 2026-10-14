@@ -172,6 +172,12 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
 
     // Bodies on the ground cannot pass through each other (see `push`).
     crate::push::separate(state, content, &before);
+    // A grounded fighter on a slope keeps its feet on it after every sideways move this frame (sim 124; nothing on flat ground).
+    for f in state.fighters.iter_mut().filter(|f| f.active) {
+        if crate::collision::platform(&content.stage, f.platform).is_some_and(|p| p.sloped()) {
+            fighter::keep_on_ground(f, &content.stage);
+        }
+    }
 
     // Phase 1b: hits. Everything has moved, so hitboxes and hurtboxes are where they will be seen.
     combat::resolve_hits(state, content);

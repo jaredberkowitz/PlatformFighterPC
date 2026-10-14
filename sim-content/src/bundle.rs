@@ -29,7 +29,7 @@ use crate::tree::{self, Block, Item};
 use sim_core::{Content, SIM_VERSION};
 
 /// The file format version this build writes and understands.
-pub const SCHEMA_VERSION: u32 = 7;
+pub const SCHEMA_VERSION: u32 = 8;
 
 /// Rewrites a file's tree from schema `from` to `from + 1`.
 pub type Migration = (u32, fn(&mut Block));
@@ -42,7 +42,13 @@ pub const MIGRATIONS: &[Migration] = &[
     (4, weapons_get_sixteen_ext_slots),
     (5, fighters_get_gauges),
     (6, weapons_get_items),
+    (7, platforms_get_slopes),
 ];
+
+/// Schema 7 to 8 (sim 124, the run's R2a): a stage's platform may slope (`rise`, the top's height at its right end minus at its
+/// left; `sim_core::content::Platform::rise`). Every platform written before it is flat, which is what an absent `rise` means
+/// (slope 0): nothing to rewrite. The bump makes an older build refuse a file with a sloped platform clearly.
+fn platforms_get_slopes(_root: &mut Block) {}
 
 /// Schema 6 to 7 (sim v111, E4, owner decision 64): weapons may make items (`item { ... }` blocks), moves pull and spend them
 /// (`pull_frame` / `pull_item`, `spend_item`), a projectile may lodge as one (`lodge_item`) and scale its charged damage (`times`),

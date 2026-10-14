@@ -294,7 +294,7 @@ fn pin(state: &mut GameState, content: &Content, h: usize, v: usize) {
     let mut y = holder.pos.y;
     if let Some(p) = collision::platform(&content.stage, holder.platform) {
         x = x.clamp(p.left, p.right);
-        y = p.y;
+        y = p.top_at(x);
     }
     let held = &mut state.fighters[v];
     held.pos = Vec2::new(x, y);

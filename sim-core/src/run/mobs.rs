@@ -8,8 +8,8 @@
 
 use super::data::{MobKind, RunContent, MOB_FLYER, MOB_WALKER};
 use super::{
-    count_combo, pay_kill, Mob, MODE_ATTACK, MODE_BURST, MODE_COOLDOWN, MODE_IDLE, MODE_MOVE,
-    MODE_WINDUP, PLAYER,
+    count_combo, pay_kill, Mob, INTERIOR_X, MODE_ATTACK, MODE_BURST, MODE_COOLDOWN, MODE_EMERGE,
+    MODE_IDLE, MODE_MOVE, MODE_WINDUP, PLAYER,
 };
 use crate::collision;
 use crate::combat::{self, params_of, weapon_of};
@@ -37,9 +37,9 @@ fn body(m: &Mob, k: &MobKind) -> (Vec2, Fx) {
     (m.pos + Vec2::new(Fx::ZERO, k.radius), k.radius)
 }
 
-/// Whether a mob can be hit now.
+/// Whether a mob can be hit now (not bursting, nor still coming out of its door).
 fn hittable(m: &Mob) -> bool {
-    m.active && m.mode != MODE_BURST
+    m.active && m.mode != MODE_BURST && m.mode != MODE_EMERGE
 }
 
 /// A hit on a mob: damage off its stamina, the percent the knockback reads, the launch, hitstun and hitlag (the attacker's too, for
@@ -306,18 +306,25 @@ fn shots(state: &mut GameState, content: &Content, rc: &RunContent) {
     }
 }
 
-/// Moves a body sideways by `dx`, stopping at the face of a solid block. Returns true if it met one.
+/// Moves a body sideways by `dx`, stopping at the face of a solid block (not at a slope's joint). Returns true if it met one.
 fn move_x(stage: &Stage, pos: &mut Vec2, half: Fx, height: Fx, dx: Fx) -> bool {
     let mut x = pos.x + dx;
     let mut hit = false;
     for b in stage.platforms.iter().filter(|b| !b.pass_through) {
-        if pos.y >= b.y || pos.y + height <= b.bottom {
+        let face_top = if dx > Fx::ZERO { b.y } else { b.top_right() };
+        if pos.y >= face_top || pos.y + height <= b.bottom {
             continue;
         }
         if dx > Fx::ZERO && pos.x + half <= b.left && x + half > b.left {
+            if collision::face_is_joint(stage, b, -1) {
+                continue;
+            }
             x = b.left - half;
             hit = true;
         } else if dx < Fx::ZERO && pos.x - half >= b.right && x - half < b.right {
+            if collision::face_is_joint(stage, b, 1) {
+                continue;
+            }
             x = b.right + half;
             hit = true;
         }
@@ -332,7 +339,7 @@ fn move_y(stage: &Stage, pos: &mut Vec2, height: Fx, dy: Fx) -> Option<usize> {
     let next = Vec2::new(pos.x, pos.y + dy);
     if dy <= Fx::ZERO {
         if let Some(i) = collision::find_landing(stage, *pos, next, false) {
-            pos.y = stage.platforms[i].y;
+            pos.y = stage.platforms[i].top_at(pos.x);
             return Some(i);
         }
         pos.y = next.y;
@@ -379,14 +386,18 @@ fn physics(m: &mut Mob, k: &MobKind, stage: &Stage, decay: Fx, solid: bool) -> b
         m.vel.x = Fx::ZERO;
         m.kb_vel.x = -(m.kb_vel.x * Fx::HALF);
     }
-    if let Ok(i) = usize::try_from(m.platform) {
-        let still = stage
-            .platforms
-            .get(i)
-            .is_some_and(|p| m.pos.x >= p.left && m.pos.x <= p.right && p.y == m.pos.y);
-        if !still {
+    if let Some(p) = collision::platform(stage, m.platform) {
+        // On its ground it follows the surface (a slope too), and carries on where a slope joins other ground.
+        if m.pos.x >= p.left && m.pos.x <= p.right && (p.sloped() || p.y == m.pos.y) {
+            m.pos.y = p.top_at(m.pos.x);
+        } else if let Some(i) = collision::continuation(stage, m.platform, m.pos.x) {
+            m.platform = i as i8;
+            m.pos.y = stage.platforms[i].top_at(m.pos.x);
+        } else {
             m.platform = NONE;
         }
+    } else {
+        m.platform = NONE;
     }
     if m.platform == NONE {
         let dy = total.y;
@@ -417,6 +428,20 @@ pub(super) fn update(state: &mut GameState, content: &Content, rc: &RunContent) 
         m.credit = m.credit.saturating_sub(1);
         if m.hitlag > 0 {
             m.hitlag -= 1;
+            state.run.mobs[n] = m;
+            continue;
+        }
+        if m.mode == MODE_EMERGE {
+            // Coming out of its door: it stands still, then wakes (at once in an arena that is shut on it).
+            m.timer = m.timer.saturating_sub(1);
+            if m.timer == 0 {
+                let run = &state.run;
+                m.mode = if run.gate_closed && m.room == run.room {
+                    MODE_MOVE
+                } else {
+                    MODE_IDLE
+                };
+            }
             state.run.mobs[n] = m;
             continue;
         }
@@ -746,4 +771,41 @@ pub(super) fn leave_screen(state: &mut GameState, rc: &RunContent) {
             pay_kill(&mut state.run, rc, m.kind);
         }
     }
+}
+
+/// Whether the player's attack or shot touches the shopkeeper this frame (inside the shop). It is never hurt: the shop only makes
+/// it dizzy for a moment.
+pub(super) fn keeper_bonked(state: &GameState, content: &Content, rc: &RunContent) -> bool {
+    let shop = &rc.interior;
+    let feet = Vec2::new(Fx::from_int(INTERIOR_X) + shop.keeper.x, shop.keeper.y);
+    let centre = feet + Vec2::new(Fx::ZERO, shop.keeper_radius);
+    let radius = shop.keeper_radius;
+    let f = state.fighters[PLAYER];
+    if f.active && matches!(f.state, S::Attack | S::LedgeAttack) && f.hitlag == 0 {
+        let params = params_of(content, &f);
+        let mv = weapon_of(content, params).get(f.move_id);
+        let touched = combat::active_hitboxes(&f, mv, params.hitbox_scale).into_iter().any(|(_, hb, at)| {
+            hb.kind == HIT_NORMAL
+                && combat::shapes_touch(
+                    centre,
+                    Fx::ZERO,
+                    Fx::ZERO,
+                    radius,
+                    at,
+                    hb.half_width,
+                    hb.half_height,
+                    hb.radius,
+                )
+        });
+        if touched {
+            return true;
+        }
+    }
+    state.projectiles.iter().any(|p| {
+        let d = p.pos - centre;
+        p.active
+            && p.rest == REST_FLYING
+            && d.x.abs() <= radius + Fx::ONE
+            && d.y.abs() <= radius + Fx::ONE
+    })
 }

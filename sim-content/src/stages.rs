@@ -58,6 +58,7 @@ fn ground(left: i32, right: i32) -> Platform {
         y: Fx::ZERO,
         bottom: int(-8),
         pass_through: false,
+        rise: sim_core::Fx::ZERO,
     }
 }
 
@@ -68,6 +69,7 @@ fn shelf(left: Fx, right: Fx, y: Fx) -> Platform {
         y,
         bottom: y,
         pass_through: true,
+        rise: sim_core::Fx::ZERO,
     }
 }
 
@@ -141,6 +143,7 @@ pub fn preset(index: u8) -> Option<Stage> {
                 y: Fx::ZERO,
                 bottom: int(-2),
                 pass_through: false,
+                rise: sim_core::Fx::ZERO,
             }];
             for (half, top, bottom) in [(9, -2, -4), (7, -4, -6), (4, -6, -8)] {
                 platforms.push(Platform {
@@ -149,6 +152,7 @@ pub fn preset(index: u8) -> Option<Stage> {
                     y: int(top),
                     bottom: int(bottom),
                     pass_through: false,
+                    rise: sim_core::Fx::ZERO,
                 });
             }
             platforms.push(shelf(frac(-17, 2), frac(-7, 2), frac(17, 5)));

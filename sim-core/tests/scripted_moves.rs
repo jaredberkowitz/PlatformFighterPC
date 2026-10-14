@@ -703,6 +703,7 @@ fn lock_ignores_fighters_behind_out_of_range_intangible_or_behind_a_block() {
                 y: Fx::from_int(4),
                 bottom: Fx::ZERO,
                 pass_through: false,
+                rise: sim_core::Fx::ZERO,
             });
     });
     assert!(!sim.f().locked, "behind a block");
@@ -716,6 +717,7 @@ fn lock_ignores_fighters_behind_out_of_range_intangible_or_behind_a_block() {
                 y: Fx::from_int(4),
                 bottom: Fx::ZERO,
                 pass_through: true,
+                rise: sim_core::Fx::ZERO,
             });
     });
     assert!(sim.f().locked, "a pass-through platform does not block");

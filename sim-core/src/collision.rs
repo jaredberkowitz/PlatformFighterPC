@@ -1,7 +1,9 @@
 //! Surface and ledge queries against stage data.
 //!
-//! Phase 1 scope: platforms are top surfaces only (no walls or ceilings yet). A fighter's feet
-//! point is its collision point; `ecb_*` params are reserved for hurtboxes in Phase 3.
+//! A fighter's feet point is its collision point. A platform's top may slope (`Platform::rise`, sim 124): every query reads the
+//! top's height where it is asked (`Platform::top_at`), which on a flat platform is its `y`, so flat stages behave exactly as before.
+//! Where a sloped surface meets another at the same height (a ramp onto a roof), the two join: walking across the joint carries on
+//! along the next surface ([`continuation`]), and the block's face there is no wall ([`face_is_joint`]).
 
 use crate::content::{FighterParams, Platform, Stage};
 use crate::fixed::Fx;
@@ -23,35 +25,79 @@ pub fn standing_on(stage: &Stage, pos: Vec2) -> i8 {
     stage
         .platforms
         .iter()
-        .position(|p| p.y == pos.y && spans(p, pos.x))
+        .position(|p| spans(p, pos.x) && p.top_at(pos.x) == pos.y)
         .map_or(NONE, |i| i as i8)
 }
 
-/// The highest platform whose top was crossed going from `prev` to `next` (downward only).
+/// The highest platform whose top was crossed going from `prev` to `next` (from on or above it to on or below it). On a flat
+/// platform that is a downward crossing of its height; a slope can also be met moving sideways into its rising top.
 pub fn find_landing(stage: &Stage, prev: Vec2, next: Vec2, ignore_one_way: bool) -> Option<usize> {
-    let mut best: Option<usize> = None;
+    let mut best: Option<(usize, Fx)> = None;
     for (i, p) in stage.platforms.iter().enumerate() {
         if p.pass_through && ignore_one_way {
             continue;
         }
-        if prev.y >= p.y && next.y <= p.y && spans(p, next.x) {
+        let top = p.top_at(next.x);
+        if prev.y >= p.top_at(prev.x) && next.y <= top && spans(p, next.x) {
             match best {
-                Some(b) if stage.platforms[b].y >= p.y => {}
-                _ => best = Some(i),
+                Some((_, b)) if b >= top => {}
+                _ => best = Some((i, top)),
             }
         }
     }
-    best
+    best.map(|(i, _)| i)
+}
+
+/// Walking off an end of platform `from` to `x`: the surface that carries on from that end at the same height, if a slope is
+/// involved (a sloped platform meeting another, or a flat one meeting a slope), and spans `x`. Flat platforms meeting at one height
+/// do not join here (versus stages behave as they always have; the run joins its flat ground into one platform instead).
+pub fn continuation(stage: &Stage, from: i8, x: Fx) -> Option<usize> {
+    let p = platform(stage, from)?;
+    let right = if x > p.right {
+        true
+    } else if x < p.left {
+        false
+    } else {
+        return None;
+    };
+    stage.platforms.iter().enumerate().find_map(|(i, q)| {
+        let meets = if right {
+            q.left == p.right && q.y == p.top_right()
+        } else {
+            q.right == p.left && q.top_right() == p.y
+        };
+        (i as i8 != from && meets && (p.sloped() || q.sloped()) && spans(q, x)).then_some(i)
+    })
+}
+
+/// Whether a solid block's face on `side` (-1 left, 1 right) is a joint rather than a wall: another solid block meets it there at
+/// the face's top, one of the two sloped, so a fighter coming up (or down) the slope walks onto the block instead of into its face.
+/// (Nothing can be beside such a face below the slope: the slope's block is solid down to its bottom.)
+pub fn face_is_joint(stage: &Stage, b: &Platform, side: i8) -> bool {
+    let (x, top) = if side < 0 {
+        (b.left, b.y)
+    } else {
+        (b.right, b.top_right())
+    };
+    stage.platforms.iter().any(|q| {
+        !q.pass_through
+            && (q.sloped() || b.sloped())
+            && if side < 0 {
+                q.right == x && q.top_right() == top
+            } else {
+                q.left == x && q.y == top
+            }
+    })
 }
 
 /// The nearest surface at or below `pos`, with the distance down to it.
 pub fn surface_below(stage: &Stage, pos: Vec2, ignore_one_way: bool) -> Option<(usize, Fx)> {
     let mut best: Option<(usize, Fx)> = None;
     for (i, p) in stage.platforms.iter().enumerate() {
-        if (p.pass_through && ignore_one_way) || p.y > pos.y || !spans(p, pos.x) {
+        if (p.pass_through && ignore_one_way) || !spans(p, pos.x) || p.top_at(pos.x) > pos.y {
             continue;
         }
-        let dist = pos.y - p.y;
+        let dist = pos.y - p.top_at(pos.x);
         match best {
             Some((_, d)) if d <= dist => {}
             _ => best = Some((i, dist)),
@@ -70,11 +116,13 @@ pub fn move_x(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dx: Fx) -> 
     let mut x = pos.x + dx;
     let mut hit = false;
     for b in stage.platforms.iter().filter(|b| !b.pass_through) {
-        if pos.y >= b.y || head_y <= b.bottom {
+        // (The face this move could cross: the left one going right, the right one going left. Its top is the top at that end.)
+        let face_top = if dx > Fx::ZERO { b.y } else { b.top_right() };
+        if pos.y >= face_top || head_y <= b.bottom {
             continue;
         }
         // The point of the block's face nearest the ECB's widest point.
-        let near_y = side_y.clamp(b.bottom, b.y);
+        let near_y = side_y.clamp(b.bottom, face_top);
         let (dist, span) = if near_y > side_y {
             (near_y - side_y, params.ecb_height - params.ecb_side_height)
         } else {
@@ -85,9 +133,15 @@ pub fn move_x(stage: &Stage, params: &FighterParams, pos: &mut Vec2, dx: Fx) -> 
         }
         let hw = params.ecb_half_width * ((span - dist) / span);
         if dx > Fx::ZERO && pos.x + hw <= b.left && x + hw > b.left {
+            if face_is_joint(stage, b, -1) {
+                continue;
+            }
             x = b.left - hw;
             hit = true;
         } else if dx < Fx::ZERO && pos.x - hw >= b.right && x - hw < b.right {
+            if face_is_joint(stage, b, 1) {
+                continue;
+            }
             x = b.right + hw;
             hit = true;
         }
@@ -115,10 +169,11 @@ pub fn push_out(stage: &Stage, params: &FighterParams, pos: &mut Vec2) -> bool {
     let head_y = pos.y + params.ecb_height;
     let mut moved = false;
     for b in stage.platforms.iter().filter(|b| !b.pass_through) {
-        if pos.y >= b.y || head_y <= b.bottom {
+        let top = b.top_at(pos.x);
+        if pos.y >= top || head_y <= b.bottom {
             continue;
         }
-        let near_y = side_y.clamp(b.bottom, b.y);
+        let near_y = side_y.clamp(b.bottom, top);
         let (dist, span) = if near_y > side_y {
             (near_y - side_y, params.ecb_height - params.ecb_side_height)
         } else {
@@ -184,7 +239,8 @@ pub fn segment_blocked(stage: &Stage, a: Vec2, b: Vec2) -> bool {
     let d = b - a;
     stage.platforms.iter().filter(|p| !p.pass_through).any(|p| {
         let (mut t0, mut t1) = (Fx::ZERO, Fx::ONE);
-        for (start, delta, low, high) in [(a.x, d.x, p.left, p.right), (a.y, d.y, p.bottom, p.y)] {
+        // (A slope's box reaches its higher end.)
+        for (start, delta, low, high) in [(a.x, d.x, p.left, p.right), (a.y, d.y, p.bottom, p.top_max())] {
             if delta == Fx::ZERO {
                 if start <= low || start >= high {
                     return false;
