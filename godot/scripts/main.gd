@@ -176,6 +176,7 @@ func _ready() -> void:
 	_build_ecb()
 	_build_boxes()
 	_build_projectiles()
+	_build_items()
 	await _prewarm()
 
 
@@ -1077,6 +1078,7 @@ func _process_inner(delta: float) -> void:
 		_update_ecb(a)
 	_position_boxes(a)
 	_update_projectiles(a)
+	_update_items()
 	if flag_noui or not overlay_on:
 		return
 	# Text layout is the expensive part of the overlay, and nothing in it changes between sim ticks.
@@ -1961,6 +1963,140 @@ func _position_boxes(a: float) -> void:
 	for i in PLAYERS:
 		var p: Vector2 = prev_pos[i].lerp(cur_pos[i], a)
 		box_nodes[i].position = Vector3(p.x, p.y, 0)
+
+
+# ---- Items (sim 111) --------------------------------------------------------------------------------
+# A placeholder look for every item slot until the modelled items come (the owner's schedule puts models and animation near the end):
+# the Wanderer's bomb (kind 2) is a dark navy ball with a fuse and a spark that flashes red for its last 45 frames, and bursts in a painted
+# fire burst; its arrow (kind 3) is a shaft with a steel head and fletching. A held item sits in the holder's hand side. Read only from
+# the bridge's `item_*` (presentation only).
+
+const ITEM_BOMB := 2
+const ITEM_ARROW := 3
+## The bomb's fuse flashes over its last frames.
+const ITEM_FLASH := 45
+var item_nodes: Array = []
+var item_burst_shown: Array = []
+
+
+func _build_items() -> void:
+	if not sim.has_method("item_count"):
+		return
+	for k in int(sim.item_count()):
+		var n := Node3D.new()
+		n.visible = false
+		add_child(n)
+		var bomb := Node3D.new()
+		bomb.name = "bomb"
+		n.add_child(bomb)
+		var ball := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.36
+		sm.height = 0.72
+		ball.mesh = sm
+		ball.material_override = FighterView.toon(Color(0.2, 0.22, 0.36))
+		ball.position = Vector3(0, 0.36, 0)
+		bomb.add_child(ball)
+		var cap := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.1
+		cm.bottom_radius = 0.12
+		cm.height = 0.12
+		cap.mesh = cm
+		cap.material_override = FighterView.toon(Color(0.7, 0.72, 0.8))
+		cap.position = Vector3(0, 0.74, 0)
+		bomb.add_child(cap)
+		var fuse := MeshInstance3D.new()
+		var fm := CylinderMesh.new()
+		fm.top_radius = 0.025
+		fm.bottom_radius = 0.03
+		fm.height = 0.22
+		fuse.mesh = fm
+		fuse.material_override = FighterView.toon(Color(0.86, 0.78, 0.6), false)
+		fuse.position = Vector3(0.04, 0.88, 0)
+		fuse.rotation_degrees = Vector3(0, 0, -20)
+		bomb.add_child(fuse)
+		var spark := MeshInstance3D.new()
+		var spm := SphereMesh.new()
+		spm.radius = 0.08
+		spm.height = 0.16
+		spark.mesh = spm
+		var spark_mat := StandardMaterial3D.new()
+		spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		spark_mat.albedo_color = Color(1.0, 0.85, 0.3)
+		spark.material_override = spark_mat
+		spark.position = Vector3(0.08, 1.0, 0)
+		spark.name = "spark"
+		bomb.add_child(spark)
+		var arrow := Node3D.new()
+		arrow.name = "arrow"
+		n.add_child(arrow)
+		var shaft := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(1.1, 0.06, 0.06)
+		shaft.mesh = bm
+		shaft.material_override = FighterView.toon(Color(0.66, 0.46, 0.3))
+		shaft.position = Vector3(0, 0.15, 0)
+		arrow.add_child(shaft)
+		var head := MeshInstance3D.new()
+		var hm := CylinderMesh.new()
+		hm.top_radius = 0.0
+		hm.bottom_radius = 0.1
+		hm.height = 0.22
+		head.mesh = hm
+		head.material_override = FighterView.respond(FighterView.toon(Color(0.74, 0.76, 0.84)), "metal")
+		head.position = Vector3(0.64, 0.15, 0)
+		head.rotation_degrees = Vector3(0, 0, -90)
+		arrow.add_child(head)
+		for side in [-1.0, 1.0]:
+			var fl := MeshInstance3D.new()
+			var flm := BoxMesh.new()
+			flm.size = Vector3(0.22, 0.12, 0.02)
+			fl.mesh = flm
+			fl.material_override = FighterView.toon(Color(0.92, 0.4, 0.36))
+			fl.position = Vector3(-0.48, 0.15 + side * 0.06, 0)
+			fl.rotation_degrees = Vector3(0, 0, side * 20.0)
+			arrow.add_child(fl)
+		item_nodes.append(n)
+		item_burst_shown.append(false)
+
+
+func _update_items() -> void:
+	for k in item_nodes.size():
+		var n: Node3D = item_nodes[k]
+		var kind := int(sim.item_kind(k))
+		var rest := int(sim.item_rest(k))
+		n.visible = kind != 0 and rest != 4
+		var at := Vector3(sim.item_pos(k).x, sim.item_pos(k).y, 0.4)
+		if rest == 4:
+			# Bursting: a painted fire burst, once.
+			if not item_burst_shown[k] and kind == ITEM_BOMB:
+				Effects.hit(self, at + Vector3(0, 0.4, 0), Vector2.UP, Color(1.0, 0.5, 0.1), 1.0, Effects.Kind.FIRE)
+				item_burst_shown[k] = true
+			continue
+		item_burst_shown[k] = false
+		if not n.visible:
+			continue
+		var holder := int(sim.item_holder(k))
+		var facing := 1.0
+		if holder >= 0 and holder < snaps.size():
+			facing = float(snaps[holder].facing)
+			var hp: Vector2 = cur_pos[holder]
+			# (Held in the hand on the facing side, at about hip height.)
+			at = Vector3(hp.x + 0.55 * facing, hp.y + 0.7, 0.6)
+		n.position = at
+		var bomb: Node3D = n.get_node("bomb")
+		var arrow: Node3D = n.get_node("arrow")
+		bomb.visible = kind == ITEM_BOMB
+		arrow.visible = kind == ITEM_ARROW
+		arrow.scale = Vector3(facing, 1, 1)
+		if kind == ITEM_BOMB:
+			var left := int(sim.item_life_left(k))
+			var flash := left >= 0 and left <= ITEM_FLASH and (int(sim.frame()) / 4) % 2 == 0
+			var spark: MeshInstance3D = bomb.get_node("spark")
+			(spark.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.25, 0.15) if flash else Color(1.0, 0.85, 0.3)
+			spark.scale = Vector3.ONE * (1.8 if flash else 1.0)
+			(bomb.get_child(0) as MeshInstance3D).set_instance_shader_parameter("flash", Color(1.0, 0.2, 0.1, 0.5 if flash else 0.0))
 
 
 # ---- Projectiles ------------------------------------------------------------------------------------

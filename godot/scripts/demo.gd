@@ -169,6 +169,15 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 			d.timeline = [[0, 0, 0, 0], [20, 127, 0, special], [22, 0, 0, 0]]
 			d.shots = [[44, "a_headbutt"], [60, "b_buried"], [100, "c_buried_later"]]
 			d.end_frame = 110
+		"bomb":
+			# The Wanderer pulls a bomb (down special), holds it, then throws it forward (attack with the stick forward), for the items'
+			# placeholder look.
+			d.chars = [9, 0, 0, 0]
+			d.cam_dist = 14.0
+			d.events = [[1, "stand", 0, -3.0, 1], [1, "stand", 1, 6.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, 0, -127, special], [22, 0, 0, 0], [80, 127, 0, attack], [82, 0, 0, 0]]
+			d.shots = [[45, "a_pulled"], [75, "b_held"], [92, "c_thrown"], [110, "d_landed"], [160, "e_lying"]]
+			d.end_frame = 170
 		"blade_wave":
 			# The Wanderer's sword wave: its forward smash at 0% fires it, the other fighter far off so it flies (for checking its look).
 			d.chars = [9, 0, 0, 0]

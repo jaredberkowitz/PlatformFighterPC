@@ -205,3 +205,10 @@ toward the front, painted in the effect standard's layers (ink, the longsword's 
 twos. `--demo=blade_wave`. Its size follows the charge (x0.8 to x1.1) through the bridge's `projectile_scale`.
 Image: `docs/screenshots/polish10_blade_wave.png`. Also: the three new stage tiles' `.import` files use the `keep` importer like the
 other tiles (the art pipeline test asks for it).
+
+### Items: a placeholder look (sim 111)
+
+Until the modelled items (scheduled near the end), every item slot is drawn so players can see it: the bomb a dark navy ball with a
+steel cap, a fuse and a spark that flashes red for its last 45 frames, bursting in the painted fire burst; the arrow a shaft with a
+steel head and red fletching. Held items sit at the holder's hand side. `main.gd` `_build_items`, `_update_items`; `--demo=bomb`.
+(No angle or velocity is exposed, so a lodged arrow lies level and a thrown bomb does not spin yet.)
