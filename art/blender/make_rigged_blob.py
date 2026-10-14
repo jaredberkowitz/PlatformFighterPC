@@ -1081,6 +1081,9 @@ if BODY:
     OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
 ## How big the fists are against the blob's (the concept's mitten hands are small: about a quarter of the head across).
 FIST_SCALE = 0.9
+# The glove's fist (it is built bigger and rounder than the bare hand, with knuckles and a cuff): smaller, or a gloved fighter carried two
+# white balloons.
+GLOVE_SCALE = 0.74
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
@@ -1196,14 +1199,29 @@ def build_body_meshes(rig):
         bm = bmesh.new()
         fist(bm, x)
         for v in bm.verts:
-            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * GLOVE_SCALE
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
         # The bare hand (no gloves in the loadout): the game shows this one instead, in the body's colour.
         bm = bmesh.new()
         mitten(bm, x)
         for v in bm.verts:
             v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE
+        # A wrist plug: the forearm skin is cut open at the wrist and the hand's rounded top did not fill the cut, so its inside showed as a
+        # dark ring (a bracelet). A short round plug the width of the wrist closes it, running a little up into the forearm.
+        rw = sorted(wrist_r[side])
+        rw = rw[len(rw) // 2] if rw else 0.08
+        tube(bm, [J["hand." + side] - fore * 0.07, J["hand." + side] + fore * 0.05], [rw * 1.0, rw * 1.04], segments=18, per_span=3)
         parts["Mitt." + side] = to_object("Mitt." + side, bm, "hand." + side, rig)
+        # (No ink where the hand goes into the forearm: the hull of its rounded top showed as a dark ring round the wrist, a bracelet. The
+        # vertex colour's red is how much outline a point gets, shaders/outline.gdshader.)
+        mitt = parts["Mitt." + side]
+        ink = mitt.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
+        wrist_at = J["hand." + side]
+        for v in mitt.data.vertices:
+            up = (v.co - wrist_at).dot(-fore)
+            w = min(1.0, max(0.0, (-0.02 - up) / 0.06))
+            ink.data[v.index].color = (w, 1.0, 1.0, 1.0)
+        mitt.data.color_attributes.active_color = ink
         radii_at_wrist = sorted(wrist_r[side])
         r = radii_at_wrist[len(radii_at_wrist) // 2] if radii_at_wrist else 0.08
         bm = bmesh.new()

@@ -1182,6 +1182,10 @@ func _tag_object(node: Node) -> void:
 				var body_c: Color = loadout.body_color() if loadout != null else INK
 				var darken := lerpf(OUTLINE_TINT_DARKEN, OUTLINE_TINT_DARKEN_PALE, smoothstep(0.55, 0.9, body_c.get_luminance()))
 				var line_c: Color = body_c.darkened(darken) if loadout != null else INK
+				# (A very dark body, midnight, gets a lighter line in its own hue instead: a near-black line on a near-black body and a dusk
+				# backdrop left no silhouette at all.)
+				if loadout != null:
+					line_c = line_c.lerp(body_c.lightened(0.42), 1.0 - smoothstep(0.12, 0.24, body_c.get_luminance()))
 				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
 				break
 	for c in node.get_children():
@@ -1658,6 +1662,7 @@ func _neck(_skin: Material) -> void:
 	var accent: Color = loadout.accent_color()
 	if rig != null:
 		_neck_on_rig(accent)
+		_shirt_collar()
 		return
 	match loadout.neck:
 		1:
@@ -1768,6 +1773,39 @@ func _tail(at: Vector3, mat: Material, length: float, width: float, thickness: f
 	t.build(mat, length, width, thickness, segments)
 	meshes.append_array(t.meshes())
 	tails.append(t)
+
+
+## A shirt's collar on the rigged torso (the owner's PEAK references, 2026-10-14: their shirts have a collar, a button placket and banded
+## sleeves; ours were plain tubes of colour): two pointed flaps folded down under the chin, a placket with three buttons down the front.
+## Only with a shirt and no ring of neckwear (which covers the neck already).
+func _shirt_collar() -> void:
+	if not use_base_body or loadout.shirt <= 0 or loadout.neck >= 2:
+		return
+	var info := _base_rig_info()
+	var at := 1.1
+	if info.has("neck") and torso_fit.basis.y.y > 0.001:
+		at = (float(info.neck) - 0.05 - torso_fit.origin.y) / torso_fit.basis.y.y
+	var k := clampf((at - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
+	var front := TORSO_RADII.z * sqrt(1.0 - k * k)
+	var flap_col: Color = SHIRT_WHITE if loadout.shirt != 1 else loadout.accent_color()
+	var flap := BoxMesh.new()
+	flap.size = Vector3(0.24, 0.17, 0.05)
+	for sx in [-1.0, 1.0]:
+		# Each flap points down and out from the middle of the neck, lying on the chest.
+		# (Set out from the torso at the flap's own height, where the chest is fuller than at the collar's line.)
+		var fk := clampf((at - 0.15 - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
+		var flap_z := TORSO_RADII.z * sqrt(1.0 - fk * fk) * cos(asin(clampf(sx * 0.15 / TORSO_RADII.x, -0.9, 0.9))) + 0.07
+		_part(torso_rig, flap, toon(flap_col), Vector3(sx * 0.15, at - 0.15, flap_z), Vector3.ONE, Vector3(-24, sx * 14.0, sx * 40.0))
+	var placket := BoxMesh.new()
+	placket.size = Vector3(0.07, 0.5, 0.03)
+	var below := clampf((at - 0.36 - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
+	var front_low := TORSO_RADII.z * sqrt(1.0 - below * below)
+	_part(torso_rig, placket, toon(flap_col.darkened(0.08)), Vector3(0, at - 0.36, (front + front_low) * 0.5 + 0.035), Vector3.ONE,
+		Vector3(-rad_to_deg(atan2(front - front_low, 0.5)) * 0.6, 0, 0))
+	for j in 3:
+		var y := at - 0.2 - 0.14 * j
+		var kk := clampf((y - TORSO_CENTRE_Y) / TORSO_RADII.y, -0.99, 0.99)
+		_part(torso_rig, _sphere(0.035), toon(Color(0.95, 0.9, 0.78)), Vector3(0, y, TORSO_RADII.z * sqrt(1.0 - kk * kk) + 0.06), Vector3(1, 1, 0.6))
 
 
 ## The collar ring of the neckerchief and the scarf, just under the chin (where the head meets the shoulders, from base_rig.json's `neck`).

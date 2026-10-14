@@ -99,4 +99,10 @@ proportions were changed rather than the old ones forced into the style (`make_b
   width read as a cuff); the shoulder cap lies along the arm's first stretch so the shoulder's top line runs on into the arm, and the arm
   tapers evenly from shoulder to wrist with only the point of the elbow behind. `review4_peak_body_arms.png`.
 
+- **Wrists, gloves, collar, dark bodies**: a wrist plug in the bare hand closes the cut forearm (its inside showed as a dark ring, a
+  bracelet), the hand's outline left out where it enters the forearm; the glove's fist on its own, smaller scale (`GLOVE_SCALE` 0.74:
+  gloved fighters carried two white balloons); a shirt collar with a button placket (`_shirt_collar`, after PEAK's scout shirts); a very
+  dark body (midnight) gets a lighter line in its own hue, so it keeps a silhouette at dusk (look bench 0.87). The review tool takes
+  `--shirt=N --gear=N` (`tests/turnaround_shot.gd`). `review4_outfit_turnaround.png`, `review4_wrists.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.
