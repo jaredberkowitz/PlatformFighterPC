@@ -24,6 +24,19 @@ props stay deferred, by the owner's call.
 Deferred to the end (the owner's schedule): weapon models (the greatsword in particular dominates the small bodies), animation clips and
 poses (items, the Bounder's and Wanderer's moves), modelled items.
 
-## Order
+## Merged with the outside roadmap (the owner's `game_visual_polish_roadmap`)
 
-1, 2 and 3 done (`review3_invincible.png`, `review3_seawall.png`, `review3_platforms.png`); next 4, then 6 and 5.
+The outside roadmap agrees on effects, background depth and the UI, and adds what this review missed: **the ocean** (the beach stage's
+largest surface is its water, never refined) and the beach's own assets (lighthouse, pier, palms, islands). Its rendering and material
+standards are already written (`docs/VISUAL_STYLE.md`, "Material standards"); its character phase is done apart from animation (deferred).
+The combined order, to bridge the style across backgrounds, foreground, UI, fighters and effects:
+
+1. Done: the invincibility tint, the beach's sea wall, themed platforms.
+2. **The ocean**: base colour by depth, broad wave bands, painted highlight shapes, sparse glints, calmer far water.
+3. **The beach's assets**: lighthouse, pier, palms, islands at the stage's finish.
+4. **Foreground framing** on every stage.
+5. **Effects consistency**: dust, landing, dash and launch effects in the painted, inked standard (the trails and bursts are done); a
+   short effect style guide.
+6. **UI**: a written design system (type, spacing, panels, states, player colours), the in-match tags (weak point 5), the HUD hierarchy.
+7. **The blue KO blast's contrast** (weak point 6).
+8. Regression: performance, aspect ratios, controller navigation, every stage.
