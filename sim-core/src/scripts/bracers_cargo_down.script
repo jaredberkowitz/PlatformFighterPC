@@ -1,0 +1,6 @@
+// Bracers down cargo throw (ext13): on the reference's frame 17 (move frame 16) the horizontal speed stops, and in the air the vertical
+// speed becomes 1.5 of the reference's units (0.1875 world: the slight boost up). On the ground only the stop [E: the reference's
+// grounded throw does not leave the ground].
+if frame == 16 {
+    if grounded { set_vel(0, 0); } else { set_vel(0, 0.1875); }
+}

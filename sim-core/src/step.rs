@@ -227,7 +227,10 @@ mod tests {
                             "seed {seed} fighter {n}: one-sided grab"
                         );
                     }
-                    if matches!(f.state, FighterState::Grabbing | FighterState::Grabbed) {
+                    if matches!(
+                        f.state,
+                        FighterState::Grabbing | FighterState::Grabbed | FighterState::Carrying
+                    ) {
                         assert_ne!(
                             f.grab_with, NONE,
                             "seed {seed} fighter {n}: {:?} without a partner",
@@ -269,9 +272,14 @@ mod tests {
                     );
                     // Attacks and hitstun can happen on the ground or in the air, and so can being held by a command grab (the
                     // holder in its catch move).
+                    // (So can carrying a fighter, and being carried: E7.)
                     let command_held = f.state == FighterState::Grabbed
-                        && usize::try_from(f.grab_with)
-                            .is_ok_and(|h| s.fighters[h].state == FighterState::Attack);
+                        && usize::try_from(f.grab_with).is_ok_and(|h| {
+                            matches!(
+                                s.fighters[h].state,
+                                FighterState::Attack | FighterState::Carrying
+                            )
+                        });
                     if !command_held
                         && !matches!(
                             f.state,
@@ -279,6 +287,7 @@ mod tests {
                                 | FighterState::Hitstun
                                 | FighterState::ShieldBreak
                                 | FighterState::Rebound
+                                | FighterState::Carrying
                         )
                     {
                         assert_eq!(

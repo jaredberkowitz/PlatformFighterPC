@@ -141,6 +141,7 @@ A move block (omitted fields take the default shown):
 | `counter_strike` | this move's hitboxes deal what the stance caught: `percent` of the caught hit's damage, at least `min_damage` and (above 0) at most `max_damage` | false |
 | `charge_bonus` | extra damage at full charge for this move, in percent (0 uses the ruleset's `charge_bonus_percent`) | 0 |
 | `charge_add { full add [floor] }` | additive charge damage (E29, sim 90): each hit deals its damage plus `add` times the share of `full` frames the move's charge reached (at most all of it; a script sets the charge with `set_charge`), rounded down to a whole percent with `floor true`, instead of the multiplicative `charge_bonus`; `full` above 0 | none |
+| `carry { walk clock_num clock_den jumps hold_x hold_y forward back up down [ledge] [armor { ... }] }` | at most one, on a throw (E7, sim 98: the reference's cargo hold): the move is a lift that, ending with the fighter still held, goes into carrying it (state `Carrying`). The clock is set on the lift's first frame to the hold time x `clock_num / clock_den` less the hold time already used (mashing included), and runs on with the usual mash cuts; the holder walks at `walk` percent of its walk speed and both walk accelerations, has `jumps` jumps in all, walks off edges and falls with the fighter held at `hold_x` / `hold_y` (forward, up from its feet), catches a ledge only with `ledge true` (letting go); attack throws with the move named by the stick (`forward` also for the stick in the middle; each a real move with a throw hitbox and no carry of its own); `armor` (the move armor's fields) covers the carry, its frames counted from the carry's first (255 and on as 255), and a hit it withstands does not end the carry. `clock_num`, `clock_den` above 0, `walk` 1 to 1000 | none |
 | `script { ... }`, `projectile_script { ... }` | see below | none |
 
 Errors are collected, not stopped at the first: a file with a mistyped field, a missing value and an unknown move
@@ -320,6 +321,7 @@ Line numbers inside a script count from its first non-blank line.
   `bury_break_kb` frees and launches the fighter and a weaker one's launch is kept for when it ends, it comes out with `bury_exit_lag`
   frames of lag, and its hurtboxes sit `bury_depth` of its height lower. Every one defaults to the old behaviour (nothing buries
   without `effect bury`).
+  Still schema 6 (sim v98): a throw may have a `carry { ... }` block (E7); it defaults to none, so an older file loads unchanged.
   Still schema 6 (sim v91): a hitbox may have `posvec_x`, `posvec_y` and `posvec_frames` (E34), a move `fall_speed`, `fall_accel`
   and `keep_charge`, an `air` block `speed` and `accel_stick`, a fighter a `passive_shield { ... }` block (E14); every one defaults
   to the old behaviour (the same note about schema 7 applies).

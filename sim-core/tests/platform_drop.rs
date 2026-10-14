@@ -6,7 +6,7 @@
 mod common;
 
 use common::{inp, Sim};
-use sim_core::input::buttons::{ATTACK, SPECIAL};
+use sim_core::input::buttons::{ATTACK, GRAB, SPECIAL};
 use sim_core::moves::MoveId;
 use sim_core::state::FighterState as S;
 use sim_core::{Fx, Vec2};
@@ -195,4 +195,52 @@ fn a_resimulated_drop_matches() {
     d.state = snapshot;
     d.tick(inp(0, -127, 0));
     assert_ne!(c.state.checksum(), d.state.checksum());
+}
+
+#[test]
+fn a_carry_on_a_platform_ignores_down_and_special() {
+    // The carry (the Bracers' cargo hold, sim 98) allows only throws and walking: down and special on a soft platform start no
+    // special and do not drop it, at any delay.
+    const HAULER: u8 = 7;
+    for delay in 0..=3 {
+        let mut sim = Sim::with_chars([HAULER, 0, 0, 0]);
+        sim.state.fighters[2].active = false;
+        sim.state.fighters[3].active = false;
+        sim.stand(0, Fx::ZERO, 1);
+        sim.stand(1, Fx::from_ratio(15, 10), -1);
+        sim.tick(inp(0, 0, GRAB));
+        for _ in 0..40 {
+            if sim.f().state == S::Grabbing {
+                break;
+            }
+            sim.tick(inp(0, 0, 0));
+        }
+        assert_eq!(sim.f().state, S::Grabbing);
+        // The forward throw is the lift into the carry.
+        sim.tick(inp(127, 0, 0));
+        for _ in 0..30 {
+            if sim.f().state == S::Carrying {
+                break;
+            }
+            sim.tick(inp(0, 0, 0));
+        }
+        assert_eq!(sim.f().state, S::Carrying);
+        let lift = sim.f().move_id;
+        let f = &mut sim.state.fighters[0];
+        f.pos = Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
+        f.platform = 1;
+        f.vel = Vec2::ZERO;
+        sim.tick(inp(0, 0, 0));
+        for _ in 0..delay {
+            sim.tick(inp(0, -127, 0));
+        }
+        sim.tick(inp(0, -127, SPECIAL));
+        for k in 0..6 {
+            assert_eq!(sim.f().state, S::Carrying, "delay {delay}, frame {k}");
+            assert_eq!(sim.f().move_id, lift, "delay {delay}: no special");
+            assert_eq!(sim.f().platform, 1, "delay {delay}: no drop");
+            assert_eq!(sim.f().drop_pending, 0);
+            sim.tick(inp(0, -127, 0));
+        }
+    }
 }

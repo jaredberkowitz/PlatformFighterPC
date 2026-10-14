@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 100
-    hash c65487303087bed2
+    hash 540772deb5a281fc
 }
 
 ruleset {
@@ -5669,8 +5669,23 @@ weapon bracers {
         hitbox { start 1 end 1 x 2.29999 y 1.59999 radius 0.79999 damage 1.59999 angle 361 bkb 0 kbg 100 kind pummel hitlag 230 fixed_kb 30 clanks false angle_type forward }
     }
     move fthrow {
-        total_frames 44
-        hitbox { start 14 end 14 x 1.29999 y 1.09999 radius 1 damage 12 angle 60 bkb 90 kbg 46 kind throw }
+        total_frames 14
+        intangible 15
+        hold_x 0
+        hold_y 2.79999
+        carry {
+            walk 110
+            clock_num 11
+            clock_den 6
+            jumps 1
+            hold_x 0
+            hold_y 2.79999
+            forward ext10
+            back ext11
+            up ext12
+            down ext13
+            armor { start 0 end 255 kind knockback threshold 80 }
+        }
     }
     move bthrow {
         total_frames 38
@@ -5987,6 +6002,47 @@ weapon bracers {
         hitbox { start 11 end 13 x 1.79999 y 0.9 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 11 end 13 x 2.29999 y 0.9 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 11 end 13 x 2.7 y 0.9 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+    move ext10 {
+        total_frames 44
+        land_continue true
+        hold_x 0
+        hold_y 2.79999
+        off_edge ext10
+        hitbox { start 14 end 14 x 1.29999 y 1.09999 radius 1 damage 12 angle 60 bkb 90 kbg 46 kind throw }
+    }
+    move ext11 {
+        total_frames 41
+        turns_around true
+        land_continue true
+        hold_x 0
+        hold_y 2.79999
+        off_edge ext11
+        hitbox { start 15 end 15 x -1.29999 y 1.09999 radius 1 damage 13 angle 72 bkb 85 kbg 52 kind throw }
+    }
+    move ext12 {
+        total_frames 28
+        land_continue true
+        hold_x 0
+        hold_y 2.79999
+        off_edge ext12
+        hitbox { start 14 end 14 x 1.29999 y 1.09999 radius 1 damage 12 angle 92 bkb 65 kbg 53 kind throw }
+    }
+    move ext13 {
+        total_frames 43
+        land_continue true
+        hold_x 0
+        hold_y 2.79999
+        off_edge ext13
+        hitbox { start 16 end 16 x 1.29999 y 1.09999 radius 1 damage 11 angle 46 bkb 70 kbg 45 kind throw }
+        script {
+            // Bracers down cargo throw (ext13): on the reference's frame 17 (move frame 16) the horizontal speed stops, and in the air the vertical
+            // speed becomes 1.5 of the reference's units (0.1875 world: the slight boost up). On the ground only the stop [E: the reference's
+            // grounded throw does not leave the ground].
+            if frame == 16 {
+                if grounded { set_vel(0, 0); } else { set_vel(0, 0.1875); }
+            }
+        }
     }
 }
 

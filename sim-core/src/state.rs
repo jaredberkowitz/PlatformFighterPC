@@ -82,6 +82,9 @@ pub enum FighterState {
     /// Buried in the ground by a bury hit (E5): no action until `Fighter::bury_timer` runs out (mashing shortens it), then out with a
     /// little lag, or launched by a knockback kept from a weaker hit taken meanwhile.
     Buried,
+    /// Carrying a held fighter (E7, sim 98: the reference's cargo hold; see `moves::Carry`): walking, jumping (`Fighter::carry_jumps`)
+    /// and falling with it, on the ground or in the air, until a throw, the hold's clock or a hit ends it.
+    Carrying,
 }
 
 impl StateHash for FighterState {
@@ -297,6 +300,11 @@ pub struct Fighter {
     pub bury_kb: Fx,
     pub bury_angle: u16,
     pub bury_set: bool,
+    /// Jumps left in the current carry (`FighterState::Carrying`, E7): set from `Carry::jumps` when the carry starts.
+    pub carry_jumps: u8,
+    /// The hold's clock as it was set when this fighter was caught (`grab::connect`): what a carry measures the hold time already
+    /// used from (`grab_start - grab_timer`, mashing included). 0 when not held by an ordinary grab, and once a carry has used it.
+    pub grab_start: u16,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -533,6 +541,8 @@ impl Fighter {
             bury_kb: Fx::ZERO,
             bury_angle: 0,
             bury_set: false,
+            carry_jumps: 0,
+            grab_start: 0,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -702,6 +712,8 @@ impl StateHash for Fighter {
         self.bury_kb.hash_into(h);
         h.write_u16(self.bury_angle);
         h.write_bool(self.bury_set);
+        h.write_u8(self.carry_jumps);
+        h.write_u16(self.grab_start);
         h.write_u8(self.air_jump_frame);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
@@ -1278,6 +1290,21 @@ mod tests {
             ("state buried", {
                 let mut s = state;
                 s.fighters[3].state = FighterState::Buried;
+                s
+            }),
+            ("carry_jumps", {
+                let mut s = state;
+                s.fighters[2].carry_jumps = 1;
+                s
+            }),
+            ("grab_start", {
+                let mut s = state;
+                s.fighters[1].grab_start = 165;
+                s
+            }),
+            ("state carrying", {
+                let mut s = state;
+                s.fighters[0].state = FighterState::Carrying;
                 s
             }),
             ("air_jump_frame", {
