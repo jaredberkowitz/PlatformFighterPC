@@ -448,6 +448,12 @@ Owner defaults for the Link phase-1 questions (recorded at sim 96):
     up, the strong button with the stick up, or the attack stick up) the up smash. Built in sim 96 with the shield version (E37); a press
     made with the jump itself stays the short-hop aerial (the house's short-hop input), and attack with the stick merely held up stays
     the short-hop up air.
+63. **Down special on a soft platform, for everyone** (sim 100): as in the reference, a quick down then special on a pass-through
+    platform is the grounded down special, not a drop then an aerial special. A down flick keeps the fighter on the platform for
+    `Ruleset::platform_drop_frames` (2) before it falls. The 2 frames are derived from the published drop-cancel notes on ssbwiki:
+    Terry's drop is 11 frames, 9 of them added, and specials cancel those added frames into grounded versions. A special on the
+    flick's frame, either waiting frame or the falling frame comes out grounded. Attacks don't interrupt the drop, because no source
+    says they do. The plain drop falls 2 frames later than before. The carry ignores it (the carry allows only throws).
 
 (Phase 2 of the Bracers, sim 90 placeholder: decisions 50-52 built: the base 7% trip for every fighter, the older kits' trip
 chances, the `aimed` register (named so because `aim` is a variable in the water pump's scripts), the `fighter_tripped` accessor.)

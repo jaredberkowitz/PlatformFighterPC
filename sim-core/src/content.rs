@@ -1712,8 +1712,8 @@ pub struct Ruleset {
     pub special_reverse_window: u8,
     /// A platform drop (a down flick on a pass-through platform) stays on the platform for this many frames after the flick's
     /// frame before the fighter falls, and a special pressed on any of them, or on the frame it would fall, comes out grounded
-    /// instead (the down special, with the stick down). The reference's drop is 2 frames: Terry's is 11 with 9 extra frames
-    /// added for his command specials (derived; owner decision 63).
+    /// instead (the down special, with the stick down). The reference's drop is 2 frames (derived from a fighter of its whose
+    /// drop is 11 with 9 extra frames added for command specials; owner decision 63, `docs/movesets/ROSTER_STATUS.md`).
     pub platform_drop_frames: u8,
     /// The autolink angle's caps (world units a frame): the launch speed at most `autolink_max_speed` (the reference's 3, the speed
     /// of 100 knockback) and the fall no faster than `autolink_max_fall` (the reference's 1).
