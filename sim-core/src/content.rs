@@ -1422,15 +1422,16 @@ impl FighterParams {
 
     /// The wanderer's shield (E14, the reference's passive shield: ssbwiki.com `Passive_shield` and the character's moveset notes,
     /// 13.0.1): it stops projectiles from in front while standing, walking or crouching [R]. Its place and size are not published
-    /// (gap 2) [E]: a capsule 0.7 ahead of the feet, centred 1.0 up standing (from 0.65 to 1.35, radius 0.3: the chest and waist, below
-    /// the head and above the feet) and 0.4 up crouching (the shield brought down to the legs, so a shot at face height reaches the head).
+    /// (gap 2) [E]: a capsule 0.6 ahead of the feet with a radius of 0.45 (its front reaches as far as the guard held out in front, so
+    /// a shot meets it no later than the body), centred 1.0 up standing (from 0.65 to 1.35: the chest and waist, below the head and
+    /// above the feet) and 0.4 up crouching (the shield brought down to the legs, so a shot at face height reaches the head).
     pub fn wanderer_shield() -> PassiveShield {
         PassiveShield {
-            x: Fx::from_ratio(7, 10),
+            x: Fx::from_ratio(6, 10),
             y: Fx::ONE,
             crouch_y: Fx::from_ratio(2, 5),
             half_height: Fx::from_ratio(35, 100),
-            radius: Fx::from_ratio(3, 10),
+            radius: Fx::from_ratio(45, 100),
         }
     }
 }

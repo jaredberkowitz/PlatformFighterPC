@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 91
-    hash a6bca4602720e516
+    hash 70749b331ad10053
 }
 
 ruleset {
@@ -6277,10 +6277,11 @@ weapon buckler {
         hitbox { start 16 end 17 x 0.4 y 1.09999 radius 0.4 damage 7 angle 60 bkb 45 kbg 12 priority 2 angle_type forward }
         script {
             // Buckler forward smash, hit 1. Attack pressed on frames 23-36 (move frames 22-35) starts hit 2 (29 = ext1), which keeps this hit's
-            // charge (its `keep_charge`). A press up to 9 frames before the window (the input buffer) waits for it.
-            var pressed;
-            if attack_tap && frame >= 13 { pressed = 1; }
-            if pressed && frame >= 22 && frame <= 35 { goto(29); }
+            // charge (its `keep_charge`). A press from frame 14 on (the input buffer's 9 frames before the window) waits for it, hitlag included
+            // (`presses` counts presses made in hitlag; the count at move frame 12 is the base).
+            var seen;
+            if frame == 12 { seen = presses; }
+            if frame >= 22 && frame <= 35 && presses > seen { goto(29); }
         }
     }
     move usmash {
@@ -8751,7 +8752,7 @@ fighter wanderer {
     ledge_attack_frames 55
     ledge_attack_dx 1.5
     weight 104
-    passive_shield { x 0.7 y 1 crouch_y 0.4 half_height 0.34999 radius 0.29999 }
+    passive_shield { x 0.59999 y 1 crouch_y 0.4 half_height 0.34999 radius 0.45 }
 }
 
 stage proving_grounds {
