@@ -1737,6 +1737,8 @@ func _build_ecb() -> void:
 		im.surface_end()
 		var mi := MeshInstance3D.new()
 		mi.mesh = im
+		# (Hidden until `_update_ecb` shows it: with `--noecb` that never runs, and the outlines would stand at the origin in the shots.)
+		mi.visible = false
 		add_child(mi)
 		ecb_nodes.append(mi)
 		min_down[i] = body[3]

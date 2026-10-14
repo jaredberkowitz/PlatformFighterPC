@@ -46,7 +46,8 @@ TRUNK = [
 # Arms: shoulder (inside the trunk), elbow, wrist, each with its radius; hanging out at about 20 degrees, the hands ending at the top of
 # the thigh. Parts must stand at least 2% of the height apart below the armpits and the crotch, or fit_body.py cannot tell them from the
 # trunk.
-ARM = [((0.24, 0.0, 1.27), 0.105), ((0.45, 0.012, 1.075), 0.094), ((0.585, 0.025, 0.885), 0.083)]
+# (The upper arm a little fuller than first built, as the concept's soft tube arms are: thin arms read as sticks at play size.)
+ARM = [((0.24, 0.0, 1.27), 0.117), ((0.45, 0.012, 1.075), 0.103), ((0.585, 0.025, 0.885), 0.088)]
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
 HAND_LENGTH = 0.2
 HAND_RADII = (0.062, 0.1)   # thickness, width
@@ -59,6 +60,11 @@ FOOT_RADII = (0.145, 0.225, 0.09)
 VOXEL = 0.009          # remesh detail (units)
 SOFTEN = 6             # smoothing steps where the parts meet
 TARGET_TRIS = 6500     # the final budget: as few as keep the head and belly round under the outline
+# How the skin is reduced to that budget: "quad" re-lays it as an even flow of quads (QuadriFlow), which keeps the normals smooth, so the
+# fighters' hard cel step draws a clean light-and-shadow edge across the body; "decimate" collapses edges, which left long thin triangles
+# whose normals made that edge ragged.
+REDUCE = "quad"
+RELAX = 4              # smoothing steps after the quad remesh (it snaps to the surface, leaving a slight ripple)
 
 
 def ellipsoid(bm, centre, radii, rot=None, segments=28, rings=18):
@@ -164,12 +170,22 @@ def finish(obj):
     sm.smooth_type = "LENGTH_WEIGHTED"
     sm.use_only_smooth = True
     bpy.ops.object.modifier_apply(modifier=sm.name)
-    tris = sum(len(p.vertices) - 2 for p in obj.data.polygons)
-    dec = obj.modifiers.new("reduce", "DECIMATE")
-    dec.ratio = min(1.0, TARGET_TRIS / max(tris, 1))
-    dec.use_symmetry = True
-    dec.symmetry_axis = "X"
-    bpy.ops.object.modifier_apply(modifier=dec.name)
+    if REDUCE == "quad":
+        bpy.ops.object.quadriflow_remesh(target_faces=TARGET_TRIS // 2, use_mesh_symmetry=False, use_preserve_sharp=False,
+                                         use_preserve_boundary=False, smooth_normals=False, seed=1)
+        relax = obj.modifiers.new("relax", "CORRECTIVE_SMOOTH")
+        relax.iterations = RELAX
+        relax.factor = 0.5
+        relax.smooth_type = "LENGTH_WEIGHTED"
+        relax.use_only_smooth = True
+        bpy.ops.object.modifier_apply(modifier=relax.name)
+    else:
+        tris = sum(len(p.vertices) - 2 for p in obj.data.polygons)
+        dec = obj.modifiers.new("reduce", "DECIMATE")
+        dec.ratio = min(1.0, TARGET_TRIS / max(tris, 1))
+        dec.use_symmetry = True
+        dec.symmetry_axis = "X"
+        bpy.ops.object.modifier_apply(modifier=dec.name)
     mend_folds(obj)
     # Soles flat on the ground.
     for v in obj.data.vertices:

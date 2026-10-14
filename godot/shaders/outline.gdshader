@@ -4,11 +4,13 @@ shader_type spatial;
 // or pulled far back (between `min_width` and `max_width` world units). The faces are pushed out only across the screen (not toward the
 // camera) and nudged a little back, so the line rims the silhouette without cutting across the model where one part is in front of
 // another (an arm across the body).
-render_mode unshaded, cull_front, shadows_disabled;
+// (Not unshaded: an unshaded material cannot write its object id. The ink is given as emission over a black albedo instead, so lights do not
+// touch it.)
+render_mode cull_front, shadows_disabled, specular_disabled, ambient_light_disabled;
 
 uniform vec4 color : source_color = vec4(0.07, 0.05, 0.09, 1.0);
 uniform float width = 0.0022;
-uniform float min_width = 0.02;
+uniform float min_width = 0.028;
 uniform float max_width = 0.11;
 uniform float push_back = 0.6;   // how far back the line sits, as a share of its width
 // The outline hierarchy: fighters get the full line (their meshes set this to 1, see `_tag_object` in fighter_view.gd); everything
@@ -34,7 +36,14 @@ void vertex() {
 	POSITION = PROJECTION_MATRIX * view;
 }
 
+// The object id the ink lines' pass reads (shaders/post.gdshader, `HULL_ID`): this line is ink already, so that pass draws no second line
+// beside it, and draws its own only where a silhouette has no outline of this kind (a blade, a shield's rim).
+const float HULL_ID = 0.7;
+
 void fragment() {
-	ALBEDO = mix(scenery_color.rgb, color.rgb, smoothstep(0.6, 1.0, outline_weight));
-	ALBEDO = mix(ALBEDO, outline_tint.rgb, outline_tint.a);
+	vec3 c = mix(scenery_color.rgb, color.rgb, smoothstep(0.6, 1.0, outline_weight));
+	ALBEDO = vec3(0.0);
+	EMISSION = mix(c, outline_tint.rgb, outline_tint.a);
+	ROUGHNESS = HULL_ID;
+	SPECULAR = 0.0;
 }

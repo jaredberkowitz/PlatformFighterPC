@@ -18,7 +18,10 @@ uniform float line_strength = 0.9;
 uniform float line_fade_start = 60.0;     // world units from the camera
 uniform float line_fade_end = 180.0;
 uniform float scenery_lines = 0.72;       // how strong the screen-space ink is on the stage and scenery (the fighters get it all)
-uniform float inner_lines = 0.3;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
+uniform float inner_lines = 0.3;
+// The inverted-hull outlines' object id (shaders/outline.gdshader): where a silhouette has one, it is the line, and this pass adds none
+// beside it (a second line just inside doubled it into a thick, wavering stroke); where it has none (blades), this pass draws the line.
+const float HULL_ID = 0.7;          // how strong a line inside one fighter is (an arm in front of the body), against its silhouette
 uniform float grain = 0.045;
 uniform float paper = 0.03;
 uniform float vignette = 0.16;          // kept light: dark corners make a fighter near the edge hard to read
@@ -124,6 +127,7 @@ void fragment() {
 	// Ink: compare this pixel with its four neighbours.
 	vec3 n0 = texture(normal_tex, uv).xyz * 2.0 - 1.0;
 	float id0 = object_at(uv);
+	bool on_hull = abs(id0 - HULL_ID) < 0.03;
 	float edge = 0.0;
 	vec2 offs[4] = vec2[](vec2(px.x, 0.0), vec2(-px.x, 0.0), vec2(0.0, px.y), vec2(0.0, -px.y));
 	for (int k = 0; k < 4; k++) {
@@ -132,6 +136,9 @@ void fragment() {
 		// Only the nearer side draws the line, so it sits on the edge of the object in front.
 		float jump = (d - d0) / max(d0, 0.001);
 		float id = object_at(q);
+		if (on_hull || abs(id - HULL_ID) < 0.03) {
+			continue;
+		}
 		// Silhouettes are the strongest lines; a fold inside one fighter is lighter, so forms read without a tangle of black.
 		float inner = abs(id - id0) <= 0.03 && id0 < 0.6 ? inner_lines : 1.0;
 		edge = max(edge, smoothstep(depth_edge, depth_edge * 2.0, jump) * inner);
