@@ -574,8 +574,9 @@ static func strike_progress(f: float, total: float, start: float, last: float, w
 		start = float(windows[windows.size() - 2])
 	if f <= last:
 		return 0.55 + (f - start) / maxf(1.0, last - start) * 0.08
+	# (The body carries through the follow-through and settles over the end lag, easing in and out, rather than holding the strike.)
 	var k := clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0)
-	return 0.63 + 0.37 * pow(k, 1.8)
+	return 0.63 + 0.37 * k * k * (3.0 - 2.0 * k)
 
 
 ## Between two hits of a multihit move the clip draws back to here (0.35 is the full wind-up, 0.55 the strike): enough to read as a new
@@ -2151,9 +2152,12 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		var tip: Vector3 = s.move_tip
 		var phi := rad_to_deg(atan2(tip.x, -(tip.y - 1.1)))   # 0 straight down, 90 ahead, 180 overhead, negative behind
 		var swing := clampf((130.0 - phi) * 0.32, -22.0, 30.0) if phi >= 0.0 else clampf(-phi * 0.18, 0.0, 22.0)
-		# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it on
-		# its feet, so the base body keeps only a little of this.)
-		target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
+		if not grounded and use_base_body:
+			target_lean += _air_counter(s, phi) * _reach_weight(s)
+		else:
+			# (A body with legs leans with its spine and hips, from its clips and the body-follow; tipping the whole model would pivot it
+			# on its feet, so the base body keeps only a little of this on the ground.)
+			target_lean += swing * _reach_weight(s) * (0.35 if use_base_body else 1.0)
 	# The attack lunge: drawn back while winding up, thrown forward through the strike.
 	var target_lunge := 0.0
 	if state == "Attack" and s.move_timing[1] > 0:
@@ -2258,7 +2262,11 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 		pivot = SPIN_PIVOT_3D
 	# Spin about the middle of the body (or the hands, or the curled-up roll) rather than the feet.
 	flip_offset = Vector3.ZERO
-	if flip != 0.0 or spin != 0.0:
+	# (In the air the whole body turns about its middle when it leans (see `_air_counter`), as a body with nothing under it does; on the
+	# ground it leans over its feet.)
+	if flip == 0.0 and spin == 0.0 and not grounded and absf(lean) > 0.3:
+		pivot = AIR_PIVOT
+	if flip != 0.0 or spin != 0.0 or (not grounded and absf(lean) > 0.3):
 		flip_offset = pivot - Basis(model.quaternion) * pivot
 	flip_offset += ledge_offset
 	last_state = state
@@ -2551,7 +2559,7 @@ func _blade_target(s: Dictionary) -> Array:
 	if SWING_FROM.has(name):
 		wind = swing + float(SWING_FROM[name])
 	# A thrust does not swing: the blade points at the hit from the start and the arm drives it in (see `_pose_blade`).
-	if (_cls(s) == 0 and SWORD_THRUSTS.has(name)) or (_cls(s) == GREATSWORD_CLASS and GREAT_THRUSTS.has(name)):
+	if _thrust(_cls(s), name):
 		wind = swing
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
@@ -2560,18 +2568,35 @@ func _blade_target(s: Dictionary) -> Array:
 	var angle := swing
 	var len := length
 	if f < swing_from:
+		# The wind-up eases into its anticipation (fast away from rest, slowing as it coils)...
 		var k := clampf(f / maxf(1.0, swing_from), 0.0, 1.0)
+		k = 1.0 - (1.0 - k) * (1.0 - k)
 		angle = lerpf(_rest_angle(s), wind, k)
 		len = lerpf(rest_len, length, k)
 	elif f < start:
+		# ...and the strike accelerates into the hit, so the blade whips through rather than gliding at one speed.
 		var k := clampf((f - swing_from) / maxf(1.0, start - swing_from), 0.0, 1.0)
-		angle = lerpf(wind, swing, k)
+		angle = lerpf(wind, swing, k * k)
 	elif f > t[2]:
-		# The blade holds its follow-through and comes back late in the end lag.
-		var k := pow(clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0), 1.8)
-		angle = lerpf(swing, _rest_angle(s), k)
-		len = lerpf(length, rest_len, k)
+		# The follow-through: the blade carries on past its last hit the way it was travelling (FOLLOW_THROUGH degrees over the first part
+		# of the end lag, slowing), then eases home through the rest of it, as the reference's swordsmen finish a cut, rather than holding
+		# still at the hit and snapping back late.
+		var k := clampf((f - t[2]) / maxf(1.0, t[0] - t[2]), 0.0, 1.0)
+		var travel := signf(angle_difference(deg_to_rad(wind), deg_to_rad(swing)))
+		var past := swing + travel * FOLLOW_THROUGH
+		if k < FOLLOW_SHARE:
+			var u := k / FOLLOW_SHARE
+			angle = lerpf(swing, past, 1.0 - (1.0 - u) * (1.0 - u))
+		else:
+			var u := (k - FOLLOW_SHARE) / (1.0 - FOLLOW_SHARE)
+			angle = lerpf(past, _rest_angle(s), u * u * (3.0 - 2.0 * u))
+			len = lerpf(length, rest_len, u * u * (3.0 - 2.0 * u))
 	return [angle, len, hand_x]
+
+
+## How far (degrees) a swing carries on past its last hit, and over what share of the end lag, before the blade eases home.
+const FOLLOW_THROUGH := 38.0
+const FOLLOW_SHARE := 0.28
 
 
 ## The weapon arm's shoulder in forward space (x forward, y up), and how far the hand reaches from it in a swing.
@@ -2583,6 +2608,13 @@ var hand_target := Vector3.ZERO
 var off_hand_target := Vector3.ZERO
 ## The sword's thrusts: the blade points at the hit throughout and the arm drives it in, rather than swinging round to it.
 const SWORD_THRUSTS := ["usmash", "dtilt"]
+## The Wanderer's thrusts (after its reference): the down air plunges the blade straight down and the up air drives it straight up.
+const BUCKLER_THRUSTS := ["dair", "uair"]
+
+
+## Whether move `name` of class `cls` is a thrust (the blade points at the hit throughout and the arm drives it in).
+static func _thrust(cls: int, name: String) -> bool:
+	return (cls == 0 and SWORD_THRUSTS.has(name)) or (cls == GREATSWORD_CLASS and GREAT_THRUSTS.has(name)) 		or (cls == BUCKLER_CLASS and BUCKLER_THRUSTS.has(name))
 ## Neutral airs whose second hit circles the body (the sword's): the whole body flips over backward once while the arm holds the blade
 ## out, between these frames, so the blade follows the hits round. By class.
 ## (None now: the sword's neutral air no longer turns the body upside down. Ours is a windmill slash: the body stays upright and the arm
@@ -2622,8 +2654,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
-	if attacking and (not bladed(_cls(s)) or (_cls(s) == 0 and SWORD_THRUSTS.has(String(s.move_name)))
-			or (_cls(s) == GREATSWORD_CLASS and GREAT_THRUSTS.has(String(s.move_name)))):
+	if attacking and (not bladed(_cls(s)) or _thrust(_cls(s), String(s.move_name))):
 		arm_k = _reach_weight(s)
 	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
 	# holds the blade out and the spin carries it round the circle the hits make.
@@ -2653,6 +2684,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
 	if not bladed(_cls(s)) and absf(springs.value("hand")) > 0.001:
 		hand += (hand - shoulder).normalized() * springs.value("hand")
+	# Standing on the ground the tip never passes into the floor (a low cut whose arm drops into a deep lunge): the blade turns up about
+	# the hand, keeping its length, just enough to clear it.
+	if s.platform >= 0 and tip.y < GROUND_CLEARANCE and hand.y > GROUND_CLEARANCE:
+		var reach_len := (tip - hand).length()
+		var dy := clampf((GROUND_CLEARANCE - hand.y) / maxf(reach_len, 0.001), -1.0, 1.0)
+		var dx := sqrt(maxf(0.0, 1.0 - dy * dy)) * signf(tip.x - hand.x if absf(tip.x - hand.x) > 0.001 else 1.0)
+		tip = hand + Vector2(dx, dy) * reach_len
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())
@@ -2686,9 +2724,42 @@ func _reach_weight(s: Dictionary) -> float:
 	if f < first:
 		k = clampf((f - first * 0.35) / maxf(1.0, first * 0.65), 0.0, 1.0)
 	elif f > last:
-		# (It stays out through most of the end lag, coming home late.)
-		k = 1.0 - pow(clampf((f - last) / maxf(1.0, (total - last) * 0.85), 0.0, 1.0), 1.6)
+		# (It stays out a moment past the hit, then eases home over the rest of the end lag, never frozen out.)
+		k = 1.0 - smoothstep(0.15, 1.0, clampf((f - last) / maxf(1.0, total - last), 0.0, 1.0))
 	return k * k * (3.0 - 2.0 * k)
+
+
+## The whole body answering a limb thrown out in the air (degrees of forward pitch, about the body's middle; the reference's aerials,
+## exaggerated): an up air tips the body right back so the kick or the slash goes up and over (`AIR_BACK` at most), a back air pitches it
+## forward, head down, so the leg drives out behind (`AIR_FORWARD`), a kick out in front leans the body back against the leg
+## (`AIR_KICK_BACK`), a swing in front and below curls the body over it. `phi` is the hit's direction from the body (0 straight down, 90
+## ahead, 180 overhead, negative behind). Weighted by the move's reach, so it eases in with the wind-up and out in the recovery, and
+## sprung (`lean`), so it overshoots a little and settles.
+const AIR_BACK := 36.0
+const AIR_FORWARD := 50.0
+const AIR_KICK_BACK := 18.0
+const AIR_PIVOT := Vector3(0, 1.0, 0)
+
+
+func _air_counter(s: Dictionary, phi: float) -> float:
+	var clip := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
+	var kick := AnimLibrary.is_kick(clip)
+	# (An overhead arc carried on past the top and round behind is still overhead: an up air keeps tipping back as it finishes.)
+	if phi < -125.0:
+		phi += 360.0
+	if phi < 0.0:
+		# Behind: pitch forward, more the further round behind it is.
+		return clampf(-phi * 0.42, 0.0, AIR_FORWARD)
+	if phi > 200.0:
+		return -AIR_BACK
+	if phi > 120.0:
+		# Overhead: tip back.
+		return -clampf((phi - 105.0) * 0.62, 0.0, AIR_BACK)
+	if kick and phi > 45.0:
+		# A kick out in front: the body leans back against the leg (a jackknife).
+		return -AIR_KICK_BACK
+	# A swing in front: curl over it a little; straight below (a stomp, a drill) the body stays nearly upright over its legs.
+	return clampf((110.0 - phi) * 0.24, 0.0, 18.0) * smoothstep(20.0, 60.0, phi) + 6.0 * (1.0 - smoothstep(20.0, 60.0, phi))
 
 
 ## Puts the weapon in the weapon hand as the clip moves it, swept back and up behind the runner (carried in a run).
@@ -2836,7 +2907,7 @@ func _place_buckler(s: Dictionary) -> void:
 ## Whether a move of class `cls` is done with the body (a kick, a grab, a throw, a landing hit) rather than the weapon.
 func _body_clip(cls: int, move: String) -> bool:
 	var clip := AnimLibrary.attack_clip(cls, move, anim)
-	return AnimLibrary.is_kick(clip) or clip in ["grab", "throw", "land", "crouch"]
+	return AnimLibrary.is_kick(clip) or AnimLibrary.is_body(clip) or clip in ["grab", "throw", "land", "crouch"]
 
 
 ## Two-bone arm IK: the weapon arm reaches `hand_target` (model space), and with `two_hands` the other arm reaches `off_hand_target` (the
@@ -3594,6 +3665,11 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 		body_move = BRAWLER_NO_BLADE.has(s.move_name)
 	elif (_cls(s) == 2 or staff or great) and s.move_name != "":
 		body_move = _body_clip(_cls(s), s.move_name)
+	# (A clip that poses both arms itself, whatever the class: a headbutt, both hands up on the balloon strings or the firework, a shrug,
+	# gripping the rocket. Its tool hand is not pulled to a hit.)
+	if s.move_name != "" and not body_move:
+		var own := AnimLibrary.attack_clip(_cls(s), s.move_name, anim)
+		body_move = AnimLibrary.is_body(own) or AnimLibrary.OWN_ARMS.has(own)
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
