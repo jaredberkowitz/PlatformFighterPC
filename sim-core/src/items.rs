@@ -330,6 +330,7 @@ pub fn make_as(
         hit_mask: 0,
         struck: [0; MAX_FIGHTERS],
         facing: f.facing,
+        angle: 0,
     };
     Some(n)
 }

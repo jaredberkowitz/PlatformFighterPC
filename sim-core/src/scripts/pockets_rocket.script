@@ -1,0 +1,13 @@
+// The rocket's flight (world units: the reference's / 8) [E: unpublished]. `a` is the age this frame's movement makes (the projectile's
+// age before it moves, plus one). Still until age 32 (the reference's frame 52), then 1.7 a frame (0.2125) to age 96; then slowing by
+// 1.7 / 60 a frame (0.003542) while dropping under 0.04 (0.005) to at most 1.0 (0.125). A sliver of speed keeps its direction.
+var dir;
+if dir == 0 { dir = sign(pvx); }
+let a = age + 1;
+if a < 32 {
+    set_vel(dir * 0.0001, 0);
+} else if a < 97 {
+    set_vel(dir * 0.2125, 0);
+} else {
+    set_vel(dir * max(abs(pvx) - 0.003542, 0.0001), max(pvy - 0.005, -0.125));
+}

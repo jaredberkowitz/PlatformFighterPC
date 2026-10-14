@@ -1406,6 +1406,13 @@ impl SimRunner {
         self.live_item(i).map_or(0, |it| i32::from(it.flight))
     }
 
+    /// The direction item slot `i` was flying when it lodged (an arrow stuck in the ground or a wall), in degrees counter-clockwise
+    /// from the right (-179 to 180, world axes: up is positive); 0 for an item that never lodged, or an empty slot. Sim 113.
+    #[func]
+    fn item_angle(&self, i: i32) -> i32 {
+        self.live_item(i).map_or(0, |it| i32::from(it.angle))
+    }
+
     /// The kind of item slot `i` (its weapon item's `kind`: the wanderer's bomb 2, arrow 3), 0 for an empty slot.
     #[func]
     fn item_kind(&self, i: i32) -> i32 {

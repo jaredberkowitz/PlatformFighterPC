@@ -221,6 +221,38 @@ fn an_arrow_meeting_the_ground_more_shallowly_than_9_degrees_is_gone() {
 }
 
 #[test]
+fn a_lodged_arrow_keeps_the_angle_it_hit_at() {
+    // Sim 113 (for the view): the item remembers the way the arrow was flying as it stuck, in degrees from the right (its last step's
+    // velocity, the arrow's gravity of 0.00675 a frame already added: (1.25, -0.30675) is -13.8 degrees).
+    for (vx, vy, angle) in [
+        (fx(125, 100), fx(-3, 10), -14),
+        (fx(-1, 1), fx(-1, 1), -135),
+        (fx(1, 2), fx(-1, 1), -64),
+    ] {
+        let mut sim = duel();
+        sim.state.projectiles[0] = Projectile {
+            active: true,
+            owner: 0,
+            origin: 0,
+            power: 100,
+            move_id: BOW_FIRE as u8,
+            pos: Vec2::new(Fx::from_int(-6), fx(5, 100)),
+            vel: Vec2::new(vx, vy),
+            life: 46,
+            size: 100,
+            facing: if vx > Fx::ZERO { 1 } else { -1 },
+            damage: Fx::from_int(12),
+            ..Projectile::default()
+        };
+        sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+        let lodged = items(&sim);
+        assert_eq!(lodged.len(), 1, "{vx:?} {vy:?}");
+        assert_eq!(lodged[0].rest, ITEM_LODGED);
+        assert_eq!(lodged[0].angle, angle, "{vx:?} {vy:?}");
+    }
+}
+
+#[test]
 fn the_bow_in_the_air_lands_and_carries_on() {
     let mut sim = duel();
     sim.put_airborne(0, Fx::ZERO, fx(5, 10), Fx::ZERO, Fx::ZERO);

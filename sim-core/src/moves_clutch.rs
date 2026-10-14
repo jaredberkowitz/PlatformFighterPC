@@ -773,6 +773,7 @@ fn lobbed_shell() -> Move {
             on_ground: true,
             on_expire: true,
             keep_hits: true,
+            on_hit: true,
         }),
         charged: None,
         tool: Tool::NONE,

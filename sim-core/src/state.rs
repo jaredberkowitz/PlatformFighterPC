@@ -174,6 +174,9 @@ pub struct Fighter {
     /// The pending (or current) launch is from set knockback, which keeps the plain launch physics: no speed-up and no shared fall
     /// speed for a vertical launch (the reference's rule for set-knockback hits).
     pub launch_set: bool,
+    /// The pending (or current) launch is from a hit on the previous reference version's rules (E40, `Hitbox::rules`, sim 113): no
+    /// speed-up, the gravity boost at any angle, no shared fall speed for a vertical launch.
+    pub launch_older: bool,
     /// World angle of the pending launch, in `trig::Angle` units.
     pub launch_angle: u16,
     /// Current launch velocity, decaying each frame.
@@ -341,6 +344,11 @@ pub struct Fighter {
     pub gauge_mode: u16,
     /// Held by an ordinary grab out of a `Move::gauge_drain` move: until the hold ends, damage taken drains the gauge.
     pub gauge_drain: bool,
+    /// Balloons (E41, sim 113: `moves::Balloons`): how many the fighter carries in its balloon move (0 out of one), the damage the
+    /// next one to pop has left, and the helium used, in sixteenths of a frame of flight (0: a full tank; a KO fills it).
+    pub balloons: u8,
+    pub balloon_hp: Fx,
+    pub helium_used: u16,
     /// Where the fighter's feet were (height) when its current move began (also on a switch by `goto`): what `Move::ledge_drop`
     /// measures the fall from.
     pub move_y0: Fx,
@@ -434,6 +442,9 @@ pub struct Item {
     pub struck: [u8; MAX_FIGHTERS],
     /// -1 or 1: the way its thrower faced (forward for its hit).
     pub facing: i8,
+    /// Sim 113: the direction it was flying when it lodged (an arrow stuck in the ground or a wall), in whole degrees counter-clockwise
+    /// from +x (-179 to 180); 0 for an item that never lodged. Read only by the view (`item_angle`), to point the stuck arrow.
+    pub angle: i16,
 }
 
 /// `Item::rest` values.
@@ -469,6 +480,7 @@ impl StateHash for Item {
             h.write_u8(*s);
         }
         h.write_i8(self.facing);
+        h.write_u16(self.angle as u16);
     }
 }
 
@@ -605,6 +617,7 @@ impl Fighter {
             launch_pending: false,
             launch_kb: Fx::ZERO,
             launch_set: false,
+            launch_older: false,
             launch_angle: 0,
             kb_vel: Vec2::ZERO,
             tumble: false,
@@ -684,6 +697,9 @@ impl Fighter {
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
+            balloons: 0,
+            balloon_hp: Fx::ZERO,
+            helium_used: 0,
             move_y0: Fx::ZERO,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
@@ -797,6 +813,7 @@ impl StateHash for Fighter {
         h.write_bool(self.launch_pending);
         self.launch_kb.hash_into(h);
         h.write_bool(self.launch_set);
+        h.write_bool(self.launch_older);
         h.write_u16(self.launch_angle);
         self.kb_vel.hash_into(h);
         h.write_bool(self.tumble);
@@ -878,6 +895,9 @@ impl StateHash for Fighter {
         self.gauge.hash_into(h);
         h.write_u16(self.gauge_mode);
         h.write_bool(self.gauge_drain);
+        h.write_u8(self.balloons);
+        self.balloon_hp.hash_into(h);
+        h.write_u16(self.helium_used);
         self.move_y0.hash_into(h);
         for v in &self.vars {
             h.write_i32(*v);
@@ -1148,6 +1168,11 @@ mod tests {
                 s.fighters[0].launch_set = true;
                 s
             }),
+            ("launch_older", {
+                let mut s = state;
+                s.fighters[1].launch_older = true;
+                s
+            }),
             ("launch_angle", {
                 let mut s = state;
                 s.fighters[0].launch_angle = 1;
@@ -1351,6 +1376,21 @@ mod tests {
             ("gauge_mode", {
                 let mut s = state;
                 s.fighters[2].gauge_mode = 1;
+                s
+            }),
+            ("balloons", {
+                let mut s = state;
+                s.fighters[1].balloons = 2;
+                s
+            }),
+            ("balloon_hp", {
+                let mut s = state;
+                s.fighters[1].balloon_hp = Fx::from_raw(1);
+                s
+            }),
+            ("helium_used", {
+                let mut s = state;
+                s.fighters[3].helium_used = 16;
                 s
             }),
             ("gauge_drain", {
@@ -1776,6 +1816,11 @@ mod tests {
             ("item_facing", {
                 let mut s = state;
                 s.items[6].facing = -1;
+                s
+            }),
+            ("item_angle", {
+                let mut s = state;
+                s.items[6].angle = -60;
                 s
             }),
             ("history", {

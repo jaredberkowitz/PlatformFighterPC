@@ -1218,6 +1218,7 @@ fn bow(w: &mut Weapon) {
             size_to: 100,
             floor: true,
             times: 100,
+            power_to: 100,
         }),
         tool: Tool::NONE,
     });
@@ -1369,6 +1370,7 @@ fn sword_wave(w: &mut Weapon) {
             size_to: 110,
             floor: false,
             times: 100,
+            power_to: 100,
         }),
         tool: Tool::NONE,
     });

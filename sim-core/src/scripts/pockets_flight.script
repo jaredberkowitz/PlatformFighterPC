@@ -1,0 +1,12 @@
+// The balloon flight's next stretch (ext8): as the up special without the take-off (see `pockets_balloon.script`) [E].
+var since;
+since = since + 1;
+if attack_tap {
+    end();
+} else if (special_tap && since >= 6) || (special && since >= 12) {
+    since = 0;
+    let lift = 0.1125;
+    if balloons >= 2 { lift = 0.175; }
+    add_vel(0, lift - vy);
+}
+if frame >= 247 { goto(36); }

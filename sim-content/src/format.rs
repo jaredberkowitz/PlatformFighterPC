@@ -8,13 +8,14 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, DropThrough,
-    Encase, Fall, Hitbox, ItemBlast, ItemSpec, Motion, Move, MoveId, PartIntangible, ProjectileArc,
-    ProjectileSpawn, Reflector, Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
-    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
-    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB,
-    PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble,
+    DropThrough, Encase, Fall, Hitbox, ItemBlast, ItemSpec, Motion, Move, MoveId, PartIntangible,
+    ProjectileArc, ProjectileSpawn, Reflector, Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT,
+    AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD,
+    ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH,
+    PART_LIMB, PART_LOW, PART_MIDDLE, RULES_CURRENT, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_ALL,
+    TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -547,6 +548,11 @@ rules_io! {
     item_reach_up: Fx,
     item_hand_x: Fx,
     item_hand_y: Fx,
+    prev_damage_mult: Fx,
+    prev_hitlag_per_damage: Fx,
+    prev_hitlag_base: Fx,
+    prev_rage_max: Fx,
+    prev_tumble_hitstun: u8,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -638,6 +644,7 @@ fn missing_hitbox() -> Hitbox {
         posvec_y: Fx::ZERO,
         posvec_frames: 0,
         half_width: Fx::ZERO,
+        rules: RULES_CURRENT,
     }
 }
 
@@ -717,6 +724,18 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
             ANGLE_BY_BOX
         }
     };
+    let rules = match f.raw("rules") {
+        None | Some(("current", _)) => RULES_CURRENT,
+        Some(("previous", _)) => RULES_PREVIOUS,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("hitbox rules must be current or previous, not `{other}`"),
+            );
+            RULES_CURRENT
+        }
+    };
     let hb = Hitbox {
         start: f.need("start", None, errors),
         end: f.need("end", None, errors),
@@ -753,6 +772,7 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         posvec_y: f.or("posvec_y", Fx::ZERO, errors),
         posvec_frames: f.or("posvec_frames", 0, errors),
         half_width: f.or("half_width", Fx::ZERO, errors),
+        rules,
     };
     f.finish(errors);
     hb
@@ -855,6 +875,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
         ANGLE_BY_POSITION => b.field("angle_type", "position"),
         ANGLE_BY_TRAVEL => b.field("angle_type", "travel"),
         _ => {}
+    }
+    if hb.rules == RULES_PREVIOUS {
+        b.field("rules", "previous");
     }
     b
 }
@@ -1066,10 +1089,42 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "charge_add",
             "carry",
             "encase",
+            "version",
+            "balloons",
         ],
         context,
         errors,
     );
+    // Sim 113: random versions (E39) and balloons (E41).
+    m.versions = children(block, "version")
+        .into_iter()
+        .map(|b| {
+            let ctx = format!("a version of {context}");
+            let mut f = Fields::new(b, &ctx, errors);
+            let chance: u8 = f.need("chance", None, errors);
+            let mut slot = 0;
+            match f.raw("move") {
+                Some((key, line)) => match MoveId::from_key(key) {
+                    Some(id) => slot = id as u8,
+                    None => err(
+                        errors,
+                        line,
+                        format!("`move` must be a move name, not `{key}`"),
+                    ),
+                },
+                None => err(errors, b.line, format!("{ctx} needs a `move`")),
+            }
+            f.finish(errors);
+            (chance, slot)
+        })
+        .collect();
+    if let Some(b) = at_most_one(children(block, "balloons"), "balloons", context, errors) {
+        m.balloons = Some(read_balloons(
+            b,
+            &format!("the balloons of {context}"),
+            errors,
+        ));
+    }
     if let Some(b) = at_most_one(children(block, "encase"), "encase", context, errors) {
         m.encase = Some(read_encase(b, &format!("the encase of {context}"), errors));
     }
@@ -1200,6 +1255,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 size_to: cf.or("size_to", 100, errors),
                 floor: cf.or("floor", false, errors),
                 times: cf.or("times", 100, errors),
+                power_to: cf.or("power_to", 100, errors),
             };
             cf.finish(errors);
             c
@@ -1247,6 +1303,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 on_ground: bf.or("on_ground", false, errors),
                 on_expire: bf.or("on_expire", false, errors),
                 keep_hits: bf.or("keep_hits", false, errors),
+                on_hit: bf.or("on_hit", true, errors),
                 y: bf.or("y", Fx::ZERO, errors),
                 phases: read_phases(bb, &bctx, errors),
             };
@@ -1578,6 +1635,15 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if let Some(e) = &m.encase {
         b.push(write_encase(e));
     }
+    for (chance, slot) in &m.versions {
+        let mut c = Block::new("version", None);
+        c.field("chance", chance.to_string());
+        c.field("move", MoveId::from_index(*slot).key());
+        b.push(c);
+    }
+    if let Some(bl) = &m.balloons {
+        b.push(write_balloons(bl));
+    }
     if let Some((frame, item)) = m.pull {
         b.field("pull_frame", frame.to_string());
         b.field("pull_item", item.to_string());
@@ -1691,6 +1757,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
                     bb.field(name, "true");
                 }
             }
+            if !bu.on_hit {
+                bb.field("on_hit", "false");
+            }
             if bu.y != Fx::ZERO {
                 bb.field("y", bu.y.show());
             }
@@ -1717,6 +1786,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             }
             if ch.times != 100 {
                 cb.field("times", ch.times.to_string());
+            }
+            if ch.power_to != 100 {
+                cb.field("power_to", ch.power_to.to_string());
             }
             c.push(cb);
         }
@@ -2355,6 +2427,39 @@ fn read_encase(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Encase {
     };
     f.finish(errors);
     e
+}
+
+/// A move's `balloons { ... }` block (E41, sim 113): every field is required (see `moves::Balloons`).
+fn read_balloons(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Balloons {
+    only_known(b, &[], ctx, errors);
+    let mut f = Fields::new(b, ctx, errors);
+    let bl = Balloons {
+        count: f.need("count", None, errors),
+        hp: f.need("hp", None, errors),
+        x: f.need("x", None, errors),
+        y: f.need("y", None, errors),
+        radius: f.need("radius", None, errors),
+        fuel: f.need("fuel", None, errors),
+        refill: f.need("refill", None, errors),
+        one_below: f.need("one_below", None, errors),
+        pop_vy: f.need("pop_vy", None, errors),
+    };
+    f.finish(errors);
+    bl
+}
+
+fn write_balloons(bl: &Balloons) -> Block {
+    let mut b = Block::new("balloons", None);
+    b.field("count", bl.count.to_string());
+    b.field("hp", bl.hp.show());
+    b.field("x", bl.x.show());
+    b.field("y", bl.y.show());
+    b.field("radius", bl.radius.show());
+    b.field("fuel", bl.fuel.to_string());
+    b.field("refill", bl.refill.to_string());
+    b.field("one_below", bl.one_below.to_string());
+    b.field("pop_vy", bl.pop_vy.show());
+    b
 }
 
 fn write_encase(e: &Encase) -> Block {

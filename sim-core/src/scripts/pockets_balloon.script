@@ -1,0 +1,17 @@
+// The balloon flight (up special) [E: every number]. Take-off: 1.6 of the reference's units a frame up (0.2) for 3 frames. Special
+// pressed flaps at once once 6 frames have passed since the last flap; held, every 12. A flap sets the rising speed to 1.4 (0.175) on
+// two balloons, 0.9 (0.1125) on one. Attack lets the balloons go (the special fall). Every 248 frames the flight goes on as ext8 (36).
+var since;
+since = since + 1;
+if frame < 3 {
+    set_vel(vx, 0.2);
+    since = 0;
+} else if attack_tap {
+    end();
+} else if (special_tap && since >= 6) || (special && since >= 12) {
+    since = 0;
+    let lift = 0.1125;
+    if balloons >= 2 { lift = 0.175; }
+    add_vel(0, lift - vy);
+}
+if frame >= 247 { goto(36); }
