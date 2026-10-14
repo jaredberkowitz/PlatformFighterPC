@@ -1355,6 +1355,86 @@ impl FighterParams {
     }
 }
 
+impl FighterParams {
+    /// A heavy swordsman with low jumps and a shield on his arm: the "wanderer" body of the Buckler moveset. The reference character's
+    /// attributes (ssbwiki.com, the parameter file via dragdown.wiki, ultimateframedata.com, the tenth moveset's `REFERENCE_DATA.md` in
+    /// `docs/movesets/link/`; conflict 1 resolved to the parameter file): weight 104, walk 1.247, initial dash 1.98, run 1.534,
+    /// traction 0.113, air speed 0.924, air acceleration 0.01 + 0.04, air friction 0.0038, gravity 0.096, fall 1.6 (fast 3.04), full hop
+    /// 27.8, short hop 13.38, double jump 29.0, ledge jump 33.9 (drift 0.6, the shared value). On the ground: walk acceleration 0.105 +
+    /// 0.21, run acceleration 0.044 + 0.13167, an initial dash of 12 frames, a heavy landing of 4 (3 of lag: the parameter file's
+    /// `landing_heavy_frame`). Air dodges 49 (neutral, intangible 3-30) and 69 / 82 / 108 (directional, intangible 3-21); rolls 30
+    /// forward (intangible 4-15) and 35 back, spot dodge 26 (3-17). No wall jump (the parameter file); the wall-tech jump 1.3 away, 2.6
+    /// up. The shared body size (the reference's medium size, scale 1.0) [E]. The passive shield (E14): see
+    /// [`FighterParams::wanderer_shield`].
+    pub fn wanderer() -> FighterParams {
+        let su = FighterParams::su;
+        let gu = FighterParams::gu;
+        let gravity = su(96);
+        let (burst, arc) = Self::full_hop(gravity, su(27800));
+        FighterParams {
+            walk_speed: gu(1247),
+            run_speed: gu(1534),
+            dash_speed: gu(1980),
+            walk_accel: gu(105),
+            walk_accel_stick: gu(210),
+            run_accel: gu(44),
+            run_accel_stick: FighterParams::gu_fine(13167),
+            dash_frames: 12,
+            // (The shield can cut a dash short from about half way, as for the others [E].)
+            dash_shield_frame: 6,
+            heavy_landing_lag: 3,
+            air_speed: su(924),
+            air_accel: su(10),
+            air_accel_stick: su(40),
+            air_friction: FighterParams::su_fine(380),
+            gravity,
+            max_fall_speed: su(1600),
+            fast_fall_speed: su(3040),
+            air_dodge_frames: 49,
+            air_dodge_dir_down_frames: 69,
+            air_dodge_dir_side_frames: 82,
+            air_dodge_dir_up_frames: 108,
+            air_dodge_intangible_start: 3,
+            air_dodge_intangible_end: 30,
+            air_dodge_dir_intangible_end: 21,
+            // Traction 0.113 (the doubled stopping friction of ground moves, and the dash attack's slide).
+            ground_friction: gu(226),
+            dash_attack_friction: gu(113),
+            full_hop_velocity: arc,
+            hop_burst_velocity: burst,
+            hop_burst_frames: HOP_BURST_FRAMES,
+            short_hop_velocity: Self::hop_velocity(gravity, su(13380)),
+            air_jump_velocity: Self::hop_velocity(gravity, su(29000)),
+            ledge_jump_velocity: Self::ledge_jump_velocity_for(gravity, su(33900)),
+            weight: Fx::from_int(104),
+            weapon: 9,
+            roll_frames: 30,
+            roll_back_frames: 35,
+            spot_dodge_frames: 26,
+            // No wall jump; the reference's wall-tech jump (the parameter file): 1.3 away, 2.6 up.
+            wall_jump: 0,
+            wall_jump_vx: su(1300),
+            wall_jump_vy: su(2600),
+            passive_shield: Some(Self::wanderer_shield()),
+            ..FighterParams::base()
+        }
+    }
+
+    /// The wanderer's shield (E14, the reference's passive shield: ssbwiki.com `Passive_shield` and the character's moveset notes,
+    /// 13.0.1): it stops projectiles from in front while standing, walking or crouching [R]. Its place and size are not published
+    /// (gap 2) [E]: a capsule 0.7 ahead of the feet, centred 1.0 up standing (from 0.65 to 1.35, radius 0.3: the chest and waist, below
+    /// the head and above the feet) and 0.4 up crouching (the shield brought down to the legs, so a shot at face height reaches the head).
+    pub fn wanderer_shield() -> PassiveShield {
+        PassiveShield {
+            x: Fx::from_ratio(7, 10),
+            y: Fx::ONE,
+            crouch_y: Fx::from_ratio(2, 5),
+            half_height: Fx::from_ratio(35, 100),
+            radius: Fx::from_ratio(3, 10),
+        }
+    }
+}
+
 impl StateHash for FighterParams {
     fn hash_into(&self, h: &mut StateHasher) {
         for (_, v) in self.fx_fields() {
@@ -1948,8 +2028,8 @@ impl Content {
     }
 
     /// The built-in fighters (a swordfighter, a close-range brawler, a quick rogue, an all-round tumbler, a fast, heavy sprinter, a
-    /// tall caster, a champion with a greatsword, a huge hauler with bracers and a
-    /// floaty, high-jumping bounder with a long tongue) on a main stage with platforms.
+    /// tall caster, a champion with a greatsword, a huge hauler with bracers, a floaty, high-jumping bounder with a long tongue and a
+    /// wanderer with a sword and a buckler) on a main stage with platforms.
     pub fn placeholder() -> Content {
         Content {
             fighters: vec![
@@ -1962,6 +2042,7 @@ impl Content {
                 FighterParams::champion(),
                 FighterParams::hauler(),
                 FighterParams::bounder(),
+                FighterParams::wanderer(),
             ],
             weapons: vec![
                 crate::moves::longsword(),
@@ -1973,6 +2054,7 @@ impl Content {
                 crate::moves::greatsword(),
                 crate::moves::bracers(),
                 crate::moves::clutch(),
+                crate::moves::buckler(),
             ],
             stage: Stage::placeholder(),
             rules: Ruleset::standard(),
@@ -1988,6 +2070,7 @@ impl Content {
                     "champion".to_string(),
                     "hauler".to_string(),
                     "bounder".to_string(),
+                    "wanderer".to_string(),
                 ],
                 weapons: vec![
                     "longsword".to_string(),
@@ -1999,6 +2082,7 @@ impl Content {
                     "greatsword".to_string(),
                     "bracers".to_string(),
                     "clutch".to_string(),
+                    "buckler".to_string(),
                 ],
                 stage: "proving_grounds".to_string(),
             },

@@ -85,6 +85,13 @@ fn every_fighter_has_its_reference_characters_ground_numbers() {
             [g(105), g(168), g(44), fine(10560)],
             (14, 6),
         ),
+        (
+            "wanderer",
+            FighterParams::wanderer(),
+            [g(1247), g(1980), g(1534), g(113)],
+            [g(105), g(210), g(44), fine(13167)],
+            (12, 3),
+        ),
     ];
     for (name, p, speeds, accels, (dash, heavy)) in expected {
         assert_eq!(
@@ -134,6 +141,7 @@ fn no_two_fighters_move_the_same_on_the_ground() {
         FighterParams::champion(),
         FighterParams::hauler(),
         FighterParams::bounder(),
+        FighterParams::wanderer(),
     ];
     let ground = |p: &FighterParams| {
         (
@@ -151,7 +159,7 @@ fn no_two_fighters_move_the_same_on_the_ground() {
             // (Reference characters can share an acceleration, as the tumbler and the brawler do, a traction, as the rogue, the
             // seer and the champion do (0.106), a walk speed, as the tumbler and the champion do (1.155), or an initial dash speed,
             // as the brawler and the hauler do (2.09); the bounder walks as the brawler (1.208) and dashes as the sprinter (1.98); but never
-            // their run speeds.)
+            // their run speeds; the wanderer dashes as the bounder and the sprinter (1.98).)
             assert!(
                 a.2 != b.2,
                 "fighters {i} and {j} share a run speed: {a:?} {b:?}"

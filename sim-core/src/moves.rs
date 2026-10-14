@@ -822,8 +822,8 @@ pub struct Move {
     /// stick's share of the acceleration (the base acceleration is then the body's own). `None`: `fall_drift` scales both.
     pub fall_speed: Option<Fx>,
     pub fall_accel: Option<Fx>,
-    /// A follow-up (a `next` move: the reference's two-part smash attack) keeps the charge its first part was given, so its hits
-    /// are charged too (E36). False: it starts uncharged, as every move.
+    /// A follow-up (a move reached by `next` or a script's `goto`: the reference's two-part smash attack) keeps the charge the move
+    /// before it was given, so its hits are charged too (E36). False: it starts uncharged, as every move.
     pub keep_charge: bool,
     /// Percent of the motion's vertical speed when the move started on the ground (`rise_ground`) or in the air (`rise_air`): the
     /// reference's grounded and aerial height multipliers on an up special's rise. 100 is the motion as written.
@@ -4258,6 +4258,17 @@ pub mod clutch_slots {
     pub use super::clutch::DAIR_LANDING;
 }
 
+#[path = "moves_buckler.rs"]
+mod buckler;
+pub use buckler::buckler;
+/// The Buckler's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod buckler_slots {
+    pub use super::buckler::{
+        AIR_SPIN_HITS, DAIR_BOUNCE, DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR,
+        SPIN_GRAVITY, SPIN_RISE_SPEED,
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4273,6 +4284,7 @@ mod tests {
             greatsword(),
             bracers(),
             clutch(),
+            buckler(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {

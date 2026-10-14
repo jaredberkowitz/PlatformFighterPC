@@ -1,0 +1,4 @@
+// Buckler down air. A hit when not fast falling bounces off the target: the move goes on as the after-bounce move (30 = ext2), which
+// knows from `start` which of the down air's frames it began on.
+var start;
+if hit && fast_fall == 0 { start = frame; goto(30); }

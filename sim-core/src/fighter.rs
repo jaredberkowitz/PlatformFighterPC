@@ -1756,7 +1756,7 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
     f.charge = 0;
 }
 
-/// Starts a move's `next` follow-up; one with `Move::keep_charge` keeps the charge its first part had (E36).
+/// Starts a move's follow-up (its `next`, or a script's `goto`); one with `Move::keep_charge` keeps the charge its first part had (E36).
 fn follow_up(f: &mut Fighter, weapon: &Weapon, next: u8) {
     let charge = f.charge;
     begin_attack(f, MoveId::from_index(next));
@@ -2000,7 +2000,7 @@ fn attack(
     if let Some(program) = &mv.script {
         let effects = scripting::run_fighter(program, f, world, &p.gauge);
         if let Some(next) = effects.goto {
-            begin_attack(f, MoveId::from_index(next));
+            follow_up(f, weapon, next);
             return None;
         }
         // Holding a frame is capped by the same limit as charging, so a script cannot hold a fighter forever.

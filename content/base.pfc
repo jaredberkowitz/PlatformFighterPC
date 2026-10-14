@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 91
-    hash 067c678580c1deb0
+    hash a6bca4602720e516
 }
 
 ruleset {
@@ -6184,6 +6184,1402 @@ weapon clutch {
     }
 }
 
+weapon buckler {
+    move jab {
+        total_frames 22
+        next jab2
+        next_window 9
+        next_from 9
+        hitbox { start 6 end 7 x 1.29999 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.09999 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 0.9 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.79999 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.59999 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.5 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.4 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.29999 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.09999 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 0.9 y 1 radius 0.2 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 2.29999 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 2.09999 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 2 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.9 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.79999 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.59999 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.5 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.4 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.29999 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1.09999 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 1 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        hitbox { start 6 end 7 x 0.9 y 1 radius 0.2 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 160 angle_type forward }
+        script {
+            // Buckler jab 1. Attack held (no new press) carries on into jab 2 (slot 17): from frame 10 once jab 1 has hit, from frame 14 if it
+            // has not (the reference's two continuable rows). A new press carries on from frame 10 through the move's `next_from`.
+            if attack && hit == 1 && frame >= 9 { goto(17); }
+            if attack && frame == 13 { goto(17); }
+        }
+    }
+    move ftilt {
+        total_frames 38
+        hitbox { start 14 end 14 x 1.09999 y 2.5 radius 0.5 damage 13 angle 361 bkb 55 kbg 82 priority 1 angle_type forward }
+        hitbox { start 14 end 14 x 0.4 y 1.7 radius 0.4 damage 13 angle 361 bkb 55 kbg 82 priority 2 clanks false rebounds false angle_type forward }
+        hitbox { start 14 end 14 x 0.79999 y 1.9 radius 0.29999 damage 13 angle 361 bkb 55 kbg 82 priority 3 clanks false rebounds false angle_type forward }
+        hitbox { start 15 end 18 x 2.4 y 0.79999 radius 0.4 damage 13 angle 361 bkb 55 kbg 82 angle_type forward }
+        hitbox { start 15 end 18 x 1.7 y 1 radius 0.5 damage 13 angle 361 bkb 55 kbg 82 priority 1 angle_type forward }
+        hitbox { start 15 end 18 x 0.5 y 1.4 radius 0.4 damage 13 angle 361 bkb 55 kbg 82 priority 2 clanks false rebounds false angle_type forward }
+        hitbox { start 15 end 18 x 1 y 1.29999 radius 0.29999 damage 13 angle 361 bkb 55 kbg 82 priority 3 clanks false rebounds false angle_type forward }
+    }
+    move utilt {
+        total_frames 34
+        hitbox { start 7 end 8 x -0.79999 y 3.2 radius 0.4 damage 11 angle 95 bkb 30 kbg 103 hitlag 90 angle_type position }
+        hitbox { start 7 end 8 x -0.4 y 2.5 radius 0.5 damage 11 angle 85 bkb 30 kbg 111 priority 1 hitlag 90 angle_type position }
+        hitbox { start 7 end 8 x 0 y 1.7 radius 0.29999 damage 11 angle 85 bkb 30 kbg 105 priority 2 hitlag 90 clanks false rebounds false angle_type position }
+        hitbox { start 7 end 8 x 0 y 1.9 radius 0.29999 damage 11 angle 85 bkb 30 kbg 104 priority 3 hitlag 90 clanks false rebounds false angle_type position }
+        hitbox { start 9 end 9 x 0.09999 y 3.4 radius 0.4 damage 11 angle 95 bkb 30 kbg 103 hitlag 90 angle_type position }
+        hitbox { start 9 end 9 x 0.09999 y 2.59999 radius 0.5 damage 11 angle 85 bkb 30 kbg 111 priority 1 hitlag 90 angle_type position }
+        hitbox { start 9 end 9 x 0.09999 y 1.7 radius 0.29999 damage 11 angle 85 bkb 30 kbg 105 priority 2 hitlag 90 clanks false rebounds false angle_type position }
+        hitbox { start 9 end 9 x 0.09999 y 1.9 radius 0.29999 damage 11 angle 85 bkb 30 kbg 104 priority 3 hitlag 90 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 11 x 1 y 3.2 radius 0.4 damage 11 angle 95 bkb 30 kbg 103 hitlag 90 angle_type position }
+        hitbox { start 10 end 11 x 0.59999 y 2.5 radius 0.5 damage 11 angle 85 bkb 30 kbg 111 priority 1 hitlag 90 angle_type position }
+        hitbox { start 10 end 11 x 0.09999 y 1.7 radius 0.29999 damage 11 angle 85 bkb 30 kbg 105 priority 2 hitlag 90 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 11 x 0.29999 y 1.9 radius 0.29999 damage 11 angle 85 bkb 30 kbg 104 priority 3 hitlag 90 clanks false rebounds false angle_type position }
+    }
+    move dtilt {
+        total_frames 29
+        hitbox { start 9 end 10 x 2.2 y 0.2 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 2.09999 y 0.2 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.9 y 0.2 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.79999 y 0.29999 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.7 y 0.29999 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.59999 y 0.4 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.4 y 0.4 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.29999 y 0.4 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.2 y 0.5 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 1.09999 y 0.5 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 0.9 y 0.5 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 0.79999 y 0.59999 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+        hitbox { start 9 end 10 x 0.7 y 0.59999 radius 0.29999 damage 9 angle 85 bkb 90 kbg 30 clanks false rebounds false angle_type forward }
+    }
+    move dash_attack {
+        total_frames 55
+        hitbox { start 19 end 22 x 2.5 y 0.7 radius 0.4 damage 14 angle 45 bkb 70 kbg 85 hitlag 120 shieldstun 140 angle_type forward }
+        hitbox { start 19 end 22 x 1.9 y 0.9 radius 0.4 damage 13 angle 50 bkb 85 kbg 85 priority 1 shieldstun 140 angle_type forward }
+        hitbox { start 19 end 22 x 0.5 y 1.29999 radius 0.4 damage 12 angle 55 bkb 85 kbg 77 priority 2 clanks false rebounds false shieldstun 140 angle_type forward }
+    }
+    move fsmash {
+        total_frames 49
+        charge_at 8
+        hitbox { start 16 end 17 x 1.9 y 1 radius 0.5 damage 7 angle 69 bkb 45 kbg 12 angle_type forward }
+        hitbox { start 16 end 17 x 2.59999 y 0.7 radius 0.4 damage 14 angle 361 bkb 30 kbg 100 priority 1 angle_type forward }
+        hitbox { start 16 end 17 x 0.79999 y 1.09999 radius 0.4 damage 7 angle 60 bkb 45 kbg 12 priority 2 angle_type forward }
+        hitbox { start 16 end 17 x 0.4 y 1.09999 radius 0.4 damage 7 angle 60 bkb 45 kbg 12 priority 2 angle_type forward }
+        script {
+            // Buckler forward smash, hit 1. Attack pressed on frames 23-36 (move frames 22-35) starts hit 2 (29 = ext1), which keeps this hit's
+            // charge (its `keep_charge`). A press up to 9 frames before the window (the input buffer) waits for it.
+            var pressed;
+            if attack_tap && frame >= 13 { pressed = 1; }
+            if pressed && frame >= 22 && frame <= 35 { goto(29); }
+        }
+    }
+    move usmash {
+        total_frames 76
+        charge_at 4
+        hitbox { start 9 end 12 x 0 y 2.09999 radius 0.4 damage 4 angle 105 bkb 0 kbg 100 fixed_kb 55 hitstun_add 3 sdi 50 set_weight true angle_type position }
+        hitbox {
+            start 9
+            end 12
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 4
+            angle 115
+            bkb 0
+            kbg 100
+            priority 1
+            targets aerial
+            fixed_kb 38
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 9
+            end 12
+            x 0
+            y 3.7
+            radius 0.4
+            damage 4
+            angle 115
+            bkb 0
+            kbg 100
+            priority 3
+            targets aerial
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 9
+            end 12
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 4
+            angle 107
+            bkb 0
+            kbg 100
+            priority 2
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 9
+            end 12
+            x 0
+            y 3.7
+            radius 0.4
+            damage 4
+            angle 107
+            bkb 0
+            kbg 100
+            priority 4
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox { start 13 end 14 x 0 y 2.09999 radius 0.4 damage 4 angle 105 bkb 0 kbg 100 fixed_kb 55 hitstun_add 3 sdi 50 set_weight true angle_type position }
+        hitbox {
+            start 13
+            end 14
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 4
+            angle 115
+            bkb 0
+            kbg 100
+            priority 1
+            targets aerial
+            fixed_kb 38
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 13
+            end 14
+            x 0
+            y 3.7
+            radius 0.4
+            damage 4
+            angle 135
+            bkb 0
+            kbg 100
+            priority 3
+            targets aerial
+            fixed_kb 45
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 13
+            end 14
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 4
+            angle 107
+            bkb 0
+            kbg 100
+            priority 2
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 13
+            end 14
+            x 0
+            y 3.7
+            radius 0.4
+            damage 4
+            angle 107
+            bkb 0
+            kbg 100
+            priority 4
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 24
+            end 27
+            x 0
+            y 2.09999
+            radius 0.4
+            damage 3
+            angle 105
+            bkb 0
+            kbg 100
+            group 1
+            fixed_kb 55
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 24
+            end 27
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 3
+            angle 115
+            bkb 0
+            kbg 100
+            priority 1
+            group 1
+            targets aerial
+            fixed_kb 38
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 24
+            end 27
+            x 0
+            y 3.7
+            radius 0.4
+            damage 3
+            angle 115
+            bkb 0
+            kbg 100
+            priority 3
+            group 1
+            targets aerial
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 24
+            end 27
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 3
+            angle 107
+            bkb 0
+            kbg 100
+            priority 2
+            group 1
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 24
+            end 27
+            x 0
+            y 3.7
+            radius 0.4
+            damage 3
+            angle 107
+            bkb 0
+            kbg 100
+            priority 4
+            group 1
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 28
+            end 29
+            x 0
+            y 2.09999
+            radius 0.4
+            damage 3
+            angle 105
+            bkb 0
+            kbg 100
+            group 1
+            fixed_kb 55
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 28
+            end 29
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 3
+            angle 115
+            bkb 0
+            kbg 100
+            priority 1
+            group 1
+            targets aerial
+            fixed_kb 38
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 28
+            end 29
+            x 0
+            y 3.7
+            radius 0.4
+            damage 3
+            angle 135
+            bkb 0
+            kbg 100
+            priority 3
+            group 1
+            targets aerial
+            fixed_kb 40
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 28
+            end 29
+            x 0
+            y 2.9
+            radius 0.59999
+            damage 3
+            angle 107
+            bkb 0
+            kbg 100
+            priority 2
+            group 1
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox {
+            start 28
+            end 29
+            x 0
+            y 3.7
+            radius 0.4
+            damage 3
+            angle 107
+            bkb 0
+            kbg 100
+            priority 4
+            group 1
+            targets grounded
+            fixed_kb 28
+            hitstun_add 3
+            sdi 50
+            set_weight true
+            angle_type position
+        }
+        hitbox { start 40 end 44 x 0 y 3.5 radius 0.5 damage 11 angle 80 bkb 60 kbg 101 group 2 hitstun_add 3 clanks false rebounds false angle_type position }
+        hitbox {
+            start 40
+            end 44
+            x 0
+            y 2.79999
+            radius 0.5
+            damage 11
+            angle 90
+            bkb 60
+            kbg 101
+            priority 1
+            group 2
+            hitstun_add 3
+            clanks false
+            rebounds false
+            angle_type position
+        }
+        hitbox {
+            start 40
+            end 44
+            x 0
+            y 1.79999
+            radius 0.4
+            damage 10
+            angle 90
+            bkb 60
+            kbg 101
+            priority 2
+            group 2
+            hitstun_add 3
+            clanks false
+            rebounds false
+            angle_type position
+        }
+        hitbox {
+            start 40
+            end 44
+            x -0.09999
+            y 1.4
+            radius 0.7
+            damage 9
+            angle 90
+            bkb 60
+            kbg 101
+            priority 3
+            group 2
+            hitstun_add 3
+            clanks false
+            rebounds false
+            angle_type position
+        }
+    }
+    move dsmash {
+        total_frames 55
+        charge_at 3
+        hitbox { start 11 end 12 x 1.4 y 0.4 radius 0.4 damage 16 angle 78 bkb 40 kbg 88 trip 30 angle_type position }
+        hitbox { start 11 end 12 x 2.2 y 0.4 radius 0.5 damage 17 angle 78 bkb 40 kbg 88 priority 1 trip 30 angle_type position }
+        hitbox { start 11 end 12 x 0.4 y 0.9 radius 0.4 damage 16 angle 78 bkb 40 kbg 88 priority 2 trip 30 angle_type position }
+        hitbox { start 11 end 12 x 0.79999 y 0.4 radius 0.4 damage 14 angle 78 bkb 40 kbg 88 priority 3 trip 30 angle_type position }
+        hitbox { start 23 end 24 x -1.4 y 0.4 radius 0.4 damage 12 angle 30 bkb 80 kbg 63 group 1 trip 30 angle_type position }
+        hitbox { start 23 end 24 x -2.2 y 0.4 radius 0.5 damage 12 angle 30 bkb 80 kbg 63 priority 1 group 1 trip 30 angle_type position }
+        hitbox { start 23 end 24 x -0.4 y 0.9 radius 0.4 damage 11 angle 30 bkb 80 kbg 63 priority 2 group 1 trip 30 angle_type position }
+        hitbox { start 23 end 24 x -0.79999 y 0.4 radius 0.4 damage 10 angle 30 bkb 80 kbg 63 priority 3 group 1 trip 30 angle_type position }
+    }
+    move nair {
+        total_frames 37
+        landing_lag 6
+        autocancel_before 3
+        autocancel_after 35
+        hitbox { start 6 end 7 x 0.9 y 0.7 radius 0.59999 damage 11 angle 361 bkb 22 kbg 100 angle_type position }
+        hitbox { start 6 end 7 x 0.29999 y 0.9 radius 0.59999 damage 9 angle 361 bkb 22 kbg 100 priority 1 angle_type position }
+        hitbox { start 6 end 7 x -0.29999 y 0.7 radius 0.4 damage 9 angle 361 bkb 22 kbg 100 priority 2 angle_type position }
+        hitbox { start 8 end 30 x 0.9 y 0.7 radius 0.59999 damage 6 angle 361 bkb 15 kbg 100 angle_type position }
+        hitbox { start 8 end 30 x 0.29999 y 0.9 radius 0.59999 damage 6 angle 361 bkb 15 kbg 100 priority 1 angle_type position }
+        hitbox { start 8 end 30 x -0.29999 y 0.7 radius 0.4 damage 6 angle 361 bkb 15 kbg 100 priority 2 angle_type position }
+    }
+    move fair {
+        total_frames 50
+        landing_lag 11
+        autocancel_after 52
+        hitbox { start 15 end 16 x 2.29999 y 1.4 radius 0.5 damage 8 angle 43 bkb 31 kbg 28 hitlag 80 targets grounded set_weight true angle_type forward }
+        hitbox { start 15 end 16 x 2.29999 y 1.4 radius 0.5 damage 8 angle 367 bkb 25 kbg 30 priority 1 hitlag 80 targets aerial set_weight true angle_type forward }
+        hitbox {
+            start 15
+            end 16
+            x 1.4
+            y 1.4
+            radius 0.79999
+            damage 8
+            angle 47
+            bkb 33
+            kbg 30
+            priority 2
+            hitlag 80
+            targets grounded
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 15
+            end 16
+            x 1.4
+            y 1.4
+            radius 0.79999
+            damage 8
+            angle 367
+            bkb 25
+            kbg 30
+            priority 3
+            hitlag 80
+            targets aerial
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 15
+            end 16
+            x 0.79999
+            y 1.4
+            radius 0.9
+            damage 8
+            angle 47
+            bkb 33
+            kbg 28
+            priority 4
+            hitlag 80
+            targets grounded
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 15
+            end 16
+            x 0.79999
+            y 1.4
+            radius 0.9
+            damage 8
+            angle 38
+            bkb 26
+            kbg 26
+            priority 5
+            hitlag 80
+            targets aerial
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox { start 23 end 24 x 2.2 y 1.4 radius 0.59999 damage 10 angle 44 bkb 43 kbg 120 group 1 hitlag 120 angle_type forward }
+        hitbox { start 23 end 24 x 1.4 y 1.4 radius 0.79999 damage 10 angle 44 bkb 43 kbg 120 priority 1 group 1 hitlag 120 angle_type forward }
+        hitbox {
+            start 23
+            end 24
+            x 0.79999
+            y 1.4
+            radius 0.9
+            damage 10
+            angle 44
+            bkb 43
+            kbg 120
+            priority 2
+            group 1
+            hitlag 120
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+    }
+    move bair {
+        total_frames 29
+        landing_lag 6
+        autocancel_after 28
+        hitbox { start 5 end 7 x -1.2 y 0.9 radius 0.5 damage 5 angle 73 bkb 0 kbg 100 hitlag 80 targets grounded fixed_kb 50 set_weight true angle_type backward }
+        hitbox {
+            start 5
+            end 7
+            x -1.2
+            y 0.9
+            radius 0.5
+            damage 5
+            angle 70
+            bkb 0
+            kbg 100
+            priority 1
+            hitlag 80
+            targets aerial
+            fixed_kb 36
+            set_weight true
+            angle_type backward
+        }
+        hitbox {
+            start 5
+            end 7
+            x -0.5
+            y 0.9
+            radius 0.59999
+            damage 5
+            angle 70
+            bkb 0
+            kbg 100
+            priority 2
+            hitlag 80
+            targets grounded
+            fixed_kb 50
+            set_weight true
+            angle_type backward
+        }
+        hitbox {
+            start 5
+            end 7
+            x -0.5
+            y 0.9
+            radius 0.59999
+            damage 5
+            angle 66
+            bkb 0
+            kbg 100
+            priority 3
+            hitlag 80
+            targets aerial
+            fixed_kb 36
+            set_weight true
+            angle_type backward
+        }
+        hitbox {
+            start 5
+            end 7
+            x -0.09999
+            y 1.09999
+            radius 0.59999
+            damage 5
+            angle 70
+            bkb 0
+            kbg 100
+            priority 4
+            hitlag 80
+            targets grounded
+            fixed_kb 50
+            set_weight true
+            angle_type backward
+        }
+        hitbox {
+            start 5
+            end 7
+            x -0.09999
+            y 1.09999
+            radius 0.59999
+            damage 5
+            angle 66
+            bkb 0
+            kbg 100
+            priority 5
+            hitlag 80
+            targets aerial
+            fixed_kb 36
+            set_weight true
+            angle_type backward
+        }
+        hitbox { start 14 end 16 x -1.2 y 0.9 radius 0.59999 damage 7 angle 361 bkb 45 kbg 98 group 1 angle_type backward }
+        hitbox { start 14 end 16 x -0.5 y 0.9 radius 0.59999 damage 7 angle 361 bkb 45 kbg 98 priority 1 group 1 angle_type backward }
+        hitbox { start 14 end 16 x -0.09999 y 1.09999 radius 0.7 damage 7 angle 361 bkb 45 kbg 98 priority 2 group 1 angle_type backward }
+    }
+    move uair {
+        total_frames 58
+        landing_lag 14
+        autocancel_before 10
+        autocancel_after 42
+        hitbox { start 10 end 12 x 0 y 3.09999 radius 0.59999 damage 15 angle 85 bkb 23 kbg 93 hitlag 120 angle_type position }
+        hitbox { start 10 end 12 x 0 y 2.79999 radius 0.59999 damage 15 angle 85 bkb 23 kbg 93 hitlag 120 angle_type position }
+        hitbox { start 10 end 12 x 0 y 2.4 radius 0.59999 damage 15 angle 85 bkb 23 kbg 93 hitlag 120 angle_type position }
+        hitbox { start 10 end 12 x 0 y 2.09999 radius 0.59999 damage 15 angle 85 bkb 23 kbg 93 hitlag 120 angle_type position }
+        hitbox { start 13 end 39 x 0 y 3.09999 radius 0.59999 damage 13 angle 85 bkb 18 kbg 88 hitlag 120 angle_type position }
+        hitbox { start 13 end 39 x 0 y 2.79999 radius 0.59999 damage 13 angle 85 bkb 18 kbg 88 hitlag 120 angle_type position }
+        hitbox { start 13 end 39 x 0 y 2.4 radius 0.59999 damage 13 angle 85 bkb 18 kbg 88 hitlag 120 angle_type position }
+        hitbox { start 13 end 39 x 0 y 2.09999 radius 0.59999 damage 13 angle 85 bkb 18 kbg 88 hitlag 120 angle_type position }
+    }
+    move dair {
+        total_frames 78
+        landing_lag 19
+        autocancel_before 9
+        autocancel_after 64
+        hitbox { start 13 end 18 x 0 y 0.09999 radius 0.5 damage 18 angle 270 bkb 30 kbg 80 hitlag 120 targets aerial angle_type position }
+        hitbox { start 13 end 18 x 0 y 0.09999 radius 0.5 damage 18 angle 60 bkb 30 kbg 78 priority 1 hitlag 120 targets grounded angle_type position }
+        hitbox { start 19 end 63 x 0 y 0.2 radius 0.5 damage 15 angle 60 bkb 30 kbg 80 hitlag 120 angle_type position }
+        hitbox { start 19 end 63 x 0 y 0.5 radius 0.5 damage 15 angle 60 bkb 30 kbg 80 hitlag 120 angle_type position }
+        script {
+            // Buckler down air. A hit when not fast falling bounces off the target: the move goes on as the after-bounce move (30 = ext2), which
+            // knows from `start` which of the down air's frames it began on.
+            var start;
+            if hit && fast_fall == 0 { start = frame; goto(30); }
+        }
+    }
+    move neutral_special {
+        total_frames 51
+        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
+        projectile {
+            frame 15
+            x 2
+            y 1.2
+            speed 0.375
+            life 35
+            end_damage 6
+            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+        }
+    }
+    move side_special {
+        total_frames 53
+        helpless_after true
+        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
+        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
+        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
+        script {
+            // Side special (dash): the stick at the start of the dash aims it a little up or down.
+            var rise;
+            if frame == 17 {
+                rise = 0;
+                if stick_y > 0.4 { rise = 0.3; }
+                if stick_y < -0.4 { rise = -0.3; }
+            }
+            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
+            if frame == 28 { set_vel(0, 0); }
+        }
+    }
+    move up_special {
+        total_frames 75
+        air_version ext0
+        charge_bonus 60
+        hitbox { start 6 end 6 x 0.79999 y 0.9 radius 0.5 damage 14 angle 45 bkb 60 kbg 88 hitlag 140 clanks false rebounds false angle_type position }
+        hitbox { start 6 end 6 x 1.29999 y 0.9 radius 0.4 damage 14 angle 45 bkb 60 kbg 88 priority 1 hitlag 140 clanks false rebounds false angle_type position }
+        hitbox { start 6 end 6 x 2 y 0.9 radius 0.4 damage 11.2 angle 45 bkb 60 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 7 end 7 x 0.79999 y 0.9 radius 0.5 damage 14 angle 45 bkb 60 kbg 88 hitlag 140 clanks false rebounds false angle_type position }
+        hitbox { start 7 end 7 x 1.29999 y 0.9 radius 0.4 damage 14 angle 45 bkb 60 kbg 88 priority 1 hitlag 140 clanks false rebounds false angle_type position }
+        hitbox { start 7 end 7 x 2 y 0.9 radius 0.4 damage 11.2 angle 45 bkb 60 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 8 end 8 x -0.79999 y 0.9 radius 0.5 damage 12 angle 43 bkb 52 kbg 88 clanks false rebounds false angle_type position }
+        hitbox { start 8 end 8 x -1.29999 y 0.9 radius 0.4 damage 12 angle 43 bkb 52 kbg 88 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 8 end 8 x -2 y 0.9 radius 0.4 damage 9.59999 angle 43 bkb 52 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 9 end 9 x -0.79999 y 0.9 radius 0.5 damage 12 angle 43 bkb 52 kbg 88 clanks false rebounds false angle_type position }
+        hitbox { start 9 end 9 x -1.29999 y 0.9 radius 0.4 damage 12 angle 43 bkb 52 kbg 88 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 9 end 9 x -2 y 0.9 radius 0.4 damage 9.59999 angle 43 bkb 52 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 10 x 0.79999 y 0.9 radius 0.5 damage 12 angle 43 bkb 52 kbg 88 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 10 x 1.29999 y 0.9 radius 0.4 damage 12 angle 43 bkb 52 kbg 88 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 10 end 10 x 2 y 0.9 radius 0.4 damage 9.59999 angle 43 bkb 52 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 11 end 11 x 0.79999 y 0.9 radius 0.5 damage 12 angle 43 bkb 52 kbg 88 clanks false rebounds false angle_type position }
+        hitbox { start 11 end 11 x 1.29999 y 0.9 radius 0.4 damage 12 angle 43 bkb 52 kbg 88 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 11 end 11 x 2 y 0.9 radius 0.4 damage 9.59999 angle 43 bkb 52 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 12 end 12 x -0.79999 y 0.9 radius 0.5 damage 12 angle 43 bkb 52 kbg 88 clanks false rebounds false angle_type position }
+        hitbox { start 12 end 12 x -1.29999 y 0.9 radius 0.4 damage 12 angle 43 bkb 52 kbg 88 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 12 end 12 x -2 y 0.9 radius 0.4 damage 9.59999 angle 43 bkb 52 kbg 88 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 13 end 13 x -0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 13 end 13 x -1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 13 end 13 x -2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 14 end 14 x 0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 14 end 14 x 1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 14 end 14 x 2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 15 end 15 x 0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 15 end 15 x 1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 15 end 15 x 2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 16 x -0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 16 x -1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 16 x -2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 17 end 17 x -0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 17 end 17 x -1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 17 end 17 x -2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 18 end 18 x 0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 18 end 18 x 1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 18 end 18 x 2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 19 end 19 x 0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 19 end 19 x 1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 19 end 19 x 2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 20 x -0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 20 x -1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 20 x -2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 21 end 21 x -0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 21 end 21 x -1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 21 end 21 x -2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 22 end 22 x 0.79999 y 0.9 radius 0.5 damage 9 angle 43 bkb 48 kbg 84 clanks false rebounds false angle_type position }
+        hitbox { start 22 end 22 x 1.29999 y 0.9 radius 0.4 damage 9 angle 43 bkb 48 kbg 84 priority 1 clanks false rebounds false angle_type position }
+        hitbox { start 22 end 22 x 2 y 0.9 radius 0.4 damage 7.2 angle 43 bkb 48 kbg 84 priority 2 clanks false rebounds false angle_type position }
+        hitbox { start 23 end 23 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 23 end 23 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 23 end 23 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 24 end 24 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 24 end 24 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 24 end 24 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 25 end 25 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 25 end 25 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 25 end 25 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 26 end 26 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 26 end 26 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 26 end 26 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 27 end 27 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 27 end 27 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 27 end 27 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 28 end 28 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 28 end 28 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 28 end 28 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 29 end 29 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 29 end 29 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 29 end 29 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 30 end 30 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 30 end 30 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 30 end 30 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 31 end 31 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 31 end 31 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 31 end 31 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 32 end 32 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 32 end 32 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 32 end 32 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 33 end 33 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 33 end 33 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 33 end 33 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 34 end 34 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 34 end 34 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 34 end 34 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 35 end 35 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 35 end 35 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 35 end 35 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 36 end 36 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 36 end 36 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 36 end 36 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 37 end 37 x -0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 37 end 37 x -1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 37 end 37 x -2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        hitbox { start 38 end 38 x 0.79999 y 0.9 radius 0.5 damage 7 angle 361 bkb 20 kbg 82 angle_type position }
+        hitbox { start 38 end 38 x 1.29999 y 0.9 radius 0.4 damage 7 angle 361 bkb 20 kbg 82 priority 1 angle_type position }
+        hitbox { start 38 end 38 x 2 y 0.9 radius 0.4 damage 5.59999 angle 361 bkb 20 kbg 82 priority 2 angle_type position }
+        script {
+            // Buckler up special on the ground (the spin): held special holds it on frame 3 (move frame 2), up to the charge limit (60); the
+            // hit then deals more damage the longer it was held (the move's `charge_bonus`).
+            if frame == 2 && special { stall(); }
+        }
+    }
+    move down_special {
+        total_frames 29
+        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 angle_type position }
+        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        script {
+            // Down special: intangible on frames 5 to 8, before the reflector comes up.
+            if frame == 4 { intangible(4); }
+        }
+    }
+    move jab2 {
+        total_frames 24
+        next jab3
+        next_window 9
+        next_from 7
+        hitbox { start 4 end 5 x 1.2 y 1.09999 radius 0.4 damage 3 angle 361 bkb 25 kbg 25 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.09999 y 1.09999 radius 0.4 damage 3 angle 361 bkb 25 kbg 25 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.79999 y 1.09999 radius 0.4 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.59999 y 1.09999 radius 0.4 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.29999 y 1.09999 radius 0.4 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.09999 y 1.09999 radius 0.4 damage 3 angle 361 bkb 25 kbg 25 priority 1 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 2.29999 y 1.09999 radius 0.4 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 2.09999 y 1.09999 radius 0.4 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.79999 y 1.09999 radius 0.4 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.59999 y 1.09999 radius 0.4 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.29999 y 1.09999 radius 0.4 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 120 angle_type forward }
+        hitbox { start 4 end 5 x 1.09999 y 1.09999 radius 0.4 damage 3 angle 180 bkb 20 kbg 15 priority 2 hitlag 120 angle_type forward }
+        script {
+            // Buckler jab 2. Attack held carries on into jab 3 (slot 18): from frame 8 once jab 2 has hit, from frame 13 if it has not. A new
+            // press carries on from frame 8 through the move's `next_from`.
+            if attack && hit == 1 && frame >= 7 { goto(18); }
+            if attack && frame == 12 { goto(18); }
+        }
+    }
+    move jab3 {
+        total_frames 33
+        hitbox { start 5 end 6 x 1.29999 y 1 radius 0.59999 damage 4 angle 30 bkb 70 kbg 70 hitlag 200 angle_type forward }
+        hitbox { start 5 end 6 x 1.9 y 1 radius 0.59999 damage 4 angle 30 bkb 70 kbg 70 priority 1 hitlag 200 angle_type forward }
+        hitbox { start 5 end 6 x 2.5 y 1 radius 0.5 damage 4 angle 30 bkb 70 kbg 70 priority 2 hitlag 200 angle_type forward }
+    }
+    move grab {
+        total_frames 33
+        hitbox { start 5 end 6 x 0.5 y 1 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 5 end 6 x 0.7 y 1 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 5 end 6 x 1 y 1 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+    move dash_grab {
+        total_frames 41
+        hitbox { start 8 end 9 x 0.5 y 0.9 radius 0.29999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 8 end 9 x 0.7 y 0.9 radius 0.29999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 8 end 9 x 0.79999 y 0.9 radius 0.29999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 8 end 9 x 1 y 0.9 radius 0.29999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 8 end 9 x 1.2 y 0.9 radius 0.29999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+    move pummel {
+        total_frames 6
+        hitbox {
+            start 1
+            end 1
+            x 0.9
+            y 0.9
+            radius 0.59999
+            damage 1.29999
+            angle 361
+            bkb 0
+            kbg 100
+            kind pummel
+            hitlag 210
+            fixed_kb 30
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+    }
+    move fthrow {
+        total_frames 36
+        hitbox { start 11 end 11 x 1.29999 y 1.09999 radius 1 damage 3 angle 361 bkb 0 kbg 0 kind pummel clanks false rebounds false }
+        hitbox { start 12 end 12 x 1.29999 y 1.09999 radius 1 damage 2.5 angle 33 bkb 75 kbg 85 group 1 kind throw }
+    }
+    move bthrow {
+        total_frames 37
+        hitbox { start 11 end 11 x 1.29999 y 1.09999 radius 1 damage 3 angle 361 bkb 0 kbg 0 kind pummel clanks false rebounds false }
+        hitbox { start 13 end 13 x 1.29999 y 1.09999 radius 1 damage 2.5 angle 130 bkb 67 kbg 110 group 1 kind throw }
+    }
+    move uthrow {
+        total_frames 48
+        hitbox { start 25 end 25 x 1.29999 y 1.09999 radius 1 damage 5 angle 361 bkb 0 kbg 0 kind pummel clanks false rebounds false }
+        hitbox { start 27 end 27 x 1.29999 y 1.09999 radius 1 damage 2 angle 90 bkb 24 kbg 230 group 1 kind throw }
+    }
+    move dthrow {
+        total_frames 47
+        hitbox { start 21 end 21 x 1.29999 y 1.09999 radius 1 damage 3 angle 361 bkb 0 kbg 0 kind pummel clanks false rebounds false }
+        hitbox { start 23 end 23 x 1.29999 y 1.09999 radius 1 damage 3 angle 83 bkb 60 kbg 125 group 1 kind throw }
+    }
+    move ledge_attack {
+        total_frames 54
+        intangible 22
+        hitbox { start 19 end 21 x 1.9 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x 1.59999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x 1.29999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x 0.9 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x 0.59999 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x 0.2 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x -0.2 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+        hitbox { start 19 end 21 x -0.5 y 0.59999 radius 0.59999 damage 9 angle 45 bkb 90 kbg 20 clanks false rebounds false angle_type forward }
+    }
+    move get_up_attack {
+        total_frames 44
+        intangible 22
+        hitbox { start 16 end 17 x -1.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 17 x -1.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 17 x -1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 17 x -0.9 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 16 end 17 x -0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 21 x 2.09999 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 21 x 1.79999 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 21 x 1.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 21 x 1.2 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 21 x 0.79999 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+        hitbox { start 20 end 21 x 0.5 y 0.59999 radius 0.59999 damage 7 angle 48 bkb 80 kbg 48 group 1 shield_damage 214 clanks false rebounds false angle_type position }
+    }
+    move ext0 {
+        total_frames 90
+        landing_lag 30
+        helpless_after true
+        ledge_front_from 14
+        ledge_back_from 33
+        fall_landing_lag 30
+        fall_speed 0.10498
+        fall_accel 0.00311
+        hitbox {
+            start 7
+            end 8
+            x 1.79999
+            y 1.29999
+            radius 0.79999
+            damage 4
+            angle 367
+            bkb 0
+            kbg 100
+            fixed_kb 107
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 7
+            end 8
+            x 1.4
+            y 1.29999
+            radius 0.79999
+            damage 4
+            angle 367
+            bkb 0
+            kbg 100
+            fixed_kb 107
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 7
+            end 8
+            x 1
+            y 1.29999
+            radius 0.79999
+            damage 4
+            angle 367
+            bkb 0
+            kbg 100
+            fixed_kb 107
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 11
+            end 12
+            x -1.5
+            y 1.4
+            radius 0.59999
+            damage 2
+            angle 145
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 11
+            end 12
+            x -1.09999
+            y 1.4
+            radius 0.59999
+            damage 2
+            angle 145
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 15
+            end 16
+            x 1.9
+            y 0.79999
+            radius 0.79999
+            damage 2
+            angle 367
+            bkb 0
+            kbg 100
+            fixed_kb 107
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 15
+            end 16
+            x 1.4
+            y 0.79999
+            radius 0.79999
+            damage 2
+            angle 367
+            bkb 0
+            kbg 100
+            fixed_kb 107
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 15
+            end 16
+            x 1
+            y 0.9
+            radius 0.79999
+            damage 2
+            angle 367
+            bkb 0
+            kbg 100
+            fixed_kb 107
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 18
+            end 19
+            x -1.59999
+            y 1.4
+            radius 0.59999
+            damage 2
+            angle 145
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 18
+            end 19
+            x -1.09999
+            y 1.4
+            radius 0.59999
+            damage 2
+            angle 145
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 21
+            end 22
+            x 1.9
+            y 1.29999
+            radius 0.79999
+            damage 2
+            angle 83
+            bkb 0
+            kbg 100
+            fixed_kb 71
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 21
+            end 22
+            x 1.4
+            y 1.29999
+            radius 0.79999
+            damage 2
+            angle 83
+            bkb 0
+            kbg 100
+            fixed_kb 71
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 21
+            end 22
+            x 1
+            y 1.29999
+            radius 0.79999
+            damage 2
+            angle 83
+            bkb 0
+            kbg 100
+            fixed_kb 71
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 25
+            end 26
+            x -1.29999
+            y 1.29999
+            radius 0.59999
+            damage 2
+            angle 150
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 25
+            end 26
+            x -1.7
+            y 1.29999
+            radius 0.59999
+            damage 2
+            angle 150
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 30
+            end 31
+            x 1.59999
+            y 1.79999
+            radius 0.9
+            damage 2
+            angle 69
+            bkb 0
+            kbg 100
+            fixed_kb 62
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 30
+            end 31
+            x 1
+            y 1.59999
+            radius 0.9
+            damage 2
+            angle 69
+            bkb 0
+            kbg 100
+            fixed_kb 62
+            sdi 30
+            set_weight true
+            clanks false
+            rebounds false
+            angle_type forward
+        }
+        hitbox {
+            start 37
+            end 38
+            x -1.29999
+            y 1.29999
+            radius 0.59999
+            damage 2
+            angle 160
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox {
+            start 37
+            end 38
+            x -1.7
+            y 1.29999
+            radius 0.59999
+            damage 2
+            angle 160
+            bkb 0
+            kbg 100
+            fixed_kb 95
+            sdi 30
+            clanks false
+            rebounds false
+            posvec_x 1.25
+            posvec_y 2.5
+            posvec_frames 10
+            angle_type backward
+        }
+        hitbox { start 46 end 46 x 1.79999 y 0.9 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        hitbox { start 46 end 46 x 0.9 y 1.2 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        hitbox { start 47 end 47 x 1.9 y 1.59999 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        hitbox { start 47 end 47 x 1.4 y 1.59999 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        hitbox { start 47 end 47 x 0.9 y 1.59999 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        hitbox { start 48 end 48 x 1.59999 y 2.4 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        hitbox { start 48 end 48 x 0.9 y 1.79999 radius 0.9 damage 4 angle 361 bkb 30 kbg 200 group 1 hitlag 200 clanks false rebounds false angle_type forward }
+        air { from 0 to 46 gravity 0.00659 speed 0.05774 accel_stick 0.0275 }
+        air { from 47 to 255 gravity 0.00659 speed 0.09999 accel_stick 0.00124 }
+        script {
+            // Buckler up special in the air (the rising spin): the rise starts at 2.4 of the reference's units a frame (0.3) on the first frame
+            // the script runs [E: frame], keeping the horizontal speed; the spin hits share one hit group, re-armed just before each (reference
+            // frames 12, 16, 19, 22, 26, 31 and 38).
+            if frame == 1 { set_vel(vx, 0.3); }
+            if frame == 11 || frame == 15 || frame == 18 || frame == 21 || frame == 25 || frame == 30 || frame == 37 { rehit(); }
+        }
+    }
+    move ext1 {
+        total_frames 59
+        keep_charge true
+        hitbox { start 9 end 10 x 2.29999 y 1.59999 radius 0.59999 damage 13 angle 48 bkb 85 kbg 89 hitlag 150 angle_type forward }
+        hitbox { start 9 end 10 x 1.59999 y 1.4 radius 0.59999 damage 13 angle 48 bkb 85 kbg 89 priority 1 hitlag 150 angle_type forward }
+        hitbox { start 9 end 10 x 0.5 y 1.29999 radius 0.4 damage 12 angle 48 bkb 85 kbg 89 priority 2 hitlag 150 angle_type forward }
+        hitbox { start 9 end 10 x 0.4 y 1.09999 radius 0.4 damage 12 angle 48 bkb 85 kbg 89 priority 3 hitlag 150 clanks false rebounds false angle_type forward }
+    }
+    move ext2 {
+        total_frames 78
+        landing_lag 19
+        hitbox { start 29 end 49 x 0.09999 y 0.09999 radius 0.5 damage 11 angle 65 bkb 50 kbg 80 hitlag 120 angle_type position }
+        script {
+            // Buckler down air after a bounce (ext2): the vertical speed is set to 1.33 of the reference's units [R] on its first frame that
+            // moves; its box comes back on its frames 29 on (30 after the hit). Another hit when not fast falling bounces again. At the down
+            // air's move frame 64 (just past the end of its box) it goes on as its last frames (31 = ext3).
+            var start;
+            if frame == 1 { set_vel(vx, 0.16625); }
+            if hit && fast_fall == 0 { start = start + frame; goto(30); }
+            if start + frame >= 64 { goto(31); }
+        }
+    }
+    move ext3 {
+        total_frames 14
+        autocancel_after 0
+        script {
+            // (no logic: the down air's last frames)
+        }
+    }
+    move pivot_grab {
+        total_frames 36
+        hitbox { start 9 end 10 x 0.5 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 9 end 10 x 0.7 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 9 end 10 x 1 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 9 end 10 x 1.2 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 9 end 10 x 1.4 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+        hitbox { start 9 end 10 x 1.7 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+}
+
 fighter duelist {
     weapon longsword
     walk_speed 0.19687
@@ -7238,6 +8634,124 @@ fighter bounder {
     weight 104
     air_jump_turns true
     air_jump_armor { start 0 end 43 kind knockback threshold 120 subtract true min_kb 60 }
+}
+
+fighter wanderer {
+    weapon buckler
+    walk_speed 0.15587
+    run_speed 0.19174
+    dash_speed 0.2475
+    dash_initial_speed 0.11249
+    dash_accel 0.03749
+    dash_brake 0.06499
+    dash_frames 12
+    dash_reverse_frames 15
+    dash_turn_delay 2
+    dash_shield_frame 6
+    turn_frames 6
+    run_turn_frames 12
+    walk_accel 0.01312
+    walk_accel_stick 0.02625
+    run_accel 0.0055
+    run_accel_stick 0.01645
+    ground_friction 0.02824
+    run_decel 0.00749
+    landing_friction 0.00499
+    dash_attack_friction 0.01411
+    air_speed 0.1155
+    air_accel 0.00124
+    air_accel_stick 0.00499
+    air_friction 0.00047
+    gravity 0.012
+    max_fall_speed 0.2
+    fast_fall_speed 0.37999
+    jump_squat_frames 3
+    full_hop_velocity 0.19974
+    hop_burst_velocity 0.4778
+    hop_burst_frames 4
+    short_hop_velocity 0.20633
+    air_jumps 1
+    air_jump_velocity 0.30092
+    landing_lag 2
+    heavy_landing_lag 3
+    input_buffer 9
+    air_dodge_frames 49
+    air_dodge_speed 0.4
+    air_dodge_decay 0.9
+    air_dodge_windup 5
+    air_dodge_sling 0.25
+    air_dodge_landing_lag 10
+    air_dodge_buffer 6
+    air_dodge_dir_down_frames 69
+    air_dodge_dir_side_frames 82
+    air_dodge_dir_up_frames 108
+    air_dodge_intangible_start 3
+    air_dodge_intangible_end 30
+    air_dodge_dir_intangible_end 21
+    air_dodge_fall_frame 20
+    air_dodge_ledge_frame 24
+    air_dodge_dir_landing_min 11
+    air_dodge_landing_step 4
+    ground_assist_dist 0.4
+    wavedash_min_down 0.2
+    waveland_speed 0.34999
+    waveland_friction 0.9
+    waveland_lag 19
+    shield_drop_buffer 4
+    shield_drop_recovery 6
+    shield_release_frames 11
+    roll_frames 30
+    roll_back_frames 35
+    roll_speed 0.14
+    roll_move_start 5
+    roll_move_end 24
+    roll_intangible_start 4
+    roll_intangible_end 15
+    spot_dodge_frames 26
+    spot_intangible_start 3
+    spot_intangible_end 17
+    shield_drop_speed 0.06
+    platform_ignore_frames 8
+    ledge_reach_x 2.2
+    ledge_min_drop 0.9
+    ledge_reach_down 2.59999
+    ledge_hang_dx 0.79999
+    ledge_hang_dy 1.79999
+    ledge_hang_max 390
+    ledge_regrab_cooldown 30
+    ledge_invuln_airtime 60
+    ledge_invuln_damage 44
+    ledge_invuln_min 4
+    ledge_grab_frames 19
+    ledge_grab_limit 6
+    ledge_reach_back_x 1.31999
+    ledge_getup_frames 34
+    ledge_getup_intangible 33
+    ledge_roll_frames 45
+    ledge_roll_intangible 26
+    ledge_jump_frames 14
+    ledge_jump_intangible 12
+    ledge_option_decay_2 80
+    ledge_option_decay_3 50
+    ledge_getup_dx 1
+    ledge_roll_dx 3
+    ledge_jump_velocity 0.38657
+    ledge_jump_dx 0.075
+    ledge_trump_vx 0.125
+    ledge_trump_vy 0.06667
+    wall_jump 0
+    wall_jump_vx 0.16249
+    wall_jump_vy 0.325
+    ecb_half_width 0.79999
+    ecb_height 2.2
+    ecb_side_height 1.09999
+    hitbox_scale 1
+    crouch_height 0.59999
+    helpless_landing_lag 20
+    ledge_attack_frames 55
+    ledge_attack_dx 1.5
+    weight 104
+    passive_shield { x 0.7 y 1 crouch_y 0.4 half_height 0.34999 radius 0.29999 }
 }
 
 stage proving_grounds {

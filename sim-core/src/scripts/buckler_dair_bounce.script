@@ -1,0 +1,7 @@
+// Buckler down air after a bounce (ext2): the vertical speed is set to 1.33 of the reference's units [R] on its first frame that
+// moves; its box comes back on its frames 29 on (30 after the hit). Another hit when not fast falling bounces again. At the down
+// air's move frame 64 (just past the end of its box) it goes on as its last frames (31 = ext3).
+var start;
+if frame == 1 { set_vel(vx, 0.16625); }
+if hit && fast_fall == 0 { start = start + frame; goto(30); }
+if start + frame >= 64 { goto(31); }
