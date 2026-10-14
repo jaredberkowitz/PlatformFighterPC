@@ -1878,6 +1878,10 @@ pub struct Move {
     /// `dodge_stale_roll_shift` frames later when fully stale (in between by level). False (the default): not a dodge. (Its length
     /// is not stretched: a limit.)
     pub dodge_stale: bool,
+    /// When the move's armor works (E57, sim 125: the reference's wing armor on the smash attacks), as a hitbox's `mode`: [`MODE_ANY`]
+    /// (the default: always), [`MODE_PLAIN`] or [`MODE_POWERED`] (only in an attack begun powered: `Fighter::move_powered`, the gauge's
+    /// mode or a wing out).
+    pub armor_mode: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1976,6 +1980,7 @@ impl Move {
             gauge_gain: 1000,
             tether: None,
             dodge_stale: false,
+            armor_mode: MODE_ANY,
             script: None,
             projectile_script: None,
         }
@@ -2577,6 +2582,7 @@ impl StateHash for Weapon {
                 None => h.write_bool(false),
             }
             h.write_bool(m.dodge_stale);
+            h.write_u8(m.armor_mode);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -5591,6 +5597,14 @@ pub mod dagger_slots {
     pub use super::dagger::slots::*;
 }
 
+#[path = "moves_nodachi.rs"]
+mod nodachi;
+pub use nodachi::nodachi;
+/// The Nodachi's follow-up slots (which `ext` slot holds which part), for tests and tools.
+pub mod nodachi_slots {
+    pub use super::nodachi::slots::*;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5610,6 +5624,7 @@ mod tests {
             pockets(),
             popgun(),
             dagger(),
+            nodachi(),
         ] {
             assert_eq!(w.moves.len(), MoveId::COUNT);
             for (i, m) in w.moves.iter().enumerate() {

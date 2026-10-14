@@ -2418,8 +2418,8 @@ pub fn begin_attack(f: &mut Fighter, id: MoveId) {
         f.locked = false;
         f.lock = Vec2::ZERO;
         // Whether the gauge's powered mode runs as the attack begins picks its `Hitbox::mode` boxes to its end (E52); the armor's
-        // record of a withstood hit starts again (E55).
-        f.move_powered = f.gauge_mode > 0;
+        // record of a withstood hit starts again (E55). A wing out (E57) powers the attack too (its `Move::armor_mode` armor).
+        f.move_powered = f.gauge_mode > 0 || crate::wing::out(f);
         f.withstood = 0;
     }
     f.move_id = id as u8;

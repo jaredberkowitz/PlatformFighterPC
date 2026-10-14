@@ -5,7 +5,8 @@
 
 use crate::tree::{Block, Item};
 use sim_core::content::{
-    Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
+    Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook, Wing,
+    WingRow, WING_POINTS,
 };
 use sim_core::moves::{
     AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, Curse,
@@ -264,6 +265,7 @@ macro_rules! params_io {
                 air_jump_armor: base.and_then(|b| b.air_jump_armor),
                 air_jump_turns: false,
                 passive_shield: base.and_then(|b| b.passive_shield),
+                wing: base.and_then(|b| b.wing),
                 air_jump_drift: 100,
                 item_throws: base.map_or(sim_core::content::ItemThrows::STANDARD, |b| b.item_throws),
                 weapon,
@@ -1043,6 +1045,20 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.armor_hitlag = f.or("armor_hitlag", 100, errors);
     m.gauge_gain = f.or("gauge_gain", 1000, errors);
     m.dodge_stale = f.or("dodge_stale", false, errors);
+    // Sim 125 (E57): when the move's armor works, by the attack's powered start (the wing's smash armor).
+    m.armor_mode = match f.raw("armor_mode") {
+        None | Some(("any", _)) => MODE_ANY,
+        Some(("plain", _)) => MODE_PLAIN,
+        Some(("powered", _)) => MODE_POWERED,
+        Some((other, line)) => {
+            err(
+                errors,
+                line,
+                format!("armor_mode must be any, plain or powered, not `{other}`"),
+            );
+            MODE_ANY
+        }
+    };
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -1924,6 +1940,11 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if m.dodge_stale {
         b.field("dodge_stale", "true");
     }
+    match m.armor_mode {
+        MODE_PLAIN => b.field("armor_mode", "plain"),
+        MODE_POWERED => b.field("armor_mode", "powered"),
+        _ => {}
+    }
     if let Some(t) = &m.tether {
         let mut c = Block::new("tether", None);
         c.field("from", t.from.to_string());
@@ -2644,7 +2665,13 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
         let context = format!("fighter `{name}`");
         only_known(
             b,
-            &["gauge", "air_jump_armor", "passive_shield", "item_throws"],
+            &[
+                "gauge",
+                "air_jump_armor",
+                "passive_shield",
+                "item_throws",
+                "wing",
+            ],
             &context,
             errors,
         );
@@ -2742,6 +2769,10 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
                 drop: f.need("drop", None, errors),
             };
             f.finish(errors);
+        }
+        // The wing (sim 125, E57): a `wing { ... }` block, or the inherited fighter's, or none.
+        if let Some(wb) = at_most_one(children(b, "wing"), "wing", &context, errors) {
+            params.wing = Some(read_wing(wb, &format!("the wing of {context}"), errors));
         }
         fighters.push((name.to_string(), params));
     }
@@ -3064,6 +3095,96 @@ fn write_gauge(g: &Gauge) -> Block {
     b
 }
 
+/// A fighter's `wing { ... }` block (E57, sim 125): `points_m2 points_m1 points_0 points_p1 points_p2 per_dealt` are required;
+/// `per_dealt_crowd` defaults to `per_dealt`, `ko_points` to 0, `jumps` to 0 and the percents (`power` and the body's numbers) to 100.
+/// Each `point { stocks diff percent }` child is one point of the start table's row for that stock difference (-2 to 2), in order.
+fn read_wing(block: &Block, ctx: &str, errors: &mut Vec<String>) -> Wing {
+    only_known(block, &["point"], ctx, errors);
+    let mut f = Fields::new(block, ctx, errors);
+    let per_dealt: Fx = f.need("per_dealt", None, errors);
+    let mut w = Wing {
+        rows: [WingRow::EMPTY; 5],
+        points: [Fx::ZERO; 5],
+        per_dealt: [per_dealt, f.or("per_dealt_crowd", per_dealt, errors)],
+        ko_points: f.or("ko_points", Fx::ZERO, errors),
+        power: f.or("power", 100, errors),
+        jumps: f.or("jumps", 0, errors),
+        walk: f.or("walk", 100, errors),
+        dash: f.or("dash", 100, errors),
+        run: f.or("run", 100, errors),
+        run_accel: f.or("run_accel", 100, errors),
+        traction: f.or("traction", 100, errors),
+        air_speed: f.or("air_speed", 100, errors),
+        air_accel: f.or("air_accel", 100, errors),
+        air_accel_stick: f.or("air_accel_stick", 100, errors),
+        air_friction: f.or("air_friction", 100, errors),
+        gravity: f.or("gravity", 100, errors),
+        fall: f.or("fall", 100, errors),
+    };
+    for (i, name) in Wing::ROWS.iter().enumerate() {
+        w.points[i] = f.need(&format!("points_{name}"), None, errors);
+    }
+    f.finish(errors);
+    for p in children(block, "point") {
+        let pctx = format!("a point of {ctx}");
+        let mut pf = Fields::new(p, &pctx, errors);
+        let stocks: i16 = pf.need("stocks", None, errors);
+        let diff: i16 = pf.need("diff", None, errors);
+        let percent: Fx = pf.need("percent", None, errors);
+        pf.finish(errors);
+        if !(-2..=2).contains(&stocks) {
+            err(errors, p.line, format!("{pctx}: stocks must be -2 to 2"));
+            continue;
+        }
+        let row = &mut w.rows[(stocks + 2) as usize];
+        let n = usize::from(row.count);
+        if n >= WING_POINTS {
+            err(
+                errors,
+                p.line,
+                format!("{pctx}: a row holds at most {WING_POINTS} points"),
+            );
+            continue;
+        }
+        row.diff[n] = diff;
+        row.percent[n] = percent;
+        row.count += 1;
+    }
+    w
+}
+
+fn write_wing(w: &Wing) -> Block {
+    let mut b = Block::new("wing", None);
+    for (i, name) in Wing::ROWS.iter().enumerate() {
+        b.field(&format!("points_{name}"), w.points[i].show());
+    }
+    b.field("per_dealt", w.per_dealt[0].show());
+    if w.per_dealt[1] != w.per_dealt[0] {
+        b.field("per_dealt_crowd", w.per_dealt[1].show());
+    }
+    if w.ko_points != Fx::ZERO {
+        b.field("ko_points", w.ko_points.show());
+    }
+    if w.jumps != 0 {
+        b.field("jumps", w.jumps.to_string());
+    }
+    for (name, p) in w.percents() {
+        if p != 100 {
+            b.field(name, p.to_string());
+        }
+    }
+    for (i, row) in w.rows.iter().enumerate() {
+        for n in 0..usize::from(row.count).min(WING_POINTS) {
+            let mut c = Block::new("point", None);
+            c.field("stocks", (i as i32 - 2).to_string());
+            c.field("diff", row.diff[n].to_string());
+            c.field("percent", row.percent[n].show());
+            b.push(c);
+        }
+    }
+    b
+}
+
 /// A fighter section with every parameter written out (and its gauge, when the body has one).
 pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block {
     let mut b = Block::new("fighter", Some(name));
@@ -3091,6 +3212,9 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
         }
         c.field("radius", s.radius.show());
         b.push(c);
+    }
+    if let Some(w) = &p.wing {
+        b.push(write_wing(w));
     }
     if p.item_throws != sim_core::content::ItemThrows::STANDARD {
         let mut c = Block::new("item_throws", None);

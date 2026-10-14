@@ -1,0 +1,4 @@
+// Nodachi jab 1. Attack held (no new press) carries on into jab 2 (slot 17): from frame 10 once jab 1 has hit, from frame 19 if it
+// has not (the reference's two continuable rows). A new press carries on from frame 10 through the move's `next_from`.
+if attack && hit == 1 && frame >= 9 { goto(17); }
+if attack && frame == 18 { goto(17); }

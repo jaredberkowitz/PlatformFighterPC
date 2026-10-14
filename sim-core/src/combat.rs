@@ -735,6 +735,7 @@ fn strike(
                 attacker.move_id,
                 (at, attacker.vel),
                 false,
+                true,
             );
         }
         _ => {
@@ -752,6 +753,7 @@ fn strike(
                 attacker.move_id,
                 (at, attacker.vel),
                 caught,
+                true,
             );
         }
     }
@@ -908,12 +910,22 @@ fn pummel(state: &mut GameState, content: &Content, a: usize, d: usize, hb: &Hit
     let scale = Fx::from_ratio(i32::from(hb.hitlag), 100);
     let hitlag = hitlag_frames(hb.damage, &content.rules, false, false, scale);
     state.fighters[a].hitlag = hitlag;
+    // (A wing's power counts on a pummel too: E57.)
+    let wing = match params_of(content, &state.fighters[a]).wing {
+        Some(w) if crate::wing::out(&state.fighters[a]) => Fx::from_ratio(i32::from(w.power), 100),
+        _ => Fx::ONE,
+    };
     let held = &mut state.fighters[d];
     let before = held.percent;
-    held.percent = (held.percent + hb.damage * content.rules.damage_mult).min(Fx::from_int(999));
+    held.percent =
+        (held.percent + hb.damage * wing * content.rules.damage_mult).min(Fx::from_int(999));
     held.hitlag = hitlag;
     let added = held.percent - before;
     crate::gauge::on_damage(state, content, a, d, added);
+    if added > Fx::ZERO {
+        crate::wing::on_hurt(state, content, a, d, before);
+        crate::wing::on_dealt(state, content, a, d, hb.damage);
+    }
 }
 
 /// Where an open counter catches: on the body's hurtboxes (a counter without a bubble), or on its bubble, a standing capsule
@@ -1044,6 +1056,7 @@ pub(crate) fn apply_hit(
     move_id: u8,
     link: (Vec2, Vec2),
     caught: bool,
+    wing_power: bool,
 ) {
     let rules = &content.rules;
     // Stale-move negation: a move used again and again deals less damage (and a little less knockback); a fresh one a little more.
@@ -1069,7 +1082,16 @@ pub(crate) fn apply_hit(
     } else {
         hb.damage
     };
-    hb.damage = base_damage * stale;
+    // A wing's power (E57, sim 125): the fighter's hits (not its items') deal more while its wing is out; the knockback formula's
+    // damage term below is the move's own, so the move KOs earlier only by the extra damage (the reference's rule).
+    let wing = if wing_power && crate::wing::out(attacker) {
+        params_of(content, attacker)
+            .wing
+            .map_or(Fx::ONE, |w| Fx::from_ratio(i32::from(w.power), 100))
+    } else {
+        Fx::ONE
+    };
+    hb.damage = base_damage * stale * wing;
     // The knockback formula's damage term is the move's own damage, staleness counted at 0.3: the short hop's 0.85 is a damage
     // dealt multiplier and leaves it alone (the reference; rubendal's SSBU-Calculator, sim 97).
     let kb_damage = hb_in.damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
@@ -1185,7 +1207,10 @@ pub(crate) fn apply_hit(
     // A move whose armor covers this frame may take only part of the hit's damage (E55, sim 121: the reference's guard, 0.4).
     if def.state == S::Attack && !hb.push {
         let mv = weapon_of(content, &defender_params).get(def.move_id);
-        if mv.armor_damage != 1000 && mv.armor.is_some_and(|a| a.covers(def.state_frame)) {
+        if mv.armor_damage != 1000
+            && moded(mv.armor_mode, def.move_powered)
+            && mv.armor.is_some_and(|a| a.covers(def.state_frame))
+        {
             hb.damage = hb.damage * Fx::from_ratio(i32::from(mv.armor_damage), 1000);
         }
     }
@@ -1196,6 +1221,11 @@ pub(crate) fn apply_hit(
     // The gauges (the damage actually added: owner decision 32). The victim is still in the move it was hit in, so a hit during a
     // draining move drains.
     crate::gauge::on_damage(state, content, source, d, added);
+    // The wing (E57): the KO credit and the wing's start on the victim's side, the points the attacker's wing spends.
+    if added > Fx::ZERO {
+        crate::wing::on_hurt(state, content, source, d, before);
+        crate::wing::on_dealt(state, content, source, d, hb_in.damage);
+    }
     let def = &mut state.fighters[d];
     if let Some((e, by_char, by_facing)) = new_egg {
         fighter::encase(def, &e, before, added, by_char, move_id, by_facing);
@@ -1233,9 +1263,10 @@ pub(crate) fn apply_hit(
     // are). It sees the hit's damage before the multiplier and its knockback (a crouching fighter has neither). A hit it withstands
     // only freezes (below, after a push has pushed); one that breaks a subtractive knockback armor launches with what is left.
     let armor = if def.state == S::Attack {
-        weapon_of(content, &defender_params)
-            .get(def.move_id)
-            .armor
+        // (A move's armor only in the attacks its `armor_mode` names: E57.)
+        let mv = weapon_of(content, &defender_params).get(def.move_id);
+        mv.armor
+            .filter(|_| moded(mv.armor_mode, def.move_powered))
             .map(|a| (a, def.state_frame))
     } else if def.state == S::Airborne && def.air_jump_frame > 0 {
         defender_params
@@ -2359,6 +2390,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     pr.stale,
                     (pos, pr.vel),
                     caught,
+                    true,
                 );
                 if let Some(c) = fired_by.curse {
                     if state.fighters[d].percent > percent_before {
@@ -2414,6 +2446,10 @@ pub fn curse_tick(state: &mut GameState, content: &Content) {
         let added = f.percent - before;
         let by = usize::from(f.curse_by).min(MAX_FIGHTERS - 1);
         crate::gauge::on_damage_over_time(state, content, by, i, added);
+        // (A wing may come from it, as from any damage taken: E57.)
+        if added > Fx::ZERO {
+            crate::wing::on_hurt(state, content, by, i, before);
+        }
     }
 }
 
@@ -2736,6 +2772,8 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
             crate::items::let_go(state, content, i);
             crate::items::lose_pocket(state, i);
             let counted = state.rules.stocks > 0;
+            // (Who the KO is credited to, for a wing's points: E57.)
+            let credit = crate::wing::before_ko(state, i);
             let f = &mut state.fighters[i];
             respawn(f, content, i, counted);
             if counted && f.stocks == 0 {
@@ -2743,6 +2781,9 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
             } else {
                 // (A gauge that keeps some of itself through a KO, by the stocks now behind: E53.)
                 crate::gauge::after_ko(state, content, i);
+            }
+            if let Some((killer, gap)) = credit {
+                crate::wing::after_ko(state, content, killer, gap);
             }
         }
     }

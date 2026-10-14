@@ -158,9 +158,9 @@ mod tests {
         n.field("inherit", "brawler");
         n.field("walk_speed", "3");
         assert!(!d.put(n));
-        assert_eq!(d.build().unwrap().content.fighters.len(), 14);
+        assert_eq!(d.build().unwrap().content.fighters.len(), 15);
         assert!(d.remove("fighter", "racer"));
-        assert_eq!(d.build().unwrap().content.fighters.len(), 13);
+        assert_eq!(d.build().unwrap().content.fighters.len(), 14);
         assert!(!d.remove("fighter", "racer"));
     }
 

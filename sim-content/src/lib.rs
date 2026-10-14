@@ -361,6 +361,42 @@ fn validate_fighter(i: usize, f: &FighterParams, weapons: usize, errors: &mut Ve
             errors.push(format!("fighter {i}: the air-jump armor: {e}"));
         }
     }
+    // Sim 125 (E57): the wing.
+    if let Some(w) = &f.wing {
+        if let Some(e) = wing_error(w) {
+            errors.push(format!("fighter {i}: the wing: {e}"));
+        }
+    }
+}
+
+/// What is wrong with a wing's numbers (E57), if anything.
+fn wing_error(w: &sim_core::content::Wing) -> Option<&'static str> {
+    let in_range = |p: Fx| p >= Fx::ZERO && p <= Fx::from_int(999);
+    if w.points
+        .iter()
+        .any(|&p| p <= Fx::ZERO || p > Fx::from_int(10_000))
+    {
+        Some("its points must be above 0 (at most 10000)")
+    } else if w
+        .per_dealt
+        .iter()
+        .any(|&p| p < Fx::ZERO || p > Fx::from_int(100))
+        || w.ko_points < Fx::ZERO
+        || w.ko_points > Fx::from_int(10_000)
+    {
+        Some("per_dealt must be 0 to 100 and ko_points 0 to 10000")
+    } else if w.percents().iter().any(|&(_, p)| p == 0 || p > 1000) || w.jumps > 5 {
+        Some("its percents must be 1 to 1000 and jumps at most 5")
+    } else if w.rows.iter().any(|r| {
+        let n = usize::from(r.count);
+        n == 0
+            || r.percent[..n].iter().any(|&p| !in_range(p))
+            || r.diff[..n].windows(2).any(|d| d[1] > d[0])
+    }) {
+        Some("each start row needs points (percents 0 to 999) with differences that never rise")
+    } else {
+        None
+    }
 }
 
 /// What is wrong with an armor's kind and numbers (a move's or a body's), if anything.
@@ -1048,6 +1084,14 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         {
             errors.push(format!(
                 "weapon {i} {name}: a hitbox's mode must be any, plain or powered and its part 0 or 1"
+            ));
+        }
+        // Sim 125 (E57): an armor mode names when an armor works, so it needs an armor.
+        if mv.armor_mode > sim_core::moves::MODE_POWERED
+            || (mv.armor_mode != sim_core::moves::MODE_ANY && mv.armor.is_none())
+        {
+            errors.push(format!(
+                "weapon {i} {name}: armor_mode must be any, plain or powered, and needs an armor"
             ));
         }
         // Sim 123: a blockable box is a grab box (E56); a tether's frames lie inside the move, its reach is not negative (at most 64
@@ -2021,11 +2065,11 @@ mod combat_tests {
     #[test]
     fn rejects_a_missing_weapon_and_bad_hitboxes() {
         let mut c = Content::placeholder();
-        c.fighters[0].weapon = 13;
+        c.fighters[0].weapon = 14;
         c.weapons[0].moves[0].hitboxes[0].end = 200;
         c.weapons[1].moves.pop();
         let errors = validate(&c).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("weapon 13")), "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("weapon 14")), "{errors:?}");
         assert!(
             errors.iter().any(|e| e.contains("outside the move")),
             "{errors:?}"

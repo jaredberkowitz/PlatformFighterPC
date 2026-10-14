@@ -6,8 +6,8 @@ use sim_content::validate;
 use sim_core::input::buttons::JUMP;
 use sim_core::{step, Content, Fx, GameState, Input, MAX_FIGHTERS};
 
-/// The fighter index a made fighter gets after the thirteen built-in ones.
-const MADE: u8 = 13;
+/// The fighter index a made fighter gets after the fourteen built-in ones.
+const MADE: u8 = 14;
 
 /// Every recipe there is, as content (in batches: a roster holds at most 64 fighters).
 #[test]

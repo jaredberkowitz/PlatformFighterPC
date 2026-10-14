@@ -12,7 +12,7 @@ static var session := {}
 ## A character the creator should open when it starts (a slug), or "".
 static var edit_slug := ""
 
-const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch", "Buckler", "Pockets", "Popgun", "Dagger"]
+const CLASS_NAMES := ["Longsword", "Claws", "Needles", "Embers", "Gauntlets", "Staff", "Greatsword", "Bracers", "Clutch", "Buckler", "Pockets", "Popgun", "Dagger", "Nodachi"]
 const CLASS_BLURBS := [
 	"A long blade: great spacing, a tip that hits harder than the hilt, a sharp counter.",
 	"Quick claws and a blaster: fast pressure up close and a flame dash to get away.",
@@ -27,6 +27,7 @@ const CLASS_BLURBS := [
 	"Pockets full of tools: quick punches that pop foes up for more, a slingshot both ways, turnips, a bowling ball, a rocket to fire or to ride, and balloons that fly it home until they pop.",
 	"Quick hands and a peel to slip on: fast slaps and flips, a popgun that pops if held too long, a banana anyone can grab and throw, a leap that latches onto a face, and rocket barrels that fly off when hit.",
 	"A short knife and a gun, and a partner that comes when the gauge fills: quick slashes and kicks, shots that dodge and leap, a bolt that curses, a guard that soaks up hits to call the partner sooner, and with it every strike lands harder.",
+	"A blade of enormous length: slow, sweeping cuts that reach across the stage, a flare charged from a spark to a blast, a dash that slashes eight times, and a single wing that grows when the fight turns against it, bringing speed, power and a third jump.",
 ]
 
 
@@ -307,7 +308,11 @@ static func builtins() -> Array:
 	var phantom := neutral_entry("Phantom", 12, Loadout.default_for(12))
 	phantom.builtin = true
 	phantom.base_index = 12
-	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp, phantom]
+	# (The shared default look until the art agent gives it its own.)
+	var exile := neutral_entry("Exile", 13, Loadout.default_for(13))
+	exile.builtin = true
+	exile.base_index = 13
+	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp, phantom, exile]
 
 
 static func slug_of(name: String) -> String:
