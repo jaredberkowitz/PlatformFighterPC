@@ -29,7 +29,7 @@ const MOODS := {
 		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
 		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.72, 0.74, 0.96)},
 	"ocean": {"key": [Color(1.0, 0.96, 0.88), 1.3, -44.0, -30.0], "fill": [Color(0.56, 0.78, 1.0), 0.38],
-		"ambient": [Color(0.9, 0.95, 1.0), 0.5], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.66,
+		"ambient": [Color(0.9, 0.95, 1.0), 0.46], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.6,
 		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0),
 		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5], "haze": Color(0.62, 0.84, 1.0)},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],

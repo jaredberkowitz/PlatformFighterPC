@@ -68,7 +68,9 @@ uniform float far_blur_ramp = 30.0;
 // bloom on their own, after this pass.
 uniform float bloom = 0.0;
 uniform float bloom_threshold = 0.62;
-uniform float bloom_fighter = 0.5;
+// (0.5 until art review 5: screened on, the glow pushed a pure body colour toward white, so a yellow fighter on the bright beach read as
+// one flat glowing shape with soft edges, its shading gone.)
+uniform float bloom_fighter = 0.15;
 uniform float impact = 0.0;
 uniform vec4 impact_dark : source_color = vec4(0.1, 0.05, 0.13, 1.0);
 uniform vec4 impact_light : source_color = vec4(1.0, 0.97, 0.9, 1.0);

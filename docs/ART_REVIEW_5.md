@@ -122,3 +122,13 @@ Each step: a matched before/after, a check in motion, the tests and the look ben
   cool front shade (`front_fall` 0.52 → 0.64, `front_span` 6.5 → 4.5), so the fighting surface leads.
 - Palms, the jetty and the islands were looked at and left: at match scale they hold up; nothing there beats the next steps.
 - **Checked**: the look bench 0.87; the art, fighter, match and motion tests pass.
+
+## Step 4a: fighters' value and form (opportunity 5)
+
+**Landed**, `review5_fighter_glow.png` (the beach close up, before | after):
+- **Bloom on fighters** 0.5 → 0.15 (`post.gdshader` `bloom_fighter`): the glow is screened on, so it pushed a pure body colour toward
+  white; a yellow fighter on the bright beach read as one flat glowing shape with soft edges. The scenery keeps its full bloom.
+- **The beach's shadows** a little deeper (`lighting.gd` ocean: `shadow_value` 0.66 → 0.6, ambient 0.5 → 0.46): it had the lightest
+  shadows of any stage, so its fighters had the least form. Still the brightest, sunniest stage.
+- **Checked**: every stage and body colour in the look bench (edges 0.87 to 1.00, unchanged; body contrast unchanged within 0.01);
+  the art and fighter tests pass. Close-ups of the meadow and the city compared too: crisper edges, colours unchanged.
