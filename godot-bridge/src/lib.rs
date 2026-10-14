@@ -1201,9 +1201,8 @@ impl SimRunner {
     fn fighter_hurtboxes(&self, i: i32) -> PackedFloat32Array {
         let mut v: Vec<f32> = Vec::new();
         if let Some(fi) = self.fighter(i) {
-            let params = sim_core::combat::params_of(&self.content, fi);
-            let weapon = sim_core::combat::weapon_of(&self.content, params);
-            for (c, r) in sim_core::combat::hurtboxes(fi, params, weapon) {
+            // (As the match sees them: a buried fighter's sit lower.)
+            for (c, r) in sim_core::combat::body_hurtboxes(&self.content, fi) {
                 v.extend([f(c.x), f(c.y), f(r)]);
             }
         }

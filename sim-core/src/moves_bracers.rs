@@ -101,6 +101,7 @@ pub const PUNCH_RELEASE_AIR: MoveId = MoveId::Ext1;
 pub const PUNCH_FULL: MoveId = MoveId::Ext2;
 pub const PUNCH_FULL_AIR: MoveId = MoveId::Ext3;
 pub const PUNCH_CANCEL: MoveId = MoveId::Ext4;
+pub const HEADBUTT_AIR: MoveId = MoveId::Ext5;
 
 /// Super armor (every hit withstood: the reference's) on move frames `start..=end`.
 fn super_armor(start: u8, end: u8) -> Option<Armor> {
@@ -122,6 +123,71 @@ fn specials(w: &mut Weapon) {
         }
     }
     punch(w);
+    headbutt(w);
+}
+
+fn headbutt(w: &mut Weapon) {
+    // The headbutt (the side special, on the ground and in the air), every number [R] from ssbwiki.com's raw tables (13.0.1) unless
+    // marked: super armor on 5-14 (both versions), the hit on 20-21, FAF 63; shield damage +25 (350 / 413 percent [D]); angle type 0 (by
+    // position), hitlag and SDI x1.0, one hit. On the ground two bury boxes (E5) at 270 degrees that only reach grounded targets (10%,
+    // BK 40, KS 40; radius 5.0 low in front, 19.0 to 7.0 ahead at 5.0 up, and 3.0 higher, 18.0 to 9.0 ahead at 13.0 up: 9.0.0) and an
+    // 8% box at 70 (BK 15, KS 40, radius 10.0, 14.0 ahead at 11.0 up) for airborne ones. In the air one bury box for anyone (BK 30,
+    // radius 6.5, 8.8 to 1.4 ahead at 5.0 up: it buries a grounded target and meteors an airborne one) and the same 8% box.
+    let rows_ground: Vec<R> = along(190, 70, 40)
+        .into_iter()
+        .map(|x| ru(20, 21, x, 50, 50, 100, 270, 40, 40, 0, 0))
+        .chain(
+            along(180, 90, 40)
+                .into_iter()
+                .map(|x| ru(20, 21, x, 130, 30, 100, 270, 40, 40, 1, 0)),
+        )
+        .chain([ru(20, 21, 140, 110, 100, 80, 70, 15, 40, 2, 0)])
+        .collect();
+    let rows_air: Vec<R> = along(88, 14, 40)
+        .into_iter()
+        .map(|x| ru(20, 21, x, 50, 65, 100, 270, 30, 40, 0, 0))
+        .chain([ru(20, 21, 140, 110, 100, 80, 70, 15, 40, 2, 0)])
+        .collect();
+    let build = |rows: &[R], grounded: bool| -> Move {
+        let mut mv = ref_move(63, 0, 0, 255, rows);
+        set_all(&mut mv, |h| {
+            h.angle_type = ANGLE_BY_POSITION;
+            if h.angle == 270 {
+                h.effect = EFFECT_BURY;
+                h.shield_damage = shield(100, 250);
+                if grounded {
+                    h.targets = TARGETS_GROUNDED;
+                }
+            } else {
+                h.targets = TARGETS_AERIAL;
+                h.shield_damage = shield(80, 250);
+            }
+        });
+        mv.armor = super_armor(4, 13);
+        // Ledges from frame 2 [E: conflict 4, "after frame 2" against "every frame"; the stricter reading], in front and behind.
+        mv.ledge_front_from = 1;
+        mv.ledge_back_from = 1;
+        mv
+    };
+    // On the ground: the speed halved sideways and stopped upward on starting (x0.5 / x0) by a script; over an edge it goes on as
+    // the aerial one [E: not published].
+    let mut ground = build(&rows_ground, true);
+    ground.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_headbutt.script"),
+    ));
+    ground.off_edge = Some(HEADBUTT_AIR as u8);
+    w.moves[MoveId::SideSpecial as usize] = ground;
+    w.moves[MoveId::SideSpecial as usize].air_version = Some(HEADBUTT_AIR as u8);
+    // In the air: x0.67 of the sideways speed and x0.5 of the vertical kept on starting, gravity x0.5 (0.0425 of the reference's
+    // units: the body's 0.085 halved) while it lasts; touching down it goes on as the grounded one on the same frame [E: the
+    // reference's landing is not published].
+    let mut air = build(&rows_air, false);
+    air.start_speed = 67;
+    air.start_speed_y = 50;
+    air.air_gravity = Some(Fx::from_ratio(425, 80_000));
+    air.on_land = Some(MoveId::SideSpecial as u8);
+    w.moves[HEADBUTT_AIR as usize] = air;
 }
 
 /// The arm thrown straight forward at chest height for the punches [E]: a point `at` reference tenths along it from the shoulder.

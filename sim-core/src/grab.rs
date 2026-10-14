@@ -22,7 +22,13 @@ pub fn grabbable(f: &Fighter) -> bool {
         && f.grab_with == NONE
         && !matches!(
             f.state,
-            S::Hitstun | S::LedgeHang | S::LedgeGetUp | S::LedgeAttack | S::Grabbed | S::Grabbing
+            S::Hitstun
+                | S::LedgeHang
+                | S::LedgeGetUp
+                | S::LedgeAttack
+                | S::Grabbed
+                | S::Grabbing
+                | S::Buried
         )
 }
 
@@ -33,7 +39,13 @@ pub fn catchable(f: &Fighter) -> bool {
         && f.grab_with == NONE
         && !matches!(
             f.state,
-            S::LedgeHang | S::LedgeGetUp | S::LedgeAttack | S::Grabbed | S::Grabbing | S::Respawn
+            S::LedgeHang
+                | S::LedgeGetUp
+                | S::LedgeAttack
+                | S::Grabbed
+                | S::Grabbing
+                | S::Respawn
+                | S::Buried
         )
 }
 
@@ -129,29 +141,35 @@ pub fn update(state: &mut GameState, content: &Content) {
         if state.fighters[h].state != S::Grabbing || state.fighters[v].hitlag > 0 {
             continue;
         }
-        let held = &state.fighters[v];
-        let mut cut: u16 = 0;
-        let pressed = [
-            buttons::ATTACK,
-            buttons::JUMP,
-            buttons::SHIELD,
-            buttons::SPECIAL,
-            buttons::GRAB,
-        ]
-        .iter()
-        .any(|b| held.pressed_within(*b, 1));
-        if pressed {
-            cut += u16::from(content.rules.grab_mash_button);
-        }
-        if held.flick_x(1) != 0 || held.flick_y(1) != 0 {
-            cut += u16::from(content.rules.grab_mash_stick);
-        }
+        let cut = mash_cut(&state.fighters[v], &content.rules);
         let left = state.fighters[v].grab_timer.saturating_sub(1 + cut);
         state.fighters[v].grab_timer = left;
         if left == 0 {
             drop_grab(state, content, h);
         }
     }
+}
+
+/// The frames this frame's mashing takes off a struggle (a hold, a bury: the shared mash): `grab_mash_button` for a new press of any
+/// button, `grab_mash_stick` for a flick of the stick (the reference's 14.4 and 8, rounded).
+pub fn mash_cut(f: &Fighter, rules: &crate::content::Ruleset) -> u16 {
+    let mut cut: u16 = 0;
+    let pressed = [
+        buttons::ATTACK,
+        buttons::JUMP,
+        buttons::SHIELD,
+        buttons::SPECIAL,
+        buttons::GRAB,
+    ]
+    .iter()
+    .any(|b| f.pressed_within(*b, 1));
+    if pressed {
+        cut += u16::from(rules.grab_mash_button);
+    }
+    if f.flick_x(1) != 0 || f.flick_y(1) != 0 {
+        cut += u16::from(rules.grab_mash_stick);
+    }
+    cut
 }
 
 /// Stands the held fighter `grab_distance` in front of the holder, on the same surface, facing it; or, when the holder's move (or

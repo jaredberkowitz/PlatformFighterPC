@@ -11,9 +11,9 @@ use sim_core::moves::{
     AirBlock, Armor, Burst, ChargeAdd, Counter, CounterBubble, Hitbox, Motion, Move, MoveId,
     PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
     AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL,
-    ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_ELECTRIC, EFFECT_NORMAL,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB,
-    PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH,
+    PART_LIMB, PART_LOW, PART_MIDDLE, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -506,6 +506,16 @@ rules_io! {
     trip_invuln: u8,
     trip_base: u8,
     trip_base_kb: Fx,
+    bury_base: Fx,
+    bury_percent: Fx,
+    bury_kb: Fx,
+    bury_behind_1: u8,
+    bury_behind_2: u8,
+    bury_ahead_1: u8,
+    bury_ahead_2: u8,
+    bury_break_kb: Fx,
+    bury_exit_lag: u8,
+    bury_depth: Fx,
 }
 
 // ---- Moves ------------------------------------------------------------------------------------------------
@@ -580,11 +590,12 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
     let effect = match f.raw("effect") {
         None | Some(("normal", _)) => EFFECT_NORMAL,
         Some(("electric", _)) => EFFECT_ELECTRIC,
+        Some(("bury", _)) => EFFECT_BURY,
         Some((other, line)) => {
             err(
                 errors,
                 line,
-                format!("hitbox effect must be normal or electric, not `{other}`"),
+                format!("hitbox effect must be normal, electric or bury, not `{other}`"),
             );
             EFFECT_NORMAL
         }
@@ -698,6 +709,8 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     }
     if hb.effect == EFFECT_ELECTRIC {
         b.field("effect", "electric");
+    } else if hb.effect == EFFECT_BURY {
+        b.field("effect", "bury");
     }
     match hb.targets {
         TARGETS_GROUNDED => b.field("targets", "grounded"),

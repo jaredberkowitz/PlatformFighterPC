@@ -360,3 +360,100 @@ fn landing_in_the_aerial_full_punch_switches_to_the_grounded_one_on_the_same_fra
     assert_eq!(sim.f().state, S::Airborne);
     let _ = ATTACK;
 }
+
+// ---- The headbutt ------------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_headbutt_has_the_references_data() {
+    use sim_core::moves::{EFFECT_BURY, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED};
+    let sim = duel(Fx::from_int(12));
+    let w = arms(&sim);
+    let ground = w.get(MoveId::SideSpecial as u8);
+    let air = w.get(MoveId::Ext5 as u8);
+    assert_eq!(ground.air_version, Some(MoveId::Ext5 as u8));
+    for (mv, bury_targets, bury_bk) in [(ground, TARGETS_GROUNDED, 40), (air, TARGETS_ALL, 30)] {
+        assert_eq!(mv.total_frames + 2, 63);
+        let a = mv.armor.expect("armor");
+        assert_eq!((a.kind, a.start + 1, a.end + 1), (ARMOR_SUPER, 5, 14));
+        assert_eq!((mv.ledge_front_from + 1, mv.ledge_back_from + 1), (2, 2));
+        for h in &mv.hitboxes {
+            assert_eq!((h.start + 1, h.end + 1), (20, 21));
+            if h.angle == 270 {
+                assert_eq!(
+                    (
+                        h.effect,
+                        h.targets,
+                        h.damage,
+                        h.base_knockback,
+                        h.knockback_growth
+                    ),
+                    (EFFECT_BURY, bury_targets, Fx::from_int(10), bury_bk, 40)
+                );
+                assert_eq!(h.shield_damage, 350);
+            } else {
+                assert_eq!(
+                    (
+                        h.angle,
+                        h.targets,
+                        h.damage,
+                        h.base_knockback,
+                        h.knockback_growth
+                    ),
+                    (70, TARGETS_AERIAL, Fx::from_int(8), 15, 40)
+                );
+                assert_eq!(h.shield_damage, 413);
+            }
+        }
+    }
+    assert_eq!((air.start_speed, air.start_speed_y), (67, 50));
+    assert_eq!(air.air_gravity, Some(Fx::from_ratio(425, 80_000)));
+    assert_eq!(air.on_land, Some(MoveId::SideSpecial as u8));
+}
+
+#[test]
+fn the_headbutt_is_super_armored_on_5_to_14_and_buries_on_20() {
+    // Started by the stick forward and special; a duelist standing in front is buried on frame 20.
+    let mut sim = duel(fx(16, 10));
+    let tick = until_p1_hit(&mut sim, 40, |t| {
+        if t == 1 {
+            inp(100, 0, SPECIAL)
+        } else {
+            inp(0, 0, 0)
+        }
+    });
+    assert_eq!(tick, Some(20));
+    assert_eq!(move_of(&sim, 0), MoveId::SideSpecial);
+    assert_eq!(sim.fighter(1).state, S::Buried);
+    // In the air the speed is cut on starting: x0.67 sideways, x0.5 upward.
+    let mut sim = duel(Fx::from_int(12));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), fx(1, 2), fx(1, 2));
+    sim.tick(inp(100, 0, SPECIAL));
+    assert_eq!(move_of(&sim, 0), MoveId::Ext5);
+    // (Kept on starting, then the frame's own drift and gravity: within a little of x0.67 and x0.5.)
+    let v = sim.f().vel;
+    assert!((v.x - fx(67, 200)).abs() < fx(3, 100), "{v:?}");
+    assert!((v.y - fx(1, 4)).abs() < fx(3, 100), "{v:?}");
+}
+
+#[test]
+fn a_shielded_headbutt_takes_25_more_percent_off_the_shield() {
+    let mut sim = duel(fx(16, 10));
+    sim.state.fighters[1].state = S::Shield;
+    sim.state.fighters[1].state_frame = 20;
+    let mut lost = Fx::ZERO;
+    for t in 1..=25 {
+        let hp = sim.fighter(1).shield_hp;
+        sim.tick2(
+            inp(
+                if t == 1 { 100 } else { 0 },
+                0,
+                if t == 1 { SPECIAL } else { 0 },
+            ),
+            inp(0, 0, SHIELD),
+        );
+        lost = lost.max(hp - sim.fighter(1).shield_hp);
+    }
+    // On the hit's frame: (10 + 25) x the one-on-one multiplier, and that frame's own depletion.
+    let want = Fx::from_int(35) * sim.content.rules.damage_mult + sim.content.rules.shield_deplete;
+    assert!((lost - want).abs() < fx(1, 10), "lost {lost:?}");
+}

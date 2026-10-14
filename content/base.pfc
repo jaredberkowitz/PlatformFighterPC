@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 90
-    hash d3eaf8e2ce65c795
+    hash 0be32c0c27ddff01
 }
 
 ruleset {
@@ -111,6 +111,16 @@ ruleset {
     trip_invuln 5
     trip_base 7
     trip_base_kb 55
+    bury_base 55
+    bury_percent 0.5
+    bury_kb 1.5
+    bury_behind_1 8
+    bury_behind_2 12
+    bury_ahead_1 18
+    bury_ahead_2 22
+    bury_break_kb 90
+    bury_exit_lag 12
+    bury_depth 0.5
 }
 
 weapon longsword {
@@ -5375,6 +5385,27 @@ weapon bracers {
             }
         }
     }
+    move side_special {
+        total_frames 61
+        ledge_front_from 1
+        ledge_back_from 1
+        air_version ext5
+        off_edge ext5
+        hitbox { start 19 end 20 x 2.4 y 0.59999 radius 0.59999 damage 10 angle 270 bkb 40 kbg 40 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 1.9 y 0.59999 radius 0.59999 damage 10 angle 270 bkb 40 kbg 40 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 1.4 y 0.59999 radius 0.59999 damage 10 angle 270 bkb 40 kbg 40 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 0.9 y 0.59999 radius 0.59999 damage 10 angle 270 bkb 40 kbg 40 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 2.29999 y 1.59999 radius 0.4 damage 10 angle 270 bkb 40 kbg 40 priority 1 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 1.7 y 1.59999 radius 0.4 damage 10 angle 270 bkb 40 kbg 40 priority 1 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 1.09999 y 1.59999 radius 0.4 damage 10 angle 270 bkb 40 kbg 40 priority 1 shield_damage 350 effect bury targets grounded angle_type position }
+        hitbox { start 19 end 20 x 1.79999 y 1.4 radius 1.29999 damage 8 angle 70 bkb 15 kbg 40 priority 2 shield_damage 413 targets aerial angle_type position }
+        armor { start 4 end 13 kind super }
+        script {
+            // Bracers side special on the ground (the reference's headbutt): on starting, the horizontal speed is halved and the vertical one
+            // stopped (the reference's x0.5 / x0 on the ground). (The script first runs on the move's frame 1 [E: one frame of traction late].)
+            if frame == 1 { add_vel(-0.5 * vx, 0); }
+        }
+    }
     move jab2 {
         total_frames 30
         hitbox { start 3 end 5 x 0.79999 y 2 radius 0.9 damage 6 angle 70 bkb 40 kbg 100 hitlag 180 angle_type forward }
@@ -5494,6 +5525,19 @@ weapon bracers {
             // an air dodge in the air) comes out. Nothing to steer: the move only has to exist.
             let lag = frame;
         }
+    }
+    move ext5 {
+        total_frames 61
+        ledge_front_from 1
+        ledge_back_from 1
+        start_speed 67
+        start_speed_y 50
+        air_gravity 0.00531
+        on_land side_special
+        hitbox { start 19 end 20 x 1.09999 y 0.59999 radius 0.79999 damage 10 angle 270 bkb 30 kbg 40 shield_damage 350 effect bury angle_type position }
+        hitbox { start 19 end 20 x 0.2 y 0.59999 radius 0.79999 damage 10 angle 270 bkb 30 kbg 40 shield_damage 350 effect bury angle_type position }
+        hitbox { start 19 end 20 x 1.79999 y 1.4 radius 1.29999 damage 8 angle 70 bkb 15 kbg 40 priority 2 shield_damage 413 targets aerial angle_type position }
+        armor { start 4 end 13 kind super }
     }
     move pivot_grab {
         total_frames 40

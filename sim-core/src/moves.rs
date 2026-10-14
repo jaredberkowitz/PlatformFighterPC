@@ -294,7 +294,8 @@ pub struct Hitbox {
     pub shield_damage: u16,
     /// Percent of the normal hitlag this hit causes (100 is normal; 0 gives none).
     pub hitlag: u16,
-    /// What the hit is made of: [`EFFECT_NORMAL`] or [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick).
+    /// What the hit is made of: [`EFFECT_NORMAL`], [`EFFECT_ELECTRIC`] (more hitlag, and the victim drifts with the held stick) or
+    /// [`EFFECT_BURY`] (a grounded victim is buried).
     pub effect: u8,
     /// Who it can hit: [`TARGETS_ALL`], or only fighters on the ground ([`TARGETS_GROUNDED`]) or in the air ([`TARGETS_AERIAL`]).
     pub targets: u8,
@@ -408,6 +409,10 @@ impl Hitbox {
 /// `Hitbox::effect` values.
 pub const EFFECT_NORMAL: u8 = 0;
 pub const EFFECT_ELECTRIC: u8 = 1;
+/// The reference's bury effect (E5, sim 90): a fighter on the ground (not lying down) is buried instead of launched
+/// (`FighterState::Buried`, see `combat::bury_frames`); an airborne one takes the hit as usual. Its knockback is worked out at weight
+/// 100 and it ignores subtractive knockback armor.
+pub const EFFECT_BURY: u8 = 2;
 
 /// `Hitbox::kind` values.
 pub const HIT_NORMAL: u8 = 0;

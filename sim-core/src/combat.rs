@@ -18,8 +18,8 @@ use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
     ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
-    EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, TARGETS_AERIAL,
-    TARGETS_GROUNDED,
+    ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
+    HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
@@ -79,6 +79,20 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
         }
     }
     [(at(6), radius), (middle, radius), (at(16), radius), limb]
+}
+
+/// [`hurtboxes`] as the match sees them: a buried fighter's (E5) sit `Ruleset::bury_depth` of its height lower, only its upper body
+/// out of the ground [E].
+pub fn body_hurtboxes(content: &Content, f: &Fighter) -> [(Vec2, Fx); HURT_CIRCLES] {
+    let p = params_of(content, f);
+    let mut hurt = hurtboxes(f, p, weapon_of(content, p));
+    if f.state == S::Buried {
+        let sunk = p.ecb_height * content.rules.bury_depth;
+        for (c, _) in &mut hurt {
+            c.y -= sunk;
+        }
+    }
+    hurt
 }
 
 /// How high above the feet a standing fighter's chest is: the centre of its middle hurtbox circle (see [`hurtboxes`]).
@@ -352,7 +366,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
             }
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
-            let hurt = hurtboxes(fd, pd, wd);
+            let hurt = body_hurtboxes(content, fd);
             let shut = intangible_parts(fd, wd);
             let mut best: Option<Hitbox> = None;
             for (_, hb, center) in active_hitboxes(fa, mv, params_of(content, fa).hitbox_scale) {
@@ -893,6 +907,8 @@ fn apply_hit(
 
     let rage = rage_multiplier(state.fighters[source].percent, rules);
     let puller = state.fighters[source].pos;
+    let source_stocks = state.fighters[source].stocks;
+    let bury_hit = hb.effect == EFFECT_BURY;
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
@@ -917,8 +933,8 @@ fn apply_hit(
     // draining move drains.
     crate::gauge::on_damage(state, content, source, d, added);
     let def = &mut state.fighters[d];
-    // (A set-weight hit treats every victim as weighing 100.)
-    let weight = if hb.set_weight {
+    // (A set-weight hit treats every victim as weighing 100, and so does a bury hit: the reference's bury is weight-independent.)
+    let weight = if hb.set_weight || bury_hit {
         Fx::from_int(100)
     } else {
         defender_params.weight
@@ -934,6 +950,8 @@ fn apply_hit(
             hb.knockback_growth,
         ) * rage
     };
+    // (The bury's own length reads the knockback before crouch cancelling.)
+    let full_kb = kb;
     if crouching {
         // Crouch cancelling: holding down on the ground takes some of the knockback off.
         kb = kb * rules.crouch_cancel_kb;
@@ -953,6 +971,8 @@ fn apply_hit(
     } else {
         None
     };
+    // (A bury hit ignores subtractive knockback armor: the reference's rule.)
+    let armor = armor.filter(|(a, _)| !(bury_hit && a.kind == ARMOR_KNOCKBACK && a.subtract));
     let armored = armor.is_some_and(|(a, frame)| a.withstands(frame, hb.damage, kb));
     if !armored && !hb.push {
         if let Some((a, frame)) = armor {
@@ -992,12 +1012,43 @@ fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
+    // The bury (E5). A buried fighter is freed only by a hit of at least `bury_break_kb` (it is launched in full, below); a weaker
+    // hit's damage and hitlag stand and its launch is kept for when the bury ends (the last one kept [E: gap 10]). A grounded fighter
+    // not lying down hit by a bury hit is buried; an airborne one takes the hit as usual (a meteor, for a downward bury hit).
+    let was_buried = def.state == S::Buried;
+    if was_buried {
+        if kb < rules.bury_break_kb {
+            def.hitlag = hitlag;
+            def.sdi_wait = 0;
+            def.sdi_mult = hb.sdi;
+            def.bury_kb = kb;
+            def.bury_angle = angle.raw();
+            def.bury_set = true;
+            return;
+        }
+        def.bury_timer = 0;
+        def.bury_set = false;
+    } else if bury_hit
+        && def.grounded()
+        && !(matches!(def.state, S::Knockdown | S::GetUp) && !def.tripped)
+    {
+        // (Lying down is safe from a bury; sitting after a trip is not: the reference's rule.)
+        let victim_stocks = def.stocks;
+        let frames = bury_frames(rules, def.percent, full_kb, source_stocks, victim_stocks);
+        fighter::bury(def, frames);
+        def.hitlag = hitlag;
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
+        def.hits_taken = 1;
+        return;
+    }
     // A trip (the reference's trip chance, sim 86; the base chance, owner decision 50): a fighter on the ground whose launch would not
     // lift it off the ground (sent sideways or down; the engine lifts a grounded fighter on any upward angle) sits down instead of
     // being launched, if the game's own random roll comes up. Nothing is rolled for a hit that cannot trip, so other hits never use
     // up the generator.
     let chance = trip_chance(&hb, kb, rules);
     if chance > 0
+        && !was_buried
         && def.grounded()
         && !matches!(def.state, S::Knockdown | S::GetUp)
         && crate::trig::sin(angle) <= Fx::ZERO
@@ -1086,6 +1137,37 @@ fn apply_hit(
     def.fast_fall = false;
     def.tumble = false;
     def.hit_mask = 0;
+}
+
+/// How long a bury lasts (the reference's, ssbwiki.com "Buried", 13.0.1): `bury_base + bury_percent x percent + bury_kb x kb` rounded
+/// up (`percent` the victim's after the hit, `kb` the hit's knockback at weight 100), plus `bury_behind_1` / `_2` frames when the
+/// attacker has one / two or more stocks fewer than the victim, minus `bury_ahead_1` / `_2` when it has more (the page's summary of
+/// its stock terms: 8, 12, 18, 22). At least 1.
+pub fn bury_frames(
+    rules: &Ruleset,
+    percent: Fx,
+    kb: Fx,
+    attacker_stocks: u8,
+    victim_stocks: u8,
+) -> u16 {
+    let t = rules.bury_base + percent * rules.bury_percent + kb * rules.bury_kb;
+    let mut frames = (t + Fx::from_raw(65535)).floor_int();
+    if attacker_stocks < victim_stocks {
+        let behind = if victim_stocks - attacker_stocks >= 2 {
+            rules.bury_behind_2
+        } else {
+            rules.bury_behind_1
+        };
+        frames += i32::from(behind);
+    } else if attacker_stocks > victim_stocks {
+        let ahead = if attacker_stocks - victim_stocks >= 2 {
+            rules.bury_ahead_2
+        } else {
+            rules.bury_ahead_1
+        };
+        frames -= i32::from(ahead);
+    }
+    frames.clamp(1, i32::from(u16::MAX)) as u16
 }
 
 /// The percent chance that a hit trips a grounded fighter it would not lift (see `apply_hit`): the reference's base chance
@@ -1428,7 +1510,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
             let pd = params_of(content, fd);
             let wd = weapon_of(content, pd);
-            let hurt = hurtboxes(fd, pd, wd);
+            let hurt = body_hurtboxes(content, fd);
             let (touching, caught) = reach(
                 counter,
                 intangible,
