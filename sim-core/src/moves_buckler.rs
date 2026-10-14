@@ -168,6 +168,7 @@ pub fn buckler() -> Weapon {
     grabs_and_throws(&mut w);
     ledge_and_floor(&mut w);
     spin(&mut w);
+    tools(&mut w);
     w
 }
 
@@ -952,4 +953,242 @@ fn spin(w: &mut Weapon) {
         include_str!("scripts/buckler_spin_air.script"),
     ));
     w.moves[SPIN_AIR as usize] = air;
+}
+
+/// The bow's shot (the neutral special's release, `ext4`).
+pub const BOW_FIRE: MoveId = MoveId::Ext4;
+/// The boomerang thrown with a smash input (the side special's `smash_version`).
+pub const BOOMERANG_FAR: MoveId = MoveId::Ext5;
+/// The throw with nothing thrown, while a boomerang is out.
+pub const BOOMERANG_FAILED: MoveId = MoveId::Ext6;
+/// Catching the boomerang as it comes back.
+pub const BOOMERANG_CATCH: MoveId = MoveId::Ext7;
+
+/// A reference speed (thousandths of its units a frame) in world units a frame (/8) [D].
+fn rs(thousandths: i32) -> Fx {
+    Fx::from_ratio(thousandths, 8000)
+}
+
+/// A projectile's hit from a reference row (radius and damage in tenths; the frames do not matter on a projectile).
+fn shot_hit(radius: i32, damage: i32, angle: i16, bkb: i16, kbg: i16, angle_type: u8) -> Hitbox {
+    let mut h = row(&ru(1, 1, 0, 0, radius, damage, angle, bkb, kbg, 0, 0));
+    h.angle_type = angle_type;
+    h
+}
+
+/// Phase 2: the bow, the boomerang and the sword wave.
+fn tools(w: &mut Weapon) {
+    bow(w);
+    boomerang(w);
+    sword_wave(w);
+}
+
+/// The bow (the neutral special, 13.0.1; `REFERENCE_DATA.md` "Bow and Arrows"). Frames 1-15 draw it; from frame 16 it holds while
+/// special is held, up to 180 frames (then it fires by itself); the arrow leaves on the frame special is let go (frame 16 for a tap),
+/// and the move goes on as the release (`ext4`, FAF 30 from the release: 45 for a tap, 81 after 36 held frames) [R]. The charge is the
+/// frames held (`buckler_bow.script`); 36 or more is a full one [R]. In the air the same frames with the body's air physics, and
+/// touching down carries the move on along the ground [E: gap 7].
+///
+/// The arrow (E35, a charge-scaled shot): fired 2.5 degrees up at 2.6 to 10 reference units a frame (0.325 to 1.25 [D]) by the
+/// charge, gravity 0.054 (0.00675 [D]), 46 frames; floor(4 + 8 x c / 60)% (4 to 12), angle 361 (type forward), BK 10, KS 71, radius
+/// 1.35 → 2 [D], hitlag x0.8, reflectable; it does not pierce [R]. Where it leaves the body (0.8 ahead, 1.2 up) is [E]. It lodges in a
+/// platform top or a wall it meets at 9 degrees or more for 180 frames, and is gone if it meets one more shallowly (E3b; the 9-degree
+/// reading [E: gap 8]); picking it up waits for items (phase 3).
+fn bow(w: &mut Weapon) {
+    let mut draw = ref_move(45, 0, 0, 255, &[]);
+    // (The script decides when the hold ends: the move itself lasts past the 180-frame cap.)
+    draw.total_frames = 200;
+    draw.land_continue = true;
+    draw.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/buckler_bow.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = draw;
+
+    let mut fire = ref_move(30, 0, 0, 255, &[]);
+    fire.keep_charge = true;
+    fire.land_continue = true;
+    let mut arrow = shot_hit(135, 40, 361, 10, 71, ANGLE_FORWARD);
+    arrow.hitlag = 80;
+    fire.projectile = Some(ProjectileSpawn {
+        // (Only the draw's script fires it, on the release frame.)
+        frame: 255,
+        x: Fx::from_ratio(8, 10),
+        y: Fx::from_ratio(12, 10),
+        speed: rs(2600),
+        life: 46,
+        hitbox: arrow,
+        end_damage: arrow.damage,
+        arc: ProjectileArc {
+            gravity: rs(54),
+            lodge: 180,
+            lodge_angle: 9,
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+        burst: None,
+        charged: Some(ChargedShot {
+            full: 60,
+            snap: 36,
+            damage_to: Fx::from_int(12),
+            speed_to: rs(10000),
+            life_to: 46,
+            size_from: 100,
+            size_to: 100,
+            floor: true,
+        }),
+        tool: Tool::NONE,
+    });
+    w.moves[BOW_FIRE as usize] = fire;
+}
+
+/// The boomerang's three hits by age (the reference's clean, late and returning hits [R]), type 1 (the way it travels), shield damage
+/// from the reference's additive values (-4, -3, -1.5 [R], conflict 6) [D]; `far` the smash input's x1.2 on the first two [R].
+fn boomerang_hits(far: bool) -> (Hitbox, Hitbox, Hitbox) {
+    let k = if far { 12 } else { 10 };
+    let hit = |radius: i32, damage: i32, sd: i32, angle: i16, bkb: i16| {
+        let d = damage * k / 10;
+        let mut h = shot_hit(radius, d, angle, bkb, 40, ANGLE_BY_TRAVEL);
+        h.shield_damage = shield(d, sd);
+        h
+    };
+    let mut returning = shot_hit(36, 30, 70, 50, 40, ANGLE_BY_TRAVEL);
+    returning.shield_damage = shield(30, -15);
+    (
+        hit(40, 80, -40, 70, 80),
+        hit(36, 60, -30, 65, 60),
+        returning,
+    )
+}
+
+/// A boomerang throw: `far` the smash input's (3.1 a frame, 167 frames, returning from age 60 [R]) or the tilt's (2.4, 125, from 45
+/// [R]). It appears on frame 27, aimed by the stick up to 26 degrees up or down (the script; the 0.1 dead zone is the reading of the
+/// reference's "sensitivity" [E: gap 6]), FAF 46 [R]. One at a time (E3d: tool kind 1, limit 1): with one out, the move goes on as the
+/// failed throw on its frame 2 [D]. The flight is its projectile script: it slows by 0.047 a frame to 0.3 (the returning hit starts as
+/// it gets there [D]), then turns toward its thrower and speeds up to 3 a frame, reaching that over the "distance spent turning back"
+/// (16 / 24) [E: gap 6, the reading], homing at up to 0.75 degrees a frame [R]. It bounces off the ground [E: the reference's 16- and
+/// 30-degree rules are not modelled]. Coming back (from that age) it is caught by touching its thrower (`ext7` if free) [R]; a clank
+/// with an attack drops it (60 frames, -0.15 / +1.25, gravity 0.09, fall 1.4 [R]). Its spawn point (1.0 ahead, 1.1 up) is [E].
+fn boomerang_throw(far: bool) -> Move {
+    let mut mv = ref_move(46, 0, 0, 255, &[]);
+    mv.land_continue = true;
+    mv.script = Some(script(
+        Kind::Fighter,
+        if far {
+            include_str!("scripts/buckler_boomerang_far.script")
+        } else {
+            include_str!("scripts/buckler_boomerang_throw.script")
+        },
+    ));
+    let (clean, late, returning) = boomerang_hits(far);
+    let back_from = if far { 60 } else { 45 };
+    mv.projectile = Some(ProjectileSpawn {
+        // (Only the script fires it, aimed.)
+        frame: 255,
+        x: Fx::ONE,
+        y: Fx::from_ratio(11, 10),
+        speed: rs(if far { 3100 } else { 2400 }),
+        life: if far { 167 } else { 125 },
+        hitbox: clean,
+        end_damage: clean.damage,
+        arc: ProjectileArc {
+            // (It bounces off any ground it meets, keeping its speed: the script steers it on.)
+            bounces: 255,
+            bounce_min: Fx::ZERO,
+            bounce_max: Fx::from_int(4),
+            ..ProjectileArc::NONE
+        },
+        phases: phase_list(&[(10, late), (back_from, returning)]),
+        pierce: false,
+        rehit: 0,
+        burst: None,
+        charged: None,
+        tool: Tool {
+            kind: 1,
+            limit: 1,
+            catch_from: back_from,
+            catch_move: Some(BOOMERANG_CATCH as u8),
+            on_clank: Some(Fall {
+                life: 60,
+                vx: rs(-150),
+                vy: rs(1250),
+                gravity: rs(90),
+                max_fall: rs(1400),
+            }),
+        },
+    });
+    mv.projectile_script = Some(script(
+        Kind::Projectile,
+        if far {
+            include_str!("scripts/buckler_boomerang_far_flight.script")
+        } else {
+            include_str!("scripts/buckler_boomerang_flight.script")
+        },
+    ));
+    mv
+}
+
+/// The boomerang (the side special, 13.0.1; `REFERENCE_DATA.md` "Boomerang"): the tilt throw, the smash-input throw (E3d
+/// `smash_version`), the failed throw and the catch.
+fn boomerang(w: &mut Weapon) {
+    let mut tilt = boomerang_throw(false);
+    tilt.smash_version = Some(BOOMERANG_FAR as u8);
+    w.moves[MoveId::SideSpecial as usize] = tilt;
+    w.moves[BOOMERANG_FAR as usize] = boomerang_throw(true);
+
+    // The failed throw: FAF 60 on the ground, 46 in the air [R]. It starts on the throw's frame 2 (a `goto`), so its own FAF is 59 and
+    // the aerial one ends on its frame 43 (the script) [D].
+    let mut failed = ref_move(59, 0, 0, 255, &[]);
+    failed.land_continue = true;
+    failed.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/buckler_boomerang_failed.script"),
+    ));
+    w.moves[BOOMERANG_FAILED as usize] = failed;
+
+    // The catch: FAF 10, no hits [R]; on the ground or in the air alike [E].
+    let mut catch = ref_move(10, 0, 0, 255, &[]);
+    catch.land_continue = true;
+    w.moves[BOOMERANG_CATCH as usize] = catch;
+}
+
+/// The sword wave (the forward smash's first hit, only at exactly 0%; `REFERENCE_DATA.md` "The Sword Beam"): it leaves with hit 1 on
+/// frame 17, 11 ahead and 6 up of the reference's units (1.375, 0.75 [D]) (`buckler_fsmash.script`), and scales with the smash's
+/// charge (E35): 5 to 13%, 2.4 to 3.4 a frame (0.3 to 0.425 [D]), slowed 0.01 a frame (0.00125 [D], E35 drag), 32 to 40 frames, the
+/// size x0.8 to x1.1 [R]. Angle 361 (type forward), BK 45, KS 15, radius 1.8 → 2 [D] on a lying capsule 14 units long (half 7 →
+/// 0.875 [D], E38), hitlag x1.0, reflectable; no falloff (gap 9) [R].
+fn sword_wave(w: &mut Weapon) {
+    let mut wave = shot_hit(18, 50, 361, 45, 15, ANGLE_FORWARD);
+    wave.half_width = Fx::from_ratio(7, 8);
+    w.moves[MoveId::FSmash as usize].projectile = Some(ProjectileSpawn {
+        // (Only the script fires it, at 0%.)
+        frame: 255,
+        x: Fx::from_ratio(11, 8),
+        y: Fx::from_ratio(6, 8),
+        speed: rs(2400),
+        life: 32,
+        hitbox: wave,
+        end_damage: wave.damage,
+        arc: ProjectileArc {
+            drag: rs(10),
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: false,
+        rehit: 0,
+        burst: None,
+        charged: Some(ChargedShot {
+            full: 60,
+            snap: 0,
+            damage_to: Fx::from_int(13),
+            speed_to: rs(3400),
+            life_to: 40,
+            size_from: 80,
+            size_to: 110,
+            floor: false,
+        }),
+        tool: Tool::NONE,
+    });
 }

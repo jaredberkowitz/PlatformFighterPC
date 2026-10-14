@@ -376,9 +376,9 @@ fn a_move_with_no_recovery_rules_behaves_as_before() {
 
 // ---- Wall jumps (sim 64) --------------------------------------------------------------------------------------------------------
 
-/// Class `ch` falling against the left side of the main stage (its wall at x = -11), then the stick flicked away from it (left).
-/// Returns the fighter after the flick.
-fn flick_off_the_wall(ch: u8, sim: &mut Sim) -> sim_core::Fighter {
+/// Class `ch` falling against the left side of the main stage (its wall at x = -11), then the stick pushed away from it (left) with
+/// jump pressed: the wall jump's input since sim 101. Returns the fighter after the press.
+fn kick_off_the_wall(ch: u8, sim: &mut Sim) -> sim_core::Fighter {
     let half = sim.content.fighters[usize::from(ch)].ecb_half_width;
     if sim.f().char_id != ch || sim.f().grounded() || sim.f().pos.y > Fx::from_int(-1) {
         sim.state.fighters[0].char_id = ch;
@@ -393,25 +393,25 @@ fn flick_off_the_wall(ch: u8, sim: &mut Sim) -> sim_core::Fighter {
     );
     sim.state.fighters[0].facing = 1;
     sim.tick(inp(0, 0, 0));
-    sim.tick(inp(-127, 0, 0));
+    sim.tick(inp(-127, 0, sim_core::input::buttons::JUMP));
     *sim.f()
 }
 
 #[test]
-fn a_wall_jumper_kicks_off_a_wall_with_the_stick_flicked_away_and_each_one_is_weaker() {
+fn a_wall_jumper_kicks_off_a_wall_with_the_stick_away_and_jump_and_each_one_is_weaker() {
     let units = |n: i32| Fx::from_ratio(n, 8000);
     // The tumbler (class 3): 1.3 away, 2.3 up (the reference's).
     let mut sim = Sim::with_chars([3, 0, 0, 0]);
     sim.stand(1, Fx::from_int(9), -1);
     sim.put_airborne(0, Fx::from_int(-12), Fx::from_int(-3), Fx::ZERO, Fx::ZERO);
-    let f = flick_off_the_wall(3, &mut sim);
+    let f = kick_off_the_wall(3, &mut sim);
     assert_eq!(f.wall_jumps, 1);
     assert_eq!(f.facing, -1, "facing away from the wall");
     // (One frame of air movement since: gravity and drift.)
     assert!((f.vel.y - units(2300)).abs() < units(150), "{:?}", f.vel);
     assert!((f.vel.x + units(1300)).abs() < units(150), "{:?}", f.vel);
     // Back against the wall without landing: the next one is 0.96 as strong.
-    let second = flick_off_the_wall(3, &mut sim);
+    let second = kick_off_the_wall(3, &mut sim);
     assert_eq!(second.wall_jumps, 2);
     assert!(
         second.vel.y < f.vel.y,
@@ -428,14 +428,15 @@ fn a_wall_jumper_kicks_off_a_wall_with_the_stick_flicked_away_and_each_one_is_we
 }
 
 #[test]
-fn a_body_without_a_wall_jump_only_drifts_away_from_the_wall() {
+fn a_body_without_a_wall_jump_takes_its_midair_jump_instead() {
     // The duelist (class 0) has none.
     let mut sim = Sim::with_chars([0, 0, 0, 0]);
     sim.stand(1, Fx::from_int(9), -1);
     sim.put_airborne(0, Fx::from_int(-12), Fx::from_int(-3), Fx::ZERO, Fx::ZERO);
-    let f = flick_off_the_wall(0, &mut sim);
+    let jumps = sim.f().air_jumps_left;
+    let f = kick_off_the_wall(0, &mut sim);
     assert_eq!(f.wall_jumps, 0);
-    assert!(f.vel.y < Fx::ZERO, "still falling: {:?}", f.vel);
+    assert_eq!(f.air_jumps_left, jumps - 1, "the midair jump");
 }
 
 #[test]
@@ -443,7 +444,7 @@ fn landing_lets_the_wall_jumps_start_over() {
     let mut sim = Sim::with_chars([3, 0, 0, 0]);
     sim.stand(1, Fx::from_int(9), -1);
     sim.put_airborne(0, Fx::from_int(-12), Fx::from_int(-3), Fx::ZERO, Fx::ZERO);
-    flick_off_the_wall(3, &mut sim);
+    kick_off_the_wall(3, &mut sim);
     assert_eq!(sim.f().wall_jumps, 1);
     // Down onto the stage.
     sim.put_airborne(0, Fx::ZERO, Fx::from_ratio(1, 10), Fx::ZERO, -Fx::ONE);
@@ -452,7 +453,8 @@ fn landing_lets_the_wall_jumps_start_over() {
     assert_eq!(sim.f().wall_jumps, 0);
 }
 
-// ---- Wall jumps from the jump button (owner, 2026-10-13) ------------------------------------------------------------------------
+// ---- The wall jump's input (owner, 2026-10-14, sim 101): the stick held away from the wall and jump ------------------------------
+// (Before, jump with the stick neutral or toward the wall, or the stick flicked away by itself, wall-jumped: too easy by accident.)
 
 /// Class `ch` falling against the left side of the main stage (its wall at x = -11), facing it; then jump pressed with the stick at
 /// `stick_x`. Returns the fighter and its midair jumps before the press.
@@ -480,9 +482,9 @@ fn jump_at_the_wall(ch: u8, stick_x: i8) -> (sim_core::Fighter, u8) {
 }
 
 #[test]
-fn jump_against_a_wall_with_the_stick_neutral_is_a_wall_jump_and_keeps_the_midair_jump() {
+fn jump_against_a_wall_with_the_stick_held_away_is_a_wall_jump_and_keeps_the_midair_jump() {
     let units = |n: i32| Fx::from_ratio(n, 8000);
-    let (f, jumps) = jump_at_the_wall(3, 0);
+    let (f, jumps) = jump_at_the_wall(3, -127);
     assert_eq!(f.wall_jumps, 1, "a wall jump");
     assert_eq!(f.air_jumps_left, jumps, "no midair jump spent");
     assert_eq!(f.facing, -1, "facing away from the wall");
@@ -491,26 +493,45 @@ fn jump_against_a_wall_with_the_stick_neutral_is_a_wall_jump_and_keeps_the_midai
 }
 
 #[test]
-fn jump_against_a_wall_with_the_stick_toward_it_is_a_wall_jump_too() {
-    let (f, jumps) = jump_at_the_wall(3, 127);
-    assert_eq!(f.wall_jumps, 1);
-    assert_eq!(f.air_jumps_left, jumps, "no midair jump spent");
-    assert!(f.vel.x < Fx::ZERO, "away from the wall: {:?}", f.vel);
+fn jump_against_a_wall_with_the_stick_neutral_or_toward_it_is_a_midair_jump() {
+    for stick in [0, 127] {
+        let (f, jumps) = jump_at_the_wall(3, stick);
+        assert_eq!(f.wall_jumps, 0, "stick {stick}");
+        assert_eq!(
+            f.air_jumps_left,
+            jumps - 1,
+            "stick {stick}: the midair jump"
+        );
+    }
 }
 
 #[test]
-fn jump_against_a_wall_with_the_stick_held_away_is_a_midair_jump() {
-    let (f, jumps) = jump_at_the_wall(3, -127);
-    assert_eq!(f.wall_jumps, 0);
-    assert_eq!(f.air_jumps_left, jumps - 1, "the midair jump");
+fn the_stick_flicked_away_from_a_wall_without_jump_is_no_wall_jump() {
+    let mut sim = Sim::with_chars([3, 0, 0, 0]);
+    sim.stand(1, Fx::from_int(9), -1);
+    let half = sim.content.fighters[3].ecb_half_width;
+    sim.put_airborne(
+        0,
+        Fx::from_int(-11) - half,
+        Fx::from_int(-3),
+        Fx::ZERO,
+        -Fx::from_ratio(1, 10),
+    );
+    sim.state.fighters[0].facing = 1;
+    sim.tick(inp(0, 0, 0));
+    for _ in 0..4 {
+        sim.tick(inp(-127, 0, 0));
+    }
+    assert_eq!(sim.f().wall_jumps, 0);
+    assert!(sim.f().vel.y < Fx::ZERO, "still falling: {:?}", sim.f().vel);
 }
 
 #[test]
-fn every_wall_jumping_body_takes_the_jump_button() {
+fn every_wall_jumping_body_wall_jumps_with_the_stick_away_and_jump() {
     let mut any = 0;
     for ch in 0..Sim::new().content.fighters.len() as u8 {
         let can = Sim::new().content.fighters[usize::from(ch)].wall_jump != 0;
-        let (f, jumps) = jump_at_the_wall(ch, 0);
+        let (f, jumps) = jump_at_the_wall(ch, -127);
         if can {
             any += 1;
             assert_eq!(f.wall_jumps, 1, "class {ch}");

@@ -860,3 +860,36 @@ fn the_aimed_register_reads_how_the_attack_was_aimed_as_it_started() {
         assert_eq!(sim.f().vars[0], Fx::from_int(want).raw(), "stick {stick_y}");
     }
 }
+
+// ---- `owned` and the tool limit (E3d, sim 102) -------------------------------------------------------------------------------------
+
+#[test]
+fn the_owned_register_counts_the_fighters_shots_out_and_a_limit_stops_more() {
+    // A neutral special firing the blaster's shot every frame from frame 2, its count read into a var: with a limit of 2 (tool kind
+    // 4), two go out and no more, and `owned` sees both (as the frame began). Without a limit every frame fires one.
+    for limit in [2u8, 0] {
+        let mut mv = scripted(
+            40,
+            "var n; n = owned; if frame >= 2 { spawn(1, 1, 0.01, 0); }",
+        );
+        let mut spec = sim_blaster().projectile.expect("a shot");
+        spec.life = 200;
+        spec.tool.kind = 4;
+        spec.tool.limit = limit;
+        mv.projectile = Some(spec);
+        let mut sim = with_special(mv);
+        start(&mut sim);
+        for _ in 0..6 {
+            sim.tick(inp(0, 0, 0));
+        }
+        let out: Vec<_> = sim.state.projectiles.iter().filter(|p| p.active).collect();
+        assert!(out.iter().all(|p| p.kind == 4));
+        if limit == 2 {
+            assert_eq!(out.len(), 2);
+            assert_eq!(sim.f().vars[0], Fx::from_int(2).raw());
+        } else {
+            assert_eq!(out.len(), 5);
+            assert_eq!(sim.f().vars[0], Fx::from_int(4).raw(), "as the frame began");
+        }
+    }
+}

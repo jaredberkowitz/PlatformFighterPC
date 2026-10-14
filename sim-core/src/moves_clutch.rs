@@ -764,6 +764,8 @@ fn lobbed_shell() -> Move {
             on_expire: true,
             keep_hits: true,
         }),
+        charged: None,
+        tool: Tool::NONE,
     });
     mv
 }
@@ -864,6 +866,8 @@ fn drop() -> (Move, Move, Move) {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     (ground, air, landing)
 }

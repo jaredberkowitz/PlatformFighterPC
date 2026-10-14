@@ -935,6 +935,13 @@ impl SimRunner {
         self.fighter(i).is_some_and(|fi| fi.tripped)
     }
 
+    /// The fighter this one is holding (in `Grabbing`, a throw or `Carrying`) or held by (in `Grabbed`), or -1. Read-only, for the view:
+    /// a carried fighter (its holder `Carrying`, E7) is drawn lifted overhead.
+    #[func]
+    fn fighter_grab_partner(&self, i: i32) -> i32 {
+        self.fighter(i).map_or(-1, |fi| i32::from(fi.grab_with))
+    }
+
     #[func]
     fn fighter_state_frame(&self, i: i32) -> i32 {
         self.fighter(i).map_or(0, |fi| i32::from(fi.state_frame))
@@ -1320,6 +1327,17 @@ impl SimRunner {
             .ok()
             .and_then(|i| self.state.projectiles.get(i))
             .is_some_and(|p| p.active && p.bursting)
+    }
+
+    /// How projectile slot `i` rests (sim 99, read only, for the view): 0 flying, 1 stuck in a surface (a lodged arrow: it lies still
+    /// and hits nothing), 2 knocked down by a clank (a falling boomerang: it hits nothing); -1 for an empty slot.
+    #[func]
+    fn projectile_rest(&self, i: i32) -> i32 {
+        usize::try_from(i)
+            .ok()
+            .and_then(|i| self.state.projectiles.get(i))
+            .filter(|p| p.active)
+            .map_or(-1, |p| i32::from(p.rest))
     }
 
     // ---- Network play ----

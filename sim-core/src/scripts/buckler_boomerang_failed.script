@@ -1,0 +1,3 @@
+// Buckler side special with its boomerang out (ext6, the failed throw): FAF 60 on the ground (the move's own data), 46 in the air:
+// started on the throw's frame 2, in the air it ends on its own frame 43 [D].
+if grounded == 0 && frame >= 43 { end(); }

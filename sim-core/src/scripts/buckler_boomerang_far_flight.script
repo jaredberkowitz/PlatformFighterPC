@@ -1,0 +1,32 @@
+// The smash-input boomerang's flight: as the tilt one's (`buckler_boomerang_flight.script`), but the turn back speeds it up by 0.0232
+// a frame, the rate that takes it from 0.3 to 3 over the reference's 24 [E: gap 6, the reading].
+var back;
+let s = sqrt(pvx * pvx + pvy * pvy);
+if back == 0 && s > 0 {
+    let ns = max(s - 0.005875, 0.0375);
+    if ns <= 0.0375 { back = 1; }
+    set_vel(pvx * ns / s, pvy * ns / s);
+} else if s > 0 {
+    let tx = owner_x - px;
+    let ty = owner_y + 1.1 - py;
+    let d = sqrt(tx * tx + ty * ty);
+    if d > 0.01 {
+        tx = tx / d;
+        ty = ty / d;
+        let ux = pvx / s;
+        let uy = pvy / s;
+        if back == 1 || ux * tx + uy * ty >= cos(0.75) {
+            back = 2;
+            ux = tx;
+            uy = ty;
+        } else {
+            let k = 0.75;
+            if ux * ty - uy * tx < 0 { k = -0.75; }
+            d = ux * cos(k) - uy * sin(k);
+            uy = ux * sin(k) + uy * cos(k);
+            ux = d;
+        }
+        d = min(s + 0.0232, 0.375);
+        set_vel(ux * d, uy * d);
+    }
+}

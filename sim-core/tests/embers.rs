@@ -1311,6 +1311,7 @@ fn shot_from_player_1(sim: &mut Sim, pos: Vec2, vel: Vec2) {
         hit_age: [0; sim_core::MAX_FIGHTERS],
         facing: 1,
         bursting: false,
+        ..sim_core::Projectile::default()
     };
 }
 

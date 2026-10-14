@@ -193,27 +193,144 @@ takes **sim 96**. Owner defaults (decisions 61-62, `ROSTER_STATUS.md`):
 Checks after the merges: `cargo fmt --all`, `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`,
 `pftool fuzz-rollback 500` and `net-fuzz 200` (results in the commit message and the porter's report).
 
-## Phase 2 plan: the bow, the boomerang and the sword wave
+## Phase 2 (sim 102, content schema 6 unchanged): the bow, the boomerang and the sword wave
 
-* **E35, charge-scaled projectiles** (as sketched in `PROJECT_AUDIT.md`): `ProjectileSpawn::charged { full, snap, damage_to, speed_to,
-  life_to, size_to, floor }` and a hashed `Projectile::damage`; `ProjectileArc::drag`. The bow (floor(4 + 8c / 60), 2.6 to 10, snap at
-  36 charge frames, auto-fire at 180) and the sword wave (only at 0%: the `percent` register; 5 to 13%, 2.4 to 3.4 with 0.01 drag, life
-  32 to 40, size 0.8 to 1.1).
-* **E3b lodging**: `ProjectileArc::lodge` (180 frames; the 9-degree reading, gap 8); without E4 a lodged arrow lies and fades.
-* **E3d (first part)**: `ProjectileSpawn::limit` and the `owned` register (one boomerang: the failed throw, FAF 60 / 46),
-  `ProjectileSpawn::catch` (the catch move, FAF 10), `on_clank` (it falls). The boomerang's path as a projectile script (deceleration
-  0.047 to 0.3, turn back, homing at up to 3 with 0.75 degrees a frame [E: gap 6]), its hits by age (E3a) with angle type 1.
-* Slots: bow fire, boomerang smash throw, failed throw, catch (ext4-7).
+Branch `buckler-phase2`, from `movesets` at 9f2383b (sim 96); the work commit f83aa12, then a merge of `movesets` at 238868c (sim 97
+the knockback-reference fixes, 98 the Bracers' carry, 100 the platform-drop rule, 101 the wall-jump input rule). Sim **102**.
+
+### Milestone 1: the engine (all general; every default is today's behaviour)
+
+* **E35, charge-scaled shots**: `ProjectileSpawn::charged: Option<ChargedShot { full, snap, damage_to, speed_to, life_to, size_from,
+  size_to, floor }>` and the hashed `Projectile::damage`. As a shot appears, `c` = the firing fighter's `charge` (a smash charge, or a
+  script's `set_charge` carried into the firing move by `keep_charge`), capped at `full` and snapped to `full` from `snap` on; damage,
+  speed, life and size go in proportion from the spec's own values to the `_to` values (damage floored with `floor`). A script's
+  `spawn` is fired as at no charge and its velocity scaled by the same speed ratio. A charged shot has no damage falloff (validated:
+  `end_damage` equals the damage); phases keep their own damage. `ProjectileArc::drag` slows a shot along its flight, to a stop.
+* **E3b, lodging**: `ProjectileArc::lodge` (frames) and `lodge_angle` (degrees, 0 any): an arcing shot meeting a platform top or a
+  solid wall at that angle or steeper sticks there (`Projectile::rest = REST_LODGED`): it stops, stops hitting, has no script, and lasts
+  `lodge` frames; meeting one more shallowly it is gone [E: gap 8's reading]. Not with `bounces`.
+* **E3d, first part (the tool life rules)**: `ProjectileSpawn::tool: Tool { kind, limit, catch_from, catch_move, on_clank }`
+  (`Tool::NONE` off), hashed `Projectile::kind`; the fighter register **`owned`** (id 31: live shots the fighter fired of the move's
+  tool kind, or of the move itself with kind 0, as the frame began; `scripting::owned`); a spawn past `limit` does not happen. From age
+  `catch_from` a shot still its firer's that touches its firer's body is removed, and a free firer (standing, walking, running,
+  dashing, turning, crouching, airborne; not in hitlag) starts `catch_move`; a dodging one (roll, spot dodge, air dodge) lets it
+  pass; a busy one (attacking, shielding, hurt) catches it without the move (`combat::catch_by_owner`). `on_clank: Option<Fall>`: a
+  clank with an attack turns the shot into a falling, harmless one (`REST_FALLEN`: its life, speed back and up, gravity, top fall
+  speed; it lies on a platform it lands on). **`Move::smash_version`**: a special started with a smash-style input (the `flick` rule)
+  uses that slot instead (after `air_version`); B-reverse and the special turn windows treat it as its special.
+* **E38 (new, small), the lying capsule**: `Hitbox::half_width` (content `half_width`): the box reaches that far ahead and behind its
+  centre too (a rounded rectangle with `half_height`); `combat::shapes_touch` replaces `capsules_touch` (exact for these shapes) in
+  hurtbox, counter bubble, passive shield, reflector field / body / detector tests. Scaled by `hitbox_scale`, not by a shot's charged
+  size (the reference scales a shot's radius, not its capsule's ends).
+* Reflected shots already hit their thrower (a reflection makes the reflector the owner, and only the owner is skipped), so
+  **`hits_owner` is not needed** for the reflected boomerang; it stays on the phase-3 list for the bomb's self damage.
+* Hashed and checked: checksum cases `projectile_damage`, `projectile_kind`, `projectile_rest` (`state.rs`); every new content field
+  in `Weapon::hash_into` (`move_rules::the_tool_fields_are_in_the_content_hash`), read and written by `sim-content/src/format.rs`,
+  validated (drag not negative, `lodge_angle` at most 90; a charged shot needs `full`, a `life_to`, sizes 10-1000 and no falloff; a
+  clank fall needs a life; a `catch_move` needs a `catch_from` and a real move; a catch move may be frames only), round trip
+  (`sim-content` `the_tool_fields_round_trip_and_are_checked`), documented in `docs/CONTENT.md` ("Still schema 6 (sim v102)").
+  Read-only bridge accessor `projectile_rest(i)` (0 flying, 1 lodged, 2 fallen, -1 empty) for the view.
+
+### Milestone 2: the moves (`sim-core/src/moves_buckler.rs` `tools`, scripts `buckler_bow`, `buckler_boomerang_*`, `buckler_fsmash`)
+
+* **The bow** (neutral special): the draw (move frames 0-14, the reference's 1-15), then the hold from frame 16 while special is
+  held, up to 180 frames; on the first frame special is up (frame 16 for a tap), or after 180 held frames, the script sets the charge
+  to the frames held, fires the arrow and goes on as the release (`ext4`, FAF 30, `keep_charge`): FAF 45 for a tap, 81 after 36 held
+  frames [R]. The arrow (E35): 2.5 degrees up, 2.6 → 10 reference units a frame (0.325 → 1.25), full at 36 charge frames (the snap),
+  floor(4 + 8c / 60)% = 4 → 12, 46 frames, gravity 0.054, angle 361 type forward, BK 10, KS 71, radius 1.35 → 2, hitlag x0.8, not
+  piercing [R]; lodges for 180 frames at 9 degrees or steeper (E3b). In the air: the body's air physics, landing carries the move on
+  (gap 7) [E]. Spawn point 0.8 ahead, 1.2 up [E].
+* **The boomerang** (side special): the throw (FAF 46; out on frame 27, aimed by the stick up to ±26 degrees, a 0.1 dead zone [E]) at
+  2.4 (life 125) or, with a smash input (`smash_version` → `ext5`), 3.1 (life 167) with x1.2 on the clean and late hits [R]; one at
+  a time (tool kind 1, limit 1): with one out, the throw goes on as the failed throw (`ext6`, FAF 60 ground / 46 air [R], from the
+  throw's frame 2 [D]). The flight (projectile scripts `buckler_boomerang_flight` / `_far_flight`): slows 0.047 a frame to 0.3 along
+  its throw (reaching it on age 45 / 60, exactly where the returning hit starts [D]); then it turns to face its thrower (1.1 above the
+  feet [E]), speeds up to 3 at the rate that covers the turn-back distance 16 / 24 (0.0348 / 0.0232 world units a frame) [E: gap 6,
+  the reading] and homes at up to 0.75 degrees a frame [R]. Hits by age: clean 8% (70, BK 80) ages 0-9, late 6% (65, BK 60) from 10,
+  returning 3% (70, BK 50) from 45 / 60, all KS 40, type 1 (by travel), shield damage 50% (the reference's -4 / -3 / -1.5 [D]), radius
+  4.0 / 3.6 → 5 [R]; not piercing. Caught from the returning age on (the catch, `ext7`, FAF 10 [R]); a clank drops it (60 frames,
+  -0.15 / +1.25, gravity 0.09, fall 1.4 [R]), still counted as out. It bounces off any ground it meets [E: the reference's 16- and
+  30-degree rules not modelled]. Spawn point 1.0 ahead, 1.1 up [E].
+* **The sword wave**: the forward smash fires it on frame 17 only at exactly 0% (the `percent` register): 11 ahead, 6 up (1.375,
+  0.75 [D]); E35 from the smash's charge: 5 → 13%, 2.4 → 3.4 (0.3 → 0.425), life 32 → 40, size x0.8 → x1.1; drag 0.01 (0.00125);
+  angle 361 type forward, BK 45, KS 15, radius 1.8 → 2 on a 14-unit lying capsule (half 0.875, E38) [R]; no falloff (gap 9).
+* Slots: ext4 bow release, ext5 far boomerang, ext6 failed throw, ext7 catch (8 of 16 used). The down special stays the claws'
+  placeholder until phase 3.
+
+### Verified against [R] / [D] (by tests that ran)
+
+`sim-core/tests/buckler_specials.rs` (20 tests): the tapped arrow on frame 16 at 0.325, 2.5 degrees up, 4%, 46 frames, control on 45;
+the charge scaling at 0 / 20 / 35 / 36 / 90 held frames (damage 4 / 6 / 8 / 12 / 12, the speed in proportion and full from 36),
+FAF 30 after the release, the release keeping the charge; auto-fire after 180 frames; an arrow's hit (4% and 12%, used up), its
+angle data; the arrow lodging in the stage (180 frames, on the top, harmless to a fighter on it, gone after); shallow (under 9
+degrees) and steep landings; the bow drawn in the air landing and carrying on; the wave only at 0%, on frame 17, at 0 / 30 / 60
+charge frames (5 / 9 / 13%, speed 0.3 / 0.362 / 0.425, life 32 / 36 / 40, size 80 / 95 / 110), its drag, its 5% hit at range and its
+lying capsule reaching a target two or more frames sooner than its circle; the boomerang on frame 27, aimed straight / +26 / -26
+degrees, life 125, control on 46; the smash input's 3.1 and 167; its slowest speed on age 45, turning back on 45-47, out about 7.6
+units [D], caught and the catch move's FAF 10; the failed throw (FAF 60, nothing thrown); its hits by age (both throws) and live
+(8% close, 6% further); the returning hit sending toward the thrower; a clank knocking it down (up and back, 60 frames, lying on the
+stage, still out: a throw fails; harmless); a reflected one hitting its thrower for its clean hit and not caught; a shielding thrower
+catching it without the catch move; resimulation from a snapshot. Also `scripted_moves::the_owned_register_counts_the_fighters_shots_out_and_a_limit_stops_more`,
+`move_rules::the_tool_fields_are_in_the_content_hash`, the sim-content round trip, the `state.rs` checksum cases, and the phase-1
+`buckler.rs` (32: its registration and slot tests updated for the new specials; the forward smash's two-hit test runs at 1% so the
+wave stays out of it).
+
+### Estimated or limited [E]
+
+* Spawn points of the arrow (0.8, 1.2) and the boomerang (1.0, 1.1), the boomerang's homing point (1.1 above the feet).
+* The boomerang's turn back (gap 6): the published "distance spent turning back" read as the distance over which it reaches its
+  return speed, the turn itself made at once; the stick's 0.1 "sensitivity" read as a dead zone, the stick read on frame 27; it
+  bounces off every ground (the reference's 16-degree minimum and 30-degree pass-through rules are not modelled); a dodge lets it fly
+  on in its current heading but it then homes back (the reference's "continues toward the direction they dodged in" is not modelled).
+* A reflected boomerang belongs to the reflector and homes on it (it is not caught by anyone); unpublished.
+* The bow in the air (gap 7): the body's air physics, landing carries it on. Arrow lodging (gap 8): every platform top (soft ones too)
+  and every solid block face; the 9-degree reading; a shallow arrow is removed.
+* The house limit that a shot hits from the frame after it appears (the wave's and arrow's first frame).
+
+### Tests and checks run
+
+See the last commit message and the porter's report: `cargo fmt --all`, `cargo test --workspace`, `cargo clippy --workspace
+--all-targets -- -D warnings`, `pftool fuzz-rollback 500`, `pftool net-fuzz 200`, the content re-export. **Not run**: the Godot
+tests (they need the editor and a built bridge).
+
+### Training-mode checks (hitbox view)
+
+Wanderer vs a standing duelist: (1) tap the bow (an arrow on 16, a slow arc, lodged in the floor ahead) and hold it a second (a fast
+flat arrow); (2) tilt and smash boomerangs, aimed up and down, standing still to catch them, and a second throw while one is out;
+(3) jab a returning boomerang with the duelist (it drops); (4) forward smash at 0% (a wave) and at 1% (none).
+
+### For the art agent
+
+* **Bow**: a draw on frames 1-15, a held aim pose (it can last 3 seconds), the release recoil (30 frames); the arrow (a thin shaft,
+  slightly arcing) and a lodged arrow lying at its angle in the floor or a wall (`projectile_rest` = 1) for 3 seconds.
+* **Boomerang**: a throw (out on 27, FAF 46), the spinning boomerang (22 / 26 degrees a frame spin in the reference), the catch
+  (FAF 10), the failed throw (an empty-handed throw), a knocked-down boomerang tumbling and lying (`projectile_rest` = 2).
+* **Sword wave**: a horizontal crescent of light 1.75 units long, growing x0.8 → x1.1 with the charge, fired with the forward smash's
+  slash at 0%.
 
 ## Phase 3 plan: items and the bomb
 
 * **E4, held items** (decision 54: anyone can pick up the lodged arrows and the bomb and throw them; an opponent holding the bomb stops
-  its detonation): `GameState::items`, `ItemSpec`, `Fighter::holding`, the universal pick-up / throw / drop actions with the 13.0.1 item
-  throw frames, a read-only bridge accessor; explained to the owner before it is built (a broad change), with a schema bump.
-* **The Remote Bomb**: E3d's long life, `hits_owner` and `detonate()`; the pull (refused while holding an item), the detonation move
-  (12 frames), the fuse (1800), HP 50, bounces, self damage.
-* **The arrow pick-up and the double arrow** (two arrows 3 frames apart, x0.8 damage floored, BK 25 KS 110), and the passive shield off
-  while holding an item.
+  its detonation). Its shape, for the owner before it is built (a broad change, with a content schema bump):
+  * **State**: a small hashed pool `GameState::items` (like the projectile pool: a fixed array, each slot an `Item { active, kind,
+    owner, holder, pos, vel, age, life, hp, rest }`) and `Fighter::holding` (the item slot it holds, or none). An item is not a
+    projectile: it can lie on the ground, be held, be thrown (then it hits like a projectile), take hits (the bomb's 50 HP) and bounce.
+  * **Content**: an `ItemSpec` per item kind on the weapon that makes it (gravity, fall, friction, bounces, size, pick-up box, throw
+    speed multiplier, the thrown hit and its damage formula `base + speed x k`, what a shield does to it, fuse / HP), with defaults
+    that leave every fighter unchanged.
+  * **Universal actions** (every fighter, the 13.0.1 rules: `REFERENCE_DATA.md` "Remote Bomb" throw rows and conflict 9): attack near
+    a lying item picks it up (grounded; the aerial catch of a thrown item is gap 14); while holding, attack throws it forward / back /
+    up / down by the stick (smash throws with a flick, the dash throw out of a dash), grab or a shield drops it, and an aerial attack
+    is replaced by the throw (the "Z-drop" with grab). Item throw frames are fighter-wide (released 7 / 9 / 11 / 6 / 4 / 5, totals 24 /
+    24 / 23 / 19 / 29 / 23), so they are actions, not weapon slots.
+  * **Script surface**: a `holding` register (the kind held, 0 none) and `detonate()` (the caller's live tools of a kind burst: E3e's
+    burst for the explosion); the bridge gets read-only accessors for the view.
+  * Tests: pick-up / throw / drop frames, the thrown hits, the bomb's fuse, HP, bounces and self damage, rollback and checksum cases,
+    other fighters unchanged unless they pick an item up.
+* **The Remote Bomb**: E3d's long life (u16 for its 1800-frame fuse, or on the item), `hits_owner` (the explosion's self damage) and
+  `detonate()`; the pull (refused while holding an item), the detonation move (12 frames), HP 50, bounces.
+* **The arrow pick-up and the double arrow** (a lodged arrow becomes an arrow item; holding one, the bow fires two arrows 3 frames
+  apart, x0.8 damage floored, BK 25 KS 110, lodging 120 / 30), and the passive shield off while holding an item.
 * Then the re-check of every iconic move in the hitbox view.
 
 ## Questions for the owner
@@ -228,3 +345,10 @@ Checks after the merges: `cargo fmt --all`, `cargo test --workspace`, `cargo cli
    fighter)?
 3. **Footage** for gaps 1-5 (the shield's push and coverage, the grounded spin's sweep, the aerial spin's acceleration reading and
    height) and conflicts 2-4 (jab 2's and the down smash's FAF, jab 1 into 2 from 10 or 12).
+4. **The boomerang's turn back** (gap 6, phase 2): built as "it turns to face its thrower once it is at its slowest and speeds up to 3
+   over the published turn-back distance (16 / 24)". Footage of the reference's boomerang path (a tilt and a smash throw, standing
+   still) would confirm the turn's shape and timing.
+5. **Arrows lodging** (gap 8): built on every platform top (soft ones too) and every solid face, at 9 degrees or steeper; a shallower
+   arrow vanishes. Footage of a full-charge arrow skimming the stage would settle the shallow case.
+6. **E4** (phase 3): the shape above (an item pool, `ItemSpec`, universal pick-up / throw / drop actions for every fighter, a schema
+   bump). Build it this way?

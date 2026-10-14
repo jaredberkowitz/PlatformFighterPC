@@ -22,7 +22,10 @@ use crate::moves::{
     HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
-use crate::state::{Fighter, FighterState as S, GameState, Projectile, NONE, STALE_QUEUE};
+use crate::state::{
+    Fighter, FighterState as S, GameState, Projectile, NONE, REST_FALLEN, REST_FLYING, REST_LODGED,
+    STALE_QUEUE,
+};
 use crate::trig::Angle;
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
@@ -120,11 +123,13 @@ fn touches(
     hurt: &[(Vec2, Fx); HURT_CIRCLES],
     shut: u8,
     center: Vec2,
+    half_w: Fx,
     half: Fx,
     radius: Fx,
 ) -> bool {
     hurt.iter().enumerate().any(|(i, (hc, hr))| {
-        shut & (1 << i) == 0 && capsules_touch(*hc, Fx::ZERO, *hr, center, half, radius)
+        shut & (1 << i) == 0
+            && shapes_touch(*hc, Fx::ZERO, Fx::ZERO, *hr, center, half_w, half, radius)
     })
 }
 
@@ -153,6 +158,7 @@ pub fn active_hitboxes<'a>(
             hb.y = hb.y * scale;
             hb.radius = hb.radius * scale;
             hb.half_height = hb.half_height * scale;
+            hb.half_width = hb.half_width * scale;
             hb.posvec_x = hb.posvec_x * scale;
             hb.posvec_y = hb.posvec_y * scale;
             let center = Vec2::new(f.pos.x + hb.x.mul_int(facing), f.pos.y + hb.y);
@@ -378,7 +384,14 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 if hb.kind == HIT_SEARCH {
                     // A search box only notices (shields do not matter); it never competes with the move's hits.
                     if fa.grab_with != d as i8
-                        && touches(&hurt, shut, center, hb.half_height, hb.radius)
+                        && touches(
+                            &hurt,
+                            shut,
+                            center,
+                            hb.half_width,
+                            hb.half_height,
+                            hb.radius,
+                        )
                     {
                         searched[a] = true;
                     }
@@ -391,7 +404,14 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                     HIT_GRAB => (
                         !intangible
                             && grab::can_catch(&hb, fd)
-                            && touches(&hurt, shut, center, hb.half_height, hb.radius),
+                            && touches(
+                                &hurt,
+                                shut,
+                                center,
+                                hb.half_width,
+                                hb.half_height,
+                                hb.radius,
+                            ),
                         false,
                     ),
                     _ if fa.grab_with == d as i8 => (false, false),
@@ -771,14 +791,21 @@ fn reach(
     shut: u8,
     center: Vec2,
 ) -> (bool, bool) {
-    let body = || touches(hurt, shut, center, hb.half_height, hb.radius);
+    let body = || touches(hurt, shut, center, hb.half_width, hb.half_height, hb.radius);
     let caught = match counter {
         _ if hb.push => false,
         None => false,
         Some(CatchArea::Body) => body(),
-        Some(CatchArea::Bubble(c, half, r)) => {
-            capsules_touch(center, hb.half_height, hb.radius, c, half, r)
-        }
+        Some(CatchArea::Bubble(c, half, r)) => shapes_touch(
+            center,
+            hb.half_width,
+            hb.half_height,
+            hb.radius,
+            c,
+            Fx::ZERO,
+            half,
+            r,
+        ),
     };
     (caught || (!intangible && body()), caught)
 }
@@ -900,8 +927,12 @@ fn apply_hit(
         }
         return;
     }
-    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by.
-    grab::drop_grab(state, content, d);
+    // A fighter that is hit lets go of, or is let go by, whoever it was holding or held by. (A carrying fighter only once its carry's
+    // armor has been seen not to withstand the hit, below.)
+    let carrying = state.fighters[d].state == S::Carrying;
+    if !carrying {
+        grab::drop_grab(state, content, d);
+    }
     if freeze_source {
         // Hitting several fighters on one frame freezes the attacker for the longest of their hitlags.
         state.fighters[source].hitlag = state.fighters[source].hitlag.max(hitlag);
@@ -983,6 +1014,13 @@ fn apply_hit(
         defender_params
             .air_jump_armor
             .map(|a| (a, u16::from(def.air_jump_frame - 1)))
+    } else if carrying {
+        // A carry's armor (E7), its frames counted from the carry's first (255 and on as 255).
+        weapon_of(content, &defender_params)
+            .get(def.move_id)
+            .carry
+            .and_then(|c| c.armor)
+            .map(|a| (a, def.state_frame.min(255)))
     } else {
         None
     };
@@ -1036,6 +1074,11 @@ fn apply_hit(
         def.sdi_wait = 0;
         return;
     }
+    // A carry the hit breaks through lets go of its fighter (E7).
+    if carrying {
+        grab::drop_grab(state, content, d);
+    }
+    let def = &mut state.fighters[d];
     // The bury (E5). A buried fighter is freed only by a hit of at least `bury_break_kb` (it is launched in full, below); a weaker
     // hit's damage and hitlag stand and its launch is kept for when the bury ends (the last one kept [E: gap 10]). A grounded fighter
     // not lying down hit by a bury hit is buried; an airborne one takes the hit as usual (a meteor, for a downward bury hit).
@@ -1286,8 +1329,7 @@ fn passive_shield_blocks(
     fd: &Fighter,
     pd: &FighterParams,
     at: Vec2,
-    half: Fx,
-    radius: Fx,
+    shot: Shape,
     vel: Vec2,
 ) -> bool {
     let Some(sh) = pd.passive_shield else {
@@ -1308,11 +1350,13 @@ fn passive_shield_blocks(
         sh.y
     };
     let centre = fd.pos + Vec2::new((sh.x * scale).mul_int(facing), y * scale);
-    capsules_touch(
+    shapes_touch(
         at,
-        half,
-        radius,
+        shot.half_w,
+        shot.half_h,
+        shot.radius,
         centre,
+        Fx::ZERO,
         sh.half_height * scale,
         sh.radius * scale,
     )
@@ -1451,7 +1495,9 @@ struct Shot {
     size: u16,
 }
 
-/// Puts a projectile of `spec` fired by fighter `i` into the first free slot of the pool (none if the pool is full).
+/// Puts a projectile of `spec` fired by fighter `i` into the first free slot of the pool (none if the pool is full, or if the fighter
+/// already has its tool's limit out: `Tool::limit`, E3d). A charge-scaled shot (E35) takes its damage, speed, life and size from the
+/// fighter's charge (`ChargedShot`).
 fn add_projectile(
     state: &mut GameState,
     i: usize,
@@ -1459,6 +1505,41 @@ fn add_projectile(
     spec: &crate::moves::ProjectileSpawn,
     shot: Shot,
 ) {
+    let tool = spec.tool;
+    if tool.limit > 0 && scripting::owned(&state.projectiles, i, tool.kind, f.move_id) >= tool.limit
+    {
+        return;
+    }
+    let (mut vel, mut life, mut size, mut damage) = (shot.vel, spec.life, shot.size, Fx::ZERO);
+    if let Some(c) = spec.charged {
+        let level = c.level(f.charge);
+        // (The speed is a ratio of the uncharged one, so a script's own direction and speed are scaled alike.)
+        if spec.speed != Fx::ZERO {
+            let k = c.lerp(spec.speed, c.speed_to, level) / spec.speed;
+            vel = Vec2::new(vel.x * k, vel.y * k);
+        }
+        life = c
+            .lerp(
+                Fx::from_int(i32::from(spec.life)),
+                Fx::from_int(i32::from(c.life_to)),
+                level,
+            )
+            .floor_int()
+            .clamp(1, 255) as u8;
+        let grown = c
+            .lerp(
+                Fx::from_int(i32::from(c.size_from)),
+                Fx::from_int(i32::from(c.size_to)),
+                level,
+            )
+            .floor_int()
+            .clamp(1, 1000);
+        size = (i32::from(size) * grown / 100).clamp(1, 1000) as u16;
+        damage = c.lerp(spec.hitbox.damage, c.damage_to, level);
+        if c.floor {
+            damage = Fx::from_int(damage.floor_int());
+        }
+    }
     if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
         *slot = Projectile {
             active: true,
@@ -1467,22 +1548,25 @@ fn add_projectile(
             power: 100,
             move_id: f.move_id,
             pos: shot.pos,
-            vel: shot.vel,
+            vel,
             age: 0,
-            life: spec.life,
+            life,
             bounces: 0,
             kb_add: shot.kb_add,
-            size: shot.size,
+            size,
             vars: [0; crate::PROJECTILE_VARS],
             hit_mask: 0,
             hit_age: [0; MAX_FIGHTERS],
             facing: f.facing,
             bursting: false,
+            damage,
+            kind: tool.kind,
+            rest: REST_FLYING,
         };
     }
 }
 
-/// Moves projectiles, despawns them (lifetime, walls, blast zone) and applies their hits.
+/// Moves projectiles, despawns them (lifetime, walls, blast zone), lodges, drops and catches them (E3b, E3d) and applies their hits.
 pub fn update_projectiles(state: &mut GameState, content: &Content) {
     let stage = &content.stage;
     for n in 0..state.projectiles.len() {
@@ -1498,6 +1582,11 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             state.projectiles[n].active = false;
             continue;
         };
+        // A lodged or fallen projectile (E3b, E3d) only waits out its life (a fallen one falls first): no script, no hits.
+        if pr.rest != REST_FLYING {
+            rest_frame(&mut state.projectiles[n], &spec, stage);
+            continue;
+        }
         // The projectile's own script steers it before it moves.
         if let Some(program) = &fired_by.projectile_script {
             let around = surroundings(state, owner, pr.pos);
@@ -1518,6 +1607,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             if arc.max_fall > Fx::ZERO {
                 pr.vel.y = pr.vel.y.max(-arc.max_fall);
             }
+        }
+        // A shot with drag slows along its flight, down to a stop (E35).
+        if arc.drag > Fx::ZERO && burst.is_none() {
+            pr.vel = slowed(pr.vel, arc.drag);
         }
         let mut pos = pr.pos + pr.vel;
         let scale = origin_params.hitbox_scale;
@@ -1551,6 +1644,22 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             || pos.x > stage.blast_right
             || pos.y < stage.blast_bottom
             || pos.y > stage.blast_top;
+        // A lodging projectile (E3b) sticks where it meets a platform top or a solid wall, at a steep enough angle (else it is gone).
+        if arc.lodge > 0 && arc.bounces == 0 && burst.is_none() && !outside && age < pr.life {
+            if let Some((at, angle_ok)) = lodge_point(stage, pr.pos, pos, pr.vel, arc.lodge_angle) {
+                let p = &mut state.projectiles[n];
+                if angle_ok {
+                    p.rest = REST_LODGED;
+                    p.pos = at;
+                    p.vel = Vec2::ZERO;
+                    p.age = 0;
+                    p.life = arc.lodge;
+                } else {
+                    p.active = false;
+                }
+                continue;
+            }
+        }
         // A projectile that bursts on a wall (E3e) bursts just short of it (where it was), instead of being removed.
         if let Some(b) = spec.burst.filter(|b| b.on_wall && !pr.bursting) {
             if in_wall && age < pr.life && !outside {
@@ -1572,17 +1681,24 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         // A reflector in the way turns it around: it now belongs to the reflector and hits harder. (One stronger than the
         // reflector's damage limit goes through; a burst is not reflected.)
         let size = Fx::from_ratio(i32::from(pr.size), 100);
-        let shot_radius = spec.hitbox.radius * origin_params.hitbox_scale * size;
-        let shot_half = spec.hitbox.half_height * origin_params.hitbox_scale * size;
-        let shot_damage =
-            spec.hitbox.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        let shape = Shape {
+            half_w: spec.hitbox.half_width * origin_params.hitbox_scale,
+            half_h: spec.hitbox.half_height * origin_params.hitbox_scale * size,
+            radius: spec.hitbox.radius * origin_params.hitbox_scale * size,
+        };
+        // (A charge-scaled shot's damage was set as it was fired: E35.)
+        let base_damage = if spec.charged.is_some() {
+            pr.damage
+        } else {
+            spec.hitbox.damage
+        };
+        let shot_damage = base_damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
         if burst.is_none() {
-            reflector_detects(state, content, owner, pos, shot_half, shot_radius);
+            reflector_detects(state, content, owner, pos, shape);
         }
-        if let Some((r, rf)) =
-            reflector_touching(state, content, owner, pos, shot_half, shot_radius)
-                .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
-                .filter(|_| burst.is_none())
+        if let Some((r, rf)) = reflector_touching(state, content, owner, pos, shape)
+            .filter(|(_, rf)| rf.max_damage == Fx::ZERO || shot_damage <= rf.max_damage)
+            .filter(|_| burst.is_none())
         {
             let speed = Fx::from_int(i32::from(rf.speed_percent)) / Fx::from_int(100);
             let p = &mut state.projectiles[n];
@@ -1605,16 +1721,38 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             p.life = ((u16::from(pr.life) * u16::from(rf.life_percent)) / 100).clamp(1, 255) as u8;
             continue;
         }
-        // An attack in the way may clank with it.
+        // An attack in the way may clank with it: it is destroyed, or with `Tool::on_clank` (E3d) it drops.
         if spec.hitbox.clanks
             && burst.is_none()
-            && clank_projectile(state, content, owner, pos, shot_radius, shot_damage)
+            && clank_projectile(state, content, owner, pos, shape.radius, shot_damage)
         {
-            state.projectiles[n].active = false;
+            let p = &mut state.projectiles[n];
+            match spec.tool.on_clank {
+                Some(fall) => {
+                    let travel = if pr.vel.x < Fx::ZERO {
+                        -1
+                    } else if pr.vel.x > Fx::ZERO {
+                        1
+                    } else {
+                        i32::from(pr.facing)
+                    };
+                    p.rest = REST_FALLEN;
+                    p.pos = pos;
+                    p.vel = Vec2::new((fall.vx * scale).mul_int(travel), fall.vy * scale);
+                    p.age = 0;
+                    p.life = fall.life.max(1);
+                }
+                None => p.active = false,
+            }
             continue;
         }
         state.projectiles[n].pos = pos;
         state.projectiles[n].age = age;
+
+        // Its owner catches it on its way back (E3d): touching its firer's body from `Tool::catch_from` on.
+        if burst.is_none() && catch_by_owner(state, content, n, &spec, pos, shape, age) {
+            continue;
+        }
 
         // Damage falls off with distance travelled (unless the projectile's hit goes by phases of its age).
         let progress = Fx::from_ratio(i32::from(age), i32::from(pr.life.max(1)));
@@ -1631,8 +1769,12 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         };
         hb.radius = hb.radius * origin_params.hitbox_scale * size;
         hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
+        hb.half_width = hb.half_width * origin_params.hitbox_scale;
         hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
-        if !phased && !spec.any_phase() {
+        if !phased && spec.charged.is_some() {
+            // (A charge-scaled shot keeps the damage it was fired with: no falloff.)
+            hb.damage = pr.damage;
+        } else if !phased && !spec.any_phase() {
             hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
         }
         hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
@@ -1640,6 +1782,11 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         if hb.radius <= Fx::ZERO {
             continue;
         }
+        let hit_shape = Shape {
+            half_w: hb.half_width,
+            half_h: hb.half_height,
+            radius: hb.radius,
+        };
 
         for d in 0..MAX_FIGHTERS {
             let fd = &state.fighters[d];
@@ -1658,7 +1805,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             // A passive shield in the way stops the shot (E14): a burst is not stopped.
             if burst.is_none()
                 && !intangible
-                && passive_shield_blocks(fd, pd, pos, hb.half_height, hb.radius, pr.vel)
+                && passive_shield_blocks(fd, pd, pos, hit_shape, pr.vel)
             {
                 passive_block(&mut state.fighters[d], &content.rules, &hb);
                 let p = &mut state.projectiles[n];
@@ -1725,6 +1872,131 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
     }
 }
 
+/// A projectile's shape for touching things: a rounded rectangle (`shapes_touch`), already scaled.
+#[derive(Clone, Copy)]
+struct Shape {
+    half_w: Fx,
+    half_h: Fx,
+    radius: Fx,
+}
+
+/// `v` slowed by `drag` along its own direction, down to a stop (E35).
+fn slowed(v: Vec2, drag: Fx) -> Vec2 {
+    let speed = v.length();
+    if speed <= drag {
+        return Vec2::ZERO;
+    }
+    let k = (speed - drag) / speed;
+    Vec2::new(v.x * k, v.y * k)
+}
+
+/// Where a lodging projectile going from `from` to `to` meets a surface (E3b): the top of a platform it falls onto (where it crosses
+/// it), or a solid block it enters (just short of it, at `from`); and whether it meets it at `min_angle` degrees or more (0: any): a
+/// wall by its horizontal speed against its vertical, a top or underside the other way round.
+fn lodge_point(
+    stage: &crate::content::Stage,
+    from: Vec2,
+    to: Vec2,
+    vel: Vec2,
+    min_angle: u8,
+) -> Option<(Vec2, bool)> {
+    let a = Angle::from_degrees(i32::from(min_angle));
+    let (sin, cos) = (crate::trig::sin(a), crate::trig::cos(a));
+    // (Steep enough: the speed across the surface over the speed along it is at least tan(min_angle).)
+    let steep = |across: Fx, along: Fx| min_angle == 0 || across.abs() * cos >= along.abs() * sin;
+    if vel.y < Fx::ZERO {
+        if let Some(i) = collision::find_landing(stage, from, to, false) {
+            let at = Vec2::new(to.x, stage.platforms[i].y);
+            return Some((at, steep(vel.y, vel.x)));
+        }
+    }
+    let block = stage.platforms.iter().find(|b| {
+        !b.pass_through && to.x > b.left && to.x < b.right && to.y > b.bottom && to.y < b.y
+    })?;
+    let side = from.x <= block.left || from.x >= block.right;
+    let ok = if side {
+        steep(vel.x, vel.y)
+    } else {
+        steep(vel.y, vel.x)
+    };
+    Some((from, ok))
+}
+
+/// One frame of a lodged or fallen projectile: it ages and goes at the end of its life; a fallen one falls (`Tool::on_clank`'s
+/// gravity and top speed) and comes to rest on a platform top, and leaves at the blast zone.
+fn rest_frame(
+    p: &mut Projectile,
+    spec: &crate::moves::ProjectileSpawn,
+    stage: &crate::content::Stage,
+) {
+    p.age = p.age.saturating_add(1);
+    if p.age >= p.life {
+        p.active = false;
+        return;
+    }
+    if p.rest != REST_FALLEN || p.vel == Vec2::ZERO {
+        return;
+    }
+    if let Some(fall) = spec.tool.on_clank {
+        p.vel.y = (p.vel.y - fall.gravity).max(-fall.max_fall);
+    }
+    let to = p.pos + p.vel;
+    if p.vel.y < Fx::ZERO {
+        if let Some(i) = collision::find_landing(stage, p.pos, to, false) {
+            p.pos = Vec2::new(to.x, stage.platforms[i].y);
+            p.vel = Vec2::ZERO;
+            return;
+        }
+    }
+    p.pos = to;
+    if to.x < stage.blast_left
+        || to.x > stage.blast_right
+        || to.y < stage.blast_bottom
+        || to.y > stage.blast_top
+    {
+        p.active = false;
+    }
+}
+
+/// The owner's catch (E3d, `Tool::catch_from`): a projectile still its firer's, from that age on, touching its owner's body is removed
+/// (true), and a free owner starts the catch move. An owner dodging lets it fly on.
+fn catch_by_owner(
+    state: &mut GameState,
+    content: &Content,
+    n: usize,
+    spec: &crate::moves::ProjectileSpawn,
+    pos: Vec2,
+    shape: Shape,
+    age: u8,
+) -> bool {
+    let p = state.projectiles[n];
+    let tool = spec.tool;
+    if tool.catch_from == 255 || age < tool.catch_from || p.owner != p.origin {
+        return false;
+    }
+    let o = usize::from(p.owner).min(MAX_FIGHTERS - 1);
+    let f = &state.fighters[o];
+    if !f.active || matches!(f.state, S::Roll | S::SpotDodge | S::AirDodge | S::Respawn) {
+        return false;
+    }
+    let hurt = body_hurtboxes(content, f);
+    if !touches(&hurt, 0, pos, shape.half_w, shape.half_h, shape.radius) {
+        return false;
+    }
+    state.projectiles[n].active = false;
+    let free = matches!(
+        f.state,
+        S::Idle | S::Walk | S::Run | S::Dash | S::Turn | S::Crouch | S::Airborne
+    ) && f.hitlag == 0;
+    if let (true, Some(m)) = (free, tool.catch_move) {
+        let w = weapon_of(content, params_of(content, f));
+        if !w.get(m).is_empty() {
+            fighter::begin_attack(&mut state.fighters[o], MoveId::from_index(m));
+        }
+    }
+    true
+}
+
 /// A projectile becomes its burst (E3e) at `at`: it stops, its age and life start again as the burst's, and its hits start afresh
 /// (the fighter that stopped it is hit again).
 fn start_burst(p: &mut Projectile, b: &crate::moves::Burst, at: Vec2, scale: Fx) {
@@ -1764,8 +2036,7 @@ fn reflector_touching(
     content: &Content,
     owner: usize,
     pos: Vec2,
-    half: Fx,
-    radius: Fx,
+    shot: Shape,
 ) -> Option<(usize, Reflector)> {
     for (i, f) in state.fighters.iter().enumerate() {
         if i == owner || f.state != S::Attack {
@@ -1788,22 +2059,26 @@ fn reflector_touching(
         // The field (a circle, or a standing capsule), and the body field beside it on its own frames.
         let field = frame >= rf.start
             && frame <= rf.end
-            && capsules_touch(
+            && shapes_touch(
                 pos,
-                half,
-                radius,
+                shot.half_w,
+                shot.half_h,
+                shot.radius,
                 at(rf.x, rf.y),
+                Fx::ZERO,
                 rf.half_height * scale,
                 rf.radius * scale,
             );
         let body = rf.body_radius > Fx::ZERO
             && frame >= rf.body_start
             && frame <= rf.body_end
-            && capsules_touch(
+            && shapes_touch(
                 pos,
-                half,
-                radius,
+                shot.half_w,
+                shot.half_h,
+                shot.radius,
                 at(rf.body_x, rf.body_y),
+                Fx::ZERO,
                 Fx::ZERO,
                 rf.body_radius * scale,
             );
@@ -1814,11 +2089,14 @@ fn reflector_touching(
     None
 }
 
-/// Whether two standing capsules touch: each centred on `c`, reaching `h` above and below it, of radius `r` (a circle when its `h`
-/// is 0). Their nearest points are the centres' horizontal gap and the vertical gap between their two spans (0 where they overlap).
-fn capsules_touch(c1: Vec2, h1: Fx, r1: Fx, c2: Vec2, h2: Fx, r2: Fx) -> bool {
+/// Whether two rounded rectangles touch (E38): each centred on `c`, its core reaching `w` ahead and behind and `h` above and below, of
+/// radius `r` (a standing capsule when `w` is 0, a lying one when `h` is 0, a circle when both are). Their nearest points are the
+/// gaps between the cores' spans on each axis (0 where they overlap): exact for these shapes.
+#[allow(clippy::too_many_arguments)]
+fn shapes_touch(c1: Vec2, w1: Fx, h1: Fx, r1: Fx, c2: Vec2, w2: Fx, h2: Fx, r2: Fx) -> bool {
+    let dx = ((c1.x - c2.x).abs() - w1 - w2).max(Fx::ZERO);
     let dy = ((c1.y - c2.y).abs() - h1 - h2).max(Fx::ZERO);
-    let gap = Vec2::new(c1.x - c2.x, dy);
+    let gap = Vec2::new(dx, dy);
     let reach = r1 + r2;
     gap.length_sq() <= reach * reach
 }
@@ -1830,8 +2108,7 @@ fn reflector_detects(
     content: &Content,
     owner: usize,
     pos: Vec2,
-    half: Fx,
-    radius: Fx,
+    shot: Shape,
 ) {
     for i in 0..MAX_FIGHTERS {
         let f = &state.fighters[i];
@@ -1857,11 +2134,13 @@ fn reflector_detects(
             f.pos.x + (rf.detect_x * scale).mul_int(i32::from(f.facing)),
             f.pos.y + rf.detect_y * scale,
         );
-        if capsules_touch(
+        if shapes_touch(
             pos,
-            half,
-            radius,
+            shot.half_w,
+            shot.half_h,
+            shot.radius,
             centre,
+            Fx::ZERO,
             Fx::ZERO,
             rf.detect_radius * scale,
         ) {

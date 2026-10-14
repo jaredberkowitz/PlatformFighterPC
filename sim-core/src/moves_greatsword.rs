@@ -889,6 +889,8 @@ fn wave(w: &mut Weapon) {
             pierce: false,
             rehit: 0,
             burst: None,
+            charged: None,
+            tool: Tool::NONE,
         });
         m
     };
@@ -1278,6 +1280,8 @@ fn power_wave(w: &mut Weapon) {
             pierce: false,
             rehit: 0,
             burst: Some(power_burst(spin, last)),
+            charged: None,
+            tool: Tool::NONE,
         });
         m
     };

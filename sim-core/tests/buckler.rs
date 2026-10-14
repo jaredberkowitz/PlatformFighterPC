@@ -12,8 +12,8 @@ mod common;
 use common::{fx, inp, Sim};
 use sim_core::input::buttons::{ATTACK, GRAB, JUMP, SHIELD, SPECIAL};
 use sim_core::moves::buckler_slots::{
-    AIR_SPIN_HITS, DAIR_BOUNCE, DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR,
-    SPIN_GRAVITY, SPIN_RISE_SPEED,
+    AIR_SPIN_HITS, BOOMERANG_CATCH, BOOMERANG_FAILED, BOOMERANG_FAR, BOW_FIRE, DAIR_BOUNCE,
+    DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR, SPIN_GRAVITY, SPIN_RISE_SPEED,
 };
 use sim_core::moves::{
     Move, MoveId, Weapon, ANGLE_AUTOLINK, ANGLE_BACKWARD, ANGLE_FORWARD, HIT_GRAB, HIT_NORMAL,
@@ -130,9 +130,13 @@ fn every_normal_has_the_references_frame_data() {
     let jab2 = w.get(MoveId::Jab2 as u8);
     assert_eq!((jab2.next, jab2.next_from), (Some(MoveId::Jab3 as u8), 7));
     assert_eq!(w.get(MoveId::Jab3 as u8).next, None);
-    // The forward smash's second hit keeps the first's charge (E36); nothing else does.
+    // The forward smash's second hit keeps the first's charge (E36), and the bow's release the draw's (phase 2); nothing else does.
     for (i, m) in w.moves.iter().enumerate() {
-        assert_eq!(m.keep_charge, i == FSMASH_2 as usize, "slot {i}");
+        assert_eq!(
+            m.keep_charge,
+            i == FSMASH_2 as usize || i == BOW_FIRE as usize,
+            "slot {i}"
+        );
     }
 }
 
@@ -557,6 +561,8 @@ fn a_press_after_the_jabs_faf_inside_its_window_carries_on() {
 fn fsmash_run(charge: u32, again: u32) -> (Vec<(u32, Fx)>, Sim) {
     let mut sim = duel();
     sim.stand(0, Fx::ZERO, 1);
+    // (At 1%: no sword wave, which only comes out at 0%.)
+    sim.state.fighters[0].percent = Fx::ONE;
     sim.stand(1, fx(16, 10), -1);
     sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::FSmash);
     let mut rises = Vec::new();
@@ -1460,9 +1466,14 @@ fn the_buckler_is_registered_as_class_9() {
     assert_eq!(c.fighters[9], FighterParams::wanderer());
     assert_eq!(c.weapons[9], sim_core::moves::buckler());
     assert!(!c.weapons[9].limbs, "a held sword");
-    // The neutral, side and down specials are still the claws' placeholders (phases 2 and 3); the up special is the spin.
-    for id in [MoveId::NSpecial, MoveId::SideSpecial, MoveId::DownSpecial] {
-        assert_eq!(
+    // The down special is still the claws' placeholder (phase 3); the neutral and side specials are the bow and the boomerang (phase
+    // 2), the up special the spin.
+    assert_eq!(
+        c.weapons[9].moves[MoveId::DownSpecial as usize],
+        c.weapons[1].moves[MoveId::DownSpecial as usize]
+    );
+    for id in [MoveId::NSpecial, MoveId::SideSpecial] {
+        assert_ne!(
             c.weapons[9].moves[id as usize], c.weapons[1].moves[id as usize],
             "{id:?}"
         );
@@ -1471,11 +1482,21 @@ fn the_buckler_is_registered_as_class_9() {
         c.weapons[9].moves[MoveId::UpSpecial as usize],
         c.weapons[1].moves[MoveId::UpSpecial as usize]
     );
-    // Only the four follow-up slots are used.
+    // Only the eight follow-up slots are used.
     for i in 0..MoveId::COUNT as u8 {
         let id = MoveId::from_index(i);
         if id.is_ext() {
-            let used = [SPIN_AIR, FSMASH_2, DAIR_BOUNCE, DAIR_BOUNCE_END].contains(&id);
+            let used = [
+                SPIN_AIR,
+                FSMASH_2,
+                DAIR_BOUNCE,
+                DAIR_BOUNCE_END,
+                BOW_FIRE,
+                BOOMERANG_FAR,
+                BOOMERANG_FAILED,
+                BOOMERANG_CATCH,
+            ]
+            .contains(&id);
             assert_eq!(
                 !c.weapons[9].moves[usize::from(i)].is_empty(),
                 used,

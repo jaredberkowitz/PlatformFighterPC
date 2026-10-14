@@ -1,6 +1,8 @@
 // Buckler forward smash, hit 1. Attack pressed on frames 23-36 (move frames 22-35) starts hit 2 (29 = ext1), which keeps this hit's
 // charge (its `keep_charge`). A press from frame 14 on (the input buffer's 9 frames before the window) waits for it, hitlag included
-// (`presses` counts presses made in hitlag; the count at move frame 12 is the base).
+// (`presses` counts presses made in hitlag; the count at move frame 12 is the base). At exactly 0% the sword wave leaves with hit 1
+// on frame 17 (move frame 16), 11 ahead and 6 up of the reference's units, at the uncharged 2.4 (its spawn scales it by the charge).
 var seen;
 if frame == 12 { seen = presses; }
+if frame == 16 && percent == 0 { spawn(1.375, 0.75, 0.3, 0); }
 if frame >= 22 && frame <= 35 && presses > seen { goto(29); }

@@ -82,6 +82,9 @@ pub enum FighterState {
     /// Buried in the ground by a bury hit (E5): no action until `Fighter::bury_timer` runs out (mashing shortens it), then out with a
     /// little lag, or launched by a knockback kept from a weaker hit taken meanwhile.
     Buried,
+    /// Carrying a held fighter (E7, sim 98: the reference's cargo hold; see `moves::Carry`): walking, jumping (`Fighter::carry_jumps`)
+    /// and falling with it, on the ground or in the air, until a throw, the hold's clock or a hit ends it.
+    Carrying,
 }
 
 impl StateHash for FighterState {
@@ -209,6 +212,9 @@ pub struct Fighter {
     /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
     /// the first frame the fighter can act (see `fighter::update`).
     pub dash_buffer: i8,
+    /// A platform drop waiting to happen: frames left (counting the one it falls on) before the fighter leaves the pass-through
+    /// platform it flicked down on, 0 for none (see `Ruleset::platform_drop_frames`). A special on those frames is grounded.
+    pub drop_pending: u8,
     /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
     /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
     /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
@@ -294,6 +300,11 @@ pub struct Fighter {
     pub bury_kb: Fx,
     pub bury_angle: u16,
     pub bury_set: bool,
+    /// Jumps left in the current carry (`FighterState::Carrying`, E7): set from `Carry::jumps` when the carry starts.
+    pub carry_jumps: u8,
+    /// The hold's clock as it was set when this fighter was caught (`grab::connect`): what a carry measures the hold time already
+    /// used from (`grab_start - grab_timer`, mashing included). 0 when not held by an ordinary grab, and once a carry has used it.
+    pub grab_start: u16,
     /// The body's gauge (`content::Gauge`): 0 to its `max`. A KO empties it (owner decision 9: `Fighter::spawn` starts it at 0).
     pub gauge: Fx,
     /// Frames left of the gauge's powered mode (0: not powered).
@@ -340,7 +351,19 @@ pub struct Projectile {
     pub facing: i8,
     /// It has burst (`moves::Burst`): it stands still and hits with the burst's phases; its age counts from the burst.
     pub bursting: bool,
+    /// The damage a charge-scaled shot was fired with (E35, `moves::ChargedShot`); 0 for any other (its hit's own damage).
+    pub damage: Fx,
+    /// Its tool kind (`moves::Tool::kind`, E3d), copied at the spawn: what the per-fighter limit and the `owned` register count.
+    pub kind: u8,
+    /// [`REST_FLYING`], [`REST_LODGED`] (stuck in a surface: `ProjectileArc::lodge`) or [`REST_FALLEN`] (knocked down by a clank:
+    /// `Tool::on_clank`). Lodged or fallen, it neither hits nor is steered by its script; its age counts from then.
+    pub rest: u8,
 }
+
+/// `Projectile::rest` values.
+pub const REST_FLYING: u8 = 0;
+pub const REST_LODGED: u8 = 1;
+pub const REST_FALLEN: u8 = 2;
 
 impl StateHash for Projectile {
     fn hash_into(&self, h: &mut StateHasher) {
@@ -365,6 +388,9 @@ impl StateHash for Projectile {
         }
         h.write_i8(self.facing);
         h.write_bool(self.bursting);
+        self.damage.hash_into(h);
+        h.write_u8(self.kind);
+        h.write_u8(self.rest);
     }
 }
 
@@ -516,6 +542,7 @@ impl Fighter {
             air_flags: 0,
             wall_jumps: 0,
             dash_buffer: 0,
+            drop_pending: 0,
             presses: 0,
             releases: 0,
             next_move: 0,
@@ -529,6 +556,8 @@ impl Fighter {
             bury_kb: Fx::ZERO,
             bury_angle: 0,
             bury_set: false,
+            carry_jumps: 0,
+            grab_start: 0,
             gauge: Fx::ZERO,
             gauge_mode: 0,
             gauge_drain: false,
@@ -685,6 +714,7 @@ impl StateHash for Fighter {
         h.write_u8(self.air_flags);
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
+        h.write_u8(self.drop_pending);
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
@@ -697,6 +727,8 @@ impl StateHash for Fighter {
         self.bury_kb.hash_into(h);
         h.write_u16(self.bury_angle);
         h.write_bool(self.bury_set);
+        h.write_u8(self.carry_jumps);
+        h.write_u16(self.grab_start);
         h.write_u8(self.air_jump_frame);
         h.write_bool(self.spawn_custom);
         h.write_bool(self.spawn_fixed);
@@ -1200,6 +1232,11 @@ mod tests {
                 s.fighters[1].dash_buffer = 1;
                 s
             }),
+            ("drop_pending", {
+                let mut s = state;
+                s.fighters[1].drop_pending = 1;
+                s
+            }),
             ("air_flags", {
                 let mut s = state;
                 s.fighters[1].air_flags = 1;
@@ -1268,6 +1305,21 @@ mod tests {
             ("state buried", {
                 let mut s = state;
                 s.fighters[3].state = FighterState::Buried;
+                s
+            }),
+            ("carry_jumps", {
+                let mut s = state;
+                s.fighters[2].carry_jumps = 1;
+                s
+            }),
+            ("grab_start", {
+                let mut s = state;
+                s.fighters[1].grab_start = 165;
+                s
+            }),
+            ("state carrying", {
+                let mut s = state;
+                s.fighters[0].state = FighterState::Carrying;
                 s
             }),
             ("air_jump_frame", {
@@ -1393,6 +1445,21 @@ mod tests {
             ("spawn_size", {
                 let mut s = state;
                 s.fighters[1].spawn_size = 80;
+                s
+            }),
+            ("projectile_damage", {
+                let mut s = state;
+                s.projectiles[1].damage = Fx::from_int(7);
+                s
+            }),
+            ("projectile_kind", {
+                let mut s = state;
+                s.projectiles[1].kind = 3;
+                s
+            }),
+            ("projectile_rest", {
+                let mut s = state;
+                s.projectiles[1].rest = REST_LODGED;
                 s
             }),
             ("projectile_bounces", {

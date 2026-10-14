@@ -356,6 +356,10 @@ pub struct Hitbox {
     pub posvec_x: Fx,
     pub posvec_y: Fx,
     pub posvec_frames: u8,
+    /// Half the length of a lying capsule (E38, sim 102: the reference's horizontal capsule, a bolt): above 0 the box reaches this
+    /// far ahead of and behind its centre as well (with `half_height`, a rounded rectangle). Scaled by the body's `hitbox_scale`
+    /// but not by a projectile's own size (the reference scales a shot's radius, not its capsule's ends). 0: as before.
+    pub half_width: Fx,
 }
 
 /// `Hitbox::angle_type` values.
@@ -413,6 +417,7 @@ impl Hitbox {
         self.posvec_x = Fx::ZERO;
         self.posvec_y = Fx::ZERO;
         self.posvec_frames = 0;
+        self.half_width = Fx::ZERO;
         self
     }
 }
@@ -475,6 +480,114 @@ pub struct ProjectileSpawn {
     /// It bursts where it hits (E3e, the reference's powered wave): the first fighter it touches (shielding or not) takes its own hit,
     /// then it stops there and becomes the burst (`Projectile::bursting`). `None`: it is used up or pierces as above.
     pub burst: Option<Burst>,
+    /// A charge-scaled shot (E35, sim 102): its damage, speed, life and size go with the firing fighter's charge (see [`ChargedShot`]).
+    /// `None`: the values above, whatever the charge.
+    pub charged: Option<ChargedShot>,
+    /// A thrown tool's life rules (E3d, sim 102): how many may be out at once, the owner's catch, falling after a clank. See [`Tool`];
+    /// [`Tool::NONE`] for none of them.
+    pub tool: Tool,
+}
+
+/// A charge-scaled shot (E35, sim 102: the reference's charged arrows and sword wave). With `c` the firing fighter's `charge` as the shot
+/// appears (a smash attack's charge, or a script's `set_charge` carried to the firing move by `Move::keep_charge`), at most `full`, and
+/// `full` at once from `snap` charge frames on (0: no snap): the shot's damage goes from the hit's damage (`ProjectileSpawn::hitbox`)
+/// to `damage_to` (rounded down to a whole percent with `floor`), its speed from `ProjectileSpawn::speed` to `speed_to` (a script's
+/// `spawn` speed is scaled by the same ratio: the script fires as at no charge), its life from `ProjectileSpawn::life` to `life_to`
+/// and its size from `size_from` to `size_to` percent (the radius; a lying capsule's ends do not grow), each in proportion to
+/// `c / full`. The damage set at the start has no falloff over the flight; later hits by age (`phases`) keep their own damage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChargedShot {
+    pub full: u8,
+    pub snap: u8,
+    pub damage_to: Fx,
+    pub speed_to: Fx,
+    pub life_to: u8,
+    pub size_from: u16,
+    pub size_to: u16,
+    pub floor: bool,
+}
+
+impl ChargedShot {
+    /// The charge the shot is made with, out of `full`: `charge` capped at `full`, and `full` from `snap` on.
+    pub fn level(&self, charge: u8) -> u8 {
+        if self.snap > 0 && charge >= self.snap {
+            self.full
+        } else {
+            charge.min(self.full)
+        }
+    }
+
+    /// `from` to `to` in proportion to `level / full` [D: linear].
+    pub fn lerp(&self, from: Fx, to: Fx, level: u8) -> Fx {
+        if self.full == 0 {
+            return to;
+        }
+        from + (to - from) * Fx::from_ratio(i32::from(level), i32::from(self.full))
+    }
+}
+
+/// A thrown tool's life rules (E3d, sim 102: the reference's boomerang). All off in [`Tool::NONE`].
+///
+/// * `kind` (0: none) groups the moves that fire the same tool, and `limit` (0: no limit) is how many of them one fighter may have out
+///   at once: a spawn past the limit does not happen, and the `owned` register counts them so the move can branch (a failed throw).
+///   With kind 0 the move's own shots are counted.
+/// * From age `catch_from` on (255: never), a projectile still its firer's (not reflected) that touches its owner's body is caught:
+///   it is removed, and if the owner is free (standing, walking, running, dashing, turning, crouching or airborne: not attacking,
+///   defending or hurt) it starts `catch_move` (an `ext` slot). An owner dodging (a roll, spot dodge or air dodge) lets it fly on.
+/// * `on_clank`: a clank with an attack does not destroy it, it drops (see [`Fall`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tool {
+    pub kind: u8,
+    pub limit: u8,
+    pub catch_from: u8,
+    pub catch_move: Option<u8>,
+    pub on_clank: Option<Fall>,
+}
+
+impl Tool {
+    pub const NONE: Tool = Tool {
+        kind: 0,
+        limit: 0,
+        catch_from: 255,
+        catch_move: None,
+        on_clank: None,
+    };
+
+    fn hash_into(&self, h: &mut StateHasher) {
+        h.write_u8(self.kind);
+        h.write_u8(self.limit);
+        h.write_u8(self.catch_from);
+        match self.catch_move {
+            Some(id) => {
+                h.write_bool(true);
+                h.write_u8(id);
+            }
+            None => h.write_bool(false),
+        }
+        match &self.on_clank {
+            Some(f) => {
+                h.write_bool(true);
+                h.write_u8(f.life);
+                f.vx.hash_into(h);
+                f.vy.hash_into(h);
+                f.gravity.hash_into(h);
+                f.max_fall.hash_into(h);
+            }
+            None => h.write_bool(false),
+        }
+    }
+}
+
+/// A projectile knocked down by a clank (`Tool::on_clank`): it stops hitting, its age starts again and it lasts `life` frames, moving
+/// `vx` the way it was going (negative: back) and `vy` up, pulled down by `gravity` to at most `max_fall`; it comes to rest on a
+/// platform top it falls onto.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Fall {
+    pub life: u8,
+    pub vx: Fx,
+    pub vy: Fx,
+    pub gravity: Fx,
+    pub max_fall: Fx,
 }
 
 /// What a bursting projectile becomes (`ProjectileSpawn::burst`): it stands still `y` above where it stopped, its age starts again
@@ -581,6 +694,13 @@ pub struct ProjectileArc {
     pub bounce_keep: u8,
     pub bounce_keep_y: u8,
     pub bounce_max_fall: Fx,
+    /// Sim 99: `drag` slows it by this much a frame along its flight, down to a stop (E35, the reference's friction on a shot); `lodge`
+    /// (frames, 0: none) makes it stick where it meets a platform top or a solid wall (E3b, the reference's arrows), if it meets it at
+    /// `lodge_angle` degrees or more (0: any angle; shallower, it is removed): stuck, it stops moving and hitting and lasts `lodge`
+    /// more frames.
+    pub drag: Fx,
+    pub lodge: u8,
+    pub lodge_angle: u8,
 }
 
 impl ProjectileArc {
@@ -595,6 +715,9 @@ impl ProjectileArc {
         bounce_keep: 100,
         bounce_keep_y: 100,
         bounce_max_fall: Fx::ZERO,
+        drag: Fx::ZERO,
+        lodge: 0,
+        lodge_angle: 0,
     };
 }
 
@@ -812,6 +935,49 @@ pub struct DropThrough {
     pub while_down: bool,
 }
 
+/// A carry (E7, sim 98: the reference's cargo hold). A move with this (a throw slot) is the lift: while it runs, the held fighter is
+/// pinned at the move's `hold_at`; when it ends with the fighter still held, the holder goes into [`crate::state::FighterState::Carrying`]
+/// instead of standing (the move stays its `move_id`, so this block is read from it all through the carry). While carrying:
+///
+/// * the hold's clock is set when the lift starts to `hold time(percent now) x clock_num / clock_den - g`, `g` the hold time already
+///   used (`Fighter::grab_start - grab_timer`, mashing included: the reference's `((90 + 1.7p) x 11 / 6) - g`), at least 1, and runs
+///   on with the same mash cuts as an ordinary hold;
+/// * the holder walks only, at `walk` percent of its walk speed and both walk accelerations, turning with the stick; it has `jumps`
+///   jumps in all (`Fighter::carry_jumps`: the ground's jump squat and jump, or a midair jump once off the ground); it walks off edges
+///   and falls with the body's air physics (drift and fast fall), keeping the held fighter; it can catch a ledge only if `ledge`
+///   (which lets go of the held fighter);
+/// * the held fighter is pinned at `hold_at` (forward, up) from the holder's feet, mirrored by its facing;
+/// * attack starts a throw by the stick (the attack stick too): `throws` are the move slots of the forward (also the stick in the
+///   middle), back, up and down throws, ordinary moves with a `HIT_THROW` row;
+/// * `armor` (usually the knockback kind) covers the carry, its frames counted from the carry's first (255 and on count as 255): a
+///   hit it withstands does not end the carry; any other hit does, as for any hold.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Carry {
+    pub walk: u16,
+    pub clock_num: u8,
+    pub clock_den: u8,
+    pub jumps: u8,
+    pub hold_at: (Fx, Fx),
+    pub armor: Option<Armor>,
+    pub throws: [u8; 4],
+    pub ledge: bool,
+}
+
+impl Carry {
+    /// The throw slot for the stick held up, down or back (in that order of precedence), else the forward throw.
+    pub fn throw_for(&self, up: bool, down: bool, back: bool) -> u8 {
+        if up {
+            self.throws[2]
+        } else if down {
+            self.throws[3]
+        } else if back {
+            self.throws[1]
+        } else {
+            self.throws[0]
+        }
+    }
+}
+
 /// Additive charge damage (the reference's charge-and-release specials, E29): a hit of a move with this deals its damage plus `add`
 /// times the share of `full` frames the fighter's `Fighter::charge` reached (at most all of it), rounded down to a whole percent if
 /// `floor`, instead of the smash attacks' multiplicative bonus. A script sets the charge with `set_charge(n)`.
@@ -929,6 +1095,10 @@ pub struct Move {
     pub on_search: Option<u8>,
     /// A special started in the air uses this slot instead (its aerial version, with its own frames and hits); `None`: the same move.
     pub air_version: Option<u8>,
+    /// A special input like a smash attack (the stick flicked, or the strong button: the `flick` register) uses this slot instead
+    /// (E3d, sim 102: the reference's smash-input version, such as a boomerang thrown further), on the move's first frame; checked
+    /// after `air_version`. `None`: the same move.
+    pub smash_version: Option<u8>,
     /// The move a command grab of this move goes on with when it catches someone (see `Hitbox::command`): it starts on the next frame,
     /// the holder keeping its speed and staying in the air if it is there.
     pub catch_move: Option<u8>,
@@ -995,6 +1165,8 @@ pub struct Move {
     /// (the reference's windbox immunity, sim 90). 255 / 0 (the default): never.
     pub push_immune_from: u8,
     pub push_immune_to: u8,
+    /// The move is a carry's lift (E7, sim 98): see [`Carry`]. `None` (the default): an ordinary move.
+    pub carry: Option<Carry>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1045,6 +1217,7 @@ impl Move {
             armor: None,
             on_search: None,
             air_version: None,
+            smash_version: None,
             catch_move: None,
             off_edge: None,
             hold_at: None,
@@ -1071,6 +1244,7 @@ impl Move {
             drop_through: None,
             push_immune_from: 255,
             push_immune_to: 0,
+            carry: None,
             script: None,
             projectile_script: None,
         }
@@ -1158,6 +1332,7 @@ impl StateHash for Hitbox {
         self.posvec_x.hash_into(h);
         self.posvec_y.hash_into(h);
         h.write_u8(self.posvec_frames);
+        self.half_width.hash_into(h);
     }
 }
 
@@ -1220,6 +1395,24 @@ impl StateHash for Weapon {
                         }
                         None => h.write_bool(false),
                     }
+                    a.drag.hash_into(h);
+                    h.write_u8(a.lodge);
+                    h.write_u8(a.lodge_angle);
+                    match &p.charged {
+                        Some(c) => {
+                            h.write_bool(true);
+                            h.write_u8(c.full);
+                            h.write_u8(c.snap);
+                            c.damage_to.hash_into(h);
+                            c.speed_to.hash_into(h);
+                            h.write_u8(c.life_to);
+                            h.write_u16(c.size_from);
+                            h.write_u16(c.size_to);
+                            h.write_bool(c.floor);
+                        }
+                        None => h.write_bool(false),
+                    }
+                    p.tool.hash_into(h);
                 }
                 None => h.write_bool(false),
             }
@@ -1320,7 +1513,13 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
-            for slot in [m.on_search, m.air_version, m.catch_move, m.off_edge] {
+            for slot in [
+                m.on_search,
+                m.air_version,
+                m.catch_move,
+                m.off_edge,
+                m.smash_version,
+            ] {
                 match slot {
                     Some(id) => {
                         h.write_bool(true);
@@ -1479,6 +1678,34 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            match &m.carry {
+                Some(c) => {
+                    h.write_bool(true);
+                    h.write_u16(c.walk);
+                    h.write_u8(c.clock_num);
+                    h.write_u8(c.clock_den);
+                    h.write_u8(c.jumps);
+                    c.hold_at.0.hash_into(h);
+                    c.hold_at.1.hash_into(h);
+                    match &c.armor {
+                        Some(a) => {
+                            h.write_bool(true);
+                            h.write_u8(a.start);
+                            h.write_u8(a.end);
+                            h.write_u8(a.kind);
+                            a.threshold.hash_into(h);
+                            h.write_bool(a.subtract);
+                            a.min_kb.hash_into(h);
+                        }
+                        None => h.write_bool(false),
+                    }
+                    for t in c.throws {
+                        h.write_u8(t);
+                    }
+                    h.write_bool(c.ledge);
+                }
+                None => h.write_bool(false),
+            }
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -1548,6 +1775,7 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 posvec_x: Fx::ZERO,
                 posvec_y: Fx::ZERO,
                 posvec_frames: 0,
+                half_width: Fx::ZERO,
             })
             .collect(),
         ..Move::empty()
@@ -1607,6 +1835,7 @@ fn row(r: &R) -> Hitbox {
         posvec_x: Fx::ZERO,
         posvec_y: Fx::ZERO,
         posvec_frames: 0,
+        half_width: Fx::ZERO,
     }
 }
 
@@ -2923,6 +3152,8 @@ pub fn needles() -> Weapon {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     throw.script = Some(script(
         Kind::Fighter,
@@ -2950,6 +3181,8 @@ pub fn needles() -> Weapon {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
@@ -3579,6 +3812,8 @@ fn water_pump(w: &mut Weapon) {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     shot.script = Some(script(
         Kind::Fighter,
@@ -3684,6 +3919,8 @@ fn fireball() -> Move {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     mv
 }
@@ -4058,6 +4295,7 @@ pub fn claws() -> Weapon {
             posvec_x: Fx::ZERO,
             posvec_y: Fx::ZERO,
             posvec_frames: 0,
+            half_width: Fx::ZERO,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -4065,6 +4303,8 @@ pub fn claws() -> Weapon {
         pierce: false,
         rehit: 0,
         burst: None,
+        charged: None,
+        tool: Tool::NONE,
     });
     w.moves[MoveId::NSpecial as usize] = blaster;
 
@@ -4391,6 +4631,10 @@ pub mod greatsword_slots {
 #[path = "moves_bracers.rs"]
 mod bracers;
 pub use bracers::bracers;
+/// The Bracers' carry slots (the cargo throws' `ext` slots) and armor threshold, for tests and tools.
+pub mod bracers_slots {
+    pub use super::bracers::{CARGO_ARMOR_KB, CARGO_BACK, CARGO_DOWN, CARGO_FORWARD, CARGO_UP};
+}
 
 #[path = "moves_clutch.rs"]
 mod clutch;
@@ -4406,8 +4650,8 @@ pub use buckler::buckler;
 /// The Buckler's follow-up slots (which `ext` slot holds which part), for tests and tools.
 pub mod buckler_slots {
     pub use super::buckler::{
-        AIR_SPIN_HITS, DAIR_BOUNCE, DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR,
-        SPIN_GRAVITY, SPIN_RISE_SPEED,
+        AIR_SPIN_HITS, BOOMERANG_CATCH, BOOMERANG_FAILED, BOOMERANG_FAR, BOW_FIRE, DAIR_BOUNCE,
+        DAIR_BOUNCE_END, FSMASH_2, GROUND_SPIN_PHASES, SPIN_AIR, SPIN_GRAVITY, SPIN_RISE_SPEED,
     };
 }
 
@@ -4437,11 +4681,18 @@ mod tests {
                     );
                     continue;
                 }
+                // (A thrown tool's catch move, E3d, is an animation only.)
+                let catch = w
+                    .moves
+                    .iter()
+                    .any(|o| o.projectile.and_then(|p| p.tool.catch_move) == Some(i as u8));
                 assert!(
                     !m.hitboxes.is_empty()
                         || m.projectile.is_some()
                         || m.counter.is_some()
                         || m.script.is_some()
+                        || catch
+                        || m.carry.is_some()
                 );
                 for hb in &m.hitboxes {
                     assert!(

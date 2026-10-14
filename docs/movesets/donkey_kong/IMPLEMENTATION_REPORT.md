@@ -270,10 +270,83 @@ spin held forward slides to about 1.1 reference units a frame and its first hit 
   palms slamming the ground either side on 12-13 and 23-24 of each 26-frame loop), ext8 its ending (13 frames), ext9 the aerial clap
   (a clap high in front on 19-21, then both hands swung down on 28-30).
 
-## Phase 3 plan (unchanged): the carry (E7)
+## Phase 3 (sim 98; content schema 6 unchanged): the carry (E7) and the cargo throws
 
-As below ("Phase 3 plan"), with the cargo throws in ext10-ext13. The knockback armor kind it needs now exists (the Clutch's phase 1:
-`ARMOR_KNOCKBACK` with `subtract`); the carry reads it outside `S::Attack`. The shared mash helper `grab::mash_cut` is in place.
+Branch `bracers-phase3`, from `movesets` at 81d5f50 (sim 95), merged with `movesets` at a54bf60 (sim 97: Link phase 1, Yoshi phase 2,
+the knockback fixes) before the docs; this branch takes 98. Built as the plan below says (decision 38), with these details.
+
+### Engine (general, off unless a move has a `carry`)
+
+| What | Where | Default / who changed |
+| --- | --- | --- |
+| **`Move::carry: Option<Carry { walk, clock_num, clock_den, jumps, hold_at, armor, throws, ledge }>`** on a throw (the lift); content `carry { ... }` block (`docs/CONTENT.md`), validated (on a throw slot; each throw a real move with a throw hit and no carry; clock fraction above 0; walk 1-1000; the armor's own checks); `Weapon::hash_into` | `moves.rs`, `sim-content/src/format.rs`, `lib.rs` | none |
+| **`FighterState::Carrying`**: `fighter::carrying` / `carry_on_ground` (walk at `walk` percent of the walk speed and both accelerations, turning at once [E]; `jumps` jumps in all: the body's jump squat (counted in `lag`) and full / short hop, or a midair jump once off the ground; walking off an edge stays carrying with the jump's momentum rule; air physics as the body's, fast fall included; landing straight back into the carry; attack throws by the stick or the attack stick: up, down, back, else forward; a ledge only with `ledge`) | `fighter.rs` | none |
+| The lift's end goes into the carry if the fighter is still held; a throw with `intangible` frames is intangible from its frame 1 (`grabbing`) | `fighter::attack`, `grabbing` | no older throw has `intangible` |
+| **The clock**: `grab::start_carry_clock` on the lift's frame 1: `hold_time(p now) x num / den - (grab_start - grab_timer)`, at least 1; `grab_start` (hashed, set by `grab::connect`) is then cleared so it runs once; the clock runs while `Grabbing` or `Carrying` with the usual mash cuts; `grab::pin` holds the victim at `Carry::hold_at`; `drop_grab` frees a carrying holder as any holder | `grab.rs` | ordinary holds unchanged |
+| **The carry's armor** in `combat::apply_hit`: a carrying defender's grab is dropped only once its armor (frames counted from the carry's start, capped at 255) has not withstood the hit; an armored hit leaves damage and hitlag | `combat.rs` | every other hit drops the grab first, as before |
+| Hashed state: `Fighter::carry_jumps`, `Fighter::grab_start`, the new state; checksum cases `carry_jumps`, `grab_start`, `state carrying` | `state.rs` | |
+| The step invariants and push bodies know `Carrying` (a mutual grab, either on the ground or in the air, its victim either) | `step.rs`, `push.rs` | |
+| Read-only bridge accessor `fighter_grab_partner(i)` (who a fighter holds or is held by, or -1) | `godot-bridge/src/lib.rs` | view only |
+
+### Built (`sim-core/src/moves_bracers.rs` `carry`; slots ext10-ext13, 14 of 16 `ext` used)
+
+* **The lift** (forward throw): 15 frames, intangible 1-15 [R], no hit, the victim held overhead at (0, 2.8) world [E: the body's ECB
+  height; the reference's hold bone is not published]; the carry from frame 16.
+* **The carry**: walk 110 (x1.1 the walk and both accelerations [R], conflict 5 as decision 41), clock 11 / 6 [R], 1 jump [R count;
+  which jump and its height: gap 3, the body's own], knockback armor 80 not subtractive [E: conflict 2 / gap 11, reasoning in
+  `REFERENCE_DATA.md`], no ledge [E: gap 4]; throws forward / back / up / down = ext10 / 11 / 12 / 13.
+* **Cargo throws** [R]: forward on 15 (FAF 46) 12% at 60 BK 90 KS 46; back turning round, behind on 16 (FAF 43) 13% at 72 BK 85 KS 52;
+  up on 15 (FAF 30) 12% at 92 BK 65 KS 53; down on 17 (FAF 45) 11% at 46 BK 70 KS 45, with the script `bracers_cargo_down` stopping the
+  sideways speed on 17 and, in the air, setting the vertical to 1.5 reference units (0.1875 world) [R]; on the ground only the stop
+  [E]. No invincibility [R]. Each holds the victim overhead until it lets go, lands and goes on along the ground, and goes on in the air
+  if it slides off an edge [E: neither published].
+* The placeholder plain forward throw of phase 1 is gone.
+
+### Verified against [R] / [D] (tests that ran)
+
+`sim-core/tests/carry.rs` (13): the lift's data (no hit, FAF 16, intangible 15) and every other weapon's forward throw still plain;
+each cargo throw's data (release frame, FAF, damage, angle, BK, KS, behind, no invincibility, held overhead); the lift intangible on
+frames 1-15 and not 16, the victim overhead; the clock 165 - g at 0% straight out of the grab (g the frames the hold ran), 105 after 60
+frames of grab, 320 - g at 50%, `grab_start` cleared once used; mashing in the grab carried over exactly, mashing in the carry shortening
+it; the carry running out on its clock (one frame a frame) and letting go with the ordinary release; the walk reaching x1.1 the walk
+speed and accelerating at x1.1 both accelerations, turning back, no shield / special / grab / dash; one jump in all (squat, airborne
+still carrying, no second jump, landing back into the carry, a midair jump after walking off); walking off the stage with the victim
+overhead every frame down to the blast zone, the holder's knock-out letting the victim go in the air; each cargo throw from the
+stick (attack alone the forward one) hitting on its frame for its damage, ending on its FAF (hitlag aside), the back one turning round
+and throwing behind; the down throw in the air stopping and rising at 0.1875 on 17, the up throw in the air; the armor holding a 20-BK
+hit and broken by a 200-BK one (Hitstun, victim freed), no armor during a cargo throw; a rollback replay through a carry off the stage
+with random mashing. `bracers.rs` updated (the forward throw is the lift). `state::tests::checksum_sees_every_field`.
+
+### Estimated or limited [E]
+
+* The armor's threshold and kind (conflict 2, gap 11); the carry's jump (gap 3), ledge (gap 4), release (gap 5), the holder's
+  knock-out (gap 13); the hold's place overhead; the turn (at once, no turn animation); the aerial cargo throws' physics (the body's);
+  landing during the carry or a cargo throw; the grounded down throw not hopping.
+* Not modelled: the carry's interrupted row (4%, FKV 30) and each throw's (3%), as for every throw (house limit); a soft-platform drop
+  while carrying.
+
+### Tests and checks run
+
+`cargo fmt --all`; `cargo test --workspace --no-fail-fast` (all green, after the merge too); `cargo clippy --workspace --all-targets
+-- -D warnings` (clean); `pftool fuzz-rollback 500` (0 mismatches) and `pftool net-fuzz 200` (0 mismatches) after the merge;
+`content/base.pfc` re-exported (the equality tests pass). **Not run**: the Godot tests.
+
+### Training-mode checks (hitbox view)
+
+Hauler vs a duelist at 0%: (1) grab, stick forward: the duelist lifted overhead, the hauler walking slower than a walk feels faster
+(x1.1), back turns at once; (2) walk off the edge: both fall, the duelist overhead, a jump once; (3) attack with each direction: the
+forward toss, the back one turning round, the up one (the shortest), the down bear hug (in the air a small hop on its frame 17);
+(4) a jab on the carrying hauler does not free the duelist; a smash does.
+
+## For the art agent (phase 3)
+
+* **The lift** (forward throw, `Attack` with `MoveId::FThrow`, 15 frames): both arms raising the held fighter overhead by frame 15.
+* **`Carrying`** (the bridge's state name; the held fighter's holder is `fighter_grab_partner(i)`): a walk with both arms up holding
+  the fighter on top of the head (the held fighter's feet at 2.8 world above the hauler's feet), on the ground, rising and falling; a
+  jump pose. The held fighter (state `Grabbed`, its holder `Carrying`) should lie across the hands, struggling.
+* **The cargo throws** (`Attack`, ext10-13): forward (ext10) a high forward toss released on 15; back (ext11) a turn and a backward
+  toss on 16 (the fighter ends facing the other way); up (ext12) a straight-up toss on 15; down (ext13) a bear-hug slam on 17 (a small
+  hop in the air). The held fighter stays overhead until each release.
 
 ## Questions for the owner (phase 2)
 
@@ -326,7 +399,7 @@ test. One `SIM_VERSION` bump.
 8. Slots: 14 of 16 `ext` (`PROJECT_AUDIT.md` "Slots"): the punch's two releases, two full punches and the cancel; the headbutt's,
    spin's and slap's aerial versions; the slap's loop and ending; the four cargo throws in phase 3.
 
-## Phase 3 plan: the carry (E7, approved by decision 38)
+## Phase 3 plan as written before the build (kept for the record): the carry (E7, approved by decision 38)
 
 1. **E7** as designed in `PROJECT_AUDIT.md` ("The cargo hold"): `Move::carry: Option<Carry { walk, clock_num, clock_den, jumps,
    hold_at, armor, throws, ledge }>` on the forward throw (the 15-frame invincible lift); `FighterState::Carrying` with hashed
