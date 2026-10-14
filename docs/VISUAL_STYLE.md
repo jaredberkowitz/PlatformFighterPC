@@ -28,6 +28,24 @@ socks and shoes, `limb.gdshader`, `face.gdshader`). Lighting is not physical:
   space ambient occlusion does not show under this cel light, and the baked stage shading (`scripts/stage_light.gd`) only knows the blocks
   and platforms, so this is what keeps props from floating.
 
+### Material standards
+
+One lighting model (the shared cel light) and a small set of families. A new surface picks its family from this table rather than tuning
+its own numbers. Consistency means the same logic, not the same gloss everywhere.
+
+| Family | Where | Code | Light response | Colour variation | Line |
+|---|---|---|---|---|---|
+| Grass and foliage | Lawns, turf, hedges, crowns, straw | `Materials.foliage`, `grass` family | Soft step (0.18 to 0.26), no sheen; foliage a stronger rim, so it reads as a puffy mass | Broad sunlit and shaded patches (`grass_vary`); tufts and cards in three greens | Scenery line |
+| Soil and stone | Stage fronts, rocks, footings | `_soil_material`, `Materials.stone` | Crisp step (0.1), a faint sheen on stone | Painted beds and stones in close shades; slow lightness drift and detail tiles, never noise | Scenery line |
+| Wood and painted wood | Platforms, fences, barrels, crates, signs | `Materials.wood`, `as_family(m, "wood")` | Firm matte step (0.13), no sheen | Boards and staves in close browns with dark seams and lit edges | Scenery line |
+| Cloth | Shirts, shorts, scarves, capes, hoods | `_cloth` (two-sided, toon_cloth) | Softer step (0.32), so folds do not pick out every bump | Pattern from the loadout, one hem ink | Thinner line (`CLOTH_OUTLINE_THIN`) |
+| Character body | The base body, limbs, face shell | skin, limb, face shaders, `RESPONSES.skin` | Two flat tones (`PF_FIGHTER_*`), a thin creamy rim | One body colour from the pastel palette; no texture | Fighter line, own colour darkened |
+| Hard accessories and metal | Helms, blades, hoops, rivets | `respond(m, "metal" / "gold")` | Crisp step, a bright band that slides along the surface | Two or three values per piece | Fighter or scenery line, by owner |
+| Painted metal | Cars, rooftop units | `respond(m, "paint")` | Crisp step, a broad glossy sheen | One enamel colour, trims in metal | Scenery line |
+| Glass and emissive | Windows, lamps, signs, crystals | `_unshaded`, facade `lit_energy`, `_practical` lights | Unlit; glows above the bloom threshold only where it should draw the eye | Lit windows scattered, never a field (`FACADE_LIT_SHARE`) | None |
+
+Dark stages: the same families. The mood changes the light, ramp and edge light (`Lighting.STYLES`), never the materials.
+
 ## 2. Outlines
 
 - **Fighters**: an inverted hull (`shaders/outline.gdshader`), a constant width on screen, tinted with a little of the fighter's own colour

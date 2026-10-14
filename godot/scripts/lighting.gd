@@ -82,8 +82,14 @@ const STYLES := {
 
 ## The shading profile for theme `name` (its own values over the defaults).
 static func style(name: String) -> Dictionary:
+	var own: Dictionary = STYLES.get(name, {})
 	var out := STYLE_DEFAULT.duplicate()
-	out.merge(STYLES.get(name, {}), true)
+	out.merge(own, true)
+	# (The finish merges value by value: a stage that sets its own haze keeps the default's value hierarchy and vignette. A whole-dictionary
+	# merge dropped them, so `quiet` was off on every stage.)
+	var finish: Dictionary = (STYLE_DEFAULT.finish as Dictionary).duplicate()
+	finish.merge(own.get("finish", {}), true)
+	out.finish = finish
 	return out
 
 

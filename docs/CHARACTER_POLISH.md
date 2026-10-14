@@ -56,6 +56,24 @@ Each was compared on its own (turnarounds in the same camera, close-ups on the m
   - animation sheets for run, jump, the sword's forward smash, the greatsword's forward smash, the Wanderer's forward tilt (sword and
     shield), the hit reaction and the Hauler's jab: grips stay in the fists, the shield on the forearm, nothing clips.
 
+## Character pass 2: faces and accessories (phase 6)
+
+Every hat, pair of glasses and neckwear checked on the lineup (`tests/lineup_shot.gd`) and the turnaround (`--hat=N`, `--neck=N`,
+`--glasses=N` added to `tests/turnaround_shot.gd`). Faces follow the head and read; glasses and hats sit right.
+
+- **The hood (the Rogue's) read as a diver's helmet**: it was a closed ball over the head, and the face, drawn on top, showed as a disc
+  in a dark ring. Rebuilt:
+  - an open shell (`_open_shell`) whose opening is shaped like a hood's (`_hood_edge`): snug over the brow, wider at the cheeks, down
+    past the chin;
+  - a rolled lip in a lighter shade that follows that edge exactly (`_shell_lip`, built from the same edge, so it lines up at any scale);
+  - a flared collar of the same cloth over the shoulders, dipping in front;
+  - the point behind kept.
+
+  Seen from both sides like the clothes. Tried and dropped on the way: a round opening with a cream rim (a porthole), and a torus
+  cowl (an inflatable ring).
+- **Images**: `docs/screenshots/char2_hood.png` (the gear lineup before, top, and after).
+- **Checks run**: fighter view and loadout tests; the gear lineups; the turnaround with the hood.
+
 ## Still open
 
 - Elbow and knee bends (deformation): to look at in the motion pass, which belongs with the animation work at the end.

@@ -109,6 +109,60 @@ func _part(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3, scl := Vecto
 	return mi
 
 
+## The hood's opening, as how far round from the front its edge is (radians on the shell) at angle `ph` round the front (0 to the side,
+## up at PI/2): snug over the brow, wider at the cheeks, and running down past the chin, so it frames the face as a hood does instead of
+## a round porthole.
+static func _hood_edge(ph: float) -> float:
+	var up := maxf(0.0, sin(ph))
+	var down := maxf(0.0, -sin(ph))
+	return deg_to_rad(50.0 - 14.0 * up * up + 40.0 * pow(down, 1.6))
+
+
+## A ball of radius `r` open at the front, its edge `edge(ph)` round from the front (see `_hood_edge`): both sides drawn by the material.
+static func _open_shell(r: float, edge: Callable) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings := 18
+	var segs := 36
+	for i in rings:
+		for j in segs:
+			var quad := []
+			for c in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]]:
+				var ph := TAU * float(c[1]) / float(segs)
+				var th := lerpf(float(edge.call(ph)), PI, float(c[0]) / float(rings))
+				quad.append(Vector3(sin(th) * cos(ph), sin(th) * sin(ph), cos(th)))
+			for t in [0, 1, 2, 0, 2, 3]:
+				st.set_normal(quad[t])
+				st.add_vertex(quad[t] * r)
+	return st.commit()
+
+
+## The rolled edge of `_open_shell(r, edge)`: a tube of radius `t` along its opening, in the same space, so it lines up with the shell
+## under any placement and scale.
+static func _shell_lip(r: float, edge: Callable, t: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segs := 48
+	var sides := 8
+	var ring := func(ph: float) -> Array:
+		var th: float = edge.call(ph)
+		var c := Vector3(sin(th) * cos(ph), sin(th) * sin(ph), cos(th)) * r
+		var along := Vector3(cos(th) * cos(ph), cos(th) * sin(ph), -sin(th))
+		return [c, c.normalized(), along]
+	for j in segs:
+		for k in sides:
+			var quad := []
+			for c in [[j, k], [j + 1, k], [j + 1, k + 1], [j, k + 1]]:
+				var f: Array = ring.call(TAU * float(c[0]) / float(segs))
+				var u := TAU * float(c[1]) / float(sides)
+				var n: Vector3 = (f[1] as Vector3) * cos(u) + (f[2] as Vector3) * sin(u)
+				quad.append([(f[0] as Vector3) + n * t, n])
+			for idx in [0, 1, 2, 0, 2, 3]:
+				st.set_normal(quad[idx][1])
+				st.add_vertex(quad[idx][0])
+	return st.commit()
+
+
 func _sphere(r: float) -> SphereMesh:
 	var key := "s%.3f" % r
 	if _mesh_cache.has(key):
@@ -1143,7 +1197,10 @@ func _flash(s: Dictionary, delta: float) -> void:
 ## at a glance, in the air too. A decal reaching down from the feet; it fades with height.
 var contact_shadow: Decal
 static var _shadow_tex: GradientTexture2D
-const SHADOW_DEPTH := 10.0
+## How far down the drop shadow reaches (a full jump and more), and the share of that depth over which it fades at the far end: it stays
+## readable through a jump, so where a fighter will land is always marked, and fades only well above a platform's reach.
+const SHADOW_DEPTH := 14.0
+const SHADOW_FADE := 0.22
 
 
 ## Puts every mesh under `node` on render layer 2 (seen and lit as usual), so the contact shadow, which only projects on layer 1, skips them.
@@ -1176,7 +1233,7 @@ func _contact_shadow() -> void:
 	# Only the stage takes it: the fighter's own meshes are on layer 2 (see `build`).
 	contact_shadow.cull_mask = 1
 	contact_shadow.upper_fade = 0.0  # (no fade toward the feet; the floor is at the top of the box)
-	contact_shadow.lower_fade = 0.5
+	contact_shadow.lower_fade = SHADOW_FADE
 	add_child(contact_shadow)
 
 
@@ -1728,16 +1785,27 @@ func _hat() -> void:
 			_part(hat_pivot, _sphere(0.84), toon(accent), Vector3(0, 1.78, 0) - HAT_PIVOT, Vector3(1.0, 0.7, 1.0))
 			_part(hat_pivot, _sphere(0.18), white, Vector3(0, 2.38, 0) - HAT_PIVOT)
 		6:
-			# Hood: a soft shell over the head and down its sides in dark charcoal cloth (it reads against any body colour), its rolled rim
-			# round the face in cream, drawn to a point behind that droops.
-			var cloth := toon(Color(0.24, 0.22, 0.32))
-			_part(hat_pivot, _sphere(0.9), cloth, Vector3(0, 1.5, -0.16) - HAT_PIVOT, Vector3(1.1, 1.06, 1.02))
-			var rim := TorusMesh.new()
-			rim.inner_radius = 0.66
-			rim.outer_radius = 0.84
-			rim.rings = 36
-			_part(hat_pivot, rim, toon(Color(0.94, 0.88, 0.74)), Vector3(0, 1.42, 0.36) - HAT_PIVOT, Vector3(1.06, 1.0, 1.24), Vector3(80, 0, 0))
-			_part(hat_pivot, _cyl(0.0, 0.32, 0.9), cloth, Vector3(0, 2.0, -0.82) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
+			# Hood: a soft shell of dark charcoal cloth (it reads against any body colour) wrapping over the head and forward round the face,
+			# its edge turned back in a soft fold of a lighter shade, a cowl of the same cloth lying round the shoulders, and a point behind
+			# that droops. (A shell open at the front, seen from both sides like the clothes: a closed ball drew its front across the face,
+			# which showed as a disc in a dark ring; and a wide cream rim round a small opening read as a porthole.)
+			var charcoal := Color(0.24, 0.22, 0.32)
+			var cloth := _cloth(toon(charcoal))
+			var at := Vector3(0, 1.52, 0.02) - HAT_PIVOT
+			var fit := Vector3(1.1, 1.06, 1.02)
+			_part(hat_pivot, _open_shell(0.9, _hood_edge), cloth, at, fit)
+			_part(hat_pivot, _shell_lip(0.9, _hood_edge, 0.06), toon(charcoal.lightened(0.24)), at, fit)
+			# The cowl: an open cone of the same cloth from inside the hood's lower edge flaring out over the shoulders.
+			var cowl := CylinderMesh.new()
+			cowl.top_radius = 0.66
+			cowl.bottom_radius = 0.98
+			cowl.height = 0.42
+			cowl.radial_segments = 28
+			cowl.rings = 2
+			cowl.cap_top = false
+			cowl.cap_bottom = false
+			_part(hat_pivot, cowl, cloth, Vector3(0, 0.62, -0.12) - HAT_PIVOT, Vector3(1.0, 1.0, 0.86), Vector3(16, 0, 0))
+			_part(hat_pivot, _cyl(0.0, 0.3, 0.8), cloth, Vector3(0, 1.95, -0.72) - HAT_PIVOT, Vector3.ONE, Vector3(-62, 0, 0))
 		7:
 			# Plumed helm: a steel cap with a brow band and a tall plume in the accent colour sweeping back off the crest.
 			var steel := respond(toon(Color(0.74, 0.76, 0.84)), "metal")

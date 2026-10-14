@@ -803,9 +803,9 @@ static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
 	# stage's light like any surface, not a flat decal.
 	var centre := at + Vector3(0, 0.55, 0)
 	var rot := Vector3(90, turn, 0)
-	var body_mat := FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE)
+	var body_mat := Materials.as_family(FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE), "grass")
 	_mesh(root, _lathe(HAY_PROFILE, 22, 3.0), body_mat, centre, Vector3.ONE, rot)
-	var end_mat := FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE)
+	var end_mat := Materials.as_family(FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE), "grass")
 	var axis := Basis.from_euler(rot * PI / 180.0) * Vector3.UP
 	for side in [-1.0, 1.0]:
 		_mesh(root, _disc(0.47, 22), end_mat, centre + axis * side * 0.645, Vector3.ONE, rot + Vector3(0.0 if side > 0.0 else 180.0, 0, 0))
@@ -916,7 +916,7 @@ static var _straw_cache := {}
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 	# A cooper's barrel: a bulging body of staves (a lathe, the staves painted on so they run up it), two iron hoops that sit on the bulge,
 	# a rim where the staves stand above the lid, and the lid inset below it. Each part a different value, so it reads as built.
-	var body := FighterView.toon(Color.WHITE, true, _stave_texture(), Vector2.ONE)
+	var body := Materials.as_family(FighterView.toon(Color.WHITE, true, _stave_texture(), Vector2.ONE), "wood")
 	var prof := []
 	for p in BARREL_PROFILE:
 		prof.append([float(p[0]) * size, float(p[1]) * size])
@@ -932,7 +932,8 @@ static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
 		_mesh(root, ring, hoop, at + Vector3(0, h * 1.1 * size, 0), Vector3(1, 0.9, 1))
 	# The lid, a step down inside the rim, darker (it is in the rim's shade), with the rim's inner wall round it.
 	_mesh(root, _cylinder(0.35 * size, 0.35 * size, 0.06 * size, 18), FighterView.toon(Color(0.5, 0.32, 0.22), false), at + Vector3(0, 1.04 * size, 0))
-	_mesh(root, _disc(0.35 * size, 18), FighterView.toon(Color.WHITE, false, _stave_texture(true), Vector2.ONE), at + Vector3(0, 1.071 * size, 0))
+	_mesh(root, _disc(0.35 * size, 18), Materials.as_family(FighterView.toon(Color.WHITE, false, _stave_texture(true), Vector2.ONE), "wood"),
+		at + Vector3(0, 1.071 * size, 0))
 
 
 ## A barrel's outline from foot to top as [radius, height] (size 1): narrow at the ends, bulging in the middle, the top a rim of staves
@@ -2957,7 +2958,10 @@ static func _roof_mark_textures() -> Array:
 const FACADE_SHADER := preload("res://shaders/facade.gdshader")
 ## How bright each skyline layer's lit windows are (times white; the glow threshold is 2.3): the near layer blooms softly, the others do not
 ## (emissive, not bloomed: the background should not outshine the fighters).
-const FACADE_LIT := [3.0, 2.3, 1.7]
+const FACADE_LIT := [2.4, 1.9, 1.5]
+## The share of a skyline layer's windows that are lit (nearest first): a scattered glow behind the fighters, not a field of lights that
+## outshines them (the near layers stand right behind the play area).
+const FACADE_LIT_SHARE := [0.24, 0.28, 0.36]
 
 
 ## One layer of the city's backdrop at depth `z`, its streets at `street`: a row of buildings (boxes with a parapet, some with rooftop
@@ -3027,6 +3031,7 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 	m.set_shader_parameter("base_shade", shade)
 	m.set_shader_parameter("roof_shade", shade.lightened(0.12))
 	m.set_shader_parameter("lit_energy", FACADE_LIT[layer])
+	m.set_shader_parameter("lit_share", FACADE_LIT_SHARE[layer])
 	# The far layer: windows only (frames, sills and floor bands would be noise at that distance).
 	m.set_shader_parameter("detail", 0.0 if layer == 2 else 1.0)
 	m.set_shader_parameter("sign_energy", 3.0 - layer * 0.8)
