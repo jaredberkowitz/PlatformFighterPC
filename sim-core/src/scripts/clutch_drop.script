@@ -1,0 +1,8 @@
+// Clutch down special on the ground, the drop (estimated where the reference publishes nothing [E], owner decision 60): the hop's
+// hit on frame 7 from the ground, the rise on frames 9-22 at 0.0714 x (22 - frame) a frame (7.5 units in all, the aerial rise x1.4:
+// the reference's grounded height multiplier [R]; 7.5 puts the landing on frame 39 and the end on the reference's 77 [D]), a still
+// top on 23-26, then the drop from frame 27 at 0.6 a frame (the reference's 4.8 [R]) until it lands (the landing is its landing
+// move). Sideways speed is stopped throughout [E].
+if frame >= 8 && frame <= 21 { set_vel(0, 0.0714286 * (22 - frame)); }
+if frame >= 22 && frame <= 25 { set_vel(0, 0); }
+if frame >= 26 { set_vel(0, -0.6); }

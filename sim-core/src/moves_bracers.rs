@@ -545,6 +545,8 @@ fn jabs(w: &mut Weapon) {
         h.angle_type = ANGLE_FORWARD;
     });
     chain(&mut jab1, MoveId::Jab2, 8);
+    // The window runs to frame 28, past the FAF (owner decision 58).
+    late_chain(&mut jab1, MoveId::Jab2, 28);
     w.moves[MoveId::Jab as usize] = jab1;
 
     // Jab 2: an uppercut on its frames 4-6 (13.0.1; conflict 1), 6%, 70 degrees (type 3), BK 40, KS 100, hitlag x1.8: the fist (radius

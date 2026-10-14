@@ -208,6 +208,58 @@ fn a_script_can_fire_a_projectile_with_its_own_velocity() {
 }
 
 #[test]
+fn two_spawns_on_one_frame_fire_two_shots_and_a_third_replaces_the_first() {
+    // E3h (sim 95): the second `spawn` (or `spawn_at`) of a frame fills a second request instead of replacing the first.
+    let fire = |src: &str| {
+        let mut sim = with_special(scripted(30, src));
+        sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =
+            sim.content.weapons[1].moves[MoveId::NSpecial as usize].projectile;
+        start(&mut sim);
+        let mut from = sim.f().pos;
+        for _ in 0..12 {
+            if sim.state.projectiles.iter().any(|p| p.active) {
+                break;
+            }
+            from = sim.f().pos;
+            sim.tick(inp(0, 0, 0));
+        }
+        let mut shots: Vec<_> = sim
+            .state
+            .projectiles
+            .iter()
+            .filter(|p| p.active)
+            .map(|p| (p.pos - from, p.vel))
+            .collect();
+        shots.sort_by_key(|(_, v)| v.x);
+        shots
+    };
+    let two = fire("if frame == 4 { spawn(1, 2, 0.4, 0.2); spawn(-1, 2, -0.4, 0.2); }");
+    assert_eq!(two.len(), 2, "both on the same frame");
+    assert_eq!(
+        two[0],
+        (
+            sim_core::Vec2::new(Fx::from_int(-1), Fx::from_int(2)),
+            sim_core::Vec2::new(fx(-4, 10), fx(2, 10))
+        )
+    );
+    assert_eq!(
+        two[1],
+        (
+            sim_core::Vec2::new(Fx::ONE, Fx::from_int(2)),
+            sim_core::Vec2::new(fx(4, 10), fx(2, 10))
+        )
+    );
+    let three = fire(
+        "if frame == 4 { spawn(1, 2, 0.4, 0.2); spawn(-1, 2, -0.4, 0.2); spawn(0, 1, 0.1, 0); }",
+    );
+    assert_eq!(three.len(), 2);
+    assert!(
+        three[1].1.y == Fx::ZERO && three[1].1.x < fx(2, 10),
+        "the third replaced the first"
+    );
+}
+
+#[test]
 fn a_facing_left_fighter_fires_the_other_way() {
     let mut sim = with_special(scripted(30, "if frame == 4 { spawn(1.5, 2, 0.4, 0.2); }"));
     sim.content.weapons[0].moves[MoveId::NSpecial as usize].projectile =

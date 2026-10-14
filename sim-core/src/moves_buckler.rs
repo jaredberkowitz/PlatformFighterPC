@@ -185,6 +185,8 @@ fn jabs(w: &mut Weapon) {
         h.angle_type = ANGLE_FORWARD;
     });
     chain(&mut jab1, MoveId::Jab2, 10);
+    // (The window runs to 35, past the FAF 24: a press after the end still starts jab 2, owner decision 58.)
+    late_chain(&mut jab1, MoveId::Jab2, 35);
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/buckler_jab_1.script"),
@@ -203,6 +205,7 @@ fn jabs(w: &mut Weapon) {
         h.angle_type = ANGLE_FORWARD;
     });
     chain(&mut jab2, MoveId::Jab3, 8);
+    late_chain(&mut jab2, MoveId::Jab3, 35);
     jab2.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/buckler_jab_2.script"),

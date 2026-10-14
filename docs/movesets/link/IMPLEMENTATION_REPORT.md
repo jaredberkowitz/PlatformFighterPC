@@ -173,6 +173,26 @@ as in `moves_buckler.rs`):
 * **Passive shield**: a short guard flinch on a block (the fighter's shield arm forward); the shield itself on the left arm in front,
   at chest height (lower when crouching).
 
+## Phase 1, after the merges (sim 96)
+
+`buckler-phase1` merged `movesets` at 4f346dd (sim 94, the Bracers' phase 2) and again at 81d5f50 (sim 95, the Clutch's phase 2),
+keeping both sides; the script registers are `aimed` 29 and `fast_fall` 30, the functions `set_charge` 50 (no clash). This branch
+takes **sim 96**. Owner defaults (decisions 61-62, `ROSTER_STATUS.md`):
+
+* **Decision 61**: the aerial spin keeps the reference's layout, a target in front taking the four front hits and the finisher (5 of
+  9) [E until footage].
+* **Decision 62, built**: the up special and up smash also cancel a **jump squat**, for every fighter (`fighter::up_out_of_ground`,
+  shared with the shield version): special with the stick up, or an up smash input (attack with the stick flicked up, the strong
+  button with the stick up, or the attack stick up), pressed after the jump's own frame, starts the grounded move. A press made with
+  the jump itself stays the short-hop aerial (the house's short-hop input, `reference_movement` tests), and attack with the stick
+  merely held up stays the short-hop up air. Tests: `buckler::up_special_and_up_smash_cancel_a_jump_squat_for_every_class` (classes
+  0, 1, 3, 6, 8 and 9, on each of the three squat frames).
+* **Decision 58 on the Buckler's jabs**: both continuable windows run to 35, past the FAFs 24 and 26 (`late_chain`): a press after a
+  jab ends, inside its window, starts the next hit (`buckler::a_press_after_the_jabs_faf_inside_its_window_carries_on`).
+
+Checks after the merges: `cargo fmt --all`, `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`,
+`pftool fuzz-rollback 500` and `net-fuzz 200` (results in the commit message and the porter's report).
+
 ## Phase 2 plan: the bow, the boomerang and the sword wave
 
 * **E35, charge-scaled projectiles** (as sketched in `PROJECT_AUDIT.md`): `ProjectileSpawn::charged { full, snap, damage_to, speed_to,
@@ -197,6 +217,8 @@ as in `moves_buckler.rs`):
 * Then the re-check of every iconic move in the hitbox view.
 
 ## Questions for the owner
+
+(Questions 1 and 2 were answered by owner decisions 61 and 62; question 3 stays open.)
 
 1. **The aerial spin and a target in front**: with the reference's boxes (front hits in front, back hits behind), a target in front
    takes the four front hits and the finisher (14%); a target caught behind is carried round to the front. If footage shows a target

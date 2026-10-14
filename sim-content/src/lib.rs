@@ -324,11 +324,13 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 || a.bounce_min < Fx::ZERO
                 || a.bounce_min > a.bounce_max
                 || a.bounce_keep > 100
+                || a.bounce_keep_y > 100
+                || a.bounce_max_fall < Fx::ZERO
                 || !(-90..=90).contains(&a.angle)
             {
                 errors.push(format!(
                     "weapon {i} {name}: projectile flight out of range (angle -90 to 90, no negative gravity, fall or bounce \
-                     speed, bounce_min at most bounce_max, bounce_keep at most 100)"
+                     speed, bounce_min at most bounce_max, bounce_keep and bounce_keep_y at most 100, no negative bounce_max_fall)"
                 ));
             }
             let mut last = 0;

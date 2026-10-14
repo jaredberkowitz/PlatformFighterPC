@@ -530,6 +530,26 @@ fn holding_attack_carries_on_from_frame_10_after_a_hit_and_from_frame_14_without
     assert_eq!(started(&jab_run(&[1], 40, true), MoveId::Jab2), None);
 }
 
+#[test]
+fn a_press_after_the_jabs_faf_inside_its_window_carries_on() {
+    // Owner decision 58: jab 1's window runs to 35, past its FAF 24, and jab 2's to 35, past its 26. Pressed on tick 30 (after jab 1
+    // ended), jab 2 starts, not a new jab 1; pressed on 40, a new jab 1.
+    let sim = duel();
+    let w = kit(&sim);
+    assert_eq!(
+        w.get(MoveId::Jab as u8).late_next,
+        Some((MoveId::Jab2 as u8, 34))
+    );
+    assert_eq!(
+        w.get(MoveId::Jab2 as u8).late_next,
+        Some((MoveId::Jab3 as u8, 34))
+    );
+    let run = jab_run(&[1, 30], 50, false);
+    assert_eq!(started(&run, MoveId::Jab2), Some(30));
+    let run = jab_run(&[1, 40], 50, false);
+    assert_eq!(started(&run, MoveId::Jab2), None);
+}
+
 // ---- The forward smash's two hits (E36) -----------------------------------------------------------------------------------------
 
 /// Player 0 does a forward smash held for `charge` frames, pressing attack again on `again` ticks after its start; player 1 stands in
@@ -1295,6 +1315,77 @@ fn up_special_and_up_smash_come_straight_out_of_a_shield_for_every_class() {
     sim.ticks(5, inp(0, 0, SHIELD));
     sim.tick(inp(0, 0, SHIELD | JUMP));
     assert_eq!(sim.f().state, S::JumpSquat);
+}
+
+/// Class `class` standing (player 0) jumps, then on jump-squat tick `at` (1 to 3) presses `p0`; returns the state, move and whether it
+/// is on the ground after that tick. `held_up` holds the stick up for 10 ticks before the jump (so no flick).
+fn out_of_jump_squat(class: u8, at: u32, p0: sim_core::Input, held_up: bool) -> (S, MoveId, bool) {
+    let mut sim = Sim::with_chars([class, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, Fx::from_int(10), -1);
+    let stick_y = if held_up { 127 } else { 0 };
+    if held_up {
+        sim.ticks(10, inp(0, 127, 0));
+    }
+    sim.tick(inp(0, stick_y, JUMP));
+    assert_eq!(sim.f().state, S::JumpSquat);
+    for _ in 1..at {
+        sim.tick(inp(0, stick_y, JUMP));
+    }
+    sim.tick(p0);
+    (
+        sim.f().state,
+        MoveId::from_index(sim.f().move_id),
+        sim.f().grounded(),
+    )
+}
+
+#[test]
+fn up_special_and_up_smash_cancel_a_jump_squat_for_every_class() {
+    // Owner decision 62: as in the reference, special with the stick up or an up smash input during the jump squat starts the grounded
+    // up special or up smash at once, for every fighter.
+    use sim_core::input::buttons::C_UP;
+    for class in [0u8, 1, 3, 6, 8, WANDERER] {
+        for at in [1u32, 2, 3] {
+            assert_eq!(
+                out_of_jump_squat(class, at, inp(0, 127, SPECIAL), false),
+                (S::Attack, MoveId::UpSpecial, true),
+                "class {class} squat tick {at}: the grounded up special"
+            );
+            assert_eq!(
+                out_of_jump_squat(class, at, inp(0, 0, ATTACK | C_UP), false),
+                (S::Attack, MoveId::USmash, true),
+                "class {class} squat tick {at}: the attack stick's up smash"
+            );
+            assert_eq!(
+                out_of_jump_squat(class, at, inp(0, 127, ATTACK), false),
+                (S::Attack, MoveId::USmash, true),
+                "class {class} squat tick {at}: a flick up and attack"
+            );
+        }
+        // The stick held up since before the jump and attack: still the short hop's up air (no up smash input).
+        let (state, ..) = out_of_jump_squat(class, 2, inp(0, 127, ATTACK), true);
+        assert_eq!(state, S::JumpSquat, "class {class}: the squat goes on");
+    }
+    // The short-hop up air still comes out of a held-up attack.
+    let mut sim = duel();
+    sim.stand(0, Fx::ZERO, 1);
+    sim.ticks(10, inp(0, 127, 0));
+    sim.tick(inp(0, 127, JUMP));
+    sim.tick(inp(0, 127, ATTACK));
+    for _ in 0..4 {
+        sim.tick(inp(0, 127, 0));
+    }
+    assert_eq!(
+        (
+            sim.f().state,
+            MoveId::from_index(sim.f().move_id),
+            sim.f().grounded()
+        ),
+        (S::Attack, MoveId::UAir, false)
+    );
 }
 
 #[test]

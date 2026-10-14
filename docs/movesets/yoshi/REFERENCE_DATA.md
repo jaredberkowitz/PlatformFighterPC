@@ -392,7 +392,8 @@ A ground pound: on the ground a hop (with a weak hit) into a fast drop; in the a
    kept, as for the other ports (a shared rule, not this port's).
 10. **The egg's ground bounce**: "maximum vertical speed to bounce off ground 1.6" and "speed multiplier after bouncing 0.8" do not say
     whether 1.6 caps the bounce or is the fastest fall that still bounces (a faster one bursting). **Unresolved**; proposed: it bounces
-    when falling at most 1.6 and bursts otherwise, its speed x0.8 both ways on a bounce [E]; footage settles it (an egg thrown high
+    when falling at most 1.6 and bursts otherwise, its speed x0.8 both ways on a bounce [E]; built that way in phase 2 (sim 95; owner
+    decision 60: the estimate stands, no footage needed). Earlier note: footage would settle it (an egg thrown high
     and one thrown low along the ground).
 11. **The landing stars' first frame**: ssbwiki.com 3-12, UFD "frame 4 of landing". Resolved to **3** [R: the hitbox table] (UFD may
     count the frame they become visible).

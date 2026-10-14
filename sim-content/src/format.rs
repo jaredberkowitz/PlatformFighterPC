@@ -8,8 +8,8 @@ use sim_core::content::{
     Content, FighterParams, Gauge, Ledge, Names, Platform, Ruleset, Stage, StageLook,
 };
 use sim_core::moves::{
-    AirBlock, Armor, Burst, ChargeAdd, Counter, CounterBubble, Hitbox, Motion, Move, MoveId,
-    PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
+    AirBlock, Armor, Burst, ChargeAdd, Counter, CounterBubble, DropThrough, Hitbox, Motion, Move,
+    MoveId, PartIntangible, ProjectileArc, ProjectileSpawn, Reflector, Weapon, AIM_ANY, AIM_DOWN,
     AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL,
     ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC,
     EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH,
@@ -260,6 +260,7 @@ macro_rules! params_io {
                 air_jump_armor: base.and_then(|b| b.air_jump_armor),
                 air_jump_turns: false,
                 passive_shield: base.and_then(|b| b.passive_shield),
+                air_jump_drift: 100,
                 weapon,
             }
         }
@@ -906,6 +907,45 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             }
         }
     }
+    // Sim 95: a jab's window past its end, ledges only while not rising, a move's own platform drop (E30).
+    let late_until: Option<u8> = f.parsed("late_until", errors);
+    match (f.raw("late_next"), late_until) {
+        (Some((key, line)), Some(until)) => match MoveId::from_key(key) {
+            Some(id) => m.late_next = Some((id as u8, until)),
+            None => err(
+                errors,
+                line,
+                format!("`late_next` must be a move name, not `{key}`"),
+            ),
+        },
+        (None, None) => {}
+        _ => err(
+            errors,
+            block.line,
+            format!("{context}: late_next and late_until go together"),
+        ),
+    }
+    m.ledge_falling_only = f.or("ledge_falling_only", false, errors);
+    let drop_from: Option<u8> = f.parsed("drop_from", errors);
+    let drop_frames: Option<u8> = f.parsed("drop_frames", errors);
+    let drop_while_down: bool = f.or("drop_while_down", false, errors);
+    match (drop_from, drop_frames) {
+        (Some(from), Some(frames)) => {
+            m.drop_through = Some(DropThrough {
+                from,
+                frames,
+                while_down: drop_while_down,
+            })
+        }
+        (None, None) if !drop_while_down => {}
+        _ => err(
+            errors,
+            block.line,
+            format!(
+                "{context}: drop_from and drop_frames go together (drop_while_down needs them)"
+            ),
+        ),
+    }
     let rehit_start: Option<u8> = f.parsed("rehit_start", errors);
     let rehit_every: Option<u8> = f.parsed("rehit_every", errors);
     match (rehit_start, rehit_every) {
@@ -1069,6 +1109,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             bounce_min: f.or("bounce_min", none.bounce_min, errors),
             bounce_max: f.or("bounce_max", none.bounce_max, errors),
             bounce_keep: f.or("bounce_keep", none.bounce_keep, errors),
+            bounce_keep_y: f.or("bounce_keep_y", none.bounce_keep_y, errors),
+            bounce_max_fall: f.or("bounce_max_fall", none.bounce_max_fall, errors),
         };
         let phases = read_phases(b, &ctx, errors);
         let burst = at_most_one(children(b, "burst"), "burst", &ctx, errors).map(|bb| {
@@ -1079,6 +1121,9 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 life: bf.need("life", None, errors),
                 rehit: bf.or("rehit", 0, errors),
                 on_wall: bf.or("on_wall", false, errors),
+                on_ground: bf.or("on_ground", false, errors),
+                on_expire: bf.or("on_expire", false, errors),
+                keep_hits: bf.or("keep_hits", false, errors),
                 y: bf.or("y", Fx::ZERO, errors),
                 phases: read_phases(bb, &bctx, errors),
             };
@@ -1324,6 +1369,20 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         b.field("ledge_drop_front", front.show());
         b.field("ledge_drop_back", back.show());
     }
+    if let Some((id, until)) = m.late_next {
+        b.field("late_next", MoveId::from_index(id).key());
+        b.field("late_until", until.to_string());
+    }
+    if m.ledge_falling_only {
+        b.field("ledge_falling_only", "true");
+    }
+    if let Some(d) = m.drop_through {
+        b.field("drop_from", d.from.to_string());
+        b.field("drop_frames", d.frames.to_string());
+        if d.while_down {
+            b.field("drop_while_down", "true");
+        }
+    }
     if m.counter_strike {
         b.field("counter_strike", "true");
     }
@@ -1436,6 +1495,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             ("max_fall", a.max_fall, none.max_fall),
             ("bounce_min", a.bounce_min, none.bounce_min),
             ("bounce_max", a.bounce_max, none.bounce_max),
+            ("bounce_max_fall", a.bounce_max_fall, none.bounce_max_fall),
         ] {
             if v != d {
                 c.field(name, v.show());
@@ -1446,6 +1506,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         }
         if a.bounce_keep != none.bounce_keep {
             c.field("bounce_keep", a.bounce_keep.to_string());
+        }
+        if a.bounce_keep_y != none.bounce_keep_y {
+            c.field("bounce_keep_y", a.bounce_keep_y.to_string());
         }
         if p.pierce {
             c.field("pierce", "true");
@@ -1461,8 +1524,15 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             if bu.rehit != 0 {
                 bb.field("rehit", bu.rehit.to_string());
             }
-            if bu.on_wall {
-                bb.field("on_wall", "true");
+            for (name, on) in [
+                ("on_wall", bu.on_wall),
+                ("on_ground", bu.on_ground),
+                ("on_expire", bu.on_expire),
+                ("keep_hits", bu.keep_hits),
+            ] {
+                if on {
+                    bb.field(name, "true");
+                }
             }
             if bu.y != Fx::ZERO {
                 bb.field("y", bu.y.show());
@@ -1808,6 +1878,12 @@ pub fn read_content(root: &Block, errors: &mut Vec<String>) -> Content {
             base.is_some_and(|p| p.air_jump_turns),
             errors,
         );
+        // The air jump's drift multiplier (sim 95): optional, the inherited fighter's or 100.
+        params.air_jump_drift = f.or(
+            "air_jump_drift",
+            base.map_or(100, |p| p.air_jump_drift),
+            errors,
+        );
         f.finish(errors);
         // The gauge (schema 6): a `gauge { ... }` block, or the inherited fighter's, or none.
         if let Some(g) = at_most_one(children(b, "gauge"), "gauge", &context, errors) {
@@ -1966,6 +2042,9 @@ pub fn fighter_block(name: &str, p: &FighterParams, weapon_name: &str) -> Block 
     write_params(p, &mut b);
     if p.air_jump_turns {
         b.field("air_jump_turns", "true");
+    }
+    if p.air_jump_drift != 100 {
+        b.field("air_jump_drift", p.air_jump_drift.to_string());
     }
     if p.gauge != Gauge::NONE {
         b.push(write_gauge(&p.gauge));
