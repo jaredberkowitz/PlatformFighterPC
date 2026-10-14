@@ -62,7 +62,7 @@ pub fn cmd_bot(args: &[String]) -> Result<(), String> {
         }
         let r = &state.run;
         println!(
-            "seed {seed} fighter {}: {} frames ({}s), {} m, {} coins, {} kills, best combo {}, lives left {}, crushed {}{}",
+            "seed {seed} fighter {}: {} frames ({}s), {} m, {} coins, {} kills, best combo {}, lives left {}, room {}, arenas cleared {}{}",
             state.fighters[PLAYER].char_id,
             n,
             n / 60,
@@ -71,7 +71,8 @@ pub fn cmd_bot(args: &[String]) -> Result<(), String> {
             r.kills,
             r.best_combo,
             state.fighters[PLAYER].stocks,
-            r.crushes,
+            r.room,
+            r.cleared,
             if r.over { ", over" } else { "" }
         );
     }

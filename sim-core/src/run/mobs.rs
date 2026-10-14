@@ -690,18 +690,54 @@ pub(super) fn attacks(state: &mut GameState, content: &Content, rc: &RunContent)
     }
 }
 
-/// Mobs that have left the screen (the blast zone around the view) are gone: the player's kill if they hit it lately, else just gone.
+/// Keeps every mob inside the rooms in play: past the left wall, short of the right end, and on its own side of a shut gate (flyers
+/// do not collide with the stage, and nothing may slip through a wall).
+pub(super) fn keep_in_window(state: &mut GameState, rc: &RunContent) {
+    let run = &mut state.run;
+    let thick = rc.rules.gate_thickness;
+    let (wall, end) = (run.wall_x, run.window_end());
+    let (gate_closed, gate) = (run.gate_closed, run.gate_x);
+    for m in run.mobs.iter_mut() {
+        if !m.active || m.mode == MODE_BURST {
+            continue;
+        }
+        let r = kind_of(rc, m).radius;
+        let (mut lo, mut hi) = (wall + r, end - r);
+        if gate_closed {
+            if m.pos.x > gate {
+                lo = lo.max(gate + thick + r);
+            } else {
+                hi = hi.min(gate - r);
+            }
+        }
+        let x = m.pos.x.max(lo).min(hi.max(lo));
+        if x != m.pos.x {
+            m.pos.x = x;
+            m.vel.x = Fx::ZERO;
+            m.kb_vel.x = Fx::ZERO;
+        }
+    }
+}
+
+/// Mobs gone from the world: above or below the blast zone, or out of the rooms in play; and mobs launched by the player off the
+/// side of the screen. A mob the player hit lately is their kill; else it is just gone.
 pub(super) fn leave_screen(state: &mut GameState, rc: &RunContent) {
     let r = &rc.rules;
-    let left = state.run.cam_x - r.blast_margin;
-    let right = state.run.cam_x + r.view_width + r.blast_margin;
+    let run = &state.run;
+    let (wall, end) = (run.wall_x, run.window_end());
+    let left = run.cam_x - r.blast_margin;
+    let right = run.cam_x + r.view_width + r.blast_margin;
     for n in 0..state.run.mobs.len() {
         let m = state.run.mobs[n];
         if !m.active {
             continue;
         }
-        let out =
-            m.pos.x < left || m.pos.x > right || m.pos.y < r.blast_bottom || m.pos.y > r.blast_top;
+        let launched = m.credit > 0 && (m.hitstun > 0 || m.mode == MODE_BURST);
+        let out = m.pos.y < r.blast_bottom
+            || m.pos.y > r.blast_top
+            || m.pos.x < wall - r.blast_margin
+            || m.pos.x > end + r.blast_margin
+            || launched && (m.pos.x < left || m.pos.x > right);
         if !out {
             continue;
         }

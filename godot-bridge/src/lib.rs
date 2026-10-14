@@ -17,7 +17,7 @@ use netplay::spectate::{SpectatorClient, SpectatorServer};
 use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
-use sim_core::run::{new_run, step_run, RunContent, MAX_MOBS};
+use sim_core::run::{door_here, new_run, step_run, RunContent, MAX_MOBS};
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
@@ -2447,8 +2447,9 @@ impl SimRunner {
         self.run.is_some() && self.state.run.active
     }
 
-    /// `[over, metres, coins, kills, combo, best combo, coin multiplier, lives, crushes, layout]` (layout changes whenever the stage
-    /// does).
+    /// `[over, metres, coins, kills, combo, best combo, coin multiplier, lives, current room (its number), layout, current room's
+    /// type, arena gate shut (0/1), arenas cleared, shop open (0/1), at a shop's door (0/1)]` (layout changes whenever the stage or
+    /// its walls do). Room types: 0 street, 1 arena, 2 shop, 3 rest.
     #[func]
     fn run_info(&self) -> PackedInt32Array {
         let r = &self.state.run;
@@ -2465,13 +2466,21 @@ impl SimRunner {
             i32::from(r.best_combo),
             mult,
             i32::from(self.state.fighters[0].stocks),
-            i32::from(r.crushes),
+            r.room.min(i32::MAX as u32) as i32,
             r.layout as i32,
+            r.kind_of(r.room).map_or(0, i32::from),
+            i32::from(r.gate_closed),
+            i32::from(r.cleared),
+            i32::from(r.shop_open),
+            self.run
+                .as_ref()
+                .map_or(0, |(rc, _)| i32::from(door_here(&self.state, rc).is_some())),
         ];
         PackedInt32Array::from(v.as_slice())
     }
 
-    /// `[left edge, view width, follow (0..1), blast bottom, blast top, creep a frame]`.
+    /// `[left edge, view width, follow (0..1), blast bottom, blast top, creep a frame, left wall, right limit (the end of the rooms in
+    /// play, or a shut gate), gate thickness]`.
     #[func]
     fn run_view(&self) -> PackedFloat32Array {
         let Some((rc, _)) = &self.run else {
@@ -2485,6 +2494,9 @@ impl SimRunner {
             f(r.blast_bottom),
             f(r.blast_top),
             f(self.state.run.creep(r)),
+            f(self.state.run.wall_x),
+            f(self.state.run.right_limit()),
+            f(r.gate_thickness),
         ];
         PackedFloat32Array::from(v.as_slice())
     }
@@ -2509,8 +2521,8 @@ impl SimRunner {
         out
     }
 
-    /// The chunks in play, for drawing: every platform of each, placed, as `[chunk's left edge, chunk, left, right, top, bottom,
-    /// pass_through]` (the chunk's left edge names the piece: it never changes while the chunk is in play).
+    /// The rooms in play, for drawing: every platform of each, placed, as `[room's left edge, room, left, right, top, bottom,
+    /// pass_through]` (the room's left edge names the piece: it never changes while the room is in play).
     #[func]
     fn run_pieces(&self) -> Array<PackedFloat32Array> {
         let mut out = Array::new();
@@ -2518,13 +2530,13 @@ impl SimRunner {
             return out;
         };
         for s in self.state.run.slots.iter().filter(|s| s.live) {
-            let Some(c) = rc.chunks.get(usize::from(s.chunk)) else {
+            let Some(c) = rc.rooms.get(usize::from(s.room)) else {
                 continue;
             };
             for p in &c.platforms {
                 let v = [
                     f(s.x),
-                    f32::from(s.chunk),
+                    f32::from(s.room),
                     f(s.x + p.left),
                     f(s.x + p.right),
                     f(p.y),
@@ -2567,6 +2579,98 @@ impl SimRunner {
             ]);
         }
         PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// The rooms in play, one row each: `[left edge, right edge, type, door x, door y, number]` (the door is a shop's; 0 elsewhere).
+    #[func]
+    fn run_rooms(&self) -> Array<PackedFloat32Array> {
+        let mut out = Array::new();
+        let Some((rc, _)) = &self.run else {
+            return out;
+        };
+        for s in self.state.run.slots.iter().filter(|s| s.live) {
+            let Some(c) = rc.rooms.get(usize::from(s.room)) else {
+                continue;
+            };
+            let v = [
+                f(s.x),
+                f(s.end),
+                f32::from(c.kind),
+                f(s.x + c.door.x),
+                f(c.door.y),
+                s.seq as f32,
+            ];
+            out.push(&PackedFloat32Array::from(v.as_slice()));
+        }
+        out
+    }
+
+    /// The map: the last rooms up to the one ahead, oldest first, three numbers each: `[number, type, status]`. Status: 0 dropped
+    /// (closed behind the wall), 1 kept behind, 2 current, 3 ahead.
+    #[func]
+    fn run_map(&self, behind: i32) -> PackedInt32Array {
+        let r = &self.state.run;
+        let mut v = Vec::new();
+        if !r.active {
+            return PackedInt32Array::new();
+        }
+        let first = r.room.saturating_sub(behind.clamp(0, 15) as u32);
+        for seq in first..r.placed {
+            let Some(kind) = r.kind_of(seq) else {
+                continue;
+            };
+            let status = if seq == r.room {
+                2
+            } else if seq > r.room {
+                3
+            } else if r.slot_of(seq).is_some() {
+                1
+            } else {
+                0
+            };
+            v.extend_from_slice(&[seq as i32, i32::from(kind), status]);
+        }
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// The shop: `[open (0/1), the row picked, what the last press did (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not
+    /// needed), presses so far, coins, wares]`, then per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`. The row
+    /// after the last ware is "leave".
+    #[func]
+    fn run_shop(&self) -> PackedInt32Array {
+        let Some((rc, _)) = &self.run else {
+            return PackedInt32Array::new();
+        };
+        let r = &self.state.run;
+        let mut v = vec![
+            i32::from(r.shop_open),
+            i32::from(r.shop_cursor),
+            i32::from(r.shop_note),
+            i32::from(r.shop_acts),
+            r.coins.min(i32::MAX as u32) as i32,
+            rc.items.len() as i32,
+        ];
+        for (i, item) in rc.items.iter().enumerate() {
+            v.extend_from_slice(&[
+                i32::from(item.kind),
+                i32::from(item.price),
+                i32::from(item.limit),
+                i32::from(r.shop_bought.get(i).copied().unwrap_or(0)),
+            ]);
+        }
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// The shop's wares' names, in order.
+    #[func]
+    fn run_shop_names(&self) -> PackedStringArray {
+        let mut out = PackedStringArray::new();
+        if let Some((rc, _)) = &self.run {
+            for item in &rc.items {
+                out.push(item.name.as_str());
+            }
+        }
+        out
     }
 
     #[func]
