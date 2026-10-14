@@ -76,16 +76,25 @@ pub fn connect(state: &mut GameState, content: &Content, a: usize, d: usize) {
     drop_grab(state, content, d);
     let facing = -state.fighters[a].facing;
     let holder = &state.fighters[a];
-    let catch = combat::weapon_of(content, combat::params_of(content, holder))
-        .get(holder.move_id)
-        .catch_move;
+    let weapon = combat::weapon_of(content, combat::params_of(content, holder));
+    let catch = weapon.get(holder.move_id).catch_move;
     if let Some(next) = catch {
         // A command grab: the holder goes on with its catch move (next frame), keeping its speed, in the air if it is there; the
-        // held fighter has no hold clock (the clock only runs while the holder simply holds).
+        // held fighter has no hold clock (the clock only runs while the holder simply holds), unless the catch move is a latch with
+        // one (E49: the ordinary hold time, scaled).
+        let timer = match weapon.get(next).latch {
+            Some(l) if l.clock_num > 0 => {
+                let full = i32::from(hold_time(content, state.fighters[d].percent))
+                    * i32::from(l.clock_num)
+                    / i32::from(l.clock_den.max(1));
+                full.clamp(1, i32::from(u16::MAX)) as u16
+            }
+            _ => 0,
+        };
         let h = &mut state.fighters[a];
         h.grab_with = d as i8;
         h.next_move = next.saturating_add(1);
-        fighter::become_held(&mut state.fighters[d], a, facing, 0);
+        fighter::become_held(&mut state.fighters[d], a, facing, timer);
     } else {
         // An ordinary grab out of a gauge-draining move (the reference's charge) keeps draining the held fighter's gauge on every hit
         // until the hold ends (not a command grab: the reference's rule).
@@ -149,8 +158,12 @@ pub fn update(state: &mut GameState, content: &Content) {
         }
         start_carry_clock(state, content, h, v);
         pin(state, content, h, v);
-        // The clock only runs while the holder is simply holding or carrying (not mid-pummel or mid-throw).
-        if !matches!(state.fighters[h].state, S::Grabbing | S::Carrying)
+        // The clock only runs while the holder is simply holding or carrying (not mid-pummel or mid-throw), or in a latch with a
+        // clock (E49).
+        let holder = &state.fighters[h];
+        let latched =
+            holder.state == S::Attack && latch_of(content, holder).is_some_and(|l| l.clock_num > 0);
+        if !(matches!(holder.state, S::Grabbing | S::Carrying) || latched)
             || state.fighters[v].hitlag > 0
         {
             continue;
@@ -214,16 +227,44 @@ pub fn mash_inputs(f: &Fighter) -> (bool, bool) {
     (pressed, f.flick_x(1) != 0 || f.flick_y(1) != 0)
 }
 
+/// The holder's move as far as holding goes: the catch move it is about to start (`next_move`), else its move.
+fn holding_move(holder: &Fighter) -> u8 {
+    if holder.next_move != 0 {
+        holder.next_move - 1
+    } else {
+        holder.move_id
+    }
+}
+
+/// The latch (E49) of the move a holder in an attack holds its fighter in, if it has one.
+fn latch_of(content: &Content, holder: &Fighter) -> Option<crate::moves::Latch> {
+    if holder.state != S::Attack {
+        return None;
+    }
+    combat::weapon_of(content, combat::params_of(content, holder))
+        .get(holding_move(holder))
+        .latch
+}
+
 /// Stands the held fighter `grab_distance` in front of the holder, on the same surface, facing it; or, when the holder's move (or
 /// the catch move it is about to start) has a `hold_at`, holds it there (in the air if the holder is, or if it is held up).
 fn pin(state: &mut GameState, content: &Content, h: usize, v: usize) {
     let holder = state.fighters[h];
+    if let Some(l) = latch_of(content, &holder) {
+        // A latch (E49): the held fighter falls on its own and the holder rides it.
+        let p = *combat::params_of(content, &state.fighters[v]);
+        fighter::held_fall(&mut state.fighters[v], &p, &content.stage);
+        let held = state.fighters[v];
+        let up = p.ecb_height * Fx::from_ratio(i32::from(l.height), 100);
+        let rider = &mut state.fighters[h];
+        rider.pos = held.pos + Vec2::new(l.x.mul_int(i32::from(rider.facing)), up);
+        rider.vel = held.vel;
+        rider.platform = if up <= Fx::ZERO { held.platform } else { NONE };
+        state.fighters[v].facing = -state.fighters[h].facing;
+        return;
+    }
     let weapon = combat::weapon_of(content, combat::params_of(content, &holder));
-    let current = if holder.next_move != 0 {
-        holder.next_move - 1
-    } else {
-        holder.move_id
-    };
+    let current = holding_move(&holder);
     let hold_at = match holder.state {
         S::Attack => weapon.get(current).hold_at,
         // (A carry holds its fighter where its lift's `Carry::hold_at` says.)

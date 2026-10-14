@@ -9,14 +9,14 @@ use sim_core::content::{
 };
 use sim_core::moves::{
     AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble,
-    DropThrough, Encase, Fall, Hitbox, ItemBlast, ItemSpec, Motion, Move, MoveId, PartIntangible,
-    Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn, Reflector, Tool, Toss,
-    Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX,
-    ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER,
-    EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
-    HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES,
-    POCKET_NEVER, POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT,
-    TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    DropThrough, Encase, Fall, FlagVersion, Hitbox, ItemBlast, ItemSpec, Latch, Motion, Move,
+    MoveId, PartIntangible, Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn,
+    Reflector, Tool, Toss, Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD,
+    ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK,
+    ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
+    HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE,
+    POCKET_FREES, POCKET_NEVER, POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE,
+    SLIP_SOFT, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -659,6 +659,8 @@ fn missing_hitbox() -> Hitbox {
         half_width: Fx::ZERO,
         rules: RULES_CURRENT,
         slip: SLIP_NONE,
+        fixed_stun: 0,
+        unblockable: false,
     }
 }
 
@@ -801,6 +803,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         half_width: f.or("half_width", Fx::ZERO, errors),
         rules,
         slip,
+        fixed_stun: f.or("fixed_stun", 0, errors),
+        unblockable: f.or("unblockable", false, errors),
     };
     f.finish(errors);
     hb
@@ -912,6 +916,12 @@ fn write_hitbox(hb: &Hitbox) -> Block {
         SLIP_SOFT => b.field("slip", "soft"),
         _ => {}
     }
+    if hb.fixed_stun != 0 {
+        b.field("fixed_stun", hb.fixed_stun.to_string());
+    }
+    if hb.unblockable {
+        b.field("unblockable", "true");
+    }
     b
 }
 
@@ -993,6 +1003,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.cancel_from = f.or("cancel_from", 255, errors);
     // Sim 115: a chopping move (E43).
     m.chops = f.or("chops", false, errors);
+    // Sim 119: damage to the move's own user.
+    m.self_damage = f.or("self_damage", Fx::ZERO, errors);
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -1131,10 +1143,46 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "pocket",
             "unpocket",
             "toss",
+            "latch",
+            "flag_version",
         ],
         context,
         errors,
     );
+    // Sim 119: a latch (E49) and the versions picked by the once-per-airtime flags and marks (owner decision 75).
+    if let Some(b) = at_most_one(children(block, "latch"), "latch", context, errors) {
+        let ctx = format!("the latch of {context}");
+        let mut lf = Fields::new(b, &ctx, errors);
+        m.latch = Some(Latch {
+            x: lf.or("x", Fx::ZERO, errors),
+            height: lf.need("height", None, errors),
+            clock_num: lf.or("clock_num", 0, errors),
+            clock_den: lf.or("clock_den", 1, errors),
+        });
+        lf.finish(errors);
+    }
+    m.flag_versions = children(block, "flag_version")
+        .into_iter()
+        .map(|b| {
+            let ctx = format!("a flag version of {context}");
+            let mut f = Fields::new(b, &ctx, errors);
+            let flags: u8 = f.or("flags", 0, errors);
+            let marks: u8 = f.or("marks", 0, errors);
+            let mut slot = None;
+            if let Some((key, line)) = f.raw("move") {
+                match MoveId::from_key(key) {
+                    Some(id) => slot = Some(id as u8),
+                    None => err(
+                        errors,
+                        line,
+                        format!("`move` must be a move name, not `{key}`"),
+                    ),
+                }
+            }
+            f.finish(errors);
+            FlagVersion { flags, marks, slot }
+        })
+        .collect();
     // Sim 117: a move's own toss of the item in hand (E47).
     if let Some(b) = at_most_one(children(block, "toss"), "toss", context, errors) {
         let ctx = format!("the toss of {context}");
@@ -1763,6 +1811,32 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     }
     if m.chops {
         b.field("chops", "true");
+    }
+    if m.self_damage != Fx::ZERO {
+        b.field("self_damage", m.self_damage.show());
+    }
+    if let Some(l) = &m.latch {
+        let mut c = Block::new("latch", None);
+        c.field("x", l.x.show());
+        c.field("height", l.height.to_string());
+        if l.clock_num != 0 {
+            c.field("clock_num", l.clock_num.to_string());
+            c.field("clock_den", l.clock_den.to_string());
+        }
+        b.push(c);
+    }
+    for v in &m.flag_versions {
+        let mut c = Block::new("flag_version", None);
+        if v.flags != 0 {
+            c.field("flags", v.flags.to_string());
+        }
+        if v.marks != 0 {
+            c.field("marks", v.marks.to_string());
+        }
+        if let Some(slot) = v.slot {
+            c.field("move", MoveId::from_index(slot).key());
+        }
+        b.push(c);
     }
     if let Some(t) = &m.toss {
         let mut c = Block::new("toss", None);

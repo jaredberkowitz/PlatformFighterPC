@@ -850,3 +850,182 @@ fn the_banana_fields_are_in_the_content_hash() {
         assert_ne!(c.hash(), h, "edit {k}");
     }
 }
+
+#[test]
+fn the_latch_and_flag_fields_are_in_the_content_hash() {
+    // Sim 119 (E49, owner decision 75): a move's latch, flag versions and self damage, a hitbox's fixed stun and unblockable flag
+    // each change the hash.
+    use sim_core::moves::popgun_slots::LATCH;
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[11].weapon);
+    let edits: [fn(&mut sim_core::Content, usize); 9] = [
+        |c, w| c.weapons[w].moves[LATCH as usize].latch = None,
+        |c, w| {
+            if let Some(l) = c.weapons[w].moves[LATCH as usize].latch.as_mut() {
+                l.height = 50;
+            }
+        },
+        |c, w| {
+            if let Some(l) = c.weapons[w].moves[LATCH as usize].latch.as_mut() {
+                l.clock_den = 2;
+            }
+        },
+        |c, w| {
+            if let Some(l) = c.weapons[w].moves[LATCH as usize].latch.as_mut() {
+                l.x = Fx::ONE;
+            }
+        },
+        |c, w| {
+            c.weapons[w].moves[MoveId::UpSpecial as usize]
+                .flag_versions
+                .clear()
+        },
+        |c, w| c.weapons[w].moves[MoveId::UpSpecial as usize].flag_versions[0].slot = Some(0),
+        |c, _| c.weapons[0].moves[MoveId::Jab as usize].self_damage = Fx::ONE,
+        |c, _| c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].fixed_stun = 20,
+        |c, _| c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].unblockable = true,
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c, w);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}
+
+/// Two duelists face to face (player 0 at 0, player 1 at `gap` facing it), the others out.
+fn facing_pair(gap: Fx) -> Sim {
+    let mut sim = Sim::with_chars([0, 0, 0, 0]);
+    sim.state.fighters[2].active = false;
+    sim.state.fighters[3].active = false;
+    sim.stand(0, Fx::ZERO, 1);
+    sim.stand(1, gap, -1);
+    sim
+}
+
+#[test]
+fn an_unblockable_hit_lands_through_a_raised_shield() {
+    // Sim 119: `Hitbox::unblockable` (the reference's rocket barrels): the shield does not stop it; without it the shield does.
+    use sim_core::input::buttons::{ATTACK, SHIELD};
+    for unblockable in [false, true] {
+        let mut sim = facing_pair(Fx::from_int(1));
+        for h in &mut sim.content.weapons[0].moves[MoveId::Jab as usize].hitboxes {
+            h.unblockable = unblockable;
+        }
+        for _ in 0..10 {
+            sim.tick2(inp(0, 0, 0), inp(0, 0, SHIELD));
+        }
+        assert_eq!(sim.fighter(1).state, S::Shield);
+        let hp = sim.fighter(1).shield_hp;
+        for frame in 0..12 {
+            sim.tick2(
+                inp(0, 0, if frame == 0 { ATTACK } else { 0 }),
+                inp(0, 0, SHIELD),
+            );
+        }
+        assert_eq!(sim.fighter(1).percent > Fx::ZERO, unblockable);
+        assert_eq!(sim.fighter(1).state == S::Hitstun, unblockable);
+        // (Blocked, the shield took the hit: more than it wears down on its own in those frames.)
+        let worn = hp - sim.fighter(1).shield_hp;
+        assert_eq!(worn > Fx::ONE, !unblockable, "{worn:?}");
+    }
+}
+
+#[test]
+fn a_fixed_stun_hit_holds_a_victim_it_does_not_tumble_exactly_that_long() {
+    // Sim 119: `Hitbox::fixed_stun` (the reference's monkey flip jump-off, 20 frames): a weak hit's hitstun becomes exactly that; a
+    // tumbling one keeps its own.
+    use sim_core::input::buttons::ATTACK;
+    let stun_of = |fixed: u8, growth: i16| {
+        let mut sim = facing_pair(Fx::from_int(1));
+        for h in &mut sim.content.weapons[0].moves[MoveId::Jab as usize].hitboxes {
+            h.fixed_stun = fixed;
+            h.knockback_growth = growth;
+        }
+        let mut stun = 0;
+        for frame in 0..14 {
+            sim.tick(inp(0, 0, if frame == 0 { ATTACK } else { 0 }));
+            if stun == 0 && sim.fighter(1).state == S::Hitstun {
+                stun = sim.fighter(1).hitstun;
+            }
+        }
+        stun
+    };
+    assert_eq!(stun_of(20, 0), 20);
+    assert_ne!(stun_of(0, 0), 20);
+    // (A tumbling launch is not held to it.)
+    assert!(stun_of(20, 400) > 20);
+}
+
+#[test]
+fn self_damage_hurts_the_user_on_the_moves_first_frame() {
+    // Sim 119: `Move::self_damage` (the reference's rocket barrels crashing).
+    let mut sim = with_move(
+        MoveId::NSpecial,
+        Move {
+            total_frames: 20,
+            self_damage: Fx::from_int(5),
+            script: Some(
+                sim_script::Program::compile(sim_script::Kind::Fighter, "var a;").unwrap(),
+            ),
+            ..Move::empty()
+        },
+    );
+    sim.tick(inp(0, 0, SPECIAL));
+    assert_eq!(sim.f().percent, Fx::ZERO);
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().percent, Fx::from_int(5));
+    sim.ticks(5, inp(0, 0, 0));
+    assert_eq!(sim.f().percent, Fx::from_int(5), "once");
+}
+
+#[test]
+fn a_flag_version_picks_its_move_or_bars_the_special_and_reads_marks_and_flags() {
+    // Sim 119 (owner decision 75): `Move::flag_versions`: with a flag (or a mark) set, the special starts as the version's move, or
+    // not at all when it names none; with neither set, as itself.
+    use sim_core::moves::FlagVersion;
+    let mut sim = with_move(
+        MoveId::NSpecial,
+        Move {
+            total_frames: 20,
+            script: Some(
+                sim_script::Program::compile(sim_script::Kind::Fighter, "var a;").unwrap(),
+            ),
+            flag_versions: vec![
+                FlagVersion {
+                    flags: 0b10,
+                    marks: 0,
+                    slot: None,
+                },
+                FlagVersion {
+                    flags: 0,
+                    marks: 0b1,
+                    slot: Some(MoveId::Ext0 as u8),
+                },
+            ],
+            ..Move::empty()
+        },
+    );
+    sim.content.weapons[0].moves[MoveId::Ext0 as usize] = Move {
+        total_frames: 25,
+        script: Some(sim_script::Program::compile(sim_script::Kind::Fighter, "var b;").unwrap()),
+        ..Move::empty()
+    };
+    let start = |flags: u8, marks: u8| {
+        let mut s = Sim::alone();
+        s.content = sim.content.clone();
+        s.put_airborne(0, Fx::ZERO, Fx::from_int(20), Fx::ZERO, Fx::ZERO);
+        s.state.fighters[0].air_flags = flags;
+        s.state.fighters[0].air_marks = marks;
+        s.tick(inp(0, 0, SPECIAL));
+        (s.f().state, s.f().move_id)
+    };
+    assert_eq!(start(0, 0), (S::Attack, MoveId::NSpecial as u8));
+    assert_eq!(start(0, 1), (S::Attack, MoveId::Ext0 as u8));
+    assert_eq!(start(0b10, 1), (S::Airborne, 0), "barred: nothing starts");
+    assert_eq!(
+        start(0b1, 0),
+        (S::Attack, MoveId::NSpecial as u8),
+        "another flag"
+    );
+}

@@ -224,6 +224,10 @@ pub struct Fighter {
     /// Once-per-airtime flags (bit per flag), set by move scripts (`set_air_flag`) and cleared by landing, catching a ledge or being
     /// hit: what lets a move's boost happen only once until the fighter is back on the ground (the reference's cape stall).
     pub air_flags: u8,
+    /// Once-per-airtime marks (bit per mark, sim 119, owner decision 75), set by move scripts (`set_air_mark`) and cleared only by
+    /// landing or catching a ledge: unlike `air_flags`, a hit does not clear them (the reference's slower fall for only the first
+    /// rocket-barrel charge of an air time). `Move::flag_versions` reads them.
+    pub air_marks: u8,
     /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
     pub wall_jumps: u8,
     /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
@@ -709,6 +713,7 @@ impl Fighter {
             pull: false,
             stored: 0,
             air_flags: 0,
+            air_marks: 0,
             wall_jumps: 0,
             dash_buffer: 0,
             drop_pending: 0,
@@ -903,6 +908,7 @@ impl StateHash for Fighter {
         h.write_bool(self.pull);
         h.write_u8(self.stored);
         h.write_u8(self.air_flags);
+        h.write_u8(self.air_marks);
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
         h.write_u8(self.drop_pending);
@@ -1508,6 +1514,11 @@ mod tests {
             ("air_flags", {
                 let mut s = state;
                 s.fighters[1].air_flags = 1;
+                s
+            }),
+            ("air_marks", {
+                let mut s = state;
+                s.fighters[2].air_marks = 1;
                 s
             }),
             ("presses", {

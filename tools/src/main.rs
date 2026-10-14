@@ -193,6 +193,11 @@ pub(crate) struct ItemTally {
     /// Sim 115 (E43): placed pieces made (saplings and trees), and felled trees (a falling tree's shot appearing).
     pub placed: u64,
     pub felled: u64,
+    /// Sim 119 (E49): latches begun (a holder starting a latch move with a clock), left by an exit (attack or jump), and broken (the
+    /// clock or a mash-out, or a hit).
+    pub latches: u64,
+    pub latch_exits: u64,
+    pub latch_breaks: u64,
 }
 
 impl ItemTally {
@@ -205,12 +210,15 @@ impl ItemTally {
         self.unpocketed += o.unpocketed;
         self.placed += o.placed;
         self.felled += o.felled;
+        self.latches += o.latches;
+        self.latch_exits += o.latch_exits;
+        self.latch_breaks += o.latch_breaks;
     }
 
     /// The fuzzers' line about items, pockets and placed pieces.
     pub(crate) fn line(&self) -> String {
         format!(
-            "items: {} made, {} picked up, {} thrown or dropped, {} burst; pockets: {} put away, {} taken out; placed: {} made, {} felled",
+            "items: {} made, {} picked up, {} thrown or dropped, {} burst; pockets: {} put away, {} taken out; placed: {} made, {} felled; latches: {} begun, {} exits, {} broken",
             self.made,
             self.picked,
             self.thrown,
@@ -218,7 +226,10 @@ impl ItemTally {
             self.pocketed,
             self.unpocketed,
             self.placed,
-            self.felled
+            self.felled,
+            self.latches,
+            self.latch_exits,
+            self.latch_breaks
         )
     }
 }
@@ -235,6 +246,56 @@ pub(crate) fn placed_body(content: &Content) -> Option<u8> {
                 .is_some_and(|w| w.items.iter().any(|it| it.placed.is_some()))
         })
         .map(|i| i as u8)
+}
+
+/// The first body of `content` whose weapon has a latch (E49: the scamp's monkey flip), if any.
+pub(crate) fn latch_body(content: &Content) -> Option<u8> {
+    content
+        .fighters
+        .iter()
+        .position(|p| {
+            content
+                .weapons
+                .get(usize::from(p.weapon))
+                .is_some_and(|w| w.moves.iter().any(|m| m.latch.is_some()))
+        })
+        .map(|i| i as u8)
+}
+
+/// Drills for a latching player (sim 119): every 120 frames player `player` flicks the side special toward `toward` (1 right, -1
+/// left), and 60 frames later presses attack, jump or nothing in turn (the latch's attack, its jump, or the clock and the mash); it
+/// stands still otherwise, except for a stretch of its random play every 1200 frames. Player `target`, if any, stands still for the
+/// flip's first 40 frames (to be caught) and mashes with its random play after.
+pub(crate) fn drill_latch(
+    inputs: &mut [[sim_core::Input; sim_core::MAX_FIGHTERS]],
+    player: usize,
+    toward: i8,
+    target: Option<usize>,
+) {
+    use sim_core::input::buttons::{ATTACK, JUMP, SPECIAL};
+    for (i, frame) in inputs.iter_mut().enumerate() {
+        let k = i % 120;
+        if k == 0 {
+            frame[player] = sim_core::Input {
+                stick_x: toward.saturating_mul(127),
+                stick_y: 0,
+                buttons: SPECIAL,
+            };
+        } else if k == 60 {
+            frame[player] = sim_core::Input {
+                stick_x: 0,
+                stick_y: 0,
+                buttons: [ATTACK, JUMP, 0][(i / 120) % 3],
+            };
+        } else if i % 1200 < 1080 {
+            frame[player] = sim_core::Input::default();
+        }
+        if let Some(t) = target {
+            if k < 40 {
+                frame[t] = sim_core::Input::default();
+            }
+        }
+    }
 }
 
 /// Drills for a pocket-and-tree player (sim 115): every 60 frames player `player` presses special, with the stick in the middle every
@@ -269,10 +330,34 @@ pub(crate) fn tally_items(
     };
     let mut t = ItemTally::default();
     let mut state = *initial;
+    // (The latch, E49, of the move a fighter holds someone in, if any.)
+    let latch_of = |f: &sim_core::Fighter| {
+        (f.state == sim_core::state::FighterState::Attack && f.grab_with != sim_core::state::NONE)
+            .then(|| {
+                sim_core::combat::weapon_of(content, sim_core::combat::params_of(content, f))
+                    .get(f.move_id)
+                    .latch
+            })
+            .flatten()
+    };
     for i in inputs {
         let before = state.items;
         let shots = state.projectiles;
+        let holders = state.fighters;
         step(&mut state, content, i);
+        for (a, b) in holders.iter().zip(state.fighters.iter()) {
+            let (was, now) = (latch_of(a), latch_of(b));
+            let clocked = |l: Option<sim_core::moves::Latch>| l.is_some_and(|l| l.clock_num > 0);
+            if clocked(now) && was.is_none() {
+                t.latches += 1;
+            }
+            if clocked(was) && now.is_some_and(|l| l.clock_num == 0) {
+                t.latch_exits += 1;
+            }
+            if clocked(was) && now.is_none() {
+                t.latch_breaks += 1;
+            }
+        }
         for (a, b) in shots.iter().zip(state.projectiles.iter()) {
             if b.active && b.rest == REST_POCKETED && !(a.active && a.rest == REST_POCKETED) {
                 t.pocketed += 1;
@@ -368,6 +453,12 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         if let (true, Some(b)) = (drilled, placed_body(&base)) {
             specs[1] = sim_content::recipe::FighterSpec::Builtin(b);
         }
+        // Every third run from 2 (sim 119) fighter 2 plays the first body with a latch (the scamp), flipping at fighter 3 (who spawns
+        // to its right) and leaving its latches by attack, jump or the clock in turn.
+        let latching = seed % 3 == 2 && latch_body(&base).is_some();
+        if let (true, Some(b)) = (latching, latch_body(&base)) {
+            specs[2] = sim_content::recipe::FighterSpec::Builtin(b);
+        }
         let (content, chars) = sim_content::recipe::match_content(&base, &specs, false)
             .map_err(|e| format!("seed {seed}: specs rejected: {e:?}"))?;
         let chars = [chars[0], chars[1], chars[2], chars[3]];
@@ -395,6 +486,9 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         let mut inputs = random_inputs(&mut Rng::new(seed), 600);
         if drilled {
             drill_specials(&mut inputs, 1);
+        }
+        if latching {
+            drill_latch(&mut inputs, 2, 1, Some(3));
         }
         items.add(tally_items(&content, &initial, &inputs));
         let max_delay = 1 + (seed % 10) as u32;

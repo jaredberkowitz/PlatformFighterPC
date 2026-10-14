@@ -176,6 +176,10 @@ fn flying_into_a_wall_sets_the_barrels_off() {
         }
     }
     assert!(crashed, "it crashed into the wall");
+    // The scamp takes 5% itself on the crash's first frame (sim 119: "about 5%" [R]; 5 [E]).
+    let own = sim.f().percent;
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().percent - own, Fx::from_int(5));
     // The explosion (radius 20.0 of the reference's units, 2.5 world units round the feet) reaches the duelist 2 units away.
     let at = sim.f().pos;
     sim.put_airborne(1, at.x + Fx::from_int(2), at.y, Fx::ZERO, Fx::ZERO);
@@ -219,6 +223,10 @@ fn hit_while_charging_the_barrels_fly_off_and_burst_on_the_stage() {
     }
     assert!(shed, "the barrels flew off");
     assert!(burst, "and burst on the stage");
+    // They cannot be shielded (sim 119) [R].
+    let w = &sim.content.weapons[usize::from(sim.content.fighters[11].weapon)];
+    let spec = w.get(BARRELS as u8).projectile.expect("the barrels");
+    assert!(spec.hitbox.unblockable);
     assert_ne!(sim.f().move_id, ROCKET_FLIGHT as u8, "no launch");
 }
 

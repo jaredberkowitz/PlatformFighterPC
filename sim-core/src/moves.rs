@@ -371,6 +371,13 @@ pub struct Hitbox {
     /// then the ruleset's trip timings: a thrown banana peel) or [`SLIP_SOFT`] (no hitlag, the ruleset's shorter `slip_*` timings:
     /// walking into a lying peel). An airborne fighter takes the hit as usual. [`SLIP_NONE`] (the default): no slip.
     pub slip: u8,
+    /// A hit that does not tumble its victim holds it in hitstun for exactly this many frames, whatever the knockback's own hitstun
+    /// (sim 119: the reference's monkey flip jump-off, which "immobilises the opponent for exactly 20 frames if the move does not cause
+    /// tumble"). 0 (the default): the knockback's hitstun.
+    pub fixed_stun: u8,
+    /// The hit cannot be shielded (sim 119: the reference's rocket barrels flying off their hit wearer): a raised shield (or a passive
+    /// one) does not stop it, and it lands as on a fighter without one. False (the default): shields block it.
+    pub unblockable: bool,
 }
 
 /// `Hitbox::slip` values (E44, sim 117).
@@ -866,6 +873,34 @@ pub struct Toss {
     pub speed: Fx,
     pub smash_speed: Fx,
     pub wait: u8,
+}
+
+/// A latch (E49, sim 119: the reference's monkey flip, clinging to the head of the fighter it caught). While a fighter holds someone
+/// in a move with a latch, the held fighter is not pinned in front of the holder: it falls on its own (gravity to its top fall speed,
+/// landing on platforms; standing still on one), and the holder rides it, its feet `x` ahead (by the holder's facing) of the held
+/// fighter's feet and `height` percent of the held fighter's body height above them. With `clock_num` above 0 the ordinary hold's
+/// clock runs during the move (the held fighter's hold time `grab_base_frames + grab_percent_tenths x percent`, set on the catch,
+/// times `clock_num / clock_den`) and the shared mash shortens it; when it runs out the pair lets go as an ordinary hold does (the
+/// holder into the air, the held fighter free). A move with `clock_num` 0 (an exit: the latch's attack or jump) rides without a
+/// clock. What the holder does meanwhile (a repeating hit, exits by button) is the move's own: pummel rows, a script. A catch that
+/// starts a latch move (`Move::catch_move`) sets the clock; the move's other numbers are the holder's own (its hits, its length).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Latch {
+    pub x: Fx,
+    pub height: u8,
+    pub clock_num: u8,
+    pub clock_den: u8,
+}
+
+/// A version of a special picked by the once-per-airtime flags (sim 119, owner decision 75). Starting the special, if any of the
+/// fighter's `flags` (its `air_flags`, set by `set_air_flag`, cleared by landing, a ledge or a hit) or any of its `marks` (its
+/// `air_marks`, set by `set_air_mark`, cleared only by landing or a ledge: a hit does not clear them) is set, the special starts as
+/// `slot` instead (`None`: it does not start at all). The first matching version is used; checked after `air_version`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FlagVersion {
+    pub flags: u8,
+    pub marks: u8,
+    pub slot: Option<u8>,
 }
 
 /// A lying item's trap (E45, sim 117: the reference's banana peel lying on the ground). While the item lies (or slides) on a platform,
@@ -1751,6 +1786,15 @@ pub struct Move {
     /// the fighter in its move (a flinch, no hitstun), the move ends: into the special fall in the air, standing on the ground. `None`
     /// (the default): nothing.
     pub shed: Option<u8>,
+    /// The holder rides the fighter it holds during this move (E49, sim 119: the reference's monkey flip latch): see [`Latch`]. `None`
+    /// (the default): an ordinary hold (`hold_at` or `grab_distance`).
+    pub latch: Option<Latch>,
+    /// Versions picked by the once-per-airtime flags and marks when the special starts (sim 119, owner decision 75): see
+    /// [`FlagVersion`]. Empty (the default): none.
+    pub flag_versions: Vec<FlagVersion>,
+    /// Damage (percent) the fighter takes itself on the move's first frame (sim 119: the reference's rocket barrels crashing). 0 (the
+    /// default): none.
+    pub self_damage: Fx,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1840,6 +1884,9 @@ impl Move {
             chops: false,
             toss: None,
             shed: None,
+            latch: None,
+            flag_versions: Vec::new(),
+            self_damage: Fx::ZERO,
             script: None,
             projectile_script: None,
         }
@@ -1933,6 +1980,8 @@ impl StateHash for Hitbox {
         self.half_width.hash_into(h);
         h.write_u8(self.rules);
         h.write_u8(self.slip);
+        h.write_u8(self.fixed_stun);
+        h.write_bool(self.unblockable);
     }
 }
 
@@ -2389,6 +2438,23 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            match &m.latch {
+                Some(l) => {
+                    h.write_bool(true);
+                    l.x.hash_into(h);
+                    h.write_u8(l.height);
+                    h.write_u8(l.clock_num);
+                    h.write_u8(l.clock_den);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u32(m.flag_versions.len() as u32);
+            for v in &m.flag_versions {
+                h.write_u8(v.flags);
+                h.write_u8(v.marks);
+                h.write_u8(v.slot.unwrap_or(255));
+            }
+            m.self_damage.hash_into(h);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -2461,6 +2527,8 @@ fn mk(total: u8, landing_lag: u8, autocancel: (u8, u8), boxes: &[B]) -> Move {
                 half_width: Fx::ZERO,
                 rules: RULES_CURRENT,
                 slip: SLIP_NONE,
+                fixed_stun: 0,
+                unblockable: false,
             })
             .collect(),
         ..Move::empty()
@@ -2523,6 +2591,8 @@ fn row(r: &R) -> Hitbox {
         half_width: Fx::ZERO,
         rules: RULES_CURRENT,
         slip: SLIP_NONE,
+        fixed_stun: 0,
+        unblockable: false,
     }
 }
 
@@ -4990,6 +5060,8 @@ pub fn claws() -> Weapon {
             half_width: Fx::ZERO,
             rules: RULES_CURRENT,
             slip: SLIP_NONE,
+            fixed_stun: 0,
+            unblockable: false,
         },
         end_damage: Fx::from_int(6),
         arc: ProjectileArc::NONE,
@@ -5370,9 +5442,10 @@ pub use popgun::popgun;
 /// The Popgun's follow-up slots (which `ext` slot holds which part) and its banana peel, for tests and tools.
 pub mod popgun_slots {
     pub use super::popgun::{
-        banana_item, BANANA_ITEM, BANANA_KIND, BARRELS, BARRELS_KIND, PEEL_FAILS,
-        PEEL_FAILS_WITH_ITEM, PEEL_WAIT, PEEL_WITH_ITEM, POPGUN_FIRE, POPGUN_FULL, POPGUN_MISFIRE,
-        ROCKET_CRASH, ROCKET_FLIGHT,
+        banana_item, BANANA_ITEM, BANANA_KIND, BARRELS, BARRELS_KIND, FLIP_AIR, FLIP_KICK,
+        KICK_FLAG, LATCH, LATCH_ATTACK, LATCH_JUMP, PEEL_FAILS, PEEL_FAILS_WITH_ITEM, PEEL_WAIT,
+        PEEL_WITH_ITEM, POPGUN_FIRE, POPGUN_FULL, POPGUN_MISFIRE, ROCKET_AGAIN, ROCKET_CRASH,
+        ROCKET_FLIGHT, ROCKET_MARK,
     };
 }
 
