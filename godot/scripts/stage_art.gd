@@ -1634,17 +1634,31 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		var rz := z + float(r) * 1.4
 		# The shade between the crowns: a band behind them, from just under their tops on down.
 		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill, 2.0, 0.0)
-		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), false)
-		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), false)
+		# (The two nearest rows inked like the trees by the stage; further rows without, as distance takes the line.)
+		var inked := r < 2
+		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked)
+		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), inked)
 		var x := -150.0 + float(r) * 1.3
 		var k := 0
+		# Crowns, not equal puffs: each a big mass with two or three smaller lobes round its shoulders, of very different sizes, now and
+		# then a tall one standing above the row, so the canopy reads as trees grouped into a forest.
 		while x <= 150.0:
-			var w := size * (0.7 + 0.6 * absf(sin(k * 2.3 + r)))
-			var h := w * (0.85 + 0.3 * absf(sin(k * 1.7 + r * 0.6)))
-			var jy := size * 0.45 * sin(k * 1.37 + r * 2.1)
+			var n := absf(sin(k * 2.3 + r)) * 0.6 + absf(sin(k * 0.53 + r * 1.9)) * 0.4
+			var w := size * (0.75 + 0.9 * n)
+			var tall := 1.35 if absf(sin(k * 1.13 + r * 3.7)) > 0.93 else 1.0
+			var h := w * (0.85 + 0.25 * absf(sin(k * 1.7 + r * 0.6))) * tall
+			var jy := size * 0.35 * sin(k * 1.37 + r * 2.1) + (h - w) * 0.5
 			var jz := 0.8 * sin(k * 3.1 + r)
-			_mesh(root, _sphere(1.0, 12), leaf_lit if (k + r) % 3 == 0 else leaf, Vector3(x, row_y + jy, rz + jz), Vector3(w, h, w * 0.7))
-			x += w * (1.0 + 0.4 * absf(sin(k * 0.71 + r * 1.3)))
+			var main := leaf_lit if (k + r) % 3 == 0 else leaf
+			var c := Vector3(x, row_y + jy, rz + jz)
+			_mesh(root, _sphere(1.0, 12), main, c, Vector3(w, h, w * 0.7))
+			var lobes := 2 + int(absf(sin(k * 4.1 + r)) * 1.99)
+			for li in lobes:
+				var side := -1.0 if li % 2 == 0 else 1.0
+				var lw := w * (0.45 + 0.15 * absf(sin(k + li * 2.7)))
+				_mesh(root, _sphere(1.0, 10), leaf if main == leaf_lit else leaf_lit,
+					c + Vector3(side * w * (0.7 + 0.1 * li), -h * 0.15 + h * 0.35 * float(li / 2), 0.25), Vector3(lw, lw * 0.9, lw * 0.7))
+			x += w * (1.6 + 0.5 * absf(sin(k * 0.71 + r * 1.3)))
 			k += 1
 
 
@@ -1958,27 +1972,35 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var keel := _hanging_mass(bottom, length, l, r, front, 3.2, 0.12, 9,
 				func(s: float) -> float: return (1.0 - 0.18 * s) * (1.0 - pow(s, 2.4)),
 				func(s: float) -> float: return 0.09 * s * s)
-			var earth := Materials.stone((t.soil_dark as Color).darkened(0.12), Vector2(6, 2))
-			_mesh(root, keel, earth, Vector3.ZERO).name = "Underside"
+			# (The keel is the wall's own earth carried on down, falling into shade below the light, as the canyon's mesa and the city's
+			# tower are, so the platform reads as one body of earth, not a wall set on a separate rock.)
+			var under := _mesh(root, keel, _under_material(_soil_material(t), 0.85), Vector3.ZERO)
+			under.name = "Underside"
+			under.set_instance_shader_parameter("front_top", e[2])
 			# A ragged skirt of rounded rocks along the foot of the wall, half above and half below its bottom edge, so the built wall
 			# grows out of the island's earth instead of sitting on it along a ruled line. Deterministic.
-			var skirt := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.35), Vector2(1, 1))
+			# (In the earth's own darker colour, of very different sizes, in clusters with gaps, sunk into the earth rather than standing
+			# proud in a row: a ring of equal light stones read as a separate layer, a necklace under the wall.)
+			var skirt := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.15), Vector2(1, 1))
+			var skirt_lit := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.4), Vector2(1, 1))
 			var sx := l - 0.2
 			var j := 0
 			while sx < r + 0.2:
-				var sr := 0.6 + 0.4 * absf(sin(float(j) * 2.3 + 0.7))
-				# (Standing a little proud of the wall's face, 0.3 out, so the whole stone shows.)
-				_mesh(root, _sphere(1.0, 9), skirt, Vector3(sx, bottom - 0.1 + 0.3 * sin(float(j) * 2.9), 0.3 + sr * 0.2),
-					Vector3(sr * 1.35, sr, sr * 0.8), Vector3(0, float(j) * 37.0, float(j) * 11.0))
-				sx += sr * 1.7
+				var n := absf(sin(float(j) * 2.3 + 0.7)) * absf(sin(float(j) * 0.9 + 1.3))
+				var sr := 0.35 + 1.0 * n
+				if n > 0.3:
+					_mesh(root, _sphere(1.0, 9), skirt if j % 3 != 0 else skirt_lit, Vector3(sx, bottom - 0.25 - sr * 0.3 + 0.35 * sin(float(j) * 2.9),
+						0.05 + sr * 0.15), Vector3(sr * 1.35, sr, sr * 0.8), Vector3(0, float(j) * 37.0, float(j) * 11.0))
+				sx += sr * (1.2 + 0.7 * absf(sin(float(j) * 1.7)))
 				j += 1
 			var w := r - l
 			var cx := (l + r) / 2.0
-			var rock := Materials.stone((t.soil as Color).lerp(Color(0.74, 0.72, 0.8), 0.45))
+			# (Stones bedded in the keel, in the earth's own colours a step lighter, half sunk: pale lavender stones read as stickers.)
+			var rock := Materials.stone((t.soil as Color).lerp(t.soil_dark as Color, 0.35))
 			for k in 6:
 				var u := rng.randf_range(-0.36, 0.36)
 				var down := (1.0 - absf(u) * 2.0) * rng.randf_range(0.25, 0.6) * length
-				_mesh(root, _sphere(1.0, 7), rock, Vector3(cx + u * w, bottom - 0.9 - down, front - 0.25),
+				_mesh(root, _sphere(1.0, 7), rock, Vector3(cx + u * w, bottom - 0.9 - down, front - 0.45),
 					Vector3(1.3, 0.9, 1.0) * rng.randf_range(0.45, 0.85),
 					Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 60), rng.randf_range(-15, 15)))
 			var root_mat := Materials.bark(Color(0.5, 0.33, 0.22), Vector2(1, 2))
@@ -1987,7 +2009,7 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 				var len := rng.randf_range(1.2, 3.2) * (1.0 - absf(x - cx) / w)
 				_mesh(root, _cylinder(0.05, 0.12, len, 5), root_mat, Vector3(x, bottom - len * 0.5 + 0.1, front + 0.15), Vector3.ONE,
 					Vector3(rng.randf_range(-8, 8), 0, rng.randf_range(-14, 14)))
-			_under_haze(root, t, bottom - length * 0.5, 9.0, 0.6)
+			_under_haze(root, t, bottom - length * 0.65, 9.0, 0.45)
 
 
 ## A copy of a block's world-laid material `m` for what carries on below it, out of the light: its front falls `fall` of the way into
