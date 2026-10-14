@@ -625,7 +625,7 @@ fn the_new_move_and_hitbox_fields_round_trip() {
 
 #[test]
 fn an_encase_block_round_trips_and_is_checked() {
-    // The egg (E8, sim 104): the Clutch's lay carries one, with a throw row of effect encase.
+    // The egg (E8, sim 107): the Clutch's lay carries one, with a throw row of effect encase.
     let c = Content::placeholder();
     let t = text(&c, false);
     assert!(t.contains("encase {") && t.contains("effect encase"));

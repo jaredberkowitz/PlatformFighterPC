@@ -2147,7 +2147,7 @@ fn read_carry(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Carry {
     Carry { armor, ..c }
 }
 
-/// A move's `encase { ... }` block (E8, sim 104): every field is required (see `moves::Encase`).
+/// A move's `encase { ... }` block (E8, sim 107): every field is required (see `moves::Encase`).
 fn read_encase(b: &Block, ctx: &str, errors: &mut Vec<String>) -> Encase {
     only_known(b, &[], ctx, errors);
     let mut f = Fields::new(b, ctx, errors);

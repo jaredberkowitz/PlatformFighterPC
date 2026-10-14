@@ -117,7 +117,17 @@ fn a_reversed_dash_stands_for_the_turnaround_before_it_moves() {
 /// The frame of an initial dash (counted from the dash's first frame) on which a flick back made on `flick_on` turns the fighter, and
 /// the state it is in then.
 fn turn_after_flick_on(flick_on: usize) -> (usize, S) {
+    turn_after_flick_with(flick_on, None)
+}
+
+/// [`turn_after_flick_on`] with every body's `dash_reverse_frames` set to `reverse` (their own value if `None`).
+fn turn_after_flick_with(flick_on: usize, reverse: Option<u8>) -> (usize, S) {
     let mut sim = Sim::new();
+    if let Some(r) = reverse {
+        for p in sim.content.fighters.iter_mut() {
+            p.dash_reverse_frames = r;
+        }
+    }
     sim.tick(inp(0, 0, 0));
     sim.ticks(flick_on - 1, inp(127, 0, 0));
     for frame in flick_on..flick_on + 30 {
@@ -130,10 +140,11 @@ fn turn_after_flick_on(flick_on: usize) -> (usize, S) {
 }
 
 #[test]
-fn a_flick_back_early_in_the_dash_turns_at_once() {
+fn a_flick_back_anywhere_in_the_initial_dash_turns_at_once() {
+    // Owner decision 2026-10-14 (sim 106): the reference's held turn (below) felt sluggish.
     let p = Sim::new().content.fighters[0];
-    assert_eq!(p.dash_reverse_frames, 5);
-    for frame in 2..=5 {
+    assert_eq!(p.dash_reverse_frames, 255);
+    for frame in 2..=usize::from(p.dash_frames) {
         assert_eq!(
             turn_after_flick_on(frame),
             (frame, S::Dash),
@@ -143,11 +154,19 @@ fn a_flick_back_early_in_the_dash_turns_at_once() {
 }
 
 #[test]
-fn a_flick_back_later_in_the_dash_turns_as_the_dash_ends() {
+fn the_reference_held_turn_still_works_with_dash_reverse_frames_5() {
+    // The reference's turnaround (sim 103), kept as an option: frames 1-5 turn at once, later flicks are held to the dash's end.
     let dash = usize::from(Sim::new().content.fighters[0].dash_frames);
+    for frame in 2..=5 {
+        assert_eq!(
+            turn_after_flick_with(frame, Some(5)),
+            (frame, S::Dash),
+            "flick on frame {frame}"
+        );
+    }
     for frame in 6..=dash {
         assert_eq!(
-            turn_after_flick_on(frame),
+            turn_after_flick_with(frame, Some(5)),
             (dash + 1, S::Dash),
             "flick on frame {frame}: a dash back once the dash ends"
         );

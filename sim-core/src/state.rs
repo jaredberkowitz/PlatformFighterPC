@@ -85,7 +85,7 @@ pub enum FighterState {
     /// Carrying a held fighter (E7, sim 98: the reference's cargo hold; see `moves::Carry`): walking, jumping (`Fighter::carry_jumps`)
     /// and falling with it, on the ground or in the air, until a throw, the hold's clock or a hit ends it.
     Carrying,
-    /// Shut in an egg (E8, sim 104: see `moves::Encase`): no action until `Fighter::encase_timer` runs out (mashing shortens it, hits
+    /// Shut in an egg (E8, sim 107: see `moves::Encase`): no action until `Fighter::encase_timer` runs out (mashing shortens it, hits
     /// shorten it); it falls, lands and is hit as an egg, then breaks out into the air.
     Encased,
 }

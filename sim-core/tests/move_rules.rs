@@ -504,7 +504,7 @@ fn the_tool_fields_are_in_the_content_hash() {
 
 #[test]
 fn the_egg_is_in_the_content_hash() {
-    // E8 (sim 104): the block and every one of its numbers.
+    // E8 (sim 107): the block and every one of its numbers.
     use sim_core::moves::Encase;
     let base = sim_core::Content::placeholder();
     let lay = sim_core::moves::clutch_slots::LAY as usize;

@@ -429,7 +429,7 @@ pub const EFFECT_ELECTRIC: u8 = 1;
 /// (`FighterState::Buried`, see `combat::bury_frames`); an airborne one takes the hit as usual. Its knockback is worked out at weight
 /// 100 and it ignores subtractive knockback armor.
 pub const EFFECT_BURY: u8 = 2;
-/// The reference's egg (E8, sim 104): on a throw row (`HIT_THROW`) of a move with an [`Encase`] block, the released fighter is shut in
+/// The reference's egg (E8, sim 107): on a throw row (`HIT_THROW`) of a move with an [`Encase`] block, the released fighter is shut in
 /// an egg (`FighterState::Encased`) instead of launched; see [`Encase`].
 pub const EFFECT_ENCASE: u8 = 3;
 
@@ -981,7 +981,7 @@ impl Carry {
     }
 }
 
-/// An egg (E8, sim 104: the reference's, owner decision 46). A move with this block shuts the fighter its `EFFECT_ENCASE` throw row
+/// An egg (E8, sim 107: the reference's, owner decision 46). A move with this block shuts the fighter its `EFFECT_ENCASE` throw row
 /// releases in an egg ([`crate::state::FighterState::Encased`]) instead of launching it. The numbers are read from the throwing move
 /// all through the egg (the egged fighter remembers the thrower's body and the move):
 ///
@@ -1249,7 +1249,7 @@ pub struct Move {
     pub push_immune_to: u8,
     /// The move is a carry's lift (E7, sim 98): see [`Carry`]. `None` (the default): an ordinary move.
     pub carry: Option<Carry>,
-    /// The egg its `EFFECT_ENCASE` throw row lays (E8, sim 104): see [`Encase`]. `None` (the default): no egg.
+    /// The egg its `EFFECT_ENCASE` throw row lays (E8, sim 107): see [`Encase`]. `None` (the default): no egg.
     pub encase: Option<Encase>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
