@@ -62,4 +62,19 @@ foreground, higher-quality rendering, closer to a cel-shaded HD remaster.
 - **Item 6 (shimmer)**: the Best tier already runs 4x MSAA with SMAA; temporal AA would smear the ink lines. Left as is.
 - **The canyon's front** was checked and kept: its broken, waving strata read well at play distance.
 
+## Pass 68: chunkier fighters, arms that read (the owner's PEAK reference)
+
+The owner's note: more of the arms visible, chunky limbs as PEAK's, proportions and turns adjusted, kept animated and readable. (PEAK is
+a close third-person 3D game; ours is a side-on 2.5D view, so only the proportions and the arm read were taken, not its camera.)
+
+- **The base body** (`make_base_body.py`): arms about 30% thicker and a little longer (`ARM` radii 0.15 / 0.136 / 0.12, the wrist at
+  0.62, 0.84), legs about 12% thicker (`LEG` 0.152 / 0.143 / 0.13); bigger mitten hands (`HAND_SCALE` 1.24, `FIST_SCALE` 0.82). Body, joints
+  and rig rebuilt; garments follow the body.
+- **The idle stance** (`make_rigged_blob.py` `idle`): both chunky arms held out clear of the body, fists a little up and forward (they were
+  tucked into a guard in front of the belly, where the body and the weapon hid them).
+- **The turn** (`fighter_view.gd`): the body 60 degrees off straight-on (was 70) and the chest 24 (was 35), so both arms and more of the
+  chest read while moves still play across the stage.
+- Checks: the art, fighter view, motion, animation and creator tests pass; the look bench 0.87 (needs 0.85).
+- Images: `review4_chunky_before_after.png` (before above), `review4_chunky_lineup.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.

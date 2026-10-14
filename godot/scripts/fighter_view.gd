@@ -598,12 +598,13 @@ func _skeleton_to_frame() -> Transform3D:
 	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
 
 
+## (Turned a little more to the camera than before, after the owner's PEAK reference: both arms and more of the chest read.)
 ## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage), as the reference game's fighters stand: the hips and legs turned
 ## well toward the way it faces (70 degrees off straight-on), so strides, kicks and swings happen across the screen where they read; the
 ## chest twisted back so it mostly faces the camera (35 degrees off); and the head turned again a little toward the way it faces (45
 ## degrees off: a three-quarter face), so the two fighters look at each other while the drawn face keeps both eyes in view.
-const BODY_TURN := 70.0
-const CHEST_TO_CAMERA := 35.0
+const BODY_TURN := 60.0
+const CHEST_TO_CAMERA := 24.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
 const HEAD_TOWARD_FOE := 10.0
