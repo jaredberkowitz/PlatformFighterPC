@@ -1115,3 +1115,5 @@ only; every created fighter can wear them too).
 - **Hairstyles in the hat slot** (`Loadout.HATS`: "swept spikes", "topknot"; in the look's brow colour): thick blunt spikes fanned across
   the crown and swept back, and close-cropped hair with a round knot tied in the accent colour. The Champion wears rust-red swept spikes,
   the Hauler a topknot, so the two bareheaded built-ins have outlines of their own too. `champion_spikes.png`, `silhouettes_select_2.png`.
+- **Flat Island's shore** (item 3): sand banked up against each end of the wall, spilling from about half its height down into the sea,
+  so the island's ends slope like a shore instead of stopping in square corners. `beach_sand_banks.png`.

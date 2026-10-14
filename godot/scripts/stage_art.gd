@@ -1651,6 +1651,14 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var rock := Materials.stone((t.soil_dark as Color).darkened(0.15), Vector2(5, 1))
 			_mesh(root, shelf, rock, Vector3.ZERO).name = "Underside"
 			# (The sea is a unit below the block: the boulders rise from it to the block's foot, so it stands on rock, foam round them.)
+			# Sand banked up against each end of the wall, spilling from about half its height down into the sea: the ends slope rather
+			# than stop in square corners, so the island's outline is a shore, not a box.
+			var sand_bank := _surface(t.grass, "sand", 5.0)
+			var bh := (e[2] as float) - bottom
+			for side in [-1.0, 1.0]:
+				var ex: float = r if side > 0.0 else l
+				_mesh(root, _sphere(1.0, 16), sand_bank, Vector3(ex + side * 0.4, bottom - 0.6, front - 1.0), Vector3(2.6, bh * 0.55, 2.4))
+				_mesh(root, _sphere(1.0, 12), sand_bank, Vector3(ex + side * 1.8, bottom - 0.9, front - 0.6), Vector3(1.6, bh * 0.25, 1.8))
 			var boulder := Materials.stone((t.soil as Color).darkened(0.12))
 			for k in 8:
 				var x := lerpf(l - 0.4, r + 0.4, (k + rng.randf_range(0.25, 0.75)) / 8.0)
