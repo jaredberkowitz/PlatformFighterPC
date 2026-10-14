@@ -25,3 +25,11 @@ grading (each stage keeps its own finish).
 - The stones bedded in the keel are in the earth's colours, not pale lavender, and half sunk.
 - The haze under the island is lighter (it washed the keel paler than the wall, backwards for an underside).
 - **Images**: `docs/screenshots/stage1_platform_underside.png` (before left).
+
+## Pass 2: the grove's canopy as trees (opportunity 2)
+
+- `_canopy`: equal round puffs in rows are now crowns: each a big mass with two or three smaller lobes, sizes varying more, a taller
+  one now and then; the two nearest rows inked like the trees by the stage.
+- A modest gain: the canopy sits deep in the grove's haze, which softens most of the difference. The haze's strength there is the
+  next thing to try, keeping the grove's dreamy mood.
+- **Images**: `docs/screenshots/stage2_canopy.png` (before left).

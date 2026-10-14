@@ -1634,17 +1634,31 @@ static func _canopy(root: Node3D, z: float, y: float, colours: Array) -> void:
 		var rz := z + float(r) * 1.4
 		# The shade between the crowns: a band behind them, from just under their tops on down.
 		_land_band(root, [], row_y + size * 0.2, rz - size * 0.6, fill, 2.0, 0.0)
-		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), false)
-		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), false)
+		# (The two nearest rows inked like the trees by the stage; further rows without, as distance takes the line.)
+		var inked := r < 2
+		var leaf := Materials.foliage(colours[r % colours.size()], Vector2(2, 2), inked)
+		var leaf_lit := Materials.foliage((colours[r % colours.size()] as Color).lightened(0.12), Vector2(2, 2), inked)
 		var x := -150.0 + float(r) * 1.3
 		var k := 0
+		# Crowns, not equal puffs: each a big mass with two or three smaller lobes round its shoulders, of very different sizes, now and
+		# then a tall one standing above the row, so the canopy reads as trees grouped into a forest.
 		while x <= 150.0:
-			var w := size * (0.7 + 0.6 * absf(sin(k * 2.3 + r)))
-			var h := w * (0.85 + 0.3 * absf(sin(k * 1.7 + r * 0.6)))
-			var jy := size * 0.45 * sin(k * 1.37 + r * 2.1)
+			var n := absf(sin(k * 2.3 + r)) * 0.6 + absf(sin(k * 0.53 + r * 1.9)) * 0.4
+			var w := size * (0.75 + 0.9 * n)
+			var tall := 1.35 if absf(sin(k * 1.13 + r * 3.7)) > 0.93 else 1.0
+			var h := w * (0.85 + 0.25 * absf(sin(k * 1.7 + r * 0.6))) * tall
+			var jy := size * 0.35 * sin(k * 1.37 + r * 2.1) + (h - w) * 0.5
 			var jz := 0.8 * sin(k * 3.1 + r)
-			_mesh(root, _sphere(1.0, 12), leaf_lit if (k + r) % 3 == 0 else leaf, Vector3(x, row_y + jy, rz + jz), Vector3(w, h, w * 0.7))
-			x += w * (1.0 + 0.4 * absf(sin(k * 0.71 + r * 1.3)))
+			var main := leaf_lit if (k + r) % 3 == 0 else leaf
+			var c := Vector3(x, row_y + jy, rz + jz)
+			_mesh(root, _sphere(1.0, 12), main, c, Vector3(w, h, w * 0.7))
+			var lobes := 2 + int(absf(sin(k * 4.1 + r)) * 1.99)
+			for li in lobes:
+				var side := -1.0 if li % 2 == 0 else 1.0
+				var lw := w * (0.45 + 0.15 * absf(sin(k + li * 2.7)))
+				_mesh(root, _sphere(1.0, 10), leaf if main == leaf_lit else leaf_lit,
+					c + Vector3(side * w * (0.7 + 0.1 * li), -h * 0.15 + h * 0.35 * float(li / 2), 0.25), Vector3(lw, lw * 0.9, lw * 0.7))
+			x += w * (1.6 + 0.5 * absf(sin(k * 0.71 + r * 1.3)))
 			k += 1
 
 
