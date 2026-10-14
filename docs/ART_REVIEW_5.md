@@ -165,3 +165,25 @@ Posed geometry rendered straight from Blender (grey, no outline or shading to hi
 - Still visible up close: soft folds on the upper chest beside the neck when the arms are raised, and the base surface's slight
   unevenness. Next: a reference study of limb shape and extension (the owner asked for the reference fighters' and PEAK's
   body composition, limb bending and extension in swings and kicks).
+
+## Step 4c: combat poses against the reference (the sword fighter first)
+
+The owner: arms do not extend naturally in the sword fighter's swings; open extended hands and bent wrists do not read as combat. The
+reference's hitbox animations (ultimateframedata.com, the sword fighter's reference) were decoded frame by frame and set beside ours
+(`--demo=gallery --gallery-class=0`). `review5_sword_moves.png`: pairs of rows, before | after, for the forward smash, forward air and
+down tilt.
+
+- **Forward smash**: ours folded nearly double and then knelt (the hips dropped so far the short legs sat the body down), the head
+  down at the blade. The reference lunges: front knee bent, back leg long, back straight, head up. Now: the spine leans 14 not 30,
+  the hips drop 0.1 not 0.24, the head up. The swing's drawn arc ends at -22 not -45. (The blade still ends low: the move's last hit
+  is at the floor in front, as the reference's is; the sim is untouched.)
+- **Faces kept to the camera in moves**: in a move the chest opened only 6 degrees back to the camera and the head could turn 58 away,
+  so twisting swings showed the back of the head. Now 18 and 40 (`CHEST_IN_ATTACK`, `FACE_AWAY_IN_ATTACK`), for every class.
+- **The code's lean toward a low hit** is lighter for a sword on the base body (its clips already lean): it was folding low cuts over.
+- **Fists through the fight** (`OPEN_HAND_STATES`): hands open only grabbing, held, hit, tumbling, hanging from a ledge. **Wrists**
+  keep 30% of any clip's bend (`WRIST_KEEP`), so a fist stays in line with the forearm.
+- **Down tilt**: the torso folded so far the camera saw the top of the head; the spine leans 18 not 34.
+- **A raised blade** is held out in front of the face (`HIGH_BLADE_ARM`), not over it, where the short arm left the hilt at the mouth.
+- **Still open, next**: the sword hand stays near the chin through a strike instead of reaching out to an extended arm (the arm is
+  aimed by code from the feet's frame; a turned body likely shortens its reach). Then the other classes' swings and kicks, the same way.
+- Checked: the fighter, art, motion, animation, creator, online, match and loadout tests; the look bench 0.88.

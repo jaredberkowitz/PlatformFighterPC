@@ -476,6 +476,10 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd = clampf(fwd, -100.0, 172.0)
     if BODY and bone.startswith("armL."):
         fwd = clampf(fwd, -5.0, 145.0)
+    # Wrists held nearly straight (the owner, art review 5: bent wrists and open, flapping hands do not read as combat; a fist in line
+    # with the forearm does).
+    if BODY and bone.startswith("hand."):
+        fwd, out, twist = fwd * WRIST_KEEP, out * WRIST_KEEP, twist * WRIST_KEEP
     # The base body's head is big: tipped back more than a little it shows its chin and hides the drawn face, the half of every read.
     if BODY and bone == "head" and CLIP_NOW not in HEAD_FREE_CLIPS:
         fwd = max(fwd, HEAD_BACK_LIMIT)
@@ -522,6 +526,7 @@ BODY = "--body" in sys.argv
 # the front foot, the back leg straightening behind and the free arm pulled back for balance. Each entry is (wind-up, strike, rest) in the
 # `pose_spec` short form, on the shared move timeline.
 BODY_AMP = 0.85
+WRIST_KEEP = 0.3   # how much of a clip's wrist bend the base body keeps
 
 BODY_MOVES = {
     # A straight punch (or a quick slash): the guard hand stays up at the chin, the shoulders snap round and the front foot steps in.
@@ -574,13 +579,18 @@ BODY_MOVES = {
         {"hips": -0.02, "spine": (-16.0, -40.0), "head": (10.0, 20.0), "stance": (24.0, 18.0), "shin.R": (-40.0,), "armU.L": (20.0, 40.0)},
         # (As the reference's: a lunge so deep the back leg lies nearly flat behind and the body drops low over the bent front knee, the
         # head kept up to the camera.)
-        {"hips": -0.24, "spine": (30.0, 30.0), "head": (-14.0, -14.0), "stance": (70.0, -60.0), "shin.L": (-76.0,), "shin.R": (-2.0,),
+        # (The torso leans in about 25 degrees, not folded over: at 30 before the exaggeration it bent nearly double and took the head
+        # down to the blade. Art review 5, against the reference's frames.)
+        # (A lunge, not a kneel: the hips dropped 0.24 before the exaggeration sat the short-legged body down on both knees, and the code
+        # places the sword hand from the feet, so the head sank to the hand. Art review 5.)
+        {"hips": -0.1, "spine": (14.0, 30.0), "head": (-20.0, -14.0), "stance": (64.0, -48.0), "shin.L": (-54.0,), "shin.R": (-2.0,),
          "armU.L": (-50.0, 40.0), "armL.L": (10.0,)},
-        {"hips": -0.14, "spine": (18.0, 12.0), "stance": (48.0, -40.0), "shin.L": (-56.0,)}),
+        {"hips": -0.06, "spine": (10.0, 12.0), "head": (-10.0, 0.0), "stance": (44.0, -34.0), "shin.L": (-40.0,)}),
     # Fencer's down tilt: a low lunging thrust, down on the bent front leg with the back leg stretched long behind.
     "sword_dtilt": (
         {"hips": -0.2, "spine": (20.0, -10.0), "head": (-10.0, 0.0), "stance": (50.0, 26.0), "shin.L": (-90.0,), "shin.R": (-100.0,)},
-        {"hips": -0.28, "spine": (34.0, 10.0), "head": (-24.0, 0.0), "stance": (70.0, -30.0), "shin.L": (-92.0,), "shin.R": (-20.0,),
+        # (The back kept long and the head up: at 34 the torso folded over so far that the camera saw the top of the head. Art review 5.)
+        {"hips": -0.28, "spine": (18.0, 10.0), "head": (-30.0, 0.0), "stance": (70.0, -30.0), "shin.L": (-92.0,), "shin.R": (-20.0,),
          "armU.L": (-30.0, 30.0)},
         {"hips": -0.16, "spine": (22.0, 0.0), "stance": (48.0, -8.0), "shin.L": (-70.0,)}),
     # The claws' forward tilt: both claws cocked across the chest, then the fighter lunges and throws them out forward and wide (a
