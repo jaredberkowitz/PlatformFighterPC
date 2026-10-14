@@ -1,7 +1,7 @@
 //! Phase 1 exit criteria: movement tech works from scripted inputs, for fighters with different
 //! physics profiles. Each test drives player 0 with a recorded input script.
 
-use sim_core::input::buttons::{ATTACK, JUMP, SHIELD};
+use sim_core::input::buttons::{ATTACK, JUMP, SHIELD, SPECIAL};
 use sim_core::state::{Fighter, FighterState as S, NONE};
 use sim_core::{step, Content, FighterParams, Fx, GameState, Input, MAX_FIGHTERS};
 
@@ -329,11 +329,12 @@ fn on_pass_through_platform() -> Sim {
 }
 
 #[test]
-fn shield_plus_down_drops_through_a_pass_through_platform() {
+fn shield_plus_special_drops_through_a_pass_through_platform() {
+    // Owner decision 2026-10-14 (sim 112): shield + special, not shield + down (which is a spot dodge, on platforms too).
     let mut sim = on_pass_through_platform();
     sim.tick(inp(0, 0, SHIELD));
     assert_eq!(sim.f().state, S::Shield);
-    sim.tick(inp(0, -100, SHIELD));
+    sim.tick(inp(0, 0, SHIELD | SPECIAL));
     assert_eq!(sim.f().state, S::ShieldDrop);
     assert!(!sim.f().grounded());
     sim.ticks(80, inp(0, 0, 0));
@@ -351,7 +352,7 @@ fn shield_drop_does_nothing_on_solid_ground() {
 }
 
 #[test]
-fn jump_out_of_shield_unless_pressing_down_on_a_platform() {
+fn jump_out_of_shield_and_a_spot_dodge_on_a_platform() {
     let mut sim = Sim::new();
     sim.ticks(3, inp(0, 0, SHIELD));
     sim.tick(inp(0, 0, SHIELD | JUMP));
@@ -359,8 +360,15 @@ fn jump_out_of_shield_unless_pressing_down_on_a_platform() {
 
     let mut sim = on_pass_through_platform();
     sim.ticks(3, inp(0, 0, SHIELD));
-    sim.tick(inp(0, -100, SHIELD | JUMP));
-    assert_eq!(sim.f().state, S::ShieldDrop, "down wins over jump");
+    sim.tick(inp(0, 0, SHIELD | JUMP));
+    assert_eq!(sim.f().state, S::JumpSquat);
+
+    // A hard down in the shield on a platform is a spot dodge (it used to drop through).
+    let mut sim = on_pass_through_platform();
+    sim.ticks(3, inp(0, 0, SHIELD));
+    sim.tick(inp(0, -127, SHIELD));
+    assert_eq!(sim.f().state, S::SpotDodge);
+    assert_eq!(sim.f().platform, 1);
 }
 
 #[test]

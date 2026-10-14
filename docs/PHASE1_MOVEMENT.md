@@ -441,3 +441,20 @@ Left as it is, for the owner to decide: **dropping through a soft platform from 
 reference removed it in this game. The house keeps the Smash 4-style perfect shield (owner's decision), so the reference's parry is not
 in. Tests: `shields.rs` (the last three), with the input-buffer tests in `movement.rs` and `reference_movement.rs` moved to attack presses
 (a jump now cuts the shield release short).
+
+## Platform drops on shield + special, and dodge staling (sim 112)
+
+Owner decisions, 14 October 2026 (after the 1v1 review, `docs/REFERENCE_GAPS.md`):
+
+* **Dropping through a soft platform is shield + special** (stick not up: with it up, that is the up special out of the shield). Down
+  no longer drops through: a down flick on a platform crouches, so down tilts and down smashes work there (playtesters found them hard),
+  and shield + down on a platform is a spot dodge, as on the ground. The old down-flick drop (owner decision 63) is still in the code
+  behind `Ruleset::stick_platform_drop` (0; 1 turns it back on) and `platform_drop.rs` keeps it tested. The reference removed shield
+  drops through platforms entirely; we keep one on purpose.
+* **Dodge staling** (the reference's, SmashWiki "Dodge staling" and "Roll", ultimateframedata.com): every roll or spot dodge out of a
+  shield and every air dodge (also out of hitstun or a jump squat) adds a level, up to 5 (`Fighter::dodge_stale`, the level the current
+  dodge was made with in `dodge_level`). Per level, spot dodges and forward rolls play 6% slower and back rolls 10%; fully stale, the
+  spot dodge's intangibility starts 3 frames later and a roll's 4 (in between by level; the end is unchanged); a directional air dodge
+  travels 1/15 less per level. A level wears off 60 frames after the last dodge ended, then one every 120 frames (about 8 seconds from
+  full). Get-up and tech rolls are neither staled nor staling. All in `Ruleset::dodge_stale_*`. [E]: the air dodge's own intangibility
+  is not reduced (no published numbers). Tests: `dodge_staling.rs`.

@@ -139,19 +139,17 @@ fn jumping_works_out_of_every_ground_state() {
 // ---- Tap-down platform drop -------------------------------------------------------------------
 
 #[test]
-fn tapping_down_on_a_pass_through_platform_drops_through() {
-    let mut sim = Sim::new();
-    sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
-    sim.state.fighters[0].platform = 1;
-    sim.tick(inp(0, 0, 0));
-    // The drop waits `platform_drop_frames` on the platform (where a special is still the grounded down special, see
-    // `platform_drop.rs`), then falls.
-    let wait = usize::from(sim.content.rules.platform_drop_frames);
-    sim.ticks(wait + 1, inp(0, -127, 0));
-    assert_eq!(sim.f().state, S::Airborne);
-    assert!(!sim.f().grounded());
-    sim.ticks(80, inp(0, 0, 0));
-    assert_eq!(sim.f().platform, 0);
+fn down_on_a_pass_through_platform_crouches_and_stays_on_it() {
+    // Owner decision 2026-10-14 (sim 112): the drop is shield + special, so down is a crouch on a platform as on the ground.
+    for down in [-127, -70] {
+        let mut sim = Sim::new();
+        sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
+        sim.state.fighters[0].platform = 1;
+        sim.tick(inp(0, 0, 0));
+        sim.ticks(20, inp(0, down, 0));
+        assert_eq!(sim.f().state, S::Crouch, "down {down}");
+        assert_eq!(sim.f().platform, 1);
+    }
 }
 
 #[test]
@@ -874,15 +872,17 @@ fn a_double_tap_style_input_fast_falls_on_the_second_press() {
 }
 
 #[test]
-fn a_soft_down_tap_still_drops_through_a_platform() {
+fn the_down_flick_drop_is_still_there_as_a_rule() {
     let mut sim = Sim::new();
+    sim.content.rules.stick_platform_drop = 1;
     sim.state.fighters[0].pos = sim_core::Vec2::new(Fx::from_int(-5), Fx::from_ratio(18, 5));
     sim.state.fighters[0].platform = 1;
     sim.tick(inp(0, 0, 0));
     let wait = usize::from(sim.content.rules.platform_drop_frames);
-    sim.ticks(wait + 1, inp(0, -70, 0));
+    sim.ticks(wait + 1, inp(0, -127, 0));
     assert_eq!(sim.f().state, S::Airborne);
-    assert!(!sim.f().grounded());
+    sim.ticks(80, inp(0, 0, 0));
+    assert_eq!(sim.f().platform, 0);
 }
 
 // ---- Not slippery ---------------------------------------------------------------------------------

@@ -145,6 +145,10 @@ impl Fighter {
 fn enter(f: &mut Fighter, state: S) {
     // A pending post-shieldstun shield grab belongs to the shield it was pressed in.
     f.shield_grab = 0;
+    // A dodge is fresh unless the code that starts it stales it (`stale_dodge`): get-up and tech rolls are not staled.
+    if matches!(state, S::Roll | S::SpotDodge | S::AirDodge) {
+        f.dodge_level = 0;
+    }
     // A pull lasts only while the fighter is in hitstun.
     if state != S::Hitstun {
         f.pull = false;
@@ -302,6 +306,15 @@ pub fn update(
     }
     // A tech press opens a short window; another press only counts once `tech_lockout` frames have passed (no mashing).
     f.tech_timer = f.tech_timer.saturating_add(1);
+    // Dodge staleness wears off: a level `dodge_stale_first` frames after the last dodge ended, then one every `dodge_stale_every`.
+    if !matches!(f.state, S::Roll | S::SpotDodge | S::AirDodge) {
+        f.dodge_clock = f.dodge_clock.saturating_add(1);
+        let first = u16::from(rules.dodge_stale_first);
+        let every = u16::from(rules.dodge_stale_every.max(1));
+        if f.dodge_stale > 0 && f.dodge_clock >= first && (f.dodge_clock - first) % every == 0 {
+            f.dodge_stale -= 1;
+        }
+    }
     if f.pressed_within(buttons::SHIELD, 1) && f.tech_timer > rules.tech_lockout {
         f.tech_timer = 0;
     }
@@ -412,12 +425,12 @@ pub fn update(
         S::ItemPickup => item_pickup(f, p, stage, rules),
         S::ItemThrow => return item_throw(f, p, stage, rules),
         S::Helpless => return helpless(f, p, weapon, stage, rules),
-        S::AirDodge => return air_dodge(f, p, stage),
+        S::AirDodge => return air_dodge(f, p, stage, rules),
         S::Landing => landing(f, p, stage),
         S::WaveLand => wave_land(f, p, stage),
         S::Shield => shield(f, p, weapon, stage, rules),
-        S::Roll => roll(f, p, stage),
-        S::SpotDodge => spot_dodge(f, p, stage),
+        S::Roll => roll(f, p, stage, rules),
+        S::SpotDodge => spot_dodge(f, p, stage, rules),
         S::ShieldBreak => shield_break(f, p, stage, rules),
         S::Knockdown => knockdown(f, p, weapon, stage, rules),
         S::GetUp => get_up_stand(f, p, stage, rules),
@@ -574,7 +587,8 @@ fn ground(
     // `platform_drop_frames` more frames, crouching, and it falls on the frame after. A special on the flick's frame, on any of
     // those, or on the frame it falls comes out on the ground instead: with the stick down, the down special. Nothing else
     // interrupts it (an attack or grab pressed meanwhile is buffered into the air).
-    if !initial_dash && on_pass_through(f, stage) {
+    // (Off since sim 112, owner decision 2026-10-14: `Ruleset::stick_platform_drop`; the drop is shield + special.)
+    if !initial_dash && rules.stick_platform_drop != 0 && on_pass_through(f, stage) {
         let mut left = drop_pending;
         if left == 0 && f.flicked_down(TAP_BUFFER) {
             left = rules.platform_drop_frames.saturating_add(1);
@@ -849,7 +863,7 @@ fn jump_squat(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage
         }
         // Wavedash input: a shield press during jump squat fires on the first airborne frame.
         if !f.air_dodge_used && f.take(buttons::SHIELD, p.air_dodge_buffer) {
-            start_air_dodge(f, p, stage);
+            start_air_dodge(f, p, stage, rules);
         }
     }
 }
@@ -1097,7 +1111,7 @@ fn airborne(
         f.short_hop = false;
     }
     if !f.air_dodge_used && f.take(buttons::SHIELD, buffer) {
-        start_air_dodge(f, p, stage);
+        start_air_dodge(f, p, stage, rules);
         return None;
     }
     if f.buffered(buttons::SPECIAL, buffer) && start_special(f, weapon) {
@@ -1180,8 +1194,9 @@ fn helpless(
     ledge_request(f, p, stage)
 }
 
-fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
     let input = f.history[0];
+    let level = f.dodge_stale;
     let neutral = input.stick_x.unsigned_abs() < STICK_DEADZONE.unsigned_abs()
         && input.stick_y.unsigned_abs() < STICK_DEADZONE.unsigned_abs();
     let dir = if neutral {
@@ -1196,15 +1211,17 @@ fn start_air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
     if dir == Vec2::ZERO {
         // A neutral dodge keeps the fighter's momentum: it falls and drifts as usual while intangible.
         enter(f, S::AirDodge);
+        stale_dodge(f, rules);
         return;
     }
     f.fast_fall = false;
     if p.air_dodge_windup > 0 {
         f.vel = sling_velocity(p, dir);
     } else {
-        f.vel = dir * p.air_dodge_speed;
+        f.vel = dir * stale_dodge_speed(p, rules, level);
     }
     enter(f, S::AirDodge);
+    stale_dodge(f, rules);
     if p.air_dodge_windup == 0 {
         ground_assist(f, p, stage);
     }
@@ -1267,7 +1284,13 @@ fn start_waveland(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: u
     enter(f, S::WaveLand);
 }
 
-fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
+/// A directional air dodge's speed at staleness `level`: it travels less the staler it is.
+fn stale_dodge_speed(p: &FighterParams, rules: &Ruleset, level: u8) -> Fx {
+    let keep = (Fx::ONE - rules.dodge_stale_air_cut.mul_int(i32::from(level))).max(Fx::ZERO);
+    p.air_dodge_speed * keep
+}
+
+fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) -> Option<u8> {
     let neutral = f.dodge_dir == Vec2::ZERO;
     let intangible_end = if neutral {
         p.air_dodge_intangible_end
@@ -1287,7 +1310,7 @@ fn air_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) -> Option<u8> {
         if f.state_frame < windup {
             // Still in the slingshot: the velocity set when the dodge began holds.
         } else if f.state_frame == windup && windup > 0 {
-            f.vel = f.dodge_dir * p.air_dodge_speed;
+            f.vel = f.dodge_dir * stale_dodge_speed(p, rules, f.dodge_level);
             ground_assist(f, p, stage);
             if f.state != S::AirDodge {
                 return None;
@@ -1405,8 +1428,9 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     if up_out_of_ground(f, p, weapon, false) {
         return;
     }
-    // Pressing down wins over jumping when standing on a pass-through platform.
-    if on_pass_through(f, stage) && f.down_within(p.shield_drop_buffer) {
+    // Special in the shield on a pass-through platform drops through it (owner decision 2026-10-14, sim 112; it was down in the
+    // shield, which kept spot dodges off platforms). With the stick up it is the up special, above.
+    if on_pass_through(f, stage) && f.take(buttons::SPECIAL, buffer) {
         f.platform = NONE;
         f.platform_ignore = p.platform_ignore_frames;
         f.vel = Vec2::new(Fx::ZERO, -p.shield_drop_speed);
@@ -1420,8 +1444,10 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         // A flick sideways rolls that way.
         f.dodge_dir = Vec2::new(Fx::from_int(i32::from(f.flick_x(TAP_BUFFER))), Fx::ZERO);
         enter(f, S::Roll);
-    } else if !on_pass_through(f, stage) && f.hard_down(TAP_BUFFER) {
+        stale_dodge(f, rules);
+    } else if f.hard_down(TAP_BUFFER) {
         enter(f, S::SpotDodge);
+        stale_dodge(f, rules);
     }
 }
 
@@ -1450,45 +1476,84 @@ fn within(frame: u16, start: u8, end: u8) -> bool {
     frame >= u16::from(start) && frame <= u16::from(end)
 }
 
-/// A roll out of a shield: intangible for part of it, moving along the ground for part of it.
-fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+/// Marks the dodge just begun as a staling one (see `Fighter::dodge_stale`): it is made with the staleness so far, and adds a level.
+fn stale_dodge(f: &mut Fighter, rules: &Ruleset) {
+    f.dodge_level = f.dodge_stale;
+    f.dodge_stale = f.dodge_stale.saturating_add(1).min(rules.dodge_stale_max);
+    f.dodge_clock = 0;
+}
+
+/// A stale dodge's timeline: its frame `frame` (as it plays, slowed by `percent` per staleness level) is this frame of the fresh
+/// dodge.
+fn stale_frame(frame: u16, percent: u8, level: u8) -> u16 {
+    frame * 100 / (100 + u16::from(percent) * u16::from(level))
+}
+
+/// A dodge of `frames` frames made at staleness `level`, slowed by `percent` per level.
+fn stale_length(frames: u8, percent: u8, level: u8) -> u16 {
+    (u16::from(frames) * (100 + u16::from(percent) * u16::from(level))).div_ceil(100)
+}
+
+/// How many frames later a stale dodge's intangibility starts: `full` when fully stale, in between by level (rounded).
+fn stale_shift(full: u8, level: u8, rules: &Ruleset) -> u8 {
+    let max = u16::from(rules.dodge_stale_max.max(1));
+    ((u16::from(full) * u16::from(level) + max / 2) / max) as u8
+}
+
+/// A roll out of a shield: intangible for part of it, moving along the ground for part of it. A stale one (`dodge_level`) plays
+/// slower and is intangible later.
+fn roll(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    let dir = f.dodge_dir.x.signum_int();
+    let back = dir != i32::from(f.facing);
+    let level = f.dodge_level;
+    let percent = if back {
+        rules.dodge_stale_back_roll
+    } else {
+        rules.dodge_stale_roll
+    };
+    let shift = stale_shift(rules.dodge_stale_roll_shift, level, rules);
     if within(
         f.state_frame,
-        p.roll_intangible_start,
+        p.roll_intangible_start.saturating_add(shift),
         p.roll_intangible_end,
     ) {
         f.invuln = f.invuln.max(1);
     }
-    let dir = f.dodge_dir.x.signum_int();
-    if within(f.state_frame, p.roll_move_start, p.roll_move_end) {
+    if within(
+        stale_frame(f.state_frame, percent, level),
+        p.roll_move_start,
+        p.roll_move_end,
+    ) {
         f.vel.x = p.roll_speed.mul_int(dir);
     } else {
         f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     }
     slide_kept_on_platform(f, p, stage);
     // Rolling backward (away from the way the fighter faces) takes longer.
-    let frames = if dir == i32::from(f.facing) {
-        p.roll_frames
-    } else {
+    let frames = if back {
         p.roll_back_frames
+    } else {
+        p.roll_frames
     };
-    if f.state_frame >= u16::from(frames) {
+    if f.state_frame >= stale_length(frames, percent, level) {
         enter(f, S::Idle);
     }
 }
 
-/// A dodge in place out of a shield.
-fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+/// A dodge in place out of a shield. A stale one (`dodge_level`) lasts longer and is intangible later.
+fn spot_dodge(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
+    let level = f.dodge_level;
+    let shift = stale_shift(rules.dodge_stale_spot_shift, level, rules);
     if within(
         f.state_frame,
-        p.spot_intangible_start,
+        p.spot_intangible_start.saturating_add(shift),
         p.spot_intangible_end,
     ) {
         f.invuln = f.invuln.max(1);
     }
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
     slide_kept_on_platform(f, p, stage);
-    if f.state_frame >= u16::from(p.spot_dodge_frames) {
+    if f.state_frame >= stale_length(p.spot_dodge_frames, rules.dodge_stale_spot, level) {
         enter(f, S::Idle);
     }
 }
@@ -3143,7 +3208,7 @@ fn hitstun(f: &mut Fighter, p: &FighterParams, stage: &Stage, rules: &Ruleset) {
             f.hitstun = 0;
             f.tumble = false;
             if dodge {
-                start_air_dodge(f, p, stage);
+                start_air_dodge(f, p, stage, rules);
             } else {
                 start_air_attack(f, p);
             }

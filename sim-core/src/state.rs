@@ -229,6 +229,14 @@ pub struct Fighter {
     /// A platform drop waiting to happen: frames left (counting the one it falls on) before the fighter leaves the pass-through
     /// platform it flicked down on, 0 for none (see `Ruleset::platform_drop_frames`). A special on those frames is grounded.
     pub drop_pending: u8,
+    /// Dodge staling (sim 112, the reference's): how stale this fighter's dodges are (0 fresh to `Ruleset::dodge_stale_max`). Every
+    /// roll or spot dodge out of a shield and every air dodge adds one; it loses one `dodge_stale_first` frames after the last dodge
+    /// ended and one every `dodge_stale_every` frames after that.
+    pub dodge_stale: u8,
+    /// The staleness the current dodge was made with (0 for a get-up or tech roll, which neither stale nor are staled).
+    pub dodge_level: u8,
+    /// Frames since the last dodge ended (or began, while it lasts), for the staleness to wear off.
+    pub dodge_clock: u16,
     /// Attack-button presses and releases since the current attack began (the move a button or an action started; follow-ups
     /// reached by `next`, `goto` or a counter keep counting), counted every frame, hitlag included: what a rapid jab's entry rule
     /// reads (the script registers `presses` and `releases`). The press that started the attack (if attack did) is the first.
@@ -658,6 +666,9 @@ impl Fighter {
             wall_jumps: 0,
             dash_buffer: 0,
             drop_pending: 0,
+            dodge_stale: 0,
+            dodge_level: 0,
+            dodge_clock: 0,
             presses: 0,
             releases: 0,
             next_move: 0,
@@ -840,6 +851,9 @@ impl StateHash for Fighter {
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
         h.write_u8(self.drop_pending);
+        h.write_u8(self.dodge_stale);
+        h.write_u8(self.dodge_level);
+        h.write_u16(self.dodge_clock);
         h.write_u8(self.presses);
         h.write_u8(self.releases);
         h.write_u8(self.next_move);
@@ -1376,6 +1390,21 @@ mod tests {
             ("drop_pending", {
                 let mut s = state;
                 s.fighters[1].drop_pending = 1;
+                s
+            }),
+            ("dodge_stale", {
+                let mut s = state;
+                s.fighters[1].dodge_stale = 1;
+                s
+            }),
+            ("dodge_level", {
+                let mut s = state;
+                s.fighters[1].dodge_level = 1;
+                s
+            }),
+            ("dodge_clock", {
+                let mut s = state;
+                s.fighters[1].dodge_clock = 1;
                 s
             }),
             ("air_flags", {
