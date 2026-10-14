@@ -192,21 +192,31 @@ static func builtins() -> Array:
 	var knight: RefCounted = Loadout.default_for(0)
 	knight.hat = 7
 	knight.neck = 4
+	knight.shirt = 2
+	knight.gear = 1
 	var duelist := neutral_entry("Duelist", 0, knight)
 	duelist.builtin = true
 	duelist.base_index = 0
 	var scrapper: RefCounted = Loadout.default_for(1)
 	scrapper.neck = 3
+	scrapper.shirt = 3
+	scrapper.gear = 2
 	var brawler := neutral_entry("Brawler", 1, scrapper)
 	brawler.builtin = true
 	brawler.base_index = 1
 	var hooded: RefCounted = Loadout.default_for(2)
 	hooded.hat = 6
 	hooded.glasses = 0
+	hooded.shirt = 2
+	hooded.gear = 1
 	var rogue := neutral_entry("Rogue", 2, hooded)
 	rogue.builtin = true
 	rogue.base_index = 2
-	var tumbler := neutral_entry("Tumbler", 3, Loadout.default_for(3))
+	var plumber: RefCounted = Loadout.default_for(3)
+	plumber.hat = 1
+	plumber.shirt = 1
+	plumber.gear = 3
+	var tumbler := neutral_entry("Tumbler", 3, plumber)
 	tumbler.builtin = true
 	tumbler.base_index = 3
 	# (Its own look, not player one's: a cherry racer in an aviator cap and goggles, a scarf to trail behind it, gloves for the fists.)
@@ -216,6 +226,7 @@ static func builtins() -> Array:
 	racer.glasses = 2
 	racer.neck = 3
 	racer.gear = 2
+	racer.shirt = 2
 	var sprinter := neutral_entry("Sprinter", 4, racer)
 	sprinter.builtin = true
 	sprinter.base_index = 4
@@ -225,7 +236,8 @@ static func builtins() -> Array:
 	oracle.hat = 5
 	oracle.glasses = 0
 	oracle.neck = 4
-	oracle.gear = 0
+	oracle.gear = 1
+	oracle.shirt = 2
 	var seer := neutral_entry("Seer", 5, oracle)
 	seer.builtin = true
 	seer.base_index = 5
@@ -237,6 +249,7 @@ static func builtins() -> Array:
 	hero.glasses = 0
 	hero.neck = 3
 	hero.gear = 3
+	hero.shirt = 2
 	hero.face = 2
 	var champion := neutral_entry("Champion", 6, hero)
 	champion.builtin = true
@@ -269,15 +282,24 @@ static func builtins() -> Array:
 	traveller.glasses = 0
 	traveller.neck = 3
 	traveller.gear = 3
+	traveller.shirt = 2
 	var wanderer := neutral_entry("Wanderer", 9, traveller)
 	wanderer.builtin = true
 	wanderer.base_index = 9
 	# (The shared default look until the art agent gives it its own.)
-	var settler := neutral_entry("Settler", 10, Loadout.default_for(10))
+	var villager: RefCounted = Loadout.default_for(10)
+	villager.hat = 3
+	villager.shirt = 4
+	villager.gear = 1
+	var settler := neutral_entry("Settler", 10, villager)
 	settler.builtin = true
 	settler.base_index = 10
 	# (The shared default look until the art agent gives it its own.)
-	var scamp := neutral_entry("Scamp", 11, Loadout.default_for(11))
+	var monkey: RefCounted = Loadout.default_for(11)
+	monkey.hat = 2
+	monkey.shirt = 3
+	monkey.gear = 1
+	var scamp := neutral_entry("Scamp", 11, monkey)
 	scamp.builtin = true
 	scamp.base_index = 11
 	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp]

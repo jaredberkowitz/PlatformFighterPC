@@ -43,4 +43,13 @@ foreground, higher-quality rendering, closer to a cel-shaded HD remaster.
   a box grip). **The greatsword**: a bright bevel along its edge and chisel point, rivets in its guard.
 - Images: `review4_beach_props.png`, `review4_sword_hilt.png`.
 
+## Pass 66: the sea wall and the roster's outfits
+
+- **The beach's sea wall** (`seawall` in `_soil_material`): smaller stones (about half the size), corners only just softened, a lit
+  bevel along each stone's top and left and a shaded one along its bottom and right, darker mortar, fine pits in the stone and a cooler
+  grey in the sandstone; it read as a wall of cushions. `review4_seawall.png`.
+- **Every built-in fighter wears a signature outfit** from the existing catalog (`Roster.builtins`): shirts, shorts, gloves or the full
+  kit, chosen to its reference (the Tumbler a cap with the full kit, the Settler a straw hat and flower shirt, the Scamp an aviator cap
+  and a striped shirt). They were bare colour bodies under their hats. Presentation only; the roster tests pass. `review4_outfits.png`.
+
 Next rounds, in order: 1 (the other stages' props), 3 (weapons), 2 (front walls), 4, 5, 6, 7.

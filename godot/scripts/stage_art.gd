@@ -233,34 +233,49 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# foot does that job.)
 			var S := 512.0
 			body += '<rect width="512" height="512" fill="#%s"/>' % b.darkened(0.28).to_html(false)
+			# (Smaller stones than at first, chiselled rather than pillowed: corners only just softened, a lit bevel along the top and left
+			# of each and a shaded one along the bottom and right, darker mortar, and fine pits in the stone; the big soft-cornered blocks
+			# with a pale inner highlight read as cushions at play size.)
+			var stone_grey := Color(0.72, 0.7, 0.68)
 			var y := 0.0
-			var row := 0
 			while y < S - 1.0:
-				var rh := rng.randf_range(70.0, 110.0)
-				if y + rh > S - 40.0:
+				var rh := rng.randf_range(44.0, 66.0)
+				if y + rh > S - 30.0:
 					rh = S - y
-				# (Widths fitted so the row spans the tile exactly, and so wraps without stones overlapping.)
 				var widths: Array = []
 				var total := 0.0
-				while total < S - 60.0:
-					var ww := rng.randf_range(80.0, 170.0)
+				while total < S - 40.0:
+					var ww := rng.randf_range(54.0, 118.0)
 					widths.append(ww)
 					total += ww
-				var x := -rng.randf_range(0.0, 80.0)
+				var x := -rng.randf_range(0.0, 50.0)
 				for wi in widths.size():
 					var w: float = float(widths[wi]) * S / total
-					var shade := a.lerp(b, rng.randf_range(0.0, 0.5))
-					var rad := rng.randf_range(10.0, 22.0)
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.55)).lerp(stone_grey, 0.28)
+					var rad := rng.randf_range(3.0, 7.0)
+					var lit := shade.lightened(0.2).to_html(false)
+					var dark := shade.darkened(0.25).to_html(false)
+					var pits := []
+					for j in 4:
+						pits.append([rng.randf_range(8.0, w - 16.0), rng.randf_range(8.0, rh - 16.0), rng.randf_range(1.4, 3.2)])
+					var crack := rng.randf() < 0.25
+					var cxr := rng.randf_range(0.2, 0.7)
+					var cv := [rng.randf_range(-6, 6), rng.randf_range(10, 18), rng.randf_range(-6, 6), rng.randf_range(8, 14)]
 					for ox in [-S, 0.0, S]:
-						var bx: float = x + ox + 5.0
-						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.4"/>' % [bx, y + 5.0, w - 10.0, rh - 10.0, rad, shade.to_html(false), ink]
-						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" opacity="0.25"/>' % [bx + 8.0, y + 10.0, w - 26.0, (rh - 10.0) * 0.25, rad * 0.6, shade.lightened(0.22).to_html(false)]
-						if rng.randf() < 0.3:
-							var cx: float = bx + rng.randf_range(14.0, w - 30.0)
-							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.2" stroke-linecap="round" opacity="0.35"/>' % [cx, y + 14.0, rng.randf_range(-8, 8), rng.randf_range(14, 26), rng.randf_range(-8, 8), rng.randf_range(10, 18), ink]
+						var bx: float = x + ox + 3.0
+						var by: float = y + 3.0
+						var bw: float = w - 6.0
+						var bh: float = rh - 6.0
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5"/>' % [bx, by, bw, bh, rad, shade.to_html(false), ink]
+						# The bevels: lit top and left, shaded bottom and right.
+						body += '<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#%s" opacity="0.55"/>' % [bx + 2, by + bh - 2, bx + 2, by + 2, bx + bw - 2, by + 2, bx + bw - 8, by + 8, bx + 8, by + 8, bx + 8, by + bh - 8, lit]
+						body += '<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#%s" opacity="0.5"/>' % [bx + bw - 2, by + 2, bx + bw - 2, by + bh - 2, bx + 2, by + bh - 2, bx + 8, by + bh - 8, bx + bw - 8, by + bh - 8, bx + bw - 8, by + 8, dark]
+						for pt in pits:
+							body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.35"/>' % [bx + float(pt[0]), by + float(pt[1]), float(pt[2]), dark]
+						if crack:
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2" stroke-linecap="round" opacity="0.4"/>' % [bx + bw * cxr, by + 6.0, cv[0], cv[1], cv[2], cv[3], ink]
 					x += w
 				y += rh
-				row += 1
 		"earth":
 			# A bank of farm soil, painted (the meadow's own; the beach keeps the masonry): broad beds of warm earth with soft, gently waving
 			# boundaries, stones of very different sizes half buried in it (a few big boulders, more middling ones, many pebbles; each with a
