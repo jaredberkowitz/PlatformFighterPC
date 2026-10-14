@@ -41,9 +41,9 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
 | D1 | Shield tilting and shield pokes | The bubble shrinks with HP and can be tilted with the stick; a hit on an exposed part (feet, a hand) goes through | Every hit on a shielding fighter is blocked | High | L |
-| D2 | Dodge staling | Rolls, spot dodges and air dodges used again within a short time get more lag and less intangibility, recovering over time | Every dodge is the same | Med-High | S-M (numbers to research) |
+| D2 | Dodge staling (**done, sim 112**) | Rolls, spot dodges and air dodges used again within a short time get more lag and less intangibility, recovering over time | Every dodge is the same | Med-High | S-M (numbers to research) |
 | D3 | Jab lock and jab reset | A weak hit on a lying fighter forces a short "down damage" reaction, and a second one forces it to stand up (no lock loops) | A lying fighter takes an ordinary hit | Med | S |
-| D4 | Shield drop through platforms | Removed | Down in the shield drops through a soft platform | Owner decision | S |
+| D4 | Shield drop through platforms | Removed | **Kept, as shield + special (sim 112, owner decision)**; down no longer drops through | Decided | S |
 | D5 | Spot dodge cancel | Reportedly some actions can cancel a spot dodge's end; needs checking against 13.0.1 | None | Low (verify first) | S |
 
 ### Offence and movement
@@ -95,5 +95,5 @@ These are things a player of the reference would notice. They are listed for the
 6. **Footstool** (O2).
 7. **Moving platforms** (R2), with one stage that uses them. This needs the art director for the stage.
 
-Decisions needed from the owner: whether tap jump is on by default (for controllers and for the keyboard, where W is up), whether to
-remove shield drops through platforms (D4), and whether to adopt dodge staling.
+Owner decisions (14 October 2026): tap jump off by default (when the controller pass adds it); keep a shield drop through platforms,
+as shield + special, with down no longer dropping (done, sim 112); adopt dodge staling (done, sim 112).

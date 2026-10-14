@@ -2,6 +2,9 @@
 //! fighter on it for `Ruleset::platform_drop_frames` (2) more frames before it falls, and a special on the flick's frame, on any of
 //! those, or on the frame it falls comes out on the ground: with the stick down, the grounded down special. Attacks do not
 //! interrupt the drop (they come out in the air after it). Solid ground is unchanged.
+//!
+//! Since sim 112 the down-flick drop is off by default (owner decision 2026-10-14, `Ruleset::stick_platform_drop`: the drop is
+//! shield + special); these tests turn it on to keep that rule working.
 
 mod common;
 
@@ -16,6 +19,7 @@ const CLASSES: [u8; 5] = [0, 2, 6, 8, 9];
 
 fn sim_for(class: u8, platform: bool) -> Sim {
     let mut sim = Sim::with_chars([class, 1, 0, 1]);
+    sim.content.rules.stick_platform_drop = 1;
     sim.stand(1, Fx::from_int(10), -1);
     sim.state.fighters[2].active = false;
     sim.state.fighters[3].active = false;
