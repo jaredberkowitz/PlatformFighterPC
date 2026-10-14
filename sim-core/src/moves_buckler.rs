@@ -1014,6 +1014,8 @@ fn bomb_item() -> ItemSpec {
     blast.clanks = false;
     blast.rebounds = false;
     ItemSpec {
+        pocketable: true,
+        placed: None,
         kind: BOMB_KIND,
         gravity: rs(70),
         max_fall: rs(2300),
@@ -1063,6 +1065,8 @@ fn arrow_item() -> ItemSpec {
     let mut hit = shot_hit(14, 6, 361, 10, 66, ANGLE_FORWARD);
     hit.hitlag = 80;
     ItemSpec {
+        pocketable: true,
+        placed: None,
         kind: ARROW_KIND,
         gravity: rs(53),
         max_fall: rs(2300),
@@ -1298,6 +1302,7 @@ fn boomerang_throw(far: bool) -> Move {
                 gravity: rs(90),
                 max_fall: rs(1400),
             }),
+            ..Tool::NONE
         },
     });
     mv.projectile_script = Some(script(

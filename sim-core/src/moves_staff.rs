@@ -210,7 +210,11 @@ fn explosive_flame(w: &mut Weapon) {
         rehit: 5,
         burst: None,
         charged: None,
-        tool: Tool::NONE,
+        // (A standing explosion, not a thing of its own: no pocket can take it, E42 [E].)
+        tool: Tool {
+            pocket: POCKET_NEVER,
+            ..Tool::NONE
+        },
     });
     mv.start_speed = 80;
     mv.land_continue = true;

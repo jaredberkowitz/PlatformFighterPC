@@ -101,6 +101,7 @@ pub const F_LOCK: u8 = 46;
 pub const F_BOOST_ADD: u8 = 47;
 pub const F_SET_CHARGE: u8 = 50;
 pub const F_DETONATE: u8 = 51;
+pub const F_OWNS: u8 = 52;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -141,6 +142,7 @@ pub const R_FAST_FALL: u8 = 30;
 pub const R_OWNED: u8 = 31;
 pub const R_HOLDING: u8 = 32;
 pub const R_BALLOONS: u8 = 33;
+pub const R_POCKETED: u8 = 34;
 
 // ---- Registers: projectile ----
 pub const R_PX: u8 = 0;
@@ -271,6 +273,11 @@ pub const FIGHTER_REGISTERS: &[Entry] = &[
         R_BALLOONS,
         "how many balloons the fighter carries in its balloon move (a move with balloons), 0 out of one",
     ),
+    reg(
+        "pocketed",
+        R_POCKETED,
+        "what the fighter has put away in its pocket: 0 nothing, 1 a projectile, 2 an item",
+    ),
 ];
 
 pub const PROJECTILE_REGISTERS: &[Entry] = &[
@@ -334,7 +341,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 18] = [
+    const OWN: [Func; 19] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -433,8 +440,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             0,
             "detonate(): every item the fighter made that can burst, and that no other fighter holds, bursts after its blast's delay",
         ),
+        func(
+            "owns",
+            F_OWNS,
+            1,
+            "owns(kind): how many live items and projectiles of this kind the fighter made, as the frame began (pocketed ones too)",
+        ),
     ];
-    concat::<9, 18, 27>(MATH, OWN)
+    concat::<9, 19, 28>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

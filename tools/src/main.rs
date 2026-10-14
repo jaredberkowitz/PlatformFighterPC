@@ -187,6 +187,12 @@ pub(crate) struct ItemTally {
     pub picked: u64,
     pub thrown: u64,
     pub bursts: u64,
+    /// Sim 115 (E42): things put away in a pocket (projectiles and items), and taken out again.
+    pub pocketed: u64,
+    pub unpocketed: u64,
+    /// Sim 115 (E43): placed pieces made (saplings and trees), and felled trees (a falling tree's shot appearing).
+    pub placed: u64,
+    pub felled: u64,
 }
 
 impl ItemTally {
@@ -195,6 +201,60 @@ impl ItemTally {
         self.picked += o.picked;
         self.thrown += o.thrown;
         self.bursts += o.bursts;
+        self.pocketed += o.pocketed;
+        self.unpocketed += o.unpocketed;
+        self.placed += o.placed;
+        self.felled += o.felled;
+    }
+
+    /// The fuzzers' line about items, pockets and placed pieces.
+    pub(crate) fn line(&self) -> String {
+        format!(
+            "items: {} made, {} picked up, {} thrown or dropped, {} burst; pockets: {} put away, {} taken out; placed: {} made, {} felled",
+            self.made,
+            self.picked,
+            self.thrown,
+            self.bursts,
+            self.pocketed,
+            self.unpocketed,
+            self.placed,
+            self.felled
+        )
+    }
+}
+
+/// The first body of `content` whose weapon sets down placed pieces (E43: the settler), if any.
+pub(crate) fn placed_body(content: &Content) -> Option<u8> {
+    content
+        .fighters
+        .iter()
+        .position(|p| {
+            content
+                .weapons
+                .get(usize::from(p.weapon))
+                .is_some_and(|w| w.items.iter().any(|it| it.placed.is_some()))
+        })
+        .map(|i| i as u8)
+}
+
+/// Drills for a pocket-and-tree player (sim 115): every 60 frames player `player` presses special, with the stick in the middle every
+/// fifth time (the pocket or its release) and down otherwise (plant, water, chop, chop: a tree felled every 300 frames); it stands
+/// still otherwise (so it waters and chops the tree it planted), except for a stretch of its random play every 600 frames.
+pub(crate) fn drill_specials(
+    inputs: &mut [[sim_core::Input; sim_core::MAX_FIGHTERS]],
+    player: usize,
+) {
+    use sim_core::input::buttons::SPECIAL;
+    for (i, frame) in inputs.iter_mut().enumerate() {
+        if i % 60 == 0 {
+            frame[player] = sim_core::Input {
+                stick_x: 0,
+                stick_y: if (i / 60) % 5 == 0 { 0 } else { -127 },
+                buttons: SPECIAL,
+            };
+        } else if i % 600 < 540 {
+            frame[player] = sim_core::Input::default();
+        }
     }
 }
 
@@ -204,18 +264,41 @@ pub(crate) fn tally_items(
     initial: &GameState,
     inputs: &[[sim_core::Input; sim_core::MAX_FIGHTERS]],
 ) -> ItemTally {
-    use sim_core::state::{ITEM_BLAST, ITEM_FREE, ITEM_HELD, ITEM_LODGED, ITEM_THROWN};
+    use sim_core::state::{
+        ITEM_BLAST, ITEM_FREE, ITEM_HELD, ITEM_LODGED, ITEM_POCKETED, ITEM_THROWN, REST_POCKETED,
+    };
     let mut t = ItemTally::default();
     let mut state = *initial;
     for i in inputs {
         let before = state.items;
+        let shots = state.projectiles;
         step(&mut state, content, i);
+        for (a, b) in shots.iter().zip(state.projectiles.iter()) {
+            if b.active && b.rest == REST_POCKETED && !(a.active && a.rest == REST_POCKETED) {
+                t.pocketed += 1;
+            }
+            if a.active && a.rest == REST_POCKETED && b.active && b.rest != REST_POCKETED {
+                t.unpocketed += 1;
+            }
+            if b.active && !a.active && b.kind == sim_core::moves::pockets_slots::FALL_KIND {
+                t.felled += 1;
+            }
+        }
         for (a, b) in before.iter().zip(state.items.iter()) {
             if !b.active {
                 continue;
             }
-            if !a.active {
+            if b.rest == ITEM_POCKETED && !(a.active && a.rest == ITEM_POCKETED) {
+                t.pocketed += 1;
+            }
+            if a.active && a.rest == ITEM_POCKETED && b.rest != ITEM_POCKETED {
+                t.unpocketed += 1;
+            }
+            if !a.active || a.kind != b.kind {
                 t.made += 1;
+                if sim_core::items::spec_of(content, b).is_some_and(|s| s.placed.is_some()) {
+                    t.placed += 1;
+                }
                 continue;
             }
             if b.rest == ITEM_HELD && (a.rest == ITEM_FREE || a.rest == ITEM_LODGED) {
@@ -280,6 +363,11 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         if let (0, Some(b)) = (seed % 2, item_body(&base)) {
             specs[(seed / 2 % 4) as usize] = sim_content::recipe::FighterSpec::Builtin(b);
         }
+        // Every third run (sim 115) fighter 1 plays the first body with placed pieces (the settler), drilling its pocket and its tree.
+        let drilled = seed % 3 == 1;
+        if let (true, Some(b)) = (drilled, placed_body(&base)) {
+            specs[1] = sim_content::recipe::FighterSpec::Builtin(b);
+        }
         let (content, chars) = sim_content::recipe::match_content(&base, &specs, false)
             .map_err(|e| format!("seed {seed}: specs rejected: {e:?}"))?;
         let chars = [chars[0], chars[1], chars[2], chars[3]];
@@ -304,7 +392,10 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
                 }
             }
         }
-        let inputs = random_inputs(&mut Rng::new(seed), 600);
+        let mut inputs = random_inputs(&mut Rng::new(seed), 600);
+        if drilled {
+            drill_specials(&mut inputs, 1);
+        }
         items.add(tally_items(&content, &initial, &inputs));
         let max_delay = 1 + (seed % 10) as u32;
         let delays = random_delays(&mut Rng::new(seed ^ 0x5eed), inputs.len(), max_delay);
@@ -315,8 +406,8 @@ fn cmd_fuzz(args: &[String]) -> Result<(), String> {
         longest = longest.max(stats.longest_rollback);
     }
     println!(
-        "{runs} runs, 0 mismatches ({rollbacks} rollbacks, {resimulated} frames resimulated, longest {longest}); fighters per class {per_class:?}; items: {} made, {} picked up, {} thrown or dropped, {} burst",
-        items.made, items.picked, items.thrown, items.bursts
+        "{runs} runs, 0 mismatches ({rollbacks} rollbacks, {resimulated} frames resimulated, longest {longest}); fighters per class {per_class:?}; {}",
+        items.line()
     );
     Ok(())
 }

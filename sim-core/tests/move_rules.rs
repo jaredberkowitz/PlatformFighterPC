@@ -738,3 +738,61 @@ fn the_item_fields_are_in_the_content_hash() {
         assert_ne!(h, c.hash(), "a ruleset item rule");
     }
 }
+
+#[test]
+fn the_pocket_and_tree_fields_are_in_the_content_hash() {
+    // Sim 115 (owner decision 70, E42, E43): a jab cancel, a pocket and its release, a chopping move, a projectile's pocket rule and
+    // water, an item's pocketability and placed block each change the hash.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[10].weapon);
+    let edits: [fn(&mut sim_core::Content, usize); 9] = [
+        |c, w| c.weapons[w].moves[MoveId::Jab as usize].cancel_from = 5,
+        |c, w| {
+            if let Some(p) = c.weapons[w].moves[MoveId::NSpecial as usize]
+                .pocket
+                .as_mut()
+            {
+                p.end = 20;
+            }
+        },
+        |c, w| {
+            if let Some(p) = c.weapons[w].moves[MoveId::Ext9 as usize].unpocket.as_mut() {
+                p.power = 150;
+            }
+        },
+        |c, w| c.weapons[w].moves[MoveId::Ext12 as usize].chops = false,
+        |c, _| {
+            if let Some(p) = c.weapons[1].moves[MoveId::NSpecial as usize]
+                .projectile
+                .as_mut()
+            {
+                p.tool.pocket = sim_core::moves::POCKET_NEVER;
+            }
+        },
+        |c, _| {
+            if let Some(p) = c.weapons[1].moves[MoveId::NSpecial as usize]
+                .projectile
+                .as_mut()
+            {
+                p.tool.water = 2;
+            }
+        },
+        |c, w| c.weapons[w].items[0].pocketable = true,
+        |c, w| {
+            if let Some(p) = c.weapons[w].items[1].placed.as_mut() {
+                p.chip_chance = 1;
+            }
+        },
+        |c, w| {
+            if let Some(p) = c.weapons[w].items[0].placed.as_mut() {
+                p.grow_delay = 1;
+            }
+        },
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c, w);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}

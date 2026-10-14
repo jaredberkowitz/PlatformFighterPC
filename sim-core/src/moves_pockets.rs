@@ -147,6 +147,8 @@ pub fn pockets() -> Weapon {
     ledge_and_floor(&mut w);
     rocket(&mut w);
     balloons(&mut w);
+    pocket(&mut w);
+    tree(&mut w);
     w
 }
 
@@ -165,26 +167,40 @@ fn older_jab_rows(bkb: i16, kbg: i16) -> Vec<R> {
 fn jabs(w: &mut Weapon) {
     // Jab 1 (1.1.x): hits on frames 3-4, earliest continuable frame 7, FAF 22 [R]. A press from frame 7 carries on into jab 2 at once
     // (`next_from`); attack held carries on at the end of the move (the script) [E: the version's held rule is not published].
+    // From frame 7 it can also be cancelled into any other action (`cancel_from`: that version's jab cancel by a crouch or a shield
+    // in the continuable window, ssbwiki.com `Jab_cancel` [R]; acting on the same frame is [E], owner decision 70).
+    // **The pull** (owner decision 70): the far glove box sends toward the settler as 13.0.1's own far jab 1 boxes do (180 degrees,
+    // forward type, BK 15, KS 10: ssbwiki.com's raw 13.0.1 jab 1 table, ids 1-2 [R]); the 1.1.x tables (ssbwiki.com
+    // and kuroganehammer.com 1.1.6) give that box 80 degrees, BK 10, KS 80, with no pull. The near box keeps the 1.1.x 60 degrees.
     let mut jab1 = ref_move(22, 0, 0, 255, &older_jab_rows(10, 80));
     set_all(&mut jab1, |h| {
         h.rules = RULES_PREVIOUS;
         h.angle_type = ANGLE_BY_POSITION;
     });
+    if let Some(far) = jab1.hitboxes.iter_mut().find(|h| h.priority == 1) {
+        far.angle = 180;
+        far.angle_type = ANGLE_FORWARD;
+        far.base_knockback = 15;
+        far.knockback_growth = 10;
+    }
     chain(&mut jab1, MoveId::Jab2, 7);
+    jab1.cancel_from = 7 - 1;
     jab1.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/pockets_jab_1.script"),
     ));
     w.moves[MoveId::Jab as usize] = jab1;
 
-    // Jab 2 (1.1.x): the other glove, the same boxes with BK 20, KS 120; hits on 3-4, earliest continuable frame 8, FAF 24 [R]. It
-    // carries on into jab 1 again (the version's endless jab, no finisher [R]): pressed from frame 8, or held at the end [E].
+    // Jab 2 (1.1.x): the other glove, the same boxes with BK 20, KS 120 (the launcher: up and out); hits on 3-4, earliest continuable
+    // frame 8, FAF 24 [R]. It carries on into jab 1 again (the version's endless jab, no finisher [R]): pressed from frame 8, or held
+    // at the end [E]; cancellable from frame 8 as jab 1 from 7.
     let mut jab2 = ref_move(24, 0, 0, 255, &older_jab_rows(20, 120));
     set_all(&mut jab2, |h| {
         h.rules = RULES_PREVIOUS;
         h.angle_type = ANGLE_BY_POSITION;
     });
     chain(&mut jab2, MoveId::Jab, 8);
+    jab2.cancel_from = 8 - 1;
     jab2.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/pockets_jab_2.script"),
@@ -776,6 +792,8 @@ fn rocket(w: &mut Weapon) {
         tool: Tool {
             kind: ROCKET_KIND,
             limit: 1,
+            // (Pocketed, it frees its maker to set down another: the reference's exception, E42.)
+            pocket: POCKET_FREES,
             ..Tool::NONE
         },
     });
@@ -896,4 +914,321 @@ fn balloons(w: &mut Weapon) {
     };
     w.moves[MoveId::UpSpecial as usize] = build(true);
     w.moves[FLIGHT as usize] = build(false);
+}
+
+// ---- Phase 2: the pocket (neutral special) and the tree (down special) ------------------------------------------------------------
+
+/// The pocket's release (the neutral special goes on as it when something is in the pocket).
+pub const POCKET_OUT: MoveId = MoveId::Ext9;
+/// The down special's four stages: the sapling planted, the watering can, the axe, and the planting that fails in the air.
+pub const PLANT: MoveId = MoveId::Ext10;
+pub const WATER: MoveId = MoveId::Ext11;
+pub const AXE: MoveId = MoveId::Ext12;
+pub const PLANT_FAILS: MoveId = MoveId::Ext13;
+/// Holders of the tree's two projectiles (never started by a button): the growth's hit and the falling tree.
+pub const TREE_GROWS: MoveId = MoveId::Ext14;
+pub const TREE_FALLS: MoveId = MoveId::Ext15;
+/// The weapon's items (E4 / E43): the sapling, the tree and the wood chip.
+pub const SAPLING_ITEM: u8 = 0;
+pub const TREE_ITEM: u8 = 1;
+pub const CHIP_ITEM: u8 = 2;
+/// Their kinds, and the falling tree's tool kind: what the down special's `owns(kind)` reads.
+pub const SAPLING_KIND: u8 = 5;
+pub const TREE_KIND: u8 = 6;
+pub const FALL_KIND: u8 = 7;
+pub const CHIP_KIND: u8 = 8;
+
+/// A move reached by a script's `goto` on its parent special's frame 1 (the first a script sees): its frame k is the parent's k + 1,
+/// so a reference frame `f` of the whole special is the child's `f - 1` in the reference's numbering [D]. `ref_move` with that shift.
+fn child_move(faf: u8, rows: &[R]) -> Move {
+    ref_move(faf - 1, 0, 0, 255, rows)
+}
+
+/// The neutral special: the pocket (13.0.1; ssbwiki.com's raw neutral special page and move page: the eleventh moveset's
+/// `REFERENCE_DATA.md`).
+///
+/// * The reach: intangible on frames 5-23 and catching on 8-23, FAF 51 (animation 63) [R]. On those frames a circle in front of the
+///   hand puts away the first projectile (of another owner) or item (not held) that touches it, while the pocket is empty (E42): 9.0
+///   of the reference's units ahead, 7.0 up, radius 6.0 [E: the reference's catch area is only shown in hitbox footage]. Held an
+///   item, the settler puts that item away instead, an item already in the pocket coming into the hand [R: the swap]. Kept until
+///   taken out or the stock is lost [R]; no time limit [R: 13.0.1].
+/// * The release (`POCKET_OUT`, the script `pockets_pocket.script` goes on as it on frame 1 with a projectile in the pocket, or an
+///   item and an empty hand): the thing comes out on frame 9, FAF 31 (animation 35) [R]. An item into the hand; a projectile flies from
+///   the hand (7.0 ahead, 6.0 up [E]) along the trajectory it had as it was caught, turned forward, dealing 1.9x its own damage (its
+///   earlier multipliers dropped) [R], its clock starting again [R: timers reset on retrieval], staled as the release [R: the
+///   staleness of the pocket's release].
+/// * Which projectiles: any that can be reflected (`Tool::pocket`): not a burst [E], nor the needles' line (held by its thrower) or the
+///   seer's explosive flame (a standing explosion), as the reference's rule for things with no model of their own [R rule; E: which].
+///   The rocket frees its maker to fire another [R]; any other pocketed tool still counts as its maker's [R: "still in play"].
+/// * In the air the same frames; touching down carries the move on [E].
+fn pocket(w: &mut Weapon) {
+    let mut mv = ref_move(51, 0, 0, 255, &[]);
+    mv.intangible_from = 4;
+    mv.intangible = 23;
+    mv.intangible_from_air = 255;
+    mv.land_continue = true;
+    mv.pocket = Some(PocketCatch {
+        start: 7,
+        end: 22,
+        x: rs(9000),
+        y: rs(7000),
+        radius: rs(6000),
+    });
+    mv.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pockets_pocket.script"),
+    ));
+    w.moves[MoveId::NSpecial as usize] = mv;
+
+    // The release: out on the special's frame 9 (the child's 8, move frame 7), FAF 31 (the child's 30).
+    let mut out = child_move(31, &[]);
+    out.land_continue = true;
+    out.unpocket = Some(PocketRelease {
+        frame: 7,
+        x: rs(7000),
+        y: rs(6000),
+        power: 190,
+    });
+    w.moves[POCKET_OUT as usize] = out;
+}
+
+/// The down special: the tree (13.0.1; ssbwiki.com's raw down special table and move page, ultimateframedata.com: the eleventh moveset's
+/// `REFERENCE_DATA.md`).
+///
+/// The press picks the stage by what the settler has out (`pockets_tree.script`, `owns(kind)`): its tree standing or falling, the
+/// axe; its sapling, the watering can; else, on the ground, the planting, and in the air the planting that fails [R].
+///
+/// * **Planting** (`PLANT`): FAF 39 [R]; the sapling (E43 placed item) is set down 10.0 of the reference's units ahead on the frame 20
+///   [E: neither published]; one each (planting pulls up the settler's older one, and any sapling it is set on [R]). The sapling lasts
+///   840 frames [R], cannot be hit [E], and grows with 8 frames of water [E: the amount is not published; R: it need not come at
+///   once] 26 frames after its water is full, so a full watering from where it was planted has the growth's clean hit 46 frames after
+///   the water first touched it [R: ultimateframedata.com's 46; D: the delay].
+/// * **Failing** (`PLANT_FAILS`, in the air): a shrug, the planting's FAF [E].
+/// * **Watering** (`WATER`): FAF 50, water on frames 5-20 [R]: 0%, 55 degrees forward (type 3), set knockback 25 (BK 0, KS 100),
+///   radius 2.9, a push (the reference's flinchless windbox) [R]; reflectable and pocketable [R]. Here the water is one shot poured
+///   from the spout (11.0 ahead, 9.0 up) at 0.35 of the reference's units a frame forward, falling under 0.07 [E], pushing each fighter
+///   every frame it touches [E: the house's windbox], each frame touching a sapling giving it one frame of water (the waterer is
+///   credited with the growth [R]). The settler may move and jump after it as the move's frames allow [R].
+/// * **The growth** (`TREE_GROWS`'s projectile, at the sapling): clean on 14-19 18% (shield damage +6), late on 20-40 13%, 80 degrees,
+///   BK 30, KS 100 [R]; clean radius 7.0 along 5.0 to 12.0 up (a standing capsule), late radius 9.0 at 11.0 up [R]; each fighter once.
+///   The tree (E43): 30 hp, 600 frames [R]; its hurtbox a capsule of radius 6.0 from 3.0 to 21.0 up [E]; any hit takes hp, a shot is
+///   used up on it [R: projectiles are blocked by the tree]; at 0 it is gone [R].
+/// * **The axe** (`AXE`): early 6-7, late 8, FAF 48 [R]; 14%, angle 361 (type 0), BK 36, KS 100, shield damage +9 [R]: the head
+///   (radius 5.0) and handle (3.0) on the held axe [R radii; E positions], and on 8 two more on the root (5.0 at 11.5 ahead / 5.5 up,
+///   3.0 at 5.5 ahead / 6.0 up) [R]. A hit on a tree cuts it on that side; a second cut on a side fells it [R]; the settler is frozen
+///   7 frames by the tree (ultimateframedata.com: 54 frames against 47, which it says include 13 of hitlag) [D: conflict 4].
+/// * **The fall** (`TREE_FALLS`'s projectile, credited to the chopper, from the tree's feet away from the chopper): hits on 14 on,
+///   25%, 60 degrees, BK 30, KS 100, shield damage +6, radius 7.0 at 17.5 up [R]; reflectable and pocketable [R]. Its flight is ours
+///   [E]: it falls from 17.5 up at 0.6 forward under 0.16, lands near frame 15, bounces once [R] high enough to come down again near
+///   frame 46 [R: 46 frames on the stage], and is gone; off a ledge it falls on [R] (its life stops at 255 frames, the reference's
+///   313 [D]). With 48.5% [R] a wood chip (an item anyone can pick up, 3% thrown [R]; its other numbers [E]) lands where the tree stood;
+///   the reference's 1.5% fruit is not modelled.
+fn tree(w: &mut Weapon) {
+    let mut router = ref_move(39, 0, 0, 255, &[]);
+    router.land_continue = true;
+    router.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pockets_tree.script"),
+    ));
+    w.moves[MoveId::DownSpecial as usize] = router;
+
+    // Planting: the sapling on the special's frame 20 (the child's move frame 18).
+    let mut plant = child_move(39, &[]);
+    plant.pull = Some((18, SAPLING_ITEM));
+    w.moves[PLANT as usize] = plant;
+    let mut fails = child_move(39, &[]);
+    fails.land_continue = true;
+    fails.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/pockets_shrug.script"),
+    ));
+    w.moves[PLANT_FAILS as usize] = fails;
+
+    // Watering: the water appears on the special's frame 4 (the child's move frame 2) and hits on 5-20 (ages 1-16).
+    let mut water = row(&ru(1, 1, 0, 0, 29, 0, 55, 0, 100, 0, 0));
+    water.fixed_kb = 25;
+    water.push = true;
+    water.angle_type = ANGLE_FORWARD;
+    let mut can = child_move(50, &[]);
+    can.land_continue = true;
+    can.projectile = Some(ProjectileSpawn {
+        frame: 2,
+        x: rs(11000),
+        y: rs(9000),
+        speed: rs(350),
+        life: 17,
+        hitbox: water,
+        end_damage: Fx::ZERO,
+        arc: ProjectileArc {
+            gravity: rs(70),
+            ..ProjectileArc::NONE
+        },
+        phases: [None; MAX_PHASES],
+        pierce: true,
+        rehit: 1,
+        burst: None,
+        charged: None,
+        tool: Tool {
+            water: 1,
+            ..Tool::NONE
+        },
+    });
+    w.moves[WATER as usize] = can;
+
+    // The axe: early on the special's 6-7, late on 8 (the child's 5-6 and 7), FAF 48 (the child's 47).
+    let axe_rows = [
+        ru(5, 6, 90, 120, 50, 140, 361, 36, 100, 0, 0),
+        ru(5, 6, 60, 90, 30, 140, 361, 36, 100, 1, 0),
+        ru(7, 7, 110, 70, 50, 140, 361, 36, 100, 0, 0),
+        ru(7, 7, 75, 60, 30, 140, 361, 36, 100, 1, 0),
+        ru(7, 7, 115, 55, 50, 140, 361, 36, 100, 2, 0),
+        ru(7, 7, 55, 60, 30, 140, 361, 36, 100, 3, 0),
+    ];
+    let mut axe = child_move(48, &axe_rows);
+    set_all(&mut axe, |h| {
+        h.angle_type = ANGLE_BY_POSITION;
+        h.shield_damage = shield(140, 90);
+    });
+    axe.chops = true;
+    axe.land_continue = true;
+    w.moves[AXE as usize] = axe;
+
+    // The growth's hit (fired at the sapling as the tree appears; ages 13-18 clean, 19-39 late).
+    let mut clean = shot_hit(70, 180, 80, 30, 100, ANGLE_BY_POSITION);
+    clean.y = rs(8500);
+    clean.half_height = rs(3500);
+    clean.shield_damage = shield(180, 60);
+    clean.rebounds = false;
+    let mut late = shot_hit(90, 130, 80, 30, 100, ANGLE_BY_POSITION);
+    late.y = rs(11000);
+    late.shield_damage = shield(130, 60);
+    late.rebounds = false;
+    let gap = Hitbox {
+        radius: Fx::ZERO,
+        ..clean
+    };
+    let mut grows = ref_move(3, 0, 0, 255, &[]);
+    grows.projectile = Some(ProjectileSpawn {
+        frame: 255,
+        x: Fx::ZERO,
+        y: Fx::ZERO,
+        speed: Fx::ZERO,
+        life: 40,
+        hitbox: gap,
+        end_damage: Fx::ZERO,
+        arc: ProjectileArc::NONE,
+        phases: phase_list(&[(13, clean), (19, late)]),
+        pierce: true,
+        rehit: 0,
+        burst: None,
+        charged: None,
+        tool: Tool {
+            pocket: POCKET_NEVER,
+            ..Tool::NONE
+        },
+    });
+    w.moves[TREE_GROWS as usize] = grows;
+
+    // The falling tree (from the tree's feet, away from the chopper; hits from age 13, the reference's frame 14).
+    let mut falling = shot_hit(70, 250, 60, 30, 100, ANGLE_BY_POSITION);
+    falling.shield_damage = shield(250, 60);
+    falling.half_width = rs(5500);
+    let fall_gap = Hitbox {
+        radius: Fx::ZERO,
+        ..falling
+    };
+    let mut falls = ref_move(3, 0, 0, 255, &[]);
+    falls.projectile = Some(ProjectileSpawn {
+        frame: 255,
+        x: Fx::ZERO,
+        y: rs(17500),
+        speed: rs(600),
+        life: 255,
+        hitbox: fall_gap,
+        end_damage: Fx::ZERO,
+        arc: ProjectileArc {
+            gravity: rs(160),
+            max_fall: rs(2400),
+            bounces: 1,
+            bounce_min: rs(2480),
+            bounce_max: rs(2480),
+            bounce_keep: 100,
+            ..ProjectileArc::NONE
+        },
+        phases: phase_list(&[(13, falling)]),
+        pierce: true,
+        rehit: 0,
+        burst: None,
+        charged: None,
+        tool: Tool {
+            kind: FALL_KIND,
+            ..Tool::NONE
+        },
+    });
+    w.moves[TREE_FALLS as usize] = falls;
+
+    w.items = vec![sapling_item(), tree_item(), chip_item()];
+}
+
+/// The sapling (E43): set down, 840 frames, grows with 8 frames of water 26 frames later [see `tree`].
+fn sapling_item() -> ItemSpec {
+    let mut it = ItemSpec::with_hit(shot_hit(10, 0, 361, 0, 0, ANGLE_BY_POSITION));
+    it.kind = SAPLING_KIND;
+    it.pocketable = false;
+    it.half_width = rs(2000);
+    it.half_height = rs(3000);
+    it.hurt_radius = rs(2000);
+    it.life = 840;
+    it.placed = Some(Placed {
+        x: rs(10000),
+        water: 8,
+        grow_delay: 26,
+        grow_into: TREE_ITEM,
+        grow_move: TREE_GROWS as u8,
+        ..Placed::PLAIN
+    });
+    it
+}
+
+/// The tree (E43): 30 hp, 600 frames [R]; two cuts on a side fell it [R]; its hurtbox a capsule of radius 6.0 around 12.0 up, 9.0 above
+/// and below [E]; an attacker hitting it is frozen half the hitlag (the axe: 7 frames) [D].
+fn tree_item() -> ItemSpec {
+    let mut it = ItemSpec::with_hit(shot_hit(10, 0, 361, 0, 0, ANGLE_BY_POSITION));
+    it.kind = TREE_KIND;
+    it.pocketable = false;
+    it.half_width = rs(6000);
+    it.half_height = rs(12000);
+    it.hurt_radius = rs(6000);
+    it.hp = Fx::from_int(30);
+    it.life = 600;
+    it.placed = Some(Placed {
+        hurt_half_height: rs(9000),
+        hitter_lag: 50,
+        cuts: 2,
+        fall_move: TREE_FALLS as u8,
+        chip: CHIP_ITEM,
+        chip_chance: 485,
+        ..Placed::PLAIN
+    });
+    it
+}
+
+/// The wood chip: an item anyone can pick up and throw, 3% [R]; light, it falls at the bomb's speeds and lies where it lands [E].
+fn chip_item() -> ItemSpec {
+    let mut it = ItemSpec::with_hit(shot_hit(25, 30, 361, 20, 60, ANGLE_BY_TRAVEL));
+    it.kind = CHIP_KIND;
+    it.gravity = rs(70);
+    it.max_fall = rs(2300);
+    it.friction = rs(30);
+    it.half_width = rs(2500);
+    it.half_height = rs(2000);
+    it.pick_width = rs(5000);
+    it.pick_height = rs(5000);
+    it.bounce_min = Fx::from_int(8);
+    it.bounce_x = (Fx::ZERO, Fx::from_int(8));
+    it.bounce_y = (Fx::ZERO, Fx::from_int(8));
+    it.thrown_life = 40;
+    it.fighter_keep = (20, 20);
+    it.fighter_lift = rs(1000);
+    it
 }

@@ -10,12 +10,12 @@ use sim_core::content::{
 use sim_core::moves::{
     AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble,
     DropThrough, Encase, Fall, Hitbox, ItemBlast, ItemSpec, Motion, Move, MoveId, PartIntangible,
-    ProjectileArc, ProjectileSpawn, Reflector, Tool, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT,
-    AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD,
-    ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE,
-    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, PART_HIGH,
-    PART_LIMB, PART_LOW, PART_MIDDLE, RULES_CURRENT, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_ALL,
-    TARGETS_GROUNDED,
+    Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn, Reflector, Tool, Weapon,
+    AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION,
+    ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY,
+    EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
+    HIT_THROW, MAX_PHASES, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES, POCKET_NEVER,
+    POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -967,6 +967,9 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.charge_at = f.parsed("charge_at", errors);
     m.next_window = f.or("next_window", 0, errors);
     m.next_from = f.or("next_from", 255, errors);
+    m.cancel_from = f.or("cancel_from", 255, errors);
+    // Sim 115: a chopping move (E43).
+    m.chops = f.or("chops", false, errors);
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -1101,10 +1104,36 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "encase",
             "version",
             "balloons",
+            "pocket",
+            "unpocket",
         ],
         context,
         errors,
     );
+    // Sim 115: the pocket and its release (E42).
+    if let Some(b) = at_most_one(children(block, "pocket"), "pocket", context, errors) {
+        let ctx = format!("the pocket of {context}");
+        let mut pf = Fields::new(b, &ctx, errors);
+        m.pocket = Some(PocketCatch {
+            start: pf.need("start", None, errors),
+            end: pf.need("end", None, errors),
+            x: pf.or("x", Fx::ZERO, errors),
+            y: pf.or("y", Fx::ZERO, errors),
+            radius: pf.need("radius", None, errors),
+        });
+        pf.finish(errors);
+    }
+    if let Some(b) = at_most_one(children(block, "unpocket"), "unpocket", context, errors) {
+        let ctx = format!("the release of {context}");
+        let mut pf = Fields::new(b, &ctx, errors);
+        m.unpocket = Some(PocketRelease {
+            frame: pf.need("frame", None, errors),
+            x: pf.or("x", Fx::ZERO, errors),
+            y: pf.or("y", Fx::ZERO, errors),
+            power: pf.or("power", 100, errors),
+        });
+        pf.finish(errors);
+    }
     // Sim 113: random versions (E39) and balloons (E41).
     m.versions = children(block, "version")
         .into_iter()
@@ -1294,12 +1323,29 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 ),
             }
         }
+        // (Sim 115: whether a pocket can take it, E42, and the water it gives a growing piece, E43.)
+        let pocket = match f.raw("pocket") {
+            None => POCKET_YES,
+            Some(("yes", _)) => POCKET_YES,
+            Some(("never", _)) => POCKET_NEVER,
+            Some(("frees", _)) => POCKET_FREES,
+            Some((key, line)) => {
+                err(
+                    errors,
+                    line,
+                    format!("`pocket` must be yes, never or frees, not `{key}`"),
+                );
+                POCKET_YES
+            }
+        };
         let tool = Tool {
             kind: f.or("kind", 0, errors),
             limit: f.or("limit", 0, errors),
             catch_from: f.or("catch_from", 255, errors),
             catch_move,
             on_clank,
+            pocket,
+            water: f.or("water", 0, errors),
         };
         let phases = read_phases(b, &ctx, errors);
         let burst = at_most_one(children(b, "burst"), "burst", &ctx, errors).map(|bb| {
@@ -1534,6 +1580,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             b.field("next_from", m.next_from.to_string());
         }
     }
+    if m.cancel_from != 255 {
+        b.field("cancel_from", m.cancel_from.to_string());
+    }
     if let Some((start, every)) = m.rehit {
         b.field("rehit_start", start.to_string());
         b.field("rehit_every", every.to_string());
@@ -1654,6 +1703,26 @@ fn write_move(id: MoveId, m: &Move) -> Block {
     if let Some(bl) = &m.balloons {
         b.push(write_balloons(bl));
     }
+    if let Some(pc) = &m.pocket {
+        let mut c = Block::new("pocket", None);
+        c.field("start", pc.start.to_string());
+        c.field("end", pc.end.to_string());
+        c.field("x", pc.x.show());
+        c.field("y", pc.y.show());
+        c.field("radius", pc.radius.show());
+        b.push(c);
+    }
+    if let Some(r) = &m.unpocket {
+        let mut c = Block::new("unpocket", None);
+        c.field("frame", r.frame.to_string());
+        c.field("x", r.x.show());
+        c.field("y", r.y.show());
+        c.field("power", r.power.to_string());
+        b.push(c);
+    }
+    if m.chops {
+        b.field("chops", "true");
+    }
     if let Some((frame, item)) = m.pull {
         b.field("pull_frame", frame.to_string());
         b.field("pull_item", item.to_string());
@@ -1723,10 +1792,16 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             ("kind", p.tool.kind, Tool::NONE.kind),
             ("limit", p.tool.limit, Tool::NONE.limit),
             ("catch_from", p.tool.catch_from, Tool::NONE.catch_from),
+            ("water", p.tool.water, Tool::NONE.water),
         ] {
             if v != d {
                 c.field(name, v.to_string());
             }
+        }
+        match p.tool.pocket {
+            POCKET_NEVER => c.field("pocket", "never"),
+            POCKET_FREES => c.field("pocket", "frees"),
+            _ => {}
         }
         if let Some(id) = p.tool.catch_move {
             c.field("catch_move", MoveId::from_index(id).key());
@@ -1943,7 +2018,7 @@ fn read_weapon(block: &Block, earlier: &[(String, Weapon)], errors: &mut Vec<Str
 /// every other value optional (default 0, the keeps 100, `throw_mul` 1, `knock_hitlag` 100), and an optional `blast { frames [delay]
 /// [hits_owner] hitbox { ... } }`.
 fn read_item(b: &Block, ctx: &str, errors: &mut Vec<String>) -> ItemSpec {
-    only_known(b, &["hitbox", "blast"], ctx, errors);
+    only_known(b, &["hitbox", "blast", "placed"], ctx, errors);
     let mut f = Fields::new(b, ctx, errors);
     let hit = match at_most_one(children(b, "hitbox"), "hitbox", ctx, errors) {
         Some(h) => read_hitbox(h, ctx, errors),
@@ -1967,7 +2042,45 @@ fn read_item(b: &Block, ctx: &str, errors: &mut Vec<String>) -> ItemSpec {
     it.thrown_life = f.or("thrown_life", 0, errors);
     it.life = f.or("life", 0, errors);
     it.vanish = f.or("vanish", false, errors);
+    // Sim 115: pocketing (E42) and placed pieces (E43).
+    it.pocketable = f.or("pocketable", true, errors);
     f.finish(errors);
+    it.placed = at_most_one(children(b, "placed"), "placed", ctx, errors).map(|pb| {
+        let pctx = format!("the placing of {ctx}");
+        let mut pf = Fields::new(pb, &pctx, errors);
+        let plain = Placed::PLAIN;
+        let slot = |name: &str, pf: &mut Fields, errors: &mut Vec<String>| match pf.raw(name) {
+            None => 255,
+            Some((key, line)) => match MoveId::from_key(key) {
+                Some(id) => id as u8,
+                None => {
+                    err(
+                        errors,
+                        line,
+                        format!("`{name}` must be a move name, not `{key}`"),
+                    );
+                    255
+                }
+            },
+        };
+        let grow_move = slot("grow_move", &mut pf, errors);
+        let fall_move = slot("fall_move", &mut pf, errors);
+        let placed = Placed {
+            x: pf.or("x", plain.x, errors),
+            hurt_half_height: pf.or("hurt_half_height", plain.hurt_half_height, errors),
+            hitter_lag: pf.or("hitter_lag", plain.hitter_lag, errors),
+            water: pf.or("water", plain.water, errors),
+            grow_delay: pf.or("grow_delay", plain.grow_delay, errors),
+            grow_into: pf.or("grow_into", plain.grow_into, errors),
+            grow_move,
+            cuts: pf.or("cuts", plain.cuts, errors),
+            fall_move,
+            chip: pf.or("chip", plain.chip, errors),
+            chip_chance: pf.or("chip_chance", plain.chip_chance, errors),
+        };
+        pf.finish(errors);
+        placed
+    });
     it.blast = at_most_one(children(b, "blast"), "blast", ctx, errors).map(|bb| {
         let bctx = format!("the blast of {ctx}");
         only_known(bb, &["hitbox"], &bctx, errors);
@@ -2007,7 +2120,34 @@ fn write_item(it: &ItemSpec) -> Block {
     if it.vanish {
         b.field("vanish", "true");
     }
+    if !it.pocketable {
+        b.field("pocketable", "false");
+    }
     b.push(write_hitbox(&it.hit));
+    if let Some(pl) = &it.placed {
+        let mut c = Block::new("placed", None);
+        c.field("x", pl.x.show());
+        c.field("hurt_half_height", pl.hurt_half_height.show());
+        for (name, v) in [
+            ("hitter_lag", pl.hitter_lag),
+            ("water", pl.water),
+            ("grow_delay", pl.grow_delay),
+            ("grow_into", pl.grow_into),
+            ("cuts", pl.cuts),
+        ] {
+            c.field(name, v.to_string());
+        }
+        for (name, v) in [("grow_move", pl.grow_move), ("fall_move", pl.fall_move)] {
+            if v != 255 {
+                c.field(name, MoveId::from_index(v).key());
+            }
+        }
+        if pl.chip != 255 {
+            c.field("chip", pl.chip.to_string());
+            c.field("chip_chance", pl.chip_chance.to_string());
+        }
+        b.push(c);
+    }
     if let Some(bl) = &it.blast {
         let mut c = Block::new("blast", None);
         c.field("frames", bl.frames.to_string());

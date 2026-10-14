@@ -1,0 +1,14 @@
+// Settler down special (the tree, E43). On the move's frame 1 (the first a script sees) it goes on as its stage, by what the settler
+// has out: its tree, standing (kind 6) or falling (kind 7), the axe (41 = ext12); its sapling (kind 5), the watering can (40 = ext11);
+// nothing, the planting on the ground (39 = ext10) or the planting that fails in the air (42 = ext13).
+if frame == 1 {
+    if owns(6) + owns(7) > 0 {
+        goto(41);
+    } else if owns(5) > 0 {
+        goto(40);
+    } else if grounded {
+        goto(39);
+    } else {
+        goto(42);
+    }
+}

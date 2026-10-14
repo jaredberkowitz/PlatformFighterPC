@@ -1,0 +1,4 @@
+// Settler down special, the planting that fails in the air: a shrug. Nothing comes out; the body's air physics carry on, and it
+// keeps whatever speed it had (the reference's dud).
+var shrug;
+shrug = 1;

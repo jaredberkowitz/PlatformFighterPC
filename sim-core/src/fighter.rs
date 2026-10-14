@@ -2700,6 +2700,33 @@ fn attack(
     if mv.spend_item != 255 && f.state_frame == u16::from(mv.spend_item) {
         f.item_order |= crate::items::ORDER_SPEND;
     }
+    // A pocket (E42) started with an item in the hand puts that item away on its first catching frame; a release takes out what was
+    // put away on its frame.
+    if let Some(pc) = mv.pocket {
+        if f.state_frame == u16::from(pc.start) && f.holding != NONE {
+            f.item_order |= crate::items::ORDER_STOW;
+        }
+    }
+    if let Some(rel) = mv.unpocket {
+        if f.state_frame == u16::from(rel.frame) {
+            f.item_order |= crate::items::ORDER_UNPOCKET;
+        }
+    }
+
+    // A cancellable jab (`Move::cancel_from`, sim 115): from that frame, on the ground, any action the fighter could start standing
+    // ends the move and starts now (the previous reference version's jab cancel). A walk does not, and neither does the jab itself
+    // (its press carries on into the next hit below).
+    if mv.cancel_from != 255 && f.grounded() && f.state_frame >= u16::from(mv.cancel_from) {
+        let mut g = *f;
+        enter(&mut g, S::Idle);
+        ground(&mut g, p, weapon, stage, rules, world.pickable[world.me]);
+        let acted = !matches!(g.state, S::Idle | S::Walk)
+            && !(g.state == S::Attack && g.move_id == MoveId::Jab as u8);
+        if acted {
+            *f = g;
+            return None;
+        }
+    }
 
     // A jab with an early continuable window carries on into its next hit as soon as attack is pressed in it.
     if let Some(next) = mv.next {

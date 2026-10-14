@@ -1,0 +1,6 @@
+// Settler neutral special (the pocket, E42). With a projectile in the pocket, or an item and an empty hand, the press takes it out:
+// on the move's frame 1 (the first a script sees) it goes on as the release (37 = ext9). Otherwise it is the reach (a held item is
+// put away in its place, swapping with an item already there).
+if frame == 1 && (pocketed == 1 || (pocketed == 2 && holding == 0)) {
+    goto(37);
+}

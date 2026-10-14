@@ -68,8 +68,8 @@ burst only on a wall / the ground / its end: the rocket), `Item::angle` (hashed,
 
 ## Not built (phase 2 and 3, or limits)
 
-* Pocket (neutral special: catch a projectile or item, keep it, throw it back) and Timber (down special: sapling, watering, the tree,
-  the axe): phase 2-3 (plan in the report). They are the claws' placeholders until then.
+* Pocket and Timber: built in phase 2 (sim 115: E42 the pocket, E43 placed pieces; `IMPLEMENTATION_REPORT.md`). Also there: the
+  jab cancel (`Move::cancel_from`, owner decision 70). Not built: the tree's fruit, a pocketed teammate's shot (no teams).
 * `direct=f` (the firework's hits leave its user unfrozen): not modelled (as the other ports).
 * The rocket hit by an attack (it bursts), reflected while ridden: not modelled.
 * The down smash's `noprone`; the face-down and trip get-up attacks (one get-up slot); the grabs' aerial-target boxes; the throws'

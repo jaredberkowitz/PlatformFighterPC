@@ -5,8 +5,8 @@ bundle {
     schema 7
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 114
-    hash 27d2b4647ad894e6
+    sim_version 115
+    hash 0d5a746579027b27
 }
 
 ruleset {
@@ -1214,6 +1214,7 @@ weapon needles {
             speed 0.5
             life 14
             end_damage 3
+            pocket never
             hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 3 angle 368 bkb 0 kbg 100 fixed_kb 80 }
         }
     }
@@ -3393,6 +3394,7 @@ weapon staff {
             speed 0
             life 31
             end_damage 1.5
+            pocket never
             pierce true
             rehit 5
             hitbox { start 0 end 0 x 0 y 0 radius 0.59999 damage 1.5 angle 160 bkb 50 kbg 100 shield_damage 53 sdi 40 clanks false angle_type position }
@@ -8357,13 +8359,135 @@ weapon buckler {
 }
 
 weapon pockets {
+    item {
+        kind 5
+        gravity 0
+        max_fall 0
+        air_friction 0
+        friction 0
+        max_speed 0
+        half_width 0.25
+        half_height 0.375
+        wall_lift 0
+        bounce_min 0
+        bounce_x_min 0
+        bounce_x_max 0
+        bounce_y_min 0
+        bounce_y_max 0
+        pick_width 0
+        pick_height 0
+        throw_mul 1
+        damage_per_speed 0
+        fighter_lift 0
+        hp 0
+        hurt_radius 0.25
+        knock_speed_min 0
+        knock_speed_max 0
+        knock_damage_min 0
+        knock_damage_max 0
+        floor_keep_x 100
+        floor_keep_y 100
+        wall_keep_x 100
+        wall_keep_y 100
+        ceiling_keep_x 100
+        ceiling_keep_y 100
+        fighter_keep_x 100
+        fighter_keep_y 100
+        knock_hitlag 100
+        thrown_life 0
+        life 840
+        pocketable false
+        hitbox { start 0 end 0 x 0 y 0 radius 0.09999 damage 0 angle 361 bkb 0 kbg 0 angle_type position }
+        placed { x 1.25 hurt_half_height 0 hitter_lag 0 water 8 grow_delay 26 grow_into 1 cuts 0 grow_move ext14 }
+    }
+    item {
+        kind 6
+        gravity 0
+        max_fall 0
+        air_friction 0
+        friction 0
+        max_speed 0
+        half_width 0.75
+        half_height 1.5
+        wall_lift 0
+        bounce_min 0
+        bounce_x_min 0
+        bounce_x_max 0
+        bounce_y_min 0
+        bounce_y_max 0
+        pick_width 0
+        pick_height 0
+        throw_mul 1
+        damage_per_speed 0
+        fighter_lift 0
+        hp 30
+        hurt_radius 0.75
+        knock_speed_min 0
+        knock_speed_max 0
+        knock_damage_min 0
+        knock_damage_max 0
+        floor_keep_x 100
+        floor_keep_y 100
+        wall_keep_x 100
+        wall_keep_y 100
+        ceiling_keep_x 100
+        ceiling_keep_y 100
+        fighter_keep_x 100
+        fighter_keep_y 100
+        knock_hitlag 100
+        thrown_life 0
+        life 600
+        pocketable false
+        hitbox { start 0 end 0 x 0 y 0 radius 0.09999 damage 0 angle 361 bkb 0 kbg 0 angle_type position }
+        placed { x 0 hurt_half_height 1.125 hitter_lag 50 water 0 grow_delay 0 grow_into 0 cuts 2 fall_move ext15 chip 2 chip_chance 485 }
+    }
+    item {
+        kind 8
+        gravity 0.00874
+        max_fall 0.28749
+        air_friction 0
+        friction 0.00374
+        max_speed 0
+        half_width 0.3125
+        half_height 0.25
+        wall_lift 0
+        bounce_min 8
+        bounce_x_min 0
+        bounce_x_max 8
+        bounce_y_min 0
+        bounce_y_max 8
+        pick_width 0.625
+        pick_height 0.625
+        throw_mul 1
+        damage_per_speed 0
+        fighter_lift 0.125
+        hp 0
+        hurt_radius 0
+        knock_speed_min 0
+        knock_speed_max 0
+        knock_damage_min 0
+        knock_damage_max 0
+        floor_keep_x 100
+        floor_keep_y 100
+        wall_keep_x 100
+        wall_keep_y 100
+        ceiling_keep_x 100
+        ceiling_keep_y 100
+        fighter_keep_x 20
+        fighter_keep_y 20
+        knock_hitlag 100
+        thrown_life 40
+        life 0
+        hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 3 angle 361 bkb 20 kbg 60 angle_type travel }
+    }
     move jab {
         total_frames 20
         next jab2
         next_window 9
         next_from 6
+        cancel_from 6
         hitbox { start 2 end 3 x 0.9 y 0.7 radius 0.4 damage 3 angle 60 bkb 10 kbg 80 angle_type position rules previous }
-        hitbox { start 2 end 3 x 1.5 y 0.7 radius 0.5 damage 3 angle 80 bkb 10 kbg 80 priority 1 angle_type position rules previous }
+        hitbox { start 2 end 3 x 1.5 y 0.7 radius 0.5 damage 3 angle 180 bkb 15 kbg 10 priority 1 angle_type forward rules previous }
         script {
             // Settler jab 1 (the previous reference version's, owner decision 66). Attack held (no new press) carries on into jab 2 (slot 17) at the
             // move's end [E: that version's held rule is not published]. A new press from frame 7 carries on through the move's `next_from`.
@@ -8738,16 +8862,18 @@ weapon pockets {
         version { chance 30 move ext3 }
     }
     move neutral_special {
-        total_frames 51
-        hitbox { start 14 end 18 x 2.09999 y 1 radius 0.9 damage 7 angle 60 bkb 80 kbg 37 }
-        projectile {
-            frame 15
-            x 2
-            y 1.2
-            speed 0.375
-            life 35
-            end_damage 6
-            hitbox { start 0 end 0 x 0 y 0 radius 0.5 damage 8 angle 361 bkb 20 kbg 0 }
+        total_frames 49
+        intangible 23
+        land_continue true
+        intangible_from 4
+        pocket { start 7 end 22 x 1.125 y 0.875 radius 0.75 }
+        script {
+            // Settler neutral special (the pocket, E42). With a projectile in the pocket, or an item and an empty hand, the press takes it out:
+            // on the move's frame 1 (the first a script sees) it goes on as the release (37 = ext9). Otherwise it is the reach (a held item is
+            // put away in its place, swapping with an item already there).
+            if frame == 1 && (pocketed == 1 || (pocketed == 2 && holding == 0)) {
+                goto(37);
+            }
         }
     }
     move side_special {
@@ -8764,6 +8890,7 @@ weapon pockets {
             end_damage 0
             kind 4
             limit 1
+            pocket frees
             hitbox { start 0 end 0 x 0 y 0 radius 0 damage 7 angle 60 bkb 65 kbg 75 shield_damage 50 hitlag 80 angle_type forward }
             phase {
                 from 32
@@ -8838,12 +8965,23 @@ weapon pockets {
         }
     }
     move down_special {
-        total_frames 29
-        hitbox { start 8 end 11 x 1.4 y 1.09999 radius 1.5 damage 4 angle 65 bkb 60 kbg 85 angle_type position }
-        reflector { start 8 end 20 x 1.4 y 1.09999 radius 1.7 damage_percent 150 speed_percent 130 }
+        total_frames 37
+        land_continue true
         script {
-            // Down special: intangible on frames 5 to 8, before the reflector comes up.
-            if frame == 4 { intangible(4); }
+            // Settler down special (the tree, E43). On the move's frame 1 (the first a script sees) it goes on as its stage, by what the settler
+            // has out: its tree, standing (kind 6) or falling (kind 7), the axe (41 = ext12); its sapling (kind 5), the watering can (40 = ext11);
+            // nothing, the planting on the ground (39 = ext10) or the planting that fails in the air (42 = ext13).
+            if frame == 1 {
+                if owns(6) + owns(7) > 0 {
+                    goto(41);
+                } else if owns(5) > 0 {
+                    goto(40);
+                } else if grounded {
+                    goto(39);
+                } else {
+                    goto(42);
+                }
+            }
         }
     }
     move jab2 {
@@ -8851,6 +8989,7 @@ weapon pockets {
         next jab
         next_window 9
         next_from 7
+        cancel_from 7
         hitbox { start 2 end 3 x 0.9 y 0.7 radius 0.4 damage 3 angle 60 bkb 20 kbg 120 angle_type position rules previous }
         hitbox { start 2 end 3 x 1.5 y 0.7 radius 0.5 damage 3 angle 80 bkb 20 kbg 120 priority 1 angle_type position rules previous }
         script {
@@ -9047,12 +9186,101 @@ weapon pockets {
             if frame >= 247 { goto(36); }
         }
     }
+    move ext9 {
+        total_frames 28
+        land_continue true
+        unpocket { frame 7 x 0.875 y 0.75 power 190 }
+    }
     move pivot_grab {
         total_frames 43
         hitbox { start 16 end 18 x 0.59999 y 0.7 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 16 end 18 x 1 y 0.7 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 16 end 18 x 1.4 y 0.7 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 16 end 18 x 1.79999 y 0.7 radius 0.59999 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+    move ext10 { total_frames 36 pull_frame 18 pull_item 0 }
+    move ext11 {
+        total_frames 47
+        land_continue true
+        projectile {
+            frame 2
+            x 1.375
+            y 1.125
+            speed 0.04375
+            life 17
+            end_damage 0
+            gravity 0.00874
+            water 1
+            pierce true
+            rehit 1
+            hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 0 angle 55 bkb 0 kbg 100 fixed_kb 25 push true angle_type forward }
+        }
+    }
+    move ext12 {
+        total_frames 45
+        land_continue true
+        hitbox { start 4 end 5 x 1.09999 y 1.5 radius 0.59999 damage 14 angle 361 bkb 36 kbg 100 shield_damage 164 angle_type position }
+        hitbox { start 4 end 5 x 0.79999 y 1.09999 radius 0.4 damage 14 angle 361 bkb 36 kbg 100 priority 1 shield_damage 164 angle_type position }
+        hitbox { start 6 end 6 x 1.4 y 0.9 radius 0.59999 damage 14 angle 361 bkb 36 kbg 100 shield_damage 164 angle_type position }
+        hitbox { start 6 end 6 x 0.9 y 0.79999 radius 0.4 damage 14 angle 361 bkb 36 kbg 100 priority 1 shield_damage 164 angle_type position }
+        hitbox { start 6 end 6 x 1.4 y 0.7 radius 0.59999 damage 14 angle 361 bkb 36 kbg 100 priority 2 shield_damage 164 angle_type position }
+        hitbox { start 6 end 6 x 0.7 y 0.79999 radius 0.4 damage 14 angle 361 bkb 36 kbg 100 priority 3 shield_damage 164 angle_type position }
+        chops true
+    }
+    move ext13 {
+        total_frames 36
+        land_continue true
+        script {
+            // Settler down special, the planting that fails in the air: a shrug. Nothing comes out; the body's air physics carry on, and it
+            // keeps whatever speed it had (the reference's dud).
+            var shrug;
+            shrug = 1;
+        }
+    }
+    move ext14 {
+        total_frames 1
+        projectile {
+            frame 255
+            x 0
+            y 0
+            speed 0
+            life 40
+            end_damage 0
+            pocket never
+            pierce true
+            hitbox { start 0 end 0 x 0 y 1.0625 radius 0 damage 18 angle 80 bkb 30 kbg 100 shield_damage 133 rebounds false half_height 0.4375 angle_type position }
+            phase {
+                from 13
+                hitbox { start 0 end 0 x 0 y 1.0625 radius 0.9 damage 18 angle 80 bkb 30 kbg 100 shield_damage 133 rebounds false half_height 0.4375 angle_type position }
+            }
+            phase {
+                from 19
+                hitbox { start 0 end 0 x 0 y 1.375 radius 1.09999 damage 13 angle 80 bkb 30 kbg 100 shield_damage 146 rebounds false angle_type position }
+            }
+        }
+    }
+    move ext15 {
+        total_frames 1
+        projectile {
+            frame 255
+            x 0
+            y 2.1875
+            speed 0.075
+            life 255
+            end_damage 0
+            gravity 0.01999
+            max_fall 0.29999
+            bounce_min 0.31
+            bounce_max 0.31
+            kind 7
+            bounces 1
+            pierce true
+            hitbox { start 0 end 0 x 0 y 0 radius 0 damage 25 angle 60 bkb 30 kbg 100 shield_damage 124 half_width 0.6875 angle_type position }
+            phase {
+                from 13
+                hitbox { start 0 end 0 x 0 y 0 radius 0.9 damage 25 angle 60 bkb 30 kbg 100 shield_damage 124 half_width 0.6875 angle_type position }
+            }
+        }
     }
 }
 

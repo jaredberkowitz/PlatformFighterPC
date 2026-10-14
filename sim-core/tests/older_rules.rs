@@ -179,22 +179,103 @@ fn rage_reaches_the_previous_versions_1_15() {
 
 // ---- The Settler's jab ---------------------------------------------------------------------------------------------------------
 
-#[test]
-fn the_jab_pops_a_standing_foe_up_and_away() {
-    // Jab 1's 60 / 80 degrees lift a standing foe off the ground, up and away from the settler, at any percent.
-    for percent in [0, 50, 100, 150] {
-        let mut sim = setup(0, percent);
-        jab_hit(&mut sim);
-        while sim.fighter(1).hitlag > 0 || sim.fighter(1).launch_pending {
-            sim.tick(inp(0, 0, 0));
-        }
+/// The victim's launch after the settler's jab 1 (and jab 2 when `both`) once its hitlag is over: the speed it was sent at.
+fn launch_after(victim_x: Fx, percent: i32, both: bool) -> sim_core::Vec2 {
+    let mut sim = setup(0, percent);
+    sim.stand(1, victim_x, -1);
+    let target = if both { 2 } else { 1 };
+    for t in 1..=40u32 {
+        let b = if t == 1 || (both && (6..=8).contains(&t)) {
+            ATTACK
+        } else {
+            0
+        };
+        sim.tick(inp(0, 0, b));
         let v = sim.fighter(1);
-        assert!(!v.grounded(), "{percent}%: lifted");
+        if v.hits_taken >= target && v.hitlag == 0 && !v.launch_pending {
+            return v.kb_vel;
+        }
+    }
+    panic!("the jab never landed");
+}
+
+/// Where only jab 1's far glove reaches the duelist (world units ahead of the settler).
+fn tip() -> Fx {
+    fx(TIP.0, TIP.1)
+}
+// (The duelist's body circles reach the near glove up to about 2.1 units out; 2.2 to 2.5 only the far one.)
+const TIP: (i32, i32) = (22, 10);
+
+#[test]
+fn jab_1s_far_glove_draws_the_foe_in_and_jab_2_pops_it_up_and_out() {
+    // Owner decision 70: jab 1's far glove pulls the foe toward the settler (13.0.1's 180-degree far boxes, BK 15, KS 10); jab 2 is
+    // the launcher, up and away (60 / 80 degrees, BK 20, KS 120). The settler faces right: toward it is -x.
+    for percent in [0, 50, 100, 150] {
+        let pull = launch_after(tip(), percent, false);
+        assert!(pull.x < Fx::ZERO, "{percent}%: drawn in {pull:?}");
+        // (A slight pull: a weak, nearly fixed knockback.)
+        assert!(pull.x > -fx(1, 10), "{percent}%: slight {pull:?}");
+        let pop = launch_after(fx(11, 10), percent, true);
         assert!(
-            v.kb_vel.y > Fx::ZERO && v.kb_vel.x >= Fx::ZERO,
-            "{percent}%: up and away {:?}",
-            v.kb_vel
+            pop.y > Fx::ZERO && pop.x > Fx::ZERO,
+            "{percent}%: jab 2 up and out {pop:?}"
         );
+    }
+}
+
+#[test]
+fn either_jab_can_be_cancelled_into_any_action_from_its_continuable_frame() {
+    // The previous version's jab cancel (owner decision 70): from jab 1's frame 7 and jab 2's frame 8 a jump, a shield, a grab, a
+    // dash, a crouch, a tilt or a special starts at once; a frame earlier it is still the jab.
+    let jump = sim_core::input::buttons::JUMP;
+    let shield = sim_core::input::buttons::SHIELD;
+    let special = sim_core::input::buttons::SPECIAL;
+    let cases: [(u16, i8, i8, S); 7] = [
+        (jump, 0, 0, S::JumpSquat),
+        (shield, 0, 0, S::Shield),
+        (GRAB, 0, 0, S::Attack),
+        (0, 127, 0, S::Dash),
+        (0, 0, -127, S::Crouch),
+        (ATTACK, 0, -90, S::Attack),
+        (special, 0, 0, S::Attack),
+    ];
+    let jab = MoveId::Jab as u8;
+    let jab2 = MoveId::Jab2 as u8;
+    for both in [false, true] {
+        // (Jab 2 pressed on jab 1's frame 7 starts on tick 7: its frame 8 is tick 14.)
+        let cancel = if both { 14u32 } else { 7 };
+        for (button, x, y, want) in cases {
+            for early in [true, false] {
+                let mut sim = setup(0, 0);
+                sim.stand(1, Fx::from_int(3), -1);
+                let at = if early { cancel - 1 } else { cancel };
+                for t in 1..=at {
+                    let (b, sx, sy) = if t == 1 || (both && t == 7) {
+                        (ATTACK, 0, 0)
+                    } else if t == at {
+                        (button, x, y)
+                    } else {
+                        (0, 0, 0)
+                    };
+                    sim.tick(inp(sx, sy, b));
+                }
+                let (now, id) = (sim.fighter(0).state, sim.fighter(0).move_id);
+                if early {
+                    assert!(
+                        now == S::Attack && (id == jab || id == jab2),
+                        "{both} {button} {x} {y}: one frame early it is still the jab ({now:?} {id})"
+                    );
+                } else {
+                    assert_eq!(now, want, "{both} {button} {x} {y}");
+                    if want == S::Attack {
+                        assert!(
+                            id != jab && id != jab2,
+                            "{both} {button}: not the jab ({id})"
+                        );
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -235,34 +316,54 @@ fn jab_1_into_jab_2_is_a_true_combo_at_every_percent() {
     }
 }
 
-/// Frames the victim is still in hitstun (its hitlag included) on the first frame the settler can act after jab 1 alone, or after
-/// jab 1 into jab 2 (`both`): the frame advantage on hit, 0 if the victim is already free.
-fn advantage(victim: u8, percent: i32, both: bool) -> i32 {
+/// Whether the settler's next frame is the first it can act on in move `id` (a jab): out of hitlag, its frame reaching `from` (the
+/// move frame of the reference's continuable frame: jab 1's 7 is 6, jab 2's 8 is 7).
+fn next_frame_is(sim: &Sim, id: MoveId, from: u16) -> bool {
+    let f = sim.fighter(0);
+    f.state == S::Attack && f.move_id == id as u8 && f.hitlag == 0 && f.state_frame + 1 >= from
+}
+
+/// Plays jab 1 (and jab 2 when `both`, pressed on jab 1's first continuable frame) at `percent` on a `victim` standing at `at`, up to
+/// the frame before the settler can first act (the jab cancel, owner decision 70: jab 1's frame 7, jab 2's frame 8, after any
+/// hitlag). Returns the sim and the tick of that first frame.
+fn jab_until_free(victim: u8, percent: i32, both: bool, at: Fx) -> (Sim, u32) {
     let mut sim = setup(victim, percent);
-    for t in 1..=80u32 {
-        let b = if t == 1 || (both && (6..=8).contains(&t)) {
+    sim.stand(1, at, -1);
+    sim.tick(inp(0, 0, ATTACK));
+    for t in 2..=80u32 {
+        if !both && next_frame_is(&sim, MoveId::Jab, 6) {
+            return (sim, t);
+        }
+        if both && next_frame_is(&sim, MoveId::Jab2, 7) {
+            return (sim, t);
+        }
+        let b = if both && next_frame_is(&sim, MoveId::Jab, 6) {
             ATTACK
         } else {
             0
         };
         sim.tick(inp(0, 0, b));
-        if sim.fighter(0).state != S::Attack && t > 2 {
-            let v = sim.fighter(1);
-            return if v.state == S::Hitstun {
-                i32::from(v.hitstun) + i32::from(v.hitlag)
-            } else {
-                0
-            };
-        }
     }
-    panic!("the jab never ended");
+    panic!("the jab never reached its cancel");
+}
+
+/// Frames the victim is still in hitstun (its hitlag included) on the first frame the settler can act after jab 1 alone, or after
+/// jab 1 into jab 2 (`both`), with the jab cancel: the frame advantage on hit, 0 if the victim is already free.
+fn advantage(victim: u8, percent: i32, both: bool) -> i32 {
+    let (sim, _) = jab_until_free(victim, percent, both, fx(11, 10));
+    let v = sim.fighter(1);
+    if v.state == S::Hitstun {
+        i32::from(v.hitstun) + i32::from(v.hitlag)
+    } else {
+        0
+    }
 }
 
 #[test]
 fn jab_1_into_jab_2_leaves_time_for_a_frame_6_move_from_130_percent() {
     // The source (a forum analysis of the previous version with the Kurogane calculator): "at 130% a frame-perfect jab 1 > jab 2
     // > axe is guaranteed against any character" (the axe comes out on frame 6). Here: on the duelist and on the settler, from 130%
-    // the victim is still in hitstun for at least 6 frames when the settler can act after jab 2.
+    // the victim is still in hitstun for at least 6 frames when the settler can act after jab 2 (its cancel on frame 8).
     for victim in [0u8, SETTLER] {
         for percent in [130, 140, 150] {
             let a = advantage(victim, percent, true);
@@ -271,34 +372,41 @@ fn jab_1_into_jab_2_leaves_time_for_a_frame_6_move_from_130_percent() {
     }
 }
 
-/// Jab 1 (and jab 2 when `both`) at `percent` on a `victim`, then, on the first frame the settler can act, a follow-up: the stick at
-/// (`x`, `y`) held from that frame and `button` pressed on it (a tilt, not a flick: the stick was not flicked). Returns whether the
-/// follow-up's hit landed while the victim was still in hitstun from the jab (a true combo).
-fn follow_up(victim: u8, percent: i32, both: bool, button: u16, x: i8, y: i8) -> bool {
-    let mut sim = setup(victim, percent);
-    let mut free_at = None;
-    for t in 1..=120u32 {
-        let jab = t == 1 || (both && (6..=8).contains(&t));
-        let (b, sx, sy) = match free_at {
-            None if jab => (ATTACK, 0, 0),
-            None => (0, 0, 0),
-            Some(f) if t == f => (button, x, y),
-            Some(_) => (0, x, y),
-        };
+/// A follow-up after the jab: `presses` are `(ticks after the settler can act, buttons, stick x, stick y)`, the stick held from the
+/// first of them on.
+pub type Follow = &'static [(u32, u16, i8, i8)];
+
+/// Jab 1 (and jab 2 when `both`) at `percent` on a `victim` standing at `at`, cancelled on its first frame into `follow`. Returns
+/// `Some(true)` if the follow-up's first hit landed while the victim was still in hitstun from the jab (a true combo), `Some(false)`
+/// if it landed later, `None` if it missed.
+fn follow_up_at(victim: u8, percent: i32, both: bool, at: Fx, follow: Follow) -> Option<bool> {
+    let (mut sim, _) = jab_until_free(victim, percent, both, at);
+    let (sx, sy) = (follow[0].2, follow[0].3);
+    for k in 0..60u32 {
+        let b = follow
+            .iter()
+            .find(|(when, ..)| *when == k)
+            .map_or(0, |(_, b, ..)| *b);
         let (before, stunned) = (sim.fighter(1).percent, sim.fighter(1).state == S::Hitstun);
         sim.tick(inp(sx, sy, b));
-        if free_at.is_none() && sim.fighter(0).state != S::Attack && t > 2 {
-            free_at = Some(t + 1);
-        }
-        if free_at.is_some_and(|f| t >= f) && sim.fighter(1).percent > before {
-            return stunned;
-        }
-        if free_at.is_some_and(|f| t > f + 40) {
-            break;
+        if sim.fighter(1).percent > before {
+            return Some(stunned);
         }
     }
-    false
+    None
 }
+
+fn follow_up(victim: u8, percent: i32, both: bool, follow: Follow) -> Option<bool> {
+    follow_up_at(victim, percent, both, fx(11, 10), follow)
+}
+
+/// The follow-ups the owner named (decision 70): the tilts, the grab, a jump into a rising neutral air (the jump squat is 3 frames).
+const UP_TILT: Follow = &[(0, ATTACK, 0, 90)];
+const FORWARD_TILT: Follow = &[(0, ATTACK, 90, 0)];
+const DOWN_TILT: Follow = &[(0, ATTACK, 0, -90)];
+const GRAB_IT: Follow = &[(0, GRAB, 0, 0)];
+const JUMP_NAIR: Follow = &[(0, sim_core::input::buttons::JUMP, 0, 0), (3, ATTACK, 0, 0)];
+const JAB_2: Follow = &[(0, ATTACK, 0, 0)];
 
 #[test]
 fn the_jab_keeps_going_as_one_combo_at_low_percents() {
@@ -314,29 +422,172 @@ fn the_jab_keeps_going_as_one_combo_at_low_percents() {
 }
 
 #[test]
+fn the_cancelled_jab_strings_into_its_next_hit_a_down_tilt_and_a_rising_neutral_air() {
+    // The jab cancel's use (ssbwiki.com `Jab_cancel`: "take advantage of the hitstun and low knockback of the first hits"), on the
+    // duelist, each follow-up started on the first frame the settler can act (jab 1's frame 7 after its hitlag): jab 2 lands in jab
+    // 1's hitstun at every percent 0-150, the down tilt (frame 9) at 30-100%, a jump into a rising neutral air at 10-60%. Out of jab 1
+    // > jab 2 (cancelled on jab 2's frame 8), the launcher has sent the foe up and out: jab 1 again still catches it at 0-20%, the
+    // down tilt at 0-10%.
+    let true_combo =
+        |both: bool, f: Follow, percent: i32| follow_up(0, percent, both, f) == Some(true);
+    for percent in (0..=150).step_by(10) {
+        assert!(true_combo(false, JAB_2, percent), "{percent}% jab 2");
+        assert_eq!(
+            true_combo(false, DOWN_TILT, percent),
+            (30..=100).contains(&percent),
+            "{percent}% down tilt"
+        );
+        assert_eq!(
+            true_combo(false, JUMP_NAIR, percent),
+            (10..=60).contains(&percent),
+            "{percent}% neutral air"
+        );
+        assert_eq!(
+            true_combo(true, JAB_2, percent),
+            (0..=20).contains(&percent),
+            "{percent}% jab 1 again after jab 2"
+        );
+        assert_eq!(
+            true_combo(true, DOWN_TILT, percent),
+            (0..=10).contains(&percent),
+            "{percent}% down tilt after jab 2"
+        );
+    }
+}
+
+#[test]
+fn jab_1s_pull_at_the_tip_keeps_the_foe_in_reach_of_jab_2() {
+    // Owner decision 70: at the far glove's reach the pull draws the foe in, and jab 2 (out on jab 1's frame 9) still reaches it.
+    for percent in (0..=150).step_by(30) {
+        let hit = follow_up_at(0, percent, false, tip(), JAB_2);
+        assert!(hit.is_some(), "{percent}%: jab 2 reaches the pulled foe");
+    }
+}
+
+#[test]
 fn print_the_jabs_frame_advantage_and_follow_ups() {
-    // A table for the implementation report (run with --nocapture): frame advantage after jab 1 and after jab 1 > 2 on the duelist
-    // (weight 90), and whether an up tilt (frame 7), a forward tilt (8) or a down tilt (9) out of jab 1, and out of jab 1 > 2, is a
-    // true combo.
+    // A table for the implementation report (run with --nocapture): frame advantage on the first frame the settler can act (the jab
+    // cancel: jab 1's frame 7, jab 2's frame 8) after jab 1 and after jab 1 > 2 on the duelist (weight 90), and each follow-up out of
+    // jab 1, out of jab 1 > 2, and out of jab 1 at the tip (the pull): x a true combo, o it lands after the hitstun, . a miss. In order:
+    // jab 2, up tilt, forward tilt, down tilt, grab, jump > neutral air.
+    let cell = |r: Option<bool>| match r {
+        Some(true) => 'x',
+        Some(false) => 'o',
+        None => '.',
+    };
+    let follows = [JAB_2, UP_TILT, FORWARD_TILT, DOWN_TILT, GRAB_IT, JUMP_NAIR];
     for percent in (0..=150).step_by(10) {
         let a1 = advantage(0, percent, false);
         let a2 = advantage(0, percent, true);
-        let mut cells = Vec::new();
-        for both in [false, true] {
-            for (x, y) in [(0i8, 90i8), (90, 0), (0, -90)] {
-                cells.push(if follow_up(0, percent, both, ATTACK, x, y) {
-                    'x'
-                } else {
-                    '.'
-                });
-            }
-        }
-        let c: String = cells.into_iter().collect();
+        let after = |both: bool, at: Fx| -> String {
+            follows
+                .iter()
+                .map(|f| cell(follow_up_at(0, percent, both, at, f)))
+                .collect()
+        };
         eprintln!(
-            "{percent:>3}%  jab1 {a1:>3}  jab1>2 {a2:>3}  u/f/d after 1: {}  after 1>2: {}",
-            &c[..3],
-            &c[3..]
+            "{percent:>3}%  jab1 {a1:>3}  jab1>2 {a2:>3}  after 1: {}  after 1>2: {}  after 1 at the tip: {}",
+            after(false, fx(11, 10)),
+            after(true, fx(11, 10)),
+            after(false, tip()),
         );
     }
-    let _ = GRAB;
+}
+
+// ---- The axe after the jab (phase 2: the tree's axe exists) ---------------------------------------------------------------------
+
+/// The settler with its tree standing far behind it (so the down special is the axe, which comes out on its frame 6), jab 1 (and jab
+/// 2 when `both`) at `percent` on a `victim`, then the axe pressed on the first frame the settler can act: with the jab cancel
+/// (`cancel`: jab 1's frame 7, jab 2's frame 8) or only once the jab has ended (its FAF, as the previous version without a cancel).
+/// `Some(true)` if the axe lands while the victim is still in the jab's hitstun, `Some(false)` if it lands later, `None` if it misses.
+fn axe_after(victim: u8, percent: i32, both: bool, cancel: bool) -> Option<bool> {
+    use sim_core::input::buttons::SPECIAL;
+    let (mut sim, _) = jab_until_free(victim, percent, both, fx(11, 10));
+    let tree = sim_core::items::make(
+        &mut sim.state,
+        &sim.content,
+        0,
+        sim_core::moves::pockets_slots::TREE_ITEM,
+        sim_core::Vec2::new(-Fx::from_int(8), Fx::ZERO),
+        0,
+    )
+    .expect("a free item slot");
+    sim.state.items[tree].platform = 0;
+    // Without the cancel, wait for the jab's end (the previous version's FAF).
+    if !cancel {
+        for _ in 0..40 {
+            if sim.fighter(0).state != S::Attack {
+                break;
+            }
+            sim.tick(inp(0, 0, 0));
+        }
+    }
+    for k in 0..40u32 {
+        let (b, y) = if k == 0 { (SPECIAL, -127) } else { (0, 0) };
+        let (before, stunned) = (sim.fighter(1).percent, sim.fighter(1).state == S::Hitstun);
+        sim.tick(inp(0, y, b));
+        if k == 0 {
+            assert_eq!(
+                sim.fighter(0).move_id,
+                MoveId::DownSpecial as u8,
+                "the down special at once"
+            );
+        } else if sim.fighter(1).percent > before {
+            return Some(stunned);
+        }
+    }
+    None
+}
+
+#[test]
+fn the_axe_after_jab_1_is_a_true_combo_and_after_jab_2_it_has_the_time_but_not_the_reach() {
+    // The previous version's moveset notes: jab 1 combos into the axe (at kill percents, on floaty lightweights). Here jab 1 cancelled
+    // into the axe (out on its frame 6) is a true combo at every percent 0-150 on the duelist and the settler.
+    // The forum's claim, "from 130% a frame-perfect jab 1 > jab 2 > axe is guaranteed" (a calculator: frame advantage only): with the
+    // cancel the settler has the time from 0% (`jab_1_into_jab_2_leaves_time_for_a_frame_6_move_from_130_percent`), but jab 2 launches
+    // the foe up and out of the axe's reach from 30%: it is a true combo only at 0-20%. (The axe's boxes on the held axe are placed
+    // [E]; a higher early swing would reach further up: an owner question.) Waiting for jab 2's end (no cancel), it lands late at 0-20%.
+    for victim in [0u8, SETTLER] {
+        for percent in (0..=150).step_by(10) {
+            assert_eq!(
+                axe_after(victim, percent, false, true),
+                Some(true),
+                "victim {victim} at {percent}%: jab 1 > axe"
+            );
+            let after_two = axe_after(victim, percent, true, true);
+            if percent <= 20 {
+                assert_eq!(after_two, Some(true), "victim {victim} at {percent}%");
+            } else {
+                assert_eq!(
+                    after_two, None,
+                    "victim {victim} at {percent}%: out of reach"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn print_the_axe_after_the_jab() {
+    // A table for the implementation report (run with --nocapture): jab 1 > axe and jab 1 > jab 2 > axe on the duelist and the
+    // settler, with the jab cancel and waiting for the jab's end: x a true combo, o it lands after the hitstun, . a miss.
+    let cell = |r: Option<bool>| match r {
+        Some(true) => 'x',
+        Some(false) => 'o',
+        None => '.',
+    };
+    for percent in (0..=150).step_by(10) {
+        let mut row = String::new();
+        for victim in [0u8, SETTLER] {
+            for (both, cancel) in [(false, true), (true, true), (false, false), (true, false)] {
+                row.push(cell(axe_after(victim, percent, both, cancel)));
+            }
+            row.push(' ');
+        }
+        eprintln!(
+            "{percent:>3}%  duelist (1>axe, 1>2>axe cancelled; 1>axe, 1>2>axe at the end): {}  settler: {}",
+            &row[..4],
+            &row[5..9]
+        );
+    }
 }

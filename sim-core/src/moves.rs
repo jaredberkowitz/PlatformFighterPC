@@ -556,6 +556,12 @@ impl ChargedShot {
 ///   it is removed, and if the owner is free (standing, walking, running, dashing, turning, crouching or airborne: not attacking,
 ///   defending or hurt) it starts `catch_move` (an `ext` slot). An owner dodging (a roll, spot dodge or air dodge) lets it fly on.
 /// * `on_clank`: a clank with an attack does not destroy it, it drops (see [`Fall`]).
+/// * `pocket` (E42, sim 115): whether a fighter's pocket can put it away ([`POCKET_YES`], the default: the reference's rule that a
+///   projectile that can be reflected can be pocketed), never ([`POCKET_NEVER`]: one that is not a thing of its own, such as a line its
+///   thrower holds or a standing explosion), or yes and its maker may make another at once ([`POCKET_FREES`]: the reference's rocket;
+///   any other pocketed tool still counts as out for its maker, the reference's "still in play").
+/// * `water` (E43, sim 115): each frame it touches a placed piece that grows with water (`Placed::water`), it gives it this much (0:
+///   none; the reference's watering can).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Tool {
     pub kind: u8,
@@ -563,7 +569,14 @@ pub struct Tool {
     pub catch_from: u8,
     pub catch_move: Option<u8>,
     pub on_clank: Option<Fall>,
+    pub pocket: u8,
+    pub water: u8,
 }
+
+/// `Tool::pocket` values (E42).
+pub const POCKET_YES: u8 = 0;
+pub const POCKET_NEVER: u8 = 1;
+pub const POCKET_FREES: u8 = 2;
 
 impl Tool {
     pub const NONE: Tool = Tool {
@@ -572,12 +585,16 @@ impl Tool {
         catch_from: 255,
         catch_move: None,
         on_clank: None,
+        pocket: POCKET_YES,
+        water: 0,
     };
 
     fn hash_into(&self, h: &mut StateHasher) {
         h.write_u8(self.kind);
         h.write_u8(self.limit);
         h.write_u8(self.catch_from);
+        h.write_u8(self.pocket);
+        h.write_u8(self.water);
         match self.catch_move {
             Some(id) => {
                 h.write_bool(true);
@@ -775,8 +792,12 @@ impl ProjectileArc {
 /// * Knocked about: with `hp` above 0 an attack touching its `hurt_radius` circle (around its middle) takes the attack's damage off
 ///   its `hp` and launches it along the attack's angle at `knock_speed.0` for `knock_damage.0` percent up to `knock_speed.1` for
 ///   `knock_damage.1` (in proportion, held within), with `knock_hitlag` percent of the hit's hitlag; at 0 hp it bursts (or goes).
+/// * Pocketing (E42, sim 115): a fighter's pocket can put it away when `pocketable` (the default; the reference: any item but a few).
+/// * Placed (E43, sim 115): see [`Placed`] (`None`: an ordinary item).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ItemSpec {
+    pub pocketable: bool,
+    pub placed: Option<Placed>,
     pub kind: u8,
     pub gravity: Fx,
     pub max_fall: Fx,
@@ -826,6 +847,8 @@ impl ItemSpec {
     /// a content file's `item` block starts from.
     pub fn with_hit(hit: Hitbox) -> ItemSpec {
         ItemSpec {
+            pocketable: true,
+            placed: None,
             kind: 0,
             gravity: Fx::ZERO,
             max_fall: Fx::ZERO,
@@ -906,8 +929,77 @@ impl ItemSpec {
     }
 }
 
+/// A placed piece (E43, sim 115: the reference's sapling and tree). An item with `placed` is set down on the ground rather than in the
+/// hand: a move's `pull` of it puts it `x` ahead of the maker's feet on the platform it stands on, and pulls up any other placed piece of
+/// its kind it lands on and the maker's own older one (one each). It is never picked up, pocketed, moved or knocked about.
+///
+/// * Hits: with `hp` above 0 an attack or a shot touching its hurtbox (a standing capsule of `hurt_radius` around its middle, reaching
+///   `hurt_half_height` above and below it) takes the hit's damage off its `hp` (once per attack), and at 0 it is gone (or bursts). A
+///   shot that hits it is used up on it (a piercing one passes). An attacker that hits it is frozen for `hitter_lag` percent of the
+///   hit's hitlag (no one-on-one multiplier).
+/// * Growing (`water` above 0): a shot with `Tool::water` touching it gives it that much each frame (the shot goes on); once it has
+///   `water`, `grow_delay` frames later it becomes item `grow_into` of its maker's weapon where it stands, and the projectile of its
+///   maker's move `grow_move` (255: none) is fired there, credited to the last fighter whose water touched it.
+/// * Felling (`cuts` above 0): a hit by a move with `Move::chops` cuts it on the side the attacker stands; `cuts` cuts on one side fell
+///   it (the other side's do not count): it is gone, the projectile of its maker's move `fall_move` (255: none) is fired from its feet
+///   the way away from the chopper, credited to the chopper, and with `chip_chance` per mille (drawn from the game's generator) item
+///   `chip` (255: none) of its maker's weapon is made there, credited to the chopper.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Placed {
+    pub x: Fx,
+    pub hurt_half_height: Fx,
+    pub hitter_lag: u8,
+    pub water: u8,
+    pub grow_delay: u8,
+    pub grow_into: u8,
+    pub grow_move: u8,
+    pub cuts: u8,
+    pub fall_move: u8,
+    pub chip: u8,
+    pub chip_chance: u16,
+}
+
+impl Placed {
+    /// A piece that only stands there: nothing grows, nothing fells it.
+    pub const PLAIN: Placed = Placed {
+        x: Fx::ZERO,
+        hurt_half_height: Fx::ZERO,
+        hitter_lag: 0,
+        water: 0,
+        grow_delay: 0,
+        grow_into: 0,
+        grow_move: 255,
+        cuts: 0,
+        fall_move: 255,
+        chip: 255,
+        chip_chance: 0,
+    };
+}
+
 impl StateHash for ItemSpec {
     fn hash_into(&self, h: &mut StateHasher) {
+        h.write_bool(self.pocketable);
+        match &self.placed {
+            Some(p) => {
+                h.write_bool(true);
+                p.x.hash_into(h);
+                p.hurt_half_height.hash_into(h);
+                for v in [
+                    p.hitter_lag,
+                    p.water,
+                    p.grow_delay,
+                    p.grow_into,
+                    p.grow_move,
+                    p.cuts,
+                    p.fall_move,
+                    p.chip,
+                ] {
+                    h.write_u8(v);
+                }
+                h.write_u16(p.chip_chance);
+            }
+            None => h.write_bool(false),
+        }
         h.write_u8(self.kind);
         for v in [
             self.gravity,
@@ -965,6 +1057,33 @@ impl StateHash for ItemSpec {
             None => h.write_bool(false),
         }
     }
+}
+
+/// A pocket (E42, sim 115: the reference's Pocket). On move frames `start..=end` a circle of `radius` at (`x` ahead, `y` up) from the
+/// feet (scaled by the fighter's `hitbox_scale`) puts away the first thing that touches it while the fighter's pocket is empty: a
+/// flying projectile of another owner whose tool allows it (`Tool::pocket`; a burst never), or an item that is not held and is
+/// `pocketable`. If the fighter holds an item on move frame `start`, that item is put away instead (and an item already in the pocket
+/// comes into the hand: the reference's swap). The thing waits in its pool, frozen and unseen (`REST_POCKETED` / `ITEM_POCKETED`),
+/// still counting as out for its maker, until a [`PocketRelease`] takes it out; a KO loses it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PocketCatch {
+    pub start: u8,
+    pub end: u8,
+    pub x: Fx,
+    pub y: Fx,
+    pub radius: Fx,
+}
+
+/// Taking out what was put away (E42, sim 115): on move frame `frame` a pocketed item comes into the empty hand (its clock starting
+/// again), or a pocketed projectile flies out from (`x` ahead, `y` up) with the speed it had as it was caught, turned to go the way the
+/// fighter faces, its clock and hits starting again, now the fighter's, dealing `power` percent of its own damage (its earlier
+/// multipliers dropped: the reference's 1.9x) and counting as this move for stale moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PocketRelease {
+    pub frame: u8,
+    pub x: Fx,
+    pub y: Fx,
+    pub power: u16,
 }
 
 /// A reflecting field in front of the fighter: projectiles that touch it while it is up turn around and
@@ -1483,6 +1602,11 @@ pub struct Move {
     /// A jab whose next hit can start before its end (the reference's continuable window): from this move frame on, a press of attack
     /// (within `next_window` frames) carries on into `next` at once. 255 (the default) only continues at the end.
     pub next_from: u8,
+    /// A jab that can be cancelled (sim 115, owner decision 70: the previous reference version's jab cancel, a crouch or shield from
+    /// the continuable frame on): from this move frame on, on the ground, any action the fighter could start standing (a jump, a dash,
+    /// a crouch, a shield, a grab, another attack or a special; not a walk, and not the jab itself, which `next` carries on) ends the
+    /// move and starts on the same frame. 255 (the default): never.
+    pub cancel_from: u8,
     /// A multi-hit move: from move frame `.0`, every `.1` frames the move's hits are allowed to land again.
     pub rehit: Option<(u8, u8)>,
     /// The hit groups the rehit rhythm re-arms (bit `g` for group `g`); others hit once per move (a multi-hit's final hit). All by default.
@@ -1545,6 +1669,12 @@ pub struct Move {
     pub versions: Vec<(u8, u8)>,
     /// The move flies on balloons (E41, sim 113): see [`Balloons`]. `None` (the default): no balloons.
     pub balloons: Option<Balloons>,
+    /// The move puts away a projectile or an item in front (E42, sim 115: the reference's Pocket): see [`PocketCatch`].
+    pub pocket: Option<PocketCatch>,
+    /// The move takes out what the fighter put away (E42, sim 115): see [`PocketRelease`].
+    pub unpocket: Option<PocketRelease>,
+    /// The move's hits cut a placed piece that can be felled (E43, sim 115: the reference's axe; see [`Placed`]).
+    pub chops: bool,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -1603,6 +1733,7 @@ impl Move {
             next: None,
             next_window: 0,
             next_from: 255,
+            cancel_from: 255,
             rehit: None,
             rehit_groups: 0xff,
             landing_move: None,
@@ -1628,6 +1759,9 @@ impl Move {
             spend_item: 255,
             versions: Vec::new(),
             balloons: None,
+            pocket: None,
+            unpocket: None,
+            chops: false,
             script: None,
             projectile_script: None,
         }
@@ -2134,6 +2268,29 @@ impl StateHash for Weapon {
                 }
                 None => h.write_bool(false),
             }
+            h.write_u8(m.cancel_from);
+            match &m.pocket {
+                Some(p) => {
+                    h.write_bool(true);
+                    h.write_u8(p.start);
+                    h.write_u8(p.end);
+                    p.x.hash_into(h);
+                    p.y.hash_into(h);
+                    p.radius.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            match &m.unpocket {
+                Some(p) => {
+                    h.write_bool(true);
+                    h.write_u8(p.frame);
+                    p.x.hash_into(h);
+                    p.y.hash_into(h);
+                    h.write_u16(p.power);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_bool(m.chops);
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -3613,7 +3770,11 @@ pub fn needles() -> Weapon {
         rehit: 0,
         burst: None,
         charged: None,
-        tool: Tool::NONE,
+        // (A line its thrower holds is not a thing of its own: no pocket can take it, E42.)
+        tool: Tool {
+            pocket: POCKET_NEVER,
+            ..Tool::NONE
+        },
     });
     w.moves[MoveId::SideSpecial as usize] = hook;
 
@@ -5095,8 +5256,10 @@ pub use pockets::pockets;
 /// The Pockets' follow-up slots (which `ext` slot holds which part), and its balloons, for tests and tools.
 pub mod pockets_slots {
     pub use super::pockets::{
-        balloon_block, DAIR_ONE, DAIR_TWO, FLIGHT, RIDE, RIDE_BOUNCE, RIDE_CRASH, RIDE_HOP,
-        ROCKET_KIND, UAIR_ONE, UAIR_TWO,
+        balloon_block, AXE, CHIP_ITEM, CHIP_KIND, DAIR_ONE, DAIR_TWO, FALL_KIND, FLIGHT, PLANT,
+        PLANT_FAILS, POCKET_OUT, RIDE, RIDE_BOUNCE, RIDE_CRASH, RIDE_HOP, ROCKET_KIND,
+        SAPLING_ITEM, SAPLING_KIND, TREE_FALLS, TREE_GROWS, TREE_ITEM, TREE_KIND, UAIR_ONE,
+        UAIR_TWO, WATER,
     };
 }
 
@@ -5140,6 +5303,9 @@ mod tests {
                         || !m.motion.is_empty()
                         || catch
                         || m.carry.is_some()
+                        || m.pull.is_some()
+                        || m.pocket.is_some()
+                        || m.unpocket.is_some()
                 );
                 for hb in &m.hitboxes {
                     assert!(

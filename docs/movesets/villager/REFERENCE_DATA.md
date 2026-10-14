@@ -20,6 +20,7 @@ engine can and cannot do with this data is in `PROJECT_AUDIT.md`; what was built
   notes, update history 1.0.6 to 1.1.3: no jab change), **kuroganehammer.com/Smash4/Villager** ("Villager's Frame Data [1.1.6]").
 - **ultimateframedata.com/villager** (UFD: startup, total = FAF - 1, landing lag, autocancel, stats, air times, dodges).
 - **dragdown.wiki** `SSBU/Villager/Data` (the parameter file, raw).
+- ssbwiki.com `Pocket`, `Timber`, `Villager_(SSBU)/Neutral_special`, `/Down_special`, `Jab_cancel` (raw); dragdown.wiki `SSBU/Villager/Data` (the specials' frames) for phase 2.
 - **kuroganehammer.com** 13.0.1 page: not used (the Ultimate pages returned 404 for the last two ports; the 1.1.6 page above did load).
 - A forum thread on the previous version's jab combos (https://smashboards.com/threads/which-advanced-techniques-are-essential-to-villagers-metagame.436332/) for the combo claims (a player's
   calculation with the Kurogane calculator, not an official source).
@@ -69,6 +70,23 @@ No finisher; it repeats when held, faster when mashed (the moveset notes). SDI x
 **Ours**: the boxes at 5.5 up, 6.8 and 12.2 ahead [E] (13.0.1's reach 6.5-11.0 at 5.5 up); a press from the continuable frame carries on
 at once; held, the next hit starts at the move's end [E: the version's held rule is not published]; jab 2 carries on into jab 1.
 
+### The rework (sim 115, owner decision 70): what was searched and what was found
+
+The owner's account: two punches that repeat; any action (jump, attack, dash, grab) right after either; jab 2 the launcher, up and out;
+a slight pull on jab 1 that lets jab 2 combo. Searched 2026-10-14: ssbwiki.com raw `Villager_(SSB4)/Neutral_attack`, `/Hit_1`, `/Hit_2`
+(the tables above), kuroganehammer.com's previous-version page ("[1.1.6]": jab 1 3-4, FAF 22, 3%, 60/80, BK 10, KS 80; jab 2 3-4, FAF 24, 3%,
+60/80, BK 20, KS 120: the same), ssbwiki.com `Villager_(SSB4)` (moveset notes), `Jab_cancel`, the SSB4-to-SSBU changelist and 13.0.1's
+`Villager_(SSBU)/Neutral_attack/Hit_1` (raw).
+
+| Question | Finding | Built |
+| --- | --- | --- |
+| Acting right after either hit | The previous version's **jab cancel**: before a jab's final hit, a crouch or a shield (or a quick turn) cancels it, so any move follows (ssbwiki `Jab_cancel` [R]); this jab has no final hit, so both hits cancel. The cancel opens with the continuable window: jab 1 from 7, jab 2 from 8 [R]. The changelist: 13.0.1's finisher "removes their jab cancel mixups" [R] | `Move::cancel_from` (jab 1 frame 7, jab 2 frame 8, after any hitlag): any standing action starts at once [E: the crouch's own frame is not counted] |
+| The pull on jab 1 | **Not in the 1.1.x tables**: both hits are 60 degrees (the near box) and 80 degrees (the far box), sent away; no `af`, no set knockback, no pull (ssbwiki and kuroganehammer agree). The pull is 13.0.1's: its jab 1 far boxes (ids 1-2, 11.0 ahead, 4.5-5.5 up, r3.0) are 180 degrees, forward type, BK 15, KS 10, "fighters only" [R], there since 13.0.1's first versions ("an additional hitbox that launches opponents towards Villager like the previous farthest hitbox": the 8.0.0 note, which compares 13.0.1's earlier versions, not 1.1.x) | **The owner's call (decision 70)**: jab 1's far box takes 13.0.1's far-box angle and knockback (180, forward, BK 15, KS 10), keeping 1.1.x's 3%, old rules and placement; the near box stays 60 degrees. A blend: question 4 |
+| Jab 2 the launcher | Yes: BK 20, KS 120 against jab 1's BK 10, KS 80, same angles [R] | unchanged |
+| The combos | The moveset notes: jab 1 into the axe at kill percents on floaty lightweights [R, qualitative]; the forum: jab 1 > jab 2 > axe from 130% (frame advantage only) | tested: see "What the old jab does" |
+
+Not built (owner decision 71): the previous version's shield hitlag and electric hitstun frame.
+
 ### The previous version's hit rules (E40), each with its source
 
 | Rule | 1.1.x | 13.0.1 | Source |
@@ -99,8 +117,10 @@ both [E: the previous version's shield hitlag rule (multipliers above 1 cut by 0
   from 130% a frame-perfect jab 1 > jab 2 > axe works against every character (the axe comes out on frame 6).
 - The 13.0.1 changelist: the jab-to-axe kill confirm of the previous version is gone with 13.0.1's finisher.
 - Ours (tests in `sim-core/tests/older_rules.rs`, the duelist at weight 90): jab 1 at 0% leaves 9 frames of hitstun
-  (`floor(25.2 x 0.4) - 1`) [D]; the frame advantage after jab 1 > jab 2 is 0 to 30%, 2 at 30%, 5 at 50%, 10 at 80%, 15 at 100%, **20 at
-  130%**, 24 at 150%; after jab 1 alone 6 at 130% (the table in `IMPLEMENTATION_REPORT.md`).
+  (`floor(25.2 x 0.4) - 1`) [D]. With the jab cancel (sim 115) the frame advantage on the first frame the settler can act is 6 after
+  jab 1 at 0% (23 at 150%), 12 after jab 1 > jab 2 at 0% (36 at 130%, 40 at 150%): the time for the frame-6 axe is there at every
+  percent. Jab 1 > axe is a true combo at 0-150%; jab 1 > jab 2 > axe only at 0-20%: from 30% jab 2 has sent the foe up and out of the
+  axe's reach (the axe's boxes on the held axe are [E]). The tables are in `IMPLEMENTATION_REPORT.md`.
 
 ## Normals (13.0.1) [R unless marked]
 
@@ -149,14 +169,47 @@ Landing lag: neutral 8, forward / back 14, up / down 12 (interruptible 9 / 15 / 
   little hop; hitting the user's body instead lets it use the move again; the helium recharges slowly (13.0.1: slower than before) and
   when low only one balloon comes out, for a shorter flight. **Not published**: the flight time, the flap, gravity, fall and air speeds,
   the balloons' size, place and hit points, the recharge rate and the one-balloon threshold (gaps 4-7).
-- **Neutral special (Pocket), down special (Timber)**: researched for phase 2 (ssbwiki raw `Neutral_special`, `Down_special` are saved);
-  not built.
+- **Neutral special: the pocket** (built in phase 2, sim 115, E42). ssbwiki raw `Villager_(SSBU)/Neutral_special`: intangible 5-23,
+  pocketing 8-23, FAF 51, animation 63; the release (the "pocket throw"): item out on 9, FAF 31, animation 35 [R] (UFD: startup 8,
+  total 50; throw 9, total 30 [R]). ssbwiki `Pocket` (13.0.1 rules) [R, qualitative]: it reaches out a short distance in front and
+  stores a projectile or an item; a second press takes it out; projectiles are generally pocketable when they can be reflected, are
+  detached from their user and have a model of their own; a released projectile deals **1.9x** its damage (the moveset table: "1.9x
+  pocketed projectile") and keeps the trajectory it had as it was caught; pocketing resets earlier damage multipliers (a fan wiki,
+  https://supersmashbros.fandom.com/wiki/Pocket, read through a search summary); the multiplier is staled by the pocket's place in the stale queue at the release (a forum test); an item comes
+  out in the hand; holding an item, the press pockets it and swaps it with a pocketed item; kept for the whole stock, lost on a KO
+  (13.0.1: no time limit); timers are frozen and reset on retrieval; a pocketed object is still "in play" for its maker's limits, except
+  the rocket (and two others not in this game), whose maker may use the move again. **Not published**: the reach's place and size,
+  the release's point, a speed multiplier (none found).
+- **Down special: the tree** (built in phase 2, sim 115, E43). ssbwiki raw `Villager_(SSBU)/Down_special` [R]: the water 0%, 55 (type
+  3), BK 0, KS 100, set knockback 25, r2.9, flinchless (a push), effect water; the growth clean 18% (shield damage +6) 80, BK 30, KS
+  100, r7.0 on the tree bone from 12.0 to 5.0 up, frames 14-19; late 13% r9.0 at 11.0 up, 20-40 (animation 50), both `rebound=f`,
+  `direct=f`; the falling tree 25% (+6), 60, BK 30, KS 100, r7.0 at 17.5 up and r5.5 at 10.0 up, 5.5 to either side, frames 14-313
+  ("a life of 300 frames while falling"), reflectable; the axe early 6-7 / late 8, FAF 48, animation 54: 14% (+9), 361, BK 36, KS 100,
+  r5.0 and r3.0 on the held axe (6.5 and 1.0 along it) and on 8 two more on the root, r5.0 at 11.5 ahead / 5.5 up and r3.0 at 5.5 ahead /
+  6.0 up. The sapling lasts 840 frames, the tree 600 with 30 hp [R]. UFD [R]: planting total 38 (FAF 39), watering startup 5, total 49
+  (FAF 50), water 5-20; the growth's hit "46 frames after the water touches the sprout", the fall's 16 after the second chop; the axe
+  total 47, "54 hitting a tree, including 13 frames of hitlag", -28 on shield. The changelist [R]: planting and watering FAF 43 / 54 to
+  39 / 50 (8.0.0); the axe's BK 30 to 36 and the frame-8 boxes (8.0.0); the tree "bounces once on the ground before disappearing"; the
+  watering's set knockback 60 to 25; the axe's lag on cutting the tree FAF 32 to 50. ssbwiki `Timber` [R, qualitative]: planting fails
+  in the air (a shrug); the water pushes; watering need not come all at once (a second watering grows it sooner); reflected water
+  credits the reflector with the growth; the tree can be attacked and goes sooner; the first chop cuts one side, a second on a cut side
+  fells it, one cut a side does not; the falling tree is reflectable (and then pocketable) and falls off ledges; a felled tree drops an
+  item 50% of the time, 97% of those a wood chip (3%, thrown; ssbwiki `Villager_(SSBU)`) and 3% a fruit; any settler can water another's
+  sapling and chop another's tree; one sapling each, planted onto another's sapling. dragdown.wiki: growth clean 13-18 / late 19-39 of 49,
+  the fall's hit 14-45 of 46 (on the stage). **Not published**: where the sapling goes and when, the water needed, the water's shape and
+  path, the tree's hurtbox, what a hit on the sapling does, the falling tree's path and its boxes' movement, the wood chip's numbers.
 
 ## Conflicts
 
 1. Down air autocancel: ssbwiki raw 1-10 / 36- vs UFD 1-13 / 39-. **Ours: ssbwiki** (the raw frame strip; the changelist's 1-7 → 1-10).
 2. Spot dodge: UFD lists 20/25, the changelist FAF 26. **Ours: 26.**
 3. The old jab's hitstun at 0%: the forum post says 10 frames; the version's formula gives 9 (it takes one off). **Ours: 9.**
+4. The axe against the tree: UFD's total 54 (against 47) "includes 13 frames of hitlag"; 54 - 47 is 7, and the changelist gives the
+   cut's FAF 50. **Ours: the tree freezes the settler 7 frames** (half the 14% hit's 15: `hitter_lag` 50) [D: the totals], FAF 48.
+5. The growth's frames: ssbwiki 14-19 / 20-40 of 50, dragdown 13-18 / 19-39 of 49 (one earlier: the usual frame-1 reading).
+   **Ours: ssbwiki's.**
+6. The falling tree's first hit: ssbwiki frame 14, UFD 16 after the second chop. **Ours: 14** (from the chop).
+7. The jab 1 pull: the 1.1.x tables have none; 13.0.1 has it. **Ours: 13.0.1's far boxes on the 1.1.x jab** (owner decision 70).
 
 ## Gaps (unpublished; [E] in the build)
 
@@ -169,3 +222,13 @@ Landing lag: neutral 8, forward / back 14, up / down 12 (interruptible 9 / 15 / 
 7. The pop's hop (1.0 a frame).
 8. The pot's and the ball's flights (from 8.0 / 8.8 up, landing on frames 23 / 31), the pellets' speed (2.8) and drop (0.08).
 9. The old jab's held rule (at the move's end).
+10. The pocket's reach: 9.0 ahead, 7.0 up, radius 6.0 (reference units); the release's point 7.0 ahead, 6.0 up; no speed change.
+11. The sapling 10.0 ahead on frame 20; it cannot be hit; 8 frames of water grow it, 26 frames after it has them (so a full watering
+    from where it was planted gives the 46 frames [D]).
+12. The water: one shot from (11.0, 9.0) at 0.35 forward under 0.07 gravity, pushing every frame it touches; 1 water a frame.
+13. The tree's hurtbox: radius 6.0 from 3.0 to 21.0 up; shots used up on it (piercing ones pass); the attacker frozen half the hitlag.
+14. The axe's boxes on the held axe: early (9.0, 12.0) r5.0 and (6.0, 9.0) r3.0, late (11.0, 7.0) and (7.5, 6.0) beside the root boxes.
+15. The falling tree: one box (r7.0, 5.5 to either side) from 17.5 up, 0.6 forward, falling under 0.16 to 2.4, one bounce at 2.48 up,
+    then gone (about 46 frames on the stage); its life capped at 255 (the reference's 313); the 15% landing sourspot on ssbwiki's
+    character page is not in the raw table and is not built.
+16. The wood chip: 3% [R], 361, BK 20, KS 60, the bomb's fall and a small box; 48.5% of fells [R]; no fruit.
