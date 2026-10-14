@@ -24,15 +24,96 @@ static func font() -> Font:
 # ---- Backdrop -------------------------------------------------------------------------------------------------
 
 class Backdrop extends Control:
-	## The menus' sky (menu_art.gd): a sunny fantasy sky with floating islands and castles, halo rings, clouds, birds and drifting motes,
-	## leaves framing the bottom corners. It moves slowly (the islands bob, the clouds drift), and never takes the mouse.
-	func _init(_warm := false) -> void:
+	## The menus' world behind everything: the meadow stage's land and sky, live in 3D (the windmill and fields, the floating islands,
+	## lit cumulus drifting, the sun's light and the match's finishing pass), the camera drifting slowly past it, so the menus show the
+	## game's own world rather than a drawing of a sky. On the Fast tier, the painted sky (menu_art.gd) instead. Never takes the mouse.
+	const StageArt := preload("res://scripts/stage_art.gd")
+	const Lighting := preload("res://scripts/lighting.gd")
+	const VisualSettings := preload("res://scripts/visual_settings.gd")
+	const POST := preload("res://shaders/post.gdshader")
+	var t := 0.0
+	var cam: Camera3D
+	var env: Environment
+	var root: Node3D
+	var world_look := {}
+	var post_mat: ShaderMaterial
+	var lit_frames := 0
+
+	## `dim`: a cool shade laid over the world (0 none), for screens dense with text, so it sits calmly over a busy picture.
+	func _init(_warm := false, dim := 0.0) -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var sky := Art.SkyScene.new()
-		sky.foliage = true
-		sky.set_anchors_preset(Control.PRESET_FULL_RECT)
-		add_child(sky)
+		if dim > 0.0:
+			# (Drawn after the world, as the backdrop's last child, so it shades only the world.)
+			var shade := ColorRect.new()
+			shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+			shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			shade.color = Color(0.08, 0.1, 0.2, dim)
+			add_child.call_deferred(shade)
+		if VisualSettings.get_index("quality") == 0:
+			var sky := Art.SkyScene.new()
+			sky.foliage = true
+			sky.set_anchors_preset(Control.PRESET_FULL_RECT)
+			add_child(sky)
+			return
+		var box := SubViewportContainer.new()
+		box.stretch = true
+		box.set_anchors_preset(Control.PRESET_FULL_RECT)
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(box)
+		var vp := SubViewport.new()
+		vp.own_world_3d = true
+		vp.msaa_3d = Viewport.MSAA_4X
+		box.add_child(vp)
+		root = Node3D.new()
+		vp.add_child(root)
+		env = Environment.new()
+		var we := WorldEnvironment.new()
+		we.environment = env
+		root.add_child(we)
+		Lighting.apply(env, root)
+		world_look = StageArt.theme({})
+		env.background_mode = Environment.BG_SKY
+		env.sky = StageArt.sky(world_look)
+		# The meadow's land and sky without its fighting island (its empty platforms showed through the gaps between the cards as clutter):
+		# the island's place is given far below the view, so what stands on it and hangs under it is out of sight.
+		var scenery := Node3D.new()
+		root.add_child(scenery)
+		StageArt.backdrop(scenery, world_look, [-14.0, 14.0, -60.0, -66.0, -14.0, 14.0])
+		cam = Camera3D.new()
+		cam.fov = 30.0
+		root.add_child(cam)
+		var post := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(2, 2)
+		post.mesh = quad
+		post.extra_cull_margin = 16384.0
+		post.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		post_mat = ShaderMaterial.new()
+		post_mat.shader = POST
+		post_mat.render_priority = -100
+		post_mat.set_shader_parameter("stage_dist", 62.0)
+		post.material_override = post_mat
+		post.position = Vector3(0, 0, -1)
+		cam.add_child(post)
+		_place_camera()
+
+	func _place_camera() -> void:
+		# A slow sway across the island, a little above it, so the world is never still and never busy.
+		var x := sin(t * 0.06) * 9.0
+		cam.look_at_from_position(Vector3(x, 9.0 + sin(t * 0.045) * 1.5, 62.0), Vector3(x * 0.4, 5.0, 0.0))
+
+	func _process(delta: float) -> void:
+		if cam == null:
+			return
+		t += delta
+		_place_camera()
+		# (The stage's light is set after the screen's own previews, which light themselves with the menus' neutral mood through the same
+		# shared shader values: a frame later, so the world and the fighters in front of it share the meadow's light.)
+		if lit_frames < 2:
+			lit_frames += 1
+			if lit_frames == 2:
+				Lighting.stage_mood(env, root, world_look, post_mat)
 
 
 # ---- Scenery ---------------------------------------------------------------------------------------------------
@@ -86,6 +167,74 @@ class Scene extends Control:
 		for q in shadow:
 			core.append(Vector2(w * 0.5 + 6.0, top_y + 2.0) + (q - Vector2(w * 0.5 + 6.0, top_y + 2.0)) * 0.6)
 		c.draw_colored_polygon(core, Color(Art.INK, 0.18))
+
+
+class Spotlight extends Control:
+	## A card's backdrop for fighters, as a fighting game frames its character art: the card's colour deepening from a lit top to a dark
+	## foot, a soft pool of light behind the fighters, faint rays fanning out from it, a floor of light they stand on with a contact
+	## shadow under each, and a fine diagonal hatch, so the fighters read as the subject of the card. `feet`: [x, y] shares of the size.
+	var colour := Color(0.3, 0.5, 0.9)
+	var feet: Array = []
+	var seed := 3
+	## The floor and contact shadows (off for a close-up on the face).
+	var show_floor := true:
+		set(v):
+			show_floor = v
+			queue_redraw()
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_RESIZED:
+			queue_redraw()
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		if w < 4.0 or h < 4.0:
+			return
+		var top := colour.lightened(0.28)
+		var bottom := colour.darkened(0.45)
+		draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(w, 0), Vector2(w, h), Vector2(0, h)]),
+			PackedColorArray([top, top, bottom, bottom]))
+		var centre := Vector2(w * 0.5, h * 0.5)
+		if not feet.is_empty():
+			var sum := Vector2.ZERO
+			for f in feet:
+				sum += Vector2(float(f[0]) * w, float(f[1]) * h)
+			centre = sum / feet.size() - Vector2(0, h * 0.3)
+		# Rays fanning from behind the fighters.
+		var reach := maxf(w, h) * 1.2
+		for k in 14:
+			var a := TAU * (float(k) + Art.noise(seed + k) * 0.3) / 14.0
+			var spread := 0.07 + 0.04 * absf(Art.noise(seed * 3 + k))
+			draw_colored_polygon(PackedVector2Array([centre, centre + Vector2(cos(a - spread), sin(a - spread)) * reach,
+				centre + Vector2(cos(a + spread), sin(a + spread)) * reach]), Color(1, 1, 1, 0.05))
+		# The pool of light.
+		for k in 8:
+			draw_circle(centre, minf(w, h) * (0.62 - k * 0.07), Color(colour.lightened(0.6), 0.06))
+		# A fine hatch over it all.
+		var step := 10.0
+		var x := -h
+		while x < w:
+			draw_line(Vector2(x, h), Vector2(x + h, 0), Color(1, 1, 1, 0.035), 2.0)
+			x += step
+		# The floor: a broad band of light under the fighters, and a contact shadow under each.
+		if show_floor and not feet.is_empty():
+			var fy := float(feet[0][1]) * h
+			var floor_poly := PackedVector2Array()
+			for k in 33:
+				var a := TAU * k / 32.0
+				floor_poly.append(Vector2(w * 0.5, fy + h * 0.02) + Vector2(cos(a) * w * 0.62, sin(a) * h * 0.11))
+			draw_colored_polygon(floor_poly, Color(colour.lightened(0.45), 0.35))
+			for f in feet:
+				var at := Vector2(float(f[0]) * w + 4.0, float(f[1]) * h + 2.0)
+				var sh := PackedVector2Array()
+				for k in 21:
+					var a := TAU * k / 20.0
+					sh.append(at + Vector2(cos(a) * h * 0.12, sin(a) * h * 0.022))
+				draw_colored_polygon(sh, Color(D.INK, 0.3))
 
 
 class Mask extends Control:
@@ -168,7 +317,7 @@ static func notice(at: Vector2, width: float, font_size := 22) -> Tag:
 
 
 class Stage extends Control:
-	## A fighter's own little stage in a card: a painted scene (sky and a grass-over-rock platform) with the fighter standing on it.
+	## A fighter's own little stage in a card: a spotlit backdrop (`Spotlight`) with the fighter standing in its light.
 	## `add_fighter` puts a preview (preview.gd, made without its floor) in, framed so its feet are on the platform.
 	var mask: Control
 	var scene: Control
@@ -185,10 +334,14 @@ class Stage extends Control:
 		mask.set_shape(PackedVector2Array([Vector2(16, 0), Vector2(m.x, 0), Vector2(m.x, m.y - 16), Vector2(m.x - 16, m.y), Vector2(0, m.y),
 			Vector2(0, 16)]))
 		add_child(mask)
-		scene = Scene.new()
-		scene.mood = mood
-		scene.seed = seed
-		scene.size = m
+		# (A spotlit card, warmer with `mood`, as the main menu's tiles: the painted 2D sky that stood here no longer matched the live world
+		# behind the screens.)
+		var spot := Spotlight.new()
+		spot.colour = Color.from_hsv(lerpf(0.62, 0.98, clampf(mood, 0.0, 1.0)), 0.6, 0.82)
+		spot.feet = [[0.5, 0.7]]
+		spot.seed = seed
+		spot.size = m
+		scene = spot
 		mask.add_child(scene)
 
 	func add_fighter(preview: Control) -> void:
@@ -247,7 +400,7 @@ class Tag extends Control:
 	## A label: text on a painted card (menu_art.gd), or on a plain slanted strip when its colour is see-through.
 	var text := ""
 	var seed := 1
-	var fill := Color(0.96, 0.95, 0.88)
+	var fill := D.CREAM
 	var ink := Color(0.11, 0.12, 0.17)
 	var edge := Color(0, 0, 0, 0)
 	var font_size := 24
@@ -290,7 +443,7 @@ class Btn extends Control:
 		set(v):
 			text = v
 			queue_redraw()
-	var fill := Color(0.96, 0.95, 0.88):
+	var fill := D.CREAM:
 		set(v):
 			fill = v
 			queue_redraw()
@@ -463,6 +616,19 @@ class Tile extends Control:
 		mask.add_child(scene)
 		_ensure_top()
 
+	## Fills the card with a spotlit backdrop in its own colour for fighters to stand in (see `Spotlight`): `feet` the fighters' feet,
+	## as shares of the card's width and height.
+	func show_spotlight(feet: Array) -> void:
+		mask = Mask.new()
+		add_child(mask)
+		var spot := Spotlight.new()
+		spot.colour = color
+		spot.feet = feet
+		spot.seed = absi(title.hash()) % 97
+		scene = spot
+		mask.add_child(spot)
+		_ensure_top()
+
 	## Adds a child above the tile's scene but below its text.
 	func add_layer(node: Node) -> void:
 		add_child(node)
@@ -608,7 +774,7 @@ class Arrow extends Control:
 	signal pressed
 	var direction := 1
 	var hover := false
-	var fill := Color(0.96, 0.95, 0.88)
+	var fill := D.CREAM
 
 	func _init(dir := 1) -> void:
 		direction = dir
@@ -826,7 +992,7 @@ class Portrait extends Control:
 
 class Bubble extends Control:
 	var label: Label
-	var fill := Color(0.96, 0.95, 0.88)
+	var fill := D.CREAM
 
 	func _init(min_size := Vector2(380, 150)) -> void:
 		custom_minimum_size = min_size

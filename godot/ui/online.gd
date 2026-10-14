@@ -49,7 +49,7 @@ func _ready() -> void:
 	Roster.load_match_rules()
 	settings = _load_settings()
 	entries = Roster.all()
-	add_child(UI.Backdrop.new(false))
+	add_child(UI.Backdrop.new(false, 0.38))
 
 	add_child(UI.ScreenTitle.new("Online match"))
 

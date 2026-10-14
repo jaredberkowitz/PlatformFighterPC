@@ -192,8 +192,7 @@ class PTab extends Control:
 
 
 class PlayerPanel extends Control:
-	## One player's panel along the bottom: a painted scene (warm for player 1, cool for player 2) framed in the player's colour, the
-	## fighter standing on its ledge, the fighter's name on a brush stroke in the player's colour, the player tab, and a gold READY badge
+	## One player's panel along the bottom: a spotlit card in the player's colour (`UI.Spotlight`), the fighter standing in its light, the fighter's name on a brush stroke in the player's colour, the player tab, and a gold READY badge
 	## when locked in.
 	var player := 0
 	var disc_color := Color.WHITE
@@ -218,9 +217,12 @@ class PlayerPanel extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mask = UI.Mask.new()
 		add_child(mask)
-		scenery = UI.Scene.new()
-		scenery.mood = MOODS[p]
-		scenery.seed = 11 + p * 17
+		# (A spotlit card in the player's colour, as the main menu's tiles: the world itself is the live backdrop behind the screen.)
+		var spot := UI.Spotlight.new()
+		spot.colour = flag.darkened(0.15)
+		spot.feet = [[0.5, 0.72]]
+		spot.seed = 11 + p * 17
+		scenery = spot
 		mask.add_child(scenery)
 		preview = Preview.new(Vector2i(260, 260), false, 6.8)
 		add_child(preview)

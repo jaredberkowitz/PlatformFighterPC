@@ -22,7 +22,7 @@ const VIOLET := Color("9256d8")
 const GREEN := Color("27a879")
 const TEAL := Color("25a7b3")
 const GLOW := Color("b5f4ff")
-const CREAM := Color("fbf3df")
+const CREAM := Color("f3f5fa")
 
 
 # ---- Shape helpers -------------------------------------------------------------------------------------------------------------------

@@ -26,7 +26,7 @@ var sim
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(UI.Backdrop.new(false))
+	add_child(UI.Backdrop.new(false, 0.38))
 	sim = ClassDB.instantiate("SimRunner")
 	add_child(sim)
 	add_child(UI.ScreenTitle.new("Replays"))

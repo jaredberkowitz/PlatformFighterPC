@@ -32,6 +32,16 @@ const ITEMS := [
 	["Quit", "", "", Color(0.21, 0.22, 0.38), "quit", Rect2(940, 565, 290, 85)],
 ]
 
+## The destination tiles' painted scenes, in place of a line icon (a template's look): fighters from the roster standing in them, each
+## tile in its own light. [sky mood, scene seed, [[built-in fighter, x across the tile 0..1, facing (-1 left .. 1 right)], ...]].
+const VIGNETTES := {
+	# Two fighters squaring up across a gap: playing someone far away.
+	"online": [0.75, 31, [[3, 0.5, 0.7], [6, 0.8, -0.7]]],
+	# A fighter turning in the light: one being looked over.
+	"replays": [0.55, 17, [[8, 0.72, 0.0]]],
+	"creator": [0.15, 9, [[2, 0.74, 0.0]]],
+}
+
 ## Where left and right go from each tile (index into ITEMS).
 const ACROSS := {0: [0, 1], 1: [0, 2], 2: [1, 2], 3: [0, 4], 4: [3, 5], 5: [4, 5], 6: [3, 6]}
 
@@ -84,11 +94,13 @@ func _ready() -> void:
 			# The last fighter played stands in the Play tile (in place of its icon).
 			tile.icon = ""
 			tile.hero = true
-			tile.show_scene(0.35, 23)
-			preview = Preview.new(Vector2i(300, 420), false, 9.0)
+			tile.show_spotlight([[0.5, 0.8]])
+			preview = Preview.new(Vector2i(300, 420), false, 7.2)
 			preview.position = Vector2(r.size.x * 0.5 - 150.0, 16)
 			preview.set_loadout(Roster.net_entry().look)
 			tile.add_layer(preview)
+		elif VIGNETTES.has(item[4]):
+			_vignette(tile, r, VIGNETTES[item[4]])
 	_select(0)
 
 	var keys := UI.KeyBar.new([["W A S D", "Navigate"], ["Enter", "Select"], ["Esc", "Quit"]])
@@ -99,6 +111,29 @@ func _ready() -> void:
 	Music.of(self).play("menu")
 	UI.reveal(self)
 	Shot.attach(self)
+
+
+## Fills a destination tile with its painted scene and its fighters (see VIGNETTES).
+func _vignette(tile: Control, r: Rect2, spec: Array) -> void:
+	tile.icon = ""
+	var people: Array = spec[2]
+	var feet := []
+	for p in people:
+		feet.append([float(p[1]), 0.7])
+	tile.show_spotlight(feet)
+	var built := Roster.builtins()
+	var h := r.size.y * 0.8
+	for p in people:
+		var w := h * 0.8
+		var pv := Preview.new(Vector2i(int(w), int(h)), false, 6.5)
+		pv.position = Vector2(r.size.x * float(p[1]) - w * 0.5, 0)
+		var k: int = int(p[0]) % maxi(built.size(), 1)
+		if built.size() > 0:
+			pv.set_loadout(built[k].look)
+		if float(p[2]) != 0.0:
+			pv.spin = false
+			pv.facing_bias = float(p[2])
+		tile.add_layer(pv)
 
 
 func _select(i: int) -> void:

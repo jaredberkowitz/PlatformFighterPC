@@ -213,5 +213,16 @@ colour-coded destinations).
   than black sticker outlines; dark cards come out near the ink anyway. `select_own_colour_lines.png`, `creator_own_colour_lines.png`.
 - **Results screen**: the fighters' cards stand on a body as the main menu's tiles do (the winner's deeper, rimmed in gold), and the
   winner's stage frame is rimmed in the winner's colour (`UI.Stage.rim`). `results_cards_body.png`.
+- **The game's own world behind the menus** (2026-10-14, `UI.Backdrop`): the meadow's land and sky, live in 3D with the match's light
+  and finishing pass (lit cumulus, windmill, fields, floating islands), the camera drifting slowly; the painted 2D sky (vector islands,
+  halo rings) read as a different, cheaper game from the matches. Screens dense with text (Controls, Online, Replays, the creator) lay a
+  cool shade over it (`Backdrop.new(false, 0.38)`). The Fast tier keeps the painted sky.
+- **Fighters in the destination tiles, not clip-art icons**: Play, Online (two fighters squaring up), Replays and Character Creator show
+  roster fighters standing in a spotlit card of the tile's colour (`UI.Spotlight`: a lit-top gradient, a pool of light, faint rays, a
+  fine hatch, a floor of light with contact shadows), the way the genre frames character art. The utility tiles keep their icons. The
+  players' panels on fighter select, the online and results stages and the creator's stage use the same spotlit card.
+- **A cool white for light surfaces** (`D.CREAM`, `CREAM_DARK`, `MenuArt.CREAM`): pills, labels and keys are a clean cool white and a
+  light steel instead of a warm parchment beige, which read as dated.
+- `menu_world_before_after.png` (before above), `menu_select_world.png`, `menu_dense_screens.png`.
 - **Fighter tokens** (`select.gd` `Card`): they stand on a thin body (2.5 to 5 px with the card's size) like the main menu's tiles, with a
   3 px line. `select_tokens_body.png`.

@@ -4,8 +4,9 @@ extends RefCounted
 ## screens decide what the pieces do.
 
 const INK := Color(0.11, 0.12, 0.17)
-const CREAM := Color(0.96, 0.95, 0.88)
-const CREAM_DARK := Color(0.82, 0.8, 0.68)
+# (The panels' light surfaces: a clean cool white and a light steel, not a warm parchment, which read as dated.)
+const CREAM := Color(0.95, 0.96, 0.98)
+const CREAM_DARK := Color(0.78, 0.81, 0.88)
 const SKY := Color(0.74, 0.88, 0.95)
 const GOLD := Color(1.0, 0.82, 0.22)
 const TEAL := Color(0.2, 0.62, 0.66)

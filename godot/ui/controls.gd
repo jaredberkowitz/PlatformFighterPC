@@ -43,7 +43,7 @@ var keybar: Control
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(UI.Backdrop.new(false))
+	add_child(UI.Backdrop.new(false, 0.38))
 	add_child(UI.ScreenTitle.new("Controls"))
 	# The two pages' tabs.
 	for k in PAGES:

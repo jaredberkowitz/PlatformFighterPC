@@ -335,7 +335,7 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	editor = ClassDB.instantiate("ContentEditor")
 	editor.new_from_builtin("preview")
-	add_child(UI.Backdrop.new(false))
+	add_child(UI.Backdrop.new(false, 0.38))
 	header = Header.new()
 	header.size = Vector2(1000, 130)
 	add_child(header)
@@ -352,9 +352,10 @@ func _ready() -> void:
 	stage_mask.set_shape(PackedVector2Array([Vector2(16, 0), Vector2(m.x, 0), Vector2(m.x, m.y - 16), Vector2(m.x - 16, m.y), Vector2(0, m.y),
 		Vector2(0, 16)]))
 	add_child(stage_mask)
-	var scene := UI.Scene.new()
+	var scene := UI.Spotlight.new()
 	stage_scene = scene
-	scene.mood = 0.25
+	scene.colour = Color(0.36, 0.46, 0.84)
+	scene.feet = [[0.5, 0.7]]
 	scene.seed = 31
 	scene.size = stage_mask.size
 	stage_mask.add_child(scene)
@@ -516,7 +517,7 @@ func _open(i: int) -> void:
 	var close: bool = bool(cat.get("face", false)) or str(cat.get("shot", "")) == "head"
 	preview.frame_face(close)
 	# Close up, the stage's ground would be a slab across the bottom: just the sky then.
-	stage_scene.ledge.visible = not close
+	stage_scene.show_floor = not close
 	_build_page()
 	_build_tools()
 	if focused == null or not is_instance_valid(focused) or not (focused is RailTab):
