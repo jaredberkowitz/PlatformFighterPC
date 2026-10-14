@@ -231,13 +231,19 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# patterns and laid every 12 units, so no repeat shows across a stage. Anything crossing an edge is drawn again across it.
 			var S := 512.0
 			body += '<rect width="512" height="512" fill="#%s"/>' % A
-			var bed_cols := [a.lerp(b, 0.2), a.lerp(b, 0.45), a.lerp(b, 0.1), a.lerp(b, 0.6)]
-			for k in 4:
-				var y0 := 70.0 + k * 118.0
-				var d := "M0,%.1f" % y0
-				for x in range(32, 513, 32):
-					d += " L%d,%.1f" % [x, y0 + sin(float(x) / S * TAU * float(1 + k % 2) + float(k) * 2.1) * 9.0 + sin(float(x) / S * TAU * 3.0 + float(k)) * 4.0]
-				body += '<path d="%s L512,%.1f L0,%.1f Z" fill="#%s" opacity="0.75"/>' % [d, y0 + 80.0, y0 + 80.0, (bed_cols[k] as Color).to_html(false)]
+			var bed_cols := [a.lerp(b, 0.22), a.lerp(b, 0.4), a.lerp(b, 0.14), a.lerp(b, 0.5)]
+			# Each bed runs from its waving top down under the next bed's (which is drawn over it), the last one wrapped round to the top of
+			# the tile and drawn first, so the beds meet only along waving seams. Every wave has whole periods across the tile.
+			var bed_top := func(k: int, x: float) -> float:
+				return 70.0 + float(k) * 118.0 + sin(x / S * TAU * float(1 + k % 2) + float(k) * 2.1) * 9.0 + sin(x / S * TAU * 3.0 + float(k)) * 4.0
+			for kb in [[3, -S], [0, 0.0], [1, 0.0], [2, 0.0], [3, 0.0]]:
+				var k: int = kb[0]
+				var shift: float = kb[1]
+				var d := ""
+				for x in range(0, 513, 32):
+					d += ("M" if x == 0 else " L") + "%d,%.1f" % [x, bed_top.call(k, float(x)) + shift]
+				var bottom: float = 70.0 + float(k) * 118.0 + 190.0 + shift
+				body += '<path d="%s L512,%.1f L0,%.1f Z" fill="#%s"/>' % [d, bottom, bottom, (bed_cols[k] as Color).to_html(false)]
 				# A soft darker seam where each bed meets the one above.
 				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="6" stroke-opacity="0.18"/>' % [d, b.darkened(0.3).to_html(false)]
 			var stone_base := Color(0.8, 0.74, 0.66).lerp(a, 0.5)
@@ -786,23 +792,195 @@ const CONTACT_STRENGTH := 0.55
 
 
 static func _hay_bale(root: Node3D, at: Vector3, turn: float) -> void:
+	# A round bale lying on its side: a drum whose rim rounds over into flat ends (a lathe, so its strands can run round it), the straw
+	# drawn as strands wrapping the body and as a rolled spiral on each end, tied with two bands of twine. Warm gold, lit and shaded by the
+	# stage's light like any surface, not a flat decal.
 	var centre := at + Vector3(0, 0.55, 0)
-	# Woven straw (the straw hat's drawing, godot/art/cloth/straw.svg) in a warm gold, so the bale reads as straw with a lit and a shaded
-	# side, not a flat yellow drum.
-	var straw := FighterView.toon(Color(1, 1, 1), true, SvgArt.texture("res://art/cloth/straw.svg", {"#ff00ff": Color(0.96, 0.8, 0.46)}), Vector2(9, 3))
-	_mesh(root, _cylinder(0.55, 0.55, 1.3, 12), straw, centre, Vector3.ONE, Vector3(90, turn, 0))
-	var band := FighterView.toon(Color(0.8, 0.56, 0.32), false)
-	for dz in [-0.32, 0.32]:
-		_mesh(root, _cylinder(0.57, 0.57, 0.08, 9), band, centre + Vector3(0, 0, dz).rotated(Vector3.UP, deg_to_rad(turn)), Vector3.ONE, Vector3(90, turn, 0))
+	var rot := Vector3(90, turn, 0)
+	var body_mat := FighterView.toon(Color.WHITE, true, _straw_texture(false), Vector2.ONE)
+	_mesh(root, _lathe(HAY_PROFILE, 22, 3.0), body_mat, centre, Vector3.ONE, rot)
+	var end_mat := FighterView.toon(Color.WHITE, false, _straw_texture(true), Vector2.ONE)
+	var axis := Basis.from_euler(rot * PI / 180.0) * Vector3.UP
+	for side in [-1.0, 1.0]:
+		_mesh(root, _disc(0.47, 22), end_mat, centre + axis * side * 0.645, Vector3.ONE, rot + Vector3(0.0 if side > 0.0 else 180.0, 0, 0))
+	var twine := FighterView.toon(Color(0.66, 0.44, 0.26), false)
+	for dz in [-0.3, 0.3]:
+		var ring := TorusMesh.new()
+		ring.inner_radius = 0.545
+		ring.outer_radius = 0.585
+		ring.rings = 22
+		ring.ring_segments = 6
+		_mesh(root, ring, twine, centre + axis * dz, Vector3.ONE, rot)
+
+
+## A round bale's outline along its axis (y, from end to end) as [radius, y]: the body a little fuller in the middle, the rim rounding
+## over into the flat ends.
+const HAY_PROFILE := [[0.44, -0.65], [0.5, -0.635], [0.535, -0.6], [0.552, -0.54], [0.56, -0.42], [0.565, -0.2], [0.567, 0.0],
+	[0.565, 0.2], [0.56, 0.42], [0.552, 0.54], [0.535, 0.6], [0.5, 0.635], [0.44, 0.65]]
+
+
+## A surface of revolution round the y axis through `profile` ([radius, y] pairs, in order), `sides` round, its UV u running round it
+## `u_repeat` times and v along the profile; smooth normals. Open at both ends.
+static func _lathe(profile: Array, sides: int, u_repeat: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := profile.size()
+	for i in n - 1:
+		for k in sides:
+			var quad := []
+			for c in [[i, k], [i, k + 1], [i + 1, k + 1], [i + 1, k]]:
+				var pr: Array = profile[c[0]]
+				var a := TAU * float(c[1]) / float(sides)
+				quad.append([Vector3(cos(a) * float(pr[0]), float(pr[1]), sin(a) * float(pr[0])), Vector2(float(c[1]) / float(sides) * u_repeat, float(c[0]) / float(n - 1))])
+			for t in [0, 1, 2, 0, 2, 3]:
+				st.set_uv(quad[t][1])
+				st.add_vertex(quad[t][0])
+	st.generate_normals()
+	return st.commit()
+
+
+## A flat disc of radius `r` facing up (+y), its UV laid flat across it (the middle at 0.5, 0.5).
+static func _disc(r: float, sides: int) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for k in sides:
+		var a0 := TAU * float(k) / float(sides)
+		var a1 := TAU * float(k + 1) / float(sides)
+		for v in [Vector2.ZERO, Vector2(cos(a0), sin(a0)), Vector2(cos(a1), sin(a1))]:
+			st.set_uv(Vector2(0.5, 0.5) + v * 0.5)
+			st.add_vertex(Vector3(v.x * r, 0.0, v.y * r))
+	return st.commit()
+
+
+## The bale's straw, drawn once: `ends` the rolled spiral seen on an end (fine strands round a darker heart), else strands of straw
+## running round the body in close golden shades, with a few loose wisps.
+static func _straw_texture(ends: bool) -> Texture2D:
+	var key := "ends" if ends else "body"
+	if _straw_cache.has(key):
+		return _straw_cache[key]
+	var gold := Color(0.95, 0.78, 0.44)
+	var deep := Color(0.78, 0.56, 0.28)
+	var pale := Color(1.0, 0.9, 0.62)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 21
+	var body := '<rect width="256" height="256" fill="#%s"/>' % gold.to_html(false)
+	if ends:
+		body += '<circle cx="128" cy="128" r="128" fill="#%s"/>' % gold.lerp(deep, 0.15).to_html(false)
+		# The roll: a spiral from the heart out, drawn as many short arcs in alternating shades so it reads as layers of straw.
+		var turns := 7.0
+		var steps := 300
+		var prev := Vector2(128, 128)
+		for i in range(1, steps + 1):
+			var t := float(i) / float(steps)
+			var a := t * turns * TAU
+			var rr := 8.0 + t * 112.0
+			var p := Vector2(128, 128) + Vector2(cos(a), sin(a)) * rr
+			var c := deep if (i / 6) % 2 == 0 else pale
+			body += '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.7"/>' % [prev.x, prev.y, p.x, p.y, c.to_html(false), 3.5 + t * 2.0]
+			prev = p
+		body += '<circle cx="128" cy="128" r="12" fill="#%s"/>' % deep.darkened(0.2).to_html(false)
+		# A darker ring at the rim, where the end turns into the body.
+		body += '<circle cx="128" cy="128" r="122" fill="none" stroke="#%s" stroke-width="10" opacity="0.45"/>' % deep.to_html(false)
+	else:
+		# Strands across the tile (round the bale), each a long gentle wave; they tile across, and every band is drawn again below the edge.
+		for j in 70:
+			var y := rng.randf_range(0.0, 256.0)
+			var c := [deep, pale, gold.lerp(deep, 0.4), gold.lerp(pale, 0.5)][j % 4] as Color
+			var amp := rng.randf_range(1.0, 3.0)
+			var ph := rng.randf_range(0.0, TAU)
+			var w := rng.randf_range(1.6, 3.4)
+			for oy in [-256.0, 0.0, 256.0]:
+				var d := "M0,%.1f" % (y + oy + sin(ph) * amp)
+				for x in range(16, 257, 16):
+					d += " L%d,%.1f" % [x, y + oy + sin(ph + float(x) / 256.0 * TAU * 2.0) * amp]
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.65"/>' % [d, c.to_html(false), w]
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">%s</svg>' % body
+	var img := Image.new()
+	img.load_svg_from_string(svg, 1.0)
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	_straw_cache[key] = tex
+	return tex
+
+
+static var _straw_cache := {}
 
 
 static func _barrel(root: Node3D, at: Vector3, size: float) -> void:
-	_mesh(root, _cylinder(0.42 * size, 0.38 * size, 1.1 * size, 10), Materials.wood(Color(0.78, 0.52, 0.34), Vector2(2, 1)), at + Vector3(0, 0.55 * size, 0))
-	var hoop := FighterView.respond(FighterView.toon(Color(0.42, 0.4, 0.5), false), "metal")
-	for h in [0.22, 0.88]:
-		_mesh(root, _cylinder(0.43 * size, 0.43 * size, 0.07 * size, 10), hoop, at + Vector3(0, h * size, 0))
-	# The lid: a darker inset disc, so the top reads apart from the side.
-	_mesh(root, _cylinder(0.33 * size, 0.33 * size, 0.03 * size, 10), FighterView.toon(Color(0.56, 0.36, 0.24)), at + Vector3(0, 1.1 * size + 0.01, 0))
+	# A cooper's barrel: a bulging body of staves (a lathe, the staves painted on so they run up it), two iron hoops that sit on the bulge,
+	# a rim where the staves stand above the lid, and the lid inset below it. Each part a different value, so it reads as built.
+	var body := FighterView.toon(Color.WHITE, true, _stave_texture(), Vector2.ONE)
+	var prof := []
+	for p in BARREL_PROFILE:
+		prof.append([float(p[0]) * size, float(p[1]) * size])
+	_mesh(root, _lathe(prof, 18, 1.0), body, at)
+	var hoop := FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42), false), "metal")
+	for h in [0.2, 0.84]:
+		var ring := TorusMesh.new()
+		var r := _barrel_radius(h) * size
+		ring.inner_radius = r - 0.01 * size
+		ring.outer_radius = r + 0.045 * size
+		ring.rings = 18
+		ring.ring_segments = 6
+		_mesh(root, ring, hoop, at + Vector3(0, h * 1.1 * size, 0), Vector3(1, 0.9, 1))
+	# The lid, a step down inside the rim, darker (it is in the rim's shade), with the rim's inner wall round it.
+	_mesh(root, _cylinder(0.35 * size, 0.35 * size, 0.06 * size, 18), FighterView.toon(Color(0.5, 0.32, 0.22), false), at + Vector3(0, 1.04 * size, 0))
+	_mesh(root, _disc(0.35 * size, 18), FighterView.toon(Color.WHITE, false, _stave_texture(true), Vector2.ONE), at + Vector3(0, 1.071 * size, 0))
+
+
+## A barrel's outline from foot to top as [radius, height] (size 1): narrow at the ends, bulging in the middle, the top a rim of staves
+## standing a little above the lid.
+const BARREL_PROFILE := [[0.33, 0.0], [0.37, 0.06], [0.405, 0.22], [0.425, 0.4], [0.43, 0.55], [0.425, 0.7], [0.405, 0.88],
+	[0.37, 1.04], [0.36, 1.1], [0.34, 1.1]]
+
+
+static func _barrel_radius(h: float) -> float:
+	var y := h * 1.1
+	for i in BARREL_PROFILE.size() - 1:
+		var a: Array = BARREL_PROFILE[i]
+		var b: Array = BARREL_PROFILE[i + 1]
+		if y >= float(a[1]) and y <= float(b[1]) and float(b[1]) > float(a[1]):
+			return lerpf(float(a[0]), float(b[0]), (y - float(a[1])) / (float(b[1]) - float(a[1])))
+	return 0.4
+
+
+## Staves, drawn once: twelve boards up the body in close warm browns with dark seams, a lit edge on each and a little grain; `lid` the
+## lid's boards across instead, in a darker brown.
+static func _stave_texture(lid := false) -> Texture2D:
+	var key := "lid" if lid else "body"
+	if _stave_cache.has(key):
+		return _stave_cache[key]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var base := Color(0.62, 0.4, 0.26) if lid else Color(0.78, 0.52, 0.33)
+	var seam := base.darkened(0.5)
+	var body := '<rect width="256" height="256" fill="#%s"/>' % base.to_html(false)
+	var n := 5 if lid else 12
+	var w := 256.0 / float(n)
+	for k in n:
+		var c := base.lerp(base.darkened(0.2), rng.randf_range(0.0, 1.0))
+		var x := float(k) * w
+		if lid:
+			body += '<rect x="0" y="%.1f" width="256" height="%.1f" fill="#%s"/>' % [x, w, c.to_html(false)]
+			body += '<line x1="0" y1="%.1f" x2="256" y2="%.1f" stroke="#%s" stroke-width="4" opacity="0.7"/>' % [x, x, seam.to_html(false)]
+		else:
+			body += '<rect x="%.1f" y="0" width="%.1f" height="256" fill="#%s"/>' % [x, w, c.to_html(false)]
+			body += '<line x1="%.1f" y1="0" x2="%.1f" y2="256" stroke="#%s" stroke-width="3" opacity="0.7"/>' % [x, x, seam.to_html(false)]
+			body += '<line x1="%.1f" y1="0" x2="%.1f" y2="256" stroke="#%s" stroke-width="2" opacity="0.35"/>' % [x + 3.0, x + 3.0, c.lightened(0.3).to_html(false)]
+			for g in 3:
+				var gx := x + rng.randf_range(6.0, w - 4.0)
+				body += '<path d="M%.1f,0 q%.1f,128 0,256" fill="none" stroke="#%s" stroke-width="1.2" opacity="0.3"/>' % [gx, rng.randf_range(-4.0, 4.0), c.darkened(0.3).to_html(false)]
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">%s</svg>' % body
+	var img := Image.new()
+	img.load_svg_from_string(svg, 1.0)
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	_stave_cache[key] = tex
+	return tex
+
+
+static var _stave_cache := {}
 
 
 static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
@@ -1931,14 +2109,25 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var post := Materials.wood(Color(0.9, 0.7, 0.46))
 	var rail := Materials.wood(Color(0.72, 0.5, 0.32), Vector2(6, 1))
 	var cap := FighterView.toon(Color(0.78, 0.56, 0.36))
+	# Built by hand: sturdier posts of slightly different heights, each leaning a touch, and the rails set bay by bay between them, each
+	# board a little off level, its ends passing into the posts (not two perfect rails the length of the stage).
+	var posts: Array = []
 	var x: float = e[0] + 0.6
 	while x <= e[1] - 0.5:
-		_mesh(root, _box(Vector3(0.18, 1.0, 0.18)), post, Vector3(x, e[2] + 0.5, -6.2))
-		_mesh(root, _sphere(0.12, 8), cap, Vector3(x, e[2] + 1.02, -6.2), Vector3(1.0, 0.55, 1.0))
-		_contact(root, Vector3(x, e[2], -6.2), Vector2(0.2, 0.16))
+		var tall := 0.94 + rng.randf_range(-0.05, 0.05)
+		var lean := rng.randf_range(-2.5, 2.5)
+		_mesh(root, _box(Vector3(0.22, tall, 0.22)), post, Vector3(x, e[2] + tall / 2.0, -6.2), Vector3.ONE, Vector3(0, 0, lean))
+		_mesh(root, _sphere(0.145, 8), cap, Vector3(x - sin(deg_to_rad(lean)) * tall, e[2] + tall + 0.02, -6.2), Vector3(1.0, 0.55, 1.0))
+		_contact(root, Vector3(x, e[2], -6.2), Vector2(0.22, 0.17))
+		posts.append(x)
 		x += 1.6
-	for h in [0.35, 0.75]:
-		_mesh(root, _box(Vector3(e[1] - e[0] - 1.0, 0.12, 0.08)), rail, Vector3((e[0] + e[1]) / 2.0, e[2] + h, -6.1))
+	for i in posts.size() - 1:
+		var a0: float = posts[i]
+		var a1: float = posts[i + 1]
+		for h in [0.32, 0.7]:
+			var tilt := rng.randf_range(-1.6, 1.6)
+			_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06),
+				Vector3.ONE, Vector3(0, 0, tilt))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
 	# A bright day: a few motes of pollen in the air, no shafts of light.
 	_motes(root, Color(1.0, 0.98, 0.8), e)
@@ -2038,22 +2227,29 @@ static func _windmill(root: Node3D, at: Vector3) -> void:
 	_mesh(root, _cylinder(2.1, 2.1, 0.4, 16), wood_dark, at + Vector3(0, 13.2, 0))
 	_mesh(root, _cylinder(0.0, 2.6, 3.2, 16), Materials.wood(Color(0.74, 0.34, 0.28), Vector2(6, 3)), at + Vector3(0, 15.0, 0))
 	_mesh(root, _sphere(0.3, 10), wood_dark, at + Vector3(0, 16.7, 0))
+	# The windshaft comes out of the cap through a wooden housing on the tower's face, tilted up a little as a real one is, into the hub.
+	_mesh(root, _box(Vector3(1.3, 1.1, 1.0)), wood_dark, at + Vector3(0, 12.5, 1.75))
+	_mesh(root, _cylinder(0.26, 0.26, 1.2, 10), wood, at + Vector3(0, 12.55, 2.6), Vector3.ONE, Vector3(84, 0, 0))
 	var hub := Spinner.new()
 	hub.speed = 0.6
-	hub.position = at + Vector3(0, 12.5, 2.4)
+	hub.position = at + Vector3(0, 12.6, 3.2)
 	root.add_child(hub)
-	_mesh(hub, _cylinder(0.45, 0.45, 0.6, 12), wood_dark, Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
-	var sail := FighterView.toon(Color(0.95, 0.91, 0.82))
+	# The hub: a drum the stocks pass through, an iron cap on its nose.
+	_mesh(hub, _cylinder(0.62, 0.62, 0.7, 14), wood_dark, Vector3.ZERO, Vector3.ONE, Vector3(90, 0, 0))
+	_mesh(hub, _cylinder(0.32, 0.4, 0.3, 12), FighterView.respond(FighterView.toon(Color(0.36, 0.34, 0.42)), "metal"), Vector3(0, 0, 0.45), Vector3.ONE, Vector3(90, 0, 0))
+	var sail := FighterView.toon(Color(0.95, 0.9, 0.8))
 	for k in 4:
 		var arm := Node3D.new()
 		arm.rotation.z = TAU * k / 4.0
 		hub.add_child(arm)
-		# The stock, then the frame on one side of it: two rails, slats across, and canvas over the outer three quarters.
-		_mesh(arm, _box(Vector3(0.3, 7.6, 0.24)), wood, Vector3(0, 3.8, 0))
-		_mesh(arm, _box(Vector3(0.1, 5.8, 0.14)), wood, Vector3(1.8, 4.6, 0.05))
+		# The stock; on one side of it a lattice (an outer rail and slats across) with the canvas stretched behind it, so the frame reads
+		# over the cloth; on the other a narrow leading board.
+		_mesh(arm, _box(Vector3(0.32, 7.6, 0.26)), wood, Vector3(0, 3.8, 0))
+		_mesh(arm, _box(Vector3(0.14, 5.8, 0.16)), wood, Vector3(1.85, 4.6, 0.06))
 		for j in 7:
-			_mesh(arm, _box(Vector3(1.9, 0.08, 0.1)), wood, Vector3(0.95, 1.9 + j * 0.9, 0.05))
-		_mesh(arm, _box(Vector3(1.6, 4.4, 0.05)), sail, Vector3(0.95, 5.2, 0.14))
+			_mesh(arm, _box(Vector3(1.9, 0.1, 0.12)), wood, Vector3(0.95, 1.9 + j * 0.9, 0.08))
+		_mesh(arm, _box(Vector3(1.66, 5.2, 0.08)), sail, Vector3(0.95, 4.75, -0.04))
+		_mesh(arm, _box(Vector3(0.42, 5.6, 0.08)), wood_dark, Vector3(-0.36, 4.7, -0.02))
 
 
 ## A red barn (`at` its foot): plank walls under a steep roof, white trim round the big doors with a cross brace, and a hay loft door.

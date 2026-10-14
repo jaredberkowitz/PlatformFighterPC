@@ -92,6 +92,26 @@ read well; the faces, wardrobe and moves depend on them, so they stay. Hands are
   Performance could not be measured cleanly this pass (the machine was busy: the GPU time swung between 1.8 and 5.5 ms with either
   shadow setting); to be measured again.
 
+### Pass 55: the meadow's hero props (phase 5, first of each group)
+
+- **Hay bales** (`_hay_bale`): were 12-sided drums with the straw hat's weave wrapped over them, ends included, so they read as
+  checkered boxes. Now a lathe (`_lathe`, a new helper): a drum whose rim rounds over into the ends, strands of straw running round
+  the body and a rolled spiral painted on each end (`_straw_texture`, drawn in code), and two thin bands of twine.
+- **Barrel** (`_barrel`): a straight cylinder with flat bands. Now a bulging lathe of painted staves (`_stave_texture`: twelve boards,
+  dark seams, lit edges, grain), iron hoops sized to the bulge where they sit, a rim of staves standing above an inset, boarded lid.
+- **Windmill** (`_windmill`): the canvas sat in front of the lattice, so the sails read as four flat white boards. The canvas is now
+  stretched behind the frame (rails and slats over it, as a common sail is built), with a leading board on the other side of each
+  stock, and the hub is a drum with an iron nose on a windshaft that comes out of a housing on the tower, not a disc floating in
+  front of it.
+- **Fence**: sturdier posts of slightly different heights, each leaning a touch, and rails set bay by bay, each a little off level,
+  instead of two perfect boards the length of the stage. Kept as quiet as before behind the fighters. (It draws from the meadow's
+  random sequence, so the flowers placed after it moved.)
+- **The earth front's tiling** (found while checking): each soil bed's seam started at x 0 without its wave (a step at every repeat),
+  and the beds had straight bottoms with bare bands between them. Seams start on the wave now, each bed runs down under the next, the
+  last one wrapped to the top, and the beds' shades are closer together. Checked by drawing the tile 2x2.
+- **Images**: `docs/screenshots/polish4_bales.png`, `polish4_windmill.png`, `polish4_meadow_props.png` (before left).
+- **Checks run**: the meadow close up and at play distance (1080p), match flow and art pipeline tests.
+
 ## Skipped, and why
 
 Nothing yet.
