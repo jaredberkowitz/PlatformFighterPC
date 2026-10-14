@@ -66,7 +66,7 @@ move selection. The rollback fuzzer now includes random attacks and hits.
 
 ## Reference-based moves
 
-These moves follow published Smash Ultimate frame data for two archetypes. Names and visuals stay original; only the
+These moves follow the reference platform fighter's published frame data for two archetypes. Names and visuals stay original; only the
 numbers (a game's mechanics) are matched. Frame numbering matches the reference: the tick the button is pressed is
 frame 1, so a hit "on frame 6" lands on tick 6 and a move with first actionable frame 38 returns control on tick 38
 (`move frame = frame - 1` internally). Damage is shown with the 1.2 multiplier the reference applies in one-on-one rules
