@@ -2552,7 +2552,7 @@ func _blade_target(s: Dictionary) -> Array:
 	if SWING_FROM.has(name):
 		wind = swing + float(SWING_FROM[name])
 	# A thrust does not swing: the blade points at the hit from the start and the arm drives it in (see `_pose_blade`).
-	if (_cls(s) == 0 and SWORD_THRUSTS.has(name)) or (_cls(s) == GREATSWORD_CLASS and GREAT_THRUSTS.has(name)):
+	if _thrust(_cls(s), name):
 		wind = swing
 	var t: PackedInt32Array = s.move_timing  # total, first active, last active
 	var f: float = s.state_frame
@@ -2601,6 +2601,13 @@ var hand_target := Vector3.ZERO
 var off_hand_target := Vector3.ZERO
 ## The sword's thrusts: the blade points at the hit throughout and the arm drives it in, rather than swinging round to it.
 const SWORD_THRUSTS := ["usmash", "dtilt"]
+## The Wanderer's thrusts (after its reference): the down air plunges the blade straight down and the up air drives it straight up.
+const BUCKLER_THRUSTS := ["dair", "uair"]
+
+
+## Whether move `name` of class `cls` is a thrust (the blade points at the hit throughout and the arm drives it in).
+static func _thrust(cls: int, name: String) -> bool:
+	return (cls == 0 and SWORD_THRUSTS.has(name)) or (cls == GREATSWORD_CLASS and GREAT_THRUSTS.has(name)) 		or (cls == BUCKLER_CLASS and BUCKLER_THRUSTS.has(name))
 ## Neutral airs whose second hit circles the body (the sword's): the whole body flips over backward once while the arm holds the blade
 ## out, between these frames, so the blade follows the hits round. By class.
 ## (None now: the sword's neutral air no longer turns the body upside down. Ours is a windmill slash: the body stays upright and the arm
@@ -2640,8 +2647,7 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	var attacking: bool = s.move_name != "" and s.state_frame > 0
 	arm_k = move_toward(arm_k, 1.0 if attacking else 0.0, delta * 9.0)
 	# A punch reaches out with the wind-up and comes home in the recovery, like a kick (a blade stays in the hand throughout).
-	if attacking and (not bladed(_cls(s)) or (_cls(s) == 0 and SWORD_THRUSTS.has(String(s.move_name)))
-			or (_cls(s) == GREATSWORD_CLASS and GREAT_THRUSTS.has(String(s.move_name)))):
+	if attacking and (not bladed(_cls(s)) or _thrust(_cls(s), String(s.move_name))):
 		arm_k = _reach_weight(s)
 	# While the body spins (see NAIR_SPIN) the frame the blade is posed in turns with it, so the tip is turned back by as much: the arm
 	# holds the blade out and the spin carries it round the circle the hits make.
@@ -2671,6 +2677,13 @@ func _pose_blade(s: Dictionary, delta: float) -> void:
 	# A fist carries on a little past its strike and settles (the `hand` spring, kicked as the hit ends).
 	if not bladed(_cls(s)) and absf(springs.value("hand")) > 0.001:
 		hand += (hand - shoulder).normalized() * springs.value("hand")
+	# Standing on the ground the tip never passes into the floor (a low cut whose arm drops into a deep lunge): the blade turns up about
+	# the hand, keeping its length, just enough to clear it.
+	if s.platform >= 0 and tip.y < GROUND_CLEARANCE and hand.y > GROUND_CLEARANCE:
+		var reach_len := (tip - hand).length()
+		var dy := clampf((GROUND_CLEARANCE - hand.y) / maxf(reach_len, 0.001), -1.0, 1.0)
+		var dx := sqrt(maxf(0.0, 1.0 - dy * dy)) * signf(tip.x - hand.x if absf(tip.x - hand.x) > 0.001 else 1.0)
+		tip = hand + Vector2(dx, dy) * reach_len
 	var along := tip - hand
 	var length := maxf(along.length(), 0.3)
 	var swing := rad_to_deg(along.angle())

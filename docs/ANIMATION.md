@@ -160,4 +160,9 @@ a corkscrew about the upright body (no head-over-heels spin); wall jumps back-fl
   is its low, level lunge with one claw thrust ahead (was an upright step); its neutral air is the reference's held double kick,
   leaned far back with both legs out (new `kick_double`; was a one-leg sitting kick). The sword's airs (tucked knees, the back air
   turning the body round) and tilts already matched. `docs/screenshots/anim_reference_pass2.png`.
+- **Pass 3** (the other references): the Wanderer's down and up airs are its reference's thrusts, the blade driven straight down below
+  the tucked knees (`sword_plunge`) and straight up overhead with the body stretched beneath (`sword_rise`), the blade pointed at the
+  hit throughout (`fighter_view.gd` `_thrust`, `BUCKLER_THRUSTS`); the Champion's down air plunges too. A grounded blade's tip turns up
+  about the hand to stay above the floor (a deep lunge dropped it in). The all-rounder's, speedster's, Hauler's, Bounder's and Needles
+  fighter's moves were checked against their references and already matched after pass 1. `docs/screenshots/anim_reference_pass3.png`.
 - Next: the Settler's own clips (pocket, shovel planting, watering can, axe) and its props; a pose-by-pose pass per moveset.

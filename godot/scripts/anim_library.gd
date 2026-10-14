@@ -221,7 +221,8 @@ const CLASS_MOVES := {
 		"fsmash": "sword_fsmash",
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
-		"dair": "sword_dair",
+		# (A plunge, the blade driven straight down below, as its reference's.)
+		"dair": "sword_plunge",
 		# The gauge charge: a held, crouched stance with the blade at rest (no hitbox).
 		"down special": "crouch",
 	},
@@ -246,16 +247,17 @@ const CLASS_MOVES := {
 	},
 	# Buckler (the Wanderer): the longsword's cuts (its blade follows its hits).
 	9: {
-		# (Its reference's neutral and back airs are kicks.)
+		# (Its reference's neutral and back airs are kicks; its down and up airs thrust the blade straight down and up.)
 		"nair": "kick_nair",
 		"bair": "kick_bair",
+		"dair": "sword_plunge",
+		"uair": "sword_rise",
 		"ftilt": "sword_ftilt",
 		"utilt": "sword_utilt",
 		"dtilt": "sword_dtilt",
 		"fsmash": "sword_fsmash",
 		"usmash": "sword_usmash",
 		"dsmash": "sword_dsmash",
-		"dair": "sword_dair",
 	},
 	# Pockets (the Settler, after the reference villager): the shovel dug in front and behind, the slingshot drawn and loosed forward
 	# (aimed like the blaster); its back air keeps the shared turn to face behind.

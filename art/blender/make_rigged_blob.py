@@ -2207,6 +2207,19 @@ def main() -> None:
             {"spine": (-10.0, 0.0), "head": (2.0, 0.0), "stance": (84.0, 58.0), "shin.L": (-4.0,), "shin.R": (-122.0,),
              "foot.L": (-30.0,), "foot.R": (34.0,), "arms": (-18.0, 76.0)},
             {"spine": (-4.0, 0.0), "stance": (70.0, 56.0), "shin.L": (-20.0,), "shin.R": (-116.0,), "arms": (-8.0, 60.0)})
+    # A plunging thrust (the Wanderer's and the Champion's down airs, after their references): the blade raised in both hands with the
+    # knees tucked, then both knees drawn right up under the chin as the blade is driven straight down below, the body upright over it
+    # and the head looking down along the blade.
+    move_of("sword_plunge",
+            {"spine": (-6.0, 0.0), "head": (-4.0, 0.0), "stance": (50.0, 40.0), "shin.L": (-90.0,), "shin.R": (-80.0,), "arms": (30.0, 24.0)},
+            {"spine": (14.0, 0.0), "head": (18.0, 0.0), "stance": (92.0, 84.0), "shin.L": (-130.0,), "shin.R": (-124.0,), "arms": (10.0, 20.0)},
+            {"spine": (8.0, 0.0), "head": (8.0, 0.0), "stance": (70.0, 60.0), "shin.L": (-110.0,), "shin.R": (-100.0,)})
+    # An upward thrust (the Wanderer's up air): gathered with the knees up and the blade drawn down by the hip, then the body stretches out
+    # long beneath the blade as it is driven straight up overhead, the legs hanging together and the head tipped back to follow it.
+    move_of("sword_rise",
+            {"spine": (16.0, 0.0), "head": (6.0, 0.0), "stance": (60.0, 54.0), "shin.L": (-100.0,), "shin.R": (-96.0,), "arms": (20.0, 20.0)},
+            {"spine": (-12.0, 0.0), "head": (-8.0, 0.0), "stance": (-6.0, 4.0), "shin.L": (-14.0,), "shin.R": (-20.0,), "arms": (-24.0, 30.0)},
+            {"spine": (-4.0, 0.0), "stance": (16.0, 20.0), "shin.L": (-40.0,), "shin.R": (-46.0,)})
     # The claws fighter's neutral air, after its reference: a held double kick, the body leaned far back and both legs shot out straight
     # ahead together, the arms flung back for balance; the wind-up curls both knees up to the chest.
     move_of("kick_double",
