@@ -367,7 +367,7 @@ A ground pound: on the ground a hop (with a weak hit) into a fast drop; in the a
 
 1. **Down tilt's active frames**: ssbwiki.com and UFD **8-10**, dragdown **7-9** (with "low profile 7-10"). Resolved to **8-10** (two
    sources; dragdown's table is a frame early on this move only).
-2. **The egg's timer cut by hits**: the move page says the cut is twice the damage dealt "taking the egg's 0.66x damage multiplier into
+2. **The egg's timer cut by hits** (**resolved 2026-10-14**: the raw neutral special page's parameters say the 0.66x applies before the 2-frame cut, and its "84 to 264 with the 1v1 multiplier" fits a cut of twice the percent actually taken; built that way at sim 107): the move page says the cut is twice the damage dealt "taking the egg's 0.66x damage multiplier into
    account" (twice the damage actually taken); the move article says "2 frames per damage dealt (prior to the damage reduction)".
    **Unresolved**; proposed **twice the damage actually taken** [E] (the move page is the parameter-based one); footage settles it (a
    10% hit on an egg with a frame count).
@@ -378,7 +378,7 @@ A ground pound: on the ground a hop (with a weak hit) into a fast drop; in the a
    ssbwiki.com compares each hit's knockback with 120; an earlier-game player guide: "knockback NEVER adds up". **Unresolved**;
    proposed **each hit on its own** [E: two of three statements, one of them from the earlier game]; footage settles it (a multi-hit
    move into a double jump).
-5. **Egg Lay's success timeline**: the laying part's FAF 38 against UFD's total of 62 puts the laying part's start on move frame 25 and
+5. **Egg Lay's success timeline** (built at sim 107 as: a catch on 19, a 6-frame swallow, the laying part from 26, release 46, FAF 63 [D]): the laying part's FAF 38 against UFD's total of 62 puts the laying part's start on move frame 25 and
    its release on 45 [D]; UFD's "egg appears on frame 33" does not fit that. Proposed: the catch on 19-22, the swallow until the laying
    part starts on **25** [E], the release on its 21, FAF 63 overall [R: UFD]; footage settles it.
 6. **Egg Lay's animation lengths**: ssbwiki.com's table 61 grounded, 51 aerial; the changelist "the aerial version's animation is

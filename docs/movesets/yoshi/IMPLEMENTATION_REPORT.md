@@ -195,6 +195,109 @@ re-exported (sim 95) and equal to the builders. **Not run**: the Godot tests.
   changed here.)
 * Still the house limits listed for phase 1.
 
+## Phase 3 (sim 107, content schema 6 unchanged): the tongue and its egg (E8), the rolling shell
+
+Branch `clutch-phase3`, from `movesets` at af0949e (sim 102), merged with `movesets` at 2030552 (sim 103) and at 885a44e (sim 106):
+this phase is **107** (104 was taken first; renumbered at the coordinator's request). Commits: 1fae479 (engine, moves, tests), de67063
+(the roll's hit test, the bridge accessor), b84faa6 and 101cc30 (the merges), then the docs commit. The ssbwiki.com raw neutral
+special page was re-read on 2026-10-14: it settles conflict 2 (below) and gives nothing new on the egg's physics.
+
+### Engine (general; every default is today's behaviour)
+
+* **E8, the egg** (owner decision 46, as designed in `PROJECT_AUDIT.md`, separate from the bury and sharing only the mash reading).
+  * Content: a hit effect **`EFFECT_ENCASE`** (3; `effect encase`), only on a throw row, and **`Move::encase: Option<Encase>`** (an
+    `encase { ... }` block, every field required: `base per_percent percent_cap mash_stick mash_button hit_cut damage_taken launch_x
+    launch_y grow_from grow_frames size shift_x shift_y air_shift_x air_shift_y exit_vy exit_intangible`). Validation: the effect only on
+    a throw hitbox, the block and an encase row go together, `base` above 0, no negative rates, `damage_taken` 0-200, `grow_from` 1-100,
+    `size` 1-200. `Weapon::hash_into` hashes every field. `docs/CONTENT.md` lines.
+  * State: **`FighterState::Encased`** and hashed **`Fighter::encase_timer`** (fixed point), **`encase_age`**, **`encase_char`** (the
+    body that laid it: an index into `Content::fighters`) and **`encase_move`**: the egg's numbers are read from that body's move
+    (`combat::encase_of`), so nothing else is copied into the victim. (The audit proposed the layer's slot, `encase_by`; the body index
+    reads the same numbers from content alone, so hurtboxes and the bridge need no other fighter.) `scripting::World::encase` carries
+    each fighter's numbers into `fighter::update` (no new argument).
+  * Laying (`combat::apply_hit`, a throw row with the effect): the throw's damage is added as usual (staleness, the 1.2), then
+    `fighter::encase`: the timer `base + per_percent x min(p, cap) - hit_cut x added` (p the percent before the throw), velocity
+    `launch` by the layer's facing, no hitstun.
+  * In the egg (`fighter::encased`): outside hitlag the timer drops 1, plus `mash_button` on a frame with a new press of any button and
+    `mash_stick` on one with a stick flick (**`grab::mash_inputs`**, the shared reading, which `grab::mash_cut` now also uses); a flick
+    adds `shift.0` sideways and, with the stick up, hops at `shift.1` on the ground (`air_shift` in the air, added); the fighter's own
+    gravity, fall speed, traction and air friction; it lands and stays an egg, walks off edges, catches no ledge and techs nothing; at 0
+    it breaks out (`Airborne`, `exit_vy`, `exit_intangible` frames).
+  * Hit while in it: the damage times `damage_taken` percent (then the 1.2), the hitlag as usual, the timer cut by `hit_cut` x the
+    percent actually added, no knockback, no hitstun, no state change (a bury or trip never applies); a push still pushes. Grabs and
+    command grabs refuse it (`grab::grabbable`, `grab::catchable`).
+  * Hurtbox (`combat::body_hurtboxes`): all four circles are one egg standing on the feet, `size` percent of the body's height across,
+    growing from `grow_from` percent over `grow_frames` frames (`Encase::radius`). Bridge: read-only `fighter_egg_radius(i)`.
+  * `step.rs`'s random-play invariant accepts `Encased` on the ground or in the air.
+
+### Built
+
+* **Neutral special, the tongue** (`moves_clutch.rs::tongue_and_lay`): one move on the ground and in the air (the reference's versions
+  share their boxes and FAF; touching down carries it on [E]). A command grab: the mouth box on 19 (r 5.9 → 7, 7.0 up, 9.0 ahead [D]),
+  the tip's aerial-only (r 4.0 → 5) and grounded-only (r 3.5 → 4) boxes on 19-22 swept 8.0 to 22.0 ahead at 6.0 up [E: the tip bone's
+  reach, gap 3, as the grab]; whiff FAF 42 [R].
+* **The catch, the swallow and the lay** (`LAY` = ext0): from the frame after the catch, a 6-frame swallow, then the reference's laying
+  part (release on its 21, intangible on its 7-29, FAF 38 [R]): release on 27, intangible 13-35, FAF 44, so a catch on 19 lays on 46
+  and acts on 63 (UFD's "62 when successful") [D: conflict 5]. The victim held at the feet inside the body [E]. The throw: 7%, 361,
+  BK 0, KS 100, H 0 [R], effect encase. In the air the vertical speed becomes 0.125 as it lays (the reference's 1 [R],
+  `clutch_lay.script`). No ledges [R].
+* **The egg** (`Encase` on `LAY`), every number [R] from ssbwiki.com's parameters except where marked: 100 + 1.8 x min(p, 100) frames,
+  2 off a percent actually taken (so **84 to 264 frames** unmashed: the page's own figures with the one-on-one multiplier), 7 a stick
+  input, 12.6 a button input, 0.66x damage, laid at 0.7 / 2 (0.0875, 0.25 world) **behind** the layer [E: gap 5], 0.45x growing to full in
+  20 frames, its full size one body height across [E: gap 6], shift 0.3 / hop 1 on the ground and 0.01 / 0.1 in the air, out at 2.5
+  (0.3125) with 7 intangible frames; its gravity, fall and traction the victim's own [E: gap 7]; the midair jump kept on breaking out
+  [E: gap 8]; no grabs on an egg [E: gap 9].
+* **Side special, the rolling shell** (`rolling_shell`, `clutch_roll.script`, `clutch_roll_end.script`; ending `ROLL_END` = ext1),
+  simple as decision 49 asks: the hop at 2 (0.25) on the first scripted frame, the roll's gravity 0.13 / fall 1.95 [R]; the roll from 21
+  starting at 0.9 [R]; on the ground the stick forward accelerates 0.05 toward 1.4 + 2.44 x the stick (1.4 to 3.84 reference units: the
+  base 1.4-3.2 and x1.2 by the stick [R]; the law between [E: gap 10]), neutral returns to 1.4, back brakes (0.12 a frame, friction +
+  acceleration [R]) and turns round at 0 [E]; in the air the speed is kept [E]. The hit from 32 (the first touch of the ground) [R]:
+  10% plus the speed in reference units via `charge_add` / `set_charge` (E29) [R], 80 (type 0), BK 70, KS 50, aerial-only r 2.3 → 3
+  and grounded-only r 3.5 → 4 at 5.6 up, rehit every 32 [R]; a hit takes 1 off the speed and 40 frames off the roll [R]; one jump on
+  the ground at 0.3 up [E: gap 11]; a wall turns it at 0.4x with 1.7 up [R]; special on the ground from 25 roll frames, or the end of
+  180, goes into the ending: speed x0.7, vertical x0.5, friction 0.05, FAF 40 later [R] (85 at the quickest [R]); ledges in front only
+  while falling [E: gap 12]; never helpless [R].
+* Slots now: `ext0` the lay, `ext1` the roll's ending, `ext3` the down air landing, `ext4` aerial drop, `ext5` the drop's landing;
+  `ext2` and `ext6`-`ext15` free.
+
+### Verified (tests that ran)
+
+`sim-core/tests/clutch_egg.rs` (20): the tongue's boxes, kinds and targets, whiff FAF 42; a catch on 19 on the ground, through a shield
+and in the air; a catch on 19 laying on 46, acting on 63, the bounder intangible on 32-54 exactly; the throw's 7% (8.4 taken) and the
+egg's launch (behind, 0.0875 / 0.25, no hitlag); the egg lasting **84 / 174 / 264 / 264** frames at 0 / 50 / 100 / 150%; mashing (a
+press every other frame, a flick every other frame) against the formula; a jab on a landed egg: 0.66 x 1.2 of its damage, still an egg,
+hitlag, the timer cut by twice the percent taken; no tongue or grab on an egg; the egg's growth (0.45, 0.725 at 10 frames, full at 20,
+all four circles); the break-out at 0.3125 with 7 intangible frames; the ground shift and hop and the air nudge; an egg falling off the
+stage knocked out; an aerial lay setting the bounder's speed to 0.125; an egg resimulated exactly from a snapshot; the formula's
+numbers; the roll's hop, its touch-down about 32, its box data; its top speed 0.48 and 13.8% at 3.8; the quickest stop acting on 85
+(a press on 44 too early); the roll ending itself on 201 (180 frames) and jumping once; a roll hit for 10 + speed x 1.2 and the speed
+lost. `move_rules::the_egg_is_in_the_content_hash` (all 18 fields and the block); `state::checksum_sees_every_field` (the state and
+the four fields); `sim-content/tests/bundle.rs::an_encase_block_round_trips_and_is_checked`; `clutch.rs` registration (every special
+the Clutch's own).
+
+Checks: `cargo fmt --all`; `cargo test --workspace` (all passed, after the sim 106 merge); `cargo clippy --workspace --all-targets -- -D
+warnings` (clean); `pftool fuzz-rollback 300` (0 mismatches; 146 bounders); `pftool net-fuzz 100` (0 mismatches; 19 bounders);
+`pftool content-check content/base.pfc` (ok); `content/base.pfc` re-exported (sim 107) and equal to the builders. **Not run**: the Godot
+tests (no GDScript changed; one read-only bridge accessor added). Whether random play actually lays eggs is not counted by the fuzzers.
+
+### Estimated or limited [E] (decision 60)
+
+* The egg: laid behind (gap 5), one body height across (gap 6), the victim's own physics (gap 7), the midair jump kept and free to act
+  on breaking out (gap 8), not grabbable or re-eggable (gap 9); a stick flick counts as one stick input whatever its direction, and the
+  hop needs the stick up past the threshold; mashing counts at most one button and one flick a frame (the shared reading).
+* The swallow's 6 frames (conflict 5) and whether the bounder is armored there (gap 4: not modelled; the interrupted 4% row neither);
+  the held victim pinned at the feet; touching down during the aerial tongue or the swallow carries on.
+* The roll (decision 49): the steering law, the turn, the jump's speed, the air behaviour, the ledges; **E31** (no hit in the air or
+  while turning) and **E32** (the ledge stall) stay deferred, so its hit is out in the air and while turning and it rolls off ledges;
+  it does not pass through shields (bodies only), has no floor bounce after the jump, and its special needs a press on the frame (no
+  buffer).
+
+### Training-mode check (hitbox view)
+
+Bounder vs a standing duelist at 2.5 units: (1) neutral special at 0%: the egg is laid on 46 behind, breaks 84 frames later; at 100%,
+264; (2) mash attack in the egg: out about twice as soon; (3) jab the egg: about 2.4% and no launch; (4) side special and hold forward:
+the box appears as it lands (32), the speed tops out near 0.48 a frame; special after frame 46 stops it, actionable on 85.
+
 ## For the art agent
 
 Moves that need their own clip (each falls back to a shared archetype through `anim_library.gd` until then):
@@ -224,7 +327,15 @@ Moves that need their own clip (each falls back to a shared archetype through `a
 | Down special, aerial (`ext4`) | rise 2-15, top 16-18, drop from 19 | the same at 5.4 units |
 | The drop's landing (`ext5`) | 39 frames; stars out on 2 | a heavy squat landing; two small stars thrown 1 unit to each side, arcing up |
 
-Animation also needs (phase 3, later): the egg, the rolling egg.
+Animation also needs (phase 3, built at sim 107):
+
+| Move | First active / span | Pose and hitbox placement implied |
+| --- | --- | --- |
+| Neutral special, the tongue | 19-22, FAF 42 | the tongue shot out 1 to 2.75 units ahead at 0.75 up (a mouth box 1.1 ahead, 0.9 up on 19) |
+| The lay (`ext0`) | swallow 1-6, lay from 7, release 27, FAF 44 | the victim pulled in and swallowed (hide the held fighter while its holder is in `ext0`: `fighter_grab_partner`), then a squat and the egg popped out behind |
+| The egg (victim state `Encased`) | until it breaks | a spotted egg round the fighter, standing on its feet, radius `fighter_egg_radius(i)` (grows from 0.45x over 20 frames); wobbles when mashed; breaks into shell pieces as the fighter jumps out |
+| Side special, the rolling shell | hop 1-20, roll 21-200, hit from 32 | the bounder curled into a shell, rolling (spin with its speed), turning round when it stops |
+| The roll's ending (`ext1`) | 40 frames | the shell breaking open, the bounder hopping out |
 
 ## Phase 2 plan: Egg Throw and Yoshi Bomb (built: see "Phase 2" above; no separate falling slot was needed)
 
@@ -243,7 +354,7 @@ Animation also needs (phase 3, later): the egg, the rolling egg.
 3. Slots: up special; down special, `ext4`-`ext6` (aerial start, fall, landing). Tests in `clutch_specials.rs`, `move_rules.rs`
    (E30, E11), `projectiles` / burst tests for the E3b and E3e options; one SIM_VERSION bump.
 
-## Phase 3 plan: Egg Lay, then Egg Roll
+## Phase 3 plan: Egg Lay, then Egg Roll (built: see "Phase 3" above)
 
 1. **Egg Lay** with **E8** as approved (decision 46): the tongue (19: mouth box + aerial- and grounded-only tip boxes, command grab;
    20-22 the tip boxes; whiff FAF 42) and its aerial version; the catch moves (swallow and lay, `hold_at` in the mouth, laying throw on
