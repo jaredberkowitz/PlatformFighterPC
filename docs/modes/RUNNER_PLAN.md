@@ -204,7 +204,8 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | R0 | This plan, refined with the owner; enemy and item lists agreed | owner sign-off |
 | R1 | Vertical slice: the forward-only creeping camera, 5 hand-made chunks on a loop, 2 enemy kinds, coins and the combo meter, lives, the run HUD, a results screen, the menu entry | a 2-minute run is fun to play with placeholder art (built, sim 120) |
 | R1b | Rooms (owner's change after R1): the room window with a wall behind, the two-way camera, streets, arenas, a placeholder shop (heal, extra life), rest stops, seeded room types, the map strip | backtracking feels fair and the rooms read clearly (built, sim 122) |
-| R2 | The generator: room pools by difficulty, the two routes (the fork in 3.1), the difficulty curve, 6 enemy kinds | runs differ and get harder smoothly |
+| R2a | The world (owner, 14 Oct; see `RUNNER_WORLD.md`): slopes, room variants with optional parts, mirroring and obstacle pieces, the high/low fork, elevation lines, footing objects with `look` tags, the walk-in shop with a shopkeeper | rooms feel varied and believable; you can tell footing from decoration |
+| R2b | Enemies and the curve: four new enemy kinds with wind-ups, budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event | runs differ and get harder smoothly |
 | R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls | a run's build changes how it plays |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
