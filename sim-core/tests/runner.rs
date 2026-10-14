@@ -746,6 +746,7 @@ fn checksum_sees_every_run_field() {
         ("mob.hitstun", |r| r.mobs[0].hitstun += 1),
         ("mob.hit_stamp", |r| r.mobs[0].hit_stamp ^= 1),
         ("mob.hit_groups", |r| r.mobs[0].hit_groups ^= 1),
+        ("mob.hit_age", |r| r.mobs[0].hit_age += 1),
         ("mob.shot_mask", |r| r.mobs[0].shot_mask ^= 1 << 15),
         ("mob.struck", |r| r.mobs[0].struck ^= true),
         ("mob.credit", |r| r.mobs[0].credit += 1),
@@ -778,4 +779,47 @@ fn versus_has_no_run_and_run_content_hashes() {
         ..kinds.mobs[0]
     };
     assert_ne!(rc.hash(), kinds.hash());
+}
+
+/// One swing hits a mob once per hit group, even though the attacker's hitlag pauses the move (the move is the same swing after it).
+#[test]
+fn one_swing_hits_a_mob_once() {
+    let mut rc = street_and_gap();
+    // A mob too heavy to be knocked out of the swing's reach.
+    rc.mobs[0].weight = fx(400);
+    let mut sim = RunSim::with(rc, 1);
+    sim.clear_mobs();
+    let x = sim.player().pos.x;
+    let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
+    sim.state.run.mobs[n].stamina = fx(500);
+    // The duelist's forward tilt: one hit group.
+    for frame in 0..60 {
+        sim.tick(inp(
+            if frame < 2 { 60 } else { 0 },
+            0,
+            if frame == 0 { ATTACK } else { 0 },
+        ));
+        let m = &mut sim.state.run.mobs[n];
+        m.pos.x = x + fx(1);
+        m.kb_vel = Vec2::ZERO;
+        // (Kept from striking back, which would break the combo this counts hits with.)
+        m.mode = run::MODE_COOLDOWN;
+        m.timer = 999;
+    }
+    let groups = {
+        let w = &sim.world.weapons[usize::from(sim.world.fighters[0].weapon)];
+        let mv = w.get(sim.player().move_id);
+        mv.hitboxes
+            .iter()
+            .map(|h| h.group)
+            .max()
+            .map_or(1, |g| u16::from(g) + 1)
+    };
+    assert!(sim.state.run.combo >= 1, "the swing missed");
+    assert!(
+        sim.state.run.combo <= groups,
+        "hit {} times with {} groups",
+        sim.state.run.combo,
+        groups
+    );
 }

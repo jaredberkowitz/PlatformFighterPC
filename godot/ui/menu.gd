@@ -1,6 +1,6 @@
 extends Control
 ## The main menu: where the game starts. A mosaic of big tiles (Play is the largest, with the last fighter played standing in it).
-## Play goes to character select, Online to online play, Replays to saved matches, Character Creator makes fighters, Controls rebinds
+## Play goes to character select, Run to the single-player run (choosing a fighter first), Online to online play, Replays to saved matches, Character Creator makes fighters, Controls rebinds
 ## keys, Editors opens the content editors, Quit leaves.
 ## Up and down (W and S) step through the tiles in order, left and right (A and D) move across, Enter (J, Space) picks, Esc quits.
 
@@ -23,7 +23,8 @@ var logo: Control
 
 ## [title, subtitle, scene, colour, icon, rect (x, y, w, h) on a 1280x720 screen]
 const ITEMS := [
-	["Play", "Battle on the couch", "res://select.tscn", Color(0.98, 0.74, 0.26), "play", Rect2(50, 150, 520, 500)],
+	["Play", "Battle on the couch", "res://select.tscn", Color(0.98, 0.74, 0.26), "play", Rect2(50, 150, 520, 380)],
+	["Run", "Single player: how far can you go?", "run", Color(0.86, 0.36, 0.3), "play", Rect2(50, 550, 520, 100)],
 	["Online", "Duels, groups, quick match", "res://online.tscn", Color(0.24, 0.5, 0.86), "online", Rect2(590, 150, 330, 240)],
 	["Replays", "Watch saved matches", "res://replays.tscn", Color(0.5, 0.36, 0.76), "replays", Rect2(940, 150, 290, 240)],
 	["Character Creator", "Make your own fighter", "res://creator.tscn", Color(0.3, 0.64, 0.36), "creator", Rect2(590, 410, 330, 240)],
@@ -43,12 +44,12 @@ const VIGNETTES := {
 }
 
 ## Where left and right go from each tile (index into ITEMS).
-const ACROSS := {0: [0, 1], 1: [0, 2], 2: [1, 2], 3: [0, 4], 4: [3, 5], 5: [4, 5], 6: [3, 6]}
+const ACROSS := {0: [0, 2], 1: [1, 4], 2: [0, 3], 3: [2, 3], 4: [1, 5], 5: [4, 6], 6: [5, 6], 7: [4, 7]}
 
 
 ## Launch arguments that mean "play right now": demos, network matches, a chosen content bundle or fighters. Launchers and
 ## test scripts use these, so they go straight to the game instead of the menu.
-const DIRECT_ARGS := ["--demo", "--host", "--join", "--relay", "--content", "--chars", "--shots", "--replay"]
+const DIRECT_ARGS := ["--run", "--demo", "--host", "--join", "--relay", "--content", "--chars", "--shots", "--replay"]
 
 
 class Logo extends Control:
@@ -67,7 +68,7 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		for d in DIRECT_ARGS:
 			if a.begins_with(d):
-				get_tree().change_scene_to_file.call_deferred("res://main.tscn")
+				get_tree().change_scene_to_file.call_deferred("res://runner.tscn" if d == "--run" else "res://main.tscn")
 				return
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(UI.Backdrop.new(false))
@@ -81,7 +82,7 @@ func _ready() -> void:
 	for item in ITEMS:
 		var tile := UI.Tile.new(item[0], item[1], item[3], item[4])
 		# (The utility tiles are quieter: a thinner line, a shallower body and smaller type.)
-		tile.tier = 1 if item[4] in ["controls", "editors", "quit"] else 0
+		tile.tier = 1 if item[4] in ["controls", "editors", "quit"] or item[2] == "run" else 0
 		var r: Rect2 = item[5]
 		tile.position = r.position
 		tile.size = r.size
@@ -90,12 +91,13 @@ func _ready() -> void:
 		tile.mouse_entered.connect(func(): _select(buttons.find(tile)))
 		add_child(tile)
 		buttons.append(tile)
-		if item[4] == "play":
+		if item[4] == "play" and item[2] != "run":
 			# The last fighter played stands in the Play tile (in place of its icon).
 			tile.icon = ""
 			tile.hero = true
 			tile.show_spotlight([[0.5, 0.8]])
-			preview = Preview.new(Vector2i(300, 420), false, 7.2)
+			# (Sized to the tile: it shares its column with the Run tile.)
+			preview = Preview.new(Vector2i(300, int(r.size.y) - 70), false, 7.2)
 			preview.position = Vector2(r.size.x * 0.5 - 150.0, 16)
 			preview.set_loadout(Roster.net_entry().look)
 			tile.add_layer(preview)
@@ -156,6 +158,10 @@ func _choose(target: String, tile: Control = null) -> void:
 		await get_tree().create_timer(0.09).timeout
 	if target == "":
 		get_tree().quit()
+	elif target == "run":
+		# The single-player run: the fighter choice in its run mode, then the run.
+		Roster.session = {"mode": "run"}
+		get_tree().change_scene_to_file("res://select.tscn")
 	else:
 		get_tree().change_scene_to_file(target)
 

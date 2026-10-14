@@ -107,9 +107,11 @@ pub struct Mob {
     pub stamina: Fx,
     pub hitlag: u8,
     pub hitstun: u16,
-    /// The attack that last hit it (its attacker, move and first frame), and which of that attack's hit groups have.
+    /// The swing that last hit it (`1 << 16 | attacker << 8 | move`, 0 for none), which of its hit groups have, and the swing's move
+    /// frame when last seen: a lower one (or another move, or no attack) is a new swing.
     pub hit_stamp: u32,
     pub hit_groups: u8,
+    pub hit_age: u16,
     /// Projectile slots whose shot has hit it (cleared as each slot empties).
     pub shot_mask: u16,
     /// Its current attack has connected (one hit per attack).
@@ -208,6 +210,7 @@ impl Run {
             hitstun: 0,
             hit_stamp: 0,
             hit_groups: 0,
+            hit_age: 0,
             shot_mask: 0,
             struck: false,
             credit: 0,
@@ -674,6 +677,7 @@ impl StateHash for Mob {
         h.write_u16(self.hitstun);
         h.write_u32(self.hit_stamp);
         h.write_u8(self.hit_groups);
+        h.write_u16(self.hit_age);
         h.write_u16(self.shot_mask);
         h.write_bool(self.struck);
         h.write_u16(self.credit);

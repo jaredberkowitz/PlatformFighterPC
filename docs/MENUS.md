@@ -51,6 +51,10 @@ keys, Enter locks in, Backspace takes it back. **Mouse:** left click picks for p
 saved fighter player 1 is on. When both are locked in, Space (or Enter, or the Start Battle button) starts the match; Esc in a match
 returns to select, Esc in select returns to the menu.
 
+**Run mode** (sim 120, `docs/modes/RUNNER_PLAN.md`): the main menu's **Run** tile (under Play) opens this screen for one player, headed
+RUN, with no match rules; locking in (J or Enter) and Enter again starts the single-player run (`runner.tscn`). Built-in and made fighters
+both play it. Esc in a run returns here.
+
 ## How a match gets its fighters
 
 `Roster.build_content` (`godot/scripts/roster.gd`) starts from `content/base.pfc` and adds each created fighter in the match as a

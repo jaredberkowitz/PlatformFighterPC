@@ -140,14 +140,31 @@ pub(super) fn player_hits(state: &mut GameState, content: &Content, rc: &RunCont
     let burst = rc.rules.burst_frames;
     for a in 0..MAX_FIGHTERS {
         let f = state.fighters[a];
-        if !f.active || !matches!(f.state, S::Attack | S::LedgeAttack) || f.hitlag > 0 {
+        if !f.active {
+            continue;
+        }
+        let attacking = matches!(f.state, S::Attack | S::LedgeAttack);
+        let stamp = 1 << 16 | (a as u32) << 8 | u32::from(f.move_id);
+        // A swing is the same swing while its move goes on (its frame holds still through hitlag); it ends when the fighter stops
+        // attacking, changes move, or starts the move again.
+        for m in state
+            .run
+            .mobs
+            .iter_mut()
+            .filter(|m| m.hit_stamp >> 8 == (1 << 8 | a as u32))
+        {
+            if !attacking || m.hit_stamp != stamp || f.state_frame < m.hit_age {
+                m.hit_stamp = 0;
+                m.hit_groups = 0;
+            } else {
+                m.hit_age = f.state_frame;
+            }
+        }
+        if !attacking || f.hitlag > 0 {
             continue;
         }
         let params = params_of(content, &f);
         let mv = weapon_of(content, params).get(f.move_id);
-        let stamp = state.frame.wrapping_sub(u32::from(f.state_frame))
-            ^ (u32::from(f.move_id) << 20)
-            ^ ((a as u32) << 28);
         let rage = combat::rage_multiplier(f.percent, &content.rules);
         let mut freeze = 0u8;
         for n in 0..state.run.mobs.len() {
@@ -189,6 +206,7 @@ pub(super) fn player_hits(state: &mut GameState, content: &Content, rc: &RunCont
             let m = &mut state.run.mobs[n];
             m.hit_stamp = stamp;
             m.hit_groups = groups | (1 << hb.group.min(7));
+            m.hit_age = f.state_frame;
             m.credit = rc.rules.credit_frames;
             let lag = take_hit(m, &k, &hb, side, rage, content, burst);
             let (died, kind) = (m.mode == MODE_BURST, m.kind);
