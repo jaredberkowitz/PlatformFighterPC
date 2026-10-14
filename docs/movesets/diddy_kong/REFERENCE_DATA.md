@@ -24,7 +24,7 @@ Mechanical reference for the twelfth port, collected 2026-10-14 for version **13
 - **dragdown.wiki** `SSBU/Diddy_Kong/Data` (the parameter file, raw; its frame data, including the side special's parts that ssbwiki.com
   has no page for).
 - The previous version's side special page (`Diddy_Kong_(SSB4)/Side_special/Default`) was read for the kick's trip chance and the
-  latch's parts, **not used** for 13.0.1 numbers (planning only: phase 2).
+  latch's parts; in phase 2 only the kick's and the latch attack's radii come from it (13.0.1 publishes none), labelled where used.
 - **kuroganehammer.com**: its 13.0.1 page and API returned 404 (as for the last ports); not used.
 
 **Labels**: **[R]** published reference value; **[D]** derived (unit conversion, formula, frame shift); **[E]** estimate. Positions on
@@ -148,17 +148,34 @@ The thrown fighter's 3% hit on bystanders (every throw's `kind=1` row) and the t
   the stage; the player steers them a little for a short time. Their hits (raw table "Flying"): **1%**, 361, BK 10, KS 100, r2.5 / r3.2,
   `direct=f`; their explosion the crash's 18%. "If Diddy is hit out of Rocketbarrel Boost with a weak move, he will become helpless."
 
-### Side special: the monkey flip (phase 2) [R unless marked]
+### Side special: the monkey flip (phase 2, sim 119) [R unless marked]
 
-From UFD and dragdown.wiki (no ssbwiki 13.0.1 page): the leap's grab is active on **18-36** (ground) / **18-29** (air); total **48** in the
-air, **62** on level ground; landing lag **26**. The kick (a second press during the leap): clean **6-10** 14% (inner leg) / 12% (foot),
-late **11-25** 12% / 10%, 361, BK 80, KS 50; total 33 in the air, landing lag 18. The latch (the grab connecting): an automatic scratch
-(1%, 361, BK 0, KS 0) repeating; the attack button: a scratch (3%, 361, BK 60, KS 150) on 18-20 and a throw (7% / 5%, BK 50 / 0, KS 100 /
-50) on 20, total 21 (UFD: 18 / 21, total 36); the jump: a footstool-style kick (2%, 361, BK 0, KS 50; UFD 18 / 27, total 42) that "now
-immobilises the opponent for exactly 20 frames if the move does not cause tumble". The kick stops the up special until landing (the
-article). The changelist: startup 20 → 18, the grab's range 3 / 2 → 4.5 / 4.0 ahead, FAF 44 → 48. **Not published**: the latch's
-length and escape, the scratch's rhythm (UFD "11 / 29 / 59..."), the leap's distance and arc, the grab box radius, the kick's trip chance
-in 13.0.1 (30% in the previous version). See `IMPLEMENTATION_REPORT.md`, "Phase 2 plan".
+Sources (re-read 2026-10-14 for phase 2): ultimateframedata.com (UFD) rows "Side B", "Attack", "Grab Success", "Grab Attack", "Grab
+Jump"; dragdown.wiki `SSBU/Diddy_Kong` and `SSBU/Diddy_Kong/Data` rows "Flying", "Attack, Clean / Late", "Stick, Hit 1 / Throw",
+"Stick Attack, Hit 1 / Throw"; ssbwiki.com `Monkey_Flip` (the descriptions; no 13.0.1 hitbox page exists); the previous version's raw
+page `Diddy_Kong_(SSB4)/Side_special/Default` (radii and the trip chance only, labelled where used).
+
+| Part | 13.0.1 data | Ours |
+| --- | --- | --- |
+| The leap | grab active 18-36 on the ground, 18-29 in the air (dragdown "18-36", "18-29 Aerial"; UFD 18 / 18-36); FAF 48 in the air, 62 on level ground (UFD totals 47 / 61, dragdown 48); landing lag 26 (UFD); "leaps forward and grabs whomever he contacts"; not helpless after it (ssbwiki); the changelist: startup 20 -> 18, the grab's range "3 / 2 -> 4.5 / 4.0" ahead | as written; a command grab (on the ground or in the air, shielding or not) |
+| The kick | a second button press during the leap: clean 6-10 14% (inner leg) / 12% (foot), late 11-25 12% / 10%, 361, BK 80, KS 50; FAF 33 (dragdown total 33, UFD 32), landing lag 18 (UFD); it "prevents Diddy Kong from using Rocketbarrel Boost before he lands" (ssbwiki) | as written; radii 3.5 / 4.0 [R: the previous version's]; positions [E]; trip 0 (the previous version's 30%: not confirmed for 13.0.1, owner question) |
+| The latch | an automatic scratch, 1%, 361, BK 0, KS 0 (dragdown "Stick, Hit 1", active 10-28 of a 46-frame animation); UFD "Grab Success 11 / 29 / 59..." | the ordinary hold clock with the shared mash-out (owner decision 74); the scratch on the latch's frames 11 and 29 of every 48 [E: our reading of UFD's list: 59 = 11 + 48] |
+| Attack (latched) | a scratch 3%, 361, BK 60, KS 150 on 18-20 and a throw 7%, BK 50, KS 100 (a second row 5%, BK 0, KS 50) on 20 (dragdown "Stick Attack"); UFD 18 / 21, total 36 | the 3% on the held fighter on 18 (the house's pre-hit) and on others near it (radius 6.0 [E: the previous version's]); the 7% throw on 20; FAF 37; the 5% row not used (its role is not published) |
+| Jump (latched) | a footstool-style kick, 2%, 361, BK 0, KS 50 (dragdown "Stick, Throw"); UFD 18 / 27, total 42; it "now immobilises the opponent for exactly 20 frames if the move does not cause tumble" (the changelist) | the kick on 18 as a throw with `fixed_stun` 20; FAF 43; the scamp jumps off at its full hop's speed [E] |
+
+**Not published** (all [E] in ours): the leap's speed, arc and distance (launched on 13 at 2.2 of the reference's units a frame ahead
+and 1.7 up, 2.8 ahead for a smash input, then the body's gravity, no air control); the grab boxes (two, radius 4.0, at 4.5 / 7.0 and
+4.0 / 2.0 ahead / up); the kick's input window (from the launch to the end of the grab) and positions; the latch's ride point (on the
+head, 0.9 of the held fighter's height up) and the held fighter's fall (its own gravity); the attack exit's backflip (1.0 back, 2.0 up
+a frame) and the jump's speed; whether a hit clears the kick's up-special bar (here it does: the air flags); the smash-input leap being
+further (the previous version's description); the ledges (in front once falling, from the launch; the kick from its frame 25).
+
+### Gaps closed in phase 2 (sim 119)
+
+- **The first charge only** falls slowly in the air (3.1.0: "only applies to the first charge"): owner decision 75, built.
+- **The barrels cannot be shielded** (`Rocketbarrel_Boost`: "unblockable"): built.
+- **The crash's damage to the scamp**: "If Diddy hits a surface while using the move, he takes about 5% damage" (the article's
+  general text, not tied to 13.0.1; the 13.0.1 hitbox page lists no self-damage row): 5% [E], an owner question.
 
 ## Conflicts (resolved as listed)
 
@@ -170,6 +187,9 @@ in 13.0.1 (30% in the previous version). See `IMPLEMENTATION_REPORT.md`, "Phase 
 6. The peanut's damage: 3.0% (the raw table's base), 3.3-15% (UFD, pre-3.1.0), 4.3-13.8% (the 3.1.0 notes): 4.3-13.8.
 7. The popgun's timing: 121 / 124 (UFD, dragdown: pre-3.1.0) vs 94 / 97 (3.1.0): 94 / 97.
 8. The muzzle hit: 2% (UFD) vs 3% (the changelist): not modelled (gap 1).
+12. The latch's attack FAF: 37 (UFD's 36 total) vs dragdown.wiki's 21 (the throw frame's total): 37.
+13. The latch's jump FAF: 43 (UFD's 42 total) vs dragdown.wiki's 46 (its "Stick" animation): 43.
+14. The leap's FAF in the air: 48 (UFD's 47 total, dragdown 48): 48.
 9. The misfire's length: 105 frames after the explosion (UFD's 228 less its 123) vs dragdown's 110: 105 [D].
 10. The peel's wait: 61 (8.0.0) + 24 (11.0.0) = 85 = the move page's 85: 85.
 11. Jab 2 into jab 3: from 7 (the strip, the changelist) vs 6 (UFD): 7.
@@ -188,6 +208,7 @@ in 13.0.1 (30% in the previous version). See `IMPLEMENTATION_REPORT.md`, "Phase 
    (1.5 a frame, at most 80), the speed falling off evenly to nothing over the flight's 54 frames (only the launch speed is published),
    ledges from the launch, the ground crash only after the flight's first 3 frames; the barrels' flight (75 degrees at 1.5, gravity 0.04,
    a wobble, 40 frames of steering, 180 frames at most); the momentum stopped when charging starts in the air.
-5. Gaps (not modelled): the popgun's muzzle hit and its taller later hit; a peanut caught and thrown back; the barrels being unblockable
-   (a shield blocks them here); the crash's damage to the scamp; the slower charge-fall being for the first charge of an air time only
-   (here every charge; see the report).
+5. Gaps (not modelled): the popgun's muzzle hit (no angle, knockback or size published) and its taller later hit; a peanut caught and
+   thrown back (no aerial catch for anyone). Closed in phase 2: the barrels unblockable, the crash's self damage (5% [E]), the slower
+   charge-fall for the first charge of an air time only.
+6. The monkey flip: see its section ("Not published").

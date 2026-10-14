@@ -47,12 +47,14 @@ TRUNK = [
 # the thigh. Parts must stand at least 2% of the height apart below the armpits and the crotch, or fit_body.py cannot tell them from the
 # trunk.
 # (The upper arm a little fuller than first built, as the concept's soft tube arms are: thin arms read as sticks at play size.)
-ARM = [((0.24, 0.0, 1.27), 0.117), ((0.45, 0.012, 1.075), 0.103), ((0.585, 0.025, 0.885), 0.088)]
+# (Chunkier, after the owner's PEAK reference: thick upper arm and forearm that read at play size, a little longer so the hands swing
+# clear of the belly. Was 0.117 / 0.103 / 0.088, ending at 0.585, 0.885.)
+ARM = [((0.25, 0.0, 1.27), 0.15), ((0.47, 0.012, 1.05), 0.136), ((0.62, 0.025, 0.84), 0.12)]
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
 HAND_LENGTH = 0.2
 HAND_RADII = (0.062, 0.1)   # thickness, width
 # Legs: hip (inside the trunk), knee, ankle (inside the foot): short and thick.
-LEG = [((0.165, 0.0, 0.57), 0.135), ((0.168, 0.0, 0.34), 0.127), ((0.172, 0.0, 0.13), 0.116)]
+LEG = [((0.17, 0.0, 0.57), 0.152), ((0.172, 0.0, 0.34), 0.143), ((0.176, 0.0, 0.13), 0.13)]
 # Feet: wide puffy ovals, pushed forward, their soles on the ground.
 FOOT_CENTRE = (0.18, -0.075, 0.085)
 FOOT_RADII = (0.145, 0.225, 0.09)

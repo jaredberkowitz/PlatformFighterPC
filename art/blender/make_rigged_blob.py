@@ -285,7 +285,7 @@ LIMB = 1.32
 
 ## How big the hands are against the first model's, grown round the wrist (so the grip and anything held stay where they were): the
 ## concept's hands are broad, soft mittens, and at play size a small fist read as a knob on the end of the arm.
-HAND_SCALE = 1.12
+HAND_SCALE = 1.24
 
 
 def _hand(x, p):
@@ -1070,7 +1070,7 @@ if BODY:
             JOINTS[_name] = (tuple(_pos), JOINTS[_name][1])
     OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
 ## How big the fists are against the blob's (the concept's mitten hands are small: about a quarter of the head across).
-FIST_SCALE = 0.7
+FIST_SCALE = 0.82
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
@@ -1687,11 +1687,13 @@ def main() -> None:
             swing = 1.8 if BODY else 1.0
             # (The base body's arms are thick and fully jointed: its elbows bend less, the fists held a little lower.)
             elbow = 0.72 if BODY else 1.0
-            pose(rig, "armU.L", fwd=52.0 + 5.0 * lag * swing, out=16.0)
-            pose(rig, "armL.L", fwd=(92.0 - 6.0 * lag * swing) * elbow)
+            # (After the owner's PEAK reference: the chunky arms held out clear of the body, so both read against the background, not
+            # tucked into a guard in front of the belly where the body and the weapon hid them; fists still a little up and forward.)
+            pose(rig, "armU.L", fwd=30.0 + 5.0 * lag * swing, out=34.0)
+            pose(rig, "armL.L", fwd=(64.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.L", fwd=-12.0)
-            pose(rig, "armU.R", fwd=34.0 + 5.0 * lag * swing, out=22.0)
-            pose(rig, "armL.R", fwd=(112.0 - 6.0 * lag * swing) * elbow)
+            pose(rig, "armU.R", fwd=16.0 + 5.0 * lag * swing, out=36.0)
+            pose(rig, "armL.R", fwd=(70.0 - 6.0 * lag * swing) * elbow)
             pose(rig, "hand.R", fwd=-14.0)
         return f
 

@@ -5,8 +5,8 @@ bundle {
     schema 7
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 118
-    hash cc2ac98838439ee7
+    sim_version 120
+    hash aaa21f0b3f503536
 }
 
 ruleset {
@@ -9700,21 +9700,26 @@ weapon popgun {
         }
     }
     move side_special {
-        total_frames 53
-        helpless_after true
-        hitbox { start 18 end 27 x 1.2 y 1.09999 radius 1.09999 damage 3 angle 361 bkb 20 kbg 0 }
-        hitbox { start 28 end 31 x 1.4 y 0.29999 radius 1.09999 damage 20 angle 270 bkb 70 kbg 90 group 1 }
-        hitbox { start 28 end 31 x 1.5 y 0.9 radius 1.29999 damage 15 angle 290 bkb 60 kbg 90 priority 1 group 1 }
+        total_frames 60
+        land_continue true
+        ledge_front_from 12
+        air_drift 0
+        fast_fall_from 255
+        air_version ext9
+        catch_move ext11
+        ledge_falling_only true
+        hitbox { start 17 end 35 x 0.59999 y 0.9 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab command true }
+        hitbox { start 17 end 35 x 0.5 y 0.29999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true }
         script {
-            // Side special (dash): the stick at the start of the dash aims it a little up or down.
-            var rise;
-            if frame == 17 {
-                rise = 0;
-                if stick_y > 0.4 { rise = 0.3; }
-                if stick_y < -0.4 { rise = -0.3; }
+            // Popgun side special, the leap (ground and air). On move frame 12 (the reference's 13) the scamp flips forward: 2.2 of the reference's
+            // units a frame ahead (2.8 for a smash input) and 1.7 up [E], then flies on its own gravity. From the launch to the end of the grab
+            // (move frame 35), special pressed again is the kick (39 = ext10). (No variables: the latch it may go on as counts its own.)
+            if frame == 12 {
+                set_vel((2.2 + 0.6 * flick) / 8, 1.7 / 8);
             }
-            if frame >= 18 && frame <= 27 { set_vel(0.6875, rise); }
-            if frame == 28 { set_vel(0, 0); }
+            if frame >= 13 && frame <= 35 && special_tap {
+                goto(39);
+            }
         }
     }
     move up_special {
@@ -9725,12 +9730,18 @@ weapon popgun {
         air_gravity 0.00249
         air_max_fall 0.0625
         shed ext8
+        flag_version { flags 2 }
+        flag_version { marks 1 move ext5 }
         script {
             // Popgun up special (the rocket barrels), the charge. From move frame 6 (the reference's 7) special held charges it: the stick tilts
             // the launch angle `a` (degrees from straight up, positive forward) by up to 0.75 a frame, at most 45 either way [E]; let go, or after
             // 60 frames, the charge is the frames held and the move goes on as the flight (34 = ext6), launched on the next frame (the reference's
-            // 8 to 68).
+            // 8 to 68). Started in the air it marks the air time (mark 0: a hit does not clear it), so a later charge in it is the one on the
+            // body's own fall (owner decision 75: only the first charge falls slowly; the up special's flag version reads the mark).
             var a;
+            if frame == 1 && grounded == 0 {
+                set_air_mark(0);
+            }
             if frame >= 6 {
                 a = clamp(a + stick_x * 0.75, -45, 45);
                 if special == 0 || frame >= 66 {
@@ -9892,6 +9903,31 @@ weapon popgun {
         land_continue true
         hitbox { start 1 end 1 x 0.9 y 1.09999 radius 1 damage 23 angle 361 bkb 30 kbg 92 hitlag 150 clanks false rebounds false angle_type position }
     }
+    move ext5 {
+        total_frames 80
+        land_continue true
+        start_speed 0
+        start_speed_y 0
+        shed ext8
+        script {
+            // Popgun up special (the rocket barrels), the charge. From move frame 6 (the reference's 7) special held charges it: the stick tilts
+            // the launch angle `a` (degrees from straight up, positive forward) by up to 0.75 a frame, at most 45 either way [E]; let go, or after
+            // 60 frames, the charge is the frames held and the move goes on as the flight (34 = ext6), launched on the next frame (the reference's
+            // 8 to 68). Started in the air it marks the air time (mark 0: a hit does not clear it), so a later charge in it is the one on the
+            // body's own fall (owner decision 75: only the first charge falls slowly; the up special's flag version reads the mark).
+            var a;
+            if frame == 1 && grounded == 0 {
+                set_air_mark(0);
+            }
+            if frame >= 6 {
+                a = clamp(a + stick_x * 0.75, -45, 45);
+                if special == 0 || frame >= 66 {
+                    set_charge(frame - 6);
+                    goto(34);
+                }
+            }
+        }
+    }
     move ext6 {
         total_frames 54
         helpless_after true
@@ -9935,6 +9971,7 @@ weapon popgun {
         land_continue true
         fall_landing_lag 30
         hitbox { start 1 end 2 x 0 y 0 radius 2.5 damage 18 angle 70 bkb 50 kbg 70 angle_type position }
+        self_damage 5
     }
     move ext8 {
         total_frames 1
@@ -9952,7 +9989,7 @@ weapon popgun {
             kind 10
             bounces 1
             pierce true
-            hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 1 angle 361 bkb 10 kbg 100 clanks false rebounds false angle_type position }
+            hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 1 angle 361 bkb 10 kbg 100 clanks false rebounds false angle_type position unblockable true }
             burst {
                 life 3
                 on_wall true
@@ -9975,12 +10012,114 @@ weapon popgun {
             }
         }
     }
+    move ext9 {
+        total_frames 46
+        landing_lag 26
+        ledge_front_from 12
+        start_speed 0
+        air_drift 0
+        fast_fall_from 255
+        start_speed_y 0
+        catch_move ext11
+        ledge_falling_only true
+        hitbox { start 17 end 28 x 0.59999 y 0.9 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab command true }
+        hitbox { start 17 end 28 x 0.5 y 0.29999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true }
+        script {
+            // Popgun side special, the leap (ground and air). On move frame 12 (the reference's 13) the scamp flips forward: 2.2 of the reference's
+            // units a frame ahead (2.8 for a smash input) and 1.7 up [E], then flies on its own gravity. From the launch to the end of the grab
+            // (move frame 35), special pressed again is the kick (39 = ext10). (No variables: the latch it may go on as counts its own.)
+            if frame == 12 {
+                set_vel((2.2 + 0.6 * flick) / 8, 1.7 / 8);
+            }
+            if frame >= 13 && frame <= 35 && special_tap {
+                goto(39);
+            }
+        }
+    }
     move pivot_grab {
         total_frames 38
         hitbox { start 10 end 11 x 0.5 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 10 end 11 x 0.9 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 10 end 11 x 1.29999 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 10 end 11 x 1.7 y 0.79999 radius 0.5 damage 0 angle 361 bkb 0 kbg 0 kind grab }
+    }
+    move ext10 {
+        total_frames 31
+        landing_lag 18
+        ledge_front_from 25
+        air_drift 0
+        fast_fall_from 255
+        ledge_falling_only true
+        hitbox { start 5 end 9 x 0.5 y 0.59999 radius 0.4 damage 14 angle 361 bkb 80 kbg 50 }
+        hitbox { start 5 end 9 x 0.9 y 0.5 radius 0.5 damage 12 angle 361 bkb 80 kbg 50 priority 1 }
+        hitbox { start 10 end 24 x 0.5 y 0.59999 radius 0.4 damage 12 angle 361 bkb 80 kbg 50 }
+        hitbox { start 10 end 24 x 0.9 y 0.5 radius 0.5 damage 10 angle 361 bkb 80 kbg 50 priority 1 }
+        script {
+            // Popgun side special, the kick. In the air it bars the up special until the scamp lands or catches a ledge (once-per-airtime flag 1,
+            // which the up special's flag version reads; a hit clears it too).
+            if frame == 1 && grounded == 0 {
+                set_air_flag(1);
+            }
+        }
+    }
+    move ext11 {
+        total_frames 48
+        land_continue true
+        air_drift 0
+        fast_fall_from 255
+        hitbox { start 10 end 10 x 0.4 y 0.4 radius 0.5 damage 1 angle 361 bkb 0 kbg 0 kind pummel }
+        hitbox { start 28 end 28 x 0.4 y 0.4 radius 0.5 damage 1 angle 361 bkb 0 kbg 0 group 1 kind pummel }
+        latch { x 0 height 90 clock_num 1 clock_den 1 }
+        script {
+            // Popgun side special, the latch: riding the caught fighter, scratching it on frames 10 and 28 of every 48 (the move's pummel rows).
+            // A new press of attack (this frame, or counted through a scratch's hitlag) goes on as the latch's attack (41 = ext12); a new press of
+            // jump (this frame, or one made in hitlag and still held: jump let go since the latch began) as the jump off (42 = ext13); at the end
+            // of the 48 frames the latch goes round again (40 = ext11). The hold's clock and the held fighter's mashing are the engine's (E49).
+            var started;
+            var base;
+            var armed;
+            if started == 0 {
+                started = 1;
+                base = presses;
+            }
+            if attack_tap || presses > base {
+                goto(41);
+            } else if jump_tap || (armed == 1 && jump) {
+                goto(42);
+            } else if frame >= 48 {
+                goto(40);
+            }
+            if jump == 0 {
+                armed = 1;
+            }
+        }
+    }
+    move ext12 {
+        total_frames 35
+        fast_fall_from 255
+        hitbox { start 17 end 17 x 0.4 y 0.4 radius 0.5 damage 3 angle 361 bkb 60 kbg 150 kind pummel }
+        hitbox { start 17 end 19 x 0.29999 y 0 radius 0.79999 damage 3 angle 361 bkb 60 kbg 150 priority 1 group 2 }
+        hitbox { start 19 end 19 x 0.4 y 0.4 radius 0.5 damage 7 angle 361 bkb 50 kbg 100 group 2 kind throw }
+        latch { x 0 height 90 }
+        script {
+            // Popgun side special, the latch's attack: on move frame 19 (the reference's 20, the throw) the scamp flips off back and up [E].
+            if frame == 19 {
+                set_vel(-0.125, 0.25);
+            }
+        }
+    }
+    move ext13 {
+        total_frames 41
+        fast_fall_from 255
+        hitbox { start 17 end 17 x 0 y 0 radius 0.5 damage 2 angle 361 bkb 0 kbg 50 kind throw fixed_stun 20 }
+        latch { x 0 height 90 }
+        script {
+            // Popgun side special, the latch's jump: on move frame 17 (the reference's 18, the kick) the scamp jumps off the head at its full
+            // hop's speed (3.2 of the reference's units a frame) [E].
+            if frame == 17 {
+                set_vel(0, 3.2 / 8);
+            }
+        }
     }
 }
 

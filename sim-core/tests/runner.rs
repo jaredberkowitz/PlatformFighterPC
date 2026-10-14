@@ -1,4 +1,4 @@
-//! The single-player run (R1, sim 118): the streamed stage, the camera's push, lives, mobs, coins and the combo, and determinism.
+//! The single-player run (R1, sim 120): the streamed stage, the camera's push, lives, mobs, coins and the combo, and determinism.
 
 mod common;
 

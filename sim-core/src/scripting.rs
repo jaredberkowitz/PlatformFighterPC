@@ -191,6 +191,8 @@ impl Host for FighterHost<'_> {
             }
             // (E47, sim 117: the wait a move's toss started.)
             api::R_PULL_WAIT => Fx::from_int(i32::from(f.pull_wait)).raw(),
+            // (Sim 119: the flip's latch jumps off on a new press.)
+            api::R_JUMP_TAP => flag(f.pressed_within(buttons::JUMP, 1)),
             _ => 0,
         }
     }
@@ -262,6 +264,14 @@ impl Host for FighterHost<'_> {
             }
             api::F_SET_AIR_FLAG => {
                 self.f.air_flags |= 1u8 << arg(0).floor_int().clamp(0, 7);
+            }
+            // (Sim 119, owner decision 75: marks a hit does not clear.)
+            api::F_AIR_MARK => {
+                let bit = 1u8 << arg(0).floor_int().clamp(0, 7);
+                return flag(self.f.air_marks & bit != 0);
+            }
+            api::F_SET_AIR_MARK => {
+                self.f.air_marks |= 1u8 << arg(0).floor_int().clamp(0, 7);
             }
             api::F_LOCK => return flag(self.lock(arg(0))),
             api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),

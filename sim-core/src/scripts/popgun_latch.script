@@ -1,0 +1,21 @@
+// Popgun side special, the latch: riding the caught fighter, scratching it on frames 10 and 28 of every 48 (the move's pummel rows).
+// A new press of attack (this frame, or counted through a scratch's hitlag) goes on as the latch's attack (41 = ext12); a new press of
+// jump (this frame, or one made in hitlag and still held: jump let go since the latch began) as the jump off (42 = ext13); at the end
+// of the 48 frames the latch goes round again (40 = ext11). The hold's clock and the held fighter's mashing are the engine's (E49).
+var started;
+var base;
+var armed;
+if started == 0 {
+    started = 1;
+    base = presses;
+}
+if attack_tap || presses > base {
+    goto(41);
+} else if jump_tap || (armed == 1 && jump) {
+    goto(42);
+} else if frame >= 48 {
+    goto(40);
+}
+if jump == 0 {
+    armed = 1;
+}

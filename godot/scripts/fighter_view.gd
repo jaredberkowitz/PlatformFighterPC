@@ -598,12 +598,13 @@ func _skeleton_to_frame() -> Transform3D:
 	return stage_frame.global_transform.affine_inverse() * skeleton.global_transform
 
 
+## (Turned a little more to the camera than before, after the owner's PEAK reference: both arms and more of the chest read.)
 ## How the fighter is turned (the "cheat" of a 3D fighter on a 2D stage), as the reference game's fighters stand: the hips and legs turned
 ## well toward the way it faces (70 degrees off straight-on), so strides, kicks and swings happen across the screen where they read; the
 ## chest twisted back so it mostly faces the camera (35 degrees off); and the head turned again a little toward the way it faces (45
 ## degrees off: a three-quarter face), so the two fighters look at each other while the drawn face keeps both eyes in view.
-const BODY_TURN := 70.0
-const CHEST_TO_CAMERA := 35.0
+const BODY_TURN := 60.0
+const CHEST_TO_CAMERA := 24.0
 ## How far the head turns back from the chest toward the way the fighter faces (toward its opponent). The eyes in the face look that way
 ## too (see `set_gaze`).
 const HEAD_TOWARD_FOE := 10.0
@@ -2379,7 +2380,7 @@ func set_name_tag(text: String) -> void:
 ## name, as before.
 var match_tag := false
 var tag_arrow: Sprite3D
-const TAG_PIXEL := 0.0007
+const TAG_PIXEL := 0.00056
 const TAG_HEIGHT := 2.6   # world units above the feet: just over the head, the tag and pointer stacked up from there on screen
 
 
@@ -2404,11 +2405,11 @@ func set_overhead(training: bool, tag: String, colour: Color) -> void:
 		name_label.visible = true
 		name_label.modulate = colour.lightened(0.1)
 		name_label.outline_modulate = INK
-		name_label.outline_size = 18
+		name_label.outline_size = 14
 		name_label.position.y = TAG_HEIGHT
 		name_label.fixed_size = true
 		name_label.pixel_size = TAG_PIXEL
-		name_label.offset = Vector2(0, 46)
+		name_label.offset = Vector2(0, 50)
 		if tag_arrow == null:
 			tag_arrow = Sprite3D.new()
 			tag_arrow.texture = _tag_arrow_texture()

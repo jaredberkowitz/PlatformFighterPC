@@ -1,8 +1,12 @@
 // Popgun up special (the rocket barrels), the charge. From move frame 6 (the reference's 7) special held charges it: the stick tilts
 // the launch angle `a` (degrees from straight up, positive forward) by up to 0.75 a frame, at most 45 either way [E]; let go, or after
 // 60 frames, the charge is the frames held and the move goes on as the flight (34 = ext6), launched on the next frame (the reference's
-// 8 to 68).
+// 8 to 68). Started in the air it marks the air time (mark 0: a hit does not clear it), so a later charge in it is the one on the
+// body's own fall (owner decision 75: only the first charge falls slowly; the up special's flag version reads the mark).
 var a;
+if frame == 1 && grounded == 0 {
+    set_air_mark(0);
+}
 if frame >= 6 {
     a = clamp(a + stick_x * 0.75, -45, 45);
     if special == 0 || frame >= 66 {

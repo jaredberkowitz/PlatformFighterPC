@@ -1,4 +1,4 @@
-//! The endless run's content (R1, sim 118): the run's rules, its hand-made stage chunks and its mob kinds. Immutable and hashed, like
+//! The endless run's content (R1, sim 120): the run's rules, its hand-made stage chunks and its mob kinds. Immutable and hashed, like
 //! [`crate::Content`]; [`RunContent::placeholder`] is the built-in set (five placeholder chunks, a walker and a flyer). Checked by
 //! `sim_content::check_run`.
 //!
@@ -222,6 +222,8 @@ fn mob_hit(x: i32, y: i32, r: i32, damage: i32, angle: i16, bkb: i16, kbg: i16) 
         half_width: Fx::ZERO,
         rules: moves::RULES_CURRENT,
         slip: moves::SLIP_NONE,
+        fixed_stun: 0,
+        unblockable: false,
     }
 }
 

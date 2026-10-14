@@ -975,7 +975,8 @@ pub(crate) fn apply_hit(
     // dealt multiplier and leaves it alone (the reference; rubendal's SSBU-Calculator, sim 97).
     let kb_damage = hb_in.damage * (Fx::ONE + (stale - Fx::ONE) * Fx::from_ratio(3, 10));
 
-    let shielding = state.fighters[d].state == S::Shield;
+    // (An unblockable hit lands on a raised shield as on a fighter without one: sim 119.)
+    let shielding = state.fighters[d].state == S::Shield && !hb.unblockable;
     let crouching = state.fighters[d].state == S::Crouch && state.fighters[d].grounded();
     // A hit on the previous reference version's rules (E40, owner decisions 66-67): its damage multiplier, hitlag, rage, hitstun and
     // launch (below).
@@ -1068,7 +1069,7 @@ pub(crate) fn apply_hit(
     }
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
-    if def.state == S::Shield {
+    if shielding {
         block(def, rules, &hb, facing, hitlag, stun_mult, damage_mult);
         if hb.push {
             // A push shoves the shield back (its horizontal part).
@@ -1295,6 +1296,10 @@ pub(crate) fn apply_hit(
     // (The previous reference version added a frame to a tumbling launch's hitstun: ssbwiki.com `Hitstun`.)
     if older && stun > 0 && kb >= rules.tumble_knockback {
         stun += u16::from(rules.prev_tumble_hitstun);
+    }
+    // A hit that holds a victim it does not tumble for a set time (sim 119: the reference's flip jump-off, 20 frames).
+    if hb.fixed_stun > 0 && kb < rules.tumble_knockback {
+        stun = u16::from(hb.fixed_stun);
     }
     if stun > 0 {
         // (A negative modifier shortens it, but a launched victim keeps at least one frame [E: the reference floors it at 0 and
@@ -2154,6 +2159,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             // A passive shield in the way stops the shot (E14): a burst is not stopped.
             if burst.is_none()
                 && !intangible
+                && !hb.unblockable
                 && passive_shield_blocks(fd, pd, pos, hit_shape, pr.vel)
             {
                 passive_block(&mut state.fighters[d], &content.rules, &hb);

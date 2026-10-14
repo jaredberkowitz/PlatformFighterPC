@@ -1,4 +1,4 @@
-//! The single-player endless run (R1, sim 118; `docs/modes/RUNNER_PLAN.md`).
+//! The single-player endless run (R1, sim 120; `docs/modes/RUNNER_PLAN.md`).
 //!
 //! A run is an ordinary match with one fighter, played by the versus `step` with every versus rule, on a stage that streams. The run's
 //! own state, [`Run`], lives in [`GameState::run`] and is hashed with the rest; in versus it is inactive and nothing here runs.

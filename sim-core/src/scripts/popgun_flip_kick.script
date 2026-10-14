@@ -1,0 +1,5 @@
+// Popgun side special, the kick. In the air it bars the up special until the scamp lands or catches a ledge (once-per-airtime flag 1,
+// which the up special's flag version reads; a hit clears it too).
+if frame == 1 && grounded == 0 {
+    set_air_flag(1);
+}

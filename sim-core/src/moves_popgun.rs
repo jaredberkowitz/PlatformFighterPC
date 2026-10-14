@@ -117,6 +117,7 @@ pub fn popgun() -> Weapon {
     banana(&mut w);
     popgun_special(&mut w);
     rocket_barrels(&mut w);
+    flip_special(&mut w);
     w
 }
 
@@ -925,6 +926,11 @@ pub const ROCKET_CRASH: MoveId = MoveId::Ext7;
 pub const BARRELS: MoveId = MoveId::Ext8;
 /// The barrels' tool kind (one set at a time is all there is: the scamp has one pack).
 pub const BARRELS_KIND: u8 = 10;
+/// A second rocket-barrel charge in one air time, on the body's own fall (owner decision 75).
+pub const ROCKET_AGAIN: MoveId = MoveId::Ext5;
+/// The air mark the first charge of an air time sets (`set_air_mark(0)`), and the air flag the flip's kick sets (`set_air_flag(1)`).
+pub const ROCKET_MARK: u8 = 0;
+pub const KICK_FLAG: u8 = 1;
 
 /// The explosion of the rocket barrels (a crash, or the barrels meeting the stage after flying off): 18%, 70 degrees, BK 50, KS 70,
 /// radius 20.0 round the root (the feet) [R].
@@ -934,11 +940,34 @@ fn barrels_blast() -> Hitbox {
     h
 }
 
-/// The up special's charge. In the air the scamp falls slower while charging [R: 3.1.0; E: gravity 0.02 and fall 0.5 of the
-/// reference's units]. (The reference's slower fall is for the first charge of an air time only; here every charge can only be the
-/// first: a launch or a flinch ends in the special fall, and a hit that launches clears the engine's per-air-time flags, so a charge
-/// after being hit out falls slower too: a limit.)
+/// The up special's charge. In the air the scamp falls slower while charging, on the first charge of an air time only [R: 3.1.0; E:
+/// gravity 0.02 and fall 0.5 of the reference's units]: a mark a hit does not clear (owner decision 75) picks `ROCKET_AGAIN` for a
+/// later charge in the same air time (after being hit out of the first, for one).
 fn rocket_charge() -> Move {
+    let mut mv = rocket_charge_again();
+    mv.air_gravity = Some(rs(20));
+    mv.air_max_fall = Some(rs(500));
+    // The first charge of an air time only (owner decision 75): its script marks the air time (`set_air_mark(0)`, a mark a hit does
+    // not clear), and a later charge in it is `ROCKET_AGAIN`, on the body's own fall. After the flip's kick (`air_flag(1)`) the up
+    // special does not start at all until the scamp lands or catches a ledge (the reference's rule) [R]; a hit clears that flag [E].
+    mv.flag_versions = vec![
+        FlagVersion {
+            flags: 1 << KICK_FLAG,
+            marks: 0,
+            slot: None,
+        },
+        FlagVersion {
+            flags: 0,
+            marks: 1 << ROCKET_MARK,
+            slot: Some(ROCKET_AGAIN as u8),
+        },
+    ];
+    mv
+}
+
+/// The rocket barrels' charge on the body's own fall (a second charge in one air time: the reference's slower fall is for the first
+/// only, owner decision 75).
+fn rocket_charge_again() -> Move {
     let mut mv = ref_move(49, 0, 0, 255, &[]);
     // (The script decides when the charge ends: the move lasts past the longest.)
     mv.total_frames = 80;
@@ -946,8 +975,6 @@ fn rocket_charge() -> Move {
     // (Started in the air, the scamp's momentum is stopped [E: "disrupted", the reference's barrel jumping note].)
     mv.start_speed = 0;
     mv.start_speed_y = 0;
-    mv.air_gravity = Some(rs(20));
-    mv.air_max_fall = Some(rs(500));
     mv.shed = Some(BARRELS as u8);
     mv.script = Some(script(
         Kind::Fighter,
@@ -968,13 +995,16 @@ fn rocket_charge() -> Move {
 ///   4.0), 3-9 8% (80 degrees, BK 40, KS 90, radius 3.2), 10-28 6% (70 degrees, BK 40, KS 90, radius 2.8), each a box in front of and
 ///   behind the waist, never clanking, one hit [R]. Then the special fall, 30 frames of landing lag [R]; ledges from the launch [E].
 /// * The crash (`ROCKET_CRASH`): touching a wall, or the ground after the flight's first frames, sets the barrels off [R]: 18%, 70
-///   degrees, BK 50, KS 70, radius 20.0 round the scamp on the crash's frames 1-2 [R], FAF 58 [R: 57-59 on level ground]; the scamp's
-///   own damage from it (about 5% in the reference's older games) is not modelled (gap).
+///   degrees, BK 50, KS 70, radius 20.0 round the scamp on the crash's frames 1-2 [R], FAF 58 [R: 57-59 on level ground]; the scamp
+///   takes 5% itself (`Move::self_damage`, sim 119) [R: "about 5%", the article's general text; E: 5, not tied to 13.0.1].
 /// * Hit while charging or flying (E48, `shed`): the barrels fly off (`BARRELS`), a flinch ending the move in the special fall [R]; they
 ///   wobble along, steered a while by the scamp's stick [R; E: how], hitting for 1% (361, BK 10, KS 100) [R], and burst on the stage
-///   (the 18% explosion) [R]. (The reference's barrels cannot be shielded: here a shield blocks them, a limit.)
+///   (the 18% explosion) [R]. They cannot be shielded (`Hitbox::unblockable`, sim 119) [R].
+/// * In the air only the first charge of an air time falls slower; a later one in it (`ROCKET_AGAIN`) falls at the body's speed
+///   (owner decision 75). After the flip's kick the up special does not start until the scamp lands or catches a ledge.
 fn rocket_barrels(w: &mut Weapon) {
     w.moves[MoveId::UpSpecial as usize] = rocket_charge();
+    w.moves[ROCKET_AGAIN as usize] = rocket_charge_again();
 
     // The flight: its frame k is the k-th of the flight (the move is reached on the charge's last frame).
     let mut rows = Vec::new();
@@ -1019,6 +1049,8 @@ fn rocket_barrels(w: &mut Weapon) {
     }];
     crash.helpless_after = true;
     crash.fall_landing_lag = 30;
+    // (The scamp hurts itself: "about 5%" when it hits a surface [R: the article's general text, not tied to 13.0.1; E: 5].)
+    crash.self_damage = Fx::from_int(5);
     crash.land_continue = true;
     w.moves[ROCKET_CRASH as usize] = crash;
 
@@ -1027,6 +1059,8 @@ fn rocket_barrels(w: &mut Weapon) {
     let mut barrel = shot_hit(32, 10, 361, 10, 100, ANGLE_BY_POSITION);
     barrel.clanks = false;
     barrel.rebounds = false;
+    // (They cannot be shielded [R: the article]; they can be reflected.)
+    barrel.unblockable = true;
     let mut holder = ref_move(3, 0, 0, 255, &[]);
     holder.projectile = Some(ProjectileSpawn {
         frame: 255,
@@ -1070,4 +1104,159 @@ fn rocket_barrels(w: &mut Weapon) {
         include_str!("scripts/popgun_barrels.script"),
     ));
     w.moves[BARRELS as usize] = holder;
+}
+
+// ---- The side special: the flip -----------------------------------------------------------------------------------------------
+
+/// The side special's parts (sim 119): the aerial leap, the kick, the latch and its two exits.
+pub const FLIP_AIR: MoveId = MoveId::Ext9;
+pub const FLIP_KICK: MoveId = MoveId::Ext10;
+pub const LATCH: MoveId = MoveId::Ext11;
+pub const LATCH_ATTACK: MoveId = MoveId::Ext12;
+pub const LATCH_JUMP: MoveId = MoveId::Ext13;
+
+/// Where the scamp rides a fighter it latched onto: on its head, 0.9 of the held fighter's height above its feet, straight over them
+/// [E: the reference's pose].
+const LATCH_RIDE: (Fx, u8) = (Fx::ZERO, 90);
+
+/// The leap's grab: two command-grab boxes ahead (the changelist's 4.5 and 4.0 of the reference's units ahead), at the hands and the
+/// feet as the scamp flips [E: heights and radius 4.0].
+fn flip_grab(last: u8) -> Vec<R> {
+    vec![
+        ru(18, last, 45, 70, 40, 0, 361, 0, 0, 0, 0),
+        ru(18, last, 40, 20, 40, 0, 361, 0, 0, 1, 0),
+    ]
+}
+
+/// The leap (ground or air): the grab on frames 18 to `last`, launched on frame 13 by its script, a second press of special the kick,
+/// ledges in front once falling [E], no air control of its own [E].
+fn flip_leap(faf: u8, landing_lag: u8, last: u8) -> Move {
+    let mut leap = with_kind(
+        ref_move(faf, landing_lag, 0, 255, &flip_grab(last)),
+        HIT_GRAB,
+    );
+    set_all(&mut leap, |h| h.command = true);
+    leap.catch_move = Some(LATCH as u8);
+    leap.air_drift = 0;
+    leap.fast_fall_from = 255;
+    leap.ledge_front_from = 12;
+    leap.ledge_falling_only = true;
+    leap.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_flip.script"),
+    ));
+    leap
+}
+
+/// The side special: the flip (13.0.1; ultimateframedata.com, dragdown.wiki, the SSB4-to-13.0.1 changelist, ssbwiki.com
+/// `Monkey_Flip`; no 13.0.1 hitbox page exists).
+///
+/// * The leap: a crouch, then a flip forward launched on frame 13 [E: the frame, 2.2 of the reference's units a frame ahead and 1.7 up,
+///   2.8 ahead for a smash input: the distance is not published]; on its frames 18-36 from the ground, 18-29 in the air, it grabs
+///   whomever it touches (a command grab: on the ground or in the air, shielding or not) [R]. FAF 62 on level ground (it lands and
+///   slides to a stop) and 48 in the air, landing lag 26 [R]; not helpless after it [R]. Started in the air it stops the scamp's
+///   momentum [E]. Ledges in front once falling from the launch [E].
+/// * The kick (`FLIP_KICK`): special pressed again during the flip (from the launch to the end of the grab) [R: "a second button press";
+///   E: the window]: clean on 6-10 14% (the inner leg, radius 3.5) and 12% (the foot, 4.0), late on 11-25 12% / 10%, 361, BK 80, KS 50
+///   [R: damage, frames, angle, knockback; radii from the previous version; E: the positions]. FAF 33, landing lag 18 [R]. It bars the
+///   up special until the scamp lands or catches a ledge [R] (a hit clears the bar too [E]).
+/// * The latch (`LATCH`, E49): the caught fighter is held with the ordinary hold's clock and mash-out (owner decision 74), falling on
+///   its own with the scamp riding its head (offstage both fall [R]); a scratch for 1% (361, BK 0, KS 0) on its frames 11 and 29 of
+///   every 48 [R: ultimateframedata.com's "11 / 29 / 59..."; E: that reading]; the clock running out lets go as an ordinary hold.
+/// * Attack (`LATCH_ATTACK`): a 3% scratch on frame 18 (on the held fighter, and on others near it: 361, BK 60, KS 150, radius 6.0 [E:
+///   where]) and the throw on 20: 7%, 361, BK 50, KS 100 [R]; the scamp flips off back and up [E]; FAF 37 [R: ultimateframedata.com's
+///   36 total; dragdown.wiki's 21 is the throw frame]. (The table's 5% throw row, BK 0, KS 50, is not used: its role is not published.)
+/// * Jump (`LATCH_JUMP`): the scamp jumps off the head on frame 18, kicking the fighter for 2% (361, BK 0, KS 50: a throw) that holds
+///   it 20 frames when it does not tumble (`Hitbox::fixed_stun`) [R]; the jump's speed is the scamp's full hop [E]; FAF 43 [R:
+///   ultimateframedata.com's 42 total].
+fn flip_special(w: &mut Weapon) {
+    let mut ground = flip_leap(62, 0, 36);
+    ground.land_continue = true;
+    ground.air_version = Some(FLIP_AIR as u8);
+    w.moves[MoveId::SideSpecial as usize] = ground;
+
+    let mut air = flip_leap(48, 26, 29);
+    air.start_speed = 0;
+    air.start_speed_y = 0;
+    w.moves[FLIP_AIR as usize] = air;
+
+    let mut rows = Vec::new();
+    for (first, last, inner, foot) in [(6u8, 10u8, 140, 120), (11, 25, 120, 100)] {
+        rows.push(ru(first, last, 40, 45, 35, inner, 361, 80, 50, 0, 0));
+        rows.push(ru(first, last, 75, 40, 40, foot, 361, 80, 50, 1, 0));
+    }
+    let mut kick = ref_move(33, 18, 0, 255, &rows);
+    kick.air_drift = 0;
+    kick.fast_fall_from = 255;
+    kick.ledge_front_from = 25;
+    kick.ledge_falling_only = true;
+    kick.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_flip_kick.script"),
+    ));
+    w.moves[FLIP_KICK as usize] = kick;
+
+    let ride = |clock: u8| Latch {
+        x: LATCH_RIDE.0,
+        height: LATCH_RIDE.1,
+        clock_num: clock,
+        clock_den: 1,
+    };
+    let mut latch = with_kind(
+        ref_move(
+            50,
+            0,
+            0,
+            255,
+            &[
+                ru(11, 11, 30, 30, 40, 10, 361, 0, 0, 0, 0),
+                ru(29, 29, 30, 30, 40, 10, 361, 0, 0, 0, 1),
+            ],
+        ),
+        HIT_PUMMEL,
+    );
+    latch.latch = Some(ride(1));
+    latch.land_continue = true;
+    latch.fast_fall_from = 255;
+    latch.air_drift = 0;
+    latch.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_latch.script"),
+    ));
+    w.moves[LATCH as usize] = latch;
+
+    let mut attack = ref_move(
+        37,
+        0,
+        0,
+        255,
+        &[
+            ru(18, 18, 30, 30, 40, 30, 361, 60, 150, 0, 0),
+            // (In the throw's group: once thrown, the fighter is not hit again by it.)
+            ru(18, 20, 20, 0, 60, 30, 361, 60, 150, 1, 2),
+            ru(20, 20, 30, 30, 40, 70, 361, 50, 100, 0, 2),
+        ],
+    );
+    attack.hitboxes[0].kind = HIT_PUMMEL;
+    attack.hitboxes[2].kind = HIT_THROW;
+    attack.latch = Some(ride(0));
+    attack.fast_fall_from = 255;
+    attack.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_latch_attack.script"),
+    ));
+    w.moves[LATCH_ATTACK as usize] = attack;
+
+    let mut jump = with_kind(
+        ref_move(43, 0, 0, 255, &[ru(18, 18, 0, 0, 40, 20, 361, 0, 50, 0, 0)]),
+        HIT_THROW,
+    );
+    jump.hitboxes[0].fixed_stun = 20;
+    jump.latch = Some(ride(0));
+    jump.fast_fall_from = 255;
+    jump.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/popgun_latch_jump.script"),
+    ));
+    w.moves[LATCH_JUMP as usize] = jump;
 }

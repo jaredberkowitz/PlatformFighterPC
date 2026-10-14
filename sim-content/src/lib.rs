@@ -957,6 +957,32 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 "weapon {i} {name}: a hitbox's slip must be none, hard or soft"
             ));
         }
+        // Sim 119: a latch (E49) rides at a height above 0 with a clock divisor above 0; a flag version reads some flag or mark and
+        // names a real move, each one; damage to the user not negative.
+        if mv
+            .latch
+            .is_some_and(|l| l.height == 0 || l.clock_den == 0 || l.x.abs() > MAX_VALUE)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: a latch needs a height and a clock_den above 0"
+            ));
+        }
+        for v in &mv.flag_versions {
+            let bad_slot = v.slot.is_some_and(|l| {
+                usize::from(l) >= MoveId::COUNT
+                    || w.moves.get(usize::from(l)).is_none_or(Move::is_empty)
+            });
+            if (v.flags == 0 && v.marks == 0) || bad_slot {
+                errors.push(format!(
+                    "weapon {i} {name}: a flag version needs flags or marks and, if it names a move, a real one"
+                ));
+            }
+        }
+        if mv.self_damage < Fx::ZERO || mv.self_damage > Fx::from_int(999) {
+            errors.push(format!(
+                "weapon {i} {name}: self_damage must be from 0 to 999"
+            ));
+        }
         // A move's toss (E47, sim 117): its frames inside the move, its speeds not negative, its angle a real one.
         if let Some(t) = &mv.toss {
             let inside = |f: u8| f < mv.total_frames;
@@ -1455,6 +1481,87 @@ mod combat_tests {
         let mut c = base.clone();
         c.weapons[w].moves[MoveId::UpSpecial as usize].shed = Some(MoveId::Jab as u8);
         assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("shed")));
+    }
+
+    #[test]
+    fn the_popgun_flip_fields_round_trip_and_are_checked() {
+        // Sim 119: the latch (E49), the flag versions (owner decision 75), a move's self damage, a hitbox's fixed stun and unblockable
+        // flag come back from a file unchanged; a file without them keeps today's behaviour; bad values are refused.
+        use sim_core::moves::popgun_slots::{LATCH, LATCH_ATTACK, ROCKET_AGAIN};
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[11].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "latch {",
+            "height 90",
+            "clock_num 1",
+            "flag_version {",
+            "marks 1",
+            "flags 2",
+            "move ext5",
+            "self_damage 5",
+            "fixed_stun 20",
+            "unblockable true",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no clock, no versions, no self damage, the plain hitstun, shields block.
+        let stripped = text
+            .replace(" clock_num 1 clock_den 1", "")
+            .replace(" fixed_stun 20", "")
+            .replace(" unblockable true", "")
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("self_damage"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        let latch = older.weapons[w].moves[LATCH as usize]
+            .latch
+            .expect("a latch");
+        assert_eq!((latch.clock_num, latch.clock_den), (0, 1));
+        assert!(older.weapons[w]
+            .moves
+            .iter()
+            .all(|m| m.self_damage == Fx::ZERO
+                && m.hitboxes
+                    .iter()
+                    .all(|h| h.fixed_stun == 0 && !h.unblockable)));
+        assert_eq!(
+            older.weapons[w].moves[MoveId::UpSpecial as usize].flag_versions[1].slot,
+            Some(ROCKET_AGAIN as u8)
+        );
+        // Bad values: a latch without a height, a flag version reading nothing or naming an empty move, negative self damage.
+        let mut c = base.clone();
+        if let Some(l) = c.weapons[w].moves[LATCH_ATTACK as usize].latch.as_mut() {
+            l.height = 0;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("latch")));
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::UpSpecial as usize].flag_versions[0].flags = 0;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("flag version")));
+        let mut c = base.clone();
+        c.weapons[w].moves[MoveId::UpSpecial as usize].flag_versions[1].slot =
+            Some(MoveId::Ext15 as u8);
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("flag version")));
+        let mut c = base.clone();
+        c.weapons[0].moves[MoveId::Jab as usize].self_damage = -Fx::ONE;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("self_damage")));
     }
 
     #[test]

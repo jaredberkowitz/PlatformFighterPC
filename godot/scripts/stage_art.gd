@@ -233,34 +233,49 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# foot does that job.)
 			var S := 512.0
 			body += '<rect width="512" height="512" fill="#%s"/>' % b.darkened(0.28).to_html(false)
+			# (Smaller stones than at first, chiselled rather than pillowed: corners only just softened, a lit bevel along the top and left
+			# of each and a shaded one along the bottom and right, darker mortar, and fine pits in the stone; the big soft-cornered blocks
+			# with a pale inner highlight read as cushions at play size.)
+			var stone_grey := Color(0.72, 0.7, 0.68)
 			var y := 0.0
-			var row := 0
 			while y < S - 1.0:
-				var rh := rng.randf_range(70.0, 110.0)
-				if y + rh > S - 40.0:
+				var rh := rng.randf_range(44.0, 66.0)
+				if y + rh > S - 30.0:
 					rh = S - y
-				# (Widths fitted so the row spans the tile exactly, and so wraps without stones overlapping.)
 				var widths: Array = []
 				var total := 0.0
-				while total < S - 60.0:
-					var ww := rng.randf_range(80.0, 170.0)
+				while total < S - 40.0:
+					var ww := rng.randf_range(54.0, 118.0)
 					widths.append(ww)
 					total += ww
-				var x := -rng.randf_range(0.0, 80.0)
+				var x := -rng.randf_range(0.0, 50.0)
 				for wi in widths.size():
 					var w: float = float(widths[wi]) * S / total
-					var shade := a.lerp(b, rng.randf_range(0.0, 0.5))
-					var rad := rng.randf_range(10.0, 22.0)
+					var shade := a.lerp(b, rng.randf_range(0.0, 0.55)).lerp(stone_grey, 0.28)
+					var rad := rng.randf_range(3.0, 7.0)
+					var lit := shade.lightened(0.2).to_html(false)
+					var dark := shade.darkened(0.25).to_html(false)
+					var pits := []
+					for j in 4:
+						pits.append([rng.randf_range(8.0, w - 16.0), rng.randf_range(8.0, rh - 16.0), rng.randf_range(1.4, 3.2)])
+					var crack := rng.randf() < 0.25
+					var cxr := rng.randf_range(0.2, 0.7)
+					var cv := [rng.randf_range(-6, 6), rng.randf_range(10, 18), rng.randf_range(-6, 6), rng.randf_range(8, 14)]
 					for ox in [-S, 0.0, S]:
-						var bx: float = x + ox + 5.0
-						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.4"/>' % [bx, y + 5.0, w - 10.0, rh - 10.0, rad, shade.to_html(false), ink]
-						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" opacity="0.25"/>' % [bx + 8.0, y + 10.0, w - 26.0, (rh - 10.0) * 0.25, rad * 0.6, shade.lightened(0.22).to_html(false)]
-						if rng.randf() < 0.3:
-							var cx: float = bx + rng.randf_range(14.0, w - 30.0)
-							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.2" stroke-linecap="round" opacity="0.35"/>' % [cx, y + 14.0, rng.randf_range(-8, 8), rng.randf_range(14, 26), rng.randf_range(-8, 8), rng.randf_range(10, 18), ink]
+						var bx: float = x + ox + 3.0
+						var by: float = y + 3.0
+						var bw: float = w - 6.0
+						var bh: float = rh - 6.0
+						body += '<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.5"/>' % [bx, by, bw, bh, rad, shade.to_html(false), ink]
+						# The bevels: lit top and left, shaded bottom and right.
+						body += '<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#%s" opacity="0.55"/>' % [bx + 2, by + bh - 2, bx + 2, by + 2, bx + bw - 2, by + 2, bx + bw - 8, by + 8, bx + 8, by + 8, bx + 8, by + bh - 8, lit]
+						body += '<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#%s" opacity="0.5"/>' % [bx + bw - 2, by + 2, bx + bw - 2, by + bh - 2, bx + 2, by + bh - 2, bx + 8, by + bh - 8, bx + bw - 8, by + bh - 8, bx + bw - 8, by + 8, dark]
+						for pt in pits:
+							body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.35"/>' % [bx + float(pt[0]), by + float(pt[1]), float(pt[2]), dark]
+						if crack:
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2" stroke-linecap="round" opacity="0.4"/>' % [bx + bw * cxr, by + 6.0, cv[0], cv[1], cv[2], cv[3], ink]
 					x += w
 				y += rh
-				row += 1
 		"earth":
 			# A bank of farm soil, painted (the meadow's own; the beach keeps the masonry): broad beds of warm earth with soft, gently waving
 			# boundaries, stones of very different sizes half buried in it (a few big boulders, more middling ones, many pebbles; each with a
@@ -367,18 +382,62 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2.5" stroke-opacity="0.55"/>' % [cx + ox, cy + oy, rx, ry, shade.to_html(false), ink]
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.3"/>' % [cx + ox - rx * 0.15, cy + oy - ry * 0.3, rx * 0.55, ry * 0.4, shade.lightened(0.1).to_html(false)]
 		"facade":
-			# Concrete panels with rounded windows, some lit warm, each with a sill. Twice the size of the other patterns (sixteen windows
-			# a repeat, about a third lit, in a softer warm), so the wall under the fighters is not a busy grid stamped every few units.
+			# A brick apartment front, four storeys a repeat: brick courses in a soft stagger, a stone ledge along each floor, four tall
+			# windows a floor each in a pale frame with a cross bar (a third lit warm, with curtains drawn to the sides; a few with a
+			# flower pot on the sill), striped awnings over two, an air conditioner hung under one, and a drainpipe down the seam. (It was
+			# a flat grid of narrow windows on panels; a wall a fighter stands over the whole match needs a building's details.)
 			body += '<rect width="512" height="512" fill="#%s"/>' % A
-			for x in [0, 128, 256, 384]:
-				for y in [0, 128, 256, 384]:
-					body += '<rect x="%d" y="%d" width="128" height="128" fill="none" stroke="#%s" stroke-width="4"/>' % [x, y, B]
-			for wy in [22, 150, 278, 406]:
-				for wx in [18, 74, 146, 202, 274, 330, 402, 458]:
-					var lit := rng.randf() < 0.32
-					var col := "f2d394" if lit else "2a2f45"
-					body += '<rect x="%d" y="%d" width="36" height="56" rx="6" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx, wy, col, ink]
-					body += '<rect x="%d" y="%d" width="44" height="6" rx="3" fill="#%s"/>' % [wx - 4, wy + 58, hi]
+			var brick_line := a.darkened(0.18).to_html(false)
+			for by in range(0, 512, 16):
+				body += '<rect x="0" y="%d" width="512" height="2" fill="#%s" opacity="0.45"/>' % [by, brick_line]
+				var off := 0 if (by / 16) % 2 == 0 else 20
+				for bx in range(off, 512, 40):
+					body += '<rect x="%d" y="%d" width="2" height="16" fill="#%s" opacity="0.35"/>' % [bx, by, brick_line]
+			var frame_col := Color(0.92, 0.88, 0.86).lerp(a, 0.25).to_html(false)
+			var curtain := ["e98a94", "8fb8e8", "e8c070"]
+			var awn := ["e2525a", "3f8f8a"]
+			for floor_k in 4:
+				var fy := floor_k * 128
+				# The ledge at the foot of the floor.
+				body += '<rect x="0" y="%d" width="512" height="12" fill="#%s"/>' % [fy + 116, hi]
+				body += '<rect x="0" y="%d" width="512" height="3" fill="#%s" opacity="0.6"/>' % [fy + 125, ink]
+				for col in 4:
+					var wx := 30 + col * 128
+					var wy := fy + 18
+					var lit := rng.randf() < 0.34
+					body += '<rect x="%d" y="%d" width="68" height="88" rx="4" fill="#%s" stroke="#%s" stroke-width="3"/>' % [wx - 6, wy - 6, frame_col, ink]
+					body += '<rect x="%d" y="%d" width="56" height="76" fill="#%s"/>' % [wx, wy, "f2d394" if lit else "2a2f45"]
+					if lit:
+						var cc: String = curtain[rng.randi_range(0, 2)]
+						body += '<path d="M%d,%d l16,0 q-6,38 -16,76 Z" fill="#%s" opacity="0.9"/>' % [wx, wy, cc]
+						body += '<path d="M%d,%d l-16,0 q6,38 16,76 Z" fill="#%s" opacity="0.9"/>' % [wx + 56, wy, cc]
+					else:
+						body += '<path d="M%d,%d l14,0 l-14,22 Z" fill="#ffffff" opacity="0.12"/>' % [wx + 6, wy + 4]
+					body += '<rect x="%d" y="%d" width="4" height="76" fill="#%s"/>' % [wx + 26, wy, frame_col]
+					body += '<rect x="%d" y="%d" width="56" height="4" fill="#%s"/>' % [wx, wy + 34, frame_col]
+					body += '<rect x="%d" y="%d" width="72" height="8" rx="2" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [wx - 8, wy + 80, hi, ink]
+					var extra := rng.randf()
+					if extra < 0.2:
+						# A flower pot on the sill.
+						body += '<rect x="%d" y="%d" width="16" height="12" fill="#c8664c" stroke="#%s" stroke-width="2"/>' % [wx + 8, wy + 68, ink]
+						body += '<circle cx="%d" cy="%d" r="9" fill="#5aa04a"/><circle cx="%d" cy="%d" r="4" fill="#f06a8a"/>' % [wx + 16, wy + 62, wx + 18, wy + 58]
+					elif extra < 0.32:
+						# An air conditioner hung under the window.
+						body += '<rect x="%d" y="%d" width="36" height="22" rx="3" fill="#b9bcc8" stroke="#%s" stroke-width="2.5"/>' % [wx + 10, wy + 88, ink]
+						for g in 3:
+							body += '<rect x="%d" y="%d" width="26" height="2" fill="#%s" opacity="0.6"/>' % [wx + 15, wy + 93 + g * 5, ink]
+					elif extra < 0.44:
+						# A striped awning over it.
+						var ac: String = awn[rng.randi_range(0, 1)]
+						for st_k in 5:
+							body += '<rect x="%d" y="%d" width="15" height="16" fill="#%s"/>' % [wx - 10 + st_k * 15, wy - 22, ac if st_k % 2 == 0 else "f4efe6"]
+						for sc in 5:
+							body += '<circle cx="%d" cy="%d" r="7.5" fill="#%s"/>' % [wx - 2 + sc * 15, wy - 6, ac if sc % 2 == 0 else "f4efe6"]
+						body += '<rect x="%d" y="%d" width="75" height="3" fill="#%s" opacity="0.5"/>' % [wx - 10, wy - 23, ink]
+			# A drainpipe down the tile's seam, with brackets.
+			body += '<rect x="2" y="0" width="10" height="512" fill="#7d7f92" stroke="#%s" stroke-width="2" stroke-opacity="0.6"/>' % ink
+			for py in range(40, 512, 128):
+				body += '<rect x="0" y="%d" width="14" height="6" fill="#5c5e70"/>' % py
 		_:
 			# Quilted diamonds with a soft highlight along their upper edges.
 			body += '<rect width="256" height="256" fill="#%s"/>' % B

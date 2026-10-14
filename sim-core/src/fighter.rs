@@ -911,6 +911,7 @@ fn land(f: &mut Fighter, p: &FighterParams, stage: &Stage, platform: usize) {
     f.short_hop = false;
     f.ledge_grab_count = 0;
     f.air_flags = 0;
+    f.air_marks = 0;
     f.wall_jumps = 0;
 }
 
@@ -1677,6 +1678,7 @@ pub fn grab_ledge(f: &mut Fighter, p: &FighterParams, stage: &Stage, ledge: usiz
     // Grabbing a ledge refreshes airborne options (and the once-per-airtime flags).
     f.air_jumps_left = p.air_jumps;
     f.air_flags = 0;
+    f.air_marks = 0;
     f.wall_jumps = 0;
     f.air_dodge_used = false;
     f.fast_fall = false;
@@ -2266,6 +2268,20 @@ pub fn free_holder(f: &mut Fighter, lag: u8) {
     }
 }
 
+/// A held fighter whose holder rides it (a latch, E49, sim 119) falls on its own: gravity to the body's top fall speed, no sideways
+/// speed, landing on a platform it meets; standing on one it stays put.
+pub fn held_fall(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+    f.vel.x = Fx::ZERO;
+    if f.platform != NONE {
+        f.vel.y = Fx::ZERO;
+        return;
+    }
+    f.vel.y = (f.vel.y - p.gravity).max(-p.max_fall_speed);
+    if let Some(i) = air_integrate(f, p, stage) {
+        land(f, p, stage, i);
+    }
+}
+
 /// A fighter that was held goes back to standing, and cannot be grabbed again for a moment.
 pub fn free_held(f: &mut Fighter, immunity: u8) {
     f.grab_with = NONE;
@@ -2635,7 +2651,10 @@ fn attack(
     let current = f.move_id;
     let as_special = |s: MoveId| {
         let sp = weapon.get(s as u8);
-        id == s || sp.air_version == Some(current) || sp.smash_version == Some(current)
+        id == s
+            || sp.air_version == Some(current)
+            || sp.smash_version == Some(current)
+            || sp.flag_versions.iter().any(|v| v.slot == Some(current))
     };
     if as_special(MoveId::UpSpecial)
         && mv.turn_at.is_none()
@@ -2667,6 +2686,10 @@ fn attack(
     let from = mv.intangible_start(f.move_air);
     if from > 0 && f.state_frame == u16::from(from) {
         f.invuln = f.invuln.max(mv.intangible.saturating_sub(from));
+    }
+    // Damage the move does to its own user, on its first frame (sim 119: the rocket barrels' crash).
+    if f.state_frame == 1 && mv.self_damage > Fx::ZERO {
+        f.percent = (f.percent + mv.self_damage).min(Fx::from_int(999));
     }
     // Angling by the stick, read once.
     if f.state_frame == u16::from(mv.steer_frame) {
@@ -3069,6 +3092,21 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     if mv.is_empty() {
         return false;
     }
+    // (A special barred by a flag version with no slot, see below, does nothing at all: checked before anything turns the fighter.)
+    let (flags, marks) = (f.air_flags, f.air_marks);
+    let flagged = |m: &Move| {
+        m.flag_versions
+            .iter()
+            .find(|v| v.flags & flags != 0 || v.marks & marks != 0)
+            .copied()
+    };
+    let as_started = match mv.air_version {
+        Some(v) if !f.grounded() => weapon.get(v),
+        _ => mv,
+    };
+    if flagged(as_started).is_some_and(|v| v.slot.is_none()) {
+        return false;
+    }
     if id == MoveId::SideSpecial {
         f.facing = if input.stick_x > 0 { 1 } else { -1 };
     }
@@ -3093,6 +3131,15 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
     let (id, mv) = match mv.air_version {
         Some(v) if !f.grounded() => (MoveId::from_index(v), weapon.get(v)),
         _ => (id, mv),
+    };
+    // A version picked by the once-per-airtime flags or marks (sim 119, owner decision 75): the first that matches; one with no slot
+    // means the special does not start (the reference's up special barred after the flip's kick until landing).
+    let (id, mv) = match flagged(mv) {
+        Some(v) => match v.slot {
+            Some(s) => (MoveId::from_index(s), weapon.get(s)),
+            None => return false,
+        },
+        None => (id, mv),
     };
     // A special input like a smash attack (the stick flicked sideways, up or down, or the strong button) is remembered for its
     // script (the `flick` register), and picks the move's smash-input version if it has one (`Move::smash_version`, E3d).
