@@ -1,7 +1,7 @@
 //! Combos: a bot plays an aerial loop the way the reference players do (a short-hop aerial played out, land, dash after the target,
 //! short hop again) and reports, hit by hit, whether the target was still trapped (in hitstun or hitlag) when the next hit landed: a
 //! true combo. `search_carry_chains` (`--ignored --nocapture`, best in `--release`) goes further: after each hit it tries a grid of
-//! follow-ups (fast-fall timing, no jump / short hop / full hop / double jump, waiting, aerial timing, drift) and looks a few links
+//! follow-ups (fast-fall timing, no jump / short hop / full hop / double jump, waiting, aerial timing to the frame, spacing) and looks a few links
 //! ahead, so a chain it reports is one the engine allows, whatever a bot would play. The test pins the loop the owner asked for (the staff seer's neutral air three times in a row, from their reference
 //! clip); `probe_*` (run with `--ignored --nocapture`) print tables for checking other classes' chains.
 
@@ -314,7 +314,7 @@ fn the_staff_neutral_air_loop_finishes_with_a_back_air() {
 //
 // A bot plays one routine; a chain it misses may still exist. Here, after each hit, every follow-up from a small set of plans is tried
 // (fast fall timing, no jump / short hop / full hop / double jump, how long to wait first, when to press the aerial, where to drift
-// relative to the target) and the earliest one that lands while the target is still trapped is taken. A carry chain (an aerial
+// relative to the target), and the follow-ups that land while the target is still trapped are followed a few links deep. A carry chain (an aerial
 // repeated while the target is carried across the stage) is as long as these links go.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -338,13 +338,16 @@ struct Plan {
     offset: Fx,
 }
 
+/// The follow-ups tried after each hit. The aerial's press is tried on nearly every frame: a link often works only with a falling
+/// aerial that hits a frame or two before landing (so the landing lag is short) and with the spacing its reach wants, which a
+/// coarser grid misses.
 fn plans() -> Vec<Plan> {
     let mut out = vec![];
-    for fast_fall_at in [None, Some(0), Some(4), Some(9)] {
+    for fast_fall_at in [None, Some(0), Some(3), Some(6), Some(9), Some(12)] {
         for hop in [Hop::None, Hop::Short, Hop::Full, Hop::Double] {
-            for wait in [0u16, 3, 7] {
-                for aerial_at in [0u16, 3, 6, 9, 12, 16, 21] {
-                    for offset in [-6, 0, 8] {
+            for wait in [0u16, 2, 4] {
+                for aerial_at in (0u16..10).chain((10..=30).step_by(2)) {
+                    for offset in [-6, 0, 8, 15, 22] {
                         out.push(Plan {
                             fast_fall_at,
                             hop,
@@ -473,14 +476,14 @@ fn search_chain(cls: u8, stick: (i8, i8), percent: i32, opener: Option<(i8, i8)>
             }
         }
     }
-    for &p in plans.iter().filter(|p| {
-        p.hop == Hop::Short
-            && p.wait == 0
-            && p.offset == Fx::ZERO
-            && matches!(p.fast_fall_at, None | Some(0))
-    }) {
-        if let Some((s, _)) = rollout(&sim.content, sim.state, p, stick, false) {
-            openers.push(s);
+    // (Short hops opening on every timing and spacing that hits, one per hit frame.)
+    let mut opened_at: Vec<u32> = vec![];
+    for &p in plans.iter().filter(|p| p.hop == Hop::Short && p.wait == 0) {
+        if let Some((s, t)) = rollout(&sim.content, sim.state, p, stick, false) {
+            if !opened_at.contains(&t) {
+                opened_at.push(t);
+                openers.push(s);
+            }
         }
     }
     let mut best = (0u32, Fx::ZERO, Fx::ZERO);
@@ -499,7 +502,7 @@ fn search_chain(cls: u8, stick: (i8, i8), percent: i32, opener: Option<(i8, i8)>
 
 /// How many links ahead the search looks, and how many follow-ups it keeps at each link (the earliest, plus later ones spread over
 /// the timings that worked, which can leave the target better placed for the next link).
-const LOOK_AHEAD_DEPTH: u32 = 6;
+const LOOK_AHEAD_DEPTH: u32 = 5;
 const LOOK_AHEAD_WIDTH: usize = 3;
 
 /// The longest run of true-combo links from `state` (at most `depth`), and the state at its end.
@@ -560,11 +563,16 @@ fn search_carry_chains() {
     ];
     // (Up-air chains open with an up tilt, as in the reference; the rest with the aerial itself.)
     let only: Option<usize> = std::env::var("CLASS").ok().and_then(|s| s.parse().ok());
+    // (`AIR=uair` and so on limits it to one aerial: the whole table takes a while.)
+    let only_air: Option<String> = std::env::var("AIR").ok();
     for (cls, name) in names.iter().enumerate() {
         if only.is_some_and(|o| o != cls) {
             continue;
         }
         for (aerial, stick) in aerials {
+            if only_air.as_deref().is_some_and(|a| a != aerial) {
+                continue;
+            }
             let mut row = format!("{name:<11} {aerial}:");
             for percent in [0, 20, 40, 60, 80] {
                 let opener = if aerial == "uair" {
