@@ -18,8 +18,8 @@ use crate::grab;
 use crate::moves::{
     Hitbox, Move, MoveId, Reflector, Weapon, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_AUTOLINK,
     ANGLE_BACKWARD, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ANGLE_PULL, ANGLE_VORTEX,
-    ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH,
-    HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
+    ARMOR_KNOCKBACK, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL,
+    HIT_SEARCH, HIT_THROW, TARGETS_AERIAL, TARGETS_GROUNDED,
 };
 use crate::scripting;
 use crate::state::{
@@ -84,6 +84,16 @@ pub fn hurtboxes(f: &Fighter, p: &FighterParams, w: &Weapon) -> [(Vec2, Fx); HUR
     [(at(6), radius), (middle, radius), (at(16), radius), limb]
 }
 
+/// The numbers of the egg a fighter is in (E8: the `moves::Encase` of the move that laid it, read from the body that laid it), or
+/// `None` when it is not in one (or the move has none).
+pub fn encase_of(content: &Content, f: &Fighter) -> Option<crate::moves::Encase> {
+    if f.state != S::Encased {
+        return None;
+    }
+    let p = content.fighters.get(usize::from(f.encase_char))?;
+    weapon_of(content, p).get(f.encase_move).encase
+}
+
 /// [`hurtboxes`] as the match sees them: a buried fighter's (E5) sit `Ruleset::bury_depth` of its height lower, only its upper body
 /// out of the ground [E].
 pub fn body_hurtboxes(content: &Content, f: &Fighter) -> [(Vec2, Fx); HURT_CIRCLES] {
@@ -94,6 +104,11 @@ pub fn body_hurtboxes(content: &Content, f: &Fighter) -> [(Vec2, Fx); HURT_CIRCL
         for (c, _) in &mut hurt {
             c.y -= sunk;
         }
+    }
+    // An egg (E8) is one round hurtbox standing on the feet, growing as it was laid (`Encase::radius`) [E: its size is not published].
+    if let Some(e) = encase_of(content, f) {
+        let r = e.radius(p.ecb_height, f.encase_age);
+        hurt = [(f.pos + Vec2::new(Fx::ZERO, r), r); HURT_CIRCLES];
     }
     hurt
 }
@@ -952,6 +967,21 @@ fn apply_hit(
         );
     let source_stocks = state.fighters[source].stocks;
     let bury_hit = hb.effect == EFFECT_BURY;
+    // The egg (E8): a fighter already in one takes less damage and is never launched (below); a throw row with the encase effect lays
+    // one with its move's numbers.
+    let egg = encase_of(content, &state.fighters[d]);
+    let new_egg = if hb.effect == EFFECT_ENCASE && egg.is_none() {
+        let attacker = &state.fighters[source];
+        weapon_of(content, params_of(content, attacker))
+            .get(move_id)
+            .encase
+            .map(|e| (e, attacker.char_id, attacker.facing))
+    } else {
+        None
+    };
+    if let Some(e) = egg {
+        hb.damage = hb.damage * Fx::from_ratio(i32::from(e.damage_taken), 100);
+    }
     let defender_params = *params_of(content, &state.fighters[d]);
     let def = &mut state.fighters[d];
     if def.state == S::Shield {
@@ -976,6 +1006,12 @@ fn apply_hit(
     // draining move drains.
     crate::gauge::on_damage(state, content, source, d, added);
     let def = &mut state.fighters[d];
+    if let Some((e, by_char, by_facing)) = new_egg {
+        fighter::encase(def, &e, before, added, by_char, move_id, by_facing);
+        def.hitlag = hitlag;
+        def.sdi_wait = 0;
+        return;
+    }
     // The percent the knockback formula reads: the percent before the hit plus the hit's damage *without* the one-on-one
     // multiplier, which only scales the damage taken (the reference: it never moves the percent a move KOs at; sim 97).
     let kb_percent = (before + hb.damage).min(Fx::from_int(999));
@@ -1066,6 +1102,14 @@ fn apply_hit(
         if !def.grounded() {
             def.vel.y += crate::trig::sin(angle) * speed;
         }
+        return;
+    }
+    // A hit on an egg (E8): the (reduced) damage and the hitlag stand, and the egg's time is cut by `hit_cut` a percent added.
+    if let Some(e) = egg {
+        def.hitlag = hitlag;
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
+        def.encase_timer -= e.hit_cut * added;
         return;
     }
     // An armored hit: the damage and hitlag stand, nothing else happens.

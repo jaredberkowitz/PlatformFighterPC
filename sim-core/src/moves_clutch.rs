@@ -98,6 +98,10 @@ pub const DAIR_LANDING: MoveId = MoveId::Ext3;
 pub const DROP_AIR: MoveId = MoveId::Ext4;
 /// The drop's landing, with its two stars.
 pub const DROP_LANDING: MoveId = MoveId::Ext5;
+/// The tongue's catch (neutral special): the swallow and the lay.
+pub const LAY: MoveId = MoveId::Ext0;
+/// The rolling shell's ending (side special).
+pub const ROLL_END: MoveId = MoveId::Ext1;
 
 /// The Clutch moveset (the bounder body): kicks, a tail, a headbutt and a long tongue. Every normal follows the reference frame for
 /// frame (the ninth moveset's `REFERENCE_DATA.md` in `docs/movesets/`, version 13.0.1, read from ssbwiki.com's raw hitbox tables):
@@ -676,6 +680,12 @@ fn specials(w: &mut Weapon) {
     for id in [MoveId::Ext0, MoveId::Ext1, MoveId::Ext2] {
         w.moves[id as usize] = Move::empty();
     }
+    let (tongue, lay) = tongue_and_lay();
+    w.moves[MoveId::NSpecial as usize] = tongue;
+    w.moves[LAY as usize] = lay;
+    let (roll, roll_end) = rolling_shell();
+    w.moves[MoveId::SideSpecial as usize] = roll;
+    w.moves[ROLL_END as usize] = roll_end;
     w.moves[MoveId::UpSpecial as usize] = lobbed_shell();
     let (ground, air, landing) = drop();
     w.moves[MoveId::DownSpecial as usize] = ground;
@@ -870,4 +880,131 @@ fn drop() -> (Move, Move, Move) {
         tool: Tool::NONE,
     });
     (ground, air, landing)
+}
+
+/// The neutral special: the tongue that swallows a fighter and lays it as a shell (the reference's, 13.0.1; `REFERENCE_DATA.md`, the
+/// neutral special, re-read from ssbwiki.com's raw tables 2026-10-14). One move on the ground and in the air (the reference's two
+/// versions have the same boxes and FAF; touching down carries it on [E]).
+///
+/// The tongue: a command grab (on the ground or in the air, shielding or in hitstun) on frames 19-22, FAF 42 on a whiff [R]. On 19
+/// only, the mouth box (radius 5.9, 7.0 up and 9.0 ahead of the reference's root) [D]; on 19-22 the tongue tip's two boxes, radius 4.0
+/// catching only fighters in the air and radius 3.5 only fighters on the ground [R], swept along the tongue's reach (8.0 to 22.0 ahead
+/// at 6.0 up, as the grab's) [E: the tip bone's place is not published, gap 3].
+///
+/// The catch (`LAY`, from the frame after the catch): the swallow, then the laying part from its frame 7 (the reference's laying part,
+/// 52 frames: release on its 21, intangible on its 7-29, FAF 38 [R]), so release on 27, intangible 13-35, FAF 44: a catch on frame 19
+/// is actionable on frame 63, the reference's "62 frames when successful" (UFD) [D: conflict 5, the 6-frame swallow is what puts the
+/// two sources together]. The held fighter is pinned at the feet, inside the body [E]. The laying throw: 7%, 361, BK 0, KS 100, no
+/// hitlag (H 0) [R], effect encase: the egg (E8, `Encase`), with the reference's parameters [R]: `100 + 1.8 x min(p, 100)` frames less
+/// 2 a percent actually taken (so 84 to 264 frames unmashed after the throw's own 8.4%), 7 off a stick input and 12.6 off a button
+/// input, 0.66x damage inside, laid at 0.7 and 2 (0.0875, 0.25 world [D]) **behind** [E: gap 5], growing from 0.45x in 20 frames, the
+/// shift 0.3 / 1 on the ground and 0.01 / 0.1 in the air, out at 2.5 up (0.3125) with 7 intangible frames. Its full size, one body
+/// height across, is [E] (gap 6). In the air the vertical speed becomes 1 (0.125) as it is laid [R] (`clutch_lay.script`). No ledges
+/// (the reference's aerial version catches none) [R]. The interrupted row (4% if hit while swallowing) is not modelled (house limit).
+fn tongue_and_lay() -> (Move, Move) {
+    let mut rows = vec![ru(19, 19, 90, 70, 59, 0, 361, 0, 0, 2, 0)];
+    for (radius, priority) in [(40, 0u8), (35, 1)] {
+        rows.extend(along_rows(
+            19,
+            22,
+            (80, 60),
+            (220, 60),
+            radius,
+            0,
+            361,
+            0,
+            0,
+            priority,
+            0,
+        ));
+    }
+    let mut tongue = with_kind(ref_move(42, 0, 0, 255, &rows), HIT_GRAB);
+    set_all(&mut tongue, |h| {
+        h.command = true;
+        h.targets = match h.priority {
+            0 => TARGETS_AERIAL,
+            1 => TARGETS_GROUNDED,
+            _ => TARGETS_ALL,
+        };
+    });
+    tongue.catch_move = Some(LAY as u8);
+    tongue.land_continue = true;
+
+    let mut throw = row(&r(27, 27, 0, 8, 10, 70, 361, 0, 100, 0, 0));
+    throw.kind = HIT_THROW;
+    throw.effect = EFFECT_ENCASE;
+    throw.hitlag = 0;
+    let mut lay = ref_move(44, 0, 0, 255, &[]);
+    lay.hitboxes = vec![throw];
+    lay.hold_at = Some((Fx::ZERO, Fx::ZERO));
+    lay.intangible_from = 12;
+    lay.intangible = 35;
+    lay.land_continue = true;
+    lay.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/clutch_lay.script"),
+    ));
+    lay.encase = Some(Encase {
+        base: Fx::from_int(100),
+        per_percent: Fx::from_ratio(18, 10),
+        percent_cap: Fx::from_int(100),
+        mash_stick: Fx::from_int(7),
+        mash_button: Fx::from_ratio(126, 10),
+        hit_cut: Fx::from_int(2),
+        damage_taken: 66,
+        launch: (-Fx::from_ratio(7, 80), Fx::from_ratio(2, 8)),
+        grow_from: 45,
+        grow_frames: 20,
+        size: 100,
+        shift: (Fx::from_ratio(3, 80), Fx::from_ratio(1, 8)),
+        air_shift: (Fx::from_ratio(1, 800), Fx::from_ratio(1, 80)),
+        exit_vy: Fx::from_ratio(25, 80),
+        exit_intangible: 7,
+    });
+    (tongue, lay)
+}
+
+/// The side special: the rolling shell, built simply (owner decision 49; it will likely be replaced). A hop at 2 (0.25 world) [R]
+/// into a roll from frame 21 that the stick steers, with the roll's gravity and fall [R] (`clutch_roll.script`). Its hit from frame 32
+/// (the egg's first touch of the ground from a standing start) [R]: 10% plus the roll speed in the reference's units (10 to about
+/// 13.8%: `charge_add`, the script setting the charge to the speed in tenths) [R], 80 degrees (type 0: away from the shell), BK 70, KS
+/// 50, H 1.0, rehit every 32 frames [R]; radius 2.3 against fighters in the air and 3.5 against fighters on the ground, 5.6 up [R]. One
+/// jump, special to stop from 25 frames into the roll, at most 180 frames of roll, a hit costing speed and 40 frames [R]; the ending
+/// (`ROLL_END`) is actionable 40 frames on (FAF 85 at the quickest) [R]. Ledges in front only while falling [E: gap 12]; never
+/// helpless [R]. Listed limits (E31, E32 deferred by decision 49): the hit is out in the air and while turning, and the roll does
+/// not stall at a ledge; it rolls off.
+fn rolling_shell() -> (Move, Move) {
+    let rows = [
+        ru(32, 254, 0, 56, 23, 100, 80, 70, 50, 0, 0),
+        ru(32, 254, 0, 56, 35, 100, 80, 70, 50, 1, 0),
+    ];
+    let mut roll = ref_move(255, 0, 0, 255, &rows);
+    set_all(&mut roll, |h| {
+        h.angle_type = ANGLE_BY_POSITION;
+        h.targets = if h.priority == 0 {
+            TARGETS_AERIAL
+        } else {
+            TARGETS_GROUNDED
+        };
+    });
+    roll.rehit = Some((31, 32));
+    roll.charge_add = Some(ChargeAdd {
+        full: 40,
+        add: Fx::from_int(4),
+        floor: false,
+    });
+    roll.land_continue = true;
+    roll.ledge_front_from = 20;
+    roll.ledge_falling_only = true;
+    roll.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/clutch_roll.script"),
+    ));
+    let mut end = ref_move(40, 0, 0, 255, &[]);
+    end.land_continue = true;
+    end.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/clutch_roll_end.script"),
+    ));
+    (roll, end)
 }

@@ -1,0 +1,10 @@
+// Clutch side special's ending: the roll's speed x0.7 and its vertical speed x0.5 on its first scripted frame [R], then slowing by 0.00625 a
+// frame (the reference's ground friction 0.05 [R]) under the roll's fall acceleration, to the FAF 40 frames on [R].
+var speed;
+let fall = max(vy - 0.01625, -0.24375);
+if frame == 1 {
+    speed = speed * 0.7;
+    fall = vy * 0.5;
+}
+speed = max(speed - 0.00625, 0);
+set_vel(speed, fall);

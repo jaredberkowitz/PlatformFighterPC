@@ -29,18 +29,19 @@ fn until_free(sim: &mut Sim) -> usize {
 
 #[test]
 fn a_press_up_to_nine_frames_early_is_buffered_and_one_ten_frames_early_is_not() {
-    for (early, jumps) in [(9usize, true), (10, false)] {
+    // (Attack: a jump would cut the shield release short, sim 109.)
+    for (early, jabs) in [(9usize, true), (10, false)] {
         let mut sim = Sim::new();
         into_shield_release(&mut sim);
         let release = usize::from(sim.content.fighters[0].shield_release_frames);
-        // Press jump `early` frames before the fighter can act, then let go.
+        // Press attack `early` frames before the fighter can act, then let go.
         sim.ticks(release - early, inp(0, 0, 0));
-        sim.tick(inp(0, 0, JUMP));
+        sim.tick(inp(0, 0, ATTACK));
         until_free(&mut sim);
         sim.tick(inp(0, 0, 0));
         assert_eq!(
-            sim.f().state == S::JumpSquat,
-            jumps,
+            sim.f().state == S::Attack,
+            jabs,
             "a press {early} frames early"
         );
     }
@@ -50,12 +51,13 @@ fn a_press_up_to_nine_frames_early_is_buffered_and_one_ten_frames_early_is_not()
 fn holding_a_button_buffers_it_however_early_it_was_pressed() {
     let mut sim = Sim::new();
     into_shield_release(&mut sim);
-    // Pressed on the first frame of the release (11 frames early) and held: the hold buffer.
+    // Pressed on the first frame of the release (11 frames early) and held: the hold buffer. (Attack: a jump would cut the shield
+    // release short, sim 109.)
     while sim.f().state == S::ShieldRelease {
-        sim.tick(inp(0, 0, JUMP));
+        sim.tick(inp(0, 0, ATTACK));
     }
-    sim.tick(inp(0, 0, JUMP));
-    assert_eq!(sim.f().state, S::JumpSquat);
+    sim.tick(inp(0, 0, ATTACK));
+    assert_eq!(sim.f().state, S::Attack);
 }
 
 #[test]

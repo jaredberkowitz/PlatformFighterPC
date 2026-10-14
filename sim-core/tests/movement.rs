@@ -1,7 +1,7 @@
 //! Phase 1 exit criteria: movement tech works from scripted inputs, for fighters with different
 //! physics profiles. Each test drives player 0 with a recorded input script.
 
-use sim_core::input::buttons::{JUMP, SHIELD};
+use sim_core::input::buttons::{ATTACK, JUMP, SHIELD};
 use sim_core::state::{Fighter, FighterState as S, NONE};
 use sim_core::{step, Content, FighterParams, Fx, GameState, Input, MAX_FIGHTERS};
 
@@ -370,19 +370,15 @@ fn releasing_shield_takes_eleven_frames_then_returns_to_idle() {
     assert_eq!(sim.f().state, S::Shield);
     sim.tick(inp(0, 0, 0));
     assert_eq!(sim.f().state, S::ShieldRelease);
-    // Nothing can be done while it drops; a jump pressed near its end is buffered.
+    // Attacks wait while it drops; one pressed near its end is buffered.
     sim.ticks(7, inp(0, 0, 0));
-    sim.tick(inp(0, 0, JUMP));
+    sim.tick(inp(0, 0, ATTACK));
     sim.ticks(2, inp(0, 0, 0));
     assert_eq!(sim.f().state, S::ShieldRelease);
     sim.tick(inp(0, 0, 0));
     assert_eq!(sim.f().state, S::Idle, "the shield drop is 11 frames");
     sim.tick(inp(0, 0, 0));
-    assert_eq!(
-        sim.f().state,
-        S::JumpSquat,
-        "and the buffered jump comes out"
-    );
+    assert_eq!(sim.f().state, S::Attack, "and the buffered jab comes out");
 }
 
 // ---- Platforms -------------------------------------------------------------------------------

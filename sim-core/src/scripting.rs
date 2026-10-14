@@ -59,6 +59,8 @@ pub struct World<'a> {
     pub me: usize,
     /// Every projectile as the frame began (the `owned` register counts its fighter's).
     pub projectiles: &'a [Projectile],
+    /// For each fighter in an egg (E8), the numbers of the egg (`combat::encase_of`), read as the frame began.
+    pub encase: [Option<crate::moves::Encase>; MAX_FIGHTERS],
 }
 
 /// How many live projectiles fighter `me` fired (reflected or not) of tool kind `kind` (`moves::Tool::kind`), or, with kind 0, of

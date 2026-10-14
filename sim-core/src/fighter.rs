@@ -12,7 +12,7 @@ use crate::input::{
     buttons, Input, STICK_AIM, STICK_DASH, STICK_DEADZONE, STICK_DOWN, STICK_FLICK_FRAMES,
     STICK_FLICK_FROM, STICK_THRESHOLD,
 };
-use crate::moves::{Motion, Move, MoveId, Weapon};
+use crate::moves::{Encase, Motion, Move, MoveId, Weapon};
 use crate::scripting;
 use crate::state::{Fighter, FighterState as S, NONE};
 use crate::trig::{self, Angle};
@@ -143,6 +143,8 @@ impl Fighter {
 }
 
 fn enter(f: &mut Fighter, state: S) {
+    // A pending post-shieldstun shield grab belongs to the shield it was pressed in.
+    f.shield_grab = 0;
     // A pull lasts only while the fighter is in hitstun.
     if state != S::Hitstun {
         f.pull = false;
@@ -424,8 +426,9 @@ pub fn update(
         S::ShieldDrop => shield_drop(f, p, stage),
         S::LedgeHang => ledge_hang(f, p, weapon, stage),
         S::LedgeJump => ledge_jump(f, p, stage),
-        S::ShieldRelease => shield_release(f, p, stage),
+        S::ShieldRelease => shield_release(f, p, weapon, stage),
         S::Buried => buried(f, p, rules),
+        S::Encased => encased(f, p, stage, world.encase[world.me].as_ref()),
         S::Rebound => rebound(f, p, stage),
         S::WallTech => wall_tech(f, p, rules),
         S::Respawn => revival(f, p, rules),
@@ -1306,16 +1309,38 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         break_shield(f, rules);
         return;
     }
-    // After blocking a hit the shield stays up and the fighter cannot act until the stun runs out.
+    let buffer = p.input_buffer;
+    // After blocking a hit the shield stays up and the fighter cannot act until the stun runs out. A grab pressed meanwhile (attack or
+    // grab: both are the shield grab) is the reference's post-shieldstun shield grab: the shield stays up `shield_grab_delay` frames
+    // more before it starts (sim 109).
     if f.shield_stun > 0 {
         f.shield_stun -= 1;
+        // (Attack with the stick up is the up smash out of the shield, not a grab.)
+        let up = f.history[0].stick_y >= STICK_DOWN;
+        if f.shield_grab == 0
+            && (f.pressed_within(buttons::GRAB, 1) || (!up && f.pressed_within(buttons::ATTACK, 1)))
+        {
+            f.shield_grab = 1;
+        }
         return;
     }
-    if !f.held(buttons::SHIELD) {
+    if f.shield_grab == 1 && rules.shield_grab_delay > 0 {
+        // This frame is the first of the extra shield frames.
+        f.shield_grab = 2;
+        f.shield_stun = rules.shield_grab_delay - 1;
+        return;
+    }
+    if f.shield_grab != 0 {
+        f.shield_grab = 0;
+        f.buffer_used |= buttons::ATTACK | buttons::GRAB;
+        begin_attack(f, MoveId::Grab);
+        return;
+    }
+    // Let go of: the shield drops, once it has been up `shield_min_frames`.
+    if !f.held(buttons::SHIELD) && f.state_frame >= u16::from(rules.shield_min_frames) {
         enter(f, S::ShieldRelease);
         return;
     }
-    let buffer = p.input_buffer;
     // Straight out of the shield (E37, the reference's, owner decision 56): special with the stick up is the grounded up special, and
     // attack with the stick (or the attack stick) up the up smash, with no jump first and no shield drop. They come before the jump,
     // so a jump pressed with them does not take the press.
@@ -1342,10 +1367,22 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
     }
 }
 
-/// Letting go of the shield: a few frames before anything else can be done.
-fn shield_release(f: &mut Fighter, p: &FighterParams, stage: &Stage) {
+/// Letting go of the shield: a few frames (`shield_release_frames`, the reference's 11) before anything else can be done, except a
+/// jump, the up special or the up smash, which cut it short at any time, as they come straight out of the shield (the reference's;
+/// sim 109). A grab cannot: a shield grab has to be made with the shield still up.
+fn shield_release(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage) {
     f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
-    if slide_on_platform(f, p, stage) && f.state_frame >= u16::from(p.shield_release_frames) {
+    if !slide_on_platform(f, p, stage) {
+        return;
+    }
+    if up_out_of_ground(f, p, weapon, false) {
+        return;
+    }
+    if f.take(buttons::JUMP, p.input_buffer) {
+        enter(f, S::JumpSquat);
+        return;
+    }
+    if f.state_frame >= u16::from(p.shield_release_frames) {
         enter(f, S::Idle);
     }
 }
@@ -1700,6 +1737,110 @@ fn buried(f: &mut Fighter, p: &FighterParams, rules: &Ruleset) {
         enter(f, S::Rebound);
         f.lag = rules.bury_exit_lag;
     }
+}
+
+/// Shuts a fighter in an egg (E8, `moves::Encase`), laid by body `by_char`'s move `by_move` facing `facing`: `percent` is the fighter's
+/// percent before the throw and `added` what the throw added (it cuts the egg's time like any hit on it).
+pub fn encase(
+    f: &mut Fighter,
+    e: &Encase,
+    percent: Fx,
+    added: Fx,
+    by_char: u8,
+    by_move: u8,
+    facing: i8,
+) {
+    enter(f, S::Encased);
+    f.encase_timer = e.frames(percent) - e.hit_cut * added;
+    f.encase_age = 0;
+    f.encase_char = by_char;
+    f.encase_move = by_move;
+    f.vel = Vec2::new(e.launch.0.mul_int(i32::from(facing)), e.launch.1);
+    if f.vel.y > Fx::ZERO {
+        f.platform = NONE;
+    }
+    f.kb_vel = Vec2::ZERO;
+    f.launch_pending = false;
+    f.hitstun = 0;
+    f.fast_fall = false;
+    f.hop_boost = 0;
+}
+
+/// In an egg (E8): the timer runs down a frame at a time, and by the egg's mash numbers on a frame with a new button press or a stick
+/// flick (the shared mash reading); a flick also shifts the egg (sideways, and up for a hop, on the ground; barely in the air). The egg
+/// falls with the fighter's own gravity and fall speed, slides to a stop on its traction, lands and stays an egg (no ledge, no tech).
+/// At 0 the fighter breaks out into the air at the egg's `exit_vy`, intangible for `exit_intangible` frames (its midair jumps kept
+/// [E: gap 8]). An egg whose numbers cannot be found (no `Encase` on the move that laid it) breaks at once.
+fn encased(f: &mut Fighter, p: &FighterParams, stage: &Stage, e: Option<&Encase>) {
+    let Some(e) = e else {
+        break_out(f, Fx::ZERO, 0);
+        return;
+    };
+    f.encase_age = f.encase_age.saturating_add(1);
+    let (button, stick) = crate::grab::mash_inputs(f);
+    let mut cut = Fx::ONE;
+    if button {
+        cut += e.mash_button;
+    }
+    if stick {
+        cut += e.mash_stick;
+    }
+    f.encase_timer -= cut;
+    if f.encase_timer <= Fx::ZERO {
+        break_out(f, e.exit_vy, e.exit_intangible);
+        return;
+    }
+    if stick {
+        let input = f.history[0];
+        let side = if x_active(input) {
+            i32::from(input.stick_x.signum())
+        } else {
+            0
+        };
+        let up = input.stick_y >= STICK_THRESHOLD;
+        let (sx, sy) = if f.grounded() { e.shift } else { e.air_shift };
+        f.vel.x += sx.mul_int(side);
+        if up {
+            if f.grounded() {
+                f.vel.y = sy;
+                f.platform = NONE;
+            } else {
+                f.vel.y += sy;
+            }
+        }
+    }
+    if f.grounded() {
+        f.vel.x = approach(f.vel.x, Fx::ZERO, p.ground_friction);
+        f.vel.y = Fx::ZERO;
+        f.touched_wall = collision::move_x(stage, p, &mut f.pos, f.vel.x);
+        if f.touched_wall {
+            f.vel.x = Fx::ZERO;
+        }
+        // Rolled or shifted off its platform: it falls.
+        if collision::platform(stage, f.platform)
+            .is_none_or(|pl| f.pos.x < pl.left || f.pos.x > pl.right)
+        {
+            f.platform = NONE;
+        }
+        return;
+    }
+    f.vel.x = approach(f.vel.x, Fx::ZERO, p.air_friction);
+    f.vel.y = (f.vel.y - p.gravity).max(-p.max_fall_speed);
+    if let Some(i) = air_integrate(f, p, stage) {
+        land(f, p, stage, i);
+    }
+}
+
+/// Out of an egg: into the air at `vy`, intangible for `intangible` frames.
+fn break_out(f: &mut Fighter, vy: Fx, intangible: u8) {
+    f.encase_timer = Fx::ZERO;
+    f.encase_age = 0;
+    f.encase_char = 0;
+    f.encase_move = 0;
+    f.platform = NONE;
+    f.vel.y = vy;
+    f.invuln = f.invuln.max(intangible);
+    enter(f, S::Airborne);
 }
 
 /// Lying on the ground after a hard landing (or sitting after a trip). After a short while the fighter chooses a get-up: attack,

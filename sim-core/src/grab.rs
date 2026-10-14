@@ -31,6 +31,7 @@ pub fn grabbable(f: &Fighter) -> bool {
                 | S::Grabbing
                 | S::Carrying
                 | S::Buried
+                | S::Encased
         )
 }
 
@@ -49,6 +50,7 @@ pub fn catchable(f: &Fighter) -> bool {
                 | S::Carrying
                 | S::Respawn
                 | S::Buried
+                | S::Encased
         )
 }
 
@@ -186,7 +188,20 @@ fn start_carry_clock(state: &mut GameState, content: &Content, h: usize, v: usiz
 /// The frames this frame's mashing takes off a struggle (a hold, a bury: the shared mash): `grab_mash_button` for a new press of any
 /// button, `grab_mash_stick` for a flick of the stick (the reference's 14.4 and 8, rounded).
 pub fn mash_cut(f: &Fighter, rules: &crate::content::Ruleset) -> u16 {
+    let (pressed, flicked) = mash_inputs(f);
     let mut cut: u16 = 0;
+    if pressed {
+        cut += u16::from(rules.grab_mash_button);
+    }
+    if flicked {
+        cut += u16::from(rules.grab_mash_stick);
+    }
+    cut
+}
+
+/// The shared mash reading (a hold, a bury, an egg): whether this frame has a new press of any button, and whether it has a flick of
+/// the stick.
+pub fn mash_inputs(f: &Fighter) -> (bool, bool) {
     let pressed = [
         buttons::ATTACK,
         buttons::JUMP,
@@ -196,13 +211,7 @@ pub fn mash_cut(f: &Fighter, rules: &crate::content::Ruleset) -> u16 {
     ]
     .iter()
     .any(|b| f.pressed_within(*b, 1));
-    if pressed {
-        cut += u16::from(rules.grab_mash_button);
-    }
-    if f.flick_x(1) != 0 || f.flick_y(1) != 0 {
-        cut += u16::from(rules.grab_mash_stick);
-    }
-    cut
+    (pressed, f.flick_x(1) != 0 || f.flick_y(1) != 0)
 }
 
 /// Stands the held fighter `grab_distance` in front of the holder, on the same surface, facing it; or, when the holder's move (or

@@ -1,0 +1,3 @@
+// Clutch neutral special's catch, the swallow and the lay: when the shell is laid (the laying throw's release, this move's frame 27,
+// 26 counted from 0) in the air, the vertical speed becomes 0.125 (the reference's 1 [R]).
+if frame == 26 && grounded == 0 { add_vel(0, 0.125 - vy); }
