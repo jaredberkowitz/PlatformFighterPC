@@ -22,9 +22,7 @@ use sim_core::run::{
     INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE,
 };
 use sim_core::state::PLAYING;
-use sim_core::{
-    step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION,
-};
+use sim_core::{step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION};
 use std::collections::VecDeque;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use transport::{QuickMatch, RelayLink, SpectatorSocket, UdpLink};

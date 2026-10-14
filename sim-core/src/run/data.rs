@@ -731,15 +731,14 @@ fn pieces() -> Vec<Piece> {
     const STREET: u8 = 1 << SLOT_STREET;
     const ROOF: u8 = 1 << SLOT_ROOF;
     const AIR: u8 = 1 << SLOT_AIR;
-    let piece = |name: &str, fits: u8, width: i32, platforms: Vec<Footing>, coins: Vec<CoinSpot>| {
-        Piece {
+    let piece =
+        |name: &str, fits: u8, width: i32, platforms: Vec<Footing>, coins: Vec<CoinSpot>| Piece {
             name: name.to_string(),
             fits,
             width: tenths(width),
             platforms,
             coins,
-        }
-    };
+        };
     vec![
         // A dumpster with a crate on its lid.
         piece(

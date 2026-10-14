@@ -240,7 +240,10 @@ pub fn segment_blocked(stage: &Stage, a: Vec2, b: Vec2) -> bool {
     stage.platforms.iter().filter(|p| !p.pass_through).any(|p| {
         let (mut t0, mut t1) = (Fx::ZERO, Fx::ONE);
         // (A slope's box reaches its higher end.)
-        for (start, delta, low, high) in [(a.x, d.x, p.left, p.right), (a.y, d.y, p.bottom, p.top_max())] {
+        for (start, delta, low, high) in [
+            (a.x, d.x, p.left, p.right),
+            (a.y, d.y, p.bottom, p.top_max()),
+        ] {
             if delta == Fx::ZERO {
                 if start <= low || start >= high {
                     return false;

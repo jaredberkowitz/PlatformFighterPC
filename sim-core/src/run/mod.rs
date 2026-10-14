@@ -497,7 +497,12 @@ impl Frame {
     /// A platform of the room, placed (solid ground reaching [`data::BLOCK_BOTTOM`] goes down to [`DEEP`]).
     fn platform(&self, p: &Platform) -> Platform {
         let (left, right, y, rise) = if self.mirror {
-            (self.x(p.right), self.x(p.left), self.y(p.top_right()), -p.rise)
+            (
+                self.x(p.right),
+                self.x(p.left),
+                self.y(p.top_right()),
+                -p.rise,
+            )
         } else {
             (self.x(p.left), self.x(p.right), self.y(p.y), p.rise)
         };
@@ -549,7 +554,11 @@ pub fn for_each_footing(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Plac
         return;
     };
     let frame = Frame::of(slot, room);
-    for p in room.platforms.iter().filter(|p| part_on(slot.parts, p.part)) {
+    for p in room
+        .platforms
+        .iter()
+        .filter(|p| part_on(slot.parts, p.part))
+    {
         let platform = frame.platform(&p.platform);
         f(Placed {
             platform,
@@ -766,7 +775,8 @@ pub fn build_stage(run: &Run, rc: &RunContent, out: &mut Stage) {
         return;
     }
     for p in &run.platforms {
-        out.platforms.push(if p.live { p.platform() } else { padding });
+        out.platforms
+            .push(if p.live { p.platform() } else { padding });
     }
     let (blast_bottom, blast_top) = run.blast_y(rules);
     let wall_top = blast_top + Fx::from_int(WALL_ABOVE);
@@ -910,14 +920,18 @@ fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
         None
     };
     let last = usize::from(run.last_room);
-    let typed = |i: usize| rc.rooms[i].kind == kind && want_fork.is_none_or(|w| rc.rooms[i].fork == w);
-    let strict = |i: usize| i != 0 && i != last && typed(i);
-    let loose = |i: usize| typed(i) || (rc.rooms[i].kind == kind && want_fork.is_some());
-    let fits: &dyn Fn(usize) -> bool = if (0..count).any(strict) {
-        &strict
-    } else if (0..count).any(loose) {
-        &loose
-    } else {
+    let of_kind = |i: usize| i != 0 && rc.rooms[i].kind == kind;
+    let forked = |i: usize| want_fork.is_none_or(|w| rc.rooms[i].fork == w);
+    // (The best choices first: the right type and fork-ness, not the last room laid; then letting go of the last room, then of
+    // the fork-ness; the start room only if nothing else has the type.)
+    let tiers: [&dyn Fn(usize) -> bool; 5] = [
+        &|i| of_kind(i) && forked(i) && i != last,
+        &|i| of_kind(i) && forked(i),
+        &|i| of_kind(i) && i != last,
+        &of_kind,
+        &|i| rc.rooms[i].kind == kind,
+    ];
+    let Some(fits) = tiers.into_iter().find(|t| (0..count).any(t)) else {
         return 0;
     };
     let candidates = (0..count).filter(|&i| fits(i)).count() as u32;
@@ -966,7 +980,14 @@ fn place_room(run: &mut Run, rc: &RunContent) -> bool {
             continue;
         }
         let pick = run.rng.range(count) as usize;
-        if let Some(i) = rc.pieces.iter().enumerate().filter(|(_, p)| fits(p)).nth(pick).map(|(i, _)| i) {
+        if let Some(i) = rc
+            .pieces
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| fits(p))
+            .nth(pick)
+            .map(|(i, _)| i)
+        {
             pieces[n] = (i + 1) as u8;
         }
     }
@@ -1490,7 +1511,10 @@ fn leave_shop(state: &mut GameState, world: &mut Content, rc: &RunContent) {
     let door = run
         .slot_of(run.shop_room)
         .and_then(|s| door_of(rc, s))
-        .unwrap_or(Vec2::new(run.cam_x + rc.rules.view_width * rc.rules.follow, run.next_y));
+        .unwrap_or(Vec2::new(
+            run.cam_x + rc.rules.view_width * rc.rules.follow,
+            run.next_y,
+        ));
     build_stage(&state.run, rc, &mut world.stage);
     place_at(&mut state.fighters[PLAYER], door, &world.stage);
 }

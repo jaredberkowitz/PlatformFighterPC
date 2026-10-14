@@ -9,12 +9,14 @@
 
 use sim_core::content::{FighterParams, Platform};
 use sim_core::run::data::{
-    Room, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH, MAX_SHOP_ITEMS, MIN_ROOM_WIDTH,
-    INTERIOR_PLATFORMS, MOB_FLYER, MOB_WALKER, ROOM_ARENA, ROOM_COINS, ROOM_KINDS, ROOM_LEDGES,
+    Room, INTERIOR_PLATFORMS, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH, MAX_SHOP_ITEMS,
+    MIN_ROOM_WIDTH, MOB_FLYER, MOB_WALKER, ROOM_ARENA, ROOM_COINS, ROOM_KINDS, ROOM_LEDGES,
     ROOM_PARTS, ROOM_PLATFORMS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET,
     SLOT_AIR,
 };
-use sim_core::run::{for_each_coin, for_each_footing, part_on, room_exit, RoomSlot, RunContent, RING};
+use sim_core::run::{
+    for_each_coin, for_each_footing, part_on, room_exit, RoomSlot, RunContent, RING,
+};
 use sim_core::Fx;
 
 /// Every problem with a run's content (empty when it is fine), the passability proof included.
@@ -166,7 +168,13 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
             errors.push(format!("{at}: width above 0 and at most 12"));
         }
         for (j, f) in p.platforms.iter().enumerate() {
-            footing_problems(&f.platform, f.look, r, &format!("{at}: platform {j}"), &mut errors);
+            footing_problems(
+                &f.platform,
+                f.look,
+                r,
+                &format!("{at}: platform {j}"),
+                &mut errors,
+            );
             if f.part != 0 {
                 errors.push(format!("{at}: platform {j} cannot belong to a part"));
             }
@@ -261,9 +269,7 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         ));
     }
     if c.exit_y.abs() > r.drift {
-        errors.push(format!(
-            "{at}: its exit height is beyond the run's drift"
-        ));
+        errors.push(format!("{at}: its exit height is beyond the run's drift"));
     }
     if c.parts.len() > ROOM_PARTS || c.parts.iter().any(|&p| p > 100) {
         errors.push(format!(
@@ -280,7 +286,9 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         || c.coins.iter().any(|s| bad_part(s.part))
         || c.slots.iter().any(|s| bad_part(s.part))
     {
-        errors.push(format!("{at}: something names an optional part it does not have"));
+        errors.push(format!(
+            "{at}: something names an optional part it does not have"
+        ));
     }
     if c.ledges.len() > ROOM_LEDGES {
         errors.push(format!("{at}: at most {ROOM_LEDGES} ledges"));
@@ -324,7 +332,13 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         }
     }
     for (j, f) in c.platforms.iter().enumerate() {
-        footing_problems(&f.platform, f.look, r, &format!("{at}: platform {j}"), errors);
+        footing_problems(
+            &f.platform,
+            f.look,
+            r,
+            &format!("{at}: platform {j}"),
+            errors,
+        );
         let p = &f.platform;
         if p.left < Fx::ZERO || p.right > c.width {
             errors.push(format!("{at}: platform {j} must lie within the room"));
@@ -381,7 +395,11 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         }
         // A ground slot (when it is there) stands on flat solid ground wider than its widest piece.
         if slot.pieces == [0; ROOM_SLOTS] {
-            for s in c.slots.iter().filter(|s| s.kind != SLOT_AIR && part_on(slot.parts, s.part)) {
+            for s in c
+                .slots
+                .iter()
+                .filter(|s| s.kind != SLOT_AIR && part_on(slot.parts, s.part))
+            {
                 let widest = rc
                     .pieces
                     .iter()
@@ -430,7 +448,8 @@ fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
             errors.push(format!("shop interior: platform {j} needs a look"));
         }
         if f.platform.left >= f.platform.right
-            || (!f.platform.pass_through && f.platform.bottom >= f.platform.y.min(f.platform.top_right()))
+            || (!f.platform.pass_through
+                && f.platform.bottom >= f.platform.y.min(f.platform.top_right()))
         {
             errors.push(format!("shop interior: platform {j} is not a proper box"));
         }
@@ -454,7 +473,10 @@ fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
         errors.push("shop interior: a pedestal for every ware".to_string());
     }
     for (j, p) in s.pedestals.iter().enumerate() {
-        if p.x <= Fx::ZERO || p.x >= s.width || (p.x - s.door).abs() <= rc.rules.door_reach.mul_int(2) {
+        if p.x <= Fx::ZERO
+            || p.x >= s.width
+            || (p.x - s.door).abs() <= rc.rules.door_reach.mul_int(2)
+        {
             errors.push(format!(
                 "shop interior: pedestal {j} must be inside, away from the door"
             ));
@@ -471,7 +493,11 @@ fn interior_problems(rc: &RunContent, errors: &mut Vec<String>) {
 /// Calls `f` with every variant of room `index` the generator can lay (at the origin): mirrored or not, every combination of its
 /// parts, and every piece (or none) in each slot that is there.
 pub fn for_each_variant(rc: &RunContent, room: &Room, index: usize, mut f: impl FnMut(&RoomSlot)) {
-    let mirrors: &[bool] = if room.mirror { &[false, true] } else { &[false] };
+    let mirrors: &[bool] = if room.mirror {
+        &[false, true]
+    } else {
+        &[false]
+    };
     let parts = room.parts.len().min(ROOM_PARTS);
     for &mirror in mirrors {
         for bits in 0..(1u16 << parts) {
@@ -671,7 +697,13 @@ pub fn check_passable(rc: &RunContent) -> Vec<String> {
 }
 
 /// The proof for one variant (laid at the origin).
-pub fn passable(rc: &RunContent, room: &Room, slot: &RoomSlot, step: Fx, gap: Fx) -> Result<(), String> {
+pub fn passable(
+    rc: &RunContent,
+    room: &Room,
+    slot: &RoomSlot,
+    step: Fx,
+    gap: Fx,
+) -> Result<(), String> {
     let mut all = Vec::new();
     for_each_footing(rc, slot, |p| all.push(p.platform));
     let solids: Vec<Platform> = all.iter().copied().filter(|p| !p.pass_through).collect();
@@ -784,7 +816,10 @@ mod tests {
             "piece 0",
             "door must stand on the floor",
         ] {
-            assert!(errors.iter().any(|e| e.contains(want)), "{want}: {errors:?}");
+            assert!(
+                errors.iter().any(|e| e.contains(want)),
+                "{want}: {errors:?}"
+            );
         }
         // A ledge on a slope's corner.
         let mut rc = RunContent::placeholder();
@@ -802,13 +837,17 @@ mod tests {
         let step = rc.rooms.iter().position(|r| r.name == "step").unwrap();
         rc.rooms[step].platforms[1].platform.y = Fx::from_int(9);
         rc.rooms[step].ledges.clear();
-        assert!(check_shape_ok_then_pass(&rc).iter().any(|e| e.contains("cannot be reached")));
+        assert!(check_shape_ok_then_pass(&rc)
+            .iter()
+            .any(|e| e.contains("cannot be reached")));
         let mut rc = RunContent::placeholder();
         let gap = rc.rooms.iter().position(|r| r.name == "gap").unwrap();
         rc.rooms[gap].platforms.retain(|f| !f.platform.pass_through);
         rc.rules.max_step = Fx::from_int(2);
         rc.rules.max_gap = Fx::from_int(4);
-        assert!(check_passable(&rc).iter().any(|e| e.starts_with(&format!("room {gap}"))));
+        assert!(check_passable(&rc)
+            .iter()
+            .any(|e| e.starts_with(&format!("room {gap}"))));
         // A pit you can drop into but not climb out of is a trap.
         let mut rc = RunContent::placeholder();
         rc.rules.max_gap = Fx::from_int(7);
@@ -816,13 +855,18 @@ mod tests {
         let plank = &mut rc.rooms[gap].platforms[2].platform;
         plank.y = Fx::from_int(-12);
         plank.bottom = Fx::from_int(-12);
-        assert!(check_passable(&rc).iter().any(|e| e.contains("trap")), "{:?}", check_passable(&rc));
+        assert!(
+            check_passable(&rc).iter().any(|e| e.contains("trap")),
+            "{:?}",
+            check_passable(&rc)
+        );
     }
 
     /// The passability numbers hold for the worst jumper in the cast: every built-in fighter, and every class made with the lowest
     /// jump, the biggest body and the most weight (the lowest, heaviest jumps a made fighter can have), and the slowest drift.
     #[test]
     fn the_worst_jumper_in_the_cast_clears_the_rules() {
+        use crate::format::Scalar;
         use crate::recipe::{Recipe, CLASSES, MAX_STAT, MIN_STAT};
         let rules = RunContent::placeholder().rules;
         let mut cast: Vec<(String, FighterParams)> = sim_core::Content::placeholder()
@@ -849,15 +893,20 @@ mod tests {
             let (h, d) = jump_reach(p);
             worst = (worst.0.min(h), worst.1.min(d));
             if h < rules.max_step || d < rules.max_gap {
-                short.push(format!("{name}: {:.2} up, {:.2} across", f(h), f(d)));
+                short.push(format!("{name}: {} up, {} across", h.show(), d.show()));
             }
         }
-        println!("worst jumper: {:.2} up, {:.2} across", f(worst.0), f(worst.1));
-        assert!(short.is_empty(), "short of the rules ({:.2} up, {:.2} across): {short:?}", f(rules.max_step), f(rules.max_gap));
-    }
-
-    fn f(v: Fx) -> f64 {
-        f64::from(v.raw()) / 65536.0
+        println!(
+            "worst jumper: {} up, {} across",
+            worst.0.show(),
+            worst.1.show()
+        );
+        assert!(
+            short.is_empty(),
+            "short of the rules ({} up, {} across): {short:?}",
+            rules.max_step.show(),
+            rules.max_gap.show()
+        );
     }
 
     fn check_shape_ok_then_pass(rc: &RunContent) -> Vec<String> {

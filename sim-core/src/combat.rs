@@ -2082,7 +2082,11 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         state.projectiles[n].vel = pr.vel;
         state.projectiles[n].bounces = pr.bounces;
         let in_wall = stage.platforms.iter().any(|b| {
-            !b.pass_through && pos.x > b.left && pos.x < b.right && pos.y > b.bottom && pos.y < b.top_at(pos.x)
+            !b.pass_through
+                && pos.x > b.left
+                && pos.x < b.right
+                && pos.y > b.bottom
+                && pos.y < b.top_at(pos.x)
         });
         let outside = pos.x < stage.blast_left
             || pos.x > stage.blast_right
@@ -2469,7 +2473,11 @@ fn lodge_point(
         }
     }
     let block = stage.platforms.iter().find(|b| {
-        !b.pass_through && to.x > b.left && to.x < b.right && to.y > b.bottom && to.y < b.top_at(to.x)
+        !b.pass_through
+            && to.x > b.left
+            && to.x < b.right
+            && to.y > b.bottom
+            && to.y < b.top_at(to.x)
     })?;
     let side = from.x <= block.left || from.x >= block.right;
     let ok = if side {

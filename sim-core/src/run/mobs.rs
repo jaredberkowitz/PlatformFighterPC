@@ -784,19 +784,21 @@ pub(super) fn keeper_bonked(state: &GameState, content: &Content, rc: &RunConten
     if f.active && matches!(f.state, S::Attack | S::LedgeAttack) && f.hitlag == 0 {
         let params = params_of(content, &f);
         let mv = weapon_of(content, params).get(f.move_id);
-        let touched = combat::active_hitboxes(&f, mv, params.hitbox_scale).into_iter().any(|(_, hb, at)| {
-            hb.kind == HIT_NORMAL
-                && combat::shapes_touch(
-                    centre,
-                    Fx::ZERO,
-                    Fx::ZERO,
-                    radius,
-                    at,
-                    hb.half_width,
-                    hb.half_height,
-                    hb.radius,
-                )
-        });
+        let touched = combat::active_hitboxes(&f, mv, params.hitbox_scale)
+            .into_iter()
+            .any(|(_, hb, at)| {
+                hb.kind == HIT_NORMAL
+                    && combat::shapes_touch(
+                        centre,
+                        Fx::ZERO,
+                        Fx::ZERO,
+                        radius,
+                        at,
+                        hb.half_width,
+                        hb.half_height,
+                        hb.radius,
+                    )
+            });
         if touched {
             return true;
         }

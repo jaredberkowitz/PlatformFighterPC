@@ -750,7 +750,11 @@ fn fly(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
         }
     }
     if let Some(block) = stage.platforms.iter().find(|b| {
-        !b.pass_through && to.x > b.left && to.x < b.right && to.y > b.bottom && to.y < b.top_at(to.x)
+        !b.pass_through
+            && to.x > b.left
+            && to.x < b.right
+            && to.y > b.bottom
+            && to.y < b.top_at(to.x)
     }) {
         if it.rest == ITEM_THROWN && spec.vanish {
             state.items[n].active = false;
@@ -793,10 +797,9 @@ fn approach_zero(v: Fx, by: Fx) -> Fx {
 }
 
 fn inside_block(stage: &crate::content::Stage, p: Vec2) -> bool {
-    stage
-        .platforms
-        .iter()
-        .any(|b| !b.pass_through && p.x > b.left && p.x < b.right && p.y > b.bottom && p.y < b.top_at(p.x))
+    stage.platforms.iter().any(|b| {
+        !b.pass_through && p.x > b.left && p.x < b.right && p.y > b.bottom && p.y < b.top_at(p.x)
+    })
 }
 
 /// The item's middle (its hits and hurtbox are centred there).

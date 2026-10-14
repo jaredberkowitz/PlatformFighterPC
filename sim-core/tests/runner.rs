@@ -81,10 +81,19 @@ impl RunSim {
         f.state_frame = 0;
     }
 
-    /// Stands the player on the ground at `at` (the camera on it).
+    /// Stands the player on the ground at `at` (the camera on it). Where the ground is not at that height (the run's ground rises
+    /// and falls), on the highest ground under `at` lifted by ten.
     fn stand(&mut self, at: Vec2) {
         self.look_at(at.x);
-        sim_core::run::build_stage(&self.state.run, &self.rc.rules, &mut self.world.stage);
+        sim_core::run::build_stage(&self.state.run, &self.rc, &mut self.world.stage);
+        let mut at = at;
+        if collision::standing_on(&self.world.stage, at) == NONE {
+            if let Some((_, d)) =
+                collision::surface_below(&self.world.stage, at + Vec2::new(Fx::ZERO, fx(10)), false)
+            {
+                at.y = at.y + fx(10) - d;
+            }
+        }
         let f = &mut self.state.fighters[PLAYER];
         f.pos = at;
         f.vel = Vec2::ZERO;
@@ -120,11 +129,22 @@ impl RunSim {
             .run
             .slot_of(target)
             .expect("the room ahead is laid");
-        let at = Vec2::new(slot.x + self.rc.rules.enter_depth + Fx::ONE, fx(15));
+        let at = Vec2::new(
+            slot.x + self.rc.rules.enter_depth + Fx::ONE,
+            slot.y + fx(12),
+        );
         self.place(at);
         self.state.fighters[PLAYER].invuln = 30;
         self.tick(Input::default());
-        assert_eq!(self.state.run.room, target, "entered");
+        assert_eq!(
+            self.state.run.room,
+            target,
+            "entered: player {:?} {:?} slot x {:?} y {:?}",
+            self.player().pos,
+            self.player().state,
+            slot.x,
+            slot.y
+        );
         let kind = self.rc.rooms[usize::from(slot.room)].kind;
         if self.state.run.gate_closed {
             self.clear_mobs();
@@ -189,14 +209,17 @@ fn the_window_keeps_the_rooms_near_and_drops_old_ones() {
             );
             for s in &live {
                 let c = &sim.rc.rooms[usize::from(s.room)];
-                for p in &c.platforms {
-                    let (l, rr) = (s.x + p.left, s.x + p.right);
+                let mut laid = Vec::new();
+                run::for_each_footing(&sim.rc, s, |placed| laid.push(placed.platform));
+                for p in &laid {
+                    let (l, rr) = (p.left, p.right);
                     let found = run.platforms.iter().any(|e| {
                         e.live
-                            && e.y == p.y
                             && e.pass_through == p.pass_through
+                            && e.rise == p.rise
                             && e.left <= l.max(run.wall_x)
                             && e.right >= rr
+                            && (e.y == p.y || l < run.wall_x && e.left == run.wall_x)
                     });
                     assert!(
                         found,
@@ -499,92 +522,232 @@ fn an_arena_locks_until_its_mobs_are_beaten() {
 
 // ---- The shop and rest stops -----------------------------------------------------------------------------------------------------
 
-/// Pressing up at a shop's door goes in; inside, the world stands still and the player buys with coins: a heal, and one extra life
-/// a shop (the second is sold out). Coins short or nothing to heal: refused, and nothing is paid.
+/// The door of the (only) shop room laid after the start: its room's slot and the door's feet, in the world.
+fn shop_door(sim: &RunSim) -> (run::RoomSlot, Vec2) {
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    assert_eq!(sim.rc.rooms[usize::from(slot.room)].kind, ROOM_SHOP);
+    (slot, run::door_of(&sim.rc, &slot).unwrap())
+}
+
+/// Stands the player inside the shop at interior x `x` (on the floor), the camera untouched.
+fn stand_inside(sim: &mut RunSim, x: Fx) {
+    assert!(sim.state.run.inside);
+    run::build_stage(&sim.state.run, &sim.rc, &mut sim.world.stage);
+    let at = Vec2::new(fx(run::INTERIOR_X) + x, Fx::ZERO);
+    let f = &mut sim.state.fighters[PLAYER];
+    f.pos = at;
+    f.vel = Vec2::ZERO;
+    f.platform = collision::standing_on(&sim.world.stage, at);
+    assert_ne!(f.platform, NONE, "the shop's floor");
+    f.state = S::Idle;
+    f.state_frame = 0;
+}
+
+/// Up, then the stick let go (the shop reads presses).
+fn press_up(sim: &mut RunSim) {
+    sim.tick(inp(0, 127, 0));
+    sim.tick(Input::default());
+}
+
+/// Pressing up at a shop's door walks in: the shop's interior becomes the stage, the fighter stands inside its door, the shopkeeper
+/// waves, and the world outside stands still while the fighter walks about inside. Away from the door, up does nothing.
 #[test]
-fn entering_a_shop_and_buying() {
+fn walking_into_a_shop() {
     let mut rc = only(&["shop"], (1, 0, 0));
     rc.rules.shop_min = 1;
     rc.rules.shop_max = 1;
     let mut sim = RunSim::with(rc, 1);
-    let slot = *sim.state.run.slot_of(1).unwrap();
-    let room = sim.rc.rooms[usize::from(slot.room)].clone();
-    assert_eq!(room.kind, ROOM_SHOP);
-    let door = Vec2::new(slot.x + room.door.x, room.door.y);
-    // Away from the door, up does nothing.
-    sim.stand(Vec2::new(door.x - fx(5), Fx::ZERO));
+    let (_, door) = shop_door(&sim);
+    sim.stand(Vec2::new(door.x - fx(5), door.y));
     sim.tick(Input::default());
     sim.tick(inp(0, 127, 0));
-    assert!(!sim.state.run.shop_open);
-    // At it: in.
+    assert!(!sim.state.run.inside);
     sim.stand(door);
     sim.tick(Input::default());
     assert!(door_here(&sim.state, &sim.rc).is_some());
+    let outside = sim.state.run;
     sim.tick(inp(0, 127, 0));
-    assert!(sim.state.run.shop_open, "in the shop");
-    assert_eq!(sim.state.run.shop_room, 1);
-    // The world stands still.
-    let pos = sim.player().pos;
+    let run = sim.state.run;
+    assert!(run.inside, "in the shop");
+    assert_eq!(run.shop_room, 1);
+    assert_eq!(run.keeper_mood, run::KEEPER_WAVE, "the shopkeeper waves");
+    let shop = sim.rc.interior.clone();
+    assert_eq!(
+        sim.player().pos,
+        Vec2::new(fx(run::INTERIOR_X) + shop.enter, Fx::ZERO),
+        "inside its door"
+    );
+    assert_ne!(sim.player().platform, NONE, "on the shop's floor");
+    assert_eq!(
+        sim.world.stage.platforms[sim.player().platform as usize].left,
+        fx(run::INTERIOR_X),
+        "the interior is the stage"
+    );
+    // Walking about inside; the world outside stands still (its rooms, mobs, camera and coins).
     let frame = sim.state.frame;
-    for _ in 0..30 {
+    for _ in 0..40 {
         sim.tick(inp(127, 0, 0));
     }
-    assert_eq!(sim.player().pos, pos);
-    assert_eq!(sim.state.frame, frame + 30, "the frame counts on");
-    let press = |sim: &mut RunSim, i: Input| {
-        sim.tick(i);
-        sim.tick(Input::default());
-    };
-    let heal = sim.rc.items[0].clone();
-    let life = sim.rc.items[1].clone();
-    // No coins: refused.
-    sim.state.fighters[PLAYER].percent = fx(50);
-    press(&mut sim, inp(0, 0, ATTACK));
-    assert_eq!(sim.state.run.shop_note, NOTE_TOO_POOR);
-    assert_eq!(sim.player().percent, fx(50));
-    // With coins: healed, paid.
-    sim.state.run.coins = 500;
-    press(&mut sim, inp(0, 0, ATTACK));
-    assert_eq!(sim.state.run.shop_note, NOTE_BOUGHT);
-    assert_eq!(sim.player().percent, fx(50) - heal.amount);
-    assert_eq!(sim.state.run.coins, 500 - u32::from(heal.price));
-    // Down to the extra life: bought once, then sold out.
-    press(&mut sim, inp(0, -127, 0));
-    assert_eq!(sim.state.run.shop_cursor, 1);
-    let coins = sim.state.run.coins;
-    press(&mut sim, inp(0, 0, ATTACK));
-    assert_eq!(sim.player().stocks, 4);
-    assert_eq!(sim.state.run.coins, coins - u32::from(life.price));
-    press(&mut sim, inp(0, 0, ATTACK));
-    assert_eq!(sim.state.run.shop_note, NOTE_SOLD_OUT);
-    assert_eq!(sim.player().stocks, 4);
-    assert_eq!(sim.state.run.coins, coins - u32::from(life.price));
-    // Shield leaves; the shop remembers what it sold.
-    press(&mut sim, inp(0, 0, SHIELD));
-    assert!(!sim.state.run.shop_open);
-    sim.idle(20);
+    assert!(
+        sim.player().pos.x > fx(run::INTERIOR_X) + shop.enter + fx(2),
+        "it walks inside"
+    );
+    assert!(
+        sim.player().pos.x < fx(run::INTERIOR_X) + shop.width,
+        "and stays inside"
+    );
+    assert_eq!(sim.state.frame, frame + 40, "the frame counts on");
+    let now = sim.state.run;
+    assert_eq!(now.cam_x, outside.cam_x);
+    assert_eq!(now.slots, outside.slots);
+    assert_eq!(now.mobs, outside.mobs);
+    assert_eq!(now.platforms, outside.platforms);
+    assert_eq!(now.coins, outside.coins);
+    // Waving is over after a while.
+    sim.idle(u32::from(shop.wave_frames));
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_IDLE);
+}
+
+/// Inside, the player buys by walking up to a ware's pedestal and pressing up: the shopkeeper looks at the ware stood by, cheers a
+/// purchase and grumbles at a refusal (coins short, sold out, not needed: nothing paid). One extra life a shop, remembered after
+/// leaving and coming back. Up at the door goes back out to the street, at the storefront's door.
+#[test]
+fn buying_by_walking_up_and_leaving() {
+    let mut rc = only(&["shop"], (1, 0, 0));
+    rc.rules.shop_min = 1;
+    rc.rules.shop_max = 1;
+    let mut sim = RunSim::with(rc, 1);
+    let (_, door) = shop_door(&sim);
     sim.stand(door);
     sim.tick(Input::default());
-    sim.tick(inp(0, 127, 0));
-    assert!(sim.state.run.shop_open);
-    press(&mut sim, inp(0, -127, 0));
-    press(&mut sim, inp(0, 0, ATTACK));
+    press_up(&mut sim);
+    assert!(sim.state.run.inside);
+    let shop = sim.rc.interior.clone();
+    let heal = sim.rc.items[0].clone();
+    let life = sim.rc.items[1].clone();
+    // By the heal: the shopkeeper looks at it.
+    stand_inside(&mut sim, shop.pedestals[0].x);
+    sim.tick(Input::default());
+    assert_eq!(
+        sim.state.run.keeper_look, 0,
+        "it looks at the ware stood by"
+    );
+    assert_eq!(run::shop_spot(&sim.state, &sim.rc), Some(Some(0)));
+    // No coins: refused, grumbled at.
+    sim.state.fighters[PLAYER].percent = fx(50);
+    press_up(&mut sim);
+    assert_eq!(sim.state.run.shop_note, NOTE_TOO_POOR);
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_GRUMBLE);
+    assert_eq!(sim.player().percent, fx(50));
+    // With coins: healed, paid, cheered.
+    sim.state.run.coins = 500;
+    press_up(&mut sim);
+    assert_eq!(sim.state.run.shop_note, NOTE_BOUGHT);
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_CHEER);
+    assert_eq!(sim.player().percent, fx(50) - heal.amount);
+    assert_eq!(sim.state.run.coins, 500 - u32::from(heal.price));
+    // The extra life, at its own pedestal: bought once, then sold out.
+    stand_inside(&mut sim, shop.pedestals[1].x);
+    sim.tick(Input::default());
+    assert_eq!(sim.state.run.keeper_look, 1);
+    let coins = sim.state.run.coins;
+    press_up(&mut sim);
+    assert_eq!(sim.player().stocks, 4);
+    assert_eq!(sim.state.run.coins, coins - u32::from(life.price));
+    press_up(&mut sim);
+    assert_eq!(sim.state.run.shop_note, NOTE_SOLD_OUT);
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_GRUMBLE);
+    assert_eq!(sim.player().stocks, 4);
+    // Up at the door: out, at the storefront's door, on the street.
+    stand_inside(&mut sim, shop.door);
+    sim.tick(Input::default());
+    assert_eq!(run::shop_spot(&sim.state, &sim.rc), Some(None));
+    press_up(&mut sim);
+    assert!(!sim.state.run.inside, "back outside");
+    assert_eq!(sim.player().pos, door);
+    assert_ne!(sim.player().platform, NONE, "standing on the street");
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_IDLE);
+    // Back in: the shop remembers the life it sold.
+    sim.idle(10);
+    sim.stand(door);
+    sim.tick(Input::default());
+    press_up(&mut sim);
+    assert!(sim.state.run.inside);
+    stand_inside(&mut sim, shop.pedestals[1].x);
+    sim.tick(Input::default());
+    press_up(&mut sim);
     assert_eq!(
         sim.state.run.shop_note, NOTE_SOLD_OUT,
         "still one life a shop"
     );
     // Healing at 0%: not needed, nothing paid.
-    press(&mut sim, inp(0, 127, 0));
+    stand_inside(&mut sim, shop.pedestals[0].x);
     sim.state.fighters[PLAYER].percent = Fx::ZERO;
+    sim.tick(Input::default());
     let coins = sim.state.run.coins;
-    press(&mut sim, inp(0, 0, ATTACK));
+    press_up(&mut sim);
     assert_eq!(sim.state.run.shop_note, NOTE_NOT_NEEDED);
     assert_eq!(sim.state.run.coins, coins);
-    // The row after the wares leaves.
-    press(&mut sim, inp(0, 127, 0));
-    assert_eq!(usize::from(sim.state.run.shop_cursor), sim.rc.items.len());
-    press(&mut sim, inp(0, 0, ATTACK));
-    assert!(!sim.state.run.shop_open);
+    // Away from the pedestals and the door, up does nothing.
+    stand_inside(&mut sim, (shop.pedestals[3].x + shop.keeper.x) / fx(2));
+    sim.tick(Input::default());
+    let acts = sim.state.run.shop_acts;
+    press_up(&mut sim);
+    assert!(sim.state.run.inside);
+    assert_eq!(sim.state.run.shop_acts, acts);
+}
+
+/// Hitting the shopkeeper makes it dizzy for a moment ("hey!"), and nothing else: no damage anywhere, no coins, no lives, no
+/// hitlag, and it cannot be bonked again while it is seeing stars.
+#[test]
+fn hitting_the_shopkeeper_only_makes_it_dizzy() {
+    let mut rc = only(&["shop"], (1, 0, 0));
+    rc.rules.shop_min = 1;
+    rc.rules.shop_max = 1;
+    let mut sim = RunSim::with(rc, 1);
+    let (_, door) = shop_door(&sim);
+    sim.stand(door);
+    sim.tick(Input::default());
+    press_up(&mut sim);
+    let shop = sim.rc.interior.clone();
+    // Between the counter and the shopkeeper, facing it.
+    stand_inside(&mut sim, shop.keeper.x - fx(1));
+    sim.state.fighters[PLAYER].facing = 1;
+    let before = (
+        sim.state.run.coins,
+        sim.player().percent,
+        sim.player().stocks,
+    );
+    let mut dizzy_at = None;
+    for t in 0..40 {
+        sim.tick(if t % 12 == 0 {
+            inp(0, 0, ATTACK)
+        } else {
+            Input::default()
+        });
+        if dizzy_at.is_none() && sim.state.run.keeper_mood == run::KEEPER_DIZZY {
+            dizzy_at = Some(t);
+            assert_eq!(sim.player().hitlag, 0, "no hitlag: it is not a hit");
+        }
+    }
+    assert!(dizzy_at.is_some(), "the jab bonked it");
+    assert_eq!(sim.state.run.keeper_bonks, 1, "once while dizzy");
+    assert_eq!(
+        (
+            sim.state.run.coins,
+            sim.player().percent,
+            sim.player().stocks
+        ),
+        before,
+        "nothing harmful happened"
+    );
+    sim.idle(u32::from(shop.dizzy_frames));
+    assert_eq!(
+        sim.state.run.keeper_mood,
+        run::KEEPER_IDLE,
+        "it shakes it off"
+    );
+    assert!(sim.state.run.inside);
 }
 
 #[test]
@@ -898,7 +1061,11 @@ fn ground_joins_across_a_room_seam() {
 /// The ledges and platforms of a room laid later work as any stage's: a fighter catches the gap's ledge and lands on its stone.
 #[test]
 fn ledges_and_platforms_work_in_a_later_room() {
-    let mut sim = RunSim::with(only(&["gap", "shop"], (1, 0, 0)), 3);
+    let mut rc = only(&["gap", "shop"], (1, 0, 0));
+    for r in rc.rooms.iter_mut() {
+        r.mirror = false;
+    }
+    let mut sim = RunSim::with(rc, 3);
     let slot = *sim.state.run.slot_of(1).unwrap();
     assert_eq!(sim.rc.rooms[usize::from(slot.room)].name, "gap");
     let ledge_x = slot.x + fx(10);
@@ -933,7 +1100,7 @@ fn ledges_and_platforms_work_in_a_later_room() {
     let f = sim.player();
     assert!(f.grounded());
     let stone = sim.world.stage.platforms[f.platform as usize];
-    assert!(stone.pass_through && stone.y == Fx::from_ratio(45, 10));
+    assert!(stone.pass_through && stone.y == Fx::from_ratio(36, 10));
 }
 
 // ---- Determinism ---------------------------------------------------------------------------------------------------------------
@@ -981,25 +1148,25 @@ fn a_run_with_shopping_replays() {
         let mut sim = RunSim::with(rc, 6);
         sim.state.run.coins = 400;
         sim.state.fighters[PLAYER].percent = fx(40);
-        let slot = *sim.state.run.slot_of(1).unwrap();
-        let door = sim.rc.rooms[usize::from(slot.room)].door;
-        sim.stand(Vec2::new(slot.x + door.x - Fx::ONE, door.y));
+        let (_, door) = shop_door(&sim);
+        sim.stand(door);
         let mut sums = vec![];
-        let script: Vec<Input> = (0..600)
+        // In at the door, run right to the wares, press up a few times, run back to the door and leave.
+        let script: Vec<Input> = (0..320)
             .map(|n| match n {
-                0..=49 => Input::default(),
-                n if n % 25 == 0 => inp(0, 127, 0),
-                n if n % 25 == 5 => inp(0, 0, ATTACK),
-                n if n % 25 == 12 => inp(0, -127, 0),
+                50 | 120 | 145 | 230 => inp(0, 127, 0),
+                60..=84 => inp(127, 0, 0),
+                160..=187 => inp(-127, 0, 0),
                 _ => Input::default(),
             })
             .collect();
         let mut opened = false;
         for i in script {
             sim.tick(i);
-            opened |= sim.state.run.shop_open;
+            opened |= sim.state.run.inside;
             sums.push(sim.state.checksum());
         }
+        assert!(!sim.state.run.inside, "and came back out");
         (sums, opened, sim.state.run.coins)
     };
     let (a, opened, coins) = play();
@@ -1037,7 +1204,7 @@ fn random_play_with_many_mobs_keeps_invariants() {
         let inputs = rightward_inputs(seed, 1500);
         let mut sim = RunSim::new(seed);
         for (n, i) in inputs.iter().enumerate() {
-            if n % 30 == 0 && !sim.state.run.shop_open {
+            if n % 30 == 0 && !sim.state.run.inside {
                 let p = sim.player().pos;
                 for k in 0..MAX_MOBS {
                     if !sim.state.run.mobs[k].active {
@@ -1072,7 +1239,7 @@ fn random_play_with_many_mobs_keeps_invariants() {
                     let inside = f.pos.x > b.left
                         && f.pos.x < b.right
                         && f.pos.y > b.bottom
-                        && f.pos.y < b.y;
+                        && f.pos.y < b.top_at(f.pos.x);
                     assert!(!inside, "seed {seed}: inside a block at {:?}", f.pos);
                 }
             }
@@ -1097,6 +1264,7 @@ fn checksum_sees_every_run_field() {
         ("start_x", |r| r.start_x += Fx::from_raw(1)),
         ("best_x", |r| r.best_x += Fx::from_raw(1)),
         ("next_x", |r| r.next_x += Fx::from_raw(1)),
+        ("next_y", |r| r.next_y += Fx::from_raw(1)),
         ("placed", |r| r.placed += 1),
         ("last_room", |r| r.last_room ^= 1),
         ("last_kind", |r| r.last_kind ^= 1),
@@ -1114,6 +1282,12 @@ fn checksum_sees_every_run_field() {
         ("slots.x", |r| r.slots[0].x += Fx::from_raw(1)),
         ("slots.end", |r| r.slots[0].end += Fx::from_raw(1)),
         ("slots.spawned", |r| r.slots[0].spawned ^= 1 << 7),
+        ("slots.y", |r| r.slots[0].y += Fx::from_raw(1)),
+        ("slots.y_end", |r| r.slots[0].y_end += Fx::from_raw(1)),
+        ("slots.mirror", |r| r.slots[0].mirror ^= true),
+        ("slots.parts", |r| r.slots[0].parts ^= 1 << 3),
+        ("slots.pieces", |r| r.slots[0].pieces[2] ^= 1),
+        ("slots.coins", |r| r.slots[0].coins ^= 1 << 31),
         ("platforms.live", |r| {
             r.platforms[run::POOL_PLATFORMS - 1].live ^= true
         }),
@@ -1128,6 +1302,7 @@ fn checksum_sees_every_run_field() {
         ("platforms.pass_through", |r| {
             r.platforms[0].pass_through ^= true
         }),
+        ("platforms.rise", |r| r.platforms[0].rise += Fx::from_raw(1)),
         ("ledges.live", |r| {
             r.ledges[run::POOL_LEDGES - 1].live ^= true
         }),
@@ -1136,19 +1311,22 @@ fn checksum_sees_every_run_field() {
         ("ledges.side", |r| r.ledges[0].side = 1 - r.ledges[0].side),
         ("layout", |r| r.layout += 1),
         ("coins", |r| r.coins += 1),
+        ("coins_picked", |r| r.coins_picked += 1),
         ("kills", |r| r.kills += 1),
         ("combo", |r| r.combo += 1),
         ("best_combo", |r| r.best_combo += 1),
         ("last_percent", |r| r.last_percent += Fx::from_raw(1)),
         ("last_stocks", |r| r.last_stocks += 1),
-        ("shop_open", |r| r.shop_open ^= true),
-        ("shop_cursor", |r| r.shop_cursor += 1),
+        ("inside", |r| r.inside ^= true),
         ("shop_room", |r| r.shop_room += 1),
         ("shop_bought", |r| r.shop_bought[3] += 1),
         ("shop_note", |r| r.shop_note += 1),
         ("shop_acts", |r| r.shop_acts += 1),
+        ("keeper_mood", |r| r.keeper_mood += 1),
+        ("keeper_timer", |r| r.keeper_timer += 1),
+        ("keeper_look", |r| r.keeper_look += 1),
+        ("keeper_bonks", |r| r.keeper_bonks += 1),
         ("prev_stick_y", |r| r.prev_stick_y += 1),
-        ("prev_buttons", |r| r.prev_buttons ^= 1 << 15),
         ("mob.active", |r| r.mobs[MAX_MOBS - 1].active ^= true),
         ("mob.kind", |r| r.mobs[0].kind ^= 1),
         ("mob.mode", |r| r.mobs[0].mode ^= 1),

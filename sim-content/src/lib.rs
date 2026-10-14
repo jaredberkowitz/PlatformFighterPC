@@ -1189,10 +1189,12 @@ pub fn slope_problem(p: &sim_core::content::Platform) -> Option<String> {
 }
 
 /// Whether a ledge sits at a sloped platform's corner (ledges hang only from flat corners).
-pub fn ledge_on_slope(l: &sim_core::content::Ledge, platforms: &[sim_core::content::Platform]) -> bool {
+pub fn ledge_on_slope(
+    l: &sim_core::content::Ledge,
+    platforms: &[sim_core::content::Platform],
+) -> bool {
     platforms.iter().any(|p| {
-        p.sloped()
-            && ((l.x == p.left && l.y == p.y) || (l.x == p.right && l.y == p.top_right()))
+        p.sloped() && ((l.x == p.left && l.y == p.y) || (l.x == p.right && l.y == p.top_right()))
     })
 }
 
