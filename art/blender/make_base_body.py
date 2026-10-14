@@ -7,7 +7,7 @@ voxel remeshing, softened where they meet, and reduced to a low-poly mesh for th
 
 Then measure it and rig it (docs/ART_WORKFLOW.md, Characters):
 
-    blender --background --python art/blender/fit_body.py -- --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json
+    blender --background --python art/blender/fit_body.py -- --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json --shoulder-lift 0.11
     blender --background --python art/blender/make_rigged_blob.py -- --body art/models/base_body/base_body.glb --joints art/models/base_body/joints.json --neck-drop 0
 
 The body stands on the ground (z 0), faces -Y (Blender's front) and is 2.2 units tall, the height of the body it replaces, so the
