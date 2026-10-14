@@ -12,6 +12,8 @@ const SvgArt := preload("res://scripts/svg_art.gd")
 const FxMaterial := preload("res://scripts/fx_material.gd")
 const FighterView := preload("res://scripts/fighter_view.gd")
 const Materials := preload("res://scripts/materials.gd")
+const SUN_SHADER := preload("res://shaders/sun.gdshader")
+const CLOUD_SHADER := preload("res://shaders/cloud.gdshader")
 const RIDGE_SHADER := preload("res://shaders/painted_ridge.gdshader")
 const FOLIAGE_SHADER := preload("res://shaders/toon_foliage.gdshader")
 const VisualSettings := preload("res://scripts/visual_settings.gd")
@@ -1394,9 +1396,8 @@ const RIDGES := {
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
 	# (The sea's horizon: a bank of piled cumulus far off, then the low hazy line of a far coast in front of it.)
-	"ocean": [{"z": -190.0, "y": -4.0, "height": 22.0, "shape": 3, "seed": 9.0, "base": 0.12, "amplitude": 0.6, "frequency": 9.0,
-		"tone": Color(1.0, 1.0, 1.0), "mix": 0.85, "edge": 0.8},
-		{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
+	# (The bank of cumulus piled on the sea's horizon is modelled, `_ocean`; the card's flat white band read as a strip of paper.)
+	"ocean": [{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
 		"tone": Color(0.3, 0.5, 0.62), "mix": 0.45, "edge": 0.4}],
 }
 
@@ -1419,6 +1420,8 @@ static func ridge(root: Node3D, t: Dictionary, spec: Dictionary) -> MeshInstance
 	m.set_shader_parameter("frequency", float(spec.frequency))
 	m.set_shader_parameter("haze_colour", horizon)
 	m.set_shader_parameter("haze", float(spec.get("haze", 0.14)))
+	m.set_shader_parameter("flank", float(spec.get("flank", 0.8 if int(spec.shape) == 2 else 0.0)))
+	m.set_shader_parameter("aspect", float(spec.height) / 520.0)
 	var q := QuadMesh.new()
 	q.size = Vector2(520.0, float(spec.height))
 	var mi := _mesh(root, q, m, Vector3(0, float(spec.y) + float(spec.height) * 0.5, float(spec.z)))
@@ -1557,32 +1560,44 @@ static func _soft_dot() -> GradientTexture2D:
 	return _dot
 
 
-## Painted cumulus: each cloud a cluster of puffs, the biggest in the middle, on a flattened base, in the cel material, so the stage's
-## light gives it a warm lit top and a shaded underside in the stage's own shadow colour (the clouds of a cel-shaded adventure, not
-## flat white blobs). No ink outline: they are far, and the haze softens them.
-static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2) -> void:
-	var mat := FighterView.toon(color, false).duplicate() as ShaderMaterial
-	mat.set_shader_parameter("ramp_softness", 0.12)
-	mat.set_shader_parameter("rim_strength", 0.5)
-	var belly := FighterView.toon(color * Color(0.8, 0.84, 0.98), false).duplicate() as ShaderMaterial
-	belly.set_shader_parameter("ramp_softness", 0.12)
+## Painted cumulus (shaders/cloud.gdshader, lit from the stage's sun): each cloud a heap of lumpy puffs on a flat base, of three kinds
+## so the sky is not one stamp repeated: a domed heap with smaller puffs piled on its crown, a long low bank, and a tall tower. No ink
+## outline: they are far, and the haze softens them.
+static func _clouds(root: Node3D, rng: RandomNumberGenerator, count: int, color: Color, y_range: Vector2, z_range := Vector2(-120, -85),
+		kinds := [0, 1, 2], scale := 1.0) -> void:
+	var puff := _sphere(1.0, 32)
 	for k in count:
 		var cloud := Drift.new()
 		cloud.speed = rng.randf_range(0.6, 1.6)
-		cloud.position = Vector3(rng.randf_range(-90, 90), rng.randf_range(y_range.x, y_range.y), rng.randf_range(-120, -85))
+		cloud.position = Vector3(rng.randf_range(-90, 90), rng.randf_range(y_range.x, y_range.y), rng.randf_range(z_range.x, z_range.y))
 		root.add_child(cloud)
-		var size := rng.randf_range(0.8, 1.35)
-		var puffs := rng.randi_range(4, 7)
-		var span := puffs * 2.6 * size
+		var mat := ShaderMaterial.new()
+		mat.shader = CLOUD_SHADER
+		mat.set_shader_parameter("colour", color)
+		mat.set_shader_parameter("base_y", cloud.position.y)
+		var kind: int = kinds[k % kinds.size()]
+		var size := rng.randf_range(0.7, 1.15) * scale
+		mat.set_shader_parameter("belly_height", 2.2 * size)
+		# [puffs, how wide each, how tall the middle, how much the middle rises over the ends]
+		var shape: Array = [[rng.randi_range(5, 7), 2.7, 4.8, 2.4], [rng.randi_range(7, 9), 2.9, 3.2, 1.0], [rng.randi_range(4, 5), 2.3, 6.2, 3.4]][kind]
+		var puffs: int = shape[0]
+		var span := float(puffs) * float(shape[1]) * size
+		var crowns := []
 		for b in puffs:
 			var u := (float(b) + 0.5) / puffs * 2.0 - 1.0
-			# Taller toward the middle, so the cluster domes; every puff sits on the same base line.
-			var s := (4.6 - absf(u) * 2.4) * size * rng.randf_range(0.85, 1.15)
-			_mesh(cloud, _sphere(1.0, 16), mat, Vector3(u * span * 0.5, s * 0.55, rng.randf_range(-1.5, 1.5)), Vector3(s, s * 0.85, s * 0.8))
-		# The flat base: a wide squashed puff under them all, and under that a band of cool shade (the sky's colour in the cloud's belly,
-		# as a painted cloud is lit on top and shadowed beneath), a little wider and lower so it shows as the cloud's underside.
-		_mesh(cloud, _sphere(1.0, 16), mat, Vector3(0, 0.6 * size, 0), Vector3(span * 0.62, 1.4 * size, 3.5 * size))
-		_mesh(cloud, _sphere(1.0, 16), belly, Vector3(0, 0.15 * size, 0.4), Vector3(span * 0.66, 0.9 * size, 3.4 * size))
+			# Taller toward the middle, so the heap domes; every puff sits on the same base line.
+			var r := (float(shape[2]) - absf(u) * float(shape[3])) * size * rng.randf_range(0.85, 1.15)
+			var at := Vector3(u * span * 0.5 + rng.randf_range(-0.4, 0.4), r * 0.55, rng.randf_range(-1.5, 1.5))
+			_mesh(cloud, puff, mat, at, Vector3(r, r * 0.85, r * 0.8))
+			crowns.append([at, r])
+		# Smaller puffs piled on the crown of a heap or a tower (the cauliflower top of a summer cumulus).
+		if kind != 1:
+			for c in crowns.slice(1, crowns.size() - 1):
+				var r2: float = float(c[1]) * rng.randf_range(0.45, 0.6)
+				var at2: Vector3 = c[0] + Vector3(rng.randf_range(-0.6, 0.6), float(c[1]) * 0.62, rng.randf_range(0.2, 1.0))
+				_mesh(cloud, puff, mat, at2, Vector3(r2, r2 * 0.9, r2 * 0.85))
+		# The flat base: a wide squashed puff under them all.
+		_mesh(cloud, puff, mat, Vector3(0, 0.6 * size, 0.3), Vector3(span * 0.6, 1.3 * size, 3.4 * size))
 
 
 static func _birds(root: Node3D, rng: RandomNumberGenerator, colour: Color) -> void:
@@ -2605,17 +2620,18 @@ static func _rock_arch(root: Node3D, at: Vector3, span: float, height: float) ->
 			Vector3(0, float(b[0]) * 17.0, float(b[0]) * 3.0))
 
 
-## A setting sun painted in rings (`at` its middle, `r` its radius): a wide warm glow round it, a deep orange rim, a gold body and a pale
-## hot core set a little up and left, flat discs facing the camera like a painted flat; and long thin bands of lilac and rose cloud drawn
-## across its lower half, the way evening cloud lies over a low sun.
+## A setting sun (shaders/sun.gdshader, `at` its middle, `r` its radius): a hot core that blooms, its disc deepening to orange at the
+## rim, a soft corona and faint slow rays on one card; and long thin bands of lilac and rose cloud drawn across its lower half, the way
+## evening cloud lies over a low sun.
 static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
-	_halo(root, at + Vector3(0, 0, -3.0), Color(1.0, 0.7, 0.42), r * 5.0)
-	_halo(root, at + Vector3(0, 0, -2.0), Color(1.0, 0.86, 0.6), r * 2.6)
-	var flat := Vector3(1.0, 1.0, 0.04)
-	_mesh(root, _sphere(r, 40), _unshaded(Color(1.0, 0.62, 0.36)), at, flat)
-	_mesh(root, _sphere(r * 0.9, 40), _unshaded(Color(1.0, 0.8, 0.46)), at + Vector3(0, 0, 0.6), flat)
-	_mesh(root, _sphere(r * 0.62, 32), _unshaded(Color(1.0, 0.92, 0.66)), at + Vector3(-r * 0.12, r * 0.1, 1.2), flat)
-	_mesh(root, _sphere(r * 0.3, 24), _unshaded(Color(1.0, 0.98, 0.86)), at + Vector3(-r * 0.2, r * 0.18, 1.8), flat)
+	var m := ShaderMaterial.new()
+	m.shader = SUN_SHADER
+	var q := QuadMesh.new()
+	q.size = Vector2(r * 10.0, r * 10.0)
+	m.set_shader_parameter("disc", 0.2)
+	var sun := _mesh(root, q, m, at)
+	sun.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	sun.name = "Sun"
 	var bands := [[-0.38, 2.2, 0.035, Color(0.9, 0.52, 0.6)], [-0.6, 1.6, 0.028, Color(0.8, 0.46, 0.62)], [-0.16, 1.3, 0.022, Color(1.0, 0.7, 0.64)]]
 	for b in bands:
 		var w := r * float(b[1])
@@ -2701,6 +2717,10 @@ static func _ocean(root: Node3D, t: Dictionary, stage: Array) -> void:
 	root.add_child(sea)
 	sea.build()
 	_clouds(root, rng, 8, Color(1, 1, 1), Vector2(16, 34))
+	# A bank of cumulus piled along the horizon, behind the far coast (its own random numbers, so the rest of the layout stays put).
+	var bank_rng := RandomNumberGenerator.new()
+	bank_rng.seed = 41
+	_clouds(root, bank_rng, 16, Color(1, 1, 1), Vector2(-10.0, -5.0), Vector2(-215, -195), [1, 0, 1], 1.9)
 	_birds(root, rng, Color(0.97, 0.97, 1.0))
 	# Distant islands.
 	for k in 3:

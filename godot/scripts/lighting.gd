@@ -194,6 +194,9 @@ static func stage_mood(env: Environment, root: Node, theme: Dictionary, post: Sh
 		key.light_color = mood.key[0]
 		key.light_energy = mood.key[1]
 		key.rotation_degrees = Vector3(mood.key[2], float(mood.key[3]) + KEY_SIDE, 0)
+		# Toward the sun (the light shines down its -Z), for the sky's pieces lit by hand: clouds, ridges (shaders/cloud.gdshader,
+		# painted_ridge.gdshader).
+		RenderingServer.global_shader_parameter_set("pf_sun_dir", key.basis.z.normalized())
 	var fill := root.get_node_or_null("FillLight") as DirectionalLight3D
 	if fill != null:
 		fill.light_color = mood.fill[0]
