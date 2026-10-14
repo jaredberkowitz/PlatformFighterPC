@@ -1063,3 +1063,15 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   response for bare iron (the water tower's hoops and ladder, the mast, the unit's trim, barrel hoops), wood and concrete left matte. Geometry
   where a prop read as a flat box: corner battens on every crate (proud planes that catch the key light), a lip and a plinth on the rooftop
   unit. `props_material_before.png` / `props_material_after.png`.
+
+## Fighter surface and weapons (forty-eighth pass, item 1 of docs/ART_REVIEW.md)
+
+- **The blotches on the skin were cast shadows**: a hat's or hair's shadow landed on the face through a shadow map too coarse for a
+  small round body, as pink patches with wavering, faceted edges (ruled out first: the shadow bias, the ramp's softness, the screen's paper
+  grain, the baked stage shading). Fighters now take a quarter of a cast shadow (`PF_FIGHTER_CAST` in `toon_light.gdshaderinc`); the form
+  light shades the body instead, so each form shows one lit side and one shadow shape. `skin_blotch_before.png` / `skin_blotch_after.png`.
+- **The longsword** has a blue fuller down its faces and a bright edge along its top: forged steel, not a white slat.
+  `longsword_fuller.png`.
+- **The Seer's staff** ends in a gold ring with a glowing crystal floating in it, in place of the white ball (it read as a cotton swab).
+  `staff_head.png`.
+- Look bench 0.89.

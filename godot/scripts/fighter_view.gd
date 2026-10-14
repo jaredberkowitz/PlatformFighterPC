@@ -957,6 +957,14 @@ func build(p: int, l: RefCounted = null) -> void:
 	stage_frame.add_child(blade_pivot)
 	var blade_mesh := _blade_shape()
 	blade_parts.append(_part(blade_pivot, blade_mesh, respond(toon(Color(0.82, 0.87, 0.96)), "metal"), Vector3(1.55, 0, 0)))
+	# A blue fuller down the middle of each face and a bright edge along the top: the blade reads as forged steel, not a flat white
+	# slat.
+	var fuller_l := BoxMesh.new()
+	fuller_l.size = Vector3(1.9, 0.045, 0.1)
+	blade_parts.append(_part(blade_pivot, fuller_l, respond(toon(Color(0.36, 0.5, 0.82)), "metal"), Vector3(1.3, 0, 0)))
+	var edge_l := BoxMesh.new()
+	edge_l.size = Vector3(2.5, 0.018, 0.06)
+	blade_parts.append(_part(blade_pivot, edge_l, _unshaded_mat(Color(0.96, 0.99, 1.0)), Vector3(1.5, 0.07, 0)))
 	var guard_mesh := BoxMesh.new()
 	guard_mesh.size = Vector3(0.12, 0.6, 0.12)
 	blade_parts.append(_part(blade_pivot, guard_mesh, respond(toon(Color(0.92, 0.76, 0.3)), "gold"), Vector3(0.18, 0, 0)))
@@ -978,10 +986,20 @@ func build(p: int, l: RefCounted = null) -> void:
 	collar.height = 0.14
 	collar.radial_segments = 12
 	staff_parts.append(_part(blade_pivot, collar, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.42, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
-	var head := SphereMesh.new()
-	head.radius = 0.26
-	head.height = 0.52
-	staff_parts.append(_part(blade_pivot, head, toon(Color(0.78, 0.96, 1.0)), Vector3(MESH_LENGTH - 0.22, 0, 0)))
+	# The head: a gold ring standing on the shaft's end, and a glowing crystal (a long octahedron) floating in it.
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.2
+	ring.outer_radius = 0.28
+	ring.rings = 20
+	ring.ring_segments = 8
+	staff_parts.append(_part(blade_pivot, ring, respond(toon(Color(0.95, 0.78, 0.32)), "gold"), Vector3(MESH_LENGTH - 0.1, 0, 0), Vector3.ONE,
+		Vector3(90, 0, 0)))
+	var gem := SphereMesh.new()
+	gem.radius = 0.13
+	gem.height = 0.4
+	gem.radial_segments = 4
+	gem.rings = 2
+	staff_parts.append(_part(blade_pivot, gem, _unshaded_mat(Color(0.6, 0.95, 1.0)), Vector3(MESH_LENGTH - 0.1, 0, 0), Vector3.ONE, Vector3(0, 0, 90)))
 
 	# The Champion's greatsword (class GREATSWORD_CLASS), on the same pivot: a broad single-edged blade with a dark fuller and a chisel
 	# point, a heavy bronze guard, a long leather-wrapped grip for two hands and a round pommel.
@@ -1453,6 +1471,21 @@ static func _greatsword_shape() -> ArrayMesh:
 
 
 static var _great_cache: ArrayMesh
+
+
+## A flat-coloured material that ignores the light (a weapon's lit edge, a staff's glowing crystal), cached by colour.
+static func _unshaded_mat(c: Color) -> StandardMaterial3D:
+	var key := c.to_html()
+	if _unshaded_cache.has(key):
+		return _unshaded_cache[key]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = c
+	_unshaded_cache[key] = m
+	return m
+
+
+static var _unshaded_cache := {}
 
 
 ## How each kind of stuff on a fighter takes the light (shaders/toon_light.gdshaderinc), so skin, cloth, rubber and metal read apart while
