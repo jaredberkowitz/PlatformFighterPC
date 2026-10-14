@@ -110,5 +110,58 @@ Each step: a matched before/after, a check in motion, the tests and the look ben
   retaken. Two runs of the same build give pixel-identical frames, so before/after pairs are exact. (A crop tool that kept the alpha
   channel made one copy look washed out; the tools in use now drop it.)
 
-**Next in this step**: the beach's props (the lighthouse's light and shadow, the jetty's supports and contact shadows, the palms'
-fronds, the islands' layers), then the sea wall's front receding (step 7).
+**Second change (landed): grounding and the beach's props**, `review5_beach_wide.png` (a wide view, before | after),
+`review5_fronts.png` (beach and desert at match scale, before | after). A wide camera showed what match scale hid:
+- **Fighters' drop shadows on the sea**: the contact shadow (`fighter_view.gd`, a decal reaching 14 units down) also printed on the
+  rocks under the stage, two dark ovals on the water whenever the camera pulled out. Standing, it now reaches 2.4 units, just past the
+  floor; in the air the full depth, so the landing spot stays marked.
+- **The lighthouse floated**: its rocks were modelled but set under the sea. Raised so they stand out of the water, the tower on them.
+- **Foam**: a fuller band where anything meets the water (`foam_width` 1.4 → 2.0) and a fainter broken ring of wash further out.
+- **Glints** were whole cells, hard little rectangles near the stage; each is now a small soft four-point sparkle.
+- **Busy fronts recede** (from step 7, as it was in view): the beach's bricks and the desert's strata fall faster and further into the
+  cool front shade (`front_fall` 0.52 → 0.64, `front_span` 6.5 → 4.5), so the fighting surface leads.
+- Palms, the jetty and the islands were looked at and left: at match scale they hold up; nothing there beats the next steps.
+- **Checked**: the look bench 0.87; the art, fighter, match and motion tests pass.
+
+## Step 4a: fighters' value and form (opportunity 5)
+
+**Landed**, `review5_fighter_glow.png` (the beach close up, before | after):
+- **Bloom on fighters** 0.5 → 0.15 (`post.gdshader` `bloom_fighter`): the glow is screened on, so it pushed a pure body colour toward
+  white; a yellow fighter on the bright beach read as one flat glowing shape with soft edges. The scenery keeps its full bloom.
+- **The beach's shadows** a little deeper (`lighting.gd` ocean: `shadow_value` 0.66 → 0.6, ambient 0.5 → 0.46): it had the lightest
+  shadows of any stage, so its fighters had the least form. Still the brightest, sunniest stage.
+- **Checked**: every stage and body colour in the look bench (edges 0.87 to 1.00, unchanged; body contrast unchanged within 0.01);
+  the art and fighter tests pass. Close-ups of the meadow and the city compared too: crisper edges, colours unchanged.
+
+## Step 4b: stances (opportunity 2), first change
+
+**Landed**, `review5_guard.png` (the meadow close up: the old stance | the guard), `review5_guard_all.png` (twelve classes):
+- Every class shares one idle clip (`make_rigged_blob.py` `idle`); the weapon classes' weapon arm is posed over it by code, so the
+  unarmed classes showed the clip as it is: upper arms forward, elbows bent about 45°, open hands held out at chest height (the owner:
+  "extending for a hug"). Now a **guard**: the upper arms hang forward and a little out, the elbows bend hard so the forearms stand up,
+  the fists in front of the chest (the lead one further out and higher), clear of the body's outline from the gameplay camera.
+- **Unarmed, the fists stay closed in the guard** (`fighter_view.gd` `_clench`, `Idle` added), not only in attacks.
+- The weapon classes keep their weapon arm as it was; their free arm takes the guard (fist up), which reads better than before too.
+- **Checked**: twelve classes standing on the meadow; the fighter, art, motion, animation, creator, online, match and loadout tests;
+  the look bench 0.87.
+- **Still to do here** (the owner: "all of them need work"): each class its own stance where its moveset calls for one (a low, wide
+  stance for the heavy fighters, a light bounce for the quick ones), the walk and the jump re-posed for the body, then the Phantom.
+
+### Step 4b follow-up: arms that bend as one piece (the owner: "disjointed", "bend unnaturally and break")
+
+Posed geometry rendered straight from Blender (grey, no outline or shading to hide behind), `review5_arm_skinning.png`
+(top: the guard's elbow before | after; bottom: a run frame's back-swinging arm before | after):
+- **Spikes under the elbow**: pass 70 kept the arm's pull off the trunk by x alone (inside the shoulder joint = trunk), so the inside of
+  the upper arm counted as trunk, stayed behind when the arm moved, and crumpled into spikes in any bend. Now a point within the arm's
+  radius of the shoulder-to-wrist line is the arm's (`near_arm`), wherever it is.
+- **The shoulder pivot** sat halfway down the upper arm (the base body's armpit is low): raised to the top of the arm
+  (`fit_body.py --shoulder-lift 0.11`), so the arm swings from the shoulder and the elbow bends at the modelled elbow.
+- **The armpit** blends by distance from the arm (`ARM_BLEND`, `ARM_BLEND_FADE`): a back swing pulled a sheet of skin from the
+  torso's side; now the stretch spreads over a hand's width.
+- **The guard** re-posed: elbows down and out to the side, about a right-angle bend (pointed forward, the upper arm vanished
+  toward the camera and the fist looked stuck to the shoulder).
+- Tried and dropped: a crease outline mask, a wider elbow weight blend (no effect on the spikes), and a denser body mesh (13,000
+  triangles: it showed lumps in the base surface itself, not smoother bends).
+- Still visible up close: soft folds on the upper chest beside the neck when the arms are raised, and the base surface's slight
+  unevenness. Next: a reference study of limb shape and extension (the owner asked for the reference fighters' and PEAK's
+  body composition, limb bending and extension in swings and kicks).

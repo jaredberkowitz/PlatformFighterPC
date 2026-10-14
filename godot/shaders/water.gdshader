@@ -13,7 +13,7 @@ uniform vec4 streak : source_color = vec4(0.5, 0.88, 1.0, 1.0);
 uniform vec4 foam : source_color = vec4(0.95, 0.99, 1.0, 1.0);
 uniform vec4 haze : source_color = vec4(0.56, 0.84, 1.0, 1.0);
 uniform float haze_max = 0.3;
-uniform float foam_width = 1.4;    // world units of foam out from where something meets the water
+uniform float foam_width = 2.0;    // world units of foam out from where something meets the water
 uniform bool cheap = false;
 varying vec3 world_pos;
 
@@ -77,11 +77,15 @@ void fragment() {
 		col = mix(col, mix(col, vec3(1.0), 0.28), face * 0.55 * near_k);
 		col = mix(col, col * vec3(0.78, 0.84, 0.92), trough * 0.6 * near_k);
 		col = mix(col, mix(streak.rgb, vec3(1.0), 0.45), crest * 0.85 * near_k);
-		// Glints: a few cells light up and fade, more of them nearer.
-		vec2 cell = floor(p * vec2(0.9, 2.2));
+		// Glints: a few cells light up and fade, more of them nearer; each a small soft four-point sparkle in its cell (they were the
+		// whole cell, hard little rectangles).
+		vec2 cs = p * vec2(0.9, 2.2);
+		vec2 cell = floor(cs);
 		float g = hash(cell);
 		float twinkle = smoothstep(0.75, 1.0, sin(TIME * 2.3 + g * 40.0));
-		col = mix(col, vec3(1.0), step(0.965, g) * twinkle * (1.0 - band) * 0.85);
+		vec2 in_cell = (fract(cs) - 0.5) * vec2(1.0, 2.4);
+		float star = max(1.0 - smoothstep(0.0, 0.28, abs(in_cell.x) + abs(in_cell.y) * 3.0), 1.0 - smoothstep(0.0, 0.28, abs(in_cell.y) + abs(in_cell.x) * 3.0));
+		col = mix(col, vec3(1.0), step(0.965, g) * twinkle * star * (1.0 - band) * 0.9);
 		// Foam where something stands in the water: the scene behind is only a little below the surface there.
 		float d = texture(depth_tex, SCREEN_UV).r;
 		vec4 v = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
@@ -89,7 +93,10 @@ void fragment() {
 		float gap = scene - (-VERTEX.z);
 		float ruffle = noise(p * 1.3 + vec2(TIME * 0.3, 0.0)) * 0.6;
 		float shore = 1.0 - smoothstep(0.0, foam_width, gap + ruffle);
-		col = mix(col, foam.rgb, step(0.45, shore) * 0.9);
+		// A solid band of foam right at the waterline, and a fainter broken ring further out where the wash spreads.
+		col = mix(col, foam.rgb, step(0.55, shore) * 0.92);
+		float wash = step(0.2, shore) * (1.0 - step(0.3, shore)) * step(0.45, noise(p * 2.1 - vec2(TIME * 0.2, 0.0)));
+		col = mix(col, foam.rgb, wash * 0.55);
 	}
 	// The stage's distance haze (the scenery gets it from the finishing pass; the water is drawn after it).
 	col = mix(col, mix(haze.rgb, vec3(1.0), 0.3), smoothstep(4.0, 110.0, back) * haze_max);

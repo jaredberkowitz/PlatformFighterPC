@@ -1309,6 +1309,7 @@ static var _shadow_tex: GradientTexture2D
 ## readable through a jump, so where a fighter will land is always marked, and fades only well above a platform's reach.
 const SHADOW_DEPTH := 14.0
 const SHADOW_FADE := 0.22
+const SHADOW_DEPTH_GROUNDED := 2.4
 
 
 ## Puts every mesh under `node` on render layer 2 (seen and lit as usual), so the contact shadow, which only projects on layer 1, skips them.
@@ -2274,6 +2275,13 @@ func apply(pos: Vector3, s: Dictionary, delta: float) -> void:
 	var facing: int = s.facing
 	var vy: float = s.vel.y
 	var grounded: bool = s.platform >= 0
+	# Standing, the drop shadow reaches only just past the floor (the full depth also printed it on whatever lies under the stage: two
+	# dark ovals on the beach's rocks and sea, art review 5); in the air it reaches all the way down, so the landing spot stays marked.
+	if contact_shadow != null:
+		var depth: float = SHADOW_DEPTH_GROUNDED if grounded else SHADOW_DEPTH
+		if contact_shadow.size.y != depth:
+			contact_shadow.size.y = depth
+			contact_shadow.position.y = 0.8 - depth / 2.0
 
 	# Touching down: kick the squash spring in proportion to how fast we were falling.
 	if grounded and not was_grounded:
@@ -3843,7 +3851,8 @@ func _apply_combat(s: Dictionary, delta: float) -> void:
 	var swinging_arm: bool = not ((brawler or staff or great) and body_move)
 	# (The Seer keeps its staff in hand through a kick, held at rest, as the Champion does its greatsword.)
 	blade_pivot.visible = (not brawler and swinging_arm) or staff or great
-	var punching: bool = not blade_pivot.visible and state == "Attack" and s.move_name != ""
+	# (Unarmed, the fists stay closed in the guard too: open hands held up read as reaching for a hug.)
+	var punching: bool = not blade_pivot.visible and ((state == "Attack" and s.move_name != "") or state == "Idle")
 	_clench(punching or _cls(s) == BUCKLER_CLASS, blade_pivot.visible or punching)
 	# Running with nothing to swing, the weapon arm pumps with the run and the weapon trails behind.
 	var carrying: bool = not brawler and s.move_name == "" and (state == "Run" or state == "Dash")

@@ -1,6 +1,7 @@
 """Measures a body model and places the game's skeleton in it (docs/ART_WORKFLOW.md, Characters).
 
     blender --background --python art/blender/fit_body.py -- --in art/generated/base_body/base_body.glb --out art/generated/base_body/joints.json
+    (the modelled base body: --in art/models/base_body/base_body.glb --out art/models/base_body/joints.json --shoulder-lift 0.11)
 
 The body must stand upright on the ground, facing -Y (Blender's front), arms hanging at its sides, as `import_generated.py --kind fighter`
 leaves it. It is cut into thin horizontal slices; in each slice the points are grouped by gaps across X (two arms and the trunk, or two
@@ -68,7 +69,7 @@ def clusters(xs, gap):
     return out
 
 
-def fit(pts):
+def fit(pts, shoulder_lift=0.07):
     height = pts[:, 2].max()
     step = height / 120.0
     gap = height * 0.02
@@ -171,7 +172,10 @@ def fit(pts):
         # The arm's top end is at the armpit; the shoulder (the ball the arm turns on) sits above it, a little in toward the trunk. The
         # wrist is a hand's length above the fingertips.
         sx, sy, sz = arm[0][1], arm[0][2], arm[0][0]
-        shoulder = [sx * 0.92, sy, sz + height * 0.07]
+        # (`shoulder_lift`, a share of the height: 0.07 by default. The base body passes 0.11 (`--shoulder-lift`): its arm runs into the
+        # trunk down to near the elbow, so its armpit is found low and the shoulder sat halfway down the upper arm; the top of the arm
+        # stayed with the torso and the arm broke in the middle when it moved, the elbow bending above the modelled elbow.)
+        shoulder = [sx * 0.92, sy, sz + height * shoulder_lift]
         tip = arm[-1]
         wrist_z = tip[0] + height * 0.075
         near = min(arm, key=lambda t: abs(t[0] - wrist_z))
@@ -202,7 +206,7 @@ def fit(pts):
 
 def main():
     a = args()
-    result = fit(load_points(os.path.abspath(a["in"])))
+    result = fit(load_points(os.path.abspath(a["in"])), float(a.get("shoulder-lift", 0.07)))
     with open(os.path.abspath(a["out"]), "w") as f:
         json.dump(result, f, indent=1)
     print("FIT neck %.3f armpit %.3f crotch %.3f head centre %s radius %.3f" % (result["neck"], result["armpit"], result["crotch"],
