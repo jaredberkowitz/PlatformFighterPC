@@ -1,8 +1,9 @@
 extends "res://scripts/main.gd"
-## The single-player run (docs/modes/RUNNER_PLAN.md, R1): the versus scene with one fighter, played by the same input, controls and
-## physics, on the sim's streamed stage (`sim_core::run`). This script only changes what the run presents differently: the camera
-## (the sim's forward-only view, following height), the stage (built chunk by chunk as the sim streams it), the mobs, the run's display
-## and its results. Gameplay all lives in the sim.
+## The single-player run (docs/modes/RUNNER_PLAN.md, R1 and R1b): the versus scene with one fighter, played by the same input, controls
+## and physics, on the sim's streamed chain of rooms (`sim_core::run`). This script only changes what the run presents differently: the
+## camera (the sim's view, following the player both ways inside the rooms in play, and height), the stage (built room by room as the
+## sim streams it, with its walls and gates), the mobs, the run's display (the map, the shop) and its results. Gameplay all lives in the
+## sim, the shop included: its menu is driven by the same inputs the fighter gets.
 ##
 ## From the menus: `Roster.session.run_entry` is the fighter. Launched directly: `--run` (the last fighter played, or `--fighter=<name>`),
 ## `--seed=N` for a fixed run.
@@ -34,6 +35,7 @@ var combo_flash := 0.0
 var rng_seed := RandomNumberGenerator.new()
 
 const MOB_STRIDE := 12
+const ROOM_REST := 3
 ## Seconds after the last life goes before the results come up.
 const RESULTS_AFTER := 1.6
 
@@ -145,9 +147,10 @@ func _tick_once_inner(advance := true) -> void:
 	_run_events()
 
 
-## Presentation cues from what changed this tick: hits on mobs, mobs beaten, coins, a lost life.
+## Presentation cues from what changed this tick: hits on mobs, mobs beaten, coins, a lost or bought life, an arena shutting and
+## opening, a rest stop.
 func _run_events() -> void:
-	if info.size() < 10 or info_before.size() < 10:
+	if info.size() < 15 or info_before.size() < 15:
 		return
 	for n in mobs_cur.size() / MOB_STRIDE:
 		var o := n * MOB_STRIDE
@@ -164,7 +167,17 @@ func _run_events() -> void:
 		sfx.play("blip", 1.9, -4.0)
 		combo_flash = 1.0
 	if info[7] < info_before[7] and info[0] == 0:
-		_flash("CRUSHED!" if info[8] > info_before[8] else "-1 LIFE", 1.2)
+		_flash("-1 LIFE", 1.2)
+	if info[7] > info_before[7]:
+		_flash("+1 LIFE", 1.2)
+	if info[11] == 1 and info_before[11] == 0:
+		sfx.play("blip", 0.7, -2.0)
+		_flash("ARENA!", 1.4)
+	if info[12] > info_before[12]:
+		sfx.play("blip", 1.4, -2.0)
+		_flash("CLEAR! +%d" % (info[2] - info_before[2]), 1.6)
+	if info[8] > info_before[8] and info[10] == ROOM_REST:
+		_flash("REST STOP", 1.2)
 	if info[0] == 1 and info_before[0] == 0:
 		_flash("RUN OVER", 3.0)
 
@@ -179,6 +192,7 @@ func _process_inner(delta: float) -> void:
 	var a := _alpha()
 	if run_stage != null and info.size() >= 10:
 		run_stage.sync(sim, info[9])
+		run_stage.animate(delta)
 		if view.size() > 1:
 			run_stage.follow(lerpf(edge_prev, edge_cur, a) + view[1] * 0.5)
 	var count := mini(mob_views.size(), mobs_cur.size() / MOB_STRIDE)
@@ -217,10 +231,14 @@ func _update_hud(delta: float) -> void:
 	elif sim.frame() < 75:
 		banner = "RUN!"
 		alpha = clampf(float(75 - sim.frame()) / 30.0, 0.0, 1.0)
+	var shop: PackedInt32Array = sim.run_shop()
+	var shop_open := info.size() >= 15 and info[13] == 1
 	run_hud.show_state({
 		"metres": info[1], "coins": info[2], "kills": info[3], "combo": info[4], "best": info[5], "mult": info[6],
-		"step": 5, "max_mult": 5, "lives": info[7], "max_lives": 3, "percent": snaps[0].get("percent", 0.0), "name": run_name,
-		"banner": banner, "banner_alpha": alpha, "combo_flash": combo_flash,
+		"step": 5, "max_mult": 5, "lives": info[7], "max_lives": maxi(3, info[7]), "percent": snaps[0].get("percent", 0.0),
+		"name": run_name, "banner": "" if shop_open else banner, "banner_alpha": alpha, "combo_flash": combo_flash,
+		"map": sim.run_map(4), "door": info.size() >= 15 and info[14] == 1 and not shop_open,
+		"gate": info.size() >= 15 and info[11] == 1, "shop": shop, "shop_names": sim.run_shop_names(),
 	})
 	if info[0] == 1 and results == null:
 		end_timer += delta
@@ -283,8 +301,8 @@ func _show_results(_winner: int) -> void:
 		choices = [["Run again", "again"], ["Change fighter", "select"], ["Main menu", "menu"]]
 	results = RunResults.new()
 	add_child(results)
-	results.build({"metres": info[1], "coins": info[2], "kills": info[3], "best": info[5], "crushes": info[8], "seed": run_seed,
-		"name": run_name}, choices)
+	results.build({"metres": info[1], "coins": info[2], "kills": info[3], "best": info[5], "rooms": info[8] + 1, "cleared": info[12],
+		"seed": run_seed, "name": run_name}, choices)
 	results.chosen.connect(_on_result)
 
 

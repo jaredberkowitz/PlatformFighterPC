@@ -235,9 +235,10 @@ rebinding and controller input/menus (`docs/MENUS.md`; the controller part is un
 * Rules for agents and contributors: `CLAUDE.md` (determinism rules, bump `SIM_VERSION` on any behaviour change, the content/script
   conventions, the editors and menus rules).
 
-## Single-player run (R1, sim 120; branch `runner-r1`)
+## Single-player run (R1, sim 120; rooms R1b, sim 122, branch `runner-r1b`)
 
-The endless run's vertical slice: `docs/modes/RUNNER_PLAN.md` ("R1 progress" has what is built, how to play it, the tunables and the
-known limits). Sim: `sim-core/src/run/` (the run's state is `GameState::run`; inactive and untouched in versus), tests in
+The endless run: `docs/modes/RUNNER_PLAN.md` ("R1 progress" and "R1b progress" have what is built, how to play it, the tunables and the
+known limits). Since R1b the world is a chain of rooms (streets, arenas, shops, rest stops) with two rooms of backtracking behind a
+wall, a two-way camera and a map strip; the creeping camera is gone (an A/B tunable at 0). Sim: `sim-core/src/run/` (the run's state is `GameState::run`; inactive and untouched in versus), tests in
 `sim-core/tests/runner.rs`, content checks in `sim-content/src/run.rs`, `pftool run-bot` / `run-bench`. Game: the menu's Run tile,
 `godot/runner.tscn` (`scripts/runner.gd` extends the match scene), `ui/run_hud.gd`, `ui/run_results.gd`, `tests/runner_test.gd`.

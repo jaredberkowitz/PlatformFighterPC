@@ -1,6 +1,7 @@
-# Single-player mode: the endless run (plan, draft 2; R1 built)
+# Single-player mode: the endless run (plan, draft 3; R1 and R1b built)
 
-Status: **draft 2, owner's answers in (14 October 2026); R1 (the vertical slice) built on branch `runner-r1`, sim 120: see section 7.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
+slice) is built (sim 120, section 7); R1b (rooms) is built on branch `runner-r1b`, sim 122: see section 8.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -22,26 +23,58 @@ bosses, branching paths) rather than the controls. A two-button "casual" control
 ## 2. Core loop
 
 1. **Pick a fighter** (any built-in fighter, or a created one).
-2. **Run.** The screen scrolls right at a steady pace that rises with distance. Enemies, gaps, platforms and pickups come in hand-made
-   *chunks* chained by a seeded generator.
+2. **Run.** The world is a chain of hand-made *rooms*, left to right, laid by a seeded generator as you go (section 3.1). You set the
+   pace and can go back a little; the rooms behind close off as you go on. Enemies, gaps, platforms and pickups are in the rooms.
 3. **Fight.** Enemies die from damage or from being launched off screen. A **combo meter** counts hits and kills without a break and
    multiplies the coins earned. Getting hit breaks it.
-4. **Shop** every few hundred metres: a storefront chunk you walk into. Three to four offers, rerollable for coins.
-5. **Boss** every N shops: the scroll stops in an arena chunk until the boss is beaten.
+4. **Shop** every 5 to 7 rooms: a storefront you enter by pressing up at its door. Three to four offers, rerollable for coins.
+5. **Boss** every N shops: an arena room whose gate stays shut until the boss is beaten.
 6. **Die** (lose your last life) and the run ends. You see distance, coins, kills and best combo, and can retry with a new seed.
 
-The scroll, enemy density and enemy toughness rise with distance (a difficulty curve per region).
+Enemy density, enemy toughness and the rooms' mix rise with distance (a difficulty curve per region).
 
 ## 3. Key design decisions (recommendations; the owner decides)
 
-### 3.1 Movement: exactly the versus game's, inside a gently scrolling view (**Decided**)
+### 3.1 Movement and the world: the versus game's movement, in a chain of rooms (**Decided**, rewritten 14 October 2026)
 - **Owner: free movement, the same layout and movement as the base game.** The fighter has every versus control and physics rule
   (dash, run, jumps, aerials, specials, shield, wavedash, ledges). Nothing is simplified, and the mode reads the same input and
   physics code.
-- To keep it a runner, the **camera only moves forward**: it follows the player right and never scrolls back. It also creeps forward
-  slowly by itself, slowly at first and a little faster in later cities, so standing still isn't free. Falling behind the left edge
-  pushes the fighter along; being pinned against a wall there costs a life.
-- *If the creeping camera feels wrong in play, it is one number (its speed) away from a pure follow camera: the player sets the pace.*
+- **Owner, after playing R1:** "Regarding screen creep: I think it would be better if it was able to back-track, within reason. As it
+  is a runner generating the layout as it goes, you should not be able to backtrack too far. A possible solution would be moving from
+  'rooms' left to right, with it storing a few rooms further back, and some 'rooms' having enterable shops, etc. The concept would be
+  similar to a rogue-like's map, e.g. Rogue Legacy, but with a lot more simplicity, catered to the endless runner style."
+- **Decided (executive producer's spec from that direction):**
+  1. **The world is a chain of rooms, left to right.** A room is one to two screens wide (28 to 64 units; the view shows 30) and
+     keeps the height rule of 3.7. R1's chunks became rooms, and its chunk ring the room window. A pool entry still keeps its index
+     while it lives, and ground continuing across a seam is still one platform, so dash and wavedash cross seams.
+  2. **Backtracking is limited.** The window holds the current room (the furthest the player has entered), up to **2 rooms behind**
+     and **1 ahead** (laid when you enter the current one); both are `RunRules` tunables (`rooms_behind`, `rooms_ahead`). Entering a
+     new room drops the oldest room behind, and the left edge of the oldest kept room is a solid wall: a closed gate in the art and a
+     real stage wall in the sim, so fighters and mobs collide with it and can wall-jump off it. The forward-only creep and the
+     crush-death are gone; `creep` stays as a tunable defaulting to 0, so it can be A/B tested (when on, the view's left edge creeps
+     and pushes the fighter, but never crushes). The camera follows the player both ways inside the window, smoothly, clamped to the
+     window's walls. The blast zones follow the camera, except that the left side is the gate.
+  3. **Room types (data, seeded):**
+     - **Street:** plain running with a few mobs; the most common type.
+     - **Arena:** the exit closes (a gate on its right edge) as you enter, until every mob in the room is beaten; then it opens with a
+       clear signal ("CLEAR!" and the bars sliding up) and pays a coin bonus.
+     - **Shop:** a storefront in the room. Standing at its door and pressing up **enters** it. R1b sells two placeholder wares, heal
+       30% and an extra life (pricey, one per shop); the list is data (`ShopItem`), R2/R3's foundation.
+     - **Rest:** rare, no mobs, a small heal as you enter.
+     Generation (seeded): no two arenas in a row, a shop every 5 to 7 rooms, and the first room is a safe street.
+  4. **The map:** a Rogue Legacy-style strip at the top of the HUD: the rooms behind (dimmed, the dropped ones shown shut), the
+     current room, and the next room ahead with its type. Linear, no branching yet (see the fork note below).
+  5. **Pressure without the creep:** the combo meter's decay, the arenas, and distance as the score are enough for now. *Later
+     option, if runs prove too passive:* a slow "danger" rising from behind (smoke, a flood, a wrecking crew) that makes lingering in
+     the rooms behind costly, without a hard scroll.
+  6. **The owner's R1 question 2** ("knocked past the left edge?") is answered by the gate: the left boundary is a wall. A launch
+     into it is a wall hit (bounce, tech or wall jump), never a knock-out.
+- **A fork, later (not built):** a room could have two exits, a rooftop exit high on its right wall and a street exit at ground
+  level, each leading to its own next room. The window would then lay two rooms ahead (one per exit, both drawn on the map one above
+  the other), and the exit the player takes decides which becomes the current room; the other is dropped at once, its gate shut.
+  This keeps the window small (behind + 1 + 2 ahead), keeps the map a strip with one short split at its right end, and gives the
+  rooftop/street route choice of 3.7 (rooftops risky with more coins, street safer with more mobs) without any backtracking across
+  branches.
 
 ### 3.2 Health: damage percent and lives (**Decided**)
 - Our own rules: damage percent builds up, enemies launch you further the higher it is, and you lose a life when launched off
@@ -146,15 +179,17 @@ zone, and the street route is never more than one screen below the roofs, so bot
 - **Simulation (Rust), deterministic and seeded.** One seed gives the same run every time, which makes replays, a daily-seed mode
   and, later, online leaderboards possible (a server can re-run a submitted run to check a score). Everything follows the sim rules
   in `CLAUDE.md`: no floats, `GameState` is `Copy` and hashed, and tunables live in content.
-  - **Streaming stage:** the sim keeps a small ring of active chunks (chunk id and x offset) instead of one fixed stage. Collision
-    and ledges look across the active chunks. Chunks are content data (platforms, ledges, spawn markers, pickups), checked by
-    `sim-content`, and the stage editor could later author them.
+  - **Streaming stage:** the sim keeps a small window of rooms in play (room id, number and x offset) instead of one fixed stage,
+    with a wall at its left end and an arena's gate when one is shut. Collision and ledges look across the rooms in play. Rooms are
+    content data (type, platforms, ledges, spawn markers, a shop's door), checked by `sim-content`, and the stage editor could later
+    author them.
   - **Mobs:** a new fixed-size pool in `GameState` (section 3.3), sharing `combat.rs`.
-  - **Run state:** distance, scroll speed, coins, combo, lives, owned items and properties, the next shop and boss. All hashed.
+  - **Run state:** distance, the camera, the room window and its walls, coins, combo, lives, the shop, owned items and properties,
+    the next shop and boss. All hashed.
   - **Items and properties:** a data list. Each property is a named rule in the sim, like the existing ruleset.
 - **Game (Godot):**
-  - a run scene (`runner.tscn`) with a scrolling camera;
-  - a HUD (distance, coins, combo meter, percent, lives, the boss bar);
+  - a run scene (`runner.tscn`) with a following camera;
+  - a HUD (distance, coins, combo meter, percent, lives, the map, the boss bar);
   - the shop screen;
   - the results screen;
   - a "Single player" entry on the main menu.
@@ -167,8 +202,9 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | Phase | What | Done when |
 | --- | --- | --- |
 | R0 | This plan, refined with the owner; enemy and item lists agreed | owner sign-off |
-| R1 | Vertical slice: the forward-only creeping camera, 5 hand-made chunks on a loop, 2 enemy kinds, coins and the combo meter, lives, the run HUD, a results screen, the menu entry | a 2-minute run is fun to play with placeholder art |
-| R2 | The generator: chunk pools by difficulty, the two routes, the difficulty curve, 6 enemy kinds | runs differ and get harder smoothly |
+| R1 | Vertical slice: the forward-only creeping camera, 5 hand-made chunks on a loop, 2 enemy kinds, coins and the combo meter, lives, the run HUD, a results screen, the menu entry | a 2-minute run is fun to play with placeholder art (built, sim 120) |
+| R1b | Rooms (owner's change after R1): the room window with a wall behind, the two-way camera, streets, arenas, a placeholder shop (heal, extra life), rest stops, seeded room types, the map strip | backtracking feels fair and the rooms read clearly (built, sim 122) |
+| R2 | The generator: room pools by difficulty, the two routes (the fork in 3.1), the difficulty curve, 6 enemy kinds | runs differ and get harder smoothly |
 | R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls | a run's build changes how it plays |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
@@ -179,7 +215,9 @@ zone, and the street route is never more than one screen below the roofs, so bot
 
 | Question | Decision |
 | --- | --- |
-| Movement | Exactly the versus game's movement and controls, inside a forward-only, gently creeping camera (3.1) |
+| Movement | Exactly the versus game's movement and controls (3.1) |
+| The world (owner, after R1) | A chain of rooms with limited backtracking: 2 rooms behind, 1 ahead, a wall behind; no creep (an A/B tunable, 0); streets, arenas, shops, rest stops; a map strip (3.1) |
+| Knocked past the left edge (R1 question 2) | The left boundary is a wall (the gate), never a knock-out (3.1) |
 | Health | Damage percent and lives; extra lives only from a shop power-up or rare finds (3.2) |
 | Upgrades | Reset every run; a light meta layer of permanent unlocks later (3.5) |
 | Archetypes | The table in 3.6 for now; it will change as fighters are added, and the Staff's place is open |
@@ -300,10 +338,130 @@ Still open, for later phases:
 3. **A coin** and a pop for a beaten mob, a **combo** flourish for the HUD, and a city skyline that can scroll in parallax.
 4. **Shop** art for R3.
 
-### Decisions wanted
-- Does the creeping camera feel right at 0.02 (about a twelfth of running speed)? It is one number, and 0 makes it a pure follow camera.
-- At the screen's left edge, a launched fighter can now fly past it and be knocked out; once its hitstun ends, the edge pushes it back in.
-  Should the edge stop launches instead?
+### Decisions (answered by the owner after playing R1)
+- The creeping camera: replaced by rooms (3.1, section 8). The creep is kept as an A/B tunable at 0.
+- The left edge: it is a wall now (3.1).
+
+## 8. R1b progress (rooms, sim 122, branch `runner-r1b`)
+
+### What can be played
+- **Main menu, Run** as before. The city now comes in **rooms**: you run right at your own pace and can go back up to two rooms; behind
+  that a barred gate (a real wall: you can wall-jump off it) closes the way. The **map** at the top shows the rooms behind (dimmed, the
+  ones closed off shown barred), the room you are in (ringed) and the next one with its type: a building for a street, crossed swords
+  for an arena, a coin for a shop, a green cross for a rest stop.
+- **Streets** have a few walkers and flyers. An **arena** shuts a red gate behind its far side as you walk in ("ARENA!") and wakes
+  every mob in it; beat them all and the bars slide up ("CLEAR! +25"). A **shop** comes every 5 to 7 rooms: stand at the storefront's
+  door ("UP: ENTER THE SHOP") and press up. Inside, the world stands still; up and down pick, attack or jump buys, shield or special
+  leaves. It sells **Heal 30%** (30 coins) and an **Extra life** (150 coins, one per shop). A **rest stop** (rare) heals 20% as you
+  enter. Results now show rooms reached and arenas cleared.
+- Headless: `pftool run-bot 8 7200` (2 minutes each): the bot reached rooms 6 to 16 and cleared 0 to 4 arenas; one of eight lost all
+  its lives. (It only runs, hops and jabs, so arenas with flyers hold it up.)
+
+### How it is built (and why)
+- **The room window** (`sim-core/src/run/mod.rs`): `Run::slots` is the window (each slot a room id, its number and its edges);
+  `Run::room` is the current room. Entering the next room (the player's feet `enter_depth` past its left edge) drops the rooms more than
+  `rooms_behind` back, lays rooms up to `rooms_ahead` ahead, and does what the room's type does. Dropping frees that room's platforms
+  and ledges, removes its mobs, and trims ground joined across the seam to the new wall, so the pool index a fighter stands on stays
+  valid (a test checks this).
+- **The walls are stage blocks.** The stage the versus code collides with is the pool, then two fixed entries: the left wall
+  (`WALL_INDEX`, at the oldest room's left edge) and an arena's gate (`GATE_INDEX`, padding while open). Each reaches from below the
+  blast zone to above its top, so nothing gets over, under or onto it; fighters stop at it, wall-jump and wall-tech off it through the
+  versus code unchanged. Mobs collide with it too, and every mob (flyers included) is kept inside the window and on its own side of a
+  shut gate.
+- **The camera** follows the player both ways, easing (`cam_ease` of the distance a frame, at most `cam_max_speed`), clamped between
+  the wall and the window's right end (or a shut gate). The left blast line is behind the wall, out of reach; the right one follows
+  the camera, so launches off the right side still knock out. Mobs leave the world only above or below the blast zone or out of the
+  window, or when launched by the player off the side of the screen (a kill with credit).
+- **The shop is a state of the run, not a separate room.** Of the two options in the spec (a sim-side "inside" state with a menu
+  overlay, or a small interior room) I chose the state: while `Run::shop_open` is set, `step_run` runs only the shop (the fighter,
+  mobs and camera stand still, the frame count goes on), and the player's own inputs (stick presses and button presses, edge-detected
+  against the previous frame's, which the run keeps and hashes) move the cursor and buy. It is deterministic and replays exactly
+  (a test replays a scripted shopping trip checksum by checksum), needs no second stage, camera cut or mob suspension, and the menu
+  is just a drawing of the state. A shop remembers what it sold while its room is in play, so the extra life stays one per shop even
+  if you leave and come back. The wares are data (`RunContent::items`: kind, price, amount, limit per shop).
+- **Arenas:** entering one shuts the gate at its right edge, spawns all its markers at once and wakes its mobs. Each mob records the
+  room it came from (`Mob::room`); the gate opens when all of the room's markers have spawned and none of its mobs is left (a mob in its
+  burst counts as beaten), paying `arena_bonus`. The camera stays inside the gate meanwhile.
+- **Generation** (`next_kind`, `next_room`): the first room is the start street (no mobs, never seen again); a shop when one is due
+  (every `shop_min` to `shop_max` rooms, drawn from the run's generator); otherwise streets, arenas and rest stops by weight, never two
+  arenas or two rest stops in a row. Within a type, a room is drawn at random, not the last one again while another will do. The last
+  16 rooms' types are kept for the map (`Run::kinds_log`).
+- **Determinism:** every new field is in `Run::hash_into` and in the checksum test's list; the room content (types, doors, wares and
+  the new rules) is in `RunContent::hash`. Versus is untouched (`GameState::run` stays inactive; every versus test passes unchanged).
+- **Godot:** `scripts/run_stage.gd` draws the left gate (a brick pillar with bars), the arena's red gate (its bars slide up when it
+  opens), a storefront with a lit window and a SHOP sign at each shop's door, and a REST sign; `ui/run_hud.gd` draws the map, the door
+  prompt, the arena hint and the shop panel; `ui/run_results.gd` shows rooms and arenas. Bridge: `run_rooms`, `run_map`, `run_shop`,
+  `run_shop_names`; `run_info` and `run_view` grew (see their doc comments).
+
+### Tunables added or changed (`RunRules::standard`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `rooms_behind` / `rooms_ahead` | 2 / 1 | the window; `rooms_behind + 1 + rooms_ahead` is at most 4 (the ring) |
+| `enter_depth` | 2 | you have entered a room once your feet are 2 past its left edge |
+| `gate_thickness` | 1 | the walls' thickness |
+| `cam_ease` / `cam_max_speed` | 1/8 / 0.5 | the camera closes an eighth of the distance a frame, at most 0.5 |
+| `follow` | 0.4 | the camera holds the player 40% across (both ways now) |
+| `creep` / `creep_growth` / `creep_max` | 0 / 0 / 0 | the optional creep, off; `push_margin` / `push_speed` (0.8 / 0.35) only matter when it is on. `crush_depth` is gone |
+| `shop_min` / `shop_max` | 5 / 7 | a shop every 5 to 7 rooms |
+| `street_weight` / `arena_weight` / `rest_weight` | 70 / 22 / 8 | the other rooms' odds |
+| `arena_bonus` | 25 | coins for clearing an arena |
+| `rest_heal` | 20 | percent healed at a rest stop |
+| `door_reach` | 1.5 | how near the door you must stand |
+
+**Rooms** (`RunContent::placeholder`): start (the safe first street), street, gap, step, escapes, drop, avenue (48 wide, about two
+screens), two arenas (yard: three walkers and a flyer; roofs: two of each around a raised roof), shop, and a rest garden. **Wares:**
+Heal 30% (30 coins, no limit), Extra life (150 coins, one per shop).
+
+### Tests and numbers
+- `sim-core/tests/runner.rs` (30 tests). New for R1b:
+  - the window: it holds the current room, two behind and one ahead, joined, with the wall at the oldest room's edge, and nothing of a
+    dropped room left; dropping trims the ground (same pool index) and removes the room's mobs; the window sizes are rules;
+  - the wall: it is a solid stage block that stops a running fighter and can be wall-jumped off; nothing gets behind it (running,
+    jumping, launched, or a mob), and the camera never shows past it;
+  - the camera follows both ways inside the window; the optional creep pushes but never crushes;
+  - an arena locks on entry (gate wall, all its mobs out and awake, the camera inside), stays shut until the last mob is beaten, then
+    opens, pays and lets you through;
+  - the shop: entering only at the door, the world frozen inside, refusal without coins, a heal and an extra life bought (coins
+    deducted), the second life sold out (also after leaving and coming back), nothing paid for a heal not needed, and leaving;
+  - a rest stop heals on entry;
+  - the generator over 12 seeds of 80 rooms: the start room first and never again, no two arenas (or rest stops) in a row, every shop 5
+    to 7 rooms after the last, every type appears, streets most and rests least, the same seed gives the same rooms;
+  - determinism: same seed and inputs, a scripted shopping trip replayed checksum by checksum, restoring a state, random play with 16
+    mobs (nobody behind the wall); the checksum sees every run, room and mob field (71 edits).
+- `sim-content` (`run.rs`): the built-in run is valid; bad rooms and bad window, generator and shop rules are refused (the first room
+  must be a street with no mobs; a shop room is required; shops and rest stops have no mobs; arenas have some; a shop's door stands on
+  solid ground; no ledge on a room's edge).
+- Godot: `tests/runner_test.gd` (the bridge's rooms, map and shop; entering a room; the camera coming back and never past the wall; the
+  walls, map, door and shop in the scene and HUD; the shop panel; the results' rooms and arenas), and `tests/run_shot.gd` (now also
+  photographs running back to the wall and the shop's panel).
+- `cargo test --workspace` (1469 tests), clippy with `-D warnings`, `pftool net-fuzz` (200 runs, 0 mismatches), and the headless
+  Godot tests (runner, match flow, input e2e, controls, replay, online flow, net e2e, creator flow) all pass. `pftool run-bench`: about
+  0.002 ms a frame on average with 16 mobs, worst under 0.05 ms.
+
+### Known limits (R1b)
+- The shop is a menu over the frozen street, not an interior (see the choice above); an interior is an art question for R3.
+- Only the player enters rooms; a mob left in a room as it is dropped is removed without paying.
+- A mob launched hard to the right while the player is in an arena can be removed at the window's end without credit if it was not
+  hit lately (rare).
+- The left gate is drawn as a pillar at the very edge of the view (the camera stops at the wall), so only its face shows.
+- R1's other limits (section 7) still hold.
+
+### For the art director (added to section 7's list)
+1. **The left gate:** a closed gate across the street and roofs (bars, a shutter, a fence with a padlock), about one unit thick, tall
+   enough to fill the view's height; shown shut as the rooms behind close off.
+2. **The arena gate:** a distinct exit gate (red, heavier) on an arena's far edge, with an opening animation (bars or shutter going up)
+   and a clear "cleared" moment.
+3. **The storefront:** a shop front at street level with a door the player stands at, a sign, lit windows, and an awning (the room's
+   awning platform sits over the door); later, an interior or a shopkeeper for the shop's panel.
+4. **Map icons:** street, arena, shop and rest stop icons for the HUD's map strip, plus a "closed" state for dropped rooms and a "you are
+   here" mark; the strip itself in the HUD's painted style.
+5. **A rest stop:** a rooftop garden or bench corner with a sign.
+
+### Decisions wanted from the owner
+- Does going back two rooms feel right, or should it be one or three (`rooms_behind`; three needs a bigger ring)?
+- Shop prices (heal 30, extra life 150) and the arena bonus (25) are first guesses: worth a look after a few runs.
+- Should the shop be its own small room you walk into (art and a camera cut) rather than the panel over the street? The panel is
+  simpler and replays exactly; an interior can come with R3's shop art.
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),

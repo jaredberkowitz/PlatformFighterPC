@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## The end of a run, in the results screen's painted style over the softened stage: "RUN OVER" on a brush stroke, a card with how far
-## the run went (distance, coins, mobs beaten, the best combo, lives lost to the edge, the seed), and what to do next.
+## the run went (distance, coins, mobs beaten, the best combo, rooms reached, arenas cleared, the seed), and what to do next.
 ## Left and right choose, Enter (or J, Space) picks, the mouse works too. It reports the choice through `chosen`.
 
 const UI := preload("res://ui/ui_kit.gd")
@@ -12,7 +12,7 @@ signal chosen(action: String)
 var buttons: Array = []
 var actions: Array = []
 var index := 0
-## {metres, coins, kills, best, crushes, seed, name}
+## {metres, coins, kills, best, rooms, cleared, seed, name}
 var stats := {}
 var board: Control
 
@@ -43,7 +43,7 @@ class Board extends Control:
 			var at := card.position + Vector2(36 + (n % 2) * 320, 120 + (n / 2) * 96)
 			draw_string(f, at, rows[n][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(Art.INK, 0.6))
 			draw_string(big, at + Vector2(0, 50), rows[n][1], HORIZONTAL_ALIGNMENT_LEFT, -1, 48, Art.INK)
-		draw_string(f, card.position + Vector2(36, card.size.y - 22), "Seed %d    Crushed by the edge %d" % [int(s.get("seed", 0)), int(s.get("crushes", 0))],
+		draw_string(f, card.position + Vector2(36, card.size.y - 22), "Rooms %d    Arenas cleared %d    Seed %d" % [int(s.get("rooms", 0)), int(s.get("cleared", 0)), int(s.get("seed", 0))],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(Art.INK, 0.55))
 
 

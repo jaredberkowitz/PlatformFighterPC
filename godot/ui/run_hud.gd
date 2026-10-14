@@ -1,7 +1,9 @@
 extends CanvasLayer
 ## The run's display (the single-player run, `scripts/runner.gd`), in the menus' painted style: the distance on an ink brush stroke at
 ## the top left with the coins under it, the combo and its coin multiplier at the top right (a bar fills toward the next step), and the
-## fighter's damage and lives at the bottom left. A banner in the middle for the start, a lost life and the end.
+## fighter's damage and lives at the bottom left. A banner in the middle for the start, a lost life and the end. At the top in the
+## middle, the map: a strip of the rooms behind (dimmed; those dropped behind the wall shown shut), the current one and the next one
+## ahead, each with its type's icon. A prompt at a shop's door, a hint while an arena's gate is shut, and the shop itself when open.
 ## Everything it shows comes from `show_state`; nothing here decides anything.
 
 const D := preload("res://ui/ui_draw.gd")
@@ -11,8 +13,110 @@ var board: Control
 
 
 class Board extends Control:
-	## {metres, coins, kills, combo, best, mult, step, lives, max_lives, percent, name, banner, banner_alpha, combo_flash}
+	## {metres, coins, kills, combo, best, mult, step, lives, max_lives, percent, name, banner, banner_alpha, combo_flash, map, door,
+	## gate, shop, shop_names}
 	var data := {}
+
+	const ROOM_STREET := 0
+	const ROOM_ARENA := 1
+	const ROOM_SHOP := 2
+	const ROOM_REST := 3
+	const NOTES := ["", "Bought!", "Not enough coins", "Sold out", "Not needed"]
+
+	## One room's icon on the map (placeholder shapes for the art director): a street is a little building, an arena crossed
+	## swords, a shop a coin, a rest stop a green cross.
+	func room_icon(at: Vector2, kind: int, r: float, alpha: float) -> void:
+		var ink := Color(Art.INK, alpha)
+		match kind:
+			ROOM_ARENA:
+				draw_line(at + Vector2(-r, -r) * 0.6, at + Vector2(r, r) * 0.6, Color(Art.CORAL, alpha), 4.0)
+				draw_line(at + Vector2(r, -r) * 0.6, at + Vector2(-r, r) * 0.6, Color(Art.CORAL, alpha), 4.0)
+			ROOM_SHOP:
+				draw_circle(at, r * 0.62, ink)
+				draw_circle(at, r * 0.5, Color(Art.SUN, alpha))
+			ROOM_REST:
+				draw_rect(Rect2(at - Vector2(r * 0.18, r * 0.6), Vector2(r * 0.36, r * 1.2)), Color(Art.GREEN, alpha))
+				draw_rect(Rect2(at - Vector2(r * 0.6, r * 0.18), Vector2(r * 1.2, r * 0.36)), Color(Art.GREEN, alpha))
+			_:
+				draw_rect(Rect2(at + Vector2(-r * 0.45, -r * 0.55), Vector2(r * 0.9, r * 1.1)), Color(Art.BLUE, alpha * 0.85))
+				for n in 2:
+					draw_rect(Rect2(at + Vector2(-r * 0.3 + n * r * 0.35, -r * 0.35), Vector2(r * 0.22, r * 0.22)), Color(1, 1, 1, alpha))
+
+	## The map: a short strip, oldest room on the left. Rows of `map` are [number, type, status (0 shut behind, 1 behind, 2 here,
+	## 3 ahead)].
+	func draw_map(centre_x: float, top: float) -> void:
+		var map: PackedInt32Array = data.get("map", PackedInt32Array())
+		var count := map.size() / 3
+		if count == 0:
+			return
+		var gap := 58.0
+		var start := centre_x - (count - 1) * gap * 0.5
+		var y := top + 30.0
+		draw_line(Vector2(start, y), Vector2(start + (count - 1) * gap, y), Color(Art.INK, 0.6), 6.0)
+		for n in count:
+			var kind := map[n * 3 + 1]
+			var status := map[n * 3 + 2]
+			var at := Vector2(start + n * gap, y)
+			var r := 24.0 if status == 2 else 19.0
+			var alpha := 1.0 if status >= 2 else 0.55
+			draw_circle(at, r + 3.0, Art.INK)
+			draw_circle(at, r, Color(Art.CREAM, 0.35 if status == 0 else alpha))
+			if status == 2:
+				draw_arc(at, r + 6.0, 0.0, TAU, 32, Art.SUN, 4.0)
+			if status == 0:
+				# Shut behind the wall: bars across it.
+				for k in 3:
+					var bx := at.x - r * 0.5 + k * r * 0.5
+					draw_line(Vector2(bx, at.y - r * 0.8), Vector2(bx, at.y + r * 0.8), Color(Art.INK, 0.8), 3.0)
+			else:
+				room_icon(at, kind, r, alpha)
+			if status == 3:
+				draw_string(D.font(), at + Vector2(-14, r + 22), "next", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, 0.8))
+
+	## The shop: its wares in a list with prices, the row picked, what the last press did, and how to leave.
+	func draw_shop(w: float, h: float) -> void:
+		var shop: PackedInt32Array = data.get("shop", PackedInt32Array())
+		if shop.size() < 6 or shop[0] == 0:
+			return
+		var names: PackedStringArray = data.get("shop_names", PackedStringArray())
+		var big := D.display_font()
+		var f := D.font()
+		var wares := shop[5]
+		var panel := Rect2(Vector2(w * 0.5 - 300, h * 0.2), Vector2(600, 170 + (wares + 1) * 64))
+		draw_rect(Rect2(Vector2.ZERO, Vector2(w, h)), Color(Art.INK, 0.35))
+		Art.card(self, panel, Art.CREAM, 401, -1.0, -1.0, Art.SUN, 0.0, Color(0, 0, 0, 0), 6.0)
+		var head := Rect2(panel.position + Vector2(150, -30), Vector2(300, 70))
+		Art.brush_band(self, head, Art.INK, 403, 16.0, true, 1.0)
+		Art.title_centered(self, "SHOP", head.grow_individual(-8, 0, -16, 0), 46, Color.WHITE, 0.0)
+		draw_string(big, panel.position + Vector2(panel.size.x - 150, 74), "%d" % shop[4], HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Art.INK)
+		draw_circle(panel.position + Vector2(panel.size.x - 170, 63), 12.0, Art.SUN)
+		for n in wares + 1:
+			var row := Rect2(panel.position + Vector2(30, 96 + n * 64), Vector2(panel.size.x - 60, 54))
+			var picked := shop[1] == n
+			if picked:
+				Art.brush_band(self, row, Art.SUN, 411 + n, 10.0, false, 0.7)
+			if n == wares:
+				draw_string(big, row.position + Vector2(18, 38), "Leave", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Art.INK)
+				continue
+			var o := 6 + n * 4
+			var label := names[n] if n < names.size() else "?"
+			draw_string(big, row.position + Vector2(18, 38), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Art.INK)
+			var limit := shop[o + 2]
+			var sold := shop[o + 3]
+			var tag := "%d" % shop[o + 1]
+			if limit > 0 and sold >= limit:
+				tag = "sold out"
+			draw_string(big, row.position + Vector2(row.size.x - 150, 38), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 28,
+				Color(Art.INK, 0.45 if tag == "sold out" else 1.0))
+			if limit > 0:
+				draw_string(f, row.position + Vector2(row.size.x - 270, 36), "%d per shop" % limit, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
+					Color(Art.INK, 0.55))
+		var note := shop[2]
+		if note > 0 and note < NOTES.size():
+			draw_string(big, panel.position + Vector2(36, panel.size.y - 52), NOTES[note], HORIZONTAL_ALIGNMENT_LEFT, -1, 24,
+				Art.GREEN if note == 1 else Art.CORAL)
+		draw_string(f, panel.position + Vector2(36, panel.size.y - 20), "Up / down: choose    Attack or jump: buy    Shield or special: leave",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(Art.INK, 0.6))
 
 	func _init() -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -74,6 +178,18 @@ class Board extends Control:
 			var at := plate.position + Vector2(plate.size.x - 34 - n * 32, 26)
 			draw_circle(at, 12.0, Art.INK)
 			draw_circle(at, 9.0, Color(0.95, 0.35, 0.4) if n < lives else Color(1, 1, 1, 0.25))
+		# The map, and what this spot offers.
+		draw_map(w * 0.5, 14.0)
+		var hint := ""
+		if bool(data.get("door", false)):
+			hint = "UP: ENTER THE SHOP"
+		elif bool(data.get("gate", false)):
+			hint = "THE GATE IS SHUT: BEAT THEM ALL"
+		if hint != "":
+			var hr := Rect2(Vector2(w * 0.5 - 230, h - 104), Vector2(460, 56))
+			Art.brush_band(self, hr, Art.INK, 261, 12.0, true, 0.9)
+			Art.title_centered(self, hint, hr.grow_individual(-8, 0, -12, 0), 26, Art.SUN if hint.begins_with("UP") else Color.WHITE, 0.0)
+		draw_shop(w, h)
 		# The banner.
 		var banner := str(data.get("banner", ""))
 		if banner != "":

@@ -1,6 +1,6 @@
 extends SceneTree
-## Photographs the single-player run: running right through the first chunks with the keys a player would press, then the results
-## (needs a window, so run it without --headless).
+## Photographs the single-player run: running right through the first rooms with the keys a player would press (the map at the
+## top), running back to the left wall, the shop's panel, then the results (needs a window, so run it without --headless).
 ## Run: Godot --path godot --script res://tests/run_shot.gd -- --out=<folder>
 
 const Roster := preload("res://scripts/roster.gd")
@@ -30,6 +30,23 @@ func _initialize() -> void:
 		root.get_viewport().get_texture().get_image().save_png(out.path_join("run_%d.png" % shot))
 		print("shot %d: %s" % [shot, str(main.sim.run_info())])
 	main._send_key(KEY_D, false)
+	# Back to the wall (the oldest room kept is at most two behind).
+	main._send_key(KEY_A, true)
+	await create_timer(6.0).timeout
+	main._send_key(KEY_A, false)
+	await create_timer(0.6).timeout
+	root.get_viewport().get_texture().get_image().save_png(out.path_join("run_wall.png"))
+	print("wall: view %s info %s" % [str(main.sim.run_view()), str(main.sim.run_info())])
+	# The shop's panel (as the sim gives it when open).
+	var data: Dictionary = main.run_hud.board.data.duplicate()
+	data["shop"] = PackedInt32Array([1, 0, 1, 2, 75, 2, 0, 30, 0, 1, 1, 150, 1, 0])
+	data["shop_names"] = main.sim.run_shop_names()
+	data["banner"] = ""
+	main.set_process(false)
+	main.run_hud.show_state(data)
+	await create_timer(0.3).timeout
+	root.get_viewport().get_texture().get_image().save_png(out.path_join("run_shop.png"))
+	main.set_process(true)
 	for life in 3:
 		main.sim.debug_place_airborne(0, main.sim.run_view()[0] - 20.0, 5.0)
 		await create_timer(0.3).timeout
