@@ -24,7 +24,7 @@ const THEMES := {
 	"meadow": {
 		"sky_top": Color(0.1, 0.36, 0.9), "sky_mid": Color(0.3, 0.62, 1.0), "sky_horizon": Color(0.78, 0.93, 1.0),
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
-		"soil": Color(0.84, 0.68, 0.44), "soil_dark": Color(0.6, 0.47, 0.32), "grass": Color(0.46, 0.82, 0.16),
+		"soil": Color(0.76, 0.56, 0.36), "soil_dark": Color(0.52, 0.37, 0.25), "grass": Color(0.46, 0.82, 0.16),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
 		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "moss": Color(0.4, 0.66, 0.14),
 	},
@@ -1498,7 +1498,7 @@ static func _motes(root: Node3D, colour: Color, e: Array) -> void:
 	pm.color_ramp = ramp
 	p.process_material = pm
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.14, 0.14)
+	quad.size = Vector2(0.1, 0.1)
 	p.draw_pass_1 = quad
 	p.material_override = FxMaterial.get_material(false, 0, _soft_dot(), 0.6)
 	p.position = Vector3((float(e[0]) + float(e[1])) / 2.0, float(e[2]) + 4.0, -5.0)
@@ -1507,7 +1507,7 @@ static func _motes(root: Node3D, colour: Color, e: Array) -> void:
 	root.add_child(p)
 
 
-const MOTE_COUNT := 70
+const MOTE_COUNT := 48
 
 
 ## Light shafts: a few long soft beams slanting down across the far hills behind the stage `e`, added faintly onto what is behind them
@@ -2290,8 +2290,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 			_mesh(root, _box(Vector3(a1 - a0 + 0.12, 0.15, 0.09)), rail, Vector3((a0 + a1) / 2.0, e[2] + h + rng.randf_range(-0.02, 0.02), -6.06),
 				Vector3.ONE, Vector3(0, 0, tilt))
 	_flowers(root, e, rng, [Color(1, 0.55, 0.6), Color(1, 1, 1), Color(1, 0.85, 0.3)])
-	# A bright day: a few motes of pollen in the air, no shafts of light.
-	_motes(root, Color(1.0, 0.98, 0.8), e)
+	# A bright day: a few motes of pollen in the air, no shafts of light (golden, small and few: pale ones on the blue sky read as snow).
+	_motes(root, Color(1.0, 0.82, 0.4), e)
 
 
 ## Islands floating in the sky behind the stage (the way the stage itself floats): an earth keel tapering to a point, a thick grassy cap
@@ -2527,7 +2527,7 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var e := _ext(stage)
-	_painted_sun(root, Vector3(18, 2, -140), 14.0)
+	_painted_sun(root, Vector3(-16, 2, -140), 14.0)
 	var mesa_rock := _under_material(_soil_material(t), 0.35)
 	# Buttes and mesas in strata on rubble slopes (art/blender/make_props.py), a nearer row and a farther one.
 	for k in 8:

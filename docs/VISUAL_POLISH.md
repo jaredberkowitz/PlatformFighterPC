@@ -211,7 +211,7 @@ other tiles (the art pipeline test asks for it).
 Until the modelled items (scheduled near the end), every item slot is drawn so players can see it: the bomb a dark navy ball with a
 steel cap, a fuse and a spark that flashes red for its last 45 frames, bursting in the painted fire burst; the arrow a shaft with a
 steel head and red fletching. Held items sit at the holder's hand side. `main.gd` `_build_items`, `_update_items`; `--demo=bomb`.
-A flying arrow points along its velocity (`item_vel`), a lodged one tilts 35 degrees down the way it flew (the sim keeps no angle once it lodges), and a thrown bomb spins about its middle by the frames since the throw (`item_flight`).
+A flying arrow points along its velocity (`item_vel`), a lodged one at the angle it flew in at (`item_angle`, sim 113; 35 degrees down the way it flew if the sim gives none), and a thrown bomb spins about its middle by the frames since the throw (`item_flight`).
 
 ### The Bounder's egg and thrown ball
 
@@ -223,3 +223,24 @@ A flying arrow points along its velocity (`item_vel`), a lodged one tilts 35 deg
 - Thrown things and items now carry an object id in the fighters' range (`PLAY_OBJECT_ID`), so the stage's quieting no longer washes
   their colour out.
 - Image: `docs/screenshots/polish11_ball_and_egg.png`.
+
+### Pass 62: from vector art to a lit world (the owner's "not a Flash game" brief, toward a high-definition cel-shaded adventure)
+
+What read as cheap was not detail but light: every stage lit evenly from near the camera (cast shadows fell straight back, out of
+sight), one even dark stroke round everything, large surfaces in one flat value, white specks on a blue sky reading as snow. The pass:
+
+- **The sun from the side and a little behind** (`Lighting.KEY_SIDE` -28 to -80). Props show a lit side and a shaded side, cast shadows
+  fall across the fighting surface where they are seen, and the stage's front wall turns into its painted shade, so the lit play
+  surface leads and the mass under it settles back. The canyon's light comes from its painted sun, now moved to the left of the sky
+  so the two agree (backlighting from the right cost the darkest body colour its silhouette in the style bench, 0.84 against 0.85).
+- **A painted world, inked fighters**: the scenery's line is a soft violet-grey (`outline.gdshader` `scenery_color`) and the screen-space
+  ink on the stage and scenery is at 0.4 (was 0.72); fighters keep full dark ink, the clearest things on screen.
+- **Cloud shadows** (`pf_clouds`, per stage in `Lighting.STYLES`): soft patches of shade drifting over everything facing up (the lawn,
+  the sand, the props' tops), painted in the surface's own shadow colour; the grove's are small and slow, a canopy's dappled light.
+  Not on fighters (a passing shade read as the fighter dimming), not on walls (they showed as slanted stripes), none at night.
+- **A soft bloom** (`post.gdshader` `bloom`, from the screen's small mip levels): the sky, clouds and sunlit whites bleed a little light,
+  the glow of the high-definition remaster of a cel-shaded classic; fighters take half.
+- **The meadow's earth** a richer, darker brown (it was a pale sand that competed with the lawn); **pollen** golden, smaller, fewer.
+- Tried and dropped: a stronger value and saturation finish (the lawn went neon: the cheap look, not the rich one), stronger far haze
+  (milky, no gain at these distances), a glazed gloss on the fighters (a pale blotch on the hair; not in the style).
+- Images: `docs/screenshots/polish12_light_before_after.png` (the meadow, before above), `polish12_canyon.png`, `polish12_stages.png`.

@@ -1998,7 +1998,7 @@ var item_nodes: Array = []
 var item_burst_shown: Array = []
 ## Per slot: which way the item last moved (x sign), so a lodged arrow keeps pointing the way it flew.
 var item_last_dir: Array = []
-## A lodged arrow's tilt (degrees below level): the sim keeps no angle once it lodges, so a fixed one in the way it flew.
+## A lodged arrow's tilt (degrees below level) when the sim gives no angle (`item_angle`, sim 113, is 0 for one it has none for).
 const ITEM_LODGED_TILT := 35.0
 ## How fast a thrown bomb turns (degrees a frame since it was thrown).
 const ITEM_BOMB_SPIN := 18.0
@@ -2124,12 +2124,16 @@ func _update_items() -> void:
 		if holder >= 0:
 			item_last_dir[k] = facing
 		var way: float = item_last_dir[k]
-		# The arrow: held level in the hand; in flight along its velocity; lodged at a fixed tilt the way it flew.
+		# The arrow: held level in the hand; in flight along its velocity; lodged at the angle it flew in at (the sim's).
 		arrow.scale = Vector3.ONE
 		if holder >= 0 or (rest != 3 and vel.length() < 0.001):
 			arrow.rotation.z = 0.0 if way > 0.0 else PI
 		elif rest == 3:
-			arrow.rotation.z = deg_to_rad(-ITEM_LODGED_TILT) if way > 0.0 else deg_to_rad(180.0 + ITEM_LODGED_TILT)
+			var lodged: int = int(sim.item_angle(k)) if sim.has_method("item_angle") else 0
+			if lodged != 0:
+				arrow.rotation.z = deg_to_rad(float(lodged))
+			else:
+				arrow.rotation.z = deg_to_rad(-ITEM_LODGED_TILT) if way > 0.0 else deg_to_rad(180.0 + ITEM_LODGED_TILT)
 		else:
 			arrow.rotation.z = vel.angle()
 		# The bomb spins while it flies after a throw, the way it was thrown.

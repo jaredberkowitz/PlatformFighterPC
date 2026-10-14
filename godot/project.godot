@@ -63,6 +63,10 @@ pf_ao_depth={
 "type": "vec2",
 "value": Vector2(-1000, 1000)
 }
+pf_clouds={
+"type": "vec4",
+"value": Vector4(0, 24, 0.4, 0.5)
+}
 pf_shadow_tint={
 "type": "color",
 "value": Color(0.74, 0.7, 0.88, 1)
