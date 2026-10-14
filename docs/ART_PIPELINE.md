@@ -850,7 +850,7 @@ stage its own identity). `docs/screenshots/meadow_day_sky_islands.png`, `meadow_
   canyon its sunset, so the stages stay distinct.
 - **Floating sky islands** (`StageArt._sky_islands`): earth keels with grassy caps and a lip of turf, some with a round tree or a bush,
   at depths from 70 to 140 units, smaller and higher with distance, framing the stage without crossing the middle of the sky.
-- **The lawn as the reference paints it** (the owner's Wind Waker HD reference; a first try with dense blade cards read as scattered
+- **The lawn as the reference paints it** (the owner's the reference cel-shaded adventure reference; a first try with dense blade cards read as scattered
   wisps, not grass, and was dropped): one clean, vivid lime sheet (meadow grass 0.46, 0.82, 0.16) with its variation in long soft
   sweeps and broad hollows on a large tile (`tools/art/make_tiles.py` `grass`, 9 units a repeat), no blades on the meadow or grove, so
   the platforms' and props' cast shadows read as crisp shapes on it. (`StageArt._lawn` and the root-to-tip tuft shading stay available
@@ -1085,7 +1085,7 @@ Following an outside visual-fidelity plan (audit first, one change at a time, sa
   darkest a cast shadow can go is the stage's painted shadow colour, which is a per-stage mood choice. Fighters still take a quarter.
   `cast_shadow_before.png` / `cast_shadow_after.png`.
 - **Crisper distance** (item 6): the far scenery's blur on the Best tier is 1.0 pixel, down from 2.6 (`PLAY_BLUR`): the review found it
-  muddied the backdrops (Wind Waker keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
+  muddied the backdrops (The reference adventure keeps its distance sharp and lets colour do the receding). The grove gets its own finish (haze 0.12,
   down from the default 0.22) and thinner mists, the canyon thinner mists. `grove_crisper.png` (against `review_grove.png`).
 - **Built stage corners** (item 3, first step: `_ledges_and_buttresses`): down each end of a stage's front a column of bigger stones
   standing proud of the wall (quoins, narrowing toward the foot, every third a darker one), and a corner stone under each ledge; on the
@@ -1117,3 +1117,13 @@ only; every created fighter can wear them too).
   the Hauler a topknot, so the two bareheaded built-ins have outlines of their own too. `champion_spikes.png`, `silhouettes_select_2.png`.
 - **Flat Island's shore** (item 3): sand banked up against each end of the wall, spilling from about half its height down into the sea,
   so the island's ends slope like a shore instead of stopping in square corners. `beach_sand_banks.png`.
+
+## The value hierarchy (fiftieth pass, step 1 of docs/ART_REVIEW_2.md)
+
+- **The stage a step quieter than the fighters** (`stage_quiet` in `post.gdshader`, `quiet` in a style's finish, 0.5 by default): stage
+  and scenery pixels lose some saturation and are drawn a little toward their middle values; fighter pixels (object ids below 0.6) gain a
+  little saturation and contrast. On the canyon the orange and yellow fighters no longer melt into the orange sand, and the meadow's lime
+  lawn no longer competes with them. `value_hierarchy_canyon.png` (against `review2_stage1.png`), `value_hierarchy_meadow.png`.
+- The screen-space lines inside one fighter are at 0.3 (was 0.6), so fewer stray strokes cross the body (step 3, first part).
+- Reference names in the art docs replaced with "the reference platform fighter" and "the reference cel-shaded adventure" (the
+  repo rule: no Nintendo names).

@@ -1,7 +1,7 @@
 # Art review 2: the gap to a competitive product (2026-10-14)
 
 A second whole-game review, after the first one's work (`docs/ART_REVIEW.md`) landed. Animation and modelled weapons are left out, as
-the owner asked: they come at the end. The bar is the shipping quality of **Rivals of Aether II** and **Super Smash Bros. Ultimate**, not
+the owner asked: they come at the end. The bar is the shipping quality of **Rivals of Aether II** and **the reference platform fighter**, not
 "good for an indie prototype".
 
 Fresh captures (main at `15bb8ad`), all at 1280x720: every stage at play distance with the HUD, a close-up, a strong hit, a
@@ -15,11 +15,11 @@ knowledge of the reference games, not side-by-side captures.
 is mostly in the **fighters** and in the **value structure** that makes fighters pop off a stage. Both competitors spend their art budget
 there first.
 
-## Scorecard (1 to 5, against RoA II and Smash Ultimate)
+## Scorecard (1 to 5, against RoA II and the reference platform fighter)
 
 | Area | First review | Now | In one line |
 |---|---|---|---|
-| UI, HUD and menus | 4 | **4** | Cohesive, clear, Smash-like; near the bar. |
+| UI, HUD and menus | 4 | **4** | Cohesive, clear, like the reference platform fighter; near the bar. |
 | Combat effects | 3 | **3.5** | Painted bursts, smoke and the KO plume read well and feel like ours. |
 | Palette and stage mood | 4 | **3.5** | Still lovely per stage, but every stage is as saturated as the fighters (see 2). |
 | Backdrops (depth, life) | 3.5 | **3.5** | Lived-in and layered; busy, and it competes with play. |
@@ -34,17 +34,17 @@ there first.
 
 `review2_fighters_play_scale.png`, `review2_closeup.png`.
 
-At play scale our fighters read as **soft, streaky gradients with a wobbly line**. RoA II's and Smash's read as **clean, designed
+At play scale our fighters read as **soft, streaky gradients with a wobbly line**. RoA II's and the reference platform fighter's read as **clean, designed
 shapes**.
 
 - **The shading is mushy.** The body goes from lit to shade through a soft ramp, warm-to-pink colour shifts and painted-shadow hue
   rotation, so an orange fighter shows bands of orange, salmon and pink streaks rather than one light shape and one shadow shape. RoA II
-  is two (sometimes three) flat tones with a hard edge. Wind Waker is the same.
+  is two (sometimes three) flat tones with a hard edge. The reference adventure is the same.
 - **The ink line is noisy.** The screen-space outline doubles up, breaks and draws stray strokes inside the body (the chest and legs in
   the crop), which reads as unfinished. Competitors' fighter outlines are a clean, near-constant weight round the silhouette, with only
   deliberate interior lines.
 - **There is no costume construction.** Bodies are bare blobs with a hat and a scarf. RoA II fighters are fully designed costumes
-  (layered cloth, belts, trims, shapes that tell you who they are), and Smash fighters carry a lot of material detail. Our wardrobe now
+  (layered cloth, belts, trims, shapes that tell you who they are), and the reference platform fighter's fighters carry a lot of material detail. Our wardrobe now
   gives silhouettes, but the torso and limbs are still one smooth colour.
 - **The fighters are small and low in contrast** for how much screen they get (next point).
 
@@ -53,7 +53,7 @@ shapes**.
 `review2_canyon_grey.png`, `review2_stage0.png`, `review2_hit.png`.
 
 In greyscale the canyon's fighters are **the same mid-grey as the sand and the wall behind them**, and in colour they are the same orange
-as the stage. The meadow's lime lawn is as saturated as any fighter. Smash and RoA II deliberately keep the stage **lower in saturation
+as the stage. The meadow's lime lawn is as saturated as any fighter. The reference platform fighter and RoA II deliberately keep the stage **lower in saturation
 and contrast** than the fighters, and give fighters a rim or value separation so they are the brightest, crispest thing on screen. This is
 the cheapest large win available.
 
@@ -64,7 +64,7 @@ the cheapest large win available.
 - The fighting surface is still a rectangular slab. The new corners, skirts and shores dress the box; they do not change its silhouette.
 - Wall textures still repeat visibly: the beach and the meadow share the masonry tile.
 - Platforms are flat planks with no designed identity. RoA II's platforms are props that belong to the place (a branch, a sign, a
-  crate stack). Smash's are designed silhouettes.
+  crate stack). The reference platform fighter's are designed silhouettes.
 - There is **no foreground layer**: nothing frames the play space in front of the stage. Both competitors use foreground elements
   (foliage, rocks, rails) at the bottom corners to sandwich the action in depth.
 
@@ -72,14 +72,14 @@ the cheapest large win available.
 
 ### 4. Backdrop busyness
 
-The backdrops are full of things (cottages, islands, windmill, cars, string lights) at similar contrast to the play space. Smash keeps
+The backdrops are full of things (cottages, islands, windmill, cars, string lights) at similar contrast to the play space. The reference platform fighter keeps
 backgrounds quieter and lower in contrast behind the fighting area, with detail concentrated away from it. Ours compete for the eye.
 Fixing point 2 fixes much of this.
 
 ### 5. Lighting on stage geometry
 
 The stage blocks, platforms and props are lit by the same soft ramp. There is no contact darkening where platforms meet the ground, no
-rim on the stage silhouette, and no light falloff across the stage. RoA II paints light into its stage textures; Smash lights richly.
+rim on the stage silhouette, and no light falloff across the stage. RoA II paints light into its stage textures; the reference platform fighter lights richly.
 Moderate impact, after 1 and 2.
 
 ## What is at or near the bar
