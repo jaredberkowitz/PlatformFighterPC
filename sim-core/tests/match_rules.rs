@@ -149,25 +149,97 @@ fn run_out_the_clock(sim: &mut Sim, seconds: u32) {
 }
 
 #[test]
-fn the_time_limit_goes_to_the_most_stocks_then_the_least_damage() {
+fn the_time_limit_goes_to_the_most_stocks() {
     let rules = MatchRules {
         stocks: 3,
         time_limit: 5,
     };
-    // Stocks decide first.
     let mut sim = duel_with(rules);
     sim.state.fighters[0].stocks = 2;
+    // (Damage does not decide it any more: the leader on stocks wins even with more damage.)
+    sim.state.fighters[1].percent = Fx::from_int(150);
     run_out_the_clock(&mut sim, 5);
     assert_eq!(sim.state.winner, 1);
-    // Level on stocks, damage decides.
+    assert!(!sim.state.sudden_death);
+}
+
+#[test]
+fn level_on_stocks_at_time_goes_to_sudden_death_at_300_percent() {
+    let rules = MatchRules {
+        stocks: 3,
+        time_limit: 5,
+    };
     let mut sim = duel_with(rules);
-    sim.state.fighters[1].percent = Fx::from_int(30);
+    // Different damage: it no longer breaks the tie (sim 114, the reference's sudden death).
     sim.state.fighters[0].percent = Fx::from_int(10);
+    sim.state.fighters[1].percent = Fx::from_int(80);
+    sim.state.fighters[1].pos.x = Fx::from_int(4);
     run_out_the_clock(&mut sim, 5);
+    assert_eq!(sim.state.winner, PLAYING);
+    assert!(sim.state.sudden_death);
+    for i in 0..2 {
+        let f = sim.state.fighters[i];
+        assert_eq!(f.stocks, 1, "fighter {i}: one stock");
+        assert_eq!(f.percent, Fx::from_int(300), "fighter {i}: 300%");
+        assert_eq!(
+            f.pos.x, sim.content.stage.spawns[i].x,
+            "fighter {i}: back at its spawn point"
+        );
+    }
+    // No clock in sudden death: only a knock-out ends it.
+    run_out_the_clock(&mut sim, 10);
+    assert_eq!(sim.state.winner, PLAYING);
+    knock_out(&mut sim, 1);
     assert_eq!(sim.state.winner, 0);
-    // Level on both is a draw.
+}
+
+#[test]
+fn free_play_against_the_clock_goes_to_the_least_damage() {
+    let rules = MatchRules {
+        stocks: 0,
+        time_limit: 5,
+    };
+    let mut sim = duel_with(rules);
+    sim.state.fighters[0].percent = Fx::from_int(40);
+    run_out_the_clock(&mut sim, 5);
+    assert_eq!(sim.state.winner, 1);
+    assert!(!sim.state.sudden_death);
     let mut sim = duel_with(rules);
     run_out_the_clock(&mut sim, 5);
+    assert_eq!(sim.state.winner, DRAW);
+}
+
+#[test]
+fn only_the_leaders_play_sudden_death() {
+    let rules = MatchRules {
+        stocks: 3,
+        time_limit: 5,
+    };
+    let mut sim = Sim::new();
+    sim.state = GameState::new_with_rules(&sim.content, 1, [0, 1, 0, 1], 0b0111, rules);
+    sim.state.fighters[2].stocks = 1;
+    run_out_the_clock(&mut sim, 5);
+    assert!(sim.state.sudden_death);
+    assert!(sim.state.fighters[0].active && sim.state.fighters[1].active);
+    assert!(
+        !sim.state.fighters[2].active,
+        "the one behind on stocks is out"
+    );
+}
+
+#[test]
+fn a_double_knock_out_in_sudden_death_is_a_draw() {
+    let mut sim = duel_with(MatchRules {
+        stocks: 3,
+        time_limit: 5,
+    });
+    run_out_the_clock(&mut sim, 5);
+    assert!(sim.state.sudden_death);
+    for i in 0..2 {
+        sim.state.fighters[i].pos.x = Fx::from_int(500);
+        sim.state.fighters[i].platform = sim_core::state::NONE;
+    }
+    sim.tick(inp(0, 0, 0));
     assert_eq!(sim.state.winner, DRAW);
 }
 

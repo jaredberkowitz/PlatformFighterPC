@@ -58,7 +58,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
-| R1 | Standard ruleset | 3 stocks, 7 minutes; a tie on stocks and damage goes to sudden death | 3 stocks, no time limit by default; no sudden death | Med | S (timer default), M (sudden death) |
+| R1 | Standard ruleset (**done**: 7 minutes by default, sudden death, sim 114) | 3 stocks, 7 minutes; a tie on stocks and damage goes to sudden death | 3 stocks, no time limit by default; no sudden death | Med | S (timer default), M (sudden death) |
 | R2 | Moving platforms | The usual 1v1 stage list includes stages with moving and transforming platforms | Four stages, every platform fixed; the sim has no moving platforms | Med (stage variety) | M-L |
 
 ### Owner decisions where we differ on purpose (keep)

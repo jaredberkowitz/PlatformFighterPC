@@ -49,7 +49,8 @@ func play_match(frames: int) -> Node:
 	var loaded: Dictionary = sim.load_match_fighters(Roster.spec_bytes(made), Roster.spec_bytes(Roster.builtins()[0]))
 	check(loaded.error == "", "the fighters load: " + str(loaded.error))
 	sim.set_players(2)
-	sim.set_match_rules(3, 4)
+	# (Free play against the clock, so the clock ends it whatever happens; a level stock match would go to sudden death.)
+	sim.set_match_rules(0, 4)
 	sim.start(77, PackedInt32Array(loaded.chars))
 	for f in frames:
 		var a := scripted(f, 0)
@@ -83,7 +84,7 @@ func _bridge() -> PackedByteArray:
 	var bytes: PackedByteArray = sim.replay_bytes(profiles[0], profiles[1])
 	check(bytes.size() > 100, "the match was recorded: %d bytes" % bytes.size())
 	var info: Dictionary = sim.replay_peek(bytes)
-	check(info.ok and info.frames == 240 and info.playable and info.stocks == 3 and info.time_limit == 4, "the file describes itself: " + str(info))
+	check(info.ok and info.frames == 240 and info.playable and info.stocks == 0 and info.time_limit == 4, "the file describes itself: " + str(info))
 	check(info.winner == sim.winner(), "with the winner")
 	check(Roster.parse_profile(info.cosmetics0).name == "Big Test", "and the names")
 	var end_positions := [sim.fighter_pos(0), sim.fighter_pos(1)]
@@ -181,7 +182,8 @@ func _four(_bytes: PackedByteArray) -> void:
 		profiles.append(Roster.profile_bytes(e))
 	var loaded: Dictionary = sim.load_match_roster(specs)
 	check(loaded.error == "" and loaded.chars.size() == 4, "four fighters load: " + str(loaded))
-	sim.set_match_rules(2, 5)
+	# (Free play against the clock: a level stock match would go to sudden death, sim 114.)
+	sim.set_match_rules(0, 5)
 	sim.start(31, PackedInt32Array(loaded.chars))
 	check(sim.fighter_in_roster(3) and sim.fighter_in_roster(0), "four players take part")
 	for f in 400:

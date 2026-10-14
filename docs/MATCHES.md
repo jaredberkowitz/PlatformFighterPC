@@ -18,7 +18,11 @@ fighter's index, or `DRAW` = -2).
   it is not updated, hit or targeted any more (the same mechanism as the unused slots of a two-player match).
 * After each frame `step` settles the match: if one fighter (or none) is left of at least two who started, the match is over; a
   winner of one, a `DRAW` if the last ones fell together. With a time limit, when the clock runs out the fighter with the most stocks
-  wins, then the one with the least damage; level on both is a `DRAW`. A match with a single fighter never ends (practice).
+  wins; **leaders level on stocks go to sudden death** (sim 114, the reference's): they start again from their spawn points with one
+  stock each at 300%, everyone else is out, the stage is cleared of projectiles and items, the clock stops and only a knock-out ends it
+  ("SUDDEN DEATH!" on screen; `GameState::sudden_death`, the bridge's `sudden_death()`). There is no anti-stall yet (the reference drops
+  bombs after a while). In free play (no stocks) the least damage wins at time, level is a `DRAW`. **Versus defaults to 3 stocks and
+  7 minutes** (`Roster.DEFAULT_TIME`, 7:00 added to the time choices; a rules file saved before this is moved to 7:00 once). A match with a single fighter never ends (practice).
 * **A finished match stands still**: `step` only advances the frame counter once `winner` is set.
 * Tests: `sim-core/tests/match_rules.rs` (elimination, winner, draw, unlimited, time limit, three players, random matches end and
   agree), the checksum-sees-every-field test in `state.rs`, `pftool net-fuzz` (it varies the rules per run).

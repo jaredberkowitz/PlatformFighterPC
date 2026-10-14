@@ -532,8 +532,9 @@ impl StateHash for Projectile {
 pub struct MatchRules {
     /// Stocks each fighter starts with. 0 means unlimited: nobody is ever eliminated (training, free play).
     pub stocks: u8,
-    /// Match length in seconds. 0 means no time limit. When it runs out the fighter with the most stocks wins, then the
-    /// one with the least damage; if that is level too, the match is a draw.
+    /// Match length in seconds. 0 means no time limit. When it runs out in a stock match the fighter with the most stocks wins; if the
+    /// leaders are level, they go to sudden death (`GameState::sudden_death`, sim 114; damage used to break the tie). In free play
+    /// (no stocks) the least damage wins, level is a draw.
     pub time_limit: u16,
 }
 
@@ -576,6 +577,9 @@ pub struct GameState {
     /// The item pool (E4, sim 111).
     pub items: [Item; MAX_ITEMS],
     pub script_vars: [i32; MAX_SCRIPT_VARS],
+    /// Sudden death (sim 114, the reference's): the time ran out with the leaders level on stocks, so they play on with one stock
+    /// each at 300%, with no clock, until a knock-out decides it.
+    pub sudden_death: bool,
 }
 
 impl Fighter {
@@ -778,6 +782,7 @@ impl GameState {
             projectiles: [Projectile::default(); MAX_PROJECTILES],
             items: [Item::default(); MAX_ITEMS],
             script_vars: [0; MAX_SCRIPT_VARS],
+            sudden_death: false,
         }
     }
 
@@ -929,6 +934,7 @@ impl StateHash for GameState {
         h.write_u16(self.rules.time_limit);
         h.write_u8(self.roster);
         h.write_i8(self.winner);
+        h.write_bool(self.sudden_death);
         self.rng.hash_into(h);
         for f in &self.fighters {
             f.hash_into(h);
@@ -1150,6 +1156,11 @@ mod tests {
             ("winner", {
                 let mut s = state;
                 s.winner = 0;
+                s
+            }),
+            ("sudden_death", {
+                let mut s = state;
+                s.sudden_death = true;
                 s
             }),
             ("stocks", {
