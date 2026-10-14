@@ -1792,7 +1792,7 @@ impl FighterParams {
         }
     }
 
-    /// The phantom's gauge, its partner's (the reference's, ssbwiki.com `Rebellion_Gauge` and ultimateframedata.com, 13.0.1; E53):
+    /// The phantom's gauge, its partner's (the reference's, ssbwiki.com's article on the gauge and ultimateframedata.com, 13.0.1; E53):
     /// 100 units; 0.00925 a frame by itself (not on a revival platform); 1.3 a percent of damage taken (with the one-on-one
     /// multiplier: the damage actually added), x1.25 one stock behind the leader and x1.5 two or more (the reference's 1.625 and 1.95),
     /// x(1.1, 1.1667) with three fighters and x(1.2, 1.3333) with four when behind; nothing from damage dealt. Full, the partner comes for

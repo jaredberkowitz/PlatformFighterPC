@@ -239,7 +239,7 @@ fn jabs(w: &mut Weapon) {
         0,
         fwd,
     ));
-    let arsene = |h: &mut Hitbox| {
+    let pal = |h: &mut Hitbox| {
         partner(h);
         h.hitlag = 180;
         h.angle_type = ANGLE_FORWARD;
@@ -256,7 +256,7 @@ fn jabs(w: &mut Weapon) {
         30,
         4,
         1,
-        arsene,
+        pal,
     ));
     b.extend(along(
         4,
@@ -270,7 +270,7 @@ fn jabs(w: &mut Weapon) {
         30,
         5,
         1,
-        arsene,
+        pal,
     ));
     let mut jab1 = moved(24, 0, 0, 255, b);
     chain(&mut jab1, MoveId::Jab2, 7);
@@ -307,7 +307,7 @@ fn jabs(w: &mut Weapon) {
         30,
         4,
         1,
-        arsene,
+        pal,
     ));
     b.extend(along(
         3,
@@ -321,7 +321,7 @@ fn jabs(w: &mut Weapon) {
         30,
         5,
         1,
-        arsene,
+        pal,
     ));
     let mut jab2 = moved(24, 0, 0, 255, b);
     chain(&mut jab2, MoveId::Jab3, 11);
@@ -360,7 +360,7 @@ fn jabs(w: &mut Weapon) {
             h.rebounds = false;
         }));
     }
-    let arsene3 = |h: &mut Hitbox| {
+    let pal3 = |h: &mut Hitbox| {
         partner(h);
         h.hitlag = 200;
         h.angle_type = ANGLE_FORWARD;
@@ -377,9 +377,9 @@ fn jabs(w: &mut Weapon) {
         135,
         4,
         1,
-        arsene3,
+        pal3,
     ));
-    b.push(bx(4, 4, 170, 80, 25, 31, 361, 65, 135, 5, 1, arsene3));
+    b.push(bx(4, 4, 170, 80, 25, 31, 361, 65, 135, 5, 1, pal3));
     w.moves[MoveId::Jab3 as usize] = moved(35, 0, 0, 255, b);
 }
 

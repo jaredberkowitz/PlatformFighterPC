@@ -1,4 +1,4 @@
-//! The phantom's gauge and its partner (E53, sim 121; the reference's, ssbwiki.com `Rebellion_Gauge` and ultimateframedata.com,
+//! The phantom's gauge and its partner (E53, sim 121; the reference's, ssbwiki.com's article on the gauge and ultimateframedata.com,
 //! 13.0.1): the fill by itself, from damage taken (and not dealt), the stock-gap and crowd multipliers, the guard's gain, the partner's
 //! 1800 frames, the time each percent taken cuts, the stun that stops the clock, specials that do not spend it, and what a KO leaves.
 //! Reference data: the thirteenth moveset's `REFERENCE_DATA.md` (`docs/movesets/joker/`).
