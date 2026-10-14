@@ -927,6 +927,10 @@ pub struct Move {
     /// speed and acceleration, instead of moving at the motion's `vx` (the motion still sets the vertical speed): a rise with air
     /// control. 0 (the default): the motion's `vx`, as before.
     pub motion_drift: u8,
+    /// On move frames `push_immune_from..=push_immune_to` a push (`Hitbox::push`, the reference's windbox) does not move the fighter
+    /// (the reference's windbox immunity, sim 90). 255 / 0 (the default): never.
+    pub push_immune_from: u8,
+    pub push_immune_to: u8,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -995,6 +999,8 @@ impl Move {
             ledge_drop: None,
             on_land: None,
             motion_drift: 0,
+            push_immune_from: 255,
+            push_immune_to: 0,
             script: None,
             projectile_script: None,
         }
@@ -1351,6 +1357,8 @@ impl StateHash for Weapon {
             h.write_bool(m.gauge_drain);
             h.write_u8(m.start_speed_y);
             h.write_u8(m.motion_drift);
+            h.write_u8(m.push_immune_from);
+            h.write_u8(m.push_immune_to);
             match m.ledge_drop {
                 Some((front, back)) => {
                     h.write_bool(true);

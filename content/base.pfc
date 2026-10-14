@@ -6,7 +6,7 @@ bundle {
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
     sim_version 90
-    hash 0be32c0c27ddff01
+    hash e473544e7d80246a
 }
 
 ruleset {
@@ -5406,6 +5406,62 @@ weapon bracers {
             if frame == 1 { add_vel(-0.5 * vx, 0); }
         }
     }
+    move up_special {
+        total_frames 103
+        push_immune_from 0
+        push_immune_to 103
+        air_version ext6
+        off_edge ext6
+        hitbox { start 18 end 18 x 2.29999 y 1.5 radius 0.79999 damage 5 angle 95 bkb 0 kbg 30 shield_damage 120 targets grounded fixed_kb 90 angle_type position }
+        hitbox { start 18 end 18 x 1.29999 y 1.5 radius 0.59999 damage 5 angle 80 bkb 0 kbg 30 priority 1 targets grounded fixed_kb 90 angle_type position }
+        hitbox { start 18 end 18 x 0.59999 y 1.5 radius 0.5 damage 5 angle 80 bkb 0 kbg 30 priority 2 targets grounded fixed_kb 90 angle_type position }
+        hitbox { start 18 end 18 x 2.29999 y 1.5 radius 0.79999 damage 5 angle 366 bkb 0 kbg 30 shield_damage 120 targets aerial fixed_kb 90 angle_type position }
+        hitbox { start 18 end 18 x 1.29999 y 1.5 radius 0.59999 damage 5 angle 366 bkb 0 kbg 30 priority 1 targets aerial fixed_kb 90 angle_type position }
+        hitbox { start 18 end 18 x 0.59999 y 1.5 radius 0.5 damage 5 angle 366 bkb 0 kbg 30 priority 2 targets aerial fixed_kb 90 angle_type position }
+        hitbox { start 24 end 26 x 3.09999 y 0.9 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 24 end 26 x 3.09999 y 1.5 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 24 end 26 x 1.59999 y 1.5 radius 0.59999 damage 1.4 angle 20 bkb 0 kbg 100 priority 1 group 1 hitlag 80 fixed_kb 65 angle_type forward }
+        hitbox { start 24 end 26 x -0.29999 y 1.7 radius 0.7 damage 3.5 angle 60 bkb 35 kbg 100 priority 2 group 1 hitlag 80 angle_type backward }
+        hitbox { start 31 end 32 x 3.09999 y 0.9 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 80 angle_type forward }
+        hitbox { start 31 end 32 x 3.09999 y 1.5 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 80 angle_type forward }
+        hitbox { start 31 end 32 x 1.59999 y 1.5 radius 0.59999 damage 1.4 angle 20 bkb 0 kbg 100 priority 1 group 1 hitlag 80 fixed_kb 65 angle_type forward }
+        hitbox { start 31 end 32 x -0.29999 y 1.7 radius 0.7 damage 3.5 angle 60 bkb 35 kbg 100 priority 2 group 1 hitlag 80 angle_type backward }
+        hitbox { start 39 end 41 x 3.09999 y 0.9 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 39 end 41 x 3.09999 y 1.5 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 39 end 41 x 1.59999 y 1.5 radius 0.59999 damage 1.4 angle 20 bkb 0 kbg 100 priority 1 group 1 hitlag 80 fixed_kb 65 angle_type forward }
+        hitbox { start 39 end 41 x -0.29999 y 1.7 radius 0.7 damage 3.5 angle 60 bkb 35 kbg 100 priority 2 group 1 hitlag 80 angle_type backward }
+        hitbox { start 48 end 49 x 3.09999 y 0.9 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 48 end 49 x 3.09999 y 1.5 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 48 end 49 x 1.59999 y 1.5 radius 0.59999 damage 1.4 angle 20 bkb 0 kbg 100 priority 1 group 1 hitlag 80 fixed_kb 65 angle_type forward }
+        hitbox { start 48 end 49 x -0.29999 y 1.7 radius 0.7 damage 3.5 angle 60 bkb 35 kbg 100 priority 2 group 1 hitlag 80 angle_type backward }
+        hitbox { start 54 end 57 x 3.09999 y 0.9 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 54 end 57 x 3.09999 y 1.5 radius 0.5 damage 1.4 angle 367 bkb 0 kbg 55 group 1 hitlag 80 fixed_kb 90 angle_type forward }
+        hitbox { start 54 end 57 x 1.59999 y 1.5 radius 0.59999 damage 1.4 angle 20 bkb 0 kbg 100 priority 1 group 1 hitlag 80 fixed_kb 65 angle_type forward }
+        hitbox { start 54 end 57 x -0.29999 y 1.7 radius 0.7 damage 3.5 angle 60 bkb 35 kbg 100 priority 2 group 1 hitlag 80 angle_type backward }
+        hitbox { start 61 end 61 x 2.5 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        hitbox { start 61 end 61 x 2 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        hitbox { start 61 end 61 x 1.5 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        hitbox { start 61 end 61 x 1 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        hitbox { start 61 end 61 x 0.5 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        hitbox { start 61 end 61 x 0 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        hitbox { start 61 end 61 x -0.5 y 1.4 radius 1 damage 4 angle 361 bkb 60 kbg 157 group 2 hitlag 200 angle_type position }
+        part_intangible { start 18 end 23 limb true }
+        armor { start 4 end 16 kind super }
+        script {
+            // Bracers up special on the ground (the reference's spinning clothesline). The slide: the stick accelerates it (0.034 of the reference's
+            // units a frame at full tilt), friction slows it (0.015; 0.04 after the last hit, from frame 62), at most 1.1 (world units: / 8) [R];
+            // the order of the two each frame is [E]. The loop's hits land again on 25, 32, 40, 49 and 55 (move frames one less): their group is
+            // re-armed then (the reference's irregular rhythm).
+            var v;
+            if frame == 1 { v = vx; }
+            v = clamp(v + 0.00425 * stick_x, -0.1375, 0.1375);
+            let fr = 0.001875;
+            if frame >= 61 { fr = 0.005; }
+            if v > fr { v = v - fr; } else if v < -fr { v = v + fr; } else { v = 0; }
+            set_vel(v, 0);
+            if frame == 24 || frame == 31 || frame == 39 || frame == 48 || frame == 54 { rehit(); }
+        }
+    }
     move jab2 {
         total_frames 30
         hitbox { start 3 end 5 x 0.79999 y 2 radius 0.9 damage 6 angle 70 bkb 40 kbg 100 hitlag 180 angle_type forward }
@@ -5538,6 +5594,37 @@ weapon bracers {
         hitbox { start 19 end 20 x 0.2 y 0.59999 radius 0.79999 damage 10 angle 270 bkb 30 kbg 40 shield_damage 350 effect bury angle_type position }
         hitbox { start 19 end 20 x 1.79999 y 1.4 radius 1.29999 damage 8 angle 70 bkb 15 kbg 40 priority 2 shield_damage 413 targets aerial angle_type position }
         armor { start 4 end 13 kind super }
+    }
+    move ext6 {
+        total_frames 69
+        landing_lag 42
+        helpless_after true
+        ledge_front_from 13
+        ledge_back_from 13
+        fall_landing_lag 38
+        hitbox { start 3 end 5 x -0.9 y 1.5 radius 1 damage 5 angle 85 bkb 50 kbg 10 shield_damage 120 angle_type position }
+        hitbox { start 3 end 5 x 0.5 y 1.5 radius 1 damage 5 angle 85 bkb 50 kbg 10 priority 1 shield_damage 120 angle_type position }
+        hitbox { start 9 end 37 x 1.09999 y 1.4 radius 0.59999 damage 1 angle 367 bkb 55 kbg 20 group 1 shield_damage 200 angle_type position }
+        hitbox { start 9 end 37 x -1.09999 y 1.4 radius 0.59999 damage 1 angle 367 bkb 55 kbg 20 priority 1 group 1 shield_damage 200 angle_type position }
+        hitbox { start 9 end 37 x 0.4 y 1.4 radius 0.5 damage 1 angle 367 bkb 55 kbg 20 priority 2 group 1 shield_damage 200 angle_type position }
+        hitbox { start 9 end 37 x -0.4 y 1.4 radius 0.5 damage 1 angle 367 bkb 55 kbg 20 priority 3 group 1 shield_damage 200 angle_type position }
+        hitbox { start 38 end 42 x 1.09999 y 1.4 radius 0.59999 damage 2 angle 361 bkb 72 kbg 80 group 2 shield_damage 150 angle_type position }
+        hitbox { start 38 end 42 x -1.09999 y 1.4 radius 0.59999 damage 2 angle 361 bkb 72 kbg 80 priority 1 group 2 shield_damage 150 angle_type position }
+        hitbox { start 38 end 42 x 0.4 y 1.4 radius 0.5 damage 2 angle 361 bkb 72 kbg 80 priority 2 group 2 shield_damage 150 angle_type position }
+        hitbox { start 38 end 42 x -0.4 y 1.4 radius 0.5 damage 2 angle 361 bkb 72 kbg 80 priority 3 group 2 shield_damage 150 angle_type position }
+        part_intangible { start 9 end 37 limb true }
+        script {
+            // Bracers up special in the air (the reference's rising spin): it starts rising at 0.9 of the reference's units a frame, falls at
+            // 0.07 a frame per frame (decision 41: read as the fall rate itself, not a multiplier [E]) down to the body's fall speed (1.63 [E]), and drifts with the
+            // stick at 0.05 a frame up to 1.7 [R] (world units: / 8). Its twelve 1% hits are each a fresh hit at the start of its span (13, 15,
+            // 18, 20, 22, 25, 27, 30, 32, 34 and 37; move frames one less), re-armed then.
+            var h;
+            var u;
+            if frame == 1 { h = vx; u = 0.1125; } else { u = max(u - 0.00875, -0.20375); }
+            h = clamp(h + 0.00625 * stick_x, -0.2125, 0.2125);
+            set_vel(h, u);
+            if frame == 12 || frame == 14 || frame == 17 || frame == 19 || frame == 21 || frame == 24 || frame == 26 || frame == 29 || frame == 31 || frame == 33 || frame == 36 { rehit(); }
+        }
     }
     move pivot_grab {
         total_frames 40

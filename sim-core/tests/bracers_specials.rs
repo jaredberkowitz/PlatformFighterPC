@@ -457,3 +457,196 @@ fn a_shielded_headbutt_takes_25_more_percent_off_the_shield() {
     let want = Fx::from_int(35) * sim.content.rules.damage_mult + sim.content.rules.shield_deplete;
     assert!((lost - want).abs() < fx(1, 10), "lost {lost:?}");
 }
+
+// ---- The spinning clothesline ------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_spin_has_the_references_data() {
+    use sim_core::moves::{
+        ANGLE_AUTOLINK, ANGLE_BACKWARD, ANGLE_FORWARD, ANGLE_VORTEX, TARGETS_AERIAL,
+        TARGETS_GROUNDED,
+    };
+    let sim = duel(Fx::from_int(12));
+    let w = arms(&sim);
+    let g = w.get(MoveId::UpSpecial as u8);
+    assert_eq!(g.total_frames + 2, 105);
+    let a = g.armor.expect("armor");
+    assert_eq!((a.kind, a.start + 1, a.end + 1), (ARMOR_SUPER, 5, 17));
+    let limb = g.part_intangible[0];
+    assert_eq!(
+        (limb.start + 1, limb.end + 1, limb.parts),
+        (19, 24, PART_LIMB)
+    );
+    assert_eq!((g.push_immune_from, g.push_immune_to), (0, g.total_frames));
+    assert_eq!(g.air_version, Some(MoveId::Ext6 as u8));
+    // Hit 1: grounded targets at 95 / 80, aerial ones at the vortex angle (E28), set knockback 90.
+    let first: Vec<_> = g.hitboxes.iter().filter(|h| h.start + 1 == 19).collect();
+    assert_eq!(first.len(), 6);
+    for h in &first {
+        assert_eq!(
+            (h.damage, h.fixed_kb, h.knockback_growth),
+            (Fx::from_int(5), 90, 30)
+        );
+        match h.targets {
+            TARGETS_GROUNDED => assert!(matches!(h.angle, 95 | 80)),
+            TARGETS_AERIAL => assert_eq!(h.angle, ANGLE_VORTEX),
+            _ => panic!("hit 1 is split by target"),
+        }
+    }
+    // The loop: 1.4% at 367 forward and 20 forward, 3.5% at 60 always backward, on the reference's five spans; the final 4% on 62.
+    let spans: Vec<(u8, u8)> = vec![(25, 27), (32, 33), (40, 42), (49, 50), (55, 58)];
+    for h in g.hitboxes.iter().filter(|h| h.group == 1) {
+        assert!(spans.contains(&(h.start + 1, h.end + 1)));
+        assert_eq!(h.hitlag, 80);
+        match h.angle {
+            ANGLE_AUTOLINK => assert_eq!((h.damage, h.angle_type), (fx(14, 10), ANGLE_FORWARD)),
+            20 => assert_eq!(
+                (h.damage, h.fixed_kb, h.angle_type),
+                (fx(14, 10), 65, ANGLE_FORWARD)
+            ),
+            60 => assert_eq!(
+                (h.damage, h.base_knockback, h.angle_type),
+                (fx(35, 10), 35, ANGLE_BACKWARD)
+            ),
+            a => panic!("loop angle {a}"),
+        }
+    }
+    for h in g.hitboxes.iter().filter(|h| h.group == 2) {
+        assert_eq!((h.start + 1, h.damage, h.angle), (62, Fx::from_int(4), 361));
+        assert_eq!(
+            (h.base_knockback, h.knockback_growth, h.hitlag),
+            (60, 157, 200)
+        );
+    }
+    // The aerial spin: 70 frames then the special fall (landing lag 38), an early landing 42, ledges from 14.
+    let air = w.get(MoveId::Ext6 as u8);
+    assert_eq!(air.total_frames + 1, 70);
+    assert!(air.helpless_after);
+    assert_eq!((air.fall_landing_lag, air.landing_lag), (38, 42));
+    assert_eq!(
+        (air.ledge_front_from + 1, air.ledge_back_from + 1),
+        (14, 14)
+    );
+    let limb = air.part_intangible[0];
+    assert_eq!((limb.start + 1, limb.end + 1), (10, 38));
+    let total: Fx = [(0u8, 1i32), (1, 12), (2, 1)]
+        .iter()
+        .map(|&(group, times)| {
+            let d = air
+                .hitboxes
+                .iter()
+                .find(|h| h.group == group)
+                .map_or(Fx::ZERO, |h| h.damage);
+            d.mul_int(times)
+        })
+        .fold(Fx::ZERO, |a, b| a + b);
+    assert_eq!(total, Fx::from_int(19), "5 + 12 x 1 + 2");
+}
+
+/// The reference's frames of the move (hitlag does not count) on which player 1's percent rose while player 0 spun.
+fn spin_hits(airborne: bool, gap: Fx) -> Vec<u32> {
+    let mut sim = duel(gap);
+    sim.state.fighters[1].percent = Fx::ZERO;
+    if airborne {
+        sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+        sim.put_airborne(1, gap, fx(31, 1), Fx::ZERO, Fx::ZERO);
+    }
+    let mut out = Vec::new();
+    let mut before = sim.fighter(1).percent;
+    for t in 1..=110u32 {
+        sim.tick(inp(
+            0,
+            if t == 1 { 100 } else { 0 },
+            if t == 1 { SPECIAL } else { 0 },
+        ));
+        if sim.fighter(1).percent > before {
+            out.push(u32::from(sim.f().state_frame) + 1);
+            before = sim.fighter(1).percent;
+        }
+    }
+    out
+}
+
+#[test]
+fn the_grounded_spin_hits_on_the_references_frames_and_the_aerial_one_on_its_own() {
+    let hits = spin_hits(false, fx(15, 10));
+    assert_eq!(hits.first(), Some(&19));
+    let allowed = |t: u32| {
+        [19, 62].contains(&t)
+            || [(25, 27), (32, 33), (40, 42), (49, 50), (55, 58)]
+                .iter()
+                .any(|&(a, b)| (a..=b).contains(&t))
+    };
+    assert!(hits.iter().all(|&t| allowed(t)), "{hits:?}");
+    assert!(hits.len() >= 3, "{hits:?}");
+    // In the air, hit 1 lands on 4.
+    let hits = spin_hits(true, fx(5, 10));
+    assert_eq!(hits.first(), Some(&4), "{hits:?}");
+}
+
+#[test]
+fn the_aerial_spin_barely_rises_and_ends_in_a_special_fall_with_38_frames_of_landing_lag() {
+    let mut sim = duel(Fx::from_int(12));
+    sim.put_airborne(0, Fx::ZERO, Fx::from_int(30), Fx::ZERO, Fx::ZERO);
+    let y0 = sim.f().pos.y;
+    let mut peak = y0;
+    sim.tick(inp(0, 100, SPECIAL));
+    assert_eq!(move_of(&sim, 0), MoveId::Ext6);
+    let mut fall_at = None;
+    for t in 2..=80u32 {
+        sim.tick(inp(0, 0, 0));
+        peak = peak.max(sim.f().pos.y);
+        if sim.f().state == S::Helpless && fall_at.is_none() {
+            fall_at = Some(t);
+        }
+    }
+    // 0.9 up at 0.07 a frame down: about 6 of the reference's units up (0.78 world) [E: conflict 6].
+    let rise = peak - y0;
+    assert!(rise > fx(6, 10) && rise < fx(9, 10), "{rise:?}");
+    // (The house's frame rule, as for every FAF: the move's last frame is the reference's 70, the fall starts as it ends.)
+    assert_eq!(fall_at, Some(70), "70 frames then the fall");
+    // Landing in the fall: 38 frames.
+    sim.put_airborne(0, Fx::ZERO, fx(2, 10), Fx::ZERO, fx(-1, 10));
+    sim.state.fighters[0].state = S::Helpless;
+    sim.state.fighters[0].move_id = MoveId::Ext6 as u8;
+    let mut lag = None;
+    for _ in 0..10 {
+        sim.tick(inp(0, 0, 0));
+        if sim.f().state == S::Landing {
+            lag = Some(sim.f().lag);
+            break;
+        }
+    }
+    assert_eq!(lag, Some(38));
+}
+
+#[test]
+fn the_grounded_spin_slides_with_the_stick_up_to_1_1_and_ignores_pushes() {
+    let mut sim = duel(Fx::from_int(12));
+    sim.stand(1, Fx::from_int(30), -1);
+    sim.tick(inp(0, 100, SPECIAL));
+    sim.ticks(50, inp(127, 0, 0));
+    // (At full tilt, the speed gains 0.034 less 0.015 of the reference's units a frame: after 50 frames about 0.95, under the 1.1 cap.)
+    let v = sim.f().vel.x;
+    assert!(v > fx(11, 100) && v <= fx(1375, 10_000), "{v:?}");
+    sim.ticks(8, inp(127, 0, 0));
+    let capped = fx(1375, 10_000) - fx(1875, 1_000_000);
+    assert!(
+        (sim.f().vel.x - capped).abs() <= Fx::from_raw(2),
+        "at the cap, less a frame's friction"
+    );
+    // A push during the move leaves its speed as it was; out of the move it shoves.
+    let mut sim = duel(fx(15, 10));
+    sim.tick(inp(0, 100, SPECIAL));
+    sim.ticks(5, inp(0, 0, 0));
+    let w = usize::from(sim.content.fighters[0].weapon);
+    for h in &mut sim.content.weapons[w].moves[MoveId::Jab as usize].hitboxes {
+        h.push = true;
+        h.base_knockback = 100;
+    }
+    let x0 = sim.f().pos.x;
+    sim_core::fighter::begin_attack(&mut sim.state.fighters[1], MoveId::Jab);
+    sim.ticks(10, inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Attack);
+    assert!((sim.f().pos.x - x0).abs() < fx(5, 100), "not pushed");
+}

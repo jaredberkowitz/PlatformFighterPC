@@ -861,6 +861,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.gauge_drain = f.or("gauge_drain", false, errors);
     m.start_speed_y = f.or("start_speed_y", 100, errors);
     m.motion_drift = f.or("motion_drift", 0, errors);
+    m.push_immune_from = f.or("push_immune_from", 255, errors);
+    m.push_immune_to = f.or("push_immune_to", 0, errors);
     let drop_front: Option<Fx> = f.parsed("ledge_drop_front", errors);
     let drop_back: Option<Fx> = f.parsed("ledge_drop_back", errors);
     match (drop_front, drop_back) {
@@ -1234,6 +1236,12 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("lands_from", m.lands_from, empty.lands_from),
         ("start_speed_y", m.start_speed_y, empty.start_speed_y),
         ("motion_drift", m.motion_drift, empty.motion_drift),
+        (
+            "push_immune_from",
+            m.push_immune_from,
+            empty.push_immune_from,
+        ),
+        ("push_immune_to", m.push_immune_to, empty.push_immune_to),
     ] {
         if value != default {
             b.field(name, value.to_string());

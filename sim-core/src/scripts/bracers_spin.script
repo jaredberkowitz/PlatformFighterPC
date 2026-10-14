@@ -1,0 +1,12 @@
+// Bracers up special on the ground (the reference's spinning clothesline). The slide: the stick accelerates it (0.034 of the reference's
+// units a frame at full tilt), friction slows it (0.015; 0.04 after the last hit, from frame 62), at most 1.1 (world units: / 8) [R];
+// the order of the two each frame is [E]. The loop's hits land again on 25, 32, 40, 49 and 55 (move frames one less): their group is
+// re-armed then (the reference's irregular rhythm).
+var v;
+if frame == 1 { v = vx; }
+v = clamp(v + 0.00425 * stick_x, -0.1375, 0.1375);
+let fr = 0.001875;
+if frame >= 61 { fr = 0.005; }
+if v > fr { v = v - fr; } else if v < -fr { v = v + fr; } else { v = 0; }
+set_vel(v, 0);
+if frame == 24 || frame == 31 || frame == 39 || frame == 48 || frame == 54 { rehit(); }

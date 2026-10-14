@@ -997,6 +997,14 @@ fn apply_hit(
     };
     let angle = launch_angle(degrees, facing, def.grounded(), kb);
     if hb.push {
+        // A move immune to pushes in this window (the reference's windbox immunity) is not moved at all.
+        if def.state == S::Attack {
+            let mv = weapon_of(content, &defender_params).get(def.move_id);
+            let frame = def.state_frame;
+            if u16::from(mv.push_immune_from) <= frame && frame <= u16::from(mv.push_immune_to) {
+                return;
+            }
+        }
         // No hitstun and no change of state: the knockback is a shove on top of the fighter's own speed (along the ground if it
         // stands on it).
         let speed = kb * Fx::from_ratio(3, 800);

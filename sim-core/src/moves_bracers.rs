@@ -102,6 +102,7 @@ pub const PUNCH_FULL: MoveId = MoveId::Ext2;
 pub const PUNCH_FULL_AIR: MoveId = MoveId::Ext3;
 pub const PUNCH_CANCEL: MoveId = MoveId::Ext4;
 pub const HEADBUTT_AIR: MoveId = MoveId::Ext5;
+pub const SPIN_AIR: MoveId = MoveId::Ext6;
 
 /// Super armor (every hit withstood: the reference's) on move frames `start..=end`.
 fn super_armor(start: u8, end: u8) -> Option<Armor> {
@@ -124,6 +125,157 @@ fn specials(w: &mut Weapon) {
     }
     punch(w);
     headbutt(w);
+    spin(w);
+}
+
+fn spin(w: &mut Weapon) {
+    // The spinning clothesline on the ground (the up special), every number [R] from ssbwiki.com's raw tables (13.0.1) unless marked;
+    // box places on the arm bones [E] (the arm swung out level at chest height), on the root [D].
+    // Hit 1 on frame 19, 5%, set knockback 90 (KS 30): against grounded targets 95 degrees (the fist, radius 6.0) and 80 (the arm, 5.0
+    // and 4.0); against aerial ones the same boxes at the reference's 366 (E28, the vortex: 6.0.0). Shield +1 on the fist (120 [D]).
+    let mut rows = Vec::new();
+    for (aerial, angles) in [(false, [95i16, 80, 80]), (true, [366, 366, 366])] {
+        for (i, (x, radius)) in [(180, 60), (100, 50), (50, 40)].into_iter().enumerate() {
+            rows.push((
+                ru(19, 19, x, 120, radius, 50, angles[i], 0, 30, i as u8, 0),
+                aerial,
+                90u16,
+            ));
+        }
+    }
+    // Hits 2-6, the loop: 25-27, 32-33, 40-42, 49-50, 55-58 (each a fresh hit: the script re-arms the group): the far arm 1.4% at the
+    // autolink angle (367, forward, set knockback 90, the third hit's 80; KS 55, radius 4.0 at 25.0 ahead, 7.0 to 12.0 up), the arm
+    // 1.4% at 20 degrees forward (set knockback 65, KS 100, radius 5.0, 12.5 ahead at 12.0 up), and behind 3.5% at 60 degrees always
+    // backward (BK 35, KS 100, radius 5.7, 2.5 behind at 13.5 up: the ejection box); hitlag x0.8.
+    let mut loops = Vec::new();
+    for (n, (first, last)) in [(25u8, 27u8), (32, 33), (40, 42), (49, 50), (55, 58)]
+        .into_iter()
+        .enumerate()
+    {
+        let fkv = if n == 1 { 80 } else { 90 };
+        for y in [70, 120] {
+            loops.push((
+                ru(first, last, 250, y, 40, 14, 367, 0, 55, 0, 1),
+                fkv,
+                ANGLE_FORWARD,
+            ));
+        }
+        loops.push((
+            ru(first, last, 125, 120, 50, 14, 20, 0, 100, 1, 1),
+            65,
+            ANGLE_FORWARD,
+        ));
+        loops.push((
+            ru(first, last, -25, 135, 57, 35, 60, 35, 100, 2, 1),
+            0,
+            ANGLE_BACKWARD,
+        ));
+    }
+    // The final hit on 62: 4% at 361 by position, BK 60, KS 157 (6.0.0), radius 8.0 along 20.0 ahead to 4.0 behind at 11.0 up, hitlag
+    // x2.0.
+    let finals: Vec<R> = along(200, -40, 40)
+        .into_iter()
+        .map(|x| ru(62, 62, x, 110, 80, 40, 361, 60, 157, 0, 2))
+        .collect();
+    let first_meta: Vec<(bool, u16)> = rows.iter().map(|(_, a, f)| (*a, *f)).collect();
+    let loop_meta: Vec<(u16, u8)> = loops.iter().map(|(_, f, k)| (*f, *k)).collect();
+    let all: Vec<R> = rows
+        .into_iter()
+        .map(|(r, ..)| r)
+        .chain(loops.into_iter().map(|(r, ..)| r))
+        .chain(finals)
+        .collect();
+    let mut ground = ref_move(105, 0, 0, 255, &all);
+    let (n_first, n_loop) = (first_meta.len(), loop_meta.len());
+    for (i, (aerial, fkv)) in first_meta.iter().enumerate() {
+        let h = &mut ground.hitboxes[i];
+        h.fixed_kb = *fkv;
+        h.angle_type = ANGLE_BY_POSITION;
+        h.targets = if *aerial {
+            TARGETS_AERIAL
+        } else {
+            TARGETS_GROUNDED
+        };
+        if h.priority == 0 {
+            h.shield_damage = shield(50, 10);
+        }
+    }
+    for (i, (fkv, kind)) in loop_meta.iter().enumerate() {
+        let h = &mut ground.hitboxes[n_first + i];
+        h.fixed_kb = *fkv;
+        h.angle_type = *kind;
+        h.hitlag = 80;
+    }
+    for h in ground.hitboxes.iter_mut().skip(n_first + n_loop) {
+        h.angle_type = ANGLE_BY_POSITION;
+        h.hitlag = 200;
+    }
+    // Super armor 5-17 (6.0.0), the lower arm intangible on 19-24, FAF 105; pushes do not move it (decision 41: "immune to most
+    // windboxes during the move", its frames not published: the whole move [E]). The slide and the loop's rhythm are the script's.
+    // Over an edge it goes on as the aerial spin [E: gap 7].
+    ground.armor = super_armor(4, 16);
+    ground.part_intangible = vec![PartIntangible {
+        start: 18,
+        end: 23,
+        parts: PART_LIMB,
+    }];
+    ground.push_immune_from = 0;
+    ground.push_immune_to = ground.total_frames;
+    ground.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_spin.script"),
+    ));
+    ground.off_edge = Some(SPIN_AIR as u8);
+    ground.air_version = Some(SPIN_AIR as u8);
+    w.moves[MoveId::UpSpecial as usize] = ground;
+
+    // In the air: hit 1 on 4-6 (5%, 85 degrees, BK 50, KS 10, radius 7.7 at 12.0 up, 7.0 behind and 4.0 ahead [D]); hits 2-13, twelve
+    // 1% hits on 10-38 (the autolink angle, BK 55, KS 20: both arms out, radius 5.0 at 6.0 along them and 3.7 at -4.0 [E]), each a fresh
+    // hit on its own span (the script); the final 2% on 39-43 (361, BK 72, KS 80, the same boxes). Angle type 0 throughout, shield +1
+    // (120 / 200 / 150 [D]). The lower arms intangible on 10-38. 70 frames, then the special fall with 38 frames of landing lag; ledges
+    // both sides from frame 14. Landing before the fall goes to the grounded version's frame 63: 42 frames of landing lag here [D].
+    let mut rows = vec![
+        ru(4, 6, -70, 120, 77, 50, 85, 50, 10, 0, 0),
+        ru(4, 6, 40, 120, 77, 50, 85, 50, 10, 1, 0),
+    ];
+    for (first, last, damage, angle, bkb, kbg, group) in [
+        (10u8, 38u8, 10, 367i16, 55i16, 20i16, 1u8),
+        (39, 43, 20, 361, 72, 80, 2),
+    ] {
+        for (i, (x, radius)) in [(90, 50), (-90, 50), (30, 37), (-30, 37)]
+            .into_iter()
+            .enumerate()
+        {
+            rows.push(ru(
+                first, last, x, 110, radius, damage, angle, bkb, kbg, i as u8, group,
+            ));
+        }
+    }
+    let mut air = ref_move(71, 42, 0, 255, &rows);
+    set_all(&mut air, |h| {
+        h.angle_type = ANGLE_BY_POSITION;
+        h.shield_damage = if h.damage == Fx::from_int(5) {
+            shield(50, 10)
+        } else if h.damage == Fx::ONE {
+            shield(10, 10)
+        } else {
+            shield(20, 10)
+        };
+    });
+    air.part_intangible = vec![PartIntangible {
+        start: 9,
+        end: 37,
+        parts: PART_LIMB,
+    }];
+    air.helpless_after = true;
+    air.fall_landing_lag = 38;
+    air.ledge_front_from = 13;
+    air.ledge_back_from = 13;
+    air.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/bracers_spin_air.script"),
+    ));
+    w.moves[SPIN_AIR as usize] = air;
 }
 
 fn headbutt(w: &mut Weapon) {
