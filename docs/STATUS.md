@@ -93,6 +93,18 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 121** (branch `dagger-phase1`, from `movesets` at 10e2df5, sim 119, merged with `origin/movesets` 6a7a3a4; content schema 7
+unchanged; sim 120 is the run mode's): the thirteenth class, **Dagger** on the **phantom** body (built-in fighter **Phantom**), phase 1:
+the body and every normal on 13.0.1 data **with and without its summoned partner**, the **gauge and partner** (the iconic mechanic: the
+fill by itself, 1.3 a percent taken, the stock-gap and player multipliers, the guard's x6.7368, 1800 frames out, 16 frames lost a percent
+taken, a stun stopping the clock, 20 / 25 / 30 units after a KO, specials that change without spending it), the **gun** (every form, the
+partner's extra bullets), the **curse bolt** (damage over time), the **guard** (0.4 of a hit, the backhand) and the partner's counter /
+reflector stance and wings. Engine, all general and defaulted: **E52** `Hitbox::mode` / `Hitbox::part` / hashed `Fighter::move_powered`
+(a partner's boxes landing with the fighter's on one frame, awakened boxes kept to the attack's end), **E53** the gauge's partner rules
+and `Move::gauge_gain`, **E54** `Move::curse` (hashed `Fighter::curse_*`) and `Burst::on_shield`, **E55** `Move::armor_damage` /
+`armor_hitlag` (hashed `Fighter::withstood`); the `powered` and `withstood` registers. The hook (plain up special) is phase 2. Tests
+`dagger.rs` (11), `dagger_gauge.rs` (9), `dagger_specials.rs` (12) and cases in `move_rules.rs`, `scripted_moves.rs`, `state.rs`,
+sim-content; the fuzzers play the phantom with its partner out. Report: `docs/movesets/joker/IMPLEMENTATION_REPORT.md`.
 **Sim 119** (branch `popgun-phase2`, from `movesets` at c0f4e88, sim 117; content schema 7 unchanged; sim 118 belongs to another
 session): the Popgun's phase 2, **every special of the scamp now built**. The **monkey flip** (side special): the ground and air leaps
 (launched on 13, command grabs on 18-36 / 18-29, FAF 62 / 48, landing lag 26, ledges once falling), the **kick** on a second press

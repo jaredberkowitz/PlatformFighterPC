@@ -1,0 +1,5 @@
+// Dagger gun, the jump (ext5, slot 33; from the ground only): intangible on its frames 1-6 (a move reached by `goto` starts its
+// intangibility here). The jump and the shots below are the move's data.
+if frame == 1 {
+    intangible(6);
+}

@@ -1029,3 +1029,92 @@ fn a_flag_version_picks_its_move_or_bars_the_special_and_reads_marks_and_flags()
         "another flag"
     );
 }
+
+#[test]
+fn the_partner_guard_and_curse_fields_are_in_the_content_hash() {
+    // Sim 121: a hitbox's mode and part (E52), a move's armor damage and hitlag (E55), gauge gain (E53) and curse (E54), a burst's
+    // `on_shield`, and the gauge's partner rules (E53) each change the hash.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let edits: [fn(&mut sim_core::Content); 15] = [
+        |c| c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].mode = 2,
+        |c| c.weapons[0].moves[MoveId::Jab as usize].hitboxes[0].part = 1,
+        |c| c.weapons[0].moves[MoveId::Jab as usize].armor_damage = 400,
+        |c| c.weapons[0].moves[MoveId::Jab as usize].armor_hitlag = 150,
+        |c| c.weapons[0].moves[MoveId::Jab as usize].gauge_gain = 2000,
+        |c| {
+            c.weapons[0].moves[MoveId::Jab as usize].curse = Some(sim_core::moves::Curse {
+                damage: Fx::ONE,
+                every: 45,
+                frames: 361,
+            })
+        },
+        |c| {
+            let w = usize::from(c.fighters[12].weapon);
+            if let Some(b) = c.weapons[w].moves[MoveId::SideSpecial as usize]
+                .projectile
+                .as_mut()
+                .and_then(|p| p.burst.as_mut())
+            {
+                b.on_shield = true;
+            }
+        },
+        |c| c.fighters[12].gauge.per_frame = Fx::ZERO,
+        |c| c.fighters[12].gauge.behind[0] = 1000,
+        |c| c.fighters[12].gauge.crowd[1][2] = 1000,
+        |c| c.fighters[12].gauge.mode_taken[0] = Fx::ONE,
+        |c| c.fighters[12].gauge.ko_keep[0] = Fx::ZERO,
+        |c| c.fighters[12].gauge.keeps = false,
+        |c| c.fighters[12].gauge.halts = false,
+        |c| c.fighters[12].gauge.crowd[0][1] = 1000,
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}
+
+#[test]
+fn a_powered_box_is_out_only_in_an_attack_begun_with_the_mode_and_a_plain_one_only_without() {
+    // Sim 121 (E52): `Hitbox::mode`. The duelist's jab with its first box made plain and a copy of it (9%) made powered.
+    let mut jab = sim_core::Content::placeholder().weapons[0].moves[MoveId::Jab as usize].clone();
+    let plain = jab.hitboxes[0];
+    let mut powered = plain;
+    powered.mode = sim_core::moves::MODE_POWERED;
+    powered.damage = Fx::from_int(9);
+    jab.hitboxes = vec![plain, powered];
+    jab.hitboxes[0].mode = sim_core::moves::MODE_PLAIN;
+    for (mode, expect) in [(0u16, plain.damage), (60, Fx::from_int(9))] {
+        let mut sim = with_move(MoveId::Jab, jab.clone());
+        sim.stand(0, Fx::ZERO, 1);
+        sim.state.fighters[0].gauge_mode = mode;
+        sim_core::fighter::begin_attack(&mut sim.state.fighters[0], MoveId::Jab);
+        sim.state.fighters[0].state_frame = u16::from(plain.start);
+        let out: Vec<_> = sim_core::combat::active_hitboxes(sim.f(), &jab, Fx::ONE)
+            .map(|(_, h, _)| h.damage)
+            .collect();
+        assert_eq!(out, vec![expect], "mode {mode}");
+    }
+}
+
+#[test]
+fn a_projectiles_curse_deals_its_damage_every_few_frames_and_ends() {
+    // Sim 121 (E54): a curse on a fighter deals `damage` (times the one-on-one multiplier) every `every` frames for `frames`.
+    let mut sim = Sim::alone();
+    let k = sim.content.rules.damage_mult;
+    let f = &mut sim.state.fighters[1];
+    f.curse_left = 100;
+    f.curse_every = 30;
+    f.curse_damage = Fx::from_int(2);
+    f.curse_by = 0;
+    sim.ticks(100, inp(0, 0, 0));
+    assert_eq!(
+        sim.fighter(1).percent,
+        Fx::from_int(6) * k,
+        "ticks on 30, 60 and 90"
+    );
+    assert_eq!(sim.fighter(1).curse_left, 0);
+    sim.ticks(40, inp(0, 0, 0));
+    assert_eq!(sim.fighter(1).percent, Fx::from_int(6) * k, "and no more");
+}

@@ -787,6 +787,7 @@ fn rocket(w: &mut Weapon) {
             on_expire: true,
             keep_hits: false,
             on_hit: false,
+            on_shield: true,
         }),
         charged: None,
         tool: Tool {

@@ -182,6 +182,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     combat::spawn_projectiles(state, content);
     // Items last (E4): the fighters' orders (pick up, throw, pull, detonate), their flight, hits and bursts.
     crate::items::update(state, content);
+    // Damage over time (E54, sim 121).
+    combat::curse_tick(state, content);
 
     // Phase 2: ledge ownership.
     // Free ledges whose occupant left them (dropped, got up, jumped, or was hit).

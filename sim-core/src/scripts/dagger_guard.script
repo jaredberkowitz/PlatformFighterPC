@@ -1,0 +1,8 @@
+// Dagger down special, the guard: its armor on move frames 2-18 (the reference's 3-19). Special let go within 33 frames of a hit the
+// armor withstood (`withstood` counts the frames since, plus one) answers with the backhand (40 = ext11); still held on 18 (its 19),
+// the guard goes on (37 = ext9). Otherwise the move ends with its lag (FAF 53).
+if withstood > 0 && withstood <= 34 && special == 0 {
+    goto(40);
+} else if frame == 18 && special {
+    goto(37);
+}

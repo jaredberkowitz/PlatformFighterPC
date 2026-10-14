@@ -312,6 +312,12 @@ pub fn cmd_fuzz(args: &[String]) -> Result<(), String> {
             setup.chars[0] = b;
             crate::drill_latch(&mut inputs, 0, 1, Some(1));
         }
+        // Every eighth run from 6 (sim 121) the joiner plays the first body with a partner gauge (the phantom), its gun, bolt and guard
+        // drilled, so its gauge and curse cross the network.
+        if let (6, Some(b)) = (seed % 8, crate::partner_body(&content)) {
+            setup.chars[1] = b;
+            crate::drill_specials(&mut inputs, 1);
+        }
         let specs = (seed % 2 == 1).then(|| {
             (
                 crate::random_spec(&mut pick, &content),

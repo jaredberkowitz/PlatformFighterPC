@@ -224,6 +224,8 @@ fn mob_hit(x: i32, y: i32, r: i32, damage: i32, angle: i16, bkb: i16, kbg: i16) 
         slip: moves::SLIP_NONE,
         fixed_stun: 0,
         unblockable: false,
+        mode: moves::MODE_ANY,
+        part: 0,
     }
 }
 
