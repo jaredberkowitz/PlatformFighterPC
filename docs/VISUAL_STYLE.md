@@ -125,6 +125,26 @@ depth of field (`RESULTS_BLUR`).
 confetti) share conventions: bigger and longer for stronger hits, drawn on twos like hand-drawn effects, warmed up at start so the first
 hit does not stutter. The Effects setting thins particles evenly (`Burst.density`).
 
+### Effect style guide (the knock-out blast is the standard)
+
+Every effect is painted in the same layers, back to front, as solid fills (never soft gradients):
+
+| Layer | What | Rule |
+|---|---|---|
+| Ink | A thin dark rim (`INK`) round the whole shape | About the fighters' line weight; never heavier. Rings carry it on both edges (`Ring.inked`). |
+| Body | The effect's colour, a deeper, purer version of it | Kept below the glow threshold (luma 0.72) so it keeps its colour; deep enough to carry on a pale sky (the KO plume clamps its value). |
+| Lit band | A lighter band on the lit side (the top, the outer edge of an arc) | About a third of the body's width. |
+| Core | A white-hot core near the strongest point | The only part that blooms. |
+
+- **Colour by source**: the weapon's trail colour (blue blade, violet claws, amber greatsword), the hit's kind for bursts (`BURST_COLOURS`),
+  the player's colour for the knock-out.
+- **Timing**: a fast open (a frame or two, a little overshoot), a hold, then a ragged painted breakup (the shader's `paint`), drawn on
+  twos. Bigger and longer for stronger hits.
+- **Trails** (`_draw_arc`, `smear.gd`): the same layers as bands side by side, see-through (`ARC_OPACITY` 0.82) so the fighter shows
+  through; pointed at both ends, scalloped inside like a brushstroke.
+- **Smoke and dust**: cel-shaded puffs (`puff`), lit from the upper left with a cool shade, breaking up as they fade.
+- **Things in play** (thrown balls, items) take the fighters' object id (`PLAY_OBJECT_ID`) so the stage's quieting leaves their colour.
+
 ## 6. Comfort and scalability
 
 The Controls screen's Display page (`scripts/visual_settings.gd`, saved in `user://display.cfg`): **Screen shake** (off, low, full: scales

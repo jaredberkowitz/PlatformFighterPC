@@ -341,7 +341,8 @@ class Beam extends MeshInstance3D:
 		im.clear_surfaces()
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 		# (The body in a deeper, purer version of the colour, so the white core's glow does not wash it out.)
-		var body := Color.from_hsv(colour.h, minf(1.0, colour.s * 1.35), colour.v * 0.92)
+		# (Deeper still for a pale or light colour, so the plume carries on a pale sky; a blue player's blast washed into a blue sky.)
+		var body := Color.from_hsv(colour.h, minf(1.0, maxf(colour.s * 1.35, 0.7)), minf(colour.v * 0.92, 0.72))
 		var light := body.lerp(Color.WHITE, 0.22)
 		var n := 28
 		var puffs: Array = []
@@ -353,7 +354,7 @@ class Beam extends MeshInstance3D:
 			puffs.append([Vector3(wob * width * 0.22, y, 0), r * lerpf(1.0, 0.6, smoothstep(0.5, 1.0, t)), u])
 		# Layers back to front: the ink round everything, the colour, the lit tops (shifted up), the hot core (near the blast only).
 		var layers := [[1.0, Vector3.ZERO, Color(INK, fade), 1.0], [0.88, Vector3.ZERO, Color(body, fade), 1.0],
-			[0.6, Vector3(-0.1, 0.32, 0), Color(light, fade), 1.0], [0.3, Vector3(0.0, 0.05, 0), Color(1, 1, 0.95, fade), 0.3]]
+			[0.5, Vector3(-0.12, 0.4, 0), Color(light, fade), 1.0], [0.3, Vector3(0.0, 0.05, 0), Color(1, 1, 0.95, fade), 0.3]]
 		for layer in layers:
 			for p in puffs:
 				if float(p[2]) > float(layer[3]):

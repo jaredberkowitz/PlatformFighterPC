@@ -2383,6 +2383,19 @@ func set_overhead(training: bool, tag: String, colour: Color) -> void:
 		tag_arrow.visible = true
 
 
+## Moves the match tag `dx` world units sideways and fades it to `alpha` (close combat: the tags of fighters side by side step apart so
+## they never stack over the fighters' heads). Eased, so tags glide rather than jump.
+func nudge_tag(dx: float, alpha: float, delta: float) -> void:
+	if name_label == null or not match_tag:
+		return
+	var k := clampf(delta * 10.0, 0.0, 1.0)
+	name_label.position.x = lerpf(name_label.position.x, dx, k)
+	name_label.modulate.a = lerpf(name_label.modulate.a, alpha, k)
+	if tag_arrow != null:
+		tag_arrow.position.x = name_label.position.x * 0.5
+		tag_arrow.modulate.a = name_label.modulate.a
+
+
 ## The tag's pointer: a white downward triangle with a dark ink rim (tinted the player's colour by `modulate`; the rim stays dark).
 static func _tag_arrow_texture() -> ImageTexture:
 	if _tag_arrow_cache != null:

@@ -36,7 +36,9 @@ The combined order, to bridge the style across backgrounds, foreground, UI, figh
 3. **The beach's assets**: the islands are done (pass 60); the palm crowns, lighthouse and boat are modelled props, so they wait for the props pass (a foliage material on the fronds was tried: no visible change).
 4. ~~Foreground framing~~: tried, dropped (see weak point 4).
 5. **Effects consistency**: rings (jump, shockwave, shield hits) now carry the standard's fine ink edges (`Ring.inked`,
-   `review3_rings.png`); dust and smoke were already painted puffs. Next: a short effect style guide.
-6. **UI**: a written design system (type, spacing, panels, states, player colours), the in-match tags (weak point 5), the HUD hierarchy.
-7. **The blue KO blast's contrast** (weak point 6).
+   `review3_rings.png`); dust and smoke were already painted puffs; the effect style guide is in `docs/VISUAL_STYLE.md`.
+6. **UI**: the design system is written (`docs/MENUS.md`, "Main menu design system"); the in-match tags now step apart and fade in close
+   combat (`nudge_tag`, `review3_tags.png`).
+7. Done: **the KO blast's contrast**: a deeper body, clamped in value, and a smaller lit top, so a blue blast carries on a blue sky
+   (`review3_ko.png`).
 8. Regression: performance, aspect ratios, controller navigation, every stage.

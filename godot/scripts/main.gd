@@ -1098,9 +1098,27 @@ func _process_inner(delta: float) -> void:
 	})
 
 
+## How close (world units, across and up) two fighters are for their tags to step apart.
+const TAG_CROWD := Vector2(2.2, 2.6)
+
+
 func _update_hud(delta: float) -> void:
 	for i in mini(PLAYERS, views.size()):
 		views[i].set_overhead(overlay_on and not flag_noui, "P%d" % (i + 1), PLAYER_COLORS[i % PLAYER_COLORS.size()])
+	# Close combat: the tags of fighters near each other step apart toward their own sides and fade a little.
+	for i in mini(PLAYERS, views.size()):
+		if not _in_play(i):
+			continue
+		var push := 0.0
+		var near := false
+		for j in mini(PLAYERS, views.size()):
+			if j == i or not _in_play(j):
+				continue
+			var d: Vector2 = cur_pos[i] - cur_pos[j]
+			if absf(d.x) < TAG_CROWD.x and absf(d.y) < TAG_CROWD.y:
+				near = true
+				push += (TAG_CROWD.x - absf(d.x)) * (1.0 if d.x > 0.0 or (d.x == 0.0 and i > j) else -1.0)
+		views[i].nudge_tag(clampf(push * 0.45, -1.0, 1.0), 0.75 if near else 1.0, delta)
 	var rules: PackedInt32Array = sim.match_rules()
 	var frame: int = sim.match_frame()
 	var winner: int = sim.winner()

@@ -649,8 +649,8 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 
 
 ## Dresses a wooden platform for its stage, so it belongs to the place rather than being the same plank everywhere: rope lashings near
-## each end on the beach and in the canyon; moss over the front edge and a vine or two hanging below in the grove; a flower on the
-## meadow. Only at the ends and below the top, so the play surface and fighters' feet stay clear.
+## each end on the beach and in the canyon; moss over the front edge and a vine or two hanging below in the grove; the meadow's
+## plain plank. Only at the ends and below the top, so the play surface and fighters' feet stay clear.
 ## Deterministic (from the platform's place).
 static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right: float, top: float, front_z: float, depth: float) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -687,11 +687,8 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 				_mesh(parent, _cylinder(0.05, 0.07, vl, 6), vine, Vector3(vx, top - 0.45 - vl * 0.5, front_z - 0.1), Vector3.ONE, Vector3(0, 0, rng.randf_range(-8, 8)))
 				_mesh(parent, _sphere(0.13, 8), vine, Vector3(vx, top - 0.45 - vl, front_z - 0.1), Vector3(1.2, 0.8, 1.0))
 		"meadow":
-			# (Tufts of hay under the ends were tried: they read as bread rolls stuck to the plank.)
-			if w > 3.0:
-				var petal := _soft(Color(1.0, 0.62, 0.66))
-				_mesh(parent, _cylinder(0.02, 0.02, 0.4, 4), _soft(Color(0.36, 0.6, 0.3)), Vector3(right - 0.55, top - 0.55, front_z + 0.02))
-				_mesh(parent, _sphere(0.1, 8), petal, Vector3(right - 0.55, top - 0.75, front_z + 0.05))
+			# (Nothing: hay tufts under the ends read as bread rolls, a flower below as a dangling berry. The meadow's plank is its own.)
+			pass
 
 
 # ---- Backdrops ------------------------------------------------------------------------------------------------------------------------
