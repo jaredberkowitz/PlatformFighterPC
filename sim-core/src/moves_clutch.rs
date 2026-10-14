@@ -282,6 +282,7 @@ fn smashes(w: &mut Weapon) {
         start: 11,
         end: 15,
         parts: PART_HIGH | PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::FSmash as usize] = fsmash;
 
@@ -300,6 +301,7 @@ fn smashes(w: &mut Weapon) {
         start: 10,
         end: 12,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::USmash as usize] = usmash;
 

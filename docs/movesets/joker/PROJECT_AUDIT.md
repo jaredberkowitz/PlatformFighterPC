@@ -19,7 +19,7 @@ Engine inventory: `../SHARED_MECHANICS.md`. The reference character, its moves a
 * **The curse bolt** (side special): the bolt and its eruption, the curse's damage over time, the partner's multi-hit bolt that also
   bursts on the ground.
 * **The hook** (up special): the grounded pull-and-throw grab, the aerial hit, the tether to the ledge; with the partner the wings.
-  **Phase 2** (the tether is a new system), except the wings (built now, the powered up special).
+  Built in phase 2 (sim 123, the tether E56 below); the wings in phase 1.
 
 ## How the moves flow (traced)
 
@@ -75,6 +75,33 @@ On a frame the move's armor covers, a hit deals `armor_damage` per mille of its 
 `armor_hitlag` for both fighters and starts the hashed `Fighter::withstood` (frames since, plus one, counted outside hitlag), which the
 `withstood` register reads.
 
+### E56 (phase 2, sim 123): the tether (`Move::tether`, `FighterState::Tether`) and blockable grab boxes (`Hitbox::blockable`)
+
+Traced first: no tether existed. The ledge code had three paths: `fighter::ledge_in_reach` / `collision::find_ledge` (a body's own ledge
+grab box near the fighter), a move's `ledge_front_from` / `ledge_back_from` (up specials catching ledges with that same box), and
+`step`'s phase 2 (who gets a contested ledge, trumping the holder). None reaches a ledge far above, and none hangs a fighter off a ledge
+without holding it. Built, all general and defaulted:
+
+* `Move::tether: Option<Tether { from to ahead behind up down hang reel drag limit }>`: on the move's frames, airborne, a free ledge in a
+  box of reach (by the fighter's facing) is caught (`fighter::tether_catch`, reading `scripting::World::ledges`, the ledge holders as the
+  frame began). The fighter enters the new `FighterState::Tether` (the move that caught stays in `move_id`, its numbers read from there):
+  `hang` frames of damped drift (`drag` per mille a frame), then a straight `reel` to the ledge's hanging point, then a ledge request that
+  `step` grants as any grab (so the body's grab limit, intangibility and the contested rule all apply). The stick held down lets go; a
+  ledge held by someone when the reel ends throws the fighter off with the trump hop. Hashed `Fighter::tether_ledge`, `tether_count`
+  (reset by landing or getting up, not by a hit: `limit` catches), `tether_from`. The tether never holds the ledge itself.
+* `Hitbox::blockable` (grab boxes only): a raised shield or a reflector field the box touches stops that group for the rest of the move
+  (`combat::resolve_hits`, with `reflector_touching`), and `grab::can_catch` misses fighters in hitstun.
+
+### Phase 2's other general pieces (sim 123)
+
+* **Angle 365** (`ANGLE_HALF_LINK`, `fighter::half_launch`, `LINK_HALF`): half the attacker's momentum, whatever the knockback.
+* **Dodges in a move** (`Move::dodge_stale`): staled like a roll (`stale_dodge` on the move's first frame, `stale_shift` on its
+  intangibility; the staleness does not wear off during it).
+* **A part intangibility window's mode** (`PartIntangible::mode`, read with `Fighter::move_powered`): the up smash's arm only with the
+  partner.
+* **Damage dealt** (owner decision 80): the existing `Gauge::per_dealt` (the champion's) set to 1.3 for the phantom; a curse's ticks
+  now go through `gauge::on_damage_over_time` (taken, not dealt).
+
 ### Small ones
 
 * `start_special` takes the body's numbers (for `Gauge::keeps`).
@@ -84,14 +111,14 @@ On a frame the move's armor covers, a hit deals `armor_damage` per mille of its 
 
 ## Move slots
 
-`Ext0`-`Ext2` still hold the placeholder up special (the claws'); `Ext3`-`Ext7` the gun's forms, `Ext8` the powered bolt, `Ext9`-`Ext11` the
-guard's hold, end and backhand, `Ext12`-`Ext14` the stance, its counterattack and reflection, `Ext15` the wings. Phase 2's hook needs the
-three placeholder slots (ground hook, air hook, hook throw): all sixteen used.
+`Ext0` the hook in the air (with its rise), `Ext1` the hook's pull and throw, `Ext2` the hook in the air without the rise (phase 2);
+`Ext3`-`Ext7` the gun's forms, `Ext8` the powered bolt, `Ext9`-`Ext11` the guard's hold, end and backhand, `Ext12`-`Ext14` the stance, its
+counterattack and reflection, `Ext15` the wings. All sixteen used.
 
 ## Not built (limits)
 
-* The hook and its tether (phase 2: a tether to a ledge is a new system).
-* The partner's arrival and leaving animations, and its longer rolls (unpublished: gaps 2-4).
-* The gun's dodge staling and its 4-frame buffered delay; angle 365.
-* The up smash's arm intangibility with the partner (an E19 window cannot be tied to the partner).
+* The partner's arrival and leaving animations (owner decision 81: kept instant) and its longer rolls (unpublished: gap 4).
+* The gun's dodges are not stretched in length by staleness; the buffered delay only out of a shot, not between dodges.
+* The hook: the stick's tilt of the rise; the head's travel along the rope (held at the far end); the tether's swing and
+  `fighter_offset`; no reel-in by a button.
 * The house limits: one get-up attack, the grabs' aerial boxes, the throws' bystander hit and thrower invincibility.

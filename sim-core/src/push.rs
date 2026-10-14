@@ -54,6 +54,7 @@ fn body(f: &Fighter) -> Body {
         | S::AirDodge
         | S::LedgeHang
         | S::LedgeJump
+        | S::Tether
         | S::WallTech => Body::None,
         // (An attack in the air passes through bodies: aerials that carry or juggle a fighter on top of them, a drag-down, need the
         // overlap; on the ground an attack blocks but is not moved.)

@@ -393,6 +393,7 @@ fn spin(w: &mut Weapon) {
         start: 18,
         end: 23,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     ground.push_immune_from = 0;
     ground.push_immune_to = ground.total_frames;
@@ -441,6 +442,7 @@ fn spin(w: &mut Weapon) {
         start: 9,
         end: 37,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     air.helpless_after = true;
     air.fall_landing_lag = 38;
@@ -560,6 +562,7 @@ fn punch(w: &mut Weapon) {
             start: 3,
             end: 19,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         }];
         mv.charge_add = Some(ChargeAdd {
             full: 110,
@@ -702,6 +705,7 @@ fn tilts(w: &mut Weapon) {
         start: 5,
         end: 8,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::FTilt as usize] = ftilt;
 
@@ -730,6 +734,7 @@ fn tilts(w: &mut Weapon) {
         start: 4,
         end: 10,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::UTilt as usize] = utilt;
 
@@ -751,6 +756,7 @@ fn tilts(w: &mut Weapon) {
         start: 4,
         end: 6,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::DTilt as usize] = dtilt;
 
@@ -801,6 +807,7 @@ fn smashes(w: &mut Weapon) {
         start: 19,
         end: 25,
         parts: PART_HIGH | PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::FSmash as usize] = fsmash;
 
@@ -822,6 +829,7 @@ fn smashes(w: &mut Weapon) {
         start: 11,
         end: 14,
         parts: PART_HIGH | PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::USmash as usize] = usmash;
 
@@ -865,6 +873,7 @@ fn smashes(w: &mut Weapon) {
         start: 10,
         end: 13,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::DSmash as usize] = dsmash;
 }
@@ -944,6 +953,7 @@ fn aerials(w: &mut Weapon) {
         start: 4,
         end: 9,
         parts: PART_HIGH | PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::UAir as usize] = uair;
 

@@ -4,9 +4,12 @@
 // `dodges`), on the ground jump or the stick up jumps while firing below (33 = ext5), and a kept press fires again (the move starts
 // over: the next shot 25 frames after the last). In the air from 13 (its 14; 14 with the partner, its 15) the stick down with special
 // fires below (35 = ext7) and up spins (34 = ext6). Let go by its last frame (its 36; 41 with the partner) it ends there (FAF 37 / 42);
-// still held, it fires again from the frame after, as a new press would.
+// still held, it fires again from the frame after, as a new press would. A dodge or the jump whose input was already in on the frame
+// before `ready` (buffered: special held with the stick sideways, or the jump input) comes 4 frames later (`early`, sim 123: the
+// reference's "buffered maneuvers"); a kept press to fire again is not a maneuver and is not delayed.
 var pressed;
 var dodges;
+var early;
 let ready = 25 + 8 * powered;
 let aerial = 13 + powered;
 let last = 35 + 5 * powered;
@@ -21,6 +24,15 @@ if grounded == 0 && frame >= aerial && special && stick_y <= -0.5 {
 if grounded == 0 && frame >= aerial && special && stick_y >= 0.5 {
     pressed = 0;
     goto(34);
+    return;
+}
+if frame == ready - 1 {
+    early = 0;
+    if (abs(stick_x) >= 0.7 && special && dodges < 4) || (grounded && (jump || stick_y >= 0.7)) {
+        early = 1;
+    }
+}
+if frame >= ready && frame < ready + 4 * early {
     return;
 }
 if frame >= ready {

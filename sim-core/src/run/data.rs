@@ -287,6 +287,7 @@ fn mob_hit(x: i32, y: i32, r: i32, damage: i32, angle: i16, bkb: i16, kbg: i16) 
         unblockable: false,
         mode: moves::MODE_ANY,
         part: 0,
+        blockable: false,
     }
 }
 

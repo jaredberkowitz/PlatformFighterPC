@@ -11,12 +11,13 @@ use sim_core::moves::{
     AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, Curse,
     DropThrough, Encase, Fall, FlagVersion, Hitbox, ItemBlast, ItemSpec, Latch, Motion, Move,
     MoveId, PartIntangible, Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn,
-    Reflector, Tool, Toss, Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP, ANGLE_BACKWARD,
-    ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE, ARMOR_KNOCKBACK,
-    ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL,
-    HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, MODE_ANY, MODE_PLAIN, MODE_POWERED, PART_HIGH,
-    PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES, POCKET_NEVER, POCKET_YES, RULES_CURRENT,
-    RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    Reflector, Tether, Tool, Toss, Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
+    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
+    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL,
+    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, MODE_ANY, MODE_PLAIN,
+    MODE_POWERED, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES, POCKET_NEVER,
+    POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT, TARGETS_AERIAL,
+    TARGETS_ALL, TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -663,6 +664,7 @@ fn missing_hitbox() -> Hitbox {
         unblockable: false,
         mode: MODE_ANY,
         part: 0,
+        blockable: false,
     }
 }
 
@@ -823,6 +825,8 @@ fn read_hitbox(block: &Block, context: &str, errors: &mut Vec<String>) -> Hitbox
         unblockable: f.or("unblockable", false, errors),
         mode,
         part: f.or("part", 0, errors),
+        // Sim 123: a grab box shields and reflectors stop (E56).
+        blockable: f.or("blockable", false, errors),
     };
     f.finish(errors);
     hb
@@ -948,6 +952,9 @@ fn write_hitbox(hb: &Hitbox) -> Block {
     if hb.part != 0 {
         b.field("part", hb.part.to_string());
     }
+    if hb.blockable {
+        b.field("blockable", "true");
+    }
     b
 }
 
@@ -1035,6 +1042,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
     m.armor_damage = f.or("armor_damage", 1000, errors);
     m.armor_hitlag = f.or("armor_hitlag", 100, errors);
     m.gauge_gain = f.or("gauge_gain", 1000, errors);
+    m.dodge_stale = f.or("dodge_stale", false, errors);
     if let Some((key, line)) = f.raw("next") {
         match MoveId::from_key(key) {
             Some(id) => m.next = Some(id as u8),
@@ -1176,6 +1184,7 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "latch",
             "flag_version",
             "curse",
+            "tether",
         ],
         context,
         errors,
@@ -1190,6 +1199,24 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             frames: cf.need("frames", None, errors),
         });
         cf.finish(errors);
+    }
+    // Sim 123: a tether (E56) and a dodge that stales like a roll.
+    if let Some(b) = at_most_one(children(block, "tether"), "tether", context, errors) {
+        let ctx = format!("the tether of {context}");
+        let mut tf = Fields::new(b, &ctx, errors);
+        m.tether = Some(Tether {
+            from: tf.need("from", None, errors),
+            to: tf.need("to", None, errors),
+            ahead: tf.need("ahead", None, errors),
+            behind: tf.or("behind", Fx::ZERO, errors),
+            up: tf.need("up", None, errors),
+            down: tf.or("down", Fx::ZERO, errors),
+            hang: tf.or("hang", 0, errors),
+            reel: tf.need("reel", None, errors),
+            drag: tf.or("drag", 0, errors),
+            limit: tf.need("limit", None, errors),
+        });
+        tf.finish(errors);
     }
     // Sim 119: a latch (E49) and the versions picked by the once-per-airtime flags and marks (owner decision 75).
     if let Some(b) = at_most_one(children(block, "latch"), "latch", context, errors) {
@@ -1349,10 +1376,25 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                     parts |= bit;
                 }
             }
+            // (Sim 123: a window for one mode, as a hitbox's.)
+            let mode = match f.raw("mode") {
+                None | Some(("any", _)) => MODE_ANY,
+                Some(("plain", _)) => MODE_PLAIN,
+                Some(("powered", _)) => MODE_POWERED,
+                Some((other, line)) => {
+                    err(
+                        errors,
+                        line,
+                        format!("`mode` must be any, plain or powered, not `{other}`"),
+                    );
+                    MODE_ANY
+                }
+            };
             let w = PartIntangible {
                 start: f.need("start", None, errors),
                 end: f.need("end", None, errors),
                 parts,
+                mode,
             };
             f.finish(errors);
             w
@@ -1780,6 +1822,11 @@ fn write_move(id: MoveId, m: &Move) -> Block {
                 c.field(name, "true");
             }
         }
+        match w.mode {
+            MODE_PLAIN => c.field("mode", "plain"),
+            MODE_POWERED => c.field("mode", "powered"),
+            _ => {}
+        }
         b.push(c);
     }
     for a in &m.air_blocks {
@@ -1873,6 +1920,31 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         cb.field("every", c.every.to_string());
         cb.field("frames", c.frames.to_string());
         b.push(cb);
+    }
+    if m.dodge_stale {
+        b.field("dodge_stale", "true");
+    }
+    if let Some(t) = &m.tether {
+        let mut c = Block::new("tether", None);
+        c.field("from", t.from.to_string());
+        c.field("to", t.to.to_string());
+        c.field("ahead", t.ahead.show());
+        if t.behind != Fx::ZERO {
+            c.field("behind", t.behind.show());
+        }
+        c.field("up", t.up.show());
+        if t.down != Fx::ZERO {
+            c.field("down", t.down.show());
+        }
+        if t.hang != 0 {
+            c.field("hang", t.hang.to_string());
+        }
+        c.field("reel", t.reel.to_string());
+        if t.drag != 0 {
+            c.field("drag", t.drag.to_string());
+        }
+        c.field("limit", t.limit.to_string());
+        b.push(c);
     }
     if let Some(l) = &m.latch {
         let mut c = Block::new("latch", None);

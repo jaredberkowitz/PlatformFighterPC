@@ -693,6 +693,7 @@ fn tilts(w: &mut Weapon) {
         start: 13,
         end: 16,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     w.moves[MoveId::UTilt as usize] = utilt;
 
@@ -793,11 +794,13 @@ fn smashes(w: &mut Weapon) {
             start: 21,
             end: 22,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         },
         PartIntangible {
             start: 27,
             end: 28,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         },
     ];
     w.moves[MoveId::USmash as usize] = usmash;

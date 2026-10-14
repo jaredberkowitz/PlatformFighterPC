@@ -545,6 +545,7 @@ fn tilts(w: &mut Weapon) {
         start: 13,
         end: 34,
         parts: PART_LIMB,
+        mode: MODE_ANY,
     }];
     // It clanks but cannot rebound (the reference's `rebound=f` without `clang=f` on every box, ssbwiki.com raw table; E3g, sim 86).
     for h in &mut ftilt.hitboxes {
@@ -655,11 +656,13 @@ fn tilts(w: &mut Weapon) {
             start: 4,
             end: 5,
             parts: PART_HIGH | PART_MIDDLE | PART_LIMB,
+            mode: MODE_ANY,
         },
         PartIntangible {
             start: 4,
             end: 15,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         },
     ];
     w.moves[MoveId::DashAttack as usize] = dash;
@@ -883,11 +886,13 @@ fn aerials(w: &mut Weapon) {
             start: 6,
             end: 6,
             parts: PART_HIGH | PART_MIDDLE | PART_LIMB,
+            mode: MODE_ANY,
         },
         PartIntangible {
             start: 6,
             end: 9,
             parts: PART_LIMB,
+            mode: MODE_ANY,
         },
     ];
     w.moves[MoveId::BAir as usize] = bair;

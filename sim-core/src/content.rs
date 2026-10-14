@@ -1795,14 +1795,16 @@ impl FighterParams {
     /// The phantom's gauge, its partner's (the reference's, ssbwiki.com's article on the gauge and ultimateframedata.com, 13.0.1; E53):
     /// 100 units; 0.00925 a frame by itself (not on a revival platform); 1.3 a percent of damage taken (with the one-on-one
     /// multiplier: the damage actually added), x1.25 one stock behind the leader and x1.5 two or more (the reference's 1.625 and 1.95),
-    /// x(1.1, 1.1667) with three fighters and x(1.2, 1.3333) with four when behind; nothing from damage dealt. Full, the partner comes for
+    /// x(1.1, 1.1667) with three fighters and x(1.2, 1.3333) with four when behind. Damage dealt (the phantom's and its partner's hits on
+    /// fighters, not shields or the curse's ticks) fills it 1.3 a percent too, with no stock-gap or crowd multiplier: a house rule (owner
+    /// decision 80, sim 123), not the reference's [E]. Full, the partner comes for
     /// 1800 frames; while it is out nothing fills the gauge, and each percent taken cuts 16 frames (10.2 with four fighters); a stun (a
     /// broken shield) stops the clock. Its specials do not spend it. A KO leaves 20 units (25 two stocks behind, 30 three or more). The
     /// body's own numbers do not change with it (no multipliers) [R]. The guard's gain is its move's (`Move::gauge_gain`).
     pub fn phantom_gauge() -> Gauge {
         Gauge {
             max: Fx::from_int(100),
-            per_dealt: Fx::ZERO,
+            per_dealt: Fx::from_ratio(13, 10),
             per_taken: Fx::from_ratio(13, 10),
             mode_frames: 1800,
             per_frame: Fx::from_ratio(925, 100_000),
