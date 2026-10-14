@@ -43,3 +43,10 @@ grading (each stage keeps its own finish).
   of one flat pink plane.
 - Checked at play distance (the fighters still lead) and with the look bench.
 - **Images**: `docs/screenshots/stage3_canyon.png` (before top).
+
+## Pass 4: the city's street
+
+- The road was a flat purple fill; it is painted asphalt now (a new `asphalt.svg`: grit, a sealed crack, a patch, with the concrete
+  detail over it, laid in world space). The roof tile was tried first: its slab grid read as plaza paving, not road.
+- The kerbs are inked painted stone; two worn zebra crossings either side of the building give the street a reason to be a street.
+- **Images**: `docs/screenshots/stage4_city_street.png` (before left).

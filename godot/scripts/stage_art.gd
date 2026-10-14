@@ -2802,9 +2802,11 @@ const CITY_STREET_DROP := 6.0
 ## it with warm pools of light, and a few cars driving both ways with their lights on. One flat stretch from far left to far right, so a
 ## camera pulled right back sees a city that stands on the ground.
 static func _street(root: Node3D, y: float, front: float) -> void:
-	var asphalt := FighterView.toon(Color(0.24, 0.21, 0.32))
+	# (Painted asphalt (godot/art/stage/asphalt.svg: grit, a sealed crack, a patch) laid in world space, and inked stone kerbs: flat fills read as a
+	# different, unfinished style beside the painted rooftop.)
+	var asphalt := Materials.world("asphalt", Color(0.3, 0.27, 0.4), 6.0, false)
 	var pave := Materials.stone(Color(0.46, 0.42, 0.56), Vector2(40, 2))
-	var kerb := FighterView.toon(Color(0.6, 0.56, 0.7))
+	var kerb := Materials.stone(Color(0.6, 0.56, 0.7), Vector2(60, 1))
 	# The pavement round the stage building, the road, the far pavement and its kerb.
 	_mesh(root, _box(Vector3(300.0, 0.5, 6.0)), pave, Vector3(0, y, front + 1.0))
 	_mesh(root, _box(Vector3(300.0, 0.5, 22.0)), asphalt, Vector3(0, y - 0.25, front - 18.0))
@@ -2817,6 +2819,12 @@ static func _street(root: Node3D, y: float, front: float) -> void:
 	while x < 150.0:
 		_mesh(root, _box(Vector3(2.4, 0.04, 0.3)), paint, Vector3(x, y + 0.01, front - 18.0))
 		x += 5.0
+	# Zebra crossings either side of the stage building, worn a little.
+	var zebra := _unshaded(Color(0.86, 0.84, 0.9))
+	for cx in [-34.0, 36.0]:
+		for j in 7:
+			_mesh(root, _box(Vector3(1.0, 0.04, 2.4)), zebra, Vector3(cx + j * 1.7, y + 0.02, front - 11.0 - float(j % 2) * 0.1))
+			_mesh(root, _box(Vector3(1.0, 0.04, 2.4)), zebra, Vector3(cx + j * 1.7, y + 0.02, front - 24.8))
 	# Street lamps along the far pavement: a post, an arm out over the road, a lamp and a warm halo.
 	var iron := FighterView.toon(Color(0.2, 0.18, 0.28))
 	var lamp := _unshaded(Color(1.0, 0.9, 0.62))
