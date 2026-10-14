@@ -44,9 +44,12 @@ pub struct FighterParams {
     /// The initial dash can be cut short by the shield from this frame on (about half of `dash_frames`); a shield held earlier comes
     /// out then.
     pub dash_shield_frame: u8,
-    /// A flick the other way within this many frames of an initial dash's start reverses it at once (the reference's 5: its "fast"
-    /// turnaround). Later in the initial dash the flick is held, and the dash turns when it ends (`dash_frames`); once it is a run,
-    /// a flick back is the run's skid (sim 103; until then this was 15 and reached into the run).
+    /// A flick the other way within this many frames of an initial dash's start reverses it at once. Later in the initial dash the
+    /// flick is held, and the dash turns when it ends (`dash_frames`); once it is a run, a flick back is the run's skid.
+    ///
+    /// 255 (owner decision 2026-10-14, sim 106): every flick back in the initial dash turns at once; the held turn felt sluggish.
+    /// **The reference's value is 5** (its "fast" turnaround on frames 1-5, the rest held to the dash's end: sim 103): set it back to 5
+    /// to try that again with more playtesters (`feel.rs::the_reference_held_turn_*` keeps it working).
     pub dash_reverse_frames: u8,
     /// A reversed dash stands still this many frames before it starts accelerating (the turnaround).
     pub dash_turn_delay: u8,
@@ -640,7 +643,7 @@ impl FighterParams {
             dash_accel: gu(300),
             dash_brake: gu(520),
             dash_frames: 10,
-            dash_reverse_frames: 5,
+            dash_reverse_frames: 255,
             dash_turn_delay: 2,
             dash_shield_frame: 5,
             turn_frames: 6,

@@ -413,3 +413,9 @@ accelerating against 1 for a dash).
 Not changed: dash speeds and acceleration (each port's own data), the committed initial dash, shield from `dash_shield_frame`, and the
 run's skid. Tests: `sim-core/tests/feel.rs` (the turnaround windows, the dash back's length, the foxtrot's interrupt frame, the stand
 after a dash).
+
+**Owner decision 2026-10-14 (sim 106): late dash turns are instant again.** The held turn above felt sluggish in play, so
+`dash_reverse_frames` is now 255: a flick back anywhere in the initial dash turns at once (with the turnaround stand). The rest of sim 103
+stays (a run skids, the dash back's length, the foxtrot's interrupt frame). **To try the reference's held turn again** (for example with
+more playtesters), set `dash_reverse_frames` back to **5** in `FighterParams::base` (or per body in content) and re-export base.pfc;
+`feel.rs::the_reference_held_turn_still_works_with_dash_reverse_frames_5` keeps that path tested.
