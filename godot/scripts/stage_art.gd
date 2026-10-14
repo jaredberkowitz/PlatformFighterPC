@@ -26,7 +26,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.97, 0.86), 0.25], "sky_wisps": [Color(1.0, 1.0, 1.0), 0.5],
 		"soil": Color(0.84, 0.68, 0.44), "soil_dark": Color(0.6, 0.47, 0.32), "grass": Color(0.46, 0.82, 0.16),
 		"grass_light": Color(0.66, 0.92, 0.34), "wood": Color(0.86, 0.62, 0.36), "wood_dark": Color(0.62, 0.42, 0.24),
-		"pattern": "masonry", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "moss": Color(0.4, 0.66, 0.14),
+		"pattern": "earth", "cap": "grass", "platform": "wood", "grass_vary": 0.17, "moss": Color(0.4, 0.66, 0.14),
 	},
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
@@ -224,6 +224,58 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.4"/>' % [cx, by + 14.0, rng.randf_range(-8, 8), rng.randf_range(16, 30), rng.randf_range(-10, 10), rng.randf_range(10, 22), ink]
 					x += w
 				course += 1
+		"earth":
+			# A bank of farm soil, painted (the meadow's own; the beach keeps the masonry): broad beds of warm earth with soft, gently waving
+			# boundaries, stones of very different sizes half buried in it (a few big boulders, more middling ones, many pebbles; each with a
+			# lit top, a shade under it and a soft ink), a few fine roots hanging from the turf, and grit. Twice the size of the other
+			# patterns and laid every 12 units, so no repeat shows across a stage. Anything crossing an edge is drawn again across it.
+			var S := 512.0
+			body += '<rect width="512" height="512" fill="#%s"/>' % A
+			var bed_cols := [a.lerp(b, 0.2), a.lerp(b, 0.45), a.lerp(b, 0.1), a.lerp(b, 0.6)]
+			for k in 4:
+				var y0 := 70.0 + k * 118.0
+				var d := "M0,%.1f" % y0
+				for x in range(32, 513, 32):
+					d += " L%d,%.1f" % [x, y0 + sin(float(x) / S * TAU * float(1 + k % 2) + float(k) * 2.1) * 9.0 + sin(float(x) / S * TAU * 3.0 + float(k)) * 4.0]
+				body += '<path d="%s L512,%.1f L0,%.1f Z" fill="#%s" opacity="0.75"/>' % [d, y0 + 80.0, y0 + 80.0, (bed_cols[k] as Color).to_html(false)]
+				# A soft darker seam where each bed meets the one above.
+				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="6" stroke-opacity="0.18"/>' % [d, b.darkened(0.3).to_html(false)]
+			var stone_base := Color(0.8, 0.74, 0.66).lerp(a, 0.5)
+			var stones := []
+			for j in 3:
+				stones.append([rng.randf_range(0.0, S), rng.randf_range(60.0, S - 40.0), rng.randf_range(34.0, 46.0)])
+			for j in 7:
+				stones.append([rng.randf_range(0.0, S), rng.randf_range(0.0, S), rng.randf_range(20.0, 32.0)])
+			for j in 16:
+				stones.append([rng.randf_range(0.0, S), rng.randf_range(0.0, S), rng.randf_range(6.0, 12.0)])
+			for st in stones:
+				var rx: float = st[2]
+				var ry := rx * rng.randf_range(0.62, 0.8)
+				var tone := stone_base.lerp(b, rng.randf_range(0.0, 0.3))
+				var tilt := rng.randf_range(-12.0, 12.0)
+				for ox in [-S, 0.0, S]:
+					for oy in [-S, 0.0, S]:
+						var cx: float = st[0] + ox
+						var cy: float = st[1] + oy
+						var rot := 'transform="rotate(%.1f %.1f %.1f)"' % [tilt, cx, cy]
+						# Shade in the soil under the stone, the stone, its lit top.
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.25" %s/>' % [cx + 2.0, cy + ry * 0.35, rx * 1.05, ry * 0.9, b.darkened(0.35).to_html(false), rot]
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="%.1f" stroke-opacity="0.4" %s/>' % [cx, cy, rx, ry, tone.to_html(false), ink, clampf(rx * 0.08, 1.5, 3.5), rot]
+						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.5" %s/>' % [cx - rx * 0.12, cy - ry * 0.32, rx * 0.66, ry * 0.42, tone.lightened(0.25).to_html(false), rot]
+						if rx > 32.0:
+							# A crack across a boulder.
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.35"/>' % [cx - rx * 0.3, cy - ry * 0.6, rx * 0.15, ry * 0.5, rx * 0.2, ry * 0.4, ink]
+			# Fine roots hanging from the turf at the top of the tile (the wall's top is under the grass lip).
+			var root_col := Color(0.6, 0.42, 0.28)
+			for j in 4:
+				var rx0 := 40.0 + float(j) * 131.0
+				var len := 50.0 + float(j % 3) * 30.0
+				for ox in [-S, 0.0, S]:
+					var d := "M%.1f,-4 q%.1f,%.1f %.1f,%.1f" % [rx0 + ox, 14.0 - float(j % 2) * 28.0, len * 0.5, -6.0 + float(j) * 4.0, len]
+					body += '<path d="%s" fill="none" stroke="#%s" stroke-width="4" stroke-linecap="round" stroke-opacity="0.45"/>' % [d, ink]
+					body += '<path d="%s" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round"/>' % [d, root_col.to_html(false)]
+			for j in 60:
+				body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.3"/>' % [rng.randf_range(0.0, S), rng.randf_range(0.0, S), rng.randf_range(1.2, 2.6), b.darkened(0.3).to_html(false)]
 		"roots":
 			# Packed earth under a great tree, painted: soft layers of warm soil, roots winding through it (thick and thin, each a rounded
 			# stroke with a lit upper edge and a dark under edge, tapering as they go), a few rounded stones bedded in it and specks of
@@ -294,14 +346,14 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						var y: float = c[1]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.5" stroke-linejoin="round"/>' % [x, y - 56, x + 56, y, x, y + 56, x - 56, y, A, ink]
 						body += '<path d="M%.0f,%.0f L%.0f,%.0f" stroke="#%s" stroke-width="5" stroke-linecap="round" opacity="0.6"/>' % [x - 40, y - 8, x - 8, y - 40, hi]
-	var px := 512 if pattern == "facade" else 256
+	var px := 512 if pattern == "facade" or pattern == "earth" else 256
 	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">%s</svg>' % [px, px, px, px, body]
 	var img := Image.new()
 	img.load_svg_from_string(svg, 1.0)
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	# On the stage's cel shading, laid in world space (one repeat every 3 units, so the stones and bands read large and calm; a facade's every 6.6).
-	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0}.get(pattern, 3.0))
+	var m := FighterView.toon(Color.WHITE, true, tex, Vector2.ONE, {"facade": 6.6, "masonry": 7.0, "strata": 6.0, "roots": 8.0, "earth": 12.0}.get(pattern, 3.0))
 	# The front falls further into the cool shade below its lit rim than the default, so the fighting surface and the fighters on it
 	# lead and the wall under them settles back (the attention hierarchy in docs/ART_DIRECTION.md).
 	m = m.duplicate()
@@ -505,10 +557,14 @@ static func _band_material() -> StandardMaterial3D:
 	return _band_mat
 
 
+## How deep a platform is, front to back (world units, back from its front).
+const PLATFORM_DEPTH := 4.0
+
+
 ## A pass-through platform in the theme: a rounded wooden plank (a light board on a darker beam), or a steel girder with rivets.
 static func platform(parent: Node3D, t: Dictionary, left: float, right: float, top: float, front_z: float) -> void:
 	var w := right - left
-	var depth := 4.0
+	var depth := PLATFORM_DEPTH
 	var cx := (left + right) / 2.0
 	if t.get("platform", "wood") == "girder":
 		var steel := _surface(t.wood, "steel", 3.0)

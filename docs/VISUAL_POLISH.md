@@ -73,6 +73,25 @@ read well; the faces, wardrobe and moves depend on them, so they stay. Hands are
   demo, warm shader cache, alternated runs): 383 fps against 391 before, GPU 1.71 ms against 1.66 ms. The first run after a shader
   change hitches while the cache rebuilds; that is not a cost in play.
 
+### Pass 54: the meadow platform (phase 4; step 6 of docs/ART_REVIEW_2.md for the meadow)
+
+- **The front**: the meadow and the beach shared one masonry tile, a grid of rounded panels. The meadow now has its own `earth` pattern
+  (`stage_art.gd`): broad beds of farm soil with soft waving seams, half-buried stones of very different sizes (a few boulders, more
+  middling stones, many pebbles; lit tops, shade under them), fine roots hanging from the turf, grit. It is drawn at 512 px and laid
+  every 12 units, so no repeat shows across the stage. The beach keeps the masonry, which suits a sea wall. First try had a boulder the
+  size of a fighter right under the fighting; the boulders are smaller and closer in value to the soil now.
+- **The lawn's patches**: long, hard-sided darker rectangles on the lawn were the platforms' cast shadows (confirmed by switching the
+  stage AO off: they stayed). A plank three units up cast a shadow as crisp as a fighter's foot. The key light's angular size is now 5
+  degrees (from 0.35), so a shadow softens with its distance from what casts it: contact shadows stay crisp, the platforms' shade
+  becomes a soft pool. (2 degrees changed nothing visible; 10 lost the platforms' shade altogether.)
+- **The stage AO under platforms** (`stage_ao.gdshaderinc`, found on the way): the baked map is flat (across and up only), so on the
+  ground it shaded the whole depth of the lawn under a platform, back to front. Ground (a surface facing up) now takes it only under
+  the platforms' depth (`pf_ao_depth`, from `StageArt.PLATFORM_DEPTH`), fading over a unit. Fighters and walls are unchanged.
+- **Images**: `docs/screenshots/polish3_meadow_platform.png` (the platform and front, before left), `polish3_lawn_shade.png` (the lawn).
+- **Checks run**: every stage at play distance and close up; the look bench (0.90); match flow, fighter view and art pipeline tests.
+  Performance could not be measured cleanly this pass (the machine was busy: the GPU time swung between 1.8 and 5.5 ms with either
+  shadow setting); to be measured again.
+
 ## Skipped, and why
 
 Nothing yet.

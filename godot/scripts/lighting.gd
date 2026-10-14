@@ -149,7 +149,7 @@ static func apply(env: Environment, root: Node, preview := false) -> void:
 	# keep the edge clean; the shadow range only as far
 	# as the camera ever is from the stage, so the shadow map's detail goes where the fighting is.
 	key.shadow_blur = 0.3
-	key.light_angular_distance = 0.35
+	key.light_angular_distance = 5.0
 	key.directional_shadow_max_distance = 70.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	key.directional_shadow_split_1 = 0.35
