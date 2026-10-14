@@ -4,7 +4,7 @@
 //! * No floating point. Use [`fixed::Fx`] (16.16) and the lookup-table trig in [`trig`].
 //! * No `HashMap`/`HashSet`. Use arrays, slot pools or `BTreeMap`.
 //! * No clocks, threads, I/O or global state. All randomness comes from [`rng::Rng`] stored in state.
-//! * Everything that changes lives in [`state::GameState`]; content is immutable and hashed.
+//! * Everything that changes lives in [`state::GameState`] (a run's too: [`run::Run`]); content is immutable and hashed.
 
 pub mod balloons;
 pub mod collision;
@@ -22,6 +22,7 @@ pub mod items;
 pub mod moves;
 pub mod push;
 pub mod rng;
+pub mod run;
 pub mod scripting;
 pub mod state;
 pub mod step;
@@ -37,7 +38,7 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 117;
+pub const SIM_VERSION: u16 = 118;
 pub const MAX_FIGHTERS: usize = 4;
 pub const MAX_SCRIPT_VARS: usize = 16;
 /// Persistent script variables each fighter and each projectile carries (see `sim-script`).

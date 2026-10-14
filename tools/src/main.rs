@@ -8,6 +8,7 @@
 //! pftool fuzz-rollback [runs]            randomised local-rollback runs; non-zero exit on any desync
 //! pftool net-fuzz | net-host | net-join | net-relay   networked play, see `net.rs`
 //! pftool content-export <out.pfc> | content-check <file.pfc> | content-pack <in.pfc> <out.pfc>   content bundles
+//! pftool run-bot [seeds] [frames] | run-bench [frames]   the single-player run: a bot's runs, and the step's cost with 16 mobs
 //!
 //! Every command uses the built-in roster unless the environment variable PF_CONTENT names a bundle file.
 
@@ -15,6 +16,7 @@ mod balance;
 mod content;
 mod net;
 mod replay;
+mod runs;
 
 use netplay::local_rollback::{random_delays, verify};
 use replay::Replay;
@@ -41,8 +43,10 @@ fn main() -> ExitCode {
         Some("content-export") => content::cmd_export(&args[1..]),
         Some("content-check") => content::cmd_check(&args[1..]),
         Some("content-pack") => content::cmd_pack(&args[1..]),
+        Some("run-bot") => runs::cmd_bot(&args[1..]),
+        Some("run-bench") => runs::cmd_bench(&args[1..]),
         _ => Err(
-            "usage: pftool <gen|run|replay-verify|balance|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack> ..."
+            "usage: pftool <gen|run|replay-verify|balance|selftest|fuzz-rollback|net-fuzz|net-host|net-join|net-relay|content-export|content-check|content-pack|run-bot|run-bench> ..."
                 .to_string(),
         ),
     };
