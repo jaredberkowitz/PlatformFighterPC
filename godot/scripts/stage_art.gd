@@ -1487,10 +1487,9 @@ const RIDGES := {
 		"tone": Color(0.55, 0.26, 0.3), "mix": 0.62, "edge": 0.5}],
 	"night": [{"z": -160.0, "y": -42.0, "height": 56.0, "shape": 1, "seed": 2.0, "base": 0.4, "amplitude": 0.45, "frequency": 4.0,
 		"tone": Color(0.08, 0.1, 0.24), "mix": 0.55, "edge": 0.35}],
-	# (The sea's horizon: a bank of piled cumulus far off, then the low hazy line of a far coast in front of it.)
-	# (The bank of cumulus piled on the sea's horizon is modelled, `_ocean`; the card's flat white band read as a strip of paper.)
-	"ocean": [{"z": -175.0, "y": -3.0, "height": 14.0, "shape": 0, "seed": 4.0, "base": -0.25, "amplitude": 0.75, "frequency": 6.0,
-		"tone": Color(0.3, 0.5, 0.62), "mix": 0.45, "edge": 0.4}],
+	# (The sea's horizon is the bank of piled cumulus modelled in `_ocean`, with the distant islands in front of it. A far coast drawn
+	# here had its foot under the sea, so only a thin faded hump showed, a see-through lens across the clouds: removed, art review 5.)
+	"ocean": [],
 }
 
 
