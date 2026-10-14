@@ -933,7 +933,7 @@ fn an_unblockable_hit_lands_through_a_raised_shield() {
 
 #[test]
 fn a_fixed_stun_hit_holds_a_victim_it_does_not_tumble_exactly_that_long() {
-    // Sim 119: `Hitbox::fixed_stun` (the reference's monkey flip jump-off, 20 frames): a weak hit's hitstun becomes exactly that; a
+    // Sim 119: `Hitbox::fixed_stun` (the reference's flip jump-off, 20 frames): a weak hit's hitstun becomes exactly that; a
     // tumbling one keeps its own.
     use sim_core::input::buttons::ATTACK;
     let stun_of = |fixed: u8, growth: i16| {

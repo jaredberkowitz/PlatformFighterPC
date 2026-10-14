@@ -1297,7 +1297,7 @@ pub(crate) fn apply_hit(
     if older && stun > 0 && kb >= rules.tumble_knockback {
         stun += u16::from(rules.prev_tumble_hitstun);
     }
-    // A hit that holds a victim it does not tumble for a set time (sim 119: the reference's monkey flip jump-off, 20 frames).
+    // A hit that holds a victim it does not tumble for a set time (sim 119: the reference's flip jump-off, 20 frames).
     if hb.fixed_stun > 0 && kb < rules.tumble_knockback {
         stun = u16::from(hb.fixed_stun);
     }

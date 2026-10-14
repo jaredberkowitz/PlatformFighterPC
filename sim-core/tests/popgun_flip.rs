@@ -1,4 +1,4 @@
-//! The Popgun's side special, the monkey flip (class 11, the scamp body), modelled mechanically on a reference character: the leap
+//! The Popgun's side special, the flip (class 11, the scamp body), modelled mechanically on a reference character: the leap
 //! (ground and air), its command grab, the latch (E49: a ride on the caught fighter with the ordinary hold's clock and mash-out, a
 //! repeating scratch), its attack and jump exits, the kick on a second press (which bars the up special until landing), the whiff and
 //! the ledges. Reference data: the twelfth moveset's `REFERENCE_DATA.md` (`docs/movesets/diddy_kong/`).

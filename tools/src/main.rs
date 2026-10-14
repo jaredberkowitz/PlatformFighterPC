@@ -248,7 +248,7 @@ pub(crate) fn placed_body(content: &Content) -> Option<u8> {
         .map(|i| i as u8)
 }
 
-/// The first body of `content` whose weapon has a latch (E49: the scamp's monkey flip), if any.
+/// The first body of `content` whose weapon has a latch (E49: the scamp's flip), if any.
 pub(crate) fn latch_body(content: &Content) -> Option<u8> {
     content
         .fighters

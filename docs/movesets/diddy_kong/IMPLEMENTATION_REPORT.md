@@ -142,7 +142,7 @@ state (E49); only the first rocket charge of an air time falls slowly; the Settl
 * **E51**: `Hitbox::unblockable` (the flying barrels: a raised or passive shield does not stop them) and `Move::self_damage` (the
   crash: 5% to the scamp [E]).
 * The `jump_tap` register (the latch jumps off on a new press only, not one held since before the flip).
-* **The monkey flip** (`monkey_flip` in `moves_popgun.rs`; side special, `FLIP_AIR` ext9, `FLIP_KICK` ext10, `LATCH` ext11,
+* **The monkey flip** (`flip_special` in `moves_popgun.rs`; side special, `FLIP_AIR` ext9, `FLIP_KICK` ext10, `LATCH` ext11,
   `LATCH_ATTACK` ext12, `LATCH_JUMP` ext13; scripts `popgun_flip`, `popgun_flip_kick`, `popgun_latch`, `popgun_latch_attack`,
   `popgun_latch_jump`):
   * the leap: a crouch, launched on 13 (2.2 of the reference's units a frame ahead, 1.7 up; 2.8 ahead for a smash input [E]), no air

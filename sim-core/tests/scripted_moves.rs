@@ -1080,7 +1080,7 @@ fn the_pull_wait_register_reads_the_wait_a_toss_started_counting_down() {
 
 #[test]
 fn the_jump_tap_register_is_1_only_on_the_frame_jump_went_down() {
-    // Sim 119: what the monkey flip's latch reads to jump off on a new press only.
+    // Sim 119: what the flip's latch reads to jump off on a new press only.
     let mut sim = with_special(scripted(
         20,
         "var t; var n; t = jump_tap; n = n + jump_tap;",

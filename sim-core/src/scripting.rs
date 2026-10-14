@@ -191,7 +191,7 @@ impl Host for FighterHost<'_> {
             }
             // (E47, sim 117: the wait a move's toss started.)
             api::R_PULL_WAIT => Fx::from_int(i32::from(f.pull_wait)).raw(),
-            // (Sim 119: the monkey flip's latch jumps off on a new press.)
+            // (Sim 119: the flip's latch jumps off on a new press.)
             api::R_JUMP_TAP => flag(f.pressed_within(buttons::JUMP, 1)),
             _ => 0,
         }

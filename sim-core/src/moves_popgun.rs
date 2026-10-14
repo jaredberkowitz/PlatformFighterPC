@@ -117,7 +117,7 @@ pub fn popgun() -> Weapon {
     banana(&mut w);
     popgun_special(&mut w);
     rocket_barrels(&mut w);
-    monkey_flip(&mut w);
+    flip_special(&mut w);
     w
 }
 
@@ -1106,7 +1106,7 @@ fn rocket_barrels(w: &mut Weapon) {
     w.moves[BARRELS as usize] = holder;
 }
 
-// ---- The side special: the monkey flip -----------------------------------------------------------------------------------------------
+// ---- The side special: the flip -----------------------------------------------------------------------------------------------
 
 /// The side special's parts (sim 119): the aerial leap, the kick, the latch and its two exits.
 pub const FLIP_AIR: MoveId = MoveId::Ext9;
@@ -1148,7 +1148,7 @@ fn flip_leap(faf: u8, landing_lag: u8, last: u8) -> Move {
     leap
 }
 
-/// The side special: the monkey flip (13.0.1; ultimateframedata.com, dragdown.wiki, the SSB4-to-13.0.1 changelist, ssbwiki.com
+/// The side special: the flip (13.0.1; ultimateframedata.com, dragdown.wiki, the SSB4-to-13.0.1 changelist, ssbwiki.com
 /// `Monkey_Flip`; no 13.0.1 hitbox page exists).
 ///
 /// * The leap: a crouch, then a flip forward launched on frame 13 [E: the frame, 2.2 of the reference's units a frame ahead and 1.7 up,
@@ -1169,7 +1169,7 @@ fn flip_leap(faf: u8, landing_lag: u8, last: u8) -> Move {
 /// * Jump (`LATCH_JUMP`): the scamp jumps off the head on frame 18, kicking the fighter for 2% (361, BK 0, KS 50: a throw) that holds
 ///   it 20 frames when it does not tumble (`Hitbox::fixed_stun`) [R]; the jump's speed is the scamp's full hop [E]; FAF 43 [R:
 ///   ultimateframedata.com's 42 total].
-fn monkey_flip(w: &mut Weapon) {
+fn flip_special(w: &mut Weapon) {
     let mut ground = flip_leap(62, 0, 36);
     ground.land_continue = true;
     ground.air_version = Some(FLIP_AIR as u8);

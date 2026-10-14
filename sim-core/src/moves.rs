@@ -372,7 +372,7 @@ pub struct Hitbox {
     /// walking into a lying peel). An airborne fighter takes the hit as usual. [`SLIP_NONE`] (the default): no slip.
     pub slip: u8,
     /// A hit that does not tumble its victim holds it in hitstun for exactly this many frames, whatever the knockback's own hitstun
-    /// (sim 119: the reference's monkey flip jump-off, which "immobilises the opponent for exactly 20 frames if the move does not cause
+    /// (sim 119: the reference's flip jump-off, which "immobilises the opponent for exactly 20 frames if the move does not cause
     /// tumble"). 0 (the default): the knockback's hitstun.
     pub fixed_stun: u8,
     /// The hit cannot be shielded (sim 119: the reference's rocket barrels flying off their hit wearer): a raised shield (or a passive
@@ -875,7 +875,7 @@ pub struct Toss {
     pub wait: u8,
 }
 
-/// A latch (E49, sim 119: the reference's monkey flip, clinging to the head of the fighter it caught). While a fighter holds someone
+/// A latch (E49, sim 119: the reference's flip, clinging to the head of the fighter it caught). While a fighter holds someone
 /// in a move with a latch, the held fighter is not pinned in front of the holder: it falls on its own (gravity to its top fall speed,
 /// landing on platforms; standing still on one), and the holder rides it, its feet `x` ahead (by the holder's facing) of the held
 /// fighter's feet and `height` percent of the held fighter's body height above them. With `clock_num` above 0 the ordinary hold's
@@ -1786,7 +1786,7 @@ pub struct Move {
     /// the fighter in its move (a flinch, no hitstun), the move ends: into the special fall in the air, standing on the ground. `None`
     /// (the default): nothing.
     pub shed: Option<u8>,
-    /// The holder rides the fighter it holds during this move (E49, sim 119: the reference's monkey flip latch): see [`Latch`]. `None`
+    /// The holder rides the fighter it holds during this move (E49, sim 119: the reference's flip latch): see [`Latch`]. `None`
     /// (the default): an ordinary hold (`hold_at` or `grab_distance`).
     pub latch: Option<Latch>,
     /// Versions picked by the once-per-airtime flags and marks when the special starts (sim 119, owner decision 75): see

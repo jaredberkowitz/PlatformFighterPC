@@ -800,7 +800,7 @@ fn the_popgun_is_registered_as_class_11() {
     assert_eq!(c.fighters[11], FighterParams::scamp());
     assert_eq!(c.weapons[11], sim_core::moves::popgun());
     assert_eq!(c.fighters[11].weapon, 11);
-    // Every special is the Popgun's own (the side special, the monkey flip, since phase 2: sim 119).
+    // Every special is the Popgun's own (the side special, the flip, since phase 2: sim 119).
     for (id, own) in [
         (MoveId::NSpecial, true),
         (MoveId::SideSpecial, true),

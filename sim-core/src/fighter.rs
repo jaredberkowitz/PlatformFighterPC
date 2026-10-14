@@ -3133,7 +3133,7 @@ fn start_special(f: &mut Fighter, weapon: &Weapon) -> bool {
         _ => (id, mv),
     };
     // A version picked by the once-per-airtime flags or marks (sim 119, owner decision 75): the first that matches; one with no slot
-    // means the special does not start (the reference's up special barred after the monkey flip's kick until landing).
+    // means the special does not start (the reference's up special barred after the flip's kick until landing).
     let (id, mv) = match flagged(mv) {
         Some(v) => match v.slot {
             Some(s) => (MoveId::from_index(s), weapon.get(s)),
