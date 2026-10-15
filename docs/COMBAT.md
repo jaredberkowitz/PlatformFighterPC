@@ -38,6 +38,12 @@
 - **Hitstun** with gravity and decaying launch speed. Landing out of a tumble is a **tech** with a shield press just before
   (4 frames of lag), otherwise a knockdown. Landing out of a lighter hit (no tumble: a jab, an autolink loop dragging the fighter
   down) lands it on its feet and the hitstun carries on on the ground, with no tech and no knockdown, as in the reference (sim v50).
+- **Footstools (sim 135, the reference's footstool jump):** an airborne fighter that is not attacking (nor within 16 frames of an
+  attack) pressing jump with its feet on an opponent's head bounces off it at a full hop's speed (each further footstool before
+  landing about half as high, at most 6), intangible 4 frames, spending no midair jump and dealing no damage. A grounded victim is
+  frozen 21 frames (the reference's, labbed); an airborne one is pushed down tumbling (it can tech the landing), and a fall from it
+  is credited to the footstooler. Not on ledge-hangers, held, lying or reviving fighters. `Ruleset::footstool_*`; the bands, decay,
+  push and air stun are [E]. Tests: `sim-core/tests/footstool.rs`.
 - **Shield bubble, pokes and tilt (sim 134, the reference's):** a raised shield is a circle `shield_height` (1.1) above the feet,
   radius `shield_radius` (1.5) at full health shrinking to `shield_min_scale` (45%) when empty: exactly the bubble drawn. A hit whose
   box misses the bubble but touches the body goes through the shield (a poke), as if the hit were unblockable; projectiles too. A

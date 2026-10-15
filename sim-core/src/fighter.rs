@@ -301,6 +301,15 @@ pub fn update(
 ) -> Option<u8> {
     f.history.rotate_right(1);
     f.history[0] = input;
+    // Footstools (sim 135): none until `footstool_after_attack` frames after an attack ends, and a new rebound height once landed.
+    if f.state == S::Attack {
+        f.footstool_wait = rules.footstool_after_attack;
+    } else {
+        f.footstool_wait = f.footstool_wait.saturating_sub(1);
+    }
+    if f.grounded() {
+        f.footstools = 0;
+    }
     // A new press of a button can start a new action.
     f.buffer_used &= !(input.buttons & !f.history[1].buttons);
     // Attack presses and releases since the attack began, hitlag included (a rapid jab's entry rule).
@@ -435,7 +444,7 @@ pub fn update(
             ground(f, p, weapon, stage, rules, world.pickable[world.me])
         }
         S::JumpSquat => jump_squat(f, p, weapon, stage, rules),
-        S::Airborne => return airborne(f, p, weapon, stage, rules),
+        S::Airborne => return airborne(f, p, weapon, stage, rules, world),
         S::ItemPickup => item_pickup(f, p, stage, rules),
         S::ItemThrow => return item_throw(f, p, stage, rules),
         S::Helpless => return helpless(f, p, weapon, stage, rules),
@@ -1158,8 +1167,17 @@ fn airborne(
     weapon: &Weapon,
     stage: &Stage,
     rules: &Ruleset,
+    world: &scripting::World,
 ) -> Option<u8> {
     let buffer = p.input_buffer;
+    // A footstool (sim 135): jump with the feet on someone's head bounces off it instead of spending a midair jump.
+    if f.footstool_wait == 0 && f.footstools < rules.footstool_max {
+        if let Some(j) = footstool_target(f, p, rules, world) {
+            if f.take(buttons::JUMP, buffer) {
+                footstool_jump(f, p, rules, j);
+            }
+        }
+    }
     // A wall jump: touching a wall, the stick held away from it and jump pressed (owner decision, sim 101: the stick alone, or jump
     // with the stick neutral or toward the wall, made it too easy to do by accident). It is checked first, so it never spends a
     // midair jump; jump against a wall without the stick held away is an ordinary midair jump.
@@ -2056,6 +2074,72 @@ pub fn jab_lock(f: &mut Fighter, rules: &Ruleset) {
     f.vel = Vec2::ZERO;
     f.kb_vel = Vec2::ZERO;
     f.state_frame = u16::from(rules.knockdown_lag.saturating_sub(rules.jab_lock_frames));
+}
+
+/// Whether a fighter can be footstooled (sim 135): standing, moving, shielding or in the air, not hanging on a ledge, held, lying
+/// down, coming back after a KO, or already stunned by a footstool.
+pub fn footstoolable(f: &Fighter) -> bool {
+    !matches!(
+        f.state,
+        S::LedgeHang
+            | S::LedgeGetUp
+            | S::LedgeAttack
+            | S::Grabbed
+            | S::Knockdown
+            | S::GetUp
+            | S::Respawn
+            | S::Rebound
+    )
+}
+
+/// The first fighter (by index) whose head `f`'s feet are on, if any (see `Ruleset::footstool_band_above`).
+fn footstool_target(
+    f: &Fighter,
+    p: &FighterParams,
+    rules: &Ruleset,
+    world: &scripting::World,
+) -> Option<usize> {
+    world.heads.iter().enumerate().find_map(|(j, head)| {
+        let (top, half) = (*head)?;
+        let dy = f.pos.y - top.y;
+        (j != world.me
+            && (f.pos.x - top.x).abs() <= half + p.ecb_half_width
+            && dy <= rules.footstool_band_above
+            && dy >= -rules.footstool_band_below)
+            .then_some(j)
+    })
+}
+
+/// The footstooler's bounce: a full hop's speed, less for each footstool since it last landed; no midair jump is spent.
+fn footstool_jump(f: &mut Fighter, p: &FighterParams, rules: &Ruleset, target: usize) {
+    let mut speed = p.full_hop_velocity;
+    for _ in 0..f.footstools {
+        speed = speed * rules.footstool_decay;
+    }
+    f.vel.y = speed;
+    f.footstools = f.footstools.saturating_add(1);
+    f.footstool_target = target as i8;
+    f.invuln = f.invuln.max(rules.footstool_invuln);
+    f.fast_fall = false;
+    f.damage_fall = false;
+    f.hop_boost = 0;
+    f.short_hop = false;
+}
+
+/// Being footstooled (sim 135): frozen a moment on the ground, or pushed down tumbling in the air (a landing it can tech).
+pub fn footstooled(f: &mut Fighter, rules: &Ruleset) {
+    f.kb_vel = Vec2::ZERO;
+    if f.grounded() {
+        enter(f, S::Rebound);
+        f.vel.x = Fx::ZERO;
+        f.lag = rules.footstool_ground_stun;
+    } else {
+        enter(f, S::Hitstun);
+        f.vel = Vec2::new(Fx::ZERO, -rules.footstool_push);
+        f.hitstun = u16::from(rules.footstool_air_stun);
+        f.tumble = true;
+        f.fast_fall = false;
+    }
 }
 
 /// A trip (`Hitbox::trip`): the fighter sits down where it stands, intangible for `trip_invuln` frames, and gets up as from a

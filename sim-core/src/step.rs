@@ -149,6 +149,7 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
         items: &state.items,
         pickable,
         ledges: state.ledge_owner,
+        heads: [None; MAX_BODIES],
     };
     for (i, f) in state.fighters.iter().enumerate().take(nb) {
         let height = combat::chest_height(params_of(content, f));
@@ -157,6 +158,13 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
         world.encase[i] = combat::encase_of(content, f);
         if f.active && f.stocks > 0 && !combat::is_intangible(f) {
             world.targets[i] = Some(f.pos + crate::vec2::Vec2::new(Fx::ZERO, height));
+            if fighter::footstoolable(f) {
+                let p = params_of(content, f);
+                world.heads[i] = Some((
+                    f.pos + crate::vec2::Vec2::new(Fx::ZERO, p.ecb_height),
+                    p.ecb_half_width,
+                ));
+            }
         }
     }
     for (i, (f, input)) in state
@@ -174,6 +182,19 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
         let weapon = combat::weapon_of(content, &params);
         world.me = i;
         wants[i] = fighter::update(f, &params, weapon, stage, &content.rules, *input, &world);
+    }
+
+    // Footstools made this frame (sim 135): the one stepped on is frozen on the ground, or pushed down tumbling in the air.
+    for i in 0..nb {
+        let j = core::mem::replace(&mut state.fighters[i].footstool_target, NONE);
+        if j < 0 {
+            continue;
+        }
+        let v = &mut state.fighters[j as usize];
+        if v.active && !combat::is_intangible(v) {
+            fighter::footstooled(v, &content.rules);
+            v.hit_by = i as i8;
+        }
     }
 
     // A move that has just begun draws its random version (E39), and balloons come out, use helium and go (E41).

@@ -67,6 +67,8 @@ pub struct World<'a> {
     pub pickable: [bool; MAX_BODIES],
     /// Who holds each ledge as the frame began (`GameState::ledge_owner`; -1 free): a tether catches only a free one (E56, sim 123).
     pub ledges: [i8; crate::content::MAX_LEDGES],
+    /// For each fighter that can be footstooled as the frame began (sim 135): the top of its head and its half width.
+    pub heads: [Option<(Vec2, Fx)>; MAX_BODIES],
 }
 
 /// How many live projectiles fighter `me` fired (reflected or not) of tool kind `kind` (`moves::Tool::kind`), or, with kind 0, of

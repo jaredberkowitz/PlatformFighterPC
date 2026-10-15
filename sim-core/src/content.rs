@@ -2530,6 +2530,22 @@ pub struct Ruleset {
     /// act as usual. (The reference's limit is two; the bounce's length is not published: 12 frames [E], the previous reference
     /// generation's quick reset.)
     pub jab_lock_limit: u8,
+    /// Footstools (sim 135, the reference's footstool jump): an airborne fighter (not attacking, nor within `footstool_after_attack`
+    /// frames of an attack) pressing jump with its feet on an opponent's head, from `footstool_band_below` under the top of the head
+    /// to `footstool_band_above` over it, bounces off it with a full hop's speed, each further footstool before landing
+    /// `footstool_decay` of the last (at most `footstool_max`), intangible for `footstool_invuln` frames. It spends no midair jump and
+    /// does no damage. The one stepped on is frozen `footstool_ground_stun` frames on the ground (the reference's 21, labbed), or in
+    /// the air pushed down at `footstool_push` tumbling for `footstool_air_stun` frames (it can tech the landing). The bands, decay,
+    /// push and air stun are not published: [E].
+    pub footstool_after_attack: u8,
+    pub footstool_ground_stun: u8,
+    pub footstool_air_stun: u8,
+    pub footstool_invuln: u8,
+    pub footstool_max: u8,
+    pub footstool_push: Fx,
+    pub footstool_decay: Fx,
+    pub footstool_band_above: Fx,
+    pub footstool_band_below: Fx,
     /// Perfect pivots (sim 133): a flick back out of a dash let go within this many frames stands the fighter facing the new way,
     /// sliding with the dash's speed (see `fighter::ground`). The previous reference generation's window is one frame; 0 turns it off.
     pub perfect_pivot_frames: u8,
@@ -2730,6 +2746,15 @@ impl Ruleset {
             respawn_platform_frames: 150,
             trip_lag: 40,
             jab_lock_limit: 2,
+            footstool_after_attack: 16,
+            footstool_ground_stun: 21,
+            footstool_air_stun: 20,
+            footstool_invuln: 4,
+            footstool_max: 6,
+            footstool_push: Fx::from_ratio(3, 10),
+            footstool_decay: Fx::from_ratio(7071, 10000),
+            footstool_band_above: Fx::from_ratio(6, 10),
+            footstool_band_below: Fx::from_ratio(5, 10),
             perfect_pivot_frames: 1,
             jab_lock_frames: 12,
             trip_max: 100,
@@ -2900,6 +2925,15 @@ impl StateHash for Ruleset {
         h.write_u8(self.respawn_platform_frames);
         h.write_u8(self.trip_lag);
         h.write_u8(self.jab_lock_limit);
+        h.write_u8(self.footstool_after_attack);
+        h.write_u8(self.footstool_ground_stun);
+        h.write_u8(self.footstool_air_stun);
+        h.write_u8(self.footstool_invuln);
+        h.write_u8(self.footstool_max);
+        self.footstool_push.hash_into(h);
+        self.footstool_decay.hash_into(h);
+        self.footstool_band_above.hash_into(h);
+        self.footstool_band_below.hash_into(h);
         h.write_u8(self.perfect_pivot_frames);
         h.write_u8(self.jab_lock_frames);
         h.write_u8(self.trip_max);

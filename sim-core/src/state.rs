@@ -268,6 +268,12 @@ pub struct Fighter {
     pub wing_spent: bool,
     /// The last fighter whose hit raised this fighter's percent since it last came back (E57: who a KO is credited to), or [`NONE`].
     pub hit_by: i8,
+    /// Footstools (sim 135, the reference's footstool jump): frames left before a footstool is allowed after an attack
+    /// (`Ruleset::footstool_after_attack`), footstools made since last touching the ground (each rebounds lower), and whom the
+    /// footstool made this frame stepped on (applied to them once every fighter has updated; `NONE` otherwise).
+    pub footstool_wait: u8,
+    pub footstools: u8,
+    pub footstool_target: i8,
     /// Orbs on this fighter (E59, sim 128: `moves::Orbs`): frames left before they strike (0: none circling), and frames since the
     /// first of them was put on (the clock never runs past `Orbs::cap` from then).
     pub orb_clock: u16,
@@ -820,6 +826,9 @@ impl Fighter {
             wing_points: Fx::ZERO,
             wing_spent: false,
             hit_by: NONE,
+            footstool_wait: 0,
+            footstools: 0,
+            footstool_target: NONE,
             orb_clock: 0,
             orb_age: 0,
             wall_jumps: 0,
@@ -1056,6 +1065,9 @@ impl StateHash for Fighter {
         self.wing_points.hash_into(h);
         h.write_bool(self.wing_spent);
         h.write_i8(self.hit_by);
+        h.write_u8(self.footstool_wait);
+        h.write_u8(self.footstools);
+        h.write_i8(self.footstool_target);
         h.write_u16(self.orb_clock);
         h.write_u16(self.orb_age);
         h.write_u8(self.wall_jumps);
@@ -1746,6 +1758,21 @@ mod tests {
             ("wing_spent", {
                 let mut s = state;
                 s.fighters[1].wing_spent = true;
+                s
+            }),
+            ("footstool_wait", {
+                let mut s = state;
+                s.fighters[1].footstool_wait = 3;
+                s
+            }),
+            ("footstools", {
+                let mut s = state;
+                s.fighters[1].footstools = 2;
+                s
+            }),
+            ("footstool_target", {
+                let mut s = state;
+                s.fighters[1].footstool_target = 0;
                 s
             }),
             ("hit_by", {
