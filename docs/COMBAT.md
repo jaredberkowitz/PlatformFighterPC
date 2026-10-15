@@ -38,6 +38,9 @@
 - **Hitstun** with gravity and decaying launch speed. Landing out of a tumble is a **tech** with a shield press just before
   (4 frames of lag), otherwise a knockdown. Landing out of a lighter hit (no tumble: a jab, an autolink loop dragging the fighter
   down) lands it on its feet and the hitstun carries on on the ground, with no tech and no knockdown, as in the reference (sim v50).
+- **Jab locks (sim 132, the reference's):** a hit that would not tumble, landing on a fighter lying in a knockdown (not a trip),
+  bounces it and keeps it on the floor; its get-up options come back after `jab_lock_frames` (12 [E]). At most `jab_lock_limit` (2)
+  locks per knockdown; after that such hits act as usual. Tests: `sim-core/tests/knockdown.rs`.
 - **Pull** (angle 368, ours, sim v51): no launch; while its hitstun lasts the victim moves a third of the way a frame (at most half a
   unit) to 0.9 units in front of whoever hit it (a projectile's owner), on its own side, and is never tumbling. The Needles' line uses it.
 - **Shield** blocks: no damage, no launch, a little pushback. Intangible: respawn invulnerability, ledge invulnerability and

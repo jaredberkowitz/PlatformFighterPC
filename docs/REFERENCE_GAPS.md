@@ -42,7 +42,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 | --- | --- | --- | --- | --- | --- |
 | D1 | Shield tilting and shield pokes | The bubble shrinks with HP and can be tilted with the stick; a hit on an exposed part (feet, a hand) goes through | Every hit on a shielding fighter is blocked | High | L |
 | D2 | Dodge staling (**done, sim 112**) | Rolls, spot dodges and air dodges used again within a short time get more lag and less intangibility, recovering over time | Every dodge is the same | Med-High | S-M (numbers to research) |
-| D3 | Jab lock and jab reset | A weak hit on a lying fighter forces a short "down damage" reaction, and a second one forces it to stand up (no lock loops) | A lying fighter takes an ordinary hit | Med | S |
+| D3 | Jab lock and jab reset (**done, sim 132**: a weak hit on a lying fighter keeps it floored, at most twice per knockdown; the bounce is 12 frames [E], `Ruleset::jab_lock_frames`) | A weak hit on a lying fighter forces a short "down damage" reaction, and a second one forces it to stand up (no lock loops) | A lying fighter takes an ordinary hit | Med | S |
 | D4 | Shield drop through platforms | Removed | **Kept, as shield + special (sim 112, owner decision)**; down no longer drops through | Decided | S |
 | D5 | Spot dodge cancel | Reportedly some actions can cancel a spot dodge's end; needs checking against 13.0.1 | None | Low (verify first) | S |
 
@@ -50,7 +50,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
-| O1 | Perfect pivot, pivot tilts and pivot smashes | A flick back then forward slides into a standing turnaround that cancels into tilts and smashes | Pivot grab only | Med (competitive spacing) | S-M |
+| O1 | Perfect pivot, pivot tilts and pivot smashes (**done, sim 133**, an addition by owner's call: the current reference removed pivots, the previous generation had them; a one-frame flick back out of a dash slides into a standing turnaround, `Ruleset::perfect_pivot_frames`, 0 turns it off) | A flick back then forward slides into a standing turnaround that cancels into tilts and smashes | Pivot grab only | Med (competitive spacing) | S-M |
 | O2 | Footstool | Jump on an opponent's head: a jump for you, a short stun for them on the ground, a forced fall in the air | Missing | Med (edgeguards, combo escapes, combos) | M |
 | O3 | B-reverse on the down special | B-reverse works on neutral and down specials | Neutral and side specials only (verify which specials the reference allows) | Low | S |
 

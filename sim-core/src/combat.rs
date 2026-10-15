@@ -1453,6 +1453,20 @@ pub(crate) fn apply_hit(
         def.hits_taken = 1;
         return;
     }
+    // A jab lock (sim 132, the reference's): a hit that would not tumble, on a fighter lying in a knockdown (not a trip), keeps it
+    // floored instead of standing it up in hitstun, at most `jab_lock_limit` times a knockdown.
+    if def.state == S::Knockdown
+        && !def.tripped
+        && !was_buried
+        && kb < rules.tumble_knockback
+        && def.jab_locks < rules.jab_lock_limit
+    {
+        fighter::jab_lock(def, rules);
+        def.hitlag = hitlag;
+        def.sdi_wait = 0;
+        def.sdi_mult = hb.sdi;
+        return;
+    }
     // A slip (E44, sim 117: the reference's slip effect): a fighter on the ground, not lying or sitting already, always trips, whatever
     // the hit's launch; a soft slip with no hitlag. Nothing is rolled.
     if hb.slip != crate::moves::SLIP_NONE

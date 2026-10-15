@@ -204,6 +204,10 @@ fn enter(f: &mut Fighter, state: S) {
     // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
     f.tripped = false;
     f.trip_soft = false;
+    // Jab locks count within one knockdown (a lock re-enters the knockdown and keeps the count).
+    if state != S::Knockdown {
+        f.jab_locks = 0;
+    }
     // The fast opening of a full hop only survives while airborne or attacking in the air.
     if !matches!(state, S::Airborne | S::Attack) {
         f.hop_boost = 0;
@@ -781,7 +785,23 @@ fn ground(
     match f.state {
         S::Dash => {
             // Letting go of the stick does not stop the dash: it runs its full `dash_frames` either way.
-            if f.dash_wait > 0 {
+            // A perfect pivot (sim 133, the previous reference generation's; owner's call): the stick flicked back out of a dash and
+            // let go again within `perfect_pivot_frames` frames stops the turnaround. The fighter stands facing the new way, sliding
+            // back with the dash's speed (bleeding off as a stand does), free to tilt, strong attack, grab or jump at once. A held
+            // flick back is the usual dash back.
+            let since = (p.dash_turn_delay + 1).saturating_sub(f.dash_wait);
+            if f.dash_wait > 0
+                && since >= 1
+                && since <= rules.perfect_pivot_frames
+                && !x_active(input)
+            {
+                f.vel.x = f.turn_speed;
+                f.turn_speed = Fx::ZERO;
+                f.dash_wait = 0;
+                f.dash_buffer = 0;
+                f.dash_age = 255;
+                enter(f, S::Idle);
+            } else if f.dash_wait > 0 {
                 // The turnaround of a reversed dash: standing, then the first step. Its standing frames do not count toward the dash,
                 // so a dash back lasts `dash_turn_delay` frames longer (the reference's pivot dash: two frames longer than a dash).
                 f.dash_wait -= 1;
@@ -1993,6 +2013,17 @@ fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S, frames: u
     f.lag = frames;
     f.invuln = f.invuln.max(invuln);
     enter(f, state);
+}
+
+/// A jab lock (sim 132): a weak hit on a lying fighter bounces it on the floor; it stays down, and its get-up options come back after
+/// `jab_lock_frames` (the knockdown's clock is set so that its usual `knockdown_lag` runs out then).
+pub fn jab_lock(f: &mut Fighter, rules: &Ruleset) {
+    let locks = f.jab_locks.saturating_add(1);
+    enter(f, S::Knockdown);
+    f.jab_locks = locks;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.state_frame = u16::from(rules.knockdown_lag.saturating_sub(rules.jab_lock_frames));
 }
 
 /// A trip (`Hitbox::trip`): the fighter sits down where it stands, intangible for `trip_invuln` frames, and gets up as from a

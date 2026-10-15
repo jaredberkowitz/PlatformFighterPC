@@ -40,7 +40,7 @@ pub use step::step;
 pub use vec2::Vec2;
 
 /// Bump whenever simulation behaviour changes. Exchanged in the netplay handshake and stored in replays.
-pub const SIM_VERSION: u16 = 131;
+pub const SIM_VERSION: u16 = 133;
 /// Players: the fighters a match's inputs drive (and whose stocks, spawns and results count).
 pub const MAX_FIGHTERS: usize = 4;
 /// Grunts (the run's enemies, R2c, sim 131): fighters no player drives, moved by the run's own input layer (`run::mobs`). They

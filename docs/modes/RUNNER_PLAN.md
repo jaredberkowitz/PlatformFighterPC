@@ -211,7 +211,7 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | R2a | The world (owner, 14 Oct; see `RUNNER_WORLD.md`): slopes, room variants with optional parts, mirroring and obstacle pieces, the high/low fork, elevation lines, footing objects with `look` tags, the walk-in shop with a shopkeeper | rooms feel varied and believable; you can tell footing from decoration (built, sim 124) |
 | R2b | Enemies and the curve: fighter-shaped grunts (six kinds, base-game bodies with borrowed moves and tells), budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event; the owner's R2a answers (coins 1, branching forks, the sulking shopkeeper) | runs differ and get harder smoothly (built, sim 127) |
 | R2c | Combat parity (owner, 14 Oct): grunts are fighters with every versus rule both ways, much lighter by tier, knocked out only by blast zones that follow the view; the shopkeeper closed until a new room | grabs, throws, techs and shields on grunts are versus's; a solid hit sends a tier-1 grunt off screen (built, sim 131) |
-| R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls | a run's build changes how it plays |
+| R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls (planned: `RUNNER_R3_PLAN.md`) | a run's build changes how it plays |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
 | R6 | The journey: city legs with arrival, boss and transit, generated names, palettes, time of day and weather; the first architecture kits from the art director; music | three cities in a row feel like a trip |
@@ -986,6 +986,16 @@ buckler's is a multi-hit smash whose later hits miss a grunt the first hit alrea
 - **Twelve grunts at once** (was 16): spots past that wait their turn. Enough?
 - **Tier weights** (table above): tier 1 dies from a solid smash at 0 to 20%. Too light, too heavy?
 - **Grunts tech, DI and mash from tier 2** (10% to 75%). Fine, or later?
+
+**Owner's answers (15 October 2026):**
+- the gate pass-through: keep;
+- the shieldbearer's bubble: keep;
+- knock-out effects: fine for now;
+- 12 grunts: okay;
+- tier weights: fine for now;
+- techs from tier 2: "a bit too early", so move them to tier 3 in R3.
+
+R3 is planned in `RUNNER_R3_PLAN.md`, for Saturday 17 October.
 
 ### For the art director (R2c)
 1. The **CLOSED board** on a storefront (placeholder: a tilted "CLOSED" label across the door): a turned-round sign or shutters.

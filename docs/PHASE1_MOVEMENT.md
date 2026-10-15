@@ -86,6 +86,10 @@ edge). Walking off now means falling for a moment first.
 - **Releasing the stick cancels a dash** the same frame. The speed carries into a slide on ground friction, so a quick tap
   is a short dash and a held stick is a long one. Jumping out of a dash (or a cancelled dash) keeps its speed as air
   momentum. A flick the other way during a dash is still a pivot (dash dance).
+- **Perfect pivot (sim 133, owner's addition; the previous reference generation's, removed in the current one):** a flick back
+  out of an initial dash, let go to neutral on the very next frame (`Ruleset::perfect_pivot_frames`, 1; 0 turns it off), stands the
+  fighter facing the new way and sliding back with the dash's speed, free to tilt, strong attack, grab or jump at once. Holding the
+  flick back is the usual dash back, so dash dancing is unchanged. Tests: `sim-core/tests/feel.rs`.
 - **`GROUND_SPEED_PERCENT`** (in `sim-core/src/content.rs`, currently 90) scales every ground speed, acceleration and
   friction at once, so starts and stops keep their timing and only the distances shrink. Air speed and jump heights use
   the unscaled reference values. Lower the number to slow the ground game further, or set it to 100 for the raw reference.
