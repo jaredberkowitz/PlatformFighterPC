@@ -950,6 +950,59 @@ impl SimRunner {
         slot as i32
     }
 
+    /// Debug (tests and photographs): every grunt gone.
+    #[func]
+    fn run_debug_clear_grunts(&mut self) {
+        if self.run.is_none() {
+            return;
+        }
+        sim_core::run::clear_grunts(&mut self.state, &self.content);
+        self.recorder = None;
+        self.refresh_grunts();
+    }
+
+    /// Debug (tests and photographs): grunt `n` stands still (cooling down for good). Returns whether there was such a grunt.
+    #[func]
+    fn run_debug_hold_grunt(&mut self, n: i32) -> bool {
+        let Ok(n) = usize::try_from(n) else {
+            return false;
+        };
+        if self.run.is_none() || n >= MAX_MOBS || !self.state.run.mobs[n].active {
+            return false;
+        }
+        let m = &mut self.state.run.mobs[n];
+        m.mode = sim_core::run::MODE_COOLDOWN;
+        m.timer = 9999;
+        self.recorder = None;
+        true
+    }
+
+    /// Debug (tests and photographs): grunt `n` launched in tumble at `(vx, vy)` units a frame, as if the player had hit it (R2c: it flies
+    /// on until the blast zones that follow the view knock it out). Returns whether there was such a grunt.
+    #[func]
+    fn run_debug_launch_grunt(&mut self, n: i32, vx: f32, vy: f32) -> bool {
+        let Ok(n) = usize::try_from(n) else {
+            return false;
+        };
+        if self.run.is_none() || n >= MAX_MOBS || !self.state.run.mobs[n].active {
+            return false;
+        }
+        let fx = |v: f32| Fx::from_ratio((v * 1000.0) as i32, 1000);
+        let g = &mut self.state.fighters[sim_core::run::grunt_slot(n)];
+        g.state = sim_core::state::FighterState::Hitstun;
+        g.hitstun = 120;
+        g.tumble = true;
+        g.platform = sim_core::state::NONE;
+        g.vel = Vec2::ZERO;
+        g.kb_vel = Vec2::new(fx(vx), fx(vy));
+        let m = &mut self.state.run.mobs[n];
+        m.credit = 60;
+        m.mode = sim_core::run::MODE_MOVE;
+        self.recorder = None;
+        self.refresh_grunts();
+        true
+    }
+
     /// Debug (tests and photographs): the next rooms laid make the city's rare event come at once (the pity counter maxed out).
     #[func]
     fn run_debug_force_event(&mut self) {
