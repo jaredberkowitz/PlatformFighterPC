@@ -294,39 +294,72 @@ def _hand(x, p):
     return w + (Vector(p) - w) * HAND_SCALE
 
 
+def _hand_frame(x):
+    """The `x` side's wrist and the hand's own axes there: `down` straight on along the forearm (so the wrist never bends), `front` the
+    character's front squared to it (the thumb's side), `out` away from the body (the back of the hand; the palm faces in)."""
+    w = Vector((x * BLOB_WRIST[0], BLOB_WRIST[1], BLOB_WRIST[2]))
+    down = (w - Vector((x * 0.66, -0.02, 0.95))).normalized()
+    front = Vector((0.0, -1.0, 0.0))
+    front = (front - down * front.dot(down)).normalized()
+    out = front.cross(down)
+    if out.x * x < 0.0:
+        out = -out
+    return w, down, front, out
+
+
+def _at(x, d, f, o):
+    """The point `d` down the forearm's line from the `x` side's wrist, `f` toward the front and `o` outward (hand units, grown by
+    HAND_SCALE)."""
+    w, down, front, out = _hand_frame(x)
+    return w + (down * d + front * f + out * o) * HAND_SCALE
+
+
+def _mitt_block(bm, x, d, radii, squareness=0.78, curl=0.0, segments=32, rings=22):
+    """A soft rounded block (a ball pushed toward a box, `squareness` < 1) centred `d` down the forearm's line on the `x` side, with half
+    sizes `radii` (down, front, out); `curl` bends its far end in toward the palm. Returns its verts."""
+    w, down, front, out = _hand_frame(x)
+    res = bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=rings, radius=1.0, calc_uvs=True)
+    for v in res["verts"]:
+        c = [math.copysign(abs(q) ** squareness, q) for q in v.co]
+        t = (1.0 - c[2]) / 2.0    # 0 at the wrist end, 1 at the far end
+        p = down * (d + radii[0] * -c[2]) + front * (radii[1] * c[1]) + out * (radii[2] * c[0] - curl * t * t)
+        v.co = w + p * HAND_SCALE
+    return res["verts"]
+
+
+def _crease(verts, x, d, width, depth, side=1.0):
+    """A faint line pressed into a block across the hand at `d` down it, on the back (`side` 1) or the palm (`side` -1)."""
+    w, down, front, out = _hand_frame(x)
+    for v in verts:
+        rel = (v.co - w) / HAND_SCALE
+        o = rel.dot(out) * side
+        if o <= 0.0:
+            continue
+        k = math.exp(-((rel.dot(down) - d) / width) ** 2) * min(1.0, o / 0.04)
+        v.co -= out * side * depth * k * HAND_SCALE
+
+
 def fist(bm, x):
-    """A fist on the `x` side (-1 left, 1 right) at the blob's wrist: a round glove clenched, the four curled fingers a row of knuckle
-    bumps underneath, the thumb wrapped across the front."""
-    k = HAND_SCALE
-    ball(bm, 0.205 * k, _hand(x, (x * 0.775, -0.04, 0.66)), (0.9, 1.0, 0.92), segments=32, rings=20)
-    for fy in (-0.135, -0.045, 0.045, 0.135):
-        ball(bm, 0.082 * k, _hand(x, (x * 0.8, -0.04 + fy, 0.53)), (1.0, 0.95, 0.9), segments=16, rings=10)
-    tube(bm, [_hand(x, (x * 0.69, -0.17, 0.68)), _hand(x, (x * 0.72, -0.24, 0.6)), _hand(x, (x * 0.8, -0.22, 0.55))],
-         [0.07 * k, 0.066 * k, 0.06 * k], segments=14, per_span=4)
+    """A closed fist on the `x` side, straight on from the forearm: the concept's mitten clenched, one soft block (the fingers are curled
+    into it, a faint knuckle line across its back) and a thumb lying across its front. Small: the fist is about the forearm's width and
+    a little more, so a punch reads as a punch and not a club."""
+    # (Before 2026-10-15 a round glove with four knuckle balls under it and a big tube thumb: separate sausages at play size, and it sat off
+    # the forearm's line, so a punch landed with a bent wrist.)
+    block = _mitt_block(bm, x, 0.115, (0.115, 0.13, 0.108), squareness=0.74)
+    _crease(block, x, 0.18, 0.016, 0.013)
+    tube(bm, [_at(x, 0.07, 0.122, -0.055), _at(x, 0.115, 0.14, -0.005), _at(x, 0.14, 0.132, 0.035)], [0.044, 0.042, 0.038],
+         segments=16, per_span=4)
 
 
 def mitten(bm, x):
-    """A bare hand on the `x` side, built round the same wrist as `fist`: the concept's mitten, a soft rounded paddle a little flatter
-    side to side than deep, closed into a loose curl, with a stubby thumb in front. No knuckle row: that is the glove's clench, and on a
-    bare hand it read as a glove in the body's colour."""
-    # (After the owner's PEAK references, 2026-10-14: a hand with fingers. A broad palm a little flatter side to side than deep, four
-    # stubby fingers hanging from it side by side (the middle two longest), each curled gently in toward the palm, and a thumb standing
-    # out in front: it reads as a hand at play size, where a ball or a paddle read as a knob.)
-    # (Pass 71, the owner: the hands still read chunky and odd. They were as wide as the legs and ran straight on from the forearm, a club
-    # at the end of the arm. Now a narrow wrist, a palm flat side to side (the camera sees its back, the fingers hanging from it), four
-    # rounded fingers that part a little toward their tips and curl in toward the body, and a shorter thumb in front.)
-    k = HAND_SCALE
-    tube(bm, [_hand(x, (x * 0.745, -0.04, 0.8)), _hand(x, (x * 0.765, -0.045, 0.715))], [0.072 * k, 0.08 * k], segments=16, per_span=3)
-    ball(bm, 0.128 * k, _hand(x, (x * 0.775, -0.05, 0.645)), (0.64, 1.0, 0.98), segments=32, rings=20)
-    for fy, length in ((-0.092, 0.1), (-0.031, 0.122), (0.031, 0.116), (0.09, 0.094)):
-        top = _hand(x, (x * 0.78, -0.05 + fy, 0.58))
-        mid = _hand(x, (x * 0.775, -0.05 + fy * 1.12, 0.58 - length * 0.6))
-        tip = _hand(x, (x * 0.74, -0.06 + fy * 1.22, 0.58 - length))
-        tube(bm, [top, mid, tip], [0.04 * k, 0.038 * k, 0.033 * k], segments=12, per_span=4)
-        ball(bm, 0.033 * k, tip, segments=12, rings=8)
-    tube(bm, [_hand(x, (x * 0.75, -0.13, 0.68)), _hand(x, (x * 0.74, -0.19, 0.63)), _hand(x, (x * 0.745, -0.205, 0.575))],
-         [0.05 * k, 0.045 * k, 0.04 * k], segments=14, per_span=5)
-    ball(bm, 0.04 * k, _hand(x, (x * 0.745, -0.205, 0.575)), segments=12, rings=8)
+    """An open hand on the `x` side, built round the same wrist as `fist`, straight on from the forearm: the concept's mitten, one soft
+    paddle (the fingers together) a little flatter side to side than wide, its end curled gently in toward the palm, and a short round
+    thumb standing off its front."""
+    # (Before 2026-10-15 four separate finger tubes and a big thumb: stubby sausages glued on, and the hand bent back at the wrist.)
+    block = _mitt_block(bm, x, 0.12, (0.13, 0.115, 0.06), squareness=0.8, curl=0.035)
+    _crease(block, x, 0.15, 0.012, 0.005, side=-1.0)
+    tube(bm, [_at(x, 0.045, 0.06, -0.012), _at(x, 0.085, 0.118, -0.022), _at(x, 0.105, 0.132, -0.026)], [0.05, 0.045, 0.041],
+         segments=16, per_span=4)
 
 
 ## The blob's wrist, which `fist` and `cuff` are built round.
@@ -1193,7 +1226,9 @@ FIST_SCALE = 0.74
 # white balloons.
 GLOVE_SCALE = 0.74
 GLOVE_GROW = 1.1     # the base body's glove against its bare hand
-FIST_CLOSED = 0.66   # the base body's closed fist (the blob's clenched glove) against the blob's
+## The wrist radius FIST_SCALE and FIST_CLOSED are set for (the cage body's, 2026-10-15); a body with thicker wrists gets bigger hands.
+HAND_WRIST = 0.082
+FIST_CLOSED = 0.74   # the closed fist (`fist`, built to the open hand's size) against the blob's
 ## How far the head is lowered onto the shoulders: the old generated body had a short neck between them, which the character has none of.
 ## The scripted body (make_base_body.py) has no neck, so it is built with `--neck-drop 0`.
 NECK_DROP = float(sys.argv[sys.argv.index("--neck-drop") + 1]) if "--neck-drop" in sys.argv else 0.07
@@ -1446,33 +1481,44 @@ def build_body_meshes(rig):
 
     # Glove fists, built as the blob's and moved to this body's wrists, turned to its forearms; and cuffs fitted to its forearms, a band a
     # little wider than the wrist where the glove ends.
+    wrist_q = {side: (sorted(rs)[len(rs) // 4] if rs else HAND_WRIST) for side, rs in wrist_r.items()}
     for side, x in (("L", -1.0), ("R", 1.0)):
         wrist_blob = Vector((x * BLOB_WRIST[0], BLOB_WRIST[1], BLOB_WRIST[2]))
         fore_blob = (wrist_blob - Vector((x * 0.66, -0.02, 0.95))).normalized()
         fore = (J["hand." + side] - J["armL." + side]).normalized()
         turn = fore_blob.rotation_difference(fore).to_matrix()
+        # The wrist's radius (the lower quartile of the forearm's last stretch: inside the skin all round), for the wrist plug; and the
+        # hands grow with the two wrists' mean, so a thicker or thinner body keeps hands in proportion to its arms (both the same size).
+        rw = wrist_q[side]
+        grow = (wrist_q["L"] + wrist_q["R"]) / 2.0 / HAND_WRIST
+        print("hand", side, "wrist radius", round(rw, 4), "grow", round(grow, 3))
+        # The wrist plug (below): sunk inside the forearm up to the skin's cut and only past it as wide as the wrist, so it closes the cut
+        # without crossing the skin (level with it, the faceted skin and the round plug crossed in a zigzag ring round the wrist).
+        cut_d = 0.03 * (J["hand." + side] - J["armU." + side]).length
+        wrist_at = J["hand." + side]
+
+        def plug(bm):
+            tube(bm, [wrist_at - fore * 0.07, wrist_at + fore * (cut_d - 0.005), wrist_at + fore * (cut_d + 0.03)],
+                 [rw * 0.86, rw * 0.9, rw * 1.04], segments=18, per_span=3)
         # (The glove is the bare hand's shape a size up, not the blob's clenched ball: gloved fighters carried two white balloons.)
         bm = bmesh.new()
         mitten(bm, x)
         for v in bm.verts:
-            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE * GLOVE_GROW
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE * GLOVE_GROW * grow
         parts["Hand." + side] = to_object("Hand." + side, bm, "hand." + side, rig)
         # The bare hand (no gloves in the loadout): the game shows this one instead, in the body's colour.
         bm = bmesh.new()
         mitten(bm, x)
         for v in bm.verts:
-            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE
+            v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * FIST_SCALE * grow
         # A wrist plug: the forearm skin is cut open at the wrist and the hand's rounded top did not fill the cut, so its inside showed as a
         # dark ring (a bracelet). A short round plug the width of the wrist closes it, running a little up into the forearm.
-        rw = sorted(wrist_r[side])
-        rw = rw[len(rw) // 4] if rw else 0.08   # (the lower quartile: inside the skin all round)
-        tube(bm, [J["hand." + side] - fore * 0.07, J["hand." + side] + fore * 0.05], [rw * 1.0, rw * 1.04], segments=18, per_span=3)
+        plug(bm)
         parts["Mitt." + side] = to_object("Mitt." + side, bm, "hand." + side, rig)
         # (No ink where the hand goes into the forearm: the hull of its rounded top showed as a dark ring round the wrist, a bracelet. The
         # vertex colour's red is how much outline a point gets, shaders/outline.gdshader.)
         mitt = parts["Mitt." + side]
         ink = mitt.data.color_attributes.new("outline", "FLOAT_COLOR", "POINT")
-        wrist_at = J["hand." + side]
         for v in mitt.data.vertices:
             up = (v.co - wrist_at).dot(-fore)
             w = min(1.0, max(0.0, (-0.02 - up) / 0.06))
@@ -1484,9 +1530,9 @@ def build_body_meshes(rig):
             bm = bmesh.new()
             fist(bm, x)
             for v in bm.verts:
-                v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * k
+                v.co = J["hand." + side] + turn @ (v.co - wrist_blob) * k * grow
             if name.startswith("FistBare"):
-                tube(bm, [J["hand." + side] - fore * 0.07, J["hand." + side] + fore * 0.05], [rw * 1.0, rw * 1.04], segments=18, per_span=3)
+                plug(bm)
             parts[name] = to_object(name, bm, "hand." + side, rig)
             if name.startswith("FistBare"):
                 f = parts[name]
