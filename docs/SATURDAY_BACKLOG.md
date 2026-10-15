@@ -47,7 +47,8 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] godot-ai MCP: configured at 127.0.0.1:8000 but nothing on this machine provides it; reinstall from its source if wanted
       (`--pick=x,y` in main.gd covers finding what draws a pixel).
 
-- [ ] Material Maker exports, by hand (owner, 2026-10-15): the owner exports `dry_earth`, `rock`, `stylized_wall` and `wood`
+- [ ] **Re-instruct the owner on the Material Maker export first thing Saturday** (open each example, File > Export > Godot/Godot 4
+      Standard, save to `art/materials/mm_exports/<name>/`). Material Maker exports, by hand (owner, 2026-10-15): the owner exports `dry_earth`, `rock`, `stylized_wall` and `wood`
       (examples folder) with File > Export > Godot/Godot 4 Standard into `art/materials/mm_exports/<name>/`. Then: review them in game
       against the style; wire a PNG-tile path into `Materials._make` (it only reads the SVG tiles now), tinting through the albedo's
       value so stages keep their own colours; start with soil (dry_earth) and bark (wood/rock), compared before/after per stage.
