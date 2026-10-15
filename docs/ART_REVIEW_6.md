@@ -278,3 +278,10 @@ Checked: the art pipeline and match flow tests.
   (0.6) and a softer S-curve than the meadow's left the grove under a pale veil. Key 1.32, ambient 0.47, grade 0.5, S-curve 0.3; its
   colours unchanged.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 10
+
+The beach's sand and the grove's lawn were the last flat stage tops: the meadow's lawn and (round 5) the canyon's sand already carry
+broad, restrained drifts. Both now do too (`grass_vary` 0.14 on the ocean theme, 0.16 on the grove), so every stage top follows one rule
+(`review6_round10_tops.png`: beach before, after; grove before, after). The sea wall from round 2 checked again at full size: holds.
+Checked: the art pipeline and match flow tests.
