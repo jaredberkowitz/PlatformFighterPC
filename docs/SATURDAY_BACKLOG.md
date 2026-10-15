@@ -19,6 +19,14 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] Locomotion per family (idle, walk, run, dash, jump/fall/land, shield, dodge), then reactions (ledge, get-up, tumble).
 - [ ] Before/after every fix with `--demo=poses --gallery-class=N` (both facings); all Godot tests and the look bench.
 
+## Bugs
+- [ ] **Run slides facing left** (owner, 2026-10-15): sometimes after dashing left, or a dash dance then running left, the run
+      animation stops and the fighter slides. Ruled out: the left run clip (`run@m`) loops and animates (anim_sheet --facing=-1), and a
+      scripted Idle/Dash/Turn/Run sequence both ways keeps the clip playing and advancing (a probe printing `anim.current_animation` and
+      its position each frame). Suspect: the skid clip shown through a long or repeated `Turn` state while moving, or a state the probe
+      lacks (a held dash turn, `dash_reverse_frames`). Next: record a replay of it happening (or a `--demo` with the owner's inputs) and
+      print state, clip and position per frame.
+
 ## Body
 - [ ] Review and merge the remodelled body and mitten hands (branch `body-cage`, another session's work) before posing on it.
 - [ ] Open Blender before the session starts so the Blender connection loads (it timed out this time).
