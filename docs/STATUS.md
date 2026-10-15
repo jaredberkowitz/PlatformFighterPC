@@ -93,6 +93,19 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 128** (branch `nodachi-phase2`, from `origin/movesets` at 3fc1e80, sim 126, merged with `origin/movesets` a94f78a, sim 127's
+run R2b; content schema 8 unchanged): the Nodachi's phase 2, owner decisions 87-92 (all confirming phase 1). **The shadow orbs**
+(side special; E59, general: `Move::orbs`, `sim-core/src/orbs.rs`, hashed `Projectile::charge` / `orb` / `held` / `orb_hits` and
+`Fighter::orb_clock` / `orb_age`): a charged beam (two capsules, `ChargedShot::every_hit`) puts one to three orbs on the fighter it
+hits, which circle it, hit bystanders and strike after 4 seconds (later hits lengthen it to 7.5 at most). **The barrier** (down
+special): a counter bubble in front, its answer a projectile that comes whether struck or not; struck, the answer is read between its
+minimum and maximum by the caught damage (`Move::lerp`), the exile takes no hitlag (`Counter::still`) and a hit above 25% breaks it
+(`Counter::break_above` / `break_move`). Phase 1's leftovers: the down smash's ground test (`Move::probe`,
+`collision::segment_meets_ground`), the eight slashes' landing hit (`Move::fall_landing_move` for the special fall), the forward air's
+wall stick (the script function `ground()`). Shared change: a projectile's ring for grounded or aerial targets only now passes the
+others by (no other projectile has one). Changed for other fighters: nothing (`base.pfc` differs only in the nodachi weapon). Tests
+`nodachi_phase2.rs` (13), cases in `move_rules.rs`, `scripted_moves.rs`, `state.rs`, sim-content. Report:
+`docs/movesets/nodachi/IMPLEMENTATION_REPORT.md`.
 **Sim 126** (branch `dagger-phase3`, from `origin/movesets` at a6b8314, sim 125; content schema 8 unchanged): the Dagger's phase 3,
 owner decisions 83-86, three general content fields off by default: `Move::shield_end` (a blockable grab stopped by a shield or a
 reflector ends its move that many frames later; hashed `Fighter::move_end`; the grounded hook 20 [E]), `Move::stale_stretch` (a stale

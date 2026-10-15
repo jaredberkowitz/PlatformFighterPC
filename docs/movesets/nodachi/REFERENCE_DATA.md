@@ -132,26 +132,51 @@ Damage in %, angle, BK, KS, hitlag multiplier; frames are the reference's.
 | Eight slashes | hit 1 on 36: the middle box 361 (r 8.0, BK 0, KS 100) for everyone, then the reference's 368 for aerial (`g=f`) and grounded (`a=f`) targets at 1.0 (r 8.0), 10.0 and 20.5 (r 6.5) ahead; hits 2-7 on 38-48 every 2 frames (the same, r 5.0 / 5.0 / 6.5, and two boxes at 60, BK 90, KS 60, r 6.5 at 0 and 10.0); hit 8 on 50: 7% at 361 (type 3), BK 68, KS 104, r 10.0 at 6.0 and 18.0, x2.4, and 2.3% at 60 (BK 90, KS 60, r 8.5 at 2.0 behind, x0.5); hits 1-7 2.3%, SDI x0.5, sd -1, no clank | the 368 drag as the autolink angle (367) [E: the reference's 368 here has no published position vector]; the boxes ahead of the body's middle [E] |
 | Its timing | ground FAF 105; animation 106, then the special fall; landing lag 56; no ledge until it ends; grounded it stops at the edge, slashing in place | as written |
 | Its travel | "slightly farther than the blade dash" | 3.3 of the reference's units a frame on 35-50 [E] |
-| Its landing hit | 2.3%, 60, BK 90, KS 60 on landing's frame 1 (kuroganehammer.com) | not modelled (phase 2) |
+| Its landing hit | 2.3%, 60, BK 90, KS 60 on landing's frame 1 (kuroganehammer.com) | in its 56 frames of landing lag, landing during the move or in the special fall after it (sim 128); the box (radius 8.0 at 4.0 up, centred on the feet) [E] |
 
-## Side special: the shadow orbs (phase 2) [R]
+## Side special: the shadow orbs (sim 128) [R unless marked]
 
-The beam on 16-22 (8 frames after the charge's release), charged between 8-9 for up to 26 frames (startup 16 to 42, FAF 39 to 65); 1.5%
-(KS 30, fighters only) / 2% (KS 100), 361 (type 3), BK 10, r 2.0 and 3.5 from 0 to 8.0 behind the root, x0.5, no trip; damage up to 4.5 / 5
-at full charge. A hit puts orbs on the target: one uncharged, two from 17 frames of charge, three at full (26-34); at most five on a target
-and five out per owner; a reflected beam puts twice as many on its new target. After 4 seconds (extended 0.5 to 3 seconds by later hits,
-never past 7.5 seconds from the first) each orb flies 13 frames to the target and explodes on 14: 6.5%, 53 (type 3), BK 50, KS 75, r 3.5,
-sd -3, sent away from the owner. While orbiting, an orb hits a bystander it touches for 7%, 50 (by travel), BK 65, KS 75, r 1.5, SDI x2,
-rehit 45, twice at most. Orbs can be reflected or absorbed as they attack.
+Sources: ssbwiki.com `Sephiroth_(SSBU)/Side_special` (raw: the hitbox tables and timing) and the move's article (the rules), the
+character page's description (the counts by charge, "8 frames after releasing"), kuroganehammer.com (damage at no and full charge, the
+orbs' travel 1-13 and explosion 14), ultimateframedata.com (startup 16-42, total 38-64); the hitbox animations at minimum and maximum
+charge (ssbwiki.com's GIFs, decoded frame by frame) for the beam's speed and place.
 
-## Down special: the barrier (phase 2) [R]
+| Rule | Reference | Ours |
+| --- | --- | --- |
+| Charge | held from frame 9 ("charges between 8-9") up to 26 frames; the beam 8 frames after the charge ends | the script holds frame 8 (the move's numbering) while special is held, `charge` < 26 |
+| Timing | the beam on 16-22 uncharged, 42-48 at full; FAF 39 to 65 (UFD total 38-64 + 1) | as written (tested) |
+| Beam boxes | id 0: 1.5%, 361 (type 3), BK 10, KS 30, r 2.0 from 0 to 8.0 behind the projectile's root, x0.5, fighters only; id 1: 2%, KS 100, same shape, not fighter-only (things that are not fighters); ids 2 / 3: r 3.5 from 1.5 to 6.5 behind, `g=f` (aerial targets); all no trip (`trip=-100`), reflectable, absorbable | two rings on the projectile (E58) at age 1: a lying capsule r 2.0 (centre 4.0 behind the head, half width 4.0) for everyone and one r 3.5 (half width 2.5) for fighters in the air; the 2% object boxes not modelled (no objects) |
+| Beam damage | kuroganehammer.com: 1.611 uncharged, 4.5 at full: 1.5 + 3 x (charge + 1) / 27 [D] | `ChargedShot` 29/18 to 4.5 over 26 frames, `every_hit` (both rings) |
+| Beam flight | 7 frames | life 8 (ages 1-7); 5.46 of the reference's units a frame uncharged, 8.16 at full (x1.5), its first hit 6.4 ahead and 8.8 up whatever the charge [E: from the hitbox animation, 17.3 pixels a unit] |
+| Orbs placed | one uncharged, two from 17 frames of charge, three at full; up to five on one fighter; five active for one exile in all, reflected ones on itself included; none on a fighter with another exile's orbs, none while its orbs are attacking; a reflected beam places twice as many (5 at most) | `Orbs` count 1, more_at 17 / 26, reflected 2, per_target 5, per_owner 5 |
+| Clock | 4 seconds from the hit; a later hit adds 0.5 to 3 seconds by its charge, never past 7.5 seconds from the first hit | wait 240, extend 30 to 180 [E: in proportion to the charge], cap 450 |
+| Orbiting | circling the target; no hitbox against it; a bystander it touches takes 7%, 50 (`af=1`: by travel), BK 65, KS 75, r 1.5, x0.4, SDI x2, sd -3, no clank, rehit 45; each orb hits two at most and is used up | as written; the orbit 12 of the reference's units round the chest, a turn every 60 frames [E] |
+| Strike | each orb travels 13 frames (a hitbox on 1-13, kuroganehammer.com) and explodes on 14: 6.5%, 53 (type 3), BK 50, KS 75, r 3.5, x0.8, sd -3, no clank; always launched away from the exile (or the beam's current owner) | as written; all the orbs on a fighter together [E] |
+| Reflected, absorbed, pocketed | an orb can be reflected or absorbed as it attacks; pocketed, it comes out flying horizontally | a striking orb reflected or pocketed flies on straight as a shot with the strike's hit at the beam's uncharged speed for 60 frames [E] |
+| Pierces projectiles | the beam goes through projectiles, cancelling weak ones | not modelled (no projectile-projectile collision in the engine) |
 
-A counter that answers whether it is struck or not. Detection 7-27 on a barrier in front of the body (the body itself does not count);
-struck: the answer on 7-21 (multi-hits every 5 frames, 366 at set knockback 60 / BK 40, KS 65, set weight, SDI 0) and 22 (361 type 3),
-intangible 1-11, FAF 52; its damage interpolated on the struck hit's damage from 0 to 18: multi-hits 2 to 4%, the last 6.5 to 18% (BK 80
-to 83, KS 70 to 83), its size from r 16.5 / 18 to 22.5 / 24; a hit of more than 25% breaks the barrier (no damage, a stagger, FAF 41). Not
-struck: the answer on 38-52 (1%, r 9.5, every 5) and 53 (5%, 361, BK 66, KS 75, r 11), FAF 87. The answer is a projectile (it can be
-reflected and absorbed). Since 11.0.0 the last hit is bigger (9 -> 11, 16-22 -> 18-24).
+## Down special: the barrier (sim 128) [R unless marked]
+
+Sources: ssbwiki.com `Sephiroth_(SSBU)/Down_special` (raw) and the move's article, kuroganehammer.com (the formulas, the break's FAF 41,
+"counters 25% HP"), ultimateframedata.com ("Sephiroth does not suffer hitlag", intangible 1-11); the hitbox animations (miss, minimum and
+maximum) decoded frame by frame for the catching capsule and the answer's centre.
+
+| Rule | Reference | Ours |
+| --- | --- | --- |
+| Catch | 7-27 on a barrier in front; the body does not count; melee and projectiles (it stops them, it does not reflect them) | `Counter` 6..26 (the move's numbering), `bubble` a standing capsule 7.7 ahead, centre 11.0 up, half height 9.2, r 5.9 [E: read from the animation at 19.6 pixels a unit] |
+| Not struck | the answer on 38-52 (1%, 366, set knockback 60, BK 40, KS 65, set weight, r 9.5, x0.8, SDI 0, rehit 5) and 53 (5%, 361 type 3, BK 66, KS 75, r 11.0, x0.7, sd -2); no clank; FAF 87 | a standing projectile from frame 37, life 17, piercing, rehit 5, the last its own group; centre 14 ahead, 10.5 up [E: from the animation] |
+| Struck | answer on 7-21 / 22 (activation numbering), intangible 1-11, FAF 52; no hitlag for the exile | `BARRIER_ANSWER`, `Counter::still`; centre 19 ahead, 10.5 up [E: from both hit animations] |
+| Its numbers | interpolated on the caught hit's damage D (0 to 18): multi-hits 2 + 2D/18 (sd -1 to -2, r 16.5 to 22.5), the last 6.5 + 11.5D/18 (BK 80 to 83, KS 70 to 83, r 18.0 to 24.0, x0.7 to x0.4, sd -3 to -9) | `Move::lerp` full 18; damage [R], the other fields read the same way [E] |
+| Break | a hit of more than 25% (30% after the one-on-one multiplier) breaks it: no damage, a stagger, pushed slightly back; FAF 41 | `Counter::break_above` 25 (compared before the multiplier), `BARRIER_BREAK` FAF 41, 5 units back over 6 frames [E] |
+| A projectile | the answer can be reflected or absorbed; 11.0.0 enlarged the last hit (9 -> 11, 16-22 -> 18-24) | the answer is a projectile (reflectable, pocketable); 13.0.1's sizes |
+| In the air | not published separately | the same move with the body's air physics [E] |
+
+## Phase 1's leftovers (sim 128) [R unless marked]
+
+| Move | Reference | Ours |
+| --- | --- | --- |
+| Down smash without ground contact | ssbwiki.com: a ground test from 16.0 ahead and 4.5 up to 32.5 ahead and 2.5 down (`top`); with no ground the blade alone on 21-22 (10.5 / 11.5 / 13%, 48 type 3, BK 75, KS 63, r 1.7, same places, x0.7 / 0.7 / 1.2, no rebound); FAF 54 both | `Move::probe` on frame 21 (the move's 20), `DSMASH_OFF` |
+| Forward air wall stick | ssbwiki.com: stabbing a wall sticks to it, three times before landing, not below the camera bounds, not on a wall that bars wall jumps, not with the ground less than 14 below; stuck: interruptible 18, 120 frames then letting go; jump (up, jump or attack): jump on 12, gravity x1.05, "initial vertical speed 6.9", FAF 23, ledges from 27; let go (away or down): FAF 20 | the forward air's script on 13-18 (`ground()`: a segment level with the blade 12.5 up out to 32 ahead [E]; a segment 14 down), marks 5-7; `WALL_STICK`, `WALL_JUMP` (a jump 6.9 units high [E: the speed read as a height]), `WALL_DROP`; the exile stays where it stuck [E: the "jostle distance 7" not modelled]; camera bounds and wall-jump bars not modelled (no such stage data) |
 
 ## Gaps and conflicts
 
@@ -165,4 +190,11 @@ reflected and absorbed). Since 11.0.0 the last hit is bigger (9 -> 11, 16-22 -> 
 4. **The wing's start formulas** (above): the ranges and examples taken over the two formulas that contradict them.
 5. **Not published** (estimates, labelled [E] where used): the blade dash's and the slashes' speeds and distances, every flight speed of
    the flares, when the giant flare's charge is full, the startup's air stall of the up special, where the blade is in each pose (the
-   forward and up smashes read from the hitbox animation), the KO credit rule, several opponents for the wing.
+   forward and up smashes read from the hitbox animation), the KO credit rule, several opponents for the wing (decisions 87-91 keep
+   these). Phase 2: the beam's speed and start (from the animation), the orbit, the extension's share of the charge, the orbs striking
+   together, a loose orb's flight, the barrier's capsule and answer centres (from the animations), the non-damage fields of the lerp,
+   the break's push, the slashes' landing box, the wall test, the wall jump's height.
+6. **The orbs' numbering of the charge**: kuroganehammer.com's 1.611 uncharged means the reference counts one frame of charge for a tap;
+   "two orbs from 17 frames" is read as 17 frames held on the charge frame (our `charge` 17).
+7. **The wall stick jump's 6.9**: a vertical speed of 6.9 of the reference's units a frame would be far above any jump (the full hop
+   starts near 2.6); read as a height [E], an owner question.

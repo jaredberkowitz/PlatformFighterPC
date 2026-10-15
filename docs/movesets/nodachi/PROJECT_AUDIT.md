@@ -15,7 +15,11 @@ inventory: `../SHARED_MECHANICS.md`. The reference character and its moves are n
   the eight hits on 36-50 dragging the target along, the ground versions stopping at edges, ledge rules, landing lags 27 / 56.
 * **The flare** (neutral special): the release from 20, the three levels by hold time (31 frames, full charge), each fireball and burst
   (the vortex multi-hits, the giant flare's three rings by distance).
-* The shadow orbs (side special) and the barrier (down special): phase 2.
+* The shadow orbs (side special): the beam's charge (from frame 9, up to 26 frames), its two capsules growing in damage, the orbs it
+  puts on a fighter by charge (one, two, three; twice from a reflected beam; five at most), the clock (4 seconds, lengthened by later
+  hits, never past 7.5), the circling orbs' bystander hits, the strike away from the owner (phase 2, sim 128).
+* The barrier (down special): the catch in front only, the answer whether struck or not, its numbers read by the caught damage, no
+  hitlag for the exile, the break above 25% (phase 2, sim 128).
 
 ## How the moves flow (traced)
 
@@ -68,19 +72,54 @@ stages of three rings).
 * The fuzzers: `fuzz-rollback` plays the exile every fourth run from 1 with its wing out at 70% and its specials drilled; `net-fuzz` every
   eighth run from 0 as the joiner, specials drilled.
 
+## Phase 2 (sim 128): traced and built
+
+Traced first: the curse (E54) puts damage over time on a fighter a projectile hits, but has no orbs (nothing to see, reflect or hit
+bystanders); the pocket (E42) holds a projectile frozen for a fighter, not around one. Neither stores a clock on the target. The
+counter (E10c) catches on a bubble and answers with a move, but its answer deals caught damage x percent from the move's own boxes;
+it had no break and the countering fighter always froze. Nothing tested the ground ahead of a move. A special fall always landed into
+plain landing lag.
+
+### E59: orbs (`Move::orbs`, `moves::Orbs`, `sim-core/src/orbs.rs`; owner decision 92)
+
+The orbs are projectiles of the beam's move (the pool, `MAX_PROJECTILES` 16) marked `Projectile::orb` and held by a fighter
+(`Projectile::held`); the fighter keeps the clock (`Fighter::orb_clock`, `orb_age`). `combat::update_projectiles` calls `orbs::place`
+when the beam hits (not a shield, not a counter's catch) and hands circling and striking orbs to `orbs::update_orb` (their own motion
+and hits: other fighters only while circling, rehit and a count of hits; away from the owner when striking; pocket and reflectors
+while striking); a reflected or pocketed orb is `ORB_LOOSE` and flies through the ordinary path with `orbs::loose_spec`.
+`orbs::tick` (in `step` before the projectiles) runs the clocks; `check_ko` calls `orbs::clear_target`. The beam's charge is kept on
+the shot (`Projectile::charge`). Kept to what the exile needs: no options beyond the reference's rules.
+
+### The barrier
+
+* `Counter::break_above` / `break_move` (a caught hit above it deals nothing and starts the stagger) and `Counter::still` (no hitlag
+  for the countering fighter), in `combat::catch_with_counter`.
+* `Move::lerp` (`moves::Lerp`): the move's projectile is fired with `Fighter::counter_damage` (in `Projectile::damage`) and its phases
+  are read between the written hits and the paired ones by it (`combat::lerped`).
+* The answers are standing projectiles (the reference's: reflectable, absorbable), piercing with rehit 5.
+
+### Small ones
+
+* `ChargedShot::every_hit`: the charged damage on the shot's rings too (the beam's two capsules).
+* A projectile's rings keep to their `targets` (the beam's aerial-only capsule); no older projectile had one.
+* `Move::probe` (`moves::GroundProbe`, `collision::segment_meets_ground`): the down smash's ground test.
+* `Move::fall_landing_move`: the special fall after the eight slashes lands into their landing hit.
+* The script function `ground(forward, up, forward2, up2)`: the forward air's wall test.
+
 ## Move slots
 
 `Ext0` the down air's landing hit, `Ext1` the eight slashes, `Ext2` the blade dash's end in the air, `Ext3`-`Ext5` the flare, bigger
-flare and giant flare, `Ext6` the flare's cancel. Ten left for phase 2 (the shadow orbs, the barrier's answers and miss, the down smash
-without ground contact, the forward air's wall stick).
+flare and giant flare, `Ext6` the flare's cancel; phase 2: `Ext7` the barrier's struck answer, `Ext8` its break, `Ext9` the down smash
+without ground contact, `Ext10` the eight slashes' landing, `Ext11`-`Ext13` the wall stick, its jump and its letting go. Two left
+(`Ext14`, `Ext15`). (The script slot numbers skip `PivotGrab`, 38: `Ext10` is 39.)
 
 ## Not built (limits)
 
-* The shadow orbs (side special) and the barrier (down special): phase 2. The orbs need a new general mechanic (projectiles held by a
-  target, orbiting and striking on a timer, reflectable as they strike, hitting bystanders twice); the barrier needs a counter answer
-  whose damage and size are interpolated on the struck hit's damage, that answers unstruck after a delay, and that breaks above 25%.
-* The down smash without ground contact (needs a ground test at the blade's tip), the forward air's wall stick, the eight slashes'
-  landing hit.
+* The beam's 2% boxes for things that are not fighters, and its passing through other projectiles (no projectile-projectile
+  collision).
+* Orbs do not pop balloons (E41); a circling orb is never reflected or pocketed (the reference's rule) and the orbs on one fighter
+  strike together [E].
+* The wall stick's camera-bounds and wall-jump-bar rules (no such stage data), its "jostle distance".
 * The up special's boxes turning with the dash (the reference's rotating root): here they stay ahead of the body.
 * The wing's training and stamina rules (no such modes in the sim).
 * The house limits: one get-up attack, the grabs' aerial boxes, the throws' bystander hit and thrower invincibility.
