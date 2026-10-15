@@ -37,6 +37,14 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).
 
+## Tools
+- [ ] Material Maker 1.7 is at `C:/Users/jared/Tools/MaterialMaker/app/material_maker_1_7_windows/material_maker.exe` (checksum
+      verified). Batch export (`--export-material --target ... -o <dir> <file.ptex>`) ran but wrote nothing ("Cannot open
+      user://export_targets"): open the app once with its window so it creates its settings, then retry; first use: a painted bark and
+      a soil texture to replace the hand-written SVG tiles (`tools/art/make_tiles.py`).
+- [ ] godot-ai MCP: configured at 127.0.0.1:8000 but nothing on this machine provides it; reinstall from its source if wanted
+      (`--pick=x,y` in main.gd covers finding what draws a pixel).
+
 ## Art review 6 leftovers
 - [ ] Combat effects second pass: brief strong-hit accent, landing and dash dust in the same painted family, per-weapon spark colours.
 - [ ] Camera and off-screen feedback checks (no camera behaviour change without the owner).
