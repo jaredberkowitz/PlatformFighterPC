@@ -1,6 +1,44 @@
 # Saturday backlog (2026-10-17, after the usage reset)
 
-Everything put off to save usage, in the order to take it. Tick items off here as they land.
+## THE PLAN: Saturday's art overhaul, in order (the art session; the detail for each step is in the sections below)
+
+Ordered by dependency: tools and the body come first because everything after is built on them; poses before UI because the
+select and results screens show the posed fighters; skies and textures share the Material Maker set-up. Ship a build at the end of
+each phase (a playtest checkpoint for the owner), and keep the refinement loop's rules: matched before/after, tests, the look bench.
+
+**Before the session starts (the owner, 2 minutes):** open Blender (so the Blender connection loads) and Material Maker once.
+
+**Phase 0: start-up (short)**
+1. Ship one build of what is committed but not installed (round 42's sun clouds, the menu's Run icon).
+2. Re-walk the owner through the Material Maker hand-export (Tools section); the owner exports dry_earth, rock, stylized_wall, wood.
+3. Owner's go/no-go on downloads to evaluate: ArmorPaint, Cascadeur (Tooling review section). Ask, name the file, source, size.
+
+**Phase 1: the body (blocks the poses)**
+4. Review and merge the remodelled body and mitten hands (branch `body-cage`, Body section), test and look bench, build.
+
+**Phase 2: poses and animation (the main job; Animation overhaul section, docs/POSE_REVIEW.md)**
+5. The fix order from the pose review: arched-back up moves, locked straight arms, flung free arm; then hurt and launch; then
+   per-family pose sets; then the smaller items. Cascadeur for key posing if approved; AnimationTree for locomotion blends (no root
+   motion). Before/after with `--demo=poses` per class, both facings. Build per class family.
+
+**Phase 3: materials and skies (Tools, Skies, refinement sections)**
+6. Wire a PNG tile path into `Materials._make`; bring in the owner's exports: soil, bark (realistic, no streaks), stone; a palm-trunk
+   texture. Then the painted skies (canyon sun and clouds first, then one cloud set for every stage). Build.
+7. The pain-point list (city window grid, beach clouds and wall, stage block ends, the clothes' doubled outline, canyon slash marks)
+   and the ink painted into textures.
+
+**Phase 4: the one large UI pass (UI redesign section)**
+8. Design system first (type, palette, panels, motion timings), then motion and transitions, the character select redesign, the title
+   screen, the results screen (mend `--demo=results` first). Phantom Camera for menu/results moves if approved. Build.
+
+**Phase 5: rendering trials (Tooling review section)**
+9. ACES vs Filmic per stage, a light scenery SSAO A/B; keep only what wins on the look bench and the owner's eye.
+
+Not the art session's (other sessions, in parallel): Run mode R3, the versus gaps.
+
+---
+
+The detail behind each step follows.
 
 ## Builds
 - [ ] Ship a build with everything since art 49 (canyon haze, city windows, pose atlas tool, anything below): export, desktop folder,
