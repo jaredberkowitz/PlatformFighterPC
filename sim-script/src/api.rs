@@ -104,6 +104,7 @@ pub const F_DETONATE: u8 = 51;
 pub const F_OWNS: u8 = 52;
 pub const F_AIR_MARK: u8 = 53;
 pub const F_SET_AIR_MARK: u8 = 54;
+pub const F_GROUND: u8 = 55;
 
 // ---- Projectile scripts ----
 pub const F_P_SET_VEL: u8 = 48;
@@ -379,7 +380,7 @@ const fn concat<const A: usize, const B: usize, const N: usize>(
 }
 
 pub const FIGHTER_FUNCTIONS: &[Func] = &{
-    const OWN: [Func; 21] = [
+    const OWN: [Func; 22] = [
         func(
             "set_vel",
             F_SET_VEL,
@@ -496,8 +497,14 @@ pub const FIGHTER_FUNCTIONS: &[Func] = &{
             1,
             "set_air_mark(n): set once-per-airtime mark n (0 to 7); landing or a ledge clears them all, a hit does not",
         ),
+        func(
+            "ground",
+            F_GROUND,
+            4,
+            "ground(forward, up, forward2, up2): 1 if the segment between those two points (from the feet, forward by facing) goes into a solid block or across a pass-through platform's top, else 0",
+        ),
     ];
-    concat::<9, 21, 30>(MATH, OWN)
+    concat::<9, 22, 31>(MATH, OWN)
 };
 
 pub const PROJECTILE_FUNCTIONS: &[Func] = &{

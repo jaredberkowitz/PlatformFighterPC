@@ -473,6 +473,16 @@ fn a_schema_4_file_from_before_sixteen_ext_slots_still_loads_unchanged() {
         ] {
             w.moves[id as usize] = sim_core::moves::Move::empty();
         }
+        // (Such a file pointed at none of those slots either: sim 128's landing hit after a special fall.)
+        let late = MoveId::Ext10 as u8;
+        for m in &mut w.moves {
+            if m.landing_move.is_some_and(|s| s >= late) {
+                m.landing_move = None;
+            }
+            if m.fall_landing_move.is_some_and(|s| s >= late) {
+                m.fall_landing_move = None;
+            }
+        }
     }
     let old = text(&c, false).replace(&format!("schema {SCHEMA_VERSION}"), "schema 4");
     assert!(old.contains("schema 4") && !old.contains("move ext10"));

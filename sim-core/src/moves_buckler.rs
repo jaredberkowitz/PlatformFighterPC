@@ -1229,6 +1229,7 @@ fn bow(w: &mut Weapon) {
             floor: true,
             times: 100,
             power_to: 100,
+            every_hit: false,
         }),
         tool: Tool::NONE,
     });
@@ -1382,6 +1383,7 @@ fn sword_wave(w: &mut Weapon) {
             floor: false,
             times: 100,
             power_to: 100,
+            every_hit: false,
         }),
         tool: Tool::NONE,
     });

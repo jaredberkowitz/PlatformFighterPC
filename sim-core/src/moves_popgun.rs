@@ -893,6 +893,7 @@ fn popgun_special(w: &mut Weapon) {
             floor: false,
             times: 100,
             power_to: 100,
+            every_hit: false,
         }),
         tool: Tool::NONE,
     });
