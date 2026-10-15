@@ -67,6 +67,11 @@ var gate_open_t := 1.0
 ## Coins: their spinning discs by position key.
 var coins := {}
 var coin_mat: Material
+## R2b: the props (hazards and chests) by their slot, and the runaway van.
+var props := {}
+var van: Node3D
+var van_body: Node3D
+var blast_mat: StandardMaterial3D
 var spin := 0.0
 ## The shop's interior and its shopkeeper.
 var interior: Node3D
@@ -424,6 +429,9 @@ func _rest_sign(parent: Node3D, x: float, y: float) -> void:
 func sync(sim, layout: int) -> void:
 	if looks.is_empty():
 		looks = sim.run_looks()
+	# (Every frame: a coin picked up changes no layout. R2a only redrew the coins when the stage changed, so a collected coin stayed on
+	# screen until the next room came: the owner's "collected coins don't disappear".)
+	sync_coins(sim.run_coins())
 	if layout == layout_seen:
 		return
 	layout_seen = layout
@@ -472,7 +480,6 @@ func sync(sim, layout: int) -> void:
 			# Just cleared: the bars slide up and away (`animate`).
 			gate_open_t = 0.0001
 		gate_shut = shut
-	sync_coins(sim.run_coins())
 
 
 ## The coins: a spinning disc for each coin not yet taken.
@@ -644,7 +651,7 @@ func build_interior(sim) -> void:
 		_box(keeper_stars, Vector3(0.18, 0.18, 0.18), Vector3(cos(k * TAU / 3.0) * r, r * 2.1, sin(k * TAU / 3.0) * r), _mat(Color(1.0, 0.9, 0.3), 1.0))
 
 
-## The interior's moment: the shopkeeper's mood (waving, cheering, grumbling, dizzy), where it looks, the wares' prices (sold out),
+## The interior's moment: the shopkeeper's mood (waving, cheering, grumbling, dizzy, sulking), where it looks, the wares' prices (sold out),
 ## the ware stood by bobbing. `shop` is `SimRunner.run_shop`.
 func animate_interior(shop: PackedInt32Array, delta: float) -> void:
 	if interior == null or keeper == null or shop.size() < 10:
@@ -671,6 +678,11 @@ func animate_interior(shop: PackedInt32Array, delta: float) -> void:
 		4:
 			text = "Hey!"
 			tilt = sin(shop_t * 14.0) * 0.4
+		5:
+			# Sulking after the bonk (R2b): arms crossed, turned half away, and it will not sell.
+			text = "Hmph!"
+			tilt = -0.18
+			squash = 1.04
 	keeper_body.position = Vector3(0, r * squash + bob, 0)
 	keeper_body.scale = Vector3(1.0 / squash, squash, 1.0)
 	keeper_body.rotation.z = tilt
@@ -701,3 +713,122 @@ func animate_interior(shop: PackedInt32Array, delta: float) -> void:
 		var name := label.text.split("\n")[0]
 		label.text = "%s\n%s" % [name, "SOLD OUT" if out else str(shop[o + 1])]
 		label.modulate = Color(1, 1, 1, 0.5) if out else Color(1.0, 0.9, 0.4)
+
+
+# ---- R2b: props and the runaway van (placeholders for the art director: see RUNNER_PLAN.md's R2b art list) ------------------------
+
+const PROP_GAS := 0
+const PROP_SIGN := 1
+const PROP_CHEST := 2
+const PROP_LIT := 1
+const PROP_BURST := 2
+const PROP_FALLING := 3
+const PROP_BROKEN := 4
+const PROP_OPEN := 5
+
+
+## A prop's placeholder: a red gas canister with a yellow band and a valve; a loose sign (a board on two wires, a "!" hazard stripe); a
+## chest (a wooden box with a gold lid and lock).
+func _prop_node(role: int, half_w: float, height: float) -> Node3D:
+	var root := Node3D.new()
+	match role:
+		PROP_GAS:
+			var red := FighterView.respond(FighterView.toon(Color(0.86, 0.22, 0.2)), "paint")
+			StageArt._mesh(root, StageArt._cylinder(half_w, half_w, height, 14), red, Vector3(0, height * 0.5, 0))
+			StageArt._mesh(root, StageArt._cylinder(half_w * 1.02, half_w * 1.02, height * 0.16, 14), FighterView.toon(Color(1.0, 0.82, 0.2)), Vector3(0, height * 0.55, 0))
+			StageArt._mesh(root, StageArt._cylinder(half_w * 0.3, half_w * 0.3, 0.2, 8), FighterView.toon(Color(0.3, 0.3, 0.36)), Vector3(0, height + 0.1, 0))
+		PROP_SIGN:
+			var board := _box(root, Vector3(half_w * 2.0, height, 0.12), Vector3(0, -height * 0.5, 0.1), FighterView.toon(Color(0.96, 0.84, 0.3)))
+			board.name = "Board"
+			_box(root, Vector3(half_w * 1.6, height * 0.25, 0.14), Vector3(0, -height * 0.5, 0.12), FighterView.toon(Color(0.2, 0.16, 0.24), false))
+			for sx in [-1.0, 1.0]:
+				var wire := _box(root, Vector3(0.04, 1.2, 0.04), Vector3(sx * half_w * 0.8, 0.6, 0.1), FighterView.toon(Color(0.2, 0.18, 0.28), false))
+				wire.name = "Wire"
+		_:
+			var wood := FighterView.toon(Color(0.58, 0.36, 0.2))
+			_box(root, Vector3(half_w * 2.0, height * 0.65, 1.0), Vector3(0, height * 0.325, 0), wood)
+			var lid := Node3D.new()
+			lid.name = "Lid"
+			lid.position = Vector3(0, height * 0.65, -0.5)
+			root.add_child(lid)
+			_box(lid, Vector3(half_w * 2.0, height * 0.35, 1.0), Vector3(0, height * 0.175, 0.5), FighterView.toon(Color(1.0, 0.78, 0.25)))
+			_box(root, Vector3(0.22, 0.26, 0.06), Vector3(0, height * 0.6, 0.52), FighterView.toon(Color(0.3, 0.24, 0.2), false))
+	var blast := MeshInstance3D.new()
+	blast.name = "Blast"
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	blast.mesh = sm
+	if blast_mat == null:
+		blast_mat = StandardMaterial3D.new()
+		blast_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		blast_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		blast_mat.albedo_color = Color(1.0, 0.62, 0.2, 0.55)
+	blast.material_override = blast_mat
+	blast.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	blast.visible = false
+	root.add_child(blast)
+	add_child(root)
+	return root
+
+
+## The props where the sim keeps them (`run_props`), and the van (`run_van`). Called every frame.
+func sync_props(sim, delta: float) -> void:
+	var data: PackedFloat32Array = sim.run_props()
+	var seen := {}
+	for n in data.size() / 9:
+		var o := n * 9
+		var key := "%d:%d" % [int(data[o]), int(data[o + 1])]
+		seen[key] = true
+		var role := int(data[o + 2])
+		if not props.has(key):
+			props[key] = _prop_node(role, data[o + 7], data[o + 8])
+		var node: Node3D = props[key]
+		var mode := int(data[o + 5])
+		node.position = Vector3(data[o + 3], data[o + 4], Z - 0.6)
+		var blast: MeshInstance3D = node.get_node("Blast")
+		blast.visible = mode == PROP_BURST
+		match role:
+			PROP_GAS:
+				# Burning: it shakes and flashes; bursting: a ball of fire.
+				node.rotation.z = sin(Time.get_ticks_msec() * 0.06) * 0.12 if mode == PROP_LIT else 0.0
+				if mode == PROP_BURST:
+					blast.position = Vector3(0, 0.6, 0.6)
+					blast.scale = Vector3.ONE * lerpf(2.6, 1.2, clampf(data[o + 6] / 4.0, 0.0, 1.0))
+				for c in node.get_children():
+					if c is MeshInstance3D and c != blast:
+						(c as MeshInstance3D).visible = mode != PROP_BURST
+			PROP_SIGN:
+				node.rotation.z = move_toward(node.rotation.z, 0.5 if mode >= PROP_FALLING else 0.0, delta * 6.0)
+				for c in node.get_children():
+					if c.name.begins_with("Wire"):
+						(c as Node3D).visible = mode < PROP_FALLING
+			_:
+				var lid: Node3D = node.get_node("Lid")
+				lid.rotation.x = move_toward(lid.rotation.x, -1.9 if mode == PROP_OPEN else 0.0, delta * 8.0)
+	for key in props.keys():
+		if not seen.has(key):
+			props[key].queue_free()
+			props.erase(key)
+	var v: PackedFloat32Array = sim.run_van()
+	if v.size() < 8:
+		return
+	if van == null:
+		van = Node3D.new()
+		van.name = "Van"
+		add_child(van)
+		# The city's car, stretched into a delivery van (as the parked van piece), with its roof's light top edge.
+		van_body = Node3D.new()
+		van.add_child(van_body)
+		van_body.scale = Vector3(v[3] * 2.0 / 4.6, v[4] / 2.08, 1.0)
+		StageArt._car(van_body, LOOK_COLOURS.get("van", Color(0.9, 0.9, 0.86)), 1.0)
+		_top_edge(van, -v[3], v[3], v[4], v[4], LOOK_COLOURS.get("van", Color(0.9, 0.9, 0.86)), 1.9)
+	van.visible = int(v[0]) != 0
+	van.position = Vector3(v[1], v[2], Z - 1.0)
+	# Driving: it bounces a little on its springs.
+	van_body.position.y = absf(sin(Time.get_ticks_msec() * 0.03)) * 0.06 if int(v[0]) == 2 else 0.0
+
+
+## How many props are drawn now (for the tests).
+func props_shown() -> int:
+	return props.size()

@@ -134,10 +134,12 @@ pub(super) fn armored(content: &Content, m: &Mob, k: &MobKind) -> bool {
     }
 }
 
-/// Whether a guarding grunt's shield takes a hit from `from` (the attacker's feet, or a shot) landing at `at`: only from in front, and
+/// Whether a guarding grunt's shield (up while it guards, and through the tell of its poke) takes a hit from `from` (the attacker's feet, or a shot) landing at `at`: only from in front, and
 /// not from above (the attacker's feet above three quarters of the body, or the hit above its head).
 pub(super) fn guard_blocks(content: &Content, m: &Mob, k: &MobKind, from: Vec2, at: Vec2) -> bool {
-    if m.mode != MODE_GUARD || m.shield <= Fx::ZERO {
+    // (Its guard stays up through the tell of its poke: the poke itself and its cooldown are the opening.)
+    let guarding = m.mode == MODE_GUARD || m.mode == MODE_WINDUP && k.role == ROLE_SHIELD;
+    if !guarding || m.shield <= Fx::ZERO {
         return false;
     }
     let height = body_of(content, k).ecb_height;

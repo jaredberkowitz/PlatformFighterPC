@@ -824,6 +824,7 @@ pub fn grunt_fighter(world: &Content, rc: &RunContent, m: &Mob) -> Fighter {
     let mut f = mobs::as_fighter(m, k);
     match m.mode {
         MODE_WINDUP if k.role == data::ROLE_LEAPER => f.state = S::Crouch,
+        MODE_WINDUP if k.role == data::ROLE_SHIELD => f.state = S::Shield,
         MODE_DAZED => f.state = S::ShieldBreak,
         MODE_BURST => f.state = S::Hitstun,
         _ => {}
