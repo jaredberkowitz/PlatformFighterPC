@@ -1268,8 +1268,13 @@ func _tag_object(node: Node) -> void:
 				# (A very dark body, midnight, gets a lighter line in its own hue instead: a near-black line on a near-black body and a dusk
 				# backdrop left no silhouette at all.)
 				if loadout != null:
-					line_c = line_c.lerp(body_c.lightened(0.42), 1.0 - smoothstep(0.12, 0.24, body_c.get_luminance()))
-				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, OUTLINE_TINT))
+					line_c = line_c.lerp(body_c.lightened(0.5), 1.0 - smoothstep(0.22, 0.3, body_c.get_luminance()))
+				# (And all of it, not mixed with the ink: the slimmer limbs of the rebuilt body put more of a dark fighter's outline against a
+				# dark backdrop. Art review 5.)
+				var tint_a := OUTLINE_TINT
+				if loadout != null:
+					tint_a = lerpf(1.0, OUTLINE_TINT, smoothstep(0.22, 0.3, body_c.get_luminance()))
+				(node as GeometryInstance3D).set_instance_shader_parameter("outline_tint", Color(line_c, tint_a))
 				break
 	for c in node.get_children():
 		_tag_object(c)

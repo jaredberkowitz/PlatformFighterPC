@@ -1095,8 +1095,11 @@ if BODY:
         if _name in JOINTS:
             JOINTS[_name] = (tuple(_pos), JOINTS[_name][1])
     OUT = OUT.replace("blob_rig.glb", "base_rig.glb")
+    # (`--out <glb>`: write the rig somewhere else, for trying a body out before it replaces the game's.)
+    if "--out" in sys.argv:
+        OUT = os.path.abspath(sys.argv[sys.argv.index("--out") + 1])
 ## How big the fists are against the blob's (the concept's mitten hands are small: about a quarter of the head across).
-FIST_SCALE = 0.9
+FIST_SCALE = 0.74
 # The glove's fist (it is built bigger and rounder than the bare hand, with knuckles and a cuff): smaller, or a gloved fighter carried two
 # white balloons.
 GLOVE_SCALE = 0.74
@@ -1124,6 +1127,77 @@ def near_arm(co, J, radius=0.2):
     ab = b - a
     t = max(0.0, min(1.0, (co - a).dot(ab) / ab.length_squared))
     return (co - (a + ab * t)).length < radius
+
+
+ANALYTIC_WEIGHTS = True
+ARM_ROOT_BLEND = 0.15     # over how much of the arm's start (inward of the shoulder joint, toward the trunk) the arm takes over
+ELBOW_BLEND = 0.09       # half the length over which the upper arm hands over to the forearm
+HIP_BLEND = 0.15         # over how much height above the crotch the trunk hands over to each thigh
+KNEE_BLEND = 0.06
+ANKLE_BLEND = 0.04
+NECK_BLEND = 0.05
+WAIST_BLEND = 0.16        # half the height over which the hips hand over to the spine
+
+
+def _smooth01(a, b, x):
+    t = max(0.0, min(1.0, (x - a) / (b - a))) if b != a else (1.0 if x >= a else 0.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def analytic_weights(skin, J):
+    """The skin's bone weights from the skeleton alone (see the call). Each point: how much it belongs to an arm (by its distance along
+    and from the arm's line, from the shoulder joint out), to a leg (by height below the crotch, on its side), the rest to the trunk (hips
+    to spine by height, the head above the neck); within a limb, the upper and lower bones blend at the joint. Symmetric by construction."""
+    groups = {}
+    for name in ("hips", "spine", "head") + tuple(b + "." + s for s in "LR" for b in ("armU", "armL", "thigh", "shin", "foot")):
+        groups[name] = skin.vertex_groups.get(name) or skin.vertex_groups.new(name=name)
+    every = list(range(len(skin.data.vertices)))
+    for g in skin.vertex_groups:
+        g.remove(every)
+    crotch = FIT["crotch"]
+    neck = FIT["neck"]
+    hips_z = J["hips"].z
+    spine_z = J["spine"].z
+    for v in skin.data.vertices:
+        co = v.co
+        side = "R" if co.x > 0.0 else "L"
+        sh, el, wr = J["armU." + side], J["armL." + side], J["hand." + side]
+        # The arm: along the shoulder-wrist line, from a little inside the shoulder joint, and near the line.
+        axis = wr - sh
+        t = (co - sh).dot(axis) / axis.length_squared
+        closest = sh + axis * max(0.0, min(1.0, t))
+        near = (co - closest).length
+        reach = t * axis.length
+        w_arm = _smooth01(-ARM_ROOT_BLEND, 0.02, reach) * (1.0 - _smooth01(ARM_RADIUS * 0.9, ARM_RADIUS * 1.15, near))
+        if co.z > sh.z + 0.12:
+            w_arm = 0.0
+        # The leg: below the crotch on its side.
+        th, kn, an = J["thigh." + side], J["shin." + side], J["foot." + side]
+        w_leg = _smooth01(crotch + HIP_BLEND, crotch - 0.02, co.z) * _smooth01(0.0, 0.06, abs(co.x))
+        w_leg = min(w_leg, 1.0 - w_arm)
+        w_trunk = max(0.0, 1.0 - w_arm - w_leg)
+        out = {}
+        if w_arm > 0.0:
+            elbow_at = (el - sh).dot(axis) / axis.length
+            lower = _smooth01(elbow_at - ELBOW_BLEND, elbow_at + ELBOW_BLEND, reach)
+            out["armU." + side] = w_arm * (1.0 - lower)
+            out["armL." + side] = w_arm * lower
+        if w_leg > 0.0:
+            shin = _smooth01(kn.z + KNEE_BLEND, kn.z - KNEE_BLEND, co.z)
+            foot = _smooth01(an.z + ANKLE_BLEND, an.z - ANKLE_BLEND, co.z)
+            out["thigh." + side] = w_leg * (1.0 - shin)
+            out["shin." + side] = w_leg * shin * (1.0 - foot)
+            out["foot." + side] = w_leg * foot
+        if w_trunk > 0.0:
+            head = _smooth01(neck - NECK_BLEND, neck + NECK_BLEND, co.z)
+            mid = (hips_z + spine_z) / 2.0 + 0.08
+            spine = _smooth01(mid - WAIST_BLEND, mid + WAIST_BLEND, co.z)
+            out["head"] = w_trunk * head
+            out["spine"] = w_trunk * (1.0 - head) * spine
+            out["hips"] = w_trunk * (1.0 - head) * (1.0 - spine)
+        for name, w in out.items():
+            if w > 1e-4:
+                groups[name].add([v.index], w, "REPLACE")
 
 
 def release_trunk(skin, J):
@@ -1380,10 +1454,18 @@ def build_body_meshes(rig):
     trunk_ids = [v.index for v in skin.data.vertices
                  if abs(v.co.x) < abs(J["armU.R"].x) * 0.72 and v.co.z > J["hips"].z
                  and not near_arm(v.co, J, ARM_BLEND + ARM_BLEND_FADE)]
-    smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")], 0.5, 12, trunk_ids)
-    # And on the trunk the arm's pull fades with distance from the shoulder joint: the round of the shoulder rises with a raised arm, the
-    # chest and the sides under it stay with the spine (the owner, 2026-10-14: the arms stretched the body and did not read as shoulders).
-    release_trunk(skin, J)
+    if ANALYTIC_WEIGHTS:
+        # (Art review 5: the automatic weights, and every patch laid over them, left the chest partly following the arms, so on a swing the
+        # torso stretched and puffed out as if breathing in. The rebuilt body is a clean, symmetric shape, so its weights are worked out
+        # from the skeleton instead: the trunk follows the spine and hips alone, each limb takes over within a short band at its root, and
+        # every joint blends over the same short stretch on both sides.)
+        analytic_weights(skin, J)
+    else:
+        smooth_weights(skin, [g + "." + side for side in "LR" for g in ("armU", "armL")], 0.5, 12, trunk_ids)
+        # And on the trunk the arm's pull fades with distance from the shoulder joint: the round of the shoulder rises with a raised arm,
+        # the chest and the sides under it stay with the spine (the owner, 2026-10-14: the arms stretched the body and did not read as
+        # shoulders).
+        release_trunk(skin, J)
     # The ball of the head belongs wholly to the head bone (the owner saw the head melt into the chest, a gourd): the automatic weights
     # gave its underside partly to the spine, which the game twists toward the camera apart from the head, so the chin stretched into the
     # shoulders. Everything inside the head's ball, down to a little above the neck, takes the head's weight alone.

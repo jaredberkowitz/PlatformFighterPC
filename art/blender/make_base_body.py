@@ -39,16 +39,16 @@ HEAD_RADII = Vector((0.44, 0.425, 0.43))
 # (make_rigged_blob.py's WAIST_SHARE), and the hips fill out again under it.)
 TRUNK = [
     (1.44, 0.09, 0.08, 0.0),
-    (1.37, 0.135, 0.115, 0.0),
-    (1.32, 0.29, 0.19, 0.01),
-    (1.25, 0.37, 0.225, 0.015),
-    (1.12, 0.385, 0.24, 0.025),
-    (0.98, 0.35, 0.245, 0.035),
-    (0.87, 0.34, 0.228, 0.03),
-    (0.79, 0.33, 0.218, 0.02),
-    (0.7, 0.352, 0.228, 0.01),
-    (0.6, 0.31, 0.192, -0.005),
-    (0.505, 0.16, 0.1, 0.0),
+    (1.38, 0.15, 0.12, 0.0),
+    (1.34, 0.3, 0.19, 0.01),
+    (1.27, 0.35, 0.22, 0.015),
+    (1.14, 0.36, 0.235, 0.025),
+    (1.0, 0.34, 0.24, 0.035),
+    (0.9, 0.32, 0.23, 0.03),
+    (0.82, 0.32, 0.22, 0.02),
+    (0.74, 0.33, 0.22, 0.01),
+    (0.65, 0.28, 0.18, -0.005),
+    (0.57, 0.15, 0.1, 0.0),
 ]
 # How square the trunk's cross-section is (2 an ellipse; higher, a rounded box).
 TRUNK_SQUARE = 3.2
@@ -62,36 +62,30 @@ TRUNK_SQUARE = 3.2
 # so the joint reads; it starts inside the trunk's top corner, where a shoulder cap (`SHOULDER_CAP`) rounds the box into it.)
 # (Hung a little further out from the shoulder, 2026-10-14, with the trunk narrowed under it, so there is a real armpit: the arm had
 # fused to the torso's side down to the elbow, and a swinging arm stretched the side with it like a wing.)
-ARM = [((0.31, 0.0, 1.25), 0.17), ((0.47, 0.006, 1.12), 0.162), ((0.605, 0.012, 1.0), 0.155), ((0.69, 0.018, 0.9), 0.15),
-       ((0.76, 0.025, 0.79), 0.14)]
+ARM = [((0.31, 0.0, 1.27), 0.142), ((0.455, 0.005, 1.13), 0.136), ((0.585, 0.01, 0.99), 0.121), ((0.655, 0.015, 0.87), 0.117), ((0.725, 0.02, 0.75), 0.102)]
 # The shoulder cap: a soft ball over each top corner of the trunk, where the arm comes out, so trunk and arm are one rounded mass, not a
 # tube pushed into a box (it read as a sleeve). Centre (x, y, z) and radii.
 # (Laid along the arm's first stretch, so the shoulder's top line runs on into the arm without a bulge: a deltoid ball and a narrowing
 # below it read as a sleeve's cuff.)
-SHOULDER_CAP = ((0.37, 0.003, 1.2), (0.2, 0.18, 0.15))
+SHOULDER_CAP = ((0.33, 0.0, 1.24), (0.13, 0.13, 0.1))
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
 HAND_LENGTH = 0.2
 HAND_RADII = (0.062, 0.1)   # thickness, width
 # Legs: hip (inside the trunk), knee, ankle (inside the foot): short and thick.
 # (Thick legs set apart under the box, as PEAK's, but shaped as legs: a full thigh, a knee, a calf that swells behind and narrows to the
 # ankle.)
-LEG = [((0.2, 0.0, 0.57), 0.172), ((0.2, 0.0, 0.45), 0.168), ((0.2, 0.0, 0.34), 0.15), ((0.2, 0.01, 0.26), 0.156), ((0.2, 0.0, 0.15), 0.128)]
+LEG = [((0.18, 0.0, 0.63), 0.152), ((0.18, 0.0, 0.52), 0.146), ((0.18, 0.0, 0.4), 0.124), ((0.18, 0.008, 0.29), 0.128), ((0.18, 0.0, 0.15), 0.106)]
 # Anatomy laid on the limbs as soft forms (the owner, 2026-10-14: "a body, not tubes"): (centre, radii) per side, x mirrored.
-ANATOMY = [
-    # The point of the elbow behind.
-    ((0.61, 0.05, 1.0), (0.08, 0.06, 0.075)),
-    # Kneecaps in front, calves behind.
-    ((0.2, -0.105, 0.34), (0.1, 0.08, 0.09)),
-    ((0.2, 0.06, 0.25), (0.13, 0.12, 0.11)),
-]
+ANATOMY = [((0.18, -0.08, 0.4), (0.07, 0.055, 0.065)), ((0.18, 0.045, 0.3), (0.088, 0.08, 0.085))]
 # Feet: wide puffy ovals, pushed forward, their soles on the ground.
-FOOT_CENTRE = (0.2, -0.07, 0.09)
-FOOT_RADII = (0.16, 0.2, 0.095)
+FOOT_CENTRE = (0.18, -0.06, 0.08)
+FOOT_RADII = (0.12, 0.17, 0.08)
 # A foot as a foot: a round heel under the ankle and a broad toe box in front, flat soles.
-HEEL = ((0.2, 0.03, 0.085), (0.14, 0.13, 0.085))
-TOE = ((0.2, -0.15, 0.08), (0.165, 0.15, 0.08))
-
+HEEL = ((0.18, 0.03, 0.075), (0.1, 0.09, 0.075))
+TOE = ((0.18, -0.13, 0.07), (0.12, 0.12, 0.07))
 VOXEL = 0.009          # remesh detail (units)
+EVEN_ITERATIONS = 6    # the final volume-keeping smooth
+EVEN_FACTOR = 0.6
 SOFTEN = 8             # smoothing steps where the parts meet
 TARGET_TRIS = 6500     # the final budget: as few as keep the head and belly round under the outline
 # How the skin is reduced to that budget: "quad" re-lays it as an even flow of quads (QuadriFlow), which keeps the normals smooth, so the
@@ -238,6 +232,22 @@ def finish(obj):
         dec.symmetry_axis = "X"
         bpy.ops.object.modifier_apply(modifier=dec.name)
     mend_folds(obj)
+    # Exactly symmetric (art review 5: the remesh laid the two halves out differently, so the left and right arms were different shapes and
+    # bent differently): keep the right half and mirror it.
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces), plane_co=(0, 0, 0), plane_no=(1, 0, 0),
+                           clear_inner=True)
+    bmesh.ops.symmetrize(bm, input=list(bm.verts) + list(bm.edges) + list(bm.faces), direction="X", dist=0.0005)
+    bm.to_mesh(obj.data)
+    bm.free()
+    # And smooth, keeping the volume (the melted parts left ripples the remesh kept: a lumpy surface the cel light picked out).
+    lap = obj.modifiers.new("even", "LAPLACIANSMOOTH")
+    lap.iterations = EVEN_ITERATIONS
+    lap.lambda_factor = EVEN_FACTOR
+    lap.use_volume_preserve = True
+    lap.use_normalized = True
+    bpy.ops.object.modifier_apply(modifier=lap.name)
     # Soles flat on the ground.
     for v in obj.data.vertices:
         if v.co.z < 0.012:
