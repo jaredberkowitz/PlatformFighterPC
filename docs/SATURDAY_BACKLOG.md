@@ -56,6 +56,12 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       stages finish their ends.
 - [ ] Fighters: the clothes' outline sits close to the body outline, doubling the line at the waist and cuffs at play size.
 
+## Skies (owner, 2026-10-15: the canyon's sun and clouds still look cheap)
+- [ ] A painted sunset for the canyon: the sun as a soft painted disc with a proper glow falloff, and clouds as painted shapes with a lit
+      underside and soft edges (a cloud texture or card set, from Material Maker or painted SVG cards), replacing the squashed spheres
+      in `_painted_sun` (`stage_art.gd`) and the flat `_clouds`. Then the same cloud set for the beach and meadow skies, so every stage's
+      sky shares one painted style.
+
 ## Tools
 - [ ] Material Maker 1.7 is at `C:/Users/jared/Tools/MaterialMaker/app/material_maker_1_7_windows/material_maker.exe` (checksum
       verified). Batch export (`--export-material --target ... -o <dir> <file.ptex>`) ran but wrote nothing ("Cannot open
