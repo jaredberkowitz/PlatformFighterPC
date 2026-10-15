@@ -458,3 +458,10 @@ Checked: the art pipeline and match flow tests.
 small nail heads either side of every seam and at both ends, and a cross-batten under each end (the joists the boards are nailed to),
 on every wooden platform (`platform`). The girder platforms are unchanged.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 34 (prototype props)
+
+- **Crates** (`review6_round34_crates.png`, before | after; city, canyon and anywhere `_crate` is used): a full X across a blank face
+  is the placeholder-crate symbol. Now two horizontal board seams behind the frame and a single diagonal brace, as a built crate. The
+  beach's props and the city's rooftop vent and AC unit checked and kept.
+Checked: the art pipeline and match flow tests.

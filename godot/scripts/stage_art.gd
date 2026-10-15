@@ -1228,8 +1228,12 @@ static func _crate(root: Node3D, at: Vector3, size: float, turn: float) -> void:
 	for e2 in [[Vector3(0, size / 2.0 - b / 2.0, 0), Vector3(size, b, 0.04)], [Vector3(0, -size / 2.0 + b / 2.0, 0), Vector3(size, b, 0.04)],
 			[Vector3(size / 2.0 - b / 2.0, 0, 0), Vector3(b, size, 0.04)], [Vector3(-size / 2.0 + b / 2.0, 0, 0), Vector3(b, size, 0.04)]]:
 		_mesh(root, _box(e2[1]), plank, face + basis * (e2[0] as Vector3), Vector3.ONE, Vector3(0, turn, 0))
-	for diag in [45.0, -45.0]:
-		_mesh(root, _box(Vector3(size * 1.15, b * 0.9, 0.035)), plank, face + basis * Vector3(0, 0, 0.005), Vector3.ONE, Vector3(0, turn, diag))
+	# Slats behind the frame (two board seams) and one diagonal brace (art review 6 round 34: a full X across a blank face is the
+	# placeholder-crate symbol; a built crate is slats braced once).
+	var seam := FighterView.toon(Color(0.6, 0.42, 0.26), false)
+	for sy in [-size / 6.0, size / 6.0]:
+		_mesh(root, _box(Vector3(size - b * 2.0, size * 0.025, 0.02)), seam, face + basis * Vector3(0, sy, -0.005), Vector3.ONE, Vector3(0, turn, 0))
+	_mesh(root, _box(Vector3(size * 1.1, b * 0.9, 0.035)), plank, face + basis * Vector3(0, 0, 0.005), Vector3.ONE, Vector3(0, turn, 45.0))
 	# Corner battens up the four vertical edges, standing proud of the sides: they break the block's hard edges into planes that catch
 	# the light (a lit batten on the key side, a shaded one opposite), as a real crate's corner posts do.
 	var post := Materials.wood(Color(0.74, 0.54, 0.34), Vector2(1, 2))
