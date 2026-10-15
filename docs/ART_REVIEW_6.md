@@ -345,3 +345,10 @@ Checked: the art pipeline and match flow tests.
   centred under the fighters, was a perfect pale ellipse with a crack from its middle and a pebble under it: a clock face. Now a
   flattened, lumpy outline a step nearer the soil, its crack running in from the rim (the other stones unchanged).
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 18
+
+- **The canyon's telegraph pole** (`review6_round18_canyon_pole.png`, before | after): far back on the desert floor, but from the match
+  camera the pole by the stage's left end stood exactly on its corner, a stray stick with its wire across the arch. The line now breaks
+  off behind the stage (no poles within 36 units of its middle) and carries on beyond (`_sunset`).
+Checked: the art pipeline and match flow tests.

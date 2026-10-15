@@ -2838,6 +2838,11 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var prev := Vector3.INF
 	for k in 9:
 		var at := Vector3(-120.0 + k * 30.0, DESERT_FLOOR, -40.0 - 4.0 * absf(sin(k * 1.3)))
+		# (None behind the stage itself: from the match camera the pole by the stage's end stood exactly on its corner, a stray stick
+		# with its wire across the arch. Art review 6 round 18. The line breaks off there and carries on beyond.)
+		if absf(at.x) < 36.0:
+			prev = Vector3.INF
+			continue
 		_mesh(root, _cylinder(0.22, 0.28, 9.0, 6), pole, at + Vector3(0, 4.5, 0))
 		_mesh(root, _box(Vector3(2.6, 0.22, 0.22)), pole, at + Vector3(0, 8.4, 0))
 		var hook := at + Vector3(0, 8.6, 0)
