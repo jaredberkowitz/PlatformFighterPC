@@ -44,7 +44,7 @@ uniform vec4 pastel_haze : source_color = vec4(0.88, 0.9, 1.0, 1.0);
 // back it is, from `haze_start` to `haze_end` world units behind the stage plane, at most `haze_max`. `stage_dist` is the camera's
 // distance to the stage plane (set every frame by main.gd). The sky is left alone.
 uniform float stage_dist = 30.0;
-uniform float haze_start = 4.0;
+uniform float haze_start = 14.0;  // (4 until art review 6 round 23: the Wind Waker HD reference keeps near scenery vivid and hazes only the distance)
 uniform float haze_end = 110.0;
 uniform float haze_max = 0.36;
 // A gentle S-curve on the values (0 none): darker darks and brighter lights for more depth in the picture. Only the 0..1 range is curved

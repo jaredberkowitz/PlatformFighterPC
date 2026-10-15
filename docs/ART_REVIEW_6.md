@@ -378,3 +378,10 @@ Checked: the art pipeline and match flow tests; the look bench.
 Tried the two cheap levers, each with no visible change at play distance, so both reverted: the post pass's line strength on scenery
 (`scenery_lines` 0.4 to 0.25) and the props' outline shells (default `outline_weight` 0.6 to 0.4). The scenery's remaining ink is painted
 into its textures (stone and plank edges, trims, the strata's ledge lines). Easing it is a texture pass over every stage: backlog.
+
+## Refinement round 23 (Wind Waker HD frame, item 5)
+
+- **Haze only in the distance:** the post pass's atmospheric haze began 4 units behind the stage, so the nearest scenery (fences, the
+  grove's side trees and great trunk) was already faintly washed. Now from 14 units back (`haze_start`, `post.gdshader`), as the reference
+  keeps everything near crisp and fades only the horizon. Subtle on the meadow (its haze is light), clearer on the grove.
+Checked: the art pipeline and match flow tests.
