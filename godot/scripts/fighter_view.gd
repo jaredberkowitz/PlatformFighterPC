@@ -313,7 +313,9 @@ func _build_rig(skin: Material) -> bool:
 	model.add_child(rig)
 	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	for clip_name in anim.get_animation_list():
-		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
+		# (By the clip's own name, its facing-left copy included: the library is shared, so a second fighter's build saw "run@m" here and
+		# switched its loop off, and every left-facing run, walk and dash froze on its last frame and slid. The owner's dash-left bug.)
+		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(String(clip_name).trim_suffix(MIRROR_SUFFIX)) else Animation.LOOP_NONE
 	if use_base_body:
 		_add_mirrored_clips()
 	var white := toon(Color(1, 1, 1))

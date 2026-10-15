@@ -150,6 +150,12 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				[100, "key", KEY_D, true], [104, "key", KEY_D, false]]
 			d.shots = [[16, "a_walking"], [30, "b_walk_full_tilt"], [60, "c_dash"], [78, "d_run"], [100, "e_hop_nudge"], [118, "f_drifted"]]
 			d.end_frame = 130
+		"dashleft":
+			# Standing facing right, a double tap left into a run (the owner's sliding-run bug, the left clips' loop lost; art review 6).
+			d.cam_dist = 16.0
+			d.events = [[1, "stand", 0, 0.0, 1], [1, "stand", 1, 8.0, -1]]
+			d.timeline = [[0, 0, 0, 0], [20, -127, 0, 0], [23, 0, 0, 0], [26, -127, 0, 0], [70, 0, 0, 0]]
+			d.end_frame = 72
 		"combat":
 			d.cam_dist = 20.0
 			d.events = [[1, "stand", 0, -1.2, 1], [1, "stand", 1, 1.0, -1]]
