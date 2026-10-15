@@ -40,8 +40,10 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 ## Tools
 - [ ] Material Maker 1.7 is at `C:/Users/jared/Tools/MaterialMaker/app/material_maker_1_7_windows/material_maker.exe` (checksum
       verified). Batch export (`--export-material --target ... -o <dir> <file.ptex>`) ran but wrote nothing ("Cannot open
-      user://export_targets"): open the app once with its window so it creates its settings, then retry; first use: a painted bark and
-      a soil texture to replace the hand-written SVG tiles (`tools/art/make_tiles.py`).
+      user://export_targets"). Still nothing after a first windowed launch, with the exact target name (`Godot/Godot 4 Standard`, from
+      nodes/material.mmg) and directory or file-prefix outputs: batch export looks broken in 1.7 on Windows. Next: export from the app
+      (File > Export) by hand, or check its issue tracker / an older release. First use: painted bark and soil textures to replace the
+      hand-written SVG tiles (`tools/art/make_tiles.py`).
 - [ ] godot-ai MCP: configured at 127.0.0.1:8000 but nothing on this machine provides it; reinstall from its source if wanted
       (`--pick=x,y` in main.gd covers finding what draws a pixel).
 
