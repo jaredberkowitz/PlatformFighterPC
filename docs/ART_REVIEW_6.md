@@ -372,3 +372,9 @@ Checked: the art pipeline and match flow tests; the look bench.
   stage fronts and the props' shaded sides step back under their sunlit tops, as the reference's walls and rocks do. The fighters' shade
   deepens with it; the look bench passes. Flagged for the owner's eye: the beach wall reads a little greyer.
 Checked: the art pipeline and match flow tests; the look bench.
+
+## Refinement round 22 (Wind Waker HD frame, item 4: fewer ink lines; nothing kept)
+
+Tried the two cheap levers, each with no visible change at play distance, so both reverted: the post pass's line strength on scenery
+(`scenery_lines` 0.4 to 0.25) and the props' outline shells (default `outline_weight` 0.6 to 0.4). The scenery's remaining ink is painted
+into its textures (stone and plank edges, trims, the strata's ledge lines). Easing it is a texture pass over every stage: backlog.

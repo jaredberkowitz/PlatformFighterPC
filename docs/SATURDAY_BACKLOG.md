@@ -30,6 +30,8 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [x] Controls screen hierarchy (round 12).
 - [ ] Player-visible text says "strong attack", never "smash" (README, How to play.txt, in-game text); the owner chose "strong attack"
       (2026-10-15). Internal move ids (`fsmash` etc.) later, with the moveset session.
+- [ ] Ink painted into the stage textures (stone and plank edges, trims, strata ledges) eased toward the Wind Waker HD reference, where
+      colour and value carry the scenery; the post-pass and outline-shell levers made no visible difference (art review 6 round 22).
 - [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
