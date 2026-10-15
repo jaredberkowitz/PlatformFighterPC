@@ -3070,6 +3070,9 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for layer in 3:
 		var z := -40.0 - layer * 28.0
 		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
+		# (The further layers drift toward the sky's own horizon colour, so distance reads as air, not as three equal cut-outs: the owner's
+		# rooftop plan, art review 6.)
+		shade = shade.lerp(t.sky_horizon as Color, [0.0, 0.16, 0.34][layer])
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -3419,11 +3422,18 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		shape.seed = hash(Vector2i(roundi(x * 10.0), layer))
 		_facade_box(st, Vector3(lo.x - 0.25, hi.y - 0.35, lo.z - 0.25), Vector3(hi.x + 0.25, hi.y + 0.1, hi.z + 0.25), seed, true, 0.45)
 		var set_top := hi.y + 0.1
-		if h > 16.0 and layer < 2 and shape.randf() < 0.5:
+		# (More of them, and a second, narrower step on the tallest: a skyline of stepped crowns, not flat-topped boxes.)
+		if h > 14.0 and shape.randf() < 0.68:
 			var inset := w * shape.randf_range(0.18, 0.3)
 			var sh := shape.randf_range(2.6, 5.5)
 			_facade_box(st, Vector3(lo.x + inset, set_top, lo.z + 0.6), Vector3(hi.x - inset, set_top + sh, hi.z - 0.6), seed, false, sh)
 			_facade_box(st, Vector3(lo.x + inset - 0.2, set_top + sh - 0.3, lo.z + 0.4), Vector3(hi.x - inset + 0.2, set_top + sh + 0.1, hi.z - 0.4), seed, true, 0.4)
+			if h > 24.0 and shape.randf() < 0.55:
+				var in2 := inset + w * 0.14
+				var t2 := set_top + sh + 0.1
+				var sh2 := shape.randf_range(1.8, 3.5)
+				_facade_box(st, Vector3(lo.x + in2, t2, lo.z + 1.0), Vector3(hi.x - in2, t2 + sh2, hi.z - 1.0), seed, false, sh2)
+				_facade_box(st, Vector3(lo.x + in2 - 0.15, t2 + sh2 - 0.25, lo.z + 0.85), Vector3(hi.x - in2 + 0.15, t2 + sh2 + 0.1, hi.z - 0.85), seed, true, 0.35)
 		if layer < 2 and signs.randf() < 0.34:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
 			var front := hi.z + 0.08

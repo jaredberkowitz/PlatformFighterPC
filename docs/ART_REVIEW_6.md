@@ -142,4 +142,7 @@ The owner scheduled the full animation overhaul for Saturday 2026-10-17 (plan in
 
 `review6_rooftop.png` (before | after: the run, the city close up): the roof's edge is a stone coping standing proud of the facade, lit
 on top with a shaded face and a dark drip line under it; the roofing is a warm tar-grey a step apart from the violet facade; its seams
-fall at uneven spacings. Checked: the art, match and runner tests; the look bench. Next here: the skyline's rooflines and window depth.
+fall at uneven spacings. Checked: the art, match and runner tests; the look bench.
+- **The skyline** (`review6_skyline.png`, before | after): more stepped crowns (a setback storey on two thirds of the taller buildings,
+  a second narrower one on the tallest, on every layer), and the further layers drift toward the sky's horizon colour (16% and 34%), so
+  distance reads as air. Window depth is left for later (one facade shader per layer; a change there touches every window).
