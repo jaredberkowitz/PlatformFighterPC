@@ -2451,7 +2451,8 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 	_hills(root, rng, Color(0.36, 0.72, 0.34), Color(0.42, 0.66, 0.6))
 	_clouds(root, rng, 11, Color(1.0, 1.0, 1.0), Vector2(14, 34))
 	# Islands floating in the sky beyond the stage, at several depths (smaller and paler with distance).
-	_sky_islands(root, t, rng, 9)
+	# (Six, round 40: nine crowded the top of the frame, several clipped by its edge.)
+	_sky_islands(root, t, rng, 6)
 	_birds(root, rng, Color(0.25, 0.22, 0.3))
 	# A windmill on the crest of a near hill (just behind the land's edge, so it stands in it), its sails turning slowly.
 	_windmill(root, Vector3(-34, hill_top(-34.0) - 0.8, -73))
@@ -2522,7 +2523,7 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# (Spread across the sky, kept off the middle above the stage where the fighters fly.)
 		var side := -1.0 if k % 2 == 0 else 1.0
 		var x := side * (rng.randf_range(12.0, 34.0) + 10.0 * float(k / 2)) * lerpf(1.0, 1.5, depth)
-		var y := rng.randf_range(4.0, 11.0) + depth * 8.0
+		var y := rng.randf_range(3.0, 9.0) + depth * 6.0
 		var island := Node3D.new()
 		island.position = Vector3(x, y, z)
 		root.add_child(island)

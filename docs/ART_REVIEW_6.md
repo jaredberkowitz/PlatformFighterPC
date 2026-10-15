@@ -497,3 +497,10 @@ Checked: the art pipeline and match flow tests.
 - **The canyon sun** (`review6_round39_canyon_sun.png`, before | after): a huge disc right behind the stage outshone the fight. Now
   smaller (10, was 14), lower and to the left, setting behind the far mesas (`_sunset`).
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 40
+
+- **The meadow's floating islands** (`review6_round40_islands.png`, before | after): nine crowded the top of the frame, several
+  clipped by its edge. Now six, set lower (3-9 plus up to 6 by depth); the stage's random layout shifts with them (two round trees by
+  the windmill). One far island still touches the top right edge.
+Checked: the art pipeline and match flow tests.
