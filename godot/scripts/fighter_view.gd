@@ -31,6 +31,7 @@ const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
+const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SKIN_SHADER := preload("res://shaders/skin.gdshader")
 const UIDraw := preload("res://ui/ui_draw.gd")
@@ -81,6 +82,7 @@ func rebuild(l: RefCounted) -> void:
 	arc_shown = {}
 	dizzy = null
 	launch_lines = null
+	launch_trail = null
 	rig = null
 	anim = null
 	skeleton = null
@@ -3380,11 +3382,12 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 # replay seek redraws it; a move cut short (a landing) lets its arc fade on its own. Moves with no arc (thrusts, punches, kicks) draw
 # none.
 
-const ARC_FADE := 5
+const ARC_FADE := 3
 ## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
 const HIGH_BLADE_ARM := 52.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
-const ARC_OPACITY := 0.82
+## (0.62, art review 6: at 0.82 the pale crescent was the biggest, most solid shape on screen at the moment of a hit, over both fighters.)
+const ARC_OPACITY := 0.62
 const ARC_STEPS := 36
 const ARC_Z := 0.6
 const ARC_PAST_HAND := 0.8
@@ -3610,7 +3613,9 @@ var dizzy: Node3D
 ## A strong launch: the body stretched along the way it flies, and streaks trailing behind it.
 var launch_frame: Node3D
 var launch_lines: Node3D
-const LAUNCH_LINES_FROM := 0.5
+var launch_trail: Node3D
+## (Units per frame: 0.5 was faster than nearly any launch, so the streaks and trail never showed. Art review 6.)
+const LAUNCH_LINES_FROM := 0.2
 
 
 ## A five-pointed star of radius `r`: an ink outline behind a yellow star with a pale middle, in one mesh (vertex colours).
@@ -3690,7 +3695,15 @@ func _launch_look(s: Dictionary) -> void:
 	if absf(float(target[0])) > 0.001:
 		body_dir = target[1]
 	launch_frame.transform = MotionDeform.along(body_k, body_dir, Vector3(0, 1.1, 0))
-	var lines_on := flying and speed > LAUNCH_LINES_FROM
+	# (By the whole flight, knockback included: the fighter's own velocity is small in a launch, so the streaks never showed.)
+	var lines_on := flying and flight.length() > LAUNCH_LINES_FROM
+	# The launch trail (scripts/effects.gd `LaunchTrail`), behind the body along the way it flies.
+	if launch_trail == null and lines_on:
+		launch_trail = Effects.LaunchTrail.new()
+		launch_trail.material_override = Effects._material(false)
+		add_child(launch_trail)
+	if launch_trail != null:
+		launch_trail.feed(global_position + Vector3(0, 1.1, 0), lines_on)
 	if launch_lines == null and lines_on:
 		launch_lines = Node3D.new()
 		var mat := StandardMaterial3D.new()
@@ -3713,7 +3726,8 @@ func _launch_look(s: Dictionary) -> void:
 	if not lines_on:
 		return
 	# Streaks behind the body along the flight, a little spread, their lengths changing on twos.
-	var dir := vel.normalized()
+	var dir := flight.normalized()
+	speed = flight.length()
 	launch_lines.position = Vector3(0, 1.1, -0.3)
 	launch_lines.rotation = Vector3(0, 0, dir.angle())
 	var seed_step := int(s.frame) / 2
