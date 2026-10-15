@@ -403,3 +403,9 @@ Checked: the art pipeline and match flow tests.
 - Next for backgrounds: the grove's side trees and the meadow's background trees (soft, untextured crowns beside the foreground's
   bushes), the far hills' painted band.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 26 (background trees; nothing kept)
+
+The grove's tree crowns are already detailed leaf-card clusters; their chalky look is the grove's purple fill light on their shaded
+sides. A warmer leaf green (as the grass in round 24) made no visible difference and was reverted. Changing the grove's fill would
+recolour the whole stage's shade and its mood; left for the owner's call, with the far hills' painted band as the next background item.
