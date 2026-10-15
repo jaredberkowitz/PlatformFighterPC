@@ -50,7 +50,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
-| O1 | Perfect pivot, pivot tilts and pivot smashes | A flick back then forward slides into a standing turnaround that cancels into tilts and smashes | Pivot grab only | Med (competitive spacing) | S-M |
+| O1 | Perfect pivot, pivot tilts and pivot smashes (**done, sim 133**, an addition by owner's call: the current reference removed pivots, the previous generation had them; a one-frame flick back out of a dash slides into a standing turnaround, `Ruleset::perfect_pivot_frames`, 0 turns it off) | A flick back then forward slides into a standing turnaround that cancels into tilts and smashes | Pivot grab only | Med (competitive spacing) | S-M |
 | O2 | Footstool | Jump on an opponent's head: a jump for you, a short stun for them on the ground, a forced fall in the air | Missing | Med (edgeguards, combo escapes, combos) | M |
 | O3 | B-reverse on the down special | B-reverse works on neutral and down specials | Neutral and side specials only (verify which specials the reference allows) | Low | S |
 

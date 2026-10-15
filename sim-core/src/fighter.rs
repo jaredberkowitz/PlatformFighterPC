@@ -785,7 +785,23 @@ fn ground(
     match f.state {
         S::Dash => {
             // Letting go of the stick does not stop the dash: it runs its full `dash_frames` either way.
-            if f.dash_wait > 0 {
+            // A perfect pivot (sim 133, the previous reference generation's; owner's call): the stick flicked back out of a dash and
+            // let go again within `perfect_pivot_frames` frames stops the turnaround. The fighter stands facing the new way, sliding
+            // back with the dash's speed (bleeding off as a stand does), free to tilt, strong attack, grab or jump at once. A held
+            // flick back is the usual dash back.
+            let since = (p.dash_turn_delay + 1).saturating_sub(f.dash_wait);
+            if f.dash_wait > 0
+                && since >= 1
+                && since <= rules.perfect_pivot_frames
+                && !x_active(input)
+            {
+                f.vel.x = f.turn_speed;
+                f.turn_speed = Fx::ZERO;
+                f.dash_wait = 0;
+                f.dash_buffer = 0;
+                f.dash_age = 255;
+                enter(f, S::Idle);
+            } else if f.dash_wait > 0 {
                 // The turnaround of a reversed dash: standing, then the first step. Its standing frames do not count toward the dash,
                 // so a dash back lasts `dash_turn_delay` frames longer (the reference's pivot dash: two frames longer than a dash).
                 f.dash_wait -= 1;

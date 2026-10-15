@@ -527,6 +527,7 @@ rules_io! {
     respawn_platform_frames: u8,
     trip_lag: u8,
     jab_lock_limit: u8,
+    perfect_pivot_frames: u8,
     jab_lock_frames: u8,
     trip_max: u8,
     trip_invuln: u8,

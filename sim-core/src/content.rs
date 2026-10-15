@@ -2518,6 +2518,9 @@ pub struct Ruleset {
     /// act as usual. (The reference's limit is two; the bounce's length is not published: 12 frames [E], the previous reference
     /// generation's quick reset.)
     pub jab_lock_limit: u8,
+    /// Perfect pivots (sim 133): a flick back out of a dash let go within this many frames stands the fighter facing the new way,
+    /// sliding with the dash's speed (see `fighter::ground`). The previous reference generation's window is one frame; 0 turns it off.
+    pub perfect_pivot_frames: u8,
     pub jab_lock_frames: u8,
     pub trip_max: u8,
     pub trip_invuln: u8,
@@ -2709,6 +2712,7 @@ impl Ruleset {
             respawn_platform_frames: 150,
             trip_lag: 40,
             jab_lock_limit: 2,
+            perfect_pivot_frames: 1,
             jab_lock_frames: 12,
             trip_max: 100,
             trip_invuln: 5,
@@ -2872,6 +2876,7 @@ impl StateHash for Ruleset {
         h.write_u8(self.respawn_platform_frames);
         h.write_u8(self.trip_lag);
         h.write_u8(self.jab_lock_limit);
+        h.write_u8(self.perfect_pivot_frames);
         h.write_u8(self.jab_lock_frames);
         h.write_u8(self.trip_max);
         h.write_u8(self.trip_invuln);

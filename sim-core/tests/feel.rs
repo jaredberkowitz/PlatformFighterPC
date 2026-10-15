@@ -572,3 +572,55 @@ fn the_shield_cuts_the_initial_dash_to_about_half() {
         "shield {shielded:?} against {whole:?}"
     );
 }
+
+// ---- Perfect pivots (sim 133) ---------------------------------------------------------------------------------------------------
+// A flick back out of an initial dash, let go to neutral on the next frame, stands the fighter facing the new way, sliding back with
+// the dash's speed, free to act at once (`Ruleset::perfect_pivot_frames`, 1).
+
+/// Dashes right for 6 frames, flicks back for `held` frames, then lets go.
+fn pivot_after(held: usize) -> Sim {
+    let mut sim = Sim::new();
+    sim.ticks(6, inp(127, 0, 0));
+    sim.ticks(held, inp(-127, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    sim
+}
+
+#[test]
+fn a_one_frame_flick_back_out_of_a_dash_is_a_sliding_perfect_pivot() {
+    let sim = pivot_after(1);
+    let f = sim.f();
+    assert_eq!(f.state, S::Idle, "standing, not dashing back");
+    assert_eq!(f.facing, -1, "facing the new way");
+    assert!(f.vel.x > Fx::ZERO, "sliding on the way it was dashing");
+}
+
+#[test]
+fn the_slide_bleeds_off_and_a_pivot_tilt_comes_out_at_once() {
+    let mut sim = pivot_after(1);
+    let speed = sim.f().vel.x;
+    sim.tick(inp(-60, 0, ATTACK));
+    assert_eq!(sim.f().state, S::Attack, "a tilt straight out of the pivot");
+    assert_eq!(sim.f().move_id, MoveId::FTilt as u8);
+    assert_eq!(sim.f().facing, -1);
+    sim.ticks(4, inp(0, 0, 0));
+    assert!(sim.f().vel.x < speed, "the slide slows down");
+}
+
+#[test]
+fn a_flick_back_held_longer_is_still_a_dash_back() {
+    let mut sim = pivot_after(2);
+    sim.ticks(4, inp(-127, 0, 0));
+    assert_eq!(sim.f().state, S::Dash);
+    assert!(sim.f().vel.x < Fx::ZERO, "dashing the new way");
+}
+
+#[test]
+fn perfect_pivots_can_be_turned_off() {
+    let mut sim = Sim::new();
+    sim.content.rules.perfect_pivot_frames = 0;
+    sim.ticks(6, inp(127, 0, 0));
+    sim.tick(inp(-127, 0, 0));
+    sim.tick(inp(0, 0, 0));
+    assert_eq!(sim.f().state, S::Dash, "the dash back carries on as before");
+}
