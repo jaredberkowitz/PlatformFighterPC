@@ -1387,6 +1387,19 @@ def build_body_meshes(rig):
     # The generated hands cut off past the wrist (the glove fists take their place).
     bm = bmesh.new()
     bm.from_mesh(skin.data)
+    # First the forearm is sliced through along the cut's plane, so the points beyond it go and the edge left is one straight ring
+    # (deleting whole points alone left a staircase of quads round the wrist, a jagged collar the hand's plug did not cover).
+    for side, sign in (("L", -1.0), ("R", 1.0)):
+        s, e, w = J["armU." + side], J["armL." + side], J["hand." + side]
+        length = (w - s).length
+        fore = w - e
+        plane = w + fore.normalized() * 0.03 * length
+        near = [v for v in bm.verts if v.co.x * sign >= abs(s.x) * 0.7 and (v.co - e).dot(fore) / fore.length_squared > 0.5
+                and (v.co - w).length < 0.35]
+        nearset = set(near)
+        edges = [ed for ed in bm.edges if ed.verts[0] in nearset and ed.verts[1] in nearset]
+        faces = [f for f in bm.faces if all(v in nearset for v in f.verts)]
+        bmesh.ops.bisect_plane(bm, geom=near + edges + faces, plane_co=plane, plane_no=fore.normalized(), dist=1e-5)
     cut = []
     wrist_r = {"L": [], "R": []}
     for v in bm.verts:
@@ -1407,11 +1420,12 @@ def build_body_meshes(rig):
             tf = (v.co - e).dot(fore) / fore.length_squared
             # (Square across the forearm, not the shoulder-to-wrist line: the arm bends at the elbow, and a cut across that line reached
             # up one side of the forearm in a notch whose hole showed the outline's black inside.)
-            if t > 0.9 and tf > 1.0 + 0.03 * length / fore.length:
+            if t > 0.9 and tf > 1.0 + 0.03 * length / fore.length + 1e-4:
                 cut.append(v)
                 break
-            # (How thick the forearm is near the wrist, for the cuffs.)
-            if 0.7 < tf <= 1.0:
+            # (How thick the forearm is near the wrist, for the cuffs and the hand's plug: measured over the last stretch only, as the
+            # cage body's forearm tapers and a plug as wide as its middle stood out of the wrist in a jagged ring.)
+            if 0.88 < tf <= 1.0:
                 wrist_r[side].append((v.co - e - fore * tf).length)
             break
     bmesh.ops.delete(bm, geom=cut, context="VERTS")
@@ -1451,7 +1465,7 @@ def build_body_meshes(rig):
         # A wrist plug: the forearm skin is cut open at the wrist and the hand's rounded top did not fill the cut, so its inside showed as a
         # dark ring (a bracelet). A short round plug the width of the wrist closes it, running a little up into the forearm.
         rw = sorted(wrist_r[side])
-        rw = rw[len(rw) // 2] if rw else 0.08
+        rw = rw[len(rw) // 4] if rw else 0.08   # (the lower quartile: inside the skin all round)
         tube(bm, [J["hand." + side] - fore * 0.07, J["hand." + side] + fore * 0.05], [rw * 1.0, rw * 1.04], segments=18, per_span=3)
         parts["Mitt." + side] = to_object("Mitt." + side, bm, "hand." + side, rig)
         # (No ink where the hand goes into the forearm: the hull of its rounded top showed as a dark ring round the wrist, a bracelet. The
@@ -1830,8 +1844,9 @@ CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the
 SLEEVE = 0.85           # how far down the upper arm the sleeves reach (0 at the shoulder joint, 1 at the elbow; the joint sits low in the
                        # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
 HEM_FLARE = 0.035
-ARM_RADIUS = 0.2       # how far from the arm's axis a point still counts as the arm (the base body's arm is about 0.16 thick; at 0.14 a strip down
-                       # its outer side was taken for the torso's shirt, slivers and a slit by the sleeve)
+ARM_RADIUS = 0.145     # how far from the arm's axis a point still counts as the arm (the cage body's arm is at most 0.125 round and hangs with
+                       # the torso's side 0.16 from its axis, so this sits between them; at 0.2, made for the generated figure, the torso's
+                       # sides took arm weights and tore when the arms moved)
 HEM_SMOOTH = 30
 TORSO_SLICE = 0.01       # the height of a slice of the torso that shares one blend of the trunk's bones
 TORSO_SLICE_SPREAD = 4   # how many slices either side are averaged in       # how many smoothing steps each hem gets along its loop

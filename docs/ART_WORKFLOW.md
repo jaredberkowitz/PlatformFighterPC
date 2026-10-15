@@ -152,6 +152,18 @@ and 4 below, with `--neck-drop 0`: this body has no neck to squeeze away):
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_base_body.py -- --out art/models/base_body/base_body.glb --preview <folder>/body.png
 ```
 
+**The current base body is a quad cage** (body remodel, 2026-10-15): `art/blender/make_cage_body.py` lays out a low-poly cage of quads
+by numbers (16-sided torso rings, the arms leaving through an 8-edge hole in each side of the chest so the shoulder is a round cap, three
+loops round every elbow and knee, the head the torso carried on into a sphere closed by a grid, no pole and no mirror seam), fitted to the
+concept turnaround's front and side silhouettes within a few centimetres at every height, and subdivides it once (~2.7k quads). It
+replaced the generated figure's voxel skin (`make_figure_body.py`), whose dents, pinched shoulders and neck stalk no smoothing fixed.
+Every number is live-tunable: exec the file in Blender with `__name__ != "__main__"` and `build()` returns the cage with its subdivision
+modifier. Then steps 3 and 4 below:
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --python art/blender/make_cage_body.py -- --out art/models/base_body/base_body.glb
+```
+
 A body from elsewhere (generated, or modelled by hand) goes through all of these steps; the first base body was made this way, from Tripo:
 
 1. **Generate** a full body, A-pose or arms down, blank head if possible (Tripo built the whole sheet as 3D, so the main figure was picked
