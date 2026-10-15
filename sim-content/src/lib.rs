@@ -526,7 +526,12 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
         ));
     }
     // Moves some aerial lands into (a landing hit): their hitboxes may come out on their first frame, the landing frame.
-    let landing_moves: Vec<u8> = w.moves.iter().filter_map(|mv| mv.landing_move).collect();
+    let landing_moves: Vec<u8> = w
+        .moves
+        .iter()
+        .flat_map(|mv| [mv.landing_move, mv.fall_landing_move])
+        .flatten()
+        .collect();
     // A thrown tool's catch move (E3d) is an animation only: it may have nothing in it but its frames.
     let catch_moves: Vec<u8> = w
         .moves
@@ -548,6 +553,15 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             ("on_land", mv.on_land),
             ("detect_then", mv.reflector.and_then(|r| r.detect_then)),
             ("shed", mv.shed),
+            // Sim 128.
+            ("fall_landing_move", mv.fall_landing_move),
+            ("probe miss", mv.probe.map(|p| p.miss)),
+            (
+                "counter break_move",
+                mv.counter
+                    .filter(|c| c.break_above != Fx::ZERO)
+                    .map(|c| c.break_move),
+            ),
         ] {
             if let Some(l) = slot {
                 if usize::from(l) >= MoveId::COUNT
@@ -1077,6 +1091,65 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
             errors.push(format!(
                 "weapon {i} {name}: gauge_gain must be 0 to 10000 (per mille)"
             ));
+        }
+        // Sim 128: orbs (E59), a counter answer that grows with its catch, a ground probe, a counter's break.
+        if let Some(o) = &mv.orbs {
+            let hit_ok =
+                |hb: &sim_core::moves::Hitbox| hb.radius > Fx::ZERO && hb.damage >= Fx::ZERO;
+            if mv.projectile.is_none()
+                || o.count == 0
+                || o.reflected == 0
+                || o.per_target == 0
+                || o.per_owner == 0
+                || o.wait == 0
+                || o.cap < o.wait
+                || o.full == 0
+                || o.period == 0
+                || o.strike == 0
+                || o.orbit_hits == 0
+                || o.loose_life == 0
+                || o.radius < Fx::ZERO
+                || o.loose_speed < Fx::ZERO
+                || o.extend_to < o.extend
+                || !hit_ok(&o.orbit_hit)
+                || !hit_ok(&o.strike_hit)
+            {
+                errors.push(format!(
+                    "weapon {i} {name}: orbs need a projectile, a count, reflected, per_target, per_owner, wait, full, period, strike, orbit_hits and loose_life of at least 1, a cap no shorter than the wait, extend_to no less than extend, no negative radius or loose_speed, and two hits with a radius"
+                ));
+            }
+        }
+        if let Some(l) = &mv.lerp {
+            let pairs = mv.projectile.is_some_and(|p| {
+                p.charged.is_none()
+                    && l.phases
+                        .iter()
+                        .zip(p.phases.iter())
+                        .all(|(a, b)| match (a, b) {
+                            (Some((fa, ha)), Some((fb, _))) => fa == fb && ha.radius > Fx::ZERO,
+                            (None, _) => true,
+                            _ => false,
+                        })
+            });
+            if l.full <= Fx::ZERO || !pairs {
+                errors.push(format!(
+                    "weapon {i} {name}: a lerp needs a full above 0 and a projectile, not charged, whose phases its own phases pair with (the same starts, each with a radius)"
+                ));
+            }
+        }
+        if let Some(p) = &mv.probe {
+            if p.frame == 0 || p.frame > mv.total_frames {
+                errors.push(format!(
+                    "weapon {i} {name}: a probe's frame must lie inside the move"
+                ));
+            }
+        }
+        if let Some(c) = &mv.counter {
+            if c.break_above < Fx::ZERO {
+                errors.push(format!(
+                    "weapon {i} {name}: the counter's break_above must not be negative"
+                ));
+            }
         }
         if let Some(c) = &mv.curse {
             if c.damage <= Fx::ZERO
@@ -1949,6 +2022,104 @@ mod combat_tests {
             .any(|e| e.contains("armor_mode")));
         let bad = text.replacen("point { stocks -2", "point { stocks -3", 1);
         assert!(crate::bundle::load(&bad).is_err());
+    }
+    #[test]
+    fn the_nodachi_phase_2_fields_round_trip_and_are_checked() {
+        // Sim 128: the exile's orbs (E59), a counter answer's lerp, its break and still answer, a ground probe, a special fall's
+        // landing move and a charged shot's every_hit come back from a file unchanged; a file without them keeps today's behaviour;
+        // bad values are refused.
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[13].weapon);
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "orbs {",
+            "per_target 5",
+            "orbit_hit {",
+            "strike_hit {",
+            "lerp {",
+            "probe {",
+            "break_above 25",
+            "still true",
+            "fall_landing_move ext10",
+            "every_hit true",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no orbs, no lerp, no probe, no break, a hitlag on the catch, the plain special fall landing.
+        let stripped = text
+            .replace(" every_hit true", "")
+            .replace(" break_above 25 break_move ext8", "")
+            .replace(" still true", "");
+        let mut out = String::new();
+        let mut skip = 0usize;
+        for l in stripped.lines() {
+            let t = l.trim_start();
+            if skip > 0
+                || t.starts_with("orbs {")
+                || t.starts_with("lerp {")
+                || t.starts_with("probe {")
+            {
+                skip += l.matches('{').count();
+                skip -= l.matches('}').count();
+                continue;
+            }
+            if [
+                "every_hit",
+                "break_above",
+                "break_move",
+                "still ",
+                "fall_landing_move",
+            ]
+            .iter()
+            .any(|f| t.starts_with(f))
+            {
+                continue;
+            }
+            out.push_str(l);
+            out.push('\n');
+        }
+        let older = crate::bundle::load(&out)
+            .unwrap_or_else(|e| panic!("{}", e.join("\n")))
+            .content;
+        assert!(older.weapons[w].moves.iter().all(|m| m.orbs.is_none()
+            && m.lerp.is_none()
+            && m.probe.is_none()
+            && m.fall_landing_move.is_none()
+            && m.counter
+                .is_none_or(|c| c.break_above == Fx::ZERO && !c.still)
+            && m.projectile
+                .is_none_or(|p| p.charged.is_none_or(|c| !c.every_hit))));
+        // Bad values.
+        let side = sim_core::moves::MoveId::SideSpecial as usize;
+        let mut c = base.clone();
+        if let Some(o) = c.weapons[w].moves[side].orbs.as_mut() {
+            o.cap = 10;
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("orbs")));
+        let mut c = base.clone();
+        c.weapons[w].moves[side].orbs = None;
+        c.weapons[0].moves[sim_core::moves::MoveId::Jab as usize].orbs =
+            base.weapons[w].moves[side].orbs;
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("orbs")));
+        let a = sim_core::moves::nodachi_slots::BARRIER_ANSWER as usize;
+        let mut c = base.clone();
+        if let Some(l) = c.weapons[w].moves[a].lerp.as_mut() {
+            l.phases[1] = l.phases[1].map(|(_, h)| (3, h));
+        }
+        assert!(validate(&c).unwrap_err().iter().any(|e| e.contains("lerp")));
+        let mut c = base.clone();
+        if let Some(p) = c.weapons[w].moves[sim_core::moves::MoveId::DSmash as usize]
+            .probe
+            .as_mut()
+        {
+            p.miss = sim_core::moves::MoveId::Ext15 as u8;
+        }
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("probe")));
     }
     #[test]
     fn the_dagger_phase_2_fields_round_trip_and_are_checked() {

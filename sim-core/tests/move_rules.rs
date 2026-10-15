@@ -493,6 +493,7 @@ fn the_tool_fields_are_in_the_content_hash() {
                 floor: false,
                 times: 100,
                 power_to: 100,
+                every_hit: false,
             })
         },
     ] {
@@ -1246,6 +1247,62 @@ fn the_wing_armor_mode_and_edge_stop_are_in_the_content_hash() {
         Box::new(|c| c.fighters[0].wing = Some(sim_core::FighterParams::exile_wing())),
         Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].armor_mode = 2),
         Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].edge_stop = true),
+    ];
+    for (k, edit) in edits.iter().enumerate() {
+        let mut c = base.clone();
+        edit(&mut c);
+        assert_ne!(c.hash(), h, "edit {k}");
+    }
+}
+
+#[test]
+fn the_nodachi_phase_2_fields_are_in_the_content_hash() {
+    // Sim 128: orbs (E59) and each of their numbers, a counter answer's lerp, a ground probe, a special fall's landing move, a
+    // counter's break and its still answer, a charged shot's every_hit.
+    let base = sim_core::Content::placeholder();
+    let h = base.hash();
+    let w = usize::from(base.fighters[13].weapon);
+    type Edit = Box<dyn Fn(&mut sim_core::Content)>;
+    let side = MoveId::SideSpecial as usize;
+    let down = MoveId::DownSpecial as usize;
+    let orbs = move |f: fn(&mut sim_core::moves::Orbs)| -> Edit {
+        Box::new(move |c| f(c.weapons[w].moves[side].orbs.as_mut().expect("orbs")))
+    };
+    let edits: Vec<Edit> = vec![
+        Box::new(move |c| c.weapons[w].moves[side].orbs = None),
+        orbs(|o| o.count = 2),
+        orbs(|o| o.more_at[1] = 25),
+        orbs(|o| o.wait = 241),
+        orbs(|o| o.cap = 451),
+        orbs(|o| o.radius = Fx::ONE),
+        orbs(|o| o.orbit_hit.damage = Fx::ONE),
+        orbs(|o| o.strike_hit.angle = 1),
+        orbs(|o| o.loose_life = 1),
+        Box::new(move |c| {
+            if let Some(p) = c.weapons[w].moves[side].projectile.as_mut() {
+                p.charged.as_mut().expect("charged").every_hit = false;
+            }
+        }),
+        Box::new(move |c| {
+            let a = sim_core::moves::nodachi_slots::BARRIER_ANSWER as usize;
+            c.weapons[w].moves[a].lerp.as_mut().expect("lerp").full = Fx::ONE;
+        }),
+        Box::new(move |c| {
+            c.weapons[w].moves[down]
+                .counter
+                .as_mut()
+                .expect("counter")
+                .break_above = Fx::ONE
+        }),
+        Box::new(move |c| {
+            c.weapons[w].moves[down]
+                .counter
+                .as_mut()
+                .expect("counter")
+                .still = false
+        }),
+        Box::new(move |c| c.weapons[w].moves[MoveId::DSmash as usize].probe = None),
+        Box::new(|c| c.weapons[0].moves[MoveId::Jab as usize].fall_landing_move = Some(1)),
     ];
     for (k, edit) in edits.iter().enumerate() {
         let mut c = base.clone();

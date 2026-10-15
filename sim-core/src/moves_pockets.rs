@@ -381,6 +381,7 @@ fn smashes(w: &mut Weapon) {
             floor: false,
             times: 100,
             power_to: 120,
+            every_hit: false,
         }),
         tool: Tool::NONE,
     });

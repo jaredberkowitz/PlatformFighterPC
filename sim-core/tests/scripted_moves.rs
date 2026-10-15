@@ -565,6 +565,30 @@ fn the_wall_register_says_the_last_step_was_stopped_by_a_wall() {
 }
 
 #[test]
+fn ground_says_whether_a_segment_meets_a_block_or_a_platform_top() {
+    // Sim 128: standing on the stage, a segment from the feet down meets it; one up into the air does not; one crossing a
+    // pass-through platform's top (from -8 to -3 at 3.6) meets it; from beside the stage's side wall (x = -11, below its top), a
+    // segment into it meets it.
+    for (src, want) in [
+        ("if ground(0, 0.5, 0, -0.5) { store(1); }", 1),
+        ("if ground(0, 0.5, 0, 2) { store(1); }", 0),
+        ("if ground(0, 3, 0, 4) { store(1); }", 1),
+    ] {
+        let mut sim = with_special(scripted(10, src));
+        sim.stand(0, Fx::from_int(-5), 1);
+        start(&mut sim);
+        sim.ticks(2, inp(0, 0, 0));
+        assert_eq!(sim.f().stored, want, "{src}");
+    }
+    let mut sim = with_special(scripted(10, "if ground(0, 0, 1.5, 0) { store(1); }"));
+    sim.put_airborne(0, fx(-12, 1), Fx::from_int(-3), Fx::ZERO, Fx::ZERO);
+    sim.state.fighters[0].facing = 1;
+    start(&mut sim);
+    sim.ticks(1, inp(0, 0, 0));
+    assert_eq!(sim.f().stored, 1, "the wall ahead");
+}
+
+#[test]
 fn a_once_per_airtime_flag_lasts_until_the_fighter_lands() {
     // Each use in the air adds a lift only while flag 2 is clear, and sets it.
     let mut sim = with_special(scripted(

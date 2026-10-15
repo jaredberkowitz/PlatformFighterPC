@@ -261,6 +261,34 @@ pub fn segment_blocked(stage: &Stage, a: Vec2, b: Vec2) -> bool {
     })
 }
 
+/// Whether the segment from `a` to `b` meets ground (sim 128: a move's ground probe, `moves::GroundProbe`): it goes into a block
+/// ([`segment_blocked`]) or crosses a pass-through platform's top (its line, by its slope) within the platform's span.
+pub fn segment_meets_ground(stage: &Stage, a: Vec2, b: Vec2) -> bool {
+    if segment_blocked(stage, a, b) {
+        return true;
+    }
+    stage.platforms.iter().filter(|p| p.pass_through).any(|p| {
+        let width = p.right - p.left;
+        let line = |x: Fx| {
+            if p.rise == Fx::ZERO || width <= Fx::ZERO {
+                p.y
+            } else {
+                p.y + p.rise * (x - p.left) / width
+            }
+        };
+        let (fa, fb) = (a.y - line(a.x), b.y - line(b.x));
+        if (fa > Fx::ZERO && fb > Fx::ZERO) || (fa < Fx::ZERO && fb < Fx::ZERO) {
+            return false;
+        }
+        let x = if fa == fb {
+            a.x
+        } else {
+            a.x + (b.x - a.x) * (fa / (fa - fb))
+        };
+        spans(p, x)
+    })
+}
+
 /// Which side (-1 or +1) the given ledge index hangs on; 0 if the index is invalid.
 pub fn ledge_side(stage: &Stage, index: i8) -> i8 {
     usize::try_from(index)

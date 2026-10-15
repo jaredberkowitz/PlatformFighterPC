@@ -10,15 +10,16 @@ use sim_core::content::{
 };
 use sim_core::moves::{
     AirBlock, Armor, Balloons, Burst, Carry, ChargeAdd, ChargedShot, Counter, CounterBubble, Curse,
-    DropThrough, Encase, Fall, FlagVersion, Hitbox, ItemBlast, ItemSpec, Latch, Motion, Move,
-    MoveId, PartIntangible, Placed, PocketCatch, PocketRelease, ProjectileArc, ProjectileSpawn,
-    Reflector, Tether, Tool, Toss, Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT, AIM_UP,
-    ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD, ARMOR_DAMAGE,
-    ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE, EFFECT_NORMAL,
-    HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, MODE_ANY, MODE_PLAIN,
-    MODE_POWERED, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES, POCKET_NEVER,
-    POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT, STRETCH_BACK_ROLL,
-    STRETCH_NONE, STRETCH_ROLL, STRETCH_SPOT, TARGETS_AERIAL, TARGETS_ALL, TARGETS_GROUNDED,
+    DropThrough, Encase, Fall, FlagVersion, GroundProbe, Hitbox, ItemBlast, ItemSpec, Latch, Lerp,
+    Motion, Move, MoveId, Orbs, PartIntangible, Placed, PocketCatch, PocketRelease, ProjectileArc,
+    ProjectileSpawn, Reflector, Tether, Tool, Toss, Trap, Weapon, AIM_ANY, AIM_DOWN, AIM_STRAIGHT,
+    AIM_UP, ANGLE_BACKWARD, ANGLE_BY_BOX, ANGLE_BY_POSITION, ANGLE_BY_TRAVEL, ANGLE_FORWARD,
+    ARMOR_DAMAGE, ARMOR_KNOCKBACK, ARMOR_SUPER, EFFECT_BURY, EFFECT_ELECTRIC, EFFECT_ENCASE,
+    EFFECT_NORMAL, HIT_GRAB, HIT_NORMAL, HIT_PUMMEL, HIT_SEARCH, HIT_THROW, MAX_PHASES, MODE_ANY,
+    MODE_PLAIN, MODE_POWERED, PART_HIGH, PART_LIMB, PART_LOW, PART_MIDDLE, POCKET_FREES,
+    POCKET_NEVER, POCKET_YES, RULES_CURRENT, RULES_PREVIOUS, SLIP_HARD, SLIP_NONE, SLIP_SOFT,
+    STRETCH_BACK_ROLL, STRETCH_NONE, STRETCH_ROLL, STRETCH_SPOT, TARGETS_AERIAL, TARGETS_ALL,
+    TARGETS_GROUNDED,
 };
 use sim_core::{Fx, Vec2, MAX_FIGHTERS};
 use sim_script::{format_fixed, parse_fixed, Kind, Program};
@@ -1130,6 +1131,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
         ("limit_version", &mut m.limit_version),
         ("on_land", &mut m.on_land),
         ("shed", &mut m.shed),
+        // Sim 128: the special fall's landing hit.
+        ("fall_landing_move", &mut m.fall_landing_move),
     ] {
         if let Some((key, line)) = f.raw(name) {
             match MoveId::from_key(key) {
@@ -1219,10 +1222,102 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             "flag_version",
             "curse",
             "tether",
+            "orbs",
+            "lerp",
+            "probe",
         ],
         context,
         errors,
     );
+    // Sim 128: orbs a beam puts on a fighter (E59), a counter answer that grows with its catch, a ground probe.
+    if let Some(b) = at_most_one(children(block, "orbs"), "orbs", context, errors) {
+        let ctx = format!("the orbs of {context}");
+        only_known(b, &["orbit_hit", "strike_hit"], &ctx, errors);
+        let hit = |name: &str, errors: &mut Vec<String>| {
+            let hctx = format!("the {name} of {ctx}");
+            match at_most_one(children(b, name), name, &ctx, errors) {
+                Some(hb) => {
+                    only_known(hb, &["hitbox"], &hctx, errors);
+                    match at_most_one(children(hb, "hitbox"), "hitbox", &hctx, errors) {
+                        Some(h) => read_hitbox(h, &hctx, errors),
+                        None => {
+                            err(errors, hb.line, format!("{hctx} needs a hitbox"));
+                            missing_hitbox()
+                        }
+                    }
+                }
+                None => {
+                    err(errors, b.line, format!("{ctx} needs an {name}"));
+                    missing_hitbox()
+                }
+            }
+        };
+        let orbit_hit = hit("orbit_hit", errors);
+        let strike_hit = hit("strike_hit", errors);
+        let mut of = Fields::new(b, &ctx, errors);
+        m.orbs = Some(Orbs {
+            count: of.need("count", None, errors),
+            more_at: [
+                of.or("more_at_1", 255, errors),
+                of.or("more_at_2", 255, errors),
+            ],
+            reflected: of.or("reflected", 1, errors),
+            per_target: of.need("per_target", None, errors),
+            per_owner: of.need("per_owner", None, errors),
+            wait: of.need("wait", None, errors),
+            extend: of.or("extend", 0, errors),
+            extend_to: of.or("extend_to", 0, errors),
+            full: of.or("full", 1, errors),
+            cap: of.need("cap", None, errors),
+            radius: of.need("radius", None, errors),
+            period: of.need("period", None, errors),
+            orbit_hit,
+            orbit_hits: of.need("orbit_hits", None, errors),
+            orbit_rehit: of.or("orbit_rehit", 0, errors),
+            strike: of.need("strike", None, errors),
+            strike_hit,
+            loose_speed: of.need("loose_speed", None, errors),
+            loose_life: of.need("loose_life", None, errors),
+        });
+        of.finish(errors);
+    }
+    if let Some(b) = at_most_one(children(block, "lerp"), "lerp", context, errors) {
+        let ctx = format!("the lerp of {context}");
+        only_known(b, &["phase"], &ctx, errors);
+        let phases = read_phases(b, &ctx, errors);
+        let mut lf = Fields::new(b, &ctx, errors);
+        m.lerp = Some(Lerp {
+            full: lf.need("full", None, errors),
+            phases,
+        });
+        lf.finish(errors);
+    }
+    if let Some(b) = at_most_one(children(block, "probe"), "probe", context, errors) {
+        let ctx = format!("the probe of {context}");
+        let mut pf = Fields::new(b, &ctx, errors);
+        let mut miss = 0;
+        match pf.raw("miss") {
+            Some((key, line)) => match MoveId::from_key(key) {
+                Some(id) => miss = id as u8,
+                None => err(
+                    errors,
+                    line,
+                    format!("`miss` must be a move name, not `{key}`"),
+                ),
+            },
+            None => err(errors, b.line, format!("{ctx} is missing `miss`")),
+        }
+        m.probe = Some(GroundProbe {
+            frame: pf.need("frame", None, errors),
+            from: (
+                pf.need("from_x", None, errors),
+                pf.need("from_y", None, errors),
+            ),
+            to: (pf.need("to_x", None, errors), pf.need("to_y", None, errors)),
+            miss,
+        });
+        pf.finish(errors);
+    }
     // Sim 121: damage over time put on a fighter by the move's projectile (E54).
     if let Some(b) = at_most_one(children(block, "curse"), "curse", context, errors) {
         let ctx = format!("the curse of {context}");
@@ -1503,6 +1598,8 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
                 floor: cf.or("floor", false, errors),
                 times: cf.or("times", 100, errors),
                 power_to: cf.or("power_to", 100, errors),
+                // Sim 128: the charged damage on every hit (the beam's rings).
+                every_hit: cf.or("every_hit", false, errors),
             };
             cf.finish(errors);
             c
@@ -1664,7 +1761,22 @@ fn read_move(block: &Block, context: &str, errors: &mut Vec<String>) -> Move {
             max_damage: f.or("max_damage", Fx::ZERO, errors),
             melee_only: f.or("melee_only", false, errors),
             bubble: None,
+            // Sim 128: the barrier's break and its still answer.
+            break_above: f.or("break_above", Fx::ZERO, errors),
+            break_move: 0,
+            still: f.or("still", false, errors),
         };
+        let mut c = c;
+        if let Some((key, line)) = f.raw("break_move") {
+            match MoveId::from_key(key) {
+                Some(id) => c.break_move = id as u8,
+                None => err(
+                    errors,
+                    line,
+                    format!("`break_move` must be a move name, not `{key}`"),
+                ),
+            }
+        }
         // The counter bubble: present when it has a radius (none: the body's hurtboxes catch, as older content means).
         let bubble = CounterBubble {
             x: f.or("bubble_x", Fx::ZERO, errors),
@@ -1809,6 +1921,7 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         ("limit_version", m.limit_version),
         ("on_land", m.on_land),
         ("shed", m.shed),
+        ("fall_landing_move", m.fall_landing_move),
     ] {
         if let Some(id) = slot {
             b.field(name, MoveId::from_index(id).key());
@@ -1957,6 +2070,53 @@ fn write_move(id: MoveId, m: &Move) -> Block {
         cb.field("frames", c.frames.to_string());
         b.push(cb);
     }
+    if let Some(o) = &m.orbs {
+        let mut ob = Block::new("orbs", None);
+        ob.field("count", o.count.to_string());
+        if o.more_at[0] != 255 {
+            ob.field("more_at_1", o.more_at[0].to_string());
+        }
+        if o.more_at[1] != 255 {
+            ob.field("more_at_2", o.more_at[1].to_string());
+        }
+        ob.field("reflected", o.reflected.to_string());
+        ob.field("per_target", o.per_target.to_string());
+        ob.field("per_owner", o.per_owner.to_string());
+        ob.field("wait", o.wait.to_string());
+        ob.field("extend", o.extend.to_string());
+        ob.field("extend_to", o.extend_to.to_string());
+        ob.field("full", o.full.to_string());
+        ob.field("cap", o.cap.to_string());
+        ob.field("radius", o.radius.show());
+        ob.field("period", o.period.to_string());
+        ob.field("orbit_hits", o.orbit_hits.to_string());
+        ob.field("orbit_rehit", o.orbit_rehit.to_string());
+        ob.field("strike", o.strike.to_string());
+        ob.field("loose_speed", o.loose_speed.show());
+        ob.field("loose_life", o.loose_life.to_string());
+        for (name, hb) in [("orbit_hit", &o.orbit_hit), ("strike_hit", &o.strike_hit)] {
+            let mut hb_block = Block::new(name, None);
+            hb_block.push(write_hitbox(hb));
+            ob.push(hb_block);
+        }
+        b.push(ob);
+    }
+    if let Some(l) = &m.lerp {
+        let mut lb = Block::new("lerp", None);
+        lb.field("full", l.full.show());
+        write_phases(&mut lb, &l.phases);
+        b.push(lb);
+    }
+    if let Some(p) = &m.probe {
+        let mut pb = Block::new("probe", None);
+        pb.field("frame", p.frame.to_string());
+        pb.field("from_x", p.from.0.show());
+        pb.field("from_y", p.from.1.show());
+        pb.field("to_x", p.to.0.show());
+        pb.field("to_y", p.to.1.show());
+        pb.field("miss", MoveId::from_index(p.miss).key());
+        b.push(pb);
+    }
     if m.dodge_stale {
         b.field("dodge_stale", "true");
     }
@@ -2066,6 +2226,13 @@ fn write_move(id: MoveId, m: &Move) -> Block {
                 cb.field("bubble_half_height", bb.half_height.show());
             }
             cb.field("bubble_radius", bb.radius.show());
+        }
+        if c.break_above != Fx::ZERO {
+            cb.field("break_above", c.break_above.show());
+            cb.field("break_move", MoveId::from_index(c.break_move).key());
+        }
+        if c.still {
+            cb.field("still", "true");
         }
         b.push(cb);
     }
@@ -2193,6 +2360,9 @@ fn write_move(id: MoveId, m: &Move) -> Block {
             }
             if ch.power_to != 100 {
                 cb.field("power_to", ch.power_to.to_string());
+            }
+            if ch.every_hit {
+                cb.field("every_hit", "true");
             }
             c.push(cb);
         }

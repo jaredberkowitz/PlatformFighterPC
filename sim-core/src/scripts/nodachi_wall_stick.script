@@ -1,0 +1,12 @@
+// Nodachi forward air stuck in a wall (ext11): the exile hangs where it stuck. From frame 17 (the reference's 18) jump, attack or the
+// stick up jumps off (slot 41 = ext12); the stick away from the wall or down lets go (slot 42 = ext13); at the end of its 120 frames
+// it lets go.
+set_vel(0, 0);
+if frame >= 17 {
+    if jump_tap || attack_tap || stick_y > 0.5 {
+        goto(41);
+    } else if stick_x < -0.5 || stick_y < -0.5 {
+        goto(42);
+    }
+}
+if frame >= 118 { goto(42); }
