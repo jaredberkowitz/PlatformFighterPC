@@ -93,6 +93,14 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 130** (branch `upspecial-momentum`, from `origin/movesets` at ab6380e, sim 128; 129 is reserved for the run mode's R2c; content
+schema 8 unchanged): **up specials halt the momentum they start with** (owner decision 97, from the owner's "super-jump": the exile's
+blade dash out of a jump rose 21.4 world units against 9.4 from a standstill, because its script's frame-0 stall never ran). Every
+built-in up special audited against the reference (`docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials"): the
+Longsword, Embers, Gauntlets, Staff, Greatsword (both rises), the Dagger's wings and the Nodachi now set `Move::start_speed_y` 0 (the
+Nodachi also `start_speed` 50 in place of the dead script line); the others already matched (the Clutch keeps its published 0.8); the
+Dagger's aerial hook is an owner question. Owner decisions 93-96 recorded (the Nodachi's phase 2 estimates kept). No engine code
+changed, only move data: `base.pfc` differs in those seven weapons. Tests `upspecial_momentum.rs` (5).
 **Sim 128** (branch `nodachi-phase2`, from `origin/movesets` at 3fc1e80, sim 126, merged with `origin/movesets` a94f78a, sim 127's
 run R2b; content schema 8 unchanged): the Nodachi's phase 2, owner decisions 87-92 (all confirming phase 1). **The shadow orbs**
 (side special; E59, general: `Move::orbs`, `sim-core/src/orbs.rs`, hashed `Projectile::charge` / `orb` / `held` / `orb_hits` and

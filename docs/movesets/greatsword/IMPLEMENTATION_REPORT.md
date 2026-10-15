@@ -475,3 +475,7 @@ names.
 4. **Phase 2 spend rule**: until phase 3 builds the Limit moves, should a special used with a full gauge keep the gauge (as planned
    above) or spend it with no Limit effect?
 5. The gauge's in-game name ("Boost" for now) and the register names that follow it.
+
+## Sim 130: up specials halt their starting momentum
+
+Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The rising slash and the powered rise now set `start_speed_y` 0 (the published 0.6 / 0.67 horizontal kept); frames 1-6 no longer carry a jump's rise before the motion [E: reading; no vertical multiplier is published]. Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".

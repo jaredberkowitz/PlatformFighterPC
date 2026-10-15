@@ -2550,6 +2550,9 @@ fn wings(w: &mut Weapon) {
             vy: FighterParams::su(1400),
         },
     ];
+    // In the air the move halts the vertical speed it started with (sim 130, owner decision 97: the reference's motion-driven up
+    // specials set it; a jump's rise is not carried on) [E: no published vertical multiplier on startup, the reading of the owner's test].
+    m.start_speed_y = 0;
     m.steer_frame = 5;
     m.steer_degrees = 25;
     m.steer_stick = 30;

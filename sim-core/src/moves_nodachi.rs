@@ -1191,6 +1191,10 @@ fn blade_dash(w: &mut Weapon) {
         Kind::Fighter,
         include_str!("scripts/nodachi_dash.script"),
     ));
+    // In the air the startup keeps half the sideways speed and halts the vertical (sim 130, owner decision 97: before, the script's
+    // frame-0 line never ran, so a jump's rise carried through the 23-frame stall) [E: the reference's stall is not published].
+    dash.start_speed = 50;
+    dash.start_speed_y = 0;
     dash.helpless_after = true;
     dash.fall_landing_lag = 27;
     dash.ledge_front_from = 24;

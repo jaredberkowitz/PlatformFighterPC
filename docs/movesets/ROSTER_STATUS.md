@@ -640,6 +640,30 @@ Open for the owner from the Nodachi's phase 2 (details in `docs/movesets/nodachi
    would be far above any jump in the game. Keep the small hop, or is there footage?
 4. **The slashes' landing hit** is built for both landings (during the move and in the special fall after it), its box (radius 8 at the
    feet) a guess. Keep?
+
+Owner decisions 2026-10-14 (answering the Nodachi's phase 2 questions above, and a playtest finding):
+
+93. **Keep the exile's orb estimates** (the orbit, the extension's share of the charge, the orbs striking together, a loose orb's
+    flight). As built.
+94. **Keep the barrier's positions and its break push** (the catching capsule, the answer centres, the 5-unit push). As built.
+95. **The wall stick's 6.9 stays read as a hop height** (a small hop), not a speed. As built.
+96. **Keep the eight slashes' landing hit on both landings** (during the move and in the special fall after it). As built.
+97. **Up specials halt the momentum they start with, as the reference does** (sim 130, branch `upspecial-momentum`). The owner found a
+    "super-jump": the exile's blade dash started just after a jump carried the jump's rise through its startup and went more than twice
+    as high (21.4 world units against 9.4 from a standstill). The cause: the dash's script zeroed the speed on its frame 0, which never
+    runs (a move's first frame in `attack()` is frame 1), so the 23-frame startup stall kept the jump's upward speed. Every built-in up
+    special was checked (the table and sources are in `SHARED_MECHANICS.md`, "Starting momentum of specials"): the Longsword, Embers,
+    Gauntlets, Staff, Greatsword (both rises), the Dagger's wings and the Nodachi now set `start_speed_y` 0; the Claws, Needles,
+    Bracers, Buckler, Pockets and Popgun already halted or set their vertical speed; the Clutch keeps its published 0.8; the Dagger's
+    aerial hook (an attack, not a recovery, with no special fall) is unchanged pending the owner (question below). Every up special that
+    should leave its user helpless does; nothing lets the exile act after its up special but landing or a ledge (tested).
+
+Open for the owner from decision 97:
+
+1. **The Dagger's aerial hook** keeps the speed it starts with until its rise on frame 5 (out of a jump it reaches about 1.1 world units
+   higher than from a standstill). Its reference is an attack that leaves no special fall, with "a slight vertical boost" once per air
+   time; whether that boost replaces or adds to the jump is not published. Halt it like the recoveries, or leave it as an aerial?
+
 ## Still open
 
 From the Embers' phase 2 (details in `docs/movesets/embers/IMPLEMENTATION_REPORT.md`, "Owner follow-up"):

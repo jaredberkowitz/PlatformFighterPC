@@ -377,3 +377,7 @@ Phase 1:
    attacks use angle 361 where the reference's are 48 (Marth's and Wolf's floor attacks, ssbwiki.com); fix them?
 6. **Footage**: the open behaviours for phase 2 are the audit's (Warp's ledge windows and stage contact, Autoreticle's shot path and
    "in front" rule, the counter's freeze before the strike).
+
+## Sim 130: up specials halt their starting momentum
+
+Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The warp now sets `start_speed_y` 0: its startup is a slow fall from rest at the published startup gravity 0.03 and fall speed 0.75, not a jump's rise slowed down [E: reading]. Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".
