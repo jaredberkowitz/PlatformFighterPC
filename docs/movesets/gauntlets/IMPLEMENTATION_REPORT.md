@@ -269,3 +269,7 @@ ground) and the dive kick (14-27, diagonal), its landing (1-2), the wall crash (
   (owner decision 12: fit to published figures; none found so far).
 * Limits kept from phase 1: the forward air's late-hit trip (E20), one get-up attack slot, the throws' interrupted rows and thrower
   invincibility, grabs on aerial targets (ordinary grabs).
+
+## Sim 130: up specials halt their starting momentum
+
+Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The leap (up special) now sets `start_speed_y` 0: its 13-frame startup no longer carries a jump's rise (it still falls by the body's gravity from rest, as before from a standstill) [E: reading; no startup multiplier is published]. Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".

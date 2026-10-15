@@ -1,4 +1,4 @@
-//! Grunts: the run's enemies (R2b; rebuilt in R2c, sim 129, `RUNNER_WORLD.md` 4).
+//! Grunts: the run's enemies (R2b; rebuilt in R2c, sim 131, `RUNNER_WORLD.md` 4).
 //!
 //! **A grunt is a fighter.** Grunt `n` is the body `MAX_FIGHTERS + n` of `GameState::fighters` ([`slot`]), a fighter of its kind's
 //! body (`MobKind::body`, a roster fighter), stepped by the versus step with every versus rule, both ways: hits, grabs with their hold,

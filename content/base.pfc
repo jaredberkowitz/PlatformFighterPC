@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 129
-    hash da5b95d5c1fb09c3
+    sim_version 131
+    hash 86c121737ac32fea
 }
 
 ruleset {
@@ -387,6 +387,7 @@ weapon longsword {
         steer_degrees 20
         intangible_from 3
         intangible_from_air 0
+        start_speed_y 0
         air_gravity 0.00749
         hitbox { start 5 end 10 x 1.2 y 2.59999 radius 0.59999 damage 7 angle 361 bkb 20 kbg 90 hitlag 90 }
         hitbox { start 5 end 10 x 0.79999 y 1.79999 radius 0.59999 damage 7 angle 74 bkb 20 kbg 90 priority 1 hitlag 90 }
@@ -1683,6 +1684,7 @@ weapon embers {
         steer_stick 50
         steer_degrees 12
         intangible_from 2
+        start_speed_y 0
         rehit_start 6
         rehit_every 2
         rehit_groups 2
@@ -2070,6 +2072,7 @@ weapon gauntlets {
         fall_drift 70
         fall_landing_lag 24
         fast_fall_from 49
+        start_speed_y 0
         turn_frame 13
         turn_stick 25
         catch_move ext6
@@ -3476,6 +3479,7 @@ weapon staff {
         fall_landing_lag 22
         intangible_from 15
         lands_from 32
+        start_speed_y 0
         air { from 0 to 14 gravity 0.00374 max_fall 0.09375 }
         script {
             // Staff up special (the warp): on frame 15 (the reference's 16) the stick picks the direction (straight up when it is near neutral;
@@ -4356,6 +4360,7 @@ weapon greatsword {
         rise_air 110
         start_speed 60
         air_drift 60
+        start_speed_y 0
         limit_version ext9
         hitbox { start 6 end 6 x 0.4 y 0.9 radius 0.29999 damage 3 angle 40 bkb 0 kbg 100 hitlag 250 fixed_kb 80 sdi 0 angle_type forward }
         hitbox { start 6 end 6 x 0.59999 y 0.9 radius 0.59999 damage 3 angle 78 bkb 0 kbg 100 priority 1 hitlag 250 fixed_kb 80 sdi 0 angle_type forward }
@@ -4880,6 +4885,7 @@ weapon greatsword {
         rise_air 185
         start_speed 67
         intangible_from 4
+        start_speed_y 0
         motion_drift 100
         hitbox { start 6 end 8 x 0.4 y 0.9 radius 0.29999 damage 6 angle 40 bkb 0 kbg 100 hitlag 250 fixed_kb 80 angle_type forward }
         hitbox { start 6 end 8 x 0.59999 y 0.9 radius 0.59999 damage 6 angle 78 bkb 0 kbg 100 priority 1 hitlag 250 fixed_kb 80 angle_type forward }
@@ -14310,6 +14316,7 @@ weapon dagger {
         steer_stick 30
         steer_degrees 25
         intangible_from_air 2
+        start_speed_y 0
         motion { start 5 end 29 vx 0 vy 0.275 }
         motion { start 30 end 44 vx 0 vy 0.17499 }
     }
@@ -14822,6 +14829,8 @@ weapon nodachi {
         ledge_front_from 24
         ledge_back_from 24
         fall_landing_lag 27
+        start_speed 50
+        start_speed_y 0
         hitbox {
             start 24
             end 27
@@ -14910,14 +14919,14 @@ weapon nodachi {
         edge_stop true
         script {
             // Nodachi up special: the blade dash (world units: the reference's / 8). Frame numbers here are the move's (the reference's less 1).
-            // In the air the startup keeps half the sideways speed and nearly stops the fall [E]. Special still held on the reference's frame 18
+            // In the air the startup (the move's `start_speed` 50 and `start_speed_y` 0 halve the sideways speed and halt the vertical on
+            // starting) nearly stops the fall [E]. Special still held on the reference's frame 18
             // turns it into the eight slashes (slot 29). The stick on frame 19 aims the dash (neutral: straight up; backward turns the exile
             // round; on the ground it cannot aim below level). The dash is frames 25-28 at 1.375 a frame (11 of the reference's units) [E], then
             // a quarter of the speed is kept. The move's FAF on the ground is 57; in the air it goes on to frame 80 (slot 30), then the special
             // fall.
             var dx;
             var dy;
-            if frame == 0 && grounded == 0 { set_vel(vx * 0.5, 0); }
             if frame >= 1 && frame <= 23 && grounded == 0 { set_vel(vx * 0.9, vy - 0.0025); }
             if frame == 17 && special { goto(29); }
             if frame == 18 {

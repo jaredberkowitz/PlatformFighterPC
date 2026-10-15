@@ -374,7 +374,7 @@ pub fn launch_side(
 }
 
 /// Whether bodies `a` and `b` can hit, grab, clank with and reflect one another: any two players (versus), a player and a grunt,
-/// but never two grunts (sim 129: the run's enemies are one side). A hazard of the run hits from an unplayed player slot, so it
+/// but never two grunts (sim 131: the run's enemies are one side). A hazard of the run hits from an unplayed player slot, so it
 /// reaches grunts too.
 pub fn rivals(a: usize, b: usize) -> bool {
     a != b && (a < MAX_FIGHTERS || b < MAX_FIGHTERS)
@@ -1104,7 +1104,7 @@ pub(crate) fn apply_hit(
     } else {
         Fx::ONE
     };
-    // (A grunt deals its tier's share of its moves' damage, knockback term included, as its body's hits do in R2b: sim 129.)
+    // (A grunt deals its tier's share of its moves' damage, knockback term included, as its body's hits do in R2b: sim 131.)
     let mut hb_in = *hb;
     hb_in.damage = hb_in.damage * dealt_scale(&state.fighters[source]);
     let mut hb = hb_in;
@@ -1226,7 +1226,7 @@ pub(crate) fn apply_hit(
         hb.damage = hb.damage * Fx::from_ratio(i32::from(e.damage_taken), 100);
     }
     let mut defender_params = *params_of(content, &state.fighters[d]);
-    // (A grunt weighs its kind's and tier's weight, not its body's: sim 129.)
+    // (A grunt weighs its kind's and tier's weight, not its body's: sim 131.)
     if let Some(w) = state.fighters[d].weight {
         defender_params.weight = w;
     }
@@ -1325,7 +1325,7 @@ pub(crate) fn apply_hit(
     };
     // (A bury hit ignores subtractive knockback armor: the reference's rule.)
     let armor = armor.filter(|(a, _)| !(bury_hit && a.kind == ARMOR_KNOCKBACK && a.subtract));
-    // (A grunt's super armor, sim 129: its kind's, through a tell and its move's startup, withstands any hit but a push.)
+    // (A grunt's super armor, sim 131: its kind's, through a tell and its move's startup, withstands any hit but a push.)
     let armored = armor.is_some_and(|(a, frame)| a.withstands(frame, hb.damage, kb))
         || (def.super_armor && !hb.push);
     if !armored && !hb.push {

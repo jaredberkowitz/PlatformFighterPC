@@ -3168,6 +3168,9 @@ fn longsword_up_special() -> Move {
     up.fall_landing_lag = 24;
     up.rise_air = 110;
     up.start_speed = 66;
+    // In the air the move halts the vertical speed it started with (sim 130, owner decision 97: the reference's motion-driven up
+    // specials set it; a jump's rise is not carried on) [E: no published vertical multiplier on startup, the reading of the owner's test].
+    up.start_speed_y = 0;
     // The angle is read as the rise begins [E: the frame is not published].
     up.steer_frame = 3;
     up.steer_stick = 50;
@@ -5174,6 +5177,9 @@ fn rising_punch() -> Move {
     up.rise_ground = 110;
     up.rise_air = 108;
     up.start_speed = 67;
+    // In the air the move halts the vertical speed it started with (sim 130, owner decision 97: the reference's motion-driven up
+    // specials set it; a jump's rise is not carried on) [E: no published vertical multiplier on startup, the reading of the owner's test].
+    up.start_speed_y = 0;
     // Read on frame 3, the move's turnaround frame [E: the angle's frame is not published].
     up.steer_frame = 2;
     up.steer_stick = 50;

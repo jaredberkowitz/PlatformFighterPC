@@ -120,7 +120,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     step_bodies(state, content, &all);
 }
 
-/// Advances one frame with an input for every body: the players', then the grunts' (the run's grunt layer makes those, sim 129).
+/// Advances one frame with an input for every body: the players', then the grunts' (the run's grunt layer makes those, sim 131).
 pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MAX_BODIES]) {
     // A finished match stands still.
     if state.winner != PLAYING {

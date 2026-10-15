@@ -484,7 +484,7 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     if BODY and bone.startswith("armU."):
         fwd = clampf(fwd, -100.0, 172.0)
     if BODY and bone.startswith("armL."):
-        fwd = clampf(fwd, -5.0, 145.0)
+        fwd = clampf(fwd, 0.0, 145.0)   # (a hinge: folds forward only, never past straight)
     # (A planted move's thigh stays in a lunge's range: exaggerated, a lunge's front thigh rose past level and folded the belly over it.
     # Art review 5. Kicks and aerials keep their reach.)
     if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith("kick") and grounded(CLIP_NOW):
@@ -495,8 +495,6 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         if bone.startswith("armU."):
             fwd = max(fwd, -45.0)
             out = clampf(out, -20.0, 50.0)
-        if bone.startswith("armL."):
-            fwd = max(fwd, 40.0)
     # Wrists held nearly straight (the owner, art review 5: bent wrists and open, flapping hands do not read as combat; a fist in line
     # with the forearm does).
     if BODY and bone.startswith("hand."):
@@ -933,9 +931,33 @@ def plant(rig, both, lift_only=False):
             _level_sole(rig, side)
 
 
+def _human_arms(spec):
+    """An arm as a person holds one (the owner's rule, art review 5): swung behind the body the arm is nearly straight, opened back for
+    balance, as the reference fighters' counterbalancing arms are; held in front it may bend. (A forced bend on an arm thrown back
+    folded the forearm forward round the body: the arm read as going behind and in front at once.)"""
+    if not BODY:
+        return spec
+    out = dict(spec)
+    arms = spec.get("arms", (8.0, 14.0))
+    for side in "LR":
+        up = spec.get("armU." + side, arms)[0]
+        key = "armL." + side
+        bend = spec[key][0] if key in spec else 30.0
+        if up < -8.0:
+            # Behind: nearly straight, the more so the further back.
+            bend = min(bend, 20.0 * max(0.0, 1.0 + (up + 8.0) / 60.0) + 6.0)
+        elif up > 30.0:
+            # Out in front: a soft bend at least, never locked.
+            bend = max(bend, 15.0)
+        out[key] = (bend,)
+    return out
+
+
 def _spec_pose(spec):
     """A pose from the short form: {"hips": lift, "spine": (fwd, twist), "head": (fwd, twist), "stance": (lead, back), "arms": (fwd,
     out), bone: (fwd, out)...}; the free arm and legs not named rest."""
+    spec = _human_arms(spec)
+
     def f(rig):
         arms = spec.get("arms", (8.0, 14.0))
         for side in "LR":
@@ -975,6 +997,18 @@ def _launch_spec(wind, strike):
             out[key] = tuple(x * 0.4 + y * 0.6 for x, y in zip(a, b))
         elif key in wind:
             out[key] = wind[key]
+    return out
+
+
+def _chamber_spec(wind, aerial):
+    """The wind-up as a compact extreme: in the air the knees drawn up to the chest (both shins folded, the thighs up), on the ground the
+    free arm drawn in, elbow bent, so the strike's extension reads by contrast."""
+    out = dict(wind)
+    if aerial:
+        out["stance"] = (max(out.get("stance", (0.0, 0.0))[0], 60.0), max(out.get("stance", (0.0, 0.0))[1], 50.0))
+        out["shin.L"] = (min(out.get("shin.L", (0.0,))[0], -100.0),)
+        out["shin.R"] = (min(out.get("shin.R", (0.0,))[0], -95.0),)
+    out["armL.L"] = (max(out.get("armL.L", (0.0,))[0], 90.0),)
     return out
 
 
@@ -1025,9 +1059,13 @@ def clip(rig, name, frames, poses):
         wind, strike, rest = BODY_MOVES[name]
         # (Six poses after the owner's swing notes: settle from rest, anticipation pushed past the wind-up, the launch led by the hips,
         # the strike, the follow-through past it, the recovery, back to rest. The launch-to-strike gap is short, so the blade accelerates.)
-        poses = {0: _spec_held(rest, 0.0), 21: _amped_pose(_spec_pose(wind), 1.12), 29: _spec_pose(_launch_spec(wind, strike)),
-                 33: _spec_pose(strike), 38: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1), 45: _spec_held(rest, 1.0),
-                 60: _spec_held(rest, 0.0)}
+        # (And from the reference fighters' forward and neutral airs and forward tilt (the owner's gifs): the chamber is a hard, compact
+        # extreme (aerials tuck their knees to the chest), the strike snaps in and is held through the active frames, the follow-through
+        # carries on, then the body eases home.)
+        chamber = _chamber_spec(wind, not grounded(name))
+        poses = {0: _spec_held(rest, 0.0), 19: _amped_pose(_spec_pose(chamber), 1.22), 29: _spec_pose(_launch_spec(chamber, strike)),
+                 32: _spec_pose(strike), 36: _spec_pose(strike), 40: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1),
+                 47: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:
@@ -2819,6 +2857,8 @@ def main() -> None:
     def body(spec):
         """A pose from a short spec: {"arms": (fwd, out), "hips": lift, "spine": (fwd, twist), "head": (fwd, twist),
         "stance": (lead, back), bone: (fwd, out)...}."""
+        spec = _human_arms(spec)
+
         def f(rig):
             arms = spec.get("arms", (8.0, 14.0))
             rest_arms(rig, arms[0], arms[1])

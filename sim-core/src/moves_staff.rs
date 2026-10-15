@@ -390,6 +390,9 @@ fn warp(w: &mut Weapon) {
         speed: None,
         accel_stick: None,
     }];
+    // The startup sinks from rest: in the air the warp halts the vertical speed it started with (sim 130, owner decision 97; the
+    // reference's startup gravity and fall speed are a slow fall from a stop) [E: the reading].
+    warp.start_speed_y = 0;
     // Intangible on the reference's frames 16-32 (move frames 15-31).
     warp.intangible_from = 15;
     warp.intangible = 32;

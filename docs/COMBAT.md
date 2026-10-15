@@ -144,7 +144,8 @@ their references (SmashWiki, 13.0.1; the full list is in `docs/movesets/embers/I
 - **Longsword**: the clean hit on frame 5 (11%, 361 / 74 degrees, BK 70, KS 74), the blade 6-11 (7%, BK 20, KS 90, hitlag x0.9) winning
   where both reach on 6; intangible 4-5 from the ground, 1-5 in the air; a 39-frame animation, then the special fall at x0.4 air speed
   with 24 frames of landing lag; ledges in front from frame 8, none behind during the move; x1.1 rise from the air, 0.66 of the
-  momentum kept, angled up to 20 degrees by the stick, gravity 0.06 after the rise. The rise itself stays the earlier estimate.
+  momentum kept (the horizontal: since sim 130, decision 97, none of the vertical, so a jump's rise is not carried in), angled up to 20
+  degrees by the stick, gravity 0.06 after the rise. The rise itself stays the earlier estimate.
 - **Claws**: the wind-up hit 18-21 (4%, 93 degrees, BK 50, KS 10, set weight), the dash's loop 27-32 every 2 frames (2.5%; 40 degrees on
   grounded targets, the autolink angle on airborne ones), the last hit on the ground 36-37 (5%, KS 148) or in the air 37-38 (6%,
   KS 136); the dash from the published parameters (3.8 a frame for 7 frames, aimed on frame 16), the ground bounce, ledges behind from

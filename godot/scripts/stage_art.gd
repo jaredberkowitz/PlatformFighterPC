@@ -236,7 +236,8 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			# (Smaller stones than at first, chiselled rather than pillowed: corners only just softened, a lit bevel along the top and left
 			# of each and a shaded one along the bottom and right, darker mortar, and fine pits in the stone; the big soft-cornered blocks
 			# with a pale inner highlight read as cushions at play size.)
-			var stone_grey := Color(0.72, 0.7, 0.68)
+			# (Warm sandstone, art review 6: a cool grey wall was the one cold thing on a warm sand island beside the lighthouse's brown rocks.)
+			var stone_grey := Color(0.86, 0.74, 0.6)
 			var y := 0.0
 			while y < S - 1.0:
 				var rh := rng.randf_range(44.0, 66.0)
@@ -300,11 +301,13 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 				body += '<path d="%s" fill="none" stroke="#%s" stroke-width="6" stroke-opacity="0.18"/>' % [d, b.darkened(0.3).to_html(false)]
 			var stone_base := Color(0.8, 0.74, 0.66).lerp(a, 0.5)
 			var stones := []
-			for j in 3:
+			# (Fewer, art review 6: the beds are the big forms, as on the sky islands' banded keels; stones only support them. A scatter of
+			# two dozen read as a polka-dot wall.)
+			for j in 1:
 				stones.append([rng.randf_range(0.0, S), rng.randf_range(60.0, S - 40.0), rng.randf_range(34.0, 46.0)])
-			for j in 7:
+			for j in 4:
 				stones.append([rng.randf_range(0.0, S), rng.randf_range(0.0, S), rng.randf_range(20.0, 32.0)])
-			for j in 16:
+			for j in 8:
 				stones.append([rng.randf_range(0.0, S), rng.randf_range(0.0, S), rng.randf_range(6.0, 12.0)])
 			for st in stones:
 				var rx: float = st[2]
@@ -611,6 +614,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 static func _ledges_and_buttresses(parent: Node3D, t: Dictionary, left: float, right: float, top: float, bottom: float, front_z: float,
 		cap_depth: float) -> void:
 	var city: bool = t.get("cap", "grass") == "roof"
+	# (Not on the earth islands, the meadow and the grove: their sky islands, the same kind of thing, are earth with no masonry, and a
+	# brick buttress at each end made the stage a different object from them. Art review 6, the owner: one cohesive style.)
+	# (Nor the desert's strata, carved rock like the mesas round it.)
+	if t.get("pattern", "") in ["earth", "roots", "strata"]:
+		return
 	var stone_c := (t.soil as Color).lightened(0.12)
 	var stone := Materials.stone(stone_c, Vector2(1, 1))
 	var dark := Materials.stone((t.soil_dark as Color).darkened(0.05), Vector2(1, 2))
@@ -2193,6 +2201,10 @@ static func underside(root: Node3D, t: Dictionary, e: Array) -> void:
 			var skirt_lit := Materials.stone((t.soil_dark as Color).lerp(t.soil as Color, 0.4), Vector2(1, 1))
 			var sx := l - 0.2
 			var j := 0
+			# (Not under the earth islands: their wall's earth carries straight on into the keel, as the sky islands' do; the row of
+			# rocks read as a separate rubble layer. Art review 6.)
+			if t.get("pattern", "") in ["earth", "roots"]:
+				sx = r + 1.0
 			while sx < r + 0.2:
 				var n := absf(sin(float(j) * 2.3 + 0.7)) * absf(sin(float(j) * 0.9 + 1.3))
 				var sr := 0.35 + 1.0 * n

@@ -304,12 +304,27 @@ static func builtins() -> Array:
 	var scamp := neutral_entry("Scamp", 11, monkey)
 	scamp.builtin = true
 	scamp.base_index = 11
-	# (The shared default look until the art agent gives it its own.)
-	var phantom := neutral_entry("Phantom", 12, Loadout.default_for(12))
+	# The Phantom: a gentleman thief at night: a midnight body, shades, a cape and the full kit (art review 6).
+	var thief: RefCounted = Loadout.default_for(12)
+	thief.color = 11
+	thief.accent = 6
+	thief.hat = 0
+	thief.glasses = 1
+	thief.neck = 4
+	thief.shirt = 2
+	thief.gear = 3
+	var phantom := neutral_entry("Phantom", 12, thief)
 	phantom.builtin = true
 	phantom.base_index = 12
-	# (The shared default look until the art agent gives it its own.)
-	var exile := neutral_entry("Exile", 13, Loadout.default_for(13))
+	# The Exile: a pale wanderer with a long scarf, dark clothes and the full kit (art review 6).
+	var wanderer_look: RefCounted = Loadout.default_for(13)
+	wanderer_look.color = 8
+	wanderer_look.accent = 9
+	wanderer_look.hat = 0
+	wanderer_look.neck = 3
+	wanderer_look.shirt = 2
+	wanderer_look.gear = 3
+	var exile := neutral_entry("Exile", 13, wanderer_look)
 	exile.builtin = true
 	exile.base_index = 13
 	return [duelist, brawler, rogue, tumbler, sprinter, seer, champion, hauler, bounder, wanderer, settler, scamp, phantom, exile]

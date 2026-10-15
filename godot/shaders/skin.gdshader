@@ -157,8 +157,9 @@ void fragment() {
 		// (On the ball's surface, in a thin ring just above where it meets the shoulders: below about 0.72 of the radius down.)
 		float on_ball = 1.0 - smoothstep(0.015, 0.03, abs(dist - head_ball.z));
 		float low = (head_ball.x - p.y) / head_ball.z;
-		float ring = smoothstep(0.7, 0.74, low) * (1.0 - smoothstep(0.8, 0.84, low));
-		c = mix(c, mix(hem.rgb, c, 0.35), on_ball * ring * chin_line);
+		float ring = smoothstep(0.72, 0.76, low) * (1.0 - smoothstep(0.79, 0.83, low));
+		// (A soft crease, not a collar: at 65% ink it read as a hard dark ring round the neck. Art review 6.)
+		c = mix(c, mix(hem.rgb, c, 0.72), on_ball * ring * chin_line);
 	}
 	ALBEDO = c;
 	EMISSION = flash.rgb * flash.a;

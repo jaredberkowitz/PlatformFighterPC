@@ -2019,7 +2019,7 @@ fn the_game_state_stays_small() {
     assert!(size <= 12 * 1024, "GameState is {size} bytes");
 }
 
-// ---- R2b: grunts, hazards, the curve, rare events, branching forks (sim 127; grunts as fighters in R2c, sim 129) -------------------
+// ---- R2b: grunts, hazards, the curve, rare events, branching forks (sim 127; grunts as fighters in R2c, sim 131) -------------------
 
 use run::data::{
     KIND_BRAWLER, KIND_BRUISER, KIND_LOBBER, KIND_SHIELD, KIND_SPEAR, PLACE_ALONE, PLACE_FLAT,
@@ -2838,7 +2838,7 @@ fn a_run_with_grunts_props_and_events_replays() {
     assert!(fought > 0, "grunts were about");
 }
 
-// ---- R2c: combat parity, lighter grunts, the following blast zones (sim 129) ------------------------------------------------------
+// ---- R2c: combat parity, lighter grunts, the following blast zones (sim 131) ------------------------------------------------------
 
 /// Grabs the grunt (or fighter) standing 1.4 in front of the player, optionally pummels once, then throws with `stick`; returns what
 /// the victim was launched with on the first frame of its hitstun after the throw: its percent, hitstun, launch speed and tumble.

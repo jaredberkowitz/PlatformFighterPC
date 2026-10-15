@@ -57,7 +57,7 @@ use data::{
     ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_PROPS, ROOM_SLOTS, ROOM_SPAWNS, SPOT_ANY,
 };
 
-/// Grunts alive at once: the fighter slots after the players (sim 129, `crate::MAX_GRUNTS`).
+/// Grunts alive at once: the fighter slots after the players (sim 131, `crate::MAX_GRUNTS`).
 pub const MAX_MOBS: usize = crate::MAX_GRUNTS;
 /// Props (hazards and chests) in the rooms in play at once.
 pub const MAX_PROPS: usize = 12;
@@ -909,7 +909,7 @@ pub fn step_run(
         build_stage(&state.run, rc, &mut world.stage);
         return;
     }
-    // The grunts are fighters (sim 129): their players' inputs, then the versus step for everyone.
+    // The grunts are fighters (sim 131): their players' inputs, then the versus step for everyone.
     mobs::through_gate(state, world, rc);
     let mut all = mobs::think(state, world, rc);
     all[..MAX_FIGHTERS].copy_from_slice(inputs);

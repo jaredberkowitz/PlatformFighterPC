@@ -82,7 +82,7 @@ fn shift(state: &mut GameState, content: &Content, i: usize, dx: Fx) -> Fx {
         to = to.clamp(p.left, p.right);
     }
     if run {
-        // (In a run a wall can stand on the ground: the gate behind and an arena's gate. A push never goes through it: sim 129.)
+        // (In a run a wall can stand on the ground: the gate behind and an arena's gate. A push never goes through it: sim 131.)
         let from = f.pos.x;
         collision::move_x(&content.stage, &p, &mut f.pos, to - from);
         return f.pos.x - from;

@@ -238,9 +238,13 @@ def finish(obj):
     # bent differently): keep the right half and mirror it.
     bm = bmesh.new()
     bm.from_mesh(obj.data)
+    # (Nudged a hair off the middle first: points lying exactly on the cutting plane left a slit down the front of the face, and the outline
+    # behind showed through it as a dark crack under the mouth.)
+    bmesh.ops.translate(bm, vec=(0.00037, 0.0, 0.0), verts=bm.verts)
     bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces), plane_co=(0, 0, 0), plane_no=(1, 0, 0),
                            clear_inner=True)
-    bmesh.ops.symmetrize(bm, input=list(bm.verts) + list(bm.edges) + list(bm.faces), direction="X", dist=0.0005)
+    bmesh.ops.mirror(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces), axis="X", merge_dist=0.0005)
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
     bm.to_mesh(obj.data)
     bm.free()
     # And smooth, keeping the volume (the melted parts left ripples the remesh kept: a lumpy surface the cel light picked out).

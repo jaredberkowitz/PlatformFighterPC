@@ -190,7 +190,7 @@ pub struct Fighter {
     /// Index of the move being performed, see `moves::MoveId`.
     pub move_id: u8,
     /// The move's hit history: bit `combat::hit_bit(n, g)` (`n + MAX_BODIES * g`) set means hit group `g` (0 to 7) of this move has
-    /// already hit body `n` (sim 129: a grunt is a body too).
+    /// already hit body `n` (sim 131: a grunt is a body too).
     pub hit_mask: u128,
     /// Frames the current smash attack has been charged.
     pub charge: u8,
@@ -414,11 +414,11 @@ pub struct Fighter {
     /// Where the fighter's feet were (height) when its current move began (also on a switch by `goto`): what `Move::ledge_drop`
     /// measures the fall from.
     pub move_y0: Fx,
-    /// Sim 129 (the run's grunts, R2c): the percent of its hits' damage this body deals (0: 100, as every player), and super armor
+    /// Sim 131 (the run's grunts, R2c): the percent of its hits' damage this body deals (0: 100, as every player), and super armor
     /// it has whatever it does (a hit deals its damage and freezes it, but does not launch it). Set only by the run's grunt layer.
     pub damage_scale: u16,
     pub super_armor: bool,
-    /// Sim 129: the weight the knockback formula reads for this body instead of its body's (a grunt's, by its kind and tier).
+    /// Sim 131: the weight the knockback formula reads for this body instead of its body's (a grunt's, by its kind and tier).
     pub weight: Option<Fx>,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
@@ -670,7 +670,7 @@ pub struct GameState {
     /// [`PLAYING`] until the match ends, then the winner's index or [`DRAW`]. The simulation stops when it is set.
     pub winner: i8,
     pub rng: Rng,
-    /// The players (`MAX_FIGHTERS`), then the run's grunts (`MAX_GRUNTS`, inactive outside a run: sim 129).
+    /// The players (`MAX_FIGHTERS`), then the run's grunts (`MAX_GRUNTS`, inactive outside a run: sim 131).
     pub fighters: [Fighter; MAX_BODIES],
     /// Which fighter holds each ledge, or [`NONE`].
     pub ledge_owner: [i8; MAX_LEDGES],
@@ -1721,7 +1721,7 @@ mod tests {
                 s.fighters[1].orb_age = 1;
                 s
             }),
-            // Sim 129 (the run's grunts are fighters in the slots after the players).
+            // Sim 131 (the run's grunts are fighters in the slots after the players).
             ("damage_scale", {
                 let mut s = state;
                 s.fighters[crate::MAX_FIGHTERS].damage_scale = 50;

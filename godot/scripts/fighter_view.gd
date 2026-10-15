@@ -31,6 +31,7 @@ const TOON_CLOTH_SHADER := preload("res://shaders/toon_cloth.gdshader")
 const FACE_SHADER := preload("res://shaders/face.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/outline.gdshader")
 const SHIELD_SHADER := preload("res://shaders/shield.gdshader")
+const Effects := preload("res://scripts/effects.gd")
 const LIMB_SHADER := preload("res://shaders/limb.gdshader")
 const SKIN_SHADER := preload("res://shaders/skin.gdshader")
 const UIDraw := preload("res://ui/ui_draw.gd")
@@ -81,6 +82,7 @@ func rebuild(l: RefCounted) -> void:
 	arc_shown = {}
 	dizzy = null
 	launch_lines = null
+	launch_trail = null
 	rig = null
 	anim = null
 	skeleton = null
@@ -664,7 +666,10 @@ const HEAD_TOWARD_FOE := 10.0
 ## from the camera (a three-quarter face instead of the near front view of the rest of the time).
 ## (18 and 40, art review 5: at 6 and 58 a swing whose clip twists the shoulders into it turned the back to the camera, the face gone,
 ## where the reference's fighters turn their shoulders into a cut but keep the face toward the camera.)
-const CHEST_IN_ATTACK := 18.0
+## (Then -14, art review 5: turned to the camera, the chest made every forward reach cross in front of it, the arm coming out of the middle
+## of the chest; the reference fighters turn the shoulders into a strike, so the striking shoulder leads and the arm extends straight
+## from it. The head alone turns back to keep the face to the camera.)
+const CHEST_IN_ATTACK := -14.0
 const BODY_TURN_IN_ATTACK := 14.0
 const FACE_AWAY_IN_ATTACK := 40.0
 ## How far into a move the body is turned toward the foe (0 none, 1 fully), eased in and out.
@@ -868,7 +873,9 @@ func _body_follow(s: Dictionary, delta: float) -> void:
 		target_look = clampf(rise * 0.5, -20.0, 12.0 if kicking else 30.0)
 		# In proportion to how far into the move the limb is (its blend toward the hitbox). The base body's clips already lean and look
 		# into its swings and kicks, and its legs reach high on their own, so it takes half of this.
-		var k := (leg_k if kicking else arm_k) * (0.5 if use_base_body else 1.0)
+		# (A kick on the base body takes more of the counter-lean: the reference fighters' whole body lines up with a kick, standing tall
+		# under a high one and leaning back from one in front. Art review 5.)
+		var k := (leg_k if kicking else arm_k) * ((0.85 if kicking else 0.5) if use_base_body else 1.0)
 		# (A sword on the base body: its clips already lean into the cut, and the extra bend folded a low cut nearly double with the head
 		# down at the blade, where the reference keeps the back long and the head up. Art review 5.)
 		if use_base_body and bladed(_cls(s)) and not kicking:
@@ -3236,13 +3243,24 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 		var dir := d.normalized()
 		var cos_a := clampf((upper * upper + dist * dist - lower * lower) / (2.0 * upper * dist), -1.0, 1.0)
 		var ang := acos(cos_a)
-		# The elbow bends down and out and a little back.
-		var pole := Vector3(0.7 if side == "R" else -0.7, -1.0, -0.5)
+		# The elbow points down and out to the side, as a person's does reaching forward. (It pointed a little back: on a reach in front the
+		# upper arm ran back behind the torso while the forearm came forward to the hand, an arm behind and in front at once. Art review 5.)
+		var pole := Vector3(0.8 if side == "R" else -0.8, -1.0, 0.1)
 		var bend := (pole - dir * pole.dot(dir)).normalized()
 		var elbow := shoulder + dir * (cos(ang) * upper) + bend * (sin(ang) * upper)
 		var fore := (goal - elbow).normalized()
-		var q_upper := Quaternion((elbow0 - shoulder).normalized(), (elbow - shoulder).normalized())
-		var q_lower := Quaternion((wrist0 - elbow0).normalized(), fore)
+		# A human elbow (the owner's rule, art review 5): the arm turns as a hinge. The upper arm is twisted so the elbow's hinge lies across
+		# the plane of the bend, and the forearm folds only forward about that hinge, toward the inside of the elbow, never sideways or
+		# backward. (Turned by the shortest rotation, the upper arm's twist was left to chance, and the elbow's fold could face the wrong way.)
+		var q_upper: Quaternion
+		var q_lower: Quaternion
+		var hinged := _arm_hinge(elbow0 - rest_u.origin, wrist0 - elbow0, elbow - shoulder, goal - elbow)
+		if hinged.is_empty():
+			q_upper = Quaternion((elbow0 - shoulder).normalized(), (elbow - shoulder).normalized())
+			q_lower = Quaternion((wrist0 - elbow0).normalized(), fore)
+		else:
+			q_upper = hinged[0]
+			q_lower = hinged[1]
 		var stretch := Basis.from_scale(MotionDeform.limb_scale(e))
 		skeleton.set_bone_global_pose_override(iu, Transform3D(Basis(q_upper) * rest_u.basis * stretch, shoulder), 1.0, true)
 		# (The class's arm bulk carried into the override, which replaces the pose's own scale.)
@@ -3252,6 +3270,32 @@ func _aim_arm(facing: int, holding: bool, two_hands := false) -> void:
 		if not bladed(_cls_now) and mine:
 			strike_tip = to_local(skeleton.global_transform * (elbow + fore * fore_len))
 			strike_tip_ok = true
+
+
+## The rotations that take an arm from its rest pose to a bend (skeleton space; the arm's rest frame is the model's own), as a hinge:
+## [upper, lower]. `up0`/`fore0` are the rest upper arm and forearm, `up1`/`fore1` the wanted ones. The hinge axis is the model's x at
+## rest (a positive turn about it folds the forearm toward the front); at the wanted pose it is set across the plane of the bend, on the
+## side that makes the fold a forward one. Empty if the arm is nearly straight (the hinge is then free, and the shortest turn serves).
+static func _arm_hinge(up0: Vector3, fore0: Vector3, up1: Vector3, fore1: Vector3) -> Array:
+	var u0 := up0.normalized()
+	var f0 := fore0.normalized()
+	var u1 := up1.normalized()
+	var f1 := fore1.normalized()
+	var bend := u1.cross(f1)
+	if bend.length() < 0.08:
+		return []
+	# The rest hinge: the model's x, square to the upper arm; and which way round a forward fold turns about it.
+	var h0 := (Vector3.RIGHT - u0 * Vector3.RIGHT.dot(u0)).normalized()
+	var folded := u0.rotated(h0, 0.6)
+	var sense := signf(u0.cross(folded).dot(h0))
+	var h1 := (bend * sense).normalized()
+	var rest_u := Basis(h0, u0, h0.cross(u0))
+	var want_u := Basis(h1, u1, h1.cross(u1))
+	var h0f := (h0 - f0 * h0.dot(f0)).normalized()
+	var h1f := (h1 - f1 * h1.dot(f1)).normalized()
+	var rest_f := Basis(h0f, f0, h0f.cross(f0))
+	var want_f := Basis(h1f, f1, h1f.cross(f1))
+	return [(want_u * rest_u.inverse()).get_rotation_quaternion(), (want_f * rest_f.inverse()).get_rotation_quaternion()]
 
 
 ## A kick: the leg on the side of the hitbox reaches the live hitbox with two-bone IK (hip, knee, ankle), so the foot is where the hit
@@ -3338,11 +3382,12 @@ func _aim_leg(s: Dictionary, kicking: bool, delta: float) -> void:
 # replay seek redraws it; a move cut short (a landing) lets its arc fade on its own. Moves with no arc (thrusts, punches, kicks) draw
 # none.
 
-const ARC_FADE := 5
+const ARC_FADE := 3
 ## The highest a sword arm points (degrees above forward) when the blade goes up overhead.
 const HIGH_BLADE_ARM := 52.0
 ## How see-through the swing arcs and smears are: painted, but a trail of light, not a solid shape (the fighter shows through it).
-const ARC_OPACITY := 0.82
+## (0.62, art review 6: at 0.82 the pale crescent was the biggest, most solid shape on screen at the moment of a hit, over both fighters.)
+const ARC_OPACITY := 0.62
 const ARC_STEPS := 36
 const ARC_Z := 0.6
 const ARC_PAST_HAND := 0.8
@@ -3568,7 +3613,9 @@ var dizzy: Node3D
 ## A strong launch: the body stretched along the way it flies, and streaks trailing behind it.
 var launch_frame: Node3D
 var launch_lines: Node3D
-const LAUNCH_LINES_FROM := 0.5
+var launch_trail: Node3D
+## (Units per frame: 0.5 was faster than nearly any launch, so the streaks and trail never showed. Art review 6.)
+const LAUNCH_LINES_FROM := 0.2
 
 
 ## A five-pointed star of radius `r`: an ink outline behind a yellow star with a pale middle, in one mesh (vertex colours).
@@ -3648,7 +3695,15 @@ func _launch_look(s: Dictionary) -> void:
 	if absf(float(target[0])) > 0.001:
 		body_dir = target[1]
 	launch_frame.transform = MotionDeform.along(body_k, body_dir, Vector3(0, 1.1, 0))
-	var lines_on := flying and speed > LAUNCH_LINES_FROM
+	# (By the whole flight, knockback included: the fighter's own velocity is small in a launch, so the streaks never showed.)
+	var lines_on := flying and flight.length() > LAUNCH_LINES_FROM
+	# The launch trail (scripts/effects.gd `LaunchTrail`), behind the body along the way it flies.
+	if launch_trail == null and lines_on:
+		launch_trail = Effects.LaunchTrail.new()
+		launch_trail.material_override = Effects._material(false)
+		add_child(launch_trail)
+	if launch_trail != null:
+		launch_trail.feed(global_position + Vector3(0, 1.1, 0), lines_on)
 	if launch_lines == null and lines_on:
 		launch_lines = Node3D.new()
 		var mat := StandardMaterial3D.new()
@@ -3671,7 +3726,8 @@ func _launch_look(s: Dictionary) -> void:
 	if not lines_on:
 		return
 	# Streaks behind the body along the flight, a little spread, their lengths changing on twos.
-	var dir := vel.normalized()
+	var dir := flight.normalized()
+	speed = flight.length()
 	launch_lines.position = Vector3(0, 1.1, -0.3)
 	launch_lines.rotation = Vector3(0, 0, dir.angle())
 	var seed_step := int(s.frame) / 2
