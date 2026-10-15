@@ -1,0 +1,10 @@
+// Nodachi side special: the shadow orbs' beam (world units: the reference's / 8). Frame numbers here are the move's (the reference's
+// less 1). Special held on frame 8 (the reference's 9: "charges between 8-9") holds the move there, up to 26 frames (the `charge`
+// register counts them). On frame 14 the beam leaves: its first hit (the next frame) is 6.4 of the reference's units ahead and 8.8 up
+// whatever its speed (5.46 a frame uncharged to 8.16 at full, scaled by the charge as it is fired), so it starts one frame of its
+// flight short of there [E: read from the hitbox animation].
+if frame == 8 && special && charge < 26 { stall(); }
+if frame == 14 {
+    let v = (5.46 + 2.7 * charge / 26) / 8;
+    spawn(0.8 - v, 1.1, 0.6825, 0);
+}

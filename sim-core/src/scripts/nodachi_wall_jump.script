@@ -1,0 +1,5 @@
+// Nodachi wall stick jump (ext12): held on the wall until frame 11 (the reference's 12, the jump's start), then off upward at the speed
+// that rises 6.9 of the reference's units under the move's gravity, x1.05 [E: the published "initial vertical speed" 6.9 read as a
+// height]: sqrt(2 x 0.108 x 1.05 x 6.9) / 8.
+if frame < 11 { set_vel(0, 0); }
+if frame == 11 { set_vel(0, 0.15637); }

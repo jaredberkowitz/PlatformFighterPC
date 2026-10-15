@@ -152,6 +152,17 @@ pub mod slots {
     pub const MEGAFLARE: MoveId = MoveId::Ext4;
     pub const GIGAFLARE: MoveId = MoveId::Ext5;
     pub const FLARE_CANCEL: MoveId = MoveId::Ext6;
+    /// The barrier struck (its answer) and broken (sim 128).
+    pub const BARRIER_ANSWER: MoveId = MoveId::Ext7;
+    pub const BARRIER_BREAK: MoveId = MoveId::Ext8;
+    /// The down smash whose blade meets no ground (sim 128).
+    pub const DSMASH_OFF: MoveId = MoveId::Ext9;
+    /// The eight slashes' landing (sim 128).
+    pub const OCTA_LANDING: MoveId = MoveId::Ext10;
+    /// The forward air stuck in a wall, its jump and its letting go (sim 128).
+    pub const WALL_STICK: MoveId = MoveId::Ext11;
+    pub const WALL_JUMP: MoveId = MoveId::Ext12;
+    pub const WALL_DROP: MoveId = MoveId::Ext13;
 }
 use slots::*;
 
@@ -176,6 +187,9 @@ pub fn nodachi() -> Weapon {
     ledge_and_floor(&mut w);
     blade_dash(&mut w);
     flare(&mut w);
+    shadow_orbs(&mut w);
+    barrier(&mut w);
+    phase_2_leftovers(&mut w);
     w
 }
 
@@ -653,7 +667,7 @@ fn smashes(w: &mut Weapon) {
     // (radius 8.8, 6.5 to 8.5 up, x0.7, shield damage +10, never clanks), the blade along the ground 10.5% / 11.5% / 13% (48 degrees,
     // BK 80, KS 68, radius 1.2, from 2.0 behind to 8.0, 10.0 to 19.0 and 20.0 to 24.0 ahead, x0.7 / 0.7 / 1.2) [R]; none rebound (the
     // reference's `rebound=f`) [R]. Charges on frame 9 (between 8 and 9); with the wing, armor on 10-20 [R]. FAF 54. (The version
-    // whose blade meets no ground, the blade alone on 21-22, is not modelled: phase 2.)
+    // whose blade meets no ground, the blade alone on 21-22, is `DSMASH_OFF`: sim 128.)
     let nr = |lag: u16| {
         move |h: &mut Hitbox| {
             h.hitlag = lag;
@@ -745,7 +759,7 @@ fn aerials(w: &mut Weapon) {
     // Forward air: a long stab ahead, 361 (type 3), BK 39, KS 86: clean on 13-14 the root box 8.5% (radius 4.0, 4.5 to 8.5 ahead, 12.5
     // up, x0.9), on the blade the tip 11% (radius 2.3, 20.0 to 23.5 along it, x1.3), the blade 10% (2.5, 12.5 to 17.0) and the base 10%
     // (2.8, 0 to 9.5); late on 15-18 5.5% / 8% / 7% / 7% with radii 3.5 / 1.8 / 2.0 / 2.3 [R]. The blade level ahead 12.5 up from a
-    // hilt 8.5 ahead [E]. FAF 42, landing lag 14, autocancel 1-2 and 39 on [R]. (Sticking to a wall it stabs is not modelled: phase 2.)
+    // hilt 8.5 ahead [E]. FAF 42, landing lag 14, autocancel 1-2 and 39 on [R]. (Sticking to a wall it stabs: `WALL_STICK`, sim 128.)
     let hilt = (85, 125);
     let dir = (100, 0);
     let mut b = Vec::new();
@@ -1559,4 +1573,311 @@ fn flare(w: &mut Weapon) {
         ),
     ));
     w.moves[GIGAFLARE as usize] = m;
+}
+
+/// A reference length in tenths (85 for 8.5) as a world length [D].
+fn t10(reference_tenths: i32) -> Fx {
+    Fx::from_ratio(u(reference_tenths), 10)
+}
+
+// ---- The shadow orbs (side special, sim 128) -----------------------------------------------------------------------------------
+
+/// The side special (ssbwiki.com's raw tables and its move page, kuroganehammer.com, ultimateframedata.com 13.0.1; `REFERENCE_DATA.md`
+/// "Side special"): a beam, held to charge from frame 9 ("charges between 8-9") up to 26 frames, the beam out 8 frames after the
+/// charge's end (16-22 uncharged, 42-48 at full), FAF 39 to 65 [R].
+///
+/// * The beam (a projectile, 7 frames): 1.5% (KS 30), 361 (type 3), BK 10, hitlag x0.5, no trip [R], growing to 4.5% at full charge
+///   (kuroganehammer.com's 1.611 uncharged: 1.5 + 3 x (charge + 1) / 27) [R/D]; a lying capsule of radius 2.0 from its head to 8.0
+///   behind it for everyone, and one of radius 3.5 from 1.5 to 6.5 behind for fighters in the air (the reference's `g=f` boxes) [R].
+///   (Its 2% boxes hit only things that are not fighters [R: not modelled].) Its speed, 5.46 of the reference's units a frame uncharged
+///   to 8.16 at full, and its first hit 6.4 ahead and 8.8 up, are read from the hitbox animation [E].
+/// * The orbs (E59): one on a hit, two from 17 frames of charge, three at full; twice as many from a reflected beam; at most five on a
+///   fighter and five out for the exile; they strike 4 seconds after the first hit, a later hit adding 0.5 to 3 seconds by its charge,
+///   never past 7.5 seconds from the first [R; the extension in proportion to the charge is E]. Circling, an orb hits a bystander it
+///   touches for 7% at 50 (by travel), BK 65, KS 75, radius 1.5, hitlag x0.4, SDI x2, shield damage -3, never clanking, again 45 frames
+///   later, twice at most [R]; striking, each flies 13 frames into the chest and explodes on 14: 6.5% at 53 (type 3, away from its
+///   owner), BK 50, KS 75, radius 3.5, hitlag x0.8, shield damage -3, never clanking [R]. The orbit (radius 12 of the reference's units,
+///   a turn a second) and a loose orb's flight (the beam's uncharged speed, 60 frames) are [E].
+fn shadow_orbs(w: &mut Weapon) {
+    let mut m = moved(39, 0, 0, 255, Vec::new());
+    m.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_orbs.script"),
+    ));
+    // The beam's two capsules, both centred 4.0 behind its head (the projectile's point).
+    let ring = |radius: i32, half: i32, targets: u8, id: u8| {
+        bx(1, 1, 0, 0, radius, 15, 361, 10, 30, id, 0, move |h| {
+            h.half_width = t10(half);
+            h.hitlag = 50;
+            h.targets = targets;
+            fwd(h);
+        })
+    };
+    let mut base = ring(20, 40, TARGETS_ALL, 0);
+    base.damage = Fx::from_ratio(29, 18);
+    m.projectile = Some(ProjectileSpawn {
+        frame: 14,
+        x: Fx::ZERO,
+        y: t10(88),
+        speed: FighterParams::su(5460),
+        life: 8,
+        hitbox: base,
+        end_damage: base.damage,
+        arc: ProjectileArc::NONE,
+        phases: phase_list(&[
+            (1, ring(20, 40, TARGETS_ALL, 0)),
+            (1, ring(35, 25, TARGETS_AERIAL, 2)),
+        ]),
+        pierce: false,
+        rehit: 0,
+        burst: None,
+        charged: Some(ChargedShot {
+            full: 26,
+            snap: 0,
+            damage_to: Fx::from_ratio(9, 2),
+            speed_to: FighterParams::su(8160),
+            life_to: 8,
+            size_from: 100,
+            size_to: 100,
+            floor: false,
+            times: 100,
+            power_to: 100,
+            every_hit: true,
+        }),
+        tool: Tool::NONE,
+    });
+    let orbit = bx(1, 1, 0, 0, 15, 70, 50, 65, 75, 0, 0, |h| {
+        h.hitlag = 40;
+        h.sdi = 200;
+        h.shield_damage = shield(70, -30);
+        h.angle_type = ANGLE_BY_TRAVEL;
+        no_clank(h);
+    });
+    let strike = bx(1, 1, 0, 0, 35, 65, 53, 50, 75, 0, 0, |h| {
+        h.hitlag = 80;
+        h.shield_damage = shield(65, -30);
+        fwd(h);
+        no_clank(h);
+    });
+    m.orbs = Some(Orbs {
+        count: 1,
+        more_at: [17, 26],
+        reflected: 2,
+        per_target: 5,
+        per_owner: 5,
+        wait: 240,
+        extend: 30,
+        extend_to: 180,
+        full: 26,
+        cap: 450,
+        radius: t10(120),
+        period: 60,
+        orbit_hit: orbit,
+        orbit_hits: 2,
+        orbit_rehit: 45,
+        strike: 14,
+        strike_hit: strike,
+        loose_speed: FighterParams::su(5460),
+        loose_life: 60,
+    });
+    w.moves[MoveId::SideSpecial as usize] = m;
+}
+
+// ---- The barrier (down special, sim 128) ----------------------------------------------------------------------------------------
+
+/// The down special (ssbwiki.com's raw tables and its move page, kuroganehammer.com, ultimateframedata.com 13.0.1; `REFERENCE_DATA.md`
+/// "Down special"): a barrier in front on frames 7-27 that catches hits (melee and projectiles) touching it, not the body [R]; its
+/// standing capsule (7.7 ahead, from 1.8 to 20.2 up, radius 5.9) is read from the hitbox animation [E].
+///
+/// * Not struck: the answer comes anyway, a projectile standing 14 ahead and 10.5 up [E: from the hitbox animation]: on 38-52 1%,
+///   the vortex angle (366), set knockback 60, BK 40, KS 65, set weight, radius 9.5, hitlag x0.8, no SDI, every 5 frames; on 53 5%,
+///   361 (type 3), BK 66, KS 75, radius 11.0 (11.0.0's), hitlag x0.7, shield damage -2; none clank [R]. FAF 87 [R].
+/// * Struck: the hit is caught (no hitlag for the exile, UFD) and the answer runs (`BARRIER_ANSWER`): intangible 1-11, the projectile
+///   19 ahead and 10.5 up [E] with the multi-hits on 7-21 and the last on 22, FAF 52 [R]; its numbers read between the minimum (a 0%
+///   hit) and the maximum (18% and above) by the caught damage: multi-hits 2 to 4% (radius 16.5 to 22.5, shield damage -1 to -2), the
+///   last 6.5 to 18% (BK 80 to 83, KS 70 to 83, radius 18.0 to 24.0, hitlag x0.7 to x0.4, shield damage -3 to -9) [R; the fields other
+///   than the damage read the same way, E].
+/// * A hit of more than 25% (before the one-on-one multiplier) breaks it: no damage, a stagger, FAF 41 [R], pushed back a little [E].
+fn barrier(w: &mut Weapon) {
+    let multi = |damage: i32, radius: i32, sd: i32| {
+        bx(
+            1,
+            1,
+            0,
+            0,
+            radius,
+            damage,
+            ANGLE_VORTEX,
+            40,
+            65,
+            0,
+            0,
+            move |h| {
+                h.fixed_kb = 60;
+                h.set_weight = true;
+                h.hitlag = 80;
+                h.sdi = 0;
+                if sd != 0 {
+                    h.shield_damage = shield(damage, sd);
+                }
+                pos(h);
+                no_clank(h);
+            },
+        )
+    };
+    let last = |damage: i32, radius: i32, bk: i16, ks: i16, lag: u16, sd: i32| {
+        bx(1, 1, 0, 0, radius, damage, 361, bk, ks, 0, 1, move |h| {
+            h.hitlag = lag;
+            h.shield_damage = shield(damage, sd);
+            fwd(h);
+            no_clank(h);
+        })
+    };
+    let answer = |frame: u8, x: i32, low: Hitbox, phases: &[(u8, Hitbox)]| ProjectileSpawn {
+        frame,
+        x: t10(x),
+        y: t10(105),
+        speed: Fx::ZERO,
+        life: 17,
+        hitbox: low,
+        end_damage: low.damage,
+        arc: ProjectileArc::NONE,
+        phases: phase_list(phases),
+        pierce: true,
+        rehit: 5,
+        burst: None,
+        charged: None,
+        tool: Tool::NONE,
+    };
+
+    // Not struck: the answer projectile from the reference's frame 37, hitting from 38 (age 1).
+    let mut m = moved(87, 0, 0, 255, Vec::new());
+    let miss = multi(10, 95, 0);
+    m.projectile = Some(answer(
+        36,
+        140,
+        miss,
+        &[(1, miss), (16, last(50, 110, 66, 75, 70, -20))],
+    ));
+    m.counter = Some(Counter {
+        start: 6,
+        end: 26,
+        then: BARRIER_ANSWER as u8,
+        percent: 100,
+        min_damage: Fx::ZERO,
+        max_damage: Fx::ZERO,
+        melee_only: false,
+        bubble: Some(CounterBubble {
+            x: t10(77),
+            y: t10(110),
+            half_height: t10(92),
+            radius: t10(59),
+        }),
+        break_above: Fx::from_int(25),
+        break_move: BARRIER_BREAK as u8,
+        still: true,
+    });
+    w.moves[MoveId::DownSpecial as usize] = m;
+
+    // Struck: the answer projectile from frame 6, hitting from 7 (age 1).
+    let low = multi(20, 165, -10);
+    let mut a = moved(52, 0, 0, 255, Vec::new());
+    a.intangible = 11;
+    a.projectile = Some(answer(
+        5,
+        190,
+        low,
+        &[(1, low), (16, last(65, 180, 80, 70, 70, -30))],
+    ));
+    a.lerp = Some(Lerp {
+        full: Fx::from_int(18),
+        phases: phase_list(&[
+            (1, multi(40, 225, -20)),
+            (16, last(180, 240, 83, 83, 40, -90)),
+        ]),
+    });
+    w.moves[BARRIER_ANSWER as usize] = a;
+
+    // Broken: a stagger, pushed back a little.
+    let mut b = moved(41, 0, 0, 255, Vec::new());
+    b.motion = vec![Motion {
+        start: 0,
+        end: 5,
+        vx: -FighterParams::su(1000),
+        vy: Fx::ZERO,
+    }];
+    w.moves[BARRIER_BREAK as usize] = b;
+}
+
+// ---- Phase 1's leftovers (sim 128) ----------------------------------------------------------------------------------------------
+
+/// * The down smash's blade meeting no ground (ssbwiki.com 13.0.1): its ground test, a segment from 16.0 ahead and 4.5 up to 32.5
+///   ahead and 2.5 down [R], on its first hit frame; with no ground the blade alone on 21-22: 10.5% / 11.5% / 13% at 48 (type 3), BK
+///   75, KS 63, radius 1.7, at the grounded blade's places and hitlags, not rebounding [R]. FAF 54 [R].
+/// * The eight slashes' landing (kuroganehammer.com): 2.3% at 60, BK 90, KS 60 on the landing's frame 1 [R], in its 56 frames of
+///   landing lag, landing during the move or in the special fall after it; its box (radius 8.0, 4.0 up, centred on the feet) is [E].
+/// * The forward air's wall stick (ssbwiki.com 13.0.1): the stab meeting a wall sticks the exile to it, three times at most before it
+///   lands, not with the ground less than 14 units below [R]; stuck, from frame 18 jump, attack or the stick up jumps off (the jump on
+///   its frame 12, gravity x1.05, FAF 23), the stick away or down lets go (FAF 20), and at the end of its 120 frames it lets go [R].
+///   The wall test (level with the blade, 12.5 up, out to its tip 32 ahead) and the jump's height (the published 6.9 read as a height
+///   in the reference's units) are [E]; the exile stays where it stuck [E].
+fn phase_2_leftovers(w: &mut Weapon) {
+    // The down smash without ground contact.
+    let nr = |lag: u16| {
+        move |h: &mut Hitbox| {
+            h.hitlag = lag;
+            h.rebounds = false;
+            fwd(h);
+        }
+    };
+    let mut b = Vec::new();
+    for (id, from, to, dmg, lag) in [
+        (0u8, (-20, 0), (80, 0), 105, 70u16),
+        (1, (100, 0), (190, 0), 115, 70),
+        (2, (200, 0), (240, 0), 130, 120),
+    ] {
+        b.extend(along(21, 22, from, to, 17, dmg, 48, 75, 63, id, 0, nr(lag)));
+    }
+    w.moves[DSMASH_OFF as usize] = moved(54, 0, 0, 255, b);
+    w.moves[MoveId::DSmash as usize].probe = Some(GroundProbe {
+        frame: 20,
+        from: (t10(160), t10(45)),
+        to: (t10(325), t10(-25)),
+        miss: DSMASH_OFF as u8,
+    });
+
+    // The eight slashes' landing.
+    w.moves[OCTA_LANDING as usize] = moved(
+        57,
+        0,
+        0,
+        255,
+        vec![bx(1, 1, 0, 40, 80, 23, 60, 90, 60, 0, 0, |h| {
+            fwd(h);
+            no_clank(h);
+        })],
+    );
+    let octa = &mut w.moves[OCTA as usize];
+    octa.landing_move = Some(OCTA_LANDING as u8);
+    octa.fall_landing_move = Some(OCTA_LANDING as u8);
+
+    // The forward air's wall stick, its jump and its letting go.
+    w.moves[MoveId::FAir as usize].script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_fair.script"),
+    ));
+    let mut stick = moved(121, 0, 0, 255, Vec::new());
+    stick.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_wall_stick.script"),
+    ));
+    w.moves[WALL_STICK as usize] = stick;
+    let mut jump = moved(23, 0, 0, 255, Vec::new());
+    jump.script = Some(script(
+        Kind::Fighter,
+        include_str!("scripts/nodachi_wall_jump.script"),
+    ));
+    jump.air_gravity = Some(FighterParams::su(108) * Fx::from_ratio(105, 100));
+    w.moves[WALL_JUMP as usize] = jump;
+    w.moves[WALL_DROP as usize] = moved(20, 0, 0, 255, Vec::new());
 }

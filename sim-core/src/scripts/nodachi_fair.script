@@ -1,0 +1,17 @@
+// Nodachi forward air: on frames 12-17 (the reference's 13-18, the stab's hits) a wall the blade meets (a segment level with it, 12.5
+// of the reference's units up, out to its tip 32 ahead [E]) sticks the exile to it (slot 40 = ext11), three times at most in an air
+// time (marks 5, 6 and 7: landing or a ledge clears them), and not with the ground less than 14 units below (a segment straight down).
+if frame >= 12 && frame <= 17 && grounded == 0 {
+    if ground(0, 1.5625, 4.0, 1.5625) && ground(0, 0, 0, -1.75) == 0 {
+        if air_mark(5) == 0 {
+            set_air_mark(5);
+            goto(40);
+        } else if air_mark(6) == 0 {
+            set_air_mark(6);
+            goto(40);
+        } else if air_mark(7) == 0 {
+            set_air_mark(7);
+            goto(40);
+        }
+    }
+}
