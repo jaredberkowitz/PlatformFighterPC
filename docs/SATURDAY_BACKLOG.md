@@ -6,6 +6,11 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] Ship a build with everything since art 49 (canyon haze, city windows, pose atlas tool, anything below): export, desktop folder,
       zip, GitHub release (docs/STATUS.md and the desktop-build memory for the steps).
 
+## Run mode R3 (shops and items; modes-online agent, can run alongside the animation work)
+- [ ] Build R3 from `docs/modes/RUNNER_R3_PLAN.md`: 18 items (stats, properties, consumables), filled pedestals, cards, the reroll
+      bell, the HUD strip, and grunts teching from tier 3. Ask the moveset session for the SIM_VERSION, keep versus timing within 2%,
+      then land and release.
+
 ## Animation overhaul (the main job; start from docs/POSE_REVIEW.md)
 - [ ] Up moves arch the back with the belly forward ("inhaling"): reach from the shoulders, hips over the feet.
 - [ ] Locked straight arms at shoulder height in strikes, follow-throughs and unarmed idles ("hug"): elbow never fully straight,
