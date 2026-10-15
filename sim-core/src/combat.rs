@@ -415,22 +415,30 @@ pub(crate) fn hits_target(hb: &Hitbox, target: &Fighter) -> bool {
 /// The loops need the attacker and defender indices themselves (hit masks, tie-breaking), not just items.
 #[allow(clippy::needless_range_loop)]
 pub fn resolve_hits(state: &mut GameState, content: &Content) {
-    let mut chosen: [[Option<Hitbox>; MAX_BODIES]; MAX_BODIES] = [[None; MAX_BODIES]; MAX_BODIES];
+    // (Sized by the bodies in play: the players in versus, every body in a run. Versus pays nothing for the grunt slots.)
+    if state.run.active {
+        resolve_hits_n::<MAX_BODIES>(state, content);
+    } else {
+        resolve_hits_n::<MAX_FIGHTERS>(state, content);
+    }
+}
+
+#[allow(clippy::needless_range_loop)]
+fn resolve_hits_n<const N: usize>(state: &mut GameState, content: &Content) {
+    let mut chosen: [[Option<Hitbox>; N]; N] = [[None; N]; N];
     // Where each chosen hitbox was (for an autolink's pull).
-    let mut chosen_at = [[Vec2::ZERO; MAX_BODIES]; MAX_BODIES];
+    let mut chosen_at = [[Vec2::ZERO; N]; N];
     // Whether each chosen hit reached the defender's open counter (its bubble, or its body when it has none).
-    let mut caught = [[false; MAX_BODIES]; MAX_BODIES];
+    let mut caught = [[false; N]; N];
     // Attackers whose search box touched someone this frame (see `HIT_SEARCH`).
-    let mut searched = [false; MAX_BODIES];
+    let mut searched = [false; N];
     // Hits that reached a defender's balloons but not its body (E41, sim 113).
-    let mut on_balloons: [[Option<Hitbox>; MAX_BODIES]; MAX_BODIES] =
-        [[None; MAX_BODIES]; MAX_BODIES];
+    let mut on_balloons: [[Option<Hitbox>; N]; N] = [[None; N]; N];
     // The best box of each attacker's partner (part 1, E52) on each defender: the box, where it was, whether a counter catches it.
-    let mut partner: [[Option<(Hitbox, Vec2, bool)>; MAX_BODIES]; MAX_BODIES] =
-        [[None; MAX_BODIES]; MAX_BODIES];
+    let mut partner: [[Option<(Hitbox, Vec2, bool)>; N]; N] = [[None; N]; N];
     // The groups of each attacker's blockable grab boxes (E56) a shield or a reflector stopped this frame.
-    let mut stopped = [0u8; MAX_BODIES];
-    for a in 0..MAX_BODIES {
+    let mut stopped = [0u8; N];
+    for a in 0..N {
         let fa = &state.fighters[a];
         if !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
             continue;
@@ -449,7 +457,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
                 }
             }
         }
-        for d in 0..MAX_BODIES {
+        for d in 0..N {
             if !rivals(a, d) {
                 continue;
             }
@@ -548,7 +556,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
 
     // A stopped blockable grab (E56) catches no one with those groups for the rest of the move, and a move with a `shield_end` ends
     // that many frames later (sim 126, owner decision 84), unless it ends sooner anyway.
-    for a in 0..MAX_BODIES {
+    for a in 0..N {
         if stopped[a] == 0 {
             continue;
         }
@@ -575,8 +583,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
 
     // Balloons (E41): a hit that reached only a defender's balloons is used up on them (the move does not hit that fighter again),
     // unless the move also hit the body this frame.
-    for a in 0..MAX_BODIES {
-        for d in 0..MAX_BODIES {
+    for a in 0..N {
+        for d in 0..N {
             if let (None, Some(hb)) = (chosen[a][d], on_balloons[a][d]) {
                 state.fighters[a].hit_mask |= hit_bit(d, hb.group);
                 crate::balloons::hit(state, content, d, hb.damage);
@@ -584,11 +592,11 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         }
     }
 
-    let mut struck = [false; MAX_BODIES];
+    let mut struck = [false; N];
     // Who struck each fighter this frame (a partner's box may land on top of its own fighter's hit: E52).
-    let mut struck_by = [usize::MAX; MAX_BODIES];
-    for a in 0..MAX_BODIES {
-        for d in 0..MAX_BODIES {
+    let mut struck_by = [usize::MAX; N];
+    for a in 0..N {
+        for d in 0..N {
             if let Some(hb) = chosen[a][d] {
                 if hb.kind == HIT_GRAB {
                     continue; // grabs are settled after every damaging hit this frame
@@ -604,8 +612,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     // The partner's boxes (E52, part 1): a fighter one touches takes its hit as well, after its own fighter's (both damages, the
     // partner's launch applied last [E]), unless another attacker struck it this frame, its own fighter's hit was caught by a counter
     // or the attacker is no longer attacking (a clank's rebound).
-    for a in 0..MAX_BODIES {
-        for d in 0..MAX_BODIES {
+    for a in 0..N {
+        for d in 0..N {
             let Some((hb, at, catches)) = partner[a][d] else {
                 continue;
             };
@@ -621,8 +629,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
     }
 
     // Two fighters grabbing each other on the same frame both let go: a grab parry (1% each, and a rebound).
-    for a in 0..MAX_BODIES {
-        for d in a + 1..MAX_BODIES {
+    for a in 0..N {
+        for d in a + 1..N {
             let both = matches!(chosen[a][d], Some(h) if h.kind == HIT_GRAB && !h.command)
                 && matches!(chosen[d][a], Some(h) if h.kind == HIT_GRAB && !h.command);
             if both && !struck[a] && !struck[d] {
@@ -642,8 +650,8 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
 
     // Grabs last: a fighter that was hit this frame, or whose grabber was, is not caught. Ties go to the
     // lower player index.
-    for a in 0..MAX_BODIES {
-        for d in 0..MAX_BODIES {
+    for a in 0..N {
+        for d in 0..N {
             let Some(hb) = chosen[a][d] else {
                 continue;
             };
@@ -664,7 +672,7 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
 
     // Search boxes last: an attacker that touched someone with one (and was not hit or knocked out of its move meanwhile) switches
     // to the move's `on_search` at the start of the next frame.
-    for a in 0..MAX_BODIES {
+    for a in 0..N {
         let f = &state.fighters[a];
         if !searched[a] || struck[a] || f.state != S::Attack || f.next_move != 0 {
             continue;
@@ -832,14 +840,14 @@ fn start_rebound(f: &mut Fighter, lag: u8, freeze: u8) {
 /// are cancelled into a rebound; otherwise only the weaker one is, and the stronger carries on (it can still hit on a later frame).
 /// The rebound lasts according to the stronger hit, after being frozen for its hitlag.
 #[allow(clippy::needless_range_loop)]
-fn clank_attacks(
+fn clank_attacks<const N: usize>(
     state: &mut GameState,
     content: &Content,
-    chosen: &mut [[Option<Hitbox>; MAX_BODIES]; MAX_BODIES],
+    chosen: &mut [[Option<Hitbox>; N]; N],
 ) {
     let rules = &content.rules;
-    for a in 0..MAX_BODIES {
-        for b in a + 1..MAX_BODIES {
+    for a in 0..N {
+        for b in a + 1..N {
             let (fa, fb) = (state.fighters[a], state.fighters[b]);
             if !rivals(a, b) || !fa.active || !fb.active || !clanks(&fa) || !clanks(&fb) {
                 continue;
@@ -877,7 +885,7 @@ fn clank_projectile(
     damage: Fx,
 ) -> bool {
     let rules = &content.rules;
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         if !rivals(owner, i) {
             continue;
         }
@@ -1814,7 +1822,7 @@ fn stun_multiplier(f: &Fighter) -> u16 {
 /// Creates the projectile a move asked for this frame (and a second one a script asked for on the same frame: E3h). A move that
 /// already connected in melee (a bayonet hit, for instance) does not also fire.
 pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         if !state.fighters[i].spawn_request {
             continue;
         }
@@ -2057,7 +2065,7 @@ pub(crate) fn pocket_touching(
     pos: Vec2,
     shape: Shape,
 ) -> Option<usize> {
-    (0..MAX_BODIES).find(|&d| {
+    (0..crate::state::bodies(state)).find(|&d| {
         rivals(owner, d)
             && pocket_circle(state, content, d).is_some_and(|(c, r)| {
                 shapes_touch(
@@ -2404,7 +2412,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             continue;
         }
 
-        for d in 0..MAX_BODIES {
+        for d in 0..crate::state::bodies(state) {
             let fd = &state.fighters[d];
             let counter = counter_open(content, fd, false);
             let intangible = is_intangible(fd);
@@ -2571,7 +2579,7 @@ fn lerped(
 /// fighter takes its damage (times the one-on-one multiplier), credited to whoever put it there (the gauges see it as any damage); no
 /// hitlag, no flinch. Counted every frame, hitlag included [E].
 pub fn curse_tick(state: &mut GameState, content: &Content) {
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         let f = &mut state.fighters[i];
         if f.curse_left == 0 || !f.active {
             continue;
@@ -2741,7 +2749,12 @@ fn start_burst(p: &mut Projectile, b: &crate::moves::Burst, at: Vec2, scale: Fx)
 /// What a projectile script can see: its owner and the nearest other fighter that is still in the match.
 fn surroundings(state: &GameState, owner: usize, at: Vec2) -> scripting::Surroundings {
     let mut target: Option<(Fx, Vec2)> = None;
-    for (i, f) in state.fighters.iter().enumerate() {
+    for (i, f) in state
+        .fighters
+        .iter()
+        .enumerate()
+        .take(crate::state::bodies(state))
+    {
         if !rivals(owner, i) || f.stocks == 0 || !f.active {
             continue;
         }
@@ -2766,7 +2779,12 @@ pub(crate) fn reflector_touching(
     pos: Vec2,
     shot: Shape,
 ) -> Option<(usize, Reflector)> {
-    for (i, f) in state.fighters.iter().enumerate() {
+    for (i, f) in state
+        .fighters
+        .iter()
+        .enumerate()
+        .take(crate::state::bodies(state))
+    {
         if !rivals(owner, i) || f.state != S::Attack {
             continue;
         }
@@ -2847,7 +2865,7 @@ pub(crate) fn reflector_detects(
     pos: Vec2,
     shot: Shape,
 ) {
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         let f = &state.fighters[i];
         if !rivals(owner, i) || f.state != S::Attack || f.hitlag > 0 {
             continue;

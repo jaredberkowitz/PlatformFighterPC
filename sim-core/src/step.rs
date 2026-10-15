@@ -131,8 +131,9 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
 
     // Phase 1: every fighter updates in player-index order and may request a ledge.
     let mut wants: [Option<u8>; MAX_BODIES] = [None; MAX_BODIES];
+    let nb = crate::state::bodies(state);
     let mut before = [Fx::ZERO; MAX_BODIES];
-    for (b, f) in before.iter_mut().zip(state.fighters.iter()) {
+    for (b, f) in before.iter_mut().zip(state.fighters.iter()).take(nb) {
         *b = f.pos.x;
     }
     // Which fighters have an item in reach as the frame begins (E4: an attack or grab press picks it up).
@@ -149,7 +150,7 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
         pickable,
         ledges: state.ledge_owner,
     };
-    for (i, f) in state.fighters.iter().enumerate() {
+    for (i, f) in state.fighters.iter().enumerate().take(nb) {
         let height = combat::chest_height(params_of(content, f));
         world.chest[i] = height;
         // (An egged fighter reads its egg's numbers from the move that laid it: E8.)
@@ -158,7 +159,13 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
             world.targets[i] = Some(f.pos + crate::vec2::Vec2::new(Fx::ZERO, height));
         }
     }
-    for (i, (f, input)) in state.fighters.iter_mut().zip(inputs.iter()).enumerate() {
+    for (i, (f, input)) in state
+        .fighters
+        .iter_mut()
+        .zip(inputs.iter())
+        .enumerate()
+        .take(nb)
+    {
         if !f.active {
             continue;
         }
@@ -170,7 +177,7 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
     }
 
     // A move that has just begun draws its random version (E39), and balloons come out, use helium and go (E41).
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         if state.fighters[i].active {
             let params = params_of(content, &state.fighters[i]);
             let weapon = combat::weapon_of(content, params);
@@ -182,7 +189,7 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
     // Bodies on the ground cannot pass through each other (see `push`).
     crate::push::separate(state, content, &before);
     // A grounded fighter on a slope keeps its feet on it after every sideways move this frame (sim 124; nothing on flat ground).
-    for f in state.fighters.iter_mut().filter(|f| f.active) {
+    for f in state.fighters.iter_mut().take(nb).filter(|f| f.active) {
         if crate::collision::platform(&content.stage, f.platform).is_some_and(|p| p.sloped()) {
             fighter::keep_on_ground(f, &content.stage);
         }
@@ -291,6 +298,23 @@ mod tests {
             step(&mut r, &content, i);
         }
         assert_eq!(r.checksum(), straight);
+    }
+
+    /// Sim 131: in versus the grunt slots stay exactly as a new match left them (nothing reads or writes them), which is why the checksum
+    /// and every loop stop at the players outside a run (`state::bodies`).
+    #[test]
+    fn versus_never_touches_the_grunt_slots() {
+        let content = Content::placeholder();
+        for seed in 0..10u64 {
+            let inputs = random_inputs(&mut Rng::new(seed), 1500);
+            let mut s = GameState::new(&content, seed, [0, 1, 2, 3]);
+            let empty = s.fighters[MAX_FIGHTERS..].to_vec();
+            for i in &inputs {
+                step(&mut s, &content, i);
+            }
+            assert_eq!(s.fighters[MAX_FIGHTERS..].to_vec(), empty, "seed {seed}");
+            assert_eq!(crate::state::bodies(&s), MAX_FIGHTERS);
+        }
     }
 
     /// Random play must never panic or leave a fighter in an inconsistent state.

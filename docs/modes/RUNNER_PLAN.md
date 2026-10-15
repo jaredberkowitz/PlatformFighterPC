@@ -919,6 +919,11 @@ obstacles taking percent and knockback, beaten by launching them off a scrolling
 - **The shopkeeper**: `Run::keeper_grudge` is the room number the player must enter (the current room or the shop's, plus one); 0
   none. `Interior::sulk_frames` is gone.
 - **Pool full**: a spawn spot waits for a free grunt slot instead of being lost; a shut arena's spots all come as slots free.
+- **Versus pays (almost) nothing for the grunt slots** (review fix): `state::bodies` is the players outside a run and every body in
+  one; every loop over the bodies stops there, `resolve_hits` sizes its pair tables by it (4 by 4 in versus, 16 by 16 in a run), and the
+  checksum hashes only those bodies (and those bodies' per-body records in projectiles and items). In versus the grunt slots are never
+  read or written (a test checks they stay as a new match leaves them). `pftool fuzz-rollback 300`: 4.0 to 4.1 s against main's 3.9
+  to 4.1 s (it was 7.3 to 7.8 s before the fix).
 - **GameState is 10,688 bytes** (a fighter is 384 bytes; R2b: 6,368; the run's part is 2,616 bytes, was 3,568: the R2b mob pool
   is gone). 16 grunt slots would be 12,224 bytes; 12 is enough for the window (spots wait for a
   slot) and keeps versus snapshots under 11 KiB. `pftool run-bench 6000`: 0.0074 ms a frame on average with all 12 grunts out, worst

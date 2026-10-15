@@ -111,7 +111,7 @@ pub fn place(state: &mut GameState, content: &Content, n: usize, d: usize) {
 /// One frame of every fighter's orb clock (before the projectiles move): a clock with no orbs left circling stops; one that runs out
 /// sends every orb on the fighter to strike.
 pub fn tick(state: &mut GameState) {
-    for d in 0..MAX_BODIES {
+    for d in 0..crate::state::bodies(state) {
         if state.fighters[d].orb_clock == 0 {
             continue;
         }
@@ -272,7 +272,7 @@ pub fn update_orb(state: &mut GameState, content: &Content, n: usize) {
         }
     }
     hb.damage = hb.damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
-    for v in 0..MAX_BODIES {
+    for v in 0..crate::state::bodies(state) {
         let fv = &state.fighters[v];
         // (A circling orb leaves the fighter it circles alone; nothing hits its owner.)
         if !combat::rivals(owner, v)

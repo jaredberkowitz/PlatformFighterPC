@@ -349,10 +349,10 @@ pub fn make_as(
 /// One frame of every item: the fighters' orders, open pockets catching items, then each item's clock and movement, its hits and the
 /// attacks that knock it about.
 pub fn update(state: &mut GameState, content: &Content) {
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         serve(state, content, i);
     }
-    for i in 0..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
         pocket_items(state, content, i);
     }
     for n in 0..MAX_ITEMS {
@@ -385,7 +385,7 @@ fn traps(state: &mut GameState, content: &Content) {
         };
         let facing = i32::from(it.facing);
         let at = it.pos + Vec2::new(trap.hit.x.mul_int(facing), trap.hit.y);
-        for d in 0..MAX_BODIES {
+        for d in 0..crate::state::bodies(state) {
             let fd = &state.fighters[d];
             let exempt = matches!(
                 fd.state,
@@ -820,7 +820,7 @@ fn thrown_hits(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
         half_h: hb.half_height,
         radius: hb.radius,
     };
-    for d in 0..MAX_BODIES {
+    for d in 0..crate::state::bodies(state) {
         if !combat::rivals(owner, d) || it.hit_mask & (1 << d) != 0 {
             continue;
         }
@@ -899,7 +899,7 @@ fn blast_frame(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
     let maker = usize::from(it.origin).min(MAX_BODIES - 1);
     let at = middle(&it, spec);
     let hb = b.hit;
-    for d in 0..MAX_BODIES {
+    for d in 0..crate::state::bodies(state) {
         if (d == maker && !b.hits_owner)
             || (d != maker && !combat::rivals(maker, d))
             || it.hit_mask & (1 << d) != 0
@@ -958,14 +958,14 @@ fn blast_frame(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
 /// and frozen for a share of the hitlag; one knock per attacker's move. At 0 hp it bursts (or goes).
 fn knock_about(state: &mut GameState, content: &Content) {
     // A fighter no longer attacking can knock items again.
-    for a in 0..MAX_BODIES {
+    for a in 0..crate::state::bodies(state) {
         if !matches!(state.fighters[a].state, S::Attack | S::LedgeAttack) {
             for it in &mut state.items {
                 it.struck[a] = 0;
             }
         }
     }
-    for a in 0..MAX_BODIES {
+    for a in 0..crate::state::bodies(state) {
         let fa = state.fighters[a];
         if !fa.active || !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
             continue;

@@ -95,8 +95,8 @@ fn shift(state: &mut GameState, content: &Content, i: usize, dx: Fx) -> Fx {
 /// Separates overlapping bodies. `before` is where each fighter stood at the start of the frame.
 pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_BODIES]) {
     let rules = &content.rules;
-    for i in 0..MAX_BODIES {
-        for j in i + 1..MAX_BODIES {
+    for i in 0..crate::state::bodies(state) {
+        for j in i + 1..crate::state::bodies(state) {
             let (a, b) = (&state.fighters[i], &state.fighters[j]);
             let (bi, bj) = (body(a), body(b));
             if bi == Body::None || bj == Body::None {

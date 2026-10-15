@@ -548,6 +548,13 @@ pub const ITEM_POCKETED: u8 = 5;
 
 impl StateHash for Item {
     fn hash_into(&self, h: &mut StateHasher) {
+        self.hash_with(h, MAX_BODIES);
+    }
+}
+
+impl Item {
+    /// Hashes it with the per-body records of the first `nb` bodies only (`bodies`: the others are untouched).
+    pub fn hash_with(&self, h: &mut StateHasher, nb: usize) {
         h.write_bool(self.active);
         h.write_u8(self.origin);
         h.write_u8(self.maker);
@@ -568,7 +575,7 @@ impl StateHash for Item {
         h.write_u8(self.fuse);
         h.write_u8(self.hitlag);
         h.write_u16(self.hit_mask);
-        for s in &self.struck {
+        for s in &self.struck[..nb] {
             h.write_u8(*s);
         }
         h.write_i8(self.facing);
@@ -594,6 +601,13 @@ pub const ORB_LOOSE: u8 = 3;
 
 impl StateHash for Projectile {
     fn hash_into(&self, h: &mut StateHasher) {
+        self.hash_with(h, MAX_BODIES);
+    }
+}
+
+impl Projectile {
+    /// Hashes it with the per-body records of the first `nb` bodies only (`bodies`: the others are untouched).
+    pub fn hash_with(&self, h: &mut StateHasher, nb: usize) {
         h.write_bool(self.active);
         h.write_u8(self.owner);
         h.write_u8(self.origin);
@@ -610,7 +624,7 @@ impl StateHash for Projectile {
             h.write_i32(*v);
         }
         h.write_u128(self.hit_mask);
-        for a in &self.hit_age {
+        for a in &self.hit_age[..nb] {
             h.write_u8(*a);
         }
         h.write_i8(self.facing);
@@ -851,6 +865,17 @@ impl Fighter {
 
     pub fn grounded(&self) -> bool {
         self.platform != NONE
+    }
+}
+
+/// How many of `GameState::fighters` are in play: the players in versus, every body (the grunt slots too) in a run (sim 131). Every
+/// loop over the bodies stops here, and the checksum hashes these, so versus pays nothing for the grunt slots (they stay at their
+/// default, never touched, outside a run).
+pub fn bodies(state: &GameState) -> usize {
+    if state.run.active {
+        MAX_BODIES
+    } else {
+        MAX_FIGHTERS
     }
 }
 
@@ -1098,17 +1123,19 @@ impl StateHash for GameState {
         h.write_i8(self.winner);
         h.write_bool(self.sudden_death);
         self.rng.hash_into(h);
-        for f in &self.fighters {
+        // (Outside a run the grunt slots are never touched: only the players are hashed.)
+        for f in &self.fighters[..bodies(self)] {
             f.hash_into(h);
         }
         for o in &self.ledge_owner {
             h.write_i8(*o);
         }
+        let nb = bodies(self);
         for p in &self.projectiles {
-            p.hash_into(h);
+            p.hash_with(h, nb);
         }
         for it in &self.items {
-            it.hash_into(h);
+            it.hash_with(h, nb);
         }
         for v in &self.script_vars {
             h.write_i32(*v);
@@ -1724,22 +1751,17 @@ mod tests {
             // Sim 131 (the run's grunts are fighters in the slots after the players).
             ("damage_scale", {
                 let mut s = state;
-                s.fighters[crate::MAX_FIGHTERS].damage_scale = 50;
+                s.fighters[2].damage_scale = 50;
                 s
             }),
             ("super_armor", {
                 let mut s = state;
-                s.fighters[crate::MAX_BODIES - 1].super_armor = true;
+                s.fighters[3].super_armor = true;
                 s
             }),
             ("weight", {
                 let mut s = state;
                 s.fighters[1].weight = Some(Fx::ZERO);
-                s
-            }),
-            ("grunt slot", {
-                let mut s = state;
-                s.fighters[crate::MAX_BODIES - 1].pos.x += Fx::from_raw(1);
                 s
             }),
             ("curse_by", {

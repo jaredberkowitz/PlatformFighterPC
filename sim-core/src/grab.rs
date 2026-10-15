@@ -138,7 +138,7 @@ pub fn drop_grab(state: &mut GameState, content: &Content, i: usize) {
 
 /// Keeps the held fighter in front of the holder, counts down the hold, and frees the pair if anything is out of step.
 pub fn update(state: &mut GameState, content: &Content) {
-    for h in 0..MAX_BODIES {
+    for h in 0..crate::state::bodies(state) {
         let Ok(v) = usize::try_from(state.fighters[h].grab_with) else {
             continue;
         };
