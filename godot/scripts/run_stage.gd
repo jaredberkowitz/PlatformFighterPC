@@ -329,7 +329,9 @@ func _lamps(node: Node3D, left: float, right: float, top: float) -> void:
 		StageArt._mesh(node, StageArt._cylinder(0.12, 0.17, 5.0, 8), iron, at + Vector3(0, 2.5, 0))
 		_box(node, Vector3(0.12, 0.12, 1.2), at + Vector3(0, 4.9, 0.5), iron)
 		StageArt._mesh(node, StageArt._sphere(0.28, 10), lamp, at + Vector3(0, 4.7, 1.0), Vector3(1.0, 0.7, 1.0))
-		StageArt._halo(node, at + Vector3(0, 4.6, 1.2), Color(1.0, 0.8, 0.5), 3.6)
+		# (A small glow round the bulb, art review 6 round 11: at 3.6 across, at the fighters' depth, each lamp bloomed into a white blob as
+		# bright as anything in play, as the city stage's shops did before round 7.)
+		StageArt._halo(node, at + Vector3(0, 4.6, 1.2), Color(1.0, 0.8, 0.5), 2.0)
 		x += 16.5
 
 

@@ -285,3 +285,13 @@ The beach's sand and the grove's lawn were the last flat stage tops: the meadow'
 broad, restrained drifts. Both now do too (`grass_vary` 0.14 on the ocean theme, 0.16 on the grove), so every stage top follows one rule
 (`review6_round10_tops.png`: beach before, after; grove before, after). The sea wall from round 2 checked again at full size: holds.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 11 (the scope widened to every screen)
+
+Captured the controls, replays, creator and online screens and the run (`review6_round11_screens.png`). Replays, creator, online and
+the run's results hold the menus' panel language and read well; the controls screen reads at full size.
+- **The run's street lamps** (`review6_round11_run_lamps.png`, before | after): each lamp's glow (3.6 across, at the fighters' depth)
+  bloomed into a white blob that washed out a grunt beside it, as the city's shops did before round 7. Now 2.0 (`run_stage.gd` `_lamps`).
+- To the backlog: the run's HUD (its white fighter box and plates) differs from the match HUD's dark plates; the controls screen draws
+  actions and keys as the same pale buttons (no hierarchy).
+Checked: the art pipeline, match flow and runner tests.
