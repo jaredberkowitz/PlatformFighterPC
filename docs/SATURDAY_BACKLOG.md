@@ -47,7 +47,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [x] (Sun: smaller, lower left, round 39.) Canyon: the sun is a huge bright disc right behind the stage, and the thin horizontal cloud streaks cut across it as flat lines;
       a smaller sun set lower to one side, the streaks as soft painted clouds.
 - [ ] City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
-      a few lit/curtained windows, a ledge or sign. The far billboard (top right) is a pale blank panel: give it an image or remove it.
+      a few lit/curtained windows, a ledge or sign. The far billboard: neon lettering since round 41.
 - [ ] Beach: the sea wall's stones are still large blocks at play distance; the sky's clouds are flat white shapes with no light side.
 - [x] (Six, lower: round 40.) Meadow: the floating islands crowd the top edge of the frame (several clipped by it); fewer, placed to frame the stage.
 - [ ] Grove: still the palest stage under its pink light; the light shafts and pink grade could go further if the owner wants it

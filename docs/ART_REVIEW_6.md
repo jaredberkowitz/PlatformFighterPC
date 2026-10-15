@@ -504,3 +504,10 @@ Checked: the art pipeline and match flow tests.
   clipped by its edge. Now six, set lower (3-9 plus up to 6 by depth); the stage's random layout shifts with them (two round trees by
   the windmill). One far island still touches the top right edge.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 41
+
+- **Neon signs** (`review6_round41_neon.png`, before | after): the skyline's signs drew each letter as a solid bar, so a sign read as a
+  blank pale panel. Each letter is now a few neon tubes (side verticals and top, middle and bottom crossbars, picked per letter by
+  its hash) in `facade.gdshader` `neon_sign`; every city and run sign gains it.
+Checked: the art pipeline, match flow and runner tests.

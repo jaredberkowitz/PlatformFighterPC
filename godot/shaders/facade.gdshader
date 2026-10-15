@@ -39,8 +39,20 @@ vec3 neon_sign(vec2 at, vec2 size, float seed) {
 	float n = max(2.0, floor(size.x / 0.9));
 	float k = floor(at.x / (size.x / n));
 	float in_k = fract(at.x / (size.x / n));
-	float tall = mix(0.4, 0.7, hash(vec2(seed, k)));
-	letters = step(0.15, in_k) * step(in_k, 0.85) * step(abs(at.y - size.y * 0.5), size.y * tall * 0.5) * step(0.45, e.x) * step(0.4, e.y);
+	// Each letter a few neon tubes (art review 6 round 41: solid bars read as a blank panel): verticals at either side and crossbars at
+	// top, middle and bottom, each switched on by the letter's own hash, so the row reads as lettering.
+	float tall = mix(0.5, 0.75, hash(vec2(seed, k)));
+	float v = (at.y - size.y * 0.5) / (size.y * tall * 0.5) * 0.5 + 0.5;
+	float inside = step(0.12, in_k) * step(in_k, 0.88) * step(0.0, v) * step(v, 1.0) * step(0.45, e.x) * step(0.4, e.y);
+	float t = 0.16;
+	float h1 = hash(vec2(seed, k + 0.31));
+	float h2 = hash(vec2(seed, k + 0.67));
+	float strokes = step(in_k, 0.12 + t * 0.76) * step(0.2, h1)
+		+ step(0.88 - t * 0.76, in_k) * step(h1, 0.75)
+		+ step(v, t) * step(0.35, h2)
+		+ step(1.0 - t, v) * step(h2, 0.8)
+		+ step(abs(v - 0.5), t * 0.5) * step(0.5, fract(h1 * 7.3 + h2));
+	letters = inside * min(strokes, 1.0);
 	float stutter = step(0.985, fract(sin(floor(TIME * 7.0) + seed * 13.0) * 4375.5)) * step(0.5, hash(vec2(seed, 2.0)));
 	// The panel glows faintly with its own colour, so the sign reads as one lit shape from far away.
 	vec3 panel = mix(vec3(0.08, 0.06, 0.14), tube * 0.6, 0.35);
