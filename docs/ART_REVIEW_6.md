@@ -159,3 +159,15 @@ flat fill. Checked: the fighter, art, motion, loadout, match and creator tests; 
 The windmill, houses and hills recede through the haze; the floating islands, at similar depths, kept full-strength earth and grass and
 were the sharpest things in the sky. Each island now takes on the sky's horizon colour with its distance (`_sky_islands`: 15% plus up to
 22% by depth, its details too). `review6_sky_islands.png` (before | after). Checked: the art and match tests; the look bench.
+
+## Done: a new base body from the owner's generated figure (2026-10-15)
+
+The owner supplied a generated model sheet (three views of one character; the middle one's face the best) and, shown it rebuilt and
+rigged beside the current body, chose it as the new base. It is reproducible: `art/generated/base_figure/figure_sheet.glb` and
+`art/blender/make_figure_body.py` (the middle figure cut out by its band, turned to face -Y, 2.2 tall, then make_base_body.py's own
+finish(): one voxel skin from its hundreds of loose fragments, QuadriFlow, mirrored, smoothed), then fit_body.py and make_rigged_blob.py
+as before. Its painted face is dropped (the game draws its own faces with expressions); the hands are our modelled ones. A smaller head,
+longer legs, slimmer limbs and a softer pear torso than the PEAK-measured body. Clothes, hats, faces and boots refit by themselves.
+`review6_figure_body_poses.png` (left the old body, right the new, in the guard, the run and the sword lunge),
+`review6_figure_body_outfits.png`. Checked: every Godot test (fighter, art, motion, animation, creator, online, match, loadout, content,
+runner); the look bench 0.91 (was 0.87).
