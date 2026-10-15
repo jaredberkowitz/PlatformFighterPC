@@ -66,7 +66,9 @@ const STYLE_DEFAULT := {
 	# `bloom`: the soft glow of everything bright (the sky, clouds, sunlit walls), and the luma it starts from (`bloom_from`).
 	# Cloud shadows drifting over the stage (`pf_clouds` in shaders/toon_light.gdshaderinc): [how deep, units across, sky covered, drift].
 	"clouds": [0.0, 24.0, 0.4, 0.5],
-	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.5, "bloom": 0.4,
+	# (`quiet` 0.25, art review 6 round 19, after the owner's Wind Waker HD reference: at 0.5 every stage was greyed by a fifth, so the
+	# scenery read milky beside the reference's clean, saturated colour; the fighters keep their lift over it.)
+	"finish": {"desat": 0.0, "lift": 0.03, "vignette": 0.16, "haze_max": 0.22, "s_curve": 0.22, "quiet": 0.25, "bloom": 0.4,
 		"bloom_from": 0.6},
 }
 const STYLES := {

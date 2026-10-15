@@ -352,3 +352,14 @@ Checked: the art pipeline and match flow tests.
   camera the pole by the stage's left end stood exactly on its corner, a stray stick with its wire across the arch. The line now breaks
   off behind the stage (no poles within 36 units of its middle) and carries on beyond (`_sunset`).
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 19 (the owner's Wind Waker HD frame)
+
+Against the owner's reference frame, what our stages lack: clean, saturated colour with no veil; hard dark cel cast shadows (the
+character's and the tree's are crisp solid shapes); strong lit/shaded splits on scenery; colour and value doing the work outlines do
+for us; atmosphere only in the distance.
+- **The veil:** the post pass's value hierarchy (`stage_quiet`) greyed every stage by a fifth and pulled it toward mid-grey, so the
+  scenery read milky. Halved (the default finish's `quiet` 0.25, was 0.5, `lighting.gd`): every stage carries cleaner, saturated colour
+  (`review6_round19_saturation.png`: meadow, canyon, city, before | after). The look bench passes (the fighters keep their lift).
+- Next from the frame: hard-edged fighter shadows on the ground; scenery lit/shaded splits; fewer ink lines on scenery.
+Checked: the art pipeline and match flow tests; the look bench.
