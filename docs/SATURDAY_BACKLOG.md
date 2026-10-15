@@ -37,9 +37,9 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 ## Beta gaps against the competition (Smash Ultimate, Rivals of Aether II, PEAK), 2026-10-15
 Already in place: knock-out blasts, the final hit's slow-motion close-up, results screen with victory poses, damage that heats in
 colour, music, alternate looks. What the competitors have that a beta of ours still lacks, art and presentation only:
-- [ ] **Readable roster at a glance.** Every fighter is the same body in a different colour; the competitors' fighters read apart by
-      silhouette alone. Give each class family a signature silhouette (headwear, weapon on the back, proportions within the one rig).
-      Needs the owner's call on how far to vary the body.
+- [ ] **Readable roster at a glance**, within the one body (owner, 2026-10-15: one shared model; variety comes from the character
+      creator's customisation, never body variants). Make the creator's options (headwear, outfits, colours, accessories) bold enough
+      that two fighters read apart in silhouette and colour at play distance.
 - [ ] **Match entrances.** Each fighter arrives at the start (a drop-in, a dash in, a pose) rather than appearing in place.
 - [ ] **Weapon art for the queued classes** (Dagger, Nodachi) and per-weapon hit sparks.
 - [ ] **Living stages.** The competitors' backgrounds move (crowds, traffic, weather, wildlife); ours have a little (windmill, birds,
