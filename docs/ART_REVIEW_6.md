@@ -113,3 +113,10 @@ keel; the stage was a different object: brick buttresses at the ends, a front do
 - Next for cohesion: the grove's stepped underside is its collision shape (the sim's solid blocks), so it stays unless the owner wants
   the stage itself changed; its art could round the steps' corners; the desert's, beach's and city's fronts by the same rule
   (built where the stage is built, earth where it is earth).
+
+## Done: the other stages' fronts by the same rule (built where built, rock where rock)
+
+`review6_fronts.png` (before | after, wide): the desert's block is carved strata like the mesas round it, so its stone pillars go
+(`_ledges_and_buttresses` skips `strata` too); the beach's sea wall is built, so it keeps its masonry, but in warm sandstone
+(`seawall` stone 0.86/0.74/0.6, was cool grey 0.72/0.7/0.68), the one cold thing on a warm sand island. The city's rooftop already
+matches its skyline and is unchanged. Checked: the art and match tests; the look bench. The owner asked to keep the meadow as it is.
