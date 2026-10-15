@@ -551,18 +551,26 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
 			# (The ledge sits a hair above the block's top so their top faces never fight over the same depth and flicker.)
-			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(t.grass, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
-			_mesh(parent, _box(Vector3(w + 0.34, 0.1, 0.12)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.18))
-			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.12)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.42, front_z + 0.16))
-			# The roofing laid in sheets: seams running back from the front a little darker than the roof, each with a lighter lap beside it
-			# (low in contrast: the fighters stand on it).
-			var seam := _soft((t.grass as Color).darkened(0.14))
-			var lap := _soft((t.grass as Color).lightened(0.08))
-			var sx := left + 1.3
+			# (Art review 6, the owner's rooftop plan: the roof's top, its edge and the facade under it read as three things. The roof is
+			# warm tar-grey roofing, a step apart from the violet facade; the edge is a stone coping that stands proud, lit on top with a
+			# shaded face and a drip shadow under it; the roofing's seams fall at uneven spacings, faint.)
+			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55)
+			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(roofing, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
+			var coping := _soft((t.grass_light as Color).lerp(Color(0.86, 0.82, 0.8), 0.4))
+			var coping_face := _soft((t.grass as Color).darkened(0.18))
+			_mesh(parent, _box(Vector3(w + 0.5, 0.12, 0.5)), coping, Vector3(cx, top + 0.02, front_z + 0.02))
+			_mesh(parent, _box(Vector3(w + 0.5, 0.2, 0.08)), coping_face, Vector3(cx, top - 0.13, front_z + 0.25))
+			_mesh(parent, _box(Vector3(w + 0.3, 0.08, 0.1)), _soft((t.soil_dark as Color).darkened(0.35)), Vector3(cx, top - 0.27, front_z + 0.2))
+			_mesh(parent, _box(Vector3(w + 0.3, 0.1, 0.1)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.44, front_z + 0.16))
+			var seam := _soft(roofing.darkened(0.08))
+			var lap := _soft(roofing.lightened(0.05))
+			var sx := left + 1.1
+			var j := 0
 			while sx < right - 0.6:
-				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.2)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0))
-				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.2)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0))
-				sx += 2.6
+				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.4)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0 - 0.1))
+				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.4)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0 - 0.1))
+				sx += 2.1 + 1.3 * absf(sin(float(j) * 2.7 + 0.4))
+				j += 1
 		"sand":
 			var sand := _surface(t.grass, "sand", 5.0)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
@@ -2422,12 +2430,17 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 ## with a lip of turf over its edge, and on some a round tree or a bush. `count` of them over the sky at depths from 55 to 130 units,
 ## higher and smaller the further they are, so they layer the sky into distances. Each bobs gently (`Drift` keeps them in place).
 static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator, count: int) -> void:
-	var grass: Color = t.grass
-	var earth := Materials.stone((t.soil_dark as Color).darkened(0.08), Vector2(4, 2))
-	var turf := FighterView.toon(grass.lightened(0.05))
-	var lip := FighterView.toon(grass.darkened(0.12))
 	for k in count:
 		var depth := rng.randf_range(0.0, 1.0)
+		# (Each island takes on the sky's colour with its distance, as the windmill and houses at the same depth do through the haze:
+		# full-strength earth and grass on the islands made them the sharpest things in the sky, pulling the eye from the fight. Art
+		# review 6, background cohesion.)
+		var air := t.sky_horizon as Color
+		var fade := 0.15 + 0.22 * depth
+		var grass: Color = (t.grass as Color).lerp(air, fade)
+		var earth := Materials.stone((t.soil_dark as Color).darkened(0.08).lerp(air, fade), Vector2(4, 2))
+		var turf := FighterView.toon(grass.lightened(0.05))
+		var lip := FighterView.toon(grass.darkened(0.12))
 		var z := lerpf(-70.0, -140.0, depth)
 		var size := lerpf(2.4, 4.4, rng.randf()) * lerpf(1.0, 1.4, depth)
 		# (Spread across the sky, kept off the middle above the stage where the fighters fly.)
@@ -2448,7 +2461,10 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# The grassy top: a thick squashed disc, its rim rolling down over the earth.
 		_mesh(island, _cylinder(hw * 0.98, hw * 1.02, 0.7, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.62))
 		_mesh(island, _cylinder(hw * 1.04, hw * 0.96, 0.4, 20), lip, Vector3(0, -0.05, 0), Vector3(1.0, 1.0, 0.64))
-		_island_detail(island, hw, size, t, k)
+		var faded := t.duplicate()
+		for key in ["soil", "soil_dark", "grass"]:
+			faded[key] = (t[key] as Color).lerp(air, fade)
+		_island_detail(island, hw, size, faded, k)
 		var on_top := rng.randf()
 		if on_top < 0.45:
 			_round_tree(island, Vector3(rng.randf_range(-0.4, 0.4) * hw, 0.6, 0), clampf(size / 6.0, 0.7, 1.4), rng)
@@ -3062,6 +3078,9 @@ static func _city(root: Node3D, t: Dictionary, stage: Array) -> void:
 	for layer in 3:
 		var z := -40.0 - layer * 28.0
 		var shade := Color(0.2, 0.17, 0.33).lerp(Color(0.29, 0.22, 0.42), layer / 2.0)
+		# (The further layers drift toward the sky's own horizon colour, so distance reads as air, not as three equal cut-outs: the owner's
+		# rooftop plan, art review 6.)
+		shade = shade.lerp(t.sky_horizon as Color, [0.0, 0.16, 0.34][layer])
 		_skyline_layer(root, rng, layer, z, shade, float(e[3]) - CITY_STREET_DROP)
 	# A water tower and an antenna on the roof behind the stage.
 	var roof: float = e[2]
@@ -3411,11 +3430,18 @@ static func _skyline_layer(root: Node3D, rng: RandomNumberGenerator, layer: int,
 		shape.seed = hash(Vector2i(roundi(x * 10.0), layer))
 		_facade_box(st, Vector3(lo.x - 0.25, hi.y - 0.35, lo.z - 0.25), Vector3(hi.x + 0.25, hi.y + 0.1, hi.z + 0.25), seed, true, 0.45)
 		var set_top := hi.y + 0.1
-		if h > 16.0 and layer < 2 and shape.randf() < 0.5:
+		# (More of them, and a second, narrower step on the tallest: a skyline of stepped crowns, not flat-topped boxes.)
+		if h > 14.0 and shape.randf() < 0.68:
 			var inset := w * shape.randf_range(0.18, 0.3)
 			var sh := shape.randf_range(2.6, 5.5)
 			_facade_box(st, Vector3(lo.x + inset, set_top, lo.z + 0.6), Vector3(hi.x - inset, set_top + sh, hi.z - 0.6), seed, false, sh)
 			_facade_box(st, Vector3(lo.x + inset - 0.2, set_top + sh - 0.3, lo.z + 0.4), Vector3(hi.x - inset + 0.2, set_top + sh + 0.1, hi.z - 0.4), seed, true, 0.4)
+			if h > 24.0 and shape.randf() < 0.55:
+				var in2 := inset + w * 0.14
+				var t2 := set_top + sh + 0.1
+				var sh2 := shape.randf_range(1.8, 3.5)
+				_facade_box(st, Vector3(lo.x + in2, t2, lo.z + 1.0), Vector3(hi.x - in2, t2 + sh2, hi.z - 1.0), seed, false, sh2)
+				_facade_box(st, Vector3(lo.x + in2 - 0.15, t2 + sh2 - 0.25, lo.z + 0.85), Vector3(hi.x - in2 + 0.15, t2 + sh2 + 0.1, hi.z - 0.85), seed, true, 0.35)
 		if layer < 2 and signs.randf() < 0.34:
 			# A lit sign on the front: a tall blade sign near one side, or a wide one across the middle.
 			var front := hi.z + 0.08

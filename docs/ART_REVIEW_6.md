@@ -137,3 +137,25 @@ the "GAME!", "TIME!" and countdown calls sit on an angular ribbon in the title's
 a flat grey band; the stocks a size up (1.3x). Checked: the match, controls, creator and select grid tests.
 
 The owner scheduled the full animation overhaul for Saturday 2026-10-17 (plan in memory); until then the other items continue.
+
+## Done: the rooftop's top, edge and facade told apart (item 8, first pass; the city stage and the run)
+
+`review6_rooftop.png` (before | after: the run, the city close up): the roof's edge is a stone coping standing proud of the facade, lit
+on top with a shaded face and a dark drip line under it; the roofing is a warm tar-grey a step apart from the violet facade; its seams
+fall at uneven spacings. Checked: the art, match and runner tests; the look bench.
+- **The skyline** (`review6_skyline.png`, before | after): more stepped crowns (a setback storey on two thirds of the taller buildings,
+  a second narrower one on the tallest, on every layer), and the further layers drift toward the sky's horizon colour (16% and 34%), so
+  distance reads as air. Window depth is left for later (one facade shader per layer; a change there touches every window).
+
+## Done: outfits fuller and woven (item 5, first pass)
+
+`review6_outfits.png` (before | after): the garments stand further off the body, as PEAK's thick soft clothes do (`make_rigged_blob.py`:
+shirt 0.065 off the skin, was 0.04; shorts 0.04, was 0.018; belt, cuffs, the blouse over the belt and the hems' flare to match), and every
+cloth carries a faint woven texture (`fighter_view.gd` `_cloth`: `brush_strength` 0.14 on the cloth's rest coordinates) where it was a
+flat fill. Checked: the fighter, art, motion, loadout, match and creator tests; the look bench.
+
+## Done: background cohesion, first pass (the meadow's sky islands)
+
+The windmill, houses and hills recede through the haze; the floating islands, at similar depths, kept full-strength earth and grass and
+were the sharpest things in the sky. Each island now takes on the sky's horizon colour with its distance (`_sky_islands`: 15% plus up to
+22% by depth, its details too). `review6_sky_islands.png` (before | after). Checked: the art and match tests; the look bench.
