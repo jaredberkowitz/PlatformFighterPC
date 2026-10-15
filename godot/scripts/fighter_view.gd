@@ -3292,9 +3292,12 @@ static func _arm_hinge(up0: Vector3, fore0: Vector3, up1: Vector3, fore1: Vector
 		return []
 	# The rest hinge: the model's x, square to the upper arm; and which way round a forward fold turns about it.
 	var h0 := (Vector3.RIGHT - u0 * Vector3.RIGHT.dot(u0)).normalized()
-	var folded := u0.rotated(h0, 0.6)
-	var sense := signf(u0.cross(folded).dot(h0))
-	var h1 := (bend * sense).normalized()
+	# The bend's axis, on whichever side lies nearer where the arm's own hinge goes by the shortest turn: the other side twists the upper
+	# arm half a turn about its length, which broke the shoulder of the right arm (the weapon arm facing left). Art review 6.
+	var h1 := bend.normalized()
+	var carried := Quaternion(u0, u1) * h0
+	if h1.dot(carried) < 0.0:
+		h1 = -h1
 	var rest_u := Basis(h0, u0, h0.cross(u0))
 	var want_u := Basis(h1, u1, h1.cross(u1))
 	var h0f := (h0 - f0 * h0.dot(f0)).normalized()
