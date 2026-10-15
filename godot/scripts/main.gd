@@ -1016,6 +1016,11 @@ func _physics_process(_delta: float) -> void:
 		if shot != "":
 			shot_wait = shot
 			_capture(shot)
+		elif demo.key_poses and shot_wait == "":
+			var key := _key_pose()
+			if key != "":
+				shot_wait = key
+				_capture(key)
 		if sim.frame() >= demo.end_frame and shot_wait == "":
 			if perf:
 				var sorted := perf_deltas.duplicate()
@@ -1025,6 +1030,22 @@ func _physics_process(_delta: float) -> void:
 				print("PERF %d frames in %.2fs = %.1f fps, %.2f ms avg, worst %.1f ms, %d frames over 25 ms, %d draw calls, %d primitives, GPU %.2f ms, render CPU %.2f ms, ticks %.2f ms, frame scripts %.2f ms" % [perf_frames, perf_time, perf_frames / perf_time, 1000.0 * perf_time / perf_frames, perf_worst * 1000.0, perf_hitches, perf_draw / perf_frames, perf_prims / perf_frames, perf_gpu / perf_frames, perf_cpu / perf_frames, perf_tick / perf_frames, perf_frame / perf_frames])
 			print("demo '%s' finished at frame %d checksum %s" % [demo.name, sim.frame(), sim.checksum()])
 			get_tree().quit()
+
+
+## For the pose atlas (`--demo=poses`): player 1's move name and pose ("a" wind-up, "b" strike, "c" follow-through) when this frame is one.
+var key_pose_done := {}
+func _key_pose() -> String:
+	var move: String = sim.fighter_move_name(0)
+	var t: PackedInt32Array = sim.fighter_move_timing(0)
+	if move == "" or t.size() < 3 or t[1] <= 0:
+		return ""
+	var f: int = sim.fighter_state_frame(0)
+	for k in [[maxi(1, t[1] - 4), "a"], [t[1], "b"], [mini(t[0] - 1, t[2] + 4), "c"]]:
+		var label := "%s_%s_%s" % [demo.name, move, k[1]]
+		if f == k[0] and not key_pose_done.has(label):
+			key_pose_done[label] = true
+			return label
+	return ""
 
 
 func _capture(label: String) -> void:

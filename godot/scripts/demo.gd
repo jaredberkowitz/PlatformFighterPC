@@ -15,6 +15,7 @@ var cam_focus := -1  # when 0 or more, the camera frames this player alone, with
 var chars: Array = []  # overrides which character each player is (0 sword, 1 claws and blaster)
 var real_keys := false  # drive player 1 through real key events instead of scripted stick values
 var cpu_levels: Array = []  # players the basic CPU plays, by level (`cpu`: both, for watching it)
+var key_poses := false  # also photograph player 1's every move at its wind-up, first active frame and follow-through (main.gd)
 
 
 static func make(demo_name: String, m: Dictionary, dir: String):
@@ -288,6 +289,14 @@ static func make(demo_name: String, m: Dictionary, dir: String):
 				t += 80
 				n += 1
 			d.end_frame = t
+		"poses":
+			# The pose atlas: the gallery's moves, each photographed at its own wind-up, strike and follow-through (from the move's
+			# real timing, `key_poses`), plus the standing guard, for reviewing poses (not motion). Montage with tests/montage.gd.
+			var g = make("gallery", m, dir)
+			g.name = demo_name
+			g.shots = [[30, "idle"]]
+			g.key_poses = true
+			return g
 		"gallery":
 			# Every normal of one class (`--gallery-class=N`, default 0) in turn, photographed every few frames from its start, for the
 			# pose-by-pose animation review (montage the shots with tests/montage.gd).
