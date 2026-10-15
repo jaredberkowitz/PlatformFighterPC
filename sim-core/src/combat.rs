@@ -540,12 +540,24 @@ pub fn resolve_hits(state: &mut GameState, content: &Content) {
         }
     }
 
-    // A stopped blockable grab (E56) catches no one with those groups for the rest of the move.
+    // A stopped blockable grab (E56) catches no one with those groups for the rest of the move, and a move with a `shield_end` ends
+    // that many frames later (sim 126, owner decision 84), unless it ends sooner anyway.
     for a in 0..MAX_FIGHTERS {
         if stopped[a] == 0 {
             continue;
         }
-        state.fighters[a].hit_mask |= group_bits(stopped[a]);
+        let fa = &state.fighters[a];
+        let end = weapon_of(content, params_of(content, fa))
+            .get(fa.move_id)
+            .shield_end;
+        let fa = &mut state.fighters[a];
+        if end > 0 {
+            let at = fa.state_frame.saturating_add(u16::from(end));
+            if fa.move_end == 0 || at < fa.move_end {
+                fa.move_end = at;
+            }
+        }
+        fa.hit_mask |= group_bits(stopped[a]);
         for c in chosen[a].iter_mut() {
             if c.is_some_and(|h| h.kind == HIT_GRAB && stopped[a] & (1 << h.group) != 0) {
                 *c = None;

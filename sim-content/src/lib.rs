@@ -1099,6 +1099,22 @@ fn validate_weapon(i: usize, w: &Weapon, errors: &mut Vec<String>) {
                 "weapon {i} {name}: a hitbox's mode must be any, plain or powered and its part 0 or 1"
             ));
         }
+        // Sim 126: a stale dodge's stretch (owner decision 85) is one of the ruleset's dodge rates and needs a staling dodge; a
+        // stopped grab's early end (owner decision 84) needs a blockable grab box and lies inside the move.
+        if mv.stale_stretch > sim_core::moves::STRETCH_SPOT
+            || (mv.stale_stretch != sim_core::moves::STRETCH_NONE && !mv.dodge_stale)
+        {
+            errors.push(format!(
+                "weapon {i} {name}: stale_stretch must be none, roll, back_roll or spot, and needs dodge_stale"
+            ));
+        }
+        if mv.shield_end > 0
+            && (mv.shield_end >= mv.total_frames || !mv.hitboxes.iter().any(|hb| hb.blockable))
+        {
+            errors.push(format!(
+                "weapon {i} {name}: shield_end needs a blockable grab box and must be shorter than the move"
+            ));
+        }
         // Sim 125 (E57): an armor mode names when an armor works, so it needs an armor.
         if mv.armor_mode > sim_core::moves::MODE_POWERED
             || (mv.armor_mode != sim_core::moves::MODE_ANY && mv.armor.is_none())
@@ -2011,6 +2027,82 @@ mod combat_tests {
             .unwrap_err()
             .iter()
             .any(|e| e.contains("part_intangible")));
+    }
+
+    #[test]
+    fn the_dagger_phase_3_fields_round_trip_and_are_checked() {
+        // Sim 126: a stopped blockable grab's early end (owner decision 84), a stale dodge's stretch (85) and a tether's reel by a
+        // press (86) come back from a file unchanged; a file without them keeps the older behaviour; bad values are refused.
+        let base = Content::placeholder();
+        let w = usize::from(base.fighters[12].weapon);
+        let air = sim_core::moves::dagger_slots::HOOK_AIR as usize;
+        let dash = sim_core::moves::dagger_slots::GUN_DASH as usize;
+        let up = MoveId::UpSpecial as usize;
+        let text = crate::bundle::to_text(&base, "test", "", "", false);
+        for field in [
+            "shield_end 20",
+            "stale_stretch roll",
+            "stale_stretch back_roll",
+            "reel_press true",
+        ] {
+            assert!(text.contains(field), "{field}");
+        }
+        let back = crate::bundle::load(&text).expect("reads back").content;
+        assert_eq!(back, base);
+        // Without them: no early end, no stretch, no reel by a press.
+        let stripped = text
+            .replace(" reel_press true", "")
+            .lines()
+            .filter(|l| {
+                let t = l.trim_start();
+                !t.starts_with("shield_end") && !t.starts_with("stale_stretch")
+            })
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            );
+        let older = crate::bundle::load(&stripped)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "{}",
+                    e.join(
+                        "
+"
+                    )
+                )
+            })
+            .content;
+        assert!(older.weapons[w].moves.iter().all(|m| m.shield_end == 0
+            && m.stale_stretch == sim_core::moves::STRETCH_NONE
+            && m.tether.is_none_or(|t| !t.reel_press)));
+        // Bad values.
+        let bad = text.replacen("stale_stretch roll", "stale_stretch crawl", 1);
+        assert!(crate::bundle::load(&bad).is_err());
+        let mut c = base.clone();
+        c.weapons[w].moves[dash].dodge_stale = false;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("stale_stretch")));
+        let mut c = base.clone();
+        c.weapons[w].moves[dash].stale_stretch = 4;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("stale_stretch")));
+        let mut c = base.clone();
+        c.weapons[w].moves[air].shield_end = 10;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("shield_end")));
+        let mut c = base.clone();
+        c.weapons[w].moves[up].shield_end = 200;
+        assert!(validate(&c)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("shield_end")));
     }
 
     #[test]

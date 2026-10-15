@@ -93,6 +93,13 @@ reference buffers a dash only in the last 6 or 7 frames (owner's call to be more
 **Sim 82** (branch `dash-buffer-landing`, on `movesets` at sim 80): landing lag keeps a dash the same way, and the keyboard sends a
 direction key pressed during grab, throw or landing lag as a flick (a first press was otherwise a walk, so keyboard players could not
 buffer a dash at all); tests in `grab_dash.rs`, `landing_buffer.rs` and `godot/tests/input_e2e.gd`.
+**Sim 126** (branch `dagger-phase3`, from `origin/movesets` at a6b8314, sim 125; content schema 8 unchanged): the Dagger's phase 3,
+owner decisions 83-86, three general content fields off by default: `Move::shield_end` (a blockable grab stopped by a shield or a
+reflector ends its move that many frames later; hashed `Fighter::move_end`; the grounded hook 20 [E]), `Move::stale_stretch` (a stale
+dodge-move plays its whole timeline slower at a ruleset roll rate, as a stale roll does; hashed `Fighter::move_held`; the gun's dodges)
+and `Tether::reel_press` (a press of special while hanging reels in at once; a house addition, on for the phantom). Changed for other
+fighters: nothing (no other content uses the fields). Tests `dagger_phase3.rs` (5), cases in `move_rules.rs`, `state.rs`, sim-content;
+fuzz-rollback 300 and net-fuzz 100 at zero. Report: `docs/movesets/dagger/IMPLEMENTATION_REPORT.md`.
 **Sim 125** (branch `nodachi-phase1`, from `movesets` at d135bfa, sim 123, merged with `origin/movesets` 042ce42, sim 124's run mode R2a and content schema 8; no schema change of its own): the
 fourteenth class, **Nodachi** on the **exile** body (built-in fighter **Exile**), phase 1 (`docs/movesets/nodachi/`): the body (weight 79,
 fast fall 2.944, no wall jump) and every normal on 13.0.1 data with the very long blade (tilts and smashes reaching 30 of the reference's

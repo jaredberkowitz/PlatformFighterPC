@@ -1919,7 +1919,8 @@ fn gun(w: &mut Weapon) {
     // Forward: intangible 4-13, the shot on 20 (6% BK 35 KS 67, 4% BK 4 KS 45, 2%), FAF 40; with the partner shots on 20, 26 and 32 (7% BK
     // 50 KS 50 close, then the follow-ups), FAF 46 [R]. Back: intangible 5-14, the shot on 22 (5% BK 5 KS 75, 3%, 1%), FAF 46; with the
     // partner 22, 28, 34, FAF 50 [R]. The step: 1.52 / 1.216 of the reference's units a frame (the parameter file's
-    // `shoot_dash_speed_f` / `_b`) on frames 3-16 / 4-17 [R speeds; E frames]. Dodge staling is not modelled [E].
+    // `shoot_dash_speed_f` / `_b`) on frames 3-16 / 4-17 [R speeds; E frames]. Staled as rolls are [R]: counted, intangible later and
+    // played slower (sim 126).
     let dash_bands = [(60, 35, 67, 70), (40, 4, 45, 0), (20, 0, 0, 0)];
     let dash_power = [(70, 50, 50, 70), (40, 4, 0, 0), (15, 0, 0, 0)];
     let mut b = shot(20, muzzle, (100, 0), dash_bands, 361, 0, plain);
@@ -1936,8 +1937,9 @@ fn gun(w: &mut Weapon) {
     dash.intangible_from = 3;
     dash.intangible_from_air = 3;
     dash.intangible = 13;
-    // (Staled like a roll: sim 123.)
+    // (Staled like a roll: sim 123; and stretched in time as a forward roll is: sim 126, owner decision 85.)
     dash.dodge_stale = true;
+    dash.stale_stretch = crate::moves::STRETCH_ROLL;
     dash.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/dagger_gun_dash.script"),
@@ -1958,7 +1960,9 @@ fn gun(w: &mut Weapon) {
     back.intangible_from = 4;
     back.intangible_from_air = 4;
     back.intangible = 14;
+    // (Stretched as a back roll is, the step going backward [E: which of the ruleset's rates].)
     back.dodge_stale = true;
+    back.stale_stretch = crate::moves::STRETCH_BACK_ROLL;
     back.script = Some(script(
         Kind::Fighter,
         include_str!("scripts/dagger_gun_back.script"),
@@ -2455,6 +2459,9 @@ fn hook(w: &mut Weapon) {
     ));
     let mut ground = moved(60, 0, 0, 255, b);
     ground.catch_move = Some(HOOK_PULL as u8);
+    // A shield or a reflector stopping the hook ends the move 20 frames later (sim 126, owner decision 84: the reference "cancels" it
+    // on contact [R]; the frames after the stop are not published [E]).
+    ground.shield_end = 20;
     ground.air_version = Some(HOOK_AIR as u8);
     ground.limit_version = w.moves[MoveId::UpSpecial as usize].limit_version;
     w.moves[MoveId::UpSpecial as usize] = ground;
@@ -2491,6 +2498,8 @@ fn hook(w: &mut Weapon) {
             reel: 12,
             drag: 240,
             limit: 3,
+            // (A press of special while hanging reels in at once: owner decision 86, a house addition.)
+            reel_press: true,
         });
         if boost {
             m.motion = vec![Motion {
