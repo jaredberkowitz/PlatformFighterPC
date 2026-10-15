@@ -191,8 +191,9 @@ class Board extends Control:
 		draw_string(f, Vector2(w - 290, right.position.y + right.size.y + 46), "best combo %d" % int(data.get("best", 0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 1, 1, 0.75))
 		# The fighter: name, damage, lives.
 		var plate := Rect2(Vector2(22, h - 118), Vector2(300, 96))
-		Art.card(self, plate, Art.CREAM, 241, -1.0, -1.0, Color(0, 0, 0, 0), 0.0, Color(0, 0, 0, 0), 4.0)
-		draw_string(big, plate.position + Vector2(16, 30), str(data.get("name", "")).left(16).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Art.INK)
+		# (The match HUD's dark plate, art review 6 round 15: a cream card here and dark plates in a match read as two different games.)
+		Art.card(self, plate, Color(0.11, 0.12, 0.17, 0.92), 241, -1.0, -1.0, Color(0, 0, 0, 0), 0.0, Color(0, 0, 0, 0), 4.0)
+		draw_string(big, plate.position + Vector2(16, 30), str(data.get("name", "")).left(16).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 1, 1))
 		var p := float(data.get("percent", 0.0))
 		var pc := percent_colour(p)
 		var pct := "%d%%" % int(p)

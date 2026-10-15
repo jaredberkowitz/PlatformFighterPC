@@ -324,3 +324,10 @@ Checked: the art pipeline, match flow and fighter tests; the look bench.
   floor from low down, the platform's own edge hides most of it; only a faint trace showed on the meadow. Reverted, per the brief's rule
   for subtle, hard-to-verify gains. It would need the shadow drawn toward the camera (in front of the platform's footprint), as the
   props' contact patches do; worth a retry only together with a camera check.
+
+## Refinement round 15 (one style across modes)
+
+- **The run's fighter plate** (`review6_round15_run_plate.png`, before | after): a cream card in the run and dark plates in a match read
+  as two different games. Now the match HUD's dark plate with a white name (`run_hud.gd`); the percent's colours and ink already read on
+  dark.
+Checked: the runner and match flow tests.

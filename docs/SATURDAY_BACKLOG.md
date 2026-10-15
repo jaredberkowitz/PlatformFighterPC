@@ -26,8 +26,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 ## Graphics refinement loop (screenshot every stage, fix the two weakest, repeat)
 - [x] Grove: the pale corner shapes (the canopy's top rows; deepened, round 1).
 - [ ] More rounds of the loop across all five stages.
-- [ ] Run HUD in the match HUD's panel language (its white fighter box and plates vs the match's dark plates); agree it with the
-      modes-online agent (the run is theirs).
+- [x] Run HUD fighter plate in the match HUD's dark panel (round 15); the rest of the run HUD to check with the modes-online agent.
 - [x] Controls screen hierarchy (round 12).
 - [ ] Player-visible text says "strong attack", never "smash" (README, How to play.txt, in-game text); the owner chose "strong attack"
       (2026-10-15). Internal move ids (`fsmash` etc.) later, with the moveset session.
