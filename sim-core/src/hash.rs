@@ -48,6 +48,9 @@ impl StateHasher {
     pub fn write_u64(&mut self, v: u64) {
         self.write_bytes(&v.to_le_bytes());
     }
+    pub fn write_u128(&mut self, v: u128) {
+        self.write_bytes(&v.to_le_bytes());
+    }
 
     pub fn finish(&self) -> u64 {
         let mut z = self.0;

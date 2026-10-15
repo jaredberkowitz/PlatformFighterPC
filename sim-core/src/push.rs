@@ -21,7 +21,7 @@ use crate::combat::params_of;
 use crate::content::Content;
 use crate::fixed::Fx;
 use crate::state::{Fighter, FighterState as S, GameState};
-use crate::MAX_FIGHTERS;
+use crate::MAX_BODIES;
 
 /// How a fighter takes part in pushing.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -85,10 +85,10 @@ fn shift(state: &mut GameState, content: &Content, i: usize, dx: Fx) -> Fx {
 }
 
 /// Separates overlapping bodies. `before` is where each fighter stood at the start of the frame.
-pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_FIGHTERS]) {
+pub fn separate(state: &mut GameState, content: &Content, before: &[Fx; MAX_BODIES]) {
     let rules = &content.rules;
-    for i in 0..MAX_FIGHTERS {
-        for j in i + 1..MAX_FIGHTERS {
+    for i in 0..MAX_BODIES {
+        for j in i + 1..MAX_BODIES {
             let (a, b) = (&state.fighters[i], &state.fighters[j]);
             let (bi, bj) = (body(a), body(b));
             if bi == Body::None || bj == Body::None {

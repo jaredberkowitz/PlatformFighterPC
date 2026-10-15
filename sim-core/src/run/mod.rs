@@ -52,18 +52,15 @@ use crate::state::{Fighter, FighterState as S, GameState, MatchRules, DRAW, NONE
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
 use data::{
-    BLOCK_BOTTOM, EVENT_VAN, MAX_SHOP_ITEMS, PLACE_ALONE, PLACE_FLAT, PLACE_HIGH, ROLE_LOBBER,
+    BLOCK_BOTTOM, EVENT_VAN, MAX_SHOP_ITEMS, PLACE_ALONE, PLACE_FLAT, PLACE_HIGH,
     ROOM_COINS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_PROPS, ROOM_SLOTS, ROOM_SPAWNS,
     SPOT_ANY,
 };
 
-/// Mobs alive at once.
-pub const MAX_MOBS: usize = 16;
+/// Grunts alive at once: the fighter slots after the players (sim 129, `crate::MAX_GRUNTS`).
+pub const MAX_MOBS: usize = crate::MAX_GRUNTS;
 /// Props (hazards and chests) in the rooms in play at once.
 pub const MAX_PROPS: usize = 12;
-/// The fighter slot (never played in a run) whose body throws the lobbers' shots: a shot's numbers are its origin's weapon's, so
-/// the slot's `char_id` is the lobbers' body for the whole run (`new_run`).
-pub const SHOT_SLOT: usize = MAX_FIGHTERS - 1;
 /// Rooms in play at once: `rooms_behind + 1 + rooms_ahead` may be at most this (`sim_content::check_run`).
 pub const RING: usize = 4;
 /// The stage's platform pool: every platform of every room in play.
@@ -108,7 +105,8 @@ pub const KEEPER_CHEER: u8 = 2;
 pub const KEEPER_GRUMBLE: u8 = 3;
 /// Bonked: seeing stars ("hey!"). Never hurt, it only spins for a moment.
 pub const KEEPER_DIZZY: u8 = 4;
-/// Sulking after the bonk ("Hmph!", arms crossed): it refuses to sell until `Run::keeper_sulk` runs out (R2b).
+/// Sulking after the bonk ("Hmph!", arms crossed): it refuses to sell until the player has gone on into a new room
+/// (`Run::keeper_grudge`; R2c, the owner's rule).
 pub const KEEPER_HMPH: u8 = 5;
 
 /// One entry of the stage's platform pool.
@@ -184,59 +182,32 @@ pub const MODE_MOVE: u8 = 1;
 pub const MODE_WINDUP: u8 = 2;
 pub const MODE_ATTACK: u8 = 3;
 pub const MODE_COOLDOWN: u8 = 4;
-/// Beaten: it flies off with its last launch for `RunRules::burst_frames`, then is gone. It cannot hit or be hit.
-pub const MODE_BURST: u8 = 5;
 /// Coming out of its door or stairwell for `RunRules::emerge_frames` (R2a): it neither moves, hits nor can be hit.
 pub const MODE_EMERGE: u8 = 6;
-/// R2b. A shieldbearer's guard: its shield up toward you (`Mob::shield`), stepping in.
-pub const MODE_GUARD: u8 = 7;
-/// Its guard broken (or grabbed out of it): dazed for `RunRules::daze_frames`.
-pub const MODE_DAZED: u8 = 8;
-/// A leaper in the air on its way to you, before its aerial.
+/// A leaper's leap at you, before its aerial. (5, 7 and 8 were R2b's bursting, guarding and dazed: a grunt is a fighter now, and
+/// its shield, its broken shield and its launches are its fighter's.)
 pub const MODE_LEAP: u8 = 9;
 
-/// An enemy (see `run::mobs`).
+/// A grunt's behaviour (see `run::mobs`): what its kind's player has in mind. The grunt itself is fighter `MAX_FIGHTERS + n`
+/// (`mobs::slot`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Mob {
     pub active: bool,
     /// Index into `RunContent::mobs`.
     pub kind: u8,
-    /// `MODE_*`, and the frames left in it (the windup, attack, cooldown, burst or emergence).
+    /// `MODE_*`, and the frames left in it (the tell, the cooldown, the emergence, or the tries left to make an attack come out).
     pub mode: u8,
     pub timer: u16,
-    /// Its feet.
-    pub pos: Vec2,
-    /// Its own movement, and its launch (which slows as a fighter's does).
-    pub vel: Vec2,
-    pub kb_vel: Vec2,
-    pub facing: i8,
-    /// The pool platform it stands on, or [`NONE`].
-    pub platform: i8,
-    pub percent: Fx,
-    pub stamina: Fx,
-    pub hitlag: u8,
-    pub hitstun: u16,
-    /// The swing that last hit it (`1 << 16 | attacker << 8 | move`, 0 for none), which of its hit groups have, and the swing's move
-    /// frame when last seen: a lower one (or another move, or no attack) is a new swing.
-    pub hit_stamp: u32,
-    pub hit_groups: u8,
-    pub hit_age: u16,
-    /// Projectile slots whose shot has hit it (cleared as each slot empties).
-    pub shot_mask: u16,
-    /// The hit groups of its current attack that have connected (bit per group: one hit per group per attack).
-    pub struck: u8,
-    /// Frames left in which leaving the screen counts as the player's kill.
-    pub credit: u16,
-    /// Where a lobber aims its shot.
-    pub target: Vec2,
-    /// The room it came from (`RoomSlot::seq`): an arena opens once all of its own mobs are beaten.
-    pub room: u32,
-    /// R2b. The move of its kit it is telling or making (a slot of `MobKind::moves`) and the move's frame; its guard's hit points; a
-    /// counter for its role (a shieldbearer's frames crossed up); its room's tier (its stamina, damage and tells).
+    /// The move of its kit it is telling or making (a slot of `MobKind::moves`), and how far its input for it has got (255: the
+    /// move is out).
     pub move_slot: u8,
-    pub frame: u16,
-    pub shield: Fx,
-    pub aux: u16,
+    pub step: u8,
+    /// Frames left in which leaving through a blast zone counts as the player's kill (a hit or a grab of theirs sets it).
+    pub credit: u16,
+    /// Its fighter's percent last frame (a rise is a hit: the combo and the credit).
+    pub last_percent: Fx,
+    /// The room it came from (`RoomSlot::seq`): an arena opens once all of its own grunts are beaten. Its room's tier.
+    pub room: u32,
     pub tier: u8,
 }
 
@@ -296,8 +267,9 @@ pub struct Van {
     pub platform: i8,
     /// The player is riding it this frame (untouchable).
     pub riding: bool,
-    /// Grunts it has run into.
+    /// Grunts it has run into, and which grunt slots (a bit each: once each a ride).
     pub hits: u16,
+    pub struck: u16,
 }
 
 /// The run's state (inactive in versus).
@@ -368,8 +340,9 @@ pub struct Run {
     pub keeper_bonks: u16,
     /// The player's stick height last frame (the door and the wares read presses, not holds).
     pub prev_stick_y: i8,
-    /// R2b. The shopkeeper's sulk after a bonk: frames it still refuses to sell.
-    pub keeper_sulk: u16,
+    /// R2c (the owner's rule). After a bonk the shopkeeper refuses to sell until the player has entered a room further on than the
+    /// shop: the room number (`Run::room`) that lifts it, 0 for none.
+    pub keeper_grudge: u32,
     /// The hazards and chests of the rooms in play, and chests opened.
     pub props: [Prop; MAX_PROPS],
     pub chests: u16,
@@ -379,6 +352,11 @@ pub struct Run {
     pub van: Van,
     /// Rooms laid but not taken (the other road of a branching fork), a bit each, newest in the low bit, as `kinds_log`.
     pub skipped_log: u16,
+    /// R2c. The view's height (its middle; the game's camera follows it), and the grunts knocked out by the blast zones so far with
+    /// where the last one left (for the game's KO effect).
+    pub cam_y: Fx,
+    pub kos: u16,
+    pub ko_at: Vec2,
 }
 
 impl Run {
@@ -443,27 +421,11 @@ impl Run {
             kind: 0,
             mode: 0,
             timer: 0,
-            pos: Vec2::ZERO,
-            vel: Vec2::ZERO,
-            kb_vel: Vec2::ZERO,
-            facing: 0,
-            platform: NONE,
-            percent: Fx::ZERO,
-            stamina: Fx::ZERO,
-            hitlag: 0,
-            hitstun: 0,
-            hit_stamp: 0,
-            hit_groups: 0,
-            hit_age: 0,
-            shot_mask: 0,
-            struck: 0,
-            credit: 0,
-            target: Vec2::ZERO,
-            room: 0,
             move_slot: 0,
-            frame: 0,
-            shield: Fx::ZERO,
-            aux: 0,
+            step: 0,
+            credit: 0,
+            last_percent: Fx::ZERO,
+            room: 0,
             tier: 0,
         }; MAX_MOBS],
         coins: 0,
@@ -483,7 +445,7 @@ impl Run {
         keeper_look: -1,
         keeper_bonks: 0,
         prev_stick_y: 0,
-        keeper_sulk: 0,
+        keeper_grudge: 0,
         props: [Prop {
             active: false,
             kind: 0,
@@ -508,8 +470,12 @@ impl Run {
             platform: NONE,
             riding: false,
             hits: 0,
+            struck: 0,
         },
         skipped_log: 0,
+        cam_y: Fx::ZERO,
+        kos: 0,
+        ko_at: Vec2::ZERO,
     };
 
     /// Whole world units travelled (the HUD's metres).
@@ -816,28 +782,9 @@ pub fn for_each_prop(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(usize, 
     }
 }
 
-/// A grunt as a fighter of its body, for the game to draw it with the fighter rig and its clips (R2b): its state as a fighter's
-/// (attacking, guarding as a shield, a leaper's tell as a crouch, dazed as a broken shield, launched or bursting as hitstun), its
-/// move and the move's frame, its speeds, percent and guard. Presentation only: nothing in the sim reads it.
-pub fn grunt_fighter(world: &Content, rc: &RunContent, m: &Mob) -> Fighter {
-    let k = mobs::kind_of(rc, m);
-    let mut f = mobs::as_fighter(m, k);
-    match m.mode {
-        MODE_WINDUP if k.role == data::ROLE_LEAPER => f.state = S::Crouch,
-        MODE_WINDUP if k.role == data::ROLE_SHIELD => f.state = S::Shield,
-        MODE_DAZED => f.state = S::ShieldBreak,
-        MODE_BURST => f.state = S::Hitstun,
-        _ => {}
-    }
-    f.hitstun = m.hitstun;
-    f.hitlag = m.hitlag;
-    f.kb_vel = m.kb_vel;
-    f.percent = m.percent;
-    f.tumble = m.hitstun > 30 || m.mode == MODE_BURST;
-    if k.shield > Fx::ZERO {
-        f.shield_hp = world.rules.shield_max * m.shield / k.shield;
-    }
-    f
+/// Grunt `n` as a fighter (R2c: it is one, `GameState::fighters[MAX_FIGHTERS + n]`), for the game to draw with the fighter rig.
+pub fn grunt_fighter(state: &GameState, n: usize) -> Fighter {
+    state.fighters[mobs::slot(n.min(MAX_MOBS - 1))]
 }
 
 /// A shop room's door (feet), in the world.
@@ -886,11 +833,8 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     spawned.active = true;
     state.fighters[PLAYER] = spawned;
     state.run.last_stocks = spawned.stocks;
-    // The lobbers' shots are fired from a slot no one plays, standing for their body (a shot's numbers are its origin's weapon's).
-    if let Some(k) = rc.mobs.iter().find(|k| k.role == ROLE_LOBBER) {
-        state.fighters[SHOT_SLOT].char_id = k.body;
-    }
-    spawn_mobs(&mut state.run, rc);
+    state.run.cam_y = start.y + rc.rules.cam_lift;
+    spawn_mobs(&mut state, world, rc);
     state
 }
 
@@ -915,25 +859,32 @@ pub fn step_run(
         return;
     }
     if state.run.inside {
+        // (The world outside stands still: its grunts with it.)
+        let saved = state.fighters;
+        for f in state.fighters[MAX_FIGHTERS..].iter_mut() {
+            f.active = false;
+        }
         crate::step(state, world, inputs);
+        state.fighters[MAX_FIGHTERS..].copy_from_slice(&saved[MAX_FIGHTERS..]);
         shop_step(state, world, rc, input);
         remember_input(&mut state.run, input);
         build_stage(&state.run, rc, &mut world.stage);
         return;
     }
-    crate::step(state, world, inputs);
+    // The grunts are fighters (sim 129): their players' inputs, then the versus step for everyone.
+    mobs::through_gate(state, world, rc);
+    let mut all = mobs::think(state, world, rc);
+    all[..MAX_FIGHTERS].copy_from_slice(inputs);
+    crate::step::step_bodies(state, world, &all);
+    mobs::after_step(state, world, rc);
     mobs::van(state, world, rc);
-    mobs::player_hits(state, world, rc);
     props::update(state, world, rc);
-    mobs::update(state, world, rc);
-    mobs::attacks(state, world, rc);
-    mobs::keep_in_window(state, world, rc);
-    enter_rooms(state, rc);
+    enter_rooms(state, world, rc);
     follow_camera(state, &rc.rules);
     if creeping(&rc.rules) {
         push_from_edge(state, world, &rc.rules);
     }
-    mobs::leave_screen(state, rc);
+    mobs::knock_outs(state, world, rc);
     collect_coins(state, rc);
     settle_combo(state);
     check_arena(state, rc);
@@ -942,7 +893,7 @@ pub fn step_run(
     }
     remember_input(&mut state.run, input);
     build_stage(&state.run, rc, &mut world.stage);
-    spawn_mobs(&mut state.run, rc);
+    spawn_mobs(state, world, rc);
     if !state.fighters[PLAYER].active {
         state.run.over = true;
         state.winner = DRAW;
@@ -1525,7 +1476,7 @@ pub fn assign_kinds(run: &mut Run, rc: &RunContent, slot: &RoomSlot) -> [u8; ROO
 
 /// Drops the rooms more than `behind` behind the current one: their platforms (ground joined across the seam is trimmed to the new
 /// wall), ledges, mobs and props go, and the left wall moves to the oldest room kept.
-fn drop_behind(state: &mut GameState, behind: u8) {
+fn drop_behind(state: &mut GameState, world: &Content, behind: u8) {
     let run = &mut state.run;
     // (The `behind` nearest rooms behind are kept: a road not taken left a gap in the numbers.)
     let room = run.room;
@@ -1576,13 +1527,6 @@ fn drop_behind(state: &mut GameState, behind: u8) {
             *l = PoolLedge::default();
         }
     }
-    for m in run.mobs.iter_mut().filter(|m| m.active) {
-        if m.pos.x < wall {
-            m.active = false;
-        } else if usize::try_from(m.platform).is_ok_and(|i| !run.platforms[i].live) {
-            m.platform = NONE;
-        }
-    }
     for p in run.props.iter_mut().filter(|p| p.active) {
         if run.slots.iter().all(|s| !s.live || s.seq != p.room) {
             p.active = false;
@@ -1594,11 +1538,28 @@ fn drop_behind(state: &mut GameState, behind: u8) {
     }
     run.floor_x = run.floor_x.max(wall);
     run.layout = run.layout.wrapping_add(1);
+    // (Grunts left behind the new wall are gone.)
+    for n in 0..MAX_MOBS {
+        if state.run.mobs[n].active && state.fighters[mobs::slot(n)].pos.x < wall {
+            mobs::remove(state, world, n);
+        }
+    }
+    unground_dropped(state);
+}
+
+/// Bodies standing on a pool platform that is gone fall (their `platform` index no longer names it).
+fn unground_dropped(state: &mut GameState) {
+    for f in state.fighters.iter_mut().filter(|f| f.active) {
+        if usize::try_from(f.platform).is_ok_and(|i| i < POOL_PLATFORMS && !state.run.platforms[i].live) {
+            f.platform = NONE;
+            crate::fighter::stand_or_fall(f);
+        }
+    }
 }
 
 /// Drops the road of a branching fork the player did not take: the room, everything it laid in the pools (by `seq`), its mobs and
 /// props. It is marked on the map as skipped.
-fn drop_road(state: &mut GameState, seq: u32) {
+fn drop_road(state: &mut GameState, world: &Content, seq: u32) {
     let run = &mut state.run;
     for s in run.slots.iter_mut() {
         if s.live && s.seq == seq {
@@ -1619,13 +1580,6 @@ fn drop_road(state: &mut GameState, seq: u32) {
             *l = PoolLedge::default();
         }
     }
-    for m in run.mobs.iter_mut().filter(|m| m.active) {
-        if m.room == seq {
-            m.active = false;
-        } else if usize::try_from(m.platform).is_ok_and(|i| !run.platforms[i].live) {
-            m.platform = NONE;
-        }
-    }
     for p in run.props.iter_mut().filter(|p| p.active && p.room == seq) {
         p.active = false;
     }
@@ -1633,13 +1587,19 @@ fn drop_road(state: &mut GameState, seq: u32) {
         run.skipped_log |= 1 << back;
     }
     run.layout = run.layout.wrapping_add(1);
+    for n in 0..MAX_MOBS {
+        if state.run.mobs[n].active && state.run.mobs[n].room == seq {
+            mobs::remove(state, world, n);
+        }
+    }
+    unground_dropped(state);
 }
 
 /// The player walking into the next room makes it the current one: the oldest room behind is dropped, the next one ahead laid, and
 /// the room does what its type does (an arena shuts its gate and wakes its mobs, a rest stop heals). At a branching fork's end the
 /// road the player walks out on decides (R2b): above the middle of the two roads it is the high road's alley, else the low road's
 /// room; the other is dropped at once.
-fn enter_rooms(state: &mut GameState, rc: &RunContent) {
+fn enter_rooms(state: &mut GameState, world: &Content, rc: &RunContent) {
     let f = state.fighters[PLAYER];
     if !f.active || f.state == S::Respawn {
         return;
@@ -1660,7 +1620,7 @@ fn enter_rooms(state: &mut GameState, rc: &RunContent) {
             } else {
                 (low, high)
             };
-            drop_road(state, other.seq);
+            drop_road(state, world, other.seq);
             state.run.next_x = take.end;
             state.run.next_y = take.y_end;
             take
@@ -1675,7 +1635,11 @@ fn enter_rooms(state: &mut GameState, rc: &RunContent) {
         } else {
             rules.rooms_behind
         };
-        drop_behind(state, behind);
+        drop_behind(state, world, behind);
+        // (A grudge the shopkeeper bore lifts once the player is a room further on: R2c.)
+        if state.run.keeper_grudge != 0 && state.run.room >= state.run.keeper_grudge {
+            state.run.keeper_grudge = 0;
+        }
         while state.run.ahead().1 < usize::from(rules.rooms_ahead.max(1)) {
             if !place_room(&mut state.run, rc) {
                 break;
@@ -1688,8 +1652,8 @@ fn enter_rooms(state: &mut GameState, rc: &RunContent) {
                 run.gate_x = next.end;
                 run.layout = run.layout.wrapping_add(1);
                 // Everything in it comes out, awake.
-                spawn_slot(run, rc, next.seq, None);
-                for m in run.mobs.iter_mut() {
+                spawn_slot(state, world, rc, next.seq, None);
+                for m in state.run.mobs.iter_mut() {
                     if m.active && m.room == next.seq && m.mode == MODE_IDLE {
                         m.mode = MODE_MOVE;
                     }
@@ -1721,7 +1685,7 @@ fn check_arena(state: &mut GameState, rc: &RunContent) {
     let left = run
         .mobs
         .iter()
-        .any(|m| m.active && m.room == slot.seq && m.mode != MODE_BURST);
+        .any(|m| m.active && m.room == slot.seq);
     if all_out && !left {
         run.gate_closed = false;
         run.cleared = run.cleared.saturating_add(1);
@@ -1732,22 +1696,24 @@ fn check_arena(state: &mut GameState, rc: &RunContent) {
 
 /// Mobs from the spawn spots that have come within `spawn_ahead` of the view's right edge, in the current room and those before it,
 /// and in the room ahead unless an arena's gate is shut before it or it is one of a fork's two roads not taken yet.
-fn spawn_mobs(run: &mut Run, rc: &RunContent) {
+fn spawn_mobs(state: &mut GameState, world: &Content, rc: &RunContent) {
+    let run = &state.run;
     let reach = run.cam_x + rc.rules.view_width + rc.rules.spawn_ahead;
     let (ahead, n) = run.ahead();
     let next = (n >= 1 && run.branches().is_none() && !run.gate_closed).then_some(ahead[0].seq);
-    for s in 0..RING {
-        let slot = run.slots[s];
-        if !slot.live || slot.seq > run.room && Some(slot.seq) != next {
+    let (slots, room) = (run.slots, run.room);
+    for slot in slots {
+        if !slot.live || slot.seq > room && Some(slot.seq) != next {
             continue;
         }
-        spawn_slot(run, rc, slot.seq, Some(reach));
+        spawn_slot(state, world, rc, slot.seq, Some(reach));
     }
 }
 
 /// Spawns room `seq`'s spots not yet spawned (those left of `reach`, or all), each the kind the budget gave it, its stamina by the
 /// room's tier. A grunt comes out of its door or stairwell first (`emerge_frames`), standing on the ground under its spot.
-fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
+fn spawn_slot(state: &mut GameState, world: &Content, rc: &RunContent, seq: u32, reach: Option<Fx>) {
+    let run = &state.run;
     let Some(s) = run.slots.iter().position(|s| s.live && s.seq == seq) else {
         return;
     };
@@ -1757,22 +1723,19 @@ fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
     for (j, marker) in room.spawns.iter().enumerate().take(ROOM_SPAWNS) {
         let bit = 1u8 << j;
         let pos = frame.point(Vec2::new(marker.x, marker.y));
-        if slot.spawned & bit != 0 || reach.is_some_and(|r| pos.x >= r) {
+        if state.run.slots[s].spawned & bit != 0 || reach.is_some_and(|r| pos.x >= r) {
             continue;
         }
-        run.slots[s].spawned |= bit;
         let kind_id = slot.kinds[j];
-        let Some(kind) = rc.mobs.get(usize::from(kind_id)) else {
+        if rc.mobs.get(usize::from(kind_id)).is_none() {
+            state.run.slots[s].spawned |= bit;
             continue;
-        };
-        let Some(m) = run.mobs.iter().position(|m| !m.active) else {
-            continue;
-        };
+        }
         let mut pos = pos;
         // (Its floor: the highest pool entry under its spot, within half a unit.)
         let mut platform = NONE;
         let mut best: Option<(usize, Fx)> = None;
-        for (i, p) in run.platforms.iter().enumerate() {
+        for (i, p) in state.run.platforms.iter().enumerate() {
             if !p.live || pos.x < p.left || pos.x > p.right {
                 continue;
             }
@@ -1785,25 +1748,10 @@ fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
             platform = i as i8;
             pos.y = top;
         }
-        let tough = rc
-            .tiers
-            .get(usize::from(slot.tier))
-            .map_or(100, |t| i32::from(t.stamina));
-        let emerge = rc.rules.emerge_frames;
-        run.mobs[m] = Mob {
-            active: true,
-            kind: kind_id,
-            mode: if emerge > 0 { MODE_EMERGE } else { MODE_IDLE },
-            timer: u16::from(emerge),
-            pos,
-            facing: -1,
-            platform,
-            stamina: kind.stamina * Fx::from_int(tough) / Fx::from_int(100),
-            room: seq,
-            shield: kind.shield,
-            tier: slot.tier,
-            ..Mob::default()
-        };
+        // (With every grunt slot taken, the spot waits for one to free up.)
+        if mobs::spawn(state, world, rc, kind_id, pos, platform, slot.tier, seq) {
+            state.run.slots[s].spawned |= bit;
+        }
     }
 }
 
@@ -1878,6 +1826,20 @@ fn follow_camera(state: &mut GameState, rules: &RunRules) {
         run.cam_x - step
     };
     run.cam_x = run.cam_x.max(lo).min(hi);
+    // Its height (R2c): the player's feet plus a lift, outside a dead zone, inside the blast zone's span (as the game's camera
+    // did by itself before; the grunts' blast zones follow it).
+    if f.active && f.state != S::Respawn {
+        let (bottom, top) = run.blast_y(rules);
+        let want = (f.pos.y + rules.cam_lift)
+            .min(top - rules.cam_ceiling)
+            .max(bottom + rules.cam_floor);
+        let d = want - run.cam_y;
+        if d.abs() > rules.cam_dead {
+            let goal = if d > Fx::ZERO { want - rules.cam_dead } else { want + rules.cam_dead };
+            let step = ((goal - run.cam_y) * rules.cam_y_ease).abs().max(Fx::from_ratio(1, 64)).min(rules.cam_max_speed).min((goal - run.cam_y).abs());
+            run.cam_y = if goal > run.cam_y { run.cam_y + step } else { run.cam_y - step };
+        }
+    }
 }
 
 /// Whether the optional creep is on (`RunRules::creep`).
@@ -2065,20 +2027,20 @@ fn shop_step(state: &mut GameState, world: &mut Content, rc: &RunContent, input:
         run.keeper_mood = KEEPER_DIZZY;
         run.keeper_timer = shop.dizzy_frames;
         run.keeper_bonks = run.keeper_bonks.saturating_add(1);
-        // (R2b: then it sulks, and sells nothing until it is over.)
-        run.keeper_sulk = shop.sulk_frames.max(shop.dizzy_frames);
+        // (Then it sulks, and sells nothing until the player has gone on into a room further than the shop: R2c.)
+        run.keeper_grudge = run.room.max(run.shop_room) + 1;
     }
     let run = &mut state.run;
-    run.keeper_sulk = run.keeper_sulk.saturating_sub(1);
     if run.keeper_timer > 0 {
         run.keeper_timer -= 1;
         if run.keeper_timer == 0 {
-            (run.keeper_mood, run.keeper_timer) = if run.keeper_sulk > 0 {
-                (KEEPER_HMPH, run.keeper_sulk)
-            } else {
-                (KEEPER_IDLE, 0)
-            };
+            run.keeper_mood = KEEPER_IDLE;
         }
+    }
+    if run.keeper_grudge != 0 && run.keeper_mood != KEEPER_DIZZY {
+        // (Its sulk lasts as long as the grudge.)
+        run.keeper_mood = KEEPER_HMPH;
+        run.keeper_timer = 0;
     }
     let f = state.fighters[PLAYER];
     let x = f.pos.x - Fx::from_int(INTERIOR_X);
@@ -2115,7 +2077,7 @@ pub fn buy(state: &mut GameState, rc: &RunContent, i: usize) -> u8 {
     let note = {
         let run = &state.run;
         let f = &state.fighters[PLAYER];
-        if run.keeper_sulk > 0 {
+        if run.keeper_grudge != 0 {
             NOTE_REFUSED
         } else if item.limit > 0 && run.shop_bought[i] >= item.limit {
             NOTE_SOLD_OUT
@@ -2158,27 +2120,11 @@ impl StateHash for Mob {
         h.write_u8(self.kind);
         h.write_u8(self.mode);
         h.write_u16(self.timer);
-        self.pos.hash_into(h);
-        self.vel.hash_into(h);
-        self.kb_vel.hash_into(h);
-        h.write_i8(self.facing);
-        h.write_i8(self.platform);
-        self.percent.hash_into(h);
-        self.stamina.hash_into(h);
-        h.write_u8(self.hitlag);
-        h.write_u16(self.hitstun);
-        h.write_u32(self.hit_stamp);
-        h.write_u8(self.hit_groups);
-        h.write_u16(self.hit_age);
-        h.write_u16(self.shot_mask);
-        h.write_u8(self.struck);
-        h.write_u16(self.credit);
-        self.target.hash_into(h);
-        h.write_u32(self.room);
         h.write_u8(self.move_slot);
-        h.write_u16(self.frame);
-        self.shield.hash_into(h);
-        h.write_u16(self.aux);
+        h.write_u8(self.step);
+        h.write_u16(self.credit);
+        self.last_percent.hash_into(h);
+        h.write_u32(self.room);
         h.write_u8(self.tier);
     }
 }
@@ -2265,7 +2211,7 @@ impl StateHash for Run {
         h.write_i8(self.keeper_look);
         h.write_u16(self.keeper_bonks);
         h.write_i8(self.prev_stick_y);
-        h.write_u16(self.keeper_sulk);
+        h.write_u32(self.keeper_grudge);
         for p in &self.props {
             h.write_bool(p.active);
             h.write_u8(p.kind);
@@ -2290,6 +2236,10 @@ impl StateHash for Run {
         h.write_i8(v.platform);
         h.write_bool(v.riding);
         h.write_u16(v.hits);
+        h.write_u16(v.struck);
         h.write_u16(self.skipped_log);
+        self.cam_y.hash_into(h);
+        h.write_u16(self.kos);
+        self.ko_at.hash_into(h);
     }
 }

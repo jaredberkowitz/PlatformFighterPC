@@ -6,8 +6,8 @@
 use super::data::{PropKind, RunContent, PROP_CHEST, PROP_GAS, PROP_SIGN};
 use super::mobs;
 use super::{
-    count_combo, pay_kill, Prop, MAX_PROPS, MODE_BURST, PLAYER, PROP_BROKEN, PROP_BURST,
-    PROP_FALLING, PROP_LIT, PROP_OPEN, PROP_READY,
+    Prop, MAX_MOBS, MAX_PROPS, MODE_EMERGE, PLAYER, PROP_BROKEN, PROP_BURST, PROP_FALLING, PROP_LIT,
+    PROP_OPEN, PROP_READY,
 };
 use crate::collision;
 use crate::content::Content;
@@ -115,44 +115,32 @@ pub(super) fn update(state: &mut GameState, content: &Content, rc: &RunContent) 
     }
 }
 
-/// A hazard's hit at `at`: every grunt it touches (once: the player's kill, credited), and the player (once).
+/// A hazard's hit at `at`: every grunt it touches and the player, once each, through the versus hit (R2c: grunts are fighters; a
+/// grunt's hit is the player's, for the combo and the kill).
 fn strike(
     state: &mut GameState,
     content: &Content,
-    rc: &RunContent,
+    _rc: &RunContent,
     p: &mut Prop,
     hb: &Hitbox,
     at: Vec2,
 ) {
-    let rules = &rc.rules;
-    for i in 0..state.run.mobs.len() {
-        let m = state.run.mobs[i];
-        let bit = 1u16 << i.min(15);
-        if !mobs::hittable(&m) || p.hit_mobs & bit != 0 {
+    for n in 0..MAX_MOBS {
+        let bit = 1u16 << n;
+        let m = state.run.mobs[n];
+        if !m.active || m.mode == MODE_EMERGE || p.hit_mobs & bit != 0 {
             continue;
         }
-        let k = *mobs::kind_of(rc, &m);
-        if !mobs::touches(&mobs::hurtboxes(content, &m, &k), at, hb) {
-            continue;
-        }
-        p.hit_mobs |= bit;
-        let side = if m.pos.x >= at.x { 1 } else { -1 };
-        let g = &mut state.run.mobs[i];
-        g.credit = rules.credit_frames;
-        if g.mode == super::MODE_GUARD {
-            g.mode = super::MODE_IDLE;
-        }
-        mobs::take_hit(g, &k, hb, side, Fx::ONE, content, rules.burst_frames, false);
-        let (died, kind) = (g.mode == MODE_BURST, g.kind);
-        count_combo(&mut state.run);
-        if died {
-            pay_kill(&mut state.run, rc, kind);
+        let g = state.fighters[mobs::slot(n)];
+        let side = if g.pos.x >= at.x { 1 } else { -1 };
+        if mobs::hit_body(state, content, mobs::slot(n), (at, side, Vec2::ZERO), hb, at) {
+            p.hit_mobs |= bit;
         }
     }
     if !p.hit_player {
         let f = state.fighters[PLAYER];
         let side = if f.pos.x >= at.x { 1 } else { -1 };
-        if mobs::hit_fighters(state, content, 0, (at, side, Vec2::ZERO), hb, at) {
+        if mobs::hit_body(state, content, PLAYER, (at, side, Vec2::ZERO), hb, at) {
             p.hit_player = true;
         }
     }

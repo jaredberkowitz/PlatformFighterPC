@@ -10,7 +10,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::input::Input;
 use crate::rng::Rng;
 use crate::vec2::Vec2;
-use crate::{FIGHTER_VARS, MAX_FIGHTERS, MAX_SCRIPT_VARS, PROJECTILE_VARS};
+use crate::{FIGHTER_VARS, MAX_BODIES, MAX_FIGHTERS, MAX_SCRIPT_VARS, PROJECTILE_VARS};
 
 /// Frames of input kept per fighter. Must cover the longest buffer window in `FighterParams`.
 pub const HISTORY_LEN: usize = 12;
@@ -189,8 +189,9 @@ pub struct Fighter {
     pub tumble: bool,
     /// Index of the move being performed, see `moves::MoveId`.
     pub move_id: u8,
-    /// The move's hit history: bit `n + 4 * g` set means hit group `g` (0 to 7) of this move has already hit fighter `n`.
-    pub hit_mask: u32,
+    /// The move's hit history: bit `combat::hit_bit(n, g)` (`n + MAX_BODIES * g`) set means hit group `g` (0 to 7) of this move has
+    /// already hit body `n` (sim 129: a grunt is a body too).
+    pub hit_mask: u128,
     /// Frames the current smash attack has been charged.
     pub charge: u8,
     /// Shield health; it drains while the shield is up and refills when it is not.
@@ -409,6 +410,12 @@ pub struct Fighter {
     /// Where the fighter's feet were (height) when its current move began (also on a switch by `goto`): what `Move::ledge_drop`
     /// measures the fall from.
     pub move_y0: Fx,
+    /// Sim 129 (the run's grunts, R2c): the percent of its hits' damage this body deals (0: 100, as every player), and super armor
+    /// it has whatever it does (a hit deals its damage and freezes it, but does not launch it). Set only by the run's grunt layer.
+    pub damage_scale: u16,
+    pub super_armor: bool,
+    /// Sim 129: the weight the knockback formula reads for this body instead of its body's (a grunt's, by its kind and tier).
+    pub weight: Option<Fx>,
     /// Persistent script variables of the move being performed.
     pub vars: [i32; FIGHTER_VARS],
     /// `history[0]` is this frame's input, `history[1]` the previous frame's, and so on.
@@ -439,9 +446,9 @@ pub struct Projectile {
     /// Persistent variables of the projectile's script.
     pub vars: [i32; PROJECTILE_VARS],
     /// Who it has hit: bit `combat::hit_bit(fighter, group)`, as a move's `Fighter::hit_mask` (for a piercing or multi-hit one).
-    pub hit_mask: u32,
-    /// Its age when it last hit each fighter (the per-target rehit interval counts from it).
-    pub hit_age: [u8; MAX_FIGHTERS],
+    pub hit_mask: u128,
+    /// Its age when it last hit each body (the per-target rehit interval counts from it).
+    pub hit_age: [u8; MAX_BODIES],
     /// The way its owner faced when it was made (-1 or 1; turned round by a reflection): "forward" for a projectile standing still.
     pub facing: i8,
     /// It has burst (`moves::Burst`): it stands still and hits with the burst's phases; its age counts from the burst.
@@ -496,11 +503,11 @@ pub struct Item {
     pub fuse: u8,
     /// Frozen by a hit it took.
     pub hitlag: u8,
-    /// Bit per fighter its thrown hit or burst has hit.
-    pub hit_mask: u8,
+    /// Bit per body its thrown hit or burst has hit.
+    pub hit_mask: u16,
     /// For each fighter, the move (`move id + 1`) that last knocked it about (one knock a move; cleared once that fighter is not
     /// attacking).
-    pub struck: [u8; MAX_FIGHTERS],
+    pub struck: [u8; MAX_BODIES],
     /// -1 or 1: the way its thrower faced (forward for its hit).
     pub facing: i8,
     /// Sim 113: the direction it was flying when it lodged (an arrow stuck in the ground or a wall), in whole degrees counter-clockwise
@@ -546,7 +553,7 @@ impl StateHash for Item {
         self.damage.hash_into(h);
         h.write_u8(self.fuse);
         h.write_u8(self.hitlag);
-        h.write_u8(self.hit_mask);
+        h.write_u16(self.hit_mask);
         for s in &self.struck {
             h.write_u8(*s);
         }
@@ -582,7 +589,7 @@ impl StateHash for Projectile {
         for v in &self.vars {
             h.write_i32(*v);
         }
-        h.write_u32(self.hit_mask);
+        h.write_u128(self.hit_mask);
         for a in &self.hit_age {
             h.write_u8(*a);
         }
@@ -639,7 +646,8 @@ pub struct GameState {
     /// [`PLAYING`] until the match ends, then the winner's index or [`DRAW`]. The simulation stops when it is set.
     pub winner: i8,
     pub rng: Rng,
-    pub fighters: [Fighter; MAX_FIGHTERS],
+    /// The players (`MAX_FIGHTERS`), then the run's grunts (`MAX_GRUNTS`, inactive outside a run: sim 129).
+    pub fighters: [Fighter; MAX_BODIES],
     /// Which fighter holds each ledge, or [`NONE`].
     pub ledge_owner: [i8; MAX_LEDGES],
     pub projectiles: [Projectile; MAX_PROJECTILES],
@@ -807,6 +815,9 @@ impl Fighter {
             pocket: NONE,
             pocket_item: false,
             move_y0: Fx::ZERO,
+            damage_scale: 0,
+            super_armor: false,
+            weight: None,
             vars: [0; FIGHTER_VARS],
             history: [Input::default(); HISTORY_LEN],
         }
@@ -844,6 +855,13 @@ impl GameState {
     ) -> GameState {
         let rules = rules.clamped();
         let fighters = core::array::from_fn(|i| {
+            if i >= MAX_FIGHTERS {
+                // (A grunt's slot: empty until a run puts one there.)
+                let mut f = Fighter::spawn(Vec2::ZERO, 0, 1, NONE, 0, Fx::ZERO);
+                f.active = false;
+                f.stocks = 0;
+                return f;
+            }
             let pos = content.stage.spawns[i];
             let idx = usize::from(char_ids[i]).min(content.fighters.len().saturating_sub(1));
             let mut f = Fighter::spawn(
@@ -926,7 +944,7 @@ impl StateHash for Fighter {
         self.kb_vel.hash_into(h);
         h.write_bool(self.tumble);
         h.write_u8(self.move_id);
-        h.write_u32(self.hit_mask);
+        h.write_u128(self.hit_mask);
         h.write_u8(self.charge);
         h.write_u16(self.sdi_mult);
         h.write_bool(self.link);
@@ -1030,6 +1048,10 @@ impl StateHash for Fighter {
         h.write_i8(self.pocket);
         h.write_bool(self.pocket_item);
         self.move_y0.hash_into(h);
+        h.write_u16(self.damage_scale);
+        h.write_bool(self.super_armor);
+        h.write_bool(self.weight.is_some());
+        self.weight.unwrap_or(Fx::ZERO).hash_into(h);
         for v in &self.vars {
             h.write_i32(*v);
         }

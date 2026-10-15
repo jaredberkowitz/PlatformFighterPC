@@ -17,7 +17,7 @@ use crate::state::{
 };
 use crate::trig::{self, Angle};
 use crate::vec2::Vec2;
-use crate::MAX_FIGHTERS;
+use crate::MAX_BODIES;
 
 /// `Fighter::item_order` bits.
 pub const ORDER_PICK: u8 = 1;
@@ -134,7 +134,7 @@ fn pick_target(state: &GameState, content: &Content, i: usize) -> Option<usize> 
 
 /// For each fighter, whether an item lies within its reach as the frame begins (what an attack or grab press on the ground reads:
 /// it picks the item up instead). A fighter already holding one, or out of the match, has none.
-pub fn pickable(state: &GameState, content: &Content) -> [bool; MAX_FIGHTERS] {
+pub fn pickable(state: &GameState, content: &Content) -> [bool; MAX_BODIES] {
     core::array::from_fn(|i| {
         let f = &state.fighters[i];
         f.active && f.holding == NONE && f.grounded() && pick_target(state, content, i).is_some()
@@ -335,7 +335,7 @@ pub fn make_as(
         fuse: 0,
         hitlag: 0,
         hit_mask: 0,
-        struck: [0; MAX_FIGHTERS],
+        struck: [0; MAX_BODIES],
         facing: f.facing,
         angle: 0,
         water: 0,
@@ -349,10 +349,10 @@ pub fn make_as(
 /// One frame of every item: the fighters' orders, open pockets catching items, then each item's clock and movement, its hits and the
 /// attacks that knock it about.
 pub fn update(state: &mut GameState, content: &Content) {
-    for i in 0..MAX_FIGHTERS {
+    for i in 0..MAX_BODIES {
         serve(state, content, i);
     }
-    for i in 0..MAX_FIGHTERS {
+    for i in 0..MAX_BODIES {
         pocket_items(state, content, i);
     }
     for n in 0..MAX_ITEMS {
@@ -385,7 +385,7 @@ fn traps(state: &mut GameState, content: &Content) {
         };
         let facing = i32::from(it.facing);
         let at = it.pos + Vec2::new(trap.hit.x.mul_int(facing), trap.hit.y);
-        for d in 0..MAX_FIGHTERS {
+        for d in 0..MAX_BODIES {
             let fd = &state.fighters[d];
             let exempt = matches!(
                 fd.state,
@@ -811,7 +811,7 @@ fn middle(it: &Item, spec: &ItemSpec) -> Vec2 {
 /// shield stops it; then it vanishes (`ItemSpec::vanish`) or bounces off (`fighter_keep`, `fighter_lift`) and its hit ends.
 fn thrown_hits(state: &mut GameState, content: &Content, n: usize, spec: &ItemSpec) {
     let it = state.items[n];
-    let owner = usize::from(it.owner).min(MAX_FIGHTERS - 1);
+    let owner = usize::from(it.owner).min(MAX_BODIES - 1);
     let at = middle(&it, spec);
     let mut hb: Hitbox = spec.hit;
     hb.damage = it.damage;
@@ -820,8 +820,8 @@ fn thrown_hits(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
         half_h: hb.half_height,
         radius: hb.radius,
     };
-    for d in 0..MAX_FIGHTERS {
-        if d == owner || it.hit_mask & (1 << d) != 0 {
+    for d in 0..MAX_BODIES {
+        if !combat::rivals(owner, d) || it.hit_mask & (1 << d) != 0 {
             continue;
         }
         let fd = &state.fighters[d];
@@ -896,11 +896,14 @@ fn blast_frame(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
         return;
     };
     let it = state.items[n];
-    let maker = usize::from(it.origin).min(MAX_FIGHTERS - 1);
+    let maker = usize::from(it.origin).min(MAX_BODIES - 1);
     let at = middle(&it, spec);
     let hb = b.hit;
-    for d in 0..MAX_FIGHTERS {
-        if (d == maker && !b.hits_owner) || it.hit_mask & (1 << d) != 0 {
+    for d in 0..MAX_BODIES {
+        if (d == maker && !b.hits_owner)
+            || (d != maker && !combat::rivals(maker, d))
+            || it.hit_mask & (1 << d) != 0
+        {
             continue;
         }
         let fd = &state.fighters[d];
@@ -955,14 +958,14 @@ fn blast_frame(state: &mut GameState, content: &Content, n: usize, spec: &ItemSp
 /// and frozen for a share of the hitlag; one knock per attacker's move. At 0 hp it bursts (or goes).
 fn knock_about(state: &mut GameState, content: &Content) {
     // A fighter no longer attacking can knock items again.
-    for a in 0..MAX_FIGHTERS {
+    for a in 0..MAX_BODIES {
         if !matches!(state.fighters[a].state, S::Attack | S::LedgeAttack) {
             for it in &mut state.items {
                 it.struck[a] = 0;
             }
         }
     }
-    for a in 0..MAX_FIGHTERS {
+    for a in 0..MAX_BODIES {
         let fa = state.fighters[a];
         if !fa.active || !matches!(fa.state, S::Attack | S::LedgeAttack) || fa.hitlag > 0 {
             continue;
@@ -1197,7 +1200,7 @@ fn unpocket(state: &mut GameState, content: &Content, i: usize) {
     pr.vel = Vec2::new(pr.vel.x.abs().mul_int(dir), pr.vel.y);
     pr.age = 0;
     pr.hit_mask = 0;
-    pr.hit_age = [0; MAX_FIGHTERS];
+    pr.hit_age = [0; MAX_BODIES];
     pr.vars = [0; crate::PROJECTILE_VARS];
     pr.bursting = false;
     pr.power = rel.power.clamp(1, 255) as u8;
@@ -1400,7 +1403,7 @@ pub(crate) fn water(
         if touching {
             let item = &mut state.items[n];
             item.water = item.water.saturating_add(amount);
-            item.owner = owner.min(MAX_FIGHTERS - 1) as u8;
+            item.owner = owner.min(MAX_BODIES - 1) as u8;
         }
     }
 }

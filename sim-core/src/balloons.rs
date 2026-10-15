@@ -10,7 +10,7 @@ use crate::fixed::Fx;
 use crate::moves::Balloons;
 use crate::state::{Fighter, FighterState as S, GameState};
 use crate::vec2::Vec2;
-use crate::MAX_FIGHTERS;
+use crate::MAX_BODIES;
 
 /// Sixteenths of a frame of flight in one frame (the unit of `Fighter::helium_used` and `Balloons::refill`).
 pub const HELIUM_PER_FRAME: u16 = 16;
@@ -86,7 +86,7 @@ fn let_go(f: &mut Fighter) {
 /// Once a frame, after the fighters have moved: balloons come out for a balloon move that has just begun, its helium is used (out of
 /// hitlag) and runs out, and a fighter out of a balloon move has none and refills its tank.
 pub fn update(state: &mut GameState, content: &Content) {
-    for i in 0..MAX_FIGHTERS {
+    for i in 0..MAX_BODIES {
         if !state.fighters[i].active {
             continue;
         }

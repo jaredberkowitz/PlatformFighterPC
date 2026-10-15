@@ -7,7 +7,7 @@ use crate::fixed::Fx;
 use crate::grab;
 use crate::input::Input;
 use crate::state::{Fighter, FighterState, GameState, Item, Projectile, DRAW, NONE, PLAYING};
-use crate::MAX_FIGHTERS;
+use crate::{MAX_BODIES, MAX_FIGHTERS};
 
 fn params_of<'a>(content: &'a Content, f: &Fighter) -> &'a FighterParams {
     let idx = usize::from(f.char_id).min(content.fighters.len().saturating_sub(1));
@@ -113,7 +113,15 @@ fn start_sudden_death(state: &mut GameState, content: &Content, most: u8) {
     state.ledge_owner = [NONE; MAX_LEDGES];
 }
 
+/// Advances one frame with the players' inputs (the grunts' slots, empty outside a run, read none).
 pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHTERS]) {
+    let mut all = [Input::default(); MAX_BODIES];
+    all[..MAX_FIGHTERS].copy_from_slice(inputs);
+    step_bodies(state, content, &all);
+}
+
+/// Advances one frame with an input for every body: the players', then the grunts' (the run's grunt layer makes those, sim 129).
+pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MAX_BODIES]) {
     // A finished match stands still.
     if state.winner != PLAYING {
         state.frame = state.frame.wrapping_add(1);
@@ -122,8 +130,8 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     let stage = &content.stage;
 
     // Phase 1: every fighter updates in player-index order and may request a ledge.
-    let mut wants: [Option<u8>; MAX_FIGHTERS] = [None; MAX_FIGHTERS];
-    let mut before = [Fx::ZERO; MAX_FIGHTERS];
+    let mut wants: [Option<u8>; MAX_BODIES] = [None; MAX_BODIES];
+    let mut before = [Fx::ZERO; MAX_BODIES];
     for (b, f) in before.iter_mut().zip(state.fighters.iter()) {
         *b = f.pos.x;
     }
@@ -132,11 +140,11 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     // What move scripts see of the others this frame (a target lock): every chest, and which fighters can be targeted.
     let mut world = crate::scripting::World {
         stage,
-        targets: [None; MAX_FIGHTERS],
-        chest: [Fx::ZERO; MAX_FIGHTERS],
+        targets: [None; MAX_BODIES],
+        chest: [Fx::ZERO; MAX_BODIES],
         me: 0,
         projectiles: &state.projectiles,
-        encase: [None; MAX_FIGHTERS],
+        encase: [None; MAX_BODIES],
         items: &state.items,
         pickable,
         ledges: state.ledge_owner,
@@ -162,7 +170,7 @@ pub fn step(state: &mut GameState, content: &Content, inputs: &[Input; MAX_FIGHT
     }
 
     // A move that has just begun draws its random version (E39), and balloons come out, use helium and go (E41).
-    for i in 0..MAX_FIGHTERS {
+    for i in 0..MAX_BODIES {
         if state.fighters[i].active {
             let params = params_of(content, &state.fighters[i]);
             let weapon = combat::weapon_of(content, params);
