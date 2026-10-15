@@ -715,7 +715,7 @@ to different rooms, slopes as they are, the shopkeeper refusing to sell after a 
   warm pools slid across the run's buildings and props' shadows crawled over the rooms as the camera moved. `run_stage.gd` now turns
   the backdrop's lights off and its shadow casting off (a runner_test check); its emissive bulbs and lit windows keep its look.
   `tests/run_flicker_probe.gd` measures frame-to-frame changes while running, for the art director to compare against.
-- **GameState is 6,352 bytes** (R2a: 5,536; the run's part 3,568, was 2,768; the rest grew 16 bytes with the moveset ports merged).
+- **GameState is 6,368 bytes** (R2a: 5,536; the run's part 3,568, was 2,768; the rest grew 32 bytes with the moveset ports merged in).
   `pftool run-bench`: 0.0031 ms a frame on average with all 16 slots full of the six kinds, worst 0.19 ms.
 
 ### Tunables added or changed (`RunRules::standard`, `MobKind::standard`, `Tier::standard`, `PropKind::standard`)
