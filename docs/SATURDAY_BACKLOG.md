@@ -44,7 +44,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).
 
 ## Pain points found 2026-10-15 (end of the refinement rounds; judged against the competitors, not yet fixed)
-- [x] (Sun: smaller, lower left, round 39.) Canyon: the sun is a huge bright disc right behind the stage, and the thin horizontal cloud streaks cut across it as flat lines;
+- [x] (Sun: round 39; streaks: soft clouds, round 42.) Canyon: the sun is a huge bright disc right behind the stage, and the thin horizontal cloud streaks cut across it as flat lines;
       a smaller sun set lower to one side, the streaks as soft painted clouds.
 - [ ] City: the building under the stage is one evenly repeated window grid (the most regular surface left in the game); vary bays,
       a few lit/curtained windows, a ledge or sign. The far billboard: neon lettering since round 41.

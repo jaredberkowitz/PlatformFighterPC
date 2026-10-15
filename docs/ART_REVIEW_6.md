@@ -513,3 +513,10 @@ Checked: the art pipeline and match flow tests.
 Checked: the art pipeline, match flow and runner tests.
 - **A real word** (the owner): each sign now spells SHOP or CAFE (by its seed) in seven-segment-style neon tubes, four letters
   (`review6_round41_neon_word.png`).
+
+## Refinement round 42
+
+- **The canyon sun's cloud streaks** (`review6_round42_sun_clouds.png`, before above, after below): three thin dark bands
+  (`_painted_sun`) read as flat lines struck through the sun. Now two soft, thicker clouds near the sky's colour. (The sky's own wisps
+  were tried first: not the cause; reverted.)
+Checked: the art pipeline and match flow tests.

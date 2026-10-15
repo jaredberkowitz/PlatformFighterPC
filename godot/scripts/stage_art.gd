@@ -2939,7 +2939,9 @@ static func _painted_sun(root: Node3D, at: Vector3, r: float) -> void:
 	var sun := _mesh(root, q, m, at)
 	sun.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sun.name = "Sun"
-	var bands := [[-0.38, 2.2, 0.035, Color(0.9, 0.52, 0.6)], [-0.6, 1.6, 0.028, Color(0.8, 0.46, 0.62)], [-0.16, 1.3, 0.022, Color(1.0, 0.7, 0.64)]]
+	# (Two soft clouds, thicker and nearer the sky's colour, art review 6 round 42: three thin dark bands read as flat lines struck
+	# through the sun.)
+	var bands := [[-0.42, 1.9, 0.085, Color(0.98, 0.62, 0.62)], [-0.18, 1.2, 0.06, Color(1.0, 0.74, 0.66)]]
 	for b in bands:
 		var w := r * float(b[1])
 		_mesh(root, _sphere(1.0, 24), _unshaded(b[3]), at + Vector3(r * 0.2 * float(b[0]) * 3.0, r * float(b[0]), 4.0), Vector3(w, r * float(b[2]) * 2.0, 0.2))
