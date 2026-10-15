@@ -16,10 +16,12 @@ const MOODS := {
 		"ambient": [Color(0.86, 0.92, 1.0), 0.48], "shadow_hue": 0.66, "shadow_shift": 0.08, "shadow_value": 0.64,
 		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.98, 0.9),
 		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
-	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.2, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
-		"ambient": [Color(1.0, 0.88, 0.92), 0.52], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
+	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
+	# softest stage. Its colours kept; its contrast brought near the meadow's.)
+	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
+		"ambient": [Color(1.0, 0.88, 0.92), 0.47], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
 		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
-		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.6], "haze": Color(0.84, 0.82, 1.0)},
+		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.5], "haze": Color(0.84, 0.82, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84),
@@ -70,7 +72,7 @@ const STYLE_DEFAULT := {
 const STYLES := {
 	# Dappled light under the great tree: small patches swaying slowly.
 	"grove": {"paint": [Color(1.06, 0.99, 0.94), Color(0.94, 0.9, 1.06), 0.55], "clouds": [0.5, 3.2, 0.42, 0.25],
-		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.26}},
+		"finish": {"desat": 0.0, "lift": 0.02, "haze_max": 0.12, "s_curve": 0.3}},
 	# Crisper light-to-shadow steps (a clear lit side and shaded side on every prop, in the manner of a cel-shaded adventure), warmer tops
 	# and cooler undersides, and less of the pastel wash, so the colours carry.
 	"meadow": {"ramp": [[0.0, 0.0], [0.38, 0.0], [0.43, 0.52], [0.55, 0.52], [0.6, 1.0], [1.0, 1.0]],

@@ -268,3 +268,13 @@ Checked: the art pipeline and match flow tests.
   others' range (the sunset theme's `wood` and `wood_dark`).
 - Not done: the results screen. `--demo=results` no longer reaches it (it photographs the match), so it needs the demo mended first.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 9 (fresh captures of all five stages)
+
+- **HUD emblems** (`review6_round9_hud_emblem.png`, before above, after below): the weapon emblem behind each damage number (as the
+  reference shows a series symbol) was a faint colour stroke alone and read as a stray scribble. Now it sits on a soft ink edge, a little
+  stronger, still behind the number (`match_hud.gd`).
+- **Grove lighting** (`review6_round9_grove_light.png`, before | after): a weaker key (1.2), more pink ambient (0.52), a stronger grade
+  (0.6) and a softer S-curve than the meadow's left the grove under a pale veil. Key 1.32, ambient 0.47, grade 0.5, S-curve 0.3; its
+  colours unchanged.
+Checked: the art pipeline and match flow tests.

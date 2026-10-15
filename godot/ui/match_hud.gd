@@ -124,7 +124,9 @@ class Board extends Control:
 		var cls: int = int(classes[i]) if i < classes.size() else 0
 		var f := D.font()
 		# The weapon's emblem, big and faint behind the number (where the reference shows a series symbol).
-		_emblem_mark(cls, base + Vector2(250, 50), 46.0, Color(color, 0.3 if not out else 0.12), 9.0)
+		# (With a soft ink edge under it, art review 6 round 9: a faint colour stroke alone, over a busy stage, read as a stray scribble.)
+		_emblem_mark(cls, base + Vector2(250, 50), 46.0, Color(D.INK, 0.3 if not out else 0.1), 15.0)
+		_emblem_mark(cls, base + Vector2(250, 50), 46.0, Color(color, 0.5 if not out else 0.14), 9.0)
 		# The name on a dark slanted bar with a stripe of the player's colour, and the player's tag (so players are told apart by more
 		# than colour).
 		var bar := Rect2(base + Vector2(92, 96), Vector2(232, 28))
