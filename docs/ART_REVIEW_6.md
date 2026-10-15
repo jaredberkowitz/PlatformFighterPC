@@ -314,3 +314,13 @@ outside brief noticed it too). The fighters' shadow tone is now deeper (`PF_FIGH
 `toon_light.gdshaderinc`), still two clean cel tones (`review6_round13_fighter_shade.png`: meadow and canyon, before | after, close
 camera). The look bench passes (every fighter keeps its silhouette against every mood's bright and dark backdrops; lowest edge 0.91).
 Checked: the art pipeline, match flow and fighter tests; the look bench.
+
+## Refinement round 14 (against the competition; nothing kept)
+
+- **Damage numbers reacting to hits** (the reference HUDs jolt and heat them): already in place (`match_hud.gd`: a shake scaled to the
+  damage taken, the colour heating with the percent). Nothing to add.
+- **Floating platforms tied to the floor by a soft shadow** (the reference stages do this): tried, a radial pool on the highest ground
+  under each platform, fainter the higher it floats. It rendered in the right places, but at the match camera, which looks along the
+  floor from low down, the platform's own edge hides most of it; only a faint trace showed on the meadow. Reverted, per the brief's rule
+  for subtle, hard-to-verify gains. It would need the shadow drawn toward the camera (in front of the platform's footprint), as the
+  props' contact patches do; worth a retry only together with a camera check.
