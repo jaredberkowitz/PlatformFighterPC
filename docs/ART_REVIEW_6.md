@@ -295,3 +295,12 @@ the run's results hold the menus' panel language and read well; the controls scr
 - To the backlog: the run's HUD (its white fighter box and plates) differs from the match HUD's dark plates; the controls screen draws
   actions and keys as the same pale buttons (no hierarchy).
 Checked: the art pipeline, match flow and runner tests.
+
+## Refinement round 12
+
+- **Controls screen** (`review6_round12_controls.png`, before | after): actions and keys were the same pale buttons, so nothing said
+  which is which (player 2's "Left" key beside the "Left" action). The actions now sit on the screen's dark band in white, as its info
+  line does; the keys stay the pale (and, selected, gold) cells you change (`controls.gd`, all three pages).
+- **A naming slip:** the controller page's right-stick choice read "Smash attacks". Now "Strong attacks", the game's own word for the
+  move (`pad_bindings.gd`; the choice is saved by its place in the list, so saved settings are unaffected).
+Checked: the art pipeline, match flow, controls, input, policy, creator and editor UI tests.

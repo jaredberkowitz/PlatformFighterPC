@@ -72,7 +72,8 @@ func _ready() -> void:
 			var line := HBoxContainer.new()
 			line.add_theme_constant_override("separation", 6)
 			var label := UI.Tag.new(a[1], Vector2(250, 32))
-			label.fill = UI.CREAM_DARK
+			label.fill = Color(UI.INK, 0.72)
+			label.ink = Color(1, 1, 1, 0.92)
 			label.font_size = 19
 			line.add_child(label)
 			var key := UI.Tag.new("", Vector2(210, 32))
@@ -110,7 +111,8 @@ func _ready() -> void:
 		rows.append(o[1])
 	for k in rows.size():
 		var label := UI.Tag.new(rows[k], Vector2(260, 34))
-		label.fill = UI.CREAM_DARK
+		label.fill = Color(UI.INK, 0.72)
+		label.ink = Color(1, 1, 1, 0.92)
 		label.font_size = 20
 		label.position = Vector2(300, 138 + k * 40 + (14 if k >= PadBindings.ACTIONS.size() else 0))
 		pad_page.add_child(label)
@@ -128,7 +130,8 @@ func _ready() -> void:
 	for k in VisualSettings.ORDER.size():
 		var key: String = VisualSettings.ORDER[k]
 		var label := UI.Tag.new(VisualSettings.OPTIONS[key].label, Vector2(320, 52))
-		label.fill = UI.CREAM_DARK
+		label.fill = Color(UI.INK, 0.72)
+		label.ink = Color(1, 1, 1, 0.92)
 		label.font_size = 26
 		label.position = Vector2(250, 120 + k * 72)
 		display_page.add_child(label)

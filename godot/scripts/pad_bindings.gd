@@ -28,7 +28,7 @@ const DEFAULT_MAP := {
 ## The options, in the order the Controller page lists them after the actions: [id, label, choices].
 const OPTIONS := [
 	["tap_jump", "Tap jump", ["Off", "On"]],
-	["right_stick", "Right stick", ["Smash attacks", "Tilt attacks", "Specials", "Off"]],
+	["right_stick", "Right stick", ["Strong attacks", "Tilt attacks", "Specials", "Off"]],
 	["rumble", "Rumble", ["On", "Off"]],
 ]
 const RIGHT_SMASH := 0

@@ -28,7 +28,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 - [ ] More rounds of the loop across all five stages.
 - [ ] Run HUD in the match HUD's panel language (its white fighter box and plates vs the match's dark plates); agree it with the
       modes-online agent (the run is theirs).
-- [ ] Controls screen: actions and keys are the same pale buttons; keys as keycaps (as the hint bar's), actions as plain labels.
+- [x] Controls screen hierarchy (round 12).
 - [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
