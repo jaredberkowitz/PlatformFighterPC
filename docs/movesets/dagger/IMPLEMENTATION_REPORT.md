@@ -265,3 +265,7 @@ Answered 2026-10-14 (decisions 83-86): 1 keep; 2, 3 and 4 built in phase 3 (abov
 3. **The gun's dodge staling in length**: staleness delays the dodge's intangibility and counts with rolls, but does not lengthen the dodge
    (a scripted move's timeline cannot be stretched yet). Build that stretch, or leave it?
 4. **Reel in by a button**: older games of the series let a button reel in early; here the reel is automatic only. Wanted?
+
+## Sim 130: up specials halt their starting momentum
+
+Owner decision 97 (sim 130, branch `upspecial-momentum`): up specials halt the momentum they start with, as the reference does. The partner's wings now set `start_speed_y` 0: frames 1-4 no longer carry a jump's rise before the flight [E: reading]. The aerial hook is unchanged: it is an attack with no special fall and only "a slight vertical boost", so whether it halts a jump is an owner question (ROSTER_STATUS, after decision 97). Before, out of a jump the move rose higher than from a standstill at the same height; now the two match (`sim-core/tests/upspecial_momentum.rs`). The audit of every fighter and its sources: `docs/movesets/SHARED_MECHANICS.md`, "Starting momentum of specials".

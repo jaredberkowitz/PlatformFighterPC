@@ -1,12 +1,12 @@
 // Nodachi up special: the blade dash (world units: the reference's / 8). Frame numbers here are the move's (the reference's less 1).
-// In the air the startup keeps half the sideways speed and nearly stops the fall [E]. Special still held on the reference's frame 18
+// In the air the startup (the move's `start_speed` 50 and `start_speed_y` 0 halve the sideways speed and halt the vertical on
+// starting) nearly stops the fall [E]. Special still held on the reference's frame 18
 // turns it into the eight slashes (slot 29). The stick on frame 19 aims the dash (neutral: straight up; backward turns the exile
 // round; on the ground it cannot aim below level). The dash is frames 25-28 at 1.375 a frame (11 of the reference's units) [E], then
 // a quarter of the speed is kept. The move's FAF on the ground is 57; in the air it goes on to frame 80 (slot 30), then the special
 // fall.
 var dx;
 var dy;
-if frame == 0 && grounded == 0 { set_vel(vx * 0.5, 0); }
 if frame >= 1 && frame <= 23 && grounded == 0 { set_vel(vx * 0.9, vy - 0.0025); }
 if frame == 17 && special { goto(29); }
 if frame == 18 {

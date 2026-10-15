@@ -1105,6 +1105,9 @@ fn rising_slash(w: &mut Weapon) {
     rise.rise_ground = 100;
     rise.rise_air = 110;
     rise.start_speed = 60;
+    // In the air the move halts the vertical speed it started with (sim 130, owner decision 97: the reference's motion-driven up
+    // specials set it; a jump's rise is not carried on) [E: no published vertical multiplier on startup, the reading of the owner's test].
+    rise.start_speed_y = 0;
     rise.air_drift = 60;
     rise.ledge_front_from = 23;
     rise.ledge_back_from = 23;
@@ -1432,6 +1435,9 @@ fn power_rise(w: &mut Weapon) {
     rise.rise_ground = 160;
     rise.rise_air = 185;
     rise.start_speed = 67;
+    // In the air the move halts the vertical speed it started with (sim 130, owner decision 97: the reference's motion-driven up
+    // specials set it; a jump's rise is not carried on) [E: no published vertical multiplier on startup, the reading of the owner's test].
+    rise.start_speed_y = 0;
     rise.motion_drift = 100;
     rise.intangible_from = 4;
     rise.intangible = 12;

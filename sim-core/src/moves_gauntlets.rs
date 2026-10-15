@@ -325,6 +325,9 @@ fn leaping_grab(w: &mut Weapon) {
             accel_stick: None,
         },
     ];
+    // In the air the move halts the vertical speed it started with (sim 130, owner decision 97: the reference's motion-driven up
+    // specials set it; a jump's rise is not carried on) [E: no published vertical multiplier on startup, the reading of the owner's test].
+    dive.start_speed_y = 0;
     dive.fast_fall_from = 49;
     dive.ledge_front_from = 19;
     dive.ledge_back_from = 36;
