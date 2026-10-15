@@ -10,9 +10,9 @@
 use sim_core::content::{FighterParams, Platform};
 use sim_core::run::data::{
     Room, INTERIOR_PLATFORMS, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MAX_ROOM_WIDTH, MAX_SHOP_ITEMS,
-    MIN_ROOM_WIDTH, MOB_FLYER, MOB_WALKER, ROOM_ARENA, ROOM_COINS, ROOM_KINDS, ROOM_LEDGES,
-    ROOM_PARTS, ROOM_PLATFORMS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET,
-    SLOT_AIR,
+    MIN_ROOM_WIDTH, MOB_MOVES, NO_MOVE, PROP_ROLES, PROP_SIGN, ROLES, ROLE_LOBBER, ROOM_ALLEY,
+    ROOM_ARENA, ROOM_COINS, ROOM_EVENT, ROOM_KINDS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS,
+    ROOM_PROPS, ROOM_REST, ROOM_SHOP, ROOM_SLOTS, ROOM_SPAWNS, ROOM_STREET, SLOT_AIR, SPOT_ANY,
 };
 use sim_core::run::{
     for_each_coin, for_each_footing, part_on, room_exit, RoomSlot, RunContent, RING,
@@ -188,38 +188,125 @@ pub fn check_run_shape(rc: &RunContent) -> Vec<String> {
         room_problems(rc, i, c, &mut errors);
     }
     interior_problems(rc, &mut errors);
+    grunt_problems(rc, &mut errors);
+    errors
+}
+
+/// The grunt kinds (R2b), the tiers and the props: every body and move is in the base roster (`Content::placeholder`, where a run's
+/// world comes from), a lobber's first move fires a shot, one body throws for every lobber (its shots come from one fighter slot).
+fn grunt_problems(rc: &RunContent, errors: &mut Vec<String>) {
+    let roster = sim_core::Content::placeholder();
+    if rc.mobs.is_empty() || rc.mobs.len() > 8 {
+        errors.push("run: 1 to 8 grunt kinds (a tier's kinds are bits of a byte)".to_string());
+    }
+    let mut lobber_body = None;
     for (i, k) in rc.mobs.iter().enumerate() {
-        let at = format!("mob kind {i}");
-        if k.behavior != MOB_WALKER && k.behavior != MOB_FLYER {
-            errors.push(format!("{at}: behavior must be walker (0) or flyer (1)"));
+        let at = format!("grunt kind {i}");
+        if k.role >= ROLES {
+            errors.push(format!("{at}: role must be 0 to {}", ROLES - 1));
         }
-        for (name, v) in [
-            ("weight", k.weight),
-            ("radius", k.radius),
-            ("gravity", k.gravity),
-            ("max_fall", k.max_fall),
-            ("speed", k.speed),
-            ("accel", k.accel),
-            ("lunge", k.lunge),
-        ] {
-            if v <= Fx::ZERO || v > Fx::from_int(400) {
-                errors.push(format!("{at}: {name} must be above 0 and at most 400"));
+        let Some(body) = roster.fighters.get(usize::from(k.body)) else {
+            errors.push(format!("{at}: body {} is not in the roster", k.body));
+            continue;
+        };
+        let weapon = sim_core::combat::weapon_of(&roster, body);
+        if k.moves[0] == NO_MOVE {
+            errors.push(format!("{at}: needs a first move"));
+        }
+        for (j, &id) in k.moves.iter().enumerate().take(MOB_MOVES) {
+            if id == NO_MOVE {
+                continue;
+            }
+            let Some(mv) = weapon.moves.get(usize::from(id)) else {
+                errors.push(format!(
+                    "{at}: move {j} ({id}) is not in its body's moveset"
+                ));
+                continue;
+            };
+            let shoots = k.role == ROLE_LOBBER && j == 0;
+            if shoots && mv.projectile.is_none() {
+                errors.push(format!("{at}: a lobber's first move must fire a shot"));
+            }
+            if !shoots
+                && !mv
+                    .hitboxes
+                    .iter()
+                    .any(|h| h.kind == sim_core::moves::HIT_NORMAL)
+            {
+                errors.push(format!("{at}: move {j} ({id}) has no hit"));
             }
         }
-        if k.stamina < Fx::ZERO || k.jump < Fx::ZERO || k.hover_height < Fx::ZERO {
-            errors.push(format!("{at}: stamina, jump and hover_height at least 0"));
+        if k.role == ROLE_LOBBER {
+            if lobber_body.is_some_and(|b| b != k.body) {
+                errors.push(format!("{at}: every lobber must have the same body"));
+            }
+            lobber_body = Some(k.body);
+            if k.shot_time == 0 || k.shot_frame == 0 {
+                errors.push(format!(
+                    "{at}: a lobber needs its shot's frame and flight time"
+                ));
+            }
         }
-        if k.attack_frames == 0 {
-            errors.push(format!("{at}: attack_frames at least 1"));
+        for (name, v) in [("aggro", k.aggro), ("reach", k.reach), ("reach2", k.reach2)] {
+            if v <= Fx::ZERO || v > Fx::from_int(40) {
+                errors.push(format!("{at}: {name} must be above 0 and at most 40"));
+            }
         }
-        if k.hitbox.radius <= Fx::ZERO || k.hitbox.damage < Fx::ZERO {
-            errors.push(format!("{at}: its hit needs a radius above 0"));
+        if k.stamina < Fx::ZERO || k.shield < Fx::ZERO || k.lunge < Fx::ZERO || k.lunge > Fx::ONE {
+            errors.push(format!("{at}: stamina and shield at least 0, lunge 0 to 1"));
         }
-        if k.hitbox.kind != sim_core::moves::HIT_NORMAL {
-            errors.push(format!("{at}: its hit must be an ordinary hit"));
+        if k.walk == 0 || k.walk > 200 || k.run > 200 || k.cost == 0 {
+            errors.push(format!(
+                "{at}: walk 1 to 200 percent, run at most 200, cost at least 1"
+            ));
         }
     }
-    errors
+    if rc.tiers.is_empty() || rc.tiers.len() > 255 {
+        errors.push("run: needs 1 to 255 difficulty tiers".to_string());
+    }
+    let known = if rc.mobs.len() >= 8 {
+        u8::MAX
+    } else {
+        (1u8 << rc.mobs.len()) - 1
+    };
+    for (i, t) in rc.tiers.iter().enumerate() {
+        let at = format!("tier {i}");
+        if t.kinds == 0 || t.kinds & !known != 0 {
+            errors.push(format!(
+                "{at}: kinds must name some of the grunt kinds and no others"
+            ));
+        }
+        if t.tell == 0 || t.stamina == 0 || t.damage == 0 {
+            errors.push(format!("{at}: tell, stamina and damage at least 1"));
+        }
+        let comes = (0..rc.mobs.len().min(8))
+            .any(|k| t.kinds & (1 << k) != 0 && usize::from(rc.mobs[k].min_tier) <= i);
+        if !comes {
+            errors.push(format!("{at}: no kind it allows comes in it (min_tier)"));
+        }
+    }
+    let r = &rc.rules;
+    if r.tier_rooms == 0 || r.city_rooms == 0 {
+        errors.push("run rules: tier_rooms and city_rooms at least 1".to_string());
+    }
+    if r.van_speed <= Fx::ZERO || r.van_accel <= Fx::ZERO || r.van_frames == 0 {
+        errors.push("run rules: the van's speed, acceleration and frames above 0".to_string());
+    }
+    if r.high_ground <= Fx::ZERO || r.flat_room <= Fx::ZERO {
+        errors.push("run rules: high_ground and flat_room above 0".to_string());
+    }
+    for (i, p) in rc.props.iter().enumerate() {
+        let at = format!("prop {i}");
+        if p.role >= PROP_ROLES {
+            errors.push(format!("{at}: role must be 0 to {}", PROP_ROLES - 1));
+        }
+        if p.half_width <= Fx::ZERO || p.height <= Fx::ZERO || p.hit.radius <= Fx::ZERO {
+            errors.push(format!("{at}: a box and a hit with sizes above 0"));
+        }
+        if p.role == PROP_SIGN && p.gravity <= Fx::ZERO {
+            errors.push(format!("{at}: a sign needs gravity to fall"));
+        }
+    }
 }
 
 /// A footing's own problems: a look, a sane box, a gentle slope, inside the blast zone, solid ground reaching the bottom.
@@ -256,10 +343,66 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
     let at = format!("room {i} ({})", c.name);
     if c.kind >= ROOM_KINDS {
         errors.push(format!(
-            "{at}: kind must be street, arena, shop or rest (0 to {})",
+            "{at}: kind must be street, arena, shop, rest, event or alley (0 to {})",
             ROOM_KINDS - 1
         ));
     }
+    if c.min_tier > c.max_tier || usize::from(c.min_tier) >= rc.tiers.len().max(1) {
+        errors.push(format!("{at}: its tiers must start at a tier there is"));
+    }
+    if c.kind == ROOM_EVENT && (c.event == 0 || c.mirror) {
+        errors.push(format!(
+            "{at}: an event room names its event and is never mirrored"
+        ));
+    }
+    if c.kind != ROOM_EVENT && c.event != 0 {
+        errors.push(format!("{at}: only an event room has an event"));
+    }
+    if c.props.len() > ROOM_PROPS
+        || c.props.iter().any(|p| {
+            usize::from(p.kind) >= rc.props.len() || p.part.unsigned_abs() as usize > c.parts.len()
+        })
+    {
+        errors.push(format!(
+            "{at}: at most {ROOM_PROPS} props, each a prop there is"
+        ));
+    }
+    if c.kind == ROOM_ALLEY && !c.paired {
+        errors.push(format!(
+            "{at}: an alley only comes as a branching fork's high road (paired)"
+        ));
+    }
+    if c.branch_high != 0 || c.branch_low != 0 {
+        let high = rc.rooms.get(usize::from(c.branch_high));
+        let low = rc.rooms.get(usize::from(c.branch_low));
+        let ok = c.kind == ROOM_STREET
+            && c.fork
+            && !c.mirror
+            && c.exit_y == Fx::ZERO
+            && c.lift > Fx::ZERO
+            && c.lift <= r.drift
+            && high.is_some_and(|h| {
+                h.kind == ROOM_ALLEY && h.paired && !h.mirror && h.exit_y == -c.lift
+            })
+            && low.is_some_and(|l| {
+                l.kind == ROOM_STREET && l.paired && !l.mirror && l.exit_y == Fx::ZERO
+            })
+            && high.zip(low).is_some_and(|(h, l)| h.width == l.width);
+        if !ok {
+            errors.push(format!(
+                "{at}: a branching fork is a flat street fork lifting its high road (at most the drift) into a paired alley that comes back down by the lift, and a paired flat street as wide"
+            ));
+        }
+        let high_exit = c.platforms.iter().any(|f| {
+            f.part == 0 && f.platform.right == c.width && f.platform.top_at(c.width) == c.lift
+        });
+        if !high_exit {
+            errors.push(format!(
+                "{at}: its high road must leave its right edge at its lift"
+            ));
+        }
+    }
+
     if c.fork && c.kind != ROOM_STREET && c.kind != ROOM_SHOP {
         errors.push(format!("{at}: only a street or a shop can be a fork"));
     }
@@ -345,7 +488,7 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         }
     }
     for (j, s) in c.spawns.iter().enumerate() {
-        if usize::from(s.kind) >= rc.mobs.len() {
+        if s.kind != SPOT_ANY && usize::from(s.kind) >= rc.mobs.len() {
             errors.push(format!(
                 "{at}: spawn {j} names mob kind {} (no such kind)",
                 s.kind
@@ -373,11 +516,25 @@ fn room_problems(rc: &RunContent, i: usize, c: &Room, errors: &mut Vec<String>) 
         let mut coins = 0;
         for_each_coin(rc, slot, |_, _| coins += 1);
         let exit = room_exit(c, slot.mirror);
+        // (An alley, the high road's room, is entered on its catwalk: it lies over its low road's room until one is taken, so it
+        // has no solid block but the street under both.)
+        let alley = c.kind == ROOM_ALLEY;
         let seam = |x: Fx, y: Fx| {
-            plats
-                .iter()
-                .any(|p| !p.pass_through && (p.left == x || p.right == x) && p.top_at(x) == y)
+            plats.iter().any(|p| {
+                (!p.pass_through || alley && x == Fx::ZERO)
+                    && (p.left == x || p.right == x)
+                    && p.top_at(x) == y
+            })
         };
+        if alley
+            && plats
+                .iter()
+                .any(|p| !p.pass_through && (p.sloped() || p.y != exit))
+        {
+            problems.push(format!(
+                "{at}: an alley has no solid block but the street under it, at its exit height"
+            ));
+        }
         if !seam(Fx::ZERO, Fx::ZERO) || !seam(c.width, exit) {
             problems.push(format!(
                 "{at}: needs solid ground at both edges, at 0 where it begins and at its exit height where it ends (mirrored {}, parts {:b})",
@@ -534,6 +691,7 @@ pub fn for_each_variant(rc: &RunContent, room: &Room, index: usize, mut f: impl 
                     pieces,
                     spawned: 0,
                     coins: 0,
+                    ..RoomSlot::default()
                 };
                 f(&slot);
             }
@@ -712,9 +870,12 @@ pub fn passable(
     let touches = |p: &Platform, x: Fx, y: Fx| {
         !p.pass_through && p.left <= x && x <= p.right && p.top_at(x) == y
     };
-    let starts: Vec<usize> = (0..tops.len())
-        .filter(|&k| touches(&tops[k].p, Fx::ZERO, Fx::ZERO))
-        .collect();
+    // (An alley is entered on its catwalk, `room_problems`.)
+    let enters = |p: &Platform| {
+        touches(p, Fx::ZERO, Fx::ZERO)
+            || room.kind == ROOM_ALLEY && p.left <= Fx::ZERO && p.top_at(Fx::ZERO) == Fx::ZERO
+    };
+    let starts: Vec<usize> = (0..tops.len()).filter(|&k| enters(&tops[k].p)).collect();
     let goals: Vec<usize> = (0..tops.len())
         .filter(|&k| touches(&tops[k].p, room.width, exit_y))
         .collect();
@@ -805,7 +966,7 @@ mod tests {
         // Too steep.
         rc.rooms[ramp].platforms[1].platform.rise = Fx::from_int(8);
         rc.rooms[1].platforms[1].look = 0;
-        rc.rooms[1].platforms[1].part = 3;
+        rc.rooms[1].platforms[1].part = 5;
         rc.pieces[0].fits = 0;
         rc.interior.door = Fx::from_int(-3);
         let errors = check_run_shape(&rc);

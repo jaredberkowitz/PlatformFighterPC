@@ -6,7 +6,7 @@ mod common;
 use common::inp;
 use sim_core::fuzz::random_inputs;
 use sim_core::input::buttons::{ATTACK, JUMP, SHIELD};
-use sim_core::run::data::{MobKind, RunContent};
+use sim_core::run::data::{MobKind, RunContent, SPOT_ANY};
 use sim_core::run::{
     self, door_here, new_run, step_run, Mob, GATE_INDEX, MAX_MOBS, MODE_ATTACK, MODE_BURST,
     MODE_IDLE, MODE_MOVE, MODE_WINDUP, NOTE_BOUGHT, NOTE_NOT_NEEDED, NOTE_SOLD_OUT, NOTE_TOO_POOR,
@@ -115,6 +115,7 @@ impl RunSim {
             facing: if at.x > self.player().pos.x { -1 } else { 1 },
             platform: collision::standing_on(&self.world.stage, at),
             stamina: k.stamina,
+            shield: k.shield,
             room: self.state.run.room,
             ..Mob::default()
         };
@@ -123,12 +124,11 @@ impl RunSim {
 
     /// Walks (teleports) the player into the next room, clearing an arena it locks; returns the room's type.
     fn next_room(&mut self) -> u8 {
-        let target = self.state.run.room + 1;
-        let slot = *self
-            .state
-            .run
-            .slot_of(target)
-            .expect("the room ahead is laid");
+        let (ahead, n) = self.state.run.ahead();
+        assert!(n >= 1, "the room ahead is laid");
+        // (At a branching fork, the high road's alley: it is laid first, and the player comes in from above.)
+        let slot = ahead[0];
+        let target = slot.seq;
         let at = Vec2::new(
             slot.x + self.rc.rules.enter_depth + Fx::ONE,
             slot.y + fx(12),
@@ -155,13 +155,18 @@ impl RunSim {
     }
 }
 
-/// The built-in rooms with no mobs in the streets, and no arenas (so walking on never locks).
+/// The built-in rooms with no mobs in the streets, no arenas (so walking on never locks), no rare events and no props.
 fn quiet() -> RunContent {
     let mut rc = RunContent::placeholder();
-    for r in rc.rooms.iter_mut().filter(|r| r.kind == ROOM_STREET) {
-        r.spawns.clear();
+    for r in rc.rooms.iter_mut() {
+        if r.kind == ROOM_STREET {
+            r.spawns.clear();
+        }
+        r.props.clear();
     }
     rc.rules.arena_weight = 0;
+    rc.rules.event_base = 0;
+    rc.rules.event_step = 0;
     rc
 }
 
@@ -194,14 +199,30 @@ fn the_window_keeps_the_rooms_near_and_drops_old_ones() {
             sim.next_room();
             let run = &sim.state.run;
             let mut live: Vec<_> = run.slots.iter().filter(|s| s.live).collect();
-            live.sort_by_key(|s| s.x);
+            live.sort_by_key(|s| (s.x, s.seq));
             assert!(live.len() <= RING);
-            let first = run.room.saturating_sub(u32::from(r.rooms_behind));
-            let want: Vec<u32> = (first..=run.room + u32::from(r.rooms_ahead)).collect();
-            let seqs: Vec<u32> = live.iter().map(|s| s.seq).collect();
-            assert_eq!(seqs, want, "seed {seed}: the window");
+            // The current room, at most `rooms_behind` behind, and `rooms_ahead` ahead (both roads of a branching fork: two).
+            assert!(
+                live.iter().any(|s| s.seq == run.room),
+                "seed {seed}: current"
+            );
+            let behind = live.iter().filter(|s| s.seq < run.room).count();
+            let ahead = live.iter().filter(|s| s.seq > run.room).count();
+            assert!(behind <= usize::from(r.rooms_behind), "seed {seed}: behind");
+            let want = if run.branches().is_some() {
+                2
+            } else {
+                usize::from(r.rooms_ahead)
+            };
+            assert_eq!(ahead, want, "seed {seed}: the window ahead");
+            if run.room >= 3 {
+                assert!(behind >= 1, "seed {seed}: rooms kept behind");
+            }
             for w in live.windows(2) {
-                assert_eq!(w[0].end, w[1].x, "seed {seed}: rooms do not join");
+                assert!(
+                    w[0].end == w[1].x || w[0].x == w[1].x,
+                    "seed {seed}: rooms do not join"
+                );
             }
             assert_eq!(
                 run.wall_x, live[0].x,
@@ -457,7 +478,9 @@ fn an_arena_locks_until_its_mobs_are_beaten() {
     let slot = *sim.state.run.slot_of(1).unwrap();
     let arena = &sim.rc.rooms[usize::from(slot.room)];
     assert_eq!(arena.kind, ROOM_ARENA);
-    let mobs = arena.spawns.len();
+    // (The spots its budget filled.)
+    let mobs = slot.kinds.iter().filter(|&&k| k != SPOT_ANY).count();
+    assert!(mobs >= 1);
     // Not shut before entering.
     sim.stand(Vec2::new(slot.x - fx(2), Fx::ZERO));
     sim.tick(Input::default());
@@ -700,7 +723,7 @@ fn buying_by_walking_up_and_leaving() {
 /// Hitting the shopkeeper makes it dizzy for a moment ("hey!"), and nothing else: no damage anywhere, no coins, no lives, no
 /// hitlag, and it cannot be bonked again while it is seeing stars.
 #[test]
-fn hitting_the_shopkeeper_only_makes_it_dizzy() {
+fn hitting_the_shopkeeper_makes_it_dizzy_then_sulk() {
     let mut rc = only(&["shop"], (1, 0, 0));
     rc.rules.shop_min = 1;
     rc.rules.shop_max = 1;
@@ -742,11 +765,28 @@ fn hitting_the_shopkeeper_only_makes_it_dizzy() {
         "nothing harmful happened"
     );
     sim.idle(u32::from(shop.dizzy_frames));
+    // R2b (owner's R2a answer): then it sulks, arms crossed, and sells nothing.
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_HMPH, "it sulks");
+    sim.state.run.coins = 500;
+    sim.state.fighters[PLAYER].percent = fx(50);
+    sim.state.run.last_percent = fx(50);
+    stand_inside(&mut sim, shop.pedestals[0].x);
+    press_up(&mut sim);
+    assert_eq!(
+        sim.state.run.shop_note,
+        run::NOTE_REFUSED,
+        "it will not sell"
+    );
+    assert_eq!(sim.state.run.coins, 500);
+    assert_eq!(sim.state.run.keeper_mood, run::KEEPER_HMPH);
+    sim.idle(u32::from(shop.sulk_frames));
     assert_eq!(
         sim.state.run.keeper_mood,
         run::KEEPER_IDLE,
-        "it shakes it off"
+        "it gets over it"
     );
+    press_up(&mut sim);
+    assert_eq!(sim.state.run.shop_note, run::NOTE_BOUGHT, "and sells again");
     assert!(sim.state.run.inside);
 }
 
@@ -782,9 +822,19 @@ fn the_generator_keeps_its_rules() {
         }
         (kinds, rooms, sim.rc.rules)
     };
-    let mut seen = [0u32; 4];
+    let mut seen = [0u32; 6];
     for seed in 0..12u64 {
-        let (kinds, rooms, r) = kinds_of(seed);
+        let (all_kinds, all_rooms, r) = kinds_of(seed);
+        // (A branching fork's roads are laid as its pair, outside the generator's count: only the rooms it drew count here.)
+        let rc = RunContent::placeholder();
+        let drawn: Vec<usize> = (0..all_rooms.len())
+            .filter(|&i| !rc.rooms[all_rooms[i]].paired)
+            .collect();
+        let kinds: Vec<u8> = drawn.iter().map(|&i| all_kinds[i]).collect();
+        let rooms: Vec<usize> = drawn.iter().map(|&i| all_rooms[i]).collect();
+        for &k in &all_kinds {
+            seen[usize::from(k)] += 1;
+        }
         assert_eq!(rooms[0], 0, "a run starts in the start room");
         assert!(
             rooms[1..].iter().all(|&i| i != 0),
@@ -808,9 +858,6 @@ fn the_generator_keeps_its_rules() {
                 "seed {seed}: a shop {gap} rooms after the last: {shops:?}"
             );
             last = s;
-        }
-        for k in kinds {
-            seen[usize::from(k)] += 1;
         }
         assert_eq!(kinds_of(seed).0, kinds_of(seed).0);
     }
@@ -925,7 +972,7 @@ fn a_shield_blocks_a_mob() {
     let mut blocked = false;
     for _ in 0..240 {
         sim.tick(inp(0, 0, SHIELD));
-        if sim.state.run.mobs[n].struck {
+        if sim.state.run.mobs[n].struck != 0 {
             blocked = true;
             break;
         }
@@ -935,32 +982,46 @@ fn a_shield_blocks_a_mob() {
     assert!(sim.player().shield_hp < shield);
 }
 
+/// A leaper on high ground tells (crouching), leaps at a player below and strikes with an aerial (R2b: the diver's anti-air lesson).
 #[test]
-fn a_flyer_dives_at_the_player() {
+fn a_leaper_leaps_from_high_ground_with_an_aerial() {
     let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
-    // (Clear of the start room's awnings.)
     sim.stand(Vec2::new(fx(16), Fx::ZERO));
     let p = sim.player().pos;
-    let n = sim.add_mob(1, Vec2::new(p.x + fx(10), fx(9)));
-    let mut dived = false;
+    // On the start room's second awning (3.6 up), 6 to the player's right.
+    let n = sim.add_mob(
+        run::data::KIND_LEAPER,
+        Vec2::new(fx(22), Fx::from_ratio(36, 10)),
+    );
+    assert_ne!(
+        sim.state.run.mobs[n].platform, NONE,
+        "it stands on the awning"
+    );
+    let (mut told, mut leapt, mut aerial) = (false, false, false);
     for _ in 0..400 {
         sim.tick(Input::default());
-        dived |= sim.state.run.mobs[n].mode == MODE_ATTACK;
+        let m = sim.state.run.mobs[n];
+        told |= m.mode == MODE_WINDUP;
+        leapt |= m.mode == run::MODE_LEAP;
+        aerial |= m.mode == MODE_ATTACK && m.platform == NONE;
         if sim.player().percent > Fx::ZERO {
             break;
         }
+        // (The player holds still.)
+        sim.state.fighters[PLAYER].pos.x = p.x;
     }
-    assert!(dived);
-    assert!(sim.player().percent > Fx::ZERO, "the dive never hit");
+    assert!(
+        told && leapt && aerial,
+        "told {told}, leapt {leapt}, aerial {aerial}"
+    );
+    assert!(sim.player().percent > Fx::ZERO, "the leap never hit");
 }
 
 /// One swing hits a mob once per hit group, even though the attacker's hitlag pauses the move (the move is the same swing after it).
 #[test]
 fn one_swing_hits_a_mob_once() {
-    let mut rc = quiet();
-    rc.mobs[0].weight = fx(400);
-    let mut sim = RunSim::with(rc, 1);
+    let mut sim = RunSim::with(quiet(), 1);
     sim.clear_mobs();
     let x = sim.player().pos.x;
     let n = sim.add_mob(0, Vec2::new(x + fx(1), Fx::ZERO));
@@ -1344,10 +1405,45 @@ fn checksum_sees_every_run_field() {
         ("mob.hit_groups", |r| r.mobs[0].hit_groups ^= 1),
         ("mob.hit_age", |r| r.mobs[0].hit_age += 1),
         ("mob.shot_mask", |r| r.mobs[0].shot_mask ^= 1 << 15),
-        ("mob.struck", |r| r.mobs[0].struck ^= true),
+        ("mob.struck", |r| r.mobs[0].struck ^= 1 << 7),
         ("mob.credit", |r| r.mobs[0].credit += 1),
         ("mob.target", |r| r.mobs[0].target.x += Fx::from_raw(1)),
         ("mob.room", |r| r.mobs[0].room += 1),
+        // R2b.
+        ("mob.move_slot", |r| r.mobs[0].move_slot += 1),
+        ("mob.frame", |r| r.mobs[0].frame += 1),
+        ("mob.shield", |r| r.mobs[0].shield += Fx::from_raw(1)),
+        ("mob.aux", |r| r.mobs[0].aux += 1),
+        ("mob.tier", |r| r.mobs[0].tier += 1),
+        ("slots.kinds", |r| r.slots[0].kinds[7] ^= 1),
+        ("slots.tier", |r| r.slots[0].tier += 1),
+        ("platforms.seq", |r| r.platforms[0].seq += 1),
+        ("ledges.seq", |r| r.ledges[0].seq += 1),
+        ("keeper_sulk", |r| r.keeper_sulk += 1),
+        ("props.active", |r| {
+            r.props[run::MAX_PROPS - 1].active ^= true
+        }),
+        ("props.kind", |r| r.props[0].kind ^= 1),
+        ("props.room", |r| r.props[0].room += 1),
+        ("props.mode", |r| r.props[0].mode += 1),
+        ("props.timer", |r| r.props[0].timer += 1),
+        ("props.pos", |r| r.props[0].pos.x += Fx::from_raw(1)),
+        ("props.vel", |r| r.props[0].vel.y += Fx::from_raw(1)),
+        ("props.hit_mobs", |r| r.props[0].hit_mobs ^= 1 << 15),
+        ("props.hit_player", |r| r.props[0].hit_player ^= true),
+        ("chests", |r| r.chests += 1),
+        ("event_pity", |r| r.event_pity += 1),
+        ("event_city", |r| r.event_city += 1),
+        ("van.mode", |r| r.van.mode += 1),
+        ("van.room", |r| r.van.room += 1),
+        ("van.x", |r| r.van.x += Fx::from_raw(1)),
+        ("van.y", |r| r.van.y += Fx::from_raw(1)),
+        ("van.speed", |r| r.van.speed += Fx::from_raw(1)),
+        ("van.timer", |r| r.van.timer += 1),
+        ("van.platform", |r| r.van.platform += 3),
+        ("van.riding", |r| r.van.riding ^= true),
+        ("van.hits", |r| r.van.hits += 1),
+        ("skipped_log", |r| r.skipped_log ^= 1 << 15),
     ];
     for (name, edit) in edits {
         let mut s = base;
@@ -1460,6 +1556,7 @@ fn variant(
         pieces,
         spawned: 0,
         coins: 0,
+        ..run::RoomSlot::default()
     }
 }
 
@@ -1485,9 +1582,19 @@ fn rooms_are_laid_as_variants() {
             let run = &sim.state.run;
             let mut live: Vec<_> = run.slots.iter().filter(|s| s.live).copied().collect();
             live.sort_by_key(|s| s.seq);
-            for w in live.windows(2) {
+            for s in &live {
+                // (Its ground joins the room before it; a branching fork's alley joins its high road, the fork's lift up.)
+                let Some(before) = live.iter().find(|p| p.end == s.x && p.x != s.x) else {
+                    continue;
+                };
+                let lift = if sim.rc.rooms[usize::from(s.room)].kind == run::ROOM_ALLEY {
+                    sim.rc.rooms[usize::from(before.room)].lift
+                } else {
+                    Fx::ZERO
+                };
                 assert_eq!(
-                    w[0].y_end, w[1].y,
+                    before.y_end + lift,
+                    s.y,
                     "seed {seed}: the ground joins at one height"
                 );
             }
@@ -1495,8 +1602,9 @@ fn rooms_are_laid_as_variants() {
                 let room = &sim.rc.rooms[usize::from(s.room)];
                 assert_eq!(s.y_end - s.y, run::room_exit(room, s.mirror));
                 let drift = sim.rc.rules.drift;
+                let alley = room.kind == run::ROOM_ALLEY;
                 assert!(
-                    s.y.abs() <= drift && s.y_end.abs() <= drift,
+                    (alley || s.y.abs() <= drift) && s.y_end.abs() <= drift,
                     "seed {seed}: drifted too far"
                 );
                 assert!(

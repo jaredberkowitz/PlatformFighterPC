@@ -33,11 +33,12 @@
 
 pub mod data;
 mod mobs;
+mod props;
 
 pub use data::{
-    CoinSpot, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, Room, RoomLedge, RunContent,
-    RunRules, ShopItem, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, MOB_FLYER, MOB_WALKER, ROOM_ARENA,
-    ROOM_REST, ROOM_SHOP, ROOM_STREET,
+    CoinSpot, Footing, Interior, MobKind, MobSpawn, Piece, PieceSlot, PropKind, PropSpot, Room,
+    RoomLedge, RunContent, RunRules, ShopItem, Tier, ITEM_HEAL, ITEM_LIFE, LOOK_NAMES, ROOM_ALLEY,
+    ROOM_ARENA, ROOM_EVENT, ROOM_REST, ROOM_SHOP, ROOM_STREET,
 };
 
 use crate::collision;
@@ -51,12 +52,18 @@ use crate::state::{Fighter, FighterState as S, GameState, MatchRules, DRAW, NONE
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
 use data::{
-    BLOCK_BOTTOM, MAX_SHOP_ITEMS, ROOM_COINS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_SLOTS,
-    ROOM_SPAWNS,
+    BLOCK_BOTTOM, EVENT_VAN, MAX_SHOP_ITEMS, PLACE_ALONE, PLACE_FLAT, PLACE_HIGH, ROLE_LOBBER,
+    ROOM_COINS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_PROPS, ROOM_SLOTS, ROOM_SPAWNS,
+    SPOT_ANY,
 };
 
 /// Mobs alive at once.
 pub const MAX_MOBS: usize = 16;
+/// Props (hazards and chests) in the rooms in play at once.
+pub const MAX_PROPS: usize = 12;
+/// The fighter slot (never played in a run) whose body throws the lobbers' shots: a shot's numbers are its origin's weapon's, so
+/// the slot's `char_id` is the lobbers' body for the whole run (`new_run`).
+pub const SHOT_SLOT: usize = MAX_FIGHTERS - 1;
 /// Rooms in play at once: `rooms_behind + 1 + rooms_ahead` may be at most this (`sim_content::check_run`).
 pub const RING: usize = 4;
 /// The stage's platform pool: every platform of every room in play.
@@ -88,6 +95,8 @@ pub const NOTE_BOUGHT: u8 = 1;
 pub const NOTE_TOO_POOR: u8 = 2;
 pub const NOTE_SOLD_OUT: u8 = 3;
 pub const NOTE_NOT_NEEDED: u8 = 4;
+/// R2b: the shopkeeper is sulking after a bonk and will not sell.
+pub const NOTE_REFUSED: u8 = 5;
 
 /// `Run::keeper_mood` values: what the shopkeeper is doing.
 pub const KEEPER_IDLE: u8 = 0;
@@ -99,6 +108,8 @@ pub const KEEPER_CHEER: u8 = 2;
 pub const KEEPER_GRUMBLE: u8 = 3;
 /// Bonked: seeing stars ("hey!"). Never hurt, it only spins for a moment.
 pub const KEEPER_DIZZY: u8 = 4;
+/// Sulking after the bonk ("Hmph!", arms crossed): it refuses to sell until `Run::keeper_sulk` runs out (R2b).
+pub const KEEPER_HMPH: u8 = 5;
 
 /// One entry of the stage's platform pool.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -110,6 +121,8 @@ pub struct PoolPlatform {
     pub bottom: Fx,
     pub pass_through: bool,
     pub rise: Fx,
+    /// The room that laid it (`RoomSlot::seq`; ground joined across a seam keeps the first room's).
+    pub seq: u32,
 }
 
 impl PoolPlatform {
@@ -132,6 +145,8 @@ pub struct PoolLedge {
     pub x: Fx,
     pub y: Fx,
     pub side: i8,
+    /// The room that laid it.
+    pub seq: u32,
 }
 
 /// A room in play: which one, its number in the run, where it is, the variant it was laid as, which of its spawn markers have made
@@ -157,6 +172,10 @@ pub struct RoomSlot {
     pub spawned: u8,
     /// Coins taken, by the coin's number ([`for_each_coin`]).
     pub coins: u32,
+    /// R2b. The grunt kind the budget gave each spawn spot when the room was laid ([`SPOT_ANY`] for none), and the room's difficulty
+    /// tier.
+    pub kinds: [u8; ROOM_SPAWNS],
+    pub tier: u8,
 }
 
 /// `Mob::mode` values.
@@ -169,6 +188,12 @@ pub const MODE_COOLDOWN: u8 = 4;
 pub const MODE_BURST: u8 = 5;
 /// Coming out of its door or stairwell for `RunRules::emerge_frames` (R2a): it neither moves, hits nor can be hit.
 pub const MODE_EMERGE: u8 = 6;
+/// R2b. A shieldbearer's guard: its shield up toward you (`Mob::shield`), stepping in.
+pub const MODE_GUARD: u8 = 7;
+/// Its guard broken (or grabbed out of it): dazed for `RunRules::daze_frames`.
+pub const MODE_DAZED: u8 = 8;
+/// A leaper in the air on its way to you, before its aerial.
+pub const MODE_LEAP: u8 = 9;
 
 /// An enemy (see `run::mobs`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -198,14 +223,81 @@ pub struct Mob {
     pub hit_age: u16,
     /// Projectile slots whose shot has hit it (cleared as each slot empties).
     pub shot_mask: u16,
-    /// Its current attack has connected (one hit per attack).
-    pub struck: bool,
+    /// The hit groups of its current attack that have connected (bit per group: one hit per group per attack).
+    pub struck: u8,
     /// Frames left in which leaving the screen counts as the player's kill.
     pub credit: u16,
-    /// A flyer's dive target.
+    /// Where a lobber aims its shot.
     pub target: Vec2,
     /// The room it came from (`RoomSlot::seq`): an arena opens once all of its own mobs are beaten.
     pub room: u32,
+    /// R2b. The move of its kit it is telling or making (a slot of `MobKind::moves`) and the move's frame; its guard's hit points; a
+    /// counter for its role (a shieldbearer's frames crossed up); its room's tier (its stamina, damage and tells).
+    pub move_slot: u8,
+    pub frame: u16,
+    pub shield: Fx,
+    pub aux: u16,
+    pub tier: u8,
+}
+
+/// `Prop::mode` values.
+pub const PROP_READY: u8 = 0;
+/// A gas canister burning after a hit (`PropKind::fuse` frames), then bursting.
+pub const PROP_LIT: u8 = 1;
+pub const PROP_BURST: u8 = 2;
+/// A sign falling (its hit live), then broken where it lands.
+pub const PROP_FALLING: u8 = 3;
+pub const PROP_BROKEN: u8 = 4;
+/// A chest hit open (it has paid).
+pub const PROP_OPEN: u8 = 5;
+
+/// A hazard or a chest in a room in play (R2b; `run::props`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Prop {
+    pub active: bool,
+    /// Index into `RunContent::props`.
+    pub kind: u8,
+    /// The room it belongs to (`RoomSlot::seq`).
+    pub room: u32,
+    /// `PROP_*`, and the frames left in it.
+    pub mode: u8,
+    pub timer: u16,
+    /// The middle of its base (a sign: of its top, where it hangs), and its speed while falling.
+    pub pos: Vec2,
+    pub vel: Vec2,
+    /// Who its hit has hit: mob slots (bit each), and the player.
+    pub hit_mobs: u16,
+    pub hit_player: bool,
+}
+
+/// `Van::mode` values.
+pub const VAN_NONE: u8 = 0;
+/// Parked at the event street's start, engine running, until the player lands on its roof.
+pub const VAN_WAITING: u8 = 1;
+pub const VAN_DRIVING: u8 = 2;
+/// Stopped at the end of its run.
+pub const VAN_PARKED: u8 = 3;
+/// The van's roof: half its width and its height over the street.
+pub const VAN_HALF: Fx = Fx::from_ratio(22, 10);
+pub const VAN_HEIGHT: Fx = Fx::from_ratio(19, 10);
+
+/// The runaway van (R2b, the first rare event: `RUNNER_WORLD.md` 5): ride its roof down the street, untouchable, scattering grunts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Van {
+    pub mode: u8,
+    /// Its event room (`RoomSlot::seq`).
+    pub room: u32,
+    /// The middle of its wheels on the street, and its speed (units a frame) and frames driven.
+    pub x: Fx,
+    pub y: Fx,
+    pub speed: Fx,
+    pub timer: u16,
+    /// Its roof's pool platform.
+    pub platform: i8,
+    /// The player is riding it this frame (untouchable).
+    pub riding: bool,
+    /// Grunts it has run into.
+    pub hits: u16,
 }
 
 /// The run's state (inactive in versus).
@@ -276,6 +368,17 @@ pub struct Run {
     pub keeper_bonks: u16,
     /// The player's stick height last frame (the door and the wares read presses, not holds).
     pub prev_stick_y: i8,
+    /// R2b. The shopkeeper's sulk after a bonk: frames it still refuses to sell.
+    pub keeper_sulk: u16,
+    /// The hazards and chests of the rooms in play, and chests opened.
+    pub props: [Prop; MAX_PROPS],
+    pub chests: u16,
+    /// Rare events: rooms laid since the last event (the pity counter), and the "city" of the last one plus 1 (0: none yet).
+    pub event_pity: u16,
+    pub event_city: u32,
+    pub van: Van,
+    /// Rooms laid but not taken (the other road of a branching fork), a bit each, newest in the low bit, as `kinds_log`.
+    pub skipped_log: u16,
 }
 
 impl Run {
@@ -314,6 +417,8 @@ impl Run {
             pieces: [0; ROOM_SLOTS],
             spawned: 0,
             coins: 0,
+            kinds: [SPOT_ANY; ROOM_SPAWNS],
+            tier: 0,
         }; RING],
         platforms: [PoolPlatform {
             live: false,
@@ -323,12 +428,14 @@ impl Run {
             bottom: Fx::ZERO,
             pass_through: false,
             rise: Fx::ZERO,
+            seq: 0,
         }; POOL_PLATFORMS],
         ledges: [PoolLedge {
             live: false,
             x: Fx::ZERO,
             y: Fx::ZERO,
             side: 0,
+            seq: 0,
         }; POOL_LEDGES],
         layout: 0,
         mobs: [Mob {
@@ -349,10 +456,15 @@ impl Run {
             hit_groups: 0,
             hit_age: 0,
             shot_mask: 0,
-            struck: false,
+            struck: 0,
             credit: 0,
             target: Vec2::ZERO,
             room: 0,
+            move_slot: 0,
+            frame: 0,
+            shield: Fx::ZERO,
+            aux: 0,
+            tier: 0,
         }; MAX_MOBS],
         coins: 0,
         coins_picked: 0,
@@ -371,6 +483,33 @@ impl Run {
         keeper_look: -1,
         keeper_bonks: 0,
         prev_stick_y: 0,
+        keeper_sulk: 0,
+        props: [Prop {
+            active: false,
+            kind: 0,
+            room: 0,
+            mode: PROP_READY,
+            timer: 0,
+            pos: Vec2::ZERO,
+            vel: Vec2::ZERO,
+            hit_mobs: 0,
+            hit_player: false,
+        }; MAX_PROPS],
+        chests: 0,
+        event_pity: 0,
+        event_city: 0,
+        van: Van {
+            mode: VAN_NONE,
+            room: 0,
+            x: Fx::ZERO,
+            y: Fx::ZERO,
+            speed: Fx::ZERO,
+            timer: 0,
+            platform: NONE,
+            riding: false,
+            hits: 0,
+        },
+        skipped_log: 0,
     };
 
     /// Whole world units travelled (the HUD's metres).
@@ -436,6 +575,43 @@ impl Run {
         let back = self.placed.checked_sub(seq + 1)?;
         (back < 16).then(|| ((self.kinds_log >> (back * 4)) & 0xf) as u8)
     }
+
+    /// Whether room `seq` was laid but not taken (the other road of a branching fork), if it is among the last 16 laid.
+    pub fn skipped(&self, seq: u32) -> Option<bool> {
+        let back = self.placed.checked_sub(seq + 1)?;
+        (back < 16).then(|| self.skipped_log >> back & 1 != 0)
+    }
+
+    /// The rooms in play ahead of the current one, nearest first (two at the same place: a branching fork's two roads, not taken
+    /// yet).
+    pub fn ahead(&self) -> ([RoomSlot; RING], usize) {
+        let mut out = [RoomSlot::default(); RING];
+        let mut n = 0;
+        for s in self.slots.iter().filter(|s| s.live && s.seq > self.room) {
+            out[n] = *s;
+            n += 1;
+        }
+        out[..n].sort_by_key(|s| s.seq);
+        (out, n)
+    }
+
+    /// The two roads of a branching fork, laid and not taken yet: (the high road's alley, the low road's room).
+    pub fn branches(&self) -> Option<(RoomSlot, RoomSlot)> {
+        let (a, n) = self.ahead();
+        (n >= 2 && a[0].x == a[1].x).then_some((a[0], a[1]))
+    }
+}
+
+/// The difficulty tier of room `seq` (R2b): one step every `RunRules::tier_rooms` rooms, up to the last tier.
+pub fn tier_of(rc: &RunContent, seq: u32) -> u8 {
+    let step = u32::from(rc.rules.tier_rooms.max(1));
+    let last = rc.tiers.len().saturating_sub(1).min(255) as u32;
+    (seq / step).min(last) as u8
+}
+
+/// The "city" room `seq` is in (until R6's journey: `RunRules::city_rooms` rooms each); at most one rare event in each.
+pub fn city_of(rc: &RunContent, seq: u32) -> u32 {
+    seq / u32::from(rc.rules.city_rooms.max(1))
 }
 
 /// The fighter the run is about (the one player).
@@ -627,6 +803,42 @@ pub fn for_each_ledge(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(Ledge)
     }
 }
 
+/// Every prop of a laid room that is there in its variant: its number, its spot and where it stands in the world.
+pub fn for_each_prop(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(usize, &PropSpot, Vec2)) {
+    let Some(room) = rc.rooms.get(usize::from(slot.room)) else {
+        return;
+    };
+    let frame = Frame::of(slot, room);
+    for (n, p) in room.props.iter().enumerate().take(ROOM_PROPS) {
+        if part_on(slot.parts, p.part) {
+            f(n, p, frame.point(Vec2::new(p.x, p.y)));
+        }
+    }
+}
+
+/// A grunt as a fighter of its body, for the game to draw it with the fighter rig and its clips (R2b): its state as a fighter's
+/// (attacking, guarding as a shield, a leaper's tell as a crouch, dazed as a broken shield, launched or bursting as hitstun), its
+/// move and the move's frame, its speeds, percent and guard. Presentation only: nothing in the sim reads it.
+pub fn grunt_fighter(world: &Content, rc: &RunContent, m: &Mob) -> Fighter {
+    let k = mobs::kind_of(rc, m);
+    let mut f = mobs::as_fighter(m, k);
+    match m.mode {
+        MODE_WINDUP if k.role == data::ROLE_LEAPER => f.state = S::Crouch,
+        MODE_DAZED => f.state = S::ShieldBreak,
+        MODE_BURST => f.state = S::Hitstun,
+        _ => {}
+    }
+    f.hitstun = m.hitstun;
+    f.hitlag = m.hitlag;
+    f.kb_vel = m.kb_vel;
+    f.percent = m.percent;
+    f.tumble = m.hitstun > 30 || m.mode == MODE_BURST;
+    if k.shield > Fx::ZERO {
+        f.shield_hp = world.rules.shield_max * m.shield / k.shield;
+    }
+    f
+}
+
 /// A shop room's door (feet), in the world.
 pub fn door_of(rc: &RunContent, slot: &RoomSlot) -> Option<Vec2> {
     let room = rc.rooms.get(usize::from(slot.room))?;
@@ -647,7 +859,9 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     run.rng = Rng::new(seed ^ 0x5255_4e5f_5345_4544);
     run.shop_due = draw_shop_due(&mut run, &rc.rules);
     run.room = 0;
-    while run.placed <= u32::from(rc.rules.rooms_ahead.max(1)) {
+    run.van.platform = NONE;
+    place_room(&mut run, rc);
+    while run.ahead().1 < usize::from(rc.rules.rooms_ahead.max(1)) {
         if !place_room(&mut run, rc) {
             break;
         }
@@ -671,6 +885,10 @@ pub fn new_run(world: &mut Content, rc: &RunContent, seed: u64, char_id: u8) -> 
     spawned.active = true;
     state.fighters[PLAYER] = spawned;
     state.run.last_stocks = spawned.stocks;
+    // The lobbers' shots are fired from a slot no one plays, standing for their body (a shot's numbers are its origin's weapon's).
+    if let Some(k) = rc.mobs.iter().find(|k| k.role == ROLE_LOBBER) {
+        state.fighters[SHOT_SLOT].char_id = k.body;
+    }
     spawn_mobs(&mut state.run, rc);
     state
 }
@@ -703,10 +921,12 @@ pub fn step_run(
         return;
     }
     crate::step(state, world, inputs);
+    mobs::van(state, world, rc);
     mobs::player_hits(state, world, rc);
+    props::update(state, world, rc);
     mobs::update(state, world, rc);
     mobs::attacks(state, world, rc);
-    mobs::keep_in_window(state, rc);
+    mobs::keep_in_window(state, world, rc);
     enter_rooms(state, rc);
     follow_camera(state, &rc.rules);
     if creeping(&rc.rules) {
@@ -861,18 +1081,22 @@ fn draw_shop_due(run: &mut Run, rules: &RunRules) -> u8 {
     lo + run.rng.range(u32::from(hi - lo) + 1) as u8
 }
 
-/// The next room's type: the first room is a street; a shop when one is due; else streets, arenas (never two in a row) and rest
-/// stops by the rules' weights. A type with no rooms in the content is never picked.
+/// The next room's type: the first room is a street; a shop when one is due; now and then the city's rare event (R2b,
+/// [`event_due`]); else streets, arenas (never two in a row) and rest stops by the rules' weights. A type with no rooms in the
+/// content is never picked.
 fn next_kind(run: &mut Run, rc: &RunContent) -> u8 {
     if run.placed == 0 {
         return ROOM_STREET;
     }
-    let has = |k: u8| rc.rooms.iter().any(|r| r.kind == k);
+    let has = |k: u8| rc.rooms.iter().any(|r| r.kind == k && !r.paired);
     run.since_shop = run.since_shop.saturating_add(1);
     if run.since_shop >= run.shop_due && has(ROOM_SHOP) {
         run.since_shop = 0;
         run.shop_due = draw_shop_due(run, &rc.rules);
         return ROOM_SHOP;
+    }
+    if event_due(run, rc) {
+        return ROOM_EVENT;
     }
     let r = &rc.rules;
     let weight = |k: u8| -> u32 {
@@ -903,16 +1127,45 @@ fn next_kind(run: &mut Run, rc: &RunContent) -> u8 {
     ROOM_STREET
 }
 
-/// The next room: the first one to begin with, then one of the chosen type, never the first room again nor the last room laid
-/// while another of that type will do. A street is a fork `fork_chance` percent of the time (when the content has forks).
+/// Whether the room being laid is the city's rare event (R2b, Punch Quest's egg): never before room `event_from`, at most one in
+/// each city, and otherwise `event_base` per mille plus `event_step` per mille for every room laid since the last one (the pity
+/// counter: rare, but never too rare).
+fn event_due(run: &mut Run, rc: &RunContent) -> bool {
+    let r = &rc.rules;
+    if run.placed < u32::from(r.event_from) || !rc.rooms.iter().any(|x| x.kind == ROOM_EVENT) {
+        return false;
+    }
+    let city = city_of(rc, run.placed) + 1;
+    if run.event_city == city {
+        return false;
+    }
+    let chance = u32::from(r.event_base) + u32::from(r.event_step) * u32::from(run.event_pity);
+    if run.rng.range(1000) < chance.min(1000) {
+        run.event_pity = 0;
+        run.event_city = city;
+        true
+    } else {
+        run.event_pity = run.event_pity.saturating_add(1);
+        false
+    }
+}
+
+/// The next room: the first one to begin with, then one of the chosen type from the pool of the room's difficulty tier (R2b:
+/// `Room::min_tier` to `max_tier`), never the first room again, never a room laid only as a fork's road (`Room::paired`), nor the
+/// last room laid while another of that type will do. A street is a fork `fork_chance` percent of the time (when the content has
+/// forks).
 fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
     let kind = next_kind(run, rc);
     if run.placed == 0 {
         return 0;
     }
+    let tier = tier_of(rc, run.placed);
     let count = rc.rooms.len().min(255);
-    let forks = (1..count).any(|i| rc.rooms[i].kind == kind && rc.rooms[i].fork);
-    let plain = (1..count).any(|i| rc.rooms[i].kind == kind && !rc.rooms[i].fork);
+    let usable = |i: usize| i != 0 && !rc.rooms[i].paired && rc.rooms[i].kind == kind;
+    let in_tier = |i: usize| rc.rooms[i].min_tier <= tier && tier <= rc.rooms[i].max_tier;
+    let pool = |i: usize| usable(i) && in_tier(i);
+    let forks = (1..count).any(|i| pool(i) && rc.rooms[i].fork);
+    let plain = (1..count).any(|i| pool(i) && !rc.rooms[i].fork);
     // (A street draws whether to fork; other types take any room of theirs.)
     let want_fork = if kind == ROOM_STREET && forks && plain {
         Some(run.rng.range(100) < u32::from(rc.rules.fork_chance))
@@ -920,16 +1173,16 @@ fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
         None
     };
     let last = usize::from(run.last_room);
-    let of_kind = |i: usize| i != 0 && rc.rooms[i].kind == kind;
     let forked = |i: usize| want_fork.is_none_or(|w| rc.rooms[i].fork == w);
-    // (The best choices first: the right type and fork-ness, not the last room laid; then letting go of the last room, then of
-    // the fork-ness; the start room only if nothing else has the type.)
-    let tiers: [&dyn Fn(usize) -> bool; 5] = [
-        &|i| of_kind(i) && forked(i) && i != last,
-        &|i| of_kind(i) && forked(i),
-        &|i| of_kind(i) && i != last,
-        &of_kind,
-        &|i| rc.rooms[i].kind == kind,
+    // (The best choices first: the right type, tier and fork-ness, not the last room laid; then letting go of the last room, the
+    // fork-ness and the tier; the start room only if nothing else has the type.)
+    let tiers: [&dyn Fn(usize) -> bool; 6] = [
+        &|i| pool(i) && forked(i) && i != last,
+        &|i| pool(i) && forked(i),
+        &|i| pool(i) && i != last,
+        &pool,
+        &usable,
+        &|i| rc.rooms[i].kind == kind && !rc.rooms[i].paired,
     ];
     let Some(fits) = tiers.into_iter().find(|t| (0..count).any(t)) else {
         return 0;
@@ -947,20 +1200,49 @@ fn next_room(run: &mut Run, rc: &RunContent) -> u8 {
     0
 }
 
-/// Lays the next room at `next_x` (its ground at `next_y`) in a free slot, drawing its variant (false if the ring is full).
+/// Lays the next room (false if there is no room for it in the ring, or none may come yet). After a branching fork its two roads
+/// come together, once the fork is the current room (the alley `Room::lift` higher, over the low road's room), and nothing is laid
+/// past them until the player takes one ([`enter_rooms`]).
 fn place_room(run: &mut Run, rc: &RunContent) -> bool {
-    if rc.rooms.is_empty() {
+    if rc.rooms.is_empty() || run.branches().is_some() {
         return false;
     }
+    let free = run.slots.iter().filter(|s| !s.live).count();
+    if let Some(last) = run
+        .slots
+        .iter()
+        .find(|s| s.live && s.seq.wrapping_add(1) == run.placed)
+        .copied()
+    {
+        let room = &rc.rooms[usize::from(last.room).min(rc.rooms.len() - 1)];
+        if room.branch_high != 0 {
+            if last.seq != run.room || free < 2 {
+                return false;
+            }
+            let (x, y) = (last.end, last.y_end);
+            place_slot(run, rc, room.branch_high, x, y + room.lift);
+            place_slot(run, rc, room.branch_low, x, y);
+            return true;
+        }
+    }
+    if free == 0 {
+        return false;
+    }
+    let id = next_room(run, rc);
+    place_slot(run, rc, id, run.next_x, run.next_y)
+}
+
+/// Lays room `id` at `(x0, y0)` (its left edge and its ground there) in a free slot, drawing its variant, its grunts (the budget,
+/// [`assign_kinds`]) and laying its pools, props and event.
+fn place_slot(run: &mut Run, rc: &RunContent, id: u8, x0: Fx, y0: Fx) -> bool {
     let Some(index) = run.slots.iter().position(|s| !s.live) else {
         return false;
     };
-    let id = next_room(run, rc);
-    let room = &rc.rooms[usize::from(id)];
+    let room = &rc.rooms[usize::from(id).min(rc.rooms.len() - 1)];
     // The variant: mirrored (never leaving the drift band if the other way keeps inside it), the optional parts, the pieces.
     let mut mirror = room.mirror && run.rng.range(2) == 1;
     let drift = rc.rules.drift;
-    if room.mirror && (run.next_y + room_exit(room, mirror)).abs() > drift {
+    if room.mirror && (y0 + room_exit(room, mirror)).abs() > drift {
         mirror = !mirror;
     }
     let mut parts = 0u8;
@@ -991,19 +1273,11 @@ fn place_room(run: &mut Run, rc: &RunContent) -> bool {
             pieces[n] = (i + 1) as u8;
         }
     }
-    // Spawn markers not in this variant count as spawned.
-    let mut spawned = 0u8;
-    for (j, s) in room.spawns.iter().enumerate().take(ROOM_SPAWNS) {
-        if !part_on(parts, s.part) {
-            spawned |= 1 << j;
-        }
-    }
-    let x0 = run.next_x;
-    let y0 = run.next_y;
-    let slot = RoomSlot {
+    let seq = run.placed;
+    let mut slot = RoomSlot {
         live: true,
         room: id,
-        seq: run.placed,
+        seq,
         x: x0,
         end: x0 + room.width,
         y: y0,
@@ -1011,9 +1285,18 @@ fn place_room(run: &mut Run, rc: &RunContent) -> bool {
         mirror,
         parts,
         pieces,
-        spawned,
+        spawned: 0,
         coins: 0,
+        kinds: [SPOT_ANY; ROOM_SPAWNS],
+        tier: tier_of(rc, seq),
     };
+    // Its grunts: the budget fills the spots; a spot left empty (or not in this variant) counts as spawned.
+    slot.kinds = assign_kinds(run, rc, &slot);
+    for j in 0..ROOM_SPAWNS {
+        if slot.kinds[j] == SPOT_ANY {
+            slot.spawned |= 1 << j;
+        }
+    }
     run.slots[index] = slot;
     let platforms = &mut run.platforms;
     for_each_footing(rc, &slot, |placed| {
@@ -1026,6 +1309,7 @@ fn place_room(run: &mut Run, rc: &RunContent) -> bool {
             bottom: p.bottom,
             pass_through: p.pass_through,
             rise: p.rise,
+            seq,
         };
         // Flat solid ground carrying on from the last room at the same height is the same block, longer.
         let joined = platforms.iter_mut().find(|e| {
@@ -1055,12 +1339,50 @@ fn place_room(run: &mut Run, rc: &RunContent) -> bool {
                 x: l.x,
                 y: l.y,
                 side: l.side,
+                seq,
             };
         }
     });
+    let props = &mut run.props;
+    for_each_prop(rc, &slot, |_, spot, at| {
+        if let Some(p) = props.iter_mut().find(|p| !p.active) {
+            *p = Prop {
+                active: true,
+                kind: spot.kind,
+                room: seq,
+                pos: at,
+                ..Prop::default()
+            };
+        }
+    });
+    // The runaway van waits at its mark, its roof a pass-through platform in the pool (moved as it drives).
+    if room.event == EVENT_VAN {
+        let at = Frame::of(&slot, room).point(room.door);
+        if let Some(i) = run.platforms.iter().position(|e| !e.live) {
+            run.platforms[i] = PoolPlatform {
+                live: true,
+                left: at.x - VAN_HALF,
+                right: at.x + VAN_HALF,
+                y: at.y + VAN_HEIGHT,
+                bottom: at.y + VAN_HEIGHT,
+                pass_through: true,
+                rise: Fx::ZERO,
+                seq,
+            };
+            run.van = Van {
+                mode: VAN_WAITING,
+                room: seq,
+                x: at.x,
+                y: at.y,
+                platform: i as i8,
+                ..Van::default()
+            };
+        }
+    }
     run.last_room = id;
     run.last_kind = room.kind;
     run.kinds_log = run.kinds_log << 4 | u64::from(room.kind & 7 | u8::from(room.fork) << 3);
+    run.skipped_log <<= 1;
     run.placed = run.placed.wrapping_add(1);
     run.next_x = slot.end;
     run.next_y = slot.y_end;
@@ -1068,15 +1390,154 @@ fn place_room(run: &mut Run, rc: &RunContent) -> bool {
     true
 }
 
-/// Drops the rooms more than `rooms_behind` behind the current one: their platforms (ground joined across the seam is trimmed to
-/// the new wall), ledges and mobs go, and the left wall moves to the oldest room kept.
-fn drop_behind(state: &mut GameState, rules: &RunRules) {
+/// A room's grunts (R2b, Dead Cells' budget): its tier's budget (`Tier::budget` points for every 16 units of its width; an arena
+/// `RunRules::arena_budget` percent of that) is spent on its spawn spots, taken in a seeded order, each given a kind its tier allows
+/// whose cost still fits and whose placement rules the spot meets: high ground for `PLACE_HIGH`, a flat platform at least
+/// `flat_room` wide for `PLACE_FLAT`, a platform no other `PLACE_ALONE` grunt stands on for `PLACE_ALONE`. A spot inside a piece
+/// laid over it, or with nothing under it in this variant, stays empty. An arena always gets at least one grunt. A spot naming a kind
+/// keeps it.
+pub fn assign_kinds(run: &mut Run, rc: &RunContent, slot: &RoomSlot) -> [u8; ROOM_SPAWNS] {
+    let mut kinds = [SPOT_ANY; ROOM_SPAWNS];
+    let room = &rc.rooms[usize::from(slot.room).min(rc.rooms.len() - 1)];
+    let Some(tier) = rc.tiers.get(usize::from(slot.tier)) else {
+        return kinds;
+    };
+    let rules = &rc.rules;
+    let mut feet: Vec<Platform> = Vec::new();
+    for_each_footing(rc, slot, |p| feet.push(p.platform));
+    let lowest = feet
+        .iter()
+        .filter(|p| !p.pass_through)
+        .map(|p| p.y.min(p.top_right()))
+        .min()
+        .unwrap_or(slot.y);
+    let frame = Frame::of(slot, room);
+    let n = room.spawns.len().min(ROOM_SPAWNS);
+    // (A seeded order: Fisher-Yates on the run's generator.)
+    let mut order = [0usize; ROOM_SPAWNS];
+    for (i, o) in order.iter_mut().enumerate() {
+        *o = i;
+    }
+    for i in (1..n).rev() {
+        let j = run.rng.range(i as u32 + 1) as usize;
+        order.swap(i, j);
+    }
+    let mut budget =
+        (room.width * Fx::from_int(i32::from(tier.budget)) / Fx::from_int(16)).floor_int();
+    if room.kind == ROOM_ARENA {
+        budget = budget * i32::from(rules.arena_budget) / 100;
+    }
+    // The spots that can hold a grunt: (spot, its footing, high ground, flat room).
+    let mut spots: [(usize, usize, bool, bool); ROOM_SPAWNS] = [(0, 0, false, false); ROOM_SPAWNS];
+    let mut count = 0;
+    for &j in &order[..n] {
+        let s = room.spawns[j];
+        if !part_on(slot.parts, s.part) {
+            continue;
+        }
+        let pos = frame.point(Vec2::new(s.x, s.y));
+        let support = feet
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| {
+                pos.x >= p.left && pos.x <= p.right && (p.top_at(pos.x) - pos.y).abs() <= Fx::HALF
+            })
+            .max_by_key(|(_, p)| p.top_at(pos.x))
+            .map(|(i, _)| i);
+        let Some(si) = support else {
+            continue;
+        };
+        let buried = feet.iter().any(|p| {
+            !p.pass_through
+                && pos.x > p.left
+                && pos.x < p.right
+                && p.top_at(pos.x) > pos.y + Fx::HALF
+        });
+        if buried {
+            continue;
+        }
+        if s.kind != SPOT_ANY {
+            kinds[j] = s.kind;
+            continue;
+        }
+        let sp = feet[si];
+        let high = pos.y - lowest >= rules.high_ground;
+        let flat = !sp.sloped() && sp.right - sp.left >= rules.flat_room;
+        spots[count] = (j, si, high, flat);
+        count += 1;
+    }
+    let mut alone_on = 0u32;
+    let fits =
+        |k: usize, budget: i32, (_, si, high, flat): (usize, usize, bool, bool), alone_on: u32| {
+            let m = &rc.mobs[k];
+            k < 8
+                && tier.kinds & (1 << k) != 0
+                && m.min_tier <= slot.tier
+                && m.odds > 0
+                && i32::from(m.cost) <= budget
+                && (m.place & PLACE_HIGH == 0 || high)
+                && (m.place & PLACE_FLAT == 0 || flat)
+                && (m.place & PLACE_ALONE == 0 || alone_on & (1 << si.min(31)) == 0)
+        };
+    let mut any = false;
+    for &spot in &spots[..count] {
+        let total: u32 = (0..rc.mobs.len())
+            .filter(|&k| fits(k, budget, spot, alone_on))
+            .map(|k| u32::from(rc.mobs[k].odds))
+            .sum();
+        if total == 0 {
+            continue;
+        }
+        let mut roll = run.rng.range(total);
+        for k in 0..rc.mobs.len() {
+            if !fits(k, budget, spot, alone_on) {
+                continue;
+            }
+            let w = u32::from(rc.mobs[k].odds);
+            if roll < w {
+                let m = &rc.mobs[k];
+                kinds[spot.0] = k as u8;
+                budget -= i32::from(m.cost);
+                if m.place & PLACE_ALONE != 0 {
+                    alone_on |= 1 << spot.1.min(31);
+                }
+                any = true;
+                break;
+            }
+            roll -= w;
+        }
+    }
+    // An arena needs something to beat: the cheapest kind that fits the first spot that takes one.
+    if room.kind == ROOM_ARENA && !any && kinds.iter().all(|&k| k == SPOT_ANY) {
+        'found: for &spot in &spots[..count] {
+            let cheapest = (0..rc.mobs.len())
+                .filter(|&k| fits(k, i32::MAX, spot, alone_on))
+                .min_by_key(|&k| rc.mobs[k].cost);
+            if let Some(k) = cheapest {
+                kinds[spot.0] = k as u8;
+                break 'found;
+            }
+        }
+    }
+    kinds
+}
+
+/// Drops the rooms more than `behind` behind the current one: their platforms (ground joined across the seam is trimmed to the new
+/// wall), ledges, mobs and props go, and the left wall moves to the oldest room kept.
+fn drop_behind(state: &mut GameState, behind: u8) {
     let run = &mut state.run;
-    let keep_from = run.room.saturating_sub(u32::from(rules.rooms_behind));
+    // (The `behind` nearest rooms behind are kept: a road not taken left a gap in the numbers.)
+    let room = run.room;
     let mut dropped = false;
-    for s in run.slots.iter_mut() {
-        if s.live && s.seq < keep_from {
-            s.live = false;
+    for i in 0..RING {
+        let s = run.slots[i];
+        let nearer = run
+            .slots
+            .iter()
+            .filter(|o| o.live && o.seq < room && o.seq > s.seq)
+            .count();
+        if s.live && s.seq < room && nearer >= usize::from(behind) {
+            run.slots[i].live = false;
             dropped = true;
         }
     }
@@ -1121,12 +1582,62 @@ fn drop_behind(state: &mut GameState, rules: &RunRules) {
             m.platform = NONE;
         }
     }
+    for p in run.props.iter_mut().filter(|p| p.active) {
+        if run.slots.iter().all(|s| !s.live || s.seq != p.room) {
+            p.active = false;
+        }
+    }
+    if run.van.mode != VAN_NONE && run.slots.iter().all(|s| !s.live || s.seq != run.van.room) {
+        run.van = Van::default();
+        run.van.platform = NONE;
+    }
     run.floor_x = run.floor_x.max(wall);
     run.layout = run.layout.wrapping_add(1);
 }
 
+/// Drops the road of a branching fork the player did not take: the room, everything it laid in the pools (by `seq`), its mobs and
+/// props. It is marked on the map as skipped.
+fn drop_road(state: &mut GameState, seq: u32) {
+    let run = &mut state.run;
+    for s in run.slots.iter_mut() {
+        if s.live && s.seq == seq {
+            s.live = false;
+        }
+    }
+    for (i, p) in run.platforms.iter_mut().enumerate() {
+        let stood_on = state
+            .fighters
+            .iter()
+            .any(|f| f.active && f.platform == i as i8);
+        if p.live && p.seq == seq && !stood_on {
+            *p = PoolPlatform::default();
+        }
+    }
+    for (i, l) in run.ledges.iter_mut().enumerate() {
+        if l.live && l.seq == seq && state.ledge_owner[i] == NONE {
+            *l = PoolLedge::default();
+        }
+    }
+    for m in run.mobs.iter_mut().filter(|m| m.active) {
+        if m.room == seq {
+            m.active = false;
+        } else if usize::try_from(m.platform).is_ok_and(|i| !run.platforms[i].live) {
+            m.platform = NONE;
+        }
+    }
+    for p in run.props.iter_mut().filter(|p| p.active && p.room == seq) {
+        p.active = false;
+    }
+    if let Some(back) = run.placed.checked_sub(seq + 1).filter(|&b| b < 16) {
+        run.skipped_log |= 1 << back;
+    }
+    run.layout = run.layout.wrapping_add(1);
+}
+
 /// The player walking into the next room makes it the current one: the oldest room behind is dropped, the next one ahead laid, and
-/// the room does what its type does (an arena shuts its gate and wakes its mobs, a rest stop heals).
+/// the room does what its type does (an arena shuts its gate and wakes its mobs, a rest stop heals). At a branching fork's end the
+/// road the player walks out on decides (R2b): above the middle of the two roads it is the high road's alley, else the low road's
+/// room; the other is dropped at once.
 fn enter_rooms(state: &mut GameState, rc: &RunContent) {
     let f = state.fighters[PLAYER];
     if !f.active || f.state == S::Respawn {
@@ -1134,20 +1645,41 @@ fn enter_rooms(state: &mut GameState, rc: &RunContent) {
     }
     let rules = &rc.rules;
     while !state.run.gate_closed {
-        let Some(next) = state.run.slot_of(state.run.room.wrapping_add(1)).copied() else {
-            return;
-        };
-        if f.pos.x < next.x + rules.enter_depth {
+        let (ahead, n) = state.run.ahead();
+        if n == 0 {
             return;
         }
+        if f.pos.x < ahead[0].x + rules.enter_depth {
+            return;
+        }
+        let next = if let Some((high, low)) = state.run.branches() {
+            let middle = (high.y + low.y) / Fx::from_int(2);
+            let (take, other) = if f.pos.y >= middle {
+                (high, low)
+            } else {
+                (low, high)
+            };
+            drop_road(state, other.seq);
+            state.run.next_x = take.end;
+            state.run.next_y = take.y_end;
+            take
+        } else {
+            ahead[0]
+        };
         state.run.room = next.seq;
-        drop_behind(state, rules);
-        while state.run.placed <= state.run.room + u32::from(rules.rooms_ahead.max(1)) {
+        let room = &rc.rooms[usize::from(next.room).min(rc.rooms.len() - 1)];
+        // (At a branching fork both roads come next: the ring keeps one room fewer behind for them.)
+        let behind = if room.branch_high != 0 {
+            rules.rooms_behind.min((RING - 3) as u8)
+        } else {
+            rules.rooms_behind
+        };
+        drop_behind(state, behind);
+        while state.run.ahead().1 < usize::from(rules.rooms_ahead.max(1)) {
             if !place_room(&mut state.run, rc) {
                 break;
             }
         }
-        let room = &rc.rooms[usize::from(next.room).min(rc.rooms.len() - 1)];
         match room.kind {
             ROOM_ARENA => {
                 let run = &mut state.run;
@@ -1197,24 +1729,23 @@ fn check_arena(state: &mut GameState, rc: &RunContent) {
     }
 }
 
-/// Mobs from the spawn markers that have come within `spawn_ahead` of the view's right edge, in the current room and those before it,
-/// and in the room ahead unless an arena's gate is shut before it.
+/// Mobs from the spawn spots that have come within `spawn_ahead` of the view's right edge, in the current room and those before it,
+/// and in the room ahead unless an arena's gate is shut before it or it is one of a fork's two roads not taken yet.
 fn spawn_mobs(run: &mut Run, rc: &RunContent) {
     let reach = run.cam_x + rc.rules.view_width + rc.rules.spawn_ahead;
+    let (ahead, n) = run.ahead();
+    let next = (n >= 1 && run.branches().is_none() && !run.gate_closed).then_some(ahead[0].seq);
     for s in 0..RING {
         let slot = run.slots[s];
-        if !slot.live || slot.seq > run.room.wrapping_add(1) {
-            continue;
-        }
-        if slot.seq > run.room && run.gate_closed {
+        if !slot.live || slot.seq > run.room && Some(slot.seq) != next {
             continue;
         }
         spawn_slot(run, rc, slot.seq, Some(reach));
     }
 }
 
-/// Spawns room `seq`'s markers not yet spawned (those left of `reach`, or all). A mob comes out of its door or stairwell first
-/// (`emerge_frames`); a walker stands on the ground under its marker.
+/// Spawns room `seq`'s spots not yet spawned (those left of `reach`, or all), each the kind the budget gave it, its stamina by the
+/// room's tier. A grunt comes out of its door or stairwell first (`emerge_frames`), standing on the ground under its spot.
 fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
     let Some(s) = run.slots.iter().position(|s| s.live && s.seq == seq) else {
         return;
@@ -1229,42 +1760,47 @@ fn spawn_slot(run: &mut Run, rc: &RunContent, seq: u32, reach: Option<Fx>) {
             continue;
         }
         run.slots[s].spawned |= bit;
-        let Some(kind) = rc.mobs.get(usize::from(marker.kind)) else {
+        let kind_id = slot.kinds[j];
+        let Some(kind) = rc.mobs.get(usize::from(kind_id)) else {
             continue;
         };
         let Some(m) = run.mobs.iter().position(|m| !m.active) else {
             continue;
         };
         let mut pos = pos;
-        // (A walker's floor: the highest pool entry under its marker, within half a unit.)
+        // (Its floor: the highest pool entry under its spot, within half a unit.)
         let mut platform = NONE;
-        if kind.behavior == MOB_WALKER {
-            let mut best: Option<(usize, Fx)> = None;
-            for (i, p) in run.platforms.iter().enumerate() {
-                if !p.live || pos.x < p.left || pos.x > p.right {
-                    continue;
-                }
-                let top = p.platform().top_at(pos.x);
-                if (top - pos.y).abs() <= Fx::HALF && best.is_none_or(|(_, b)| top > b) {
-                    best = Some((i, top));
-                }
+        let mut best: Option<(usize, Fx)> = None;
+        for (i, p) in run.platforms.iter().enumerate() {
+            if !p.live || pos.x < p.left || pos.x > p.right {
+                continue;
             }
-            if let Some((i, top)) = best {
-                platform = i as i8;
-                pos.y = top;
+            let top = p.platform().top_at(pos.x);
+            if (top - pos.y).abs() <= Fx::HALF && best.is_none_or(|(_, b)| top > b) {
+                best = Some((i, top));
             }
         }
+        if let Some((i, top)) = best {
+            platform = i as i8;
+            pos.y = top;
+        }
+        let tough = rc
+            .tiers
+            .get(usize::from(slot.tier))
+            .map_or(100, |t| i32::from(t.stamina));
         let emerge = rc.rules.emerge_frames;
         run.mobs[m] = Mob {
             active: true,
-            kind: marker.kind,
+            kind: kind_id,
             mode: if emerge > 0 { MODE_EMERGE } else { MODE_IDLE },
             timer: u16::from(emerge),
             pos,
             facing: -1,
             platform,
-            stamina: kind.stamina,
+            stamina: kind.stamina * Fx::from_int(tough) / Fx::from_int(100),
             room: seq,
+            shield: kind.shield,
+            tier: slot.tier,
             ..Mob::default()
         };
     }
@@ -1528,12 +2064,19 @@ fn shop_step(state: &mut GameState, world: &mut Content, rc: &RunContent, input:
         run.keeper_mood = KEEPER_DIZZY;
         run.keeper_timer = shop.dizzy_frames;
         run.keeper_bonks = run.keeper_bonks.saturating_add(1);
+        // (R2b: then it sulks, and sells nothing until it is over.)
+        run.keeper_sulk = shop.sulk_frames.max(shop.dizzy_frames);
     }
     let run = &mut state.run;
+    run.keeper_sulk = run.keeper_sulk.saturating_sub(1);
     if run.keeper_timer > 0 {
         run.keeper_timer -= 1;
         if run.keeper_timer == 0 {
-            run.keeper_mood = KEEPER_IDLE;
+            (run.keeper_mood, run.keeper_timer) = if run.keeper_sulk > 0 {
+                (KEEPER_HMPH, run.keeper_sulk)
+            } else {
+                (KEEPER_IDLE, 0)
+            };
         }
     }
     let f = state.fighters[PLAYER];
@@ -1551,7 +2094,7 @@ fn shop_step(state: &mut GameState, world: &mut Content, rc: &RunContent, input:
         Some(Some(i)) => {
             let note = buy(state, rc, i);
             let run = &mut state.run;
-            if run.keeper_mood != KEEPER_DIZZY {
+            if run.keeper_mood != KEEPER_DIZZY && run.keeper_mood != KEEPER_HMPH {
                 (run.keeper_mood, run.keeper_timer) = if note == NOTE_BOUGHT {
                     (KEEPER_CHEER, shop.cheer_frames)
                 } else {
@@ -1571,7 +2114,9 @@ pub fn buy(state: &mut GameState, rc: &RunContent, i: usize) -> u8 {
     let note = {
         let run = &state.run;
         let f = &state.fighters[PLAYER];
-        if item.limit > 0 && run.shop_bought[i] >= item.limit {
+        if run.keeper_sulk > 0 {
+            NOTE_REFUSED
+        } else if item.limit > 0 && run.shop_bought[i] >= item.limit {
             NOTE_SOLD_OUT
         } else if run.coins < u32::from(item.price) {
             NOTE_TOO_POOR
@@ -1625,10 +2170,15 @@ impl StateHash for Mob {
         h.write_u8(self.hit_groups);
         h.write_u16(self.hit_age);
         h.write_u16(self.shot_mask);
-        h.write_bool(self.struck);
+        h.write_u8(self.struck);
         h.write_u16(self.credit);
         self.target.hash_into(h);
         h.write_u32(self.room);
+        h.write_u8(self.move_slot);
+        h.write_u16(self.frame);
+        self.shield.hash_into(h);
+        h.write_u16(self.aux);
+        h.write_u8(self.tier);
     }
 }
 
@@ -1669,6 +2219,10 @@ impl StateHash for Run {
             }
             h.write_u8(s.spawned);
             h.write_u32(s.coins);
+            for k in s.kinds {
+                h.write_u8(k);
+            }
+            h.write_u8(s.tier);
         }
         for p in &self.platforms {
             h.write_bool(p.live);
@@ -1678,12 +2232,14 @@ impl StateHash for Run {
             p.bottom.hash_into(h);
             h.write_bool(p.pass_through);
             p.rise.hash_into(h);
+            h.write_u32(p.seq);
         }
         for l in &self.ledges {
             h.write_bool(l.live);
             l.x.hash_into(h);
             l.y.hash_into(h);
             h.write_i8(l.side);
+            h.write_u32(l.seq);
         }
         h.write_u32(self.layout);
         for m in &self.mobs {
@@ -1708,5 +2264,31 @@ impl StateHash for Run {
         h.write_i8(self.keeper_look);
         h.write_u16(self.keeper_bonks);
         h.write_i8(self.prev_stick_y);
+        h.write_u16(self.keeper_sulk);
+        for p in &self.props {
+            h.write_bool(p.active);
+            h.write_u8(p.kind);
+            h.write_u32(p.room);
+            h.write_u8(p.mode);
+            h.write_u16(p.timer);
+            p.pos.hash_into(h);
+            p.vel.hash_into(h);
+            h.write_u16(p.hit_mobs);
+            h.write_bool(p.hit_player);
+        }
+        h.write_u16(self.chests);
+        h.write_u16(self.event_pity);
+        h.write_u32(self.event_city);
+        let v = &self.van;
+        h.write_u8(v.mode);
+        h.write_u32(v.room);
+        v.x.hash_into(h);
+        v.y.hash_into(h);
+        v.speed.hash_into(h);
+        h.write_u16(v.timer);
+        h.write_i8(v.platform);
+        h.write_bool(v.riding);
+        h.write_u16(v.hits);
+        h.write_u16(self.skipped_log);
     }
 }

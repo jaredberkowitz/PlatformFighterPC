@@ -18,8 +18,9 @@ use sim_content::recipe::{match_content_on, FighterSpec};
 use sim_content::stages;
 use sim_core::input::buttons;
 use sim_core::run::{
-    door_here, door_of, for_each_coin, for_each_footing, new_run, shop_spot, step_run, RunContent,
-    INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE,
+    door_here, door_of, for_each_coin, for_each_footing, grunt_fighter, new_run, shop_spot,
+    step_run, tier_of, Mob, RunContent, INTERIOR_X, LOOK_NAMES, MAX_MOBS, MODE_EMERGE, MODE_MOVE,
+    MODE_WINDUP,
 };
 use sim_core::state::PLAYING;
 use sim_core::{step, Content, Fx, GameState, Input, MatchRules, Vec2, MAX_FIGHTERS, SIM_VERSION};
@@ -200,6 +201,19 @@ pub struct SimRunner {
     /// The single-player run (sim 120), while one is set up: its content, and the fighter (in `content`) that plays it. `tick` steps
     /// the run then, and `content.stage` is the run's streamed stage.
     run: Option<(RunContent, u8)>,
+    /// The run's grunts as fighters of their bodies (`run::grunt_fighter`), refreshed after every run step: the view draws grunt `n`
+    /// as fighter `GRUNT_BASE + n` with the fighter rig, through the same `fighter_*` calls.
+    grunts: [sim_core::Fighter; MAX_MOBS],
+}
+
+/// Fighter indices from here on are the run's grunts (`SimRunner::grunts`).
+const GRUNT_BASE: i32 = 100;
+
+/// An empty grunt slot, as a fighter.
+fn no_grunt() -> sim_core::Fighter {
+    let mut f = sim_core::Fighter::spawn(Vec2::ZERO, 0, 1, sim_core::state::NONE, 0, Fx::ZERO);
+    f.active = false;
+    f
 }
 
 impl SimRunner {
@@ -430,6 +444,7 @@ impl INode for SimRunner {
             group_log: Vec::new(),
             quick: None,
             run: None,
+            grunts: [no_grunt(); MAX_MOBS],
         }
     }
 }
@@ -824,6 +839,7 @@ impl SimRunner {
         }
         if let Some((rc, _)) = &self.run {
             step_run(&mut self.state, &mut self.content, rc, &self.inputs);
+            self.refresh_grunts();
             return;
         }
         step(&mut self.state, &self.content, &self.inputs);
@@ -868,9 +884,11 @@ impl SimRunner {
             return false;
         };
         let run = &mut self.state.run;
-        let Some(next) = run.slot_of(run.room + 1).copied() else {
+        let (ahead, n) = run.ahead();
+        if n == 0 {
             return false;
-        };
+        }
+        let next = ahead[n - 1];
         let target = next.seq;
         run.cam_x = (next.x - rc.rules.view_width * rc.rules.follow).max(run.wall_x);
         for m in run.mobs.iter_mut() {
@@ -890,7 +908,59 @@ impl SimRunner {
         self.recorder = None;
         let inputs = [Input::default(); MAX_FIGHTERS];
         step_run(&mut self.state, &mut self.content, rc, &inputs);
+        self.refresh_grunts();
         self.state.run.room == target
+    }
+
+    /// Debug (tests and photographs): a grunt of `kind` awake on the ground `dx` from the player (facing them), its tell begun when
+    /// `telling`. Returns its slot, or -1.
+    #[func]
+    fn run_debug_grunt(&mut self, kind: i32, dx: f32, telling: bool) -> i32 {
+        let Some((rc, _)) = &self.run else {
+            return -1;
+        };
+        let Some(k) = usize::try_from(kind).ok().and_then(|k| rc.mobs.get(k)) else {
+            return -1;
+        };
+        sim_core::run::build_stage(&self.state.run, rc, &mut self.content.stage);
+        let f = self.state.fighters[0];
+        let x = f.pos.x + Fx::from_int((dx * 10.0) as i32) / Fx::from_int(10);
+        let probe = Vec2::new(x, f.pos.y + Fx::from_int(8));
+        let Some((plat, d)) = sim_core::collision::surface_below(&self.content.stage, probe, false)
+        else {
+            return -1;
+        };
+        let Some(slot) = self.state.run.mobs.iter().position(|m| !m.active) else {
+            return -1;
+        };
+        let tier = tier_of(rc, self.state.run.room);
+        self.state.run.mobs[slot] = Mob {
+            active: true,
+            kind: kind as u8,
+            mode: if telling { MODE_WINDUP } else { MODE_MOVE },
+            timer: if telling { 600 } else { 0 },
+            pos: Vec2::new(x, probe.y - d),
+            facing: if x > f.pos.x { -1 } else { 1 },
+            platform: plat as i8,
+            stamina: k.stamina,
+            shield: k.shield,
+            room: self.state.run.room,
+            tier,
+            move_slot: 0,
+            ..Mob::default()
+        };
+        self.recorder = None;
+        self.refresh_grunts();
+        slot as i32
+    }
+
+    /// Debug (tests and photographs): the next rooms laid make the city's rare event come at once (the pity counter maxed out).
+    #[func]
+    fn run_debug_force_event(&mut self) {
+        let run = &mut self.state.run;
+        run.event_pity = 1000;
+        run.event_city = 0;
+        self.recorder = None;
     }
 
     /// Debug (tests and screenshots): if a shop is in play, stands the fighter at its door and presses up, so it walks in. Returns
@@ -922,6 +992,7 @@ impl SimRunner {
         let mut inputs = [Input::default(); MAX_FIGHTERS];
         inputs[0].stick_y = 127;
         step_run(&mut self.state, &mut self.content, rc, &inputs);
+        self.refresh_grunts();
         self.state.run.inside
     }
 
@@ -2520,6 +2591,7 @@ impl SimRunner {
             return false;
         };
         self.state = new_run(&mut self.content, rc, seed as u64, *char_id);
+        self.refresh_grunts_now();
         self.inputs = [Input::default(); MAX_FIGHTERS];
         self.history.clear();
         self.recorder = None;
@@ -2533,7 +2605,9 @@ impl SimRunner {
 
     /// `[over, metres, coins, kills, combo, best combo, coin multiplier, lives, current room (its number), layout, current room's
     /// type, arena gate shut (0/1), arenas cleared, inside the shop (0/1), at a shop's door (0/1), coins picked up, current room is a
-    /// fork (0/1)]` (layout changes whenever the stage or its walls do). Room types: 0 street, 1 arena, 2 shop, 3 rest.
+    /// fork (0/1), its difficulty tier, chests opened, riding the van (0/1), the van's mode (0 none, 1 waiting, 2 driving, 3 parked),
+    /// a branching fork's two roads ahead (0/1)]` (layout changes whenever the stage or its walls do). Room types: 0 street, 1 arena,
+    /// 2 shop, 3 rest, 4 event, 5 alley.
     #[func]
     fn run_info(&self) -> PackedInt32Array {
         let r = &self.state.run;
@@ -2561,6 +2635,13 @@ impl SimRunner {
                 .map_or(0, |(rc, _)| i32::from(door_here(&self.state, rc).is_some())),
             i32::from(r.coins_picked),
             i32::from(r.fork_of(r.room).unwrap_or(false)),
+            self.run
+                .as_ref()
+                .map_or(0, |(rc, _)| i32::from(tier_of(rc, r.room))),
+            i32::from(r.chests),
+            i32::from(r.van.riding),
+            i32::from(r.van.mode),
+            i32::from(r.branches().is_some()),
         ];
         PackedInt32Array::from(v.as_slice())
     }
@@ -2673,18 +2754,20 @@ impl SimRunner {
         PackedFloat32Array::from(v.as_slice())
     }
 
-    /// Every mob slot, 12 numbers each: `[active, kind, behavior (0 walker, 1 flyer), x, y, facing, mode, hitlag, hitstun, stamina
-    /// left (0..1), percent, radius]`. Modes: 0 idle, 1 moving, 2 winding up, 3 attacking, 4 cooling down, 5 bursting, 6 coming out
-    /// of its door (`hitstun` then holds the frames of it left).
+    /// Every grunt slot, `RUN_MOB_STRIDE` (17) numbers each: `[active, kind, role (0 brawler, 1 leaper, 2 shieldbearer, 3 spearman,
+    /// 4 lobber, 5 bruiser), x, y, facing, mode, hitlag, stun, stamina left (0..1), percent, half width, height, body (its roster
+    /// fighter), guard left (0..1; -1 no guard), tier, tell (frames of warning left, while telling; else 0)]`. Modes: 0 idle, 1
+    /// moving, 2 telling, 3 attacking, 4 cooling down, 5 bursting, 6 coming out of its door (`stun` then holds the frames of it left),
+    /// 7 guarding, 8 dazed, 9 leaping. Grunt `n` is drawn as fighter `100 + n` (the `fighter_*` calls).
     #[func]
     fn run_mobs(&self) -> PackedFloat32Array {
-        let mut v = Vec::with_capacity(MAX_MOBS * 12);
+        let mut v = Vec::with_capacity(MAX_MOBS * 17);
         let kinds = self.run.as_ref().map(|(rc, _)| &rc.mobs);
         for m in &self.state.run.mobs {
             let k = kinds.and_then(|k| k.get(usize::from(m.kind)));
             let full = k.map_or(Fx::ONE, |k| k.stamina);
             let left = if full > Fx::ZERO {
-                f(m.stamina.max(Fx::ZERO) / full)
+                f((m.stamina.max(Fx::ZERO) / full).min(Fx::ONE))
             } else {
                 1.0
             };
@@ -2693,10 +2776,14 @@ impl SimRunner {
             } else {
                 m.hitstun
             };
+            let body = k.and_then(|k| self.content.fighters.get(usize::from(k.body)));
+            let guard = k
+                .filter(|k| k.shield > Fx::ZERO)
+                .map_or(-1.0, |k| f(m.shield.max(Fx::ZERO) / k.shield));
             v.extend_from_slice(&[
                 if m.active { 1.0 } else { 0.0 },
                 f32::from(m.kind),
-                f32::from(k.map_or(0, |k| k.behavior)),
+                f32::from(k.map_or(0, |k| k.role)),
                 f(m.pos.x),
                 f(m.pos.y),
                 f32::from(m.facing),
@@ -2705,10 +2792,87 @@ impl SimRunner {
                 f32::from(stun.min(999)),
                 left,
                 f(m.percent),
-                f(k.map_or(Fx::HALF, |k| k.radius)),
+                f(body.map_or(Fx::HALF, |b| b.ecb_half_width)),
+                f(body.map_or(Fx::from_int(2), |b| b.ecb_height)),
+                f32::from(k.map_or(0, |k| k.body)),
+                guard,
+                f32::from(m.tier),
+                if m.mode == MODE_WINDUP {
+                    f32::from(m.timer.min(999))
+                } else {
+                    0.0
+                },
             ]);
         }
         PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// The grunt kinds, five numbers each: `[role, body (roster fighter), class (its body's moveset), cost, first tier]`.
+    #[func]
+    fn run_kinds(&self) -> PackedInt32Array {
+        let mut v = Vec::new();
+        if let Some((rc, _)) = &self.run {
+            for k in &rc.mobs {
+                let class = self
+                    .content
+                    .fighters
+                    .get(usize::from(k.body))
+                    .map_or(0, |b| i32::from(b.weapon));
+                v.extend_from_slice(&[
+                    i32::from(k.role),
+                    i32::from(k.body),
+                    class,
+                    i32::from(k.cost),
+                    i32::from(k.min_tier),
+                ]);
+            }
+        }
+        PackedInt32Array::from(v.as_slice())
+    }
+
+    /// The props in play (hazards and chests), nine numbers each: `[slot, kind, role (0 gas canister, 1 loose sign, 2 chest), x, y
+    /// (a sign: where it hangs from; the others: their base), mode (0 ready, 1 burning, 2 bursting, 3 falling, 4 broken, 5 open),
+    /// frames left in it, half width, height]`.
+    #[func]
+    fn run_props(&self) -> PackedFloat32Array {
+        let mut v = Vec::new();
+        if let Some((rc, _)) = &self.run {
+            for (i, p) in self.state.run.props.iter().enumerate() {
+                let Some(k) = rc.props.get(usize::from(p.kind)).filter(|_| p.active) else {
+                    continue;
+                };
+                v.extend_from_slice(&[
+                    i as f32,
+                    f32::from(p.kind),
+                    f32::from(k.role),
+                    f(p.pos.x),
+                    f(p.pos.y),
+                    f32::from(p.mode),
+                    f32::from(p.timer.min(999)),
+                    f(k.half_width),
+                    f(k.height),
+                ]);
+            }
+        }
+        PackedFloat32Array::from(v.as_slice())
+    }
+
+    /// The runaway van (the first rare event): `[mode (0 none, 1 waiting, 2 driving, 3 parked), x (its middle), y (the street under
+    /// it), half width, roof height, the player riding (0/1), grunts run into, speed]`.
+    #[func]
+    fn run_van(&self) -> PackedFloat32Array {
+        let v = &self.state.run.van;
+        let out = [
+            f32::from(v.mode),
+            f(v.x),
+            f(v.y),
+            f(sim_core::run::VAN_HALF),
+            f(sim_core::run::VAN_HEIGHT),
+            if v.riding { 1.0 } else { 0.0 },
+            f32::from(v.hits),
+            f(v.speed),
+        ];
+        PackedFloat32Array::from(out.as_slice())
     }
 
     /// The rooms in play, one row each: `[left edge, right edge, type, door x, door y, number, ground height where it begins, where it
@@ -2742,8 +2906,10 @@ impl SimRunner {
         out
     }
 
-    /// The map: the last rooms up to the one ahead, oldest first, four numbers each: `[number, type, status, fork (0/1)]`. Status: 0
-    /// dropped (closed behind the wall), 1 kept behind, 2 current, 3 ahead.
+    /// The map: the last rooms up to the ones ahead, oldest first, five numbers each: `[number, type, status, fork (0/1), tier]`.
+    /// Types: 0 street, 1 arena, 2 shop, 3 rest, 4 a rare event ("?"), 5 a treasure alley. Status: 0 dropped (closed behind the
+    /// wall), 1 kept behind, 2 current, 3 ahead, 4 a fork's road not taken. A branching fork's two roads are two rooms side by side
+    /// (the alley first): both ahead until one is taken.
     #[func]
     fn run_map(&self, behind: i32) -> PackedInt32Array {
         let r = &self.state.run;
@@ -2756,7 +2922,9 @@ impl SimRunner {
             let Some(kind) = r.kind_of(seq) else {
                 continue;
             };
-            let status = if seq == r.room {
+            let status = if r.skipped(seq).unwrap_or(false) {
+                4
+            } else if seq == r.room {
                 2
             } else if seq > r.room {
                 3
@@ -2766,15 +2934,20 @@ impl SimRunner {
                 0
             };
             let fork = i32::from(r.fork_of(seq).unwrap_or(false));
-            v.extend_from_slice(&[seq as i32, i32::from(kind), status, fork]);
+            let tier = self
+                .run
+                .as_ref()
+                .map_or(0, |(rc, _)| i32::from(tier_of(rc, seq)));
+            v.extend_from_slice(&[seq as i32, i32::from(kind), status, fork, tier]);
         }
         PackedInt32Array::from(v.as_slice())
     }
 
     /// The shop: `[inside (0/1), where the player stands (-2 nowhere, -1 the way out, else the ware's number), what the last buy did
     /// (0 nothing, 1 bought, 2 too few coins, 3 sold out, 4 not needed), buys tried so far, coins, wares, the shopkeeper's mood (0
-    /// idle, 1 waving, 2 cheering, 3 grumbling, 4 dizzy), the frames of it left, the ware it looks at (-1 none), times bonked]`, then
-    /// per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`.
+    /// idle, 1 waving, 2 cheering, 3 grumbling, 4 dizzy, 5 sulking: "Hmph!"), the frames of it left, the ware it looks at (-1 none),
+    /// times bonked]`, then per ware `[kind (0 heal, 1 life), price, limit (0 none), sold here]`, then the frames it still sulks (it
+    /// sells nothing meanwhile; a refused buy notes 5).
     #[func]
     fn run_shop(&self) -> PackedInt32Array {
         let Some((rc, _)) = &self.run else {
@@ -2806,6 +2979,7 @@ impl SimRunner {
                 i32::from(r.shop_bought.get(i).copied().unwrap_or(0)),
             ]);
         }
+        v.push(i32::from(r.keeper_sulk));
         PackedInt32Array::from(v.as_slice())
     }
 
@@ -2869,10 +3043,35 @@ impl SimRunner {
 }
 
 impl SimRunner {
+    /// Fighter `i`, or (from `GRUNT_BASE`, in a run) grunt `i - GRUNT_BASE` as a fighter of its body.
     fn fighter(&self, i: i32) -> Option<&sim_core::Fighter> {
+        if i >= GRUNT_BASE {
+            self.run.as_ref()?;
+            return usize::try_from(i - GRUNT_BASE)
+                .ok()
+                .and_then(|n| self.grunts.get(n));
+        }
         usize::try_from(i)
             .ok()
             .and_then(|i| self.state.fighters.get(i))
+    }
+
+    fn refresh_grunts(&mut self) {
+        self.refresh_grunts_now();
+    }
+
+    /// Rebuilds `grunts` from the run's mobs.
+    fn refresh_grunts_now(&mut self) {
+        let Some((rc, _)) = &self.run else {
+            return;
+        };
+        for (g, m) in self.grunts.iter_mut().zip(self.state.run.mobs.iter()) {
+            *g = if m.active {
+                grunt_fighter(&self.content, rc, m)
+            } else {
+                no_grunt()
+            };
+        }
     }
 }
 
