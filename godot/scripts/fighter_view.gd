@@ -2533,6 +2533,7 @@ func prewarm(on: bool) -> void:
 # while the hitbox is live, and recovers.
 const HAND := Vector2(0.55, 0.95)         # hand position in the fighter's forward space (x forward, y up)
 const REST_ANGLE := 68.0                  # degrees: blade held up and slightly forward
+const REST_ANGLE_NEAR := 32.0
 const GROUND_CLEARANCE := 0.06            # the blade tip stays at least this far above the floor
 const MESH_LENGTH := 2.7                  # length of the blade mesh before scaling
 
@@ -2709,7 +2710,11 @@ var blade_length := 2.0
 ## The weapon's resting angle (degrees, forward space): the longsword held up and a little forward; the greatsword carried over the
 ## shoulder, its blade lying back across the back (pointing up and behind), so it never hides the fighter or the stage in front.
 func _rest_angle(s: Dictionary) -> float:
-	return GREAT_REST_ANGLE if _cls(s) == GREATSWORD_CLASS else REST_ANGLE
+	if _cls(s) == GREATSWORD_CLASS:
+		return GREAT_REST_ANGLE
+	# (Held in the near hand on the base body, the guard's fist is in front of the chest, so a blade up at 68 crossed the face: pointed
+	# forward and up at the foe instead, a fencer's guard.)
+	return REST_ANGLE_NEAR if use_base_body else REST_ANGLE
 
 
 const GREAT_REST_ANGLE := 152.0
