@@ -204,3 +204,13 @@ Weakest two: the select screen's roster portraits and the beach's sea wall.
   play size. Each stone now takes its own shade (some paler, some deeper) and the sizes vary more (`seawall` pattern), so it reads as a
   laid stone wall, still warm.
 Checked: the art pipeline, match flow, select grid, creator flow and editor UI tests.
+
+## Refinement round 3
+
+Weakest two: the beach sand's pebbles and the city roof's surface (`review6_round3_surfaces.png`: sand before | after, roof before |
+after).
+- **Sand:** one size of pebble every metre or two read as a dotted pattern. Now a few small clusters of mixed sizes in two stone tones
+  and the odd pale shell, gathered toward the ends so the middle stays clean.
+- **Roof:** one flat pale lilac at nearly the coping's value, so the fighting surface's edge did not read. Now a step darker than the
+  coping, with broad weathered patches (`world_vary` 0.16).
+Checked: the art pipeline and match flow tests.

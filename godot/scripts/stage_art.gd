@@ -558,8 +558,12 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			# (Art review 6, the owner's rooftop plan: the roof's top, its edge and the facade under it read as three things. The roof is
 			# warm tar-grey roofing, a step apart from the violet facade; the edge is a stone coping that stands proud, lit on top with a
 			# shaded face and a drip shadow under it; the roofing's seams fall at uneven spacings, faint.)
-			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55)
-			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(roofing, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
+			# (Art review 6 round 3: the roofing was one flat pale lilac, nearly the coping's value, so the edge of the fighting surface did
+			# not read and the biggest surface on screen was blank. Now a step darker than the coping, with broad weathered patches.)
+			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55).darkened(0.1)
+			var roof_mat := _surface(roofing, "roof", 4.0).duplicate() as ShaderMaterial
+			roof_mat.set_shader_parameter("world_vary", 0.16)
+			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), roof_mat, Vector3(cx, top - 0.15, front_z - depth / 2.0))
 			var coping := _soft((t.grass_light as Color).lerp(Color(0.86, 0.82, 0.8), 0.4))
 			var coping_face := _soft((t.grass as Color).darkened(0.18))
 			_mesh(parent, _box(Vector3(w + 0.5, 0.12, 0.5)), coping, Vector3(cx, top + 0.02, front_z + 0.02))
@@ -580,12 +584,23 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))
-			# A few pebbles and shells on the back of the sand.
+			# A few small clusters of pebbles and the odd shell on the back of the sand, gathered toward the ends so the middle stays clean.
+			# (Art review 6 round 3: one size of pebble every metre or two read as a dotted pattern, a row of dimples across the sand.)
 			var pebble := Materials.stone((t.soil as Color).lightened(0.2))
-			var x := left + 0.7
-			while x < right - 0.5:
-				_mesh(parent, _sphere(0.14, 8), pebble, Vector3(x, top + 0.04, front_z - rng.randf_range(2.0, 5.0)), Vector3(1.3, 0.6, 1.0))
-				x += rng.randf_range(1.2, 2.6)
+			var pebble_dark := Materials.stone((t.soil as Color).darkened(0.05))
+			var shell := _soft(Color(1.0, 0.86, 0.84))
+			for u in [0.08, 0.2, 0.34, 0.68, 0.84, 0.94]:
+				if rng.randf() < 0.2:
+					continue
+				var at := Vector3(lerpf(left + 0.6, right - 0.6, u), top + 0.03, front_z - rng.randf_range(2.2, 5.0))
+				for j in rng.randi_range(2, 4):
+					var r := rng.randf_range(0.06, 0.17) * (1.3 if j == 0 else 1.0)
+					var off := Vector3(rng.randf_range(-0.45, 0.45), 0, rng.randf_range(-0.3, 0.3)) * (0.0 if j == 0 else 1.0)
+					_mesh(parent, _sphere(r, 8), pebble if rng.randf() < 0.6 else pebble_dark, at + off, Vector3(1.3, 0.6, 1.0),
+						Vector3(0, rng.randf_range(0, 180), 0))
+				if rng.randf() < 0.45:
+					var sp := at + Vector3(rng.randf_range(0.5, 0.9) * (1.0 if rng.randf() < 0.5 else -1.0), 0.01, rng.randf_range(-0.2, 0.2))
+					_mesh(parent, _sphere(0.13, 10), shell, sp, Vector3(1.0, 0.35, 0.8), Vector3(0, rng.randf_range(0, 180), 0))
 		_:
 			# A thick grass cap that rolls over the front edge, with tufts hanging over.
 			var grass := _surface(t.grass, "grass", 9.0)
