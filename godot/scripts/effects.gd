@@ -208,7 +208,9 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	# strongest stops short of covering the fighter it hit.
 	# (A light and a medium hit start bigger than before, so a mid-strength hit reads at play distance; the strongest stays the same size.)
 	# (Art review 6, against the reference fighters: a light hit was a speck at play scale. Every tier a size up, the light ones most.)
-	pow_fx.size = (0.8 + 0.75 * s) * (0.85 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
+	# (Art review 6 round 6, checked in motion: at full size the strong burst and its ring covered both fighters for the frames of the
+	# hit. A little smaller at the top end; light hits as they were.)
+	pow_fx.size = (0.8 + 0.55 * s) * (0.85 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
 	pow_fx.life = 0.2 + 0.12 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)
@@ -226,11 +228,11 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	if s > 0.5:
 		var ring := Ring.new()
 		ring.material_override = _material(true)
-		ring.colour = Color(1, 1, 0.95, 0.95)
+		ring.colour = Color(1, 1, 0.95, 0.85)
 		ring.from = 0.4
 		ring.to = 1.1 + 1.0 * s
-		ring.thickness = 0.12 + 0.1 * s
-		ring.life = 0.24
+		ring.thickness = 0.08 + 0.06 * s
+		ring.life = 0.2
 		ring.position = at
 		parent.add_child(ring)
 	# A strong hit bursts: speed lines flung out round it and a ring of smoke balls.

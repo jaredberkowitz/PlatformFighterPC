@@ -239,3 +239,14 @@ only in a still. Its rules match ours: inspect first, small reversible steps, ma
 - **The "FREE PLAY" chip** (`review6_round5_free_play.png`, before | after): a thinner, plainer chip than the clock and name plates.
   Now the same ink weight (4) and the kit's yellow for its text, as the select screen's settings.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 6: the first in-motion check (the outside brief)
+
+A strong forward smash on the city and the meadow, from wind-up to the launched fighter far out (`review6_round6_motion.png`).
+- **The strong hit hid both fighters** for its frames: the burst at full size and a thick white shockwave ring covered the attacker and
+  the target. The burst's top end is smaller (0.8 + 0.55 per strength, was 0.75), the ring thinner (0.08 + 0.06, was 0.12 + 0.1), a
+  little more see-through and shorter (`effects.gd` `hit`); light hits unchanged. `review6_round6_hit.png` (before | after, city above,
+  meadow below): the impact still reads, both faces stay visible.
+- Seen, not changed: a launched fighter crosses the screen edge on the city (camera behaviour, the owner's call; the edge indicator
+  check is in the backlog). No outline flicker or shadow crawl seen in these frames.
+Checked: the art pipeline and match flow tests.
