@@ -926,19 +926,19 @@ static func _props(root: Node3D, theme_name: String, e: Array) -> void:
 		"sunset":
 			patches = [[l + 3.2, -4.2, 1.15, 0.85], [l + 4.2, -3.8, 0.6, 0.45], [r - 4.6, -4.4, 0.75, 0.6], [r - 3.4, -4.0, 0.5, 0.4],
 				[l + 8.0, -4.8, 0.3, 0.25], [r - 7.5, -3.6, 0.48, 0.36]]
-			_rock(root, Vector3(l + 3.2, y, -4.2), 0.8, rng)
-			_rock(root, Vector3(l + 4.2, y, -3.8), 0.45, rng)
+			_rock(root, Vector3(l + 3.2, y, -4.2), 0.8, rng, CANYON_ROCK)
+			_rock(root, Vector3(l + 4.2, y, -3.8), 0.45, rng, CANYON_ROCK)
 			_crate(root, Vector3(r - 4.6, y, -4.4), 0.9, 12.0)
 			_barrel(root, Vector3(r - 3.4, y, -4.0), 0.75)
 			_lantern_post(root, Vector3(l + 8.0, y, -4.8), Color(1.0, 0.75, 0.4))
-			_rock(root, Vector3(r - 7.5, y, -3.6), 0.35, rng)
+			_rock(root, Vector3(r - 7.5, y, -3.6), 0.35, rng, CANYON_ROCK)
 		"ocean":
 			patches = [[l + 4.5, -4.6, 0.25, 0.2], [r - 4.4, -4.8, 0.25, 0.2], [l + 6.4, -3.6, 0.38, 0.3], [r - 6.5, -4.0, 0.9, 0.55]]
 			_umbrella(root, Vector3(l + 4.5, y, -4.6), Color(0.98, 0.55, 0.55))
 			_life_ring(root, Vector3(r - 4.4, y, -4.8))
 			_bucket(root, Vector3(l + 6.4, y, -3.6), Color(0.45, 0.7, 1.0))
-			_rock(root, Vector3(r - 6.8, y, -3.8), 0.4, rng)
-			_rock(root, Vector3(r - 6.2, y, -4.2), 0.3, rng)
+			_rock(root, Vector3(r - 6.8, y, -3.8), 0.4, rng, BEACH_ROCK)
+			_rock(root, Vector3(r - 6.2, y, -4.2), 0.3, rng, BEACH_ROCK)
 		"city":
 			patches = [[l + 2.2, -4.5, 1.6, 0.75], [r - 4.0, -4.0, 0.5, 0.4]]
 			_crate(root, Vector3(l + 1.6, y, -4.6), 1.0, 0.0)
@@ -1232,10 +1232,16 @@ static func _signpost(root: Node3D, at: Vector3, points: float) -> void:
 	_mesh(root, _box(Vector3(0.9, 0.3, 0.08)), board, at + Vector3(-points * 0.25, 1.0, 0.08), Vector3.ONE, Vector3(0, 0, 5))
 
 
+const CANYON_ROCK := Color(0.82, 0.6, 0.5)
+const BEACH_ROCK := Color(0.82, 0.76, 0.68)
+
+
 ## A rock: a ball with few sides, squashed and turned, so it reads as a faceted stone.
-static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator) -> void:
+## `colour`: the stone, in the stage's own rock (art review 6 round 30: one cool lavender on every stage sat outside the canyon's and the
+## beach's warm palettes).
+static func _rock(root: Node3D, at: Vector3, size: float, rng: RandomNumberGenerator, colour := Color(0.74, 0.72, 0.8)) -> void:
 	var s := Vector3(rng.randf_range(1.1, 1.4), rng.randf_range(0.6, 0.8), 1.0) * size
-	_mesh(root, _sphere(1.0, 6), Materials.stone(Color(0.74, 0.72, 0.8)), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
+	_mesh(root, _sphere(1.0, 6), Materials.stone(colour), at + Vector3(0, s.y * 0.7, 0), s, Vector3(0, rng.randf_range(0, 60), rng.randf_range(-8, 8)))
 
 
 ## A mushroom: a pale stem under a round cap with white spots, with a tiny idle squash and stretch (see `Squish`).

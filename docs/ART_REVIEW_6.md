@@ -435,3 +435,11 @@ Checked: the art pipeline and match flow tests.
 The beach's horizon (island, sea, clouds) holds up. The meadow's soft blue-grey band behind the hills reads as a formless smudge beside
 the crisp painted hills, but it is neither the far painted ridge (firmer colour, rim and less haze: no change) nor the two mist layers
 (removed: no change). Probably the sky's own painted horizon layer (`StageArt.sky`); both probes reverted. Backlog: identify it first.
+
+## Refinement round 30 (style match: props in each stage's palette)
+
+- **Rocks** (`review6_round30_rocks.png`: canyon, beach, before | after): every stage's rock prop was one cool lavender grey, outside
+  the canyon's and the beach's warm palettes (the canyon's boulders read as purple balloons beside its sandstone). `_rock` takes a
+  colour; the canyon's are warm sandstone (`CANYON_ROCK`), the beach's pale sand-washed stone (`BEACH_ROCK`); the meadow and grove keep
+  the grey that sits in their cooler palettes.
+Checked: the art pipeline and match flow tests.
