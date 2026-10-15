@@ -52,7 +52,7 @@ def bark():
         d = 'M' + ' L'.join(f'{edge(k, y):.1f},{y}' for y in ys)
         for ox in (-256, 0, 256):
             s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="8" stroke-linecap="round" opacity="0.2"/>\n'
-            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="2.8" stroke-linecap="round" opacity="0.45"/>\n'
+            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="3.2" stroke-linecap="round" opacity="0.34"/>\n'
     # A few furrows split: a short branch leaving one boundary and fading into the plate.
     for _ in range(4):
         k = rng.randrange(n)

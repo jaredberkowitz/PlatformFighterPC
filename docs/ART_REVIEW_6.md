@@ -422,3 +422,10 @@ recolour the whole stage's shade and its mood; left for the owner's call, with t
 - Tried and reverted: a more neutral grove fill light (the owner's option 2). An A/B showed it was not the cause, so the grove keeps
   its full pink-purple mood.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 28 (the owner: the new bark and the foreground differ in style)
+
+`review6_round28_bark_scale.png` (before | after). Repeated five times round the great trunk, the new bark's furrows were a busy fine
+pinstripe beside the stage front's few broad, soft roots. The trunk's bark now repeats 2.5 by 2 (broad plates), and the furrows' dark
+core is softer (0.34, was 0.45): the trunk and the stage front read in one painted style, the same scale of form and weight of line.
+Checked: the art pipeline and match flow tests.

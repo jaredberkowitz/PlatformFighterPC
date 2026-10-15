@@ -3618,7 +3618,9 @@ static func _tree(root: Node3D, base: Vector3, size: float, rng: RandomNumberGen
 	var trunk_h := 18.0 * size
 	# Bark drawn on (grooves and knots, `Materials.bark`) rather than built of boxes, on one trunk that bows gently as it rises, tapers,
 	# and flares into broad roots at its foot.
-	var bark := Materials.bark(Color(0.62, 0.42, 0.26), Vector2(5, 3))
+	# (Broad plates, art review 6 round 28: repeated five times round the trunk the furrows were a busy fine pinstripe beside the
+	# foreground's few broad soft forms.)
+	var bark := Materials.bark(Color(0.62, 0.42, 0.26), Vector2(2.5, 2))
 	_mesh(root, trunk_mesh(trunk_h, 2.9 * size, 2.0 * size, 0.7 * size, 1.4 * size), bark, base)
 	for k in 6:
 		var a := -1.25 + k * 0.5
