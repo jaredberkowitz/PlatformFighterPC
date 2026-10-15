@@ -364,3 +364,11 @@ for us; atmosphere only in the distance.
 - Next from the frame: hard-edged fighter shadows on the ground; scenery lit/shaded splits; fewer ink lines on scenery.
 Checked: the art pipeline and match flow tests; the look bench.
 - **Reverted at the owner's call:** the soft shadow reads better in our game; keep it.
+
+## Refinement round 21 (Wind Waker HD frame, item 3)
+
+- **Day stages' shade** (`review6_round21_day_shade.png`: meadow, beach, before | after): the day moods had the shallowest shade
+  (meadow and grove 0.64, ocean 0.6), so a lit top and a shaded front read nearly alike. Now 0.56, 0.56 and 0.54 (`lighting.gd`): the
+  stage fronts and the props' shaded sides step back under their sunlit tops, as the reference's walls and rocks do. The fighters' shade
+  deepens with it; the look bench passes. Flagged for the owner's eye: the beach wall reads a little greyer.
+Checked: the art pipeline and match flow tests; the look bench.

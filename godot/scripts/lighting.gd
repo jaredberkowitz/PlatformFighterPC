@@ -12,14 +12,16 @@ extends RefCounted
 ## lifted toward (the pastel finish in shaders/post.gdshader).
 const MOODS := {
 	# Magic hour: a lower, golden key that rakes across the props and fighters, violet fill and shadows, a lavender-peach haze.
+	# (Day stages' shade deeper, art review 6 round 21 after the owner's Wind Waker HD frame: lit and shaded faces of the props and
+	# scenery split clearly, as the reference's rocks and walls; meadow and grove 0.56, was 0.64; ocean 0.54, was 0.6.)
 	"meadow": {"key": [Color(1.0, 0.96, 0.86), 1.38, -44.0, -34.0], "fill": [Color(0.6, 0.76, 1.0), 0.4],
-		"ambient": [Color(0.86, 0.92, 1.0), 0.48], "shadow_hue": 0.66, "shadow_shift": 0.08, "shadow_value": 0.64,
+		"ambient": [Color(0.86, 0.92, 1.0), 0.48], "shadow_hue": 0.66, "shadow_shift": 0.08, "shadow_value": 0.56,
 		"shadow_tint": Color(0.66, 0.72, 0.94), "rim": Color(1.0, 0.98, 0.9),
 		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
-		"ambient": [Color(1.0, 0.88, 0.92), 0.47], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.64,
+		"ambient": [Color(1.0, 0.88, 0.92), 0.47], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.56,
 		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
 		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.5], "haze": Color(0.84, 0.82, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
@@ -33,7 +35,7 @@ const MOODS := {
 		"shadow_tint": Color(0.62, 0.66, 0.92), "rim": Color(0.62, 0.78, 1.0),
 		"grade": [Color(0.8, 0.88, 1.1), Color(0.95, 0.98, 1.06), 0.8], "haze": Color(0.72, 0.74, 0.96)},
 	"ocean": {"key": [Color(1.0, 0.96, 0.88), 1.3, -44.0, -30.0], "fill": [Color(0.56, 0.78, 1.0), 0.38],
-		"ambient": [Color(0.9, 0.95, 1.0), 0.46], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.6,
+		"ambient": [Color(0.9, 0.95, 1.0), 0.46], "shadow_hue": 0.6, "shadow_shift": 0.07, "shadow_value": 0.54,
 		"shadow_tint": Color(0.72, 0.8, 0.92), "rim": Color(0.86, 0.96, 1.0),
 		"grade": [Color(0.9, 0.98, 1.06), Color(1.02, 1.02, 0.98), 0.5], "haze": Color(0.62, 0.84, 1.0)},
 	"city": {"key": [Color(1.0, 0.82, 0.7), 1.0, -34.0, -36.0], "fill": [Color(0.82, 0.5, 0.95), 0.48],
