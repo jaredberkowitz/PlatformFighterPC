@@ -6,8 +6,8 @@
 use super::data::{PropKind, RunContent, PROP_CHEST, PROP_GAS, PROP_SIGN};
 use super::mobs;
 use super::{
-    Prop, MAX_MOBS, MAX_PROPS, MODE_EMERGE, PLAYER, PROP_BROKEN, PROP_BURST, PROP_FALLING, PROP_LIT,
-    PROP_OPEN, PROP_READY,
+    Prop, MAX_MOBS, MAX_PROPS, MODE_EMERGE, PLAYER, PROP_BROKEN, PROP_BURST, PROP_FALLING,
+    PROP_LIT, PROP_OPEN, PROP_READY,
 };
 use crate::collision;
 use crate::content::Content;
@@ -133,7 +133,14 @@ fn strike(
         }
         let g = state.fighters[mobs::slot(n)];
         let side = if g.pos.x >= at.x { 1 } else { -1 };
-        if mobs::hit_body(state, content, mobs::slot(n), (at, side, Vec2::ZERO), hb, at) {
+        if mobs::hit_body(
+            state,
+            content,
+            mobs::slot(n),
+            (at, side, Vec2::ZERO),
+            hb,
+            at,
+        ) {
             p.hit_mobs |= bit;
         }
     }

@@ -148,7 +148,11 @@ fn cool_down(m: &mut Mob, k: &MobKind) {
 
 /// Every grunt's input this frame (the players' slots stay empty: the run fills the player's), and its run-side flags: super armor
 /// through a bruiser's tell and startup, untouchable while it comes out of its door. Called before the step.
-pub(super) fn think(state: &mut GameState, content: &Content, rc: &RunContent) -> [Input; MAX_BODIES] {
+pub(super) fn think(
+    state: &mut GameState,
+    content: &Content,
+    rc: &RunContent,
+) -> [Input; MAX_BODIES] {
     let mut out = [Input::default(); MAX_BODIES];
     let target = state.fighters[PLAYER];
     let player = (target.active && target.state != S::Respawn).then_some(target.pos);
@@ -175,7 +179,17 @@ pub(super) fn think(state: &mut GameState, content: &Content, rc: &RunContent) -
                 };
             }
         } else {
-            input = act(&mut m, &f, &k, content, rc, player, state.frame, n, &mut armor);
+            input = act(
+                &mut m,
+                &f,
+                &k,
+                content,
+                rc,
+                player,
+                state.frame,
+                n,
+                &mut armor,
+            );
         }
         let g = &mut state.fighters[i];
         g.super_armor = armor;
@@ -206,7 +220,12 @@ fn act(
     let (dx, dy) = player.map_or((Fx::ZERO, Fx::ZERO), |pl| (pl.x - f.pos.x, pl.y - f.pos.y));
     let stage = &content.stage;
     match f.state {
-        S::Hitstun | S::Rebound | S::ShieldBreak | S::Knockdown | S::GetUp | S::Buried
+        S::Hitstun
+        | S::Rebound
+        | S::ShieldBreak
+        | S::Knockdown
+        | S::GetUp
+        | S::Buried
         | S::Encased => {
             // Knocked out of its plan.
             if matches!(m.mode, MODE_WINDUP | MODE_ATTACK | MODE_LEAP) {
@@ -442,11 +461,12 @@ fn attack(
                 }
             } else if free_on_ground(f) {
                 // A flick from neutral: the dash.
-                out.stick_x = if f.history[0].stick_x.unsigned_abs() < STICK_FLICK_FROM.unsigned_abs() {
-                    (toward as i32 * 127) as i8
-                } else {
-                    0
-                };
+                out.stick_x =
+                    if f.history[0].stick_x.unsigned_abs() < STICK_FLICK_FROM.unsigned_abs() {
+                        (toward as i32 * 127) as i8
+                    } else {
+                        0
+                    };
             }
         }
         MoveId::UpSpecial => {
@@ -641,6 +661,7 @@ pub(super) fn remove(state: &mut GameState, content: &Content, n: usize) {
             *o = NONE;
         }
     }
+    crate::orbs::clear_target(state, i);
     forget(state, i);
     state.fighters[i].active = false;
     state.fighters[i].grab_with = NONE;
@@ -894,14 +915,24 @@ pub(super) fn van(state: &mut GameState, content: &Content, rc: &RunContent) {
             if !m.active || m.mode == MODE_EMERGE || v.struck & bit != 0 {
                 continue;
             }
-            if (g.pos.x - v.x).abs() > reach || g.pos.y >= v.y + VAN_HEIGHT || g.pos.y + Fx::from_int(2) <= v.y {
+            if (g.pos.x - v.x).abs() > reach
+                || g.pos.y >= v.y + VAN_HEIGHT
+                || g.pos.y + Fx::from_int(2) <= v.y
+            {
                 continue;
             }
             let mut hb = rules.van_hit;
             // (Centred on the grunt, so it lands wherever the grunt stands against the van.)
             hb.radius = hb.radius.max(Fx::from_int(3));
             let centre = g.pos + Vec2::new(Fx::ZERO, Fx::ONE);
-            if hit_body(state, content, slot(n), (at, 1, Vec2::new(v.speed, Fx::ZERO)), &hb, centre) {
+            if hit_body(
+                state,
+                content,
+                slot(n),
+                (at, 1, Vec2::new(v.speed, Fx::ZERO)),
+                &hb,
+                centre,
+            ) {
                 v.struck |= bit;
                 v.hits = v.hits.saturating_add(1);
             }

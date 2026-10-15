@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 127
-    hash 36d95a93380c4ae8
+    sim_version 128
+    hash 3e1b32272d5842ed
 }
 
 ruleset {
@@ -14612,6 +14612,7 @@ weapon nodachi {
         hitbox { start 20 end 22 x 2.5 y 0 radius 0.2 damage 13 angle 48 bkb 80 kbg 68 priority 4 hitlag 120 rebounds false angle_type forward }
         hitbox { start 20 end 22 x 3 y 0 radius 0.2 damage 13 angle 48 bkb 80 kbg 68 priority 4 hitlag 120 rebounds false angle_type forward }
         armor { start 9 end 19 kind damage threshold 20 }
+        probe { frame 20 from_x 2 from_y 0.59999 to_x 4.09999 to_y -0.29999 miss ext9 }
         armor_mode powered
     }
     move nair {
@@ -14646,6 +14647,25 @@ weapon nodachi {
         hitbox { start 14 end 17 x 1.5 y 1.59999 radius 0.29999 damage 7 angle 361 bkb 39 kbg 86 priority 3 angle_type forward }
         hitbox { start 14 end 17 x 1.9 y 1.59999 radius 0.29999 damage 7 angle 361 bkb 39 kbg 86 priority 3 angle_type forward }
         hitbox { start 14 end 17 x 2.29999 y 1.59999 radius 0.29999 damage 7 angle 361 bkb 39 kbg 86 priority 3 angle_type forward }
+        script {
+            // Nodachi forward air: on frames 12-17 (the reference's 13-18, the stab's hits) a wall the blade meets (a segment level with it, 12.5
+            // of the reference's units up, out to its tip 32 ahead [E]) sticks the exile to it (slot 40 = ext11), three times at most in an air
+            // time (marks 5, 6 and 7: landing or a ledge clears them), and not with the ground less than 14 units below (a segment straight down).
+            if frame >= 12 && frame <= 17 && grounded == 0 {
+                if ground(0, 1.5625, 4.0, 1.5625) && ground(0, 0, 0, -1.75) == 0 {
+                    if air_mark(5) == 0 {
+                        set_air_mark(5);
+                        goto(40);
+                    } else if air_mark(6) == 0 {
+                        set_air_mark(6);
+                        goto(40);
+                    } else if air_mark(7) == 0 {
+                        set_air_mark(7);
+                        goto(40);
+                    }
+                }
+            }
+        }
     }
     move bair {
         total_frames 45
@@ -14718,6 +14738,81 @@ weapon nodachi {
                 if shield || jump_tap { goto(34); }
             }
             if frame >= 107 { goto(33); }
+        }
+    }
+    move side_special {
+        total_frames 37
+        orbs {
+            count 1
+            more_at_1 17
+            more_at_2 26
+            reflected 2
+            per_target 5
+            per_owner 5
+            wait 240
+            extend 30
+            extend_to 180
+            full 26
+            cap 450
+            radius 1.5
+            period 60
+            orbit_hits 2
+            orbit_rehit 45
+            strike 14
+            loose_speed 0.6825
+            loose_life 60
+            orbit_hit {
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 0.2
+                    damage 7
+                    angle 50
+                    bkb 65
+                    kbg 75
+                    shield_damage 57
+                    hitlag 40
+                    sdi 200
+                    clanks false
+                    rebounds false
+                    angle_type travel
+                }
+            }
+            strike_hit {
+                hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 6.5 angle 53 bkb 50 kbg 75 shield_damage 54 hitlag 80 clanks false rebounds false angle_type forward }
+            }
+        }
+        projectile {
+            frame 14
+            x 0
+            y 1.09999
+            speed 0.6825
+            life 8
+            end_damage 1.6111
+            hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 1.6111 angle 361 bkb 10 kbg 30 hitlag 50 half_width 0.5 angle_type forward }
+            phase {
+                from 1
+                hitbox { start 0 end 0 x 0 y 0 radius 0.29999 damage 1.5 angle 361 bkb 10 kbg 30 hitlag 50 half_width 0.5 angle_type forward }
+            }
+            phase {
+                from 1
+                hitbox { start 0 end 0 x 0 y 0 radius 0.4 damage 1.5 angle 361 bkb 10 kbg 30 priority 2 hitlag 50 targets aerial half_width 0.29999 angle_type forward }
+            }
+            charged { full 26 damage_to 4.5 speed_to 1.01999 life_to 8 every_hit true }
+        }
+        script {
+            // Nodachi side special: the shadow orbs' beam (world units: the reference's / 8). Frame numbers here are the move's (the reference's
+            // less 1). Special held on frame 8 (the reference's 9: "charges between 8-9") holds the move there, up to 26 frames (the `charge`
+            // register counts them). On frame 14 the beam leaves: its first hit (the next frame) is 6.4 of the reference's units ahead and 8.8 up
+            // whatever its speed (5.46 a frame uncharged to 8.16 at full, scaled by the charge as it is fired), so it starts one frame of its
+            // flight short of there [E: read from the hitbox animation].
+            if frame == 8 && special && charge < 26 { stall(); }
+            if frame == 14 {
+                let v = (5.46 + 2.7 * charge / 26) / 8;
+                spawn(0.8 - v, 1.1, 0.6825, 0);
+            }
         }
     }
     move up_special {
@@ -14844,6 +14939,79 @@ weapon nodachi {
             if frame >= 54 && grounded == 0 { goto(30); }
         }
     }
+    move down_special {
+        total_frames 85
+        counter { start 6 end 26 then ext7 percent 100 min_damage 0 bubble_x 1 bubble_y 1.4 bubble_half_height 1.2 bubble_radius 0.7 break_above 25 break_move ext8 still true }
+        projectile {
+            frame 36
+            x 1.79999
+            y 1.29999
+            speed 0
+            life 17
+            end_damage 1
+            pierce true
+            rehit 5
+            hitbox {
+                start 0
+                end 0
+                x 0
+                y 0
+                radius 1.2
+                damage 1
+                angle 366
+                bkb 40
+                kbg 65
+                hitlag 80
+                fixed_kb 60
+                sdi 0
+                set_weight true
+                clanks false
+                rebounds false
+                angle_type position
+            }
+            phase {
+                from 1
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 1.2
+                    damage 1
+                    angle 366
+                    bkb 40
+                    kbg 65
+                    hitlag 80
+                    fixed_kb 60
+                    sdi 0
+                    set_weight true
+                    clanks false
+                    rebounds false
+                    angle_type position
+                }
+            }
+            phase {
+                from 16
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 1.4
+                    damage 5
+                    angle 361
+                    bkb 66
+                    kbg 75
+                    group 1
+                    shield_damage 60
+                    hitlag 70
+                    clanks false
+                    rebounds false
+                    angle_type forward
+                }
+            }
+        }
+    }
     move jab2 {
         total_frames 32
         next jab3
@@ -14956,6 +15124,8 @@ weapon nodachi {
         rehit_start 20
         rehit_every 2
         rehit_groups 2
+        landing_move ext10
+        fall_landing_move ext10
         hitbox { start 18 end 18 x 0.09999 y 1.4 radius 1 damage 2.29999 angle 361 bkb 0 kbg 100 shield_damage 57 sdi 50 clanks false rebounds false }
         hitbox { start 18 end 18 x 0.09999 y 0.79999 radius 1 damage 2.29999 angle 361 bkb 0 kbg 100 shield_damage 57 sdi 50 clanks false rebounds false }
         hitbox {
@@ -17881,6 +18051,143 @@ weapon nodachi {
         }
     }
     move ext6 { total_frames 6 }
+    move ext7 {
+        total_frames 50
+        intangible 11
+        lerp {
+            full 18
+            phase {
+                from 1
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 2.79999
+                    damage 4
+                    angle 366
+                    bkb 40
+                    kbg 65
+                    shield_damage 50
+                    hitlag 80
+                    fixed_kb 60
+                    sdi 0
+                    set_weight true
+                    clanks false
+                    rebounds false
+                    angle_type position
+                }
+            }
+            phase {
+                from 16
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 3
+                    damage 18
+                    angle 361
+                    bkb 83
+                    kbg 83
+                    group 1
+                    shield_damage 50
+                    hitlag 40
+                    clanks false
+                    rebounds false
+                    angle_type forward
+                }
+            }
+        }
+        projectile {
+            frame 5
+            x 2.4
+            y 1.29999
+            speed 0
+            life 17
+            end_damage 2
+            pierce true
+            rehit 5
+            hitbox {
+                start 0
+                end 0
+                x 0
+                y 0
+                radius 2.09999
+                damage 2
+                angle 366
+                bkb 40
+                kbg 65
+                shield_damage 50
+                hitlag 80
+                fixed_kb 60
+                sdi 0
+                set_weight true
+                clanks false
+                rebounds false
+                angle_type position
+            }
+            phase {
+                from 1
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 2.09999
+                    damage 2
+                    angle 366
+                    bkb 40
+                    kbg 65
+                    shield_damage 50
+                    hitlag 80
+                    fixed_kb 60
+                    sdi 0
+                    set_weight true
+                    clanks false
+                    rebounds false
+                    angle_type position
+                }
+            }
+            phase {
+                from 16
+                hitbox {
+                    start 0
+                    end 0
+                    x 0
+                    y 0
+                    radius 2.29999
+                    damage 6.5
+                    angle 361
+                    bkb 80
+                    kbg 70
+                    group 1
+                    shield_damage 54
+                    hitlag 70
+                    clanks false
+                    rebounds false
+                    angle_type forward
+                }
+            }
+        }
+    }
+    move ext8 {
+        total_frames 39
+        motion { start 0 end 5 vx -0.125 vy 0 }
+    }
+    move ext9 {
+        total_frames 52
+        hitbox { start 20 end 21 x -0.29999 y 0 radius 0.2 damage 10.5 angle 48 bkb 75 kbg 63 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 0.2 y 0 radius 0.2 damage 10.5 angle 48 bkb 75 kbg 63 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 0.59999 y 0 radius 0.2 damage 10.5 angle 48 bkb 75 kbg 63 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 1 y 0 radius 0.2 damage 10.5 angle 48 bkb 75 kbg 63 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 1.29999 y 0 radius 0.2 damage 11.5 angle 48 bkb 75 kbg 63 priority 1 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 1.59999 y 0 radius 0.2 damage 11.5 angle 48 bkb 75 kbg 63 priority 1 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 2 y 0 radius 0.2 damage 11.5 angle 48 bkb 75 kbg 63 priority 1 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 2.4 y 0 radius 0.2 damage 11.5 angle 48 bkb 75 kbg 63 priority 1 hitlag 70 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 2.5 y 0 radius 0.2 damage 13 angle 48 bkb 75 kbg 63 priority 2 hitlag 120 rebounds false angle_type forward }
+        hitbox { start 20 end 21 x 3 y 0 radius 0.2 damage 13 angle 48 bkb 75 kbg 63 priority 2 hitlag 120 rebounds false angle_type forward }
+    }
     move pivot_grab {
         total_frames 38
         hitbox { start 10 end 11 x 0.59999 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
@@ -17888,6 +18195,39 @@ weapon nodachi {
         hitbox { start 10 end 11 x 1.4 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
         hitbox { start 10 end 11 x 1.9 y 0.9 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 kind grab }
     }
+    move ext10 {
+        total_frames 55
+        hitbox { start 0 end 0 x 0 y 0.5 radius 1 damage 2.29999 angle 60 bkb 90 kbg 60 clanks false rebounds false angle_type forward }
+    }
+    move ext11 {
+        total_frames 119
+        script {
+            // Nodachi forward air stuck in a wall (ext11): the exile hangs where it stuck. From frame 17 (the reference's 18) jump, attack or the
+            // stick up jumps off (slot 41 = ext12); the stick away from the wall or down lets go (slot 42 = ext13); at the end of its 120 frames
+            // it lets go.
+            set_vel(0, 0);
+            if frame >= 17 {
+                if jump_tap || attack_tap || stick_y > 0.5 {
+                    goto(41);
+                } else if stick_x < -0.5 || stick_y < -0.5 {
+                    goto(42);
+                }
+            }
+            if frame >= 118 { goto(42); }
+        }
+    }
+    move ext12 {
+        total_frames 21
+        air_gravity 0.01416
+        script {
+            // Nodachi wall stick jump (ext12): held on the wall until frame 11 (the reference's 12, the jump's start), then off upward at the speed
+            // that rises 6.9 of the reference's units under the move's gravity, x1.05 [E: the published "initial vertical speed" 6.9 read as a
+            // height]: sqrt(2 x 0.108 x 1.05 x 6.9) / 8.
+            if frame < 11 { set_vel(0, 0); }
+            if frame == 11 { set_vel(0, 0.15637); }
+        }
+    }
+    move ext13 { total_frames 18 }
 }
 
 fighter duelist {

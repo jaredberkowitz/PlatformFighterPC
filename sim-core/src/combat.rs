@@ -24,8 +24,8 @@ use crate::moves::{
 };
 use crate::scripting;
 use crate::state::{
-    Fighter, FighterState as S, GameState, Projectile, NONE, REST_FALLEN, REST_FLYING, REST_LODGED,
-    REST_POCKETED, STALE_QUEUE,
+    Fighter, FighterState as S, GameState, Projectile, NONE, ORB_CIRCLE, ORB_LOOSE, ORB_NONE,
+    ORB_STRIKE, REST_FALLEN, REST_FLYING, REST_LODGED, REST_POCKETED, STALE_QUEUE,
 };
 use crate::trig::Angle;
 use crate::vec2::Vec2;
@@ -400,7 +400,7 @@ pub fn group_bits(groups: u8) -> u128 {
 
 /// Whether a hitbox can hit this fighter at all: a grounded-only one misses a fighter in the air and an aerial-only one a fighter on
 /// the ground.
-fn hits_target(hb: &Hitbox, target: &Fighter) -> bool {
+pub(crate) fn hits_target(hb: &Hitbox, target: &Fighter) -> bool {
     match hb.targets {
         TARGETS_GROUNDED => target.grounded(),
         TARGETS_AERIAL => !target.grounded(),
@@ -415,8 +415,7 @@ fn hits_target(hb: &Hitbox, target: &Fighter) -> bool {
 /// The loops need the attacker and defender indices themselves (hit masks, tie-breaking), not just items.
 #[allow(clippy::needless_range_loop)]
 pub fn resolve_hits(state: &mut GameState, content: &Content) {
-    let mut chosen: [[Option<Hitbox>; MAX_BODIES]; MAX_BODIES] =
-        [[None; MAX_BODIES]; MAX_BODIES];
+    let mut chosen: [[Option<Hitbox>; MAX_BODIES]; MAX_BODIES] = [[None; MAX_BODIES]; MAX_BODIES];
     // Where each chosen hitbox was (for an autolink's pull).
     let mut chosen_at = [[Vec2::ZERO; MAX_BODIES]; MAX_BODIES];
     // Whether each chosen hit reached the defender's open counter (its bubble, or its body when it has none).
@@ -1046,6 +1045,13 @@ fn catch_with_counter(
     if c.melee_only && !melee {
         return false;
     }
+    // A hit too strong for the stance breaks it (sim 128: the reference's barrier): the hit deals nothing, the fighter staggers.
+    if c.break_above > Fx::ZERO && damage > c.break_above {
+        let def = &mut state.fighters[d];
+        fighter::begin_attack(def, MoveId::from_index(c.break_move));
+        def.hitlag = hitlag;
+        return true;
+    }
     let answer_id = MoveId::from_index(c.then);
     let intangible = weapon.get(c.then).intangible;
     let mut caught =
@@ -1062,7 +1068,8 @@ fn catch_with_counter(
     def.counter_damage = caught;
     fighter::begin_attack(def, answer_id);
     def.invuln = def.invuln.max(intangible);
-    def.hitlag = hitlag;
+    // (A still counter answers at once, the attacker alone frozen: sim 128.)
+    def.hitlag = if c.still { 0 } else { hitlag };
     true
 }
 
@@ -1826,12 +1833,12 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
         if f.hit_mask != 0 && !f.spawn_custom {
             continue;
         }
-        let Some(spec) = weapon_of(content, params_of(content, &f))
-            .get(f.move_id)
-            .projectile
-        else {
+        let mv = weapon_of(content, params_of(content, &f)).get(f.move_id);
+        let Some(spec) = mv.projectile else {
             continue;
         };
+        // (A shot that grows with a counter's catch carries the caught damage: sim 128.)
+        let lerp = mv.lerp.is_some();
         let dir = i32::from(f.facing);
         let scale = params_of(content, &f).hitbox_scale;
         let first = Shot {
@@ -1859,7 +1866,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
             kb_add: if f.spawn_custom { f.spawn_kb_add } else { 0 },
             size: if f.spawn_custom { f.spawn_size } else { 100 },
         };
-        add_projectile(state, i, &f, &spec, first);
+        add_projectile(state, i, &f, &spec, first, lerp);
         // A second shot on the same frame (a script's second `spawn`): plain size and knockback.
         if f.spawn_custom && f.spawn2_request {
             let second = Shot {
@@ -1872,7 +1879,7 @@ pub fn spawn_projectiles(state: &mut GameState, content: &Content) {
                 kb_add: 0,
                 size: 100,
             };
-            add_projectile(state, i, &f, &spec, second);
+            add_projectile(state, i, &f, &spec, second, lerp);
         }
     }
 }
@@ -1887,13 +1894,14 @@ struct Shot {
 
 /// Puts a projectile of `spec` fired by fighter `i` into the first free slot of the pool (none if the pool is full, or if the fighter
 /// already has its tool's limit out: `Tool::limit`, E3d). A charge-scaled shot (E35) takes its damage, speed, life and size from the
-/// fighter's charge (`ChargedShot`).
+/// fighter's charge (`ChargedShot`); one that grows with a counter's catch (`lerp`, sim 128) carries the fighter's caught damage.
 fn add_projectile(
     state: &mut GameState,
     i: usize,
     f: &Fighter,
     spec: &crate::moves::ProjectileSpawn,
     shot: Shot,
+    lerp: bool,
 ) {
     let tool = spec.tool;
     if tool.limit > 0 && scripting::owned(&state.projectiles, i, tool.kind, f.move_id) >= tool.limit
@@ -1949,6 +1957,9 @@ fn add_projectile(
             };
         }
     }
+    if lerp {
+        damage = f.counter_damage;
+    }
     if let Some(slot) = state.projectiles.iter_mut().find(|p| !p.active) {
         *slot = Projectile {
             active: true,
@@ -1972,6 +1983,10 @@ fn add_projectile(
             kind: tool.kind,
             rest: REST_FLYING,
             stale: f.move_id,
+            charge: f.charge,
+            orb: ORB_NONE,
+            held: 0,
+            orb_hits: 0,
         };
     }
 }
@@ -2025,13 +2040,17 @@ pub(crate) fn fire(
         kind: spec.tool.kind,
         rest: REST_FLYING,
         stale: move_id,
+        charge: 0,
+        orb: ORB_NONE,
+        held: 0,
+        orb_hits: 0,
     };
     Some(n)
 }
 
 /// The fighter (other than `owner`) whose pocket (E42, `Move::pocket`) is open and empty and touches a projectile shape at `pos`: the
 /// lowest index wins.
-fn pocket_touching(
+pub(crate) fn pocket_touching(
     state: &GameState,
     content: &Content,
     owner: usize,
@@ -2085,14 +2104,31 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
         if pr.rest == REST_POCKETED {
             continue;
         }
+        // An orb circling or striking a fighter (E59, sim 128) has rules of its own.
+        if pr.orb == ORB_CIRCLE || pr.orb == ORB_STRIKE {
+            crate::orbs::update_orb(state, content, n);
+            continue;
+        }
         let owner = usize::from(pr.owner).min(MAX_BODIES - 1);
         let origin = usize::from(pr.origin).min(MAX_BODIES - 1);
         let origin_params = params_of(content, &state.fighters[origin]);
         let fired_by = weapon_of(content, origin_params).get(pr.move_id);
-        let Some(spec) = fired_by.projectile else {
+        let Some(mut spec) = fired_by.projectile else {
             state.projectiles[n].active = false;
             continue;
         };
+        // A loose orb (E59: reflected or let out of a pocket) flies as a plain shot with the orbs' strike hit.
+        if pr.orb == ORB_LOOSE {
+            let Some(o) = fired_by.orbs else {
+                state.projectiles[n].active = false;
+                continue;
+            };
+            spec = crate::orbs::loose_spec(&spec, &o);
+        }
+        // (A shot that grows with a counter's catch reads its hits between the written ones and the caught damage's: sim 128.)
+        if let Some(l) = fired_by.lerp {
+            spec.phases = lerped(&spec.phases, &l, pr.damage);
+        }
         // A lodged or fallen projectile (E3b, E3d) only waits out its life (a fallen one falls first): no script, no hits.
         if pr.rest != REST_FLYING {
             rest_frame(&mut state.projectiles[n], &spec, stage);
@@ -2224,6 +2260,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             spec.hitbox.damage
         };
         let shot_damage = base_damage * Fx::from_int(i32::from(pr.power)) / Fx::from_int(100);
+        let every_hit = spec.charged.is_some_and(|c| c.every_hit);
         // An open pocket in the way puts it away (E42): it stops where it was caught, keeping the speed it had.
         if burst.is_none() && spec.tool.pocket != crate::moves::POCKET_NEVER {
             if let Some(d) = pocket_touching(state, content, owner, pos, shape) {
@@ -2329,8 +2366,8 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             hb.half_height = hb.half_height * origin_params.hitbox_scale * size;
             hb.half_width = hb.half_width * origin_params.hitbox_scale;
             hb.base_knockback = hb.base_knockback.saturating_add(i16::from(pr.kb_add));
-            if !phased && spec.charged.is_some() {
-                // (A charge-scaled shot keeps the damage it was fired with: no falloff.)
+            if spec.charged.is_some() && (!phased || every_hit) {
+                // (A charge-scaled shot keeps the damage it was fired with: no falloff; with `every_hit`, its rings too: sim 128.)
                 hb.damage = pr.damage;
             } else if !phased && !spec.any_phase() {
                 hb.damage = spec.hitbox.damage + (spec.end_damage - spec.hitbox.damage) * progress;
@@ -2402,7 +2439,12 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             // The first ring that reaches the fighter is the hit (one ring for a shot without rings).
             let mut hb = hb;
             let (mut touching, mut caught) = (false, false);
-            for ring in rings.iter().flatten().filter(|r| r.radius > Fx::ZERO) {
+            // (A ring for grounded or aerial fighters only passes the others by: sim 128.)
+            for ring in rings
+                .iter()
+                .flatten()
+                .filter(|r| r.radius > Fx::ZERO && hits_target(r, fd))
+            {
                 let (t, c) = reach(
                     counter,
                     intangible,
@@ -2472,6 +2514,10 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                     caught,
                     true,
                 );
+                // A beam with orbs puts them on a fighter it hit (E59, sim 128): not a shield, not a counter's catch.
+                if fired_by.orbs.is_some() && pr.orb == ORB_NONE && !shielded && !caught {
+                    crate::orbs::place(state, content, n, d);
+                }
                 if let Some(c) = fired_by.curse {
                     if state.fighters[d].percent > percent_before {
                         let v = &mut state.fighters[d];
@@ -2504,6 +2550,21 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
             }
         }
     }
+}
+
+/// `phases` read between their written hits and `l`'s at the same places, by `damage` (sim 128: a counter's growing answer).
+fn lerped(
+    phases: &[Option<(u8, Hitbox)>; crate::moves::MAX_PHASES],
+    l: &crate::moves::Lerp,
+    damage: Fx,
+) -> [Option<(u8, Hitbox)>; crate::moves::MAX_PHASES] {
+    let mut out = *phases;
+    for (slot, high) in out.iter_mut().zip(l.phases.iter()) {
+        if let (Some((_, low)), Some((_, high))) = (slot.as_mut(), high) {
+            *low = l.between(*low, *high, damage);
+        }
+    }
+    out
 }
 
 /// One frame of every fighter's damage over time (E54, sim 121: the reference's curse): every `curse_every` frames while it lasts the
@@ -2698,7 +2759,7 @@ fn surroundings(state: &GameState, owner: usize, at: Vec2) -> scripting::Surroun
 }
 
 /// A fighter other than `owner` whose reflector is up and touches a projectile at `pos`.
-fn reflector_touching(
+pub(crate) fn reflector_touching(
     state: &GameState,
     content: &Content,
     owner: usize,
@@ -2779,7 +2840,7 @@ pub(crate) fn shapes_touch(
 
 /// A reflector's projectile detector (the reference's): a projectile touching it while it is out, before the reflector is up, skips
 /// that fighter's move ahead so the reflector is up on the next frame.
-fn reflector_detects(
+pub(crate) fn reflector_detects(
     state: &mut GameState,
     content: &Content,
     owner: usize,
@@ -2859,6 +2920,8 @@ pub fn check_ko(state: &mut GameState, content: &Content) {
             let counted = state.rules.stocks > 0;
             // (Who the KO is credited to, for a wing's points: E57.)
             let credit = crate::wing::before_ko(state, i);
+            // (Orbs on the fighter go with it: E59.)
+            crate::orbs::clear_target(state, i);
             let f = &mut state.fighters[i];
             respawn(f, content, i, counted);
             if counted && f.stocks == 0 {

@@ -567,6 +567,9 @@ pub struct ChargedShot {
     /// (in proportion: the reference's smash-attack charge carried by a shot a smash attack makes, such as the settler's bowling
     /// ball, 1.2x at full). 100 (the default): no change.
     pub power_to: u16,
+    /// Sim 128: the charged damage is every hit's, the shot's later hits by age (its rings) too, not only its own `hitbox` (the
+    /// reference's shadow-orb beam, two boxes at once that both grow with the charge). False (the default): later hits keep their own.
+    pub every_hit: bool,
 }
 
 impl ChargedShot {
@@ -1341,6 +1344,14 @@ pub struct Counter {
     /// Where the stance catches (the reference's counter bubble): a hit that touches it while the window is open is caught. `None`:
     /// the body's hurtboxes catch (older content). A push (`Hitbox::push`) is never caught either way.
     pub bubble: Option<CounterBubble>,
+    /// Sim 128 (the reference's barrier counter): a caught hit dealing more than this (before the one-on-one multiplier, after
+    /// staleness and power) breaks the stance instead: the hit deals nothing and the fighter goes into `break_move` (a stagger). 0 (the
+    /// default): no limit.
+    pub break_above: Fx,
+    pub break_move: u8,
+    /// Sim 128: the countering fighter takes no hitlag from the hit it catches (the reference's barrier: its answer runs at once while
+    /// the attacker is frozen). False (the default): both freeze.
+    pub still: bool,
 }
 
 /// A counter's catching area, relative to the fighter's feet: a circle of `radius` centred `x` ahead (mirrored by facing) and `y` up,
@@ -1476,6 +1487,164 @@ impl Armor {
             knockback
         }
     }
+}
+
+/// Orbs put on a fighter (E59, sim 128: the reference's shadow orbs). The move's projectile (a beam), hitting a fighter (not a shield,
+/// not a counter), puts orbs on it that circle it and, after a wait, strike it, all together. The orbs are projectiles of the beam's
+/// move (`Projectile::orb`), credited to the beam's owner and counted against its firer (`origin`):
+///
+/// * a hit puts `count` orbs on, one more from charge `more_at[0]` and another from `more_at[1]` (the beam's `Projectile::charge`),
+///   `reflected` times as many for a beam that has been reflected (its owner no longer its firer); at most `per_target` on one fighter
+///   and `per_owner` out for one firer; none on a fighter that has another firer's orbs or whose orbs are striking;
+/// * the first orbs start the fighter's clock (`Fighter::orb_clock`) at `wait` frames; a later hit adds `extend` frames at no charge to
+///   `extend_to` at a charge of `full` (in proportion), never past `cap` frames from the first hit (`Fighter::orb_age`);
+/// * circling, `radius` around the fighter's chest, a turn every `period` frames (spread evenly), an orb hits other fighters it
+///   touches with `orbit_hit` (each again after `orbit_rehit` frames) and is used up after `orbit_hits` hits;
+/// * when the clock runs out every orb on the fighter strikes: it flies into its chest over `strike` frames, arriving on the last,
+///   hitting with `strike_hit` whoever it touches (its owner aside), launched away from its owner; once struck (or at the end) it is
+///   gone. A striking orb can be reflected or pocketed: it then flies straight on as a shot (`loose_speed`, `loose_life`);
+/// * a knock-out of the fighter takes its orbs away.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Orbs {
+    pub count: u8,
+    pub more_at: [u8; 2],
+    pub reflected: u8,
+    pub per_target: u8,
+    pub per_owner: u8,
+    pub wait: u16,
+    pub extend: u16,
+    pub extend_to: u16,
+    pub full: u8,
+    pub cap: u16,
+    pub radius: Fx,
+    pub period: u16,
+    pub orbit_hit: Hitbox,
+    pub orbit_hits: u8,
+    pub orbit_rehit: u8,
+    pub strike: u8,
+    pub strike_hit: Hitbox,
+    pub loose_speed: Fx,
+    pub loose_life: u8,
+}
+
+impl Orbs {
+    /// How many orbs a beam fired at `charge` puts on (before the limits), reflected or not.
+    pub fn placed(&self, charge: u8, reflected: bool) -> u8 {
+        let n =
+            self.count + u8::from(charge >= self.more_at[0]) + u8::from(charge >= self.more_at[1]);
+        if reflected {
+            n.saturating_mul(self.reflected)
+        } else {
+            n
+        }
+    }
+
+    /// The frames a later hit at `charge` adds to the clock: `extend` to `extend_to` in proportion to `charge / full` [E: linear].
+    pub fn extension(&self, charge: u8) -> u16 {
+        let full = i32::from(self.full.max(1));
+        let c = i32::from(charge).min(full);
+        let (a, b) = (i32::from(self.extend), i32::from(self.extend_to));
+        (a + (b - a) * c / full).clamp(0, i32::from(u16::MAX)) as u16
+    }
+
+    fn hash_into(&self, h: &mut StateHasher) {
+        for b in [
+            self.count,
+            self.more_at[0],
+            self.more_at[1],
+            self.reflected,
+            self.per_target,
+            self.per_owner,
+            self.full,
+            self.orbit_hits,
+            self.orbit_rehit,
+            self.strike,
+            self.loose_life,
+        ] {
+            h.write_u8(b);
+        }
+        for w in [
+            self.wait,
+            self.extend,
+            self.extend_to,
+            self.cap,
+            self.period,
+        ] {
+            h.write_u16(w);
+        }
+        self.radius.hash_into(h);
+        self.loose_speed.hash_into(h);
+        self.orbit_hit.hash_into(h);
+        self.strike_hit.hash_into(h);
+    }
+}
+
+/// A counter's answer whose hits grow with what was caught (sim 128: the reference's barrier, whose answer is worked out by linear
+/// interpolation on the caught hit's damage): the move's projectile is fired with the fighter's caught damage
+/// (`Fighter::counter_damage`, kept in `Projectile::damage`), and each of its later hits by age is read between its written hit (at 0)
+/// and the hit at the same place in `phases` (at `full` and above): damage, base knockback, knockback growth, radius, shield damage
+/// and hitlag, in proportion; every other field is the written hit's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Lerp {
+    pub full: Fx,
+    pub phases: [Option<(u8, Hitbox)>; MAX_PHASES],
+}
+
+impl Lerp {
+    /// Hit `low` read `damage / full` of the way to `high` (all of it from `full` on).
+    pub fn between(&self, low: Hitbox, high: Hitbox, damage: Fx) -> Hitbox {
+        let k = if self.full <= Fx::ZERO {
+            Fx::ONE
+        } else {
+            (damage.max(Fx::ZERO) / self.full).min(Fx::ONE)
+        };
+        let fx = |a: Fx, b: Fx| a + (b - a) * k;
+        // (Whole fields rounded half up.)
+        let int = |a: i32, b: i32| {
+            (fx(Fx::from_int(a), Fx::from_int(b)) + Fx::from_ratio(1, 2)).floor_int()
+        };
+        let mut out = low;
+        out.damage = fx(low.damage, high.damage);
+        out.radius = fx(low.radius, high.radius);
+        out.base_knockback = int(
+            i32::from(low.base_knockback),
+            i32::from(high.base_knockback),
+        ) as i16;
+        out.knockback_growth = int(
+            i32::from(low.knockback_growth),
+            i32::from(high.knockback_growth),
+        ) as i16;
+        out.shield_damage =
+            int(i32::from(low.shield_damage), i32::from(high.shield_damage)).max(0) as u16;
+        out.hitlag = int(i32::from(low.hitlag), i32::from(high.hitlag)).max(0) as u16;
+        out
+    }
+
+    fn hash_into(&self, h: &mut StateHasher) {
+        self.full.hash_into(h);
+        for phase in &self.phases {
+            match phase {
+                Some((from, hb)) => {
+                    h.write_bool(true);
+                    h.write_u8(*from);
+                    hb.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+        }
+    }
+}
+
+/// A move's ground probe (sim 128: the reference's down smash, whose eruption needs ground at the blade's tip): on move frame `frame`
+/// the segment from `from` to `to` (ahead of and above the feet, by facing; scaled by the body's `hitbox_scale`) is tested against the
+/// stage; if it meets no ground (a block, or a pass-through platform's top), the move goes on as `miss` on the same frame, keeping its
+/// frame, charge and hits so far (as `Move::off_edge` does).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GroundProbe {
+    pub frame: u8,
+    pub from: (Fx, Fx),
+    pub to: (Fx, Fx),
+    pub miss: u8,
 }
 
 /// Damage over time (E54, sim 121: the reference's curse): the fighter a move's projectile hits takes `damage` percent (times the
@@ -1929,6 +2098,19 @@ pub struct Move {
     /// On the ground, the move's motion stops at its platform's edge instead of carrying the fighter off it (sim 125: the reference's
     /// grounded up specials that do not leave edges, the blade dash and its eight slashes). False (the default): it carries it off.
     pub edge_stop: bool,
+    /// Orbs the move's projectile puts on a fighter it hits (E59, sim 128: the reference's shadow orbs): see [`Orbs`]. `None` (the
+    /// default): none.
+    pub orbs: Option<Orbs>,
+    /// The move's projectile grows with what the fighter's counter caught (sim 128: the reference's barrier answer): see [`Lerp`].
+    /// `None` (the default): its hits as written.
+    pub lerp: Option<Lerp>,
+    /// A ground test that switches the move when it finds none (sim 128: the reference's down smash without ground contact): see
+    /// [`GroundProbe`]. `None` (the default): no test.
+    pub probe: Option<GroundProbe>,
+    /// The special fall after this move lands into this move (usually the move's own landing hit, an `ext` slot whose length is the
+    /// landing lag) instead of the plain landing lag (sim 128: the reference's eight slashes, whose landing hits). `None` (the
+    /// default): `fall_landing_lag`.
+    pub fall_landing_move: Option<u8>,
     /// Runs every frame of the move (movement, branching, extra projectile logic). See `sim-script`.
     pub script: Option<Program>,
     /// Runs every frame of the projectile this move fires.
@@ -2031,6 +2213,10 @@ impl Move {
             shield_end: 0,
             armor_mode: MODE_ANY,
             edge_stop: false,
+            orbs: None,
+            lerp: None,
+            probe: None,
+            fall_landing_move: None,
             script: None,
             projectile_script: None,
         }
@@ -2218,6 +2404,7 @@ impl StateHash for Weapon {
                             h.write_bool(c.floor);
                             h.write_u8(c.times);
                             h.write_u16(c.power_to);
+                            h.write_bool(c.every_hit);
                         }
                         None => h.write_bool(false),
                     }
@@ -2424,6 +2611,9 @@ impl StateHash for Weapon {
                         }
                         None => h.write_bool(false),
                     }
+                    c.break_above.hash_into(h);
+                    h.write_u8(c.break_move);
+                    h.write_bool(c.still);
                 }
                 None => h.write_bool(false),
             }
@@ -2637,6 +2827,34 @@ impl StateHash for Weapon {
             h.write_u8(m.shield_end);
             h.write_u8(m.armor_mode);
             h.write_bool(m.edge_stop);
+            // (Sim 128.)
+            match &m.orbs {
+                Some(o) => {
+                    h.write_bool(true);
+                    o.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            match &m.lerp {
+                Some(l) => {
+                    h.write_bool(true);
+                    l.hash_into(h);
+                }
+                None => h.write_bool(false),
+            }
+            match &m.probe {
+                Some(p) => {
+                    h.write_bool(true);
+                    h.write_u8(p.frame);
+                    p.from.0.hash_into(h);
+                    p.from.1.hash_into(h);
+                    p.to.0.hash_into(h);
+                    p.to.1.hash_into(h);
+                    h.write_u8(p.miss);
+                }
+                None => h.write_bool(false),
+            }
+            h.write_u8(m.fall_landing_move.unwrap_or(255));
             for script in [&m.script, &m.projectile_script] {
                 match script {
                     Some(p) => {
@@ -3622,6 +3840,9 @@ fn sword_kit() -> Weapon {
             half_height: Fx::ZERO,
             radius: Fx::from_ratio(13, 10),
         }),
+        break_above: Fx::ZERO,
+        break_move: 0,
+        still: false,
     });
     moves[MoveId::DownSpecial as usize] = counter;
     let mut answer = ref_move(

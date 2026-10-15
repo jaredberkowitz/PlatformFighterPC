@@ -265,6 +265,10 @@ pub struct Fighter {
     pub wing_spent: bool,
     /// The last fighter whose hit raised this fighter's percent since it last came back (E57: who a KO is credited to), or [`NONE`].
     pub hit_by: i8,
+    /// Orbs on this fighter (E59, sim 128: `moves::Orbs`): frames left before they strike (0: none circling), and frames since the
+    /// first of them was put on (the clock never runs past `Orbs::cap` from then).
+    pub orb_clock: u16,
+    pub orb_age: u16,
     /// Wall jumps since the fighter last stood on the ground or held a ledge (each is weaker: `Ruleset::wall_jump_decay`).
     pub wall_jumps: u8,
     /// A dash flicked during a grab, pummel or throw (-1 or 1, 0 for none), kept while the stick stays pushed that way and started on
@@ -464,6 +468,16 @@ pub struct Projectile {
     /// Sim 115: the stale-move key its hits count under in its owner's queue: the move that fired it, or the pocket that let it out
     /// (E42).
     pub stale: u8,
+    /// Sim 128: the firing fighter's charge as it was fired (`Fighter::charge`; what a beam's orbs go by, E59). 0 for a shot fired by
+    /// anything else.
+    pub charge: u8,
+    /// Sim 128 (E59, `moves::Orbs`): [`ORB_NONE`] (an ordinary projectile), [`ORB_CIRCLE`] (an orb circling fighter `held`),
+    /// [`ORB_STRIKE`] (an orb striking it, its age counting from the strike's start) or [`ORB_LOOSE`] (an orb reflected or let out of
+    /// a pocket, flying straight as a shot with the orbs' strike hit).
+    pub orb: u8,
+    pub held: u8,
+    /// The hits a circling orb has made on bystanders (it is gone at `Orbs::orbit_hits`).
+    pub orb_hits: u8,
 }
 
 /// An item (E4, sim 111; see `moves::ItemSpec`): held, thrown, lying, stuck or bursting. Slots are reused; `active` marks a live one.
@@ -572,6 +586,12 @@ pub const REST_LODGED: u8 = 1;
 pub const REST_FALLEN: u8 = 2;
 pub const REST_POCKETED: u8 = 3;
 
+/// `Projectile::orb` values (E59, sim 128).
+pub const ORB_NONE: u8 = 0;
+pub const ORB_CIRCLE: u8 = 1;
+pub const ORB_STRIKE: u8 = 2;
+pub const ORB_LOOSE: u8 = 3;
+
 impl StateHash for Projectile {
     fn hash_into(&self, h: &mut StateHasher) {
         h.write_bool(self.active);
@@ -599,6 +619,10 @@ impl StateHash for Projectile {
         h.write_u8(self.kind);
         h.write_u8(self.rest);
         h.write_u8(self.stale);
+        h.write_u8(self.charge);
+        h.write_u8(self.orb);
+        h.write_u8(self.held);
+        h.write_u8(self.orb_hits);
     }
 }
 
@@ -775,6 +799,8 @@ impl Fighter {
             wing_points: Fx::ZERO,
             wing_spent: false,
             hit_by: NONE,
+            orb_clock: 0,
+            orb_age: 0,
             wall_jumps: 0,
             dash_buffer: 0,
             drop_pending: 0,
@@ -996,6 +1022,8 @@ impl StateHash for Fighter {
         self.wing_points.hash_into(h);
         h.write_bool(self.wing_spent);
         h.write_i8(self.hit_by);
+        h.write_u16(self.orb_clock);
+        h.write_u16(self.orb_age);
         h.write_u8(self.wall_jumps);
         h.write_i8(self.dash_buffer);
         h.write_u8(self.drop_pending);
@@ -1683,6 +1711,16 @@ mod tests {
                 s.fighters[1].hit_by = 0;
                 s
             }),
+            ("orb_clock", {
+                let mut s = state;
+                s.fighters[1].orb_clock = 1;
+                s
+            }),
+            ("orb_age", {
+                let mut s = state;
+                s.fighters[1].orb_age = 1;
+                s
+            }),
             ("curse_by", {
                 let mut s = state;
                 s.fighters[1].curse_by = 1;
@@ -1931,6 +1969,26 @@ mod tests {
             ("projectile_damage", {
                 let mut s = state;
                 s.projectiles[1].damage = Fx::from_int(7);
+                s
+            }),
+            ("projectile_charge", {
+                let mut s = state;
+                s.projectiles[1].charge = 1;
+                s
+            }),
+            ("projectile_orb", {
+                let mut s = state;
+                s.projectiles[1].orb = ORB_CIRCLE;
+                s
+            }),
+            ("projectile_held", {
+                let mut s = state;
+                s.projectiles[1].held = 1;
+                s
+            }),
+            ("projectile_orb_hits", {
+                let mut s = state;
+                s.projectiles[1].orb_hits = 1;
                 s
             }),
             ("projectile_kind", {

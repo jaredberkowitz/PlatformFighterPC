@@ -52,9 +52,8 @@ use crate::state::{Fighter, FighterState as S, GameState, MatchRules, DRAW, NONE
 use crate::vec2::Vec2;
 use crate::MAX_FIGHTERS;
 use data::{
-    BLOCK_BOTTOM, EVENT_VAN, MAX_SHOP_ITEMS, PLACE_ALONE, PLACE_FLAT, PLACE_HIGH,
-    ROOM_COINS, ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_PROPS, ROOM_SLOTS, ROOM_SPAWNS,
-    SPOT_ANY,
+    BLOCK_BOTTOM, EVENT_VAN, MAX_SHOP_ITEMS, PLACE_ALONE, PLACE_FLAT, PLACE_HIGH, ROOM_COINS,
+    ROOM_LEDGES, ROOM_PARTS, ROOM_PLATFORMS, ROOM_PROPS, ROOM_SLOTS, ROOM_SPAWNS, SPOT_ANY,
 };
 
 /// Grunts alive at once: the fighter slots after the players (sim 129, `crate::MAX_GRUNTS`).
@@ -1550,7 +1549,9 @@ fn drop_behind(state: &mut GameState, world: &Content, behind: u8) {
 /// Bodies standing on a pool platform that is gone fall (their `platform` index no longer names it).
 fn unground_dropped(state: &mut GameState) {
     for f in state.fighters.iter_mut().filter(|f| f.active) {
-        if usize::try_from(f.platform).is_ok_and(|i| i < POOL_PLATFORMS && !state.run.platforms[i].live) {
+        if usize::try_from(f.platform)
+            .is_ok_and(|i| i < POOL_PLATFORMS && !state.run.platforms[i].live)
+        {
             f.platform = NONE;
             crate::fighter::stand_or_fall(f);
         }
@@ -1682,10 +1683,7 @@ fn check_arena(state: &mut GameState, rc: &RunContent) {
     let room = &rc.rooms[usize::from(slot.room).min(rc.rooms.len() - 1)];
     let all = (1u16 << room.spawns.len().min(ROOM_SPAWNS)) - 1;
     let all_out = u16::from(slot.spawned) & all == all;
-    let left = run
-        .mobs
-        .iter()
-        .any(|m| m.active && m.room == slot.seq);
+    let left = run.mobs.iter().any(|m| m.active && m.room == slot.seq);
     if all_out && !left {
         run.gate_closed = false;
         run.cleared = run.cleared.saturating_add(1);
@@ -1712,7 +1710,13 @@ fn spawn_mobs(state: &mut GameState, world: &Content, rc: &RunContent) {
 
 /// Spawns room `seq`'s spots not yet spawned (those left of `reach`, or all), each the kind the budget gave it, its stamina by the
 /// room's tier. A grunt comes out of its door or stairwell first (`emerge_frames`), standing on the ground under its spot.
-fn spawn_slot(state: &mut GameState, world: &Content, rc: &RunContent, seq: u32, reach: Option<Fx>) {
+fn spawn_slot(
+    state: &mut GameState,
+    world: &Content,
+    rc: &RunContent,
+    seq: u32,
+    reach: Option<Fx>,
+) {
     let run = &state.run;
     let Some(s) = run.slots.iter().position(|s| s.live && s.seq == seq) else {
         return;
@@ -1835,9 +1839,21 @@ fn follow_camera(state: &mut GameState, rules: &RunRules) {
             .max(bottom + rules.cam_floor);
         let d = want - run.cam_y;
         if d.abs() > rules.cam_dead {
-            let goal = if d > Fx::ZERO { want - rules.cam_dead } else { want + rules.cam_dead };
-            let step = ((goal - run.cam_y) * rules.cam_y_ease).abs().max(Fx::from_ratio(1, 64)).min(rules.cam_max_speed).min((goal - run.cam_y).abs());
-            run.cam_y = if goal > run.cam_y { run.cam_y + step } else { run.cam_y - step };
+            let goal = if d > Fx::ZERO {
+                want - rules.cam_dead
+            } else {
+                want + rules.cam_dead
+            };
+            let step = ((goal - run.cam_y) * rules.cam_y_ease)
+                .abs()
+                .max(Fx::from_ratio(1, 64))
+                .min(rules.cam_max_speed)
+                .min((goal - run.cam_y).abs());
+            run.cam_y = if goal > run.cam_y {
+                run.cam_y + step
+            } else {
+                run.cam_y - step
+            };
         }
     }
 }

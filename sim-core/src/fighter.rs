@@ -1251,7 +1251,11 @@ fn helpless(
         q.air_accel_stick = p.air_accel_stick * drift;
     }
     if air_move(f, &q, stage) {
-        enter_landing(f, lag);
+        match mv.fall_landing_move {
+            // (A landing hit after the move, sim 128.)
+            Some(next) => begin_attack(f, MoveId::from_index(next)),
+            None => enter_landing(f, lag),
+        }
         return None;
     }
     ledge_request(f, p, stage)
@@ -2892,6 +2896,18 @@ fn attack(
     if charging {
         f.charge += 1;
         f.state_frame -= 1;
+    }
+    // A ground probe (sim 128: the reference's down smash at an edge): with no ground along its segment on its frame, the move goes
+    // on as its other version, keeping its frame, charge and hits.
+    if let Some(gp) = mv.probe {
+        if once(f.state_frame, u16::from(gp.frame)) {
+            let s = p.hitbox_scale;
+            let dir = i32::from(f.facing);
+            let at = |(x, y): (Fx, Fx)| f.pos + Vec2::new((x * s).mul_int(dir), y * s);
+            if !collision::segment_meets_ground(stage, at(gp.from), at(gp.to)) {
+                f.move_id = gp.miss;
+            }
+        }
     }
 
     // A multi-hit move lets its hits land again at a steady rhythm (only the groups it re-arms: a final hit lands once).

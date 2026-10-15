@@ -1721,7 +1721,9 @@ impl RunContent {
         h.write_u32(self.tiers.len() as u32);
         for t in &self.tiers {
             t.weight.hash_into(&mut h);
-            for v in [t.kinds, t.budget, t.tell, t.stamina, t.damage, t.tech, t.di, t.mash] {
+            for v in [
+                t.kinds, t.budget, t.tell, t.stamina, t.damage, t.tech, t.di, t.mash,
+            ] {
                 h.write_u8(v);
             }
         }
@@ -1905,12 +1907,7 @@ impl StateHash for MobKind {
         for m in self.moves {
             h.write_u8(m);
         }
-        for v in [
-            self.stamina,
-            self.aggro,
-            self.reach,
-            self.reach2,
-        ] {
+        for v in [self.stamina, self.aggro, self.reach, self.reach2] {
             v.hash_into(h);
         }
         h.write_u16(self.coins);

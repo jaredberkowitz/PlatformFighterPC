@@ -279,6 +279,16 @@ impl Host for FighterHost<'_> {
                 self.f.air_marks |= 1u8 << arg(0).floor_int().clamp(0, 7);
             }
             api::F_LOCK => return flag(self.lock(arg(0))),
+            // (Sim 128: a probe of the stage, the exile's wall stick.)
+            api::F_GROUND => {
+                let a = self.f.pos + Vec2::new(self.forward(arg(0)), arg(1));
+                let b = self.f.pos + Vec2::new(self.forward(arg(2)), arg(3));
+                return flag(crate::collision::segment_meets_ground(
+                    self.world.stage,
+                    a,
+                    b,
+                ));
+            }
             api::F_BOOST_ADD => crate::gauge::add(self.f, self.gauge, arg(0)),
             api::F_SET_CHARGE => self.f.charge = arg(0).floor_int().clamp(0, 255) as u8,
             api::F_DETONATE => self.f.item_order |= crate::items::ORDER_DETONATE,

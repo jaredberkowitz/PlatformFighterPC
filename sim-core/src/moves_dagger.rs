@@ -2357,6 +2357,9 @@ fn stance(w: &mut Weapon) {
             half_height: Fx::ZERO,
             radius: tenths(u(100)),
         }),
+        break_above: Fx::ZERO,
+        break_move: 0,
+        still: false,
     });
     stance.reflector = Some(Reflector {
         damage_percent: 160,

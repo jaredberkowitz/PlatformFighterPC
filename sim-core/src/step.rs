@@ -192,6 +192,8 @@ pub fn step_bodies(state: &mut GameState, content: &Content, inputs: &[Input; MA
     combat::resolve_hits(state, content);
     // Grabs: keep each held fighter in its holder's hands and let it break free.
     grab::update(state, content);
+    // Orb clocks (E59, sim 128): orbs whose wait has run out start to strike.
+    crate::orbs::tick(state);
     // Existing projectiles move first, so a new one stays at the muzzle on the frame it appears.
     combat::update_projectiles(state, content);
     combat::spawn_projectiles(state, content);
