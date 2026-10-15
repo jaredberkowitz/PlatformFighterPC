@@ -100,3 +100,15 @@ specifics. The combined order, keeping the refine-before-replace rule, matched b
    the sky; the run HUD's hierarchy (distance first, combo second, the rest supporting) built from the same panel rules. The run reuses
    the city's art (docs/modes/RUNNER_PLAN.md section 10), so the city stage gains with it; the run's shadow crawl on pans is checked here.
 9. Performance and regression across every stage, four fighters, supported resolutions.
+
+## Done: the meadow block as one of its own islands (plan item 2, first pass)
+
+The owner: the aim now is one cohesive style across every asset. The meadow's sky islands are earth with a turf cap, banded strata and a
+keel; the stage was a different object: brick buttresses at the ends, a front dotted with two dozen stones, a row of rubble along its foot.
+`review6_meadow_island.png` (before | after: match view, wide view):
+- **No masonry on the earth islands** (the meadow and the grove): `_ledges_and_buttresses` skips them.
+- **The soil's beds are the big forms** (`earth` pattern): one boulder, four middling stones and eight pebbles per tile, from 3, 7 and 16.
+- **No rubble skirt** under the earth islands: the wall's earth carries straight on into the keel, as the sky islands' does.
+- Checked: the art, match and fighter tests; the look bench.
+- Next for cohesion: the grove's stepped underside to a keel like its islands; the desert's, beach's and city's fronts by the same rule
+  (built where the stage is built, earth where it is earth).
