@@ -51,8 +51,8 @@ def bark():
     for k in range(n):
         d = 'M' + ' L'.join(f'{edge(k, y):.1f},{y}' for y in ys)
         for ox in (-256, 0, 256):
-            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="8" stroke-linecap="round" opacity="0.2"/>\n'
-            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="3.2" stroke-linecap="round" opacity="0.34"/>\n'
+            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="10" stroke-linecap="round" opacity="0.13"/>\n'
+            s += f'  <path d="{d}" transform="translate({ox},0)" fill="none" stroke="#000000" stroke-width="3.2" stroke-linecap="round" opacity="0.12"/>\n'
     # A few furrows split: a short branch leaving one boundary and fading into the plate.
     for _ in range(4):
         k = rng.randrange(n)
@@ -60,7 +60,7 @@ def bark():
         x0 = edge(k, y0)
         dx = rng.uniform(8, 18)
         dy = rng.uniform(30, 60)
-        s += wrap(lambda a, b, dx=dx, dy=dy: f'  <path d="M{a:.1f},{b:.1f} q{dx * 0.3:.1f},{dy * 0.5:.1f} {dx:.1f},{dy:.1f}" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" opacity="0.24"/>\n', x0, y0, 70)
+        s += wrap(lambda a, b, dx=dx, dy=dy: f'  <path d="M{a:.1f},{b:.1f} q{dx * 0.3:.1f},{dy * 0.5:.1f} {dx:.1f},{dy:.1f}" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" opacity="0.1"/>\n', x0, y0, 70)
     # Short cross-cracks on the plates.
     for _ in range(9):
         k = rng.randrange(n)

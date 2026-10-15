@@ -790,7 +790,8 @@ static func platform(parent: Node3D, t: Dictionary, left: float, right: float, t
 				_mesh(parent, _sphere(0.018, 6), nail, Vector3(nx, top + ny, front_z + 0.015))
 	var batten := Materials.wood((t.wood_dark as Color).darkened(0.12), Vector2(1, 1))
 	for bx in [left + 0.55, right - 0.55]:
-		_mesh(parent, _box(Vector3(0.34, 0.3, depth - 0.2)), batten, Vector3(bx, top - 0.55, front_z - depth / 2.0))
+		# (Inside the beam's height and set back from the front, round 36: lower and flush it hung below the platform as a dark block.)
+		_mesh(parent, _box(Vector3(0.3, 0.16, depth - 0.8)), batten, Vector3(bx, top - 0.52, front_z - depth / 2.0 - 0.1))
 	_platform_dressing(parent, t, left, right, top, front_z, depth)
 
 
@@ -806,17 +807,10 @@ static func _platform_dressing(parent: Node3D, t: Dictionary, left: float, right
 	match t.get("name", ""):
 		"ocean", "sunset":
 			var rope := Materials.wood(Color(0.86, 0.74, 0.52) if t.name == "ocean" else Color(0.78, 0.62, 0.42), Vector2(1, 6))
+			# (Bands of rope wrapped round the board, round 36: squashed rings seen edge-on read as pink fins.)
 			for ex in [left + 0.6, right - 0.6]:
 				for j in 3:
-					var ring := TorusMesh.new()
-					ring.inner_radius = 0.3
-					ring.outer_radius = 0.36
-					ring.rings = 14
-					ring.ring_segments = 6
-					# (Turned so the ring's plane is across the plank, squashed to wrap its board and beam: 0.27 up and down, the depth front to
-					# back.)
-					_mesh(parent, ring, rope, Vector3(ex + (j - 1) * 0.12, top - 0.24, front_z - depth / 2.0),
-						Vector3(0.27 / 0.33, 1.0, (depth * 0.5 + 0.04) / 0.33), Vector3(0, 0, 90))
+					_mesh(parent, _box(Vector3(0.09, 0.3, 0.08)), rope, Vector3(ex + (j - 1) * 0.13, top - 0.16, front_z + 0.03))
 		"grove":
 			var moss := Materials.foliage(Color(0.36, 0.64, 0.36), Vector2(2, 2), true)
 			# (Overlapping clumps of very different sizes, gaps now and then: an even row read as beads.)
