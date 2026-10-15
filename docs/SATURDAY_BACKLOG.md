@@ -26,6 +26,7 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 ## Graphics refinement loop (screenshot every stage, fix the two weakest, repeat)
 - [x] Grove: the pale corner shapes (the canopy's top rows; deepened, round 1).
 - [ ] More rounds of the loop across all five stages.
+- [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.
 - [ ] The run mode's own city windows (`run_stage.gd` facade values) to match the stage's calmer ones (check with the modes-online agent).

@@ -260,3 +260,11 @@ Checked: the art pipeline and match flow tests.
   its pale highlighted stones read as pipes and polka dots. Roots now taper from their thick end, a step darker; three small stones only
   a step off the soil.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 8
+
+- **The canyon's platforms** (`review6_round8_canyon_wood.png`, before | after): dark maroon planks (wood 0.56 bright, every other stage
+  0.8-0.93) read as black bars against the bright sky and broke the platforms' family across stages. Now sun-bleached red wood in the
+  others' range (the sunset theme's `wood` and `wood_dark`).
+- Not done: the results screen. `--demo=results` no longer reaches it (it photographs the match), so it needs the demo mended first.
+Checked: the art pipeline and match flow tests.

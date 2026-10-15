@@ -41,7 +41,9 @@ const THEMES := {
 		"sky_top": Color(0.36, 0.28, 0.6), "sky_mid": Color(0.84, 0.46, 0.62), "sky_horizon": Color(1.0, 0.64, 0.4),
 		"sky_glow": [Color(1.0, 0.56, 0.26), 0.7], "sky_wisps": [Color(1.0, 0.7, 0.62), 0.5],
 		"soil": Color(0.86, 0.5, 0.32), "soil_dark": Color(0.68, 0.34, 0.24), "grass": Color(0.93, 0.74, 0.46),
-		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.56, 0.37, 0.28), "wood_dark": Color(0.38, 0.24, 0.2),
+		# (Sun-bleached, in the other stages' range of wood: art review 6 round 8, the canyon's dark maroon planks read as black bars
+		# against its bright sky, the one stage whose platforms broke the family.)
+		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.82, 0.57, 0.42), "wood_dark": Color(0.58, 0.37, 0.29),
 		"pattern": "strata", "cap": "sand", "platform": "wood", "grass_vary": 0.18,
 	},
 	"night": {
