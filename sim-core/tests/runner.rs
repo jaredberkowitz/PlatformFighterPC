@@ -3250,3 +3250,26 @@ fn the_checksum_sees_the_grunts_fighters() {
         assert_ne!(s.checksum(), c, "{name} is not in the checksum");
     }
 }
+
+/// R2c: bodies push each other on the ground (versus's rule), but in a run a push never shoves anyone through a gate standing on that
+/// ground (the arena's, or the wall behind): a grunt crowding the player against a shut gate leaves it inside.
+#[test]
+fn a_push_never_goes_through_a_gate() {
+    let mut sim = RunSim::with(only(&["yard", "shop"], (0, 1, 0)), 4);
+    let slot = *sim.state.run.slot_of(1).unwrap();
+    sim.stand(Vec2::new(slot.x + fx(3), Fx::ZERO));
+    sim.state.fighters[PLAYER].invuln = 30;
+    sim.tick(Input::default());
+    assert!(sim.state.run.gate_closed);
+    sim.clear_mobs();
+    let gate = sim.state.run.gate_x;
+    sim.stand(Vec2::new(gate - fx(1), Fx::ZERO));
+    let at = sim.player().pos - Vec2::new(Fx::HALF, Fx::ZERO);
+    let n = sim.add_mob(KIND_BRAWLER, at);
+    sim.hold(n);
+    for _ in 0..60 {
+        sim.g_mut(n).pos.x = sim.player().pos.x - Fx::HALF;
+        sim.tick(inp(127, 0, 0));
+        assert!(sim.player().pos.x < gate, "pushed through the gate");
+    }
+}
