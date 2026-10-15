@@ -5,8 +5,8 @@ bundle {
     schema 8
     name "Base Roster"
     description "The built-in roster: a longsword duelist and a close-range brawler."
-    sim_version 125
-    hash 61ca6a0de043e7b4
+    sim_version 126
+    hash 10de1029ea6fc7f9
 }
 
 ruleset {
@@ -12979,6 +12979,7 @@ weapon dagger {
         hitbox { start 19 end 19 x 1.09999 y 4.4 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
         hitbox { start 19 end 19 x 1.29999 y 4.79999 radius 0.4 damage 0 angle 361 bkb 0 kbg 0 priority 1 kind grab command true blockable true }
         hitbox { start 19 end 25 x 1.29999 y 4.79999 radius 0.7 damage 0 angle 361 bkb 0 kbg 0 kind grab command true blockable true }
+        shield_end 20
     }
     move down_special {
         total_frames 51
@@ -13262,7 +13263,7 @@ weapon dagger {
         hitbox { start 19 end 19 x 1.09999 y 4.4 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 19 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 24 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 shield_damage 120 hitlag 120 rebounds false }
-        tether { from 11 to 24 ahead 2 up 5 hang 8 reel 12 drag 240 limit 3 }
+        tether { from 11 to 24 ahead 2 up 5 hang 8 reel 12 drag 240 limit 3 reel_press true }
         flag_version { marks 1 move ext2 }
         motion { start 4 end 4 vx 0 vy 0.1875 }
         script {
@@ -13289,7 +13290,7 @@ weapon dagger {
         hitbox { start 19 end 19 x 1.09999 y 4.4 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 19 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 priority 1 shield_damage 120 hitlag 120 rebounds false }
         hitbox { start 19 end 24 x 1.29999 y 4.79999 radius 0.29999 damage 5 angle 55 bkb 76 kbg 56 shield_damage 120 hitlag 120 rebounds false }
-        tether { from 11 to 24 ahead 2 up 5 hang 8 reel 12 drag 240 limit 3 }
+        tether { from 11 to 24 ahead 2 up 5 hang 8 reel 12 drag 240 limit 3 reel_press true }
     }
     move ext3 {
         total_frames 44
@@ -13389,6 +13390,7 @@ weapon dagger {
         hitbox { start 31 end 31 x 8.59999 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         hitbox { start 31 end 31 x 9 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         dodge_stale true
+        stale_stretch roll
         motion { start 2 end 15 vx 0.18999 vy 0 }
         script {
             // Dagger gun, the dodge forward (ext3, slot 31): the shot on 19 (its 20). On its last frame (38: FAF 40; 44 with the partner, FAF 46)
@@ -13516,6 +13518,7 @@ weapon dagger {
         hitbox { start 33 end 33 x 8.59999 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         hitbox { start 33 end 33 x 9 y 1.2 radius 0.29999 damage 1 angle 361 bkb 0 kbg 0 priority 2 group 2 hitlag 0 angle_type forward mode powered }
         dodge_stale true
+        stale_stretch back_roll
         motion { start 3 end 16 vx -0.152 vy 0 }
         script {
             // Dagger gun, the dodge back (ext4, slot 32): the shot on 21 (its 22). On its last frame (44: FAF 46; 48 with the partner, FAF 50)
