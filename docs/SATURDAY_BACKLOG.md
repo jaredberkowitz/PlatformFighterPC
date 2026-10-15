@@ -49,8 +49,8 @@ The detail behind each step follows.
       bell, the HUD strip, and grunts teching from tier 3. Ask the moveset session for the SIM_VERSION, keep versus timing within 2%,
       then land and release.
 
-## Versus gaps (docs/REFERENCE_GAPS.md; done 15 Oct: D3 jab locks sim 132, O1 perfect pivots sim 133)
-- [ ] **O2 footstool.** Research so far (the reference, ssbwiki "Footstool jump"):
+## Versus gaps (docs/REFERENCE_GAPS.md; done 15 Oct: D3 jab locks 132, O1 perfect pivots 133, D1 shield tilt/pokes 134, O2 footstools 135)
+- [x] **O2 footstool** (done, sim 135; notes kept for tuning the [E] numbers). Research so far (the reference, ssbwiki "Footstool jump"):
   - jump while above an opponent's head bounces off it, doing no damage;
   - 2 to 6 in a row depending on fall speed, each about half the last rebound; it can be short hopped;
   - not within 16 frames after attacking;
@@ -61,7 +61,10 @@ The detail behind each step follows.
   - a fall caused by one is a KO credited to the footstooler.
 
   Frame counts aren't published: find them, or mark them [E]. Needs new victim states and a version from the moveset session.
-- [ ] D1 shield tilting and shield pokes; O3 check B-reverse on the down special; R2 moving platforms.
+- [ ] O3 check B-reverse on the down special (the reference's window is 4 frames; which specials allow it is unverified); R2 moving
+      platforms (later, with stage art).
+- [ ] Playtest the four new mechanics on a controller: the drawn shield tilt matches the sim's, the perfect pivot's 1-frame window,
+      footstool feel.
 
 ## Animation overhaul (the main job; start from docs/POSE_REVIEW.md)
 - [ ] Up moves arch the back with the belly forward ("inhaling"): reach from the shoulders, hips over the feet.
