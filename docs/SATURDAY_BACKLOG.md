@@ -32,6 +32,8 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       (2026-10-15). Internal move ids (`fsmash` etc.) later, with the moveset session.
 - [ ] Ink painted into the stage textures (stone and plank edges, trims, strata ledges) eased toward the Wind Waker HD reference, where
       colour and value carry the scenery; the post-pass and outline-shell levers made no visible difference (art review 6 round 22).
+- [ ] Meadow: the soft blue-grey band behind the hills (not the ridge or the mist; likely the sky shader's horizon layer) to firm up
+      into painted mountains or clear sky (art review 6 round 29).
 - [ ] Mend `--demo=results` (it stops in the match) and review the results screen.
 - [ ] In-motion checks for the refinement rounds (the outside brief): an attack with its hit effect, both fighters airborne, fighters
       spread so the camera pulls out; look for outline flicker, shadow crawl, effects hiding fighters.

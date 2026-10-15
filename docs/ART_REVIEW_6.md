@@ -429,3 +429,9 @@ Checked: the art pipeline and match flow tests.
 pinstripe beside the stage front's few broad, soft roots. The trunk's bark now repeats 2.5 by 2 (broad plates), and the furrows' dark
 core is softer (0.34, was 0.45): the trunk and the stage front read in one painted style, the same scale of form and weight of line.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 29 (backgrounds; nothing kept)
+
+The beach's horizon (island, sea, clouds) holds up. The meadow's soft blue-grey band behind the hills reads as a formless smudge beside
+the crisp painted hills, but it is neither the far painted ridge (firmer colour, rim and less haze: no change) nor the two mist layers
+(removed: no change). Probably the sky's own painted horizon layer (`StageArt.sky`); both probes reverted. Backlog: identify it first.
