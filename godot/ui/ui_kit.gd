@@ -468,6 +468,15 @@ class Btn extends Control:
 	var pop := 0.0
 	var seed := 1
 	var shine := 0.0
+	## A setting ("Label: value"): a dark card, the label in a quiet white and the value in the accent, as the menu's utility tiles are
+	## (art review 6: the select screen's settings were plain pale bars unlike every other panel).
+	var setting := false:
+		set(v):
+			setting = v
+			if v:
+				fill = Color(0.2, 0.22, 0.34)
+				ink = Color(1, 1, 1)
+			queue_redraw()
 
 	func _init(label := "", min_size := Vector2(320, 64)) -> void:
 		text = label
@@ -519,6 +528,18 @@ class Btn extends Control:
 		var fs := font_size
 		while fs > 12 and D.font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > r.size.x - 28.0:
 			fs -= 2
+		if setting and text.contains(":"):
+			var cut := text.find(":")
+			var label := text.substr(0, cut + 1) + " "
+			var value := text.substr(cut + 1).strip_edges()
+			var f := D.font()
+			var lw := f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var vw := f.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var x := r.position.x + (r.size.x - lw - vw) * 0.5
+			var y := r.position.y + (r.size.y + f.get_ascent(fs) - f.get_descent(fs)) * 0.5
+			draw_string(f, Vector2(x, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.82, 0.84, 0.92))
+			draw_string(f, Vector2(x + lw, y), value, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.82, 0.3))
+			return
 		D.draw_text_centered(self, text, r, fs, ink if not disabled else Color(0.35, 0.35, 0.35))
 
 

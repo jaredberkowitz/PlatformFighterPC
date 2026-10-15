@@ -128,3 +128,12 @@ the camera (`stage_art.gd` `STAGE_FRONT`, used by `stage_view.gd` `FRONT_Z` and 
 centred on them (4 deep, 2 either side), the run mode's rooftops likewise (it shares the constant). No gameplay change: the fighters' own
 plane is untouched. `review6_depth_centre.png` (before | after, the beach). Checked: the art, match, fighter, content and runner tests,
 a run capture, the look bench.
+
+## Done: select and HUD on one panel system (item 7)
+
+`review6_ui.png` (before | after): the select screen's five settings (players, rules, stocks, time, stage) are dark kit cards with the
+label in a quiet white and the value in the accent yellow (`ui_kit.gd` `Btn.setting`), as the menu's utility tiles are, not pale bars;
+the "GAME!", "TIME!" and countdown calls sit on an angular ribbon in the title's style, sized to the word (`match_hud.gd` `_banner`), not
+a flat grey band; the stocks a size up (1.3x). Checked: the match, controls, creator and select grid tests.
+
+The owner scheduled the full animation overhaul for Saturday 2026-10-17 (plan in memory); until then the other items continue.

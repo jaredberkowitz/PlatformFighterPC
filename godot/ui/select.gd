@@ -444,28 +444,33 @@ func _ready() -> void:
 	add_child(status)
 
 	rules_button = UI.Btn.new("Rules: Casual", Vector2(260, 50))
+	rules_button.setting = true
 	rules_button.font_size = 22
 	rules_button.position = Vector2(1006, 8)
 	rules_button.activated.connect(_toggle_ranked)
 	add_child(rules_button)
 
 	players_button = UI.Btn.new("Players: 2", Vector2(220, 50))
+	players_button.setting = true
 	players_button.font_size = 22
 	players_button.position = Vector2(780, 8)
 	players_button.activated.connect(_cycle_players)
 	add_child(players_button)
 	Roster.load_match_rules()
 	stocks_button = UI.Btn.new("", Vector2(220, 44))
+	stocks_button.setting = true
 	stocks_button.font_size = 20
 	stocks_button.position = Vector2(250, 330)
 	stocks_button.activated.connect(func(): _cycle_rules(true))
 	add_child(stocks_button)
 	time_button = UI.Btn.new("", Vector2(220, 44))
+	time_button.setting = true
 	time_button.font_size = 20
 	time_button.position = Vector2(480, 330)
 	time_button.activated.connect(func(): _cycle_rules(false))
 	add_child(time_button)
 	stage_button = UI.Btn.new("", Vector2(320, 44))
+	stage_button.setting = true
 	stage_button.font_size = 20
 	stage_button.position = Vector2(710, 330)
 	stage_button.activated.connect(_cycle_stage)
