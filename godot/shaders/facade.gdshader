@@ -36,22 +36,26 @@ vec3 neon_sign(vec2 at, vec2 size, float seed) {
 	float border = 1.0 - step(0.26, min(e.x, e.y));
 	// Lettering: a row of short bars across the middle, their lengths from the seed.
 	float letters = 0.0;
-	float n = max(2.0, floor(size.x / 0.9));
-	float k = floor(at.x / (size.x / n));
+	// A real word in neon tubes (the owner, round 41): SHOP or CAFE by the sign's seed, four letters, each built from segments like a
+	// seven-segment display. Bits: 1 top, 2 middle, 4 bottom, 8 left upper, 16 left lower, 32 right upper, 64 right lower.
+	float n = 4.0;
+	int k = int(clamp(floor(at.x / (size.x / n)), 0.0, 3.0));
 	float in_k = fract(at.x / (size.x / n));
-	// Each letter a few neon tubes (art review 6 round 41: solid bars read as a blank panel): verticals at either side and crossbars at
-	// top, middle and bottom, each switched on by the letter's own hash, so the row reads as lettering.
-	float tall = mix(0.5, 0.75, hash(vec2(seed, k)));
-	float v = (at.y - size.y * 0.5) / (size.y * tall * 0.5) * 0.5 + 0.5;
-	float inside = step(0.12, in_k) * step(in_k, 0.88) * step(0.0, v) * step(v, 1.0) * step(0.45, e.x) * step(0.4, e.y);
-	float t = 0.16;
-	float h1 = hash(vec2(seed, k + 0.31));
-	float h2 = hash(vec2(seed, k + 0.67));
-	float strokes = step(in_k, 0.12 + t * 0.76) * step(0.2, h1)
-		+ step(0.88 - t * 0.76, in_k) * step(h1, 0.75)
-		+ step(v, t) * step(0.35, h2)
-		+ step(1.0 - t, v) * step(h2, 0.8)
-		+ step(abs(v - 0.5), t * 0.5) * step(0.5, fract(h1 * 7.3 + h2));
+	int word = hash(vec2(seed, 5.0)) < 0.6 ? 0 : 1;
+	int glyphs[8] = int[](79, 122, 125, 59, 29, 123, 27, 31);
+	int mask = glyphs[word * 4 + k];
+	float v = (at.y - size.y * 0.5) / (size.y * 0.62 * 0.5) * 0.5 + 0.5;
+	float inside = step(0.14, in_k) * step(in_k, 0.86) * step(0.0, v) * step(v, 1.0) * step(0.45, e.x) * step(0.4, e.y);
+	float u = (in_k - 0.14) / 0.72;
+	float t = 0.2;
+	float strokes = 0.0;
+	strokes += float((mask >> 0) & 1) * step(1.0 - t, v);
+	strokes += float((mask >> 1) & 1) * step(abs(v - 0.5), t * 0.5);
+	strokes += float((mask >> 2) & 1) * step(v, t);
+	strokes += float((mask >> 3) & 1) * step(u, t) * step(0.5, v);
+	strokes += float((mask >> 4) & 1) * step(u, t) * step(v, 0.5);
+	strokes += float((mask >> 5) & 1) * step(1.0 - t, u) * step(0.5, v);
+	strokes += float((mask >> 6) & 1) * step(1.0 - t, u) * step(v, 0.5);
 	letters = inside * min(strokes, 1.0);
 	float stutter = step(0.985, fract(sin(floor(TIME * 7.0) + seed * 13.0) * 4375.5)) * step(0.5, hash(vec2(seed, 2.0)));
 	// The panel glows faintly with its own colour, so the sign reads as one lit shape from far away.

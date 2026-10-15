@@ -511,3 +511,5 @@ Checked: the art pipeline and match flow tests.
   blank pale panel. Each letter is now a few neon tubes (side verticals and top, middle and bottom crossbars, picked per letter by
   its hash) in `facade.gdshader` `neon_sign`; every city and run sign gains it.
 Checked: the art pipeline, match flow and runner tests.
+- **A real word** (the owner): each sign now spells SHOP or CAFE (by its seed) in seven-segment-style neon tubes, four letters
+  (`review6_round41_neon_word.png`).
