@@ -2833,7 +2833,8 @@ static func _sunset(root: Node3D, t: Dictionary, stage: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var e := _ext(stage)
-	_painted_sun(root, Vector3(-16, 2, -140), 14.0)
+	# (Smaller, lower and off to the left, art review 6 round 39: a huge disc right behind the stage outshone the fight.)
+	_painted_sun(root, Vector3(-46, -4, -140), 10.0)
 	# (Each row's rock takes on the dusk sky's colour with its distance, as the meadow's islands do: at full strength the far buttes were
 	# as dark and saturated as the mesa the fighters stand on, so nothing receded. Art review 6, background cohesion.)
 	var rows := []

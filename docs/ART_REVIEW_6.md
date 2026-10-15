@@ -491,3 +491,9 @@ Checked: the art pipeline and match flow tests.
   now takes a plain cel material in its bark colour; its scale rings carry the texture. A painted palm texture is on the Material Maker
   list.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 39
+
+- **The canyon sun** (`review6_round39_canyon_sun.png`, before | after): a huge disc right behind the stage outshone the fight. Now
+  smaller (10, was 14), lower and to the left, setting behind the far mesas (`_sunset`).
+Checked: the art pipeline and match flow tests.
