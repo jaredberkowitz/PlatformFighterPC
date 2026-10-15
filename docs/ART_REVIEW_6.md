@@ -338,3 +338,10 @@ Checked: the runner and match flow tests.
   dot on it, reading as a blank sign. Now panes divided by a frame (three mullions and a transom), warmer toward the floor, and no glare
   sprite (`_city` street shops).
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 17
+
+- **The meadow's boulder** (`review6_round17_meadow_boulder.png`, before above, after below): the one big stone in the `earth` texture,
+  centred under the fighters, was a perfect pale ellipse with a crack from its middle and a pebble under it: a clock face. Now a
+  flattened, lumpy outline a step nearer the soil, its crack running in from the rim (the other stones unchanged).
+Checked: the art pipeline and match flow tests.

@@ -327,11 +327,21 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 						var rot := 'transform="rotate(%.1f %.1f %.1f)"' % [tilt, cx, cy]
 						# Shade in the soil under the stone, the stone, its lit top.
 						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.25" %s/>' % [cx + 2.0, cy + ry * 0.35, rx * 1.05, ry * 0.9, b.darkened(0.35).to_html(false), rot]
-						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="%.1f" stroke-opacity="0.4" %s/>' % [cx, cy, rx, ry, tone.to_html(false), ink, clampf(rx * 0.08, 1.5, 3.5), rot]
-						body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.5" %s/>' % [cx - rx * 0.12, cy - ry * 0.32, rx * 0.66, ry * 0.42, tone.lightened(0.25).to_html(false), rot]
 						if rx > 32.0:
-							# A crack across a boulder.
-							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.4" stroke-linecap="round" opacity="0.35"/>' % [cx - rx * 0.3, cy - ry * 0.6, rx * 0.15, ry * 0.5, rx * 0.2, ry * 0.4, ink]
+							# A boulder: a lumpy, flattened stone a step off the soil, its crack running in from the rim (art review 6 round 17:
+							# a perfect pale ellipse with a crack from its middle and a pebble under it read as a clock face below the fighters).
+							var big_tone := tone.lerp(b, 0.3)
+							var pts := ""
+							for q in 24:
+								var ang := TAU * float(q) / 24.0
+								var bump := 1.0 + 0.09 * sin(ang * 2.0 + rx) + 0.05 * cos(ang * 3.0 + 1.3)
+								pts += "%.1f,%.1f " % [cx + cos(ang) * rx * bump, cy + sin(ang) * ry * 0.85 * bump]
+							body += '<polygon points="%s" fill="#%s" stroke="#%s" stroke-width="3" stroke-opacity="0.4" stroke-linejoin="round" %s/>' % [pts, big_tone.to_html(false), ink, rot]
+							body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.4" %s/>' % [cx - rx * 0.1, cy - ry * 0.35, rx * 0.6, ry * 0.3, big_tone.lightened(0.18).to_html(false), rot]
+							body += '<path d="M%.1f,%.1f l%.1f,%.1f l%.1f,%.1f" fill="none" stroke="#%s" stroke-width="2.2" stroke-linecap="round" opacity="0.3"/>' % [cx + rx * 0.85, cy - ry * 0.1, -rx * 0.25, ry * 0.15, -rx * 0.18, -ry * 0.2, ink]
+						else:
+							body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="%.1f" stroke-opacity="0.4" %s/>' % [cx, cy, rx, ry, tone.to_html(false), ink, clampf(rx * 0.08, 1.5, 3.5), rot]
+							body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.5" %s/>' % [cx - rx * 0.12, cy - ry * 0.32, rx * 0.66, ry * 0.42, tone.lightened(0.25).to_html(false), rot]
 			# Fine roots hanging from the turf at the top of the tile (the wall's top is under the grass lip).
 			var root_col := Color(0.6, 0.42, 0.28)
 			for j in 4:
