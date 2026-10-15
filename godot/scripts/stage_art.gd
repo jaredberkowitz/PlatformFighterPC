@@ -2430,12 +2430,17 @@ static func _meadow(root: Node3D, t: Dictionary, stage: Array) -> void:
 ## with a lip of turf over its edge, and on some a round tree or a bush. `count` of them over the sky at depths from 55 to 130 units,
 ## higher and smaller the further they are, so they layer the sky into distances. Each bobs gently (`Drift` keeps them in place).
 static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator, count: int) -> void:
-	var grass: Color = t.grass
-	var earth := Materials.stone((t.soil_dark as Color).darkened(0.08), Vector2(4, 2))
-	var turf := FighterView.toon(grass.lightened(0.05))
-	var lip := FighterView.toon(grass.darkened(0.12))
 	for k in count:
 		var depth := rng.randf_range(0.0, 1.0)
+		# (Each island takes on the sky's colour with its distance, as the windmill and houses at the same depth do through the haze:
+		# full-strength earth and grass on the islands made them the sharpest things in the sky, pulling the eye from the fight. Art
+		# review 6, background cohesion.)
+		var air := t.sky_horizon as Color
+		var fade := 0.15 + 0.22 * depth
+		var grass: Color = (t.grass as Color).lerp(air, fade)
+		var earth := Materials.stone((t.soil_dark as Color).darkened(0.08).lerp(air, fade), Vector2(4, 2))
+		var turf := FighterView.toon(grass.lightened(0.05))
+		var lip := FighterView.toon(grass.darkened(0.12))
 		var z := lerpf(-70.0, -140.0, depth)
 		var size := lerpf(2.4, 4.4, rng.randf()) * lerpf(1.0, 1.4, depth)
 		# (Spread across the sky, kept off the middle above the stage where the fighters fly.)
@@ -2456,7 +2461,10 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		# The grassy top: a thick squashed disc, its rim rolling down over the earth.
 		_mesh(island, _cylinder(hw * 0.98, hw * 1.02, 0.7, 20), turf, Vector3(0, 0.35, 0), Vector3(1.0, 1.0, 0.62))
 		_mesh(island, _cylinder(hw * 1.04, hw * 0.96, 0.4, 20), lip, Vector3(0, -0.05, 0), Vector3(1.0, 1.0, 0.64))
-		_island_detail(island, hw, size, t, k)
+		var faded := t.duplicate()
+		for key in ["soil", "soil_dark", "grass"]:
+			faded[key] = (t[key] as Color).lerp(air, fade)
+		_island_detail(island, hw, size, faded, k)
 		var on_top := rng.randf()
 		if on_top < 0.45:
 			_round_tree(island, Vector3(rng.randf_range(-0.4, 0.4) * hw, 0.6, 0), clampf(size / 6.0, 0.7, 1.4), rng)
