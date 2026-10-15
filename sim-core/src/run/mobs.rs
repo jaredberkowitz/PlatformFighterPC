@@ -557,15 +557,27 @@ fn choose(
     if far <= stop {
         return out;
     }
-    // Never off an edge on purpose.
     let p = params_of(content, f);
+    // A step ahead (a block's face within reach: from a little behind, so a body already pressed against it finds it too) is jumped.
+    let mut probe = f.pos - Vec2::new(Fx::HALF.mul_int(i32::from(toward)), Fx::ZERO);
+    let step = collision::move_x(
+        &content.stage,
+        p,
+        &mut probe,
+        Fx::from_ratio(9, 10).mul_int(i32::from(toward)),
+    );
+    // Never off an edge on purpose.
     let ahead = Vec2::new(
         f.pos.x + (p.ecb_half_width + Fx::from_ratio(3, 10)).mul_int(i32::from(toward)),
         // (A little above the feet, so ground rising up a slope ahead counts as floor.)
         f.pos.y + Fx::from_ratio(6, 10),
     );
     let floor = collision::surface_below(&content.stage, ahead, false);
-    if floor.is_none_or(|(_, d)| d > Fx::from_ratio(3, 2)) {
+    // (Down off a ledge to you, onto ground below, if it is not one that keeps to high ground; never into a pit.)
+    let drops_to_you = dy < -Fx::ONE
+        && !matches!(k.role, ROLE_LEAPER | ROLE_LOBBER)
+        && floor.is_some_and(|(_, d)| d < Fx::from_int(12));
+    if !step && floor.is_none_or(|(_, d)| d > Fx::from_ratio(3, 2)) && !drops_to_you {
         return out;
     }
     if k.run > 0 && far > Fx::from_int(6) {
@@ -582,8 +594,7 @@ fn choose(
     } else {
         out.stick_x = walk_stick(k.walk) * toward;
     }
-    // Walking into a step, it hops.
-    if f.touched_wall && f.history[0].buttons & buttons::JUMP == 0 {
+    if step && f.history[0].buttons & buttons::JUMP == 0 {
         out.buttons |= buttons::JUMP;
     }
     out
