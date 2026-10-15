@@ -198,6 +198,9 @@ pub struct Fighter {
     pub shield_hp: Fx,
     /// Frames of shield stun left after blocking a hit: the shield stays up and the fighter cannot act.
     pub shield_stun: u8,
+    /// Where the stick has tilted the shield bubble, from its resting place (sim 134, the reference's shield tilt; see
+    /// `combat::shield_bubble`). Back to rest whenever the shield is down.
+    pub shield_tilt: Vec2,
     /// A shield grab pressed during shield stun (1), then held back for `Ruleset::shield_grab_delay` more frames of shield (2): the
     /// reference's slower post-shieldstun shield grab (sim 109). 0 otherwise.
     pub shield_grab: u8,
@@ -765,6 +768,7 @@ impl Fighter {
             posvec: 0,
             shield_sdi: false,
             shield_hp,
+            shield_tilt: Vec2::ZERO,
             shield_stun: 0,
             shield_grab: 0,
             sdi_wait: 0,
@@ -1010,6 +1014,7 @@ impl StateHash for Fighter {
         h.write_u8(self.posvec);
         h.write_bool(self.shield_sdi);
         self.shield_hp.hash_into(h);
+        self.shield_tilt.hash_into(h);
         h.write_u8(self.shield_stun);
         h.write_u8(self.shield_grab);
         h.write_u8(self.sdi_wait);
@@ -1446,6 +1451,11 @@ mod tests {
             ("charge", {
                 let mut s = state;
                 s.fighters[0].charge = 1;
+                s
+            }),
+            ("shield_tilt", {
+                let mut s = state;
+                s.fighters[0].shield_tilt = Vec2::new(Fx::ONE, Fx::ZERO);
                 s
             }),
             ("shield_hp", {

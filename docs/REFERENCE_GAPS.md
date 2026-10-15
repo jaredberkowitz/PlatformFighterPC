@@ -40,7 +40,7 @@ Impact: how much a player would notice. Effort: S (an evening), M (a few sims), 
 
 | # | Gap | Reference | Ours | Impact | Effort |
 | --- | --- | --- | --- | --- | --- |
-| D1 | Shield tilting and shield pokes | The bubble shrinks with HP and can be tilted with the stick; a hit on an exposed part (feet, a hand) goes through | Every hit on a shielding fighter is blocked | High | L |
+| D1 | Shield tilting and shield pokes (**done, sim 134**: the bubble the game draws is the sim's; a hit whose box misses it but touches the body goes through; a **light** stick press tilts it (owner's call: a firm press, so every flick, roll and keyboard direction, never tilts); tilt distance 0.5 and speed [E]) | The bubble shrinks with HP and can be tilted with the stick; a hit on an exposed part (feet, a hand) goes through | Every hit on a shielding fighter is blocked | High | L |
 | D2 | Dodge staling (**done, sim 112**) | Rolls, spot dodges and air dodges used again within a short time get more lag and less intangibility, recovering over time | Every dodge is the same | Med-High | S-M (numbers to research) |
 | D3 | Jab lock and jab reset (**done, sim 132**: a weak hit on a lying fighter keeps it floored, at most twice per knockdown; the bounce is 12 frames [E], `Ruleset::jab_lock_frames`) | A weak hit on a lying fighter forces a short "down damage" reaction, and a second one forces it to stand up (no lock loops) | A lying fighter takes an ordinary hit | Med | S |
 | D4 | Shield drop through platforms | Removed | **Kept, as shield + special (sim 112, owner decision)**; down no longer drops through | Decided | S |

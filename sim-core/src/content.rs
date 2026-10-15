@@ -2355,6 +2355,18 @@ pub struct Ruleset {
     // ---- Shields ----
     /// Full shield health.
     pub shield_max: Fx,
+    /// The shield bubble (sim 134, the reference's shield pokes and tilt): a circle `shield_height` above the feet, of radius
+    /// `shield_radius` at full health shrinking to `shield_min_scale` of it when empty (the bubble the game draws). A hit that touches
+    /// the body but not the bubble goes through the shield. The stick tilts the bubble up to `shield_tilt` away from its rest, moving
+    /// `shield_tilt_speed` a frame. (The reference's tilt distance and speed are not published: [E].)
+    pub shield_radius: Fx,
+    pub shield_height: Fx,
+    pub shield_min_scale: Fx,
+    pub shield_tilt: Fx,
+    pub shield_tilt_speed: Fx,
+    /// Only a light press tilts (owner's call): a stick pushed further than this (a share of a full press) leaves the bubble at rest,
+    /// so rolls and spot dodges never move it and keyboards (always a full press) never tilt. 0 turns tilting off.
+    pub shield_tilt_press: Fx,
     /// Health lost per frame while the shield is up.
     pub shield_deplete: Fx,
     /// Health regained per frame while it is not.
@@ -2626,6 +2638,12 @@ impl Ruleset {
             charge_frames: 60,
             charge_bonus_percent: 40,
             shield_max: Fx::from_int(50),
+            shield_radius: Fx::from_ratio(3, 2),
+            shield_height: Fx::from_ratio(11, 10),
+            shield_min_scale: Fx::from_ratio(45, 100),
+            shield_tilt: Fx::from_ratio(1, 2),
+            shield_tilt_speed: Fx::from_ratio(1, 10),
+            shield_tilt_press: Fx::from_ratio(65, 100),
             shield_deplete: Fx::from_ratio(15, 100),
             shield_regen: Fx::from_ratio(8, 100),
             shield_restore_percent: 75,
@@ -2790,6 +2808,12 @@ impl StateHash for Ruleset {
         h.write_u8(self.charge_frames);
         h.write_u8(self.charge_bonus_percent);
         self.shield_max.hash_into(h);
+        self.shield_radius.hash_into(h);
+        self.shield_height.hash_into(h);
+        self.shield_min_scale.hash_into(h);
+        self.shield_tilt.hash_into(h);
+        self.shield_tilt_speed.hash_into(h);
+        self.shield_tilt_press.hash_into(h);
         self.shield_deplete.hash_into(h);
         self.shield_regen.hash_into(h);
         h.write_u8(self.shield_restore_percent);

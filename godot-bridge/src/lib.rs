@@ -2400,6 +2400,14 @@ impl SimRunner {
         self.fighter(i).map_or(0.0, |fi| f(fi.shield_hp))
     }
 
+    /// Where the stick has tilted a fighter's shield bubble from its rest (sim 134), as [x, y] in world units.
+    #[func]
+    fn fighter_shield_tilt(&self, i: i32) -> Vector2 {
+        self.fighter(i).map_or(Vector2::ZERO, |fi| {
+            Vector2::new(f(fi.shield_tilt.x), f(fi.shield_tilt.y))
+        })
+    }
+
     /// Full shield health (for drawing the bubble at the right size).
     #[func]
     fn shield_max(&self) -> f32 {

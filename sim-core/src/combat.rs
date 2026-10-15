@@ -153,6 +153,40 @@ fn touches(
     })
 }
 
+/// A raised shield's bubble (sim 134): its centre (above the feet, moved by the stick's tilt) and its radius (shrinking with the
+/// shield's health), as the game draws it.
+pub fn shield_bubble(rules: &crate::content::Ruleset, f: &Fighter) -> (Vec2, Fx) {
+    let hp = if rules.shield_max > Fx::ZERO {
+        (f.shield_hp / rules.shield_max).clamp(Fx::ZERO, Fx::ONE)
+    } else {
+        Fx::ONE
+    };
+    let scale = rules.shield_min_scale + (Fx::ONE - rules.shield_min_scale) * hp;
+    let center = f.pos + Vec2::new(Fx::ZERO, rules.shield_height) + f.shield_tilt;
+    (center, rules.shield_radius * scale)
+}
+
+/// A shield poke (sim 134, the reference's): a hit on a shielding fighter whose box misses the bubble reaches the body as though no
+/// shield were up (the hit is made unblockable). Anything already unblockable, or a fighter not shielding, is left alone.
+fn poke(rules: &crate::content::Ruleset, fd: &Fighter, hb: &mut Hitbox, at: Vec2) {
+    if fd.state != S::Shield || hb.unblockable {
+        return;
+    }
+    let (c, r) = shield_bubble(rules, fd);
+    if !shapes_touch(
+        c,
+        Fx::ZERO,
+        Fx::ZERO,
+        r,
+        at,
+        hb.half_width,
+        hb.half_height,
+        hb.radius,
+    ) {
+        hb.unblockable = true;
+    }
+}
+
 /// True while a fighter cannot be hit.
 pub fn is_intangible(f: &Fighter) -> bool {
     !f.active || f.invuln > 0 || f.ledge_invuln > 0
@@ -766,6 +800,7 @@ fn strike(
         }
         _ => {
             let mult = stun_multiplier(&attacker);
+            poke(&content.rules, &state.fighters[d], &mut hb, at);
             apply_hit(
                 state,
                 content,
@@ -2517,6 +2552,7 @@ pub fn update_projectiles(state: &mut GameState, content: &Content) {
                 let facing = launch_side(hb.angle_type, travel, travel, travel, pos.x, fd.pos.x);
                 // Projectiles stun a shield much less.
                 let mult = STUN_PROJECTILE;
+                poke(&content.rules, &state.fighters[d], &mut hb, pos);
                 // (Whether a shield took it, and what the fighter's percent was: a curse lands only on a hit that dealt damage, E54;
                 // a burst that a shield does not set off, sim 121.)
                 let shielded = state.fighters[d].state == S::Shield && !hb.unblockable;

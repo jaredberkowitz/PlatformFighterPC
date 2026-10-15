@@ -38,6 +38,12 @@
 - **Hitstun** with gravity and decaying launch speed. Landing out of a tumble is a **tech** with a shield press just before
   (4 frames of lag), otherwise a knockdown. Landing out of a lighter hit (no tumble: a jab, an autolink loop dragging the fighter
   down) lands it on its feet and the hitstun carries on on the ground, with no tech and no knockdown, as in the reference (sim v50).
+- **Shield bubble, pokes and tilt (sim 134, the reference's):** a raised shield is a circle `shield_height` (1.1) above the feet,
+  radius `shield_radius` (1.5) at full health shrinking to `shield_min_scale` (45%) when empty: exactly the bubble drawn. A hit whose
+  box misses the bubble but touches the body goes through the shield (a poke), as if the hit were unblockable; projectiles too. A
+  **light** stick press (up to `shield_tilt_press`, 65% of a full press) tilts the bubble up to `shield_tilt` (0.5 [E]) toward it at
+  `shield_tilt_speed` a frame; a firmer press leaves it at rest, so flicks to roll or spot dodge and keyboard directions (always a full
+  press) never move it (owner's call). Tests: `sim-core/tests/shields.rs`.
 - **Jab locks (sim 132, the reference's):** a hit that would not tumble, landing on a fighter lying in a knockdown (not a trip),
   bounces it and keeps it on the floor; its get-up options come back after `jab_lock_frames` (12 [E]). At most `jab_lock_limit` (2)
   locks per knockdown; after that such hits act as usual. Tests: `sim-core/tests/knockdown.rs`.

@@ -468,3 +468,109 @@ fn a_tapped_shield_stays_up_three_frames() {
     sim.tick(inp(0, 0, 0));
     assert_eq!(sim.f().state, S::ShieldRelease);
 }
+
+// ---- Shield tilt and shield pokes (sim 134) ------------------------------------------------------------------------------------
+// A light press tilts the bubble (a firm one never does, so rolls, spot dodges and keyboards are untouched); a hit whose box misses
+// the bubble but touches the body goes through the shield.
+
+/// Player 0 shields for 6 frames, then holds the stick at (`x`, `y`) with the shield for `frames` frames.
+fn shield_holding(x: i8, y: i8, frames: usize) -> Sim {
+    let mut sim = Sim::new();
+    park(&mut sim);
+    sim.state.fighters[1].invuln = 255;
+    sim.stand(0, Fx::from_int(-2), 1);
+    sim.ticks(6, inp(0, 0, SHIELD));
+    sim.ticks(frames, inp(x, y, SHIELD));
+    sim
+}
+
+#[test]
+fn a_light_press_tilts_the_shield_toward_it() {
+    let sim = shield_holding(0, 50, 10);
+    assert_eq!(sim.f().state, S::Shield);
+    assert!(sim.f().shield_tilt.y > Fx::ZERO, "tilted up");
+    let max = sim.content.rules.shield_tilt;
+    assert!(sim.f().shield_tilt.y <= max);
+    let sim = shield_holding(-50, 0, 10);
+    assert!(sim.f().shield_tilt.x < Fx::ZERO, "tilted back");
+}
+
+#[test]
+fn a_firm_press_never_tilts_so_rolls_and_keyboards_are_untouched() {
+    // A full press held from before the shield (a keyboard direction): no flick, no roll, no tilt.
+    let mut sim = Sim::new();
+    park(&mut sim);
+    sim.state.fighters[1].invuln = 255;
+    sim.stand(0, Fx::from_int(-2), 1);
+    sim.ticks(6, inp(0, 0, SHIELD));
+    sim.state.fighters[0].history = [inp(127, 0, SHIELD); sim_core::state::HISTORY_LEN];
+    sim.ticks(10, inp(127, 0, SHIELD));
+    assert_eq!(sim.f().state, S::Shield);
+    assert_eq!(sim.f().shield_tilt, sim_core::Vec2::ZERO);
+    // A flick still rolls, the same as before tilting existed, and the bubble is back at rest.
+    let sim = start_roll(127);
+    assert_eq!(sim.f().state, S::Roll);
+    assert_eq!(sim.f().shield_tilt, sim_core::Vec2::ZERO);
+    // Tilting first, then flicking, still rolls.
+    let mut sim = shield_holding(40, 0, 8);
+    assert!(sim.f().shield_tilt.x > Fx::ZERO);
+    sim.tick(inp(0, 0, SHIELD));
+    sim.tick(inp(127, 0, SHIELD));
+    assert_eq!(sim.f().state, S::Roll);
+}
+
+#[test]
+fn a_hit_that_misses_a_small_tilted_bubble_pokes_through() {
+    use sim_core::combat::shield_bubble;
+    let mut sim = shield_holding(0, 60, 12);
+    sim.state.fighters[0].shield_hp = Fx::from_int(2);
+    let rules = sim.content.rules;
+    let (c, r) = shield_bubble(&rules, sim.f());
+    let feet = sim.f().pos;
+    assert!(
+        c.y - r > feet.y + fx(5, 10),
+        "a small bubble tilted up leaves the legs bare"
+    );
+    // A full, resting bubble covers the feet.
+    let mut full = sim.state.fighters[0];
+    full.shield_hp = rules.shield_max;
+    full.shield_tilt = sim_core::Vec2::ZERO;
+    let (c, r) = shield_bubble(&rules, &full);
+    assert!(c.y - r < full.pos.y, "a full bubble reaches below the feet");
+}
+
+/// Player 1 shields with its stick lightly up (a small bubble lifted well clear of the legs when `low`: the test stretches the tilt
+/// distance so the duelist's broad down tilt can miss it), and player 0 down tilts at its feet. Returns player 1's percent and shield
+/// health after.
+fn down_tilt_into_shield(low: bool) -> (Fx, Fx) {
+    let mut sim = duel(DUELIST, fx(12, 10));
+    if low {
+        sim.content.rules.shield_tilt = Fx::from_int(3);
+        sim.content.rules.shield_tilt_speed = Fx::ONE;
+    }
+    for t in 1..=40 {
+        let p0 = if t == 20 {
+            inp(0, -90, ATTACK)
+        } else {
+            inp(0, 0, 0)
+        };
+        let p1 = if t < 4 {
+            inp(0, 0, SHIELD)
+        } else {
+            inp(0, 82, SHIELD)
+        };
+        if t == 18 && low {
+            sim.state.fighters[1].shield_hp = Fx::from_int(3);
+        }
+        sim.tick2(p0, p1);
+    }
+    (sim.fighter(1).percent, sim.fighter(1).shield_hp)
+}
+
+#[test]
+fn a_down_tilt_pokes_a_small_raised_shield_but_not_a_full_one() {
+    let (percent, _) = down_tilt_into_shield(false);
+    assert_eq!(percent, Fx::ZERO, "a full shield blocks it");
+    let (percent, _) = down_tilt_into_shield(true);
+    assert!(percent > Fx::ZERO, "the poke reaches the legs");
+}

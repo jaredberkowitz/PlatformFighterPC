@@ -204,6 +204,10 @@ fn enter(f: &mut Fighter, state: S) {
     // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
     f.tripped = false;
     f.trip_soft = false;
+    // The bubble comes back to rest whenever the shield goes down.
+    if state != S::Shield {
+        f.shield_tilt = Vec2::ZERO;
+    }
     // Jab locks count within one knockdown (a lock re-enters the knockdown and keeps the count).
     if state != S::Knockdown {
         f.jab_locks = 0;
@@ -1473,6 +1477,34 @@ fn shield(f: &mut Fighter, p: &FighterParams, weapon: &Weapon, stage: &Stage, ru
         break_shield(f, rules);
         return;
     }
+    // A light press of the stick tilts the bubble toward where it points (the reference's shield tilt, sim 134), reaching the full
+    // tilt at `shield_tilt_press`. A firmer push (a flick to roll or dodge, or any keyboard direction, which is always a full press)
+    // leaves the bubble at rest, so tilting never gets in the way of a roll (owner's call).
+    let stick = Vec2::new(
+        Fx::from_ratio(i32::from(f.history[0].stick_x), 127),
+        Fx::from_ratio(i32::from(f.history[0].stick_y), 127),
+    );
+    let len = stick.length();
+    let aim = if len > rules.shield_tilt_press || rules.shield_tilt_press <= Fx::ZERO {
+        Vec2::ZERO
+    } else {
+        Vec2::new(
+            stick.x / rules.shield_tilt_press,
+            stick.y / rules.shield_tilt_press,
+        )
+    };
+    f.shield_tilt = Vec2::new(
+        approach(
+            f.shield_tilt.x,
+            aim.x * rules.shield_tilt,
+            rules.shield_tilt_speed,
+        ),
+        approach(
+            f.shield_tilt.y,
+            aim.y * rules.shield_tilt,
+            rules.shield_tilt_speed,
+        ),
+    );
     let buffer = p.input_buffer;
     // After blocking a hit the shield stays up and the fighter cannot act until the stun runs out. A grab pressed meanwhile (attack or
     // grab: both are the shield grab) is the reference's post-shieldstun shield grab: the shield stays up `shield_grab_delay` frames
