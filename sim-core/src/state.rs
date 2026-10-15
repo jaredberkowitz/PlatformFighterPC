@@ -362,6 +362,9 @@ pub struct Fighter {
     pub tripped: bool,
     /// The trip is a soft one (E44, sim 117: a `Hitbox::slip` soft, walking into a lying banana peel): the ruleset's `slip_*` timings.
     pub trip_soft: bool,
+    /// Jab locks taken in this knockdown (sim 132, the reference's lock: a weak hit on a lying fighter keeps it floored, at most
+    /// `Ruleset::jab_lock_limit` times). Cleared by any state but a knockdown.
+    pub jab_locks: u8,
     /// Frames before the fighter's move can make another of its tossed items (E47, sim 117: `Toss::wait`, the reference's time before
     /// the next banana peel); counts down every frame. What the `pull_wait` script register reads.
     pub pull_wait: u8,
@@ -829,6 +832,7 @@ impl Fighter {
             lock: Vec2::ZERO,
             locked: false,
             tripped: false,
+            jab_locks: 0,
             trip_soft: false,
             pull_wait: 0,
             air_jump_frame: 0,
@@ -1064,6 +1068,7 @@ impl StateHash for Fighter {
         h.write_bool(self.locked);
         h.write_bool(self.tripped);
         h.write_bool(self.trip_soft);
+        h.write_u8(self.jab_locks);
         h.write_u8(self.pull_wait);
         h.write_u16(self.bury_timer);
         self.bury_kb.hash_into(h);
@@ -1807,6 +1812,11 @@ mod tests {
             ("tripped", {
                 let mut s = state;
                 s.fighters[1].tripped = true;
+                s
+            }),
+            ("jab_locks", {
+                let mut s = state;
+                s.fighters[1].jab_locks = 1;
                 s
             }),
             ("trip_soft", {

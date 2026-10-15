@@ -204,6 +204,10 @@ fn enter(f: &mut Fighter, state: S) {
     // A trip is one knockdown: anything after it (the get-up, a launch, another knockdown) is not a trip.
     f.tripped = false;
     f.trip_soft = false;
+    // Jab locks count within one knockdown (a lock re-enters the knockdown and keeps the count).
+    if state != S::Knockdown {
+        f.jab_locks = 0;
+    }
     // The fast opening of a full hop only survives while airborne or attacking in the air.
     if !matches!(state, S::Airborne | S::Attack) {
         f.hop_boost = 0;
@@ -1993,6 +1997,17 @@ fn get_up(f: &mut Fighter, stage: &Stage, l: &Ledge, dx: Fx, state: S, frames: u
     f.lag = frames;
     f.invuln = f.invuln.max(invuln);
     enter(f, state);
+}
+
+/// A jab lock (sim 132): a weak hit on a lying fighter bounces it on the floor; it stays down, and its get-up options come back after
+/// `jab_lock_frames` (the knockdown's clock is set so that its usual `knockdown_lag` runs out then).
+pub fn jab_lock(f: &mut Fighter, rules: &Ruleset) {
+    let locks = f.jab_locks.saturating_add(1);
+    enter(f, S::Knockdown);
+    f.jab_locks = locks;
+    f.vel = Vec2::ZERO;
+    f.kb_vel = Vec2::ZERO;
+    f.state_frame = u16::from(rules.knockdown_lag.saturating_sub(rules.jab_lock_frames));
 }
 
 /// A trip (`Hitbox::trip`): the fighter sits down where it stands, intangible for `trip_invuln` frames, and gets up as from a

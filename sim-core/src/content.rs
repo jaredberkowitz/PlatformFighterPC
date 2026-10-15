@@ -2513,6 +2513,12 @@ pub struct Ruleset {
     /// `trip_invuln` frames, can choose a get-up (stand, roll or the get-up attack) from frame `trip_lag`, and stands up by itself
     /// on frame `trip_max` (the reference's "hard trip": options from frame 40, a neutral get-up on frame 100, 5 intangible frames).
     pub trip_lag: u8,
+    /// Jab locks (sim 132, the reference's): a hit that does not tumble on a fighter lying in a knockdown (not a trip) keeps it on the
+    /// floor, bounced, with every get-up option back after `jab_lock_frames`; after `jab_lock_limit` locks in one knockdown, such hits
+    /// act as usual. (The reference's limit is two; the bounce's length is not published: 12 frames [E], the previous reference
+    /// generation's quick reset.)
+    pub jab_lock_limit: u8,
+    pub jab_lock_frames: u8,
     pub trip_max: u8,
     pub trip_invuln: u8,
     /// The reference's base trip chance (owner decision 50): a hit of more than `trip_base_kb` knockback that would not lift a
@@ -2702,6 +2708,8 @@ impl Ruleset {
             respawn_height: Fx::from_int(7),
             respawn_platform_frames: 150,
             trip_lag: 40,
+            jab_lock_limit: 2,
+            jab_lock_frames: 12,
             trip_max: 100,
             trip_invuln: 5,
             trip_base: 7,
@@ -2863,6 +2871,8 @@ impl StateHash for Ruleset {
         self.respawn_height.hash_into(h);
         h.write_u8(self.respawn_platform_frames);
         h.write_u8(self.trip_lag);
+        h.write_u8(self.jab_lock_limit);
+        h.write_u8(self.jab_lock_frames);
         h.write_u8(self.trip_max);
         h.write_u8(self.trip_invuln);
         h.write_u8(self.trip_base);

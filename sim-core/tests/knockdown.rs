@@ -211,3 +211,71 @@ impl Both for Sim {
         }
     }
 }
+
+// ---- Jab locks (sim 132) ---------------------------------------------------------------------------------------
+
+/// Player 0 jabs the lying player 1 until a hit lands (the percent rises), at most `frames` frames. Returns the state player 1 is in
+/// once that hit's hitlag is over.
+fn jab_lying(sim: &mut Sim, frames: usize) -> S {
+    let before = sim.fighter(1).percent;
+    for i in 0..frames {
+        let press = if i % 2 == 0 { ATTACK } else { 0 };
+        sim.tick2(inp(0, 0, press), inp(0, 0, 0));
+        if sim.fighter(1).percent > before {
+            while sim.fighter(1).hitlag > 0 {
+                sim.tick2(inp(0, 0, 0), inp(0, 0, 0));
+            }
+            return sim.fighter(1).state;
+        }
+    }
+    panic!("the jab never hit the lying fighter");
+}
+
+#[test]
+fn a_weak_hit_on_a_lying_fighter_keeps_it_down_twice_then_hits_as_usual() {
+    let mut sim = knocked_down();
+    let x = sim.fighter(1).pos.x;
+    sim.stand(0, x - fx(12, 10), 1);
+    assert_eq!(
+        jab_lying(&mut sim, 30),
+        S::Knockdown,
+        "the first weak hit is a lock"
+    );
+    assert_eq!(sim.fighter(1).jab_locks, 1);
+    sim.stand(0, sim.fighter(1).pos.x - fx(12, 10), 1);
+    assert_eq!(
+        jab_lying(&mut sim, 40),
+        S::Knockdown,
+        "the second weak hit is a lock too"
+    );
+    assert_eq!(sim.fighter(1).jab_locks, 2);
+    sim.stand(0, sim.fighter(1).pos.x - fx(12, 10), 1);
+    assert_ne!(
+        jab_lying(&mut sim, 40),
+        S::Knockdown,
+        "a third weak hit acts as usual (the reference's two-lock limit)"
+    );
+}
+
+#[test]
+fn a_lock_gives_back_the_get_up_options_after_its_frames() {
+    let mut sim = knocked_down();
+    let x = sim.fighter(1).pos.x;
+    sim.stand(0, x - fx(12, 10), 1);
+    jab_lying(&mut sim, 30);
+    let lock = sim.content.rules.jab_lock_frames;
+    // Holding up (a get-up) does nothing during the bounce, then stands it up.
+    let mut stood = None;
+    for i in 0..u32::from(lock) + 4 {
+        sim.tick2(inp(0, 0, 0), inp(0, 100, 0));
+        if sim.fighter(1).state == S::GetUp {
+            stood = Some(i);
+            break;
+        }
+    }
+    let stood = stood.expect("stands up once the lock is over");
+    assert!(
+        stood + 1 >= u32::from(lock).saturating_sub(2),
+        "not before the bounce is over (stood on frame {stood})"
+    );
+}
