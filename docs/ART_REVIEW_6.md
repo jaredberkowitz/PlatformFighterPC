@@ -393,3 +393,13 @@ greener and clearer (`review6_round24_grove.png`, before | after): the light sha
 grade and ambient eased (grade 0.3, ambient a paler pink), since pink over green cancels toward grey; its grass a warmer yellow-green
 (0.32, 0.72, 0.26 / light 0.6, 0.9, 0.34). Its soft dreamy mood is part of the stage and is kept; going further would lose it.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 25 (background art, the owner: it lags the foreground's texture quality)
+
+- **The meadow's floating islands** (`review6_round25_islands.png`, before | after): their rock was a generic grey stone material, a
+  lower grade of art than the painted soil of the block the fighters stand on. Now the stage's own soil texture, faded toward the sky
+  with each island's distance as before (`_sky_islands`), so background and foreground share one material.
+- Checked and ruled out: the background's softness is not the post pass's far blur (1 pixel, Best tier only).
+- Next for backgrounds: the grove's side trees and the meadow's background trees (soft, untextured crowns beside the foreground's
+  bushes), the far hills' painted band.
+Checked: the art pipeline and match flow tests.

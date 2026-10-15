@@ -2489,7 +2489,12 @@ static func _sky_islands(root: Node3D, t: Dictionary, rng: RandomNumberGenerator
 		var air := t.sky_horizon as Color
 		var fade := 0.15 + 0.22 * depth
 		var grass: Color = (t.grass as Color).lerp(air, fade)
-		var earth := Materials.stone((t.soil_dark as Color).darkened(0.08).lerp(air, fade), Vector2(4, 2))
+		# (The stage's own painted soil, faded with distance, art review 6 round 25: a generic grey stone made the islands read as a lower
+		# grade of art than the block the fighters stand on; one material ties the background to the foreground.)
+		var air_t := t.duplicate()
+		air_t.soil = (t.soil as Color).lerp(air, fade)
+		air_t.soil_dark = (t.soil_dark as Color).lerp(air, fade)
+		var earth := _under_material(_soil_material(air_t), 0.45)
 		var turf := FighterView.toon(grass.lightened(0.05))
 		var lip := FighterView.toon(grass.darkened(0.12))
 		var z := lerpf(-70.0, -140.0, depth)
