@@ -154,6 +154,15 @@ func _scene() -> void:
 	check(main.run_stage.looks.size() > 20, "the stage knows the looks")
 	check(main.run_stage.skylines.size() == 3 and not main.run_stage.skylines.has(null), "the city's three skyline layers, in parallax")
 	check(main.run_stage.coins.size() >= 0, "the coins")
+	# R2b: the backdrop travels with the camera, so it lights and shades nothing of the rooms (the owner's flicker report).
+	var moving_light := false
+	var moving_shadow := false
+	for n in main.run_stage.backdrop.find_children("*", "", true, false):
+		if n is Light3D and (n as Light3D).visible:
+			moving_light = true
+		if n is GeometryInstance3D and (n as GeometryInstance3D).cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			moving_shadow = true
+	check(not moving_light and not moving_shadow, "no light or cast shadow travels with the backdrop")
 	# R2b: a coin picked up vanishes at once (the owner's R2a bug: it stayed until the stage next changed).
 	var coins: PackedFloat32Array = main.sim.run_coins()
 	var shown_before: int = main.run_stage.coins_shown()

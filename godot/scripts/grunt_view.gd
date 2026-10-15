@@ -31,6 +31,8 @@ const OUTFITS := [
 const ROLE_NAMES := ["brawler", "leaper", "shieldbearer", "spearman", "lobber", "bruiser"]
 
 var fighter: Node3D
+## This slot's fighter views, by role.
+var by_role := {}
 var kind := -1
 var role := -1
 var door: MeshInstance3D
@@ -53,11 +55,20 @@ static func outfit(r: int) -> RefCounted:
 func build(k: int, r: int, height: float) -> void:
 	kind = k
 	role = r
-	if fighter == null:
+	# (One view per role, built the first time this slot shows that role and kept: no rebuilds, which also keeps clear of
+	# `FighterView.rebuild` holding its dust puffs' references to the nodes it frees.)
+	if fighter != null:
+		fighter.visible = false
+	if by_role.has(r):
+		fighter = by_role[r]
+		fighter.reset_motion()
+	else:
 		fighter = FighterView.new()
 		add_child(fighter)
 		fighter.build(1, outfit(r))
-		fighter.set_overhead(false, "", ENEMY_RED)
+		by_role[r] = fighter
+	fighter.visible = true
+	if door == null:
 		door = MeshInstance3D.new()
 		var q := QuadMesh.new()
 		q.size = Vector2(1.6, 2.6)
@@ -80,8 +91,9 @@ func build(k: int, r: int, height: float) -> void:
 		tell_label.pixel_size = 0.0009
 		tell_label.position = Vector3(0, height + 1.0, 0)
 		add_child(tell_label)
-	else:
-		fighter.rebuild(outfit(r))
+	# The enemy marker: the match tag's pointer in red, no text.
+	if not fighter.match_tag:
+		fighter.set_overhead(false, "", ENEMY_RED)
 	tell_label.position.y = height + 1.0
 
 
@@ -97,7 +109,9 @@ func apply(pos: Vector2, row: Array, snap: Dictionary, delta: float) -> void:
 		grow = maxf(0.0, fighter.scale.x / maxf(base_scale, 0.01) - delta * 4.0)
 	door.visible = mode == MODE_EMERGE
 	door.position = Vector3(pos.x, pos.y + 1.3, -0.9)
-	fighter.scale = Vector3.ONE * base_scale * (lerpf(0.35, 1.0, grow) if mode != MODE_BURST else grow)
+	# (Never quite zero: a zero scale is a degenerate basis.)
+	fighter.scale = Vector3.ONE * base_scale * maxf(lerpf(0.35, 1.0, grow) if mode != MODE_BURST else grow, 0.02)
+	fighter.visible = mode != MODE_BURST or grow > 0.05
 	fighter.apply(Vector3(pos.x, pos.y, 0), snap, delta)
 	# The tell: the marker becomes a big bobbing "!" (yellow, flashing red as the move nears).
 	var telling := mode == MODE_WINDUP

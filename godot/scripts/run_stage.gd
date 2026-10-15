@@ -104,12 +104,25 @@ func setup(t: Dictionary) -> void:
 	# stage is given just below the street, so the props that stand on a stage sit hidden behind the run's buildings.)
 	StageArt.backdrop(scenery, theme, [-15.0, 15.0, -9.0, -24.0, -15.0, 15.0])
 	_parallax_skylines(scenery)
+	_still_backdrop(backdrop)
 	wall_node = _gate(Color(0.32, 0.3, 0.36), true)
 	add_child(wall_node)
 	gate_node = _gate(Color(0.62, 0.22, 0.2), false)
 	gate_node.visible = false
 	add_child(gate_node)
 	coin_mat = _mat(Color(1.0, 0.8, 0.25), 1.0)
+
+
+## The backdrop travels with the camera (`follow`), unlike a versus stage's. So nothing in it may light or shade the run's own rooms:
+## the city stage's practical lights (its string lights' warm pools and the mast's beacon, built with its hidden stage) would slide
+## across the buildings as the camera moves, and its props' cast shadows would crawl over the rooms. Both are turned off here (R2b:
+## the owner's report of flickering light and shadows in the run). The backdrop keeps its look: its emissive bulbs and lit windows.
+static func _still_backdrop(root: Node3D) -> void:
+	for n in root.find_children("*", "", true, false):
+		if n is Light3D:
+			(n as Light3D).visible = false
+		elif n is GeometryInstance3D:
+			(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## The city's skyline layers (`skyline_0` near to `skyline_2` far), moved into holders that scroll at their own parallax: each gets a
