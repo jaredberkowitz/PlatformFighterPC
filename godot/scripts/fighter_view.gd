@@ -93,6 +93,10 @@ func rebuild(l: RefCounted) -> void:
 	unkeyed = {}
 	neck_pivot = null
 	tails = []
+	# (The dust puffs were children too: freed above, so the references go with them, or the next puff used a freed mesh.)
+	dusts.clear()
+	dust_age.clear()
+	dust_vel.clear()
 	reset_motion()
 	build(player, l)
 
