@@ -188,6 +188,6 @@ Weakest two: the city's skyline windows and the grove's pale blobs in the bottom
   same near-white, the near layer blooming behind the fighters), and the far layer was the most lit (36%). Now `FACADE_LIT` 1.15/0.8/0.55
   and `FACADE_LIT_SHARE` 18/13/9%: dimmer and fewer the further back, nothing blooms. (The run's own facade, run_stage.gd, is unchanged.)
 - **Grove: not fixed yet.** The washed-out shapes in the bottom corners are not the canopy rows (`_canopy`), the far tree line, the
-  under-stage haze bank or the post-process haze/quieting: changing each left them pixel-for-pixel the same. Next round: find what
+  under-stage haze bank or the post-process haze/quieting: changing each left them visibly unchanged. Next round: find what
   draws them (an object pick at those pixels) before changing anything.
 Checked: the art pipeline and match flow tests.
