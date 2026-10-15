@@ -208,3 +208,17 @@ Grey renders straight from Blender showed the faults came from how the body mesh
 - `review5_body_rebuild.png` (grey, the guard and the run: before | after), `review5_body_outfits.png`, `review5_body_fsmash.png`.
 - Checked: every Godot test and the look bench (0.88). Next: the attack poses re-authored for this body after the owner's swing notes
   (anticipation, hip-first rotation, impact, follow-through), the sword fighter first.
+
+## Step 4e: attacks after the owner's swing notes (six poses, the hips first)
+
+The owner shared external animation notes (anticipation, a hip-led launch, a signature impact pose, follow-through, recovery; never
+change the sim's timing for looks). Applied to every attack posed from the short specs (`BODY_MOVES` in `make_rigged_blob.py`):
+- **A launch key** between the wind-up and the strike (`_launch_spec`): the hips and legs already in the strike, the torso 60% there,
+  the arms and head still back, so the swing travels hips to torso to shoulders; four frames before the strike, so the blade accelerates.
+- **A follow-through key** (`_follow_spec`): the torso turns on past the target, the head lags behind it.
+- **Planted thighs stay in a lunge's range** (`pose`, 75 forward, 50 back): exaggerated, a lunge's front thigh rose past level and folded
+  the belly over it. Kicks and aerials keep their reach.
+- **The crotch**: the inside of each thigh goes with its leg lower down (`analytic_weights`).
+- `review5_fsmash_six_poses.png` (wind-up, raised, strike, follow-through, in game). Checked: every Godot test, the look bench 0.88.
+- Note for renders: the exported clips are retimed (a 60-frame clip spans 24 when imported), so grey key renders use frame x 0.4.
+- Next: the same pass for the other classes' swings and kicks, then more detail on the body (the owner: either order).

@@ -476,6 +476,10 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
         fwd = clampf(fwd, -100.0, 172.0)
     if BODY and bone.startswith("armL."):
         fwd = clampf(fwd, -5.0, 145.0)
+    # (A planted move's thigh stays in a lunge's range: exaggerated, a lunge's front thigh rose past level and folded the belly over it.
+    # Art review 5. Kicks and aerials keep their reach.)
+    if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith("kick") and grounded(CLIP_NOW):
+        fwd = clampf(fwd, -50.0, 75.0)
     # Wrists held nearly straight (the owner, art review 5: bent wrists and open, flapping hands do not read as combat; a fist in line
     # with the forearm does).
     if BODY and bone.startswith("hand."):
@@ -940,6 +944,33 @@ def _spec_pose(spec):
     return f
 
 
+def _launch_spec(wind, strike):
+    """The launch between the wind-up and the strike (the owner's swing notes, art review 5): the hips and legs already in the strike's
+    place and the torso half way there while the arms and head are still wound back, so the swing comes from the hips through the torso
+    to the shoulders, a chain, rather than the limbs rotating into place together."""
+    out = {}
+    for key in set(wind) | set(strike):
+        if key in ("hips", "stance") or key.startswith(("thigh.", "shin.", "foot.")):
+            out[key] = strike.get(key, wind.get(key))
+        elif key == "spine":
+            a = wind.get(key, (0.0, 0.0))
+            b = strike.get(key, (0.0, 0.0))
+            out[key] = tuple(x * 0.4 + y * 0.6 for x, y in zip(a, b))
+        elif key in wind:
+            out[key] = wind[key]
+    return out
+
+
+def _follow_spec(strike):
+    """The follow-through: the torso turns on past the target (its twist further) while the head lags behind it."""
+    out = dict(strike)
+    if "spine" in out:
+        out["spine"] = (out["spine"][0], out["spine"][1] * 1.3)
+    if "head" in out:
+        out["head"] = (out["head"][0] * 0.7, out["head"][1] * 0.6)
+    return out
+
+
 def _spec_held(spec, k):
     scaled = {key: (tuple(x * k for x in v) if isinstance(v, tuple) else v * k) for key, v in spec.items()}
     return _spec_pose(scaled)
@@ -975,8 +1006,11 @@ def clip(rig, name, frames, poses):
     # (A move with no poses of its own, such as the claws' lunging slash, uses its BODY_MOVES poses on the blob too.)
     if name in BODY_MOVES and (BODY or not poses):
         wind, strike, rest = BODY_MOVES[name]
-        poses = {0: _spec_held(rest, 0.0), 21: _amped_pose(_spec_pose(wind), 1.12), 33: _spec_pose(strike),
-                 38: _amped_pose(_spec_pose(strike), 1.12), 45: _spec_held(rest, 1.0), 60: _spec_held(rest, 0.0)}
+        # (Six poses after the owner's swing notes: settle from rest, anticipation pushed past the wind-up, the launch led by the hips,
+        # the strike, the follow-through past it, the recovery, back to rest. The launch-to-strike gap is short, so the blade accelerates.)
+        poses = {0: _spec_held(rest, 0.0), 21: _amped_pose(_spec_pose(wind), 1.12), 29: _spec_pose(_launch_spec(wind, strike)),
+                 33: _spec_pose(strike), 38: _amped_pose(_spec_pose(_follow_spec(strike)), 1.1), 45: _spec_held(rest, 1.0),
+                 60: _spec_held(rest, 0.0)}
     action = bpy.data.actions.new(name)
     action.use_fake_user = True
     if rig.animation_data is None:
@@ -1173,7 +1207,12 @@ def analytic_weights(skin, J):
             w_arm = 0.0
         # The leg: below the crotch on its side.
         th, kn, an = J["thigh." + side], J["shin." + side], J["foot." + side]
-        w_leg = _smooth01(crotch + HIP_BLEND, crotch - 0.02, co.z) * _smooth01(0.0, 0.06, abs(co.x))
+        # (By height, and on the inner side of the thigh lower still, so the crotch's middle stays with the hips while the inside of each
+        # thigh goes with its leg: given to the hips by distance from the middle alone, it stretched into a sheet between the legs in a
+        # wide stance.)
+        inner = 1.0 - _smooth01(0.0, abs(th.x), abs(co.x))
+        top = crotch + HIP_BLEND * (1.0 - 0.7 * inner)
+        w_leg = _smooth01(top, top - HIP_BLEND * 0.8, co.z) * _smooth01(0.0, 0.015, abs(co.x))
         w_leg = min(w_leg, 1.0 - w_arm)
         w_trunk = max(0.0, 1.0 - w_arm - w_leg)
         out = {}
