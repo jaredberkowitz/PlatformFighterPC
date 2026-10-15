@@ -20,10 +20,11 @@ const MOODS := {
 		"grade": [Color(0.92, 0.97, 1.06), Color(1.04, 1.02, 0.96), 0.5], "haze": Color(0.72, 0.87, 1.0)},
 	# (Art review 6 round 9: a weaker key, more pink ambient and a stronger grade than the meadow left the grove under a pale veil, the
 	# softest stage. Its colours kept; its contrast brought near the meadow's.)
+	# (Its pink grade and ambient eased, round 24: pink over the lawn's green cancelled toward grey, the palest stage left.)
 	"grove": {"key": [Color(1.0, 0.92, 0.84), 1.32, -40.0, -28.0], "fill": [Color(0.86, 0.66, 1.0), 0.38],
-		"ambient": [Color(1.0, 0.88, 0.92), 0.47], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.56,
+		"ambient": [Color(1.0, 0.93, 0.95), 0.47], "shadow_hue": 0.8, "shadow_shift": 0.08, "shadow_value": 0.56,
 		"shadow_tint": Color(0.8, 0.7, 0.88), "rim": Color(1.0, 0.86, 0.92),
-		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.5], "haze": Color(0.84, 0.82, 1.0)},
+		"grade": [Color(0.98, 0.9, 1.04), Color(1.04, 0.98, 0.96), 0.3], "haze": Color(0.84, 0.82, 1.0)},
 	"sunset": {"key": [Color(1.0, 0.72, 0.5), 1.25, -20.0, -42.0], "fill": [Color(0.6, 0.5, 1.0), 0.42],
 		"ambient": [Color(0.94, 0.84, 0.88), 0.5], "shadow_hue": 0.79, "shadow_shift": 0.1, "shadow_value": 0.58,
 		"shadow_tint": Color(0.72, 0.58, 0.84),

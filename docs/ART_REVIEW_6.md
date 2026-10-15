@@ -385,3 +385,11 @@ into its textures (stone and plank edges, trims, the strata's ledge lines). Easi
   grove's side trees and great trunk) was already faintly washed. Now from 14 units back (`haze_start`, `post.gdshader`), as the reference
   keeps everything near crisp and fades only the horizon. Subtle on the meadow (its haze is light), clearer on the grove.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 24 (fresh captures of every stage)
+
+Weakest now: the grove, still the palest stage (a mint lawn, a pink veil midway). Three small steps, each modest, together a little
+greener and clearer (`review6_round24_grove.png`, before | after): the light shafts at half strength (`SHAFT_STRENGTH` 0.05); its pink
+grade and ambient eased (grade 0.3, ambient a paler pink), since pink over green cancels toward grey; its grass a warmer yellow-green
+(0.32, 0.72, 0.26 / light 0.6, 0.9, 0.34). Its soft dreamy mood is part of the stage and is kept; going further would lose it.
+Checked: the art pipeline and match flow tests.

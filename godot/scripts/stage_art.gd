@@ -33,8 +33,8 @@ const THEMES := {
 	"grove": {
 		"sky_top": Color(0.28, 0.5, 0.98), "sky_mid": Color(0.52, 0.66, 1.0), "sky_horizon": Color(0.98, 0.76, 0.86),
 		"sky_glow": [Color(1.0, 0.72, 0.82), 0.55], "sky_wisps": [Color(1.0, 0.9, 0.96), 0.45],
-		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.36, 0.76, 0.36),
-		"grass_light": Color(0.58, 0.9, 0.45), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
+		"soil": Color(0.86, 0.66, 0.38), "soil_dark": Color(0.72, 0.5, 0.27), "grass": Color(0.32, 0.72, 0.26),
+		"grass_light": Color(0.6, 0.9, 0.34), "wood": Color(0.93, 0.74, 0.5), "wood_dark": Color(0.7, 0.48, 0.28),
 		"pattern": "roots", "cap": "grass", "platform": "wood", "grass_vary": 0.16,
 	},
 	"sunset": {
@@ -1700,7 +1700,8 @@ static func _light_shafts(root: Node3D, colour: Color, e: Array) -> void:
 		root.add_child(mi)
 
 
-const SHAFT_STRENGTH := 0.1
+## (0.05, art review 6 round 24: at 0.1 the shafts laid a pink veil over the grove's middle distance, the palest stage left.)
+const SHAFT_STRENGTH := 0.05
 
 
 static var _dot: GradientTexture2D = null
