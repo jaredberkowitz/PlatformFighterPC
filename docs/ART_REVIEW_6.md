@@ -137,3 +137,9 @@ the "GAME!", "TIME!" and countdown calls sit on an angular ribbon in the title's
 a flat grey band; the stocks a size up (1.3x). Checked: the match, controls, creator and select grid tests.
 
 The owner scheduled the full animation overhaul for Saturday 2026-10-17 (plan in memory); until then the other items continue.
+
+## Done: the rooftop's top, edge and facade told apart (item 8, first pass; the city stage and the run)
+
+`review6_rooftop.png` (before | after: the run, the city close up): the roof's edge is a stone coping standing proud of the facade, lit
+on top with a shaded face and a dark drip line under it; the roofing is a warm tar-grey a step apart from the violet facade; its seams
+fall at uneven spacings. Checked: the art, match and runner tests; the look bench. Next here: the skyline's rooflines and window depth.

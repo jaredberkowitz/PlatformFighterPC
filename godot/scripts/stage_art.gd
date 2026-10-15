@@ -551,18 +551,26 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 		"roof":
 			# A concrete ledge with a bright metal trim along the front.
 			# (The ledge sits a hair above the block's top so their top faces never fight over the same depth and flicker.)
-			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(t.grass, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
-			_mesh(parent, _box(Vector3(w + 0.34, 0.1, 0.12)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.18))
-			_mesh(parent, _box(Vector3(w + 0.3, 0.12, 0.12)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.42, front_z + 0.16))
-			# The roofing laid in sheets: seams running back from the front a little darker than the roof, each with a lighter lap beside it
-			# (low in contrast: the fighters stand on it).
-			var seam := _soft((t.grass as Color).darkened(0.14))
-			var lap := _soft((t.grass as Color).lightened(0.08))
-			var sx := left + 1.3
+			# (Art review 6, the owner's rooftop plan: the roof's top, its edge and the facade under it read as three things. The roof is
+			# warm tar-grey roofing, a step apart from the violet facade; the edge is a stone coping that stands proud, lit on top with a
+			# shaded face and a drip shadow under it; the roofing's seams fall at uneven spacings, faint.)
+			var roofing := (t.grass as Color).lerp(Color(0.62, 0.56, 0.58), 0.55)
+			_mesh(parent, _box(Vector3(w + 0.3, 0.35, depth + 0.3)), _surface(roofing, "roof", 4.0), Vector3(cx, top - 0.15, front_z - depth / 2.0))
+			var coping := _soft((t.grass_light as Color).lerp(Color(0.86, 0.82, 0.8), 0.4))
+			var coping_face := _soft((t.grass as Color).darkened(0.18))
+			_mesh(parent, _box(Vector3(w + 0.5, 0.12, 0.5)), coping, Vector3(cx, top + 0.02, front_z + 0.02))
+			_mesh(parent, _box(Vector3(w + 0.5, 0.2, 0.08)), coping_face, Vector3(cx, top - 0.13, front_z + 0.25))
+			_mesh(parent, _box(Vector3(w + 0.3, 0.08, 0.1)), _soft((t.soil_dark as Color).darkened(0.35)), Vector3(cx, top - 0.27, front_z + 0.2))
+			_mesh(parent, _box(Vector3(w + 0.3, 0.1, 0.1)), _unshaded(Color(0.95, 0.75, 0.3)), Vector3(cx, top - 0.44, front_z + 0.16))
+			var seam := _soft(roofing.darkened(0.08))
+			var lap := _soft(roofing.lightened(0.05))
+			var sx := left + 1.1
+			var j := 0
 			while sx < right - 0.6:
-				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.2)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0))
-				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.2)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0))
-				sx += 2.6
+				_mesh(parent, _box(Vector3(0.07, 0.02, depth - 0.4)), seam, Vector3(sx, top + 0.031, front_z - depth / 2.0 - 0.1))
+				_mesh(parent, _box(Vector3(0.05, 0.02, depth - 0.4)), lap, Vector3(sx + 0.07, top + 0.03, front_z - depth / 2.0 - 0.1))
+				sx += 2.1 + 1.3 * absf(sin(float(j) * 2.7 + 0.4))
+				j += 1
 		"sand":
 			var sand := _surface(t.grass, "sand", 5.0)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
