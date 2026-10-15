@@ -10,7 +10,9 @@ const StageLight := preload("res://scripts/stage_light.gd")
 ## that plane. If a block were centred on z = 0, perspective would make its front face look wider than the
 ## fighters standing in front of it, and it would cover a fighter hanging from a ledge whenever the camera
 ## sat toward the middle of the stage.
-const FRONT_Z := 0.3
+## Where the stage's front edge is, toward the camera from the plane the fighters stand in. (2.0, was 0.3, art review 6, the owner after
+## the reference fighter: fighters stand in the middle of the stage's top, with floor in front of them, not on its front lip.)
+const FRONT_Z := StageArt.STAGE_FRONT
 
 var ledge_markers: Array[MeshInstance3D] = []
 var ledge_mats: Array[StandardMaterial3D] = []

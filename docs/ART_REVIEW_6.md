@@ -120,3 +120,20 @@ keel; the stage was a different object: brick buttresses at the ends, a front do
 (`_ledges_and_buttresses` skips `strata` too); the beach's sea wall is built, so it keeps its masonry, but in warm sandstone
 (`seawall` stone 0.86/0.74/0.6, was cool grey 0.72/0.7/0.68), the one cold thing on a warm sand island. The city's rooftop already
 matches its skyline and is unchanged. Checked: the art and match tests; the look bench. The owner asked to keep the meadow as it is.
+
+## Done: fighters in the middle of the stage's depth (the owner, after the reference fighter)
+
+The fighters stood 0.3 units behind the stage's front lip, so the floor read as a ledge they balanced on. The front now comes 2.0 toward
+the camera (`stage_art.gd` `STAGE_FRONT`, used by `stage_view.gd` `FRONT_Z` and the undersides): floor in front of them, the platforms
+centred on them (4 deep, 2 either side), the run mode's rooftops likewise (it shares the constant). No gameplay change: the fighters' own
+plane is untouched. `review6_depth_centre.png` (before | after, the beach). Checked: the art, match, fighter, content and runner tests,
+a run capture, the look bench.
+
+## Done: select and HUD on one panel system (item 7)
+
+`review6_ui.png` (before | after): the select screen's five settings (players, rules, stocks, time, stage) are dark kit cards with the
+label in a quiet white and the value in the accent yellow (`ui_kit.gd` `Btn.setting`), as the menu's utility tiles are, not pale bars;
+the "GAME!", "TIME!" and countdown calls sit on an angular ribbon in the title's style, sized to the word (`match_hud.gd` `_banner`), not
+a flat grey band; the stocks a size up (1.3x). Checked: the match, controls, creator and select grid tests.
+
+The owner scheduled the full animation overhaul for Saturday 2026-10-17 (plan in memory); until then the other items continue.

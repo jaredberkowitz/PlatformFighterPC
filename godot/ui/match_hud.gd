@@ -149,15 +149,15 @@ class Board extends Control:
 			pass
 		elif stocks <= 6:
 			for k in stocks:
-				_head(Vector2(base.x + 136 + k * 23, sy), color)
+				_head(Vector2(base.x + 136 + k * 29, sy), color)
 			# The stock just lost pops off: it swells and fades where it was.
 			var since := float(Time.get_ticks_msec() - int(lost_at[i]))
 			if lost_at[i] > 0 and since < LOST_MS:
 				var k := since / LOST_MS
-				_head(Vector2(base.x + 136 + stocks * 23, sy - 10.0 * k), color, 1.0 + 1.2 * k, 1.0 - k)
+				_head(Vector2(base.x + 136 + stocks * 29, sy - 10.0 * k), color, 1.0 + 1.2 * k, 1.0 - k)
 		else:
 			_head(Vector2(base.x + 136, sy), color)
-			_outlined(f, Vector2(base.x + 152, sy + 8), "x%d" % stocks, 22, Color(1, 1, 1))
+			_outlined(f, Vector2(base.x + 156, sy + 8), "x%d" % stocks, 22, Color(1, 1, 1))
 		# The damage: a big whole number, a small tenth and "%", right-aligned, heating with the damage. A hit makes it jump and shake
 		# (and grow a little) for a moment.
 		var percent: float = data.percent[i]
@@ -283,6 +283,8 @@ class Board extends Control:
 
 	## A stock: a little round head in the player's colour with two eyes, in ink (`scale` and `alpha` for the one popping off).
 	func _head(c: Vector2, color: Color, scale := 1.0, alpha := 1.0) -> void:
+		# (A size up, art review 6: the stocks were tiny for how much they matter.)
+		scale *= 1.3
 		var r := 10.0 * scale
 		var ink := Color(D.INK, alpha)
 		draw_circle(c + Vector2(1.5, 2.5) * scale, r, Color(0, 0, 0, 0.25 * alpha))
@@ -418,9 +420,23 @@ class Board extends Control:
 			return
 		var alpha: float = data.banner_alpha
 		var rect := Rect2(Vector2(0, size.y * 0.28), Vector2(size.x, 150))
-		var shade := Color(0, 0, 0, 0.35 * alpha)
-		draw_rect(Rect2(0, rect.position.y + 20, size.x, 110), shade)
-		D.draw_text_centered(self, text, Rect2(rect.position + Vector2(5, 6), rect.size), 120, Color(0, 0, 0, 0.5 * alpha))
+		# An angular ribbon in the title's style (art review 6: a flat grey band): a dark slanted band with an ink rim, a yellow stripe
+		# under it, the word in yellow with an ink drop shadow.
+		var w := minf(D.font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 120).x + 220.0, minf(size.x * 0.62, 900.0))
+		var cx := size.x * 0.5
+		var top := rect.position.y + 22.0
+		var bot := rect.position.y + 128.0
+		var lean := 26.0
+		var band := PackedVector2Array([Vector2(cx - w * 0.5 + lean, top), Vector2(cx + w * 0.5 + lean, top), Vector2(cx + w * 0.5 - lean, bot),
+			Vector2(cx - w * 0.5 - lean, bot)])
+		var stripe := PackedVector2Array([Vector2(cx - w * 0.5 - lean + 8, bot - 4), Vector2(cx + w * 0.5 - lean + 18, bot - 4),
+			Vector2(cx + w * 0.5 - lean + 12, bot + 12), Vector2(cx - w * 0.5 - lean + 2, bot + 12)])
+		draw_colored_polygon(stripe, Color(1.0, 0.82, 0.22, alpha))
+		draw_colored_polygon(band, Color(0.11, 0.12, 0.2, 0.92 * alpha))
+		var rim := band.duplicate()
+		rim.append(band[0])
+		draw_polyline(rim, Color(D.INK, alpha), 5.0, true)
+		D.draw_text_centered(self, text, Rect2(rect.position + Vector2(6, 7), rect.size), 120, Color(0, 0, 0, 0.6 * alpha))
 		D.draw_text_centered(self, text, rect, 120, Color(1.0, 0.86, 0.25, alpha))
 
 
