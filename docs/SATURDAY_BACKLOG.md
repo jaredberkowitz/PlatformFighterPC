@@ -30,6 +30,8 @@ Everything put off to save usage, in the order to take it. Tick items off here a
 ## Graphics refinement loop (screenshot every stage, fix the two weakest, repeat)
 - [x] Grove: the pale corner shapes (the canopy's top rows; deepened, round 1).
 - [ ] More rounds of the loop across all five stages.
+- [ ] Canyon platforms: three dark claw-like slashes on the board's top near its end (close camera, `--demo=stage --stage=1 --cam=7`).
+      Not a named mark in stage_art.gd; probably the wood tile's grain (`art/stage/wood*`) or a scuff (`scuff.svg`). Find with `--pick`.
 - [x] Run HUD fighter plate in the match HUD's dark panel (round 15); the rest of the run HUD to check with the modes-online agent.
 - [x] Controls screen hierarchy (round 12).
 - [ ] Player-visible text says "strong attack", never "smash" (README, How to play.txt, in-game text); the owner chose "strong attack"
