@@ -214,3 +214,10 @@ after).
 - **Roof:** one flat pale lilac at nearly the coping's value, so the fighting surface's edge did not read. Now a step darker than the
   coping, with broad weathered patches (`world_vary` 0.16).
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 4
+
+The match HUD checked and left as it is (clean, one panel system). Weakest: on the canyon the warm fighters sank into the warm rock
+and sand, and the rim light, orange, added nothing. The canyon's rim is now a pale lavender from the dusk sky overhead
+(`lighting.gd`, the sunset mood), so both fighters carry a cool edge against the stage (`review6_round4_canyon_rim.png`, before | after).
+Checked: the art pipeline and match flow tests.
