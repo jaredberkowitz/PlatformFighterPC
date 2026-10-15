@@ -276,10 +276,15 @@ rebinding and controller input/menus (`docs/MENUS.md`; the controller part is un
 * Rules for agents and contributors: `CLAUDE.md` (determinism rules, bump `SIM_VERSION` on any behaviour change, the content/script
   conventions, the editors and menus rules).
 
-## Single-player run (R1, sim 120; rooms R1b, sim 122; the world R2a, sim 124 and schema 8, branch `runner-r2`)
+## Single-player run (R1, sim 120; rooms R1b, sim 122; the world R2a, sim 124 and schema 8; enemies and the curve R2b, sim 127, branch `runner-r2b`)
 
-The endless run: `docs/modes/RUNNER_PLAN.md` ("R1 progress", "R1b progress" and "R2a progress" have what is built, how to play it, the
-tunables and the known limits; `docs/modes/RUNNER_WORLD.md` is R2's direction). R2a added slopes (a ground feature any stage could use,
+The endless run: `docs/modes/RUNNER_PLAN.md` ("R1 progress" to "R2b progress" have what is built, how to play it, the tunables and the
+known limits; `docs/modes/RUNNER_WORLD.md` is R2's direction, its section 4 the decided enemy design). R2b: every enemy is a
+fighter-shaped grunt (a base-game body with a small kit of that body's real moves, drawn with the fighter rig in a grunt outfit: brawler,
+leaper, shieldbearer, spearman, lobber, bruiser), rooms fill spawn spots from a budget with placement rules, difficulty tiers every 6
+rooms, hazards and chests, the first rare event (the runaway van, a pity counter, one per city), branching forks into a treasure alley,
+the shopkeeper sulking after a bonk, coins worth 1, and two R2a bugs fixed (picked coins staying drawn; light and shadows travelling
+with the backdrop). R2a added slopes (a ground feature any stage could use,
 `Platform::rise`, schema 8; versus stages stay flat), rooms laid as variants (mirrored, optional parts, obstacle pieces, elevation
 lines), the fork (a high road and a low road in one room), coins along the way, mobs coming out of doors, every footing tagged with a
 `look`, the walk-in shop with its shopkeeper, and visuals rebuilt from the city stage's own art. Since R1b the world is a chain of rooms (streets, arenas, shops, rest stops) with two rooms of backtracking behind a

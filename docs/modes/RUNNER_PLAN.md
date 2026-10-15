@@ -1,8 +1,9 @@
-# Single-player mode: the endless run (plan, draft 3; R1 and R1b built)
+# Single-player mode: the endless run (plan, draft 3; R1 to R2b built)
 
 Status: **draft 3 (14 October 2026): the owner played R1 and replaced the creeping camera with rooms (section 3.1). R1 (the vertical
 slice) is built (sim 120, section 7); R1b (rooms) is built (sim 122, section 8); R2a (the world: slopes, room variants, the fork, the
-walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
+walk-in shop) is built on branch `runner-r2`, sim 124 and content schema 8: see section 9; R2b (fighter-shaped grunts, the difficulty
+curve, hazards, the runaway van, branching forks) is built on branch `runner-r2b`, sim 127: see section 10.** Decisions are marked **Decided**. Owner brief, 14 October 2026: a single-player endless-runner mode inspired by the mobile
 game *Punch Quest* (Rocketcat Games and Madgarden, 2012), using this game's fighters, physics and art. The player runs right, beats
 enemies for currency, spends it in shops on power-ups, stat boosts and other fighters' moves of the same archetype, fights a generated
 boss every so often, and tries to get as far as possible.
@@ -83,7 +84,7 @@ Enemy density, enemy toughness and the rooms' mix rise with distance (a difficul
 - **Lives are scarce:** start with 3. More come only from a shop power-up (pricey, limited per shop) or, rarely, found along the
   run (a hidden 1-up on a risky route, at most about one per city). Heal items lower your percent.
 
-### 3.3 Enemies: a new lightweight entity, not fighters
+### 3.3 Enemies: a new lightweight entity, not fighters (superseded: R2b's fighter-shaped grunts, `RUNNER_WORLD.md` section 4 and section 10 here)
 - The sim holds at most 4 fighters. A runner needs 10 to 20 enemies on screen.
 - **Recommended:** a compact `Mob` type in the sim (position, speed, state, hit points, hitstun, kind), up to 16 at once. Mobs use
   the same knockback, hitstun and hitlag as fighters, so juggles, combos and spikes all work on them.
@@ -206,7 +207,7 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | R1 | Vertical slice: the forward-only creeping camera, 5 hand-made chunks on a loop, 2 enemy kinds, coins and the combo meter, lives, the run HUD, a results screen, the menu entry | a 2-minute run is fun to play with placeholder art (built, sim 120) |
 | R1b | Rooms (owner's change after R1): the room window with a wall behind, the two-way camera, streets, arenas, a placeholder shop (heal, extra life), rest stops, seeded room types, the map strip | backtracking feels fair and the rooms read clearly (built, sim 122) |
 | R2a | The world (owner, 14 Oct; see `RUNNER_WORLD.md`): slopes, room variants with optional parts, mirroring and obstacle pieces, the high/low fork, elevation lines, footing objects with `look` tags, the walk-in shop with a shopkeeper | rooms feel varied and believable; you can tell footing from decoration (built, sim 124) |
-| R2b | Enemies and the curve: four new enemy kinds with wind-ups, budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event | runs differ and get harder smoothly |
+| R2b | Enemies and the curve: fighter-shaped grunts (six kinds, base-game bodies with borrowed moves and tells), budgets and placement rules, hazards that hurt enemies, room pools by difficulty, the difficulty curve, the first rare event; the owner's R2a answers (coins 1, branching forks, the sulking shopkeeper) | runs differ and get harder smoothly (built, sim 127) |
 | R3 | Shops and items: stat boosts, 10 properties, consumables, rerolls | a run's build changes how it plays |
 | R4 | Bosses: generated CPU fighters with stamina and modifiers, an arena chunk | a boss every few shops, beatable in 2 to 3 tries at worst |
 | R5 | Archetype move swaps | a sword fighter can buy another sword fighter's moves |
@@ -226,6 +227,10 @@ zone, and the street route is never more than one screen below the roofs, so bot
 | Setting | City rooftops and streets, as a journey through an endless chain of generated cities with transit legs between (3.7) |
 | Created fighters | Can play from the start |
 | Who builds it | The modes and online agent (`.claude/agents/modes-online.md`) builds it phase by phase; the executive producer directs and reviews |
+
+After R2a (owner, 14 October 2026): a coin is worth 1; forks may lead to different rooms (built in R2b: the branching fork and its
+treasure alley); slopes stay as they are; hitting the shopkeeper makes it refuse to sell for a while (built: 3 seconds). After R2a's
+play the owner also asked for enemies based on the base game's characters (`RUNNER_WORLD.md` section 4, built in R2b).
 
 Still open, for later phases:
 - the first six enemy designs (the art director's call, within section 3.3's roles);
@@ -618,6 +623,219 @@ water_tower, billboard, van, scaffold, fire_escape.
 - **Slopes** top out at about 26.6 degrees (1 in 2). The steepest ones are where the Gauntlets' down tilt trips; gentler rooms can come
   if the steep ones feel slippery.
 - **Hitting the shopkeeper** only makes it dizzy. Fine as a joke, or should it also refuse to sell for a moment?
+
+## 10. R2b progress (enemies and the curve, sim 127, content schema 8, branch `runner-r2b`)
+
+Spec: `RUNNER_WORLD.md` section 4 (rewritten, **Decided**) and section 5, and the owner's answers to R2a (coins worth 1, forks leading
+to different rooms, slopes as they are, the shopkeeper refusing to sell after a bonk).
+
+### What can be played
+- **Fighter-shaped grunts.** Every enemy is a base-game body in a grunt outfit with a red marker over its head, as big to hit as a
+  fighter, fighting with its body's real moves. Before each attack a big "!" bobs over it (18 frames at first) and it makes the move's
+  own wind-up. Six kinds:
+  - **brawler** (the sprinter body, orange with a beanie): rushes you, runs when far, a jab up close or a forward tilt;
+  - **leaper** (the rogue, plum with a hood and goggles): waits on high ground, crouches, leaps at you, and its down air (from above)
+    or forward air drifts onto you;
+  - **shieldbearer** (the wanderer, slate with a plumed helm): walks in behind a versus shield bubble (kept up through the tell of its
+    poke too) and pokes out with its forward tilt or a jab. Hits from the front are blocked (its guard wears down and you freeze on
+    it); a grab throws it, guard and all; a hit from above lands; crossing it up lands until it turns round (18 frames); a guard worn
+    to nothing leaves it dazed (the broken-shield daze);
+  - **spearman** (the duelist, cobalt with a cape): a late, long forward tilt, or a sliding dash attack from 6 away: jump it, punish
+    it;
+  - **lobber** (the bounder, green with a straw hat and round specs): stays on high ground and lobs its shell (the clutch's lobbed
+    shell, a real projectile) in an arc that comes down on you. A reflector sends it back into the grunts (the tumbler's cape does);
+  - **bruiser** (the hauler, midnight with shades): walks in slowly and swings its forward smash, with super armor through the tell
+    and the smash's startup (it takes the damage, does not flinch), then a big launch.
+- **Rooms fill up by budget.** Each room's spots are filled as it is laid, by its tier's budget and the placement rules (lobbers and
+  leapers on high ground, bruisers on flat room, never two shieldbearers on one platform). Grunts still come out of doors.
+- **The difficulty curve.** A new tier every 6 rooms (5 tiers): more and harder kinds, bigger budgets, shorter tells (18 to 10
+  frames), tougher grunts (stamina 100% to 150%, damage 100% to 130%). Rooms come from their tier's pool (the drop, the avenue and the
+  new plaza arena from tier 2). The map strip shows "TIER n" with pips; "TIER n" flashes as it steps up.
+- **Hazards and a chest.** Gas canisters (red, yellow band) burn for a moment when you hit them, then burst, hurting grunts (your
+  kills) and you. Loose signs hang over the street; hit one and it falls on whoever is under it and breaks. The treasure alley has a
+  chest that pays 30 when hit open.
+- **The runaway van** (the first rare event): about once a city (24 rooms), never in the first 6, a "?" on the map ("RUNAWAY VAN?" as
+  you enter). The van waits at the street's start; land on its roof ("HOLD ON!") and it speeds off down the street carrying you,
+  untouchable, sending every grunt in its way flying (your kills, your combo), until it parks at the street's end.
+- **Forks that branch** (owner's R2a answer): the new branching fork climbs to a catwalk that leaves its right edge 8 up into a
+  **treasure alley** (catwalks with coins, a gas canister and the chest, then a fire escape down to the street); the street goes on
+  into a street room of its own. Walk out on one road and that room is yours; the other is gone at once. The map draws the alley over
+  its sibling, the branch line climbing to it, and the road not taken crossed out.
+- **The shopkeeper sulks**: hit it and it is dizzy as before, then crosses its arms ("Hmph!") and refuses to sell for 3 seconds
+  ("HMPH! IT WON'T SELL TO YOU").
+- **Coins are worth 1.**
+- **Fixed** (owner's R2a bugs): coins you pick up vanish at once; light and shadows no longer travel with the backdrop (see below).
+- Debug for tests and photographs: `SimRunner.run_debug_grunt(kind, dx, telling)` and `run_debug_force_event()`.
+
+### How it is built (and why)
+- **A grunt is a light entity drawn as a fighter.** `run::Mob` stays a fixed pool of 16 (the four fighter slots stay free; a full CPU
+  fighter per grunt would cost a fighter slot each and the whole fighter state machine, which a run needs 10 to 16 of). A grunt
+  kind (`MobKind`) names a **body** (a roster fighter) and a kit of that body's **moves** (`MoveId`s). The grunt is read as a fighter
+  of its body whenever it matters (`mobs::as_fighter`): its hurtbox is `combat::hurtboxes` of that fighter, its attacks are
+  `combat::active_hitboxes` of the move at its frame, and the game draws it from the same fighter snapshot
+  (`run::grunt_fighter`; the bridge answers fighter `100 + n` with grunt `n`, so `runner.gd` builds its snapshot with the same calls
+  `main.gd` uses and `fighter_view.gd` draws it unchanged). Weight, fall speed, gravity, walk and run speed, air speed and jump are its
+  body's numbers (`FighterParams`). Behaviour is a small state machine per role (`run/mobs.rs`): idle, move or guard, tell
+  (`MODE_WINDUP`), the move (`MODE_ATTACK`, its own frames), leap, cooldown, dazed.
+- **Hits both ways are the versus ones.** The player's hits on a grunt use the versus formulas as before, now against its body's
+  hurtbox; a grab (`HIT_GRAB`) throws it with the fighter's own forward-throw hit. A grunt's hit on the player goes through
+  `combat::apply_hit` from an unplayed fighter slot standing for its body (shields, DI, crouch cancelling, armor and counters all
+  work), once per hit group, at its tier's damage.
+- **The guard**: a versus shield bubble (`Mob::shield`, regrowing slowly). A hit is blocked only from in front and not from above
+  (`mobs::guard_blocks`); a blocked hit wears it, pushes the grunt back and freezes the attacker on the shield's hitlag.
+- **Armor**: the bruiser's super armor through its tell and its smash's startup (`mobs::armored`): the hit's damage and hitlag, no
+  launch. (The new `Move::armor_mode` from the Exile's port is for fighters' own move armor; a grunt's armor belongs to its kind, not
+  to the borrowed move, so it stays a grunt rule.)
+- **The lobber's shot is a real projectile.** It is the clutch's lobbed-shell spawn, put in the versus projectile pool with its owner
+  and origin set to a fighter slot no one plays in a run (`run::SHOT_SLOT`, whose `char_id` is the lobbers' body for the whole run), so
+  the versus code flies it, bursts it and hits the player with it, and a reflector turns it over to the player like any shot; the run's
+  `mobs::shots` then lets it hit grunts. Its velocity is solved to come down on the player after `shot_time` frames.
+- **Budget and placement** (`run::assign_kinds`) run when a room is laid, from the run's own generator, and the chosen kind per spot
+  is kept in the room's slot (`RoomSlot::kinds`, hashed), so a seed is still a run.
+- **Props** (`run/props.rs`) are a pool of 12 in the run state, laid with their room (`Room::props`) and dropped with it. The
+  player's attack or shot sets one off (`mobs::player_touches`, shared with the shopkeeper's bonk); a hazard's hit lands once on every
+  grunt it touches (the player's kills) and once on the player (the versus hit).
+- **Events**: room type 4 (`ROOM_EVENT`, a "?" on the map) is drawn by `event_due` before the ordinary room odds: at most one per
+  "city" (`city_rooms`), never before `event_from`, at `event_base` per mille plus `event_step` per mille for every eligible room
+  without one (`Run::event_pity`). The van (`Run::van`) is a pass-through pool platform (its roof) that the sim moves; a fighter
+  standing on it is carried and kept intangible while it drives (the view does not ghost it); grunts it touches take `van_hit` once.
+- **Branching forks**: a fork names its two roads (`Room::branch_high`, `branch_low`, `lift`). When the fork becomes the current room,
+  one room fewer is kept behind and both roads are laid at its end, the alley `lift` higher; nothing is laid beyond them. Walking out
+  past the end, the player's height decides the road (`enter_rooms`); the other is dropped at once with everything it laid in the pools
+  (pool entries now remember their room, `PoolPlatform::seq`, `PoolLedge::seq`), its grunts and props, and marked on the map
+  (`Run::skipped_log`). The alley and its sibling are as wide and share the street under them, so taking either leaves solid ground; the
+  alley has no other solid block (it lies over the other road until one is taken; `sim_content` checks both rules, and the
+  passability proof enters an alley on its catwalk). Rooms behind are now kept by count, not by number (a road not taken leaves a gap).
+- **The shopkeeper's sulk** is `Run::keeper_sulk` (`Interior::sulk_frames`, 180): while it lasts `buy` refuses (`NOTE_REFUSED`) and
+  the mood is `KEEPER_HMPH`.
+- **The two R2a bugs.** *Coins:* `run_stage.gd` redrew the coins only when the stage's layout changed, and picking a coin up changes
+  no layout, so a collected coin stayed until the next room came; the coins are now synced every frame (a runner_test check). *Light
+  and shadows:* the run reuses the city stage's backdrop, which travels with the camera (unlike a versus stage's). It carries the
+  hidden city stage's four practical lights (its string lights' warm pools and the mast's red beacon) and 274 shadow-casting props, so
+  warm pools slid across the run's buildings and props' shadows crawled over the rooms as the camera moved. `run_stage.gd` now turns
+  the backdrop's lights off and its shadow casting off (a runner_test check); its emissive bulbs and lit windows keep its look.
+  `tests/run_flicker_probe.gd` measures frame-to-frame changes while running, for the art director to compare against.
+- **GameState is 6,352 bytes** (R2a: 5,536; the run's part 3,568, was 2,768; the rest grew 16 bytes with the moveset ports merged).
+  `pftool run-bench`: 0.0031 ms a frame on average with all 16 slots full of the six kinds, worst 0.19 ms.
+
+### Tunables added or changed (`RunRules::standard`, `MobKind::standard`, `Tier::standard`, `PropKind::standard`)
+| Rule | Value | Meaning |
+| --- | --- | --- |
+| `coin_value` | 1 | was 2 (owner) |
+| `tier_rooms` | 6 | a new tier every 6 rooms |
+| `high_ground` / `flat_room` | 2 / 6 | placement: high ground is 2 above the room's lowest solid ground; flat room is a flat platform 6 wide |
+| `arena_budget` | 150 | an arena's budget, percent of a street's of its width |
+| `city_rooms` / `event_from` | 24 / 6 | at most one event in 24 rooms, none before room 6 |
+| `event_base` / `event_step` | 20 / 12 | per mille a room, plus the pity per room without one |
+| `van_speed` / `van_accel` / `van_frames` | 0.4 / 1/80 / 240 | the van's top speed, its pick-up, its longest drive |
+| `van_hit` | 10%, 50 degrees, 80 / 70 | what the van does to a grunt |
+| `guard_turn` / `daze_frames` / `shield_regen` | 18 / 100 / 0.05 | a shieldbearer turns 18 frames after a cross-up; a broken guard dazes 100 frames; the guard regrows 3 a second |
+| `grab_throw` | 8%, 45 degrees | a grab on a grunt when the fighter has no forward throw hit |
+| `Interior::sulk_frames` | 180 | the shopkeeper refuses to sell for 3 seconds after a bonk |
+
+| Tier | Kinds | Budget (per 16 units) | Tell | Stamina | Damage |
+| --- | --- | --- | --- | --- | --- |
+| 1 (rooms 0 to 5) | brawler, leaper | 3 | 18 | 100% | 100% |
+| 2 (6 to 11) | + spearman, shieldbearer | 4 | 16 | 110% | 105% |
+| 3 (12 to 17) | + lobber | 5 | 14 | 120% | 110% |
+| 4 (18 to 23) | + bruiser | 6 | 12 | 135% | 120% |
+| 5 (24 on) | all | 7 | 10 | 150% | 130% |
+
+| Kind | Body | Moves | Stamina | Cost | From tier | Coins | Reach | Placement |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Brawler | sprinter | jab, forward tilt | 14 | 2 | 1 | 5 | 1.6 / 2.6 | any |
+| Leaper | rogue | down air, forward air | 10 | 3 | 1 | 7 | leaps from 9 | high ground |
+| Shieldbearer | wanderer | forward tilt, jab | 16 (guard 30) | 3 | 2 | 8 | 2.8 / 1.6 | alone on its platform |
+| Spearman | duelist | forward tilt, dash attack | 14 | 3 | 2 | 7 | 3.0 / 6 | any |
+| Lobber | bounder | lobbed shell, jab | 10 | 4 | 3 | 8 | throws within 15 | high ground |
+| Bruiser | hauler | forward smash (armored), jab | 40 | 5 | 4 | 14 | 3.0 | flat room |
+
+Props: the gas canister (burns 14 frames, bursts for 4: 14%, 60 degrees, 50 / 80, radius 2.6), the loose sign (falls; 10%, 70
+degrees), the chest (pays 30).
+
+**Rooms** (new in R2b): plaza (an arena with two catwalks, from tier 2), fork_up (the branching fork), alley (the treasure alley) and
+under_alley (its low road), van_street (the event). Every room's spawn markers are now spots the budget fills, more of them, and some
+rooms have props.
+
+### Tests and numbers
+- `sim-core/tests/runner.rs` (56; 15 new for R2b): a grunt has a fighter's hurtbox (its body's, fighter-tall); each ground kind tells
+  for 18 frames then strikes with its body's move and hits; tiers shorten tells and toughen grunts; the tier steps up and rooms come
+  from their tier's pool (grunts get their room's tier and stamina); the shieldbearer blocks from the front only (cross-up, from
+  above, grab, guard break); the bruiser's armor through its startup only; the lobber's arc onto the player; a reflected shot (the
+  tumbler's cape) hits the grunts; placement rules and budgets over 30 seeds of 30 rooms (every kind comes); hazards hurt grunts (a gas
+  canister's burst is the player's kill and catches the player; a falling sign; a chest pays once); rare events (never before room 6,
+  at most one a city, at least 70% of cities get theirs over 24 seeds of 96 rooms; the pity counter brings it on the second eligible
+  room with no base chance; with neither, never); riding the runaway van end to end; a branching fork's two rooms (both ways: the
+  other dropped with everything it laid, marked on the map, the run going on from the room taken); a coin is worth 1; a run with
+  grunts, props, events and forks replays checksum by checksum; the checksum sees every new field (32 new edits); random play with all
+  six kinds keeps the invariants. The R2a tests were adjusted: the window (two roads ahead at a branching fork), the generator (the
+  paired roads are not the generator's), the variants (an alley joins its fork's high road), the shopkeeper (dizzy, then sulking and
+  refusing, then selling again).
+- `sim-content`: grunt kinds (bodies and moves in the roster, a lobber's first move fires a shot, one lobber body), tiers, props, event
+  rooms, alleys (paired, no solid block but the street) and branching forks (their roads, widths and lift) are checked; the
+  passability proof enters an alley on its catwalk; `tests/run_world.rs` walks both roads of every branching fork over 40 seeds.
+- `cargo test --workspace` (all pass), clippy with `-D warnings`, `cargo fmt`. `pftool net-fuzz 200`: 0 mismatches, and the same line
+  as on `main` before R2b (8,375 rollbacks, 28,253 stalls).
+- Godot, headless: runner_test (now also the grunt kinds through the bridge, a grunt drawn with the fighter rig in its outfit and
+  telling, a picked-up coin vanishing, no light or shadow travelling with the backdrop, the props and van data), match_flow_test,
+  input_e2e, controls_test, replay_test, online_flow_test, net_e2e, creator_flow_test, content_e2e, editor_api_test: all pass.
+  `tests/run_shot.gd` now photographs each grunt kind (the brawler telling), three together, and the van waiting and ridden.
+- The bot (`pftool run-bot 8 7200`): rooms 1 to 12 in two minutes; the grunts now stop it more often (it only runs, hops and jabs).
+
+### Known limits (R2b)
+- A grab on a grunt throws it at once with the fighter's forward-throw hit; the fighter's own grab animation plays out as a whiff (no
+  hold, pummel or choice of throw).
+- Grunt moves are their hitboxes and frames; a move's own motion and script (a dash attack's slide, a gauntlets jab's rapid entry, the
+  lobbed shell's aiming script) are not run: the grunt kind gives the slide (`lunge`) and the shot's arc.
+- The leaper does not grab ledges or recover; a grunt knocked off high ground falls.
+- Grunts' borrowed moves do not stale and their hits count as fresh (the 1.05 bonus), as R1's mobs did.
+- The van is drawn as the city car stretched (the parked van piece's look); it only drives in its own street and parks at its end.
+- The alley and its sibling overlap until one is taken, so for a moment both are drawn (the alley's catwalks over the street). On the
+  camera's side this reads as a high road over the street; the other road vanishes when you commit.
+- Directional-shadow shimmer while the camera pans is not measured as solved: see the art list (it is the lighting's, not the run's).
+
+### For the art director (R2b; **reused** = built now from existing art, **new** = needs a design)
+1. **Grunt outfits** (reused, placeholder): the six roles in existing catalog items (`godot/scripts/grunt_view.gd` `OUTFITS`): brawler
+   tangerine with a beanie, neckerchief, striped shirt and gloves; leaper plum with a hood, goggles, scarf; shieldbearer slate with a
+   plumed helm, sash, full kit; spearman cobalt with a sailor cap and cape; lobber meadow with a straw hat, round specs, flower shirt;
+   bruiser midnight with swept spikes and shades. **New if wanted:** a grunt "uniform" (a team armband, a hoodie or a cap with a
+   crest) that says "enemy" more strongly than colours, still in the house style.
+2. **The enemy marker** (reused): the match tag's pointer in red. **New if wanted:** red eyes or an angry brow for grunts instead.
+3. **The tell** (placeholder): a big yellow "!" that flashes red as the move nears, and a short blip. **New:** a proper tell graphic
+   and a sound per kind.
+4. **The doorway** (placeholder, R2a): a dark rectangle the grunt grows out of. **New:** a stairwell door, a roof hatch.
+5. **Hazards** (new): a gas canister (placeholder: a red cylinder with a yellow band and a valve; burning: it shakes; burst: an orange
+   ball), a loose sign on two wires (placeholder: a yellow board with a dark stripe; it swings as it falls and lies tilted). Both need a
+   burst or break effect and a sound.
+6. **The chest** (new): placeholder a wooden box with a gold lid that swings open; needs an open effect with coins.
+7. **The runaway van** (reused): the city car stretched into a van, bouncing as it drives. **New if wanted:** a real delivery van with
+   a ladder up the back, exhaust, and a "runaway" look (an open door flapping, a driver ducking).
+8. **Map icons** (placeholder, new): the event's gold "?", the alley's little chest, the branch line climbing to an alley, the road not
+   taken crossed out, "TIER n" with pips.
+9. **The treasure alley** (reused): catwalks are the girder platforms (look `catwalk`), the stairs the fire-escape flights. **New if
+   wanted:** clothes lines, rooftop gardens, a "this way" sign at the fork's high exit.
+10. **The sulking shopkeeper** (placeholder): the blob leans away with "Hmph!". **New:** arms crossed, a pout.
+11. **Lighting** (for the art director's `lighting.gd`): the run's camera pans all the time, unlike versus. If the owner still sees
+    shadow edges crawl or shimmer after this fix, the key light's directional shadow is the next suspect: it is refitted to the moving
+    view every frame (`directional_shadow_max_distance` 70, two splits). Worth trying for the run only: a shorter shadow distance (the
+    run's camera is about 32 from the stage), `SHADOW_ORTHOGONAL` (one map, no split seam to slide), or a higher shadow atlas size.
+    `tests/run_flicker_probe.gd` gives numbers to compare. I did not change `lighting.gd`.
+12. **`fighter_view.gd`** (for the art director): `rebuild()` frees its children but keeps the dust puffs in `dusts`, so a rebuilt view
+    errors on its next dust ("previously freed"). Versus rebuilds rarely; the run's grunt views now avoid rebuilding (one view per role),
+    but the fix is to clear `dusts`, `dust_age` and `dust_vel` in `rebuild()`.
+
+### Decisions wanted from the owner
+- **Difficulty:** tier 1 gives two or three grunts in a one-screen room (budget 3 points per 16 units, a brawler costs 2); the curve
+  reaches all six kinds by room 18 and the hardest tier at room 24. Too fast, too slow?
+- **The shieldbearer's guard** stays up through the tell of its poke (only the poke and its cooldown are open). Is that fair, or should
+  the tell drop the guard too?
+- **Grabs on grunts** throw at once (no hold, no pummel). Enough, or should a grab hold a grunt for a throw of your choice (a bigger
+  piece of work)?
+- **The van** comes about once a city and lasts about 3 seconds of ride. Longer rides (into the next room) would need it to drive
+  through the next room's pieces; worth it?
+- **Hazards hurt you too.** The gas canister's burst catches you if you stand next to it when it goes off. Keep, or make hazards hurt
+  only grunts?
+- **The sulk** lasts 3 seconds (a timer, not until you leave). Fine?
 
 Sources: [TouchArcade review](https://toucharcade.com/2012/10/26/punch-quest-review/),
 [AppSpy review](https://www.appspy.com/punch-quest-review), [Destructoid review](https://www.destructoid.com/reviews/review-punch-quest/),
