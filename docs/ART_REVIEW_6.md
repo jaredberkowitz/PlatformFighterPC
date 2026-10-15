@@ -63,3 +63,17 @@ owner scheduled after this pass.
   a bare body: the Phantom a midnight body with shades, a cape and the full kit; the Exile a pale body with a scarf and the full kit
   (`roster.gd`).
 - Checked: every Godot test; the look bench 0.87.
+
+## Done: combat effects, first pass (item 1)
+
+`review6_effects.png` (rows: a strong hit, a launch, a light hit; before | after):
+- **Hit bursts a size up**, the light ones most (`effects.gd` `hit`: size 0.8 + 0.75 x strength, was 0.5 + 0.6): a jab was a speck at play scale.
+- **A contact ring on every hit**: a quick small one on light and medium hits; a thicker shockwave on strong ones.
+- **More sparks on light hits** (0.25 + 0.75 x strength).
+- **The swing arc** lighter and shorter-lived (`ARC_OPACITY` 0.62, was 0.82; `ARC_FADE` 3, was 5): it was the most solid shape on screen at the hit.
+- **A launch trail** (`LaunchTrail`): a painted ribbon (ink rim, pale-blue edge, white core) along the flight, widest at the fighter.
+- **Launch streaks actually show**: they were gated on 0.5 units a frame, faster than nearly any launch, and on the fighter's own velocity
+  (small in a launch) instead of the whole flight; now 0.2 on the flight.
+- Checked: the fighter, match, motion, art and online tests; the look bench 0.87; frame time on a strong hit unchanged within noise
+  (126 vs 130 fps on the RTX 4050 laptop).
+- Next in effects: a strong-hit accent (a brief two-tone frame on the KO-capable hits) and per-class spark colours.

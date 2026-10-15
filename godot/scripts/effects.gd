@@ -207,18 +207,30 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 	# Small and quick for a light hit, big for a strong one (so the big ones stay special and a jab never hides the fighter); even the
 	# strongest stops short of covering the fighter it hit.
 	# (A light and a medium hit start bigger than before, so a mid-strength hit reads at play distance; the strongest stays the same size.)
-	pow_fx.size = (0.5 + 0.6 * s) * (0.8 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
-	pow_fx.life = 0.17 + 0.1 * s
+	# (Art review 6, against the reference fighters: a light hit was a speck at play scale. Every tier a size up, the light ones most.)
+	pow_fx.size = (0.8 + 0.75 * s) * (0.85 if kind == Kind.BLADE or kind == Kind.CLAW else 1.0)
+	pow_fx.life = 0.2 + 0.12 * s
 	pow_fx.position = at + Vector3(0, 0, 0.05)
 	parent.add_child(pow_fx)
+	# A quick small ring on every hit (the moment of contact), a wide thick shockwave on a strong one.
+	if s <= 0.5:
+		var tick := Ring.new()
+		tick.material_override = _material(true)
+		tick.colour = Color(1, 1, 0.95, 0.9)
+		tick.from = 0.25
+		tick.to = 0.7 + 0.5 * s
+		tick.thickness = 0.1
+		tick.life = 0.12
+		tick.position = at
+		parent.add_child(tick)
 	if s > 0.5:
 		var ring := Ring.new()
 		ring.material_override = _material(true)
-		ring.colour = Color(1, 1, 0.95, 0.9)
+		ring.colour = Color(1, 1, 0.95, 0.95)
 		ring.from = 0.4
 		ring.to = 1.1 + 1.0 * s
-		ring.thickness = 0.07
-		ring.life = 0.2
+		ring.thickness = 0.12 + 0.1 * s
+		ring.life = 0.24
 		ring.position = at
 		parent.add_child(ring)
 	# A strong hit bursts: speed lines flung out round it and a ring of smoke balls.
@@ -234,7 +246,65 @@ static func hit(parent: Node, at: Vector3, dir: Vector2, color: Color, strength:
 		Particles.impact_smoke(parent, at, s)
 	if kind == Kind.FIRE:
 		Particles.embers(parent, at, s)
-	Particles.sparks(parent, at, color, s * 0.7, dir)
+	Particles.sparks(parent, at, color, 0.25 + s * 0.75, dir)
+
+
+## A launched fighter's trail (art review 6: a launch left two puffs of smoke, where the reference fighters leave a bold streak): a ribbon
+## along the path it flew, in the effects' layers (an ink rim, a pale body, a white core), widest at the fighter and narrowing behind,
+## each point fading over `life`. Fed a point a frame while the launch is fast (`feed`); frees itself when empty and no longer fed.
+class LaunchTrail extends MeshInstance3D:
+	var points: Array = []      # [position, age]
+	var life := 0.5
+	var width := 0.8
+	var feeding := false
+	var body := Color(0.96, 0.94, 0.9, 0.95)
+	var edge := Color(0.62, 0.8, 1.0, 0.95)
+
+	func _ready() -> void:
+		mesh = ImmediateMesh.new()
+		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		top_level = true
+
+	func feed(at: Vector3, on: bool) -> void:
+		feeding = on
+		if on and (points.is_empty() or ((points[-1][0] as Vector3) - at).length() > 0.08):
+			points.append([at, 0.0])
+
+	func _process(delta: float) -> void:
+		var d := FxMaterial.delta(delta)
+		for p in points:
+			p[1] = float(p[1]) + d
+		while not points.is_empty() and float(points[0][1]) >= life:
+			points.pop_front()
+		var im: ImmediateMesh = mesh
+		im.clear_surfaces()
+		if points.size() < 2:
+			return
+		global_transform = Transform3D.IDENTITY
+		var n := points.size()
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+		for layer in [[1.0, Color(INK, 0.9)], [0.82, edge], [0.62, body], [0.24, Color(1, 1, 1, 1)]]:
+			var k: float = layer[0]
+			var col: Color = layer[1]
+			for i in n - 1:
+				var a: Vector3 = points[i][0]
+				var b: Vector3 = points[i + 1][0]
+				var along := (b - a)
+				if along.length() < 0.0001:
+					continue
+				var side := Vector3(-along.y, along.x, 0).normalized()
+				# Wide at the fighter, narrowing behind, and thinning as each point ages.
+				var wa := width * k * (float(i) / float(n - 1)) * (1.0 - float(points[i][1]) / life)
+				var wb := width * k * (float(i + 1) / float(n - 1)) * (1.0 - float(points[i + 1][1]) / life)
+				var ca := Color(col, col.a * (1.0 - float(points[i][1]) / life))
+				var cb := Color(col, col.a * (1.0 - float(points[i + 1][1]) / life))
+				var z := Vector3(0, 0, -0.05 + 0.02 * (1.0 - k))
+				var quad := [[a + side * wa + z, ca], [a - side * wa + z, ca], [b + side * wb + z, cb], [b - side * wb + z, cb]]
+				# (Both windings: whichever way the flight turns, the ribbon faces the camera.)
+				for idx in [0, 1, 2, 2, 1, 3, 0, 2, 1, 2, 3, 1]:
+					im.surface_set_color(quad[idx][1])
+					im.surface_add_vertex(quad[idx][0])
+		im.surface_end()
 
 
 ## The directional impact of a hit: a sharp white spike with a coloured edge thrust along `dir` (where the hit sends the fighter) and a
