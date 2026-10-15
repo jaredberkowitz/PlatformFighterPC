@@ -250,3 +250,13 @@ A strong forward smash on the city and the meadow, from wind-up to the launched 
 - Seen, not changed: a launched fighter crosses the screen edge on the city (camera behaviour, the owner's call; the edge indicator
   check is in the backlog). No outline flicker or shadow crawl seen in these frames.
 Checked: the art pipeline and match flow tests.
+
+## Refinement round 7
+
+- **City shopfronts** (`review6_round7_city_shops.png`, before | after): the street's lit shops bloomed into the brightest blobs on
+  screen, in the lower corners. Window panes a step below full white and their glows half the size (`_city` street shops and
+  `_shopfront`).
+- **Grove stage front** (`review6_round7_grove_roots.png`, before | after): the `roots` texture's even-width roots with a lit stripe and
+  its pale highlighted stones read as pipes and polka dots. Roots now taper from their thick end, a step darker; three small stones only
+  a step off the soil.
+Checked: the art pipeline and match flow tests.

@@ -354,22 +354,36 @@ static func _soil_material(t: Dictionary) -> ShaderMaterial:
 			var root_col := Color(0.56, 0.37, 0.24)
 			var roots := [[20.0, -10.0, 90.0, 120.0, 30.0, 270.0, 16.0], [150.0, -10.0, 230.0, 70.0, 120.0, 270.0, 11.0],
 				[-20.0, 120.0, 90.0, 170.0, 200.0, 140.0, 8.0], [200.0, 150.0, 140.0, 220.0, 250.0, 270.0, 9.0], [90.0, 30.0, 60.0, 90.0, 110.0, 150.0, 6.0]]
+			# (Art review 6 round 7: each root was one even-width stroke with round ends and a lit stripe down it, and the stones pale ovals
+			# with a highlight: at play size, pipes and polka dots. Now each root tapers from its thick end in short segments, darker than
+			# before, and the stones are fewer, smaller and only a step off the soil, bedded in it.)
 			for r in roots:
 				var w: float = r[6]
+				var p0 := Vector2(r[0], r[1])
+				var p1 := Vector2(r[2], r[3])
+				var p2 := Vector2(r[4], r[5])
+				var steps := 10
 				for ox in [-256.0, 0.0, 256.0]:
 					for oy in [-256.0, 0.0, 256.0]:
-						var d := "M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f" % [r[0] + ox, r[1] + oy, r[2] + ox, r[3] + oy, r[4] + ox, r[5] + oy]
-						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" stroke-opacity="0.6"/>' % [d, ink, w + 4.0]
-						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round"/>' % [d, root_col.to_html(false), w]
-						body += '<path d="%s" fill="none" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" opacity="0.5" transform="translate(-1,-%.1f)"/>' % [d, root_col.lightened(0.3).to_html(false), w * 0.3, w * 0.25]
-			for j in 6:
-				var cx := fmod(float(j) * 83.0 + 40.0, 256.0)
-				var cy := fmod(float(j) * 131.0 + 60.0, 256.0)
-				var rx := 9.0 + float(j % 3) * 5.0
-				var stone := Color(0.74, 0.7, 0.72).lerp(a, 0.55)
+						var off := Vector2(ox, oy)
+						for pass_k in 2:
+							for i in steps:
+								var t0 := float(i) / steps
+								var t1 := float(i + 1) / steps
+								var q0 := p0.lerp(p1, t0).lerp(p1.lerp(p2, t0), t0) + off
+								var q1 := p0.lerp(p1, t1).lerp(p1.lerp(p2, t1), t1) + off
+								var wi := w * (1.0 - 0.75 * t0)
+								if pass_k == 0:
+									body += '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#%s" stroke-width="%.1f" stroke-linecap="round" stroke-opacity="0.55"/>' % [q0.x, q0.y, q1.x, q1.y, ink, wi + 3.0]
+								else:
+									body += '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#%s" stroke-width="%.1f" stroke-linecap="round"/>' % [q0.x, q0.y, q1.x, q1.y, root_col.darkened(0.12).to_html(false), wi]
+			for j in 3:
+				var cx := fmod(float(j) * 97.0 + 40.0, 256.0)
+				var cy := fmod(float(j) * 151.0 + 60.0, 256.0)
+				var rx := 6.0 + float(j % 3) * 4.0
+				var stone := a.lerp(b, 0.5).lerp(Color(0.7, 0.66, 0.68), 0.3)
 				for ox in [-256.0, 0.0, 256.0]:
-					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="2" stroke-opacity="0.5"/>' % [cx + ox, cy, rx, rx * 0.72, stone.to_html(false), ink]
-					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" opacity="0.45"/>' % [cx + ox - rx * 0.2, cy - rx * 0.25, rx * 0.5, rx * 0.3, stone.lightened(0.25).to_html(false)]
+					body += '<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="#%s" stroke="#%s" stroke-width="1.6" stroke-opacity="0.4"/>' % [cx + ox, cy, rx, rx * 0.66, stone.to_html(false), ink]
 			for j in 24:
 				body += '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="#%s" opacity="0.35"/>' % [fmod(float(j) * 53.0, 256.0), fmod(float(j) * 97.0 + 13.0, 256.0), 1.5 + float(j % 2), b.darkened(0.35).to_html(false)]
 		"cobble":
@@ -3328,7 +3342,9 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 	var shop_z := -37.4
 	var awnings := [[Color(0.92, 0.34, 0.42), Color(0.98, 0.94, 0.9)], [Color(0.3, 0.6, 0.6), Color(0.94, 0.92, 0.84)],
 		[Color(0.96, 0.7, 0.3), Color(0.98, 0.94, 0.86)], [Color(0.5, 0.4, 0.8), Color(0.92, 0.9, 0.98)]]
-	var glows := [Color(1.0, 0.86, 0.58), Color(0.7, 0.9, 1.0), Color(1.0, 0.72, 0.84), Color(0.86, 1.0, 0.76)]
+	# (A step below full white, and the glows round them half the size: art review 6 round 7, the lit shops bloomed into the brightest
+	# blobs on screen, down in the corners where the eye lands.)
+	var glows := [Color(0.9, 0.76, 0.5), Color(0.6, 0.78, 0.9), Color(0.9, 0.62, 0.74), Color(0.74, 0.88, 0.64)]
 	x = -126.0
 	k = 0
 	while x < 126.0:
@@ -3343,7 +3359,7 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 			_mesh(root, _box(Vector3((w - 0.4) / n, 0.1, 1.3)), FighterView.toon(pair[j % 2]), Vector3(x + 0.2 + (j + 0.5) * (w - 0.4) / n, y + 3.5, shop_z + 0.55),
 				Vector3.ONE, Vector3(24, 0, 0))
 		_mesh(root, _box(Vector3(w * 0.5, 0.6, 0.1)), _unshaded((glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)), Vector3(cx, y + 4.3, shop_z + 0.12))
-		_halo(root, Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.7), glows[k % glows.size()], w * 0.8)
+		_halo(root, Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.7), glows[k % glows.size()], w * 0.4)
 		x += w
 		k += 1
 
@@ -3352,7 +3368,7 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 ## window either side of a door, under a striped awning, and a sign over it.
 static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: float) -> void:
 	var frame := FighterView.toon(Color(0.3, 0.22, 0.34))
-	var lit := _unshaded(Color(1.0, 0.86, 0.6))
+	var lit := _unshaded(Color(0.9, 0.76, 0.52))
 	_mesh(root, _box(Vector3(width, 3.4, 0.2)), frame, Vector3(cx, y + 1.95, front))
 	for side in [-1.0, 1.0]:
 		_mesh(root, _box(Vector3(width * 0.32, 2.2, 0.1)), lit, Vector3(cx + side * width * 0.27, y + 1.75, front + 0.12))
@@ -3364,7 +3380,7 @@ static func _shopfront(root: Node3D, cx: float, width: float, y: float, front: f
 		var sx := cx - width / 2.0 + (k + 0.5) * width / n
 		_mesh(root, _box(Vector3(width / n, 0.12, 1.4)), stripes[k % 2], Vector3(sx, y + 3.55, front + 0.6), Vector3.ONE, Vector3(22, 0, 0))
 	_mesh(root, _box(Vector3(width * 0.4, 0.8, 0.12)), _unshaded(Color(0.98, 0.5, 0.74)), Vector3(cx, y + 4.4, front + 0.14))
-	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.7)
+	_halo(root, Vector3(cx, y + 1.8, front + 0.8), Color(1.0, 0.8, 0.5), width * 0.35)
 
 
 ## Weathering on the rooftop behind the fighters: a water stain, a puddle with the sky in it, a tar patch and some grime
