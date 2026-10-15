@@ -85,6 +85,7 @@ func rebuild(l: RefCounted) -> void:
 	anim = null
 	skeleton = null
 	current_clip = ""
+	shown_clip = ""
 	face_mesh = null
 	face_mat = null
 	last_expression = {}
@@ -311,6 +312,8 @@ func _build_rig(skin: Material) -> bool:
 	anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	for clip_name in anim.get_animation_list():
 		anim.get_animation(clip_name).loop_mode = Animation.LOOP_LINEAR if LOOPING.has(clip_name) else Animation.LOOP_NONE
+	if use_base_body:
+		_add_mirrored_clips()
 	var white := toon(Color(1, 1, 1))
 	# Each kind of stuff takes the light its own way (`respond`): rubbery gloves and soles, the shoes' sheen; cloth stays matte.
 	var glove := respond(white, "rubber")
@@ -668,6 +671,51 @@ const FACE_AWAY_IN_ATTACK := 40.0
 var attack_turn := 0.0
 
 
+## Facing left, the base body plays every clip mirrored (art review 5): the model turns rather than mirrors, so the arm nearest the camera
+## is the left one facing right and the right one facing left, while a clip poses fixed bones. Unmirrored, a clip's free arm was the near
+## arm one way and the far arm the other, and the weapon arm (always the near one) fought it. Each clip's mirror image swaps left and
+## right bones and reflects the poses across the body's middle (every bone's rest frame is the model's own, so a rotation (x, y, z, w)
+## reflects to (x, -y, -z, w) and a position's x changes sign).
+const MIRROR_SUFFIX := "@m"
+
+
+func _add_mirrored_clips() -> void:
+	var lib: AnimationLibrary = anim.get_animation_library("")
+	if lib == null:
+		return
+	for clip_name in lib.get_animation_list():
+		if String(clip_name).ends_with(MIRROR_SUFFIX) or lib.has_animation(clip_name + MIRROR_SUFFIX):
+			continue
+		var a: Animation = lib.get_animation(clip_name).duplicate(true)
+		for t in a.get_track_count():
+			var path := String(a.track_get_path(t))
+			if path.ends_with(".L"):
+				path = path.left(-2) + ".R"
+			elif path.ends_with(".R"):
+				path = path.left(-2) + ".L"
+			a.track_set_path(t, NodePath(path))
+			match a.track_get_type(t):
+				Animation.TYPE_ROTATION_3D:
+					for k in a.track_get_key_count(t):
+						var q: Quaternion = a.track_get_key_value(t, k)
+						a.track_set_key_value(t, k, Quaternion(q.x, -q.y, -q.z, q.w))
+				Animation.TYPE_POSITION_3D:
+					for k in a.track_get_key_count(t):
+						var v: Vector3 = a.track_get_key_value(t, k)
+						a.track_set_key_value(t, k, Vector3(-v.x, v.y, v.z))
+		lib.add_animation(clip_name + MIRROR_SUFFIX, a)
+
+
+## The clip to play for `clip` this way round (see `_add_mirrored_clips`).
+func _sided(clip: String, facing: int) -> String:
+	if use_base_body and facing < 0 and anim != null and anim.has_animation(clip + MIRROR_SUFFIX):
+		return clip + MIRROR_SUFFIX
+	return clip
+
+
+var shown_clip := ""
+
+
 ## Plays the right clip for this frame and moves the head and torso followers with their bones.
 func _animate(s: Dictionary, delta: float) -> void:
 	if anim == null:
@@ -680,13 +728,21 @@ func _animate(s: Dictionary, delta: float) -> void:
 		gait = fmod(anim.current_animation_position / maxf(anim.current_animation_length, 0.001), 1.0)
 	var new_dash: bool = s.state == "Dash" and (current_clip != "dash" or int(s.state_frame) < gait_frame)
 	gait_frame = int(s.state_frame) if s.state == "Dash" else -1
+	var shown := _sided(clip, int(s.facing))
+	if clip == current_clip and shown != shown_clip:
+		# (Turned round mid-clip: the other side's clip, at the same point.)
+		var at := anim.current_animation_position
+		anim.play(shown, 0.0)
+		anim.seek(at, true)
+		shown_clip = shown
 	if clip != current_clip:
 		# A clip that follows the move (or the ledge climb) starts at once: it is posed by seeking while paused, and seeking never moves
 		# a cross-fade on, so it would stay showing the clip before.
 		var follows: bool = float(pick[2]) >= 0.0
 		# Likewise a hit's pose: a fighter frozen by hitlag is already in it for the whole freeze (the animation does not move on then).
 		var frozen: bool = int(s.hitlag) > 0
-		anim.play(clip, 0.1 if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		anim.play(shown, 0.1 if current_clip != "" and not follows and not frozen and not clip.begins_with("attack") else 0.0)
+		shown_clip = shown
 		if frozen and not follows:
 			anim.advance(0.0)
 		current_clip = clip
@@ -925,6 +981,7 @@ func play_victory(cls: int, delta: float, cheer := false) -> void:
 	if current_clip != clip and anim.has_animation(clip):
 		anim.play(clip, 0.15)
 		current_clip = clip
+		shown_clip = clip
 	anim.speed_scale = 1.0
 	anim.advance(delta)
 	_follow_bones()

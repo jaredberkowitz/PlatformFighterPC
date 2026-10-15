@@ -222,3 +222,20 @@ change the sim's timing for looks). Applied to every attack posed from the short
 - `review5_fsmash_six_poses.png` (wind-up, raised, strike, follow-through, in game). Checked: every Godot test, the look bench 0.88.
 - Note for renders: the exported clips are retimed (a 60-frame clip spans 24 when imported), so grey key renders use frame x 0.4.
 - Next: the same pass for the other classes' swings and kicks, then more detail on the body (the owner: either order).
+
+## Step 4f: arms that stay in the fight (the owner: arms strayed thin, bend and flail out of place; the reference's forward air)
+
+The reference's forward air (the owner's gif, decoded frame by frame): the off hand points at the target while the fist cocks back over
+the head, one fast chop with the whole body turning into it, then the body rolls on with the momentum into a tucked ball and recovers.
+Limbs stay bent and close to the body except at the strike. Lessons applied to every attack:
+- **One cause of the flailing was ours**: the model turns rather than mirrors, so the arm nearest the camera is the left facing right
+  and the right facing left, while each clip posed fixed bones. The weapon (or punching) arm, always the near one, fought the clip's
+  free-arm pose one way round and left the real free arm limp the other. Now every clip is **mirrored when facing left**
+  (`fighter_view.gd` `_add_mirrored_clips`, exact: every bone's rest frame is the model's own), and attack clips pose their free arm on
+  the **far** arm (`make_rigged_blob.py` `pose`), the near arm left to the game. `review5_mirrored_attacks.png`: facing right, facing
+  left, an unarmed class.
+- **Arms in combat range**: in an attack the elbow stays bent at least 40 degrees and the upper arm never swings more than 45 behind the
+  body or 50 out to the side (no straight, flung arms).
+- **Arms chunkier again**, toward the original design (`ARM` radii 0.158 to 0.12, about 10% up).
+- Checked: every Godot test; the look bench 0.87.
+- Next from the reference: an aiming off hand in the wind-up, and aerials whose follow-through rolls the body on with the swing.

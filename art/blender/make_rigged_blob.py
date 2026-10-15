@@ -466,10 +466,19 @@ def clampf(v, lo, hi):
     return max(lo, min(hi, v))
 
 
+def _attack_clip(name):
+    return name.startswith(("attack", "sword_", "kick_", "gaunt_", "body_"))
+
+
 def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     """Sets a bone's pose from forward / outward / twist degrees (and an offset for the hips: upward on the base body; on the blob, whose
     clips were tuned with it, along the hip bone's own z, which is backward and forward)."""
     fwd, out, twist, lift = fwd * AMP, out * AMP, twist * AMP, lift * AMP
+    # (On the base body the game aims the arm nearest the camera, the left facing right, at the hit: weapon or fist. An attack clip's
+    # posed arms go to the other sides, so the free arm's counterbalance is the far arm and the near one is left to the game. The game
+    # mirrors every clip facing left. Art review 5.)
+    if BODY and CLIP_NOW and _attack_clip(CLIP_NOW) and bone.startswith(("armU.", "armL.", "hand.")):
+        bone = bone[:-1] + ("R" if bone.endswith("L") else "L")
     # (Exaggeration multiplies angles, so an arm already raised high would be pushed right round behind the body, and an elbow folded
     # through itself: the shoulder and the elbow stay within their reach.)
     if BODY and bone.startswith("armU."):
@@ -480,6 +489,14 @@ def pose(rig, bone, fwd=0.0, out=0.0, twist=0.0, lift=0.0):
     # Art review 5. Kicks and aerials keep their reach.)
     if BODY and bone.startswith("thigh.") and CLIP_NOW and not CLIP_NOW.startswith("kick") and grounded(CLIP_NOW):
         fwd = clampf(fwd, -50.0, 75.0)
+    # (In an attack the arms stay in the fight, as the reference fighters' do: an elbow never flung straight, an arm never thrown far behind
+    # the body. The owner: arms bent and flailed in ways out of place in combat. Art review 5.)
+    if BODY and CLIP_NOW and CLIP_NOW.startswith(("attack", "sword_", "kick_", "gaunt_", "body_")):
+        if bone.startswith("armU."):
+            fwd = max(fwd, -45.0)
+            out = clampf(out, -20.0, 50.0)
+        if bone.startswith("armL."):
+            fwd = max(fwd, 40.0)
     # Wrists held nearly straight (the owner, art review 5: bent wrists and open, flapping hands do not read as combat; a fist in line
     # with the forearm does).
     if BODY and bone.startswith("hand."):

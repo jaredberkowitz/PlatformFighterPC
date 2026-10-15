@@ -62,12 +62,14 @@ TRUNK_SQUARE = 3.2
 # so the joint reads; it starts inside the trunk's top corner, where a shoulder cap (`SHOULDER_CAP`) rounds the box into it.)
 # (Hung a little further out from the shoulder, 2026-10-14, with the trunk narrowed under it, so there is a real armpit: the arm had
 # fused to the torso's side down to the elbow, and a swinging arm stretched the side with it like a wing.)
-ARM = [((0.31, 0.0, 1.27), 0.142), ((0.455, 0.005, 1.13), 0.136), ((0.585, 0.01, 0.99), 0.121), ((0.655, 0.015, 0.87), 0.117), ((0.725, 0.02, 0.75), 0.102)]
+# (Chunkier again, 2026-10-14, toward the original design: the PEAK-measured arms read as thin in motion. Short, thick and soft, like the
+# reference fighters' cartoon arms: the analytic weights keep a thick arm bending cleanly.)
+ARM = [((0.31, 0.0, 1.27), 0.158), ((0.45, 0.005, 1.14), 0.152), ((0.57, 0.01, 1.01), 0.138), ((0.635, 0.015, 0.9), 0.134), ((0.7, 0.02, 0.79), 0.12)]
 # The shoulder cap: a soft ball over each top corner of the trunk, where the arm comes out, so trunk and arm are one rounded mass, not a
 # tube pushed into a box (it read as a sleeve). Centre (x, y, z) and radii.
 # (Laid along the arm's first stretch, so the shoulder's top line runs on into the arm without a bulge: a deltoid ball and a narrowing
 # below it read as a sleeve's cuff.)
-SHOULDER_CAP = ((0.33, 0.0, 1.24), (0.13, 0.13, 0.1))
+SHOULDER_CAP = ((0.33, 0.0, 1.24), (0.15, 0.15, 0.12))
 # A mitten hand: palm and fingers in one rounded lozenge along the forearm, a thumb toward the front.
 HAND_LENGTH = 0.2
 HAND_RADII = (0.062, 0.1)   # thickness, width
