@@ -3353,7 +3353,16 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 		var w := 7.0 + 2.0 * float(k % 3)
 		var cx := x + w * 0.5
 		_mesh(root, _box(Vector3(w - 0.4, 3.2, 0.2)), FighterView.toon(Color(0.26, 0.2, 0.34)), Vector3(cx, y + 1.85, shop_z))
-		_mesh(root, _box(Vector3(w * 0.62, 2.0, 0.1)), _unshaded(glows[k % glows.size()]), Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.12))
+		# The shop window: lit from inside, warmer at the floor, divided into panes by a frame (art review 6 round 16: one flat pale fill
+		# read as a blank sign, not a window).
+		var pane: Color = glows[k % glows.size()]
+		_mesh(root, _box(Vector3(w * 0.62, 2.0, 0.1)), _unshaded(pane), Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.12))
+		_mesh(root, _box(Vector3(w * 0.62, 0.7, 0.1)), _unshaded(pane.lerp(Color(1.0, 0.7, 0.45), 0.35).darkened(0.12)), Vector3(cx - w * 0.12, y + 0.95, shop_z + 0.13))
+		var mullion := _unshaded(Color(0.26, 0.2, 0.34))
+		for mi_k in 3:
+			var mx := cx - w * 0.12 - w * 0.31 + w * 0.62 * float(mi_k + 1) / 4.0
+			_mesh(root, _box(Vector3(0.12, 2.0, 0.1)), mullion, Vector3(mx, y + 1.6, shop_z + 0.15))
+		_mesh(root, _box(Vector3(w * 0.62, 0.12, 0.1)), mullion, Vector3(cx - w * 0.12, y + 2.1, shop_z + 0.15))
 		_mesh(root, _box(Vector3(1.1, 2.4, 0.1)), _unshaded(Color(0.5, 0.36, 0.3)), Vector3(cx + w * 0.32, y + 1.45, shop_z + 0.12))
 		var pair: Array = awnings[k % awnings.size()]
 		var n := int(w / 0.8)
@@ -3361,7 +3370,6 @@ static func _street_furniture(root: Node3D, y: float, front: float) -> void:
 			_mesh(root, _box(Vector3((w - 0.4) / n, 0.1, 1.3)), FighterView.toon(pair[j % 2]), Vector3(x + 0.2 + (j + 0.5) * (w - 0.4) / n, y + 3.5, shop_z + 0.55),
 				Vector3.ONE, Vector3(24, 0, 0))
 		_mesh(root, _box(Vector3(w * 0.5, 0.6, 0.1)), _unshaded((glows[(k + 2) % glows.size()] as Color).lerp(Color.WHITE, 0.2)), Vector3(cx, y + 4.3, shop_z + 0.12))
-		_halo(root, Vector3(cx - w * 0.12, y + 1.6, shop_z + 0.7), glows[k % glows.size()], w * 0.4)
 		x += w
 		k += 1
 

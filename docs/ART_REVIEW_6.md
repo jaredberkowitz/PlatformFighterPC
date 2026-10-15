@@ -331,3 +331,10 @@ Checked: the art pipeline, match flow and fighter tests; the look bench.
   as two different games. Now the match HUD's dark plate with a white name (`run_hud.gd`); the percent's colours and ink already read on
   dark.
 Checked: the runner and match flow tests.
+
+## Refinement round 16
+
+- **The city's street shops** (`review6_round16_city_shops.png`, before | after): each window was one flat pale fill with a white glare
+  dot on it, reading as a blank sign. Now panes divided by a frame (three mullions and a transom), warmer toward the floor, and no glare
+  sprite (`_city` street shops).
+Checked: the art pipeline and match flow tests.
