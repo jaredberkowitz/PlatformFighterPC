@@ -77,3 +77,26 @@ owner scheduled after this pass.
 - Checked: the fighter, match, motion, art and online tests; the look bench 0.87; frame time on a strong hit unchanged within noise
   (126 vs 130 fps on the RTX 4050 laptop).
 - Next in effects: a strong-hit accent (a brief two-tone frame on the KO-capable hits) and per-class spark colours.
+
+## The owner's two further plans, folded in (2026-10-14)
+
+Two external polish plans (versus stages, from a meadow match; the single-player run's rooftop) agree with this review's ranking and add
+specifics. The combined order, keeping the refine-before-replace rule, matched before/after captures and a frame-time check per step:
+
+1. **Combat effects** (done, first pass above; next: a brief strong-hit accent, landing and dash dust in the same painted family,
+   per-weapon spark colours, the arc's sorting checked against transparent props).
+2. **The meadow platform's finish** (their priority two): the grass-to-soil lip as a few broad deliberate tongues, the soil wall as large
+   forms with the stones as supporting detail, the corner blocks built like the rest, the top and the underside one designed object.
+   Then the same rules for the other stages' fronts (this review's item 8).
+3. **Attack animation, class by class** and **idles and runs per class family** (items 2 and 3), with landing compression and grounding.
+4. **Character model detail** and **outfits** (items 4 and 5).
+5. **Background cohesion**: value steps between the stage, near scenery and far hills; the windmill, houses, trees, fence, bales and
+   islands checked for one geometry and outline language; distant things lower in contrast.
+6. **Camera and off-screen feedback**: framing tested on long launches and recoveries (no gameplay change without the owner's say),
+   player markers clear of the HUD and the screen edge, off-screen indicators checked.
+7. **Select and HUD** (item 7), one panel system.
+8. **The run's rooftop** (the second plan): the roof's top, fascia and underside told apart, tile seams lighter and less regular, the
+   roof and the facade as different materials; the skyline's rooflines, setbacks and window depth varied, far buildings shifted toward
+   the sky; the run HUD's hierarchy (distance first, combo second, the rest supporting) built from the same panel rules. The run reuses
+   the city's art (docs/modes/RUNNER_PLAN.md section 10), so the city stage gains with it; the run's shadow crawl on pans is checked here.
+9. Performance and regression across every stage, four fighters, supported resolutions.
