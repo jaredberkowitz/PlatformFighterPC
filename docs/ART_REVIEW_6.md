@@ -51,3 +51,15 @@ the game still reads as amateur, and they are what players watch most.
 
 Then the queued character art (the Settler's, Scamp's, Phantom's and Exile's clips and props) and the run mode's new pieces, which the
 owner scheduled after this pass.
+
+## Done: the quick fixes (item 4's defects and the menu's bare fighter)
+
+`review6_quick_fixes.png` (before | after: the face close up, the main menu):
+- **The dark crack under the mouth** was a slit in the mesh down the middle of the face: points of the remeshed body lay exactly on the
+  mirror plane, so the cut left a strip of faces with no partner, and the outline behind showed through. The body is nudged a hair off
+  the plane before the cut (`make_base_body.py`); the welded mesh has no open edges.
+- **The hard ring at the neck**: the painted chin line drawn at 28% ink instead of 65%, and narrower (`skin.gdshader`).
+- **The Phantom and the Exile had no outfits** (added after the outfit pass), so the menu's Play card (the last fighter played) showed
+  a bare body: the Phantom a midnight body with shades, a cape and the full kit; the Exile a pale body with a scarf and the full kit
+  (`roster.gd`).
+- Checked: every Godot test; the look bench 0.87.
