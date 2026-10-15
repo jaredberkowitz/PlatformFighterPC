@@ -1139,7 +1139,7 @@ mod tests {
 
     #[test]
     fn fighters_spawn_standing_on_the_main_stage() {
-        for f in &base().fighters {
+        for f in &base().fighters[..crate::MAX_FIGHTERS] {
             assert_eq!(f.platform, 0);
             assert_eq!(f.state, FighterState::Idle);
         }
@@ -1719,6 +1719,27 @@ mod tests {
             ("orb_age", {
                 let mut s = state;
                 s.fighters[1].orb_age = 1;
+                s
+            }),
+            // Sim 129 (the run's grunts are fighters in the slots after the players).
+            ("damage_scale", {
+                let mut s = state;
+                s.fighters[crate::MAX_FIGHTERS].damage_scale = 50;
+                s
+            }),
+            ("super_armor", {
+                let mut s = state;
+                s.fighters[crate::MAX_BODIES - 1].super_armor = true;
+                s
+            }),
+            ("weight", {
+                let mut s = state;
+                s.fighters[1].weight = Some(Fx::ZERO);
+                s
+            }),
+            ("grunt slot", {
+                let mut s = state;
+                s.fighters[crate::MAX_BODIES - 1].pos.x += Fx::from_raw(1);
                 s
             }),
             ("curse_by", {

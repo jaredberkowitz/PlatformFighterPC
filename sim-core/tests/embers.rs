@@ -1308,7 +1308,7 @@ fn shot_from_player_1(sim: &mut Sim, pos: Vec2, vel: Vec2) {
         size: 100,
         vars: [0; sim_core::PROJECTILE_VARS],
         hit_mask: 0,
-        hit_age: [0; sim_core::MAX_FIGHTERS],
+        hit_age: [0; sim_core::MAX_BODIES],
         facing: 1,
         bursting: false,
         ..sim_core::Projectile::default()

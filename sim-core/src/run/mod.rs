@@ -33,6 +33,7 @@
 
 pub mod data;
 mod mobs;
+pub use mobs::{grunt_weight, grunt_zone, slot as grunt_slot};
 mod props;
 
 pub use data::{
@@ -784,6 +785,44 @@ pub fn for_each_prop(rc: &RunContent, slot: &RoomSlot, mut f: impl FnMut(usize, 
 /// Grunt `n` as a fighter (R2c: it is one, `GameState::fighters[MAX_FIGHTERS + n]`), for the game to draw with the fighter rig.
 pub fn grunt_fighter(state: &GameState, n: usize) -> Fighter {
     state.fighters[mobs::slot(n.min(MAX_MOBS - 1))]
+}
+
+/// Puts a grunt of `kind` (of `tier`, belonging to the current room) awake at `at`, on the ground there if there is any, facing the
+/// player: for tests, tools and the game's debug calls. `world.stage` must be the run's (`build_stage`). Returns its number.
+pub fn place_grunt(
+    state: &mut GameState,
+    world: &Content,
+    rc: &RunContent,
+    kind: u8,
+    at: Vec2,
+    tier: u8,
+) -> Option<usize> {
+    let platform = collision::standing_on(&world.stage, at);
+    let room = state.run.room;
+    let n = mobs::spawn(state, world, rc, kind, at, platform, tier, room)?;
+    let m = &mut state.run.mobs[n];
+    m.mode = MODE_MOVE;
+    m.timer = 0;
+    let player_x = state.fighters[PLAYER].pos.x;
+    let f = &mut state.fighters[mobs::slot(n)];
+    f.facing = if player_x >= at.x { 1 } else { -1 };
+    Some(n)
+}
+
+/// Removes grunt `n` (for tests, tools and the game's debug calls).
+pub fn remove_grunt(state: &mut GameState, world: &Content, n: usize) {
+    if n < MAX_MOBS {
+        mobs::remove(state, world, n);
+    }
+}
+
+/// Removes every grunt.
+pub fn clear_grunts(state: &mut GameState, world: &Content) {
+    for n in 0..MAX_MOBS {
+        if state.run.mobs[n].active {
+            mobs::remove(state, world, n);
+        }
+    }
 }
 
 /// A shop room's door (feet), in the world.
@@ -1699,12 +1738,14 @@ fn spawn_mobs(state: &mut GameState, world: &Content, rc: &RunContent) {
     let reach = run.cam_x + rc.rules.view_width + rc.rules.spawn_ahead;
     let (ahead, n) = run.ahead();
     let next = (n >= 1 && run.branches().is_none() && !run.gate_closed).then_some(ahead[0].seq);
-    let (slots, room) = (run.slots, run.room);
+    let (slots, room, shut) = (run.slots, run.room, run.gate_closed);
     for slot in slots {
         if !slot.live || slot.seq > room && Some(slot.seq) != next {
             continue;
         }
-        spawn_slot(state, world, rc, slot.seq, Some(reach));
+        // (A shut arena's grunts all come, out of reach or not, as grunt slots free up.)
+        let reach = (!(shut && slot.seq == room)).then_some(reach);
+        spawn_slot(state, world, rc, slot.seq, reach);
     }
 }
 
@@ -1753,7 +1794,7 @@ fn spawn_slot(
             pos.y = top;
         }
         // (With every grunt slot taken, the spot waits for one to free up.)
-        if mobs::spawn(state, world, rc, kind_id, pos, platform, slot.tier, seq) {
+        if mobs::spawn(state, world, rc, kind_id, pos, platform, slot.tier, seq).is_some() {
             state.run.slots[s].spawned |= bit;
         }
     }

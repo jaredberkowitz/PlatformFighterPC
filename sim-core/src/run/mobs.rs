@@ -62,10 +62,12 @@ pub(super) fn tier_row(rc: &RunContent, tier: u8) -> Tier {
     rc.tiers[usize::from(tier).min(rc.tiers.len() - 1)]
 }
 
-/// The weight a grunt of this kind weighs in this tier: the tier's, times the kind's percent.
+/// The weight a grunt of this kind weighs in this tier: the kind's percent of its tier's, measured from -100 (the knockback formula
+/// divides by the weight plus 100, so a kind at 150% takes two thirds of the knockback of one at 100% in every tier).
 pub fn grunt_weight(rc: &RunContent, kind: u8, tier: u8) -> Fx {
     let k = &rc.mobs[usize::from(kind).min(rc.mobs.len() - 1)];
-    tier_row(rc, tier).weight * Fx::from_ratio(i32::from(k.weight), 100)
+    let hundred = Fx::from_int(100);
+    (tier_row(rc, tier).weight + hundred) * Fx::from_ratio(i32::from(k.weight), 100) - hundred
 }
 
 /// The grunts' blast zones (R2c): `(left, right, bottom, top)`, `ko_margin` outside the view on every side. The view is the camera's
@@ -611,7 +613,7 @@ pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunConte
         g.credit = credit;
         g.last_percent = f.percent;
         if k.role == ROLE_LOBBER && target.active {
-            aim_shell(state, rc, i, &k, target.pos + Vec2::new(Fx::ZERO, Fx::ONE));
+            aim_shell(state, i, &k, target.pos + Vec2::new(Fx::ZERO, Fx::ONE));
         }
         // (An optional stamina: beaten where it stands once its percent reaches it.)
         if k.stamina > Fx::ZERO {
@@ -625,8 +627,7 @@ pub(super) fn after_step(state: &mut GameState, content: &Content, rc: &RunConte
 
 /// A lobber's shell on the frame its move throws it: sent in the arc that comes down on `target` after `MobKind::shot_time` frames
 /// (the move's own script aims it by the stick; the run aims it at you instead).
-fn aim_shell(state: &mut GameState, rc: &RunContent, i: usize, k: &MobKind, target: Vec2) {
-    let _ = rc;
+fn aim_shell(state: &mut GameState, i: usize, k: &MobKind, target: Vec2) {
     let t = Fx::from_int(i32::from(k.shot_time.max(1)));
     for pr in state.projectiles.iter_mut() {
         if !pr.active || usize::from(pr.owner) != i || pr.age != 0 || pr.rest != REST_FLYING {
@@ -688,7 +689,7 @@ pub(super) fn forget(state: &mut GameState, i: usize) {
 }
 
 /// Puts grunt `kind` (of `tier`, from room `room`) into a free slot at `pos` on `platform`: a fighter of its body, with its kind's
-/// and tier's weight and damage, coming out of its door first (`emerge_frames`). Returns false if every slot is taken.
+/// and tier's weight and damage, coming out of its door first (`emerge_frames`). Returns its number, or none if every slot is taken.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn(
     state: &mut GameState,
@@ -699,15 +700,10 @@ pub(super) fn spawn(
     platform: i8,
     tier: u8,
     room: u32,
-) -> bool {
-    let Some(n) =
-        (0..MAX_MOBS).find(|&n| !state.run.mobs[n].active && !state.fighters[slot(n)].active)
-    else {
-        return false;
-    };
-    let Some(k) = rc.mobs.get(usize::from(kind)) else {
-        return false;
-    };
+) -> Option<usize> {
+    let n =
+        (0..MAX_MOBS).find(|&n| !state.run.mobs[n].active && !state.fighters[slot(n)].active)?;
+    let k = rc.mobs.get(usize::from(kind))?;
     let body = usize::from(k.body).min(content.fighters.len() - 1);
     let mut f = Fighter::spawn(
         pos,
@@ -734,7 +730,7 @@ pub(super) fn spawn(
         tier,
         ..Mob::default()
     };
-    true
+    Some(n)
 }
 
 /// A grunt knocked out: the KO's place for the game's effect, the player's kill if they hit it lately (the coins and the combo), and
@@ -758,7 +754,7 @@ pub(super) fn knock_outs(state: &mut GameState, content: &Content, rc: &RunConte
     let rules = &rc.rules;
     let (left, right, bottom, top) = grunt_zone(&state.run, rules);
     let (wall, end) = (state.run.wall_x, state.run.window_end());
-    let (blast_bottom, _) = state.run.blast_y(rules);
+    let (blast_bottom, blast_top) = state.run.blast_y(rules);
     for n in 0..MAX_MOBS {
         if !state.run.mobs[n].active {
             continue;
@@ -772,6 +768,7 @@ pub(super) fn knock_outs(state: &mut GameState, content: &Content, rc: &RunConte
         let p = f.pos;
         let past_zone = p.x < left || p.x > right || p.y < bottom || p.y > top;
         let out_of_world = p.y < blast_bottom
+            || p.y > blast_top
             || p.x < wall - rules.gate_thickness - rules.blast_margin
             || p.x > end + rules.blast_margin;
         if launched && past_zone || out_of_world {
@@ -999,7 +996,5 @@ pub(super) fn keeper_bonked(state: &GameState, content: &Content, rc: &RunConten
     )
 }
 
-#[allow(unused)]
+// (Grunt slots are bits of a `u16` in `Van::struck` and `Prop::hit_mobs`.)
 const _: () = assert!(MAX_MOBS <= 16);
-#[allow(unused)]
-const _: () = assert!(VAN_PARKED != VAN_DRIVING);

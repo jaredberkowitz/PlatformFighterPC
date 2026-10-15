@@ -345,7 +345,8 @@ pub struct MobKind {
     /// An optional percent at which it is beaten where it stands (times the tier's `stamina` percent; R2c). 0, every built-in kind:
     /// none, it must be launched out of the following blast zones (the owner's rule).
     pub stamina: Fx,
-    /// Its weight, in percent of its tier's (`Tier::weight`): the knockback formula reads that instead of its body's (R2c).
+    /// Its weight, in percent of its tier's counted from -100 (`Tier::weight`, `run::grunt_weight`): the knockback formula reads that
+    /// instead of its body's (R2c). The bruiser is the heaviest.
     pub weight: u16,
     /// Coins it pays when beaten (before the combo multiplier).
     pub coins: u16,

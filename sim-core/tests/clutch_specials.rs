@@ -9,7 +9,7 @@ use sim_core::input::buttons::SPECIAL;
 use sim_core::moves::{MoveId, Weapon, ANGLE_FORWARD};
 use sim_core::state::FighterState as S;
 use sim_core::trig::{cos, sin, Angle};
-use sim_core::{Fx, Projectile, Vec2, MAX_FIGHTERS};
+use sim_core::{Fx, Projectile, Vec2};
 
 const BOUNDER: u8 = 8;
 
@@ -175,7 +175,7 @@ fn put_shell(sim: &mut Sim, pos: Vec2, vel: Vec2) {
         life: 46,
         facing: 1,
         size: 100,
-        hit_age: [0; MAX_FIGHTERS],
+        hit_age: [0; sim_core::MAX_BODIES],
         ..Projectile::default()
     };
 }
