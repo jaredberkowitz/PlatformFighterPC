@@ -1801,14 +1801,15 @@ def shirt_front(shirt, skin, neck_line, waist, trunk_weights):
 
 
 # ---- Clothes: garments cut from the skin ------------------------------------------------------------------------------------------------
-SHIRT_LIFT = 0.04      # how far off the skin the shirt sits
+# (Puffier, art review 6: PEAK's shirts and shorts are thick soft garments standing off the body; ours hugged it like paint.)
+SHIRT_LIFT = 0.065      # how far off the skin the shirt sits
 # Where the waist is, as a share of the way from the hips up to the neck. (The owner, 2026-10-14: PEAK's figures have a waistline; ours
 # had the shorts' top almost at the crotch, 0.12, so the shirt ran in one straight box to the hips. Now the shorts come up to a belt at the
 # body's narrowest, and the shirt is tucked in under it.)
 WAIST_SHARE = 0.25
 BELT_HALF = 0.045       # half the belt's height
-BELT_LIFT = 0.056       # how far off the skin the belt sits (over the shirt's tucked hem and the shorts' waistband)
-BLOUSE = 0.008          # how far the shirt puffs out just above the belt, where it is tucked in
+BELT_LIFT = 0.085       # how far off the skin the belt sits (over the shirt's tucked hem and the shorts' waistband)
+BLOUSE = 0.02          # how far the shirt puffs out just above the belt, where it is tucked in
 TUCK_SPAN = 0.12        # how far above the belt the shirt blends into moving as the belt does
 BLOUSE_SPAN = 0.1      # over how much height above the belt
 # Boots (the owner's PEAK references: chunky hiking boots on thick soles, where ours had shoes painted on the feet): an upper cut from the
@@ -1821,14 +1822,14 @@ BOOT_CUFF = 0.04        # a padded collar round the boot's top
 BOOT_CUFF_LIFT = 0.046
 # The shorts' rolled cuffs, a band round each leg opening standing a little proud of the cloth.
 CUFF_HEIGHT = 0.06
-CUFF_LIFT = 0.034
+CUFF_LIFT = 0.06
 SLEEVE_SNUG = 0.55      # the sleeve's opening hugs the arm (this share of the shirt's distance), so no dark gap shows inside it
 SHORTS_TOP = -0.002   # the shorts reach just under the shirt's hem (below it a little, they could poke through)
-SHORTS_LIFT = 0.018     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
+SHORTS_LIFT = 0.04     # the shorts sit a little closer in, so the shirt's hem lies over their waistband
 CLOTH_THICKNESS = 0.0     # none: an inner layer crossed the outer one where the cloth folds (the game draws cloth two-sided)
 SLEEVE = 0.85           # how far down the upper arm the sleeves reach (0 at the shoulder joint, 1 at the elbow; the joint sits low in the
                        # shoulder, so 0.55 left only a cap over it: PEAK's short sleeves reach most of the way to the elbow)
-HEM_FLARE = 0.02
+HEM_FLARE = 0.035
 ARM_RADIUS = 0.2       # how far from the arm's axis a point still counts as the arm (the base body's arm is about 0.16 thick; at 0.14 a strip down
                        # its outer side was taken for the torso's shirt, slivers and a slit by the sleeve)
 HEM_SMOOTH = 30

@@ -146,3 +146,10 @@ fall at uneven spacings. Checked: the art, match and runner tests; the look benc
 - **The skyline** (`review6_skyline.png`, before | after): more stepped crowns (a setback storey on two thirds of the taller buildings,
   a second narrower one on the tallest, on every layer), and the further layers drift toward the sky's horizon colour (16% and 34%), so
   distance reads as air. Window depth is left for later (one facade shader per layer; a change there touches every window).
+
+## Done: outfits fuller and woven (item 5, first pass)
+
+`review6_outfits.png` (before | after): the garments stand further off the body, as PEAK's thick soft clothes do (`make_rigged_blob.py`:
+shirt 0.065 off the skin, was 0.04; shorts 0.04, was 0.018; belt, cuffs, the blouse over the belt and the hems' flare to match), and every
+cloth carries a faint woven texture (`fighter_view.gd` `_cloth`: `brush_strength` 0.14 on the cloth's rest coordinates) where it was a
+flat fill. Checked: the fighter, art, motion, loadout, match and creator tests; the look bench.

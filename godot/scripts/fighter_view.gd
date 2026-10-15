@@ -1571,6 +1571,10 @@ static func _cloth(m: Material) -> Material:
 	c.shader = TOON_CLOTH_SHADER
 	# A softer step from light to shadow than the body's: on cloth the hard one picked out every small bump as a row of teeth.
 	c.set_shader_parameter("ramp_softness", CLOTH_RAMP_SOFTNESS)
+	# A woven texture painted into the cloth (art review 6: PEAK's garments carry a fine printed weave; ours were flat fills), faint
+	# strokes along the garment from `brush.gdshaderinc`, laid by the cloth's rest coordinates so it moves with it.
+	c.set_shader_parameter("brush_strength", CLOTH_WEAVE)
+	c.set_shader_parameter("brush_scale", CLOTH_WEAVE_SCALE)
 	c.next_pass = _cloth_outline
 	_cloth_cache[m] = c
 	return c
@@ -1588,6 +1592,8 @@ const FIGHTER_OUTLINE_WEIGHT := 0.76
 const OUTLINE_TINT_DARKEN := 0.56
 const OUTLINE_TINT_DARKEN_PALE := 0.8
 const CLOTH_RAMP_SOFTNESS := 0.32
+const CLOTH_WEAVE := 0.14
+const CLOTH_WEAVE_SCALE := 0.32
 ## The shirt's bottom hem: how far below the waist it is cut (art/blender/make_rigged_blob.py) and how wide its ink line is (rest units).
 const SHIRT_HEM_BELOW_WAIST := 0.012
 const SHIRT_HEM_INK := 0.01
