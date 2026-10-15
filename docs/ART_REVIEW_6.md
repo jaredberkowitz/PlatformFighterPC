@@ -221,3 +221,21 @@ The match HUD checked and left as it is (clean, one panel system). Weakest: on t
 and sand, and the rim light, orange, added nothing. The canyon's rim is now a pale lavender from the dusk sky overhead
 (`lighting.gd`, the sunset mood), so both fighters carry a cool edge against the stage (`review6_round4_canyon_rim.png`, before | after).
 Checked: the art pipeline and match flow tests.
+
+## The owner's outside notes (visual fidelity refinement brief, 2026-10-15), folded in
+
+The brief (written against the canyon) validates what the rounds found: depth in three layers (canyon haze, round 1; city windows and
+grove canopy, rounds 1-2), fighters separated from a warm scene (the canyon's cool rim, round 4), materials refined before replaced
+(sea wall, roof, sand, rounds 2-3). New from it, taken into the loop: the canyon's broad platform top is uniform beside its detailed
+strata front (top and face should read as one material family); the top-centre "FREE PLAY" tag should belong to the HUD's panel
+language; and every change gets checked in motion (attack with a hit effect, airborne, fighters spread so the camera pulls out), not
+only in a still. Its rules match ours: inspect first, small reversible steps, matched captures, no gameplay, camera or renderer changes.
+
+## Refinement round 5 (from the outside brief)
+
+- **The canyon's top** (`review6_round5_canyon_top.png`, before above, after below): one flat sheet of sand beside the banded strata
+  front. The sand cap now takes the theme's broad drifts as the lawns do (`grass_vary` 0.18 on the sunset theme; the sand branch reads
+  it), restrained so the floor stays calm under the fighters.
+- **The "FREE PLAY" chip** (`review6_round5_free_play.png`, before | after): a thinner, plainer chip than the clock and name plates.
+  Now the same ink weight (4) and the kit's yellow for its text, as the select screen's settings.
+Checked: the art pipeline and match flow tests.

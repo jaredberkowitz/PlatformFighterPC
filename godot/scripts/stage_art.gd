@@ -42,7 +42,7 @@ const THEMES := {
 		"sky_glow": [Color(1.0, 0.56, 0.26), 0.7], "sky_wisps": [Color(1.0, 0.7, 0.62), 0.5],
 		"soil": Color(0.86, 0.5, 0.32), "soil_dark": Color(0.68, 0.34, 0.24), "grass": Color(0.93, 0.74, 0.46),
 		"grass_light": Color(0.98, 0.86, 0.6), "wood": Color(0.56, 0.37, 0.28), "wood_dark": Color(0.38, 0.24, 0.2),
-		"pattern": "strata", "cap": "sand", "platform": "wood",
+		"pattern": "strata", "cap": "sand", "platform": "wood", "grass_vary": 0.18,
 	},
 	"night": {
 		"sky_top": Color(0.05, 0.07, 0.2), "sky_mid": Color(0.12, 0.13, 0.36), "sky_horizon": Color(0.2, 0.25, 0.48),
@@ -581,6 +581,11 @@ static func solid_block(parent: Node3D, t: Dictionary, left: float, right: float
 				j += 1
 		"sand":
 			var sand := _surface(t.grass, "sand", 5.0)
+			# Broad warm and cool drifts across the sand where the theme asks for them (`grass_vary`), as on the lawns: the canyon's top was
+			# one flat sheet beside its banded strata front (the owner's outside brief; art review 6 round 5).
+			if t.has("grass_vary"):
+				sand = sand.duplicate()
+				sand.set_shader_parameter("world_vary", t.grass_vary)
 			_mesh(parent, _box(Vector3(w + 0.2, 0.45, depth + 0.1)), sand, Vector3(cx, top - 0.2, front_z - depth / 2.0))
 			_mesh(parent, _cylinder(0.26, 0.26, w + 0.2), sand, Vector3(cx, top - 0.26, front_z + 0.02), Vector3.ONE, Vector3(0, 0, 90))
 			_mesh(parent, _box(Vector3(w + 0.24, 0.1, 0.2)), _soft(t.grass_light), Vector3(cx, top - 0.05, front_z + 0.24))

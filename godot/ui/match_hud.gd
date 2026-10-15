@@ -390,9 +390,11 @@ class Board extends Control:
 		if text == "":
 			# No clock: free play still gets its one label, on a small chip at the top.
 			if free:
-				var chip := Rect2(Vector2(size.x * 0.5 - 56, 12), Vector2(112, 26))
-				D.draw_slant(self, chip, Color(0.11, 0.12, 0.17, 0.86), D.INK, 2.0, true)
-				D.draw_text_centered(self, "FREE PLAY", chip, 15, Color(1, 1, 1))
+				# (In the HUD's own panel language, the owner's outside brief and art review 6 round 5: the same ink weight as the clock and
+				# the name plates, and the kit's yellow for the value, as on the select screen's settings; it was a thinner, plainer chip.)
+				var chip := Rect2(Vector2(size.x * 0.5 - 62, 12), Vector2(124, 30))
+				D.draw_slant(self, chip, Color(0.11, 0.12, 0.17, 0.92), D.INK, 4.0, true)
+				D.draw_text_centered(self, "FREE PLAY", chip, 17, Color(1.0, 0.84, 0.3))
 			return
 		var rect := Rect2(Vector2(size.x * 0.5 - 95, 10), Vector2(190, 64))
 		var urgent: bool = data.urgent
