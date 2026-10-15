@@ -71,6 +71,35 @@ Everything put off to save usage, in the order to take it. Tick items off here a
       in `_painted_sun` (`stage_art.gd`) and the flat `_clouds`. Then the same cloud set for the beach and meadow skies, so every stage's
       sky shares one painted style.
 
+## Tooling and rendering pipeline review (owner, 2026-10-15: evaluate only; nothing downloaded or built yet)
+Current state (checked in code): Filmic tonemap, glow on, SSAO off, depth of field only behind the results screen, no LightmapGI or
+VoxelGI or SDFGI (the stage's soft light is our own 2D bake, `stage_light.gd`), a custom post pass (`post.gdshader`) for ink lines,
+haze and grade. The sim is our own deterministic Rust (rollback), so engine physics never drives gameplay.
+Content tools:
+- [ ] **ArmorPaint** (paint textures straight onto models, open source): a strong fit for hand-painted props and the base body's skin
+      and clothes once the Blender models are final. Pairs with Material Maker (tileable surfaces). Evaluate on one prop.
+- [ ] **Poly Haven / ambientCG** (free CC0 textures, HDRIs, models): photoreal, so not for direct use in a cel style; useful as height
+      and pattern sources fed through Material Maker and repainted, and Poly Haven HDRIs for lighting reference only.
+- [ ] **Animation**: Mixamo (free, needs an Adobe account the owner would create) gives humanoid mocap that does not fit our chunky
+      proportions or a fighter's snappy keys; Cascadeur has a free tier (physics-assisted posing, good for exactly our key-pose
+      overhaul). Recommendation: Cascadeur for authoring key poses, exported to Blender/Godot. Godot's AnimationTree (blend spaces,
+      state machine) is worth adopting for locomotion blends in the overhaul; root motion is NOT (the sim owns movement, rollback).
+- [ ] **VFX**: GPU particles plus our painted FX shaders already fit the style; real-time volumetrics (volumetric fog) are costly and
+      fight the cel look; use only as a soft light-shaft card if anywhere.
+Engine rendering:
+- [ ] **ACES tonemap**: test against Filmic per stage (ACES deepens contrast and saturation, which round 19's Wind Waker notes want;
+      it may shift the fighters' colours, so check the look bench).
+- [ ] **SSAO**: off on purpose (a cel style reads flat-shaded); try a very light SSAO only on scenery contact (low intensity), A/B.
+- [ ] **SDFGI**: real-time GI for large dynamic worlds; heavy and soft, it would fight the cel ramp. Not recommended.
+- [ ] **LightmapGI**: not used; stages are built in code at runtime, so baking needs a pipeline change; our 2D bake covers it. Skip.
+- [ ] **Depth of field**: a subtle far blur already exists for the Best quality tier; keep, maybe stronger on menus and results.
+- [ ] **Motion blur**: hurts readability in a fighter; skip (the competitors do not use it in play). Short smear frames on fast moves
+      fit the style better.
+- [ ] **Bloom**: in use, tuned; keep.
+- [ ] **Jolt Physics**: only matters for cosmetic physics (cloth, debris, props); gameplay is our sim. Low priority.
+- [ ] **Phantom Camera** (Godot addon): smooth framing/transitions; useful for menus, results and cinematic KO shots, not match
+      framing (owner's camera rules, and the camera follows sim data). Evaluate for the UI pass's transitions.
+
 ## Tools
 - [ ] Material Maker 1.7 is at `C:/Users/jared/Tools/MaterialMaker/app/material_maker_1_7_windows/material_maker.exe` (checksum
       verified). Batch export (`--export-material --target ... -o <dir> <file.ptex>`) ran but wrote nothing ("Cannot open
